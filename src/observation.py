@@ -6,6 +6,7 @@ from paramio import pset
 import os
 import re
 import subprocess
+import shutil
 
 class ChandraObservationInformation():
 
@@ -89,7 +90,20 @@ class ChandraObservationInformation():
         self.obsInfo['energy_max'] = elim[1]
         self.obsInfo['npix_e']     = npix_e
 
-        # 4. print some information
+        # 4. some information from the methods
+        #####################################
+        # get_data
+        self.obsInfo['ntot_binned']       = 0.
+        # get_exposure
+        self.obsInfo['asphist_res_xy']    = None
+        self.obsInfo['exp_ebins_per_bin'] = None
+        self.obsInfo['chips_on']          = None
+        self.obsInfo['chips_in']          = None
+        # get_psf_sim
+        self.psf_sim_coords               = []
+
+        # 5. print some information
+        ###########################
         message_obs(obsInfo)
         
 
@@ -214,16 +228,15 @@ class ChandraObservationInformation():
         # from here on things depend on energy
         # energy bins are labeld by their left edge
         ###########################################
-        nbin = self.obsInfo['npix_e']
         logemin = np.log(self.obsInfo['energy_min'])
-        logstep = np.log(self.obsInfo['energy_max']/self.obsInfo['energy_min'])
+        logstep = np.log(self.obsInfo['energy_max']/self.obsInfo['energy_min'])/self.obsInfo['npix_e']
         pgrid  = "1:1024:#1024,1:1024:#1024"
         xygrid = '{0:.4f}:{1:.4f}:#{2:d},{3:.4f}:{4:.4f}:#{5:d}'.format(
                    self.obsInfo['x_min'], self.obsInfo['x_max'], self.obsInfo['npix_s'],\
                    self.obsInfo['y_min'], self.obsInfo['y_max'], self.obsInfo['npix_s'])
 
         dict_exposure_maps = {}
-        for i in range(0, nbin):
+        for i in range(0, self.obsInfo['npix_e']):
 
             # calculate the instrument map
             ############################
@@ -235,8 +248,8 @@ class ChandraObservationInformation():
             instmap_dic = {}
             expmap_dic = {}
 
-            src_e_min = np.round(np.exp( logemin + float(i)/float(nbin)*logstep ), decimals=10)
-            src_e_max = np.round(np.exp( logemin + (i+1.)/float(nbin)*logstep ),   decimals=10)
+            src_e_min = np.round(np.exp( logemin + i*logstep ), decimals=10)
+            src_e_max = np.round(np.exp( logemin + (i+1.)*logstep ),   decimals=10)
             
             # if the number of energy sub-bins is one pick the center of the channel
             if self.obsInfo['exp_ebins_per_bin'] == 1:
@@ -298,11 +311,11 @@ class ChandraObservationInformation():
 
         # read in the maps and initialize the exposure-filed
         ####################################################
-        expmap = np.zeros([self.obsInfo['npix_e'], self.obsInfo['npix_s'], self.obsInfo['npix_s']])
+        expmap = np.zeros([self.obsInfo['npix_s'], self.obsInfo['npix_s'], self.obsInfo['npix_e']])
         
         for i in range(0, self.obsInfo['npix_e']):
             with fits.open(dict_exposure_maps[i]) as mapfile:
-                expmap[i] = mapfile['PRIMARY'].data
+                expmap[:,:,i] = mapfile['PRIMARY'].data
 
         # remove all energy-independent files
         to_remove  = [dict_exposure_maps[kk] for kk in dict_exposure_maps.keys()]
@@ -333,6 +346,8 @@ class ChandraObservationInformation():
         --------
         psf_arr (np.array) : npix_e x npix_s x npix_s array with the simulated PSF
         """
+
+        self.psf_sim_coords.append(location)
 
         # 1. get detector parameters
         ############################
@@ -393,8 +408,8 @@ class ChandraObservationInformation():
                           "SourceDEC":    '{:.9f}'.format(location[1]),
                           "SourceType":   "POINT",
                           "SpectrumType": "FLAT",
-                         # "SourceFlux":   1.e-2,
-                         # "ExposureTime": "%.1f" %(0.0),
+                          "SourceFlux":   '{:.9f}'.format(1.e-3),
+                          "ExposureTime": "{:.1f}" .format(0.0),
                           "NumRays":      "{:d}".format(-1*np.abs(num_rays).astype(int)),
                           "RA_Nom":       pointing_ra,
                           "Dec_Nom":      pointing_dec,
@@ -415,9 +430,8 @@ class ChandraObservationInformation():
                                        
        # 4. run marx simulations for each energy bin
         #############################################
-        nbin = self.obsInfo['npix_e']
         logemin = np.log(self.obsInfo['energy_min'])
-        logstep = np.log(self.obsInfo['energy_max']/self.obsInfo['npix_e'])
+        logstep = np.log(self.obsInfo['energy_max']/self.obsInfo['energy_min'])/self.obsInfo['npix_e']
         sim_dic = {}
         
 #        shift = self.obsInfo['dat_length_xy']/self.obsInfo['dat_nbin_loc'] # = shift by half a pixel
@@ -428,12 +442,12 @@ class ChandraObservationInformation():
          
         print('Generating PSFs for individual energy bins...\n')
 
-        for i in range(0, nbin):
+        for i in range(0, self.obsInfo['npix_e']):
             
-            src_e_min = np.round(np.exp( logemin + float(i)/float(nbin)*logstep ), decimals=10)
-            src_e_max = np.round(np.exp( logemin + (i+1.)/float(nbin)*logstep ),   decimals=10)
-            outdir  = outroot + "_e{:.2f}.dir".format(src_e_min)
-            outfits = outroot + "_e{:.2f}.fits".format(src_e_min)
+            src_e_min = np.exp( logemin + i*logstep )
+            src_e_max = np.exp( logemin + (i+1.)*logstep )
+            outdir  = outroot + "_e{:d}.dir".format(i)
+            outfits = outroot + "_e{:d}.fits".format(i)
             
             marxpara_dict["MinEnergy"] = "{:.9f}".format(src_e_min)
             marxpara_dict["MaxEnergy"] = "{:.9f}".format(src_e_max)
@@ -447,7 +461,7 @@ class ChandraObservationInformation():
             #######################################
 
             # 5.a) filter events for the FOV
-            outfits2 = outroot + 'psf_e{:.2f}.fits'.format(src_e_min)
+            outfits2 = outroot + 'psf_e{:d}.fits'.format(i)
             infile = outfits + '[EVENTS][x={0:.1f}:{1:.1f}, y={2:.1f}:{3:.1f}]'.format(self.obsInfo['x_min'], self.obsInfo['x_max'],\
                                                                                        self.obsInfo['y_min'], self.obsInfo['y_max'])
             infile += '[bin x={:.1f}:{:.1f}:#{:d}, y={:.1f}:{:.1f}:#{:d}]'.format(self.obsInfo['x_min'], self.obsInfo['x_max'],\
@@ -457,12 +471,21 @@ class ChandraObservationInformation():
             sim_dic[i] = outfits2
             rt.dmcopy(infile=infile, outfile=outfits2, clobber='yes')
 
+            # clean the intermediate products
+            shutil.rmtree(outdir)
+            os.remove(outfits)
+
         # 5.b) write events to an array
-        psf = np.zeros([self.obsInfo['npix_e'], self.obsInfo['npix_s'], self.obsInfo['npix_s']])
+        psf = np.zeros([self.obsInfo['npix_s'], self.obsInfo['npix_s'], self.obsInfo['npix_e']])
         for i in range(0, self.obsInfo['npix_e']):
             with fits.open(sim_dic[i]) as psffile:
                 dat = psffile['PRIMARY'].data                      
-                psf[i] = dat
-        data = data.astype(int)
+                psf[:,:,i] = dat
+        psf = psf.astype(int)
 
-        return(data)
+        # clean psf fits images
+        for i in range(self.obsInfo['npix_e']):
+                os.remove(sim_dic[i])
+        os.remove(marxpara_file)
+
+        return(psf)
