@@ -371,7 +371,9 @@ class ChandraObservationInformation():
 
         # 2.c) detector offset
         marx_file = os.environ['MARX_DATA_DIR'] + '/caldb/telD1999-07-23aimptsN0002.fits'\
-                    + '[AIMPOINTS][AIMPOINT_NAME=' + det_short + '][cols AIMPOINT]' 
+                    + '[AIMPOINTS][AIMPOINT_NAME=' + det_short + '][cols AIMPOINT]'
+        # NOTE Here I get a key error. There is not 'MARX_DATA_DIR' in my environ dictionary. Would it be possible to put the marx files in the repo?
+
         marx_nom = rt.dmlist(infile=marx_file, opt='data').splitlines()[7]
         marx_nom = re.findall(r"[-+]?\d*\.\d+|\d+", marx_nom)
 

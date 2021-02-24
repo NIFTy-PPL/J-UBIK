@@ -1,4 +1,5 @@
 import nifty6 as ift
+# NOTE -> nifty7 ?
 import numpy as np
 import sys
 
