@@ -3,6 +3,7 @@ import numpy as np
 import sys
 
 from obs.obs11713_old_worklaptop import obs11713
+# NOTE this _old_worklaptop is not int the repository
 from src.observation import ChandraObservationInformation
 from src.output import plot_slices
 
