@@ -1,4 +1,7 @@
 *__pycache__*
 *.py~
+*.png
+*.fits
+*.npy
 data/**
 .DS_Store

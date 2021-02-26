@@ -1,12 +1,11 @@
 import nifty6 as ift
-# NOTE -> nifty7 ?
 import numpy as np
 import sys
 
-from obs.obs11713_old_worklaptop import obs11713
-# NOTE this _old_worklaptop is not int the repository
+from obs.obs11713 import obs11713
 from src.observation import ChandraObservationInformation
 from src.output import plot_slices
+#NOTE this src clashes with nifty7 somehow
 
 ########## RECONSTRUCTION PARAMETERS ##########
 npix_s = 256       # number of spacial bins per axis
