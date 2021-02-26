@@ -1,10 +1,10 @@
-import nifty6 as ift
+import nifty7 as ift
 import numpy as np
 import sys
 
 from obs.obs11713 import obs11713
-from src.observation import ChandraObservationInformation
-from src.output import plot_slices
+from lib.observation import ChandraObservationInformation
+from lib.output import plot_slices
 #NOTE this src clashes with nifty7 somehow
 
 ########## RECONSTRUCTION PARAMETERS ##########
