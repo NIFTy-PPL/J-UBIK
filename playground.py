@@ -9,15 +9,20 @@ zp_position_space = ift.RGSpace([2.*npix_s, 2. * npix_s], distances=[ 2.*fov/npi
 
 info = np.load('5_3_observation.npy', allow_pickle= True).item()
 data = info['data'].val[:,:,1]
-data = ift.Field.from_raw(position_space, data)
+data_1 = ift.Field.from_raw(position_space, data)
 
 
 exp_field = info['exposure'].val[:,:,1]
 exp_field = ift.Field.from_raw(position_space, exp_field)
 plot= ift.Plot()
-exp_norm = (data / exp_field).mean()
+exp_norm = data.mean() / exp_field.mean() # FIXME DOUBLE CHEKC
 normed_exp_field =  exp_field * exp_norm.val
-#FIXME MASK with 0 and NAN entrys
+
+mask = np.zeros(exp_field.shape)
+mask[exp_field.val==0] = 1
+mask = ift.Field.from_raw(position_space, mask)
+mask = ift.MaskOperator(mask)
+
 
 points = ift.InverseGammaOperator(position_space, 2.5, 1.5).ducktape('points')
 args = {
@@ -42,7 +47,7 @@ diffuse = ift.exp(diffuse)
 # zp_signal = ift.FieldZeroPadder(position_space, zp_position_space.shape)
 
 signal = diffuse + points
-Mask = ift.DiagonalOperator(normed_exp_field)
+exposure = ift.DiagonalOperator(normed_exp_field)
 # FFT = ift.FFTOperator(zp_position_space)
 
 # kernel = np.zeros(zp_position_space.shape)
@@ -54,9 +59,10 @@ Mask = ift.DiagonalOperator(normed_exp_field)
 # conv = FFT.inverse @ psf @ FFT @ diffuse
 # conv = conv.real
 # signal_response = Mask@ zp_signal.adjoint @ conv
-signal_response = Mask@signal
+signal_response = mask @ exposure @ signal
 ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=10, convergence_level=3)
 ic_sampling = ift.AbsDeltaEnergyController(deltaE=0.05, iteration_limit = 200)
+data = mask(data_1)
 likelihood = ift.PoissonianEnergy(data) @ signal_response
 
 minimizer = ift.NewtonCG(ic_newton)
@@ -88,7 +94,7 @@ else:
             sc.add((signal.force(foo.unite(KL.position))))
         plt.add(ift.log(sc.mean), title="Reconstructed Signal")
         plt.add(sc.var.sqrt(), title = "Relative Uncertainty")
-        plt.add(ift.log((signal_response.force(KL.position))), title= 'signalresponse')
-        plt.add(ift.log((data)), vmin= 0, title = 'data')
-        plt.add((ift.abs(signal_response.force(KL.position)-data)), title = "Residual")
+        plt.add(ift.log((mask.adjoint(signal_response.force(KL.position)))), title= 'signalresponse')
+        plt.add(ift.log(data_1), vmin= 0, title = 'data')
+        plt.add((ift.abs(mask.adjoint(signal_response.force(KL.position))-data_1)), title = "Residual")
         plt.output(name= f'rec_{ii}.png')
