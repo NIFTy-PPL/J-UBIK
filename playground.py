@@ -1,6 +1,7 @@
 import nifty7 as ift
 import numpy as np
 import matplotlib.pylab as plt
+from lib.utils import *
 
 npix_s = 256       # number of spacial bins per axis
 fov = 4.
@@ -8,62 +9,72 @@ position_space = ift.RGSpace([npix_s, npix_s], distances=[ 2.*fov/npix_s])
 zp_position_space = ift.RGSpace([2.*npix_s, 2. * npix_s], distances=[ 2.*fov/npix_s])
 
 info = np.load('5_3_observation.npy', allow_pickle= True).item()
-data = info['data'].val[:,:,1]
-data_1 = ift.Field.from_raw(position_space, data)
+data = info['data'].val[:, :, 1]
+data_field = ift.Field.from_raw(position_space, data)
 
+exp = info['exposure'].val[:, :, 1]
+exp_field = ift.Field.from_raw(position_space, exp)
+normed_exposure = get_normed_exposure_operator(exp_field, data)
 
-exp_field = info['exposure'].val[:,:,1]
-exp_field = ift.Field.from_raw(position_space, exp_field)
-plot= ift.Plot()
-exp_norm = data.mean() / exp_field.mean() # FIXME DOUBLE CHEKC
-normed_exp_field =  exp_field * exp_norm.val
-
-mask = np.zeros(exp_field.shape)
-mask[exp_field.val==0] = 1
-mask = ift.Field.from_raw(position_space, mask)
-mask = ift.MaskOperator(mask)
-
-
-points = ift.InverseGammaOperator(position_space, 2.5, 1.5).ducktape('points')
-args = {
-        'offset_mean': 2,
-        'offset_std': (1e-1, 1e-2),
+mask = get_mask_operator(exp_field)
+points = ift.InverseGammaOperator(position_space, 1.8, 0.5).ducktape('points')
+star = ift.ValueInserter(position_space, [90, 104]).ducktape('cstar')
+star = star * 3
+star = star.exp()
+priors_diffuse = {'offset_mean': 4,
+        'offset_std': (2, .1),
 
         # Amplitude of field fluctuations
-        'fluctuations': (0.5, 0.5),  # 1.0, 1e-2
+        'fluctuations': (1.5, 0.5),  # 1.0, 1e-2
 
         # Exponent of power law power spectrum component
-        'loglogavgslope': (-2., 1),  # -6.0, 1
+        'loglogavgslope': (-3., 1),  # -6.0, 1
 
         # Amplitude of integrated Wiener process power spectrum component
-        'flexibility': (3, 2.),  # 2.0, 1.0
+        'flexibility': (1.5, 2.),  # 2.0, 1.0
 
         # How ragged the integrated Wiener process component is
-        'asperity': (0.2, 0.5)  # 0.1, 0.5
-        }
+        'asperity': (0.2, 0.5),  # 0.1, 0.5
+        'prefix': 'diffuse'}
+diffuse = ift.SimpleCorrelatedField(position_space, **priors_diffuse)
+diffuse = diffuse.exp()
 
-diffuse = ift.SimpleCorrelatedField(position_space, **args).real
-diffuse = ift.exp(diffuse)
-# zp_signal = ift.FieldZeroPadder(position_space, zp_position_space.shape)
+signal = diffuse + points + star
+signal = signal.real
 
-signal = diffuse + points
-exposure = ift.DiagonalOperator(normed_exp_field)
-# FFT = ift.FFTOperator(zp_position_space)
+zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
+signal = zp @ signal
 
-# kernel = np.zeros(zp_position_space.shape)
-# kernel[0,0] = 1024
-# kernel = ift.Field.from_raw(zp_position_space, kernel)
-# psf = FFT(kernel)
-# psf = ift.DiagonalOperator(psf)
 
-# conv = FFT.inverse @ psf @ FFT @ diffuse
-# conv = conv.real
-# signal_response = Mask@ zp_signal.adjoint @ conv
-signal_response = mask @ exposure @ signal
-ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=10, convergence_level=3)
+
+priors_psf = {
+        'offset_mean': 1.,
+        'offset_std': (1e-2, 1e-4),
+
+        # Amplitude of field fluctuations
+        'fluctuations': (1.0, 1e-2),  # 1.0, 1e-2
+
+        # Exponent of power law power spectrum component
+        'loglogavgslope': (-4., 1),  # -6.0, 1
+
+        # Amplitude of integrated Wiener process power spectrum component
+        'flexibility': (1., .01),  # 2.0, 1.0
+
+        # How ragged the integrated Wiener process component is
+        'asperity': None,  # 0.1, 0.5
+        'prefix': 'psf'}
+psf = ift.SimpleCorrelatedField(zp_position_space, **priors_psf)
+psf = psf.exp()
+
+convolved = convolve_operators(psf, signal)
+conv = zp.adjoint @ convolved
+
+signal_response = mask @ normed_exposure @ conv
+
+ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=50, convergence_level=3)
 ic_sampling = ift.AbsDeltaEnergyController(deltaE=0.05, iteration_limit = 200)
-data = mask(data_1)
-likelihood = ift.PoissonianEnergy(data) @ signal_response
+masked_data = mask(data_field)
+likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
 
 minimizer = ift.NewtonCG(ic_newton)
 
@@ -72,13 +83,15 @@ initial_position = 0.1*ift.from_random(H.domain)
 pos = initial_position
 
 
-if False:
+if True:
     H=ift.EnergyAdapter(pos, H, want_metric=True)
     H,_ = minimizer(H)
     plt = ift.Plot()
-    plt.add(data)
-    plt.add(signal_response.force(H.position))
-    plt.add(diffuse.force(H.position))
+    plt.add(ift.log10(data_field))
+    plt.add(ift.log10(mask.adjoint(signal_response.force(H.position))))
+    plt.add(ift.log10(zp.adjoint(signal.force(H.position))))
+    plt.add(ift.log10(zp.adjoint(psf.force(H.position))))
+    plt.add(ift.log10(star.force(H.position)))
     plt.output()
 else:
     for ii in range(10):
@@ -90,11 +103,17 @@ else:
 
         plt = ift.Plot()
         sc = ift.StatCalculator()
+        ps = ift.StatCalculator()
+        df = ift.StatCalculator()
         for foo in samples:
-            sc.add((signal.force(foo.unite(KL.position))))
-        plt.add(ift.log(sc.mean), title="Reconstructed Signal")
+            sc.add(signal.force(foo.unite(KL.position)))
+            ps.add(points.force(foo.unite(KL.position)))
+            df.add(diffuse.force(foo.unite(KL.position)))
+        plt.add(ift.log10(ps.mean), title="PointSources")
+        plt.add(ift.log10(df.mean), title="diffuse")
+        plt.add(ift.log10(sc.mean), title="Reconstructed Signal")
         plt.add(sc.var.sqrt(), title = "Relative Uncertainty")
-        plt.add(ift.log((mask.adjoint(signal_response.force(KL.position)))), title= 'signalresponse')
-        plt.add(ift.log(data_1), vmin= 0, title = 'data')
-        plt.add((ift.abs(mask.adjoint(signal_response.force(KL.position))-data_1)), title = "Residual")
+        plt.add(ift.log10((mask.adjoint(signal_response.force(KL.position)))), title= 'signalresponse')
+        plt.add(ift.log10(data_field), vmin= 0, title = 'data')
+        plt.add((ift.abs(mask.adjoint(signal_response.force(KL.position))-data_field)), title = "Residual")
         plt.output(name= f'rec_{ii}.png')
