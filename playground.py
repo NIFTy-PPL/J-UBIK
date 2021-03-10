@@ -17,6 +17,7 @@ exp_field = ift.Field.from_raw(position_space, exp)
 normed_exposure = get_normed_exposure_operator(exp_field, data)
 
 mask = get_mask_operator(exp_field)
+
 points = ift.InverseGammaOperator(position_space, 1.8, 0.5).ducktape('points')
 star = ift.ValueInserter(position_space, [90, 104]).ducktape('cstar')
 star = star * 3
@@ -39,7 +40,7 @@ priors_diffuse = {'offset_mean': 4,
 diffuse = ift.SimpleCorrelatedField(position_space, **priors_diffuse)
 diffuse = diffuse.exp()
 
-signal = diffuse + points + star
+signal = star #diffuse + points + star
 signal = signal.real
 
 zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
@@ -65,11 +66,10 @@ priors_psf = {
         'prefix': 'psf'}
 psf = ift.SimpleCorrelatedField(zp_position_space, **priors_psf)
 psf = psf.exp()
-
 convolved = convolve_operators(psf, signal)
 conv = zp.adjoint @ convolved
 
-signal_response = mask @ normed_exposure @ conv
+signal_response = mask @ normed_exposure @ zp.adjoint@ signal
 
 ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=50, convergence_level=3)
 ic_sampling = ift.AbsDeltaEnergyController(deltaE=0.05, iteration_limit = 200)
@@ -90,8 +90,10 @@ if True:
     plt.add(ift.log10(data_field))
     plt.add(ift.log10(mask.adjoint(signal_response.force(H.position))))
     plt.add(ift.log10(zp.adjoint(signal.force(H.position))))
-    plt.add(ift.log10(zp.adjoint(psf.force(H.position))))
+    # plt.add(ift.log10(zp.adjoint(psf.force(H.position))))
     plt.add(ift.log10(star.force(H.position)))
+    plt.add((ift.abs(mask.adjoint(signal_response.force(H.position))-data_field)), title = "Residual")
+
     plt.output()
 else:
     for ii in range(10):
