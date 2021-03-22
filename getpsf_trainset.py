@@ -23,15 +23,23 @@ n_i = int(2* fov_deg / dx)
 n_l = int(2* fov_deg / dy)
 
 zero_loc = (info.obsInfo['aim_ra'] - fov_deg, info.obsInfo['aim_dec'] - fov_deg) 
+n_i=2
+n_l =1
 
-#for i in range(n_i):
-#    for l in range(n_l):
-tmp_psf_sim = info.get_psf_fromsim((zero_loc[0] + (16*dy),  zero_loc[1]+ (8*dx)), 'ACIS-I', './psf')
-psf_sim  = ift.makeField(data_domain, tmp_psf_sim)
-exit()
+psf_sim = []
+source = []
+for i in range(n_i):
+    for l in range(n_l):
+        tmp_psf_sim = info.get_psf_fromsim((zero_loc[0] + (l * dy),  zero_loc[1]+ (i *dx)), 'ACIS-I', './psf')
+        psf_field = ift.makeField(data_domain, tmp_psf_sim)
+        psf_sim.append(psf_field)
 
-plot_slices(psf_sim, outroot+'_psfSIM.png', logscale=True)
+        tmp_source = np.zeros(tmp_psf_sim.shape)
+        pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape)
+        tmp_source[pos] = 1
+        source_field = ift.makeField(data_domain, tmp_source)
+        source.append(source_field)
 
-np.save(outroot+'psf.npy', {'psf_sim': psf_sim})
+np.save(outroot+'psf.npy', {'psf_sim': psf_sim, 'source': source})
 
 exit()
