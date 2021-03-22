@@ -58,7 +58,7 @@ class ChandraObservationInformation():
 
         # 3. define discretization
         ##########################
-        # externally we ork with celecstial coordinates but internally with SKY coordinates
+        # externally we work with celecstial coordinates but internally with SKY coordinates
         # this makes it easier to deal with the event files which only give sky coordinates
         # for Chandra coordinate system see https://cxc.harvard.edu/contrib/jcm/ncoords.ps
 
