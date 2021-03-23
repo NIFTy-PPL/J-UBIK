@@ -23,8 +23,6 @@ n_i = int(2* fov_deg / dx)
 n_l = int(2* fov_deg / dy)
 
 zero_loc = (info.obsInfo['aim_ra'] - fov_deg, info.obsInfo['aim_dec'] - fov_deg) 
-n_i=2
-n_l =1
 
 psf_sim = []
 source = []
