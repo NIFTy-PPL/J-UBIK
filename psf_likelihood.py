@@ -29,7 +29,7 @@ def minimizePSF(psf_likelihood, iterations = 50):
     #TODO FIXME MGVI!!! 
     return H.position
 
-def makeModularModel(psf_trainset, n_modes = 2):
+def makeModularModel(psf_trainset, n_modes = 10):
     psf_samples = psf_trainset['psf_sim']
     source_samples = psf_trainset['source']
 
@@ -52,29 +52,31 @@ def makeModularModel(psf_trainset, n_modes = 2):
 
 
     FFT = ift.FFTOperator(in_dom, space=1)
+    FFT_small = ift.FFTOperator(s_dom)
     spread = ift.ContractionOperator(in_dom, 0).adjoint
+    h_in_dom = FFT.target
+    spread_har = ift.ContractionOperator(h_in_dom, 0).adjoint
 
     signal = ift.FieldAdapter(in_dom, 'signals').real
-    amp_p = makePositiveSumPrior(s_dom, n_modes)
-
+    #amp_p = makePositiveSumPrior(s_dom, n_modes)
     sum = None
     for i in range(n_modes):
-        amp = spread @ _SlowFieldAdapter(amp_p.target, f'amp_{i}').real @ amp_p
-        p = spread @ ift.exp(ift.FieldAdapter(s_dom, f'psf_{i}')).real
+       # amp = spread @ _SlowFieldAdapter(amp_p.target, f'amp_{i}').real @ amp_p
+        amp = spread @ ift.exp(ift.FieldAdapter(s_dom, f'amp_{i}')).real
+        p = spread_har @ FFT_small @ ift.exp(ift.FieldAdapter(s_dom, f'psf_{i}')).real
         pointwise = signal * amp
         #FIXME use less FFT's
         #FIXME break PBC's
-        conv = FFT.inverse(FFT(p) * FFT(pointwise))
-        conv = conv.real
+        prod = p * FFT(pointwise)
         if sum == None: # make this nice and shiny
-            sum = conv
+            sum = prod
         else:
-            sum = sum + conv
-        modular_model = sum
+            sum = sum + prod
+    
+    modular_model = FFT.inverse(sum).real
 
     likelihood = ift.PoissonianEnergy(psf_field) @ modular_model
-
-    ic_newton = ift.AbsDeltaEnergyController(name='PSF_Newton', deltaE=0.5, iteration_limit=50, convergence_level=3)
+    ic_newton = ift.AbsDeltaEnergyController(name='PSF_Newton', deltaE=0.5, iteration_limit=20, convergence_level=3)
     minimizer = ift.NewtonCG(ic_newton)
     H = ift.StandardHamiltonian(likelihood)
 
@@ -86,7 +88,11 @@ def makeModularModel(psf_trainset, n_modes = 2):
     signal_mf = ift.MultiField.from_dict({'signals': source_field})
     pos = ift.MultiField.union((pos, signal_mf))
 
+    pl = ift.Plot()
+    pl.add(psf_field.val)
+
     H = ift.EnergyAdapter(pos, H, want_metric=True, constants='signals')
     H, _ = minimizer(H)
+    pos = ift.MultiField.union((H.position, signal_mf))
     #TODO FIXME MGVI!!! 
-    return H.position
+    return pos, modular_model, psf_field

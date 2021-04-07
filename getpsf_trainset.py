@@ -10,17 +10,18 @@ npix_e =  1        # number of log-energy bins
 fov    =  4.       # FOV in arcmin
 elim   = (2., 10.) # energy range in keV
 ################################################
-outroot = 'trainset_'
+outroot = 'strainset_'
 data_domain = ift.DomainTuple.make([ift.RGSpace((npix_s, npix_s), distances=2.*fov/npix_s),\
                                     ift.RGSpace((npix_e,), distances=np.log(elim[1]/elim[0])/npix_e)])
 
 info     = ChandraObservationInformation(obs11713, npix_s, npix_e, fov, elim, center=None)
 
 
-dx = dy = 0.5 /60
+dx = dy = 3. /60
 fov_deg = 3. / 60
-n_i = int(2* fov_deg / dx) 
-n_l = int(2* fov_deg / dy)
+#please fix this
+n_i = int(2* fov_deg / dx)+1
+n_l = int(2* fov_deg / dy)+1
 
 zero_loc = (info.obsInfo['aim_ra'] - fov_deg, info.obsInfo['aim_dec'] - fov_deg) 
 
