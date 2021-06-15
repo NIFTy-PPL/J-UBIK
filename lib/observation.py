@@ -77,6 +77,7 @@ class ChandraObservationInformation():
 
         # 3.c) define range in x and y coordinates
         # note: pixelsize = 0.492 arcsec
+        #FIXME really?
         self.obsInfo['xy_range'] = 60.*fov/0.492
         self.obsInfo['x_min']    = self.obsInfo['x_center'] - self.obsInfo['xy_range'] 
         self.obsInfo['x_max']    = self.obsInfo['x_center'] + self.obsInfo['xy_range']
@@ -335,7 +336,7 @@ class ChandraObservationInformation():
         Parameters:
         -----------
 
-        location (tuple)       : lacation at which to compute the PSF in celestial coordinates, RA, DEC in units of degree
+        location (tuple)       : location at which to compute the PSF in celestial coordinates, RA, DEC in units of degree
         detector_type (string) : either ACIS-I or ACIS-S
         outroot (string)       : location where the intermediate MARX files are saved
         num_rays (int)         : number of detected rays in the simulation
