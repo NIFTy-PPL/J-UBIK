@@ -5,11 +5,11 @@ from nifty7.operators.simple_linear_operators import _SlowFieldAdapter
 
 def makePSFmodel(psf_field):
     position_space = psf_field.domain 
-    priors_psf = {'offset_mean': 0.01,
-                'offset_std': (1e-2, 1e-4),
-                'fluctuations':(1, 0.1),
-                'loglogavgslope':(-4, 0.4),
-                'flexibility':(1.0, 0.5),
+    priors_psf = {'offset_mean': 0,
+                'offset_std': (3, 0.5),
+                'fluctuations':(4.0, 2.5),
+                'loglogavgslope':(-2.2, 0.5),
+                'flexibility':(0.7, 0.3),
                 'asperity': None,
                 'prefix': 'psf'
     }
@@ -26,7 +26,7 @@ def minimizePSF(psf_likelihood, iterations = 50):
 
     H = ift.EnergyAdapter(pos, H, want_metric=True)
     H, _ = minimizer(H)
-    #TODO FIXME MGVI!!! 
+    #TODO GeoMetricKL
     return H.position
 
 def makeModularModel(psf_trainset, n_modes = 10):

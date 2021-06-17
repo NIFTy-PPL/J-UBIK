@@ -15,7 +15,7 @@ def prior_sample_plotter(opchain, n):
     for ii in range(n):
         f = ift.from_random(opchain.domain)
         tmp = opchain(f)
-        pl.add(tmp)
+        pl.add(ift.log10(tmp))
     return pl.output()
 
 

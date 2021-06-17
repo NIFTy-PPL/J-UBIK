@@ -1,23 +1,31 @@
-import nifty7 as ift
-import numpy as np
+
 import matplotlib.pylab as plt
 from lib.utils import *
 from psf_likelihood import *
+import mpi
 
-npix_s = 256       # number of spacial bins per axis
+npix_s = 1024      # number of spacial bins per axis
 fov = 4.
 position_space = ift.RGSpace([npix_s, npix_s], distances=[ 2.*fov/npix_s])
 zp_position_space = ift.RGSpace([2.*npix_s, 2. * npix_s], distances=[ 2.*fov/npix_s])
 
-info = np.load('5_3_observation.npy', allow_pickle= True).item()
-psf_file = np.load('morecountsobservation.npy', allow_pickle = True).item()
+info = np.load('14_6_0_observation.npy', allow_pickle= True).item()
+psf_file = np.load('psf_ob0.npy', allow_pickle = True).item()
 
-psf_arr = psf_file['psf_sim'].val[:, : ,1]
+psf_arr = psf_file.val[:, : ,1]
 psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
 psf_field = ift.Field.from_raw(position_space, psf_arr)
 
 psf_likelihood, psf_model = makePSFmodel(psf_field)
+psf_pos = minimizePSF(psf_likelihood, iterations=40)
 norm = ift.ScalingOperator(position_space, psf_field.integrate().val**-1)
+
+ift.extra.minisanity(psf_field, lambda x: ift.makeOp(1/psf_model(x)), psf_model, psf_pos)
+
+p = ift.Plot()
+p.add(ift.log10(psf_model.force(psf_pos)))
+p.add(ift.log10(norm(psf_model.force(psf_pos))))
+p.output()
 
 psf_model = norm @ psf_model
 #TODO THIS IS NOT CORRECT
@@ -32,23 +40,23 @@ normed_exposure = get_normed_exposure_operator(exp_field, data)
 
 mask = get_mask_operator(exp_field)
 
-points = ift.InverseGammaOperator(zp_position_space, alpha=0.7, q=1e-4).ducktape('points')
+points = ift.InverseGammaOperator(zp_position_space, alpha=1.0, q=1e-4).ducktape('points')
 #TODO FIXME this prior is broken...
-
-priors_diffuse = {'offset_mean': 4,
+# prior_sample_plotter(points, 5)
+priors_diffuse = {'offset_mean': 0,
         'offset_std': (2, .1),
 
         # Amplitude of field fluctuations
-        'fluctuations': (1.5, 0.5),  # 1.0, 1e-2
+        'fluctuations': (1.9, 0.5),  # 1.0, 1e-2
 
         # Exponent of power law power spectrum component
-        'loglogavgslope': (-1.5, 0.5),  # -6.0, 1
+        'loglogavgslope': (-3.0, 1.0),  # -6.0, 1
 
         # Amplitude of integrated Wiener process power spectrum component
-        'flexibility': (1.5, 2.),  # 2.0, 1.0
+        'flexibility': (2.0, 2.),  # 2.0, 1.0
 
         # How ragged the integrated Wiener process component is
-        'asperity': (0.2, 0.5),  # 0.1, 0.5
+        'asperity': (0.5, 0.1),  # 0.1, 0.5
         'prefix': 'diffuse'}
 diffuse = ift.SimpleCorrelatedField(zp_position_space, **priors_diffuse)
 diffuse = diffuse.exp()
@@ -67,11 +75,9 @@ conv = zp.adjoint @ convolved
 
 signal_response = mask @ normed_exposure @ conv
 
-ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=10, convergence_level=3)
-ic_sampling = ift.AbsDeltaEnergyController(deltaE=0.05, iteration_limit = 50)
+ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=100, convergence_level=3)
+ic_sampling = ift.AbsDeltaEnergyController(name='Samplig(lin)',deltaE=0.05, iteration_limit = 50)
 masked_data = mask(data_field)
-
-psf_pos = minimizePSF(psf_likelihood, iterations=10)
 
 
 likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
@@ -81,17 +87,20 @@ H = ift.StandardHamiltonian(likelihood, ic_sampling)
 
 signal_pos = 0.1*ift.from_random(signal.domain)
 
-
+minimizer_sampling = ift.NewtonCG(ift.AbsDeltaEnergyController(name="Sampling (nonlin)",
+                                                               deltaE=0.5, convergence_level=2,
+                                                               iteration_limit= 10))
 pos = signal_pos.unite(psf_pos)
 
-if False:
+if True:
     H=ift.EnergyAdapter(pos, H, want_metric=True, constants=psf_pos.keys())
     H,_ = minimizer(H)
     pos = H.position.unite(psf_pos)
+    ift.extra.minisanity(masked_data, lambda x: ift.makeOp(1/signal_response(x)), signal_response, pos)
     plt = ift.Plot()
     plt.add(ift.log10(psf_field))
     plt.add(ift.log10(psf_model.force(pos)))
-    plt.add(ift.log10(zp.adjoint(signal.force(pos))), title = 'signal_rec')
+    plt.add(ift.log10(zp.adjoint(signal.force(pos))), title = 'signal_rec', cmap ='inferno')
     plt.add(ift.log10(points.force(pos)),vmin=0, title ="stars")
     plt.add(ift.log10(diffuse.force(pos)), title="diffuse")
     plt.add(ift.log10(data_field), title='data')
@@ -100,7 +109,8 @@ if False:
     plt.output(ny =2 , nx = 4, xsize= 30, ysize= 15, name='map.png')
 else:
     for ii in range(10):
-        KL = ift.MetricGaussianKL.make(pos, H, 5, True, constants= psf_pos.keys())
+
+        KL = ift.GeoMetricKL(pos, H, 2, minimizer_sampling, True, constants= psf_pos.keys(), point_estimates= psf_pos.keys(), comm=mpi.comm)
         KL, _ = minimizer(KL)
         pos = KL.position.unite(psf_pos)
         samples = list(KL.samples)

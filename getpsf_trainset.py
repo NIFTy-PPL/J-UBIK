@@ -5,7 +5,7 @@ from obs.obs11713 import obs11713
 from lib.observation import ChandraObservationInformation
 
 ########## RECONSTRUCTION PARAMETERS ##########
-npix_s = 256       # number of spacial bins per axis
+npix_s = 1024       # number of spacial bins per axis
 npix_e =  1        # number of log-energy bins
 fov    =  4.       # FOV in arcmin
 elim   = (2., 10.) # energy range in keV

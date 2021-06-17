@@ -1,4 +1,4 @@
-import nifty6 as ift
+import nifty7 as ift
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
