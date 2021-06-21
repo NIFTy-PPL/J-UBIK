@@ -17,20 +17,19 @@ psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
 psf_field = ift.Field.from_raw(position_space, psf_arr)
 
 psf_likelihood, psf_model = makePSFmodel(psf_field)
-psf_pos = minimizePSF(psf_likelihood, iterations=40)
+psf_pos = minimizePSF(psf_likelihood, iterations=10)
 norm = ift.ScalingOperator(position_space, psf_field.integrate().val**-1)
 
 ift.extra.minisanity(psf_field, lambda x: ift.makeOp(1/psf_model(x)), psf_model, psf_pos)
-
-p = ift.Plot()
-p.add(ift.log10(psf_model.force(psf_pos)))
-p.add(ift.log10(norm(psf_model.force(psf_pos))))
-p.output()
-
 psf_model = norm @ psf_model
+
+# p = ift.Plot()
+# # p.add(ift.log10(psf_model.force(psf_pos)))
+# # p.add(ift.log10(norm(psf_model.force(psf_pos))))
+# # p.output(dpi =300)
 #TODO THIS IS NOT CORRECT
 #TODO Normalize PSF
-
+#FIXME Starposition not the same for diferent obs
 data = info['data'].val[:, :, 1]
 data_field = ift.Field.from_raw(position_space, data)
 
@@ -39,6 +38,12 @@ exp_field = ift.Field.from_raw(position_space, exp)
 normed_exposure = get_normed_exposure_operator(exp_field, data)
 
 mask = get_mask_operator(exp_field)
+cluster_center = ift.ValueInserter(zp_position_space, (360, 419))
+cluster_val = ift.ScalingOperator(cluster_center.domain, 1).exp()
+cluster_min = ift.Adder(7)
+cluster_val = cluster_min @ cluster_val
+cluster = cluster_center@ cluster_val
+cluster = cluster.ducktape('center')
 
 points = ift.InverseGammaOperator(zp_position_space, alpha=1.0, q=1e-4).ducktape('points')
 #TODO FIXME this prior is broken...
@@ -61,7 +66,7 @@ priors_diffuse = {'offset_mean': 0,
 diffuse = ift.SimpleCorrelatedField(zp_position_space, **priors_diffuse)
 diffuse = diffuse.exp()
 
-signal = diffuse + points
+signal = diffuse + cluster #+points
 signal = signal.real
 
 zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
@@ -75,7 +80,7 @@ conv = zp.adjoint @ convolved
 
 signal_response = mask @ normed_exposure @ conv
 
-ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=100, convergence_level=3)
+ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=10, convergence_level=3)
 ic_sampling = ift.AbsDeltaEnergyController(name='Samplig(lin)',deltaE=0.05, iteration_limit = 50)
 masked_data = mask(data_field)
 
@@ -101,7 +106,8 @@ if True:
     plt.add(ift.log10(psf_field))
     plt.add(ift.log10(psf_model.force(pos)))
     plt.add(ift.log10(zp.adjoint(signal.force(pos))), title = 'signal_rec', cmap ='inferno')
-    plt.add(ift.log10(points.force(pos)),vmin=0, title ="stars")
+    # plt.add(ift.log10(points.force(pos)),vmin=0, title ="stars")
+    plt.add((cluster.force(pos)),vmin=0, title ="center")
     plt.add(ift.log10(diffuse.force(pos)), title="diffuse")
     plt.add(ift.log10(data_field), title='data')
     plt.add(ift.log10(mask.adjoint(signal_response.force(pos))), title='signal_response')
