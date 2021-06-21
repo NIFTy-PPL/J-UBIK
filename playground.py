@@ -1,8 +1,9 @@
-
 import matplotlib.pylab as plt
 from lib.utils import *
 from psf_likelihood import *
 import mpi
+
+ift.fft.set_nthreads(8)
 
 npix_s = 1024      # number of spacial bins per axis
 fov = 4.
@@ -40,7 +41,7 @@ normed_exposure = get_normed_exposure_operator(exp_field, data)
 mask = get_mask_operator(exp_field)
 cluster_center = ift.ValueInserter(zp_position_space, (360, 419))
 cluster_val = ift.ScalingOperator(cluster_center.domain, 1).exp()
-cluster_min = ift.Adder(7)
+cluster_min = ift.Adder(1)
 cluster_val = cluster_min @ cluster_val
 cluster = cluster_center@ cluster_val
 cluster = cluster.ducktape('center')
@@ -80,13 +81,13 @@ conv = zp.adjoint @ convolved
 
 signal_response = mask @ normed_exposure @ conv
 
-ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=10, convergence_level=3)
+ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=30, convergence_level=3)
 ic_sampling = ift.AbsDeltaEnergyController(name='Samplig(lin)',deltaE=0.05, iteration_limit = 50)
 masked_data = mask(data_field)
 
 
 likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
-
+ift.exec_time(likelihood)
 minimizer = ift.NewtonCG(ic_newton)
 H = ift.StandardHamiltonian(likelihood, ic_sampling)
 

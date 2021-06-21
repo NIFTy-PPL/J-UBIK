@@ -3,6 +3,7 @@ import numpy as np
 import sys
 
 from obs.obs4952 import obs4952
+from obs.obs4948 import obs4948
 from obs.obs11713 import obs11713
 from lib.observation import ChandraObservationInformation
 from lib.output import plot_slices
@@ -20,7 +21,7 @@ data_domain = ift.DomainTuple.make([ift.RGSpace((npix_s, npix_s), distances=2.*f
                                     ift.RGSpace((npix_e,), distances=np.log(elim[1]/elim[0])/npix_e)])
 
 
-obses = (obs4952, obs11713)
+obses = (obs4952, obs4948)
 center = None
 for ii, obs in enumerate(obses):
     # retrive data
