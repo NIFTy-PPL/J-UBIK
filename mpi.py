@@ -7,13 +7,13 @@ import nifty7 as ift
 
 try:
     from mpi4py import MPI
-    print('mpi imported')
     master = MPI.COMM_WORLD.Get_rank() == 0
     comm = MPI.COMM_WORLD
     ntask = comm.Get_size()
     rank = comm.Get_rank()
     master = rank == 0
     mpi = ntask > 1
+    print('mpi imported')
 except ImportError:
     master = True
     mpi = False

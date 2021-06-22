@@ -2,6 +2,8 @@ import numpy as np
 import nifty7 as ift
 import scipy
 
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 
 def get_normed_exposure_operator(exposure_field, data_array):
     norm = (data_array[exposure_field.val !=0] / exposure_field.val[exposure_field.val!=0]).mean()
@@ -11,12 +13,20 @@ def get_normed_exposure_operator(exposure_field, data_array):
 
 
 def prior_sample_plotter(opchain, n):
-    pl = ift.Plot()
+
+    fig, ax = plt.subplots(1, n, figsize=(11.7, 8.3), dpi=200)
+    ax = ax.flatten()
     for ii in range(n):
         f = ift.from_random(opchain.domain)
-        tmp = opchain(f)
-        pl.add(ift.log10(tmp))
-    return pl.output()
+        field = opchain(f)
+        fov     = field.domain[0].distances[0]*field.domain[0].shape[0]/2.# is this true?
+        pltargs = {'origin':'lower', 'cmap':'inferno', 'extent':[-fov,fov]*2,'norm': LogNorm()}
+        img = field.val
+        im = ax[ii].imshow(img, **pltargs)
+        cb = fig.colorbar(im, ax = ax[ii])
+    fig.tight_layout()
+    plt.show()
+    plt.close()
 
 
 def get_mask_operator(exp_field):
