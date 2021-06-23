@@ -83,7 +83,7 @@ conv = zp.adjoint @ convolved
 signal_response = mask @ normed_exposure @ conv
 
 ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=3, convergence_level=3)
-ic_sampling = ift.AbsDeltaEnergyController(name='Samplig(lin)',deltaE=0.05, iteration_limit = 50)
+ic_sampling = ift.AbsDeltaEnergyController(name='Samplig(lin)',deltaE=0.05, iteration_limit = 30)
 masked_data = mask(data_field)
 
 
