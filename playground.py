@@ -26,13 +26,9 @@ norm = ift.ScalingOperator(position_space, psf_field.integrate().val**-1)
 ift.extra.minisanity(psf_field, lambda x: ift.makeOp(1/psf_model(x)), psf_model, psf_pos)
 psf_model = norm @ psf_model
 
-# p = ift.Plot()
-# # p.add(ift.log10(psf_model.force(psf_pos)))
-# # p.add(ift.log10(norm(psf_model.force(psf_pos))))
-# # p.output(dpi =300)
-#TODO THIS IS NOT CORRECT
-#TODO Normalize PSF
-#FIXME Starposition not the same for diferent obs
+#TODO Normalize PSF (at the right moment)
+#FIXME AGN not the same for diferent obs
+
 data = info['data'].val[:, :, 0]
 data_field = ift.Field.from_raw(position_space, data)
 
@@ -41,15 +37,8 @@ exp_field = ift.Field.from_raw(position_space, exp)
 normed_exposure = get_normed_exposure_operator(exp_field, data)
 
 mask = get_mask_operator(exp_field)
-# cluster_center = ift.ValueInserter(zp_position_space, (360, 419))
-# cluster_val = ift.ScalingOperator(cluster_center.domain, 1).exp()
-# cluster_min = ift.Adder(0)
-# cluster_val = cluster_min @ cluster_val
-# cluster = cluster_center@ cluster_val
-# cluster = cluster.ducktape('center')
 
 points = ift.InverseGammaOperator(zp_position_space, alpha=1.0, q=1e-4).ducktape('points')
-# prior_sample_plotter(points, 5)
 priors_diffuse = {'offset_mean': 0,
         'offset_std': (2, .1),
 
@@ -72,11 +61,9 @@ signal = diffuse +points#+ clusters
 signal = signal.real
 
 zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
-#signal = zp @ signal
-
 zp_central = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=True)
-psf = zp_central(psf_model)
 
+psf = zp_central(psf_model)
 convolved = convolve_operators(psf, signal)
 conv = zp.adjoint @ convolved
 
@@ -84,16 +71,13 @@ signal_response = mask @ normed_exposure @ conv
 
 ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=3, convergence_level=3)
 ic_sampling = ift.AbsDeltaEnergyController(name='Samplig(lin)',deltaE=0.05, iteration_limit = 30)
+
 masked_data = mask(data_field)
-
-
 likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
-ift.exec_time(likelihood)
 minimizer = ift.NewtonCG(ic_newton)
 H = ift.StandardHamiltonian(likelihood, ic_sampling)
 
 signal_pos = 0.1*ift.from_random(signal.domain)
-
 minimizer_sampling = ift.NewtonCG(ift.AbsDeltaEnergyController(name="Sampling (nonlin)",
                                                                deltaE=0.5, convergence_level=2,
                                                                iteration_limit= 10))
@@ -116,17 +100,6 @@ if False:
            'residual': ift.abs(mask.adjoint(signal_response.force(pos))-data_field),
     }
     np.save('map_reconstruction.npy', dct)
-    # plt = ift.Plot()
-    # plt.add(ift.log10(psf_field))
-    # plt.add(ift.log10(psf_model.force(pos)))
-    # plt.add(ift.log10(zp.adjoint(signal.force(pos))), title = 'signal_rec', cmap ='inferno')
-    # # plt.add(ift.log10(points.force(pos)),vmin=0, title ="stars")
-    # plt.add((cluster.force(pos)),vmin=0, title ="center")
-    # plt.add(ift.log10(diffuse.force(pos)), title="diffuse")
-    # plt.add(ift.log10(data_field), title='data')
-    # plt.add(ift.log10(mask.adjoint(signal_response.force(pos))), title='signal_response')
-    # plt.add((ift.abs(mask.adjoint(signal_response.force(pos))-data_field)), title = "Residual")
-    # plt.output(ny =2 , nx = 4, xsize= 30, ysize= 15, name='map.png')
 else:
     for ii in range(10):
         KL = ift.GeoMetricKL(pos, H, 2, minimizer_sampling, True, constants= psf_pos.keys(), point_estimates= psf_pos.keys(), comm=mpi.comm)
@@ -156,11 +129,3 @@ else:
             'signal_response': mask.adjoint(sr.mean),
         }
         np.save('varinf_reconstruction.npy', dct)
-
-
-        plt.add(ift.log10(df.mean), title="diffuse")
-        plt.add(ift.log10(zp.adjoint(sc.mean)), title="Reconstructed Signal")
-        plt.add(zp.adjoint(sc.var.sqrt()), title = "Relative Uncertainty")
-        plt.add(ift.log10((mask.adjoint(signal_response.force(pos)))), title= 'signalresponse')
-        plt.add((ift.abs(mask.adjoint(signal_response.force(pos))-data_field)), title = "Residual")
-        plt.output(ny=2, nx=4, xsize=100, ysize= 40,name= f'rec_{ii}.png')
