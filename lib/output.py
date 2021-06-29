@@ -25,15 +25,14 @@ def plot_slices(field, outname, logscale=False):
     plt.close()
 
     
-def log_plot(field, outname):
+def plot_result(field, outname):
+    fig, ax = plt.subplots(dpi=400, figsize=(11.7, 8.3) )
     img = field.val
     fov     = field.domain[0].distances[0]*field.domain[0].shape[0]/2.# is this true?
     pltargs = {'origin':'lower', 'cmap':'hot', 'extent':[-fov,fov]*2,'norm': LogNorm()}
-    fig, ax = plt.subplots(figsize=(11.7, 8.3), dpi=400)
     im = ax.imshow(img, **pltargs)
     cb = fig.colorbar(im)
     fig.tight_layout()
     if outname != None:
         fig.savefig(outname)
-    #plt.show()
     plt.close()

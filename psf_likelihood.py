@@ -6,28 +6,37 @@ from nifty7.operators.simple_linear_operators import _SlowFieldAdapter
 def makePSFmodel(psf_field):
     position_space = psf_field.domain 
     priors_psf = {'offset_mean': 0,
-                'offset_std': (3, 0.5),
-                'fluctuations':(4.0, 2.5),
-                'loglogavgslope':(-2.2, 0.5),
-                'flexibility':(0.7, 0.3),
+                'offset_std': (1, 0.5),
+                'fluctuations':(5.0, 2.5),
+                'loglogavgslope':(-0.9, 1.0),
+                'flexibility':(1, 0.3),
                 'asperity': None,
                 'prefix': 'psf'
     }
+    center = ift.InverseGammaOperator(position_space, alpha =1.0, q=1e-4).ducktape('center')
     psf_model = ift.SimpleCorrelatedField(position_space, **priors_psf)
-    psf_model = psf_model.exp()
+    psf_model = psf_model.exp() + center
     likelihood = ift.PoissonianEnergy(psf_field) @ psf_model
     return likelihood, psf_model
 
 def minimizePSF(psf_likelihood, iterations = 50):
     ic_newton = ift.AbsDeltaEnergyController(name='PSF_Newton', deltaE=0.5, iteration_limit=iterations, convergence_level=3)
+    ic_sampling = ift.AbsDeltaEnergyController(name='Samplig(lin)',deltaE=0.05, iteration_limit = 100)
     minimizer = ift.NewtonCG(ic_newton)
-    H = ift.StandardHamiltonian(psf_likelihood)
+    H = ift.StandardHamiltonian(psf_likelihood, ic_sampling)
     pos = 0.1 * ift.from_random(H.domain)
-
-    H = ift.EnergyAdapter(pos, H, want_metric=True)
-    H, _ = minimizer(H)
-    #TODO GeoMetricKL
-    return H.position
+    minimizer_sampling = ift.NewtonCG(ift.AbsDeltaEnergyController(name="Sampling (nonlin)",
+                                                               deltaE=0.5, convergence_level=2,
+                                                               iteration_limit= 10))
+    if True:
+        KL = ift.GeoMetricKl(pos, H, 2, minimizer_sampling, True)
+        KL, _ = minimizer(KL)
+        samples = list(KL.samples)
+        return samples
+    else:
+        H = ift.EnergyAdapter(pos, H, want_metric=True)
+        H, _ = minimizer(H)
+        return H.position
 
 def makeModularModel(psf_trainset, n_modes = 10):
     psf_samples = psf_trainset['psf_sim']
