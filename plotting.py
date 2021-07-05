@@ -9,7 +9,7 @@ if True:
                 plot_result(dct[name],f'var_{name}.png')
         residual = ift.abs(dct['signal_response']- dct['data'])
         plot_result(residual, 'residual.png')
-else:
-        dct = np.load('map_reconstruction.npy', allow_pickle = True).item()
-        for  name in dct:
-                plot_result(dct[name],f'map_{name}.png')
+# else:
+#         dct = np.load('map_reconstruction.npy', allow_pickle = True).item()
+#         for  name in dct:
+#                 plot_result(dct[name],f'map_{name}.png')

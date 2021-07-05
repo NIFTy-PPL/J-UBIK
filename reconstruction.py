@@ -13,7 +13,7 @@ from lib.output import plot_slices
 npix_s = 1024      # number of spacial bins per axis
 npix_e =  4        # number of log-energy bins
 fov    =  4.       # FOV in arcmin
-elim   = (2., 10.) # energy range in keV
+elim   = (2., 10.) # energy range in keV #TODO Lower limit? sollte das nicht bis 0.1 keV runter gehen=
 ################################################
 
 outroot = sys.argv[1]

@@ -47,9 +47,28 @@ priors_diffuse = {'offset_mean': 0,
         'asperity': None,  # 0.1, 0.5
         'prefix': 'diffuse'}
 
+priors_extended_points = {'offset_mean': 0,
+        'offset_std': (0.3, 0.05),
+
+        # Amplitude of field fluctuations
+        'fluctuations': (2, 0.5),  # 1.0, 1e-2
+
+        # Exponent of power law power spectrum component
+        'loglogavgslope': (-0.5, 0.5),  # -6.0, 1
+
+        # Amplitude of integrated Wiener process power spectrum component
+        'flexibility': (1, 0.05),  # 2.0, 1.0
+
+        # How ragged the integrated Wiener process component is
+        'asperity': None,  # 0.1, 0.5
+        'prefix': 'extended'}
+
 diffuse = ift.SimpleCorrelatedField(zp_position_space, **priors_diffuse)
 diffuse = diffuse.exp()
-signal = diffuse + points
+extended = ift.SimpleCorrelatedField(zp_position_space, **priors_extended_points)
+extended = extended.exp()
+
+signal = diffuse + extended + points
 signal = signal.real
 zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
 zp_central = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=True)
@@ -106,11 +125,13 @@ else:
         ps = ift.StatCalculator()
         df = ift.StatCalculator()
         sr = ift.StatCalculator()
+        ex = ift.StatCalculator()
         for foo in samples:
             united = foo.unite(pos)
             sc.add(signal.force(united))
             ps.add(points.force(united))
             df.add(diffuse.force(united))
+            ex.add(extended.force(united))
             sr.add(signal_response.force(united))
         dct = {'data': data_field,
             'psf_sim': psf_field,
@@ -118,8 +139,15 @@ else:
             'signal_rec_mean': zp.adjoint(sc.mean),
             'signal_rec_sigma': zp.adjoint(sc.var.sqrt()),
             'diffuse': zp.adjoint(df.mean),
+            'extended': zp.adjoint(ex.mean),
             'pointsource':zp.adjoint(ps.mean),
             'signal_response': mask.adjoint(sr.mean),
         }
         #TODO add samples
         np.save('varinf_reconstruction.npy', dct)
+
+        for oo, nn in [(extended, "extended"), (diffuse, "diffuse"), (points, "points")]:
+            samps = []
+            for foo in samples:
+                samps.append(oo.force(foo.unite(KL.position)).val)
+            np.save(f"{nn}.npy", np.array(samps))

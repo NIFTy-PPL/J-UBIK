@@ -9,5 +9,6 @@ obs11713 = {\
             'aspect_sol'    : 'pcadf11713_repro_asol1.fits',
             'bpix_file'     : 'acisf11713_000N002_bpix1.fits',
             'mask_file'     : 'acisf11713_000N002_msk1.fits'
+#TODO detector type
 }
 

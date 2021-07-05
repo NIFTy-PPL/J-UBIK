@@ -160,7 +160,7 @@ class ChandraObservationInformation():
         Parameters:
         -----------
         outroot (string)     : file path to which the temporary CXC products are saved
-        res_xy (float)       : resulution in x and y for the aspect histogramm in arcsec (0.5 arcsex is about 1 pixel and the CXC default).
+        res_xy (float)       : resolution in x and y for the aspect histogramm in arcsec (0.5 arcsex is about 1 pixel and the CXC default).
         energy_subbins (int) : energy sub-binning to compute the instrumnt map (see below).
 
         Returns:
@@ -458,7 +458,9 @@ class ChandraObservationInformation():
             
             subprocess.call(["marx", "@@" + marxpara_file])
             subprocess.call(["marx2fits", "--pixadj=EDSER", outdir, outfits])
-            
+            #TODO what about pixadj =EXACT
+            #https://cxc.cfa.harvard.edu/ciao/threads/marx/index.html#opps
+
             # 5. transform the eventfil to an image
             #######################################
 
