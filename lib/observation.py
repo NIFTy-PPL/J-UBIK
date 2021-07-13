@@ -329,7 +329,7 @@ class ChandraObservationInformation():
         return expmap
 
 
-    def get_psf_fromsim(self, location, detector_type, outroot, num_rays=1e6, aspect_blur=None):
+    def get_psf_fromsim(self, location, detector_type, outroot, num_rays=1e4, aspect_blur=None):
 
         """
         Obtain the PSF from simulations at the specified position in all energy channels (center of each channel).
