@@ -281,6 +281,7 @@ class ChandraObservationInformation():
             # the exposure map combines the instrument map with the aspect solution and can be used to convert counts to flux
             # with normalize set to 'no' the units are (time) * (effective area) [sec * cm**(2) counts/photon]
             # see https://cxc.harvard.edu/ciao/ahelp/mkexpmap.html
+            #TODO what about not combining data and exposure? different psf? etc?
             rt.mkexpmap.punlearn()
 
             for det in det_num:
@@ -425,9 +426,10 @@ class ChandraObservationInformation():
                           "MirrorType":   "HRMA",
                           "HRMA_Ideal":   "no",
                           "HRMAVig":      "1.0",
-                          "DitherModel":  "INTERNAL",
+                          "DitherModel":  "INTERNAL", #TODO without and later for whole image?
                           "TStart":       tstart,
-                          "Verbose":      "no"
+                          "Verbose":      "no",
+                          "ACIS_Frame_Transfer_Time":   "0.000",
         }
                                        
        # 4. run marx simulations for each energy bin
