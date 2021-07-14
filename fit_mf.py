@@ -10,16 +10,20 @@ ift.fft.set_nthreads(2)
 npix_s = 1024      # number of spacial bins per axis
 fov = 4.
 position_space = ift.RGSpace([npix_s, npix_s], distances=[ 2.*fov/npix_s])
+e_space = ift.RGSpace(4)
 zp_position_space = ift.RGSpace([2.*npix_s, 2. * npix_s], distances=[ 2.*fov/npix_s])
 
 info = np.load('14_6_0_observation.npy', allow_pickle= True).item()
 psf_file = np.load('psf_ob0.npy', allow_pickle = True).item()
 
-psf_arr = psf_file.val[:, : ,0]
+psf_arr = psf_file.val
 psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
 psf_field = ift.Field.from_raw(position_space, psf_arr)
+
 norm = ift.ScalingOperator(position_space, psf_field.integrate().val**-1)
 psf_norm = norm(psf_field)
+
+
 data = info['data'].val[:, :, 0]
 data_field = ift.Field.from_raw(position_space, data)
 
