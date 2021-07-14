@@ -2,6 +2,7 @@ import nifty7 as ift
 import numpy as np
 import matplotlib.pylab as plt
 from lib.utils import *
+from lib.output import plot_slices
 from psf_likelihood import *
 import mpi
 
@@ -11,15 +12,22 @@ npix_s = 1024      # number of spacial bins per axis
 fov = 4.
 position_space = ift.RGSpace([npix_s, npix_s], distances=[ 2.*fov/npix_s])
 e_space = ift.RGSpace(4)
+dom = ift.makeDomain([position_space, e_space])
 zp_position_space = ift.RGSpace([2.*npix_s, 2. * npix_s], distances=[ 2.*fov/npix_s])
 
 info = np.load('14_6_0_observation.npy', allow_pickle= True).item()
 psf_file = np.load('psf_ob0.npy', allow_pickle = True).item()
 
-psf_arr = psf_file.val
-psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
-psf_field = ift.Field.from_raw(position_space, psf_arr)
+plot_slices(psf_file, 'raw.png', True)
 
+psf_arr = psf_file.val
+max_ind = psf_arr[:,:,0]
+for i in range(e_space.size):
+    print(i)
+    psf_arr[:,:,i] = np.roll(psf_arr[:,:, i], -np.argmax(psf_arr[:,:,0]))
+psf_field = ift.Field.from_raw(dom, psf_arr)
+plot_slices(psf_field, 'roled.png', True)
+exit()
 norm = ift.ScalingOperator(position_space, psf_field.integrate().val**-1)
 psf_norm = norm(psf_field)
 
