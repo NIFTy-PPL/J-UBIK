@@ -21,23 +21,23 @@ psf_file = np.load('psf_ob0.npy', allow_pickle = True).item()
 plot_slices(psf_file, 'raw.png', True)
 
 psf_arr = psf_file.val
-max_ind = psf_arr[:,:,0]
-for i in range(e_space.size):
-    print(i)
-    psf_arr[:,:,i] = np.roll(psf_arr[:,:, i], -np.argmax(psf_arr[:,:,0]))
+max_idx = np.unravel_index(np.argmax(psf_arr[:,:,0]), psf_arr[:,:,0].shape)
+# for i in range(4):
+# # THEYARE NOT EQUAL
+#     print(np.argmax(psf_arr[:,:,i]))
+psf_arr = np.roll(psf_arr, -max_idx[0], axis=0)
+psf_arr = np.roll(psf_arr, -max_idx[1], axis=1)
 psf_field = ift.Field.from_raw(dom, psf_arr)
-plot_slices(psf_field, 'roled.png', True)
-exit()
-norm = ift.ScalingOperator(position_space, psf_field.integrate().val**-1)
+norm = ift.ScalingOperator(dom, psf_field.integrate().val**-1)
 psf_norm = norm(psf_field)
 
 
-data = info['data'].val[:, :, 0]
-data_field = ift.Field.from_raw(position_space, data)
-
-exp = info['exposure'].val[:, :, 0]
-exp_field = ift.Field.from_raw(position_space, exp)
-normed_exposure = get_normed_exposure_operator(exp_field, data)
+data = info['data']
+plot_slices(data, 'data_slices.png',True)
+exp = info['exposure']
+plot_slices(exp, 'exp_slices.png', True)
+normed_exposure = get_normed_exposure_operator(exp, data)
+exit()
 
 mask = get_mask_operator(exp_field)
 

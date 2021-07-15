@@ -25,7 +25,7 @@ data_field = ift.Field.from_raw(position_space, data)
 
 exp = info['exposure'].val[:, :, 0]
 exp_field = ift.Field.from_raw(position_space, exp)
-normed_exposure = get_normed_exposure_operator(exp_field, data)
+normed_exposure = get_normed_exposure_operator(exp_field, data_field)
 
 mask = get_mask_operator(exp_field)
 

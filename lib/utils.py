@@ -5,8 +5,8 @@ import scipy
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
-def get_normed_exposure_operator(exposure_field, data_array):
-    norm = (data_array[exposure_field.val !=0] / exposure_field.val[exposure_field.val!=0]).mean()
+def get_normed_exposure_operator(exposure_field, data_field):
+    norm = (data_field.val[exposure_field.val !=0] / exposure_field.val[exposure_field.val!=0]).mean()
     normed_exp_field = exposure_field * norm
     normed_exp_field = ift.DiagonalOperator(normed_exp_field)
     return normed_exp_field
