@@ -9,10 +9,14 @@ import mpi
 ift.fft.set_nthreads(2)
 
 npix_s = 1024      # number of spacial bins per axis
+npix_e = 4
 fov = 4.
+elim   = (2., 10.) # energy range in keV #TODO Lower limit? sollte das nicht bis 0.1 keV runter gehen=
+
 position_space = ift.RGSpace([npix_s, npix_s], distances=[ 2.*fov/npix_s])
-e_space = ift.RGSpace(4)
+e_space = ift.RGSpace(npix_e, distances=np.log(elim[1]/elim[0])/npix_e)
 dom = ift.makeDomain([position_space, e_space])
+
 zp_position_space = ift.RGSpace([2.*npix_s, 2. * npix_s], distances=[ 2.*fov/npix_s])
 
 info = np.load('14_6_0_observation.npy', allow_pickle= True).item()
@@ -36,16 +40,14 @@ data = info['data']
 plot_slices(data, 'data_slices.png',True)
 exp = info['exposure']
 plot_slices(exp, 'exp_slices.png', True)
-normed_exposure = get_normed_exposure_operator(exp, data)
-exit()
+normed_exposure = get_normed_exposure(exp, data)
+plot_slices(normed_exposure, 'exp_normed.png', True)
+exp_data = ift.makeOp(normed_exposure)(data)
 
-mask = get_mask_operator(exp_field)
+# points = ift.InverseGammaOperator(zp_position_space, alpha=1.0, q=1e-4).ducktape('points')
+# points_energy = ift.Simple
 
-points = ift.InverseGammaOperator(zp_position_space, alpha=1.0, q=1e-4).ducktape('points')
-
-priors_diffuse = {'offset_mean': 0,
-        'offset_std': (0.3, 0.05),
-
+priors_sp_diffuse = {
         # Amplitude of field fluctuations
         'fluctuations': (0.5, 0.5),  # 1.0, 1e-2
 
@@ -57,10 +59,23 @@ priors_diffuse = {'offset_mean': 0,
 
         # How ragged the integrated Wiener process component is
         'asperity': None,  # 0.1, 0.5
-        'prefix': 'diffuse'}
+        'prefix': 'sp_'}
 
-priors_extended_points = {'offset_mean': 0,
-        'offset_std': (0.3, 0.05),
+priors_e_diffuse = {
+        # Amplitude of field fluctuations
+        'fluctuations': (0.5, 0.5),  # 1.0, 1e-2
+
+        # Exponent of power law power spectrum component
+        'loglogavgslope': (-2.5, 0.5),  # -6.0, 1
+
+        # Amplitude of integrated Wiener process power spectrum component
+        'flexibility': (0.3, 0.05),  # 2.0, 1.0
+
+        # How ragged the integrated Wiener process component is
+        'asperity': None,  # 0.1, 0.5
+        'prefix': 'e_'}
+
+priors_sp_agn = {
 
         # Amplitude of field fluctuations
         'fluctuations': (2, 0.5),  # 1.0, 1e-2
@@ -73,15 +88,39 @@ priors_extended_points = {'offset_mean': 0,
 
         # How ragged the integrated Wiener process component is
         'asperity': None,  # 0.1, 0.5
-        'prefix': 'extended'}
+        'prefix': 'sp_'}
 
-diffuse = ift.SimpleCorrelatedField(zp_position_space, **priors_diffuse)
+priors_e_agn = {
+
+        # Amplitude of field fluctuations
+        'fluctuations': (2, 0.5),  # 1.0, 1e-2
+
+        # Exponent of power law power spectrum component
+        'loglogavgslope': (-0.5, 0.5),  # -6.0, 1
+
+        # Amplitude of integrated Wiener process power spectrum component
+        'flexibility': (1, 0.05),  # 2.0, 1.0
+
+        # How ragged the integrated Wiener process component is
+        'asperity': None,  # 0.1, 0.5
+        'prefix': 'e_'}
+diffuse = ift.CorrelatedFieldMaker('diffuse_')
+diffuse.add_fluctuations(zp_position_space, **priors_sp_diffuse)
+diffuse.add_fluctuations(e_space, **priors_e_diffuse)
+diffuse.set_amplitude_total_offset(offset_mean= 0, offset_std = (0.3, 0.05))
+diffuse = diffuse.finalize()
 diffuse = diffuse.exp()
-extended = ift.SimpleCorrelatedField(zp_position_space, **priors_extended_points)
+
+extended = ift.CorrelatedFieldMaker('agn_')
+extended.add_fluctuations(zp_position_space, **priors_sp_agn)
+extended.add_fluctuations(e_space, **priors_e_agn)
+extended.set_amplitude_total_offset(offset_mean= 0, offset_std = (0.3, 0.05))
+extended = extended.finalize()
 extended = extended.exp()
 
-signal = diffuse + extended + points
+signal = diffuse + extended #+ points
 signal = signal.real
+
 zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
 zp_central = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=True)
 
