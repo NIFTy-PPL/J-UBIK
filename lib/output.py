@@ -13,7 +13,7 @@ def plot_slices(field, outname, logscale=False):
     if logscale==True:
         pltargs['norm'] = LogNorm()
 
-    fig, ax = plt.subplots(nax, nax, figsize=(11.7, 8.3), sharex=True, sharey=True)
+    fig, ax = plt.subplots(nax, nax, figsize=(11.7, 8.3), sharex=True, sharey=True, dpi=200)
     ax = ax.flatten()
     for ii in range(npix_e):
         im = ax[ii].imshow(img[:,:,ii], **pltargs)

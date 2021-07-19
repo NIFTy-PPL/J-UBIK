@@ -46,8 +46,8 @@ def convolve_operators(a, b):
     return convolved.real
 
 
-def convolve_field_operator(field, operator):
-    FFT = ift.FFTOperator(operator.target)
+def convolve_field_operator(field, operator, space=None):
+    FFT = ift.FFTOperator(operator.target, space=space)
 
     harmonic_field = FFT(field.real)
     fieldOp = ift.DiagonalOperator(harmonic_field.real)

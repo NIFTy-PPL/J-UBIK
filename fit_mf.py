@@ -37,12 +37,10 @@ psf_norm = norm(psf_field)
 
 
 data = info['data']
-plot_slices(data, 'data_slices.png',True)
 exp = info['exposure']
-plot_slices(exp, 'exp_slices.png', True)
 normed_exposure = get_normed_exposure(exp, data)
-plot_slices(normed_exposure, 'exp_normed.png', True)
-exp_data = ift.makeOp(normed_exposure)(data)
+normed_exposure = ift.makeOp(normed_exposure)
+mask = get_mask_operator(exp)
 
 # points = ift.InverseGammaOperator(zp_position_space, alpha=1.0, q=1e-4).ducktape('points')
 # points_energy = ift.Simple
@@ -78,13 +76,13 @@ priors_e_diffuse = {
 priors_sp_agn = {
 
         # Amplitude of field fluctuations
-        'fluctuations': (2, 0.5),  # 1.0, 1e-2
+        'fluctuations': (1, 0.5),  # 1.0, 1e-2
 
         # Exponent of power law power spectrum component
-        'loglogavgslope': (-0.5, 0.5),  # -6.0, 1
+        'loglogavgslope': (-1., 0.5),  # -6.0, 1
 
         # Amplitude of integrated Wiener process power spectrum component
-        'flexibility': (1, 0.05),  # 2.0, 1.0
+        'flexibility': (0.5, 0.05),  # 2.0, 1.0
 
         # How ragged the integrated Wiener process component is
         'asperity': None,  # 0.1, 0.5
@@ -93,17 +91,18 @@ priors_sp_agn = {
 priors_e_agn = {
 
         # Amplitude of field fluctuations
-        'fluctuations': (2, 0.5),  # 1.0, 1e-2
+        'fluctuations': (1, 0.5),  # 1.0, 1e-2
 
         # Exponent of power law power spectrum component
-        'loglogavgslope': (-0.5, 0.5),  # -6.0, 1
+        'loglogavgslope': (-1, 0.5),  # -6.0, 1
 
         # Amplitude of integrated Wiener process power spectrum component
-        'flexibility': (1, 0.05),  # 2.0, 1.0
+        'flexibility': (0.5, 0.05),  # 2.0, 1.0
 
         # How ragged the integrated Wiener process component is
         'asperity': None,  # 0.1, 0.5
         'prefix': 'e_'}
+
 diffuse = ift.CorrelatedFieldMaker('diffuse_')
 diffuse.add_fluctuations(zp_position_space, **priors_sp_diffuse)
 diffuse.add_fluctuations(e_space, **priors_e_diffuse)
@@ -121,18 +120,19 @@ extended = extended.exp()
 signal = diffuse + extended #+ points
 signal = signal.real
 
-zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
-zp_central = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=True)
+zp = ift.FieldZeroPadder(dom, zp_position_space.shape, space=0, central=False)
+zp_central = ift.FieldZeroPadder(dom, zp_position_space.shape, space=0, central=True)
 
 psf = zp_central(psf_norm)
-convolved = convolve_field_operator(psf, signal)
+convolved = convolve_field_operator(psf, signal, space=0)
 conv = zp.adjoint @ convolved
 signal_response = mask @ normed_exposure @ conv
 
-ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=5, convergence_level=5)
-ic_sampling = ift.AbsDeltaEnergyController(name='Samplig(lin)',deltaE=0.05, iteration_limit = 100)
+ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, convergence_level=3, iteration_limit=4)
+ic_sampling = ift.AbsDeltaEnergyController(name='Samplig(lin)', deltaE=0.05, iteration_limit = 100)
 
-masked_data = mask(data_field)
+masked_data = mask(data)
+#is there data where there should#nt?
 likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
 minimizer = ift.NewtonCG(ic_newton)
 H = ift.StandardHamiltonian(likelihood, ic_sampling)
@@ -173,32 +173,32 @@ else:
         ift.extra.minisanity(masked_data, lambda x: ift.makeOp(1/signal_response(x)), signal_response, pos, samples)
 
         sc = ift.StatCalculator()
-        ps = ift.StatCalculator()
+        # ps = ift.StatCalculator()
         df = ift.StatCalculator()
         sr = ift.StatCalculator()
         ex = ift.StatCalculator()
         for foo in samples:
             united = foo.unite(pos)
             sc.add(signal.force(united))
-            ps.add(points.force(united))
+            # ps.add(points.force(united))
             df.add(diffuse.force(united))
             ex.add(extended.force(united))
             sr.add(signal_response.force(united))
-        dct = {'data': data_field,
+        dct = {'data': data,
             'psf_sim': psf_field,
             'psf_norm': psf_norm,
             'signal_rec_mean': zp.adjoint(sc.mean),
             'signal_rec_sigma': zp.adjoint(sc.var.sqrt()),
             'diffuse': zp.adjoint(df.mean),
             'extended': zp.adjoint(ex.mean),
-            'pointsource':zp.adjoint(ps.mean),
+            # 'pointsource':zp.adjoint(ps.mean),
             'signal_response': mask.adjoint(sr.mean),
         }
         #TODO add samples
         np.save('varinf_reconstruction.npy', dct)
 
-        for oo, nn in [(extended, "extended"), (diffuse, "diffuse"), (points, "points")]:
-            samps = []
-            for foo in samples:
-                samps.append(oo.force(foo.unite(KL.position)).val)
-            np.save(f"{nn}.npy", np.array(samps))
+        # for oo, nn in [(extended, "extended"), (diffuse, "diffuse"), (points, "points")]:
+        #     samps = []
+        #     for foo in samples:
+        #         samps.append(oo.force(foo.unite(KL.position)).val)
+        #     np.save(f"{nn}.npy", np.array(samps))
