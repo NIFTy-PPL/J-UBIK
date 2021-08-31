@@ -142,7 +142,7 @@ minimizer_sampling = ift.NewtonCG(ift.AbsDeltaEnergyController(name="Sampling (n
                                                                iteration_limit= 0))
 pos = 0.1*ift.from_random(signal.domain)
 if False:
-    H=ift.EnergyAdapter(pos, H, want_metric=True)
+    H = ift.EnergyAdapter(pos, H, want_metric=True)
     H,_ = minimizer(H)
     pos = H.position
     ift.extra.minisanity(masked_data, lambda x: ift.makeOp(1/signal_response(x)), signal_response, pos)
@@ -160,7 +160,7 @@ if False:
 else:
     for ii in range(10):
         if ii >= 3:
-            ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=5, convergence_level=5)
+            ic_newton = ift.AbsDeltaEnergyController(name='Newton', deltaE=0.5, iteration_limit=5, convergence_level=3)
             minimizer_sampling = ift.NewtonCG(ift.AbsDeltaEnergyController(name="Sampling (nonlin)",
                                                                deltaE=0.5, convergence_level=2,
                                                                iteration_limit= 10))
