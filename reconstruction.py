@@ -7,7 +7,6 @@ from obs.obs4948 import obs4948
 from obs.obs11713 import obs11713
 from lib.observation import ChandraObservationInformation
 from lib.output import plot_slices
-#NOTE this src clashes with nifty7 somehow
 
 ########## RECONSTRUCTION PARAMETERS ##########
 npix_s = 1024      # number of spacial bins per axis
@@ -35,16 +34,9 @@ for ii, obs in enumerate(obses):
     exposure = ift.makeField(data_domain, exposure)
     plot_slices(exposure, outroot+f'_exposure_{ii}.png', logscale=True)
 
-    #TODO FIX THIS MESS
-    #psf_ra = (3 + 19/60 + 48.1 / 3600)* 15
-    #psf_dec = 41 + 30/60 + 42/3600
-
-    # simulate the PSF for one location
-
-    #psf_sim  = info.get_psf_fromsim( (info.obsInfo['aim_ra'], info.obsInfo['aim_dec']), 'ACIS-I', './psf')
-    #psf_sim = info.get_psf_fromsim((49.8770+ 3.5/60,  41.6287+ 3.5/60), 'ACIS-I', './psf')
-    #psf_sim  = ift.makeField(data_domain, psf_sim)
-    #plot_slices(psf_sim, outroot + f'_psfSIM_{ii}.png', logscale=True)
+    psf_sim  = info.get_psf_fromsim( (info.obsInfo['aim_ra'], info.obsInfo['aim_dec']), 'ACIS-I', './psf')
+    psf_sim  = ift.makeField(data_domain, psf_sim)
+    plot_slices(psf_sim, outroot + f'_psfSIM_{ii}.png', logscale=True)
 
     np.save(outroot+f'_{ii}_'+'observation.npy', {'data':data, 'exposure':exposure})  #, 'psf_sim':psf_sim})
     center = (info.obsInfo['aim_ra'], info.obsInfo['aim_dec'])
