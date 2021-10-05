@@ -140,7 +140,7 @@ minimizer_sampling = ift.NewtonCG(
     )
 )
 pos = 0.1 * ift.from_random(signal.domain)
-if True:
+if False:
     H = ift.EnergyAdapter(pos, H, want_metric=True)
     H, _ = minimizer(H)
     pos = H.position

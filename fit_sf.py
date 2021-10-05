@@ -5,7 +5,7 @@ from lib.utils import *
 from psf_likelihood import *
 import mpi
 
-ift.fft.set_nthreads(2)
+ift.set_nthreads(2)
 
 npix_s = 1024  # number of spacial bins per axis
 fov = 4.0
