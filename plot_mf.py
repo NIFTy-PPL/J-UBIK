@@ -1,14 +1,14 @@
-import nifty7 as ift
+import nifty8 as ift
 import numpy as np
 from lib.output import plot_slices
 
 mdata = np.load('mdata.npy', allow_pickle=True).item()
 if True:
         dct = np.load('varinf_reconstruction.npy', allow_pickle = True).item()
-        # for  name in dct:
-                # plot_slices(dct[name],f'var_{name}.png', True)
-        # residual = ift.abs(dct['signal_response']- dct['data'])
-        # residual = ift.abs(dct['signal_response']- mdata)
+        for name in dct:
+                plot_slices(dct[name],f'var_{name}.png', True)
+#        residual = ift.abs(dct['signal_response']- dct['data'])
+        residual = ift.abs(dct['signal_response']- mdata)
 
         data = dct['data']
         mask = np.zeros(data.shape)
@@ -19,7 +19,7 @@ if True:
         sr = dct['signal_response']
         sr_datadom = mask.adjoint(mask(sr))
         residual = ift.abs(sr_datadom - data)
-        residual[residual.val]
+        # residual[residual.val]
         plot_slices(residual, 'residual.png', True)
         plot_slices(sr, 'sr.png', True)
         plot_slices(sr_datadom, 'srdata.png', True)

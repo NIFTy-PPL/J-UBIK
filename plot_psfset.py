@@ -1,4 +1,4 @@
-import nifty7 as ift
+import nifty8 as ift
 import numpy as np
 
 fileloader = np.load('strainset_psf.npy', allow_pickle=True).item()

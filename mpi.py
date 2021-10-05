@@ -3,7 +3,7 @@
 # Author: Philipp Arras
 
 import functools
-import nifty7 as ift
+import nifty8 as ift
 
 try:
     from mpi4py import MPI

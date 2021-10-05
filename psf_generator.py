@@ -1,5 +1,4 @@
-
-import nifty7 as ift
+import nifty8 as ift
 import numpy as np
 import sys
 

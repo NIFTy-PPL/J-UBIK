@@ -1,7 +1,7 @@
-import nifty7 as ift
+import nifty8 as ift
 import numpy as np
 from lib.utils import makePositiveSumPrior
-from nifty7.operators.simple_linear_operators import _SlowFieldAdapter
+from nifty8.operators.simple_linear_operators import _SlowFieldAdapter
 
 def makePSFmodel(psf_field):
     position_space = psf_field.domain 

@@ -1,4 +1,4 @@
-import nifty7 as ift
+import nifty8 as ift
 import numpy as np
 
 data_0 = np.load('test_0_observation.npy', allow_pickle=True).item()['data'].val[:,:,2]

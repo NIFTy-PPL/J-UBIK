@@ -1,4 +1,4 @@
-import nifty7 as ift
+import nifty8 as ift
 import numpy as np
 import matplotlib.pylab as plt
 from lib.utils import *
@@ -16,7 +16,7 @@ elim   = (2., 10.) # energy range in keV #FIXME check limits
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.*fov/npix_s])
 e_space = ift.RGSpace(npix_e, distances=np.log(elim[1]/elim[0])/npix_e)
 dom = ift.makeDomain([position_space, e_space])
-zp_position_space = ift.RGSpace([2.*npix_s, 2. * npix_s], distances=[ 2.*fov/npix_s]) #FIXME less zeropadding enough?
+zp_position_space = ift.RGSpace([2*npix_s, 2* npix_s], distances=[2*fov/npix_s]) #FIXME less zeropadding enough?
 
 info = np.load('14_6_0_observation.npy', allow_pickle= True).item()
 psf_file = np.load('psf_ob0.npy', allow_pickle = True).item()
@@ -141,7 +141,7 @@ minimizer_sampling = ift.NewtonCG(ift.AbsDeltaEnergyController(name="Sampling (n
                                                                deltaE=0.5, convergence_level=2,
                                                                iteration_limit= 0))
 pos = 0.1*ift.from_random(signal.domain)
-if False:
+if True:
     H = ift.EnergyAdapter(pos, H, want_metric=True)
     H,_ = minimizer(H)
     pos = H.position
@@ -172,18 +172,17 @@ else:
         pos= KL.position
         ift.extra.minisanity(masked_data, lambda x: ift.makeOp(1/signal_response(x)), signal_response, pos, samples)
 
-        sc = ift.StatCalculator()
-        # ps = ift.StatCalculator()
-        df = ift.StatCalculator()
-        sr = ift.StatCalculator()
-        ex = ift.StatCalculator()
-        for foo in samples:
-            united = foo.unite(pos)
-            sc.add(signal.force(united))
-            # ps.add(points.force(united))
-            df.add(diffuse.force(united))
-            ex.add(extended.force(united))
-            sr.add(signal_response.force(united))
+        # sc = ift.StatCalculator()
+        # df = ift.StatCalculator()
+        # sr = ift.StatCalculator()
+        # ex = ift.StatCalculator()
+        # for foo in samples:
+        #     united = foo.unite(pos)
+        #     sc.add(signal.force(united))
+        #     # ps.add(points.force(united))
+        #     df.add(diffuse.force(united))
+        #     ex.add(extended.force(united))
+        #     sr.add(signal_response.force(united))
         dct = {'data': data,
             'psf_sim': psf_field,
             'psf_norm': psf_norm,
