@@ -18,5 +18,10 @@ Either get the data [here](https://cda.harvard.edu/chaser/) or via `download_cha
             'bpix_file'     : 'acisf11713_000N002_bpix1.fits',
             'mask_file'     : 'acisf11713_000N002_msk1.fits'
 
+More information about the Preprocessing?
 
-### 
+## lib 
+This directory contains utility functions, i/o, plotting routines, messages, etc.
+
+## Installation of CIAO
+More information on this sections follows
