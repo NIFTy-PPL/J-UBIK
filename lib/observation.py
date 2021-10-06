@@ -19,7 +19,7 @@ class ChandraObservationInformation():
 
         """
         Interface to the CXC data and simulation tools.
-
+        
         Parameters:
         -----------
 
@@ -106,6 +106,7 @@ class ChandraObservationInformation():
         # 5. print some information
         ###########################
         message_obs(obsInfo)
+        
 
 
     def get_data(self, outfile):
@@ -120,6 +121,7 @@ class ChandraObservationInformation():
         Returns:
         --------
         data (np.array) : event counts on a 3D grid
+        
 
         """
 
@@ -138,12 +140,12 @@ class ChandraObservationInformation():
             evts = dat_filtered['EVENTS'].data
         evts = np.array([evts['x'], evts['y'], np.log(1.e-3*evts['energy'])])
         evts = evts.transpose()
-
+        
         bins   = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], self.obsInfo['npix_e'])
         ranges = ((self.obsInfo['x_min'],self.obsInfo['x_max']),\
                   (self.obsInfo['y_min'],self.obsInfo['y_max']), \
                   (np.log(self.obsInfo['energy_min']), np.log(self.obsInfo['energy_max'])))
-
+        
         data, edges = np.histogramdd(evts, bins=bins, range=ranges, normed=False, weights=None)
         data = data.transpose((1,0,2)).astype(int)
         self.obsInfo['ntot_binned'] = np.sum(data)
@@ -154,7 +156,7 @@ class ChandraObservationInformation():
     def get_exposure(self, outroot, res_xy=0.5, energy_subbins=10):
         """
         Obtain the exposure of the observation over the full fov.
-
+        
         Parameters:
         -----------
         outroot (string)     : file path to which the temporary CXC products are saved
@@ -186,10 +188,10 @@ class ChandraObservationInformation():
         for chip in range(0, len(chips_on)):
             edgex = []
             edgey = []
-
+            
             for chipx in [0.5, 1024.5]:
                 for chipy in [0.5, 1024.5]:
-
+            
                     rt.dmcoords.punlearn()
                     rt.dmcoords(self.obsInfo['event_file'], asol=self.obsInfo['aspect_sol'], opt='chip', chip_id=chips_on[chip],\
                                 chipx=chipx, chipy=chipy)
@@ -203,7 +205,7 @@ class ChandraObservationInformation():
                     (self.obsInfo['y_min'] <= max(edgey) <= self.obsInfo['y_max']) or\
                     (min(edgey) < self.obsInfo['y_min'] and max(edgey) > self.obsInfo['y_max'])
             det_mask[chip] = (xcrit and ycrit) 
-
+                            
         det_num = chips_on[det_mask]
 
         self.obsInfo['chips_on'] = chips_on
@@ -242,14 +244,14 @@ class ChandraObservationInformation():
             # the instrument map is essentially the product of the mirror effective area projected onto the detector surface with
             # the detector quantum efficiency, [units = cm**(2) counts/photon], ans also accounts for bad pixels
             # see https://cxc.harvard.edu/ciao/ahelp/mkinstmap.html
-
+            
             rt.mkinstmap.punlearn()
             instmap_dic = {}
             expmap_dic = {}
 
             src_e_min = np.round(np.exp( logemin + i*logstep ), decimals=10)
             src_e_max = np.round(np.exp( logemin + (i+1.)*logstep ),   decimals=10)
-
+            
             # if the number of energy sub-bins is one pick the center of the channel
             if self.obsInfo['exp_ebins_per_bin'] == 1:
                 energy = 0.5*(src_e_max + src_e_min)
@@ -262,7 +264,7 @@ class ChandraObservationInformation():
                     for energy in bins:
                         sf.write('{:.9f}\t{:9f}\n'.format(energy, 1./self.obsInfo['exp_ebins_per_bin']))
                 energy = 1.0
-
+                        
             # compute the instrument map for each channel
             # note: the monoenergy keyword is only used if spectrumfile is None
             for det in det_num:
@@ -279,7 +281,7 @@ class ChandraObservationInformation():
             # the exposure map combines the instrument map with the aspect solution and can be used to convert counts to flux
             # with normalize set to 'no' the units are (time) * (effective area) [sec * cm**(2) counts/photon]
             # see https://cxc.harvard.edu/ciao/ahelp/mkexpmap.html
-            # TODO what about not combining data and exposure? different psf? etc?
+            #TODO what about not combining data and exposure? different psf? etc?
             rt.mkexpmap.punlearn()
 
             for det in det_num:
@@ -298,7 +300,7 @@ class ChandraObservationInformation():
             for d in range(2,len(expmap_dic)+1):
                 opstr = opstr + '+img{:d}'.format(d)
             outfs  = outroot + '_{:.2f}.expmap'.format(src_e_min)
-
+            
             rt.dmimgcalc(infile=ifile, infile2='none', out=outfs, operation=opstr, clobber='yes')
             dict_exposure_maps[i] = outfs
 
@@ -312,7 +314,7 @@ class ChandraObservationInformation():
         # read in the maps and initialize the exposure-filed
         ####################################################
         expmap = np.zeros([self.obsInfo['npix_s'], self.obsInfo['npix_s'], self.obsInfo['npix_e']])
-
+        
         for i in range(0, self.obsInfo['npix_e']):
             with fits.open(dict_exposure_maps[i]) as mapfile:
                 expmap[:,:,i] = mapfile['PRIMARY'].data
