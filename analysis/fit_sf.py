@@ -1,9 +1,8 @@
 import nifty8 as ift
 import numpy as np
 import matplotlib.pylab as plt
-from lib.utils import *
-from psf_likelihood import *
-import mpi
+from lib.utils import get_normed_exposure, get_mask_operator, convolve_field_operator
+import lib.mpi as mpi
 
 ift.set_nthreads(2)
 
@@ -14,7 +13,7 @@ zp_position_space = ift.RGSpace(
     [2.0 * npix_s, 2.0 * npix_s], distances=[2.0 * fov / npix_s]
 )
 
-info = np.load("14_6_0_observation.npy", allow_pickle=True).item()
+info = np.load("5_10_0_observation.npy", allow_pickle=True).item()
 psf_file = np.load("psf_ob0.npy", allow_pickle=True).item()
 
 psf_arr = psf_file.val[:, :, 0]
@@ -27,7 +26,8 @@ data_field = ift.Field.from_raw(position_space, data)
 
 exp = info["exposure"].val[:, :, 0]
 exp_field = ift.Field.from_raw(position_space, exp)
-normed_exposure = get_normed_exposure_operator(exp_field, data_field)
+normed_exposure = get_normed_exposure(exp_field, data_field)
+normed_exposure = ift.makeOp(normed_exposure)
 
 mask = get_mask_operator(exp_field)
 
@@ -115,6 +115,7 @@ if False:
         "residual": ift.abs(mask.adjoint(signal_response.force(pos)) - data_field),
     }
     np.save("map_reconstruction.npy", dct)
+
 else:
     for ii in range(10):
         if ii >= 3:

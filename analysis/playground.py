@@ -1,7 +1,7 @@
 import nifty8 as ift
 import numpy as np
 import matplotlib.pylab as plt
-from lib.utils import *
+from lib.utils import get_normed_exposure
 from psf_likelihood import *
 import mpi
 
