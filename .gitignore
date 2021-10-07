@@ -5,5 +5,4 @@
 *.npy
 data/**
 res/**
-res/**
 .DS_Store
