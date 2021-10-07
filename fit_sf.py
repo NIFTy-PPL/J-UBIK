@@ -2,6 +2,7 @@ import nifty8 as ift
 import numpy as np
 import matplotlib.pylab as plt
 from lib.utils import get_normed_exposure, get_mask_operator, convolve_field_operator
+from lib.output import plot_result
 import lib.mpi as mpi
 
 ift.set_nthreads(2)
@@ -31,9 +32,6 @@ normed_exposure = ift.makeOp(normed_exposure)
 
 mask = get_mask_operator(exp_field)
 
-points = ift.InverseGammaOperator(zp_position_space, alpha=1.0, q=1e-4).ducktape(
-    "points"
-)
 
 priors_diffuse = {
     "offset_mean": 0,
@@ -65,10 +63,15 @@ priors_extended_points = {
 
 diffuse = ift.SimpleCorrelatedField(zp_position_space, **priors_diffuse)
 diffuse = diffuse.exp()
-extended = ift.SimpleCorrelatedField(zp_position_space, **priors_extended_points)
-extended = extended.exp()
 
-signal = diffuse + extended + points
+## Other Components
+# extended = ift.SimpleCorrelatedField(zp_position_space, **priors_extended_points)
+# extended = extended.exp()
+# points = ift.InverseGammaOperator(zp_position_space, alpha=1.0, q=1e-4).ducktape(
+#     "points"
+# )
+
+signal = diffuse #+ extended + points
 signal = signal.real
 zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
 zp_central = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=True)
@@ -90,12 +93,9 @@ likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
 minimizer = ift.NewtonCG(ic_newton)
 H = ift.StandardHamiltonian(likelihood, ic_sampling)
 
-minimizer_sampling = ift.NewtonCG(
-    ift.AbsDeltaEnergyController(
-        name="Sampling (nonlin)", deltaE=0.5, convergence_level=2, iteration_limit=0
-    )
-)
+minimizer_sampling = None
 pos = 0.1 * ift.from_random(signal.domain)
+
 if False:
     H = ift.EnergyAdapter(pos, H, want_metric=True)
     H, _ = minimizer(H)
@@ -132,50 +132,20 @@ else:
             )
 
             minimizer = ift.NewtonCG(ic_newton)
-        KL = ift.GeoMetricKL(pos, H, 4, minimizer_sampling, True, comm=mpi.comm)
+        KL = ift.SampledKLEnergy(pos, H, 4, minimizer_sampling, True, comm=mpi.comm)
         KL, _ = minimizer(KL)
-        samples = list(KL.samples)
         pos = KL.position
         ift.extra.minisanity(
             masked_data,
             lambda x: ift.makeOp(1 / signal_response(x)),
             signal_response,
-            pos,
-            samples,
+            KL.samples,
         )
+        KL.samples.save("result")
+        samples = ift.ResidualSampleList.load("result", mpi.comm)
+        mean, var = samples.sample_stat(signal)
+        # plotting check
 
-        sc = ift.StatCalculator()
-        ps = ift.StatCalculator()
-        df = ift.StatCalculator()
-        sr = ift.StatCalculator()
-        ex = ift.StatCalculator()
-        for foo in samples:
-            united = foo.unite(pos)
-            sc.add(signal.force(united))
-            ps.add(points.force(united))
-            df.add(diffuse.force(united))
-            ex.add(extended.force(united))
-            sr.add(signal_response.force(united))
-        dct = {
-            "data": data_field,
-            "psf_sim": psf_field,
-            "psf_norm": psf_norm,
-            "signal_rec_mean": zp.adjoint(sc.mean),
-            "signal_rec_sigma": zp.adjoint(sc.var.sqrt()),
-            "diffuse": zp.adjoint(df.mean),
-            "extended": zp.adjoint(ex.mean),
-            "pointsource": zp.adjoint(ps.mean),
-            "signal_response": mask.adjoint(sr.mean),
-        }
-        # TODO add samples
-        np.save("varinf_reconstruction.npy", dct)
-
-        for oo, nn in [
-            (extended, "extended"),
-            (diffuse, "diffuse"),
-            (points, "points"),
-        ]:
-            samps = []
-            for foo in samples:
-                samps.append(oo.force(foo.unite(KL.position)).val)
-            np.save(f"{nn}.npy", np.array(samps))
+        if mpi.master:
+            plot_result(mean, "test_mean.png")
+            plot_result(var.sqrt(), "test_poststd.png")
