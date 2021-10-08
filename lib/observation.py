@@ -19,7 +19,7 @@ class ChandraObservationInformation():
 
         """
         Interface to the CXC data and simulation tools.
-        
+
         Parameters:
         -----------
 
@@ -35,7 +35,6 @@ class ChandraObservationInformation():
         """
 
         self.obsInfo = obsInfo
-
         # 1. construct full file pathes
         ###############################
         for kk in ['event_file', 'bpix_file', 'aspect_sol', 'mask_file']:
@@ -106,8 +105,6 @@ class ChandraObservationInformation():
         # 5. print some information
         ###########################
         message_obs(obsInfo)
-        
-
 
     def get_data(self, outfile):
 
@@ -329,7 +326,14 @@ class ChandraObservationInformation():
         return expmap
 
 
-    def get_psf_fromsim(self, location, detector_type, outroot, num_rays=1e4, aspect_blur=None):
+    def get_psf_fromsim(
+            self,
+            location,
+            outroot,
+            num_rays=1e4,
+            detector_type=None,
+            aspect_blur=None
+    ):
 
         """
         Obtain the PSF from simulations at the specified position in all energy channels (center of each channel).
@@ -353,8 +357,9 @@ class ChandraObservationInformation():
 
         # 1. get detector parameters
         ############################
-
-        # 2.a) detector type
+        if detector_type == None:
+            detector_type = self.obsInfo['instrument']
+            # 2.a) detector type
         if detector_type=='ACIS-I':
             det_short = 'AI2'
         elif detector_type=='ACIS-S':

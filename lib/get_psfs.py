@@ -29,7 +29,7 @@ info = ChandraObservationInformation(obses[0], npix_s, npix_e, fov, elim, center
 psf_ra = (3 + 19 / 60 + 48.1 / 3600) * 15
 psf_dec = 41 + 30 / 60 + 42 / 3600
 
-psf_sim = info.get_psf_fromsim((psf_ra, psf_dec), "ACIS-S", "./psf")
+psf_sim = info.get_psf_fromsim((psf_ra, psf_dec), "./psf")
 psf_sim = ift.makeField(data_domain, psf_sim)
 plot_slices(psf_sim, "psfSIM_ob0.png", logscale=True)
 np.save("psf_ob0.npy", psf_sim)
@@ -43,7 +43,7 @@ info = ChandraObservationInformation(
     center=(info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]),
 )
 
-psf_sim = info.get_psf_fromsim((psf_ra, psf_dec), "ACIS-I", "./psf")
+psf_sim = info.get_psf_fromsim((psf_ra, psf_dec), "./psf")
 psf_sim = ift.makeField(data_domain, psf_sim)
 plot_slices(psf_sim, "psfSIM_ob1.png", logscale=True)
 

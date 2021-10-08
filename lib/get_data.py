@@ -35,9 +35,13 @@ for ii, obs in enumerate(obses):
     plot_slices(exposure, outroot+f'_exposure_{ii}.png', logscale=True)
 
     # compute the point spread function
-    psf_sim  = info.get_psf_fromsim( (info.obsInfo['aim_ra'], info.obsInfo['aim_dec']), 'ACIS-I', './psf')
-    psf_sim  = ift.makeField(data_domain, psf_sim)
-    plot_slices(psf_sim, outroot + f'_psfSIM_{ii}.png', logscale=True)
+    psf_sim = info.get_psf_fromsim(
+        (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]), "./psf"
+    )
+    psf_sim = ift.makeField(data_domain, psf_sim)
+    plot_slices(psf_sim, outroot + f"_psfSIM_{ii}.png", logscale=True)
 
-    np.save(outroot+f'_{ii}_'+'observation.npy', {'data':data, 'exposure':exposure})  #, 'psf_sim':psf_sim})
-    center = (info.obsInfo['aim_ra'], info.obsInfo['aim_dec'])
+    np.save(
+        outroot + f"_{ii}_" + "observation.npy", {"data": data, "exposure": exposure}
+    )  # , 'psf_sim':psf_sim})
+    center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
