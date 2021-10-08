@@ -9,30 +9,35 @@ from lib.observation import ChandraObservationInformation
 from lib.output import plot_slices
 
 ########## RECONSTRUCTION PARAMETERS ##########
-npix_s = 1024      # number of spacial bins per axis
-npix_e =  4        # number of log-energy bins
-fov    =  4.       # FOV in arcmin
-elim   = (2., 10.) # energy range in keV #TODO Lower limit? sollte das nicht bis 0.1 keV runter gehen=
+npix_s = 1024  # number of spacial bins per axis
+npix_e = 4  # number of log-energy bins
+fov = 4.0  # FOV in arcmin
+elim = (2.0, 10.0)  # energy range in keV
+# TODO Lower limit? sollte das nicht bis 0.1 keV runter gehen=
 ################################################
 
 outroot = sys.argv[1]
-data_domain = ift.DomainTuple.make([ift.RGSpace((npix_s, npix_s), distances=2.*fov/npix_s),\
-                                    ift.RGSpace((npix_e,), distances=np.log(elim[1]/elim[0])/npix_e)])
+data_domain = ift.DomainTuple.make(
+    [
+        ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s),
+        ift.RGSpace((npix_e,), distances=np.log(elim[1] / elim[0]) / npix_e),
+    ]
+)
 
 
 obses = (obs4952, obs4948)
 center = None
 for ii, obs in enumerate(obses):
     # retrive data
-    info     = ChandraObservationInformation(obs, npix_s, npix_e, fov, elim, center)
-    data     = info.get_data(f'./data_{ii}.fits')
-    data     = ift.makeField(data_domain, data)
-    plot_slices(data, outroot+f'_data_{ii}.png', logscale=True)
+    info = ChandraObservationInformation(obs, npix_s, npix_e, fov, elim, center)
+    data = info.get_data(f"./data_{ii}.fits")
+    data = ift.makeField(data_domain, data)
+    plot_slices(data, outroot + f"_data_{ii}.png", logscale=True)
 
     # compute the exposure map
-    exposure = info.get_exposure(f'./exposure_{ii}')
+    exposure = info.get_exposure(f"./exposure_{ii}")
     exposure = ift.makeField(data_domain, exposure)
-    plot_slices(exposure, outroot+f'_exposure_{ii}.png', logscale=True)
+    plot_slices(exposure, outroot + f"_exposure_{ii}.png", logscale=True)
 
     # compute the point spread function
     psf_sim = info.get_psf_fromsim(
