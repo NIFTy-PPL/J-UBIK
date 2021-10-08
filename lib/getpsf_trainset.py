@@ -1,7 +1,7 @@
 import nifty8 as ift
 import numpy as np
 
-from obs.obs11713 import obs11713
+from obs.obs4952 import obs4952
 from lib.observation import ChandraObservationInformation
 
 ########## RECONSTRUCTION PARAMETERS ##########
@@ -18,7 +18,7 @@ data_domain = ift.DomainTuple.make(
     ]
 )
 
-info = ChandraObservationInformation(obs11713, npix_s, npix_e, fov, elim, center=None)
+info = ChandraObservationInformation(obs4952, npix_s, npix_e, fov, elim, center=None)
 
 
 dx = dy = 3.0 / 60
