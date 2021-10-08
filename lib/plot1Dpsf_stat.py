@@ -59,4 +59,27 @@ ax.set_yscale('log')
 
 fig.savefig('psf_freq_comp.png')
 
-# TODO Investigate the flux property
+# Flux check
+
+psf1e6 = np.load("psf_1e6.npy", allow_pickle=True).item()
+psf1e6more = np.load("psf_1e6_moreflux.npy", allow_pickle=True).item()
+
+psf_f = psf1e6.val[:, :, 3]
+psf_f_coll = np.sum(psf_f, axis=0)
+psf_f_norm = np.sum(psf_f)
+psf_f_normed = psf_f_coll / psf_f_norm
+
+psf_mf = psf1e6more.val[:, :, 3]
+psf_mf_coll = np.sum(psf_mf, axis=0)
+psf_mf_norm = np.sum(psf_mf)
+psf_mf_normed = psf_mf_coll / psf_mf_norm
+
+print(psf_f_norm)
+print(psf_mf_norm)
+
+fig, ax = plt.subplots()
+ax.plot(psf_f_normed[380:460], label="1e-3 flux")
+ax.plot(psf_mf_normed[380:460], label="1e-1 flux")
+ax.legend()
+ax.set_yscale('log')
+fig.savefig('psf_flux_comp.png', dpi = 400)
