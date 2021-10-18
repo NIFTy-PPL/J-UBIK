@@ -18,6 +18,7 @@ def lsp_psf(filename, energy_bin, projection_axis):
     res = np.sum(psf, axis=projection_axis)
     return res
 
+#Compare Counts
 psf1_normed = lspn_psf("psf_1e4.npy", 3, 0)
 psf2_normed = lspn_psf("psf_1e6.npy", 3, 0)
 psf3_normed = lspn_psf("psf_1e7.npy", 3, 0)
@@ -30,13 +31,12 @@ ax.set_yscale('log')
 ax.legend()
 fig.savefig('psf_count_comp.png', dpi=500)
 
-##########
 
+#Compare Energy
 psf3_1_normed = lspn_psf("psf_1e7.npy", 0 , 0)
 psf3_2_normed = lspn_psf("psf_1e7.npy", 1 , 0)
 psf3_3_normed = lspn_psf("psf_1e7.npy", 2 , 0)
 psf3_4_normed = lspn_psf("psf_1e7.npy", 3 , 0)
-
 
 fig, ax = plt.subplots()
 ax.plot(psf3_1_normed[380:460], label="e_bin = 1")
@@ -47,14 +47,13 @@ ax.legend()
 ax.set_yscale('log')
 fig.savefig('psf_freq_comp.png',dpi =500)
 
-# Flux check
 
-
+# Compare Flux
 psf_f_normed = lspn_psf("psf_1e6.npy",3,0)
-psf_mf_normed = lspn_psf("psf_1e6_moreflux.npy",3,0)
-psf_emf_normed = lspn_psf("psf_1e6_evenmoreflux.npy",3,0)
-psf_Mf_normed = lspn_psf("psf_1e6_megaflux.npy",3,0)
-psf_gf_normed = lspn_psf("psf_1e6_gigaflux.npy",3,0)
+psf_mf_normed= lspn_psf("psf_1e6_flux1e-1.npy",3,0)
+psf_emf_normed= lspn_psf("psf_1e6_flux1e1.npy",3,0)
+psf_Mf_normed= lspn_psf("psf_1e6_flux1e3.npy",3,0)
+psf_gf_normed= lspn_psf("psf_1e6_flux1e6.npy",3,0)
 
 fig, ax = plt.subplots()
 ax.plot(psf_f_normed[380:460], label="1e-3 flux")
@@ -66,11 +65,13 @@ ax.legend()
 ax.set_yscale('log')
 fig.savefig('psf_flux_comp.png', dpi = 500)
 
+
+#Compare Flux unnormed
 psf_f = lsp_psf("psf_1e6.npy",3,0)
-psf_mf= lsp_psf("psf_1e6_moreflux.npy",3,0)
-psf_emf= lsp_psf("psf_1e6_evenmoreflux.npy",3,0)
-psf_Mf= lsp_psf("psf_1e6_megaflux.npy",3,0)
-psf_gf= lsp_psf("psf_1e6_gigaflux.npy",3,0)
+psf_mf= lsp_psf("psf_1e6_flux1e-1.npy",3,0)
+psf_emf= lsp_psf("psf_1e6_flux1e1.npy",3,0)
+psf_Mf= lsp_psf("psf_1e6_flux1e3.npy",3,0)
+psf_gf= lsp_psf("psf_1e6_flux1e6.npy",3,0)
 
 fig, ax = plt.subplots()
 ax.plot(psf_f[380:460], label="1e-3 flux")

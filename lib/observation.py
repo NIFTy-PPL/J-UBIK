@@ -118,7 +118,6 @@ class ChandraObservationInformation():
         Returns:
         --------
         data (np.array) : event counts on a 3D grid
-        
 
         """
 
@@ -137,12 +136,12 @@ class ChandraObservationInformation():
             evts = dat_filtered['EVENTS'].data
         evts = np.array([evts['x'], evts['y'], np.log(1.e-3*evts['energy'])])
         evts = evts.transpose()
-        
+
         bins   = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], self.obsInfo['npix_e'])
         ranges = ((self.obsInfo['x_min'],self.obsInfo['x_max']),\
                   (self.obsInfo['y_min'],self.obsInfo['y_max']), \
                   (np.log(self.obsInfo['energy_min']), np.log(self.obsInfo['energy_max'])))
-        
+
         data, edges = np.histogramdd(evts, bins=bins, range=ranges, normed=False, weights=None)
         data = data.transpose((1,0,2)).astype(int)
         self.obsInfo['ntot_binned'] = np.sum(data)

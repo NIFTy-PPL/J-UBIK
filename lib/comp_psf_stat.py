@@ -32,7 +32,7 @@ psf_dec = 41 + 30 / 60 + 42 / 3600
 # plot_slices(psf_sim, "psfSIM_1e4.png", logscale=True)
 # np.save("psf_1e4.npy", psf_sim)
 
-psf_sim = info.get_psf_fromsim((psf_ra, psf_dec), "./psf",num_rays=1e6)
+psf_sim = info.get_psf_fromsim((psf_ra, psf_dec), "./psf", num_rays=1e6)
 psf_sim = ift.makeField(data_domain, psf_sim)
 plot_slices(psf_sim, "psfSIM_1e6_evenmoreflux.png", logscale=True)
 np.save("psf_1e6_evenmoreflux.npy", psf_sim)
