@@ -15,7 +15,7 @@ zp_position_space = ift.RGSpace(
 )
 
 info = np.load("5_10_0_observation.npy", allow_pickle=True).item()
-psf_file = np.load("psf_ob0.npy", allow_pickle=True).item()
+psf_file = np.load("psf_obs4952.npy", allow_pickle=True).item()
 
 psf_arr = psf_file.val[:, :, 0]
 psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
