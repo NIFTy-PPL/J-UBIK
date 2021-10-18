@@ -18,10 +18,9 @@ def plot_single_psf(psf, outname, logscale=True):
     plt.close()
 
 
-fileloader = np.load("strainset_psf.npy", allow_pickle=True).item()
+fileloader = np.load("trainset_psf.npy", allow_pickle=True).item()
 
 psf = fileloader["psf_sim"]
-plot_single_psf(psf[0] + 1, "logplot_psf.png")
 
 psfset = psf[0]
 for i in range(8):

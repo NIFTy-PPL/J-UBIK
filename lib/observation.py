@@ -341,9 +341,9 @@ class ChandraObservationInformation():
         -----------
 
         location (tuple)       : location at which to compute the PSF in celestial coordinates, RA, DEC in units of degree
-        detector_type (string) : either ACIS-I or ACIS-S
         outroot (string)       : location where the intermediate MARX files are saved
         num_rays (int)         : number of detected rays in the simulation
+        detector_type (string) : either ACIS-I or ACIS-S
         aspect_blur (float)    : accounts for the observed widening of the PSF w.r.t simulations, if None values suggested by the CXC team
                                  will be used
 
@@ -387,11 +387,11 @@ class ChandraObservationInformation():
         detoffset_z = float(rt.dmkeypar(infile=self.obsInfo['event_file'],keyword='SIM_Z',echo=True))\
                       - float(marx_nom[3])
 
-        
+
 
         # 2. get observation parameters
         ###############################
- 
+
         # 2.b) Nominal Pointing
         pointing_ra   = rt.dmkeypar(infile=self.obsInfo['event_file'], keyword='RA_NOM',  echo=True)
         pointing_dec  = rt.dmkeypar(infile=self.obsInfo['event_file'], keyword='DEC_NOM', echo=True)
@@ -406,7 +406,7 @@ class ChandraObservationInformation():
         # see https://space.mit.edu/cxc/marx/inbrief/simsetup.html for details
         # negative NumRays specifies the detected number of rays not the generated number (some will scatter and not reach the detector)
         # DetIdeal suppresses the detector quantum efficiency which is already accounted for by the exposure map
-        
+
         marxpara_file = outroot + '_marx.par'
         marxpara_orig = os.environ['MARX_ROOT'] + '/share/marx/pfiles/marx.par'
         os.system('cp ' + marxpara_orig + ' ' + marxpara_file)
@@ -417,7 +417,7 @@ class ChandraObservationInformation():
                           "SpectrumType": "FLAT",
                           "SourceFlux":   '{:.9f}'.format(1.e-3),
                           "ExposureTime": "{:.1f}" .format(0.0),
-                          "NumRays":      "{:d}".format(-1*np.abs(num_rays).astype(int)),
+                          "NumRays":      "{:d}".format(+1*np.abs(num_rays).astype(int)),
                           "RA_Nom":       pointing_ra,
                           "Dec_Nom":      pointing_dec,
                           "Roll_Nom":     pointing_roll,
@@ -435,8 +435,8 @@ class ChandraObservationInformation():
                           "Verbose":      "no",
                           "ACIS_Frame_Transfer_Time":   "0.000",
         }
-                                       
-       # 4. run marx simulations for each energy bin
+
+        # 4. run marx simulations for each energy bin
         #############################################
         logemin = np.log(self.obsInfo['energy_min'])
         logstep = np.log(self.obsInfo['energy_max']/self.obsInfo['energy_min'])/self.obsInfo['npix_e']
@@ -467,7 +467,7 @@ class ChandraObservationInformation():
             #TODO what about pixadj =EXACT
             #https://cxc.cfa.harvard.edu/ciao/threads/marx/index.html#opps
 
-            # 5. transform the eventfil to an image
+            # 5. transform the eventfile to an image
             #######################################
 
             # 5.a) filter events for the FOV
