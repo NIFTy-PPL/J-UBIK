@@ -27,4 +27,4 @@ for i in range(8):
     psfset = psfset + psf[i + 1]
 
 psfset = psfset + 1
-plot_single_psf(psfset, "psfset.png")
+plot_single_psf(psfset, "psfset.png", logscale=True)

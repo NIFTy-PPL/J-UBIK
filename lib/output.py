@@ -27,16 +27,14 @@ def plot_slices(field, outname, logscale=False):
     plt.close()
 
 
-def plot_result(field, outname):
-    fig, ax = plt.subplots(dpi=500, figsize=(11.7, 8.3))
+def plot_result(field, outname, logscale=False, **args):
+    fig, ax = plt.subplots(dpi=300, figsize=(11.7, 8.3))
     img = field.val
     fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0  # is this true?
-    pltargs = {
-        "origin": "lower",
-        "cmap": "cividis",
-        "extent": [-fov, fov] * 2,
-        # "norm": LogNorm(),
-    }
+    pltargs = {"origin": "lower", "cmap": "viridis", "extent": [-fov, fov] * 2}
+    if logscale == True:
+        pltargs["norm"] = LogNorm()
+    pltargs.update(**args)
     im = ax.imshow(img, **pltargs)
     cb = fig.colorbar(im)
     fig.tight_layout()
