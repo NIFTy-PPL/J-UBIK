@@ -411,29 +411,32 @@ class ChandraObservationInformation():
         marxpara_orig = os.environ['MARX_ROOT'] + '/share/marx/pfiles/marx.par'
         os.system('cp ' + marxpara_orig + ' ' + marxpara_file)
 
-        marxpara_dict = { "SourceRA":     '{:.9f}'.format(location[0]),
-                          "SourceDEC":    '{:.9f}'.format(location[1]),
-                          "SourceType":   "POINT",
-                          "SpectrumType": "FLAT",
-                          "SourceFlux":   '{:.9f}'.format(1.e-3),
-                          "ExposureTime": "{:.1f}" .format(0.0),
-                          "NumRays":      "{:d}".format(+1*np.abs(num_rays).astype(int)),
-                          "RA_Nom":       pointing_ra,
-                          "Dec_Nom":      pointing_dec,
-                          "Roll_Nom":     pointing_roll,
-                          "DetOffsetX":   "{:.9f}" .format(detoffset_x),
-                          "DetOffsetZ":   "{:.9f}" .format(detoffset_z),
-                          "AspectBlur":   "{:.5f}" .format(aspect_blur),
-                          "DetectorType":  detector_type,
-                          "DetIdeal":     "yes",
-                          "GratingType":  "NONE",
-                          "MirrorType":   "HRMA",
-                          "HRMA_Ideal":   "no",
-                          "HRMAVig":      "1.0",
-                          "DitherModel":  "INTERNAL", #TODO without and later for whole image?
-                          "TStart":       tstart,
-                          "Verbose":      "no",
-                          "ACIS_Frame_Transfer_Time":   "0.000",
+        marxpara_dict = {
+            "SourceRA" : '{:.9f}'.format(location[0]),
+            "SourceDEC" : '{:.9f}'.format(location[1]),
+            "SourceType" : "POINT",
+            "SpectrumType" : "FLAT",
+            "SourceFlux" : '{:.9f}'.format(1.e-3),
+            "ExposureTime" : "{:.1f}" .format(0.0),
+            "NumRays" : "{:d}".format(+1*np.abs(num_rays).astype(int)),
+            "RA_Nom" : pointing_ra,
+            "Dec_Nom" : pointing_dec,
+            "Roll_Nom" : pointing_roll,
+            "DetOffsetX" : "{:.9f}" .format(detoffset_x),
+            "DetOffsetZ" : "{:.9f}" .format(detoffset_z),
+            "AspectBlur" : "{:.5f}" .format(aspect_blur),
+            "DetectorType" : detector_type,
+            "DetIdeal" : "yes",
+            "GratingType" : "NONE",
+            "MirrorType" : "HRMA",
+            "HRMA_Ideal" : "no",
+            "HRMAVig" : "1.0",
+            "DitherModel" : "INTERNAL", #TODO without and later for whole image?
+            "TStart" : tstart,
+            "Verbose" : "no",
+            "ACIS_Frame_Transfer_Time" : "0.000",
+            "HRMA_Use_Struts" : "yes", #FIXME Find out of if "yes" or "no"
+            "DetExtendFlag" : "yes"
         }
 
         # 4. run marx simulations for each energy bin
@@ -441,27 +444,27 @@ class ChandraObservationInformation():
         logemin = np.log(self.obsInfo['energy_min'])
         logstep = np.log(self.obsInfo['energy_max']/self.obsInfo['energy_min'])/self.obsInfo['npix_e']
         sim_dic = {}
-        
+
 #        shift = self.obsInfo['dat_length_xy']/self.obsInfo['dat_nbin_loc'] # = shift by half a pixel
 #        psf_xmin = src_x - self.obsInfo['dat_length_xy'] - shift
 #        psf_xmax = src_x + self.obsInfo['dat_length_xy'] - shift
 #        psf_ymin = src_y - self.obsInfo['dat_length_xy'] - shift
 #        psf_ymax = src_y + self.obsInfo['dat_length_xy'] - shift
-         
+
         print('Generating PSFs for individual energy bins...\n')
 
         for i in range(0, self.obsInfo['npix_e']):
-            
+
             src_e_min = np.exp( logemin + i*logstep )
             src_e_max = np.exp( logemin + (i+1.)*logstep )
             outdir  = outroot + "_e{:d}.dir".format(i)
             outfits = outroot + "_e{:d}.fits".format(i)
-            
+
             marxpara_dict["MinEnergy"] = "{:.9f}".format(src_e_min)
             marxpara_dict["MaxEnergy"] = "{:.9f}".format(src_e_max)
             marxpara_dict["OutputDir"] = outdir
             pset(marxpara_file, marxpara_dict)
-            
+
             subprocess.call(["marx", "@@" + marxpara_file])
             subprocess.call(["marx2fits", "--pixadj=EDSER", outdir, outfits])
             #TODO what about pixadj =EXACT
@@ -489,7 +492,7 @@ class ChandraObservationInformation():
         psf = np.zeros([self.obsInfo['npix_s'], self.obsInfo['npix_s'], self.obsInfo['npix_e']])
         for i in range(0, self.obsInfo['npix_e']):
             with fits.open(sim_dic[i]) as psffile:
-                dat = psffile['PRIMARY'].data                      
+                dat = psffile['PRIMARY'].data
                 psf[:,:,i] = dat
         psf = psf.astype(int)
 
