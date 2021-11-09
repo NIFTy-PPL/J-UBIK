@@ -17,13 +17,14 @@ def plot_single_psf(psf, outname, logscale=True):
     fig.savefig(outname, dpi=600)
     plt.close()
 
+#FIXME put this somewhere else? Is this really needed?
 
-fileloader = np.load("trainset_psf.npy", allow_pickle=True).item()
+fileloader = np.load("patches_psf.npy", allow_pickle=True).item()
 
 psf = fileloader["psf_sim"]
 
 psfset = psf[0]
-for i in range(8):
+for i in range(63):
     psfset = psfset + psf[i + 1]
 
 psfset = psfset + 1

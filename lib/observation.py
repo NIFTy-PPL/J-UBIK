@@ -152,7 +152,7 @@ class ChandraObservationInformation():
     def get_exposure(self, outroot, res_xy=0.5, energy_subbins=10):
         """
         Obtain the exposure of the observation over the full fov.
-        
+
         Parameters:
         -----------
         outroot (string)     : file path to which the temporary CXC products are saved
