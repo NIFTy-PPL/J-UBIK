@@ -11,7 +11,7 @@ npix_e = 1  # number of log-energy bins
 fov = 4.0  # FOV in arcmin
 elim = (2.0, 10.0)  # energy range in keV
 ################################################
-outroot = "trainset_"
+outroot = "patches_"
 data_domain = ift.DomainTuple.make(
     [
         ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s),
@@ -20,7 +20,10 @@ data_domain = ift.DomainTuple.make(
 )
 
 info = ChandraObservationInformation(obs4952, npix_s, npix_e, fov, elim, center=None)
-ref = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
+ref = (
+    info.obsInfo["aim_ra"],
+    info.obsInfo["aim_dec"],
+)  # Center of the FOV in sky coords
 info = ChandraObservationInformation(
     obs11713,
     npix_s,
@@ -30,22 +33,20 @@ info = ChandraObservationInformation(
     center=(info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]),
 )
 
-
-dx = dy = 3.0 / 60
-fov_deg = 2 * 3.0 / 60
-# FIXME not so intuitive
-n_i = int(fov_deg / dx) + 1
-n_l = int(fov_deg / dy) + 1
-zero_loc = (ref[0] - fov_deg, ref[1] - fov_deg)
-exit()
+# number of patches in one direction. sqrt(N) with N being the the total number of patches
+n = 8
+fov_deg = 4.0 / 60  # HALF fov in deg
+x_0 = ref[0] - fov_deg  # calc origin
+y_0 = ref[1] - fov_deg  # calc origin
+dx = dy = fov_deg * 2 / n  # dx in sky coordinates
+x_i = x_0 + dx / 2
+y_i = y_0 + dx / 2
 psf_sim = []
 source = []
-for i in range(n_i):
-    for l in range(n_l):
+for i in range(n):
+    for l in range(n):
         tmp_psf_sim = info.get_psf_fromsim(
-            (zero_loc[0] + (l * dy), zero_loc[1] + (i * dx)),
-            outroot="./psf",
-            num_rays=1e7,
+            (x_i + (l * dx), y_i + (i * dy)), outroot="./psf", num_rays=1e5
         )
         psf_field = ift.makeField(data_domain, tmp_psf_sim)
         psf_sim.append(psf_field)
