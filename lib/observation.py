@@ -184,10 +184,10 @@ class ChandraObservationInformation():
         for chip in range(0, len(chips_on)):
             edgex = []
             edgey = []
-            
+
             for chipx in [0.5, 1024.5]:
                 for chipy in [0.5, 1024.5]:
-            
+
                     rt.dmcoords.punlearn()
                     rt.dmcoords(self.obsInfo['event_file'], asol=self.obsInfo['aspect_sol'], opt='chip', chip_id=chips_on[chip],\
                                 chipx=chipx, chipy=chipy)
@@ -200,8 +200,8 @@ class ChandraObservationInformation():
             ycrit = (self.obsInfo['y_min'] <= min(edgey) <= self.obsInfo['y_max']) or\
                     (self.obsInfo['y_min'] <= max(edgey) <= self.obsInfo['y_max']) or\
                     (min(edgey) < self.obsInfo['y_min'] and max(edgey) > self.obsInfo['y_max'])
-            det_mask[chip] = (xcrit and ycrit) 
-                            
+            det_mask[chip] = (xcrit and ycrit)
+
         det_num = chips_on[det_mask]
 
         self.obsInfo['chips_on'] = chips_on
@@ -240,14 +240,14 @@ class ChandraObservationInformation():
             # the instrument map is essentially the product of the mirror effective area projected onto the detector surface with
             # the detector quantum efficiency, [units = cm**(2) counts/photon], ans also accounts for bad pixels
             # see https://cxc.harvard.edu/ciao/ahelp/mkinstmap.html
-            
+
             rt.mkinstmap.punlearn()
             instmap_dic = {}
             expmap_dic = {}
 
             src_e_min = np.round(np.exp( logemin + i*logstep ), decimals=10)
             src_e_max = np.round(np.exp( logemin + (i+1.)*logstep ),   decimals=10)
-            
+
             # if the number of energy sub-bins is one pick the center of the channel
             if self.obsInfo['exp_ebins_per_bin'] == 1:
                 energy = 0.5*(src_e_max + src_e_min)
@@ -260,7 +260,7 @@ class ChandraObservationInformation():
                     for energy in bins:
                         sf.write('{:.9f}\t{:9f}\n'.format(energy, 1./self.obsInfo['exp_ebins_per_bin']))
                 energy = 1.0
-                        
+
             # compute the instrument map for each channel
             # note: the monoenergy keyword is only used if spectrumfile is None
             for det in det_num:
@@ -296,7 +296,7 @@ class ChandraObservationInformation():
             for d in range(2,len(expmap_dic)+1):
                 opstr = opstr + '+img{:d}'.format(d)
             outfs  = outroot + '_{:.2f}.expmap'.format(src_e_min)
-            
+
             rt.dmimgcalc(infile=ifile, infile2='none', out=outfs, operation=opstr, clobber='yes')
             dict_exposure_maps[i] = outfs
 
@@ -310,7 +310,7 @@ class ChandraObservationInformation():
         # read in the maps and initialize the exposure-filed
         ####################################################
         expmap = np.zeros([self.obsInfo['npix_s'], self.obsInfo['npix_s'], self.obsInfo['npix_e']])
-        
+
         for i in range(0, self.obsInfo['npix_e']):
             with fits.open(dict_exposure_maps[i]) as mapfile:
                 expmap[:,:,i] = mapfile['PRIMARY'].data
