@@ -58,13 +58,14 @@ def convolve_operators(a, b):
     return convolved.real
 
 
-def convolve_field_operator(field, operator, space=None):
-    FFT = ift.FFTOperator(operator.target, space=space)
-    harmonic_field = FFT(field.real)
-    fieldOp = ift.DiagonalOperator(harmonic_field.real)
-    harmonic_operator = FFT @ operator.real
-    convolved = FFT.inverse @ fieldOp @ harmonic_operator
-    return convolved.real
+def convolve_field_operator(kernel, op, space=None):
+    op = op.real
+    fft = ift.FFTOperator(op.target, space=space)
+    hsp_kernel = fft(kernel.real)
+    kernel_hp = ift.makeOp(hsp_kernel)
+    convolve = fft.inverse @ kernel_hp @ fft @ op
+    res = convolve.real
+    return res
 
 
 class PositiveSumPriorOperator(ift.LinearOperator):
