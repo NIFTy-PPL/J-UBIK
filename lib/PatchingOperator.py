@@ -63,12 +63,12 @@ class OverlappAdd(ift.LinearOperator):
         else:
             taped = np.zeros([self._domain.shape[0] + self.dx] * 2)
             i = 0
-            for m in range(self.sqrt_n_patch):
-                x_i = m * dx
-                x_f = x_i + 2 * dx + 2 * self.dr
-                for n in range(self.sqrt_n_patch):
-                    y_i = n * dy
-                    y_f = y_i + 2 * dy + 2 * self.dr
+            for n in range(self.sqrt_n_patch):
+                y_i = n * dy
+                y_f = y_i + 2 * dy + 2 * self.dr
+                for m in range(self.sqrt_n_patch):
+                    x_i = m * dx
+                    x_f = x_i + 2 * dx + 2 * self.dr
                     taped[x_i:x_f, y_i:y_f] += x.val[i]
                     i += 1
             taped_s = np.zeros(self.domain.shape)
