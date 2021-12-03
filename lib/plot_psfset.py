@@ -17,15 +17,33 @@ def plot_single_psf(psf, outname, logscale=True):
     fig.savefig(outname, dpi=600)
     plt.close()
 
-#FIXME put this somewhere else? Is this really needed?
 
+def coord_center(side_length, side_n):
+    tdx = tdy = side_length // side_n
+    xc = np.arange(tdx // 2, tdx * side_n, tdx)
+    yc = np.arange(tdy // 2, tdy * side_n, tdy)
+    co = np.array(np.meshgrid(xc, yc)).reshape(2, -1)
+    res = np.ravel_multi_index(co, [side_length, side_length])
+    return res
+
+
+coords = coord_center(1024, 8)  # FIXME VARIABLES
 fileloader = np.load("patches_psf.npy", allow_pickle=True).item()
 
 psf = fileloader["psf_sim"]
+source = fileloader["source"]
 
-psfset = psf[0]
-for i in range(63):
-    psfset = psfset + psf[i + 1]
+if False:
+    p = ift.Plot()
+    for k in range(16):
+        p.add(psf[k], title=f"{k}", norm=LogNorm())
+    p.output(name="test.png", xsize=20, ysize=20, dpi=300)
 
-psfset = psfset + 1
-plot_single_psf(psfset, "psfset.png", logscale=True)
+else:
+    psfset = psf[0]
+    sourceset =source[0]
+    for i in range(63):
+        psfset = psfset + psf[i + 1]
+        sourceset= sourceset + source[i+1]
+    plot_single_psf(psfset, "psfset.png", logscale=True)
+    plot_single_psf(sourceset, "sourceset.png", logscale=True)

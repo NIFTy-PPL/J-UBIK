@@ -24,29 +24,37 @@ data_domain = ift.DomainTuple.make(
     ]
 )
 
-
-obses = (obs4952, obs4948)
 center = None
-for ii, obs in enumerate(obses):
-    # retrive data
-    info = ChandraObservationInformation(obs, npix_s, npix_e, fov, elim, center)
-    data = info.get_data(f"./data_{ii}.fits")
-    data = ift.makeField(data_domain, data)
-    plot_slices(data, outroot + f"_data_{ii}.png", logscale=True)
 
-    # compute the exposure map
-    exposure = info.get_exposure(f"./exposure_{ii}")
-    exposure = ift.makeField(data_domain, exposure)
-    plot_slices(exposure, outroot + f"_exposure_{ii}.png", logscale=True)
+# retrive data
+info = ChandraObservationInformation(obs4952, npix_s, npix_e, fov, elim, center)
+data = info.get_data(f"./data_4952.fits")
+data = ift.makeField(data_domain, data)
+plot_slices(data, outroot + f"_data_4952.png", logscale=True)
 
-    # compute the point spread function
-    psf_sim = info.get_psf_fromsim(
-        (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]), "./psf"
-    )
-    psf_sim = ift.makeField(data_domain, psf_sim)
-    plot_slices(psf_sim, outroot + f"_psfSIM_{ii}.png", logscale=True)
+# compute the exposure map
+exposure = info.get_exposure(f"./exposure_4952")
+exposure = ift.makeField(data_domain, exposure)
+plot_slices(exposure, outroot + f"_exposure_4952.png", logscale=True)
 
-    np.save(
-        outroot + f"_{ii}_" + "observation.npy", {"data": data, "exposure": exposure}
-    )  # , 'psf_sim':psf_sim})
-    center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
+# compute the point spread function
+# psf_sim = info.get_psf_fromsim(
+#     (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]), "./psf"
+# )
+# psf_sim = ift.makeField(data_domain, psf_sim)
+# plot_slices(psf_sim, outroot + f"_psfSIM_{ii}.png", logscale=True)
+
+np.save(
+    outroot + f"_4952_" + "observation.npy", {"data": data, "exposure": exposure}
+)  # , 'psf_sim':psf_sim})
+center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
+
+info = ChandraObservationInformation(obs11713, npix_s, npix_e, fov, elim, center)
+data = info.get_data(f"./data_11713.fits")
+data = ift.makeField(data_domain, data)
+plot_slices(data, outroot + f"_data_11713.png", logscale=True)
+
+# compute the exposure map
+exposure = info.get_exposure(f"./exposure_11713")
+exposure = ift.makeField(data_domain, exposure)
+plot_slices(exposure, outroot + f"_exposure_11713.png", logscale=True)
