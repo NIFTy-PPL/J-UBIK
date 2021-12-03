@@ -97,42 +97,38 @@ if True:
     pos = ift.ResidualSampleList.load_mean("sipsf_result")
     print('loaded')
 
+for ii in range(10):
+    if ii >= 1:
+        ic_newton = ift.AbsDeltaEnergyController(
+            name="Newton", deltaE=0.5, iteration_limit=5, convergence_level=5
+        )
+        minimizer_sampling = ift.NewtonCG(
+            ift.AbsDeltaEnergyController(
+                name="Sampling (nonlin)",
+                deltaE=0.5,
+                convergence_level=2,
+                iteration_limit=10,
+            )
+        )
+
+        minimizer = ift.NewtonCG(ic_newton)
+    KL = ift.SampledKLEnergy(pos, H, 4, minimizer_sampling, True, comm=mpi.comm)
+    KL, _ = minimizer(KL)
+    pos = KL.position
     ift.extra.minisanity(
-        masked_data, lambda x: ift.makeOp(1 / signal_response(x)), signal_response, pos
+        masked_data,
+        lambda x: ift.makeOp(1 / signal_response(x)),
+        signal_response,
+        KL.samples,
     )
-    for ii in range(1):
-    #     if ii >= 1:
-    #         ic_newton = ift.AbsDeltaEnergyController(
-    #             name="Newton", deltaE=0.5, iteration_limit=5, convergence_level=5
-    #         )
-    #         minimizer_sampling = ift.NewtonCG(
-    #             ift.AbsDeltaEnergyController(
-    #                 name="Sampling (nonlin)",
-    #                 deltaE=0.5,
-    #                 convergence_level=2,
-    #                 iteration_limit=10,
-    #             )
-    #         )
+    KL.samples.save("sipsf_result")
+    samples = ift.ResidualSampleList.load("sipsf_result", comm=mpi.comm)
+    mean, var = samples.sample_stat(signal)
+    ps_mean, ps_var = samples.sample_stat(points)
+    sr_mean, sr_var = samples.sample_stat(normed_exposure  @ conv)
+    # plotting check
 
-    #         minimizer = ift.NewtonCG(ic_newton)
-    #     KL = ift.SampledKLEnergy(pos, H, 4, minimizer_sampling, True, comm=mpi.comm)
-    #     KL, _ = minimizer(KL)
-    #     pos = KL.position
-    #     ift.extra.minisanity(
-    #         masked_data,
-    #         lambda x: ift.makeOp(1 / signal_response(x)),
-    #         signal_response,
-    #         KL.samples,
-    #     )
-    #     KL.samples.save("result")
-        samples = ift.ResidualSampleList.load("result")#, mpi.comm)
-        mean, var = samples.sample_stat(zp.adjoint(signal))
-        # plotting check
-
-        if mpi.master:
-            plot_result(mean, "test_mean.png", logscale=False, vmin=0,vmax=10)
-            plot_result(var.sqrt(), "test_poststd.png", vmin=0, vmax=3)
-            plot_result(data_field, "data.png", vmin=0, vmax=10)
+    if mpi.master:
         plot_result(mean, "sipsf_mean.png", logscale=False, vmin=0,vmax=10)
         plot_result(ps_mean, "sipsf_ps_mean.png", logscale=False, vmin=0)#,vmax=10)
         plot_result(var.sqrt(), "sipsf_poststd.png",logscale=False, vmin=0, vmax=3)
