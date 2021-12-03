@@ -5,6 +5,7 @@ import sys
 from obs.obs4952 import obs4952
 from obs.obs4948 import obs4948
 from obs.obs11713 import obs11713
+from obs.obs14410 import obs14410
 from lib.observation import ChandraObservationInformation
 from lib.output import plot_slices
 
@@ -38,23 +39,25 @@ exposure = ift.makeField(data_domain, exposure)
 plot_slices(exposure, outroot + f"_exposure_4952.png", logscale=True)
 
 # compute the point spread function
-# psf_sim = info.get_psf_fromsim(
-#     (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]), "./psf"
-# )
-# psf_sim = ift.makeField(data_domain, psf_sim)
-# plot_slices(psf_sim, outroot + f"_psfSIM_{ii}.png", logscale=True)
+psf_sim = info.get_psf_fromsim(
+    (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]), "./psf"
+)
+psf_sim = ift.makeField(data_domain, psf_sim)
+plot_slices(psf_sim, outroot + f"_psfSIM_4952.png", logscale=True)
 
 np.save(
-    outroot + f"_4952_" + "observation.npy", {"data": data, "exposure": exposure}
-)  # , 'psf_sim':psf_sim})
-center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
+    outroot + f"_4952_" + "observation.npy", {"data": data, "exposure": exposure, 'psf_sim':psf_sim})
+# center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
 
-info = ChandraObservationInformation(obs11713, npix_s, npix_e, fov, elim, center)
-data = info.get_data(f"./data_11713.fits")
-data = ift.makeField(data_domain, data)
-plot_slices(data, outroot + f"_data_11713.png", logscale=True)
+# info = ChandraObservationInformation(obs11713, npix_s, npix_e, fov, elim, center)
+# data = info.get_data(f"./data_11713.fits")
+# data = ift.makeField(data_domain, data)
+# plot_slices(data, outroot + f"_data_11713.png", logscale=True)
 
-# compute the exposure map
-exposure = info.get_exposure(f"./exposure_11713")
-exposure = ift.makeField(data_domain, exposure)
-plot_slices(exposure, outroot + f"_exposure_11713.png", logscale=True)
+# # compute the exposure map
+# exposure = info.get_exposure(f"./exposure_11713")
+# exposure = ift.makeField(data_domain, exposure)
+# plot_slices(exposure, outroot + f"_exposure_11713.png", logscale=True)
+
+# np.save(
+#     outroot + f"_11713_" + "observation.npy", {"data": data, "exposure": exposure})  # , 'psf_sim':psf_sim})
