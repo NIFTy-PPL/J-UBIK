@@ -11,7 +11,7 @@ npix_s = 1024  # number of spacial bins per axis
 fov = 4.0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 
-info = np.load("5_10_0_observation.npy", allow_pickle=True).item()
+info = np.load("chandra_4952_observation.npy", allow_pickle=True).item()
 psf_file = np.load("psf_obs4952.npy", allow_pickle=True).item()
 
 psf_arr = psf_file.val[:, :, 0]
