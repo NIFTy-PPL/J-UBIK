@@ -93,10 +93,6 @@ H = ift.StandardHamiltonian(likelihood, ic_sampling)
 minimizer_sampling = None
 pos = 0.1 * ift.from_random(signal.domain)
 
-if False:
-    H = ift.EnergyAdapter(pos, H, want_metric=True)
-    H, _ = minimizer(H)
-    pos = H.position
 if True:
     pos = ift.ResidualSampleList.load_mean("sipsf_result")
     print('loaded')
@@ -104,20 +100,6 @@ if True:
     ift.extra.minisanity(
         masked_data, lambda x: ift.makeOp(1 / signal_response(x)), signal_response, pos
     )
-
-    dct = {
-        "data": data_field,
-        "psf_sim": psf_field,
-        "signal_rec": zp.adjoint(signal.force(pos)),
-        "signal_conv": conv.force(pos),
-        "diffuse": zp.adjoint(diffuse.force(pos)),
-        "pointsource": zp.adjoint(points.force(pos)),
-        "signal_response": mask.adjoint(signal_response.force(pos)),
-        "residual": ift.abs(mask.adjoint(signal_response.force(pos)) - data_field),
-    }
-    np.save("map_reconstruction.npy", dct)
-
-else:
     for ii in range(1):
     #     if ii >= 1:
     #         ic_newton = ift.AbsDeltaEnergyController(
