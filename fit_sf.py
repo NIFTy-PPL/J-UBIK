@@ -10,9 +10,6 @@ ift.set_nthreads(2)
 npix_s = 1024  # number of spacial bins per axis
 fov = 4.0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
-zp_position_space = ift.RGSpace(
-    [2.0 * npix_s, 2.0 * npix_s], distances=[2.0 * fov / npix_s]
-)
 
 info = np.load("5_10_0_observation.npy", allow_pickle=True).item()
 psf_file = np.load("psf_obs4952.npy", allow_pickle=True).item()
@@ -61,7 +58,7 @@ priors_extended_points = {
     "prefix": "extended",
 }
 
-diffuse = ift.SimpleCorrelatedField(zp_position_space, **priors_diffuse)
+diffuse = ift.SimpleCorrelatedField(position_space, **priors_diffuse)
 diffuse = diffuse.exp()
 
 ## Other Components
