@@ -92,13 +92,15 @@ H = ift.StandardHamiltonian(likelihood, ic_sampling)
 
 minimizer_sampling = None
 pos = 0.1 * ift.from_random(signal.domain)
-if True:
-    pos = ift.ResidualSampleList.load_mean("result")
 
 if False:
     H = ift.EnergyAdapter(pos, H, want_metric=True)
     H, _ = minimizer(H)
     pos = H.position
+if True:
+    pos = ift.ResidualSampleList.load_mean("sipsf_result")
+    print('loaded')
+
     ift.extra.minisanity(
         masked_data, lambda x: ift.makeOp(1 / signal_response(x)), signal_response, pos
     )
