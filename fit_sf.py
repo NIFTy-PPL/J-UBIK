@@ -29,16 +29,15 @@ normed_exposure = ift.makeOp(normed_exposure)
 
 mask = get_mask_operator(exp_field)
 
-
 priors_diffuse = {
     "offset_mean": 0,
     "offset_std": (0.3, 0.05),
     # Amplitude of field fluctuations
     "fluctuations": (0.5, 0.5),  # 1.0, 1e-2
     # Exponent of power law power spectrum component
-    "loglogavgslope": (-2.5, 0.5),  # -6.0, 1
+    "loglogavgslope": (-1.5, 0.5),  # -6.0, 1
     # Amplitude of integrated Wiener process power spectrum component
-    "flexibility": (0.3, 0.05),  # 2.0, 1.0
+    "flexibility": (1.0, 0.5),  # 2.0, 1.0
     # How ragged the integrated Wiener process component is
     "asperity": None,  # 0.1, 0.5
     "prefix": "diffuse",
