@@ -53,7 +53,15 @@ points = points.ducktape('points')
 signal = diffuse + points
 signal = signal.real
 
-psf = zp_central(psf_norm)
+# p=ift.Plot()
+# for i in range(10):
+#     f = ift.from_random(signal.domain)
+#     p.add(diffuse.force(f))
+#     p.add(ift.log10(points.force(f)))
+#     p.add(signal.force(f))
+# p.output(name='priorsamples.png',nx=3,ny=10, xsize=20,ysize=60, dpi=100)
+
+psf = psf_norm
 convolved = convolve_field_operator(psf, signal)
 conv = convolved
 
