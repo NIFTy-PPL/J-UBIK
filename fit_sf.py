@@ -44,23 +44,9 @@ priors_diffuse = {
     "prefix": "diffuse",
 }
 
-priors_extended_points = {
-    "offset_mean": 0,
-    "offset_std": (0.3, 0.05),
-    # Amplitude of field fluctuations
-    "fluctuations": (2, 0.5),  # 1.0, 1e-2
-    # Exponent of power law power spectrum component
-    "loglogavgslope": (-0.5, 0.5),  # -6.0, 1
-    # Amplitude of integrated Wiener process power spectrum component
-    "flexibility": (1, 0.05),  # 2.0, 1.0
-    # How ragged the integrated Wiener process component is
-    "asperity": None,  # 0.1, 0.5
-    "prefix": "extended",
-}
 
 diffuse = ift.SimpleCorrelatedField(position_space, **priors_diffuse)
 diffuse = diffuse.exp()
-signal = diffuse  # + extended + points
 signal = signal.real
 zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
 zp_central = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=True)
