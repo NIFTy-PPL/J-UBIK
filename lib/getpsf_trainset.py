@@ -1,6 +1,7 @@
 import nifty8 as ift
 import numpy as np
 
+import matplotlib.pyplot as plt
 from obs.obs4952 import obs4952
 from obs.obs11713 import obs11713
 from lib.observation import ChandraObservationInformation
@@ -36,20 +37,23 @@ data_domain = ift.DomainTuple.make(
         ift.RGSpace((npix_e,), distances=np.log(elim[1] / elim[0]) / npix_e),
     ]
 )
+psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
 
 info = ChandraObservationInformation(obs4952, npix_s, npix_e, fov, elim, center=None)
 ref = (
     info.obsInfo["aim_ra"],
     info.obsInfo["aim_dec"],
 )  # Center of the FOV in sky coords
-info = ChandraObservationInformation(
-    obs11713,
-    npix_s,
-    npix_e,
-    fov,
-    elim,
-    center=(info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]),
-)
+
+if True:
+    info = ChandraObservationInformation(
+        obs11713,
+        npix_s,
+        npix_e,
+        fov,
+        elim,
+        center=(info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]),
+    )
 
 n = 8
 xy_range = info.obsInfo["xy_range"]
@@ -58,40 +62,51 @@ x_max = info.obsInfo["x_max"]
 y_min = info.obsInfo["y_min"]
 y_max = info.obsInfo["y_max"]
 dy = dx = xy_range * 2 / n
-x_i = x_min + dx / 2
-y_i = y_min + dy / 2
+x_i = x_min + dx * 1 / 2
+y_i = y_min + dy * 1 / 2
 
-rt.dmcoords.punlearn()
-rt.dmcoords(info.obsInfo["event_file"], op="sky", celfmt="deg", x=x_i, y=y_i)
-x_p = float(rt.dmcoords.ra)
-y_p = float(rt.dmcoords.dec)
 
-psf = info.get_psf_fromsim((x_p, y_p), outroot="./psf", num_rays=1e5)
-psf_field = ift.makeField(data_domain, psf)
+def get_radec_from_xy(temp_x, temp_y, event_f):
+    rt.dmcoords.punlearn()
+    rt.dmcoords(event_f, op="sky", celfmt="deg", x=temp_x, y=temp_y)
+    x_p = float(rt.dmcoords.ra)
+    y_p = float(rt.dmcoords.dec)
+    return (x_p, y_p)
 
-plot_single_psf(psf_field, "test.png")
-# # number of patches in one direction. sqrt(N) with N being the the total number of patches
-# n = 8
-# fov_deg = 4.0 / 60  # HALF fov in deg
-# x_0 = ref[0] - fov_deg  # calc origin
-# y_0 = ref[1] - fov_deg  # calc origin
-# dx = dy = fov_deg * 2 / n  # dx in sky coordinates
-# x_i = x_0 + dx / 2
-# y_i = y_0 + dx / 2
-# psf_sim = []
-# source = []
-# for i in range(1):
-#     for l in range(1):
-#         tmp_psf_sim = info.get_psf_fromsim(
-#             (x_i + (l * dx), y_i + (i * dy)), outroot="./psf", num_rays=1e5
-#         )
-#         psf_field = ift.makeField(data_domain, tmp_psf_sim)
-#         psf_sim.append(psf_field)
 
-#         tmp_source = np.zeros(tmp_psf_sim.shape)
-#         pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape)
-#         tmp_source[pos] = 1
-#         source_field = ift.makeField(data_domain, tmp_source)
-#         source.append(source_field)
+def coord_center(side_length, side_n):
+    tdx = tdy = side_length // side_n
+    xc = np.arange(tdx // 2, tdx * side_n, tdx)
+    yc = np.arange(tdy // 2, tdy * side_n, tdy)
+    co = np.array(np.meshgrid(xc, yc)).reshape(2, -1)
+    res = np.ravel_multi_index(co, [side_length, side_length])
+    return res
 
-# np.save(outroot + "psf.npy", {"psf_sim": psf_sim, "source": source})
+
+coords = coord_center(npix_s, n)
+psf_sim = []
+source = []
+u = 0
+for i in range(n):
+    for l in range(n):
+        x_p = x_i + i * dx
+        y_p = y_i + l * dy
+        radec_c = get_radec_from_xy(x_p, y_p, info.obsInfo["event_file"])  # PRECISION
+        tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf", num_rays=1e7)
+        tmp_psf_sim = tmp_psf_sim[:, :, 0]
+        # rollin rollin rollin
+        if True:
+            tmp_psf_sim = np.roll(tmp_psf_sim, -coords[u])
+            u += 1
+        psf_field = ift.makeField(psf_domain, tmp_psf_sim)
+        norm = ift.ScalingOperator(psf_domain, psf_field.integrate().val ** -1)
+        psf_norm = norm(psf_field)
+        psf_sim.append(psf_norm)
+
+        tmp_source = np.zeros(tmp_psf_sim.shape)
+        pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape)
+        tmp_source[pos] = 1
+        source_field = ift.makeField(psf_domain, tmp_source)
+        source.append(source_field)
+
+np.save(outroot + "psf.npy", {"psf_sim": psf_sim, "source": source})
