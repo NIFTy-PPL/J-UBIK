@@ -47,9 +47,11 @@ priors_diffuse = {
 
 diffuse = ift.SimpleCorrelatedField(position_space, **priors_diffuse)
 diffuse = diffuse.exp()
+diffuse = diffuse.clip(a_min=0,a_max=30)
+points = ift.InverseGammaOperator(position_space, 0.7, 1e-7)
+points = points.ducktape('points')
+signal = diffuse + points
 signal = signal.real
-zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
-zp_central = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=True)
 
 psf = zp_central(psf_norm)
 convolved = convolve_field_operator(psf, signal)
