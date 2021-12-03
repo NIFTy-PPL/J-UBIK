@@ -60,14 +60,6 @@ priors_extended_points = {
 
 diffuse = ift.SimpleCorrelatedField(position_space, **priors_diffuse)
 diffuse = diffuse.exp()
-
-## Other Components
-# extended = ift.SimpleCorrelatedField(zp_position_space, **priors_extended_points)
-# extended = extended.exp()
-# points = ift.InverseGammaOperator(zp_position_space, alpha=1.0, q=1e-4).ducktape(
-#     "points"
-# )
-
 signal = diffuse  # + extended + points
 signal = signal.real
 zp = ift.FieldZeroPadder(position_space, zp_position_space.shape, central=False)
