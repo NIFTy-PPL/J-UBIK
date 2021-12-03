@@ -16,7 +16,9 @@ def OverlapAddConvolver(domain, kernels_arr, n, margin):
     weights = ift.makeOp(get_weights(oa.target))
     zp = MarginZeroPadder(oa.target, margin, space=1)
     padded = zp @ weights @ oa
-    cutter = ift.FieldZeroPadder(padded.target, kernels_arr.shape[1:], space=1).adjoint
+    cutter = ift.FieldZeroPadder(
+        padded.target, kernels_arr.shape[1:], space=1, central=True
+    ).adjoint
     kernels_b = ift.Field.from_raw(cutter.domain, kernels_arr)
     kernels = cutter(kernels_b)
     convolved = convolve_field_operator(kernels, padded, space=1)
@@ -56,7 +58,6 @@ exp = info["exposure"].val[:, :, 0]
 exp_field = ift.Field.from_raw(position_space, exp)
 normed_exposure = get_normed_exposure(exp_field, data_field)
 normed_exposure = ift.makeOp(normed_exposure)
-
 mask = get_mask_operator(exp_field)
 
 
@@ -78,19 +79,40 @@ diffuse = ift.SimpleCorrelatedField(position_space, **priors_diffuse)
 diffuse = diffuse.exp()
 
 signal = diffuse
-conv_op = OverlapAddConvolver(signal.target, psfs, 64, 64)
+conv_op = OverlapAddConvolver(signal.target, psfs, 64, 16)
 # TODO Think about shapes and if this is really the right thing now
 conv = conv_op @ signal
+# FIXME THIS SHOULD BE THE MARGIN ZEROPADDER
 cut = ift.FieldZeroPadder(signal.target, conv.target.shape).adjoint
+cut = MarginZeroPadder(signal.target, ((conv.target.shape[0] -signal.target.shape[0])//2), space=0).adjoint
 conv = cut @ conv
 
-p= ift.Plot()
-p.add(conv(ift.from_random(conv.domain)))
-p.output()
-exit()
-exit()
+def coord_center(side_length, side_n):
+    tdx = tdy = side_length // side_n
+    xc = np.arange(tdx // 2, tdx * side_n, tdx // 2)
+    yc = np.arange(tdy // 2, tdy * side_n, tdy // 2)
+    co = np.array(np.meshgrid(xc, yc)).reshape(2, -1)
+    # res = np.ravel_multi_index(co, [side_length, side_length])
+    return co
+
+
+coords = coord_center(1024, 8)
+z = np.zeros([1024, 1024])
+for a in coords[0]:
+    for b in coords[1]:
+        z[a, b] = 10000
+zf = ift.makeField(position_space, z)
+
+# plot_result(zf, "s_debug.png", logscale=True)
+# plot_result(conv_op(zf), "sr_debug.png", logscale=True, vmin=1)
+
+f = ift.from_random(conv.domain)
+
+
 signal_response = mask @ normed_exposure @ conv
 
+# plot_result(signal(f), "mock_signal.png", logscale=False)
+# plot_result(conv(f), "mock_sres.png", logscale=False)
 ic_newton = ift.AbsDeltaEnergyController(
     name="Newton", deltaE=0.5, iteration_limit=5, convergence_level=5
 )
@@ -106,9 +128,8 @@ H = ift.StandardHamiltonian(likelihood, ic_sampling)
 minimizer_sampling = None
 pos = 0.1 * ift.from_random(signal.domain)
 
-if False:
-    pos = ift.ResidualSampleList.load_mean("result")
-
+if True:
+    pos = ift.ResidualSampleList.load_mean("result_new")
 if False:
     H = ift.EnergyAdapter(pos, H, want_metric=True)
     H, _ = minimizer(H)
@@ -130,38 +151,38 @@ if False:
     np.save("map_reconstruction.npy", dct)
 
 else:
-    for ii in range(1):
-        # if ii >= 1:
-        #     ic_newton = ift.AbsDeltaEnergyController(
-        #         name="Newton", deltaE=0.5, iteration_limit=5, convergence_level=5
-        #     )
-        #     minimizer_sampling = ift.NewtonCG(
-        #         ift.AbsDeltaEnergyController(
-        #             name="Sampling (nonlin)",
-        #             deltaE=0.5,
-        #             convergence_level=2,
-        #             iteration_limit=10,
-        #         )
-        #     )
+    for ii in range(10):
+        if ii >= 0:
+            ic_newton = ift.AbsDeltaEnergyController(
+                name="Newton", deltaE=0.5, iteration_limit=5, convergence_level=5
+            )
+            minimizer_sampling = ift.NewtonCG(
+                ift.AbsDeltaEnergyController(
+                    name="Sampling (nonlin)",
+                    deltaE=0.5,
+                    convergence_level=2,
+                    iteration_limit=10,
+                )
+            )
 
-        #     minimizer = ift.NewtonCG(ic_newton)
-        # KL = ift.SampledKLEnergy(pos, H, 4, minimizer_sampling, True, comm=mpi.comm)
-        # KL, _ = minimizer(KL)
-        # pos = KL.position
-        # ift.extra.minisanity(
-        #     masked_data,
-        #     lambda x: ift.makeOp(1 / signal_response(x)),
-        #     signal_response,
-        #     KL.samples,
-        # )
-        # KL.samples.save("result_new")
+            minimizer = ift.NewtonCG(ic_newton)
+        KL = ift.SampledKLEnergy(pos, H, 4, minimizer_sampling, True, comm=mpi.comm)
+        KL, _ = minimizer(KL)
+        pos = KL.position
+        ift.extra.minisanity(
+            masked_data,
+            lambda x: ift.makeOp(1 / signal_response(x)),
+            signal_response,
+            KL.samples,
+        )
+        KL.samples.save("result_new")
         samples = ift.ResidualSampleList.load("result_new", comm=mpi.comm)
         mean, var = samples.sample_stat(signal)
-        sr_mean, sr_var = samples.sample_stat(conv)
+        sr_mean, sr_var = samples.sample_stat(normed_exposure @ conv)
         # plotting check
 
         if mpi.master:
-            plot_result(mean, "svpsf_mean.png", logscale=True)  # vmin=0,vmax=10)
-            plot_result(sr_mean, "svpsf_sr_mean.png", logscale=True)  # vmin=0,vmax=10)
-            plot_result(var.sqrt(), "svpsf_poststd.png", logscale=True)  # , vmin=0, vmax=3)
-            plot_result(data_field, "11713_data.png", logscale=True)  # , logscalevmin=0, vmax=10)
+            plot_result(mean, "svpsf_mean.png", logscale=False, vmin=0,vmax=10)
+            plot_result(sr_mean, "svpsf_sr_mean.png", logscale=False, vmin=0,vmax=10)
+            plot_result(var.sqrt(), "svpsf_poststd.png", logscale=False , vmin=0, vmax=3)
+            plot_result(data_field, "11713_data.png", logscale=False, vmin=0, vmax=10)
