@@ -27,6 +27,7 @@ info = ChandraObservationInformation(obses[0], npix_s, npix_e, fov, elim, center
 psf_ra = (3 + 19 / 60 + 48.1 / 3600) * 15
 psf_dec = 41 + 30 / 60 + 42 / 3600
 
+
 psf_sim = info.get_psf_fromsim((psf_ra, psf_dec), "./psf", num_rays=1e7)
 psf_sim = ift.makeField(data_domain, psf_sim)
 plot_slices(psf_sim, "psfSIM_obs4952.png", logscale=True)
