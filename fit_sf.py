@@ -75,7 +75,8 @@ zp_central = ift.FieldZeroPadder(position_space, zp_position_space.shape, centra
 
 psf = zp_central(psf_norm)
 convolved = convolve_field_operator(psf, signal)
-conv = zp.adjoint @ convolved
+conv = convolved
+
 signal_response = mask @ normed_exposure @ conv
 
 ic_newton = ift.AbsDeltaEnergyController(
