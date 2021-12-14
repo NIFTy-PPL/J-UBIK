@@ -47,10 +47,9 @@ priors_diffuse = {
 diffuse = ift.SimpleCorrelatedField(position_space, **priors_diffuse)
 pspec = diffuse.power_spectrum
 diffuse = diffuse.exp()
-diffuse = diffuse.clip(a_min=0,a_max=30)
-points = ift.InverseGammaOperator(position_space, 0.7, 1e-7)
-points = points.ducktape('points')
-signal = diffuse + points
+points = ift.InverseGammaOperator(position_space, alpha=3, q=0.7)  # 3,0.7, 1.2, 0.02
+points = points.ducktape("points")
+signal = points + diffuse
 signal = signal.real
 
 # p=ift.Plot()
