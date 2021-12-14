@@ -31,15 +31,15 @@ mask = get_mask_operator(exp_field)
 
 priors_diffuse = {
     "offset_mean": 0,
-    "offset_std": (0.3, 0.05),
+    "offset_std": (1, 0.5),
     # Amplitude of field fluctuations
-    "fluctuations": (0.5, 0.5),  # 1.0, 1e-2
+    "fluctuations": (1, 1),  # 1.0, 1e-2
     # Exponent of power law power spectrum component
-    "loglogavgslope": (-1.5, 0.5),  # -6.0, 1
+    "loglogavgslope": (-3.0, 1.5),  # -6.0, 1
     # Amplitude of integrated Wiener process power spectrum component
-    "flexibility": (1.0, 0.5),  # 2.0, 1.0
+    "flexibility": (2.0, 2.0),  # 2.0, 1.0
     # How ragged the integrated Wiener process component is
-    "asperity": None,  # 0.1, 0.5
+    "asperity": (0.1, 0.5),  # 0.1, 0.5
     "prefix": "diffuse",
 }
 
