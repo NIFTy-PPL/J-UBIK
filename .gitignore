@@ -4,6 +4,7 @@
 *.png
 *.fits
 *.npy
+*.pdf
 data/**
 res/**
 .DS_Store
