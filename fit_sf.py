@@ -60,7 +60,9 @@ nl_sampling_minimizer = None
 pos = 0.1 * ift.from_random(signal.domain)
 
 if True:
-    pos = ift.ResidualSampleList.load_mean("sipsf_result")
+    pos = ift.ResidualSampleList.load_mean("new_rec/pickle/last")
+    rstate = open("new_rec/pickle/nifty_random_state_last", "rb").read()
+    ift.random.setState(rstate)
     print("loaded")
 
 
@@ -72,11 +74,14 @@ def callback(samples):
         samples,
     )
     ps_mean, ps_var = samples.sample_stat(points)
+    sr_mean, sr_var = samples.sample_stat(mask.adjoint(signal_response))
     plot_result(ps_mean, "new_rec/point_sources/ps_mean.png", logscale=True, vmin=1)
+    plot_result(sr_mean, "new_rec/sr_mean.png", logscale=True, vmin=1)
+    plot_result(mask.adjoint(masked_data)-sr_mean, "new_rec/residuals.png", logscale=False)
 
 
 global_it = 1
-n_samples = 4
+n_samples = 8
 samples = ift.optimize_kl(
     likelihood,
     global_it,
@@ -97,43 +102,7 @@ samples = ift.optimize_kl(
     overwrite=True
 )
 
-# for ii in range(10):
-#     N_samples = 4
-#     if ii >= 0:
-#         ic_newton = ift.AbsDeltaEnergyController(
-#             name="Newton", deltaE=0.5, iteration_limit=5, convergence_level=5
-#         )
-#         minimizer_sampling = ift.NewtonCG(
-#             ift.AbsDeltaEnergyController(
-#                 name="Sampling (nonlin)",
-#                 deltaE=0.5,
-#                 convergence_level=2,
-#                 iteration_limit=10,
-#             )
-#         )
-#         minimizer = ift.NewtonCG(ic_newton)
-#         N_samples=8
-#     KL = ift.SampledKLEnergy(pos, H, N_samples, minimizer_sampling, True, comm=mpi.comm)
-#     KL, _ = minimizer(KL)
-#     pos = KL.position
-#     ift.extra.minisanity(
-#         masked_data,
-#         lambda x: ift.makeOp(1 / signal_response(x)),
-#         signal_response,
-#         KL.samples,
-#     )
-#     KL.samples.save("sipsf_result")
-#     samples = ift.ResidualSampleList.load("sipsf_result", comm=mpi.comm)
-#     mean, var = samples.sample_stat(signal)
-#     ps_mean, ps_var = samples.sample_stat(points)
-#     sr_mean, sr_var = samples.sample_stat(normed_exposure @ conv)
-#     # plotting check
-
-#     if mpi.master:
-#         plot_result(mean, "sipsf_mean.png", logscale=False, vmin=0, vmax=10)
-#         plot_result(ps_mean, "sipsf_ps_mean.png", logscale=False, vmin=0)  # ,vmax=10)
-#         plot_result(var.sqrt(), "sipsf_poststd.png", logscale=False, vmin=0, vmax=3)
-#         plot_result(data_field, "11713_sipsf_data.png", logscale=True, vmin=1)
-#         plot_result(sr_mean, "sipsf_sr_mean.png", logscale=False, vmin=0 , vmax=10)
-#         plot_result(
-#             data_field - sr_mean, "sipsf_residuals", logscale=False)
+pos = ift.ResidualSampleList.load_mean("sipsf_result")
+signal_response_pos = mask.adjoint(signal_response(pos))
+res = mask.adjoint(masked_data)- signal_response_pos
+plot_result(res,"test_res.png")
