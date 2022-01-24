@@ -10,4 +10,3 @@ obs3209 = {\
             'bpix_file'     : 'primary/acisf03209_000N004_bpix1.fits',
             'mask_file'     : 'secondary/acisf03209_000N004_msk1.fits'
 }
-#more configs needed as soon as downloaded

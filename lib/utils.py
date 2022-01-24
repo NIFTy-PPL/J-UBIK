@@ -191,3 +191,21 @@ def makePositiveSumPrior(domain, number):
     positive_sum = PositiveSumPriorOperator(distributions.target)
     op = positive_sum @ distributions
     return op
+
+def field_T(field):
+    domain = field.domain
+    arr = field.val.T
+    res = ift.Field.from_raw(domain, arr)
+    return res
+
+
+class Transposer(ift.EndomorphicOperator):
+    def __init__(self, domain):
+        self._domain = ift.makeDomain(domain)
+        self._target = self.domain
+        self._capability = self.TIMES | self.ADJOINT_TIMES
+
+    def apply(self, x, mode):
+        self._check_input(x, mode)
+        res = ift.Field.from_raw(self._tgt(mode), x.val.T)
+        return res

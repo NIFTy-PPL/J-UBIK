@@ -1,4 +1,4 @@
-Seq Num,Obs ID,Instrument,Grating,Appr. Exp (s),Exposure (s),Target Name,PI,RA,DEC,Status,Data Mode,Exp Mode,Avg Cnt Rate,Evt Counts,Start Date,Publich Release Date,Proposal,Type,Obs Cycle,Prop Cycle,Sciencs Category,Joint
+Seq Num,Obs ID,Instrument,Grating,Appr. Exp (ks),Exposure (ks),Target Name,PI,RA,DEC,Status,Data Mode,Exp Mode,Avg Cnt Rate,Evt Counts,Start Date,Publich Release Date,Proposal,Type,Obs Cycle,Prop Cycle,Sciencs Category,Joint
 800209,3209,ACIS-S,NONE,97,95.77,ABELL 426,Fabian,03 19 47.60,+41 30 37.00,archived,FAINT,TE,97.42,9330115,2002-08-08 08:03:50,2003-08-21 06:15:11,3800286,GO,3,3,CLUSTERS OF GALAXIES,None
 800209,3404,ACIS-S,NONE,5,5.31,ABELL 426,Fabian,03 19 47.60,+41 30 37.00,archived,FAINT,TE,21.14,112345,2002-08-11 15:58:56,2003-08-21 06:15:11,3800286,GO,3,3,CLUSTERS OF GALAXIES,None
 800209,4289,ACIS-S,NONE,96.5,95.41,ABELL 426,Fabian,03 19 47.60,+41 30 37.00,archived,FAINT,TE,97.5,9303275,2002-08-10 12:51:55,2003-08-21 06:15:11,3800286,GO,3,3,CLUSTERS OF GALAXIES,None
