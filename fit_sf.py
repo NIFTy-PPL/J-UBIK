@@ -6,6 +6,10 @@ from lib.output import plot_result
 import lib.mpi as mpi
 
 ift.set_nthreads(2)
+import yaml
+
+with open("config.yaml", 'r') as cfg_file:
+    cfg = yaml.safe_load(cfg_file)
 
 npix_s = 1024  # number of spacial bins per axis
 fov = 4.0
@@ -29,25 +33,10 @@ normed_exposure = ift.makeOp(normed_exposure)
 
 mask = get_mask_operator(exp_field)
 
-priors_diffuse = {
-    "offset_mean": 0,
-    "offset_std": (1, 0.5),
-    # Amplitude of field fluctuations
-    "fluctuations": (1, 1),  # 1.0, 1e-2
-    # Exponent of power law power spectrum component
-    "loglogavgslope": (-3.0, 1.5),  # -6.0, 1
-    # Amplitude of integrated Wiener process power spectrum component
-    "flexibility": (2.0, 2.0),  # 2.0, 1.0
-    # How ragged the integrated Wiener process component is
-    "asperity": (0.1, 0.5),  # 0.1, 0.5
-    "prefix": "diffuse",
-}
-
-
-diffuse = ift.SimpleCorrelatedField(position_space, **priors_diffuse)
+diffuse = ift.SimpleCorrelatedField(position_space, **cfg['priors_diffuse'])
 pspec = diffuse.power_spectrum
 diffuse = diffuse.exp()
-points = ift.InverseGammaOperator(position_space, alpha=3, q=0.7)  # 3,0.7, 1.2, 0.02
+points = ift.InverseGammaOperator(position_space, **cfg['points'])
 points = points.ducktape("points")
 signal = points + diffuse
 signal = signal.real

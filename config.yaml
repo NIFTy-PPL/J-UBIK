@@ -1,0 +1,23 @@
+priors_diffuse:
+  offset_mean: 0
+  offset_std: [1, 0.5]
+  fluctuations: [1, 1]
+  loglogavgslope: [-3.0, 1.5]
+  flexibility: [2.0, 2.0]
+  asperity: [0.1, 0.5]
+  prefix: diffuse
+
+points:
+  alpha: 3
+  q: 0.7
+
+ic_newton:
+  name: Newton
+  deltaE: 0.5
+  iteration_limit: 30
+  convergence_level: 5
+
+ic_sampling:
+  name: Sampling(lin)
+  deltaE: 0.05
+  iteration_limit: 200
