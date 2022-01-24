@@ -26,10 +26,10 @@ This directory contains utility functions, i/o, plotting routines, messages, etc
 ## Installation of CIAO
 More information on this sections follows
 
-## to do Ubik retreat
-- [ ] polish response + documentation (Parameter)
-- [ ] energy dependency
+## to do 
 - [x] list of observations
+- [ ] documentation (model and parameters)
+- [ ] document response
+- [ ] energy dependency / reconstruct energy bands separately
 - [ ] data fusion
-- [ ] repsonse w/ energy dependency
 - [ ] start run
