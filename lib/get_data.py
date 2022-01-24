@@ -1,11 +1,7 @@
 import nifty8 as ift
 import numpy as np
 import sys
-
-from obs.obs4952 import obs4952
-from obs.obs4948 import obs4948
-from obs.obs11713 import obs11713
-from obs.obs14410 import obs14410
+import yaml
 from lib.observation import ChandraObservationInformation
 from lib.output import plot_slices
 
@@ -14,8 +10,11 @@ npix_s = 1024  # number of spacial bins per axis
 npix_e = 4  # number of log-energy bins
 fov = 4.0  # FOV in arcmin
 elim = (2.0, 10.0)  # energy range in keV
-# TODO Lower limit? sollte das nicht bis 0.1 keV runter gehen=
+# TODO Lower limit? sollte das nicht bis 0.1 keV runter gehen
 ################################################
+
+with open("obs/obs.yaml", 'r') as cfg_file:
+    obs_info = yaml.safe_load(cfg_file)
 
 outroot = sys.argv[1]
 data_domain = ift.DomainTuple.make(
@@ -28,7 +27,7 @@ data_domain = ift.DomainTuple.make(
 center = None
 
 # retrive data
-info = ChandraObservationInformation(obs4952, npix_s, npix_e, fov, elim, center)
+info = ChandraObservationInformation(obs_info['obs4952'], npix_s, npix_e, fov, elim, center)
 data = info.get_data(f"./data_4952.fits")
 data = ift.makeField(data_domain, data)
 plot_slices(data, outroot + f"_data_4952.png", logscale=True)
@@ -49,7 +48,7 @@ np.save(
     outroot + f"_4952_" + "observation.npy", {"data": data, "exposure": exposure, 'psf_sim':psf_sim})
 # center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
 
-# info = ChandraObservationInformation(obs11713, npix_s, npix_e, fov, elim, center)
+# info = ChandraObservationInformation(obs_info['obs11713'], npix_s, npix_e, fov, elim, center)
 # data = info.get_data(f"./data_11713.fits")
 # data = ift.makeField(data_domain, data)
 # plot_slices(data, outroot + f"_data_11713.png", logscale=True)
