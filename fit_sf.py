@@ -41,26 +41,15 @@ points = points.ducktape("points")
 signal = points + diffuse
 signal = signal.real
 
-# p=ift.Plot()
-# for i in range(10):
-#     f = ift.from_random(signal.domain)
-#     p.add(diffuse.force(f))
-#     p.add(points.force(f))
-#     p.add(signal.force(f))
-# p.output(name='priorsamples.png',nx=3,ny=10, xsize=20,ysize=60, dpi=100)
-# exit()
+transpose = Transposer(signal.target)
 psf = psf_norm
 convolved = convolve_field_operator(psf, signal)
 conv = convolved
 
 signal_response = mask @ normed_exposure @ conv
 
-ic_newton = ift.AbsDeltaEnergyController(
-    name="Newton", deltaE=0.5, iteration_limit=5, convergence_level=5
-)
-ic_sampling = ift.AbsDeltaEnergyController(
-    name="Samplig(lin)", deltaE=0.05, iteration_limit=50
-)
+ic_newton = ift.AbsDeltaEnergyController(**cfg['ic_newton'])
+ic_sampling = ift.AbsDeltaEnergyController(**cfg['ic_sampling'])
 
 masked_data = mask(data_field)
 likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
@@ -96,9 +85,9 @@ samples = ift.optimize_kl(
     ic_sampling,
     nl_sampling_minimizer,
     plottable_operators={
-        "signal": signal,
-        "point_sources": points,
-        "diffuse": diffuse,
+        "signal": transpose@signal,
+        "point_sources": transpose@points,
+        "diffuse": transpose@diffuse,
         "power_spectrum": pspec,
     },
     output_directory="new_rec",
