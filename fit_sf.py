@@ -4,8 +4,6 @@ import matplotlib.pylab as plt
 from lib.utils import get_normed_exposure, get_mask_operator, convolve_field_operator, Transposer
 from lib.output import plot_result
 import lib.mpi as mpi
-
-ift.set_nthreads(2)
 import yaml
 
 with open("config.yaml", 'r') as cfg_file:
