@@ -11,20 +11,21 @@ with open("config.yaml", 'r') as cfg_file:
 
 npix_s = 1024  # number of spacial bins per axis
 fov = 4.0
+energy_bin = 0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 
 info = np.load("chandra_4952_observation.npy", allow_pickle=True).item()
 psf_file = np.load("psf_obs4952.npy", allow_pickle=True).item()
 
-psf_arr = psf_file.val[:, :, 0]
+psf_arr = psf_file.val[:, :, energy_bin]
 psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
 psf_field = ift.Field.from_raw(position_space, psf_arr)
 norm = ift.ScalingOperator(position_space, psf_field.integrate().val ** -1)
 psf_norm = norm(psf_field)
-data = info["data"].val[:, :, 0]
+data = info["data"].val[:, :, energy_bin]
 data_field = ift.Field.from_raw(position_space, data)
 
-exp = info["exposure"].val[:, :, 0]
+exp = info["exposure"].val[:, :, energy_bin]
 exp_field = ift.Field.from_raw(position_space, exp)
 normed_exposure = get_normed_exposure(exp_field, data_field)
 normed_exposure = ift.makeOp(normed_exposure)
@@ -100,7 +101,3 @@ samples = ift.optimize_kl(
     overwrite=True
 )
 
-pos = ift.ResidualSampleList.load_mean("sipsf_result")
-signal_response_pos = mask.adjoint(signal_response(pos))
-res = mask.adjoint(masked_data)- signal_response_pos
-plot_result(res,"test_res.png")
