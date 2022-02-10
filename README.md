@@ -8,6 +8,15 @@ Also the instrument exposure and psf are simulated by [Ciao](https://cxc.cfa.har
 - marx
 - matplotlib
 
+
+## Installation of Dependencies
+Information on how to install NIFTy8 can be found [here](https://gitlab.mpcdf.mpg.de/ift/nifty)
+
+### Guide for Ciao & Marx
+- how to install [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html)
+- how to install [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
+- set an alias in your bashrc. to source ciao and marx easily
+
 ## Observations
 Either get the data [here](https://cda.harvard.edu/chaser/) or via `download_chandra_obsid` as described [here](https://cxc.cfa.harvard.edu/ciao/threads/archivedownload/). The information about the location, obsID, etc. of you data should be stored in /obs/obs.yaml.
 
@@ -26,11 +35,6 @@ More information about the data processing?
 ## lib 
 This directory contains utility functions, i/o, plotting routines, messages, etc.
 
-## Installation of CIAO
-More information on this sections follows
-- how to install [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html)
-- how to install [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
-- set an alias in your bashrc. to source ciao and marx easily
 
 ## to do 
 - [x] list of observations
