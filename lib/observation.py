@@ -238,7 +238,7 @@ class ChandraObservationInformation():
             # calculate the instrument map
             ############################
             # the instrument map is essentially the product of the mirror effective area projected onto the detector surface with
-            # the detector quantum efficiency, [units = cm**(2) counts/photon], ans also accounts for bad pixels
+            # the detector quantum efficiency, [units = cm**(2) counts/photon], and also accounts for bad pixels
             # see https://cxc.harvard.edu/ciao/ahelp/mkinstmap.html
 
             rt.mkinstmap.punlearn()

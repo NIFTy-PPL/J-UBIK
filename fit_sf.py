@@ -14,7 +14,8 @@ fov = 4.0
 energy_bin = 0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 
-info = np.load("chandra_4952_observation.npy", allow_pickle=True).item()
+info = np.load(cfg['dataset']['observation'], allow_pickle=True).item()
+print(info)
 psf_file = np.load("psf_obs4952.npy", allow_pickle=True).item()
 
 psf_arr = psf_file.val[:, :, energy_bin]
@@ -58,7 +59,7 @@ H = ift.StandardHamiltonian(likelihood, ic_sampling)
 nl_sampling_minimizer = None
 pos = 0.1 * ift.from_random(signal.domain)
 
-if True:
+if False:
     pos = ift.ResidualSampleList.load_mean("new_rec/pickle/last")
     rstate = open("new_rec/pickle/nifty_random_state_last", "rb").read()
     ift.random.setState(rstate)
@@ -97,7 +98,7 @@ samples = ift.optimize_kl(
     output_directory="new_rec",
     initial_position=pos,
     comm=mpi.comm,
-    callback=callback,
+    inspect_callback=callback,
     overwrite=True
 )
 
