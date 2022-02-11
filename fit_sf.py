@@ -9,6 +9,8 @@ import yaml
 with open("config.yaml", 'r') as cfg_file:
     cfg = yaml.safe_load(cfg_file)
 
+#TODO Write "Build Model" and Build Likelihood
+
 npix_s = 1024  # number of spacial bins per axis
 fov = 4.0
 energy_bin = 0

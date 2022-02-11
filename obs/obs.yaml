@@ -60,3 +60,31 @@ obs16627:
   bpix_file: primary/acisf16627_000N003_bpix1.fits
   mask_file: secondary/acisf16627_000N003_msk1.fits
   instrument: ACIS-I
+
+########################SN1006##################
+obs13737:
+  obsID: 13737
+  data_location: data/13737/
+  event_file: primary/acis13737N003_evt2.fits
+  aspect_sol: primary/pcadf13737_000N001_asol1.fits
+  bpix_file: primary/acisf13737_000N003_bpix1.fits
+  mask_file: secondary/acisf13737_000N003_msk1.fits
+  instrument: ACIS-S
+
+obs13738:
+  obsID: 13738
+  data_location: data/13738/
+  event_file: primary/acis13738N003_evt2.fits
+  aspect_sol: primary/pcadf13738_000N001_asol1.fits
+  bpix_file: primary/acisf13738_000N003_bpix1.fits
+  mask_file: secondary/acisf13738_000N003_msk1.fits
+  instrument: ACIS-I
+
+obs13739:
+  obsID: 13739
+  data_location: data/13739/
+  event_file: primary/acis13739N003_evt2.fits
+  aspect_sol: primary/pcadf13739_000N001_asol1.fits
+  bpix_file: primary/acisf13739_000N003_bpix1.fits
+  mask_file: secondary/acisf13739_000N003_msk1.fits
+  instrument: ACIS-I
