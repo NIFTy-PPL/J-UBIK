@@ -16,32 +16,7 @@ fov = 21.0
 energy_bin = 0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 
-
-
-#Loop
-info = np.load(cfg['dataset']['observation'], allow_pickle=True).item()
-
-#PSF
-psf_arr = psf_file.val[:, :, energy_bin]
-psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
-psf_field = ift.Field.from_raw(position_space, psf_arr)
-norm = ift.ScalingOperator(position_space, psf_field.integrate().val ** -1)
-psf_norm = norm(psf_field)
-
-#Data
-data = info["data"].val[:, :, energy_bin]
-data_field = ift.Field.from_raw(position_space, data)
-
-#Exp
-exp = info["exposure"].val[:, :, energy_bin]
-exp_field = ift.Field.from_raw(position_space, exp)
-# normed_exposure = get_normed_exposure(exp_field, data_field)
-normed_exposure = ift.makeOp(exp_field)
-
-#Mask
-mask = get_mask_operator(exp_field)
-
-#Model
+#Model P(s)
 diffuse = ift.SimpleCorrelatedField(position_space, **cfg['priors_diffuse'])
 pspec = diffuse.power_spectrum
 diffuse = diffuse.exp()
@@ -50,29 +25,53 @@ points = points.ducktape("points")
 signal = points + diffuse
 signal = signal.real
 
-#Likelihood 1
-transpose = Transposer(signal.target)
-psf = psf_norm
-convolved = convolve_field_operator(psf, signal)
-conv = convolved
-signal_response = mask @ normed_exposure @ conv
+#Likelihood P(d|s)
 
+likelihood_list = []
+for dataset in cfg['datasets']:
+    #Loop
+    observation = np.load(cfg['datasets'][dataset], allow_pickle=True).item()
 
-#Likelihood 2
-transpose = Transposer(signal.target)
-psf = psf_norm
-convolved = convolve_field_operator(psf, signal)
-conv = convolved
-signal_response = mask @ normed_exposure @ conv
+    #PSF
+    psf_arr = observation['psf_sim'].val[:, :, energy_bin]
+    psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
+    psf_field = ift.Field.from_raw(position_space, psf_arr)
+    norm = ift.ScalingOperator(position_space, psf_field.integrate().val ** -1)
+    psf_norm = norm(psf_field)
 
+    #Data
+    data = observation["data"].val[:, :, energy_bin]
+    data_field = ift.Field.from_raw(position_space, data)
 
+    #Exp
+    exp = observation["exposure"].val[:, :, energy_bin]
+    exp_field = ift.Field.from_raw(position_space, exp)
+    # normed_exposure = get_normed_exposure(exp_field, data_field)
+    normed_exposure = ift.makeOp(exp_field)
+
+    #Mask
+    mask = get_mask_operator(exp_field)
+
+    #Likelihood
+    transpose = Transposer(signal.target)
+    psf = psf_norm
+    convolved = convolve_field_operator(psf, signal)
+    conv = convolved
+    signal_response = mask @ normed_exposure @ conv
+
+    masked_data = mask(data_field)
+    likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
+    likelihood_list.append(likelihood)
+
+likelihood_sum = likelihood_list[0]
+for i in range(1, len(likelihood_list)):
+    likelihood_sum = likelihood_sum + likelihood_list[i]
+
+# End of Loop
 ic_newton = ift.AbsDeltaEnergyController(**cfg['ic_newton'])
 ic_sampling = ift.AbsDeltaEnergyController(**cfg['ic_sampling'])
-
-masked_data = mask(data_field)
-likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
 minimizer = ift.NewtonCG(ic_newton)
-H = ift.StandardHamiltonian(likelihood, ic_sampling)
+H = ift.StandardHamiltonian(likelihood_sum, ic_sampling)
 
 nl_sampling_minimizer = None
 pos = 0.1 * ift.from_random(signal.domain)
