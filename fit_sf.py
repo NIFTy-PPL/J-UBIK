@@ -84,14 +84,14 @@ def callback(samples):
         signal_response,
         samples,
     )
-    ps_mean, ps_var = samples.sample_stat(points)
-    sr_mean, sr_var = samples.sample_stat(mask.adjoint(signal_response))
-    plot_result(ps_mean, "new_rec/point_sources/ps_mean.png", logscale=True, vmin=1)
-    plot_result(sr_mean, "new_rec/sr_mean.png", logscale=True, vmin=1)
-    plot_result(mask.adjoint(masked_data)-sr_mean, "new_rec/residuals.png", logscale=False)
+    # ps_mean, ps_var = samples.sample_stat(points)
+    # sr_mean, sr_var = samples.sample_stat(mask.adjoint(signal_response))
+    # plot_result(ps_mean, "new_rec/point_sources/ps_mean.png", logscale=True, vmin=1)
+    # plot_result(sr_mean, "new_rec/sr_mean.png", logscale=True, vmin=1)
+    # plot_result(mask.adjoint(masked_data)-sr_mean, "new_rec/residuals.png", logscale=False)
 
 
-global_it = 1
+global_it = cfg['global_it']
 n_samples = 8
 samples = ift.optimize_kl(
     likelihood,
@@ -106,7 +106,7 @@ samples = ift.optimize_kl(
         "diffuse": transpose@diffuse,
         "power_spectrum": pspec,
     },
-    output_directory="new_rec",
+    output_directory="df_rec",
     initial_position=pos,
     comm=mpi.comm,
     inspect_callback=callback,

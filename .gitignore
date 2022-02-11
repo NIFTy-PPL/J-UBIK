@@ -9,4 +9,5 @@ oldstuff/*
 *.pdf
 data/**
 res/**
+df_rec/
 .DS_Store

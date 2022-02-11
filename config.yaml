@@ -14,13 +14,15 @@ points:
 ic_newton:
   name: Newton
   deltaE: 0.5
-  iteration_limit: 1
+  iteration_limit: 5
   convergence_level: 5
 
 ic_sampling:
   name: Sampling(lin)
   deltaE: 0.05
-  iteration_limit: 10
+  iteration_limit: 100
+
+global_it: 10
 
 datasets:
   data_w: df_13738_observation.npy 
