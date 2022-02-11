@@ -21,3 +21,7 @@ ic_sampling:
   name: Sampling(lin)
   deltaE: 0.05
   iteration_limit: 200
+
+dataset:
+  observation: chandra_4952_observation.npy
+  psf: psf_obs4952.npy
