@@ -12,52 +12,33 @@ with open("config.yaml", 'r') as cfg_file:
 #TODO Write "Build Model" and Build Likelihood
 
 npix_s = 1024  # number of spacial bins per axis
-fov = 4.0
+fov = 21.0
 energy_bin = 0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 
+
+
+#Loop
 info = np.load(cfg['dataset']['observation'], allow_pickle=True).item()
-psf_file = np.load("psf_obs4952.npy", allow_pickle=True).item()
 
-### PSF1
+#PSF
 psf_arr = psf_file.val[:, :, energy_bin]
 psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
 psf_field = ift.Field.from_raw(position_space, psf_arr)
 norm = ift.ScalingOperator(position_space, psf_field.integrate().val ** -1)
 psf_norm = norm(psf_field)
 
-### PSF2
-psf_arr = psf_file.val[:, :, energy_bin]
-psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
-psf_field = ift.Field.from_raw(position_space, psf_arr)
-norm = ift.ScalingOperator(position_space, psf_field.integrate().val ** -1)
-psf_norm = norm(psf_field)
-
-#Data 1
+#Data
 data = info["data"].val[:, :, energy_bin]
 data_field = ift.Field.from_raw(position_space, data)
 
-
-#Data 2
-data = info["data"].val[:, :, energy_bin]
-data_field = ift.Field.from_raw(position_space, data)
-
-#Exp 1
+#Exp
 exp = info["exposure"].val[:, :, energy_bin]
 exp_field = ift.Field.from_raw(position_space, exp)
 # normed_exposure = get_normed_exposure(exp_field, data_field)
 normed_exposure = ift.makeOp(exp_field)
 
-#Exp 1
-exp = info["exposure"].val[:, :, energy_bin]
-exp_field = ift.Field.from_raw(position_space, exp)
-# normed_exposure = get_normed_exposure(exp_field, data_field)
-normed_exposure = ift.makeOp(exp_field)
-
-#Mask 1
-mask = get_mask_operator(exp_field)
-
-#Mask 2
+#Mask
 mask = get_mask_operator(exp_field)
 
 #Model
