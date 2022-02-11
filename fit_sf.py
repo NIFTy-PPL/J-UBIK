@@ -71,7 +71,6 @@ for i in range(1, len(likelihood_list)):
 ic_newton = ift.AbsDeltaEnergyController(**cfg['ic_newton'])
 ic_sampling = ift.AbsDeltaEnergyController(**cfg['ic_sampling'])
 minimizer = ift.NewtonCG(ic_newton)
-H = ift.StandardHamiltonian(likelihood_sum, ic_sampling)
 
 nl_sampling_minimizer = None
 pos = 0.1 * ift.from_random(signal.domain)
@@ -94,7 +93,7 @@ def callback(samples):
 global_it = cfg['global_it']
 n_samples = 8
 samples = ift.optimize_kl(
-    likelihood,
+    likelihood_sum,
     global_it,
     n_samples,
     minimizer,
