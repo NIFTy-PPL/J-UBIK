@@ -1,7 +1,9 @@
+import math
+
 import nifty8 as ift
 import numpy as np
 import matplotlib.pylab as plt
-from lib.utils import get_normed_exposure, get_mask_operator, convolve_field_operator, Transposer
+from lib.utils import get_norm, get_mask_operator, convolve_field_operator, Transposer
 from lib.output import plot_result
 import lib.mpi as mpi
 import yaml
@@ -45,7 +47,9 @@ for dataset in cfg['datasets']:
 
     #Exp
     exp = observation["exposure"].val[:, :, energy_bin]
-    exp_field = ift.Field.from_raw(position_space, exp) *10e-8
+    if dataset == cfg['dataset'][0]:
+        norm_first_data = get_norm(exp_field, data_field)
+    exp_field = ift.Field.from_raw(position_space, exp) * norm_first_data
     # normed_exposure = get_normed_exposure(exp_field, data_field)
     normed_exposure = ift.makeOp(exp_field)
 

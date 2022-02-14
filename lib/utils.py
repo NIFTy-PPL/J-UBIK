@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import nifty8 as ift
 import scipy
@@ -16,6 +18,15 @@ def get_normed_exposure(exposure_field, data_field):
     normed_exp_field = exposure_field * norm
     return normed_exp_field
 
+def get_norm(exposure_field, data_field):
+    dom = exposure_field.domain
+    ratio = (
+        data_field.val[exposure_field.val != 0]
+        / exposure_field.val[exposure_field.val != 0]
+    )
+    norm = ratio.mean()
+    norm = 10**math.floor(math.log10(norm))
+    return norm
 
 def prior_sample_plotter(opchain, n):
     fig, ax = plt.subplots(1, n, figsize=(11.7, 8.3), dpi=200)
