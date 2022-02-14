@@ -25,7 +25,15 @@ ic_sampling:
 global_it: 30
 
 datasets:
-  data_w: df_13738_observation.npy 
-  data_nw: df_13737_observation.npy 
-  data_sw: df_13739_observation.npy 
+  - df_14423_observation.npy 
+  - df_9107_observation.npy 
+  - df_13738_observation.npy 
+  - df_13737_observation.npy 
+  - df_13739_observation.npy 
+  - df_13740_observation.npy 
+  - df_13741_observation.npy 
+  - df_13742_observation.npy 
+  - df_13743_observation.npy 
+  - df_14424_observation.npy 
+  - df_14435_observation.npy 
 

@@ -32,7 +32,7 @@ signal = signal.real
 likelihood_list = []
 for dataset in cfg['datasets']:
     #Loop
-    observation = np.load(cfg['datasets'][dataset], allow_pickle=True).item()
+    observation = np.load(dataset, allow_pickle=True).item()
 
     #PSF
     psf_arr = observation['psf_sim'].val[:, :, energy_bin]
@@ -47,7 +47,7 @@ for dataset in cfg['datasets']:
 
     #Exp
     exp = observation["exposure"].val[:, :, energy_bin]
-    if dataset == cfg['dataset'][0]:
+    if dataset == cfg['datasets'][0]:
         norm_first_data = get_norm(exp_field, data_field)
     exp_field = ift.Field.from_raw(position_space, exp) * norm_first_data
     # normed_exposure = get_normed_exposure(exp_field, data_field)
