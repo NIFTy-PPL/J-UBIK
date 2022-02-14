@@ -22,7 +22,7 @@ ic_sampling:
   deltaE: 0.05
   iteration_limit: 100
 
-global_it: 10
+global_it: 30
 
 datasets:
   data_w: df_13738_observation.npy 

@@ -45,7 +45,7 @@ for dataset in cfg['datasets']:
 
     #Exp
     exp = observation["exposure"].val[:, :, energy_bin]
-    exp_field = ift.Field.from_raw(position_space, exp)
+    exp_field = ift.Field.from_raw(position_space, exp) *10e-8
     # normed_exposure = get_normed_exposure(exp_field, data_field)
     normed_exposure = ift.makeOp(exp_field)
 
@@ -83,6 +83,7 @@ def callback(samples):
         signal_response,
         samples,
     )
+    print(s)
     # ps_mean, ps_var = samples.sample_stat(points)
     # sr_mean, sr_var = samples.sample_stat(mask.adjoint(signal_response))
     # plot_result(ps_mean, "new_rec/point_sources/ps_mean.png", logscale=True, vmin=1)
@@ -109,6 +110,7 @@ samples = ift.optimize_kl(
     initial_position=pos,
     comm=mpi.comm,
     inspect_callback=callback,
-    overwrite=True
+    overwrite=True,
+    resume=True
 )
 
