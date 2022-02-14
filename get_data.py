@@ -12,7 +12,7 @@ fov = 21.0  # FOV in arcmin
 elim = (2.0, 10.0)  # energy range in keV // below 2 keV ARF very energy dependant
 ################################################
 
-with open("obs/obs.yaml", 'r') as cfg_file:
+with open("obs/obs.yaml", "r") as cfg_file:
     obs_info = yaml.safe_load(cfg_file)
 
 outroot = sys.argv[1]
@@ -24,27 +24,44 @@ data_domain = ift.DomainTuple.make(
 )
 
 # retrive data
-obslist = ["38","37","39"]
+obslist = [
+    "14423",
+    "9107",
+    "13738",
+    "13737",
+    "13739",
+    "13740",
+    "13741",
+    "13742",
+    "13743",
+    "14424",
+    "14435",
+]
+
 center = None
 for obsnr in obslist:
-    info = ChandraObservationInformation(obs_info['obs137'+obsnr], npix_s, npix_e, fov, elim, center)
-    data = info.get_data(f"./data_137{obsnr}.fits")
+    info = ChandraObservationInformation(
+        obs_info["obs" + obsnr], npix_s, npix_e, fov, elim, center
+    )
+    data = info.get_data(f"./data_{obsnr}.fits")
     data = ift.makeField(data_domain, data)
-    plot_slices(data, outroot + f"_data_137{obsnr}.png", logscale=True)
+    plot_slices(data, outroot + f"_data_{obsnr}.png", logscale=True)
 
     # compute the exposure map
-    exposure = info.get_exposure(f"./exposure_137{obsnr}")
+    exposure = info.get_exposure(f"./exposure_{obsnr}")
     exposure = ift.makeField(data_domain, exposure)
-    plot_slices(exposure, outroot + f"_exposure_137{obsnr}.png", logscale=True)
+    plot_slices(exposure, outroot + f"_exposure_{obsnr}.png", logscale=True)
 
     # compute the point spread function
     psf_sim = info.get_psf_fromsim(
         (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]), "./psf"
     )
     psf_sim = ift.makeField(data_domain, psf_sim)
-    plot_slices(psf_sim, outroot + f"_psfSIM_137{obsnr}.png", logscale=False)
+    plot_slices(psf_sim, outroot + f"_psfSIM_{obsnr}.png", logscale=False)
     np.save(
-        outroot + f"_137{obsnr}_" + "observation.npy", {"data": data, "exposure": exposure, 'psf_sim':psf_sim})
+        outroot + f"_{obsnr}_" + "observation.npy",
+        {"data": data, "exposure": exposure, "psf_sim": psf_sim},
+    )
 
     if obsnr == obslist[0]:
         center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
