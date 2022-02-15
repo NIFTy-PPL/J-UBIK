@@ -25,9 +25,10 @@ points = ift.InverseGammaOperator(position_space, **cfg['points'])
 points = points.ducktape("points")
 signal = points + diffuse
 signal = signal.real
+signal = signal.ducktape_left('full_signal')
 
 #Likelihood P(d|s)
-
+signal_fa = ift.FieldAdapter(signal.target['full_signal'], 'full_signal')
 likelihood_list = []
 for dataset in cfg['datasets']:
     #Loop
@@ -58,7 +59,7 @@ for dataset in cfg['datasets']:
     #Likelihood
     transpose = Transposer(signal.target)
     psf = psf_norm
-    convolved = convolve_field_operator(psf, signal)
+    convolved = convolve_field_operator(psf, signal_fa)
     conv = convolved
     signal_response = mask @ normed_exposure @ conv
 
@@ -69,6 +70,8 @@ for dataset in cfg['datasets']:
 likelihood_sum = likelihood_list[0]
 for i in range(1, len(likelihood_list)):
     likelihood_sum = likelihood_sum + likelihood_list[i]
+
+likelihood_sum = likelihood_sum(signal)
 
 # End of Loop
 ic_newton = ift.AbsDeltaEnergyController(**cfg['ic_newton'])
