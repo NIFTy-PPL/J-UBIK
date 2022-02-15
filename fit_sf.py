@@ -57,7 +57,6 @@ for dataset in cfg['datasets']:
     mask = get_mask_operator(normed_exp_field)
 
     #Likelihood
-    transpose = Transposer(signal.target)
     psf = psf_norm
     convolved = convolve_field_operator(psf, signal_fa)
     conv = convolved
@@ -82,6 +81,7 @@ nl_sampling_minimizer = None
 pos = 0.1 * ift.from_random(signal.domain)
 
 
+transpose = Transposer(signal.target)
 def callback(samples):
     s = ift.extra.minisanity(
         masked_data,
