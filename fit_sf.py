@@ -96,7 +96,7 @@ def callback(samples):
 
 
 global_it = cfg['global_it']
-n_samples = 8
+n_samples = cfg['Nsamples']
 samples = ift.optimize_kl(
     likelihood_sum,
     global_it,

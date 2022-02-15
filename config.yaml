@@ -23,6 +23,7 @@ ic_sampling:
   iteration_limit: 100
 
 global_it: 30
+Nsamples: 4
 
 datasets:
   - df_14423_observation.npy 
