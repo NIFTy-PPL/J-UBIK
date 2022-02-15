@@ -65,10 +65,10 @@ obs16627:
 obs9107:
   obsID: 9107
   data_location: data/9107/
-  event_file: primary/acisf9107N002_evt2.fits
-  aspect_sol: primary/pcadf9107_000N001_asol1.fits
-  bpix_file: primary/acisf9107_000N002_bpix1.fits
-  mask_file: secondary/acisf9107_000N002_msk1.fits
+  event_file: primary/acisf09107N003_evt2.fits
+  aspect_sol: primary/pcadf09107_000N001_asol1.fits
+  bpix_file: primary/acisf09107_000N003_bpix1.fits
+  mask_file: secondary/acisf09107_000N003_msk1.fits
   instrument: ACIS-S
 
 obs13737:
@@ -107,7 +107,7 @@ obs13740:
   mask_file: secondary/acisf13740_000N002_msk1.fits
   instrument: ACIS-I
 
-obs13739:
+obs13741:
   obsID: 13741
   data_location: data/13741/
   event_file: primary/acisf13741N002_evt2.fits
@@ -116,7 +116,7 @@ obs13739:
   mask_file: secondary/acisf13741_000N002_msk1.fits
   instrument: ACIS-I
 
-obs13739:
+obs13742:
   obsID: 13742
   data_location: data/13742/
   event_file: primary/acisf13742N002_evt2.fits
@@ -128,10 +128,10 @@ obs13739:
 obs13743:
   obsID: 13743
   data_location: data/13743/
-  event_file: primary/acisf13743N002_evt2.fits
-  aspect_sol: primary/pcadf13743_000N001_asol1.fits
-  bpix_file: primary/acisf13743_000N002_bpix1.fits
-  mask_file: secondary/acisf13743_000N002_msk1.fits
+  event_file: primary/acisf13743N003_evt2.fits
+  aspect_sol: primary/pcadf13743_000N002_asol1.fits
+  bpix_file: primary/acisf13743_000N003_bpix1.fits
+  mask_file: secondary/acisf13743_000N003_msk1.fits
   instrument: ACIS-I
 
 obs14423:
@@ -164,8 +164,8 @@ obs14425:
 obs14435:
   obsID: 14435
   data_location: data/14435/
-  event_file: primary/acisf14435N002_evt2.fits
+  event_file: primary/acisf14435N003_evt2.fits
   aspect_sol: primary/pcadf14435_000N001_asol1.fits
-  bpix_file: primary/acisf14435_000N002_bpix1.fits
-  mask_file: secondary/acisf14435_000N002_msk1.fits
+  bpix_file: primary/acisf14435_000N003_bpix1.fits
+  mask_file: secondary/acisf14435_000N003_msk1.fits
   instrument: ACIS-I
