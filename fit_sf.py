@@ -85,8 +85,8 @@ transpose = Transposer(signal.target)
 def callback(samples):
     s = ift.extra.minisanity(
         masked_data,
-        lambda x: ift.makeOp(1 / signal_response(x)),
-        signal_response,
+        lambda x: ift.makeOp(1 / signal_response(signal_dt)(x)),
+        signal_response(signal_dt),
         samples,
     )
     print(s)
