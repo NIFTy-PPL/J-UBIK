@@ -86,12 +86,6 @@ def callback(samples):
         samples,
     )
     print(s)
-    # ps_mean, ps_var = samples.sample_stat(points)
-    # sr_mean, sr_var = samples.sample_stat(mask.adjoint(signal_response))
-    # plot_result(ps_mean, "new_rec/point_sources/ps_mean.png", logscale=True, vmin=1)
-    # plot_result(sr_mean, "new_rec/sr_mean.png", logscale=True, vmin=1)
-    # plot_result(mask.adjoint(masked_data)-sr_mean, "new_rec/residuals.png", logscale=False)
-
 
 global_it = cfg['global_it']
 n_samples = cfg['Nsamples']
