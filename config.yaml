@@ -38,3 +38,6 @@ datasets:
   - df_14424_observation.npy 
   - df_14435_observation.npy 
 
+#TODO @margret get rid of this list
+#Next tasks:
+#TODO save and load in subdirectory
