@@ -39,7 +39,9 @@ obslist = [
 ]
 
 center = None
+dataset_list = []
 for obsnr in obslist:
+    dataset_list.append(f"df_{obsnr}_observation.npy")
     info = ChandraObservationInformation(
         obs_info["obs" + obsnr], npix_s, npix_e, fov, elim, center
     )
@@ -65,3 +67,11 @@ for obsnr in obslist:
 
     if obsnr == obslist[0]:
         center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
+
+with open("config.yaml", "r") as cfg_file:
+    cfg = yaml.safe_load(cfg_file)
+    cfg['datasets'].update(dataset_list)
+
+if cfg:
+    with open("config.yaml", "w") as cfg_file:
+        yaml.safe_dump(cfg, cfg_file)
