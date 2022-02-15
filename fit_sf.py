@@ -8,6 +8,7 @@ from lib.output import plot_result
 import lib.mpi as mpi
 import yaml
 
+ift.set_nthreads(2)
 with open("config.yaml", 'r') as cfg_file:
     cfg = yaml.safe_load(cfg_file)
 
