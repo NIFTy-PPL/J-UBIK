@@ -1,6 +1,15 @@
 import math
 
 import nifty8 as ift
+import nifty8.re as jft
+
+from functools import partial
+import sys
+
+from jax import jit, value_and_grad
+from jax import random
+from jax import numpy as jnp
+from jax.config import config as jax_config
 import numpy as np
 import matplotlib.pylab as plt
 from lib.utils import get_norm, get_mask_operator, convolve_field_operator, Transposer
@@ -8,8 +17,11 @@ from lib.output import plot_result
 import lib.mpi as mpi
 import yaml
 
+jax_config.update("jax_enable_x64", True)
+
+# TODO Profiling
 ift.set_nthreads(2)
-with open("config.yaml", 'r') as cfg_file:
+with open("config.yaml", "r") as cfg_file:
     cfg = yaml.safe_load(cfg_file)
 
 npix_s = 1024  # number of spacial bins per axis
@@ -17,71 +29,136 @@ fov = 21.0
 energy_bin = 0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 
-#Model P(s)
-diffuse = ift.SimpleCorrelatedField(position_space, **cfg['priors_diffuse'])
+# Model P(s)
+diffuse = ift.SimpleCorrelatedField(position_space, **cfg["priors_diffuse"])
 pspec = diffuse.power_spectrum
 diffuse = diffuse.exp()
-points = ift.InverseGammaOperator(position_space, **cfg['points'])
+points = ift.InverseGammaOperator(position_space, **cfg["points"])
 points = points.ducktape("points")
-signal = points + diffuse
+signal =  diffuse# + points
 signal = signal.real
-signal_dt = signal.ducktape_left('full_signal')
+signal_dt = signal.ducktape_left("full_signal")
 
-#Likelihood P(d|s)
-signal_fa = ift.FieldAdapter(signal_dt.target['full_signal'], 'full_signal')
+# Likelihood P(d|s)
+signal_fa = ift.FieldAdapter(signal_dt.target["full_signal"], "full_signal")
 likelihood_list = []
-for dataset in cfg['datasets']:
-    #Loop
+# likelihood_list_nifty = []
+
+for dataset in cfg["datasets"]:
+    # Loop
     observation = np.load(dataset, allow_pickle=True).item()
 
-    #PSF
-    psf_arr = observation['psf_sim'].val[:, :, energy_bin]
+    # PSF
+    psf_arr = observation["psf_sim"].val[:, :, energy_bin]
     psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
     psf_field = ift.Field.from_raw(position_space, psf_arr)
     norm = ift.ScalingOperator(position_space, psf_field.integrate().val ** -1)
     psf_norm = norm(psf_field)
 
-    #Data
+    # Data
     data = observation["data"].val[:, :, energy_bin]
     data_field = ift.Field.from_raw(position_space, data)
 
-    #Exp
+    # Exp
     exp = observation["exposure"].val[:, :, energy_bin]
-    exp_field = ift.Field.from_raw(position_space, exp) 
-    if dataset == cfg['datasets'][0]:
+    exp_field = ift.Field.from_raw(position_space, exp)
+    if dataset == cfg["datasets"][0]:
         norm_first_data = get_norm(exp_field, data_field)
     normed_exp_field = ift.Field.from_raw(position_space, exp) * norm_first_data
     normed_exposure = ift.makeOp(normed_exp_field)
 
-    #Mask
+    # Mask
     mask = get_mask_operator(normed_exp_field)
 
-    #Likelihood
+    # Likelihood
     psf = psf_norm
-    convolved = convolve_field_operator(psf, signal_fa)
+    convolved = convolve_field_operator(psf, signal) #FIXME signal_fa
     conv = convolved
     signal_response = mask @ normed_exposure @ conv
 
+    ############# JAX ########
+    signal_response_jx, _ = ift.nifty2jax.convert(signal_response, float)
+    ift.myassert(signal_response.jax_expr is signal_response_jx)
+
     masked_data = mask(data_field)
-    likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
+    likelihood = jft.Poissonian(masked_data.val) @ signal_response_jx
     likelihood_list.append(likelihood)
+    # likelihood_nifty = ift.PoissonianEnergy(masked_data) @ signal_response
+    # likelihood_list_nifty.append(likelihood_nifty)
 
 likelihood_sum = likelihood_list[0]
 for i in range(1, len(likelihood_list)):
     likelihood_sum = likelihood_sum + likelihood_list[i]
 
-likelihood_sum = likelihood_sum(signal_dt)
 
-# End of Loop
-ic_newton = ift.AbsDeltaEnergyController(**cfg['ic_newton'])
-ic_sampling = ift.AbsDeltaEnergyController(**cfg['ic_sampling'])
-minimizer = ift.NewtonCG(ic_newton)
+# likelihood_sum_nifty = likelihood_list_nifty[0]
+# for i in range(1, len(likelihood_list_nifty)):
+#     likelihood_sum_nifty = likelihood_sum_nifty + likelihood_list_nifty[i]
 
-nl_sampling_minimizer = None
-pos = 0.1 * ift.from_random(signal.domain)
+noise_cov = lambda x: 5**2 * x
+noise_cov_inv = lambda x: 5**-2 * x
+nll = jft.Gaussian(masked_data.val.astype('float'), noise_cov_inv) @ signal_response
+
+likelihood_sum = likelihood_sum @ signal_dt.jax_expr
+lh = likelihood
+ham = jft.StandardHamiltonian(likelihood=nll).jit()
+ham_vg = jit(jft.mean_value_and_grad(ham))
+ham_metric = jit(jft.mean_metric(ham.metric))
+# likelihood_sum_nifty = likelihood_sum_nifty @ signal_dt
+MetricKL = jit(
+    partial(jft.MetricKL, ham),
+    static_argnames=("n_samples", "mirror_samples", "linear_sampling_name"),
+)
 
 
+# pos = ift.from_random(signal.domain).val
+pt = ift.nifty2jax.shapewithdtype_from_domain(signal.domain, 'float')
+key = random.PRNGKey(42)
+key, subkey = random.split(key)
+pos = pos_init =  jft.random_like(subkey, pt)
+
+
+n_mgvi_iterations = 1
+n_samples = 2
+absdelta = 0.1
+n_newton_iterations = 2
+
+# Minimize the potential
+key, *sk = random.split(key, 1 + n_mgvi_iterations)
+for i, subkey in enumerate(sk):
+    print(f"MGVI Iteration {i}", file=sys.stderr)
+    print("Sampling...", file=sys.stderr)
+    mg_samples = MetricKL(
+        pos,
+        n_samples=n_samples,
+        key=subkey,
+        mirror_samples=True,
+        # linear_sampling_name=None,
+        # linear_sampling_kwargs={"absdelta": absdelta / 10.}
+    )
+
+    print("Minimizing...", file=sys.stderr)
+    opt_state = jft.minimize(
+        None,
+        pos,
+        method="newton-cg",
+        options={
+            "fun_and_grad": partial(ham_vg, primals_samples=mg_samples),
+            "hessp": partial(ham_metric, primals_samples=mg_samples),
+            "absdelta": absdelta,
+            "maxiter": n_newton_iterations
+        }
+    )
+    pos = opt_state.x
+    msg = f"Post MGVI Iteration {i}: Energy {mg_samples.at(pos).mean(ham):2.4e}"
+    print(msg, file=sys.stderr)
+
+# res1 = likelihood_sum(pos.val)
+# res2 = likelihood_sum_nifty(pos)
+# print(np.allclose(res1,res2.val))
 transpose = Transposer(signal.target)
+
+
 def callback(samples):
     s = ift.extra.minisanity(
         masked_data,
@@ -91,8 +168,9 @@ def callback(samples):
     )
     print(s)
 
-global_it = cfg['global_it']
-n_samples = cfg['Nsamples']
+
+global_it = cfg["global_it"]
+n_samples = cfg["Nsamples"]
 samples = ift.optimize_kl(
     likelihood_sum,
     global_it,
@@ -101,9 +179,9 @@ samples = ift.optimize_kl(
     ic_sampling,
     nl_sampling_minimizer,
     plottable_operators={
-        "signal": transpose@signal,
-        "point_sources": transpose@points,
-        "diffuse": transpose@diffuse,
+        "signal": transpose @ signal,
+        "point_sources": transpose @ points,
+        "diffuse": transpose @ diffuse,
         "power_spectrum": pspec,
     },
     output_directory="df_rec",
@@ -111,6 +189,5 @@ samples = ift.optimize_kl(
     comm=mpi.comm,
     inspect_callback=callback,
     overwrite=True,
-    resume=True
+    resume=True,
 )
-
