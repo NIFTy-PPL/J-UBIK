@@ -41,7 +41,8 @@ obslist = [
 center = None
 dataset_list = []
 for obsnr in obslist:
-    dataset_list.append(f"df_{obsnr}_observation.npy")
+    outfile = outroot + f"_{obsnr}_" + "observation.npy"
+    dataset_list.append(outfile)
     info = ChandraObservationInformation(
         obs_info["obs" + obsnr], npix_s, npix_e, fov, elim, center
     )
@@ -60,17 +61,14 @@ for obsnr in obslist:
     )
     psf_sim = ift.makeField(data_domain, psf_sim)
     plot_slices(psf_sim, outroot + f"_psfSIM_{obsnr}.png", logscale=False)
-    np.save(
-        outroot + f"_{obsnr}_" + "observation.npy",
-        {"data": data, "exposure": exposure, "psf_sim": psf_sim},
-    )
+    np.save(outfile, {"data": data, "exposure": exposure, "psf_sim": psf_sim})
 
     if obsnr == obslist[0]:
         center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
 
 with open("config.yaml", "r") as cfg_file:
     cfg = yaml.safe_load(cfg_file)
-    cfg['datasets'].update(dataset_list)
+    cfg["datasets"] = dataset_list
 
 if cfg:
     with open("config.yaml", "w") as cfg_file:
