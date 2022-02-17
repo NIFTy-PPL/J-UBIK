@@ -114,9 +114,10 @@ MetricKL = jit(
 
 # pos = ift.from_random(signal.domain).val
 pt = ift.nifty2jax.shapewithdtype_from_domain(signal.domain, 'float')
+pt = jft.Field(pt)
 key = random.PRNGKey(42)
 key, subkey = random.split(key)
-pos = pos_init =  jft.random_like(subkey, pt)
+pos = pos_init =  1e-2* jft.random_like(subkey, pt)
 
 
 n_mgvi_iterations = 1
