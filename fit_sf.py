@@ -47,10 +47,10 @@ for dataset in cfg['datasets']:
 
     #Exp
     exp = observation["exposure"].val[:, :, energy_bin]
-    exp_field = ift.Field.from_raw(position_space, exp) 
+    exp_field = ift.Field.from_raw(position_space, exp)
     if dataset == cfg['datasets'][0]:
         norm_first_data = get_norm(exp_field, data_field)
-    normed_exp_field = ift.Field.from_raw(position_space, exp) * norm_first_data
+    normed_exp_field = ift.Field.from_raw(position_space, exp) * norm_first_data *10
     normed_exposure = ift.makeOp(normed_exp_field)
 
     #Mask
