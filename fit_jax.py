@@ -1,8 +1,4 @@
-import math
-
-import nifty8 as ift
-import nifty8.re as jft
-
+from collections import namedtuple
 from functools import partial
 import sys
 
@@ -10,12 +6,17 @@ from jax import jit, value_and_grad
 from jax import random
 from jax import numpy as jnp
 from jax.config import config as jax_config
-import numpy as np
+from jax.tree_util import tree_map
 import matplotlib.pylab as plt
+import numpy as np
+
 from lib.utils import get_norm, get_mask_operator, convolve_field_operator, Transposer
 from lib.output import plot_result
-import lib.mpi as mpi
+# import lib.mpi as mpi
 import yaml
+
+import nifty8 as ift
+import nifty8.re as jft
 
 jax_config.update("jax_enable_x64", True)
 
