@@ -96,13 +96,9 @@ for i in range(1, len(likelihood_list)):
 # for i in range(1, len(likelihood_list_nifty)):
 #     likelihood_sum_nifty = likelihood_sum_nifty + likelihood_list_nifty[i]
 
-noise_cov = lambda x: 5**2 * x
-noise_cov_inv = lambda x: 5**-2 * x
-nll = jft.Gaussian(masked_data.val.astype('float'), noise_cov_inv) @ signal_response
-
 likelihood_sum = likelihood_sum @ signal_dt.jax_expr
 lh = likelihood
-ham = jft.StandardHamiltonian(likelihood=nll).jit()
+ham = jft.StandardHamiltonian(likelihood=lh).jit()
 ham_vg = jit(jft.mean_value_and_grad(ham))
 ham_metric = jit(jft.mean_metric(ham.metric))
 # likelihood_sum_nifty = likelihood_sum_nifty @ signal_dt
