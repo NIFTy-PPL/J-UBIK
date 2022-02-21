@@ -1,5 +1,4 @@
 import math
-
 import numpy as np
 import nifty8 as ift
 import scipy
@@ -7,6 +6,24 @@ import scipy
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
+def get_cfg(yaml_file):
+    import yaml
+    with open(yaml_file, "r") as cfg_file:
+        cfg = yaml.safe_load(cfg_file)
+    return cfg
+
+def _get_sp_dist(config):
+    res = 2 * config["fov"] / config["npix_s"]
+    return res
+
+def _get_e_dist(config):
+    res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
+    return res
+
+def get_data_domain(config):
+    dom_sp = ift.RGSpace(([config["npix_s"]]*2), distances = _get_sp_dist(config))
+    e_sp = ift.RGSpace((config["npix_e"]), distances = _get_e_dist(config))
+    return ift.DomainTuple.make([dom_sp, e_sp])
 
 def get_normed_exposure(exposure_field, data_field):
     dom = exposure_field.domain
@@ -77,7 +94,7 @@ def convolve_field_operator(kernel, op, space=None):
     convolve = fft.inverse @ kernel_hp @ fft @ op
     res = convolve.real
     return res
-
+#FIXME Hartley + Fix dirty hack
 
 class PositiveSumPriorOperator(ift.LinearOperator):
     """

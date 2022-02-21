@@ -1,3 +1,12 @@
+grid:
+  npix_s : 1024
+  npix_e : 2
+  elim : [2.0, 10.0]
+  fov : 21.0
+
+psf_sim:
+  num_rays: 10e6
+
 priors_diffuse:
   offset_mean: 0
   offset_std: [1, 0.5]
@@ -37,3 +46,6 @@ datasets:
   - df_13743_observation.npy 
   - df_14424_observation.npy 
   - df_14435_observation.npy 
+
+outroot : "" 
+prefix : df

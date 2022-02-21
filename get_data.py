@@ -1,27 +1,15 @@
 import nifty8 as ift
 import numpy as np
 import sys
-import yaml
 from lib.observation import ChandraObservationInformation
 from lib.output import plot_slices
+from lib.utils import get_data_domain, get_cfg
 
-########## RECONSTRUCTION PARAMETERS ##########
-npix_s = 1024  # number of spacial bins per axis
-npix_e = 2  # number of log-energy bins
-fov = 21.0  # FOV in arcmin
-elim = (2.0, 10.0)  # energy range in keV // below 2 keV ARF very energy dependant
-################################################
-
-with open("obs/obs.yaml", "r") as cfg_file:
-    obs_info = yaml.safe_load(cfg_file)
-
-outroot = sys.argv[1]
-data_domain = ift.DomainTuple.make(
-    [
-        ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s),
-        ift.RGSpace((npix_e,), distances=np.log(elim[1] / elim[0]) / npix_e),
-    ]
-)
+obs_info = get_cfg("obs/obs.yaml")
+img_cfg = get_cfg("config.yaml")
+grid = img_cfg["grid"]
+outroot = img_cfg["prefix"] 
+data_domain = get_data_domain(grid)
 
 # retrive data
 obslist = [
@@ -43,11 +31,10 @@ dataset_list = []
 for obsnr in obslist:
     outfile = outroot + f"_{obsnr}_" + "observation.npy"
     dataset_list.append(outfile)
-    info = ChandraObservationInformation(
-        obs_info["obs" + obsnr], npix_s, npix_e, fov, elim, center
-    )
+    info = ChandraObservationInformation(obs_info["obs" + obsnr], **grid, center=center)
     data = info.get_data(f"./data_{obsnr}.fits")
     data = ift.makeField(data_domain, data)
+    #FIXME info.get_data could also directly return a field, ChandraObservationInformation probably builds the same domain within
     plot_slices(data, outroot + f"_data_{obsnr}.png", logscale=True)
 
     # compute the exposure map
@@ -66,6 +53,7 @@ for obsnr in obslist:
     if obsnr == obslist[0]:
         center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
 
+#TODO simplify this stuff
 with open("config.yaml", "r") as cfg_file:
     cfg = yaml.safe_load(cfg_file)
     cfg["datasets"] = dataset_list
