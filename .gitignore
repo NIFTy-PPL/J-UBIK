@@ -7,6 +7,7 @@ oldstuff/*
 *.fits
 *.npy
 *.pdf
+.idea/**
 data/**
 res/**
 df_rec/
