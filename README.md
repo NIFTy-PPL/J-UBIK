@@ -38,8 +38,12 @@ This directory contains utility functions, i/o, plotting routines, messages, etc
 
 ## to do 
 - [x] list of observations
+- [x] data fusion
+- [ ] Reconstruction w/ spatially variant psf
+- [ ] CleanCode
+- [ ] run with psf 10e6
+- [ ] Jax
+- [ ] inverse Gamma params inference
 - [ ] documentation (model and parameters)
 - [ ] document response
 - [ ] energy dependency / reconstruct energy bands separately
-- [ ] data fusion
-- [ ] start run
