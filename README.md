@@ -15,7 +15,7 @@ Information on how to install NIFTy8 can be found [here](https://gitlab.mpcdf.mp
 ### Guide for Ciao & Marx
 - how to install [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html)
 - how to install [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
-- set an alias in your bashrc. to source ciao and marx easily
+- set an alias in your .bashrc to source ciao and marx easily
 
 ## Observations
 Either get the data [here](https://cda.harvard.edu/chaser/) or via `download_chandra_obsid` as described [here](https://cxc.cfa.harvard.edu/ciao/threads/archivedownload/). The information about the location, obsID, etc. of you data should be stored in /obs/obs.yaml.
