@@ -1,6 +1,6 @@
 import nifty8 as ift
 import numpy as np
-from lib.output import plot_slices
+from .plot import plot_slices
 
 mdata = np.load('mdata.npy', allow_pickle=True).item()
 if True:

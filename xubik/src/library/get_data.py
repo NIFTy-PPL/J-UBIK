@@ -2,8 +2,8 @@ import nifty8 as ift
 import numpy as np
 import sys
 import yaml
-from lib.observation import ChandraObservationInformation
-from lib.output import plot_slices
+from ..operators.observation_operator import ChandraObservationInformation
+from .plot import plot_slices
 
 ########## RECONSTRUCTION PARAMETERS ##########
 npix_s = 1024  # number of spacial bins per axis

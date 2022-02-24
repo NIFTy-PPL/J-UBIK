@@ -2,11 +2,11 @@ import nifty8 as ift
 import numpy as np
 
 import matplotlib.pyplot as plt
-from obs.obs4952 import obs4952
-from obs.obs11713 import obs11713
-from lib.observation import ChandraObservationInformation
-import ciao_contrib.runtool as rt
-from matplotlib.colors import LogNorm
+#from obs.obs4952 import obs4952
+#from obs.obs11713 import obs11713
+from ..operators.observation_operator import ChandraObservationInformation
+#import ciao_contrib.runtool as rt
+#from matplotlib.colors import LogNorm
 
 ########## RECONSTRUCTION PARAMETERS ##########
 npix_s = 1024  # number of spacial bins per axis

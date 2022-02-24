@@ -1,6 +1,6 @@
 import nifty8 as ift
 import numpy as np
-from lib.utils import makePositiveSumPrior
+from .utils import makePositiveSumPrior
 from nifty8.operators.simple_linear_operators import _SlowFieldAdapter
 
 def makePSFmodel(psf_field):

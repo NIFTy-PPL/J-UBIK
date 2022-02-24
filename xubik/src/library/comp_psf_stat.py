@@ -2,10 +2,10 @@ import nifty8 as ift
 import numpy as np
 import sys
 
-from obs.obs4952 import obs4952
-from obs.obs11713 import obs11713
-from lib.observation import ChandraObservationInformation
-from lib.output import plot_slices
+#from obs.obs4952 import obs4952
+#from obs.obs11713 import obs11713
+from ..operators.observation_operators import ChandraObservationInformation
+from .plot import plot_slices
 
 ########## RECONSTRUCTION PARAMETERS ##########
 npix_s = 1024  # number of spacial bins per axis
