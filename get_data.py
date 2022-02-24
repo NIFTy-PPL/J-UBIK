@@ -10,7 +10,6 @@ img_cfg = get_cfg("config.yaml")
 grid = img_cfg["grid"]
 outroot = img_cfg["prefix"] 
 data_domain = get_data_domain(grid)
-
 # retrive data
 obslist = [
     "14423",
@@ -25,7 +24,6 @@ obslist = [
     "14424",
     "14435",
 ]
-
 center = None
 dataset_list = []
 for obsnr in obslist:
@@ -43,9 +41,9 @@ for obsnr in obslist:
     plot_slices(exposure, outroot + f"_exposure_{obsnr}.png", logscale=True)
 
     # compute the point spread function
+    print(img_cfg["psf_sim"]['num_rays'])
     psf_sim = info.get_psf_fromsim(
-        (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]), "./psf"
-    )
+        (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]), "./psf", num_rays=img_cfg["psf_sim"]['num_rays'])
     psf_sim = ift.makeField(data_domain, psf_sim)
     plot_slices(psf_sim, outroot + f"_psfSIM_{obsnr}.png", logscale=False)
     np.save(outfile, {"data": data, "exposure": exposure, "psf_sim": psf_sim})
@@ -56,6 +54,7 @@ for obsnr in obslist:
 #TODO simplify this stuff
 with open("config.yaml", "r") as cfg_file:
     cfg = yaml.safe_load(cfg_file)
+    #FIXME: Import yaml, pleaseee!
     cfg["datasets"] = dataset_list
 
 if cfg:
