@@ -1,12 +1,18 @@
-import ciao_contrib.runtool as rt
 import numpy as np
 from astropy.io import fits
-from .messages import message_obs, message_binning, message_exposure
-from paramio import pset
+from ..library.messages import message_obs, message_binning, message_exposure
 import os
 import re
 import subprocess
 import shutil
+
+
+try:
+    import ciao_contrib.runtool as rt
+    from paramio import pset
+except ImportError:
+    print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+    pass
 
 class ChandraObservationInformation():
 
