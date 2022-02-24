@@ -16,7 +16,8 @@ setup.cfg
 .idea
 data/*
 res/*
-df_red/*
+df_rec/*
+SN1006_3obs/
 .DS_Store
 *.pyc
 *.html
