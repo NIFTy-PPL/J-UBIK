@@ -1,7 +1,7 @@
 import nifty8 as ift
 import numpy as np
 
-class OverlappAdd(ift.LinearOperator):
+class OverlapAdd(ift.LinearOperator):
     """Slices a 2D array into N patches with dx offset and
     2*dx+2*dr side length and arranges them in a new space (unstructured).
 
