@@ -4,6 +4,11 @@
 
 ## Requirements
 - [NIFTy8](https://gitlab.mpcdf.mpg.de/ift/nifty) 
+- astropy
+- ciao
+- marx
+- matplotlib
+
 ## Installation
 
 This package can be installed via pip. 
