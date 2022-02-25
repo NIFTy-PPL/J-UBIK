@@ -1,29 +1,23 @@
+import sys
 from collections import namedtuple
 from functools import partial
-import sys
+import numpy as np
+import yaml
 
 from jax import jit, value_and_grad
 from jax import random
 from jax import numpy as jnp
 from jax.config import config as jax_config
 from jax.tree_util import tree_map
-import matplotlib.pylab as plt
-import numpy as np
-
-from lib.utils import get_norm, get_mask_operator, convolve_field_operator, Transposer
-from lib.output import plot_result
-# import lib.mpi as mpi
-import yaml
 
 import nifty8 as ift
 import nifty8.re as jft
+import xubik0 as xu
 
 jax_config.update("jax_enable_x64", True)
-
-# TODO Profiling
 ift.set_nthreads(2)
-with open("config.yaml", "r") as cfg_file:
-    cfg = yaml.safe_load(cfg_file)
+
+cfg = xu.get_cfg("config.yaml")
 
 npix_s = 1024  # number of spacial bins per axis
 fov = 21.0
@@ -54,7 +48,7 @@ for dataset in cfg["datasets"]:
     psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
     psf_field = ift.Field.from_raw(position_space, psf_arr)
     norm = ift.ScalingOperator(position_space, psf_field.integrate().val ** -1)
-    psf_norm = norm(psf_field)
+    psf = norm(psf_field)
 
     # Data
     data = observation["data"].val[:, :, energy_bin]
@@ -64,17 +58,15 @@ for dataset in cfg["datasets"]:
     exp = observation["exposure"].val[:, :, energy_bin]
     exp_field = ift.Field.from_raw(position_space, exp)
     if dataset == cfg["datasets"][0]:
-        norm_first_data = get_norm(exp_field, data_field)
+        norm_first_data = xu.get_norm(exp_field, data_field)
     normed_exp_field = ift.Field.from_raw(position_space, exp) * norm_first_data
     normed_exposure = ift.makeOp(normed_exp_field)
 
     # Mask
-    mask = get_mask_operator(normed_exp_field)
+    mask = xu.get_mask_operator(normed_exp_field)
 
     # Likelihood
-    psf = psf_norm
-    convolved = convolve_field_operator(psf, signal) #FIXME signal_fa
-    conv = convolved
+    conv = xu.convolve_field_operator(psf, signal_fa)
     signal_response = mask @ normed_exposure @ conv
 
     ############# JAX ########
@@ -154,7 +146,7 @@ for i, subkey in enumerate(sk):
 # res1 = likelihood_sum(pos.val)
 # res2 = likelihood_sum_nifty(pos)
 # print(np.allclose(res1,res2.val))
-transpose = Transposer(signal.target)
+transpose = xu.Transposer(signal.target)
 
 
 def callback(samples):
