@@ -1,5 +1,6 @@
-import nifty8 as ift
 import numpy as np
+
+import nifty8 as ift
 
 def get_patch_weights(domain):
     psize = domain.shape[0]

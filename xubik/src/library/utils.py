@@ -1,10 +1,11 @@
 import math
 import numpy as np
-import nifty8 as ift
 import scipy
-
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+
+import nifty8 as ift
+
 
 def get_cfg(yaml_file):
     import yaml

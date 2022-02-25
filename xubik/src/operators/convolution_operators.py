@@ -1,5 +1,6 @@
-import nifty8 as ift
 import numpy as np
+
+import nifty8 as ift
 
 class OverlapAdd(ift.LinearOperator):
     """Slices a 2D array into N patches with dx offset and

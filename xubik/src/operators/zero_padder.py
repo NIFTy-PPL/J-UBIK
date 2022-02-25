@@ -1,6 +1,6 @@
-import nifty8 as ift
 import numpy as np
 
+import nifty8 as ift
 
 class MarginZeroPadder(ift.LinearOperator):
     """ZeroPadder, adding zeros at the borders"""
