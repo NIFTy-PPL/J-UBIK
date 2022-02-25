@@ -4,16 +4,13 @@ import yaml
 
 import nifty8 as ift
 import xubik0 as xu
-# from lib.observation import ChandraObservationInformation
-# from lib.output import plot_slices
-# from lib.utils import get_data_domain, get_cfg
 
 obs_info = xu.get_cfg("obs/obs.yaml")
 img_cfg = xu.get_cfg("config.yaml")
 grid = img_cfg["grid"]
-outroot = img_cfg["prefix"] 
+outroot = img_cfg["prefix"]
+
 data_domain = xu.get_data_domain(grid)
-# retrive data
 obslist = [
     "14423",
     "9107",
