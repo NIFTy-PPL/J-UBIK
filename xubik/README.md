@@ -1,6 +1,6 @@
 # XUBIK
 
-*X*-ray *U*niversal *I*maging *K*it is a python package for data analysis of modern X-ray telescopes as Chandra, XMM-Newton and eROSITA
+*X*-ray *U*niversal *B*ayesian *I*maging *K*it is a python package for data analysis of modern X-ray telescopes as Chandra, XMM-Newton and eROSITA
 
 ## Requirements
 - [NIFTy8](https://gitlab.mpcdf.mpg.de/ift/nifty) 
