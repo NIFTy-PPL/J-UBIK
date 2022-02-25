@@ -27,3 +27,4 @@ def onlymaster(func):
         return f
 
     return wrapper
+#This should be part of the script
