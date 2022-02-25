@@ -7,8 +7,7 @@ import xubik0 as xu
 
 ift.set_nthreads(2)
 
-with open("config.yaml", 'r') as cfg_file:
-    cfg = yaml.safe_load(cfg_file)
+cfg = xu.get_cfg("config.yaml")
 
 npix_s = 1024  # number of spacial bins per axis
 fov = 21.0
