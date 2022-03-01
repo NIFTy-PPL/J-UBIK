@@ -59,6 +59,7 @@ for dataset in cfg['datasets']:
 
     masked_data = mask(data_field)
     likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
+    likelihood.name = dataset
     likelihood_list.append(likelihood)
 
 likelihood_sum = likelihood_list[0]
@@ -77,14 +78,6 @@ pos = 0.1 * ift.from_random(signal.domain)
 
 
 transpose = xu.Transposer(signal.target)
-def callback(samples):
-    s = ift.extra.minisanity(
-        masked_data,
-        lambda x: ift.makeOp(1 / signal_response(signal_dt)(x)),
-        signal_response(signal_dt),
-        samples,
-    )
-    print(s)
 
 global_it = cfg['global_it']
 n_samples = cfg['Nsamples']
@@ -104,7 +97,6 @@ samples = ift.optimize_kl(
     output_directory="df_rec",
     initial_position=pos,
     comm=xu.library.mpi.comm,
-    inspect_callback=callback,
     overwrite=True,
     resume=True
 )
