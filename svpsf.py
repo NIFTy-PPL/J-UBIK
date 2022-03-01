@@ -55,16 +55,7 @@ cut = ift.FieldZeroPadder(signal.target, conv.target.shape).adjoint
 cut = xu.MarginZeroPadder(signal.target, ((conv.target.shape[0] -signal.target.shape[0])//2), space=0).adjoint
 conv = cut @ conv
 
-def coord_center(side_length, side_n):
-    tdx = tdy = side_length // side_n
-    xc = np.arange(tdx // 2, tdx * side_n, tdx // 2)
-    yc = np.arange(tdy // 2, tdy * side_n, tdy // 2)
-    co = np.array(np.meshgrid(xc, yc)).reshape(2, -1)
-    # res = np.ravel_multi_index(co, [side_length, side_length])
-    return co
-
-
-coords = coord_center(1024, 8)
+coords = xu.coord_center(1024, 8)
 z = np.zeros([1024, 1024])
 for a in coords[0]:
     for b in coords[1]:

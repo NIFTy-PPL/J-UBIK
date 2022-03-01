@@ -81,6 +81,14 @@ def get_mask_operator(exp_field):
 # this should be fixed, otherwise we could run into problems with the reconstruction
 
 
+def coord_center(side_length, side_n):
+    tdx = tdy = side_length // side_n
+    xc = np.arange(tdx // 2, tdx * side_n, tdx // 2)
+    yc = np.arange(tdy // 2, tdy * side_n, tdy // 2)
+    co = np.array(np.meshgrid(xc, yc)).reshape(2, -1)
+    # res = np.ravel_multi_index(co, [side_length, side_length])
+    return co
+
 def convolve_operators(a, b):
     FFT = ift.FFTOperator(a.target)
     convolved = FFT.inverse(FFT(a.real) * FFT(b.real))
