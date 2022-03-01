@@ -95,6 +95,36 @@ def prior_sample_plotter(opchain, n):
     plt.show()
     plt.close()
 
+def get_psfpatches(info, n, npix_s, ebin, fov):
+    psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
+    xy_range = info.obsInfo["xy_range"]
+    x_min = info.obsInfo["x_min"]
+    x_max = info.obsInfo["x_max"]
+    y_min = info.obsInfo["y_min"]
+    y_max = info.obsInfo["y_max"]
+    dy = dx = xy_range * 2 / n
+    x_i = x_min + dx * 1 / 2
+    y_i = y_min + dy * 1 / 2
+    coords = coord_center(npix_s, n)
+    psf_sim = []
+    u = 0
+    for i in range(n):
+        for l in range(n):
+            x_p = x_i + i * dx
+            y_p = y_i + l * dy
+            radec_c = get_radec_from_xy(x_p, y_p, info.obsInfo["event_file"])
+            tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf", num_rays=1e7)
+            tmp_psf_sim = tmp_psf_sim[:, :, ebin]
+            if True:
+                tmp_psf_sim = np.roll(tmp_psf_sim, -coords[u])
+                u += 1
+            psf_field = ift.makeField(psf_domain, tmp_psf_sim)
+            norm = ift.ScalingOperator(psf_domain, psf_field.integrate().val ** -1)
+            psf_norm = norm(psf_field)
+            psf_sim.append(psf_norm)
+            pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape)
+    return psf_sim
+
 def coord_center(side_length, side_n):
     """
     calculates the indices of the centers of the n**2 patches
@@ -112,8 +142,20 @@ def coord_center(side_length, side_n):
     yc = np.arange(tdy // 2, tdy * side_n, tdy // 2)
     co = np.array(np.meshgrid(xc, yc)).reshape(2, -1)
     #TODO IS THIS NEEDED?
-    # res = np.ravel_multi_index(co, [side_length, side_length])
+    res = np.ravel_multi_index(co, [side_length, side_length])
     return co
+
+def get_radec_from_xy(temp_x, temp_y, event_f):
+    import ciao_contrib.runtool as rt
+
+    rt.dmcoords.punlearn()
+    rt.dmcoords(event_f, op="sky", celfmt="deg", x=temp_x, y=temp_y)
+    x_p = float(rt.dmcoords.ra)
+    y_p = float(rt.dmcoords.dec)
+    return (x_p, y_p)
+    #TODO is this enough precision
+
+
 
 def convolve_operators(a, b):
     """
