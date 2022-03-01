@@ -3,6 +3,6 @@ from .library.plot import plot_slices, plot_result
 from .library import mpi
 
 from .operators.observation_operator import ChandraObservationInformation
-from .operators.convolution_operators import OverlapAdd
+from .operators.convolution_operators import OverlapAdd, OverlapAddConvolver
 from .operators.bilinear_interpolation import get_weights
 from .operators.zero_padder import MarginZeroPadder
