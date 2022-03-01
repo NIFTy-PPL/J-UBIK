@@ -2,7 +2,6 @@ from .library.utils import get_mask_operator, prior_sample_plotter, get_norm, ge
 from .library.plot import plot_slices, plot_result
 from .library import mpi
 
-
 from .operators.observation_operator import ChandraObservationInformation
 from .operators.convolution_operators import OverlapAdd, OverlapAddConvolver
 from .operators.bilinear_interpolation import get_weights
