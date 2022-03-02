@@ -5,6 +5,8 @@ import nifty8 as ift
 from .zero_padder import MarginZeroPadder
 from .bilinear_interpolation import get_weights
 from ..library.utils import convolve_field_operator
+
+
 class OverlapAdd(ift.LinearOperator):
     """Slices a 2D array into N patches with dx offset and
     2*dx+2*dr side length and arranges them in a new space (unstructured).
@@ -80,11 +82,11 @@ class OverlapAdd(ift.LinearOperator):
             res = ift.Field.from_raw(self._domain, taped_s)
         return res
 
-    def coord_center(self):
-        xc = np.arange(self.dx // 2, self.dx * self.sqrt_n_patch, self.dx)
-        yc = np.arange(self.dy // 2, self.dy * self.sqrt_n_patch, self.dy)
-        co = np.array(np.meshgrid(xc, yc)).reshape(2,-1)
-        return co
+    # def coord_center(self):
+    #     xc = np.arange(self.dx // 2, self.dx * self.sqrt_n_patch, self.dx)
+    #     yc = np.arange(self.dy // 2, self.dy * self.sqrt_n_patch, self.dy)
+    #     co = np.array(np.meshgrid(xc, yc)).reshape(2,-1)
+    #     return co
 
 
 def OverlapAddConvolver(domain, kernels_arr, n, margin):

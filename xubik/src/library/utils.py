@@ -95,7 +95,7 @@ def prior_sample_plotter(opchain, n):
     plt.show()
     plt.close()
 
-def get_psfpatches(info, n, npix_s, ebin, fov):
+def get_psfpatches(info, n, npix_s, ebin, fov, debug=False, Roll=True):
     psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
@@ -117,7 +117,7 @@ def get_psfpatches(info, n, npix_s, ebin, fov):
             radec_c = get_radec_from_xy(x_p, y_p, info.obsInfo["event_file"])
             tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf", num_rays=1e4)
             tmp_psf_sim = tmp_psf_sim[:, :, ebin]
-            if True:
+            if Roll:
                 tmp_psf_sim = np.roll(tmp_psf_sim, -coords[u])
                 u += 1
             psf_field = ift.makeField(psf_domain, tmp_psf_sim)
@@ -125,13 +125,17 @@ def get_psfpatches(info, n, npix_s, ebin, fov):
             psf_norm = norm(psf_field)
             psf_sim.append(psf_norm)
 
-            tmp_source = np.zeros(tmp_psf_sim.shape)
-            pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape)
-            tmp_source[pos] = 1
-            source_field = ift.makeField(psf_domain, tmp_source)
-            source.append(source_field)
-            positions.append(pos)
-    return psf_sim, source, positions, coords
+            if debug:
+                tmp_source = np.zeros(tmp_psf_sim.shape)
+                pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape)
+                tmp_source[pos] = 1
+                source_field = ift.makeField(psf_domain, tmp_source)
+                source.append(source_field)
+                positions.append(pos)
+    if debug:
+        return psf_sim, source, positions, coords
+    else:
+        return psf_sim
 
 def coord_center(side_length, side_n):
     """

@@ -48,8 +48,8 @@ priors_diffuse = {
 }
 
 diffuse = ift.SimpleCorrelatedField(position_space, **priors_diffuse).exp()
-
-conv_op = OverlapAddConvolver(signal.target, psfs, 64, 16)
+signal = diffuse
+conv_op = xu.OverlapAddConvolver(signal.target, psfs, 64, 16)
 conv = conv_op @ signal
 cut = ift.FieldZeroPadder(signal.target, conv.target.shape).adjoint
 cut = xu.MarginZeroPadder(signal.target, ((conv.target.shape[0] -signal.target.shape[0])//2), space=0).adjoint
