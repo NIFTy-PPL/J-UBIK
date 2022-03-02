@@ -107,13 +107,15 @@ def get_psfpatches(info, n, npix_s, ebin, fov):
     y_i = y_min + dy * 1 / 2
     coords = coord_center(npix_s, n)
     psf_sim = []
+    source = []
     u = 0
+    positions = []
     for i in range(n):
         for l in range(n):
             x_p = x_i + i * dx
             y_p = y_i + l * dy
             radec_c = get_radec_from_xy(x_p, y_p, info.obsInfo["event_file"])
-            tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf", num_rays=1e7)
+            tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf", num_rays=1e4)
             tmp_psf_sim = tmp_psf_sim[:, :, ebin]
             if True:
                 tmp_psf_sim = np.roll(tmp_psf_sim, -coords[u])
@@ -122,8 +124,14 @@ def get_psfpatches(info, n, npix_s, ebin, fov):
             norm = ift.ScalingOperator(psf_domain, psf_field.integrate().val ** -1)
             psf_norm = norm(psf_field)
             psf_sim.append(psf_norm)
+
+            tmp_source = np.zeros(tmp_psf_sim.shape)
             pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape)
-    return psf_sim
+            tmp_source[pos] = 1
+            source_field = ift.makeField(psf_domain, tmp_source)
+            source.append(source_field)
+            positions.append(pos)
+    return psf_sim, source, positions, coords
 
 def coord_center(side_length, side_n):
     """
@@ -138,12 +146,11 @@ def coord_center(side_length, side_n):
         number of patches along one side
     """
     tdx = tdy = side_length // side_n
-    xc = np.arange(tdx // 2, tdx * side_n, tdx // 2)
-    yc = np.arange(tdy // 2, tdy * side_n, tdy // 2)
+    xc = np.arange(tdx // 2, tdx * side_n, tdx)
+    yc = np.arange(tdy // 2, tdy * side_n, tdy)
     co = np.array(np.meshgrid(xc, yc)).reshape(2, -1)
-    #TODO IS THIS NEEDED?
     res = np.ravel_multi_index(co, [side_length, side_length])
-    return co
+    return res
 
 def get_radec_from_xy(temp_x, temp_y, event_f):
     import ciao_contrib.runtool as rt
