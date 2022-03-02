@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
+from .utils import coord_center
 
 def plot_slices(field, outname, logscale=False):
     img = field.val
@@ -54,3 +55,24 @@ def plot_single_psf(psf, outname, logscale=True):
     fig.tight_layout()
     fig.savefig(outname, dpi=600)
     plt.close()
+
+
+def plot_psfset(fname, npix, n, in_one=True):
+    coords = coord_center(npix, n)
+    fileloader = np.load(fname, allow_pickle=True).item()
+    psf = fileloader["psf_sim"]
+    source = fileloader["sources"]
+    if in_one:
+        psfset = psf[0]
+        for i in range(1, n**2):
+            psfset = psfset + psf[i]
+        plot_single_psf(psfset, "psfset.png", logscale=True)
+
+    else:
+        p = ift.Plot()
+        q = ift.Plot()
+        for k in range(10):
+            p.add(psf[k], title=f"{k}", norm=LogNorm())
+            q.add(source[k], title=f"{k}")
+        p.output(name="psfs.png", xsize=20, ysize=20, dpi=300)
+        q.output(name="sources.png", xsize=20, ysize=20, dpi=300)
