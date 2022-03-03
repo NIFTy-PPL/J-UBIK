@@ -95,7 +95,7 @@ def prior_sample_plotter(opchain, n):
     plt.show()
     plt.close()
 
-def get_psfpatches(info, n, npix_s, ebin, fov, debug=False, Roll=True):
+def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=True):
     psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
@@ -115,7 +115,7 @@ def get_psfpatches(info, n, npix_s, ebin, fov, debug=False, Roll=True):
             x_p = x_i + i * dx
             y_p = y_i + l * dy
             radec_c = get_radec_from_xy(x_p, y_p, info.obsInfo["event_file"])
-            tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf", num_rays=1e4)
+            tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf", num_rays=num_rays)
             tmp_psf_sim = tmp_psf_sim[:, :, ebin]
             if Roll:
                 tmp_psf_sim = np.roll(tmp_psf_sim, -coords[u])
