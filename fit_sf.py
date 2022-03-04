@@ -4,7 +4,6 @@ import yaml
 
 import nifty8 as ift
 import xubik0 as xu
-from xubik.src.library.special_distributions import InverseGammaOperator
 
 ift.set_nthreads(2)
 
@@ -19,7 +18,7 @@ position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 diffuse = ift.SimpleCorrelatedField(position_space, **cfg['priors_diffuse'])
 pspec = diffuse.power_spectrum
 diffuse = diffuse.exp()
-points = InverseGammaOperator(position_space, **cfg['points'])
+points = xu.InverseGammaOperator(position_space, **cfg['points'])
 signal = points + diffuse
 signal = signal.real
 signal_dt = signal.ducktape_left('full_signal')
