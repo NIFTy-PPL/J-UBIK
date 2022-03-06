@@ -29,7 +29,7 @@ signal_fa = ift.FieldAdapter(signal_dt.target['full_signal'], 'full_signal')
 likelihood_list = []
 for dataset in cfg['datasets']:
     #Loop
-    observation = np.load(dataset, allow_pickle=True).item()
+    observation = np.load("npdata/df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
 
     #PSF
     psf_arr = observation['psf_sim'].val[:, :, energy_bin]
