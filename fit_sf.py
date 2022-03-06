@@ -29,10 +29,10 @@ signal_fa = ift.FieldAdapter(signal_dt.target['full_signal'], 'full_signal')
 likelihood_list = []
 for dataset in cfg['datasets']:
     #Loop
-    observation = np.load("df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
+    observation = np.load("npdata/df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
 
     #PSF
-    psf_file = np.load("/psf_patches/"+str(dataset)+"psfset.npy", allow_pickle=True).item()
+    psf_file = np.load("psf_patches/"+str(dataset)+"_patches.npy", allow_pickle=True).item()["psf_sim"]
     psfs = []
     for p in psf_file:
         psfs.append(p.val)
