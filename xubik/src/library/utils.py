@@ -43,7 +43,7 @@ def get_norm(exposure_field, data_field):
         / exposure_field.val[exposure_field.val != 0]
     )
     norm = ratio.mean()
-    norm = 10**math.floor(math.log10(norm))
+    # norm = 10**math.floor(math.log10(norm))
     return norm
 
 def prior_sample_plotter(opchain, n):
