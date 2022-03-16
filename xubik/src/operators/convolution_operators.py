@@ -2,6 +2,11 @@ import numpy as np
 
 import nifty8 as ift
 
+from .zero_padder import MarginZeroPadder
+from .bilinear_interpolation import get_weights
+from ..library.utils import convolve_field_operator
+
+
 class OverlapAdd(ift.LinearOperator):
     """Slices a 2D array into N patches with dx offset and
     2*dx+2*dr side length and arranges them in a new space (unstructured).
@@ -77,8 +82,45 @@ class OverlapAdd(ift.LinearOperator):
             res = ift.Field.from_raw(self._domain, taped_s)
         return res
 
-    def coord_center(self):
-        xc = np.arange(self.dx // 2, self.dx * self.sqrt_n_patch, self.dx)
-        yc = np.arange(self.dy // 2, self.dy * self.sqrt_n_patch, self.dy)
-        co = np.array(np.meshgrid(xc, yc)).reshape(2,-1)
-        return co
+    # def coord_center(self):
+    #     xc = np.arange(self.dx // 2, self.dx * self.sqrt_n_patch, self.dx)
+    #     yc = np.arange(self.dy // 2, self.dy * self.sqrt_n_patch, self.dy)
+    #     co = np.array(np.meshgrid(xc, yc)).reshape(2,-1)
+    #     return co
+
+
+def OverlapAddConvolver(domain, kernels_arr, n, margin):
+    """
+    Performing a approximation to an inhomogeneous convolution,
+    by OverlapAdd convolution with different kernels and bilinear interpolation of the result.
+    In the case of one patch this simplifies to a regular Fourier domain convolution.
+
+    Parameters:
+    -----------
+    domain: DomainTuple.
+        Domain of the Operator
+    kernels_arr: np.array
+        Array containing the different kernels for the inhomogeneos convolution
+    n: int
+        Number of patches
+    margin: int
+        Size of the margin. Number of pixels on one boarder.
+
+    """
+    oa = OverlapAdd(domain[0], n, 0)
+    weights = ift.makeOp(get_weights(oa.target))
+    zp = MarginZeroPadder(oa.target, margin, space=1)
+    padded = zp @ weights @ oa
+    cutter = ift.FieldZeroPadder(
+        padded.target, kernels_arr.shape[1:], space=1, central=True
+    ).adjoint
+    kernels_b = ift.Field.from_raw(cutter.domain, kernels_arr)
+    kernels = cutter(kernels_b)
+    convolved = convolve_field_operator(kernels, padded, space=1)
+    pad_space = ift.RGSpace(
+        [domain.shape[0] + 2 * margin, domain.shape[1] + 2 * margin],
+        distances=domain[0].distances,
+    )
+    oa_back = OverlapAdd(pad_space, n, margin)
+    res = oa_back.adjoint @ convolved
+    return res
