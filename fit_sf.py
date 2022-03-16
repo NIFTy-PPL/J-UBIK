@@ -9,7 +9,7 @@ ift.set_nthreads(2)
 
 cfg = xu.get_cfg("config.yaml")
 
-npix_s = 1024  # number of spacial bins per axis
+npix_s = 4096  # number of spacial bins per axis
 fov = 21.0
 energy_bin = 0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
@@ -26,6 +26,7 @@ signal_dt = signal.ducktape_left('full_signal')
 #Likelihood P(d|s)
 signal_fa = ift.FieldAdapter(signal_dt.target['full_signal'], 'full_signal')
 likelihood_list = []
+norm_list = []
 for dataset in cfg['datasets']:
     #Loop
     observation = np.load("npdata/df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
@@ -50,9 +51,12 @@ for dataset in cfg['datasets']:
     #Exp
     exp = observation["exposure"].val[:, :, energy_bin]
     exp_field = ift.Field.from_raw(position_space, exp)
-    if dataset == cfg['datasets'][0]:
-        norm_first_data = xu.get_norm(exp_field, data_field)
-    normed_exp_field = ift.Field.from_raw(position_space, exp) * norm_first_data
+    # if dataset == cfg['datasets'][0]:
+    #    norm_first_data = xu.get_norm(exp_field, data_field)
+    # normed_exp_field = ift.Field.from_raw(position_space, exp) * norm_first_data
+    norm = xu.get_norm(exp_field, data_field)
+    norm_list.append(norm)
+    normed_exp_field = ift.Field.from_raw(position_space, exp) *norm
     normed_exposure = ift.makeOp(normed_exp_field)
 
     #Mask
@@ -102,6 +106,7 @@ samples = ift.optimize_kl(
         "point_sources": transpose@points,
         "diffuse": transpose@diffuse,
         "power_spectrum": pspec,
+        "inverse_gamma_q": points.q(),
     },
     output_directory="df_rec",
     initial_position=pos,

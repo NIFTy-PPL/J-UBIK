@@ -71,8 +71,8 @@ class InverseGammaOperator(ift.Operator):
                                     -8.2, 8.2, self._delta, lambda x: x.ptw("log"), lambda x: x.ptw("exp"))
         op = op.ducktape('points')
 
-        q_op = ift.NormalTransform(self._mean_q, std_q, list(domain_dict.keys())[0])
-        expanded_q_op = ift.ContractionOperator(domain_dict['points'], None).adjoint(q_op)
+        self.q_op = ift.NormalTransform(self._mean_q, std_q, list(domain_dict.keys())[0])
+        expanded_q_op = ift.ContractionOperator(domain_dict['points'], None).adjoint(self.q_op)
         self._op = expanded_q_op * op
         #TODO:Jax-Version
 
@@ -88,3 +88,7 @@ class InverseGammaOperator(ift.Operator):
     def mean_q(self):
          """float : The value of the mean of the q-parameters of the inverse-gamma distribution"""
          return self._mean_q
+
+    def q(self):
+        """operator : Operator to the value of the q-parameter"""
+        return self.q_op
