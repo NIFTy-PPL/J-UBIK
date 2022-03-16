@@ -8,10 +8,18 @@ import nifty8 as ift
 
 
 def get_cfg(yaml_file):
+    """
+    Convenience function for loading yaml-config files
+    """
     import yaml
     with open(yaml_file, "r") as cfg_file:
         cfg = yaml.safe_load(cfg_file)
     return cfg
+
+def get_data_domain(config):
+    dom_sp = ift.RGSpace(([config["npix_s"]]*2), distances = _get_sp_dist(config))
+    e_sp = ift.RGSpace((config["npix_e"]), distances = _get_e_dist(config))
+    return ift.DomainTuple.make([dom_sp, e_sp])
 
 def _get_sp_dist(config):
     res = 2 * config["fov"] / config["npix_s"]
@@ -21,12 +29,11 @@ def _get_e_dist(config):
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
 
-def get_data_domain(config):
-    dom_sp = ift.RGSpace(([config["npix_s"]]*2), distances = _get_sp_dist(config))
-    e_sp = ift.RGSpace((config["npix_e"]), distances = _get_e_dist(config))
-    return ift.DomainTuple.make([dom_sp, e_sp])
-
 def get_normed_exposure(exposure_field, data_field):
+    """
+    Convenience function to get exposures on the order of 1, so that the signal is living on
+    the same order of magnitude as the data.
+    """
     dom = exposure_field.domain
     ratio = (
         data_field.val[exposure_field.val != 0]
@@ -37,6 +44,10 @@ def get_normed_exposure(exposure_field, data_field):
     return normed_exp_field
 
 def get_norm(exposure_field, data_field):
+    """
+    returns the only the order of magnitude of the norm of get_normed_exposure
+    #TODO Simplify get_normed_exposure
+    """
     dom = exposure_field.domain
     ratio = (
         data_field.val[exposure_field.val != 0]
@@ -46,7 +57,23 @@ def get_norm(exposure_field, data_field):
     norm = 10**math.floor(math.log10(norm))
     return norm
 
+def get_mask_operator(exp_field):
+    mask = np.zeros(exp_field.shape)
+    mask[exp_field.val == 0] = 1
+    mask_field = ift.Field.from_raw(exp_field.domain, mask)
+    mask_operator = ift.MaskOperator(mask_field)
+    return mask_operator
+
+    # FIXME actually here are pixels (Bad Pixels?) in the middle of
+    # the data, which are kind of dead which are NOT included in the
+    # expfield this should be fixed, otherwise we could run into
+    # problems with the reconstruction
+
 def prior_sample_plotter(opchain, n):
+    """
+    Convenience function for prior sample plotting.
+    #TODO Check if this is in nifty8 --> than this can be deleted
+    """
     fig, ax = plt.subplots(1, n, figsize=(11.7, 8.3), dpi=200)
     ax = ax.flatten()
     for ii in range(n):
@@ -68,26 +95,94 @@ def prior_sample_plotter(opchain, n):
     plt.show()
     plt.close()
 
+def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=True):
+    psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
+    xy_range = info.obsInfo["xy_range"]
+    x_min = info.obsInfo["x_min"]
+    x_max = info.obsInfo["x_max"]
+    y_min = info.obsInfo["y_min"]
+    y_max = info.obsInfo["y_max"]
+    dy = dx = xy_range * 2 / n
+    x_i = x_min + dx * 1 / 2
+    y_i = y_min + dy * 1 / 2
+    coords = coord_center(npix_s, n)
+    psf_sim = []
+    source = []
+    u = 0
+    positions = []
+    for i in range(n):
+        for l in range(n):
+            x_p = x_i + i * dx
+            y_p = y_i + l * dy
+            radec_c = get_radec_from_xy(x_p, y_p, info.obsInfo["event_file"])
+            tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf", num_rays=num_rays)
+            tmp_psf_sim = tmp_psf_sim[:, :, ebin]
+            if Roll:
+                tmp_psf_sim = np.roll(tmp_psf_sim, -coords[u])
+                u += 1
+            psf_field = ift.makeField(psf_domain, tmp_psf_sim)
+            norm = ift.ScalingOperator(psf_domain, psf_field.integrate().val ** -1)
+            psf_norm = norm(psf_field)
+            psf_sim.append(psf_norm)
 
-def get_mask_operator(exp_field):
-    mask = np.zeros(exp_field.shape)
-    mask[exp_field.val == 0] = 1
-    mask_field = ift.Field.from_raw(exp_field.domain, mask)
-    mask_operator = ift.MaskOperator(mask_field)
-    return mask_operator
+            if debug:
+                tmp_source = np.zeros(tmp_psf_sim.shape)
+                pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape)
+                tmp_source[pos] = 1
+                source_field = ift.makeField(psf_domain, tmp_source)
+                source.append(source_field)
+                positions.append(pos)
+    if debug:
+        return psf_sim, source, positions, coords
+    else:
+        return psf_sim
 
+def coord_center(side_length, side_n):
+    """
+    calculates the indices of the centers of the n**2 patches
+    for a quadratical domain with with the a certain side length
 
-# FIXME actually here are pixels (Bad Pixels?) in the middle of the data which are kind of dead which are NOT included in the expfield
-# this should be fixed, otherwise we could run into problems with the reconstruction
+    Parameters:
+    ----------
+    side_length: int
+        length of one side
+    side_n: int
+        number of patches along one side
+    """
+    tdx = tdy = side_length // side_n
+    xc = np.arange(tdx // 2, tdx * side_n, tdx)
+    yc = np.arange(tdy // 2, tdy * side_n, tdy)
+    co = np.array(np.meshgrid(xc, yc)).reshape(2, -1)
+    res = np.ravel_multi_index(co, [side_length, side_length])
+    return res
+
+def get_radec_from_xy(temp_x, temp_y, event_f):
+    import ciao_contrib.runtool as rt
+
+    rt.dmcoords.punlearn()
+    rt.dmcoords(event_f, op="sky", celfmt="deg", x=temp_x, y=temp_y)
+    x_p = float(rt.dmcoords.ra)
+    y_p = float(rt.dmcoords.dec)
+    return (x_p, y_p)
+    #TODO is this enough precision
+
 
 
 def convolve_operators(a, b):
+    """
+    convenience function for the convolution of two operators a and b.
+    This uses Fast Fourier Transformation (FFT).
+    """
     FFT = ift.FFTOperator(a.target)
     convolved = FFT.inverse(FFT(a.real) * FFT(b.real))
     return convolved.real
 
 
 def convolve_field_operator(kernel, op, space=None):
+    """
+    convenience function for the convolution a fixed kernel (field) with an operator.
+    This uses Fast Fourier Transformation (FFT).
+    """
     op = op.real
     fft = ift.FFTOperator(op.target, space=space)
     hsp_kernel = fft(kernel.real)
@@ -95,7 +190,8 @@ def convolve_field_operator(kernel, op, space=None):
     convolve = fft.inverse @ kernel_hp @ fft @ op
     res = convolve.real
     return res
-#FIXME Hartley + Fix dirty hack
+    #FIXME Hartley + Fix dirty hack
+
 
 class PositiveSumPriorOperator(ift.LinearOperator):
     """
@@ -222,6 +318,9 @@ def makePositiveSumPrior(domain, number):
     return op
 
 def field_T(field):
+    """
+    Getting the transposed field of the original field. This only works for quadratical domains.
+    """
     domain = field.domain
     arr = field.val.T
     res = ift.Field.from_raw(domain, arr)

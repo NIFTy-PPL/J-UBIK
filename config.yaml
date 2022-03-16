@@ -1,15 +1,15 @@
 datasets:
-- df_14423_observation.npy
-- df_9107_observation.npy
-- df_13738_observation.npy
-- df_13737_observation.npy
-- df_13739_observation.npy
-- df_13740_observation.npy
-- df_13741_observation.npy
-- df_13742_observation.npy
-- df_13743_observation.npy
-- df_14424_observation.npy
-- df_14435_observation.npy
+- 14423
+- 9107
+- 13738
+- 13737
+- 13739
+- 13740
+- 13741
+- 13742
+- 13743
+- 14424
+- 14435
 grid:
   npix_s : 1024
   npix_e : 2
@@ -36,13 +36,13 @@ points:
 ic_newton:
   name: Newton
   deltaE: 0.5
-  iteration_limit: 5
+  iteration_limit: 1
   convergence_level: 5
 
 ic_sampling:
   name: Sampling(lin)
   deltaE: 0.05
-  iteration_limit: 100
+  iteration_limit: 10
 
 global_it: 30
 Nsamples: 4
