@@ -32,6 +32,12 @@ for dataset in cfg['datasets']:
     observation = np.load("npdata/df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
 
     #PSF
+    psf_file = np.load("psf_patches/"+str(dataset)+"_patches.npy", allow_pickle=True).item()["psf_sim"]
+    psfs = []
+    for p in psf_file:
+        psfs.append(p.val)
+    psfs = np.array(psfs, dtype="float64")
+
     psf_arr = observation['psf_sim'].val[:, :, energy_bin]
     psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
     psf_field = ift.Field.from_raw(position_space, psf_arr)
@@ -54,8 +60,12 @@ for dataset in cfg['datasets']:
     mask = xu.get_mask_operator(normed_exp_field)
 
     #Likelihood
-    convolved = xu.convolve_field_operator(psf, signal_fa)
-    signal_response = mask @ normed_exposure @ convolved
+    conv_op = xu.OverlapAddConvolver(signal_fa.target, psfs, 64, 16)
+    convolved = conv_op @ signal_fa
+    cut = xu.MarginZeroPadder(signal_fa.target, ((convolved.target.shape[0] -signal_fa.target.shape[0])//2), space=0).adjoint
+    conv = cut @ convolved
+
+    signal_response = mask @ normed_exposure @ conv
 
     masked_data = mask(data_field)
     likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
