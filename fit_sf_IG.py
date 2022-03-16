@@ -28,15 +28,9 @@ signal_fa = ift.FieldAdapter(signal_dt.target['full_signal'], 'full_signal')
 likelihood_list = []
 for dataset in cfg['datasets']:
     #Loop
-    observation = np.load("npdata/df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
+    observation = np.load(dataset, allow_pickle=True).item()
 
     #PSF
-    psf_file = np.load("psf_patches/"+str(dataset)+"_patches.npy", allow_pickle=True).item()["psf_sim"]
-    psfs = []
-    for p in psf_file:
-        psfs.append(p.val)
-    psfs = np.array(psfs, dtype="float64")
-
     psf_arr = observation['psf_sim'].val[:, :, energy_bin]
     psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
     psf_field = ift.Field.from_raw(position_space, psf_arr)
@@ -59,16 +53,11 @@ for dataset in cfg['datasets']:
     mask = xu.get_mask_operator(normed_exp_field)
 
     #Likelihood
-    conv_op = xu.OverlapAddConvolver(signal_fa.target, psfs, 64, 16)
-    convolved = conv_op @ signal_fa
-    cut = xu.MarginZeroPadder(signal_fa.target, ((convolved.target.shape[0] -signal_fa.target.shape[0])//2), space=0).adjoint
-    conv = cut @ convolved
-
-    signal_response = mask @ normed_exposure @ conv
+    convolved = xu.convolve_field_operator(psf, signal_fa)
+    signal_response = mask @ normed_exposure @ convolved
 
     masked_data = mask(data_field)
     likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
-    likelihood.name = dataset
     likelihood_list.append(likelihood)
 
 likelihood_sum = likelihood_list[0]
@@ -87,6 +76,14 @@ pos = 0.1 * ift.from_random(signal.domain)
 
 
 transpose = xu.Transposer(signal.target)
+def callback(samples):
+    s = ift.extra.minisanity(
+        masked_data,
+        lambda x: ift.makeOp(1 / signal_response(signal_dt)(x)),
+        signal_response(signal_dt),
+        samples,
+    )
+    print(s)
 
 global_it = cfg['global_it']
 n_samples = cfg['Nsamples']
@@ -106,6 +103,7 @@ samples = ift.optimize_kl(
     output_directory="df_rec",
     initial_position=pos,
     comm=xu.library.mpi.comm,
+    inspect_callback=callback,
     overwrite=True,
     resume=True
 )

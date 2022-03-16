@@ -29,8 +29,9 @@ priors_diffuse:
   prefix: diffuse
 
 points:
+  mean_q: 0.7
+  std_q: 0.01
   alpha: 3
-  q: 0.7
 
 ic_newton:
   name: Newton
