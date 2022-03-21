@@ -9,7 +9,7 @@ ift.set_nthreads(2)
 
 cfg = xu.get_cfg("config.yaml")
 
-npix_s = 4096  # number of spacial bins per axis
+npix_s = 1024# number of spacial bins per axis
 fov = 21.0
 energy_bin = 0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
@@ -18,7 +18,8 @@ position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 diffuse = ift.SimpleCorrelatedField(position_space, **cfg['priors_diffuse'])
 pspec = diffuse.power_spectrum
 diffuse = diffuse.exp()
-points = xu.InverseGammaOperator(position_space, **cfg['points'])
+points = ift.InverseGammaOperator(position_space, **cfg['points'])
+points = points.ducktape("points")
 signal = points + diffuse
 signal = signal.real
 signal_dt = signal.ducktape_left('full_signal')
@@ -78,7 +79,6 @@ for dataset in cfg['datasets']:
 likelihood_sum = likelihood_list[0]
 for i in range(1, len(likelihood_list)):
     likelihood_sum = likelihood_sum + likelihood_list[i]
-
 likelihood_sum = likelihood_sum(signal_dt)
 
 # End of Loop
@@ -88,8 +88,6 @@ minimizer = ift.NewtonCG(ic_newton)
 
 nl_sampling_minimizer = None
 pos = 0.1 * ift.from_random(signal.domain)
-
-
 transpose = xu.Transposer(signal.target)
 
 global_it = cfg['global_it']
@@ -106,7 +104,6 @@ samples = ift.optimize_kl(
         "point_sources": transpose@points,
         "diffuse": transpose@diffuse,
         "power_spectrum": pspec,
-        "inverse_gamma_q": points.q(),
     },
     output_directory="df_rec",
     initial_position=pos,

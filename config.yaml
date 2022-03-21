@@ -1,4 +1,3 @@
-Nsamples: 4
 datasets:
 - 14423
 - 9107
@@ -12,25 +11,41 @@ datasets:
 - 14424
 - 14435
 grid:
-  elim:
-  - 2.0
-  - 10.0
-  fov: 21.0
-  npix_e: 2
-  npix_s: 4096
+  npix_s : 1024
+  npix_e : 2
+  elim : [2.0, 10.0]
+  fov : 21.0
+
+psf_sim:
+  num_rays: 1.0E+6
+
+priors_diffuse:
+  offset_mean: 0
+  offset_std: [1, 0.5]
+  fluctuations: [1, 1]
+  loglogavgslope: [-3.0, 1.5]
+  flexibility: [2.0, 2.0]
+  asperity: [0.1, 0.5]
+  prefix: diffuse
+
+points:
+  alpha: 3
+  q: 0.7
+
 ic_newton:
-  convergence_level: 5
+  name: Newton
   deltaE: 0.5
-  iteration_limit: 1
+  iteration_limit: 5
   convergence_level: 5
 
 ic_sampling:
+  name: Sampling(lin)
   deltaE: 0.05
-  iteration_limit: 10
+  iteration_limit: 100
 
 global_it: 30
 Nsamples: 4
 
 
-outroot : "" 
+outroot : ""
 prefix : df
