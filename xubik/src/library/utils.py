@@ -135,6 +135,18 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=
     else:
         return psf_sim
 
+def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
+    ps_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
+    xy_range = info.obsInfo["xy_range"]
+    x_min = info.obsInfo["x_min"]
+    y_min = info.obsInfo["y_min"]
+    dy = dx = xy_range * 2 /n_pix
+    x_idx, y_idx = idx_tupel
+    coords = get_radec_from_xy(x_min + x_idx*dx, y_min + y_idx*dy)
+    ps = info.get_psf_fromsim(coords, outroot="./psf", num_rays=num_rays)
+    return ps
+
+
 def coord_center(side_length, side_n):
     """
     calculates the indices of the centers of the n**2 patches
