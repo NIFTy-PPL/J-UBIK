@@ -99,9 +99,7 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=
     psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
-    x_max = info.obsInfo["x_max"]
     y_min = info.obsInfo["y_min"]
-    y_max = info.obsInfo["y_max"]
     dy = dx = xy_range * 2 / n
     x_i = x_min + dx * 1 / 2
     y_i = y_min + dy * 1 / 2

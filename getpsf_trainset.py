@@ -7,9 +7,9 @@ import nifty8 as ift
 import xubik0 as xu
 
 obs_info = xu.get_cfg("obs/obs.yaml")
-img_cfg = xu.get_cfg("config.yaml")
-grid = img_cfg["grid"]
+cfg = xu.get_cfg("config.yaml")
 
+grid = cfg["grid"]
 npix_s = grid["npix_s"] # number of spacial bins per axis
 npix_e = grid["npix_e"]  # number of log-energy bins
 fov = grid["fov"]  # FOV in arcmin
@@ -19,19 +19,7 @@ outroot = "psf_patches/"
 data_domain = xu.get_data_domain(grid)
 psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
 
-obslist = [
-    "14423",
-    "9107",
-    "13738",
-    "13737",
-    "13739",
-    "13740",
-    "13741",
-    "13742",
-    "13743",
-    "14424",
-    "14435",
-]
+obslist = cfg["datasets"]
 center = None
 
 for obsnr in obslist:

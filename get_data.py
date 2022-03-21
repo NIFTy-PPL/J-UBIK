@@ -1,7 +1,4 @@
 import numpy as np
-import sys
-import yaml
-
 import nifty8 as ift
 import xubik0 as xu
 
