@@ -18,7 +18,7 @@ grid:
   - 10.0
   fov: 21.0
   npix_e: 2
-  npix_s: 4096
+  npix_s: 1024
 ic_newton:
   convergence_level: 5
   deltaE: 0.5
@@ -31,8 +31,8 @@ ic_sampling:
 outroot: ''
 points:
   alpha: 3
-  mean_q: 0.7
-  std_q: 0.1
+  mean_q: 1
+  std_q: 0.5
 prefix: df
 priors_diffuse:
   asperity:

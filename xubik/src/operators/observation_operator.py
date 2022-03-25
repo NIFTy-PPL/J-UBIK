@@ -183,8 +183,13 @@ class ChandraObservationInformation():
         # get all chips that are on
         ##############################
         det_str = rt.dmkeypar(infile=self.obsInfo['event_file'], keyword='detnam', echo=True)
-        chips_on = np.array([int(d) for d in re.findall('\d', det_str)])
-
+        chips_on = [int(d) for d in re.findall('\d', det_str)]
+        BI_list = [5,7]
+        for i in range(len(BI_list)):
+            if BI_list[i] in chips_on:
+                chips_on.remove(BI_list[i])
+        chips_on = np.array(chips_on)
+        print(chips_on)
         # which chips fall into our region of interest
         ##############################################
         det_mask = np.full((len(chips_on)), False, dtype=bool)
