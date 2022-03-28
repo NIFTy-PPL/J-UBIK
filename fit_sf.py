@@ -18,7 +18,9 @@ position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 diffuse = ift.SimpleCorrelatedField(position_space, **cfg['priors_diffuse'])
 pspec = diffuse.power_spectrum
 diffuse = diffuse.exp()
-points = xu.InverseGammaOperator(position_space, **cfg['points'])
+points = ift.InverseGammaOperator(position_space, **cfg['points'])
+points = points.ducktape("points")
+
 signal = points + diffuse
 signal = signal.real
 signal_dt = signal.ducktape_left('full_signal')
@@ -97,9 +99,9 @@ samples = ift.optimize_kl(
     plottable_operators={
         "signal": transpose@signal,
         "point_sources": transpose@points,
-        #"diffuse": transpose@diffuse,
-        #"power_spectrum": pspec,
-        "inverse_gamma_q": points.q(),
+        "diffuse": transpose@diffuse,
+        "power_spectrum": pspec,
+        #"inverse_gamma_q": points.q(),
     },
     output_directory="df_rec",
     initial_position=pos,

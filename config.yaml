@@ -31,8 +31,9 @@ ic_sampling:
 outroot: ''
 points:
   alpha: 3
-  mean_q: 1
-  std_q: 0.5
+  q: 0.7
+#  mean_q: 1
+#  std_q: 0.5
 prefix: df
 priors_diffuse:
   asperity:
