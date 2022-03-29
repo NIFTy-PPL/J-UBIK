@@ -116,7 +116,9 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=
             tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf", num_rays=num_rays)
             tmp_psf_sim = tmp_psf_sim[:, :, ebin]
             if Roll:
-                tmp_psf_sim = np.roll(tmp_psf_sim, -coords[u])
+                tmp_coord = coords[u]
+                co_x, co_y = np.unravel_index(tmp_coord, [npix_s, npix_s])
+                tmp_psf_sim = np.roll(tmp_psf_sim, (-co_x, -co_y), axis=(0, 1))
                 u += 1
             psf_field = ift.makeField(psf_domain, tmp_psf_sim)
             norm = ift.ScalingOperator(psf_domain, psf_field.integrate().val ** -1)
