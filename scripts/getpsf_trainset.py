@@ -23,13 +23,13 @@ obslist = cfg["datasets"]
 center = None
 
 for obsnr in obslist:
-    outfile = outroot + f"{obsnr}_" + "patches.npy"
-    info = xu.ChandraObservationInformation(obs_info["obs"+obsnr], **grid, center=center)
+    outfile = outroot + f"{obsnr}_" + "patches_v2.npy"
+    info = xu.ChandraObservationInformation(obs_info["obs"+str(obsnr)], **grid, center=center)
     if obsnr == obslist[0]:
         center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
     n = 8
     ebin = 0
-    psf_sim = xu.get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, Roll=True)
+    psf_sim = xu.get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e4, Roll=True)
     np.save(outfile, {"psf_sim": psf_sim})
     outname = outroot + f"{obsnr}_"
     xu.plot_psfset(outfile, outname, 1024, 8)

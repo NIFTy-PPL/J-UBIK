@@ -1,20 +1,21 @@
 datasets:
-- 14423
-- 9107
-- 13738
-- 13737
-- 13739
-- 13740
-- 13741
-- 13742
-- 13743
-- 14424
-- 14435
+ - 4952
+# - 14423
+# - 9107
+# - 13738
+# - 13737
+# - 13739
+# - 13740
+# - 13741
+# - 13742
+# - 13743
+# - 14424
+# - 14435
 grid:
   npix_s : 1024
   npix_e : 2
   elim : [2.0, 10.0]
-  fov : 21.0
+  fov : 4.0
 
 psf_sim:
   num_rays: 1.0E+6
@@ -35,13 +36,20 @@ points:
 ic_newton:
   name: Newton
   deltaE: 0.5
-  iteration_limit: 5
+  iteration_limit:  5
   convergence_level: 5
+
+ic_sampling_nl:
+  name: Sampling(nonlin)
+  deltaE: 0.5
+  iteration_limit: 10
+  convergence_level: 2
 
 ic_sampling:
   name: Sampling(lin)
   deltaE: 0.05
   iteration_limit: 100
+  convergence_level: 3
 
 global_it: 30
 Nsamples: 4
