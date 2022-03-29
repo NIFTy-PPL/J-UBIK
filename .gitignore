@@ -16,8 +16,6 @@ setup.cfg
 .idea
 data/*
 res/*
-df_rec/*
-SN1006_3obs/
 .DS_Store
 *.pyc
 *.html
@@ -27,7 +25,6 @@ SN1006_3obs/
 *.csv
 .pytest_cache/
 *.png
-oldstuff/*
 *.fits
 *.npy
 
