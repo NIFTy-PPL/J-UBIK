@@ -1,4 +1,3 @@
-import math
 import numpy as np
 import scipy
 import matplotlib.pyplot as plt
@@ -16,18 +15,22 @@ def get_cfg(yaml_file):
         cfg = yaml.safe_load(cfg_file)
     return cfg
 
+
 def get_data_domain(config):
     dom_sp = ift.RGSpace(([config["npix_s"]]*2), distances = _get_sp_dist(config))
     e_sp = ift.RGSpace((config["npix_e"]), distances = _get_e_dist(config))
     return ift.DomainTuple.make([dom_sp, e_sp])
 
+
 def _get_sp_dist(config):
     res = 2 * config["fov"] / config["npix_s"]
     return res
 
+
 def _get_e_dist(config):
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
+
 
 def get_normed_exposure(exposure_field, data_field):
     """
@@ -43,10 +46,12 @@ def get_normed_exposure(exposure_field, data_field):
     normed_exp_field = exposure_field * norm
     return normed_exp_field
 
+
 def get_norm(exposure_field, data_field):
     """
-    returns the only the order of magnitude of the norm of get_normed_exposure
-    #TODO Simplify get_normed_exposure
+    returns the only the order of magnitude of
+    the norm of get_normed_exposure
+    # TODO Simplify get_normed_exposure
     """
     dom = exposure_field.domain
     ratio = (
@@ -56,6 +61,7 @@ def get_norm(exposure_field, data_field):
     norm = ratio.mean()
     # norm = 10**math.floor(math.log10(norm))
     return norm
+
 
 def get_mask_operator(exp_field):
     mask = np.zeros(exp_field.shape)
@@ -68,6 +74,7 @@ def get_mask_operator(exp_field):
     # the data, which are kind of dead which are NOT included in the
     # expfield this should be fixed, otherwise we could run into
     # problems with the reconstruction
+
 
 def prior_sample_plotter(opchain, n):
     """
@@ -121,7 +128,8 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=
                 tmp_psf_sim = np.roll(tmp_psf_sim, (-co_x, -co_y), axis=(0, 1))
                 u += 1
             psf_field = ift.makeField(psf_domain, tmp_psf_sim)
-            norm = ift.ScalingOperator(psf_domain, psf_field.integrate().val ** -1)
+            norm_val = psf_field.integrate().val ** -1
+            norm = ift.ScalingOperator(psf_domain, norm_val)
             psf_norm = norm(psf_field)
             psf_sim.append(psf_norm)
 
@@ -137,14 +145,17 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=
     else:
         return psf_sim
 
-def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
-    ps_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
+
+def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
     y_min = info.obsInfo["y_min"]
-    dy = dx = xy_range * 2 /n_pix
+    event_f = info.obsInfo["event_file"]
+    dy = dx = xy_range * 2 / npix_s
     x_idx, y_idx = idx_tupel
-    coords = get_radec_from_xy(x_min + x_idx*dx, y_min + y_idx*dy)
+    x_pix_coord = x_min + x_idx*dx
+    y_pix_coord = y_min + y_idx*dy
+    coords = get_radec_from_xy(x_pix_coord, y_pix_coord, event_f)
     ps = info.get_psf_fromsim(coords, outroot="./psf", num_rays=num_rays)
     return ps
 
@@ -168,6 +179,7 @@ def coord_center(side_length, side_n):
     res = np.ravel_multi_index(co, [side_length, side_length])
     return res
 
+
 def get_radec_from_xy(temp_x, temp_y, event_f):
     import ciao_contrib.runtool as rt
 
@@ -176,7 +188,7 @@ def get_radec_from_xy(temp_x, temp_y, event_f):
     x_p = float(rt.dmcoords.ra)
     y_p = float(rt.dmcoords.dec)
     return (x_p, y_p)
-    #TODO is this enough precision
+    # TODO is this enough precision
 
 
 
@@ -272,8 +284,9 @@ class MultiToTuple(ift.LinearOperator):
 class Trafo(ift.EndomorphicOperator):
     """
     #NOTE RENAME TRAFO
-    This Operator performs a coordinate transformation into a coordinate system,
-    in which the Oth component is the sum of all components of the former basis.
+    This Operator performs a coordinate transformation into a coordinate
+    system, in which the Oth component is the sum of all components of
+    the former basis.
     """
 
     def __init__(self, domain):
@@ -329,9 +342,11 @@ def makePositiveSumPrior(domain, number):
     op = positive_sum @ distributions
     return op
 
+
 def field_T(field):
     """
-    Getting the transposed field of the original field. This only works for quadratical domains.
+    Getting the transposed field of the original field.
+    This only works for quadratical domains.
     """
     domain = field.domain
     arr = field.val.T
