@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
-from .utils import coord_center
 
 def plot_slices(field, outname, logscale=False):
     img = field.val
@@ -24,7 +23,6 @@ def plot_slices(field, outname, logscale=False):
     fig.tight_layout()
     if outname != None:
         fig.savefig(outname)
-    # plt.show()
     plt.close()
 
 
@@ -43,25 +41,24 @@ def plot_result(field, outname, logscale=False, **args):
         fig.savefig(outname)
     plt.close()
 
-def plot_single_psf(psf, outname, logscale=True):
+
+def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):
     fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0
-    psf = psf.val.reshape([1024, 1024])
+    psf = psf.val #.reshape([1024, 1024])
     pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-fov, fov] * 2}
     if logscale == True:
         pltargs["norm"] = LogNorm()
     fig, ax = plt.subplots()
-    psf_plot = ax.imshow(psf, **pltargs)
-    psf_cbar = fig.colorbar(psf_plot)
+    ax.imshow(psf, vmin=vmin, vmax=vmax, **pltargs)
+    fig.colorbar(psf_plot)
     fig.tight_layout()
     fig.savefig(outname, dpi=600)
     plt.close()
 
 
 def plot_psfset(fname, outname, npix, n, in_one=True):
-    coords = coord_center(npix, n)
     fileloader = np.load(fname, allow_pickle=True).item()
     psf = fileloader["psf_sim"]
-    # source = fileloader["sources"]
     if in_one:
         psfset = psf[0]
         for i in range(1, n**2):
@@ -70,9 +67,6 @@ def plot_psfset(fname, outname, npix, n, in_one=True):
 
     else:
         p = ift.Plot()
-        # q = ift.Plot()
         for k in range(10):
             p.add(psf[k], title=f"{k}", norm=LogNorm())
-            # q.add(source[k], title=f"{k}")
         p.output(name=outname +"psfs.png", xsize=20, ysize=20, dpi=300)
-        # q.output(name="sources.png", xsize=20, ysize=20, dpi=300)
