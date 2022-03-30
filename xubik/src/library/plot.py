@@ -47,12 +47,12 @@ def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):
     psf = psf.val #.reshape([1024, 1024])
     pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-fov, fov] * 2}
     if logscale == True:
-        pltargs["norm"] = LogNorm()
+        pltargs["norm"] = LogNorm(vmin=vmin, vmax=vmax)
     fig, ax = plt.subplots()
-    ax.imshow(psf, vmin=vmin, vmax=vmax, **pltargs)
+    psf_plot = ax.imshow(psf, **pltargs)
     fig.colorbar(psf_plot)
     fig.tight_layout()
-    fig.savefig(outname, dpi=600)
+    fig.savefig(outname)
     plt.close()
 
 
@@ -69,4 +69,4 @@ def plot_psfset(fname, outname, npix, n, in_one=True):
         p = ift.Plot()
         for k in range(10):
             p.add(psf[k], title=f"{k}", norm=LogNorm())
-        p.output(name=outname +"psfs.png", xsize=20, ysize=20, dpi=300)
+        p.output(name=outname +"psfs.png", xsize=20, ysize=20)
