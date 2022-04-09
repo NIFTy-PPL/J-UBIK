@@ -1,0 +1,98 @@
+Nsamples: 4
+datasets:
+- df_14423_observation.npy
+- df_9107_observation.npy
+- df_13738_observation.npy
+- df_13737_observation.npy
+- df_13739_observation.npy
+- df_13740_observation.npy
+- df_13741_observation.npy
+- df_13742_observation.npy
+- df_13743_observation.npy
+- df_14424_observation.npy
+- df_14435_observation.npy
+global_it: 30
+grid:
+  elim:
+  - 4.0
+  - 10.0
+  fov: 21.0
+  npix_e: 2
+  npix_s: 1024
+ic_newton:
+  convergence_level: 5
+  deltaE: 0.5
+  iteration_limit: 5
+  name: Newton
+ic_sampling:
+  deltaE: 0.05
+  iteration_limit: 100
+  name: Sampling(lin)
+outroot: ''
+points_brightness:
+  alpha: 3
+  q: 0.7
+#  mean_q: 1
+#  std_q: 0.5
+points_loglinear_slope:
+  mean: -2.43
+  sigma: 0.25
+  key: points_slope
+
+points_spectrum_cfm:
+  offset_mean: 0.
+  offset_std:
+  - 0.001
+  - 0.00000001
+
+points_spectrum_fluctuations:
+  asperity:
+  - 0.01
+  - 0.01
+  flexibility:
+  - 0.01
+  - 0.01
+  fluctuations:
+  - 1.0
+  - 0.25
+  loglogavgslope:
+  - -2.0
+  - 0.25
+  prefix: points_spectrum
+
+prefix: df
+priors_diffuse:
+  asperity:
+  - 0.1
+  - 0.5
+  flexibility:
+  - 2.0
+  - 2.0
+  fluctuations:
+  - 1
+  - 1
+  loglogavgslope:
+  - -3.0
+  - 1.5
+  prefix: diffuse_position
+priors_diffuse_energy:
+  asperity:
+  - 0.1
+  - 0.5
+  flexibility:
+  - 0.3
+  - 0.05
+  fluctuations:
+  - 0.5
+  - 0.5
+  loglogavgslope:
+  - -2.5
+  - 0.5
+  prefix: diffuse_energy
+priors_diffuse_offset:
+  offset_mean: 0
+  offset_std:
+  - 0.3
+  - 0.05
+psf_sim:
+  num_rays: 1000000.0
