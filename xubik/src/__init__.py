@@ -7,3 +7,4 @@ from .operators.observation_operator import ChandraObservationInformation
 from .operators.convolution_operators import OverlapAdd
 from .operators.bilinear_interpolation import get_weights
 from .operators.zero_padder import MarginZeroPadder
+from .operators.reverse_outer_product import ReverseOuterProduct

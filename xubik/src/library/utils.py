@@ -36,14 +36,19 @@ def get_normed_exposure(exposure_field, data_field):
     normed_exp_field = exposure_field * norm
     return normed_exp_field
 
-def get_norm_exposure_patches(datasets, domain, energy_bin):
+def get_norm_exposure_patches(datasets, domain, energy_bins):
     norms = []
-    for dataset in datasets:
-        observation = np.load(dataset, allow_pickle=True).item()
-        exposure = observation["exposure"].val[:,:,energy_bin]
-        data = observation["data"].val[:,:,energy_bin]
-        norms.append(get_norm(ift.Field.from_raw(domain, exposure), ift.Field.from_raw(domain, data)))
-    return np.mean(np.array(norms)), np.std(np.array(norms))
+    norm_means = []
+    norm_std = []
+    for i in range(energy_bins):
+        for dataset in datasets:
+            observation = np.load(dataset, allow_pickle=True).item()
+            exposure = observation["exposure"].val[:,:,i]
+            data = observation["data"].val[:,:,i]
+            norms.append(get_norm(ift.Field.from_raw(domain, exposure), ift.Field.from_raw(domain, data)))
+        norm_means.append(np.mean(np.array(norms)))
+        norm_std.append(np.std(np.array(norms)))
+    return norm_means, norm_std
 
 def get_norm(exposure_field, data_field):
     dom = exposure_field.domain
