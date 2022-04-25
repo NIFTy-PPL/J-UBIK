@@ -15,7 +15,7 @@ npix_e = grid["npix_e"]  # number of log-energy bins
 fov = grid["fov"]  # FOV in arcmin
 elim = grid["elim"]  # energy range in keV
 
-outroot = "psf_patches/"
+outroot = "data/npdata/psf_patches/"
 data_domain = xu.get_data_domain(grid)
 psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
 
@@ -23,8 +23,8 @@ obslist = cfg["datasets"]
 center = None
 
 for obsnr in obslist:
-    outfile = outroot + f"{obsnr}_" + "patches_v2.npy"
-    info = xu.ChandraObservationInformation(obs_info["obs"+str(obsnr)], **grid, center=center)
+    outfile = outroot + f"{obsnr}_" + "patches_v1.npy"
+    info = xu.ChandraObservationInformation(obs_info["obs"+str(obsnr)], **grid,center=center)
     if obsnr == obslist[0]:
         center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
     n = 8
