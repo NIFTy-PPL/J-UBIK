@@ -4,6 +4,8 @@ from matplotlib.colors import LogNorm
 import nifty8 as ift
 import xubik0 as xu
 
+ift.random.push_sseq_from_seed(15)
+
 inhomogen = True
 cfg = xu.get_cfg("config.yaml")
 
