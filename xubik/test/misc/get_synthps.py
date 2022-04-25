@@ -8,7 +8,7 @@ cfg = xu.get_cfg("scripts/config.yaml")
 grid = cfg["grid"]
 npix_s = grid["npix_s"]
 fov = grid["fov"]
-numrays = 1e6
+numrays = 1e7
 
 info = xu.ChandraObservationInformation(obs_info["obs4952"], **grid)
 idxs = [(50, 50), (500, 500), (700, 700)]
