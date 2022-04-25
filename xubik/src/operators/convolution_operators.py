@@ -49,7 +49,8 @@ class OverlapAdd(ift.LinearOperator):
         dx, dy = self.dx, self.dy
         if mode == self.TIMES:
             xplus = np.zeros([self._domain.shape[0] + self.dx] * 2)
-            # TODO think about doing without this dx for the bordes and odd number of patches?
+            # TODO think about doing without this dx for the bordes
+            # and odd number of patches?
             xplus[
                 self.dx // 2 : xplus.shape[0] - self.dx // 2,
                 self.dy // 2 : xplus.shape[1] - self.dy // 2,
