@@ -2,6 +2,7 @@ import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from matplotlib.colors import SymLogNorm
 
 
 def plot_slices(field, outname, logscale=False):
@@ -47,12 +48,12 @@ def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):
     psf = psf.val #.reshape([1024, 1024])
     pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-fov, fov] * 2}
     if logscale == True:
-        pltargs["norm"] = LogNorm(vmin=vmin, vmax=vmax)
+        pltargs["norm"] = SymLogNorm(1, vmin=vmin, vmax=vmax)
     fig, ax = plt.subplots()
     psf_plot = ax.imshow(psf, **pltargs)
     fig.colorbar(psf_plot)
     fig.tight_layout()
-    fig.savefig(outname)
+    fig.savefig(outname, dpi=1500)
     plt.close()
 
 
