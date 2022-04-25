@@ -102,7 +102,7 @@ def prior_sample_plotter(opchain, n):
     plt.show()
     plt.close()
 
-def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=True):
+def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=True, Norm=True):
     psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
@@ -128,10 +128,13 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=
                 tmp_psf_sim = np.roll(tmp_psf_sim, (-co_x, -co_y), axis=(0, 1))
                 u += 1
             psf_field = ift.makeField(psf_domain, tmp_psf_sim)
-            norm_val = psf_field.integrate().val ** -1
-            norm = ift.ScalingOperator(psf_domain, norm_val)
-            psf_norm = norm(psf_field)
-            psf_sim.append(psf_norm)
+            if Norm:
+                norm_val = psf_field.integrate().val ** -1
+                norm = ift.ScalingOperator(psf_domain, norm_val)
+                psf_norm = norm(psf_field)
+                psf_sim.append(psf_norm)
+            else:
+                psf_sim.append(psf_field)
 
             if debug:
                 tmp_source = np.zeros(tmp_psf_sim.shape)
