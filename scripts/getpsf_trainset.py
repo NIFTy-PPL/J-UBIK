@@ -29,7 +29,7 @@ for obsnr in obslist:
         center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
     n = 8
     ebin = 0
-    psf_sim = xu.get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e4, Roll=True)
+    psf_sim = xu.get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e4, Roll=True, Norm=False)
     np.save(outfile, {"psf_sim": psf_sim})
     outname = outroot + f"{obsnr}_"
     xu.plot_psfset(outfile, outname, 1024, 8)
