@@ -30,7 +30,6 @@ class OverlapAdd(ift.LinearOperator):
 
     def __init__(self, domain, n_patch, pbc_margin):
         self._domain = ift.makeDomain(domain)
-        shape = domain.shape
         self.sqrt_n_patch = int(np.sqrt(n_patch))
         self.dr = pbc_margin
         self.dx, self.dy = [
@@ -82,18 +81,13 @@ class OverlapAdd(ift.LinearOperator):
             res = ift.Field.from_raw(self._domain, taped_s)
         return res
 
-    # def coord_center(self):
-    #     xc = np.arange(self.dx // 2, self.dx * self.sqrt_n_patch, self.dx)
-    #     yc = np.arange(self.dy // 2, self.dy * self.sqrt_n_patch, self.dy)
-    #     co = np.array(np.meshgrid(xc, yc)).reshape(2,-1)
-    #     return co
-
 
 def OverlapAddConvolver(domain, kernels_arr, n, margin):
     """
     Performing a approximation to an inhomogeneous convolution,
-    by OverlapAdd convolution with different kernels and bilinear interpolation of the result.
-    In the case of one patch this simplifies to a regular Fourier domain convolution.
+    by OverlapAdd convolution with different kernels and bilinear
+    interpolation of the result. In the case of one patch this simplifies
+    to a regular Fourier domain convolution.
 
     Parameters:
     -----------
