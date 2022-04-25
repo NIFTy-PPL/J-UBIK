@@ -11,7 +11,7 @@ fov = grid["fov"]
 numrays = 1e7
 
 info = xu.ChandraObservationInformation(obs_info["obs4952"], **grid)
-idxs = [(50, 50), (500, 500), (700, 700)]
+idxs = [(130, 130), (500, 500), (700, 700)]
 sp = ift.RGSpace([npix_s, npix_s])
 
 for i, idx_tupel in enumerate(idxs):
