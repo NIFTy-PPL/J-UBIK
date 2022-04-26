@@ -12,6 +12,6 @@ def get_patch_weights(domain):
 
 def get_weights(domain):
     weights = get_patch_weights(domain[1])
-    explode = ift.ContractionOperator(domain, spaces=0)
-    res = explode.adjoint(weights)
+    explode = ift.ContractionOperator(domain, spaces=0).adjoint
+    res = explode(weights)
     return res
