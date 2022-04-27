@@ -10,4 +10,4 @@ from .operators.convolution_operators import OverlapAdd, OverlapAddConvolver
 from .operators.bilinear_interpolation import get_weights
 from .operators.zero_padder import MarginZeroPadder
 
-from .operators.kernels import get_kernel
+from .operators.kernels import get_gaussian_kernel

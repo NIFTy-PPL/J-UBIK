@@ -9,7 +9,7 @@ def gauss(x, y, sig):
     return f
 
 
-def get_kernel(width, domain):
+def get_gaussian_kernel(width, domain):
     x = y = np.linspace(-width, width, domain.shape[1])
     xv, yv = np.meshgrid(x, y)
     kern = gauss(xv, yv, 1)

@@ -25,7 +25,7 @@ domain = ift.makeDomain(sp)
 margin = 1
 n = 64
 kern_domain = ift.makeDomain([ift.UnstructuredDomain(64), sp])
-gausskern = xu.get_kernel(200, kern_domain).val
+gausskern = xu.get_gaussian_kernel(200, kern_domain).val
 
 # for i in range(64):
 #     tmp_psf = ift.makeField(sp, gausskern.val[i, :, :])
