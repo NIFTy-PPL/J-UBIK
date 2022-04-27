@@ -102,6 +102,7 @@ def OverlapAddConvolver(domain, kernels_arr, n, margin):
         Size of the margin. Number of pixels on one boarder.
 
     """
+    domain = ift.makeDomain(domain)
     oa = OverlapAdd(domain[0], n, 0)
     weights = ift.makeOp(get_weights(oa.target))
     zp = MarginZeroPadder(oa.target, margin, space=1)
@@ -117,5 +118,7 @@ def OverlapAddConvolver(domain, kernels_arr, n, margin):
         distances=domain[0].distances,
     )
     oa_back = OverlapAdd(pad_space, n, margin)
-    res = oa_back.adjoint @ convolved
+    cut = MarginZeroPadder(domain[0], ((oa_back.domain.shape[0] - domain.shape[0])//2), space=0).adjoint
+    res = cut @ oa_back.adjoint @ convolved
+
     return res
