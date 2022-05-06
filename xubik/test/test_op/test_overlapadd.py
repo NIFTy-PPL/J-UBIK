@@ -27,11 +27,11 @@ def test_overlapadd():
     cf = correlated_field(xi)
     zp = xu.MarginZeroPadder(position_space, 128)
     zp_cf = zp(cf)
-    margin = 64
+    margin = 128
     n = 64
 
     kern_domain = ift.makeDomain([ift.UnstructuredDomain(64), position_space])
-    kernels_arr = xu.get_gaussian_kernel(200, kern_domain).val
+    kernels_arr = xu.get_gaussian_kernel(35, kern_domain).val
     convolve_oa = xu.OverlapAddConvolver(zp.target, kernels_arr, n, margin)
 
     res_1 = convolve_oa(zp_cf)
