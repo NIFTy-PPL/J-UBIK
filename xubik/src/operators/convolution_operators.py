@@ -83,7 +83,7 @@ class OverlapAdd(ift.LinearOperator):
         return res
 
 
-def OverlapAddConvolver(domain, kernels_arr, n, margin):
+class OverlapAddConvolver(ift.LinearOperator):
     """
     Performing a approximation to an inhomogeneous convolution,
     by OverlapAdd convolution with different kernels and bilinear
@@ -102,23 +102,40 @@ def OverlapAddConvolver(domain, kernels_arr, n, margin):
         Size of the margin. Number of pixels on one boarder.
 
     """
-    domain = ift.makeDomain(domain)
-    oa = OverlapAdd(domain[0], n, 0)
-    weights = ift.makeOp(get_weights(oa.target))
-    zp = MarginZeroPadder(oa.target, margin, space=1)
-    padded = zp @ weights @ oa
-    cutter = ift.FieldZeroPadder(
-        padded.target, kernels_arr.shape[1:], space=1, central=True
-    ).adjoint
-    kernels_b = ift.Field.from_raw(cutter.domain, kernels_arr)
-    kernels = cutter(kernels_b)
-    convolved = convolve_field_operator(kernels, padded, space=1)
-    pad_space = ift.RGSpace(
-        [domain.shape[0] + 2 * margin, domain.shape[1] + 2 * margin],
-        distances=domain[0].distances,
-    )
-    oa_back = OverlapAdd(pad_space, n, margin)
-    cut = MarginZeroPadder(domain[0], ((oa_back.domain.shape[0] - domain.shape[0])//2), space=0).adjoint
-    res = cut @ oa_back.adjoint @ convolved
+    def __init__(self, domain, kernels_arr, n, margin):
+        self._domain = domain
+        self._op = self._build_op(domain, kernels_arr, n, margin)
+        self._target = self._op.target
+        self._capability = self.TIMES | self.ADJOINT_TIMES
+        # TODO check for area cut out => only 0
+        # TODO normlize
 
-    return res
+    def apply(self, x, mode):
+        self._check_input(x, mode)
+        if mode == self.TIMES:
+            res = self._op(x)
+        else:
+            res = self._op.adjoint(x)
+        return res
+
+    @staticmethod
+    def _build_op(domain, kernels_arr, n, margin):
+        domain = ift.makeDomain(domain)
+        oa = OverlapAdd(domain[0], n, 0)
+        weights = ift.makeOp(get_weights(oa.target))
+        zp = MarginZeroPadder(oa.target, margin, space=1)
+        padded = zp @ weights @ oa
+        cutter = ift.FieldZeroPadder(
+            padded.target, kernels_arr.shape[1:], space=1, central=True
+        ).adjoint
+        kernels_b = ift.Field.from_raw(cutter.domain, kernels_arr)
+        kernels = cutter(kernels_b)
+        convolved = convolve_field_operator(kernels, padded, space=1)
+        pad_space = ift.RGSpace(
+            [domain.shape[0] + 2 * margin, domain.shape[1] + 2 * margin],
+            distances=domain[0].distances,
+        )
+        oa_back = OverlapAdd(pad_space, n, margin)
+        cut = MarginZeroPadder(domain[0], ((oa_back.domain.shape[0] - domain.shape[0])//2), space=0).adjoint
+        res = cut @ oa_back.adjoint @ convolved
+        return res
