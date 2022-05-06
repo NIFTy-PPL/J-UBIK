@@ -1,7 +1,8 @@
 import nifty8 as ift
 import xubik0 as xu
 import numpy as np
-
+from matplotlib.colors import SymLogNorm
+from matplotlib.colors import LogNorm
 
 def test_overlapadd():
     position_space = ift.RGSpace([1024, 1024])
@@ -43,10 +44,45 @@ def test_overlapadd():
     response_2 = xu.convolve_field_operator(kern, sig_2)
     response_2 = zp.adjoint @ response_2
     res_2 = response_2(xi)
-    print(np.allclose(res_2.val, res_1.val))
+
+    f1 = ift.Field.full(convolve_oa.domain, 1.2)
+    f1_s = zp.adjoint(f1)
+    res_3 = zp.adjoint(convolve_oa(f1))
+
+    psf_file = np.load("../../../data/npdata/psf_patches/obs4952_patches_fov15.npy", allow_pickle=True).item()["psf_sim"]
+    psf_file = len(psf_file) * [psf_file[28]]
+    psfs = []
+    for p in psf_file:
+        arr = p.val_rw()
+        arr[arr < 5] = 0
+        arr[arr >= 5] = 1
+        # arr[0, 0] = 1
+        p = ift.Field.from_raw(p.domain, arr)
+        p = p/p.s_integrate()
+        psfs.append(p.val)
+    psfs = np.array(psfs, dtype="float64")
+    convolve_oa_ch = xu.OverlapAddConvolver(zp.target, psfs, n, margin)
+
+    print(np.unique(psfs[0]))
+    psf_file2 = np.load("../../../data/npdata/psf_patches/obs4952_patches_fov15.npy", allow_pickle=True).item()["psf_sim"]
+
+    # ift.extra.assert_equal(psf_file2[28], psf_file[28])
+    res_4 = zp.adjoint(convolve_oa_ch(f1))
+    # ift.extra.assert_allclose(res_2, res_1)
+    # ift.extra.assert_allclose(f1_s, res_3)
     pl = ift.Plot()
     pl.add(cf, title="signal")
     pl.add(res_1, title="conv with overlapadd")
     pl.add(res_2, title="conv theorem convolution")
-    pl.add(res_1-res_2, title="difference")
+    pl.add(ift.abs(res_1-res_2), norm=LogNorm(), title="difference")
+    pl.add(f1_s, title="ones")
     pl.output(name="test_convolution.png")
+
+    pl1 = ift.Plot()
+    pl1.add(res_3, norm=LogNorm(), title="conv ones with gauss")
+    pl1.add(res_4,  title="conv ones with chandra kernel")
+    pl1.add(kern+1e-10, norm=SymLogNorm(1), title="gauss kernel")
+    pl1.add(ift.Field.from_raw(p.domain, psfs[0]), norm=SymLogNorm(1), title="chandra")
+    print(np.min(res_3.val), np.max(res_3.val))
+    print(np.min(res_4.val), np.max(res_4.val))
+    pl1.output(name="test2.png")
