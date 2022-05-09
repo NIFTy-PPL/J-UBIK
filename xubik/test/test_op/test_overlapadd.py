@@ -27,15 +27,18 @@ def test_overlapadd():
     cf = correlated_field(xi)
     zp = xu.MarginZeroPadder(position_space, 128)
     zp_cf = zp(cf)
-    margin = 128
+    margin = 160
     n = 64
 
     kern_domain = ift.makeDomain([ift.UnstructuredDomain(64), position_space])
     kernels_arr = xu.get_gaussian_kernel(35, kern_domain).val
     convolve_oa = xu.OverlapAddConvolver(zp.target, kernels_arr, n, margin)
 
-    res_1 = convolve_oa(zp_cf)
-    res_1 = zp.adjoint(res_1)
+    convolve_oa = xu.OAConvolver(cf.domain, kernels_arr, n, margin)
+    res_1 = convolve_oa(cf)
+
+    # res_1 = convolve_oa(zp_cf)
+    # res_1 = zp.adjoint(res_1)
 
     kern = ift.Field.from_raw(position_space, kernels_arr[0])
     kern_zeropadder = ift.FieldZeroPadder(kern.domain, [1280, 1280], central=True)
@@ -46,43 +49,57 @@ def test_overlapadd():
     res_2 = response_2(xi)
 
     f1 = ift.Field.full(convolve_oa.domain, 1.2)
-    f1_s = zp.adjoint(f1)
-    res_3 = zp.adjoint(convolve_oa(f1))
+    # f1_s = zp.adjoint(f1)
+    # res_3 = zp.adjoint(convolve_oa(f1))
 
     psf_file = np.load("../../../data/npdata/psf_patches/obs4952_patches_fov15.npy", allow_pickle=True).item()["psf_sim"]
-    psf_file = len(psf_file) * [psf_file[28]]
+    # psf_file = len(psf_file) * [psf_file[0]]
     psfs = []
     for p in psf_file:
         arr = p.val_rw()
         arr[arr < 5] = 0
-        arr[arr >= 5] = 1
+        # arr[arr >= 0] = 1
         # arr[0, 0] = 1
-        p = ift.Field.from_raw(p.domain, arr)
+        p = ift.Field.from_raw(position_space, arr)
         p = p/p.s_integrate()
         psfs.append(p.val)
     psfs = np.array(psfs, dtype="float64")
-    convolve_oa_ch = xu.OverlapAddConvolver(zp.target, psfs, n, margin)
+    # convolve_oa_ch = xu.OverlapAddConvolver(zp.target, psfs, n, margin)
 
-    print(np.unique(psfs[0]))
-    psf_file2 = np.load("../../../data/npdata/psf_patches/obs4952_patches_fov15.npy", allow_pickle=True).item()["psf_sim"]
+    # res_4 = zp.adjoint(convolve_oa_ch(f1))
+    # s_ps = ift.RGSpace([896, 896], distances= position_space.distances)
+    # cut = xu.MarginZeroPadder(s_ps, 64).adjoint
+    # res_4 = cut(res_4)
 
-    # ift.extra.assert_equal(psf_file2[28], psf_file[28])
-    res_4 = zp.adjoint(convolve_oa_ch(f1))
-    # ift.extra.assert_allclose(res_2, res_1)
-    # ift.extra.assert_allclose(f1_s, res_3)
+    oa2 = xu.OAConvolver(position_space, psfs, n, margin)
+    f2 = ift.Field.full(position_space, 1.2)
+    res_5 = oa2(f2)
+    res_6 = oa2(cf)
+    zp3 = xu.MarginZeroPadder(ift.RGSpace([768, 768], distances=res_5.domain[0].distances), 128)
+    res_5 = zp3.adjoint(res_5)
+    res_6 = zp3.adjoint(res_6)
+    print(np.min(res_5.val), np.max(res_5.val))
+
     pl = ift.Plot()
     pl.add(cf, title="signal")
     pl.add(res_1, title="conv with overlapadd")
     pl.add(res_2, title="conv theorem convolution")
-    pl.add(ift.abs(res_1-res_2), norm=LogNorm(), title="difference")
-    pl.add(f1_s, title="ones")
+    pl.add(zp3.adjoint(ift.abs(res_1-res_2)), title="difference")
+    # pl.add(f1_s, title="ones")
     pl.output(name="test_convolution.png")
-
     pl1 = ift.Plot()
-    pl1.add(res_3, norm=LogNorm(), title="conv ones with gauss")
-    pl1.add(res_4,  title="conv ones with chandra kernel")
+    # pl1.add(res_3, norm=LogNorm(), title="conv ones with gauss")
+    # pl1.add(res_4, norm=LogNorm(), title="conv ones with chandra kernel")
     pl1.add(kern+1e-10, norm=SymLogNorm(1), title="gauss kernel")
     pl1.add(ift.Field.from_raw(p.domain, psfs[0]), norm=SymLogNorm(1), title="chandra")
-    print(np.min(res_3.val), np.max(res_3.val))
-    print(np.min(res_4.val), np.max(res_4.val))
+    # print(np.min(res_3.val), np.max(res_3.val))
+    # print(np.min(res_4.val), np.max(res_4.val))
+    pl1.add(res_5, title="conv ones with chandra kernel")
+    pl1.add(res_6, title="conv cf with chandra kernel")
+    pl1.add(cf, title="cf")
     pl1.output(name="test2.png")
+
+    # print(np.unique(psfs[0]))
+    # ift.extra.assert_equal(psf_file2[28], psf_file[28])
+    # ift.extra.assert_allclose(res_2, res_1)
+    # ift.extra.assert_allclose(f1_s, res_3)
