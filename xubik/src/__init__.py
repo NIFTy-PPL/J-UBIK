@@ -6,7 +6,7 @@ from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 
 from .operators.observation_operator import ChandraObservationInformation
-from .operators.convolution_operators import OverlapAdd, OverlapAddConvolver
+from .operators.convolution_operators import OAConvolver, OverlapAdd, OverlapAddConvolver
 from .operators.bilinear_interpolation import get_weights
 from .operators.zero_padder import MarginZeroPadder
 
