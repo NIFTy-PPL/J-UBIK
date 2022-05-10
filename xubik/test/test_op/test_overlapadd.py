@@ -31,10 +31,10 @@ def test_overlapadd():
     n = 64
 
     kern_domain = ift.makeDomain([ift.UnstructuredDomain(64), position_space])
-    kernels_arr = xu.get_gaussian_kernel(35, kern_domain).val
-    convolve_oa = xu.OverlapAddConvolver(zp.target, kernels_arr, n, margin)
+    kernels_arr = xu.get_gaussian_kernel(35, kern_domain).val_rw()
+    # convolve_oa = xu.OverlapAddConvolver(zp.target, kernels_arr, n, margin)
 
-    convolve_oa = xu.OAConvolver(cf.domain, kernels_arr, n, margin)
+    convolve_oa = xu.OAConvolver.force(cf.domain, kernels_arr, n, margin)
     res_1 = convolve_oa(cf)
 
     # res_1 = convolve_oa(zp_cf)
@@ -57,12 +57,13 @@ def test_overlapadd():
     psfs = []
     for p in psf_file:
         arr = p.val_rw()
-        arr[arr < 5] = 0
+        # arr[arr < 5] = 0
         # arr[arr >= 0] = 1
         # arr[0, 0] = 1
-        p = ift.Field.from_raw(position_space, arr)
-        p = p/p.s_integrate()
-        psfs.append(p.val)
+        # p = ift.Field.from_raw(position_space, arr)
+        # p = p/p.s_integrate()
+        # psfs.append(p.val)
+        psfs.append(arr)
     psfs = np.array(psfs, dtype="float64")
     # convolve_oa_ch = xu.OverlapAddConvolver(zp.target, psfs, n, margin)
 
@@ -71,7 +72,7 @@ def test_overlapadd():
     # cut = xu.MarginZeroPadder(s_ps, 64).adjoint
     # res_4 = cut(res_4)
 
-    oa2 = xu.OAConvolver(position_space, psfs, n, margin)
+    oa2 = xu.OAConvolver.force(position_space, psfs, n, margin)
     f2 = ift.Field.full(position_space, 1.2)
     res_5 = oa2(f2)
     res_6 = oa2(cf)
@@ -91,7 +92,7 @@ def test_overlapadd():
     # pl1.add(res_3, norm=LogNorm(), title="conv ones with gauss")
     # pl1.add(res_4, norm=LogNorm(), title="conv ones with chandra kernel")
     pl1.add(kern+1e-10, norm=SymLogNorm(1), title="gauss kernel")
-    pl1.add(ift.Field.from_raw(p.domain, psfs[0]), norm=SymLogNorm(1), title="chandra")
+    # pl1.add(ift.Field.from_raw(p.domain, psfs[0]), norm=SymLogNorm(1), title="chandra")
     # print(np.min(res_3.val), np.max(res_3.val))
     # print(np.min(res_4.val), np.max(res_4.val))
     pl1.add(res_5, title="conv ones with chandra kernel")
