@@ -52,8 +52,8 @@ class OverlapAdd(ift.LinearOperator):
             # TODO think about doing without this dx for the bordes
             # and odd number of patches?
             xplus[
-                self.dx // 2 : xplus.shape[0] - self.dx // 2,
-                self.dy // 2 : xplus.shape[1] - self.dy // 2,
+                self.dx // 2: xplus.shape[0] - self.dx // 2,
+                self.dy // 2: xplus.shape[1] - self.dy // 2,
             ] = x.val
             listing = []
             for l in range(self.sqrt_n_patch):
@@ -202,7 +202,7 @@ class OAConvolver(ift.LinearOperator):
         # FIXME Normalize here
         convolved = convolve_field_operator(kernels, padded, space=1)
         uspace = ift.UnstructuredDomain(64)
-        sp = ift.RGSpace([256,256], distances=domain[0].distances)
+        sp = ift.RGSpace([256, 256], distances=domain[0].distances)
         pad_space = ift.makeDomain([uspace, sp])
         zp2 = MarginZeroPadder(pad_space, 320, space=1)
         convolved = zp2.adjoint(convolved)
