@@ -196,10 +196,13 @@ class OAConvolver(ift.LinearOperator):
             padded.target, kernels_arr.shape[1:], space=1, central=True
         ).adjoint
         kernels_b = ift.Field.from_raw(cutter.domain, kernels_arr)
-        # FIXME This is errorprone => check domains and distances in init
+        # FIXME Kernels as IFT Field
         kernels = cutter(kernels_b)
-        print("kernel_domain",kernels.domain)
-        # FIXME Normalize here
+        spread = ift.ContractionOperator(kernels.domain, spaces=1).adjoint
+        norm = kernels.integrate(spaces=1)**-1
+        norm = ift.makeOp(spread(norm))
+        kernels = norm(kernels)
+
         convolved = convolve_field_operator(kernels, padded, space=1)
         uspace = ift.UnstructuredDomain(64)
         sp = ift.RGSpace([256, 256], distances=domain[0].distances)
