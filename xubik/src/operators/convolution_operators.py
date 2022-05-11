@@ -101,6 +101,11 @@ class OAConvolver(ift.LinearOperator):
     margin: int
         Size of the margin. Number of pixels on one boarder.
 
+    HINT:
+    The Operator checks if the kernel is zero in the regions not being used.
+    If the initialization fails it can either be forced or cut by value.
+    force: sets all unused areas to zero,
+    cut_by_value: sets everything below the threshold to zero.
     """
     def __init__(self, domain, kernel_arr, n, margin):
         self._domain = ift.makeDomain(domain)
@@ -129,9 +134,10 @@ class OAConvolver(ift.LinearOperator):
         ).adjoint
         # FIXME Kernels as IFT Field
         kernels_b = ift.Field.from_raw(cutter.domain, kernel_arr)
+
         if not self._check_kernel(domain, kernel_arr, n, margin):
             raise ValueError("_check_kernel detected nonzero entries. Use .force, .cut_by_value!")
-        # TODO check for area cut out => only 0
+
         kernels = cutter(kernels_b)
         spread = ift.ContractionOperator(kernels.domain, spaces=1).adjoint
         norm = kernels.integrate(spaces=1)**-1
@@ -155,11 +161,14 @@ class OAConvolver(ift.LinearOperator):
         return res
 
     @staticmethod
-    def cut_by_value(domain, kernel_list, n, margin, value):
+    def cut_by_value(domain, kernel_list, n, margin, thrsh):
+        """
+        Sets the kernel zero for all values smaller than the threshold and initializes the operator.
+        """
         psfs = []
         for p in kernel_list:
             arr = p.val_rw()
-            arr[arr < value] = 0
+            arr[arr < thrsh] = 0
             psfs.append(arr)
         psfs = np.array(psfs, dtype="float64")
         if not self._check_kernel(domain, psfs, n, margin):
@@ -168,6 +177,9 @@ class OAConvolver(ift.LinearOperator):
 
     @classmethod
     def force(self, domain, kernel_list, n, margin):
+        """
+        Sets the kernel to zero where it is not used and initializes the operator.
+        """
         psfs = []
         nondef = self._psf_cut_area(domain, kernel_list, n, margin)
         import matplotlib.pyplot as plt
@@ -184,6 +196,10 @@ class OAConvolver(ift.LinearOperator):
 
     @staticmethod
     def _psf_cut_area(domain, kernel_list, n, margin):
+        """
+        Returns an array with size of the full kernel.
+        It is one where the psf gets cut out.
+        """
         n_axis = int(np.sqrt(n))
         if n_axis != np.sqrt(n):
             raise ValueError("Please check your number of patches. Only square numbers are supported")
@@ -206,8 +222,10 @@ class OAConvolver(ift.LinearOperator):
 
     @classmethod
     def _check_kernel(self, domain, kernel_list, n, margin):
-        """checks if the kernel is appropriate for this method.
-        For kernels being too large, this method is not suitable."""
+        """
+        checks if the kernel is appropriate for this method.
+        For kernels being too large, this method is not suitable.
+        """
         nondef = self._psf_cut_area(domain, kernel_list, n, margin)
         plist = []
         for p in kernel_list:
