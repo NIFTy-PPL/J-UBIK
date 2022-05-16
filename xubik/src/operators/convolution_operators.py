@@ -24,9 +24,6 @@ class OverlapAdd(ift.LinearOperator):
     ------
     Comparable to PatchingOperator + Overlapp + Margins"""
 
-    # TODO add checks and test
-    # FIXME Restructure
-    # FIXME omit loops
 
     def __init__(self, domain, n_patch, pbc_margin):
         self._domain = ift.makeDomain(domain)
@@ -109,9 +106,17 @@ class OAConvolver(ift.LinearOperator):
     """
     def __init__(self, domain, kernel_arr, n, margin):
         self._domain = ift.makeDomain(domain)
+        self._n = n
         self._op = self._build_op(domain, kernel_arr, n, margin)
         self._target = self._op.target
         self._capability = self.TIMES | self.ADJOINT_TIMES
+
+    @staticmethod
+    def _sqrt_n(n):
+        sqrt = int(np.sqrt(n))
+        if sqrt != np.sqrt(n):
+            raise ValueError("Operation is only defined on square number of patches.")
+        return sqrt
 
     def apply(self, x, mode):
         self._check_input(x, mode)
@@ -124,15 +129,14 @@ class OAConvolver(ift.LinearOperator):
     @classmethod
     def _build_op(self, domain, kernel_arr, n, margin):
         domain = ift.makeDomain(domain)
-        marginmaker = MarginZeroPadder(domain[0], margin, space=0)
-        oa = OverlapAdd(marginmaker.target[0], n, margin)
-        zp = MarginZeroPadder(oa.target, margin, space=1)
-        padded = zp @ oa @ marginmaker
+        pad_margin = MarginZeroPadder(domain[0], margin, space=0)
+        oa = OverlapAdd(pad_margin.target[0], n, margin)
+        patched = oa @ pad_margin
 
         cutter = ift.FieldZeroPadder(
-            padded.target, kernel_arr.shape[1:], space=1, central=True
+            patched.target, kernel_arr.shape[1:], space=1, central=True
         ).adjoint
-        # FIXME Kernels as IFT Field
+        # TODO Kernels as IFT Field
         kernels_b = ift.Field.from_raw(cutter.domain, kernel_arr)
 
         if not self._check_kernel(domain, kernel_arr, n, margin):
@@ -144,24 +148,25 @@ class OAConvolver(ift.LinearOperator):
         norm = ift.makeOp(spread(norm))
         kernels = norm(kernels)
 
-        convolved = convolve_field_operator(kernels, padded, space=1)
-        uspace = ift.UnstructuredDomain(64)
+        convolved = convolve_field_operator(kernels, patched, space=1)
+        n_space = ift.UnstructuredDomain(n)
+        p_space = ift.RGSpace(np.array(domain.shape)//self._sqrt_n(n) * 2, distances=domain[0].distances)
+        pad_space = ift.makeDomain([n_space, p_space])
 
-        # FIXME BROKEN!
-        sp = ift.RGSpace([256, 256], distances=domain[0].distances)
-
-        pad_space = ift.makeDomain([uspace, sp])
-        zp2 = MarginZeroPadder(pad_space, 320, space=1)
-        convolved = zp2.adjoint(convolved)
+        cut_conv_margin = MarginZeroPadder(pad_space, margin, space=1).adjoint
+        convolved = cut_conv_margin(convolved)
         weights = ift.makeOp(get_weights(convolved.target))
         weighted = weights @ convolved
         oa_back = OverlapAdd(domain[0], n, 0)
-        # cut = MarginZeroPadder(domain[0], ((oa_back.domain.shape[0] - domain.shape[0])//2), space=0).adjoint
-        res = oa_back.adjoint @ weighted
-        return res
 
-    @staticmethod
-    def cut_by_value(domain, kernel_list, n, margin, thrsh):
+        tgt_spc_shp = np.array([i-2*margin for i in domain[0].shape])
+        target_space = ift.RGSpace(tgt_spc_shp, distances=domain[0].distances)
+        cut_interpolation_margin = MarginZeroPadder(target_space, margin).adjoint
+
+        return cut_interpolation_margin @ oa_back.adjoint @ weighted
+
+    @classmethod
+    def cut_by_value(self, domain, kernel_list, n, margin, thrsh):
         """
         Sets the kernel zero for all values smaller than the threshold and initializes the operator.
         """
@@ -182,9 +187,6 @@ class OAConvolver(ift.LinearOperator):
         """
         psfs = []
         nondef = self._psf_cut_area(domain, kernel_list, n, margin)
-        import matplotlib.pyplot as plt
-        plt.imshow(nondef)
-        plt.show()
         for p in kernel_list:
             arr = p#.val_rw()
             arr[nondef == 0] = 0
@@ -194,17 +196,13 @@ class OAConvolver(ift.LinearOperator):
             raise ValueError("_check_kernel detected nonzero entries in areas which should have been cut away. Please double check!")
         return OAConvolver(domain, psfs, n, margin)
 
-    @staticmethod
-    def _psf_cut_area(domain, kernel_list, n, margin):
+    @classmethod
+    def _psf_cut_area(self, domain, kernel_list, n, margin):
         """
         Returns an array with size of the full kernel.
         It is one where the psf gets cut out.
         """
-        n_axis = int(np.sqrt(n))
-        if n_axis != np.sqrt(n):
-            raise ValueError("Please check your number of patches. Only square numbers are supported")
-
-        psf_patch_shape = np.ones(np.array(domain.shape)//n_axis * 2)
+        psf_patch_shape = np.ones(np.array(domain.shape)//self._sqrt_n(n) * 2)
         psf_domain_shape = kernel_list[0].shape
         for d in [0, 1]:
             shp = list(psf_patch_shape.shape)
@@ -234,6 +232,8 @@ class OAConvolver(ift.LinearOperator):
             plist.append(nondef_arr)
         plist = np.array(plist, dtype="float64")
         return np.all(plist == 0)
+
+# TODO Think about what is the right thing and fix the stuff being wrong in the lower op
 
 # class OverlapAddConvolver(ift.LinearOperator):
 #     """
