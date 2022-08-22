@@ -6,6 +6,7 @@ obs3209:
   aspect_sol: primary/pcadf03209_000N001_asol1.fits
   bpix_file: primary/acisf03209_000N004_bpix1.fits
   mask_file: secondary/acisf03209_000N004_msk1.fits
+  instrument: ACIS-S
 
 obs4289:
   obsID: 4289
@@ -14,6 +15,7 @@ obs4289:
   aspect_sol: primary/pcadf04289_000N001_asol1.fits
   bpix_file: primary/acisf04289_000N004_bpix1.fits
   mask_file: secondary/acisf04289_000N004_msk1.fits
+  instrument: ACIS-S
 
 obs4948:
   obsID: 4948
@@ -22,6 +24,7 @@ obs4948:
   aspect_sol: primary/pcadf04948_001N001_asol1.fits
   bpix_file: primary/acisf04948_001N004_bpix1.fits
   mask_file: secondary/acisf04948_001N004_msk1.fits
+  instrument: ACIS-S
 
 obs4952:
   obsID: 4952
