@@ -6,7 +6,7 @@ This Repository contains scripts for data preprocessing, and analysis with numer
 - [x] list of observations
 - [x] data fusion
 - [x] inverse Gamma params inference (Margret)
-- [ ] Reconstruction w/ spatially variant psf
+- [x] Reconstruction w/ spatially variant psf
 - [ ] documentation (model and parameters)
 - [ ] document response
 - [ ] energy dependency / reconstruct energy bands separately
