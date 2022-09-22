@@ -38,7 +38,8 @@ def get_normed_exposure(exposure_field, data_field):
 
 def get_norm_exposure_patches(datasets, domain, energy_bins):
     norms = []
-    norm_means = []
+    norm_mean = []
+    norm_max = []
     norm_std = []
     for i in range(energy_bins):
         for dataset in datasets:
@@ -46,9 +47,10 @@ def get_norm_exposure_patches(datasets, domain, energy_bins):
             exposure = observation["exposure"].val[:,:,i]
             data = observation["data"].val[:,:,i]
             norms.append(get_norm(ift.Field.from_raw(domain, exposure), ift.Field.from_raw(domain, data)))
-        norm_means.append(np.mean(np.array(norms)))
+        norm_mean.append(np.mean(np.array(norms)))
+        norm_max.append(np.amax(np.array(norms)))
         norm_std.append(np.std(np.array(norms)))
-    return norm_means, norm_std
+    return norm_max, norm_mean, norm_std
 
 def get_norm(exposure_field, data_field):
     dom = exposure_field.domain
@@ -252,3 +254,59 @@ class Transposer(ift.EndomorphicOperator):
         self._check_input(x, mode)
         res = ift.Field.from_raw(self._tgt(mode), x.val.T)
         return res
+
+def save_rgb_image_to_fits(fld, file_name, overwrite, mpi):
+    import astropy.io.fits as pyfits
+    from astropy.time import Time
+    import time
+    color_dict = {0: "red", 1: "green", 2: "blue"}
+    domain = fld.domain
+    if not isinstance(domain, ift.DomainTuple) or len(domain)!=2 or len(domain[0].shape)!=2:
+        raise ValueError("FITS file export of RGB data is only possible for 3d-fields. "
+                         f"Current domain:\n{domain}")
+    if fld.shape[2] != 3:
+        raise ValueError("Energy direction has to be binned to 3 to create an RGB image. "
+                         f"Current number of energy bins:\n{fld.shape[2]}")
+    h = pyfits.Header()
+    h["DATE-MAP"] = Time(time.time(), format="unix").iso.split()[0]
+    h["CRVAL1"] = h["CRVAL2"] = 0
+    h["CRPIX1"] = h["CRPIX2"] = 0
+    h["CUNIT1"] = h["CUNIT2"] = "deg"
+    h["CDELT1"], h["CDELT2"] = -domain[0].distances[0], domain[0].distances[1]
+    h["CTYPE1"] = "RA---SIN"
+    h["CTYPE2"] = "DEC---SIN"
+    h["EQUINOX"] = 2000
+    if mpi:
+        for i in range(fld.shape[2]):
+            hdu = pyfits.PrimaryHDU(fld.val[:,:,i], header=h)
+            hdulist = pyfits.HDUList([hdu])
+            file_name_colour = f"{file_name}_{color_dict[i]}.fits"
+            hdulist.writeto(file_name_colour, overwrite=overwrite)
+
+def energy_binning(fld, energy_bins, data_type=None):
+    domain = fld.domain
+    arr = fld.val
+    shape = [i for i in arr.shape]
+    new_shape = shape[:2]
+    new_shape.append(energy_bins)
+    new_domain = ift.DomainTuple.make((domain[0], ift.RGSpace(energy_bins)))
+    aux_arrs =[]
+    binned_array = arr
+    if shape[2]<energy_bins:
+        binned_array = np.pad(arr, [(0,0), (0,0), (0,(energy_bins-shape[2]))], mode='constant')
+    if shape[2]>energy_bins:
+        bins = np.arange(0, shape[2]+1, shape[2]/(energy_bins))
+        for i in range(len(bins)-1):
+            bin1 = int(bins[i])
+            bin2 = int(bins[i+1])
+            aux_arrs.append(np.sum(arr[:,:,bin1:bin2], axis=2))
+        binned_array = np.stack(aux_arrs, axis=2)
+    binned_field = ift.Field.from_raw(new_domain, binned_array)
+    return binned_field
+
+def transform_loglog_slope_pars(slope_pars):
+    """Transform slope parameters from log10/log10 to ln/log10 space"""
+    res = slope_pars.copy()
+    res['mean'] = (res['mean']+1) *np.log(10)
+    res['sigma'] *=np.log(10)
+    return res

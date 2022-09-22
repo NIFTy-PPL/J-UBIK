@@ -14,8 +14,8 @@ datasets:
 global_it: 30
 grid:
   elim:
-  - 2.0
-  - 10.0
+  - 0.5
+  - 7.0
   fov: 21.0
   npix_e: 2
   npix_s: 1024
@@ -32,8 +32,6 @@ outroot: ''
 points:
   alpha: 3
   q: 0.7
-#  mean_q: 1
-#  std_q: 0.5
 prefix: df
 priors_diffuse:
   asperity:

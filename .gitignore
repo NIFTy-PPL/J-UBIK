@@ -59,6 +59,9 @@ lib64/
 parts/
 sdist/
 var/
+df_rec_1024_mf/
+df_rec_1024_uninferred/
+df_rec_1024_uninferred_mf/
 *.egg-info/
 .installed.cfg
 *.egg

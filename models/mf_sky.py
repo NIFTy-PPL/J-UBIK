@@ -1,57 +1,41 @@
 import nifty8 as ift
-import yaml
 import xubik0 as xu
 import numpy as np
 
+################## CONFIG ###########################
 cfg = xu.get_cfg("config_mf.yaml")
+npix_s = cfg['grid']['npix_s']  # number of spacial bins per axis
+npix_e = cfg['grid']['npix_e']
+fov = cfg['grid']['fov']
+elim = cfg['grid']['elim']
 
-npix_s = 1024  # number of spacial bins per axis
-npix_e = 2
-npix_freq = npix_e*2
-fov = 21.0
-elim = (2.0, 10.0)
-
-################## Spaces ###########################
+# Spaces
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 position_space_flattened = ift.RGSpace([position_space.size], distances=[2.0 * fov / npix_s])
-padded_energy_space = ift.RGSpace([npix_freq], distances=np.log(elim[1] / elim[0]) / npix_e)
+padded_energy_space = ift.RGSpace([2*npix_e], distances=np.log(elim[1] / elim[0]) / npix_e)
 padded_sky_space = ift.DomainTuple.make([position_space, padded_energy_space])
-padded_sky_space_flattened = ift.DomainTuple.make([position_space_flattened, padded_energy_space])
-
 energy_space = ift.RGSpace([npix_e], distances=padded_energy_space.distances)
 sky_space = ift.DomainTuple.make([position_space, energy_space])
 sky_space_flattened = ift.DomainTuple.make([position_space_flattened, energy_space])
-#ZeroPadder
-depad_sky = ift.FieldZeroPadder(sky_space, new_shape=padded_energy_space.shape, space=1).adjoint
 
-#Limits on Exp
+# Zero padder
+space_zero_padder = ift.FieldZeroPadder(sky_space, new_shape=padded_energy_space.shape, space=1)
+
+# Limits on exp
 exp_max = np.log(np.finfo(np.float64).max)/2.
 exp_min = np.log(np.finfo(np.float64).tiny)
 
 
 ################## Prior ################################
-# Diffuse Model
+# Diffuse model
 cf_maker = ift.CorrelatedFieldMaker('diffuse')
 cf_maker.add_fluctuations(position_space, **cfg['priors_diffuse'])
 cf_maker.add_fluctuations(padded_energy_space, **cfg['priors_diffuse_energy'])
 cf_maker.set_amplitude_total_offset(**cfg['priors_diffuse_offset'])
 diffuse = cf_maker.finalize()
-diffuse = depad_sky(diffuse).clip(exp_min, exp_max).exp()
+diffuse = space_zero_padder.adjoint(diffuse).clip(exp_min, exp_max).exp()
 
-#Points Model
-
-# Log-linear slope part
-def transform_loglog_slope_pars(slope_pars):
-    """The slope parameters given in the config are
-    for slopes in log10/log10 space.
-    However, since the energy bins are log10-spaced
-    and the signal is modeled in ln-space, the parameters
-    have to be transformed prior to their use."""
-    res = slope_pars.copy()
-    res['mean'] = (res['mean'] + 1) * np.log(10)
-    res['sigma'] *= np.log(10)
-    return res
-
+# Points Model
 ps_spectra_loglinear_slopes = ift.NormalTransform(N_copies=position_space.size, **cfg['points_loglinear_slope'])
 unit_slope = np.arange(-energy_space.total_volume/2., energy_space.total_volume/2., energy_space.distances[0])
 unit_slope = ift.makeField(energy_space, unit_slope)

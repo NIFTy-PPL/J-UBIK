@@ -12,12 +12,13 @@ datasets:
 - df_14424_observation.npy
 - df_14435_observation.npy
 global_it: 30
+type: 'CMF'
 grid:
   elim:
-  - 4.0
-  - 10.0
+  - 0.5
+  - 7.0
   fov: 21.0
-  npix_e: 2
+  npix_e: 3
   npix_s: 1024
 ic_newton:
   convergence_level: 5
