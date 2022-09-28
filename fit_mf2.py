@@ -9,7 +9,7 @@ ift.set_nthreads(2)
 
 with open('models/mf_sky.py', 'r') as fd:
     exec(fd.read())
-
+mf_sky
 #Likelihood P(d|s)
 signal_fa = ift.FieldAdapter(signal_dt.target['full_signal'], 'full_signal')
 likelihood_list = []
@@ -68,13 +68,13 @@ global_it = cfg['global_it']
 n_samples = cfg['Nsamples']
 
 samples = xu.optimize_kl(
-    likelihood_sum,
-    global_it,
-    n_samples,
-    minimizer,
-    ic_sampling,
-    nl_sampling_minimizer,
-    plottable_operators={
+    likelihood_energy=likelihood_sum,
+    total_iterations=global_it,
+    n_samples=n_samples,
+    kl_minimizer=minimizer,
+    sampling_iteration_controller=ic_sampling,
+    nonlinear_sampling_minimizer=nl_sampling_minimizer,
+    export_operator_outputs={
         "signal": signal,
         "point_sources": points,
         "diffuse": diffuse,

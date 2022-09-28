@@ -6,7 +6,7 @@ import nifty8 as ift
 import xubik0 as xu
 
 obs_info = xu.get_cfg("obs/obs.yaml")
-multifrequency = True
+multifrequency = False
 if multifrequency:
     img_cfg = xu.get_cfg("config_mf.yaml")
 else:
@@ -14,7 +14,7 @@ else:
 grid = img_cfg["grid"]
 outroot = img_cfg["prefix"]
 obs_type = img_cfg["type"]
-if obs_type not in ['CMF', 'EMF']:
+if obs_type not in ['CMF', 'EMF', 'SF']:
     obs_type = None
 data_domain = xu.get_data_domain(grid)
 obslist = [

@@ -16,7 +16,7 @@ grid:
   elim:
   - 0.5
   - 7.0
-  fov: 21.0
+  fov: 17.0
   npix_e: 2
   npix_s: 1024
 ic_newton:
@@ -53,3 +53,4 @@ priors_diffuse:
   prefix: diffuse
 psf_sim:
   num_rays: 1000000.0
+type: SF
