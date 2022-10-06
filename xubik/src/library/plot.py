@@ -1,7 +1,7 @@
 import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, SymLogNorm
 from .utils import get_data_domain
 from ..operators.observation_operator import ChandraObservationInformation
 import astropy as ao
@@ -25,7 +25,6 @@ def plot_slices(field, outname, logscale=False):
     fig.tight_layout()
     if outname != None:
         fig.savefig(outname)
-    # plt.show()
     plt.close()
 
 
@@ -81,3 +80,32 @@ def plot_image_from_fits(file_name_in, file_name_out, log_scale=False):
     plt.imshow(image_data, norm= LogNorm())
     plt.savefig(file_name_out)
 
+
+def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):
+    fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0
+    psf = psf.val #.reshape([1024, 1024])
+    pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-fov, fov] * 2}
+    if logscale == True:
+        pltargs["norm"] = SymLogNorm(1, vmin=vmin, vmax=vmax)
+    fig, ax = plt.subplots()
+    psf_plot = ax.imshow(psf, **pltargs)
+    fig.colorbar(psf_plot)
+    fig.tight_layout()
+    fig.savefig(outname, dpi=1500)
+    plt.close()
+
+
+def plot_psfset(fname, outname, npix, n, in_one=True):
+    fileloader = np.load(fname, allow_pickle=True).item()
+    psf = fileloader["psf_sim"]
+    if in_one:
+        psfset = psf[0]
+        for i in range(1, n**2):
+            psfset = psfset + psf[i]
+        plot_single_psf(psfset, outname + "psfset.png", logscale=True)
+
+    else:
+        p = ift.Plot()
+        for k in range(10):
+            p.add(psf[k], title=f"{k}", norm=LogNorm())
+        p.output(name=outname +"psfs.png", xsize=20, ysize=20)

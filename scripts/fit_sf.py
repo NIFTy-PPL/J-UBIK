@@ -1,13 +1,11 @@
 import numpy as np
-import matplotlib.pylab as plt
-import yaml
 
 import nifty8 as ift
 import xubik0 as xu
 
 ift.set_nthreads(2)
 
-cfg = xu.get_cfg("config.yaml")
+cfg = xu.get_cfg("../config/config.yaml")
 
 npix_s = 1024  # number of spacial bins per axis
 fov = 17.0
@@ -33,7 +31,7 @@ exp_norm_max, exp_norm_mean, exp_norm_std = xu.get_norm_exposure_patches(cfg['da
 print(f'Mean of exposure-map-norm: {exp_norm_mean} \nStandard deviation of exposure-map-norm: {exp_norm_std}')
 for dataset in cfg['datasets']:
     #Loop
-    observation = np.load(dataset, allow_pickle=True).item()
+    observation = np.load("../npdata/df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
 
     #PSF
     psf_arr = observation['psf_sim'].val[:, :, energy_bin]
@@ -56,17 +54,17 @@ for dataset in cfg['datasets']:
     mask = xu.get_mask_operator(normed_exp_field)
 
     #Likelihood
-    convolved = xu.convolve_field_operator(psf, signal_fa)
+    convolved = xu.convolve_field_operator(psf, signal_fa, space=0)
     signal_response = mask @ normed_exposure @ convolved
 
     masked_data = mask(data_field)
     likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
+    likelihood.name = dataset
     likelihood_list.append(likelihood)
 
 likelihood_sum = likelihood_list[0]
 for i in range(1, len(likelihood_list)):
     likelihood_sum = likelihood_sum + likelihood_list[i]
-
 likelihood_sum = likelihood_sum(signal_dt)
 
 # End of Loop
@@ -76,8 +74,6 @@ minimizer = ift.NewtonCG(ic_newton)
 
 nl_sampling_minimizer = None
 pos = 0.1 * ift.from_random(signal.domain)
-
-
 transpose = xu.Transposer(signal.target)
 
 global_it = cfg['global_it']
@@ -94,9 +90,9 @@ samples = ift.optimize_kl(
         "point_sources": transpose@points,
         "diffuse": transpose@diffuse,
         "power_spectrum": pspec,
-        #"inverse_gamma_q": points.q(),
+        #" inverse_gamma_q": points.q(),
     },
-    output_directory="df_rec",
+    output_directory="../df_rec",
     initial_position=pos,
     comm=xu.library.mpi.comm,
     resume=True

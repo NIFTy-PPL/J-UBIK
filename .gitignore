@@ -16,8 +16,6 @@ setup.cfg
 .idea
 data/*
 res/*
-df_rec/*
-SN1006_3obs/
 .DS_Store
 *.pyc
 *.html
@@ -27,7 +25,6 @@ SN1006_3obs/
 *.csv
 .pytest_cache/
 *.png
-oldstuff/*
 *.fits
 *.npy
 
@@ -59,9 +56,11 @@ lib64/
 parts/
 sdist/
 var/
-df_rec_1024_mf/
-df_rec_1024_uninferred/
-df_rec_1024_uninferred_mf/
+npdata/*
+obs/*
+df_rec_1024_mf/*
+df_rec_1024_uninferred/*
+df_rec_1024_uninferred_mf/*
 *.egg-info/
 .installed.cfg
 *.egg
@@ -130,3 +129,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
+/data/
+/diagnose/
+/obs/

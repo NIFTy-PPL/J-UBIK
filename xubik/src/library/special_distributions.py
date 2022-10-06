@@ -1,4 +1,3 @@
-
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -15,11 +14,14 @@
 # Copyright(C) 2013-2021 Max-Planck-Society
 #
 # NIFTy is being developed at the Max-Planck-Institut fuer Astrophysik.
+
 import numpy as np
 import nifty8 as ift
-import nifty8.re as jft
+#import nifty8.re as jft
 from scipy.stats import invgamma, norm
 from nifty8.library.special_distributions import _InterpolationOperator
+
+
 class InverseGammaOperator(ift.Operator):
     """Transform a standard normal into an inverse gamma distribution with inferred parameter q.
 

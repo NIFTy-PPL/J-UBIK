@@ -1,17 +1,20 @@
-Nsamples: 4
+outroot: ../npdata/
+prefix: df
+type: "SF"
+Nsamples: 1
 datasets:
-- df_14423_observation.npy
-- df_9107_observation.npy
-- df_13738_observation.npy
-- df_13737_observation.npy
-- df_13739_observation.npy
-- df_13740_observation.npy
-- df_13741_observation.npy
-- df_13742_observation.npy
-- df_13743_observation.npy
-- df_14424_observation.npy
-- df_14435_observation.npy
-global_it: 30
+#- "14423"
+#- "9107"
+- "13738"
+#- "13737"
+#- "13739"
+#- "13740"
+#- "13741"
+#- "13742"
+#- "13743"
+#- "14424"
+#- "14435"
+global_it: 1
 grid:
   elim:
   - 0.5
@@ -20,19 +23,17 @@ grid:
   npix_e: 2
   npix_s: 1024
 ic_newton:
-  convergence_level: 5
+  convergence_level: 1
   deltaE: 0.5
-  iteration_limit: 5
+  iteration_limit: 1
   name: Newton
 ic_sampling:
   deltaE: 0.05
-  iteration_limit: 100
+  iteration_limit: 1
   name: Sampling(lin)
-outroot: ''
 points:
   alpha: 3
   q: 0.7
-prefix: df
 priors_diffuse:
   asperity:
   - 0.1
@@ -53,4 +54,3 @@ priors_diffuse:
   prefix: diffuse
 psf_sim:
   num_rays: 1000000.0
-type: SF

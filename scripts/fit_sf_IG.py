@@ -7,10 +7,10 @@ import xubik0 as xu
 
 ift.set_nthreads(2)
 
-cfg = xu.get_cfg("config.yaml")
+cfg = xu.get_cfg("../config/config_IG.yaml")
 
 npix_s = 1024  # number of spacial bins per axis
-fov = 21.0
+fov = 17.0
 energy_bin = 0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 
@@ -26,9 +26,12 @@ signal_dt = signal.ducktape_left('full_signal')
 #Likelihood P(d|s)
 signal_fa = ift.FieldAdapter(signal_dt.target['full_signal'], 'full_signal')
 likelihood_list = []
+
+exp_norm_max, exp_norm_mean, exp_norm_std = xu.get_norm_exposure_patches(cfg['datasets'], position_space, 1)
+print(f'Mean of exposure-map-norm: {exp_norm_mean} \nStandard deviation of exposure-map-norm: {exp_norm_std}')
 for dataset in cfg['datasets']:
     #Loop
-    observation = np.load(dataset, allow_pickle=True).item()
+    observation = np.load("../npdata/df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
 
     #PSF
     psf_arr = observation['psf_sim'].val[:, :, energy_bin]
@@ -44,9 +47,7 @@ for dataset in cfg['datasets']:
     #Exp
     exp = observation["exposure"].val[:, :, energy_bin]
     exp_field = ift.Field.from_raw(position_space, exp)
-    if dataset == cfg['datasets'][0]:
-        norm_first_data = xu.get_norm(exp_field, data_field)
-    normed_exp_field = ift.Field.from_raw(position_space, exp) * norm_first_data
+    normed_exp_field = ift.Field.from_raw(position_space, exp) * np.mean(exp_norm_mean)
     normed_exposure = ift.makeOp(normed_exp_field)
 
     #Mask
@@ -73,17 +74,8 @@ minimizer = ift.NewtonCG(ic_newton)
 
 nl_sampling_minimizer = None
 pos = 0.1 * ift.from_random(signal.domain)
-
-
 transpose = xu.Transposer(signal.target)
-def callback(samples):
-    s = ift.extra.minisanity(
-        masked_data,
-        lambda x: ift.makeOp(1 / signal_response(signal_dt)(x)),
-        signal_response(signal_dt),
-        samples,
-    )
-    print(s)
+
 
 global_it = cfg['global_it']
 n_samples = cfg['Nsamples']
@@ -94,17 +86,16 @@ samples = ift.optimize_kl(
     minimizer,
     ic_sampling,
     nl_sampling_minimizer,
-    plottable_operators={
+    export_operator_outputs={
         "signal": transpose@signal,
         "point_sources": transpose@points,
         "diffuse": transpose@diffuse,
         "power_spectrum": pspec,
+        # inverse_gamma_q: points:q()
     },
-    output_directory="df_rec",
+    output_directory="../df_rec",
     initial_position=pos,
     comm=xu.library.mpi.comm,
-    inspect_callback=callback,
-    overwrite=True,
     resume=True
 )
 

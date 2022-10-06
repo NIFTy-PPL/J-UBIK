@@ -1,8 +1,10 @@
-import nifty8 as ift
-import xubik0 as xu
 import numpy as np
 import sys
-from models import mf_sky, sf_sky
+from functools import partial
+from models import mf_sky_trans, sf_sky_trans
+
+import nifty8 as ift
+import xubik0 as xu
 # ############### Config-Utils ###############
 
 
@@ -60,46 +62,46 @@ def multif_sky(*,
                points_brightness_alpha,
                points_brightness_q,
                ):
-    signal = mf_sky.mf_sky(npix_s,
-                    npix_e,
-                    fov,
-                    e_lim_min,
-                    e_lim_max,
-                    spatial_diffuse_asperity_mean,
-                    spatial_diffuse_asperity_std,
-                    spatial_diffuse_flexibility_mean,
-                    spatial_diffuse_flexibility_std,
-                    spatial_diffuse_fluctuations_mean,
-                    spatial_diffuse_fluctuations_std,
-                    spatial_diffuse_loglogavgslope_mean,
-                    spatial_diffuse_loglogavgslope_std,
-                    energy_diffuse_asperity_mean,
-                    energy_diffuse_asperity_std,
-                    energy_diffuse_flexibility_mean,
-                    energy_diffuse_flexibility_std,
-                    energy_diffuse_fluctuations_mean,
-                    energy_diffuse_fluctuations_std,
-                    energy_diffuse_loglogavgslope_mean,
-                    energy_diffuse_loglogavgslope_std,
-                    diffuse_offset_mean,
-                    diffuse_offset_std_mean,
-                    diffuse_offset_std_std,
-                    spatial_points_loglinear_slope_mean,
-                    spatial_points_loglinear_slope_std,
-                    energy_points_asperity_mean,
-                    energy_points_asperity_std,
-                    energy_points_flexibility_mean,
-                    energy_points_flexibility_std,
-                    energy_points_fluctuations_mean,
-                    energy_points_fluctuations_std,
-                    energy_points_loglogavgslope_mean,
-                    energy_points_loglogavgslope_std,
-                    points_offset_mean,
-                    points_offset_std_mean,
-                    points_offset_std_std,
-                    points_brightness_alpha,
-                    points_brightness_q,
-                    )
+    signal = mf_sky_trans.mf_sky(npix_s,
+                                 npix_e,
+                                 fov,
+                                 e_lim_min,
+                                 e_lim_max,
+                                 spatial_diffuse_asperity_mean,
+                                 spatial_diffuse_asperity_std,
+                                 spatial_diffuse_flexibility_mean,
+                                 spatial_diffuse_flexibility_std,
+                                 spatial_diffuse_fluctuations_mean,
+                                 spatial_diffuse_fluctuations_std,
+                                 spatial_diffuse_loglogavgslope_mean,
+                                 spatial_diffuse_loglogavgslope_std,
+                                 energy_diffuse_asperity_mean,
+                                 energy_diffuse_asperity_std,
+                                 energy_diffuse_flexibility_mean,
+                                 energy_diffuse_flexibility_std,
+                                 energy_diffuse_fluctuations_mean,
+                                 energy_diffuse_fluctuations_std,
+                                 energy_diffuse_loglogavgslope_mean,
+                                 energy_diffuse_loglogavgslope_std,
+                                 diffuse_offset_mean,
+                                 diffuse_offset_std_mean,
+                                 diffuse_offset_std_std,
+                                 spatial_points_loglinear_slope_mean,
+                                 spatial_points_loglinear_slope_std,
+                                 energy_points_asperity_mean,
+                                 energy_points_asperity_std,
+                                 energy_points_flexibility_mean,
+                                 energy_points_flexibility_std,
+                                 energy_points_fluctuations_mean,
+                                 energy_points_fluctuations_std,
+                                 energy_points_loglogavgslope_mean,
+                                 energy_points_loglogavgslope_std,
+                                 points_offset_mean,
+                                 points_offset_std_mean,
+                                 points_offset_std_std,
+                                 points_brightness_alpha,
+                                 points_brightness_q,
+                                 )
     return signal
 
 
@@ -119,7 +121,7 @@ def singlef_sky(*,
                 diffuse_offset_std_std,
                 points_brightness_alpha,
                 points_brightness_q):
-    signal = sf_sky.sf_sky(npix_s,
+    signal = sf_sky_trans.sf_sky(npix_s,
                     fov,
                     spatial_diffuse_asperity_mean,
                     spatial_diffuse_asperity_std,
@@ -183,14 +185,20 @@ def lh(*, sky, energy_bins, dataset_list):
     for i in range(1, len(likelihood_list)):
         likelihood_sum = likelihood_sum + likelihood_list[i]
     likelihood_sum = likelihood_sum(signal_dt)
+    return likelihood_sum
 
 
 def trans(iglobal):
+
     return None
 
 
 builder_dct = {"mf_lh": lh, "mf_sky": multif_sky, "trans": trans}
 
+def callback(export_operator_ouputs, output_directory, save_strategy, obs_type):
+    return partial(xu.rgb_plotting_callback, save_strategy=save_strategy,
+                   export_operator_outputs=export_operator_outputs, output_directory=output_directory,
+                   obs_type=obs_type)
 
 def main():
     _, cfg_file = sys.argv

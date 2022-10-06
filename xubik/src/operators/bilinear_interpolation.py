@@ -2,16 +2,16 @@ import numpy as np
 
 import nifty8 as ift
 
-def get_patch_weights(domain):
+def _bilinear_weights(domain):
     psize = domain.shape[0]
-    a = np.linspace(0, 1, int(psize/2))
+    if psize/2 != int(psize/2):
+        raise ValueError("this should happen")
+    a = np.linspace(0, 1, int(psize/2), dtype="float64")
     b = np.concatenate([a, np.flip(a)])
     c = np.outer(b,b)
-    res = ift.Field.from_raw(domain, c)
-    return res
+    return ift.Field.from_raw(domain, c)
 
 def get_weights(domain):
-    weights = get_patch_weights(domain[1])
-    explode = ift.ContractionOperator(domain, spaces=0)
-    res = explode.adjoint(weights)
-    return res
+    weights = _bilinear_weights(domain[1])
+    explode = ift.ContractionOperator(domain, spaces=0).adjoint
+    return explode(weights)

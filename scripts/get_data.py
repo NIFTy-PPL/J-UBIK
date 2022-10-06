@@ -1,42 +1,36 @@
-import numpy as np
+import os
 import sys
-import yaml
+
+import numpy as np
 
 import nifty8 as ift
 import xubik0 as xu
 
-obs_info = xu.get_cfg("obs/obs.yaml")
-multifrequency = False
-if multifrequency:
-    img_cfg = xu.get_cfg("config_mf.yaml")
+obs_info = xu.get_cfg("../obs/obs.yaml")
+_, energy_dim = sys.argv
+if energy_dim == "multifrequency":
+    img_cfg = xu.get_cfg("../config/config_mf.yaml")
+elif energy_dim == "singlefrequency":
+    img_cfg = xu.get_cfg("../config/config.yaml")
 else:
-    img_cfg = xu.get_cfg("config.yaml")
+    raise ValueError('Input has to be of type singlefrequency or multifrequency')
+
 grid = img_cfg["grid"]
-outroot = img_cfg["prefix"]
+outroot = img_cfg["outroot"]+img_cfg["prefix"]
+if not os.path.exists(outroot):
+    os.makedirs(outroot)
 obs_type = img_cfg["type"]
 if obs_type not in ['CMF', 'EMF', 'SF']:
     obs_type = None
 data_domain = xu.get_data_domain(grid)
-obslist = [
-    "14423",
-    "9107",
-    "13738",
-    "13737",
-    "13739",
-    "13740",
-    "13741",
-    "13742",
-    "13743",
-    "14424",
-    "14435",
-]
+obslist = img_cfg["datasets"]
 center = None
 dataset_list = []
 for obsnr in obslist:
     outfile = outroot + f"_{obsnr}_" + "observation.npy"
     dataset_list.append(outfile)
     info = xu.ChandraObservationInformation(obs_info["obs" + obsnr], **grid, center=center, obs_type=obs_type)
-    data = info.get_data(f"data_{obsnr}.fits")
+    data = info.get_data(f"../npdata/data_{obsnr}.fits")
     data = ift.makeField(data_domain, data)
     #FIXME info.get_data could also directly return a field, ChandraObservationInformation probably builds the same domain within
     xu.plot_slices(data, outroot + f"_data_{obsnr}.png", logscale=True)
@@ -55,13 +49,3 @@ for obsnr in obslist:
 
     if obsnr == obslist[0]:
         center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
-
-#TODO simplify this stuff
-with open("config.yaml", "r") as cfg_file:
-    cfg = yaml.safe_load(cfg_file)
-    #FIXME: Import yaml, pleaseee!
-    cfg["datasets"] = dataset_list
-
-if cfg:
-    with open("config.yaml", "w") as cfg_file:
-        yaml.safe_dump(cfg, cfg_file)

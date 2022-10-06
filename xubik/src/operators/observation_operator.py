@@ -75,6 +75,7 @@ class ChandraObservationInformation():
         dec_center = self.obsInfo['aim_dec']
         if center!=None:
             ra_center  = center[0]
+            ra_center  = center[0]
             dec_center = center[1]
 
         # 3.b) convert the image center to sky coordinates
