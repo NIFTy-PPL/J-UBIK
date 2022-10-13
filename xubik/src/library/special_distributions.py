@@ -17,7 +17,6 @@
 
 import numpy as np
 import nifty8 as ift
-#import nifty8.re as jft
 from scipy.stats import invgamma, norm
 from nifty8.library.special_distributions import _InterpolationOperator
 
