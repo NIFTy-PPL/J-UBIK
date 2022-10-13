@@ -85,7 +85,7 @@ obs13737:
 
 obs13738:
   obsID: 13738
-  data_location: ../data/13738/
+  data_location: data/13738/
   event_file: primary/acisf13738N002_evt2.fits
   aspect_sol: primary/pcadf13738_000N001_asol1.fits
   bpix_file: primary/acisf13738_000N002_bpix1.fits

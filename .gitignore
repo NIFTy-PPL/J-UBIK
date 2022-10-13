@@ -58,7 +58,6 @@ parts/
 sdist/
 var/
 npdata/*
-obs/*
 df_rec_1024_mf/*
 df_rec_1024_uninferred/*
 df_rec_1024_uninferred_mf/*
