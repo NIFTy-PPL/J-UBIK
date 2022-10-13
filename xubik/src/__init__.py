@@ -9,9 +9,6 @@ from .library.utils import (get_mask_operator, prior_sample_plotter, get_norm, g
 from .library.plot import plot_slices, plot_result, plot_single_psf, plot_psfset
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
-from .minimization.optimize_kl import optimize_kl
-from .minimization.sample_list import SampleList, SampleListBase, ResidualSampleList, _barrier
-from .minimization.kl_energies import SampledKLEnergy, SampledKLEnergyClass
 from .operators.observation_operator import ChandraObservationInformation
 from .operators.convolution_operators import OAConvolver, OAnew, OverlapAdd
 from .operators.bilinear_interpolation import get_weights
