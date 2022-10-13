@@ -6,30 +6,34 @@ import xubik0 as xu
 
 ift.random.push_sseq_from_seed(15)
 
+d_fname = "synth_data_70"
+psf_fname = "obs4952_patches_v1"
 inhomogen = True
 cfg = xu.get_cfg("config.yaml")
 
 npix_s = 1024
 fov = 4.0
 position_space = ift.makeDomain(ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s]))
+s_position_space = ift.makeDomain(ift.RGSpace([npix_s-256, npix_s-256], distances=[2.0 * fov / npix_s]))
 
 points = ift.InverseGammaOperator(position_space, **cfg['points'])
 signal = points.ducktape("points").real
 signal_dl = signal.ducktape_left("signal")
 # PSF
 if inhomogen:
-    psf_file = np.load("../data/npdata/psf_patches/4952_patches_v2.npy", allow_pickle=True).item()["psf_sim"]
+    psf_file = np.load("../data/npdata/psf_patches/" + psf_fname + ".npy", allow_pickle=True).item()["psf_sim"]
     psfs = psf_file #TODO NORMALIZE
     psfs = []
     for p in psf_file:
-        norm_val = p.integrate().val**-1
+        norm_val = psf_file[0].integrate().val**-1
         norm = ift.ScalingOperator(p.domain, norm_val)
-        psf_norm = norm(p)
+        psf_norm = norm(psf_file[0])
         psfs.append(psf_norm.val)
     psfs = np.array(psfs, dtype="float64")
     conv = xu.OverlapAddConvolver(position_space, psfs, 64, 64)
-    cut = xu.MarginZeroPadder(position_space, ((conv.target.shape[0] - position_space.shape[0])//2), space=0).adjoint
-    response = cut @ conv
+    # cut = xu.MarginZeroPadder(position_space, ((conv.target.shape[0] - position_space.shape[0])//2), space=0).adjoint
+    # response = cut @ conv
+    response = conv
     response = response.ducktape("signal")
 
 else:
@@ -44,10 +48,18 @@ else:
 
 # Data
 signal_response = response(signal_dl)
-
-data = np.load("../data/npdata/synth_data_130.npy", allow_pickle=True).item()
+ones = ift.Field.full(position_space,1)
+ones_response= conv(ones)
+cut_final = xu.MarginZeroPadder(s_position_space, 128, space=0).adjoint
+cut_ones = cut_final(ones_response)
+data = np.load("../data/npdata/"+ d_fname + ".npy", allow_pickle=True).item()
 data_field = ift.Field.from_raw(position_space, data.val)
-
+data_cut = cut_final(data_field)
+xu.plot_single_psf(data_field, "synth_"+d_fname+"_70_1.png")
+xu.plot_single_psf(data_cut, "synth_"+d_fname +"_cut_70_1.png")
+xu.plot_single_psf(ones_response, psf_fname+"_with_unvalid_region_1.png")
+xu.plot_single_psf(cut_ones, psf_fname + "_valid_region_1.png")
+exit()
 #mock = np.zeros(position_space.shape)
 #mock[50, 50] = 190800
 #mock[500, 500] = 190800
@@ -98,7 +110,7 @@ samples = ift.optimize_kl(
     plottable_operators={
         "signal": transpose@signal,
     },
-    output_directory="synth_rec_inhom_130_nocut_take2",
+    output_directory="synth_rec_inhom_130_fov15",
     initial_position=pos,
     overwrite=True,
     resume=True
