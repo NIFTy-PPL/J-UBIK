@@ -1,9 +1,10 @@
 import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-from matplotlib.colors import SymLogNorm
-
+from matplotlib.colors import LogNorm, SymLogNorm
+from .utils import get_data_domain
+from ..operators.observation_operator import ChandraObservationInformation
+import astropy as ao
 
 def plot_slices(field, outname, logscale=False):
     img = field.val
@@ -41,6 +42,43 @@ def plot_result(field, outname, logscale=False, **args):
     if outname != None:
         fig.savefig(outname)
     plt.close()
+
+def plot_fused_data(obs_info, img_cfg, obslist, outroot, center=None):
+    grid = img_cfg["grid"]
+    data_domain = get_data_domain(grid)
+    data = []
+    for obsnr in obslist:
+        info = ChandraObservationInformation(obs_info["obs"+obsnr], **grid, center=center)
+        data.append(info.get_data(f"./data_{obsnr}.fits"))
+    full_data = sum(data)
+    full_data_field = ift.makeField(data_domain, full_data)
+    plot_slices(full_data_field, outroot + "_full_data.png")
+
+def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
+    import astropy.io.fits as pyfits
+    from astropy.visualization import make_lupton_rgb
+    import matplotlib.pyplot as plt
+    color_dict = {0: "red", 1: "green", 2: "blue"}
+    file_dict = {}
+    for key in color_dict:
+        file_dict[color_dict[key]] = pyfits.open(f"{file_name_in}_{color_dict[key]}.fits")[0].data
+    rgb_default = make_lupton_rgb(file_dict["red"], file_dict["green"], file_dict["blue"], minimum=0, filename = file_name_out)
+    if log_scale:
+        plt.imshow(rgb_default, origin='lower', norm=LogNorm())
+        plt.savefig(file_name_out)
+    else:
+        plt.imshow(rgb_default, origin='lower')
+        plt.savefig(file_name_out)
+
+def plot_image_from_fits(file_name_in, file_name_out, log_scale=False):
+    import matplotlib.pyplot as plt
+    from astropy.utils.data import get_pkg_data_filename
+    from astropy.io import fits
+    image_file = get_pkg_data_filename(file_name_in)
+    image_data = fits.getdata(image_file, ext=0)
+    plt.figure()
+    plt.imshow(image_data, norm= LogNorm())
+    plt.savefig(file_name_out)
 
 
 def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):

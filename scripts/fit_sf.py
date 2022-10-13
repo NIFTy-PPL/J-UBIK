@@ -1,16 +1,14 @@
 import numpy as np
-import matplotlib.pylab as plt
-import yaml
 
 import nifty8 as ift
 import xubik0 as xu
 
 ift.set_nthreads(2)
 
-cfg = xu.get_cfg("config.yaml")
+cfg = xu.get_cfg("../config/config.yaml")
 
-npix_s = 1024# number of spacial bins per axis
-fov = 21.0
+npix_s = 1024  # number of spacial bins per axis
+fov = 17.0
 energy_bin = 0
 position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
 
@@ -20,6 +18,7 @@ pspec = diffuse.power_spectrum
 diffuse = diffuse.exp()
 points = ift.InverseGammaOperator(position_space, **cfg['points'])
 points = points.ducktape("points")
+
 signal = points + diffuse
 signal = signal.real
 signal_dt = signal.ducktape_left('full_signal')
@@ -27,18 +26,14 @@ signal_dt = signal.ducktape_left('full_signal')
 #Likelihood P(d|s)
 signal_fa = ift.FieldAdapter(signal_dt.target['full_signal'], 'full_signal')
 likelihood_list = []
-norm_list = []
+
+exp_norm_max, exp_norm_mean, exp_norm_std = xu.get_norm_exposure_patches(cfg['datasets'], position_space, 1)
+print(f'Mean of exposure-map-norm: {exp_norm_mean} \nStandard deviation of exposure-map-norm: {exp_norm_std}')
 for dataset in cfg['datasets']:
     #Loop
-    observation = np.load("npdata/df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
+    observation = np.load("../npdata/df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
 
     #PSF
-    psf_file = np.load("psf_patches/"+str(dataset)+"_patches.npy", allow_pickle=True).item()["psf_sim"]
-    psfs = []
-    for p in psf_file:
-        psfs.append(p.val)
-    psfs = np.array(psfs, dtype="float64")
-
     psf_arr = observation['psf_sim'].val[:, :, energy_bin]
     psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
     psf_field = ift.Field.from_raw(position_space, psf_arr)
@@ -52,24 +47,15 @@ for dataset in cfg['datasets']:
     #Exp
     exp = observation["exposure"].val[:, :, energy_bin]
     exp_field = ift.Field.from_raw(position_space, exp)
-    # if dataset == cfg['datasets'][0]:
-    #    norm_first_data = xu.get_norm(exp_field, data_field)
-    # normed_exp_field = ift.Field.from_raw(position_space, exp) * norm_first_data
-    norm = xu.get_norm(exp_field, data_field)
-    norm_list.append(norm)
-    normed_exp_field = ift.Field.from_raw(position_space, exp) *norm
+    normed_exp_field = ift.Field.from_raw(position_space, exp) * np.mean(exp_norm_mean)
     normed_exposure = ift.makeOp(normed_exp_field)
 
     #Mask
     mask = xu.get_mask_operator(normed_exp_field)
 
     #Likelihood
-    conv_op = xu.OverlapAddConvolver(signal_fa.target, psfs, 64, 16)
-    convolved = conv_op @ signal_fa
-    cut = xu.MarginZeroPadder(signal_fa.target, ((convolved.target.shape[0] -signal_fa.target.shape[0])//2), space=0).adjoint
-    conv = cut @ convolved
-
-    signal_response = mask @ normed_exposure @ conv
+    convolved = xu.convolve_field_operator(psf, signal_fa, space=0)
+    signal_response = mask @ normed_exposure @ convolved
 
     masked_data = mask(data_field)
     likelihood = ift.PoissonianEnergy(masked_data) @ signal_response
@@ -99,16 +85,16 @@ samples = ift.optimize_kl(
     minimizer,
     ic_sampling,
     nl_sampling_minimizer,
-    plottable_operators={
+    export_operator_outputs={
         "signal": transpose@signal,
         "point_sources": transpose@points,
         "diffuse": transpose@diffuse,
         "power_spectrum": pspec,
+        #" inverse_gamma_q": points.q(),
     },
-    output_directory="df_rec",
+    output_directory="../df_rec",
     initial_position=pos,
     comm=xu.library.mpi.comm,
-    overwrite=True,
     resume=True
 )
 

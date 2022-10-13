@@ -1,4 +1,5 @@
 import os
+import shutil
 import re
 import subprocess
 import shutil
@@ -22,7 +23,7 @@ class ChandraObservationInformation():
 
     """
 
-    def __init__ (self, obsInfo, npix_s, npix_e, fov, elim, center=None):
+    def __init__ (self, obsInfo, npix_s, npix_e, fov, elim, center=None, obs_type=None):
 
         """
         Interface to the CXC data and simulation tools.
@@ -42,6 +43,7 @@ class ChandraObservationInformation():
         """
 
         self.obsInfo = obsInfo
+        self.obsInfo['type'] = obs_type
         # 1. construct full file pathes
         ###############################
         for kk in ['event_file', 'bpix_file', 'aspect_sol', 'mask_file']:
@@ -143,8 +145,20 @@ class ChandraObservationInformation():
             evts = dat_filtered['EVENTS'].data
         evts = np.array([evts['x'], evts['y'], np.log(1.e-3*evts['energy'])])
         evts = evts.transpose()
-
-        bins   = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], self.obsInfo['npix_e'])
+        if self.obsInfo['type'] == 'CMF':
+            bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], np.log((0.5, 1.2, 2.0, 7.0)))
+            if self.obsInfo['npix_e'] != 3:
+               raise ValueError(f"For Chandra multifrquency reconstruction there need to be three energy bins.\
+               The current number of energy bins is {self.obsInfo['type']}")
+        elif self.obsInfo['type'] == 'EMF':
+            bins   = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], np.log((0.3, 0.6, 1.0, 2.3)))
+            if self.obsInfo['npix_e'] != 3:
+                raise ValueError(f"For eROSITA multifrquency reconstruction there need to be three energy bins.\
+                The current number of energy bins is {self.obsInfo['type']}")
+        elif self.obsInfo['type'] == 'SF':
+            bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], np.log((0.5, 7.0, 7.1)))
+        else:
+            bins   = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], self.obsInfo['npix_e'])
         ranges = ((self.obsInfo['x_min'],self.obsInfo['x_max']),\
                   (self.obsInfo['y_min'],self.obsInfo['y_max']), \
                   (np.log(self.obsInfo['energy_min']), np.log(self.obsInfo['energy_max'])))
@@ -183,8 +197,12 @@ class ChandraObservationInformation():
         # get all chips that are on
         ##############################
         det_str = rt.dmkeypar(infile=self.obsInfo['event_file'], keyword='detnam', echo=True)
-        chips_on = np.array([int(d) for d in re.findall('\d', det_str)])
-
+        chips_on = [int(d) for d in re.findall('\d', det_str)]
+        BI_list = [5,7]
+        for i in range(len(BI_list)):
+            if BI_list[i] in chips_on:
+                chips_on.remove(BI_list[i])
+        chips_on = np.array(chips_on)
         # which chips fall into our region of interest
         ##############################################
         det_mask = np.full((len(chips_on)), False, dtype=bool)

@@ -6,6 +6,7 @@ docs/source/user/custom_nonlinearities.rst
 docs/source/user/getting_started_4_CorrelatedFields.rst
 
 # custom
+config/*
 *_results
 *.h5
 *.hdf5
@@ -56,6 +57,10 @@ lib64/
 parts/
 sdist/
 var/
+npdata/*
+df_rec_1024_mf/*
+df_rec_1024_uninferred/*
+df_rec_1024_uninferred_mf/*
 *.egg-info/
 .installed.cfg
 *.egg
@@ -124,3 +129,6 @@ ENV/
 
 # Rope project settings
 .ropeproject
+/data/
+/diagnose/
+/obs/
