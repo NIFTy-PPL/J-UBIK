@@ -421,15 +421,7 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
 
     if mean or std:
         m, s = sample_list.sample_stat(op)
-    if obs_type == "SF":
-        if mean:
-            sample_list._save_fits_2d(m, file_name_base + "_mean.fits", overwrite)
-        if std:
-            sample_list._save_fits_2d(s, file_name_base + "_std.fits", overwrite)
-        if samples:
-            for ii, ss in enumerate(sample_list.iterator(op)):
-                sample_list._save_fits_2d(ss, file_name_base + f"_sample_{ii}.fits", overwrite)
-    elif obs_type in ["CMF", "EMF", "RGB"]:
+    if obs_type in ["CMF", "EMF", "RGB"]:
         if obs_type == "RGB":
             m = energy_binning(m, energy_bins=3)
             s = energy_binning(s, energy_bins=3)
@@ -443,7 +435,17 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
                     ss = energy_binning(ss, energy_bins=3)
                 save_rgb_image_to_fits(ss, file_name_base + f"_sample_{ii}", overwrite, sample_list.MPI_master)
     else:
-        raise ValueError(f"The observation type {obs_type} is not implemented.")
+        try:
+            if mean:
+                sample_list._save_fits_2d(m, file_name_base + "_mean.fits", overwrite)
+            if std:
+                sample_list._save_fits_2d(s, file_name_base + "_std.fits", overwrite)
+            if samples:
+                for ii, ss in enumerate(sample_list.iterator(op)):
+                    sample_list._save_fits_2d(ss, file_name_base + f"_sample_{ii}.fits", overwrite)
+        except:
+            raise ValueError(f"The plotting routine is not implemented for observation type {obs_type}.")
+
 
 
 def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
@@ -491,7 +493,9 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
             hdulist.writeto(file_name_colour, overwrite=overwrite)
 
 
-def rgb_plotting_callback(sample_list, i_global, save_strategy, export_operator_outputs, output_directory, obs_type):
+def rgb_plotting_callback(sample_list, i_global, save_strategy, export_operator_outputs_old, obs_type_old,
+                          output_directory, obs_type_new = None,export_operator_outputs_new = None,
+                          change_iteration = None):
     """
     Callback for multifrequency plotting called after each iteration to be used in ift.optimize_kl, which should replace
     the single frequency plotting routine in optimize_kl.
@@ -526,6 +530,13 @@ def rgb_plotting_callback(sample_list, i_global, save_strategy, export_operator_
         import astropy
     except ImportError:
         astropy = False
+    # TODO: Mögliche Fehler hier abfangen
+    if i_global < change_iteration:
+        export_operator_outputs = export_operator_outputs_old
+        obs_type = obs_type_old
+    else:
+        export_operator_outputs = export_operator_outputs_new
+        obs_type = obs_type_new
     if not isinstance(export_operator_outputs, dict):
         raise TypeError
     if not isdir(output_directory):
@@ -536,7 +547,6 @@ def rgb_plotting_callback(sample_list, i_global, save_strategy, export_operator_
     for name, op in export_operator_outputs.items():
         if not is_subdomain(op.domain, sample_list.domain):
             continue
-
         op_direc = join(output_directory, name)
         makedirs(op_direc, exist_ok=True)
         if sample_list.n_samples > 1:
@@ -546,7 +556,7 @@ def rgb_plotting_callback(sample_list, i_global, save_strategy, export_operator_
         if astropy:
             try:
                 if save_strategy == 'all':
-                    app = f"itertaion_{iglobal}"
+                    app = f"itertaion_{i_global}"
                 elif save_strategy == "last":
                     app = "last"
                 else:
