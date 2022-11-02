@@ -48,14 +48,16 @@ def get_normed_exposure(exposure_field, data_field):
     return normed_exp_field
 
 
-def get_norm_exposure_patches(datasets, domain, energy_bins):
+def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
     norms = []
     norm_mean = []
     norm_max = []
     norm_std = []
+    if obs_type == None:
+        obs_type='SF'
     for i in range(energy_bins):
         for dataset in datasets:
-            observation = np.load("../npdata/df_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
+            observation = np.load("npdata/"+obs_type+ "/df_" + str(dataset) + "_observation.npy", allow_pickle=True).item()
             exposure = observation["exposure"].val[:, :, i]
             data = observation["data"].val[:, :, i]
             norms.append(get_norm(ift.Field.from_raw(domain, exposure), ift.Field.from_raw(domain, data)))

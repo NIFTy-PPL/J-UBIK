@@ -62,13 +62,11 @@ def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
     file_dict = {}
     for key in color_dict:
         file_dict[color_dict[key]] = pyfits.open(f"{file_name_in}_{color_dict[key]}.fits")[0].data
-    rgb_default = make_lupton_rgb(file_dict["red"], file_dict["green"], file_dict["blue"], minimum=0, filename = file_name_out)
+    rgb_default = make_lupton_rgb(file_dict["red"], file_dict["green"], file_dict["blue"], filename=file_name_out)
     if log_scale:
-        plt.imshow(rgb_default, origin='lower', norm=LogNorm())
-        plt.savefig(file_name_out)
+        plt.imshow(rgb_default, norm=LogNorm(), origin='lower')
     else:
         plt.imshow(rgb_default, origin='lower')
-        plt.savefig(file_name_out)
 
 def plot_image_from_fits(file_name_in, file_name_out, log_scale=False):
     import matplotlib.pyplot as plt

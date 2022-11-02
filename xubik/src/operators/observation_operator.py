@@ -151,14 +151,14 @@ class ChandraObservationInformation():
                raise ValueError(f"For Chandra multifrquency reconstruction there need to be three energy bins.\
                The current number of energy bins is {self.obsInfo['type']}")
         elif self.obsInfo['type'] == 'EMF':
-            bins   = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], np.log((0.3, 0.6, 1.0, 2.3)))
+            bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], np.log((0.3, 0.6, 1.0, 2.3)))
             if self.obsInfo['npix_e'] != 3:
                 raise ValueError(f"For eROSITA multifrquency reconstruction there need to be three energy bins.\
                 The current number of energy bins is {self.obsInfo['type']}")
         elif self.obsInfo['type'] == 'SF':
             bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], np.log((0.5, 7.0, 7.1)))
         else:
-            bins   = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], self.obsInfo['npix_e'])
+            bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], self.obsInfo['npix_e'])
         ranges = ((self.obsInfo['x_min'],self.obsInfo['x_max']),\
                   (self.obsInfo['y_min'],self.obsInfo['y_max']), \
                   (np.log(self.obsInfo['energy_min']), np.log(self.obsInfo['energy_max'])))
