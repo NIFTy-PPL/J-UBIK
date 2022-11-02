@@ -2,7 +2,7 @@ import numpy as np
 
 import nifty8 as ift
 import xubik0 as xu
-
+import matplotlib.pyplot as plt
 ift.set_nthreads(2)
 
 cfg = xu.get_cfg("scripts/config.yaml")
@@ -28,8 +28,6 @@ signal_dt = signal.ducktape_left('full_signal')
 signal_fa = ift.FieldAdapter(signal_dt.target['full_signal'], 'full_signal')
 likelihood_list = []
 
-exp_norm_max, exp_norm_mean, exp_norm_std = xu.get_norm_exposure_patches(cfg['datasets'], position_space, 1)
-print(f'Mean of exposure-map-norm: {exp_norm_mean} \nStandard deviation of exposure-map-norm: {exp_norm_std}')
 for dataset in cfg['datasets']:
     #Loop
     observation = np.load("data/npdata/"+prefix+"_"+str(dataset)+"_observation.npy", allow_pickle=True).item()
@@ -40,12 +38,6 @@ for dataset in cfg['datasets']:
     for p in psf_file:
         psfs.append(p.val)
     psfs = np.array(psfs, dtype="float64")
-
-    # psf_arr = observation['psf_sim'].val[:, :, energy_bin]
-    # psf_arr = np.roll(psf_arr, -np.argmax(psf_arr))
-    # psf_field = ift.Field.from_raw(position_space, psf_arr)
-    # norm = ift.ScalingOperator(position_space, psf_field.integrate().val ** -1)
-    # psf = norm(psf_field)
 
     #Data
     data = observation["data"].val[:, :, energy_bin]
@@ -61,9 +53,6 @@ for dataset in cfg['datasets']:
     if dataset == cfg['datasets'][0]:
         norm_first_data = xu.get_norm(exp_field, data_field)
     normed_exp_field = exp_field * norm_first_data
-    # norm = xu.get_norm(exp_field, data_field)
-    # norm_list.append(norm)
-    # normed_exp_field = ift.Field.from_raw(position_space, exp) *norm
     normed_exp_field = cut(normed_exp_field)
     normed_exposure = ift.makeOp(normed_exp_field)
     #Mask
@@ -168,11 +157,7 @@ samples = ift.optimize_kl(
         "power_spectrum": pspec,
         #" inverse_gamma_q": points.q(),
     },
-<<<<<<< HEAD
-    output_directory="../df_rec",
-=======
     output_directory="perseus_rec_2",
->>>>>>> last work
     initial_position=pos,
     comm=xu.library.mpi.comm,
     resume=True
