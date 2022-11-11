@@ -38,7 +38,6 @@ def get_normed_exposure(exposure_field, data_field):
     Convenience function to get exposures on the order of 1, so that the signal is living on
     the same order of magnitude as the data.
     """
-    dom = exposure_field.domain
     ratio = (
         data_field.val[exposure_field.val != 0]
         / exposure_field.val[exposure_field.val != 0]
@@ -65,6 +64,7 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
         norm_max.append(np.amax(np.array(norms)))
         norm_std.append(np.std(np.array(norms)))
     return norm_max, norm_mean, norm_std
+
 
 def get_norm(exposure_field, data_field):
     """

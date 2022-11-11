@@ -1,0 +1,40 @@
+priors:
+  point_sources:
+    alpha: 3
+    q: 0.7
+  diffuse:
+    asperity:
+    - 0.1
+    - 0.5
+    flexibility:
+    - 3.0
+    - 2.0
+    fluctuations:
+    - 2.
+    - 1
+    loglogavgslope:
+    - -3.0
+    - 1.5
+    offset_mean: 0
+    offset_std:
+    - 1
+    - 0.5
+    prefix: diffuse_
+
+
+minimization:
+  total_iterations: 5
+  n_samples: 8
+  ic_newton:
+    convergence_level: 1
+    deltaE: 0.2
+    iteration_limit: 3
+    name: Newton
+  ic_sampling:
+    deltaE: 0.02
+    iteration_limit: 3
+    name: Sampling(lin)
+  ic_sampling_nl:
+    deltaE: 0.05
+    iteration_limit: 1
+    name: Sampling(nonlin)

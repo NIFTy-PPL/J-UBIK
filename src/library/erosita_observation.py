@@ -16,9 +16,9 @@ class ErositaObservation:
 
     """
 
-    def __init__(self, input_filename: list[str], output_filename: str):
+    def __init__(self, input_filename: list[str], output_filename: str, working_directory: str):
         # TODO: Add parameter checks
-        self.working_directory = os.path.abspath("../../../data/")  # FIXME: maybe let this be decided by the user
+        self.working_directory = os.path.abspath(working_directory)
         self.input = input_filename
         self.output = output_filename
         self.image = " erosita/esass:latest "
@@ -98,10 +98,26 @@ class ErositaObservation:
         else:
             print("eSASS task COMPLETE.")
 
-    def load_data(self, filename):
+    def load_fits_data(self, filename):
         print("Loading ouput data stored in {}.".format(filename))
-        print(os.path.join(self.working_directory, filename))
         return fits.open(os.path.join(self.working_directory, filename))
+
+    def plot_fits_data(self, filename, image_name, slice=None, lognorm=True, linthresh=10e-1,
+                       show=False, dpi=None, **kwargs):
+        im = self.load_fits_data(filename)[0].data
+        if slice is not None:
+            im = im[slice[2]:slice[3], slice[0]:slice[1]]
+        output = os.path.join(self.working_directory, image_name)
+        norm = None
+        if lognorm:
+            norm = colors.SymLogNorm(linthresh=linthresh)
+        plt.imshow(im, origin='lower', norm=norm, **kwargs)
+        plt.colorbar()
+        if show:
+            plt.show()
+        plt.savefig(output, dpi=dpi)
+        plt.close()
+        print(filename + " data image saved as {}.".format(output))
 
     @staticmethod
     def _get_evtool_flags(clobber: bool = True, events: bool = True, image: bool = False, size: list[str] = None,
@@ -225,53 +241,37 @@ class ErositaObservation:
 
     @staticmethod
     def _parse_stringlists(stringlist: list[str], additional_path: str = ""):
-        res = '"'
-        for string in stringlist:
-            res += additional_path + string + " "
-        res += '"'
-        return res
+        if isinstance(stringlist, str):
+            return '"' + os.path.join(additional_path, stringlist) + '"'
+        elif isinstance(stringlist, list):
+            res = '"'
+            for string in stringlist:
+                res += additional_path + string + " "
+            res += '"'
+            return res
+        else:
+            raise TypeError("Type must be a list a string or a list of strings.")
 
 
 if __name__ == "__main__":
-    obs_path = "../../../data/" # Folder that gets mounted to the docker
-    filename = "combined_out_08_1.fits"
-    input_filename = ['LMC_SN1987A/fm00_700203_020_EventList_c001.fits', 'LMC_SN1987A/fm00_700204_020_EventList_c001.fits', 'LMC_SN1987A/fm00_700204_020_EventList_c001.fits']
-    # input_filename = "LMC_SN1987A/fm00_700203_020_EventList_c001.fits"
-    # input_filename = "Vela_SNR/pm00_700039_020_EventList_c001.fits"
-    # output_filename = obs_path + os.path.splitext(input_filename)[0] + ".png"
+    obs_path = "../../data/"  # Folder that gets mounted to the docker
+    filename = "combined_out_08_1_no_imm.fits"
+    input_filename = ['LMC_SN1987A/fm00_700203_020_EventList_c001.fits',
+                      'LMC_SN1987A/fm00_700204_020_EventList_c001.fits',
+                      'LMC_SN1987A/fm00_700204_020_EventList_c001.fits']
 
-    observation_instance = ErositaObservation(input_filename, filename)
+    # observation_instance = ErositaObservation(input_filename, filename, "../../data/")
     # observation = observation_instance.get_data(emin=0.2, emax=0.5, image=True, rebin=80, size=3240, pattern=15)
-    # observation = observation_instance.get_data(emin=0.7, emax=1.0, image=True, rebin=80, size=3240, pattern=15)
-    observation_instance.get_exposure_maps(filename, 0.7, 1.0, mergedmaps="expmap_combined.fits")
+    # observation = observation_instance.get_data(emin=0.7, emax=1.0, image=True, rebin=80, size=3240, pattern=15,
+    # gti='GTI')
+    observation_instance_2 = ErositaObservation(filename, filename, "../../data/")
+    # observation_instance_2.get_exposure_maps(filename, 0.7, 1.0, mergedmaps="expmap_combined.fits")
+    observation_instance_2.plot_fits_data(filename, "combined_out_08_1_no_imm", slice=(1100, 2000, 800, 2000), dpi=800)
+    observation_instance_2.plot_fits_data("expmap_combined.fits", "expmap_combined.png", slice=(1100, 2000, 800, 2000), dpi=800)
 
-
-    # observation_instance.get_exposure_maps("out_2.fits", 0.2, 0.5, mergedmaps="expmap.fits")
     # observation_instance.get_psf("out_2.fits", "psfmaps_2.fits", "expmap.fits", psfmapflag=True)
     # observation = observation_instance.load_data("output_vela.fits")
-    observation = observation_instance.load_data("combined_out_08_1.fits")
-
-    # print(observation)
-    # exit()
-    data = observation[0].data
-    # expmap = observation_instance.load_data("expmap.fits")[0].data
-    # psfmap = observation_instance.load_data("psfmaps_2.fits")
-    # psfmap = observation_instance.load_data("tm3_2dpsf_100215v02.fits")
-    # psfmap = psfmap[0].dataR
-    # print(repr(psfmap))
-    # exit()
-
-
-    plt.imshow(data, origin='lower', norm=colors.SymLogNorm(linthresh=1e-1))
-    # plt.imshow(expmap, origin='lower', norm=colors.SymLogNorm(linthresh=8 * 10e-3))
-    # plt.imshow(psfmap, origin='lower', norm=colors.SymLogNorm(linthresh=8 * 10e-8, vmax=1e-4))
-    # plt.plot
-    plt.colorbar()
-    plt.show()
-
-    # plt.savefig(output_filename)
-    # plt.show()
-    # exit()
+    # observation = observation_instance_2.load_fits_data("expmap_combined.fits")
 
     # def show_images(images):
     #     n: int = len(images)
