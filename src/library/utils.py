@@ -40,7 +40,6 @@ def get_normed_exposure(exposure_field, data_field):
     the same order of magnitude as the data.
     """
     warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
-    dom = exposure_field.domain
     ratio = (
         data_field.val[exposure_field.val != 0]
         / exposure_field.val[exposure_field.val != 0]
@@ -75,7 +74,6 @@ def get_norm(exposure_field, data_field):
     the norm of get_normed_exposure
     """
     warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
-    dom = exposure_field.domain
     ratio = (
         data_field.val[exposure_field.val != 0]
         / exposure_field.val[exposure_field.val != 0]
