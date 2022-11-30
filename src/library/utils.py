@@ -34,7 +34,6 @@ def _get_e_dist(config):
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
 
-# FIXME deprecate this feature
 def get_normed_exposure(exposure_field, data_field):
     """
     Convenience function to get exposures on the order of 1, so that the signal is living on
@@ -74,7 +73,6 @@ def get_norm(exposure_field, data_field):
     """
     returns the only the order of magnitude of
     the norm of get_normed_exposure
-    # TODO Simplify get_normed_exposure
     """
     warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     dom = exposure_field.domain
