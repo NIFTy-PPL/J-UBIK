@@ -40,6 +40,7 @@ def get_normed_exposure(exposure_field, data_field):
     Convenience function to get exposures on the order of 1, so that the signal is living on
     the same order of magnitude as the data.
     """
+    warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     dom = exposure_field.domain
     ratio = (
         data_field.val[exposure_field.val != 0]
@@ -50,6 +51,7 @@ def get_normed_exposure(exposure_field, data_field):
     return normed_exp_field
 
 def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
+    warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     norms = []
     norm_mean = []
     norm_max = []
@@ -73,6 +75,7 @@ def get_norm(exposure_field, data_field):
     the norm of get_normed_exposure
     # TODO Simplify get_normed_exposure
     """
+    warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     dom = exposure_field.domain
     ratio = (
         data_field.val[exposure_field.val != 0]
