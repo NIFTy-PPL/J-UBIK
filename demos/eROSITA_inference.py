@@ -63,7 +63,7 @@ def _plot_stats(filename, op, sl, plotting_kwargs):
     # if op is not None: TODO: add Ground Truth plotting capabilities
     #     p.add(op, title="Ground truth", **plotting_kwargs)
     p.add(mean, title="Mean", **plotting_kwargs)
-    p.add(var.sqrt(), title="Standard deviation")
+    p.add(var.sqrt(), title="Standard deviation", **plotting_kwargs)
     p.output(name=filename, ny=2)
     # print("Output saved as {}.".format(filename))
 
@@ -126,27 +126,27 @@ if __name__ == '__main__':
     ic_sampling = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling'])
     ic_sampling_nl = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling_nl'])
     minimizer = ift.NewtonCG(ic_newton)
+    minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
 
     # Prepare results
-    operators_to_plot = {'reconstruction': erositaModel.sky, 'full_sky': erositaModel.full_sky}
+    operators_to_plot = {'reconstruction': erositaModel.sky, 'point_sources': erositaModel.point_sources,
+                         'diffuse_component': erositaModel.diffuse_component, 'full_sky': erositaModel.full_sky}
 
     # Create an output directory
     output_directory = create_output_directory()
 
     import matplotlib.colors as colors
-
     plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
                                               plotting_kwargs={'norm': colors.SymLogNorm(linthresh=10e-1)})
 
-    # MGVI
-    ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
-                    minimizer, ic_sampling, None, export_operator_outputs=operators_to_plot,
-                    output_directory=output_directory, inspect_callback=plot)
+    if minimization_config['geovi']:
+        # geoVI
+        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], eval(minimization_config['n_samples']),
+                        minimizer, ic_sampling, minimizer_sampling, output_directory=output_directory,
+                        export_operator_outputs=operators_to_plot, inspect_callback=plot)
+    else:
+        # MGVI
+        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], eval(minimization_config['n_samples']),
+                        minimizer, ic_sampling, None, export_operator_outputs=operators_to_plot,
+                        output_directory=output_directory, inspect_callback=plot)
 
-    # Plot prior sampleR
-    # p = ift.Plot()
-    # import matplotlib.colors as colors
-    # p.add(sky_field, norm=colors.SymLogNorm(linthresh=10e-1))
-    # output_name = "erosita_priors.png"
-    # p.output(name=output_name)
-    # print("Output saved as {}.".format(output_name))

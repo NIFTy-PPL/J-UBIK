@@ -4,86 +4,53 @@ import nifty8 as ift
 
 import xubik0 as xu
 from eROSITA_sky import ErositaSky
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 
-# TODO: polish and move these functions to utils
-def _append_key(s, key):
-    if key == "":
-        return s
-    return f"{s} ({key})"
-
-
-def _plot_samples(filename, samples, plotting_kwargs):
-    samples = list(samples)
-
-    if isinstance(samples[0].domain, ift.DomainTuple):
-        samples = [ift.MultiField.from_dict({"": ss}) for ss in samples]
-        # if ground_truth is not None:
-        #     ground_truth = ift.MultiField.from_dict({"": ground_truth})
-    if not all(isinstance(ss, ift.MultiField) for ss in samples):
-        raise TypeError
-    keys = samples[0].keys()
-
-    p = ift.Plot()
-    for kk in keys:
-        single_samples = [ss[kk] for ss in samples]
-
-        if ift.plot.plottable2D(samples[0][kk]):
-            # if ground_truth is not None:
-            # p.add(ground_truth[kk], title=_append_key("Ground truth", kk),
-            #       **plotting_kwargs)
-            # p.add(None)
-            for ii, ss in enumerate(single_samples):
-                # if (ground_truth is None and ii == 16) or (ground_truth is not None and ii == 14):
-                #     break
-                p.add(ss, title=_append_key(f"Sample {ii}", kk), **plotting_kwargs)
-        else:
-            n = len(samples)
-            alpha = n * [0.5]
-            color = n * ["maroon"]
-            label = None
-            # if ground_truth is not None:
-            #     single_samples = [ground_truth[kk]] + single_samples
-            #     alpha = [1.] + alpha
-            #     color = ["green"] + color
-            #     label = ["Ground truth", "Samples"] + (n-1)*[None]
-            p.add(single_samples, color=color, alpha=alpha, label=label,
-                  title=_append_key("Samples", kk), **plotting_kwargs)
-    p.output(name=filename)
-
-
-def _plot_stats(filename, op, sl, plotting_kwargs):
-    try:
-        from matplotlib.colors import LogNorm
-    except ImportError:
-        return
-
-    mean, var = sl.sample_stat(op)
-    p = ift.Plot()
-    # if op is not None: TODO: add Ground Truth plotting capabilities
-    #     p.add(op, title="Ground truth", **plotting_kwargs)
-    p.add(mean, title="Mean", **plotting_kwargs)
-    p.add(var.sqrt(), title="Standard deviation", **plotting_kwargs)
-    p.output(name=filename, ny=2)
-    # print("Output saved as {}.".format(filename))
-
-
-def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterator, plotting_kwargs):
-    for key in operators_dict:
-        op = operators_dict[key]
-        results_path = os.path.join(output_directory, key)
-        if not os.path.exists(results_path):
-            os.mkdir(results_path)
-        filename = os.path.join(output_directory, key, "stats_{}.png".format(iterator))
-        filename_samples = os.path.join(output_directory, key, "samples_{}.png".format(iterator))
-
-        _plot_stats(filename, op, sample_list, plotting_kwargs)
-        _plot_samples(filename_samples, sample_list.iterator(op), plotting_kwargs)
+def configure_nice_plot_settings():
+    nice_fonts = {'text.usetex': True, 'pgf.texsystem': 'pdflatex', 'axes.unicode_minus': False, 'font.family': 'serif',
+                  'font.size': 11, 'axes.labelsize': 12, 'axes.titlesize': 11, 'xtick.labelsize': 11,
+                  'ytick.labelsize': 11}
+    mpl.rcParams.update(nice_fonts)
+    plt.style.use('seaborn-paper')
 
 
 def create_output_directory():
     output_directory = os.path.join(os.path.curdir, "demo_results")
     return output_directory
+
+
+def im_plotter(field, filename, extension, x_label, y_label, figsize=None, dpi=None, **kwargs):
+    """
+    # FIXME: Finish docstring
+    Parameters
+    ----------
+    figsize
+    y_label
+    x_label
+    field
+    filename
+    extension : the field-specific name e.g. data
+
+    Returns
+    -------
+
+    """
+
+    configure_nice_plot_settings()
+    filename_specific = filename.format(extension)
+    plt.figure(figsize=figsize, dpi=dpi)
+    # plt.title('Probability Distribution of Viral Load for Different Ages')
+    plt.imshow(field.val, origin="lower", **kwargs)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    cbar = plt.colorbar()
+    # cbar.yticklabels(ticklabs, fontsize=11)
+    plt.tight_layout()
+    plt.savefig(filename_specific)
+    plt.close()
+    print("Saved results as '{}'.".format(filename_specific))
 
 
 if __name__ == '__main__':
@@ -128,26 +95,26 @@ if __name__ == '__main__':
     minimizer = ift.NewtonCG(ic_newton)
     minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
 
-    # Prepare results
-    operators_to_plot = {'reconstruction': erositaModel.sky, 'point_sources': erositaModel.point_sources,
-                         'diffuse_component': erositaModel.diffuse_component, 'full_sky': erositaModel.full_sky}
-
-    # Create an output directory
+    # Create a plots directory
     output_directory = create_output_directory()
+    results_directory = os.path.join(create_output_directory(), "results")
+    if not os.path.exists(results_directory):
+        os.mkdir(results_directory)
 
-    import matplotlib.colors as colors
+    # Load posterior samples
+    samples = ift.ResidualSampleList.load(output_directory + "/pickle/last")
 
-    plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
-                                              plotting_kwargs={'norm': colors.SymLogNorm(linthresh=10e-1)})
+    padder = erositaModel.pad.adjoint
+    sky_mean, _ = samples.sample_stat(erositaModel.sky)
+    ps_mean, _ = samples.sample_stat(erositaModel.point_sources)
+    diffuse_mean, _ = samples.sample_stat(erositaModel.diffuse_component)
 
-    if minimization_config['geovi']:
-        # geoVI
-        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], eval(minimization_config['n_samples']),
-                        minimizer, ic_sampling, minimizer_sampling, output_directory=output_directory,
-                        export_operator_outputs=operators_to_plot, inspect_callback=plot)
-    else:
-        # MGVI
-        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], eval(minimization_config['n_samples']),
-                        minimizer, ic_sampling, None, export_operator_outputs=operators_to_plot,
-                        output_directory=output_directory, inspect_callback=plot)
+    im_plotter(sky_mean, os.path.join(results_directory, "reconstruction_mean.pdf"), None, None, None, norm=mpl.colors.SymLogNorm(linthresh=10e-1))
+    im_plotter(padder(ps_mean), os.path.join(results_directory, "ps_mean.pdf"), None, None, None, norm=mpl.colors.SymLogNorm(linthresh=10e-1))
+    im_plotter(padder(diffuse_mean), os.path.join(results_directory, "diffuse_mean.pdf"), None, None, None, norm=mpl.colors.SymLogNorm(linthresh=10e-1))
+
+
+
+
+
 

@@ -1,25 +1,25 @@
 priors:
   point_sources:
-    alpha: 3
+    alpha: 2.5
     q: 0.7
   diffuse:
-    asperity:
-    - 0.1
-    - 0.5
-    flexibility:
-    - 3.0
-    - 2.0
+    offset:
+      offset_mean: 0.
+      offset_std:
+        - 1.
+        - 0.5
     fluctuations:
-    - 3.
-    - 1.5
-    loglogavgslope:
-    - -3.0
-    - 1.5
-    offset_mean: 0.
-    offset_std:
-    - 1.
-    - 0.5
-    prefix: diffuse_
+      asperity: null
+      flexibility:
+      - 3.0
+      - 2.0
+      fluctuations:
+      - 3.
+      - 1.5
+      loglogavgslope:
+      - -1.5
+      - .9
+      prefix: diffuse_
 
 minimization:
   geovi: True
