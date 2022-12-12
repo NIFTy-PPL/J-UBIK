@@ -3,37 +3,33 @@ prefix: df
 type: "SF"
 Nsamples: 1
 datasets:
-#- "14423"
-#- "9107"
-- "13738"
-#- "13737"
-#- "13739"
-#- "13740"
-#- "13741"
-#- "13742"
-#- "13743"
-#- "14424"
-#- "14435"
+- "14410"
 global_it: 1
+
 grid:
   elim:
   - 0.5
   - 7.0
-  fov: 17.0
-  npix_e: 2
+  fov: 4.0
+  npix_e: 4
   npix_s: 1024
+
 ic_newton:
   convergence_level: 1
   deltaE: 0.5
   iteration_limit: 1
   name: Newton
+
 ic_sampling:
   deltaE: 0.05
   iteration_limit: 1
   name: Sampling(lin)
+
 points:
   alpha: 3
   q: 0.7
+
+# FIXME correct Priors
 priors_diffuse:
   asperity:
   - 0.1
@@ -52,5 +48,6 @@ priors_diffuse:
   - 1
   - 0.5
   prefix: diffuse
+
 psf_sim:
-  num_rays: 1000000.0
+  num_rays: 10e6
