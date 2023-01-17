@@ -1,7 +1,8 @@
 # FIXME: add copyright
-import os.path
+import os
 import subprocess
-
+import argparse
+import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from matplotlib import colors
@@ -16,7 +17,7 @@ class ErositaObservation:
 
     """
 
-    def __init__(self, input_filename: list[str], output_filename: str, working_directory: str):
+    def __init__(self, input_filename, output_filename, working_directory):
         # TODO: Add parameter checks
         self.working_directory = os.path.abspath(working_directory)
         self.input = input_filename
@@ -120,10 +121,10 @@ class ErositaObservation:
         print(filename + " data image saved as {}.".format(output))
 
     @staticmethod
-    def _get_evtool_flags(clobber: bool = True, events: bool = True, image: bool = False, size: list[str] = None,
-                          rebin: list[str] = None, center_position: list[str] = None, region: str = None,
-                          gti: list[str] = None, flag: str = None, flag_invert: bool = None, pattern: int = None,
-                          telid: list[str] = None, emin: list[str] = None, emax: list[str] = None, rawxy: str = None,
+    def _get_evtool_flags(clobber: bool = True, events: bool = True, image: bool = False, size=None,
+                          rebin=None, center_position=None, region: str = None,
+                          gti=None, flag: str = None, flag_invert: bool = None, pattern: int = None,
+                          telid=None, emin=None, emax=None, rawxy: str = None,
                           rawxy_telid: int = None, rawxy_invert: bool = False, memset: int = None,
                           overlap: float = None, skyfield: str = None):
         """
@@ -133,19 +134,19 @@ class ErositaObservation:
         ----------
 
         clobber: bool
-        events: list[str]
+        events
         image: bool
-        size: list[str]
-        rebin: list[str]
-        center_position: list[str]
+        size
+        rebin
+        center_position
         region: str
-        gti: list[str]
+        gti
         flag: str
         flag_invert: bool
         pattern: int
-        telid: list[str]
-        emin: list[str]
-        emax: list[str]
+        telid
+        emin
+        emax
         rawxy: str
         rawxy_telid: int
         rawxy_invert: bool
@@ -180,8 +181,8 @@ class ErositaObservation:
 
     @staticmethod
     def _get_exmap_flags(mounted_dir: str, templateimage: str, emin: float, emax: float,
-                         withsinglemaps: bool = False, withmergedmaps: bool = True, singlemaps: list[str] = None,
-                         mergedmaps: list[str] = None, gtitype: str = 'GTI', withvignetting: bool = True,
+                         withsinglemaps: bool = False, withmergedmaps: bool = True, singlemaps=None,
+                         mergedmaps=None, gtitype: str = 'GTI', withvignetting: bool = True,
                          withdetmaps: bool = False, withweights: bool = True, withfilebadpix: bool = True,
                          withcalbadpix: bool = True, withinputmaps: bool = False):
 
@@ -240,7 +241,7 @@ class ErositaObservation:
         return flags
 
     @staticmethod
-    def _parse_stringlists(stringlist: list[str], additional_path: str = ""):
+    def _parse_stringlists(stringlist, additional_path: str = ""):
         if isinstance(stringlist, str):
             return '"' + os.path.join(additional_path, stringlist) + '"'
         elif isinstance(stringlist, list):
@@ -254,37 +255,30 @@ class ErositaObservation:
 
 
 if __name__ == "__main__":
-    obs_path = "../../data/"  # Folder that gets mounted to the docker
-    filename = "combined_out_08_1_no_imm.fits"
-    input_filename = ['LMC_SN1987A/fm00_700203_020_EventList_c001.fits',
-                      'LMC_SN1987A/fm00_700204_020_EventList_c001.fits',
-                      'LMC_SN1987A/fm00_700204_020_EventList_c001.fits']
+    parser = argparse.ArgumentParser()
+    parser.add_argument("obs_path", type=str, nargs='?', default="../../data/LMC_SN1987A/")
+    parser.add_argument("plotting", type=bool, nargs='?', default=False)
+    args = parser.parse_args()
+    obs_path = args.obs_path  # Folder that gets mounted to the docker
+    input_filenames = ['fm00_700203_020_EventList_c001.fits']
+    output_filename = "combined_out_08_1_no_imm.fits"
+    observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
 
-    # observation_instance = ErositaObservation(input_filename, filename, "../../data/")
-    # observation = observation_instance.get_data(emin=0.2, emax=0.5, image=True, rebin=80, size=3240, pattern=15)
-    # observation = observation_instance.get_data(emin=0.7, emax=1.0, image=True, rebin=80, size=3240, pattern=15,
-    # gti='GTI')
-    observation_instance_2 = ErositaObservation(filename, filename, "../../data/")
-    # observation_instance_2.get_exposure_maps(filename, 0.7, 1.0, mergedmaps="expmap_combined.fits")
-    observation_instance_2.plot_fits_data(filename, "combined_out_08_1_no_imm", slice=(1100, 2000, 800, 2000), dpi=800)
-    observation_instance_2.plot_fits_data("expmap_combined.fits", "expmap_combined.png", slice=(1100, 2000, 800, 2000), dpi=800)
+    if not os.path.exists(os.path.join(obs_path, output_filename)):
+        observation = observation_instance.get_data(emin=1.0, emax=2.3, image=True, rebin=80, size=3240, pattern=15,
+                                                    telid=1)
+    else:
+        print(
+            'Output file already exists and is not regenerated. If the observations parameters shall be changed please'
+            'delete or rename the current output file.')
 
-    # observation_instance.get_psf("out_2.fits", "psfmaps_2.fits", "expmap.fits", psfmapflag=True)
-    # observation = observation_instance.load_data("output_vela.fits")
-    # observation = observation_instance_2.load_fits_data("expmap_combined.fits")
+    observation_instance = ErositaObservation(output_filename, output_filename, obs_path)
+    # Exposure
+    observation_instance.get_exposure_maps(output_filename, 0.7, 1.0, mergedmaps="expmap_combined.fits")
+    if args.plotting:
+        observation_instance.plot_fits_data(output_filename, "combined_out_08_1_no_imm", slice=(1100, 2000, 800, 2000),
+                                            dpi=800)
+        observation_instance.plot_fits_data("expmap_combined.fits", "expmap_combined.png",
+                                            slice=(1100, 2000, 800, 2000), dpi=800)
 
-    # def show_images(images):
-    #     n: int = len(images)
-    #     f = plt.figure()
-    #     for i in range(n):
-    #         # Debug, plot figure
-    #         f.add_subplot(3, 4, i + 1)
-    #         plt.imshow(images[i])
-    #
-    #     # plt.show(block=True)
-    #     name = os.path.splitext(output_filename)[0] + "_psf.png" #FIXME
-    #     plt.savefig(os.path.splitext(output_filename)[0] + "_psf.png")
-    #
-    # show_images(psfmap)
-
-    # print("Data saved as {}.".format(output_filename))
+    data = observation_instance.load_fits_data(output_filename)
