@@ -46,7 +46,7 @@ class ErositaObservation:
 
         flags = self._get_evtool_flags(**kwargs)
         command = self._base_command + 'evtool ' + input_files + " " + output_file + flags + "'"
-        # print(command)
+
         self._run_task(command)
         print("The processed dataset has been saved as {}.".format(os.path.join(self.working_directory, self.output)))
         return fits.open(os.path.join(self.working_directory, self.output))
@@ -95,7 +95,7 @@ class ErositaObservation:
         proc.wait()
         (stdout, stderr) = proc.communicate()
         if proc.returncode != 0:
-            print(stderr)
+            raise FileNotFoundError("Docker Error")
         else:
             print("eSASS task COMPLETE.")
 
@@ -256,7 +256,7 @@ class ErositaObservation:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("obs_path", type=str, nargs='?', default="../../data/LMC_SN1987A/")
+    parser.add_argument("obs_path", type=str, nargs='?', default="../data/LMC_SN1987A/")
     parser.add_argument("plotting", type=bool, nargs='?', default=False)
     args = parser.parse_args()
     obs_path = args.obs_path  # Folder that gets mounted to the docker
