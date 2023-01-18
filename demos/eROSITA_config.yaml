@@ -1,15 +1,11 @@
-seed: 89
+seed: 40
 telescope:
   tm_id : 1
   field_of_view: 3600 # in arcsec
   pattern: 15
 plotting:
   enabled: True
-  slice:
-    - 1100
-    - 2000
-    - 800
-    - 2000
+  slice: Null
   dpi: 800
 files:
   obs_path: 'data/'
@@ -26,8 +22,8 @@ grid:
 # Exposurenorm is 4.785357857098681e-05
 priors:
   point_sources:
-    alpha: 3.0
-    q: 0.000047
+    alpha: 1.5
+    q: 0.00047
   diffuse:
     offset:
       offset_mean: -7.6

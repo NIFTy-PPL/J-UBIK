@@ -18,10 +18,10 @@ class ErositaSky:
         self.extended_space = ift.RGSpace(2*(extended_size,), distances=self.position_space.distances)
 
     def create_sky_model(self):
-        pad = ift.FieldZeroPadder(self.position_space, self.extended_space.shape)
+        self.pad = ift.FieldZeroPadder(self.position_space, self.extended_space.shape)
         point_sources = self._create_point_source_model()
         diffuse_component = self._create_diffuse_component_model()
-        sky = pad.adjoint(point_sources + diffuse_component)
+        sky = self.pad.adjoint(point_sources + diffuse_component)
         return point_sources, diffuse_component, sky
 
     def _create_point_source_model(self):
