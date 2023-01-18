@@ -5,11 +5,7 @@ telescope:
   pattern: 15
 plotting:
   enabled: True
-  slice:
-    - 1100
-    - 2000
-    - 800
-    - 2000
+  slice: Null
   dpi: 800
 files:
   obs_path: 'data/'

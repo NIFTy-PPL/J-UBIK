@@ -115,6 +115,7 @@ class ErositaObservation:
                        show=False, dpi=None, **kwargs):
         im = self.load_fits_data(filename)[0].data
         if slice is not None:
+            slice = tuple(slice)
             im = im[slice[2]:slice[3], slice[0]:slice[1]]
         output = os.path.join(self.working_directory, image_name)
         norm = None

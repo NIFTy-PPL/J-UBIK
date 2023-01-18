@@ -1,14 +1,14 @@
 import argparse
 import math
-import numpy as np
 import os
 import sys
+
+import numpy as np
 from matplotlib import colors
 import nifty8 as ift
 import xubik0 as xu
 from demos.sky_model import ErositaSky
 
-from src.library import plot
 from src.library.plot import plot_sample_and_stats, create_output_directory
 
 currentdir = os.path.dirname(os.path.realpath(__file__))
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.join(obs_path, output_filename)):
         observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
                                                     size=npix, pattern=tel_info['pattern'],
-                                                    telid=tm_id) # FIXME: exchange rebin by fov? 80 = 4arcsec
+                                                    telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
     else:
         print(log.format(os.path.join(obs_path, output_filename)))
 
@@ -66,11 +66,11 @@ if __name__ == "__main__":
     if plot_info['enabled']:
         observation_instance.plot_fits_data(output_filename,
                                             os.path.splitext(output_filename)[0],
-                                            slice=tuple(plot_info['slice']),
+                                            slice=plot_info['slice'],
                                             dpi=plot_info['dpi'])
         observation_instance.plot_fits_data(exposure_filename,
                                             f'{os.path.splitext(exposure_filename)[0]}.png',
-                                            slice=tuple(plot_info['slice']),
+                                            slice=plot_info['slice'],
                                             dpi=plot_info['dpi'])
 
     # PSF
@@ -81,25 +81,29 @@ if __name__ == "__main__":
     exposure = ift.makeField(sky.target, exposure)
     exposure_op = ift.makeOp(exposure)
 
-
     # Mask
     mask = xu.get_mask_operator(exposure)
+
     # Response
     R = mask @ exposure_op
+
     # Data
     data = observation_instance.load_fits_data(output_filename)[0].data
     data = ift.makeField(sky.target, data)
     masked_data = mask(data)
+
     if mockrun:
         mock_position = ift.from_random(sky.domain)
         mock_sky = sky(mock_position)
         mock_data = np.random.poisson(exposure_op(mock_sky).val.astype(np.float64))
         mock_data = ift.Field.from_raw(sky.target, mock_data)
+
         if plot_info['enabled']:
             p = ift.Plot()
             p.add(data, title='data', norm=colors.SymLogNorm(linthresh=10e-5))
             p.add(mock_data, title='mock_data', norm=colors.SymLogNorm(linthresh=10e-5))
             p.output(nx=2)
+
         masked_data = mask(mock_data)
 
 
@@ -134,7 +138,5 @@ if __name__ == "__main__":
         ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
                         minimizer, ic_sampling, None, export_operator_outputs=operators_to_plot,
                         output_directory=output_directory, inspect_callback=plot)
-
-
 
 
