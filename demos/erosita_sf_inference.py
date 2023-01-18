@@ -1,7 +1,9 @@
 import argparse
 import math
+import numpy as np
 import os
 import sys
+from matplotlib import colors
 import nifty8 as ift
 import xubik0 as xu
 from demos.sky_model import ErositaSky
@@ -14,8 +16,9 @@ parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
 from src.library.erosita_observation import ErositaObservation
 
+mockrun = True
 if __name__ == "__main__":
-    config_filename = "eROSITA_config.yaml"
+    config_filename = "demos/eROSITA_config.yaml"
     cfg = xu.get_cfg(config_filename)
     fov = cfg['telescope']['field_of_view']
     rebin = math.floor(20 * fov//cfg['grid']['npix'])
@@ -70,22 +73,35 @@ if __name__ == "__main__":
                                             slice=tuple(plot_info['slice']),
                                             dpi=plot_info['dpi'])
 
-    data = observation_instance.load_fits_data(output_filename)[0].data
+    # PSF
     center = observation_instance.get_center_coordinates(output_filename)
 
-    input = observation_instance.load_fits_data(input_filenames)
-
+    # Exposure
     exposure = observation_instance.load_fits_data(exposure_filename)[0].data
-
-    data = ift.makeField(sky.target, data) # todo: check nifty plotting. data.T?
-
     exposure = ift.makeField(sky.target, exposure)
     exposure_op = ift.makeOp(exposure)
-    mask = xu.get_mask_operator(exposure)
-    masked_data = mask(data)
 
+
+    # Mask
+    mask = xu.get_mask_operator(exposure)
+    # Response
     R = mask @ exposure_op
-    point_sources, diffuse, sky = ErositaSky(config_filename).create_sky_model()
+    # Data
+    data = observation_instance.load_fits_data(output_filename)[0].data
+    data = ift.makeField(sky.target, data)
+    masked_data = mask(data)
+    if mockrun:
+        mock_position = ift.from_random(sky.domain)
+        mock_sky = sky(mock_position)
+        mock_data = np.random.poisson(exposure_op(mock_sky).val.astype(np.float64))
+        mock_data = ift.Field.from_raw(sky.target, mock_data)
+        if plot_info['enabled']:
+            p = ift.Plot()
+            p.add(data, title='data', norm=colors.SymLogNorm(linthresh=10e-5))
+            p.add(mock_data, title='mock_data', norm=colors.SymLogNorm(linthresh=10e-5))
+            p.output(nx=2)
+        masked_data = mask(mock_data)
+
 
     # Set up likelihood
     log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
@@ -103,12 +119,11 @@ if __name__ == "__main__":
     # Prepare results
     operators_to_plot = {'reconstruction': sky, 'point_sources': point_sources, 'diffuse_component': diffuse}
 
-    import matplotlib.colors as colors
+    output_directory = create_output_directory("retreat_first_reconstruction")
 
     plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
                                               plotting_kwargs={'norm': colors.SymLogNorm(linthresh=10e-1)})
 
-    output_directory = create_output_directory("retreat_first_reconstruction")
     if minimization_config['geovi']:
         # geoVI
         ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
@@ -120,9 +135,6 @@ if __name__ == "__main__":
                         minimizer, ic_sampling, None, export_operator_outputs=operators_to_plot,
                         output_directory=output_directory, inspect_callback=plot)
 
-    # p = ift.Plot()
-    # p.add(data, norm=colors.SymLogNorm(linthresh=10e-5))
-    # p.add(exposure)
-    # p.output(nx=2)
+
 
 
