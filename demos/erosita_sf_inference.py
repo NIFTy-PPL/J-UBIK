@@ -39,7 +39,7 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.join(obs_path, output_filename)):
         observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=tel_info['rebin'],
                                                     size=npix, pattern=tel_info['pattern'],
-                                                    telid=tm_id)
+                                                    telid=tm_id) # FIXME: exchange rebin by fov? 80 = 4arcsec
     else:
         print(log.format(os.path.join(obs_path, output_filename)))
 
@@ -79,9 +79,9 @@ if __name__ == "__main__":
     # Set up likelihood
     # log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ signal
 
-    p = ift.Plot()
-    p.add(data, norm=colors.SymLogNorm(linthresh=10e-5))
-    p.add(exposure)
-    p.output(nx=2)
+    # p = ift.Plot()
+    # p.add(data, norm=colors.SymLogNorm(linthresh=10e-5))
+    # p.add(exposure)
+    # p.output(nx=2)
 
 
