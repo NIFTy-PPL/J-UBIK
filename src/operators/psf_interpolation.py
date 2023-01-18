@@ -1,6 +1,7 @@
 import numpy as np
 import jax.numpy as jnp
 from jax import vmap
+from jax.scipy.ndimage import map_coordinates
 
 def to_r_phi(cc):
     """
@@ -11,6 +12,9 @@ def to_r_phi(cc):
     return jnp.array([r, phi])
 
 def to_ra_dec(rp):
+    """
+    Transforms form r-phi coordinates to ra-dec (sky) coordinates.
+    """
     x, y = rp[0]*jnp.cos(rp[1]), rp[0]*jnp.sin(rp[1])
     return jnp.array([x, y])
 
@@ -27,10 +31,10 @@ def find_interpolate_index_r(rs, r):
     i_lower = jnp.where(lower >= r)[0]
     # If `r` larger then biggest radius extrapolate psf
     if i_upper.size == upper.size:
-        return [rs.size-1,], [1.,]
+        return (rs.size-1,), (1.,)
     # If `r` smaller then smallest radius extrapolate psf
     if i_lower.size == lower.size:
-        return [0,], [1.,]
+        return (0,), (1.,)
     # Select psfs and bilinear interpolate
     i_all = jnp.arange(rs.size - 1, dtype=int)
     i_all = i_all[~jnp.isin(i_all, i_upper)]
@@ -40,7 +44,28 @@ def find_interpolate_index_r(rs, r):
     th0, th1 = rs[i_all], rs[i_all+1]
     dth = th1 - th0
     wgt = (r - th0) / dth
-    return [i_all, i_all + 1], [(1. - wgt), wgt]
+    return (i_all, i_all + 1), ((1. - wgt), wgt)
+
+def to_patch_coordinates(dcoords, patch_center, patch_delta):
+    """
+    Transforms distances in sky coordinates to coordinates of the psf patch
+
+    Parameters:
+    -----------
+    dcoords: numpy.ndarray
+        Distances in sky coordinates which shall be transformed
+    patch_center: numpy.ndarray
+        Indices corresponding to the psf center in the patch.
+    patch_delta: numpy.ndarray
+        Binsize of the psf patch.
+    """
+    print(patch_delta.shape)
+    print(patch_center.shape)
+    print(dcoords.shape)
+    tm = patch_center*patch_delta
+    res = jnp.swapaxes(dcoords, 0, -1) + tm
+    res /= patch_delta
+    return jnp.swapaxes(res, -1, 0)
 
 def nn_interpol(radec, grid_radec, vals):
     pdist = ((radec - grid_radec)** 2).sum(axis=-1)
@@ -83,47 +108,49 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
     psfs = psfs[sort]
     patch_center_ids = patch_center_ids[sort]
 
+    patch_deltas = np.array(list(patch_deltas))
     pointing_center = np.array(list(pointing_center))
     lower = np.array(list(radec_limits[0]))
     upper = np.array(list(radec_limits[1]))
     if np.any(upper <= lower):
         raise ValueError
+    if np.any(pointing_center < lower):
+        raise ValueError
+    if np.any(pointing_center > upper):
+        raise ValueError
     pointing_center -= lower
-    window_size = upper - lower
-
-
+    for pp, cc in zip(psfs, patch_center_ids):
+        if np.any(cc > np.array(list(pp.shape))):
+            raise ValueError
+        if np.any(cc < 0):
+            raise ValueError
 
     def psf(ra, dec, dra, ddec):
+        # Find r and phi corresponding to requested location
         cc = jnp.array([ra, dec])
         cc -= pointing_center
         rp = to_r_phi(cc)
-        i_psf, wgt = bilinear_interpolate_psf_r(psfs, rs, rp[0])
+        # Find and select psfs required for given radius
+        inds, wgts = find_interpolate_index_r(rs, rp[0])
 
+        # Rotate requested psf slice to align with patch
+        int_coords = jnp.stack((dra, ddec), axis = 0)
+        int_coords = to_r_phi(int_coords)
+        print(cc[1], jnp.pi)
+        int_coords = int_coords.at[1].set(int_coords[1] - rp[1])
+        int_coords = to_ra_dec(int_coords)
 
+        # Transform psf slice coordinates into patch index coordinates and
+        # bilinear interpolate onto slice
+        res = jnp.zeros(int_coords.shape[1:])
+        for ii, ww in zip(inds, wgts):
+            ids = patch_center_ids[ii]
+            pp = psfs[ii]
+            query_ids = to_patch_coordinates(int_coords, ids, patch_deltas)
+            int_res = map_coordinates(pp, query_ids, order=1, mode='nearest')
+            res += ww*int_res
 
-        #dcc = jnp.stack((dra, ddec), axis = -1)
-        r, phi = to_r_phi(ra, dec, center)
-        mypsf = bilinear_interpolate_psf_r(r_psfs, rs, r)
-        psfra = dradecs[:,:,0] + center[0]
-        psfdec = dradecs[:,:,1] + center[1]
-        psfr, psfphi = to_r_phi(psfra, psfdec, center)
-        psfphi += phi
-        psfphi = psfphi%(2.*jnp.pi)
-        psfra, psfdec = to_ra_dec(psfr, psfphi, center)
-        psfra, psfdec = psfra - center[0], psfdec - center[1]
-        psfra, psfdec = psfra.flatten(), psfdec.flatten()
-        mypsf = mypsf.flatten()
-
-        myra, mydec = dra.flatten(), ddec.flatten()
-
-        myradec = jnp.stack((myra, mydec), axis = -1)
-        psfradec = jnp.stack((psfra, psfdec), axis = -1)
-        respsf = []
-        #TODO use scipy.ndimage.map_coordinates
-        for i, vv in enumerate(myradec):
-            respsf.append(nn_interpol(vv, psfradec, mypsf))
-        respsf = jnp.array(respsf)
-        return respsf.reshape(dra.shape)
+        return res
 
     return psf
 
@@ -142,11 +169,11 @@ def test_psf():
     print(dec)
 
 
-    center = (1.,1.)
 
     sig = 0.1
     def func(r, dx,dy):
-        dr = np.sqrt((dx/(1.+2.*r**2))**2 + dy**2)
+        tm = 3.*dy**2 - dx**2 - dy
+        dr = np.sqrt((dx/(1.+2.*r**2))**2 + tm**2)
         return np.exp(-0.5*(dr/sig)**2)
 
     rs = np.array([0., 0.1, 0.5, 0.7, 1.])
@@ -155,21 +182,30 @@ def test_psf():
     ny = 128*2
     dra = np.linspace(-1.,1., num = nx)
     ddec = np.linspace(-1.,1., num = ny)
+    dx = dra[1] - dra[0]
+    dy = ddec[1] - ddec[0]
     dra, ddec = np.meshgrid(dra, ddec, indexing='ij')
-    dradecs = np.stack((dra, ddec), axis = -1)
+    #dradecs = np.stack((dra, ddec), axis = -1)
 
     psfs = list([func(rr, dra, ddec) for rr in rs])
     psfs = np.stack(psfs, axis = 0)
 
-    for pp,rr in zip(psfs,rs):
-        plt.imshow(pp.T, origin='lower')
-        plt.title(f'radius = {rr}')
-        plt.show()
+    #for pp,rr in zip(psfs,rs):
+    #    plt.imshow(pp.T, origin='lower')
+    #    plt.title(f'radius = {rr}')
+    #    plt.show()
 
-    func_psf = get_psf(rs, dradecs, psfs, center, max_radec)
+    patch_centers = np.outer(np.ones_like(rs), np.array([128, 128]))
+    patch_deltas = (dx, dy)
+    center = (1.,1.)
+    radec_limits = ((0.,0.), (2.,2.))
+
+
+    func_psf = get_psf(psfs, rs, patch_centers, patch_deltas, center, radec_limits)
+    #func_psf = get_psf(rs, dradecs, psfs, center, max_radec)
 
     ddra, dddec = jnp.meshgrid(ra, dec, indexing='ij')
-    ra, dec = .5, .2
+    ra, dec = 1.5, .5
     mypsf = func_psf(ra, dec, ddra, dddec)
     im = plt.imshow(mypsf.T, origin='lower', vmin = 0., vmax = 1.)
     plt.colorbar(im)
