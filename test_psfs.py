@@ -69,9 +69,11 @@ def compare_psf_ops():
     sig = 0.1
     def func(r, dx,dy):
         #tm = 3.*dy**2 - dx**2 - dy
-        #dr = np.sqrt((dx/(1.+2.*r**2))**2 + tm**2)
-        dr = (dx**2 + dy**2) / 0.01
-        return np.exp(-0.5*(dr/sig)**2)
+        fct = (1.+3.*r**2)
+        dr = np.sqrt((dx/fct)**2 + dy**2)
+        #dr = (dx**2 + dy**2) 
+        dr /= 0.01
+        return np.exp(-0.5*(dr/sig)**2) / fct**2
 
     rs = np.array([0., 0.1, 0.5, 0.7, 1.])
 
@@ -98,7 +100,7 @@ def compare_psf_ops():
                  'patch_center_ids' : patch_centers,
                  'patch_deltas' : patch_deltas, 
                  'pointing_center' : center}
-    msc_infos = {'c' : (1,1), 'q': (2,2), 'b' : (3,3), 'min_m0' : (5,5),
+    msc_infos = {'c' : (1,1), 'q': (1,1), 'b' : (3,3), 'min_m0' : (5,5),
                  'linear' : (True, True)}
     msc_op = psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos)
 

@@ -23,19 +23,26 @@ def to_ra_dec(rp):
     return jnp.array([x, y])
 
 def get_interpolation_weights(rs, r):
+    """
+    Get bilinear interpolation weights for the psfs along the r-axis. If the 
+    requested `r` is outside the given interval, the the psf corresponding to 
+    the smallest/largest radius in `rs` is extrapolated.
+    """
     dr = rs[1:] - rs[:-1]
 
     def _get_wgt_front(i):
         res = jnp.zeros_like(rs)
         res = res.at[0].set(1.)
         return res
-    res = jax.lax.cond(r < rs[0], _get_wgt_front, lambda _: jnp.zeros_like(rs), 0)
+    res = jax.lax.cond(r < rs[0], _get_wgt_front, 
+                       lambda _: jnp.zeros_like(rs), 0)
 
     def _get_wgt_back(i):
         res = jnp.zeros_like(rs)
         res = res.at[rs.size-1].set(1.)
         return res    
-    res += jax.lax.cond(r >= rs[rs.size-1], _get_wgt_back, lambda _: jnp.zeros_like(rs), 0)
+    res += jax.lax.cond(r >= rs[rs.size-1], _get_wgt_back,
+                        lambda _: jnp.zeros_like(rs), 0)
 
     def _get_wgt(i):
         res = jnp.zeros_like(rs)
@@ -44,46 +51,9 @@ def get_interpolation_weights(rs, r):
         res = res.at[i+1].set(wgt)
         return res
     for i in range(rs.size - 1):
-        res += jax.lax.cond((rs[i]<r)*(rs[i+1]>=r), 
-                _get_wgt, (lambda _: jnp.zeros_like(rs)), i)
+        res += jax.lax.cond((rs[i]<r)*(rs[i+1]>=r), _get_wgt,
+                            (lambda _: jnp.zeros_like(rs)), i)
     return res
-
-
-def find_interpolate_index_r(rs, r):
-    """
-    Find indices and weights for bilinear interpolation of the psfs
-    along the r-axis. If the requested `r` is outside the given
-    interval, the index of the psf corresponding to the
-    smallest/largest radius in `rs` is returned.
-    """
-    upper = rs[1:]
-    lower = rs[:-1]
-    i_upper = []
-    i_lower = []
-    for i in range(upper.size):
-        i_upper += jax.lax.cond(upper[i] < r, (lambda i: [i,]), (lambda _: [-1]), i)
-        i_lower += jax.lax.cond(lower[i] >=r, (lambda i: [i,]), (lambda _: [-1]), i)
-    i_upper = jnp.array(i_upper)
-    i_upper = i_upper[i_upper != -1]
-    
-    #i_upper = jnp.where(upper < r)[0]
-    #i_lower = jnp.where(lower >= r)[0]
-    # If `r` larger then biggest radius extrapolate psf
-    if i_upper.size == upper.size:
-        return (rs.size-1,), (1.,)
-    # If `r` smaller then smallest radius extrapolate psf
-    if i_lower.size == lower.size:
-        return (0,), (1.,)
-    # Select psfs and bilinear interpolate
-    i_all = jnp.arange(rs.size - 1, dtype=int)
-    i_all = i_all[~jnp.isin(i_all, i_upper)]
-    i_all = i_all[~jnp.isin(i_all, i_lower)]
-    assert i_all.size == 1
-    i_all = i_all[0]
-    th0, th1 = rs[i_all], rs[i_all+1]
-    dth = th1 - th0
-    wgt = (r - th0) / dth
-    return (i_all, i_all + 1), ((1. - wgt), wgt)
 
 def to_patch_coordinates(dcoords, patch_center, patch_delta):
     """
@@ -250,6 +220,6 @@ def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1):
         [np.roll(np.roll(pp, -shp[0]//2, axis = 0), -shp[1]//2, axis = 1)
         for pp in patch_psfs])
     patch_psfs = np.array(patch_psfs)
-    margin = max((int(np.ceil(margfrac*ss)) for ss in patch_shp))
-    op = OAnew.force(domain, patch_psfs, len(patch_psfs), margin)
+    margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
+    op = OAnew(domain, patch_psfs, len(patch_psfs), margin)
     return op
