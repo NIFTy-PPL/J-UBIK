@@ -1,30 +1,52 @@
+seed: 40
+telescope:
+  tm_id : 1
+  field_of_view: 3600 # in arcsec
+  pattern: 15
+plotting:
+  enabled: True
+  slice: Null
+  dpi: 800
+files:
+  obs_path: 'data/'
+  input: 'fm00_700203_020_EventList_c001.fits'
+  output: 'processed_LMC_SN1987A_data.fits'
+  exposure: 'expmap_LMC_SN1987A.fits'
+
+grid:
+  npix: 1024
+  padding_ratio: 2.
+  energy_bin:
+    e_min: 2.0
+    e_max:  4.5
+# Exposurenorm is 4.785357857098681e-05
 priors:
   point_sources:
-    alpha: 3
-    q: 0.7
+    alpha: 1.5
+    q: 0.00047
   diffuse:
-    asperity:
-    - 0.1
-    - 0.5
-    flexibility:
-    - 3.0
-    - 2.0
+    offset:
+      offset_mean: -7.6
+      offset_std:
+        - 0.5
+        - 0.05
     fluctuations:
-    - 3.
-    - 1.5
-    loglogavgslope:
-    - -3.0
-    - 1.5
-    offset_mean: 0.
-    offset_std:
-    - 1.
-    - 0.5
+      flexibility:
+      - 2.0
+      - 2.0
+      fluctuations:
+      - 2.0
+      - 2.0
+      loglogavgslope:
+      - -4.5
+      - 1.5
+      asperity: Null
     prefix: diffuse_
 
 minimization:
   geovi: True
-  total_iterations: 15
-  n_samples: 'lambda i_iter: 6 if i_iter < 13 else 10'
+  total_iterations: 5
+  n_samples: 5 #'lambda i_iter: 6 if i_iter < 13 else 10'
   ic_newton:
     convergence_level: 2
     deltaE: 0.1

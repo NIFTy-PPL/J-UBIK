@@ -62,7 +62,7 @@ class ErositaSky:
 
 if __name__ == "__main__":
     # Load the data
-    obs_path = "../data/"  # Folder that gets mounted to the docker
+    obs_path = "../../data/"  # Folder that gets mounted to the docker
     filename = "combined_out_08_1_imm.fits"
     filename_no_imm = "combined_out_08_1_noimm.fits"
     input_filename = ['LMC_SN1987A/fm00_700203_020_EventList_c001.fits',
