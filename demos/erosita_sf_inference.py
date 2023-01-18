@@ -6,12 +6,11 @@ import xubik0 as xu
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
-print(sys.path)
-print
 from src.library.erosita_observation import ErositaObservation
 
 if __name__ == "__main__":
-    cfg = xu.get_cfg("demos/eROSITA_config.yaml")
+    cfg = xu.get_cfg("eROSITA_config.yaml")
+
     # File Location
     file_info = cfg['files']
     obs_path = file_info['obs_path']
@@ -21,20 +20,17 @@ if __name__ == "__main__":
     observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
 
     # Grid Info
-
     grid_info = cfg['grid']
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
     npix = grid_info['npix']
 
     # Telescope Info
-
     tel_info = cfg['telescope']
     tm_id = tel_info['tm_id']
 
-
-    log = 'Output file {} already exists and is not regenerated. If the observations parameters shall be changed ' \
-          'please delete or rename the current output file.'
+    log = 'Output file {} already exists and is not regenerated. ' \
+          'If the observations parameters shall be changed please delete or rename the current output file.'
 
     if not os.path.exists(os.path.join(obs_path, output_filename)):
         observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=tel_info['rebin'],
@@ -51,6 +47,7 @@ if __name__ == "__main__":
 
     else:
         print(log.format(os.path.join(obs_path, output_filename)))
+
     # Plotting
     plot_info = cfg['plotting']
     if plot_info['enabled']:
@@ -64,6 +61,10 @@ if __name__ == "__main__":
                                             dpi=plot_info['dpi'])
 
     data = observation_instance.load_fits_data(output_filename)[0].data
+    center = observation_instance.get_center_coordinates(output_filename)
+
+    input = observation_instance.load_fits_data(input_filenames)
+
     exposure = observation_instance.load_fits_data(exposure_filename)[0].data
 
     data_space = ift.RGSpace(data.shape, distances=0.1) # fixme: replace by signal.target

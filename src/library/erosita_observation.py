@@ -103,6 +103,14 @@ class ErositaObservation:
         print("Loading ouput data stored in {}.".format(filename))
         return fits.open(os.path.join(self.working_directory, filename))
 
+    def get_center_coordinates(self, input_filename):
+        try:
+            input_header = self.load_fits_data(input_filename)[1].header #fixme: think about nicer implementation
+            return input_header['RA_PNT'], input_header['DEC_PNT']
+        except ValueError:
+            print("Input filename does not contain center information.")
+            return None
+
     def plot_fits_data(self, filename, image_name, slice=None, lognorm=True, linthresh=10e-1,
                        show=False, dpi=None, **kwargs):
         im = self.load_fits_data(filename)[0].data
