@@ -6,14 +6,17 @@ import nifty8 as ift
 import xubik0 as xu
 from demos.sky_model import ErositaSky
 
+from src.library import plot
+from src.library.plot import plot_sample_and_stats, create_output_directory
+
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
 from src.library.erosita_observation import ErositaObservation
 
 if __name__ == "__main__":
-    config_file = "demos/eROSITA_config.yaml"
-    cfg = xu.get_cfg(config_file)
+    config_filename = "eROSITA_config.yaml"
+    cfg = xu.get_cfg(config_filename)
     fov = cfg['telescope']['field_of_view']
     rebin = math.floor(20 * fov//cfg['grid']['npix'])
 
@@ -24,7 +27,7 @@ if __name__ == "__main__":
     output_filename = file_info['output']
     exposure_filename = file_info['exposure']
     observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
-    point_sources, diffuse, sky = ErositaSky(config_file).create_sky_model()
+    point_sources, diffuse, sky = ErositaSky(config_filename).create_sky_model()
 
     # Grid Info
     grid_info = cfg['grid']
@@ -82,11 +85,40 @@ if __name__ == "__main__":
     masked_data = mask(data)
 
     R = mask @ exposure_op
+    point_sources, diffuse, sky = ErositaSky(config_filename).create_sky_model()
 
     # Set up likelihood
     log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
 
-    # Set up inference
+    # Load minimization config
+    minimization_config = cfg['minimization']
+
+    # Minimizers
+    ic_newton = ift.AbsDeltaEnergyController(**minimization_config['ic_newton'])
+    ic_sampling = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling'])
+    ic_sampling_nl = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling_nl'])
+    minimizer = ift.NewtonCG(ic_newton)
+    minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
+
+    # Prepare results
+    operators_to_plot = {'reconstruction': sky, 'point_sources': point_sources, 'diffuse_component': diffuse}
+
+    import matplotlib.colors as colors
+
+    plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
+                                              plotting_kwargs={'norm': colors.SymLogNorm(linthresh=10e-1)})
+
+    output_directory = create_output_directory("retreat_first_reconstruction")
+    if minimization_config['geovi']:
+        # geoVI
+        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
+                        minimizer, ic_sampling, minimizer_sampling, output_directory=output_directory,
+                        export_operator_outputs=operators_to_plot, inspect_callback=plot)
+    else:
+        # MGVI
+        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
+                        minimizer, ic_sampling, None, export_operator_outputs=operators_to_plot,
+                        output_directory=output_directory, inspect_callback=plot)
 
     # p = ift.Plot()
     # p.add(data, norm=colors.SymLogNorm(linthresh=10e-5))
