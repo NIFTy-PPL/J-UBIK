@@ -1,6 +1,7 @@
+import nifty8 as ift
 import numpy as np
 import jax.numpy as jnp
-from jax import vmap
+
 from jax.scipy.ndimage import map_coordinates
 
 def to_r_phi(cc):
@@ -59,9 +60,6 @@ def to_patch_coordinates(dcoords, patch_center, patch_delta):
     patch_delta: numpy.ndarray
         Binsize of the psf patch.
     """
-    print(patch_delta.shape)
-    print(patch_center.shape)
-    print(dcoords.shape)
     tm = patch_center*patch_delta
     res = jnp.swapaxes(dcoords, 0, -1) + tm
     res /= patch_delta
@@ -153,6 +151,37 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
         return res
 
     return psf
+
+def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
+    # NOTE: Assumes the repository "https://gitlab.mpcdf.mpg.de/pfrank/adg.git"
+    # to be cloned and located in a folder named "adg" within the folder of this
+    # python file.
+    from .adg.nifty_convolve import get_convolve
+    psfs = obs_infos['psfs']
+    rs = obs_infos['rs']
+    patch_center_ids = obs_infos['patch_center_ids']
+    patch_deltas = obs_infos['patch_deltas']
+    pointing_center = obs_infos['pointing_center']
+    c = msc_infos['c']
+    q = msc_infos['q']
+    b = msc_infos['b']
+    min_m0 = msc_infos['min_m0']
+    linear = msc_infos['Linear']
+    local = True
+
+    if not isinstance(domain, ift.RGSpace):
+        raise ValueError
+    if not domain.harmonic == False:
+        raise ValueError
+
+    upper_radec = (tuple(ll+ss*dd for ll,ss,dd in 
+                   zip(lower_radec, domain.shape, domain.distances)))
+    radec_limits = tuple(lower_radec, upper_radec)
+
+    func_psf = get_psf(psfs, rs, patch_center_ids, patch_deltas, 
+                       pointing_center, radec_limits)
+
+    return get_convolve(domain, func_psf, c, q, b, min_m0, linear, local)
 
 def test_psf():
     import pylab as plt
