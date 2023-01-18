@@ -1,8 +1,28 @@
 seed: 89
+telescope:
+  tm_id : 1
+  rebin: 80
+  pattern: 15
+plotting:
+  enabled: True
+  slice:
+    - 1100
+    - 2000
+    - 800
+    - 2000
+  dpi: 800
+files:
+  obs_path: 'data/'
+  input: 'fm00_700203_020_EventList_c001.fits'
+  output: 'processed_LMC_SN1987A_data.fits'
+  exposure: 'expmap_LMC_SN1987A.fits'
 grid:
   npix: 1024
   padding_ratio: 2.
   distances: 0.1 # FIXME
+  energy_bin:
+    e_min: 2.0
+    e_max:  4.5
 
 priors:
   point_sources:
