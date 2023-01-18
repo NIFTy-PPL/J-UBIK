@@ -1,7 +1,7 @@
 seed: 89
 telescope:
   tm_id : 1
-  rebin: 80
+  field_of_view: 3600 # in arcsec
   pattern: 15
 plotting:
   enabled: True
@@ -12,10 +12,11 @@ plotting:
     - 2000
   dpi: 800
 files:
-  obs_path: 'data/'
+  obs_path: '../data/LMC_SN1987A/'
   input: 'fm00_700203_020_EventList_c001.fits'
   output: 'processed_LMC_SN1987A_data.fits'
   exposure: 'expmap_LMC_SN1987A.fits'
+
 grid:
   npix: 1024
   padding_ratio: 2.

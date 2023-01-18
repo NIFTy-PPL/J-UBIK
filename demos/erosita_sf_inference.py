@@ -1,8 +1,11 @@
 import argparse
+import math
 import os
 import sys
 import nifty8 as ift
 import xubik0 as xu
+from demos.sky_model import ErositaSky
+
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
@@ -10,6 +13,8 @@ from src.library.erosita_observation import ErositaObservation
 
 if __name__ == "__main__":
     cfg = xu.get_cfg("eROSITA_config.yaml")
+    fov = cfg['telescope']['field_of_view']
+    rebin = math.floor(20 * fov//cfg['grid']['npix'])
 
     # File Location
     file_info = cfg['files']
@@ -33,7 +38,7 @@ if __name__ == "__main__":
           'If the observations parameters shall be changed please delete or rename the current output file.'
 
     if not os.path.exists(os.path.join(obs_path, output_filename)):
-        observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=tel_info['rebin'],
+        observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
                                                     size=npix, pattern=tel_info['pattern'],
                                                     telid=tm_id) # FIXME: exchange rebin by fov? 80 = 4arcsec
     else:
@@ -76,9 +81,12 @@ if __name__ == "__main__":
     masked_data = mask(data)
 
     R = mask @ exposure_op
+    point_sources, diffuse, sky = ErositaSky(cfg).create_sky_model()
 
     # Set up likelihood
-    # log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ signal
+    log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
+
+    # Set up inference
 
     # p = ift.Plot()
     # p.add(data, norm=colors.SymLogNorm(linthresh=10e-5))
