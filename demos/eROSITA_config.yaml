@@ -6,27 +6,25 @@ grid:
 
 priors:
   point_sources:
-    alpha: 3
-    q: 0.7
+    alpha: 5.5
+    q: 0.3
   diffuse:
     offset:
       offset_mean: 0.
       offset_std:
-        - 1.
-        - 0.5
+        - .5
+        - 0.1
     fluctuations:
-      asperity:
-      - 0.1
-      - 0.5
       flexibility:
       - 3.0
       - 2.0
       fluctuations:
-      - 3.
-      - 1.5
+      - 1.
+      - .5
       loglogavgslope:
-      - -3.0
+      - -4.0
       - 1.5
+      asperity: Null
     prefix: diffuse_
 
 minimization:
