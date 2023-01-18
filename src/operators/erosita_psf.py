@@ -123,5 +123,3 @@ class eROSITA_PSF():
             plt.clf
             plt.close()
 
-a = eROSITA_PSF(dir_path+fname[4])
-a.plot_psfs()
