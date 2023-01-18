@@ -1,15 +1,21 @@
 import argparse
+import math
 import os
 import sys
 import nifty8 as ift
 import xubik0 as xu
+from demos.sky_model import ErositaSky
+
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
 from src.library.erosita_observation import ErositaObservation
 
 if __name__ == "__main__":
-    cfg = xu.get_cfg("demos/eROSITA_config.yaml")
+    config_file = "demos/eROSITA_config.yaml"
+    cfg = xu.get_cfg(config_file)
+    fov = cfg['telescope']['field_of_view']
+    rebin = math.floor(20 * fov//cfg['grid']['npix'])
 
     # File Location
     file_info = cfg['files']
@@ -18,6 +24,7 @@ if __name__ == "__main__":
     output_filename = file_info['output']
     exposure_filename = file_info['exposure']
     observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
+    point_sources, diffuse, sky = ErositaSky(config_file).create_sky_model()
 
     # Grid Info
     grid_info = cfg['grid']
@@ -33,7 +40,7 @@ if __name__ == "__main__":
           'If the observations parameters shall be changed please delete or rename the current output file.'
 
     if not os.path.exists(os.path.join(obs_path, output_filename)):
-        observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=tel_info['rebin'],
+        observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
                                                     size=npix, pattern=tel_info['pattern'],
                                                     telid=tm_id) # FIXME: exchange rebin by fov? 80 = 4arcsec
     else:
@@ -67,10 +74,9 @@ if __name__ == "__main__":
 
     exposure = observation_instance.load_fits_data(exposure_filename)[0].data
 
-    data_space = ift.RGSpace(data.shape, distances=0.1) # fixme: replace by signal.target
-    data = ift.makeField(data_space, data) # todo: check nifty plotting. data.T?
+    data = ift.makeField(sky.target, data) # todo: check nifty plotting. data.T?
 
-    exposure = ift.makeField(data_space, exposure)
+    exposure = ift.makeField(sky.target, exposure)
     exposure_op = ift.makeOp(exposure)
     mask = xu.get_mask_operator(exposure)
     masked_data = mask(data)
@@ -78,7 +84,9 @@ if __name__ == "__main__":
     R = mask @ exposure_op
 
     # Set up likelihood
-    # log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ signal
+    log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
+
+    # Set up inference
 
     # p = ift.Plot()
     # p.add(data, norm=colors.SymLogNorm(linthresh=10e-5))
