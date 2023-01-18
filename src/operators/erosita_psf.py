@@ -2,6 +2,7 @@ import numpy as np
 import astropy.io.fits as ast
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from .psf_interpolation import psf_convolve_operator, psf_lin_int_operator
 
 dir_path= "tm1/bcf/"
 fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"] # PSF-correction / Data modeling
@@ -123,3 +124,21 @@ class eROSITA_PSF():
             plt.clf
             plt.close()
 
+    def make_psf_op(self, energy, pointing_center, domain, lower_radec, 
+                    conv_method,conv_params):
+        obs_infos = {'psfs' : self._load_data(energy), 
+                    'rs' : self._load_theta(energy), 
+                    'patch_center_ids' : self._load_p_center(energy),
+                    'patch_deltas' : self._load_pix_size(), 
+                    'pointing_center' : pointing_center}
+
+        if conv_method == 'MSC':
+            op = psf_convolve_operator(domain, lower_radec, obs_infos,
+                                       conv_params)
+        elif conv_method == 'LIN':
+            op = psf_lin_int_operator(domain, conv_params['npatch'], 
+                                      lower_radec, obs_infos,
+                                      margfrac = conv_params['margfrac'])
+        else:
+            raise ValueError(f'Unknown conv_method: {conv_method}')
+        return op
