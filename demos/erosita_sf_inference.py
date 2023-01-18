@@ -50,19 +50,20 @@ if __name__ == "__main__":
 
     data_space = ift.RGSpace(data.shape, distances=0.1) # fixme: replace by signal.target
     data = ift.makeField(data_space, data) # todo: check nifty plotting. data.T?
-    exposure = ift.makeOp(ift.makeField(data_space, exposure))
 
+    exposure = ift.makeField(data_space, exposure)
+    exposure_op = ift.makeOp(exposure)
     mask = xu.get_mask_operator(exposure)
     masked_data = mask(data)
 
-    R = mask @ exposure
+    R = mask @ exposure_op
 
     # Set up likelihood
-    log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ signal
+    # log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ signal
 
-    # p = ift.Plot()
-    # p.add(data, norm=colors.SymLogNorm(linthresh=10e-5))
-    # p.add(exposure)
-    # p.output(nx=2)
+    p = ift.Plot()
+    p.add(data, norm=colors.SymLogNorm(linthresh=10e-5))
+    p.add(exposure)
+    p.output(nx=2)
 
 
