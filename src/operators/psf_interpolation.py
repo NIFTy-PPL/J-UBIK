@@ -180,7 +180,6 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
         # Transform psf slice coordinates into patch index coordinates and
         # bilinear interpolate onto slice
         res = jnp.zeros(int_coords.shape[1:])
-        print(wgts)
         for ids, pp, ww in zip(patch_center_ids, psfs, wgts):
             query_ids = to_patch_coordinates(int_coords, ids, patch_deltas)
             int_res = map_coordinates(pp, query_ids, order=1, mode='nearest')
@@ -245,10 +244,12 @@ def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1):
     c_ra = centers[0].flatten()
     c_dec = centers[1].flatten()
 
-    patch_psfs = list([func_psf(ra, dec, d_ra, d_dec) for ra, dec in 
-                       zip(c_ra, c_dec)])
+    patch_psfs = (func_psf(ra, dec, d_ra, d_dec) for ra, dec in 
+                       zip(c_ra, c_dec))
+    patch_psfs = list(
+        [np.roll(np.roll(pp, -shp[0]//2, axis = 0), -shp[1]//2, axis = 1)
+        for pp in patch_psfs])
     patch_psfs = np.array(patch_psfs)
     margin = max((int(np.ceil(margfrac*ss)) for ss in patch_shp))
-    print(margin)
-    op = OAnew(domain, patch_psfs, len(patch_psfs), margin)
+    op = OAnew.force(domain, patch_psfs, len(patch_psfs), margin)
     return op
