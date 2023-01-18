@@ -76,6 +76,7 @@ if __name__ == "__main__":
     # PSF
     center = observation_instance.get_center_coordinates(output_filename)
 
+
     # Exposure
     exposure = observation_instance.load_fits_data(exposure_filename)[0].data
     exposure = ift.makeField(sky.target, exposure)
@@ -99,10 +100,12 @@ if __name__ == "__main__":
             p = ift.Plot()
             p.add(data, title='data', norm=colors.SymLogNorm(linthresh=10e-5))
             p.add(mock_data, title='mock_data', norm=colors.SymLogNorm(linthresh=10e-5))
-            p.output(nx=2)
+            p.output(nx=2, name='mock_data.png')
         masked_data = mask(mock_data)
 
-
+    # Print Exposure norm
+    # norm = xu.get_norm(exposure, data)
+    # print(norm)
     # Set up likelihood
     log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
 
@@ -128,12 +131,12 @@ if __name__ == "__main__":
         # geoVI
         ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
                         minimizer, ic_sampling, minimizer_sampling, output_directory=output_directory,
-                        export_operator_outputs=operators_to_plot, inspect_callback=plot)
+                        export_operator_outputs=operators_to_plot, inspect_callback=plot, resume=True)
     else:
         # MGVI
         ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
                         minimizer, ic_sampling, None, export_operator_outputs=operators_to_plot,
-                        output_directory=output_directory, inspect_callback=plot)
+                        output_directory=output_directory, inspect_callback=plot, resume=True)
 
 
 

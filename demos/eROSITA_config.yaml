@@ -23,34 +23,34 @@ grid:
   energy_bin:
     e_min: 2.0
     e_max:  4.5
-
+# Exposurenorm is 4.785357857098681e-05
 priors:
   point_sources:
-    alpha: 5.5
-    q: 0.3
+    alpha: 3.0
+    q: 0.000047
   diffuse:
     offset:
-      offset_mean: 0.
+      offset_mean: -7.6
       offset_std:
-        - .5
-        - 0.1
+        - 0.5
+        - 0.05
     fluctuations:
       flexibility:
-      - 3.0
+      - 2.0
       - 2.0
       fluctuations:
-      - 1.
-      - .5
+      - 2.0
+      - 2.0
       loglogavgslope:
-      - -4.0
+      - -4.5
       - 1.5
       asperity: Null
     prefix: diffuse_
 
 minimization:
   geovi: True
-  total_iterations: 1
-  n_samples: 1 #'lambda i_iter: 6 if i_iter < 13 else 10'
+  total_iterations: 5
+  n_samples: 5 #'lambda i_iter: 6 if i_iter < 13 else 10'
   ic_newton:
     convergence_level: 2
     deltaE: 0.1
