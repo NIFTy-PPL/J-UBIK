@@ -73,10 +73,6 @@ def to_patch_coordinates(dcoords, patch_center, patch_delta):
     res /= patch_delta
     return jnp.swapaxes(res, -1, 0)
 
-def nn_interpol(radec, grid_radec, vals):
-    pdist = ((radec - grid_radec)** 2).sum(axis=-1)
-    return jnp.mean(vals[pdist == jnp.min(pdist)])
-
 def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center, 
             radec_limits):
     """
@@ -178,10 +174,13 @@ def get_psf_func(domain, lower_radec, obs_infos):
                    pointing_center, radec_limits)
 
 def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
+    """
+    Psf convolution operator using the MSC approximation.
+    """
     # NOTE: Assumes the repository "https://gitlab.mpcdf.mpg.de/pfrank/adg.git"
-    # to be cloned and located in a folder named "adg" within the folder of this
-    # python file.
-    
+    # to be cloned and located in a folder named "adg" within the module
+    # `operators`
+
     c = msc_infos['c']
     q = msc_infos['q']
     b = msc_infos['b']
@@ -193,6 +192,9 @@ def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
     return get_convolve(domain, func_psf, c, q, b, min_m0, linear, local)
 
 def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1):
+    """
+    Psf convolution operator using bilinear interpolation of stationary patches.
+    """
     func_psf = get_psf_func(domain, lower_radec, obs_infos)
 
     shp = domain.shape
