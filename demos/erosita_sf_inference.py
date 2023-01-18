@@ -9,7 +9,7 @@ sys.path.append(parentdir)
 from src.library.erosita_observation import ErositaObservation
 
 if __name__ == "__main__":
-    cfg = xu.get_cfg("eROSITA_config.yaml")
+    cfg = xu.get_cfg("demos/eROSITA_config.yaml")
 
     # File Location
     file_info = cfg['files']
