@@ -161,12 +161,16 @@ class eROSITA_PSF():
         obs_infos = self._get_obs_infos(energy, pointing_center)
 
         if conv_method == 'MSC':
+            print('Build MSC-PSF...')
             op = psf_convolve_operator(domain, lower_radec, obs_infos,
                                        conv_params)
+            print('...done build MSC-PSF')
         elif conv_method == 'LIN':
+            print('Build LIN-PSF...')
             op = psf_lin_int_operator(domain, conv_params['npatch'], 
                                       lower_radec, obs_infos,
                                       margfrac = conv_params['margfrac'])
+            print('...done build LIN-PSF')
         else:
             raise ValueError(f'Unknown conv_method: {conv_method}')
         return op
