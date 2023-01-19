@@ -92,7 +92,7 @@ class eROSITA_PSF():
             theta_list = [f[i].header["CBD10001"] for i in range(len(f))]
         return theta_list
 
-    def _cutnorm(self, psf, lower_cut = CUT, want_frac = False):
+    def _cutnorm(self, psf, lower_cut = 1E-5, want_frac = False):
         if len(psf.shape) != 2:
             raise ValueError
         if want_frac:
@@ -114,7 +114,7 @@ class eROSITA_PSF():
             "dpix": self._load_pix_size()}
         return full_dct
 
-    def plot_psfs(self, lower_cut = CUT):
+    def plot_psfs(self, lower_cut = 1E-5):
         """plots the psfs in the fits file"""
         name = self._load_names()
         psf = self._load_data_full()
@@ -135,7 +135,7 @@ class eROSITA_PSF():
             plt.clf
             plt.close()
 
-    def _get_obs_infos(self, energy, pointing_center, lower_cut = CUT):
+    def _get_obs_infos(self, energy, pointing_center, lower_cut = 1E-5):
         newpsfs = np.array([self._cutnorm(pp, lower_cut = lower_cut) for pp in 
                             self._load_data(energy)])
         obs_infos = {'psfs' : newpsfs, 
@@ -146,7 +146,7 @@ class eROSITA_PSF():
         return obs_infos
 
     def make_psf_op(self, energy, pointing_center, domain, lower_radec, 
-                    conv_method,conv_params):
+                    conv_method, conv_params):
         obs_infos = self._get_obs_infos(energy, pointing_center)
 
         if conv_method == 'MSC':
