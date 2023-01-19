@@ -23,6 +23,8 @@ def get_cfg(yaml_file):
 def save_config(config, filename, dir=None):
     import yaml
     if dir is not None:
+        if not os.path.exists(dir):
+            os.mkdir(dir)
         with open(os.path.join(dir, filename), "w") as f:
             yaml.dump(config, f)
 

@@ -118,7 +118,6 @@ if __name__ == "__main__":
     # Data
     data = observation_instance.load_fits_data(output_filename)[0].data
     data = ift.makeField(sky_model.position_space, data)
-    padded_data = sky_model.pad(data)
     masked_data = mask(data)
 
     if mock_run:
@@ -132,7 +131,7 @@ if __name__ == "__main__":
                                                  padder=sky_model.pad)
 
         # Mask mock data
-        masked_data = mask(sky_model.pad(mock_data))
+        masked_data = mask(mock_data)
 
         # Get mock signal
         mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
