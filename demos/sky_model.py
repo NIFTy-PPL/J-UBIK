@@ -21,7 +21,7 @@ class ErositaSky:
         self.pad = ift.FieldZeroPadder(self.position_space, self.extended_space.shape)
         point_sources = self._create_point_source_model()
         diffuse_component = self._create_diffuse_component_model()
-        sky = self.pad.adjoint(point_sources + diffuse_component)
+        sky = point_sources + diffuse_component
         return point_sources, diffuse_component, sky
 
     def _create_point_source_model(self):
