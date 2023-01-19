@@ -203,7 +203,8 @@ def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
     func_psf = get_psf_func(domain, lower_radec, obs_infos)
     return get_convolve(domain, func_psf, c, q, b, min_m0, linear, local)
 
-def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1):
+def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1,
+                         want_cut = False):
     """
     Psf convolution operator using bilinear interpolation of stationary patches.
     """
@@ -229,7 +230,9 @@ def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1):
     c_p = np.meshgrid(*c_p, indexing='ij')
     d_ra = c_p[0]
     d_dec = c_p[1]
-    centers = np.meshgrid(*centers, indexing='ij')
+    # Using 'xy' here instead of 'ij' ensures correct ordering as requested by
+    # OAnew.
+    centers = np.meshgrid(*centers, indexing='xy')
     c_ra = centers[0].flatten()
     c_dec = centers[1].flatten()
 
@@ -238,7 +241,8 @@ def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1):
     patch_psfs = list(
         [np.roll(np.roll(pp, -shp[0]//2, axis = 0), -shp[1]//2, axis = 1)
         for pp in patch_psfs])
+    #patch_psfs = list([pp for pp in patch_psfs]) # FIXME
     patch_psfs = np.array(patch_psfs)
     margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
-    op = OAnew(domain, patch_psfs, len(patch_psfs), margin)
+    op = OAnew(domain, patch_psfs, len(patch_psfs), margin, want_cut)
     return op
