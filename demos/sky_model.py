@@ -3,7 +3,7 @@ import xubik0 as xu
 
 
 class ErositaSky:
-    def __init__(self, config_file, alpha=None, q=None):
+    def __init__(self, config_file, alpha = None, q = None):
         if not isinstance(config_file, str):
             raise TypeError("The config_file argument needs to be the path to a .yaml config file.")
         # fixme: add all relevant checks and docstrings
@@ -11,18 +11,17 @@ class ErositaSky:
         # Prepare the spaces
         self.config = xu.get_cfg(config_file)
         self.priors = self.config['priors']
-        self.alpha, self.q = alpha, q
-
+        self.alpha = alpha
+        self.q = q
         # grid info
         grid_info = self.config['grid']
         tel_info = self.config['telescope']
-        self.position_space = ift.RGSpace(2 * (self.config['grid']['npix'],),
-                                          distances=[2.0 * tel_info['field_of_view'] / grid_info['npix']])
+        self.position_space = ift.RGSpace(2*(self.config['grid']['npix'],), distances=[2.0 * tel_info['fov'] / grid_info['npix']])
         extended_size = self.config['grid']['padding_ratio'] * self.position_space.shape[0]
-        self.extended_space = ift.RGSpace(2 * (extended_size,), distances=self.position_space.distances)
+        self.extended_space = ift.RGSpace(2*(extended_size,), distances=self.position_space.distances)
+        self.pad = ift.FieldZeroPadder(self.position_space, self.extended_space.shape)
 
     def create_sky_model(self):
-        self.pad = ift.FieldZeroPadder(self.position_space, self.extended_space.shape)
         point_sources = self._create_point_source_model()
         diffuse_component = self._create_diffuse_component_model()
         sky = point_sources + diffuse_component
@@ -34,6 +33,7 @@ class ErositaSky:
         else:
             point_sources = ift.InverseGammaOperator(self.extended_space, **self.priors['point_sources'])
         return point_sources.ducktape('point_sources')
+
 
     def _create_diffuse_component_model(self):
         cfm = ift.CorrelatedFieldMaker("")

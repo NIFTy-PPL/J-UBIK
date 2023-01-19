@@ -1,7 +1,7 @@
 seed: 40
 telescope:
   tm_id : 1
-  field_of_view: 3600 # in arcsec
+  fov: 3600 # in arcsec
   #FIXME define lower_radec (lower left corner of the FOV)
   pattern: 15
 plotting:
