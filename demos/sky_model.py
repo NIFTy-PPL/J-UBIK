@@ -16,7 +16,8 @@ class ErositaSky:
         self.q = q
         # grid info
         grid_info = self.config['grid']
-        self.position_space = ift.RGSpace(2*(self.config['grid']['npix'],), distances=[2.0 * grid_info['fov'] / grid_info['npix']])  # FIXME: set right distances
+        tel_info = self.config['telescope']
+        self.position_space = ift.RGSpace(2*(self.config['grid']['npix'],), distances=[2.0 * tel_info['fov'] / grid_info['npix']]) 
         extended_size = self.config['grid']['padding_ratio'] * self.position_space.shape[0]
         self.extended_space = ift.RGSpace(2*(extended_size,), distances=self.position_space.distances)
         self.pad = ift.FieldZeroPadder(self.position_space, self.extended_space.shape)
