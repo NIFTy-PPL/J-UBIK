@@ -2,6 +2,8 @@ import xubik0 as xu
 import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
 
 dir_path= "tm1/bcf/"
 fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"]
@@ -20,18 +22,16 @@ a = np.where(coords[0] == 0.)[0]
 b = np.where(coords[1] == 0.)[0]
 print(coords)
 coords = np.meshgrid(*coords, indexing='ij')
+#obs.plot_psfs()
 
-cc = (250, 250)
+cc = (2000, 250)
 im = my_func(cc[0], cc[1], coords[0], coords[1])
-plt.imshow(im.T, origin='lower')
+plt.imshow(im.T, norm = LogNorm(), origin='lower')
 plt.scatter(a, b, marker='.', c='r')
 plt.show()
 exit()
-
 psf_func = obs.psf_func_on_domain(energy, pointing_center, domain, lower_radec)
 
 tm = psf_func(250., 250.)
 plt.imshow(tm.T, origin='lower')
 plt.show()
-exit()
-obs.plot_psfs()
