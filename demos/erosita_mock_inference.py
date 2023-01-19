@@ -16,13 +16,14 @@ sys.path.append(parentdir)
 from src.library.erosita_observation import ErositaObservation
 
 mockrun = True
-hyperparamerter_search = False
+hyperparamerter_search = True
 if __name__ == "__main__":
     config_filename = "eROSITA_config.yaml"
     try:
         cfg = xu.get_cfg(config_filename)
     except:
-        cfg = xu.get_cfg('demos/' + config_filename)
+        config_filename = 'demos/' + config_filename
+        cfg = xu.get_cfg(config_filename)
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])
 
@@ -100,17 +101,19 @@ if __name__ == "__main__":
             # normalized psf
             log_psf = - (0.5 / var) * (X ** 2 + Y ** 2)
             log_kernel = ift.makeField(sky_space, log_psf)
-            log_kernel = log_kernel - np.log(log_kernel.exp().integrate().val)
+            gaussian = log_kernel.exp()
+            norm = ift.ScalingOperator(sky_space, gaussian.integrate().val ** -1)
+            psf = norm(gaussian)
 
             # p = ift.Plot()
             # import matplotlib.colors as colors
             # p.add(log_kernel.exp(), norm=colors.SymLogNorm(linthresh=10e-8))
             # p.output(nx=1)
-
-            conv = xu.convolve_field_operator(log_kernel.exp(), sky)
+            mock_sky_position = ift.from_random(sky.domain)
+            conv = xu.convolve_field_operator(psf, sky)
             return conv
 
-        convolved = gaussian_psf(sky_space=padded_sky_space[0], var=1)
+        convolved = gaussian_psf(sky_space=sky_model.extended_space, var=2)
     else:
         # TODO instantiate actual eROSITA PSF
         # PSF_op = ... instantiate psf op(args)
@@ -137,14 +140,15 @@ if __name__ == "__main__":
     masked_data = mask(data)
 
     if mockrun:
-        n_mock_samples = 10
+        n_mock_samples = 1
         for n in range(n_mock_samples):
             if hyperparamerter_search:
-                for alpha in [3]:
-                    for q in [0.00001]:
+                for alpha in [1.0001]:
+                    for q in [0.0000001]:
                         # ift.random.push_sseq_from_seed(cfg['seed'])
                         sky_model = ErositaSky(config_filename, alpha=alpha, q=q)
                         point_sources, diffuse, sky = sky_model.create_sky_model()
+                        convolved = gaussian_psf(sky_space=sky_model.extended_space, var=2)
                         mock_sky_position = ift.from_random(sky.domain)
                         mock_sky = sky(mock_sky_position)
                         conv_mock_sky = convolved(mock_sky_position)
@@ -153,22 +157,29 @@ if __name__ == "__main__":
 
                         # Mock data for point sources without convolution
                         mock_points_data = np.random.poisson(exposure_op(mock_points).val.astype(np.float64))
-                        mock_points_data = sky_model.pad.adjoint(ift.Field.from_raw(padded_sky_space, mock_points_data))
+                        mock_points_data = sky_model.pad.adjoint(ift.Field.from_raw(sky_model.extended_space,
+                                                                                    mock_points_data))
 
                         # Mock data for diffuse sources without convolution
                         mock_diffuse_data = np.random.poisson(exposure_op(mock_diffuse).val.astype(np.float64))
-                        mock_diffuse_data = sky_model.pad.adjoint(ift.Field.from_raw(padded_sky_space, mock_diffuse_data))
+                        mock_diffuse_data = sky_model.pad.adjoint(ift.Field.from_raw(sky_model.extended_space,
+                                                                                     mock_diffuse_data))
 
                         # Mock data for whole sky including convolution
-                        mock_sky_data_conv = np.random.poisson(exposure_op(conv_mock_sky).val.astype(np.float64))
-                        mock_sky_data_conv = sky_model.pad.adjoint(ift.Field.from_raw(padded_sky_space, mock_sky_data_conv))
+                        mock_sky_data_conv = ift.Field.from_raw(sky_model.extended_space,
+                                                                np.random.poisson(exposure_op(conv_mock_sky).val.astype(np.float64)))
+                        mock_sky_data_conv = sky_model.pad.adjoint(mock_sky_data_conv)
 
-                        mock_sky_data = np.random.poisson(exposure_op(mock_sky).val.astype(np.float64))
-                        mock_sky_data = sky_model.pad.adjoint(ift.Field.from_raw(padded_sky_space, mock_sky_data))
+
+                        mock_sky_data = ift.Field.from_raw(sky_model.extended_space,
+                                                           np.random.poisson(exposure_op(mock_sky).val.astype(np.float64)))
+                        mock_sky_data = sky_model.pad.adjoint(mock_sky_data)
+
                         masked_data = mask(mock_sky_data_conv)
 
                         print(f'Plotting  mock data for alpha = {alpha} and q = {q}.')
                         p = ift.Plot()
+                        #  vmin=0, vmax=10e5
                         p.add(data, title='data', norm=colors.SymLogNorm(linthresh=10e-10))
                         p.add(mock_sky_data_conv, title='Mock data sky (conv)', norm=colors.SymLogNorm(linthresh=10e-10))
                         p.add(mock_sky_data, title='Mock data sky', norm=colors.SymLogNorm(linthresh=10e-10))
@@ -178,14 +189,13 @@ if __name__ == "__main__":
                         p.add(exposure_field, title='exposure', norm=colors.SymLogNorm(linthresh=10e-10))
                         p.output(nx=3, name=f'mock_data_a{alpha}_q{q}_sample{n}.png')
 
-    exit()
     # Print Exposure norm
     # norm = xu.get_norm(exposure, data)
     # print(norm)
 
     # Set up likelihood
     if mockrun:
-        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved_sky
+        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved
     else:
         log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
 
