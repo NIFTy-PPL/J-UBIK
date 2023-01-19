@@ -19,6 +19,37 @@ def get_cfg(yaml_file):
     return cfg
 
 
+def get_gaussian_psf(op, var):
+    # fixme: cleanup
+    dist_x = op.target[0].distances[0]
+    dist_y = op.target[0].distances[1]
+
+    # Periodic Boundary conditions
+    x_ax = np.arange(op.target[0].shape[0])
+    x_ax = np.minimum(x_ax, op.target[0].shape[0] - x_ax) * dist_x
+    y_ax = np.arange(op.target[0].shape[1])
+    y_ax = np.minimum(y_ax, op.target[0].shape[1] - y_ax) * dist_y
+
+    center = (0, 0)
+    x_ax -= center[0]
+    y_ax -= center[1]
+    X, Y = np.meshgrid(x_ax, y_ax, indexing='ij')
+
+    var *= op.target[0].scalar_dvol  # ensures that the variance parameter is specified with respect to the
+
+    # normalized psf
+    log_psf = - (0.5 / var) * (X ** 2 + Y ** 2)
+    log_kernel = ift.makeField(op.target[0], log_psf)
+    log_kernel = log_kernel - np.log(log_kernel.exp().integrate().val)
+
+    # p = ift.Plot()
+    # import matplotlib.colors as colors
+    # p.add(log_kernel.exp(), norm=colors.SymLogNorm(linthresh=10e-8))
+    # p.output(nx=1)
+
+    conv = convolve_field_operator(log_kernel.exp(), op)
+    return conv
+
 def get_data_domain(config):
     dom_sp = ift.RGSpace(([config["npix_s"]] * 2), distances=_get_sp_dist(config))
     e_sp = ift.RGSpace((config["npix_e"]), distances=_get_e_dist(config))
