@@ -36,6 +36,7 @@ class ErositaSky:
 
 
     def _create_diffuse_component_model(self):
+        # FIXME: externalize power spectrum of diffuse model!
         cfm = ift.CorrelatedFieldMaker("")
         cfm.set_amplitude_total_offset(**self.priors['diffuse']['offset'])
         cfm.add_fluctuations(self.extended_space, **self.priors['diffuse']['fluctuations'])
