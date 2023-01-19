@@ -5,6 +5,9 @@ from matplotlib.colors import LogNorm
 from .psf_interpolation import get_psf_func, psf_convolve_operator, psf_lin_int_operator
 
 
+
+# TODO If the energy is unclear to the user this throw and error
+# + should print all available energy bins to the user.
 class eROSITA_PSF():
     """
     fname: Filename / Path of the psf.fits file.
