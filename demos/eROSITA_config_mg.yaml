@@ -57,7 +57,7 @@ minimization:
     name: Newton
   ic_sampling:
     deltaE: 0.02
-    iteration_limit: 50
+    iteration_limit: 30
     name: Sampling(lin)
   ic_sampling_nl:
     deltaE: 0.1
