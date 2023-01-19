@@ -130,9 +130,9 @@ class eROSITA_PSF():
         for _, j in enumerate(obj):
             fig, axs = plt.subplots()
             axs.set_title(f"{j[0]} point_source at {j[3]}")
-            j[1], frac = self._cutnorm(j[1], lower_cut=lower_cut, want_frac=True)
+            tm, frac = self._cutnorm(j[1], lower_cut=lower_cut, want_frac=True)
             axs.text(10, 450, f"Norm. fraction: {frac}")
-            im = axs.imshow(j[1], norm=LogNorm(), origin="lower")
+            im = axs.imshow(tm, norm=LogNorm(), origin="lower")
             axs.scatter(j[3][0], j[3][1], marker="x")
             axs.set_xlabel('[arcsec]')
             axs.set_ylabel('[arcsec]')
@@ -145,10 +145,10 @@ class eROSITA_PSF():
         newpsfs = np.array([self._cutnorm(pp, lower_cut = lower_cut) for pp in 
                             self._load_data(energy)])
         obs_infos = {'psfs' : newpsfs, 
-                    'rs' : self._load_theta(energy), 
-                    'patch_center_ids' : self._load_p_center(energy),
-                    'patch_deltas' : self._load_pix_size(), 
-                    'pointing_center' : pointing_center}
+                     'rs' : self._load_theta(energy), 
+                     'patch_center_ids' : self._load_p_center(energy),
+                     'patch_deltas' : self._load_pix_size(), 
+                     'pointing_center' : pointing_center}
         return obs_infos
 
     def make_psf_op(self, energy, pointing_center, domain, lower_radec, 
