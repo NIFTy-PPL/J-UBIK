@@ -10,7 +10,7 @@ demos/retreat_first_reconstruction/*
 
 # custom
 config/*
-adg/*
+src/operators/adg
 *_results
 *.h5
 *.hdf5
