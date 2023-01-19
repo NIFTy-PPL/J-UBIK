@@ -18,7 +18,7 @@ sys.path.append(parentdir)
 from src.library.erosita_observation import ErositaObservation
 
 if __name__ == "__main__":
-    config_filename = "eROSITA_config.yaml"
+    config_filename = "eROSITA_config_mg.yaml"
     try:
         cfg = xu.get_cfg(config_filename)
     except:
