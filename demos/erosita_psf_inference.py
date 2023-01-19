@@ -3,28 +3,28 @@ import os
 import sys
 
 import numpy as np
-from matplotlib import colors
+from matplotlib.colors import LogNorm, SymLogNorm
 import nifty8 as ift
 import xubik0 as xu
 from demos.sky_model import ErositaSky
 
 from src.library.plot import plot_sample_and_stats, create_output_directory
+from xubik0.library.utils import get_data_realization, save_config
 
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
 from src.library.erosita_observation import ErositaObservation
 
-mockrun = True
-hyperparamerter_search = False
 if __name__ == "__main__":
-    config_filename = "eROSITA_config_mw.yaml"
+    config_filename = "eROSITA_config_mg.yaml"
     try:
         cfg = xu.get_cfg(config_filename)
     except:
         cfg = xu.get_cfg('demos/' + config_filename)
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])
+    mock_run = cfg['mock']
 
     # File Location
     file_info = cfg['files']
@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
     # PSF
     center = observation_instance.get_center_coordinates(output_filename)
-    psf_file = xu.eROSITA_PSF("../psf_info/tm1/bcf/tm1_2dpsf_190219v05.fits")  # fixme: load from config
+    psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # fixme: load from config
 
 
     def get_lower_radec_from_pointing(center, domain, return_shift=False):
@@ -90,10 +90,11 @@ if __name__ == "__main__":
 
 
     shift = np.array(sky_model.position_space.shape) / 2 * np.array(sky_model.position_space.distances)
-    psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.position_space,
+    psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space,
                                                get_lower_radec_from_pointing(center, sky_model.position_space))
 
     psf_kernel = psf_function(*get_lower_radec_from_pointing(center, sky_model.position_space, return_shift=True))
+    psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
     # p = ift.Plot()
     # p.add(ift.makeField(sky_model.position_space, psf_kernel), norm=colors.SymLogNorm(linthresh=10e-8))
     # p.output()
@@ -117,91 +118,43 @@ if __name__ == "__main__":
     # Data
     data = observation_instance.load_fits_data(output_filename)[0].data
     data = ift.makeField(sky_model.position_space, data)
-    padded_data = sky_model.pad(data)
     masked_data = mask(data)
 
-    if mockrun:
+    if mock_run:
         ift.random.push_sseq_from_seed(cfg['seed'])
+        mock_position = ift.from_random(sky.domain)
 
-        def get_data_realization(op, data=True):
-            mock_position = ift.from_random(op.domain)
-            resp = sky_model.pad.adjoint @ exposure_op
-            res = op(mock_position)
-            if data:
-                res = resp(op(mock_position))
-                res = ift.random.current_rng().poisson(res.val.astype(np.float64))
-                res = ift.makeField(sky_model.pad.adjoint.target, res)
-            return res
+        # Get mock data
+        mock_data = get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
+        mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
+        mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
+                                                 padder=sky_model.pad)
 
-                        mock_sky_data = np.random.poisson(exposure_op(mock_sky).val.astype(np.float64))
-                        mock_sky_data = sky_model.pad.adjoint(ift.Field.from_raw(padded_sky_space, mock_sky_data))
-                        masked_data = mask(mock_sky_data_conv)
+        # Mask mock data
+        masked_data = mask(mock_data)
 
-        if plot_info['enabled']:
-            if hyperparamerter_search:
-                for alpha in list(np.linspace(0.5, 5, 20)):
-                    for q in [5 * 1e-5, 1e-5, 5 * 1e-4, 1e-4, 5 * 1e-3]:
-                        sky_model_new = ErositaSky(config_filename, alpha=alpha, q=q)
-                        sky, point_sources, diffuse = sky_model_new.create_sky_model()
-                        convolved_sky = xu.convolve_field_operator(psf_kernel, sky)
-                        convolved_ps = xu.convolve_field_operator(psf_kernel, point_sources)
-                        convolved_diffuse = xu.convolve_field_operator(psf_kernel, diffuse)
+        # Get mock signal
+        mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
+        mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
+        mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
-                        # Get mock data
-                        mock_data = get_data_realization(convolved_sky)
-                        mock_ps_data = get_data_realization(convolved_ps)
-                        mock_diffuse_data = get_data_realization(convolved_diffuse)
+        p = ift.Plot()
+        norm = SymLogNorm(linthresh=5e-3)
+        p.add(mock_ps, title='point sources response', norm=LogNorm())
+        p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
+        p.add(mock_sky, title='sky', norm=LogNorm())
+        p.add(mock_ps_data, title='mock point source data', norm=norm)
+        p.add(data, title='data', norm=norm)
+        p.add(mock_data, title='mock data', norm=norm)
+        p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
+        p.output(nx=4, name=f'mock_data.png')
 
-                        # Get mock signal
-                        mock_sky = get_data_realization(convolved_sky, data=False)
-                        mock_ps = get_data_realization(convolved_ps, data=False)
-                        mock_diffuse = get_data_realization(convolved_diffuse, data=False)
-
-                        print(f'Plotting  mock data for alpha = {alpha} and q = {q}.')
-                        p = ift.Plot()
-                        norm = colors.SymLogNorm(linthresh=10e-8)
-                        p.add(mock_ps, title='point sources response', norm=norm)
-                        p.add(mock_diffuse, title='diffuse component response', norm=norm)
-                        p.add(mock_sky, title='sky', norm=norm)
-                        p.add(mock_ps_data, title='mock point source data', norm=norm)
-                        p.add(data, title='data', norm=norm)
-                        p.add(mock_data, title='mock data', norm=norm)
-                        p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
-                        p.output(nx=4, name=f'mock_data_a{alpha}_q{q}.png')
-
-            # Get mock data
-            mock_data = get_data_realization(convolved_sky)
-            mock_ps_data = get_data_realization(convolved_ps)
-            mock_diffuse_data = get_data_realization(convolved_diffuse)
-
-            # Get mock signal
-            mock_sky = get_data_realization(convolved_sky, data=False)
-            mock_ps = get_data_realization(convolved_ps, data=False)
-            mock_diffuse = get_data_realization(convolved_diffuse, data=False)
-
-            p = ift.Plot()
-            norm = colors.SymLogNorm(linthresh=10e-8)
-            p.add(mock_ps, title='point sources response', norm=norm)
-            p.add(mock_diffuse, title='diffuse component response', norm=norm)
-            p.add(mock_sky, title='sky', norm=norm)
-            p.add(mock_ps_data, title='mock point source data', norm=norm)
-            p.add(data, title='data', norm=norm)
-            p.add(mock_data, title='mock data', norm=norm)
-            p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
-            p.output(nx=4, name=f'mock_data.png')
-
-
-
-    exit()
     # Print Exposure norm
     # norm = xu.get_norm(exposure, data)
     # print(norm)
 
     # Set up likelihood
-    if mockrun:
-        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved_sky
-    else:
-        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
+    log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved_sky
 
     # Load minimization config
     minimization_config = cfg['minimization']
@@ -214,18 +167,30 @@ if __name__ == "__main__":
     minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
 
     # Prepare results
-    operators_to_plot = {'reconstruction': sky, 'point_sources': point_sources, 'diffuse_component': diffuse}
+    operators_to_plot = {'reconstruction': sky_model.pad.adjoint(sky),
+                         'point_sources': sky_model.pad.adjoint(point_sources),
+                         'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
     output_directory = create_output_directory("retreat_first_reconstruction")
 
+    # Save config file in output_directory
+    save_config(cfg, config_filename, output_directory)
+
     plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
-                                              plotting_kwargs={'norm': colors.SymLogNorm(linthresh=10e-1)})
+                                              plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
 
     if minimization_config['geovi']:
         # geoVI
-        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
-                        minimizer, ic_sampling, minimizer_sampling, output_directory=output_directory,
-                        export_operator_outputs=operators_to_plot, inspect_callback=plot, resume=True)
+        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
+                        minimization_config['n_samples'],
+                        minimizer,
+                        ic_sampling,
+                        minimizer_sampling,
+                        output_directory=output_directory,
+                        export_operator_outputs=operators_to_plot,
+                        inspect_callback=plot,
+                        resume=True,
+                        comm=xu.library.mpi.comm)
     else:
         # MGVI
         ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
