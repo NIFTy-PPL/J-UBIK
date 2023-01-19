@@ -12,7 +12,7 @@ class eROSITA_PSF():
     def __init__(self, fname):
         self._fname = fname
         # TODO: verify that this is the correct assignment!
-        self._myheader = {'ra': "2", 'dec': "1"}
+        self._myheader = {'ra': "1", 'dec': "2"}
 
     def _load_fits(self):
         return ast.open(self._fname)
@@ -35,13 +35,13 @@ class eROSITA_PSF():
         """Energy: String, e.g. 1000eV"""
         ind = self._ind_for_energy(energy)
         with ast.open(self._fname) as f:
-            data_list = [f[i].data.T for i in ind]
+            data_list = [f[i].data for i in ind]
         return np.array(data_list)
 
     def _load_data_full(self):
         """PSFs"""
         with ast.open(self._fname) as f:
-            data_list = [f[i].data.T for i in range(len(f))]
+            data_list = [f[i].data for i in range(len(f))]
         return np.array(data_list)
 
     def _load_p_center(self, energy):

@@ -15,15 +15,18 @@ def to_r_phi(cc):
     """
     Transforms form ra-dec (sky) coordinates to r-phi coordinates.
     """
+    # FIXME: This assumes that ra is the x-coordinate and dec the y-coordinate
+    # and furthermore assumes that the psfs are given in vertical distances
+    # (off axis angle). Ensure that this is the correct orientation!
     r = jnp.sqrt(cc[0]**2 + cc[1]**2)
-    phi = jnp.angle(cc[0] + 1.j*cc[1])
+    phi = jnp.angle(cc[0] + 1.j*cc[1]) - jnp.pi/2.
     return jnp.array([r, phi])
 
 def to_ra_dec(rp):
     """
     Transforms form r-phi coordinates to ra-dec (sky) coordinates.
     """
-    x, y = rp[0]*jnp.cos(rp[1]), rp[0]*jnp.sin(rp[1])
+    x, y = rp[0]*jnp.cos(rp[1] + jnp.pi/2.), rp[0]*jnp.sin(rp[1] + jnp.pi/2.)
     return jnp.array([x, y])
 
 def get_interpolation_weights(rs, r):

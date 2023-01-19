@@ -20,11 +20,10 @@ my_func = obs._get_psf_func(energy, pointing_center, domain, lower_radec)
 coords = tuple(np.arange(257) - 128 for _ in range(2))
 a = np.where(coords[0] == 0.)[0]
 b = np.where(coords[1] == 0.)[0]
-print(coords)
 coords = np.meshgrid(*coords, indexing='ij')
 #obs.plot_psfs()
 
-cc = (2000, 250)
+cc = (-2000, 250)
 im = my_func(cc[0], cc[1], coords[0], coords[1])
 plt.imshow(im.T, norm = LogNorm(), origin='lower')
 plt.scatter(a, b, marker='.', c='r')
