@@ -1,4 +1,5 @@
-seed: 40
+seed: 86
+mock: True
 telescope:
   tm_id : 1
   fov: 3600 # in arcsec
@@ -9,57 +10,58 @@ plotting:
   slice: Null
   dpi: 800
 files:
-  obs_path: '../data/LMC_SN1987A'
-  input: 'fm00_700203_020_EventList_c001.fits'
-  output: 'processed_LMC_SN1987A_data.fits'
-  exposure: 'expmap_LMC_SN1987A.fits'
+  obs_path: '../data/LMC_SN1987A/'
+  input: 'pm00_700161_020_EventList_c001.fits'
+  output: 'processed_pm00_700161_020_data.fits'
+  exposure: 'expmap_pm00_700161_020.fits'
+  psf_path : '../data/tm1/bcf/tm1_2dpsf_190219v05.fits'
 
 grid:
   npix: 1024
   padding_ratio: 2.
   energy_bin:
     e_min: 2.0
-    e_max:  4.5
+    e_max: 4.5
 # Exposurenorm is 4.785357857098681e-05
 priors:
   point_sources:
-    alpha: 1.5
-    q: 0.00047
+    alpha: 1.
+    q: 1e-6
   diffuse:
     offset:
-      offset_mean: -9.5
+      offset_mean: -10.
       offset_std:
-        - 0.5
+        - 0.2
         - 0.05
     fluctuations:
-      flexibility:
-      - 2.0
-      - 2.0
       fluctuations:
-      - 2.0
-      - 2.0
+        - 1.5
+        - 0.8
       loglogavgslope:
-      - -4.5
-      - 1.5
+        - -4.
+        - 1.5
+      flexibility:
+        - 1.2
+        - 0.5
       asperity: Null
     prefix: diffuse_
 
 minimization:
   geovi: True
   total_iterations: 5
-  n_samples: 5 #'lambda i_iter: 6 if i_iter < 13 else 10'
+  n_samples: 4 #'lambda i_iter: 6 if i_iter < 13 else 10'
   ic_newton:
     convergence_level: 2
     deltaE: 0.1
-    iteration_limit: 7
+    iteration_limit: 15
     name: Newton
   ic_sampling:
     deltaE: 0.02
-    iteration_limit: 5
+    iteration_limit: 30
     name: Sampling(lin)
   ic_sampling_nl:
-    deltaE: 0.05
-    iteration_limit: 3
+    deltaE: 0.1
+    iteration_limit: 5
     name: Sampling(nonlin)
 
 #minimization:

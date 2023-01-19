@@ -1,3 +1,4 @@
+import os
 from os.path import isdir, join
 from os import makedirs
 from warnings import warn
@@ -17,6 +18,15 @@ def get_cfg(yaml_file):
     with open(yaml_file, "r") as cfg_file:
         cfg = yaml.safe_load(cfg_file)
     return cfg
+
+
+def save_config(config, filename, dir=None):
+    import yaml
+    if dir is not None:
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+        with open(os.path.join(dir, filename), "w") as f:
+            yaml.dump(config, f)
 
 
 def get_gaussian_psf(op, var):
@@ -49,6 +59,7 @@ def get_gaussian_psf(op, var):
 
     conv = convolve_field_operator(log_kernel.exp(), op)
     return conv
+
 
 def get_data_domain(config):
     dom_sp = ift.RGSpace(([config["npix_s"]] * 2), distances=_get_sp_dist(config))
@@ -657,3 +668,16 @@ def is_subdomain(sub_domain, total_domain):
         return sub_domain == total_domain
     return all(kk in total_domain.keys() and vv == total_domain[kk]
                for kk, vv in sub_domain.items())
+
+
+def get_data_realization(op, position, exposure=None, padder=None, data=True):
+    R = None
+    if padder is not None and exposure is not None:
+        R = padder.adjoint @ exposure
+    res = op.force(position)
+    if data:
+        if R is not None:
+            res = R(op.force(position))
+        res = ift.random.current_rng().poisson(res.val.astype(np.float64))
+        res = ift.makeField(padder.adjoint.target, res)
+    return res
