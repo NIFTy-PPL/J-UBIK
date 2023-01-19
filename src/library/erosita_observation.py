@@ -106,7 +106,7 @@ class ErositaObservation:
     def get_center_coordinates(self, input_filename):
         conv = 3600 # to arcseconds
         try:
-            input_header = self.load_fits_data(input_filename)[1].header #fixme: think about nicer implementation
+            input_header = self.load_fits_data(input_filename)[1].header # FIXME: think about nicer implementation
             return conv*input_header['RA_PNT'], conv*input_header['DEC_PNT']
         except ValueError:
             print("Input filename does not contain center information.")

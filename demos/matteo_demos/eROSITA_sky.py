@@ -7,7 +7,7 @@ class ErositaSky:
     def __init__(self, data, exposure, config_file):
         if not isinstance(config_file, str):
             raise TypeError("The config_file argument needs to be the path to a .yaml config file.")
-        #fixme: add all relevant checks and docstrings
+        # FIXME: add all relevant checks and docstrings
 
         # Prepare the spaces
         self.position_space = ift.RGSpace(data.shape)  # FIXME: set right distances

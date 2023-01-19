@@ -30,7 +30,7 @@ def save_config(config, filename, dir=None):
 
 
 def get_gaussian_psf(op, var):
-    # fixme: cleanup
+    # FIXME: cleanup
     dist_x = op.target[0].distances[0]
     dist_y = op.target[0].distances[1]
 

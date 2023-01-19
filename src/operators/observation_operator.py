@@ -85,7 +85,7 @@ class ChandraObservationInformation():
 
         # 3.c) define range in x and y coordinates
         # note: pixelsize = 0.492 arcsec
-        #FIXME really?
+        # FIXME really?
         self.obsInfo['xy_range'] = 60.*fov/0.492
         self.obsInfo['x_min']    = self.obsInfo['x_center'] - self.obsInfo['xy_range'] 
         self.obsInfo['x_max']    = self.obsInfo['x_center'] + self.obsInfo['xy_range']
@@ -460,7 +460,7 @@ class ChandraObservationInformation():
             "TStart" : tstart,
             "Verbose" : "no",
             "ACIS_Frame_Transfer_Time" : "0.000",
-            "HRMA_Use_Struts" : "yes", #FIXME Find out of if "yes" or "no"
+            "HRMA_Use_Struts" : "yes", # FIXME Find out of if "yes" or "no"
             "DetExtendFlag" : "yes"
         }
 

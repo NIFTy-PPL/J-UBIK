@@ -18,7 +18,7 @@ def message_binning(obsInfo, verbose=1):
         print('')
         print('Observation Nr. {:d} Binning:'.format(obsInfo['obsID']))
         print('------------------------')
-        print('Total Number of events = ?') #FIXME ?
+        print('Total Number of events = ?') # FIXME ?
         print('Number of events considered = {:d}'.format(obsInfo['ntot_binned']))
         print('------------------------')
 
