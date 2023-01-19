@@ -18,7 +18,7 @@ from src.library.erosita_observation import ErositaObservation
 mockrun = True
 hyperparamerter_search = False
 if __name__ == "__main__":
-    config_filename = "eROSITA_config.yaml"
+    config_filename = "eROSITA_config_mw.yaml"
     try:
         cfg = xu.get_cfg(config_filename)
     except:

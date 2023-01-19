@@ -23,8 +23,8 @@ grid:
 # Exposurenorm is 4.785357857098681e-05
 priors:
   point_sources:
-    alpha: 1.5
-    q: 0.00047
+    alpha: 1.0001
+    q: 0.0000001
   diffuse:
     offset:
       offset_mean: -8.5
@@ -33,14 +33,14 @@ priors:
         - 0.05
     fluctuations:
       flexibility:
-      - 1.0
+      - 1.5
       - 1.0
       fluctuations:
-      - 2.5
+      - 2.8
       - 0.5
       loglogavgslope:
       - -3.0
-      - 0.5
+      - 1.0
       asperity: Null
     prefix: diffuse_
 

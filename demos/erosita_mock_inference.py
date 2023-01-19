@@ -18,7 +18,7 @@ from src.library.erosita_observation import ErositaObservation
 mockrun = True
 hyperparamerter_search = True
 if __name__ == "__main__":
-    config_filename = "eROSITA_config.yaml"
+    config_filename = "eROSITA_config_mw.yaml"
     try:
         cfg = xu.get_cfg(config_filename)
     except:
@@ -113,7 +113,7 @@ if __name__ == "__main__":
             conv = xu.convolve_field_operator(psf, sky)
             return conv
 
-        convolved = gaussian_psf(sky_space=sky_model.extended_space, var=2)
+        convolved = gaussian_psf(sky_space=sky_model.extended_space, var=5)
     else:
         # TODO instantiate actual eROSITA PSF
         # PSF_op = ... instantiate psf op(args)
@@ -169,7 +169,6 @@ if __name__ == "__main__":
                         mock_sky_data_conv = ift.Field.from_raw(sky_model.extended_space,
                                                                 np.random.poisson(exposure_op(conv_mock_sky).val.astype(np.float64)))
                         mock_sky_data_conv = sky_model.pad.adjoint(mock_sky_data_conv)
-
 
                         mock_sky_data = ift.Field.from_raw(sky_model.extended_space,
                                                            np.random.poisson(exposure_op(mock_sky).val.astype(np.float64)))
