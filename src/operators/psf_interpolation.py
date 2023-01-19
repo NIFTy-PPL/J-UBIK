@@ -185,10 +185,11 @@ def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
     # to be cloned and located in a folder named "adg" within the module
     # `operators`
     if adg_import is False:
-        print("This function needs modules from the repository" /
-        "'https://gitlab.mpcdf.mpg.de/pfrank/adg.git'. Please clone it" /
-        "and locate it in a folder named 'adg' within the module " /
-        "`operators` ")
+        msg = ("This function needs modules from the repository" /
+               "'https://gitlab.mpcdf.mpg.de/pfrank/adg.git'. Please clone it" /
+               "and locate it in a folder named 'adg' within the module " /
+               "`operators` ")
+        raise(ModuleNotFoundError, msg)
     c = msc_infos['c']
     q = msc_infos['q']
     b = msc_infos['b']
