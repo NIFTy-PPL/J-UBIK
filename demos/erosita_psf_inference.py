@@ -182,9 +182,17 @@ if __name__ == "__main__":
 
     if minimization_config['geovi']:
         # geoVI
-        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
-                        minimizer, ic_sampling, minimizer_sampling, output_directory=output_directory,
-                        export_operator_outputs=operators_to_plot, inspect_callback=plot, resume=True)
+        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
+                        minimization_config['n_samples'],
+                        minimizer,
+                        ic_sampling,
+                        minimizer_sampling,
+                        output_directory=output_directory,
+                        export_operator_outputs=operators_to_plot,
+                        inspect_callback=plot,
+                        resume=True,
+                        comm=xu.library.mpi.comm,
+                        dry_run=True)
     else:
         # MGVI
         ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
