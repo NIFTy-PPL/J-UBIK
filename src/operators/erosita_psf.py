@@ -11,6 +11,8 @@ class eROSITA_PSF():
     """
     def __init__(self, fname):
         self._fname = fname
+        # TODO: verify that this is the correct assignment!
+        self._myheader = {'ra': "2", 'dec': "1"}
 
     def _load_fits(self):
         return ast.open(self._fname)
@@ -33,48 +35,57 @@ class eROSITA_PSF():
         """Energy: String, e.g. 1000eV"""
         ind = self._ind_for_energy(energy)
         with ast.open(self._fname) as f:
-            data_list = [f[i].data for i in ind]
+            data_list = [f[i].data.T for i in ind]
         return np.array(data_list)
 
     def _load_data_full(self):
         """PSFs"""
         with ast.open(self._fname) as f:
-            data_list = [f[i].data for i in range(len(f))]
+            data_list = [f[i].data.T for i in range(len(f))]
         return np.array(data_list)
 
     def _load_p_center(self, energy):
         "Origin of PSF in Pixel Values"
         ind = self._ind_for_energy(energy)
         with ast.open(self._fname) as f:
-            p_center = [(f[i].header["CRPIX1"], f[i].header["CRPIX2"]) for i in ind]
+            p_center = [(f[i].header["CRPIX"+self._myheader['ra']], 
+                         f[i].header["CRPIX"+self._myheader['dec']]) 
+                         for i in ind]
         return np.array(p_center)
 
     def _load_p_center_full(self):
         "Origin of PSF in Pixel Values"
         with ast.open(self._fname) as f:
-            p_center = [(f[i].header["CRPIX1"], f[i].header["CRPIX2"]) for i in range(len(f))]
+            p_center = [(f[i].header["CRPIX"+self._myheader['ra']], 
+                         f[i].header["CRPIX"+self._myheader['dec']]) 
+                         for i in range(len(f))]
         return np.array(p_center)
 
     def _load_pix_size(self):
         """Pixel Size in arcsecs"""
         with ast.open(self._fname) as f:
-            p_size = [(f[0].header["CDELT1"], f[0].header["CDELT2"])]
+            p_size = [(f[0].header["CDELT"+self._myheader['ra']], 
+                       f[0].header["CDELT"+self._myheader['dec']])]
         return np.array(p_size)
 
     def _load_pix_size_full(self):
         with ast.open(self._fname) as f:
-            p_size = [(f[i].header["CDELT1"], f[i].header["CDELT2"]) for i in range(len(f))]
+            p_size = [(f[i].header["CDELT"+self._myheader['ra']], 
+                       f[i].header["CDELT"+self._myheader['dec']]) 
+                       for i in range(len(f))]
         return np.array(p_size)
 
     def _load_theta(self, energy):
         ind = self._ind_for_energy(energy)
         with ast.open(self._fname) as f:
-            theta_list = [int(f[i].name.split("a")[0].split("V")[1]) for i in ind]
+            theta_list = [int(f[i].name.split("a")[0].split("V")[1]) 
+                          for i in ind]
         return np.array(theta_list)*60
 
     def _load_theta_full(self):
         with ast.open(self._fname) as f:
-            theta_list = [int(f[i].name.split("a")[0].split("V")[1]) for i in range(len(f))]
+            theta_list = [int(f[i].name.split("a")[0].split("V")[1]) 
+                          for i in range(len(f))]
         return np.array(theta_list)*60
 
     def _load_energy(self):
@@ -122,12 +133,12 @@ class eROSITA_PSF():
         center = self._load_p_center_full()
         obj = zip(name, psf, theta, center)
         for _, j in enumerate(obj):
-            fig, axs = plt.subplots()
+            fig, axs = plt.subplots(figsize = (10,10))
             axs.set_title(f"{j[0]} point_source at {j[3]}")
             tm, frac = self._cutnorm(j[1], lower_cut=lower_cut, want_frac=True)
             axs.text(10, 450, f"Norm. fraction: {frac}")
-            im = axs.imshow(tm, norm=LogNorm(), origin="lower")
-            axs.scatter(j[3][0], j[3][1], marker="x")
+            im = axs.imshow(tm.T, norm=LogNorm(), origin="lower")
+            axs.scatter(j[3][0], j[3][1], marker=".", color='r')
             axs.set_xlabel('[arcsec]')
             axs.set_ylabel('[arcsec]')
             fig.colorbar(mappable=im)

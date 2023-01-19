@@ -72,8 +72,7 @@ def to_patch_coordinates(dcoords, patch_center, patch_delta):
     patch_delta: numpy.ndarray
         Binsize of the psf patch.
     """
-    tm = patch_center*patch_delta
-    res = jnp.swapaxes(dcoords, 0, -1) + tm
+    res = jnp.swapaxes(dcoords, 0, -1) + patch_center*patch_delta
     res /= patch_delta
     return jnp.swapaxes(res, -1, 0)
 
