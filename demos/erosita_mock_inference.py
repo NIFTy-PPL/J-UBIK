@@ -189,7 +189,7 @@ if __name__ == "__main__":
                         p.output(nx=3, name=f'mock_data_a{alpha}_q{q}_sample{n}.png')
             exit()
         else:
-            sky_model = ErositaSky(config_filename, alpha=alpha, q=q)
+            sky_model = ErositaSky(config_filename)
             point_sources, diffuse, sky = sky_model.create_sky_model()
             convolved = gaussian_psf(sky_space=sky_model.extended_space, var=2)
             mock_sky_position = ift.from_random(sky.domain)
