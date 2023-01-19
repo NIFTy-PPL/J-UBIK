@@ -196,6 +196,13 @@ if __name__ == "__main__":
                         comm=xu.library.mpi.comm)
     else:
         # MGVI
-        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
-                        minimizer, ic_sampling, None, export_operator_outputs=operators_to_plot,
-                        output_directory=output_directory, inspect_callback=plot, resume=True)
+        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
+                        minimization_config['n_samples'],
+                        minimizer,
+                        ic_sampling,
+                        None,
+                        export_operator_outputs=operators_to_plot,
+                        output_directory=output_directory,
+                        inspect_callback=plot,
+                        resume=True,
+                        comm=xu.library.mpi.comm)
