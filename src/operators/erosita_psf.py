@@ -98,9 +98,18 @@ class eROSITA_PSF():
             theta_list = [f[i].header["CBD10001"] for i in range(len(f))]
         return theta_list
 
-    def _cut(self, psf, lower_cut = CUT):
+    def _cutnorm(self, psf, lower_cut = CUT, want_frac = False):
+        if len(psf.shape) != 2:
+            raise ValueError
+        if want_frac:
+            norm = np.sum(psf)
         if lower_cut is not None:
             psf[psf <= lower_cut] = 0.
+        if want_frac:
+            frac = np.sum(psf) / norm
+        psf /= psf.sum()
+        if want_frac:
+            return psf, frac
         return psf
 
     def info(self, energy):
@@ -121,10 +130,8 @@ class eROSITA_PSF():
         for _, j in enumerate(obj):
             fig, axs = plt.subplots()
             axs.set_title(f"{j[0]} point_source at {j[3]}")
-            full_sum = np.sum(j[1])
-            j[1] = self._cut(j[1], lower_cut=lower_cut)
-            frac_sum = np.sum(j[1])
-            axs.text(10, 450, f"Norm. fraction: {frac_sum/full_sum}")
+            j[1], frac = self._cutnorm(j[1], lower_cut=lower_cut, want_frac=True)
+            axs.text(10, 450, f"Norm. fraction: {frac}")
             im = axs.imshow(j[1], norm=LogNorm(), origin="lower")
             axs.scatter(j[3][0], j[3][1], marker="x")
             axs.set_xlabel('[arcsec]')
@@ -135,9 +142,9 @@ class eROSITA_PSF():
             plt.close()
 
     def _get_obs_infos(self, energy, pointing_center, lower_cut = CUT):
-        psfs = self._load_data(energy)
-        psfs = self._cut(psfs, lower_cut=lower_cut)
-        obs_infos = {'psfs' : psfs, 
+        newpsfs = np.array([self._cutnorm(pp, lower_cut = lower_cut) for pp in 
+                            self._load_data(energy)])
+        obs_infos = {'psfs' : newpsfs, 
                     'rs' : self._load_theta(energy), 
                     'patch_center_ids' : self._load_p_center(energy),
                     'patch_deltas' : self._load_pix_size(), 
