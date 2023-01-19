@@ -43,7 +43,7 @@ class ErositaSky:
 
 
 if __name__ == "__main__":
-    config = 'eROSITA_config.yaml'
+    config = 'eROSITA_config_mw.yaml'
     model = ErositaSky(config)
     ps, diffuse, sky = model.create_sky_model()
 
