@@ -168,7 +168,9 @@ if __name__ == "__main__":
     minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
 
     # Prepare results
-    operators_to_plot = {'reconstruction': sky, 'point_sources': point_sources, 'diffuse_component': diffuse}
+    operators_to_plot = {'reconstruction': sky_model.pad.adjoint(sky),
+                         'point_sources': sky_model.pad.adjoint(point_sources),
+                         'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
     output_directory = create_output_directory("retreat_first_reconstruction")
 
