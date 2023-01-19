@@ -10,18 +10,10 @@ plotting:
   slice: Null
   dpi: 800
 files:
-<<<<<<<< HEAD:demos/eROSITA_config_mw.yaml
   obs_path: 'data/'
   input: 'pm00_700161_020_EventList_c001.fits'
   output: 'processed_LMC_SN1987A_data.fits'
   exposure: 'expmap_LMC_SN1987A.fits'
-========
-  obs_path: '../data/LMC_SN1987A/'
-  input: 'pm00_700161_020_EventList_c001.fits'
-  output: 'processed_pm00_700161_020_data.fits'
-  exposure: 'expmap_pm00_700161_020.fits'
-  psf_path : '../data/tm1/bcf/tm1_2dpsf_190219v05.fits'
->>>>>>>> eROSITA3.8:demos/eROSITA_config_mg.yaml
 
 grid:
   npix: 1024
@@ -32,24 +24,15 @@ grid:
 # Exposurenorm is 4.785357857098681e-05
 priors:
   point_sources:
-<<<<<<<< HEAD:demos/eROSITA_config_mw.yaml
     alpha: 1.0001
     q: 0.0000001
   diffuse:
     offset:
       offset_mean: -8.5
-========
-    alpha: 1.
-    q: 1e-6
-  diffuse:
-    offset:
-      offset_mean: -10.
->>>>>>>> eROSITA3.8:demos/eROSITA_config_mg.yaml
       offset_std:
         - 0.2
         - 0.05
     fluctuations:
-<<<<<<<< HEAD:demos/eROSITA_config_mw.yaml
       flexibility:
       - 1.5
       - 1.0
@@ -59,32 +42,16 @@ priors:
       loglogavgslope:
       - -3.0
       - 1.0
-========
-      fluctuations:
-        - 1.5
-        - 0.8
-      loglogavgslope:
-        - -4.
-        - 1.5
-      flexibility:
-        - 1.2
-        - 0.5
->>>>>>>> eROSITA3.8:demos/eROSITA_config_mg.yaml
       asperity: Null
     prefix: diffuse_
 
 minimization:
   geovi: True
-<<<<<<<< HEAD:demos/eROSITA_config_mw.yaml
   total_iterations: 10
-========
-  total_iterations: 5
->>>>>>>> eROSITA3.8:demos/eROSITA_config_mg.yaml
   n_samples: 4 #'lambda i_iter: 6 if i_iter < 13 else 10'
   ic_newton:
     convergence_level: 2
     deltaE: 0.1
-<<<<<<<< HEAD:demos/eROSITA_config_mw.yaml
     iteration_limit: 20
     name: Newton
   ic_sampling:
@@ -93,16 +60,6 @@ minimization:
     name: Sampling(lin)
   ic_sampling_nl:
     deltaE: 0.2
-========
-    iteration_limit: 15
-    name: Newton
-  ic_sampling:
-    deltaE: 0.02
-    iteration_limit: 30
-    name: Sampling(lin)
-  ic_sampling_nl:
-    deltaE: 0.1
->>>>>>>> eROSITA3.8:demos/eROSITA_config_mg.yaml
     iteration_limit: 5
     name: Sampling(nonlin)
 
