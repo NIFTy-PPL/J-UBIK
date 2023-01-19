@@ -4,12 +4,6 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from .psf_interpolation import get_psf_func, psf_convolve_operator, psf_lin_int_operator
 
-CUT = 1E-5
-dir_path= "tm1/bcf/"
-fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"] # PSF-correction / Data modeling
-
-    # "tm1_2dpsf_100215v02.fits", "tm1_2dpsf_110705v01.fits"containing ,
-    # "tm1_2dpsf_190219v03.fits", "tm1_2dpsf_190219v04.fits",
 
 class eROSITA_PSF():
     """
