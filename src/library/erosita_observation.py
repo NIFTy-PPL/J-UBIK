@@ -8,6 +8,8 @@ from astropy.io import fits
 from matplotlib import colors
 
 
+# TODO remove typesetting
+
 class ErositaObservation:
     """
     Base class to retrieve and process eROSITA data.
