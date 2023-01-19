@@ -5,7 +5,11 @@ import jax.numpy as jnp
 
 from jax.scipy.ndimage import map_coordinates
 from .convolution_operators import OAnew
-from .adg.nifty_convolve import get_convolve
+
+try:
+    from .adg.nifty_convolve import get_convolve
+except ImportError:
+    adg_import = False
 
 def to_r_phi(cc):
     """
@@ -31,28 +35,28 @@ def get_interpolation_weights(rs, r):
     dr = rs[1:] - rs[:-1]
 
     def _get_wgt_front(i):
-        res = jnp.zeros_like(rs)
+        res = jnp.zeros(rs.shape, dtype=float)
         res = res.at[0].set(1.)
         return res
-    res = jax.lax.cond(r < rs[0], _get_wgt_front, 
-                       lambda _: jnp.zeros_like(rs), 0)
+    res = jax.lax.cond(r <= rs[0], _get_wgt_front, 
+                       lambda _: jnp.zeros(rs.shape, dtype=float), 0)
 
     def _get_wgt_back(i):
-        res = jnp.zeros_like(rs)
+        res = jnp.zeros(rs.shape, dtype=float)
         res = res.at[rs.size-1].set(1.)
         return res    
     res += jax.lax.cond(r >= rs[rs.size-1], _get_wgt_back,
-                        lambda _: jnp.zeros_like(rs), 0)
+                        lambda _: jnp.zeros(rs.shape, dtype=float), 0)
 
     def _get_wgt(i):
-        res = jnp.zeros_like(rs)
+        res = jnp.zeros(rs.shape, dtype=float)
         wgt = (r - rs[i]) / dr[i]
         res = res.at[i].set(1. - wgt)
         res = res.at[i+1].set(wgt)
         return res
     for i in range(rs.size - 1):
         res += jax.lax.cond((rs[i]<r)*(rs[i+1]>=r), _get_wgt,
-                            (lambda _: jnp.zeros_like(rs)), i)
+                            (lambda _: jnp.zeros(rs.shape, dtype=float)), i)
     return res
 
 def to_patch_coordinates(dcoords, patch_center, patch_delta):
@@ -104,6 +108,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
         raise ValueError
     if patch_center_ids.shape[0] != nrad:
         raise ValueError
+    rs = np.array(rs, dtype=float)
     # Sort in ascending radii
     sort = np.argsort(rs)
     rs = rs[sort]
@@ -111,8 +116,8 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
     psfs = psfs[sort]
     patch_center_ids = patch_center_ids[sort]
 
-    patch_deltas = np.array(list(patch_deltas))
-    pointing_center = np.array(list(pointing_center))
+    patch_deltas = np.array(list(patch_deltas), dtype=float)
+    pointing_center = np.array(list(pointing_center), dtype=float)
     lower = np.array(list(radec_limits[0]))
     upper = np.array(list(radec_limits[1]))
     if np.any(upper <= lower):
@@ -134,7 +139,6 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
         cc -= pointing_center
         rp = to_r_phi(cc)
         # Find and select psfs required for given radius
-        #inds, wgts = find_interpolate_index_r(rs, rp[0])
         wgts = get_interpolation_weights(rs, rp[0])
 
         # Rotate requested psf slice to align with patch
@@ -180,7 +184,12 @@ def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
     # NOTE: Assumes the repository "https://gitlab.mpcdf.mpg.de/pfrank/adg.git"
     # to be cloned and located in a folder named "adg" within the module
     # `operators`
-
+    if adg_import is False:
+        msg = ("This function needs modules from the repository" /
+               "'https://gitlab.mpcdf.mpg.de/pfrank/adg.git'. Please clone it" /
+               "and locate it in a folder named 'adg' within the module " /
+               "`operators` ")
+        raise(ModuleNotFoundError, msg)
     c = msc_infos['c']
     q = msc_infos['q']
     b = msc_infos['b']
@@ -205,13 +214,18 @@ def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1):
         if ss%2 != 0:
             raise ValueError
     patch_shp = tuple(ss//npatch for ss in shp)
-    c_p = ((np.arange(ss) - ss/2 + 0.5)*dd for ss,dd in zip(shp, dist))
+    # This change would symmetrically evaluate the psf but puts the center in 
+    # between Pixels.
+    # c_p = ((np.arange(ss) - ss/2 + 0.5)*dd for ss,dd in zip(shp, dist))
+    #centers = (np.array([(i*ss + ss/2 + 0.5)*dd for i in range(npatch)]) for 
+    #           ss, dd in zip(patch_shp, dist))
+    c_p = ((np.arange(ss) - ss/2)*dd for ss,dd in zip(shp, dist))
+    centers = (np.array([(i*ss + ss/2)*dd for i in range(npatch)]) for 
+               ss, dd in zip(patch_shp, dist))
+
     c_p = np.meshgrid(*c_p, indexing='ij')
     d_ra = c_p[0]
     d_dec = c_p[1]
-
-    centers = (np.array([(i*ss + ss/2 + 0.5)*dd for i in range(npatch)]) for 
-               ss, dd in zip(patch_shp, dist))
     centers = np.meshgrid(*centers, indexing='ij')
     c_ra = centers[0].flatten()
     c_dec = centers[1].flatten()

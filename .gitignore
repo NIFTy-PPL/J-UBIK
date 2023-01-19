@@ -9,6 +9,7 @@ demos/retreat_first_reconstruction/*
 
 # custom
 config/*
+adg/*
 *_results
 *.h5
 *.hdf5

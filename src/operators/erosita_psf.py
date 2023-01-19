@@ -2,8 +2,9 @@ import numpy as np
 import astropy.io.fits as ast
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from .psf_interpolation import psf_convolve_operator, psf_lin_int_operator
+from .psf_interpolation import get_psf_func, psf_convolve_operator, psf_lin_int_operator
 
+CUT = 1E-5
 dir_path= "tm1/bcf/"
 fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"] # PSF-correction / Data modeling
 
@@ -97,6 +98,20 @@ class eROSITA_PSF():
             theta_list = [f[i].header["CBD10001"] for i in range(len(f))]
         return theta_list
 
+    def _cutnorm(self, psf, lower_cut = CUT, want_frac = False):
+        if len(psf.shape) != 2:
+            raise ValueError
+        if want_frac:
+            norm = np.sum(psf)
+        if lower_cut is not None:
+            psf[psf <= lower_cut] = 0.
+        if want_frac:
+            frac = np.sum(psf) / norm
+        psf /= psf.sum()
+        if want_frac:
+            return psf, frac
+        return psf
+
     def info(self, energy):
         full_dct = {
             "psf": self._load_data(energy),
@@ -105,7 +120,7 @@ class eROSITA_PSF():
             "dpix": self._load_pix_size()}
         return full_dct
 
-    def plot_psfs(self):
+    def plot_psfs(self, lower_cut = CUT):
         """plots the psfs in the fits file"""
         name = self._load_names()
         psf = self._load_data_full()
@@ -115,7 +130,9 @@ class eROSITA_PSF():
         for _, j in enumerate(obj):
             fig, axs = plt.subplots()
             axs.set_title(f"{j[0]} point_source at {j[3]}")
-            im = axs.imshow(j[1], norm=LogNorm(), origin="lower")
+            tm, frac = self._cutnorm(j[1], lower_cut=lower_cut, want_frac=True)
+            axs.text(10, 450, f"Norm. fraction: {frac}")
+            im = axs.imshow(tm, norm=LogNorm(), origin="lower")
             axs.scatter(j[3][0], j[3][1], marker="x")
             axs.set_xlabel('[arcsec]')
             axs.set_ylabel('[arcsec]')
@@ -124,13 +141,19 @@ class eROSITA_PSF():
             plt.clf
             plt.close()
 
+    def _get_obs_infos(self, energy, pointing_center, lower_cut = CUT):
+        newpsfs = np.array([self._cutnorm(pp, lower_cut = lower_cut) for pp in 
+                            self._load_data(energy)])
+        obs_infos = {'psfs' : newpsfs, 
+                     'rs' : self._load_theta(energy), 
+                     'patch_center_ids' : self._load_p_center(energy),
+                     'patch_deltas' : self._load_pix_size(), 
+                     'pointing_center' : pointing_center}
+        return obs_infos
+
     def make_psf_op(self, energy, pointing_center, domain, lower_radec, 
                     conv_method,conv_params):
-        obs_infos = {'psfs' : self._load_data(energy), 
-                    'rs' : self._load_theta(energy), 
-                    'patch_center_ids' : self._load_p_center(energy),
-                    'patch_deltas' : self._load_pix_size(), 
-                    'pointing_center' : pointing_center}
+        obs_infos = self._get_obs_infos(energy, pointing_center)
 
         if conv_method == 'MSC':
             op = psf_convolve_operator(domain, lower_radec, obs_infos,
@@ -142,3 +165,21 @@ class eROSITA_PSF():
         else:
             raise ValueError(f'Unknown conv_method: {conv_method}')
         return op
+
+    def _get_psf_func(self, energy, pointing_center, domain, lower_radec):
+        obs_infos = self._get_obs_infos(energy, pointing_center)
+        psf_func = get_psf_func(domain, lower_radec, obs_infos)
+        return psf_func
+
+
+    def psf_func_on_domain(self, energy, pointing_center, domain, lower_radec):
+        psf_func = self._get_psf_func(energy, pointing_center, domain, 
+                                      lower_radec)
+        distances = ((np.arange(ss) - ss//2)*dd for ss,dd in 
+                     zip(domain.shape, domain.distances))
+        distances = (np.roll(dd, (ss+1)//2) for dd,ss in 
+                     zip(distances, domain.shape))
+        distances = np.meshgrid(*distances, indexing='ij')
+        def func(ra, dec):
+            return psf_func(ra, dec, *distances)
+        return func
