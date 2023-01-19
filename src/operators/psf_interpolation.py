@@ -8,6 +8,7 @@ from .convolution_operators import OAnew
 
 try:
     from .adg.nifty_convolve import get_convolve
+    adg_import = True
 except ImportError:
     adg_import = False
 
