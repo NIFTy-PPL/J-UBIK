@@ -166,10 +166,15 @@ class eROSITA_PSF():
             raise ValueError(f'Unknown conv_method: {conv_method}')
         return op
 
-    def psf_func_on_domain(self, energy, pointing_center, domain, lower_radec):
+    def _get_psf_func(self, energy, pointing_center, domain, lower_radec):
         obs_infos = self._get_obs_infos(energy, pointing_center)
         psf_func = get_psf_func(domain, lower_radec, obs_infos)
+        return psf_func
 
+
+    def psf_func_on_domain(self, energy, pointing_center, domain, lower_radec):
+        psf_func = self._get_psf_func(energy, pointing_center, domain, 
+                                      lower_radec)
         distances = ((np.arange(ss) - ss//2)*dd for ss,dd in 
                      zip(domain.shape, domain.distances))
         distances = (np.roll(dd, (ss+1)//2) for dd,ss in 
