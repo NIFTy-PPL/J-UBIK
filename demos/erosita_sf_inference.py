@@ -1,4 +1,3 @@
-import argparse
 import math
 import os
 import sys
@@ -21,7 +20,7 @@ hyperparamerter_search= True
 if __name__ == "__main__":
     config_filename = "demos/eROSITA_config.yaml"
     cfg = xu.get_cfg(config_filename)
-    fov = cfg['telescope']['field_of_view']
+    fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov//cfg['grid']['npix'])
 
     # File Location
@@ -84,7 +83,6 @@ if __name__ == "__main__":
     # FIXME: Make sure that this is in arcseconds!
     center = observation_instance.get_center_coordinates(output_filename)
     print(center)
-    exit()
     if mockrun:
         def gaussian_psf(sky_space, var):
             dist_x = sky_space.distances[0]
