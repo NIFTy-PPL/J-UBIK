@@ -80,6 +80,7 @@ if __name__ == "__main__":
     padded_sky_space = sky.target
 
     # PSF
+    # FIXME: Make sure that this is in arcseconds!
     center = observation_instance.get_center_coordinates(output_filename)
     if mockrun:
         def gaussian_psf(sky_space, var):
@@ -113,6 +114,12 @@ if __name__ == "__main__":
             return conv
 
         convolved = gaussian_psf(sky_space=padded_sky_space[0], var=10)
+    else:
+        # TODO instantiate actual eROSITA PSF
+        # PSF_op = ... instantiate psf op(args)
+        # args contains pointing_center, domain, ...
+        raise NotImplementedError
+
 
 
     # Exposure
