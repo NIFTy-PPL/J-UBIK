@@ -3,20 +3,20 @@ import os
 import sys
 
 import numpy as np
+import yaml
 from matplotlib import colors
 import nifty8 as ift
 import xubik0 as xu
 from demos.sky_model import ErositaSky
 
 from src.library.plot import plot_sample_and_stats, create_output_directory
+from xubik0.library.utils import get_data_realization, save_config
 
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
 from src.library.erosita_observation import ErositaObservation
 
-mockrun = True
-hyperparamerter_search = False
 if __name__ == "__main__":
     config_filename = "eROSITA_config.yaml"
     try:
@@ -25,6 +25,7 @@ if __name__ == "__main__":
         cfg = xu.get_cfg('demos/' + config_filename)
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])
+    mock_run = cfg['mock']
 
     # File Location
     file_info = cfg['files']
@@ -120,22 +121,18 @@ if __name__ == "__main__":
     padded_data = sky_model.pad(data)
     masked_data = mask(data)
 
-    if mockrun:
+    if mock_run:
         ift.random.push_sseq_from_seed(cfg['seed'])
         mock_position = ift.from_random(sky.domain)
-        def get_data_realization(op, position, data=True):
-            resp = sky_model.pad.adjoint @ exposure_op
-            res = op.force(position)
-            if data:
-                res = resp(op.force(position))
-                res = ift.random.current_rng().poisson(res.val.astype(np.float64))
-                res = ift.makeField(sky_model.pad.adjoint.target, res)
-            return res
 
         # Get mock data
-        mock_data = get_data_realization(convolved_sky, mock_position)
-        mock_ps_data = get_data_realization(convolved_ps, mock_position)
-        mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position)
+        mock_data = get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
+        mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
+        mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
+                                                 padder=sky_model.pad)
+
+        # Mask mock data
+        masked_data = mask(sky_model.pad(mock_data))
 
         # Get mock signal
         mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
@@ -155,17 +152,12 @@ if __name__ == "__main__":
         p.output(nx=4, name=f'mock_data.png')
 
 
-
-    exit()
     # Print Exposure norm
     # norm = xu.get_norm(exposure, data)
     # print(norm)
 
     # Set up likelihood
-    if mockrun:
-        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved_sky
-    else:
-        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
+    log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved_sky
 
     # Load minimization config
     minimization_config = cfg['minimization']
@@ -181,6 +173,9 @@ if __name__ == "__main__":
     operators_to_plot = {'reconstruction': sky, 'point_sources': point_sources, 'diffuse_component': diffuse}
 
     output_directory = create_output_directory("retreat_first_reconstruction")
+
+    # Save config file in output_directory
+    save_config(cfg, config_filename, output_directory)
 
     plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
                                               plotting_kwargs={'norm': colors.SymLogNorm(linthresh=10e-1)})
