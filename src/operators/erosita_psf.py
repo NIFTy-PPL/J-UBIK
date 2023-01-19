@@ -2,8 +2,9 @@ import numpy as np
 import astropy.io.fits as ast
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from .psf_interpolation import psf_convolve_operator, psf_lin_int_operator
+from .psf_interpolation import get_psf_func, psf_convolve_operator, psf_lin_int_operator
 
+CUT = 1E-5
 dir_path= "tm1/bcf/"
 fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"] # PSF-correction / Data modeling
 
@@ -97,6 +98,11 @@ class eROSITA_PSF():
             theta_list = [f[i].header["CBD10001"] for i in range(len(f))]
         return theta_list
 
+    def _cut(self, psf, lower_cut = CUT):
+        if lower_cut is not None:
+            psf[psf <= lower_cut] = 0.
+        return psf
+
     def info(self, energy):
         full_dct = {
             "psf": self._load_data(energy),
@@ -105,7 +111,7 @@ class eROSITA_PSF():
             "dpix": self._load_pix_size()}
         return full_dct
 
-    def plot_psfs(self):
+    def plot_psfs(self, lower_cut = CUT):
         """plots the psfs in the fits file"""
         name = self._load_names()
         psf = self._load_data_full()
@@ -115,6 +121,10 @@ class eROSITA_PSF():
         for _, j in enumerate(obj):
             fig, axs = plt.subplots()
             axs.set_title(f"{j[0]} point_source at {j[3]}")
+            full_sum = np.sum(j[1])
+            j[1] = self._cut(j[1], lower_cut=lower_cut)
+            frac_sum = np.sum(j[1])
+            axs.text(10, 450, f"Norm. fraction: {frac_sum/full_sum}")
             im = axs.imshow(j[1], norm=LogNorm(), origin="lower")
             axs.scatter(j[3][0], j[3][1], marker="x")
             axs.set_xlabel('[arcsec]')
@@ -124,13 +134,20 @@ class eROSITA_PSF():
             plt.clf
             plt.close()
 
-    def make_psf_op(self, energy, pointing_center, domain, lower_radec, 
-                    conv_method,conv_params):
-        obs_infos = {'psfs' : self._load_data(energy), 
+    def _get_obs_infos(self, energy, pointing_center, lower_cut = CUT):
+        psfs = self._load_data(energy)
+        psfs = self._cut(psfs, lower_cut=lower_cut)
+        obs_infos = {'psfs' : psfs, 
                     'rs' : self._load_theta(energy), 
                     'patch_center_ids' : self._load_p_center(energy),
                     'patch_deltas' : self._load_pix_size(), 
                     'pointing_center' : pointing_center}
+        return obs_infos
+
+
+    def make_psf_op(self, energy, pointing_center, domain, lower_radec, 
+                    conv_method,conv_params):
+        obs_infos = self._get_obs_infos(energy, pointing_center)
 
         if conv_method == 'MSC':
             op = psf_convolve_operator(domain, lower_radec, obs_infos,
@@ -142,3 +159,16 @@ class eROSITA_PSF():
         else:
             raise ValueError(f'Unknown conv_method: {conv_method}')
         return op
+
+    def psf_func_on_domain(self, energy, pointing_center, domain, lower_radec):
+        obs_infos = self._get_obs_infos(energy, pointing_center)
+        psf_func = get_psf_func(domain, lower_radec, obs_infos)
+
+        distances = ((np.arange(ss) - ss//2)*dd for ss,dd in 
+                     zip(domain.shape, domain.distances))
+        distances = (np.roll(dd, (ss+1)//2) for dd,ss in 
+                     zip(distances, domain.shape))
+        distances = np.meshgrid(*distances, indexing='ij')
+        def func(ra, dec):
+            return psf_func(ra, dec, *distances)
+        return func

@@ -205,13 +205,18 @@ def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1):
         if ss%2 != 0:
             raise ValueError
     patch_shp = tuple(ss//npatch for ss in shp)
-    c_p = ((np.arange(ss) - ss/2 + 0.5)*dd for ss,dd in zip(shp, dist))
+    # This change would symmetrically evaluate the psf but puts the center in 
+    # between Pixels.
+    # c_p = ((np.arange(ss) - ss/2 + 0.5)*dd for ss,dd in zip(shp, dist))
+    #centers = (np.array([(i*ss + ss/2 + 0.5)*dd for i in range(npatch)]) for 
+    #           ss, dd in zip(patch_shp, dist))
+    c_p = ((np.arange(ss) - ss/2)*dd for ss,dd in zip(shp, dist))
+    centers = (np.array([(i*ss + ss/2)*dd for i in range(npatch)]) for 
+               ss, dd in zip(patch_shp, dist))
+
     c_p = np.meshgrid(*c_p, indexing='ij')
     d_ra = c_p[0]
     d_dec = c_p[1]
-
-    centers = (np.array([(i*ss + ss/2 + 0.5)*dd for i in range(npatch)]) for 
-               ss, dd in zip(patch_shp, dist))
     centers = np.meshgrid(*centers, indexing='ij')
     c_ra = centers[0].flatten()
     c_dec = centers[1].flatten()
