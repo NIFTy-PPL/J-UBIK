@@ -169,7 +169,8 @@ class eROSITA_PSF():
             print('Build LIN-PSF...')
             op = psf_lin_int_operator(domain, conv_params['npatch'], 
                                       lower_radec, obs_infos,
-                                      margfrac = conv_params['margfrac'])
+                                      margfrac = conv_params['margfrac'],
+                                      want_cut = conv_params['want_cut'])
             print('...done build LIN-PSF')
         else:
             raise ValueError(f'Unknown conv_method: {conv_method}')

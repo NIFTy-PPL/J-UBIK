@@ -317,10 +317,11 @@ class OAnew(ift.LinearOperator):
     force: sets all unused areas to zero,
     cut_by_value: sets everything below the threshold to zero.
     """
-    def __init__(self, domain, kernel_arr, n, margin):
+    def __init__(self, domain, kernel_arr, n, margin, want_cut):
         self._domain = ift.makeDomain(domain)
         self._n = n
-        self._op, self._cut = self._build_op(domain, kernel_arr, n, margin)
+        self._op, self._cut = self._build_op(domain, kernel_arr, n, margin,
+                                             want_cut)
         self._target = self._op.target
         self._capability = self.TIMES | self.ADJOINT_TIMES
 
@@ -340,7 +341,7 @@ class OAnew(ift.LinearOperator):
         return res
 
     @classmethod
-    def _build_op(self, domain, kernel_arr, n, margin):
+    def _build_op(self, domain, kernel_arr, n, margin, want_cut):
         domain = ift.makeDomain(domain)
         oa = OverlapAdd(domain[0], n, 0)
         weights = ift.makeOp(get_weights(oa.target))
@@ -370,16 +371,23 @@ class OAnew(ift.LinearOperator):
             distances=domain[0].distances,
         )
         oa_back = OverlapAdd(pad_space, n, margin)
-
-        interpolation_margin = (domain.shape[0]//self._sqrt_n(n))*2
-        tgt_spc_shp = np.array([i-2*interpolation_margin for i in domain[0].shape])
-        target_space = ift.RGSpace(tgt_spc_shp, distances=domain[0].distances)
-
-        cut_interpolation_margin = MarginZeroPadder(target_space, interpolation_margin).adjoint
-
-        cut_pbc_margin = MarginZeroPadder(domain[0], ((oa_back.domain.shape[0] - domain.shape[0])//2), space=0).adjoint
-        res = cut_interpolation_margin @ cut_pbc_margin @ oa_back.adjoint @ convolved
-        return res, cut_interpolation_margin #@ cut_pbc_margin
+        cut_pbc_margin = MarginZeroPadder(domain[0], 
+            ((oa_back.domain.shape[0] - domain.shape[0])//2), space=0).adjoint
+        
+        if want_cut:
+            interpolation_margin = (domain.shape[0]//self._sqrt_n(n))*2
+            tgt_spc_shp = np.array(
+                            [i-2*interpolation_margin for i in domain[0].shape])
+            target_space = ift.RGSpace(tgt_spc_shp, 
+                                       distances=domain[0].distances)
+            cut_interpolation_margin = (
+                MarginZeroPadder(target_space, interpolation_margin).adjoint)
+        else:
+            cut_interpolation_margin = ift.ScalingOperator(
+                                                    cut_pbc_margin.target, 1.)
+        res = oa_back.adjoint @ convolved
+        res = cut_interpolation_margin @ cut_pbc_margin @ res
+        return res, cut_interpolation_margin 
 
     @classmethod
     def cut_by_value(self, domain, kernel_list, n, margin, thrsh):
