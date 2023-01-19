@@ -320,7 +320,7 @@ class OAnew(ift.LinearOperator):
     def __init__(self, domain, kernel_arr, n, margin):
         self._domain = ift.makeDomain(domain)
         self._n = n
-        self._op = self._build_op(domain, kernel_arr, n, margin)
+        self._op, self._cut = self._build_op(domain, kernel_arr, n, margin)
         self._target = self._op.target
         self._capability = self.TIMES | self.ADJOINT_TIMES
 
@@ -379,7 +379,7 @@ class OAnew(ift.LinearOperator):
 
         cut_pbc_margin = MarginZeroPadder(domain[0], ((oa_back.domain.shape[0] - domain.shape[0])//2), space=0).adjoint
         res = cut_interpolation_margin @ cut_pbc_margin @ oa_back.adjoint @ convolved
-        return res
+        return res, cut_interpolation_margin #@ cut_pbc_margin
 
     @classmethod
     def cut_by_value(self, domain, kernel_list, n, margin, thrsh):
