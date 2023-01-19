@@ -19,9 +19,40 @@ def get_cfg(yaml_file):
     return cfg
 
 
+def get_gaussian_psf(op, var):
+    # fixme: cleanup
+    dist_x = op.target[0].distances[0]
+    dist_y = op.target[0].distances[1]
+
+    # Periodic Boundary conditions
+    x_ax = np.arange(op.target[0].shape[0])
+    x_ax = np.minimum(x_ax, op.target[0].shape[0] - x_ax) * dist_x
+    y_ax = np.arange(op.target[0].shape[1])
+    y_ax = np.minimum(y_ax, op.target[0].shape[1] - y_ax) * dist_y
+
+    center = (0, 0)
+    x_ax -= center[0]
+    y_ax -= center[1]
+    X, Y = np.meshgrid(x_ax, y_ax, indexing='ij')
+
+    var *= op.target[0].scalar_dvol  # ensures that the variance parameter is specified with respect to the
+
+    # normalized psf
+    log_psf = - (0.5 / var) * (X ** 2 + Y ** 2)
+    log_kernel = ift.makeField(op.target[0], log_psf)
+    log_kernel = log_kernel - np.log(log_kernel.exp().integrate().val)
+
+    # p = ift.Plot()
+    # import matplotlib.colors as colors
+    # p.add(log_kernel.exp(), norm=colors.SymLogNorm(linthresh=10e-8))
+    # p.output(nx=1)
+
+    conv = convolve_field_operator(log_kernel.exp(), op)
+    return conv
+
 def get_data_domain(config):
-    dom_sp = ift.RGSpace(([config["npix_s"]]*2), distances = _get_sp_dist(config))
-    e_sp = ift.RGSpace((config["npix_e"]), distances = _get_e_dist(config))
+    dom_sp = ift.RGSpace(([config["npix_s"]] * 2), distances=_get_sp_dist(config))
+    e_sp = ift.RGSpace((config["npix_e"]), distances=_get_e_dist(config))
     return ift.DomainTuple.make([dom_sp, e_sp])
 
 
@@ -34,31 +65,36 @@ def _get_e_dist(config):
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
 
+
 def get_normed_exposure(exposure_field, data_field):
     """
     Convenience function to get exposures on the order of 1, so that the signal is living on
     the same order of magnitude as the data.
     """
-    warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
+    warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.",
+         DeprecationWarning, stacklevel=2)
     ratio = (
-        data_field.val[exposure_field.val != 0]
-        / exposure_field.val[exposure_field.val != 0]
+            data_field.val[exposure_field.val != 0]
+            / exposure_field.val[exposure_field.val != 0]
     )
     norm = ratio.mean()
     normed_exp_field = exposure_field * norm
     return normed_exp_field
 
+
 def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
-    warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
+    warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.",
+         DeprecationWarning, stacklevel=2)
     norms = []
     norm_mean = []
     norm_max = []
     norm_std = []
     if obs_type == None:
-        obs_type='SF'
+        obs_type = 'SF'
     for i in range(energy_bins):
         for dataset in datasets:
-            observation = np.load("npdata/"+obs_type+ "/df_" + str(dataset) + "_observation.npy", allow_pickle=True).item()
+            observation = np.load("npdata/" + obs_type + "/df_" + str(dataset) + "_observation.npy",
+                                  allow_pickle=True).item()
             exposure = observation["exposure"].val[:, :, i]
             data = observation["data"].val[:, :, i]
             norms.append(get_norm(ift.Field.from_raw(domain, exposure), ift.Field.from_raw(domain, data)))
@@ -73,10 +109,11 @@ def get_norm(exposure_field, data_field):
     returns the only the order of magnitude of
     the norm of get_normed_exposure
     """
-    warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
+    warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning,
+         stacklevel=2)
     ratio = (
-        data_field.val[exposure_field.val != 0]
-        / exposure_field.val[exposure_field.val != 0]
+            data_field.val[exposure_field.val != 0]
+            / exposure_field.val[exposure_field.val != 0]
     )
     norm = ratio.mean()
     # norm = 10**math.floor(math.log10(norm))
@@ -107,7 +144,7 @@ def prior_sample_plotter(opchain, n):
         f = ift.from_random(opchain.domain)
         field = opchain(f)
         fov = (
-            field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0
+                field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0
         )  # is this true?
         pltargs = {
             "origin": "lower",
@@ -121,6 +158,7 @@ def prior_sample_plotter(opchain, n):
     fig.tight_layout()
     plt.show()
     plt.close()
+
 
 def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=True, Norm=True):
     psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
@@ -176,8 +214,8 @@ def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
     event_f = info.obsInfo["event_file"]
     dy = dx = xy_range * 2 / npix_s
     x_idx, y_idx = idx_tupel
-    x_pix_coord = x_min + x_idx*dx
-    y_pix_coord = y_min + y_idx*dy
+    x_pix_coord = x_min + x_idx * dx
+    y_pix_coord = y_min + y_idx * dy
     coords = get_radec_from_xy(x_pix_coord, y_pix_coord, event_f)
     ps = info.get_psf_fromsim(coords, outroot="./psf", num_rays=num_rays)
     return ps
@@ -214,7 +252,6 @@ def get_radec_from_xy(temp_x, temp_y, event_f):
     # TODO is this enough precision
 
 
-
 def convolve_operators(a, b):
     """
     convenience function for the convolution of two operators a and b.
@@ -237,7 +274,7 @@ def convolve_field_operator(kernel, op, space=None):
     convolve = fft.inverse @ kernel_hp @ fft @ op
     res = convolve.real
     return res
-    #FIXME Hartley + Fix dirty hack
+    # FIXME Hartley + Fix dirty hack
 
 
 class PositiveSumPriorOperator(ift.LinearOperator):
@@ -450,7 +487,6 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
             raise ValueError(f"The plotting routine is not implemented for observation type {obs_type}.")
 
 
-
 def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     """
     Takes a field with three energy bins and writes three according fits-files
@@ -473,7 +509,7 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     import time
     color_dict = {0: "red", 1: "green", 2: "blue"}
     domain = fld.domain
-    if not isinstance(domain, ift.DomainTuple) or len(domain)!=2 or len(domain[0].shape)!=2:
+    if not isinstance(domain, ift.DomainTuple) or len(domain) != 2 or len(domain[0].shape) != 2:
         raise ValueError("FITS file export of RGB data is only possible for 3d-fields. "
                          f"Current domain:\n{domain}")
     if fld.shape[2] != 3:
@@ -490,15 +526,15 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     h["EQUINOX"] = 2000
     if MPI_master:
         for i in range(fld.shape[2]):
-            hdu = pyfits.PrimaryHDU(fld.val[:,:,i], header=h)
+            hdu = pyfits.PrimaryHDU(fld.val[:, :, i], header=h)
             hdulist = pyfits.HDUList([hdu])
             file_name_colour = f"{file_name}_{color_dict[i]}.fits"
             hdulist.writeto(file_name_colour, overwrite=overwrite)
 
 
 def rgb_plotting_callback(sample_list, i_global, save_strategy, export_operator_outputs_old, obs_type_old,
-                          output_directory, obs_type_new = None,export_operator_outputs_new = None,
-                          change_iteration = None):
+                          output_directory, obs_type_new=None, export_operator_outputs_new=None,
+                          change_iteration=None):
     """
     Callback for multifrequency plotting called after each iteration to be used in ift.optimize_kl, which should replace
     the single frequency plotting routine in optimize_kl.
@@ -591,25 +627,26 @@ def energy_binning(fld, energy_bins):
     new_shape = shape[:2]
     new_shape.append(energy_bins)
     new_domain = ift.DomainTuple.make((domain[0], ift.RGSpace(energy_bins)))
-    aux_arrs =[]
+    aux_arrs = []
     binned_array = arr
-    if shape[2]<energy_bins:
-        binned_array = np.pad(arr, [(0, 0), (0, 0), (0, (energy_bins-shape[2]))], mode='constant')
-    if shape[2]>energy_bins:
-        bins = np.arange(0, shape[2]+1, shape[2]/energy_bins)
-        for i in range(len(bins)-1):
+    if shape[2] < energy_bins:
+        binned_array = np.pad(arr, [(0, 0), (0, 0), (0, (energy_bins - shape[2]))], mode='constant')
+    if shape[2] > energy_bins:
+        bins = np.arange(0, shape[2] + 1, shape[2] / energy_bins)
+        for i in range(len(bins) - 1):
             bin1 = int(bins[i])
-            bin2 = int(bins[i+1])
-            aux_arrs.append(np.sum(arr[:,:,bin1:bin2], axis=2))
+            bin2 = int(bins[i + 1])
+            aux_arrs.append(np.sum(arr[:, :, bin1:bin2], axis=2))
         binned_array = np.stack(aux_arrs, axis=2)
     binned_field = ift.Field.from_raw(new_domain, binned_array)
     return binned_field
 
+
 def transform_loglog_slope_pars(slope_pars):
     """Transform slope parameters from log10/log10 to ln/log10 space"""
     res = slope_pars.copy()
-    res['mean'] = (res['mean']+1) *np.log(10)
-    res['sigma'] *=np.log(10)
+    res['mean'] = (res['mean'] + 1) * np.log(10)
+    res['sigma'] *= np.log(10)
     return res
 
 

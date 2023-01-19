@@ -16,3 +16,4 @@ from .operators.bilinear_interpolation import get_weights
 from .operators.zero_padder import MarginZeroPadder
 from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.kernels import get_gaussian_kernel
+from .operators.erosita_psf import eROSITA_PSF

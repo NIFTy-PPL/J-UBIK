@@ -9,7 +9,7 @@ plotting:
   slice: Null
   dpi: 800
 files:
-  obs_path: 'data/'
+  obs_path: '../data/LMC_SN1987A'
   input: 'fm00_700203_020_EventList_c001.fits'
   output: 'processed_LMC_SN1987A_data.fits'
   exposure: 'expmap_LMC_SN1987A.fits'
@@ -27,7 +27,7 @@ priors:
     q: 0.00047
   diffuse:
     offset:
-      offset_mean: -7.6
+      offset_mean: -9.5
       offset_std:
         - 0.5
         - 0.05

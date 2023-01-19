@@ -16,12 +16,15 @@ sys.path.append(parentdir)
 from src.library.erosita_observation import ErositaObservation
 
 mockrun = True
-hyperparamerter_search  = True
+hyperparamerter_search = False
 if __name__ == "__main__":
-    config_filename = "demos/eROSITA_config.yaml"
-    cfg = xu.get_cfg(config_filename)
+    config_filename = "eROSITA_config.yaml"
+    try:
+        cfg = xu.get_cfg(config_filename)
+    except:
+        cfg = xu.get_cfg('demos/' + config_filename)
     fov = cfg['telescope']['fov']
-    rebin = math.floor(20 * fov//cfg['grid']['npix'])
+    rebin = math.floor(20 * fov // cfg['grid']['npix'])
 
     # File Location
     file_info = cfg['files']
@@ -74,13 +77,7 @@ if __name__ == "__main__":
                                             slice=plot_info['slice'],
                                             dpi=plot_info['dpi'])
 
-    # Spaces
-
-    sky_space = sky_model.pad.adjoint(sky).target
-    padded_sky_space = sky.target
-
     # PSF
-    # FIXME: Make sure that this is in arcseconds!
     center = observation_instance.get_center_coordinates(output_filename)
     if mockrun:
         def gaussian_psf(sky_space, var):
@@ -123,7 +120,7 @@ if __name__ == "__main__":
 
     # Exposure
     exposure = observation_instance.load_fits_data(exposure_filename)[0].data
-    exposure_field = ift.makeField(sky_space, exposure)
+    exposure_field = ift.makeField(sky_model.position_space, exposure)
     padded_exposure_field = sky_model.pad(exposure_field)
     exposure_op = ift.makeOp(padded_exposure_field)
 
@@ -131,11 +128,11 @@ if __name__ == "__main__":
     mask = xu.get_mask_operator(exposure_field)
 
     # Response
-    R = mask @ sky_model.pad.adjoint@ exposure_op
+    R = mask @ sky_model.pad.adjoint @ exposure_op
 
     # Data
     data = observation_instance.load_fits_data(output_filename)[0].data
-    data = ift.makeField(sky_space, data)
+    data = ift.makeField(sky_model.position_space, data)
     padded_data = sky_model.pad(data)
     masked_data = mask(data)
 
@@ -185,9 +182,10 @@ if __name__ == "__main__":
     # Print Exposure norm
     # norm = xu.get_norm(exposure, data)
     # print(norm)
+
     # Set up likelihood
     if mockrun:
-        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved
+        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved_sky
     else:
         log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
 
@@ -219,5 +217,3 @@ if __name__ == "__main__":
         ift.optimize_kl(log_likelihood, minimization_config['total_iterations'], minimization_config['n_samples'],
                         minimizer, ic_sampling, None, export_operator_outputs=operators_to_plot,
                         output_directory=output_directory, inspect_callback=plot, resume=True)
-
-

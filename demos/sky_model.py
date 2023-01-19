@@ -1,13 +1,12 @@
 import nifty8 as ift
 import xubik0 as xu
-from src.library.erosita_observation import ErositaObservation
 
 
 class ErositaSky:
     def __init__(self, config_file, alpha = None, q = None):
         if not isinstance(config_file, str):
             raise TypeError("The config_file argument needs to be the path to a .yaml config file.")
-        #fixme: add all relevant checks and docstrings
+        # fixme: add all relevant checks and docstrings
 
         # Prepare the spaces
         self.config = xu.get_cfg(config_file)
@@ -29,7 +28,7 @@ class ErositaSky:
         return point_sources, diffuse_component, sky
 
     def _create_point_source_model(self):
-        if self.alpha  is not None and self.q is not None:
+        if self.alpha is not None and self.q is not None:
             point_sources = ift.InverseGammaOperator(self.extended_space, alpha=self.alpha, q=self.q)
         else:
             point_sources = ift.InverseGammaOperator(self.extended_space, **self.priors['point_sources'])
@@ -50,7 +49,10 @@ if __name__ == "__main__":
 
     ift.random.push_sseq_from_seed(model.config['seed'])
     import matplotlib.colors as colors
+
     n_samples = 6
-    ift.plot_priorsamples(ps, n_samples=n_samples, common_colorbar=False, norm=colors.SymLogNorm(linthresh=10e-1), nx=3)
-    ift.plot_priorsamples(diffuse, n_samples=n_samples, common_colorbar=False, norm=colors.SymLogNorm(linthresh=10e-1), nx=3)
-    ift.plot_priorsamples(sky, n_samples=n_samples, common_colorbar=False, norm=colors.SymLogNorm(linthresh=10e-1), nx=3)
+    ift.plot_priorsamples(ps, n_samples=n_samples, common_colorbar=False, norm=colors.SymLogNorm(linthresh=10e-8), nx=3)
+    ift.plot_priorsamples(diffuse, n_samples=n_samples, common_colorbar=False, norm=colors.SymLogNorm(linthresh=10e-8),
+                          nx=3)
+    ift.plot_priorsamples(sky, n_samples=n_samples, common_colorbar=False, norm=colors.SymLogNorm(linthresh=10e-8),
+                          nx=3)
