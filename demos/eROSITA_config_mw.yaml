@@ -10,7 +10,7 @@ plotting:
   dpi: 800
 files:
   obs_path: 'data/'
-  input: 'fm00_700203_020_EventList_c001.fits'
+  input: 'pm00_700161_020_EventList_c001.fits'
   output: 'processed_LMC_SN1987A_data.fits'
   exposure: 'expmap_LMC_SN1987A.fits'
 

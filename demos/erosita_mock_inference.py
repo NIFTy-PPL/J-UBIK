@@ -1,6 +1,7 @@
 import math
 import os
 import sys
+import pickle
 
 import numpy as np
 from matplotlib import colors
@@ -136,9 +137,13 @@ if __name__ == "__main__":
     # Data
     data = observation_instance.load_fits_data(output_filename)[0].data
     data = ift.makeField(sky_model.position_space, data)
-    padded_data = sky_model.pad(data)
-    masked_data = mask(data)
 
+    # Load previous Mock data
+    # with open('mock_data.pkl', "rb") as f:
+    #     data = pickle.load(f)
+    #
+    # padded_data = sky_model.pad(data)
+    # masked_data = mask(data)
     if mockrun:
         if hyperparamerter_search:
             n_mock_samples = 1
@@ -174,7 +179,7 @@ if __name__ == "__main__":
                                                            np.random.poisson(exposure_op(mock_sky).val.astype(np.float64)))
                         mock_sky_data = sky_model.pad.adjoint(mock_sky_data)
 
-                        masked_data = mask(mock_sky_data_conv)
+                        masked_data = mask(mock_sky_data)
 
                         print(f'Plotting  mock data for alpha = {alpha} and q = {q}.')
                         p = ift.Plot()
@@ -193,12 +198,15 @@ if __name__ == "__main__":
             point_sources, diffuse, sky = sky_model.create_sky_model()
             convolved = gaussian_psf(sky_space=sky_model.extended_space, var=2)
             mock_sky_position = ift.from_random(sky.domain)
-            conv_mock_sky = convolved(mock_sky_position)
-            mock_sky_data_conv = ift.Field.from_raw(sky_model.extended_space,
-                                                    np.random.poisson(
-                                                        exposure_op(conv_mock_sky).val.astype(np.float64)))
-            mock_sky_data_conv = sky_model.pad.adjoint(mock_sky_data_conv)
-            masked_data = mask(mock_sky_data_conv)
+            mock_sky = sky(mock_sky_position)
+            mock_sky_data = ift.Field.from_raw(sky_model.extended_space,
+                                               np.random.poisson(exposure_op(mock_sky).val.astype(np.float64)))
+            mock_sky_data = sky_model.pad.adjoint(mock_sky_data)
+
+            if not os.path.isfile("mock_data.pkl"):
+                with open("mock_date.pkl", 'wb') as file:
+                    pickle.dump(mock_sky_data, file)
+            masked_data = mask(mock_sky_data)
 
             #Likelihood
             log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved
