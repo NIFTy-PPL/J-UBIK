@@ -8,6 +8,7 @@ docs/source/user/getting_started_4_CorrelatedFields.rst
 
 # custom
 config/*
+adg/
 *_results
 *.h5
 *.hdf5
