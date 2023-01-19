@@ -3,7 +3,7 @@ import os
 import sys
 
 import numpy as np
-from matplotlib import colors
+from matplotlib.colors import LogNorm, SymLogNorm
 import nifty8 as ift
 import xubik0 as xu
 from demos.sky_model import ErositaSky
@@ -139,11 +139,10 @@ if __name__ == "__main__":
         mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
         p = ift.Plot()
-        lognorm = colors.LogNorm()
-        norm = colors.SymLogNorm(linthresh=5e-3)
-        p.add(mock_ps, title='point sources response', norm=lognorm)
-        p.add(mock_diffuse, title='diffuse component response', norm=lognorm)
-        p.add(mock_sky, title='sky', norm=lognorm)
+        norm = SymLogNorm(linthresh=5e-3)
+        p.add(mock_ps, title='point sources response', norm=LogNorm())
+        p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
+        p.add(mock_sky, title='sky', norm=LogNorm())
         p.add(mock_ps_data, title='mock point source data', norm=norm)
         p.add(data, title='data', norm=norm)
         p.add(mock_data, title='mock data', norm=norm)
@@ -178,7 +177,7 @@ if __name__ == "__main__":
     save_config(cfg, config_filename, output_directory)
 
     plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
-                                              plotting_kwargs={'norm': colors.SymLogNorm(linthresh=10e-1)})
+                                              plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
 
     if minimization_config['geovi']:
         # geoVI
