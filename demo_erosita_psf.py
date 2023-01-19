@@ -1,12 +1,12 @@
 import xubik0 as xu
-from xubik0.operators.erosita_psf import dir_path, fname
 import nifty8 as ift
 import matplotlib.pyplot as plt
 
+dir_path= "tm1/bcf/"
+fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"]
+
 file = dir_path + fname[0]
 obs = xu.eROSITA_PSF(file)
-
-
 
 energy = '3000'
 pointing_center = (250, 250)
