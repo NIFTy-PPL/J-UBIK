@@ -122,16 +122,16 @@ if __name__ == "__main__":
     exposure_op = ift.makeOp(padded_exposure_field)
 
     # Mask
-    mask = xu.get_mask_operator(padded_exposure_field)
+    mask = xu.get_mask_operator(exposure_field)
 
     # Response
-    R = mask @ exposure_op
+    R = mask @ sky_model.pad.adjoint@ exposure_op
 
     # Data
     data = observation_instance.load_fits_data(output_filename)[0].data
     data = ift.makeField(sky_space, data)
     padded_data = sky_model.pad(data)
-    masked_data = mask(padded_data)
+    masked_data = mask(data)
 
     if mockrun:
         ift.random.push_sseq_from_seed(cfg['seed'])
@@ -154,6 +154,7 @@ if __name__ == "__main__":
         # Mock data for whole sky including convolution
         mock_sky_data = np.random.poisson(exposure_op(mock_sky).val.astype(np.float64))
         mock_sky_data = sky_model.pad.adjoint(ift.Field.from_raw(padded_sky_space, mock_sky_data))
+        masked_data = mask(mock_sky_data)
 
 
         if plot_info['enabled']:
@@ -164,17 +165,16 @@ if __name__ == "__main__":
             p.add(mock_diffuse_data, title='Mock data diffuse', norm=colors.SymLogNorm(linthresh=10e-5))
             p.add(mock_sky, title='mock_sky', norm=colors.SymLogNorm(linthresh=10e-5))
             p.output(nx=3, name='mock_data.png')
-        masked_data = mask(mock_sky_data)
+
 
     # Print Exposure norm
     # norm = xu.get_norm(exposure, data)
     # print(norm)
     # Set up likelihood
-    depadding_response = R @ mask @ exposure_op
     if mockrun:
-        log_likelihood = ift.PoissonianEnergy(masked_data) @ depadding_response @ convolved
+        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved
     else:
-        log_likelihood = ift.PoissonianEnergy(masked_data) @ depadding_response @ sky
+        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
 
     # Load minimization config
     minimization_config = cfg['minimization']
