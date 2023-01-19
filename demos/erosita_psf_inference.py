@@ -16,6 +16,9 @@ parentdir = os.path.dirname(currentdir)
 sys.path.append(parentdir)
 from src.library.erosita_observation import ErositaObservation
 
+from jax import config
+config.update('jax_enable_x64', True)
+
 if __name__ == "__main__":
     config_filename = "eROSITA_config_mg.yaml"
     try:
