@@ -88,12 +88,12 @@ if __name__ == "__main__":
             return shift
         return center - shift
 
-
     shift = np.array(sky_model.position_space.shape) / 2 * np.array(sky_model.position_space.distances)
-    psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.position_space,
+    psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space,
                                                get_lower_radec_from_pointing(center, sky_model.position_space))
 
     psf_kernel = psf_function(*get_lower_radec_from_pointing(center, sky_model.position_space, return_shift=True))
+    psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
     # p = ift.Plot()
     # p.add(ift.makeField(sky_model.position_space, psf_kernel), norm=colors.SymLogNorm(linthresh=10e-8))
     # p.output()
@@ -122,73 +122,37 @@ if __name__ == "__main__":
 
     if mockrun:
         ift.random.push_sseq_from_seed(cfg['seed'])
-
-        def get_data_realization(op, data=True):
-            mock_position = ift.from_random(op.domain)
+        mock_position = ift.from_random(sky.domain)
+        def get_data_realization(op, position, data=True):
             resp = sky_model.pad.adjoint @ exposure_op
-            res = op(mock_position)
+            res = op.force(position)
             if data:
-                res = resp(op(mock_position))
+                res = resp(op.force(position))
                 res = ift.random.current_rng().poisson(res.val.astype(np.float64))
                 res = ift.makeField(sky_model.pad.adjoint.target, res)
             return res
 
-                        mock_sky_data = np.random.poisson(exposure_op(mock_sky).val.astype(np.float64))
-                        mock_sky_data = sky_model.pad.adjoint(ift.Field.from_raw(padded_sky_space, mock_sky_data))
-                        masked_data = mask(mock_sky_data_conv)
+        # Get mock data
+        mock_data = get_data_realization(convolved_sky, mock_position)
+        mock_ps_data = get_data_realization(convolved_ps, mock_position)
+        mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position)
 
-        if plot_info['enabled']:
-            if hyperparamerter_search:
-                for alpha in list(np.linspace(0.5, 5, 20)):
-                    for q in [5 * 1e-5, 1e-5, 5 * 1e-4, 1e-4, 5 * 1e-3]:
-                        sky_model_new = ErositaSky(config_filename, alpha=alpha, q=q)
-                        sky, point_sources, diffuse = sky_model_new.create_sky_model()
-                        convolved_sky = xu.convolve_field_operator(psf_kernel, sky)
-                        convolved_ps = xu.convolve_field_operator(psf_kernel, point_sources)
-                        convolved_diffuse = xu.convolve_field_operator(psf_kernel, diffuse)
+        # Get mock signal
+        mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
+        mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
+        mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
-                        # Get mock data
-                        mock_data = get_data_realization(convolved_sky)
-                        mock_ps_data = get_data_realization(convolved_ps)
-                        mock_diffuse_data = get_data_realization(convolved_diffuse)
-
-                        # Get mock signal
-                        mock_sky = get_data_realization(convolved_sky, data=False)
-                        mock_ps = get_data_realization(convolved_ps, data=False)
-                        mock_diffuse = get_data_realization(convolved_diffuse, data=False)
-
-                        print(f'Plotting  mock data for alpha = {alpha} and q = {q}.')
-                        p = ift.Plot()
-                        norm = colors.SymLogNorm(linthresh=10e-8)
-                        p.add(mock_ps, title='point sources response', norm=norm)
-                        p.add(mock_diffuse, title='diffuse component response', norm=norm)
-                        p.add(mock_sky, title='sky', norm=norm)
-                        p.add(mock_ps_data, title='mock point source data', norm=norm)
-                        p.add(data, title='data', norm=norm)
-                        p.add(mock_data, title='mock data', norm=norm)
-                        p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
-                        p.output(nx=4, name=f'mock_data_a{alpha}_q{q}.png')
-
-            # Get mock data
-            mock_data = get_data_realization(convolved_sky)
-            mock_ps_data = get_data_realization(convolved_ps)
-            mock_diffuse_data = get_data_realization(convolved_diffuse)
-
-            # Get mock signal
-            mock_sky = get_data_realization(convolved_sky, data=False)
-            mock_ps = get_data_realization(convolved_ps, data=False)
-            mock_diffuse = get_data_realization(convolved_diffuse, data=False)
-
-            p = ift.Plot()
-            norm = colors.SymLogNorm(linthresh=10e-8)
-            p.add(mock_ps, title='point sources response', norm=norm)
-            p.add(mock_diffuse, title='diffuse component response', norm=norm)
-            p.add(mock_sky, title='sky', norm=norm)
-            p.add(mock_ps_data, title='mock point source data', norm=norm)
-            p.add(data, title='data', norm=norm)
-            p.add(mock_data, title='mock data', norm=norm)
-            p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
-            p.output(nx=4, name=f'mock_data.png')
+        p = ift.Plot()
+        lognorm = colors.LogNorm()
+        norm = colors.SymLogNorm(linthresh=5e-3)
+        p.add(mock_ps, title='point sources response', norm=lognorm)
+        p.add(mock_diffuse, title='diffuse component response', norm=lognorm)
+        p.add(mock_sky, title='sky', norm=lognorm)
+        p.add(mock_ps_data, title='mock point source data', norm=norm)
+        p.add(data, title='data', norm=norm)
+        p.add(mock_data, title='mock data', norm=norm)
+        p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
+        p.output(nx=4, name=f'mock_data.png')
 
 
 
