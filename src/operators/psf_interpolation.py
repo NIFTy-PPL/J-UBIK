@@ -5,7 +5,11 @@ import jax.numpy as jnp
 
 from jax.scipy.ndimage import map_coordinates
 from .convolution_operators import OAnew
-from .adg.nifty_convolve import get_convolve
+
+try:
+    from .adg.nifty_convolve import get_convolve
+except ImportError:
+    adg_import = False
 
 def to_r_phi(cc):
     """
@@ -180,7 +184,11 @@ def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
     # NOTE: Assumes the repository "https://gitlab.mpcdf.mpg.de/pfrank/adg.git"
     # to be cloned and located in a folder named "adg" within the module
     # `operators`
-
+    if adg_import is False:
+        print("This function needs modules from the repository
+        "https://gitlab.mpcdf.mpg.de/pfrank/adg.git". Please clone it
+        and locate it in a folder named "adg" within the module
+        `operators`")
     c = msc_infos['c']
     q = msc_infos['q']
     b = msc_infos['b']
