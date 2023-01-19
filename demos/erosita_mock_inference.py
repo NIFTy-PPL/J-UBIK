@@ -140,9 +140,9 @@ if __name__ == "__main__":
     masked_data = mask(data)
 
     if mockrun:
-        n_mock_samples = 1
-        for n in range(n_mock_samples):
-            if hyperparamerter_search:
+        if hyperparamerter_search:
+            n_mock_samples = 1
+            for n in range(n_mock_samples):
                 for alpha in [1.0001]:
                     for q in [0.0000001]:
                         # ift.random.push_sseq_from_seed(cfg['seed'])
@@ -187,16 +187,28 @@ if __name__ == "__main__":
                         p.add(mock_sky, title='mock_sky', norm=colors.SymLogNorm(linthresh=10e-10))
                         p.add(exposure_field, title='exposure', norm=colors.SymLogNorm(linthresh=10e-10))
                         p.output(nx=3, name=f'mock_data_a{alpha}_q{q}_sample{n}.png')
+            exit()
+        else:
+            sky_model = ErositaSky(config_filename, alpha=alpha, q=q)
+            point_sources, diffuse, sky = sky_model.create_sky_model()
+            convolved = gaussian_psf(sky_space=sky_model.extended_space, var=2)
+            mock_sky_position = ift.from_random(sky.domain)
+            conv_mock_sky = convolved(mock_sky_position)
+            mock_sky_data_conv = ift.Field.from_raw(sky_model.extended_space,
+                                                    np.random.poisson(
+                                                        exposure_op(conv_mock_sky).val.astype(np.float64)))
+            mock_sky_data_conv = sky_model.pad.adjoint(mock_sky_data_conv)
+            masked_data = mask(mock_sky_data_conv)
+
+            #Likelihood
+            log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved
+    else:
+        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
 
     # Print Exposure norm
     # norm = xu.get_norm(exposure, data)
     # print(norm)
 
-    # Set up likelihood
-    if mockrun:
-        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved
-    else:
-        log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ sky
 
     # Load minimization config
     minimization_config = cfg['minimization']
