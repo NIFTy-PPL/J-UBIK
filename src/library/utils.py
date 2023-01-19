@@ -65,14 +65,12 @@ def _get_e_dist(config):
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
 
-
 def get_normed_exposure(exposure_field, data_field):
     """
     Convenience function to get exposures on the order of 1, so that the signal is living on
     the same order of magnitude as the data.
     """
-    warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.",
-         DeprecationWarning, stacklevel=2)
+    warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     ratio = (
             data_field.val[exposure_field.val != 0]
             / exposure_field.val[exposure_field.val != 0]
@@ -81,10 +79,8 @@ def get_normed_exposure(exposure_field, data_field):
     normed_exp_field = exposure_field * norm
     return normed_exp_field
 
-
 def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
-    warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.",
-         DeprecationWarning, stacklevel=2)
+    warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     norms = []
     norm_mean = []
     norm_max = []
@@ -109,8 +105,7 @@ def get_norm(exposure_field, data_field):
     returns the only the order of magnitude of
     the norm of get_normed_exposure
     """
-    warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning,
-         stacklevel=2)
+    warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     ratio = (
             data_field.val[exposure_field.val != 0]
             / exposure_field.val[exposure_field.val != 0]
