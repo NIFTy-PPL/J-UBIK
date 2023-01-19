@@ -31,28 +31,28 @@ def get_interpolation_weights(rs, r):
     dr = rs[1:] - rs[:-1]
 
     def _get_wgt_front(i):
-        res = jnp.zeros_like(rs)
+        res = jnp.zeros(rs.shape, dtype=float)
         res = res.at[0].set(1.)
         return res
     res = jax.lax.cond(r < rs[0], _get_wgt_front, 
-                       lambda _: jnp.zeros_like(rs), 0)
+                       lambda _: jnp.zeros(rs.shape, dtype=float), 0)
 
     def _get_wgt_back(i):
-        res = jnp.zeros_like(rs)
+        res = jnp.zeros(rs.shape, dtype=float)
         res = res.at[rs.size-1].set(1.)
         return res    
     res += jax.lax.cond(r >= rs[rs.size-1], _get_wgt_back,
-                        lambda _: jnp.zeros_like(rs), 0)
+                        lambda _: jnp.zeros(rs.shape, dtype=float), 0)
 
     def _get_wgt(i):
-        res = jnp.zeros_like(rs)
+        res = jnp.zeros(rs.shape, dtype=float)
         wgt = (r - rs[i]) / dr[i]
         res = res.at[i].set(1. - wgt)
         res = res.at[i+1].set(wgt)
         return res
     for i in range(rs.size - 1):
         res += jax.lax.cond((rs[i]<r)*(rs[i+1]>=r), _get_wgt,
-                            (lambda _: jnp.zeros_like(rs)), i)
+                            (lambda _: jnp.zeros(rs.shape, dtype=float)), i)
     return res
 
 def to_patch_coordinates(dcoords, patch_center, patch_delta):
@@ -104,6 +104,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
         raise ValueError
     if patch_center_ids.shape[0] != nrad:
         raise ValueError
+    rs = np.array(rs, dtype=float)
     # Sort in ascending radii
     sort = np.argsort(rs)
     rs = rs[sort]
@@ -111,8 +112,8 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
     psfs = psfs[sort]
     patch_center_ids = patch_center_ids[sort]
 
-    patch_deltas = np.array(list(patch_deltas))
-    pointing_center = np.array(list(pointing_center))
+    patch_deltas = np.array(list(patch_deltas), dtype=float)
+    pointing_center = np.array(list(pointing_center), dtype=float)
     lower = np.array(list(radec_limits[0]))
     upper = np.array(list(radec_limits[1]))
     if np.any(upper <= lower):
@@ -134,7 +135,6 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
         cc -= pointing_center
         rp = to_r_phi(cc)
         # Find and select psfs required for given radius
-        #inds, wgts = find_interpolate_index_r(rs, rp[0])
         wgts = get_interpolation_weights(rs, rp[0])
 
         # Rotate requested psf slice to align with patch

@@ -144,7 +144,6 @@ class eROSITA_PSF():
                     'pointing_center' : pointing_center}
         return obs_infos
 
-
     def make_psf_op(self, energy, pointing_center, domain, lower_radec, 
                     conv_method,conv_params):
         obs_infos = self._get_obs_infos(energy, pointing_center)
