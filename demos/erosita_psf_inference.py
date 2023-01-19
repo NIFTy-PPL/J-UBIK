@@ -3,7 +3,6 @@ import os
 import sys
 
 import numpy as np
-import yaml
 from matplotlib import colors
 import nifty8 as ift
 import xubik0 as xu
@@ -89,6 +88,7 @@ if __name__ == "__main__":
             return shift
         return center - shift
 
+
     shift = np.array(sky_model.position_space.shape) / 2 * np.array(sky_model.position_space.distances)
     psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space,
                                                get_lower_radec_from_pointing(center, sky_model.position_space))
@@ -150,7 +150,6 @@ if __name__ == "__main__":
         p.add(mock_data, title='mock data', norm=norm)
         p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
         p.output(nx=4, name=f'mock_data.png')
-
 
     # Print Exposure norm
     # norm = xu.get_norm(exposure, data)
