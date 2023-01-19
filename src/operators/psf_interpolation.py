@@ -38,7 +38,7 @@ def get_interpolation_weights(rs, r):
         res = jnp.zeros(rs.shape, dtype=float)
         res = res.at[0].set(1.)
         return res
-    res = jax.lax.cond(r < rs[0], _get_wgt_front, 
+    res = jax.lax.cond(r <= rs[0], _get_wgt_front, 
                        lambda _: jnp.zeros(rs.shape, dtype=float), 0)
 
     def _get_wgt_back(i):
