@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
     # PSF
     center = observation_instance.get_center_coordinates(output_filename)
-    psf_file = xu.eROSITA_PSF("../psf_info/tm1/bcf/tm1_2dpsf_190219v05.fits")  # fixme: load from config
+    psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # fixme: load from config
 
 
     def get_lower_radec_from_pointing(center, domain, return_shift=False):

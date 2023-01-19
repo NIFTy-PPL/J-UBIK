@@ -14,6 +14,7 @@ files:
   input: 'pm00_700161_020_EventList_c001.fits'
   output: 'processed_pm00_700161_020_data.fits'
   exposure: 'expmap_pm00_700161_020.fits'
+  psf_path : '../data/tm1/bcf/tm1_2dpsf_190219v05.fits'
 
 grid:
   npix: 1024
