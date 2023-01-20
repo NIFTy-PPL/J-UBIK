@@ -20,7 +20,7 @@ from jax import config
 config.update('jax_enable_x64', True)
 
 if __name__ == "__main__":
-    config_filename = "eROSITA_config_mg.yaml"
+    config_filename = "eROSITA_config.yaml"
     try:
         cfg = xu.get_cfg(config_filename)
     except:
@@ -83,7 +83,6 @@ if __name__ == "__main__":
     # PSF
     center = observation_instance.get_center_coordinates(output_filename)
     psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
-
 
     def get_lower_radec_from_pointing(center, domain, return_shift=False):
         shift = np.array(domain.shape) / 2 * np.array(domain.distances)
