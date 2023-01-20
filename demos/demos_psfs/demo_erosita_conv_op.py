@@ -33,22 +33,21 @@ obs = xu.eROSITA_PSF(file)
 
 energy = '3000'
 pointing_center = (500, 500)
-lower_radec = (0.,0.)
 fov = (1000, 1000)
 npix = (200, 200)
 dists = tuple(ff/pp for ff, pp in zip(fov, npix))
 domain = ift.RGSpace(npix, distances=dists)
 
-psf_func = obs.psf_func_on_domain(energy, pointing_center, domain, lower_radec)
+psf_func = obs.psf_func_on_domain(energy, pointing_center, domain)
 
 kernels, sources = get_kernels_and_sources(domain, psf_func)
 
 cparams = {'b':(3,3), 'q':(5,5), 'c':(2,2), 'min_m0':(10,10), 'linear':False}
-op = obs.make_psf_op(energy, pointing_center, domain, lower_radec,
+op = obs.make_psf_op(energy, pointing_center, domain,
                      conv_method='MSC', conv_params=cparams)
 
 c2params = {'npatch': 10, 'margfrac': 0.2, 'want_cut': False}
-op2 = obs.make_psf_op(energy, pointing_center, domain, lower_radec, 
+op2 = obs.make_psf_op(energy, pointing_center, domain, 
                       conv_method='LIN', conv_params=c2params)
 
 rnds = ift.from_random(op.domain)
