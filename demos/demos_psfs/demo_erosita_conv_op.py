@@ -3,6 +3,9 @@ import nifty8 as ift
 import numpy as np
 import timeit
 
+#from jax import config
+#config.update('jax_enable_x64', True)
+
 def get_kernels_and_sources(domain, psf_func):
     rnds = np.zeros(domain.shape)
     rnds[::20, ::20] = 1.
@@ -15,7 +18,7 @@ def get_kernels_and_sources(domain, psf_func):
 
     res = np.zeros_like(rnds)
     for ix, iy, xx, yy in zip(inds[0],inds[1], cx, cy):
-        psf = psf_func(xx, yy)*np.sqrt(domain.scalar_dvol)
+        psf = psf_func(xx, yy) * domain.scalar_dvol
         psf = np.roll(psf, ix, axis = 0)
         psf = np.roll(psf, iy, axis = 1)
         res += psf
@@ -29,9 +32,9 @@ file = dir_path + fname[0]
 obs = xu.eROSITA_PSF(file)
 
 energy = '3000'
-pointing_center = (400, 400)
+pointing_center = (500, 500)
 lower_radec = (0.,0.)
-fov = (800, 800)
+fov = (1000, 1000)
 npix = (200, 200)
 dists = tuple(ff/pp for ff, pp in zip(fov, npix))
 domain = ift.RGSpace(npix, distances=dists)
@@ -40,7 +43,7 @@ psf_func = obs.psf_func_on_domain(energy, pointing_center, domain, lower_radec)
 
 kernels, sources = get_kernels_and_sources(domain, psf_func)
 
-cparams = {'b':(3,3), 'q':(6,6), 'c':(2,2), 'min_m0':(8,8), 'linear':True}
+cparams = {'b':(3,3), 'q':(5,5), 'c':(2,2), 'min_m0':(10,10), 'linear':False}
 op = obs.make_psf_op(energy, pointing_center, domain, lower_radec,
                      conv_method='MSC', conv_params=cparams)
 
@@ -70,15 +73,18 @@ print('LIN:', t1-t0)
 pl = ift.Plot()
 pl.add(res, title = 'MSC')
 pl.add(res2, title = 'LIN')
-pl.output(nx=2, ny=1, xsize=16, ysize=8)
+pl.add((res-res2).abs(), title = 'ABS Diff')
+pl.output(nx=2, ny=2, xsize=16, ysize=16)
 
 res = op(sources)
 res2 = op2(sources)
 
 pl = ift.Plot()
 pl.add(res, title = 'MSC')
-pl.add(res2, title = 'LIN')
+pl.add((res-kernels).abs(), title = 'Abs diff MSC')
 pl.add(kernels, title = 'GT')
-pl.add(kernels, title = 'GT')
-pl.output(nx=2, ny=2, xsize=16, ysize=16)
 
+pl.add(res2, title = 'LIN')
+pl.add((res2-kernels).abs(), title = 'Abs diff LIN')
+pl.add(kernels, title = 'GT')
+pl.output(nx=3, ny=2, xsize=16, ysize=10)
