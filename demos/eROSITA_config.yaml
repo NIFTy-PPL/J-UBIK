@@ -4,7 +4,6 @@ mock: False
 telescope:
   tm_id : 1
   fov: 3600 # in arcsec
-  # FIXME define lower_radec (lower left corner of the FOV)
   pattern: 15
 
 plotting:

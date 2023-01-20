@@ -84,15 +84,7 @@ if __name__ == "__main__":
     center = observation_instance.get_center_coordinates(output_filename)
     psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
 
-    def get_lower_radec_from_pointing(center, domain, return_shift=False):
-        shift = np.array(domain.shape) / 2 * np.array(domain.distances)
-        if return_shift:
-            return shift
-        return center - shift
-
-    shift = np.array(sky_model.position_space.shape) / 2 * np.array(sky_model.position_space.distances)
-    # psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space,
-    #                                            get_lower_radec_from_pointing(center, sky_model.position_space))
+    # psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
 
     # psf_kernel = psf_function(*get_lower_radec_from_pointing(center, sky_model.position_space, return_shift=True))
     # psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
@@ -100,10 +92,15 @@ if __name__ == "__main__":
     # p.add(ift.makeField(sky_model.position_space, psf_kernel), norm=colors.SymLogNorm(linthresh=10e-8))
     # p.output()
 
+    # Places the pointing in the center of the image (or equivalently defines
+    # the image to be centered around the pointing).
+    dom = sky_model.extended_space
+    center = tuple(0.5*ss*dd for ss,dd in zip(dom.shape, dom.distances))
+
+
     c2params = {'npatch': 8, 'margfrac': 0.2, 'want_cut': False}
-    big_shift = get_lower_radec_from_pointing(center, sky_model.position_space)
     conv_op = psf_file.make_psf_op('3000', center, sky_model.extended_space,
-                                   big_shift, conv_method='LIN', conv_params=c2params)
+                                   conv_method='LIN', conv_params=c2params)
 
     convolved_sky = conv_op @ sky
     convolved_ps = conv_op @ point_sources
