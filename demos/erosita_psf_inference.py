@@ -102,7 +102,8 @@ if __name__ == "__main__":
     # p.output()
 
     convolved_sky = xu.convolve_field_operator(psf_kernel, sky)
-    convolved_ps = xu.convolve_field_operator(psf_kernel, point_sources)
+    if not only_diffuse:
+        convolved_ps = xu.convolve_field_operator(psf_kernel, point_sources)
     convolved_diffuse = xu.convolve_field_operator(psf_kernel, diffuse)
 
     # Exposure
@@ -140,11 +141,13 @@ if __name__ == "__main__":
 
         # Get mock signal
         mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
-        mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
+        if not only_diffuse:
+            mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
         mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
         norm = SymLogNorm(linthresh=5e-3)
-        p.add(mock_ps, title='point sources response', norm=LogNorm())
+        if not only_diffuse:
+            p.add(mock_ps, title='point sources response', norm=LogNorm())
         p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
         p.add(mock_sky, title='sky', norm=LogNorm())
         if not only_diffuse:
@@ -175,8 +178,11 @@ if __name__ == "__main__":
     operators_to_plot = {'reconstruction': sky_model.pad.adjoint(sky),
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
+    if not only_diffuse:
+        operators_to_plot['point_sources']: sky_model.pad.adjoint(point_sources)
+
     # Create the output directory
-    output_directory = create_output_directory(file_info['output']) #FIXME: take from config
+    output_directory = create_output_directory(file_info['res_dir'])
 
     # Plot the data in output directory
     p.add(data, norm=SymLogNorm(linthresh=5e-3))
@@ -191,7 +197,8 @@ if __name__ == "__main__":
     # Initial position
     initial_position = ift.from_random(sky.domain).val
     initial_position.update((key, val * 0.1) for key, val in initial_position.items())
-    initial_position['point_sources'] = np.zeros(sky_model.extended_space.shape)
+    if not only_diffuse:
+        initial_position['point_sources'] = np.zeros(sky_model.extended_space.shape)
     initial_position = ift.MultiField.from_raw(sky.domain, initial_position)
 
     if minimization_config['geovi']:
