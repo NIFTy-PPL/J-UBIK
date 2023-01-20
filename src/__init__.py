@@ -12,7 +12,7 @@ from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
 from .library.observation_operator import ChandraObservationInformation
 from .operators.convolution_operators import OAConvolver, OAnew, OverlapAdd
-from .operators.convolve_utils import get_weights
+from .operators.convolution_operators import _get_weights
 from .operators.zero_padder import MarginZeroPadder
 from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
