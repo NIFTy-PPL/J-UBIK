@@ -6,6 +6,21 @@ telescope:
   fov: 3600 # in arcsec
   pattern: 15
 
+
+psf:
+  method: 'LIN'
+  energy: '3000'
+  # LIN config
+  npatch: 8
+  margfrac: 0.2
+  want_cut: False
+  # MSC config
+  b: (3,3)
+  q: (4,4)
+  c: (2,2)
+  min_m0: (10,10)
+  linear: False
+
 plotting:
   enabled: True
   slice: Null

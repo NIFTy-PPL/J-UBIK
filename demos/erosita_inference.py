@@ -96,11 +96,10 @@ if __name__ == "__main__":
     # the image to be centered around the pointing).
     dom = sky_model.extended_space
     center = tuple(0.5*ss*dd for ss,dd in zip(dom.shape, dom.distances))
-
-
-    c2params = {'npatch': 8, 'margfrac': 0.2, 'want_cut': False}
-    conv_op = psf_file.make_psf_op('3000', center, sky_model.extended_space,
-                                   conv_method='LIN', conv_params=c2params)
+    energy = cfg['psf']['energy']
+    conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
+                                   conv_method=cfg['psf']['method'],
+                                   conv_params=cfg['psf'])
 
     convolved_sky = conv_op @ sky
     convolved_ps = conv_op @ point_sources
