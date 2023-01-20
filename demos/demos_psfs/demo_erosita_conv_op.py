@@ -25,7 +25,8 @@ def get_kernels_and_sources(domain, psf_func):
     rnds = ift.makeField(domain, rnds)
     return ift.makeField(domain, res), rnds
 
-dir_path= "tm1/bcf/"
+
+dir_path = "data/tm1/bcf/"
 fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"]
 
 file = dir_path + fname[0]
