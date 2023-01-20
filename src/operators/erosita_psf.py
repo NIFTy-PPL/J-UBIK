@@ -1,8 +1,10 @@
+import nifty8 as ift
 import numpy as np
 import astropy.io.fits as ast
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from .psf_interpolation import get_psf_func, psf_convolve_operator, psf_lin_int_operator
+from .psf_interpolation import (get_psf_func, psf_convolve_operator, 
+                                psf_lin_int_operator)
 
 
 
@@ -167,6 +169,9 @@ class eROSITA_PSF():
             print('Build MSC-PSF...')
             op = psf_convolve_operator(domain, lower_radec, obs_infos,
                                        conv_params)
+            # Scale to match the integration convention of 'LIN'
+            scale = ift.ScalingOperator(domain, np.sqrt(domain.scalar_dvol))
+            op = op @ scale
             print('...done build MSC-PSF')
         elif conv_method == 'LIN':
             print('Build LIN-PSF...')
