@@ -10,10 +10,10 @@ from .library.plot import plot_slices, plot_result, plot_single_psf, plot_psfset
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
-from .operators.observation_operator import ChandraObservationInformation
+from .library.observation_operator import ChandraObservationInformation
 from .operators.convolution_operators import OAConvolver, OAnew, OverlapAdd
-from .operators.bilinear_interpolation import get_weights
+from .operators.convolve_utils import get_weights
 from .operators.zero_padder import MarginZeroPadder
 from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
-from .operators.erosita_psf import eROSITA_PSF
+from .library.erosita_psf import eROSITA_PSF
