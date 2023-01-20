@@ -50,6 +50,9 @@ if __name__ == "__main__":
     tel_info = cfg['telescope']
     tm_id = tel_info['tm_id']
 
+    # Only diffuse reconstruction
+    only_diffuse = cfg['priors']['only_diffuse']
+
     log = 'Output file {} already exists and is not regenerated. ' \
           'If the observations parameters shall be changed please delete or rename the current output file.'
 
@@ -168,15 +171,14 @@ if __name__ == "__main__":
 
     # Prepare results
     operators_to_plot = {'reconstruction': sky_model.pad.adjoint(sky),
-                         'point_sources': sky_model.pad.adjoint(point_sources),
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
     # Create the output directory
     output_directory = create_output_directory(file_info['output']) #FIXME: take from config
 
     # Plot the data in output directory
-    p.add(data, norm=LogNorm())
-    p.output(name=os.path.join(output_directory, 'data'))
+    p.add(data, norm=SymLogNorm(linthresh=5e-3))
+    p.output(name=os.path.join(output_directory, 'data.png'), dpi=800)
 
     # Save config file in output_directory
     save_config(cfg, config_filename, output_directory)
@@ -185,7 +187,8 @@ if __name__ == "__main__":
                                               plotting_kwargs={'norm': LogNorm()})
 
     # Initial position
-    initial_position = 0.1 * ift.from_random(sky.domain).val
+    initial_position = ift.from_random(sky.domain).val
+    initial_position.update((key, val * 0.1) for key, val in initial_position.items())
     initial_position['point_sources'] = np.zeros(sky_model.extended_space.shape)
     initial_position = ift.MultiField.from_raw(sky.domain, initial_position)
 
