@@ -1,9 +1,9 @@
 import nifty8 as ift
 import numpy as np
-import jax
 import jax.numpy as jnp
 
 from jax.scipy.ndimage import map_coordinates
+from jax.lax import cond
 from .convolution_operators import OAnew
 
 try:
@@ -11,6 +11,7 @@ try:
     adg_import = True
 except ImportError:
     adg_import = False
+
 
 def to_r_phi(cc):
     """
@@ -42,15 +43,15 @@ def get_interpolation_weights(rs, r):
         res = jnp.zeros(rs.shape, dtype=float)
         res = res.at[0].set(1.)
         return res
-    res = jax.lax.cond(r <= rs[0], _get_wgt_front, 
-                       lambda _: jnp.zeros(rs.shape, dtype=float), 0)
+    res = cond(r <= rs[0], _get_wgt_front, 
+               lambda _: jnp.zeros(rs.shape, dtype=float), 0)
 
     def _get_wgt_back(i):
         res = jnp.zeros(rs.shape, dtype=float)
         res = res.at[rs.size-1].set(1.)
         return res    
-    res += jax.lax.cond(r >= rs[rs.size-1], _get_wgt_back,
-                        lambda _: jnp.zeros(rs.shape, dtype=float), 0)
+    res += cond(r >= rs[rs.size-1], _get_wgt_back,
+                lambda _: jnp.zeros(rs.shape, dtype=float), 0)
 
     def _get_wgt(i):
         res = jnp.zeros(rs.shape, dtype=float)
@@ -59,8 +60,8 @@ def get_interpolation_weights(rs, r):
         res = res.at[i+1].set(wgt)
         return res
     for i in range(rs.size - 1):
-        res += jax.lax.cond((rs[i]<r)*(rs[i+1]>=r), _get_wgt,
-                            (lambda _: jnp.zeros(rs.shape, dtype=float)), i)
+        res += cond((rs[i]<r)*(rs[i+1]>=r), _get_wgt,
+                    (lambda _: jnp.zeros(rs.shape, dtype=float)), i)
     return res
 
 def to_patch_coordinates(dcoords, patch_center, patch_delta):
@@ -246,3 +247,34 @@ def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1,
     margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
     op = OAnew(domain, patch_psfs, len(patch_psfs), margin, want_cut)
     return op
+
+def gauss(x, y, sig):
+    const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
+    r = np.sqrt(x ** 2 + y ** 2)
+    f = const * np.exp(-r ** 2 / (2 * sig ** 2))
+    return f
+
+def get_gaussian_kernel(width, domain):
+    x = y = np.linspace(-width, width, domain.shape[1])
+    xv, yv = np.meshgrid(x, y)
+    kern = gauss(xv, yv, 1)
+    kern = np.fft.fftshift(kern)
+    kern = ift.makeField(domain[1], kern)
+    kern = kern * (kern.integrate().val) ** -1
+    explode_pad = ift.ContractionOperator(domain, spaces=0)
+    res = explode_pad.adjoint(kern)
+    return res
+
+def _bilinear_weights(domain):
+    psize = domain.shape[0]
+    if psize/2 != int(psize/2):
+        raise ValueError("this should happen")
+    a = np.linspace(0, 1, int(psize/2), dtype="float64")
+    b = np.concatenate([a, np.flip(a)])
+    c = np.outer(b,b)
+    return ift.Field.from_raw(domain, c)
+
+def get_weights(domain):
+    weights = _bilinear_weights(domain[1])
+    explode = ift.ContractionOperator(domain, spaces=0).adjoint
+    return explode(weights)

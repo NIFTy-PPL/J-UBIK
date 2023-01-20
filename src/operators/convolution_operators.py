@@ -3,7 +3,7 @@ import numpy as np
 import nifty8 as ift
 
 from .zero_padder import MarginZeroPadder
-from .bilinear_interpolation import get_weights
+from .convolve_utils import get_weights
 from ..library.utils import convolve_field_operator
 
 
