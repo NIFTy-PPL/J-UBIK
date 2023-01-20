@@ -20,7 +20,7 @@ from jax import config
 config.update('jax_enable_x64', True)
 
 if __name__ == "__main__":
-    config_filename = "eROSITA_config_mg.yaml"
+    config_filename = "eROSITA_config.yaml"
     try:
         cfg = xu.get_cfg(config_filename)
     except:
