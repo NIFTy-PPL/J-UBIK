@@ -150,12 +150,12 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
 
     return psf
 
-def get_psf_func(domain, obs_infos):
-    psfs = obs_infos['psfs']
-    rs = obs_infos['rs']
-    patch_center_ids = obs_infos['patch_center_ids']
-    patch_deltas = obs_infos['patch_deltas']
-    pointing_center = obs_infos['pointing_center']
+def get_psf_func(domain, psf_infos):
+    psfs = psf_infos['psfs']
+    rs = psf_infos['rs']
+    patch_center_ids = psf_infos['patch_center_ids']
+    patch_deltas = psf_infos['patch_deltas']
+    pointing_center = psf_infos['pointing_center']
 
     if not isinstance(domain, ift.RGSpace):
         raise ValueError
@@ -164,7 +164,7 @@ def get_psf_func(domain, obs_infos):
 
     return get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center)
 
-def psf_convolve_operator(domain, obs_infos, msc_infos):
+def psf_convolve_operator(domain, psf_infos, msc_infos):
     """
     Psf convolution operator using the MSC approximation.
     """
@@ -184,15 +184,15 @@ def psf_convolve_operator(domain, obs_infos, msc_infos):
     linear = msc_infos['linear']
     local = True
 
-    func_psf = get_psf_func(domain, obs_infos)
+    func_psf = get_psf_func(domain, psf_infos)
     return get_convolve(domain, func_psf, c, q, b, min_m0, linear, local)
 
-def psf_lin_int_operator(domain, npatch, obs_infos, margfrac=0.1, 
+def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1, 
                          want_cut = False):
     """
     Psf convolution operator using bilinear interpolation of stationary patches.
     """
-    func_psf = get_psf_func(domain, obs_infos)
+    func_psf = get_psf_func(domain, psf_infos)
 
     shp = domain.shape
     dist = domain.distances

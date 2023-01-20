@@ -152,30 +152,30 @@ class eROSITA_PSF():
             plt.clf
             plt.close()
 
-    def _get_obs_infos(self, energy, pointing_center, lower_cut = 1E-5):
+    def _get_psf_infos(self, energy, pointing_center, lower_cut = 1E-5):
         newpsfs = np.array([self._cutnorm(pp, lower_cut = lower_cut) for pp in 
                             self._load_data(energy)])
-        obs_infos = {'psfs' : newpsfs, 
+        psf_infos = {'psfs' : newpsfs, 
                      'rs' : self._load_theta(energy), 
                      'patch_center_ids' : self._load_p_center(energy),
                      'patch_deltas' : self._load_pix_size(), 
                      'pointing_center' : pointing_center}
-        return obs_infos
+        return psf_infos
 
     def make_psf_op(self, energy, pointing_center, domain, conv_method, 
                     conv_params):
-        obs_infos = self._get_obs_infos(energy, pointing_center)
+        psf_infos = self._get_psf_infos(energy, pointing_center)
 
         if conv_method == 'MSC':
             print('Build MSC-PSF...')
-            op = psf_convolve_operator(domain, obs_infos, conv_params)
+            op = psf_convolve_operator(domain, psf_infos, conv_params)
             # Scale to match the integration convention of 'LIN'
             scale = ift.ScalingOperator(domain, np.sqrt(domain.scalar_dvol))
             op = op @ scale
             print('...done build MSC-PSF')
         elif conv_method == 'LIN':
             print('Build LIN-PSF...')
-            op = psf_lin_int_operator(domain, conv_params['npatch'], obs_infos,
+            op = psf_lin_int_operator(domain, conv_params['npatch'], psf_infos,
                                       margfrac = conv_params['margfrac'],
                                       want_cut = conv_params['want_cut'])
             print('...done build LIN-PSF')
@@ -184,8 +184,8 @@ class eROSITA_PSF():
         return op
 
     def _get_psf_func(self, energy, pointing_center, domain):
-        obs_infos = self._get_obs_infos(energy, pointing_center)
-        psf_func = get_psf_func(domain, obs_infos)
+        psf_infos = self._get_psf_infos(energy, pointing_center)
+        psf_func = get_psf_func(domain, psf_infos)
         return psf_func
 
 
