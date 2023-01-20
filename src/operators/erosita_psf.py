@@ -3,8 +3,8 @@ import numpy as np
 import astropy.io.fits as ast
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from .psf_interpolation import (get_psf_func, psf_convolve_operator, 
-                                psf_lin_int_operator)
+from .convolve_utils import (get_psf_func, psf_convolve_operator, 
+                             psf_lin_int_operator)
 
 
 
