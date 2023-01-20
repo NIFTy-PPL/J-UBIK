@@ -119,6 +119,8 @@ if __name__ == "__main__":
     data = ift.makeField(sky_model.position_space, data)
     masked_data = mask(data)
 
+    p = ift.Plot()
+
     if mock_run:
         ift.random.push_sseq_from_seed(cfg['seed'])
         mock_position = ift.from_random(sky.domain)
@@ -137,7 +139,6 @@ if __name__ == "__main__":
         mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
         mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
-        p = ift.Plot()
         norm = SymLogNorm(linthresh=5e-3)
         p.add(mock_ps, title='point sources response', norm=LogNorm())
         p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
@@ -170,13 +171,23 @@ if __name__ == "__main__":
                          'point_sources': sky_model.pad.adjoint(point_sources),
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
-    output_directory = create_output_directory("retreat_first_reconstruction")
+    # Create the output directory
+    output_directory = create_output_directory("retreat_first_reconstruction") #FIXME: take from config
+
+    # Plot the data in output directory
+    p.add(data, norm=LogNorm())
+    p.output(name=os.path.join(output_directory, 'data'))
 
     # Save config file in output_directory
     save_config(cfg, config_filename, output_directory)
 
     plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
-                                              plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
+                                              plotting_kwargs={'norm': LogNorm()})
+
+    # Initial position
+    initial_position = 0.1 * ift.from_random(sky.domain).val
+    initial_position['point_sources'] = np.zeros(sky_model.extended_space.shape)
+    initial_position = ift.MultiField.from_raw(sky.domain, initial_position)
 
     if minimization_config['geovi']:
         # geoVI
@@ -185,6 +196,7 @@ if __name__ == "__main__":
                         minimizer,
                         ic_sampling,
                         minimizer_sampling,
+                        initial_position=initial_position,
                         output_directory=output_directory,
                         export_operator_outputs=operators_to_plot,
                         inspect_callback=plot,
