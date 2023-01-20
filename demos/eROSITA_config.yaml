@@ -1,14 +1,17 @@
 seed: 86
 mock: False
+
 telescope:
   tm_id : 1
   fov: 3600 # in arcsec
   # FIXME define lower_radec (lower left corner of the FOV)
   pattern: 15
+
 plotting:
   enabled: True
   slice: Null
   dpi: 800
+
 files:
   obs_path: '../data/LMC_SN1987A/'
   input: 'pm00_700161_020_EventList_c001.fits'
@@ -23,6 +26,7 @@ grid:
     e_min: 2.0
     e_max: 4.5
 # Exposurenorm is 4.785357857098681e-05
+
 priors:
   point_sources:
     alpha: 1.
@@ -63,22 +67,3 @@ minimization:
     deltaE: 0.1
     iteration_limit: 5
     name: Sampling(nonlin)
-
-#minimization:
-#  geovi: False
-#  total_iterations: 1
-#  n_samples: 'lambda i_iter: 1 if i_iter < 13 else 10'
-#  ic_newton:
-#    convergence_level: 1
-#    deltaE: 0.5
-#    iteration_limit: 1
-#    name: Newton
-#  ic_sampling:
-#    deltaE: 0.5
-#    iteration_limit: 1
-#    name: Sampling(lin)
-#  ic_sampling_nl:
-#    deltaE: 0.05
-#    iteration_limit: 3
-#    name: Sampling(nonlin)
-
