@@ -48,9 +48,8 @@ def test_psf():
     patch_centers = np.outer(np.ones_like(rs), np.array([128, 128]))
     patch_deltas = (dx, dy)
     center = (1.,1.)
-    radec_limits = ((0.,0.), (2.,2.))
 
-    func_psf = get_psf(psfs, rs, patch_centers, patch_deltas, center, radec_limits)
+    func_psf = get_psf(psfs, rs, patch_centers, patch_deltas, center)
     #func_psf = get_psf(rs, dradecs, psfs, center, max_radec)
 
     ddra, dddec = jnp.meshgrid(ra, dec, indexing='ij')
@@ -91,7 +90,6 @@ def compare_psf_ops():
     patch_centers = np.outer(np.ones_like(rs), np.array([nx//2, ny//2]))
     patch_deltas = (dx, dy)
     center = (1.,1.)
-    lower_radec = (0.,0.)
 
     shp = (200, 200)
     domain = ift.RGSpace(shp, tuple(2./ss for ss in shp))
@@ -103,9 +101,9 @@ def compare_psf_ops():
                  'pointing_center' : center}
     msc_infos = {'c' : (1,1), 'q': (1,1), 'b' : (3,3), 'min_m0' : (5,5),
                  'linear' : (True, True)}
-    msc_op = psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos)
+    msc_op = psf_convolve_operator(domain, obs_infos, msc_infos)
 
-    int_op = psf_lin_int_operator(domain, 10, lower_radec, obs_infos, margfrac=0.1)
+    int_op = psf_lin_int_operator(domain, 10, obs_infos, margfrac=0.1)
     int_cut = int_op._cut
     msc_op = int_cut @ msc_op
 

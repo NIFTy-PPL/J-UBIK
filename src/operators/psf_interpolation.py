@@ -80,8 +80,7 @@ def to_patch_coordinates(dcoords, patch_center, patch_delta):
     res /= patch_delta
     return jnp.swapaxes(res, -1, 0)
 
-def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center, 
-            radec_limits):
+def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
     """
     Parameters:
     -----------
@@ -96,10 +95,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
     patch_deltas: tuple of float (Shape: (2,))
         Pixelsize of the gridded psfs.
     pointing_center: tuple of float (Shape: (2,))
-        Center of the pointing of the module on the sky. Must be within 
-        `radec_limits`.
-    radec_limits: tuple of tuple of float
-        Lower and upper limit of the sky coordinate frame in ra-dec units
+        Center of the pointing of the module on the sky.
     Returns:
     --------
     func: 
@@ -121,15 +117,6 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
 
     patch_deltas = np.array(list(patch_deltas), dtype=float)
     pointing_center = np.array(list(pointing_center), dtype=float)
-    lower = np.array(list(radec_limits[0]))
-    upper = np.array(list(radec_limits[1]))
-    if np.any(upper <= lower):
-        raise ValueError
-    if np.any(pointing_center < lower):
-        raise ValueError
-    if np.any(pointing_center > upper):
-        raise ValueError
-    pointing_center -= lower
     for pp, cc in zip(psfs, patch_center_ids):
         if np.any(cc > np.array(list(pp.shape))):
             raise ValueError
@@ -162,7 +149,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
 
     return psf
 
-def get_psf_func(domain, lower_radec, obs_infos):
+def get_psf_func(domain, obs_infos):
     psfs = obs_infos['psfs']
     rs = obs_infos['rs']
     patch_center_ids = obs_infos['patch_center_ids']
@@ -174,13 +161,9 @@ def get_psf_func(domain, lower_radec, obs_infos):
     if not domain.harmonic == False:
         raise ValueError
 
-    upper_radec = (tuple(ll+ss*dd for ll,ss,dd in 
-                   zip(lower_radec, domain.shape, domain.distances)))
-    radec_limits = (lower_radec, upper_radec)
-    return get_psf(psfs, rs, patch_center_ids, patch_deltas, 
-                   pointing_center, radec_limits)
+    return get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center)
 
-def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
+def psf_convolve_operator(domain, obs_infos, msc_infos):
     """
     Psf convolution operator using the MSC approximation.
     """
@@ -200,15 +183,15 @@ def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
     linear = msc_infos['linear']
     local = True
 
-    func_psf = get_psf_func(domain, lower_radec, obs_infos)
+    func_psf = get_psf_func(domain, obs_infos)
     return get_convolve(domain, func_psf, c, q, b, min_m0, linear, local)
 
-def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1,
+def psf_lin_int_operator(domain, npatch, obs_infos, margfrac=0.1, 
                          want_cut = False):
     """
     Psf convolution operator using bilinear interpolation of stationary patches.
     """
-    func_psf = get_psf_func(domain, lower_radec, obs_infos)
+    func_psf = get_psf_func(domain, obs_infos)
 
     shp = domain.shape
     dist = domain.distances

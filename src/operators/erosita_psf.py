@@ -161,22 +161,20 @@ class eROSITA_PSF():
                      'pointing_center' : pointing_center}
         return obs_infos
 
-    def make_psf_op(self, energy, pointing_center, domain, lower_radec, 
-                    conv_method, conv_params):
+    def make_psf_op(self, energy, pointing_center, domain, conv_method, 
+                    conv_params):
         obs_infos = self._get_obs_infos(energy, pointing_center)
 
         if conv_method == 'MSC':
             print('Build MSC-PSF...')
-            op = psf_convolve_operator(domain, lower_radec, obs_infos,
-                                       conv_params)
+            op = psf_convolve_operator(domain, obs_infos, conv_params)
             # Scale to match the integration convention of 'LIN'
             scale = ift.ScalingOperator(domain, np.sqrt(domain.scalar_dvol))
             op = op @ scale
             print('...done build MSC-PSF')
         elif conv_method == 'LIN':
             print('Build LIN-PSF...')
-            op = psf_lin_int_operator(domain, conv_params['npatch'], 
-                                      lower_radec, obs_infos,
+            op = psf_lin_int_operator(domain, conv_params['npatch'], obs_infos,
                                       margfrac = conv_params['margfrac'],
                                       want_cut = conv_params['want_cut'])
             print('...done build LIN-PSF')
@@ -184,15 +182,14 @@ class eROSITA_PSF():
             raise ValueError(f'Unknown conv_method: {conv_method}')
         return op
 
-    def _get_psf_func(self, energy, pointing_center, domain, lower_radec):
+    def _get_psf_func(self, energy, pointing_center, domain):
         obs_infos = self._get_obs_infos(energy, pointing_center)
-        psf_func = get_psf_func(domain, lower_radec, obs_infos)
+        psf_func = get_psf_func(domain, obs_infos)
         return psf_func
 
 
-    def psf_func_on_domain(self, energy, pointing_center, domain, lower_radec):
-        psf_func = self._get_psf_func(energy, pointing_center, domain, 
-                                      lower_radec)
+    def psf_func_on_domain(self, energy, pointing_center, domain):
+        psf_func = self._get_psf_func(energy, pointing_center, domain)
         distances = ((np.arange(ss) - ss//2)*dd for ss,dd in 
                      zip(domain.shape, domain.distances))
         distances = (np.roll(dd, (ss+1)//2) for dd,ss in 
