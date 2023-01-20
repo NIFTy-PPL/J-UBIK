@@ -33,8 +33,8 @@ if __name__ == "__main__":
     # File Location
     file_info = cfg['files']
     obs_path = file_info['obs_path']
-    input_filenames = file_info['input']
-    output_filename = file_info['output']
+    input_filenames = file_info['input_data']
+    output_filename = file_info['output_data']
     exposure_filename = file_info['exposure']
     observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
     sky_model = ErositaSky(config_filename)
@@ -172,7 +172,7 @@ if __name__ == "__main__":
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
     # Create the output directory
-    output_directory = create_output_directory("retreat_first_reconstruction") #FIXME: take from config
+    output_directory = create_output_directory(file_info['output']) #FIXME: take from config
 
     # Plot the data in output directory
     p.add(data, norm=LogNorm())
