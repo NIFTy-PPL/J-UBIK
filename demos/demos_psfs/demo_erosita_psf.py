@@ -10,7 +10,7 @@ file = dir_path + fname[0]
 obs = xu.eROSITA_PSF(file)
 
 energy = '3000'
-domain = ift.RGSpace((1024,1024), distances=(7.03125, 7.03125))
+domain = ift.RGSpace((1024, 1024), distances=(7.03125, 7.03125))
 pointing_center = tuple(ss*dd/2. for ss,dd in 
                         zip(domain.shape, domain.distances))
 psf_func = obs.psf_func_on_domain(energy, pointing_center, domain)

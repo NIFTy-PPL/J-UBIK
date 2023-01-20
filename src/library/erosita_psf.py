@@ -4,8 +4,8 @@ import astropy.io.fits as ast
 import matplotlib.pyplot as plt
 
 from matplotlib.colors import LogNorm
-from ..operators.convolve_utils import (get_psf_func, psf_convolve_operator, 
-                             psf_lin_int_operator)
+from ..operators.convolve_utils import (get_psf_func, psf_convolve_operator,
+                                        psf_lin_int_operator)
 
 
 class eROSITA_PSF():
@@ -76,28 +76,28 @@ class eROSITA_PSF():
     def _load_pix_size(self):
         """Pixel Size in arcsecs"""
         with ast.open(self._fname) as f:
-            p_size = [(f[0].header["CDELT"+self._myheader['ra']], 
+            p_size = [(f[0].header["CDELT"+self._myheader['ra']],
                        f[0].header["CDELT"+self._myheader['dec']])]
         return np.array(p_size)
 
     def _load_pix_size_full(self):
         with ast.open(self._fname) as f:
-            p_size = [(f[i].header["CDELT"+self._myheader['ra']], 
-                       f[i].header["CDELT"+self._myheader['dec']]) 
-                       for i in range(len(f))]
+            p_size = [(f[i].header["CDELT"+self._myheader['ra']],
+                       f[i].header["CDELT"+self._myheader['dec']])
+                      for i in range(len(f))]
         return np.array(p_size)
 
     def _load_theta(self, energy):
         self._check_energy(energy)
         ind = self._ind_for_energy(energy)
         with ast.open(self._fname) as f:
-            theta_list = [int(f[i].name.split("a")[0].split("V")[1]) 
+            theta_list = [int(f[i].name.split("a")[0].split("V")[1])
                           for i in ind]
         return np.array(theta_list)*60
 
     def _load_theta_full(self):
         with ast.open(self._fname) as f:
-            theta_list = [int(f[i].name.split("a")[0].split("V")[1]) 
+            theta_list = [int(f[i].name.split("a")[0].split("V")[1])
                           for i in range(len(f))]
         return np.array(theta_list)*60
 
@@ -116,7 +116,7 @@ class eROSITA_PSF():
             theta_list = [f[i].header["CBD10001"] for i in range(len(f))]
         return theta_list
 
-    def _cutnorm(self, psf, lower_cut = 1E-5, want_frac = False):
+    def _cutnorm(self, psf, lower_cut=1E-5, want_frac=False):
         if len(psf.shape) != 2:
             raise ValueError
         if want_frac:
@@ -139,7 +139,7 @@ class eROSITA_PSF():
             "dpix": self._load_pix_size()}
         return full_dct
 
-    def plot_psfs(self, lower_cut = 1E-5):
+    def plot_psfs(self, lower_cut=1E-5):
         """plots the psfs in the fits file"""
         name = self._load_names()
         psf = self._load_data_full()
@@ -198,7 +198,6 @@ class eROSITA_PSF():
         psf_infos = self._get_psf_infos(energy, pointing_center)
         psf_func = get_psf_func(domain, psf_infos)
         return psf_func
-
 
     def psf_func_on_domain(self, energy, pointing_center, domain):
         self._check_energy(energy)
