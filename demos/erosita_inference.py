@@ -50,6 +50,9 @@ if __name__ == "__main__":
     tel_info = cfg['telescope']
     tm_id = tel_info['tm_id']
 
+    # Only diffuse reconstruction
+    only_diffuse = cfg['priors']['only_diffuse']
+
     log = 'Output file {} already exists and is not regenerated. ' \
           'If the observations parameters shall be changed please delete or rename the current output file.'
 
@@ -96,14 +99,16 @@ if __name__ == "__main__":
     # Places the pointing in the center of the image (or equivalently defines
     # the image to be centered around the pointing).
     dom = sky_model.extended_space
-    center = tuple(0.5*ss*dd for ss,dd in zip(dom.shape, dom.distances))
+    center = tuple(0.5*ss*dd for ss, dd in zip(dom.shape, dom.distances))
+
     energy = cfg['psf']['energy']
     conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
                                    conv_method=cfg['psf']['method'],
                                    conv_params=cfg['psf'])
 
     convolved_sky = conv_op @ sky
-    convolved_ps = conv_op @ point_sources
+    if not only_diffuse:
+        convolved_ps = conv_op @ point_sources
     convolved_diffuse = conv_op @ diffuse
 
     # Exposure
@@ -123,13 +128,16 @@ if __name__ == "__main__":
     data = ift.makeField(sky_model.position_space, data)
     masked_data = mask(data)
 
+    p = ift.Plot()
+
     if mock_run:
         ift.random.push_sseq_from_seed(cfg['seed'])
         mock_position = ift.from_random(sky.domain)
 
         # Get mock data
         mock_data = get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
-        mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
+        if not only_diffuse:
+            mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
         mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
                                                  padder=sky_model.pad)
 
@@ -138,15 +146,17 @@ if __name__ == "__main__":
 
         # Get mock signal
         mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
-        mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
+        if not only_diffuse:
+            mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
         mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
-        p = ift.Plot()
         norm = SymLogNorm(linthresh=5e-3)
-        p.add(mock_ps, title='point sources response', norm=LogNorm())
+        if not only_diffuse:
+            p.add(mock_ps, title='point sources response', norm=LogNorm())
         p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
         p.add(mock_sky, title='sky', norm=LogNorm())
-        p.add(mock_ps_data, title='mock point source data', norm=norm)
+        if not only_diffuse:
+            p.add(mock_ps_data, title='mock point source data', norm=norm)
         p.add(data, title='data', norm=norm)
         p.add(mock_data, title='mock data', norm=norm)
         p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
@@ -171,10 +181,13 @@ if __name__ == "__main__":
 
     # Prepare results
     operators_to_plot = {'reconstruction': sky_model.pad.adjoint(sky),
-                         'point_sources': sky_model.pad.adjoint(point_sources),
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
-    output_directory = create_output_directory(cfg["files"]["res_dir"])
+    if not only_diffuse:
+        operators_to_plot['point_sources']: sky_model.pad.adjoint(point_sources)
+
+    # Create the output directory
+    output_directory = create_output_directory(file_info["res_dir"])
 
     # Save config file in output_directory
     save_config(cfg, config_filename, output_directory)
@@ -184,6 +197,12 @@ if __name__ == "__main__":
                                               x,
                                               y,
                                               plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
+    # Initial position
+    initial_position = ift.from_random(sky.domain).val
+    initial_position.update((key, val * 0.1) for key, val in initial_position.items())
+    if not only_diffuse:
+        initial_position['point_sources'] = np.zeros(sky_model.extended_space.shape)
+    initial_position = ift.MultiField.from_raw(sky.domain, initial_position)
 
     if minimization_config['geovi']:
         # geoVI
