@@ -177,7 +177,7 @@ if __name__ == "__main__":
                          'point_sources': sky_model.pad.adjoint(point_sources),
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
-    output_directory = create_output_directory("LMC_first_reconstruction")
+    output_directory = create_output_directory(cfg["files"]["res_dir"])
 
     # Save config file in output_directory
     save_config(cfg, config_filename, output_directory)
