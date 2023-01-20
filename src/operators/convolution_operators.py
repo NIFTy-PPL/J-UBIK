@@ -3,9 +3,22 @@ import numpy as np
 import nifty8 as ift
 
 from .zero_padder import MarginZeroPadder
-from .convolve_utils import get_weights
 from ..library.utils import convolve_field_operator
 
+
+def _bilinear_weights(domain):
+    psize = domain.shape[0]
+    if psize/2 != int(psize/2):
+        raise ValueError("this should happen")
+    a = np.linspace(0, 1, int(psize/2), dtype="float64")
+    b = np.concatenate([a, np.flip(a)])
+    c = np.outer(b,b)
+    return ift.Field.from_raw(domain, c)
+
+def _get_weights(domain):
+    weights = _bilinear_weights(domain[1])
+    explode = ift.ContractionOperator(domain, spaces=0).adjoint
+    return explode(weights)
 
 class OverlapAdd(ift.LinearOperator):
     """Slices a 2D array into N patches with dx offset and
@@ -156,7 +169,7 @@ class OAConvolver(ift.LinearOperator):
 
         cut_conv_margin = MarginZeroPadder(pad_space, margin, space=1).adjoint
         convolved = cut_conv_margin(convolved)
-        weights = ift.makeOp(get_weights(convolved.target))
+        weights = ift.makeOp(_get_weights(convolved.target))
         weighted = weights @ convolved
         oa_back = OverlapAdd(domain[0], n, 0)
 
@@ -344,7 +357,7 @@ class OAnew(ift.LinearOperator):
     def _build_op(self, domain, kernel_arr, n, margin, want_cut):
         domain = ift.makeDomain(domain)
         oa = OverlapAdd(domain[0], n, 0)
-        weights = ift.makeOp(get_weights(oa.target))
+        weights = ift.makeOp(_get_weights(oa.target))
         zp = MarginZeroPadder(oa.target, margin, space=1)
         padded = zp @ weights @ oa
         cutter = ift.FieldZeroPadder(
