@@ -117,7 +117,7 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
 
 def get_norm(exposure_field, data_field):
     """
-    returns the only the order of magnitude of
+    returns only the order of magnitude of
     the norm of get_normed_exposure
     """
     warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
