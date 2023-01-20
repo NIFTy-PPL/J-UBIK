@@ -2,8 +2,9 @@ import nifty8 as ift
 import numpy as np
 import astropy.io.fits as ast
 import matplotlib.pyplot as plt
+
 from matplotlib.colors import LogNorm
-from .convolve_utils import (get_psf_func, psf_convolve_operator, 
+from ..operators.convolve_utils import (get_psf_func, psf_convolve_operator, 
                              psf_lin_int_operator)
 
 
