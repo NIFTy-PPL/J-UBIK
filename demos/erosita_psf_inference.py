@@ -130,7 +130,8 @@ if __name__ == "__main__":
 
         # Get mock data
         mock_data = get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
-        mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
+        if not only_diffuse:
+            mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
         mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
                                                  padder=sky_model.pad)
 
@@ -146,7 +147,8 @@ if __name__ == "__main__":
         p.add(mock_ps, title='point sources response', norm=LogNorm())
         p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
         p.add(mock_sky, title='sky', norm=LogNorm())
-        p.add(mock_ps_data, title='mock point source data', norm=norm)
+        if not only_diffuse:
+            p.add(mock_ps_data, title='mock point source data', norm=norm)
         p.add(data, title='data', norm=norm)
         p.add(mock_data, title='mock data', norm=norm)
         p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
