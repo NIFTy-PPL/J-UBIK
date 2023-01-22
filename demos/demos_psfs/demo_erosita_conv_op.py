@@ -3,8 +3,9 @@ import nifty8 as ift
 import numpy as np
 import timeit
 
-#from jax import config
-#config.update('jax_enable_x64', True)
+# from jax import config
+# config.update('jax_enable_x64', True)
+
 
 def get_kernels_and_sources(domain, psf_func):
     rnds = np.zeros(domain.shape)
@@ -25,7 +26,8 @@ def get_kernels_and_sources(domain, psf_func):
     rnds = ift.makeField(domain, rnds)
     return ift.makeField(domain, res), rnds
 
-dir_path= "tm1/bcf/"
+
+dir_path = "data/tm1/bcf/"
 fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"]
 
 file = dir_path + fname[0]
@@ -72,7 +74,7 @@ print('LIN:', t1-t0)
 pl = ift.Plot()
 pl.add(res, title = 'MSC')
 pl.add(res2, title = 'LIN')
-pl.add((res-res2).abs(), title = 'ABS Diff')
+pl.add((res-res2).abs(), title='ABS Diff')
 pl.output(nx=2, ny=2, xsize=16, ysize=16)
 
 res = op(sources)
@@ -80,10 +82,10 @@ res2 = op2(sources)
 
 pl = ift.Plot()
 pl.add(res, title = 'MSC')
-pl.add((res-kernels).abs(), title = 'Abs diff MSC')
+pl.add((res-kernels).abs(), title='Abs diff MSC')
 pl.add(kernels, title = 'GT')
 
 pl.add(res2, title = 'LIN')
-pl.add((res2-kernels).abs(), title = 'Abs diff LIN')
+pl.add((res2-kernels).abs(), title='Abs diff LIN')
 pl.add(kernels, title = 'GT')
 pl.output(nx=3, ny=2, xsize=16, ysize=10)

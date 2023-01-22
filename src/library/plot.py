@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, SymLogNorm
 from .utils import get_data_domain
-from ..operators.observation_operator import ChandraObservationInformation
+from ..library.observation_operator import ChandraObservationInformation
 import astropy as ao
 
 

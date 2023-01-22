@@ -2,8 +2,8 @@ import numpy as np
 import jax.numpy as jnp
 import nifty8 as ift
 
-from xubik0.operators.psf_interpolation import (psf_convolve_operator, 
-        psf_lin_int_operator, get_psf)
+from xubik0.operators.convolve_utils import (psf_convolve_operator,
+                                             psf_lin_int_operator, get_psf)
 
 def test_psf():
     import pylab as plt
@@ -94,16 +94,16 @@ def compare_psf_ops():
     shp = (200, 200)
     domain = ift.RGSpace(shp, tuple(2./ss for ss in shp))
 
-    obs_infos = {'psfs' : psfs, 
+    psf_infos = {'psfs' : psfs, 
                  'rs' : rs, 
                  'patch_center_ids' : patch_centers,
                  'patch_deltas' : patch_deltas, 
                  'pointing_center' : center}
     msc_infos = {'c' : (1,1), 'q': (1,1), 'b' : (3,3), 'min_m0' : (5,5),
                  'linear' : (True, True)}
-    msc_op = psf_convolve_operator(domain, obs_infos, msc_infos)
+    msc_op = psf_convolve_operator(domain, psf_infos, msc_infos)
 
-    int_op = psf_lin_int_operator(domain, 10, obs_infos, margfrac=0.1)
+    int_op = psf_lin_int_operator(domain, 10, psf_infos, margfrac=0.1)
     int_cut = int_op._cut
     msc_op = int_cut @ msc_op
 
