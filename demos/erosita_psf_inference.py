@@ -89,7 +89,6 @@ if __name__ == "__main__":
     dom = sky_model.extended_space
     center = tuple(0.5*ss*dd for ss,dd in zip(dom.shape, dom.distances))
 
-    shift = np.array(sky_model.position_space.shape) / 2 * np.array(sky_model.position_space.distances)
     psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
 
     psf_kernel = psf_function(*center)
