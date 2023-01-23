@@ -8,7 +8,7 @@ from .library.plot import plot_slices, plot_result, plot_single_psf, plot_psfset
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
-from .library.chandra_operator import ChandraObservationInformation
+from .library.chandra_observation import ChandraObservationInformation
 from .operators.convolution_operators import OAConvolver, OAnew, OverlapAdd
 from .operators.convolution_operators import _get_weights
 from .operators.zero_padder import MarginZeroPadder
