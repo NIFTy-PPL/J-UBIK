@@ -1,13 +1,13 @@
+import nifty8 as ift
 import numpy as np
 import astropy.io.fits as ast
 import matplotlib.pyplot as plt
+
 from matplotlib.colors import LogNorm
-from .psf_interpolation import get_psf_func, psf_convolve_operator, psf_lin_int_operator
+from ..operators.convolve_utils import (get_psf_func, psf_convolve_operator,
+                                        psf_lin_int_operator)
 
 
-
-# TODO If the energy is unclear to the user this throw and error
-# + should print all available energy bins to the user.
 class eROSITA_PSF():
     """
     fname: Filename / Path of the psf.fits file.
@@ -16,6 +16,12 @@ class eROSITA_PSF():
         self._fname = fname
         # TODO: verify that this is the correct assignment!
         self._myheader = {'ra': "1", 'dec': "2"}
+
+    def _check_energy(self, energy):
+        e_list = list(set(self._load_energy()))
+        if energy not in e_list:
+            raise ValueError("Plase use one of the defined energies. \n" \
+                             f"Energies for PSFs = {e_list}")
 
     def _load_fits(self):
         return ast.open(self._fname)
@@ -27,6 +33,7 @@ class eROSITA_PSF():
 
     def _ind_for_energy(self, energy):
         """Energy: String, e.g. 1000eV"""
+        self._check_energy(energy)
         cut_list = []
         with ast.open(self._fname) as f:
             for i in range(len(f)):
@@ -36,6 +43,7 @@ class eROSITA_PSF():
 
     def _load_data(self, energy):
         """Energy: String, e.g. 1000eV"""
+        self._check_energy(energy)
         ind = self._ind_for_energy(energy)
         with ast.open(self._fname) as f:
             data_list = [f[i].data for i in ind]
@@ -49,6 +57,7 @@ class eROSITA_PSF():
 
     def _load_p_center(self, energy):
         "Origin of PSF in Pixel Values"
+        self._check_energy(energy)
         ind = self._ind_for_energy(energy)
         with ast.open(self._fname) as f:
             p_center = [(f[i].header["CRPIX"+self._myheader['ra']], 
@@ -67,27 +76,28 @@ class eROSITA_PSF():
     def _load_pix_size(self):
         """Pixel Size in arcsecs"""
         with ast.open(self._fname) as f:
-            p_size = [(f[0].header["CDELT"+self._myheader['ra']], 
+            p_size = [(f[0].header["CDELT"+self._myheader['ra']],
                        f[0].header["CDELT"+self._myheader['dec']])]
         return np.array(p_size)
 
     def _load_pix_size_full(self):
         with ast.open(self._fname) as f:
-            p_size = [(f[i].header["CDELT"+self._myheader['ra']], 
-                       f[i].header["CDELT"+self._myheader['dec']]) 
-                       for i in range(len(f))]
+            p_size = [(f[i].header["CDELT"+self._myheader['ra']],
+                       f[i].header["CDELT"+self._myheader['dec']])
+                      for i in range(len(f))]
         return np.array(p_size)
 
     def _load_theta(self, energy):
+        self._check_energy(energy)
         ind = self._ind_for_energy(energy)
         with ast.open(self._fname) as f:
-            theta_list = [int(f[i].name.split("a")[0].split("V")[1]) 
+            theta_list = [int(f[i].name.split("a")[0].split("V")[1])
                           for i in ind]
         return np.array(theta_list)*60
 
     def _load_theta_full(self):
         with ast.open(self._fname) as f:
-            theta_list = [int(f[i].name.split("a")[0].split("V")[1]) 
+            theta_list = [int(f[i].name.split("a")[0].split("V")[1])
                           for i in range(len(f))]
         return np.array(theta_list)*60
 
@@ -106,7 +116,7 @@ class eROSITA_PSF():
             theta_list = [f[i].header["CBD10001"] for i in range(len(f))]
         return theta_list
 
-    def _cutnorm(self, psf, lower_cut = 1E-5, want_frac = False):
+    def _cutnorm(self, psf, lower_cut=1E-5, want_frac=False):
         if len(psf.shape) != 2:
             raise ValueError
         if want_frac:
@@ -121,6 +131,7 @@ class eROSITA_PSF():
         return psf
 
     def info(self, energy):
+        self._check_energy(energy)
         full_dct = {
             "psf": self._load_data(energy),
             "theta": self._load_theta(energy),
@@ -128,7 +139,7 @@ class eROSITA_PSF():
             "dpix": self._load_pix_size()}
         return full_dct
 
-    def plot_psfs(self, lower_cut = 1E-5):
+    def plot_psfs(self, lower_cut=1E-5):
         """plots the psfs in the fits file"""
         name = self._load_names()
         psf = self._load_data_full()
@@ -149,29 +160,32 @@ class eROSITA_PSF():
             plt.clf
             plt.close()
 
-    def _get_obs_infos(self, energy, pointing_center, lower_cut = 1E-5):
+    def _get_psf_infos(self, energy, pointing_center, lower_cut = 1E-5):
+        self._check_energy(energy)
         newpsfs = np.array([self._cutnorm(pp, lower_cut = lower_cut) for pp in 
                             self._load_data(energy)])
-        obs_infos = {'psfs' : newpsfs, 
+        psf_infos = {'psfs' : newpsfs, 
                      'rs' : self._load_theta(energy), 
                      'patch_center_ids' : self._load_p_center(energy),
                      'patch_deltas' : self._load_pix_size(), 
                      'pointing_center' : pointing_center}
-        return obs_infos
+        return psf_infos
 
-    def make_psf_op(self, energy, pointing_center, domain, lower_radec, 
-                    conv_method, conv_params):
-        obs_infos = self._get_obs_infos(energy, pointing_center)
+    def make_psf_op(self, energy, pointing_center, domain, conv_method, 
+                    conv_params):
+        self._check_energy(energy)
+        psf_infos = self._get_psf_infos(energy, pointing_center)
 
         if conv_method == 'MSC':
             print('Build MSC-PSF...')
-            op = psf_convolve_operator(domain, lower_radec, obs_infos,
-                                       conv_params)
+            op = psf_convolve_operator(domain, psf_infos, conv_params)
+            # Scale to match the integration convention of 'LIN'
+            scale = ift.ScalingOperator(domain, np.sqrt(domain.scalar_dvol))
+            op = op @ scale
             print('...done build MSC-PSF')
         elif conv_method == 'LIN':
             print('Build LIN-PSF...')
-            op = psf_lin_int_operator(domain, conv_params['npatch'], 
-                                      lower_radec, obs_infos,
+            op = psf_lin_int_operator(domain, conv_params['npatch'], psf_infos,
                                       margfrac = conv_params['margfrac'],
                                       want_cut = conv_params['want_cut'])
             print('...done build LIN-PSF')
@@ -179,15 +193,15 @@ class eROSITA_PSF():
             raise ValueError(f'Unknown conv_method: {conv_method}')
         return op
 
-    def _get_psf_func(self, energy, pointing_center, domain, lower_radec):
-        obs_infos = self._get_obs_infos(energy, pointing_center)
-        psf_func = get_psf_func(domain, lower_radec, obs_infos)
+    def _get_psf_func(self, energy, pointing_center, domain):
+        self._check_energy(energy)
+        psf_infos = self._get_psf_infos(energy, pointing_center)
+        psf_func = get_psf_func(domain, psf_infos)
         return psf_func
 
-
-    def psf_func_on_domain(self, energy, pointing_center, domain, lower_radec):
-        psf_func = self._get_psf_func(energy, pointing_center, domain, 
-                                      lower_radec)
+    def psf_func_on_domain(self, energy, pointing_center, domain):
+        self._check_energy(energy)
+        psf_func = self._get_psf_func(energy, pointing_center, domain)
         distances = ((np.arange(ss) - ss//2)*dd for ss,dd in 
                      zip(domain.shape, domain.distances))
         distances = (np.roll(dd, (ss+1)//2) for dd,ss in 

@@ -12,6 +12,7 @@ demos/retreat_first_reconstruction/*
 config/*
 src/operators/adg
 *_results
+demos/results/*
 *.h5
 *.hdf5
 *.txt

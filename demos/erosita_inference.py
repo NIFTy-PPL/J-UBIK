@@ -84,22 +84,26 @@ if __name__ == "__main__":
     center = observation_instance.get_center_coordinates(output_filename)
     psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
 
-    # Places the pointing in the center of the image (or equivalently defines
-    # the image to be centered around the pointing).
-    dom = sky_model.extended_space
-    center = tuple(0.5*ss*dd for ss,dd in zip(dom.shape, dom.distances))
+    # psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
 
-    psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
-
-    psf_kernel = psf_function(*center)
-    psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
+    # psf_kernel = psf_function(*get_lower_radec_from_pointing(center, sky_model.position_space, return_shift=True))
+    # psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
     # p = ift.Plot()
     # p.add(ift.makeField(sky_model.position_space, psf_kernel), norm=colors.SymLogNorm(linthresh=10e-8))
     # p.output()
 
-    convolved_sky = xu.convolve_field_operator(psf_kernel, sky)
-    convolved_ps = xu.convolve_field_operator(psf_kernel, point_sources)
-    convolved_diffuse = xu.convolve_field_operator(psf_kernel, diffuse)
+    # Places the pointing in the center of the image (or equivalently defines
+    # the image to be centered around the pointing).
+    dom = sky_model.extended_space
+    center = tuple(0.5*ss*dd for ss,dd in zip(dom.shape, dom.distances))
+    energy = cfg['psf']['energy']
+    conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
+                                   conv_method=cfg['psf']['method'],
+                                   conv_params=cfg['psf'])
+
+    convolved_sky = conv_op @ sky
+    convolved_ps = conv_op @ point_sources
+    convolved_diffuse = conv_op @ diffuse
 
     # Exposure
     exposure = observation_instance.load_fits_data(exposure_filename)[0].data
@@ -169,12 +173,15 @@ if __name__ == "__main__":
                          'point_sources': sky_model.pad.adjoint(point_sources),
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
-    output_directory = create_output_directory("retreat_first_reconstruction")
+    output_directory = create_output_directory(cfg["files"]["res_dir"])
 
     # Save config file in output_directory
     save_config(cfg, config_filename, output_directory)
 
-    plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
+    plot = lambda x, y: plot_sample_and_stats(output_directory,
+                                              operators_to_plot,
+                                              x,
+                                              y,
                                               plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
 
     if minimization_config['geovi']:
