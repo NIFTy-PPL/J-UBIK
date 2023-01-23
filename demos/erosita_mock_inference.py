@@ -13,7 +13,6 @@ import xubik0 as xu
 
 from demos.sky_model import ErositaSky
 from src.library.plot import plot_sample_and_stats, create_output_directory
-from src.library.erosita_observation import ErositaObservation
 
 
 currentdir = os.path.dirname(os.path.realpath(__file__))
@@ -47,7 +46,7 @@ if __name__ == "__main__":
     input_filenames = file_info['input']
     output_filename = file_info['output']
     exposure_filename = file_info['exposure']
-    observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
+    observation_instance = xu.ErositaObservation(input_filenames, output_filename, obs_path)
     sky_model = ErositaSky(config_path)
     point_sources, diffuse, sky = sky_model.create_sky_model()
 
@@ -68,11 +67,11 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.join(obs_path, output_filename)):
         observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
                                                     size=npix, pattern=tel_info['pattern'],
-                                                    telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
+                                                    telid=tm_id)
     else:
         print(log.format(os.path.join(obs_path, output_filename)))
 
-    observation_instance = ErositaObservation(output_filename, output_filename, obs_path)
+    observation_instance = xu.ErositaObservation(output_filename, output_filename, obs_path)
 
     # Get Exposure
     if not os.path.exists(os.path.join(obs_path, exposure_filename)):
@@ -100,7 +99,7 @@ if __name__ == "__main__":
     center = observation_instance.get_center_coordinates(output_filename)
     psf_kernel = None
     if not mock_psf:
-        psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
+        psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
         shift = np.array(sky_model.position_space.shape) / 2 * np.array(sky_model.position_space.distances)
         psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
         psf_kernel = psf_function(*xu.get_lower_radec_from_pointing(center, sky_model.position_space, return_shift=True))
