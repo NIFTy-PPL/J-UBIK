@@ -4,6 +4,7 @@ telescope:
   tm_id : 1
   fov: 3600 # in arcsec
   pattern: 15
+  var: 5
 plotting:
   enabled: True
   slice: Null

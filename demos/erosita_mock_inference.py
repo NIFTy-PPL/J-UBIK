@@ -137,18 +137,19 @@ if __name__ == "__main__":
                     for q in [0.0000001]:
                         sky_model = ErositaSky(config_path, alpha=alpha, q=q)
                         mock_sky_data, _ = xu.generate_mock_data(sky_model, exposure_field, sky_model.pad, psf_kernel,
-                                                                 alpha, q, n)
+                                                                 alpha, q, n, var=tel_info['var'])
             exit()
         else:
             if load_mock_data:
                 with open('mock_date.pkl', "rb") as f:
                     mock_sky_data = pickle.load(f)
                 if psf_kernel is None:
-                    convolved = xu.get_gaussian_psf(sky, var=5)
+                    convolved = xu.get_gaussian_psf(sky, var=tel_info['var'])
                 else:
                     convolved = xu.convolve_field_operator(psf_kernel, sky)
             else:
-                mock_sky_data, convolved = xu.generate_mock_data(sky_model, exposure_field, sky_model.pad, psf_kernel)
+                mock_sky_data, convolved = xu.generate_mock_data(sky_model, exposure_field, sky_model.pad, psf_kernel,
+                                                                 var=tel_info['var'])
                 with open("mock_date.pkl", 'wb') as file:
                     pickle.dump(mock_sky_data, file)
             masked_data = mask(mock_sky_data)
