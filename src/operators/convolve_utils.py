@@ -1,9 +1,9 @@
 import nifty8 as ift
 import numpy as np
-import jax
 import jax.numpy as jnp
 
 from jax.scipy.ndimage import map_coordinates
+from jax.lax import cond
 from .convolution_operators import OAnew
 
 try:
@@ -11,6 +11,7 @@ try:
     adg_import = True
 except ImportError:
     adg_import = False
+
 
 def to_r_phi(cc):
     """
@@ -42,15 +43,15 @@ def get_interpolation_weights(rs, r):
         res = jnp.zeros(rs.shape, dtype=float)
         res = res.at[0].set(1.)
         return res
-    res = jax.lax.cond(r <= rs[0], _get_wgt_front, 
-                       lambda _: jnp.zeros(rs.shape, dtype=float), 0)
+    res = cond(r <= rs[0], _get_wgt_front, 
+               lambda _: jnp.zeros(rs.shape, dtype=float), 0)
 
     def _get_wgt_back(i):
         res = jnp.zeros(rs.shape, dtype=float)
         res = res.at[rs.size-1].set(1.)
         return res    
-    res += jax.lax.cond(r >= rs[rs.size-1], _get_wgt_back,
-                        lambda _: jnp.zeros(rs.shape, dtype=float), 0)
+    res += cond(r >= rs[rs.size-1], _get_wgt_back,
+                lambda _: jnp.zeros(rs.shape, dtype=float), 0)
 
     def _get_wgt(i):
         res = jnp.zeros(rs.shape, dtype=float)
@@ -59,8 +60,8 @@ def get_interpolation_weights(rs, r):
         res = res.at[i+1].set(wgt)
         return res
     for i in range(rs.size - 1):
-        res += jax.lax.cond((rs[i]<r)*(rs[i+1]>=r), _get_wgt,
-                            (lambda _: jnp.zeros(rs.shape, dtype=float)), i)
+        res += cond((rs[i]<r)*(rs[i+1]>=r), _get_wgt,
+                    (lambda _: jnp.zeros(rs.shape, dtype=float)), i)
     return res
 
 def to_patch_coordinates(dcoords, patch_center, patch_delta):
@@ -80,8 +81,7 @@ def to_patch_coordinates(dcoords, patch_center, patch_delta):
     res /= patch_delta
     return jnp.swapaxes(res, -1, 0)
 
-def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center, 
-            radec_limits):
+def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
     """
     Parameters:
     -----------
@@ -96,10 +96,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
     patch_deltas: tuple of float (Shape: (2,))
         Pixelsize of the gridded psfs.
     pointing_center: tuple of float (Shape: (2,))
-        Center of the pointing of the module on the sky. Must be within 
-        `radec_limits`.
-    radec_limits: tuple of tuple of float
-        Lower and upper limit of the sky coordinate frame in ra-dec units
+        Center of the pointing of the module on the sky.
     Returns:
     --------
     func: 
@@ -121,15 +118,6 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
 
     patch_deltas = np.array(list(patch_deltas), dtype=float)
     pointing_center = np.array(list(pointing_center), dtype=float)
-    lower = np.array(list(radec_limits[0]))
-    upper = np.array(list(radec_limits[1]))
-    if np.any(upper <= lower):
-        raise ValueError
-    if np.any(pointing_center < lower):
-        raise ValueError
-    if np.any(pointing_center > upper):
-        raise ValueError
-    pointing_center -= lower
     for pp, cc in zip(psfs, patch_center_ids):
         if np.any(cc > np.array(list(pp.shape))):
             raise ValueError
@@ -162,25 +150,21 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center,
 
     return psf
 
-def get_psf_func(domain, lower_radec, obs_infos):
-    psfs = obs_infos['psfs']
-    rs = obs_infos['rs']
-    patch_center_ids = obs_infos['patch_center_ids']
-    patch_deltas = obs_infos['patch_deltas']
-    pointing_center = obs_infos['pointing_center']
+def get_psf_func(domain, psf_infos):
+    psfs = psf_infos['psfs']
+    rs = psf_infos['rs']
+    patch_center_ids = psf_infos['patch_center_ids']
+    patch_deltas = psf_infos['patch_deltas']
+    pointing_center = psf_infos['pointing_center']
 
     if not isinstance(domain, ift.RGSpace):
         raise ValueError
     if not domain.harmonic == False:
         raise ValueError
 
-    upper_radec = (tuple(ll+ss*dd for ll,ss,dd in 
-                   zip(lower_radec, domain.shape, domain.distances)))
-    radec_limits = (lower_radec, upper_radec)
-    return get_psf(psfs, rs, patch_center_ids, patch_deltas, 
-                   pointing_center, radec_limits)
+    return get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center)
 
-def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
+def psf_convolve_operator(domain, psf_infos, msc_infos):
     """
     Psf convolution operator using the MSC approximation.
     """
@@ -200,15 +184,15 @@ def psf_convolve_operator(domain, lower_radec, obs_infos, msc_infos):
     linear = msc_infos['linear']
     local = True
 
-    func_psf = get_psf_func(domain, lower_radec, obs_infos)
+    func_psf = get_psf_func(domain, psf_infos)
     return get_convolve(domain, func_psf, c, q, b, min_m0, linear, local)
 
-def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1,
+def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1, 
                          want_cut = False):
     """
     Psf convolution operator using bilinear interpolation of stationary patches.
     """
-    func_psf = get_psf_func(domain, lower_radec, obs_infos)
+    func_psf = get_psf_func(domain, psf_infos)
 
     shp = domain.shape
     dist = domain.distances
@@ -246,3 +230,21 @@ def psf_lin_int_operator(domain, npatch, lower_radec, obs_infos, margfrac=0.1,
     margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
     op = OAnew(domain, patch_psfs, len(patch_psfs), margin, want_cut)
     return op
+
+def gauss(x, y, sig):
+    const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
+    r = np.sqrt(x ** 2 + y ** 2)
+    f = const * np.exp(-r ** 2 / (2 * sig ** 2))
+    return f
+
+def get_gaussian_kernel(width, domain):
+    x = y = np.linspace(-width, width, domain.shape[1])
+    xv, yv = np.meshgrid(x, y)
+    kern = gauss(xv, yv, 1)
+    kern = np.fft.fftshift(kern)
+    kern = ift.makeField(domain[1], kern)
+    kern = kern * (kern.integrate().val) ** -1
+    explode_pad = ift.ContractionOperator(domain, spaces=0)
+    res = explode_pad.adjoint(kern)
+    return res
+
