@@ -677,8 +677,11 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True):
         res = ift.makeField(padder.adjoint.target, res)
     return res
 
-def generate_mock_data(sky_model, exposure=None, padder=None, psf_kernel=None, alpha=None, q=None, n=None, var =5):
-    #Exposure
+
+def generate_mock_data(sky_model, exposure=None, padder=None, psf_kernel=None, alpha=None, q=None, n=None, var=None):
+    if psf_kernel is None and var is None:
+        raise ValueError('Either the PSF kernel or the variance are needed for mock reconstruction.')
+    # Exposure
     exposure_field = exposure
     if exposure is not None:
         if padder is not None:
@@ -715,9 +718,3 @@ def generate_mock_data(sky_model, exposure=None, padder=None, psf_kernel=None, a
         p.add(exposure_field, title='exposure', norm=LogNorm())
     p.output(nx=3, name=f'mock_data_a{alpha}_q{q}_sample{n}.png')
     return mock_data_tuple[2], convolved_sky_tuple[2]
-
-def get_lower_radec_from_pointing(center, domain, return_shift=False):
-    shift = np.array(domain.shape) / 2 * np.array(domain.distances)
-    if return_shift:
-        return shift
-    return center - shift
