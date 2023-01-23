@@ -97,8 +97,9 @@ if __name__ == "__main__":
 
     # PSF
     center = observation_instance.get_center_coordinates(output_filename)
-    psf_kernel = None
-    if not mock_psf:
+    if mock_psf:
+        psf_kernel = None
+    else:
         psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
         shift = np.array(sky_model.position_space.shape) / 2 * np.array(sky_model.position_space.distances)
         psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
