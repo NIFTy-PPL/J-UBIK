@@ -10,7 +10,7 @@ plotting:
   slice: Null
   dpi: 800
 files:
-  obs_path: 'data/'
+  obs_path: 'data/tm1/'
   input: 'pm00_700161_020_EventList_c001.fits'
   output: 'processed_pm00_700161_020_data.fits'
   exposure: 'expmap_pm00_700161_020.fits'

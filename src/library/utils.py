@@ -6,7 +6,7 @@ from warnings import warn
 import numpy as np
 import scipy
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, SymLogNorm
 import nifty8 as ift
 
 
@@ -676,3 +676,48 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True):
         res = ift.random.current_rng().poisson(res.val.astype(np.float64))
         res = ift.makeField(padder.adjoint.target, res)
     return res
+
+def generate_mock_data(sky_model, exposure=None, padder=None, psf_kernel=None, alpha=None, q=None, n=None, var =5):
+    #Exposure
+    exposure_field = exposure
+    if exposure is not None:
+        if padder is not None:
+            exposure = padder(exposure_field)
+        exposure = ift.makeOp(exposure)
+
+    # Mock sky position
+    sky_tuple = sky_model.create_sky_model()
+    mock_sky_position = ift.from_random(sky_tuple[2].domain)
+    mock_sky = sky_tuple[2](mock_sky_position)
+    mock_sky_data = get_data_realization(sky_tuple[2], mock_sky_position, exposure=exposure, padder=padder)
+
+    # Convolved operators
+    convolved_sky_tuple = []
+    mock_data_tuple = []
+    for op in sky_tuple:
+        if psf_kernel is None:
+            convolved = get_gaussian_psf(op=op, var=var)
+        else:
+            convolved = convolve_field_operator(psf_kernel, op)
+        convolved_sky_tuple.append(convolved)
+        mock_data = get_data_realization(convolved, mock_sky_position, exposure=exposure, padder=padder)
+        mock_data_tuple.append(mock_data)
+    convolved_sky_tuple = tuple(convolved_sky_tuple)
+    mock_data_tuple = tuple(mock_data_tuple)
+
+    p = ift.Plot()
+    p.add(mock_data_tuple[2], title='Mock data sky (conv)', norm=LogNorm())
+    p.add(mock_sky_data, title='Mock data sky', norm=LogNorm())
+    p.add(mock_data_tuple[0], title='Mock data points', norm=LogNorm())
+    p.add(mock_data_tuple[1], title='Mock data diffuse', norm=LogNorm())
+    p.add(mock_sky, title='mock_sky', norm=LogNorm())
+    if exposure_field is not None:
+        p.add(exposure_field, title='exposure', norm=LogNorm())
+    p.output(nx=3, name=f'mock_data_a{alpha}_q{q}_sample{n}.png')
+    return mock_data_tuple[2], convolved_sky_tuple[2]
+
+def get_lower_radec_from_pointing(center, domain, return_shift=False):
+    shift = np.array(domain.shape) / 2 * np.array(domain.distances)
+    if return_shift:
+        return shift
+    return center - shift
