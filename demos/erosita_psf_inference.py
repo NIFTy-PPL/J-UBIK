@@ -195,11 +195,10 @@ if __name__ == "__main__":
                                               plotting_kwargs={'norm': LogNorm()})
 
     # Initial position
-    initial_position = ift.from_random(sky.domain).val
-    initial_position.update((key, val * 0.1) for key, val in initial_position.items())
+    initial_position = ift.from_random(sky.domain) * 0.1
     if not only_diffuse:
-        initial_position['point_sources'] = np.zeros(sky_model.extended_space.shape)
-    initial_position = ift.MultiField.from_raw(sky.domain, initial_position)
+        initial_ps = ift.MultiField.Full(point_sources.domain, 0)
+        initial_position = ift.MultiField.union([initial_position, initial_ps])
 
     if minimization_config['geovi']:
         # geoVI
