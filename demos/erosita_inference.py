@@ -88,16 +88,6 @@ if __name__ == "__main__":
     center = observation_instance.get_center_coordinates(output_filename)
     psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
 
-    # psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
-
-    # psf_kernel = psf_function(*get_lower_radec_from_pointing(center, sky_model.position_space, return_shift=True))
-    # psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
-    # p = ift.Plot()
-    # p.add(ift.makeField(sky_model.position_space, psf_kernel), norm=colors.SymLogNorm(linthresh=10e-8))
-    # p.output()
-
-    # Places the pointing in the center of the image (or equivalently defines
-    # the image to be centered around the pointing).
     dom = sky_model.extended_space
     center = tuple(0.5*ss*dd for ss, dd in zip(dom.shape, dom.distances))
 

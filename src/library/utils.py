@@ -234,7 +234,7 @@ def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
 def coord_center(side_length, side_n):
     """
     calculates the indices of the centers of the n**2 patches
-    for a quadratical domain with with the a certain side length
+    for a quadratical domain with a certain side length
 
     Parameters:
     ----------
