@@ -178,7 +178,7 @@ if __name__ == "__main__":
     output_directory = create_output_directory(file_info['res_dir'])
 
     # Plot the data in output directory
-    p.add(data, norm=SymLogNorm(linthresh=5e-3))
+    p.add(data, norm=LogNorm())
     p.output(name=os.path.join(output_directory, 'data.png'), dpi=800)
 
     # Save config file in output_directory
