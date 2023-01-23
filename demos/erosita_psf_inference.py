@@ -3,7 +3,7 @@ import os
 import sys
 
 import numpy as np
-from matplotlib.colors import LogNorm, SymLogNorm
+from matplotlib.colors import LogNorm
 import nifty8 as ift
 import xubik0 as xu
 from demos.sky_model import ErositaSky
@@ -97,9 +97,6 @@ if __name__ == "__main__":
 
     psf_kernel = psf_function(*center)
     psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
-    # p = ift.Plot()
-    # p.add(ift.makeField(sky_model.position_space, psf_kernel), norm=colors.SymLogNorm(linthresh=10e-8))
-    # p.output()
 
     convolved_sky = xu.convolve_field_operator(psf_kernel, sky)
     if not only_diffuse:
@@ -145,21 +142,17 @@ if __name__ == "__main__":
             mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
         mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
-        norm = SymLogNorm(linthresh=5e-3)
         if not only_diffuse:
             p.add(mock_ps, title='point sources response', norm=LogNorm())
         p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
         p.add(mock_sky, title='sky', norm=LogNorm())
         if not only_diffuse:
-            p.add(mock_ps_data, title='mock point source data', norm=norm)
+            p.add(mock_ps_data, title='mock point source data', norm=LogNorm())
         p.add(data, title='data', norm=norm)
         p.add(mock_data, title='mock data', norm=norm)
-        p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
+        p.add(mock_diffuse_data, title='mock diffuse data', norm=LogNorm())
         p.output(nx=4, name=f'mock_data.png')
 
-    # Print Exposure norm
-    # norm = xu.get_norm(exposure, data)
-    # print(norm)
 
     # Set up likelihood
     log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved_sky
