@@ -709,8 +709,8 @@ def generate_mock_data(sky_model, exposure=None, padder=None, psf_kernel=None, a
     mock_data_tuple = tuple(mock_data_tuple)
 
     p = ift.Plot()
-    p.add(mock_data_tuple[2], title='Mock data sky (conv)', norm=LogNorm())
-    p.add(mock_sky_data, title='Mock data sky', norm=LogNorm())
+    p.add(mock_data_tuple[2], title='Mock data sky', norm=LogNorm())
+    p.add(mock_sky_data, title='Mock data sky (non psf)', norm=LogNorm())
     p.add(mock_data_tuple[0], title='Mock data points', norm=LogNorm())
     p.add(mock_data_tuple[1], title='Mock data diffuse', norm=LogNorm())
     p.add(mock_sky, title='mock_sky', norm=LogNorm())

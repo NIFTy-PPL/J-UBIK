@@ -96,15 +96,15 @@ if __name__ == "__main__":
     # ################################### LIKELIHOOD ###################################################################
 
     # PSF
-    center = observation_instance.get_center_coordinates(output_filename)
     if mock_psf:
         psf_kernel = None
     else:
+        center = observation_instance.get_center_coordinates(output_filename)
         psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
-        shift = np.array(sky_model.position_space.shape) / 2 * np.array(sky_model.position_space.distances)
         psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
-        psf_kernel = psf_function(*xu.get_lower_radec_from_pointing(center, sky_model.position_space, return_shift=True))
+        psf_kernel = psf_function(*center)
         psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
+
         # p = ift.Plot()
         # p.add(ift.makeField(sky_model.position_space, psf_kernel), norm=colors.SymLogNorm(linthresh=10e-8))
         # p.output()
