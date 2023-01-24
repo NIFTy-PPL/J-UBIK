@@ -13,7 +13,7 @@ def plot_slices(field, outname, logscale=False):
     img = field.val
     npix_e = field.domain.shape[-1]
     nax = np.ceil(np.sqrt(npix_e)).astype(int)
-    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0
+    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60. # conv to arcmin
     pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
         pltargs["norm"] = LogNorm()
@@ -34,7 +34,7 @@ def plot_slices(field, outname, logscale=False):
 def plot_result(field, outname, logscale=False, **args):
     fig, ax = plt.subplots(dpi=300, figsize=(11.7, 8.3))
     img = field.val
-    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0
+    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
     pltargs = {"origin": "lower", "cmap": "viridis", "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
         pltargs["norm"] = LogNorm()
@@ -86,7 +86,7 @@ def plot_image_from_fits(file_name_in, file_name_out, log_scale=False):
 
 
 def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):
-    half_fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0
+    half_fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
     psf = psf.val  # .reshape([1024, 1024])
     pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
