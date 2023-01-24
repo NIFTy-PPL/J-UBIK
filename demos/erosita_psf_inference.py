@@ -20,7 +20,7 @@ from jax import config
 config.update('jax_enable_x64', True)
 
 if __name__ == "__main__":
-    config_filename = "eROSITA_config_mg.yaml"
+    config_filename = "eROSITA_config.yaml"
     try:
         cfg = xu.get_cfg(config_filename)
     except:
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.join(obs_path, output_filename)):
         observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
                                                     size=npix, pattern=tel_info['pattern'],
-                                                    telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
+                                                    telid=tm_id)
     else:
         print(log.format(os.path.join(obs_path, output_filename)))
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
 
     # PSF
     center = observation_instance.get_center_coordinates(output_filename)
-    psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
+    psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
 
     # Places the pointing in the center of the image (or equivalently defines
     # the image to be centered around the pointing).

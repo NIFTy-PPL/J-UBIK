@@ -2,6 +2,7 @@ from .library.utils import (get_mask_operator, prior_sample_plotter, get_norm, g
                             get_norm_exposure_patches,get_data_domain, get_cfg, convolve_operators,
                             convolve_field_operator, Transposer, energy_binning, save_rgb_image_to_fits,
                             transform_loglog_slope_pars, is_subdomain, save_to_fits, rgb_plotting_callback,
+                            generate_mock_data, save_config,
                             coord_center, get_radec_from_xy, get_psfpatches, get_synth_pointsource)
 from .library.plot import plot_slices, plot_result, plot_fused_data, plot_rgb_image, plot_image_from_fits
 from .library.plot import plot_slices, plot_result, plot_single_psf, plot_psfset

@@ -4,6 +4,7 @@ telescope:
   tm_id : 1
   fov: 3600 # in arcsec
   pattern: 15
+  var: 5
 plotting:
   enabled: True
   slice: Null
@@ -11,25 +12,25 @@ plotting:
 files:
   obs_path: 'data/'
   input: 'pm00_700161_020_EventList_c001.fits'
-  output: 'processed_LMC_SN1987A_data.fits'
-  exposure: 'expmap_LMC_SN1987A.fits'
-
+  output: 'processed_pm00_700161_020_data.fits'
+  exposure: 'expmap_pm00_700161_020.fits'
+  psf_path : 'data/tm1/bcf/tm1_2dpsf_190219v05.fits'
 grid:
-  npix: 1024
-  padding_ratio: 2.
+  npix: 426
+  padding_ratio: 1.203
   energy_bin:
     e_min: 2.0
     e_max: 4.5
 # Exposurenorm is 4.785357857098681e-05
 priors:
   point_sources:
-    alpha: 1.0001
-    q: 0.0000001
+    alpha: 1.00001
+    q: 0.0000005
   diffuse:
     offset:
-      offset_mean: -8.5
+      offset_mean: -9
       offset_std:
-        - 0.2
+        - 0.5
         - 0.05
     fluctuations:
       flexibility:
@@ -55,7 +56,7 @@ minimization:
     name: Newton
   ic_sampling:
     deltaE: 0.02
-    iteration_limit: 50
+    iteration_limit: 30
     name: Sampling(lin)
   ic_sampling_nl:
     deltaE: 0.2
