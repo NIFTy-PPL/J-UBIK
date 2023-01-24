@@ -101,13 +101,9 @@ if __name__ == "__main__":
         psf_kernel = None
     else:
         center = observation_instance.get_center_coordinates(output_filename)
-        print(center)
-        pointing_center = tuple(ss * dd / 2. for ss, dd in
-                                zip(sky_model.extended_space.shape, sky_model.extended_space.distances))
-        print(pointing_center)
         psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
-        psf_function = psf_file.psf_func_on_domain('3000', pointing_center, sky_model.extended_space)
-        psf_kernel = psf_function(*pointing_center)
+        psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
+        psf_kernel = psf_function(*center)
         psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
         # p = ift.Plot()
         # p.add(psf_kernel, norm=colors.SymLogNorm(linthresh=10e-8))
