@@ -708,6 +708,7 @@ def generate_mock_data(sky_model, exposure=None, padder=None, psf_kernel=None, a
     convolved_sky_tuple = tuple(convolved_sky_tuple)
     mock_data_tuple = tuple(mock_data_tuple)
 
+    # FIXME: Export fits files
     p = ift.Plot()
     p.add(mock_data_tuple[2], title='Mock data sky', norm=LogNorm())
     p.add(mock_sky_data, title='Mock data sky (non psf)', norm=LogNorm())
