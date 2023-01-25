@@ -27,7 +27,6 @@ if __name__ == "__main__":
         cfg = xu.get_cfg('demos/' + config_filename)
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])  # FIXME USE DISTANCES!
-    distance_1 = fov/cfg['grid']['npix']
     mock_run = cfg['mock']
 
     # File Location
@@ -96,9 +95,6 @@ if __name__ == "__main__":
     # Places the pointing in the center of the image (or equivalently defines
     # the image to be centered around the pointing).
     dom = sky_model.extended_space
-    distance_2 = dom.distances
-    print(distance_1,distance_2)
-    exit()
     center = tuple(0.5*ss*dd for ss,dd in zip(dom.shape, dom.distances))
     energy = cfg['psf']['energy']
     conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
