@@ -440,7 +440,8 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
                  overwrite=False, obs_type="SF"):
     """Write sample list to FITS file.
 
-    This function writes properties of a sample list to a FITS file according to the obs_type
+    This function writes properties of a sample list to a FITS file according to the obs_type and based on the NIFTy8
+    function save_to_fits by P.Arras
 
     Parameters
     ----------
