@@ -454,48 +454,37 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
         that takes a :class:`~nifty8.field.Field` as an input. Default:
         None.
     samples : bool
-        If True, samples are written into hdf5 file.
+        If True, samples are written into fits file.
     mean : bool
-        If True, mean of samples is written into hdf5 file.
+        If True, mean of samples is written into fits file.
     std : bool
-        If True, standard deviation of samples is written into hdf5 file.
+        If True, standard deviation of samples is written into fits file.
     overwrite : bool
         If True, a potentially existing file with the same file name as
         `file_name`, is overwritten.
     obs_type : string or None
         Describes the observation type. currently possible obs_types are [CMF (Chandra Multifrequency),
         EMF (Erosita Multifrequency), RGB and SF (Single Frequency]. The default observation is of type SF. In the case
-        of the type "RGB", the binning is automatically done by xubik
+        of the type "RGB", the binning is automatically done by xubik into equally sized bins.
     """
     if not (samples or mean or std):
         raise ValueError("Neither samples nor mean nor standard deviation shall be written.")
 
     if mean or std:
         m, s = sample_list.sample_stat(op)
-    if obs_type in ["CMF", "EMF", "RGB"]:
-        if obs_type == "RGB":
-            m = energy_binning(m, energy_bins=3)
-            s = energy_binning(s, energy_bins=3)
-        if mean:
-            save_rgb_image_to_fits(m, file_name_base + "_mean", overwrite, sample_list.MPI_master)
-        if std:
-            save_rgb_image_to_fits(s, file_name_base + "_std", overwrite, sample_list.MPI_master)
-        if samples:
-            for ii, ss in enumerate(sample_list.iterator(op)):
-                if obs_type == "RGB":
-                    ss = energy_binning(ss, energy_bins=3)
-                save_rgb_image_to_fits(ss, file_name_base + f"_sample_{ii}", overwrite, sample_list.MPI_master)
-    else:
-        try:
-            if mean:
-                save_rgb_image_to_fits(m, file_name_base + "_mean.fits", overwrite)
-            if std:
-                save_rgb_image_to_fits(s, file_name_base + "_std.fits", overwrite)
-            if samples:
-                for ii, ss in enumerate(sample_list.iterator(op)):
-                    save_rgb_image_to_fits(ss, file_name_base + f"_sample_{ii}.fits", overwrite)
-        except:
-            raise ValueError(f"The plotting routine is not implemented for observation type {obs_type}.")
+
+    if obs_type == "RGB":
+        m = energy_binning(m, energy_bins=3)
+        s = energy_binning(s, energy_bins=3)
+    if mean:
+        save_rgb_image_to_fits(m, file_name_base + "_mean", overwrite, sample_list.MPI_master)
+    if std:
+        save_rgb_image_to_fits(s, file_name_base + "_std", overwrite, sample_list.MPI_master)
+    if samples:
+        for ii, ss in enumerate(sample_list.iterator(op)):
+            if obs_type == "RGB":
+                ss = energy_binning(ss, energy_bins=3)
+            save_rgb_image_to_fits(ss, file_name_base + f"_sample_{ii}", overwrite, sample_list.MPI_master)
 
 
 def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
@@ -556,7 +545,10 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
 def energy_binning(fld, energy_bins):
     """
     Takes a field with an arbitrary number of energy bins and reshapes it into a field with three energy-bins.
-    Parameters
+    Parameters. If the field has less than 3 energy-bins the field is padded with a constant value. If the field
+    has 3 energy bins, nothing happens and if the field has more than 3 energy bins the array is rebinned to three
+    equally sized energy bins.
+
     ----------
     fld: ift.Field
         Field with energy direction
