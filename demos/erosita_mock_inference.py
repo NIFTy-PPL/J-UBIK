@@ -141,6 +141,7 @@ if __name__ == "__main__":
             exit()
         else:
             if load_mock_data:
+                #FIXME: name of output folder for diagnostics into config
                 with open('diagnostics/mock_sky_data.pkl', "rb") as f:
                     mock_sky_data = pickle.load(f)
                 if psf_kernel is None:
