@@ -37,7 +37,7 @@ if __name__ == "__main__":
     except:
         config_path = 'demos/' + config_filename
         cfg = xu.get_cfg(config_path)
-    output_directory = create_output_directory("mock_reconstruction")
+    output_directory = create_output_directory("retreat_first_reconstruction")
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])
 
