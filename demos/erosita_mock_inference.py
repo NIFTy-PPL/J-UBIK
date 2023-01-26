@@ -4,7 +4,6 @@ import sys
 import pickle
 import numpy as np
 from matplotlib import colors
-from matplotlib.colors import LogNorm, SymLogNorm
 from sys import exit
 
 
