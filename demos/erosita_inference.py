@@ -26,7 +26,7 @@ if __name__ == "__main__":
     except:
         cfg = xu.get_cfg('demos/' + config_filename)
     fov = cfg['telescope']['fov']
-    rebin = math.floor(20 * fov // cfg['grid']['npix'])
+    rebin = math.floor(20 * fov // cfg['grid']['npix'])  # FIXME USE DISTANCES!
     mock_run = cfg['mock']
 
     # File Location

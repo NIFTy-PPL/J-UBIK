@@ -68,7 +68,7 @@ def get_data_domain(config):
 
 
 def _get_sp_dist(config):
-    res = 2 * config["fov"] / config["npix_s"]
+    res = config["fov"] / config["npix_s"]
     return res
 
 
@@ -149,13 +149,13 @@ def prior_sample_plotter(opchain, n):
     for ii in range(n):
         f = ift.from_random(opchain.domain)
         field = opchain(f)
-        fov = (
+        half_fov = (
                 field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0
         )  # is this true?
         pltargs = {
             "origin": "lower",
             "cmap": "inferno",
-            "extent": [-fov, fov] * 2,
+            "extent": [-half_fov, half_fov] * 2,
             "norm": LogNorm(),
         }
         img = field.val
@@ -167,7 +167,7 @@ def prior_sample_plotter(opchain, n):
 
 
 def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=True, Norm=True):
-    psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
+    psf_domain = ift.RGSpace((npix_s, npix_s), distances=fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
     y_min = info.obsInfo["y_min"]
