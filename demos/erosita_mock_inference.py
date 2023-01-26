@@ -23,7 +23,7 @@ from src.library.utils import create_output_directory
 mockrun = True
 mock_psf = False
 hyperparamerter_search = False
-load_mock_data = False
+load_mock_data = True
 
 if __name__ == "__main__":
 
