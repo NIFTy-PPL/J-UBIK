@@ -483,12 +483,12 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
     else:
         try:
             if mean:
-                sample_list._save_fits_2d(m, file_name_base + "_mean.fits", overwrite)
+                save_rgb_image_to_fits(m, file_name_base + "_mean.fits", overwrite)
             if std:
-                sample_list._save_fits_2d(s, file_name_base + "_std.fits", overwrite)
+                save_rgb_image_to_fits(s, file_name_base + "_std.fits", overwrite)
             if samples:
                 for ii, ss in enumerate(sample_list.iterator(op)):
-                    sample_list._save_fits_2d(ss, file_name_base + f"_sample_{ii}.fits", overwrite)
+                    save_rgb_image_to_fits(ss, file_name_base + f"_sample_{ii}.fits", overwrite)
         except:
             raise ValueError(f"The plotting routine is not implemented for observation type {obs_type}.")
 
@@ -513,14 +513,21 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     import astropy.io.fits as pyfits
     from astropy.time import Time
     import time
-    color_dict = {0: "red", 1: "green", 2: "blue"}
     domain = fld.domain
-    if not isinstance(domain, ift.DomainTuple) or len(domain) != 2 or len(domain[0].shape) != 2:
-        raise ValueError("FITS file export of RGB data is only possible for 3d-fields. "
-                         f"Current domain:\n{domain}")
-    if fld.shape[2] != 3:
-        raise ValueError("Energy direction has to be binned to 3 to create an RGB image. "
-                         f"Current number of energy bins:\n{fld.shape[2]}")
+    if not isinstance(domain, ift.DomainTuple) or len(domain) != 2:
+        raise ValueError("Expected DomainTuple.")
+    if len(domain[0].shape) == 2:
+        if fld.shape[2] != 3:
+            raise NotImplementedError("Energy direction has to be binned to 3 to create an RGB image. "
+                                        f"Current number of energy bins:\n{fld.shape[2]}")
+        npix_e = fld.shape[2]
+        color_dict = {0: "red", 1: "green", 2: "blue"}
+    elif len(domain[0].shape) == 1:
+        npix_e = 1
+        color_dict = {0: "uni"}
+    else:
+        raise NotImplementedError
+
     h = pyfits.Header()
     h["DATE-MAP"] = Time(time.time(), format="unix").iso.split()[0]
     h["CRVAL1"] = h["CRVAL2"] = 0
@@ -531,85 +538,85 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     h["CTYPE2"] = "DEC---SIN"
     h["EQUINOX"] = 2000
     if MPI_master:
-        for i in range(fld.shape[2]):
+        for i in range(npix_e):
             hdu = pyfits.PrimaryHDU(fld.val[:, :, i], header=h)
             hdulist = pyfits.HDUList([hdu])
             file_name_colour = f"{file_name}_{color_dict[i]}.fits"
             hdulist.writeto(file_name_colour, overwrite=overwrite)
 
-
-def rgb_plotting_callback(sample_list, i_global, save_strategy, export_operator_outputs_old, obs_type_old,
-                          output_directory, obs_type_new=None, export_operator_outputs_new=None,
-                          change_iteration=None):
-    """
-    Callback for multifrequency plotting called after each iteration to be used in ift.optimize_kl, which should replace
-    the single frequency plotting routine in optimize_kl.
-
-    Parameters
-    ----------
-    sample_list:
-        Latest sample list, which is passed by optimize_kl
-    i_global:
-        Global iteration, which is passed by optimize_kl
-    export_operator_outputs : dict
-        Dictionary of operators that are exported during the minimization. The
-        key contains a string that serves as identifier. The value of the
-        dictionary is an operator.
-    output_directory : str or None
-        Directory in which all output files are saved. If None, no output is
-        stored.
-    save_strategy : str
-        If "last", only the samples of the last global iteration are stored. If
-        "all", all intermediate samples are written to disk. `save_strategy` is
-        only applicable if `output_directory` is not None. Default: "last".
-    obs_type : string or None
-        Describes the observation type. currently possible obs_types are [CMF (Chandra Multifrequency),
-        EMF (Erosita Multifrequency), RGB and SF (Single Frequency]. The default observation is of type SF. In the case
-        of the type "RGB", the binning is automatically done by xubik
-
-    Returns
-    ----------
-    None
-    """
-    try:
-        import astropy
-    except ImportError:
-        astropy = False
-    # TODO: Mögliche Fehler hier abfangen
-    if i_global < change_iteration:
-        export_operator_outputs = export_operator_outputs_old
-        obs_type = obs_type_old
-    else:
-        export_operator_outputs = export_operator_outputs_new
-        obs_type = obs_type_new
-    if not isinstance(export_operator_outputs, dict):
-        raise TypeError
-    if not isdir(output_directory):
-        print(f" Warning {output_directory} differs from output_directory of optimize_kl")
-        makedirs(output_directory, exist_ok=True)
-    if not isinstance(sample_list, ift.SampleListBase):
-        raise TypeError
-    for name, op in export_operator_outputs.items():
-        if not is_subdomain(op.domain, sample_list.domain):
-            continue
-        op_direc = join(output_directory, name)
-        makedirs(op_direc, exist_ok=True)
-        if sample_list.n_samples > 1:
-            cfg = {"samples": True, "mean": True, "std": True}
-        else:
-            cfg = {"samples": True, "mean": False, "std": False}
-        if astropy:
-            try:
-                if save_strategy == 'all':
-                    app = f"itertaion_{i_global}"
-                elif save_strategy == "last":
-                    app = "last"
-                else:
-                    raise RuntimeError
-                file_name_base = join(op_direc, app)
-                save_to_fits(sample_list, file_name_base, op=op, overwrite=True, **cfg, obs_type=obs_type)
-            except ValueError:
-                pass
+# FIXME: RGBPlotting callback will be reimplemented
+# def rgb_plotting_callback(sample_list, i_global, save_strategy, export_operator_outputs_old, obs_type_old,
+#                           output_directory, obs_type_new=None, export_operator_outputs_new=None,
+#                           change_iteration=None):
+#     """
+#     Callback for multifrequency plotting called after each iteration to be used in ift.optimize_kl, which should replace
+#     the single frequency plotting routine in optimize_kl.
+#
+#     Parameters
+#     ----------
+#     sample_list:
+#         Latest sample list, which is passed by optimize_kl
+#     i_global:
+#         Global iteration, which is passed by optimize_kl
+#     export_operator_outputs : dict
+#         Dictionary of operators that are exported during the minimization. The
+#         key contains a string that serves as identifier. The value of the
+#         dictionary is an operator.
+#     output_directory : str or None
+#         Directory in which all output files are saved. If None, no output is
+#         stored.
+#     save_strategy : str
+#         If "last", only the samples of the last global iteration are stored. If
+#         "all", all intermediate samples are written to disk. `save_strategy` is
+#         only applicable if `output_directory` is not None. Default: "last".
+#     obs_type : string or None
+#         Describes the observation type. currently possible obs_types are [CMF (Chandra Multifrequency),
+#         EMF (Erosita Multifrequency), RGB and SF (Single Frequency]. The default observation is of type SF.
+#         In the case
+#         of the type "RGB", the binning is automatically done by xubik
+#
+#     Returns
+#     ----------
+#     None
+#     """
+#     try:
+#         import astropy
+#     except ImportError:
+#         astropy = False
+#     if i_global < change_iteration:
+#         export_operator_outputs = export_operator_outputs_old
+#         obs_type = obs_type_old
+#     else:
+#         export_operator_outputs = export_operator_outputs_new
+#         obs_type = obs_type_new
+#     if not isinstance(export_operator_outputs, dict):
+#         raise TypeError
+#     if not isdir(output_directory):
+#         print(f" Warning {output_directory} differs from output_directory of optimize_kl")
+#         makedirs(output_directory, exist_ok=True)
+#     if not isinstance(sample_list, ift.SampleListBase):
+#         raise TypeError
+#     for name, op in export_operator_outputs.items():
+#         if not is_subdomain(op.domain, sample_list.domain):
+#             continue
+#         op_direc = join(output_directory, name)
+#         makedirs(op_direc, exist_ok=True)
+#         if sample_list.n_samples > 1:
+#             cfg = {"samples": True, "mean": True, "std": True}
+#         else:
+#             cfg = {"samples": True, "mean": False, "std": False}
+#         if astropy:
+#             try:
+#                 if save_strategy == 'all':
+#                     app = f"itertaion_{i_global}"
+#                 elif save_strategy == "last":
+#                     app = "last"
+#                 else:
+#                     raise RuntimeError
+#                 file_name_base = join(op_direc, app)
+#                 save_to_fits(sample_list, file_name_base, op=op, overwrite=True, **cfg, obs_type=obs_type)
+#             except ValueError:
+#                 pass
 
 
 def energy_binning(fld, energy_bins):
@@ -708,7 +715,7 @@ def generate_mock_data(sky_model, exposure=None, padder=None, psf_kernel=None, a
     convolved_sky_tuple = tuple(convolved_sky_tuple)
     mock_data_tuple = tuple(mock_data_tuple)
 
-    # FIXME: Export fits files
+    # Plotting
     p = ift.Plot()
     p.add(mock_data_tuple[2], title='Mock data sky', norm=LogNorm())
     p.add(mock_sky_data, title='Mock data sky (non psf)', norm=LogNorm())
