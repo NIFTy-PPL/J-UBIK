@@ -521,15 +521,15 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
         color_dict = {0: "uni"}
     else:
         raise NotImplementedError
-
+    # FIXME: Header improvement
     h = pyfits.Header()
     h["DATE-MAP"] = Time(time.time(), format="unix").iso.split()[0]
-    h["CRVAL1"] = h["CRVAL2"] = 0
-    h["CRPIX1"] = h["CRPIX2"] = 0
-    h["CUNIT1"] = h["CUNIT2"] = "deg"
-    h["CDELT1"], h["CDELT2"] = -domain[0].distances[0], domain[0].distances[1]
-    h["CTYPE1"] = "RA---SIN"
-    h["CTYPE2"] = "DEC---SIN"
+    h["CRVAL1"] = h["CRVAL2"] = 0  # coordinate value at reference point
+    h["CRPIX1"] = h["CRPIX2"] = 0  # pixel coordinate of the reference point
+    h["CUNIT1"] = h["CUNIT2"] = "arcsec"
+    h["CDELT1"], h["CDELT2"] = -domain[0].distances[0], domain[0].distances[1] # coordinate increment
+    h["CTYPE1"] = "RA" # axis type
+    h["CTYPE2"] = "DEC"
     h["EQUINOX"] = 2000
     if MPI_master:
         for i in range(npix_e):
