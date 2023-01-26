@@ -1,12 +1,11 @@
 import os
-from os.path import isdir, join
-from os import makedirs
 from warnings import warn
-
 import numpy as np
+import pickle
 import scipy
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, SymLogNorm
+
 import nifty8 as ift
 
 
@@ -27,6 +26,11 @@ def save_config(config, filename, dir=None):
             os.mkdir(dir)
         with open(os.path.join(dir, filename), "w") as f:
             yaml.dump(config, f)
+
+
+def create_output_directory(directory_name):
+    output_directory = os.path.join(os.path.curdir, directory_name)
+    return output_directory
 
 
 def get_gaussian_psf(op, var):
@@ -514,15 +518,15 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     from astropy.time import Time
     import time
     domain = fld.domain
-    if not isinstance(domain, ift.DomainTuple) or len(domain) != 2:
+    if not isinstance(domain, ift.DomainTuple):
         raise ValueError("Expected DomainTuple.")
-    if len(domain[0].shape) == 2:
+    if len(domain) == 2:
         if fld.shape[2] != 3:
             raise NotImplementedError("Energy direction has to be binned to 3 to create an RGB image. "
                                         f"Current number of energy bins:\n{fld.shape[2]}")
         npix_e = fld.shape[2]
         color_dict = {0: "red", 1: "green", 2: "blue"}
-    elif len(domain[0].shape) == 1:
+    elif len(domain) == 1:
         npix_e = 1
         color_dict = {0: "uni"}
     else:
@@ -539,84 +543,13 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     h["EQUINOX"] = 2000
     if MPI_master:
         for i in range(npix_e):
-            hdu = pyfits.PrimaryHDU(fld.val[:, :, i], header=h)
+            if npix_e > 1:
+                hdu = pyfits.PrimaryHDU(fld.val[:, :, i], header=h)
+            else:
+                hdu = pyfits.PrimaryHDU(fld.val, header=h)
             hdulist = pyfits.HDUList([hdu])
             file_name_colour = f"{file_name}_{color_dict[i]}.fits"
             hdulist.writeto(file_name_colour, overwrite=overwrite)
-
-# FIXME: RGBPlotting callback will be reimplemented
-# def rgb_plotting_callback(sample_list, i_global, save_strategy, export_operator_outputs_old, obs_type_old,
-#                           output_directory, obs_type_new=None, export_operator_outputs_new=None,
-#                           change_iteration=None):
-#     """
-#     Callback for multifrequency plotting called after each iteration to be used in ift.optimize_kl, which should replace
-#     the single frequency plotting routine in optimize_kl.
-#
-#     Parameters
-#     ----------
-#     sample_list:
-#         Latest sample list, which is passed by optimize_kl
-#     i_global:
-#         Global iteration, which is passed by optimize_kl
-#     export_operator_outputs : dict
-#         Dictionary of operators that are exported during the minimization. The
-#         key contains a string that serves as identifier. The value of the
-#         dictionary is an operator.
-#     output_directory : str or None
-#         Directory in which all output files are saved. If None, no output is
-#         stored.
-#     save_strategy : str
-#         If "last", only the samples of the last global iteration are stored. If
-#         "all", all intermediate samples are written to disk. `save_strategy` is
-#         only applicable if `output_directory` is not None. Default: "last".
-#     obs_type : string or None
-#         Describes the observation type. currently possible obs_types are [CMF (Chandra Multifrequency),
-#         EMF (Erosita Multifrequency), RGB and SF (Single Frequency]. The default observation is of type SF.
-#         In the case
-#         of the type "RGB", the binning is automatically done by xubik
-#
-#     Returns
-#     ----------
-#     None
-#     """
-#     try:
-#         import astropy
-#     except ImportError:
-#         astropy = False
-#     if i_global < change_iteration:
-#         export_operator_outputs = export_operator_outputs_old
-#         obs_type = obs_type_old
-#     else:
-#         export_operator_outputs = export_operator_outputs_new
-#         obs_type = obs_type_new
-#     if not isinstance(export_operator_outputs, dict):
-#         raise TypeError
-#     if not isdir(output_directory):
-#         print(f" Warning {output_directory} differs from output_directory of optimize_kl")
-#         makedirs(output_directory, exist_ok=True)
-#     if not isinstance(sample_list, ift.SampleListBase):
-#         raise TypeError
-#     for name, op in export_operator_outputs.items():
-#         if not is_subdomain(op.domain, sample_list.domain):
-#             continue
-#         op_direc = join(output_directory, name)
-#         makedirs(op_direc, exist_ok=True)
-#         if sample_list.n_samples > 1:
-#             cfg = {"samples": True, "mean": True, "std": True}
-#         else:
-#             cfg = {"samples": True, "mean": False, "std": False}
-#         if astropy:
-#             try:
-#                 if save_strategy == 'all':
-#                     app = f"itertaion_{i_global}"
-#                 elif save_strategy == "last":
-#                     app = "last"
-#                 else:
-#                     raise RuntimeError
-#                 file_name_base = join(op_direc, app)
-#                 save_to_fits(sample_list, file_name_base, op=op, overwrite=True, **cfg, obs_type=obs_type)
-#             except ValueError:
-#                 pass
 
 
 def energy_binning(fld, energy_bins):
@@ -685,21 +618,33 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True):
     return res
 
 
-def generate_mock_data(sky_model, exposure=None, padder=None, psf_kernel=None, alpha=None, q=None, n=None, var=None):
+def generate_mock_data(output_directory, sky_model, exposure=None, pad=None,
+                       psf_kernel=None, alpha=None, q=None, n=None, var=None):
+
     if psf_kernel is None and var is None:
         raise ValueError('Either the PSF kernel or the variance are needed for mock reconstruction.')
+    mpi_master = ift.utilities.get_MPI_params()[3]
+
+    if not os.path.exists(output_directory):
+        if mpi_master:
+            os.mkdir(create_output_directory(output_directory))
+    diagnostics_dir = os.path.join(output_directory, 'diagnostics')
+    if not os.path.exists(diagnostics_dir):
+        if mpi_master:
+            os.mkdir(diagnostics_dir)
+
     # Exposure
     exposure_field = exposure
     if exposure is not None:
-        if padder is not None:
-            exposure = padder(exposure_field)
+        if pad is not None:
+            exposure = pad(exposure_field)
         exposure = ift.makeOp(exposure)
 
     # Mock sky position
     sky_tuple = sky_model.create_sky_model()
     mock_sky_position = ift.from_random(sky_tuple[2].domain)
     mock_sky = sky_tuple[2](mock_sky_position)
-    mock_sky_data = get_data_realization(sky_tuple[2], mock_sky_position, exposure=exposure, padder=padder)
+    mock_sky_data = get_data_realization(sky_tuple[2], mock_sky_position, exposure=exposure, padder=pad)
 
     # Convolved operators
     convolved_sky_tuple = []
@@ -710,19 +655,32 @@ def generate_mock_data(sky_model, exposure=None, padder=None, psf_kernel=None, a
         else:
             convolved = convolve_field_operator(psf_kernel, op)
         convolved_sky_tuple.append(convolved)
-        mock_data = get_data_realization(convolved, mock_sky_position, exposure=exposure, padder=padder)
+        mock_data = get_data_realization(convolved, mock_sky_position, exposure=exposure, padder=pad)
         mock_data_tuple.append(mock_data)
     convolved_sky_tuple = tuple(convolved_sky_tuple)
     mock_data_tuple = tuple(mock_data_tuple)
 
-    # Plotting
-    p = ift.Plot()
-    p.add(mock_data_tuple[2], title='Mock data sky', norm=LogNorm())
-    p.add(mock_sky_data, title='Mock data sky (non psf)', norm=LogNorm())
-    p.add(mock_data_tuple[0], title='Mock data points', norm=LogNorm())
-    p.add(mock_data_tuple[1], title='Mock data diffuse', norm=LogNorm())
-    p.add(mock_sky, title='mock_sky', norm=LogNorm())
-    if exposure_field is not None:
-        p.add(exposure_field, title='exposure', norm=LogNorm())
-    p.output(nx=3, name=f'mock_data_a{alpha}_q{q}_sample{n}.png')
+    output_dictionary = {'mock_data_sky': mock_data_tuple[2],
+                        'mock_data_sky_nonconv': mock_sky_data,
+                        'mock_data_points': mock_data_tuple[0],
+                        'mock_data_diffuse': mock_data_tuple[1],
+                        'mock_sky': mock_sky}
+    if mpi_master:
+        p = ift.Plot()
+        for k, v in output_dictionary.items():
+            # Save data and sky to Pickle
+            with open(os.path.join(diagnostics_dir, f'{k}.pkl'), 'wb') as file:
+                pickle.dump(v, file)
+
+            # Save data to fits
+            save_rgb_image_to_fits(v, os.path.join(diagnostics_dir, k), overwrite=True, MPI_master=mpi_master)
+
+            # Plot data
+            p.add(v, title=k, norm=LogNorm())
+        if exposure_field is not None:
+            p.add(exposure_field, title='exposure', norm=LogNorm())
+        # if psf_kernel is not None:
+            # p.add(psf_kernel, title='psf')
+        p.output(nx=3, name=os.path.join(diagnostics_dir, f'mock_data_a{alpha}_q{q}_sample{n}.png'))
+
     return mock_data_tuple[2], convolved_sky_tuple[2]
