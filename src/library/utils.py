@@ -508,8 +508,8 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     from astropy.time import Time
     import time
     domain = fld.domain
-    if not isinstance(domain, ift.DomainTuple):
-        raise ValueError("Expected DomainTuple.")
+    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) !=2:
+        raise ValueError(f"Expected DomainTuple with the first space being a 2-dim RGSpace, but got {domain}")
     if len(domain) == 2:
         if fld.shape[2] != 3:
             raise NotImplementedError("Energy direction has to be binned to 3 to create an RGB image. "
