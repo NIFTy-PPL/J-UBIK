@@ -135,9 +135,10 @@ if __name__ == "__main__":
                 for alpha in [1.0001]:
                     for q in [0.0000001]:
                         sky_model = ErositaSky(config_path, alpha=alpha, q=q)
-                        mock_sky_data, _ = xu.generate_mock_data(output_directory, sky_model, exposure_field,
+                        mock_sky_data, _ = xu.generate_mock_data(sky_model, exposure_field,
                                                                  sky_model.pad, psf_kernel,
-                                                                 alpha, q, n, var=tel_info['var'])
+                                                                 alpha, q, n, var=tel_info['var'],
+                                                                 output_directory=output_directory)
             exit()
         else:
             if load_mock_data:
@@ -149,9 +150,10 @@ if __name__ == "__main__":
                 else:
                     convolved = xu.convolve_field_operator(psf_kernel, sky)
             else:
-                mock_sky_data, convolved = xu.generate_mock_data(output_directory, sky_model, exposure_field,
+                mock_sky_data, convolved = xu.generate_mock_data(sky_model, exposure_field,
                                                                  sky_model.pad, psf_kernel,
-                                                                 var=tel_info['var'])
+                                                                 var=tel_info['var'],
+                                                                 output_directory=output_directory)
             masked_data = mask(mock_sky_data)
             #Likelihood
             log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved

@@ -599,32 +599,37 @@ def is_subdomain(sub_domain, total_domain):
 
 
 def get_data_realization(op, position, exposure=None, padder=None, data=True):
-    R = None
-    if padder is not None and exposure is not None:
-        R = padder.adjoint @ exposure
+    R = ift.ScalingOperator(op.target, 1)
+    if exposure is not None:
+        R = exposure @ R
+    if padder is not None:
+        R = padder.adjoint @ R
     res = op.force(position)
     if data:
-        if R is not None:
-            res = R(op.force(position))
+        res = R(op.force(position))
         res = ift.random.current_rng().poisson(res.val.astype(np.float64))
-        res = ift.makeField(padder.adjoint.target, res)
+        if padder is not None:
+            res = ift.makeField(padder.adjoint.target, res)
+        else:
+            res = ift.makeField(op.target, res)
     return res
 
 
-def generate_mock_data(output_directory, sky_model, exposure=None, pad=None,
-                       psf_kernel=None, alpha=None, q=None, n=None, var=None):
-
+def generate_mock_data(sky_model, exposure=None, pad=None, psf_kernel=None, alpha=None, q=None, n=None, var=None,
+                       output_directory=None):
     if psf_kernel is None and var is None:
         raise ValueError('Either the PSF kernel or the variance are needed for mock reconstruction.')
+    if pad is None and sky_model.position_space != sky_model.extended_space:
+        raise ValueError('The sky is padded but no padder is given')
     mpi_master = ift.utilities.get_MPI_params()[3]
-
-    if not os.path.exists(output_directory):
-        if mpi_master:
-            os.mkdir(create_output_directory(output_directory))
-    diagnostics_dir = os.path.join(output_directory, 'diagnostics')
-    if not os.path.exists(diagnostics_dir):
-        if mpi_master:
-            os.mkdir(diagnostics_dir)
+    if output_directory is not None:
+        if not os.path.exists(output_directory):
+            if mpi_master:
+                os.mkdir(create_output_directory(output_directory))
+        diagnostics_dir = os.path.join(output_directory, 'diagnostics')
+        if not os.path.exists(diagnostics_dir):
+            if mpi_master:
+                os.mkdir(diagnostics_dir)
 
     # Exposure
     exposure_field = exposure
@@ -658,7 +663,7 @@ def generate_mock_data(output_directory, sky_model, exposure=None, pad=None,
                         'mock_data_points': mock_data_tuple[0],
                         'mock_data_diffuse': mock_data_tuple[1],
                         'mock_sky': mock_sky}
-    if mpi_master:
+    if mpi_master and output_directory is not None:
         p = ift.Plot()
         for k, v in output_dictionary.items():
             # Save data and sky to Pickle
