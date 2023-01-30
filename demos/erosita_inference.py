@@ -49,8 +49,8 @@ if __name__ == "__main__":
     tel_info = cfg['telescope']
     tm_id = tel_info['tm_id']
 
-    # Only diffuse reconstruction
-    only_diffuse = cfg['priors']['only_diffuse']
+    # Bool to enable only diffuse reconstruction
+    reconstruct_point_sources = cfg['priors']['point_sources'] is not None
 
     log = 'Output file {} already exists and is not regenerated. ' \
           'If the observations parameters shall be changed please delete or rename the current output file.'
@@ -96,7 +96,7 @@ if __name__ == "__main__":
                                    conv_params=cfg['psf'])
 
     convolved_sky = conv_op @ sky
-    if not only_diffuse:
+    if reconstruct_point_sources:
         convolved_ps = conv_op @ point_sources
     convolved_diffuse = conv_op @ diffuse
 
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
         # Get mock data
         mock_data = get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
-        if not only_diffuse:
+        if reconstruct_point_sources:
             mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
         mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
                                                  padder=sky_model.pad)
@@ -135,16 +135,16 @@ if __name__ == "__main__":
 
         # Get mock signal
         mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
-        if not only_diffuse:
+        if reconstruct_point_sources:
             mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
         mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
         norm = SymLogNorm(linthresh=5e-3)
-        if not only_diffuse:
+        if reconstruct_point_sources:
             p.add(mock_ps, title='point sources response', norm=LogNorm())
         p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
         p.add(mock_sky, title='sky', norm=LogNorm())
-        if not only_diffuse:
+        if reconstruct_point_sources:
             p.add(mock_ps_data, title='mock point source data', norm=norm)
         p.add(data, title='data', norm=norm)
         p.add(mock_data, title='mock data', norm=norm)
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     operators_to_plot = {'reconstruction': sky_model.pad.adjoint(sky),
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
-    if not only_diffuse:
+    if reconstruct_point_sources:
         operators_to_plot['point_sources']: sky_model.pad.adjoint(point_sources)
 
     # Create the output directory
@@ -188,7 +188,7 @@ if __name__ == "__main__":
                                               plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
     # Initial position
     initial_position = ift.from_random(sky.domain) * 0.1
-    if not only_diffuse:
+    if reconstruct_point_sources:
         initial_ps = ift.MultiField.Full(point_sources.domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 

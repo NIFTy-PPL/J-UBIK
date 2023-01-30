@@ -44,7 +44,6 @@ grid:
     # Exposurenorm is 4.785357857098681e-05
 
 priors:
-  only_diffuse: True
   point_sources:
     alpha: .8
     q: 1e-7

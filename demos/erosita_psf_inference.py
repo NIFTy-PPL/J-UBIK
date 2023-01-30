@@ -3,7 +3,7 @@ import os
 import sys
 
 import numpy as np
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, SymLogNorm
 import nifty8 as ift
 import xubik0 as xu
 from demos.sky_model import ErositaSky
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     except:
         cfg = xu.get_cfg('demos/' + config_filename)
     fov = cfg['telescope']['fov']
-    rebin = math.floor(20 * fov // cfg['grid']['npix'])
+    rebin = math.floor(20 * fov // cfg['grid']['npix']) # FIXME USE DISTANCES!
     mock_run = cfg['mock']
 
     # File Location
@@ -50,8 +50,8 @@ if __name__ == "__main__":
     tel_info = cfg['telescope']
     tm_id = tel_info['tm_id']
 
-    # Only diffuse reconstruction
-    only_diffuse = cfg['priors']['only_diffuse']
+    # Bool to enable only diffuse reconstruction
+    reconstruct_point_sources = cfg['priors']['point_sources'] is not None
 
     log = 'Output file {} already exists and is not regenerated. ' \
           'If the observations parameters shall be changed please delete or rename the current output file.'
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     # Places the pointing in the center of the image (or equivalently defines
     # the image to be centered around the pointing).
     dom = sky_model.extended_space
-    center = tuple(0.5*ss*dd for ss,dd in zip(dom.shape, dom.distances))
+    center = tuple(0.5*ss*dd for ss, dd in zip(dom.shape, dom.distances))
 
     psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
 
     convolved_sky = xu.convolve_field_operator(psf_kernel, sky)
-    if not only_diffuse:
+    if reconstruct_point_sources:
         convolved_ps = xu.convolve_field_operator(psf_kernel, point_sources)
     convolved_diffuse = xu.convolve_field_operator(psf_kernel, diffuse)
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
         # Get mock data
         mock_data = get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
-        if not only_diffuse:
+        if reconstruct_point_sources:
             mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
         mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
                                                  padder=sky_model.pad)
@@ -138,21 +138,21 @@ if __name__ == "__main__":
 
         # Get mock signal
         mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
-        if not only_diffuse:
+        if reconstruct_point_sources:
             mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
         mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
-        if not only_diffuse:
+        norm = SymLogNorm(linthresh=5e-3)
+        if reconstruct_point_sources:
             p.add(mock_ps, title='point sources response', norm=LogNorm())
         p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
         p.add(mock_sky, title='sky', norm=LogNorm())
-        if not only_diffuse:
+        if reconstruct_point_sources:
             p.add(mock_ps_data, title='mock point source data', norm=LogNorm())
         p.add(data, title='data', norm=norm)
         p.add(mock_data, title='mock data', norm=norm)
         p.add(mock_diffuse_data, title='mock diffuse data', norm=LogNorm())
         p.output(nx=4, name=f'mock_data.png')
-
 
     # Set up likelihood
     log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved_sky
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     operators_to_plot = {'reconstruction': sky_model.pad.adjoint(sky),
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
-    if not only_diffuse:
+    if reconstruct_point_sources:
         operators_to_plot['point_sources']: sky_model.pad.adjoint(point_sources)
 
     # Create the output directory
@@ -189,7 +189,7 @@ if __name__ == "__main__":
 
     # Initial position
     initial_position = ift.from_random(sky.domain) * 0.1
-    if not only_diffuse:
+    if reconstruct_point_sources:
         initial_ps = ift.MultiField.Full(point_sources.domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 

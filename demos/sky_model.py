@@ -37,7 +37,7 @@ class ErositaSky:
         return point_sources, diffuse_component, sky
 
     def _create_point_source_model(self):
-        if self.priors['only_diffuse']:
+        if self.priors['point_sources'] is None:
             return None
         if self.alpha is not None and self.q is not None:
             point_sources = ift.InverseGammaOperator(self.extended_space, alpha=self.alpha, q=self.q)
