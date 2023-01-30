@@ -23,7 +23,7 @@ class ChandraObservationInformation():
 
     """
 
-    def __init__ (self, obsInfo, npix_s, npix_e, fov, elim, center=None, obs_type=None):
+    def __init__(self, obsInfo, npix_s, npix_e, fov, elim, center=None, obs_type=None):
 
         """
         Interface to the CXC data and simulation tools.
