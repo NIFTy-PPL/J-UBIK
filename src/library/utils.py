@@ -549,6 +549,7 @@ def energy_binning(fld, energy_bins):
     has 3 energy bins, nothing happens and if the field has more than 3 energy bins the array is rebinned to three
     equally sized energy bins.
 
+    Parameters
     ----------
     fld: ift.Field
         Field with energy direction
@@ -559,6 +560,10 @@ def energy_binning(fld, energy_bins):
     ----------
     fld: ift.Field
         Field with changed number of energy bins
+
+    Note
+    ----
+    If the number of energy-bins divided by 3 is not an integer, the last bin will be bigger.
     """
     domain = fld.domain
     arr = fld.val
