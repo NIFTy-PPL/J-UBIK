@@ -5,10 +5,14 @@ docs/source/user/getting_started_0.rst
 docs/source/user/custom_nonlinearities.rst
 docs/source/user/getting_started_4_CorrelatedFields.rst
 /xubik/obs/*
+/data/*
+demos/retreat_first_reconstruction/*
 
 # custom
 config/*
+src/operators/adg
 *_results
+demos/results/*
 *.h5
 *.hdf5
 *.txt

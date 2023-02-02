@@ -23,7 +23,7 @@ class ChandraObservationInformation():
 
     """
 
-    def __init__ (self, obsInfo, npix_s, npix_e, fov, elim, center=None, obs_type=None):
+    def __init__(self, obsInfo, npix_s, npix_e, fov, elim, center=None, obs_type=None):
 
         """
         Interface to the CXC data and simulation tools.
@@ -37,7 +37,8 @@ class ChandraObservationInformation():
 
         npix_s (int)   : number of pixels along each spatial axis
         npix_e (int)   : number of (logarithmic) pixels in the energy direction
-        fov (float)    : maximum off-center distance to consider (in arcmin)
+        fov (float)    : spatial extent from xmin to xmax, to be considered (in arcsec).
+                         fov is assumed to be the same for y.
         elim (tupel)   : minimum and maximum energy to be considered in keV
         center (tupel) : RA and DEC of the image center, if None the nominal pointing direction will be used
         """
@@ -85,14 +86,14 @@ class ChandraObservationInformation():
 
         # 3.c) define range in x and y coordinates
         # note: pixelsize = 0.492 arcsec
-        #FIXME really?
-        self.obsInfo['xy_range'] = 60.*fov/0.492
+        # FIXME really?
+        self.obsInfo['xy_range'] = fov/2/0.492  # full fov / 2 (for half fov) / 0.492 (pixel size)
         self.obsInfo['x_min']    = self.obsInfo['x_center'] - self.obsInfo['xy_range'] 
         self.obsInfo['x_max']    = self.obsInfo['x_center'] + self.obsInfo['xy_range']
         self.obsInfo['y_min']    = self.obsInfo['y_center'] - self.obsInfo['xy_range']
         self.obsInfo['y_max']    = self.obsInfo['y_center'] + self.obsInfo['xy_range']
         self.obsInfo['npix_s']   = npix_s
-        self.obsInfo['spix']     = 2.*fov  # spatial pixel scale in arcmin
+        self.obsInfo['fov']     = fov  # spatial pixel scale in arcsec
 
         # 3.d) energy discretization
         self.obsInfo['energy_min'] = elim[0]
@@ -460,7 +461,7 @@ class ChandraObservationInformation():
             "TStart" : tstart,
             "Verbose" : "no",
             "ACIS_Frame_Transfer_Time" : "0.000",
-            "HRMA_Use_Struts" : "yes", #FIXME Find out of if "yes" or "no"
+            "HRMA_Use_Struts" : "yes", # FIXME Find out of if "yes" or "no"
             "DetExtendFlag" : "yes"
         }
 

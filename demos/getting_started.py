@@ -13,7 +13,7 @@ npix_s = cfg["grid"]["npix_s"]
 fov = cfg["grid"]["fov"]
 
 energy_bin = 0
-position_space = ift.RGSpace([npix_s, npix_s], distances=[2.0 * fov / npix_s])
+position_space = ift.RGSpace([npix_s, npix_s], distances=[fov / npix_s])
 
 # Model P(s)
 diffuse = ift.SimpleCorrelatedField(position_space, **cfg['priors_diffuse'])

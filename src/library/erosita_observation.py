@@ -1,11 +1,14 @@
 # FIXME: add copyright
-import os.path
+import os
 import subprocess
-
+import argparse
+import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from matplotlib import colors
 
+
+# TODO remove typesetting
 
 class ErositaObservation:
     """
@@ -16,7 +19,7 @@ class ErositaObservation:
 
     """
 
-    def __init__(self, input_filename: list[str], output_filename: str, working_directory: str):
+    def __init__(self, input_filename, output_filename, working_directory):
         # TODO: Add parameter checks
         self.working_directory = os.path.abspath(working_directory)
         self.input = input_filename
@@ -45,7 +48,7 @@ class ErositaObservation:
 
         flags = self._get_evtool_flags(**kwargs)
         command = self._base_command + 'evtool ' + input_files + " " + output_file + flags + "'"
-        # print(command)
+
         self._run_task(command)
         print("The processed dataset has been saved as {}.".format(os.path.join(self.working_directory, self.output)))
         return fits.open(os.path.join(self.working_directory, self.output))
@@ -94,7 +97,7 @@ class ErositaObservation:
         proc.wait()
         (stdout, stderr) = proc.communicate()
         if proc.returncode != 0:
-            print(stderr)
+            raise FileNotFoundError("Docker Error")
         else:
             print("eSASS task COMPLETE.")
 
@@ -102,10 +105,20 @@ class ErositaObservation:
         print("Loading ouput data stored in {}.".format(filename))
         return fits.open(os.path.join(self.working_directory, filename))
 
+    def get_center_coordinates(self, input_filename):
+        conv = 3600 # to arcseconds
+        try:
+            input_header = self.load_fits_data(input_filename)[1].header # FIXME: think about nicer implementation
+            return conv*input_header['RA_PNT'], conv*input_header['DEC_PNT']
+        except ValueError:
+            print("Input filename does not contain center information.")
+            return None
+
     def plot_fits_data(self, filename, image_name, slice=None, lognorm=True, linthresh=10e-1,
                        show=False, dpi=None, **kwargs):
         im = self.load_fits_data(filename)[0].data
         if slice is not None:
+            slice = tuple(slice)
             im = im[slice[2]:slice[3], slice[0]:slice[1]]
         output = os.path.join(self.working_directory, image_name)
         norm = None
@@ -120,10 +133,10 @@ class ErositaObservation:
         print(filename + " data image saved as {}.".format(output))
 
     @staticmethod
-    def _get_evtool_flags(clobber: bool = True, events: bool = True, image: bool = False, size: list[str] = None,
-                          rebin: list[str] = None, center_position: list[str] = None, region: str = None,
-                          gti: list[str] = None, flag: str = None, flag_invert: bool = None, pattern: int = None,
-                          telid: list[str] = None, emin: list[str] = None, emax: list[str] = None, rawxy: str = None,
+    def _get_evtool_flags(clobber: bool = True, events: bool = True, image: bool = False, size=None,
+                          rebin=None, center_position=None, region: str = None,
+                          gti=None, flag: str = None, flag_invert: bool = None, pattern: int = None,
+                          telid=None, emin=None, emax=None, rawxy: str = None,
                           rawxy_telid: int = None, rawxy_invert: bool = False, memset: int = None,
                           overlap: float = None, skyfield: str = None):
         """
@@ -133,19 +146,19 @@ class ErositaObservation:
         ----------
 
         clobber: bool
-        events: list[str]
+        events
         image: bool
-        size: list[str]
-        rebin: list[str]
-        center_position: list[str]
+        size
+        rebin
+        center_position
         region: str
-        gti: list[str]
+        gti
         flag: str
         flag_invert: bool
         pattern: int
-        telid: list[str]
-        emin: list[str]
-        emax: list[str]
+        telid
+        emin
+        emax
         rawxy: str
         rawxy_telid: int
         rawxy_invert: bool
@@ -180,8 +193,8 @@ class ErositaObservation:
 
     @staticmethod
     def _get_exmap_flags(mounted_dir: str, templateimage: str, emin: float, emax: float,
-                         withsinglemaps: bool = False, withmergedmaps: bool = True, singlemaps: list[str] = None,
-                         mergedmaps: list[str] = None, gtitype: str = 'GTI', withvignetting: bool = True,
+                         withsinglemaps: bool = False, withmergedmaps: bool = True, singlemaps=None,
+                         mergedmaps=None, gtitype: str = 'GTI', withvignetting: bool = True,
                          withdetmaps: bool = False, withweights: bool = True, withfilebadpix: bool = True,
                          withcalbadpix: bool = True, withinputmaps: bool = False):
 
@@ -240,7 +253,7 @@ class ErositaObservation:
         return flags
 
     @staticmethod
-    def _parse_stringlists(stringlist: list[str], additional_path: str = ""):
+    def _parse_stringlists(stringlist, additional_path: str = ""):
         if isinstance(stringlist, str):
             return '"' + os.path.join(additional_path, stringlist) + '"'
         elif isinstance(stringlist, list):
@@ -253,38 +266,57 @@ class ErositaObservation:
             raise TypeError("Type must be a list a string or a list of strings.")
 
 
-if __name__ == "__main__":
-    obs_path = "../../data/"  # Folder that gets mounted to the docker
-    filename = "combined_out_08_1_no_imm.fits"
-    input_filename = ['LMC_SN1987A/fm00_700203_020_EventList_c001.fits',
-                      'LMC_SN1987A/fm00_700204_020_EventList_c001.fits',
-                      'LMC_SN1987A/fm00_700204_020_EventList_c001.fits']
-
-    # observation_instance = ErositaObservation(input_filename, filename, "../../data/")
-    # observation = observation_instance.get_data(emin=0.2, emax=0.5, image=True, rebin=80, size=3240, pattern=15)
-    # observation = observation_instance.get_data(emin=0.7, emax=1.0, image=True, rebin=80, size=3240, pattern=15,
-    # gti='GTI')
-    observation_instance_2 = ErositaObservation(filename, filename, "../../data/")
-    # observation_instance_2.get_exposure_maps(filename, 0.7, 1.0, mergedmaps="expmap_combined.fits")
-    observation_instance_2.plot_fits_data(filename, "combined_out_08_1_no_imm", slice=(1100, 2000, 800, 2000), dpi=800)
-    observation_instance_2.plot_fits_data("expmap_combined.fits", "expmap_combined.png", slice=(1100, 2000, 800, 2000), dpi=800)
-
-    # observation_instance.get_psf("out_2.fits", "psfmaps_2.fits", "expmap.fits", psfmapflag=True)
-    # observation = observation_instance.load_data("output_vela.fits")
-    # observation = observation_instance_2.load_fits_data("expmap_combined.fits")
-
-    # def show_images(images):
-    #     n: int = len(images)
-    #     f = plt.figure()
-    #     for i in range(n):
-    #         # Debug, plot figure
-    #         f.add_subplot(3, 4, i + 1)
-    #         plt.imshow(images[i])
-    #
-    #     # plt.show(block=True)
-    #     name = os.path.splitext(output_filename)[0] + "_psf.png" #FIXME
-    #     plt.savefig(os.path.splitext(output_filename)[0] + "_psf.png")
-    #
-    # show_images(psfmap)
-
-    # print("Data saved as {}.".format(output_filename))
+# if __name__ == "__main__":
+#     cfg = xu.get_cfg("demos/eROSITA_config.yaml")
+#     # File Location
+#     file_info = cfg['files']
+#     obs_path = file_info['obs_path']
+#     input_filenames = file_info['input']
+#     output_filename = file_info['output']
+#     exposure_filename = file_info['exposure']
+#     observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
+#
+#     # Grid Info
+#
+#     grid_info = cfg['grid']
+#     e_min = grid_info['energy_bin']['e_min']
+#     e_max = grid_info['energy_bin']['e_max']
+#     npix = grid_info['npix']
+#
+#     # Telescope Info
+#
+#     tel_info = cfg['telescope']
+#     tm_id = tel_info['tm_id']
+#
+#
+#     log = 'Output file {} already exists and is not regenerated. If the observations parameters shall be changed ' \
+#           'please delete or rename the current output file.'
+#
+#     if not os.path.exists(os.path.join(obs_path, output_filename)):
+#         observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=tel_info['rebin'],
+#                                                     size=npix, pattern=tel_info['pattern'],
+#                                                     telid=tm_id)
+#     else:
+#         print(log.format(os.path.join(obs_path, output_filename)))
+#
+#     observation_instance = ErositaObservation(output_filename, output_filename, obs_path)
+#
+#     # Exposure
+#     if not os.path.exists(os.path.join(obs_path, exposure_filename)):
+#         observation_instance.get_exposure_maps(output_filename, e_min, e_max, mergedmaps=exposure_filename)
+#
+#     else:
+#         print(log.format(os.path.join(obs_path, output_filename)))
+#     # Plotting
+#     plot_info = cfg['plotting']
+#     if plot_info['enabled']:
+#         observation_instance.plot_fits_data(output_filename,
+#                                             os.path.splitext(output_filename)[0],
+#                                             slice=tuple(plot_info['slice']),
+#                                             dpi=plot_info['dpi'])
+#         observation_instance.plot_fits_data(exposure_filename,
+#                                             f'{os.path.splitext(exposure_filename)[0]}.png',
+#                                             slice=tuple(plot_info['slice']),
+#                                             dpi=plot_info['dpi'])
+#
+#     data = observation_instance.load_fits_data(output_filename)[0].data
