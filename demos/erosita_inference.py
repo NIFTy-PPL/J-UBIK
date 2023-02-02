@@ -8,7 +8,8 @@ import nifty8 as ift
 import xubik0 as xu
 from demos.sky_model import ErositaSky
 
-from src.library.plot import plot_sample_and_stats, create_output_directory
+from src.library.plot import plot_sample_and_stats
+from src.library.utils import create_output_directory
 from xubik0.library.utils import get_data_realization, save_config
 
 currentdir = os.path.dirname(os.path.realpath(__file__))

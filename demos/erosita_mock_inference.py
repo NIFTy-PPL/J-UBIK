@@ -11,13 +11,12 @@ import nifty8 as ift
 import xubik0 as xu
 
 
-from demos.sky_model import ErositaSky
-from src.library.plot import plot_sample_and_stats, create_output_directory
-
-
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
-sys.path.append(parentdir)
+sys.path.insert(0, parentdir)
+from demos.sky_model import ErositaSky
+from src.library.plot import plot_sample_and_stats
+from src.library.utils import create_output_directory
 
 
 mockrun = True
@@ -38,6 +37,7 @@ if __name__ == "__main__":
     except:
         config_path = 'demos/' + config_filename
         cfg = xu.get_cfg(config_path)
+    output_directory = create_output_directory("retreat_first_reconstruction")
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])
 
@@ -105,9 +105,8 @@ if __name__ == "__main__":
         psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
         psf_kernel = psf_function(*center)
         psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
-        # p = ift.Plot()
-        # p.add(psf_kernel, norm=colors.SymLogNorm(linthresh=10e-8))
-        # p.output()
+
+
 
 
     # Exposure
@@ -136,22 +135,25 @@ if __name__ == "__main__":
                 for alpha in [1.0001]:
                     for q in [0.0000001]:
                         sky_model = ErositaSky(config_path, alpha=alpha, q=q)
-                        mock_sky_data, _ = xu.generate_mock_data(sky_model, exposure_field, sky_model.pad, psf_kernel,
-                                                                 alpha, q, n, var=tel_info['var'])
+                        mock_sky_data, _ = xu.generate_mock_data(sky_model, exposure_field,
+                                                                 sky_model.pad, psf_kernel,
+                                                                 alpha, q, n, var=tel_info['var'],
+                                                                 output_directory=output_directory)
             exit()
         else:
             if load_mock_data:
-                with open('mock_date.pkl', "rb") as f:
+                #FIXME: name of output folder for diagnostics into config
+                with open('diagnostics/mock_sky_data.pkl', "rb") as f:
                     mock_sky_data = pickle.load(f)
                 if psf_kernel is None:
                     convolved = xu.get_gaussian_psf(sky, var=tel_info['var'])
                 else:
                     convolved = xu.convolve_field_operator(psf_kernel, sky)
             else:
-                mock_sky_data, convolved = xu.generate_mock_data(sky_model, exposure_field, sky_model.pad, psf_kernel,
-                                                                 var=tel_info['var'])
-                with open("mock_date.pkl", 'wb') as file:
-                    pickle.dump(mock_sky_data, file)
+                mock_sky_data, convolved = xu.generate_mock_data(sky_model, exposure_field,
+                                                                 sky_model.pad, psf_kernel,
+                                                                 var=tel_info['var'],
+                                                                 output_directory=output_directory)
             masked_data = mask(mock_sky_data)
             #Likelihood
             log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved
@@ -167,7 +169,6 @@ if __name__ == "__main__":
 
     # Load minimization config
     minimization_config = cfg['minimization']
-    output_directory = create_output_directory("retreat_first_reconstruction")
 
     # Save config file in output_directory
     xu.save_config(cfg, config_filename, output_directory)
