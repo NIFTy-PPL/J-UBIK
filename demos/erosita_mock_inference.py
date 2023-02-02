@@ -14,7 +14,6 @@ import xubik0 as xu
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
-from demos.sky_model import ErositaSky
 from src.library.plot import plot_sample_and_stats
 from src.library.utils import create_output_directory
 
@@ -48,7 +47,7 @@ if __name__ == "__main__":
     output_filename = file_info['output']
     exposure_filename = file_info['exposure']
     observation_instance = xu.ErositaObservation(input_filenames, output_filename, obs_path)
-    sky_model = ErositaSky(config_path)
+    sky_model = xu.SkyModel(config_path)
     point_sources, diffuse, sky = sky_model.create_sky_model()
 
     # Grid Info
@@ -134,7 +133,7 @@ if __name__ == "__main__":
             for n in range(n_mock_samples):
                 for alpha in [1.0001]:
                     for q in [0.0000001]:
-                        sky_model = ErositaSky(config_path, alpha=alpha, q=q)
+                        sky_model = xu.SkyModel(config_path, alpha=alpha, q=q)
                         mock_sky_data, _ = xu.generate_mock_data(sky_model, exposure_field,
                                                                  sky_model.pad, psf_kernel,
                                                                  alpha, q, n, var=tel_info['var'],

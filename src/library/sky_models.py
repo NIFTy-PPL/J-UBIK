@@ -3,7 +3,7 @@ import xubik0 as xu
 from matplotlib.colors import LogNorm
 
 
-class ErositaSky:
+class SkyModel:
     def __init__(self, config_file, alpha=None, q=None):
         if not isinstance(config_file, str):
             raise TypeError("The config_file argument needs to be the path to a .yaml config file.")
@@ -56,7 +56,7 @@ class ErositaSky:
 
 if __name__ == "__main__":
     config = 'eROSITA_config_mw.yaml'
-    model = ErositaSky(config)
+    model = SkyModel(config)
     ps, diffuse, sky = model.create_sky_model()
 
     ift.random.push_sseq_from_seed(model.config['seed'])

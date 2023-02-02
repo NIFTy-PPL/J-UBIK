@@ -5,7 +5,6 @@ import sys
 from matplotlib.colors import LogNorm, SymLogNorm
 import nifty8 as ift
 import xubik0 as xu
-from demos.sky_model import ErositaSky
 
 from src.library.plot import plot_sample_and_stats
 from src.library.utils import create_output_directory
@@ -36,7 +35,7 @@ if __name__ == "__main__":
     output_filename = file_info['output']
     exposure_filename = file_info['exposure']
     observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
-    sky_model = ErositaSky(config_filename)
+    sky_model = xu.SkyModel(config_filename)
     point_sources, diffuse, sky = sky_model.create_sky_model()
 
     # Grid Info
