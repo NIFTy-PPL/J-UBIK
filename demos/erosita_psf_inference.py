@@ -172,7 +172,7 @@ if __name__ == "__main__":
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
     if reconstruct_point_sources:
-        operators_to_plot['point_sources']: sky_model.pad.adjoint(point_sources)
+        operators_to_plot['point_sources'] = sky_model.pad.adjoint(point_sources)
 
     # Create the output directory
     output_directory = create_output_directory(file_info['res_dir'])
