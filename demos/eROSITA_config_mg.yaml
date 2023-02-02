@@ -1,31 +1,52 @@
 seed: 86
-mock: True
+mock: False
+
 telescope:
   tm_id : 1
-  fov: 3600 # in arcsec
+  fov: 1600 # in arcsec
   pattern: 15
+
+psf:
+  method: 'LIN'
+  energy: '3000'
+
+  # LIN config
+  npatch: 8
+  margfrac: 0.2
+  want_cut: False
+
+  # MSC config
+  b: [3,3]
+  q: [4,4]
+  c: [2,2]
+  min_m0: [10,10]
+  linear: False
+
 plotting:
   enabled: True
   slice: Null
   dpi: 800
+
 files:
   obs_path: '../data/LMC_SN1987A/'
   input: 'pm00_700161_020_EventList_c001.fits'
-  output: 'processed_pm00_700161_020_data.fits'
-  exposure: 'expmap_pm00_700161_020.fits'
+  output: 'processed_pm00_700161_020_data_small.fits'
+  exposure: 'expmap_pm00_700161_020_small.fits'
   psf_path : '../data/tm1/bcf/tm1_2dpsf_190219v05.fits'
+  res_dir: 'only_diffuse_reconstruction_output'
 
 grid:
-  npix: 1024
-  padding_ratio: 2.
+  npix: 256
+  padding_ratio: 1.5
   energy_bin:
     e_min: 2.0
     e_max: 4.5
-# Exposurenorm is 4.785357857098681e-05
+    # Exposurenorm is 4.785357857098681e-05
+
 priors:
   point_sources:
-    alpha: 1.
-    q: 1e-6
+    alpha: .8
+    q: 1e-7
   diffuse:
     offset:
       offset_mean: -10.

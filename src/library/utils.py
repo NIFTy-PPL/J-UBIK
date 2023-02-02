@@ -117,7 +117,7 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
 
 def get_norm(exposure_field, data_field):
     """
-    returns the only the order of magnitude of
+    returns only the order of magnitude of
     the norm of get_normed_exposure
     """
     warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
@@ -234,7 +234,7 @@ def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
 def coord_center(side_length, side_n):
     """
     calculates the indices of the centers of the n**2 patches
-    for a quadratical domain with with the a certain side length
+    for a quadratical domain with a certain side length
 
     Parameters:
     ----------

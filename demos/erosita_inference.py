@@ -2,7 +2,6 @@ import math
 import os
 import sys
 
-import numpy as np
 from matplotlib.colors import LogNorm, SymLogNorm
 import nifty8 as ift
 import xubik0 as xu
@@ -50,6 +49,9 @@ if __name__ == "__main__":
     tel_info = cfg['telescope']
     tm_id = tel_info['tm_id']
 
+    # Bool to enable only diffuse reconstruction
+    reconstruct_point_sources = cfg['priors']['point_sources'] is not None
+
     log = 'Output file {} already exists and is not regenerated. ' \
           'If the observations parameters shall be changed please delete or rename the current output file.'
 
@@ -85,25 +87,17 @@ if __name__ == "__main__":
     center = observation_instance.get_center_coordinates(output_filename)
     psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
 
-    # psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
-
-    # psf_kernel = psf_function(*get_lower_radec_from_pointing(center, sky_model.position_space, return_shift=True))
-    # psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
-    # p = ift.Plot()
-    # p.add(ift.makeField(sky_model.position_space, psf_kernel), norm=colors.SymLogNorm(linthresh=10e-8))
-    # p.output()
-
-    # Places the pointing in the center of the image (or equivalently defines
-    # the image to be centered around the pointing).
     dom = sky_model.extended_space
-    center = tuple(0.5*ss*dd for ss,dd in zip(dom.shape, dom.distances))
+    center = tuple(0.5*ss*dd for ss, dd in zip(dom.shape, dom.distances))
+
     energy = cfg['psf']['energy']
     conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
                                    conv_method=cfg['psf']['method'],
                                    conv_params=cfg['psf'])
 
     convolved_sky = conv_op @ sky
-    convolved_ps = conv_op @ point_sources
+    if reconstruct_point_sources:
+        convolved_ps = conv_op @ point_sources
     convolved_diffuse = conv_op @ diffuse
 
     # Exposure
@@ -123,13 +117,16 @@ if __name__ == "__main__":
     data = ift.makeField(sky_model.position_space, data)
     masked_data = mask(data)
 
+    p = ift.Plot()
+
     if mock_run:
         ift.random.push_sseq_from_seed(cfg['seed'])
         mock_position = ift.from_random(sky.domain)
 
         # Get mock data
         mock_data = get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
-        mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
+        if reconstruct_point_sources:
+            mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
         mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
                                                  padder=sky_model.pad)
 
@@ -138,15 +135,17 @@ if __name__ == "__main__":
 
         # Get mock signal
         mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
-        mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
+        if reconstruct_point_sources:
+            mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
         mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
-        p = ift.Plot()
         norm = SymLogNorm(linthresh=5e-3)
-        p.add(mock_ps, title='point sources response', norm=LogNorm())
+        if reconstruct_point_sources:
+            p.add(mock_ps, title='point sources response', norm=LogNorm())
         p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
         p.add(mock_sky, title='sky', norm=LogNorm())
-        p.add(mock_ps_data, title='mock point source data', norm=norm)
+        if reconstruct_point_sources:
+            p.add(mock_ps_data, title='mock point source data', norm=norm)
         p.add(data, title='data', norm=norm)
         p.add(mock_data, title='mock data', norm=norm)
         p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
@@ -171,10 +170,13 @@ if __name__ == "__main__":
 
     # Prepare results
     operators_to_plot = {'reconstruction': sky_model.pad.adjoint(sky),
-                         'point_sources': sky_model.pad.adjoint(point_sources),
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
-    output_directory = create_output_directory(cfg["files"]["res_dir"])
+    if reconstruct_point_sources:
+        operators_to_plot['point_sources']: sky_model.pad.adjoint(point_sources)
+
+    # Create the output directory
+    output_directory = create_output_directory(file_info["res_dir"])
 
     # Save config file in output_directory
     save_config(cfg, config_filename, output_directory)
@@ -184,6 +186,11 @@ if __name__ == "__main__":
                                               x,
                                               y,
                                               plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
+    # Initial position
+    initial_position = ift.from_random(sky.domain) * 0.1
+    if reconstruct_point_sources:
+        initial_ps = ift.MultiField.Full(point_sources.domain, 0)
+        initial_position = ift.MultiField.union([initial_position, initial_ps])
 
     if minimization_config['geovi']:
         # geoVI

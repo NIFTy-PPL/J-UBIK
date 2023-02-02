@@ -27,14 +27,14 @@ if __name__ == "__main__":
     except:
         cfg = xu.get_cfg('demos/' + config_filename)
     fov = cfg['telescope']['fov']
-    rebin = math.floor(20 * fov // cfg['grid']['npix'])
+    rebin = math.floor(20 * fov // cfg['grid']['npix']) # FIXME USE DISTANCES!
     mock_run = cfg['mock']
 
     # File Location
     file_info = cfg['files']
     obs_path = file_info['obs_path']
-    input_filenames = file_info['input']
-    output_filename = file_info['output']
+    input_filenames = file_info['input_data']
+    output_filename = file_info['output_data']
     exposure_filename = file_info['exposure']
     observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
     sky_model = ErositaSky(config_filename)
@@ -49,6 +49,9 @@ if __name__ == "__main__":
     # Telescope Info
     tel_info = cfg['telescope']
     tm_id = tel_info['tm_id']
+
+    # Bool to enable only diffuse reconstruction
+    reconstruct_point_sources = cfg['priors']['point_sources'] is not None
 
     log = 'Output file {} already exists and is not regenerated. ' \
           'If the observations parameters shall be changed please delete or rename the current output file.'
@@ -88,18 +91,16 @@ if __name__ == "__main__":
     # Places the pointing in the center of the image (or equivalently defines
     # the image to be centered around the pointing).
     dom = sky_model.extended_space
-    center = tuple(0.5*ss*dd for ss,dd in zip(dom.shape, dom.distances))
+    center = tuple(0.5*ss*dd for ss, dd in zip(dom.shape, dom.distances))
 
     psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
 
     psf_kernel = psf_function(*center)
     psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
-    # p = ift.Plot()
-    # p.add(ift.makeField(sky_model.position_space, psf_kernel), norm=colors.SymLogNorm(linthresh=10e-8))
-    # p.output()
 
     convolved_sky = xu.convolve_field_operator(psf_kernel, sky)
-    convolved_ps = xu.convolve_field_operator(psf_kernel, point_sources)
+    if reconstruct_point_sources:
+        convolved_ps = xu.convolve_field_operator(psf_kernel, point_sources)
     convolved_diffuse = xu.convolve_field_operator(psf_kernel, diffuse)
 
     # Exposure
@@ -119,13 +120,16 @@ if __name__ == "__main__":
     data = ift.makeField(sky_model.position_space, data)
     masked_data = mask(data)
 
+    p = ift.Plot()
+
     if mock_run:
         ift.random.push_sseq_from_seed(cfg['seed'])
         mock_position = ift.from_random(sky.domain)
 
         # Get mock data
         mock_data = get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
-        mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
+        if reconstruct_point_sources:
+            mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
         mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
                                                  padder=sky_model.pad)
 
@@ -134,23 +138,21 @@ if __name__ == "__main__":
 
         # Get mock signal
         mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
-        mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
+        if reconstruct_point_sources:
+            mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
         mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
 
-        p = ift.Plot()
         norm = SymLogNorm(linthresh=5e-3)
-        p.add(mock_ps, title='point sources response', norm=LogNorm())
+        if reconstruct_point_sources:
+            p.add(mock_ps, title='point sources response', norm=LogNorm())
         p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
         p.add(mock_sky, title='sky', norm=LogNorm())
-        p.add(mock_ps_data, title='mock point source data', norm=norm)
+        if reconstruct_point_sources:
+            p.add(mock_ps_data, title='mock point source data', norm=LogNorm())
         p.add(data, title='data', norm=norm)
         p.add(mock_data, title='mock data', norm=norm)
-        p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
+        p.add(mock_diffuse_data, title='mock diffuse data', norm=LogNorm())
         p.output(nx=4, name=f'mock_data.png')
-
-    # Print Exposure norm
-    # norm = xu.get_norm(exposure, data)
-    # print(norm)
 
     # Set up likelihood
     log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved_sky
@@ -167,16 +169,29 @@ if __name__ == "__main__":
 
     # Prepare results
     operators_to_plot = {'reconstruction': sky_model.pad.adjoint(sky),
-                         'point_sources': sky_model.pad.adjoint(point_sources),
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
-    output_directory = create_output_directory("retreat_first_reconstruction")
+    if reconstruct_point_sources:
+        operators_to_plot['point_sources'] = sky_model.pad.adjoint(point_sources)
+
+    # Create the output directory
+    output_directory = create_output_directory(file_info['res_dir'])
+
+    # Plot the data in output directory
+    p.add(data, norm=LogNorm())
+    p.output(name=os.path.join(output_directory, 'data.png'), dpi=800)
 
     # Save config file in output_directory
     save_config(cfg, config_filename, output_directory)
 
     plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
-                                              plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
+                                              plotting_kwargs={'norm': LogNorm()})
+
+    # Initial position
+    initial_position = ift.from_random(sky.domain) * 0.1
+    if reconstruct_point_sources:
+        initial_ps = ift.MultiField.Full(point_sources.domain, 0)
+        initial_position = ift.MultiField.union([initial_position, initial_ps])
 
     if minimization_config['geovi']:
         # geoVI
@@ -185,6 +200,7 @@ if __name__ == "__main__":
                         minimizer,
                         ic_sampling,
                         minimizer_sampling,
+                        initial_position=initial_position,
                         output_directory=output_directory,
                         export_operator_outputs=operators_to_plot,
                         inspect_callback=plot,
