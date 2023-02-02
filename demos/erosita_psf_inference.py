@@ -21,7 +21,7 @@ from jax import config
 config.update('jax_enable_x64', True)
 
 if __name__ == "__main__":
-    config_filename = "eROSITA_config.yaml"
+    config_filename = "eROSITA_config_mg.yaml"
     try:
         cfg = xu.get_cfg(config_filename)
     except:
@@ -33,8 +33,8 @@ if __name__ == "__main__":
     # File Location
     file_info = cfg['files']
     obs_path = file_info['obs_path']
-    input_filenames = file_info['input_data']
-    output_filename = file_info['output_data']
+    input_filenames = file_info['input']
+    output_filename = file_info['output']
     exposure_filename = file_info['exposure']
     observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
     sky_model = ErositaSky(config_filename)
@@ -190,7 +190,7 @@ if __name__ == "__main__":
     # Initial position
     initial_position = ift.from_random(sky.domain) * 0.1
     if reconstruct_point_sources:
-        initial_ps = ift.MultiField.Full(point_sources.domain, 0)
+        initial_ps = ift.MultiField.full(point_sources.domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 
     if minimization_config['geovi']:
