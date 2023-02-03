@@ -25,7 +25,6 @@ def test_generate_mock_data(psf_kernel, gauss_var, exposure, padder):
     if gauss_var is None and psf_kernel is None:
         pass
     else:
-        ift.logger.info(sky_model.pad.domain)
         xu.generate_mock_data(sky_model=sky_model,
                               exposure=exposure,
                               pad=padder,
