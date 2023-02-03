@@ -623,7 +623,7 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True):
             res = ift.makeField(op.target, res)
     return res
 
-
+# FIXME add features to switch off point_source
 def generate_mock_data(sky_model, exposure=None, pad=None, psf_kernel=None, alpha=None, q=None, n=None, var=None,
                        output_directory=None):
     if psf_kernel is None and var is None:
