@@ -1,5 +1,7 @@
 seed: 86
-mock: False
+mock: True
+mock_psf: False
+load_mock_data: False
 
 telescope:
   tm_id : 1
