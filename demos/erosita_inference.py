@@ -1,21 +1,12 @@
 import math
 import os
-import sys
 
 from matplotlib.colors import LogNorm, SymLogNorm
 import nifty8 as ift
 import xubik0 as xu
 
-from src.library.plot import plot_sample_and_stats
-from src.library.utils import create_output_directory
-from xubik0.library.utils import get_data_realization, save_config
-
-currentdir = os.path.dirname(os.path.realpath(__file__))
-parentdir = os.path.dirname(currentdir)
-sys.path.append(parentdir)
-from src.library.erosita_observation import ErositaObservation
-
 from jax import config
+
 config.update('jax_enable_x64', True)
 
 if __name__ == "__main__":
@@ -34,7 +25,7 @@ if __name__ == "__main__":
     input_filenames = file_info['input']
     output_filename = file_info['output']
     exposure_filename = file_info['exposure']
-    observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
+    observation_instance = xu.ErositaObservation(input_filenames, output_filename, obs_path)
     sky_model = xu.SkyModel(config_filename)
     point_sources, diffuse, sky = sky_model.create_sky_model()
 
@@ -61,7 +52,7 @@ if __name__ == "__main__":
     else:
         print(log.format(os.path.join(obs_path, output_filename)))
 
-    observation_instance = ErositaObservation(output_filename, output_filename, obs_path)
+    observation_instance = xu.ErositaObservation(output_filename, output_filename, obs_path)
 
     # Exposure
     if not os.path.exists(os.path.join(obs_path, exposure_filename)):
@@ -123,20 +114,20 @@ if __name__ == "__main__":
         mock_position = ift.from_random(sky.domain)
 
         # Get mock data
-        mock_data = get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
+        mock_data = xu.get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
         if reconstruct_point_sources:
-            mock_ps_data = get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
-        mock_diffuse_data = get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
+            mock_ps_data = xu.get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
+        mock_diffuse_data = xu.get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
                                                  padder=sky_model.pad)
 
         # Mask mock data
         masked_data = mask(mock_data)
 
         # Get mock signal
-        mock_sky = get_data_realization(convolved_sky, mock_position, data=False)
+        mock_sky = xu.get_data_realization(convolved_sky, mock_position, data=False)
         if reconstruct_point_sources:
-            mock_ps = get_data_realization(convolved_ps, mock_position, data=False)
-        mock_diffuse = get_data_realization(convolved_diffuse, mock_position, data=False)
+            mock_ps = xu.get_data_realization(convolved_ps, mock_position, data=False)
+        mock_diffuse = xu.get_data_realization(convolved_diffuse, mock_position, data=False)
 
         norm = SymLogNorm(linthresh=5e-3)
         if reconstruct_point_sources:
@@ -175,16 +166,16 @@ if __name__ == "__main__":
         operators_to_plot['point_sources']: sky_model.pad.adjoint(point_sources)
 
     # Create the output directory
-    output_directory = create_output_directory(file_info["res_dir"])
+    output_directory = xu.create_output_directory(file_info["res_dir"])
 
     # Save config file in output_directory
-    save_config(cfg, config_filename, output_directory)
+    xu.save_config(cfg, config_filename, output_directory)
 
-    plot = lambda x, y: plot_sample_and_stats(output_directory,
-                                              operators_to_plot,
-                                              x,
-                                              y,
-                                              plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
+    plot = lambda x, y: xu.plot_sample_and_stats(output_directory,
+                                                 operators_to_plot,
+                                                 x,
+                                                 y,
+                                                 plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
     # Initial position
     initial_position = ift.from_random(sky.domain) * 0.1
     if reconstruct_point_sources:

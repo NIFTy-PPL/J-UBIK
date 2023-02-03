@@ -1,22 +1,11 @@
 import math
 import os
-import sys
 import pickle
 import numpy as np
 from matplotlib import colors
-from sys import exit
-
 
 import nifty8 as ift
 import xubik0 as xu
-
-
-currentdir = os.path.dirname(os.path.realpath(__file__))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
-from src.library.plot import plot_sample_and_stats
-from src.library.utils import create_output_directory
-
 
 mockrun = True
 mock_psf = False
@@ -36,7 +25,7 @@ if __name__ == "__main__":
     except:
         config_path = 'demos/' + config_filename
         cfg = xu.get_cfg(config_path)
-    output_directory = create_output_directory("retreat_first_reconstruction")
+    output_directory = xu.create_output_directory("retreat_first_reconstruction")
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])
 
@@ -181,7 +170,7 @@ if __name__ == "__main__":
 
     # Prepare results
     operators_to_plot = {'reconstruction': sky, 'point_sources': point_sources, 'diffuse_component': diffuse}
-    plot = lambda x, y: plot_sample_and_stats(output_directory, operators_to_plot, x, y,
+    plot = lambda x, y: xu.plot_sample_and_stats(output_directory, operators_to_plot, x, y,
                                               plotting_kwargs={'norm': colors.SymLogNorm(linthresh=10e-1)})
 
     if minimization_config['geovi']:
