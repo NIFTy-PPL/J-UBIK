@@ -188,9 +188,3 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterato
         _plot_stats(filename, op, sample_list, plotting_kwargs)
         _plot_samples(filename_samples, sample_list.iterator(op), plotting_kwargs)
 
-
-def create_output_directory(directory_name):
-    output_directory = os.path.join(os.path.curdir, directory_name)
-    if not os.path.exists(output_directory):
-        os.mkdir(output_directory)
-    return output_directory
