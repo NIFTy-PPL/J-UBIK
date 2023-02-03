@@ -1,14 +1,12 @@
 # FIXME: add copyright
 import os
 import subprocess
-import argparse
-import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from matplotlib import colors
 
+from src.library.utils import check_type
 
-# TODO remove typesetting
 
 class ErositaObservation:
     """
@@ -133,12 +131,24 @@ class ErositaObservation:
         print(filename + " data image saved as {}.".format(output))
 
     @staticmethod
-    def _get_evtool_flags(clobber: bool = True, events: bool = True, image: bool = False, size=None,
-                          rebin=None, center_position=None, region: str = None,
-                          gti=None, flag: str = None, flag_invert: bool = None, pattern: int = None,
-                          telid=None, emin=None, emax=None, rawxy: str = None,
-                          rawxy_telid: int = None, rawxy_invert: bool = False, memset: int = None,
-                          overlap: float = None, skyfield: str = None):
+    def _get_evtool_flags(clobber=True, events=True, image=False, size=None,
+                          rebin=None, center_position=None, region=None,
+                          gti=None, flag=None, flag_invert=None, pattern=None,
+                          telid=None, emin=None, emax=None, rawxy=None,
+                          rawxy_telid=None, rawxy_invert=False, memset=None,
+                          overlap=None, skyfield=None):
+
+        input_params = {'clobber': bool, 'events': bool, 'image': bool, 'size': int,
+                        'rebin': int, 'center_position': tuple, 'region': str,
+                        'gti': str, 'flag': str, 'flag_invert': bool, 'pattern': int,
+                        'telid': str, 'emin': float, 'emax': float, 'rawxy': str,
+                        'rawxy_telid': int, 'rawxy_invert': bool, 'memset': int,
+                        'overlap': float, 'skyfield': str}
+
+        # Implements type checking
+        for key, val in input_params.items():
+            check_type(eval(key), val, name=key)
+
         """
         Returns appropriate evtool command flags.
 
@@ -146,19 +156,19 @@ class ErositaObservation:
         ----------
 
         clobber: bool
-        events
+        events: bool
         image: bool
-        size
-        rebin
+        size: int
+        rebin: int
         center_position
         region: str
-        gti
+        gti: str
         flag: str
         flag_invert: bool
         pattern: int
-        telid
-        emin
-        emax
+        telid: str
+        emin: float
+        emax: float
         rawxy: str
         rawxy_telid: int
         rawxy_invert: bool
@@ -192,11 +202,21 @@ class ErositaObservation:
         return flags
 
     @staticmethod
-    def _get_exmap_flags(mounted_dir: str, templateimage: str, emin: float, emax: float,
-                         withsinglemaps: bool = False, withmergedmaps: bool = True, singlemaps=None,
-                         mergedmaps=None, gtitype: str = 'GTI', withvignetting: bool = True,
-                         withdetmaps: bool = False, withweights: bool = True, withfilebadpix: bool = True,
-                         withcalbadpix: bool = True, withinputmaps: bool = False):
+    def _get_exmap_flags(mounted_dir, templateimage, emin, emax,
+                         withsinglemaps=False, withmergedmaps=True, singlemaps=None,
+                         mergedmaps=None, gtitype='GTI', withvignetting=True,
+                         withdetmaps=False, withweights=True, withfilebadpix=True,
+                         withcalbadpix=True, withinputmaps=False):
+
+        input_params = {'mounted_dir': str, 'templateimage': str, 'emin': float, 'emax': float,
+                        'withsinglemaps': bool, 'withmergedmaps': bool, 'singlemaps': list,
+                        'mergedmaps': list, 'gtitype': str, 'withvignetting': bool,
+                        'withdetmaps': bool, 'withweights': bool, 'withfilebadpix': bool,
+                        'withcalbadpix': bool, 'withinputmaps': bool}
+
+        # Implements type checking
+        for key, val in input_params.items():
+            check_type(eval(key), val, name=key)
 
         flags = " "
         flags += templateimage if templateimage is not None else print(
@@ -225,6 +245,18 @@ class ErositaObservation:
                            pthresh: float = 4e-6, cutrad: float = 15., psfmapsampling: float = 11.,
                            apexflag: bool = False, stackflag: bool = False, psfmapflag: bool = False,
                            shapepsf: bool = True, apesenseflag: bool = False):
+
+        input_params = {'mllist': str, 'apelist': str, 'apelistout': str, 'images': list,
+                        'psfmaps': list, 'expimages': list, 'detmasks': list,
+                        'bkgimages': list, 'srcimages': list, 'apesenseimages': list,
+                        'emin': list, 'emax': list, 'eindex': list, 'eefextract': float,
+                        'pthresh': float, 'cutrad': float, 'psfmapsampling': float,
+                        'apexflag': bool, 'stackflag': bool, 'psfmapflag': bool,
+                        'shapepsf': bool, 'apesenseflag': bool}
+
+        # Implements type checking
+        for key, val in input_params.items():
+            check_type(eval(key), val, name=key)
 
         flags = " "
         flags += " mllist={}".format(mllist) if mllist is not None else ""
