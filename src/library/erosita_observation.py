@@ -77,24 +77,6 @@ class ErositaObservation:
 
         self._run_task(command)
 
-    def get_psf(self, images, psfmaps, expimages, **kwargs):
-        """
-        Template image: the output exposure maps will be binned as specified in the WCS keywords
-        of the template image.
-        If withinputmaps=YES: input exposure maps
-        """
-        # TODO: parameter checks
-        images = self._parse_stringlists(images, self._mounted_dir)
-        psfmaps = os.path.join(self._mounted_dir, psfmaps)
-        expimages = os.path.join(self._mounted_dir, expimages)
-        flags = self._get_apetool_flags(images=images, psfmaps=psfmaps, expimages=expimages,
-                                        **kwargs)
-        command = self._base_command + 'apetool' + flags + "'"
-
-        print(command)
-        # exit()
-        self._run_task(command)
-
     def load_fits_data(self, filename):
         print("Loading ouput data stored in {}.".format(filename))
         return fits.open(os.path.join(self.working_directory, filename))
@@ -148,7 +130,7 @@ class ErositaObservation:
         input_params = {'clobber': bool, 'events': bool, 'image': bool, 'size': int,
                         'rebin': int, 'center_position': tuple, 'region': str,
                         'gti': str, 'flag': str, 'flag_invert': bool, 'pattern': int,
-                        'telid': str, 'emin': float, 'emax': float, 'rawxy': str,
+                        'telid': int, 'emin': float, 'emax': float, 'rawxy': str,
                         'rawxy_telid': int, 'rawxy_invert': bool, 'memset': int,
                         'overlap': float, 'skyfield': str}
 
@@ -217,8 +199,8 @@ class ErositaObservation:
                          withcalbadpix=True, withinputmaps=False):
 
         input_params = {'mounted_dir': str, 'templateimage': str, 'emin': float, 'emax': float,
-                        'withsinglemaps': bool, 'withmergedmaps': bool, 'singlemaps': list,
-                        'mergedmaps': list, 'gtitype': str, 'withvignetting': bool,
+                        'withsinglemaps': bool, 'withmergedmaps': bool, 'singlemaps': str,
+                        'mergedmaps': str, 'gtitype': str, 'withvignetting': bool,
                         'withdetmaps': bool, 'withweights': bool, 'withfilebadpix': bool,
                         'withcalbadpix': bool, 'withinputmaps': bool}
 
@@ -247,56 +229,6 @@ class ErositaObservation:
 
         return flags
 
-    @staticmethod
-    def _get_apetool_flags(mllist: str = None, apelist: str = None, apelistout: str = None,
-                           images: [str] = None,
-                           psfmaps: [str] = None, expimages: [str] = None, detmasks: [str] = None,
-                           bkgimages: [str] = None, srcimages: [str] = None,
-                           apesenseimages: [str] = None,
-                           emin: [float] = None, emax: [float] = None, eindex: [float] = None,
-                           eefextract: float = 0.7,
-                           pthresh: float = 4e-6, cutrad: float = 15., psfmapsampling: float = 11.,
-                           apexflag: bool = False, stackflag: bool = False,
-                           psfmapflag: bool = False,
-                           shapepsf: bool = True, apesenseflag: bool = False):
-
-        input_params = {'mllist': str, 'apelist': str, 'apelistout': str, 'images': list,
-                        'psfmaps': list, 'expimages': list, 'detmasks': list,
-                        'bkgimages': list, 'srcimages': list, 'apesenseimages': list,
-                        'emin': list, 'emax': list, 'eindex': list, 'eefextract': float,
-                        'pthresh': float, 'cutrad': float, 'psfmapsampling': float,
-                        'apexflag': bool, 'stackflag': bool, 'psfmapflag': bool,
-                        'shapepsf': bool, 'apesenseflag': bool}
-
-        # Implements type checking
-        for key, val in input_params.items():
-            check_type(eval(key), val, name=key)
-
-        flags = " "
-        flags += " mllist={}".format(mllist) if mllist is not None else ""
-        flags += " apelist={}".format(apelist) if apelist is not None else ""
-        flags += " apelistout={}".format(apelistout) if apelistout is not None else ""
-        flags += " images={}".format(images)
-        flags += " psfmaps={}".format(psfmaps)
-        flags += " expimages={}".format(expimages)
-        flags += " detmasks={}".format(detmasks) if detmasks is not None else ""
-        flags += " bkgimages={}".format(bkgimages) if bkgimages is not None else ""
-        flags += " srcimages={}".format(srcimages) if srcimages is not None else ""
-        flags += " apesenseimages={}".format(apesenseimages) if apesenseimages is not None else ""
-        flags += " emin={}".format(emin) if emin is not None else ""
-        flags += " emax={}".format(emax) if emax is not None else ""
-        flags += " eindex={}".format(eindex) if eindex is not None else ""
-        flags += " eefextract={}".format(eefextract) if eefextract != 0.7 else ""
-        flags += " pthresh={}".format(pthresh) if pthresh != 4e-6 else ""
-        flags += " cutrad={}".format(cutrad) if cutrad != 15. else ""
-        flags += " psfmapsampling={}".format(psfmapsampling) if psfmapsampling != 11. else ""
-        flags += " apexflag=yes" if apexflag else ""
-        flags += " stackflag=yes" if stackflag else ""
-        flags += " psfmapflag=yes" if psfmapflag else ""
-        flags += "" if shapepsf else " shapepsf=no"
-        flags += " apesenseflag=yes" if apesenseflag else ""
-
-        return flags
 
     @staticmethod
     def _parse_stringlists(stringlist, additional_path: str = ""):
@@ -318,5 +250,5 @@ if __name__ == "__main__":
     obs = ErositaObservation('pm00_700161_020_EventList_c001.fits', 'DELETE.fits',
                              '../../data/LMC_SN1987A/')
     if get_data:
-        obs.get_data(emin=1.0, emax=2.0, image=True, rebin=80, size=256, pattern=15, telid='1')
+        obs.get_data(emin=1.0, emax=2.0, image=True, rebin=80, size=256, pattern=15, telid=1)
     obs.plot_fits_data('DELETE.fits', 'DELETE_IM.png')

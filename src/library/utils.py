@@ -795,6 +795,12 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
 def check_type(arg, type, name=''):
     if arg is None:
         pass
+    elif isinstance(arg, list):
+        if not isinstance(arg[0], type):
+            return TypeError(
+                "The arguments of the \"{}\" list must be of type {}.".format(name, str(type)))
+        else:
+            pass
     elif not isinstance(arg, type):
         print("arg:", arg)
         raise TypeError("The \"{}\" argument must be of type {}.".format(name, str(type)))
