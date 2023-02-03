@@ -125,7 +125,7 @@ if __name__ == "__main__":
                         sky_model = xu.SkyModel(config_path, alpha=alpha, q=q)
                         mock_sky_data, _ = xu.generate_mock_data(sky_model, exposure_field,
                                                                  sky_model.pad, psf_kernel,
-                                                                 alpha, q, n, var=tel_info['var'],
+                                                                 alpha, q, n, var=cfg['psf']['gauss_var'],
                                                                  output_directory=output_directory)
             exit()
         else:
@@ -134,13 +134,13 @@ if __name__ == "__main__":
                 with open('diagnostics/mock_sky_data.pkl', "rb") as f:
                     mock_sky_data = pickle.load(f)
                 if psf_kernel is None:
-                    convolved = xu.get_gaussian_psf(sky, var=tel_info['var'])
+                    convolved = xu.get_gaussian_psf(sky, var=cfg['psf']['gauss_var'])
                 else:
                     convolved = xu.convolve_field_operator(psf_kernel, sky)
             else:
                 mock_sky_data, convolved = xu.generate_mock_data(sky_model, exposure_field,
                                                                  sky_model.pad, psf_kernel,
-                                                                 var=tel_info['var'],
+                                                                 var=cfg['psf']['gauss_var'],
                                                                  output_directory=output_directory)
             masked_data = mask(mock_sky_data)
             #Likelihood

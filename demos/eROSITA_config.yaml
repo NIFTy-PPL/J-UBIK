@@ -22,6 +22,9 @@ psf:
   min_m0: [10,10]
   linear: False
 
+  # config for homogeneous gauss psf
+  gauss_var: 5
+
 plotting:
   enabled: True
   slice: Null
@@ -41,7 +44,6 @@ grid:
   energy_bin:
     e_min: 2.0
     e_max: 4.5
-# Exposurenorm is 4.785357857098681e-05
 
 priors:
   point_sources:

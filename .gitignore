@@ -7,6 +7,7 @@ docs/source/user/getting_started_4_CorrelatedFields.rst
 /xubik/obs/*
 /data/*
 demos/retreat_first_reconstruction/*
+demos/eROSITA_config_*
 
 # custom
 config/*
