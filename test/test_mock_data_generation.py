@@ -4,6 +4,7 @@ import numpy as np
 import unittest
 
 import nifty8 as ift
+import xubik0 as xu
 
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
