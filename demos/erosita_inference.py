@@ -188,7 +188,7 @@ if __name__ == "__main__":
     # Initial position
     initial_position = ift.from_random(sky.domain) * 0.1
     if reconstruct_point_sources:
-        initial_ps = ift.MultiField.Full(point_sources.domain, 0)
+        initial_ps = ift.MultiField.full(point_sources.domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 
     if minimization_config['geovi']:
