@@ -70,8 +70,6 @@ class ErositaObservation:
         flags = self._get_exmap_flags(self._mounted_dir, template_image, emin, emax, **kwargs)
         command = self._base_command + 'expmap ' + input_files + flags + "'"
 
-        print(command)
-        # exit()
         self._run_task(command)
 
     def get_psf(self, images, psfmaps, expimages, **kwargs):
@@ -90,24 +88,15 @@ class ErositaObservation:
         # exit()
         self._run_task(command)
 
-    def _run_task(self, command):
-        proc = subprocess.Popen([command], shell=True)
-        proc.wait()
-        (stdout, stderr) = proc.communicate()
-        if proc.returncode != 0:
-            raise FileNotFoundError("Docker Error")
-        else:
-            print("eSASS task COMPLETE.")
-
     def load_fits_data(self, filename):
         print("Loading ouput data stored in {}.".format(filename))
         return fits.open(os.path.join(self.working_directory, filename))
 
     def get_center_coordinates(self, input_filename):
-        conv = 3600 # to arcseconds
+        conv = 3600  # to arcseconds
         try:
-            input_header = self.load_fits_data(input_filename)[1].header # FIXME: think about nicer implementation
-            return conv*input_header['RA_PNT'], conv*input_header['DEC_PNT']
+            input_header = self.load_fits_data(input_filename)[1].header  # FIXME: think about nicer implementation
+            return conv * input_header['RA_PNT'], conv * input_header['DEC_PNT']
         except ValueError:
             print("Input filename does not contain center information.")
             return None
@@ -129,6 +118,16 @@ class ErositaObservation:
         plt.savefig(output, dpi=dpi)
         plt.close()
         print(filename + " data image saved as {}.".format(output))
+
+    @staticmethod
+    def _run_task(command):
+        proc = subprocess.Popen([command], shell=True)
+        proc.wait()
+        (stdout, stderr) = proc.communicate()
+        if proc.returncode != 0:
+            raise FileNotFoundError("Docker Error")
+        else:
+            print("eSASS task COMPLETE.")
 
     @staticmethod
     def _get_evtool_flags(clobber=True, events=True, image=False, size=None,
