@@ -13,7 +13,8 @@ class ErositaObservation:
     Base class to retrieve and process eROSITA data.
 
 
-    # Input datasets: eSASS event files or images with a full set of eSASS standard file extensions. FIXME
+    # Input datasets: eSASS event files or images with a full set of eSASS standard file
+    extensions. FIXME
 
     """
 
@@ -27,13 +28,15 @@ class ErositaObservation:
         # TODO: Add all fits file fields
 
         self._mounted_dir = "/home/idies/mnt_dir/"
-        self._base_command = "docker run --platform linux/amd64 --volume " + self.working_directory + ":" + \
+        self._base_command = "docker run --platform linux/amd64 --volume " + \
+                             self.working_directory + ":" + \
                              self._mounted_dir + \
                              self.image + "/bin/bash -c 'source ~/.bashrc && "
 
     def get_data(self, **kwargs):
         """
-        Allows to extract and manipulate data from eROSITA event files through the eSASS 'evtool' command.
+        Allows to extract and manipulate data from eROSITA event files through the eSASS 'evtool'
+        command.
 
         Parameters
         ----------
@@ -48,7 +51,8 @@ class ErositaObservation:
         command = self._base_command + 'evtool ' + input_files + " " + output_file + flags + "'"
 
         self._run_task(command)
-        print("The processed dataset has been saved as {}.".format(os.path.join(self.working_directory, self.output)))
+        print("The processed dataset has been saved as {}.".format(
+            os.path.join(self.working_directory, self.output)))
         return fits.open(os.path.join(self.working_directory, self.output))
 
     def get_exposure_maps(self, template_image, emin, emax, **kwargs):
@@ -58,7 +62,8 @@ class ErositaObservation:
         Parameters
         ----------
         template_image: str
-        Path to the output exposure maps will be binned as specified in the WCS keywords of the template image.
+        Path to the output exposure maps will be binned as specified in the WCS keywords of the
+        template image.
         emin:
         emax:
         # TODO
@@ -74,14 +79,16 @@ class ErositaObservation:
 
     def get_psf(self, images, psfmaps, expimages, **kwargs):
         """
-        Template image: the output exposure maps will be binned as specified in the WCS keywords of the template image.
+        Template image: the output exposure maps will be binned as specified in the WCS keywords
+        of the template image.
         If withinputmaps=YES: input exposure maps
         """
         # TODO: parameter checks
         images = self._parse_stringlists(images, self._mounted_dir)
         psfmaps = os.path.join(self._mounted_dir, psfmaps)
         expimages = os.path.join(self._mounted_dir, expimages)
-        flags = self._get_apetool_flags(images=images, psfmaps=psfmaps, expimages=expimages, **kwargs)
+        flags = self._get_apetool_flags(images=images, psfmaps=psfmaps, expimages=expimages,
+                                        **kwargs)
         command = self._base_command + 'apetool' + flags + "'"
 
         print(command)
@@ -95,7 +102,8 @@ class ErositaObservation:
     def get_center_coordinates(self, input_filename):
         conv = 3600  # to arcseconds
         try:
-            input_header = self.load_fits_data(input_filename)[1].header  # FIXME: think about nicer implementation
+            input_header = self.load_fits_data(input_filename)[
+                1].header  # FIXME: think about nicer implementation
             return conv * input_header['RA_PNT'], conv * input_header['DEC_PNT']
         except ValueError:
             print("Input filename does not contain center information.")
@@ -182,7 +190,8 @@ class ErositaObservation:
         flags += " image=yes" if image else " image=no"
         flags += " size={}".format(size) if size is not None else ""
         flags += " rebin={}".format(rebin) if rebin is not None else ""
-        flags += " center_position={}".format(center_position) if center_position is not None else ""
+        flags += " center_position={}".format(
+            center_position) if center_position is not None else ""
         flags += " region={}".format(region) if region is not None else ""
         flags += " gti={}".format(gti) if gti is not None else ""
         flags += " flag={}".format(flag) if flag is not None else ""
@@ -224,8 +233,10 @@ class ErositaObservation:
         flags += " emax={}".format(emax) if emax is not None else print("emax cannot be None.")
         flags += " withsinglemaps=yes" if withsinglemaps else ""
         flags += "" if withmergedmaps else " withmergedmaps=no"
-        flags += " singlemaps={}".format(os.path.join(mounted_dir, singlemaps)) if singlemaps is not None else ""
-        flags += " mergedmaps={}".format(os.path.join(mounted_dir, mergedmaps)) if mergedmaps is not None else ""
+        flags += " singlemaps={}".format(
+            os.path.join(mounted_dir, singlemaps)) if singlemaps is not None else ""
+        flags += " mergedmaps={}".format(
+            os.path.join(mounted_dir, mergedmaps)) if mergedmaps is not None else ""
         flags += " gtitype={}".format(gtitype) if gtitype != "GTI" else ""
         flags += "" if withvignetting else " withvignetting=no"
         flags += " withdetmaps=yes" if withdetmaps else ""
@@ -237,12 +248,16 @@ class ErositaObservation:
         return flags
 
     @staticmethod
-    def _get_apetool_flags(mllist: str = None, apelist: str = None, apelistout: str = None, images: [str] = None,
+    def _get_apetool_flags(mllist: str = None, apelist: str = None, apelistout: str = None,
+                           images: [str] = None,
                            psfmaps: [str] = None, expimages: [str] = None, detmasks: [str] = None,
-                           bkgimages: [str] = None, srcimages: [str] = None, apesenseimages: [str] = None,
-                           emin: [float] = None, emax: [float] = None, eindex: [float] = None, eefextract: float = 0.7,
+                           bkgimages: [str] = None, srcimages: [str] = None,
+                           apesenseimages: [str] = None,
+                           emin: [float] = None, emax: [float] = None, eindex: [float] = None,
+                           eefextract: float = 0.7,
                            pthresh: float = 4e-6, cutrad: float = 15., psfmapsampling: float = 11.,
-                           apexflag: bool = False, stackflag: bool = False, psfmapflag: bool = False,
+                           apexflag: bool = False, stackflag: bool = False,
+                           psfmapflag: bool = False,
                            shapepsf: bool = True, apesenseflag: bool = False):
 
         input_params = {'mllist': str, 'apelist': str, 'apelistout': str, 'images': list,
@@ -300,9 +315,8 @@ class ErositaObservation:
 if __name__ == "__main__":
     get_data = True
 
-    obs = ErositaObservation('pm00_700161_020_EventList_c001.fits', 'DELETE.fits', '../../data/LMC_SN1987A/')
+    obs = ErositaObservation('pm00_700161_020_EventList_c001.fits', 'DELETE.fits',
+                             '../../data/LMC_SN1987A/')
     if get_data:
         obs.get_data(emin=1.0, emax=2.0, image=True, rebin=80, size=256, pattern=15, telid='1')
     obs.plot_fits_data('DELETE.fits', 'DELETE_IM.png')
-
-
