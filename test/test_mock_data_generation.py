@@ -4,12 +4,12 @@ import numpy as np
 import unittest
 
 import nifty8 as ift
+import xubik0 as xu
 
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 from src.library.utils import generate_mock_data, get_cfg
-from demos.sky_model import ErositaSky
 
 
 def test(config_filename):
@@ -19,7 +19,7 @@ def test(config_filename):
     except:
         config_path = 'demos/' + config_filename
         cfg = get_cfg(config_path)
-    sky_model = ErositaSky(config_path)
+    sky_model = xu.SkyModel(config_path)
     exposures = [None, ift.makeField(sky_model.position_space,
                                      np.random.choice([0, 1], sky_model.position_space.shape))]
     padders = [None, sky_model.pad]

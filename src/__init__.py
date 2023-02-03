@@ -16,3 +16,4 @@ from .operators.zero_padder import MarginZeroPadder
 from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
 from .library.erosita_psf import eROSITA_PSF
+from .library.sky_models import SkyModel
