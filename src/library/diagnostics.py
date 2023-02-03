@@ -16,8 +16,7 @@ def uncertainty_weighted_residual_image_from_file(sl_path_base,
     mean, var = sl.sample_stat(op)
     with open(ground_truth_path, "rb") as f:
          d = pickle.load(f)
-    wgt_res = np.abs((mean-d).val)/np.sqrt(var.val)
-    wgt_res = ift.Field.from_raw(domain=mean.domain, arr=wgt_res)
+    wgt_res = (mean-d).abs() / var.sqrt()
     if mpi_master and output_dir_base is not None:
         with open(f'{output_dir_base}.pkl', 'wb') as file:
             pickle.dump(wgt_res, file)
