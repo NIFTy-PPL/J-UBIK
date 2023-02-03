@@ -5,8 +5,7 @@ import nifty8 as ift
 import xubik0 as xu
 
 
-cfg_filename = 'eROSITA_config.yaml'
-config_path = 'demos/' + cfg_filename  # FIXME cfg in testdir!!
+config_path= 'test/mock_data_generation.yaml'
 cfg = xu.get_cfg(config_path)
 sky_model = xu.SkyModel(config_path)
 
