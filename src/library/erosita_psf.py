@@ -176,9 +176,10 @@ class eROSITA_PSF():
         self._check_energy(energy)
         psf_infos = self._get_psf_infos(energy, pointing_center)
 
-        if conv_method == 'MSC':
+        if conv_method == 'MSC' or conv_method == 'MSC_ADJ':
             print('Build MSC-PSF...')
-            op = psf_convolve_operator(domain, psf_infos, conv_params)
+            adj = conv_method == 'MSC_ADJ'
+            op = psf_convolve_operator(domain, psf_infos, conv_params, adj)
             # Scale to match the integration convention of 'LIN'
             scale = ift.ScalingOperator(domain, np.sqrt(domain.scalar_dvol))
             op = op @ scale
