@@ -126,7 +126,7 @@ if __name__ == "__main__":
         if load_mock_data:
             # FIXME: name of output folder for diagnostics into config
             # FIXME: Put Mockdata to a better place
-            with open(os.path.join('diagnostics', 'mock_data_sky.pkl'), "rb") as f:
+            with open(os.path.join('diagnostics/mock_data_sky.pkl'), "rb") as f:
                 mock_data = pickle.load(f)
         else:
             (mock_data, _, _), _ = xu.generate_mock_data(sky_model,
