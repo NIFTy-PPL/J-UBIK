@@ -682,7 +682,7 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
         p = ift.Plot()
         for k, v in output_dictionary.items():
             # Save data and sky to Pickle
-            with open(os.path.join(output_directory, diagnostics_dir, f'{k}.pkl'), 'wb') as file:
+            with open(os.path.join(diagnostics_dir, f'{k}.pkl'), 'wb') as file:
                 pickle.dump(v, file)
 
             # Save data to fits

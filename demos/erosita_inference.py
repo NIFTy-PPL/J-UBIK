@@ -103,10 +103,10 @@ if __name__ == "__main__":
             psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
             conv_op = xu.get_fft_psf_op(psf_kernel, sky)
     # Convolution
-    convolved_sky = (conv_op @ sky).real
+    convolved_sky = (conv_op @ sky.real).real
     if reconstruct_point_sources:
-        convolved_ps = (conv_op @ point_sources).real
-    convolved_diffuse = (conv_op @ diffuse).real
+        convolved_ps = (conv_op @ point_sources.real).real
+    convolved_diffuse = (conv_op @ diffuse.real).real
 
     # Exposure
     exposure = observation_instance.load_fits_data(exposure_filename)[0].data
@@ -126,7 +126,7 @@ if __name__ == "__main__":
         if load_mock_data:
             # FIXME: name of output folder for diagnostics into config
             # FIXME: Put Mockdata to a better place
-            with open(os.path.join(output_directory, 'diagnostics', 'mock_data_sky.pkl'), "rb") as f:
+            with open(os.path.join('diagnostics', 'mock_data_sky.pkl'), "rb") as f:
                 mock_data = pickle.load(f)
         else:
             (mock_data, _, _), _ = xu.generate_mock_data(sky_model,
