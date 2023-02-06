@@ -30,8 +30,7 @@ def save_config(config, filename, dir=None):
 
 def create_output_directory(directory_name):
     output_directory = os.path.join(os.path.curdir, directory_name)
-    if not os.path.exists(output_directory):
-        os.mkdir(output_directory)
+    os.makedirs(output_directory, exist_ok=True)
     return output_directory
 
 
@@ -82,7 +81,6 @@ def _get_e_dist(config):
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
 
-
 def get_normed_exposure(exposure_field, data_field):
     """
     Convenience function to get exposures on the order of 1, so that the signal is living on
@@ -96,7 +94,6 @@ def get_normed_exposure(exposure_field, data_field):
     norm = ratio.mean()
     normed_exp_field = exposure_field * norm
     return normed_exp_field
-
 
 def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
     warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
