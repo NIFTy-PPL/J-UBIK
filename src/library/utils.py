@@ -631,8 +631,7 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True):
     return res
 
 
-# FIXME add features to switch off point_source
-def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q=None, n=None, var=None,
+def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q=None, n=None,
                        output_directory=None):
     if pad is None and sky_model.position_space != sky_model.extended_space:
         raise ValueError('The sky is padded but no padder is given')
@@ -653,37 +652,44 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
             exposure = pad(exposure_field)
         exposure = ift.makeOp(exposure)
 
-    # Mock sky position
-    sky_tuple = sky_model.create_sky_model()
-    mock_sky_position = ift.from_random(sky_tuple[2].domain)
-    mock_sky = sky_tuple[2](mock_sky_position)
-    mock_sky_data = get_data_realization(sky_tuple[2], mock_sky_position, exposure=exposure, padder=pad)
+    # Get sky operators
+    point_sources, diffuse_component, sky = sky_model.create_sky_model()
 
-    # Convolved operators
-    convolved_sky_tuple = []
-    mock_data_tuple = []
-    for op in sky_tuple:
+    # Mock sky position
+    mock_sky_position = ift.from_random(sky.domain)
+
+    mock_sky = sky(mock_sky_position)
+    mock_sky_data = get_data_realization(sky, mock_sky_position, exposure=exposure, padder=pad)
+
+    # Convolve sky operators and draw data realizations
+    convolved_sky_list = []
+    mock_data_list = []
+    for op in sky_operators:
         convolved = psf_op @ op
         convolved_sky_tuple.append(convolved)
         mock_data = get_data_realization(convolved, mock_sky_position, exposure=exposure, padder=pad)
-        mock_data_tuple.append(mock_data)
-    convolved_sky_tuple = tuple(convolved_sky_tuple)
-    mock_data_tuple = tuple(mock_data_tuple)
+        mock_data_list.append(mock_data)
 
-    output_dictionary = {'mock_data_sky': mock_data_tuple[2],
-                         'mock_data_sky_nonconv': mock_sky_data,
-                         'mock_data_points': mock_data_tuple[0],
-                         'mock_data_diffuse': mock_data_tuple[1],
+    index = 1 if point_sources is not None else 0
+
+    # Prepare output dictionary
+    output_dictionary = {'mock_data_sky': mock_data_list[index+1],
+                         'not_convolved_mock_data_sky': mock_sky_data,
+                         'mock_data_diffuse': mock_data_list[index],
                          'mock_sky': mock_sky}
-    if mpi_master and output_directory is not None:
-        p = ift.Plot()
-        for k, v in output_dictionary.items():
-            # Save data and sky to Pickle
-            with open(os.path.join(diagnostics_dir, f'{k}.pkl'), 'wb') as file:
-                pickle.dump(v, file)
 
-            # Save data to fits
-            save_rgb_image_to_fits(v, os.path.join(diagnostics_dir, k), overwrite=True, MPI_master=mpi_master)
+    if point_sources is not None:
+        output_dictionary['mock_data_point_sources'] = mock_data_list[0]
+
+        # Save data and sky to Pickle
+        if mpi_master and output_directory is not None:
+            p = ift.Plot()
+            for k, v in output_dictionary.items():
+                with open(os.path.join(output_directory, diagnostics_dir, f'{k}.pkl'), 'wb') as file:
+                    pickle.dump(v, file)
+
+                # Save data to fits
+                save_rgb_image_to_fits(v, os.path.join(diagnostics_dir, k), overwrite=True, MPI_master=mpi_master)
 
             # Plot data
             p.add(v, title=k, norm=LogNorm())
@@ -691,4 +697,4 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
             p.add(exposure_field, title='exposure', norm=LogNorm())
         p.output(nx=3, name=os.path.join(diagnostics_dir, f'mock_data_a{alpha}_q{q}_sample{n}.png'))
 
-    return mock_data_tuple, convolved_sky_tuple
+    return mock_data_list, convolved_sky_list
