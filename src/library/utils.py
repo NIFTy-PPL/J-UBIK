@@ -628,14 +628,13 @@ def generate_mock_data(sky_model, exposure=None, pad=None, psf_kernel=None, alph
     if pad is None and sky_model.position_space != sky_model.extended_space:
         raise ValueError('The sky is padded but no padder is given')
     mpi_master = ift.utilities.get_MPI_params()[3]
+
+    # Create output and diagnostic directories
     if output_directory is not None:
-        if not os.path.exists(output_directory):
-            if mpi_master:
-                os.mkdir(create_output_directory(output_directory))
         diagnostics_dir = os.path.join(output_directory, 'diagnostics')
-        if not os.path.exists(diagnostics_dir):
-            if mpi_master:
-                os.mkdir(diagnostics_dir)
+        if mpi_master:
+            create_output_directory(output_directory)
+            create_output_directory(diagnostics_dir)
 
     # Exposure
     exposure_field = exposure
