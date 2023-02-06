@@ -3,7 +3,7 @@ import os
 import pickle
 import numpy as np
 
-from matplotlib.colors import LogNorm, SymLogNorm
+from matplotlib.colors import SymLogNorm
 import nifty8 as ift
 import xubik0 as xu
 
@@ -94,8 +94,7 @@ if __name__ == "__main__":
 
     elif cfg['psf']['method'] == 'invariant':
         if mock_psf:
-            conv_op = xu.get_gaussian_psf(sky, var=cfg['psf']['gauss_var']) #fixme: this does
-            # not exist. Be sure to refactor correctly the gaussian psf.
+            conv_op = xu.get_gaussian_psf(sky, var=cfg['psf']['gauss_var'])
         else:
             center = observation_instance.get_center_coordinates(output_filename)
             psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
@@ -131,8 +130,10 @@ if __name__ == "__main__":
             with open('diagnostics/mock_sky_data.pkl', "rb") as f:
                 mock_data = pickle.load(f)
         else:
-            mock_data_list, _ = xu.generate_mock_data(sky_model, conv_op, exposure_field, sky_model.pad, output_directory=output_directory)
-            mock_data = mock_data_list[0]
+            mock_data_tuple, _ = xu.generate_mock_data(sky_model, conv_op, exposure_field,
+                                                       sky_model.pad,
+                                                       output_directory=output_directory)
+            mock_data = mock_data_tuple[0]
 
         # Mask mock data
         masked_data = mask(mock_data)
