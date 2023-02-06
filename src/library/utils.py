@@ -276,18 +276,17 @@ def convolve_operators(a, b):
     return convolved.real
 
 
-def convolve_field_operator(kernel, op, space=None):
+def get_fft_psf_op(kernel, op, space=None):
     """
-    convenience function for the convolution a fixed kernel (field) with an operator.
+    convenience function for the generation of a convolution operator with fixed kernel (field).
     This uses Fast Fourier Transformation (FFT).
     """
     op = op.real
     fft = ift.FFTOperator(op.target, space=space)
     hsp_kernel = fft(kernel.real)
     kernel_hp = ift.makeOp(hsp_kernel)
-    convolve = fft.inverse @ kernel_hp @ fft @ op
-    res = convolve.real
-    return res
+    convolve = fft.inverse @ kernel_hp @ fft
+    return convolve
     # FIXME Hartley + Fix dirty hack
 
 
