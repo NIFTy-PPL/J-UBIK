@@ -36,7 +36,7 @@ def create_output_directory(directory_name):
 
 
 def get_gaussian_psf(op, var):
-    # FIXME: cleanup
+    # FIXME: cleanup -> refactor into get_gaussian_kernel
     dist_x = op.target[0].distances[0]
     dist_y = op.target[0].distances[1]
 
@@ -63,8 +63,8 @@ def get_gaussian_psf(op, var):
     # p.add(log_kernel.exp(), norm=colors.SymLogNorm(linthresh=10e-8))
     # p.output(nx=1)
 
-    conv = convolve_field_operator(log_kernel.exp(), op)
-    return conv
+    conv_op = get_fft_psf_op(log_kernel.exp(), op.target)
+    return conv_op
 
 
 def get_data_domain(config):
@@ -281,13 +281,20 @@ def convolve_field_operator(kernel, op, space=None):
     convenience function for the convolution a fixed kernel (field) with an operator.
     This uses Fast Fourier Transformation (FFT).
     """
-    op = op.real
-    fft = ift.FFTOperator(op.target, space=space)
+    convolve_op = get_fft_psf_op(kernel, op.target, space)
+    return convolve_op @ op
+
+
+def get_fft_psf_op(kernel, domain, space=None):
+    """
+    convenience function for the generation of a convolution operator with fixed kernel (field).
+    This uses Fast Fourier Transformation (FFT).
+    """
+    fft = ift.FFTOperator(domain, space=space)
+    realizer = ift.Realizer(domain)
     hsp_kernel = fft(kernel.real)
     kernel_hp = ift.makeOp(hsp_kernel)
-    convolve = fft.inverse @ kernel_hp @ fft @ op
-    res = convolve.real
-    return res
+    return realizer @ fft.inverse @ kernel_hp @ fft @ realizer
     # FIXME Hartley + Fix dirty hack
 
 
@@ -623,11 +630,9 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True):
             res = ift.makeField(op.target, res)
     return res
 
-# FIXME add features to switch off point_source
-def generate_mock_data(sky_model, exposure=None, pad=None, psf_kernel=None, alpha=None, q=None, n=None, var=None,
+
+def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q=None, n=None,
                        output_directory=None):
-    if psf_kernel is None and var is None:
-        raise ValueError('Either the PSF kernel or the variance are needed for mock reconstruction.')
     if pad is None and sky_model.position_space != sky_model.extended_space:
         raise ValueError('The sky is padded but no padder is given')
     mpi_master = ift.utilities.get_MPI_params()[3]
@@ -647,31 +652,37 @@ def generate_mock_data(sky_model, exposure=None, pad=None, psf_kernel=None, alph
             exposure = pad(exposure_field)
         exposure = ift.makeOp(exposure)
 
-    # Mock sky position
+    # Get sky operators
     sky_tuple = sky_model.create_sky_model()
-    mock_sky_position = ift.from_random(sky_tuple[2].domain)
-    mock_sky = sky_tuple[2](mock_sky_position)
-    mock_sky_data = get_data_realization(sky_tuple[2], mock_sky_position, exposure=exposure, padder=pad)
+    point_sources, sky = sky_tuple[0], sky_tuple[2]
 
-    # Convolved operators
+    # Mock sky
+    mock_sky_position = ift.from_random(sky.domain)
+    mock_sky = sky(mock_sky_position)
+    mock_sky_data = get_data_realization(sky, mock_sky_position, exposure=exposure, padder=pad)
+
+    # Convolve sky operators and draw data realizations
     convolved_sky_tuple = []
     mock_data_tuple = []
     for op in sky_tuple:
-        if psf_kernel is None:
-            convolved = get_gaussian_psf(op=op, var=var)
-        else:
-            convolved = convolve_field_operator(psf_kernel, op)
+        convolved = psf_op @ op
         convolved_sky_tuple.append(convolved)
         mock_data = get_data_realization(convolved, mock_sky_position, exposure=exposure, padder=pad)
         mock_data_tuple.append(mock_data)
+
     convolved_sky_tuple = tuple(convolved_sky_tuple)
     mock_data_tuple = tuple(mock_data_tuple)
+    index = 1 if point_sources is not None else 0
 
-    output_dictionary = {'mock_data_sky': mock_data_tuple[2],
-                        'mock_data_sky_nonconv': mock_sky_data,
-                        'mock_data_points': mock_data_tuple[0],
-                        'mock_data_diffuse': mock_data_tuple[1],
-                        'mock_sky': mock_sky}
+    # Prepare output dictionary
+    output_dictionary = {'mock_data_sky': mock_data_tuple[index+1],
+                         'not_convolved_mock_data_sky': mock_sky_data,
+                         'mock_data_diffuse': mock_data_tuple[index],
+                         'mock_sky': mock_sky}
+
+    if point_sources is not None:
+        output_dictionary['mock_data_point_sources'] = mock_data_tuple[0]
+
     if mpi_master and output_directory is not None:
         p = ift.Plot()
         for k, v in output_dictionary.items():
@@ -686,8 +697,6 @@ def generate_mock_data(sky_model, exposure=None, pad=None, psf_kernel=None, alph
             p.add(v, title=k, norm=LogNorm())
         if exposure_field is not None:
             p.add(exposure_field, title='exposure', norm=LogNorm())
-        # if psf_kernel is not None:
-            # p.add(psf_kernel, title='psf')
         p.output(nx=3, name=os.path.join(diagnostics_dir, f'mock_data_a{alpha}_q{q}_sample{n}.png'))
 
-    return mock_data_tuple[2], convolved_sky_tuple[2]
+    return mock_data_tuple, convolved_sky_tuple

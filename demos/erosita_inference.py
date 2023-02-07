@@ -3,7 +3,7 @@ import os
 import pickle
 import numpy as np
 
-from matplotlib.colors import LogNorm, SymLogNorm
+from matplotlib.colors import LogNorm
 import nifty8 as ift
 import xubik0 as xu
 
@@ -41,6 +41,9 @@ if __name__ == "__main__":
     # Telescope Info
     tel_info = cfg['telescope']
     tm_id = tel_info['tm_id']
+
+    # Create the output directory
+    output_directory = xu.create_output_directory(file_info["res_dir"])
 
     # Bool to enable only diffuse reconstruction
     reconstruct_point_sources = cfg['priors']['point_sources'] is not None
@@ -89,29 +92,22 @@ if __name__ == "__main__":
                                     conv_method=cfg['psf']['method'],
                                     conv_params=cfg['psf'])
 
-        convolved_sky = conv_op @ sky
-        if reconstruct_point_sources:
-            convolved_ps = conv_op @ point_sources
-        convolved_diffuse = conv_op @ diffuse
-
     elif cfg['psf']['method'] == 'invariant':
-
-    # PSF
         if mock_psf:
-            convolved_sky = xu.get_gaussian_psf(sky, var=cfg['psf']['gauss_var'])
-            if reconstruct_point_sources:
-                convolved_ps = xu.get_gaussian_psf(point_sources, var=cfg['psf']['gauss_var'])
-            convolved_diffuse = xu.get_gaussian_psf(diffuse, var=cfg['psf']['gauss_var'])
+            conv_op = xu.get_gaussian_psf(sky, var=cfg['psf']['gauss_var'])
         else:
             center = observation_instance.get_center_coordinates(output_filename)
             psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
             psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
             psf_kernel = psf_function(*center)
             psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
-            convolved_sky = xu.convolve_field_operator(psf_kernel, sky)
-            if reconstruct_point_sources:
-                convolved_ps = xu.convolve_field_operator(psf_kernel, point_sources)
-            convolved_diffuse = xu.convolve_field_operator(psf_kernel, diffuse)
+            conv_op = xu.get_fft_psf_op(psf_kernel, sky)
+
+    # Convolution
+    convolved_sky = conv_op @ sky
+    if reconstruct_point_sources:
+        convolved_ps = conv_op @ point_sources
+    convolved_diffuse = conv_op @ diffuse
 
     # Exposure
     exposure = observation_instance.load_fits_data(exposure_filename)[0].data
@@ -134,10 +130,10 @@ if __name__ == "__main__":
             with open('diagnostics/mock_sky_data.pkl', "rb") as f:
                 mock_data = pickle.load(f)
         else:
-            mock_data, convolved = xu.generate_mock_data(sky_model, exposure_field,
-                                                                sky_model.pad, psf_kernel,
-                                                                var=cfg['psf']['gauss_var'],
-                                                                output_directory=output_directory)
+            mock_data_tuple, _ = xu.generate_mock_data(sky_model, conv_op, exposure_field,
+                                                       sky_model.pad,
+                                                       output_directory=output_directory)
+            mock_data = mock_data_tuple[0]
 
         # Mask mock data
         masked_data = mask(mock_data)
@@ -168,10 +164,7 @@ if __name__ == "__main__":
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
     if reconstruct_point_sources:
-        operators_to_plot['point_sources']: sky_model.pad.adjoint(point_sources)
-
-    # Create the output directory
-    output_directory = xu.create_output_directory(file_info["res_dir"])
+        operators_to_plot['point_sources'] = sky_model.pad.adjoint(point_sources)
 
     # Save config file in output_directory
     xu.save_config(cfg, config_filename, output_directory)
@@ -180,7 +173,7 @@ if __name__ == "__main__":
                                                  operators_to_plot,
                                                  x,
                                                  y,
-                                                 plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
+                                                 plotting_kwargs={'norm': LogNorm})
     # Initial position
     initial_position = ift.from_random(sky.domain) * 0.1
     if reconstruct_point_sources:
