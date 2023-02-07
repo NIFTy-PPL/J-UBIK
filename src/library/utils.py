@@ -29,9 +29,8 @@ def save_config(config, filename, dir=None):
 
 
 def create_output_directory(directory_name):
-    output_directory = os.path.join(os.path.curdir, directory_name)
-    os.makedirs(output_directory, exist_ok=True)
-    return output_directory
+    os.makedirs(directory_name, exist_ok=True)
+    return directory_name
 
 
 def get_gaussian_psf(op, var):
