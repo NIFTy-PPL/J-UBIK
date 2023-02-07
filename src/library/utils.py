@@ -281,11 +281,8 @@ def convolve_field_operator(kernel, op, space=None):
     convenience function for the convolution a fixed kernel (field) with an operator.
     This uses Fast Fourier Transformation (FFT).
     """
-    op = op.real
     convolve_op = get_fft_psf_op(kernel, op, space)
-    convolve = convolve_op @ op
-    res = convolve.real
-    return res
+    return convolve_op @ op
 
 
 def get_fft_psf_op(kernel, op, space=None):
@@ -294,9 +291,10 @@ def get_fft_psf_op(kernel, op, space=None):
     This uses Fast Fourier Transformation (FFT).
     """
     fft = ift.FFTOperator(op.target, space=space)
+    realizer = ift.Realizer(op.target)
     hsp_kernel = fft(kernel.real)
     kernel_hp = ift.makeOp(hsp_kernel)
-    convolve_op = fft.inverse @ kernel_hp @ fft
+    convolve_op = realizer @ fft.inverse @ kernel_hp @ fft @ realizer
     return convolve_op
     # FIXME Hartley + Fix dirty hack
 
@@ -667,7 +665,7 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
     mock_data_tuple = []
     for op in sky_tuple:
         convolved = psf_op @ op
-        convolved_sky_tuple.append(convolved.real)
+        convolved_sky_tuple.append(convolved)
         mock_data = get_data_realization(convolved, mock_sky_position, exposure=exposure, padder=pad)
         mock_data_tuple.append(mock_data)
     convolved_sky_tuple = tuple(convolved_sky_tuple)

@@ -103,10 +103,10 @@ if __name__ == "__main__":
             psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
             conv_op = xu.get_fft_psf_op(psf_kernel, sky)
     # Convolution
-    convolved_sky = (conv_op @ sky.real).real
+    convolved_sky = conv_op @ sky
     if reconstruct_point_sources:
-        convolved_ps = (conv_op @ point_sources.real).real
-    convolved_diffuse = (conv_op @ diffuse.real).real
+        convolved_ps = conv_op @ point_sources
+    convolved_diffuse = conv_op @ diffuse
 
     # Exposure
     exposure = observation_instance.load_fits_data(exposure_filename)[0].data
