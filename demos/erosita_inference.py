@@ -3,7 +3,7 @@ import os
 import pickle
 import numpy as np
 
-from matplotlib.colors import SymLogNorm
+from matplotlib.colors import LogNorm
 import nifty8 as ift
 import xubik0 as xu
 
@@ -173,7 +173,7 @@ if __name__ == "__main__":
                                                  operators_to_plot,
                                                  x,
                                                  y,
-                                                 plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
+                                                 plotting_kwargs={'norm': LogNorm})
     # Initial position
     initial_position = ift.from_random(sky.domain) * 0.1
     if reconstruct_point_sources:
