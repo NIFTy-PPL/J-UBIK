@@ -3,7 +3,7 @@ import os
 import pickle
 import numpy as np
 
-from matplotlib.colors import LogNorm, SymLogNorm
+from matplotlib.colors import LogNorm
 import nifty8 as ift
 import xubik0 as xu
 
@@ -102,6 +102,7 @@ if __name__ == "__main__":
             psf_kernel = psf_function(*center)
             psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
             conv_op = xu.get_fft_psf_op(psf_kernel, sky)
+
     # Convolution
     convolved_sky = conv_op @ sky
     if reconstruct_point_sources:
@@ -129,12 +130,10 @@ if __name__ == "__main__":
             with open('diagnostics/mock_sky_data.pkl', "rb") as f:
                 mock_data = pickle.load(f)
         else:
-            (mock_data, _, _), _ = xu.generate_mock_data(sky_model,
-                                                         conv_op,
-                                                         exposure_field,
-                                                         sky_model.pad,
-                                                         var=cfg['psf']['gauss_var'],
-                                                         output_directory=output_directory)
+            mock_data_tuple, _ = xu.generate_mock_data(sky_model, conv_op, exposure_field,
+                                                       sky_model.pad,
+                                                       output_directory=output_directory)
+            mock_data = mock_data_tuple[0]
 
         # Mask mock data
         masked_data = mask(mock_data)
@@ -165,7 +164,7 @@ if __name__ == "__main__":
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
     if reconstruct_point_sources:
-        operators_to_plot['point_sources']: sky_model.pad.adjoint(point_sources)
+        operators_to_plot['point_sources'] = sky_model.pad.adjoint(point_sources)
 
     # Save config file in output_directory
     xu.save_config(cfg, config_filename, output_directory)
@@ -174,7 +173,7 @@ if __name__ == "__main__":
                                                  operators_to_plot,
                                                  x,
                                                  y,
-                                                 plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
+                                                 plotting_kwargs={'norm': LogNorm})
     # Initial position
     initial_position = ift.from_random(sky.domain) * 0.1
     if reconstruct_point_sources:

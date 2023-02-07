@@ -36,7 +36,7 @@ def create_output_directory(directory_name):
 
 
 def get_gaussian_psf(op, var):
-    # FIXME: cleanup
+    # FIXME: cleanup -> refactor into get_gaussian_kernel
     dist_x = op.target[0].distances[0]
     dist_y = op.target[0].distances[1]
 
@@ -631,8 +631,7 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True):
     return res
 
 
-# FIXME add features to switch off point_source
-def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q=None, n=None, var=None,
+def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q=None, n=None,
                        output_directory=None):
     if pad is None and sky_model.position_space != sky_model.extended_space:
         raise ValueError('The sky is padded but no padder is given')
@@ -653,13 +652,16 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
             exposure = pad(exposure_field)
         exposure = ift.makeOp(exposure)
 
-    # Mock sky position
+    # Get sky operators
     sky_tuple = sky_model.create_sky_model()
-    mock_sky_position = ift.from_random(sky_tuple[2].domain)
-    mock_sky = sky_tuple[2](mock_sky_position)
-    mock_sky_data = get_data_realization(sky_tuple[2], mock_sky_position, exposure=exposure, padder=pad)
+    point_sources, sky = sky_tuple[0], sky_tuple[2]
 
-    # Convolved operators
+    # Mock sky
+    mock_sky_position = ift.from_random(sky.domain)
+    mock_sky = sky(mock_sky_position)
+    mock_sky_data = get_data_realization(sky, mock_sky_position, exposure=exposure, padder=pad)
+
+    # Convolve sky operators and draw data realizations
     convolved_sky_tuple = []
     mock_data_tuple = []
     for op in sky_tuple:
@@ -667,14 +669,20 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
         convolved_sky_tuple.append(convolved)
         mock_data = get_data_realization(convolved, mock_sky_position, exposure=exposure, padder=pad)
         mock_data_tuple.append(mock_data)
+
     convolved_sky_tuple = tuple(convolved_sky_tuple)
     mock_data_tuple = tuple(mock_data_tuple)
+    index = 1 if point_sources is not None else 0
 
-    output_dictionary = {'mock_data_sky': mock_data_tuple[2],
-                         'mock_data_sky_nonconv': mock_sky_data,
-                         'mock_data_points': mock_data_tuple[0],
-                         'mock_data_diffuse': mock_data_tuple[1],
+    # Prepare output dictionary
+    output_dictionary = {'mock_data_sky': mock_data_tuple[index+1],
+                         'not_convolved_mock_data_sky': mock_sky_data,
+                         'mock_data_diffuse': mock_data_tuple[index],
                          'mock_sky': mock_sky}
+
+    if point_sources is not None:
+        output_dictionary['mock_data_point_sources'] = mock_data_tuple[0]
+
     if mpi_master and output_directory is not None:
         p = ift.Plot()
         for k, v in output_dictionary.items():
