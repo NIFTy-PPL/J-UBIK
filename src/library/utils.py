@@ -29,10 +29,8 @@ def save_config(config, filename, dir=None):
 
 
 def create_output_directory(directory_name):
-    output_directory = os.path.join(os.path.curdir, directory_name)
-    if not os.path.exists(output_directory):
-        os.mkdir(output_directory)
-    return output_directory
+    os.makedirs(directory_name, exist_ok=True)
+    return directory_name
 
 
 def get_gaussian_psf(op, var):
@@ -82,7 +80,6 @@ def _get_e_dist(config):
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
 
-
 def get_normed_exposure(exposure_field, data_field):
     """
     Convenience function to get exposures on the order of 1, so that the signal is living on
@@ -96,7 +93,6 @@ def get_normed_exposure(exposure_field, data_field):
     norm = ratio.mean()
     normed_exp_field = exposure_field * norm
     return normed_exp_field
-
 
 def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
     warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
@@ -631,14 +627,13 @@ def generate_mock_data(sky_model, exposure=None, pad=None, psf_kernel=None, alph
     if pad is None and sky_model.position_space != sky_model.extended_space:
         raise ValueError('The sky is padded but no padder is given')
     mpi_master = ift.utilities.get_MPI_params()[3]
+
+    # Create output and diagnostic directories
     if output_directory is not None:
-        if not os.path.exists(output_directory):
-            if mpi_master:
-                os.mkdir(create_output_directory(output_directory))
         diagnostics_dir = os.path.join(output_directory, 'diagnostics')
-        if not os.path.exists(diagnostics_dir):
-            if mpi_master:
-                os.mkdir(diagnostics_dir)
+        if mpi_master:
+            create_output_directory(output_directory)
+            create_output_directory(diagnostics_dir)
 
     # Exposure
     exposure_field = exposure
