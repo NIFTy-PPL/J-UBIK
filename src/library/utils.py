@@ -294,8 +294,7 @@ def get_fft_psf_op(kernel, domain, space=None):
     realizer = ift.Realizer(domain)
     hsp_kernel = fft(kernel.real)
     kernel_hp = ift.makeOp(hsp_kernel)
-    convolve_op = realizer @ fft.inverse @ kernel_hp @ fft @ realizer
-    return convolve_op
+    return realizer @ fft.inverse @ kernel_hp @ fft @ realizer
     # FIXME Hartley + Fix dirty hack
 
 
