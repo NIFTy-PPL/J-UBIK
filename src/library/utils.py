@@ -63,7 +63,7 @@ def get_gaussian_psf(op, var):
     # p.add(log_kernel.exp(), norm=colors.SymLogNorm(linthresh=10e-8))
     # p.output(nx=1)
 
-    conv_op = get_fft_psf_op(log_kernel.exp(), op)
+    conv_op = get_fft_psf_op(log_kernel.exp(), op.target)
     return conv_op
 
 
@@ -281,17 +281,17 @@ def convolve_field_operator(kernel, op, space=None):
     convenience function for the convolution a fixed kernel (field) with an operator.
     This uses Fast Fourier Transformation (FFT).
     """
-    convolve_op = get_fft_psf_op(kernel, op, space)
+    convolve_op = get_fft_psf_op(kernel, op.target, space)
     return convolve_op @ op
 
 
-def get_fft_psf_op(kernel, op, space=None):
+def get_fft_psf_op(kernel, domain, space=None):
     """
     convenience function for the generation of a convolution operator with fixed kernel (field).
     This uses Fast Fourier Transformation (FFT).
     """
-    fft = ift.FFTOperator(op.target, space=space)
-    realizer = ift.Realizer(op.target)
+    fft = ift.FFTOperator(domain, space=space)
+    realizer = ift.Realizer(domain)
     hsp_kernel = fft(kernel.real)
     kernel_hp = ift.makeOp(hsp_kernel)
     convolve_op = realizer @ fft.inverse @ kernel_hp @ fft @ realizer
