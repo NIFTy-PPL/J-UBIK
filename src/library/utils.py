@@ -611,9 +611,11 @@ def is_subdomain(sub_domain, total_domain):
 
 
 def get_data_realization(op, position, exposure=None, padder=None, data=True, output_directory=None):
+    mpi_master = ift.utilities.get_MPI_params()[3]
     R = ift.ScalingOperator(op.target, 1)
     if exposure is not None:
         R = exposure @ R
+    R_no_pad = R.copy()
     if padder is not None:
         R = padder.adjoint @ R
     res = op.force(position)
@@ -624,9 +626,9 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True, ou
             res = ift.makeField(padder.adjoint.target, res)
         else:
             res = ift.makeField(op.target, res)
-    if output_directory is not None:
+    if output_directory is not None and mpi_master:
         with open(os.path.join(output_directory, f'response_op.pkl'), 'wb') as file:
-            pickle.dump(R, file)
+            pickle.dump(R_no_pad, file)
     return res
 
 
