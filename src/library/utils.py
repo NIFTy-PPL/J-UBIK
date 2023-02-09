@@ -615,7 +615,8 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True, ou
     R = ift.ScalingOperator(op.target, 1)
     if exposure is not None:
         R = exposure @ R
-    R_no_pad = R.copy()
+    R_no_pad = R
+
     if padder is not None:
         R = padder.adjoint @ R
     res = op.force(position)
@@ -654,6 +655,7 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
 
     # Get sky operators
     sky_dict = sky_model.create_sky_model()
+    sky_dict.pop('pspec')
 
     # Mock sky
     mock_sky_position = ift.from_random(sky_dict['sky'].domain)

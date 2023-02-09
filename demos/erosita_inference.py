@@ -31,6 +31,7 @@ if __name__ == "__main__":
     observation_instance = xu.ErositaObservation(input_filenames, output_filename, obs_path)
     sky_model = xu.SkyModel(config_filename)
     sky_dict = sky_model.create_sky_model()
+    pspec = sky_dict.pop('pspec')
 
     # Grid Info
     grid_info = cfg['grid']
@@ -156,7 +157,8 @@ if __name__ == "__main__":
     minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
 
     # Prepare results
-    operators_to_plot = {key: (sky_model.pad.adjoint(value)) for key, value in conv_sky_dict.items()}
+    operators_to_plot = {key: (sky_model.pad.adjoint(value)) for key, value in sky_dict.items()}
+    operators_to_plot = {**operators_to_plot, 'pspec': pspec}
 
 
     # Save config file in output_directory

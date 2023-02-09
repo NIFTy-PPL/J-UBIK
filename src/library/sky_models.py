@@ -33,7 +33,8 @@ class SkyModel:
         else:
             point_sources = self._create_point_source_model()
             sky = point_sources + diffuse_component
-            sky_dict = {'sky': sky, 'point_sources': point_sources, 'diffuse': diffuse_component}
+            sky_dict = {'sky': sky, 'point_sources': point_sources, 'diffuse': diffuse_component,
+                        'pspec': pspec}
         return sky_dict
 
     def _create_point_source_model(self):
