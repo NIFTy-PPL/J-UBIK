@@ -610,10 +610,12 @@ def is_subdomain(sub_domain, total_domain):
                for kk, vv in sub_domain.items())
 
 
-def get_data_realization(op, position, exposure=None, padder=None, data=True):
+def get_data_realization(op, position, exposure=None, padder=None, data=True, output_directory=None):
+    mpi_master = ift.utilities.get_MPI_params()[3]
     R = ift.ScalingOperator(op.target, 1)
     if exposure is not None:
         R = exposure @ R
+    R_no_pad = R.copy()
     if padder is not None:
         R = padder.adjoint @ R
     res = op.force(position)
@@ -624,6 +626,9 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True):
             res = ift.makeField(padder.adjoint.target, res)
         else:
             res = ift.makeField(op.target, res)
+    if output_directory is not None and mpi_master:
+        with open(os.path.join(output_directory, f'response_op.pkl'), 'wb') as file:
+            pickle.dump(R_no_pad, file)
     return res
 
 
@@ -653,7 +658,8 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
     # Mock sky
     mock_sky_position = ift.from_random(sky_dict['sky'].domain)
     mock_sky = sky_dict['sky'](mock_sky_position)
-    mock_sky_data = get_data_realization(sky_dict['sky'], mock_sky_position, exposure=exposure, padder=pad)
+    mock_sky_data = get_data_realization(sky_dict['sky'], mock_sky_position, exposure=exposure, padder=pad,
+                                         output_directory=diagnostics_dir)
 
     # Convolve sky operators and draw data realizations
     conv_sky_dict = {key: (psf_op @ value) for key, value in sky_dict.items()}

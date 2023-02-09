@@ -166,7 +166,7 @@ if __name__ == "__main__":
                                                  operators_to_plot,
                                                  x,
                                                  y,
-                                                 plotting_kwargs={'norm': LogNorm})
+                                                 plotting_kwargs={'norm': LogNorm()})
     # Initial position
     initial_position = ift.from_random(sky_dict['sky'].domain) * 0.1
     if 'point_sources' in sky_dict:
