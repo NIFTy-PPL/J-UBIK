@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 from matplotlib.colors import LogNorm
-
+import matplotlib.pyplot as plt
 import nifty8 as ift
 
 from src.library.utils import save_rgb_image_to_fits
@@ -65,3 +65,22 @@ def signal_space_uwm_from_file(sl_path_base,
     wgt_mean = get_uncertainty_weighted_measure(sl, sky_op, output_dir_base=output_dir_base,
                                                 title=title)
     return wgt_mean
+
+
+def weighted_residual_distribution(sl_path_base,
+                                   data_path,
+                                   sky_op,
+                                   response_path,
+                                   bins=20,
+                                   output_dir_base=None,
+                                   title='Weighted data residuals'):
+    sl = ift.ResidualSampleList.load(sl_path_base)
+    with open(data_path, "rb") as f:
+        d = pickle.load(f)
+    with open(response_path, "rb") as f:
+        R = pickle.load(f)
+    wgt_res = get_uncertainty_weighted_measure(sl, R @ sky_op), d, None, title=title)
+    res = wget_res.val.reshape(-1)
+    plt.histogram(res, bins)
+    plt.savefig(fname=title)
+    return
