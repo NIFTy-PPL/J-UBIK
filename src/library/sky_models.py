@@ -4,7 +4,7 @@ from matplotlib.colors import LogNorm
 
 
 class SkyModel:
-    def __init__(self, config_file, alpha=None, q=None):
+    def __init__(self, config_file):
         if not isinstance(config_file, str):
             raise TypeError("The config_file argument needs to be the path to a .yaml config file.")
         # FIXME: add all relevant checks and docstrings
@@ -12,8 +12,6 @@ class SkyModel:
         # Load config
         self.config = xu.get_cfg(config_file)
         self.priors = self.config['priors']
-        self.alpha = alpha
-        self.q = q
 
         # grid info
         grid_info = self.config['grid']
@@ -39,12 +37,7 @@ class SkyModel:
         return sky_dict
 
     def _create_point_source_model(self):
-        if self.priors['point_sources'] is None:
-            return None
-        if self.alpha is not None and self.q is not None:
-            point_sources = ift.InverseGammaOperator(self.extended_space, alpha=self.alpha, q=self.q)
-        else:
-            point_sources = ift.InverseGammaOperator(self.extended_space, **self.priors['point_sources'])
+        point_sources = ift.InverseGammaOperator(self.extended_space, **self.priors['point_sources'])
         return point_sources.ducktape('point_sources')
 
     def _create_diffuse_component_model(self):
