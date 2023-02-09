@@ -1,7 +1,8 @@
 import numpy as np
 import pickle
-from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
 import nifty8 as ift
 
 from src.library.utils import save_rgb_image_to_fits
