@@ -47,7 +47,7 @@ class SkyModel:
         cfm.set_amplitude_total_offset(**self.priors['diffuse']['offset'])
         cfm.add_fluctuations(self.extended_space, **self.priors['diffuse']['fluctuations'])
         diffuse = cfm.finalize().exp()
-        pspec = cfm.amplitude
+        pspec = cfm.power_spectrum
         return diffuse, pspec
 
 
