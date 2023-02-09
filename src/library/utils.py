@@ -648,35 +648,24 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
         exposure = ift.makeOp(exposure)
 
     # Get sky operators
-    sky_tuple = sky_model.create_sky_model()
-    point_sources, sky = sky_tuple[0], sky_tuple[2]
+    sky_dict = sky_model.create_sky_model()
 
     # Mock sky
-    mock_sky_position = ift.from_random(sky.domain)
-    mock_sky = sky(mock_sky_position)
-    mock_sky_data = get_data_realization(sky, mock_sky_position, exposure=exposure, padder=pad)
+    mock_sky_position = ift.from_random(sky_dict['sky'].domain)
+    mock_sky = sky_dict['sky'](mock_sky_position)
+    mock_sky_data = get_data_realization(sky_dict['sky'], mock_sky_position, exposure=exposure, padder=pad)
 
     # Convolve sky operators and draw data realizations
-    convolved_sky_tuple = []
-    mock_data_tuple = []
-    for op in sky_tuple:
-        convolved = psf_op @ op
-        convolved_sky_tuple.append(convolved)
-        mock_data = get_data_realization(convolved, mock_sky_position, exposure=exposure, padder=pad)
-        mock_data_tuple.append(mock_data)
-
-    convolved_sky_tuple = tuple(convolved_sky_tuple)
-    mock_data_tuple = tuple(mock_data_tuple)
-    index = 1 if point_sources is not None else 0
+    conv_sky_dict = {key: (psf_op @ value) for key, value in sky_dict.items()}
+    prefix = "mock_data_"
+    mock_data_dict = {prefix+key: get_data_realization(value,
+                                                       mock_sky_position,
+                                                       exposure=exposure,
+                                                       padder=pad) for key, value in conv_sky_dict.items()}
 
     # Prepare output dictionary
-    output_dictionary = {'mock_data_sky': mock_data_tuple[index+1],
-                         'not_convolved_mock_data_sky': mock_sky_data,
-                         'mock_data_diffuse': mock_data_tuple[index],
+    output_dictionary = {**mock_data_dict,
                          'mock_sky': mock_sky}
-
-    if point_sources is not None:
-        output_dictionary['mock_data_point_sources'] = mock_data_tuple[0]
 
     if mpi_master and output_directory is not None:
         p = ift.Plot()
@@ -694,4 +683,4 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
             p.add(exposure_field, title='exposure', norm=LogNorm())
         p.output(nx=3, name=os.path.join(diagnostics_dir, f'mock_data_a{alpha}_q{q}_sample{n}.png'))
 
-    return mock_data_tuple, convolved_sky_tuple
+    return mock_data_dict

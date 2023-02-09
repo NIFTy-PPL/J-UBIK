@@ -30,7 +30,7 @@ if __name__ == "__main__":
     exposure_filename = file_info['exposure']
     observation_instance = xu.ErositaObservation(input_filenames, output_filename, obs_path)
     sky_model = xu.SkyModel(config_filename)
-    point_sources, diffuse, sky = sky_model.create_sky_model()
+    sky_dict = sky_model.create_sky_model()
 
     # Grid Info
     grid_info = cfg['grid']
@@ -44,9 +44,6 @@ if __name__ == "__main__":
 
     # Create the output directory
     output_directory = xu.create_output_directory(file_info["res_dir"])
-
-    # Bool to enable only diffuse reconstruction
-    reconstruct_point_sources = cfg['priors']['point_sources'] is not None
 
     log = 'Output file {} already exists and is not regenerated. ' \
           'If the observations parameters shall be changed please delete or rename the current output file.'
@@ -94,20 +91,19 @@ if __name__ == "__main__":
 
     elif cfg['psf']['method'] == 'invariant':
         if mock_psf:
-            conv_op = xu.get_gaussian_psf(sky, var=cfg['psf']['gauss_var'])
+            conv_op = xu.get_gaussian_psf(sky_dict['sky'], var=cfg['psf']['gauss_var'])
         else:
             center = observation_instance.get_center_coordinates(output_filename)
             psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
             psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
             psf_kernel = psf_function(*center)
             psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
-            conv_op = xu.get_fft_psf_op(psf_kernel, sky)
+            conv_op = xu.get_fft_psf_op(psf_kernel, sky_dict['sky'])
+    else:
+        raise NotImplementedError
 
     # Convolution
-    convolved_sky = conv_op @ sky
-    if reconstruct_point_sources:
-        convolved_ps = conv_op @ point_sources
-    convolved_diffuse = conv_op @ diffuse
+    conv_sky_dict = {key: (conv_op @ value) for key, value in sky_dict.items()}
 
     # Exposure
     exposure = observation_instance.load_fits_data(exposure_filename)[0].data
@@ -130,10 +126,10 @@ if __name__ == "__main__":
             with open('diagnostics/mock_sky_data.pkl', "rb") as f:
                 mock_data = pickle.load(f)
         else:
-            mock_data_tuple, _ = xu.generate_mock_data(sky_model, conv_op, exposure_field,
+            mock_data_dict = xu.generate_mock_data(sky_model, conv_op, exposure_field,
                                                        sky_model.pad,
                                                        output_directory=output_directory)
-            mock_data = mock_data_tuple[0]
+            mock_data = mock_data_dict['mock_data_sky']
 
         # Mask mock data
         masked_data = mask(mock_data)
@@ -147,7 +143,7 @@ if __name__ == "__main__":
     # print(norm)
 
     # Set up likelihood
-    log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ convolved_sky
+    log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ conv_sky_dict['sky']
 
     # Load minimization config
     minimization_config = cfg['minimization']
@@ -160,11 +156,8 @@ if __name__ == "__main__":
     minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
 
     # Prepare results
-    operators_to_plot = {'reconstruction': sky_model.pad.adjoint(sky),
-                         'diffuse_component': sky_model.pad.adjoint(diffuse)}
+    operators_to_plot = {key: (sky_model.pad.adjoint(value)) for key, value in conv_sky_dict.items()}
 
-    if reconstruct_point_sources:
-        operators_to_plot['point_sources'] = sky_model.pad.adjoint(point_sources)
 
     # Save config file in output_directory
     xu.save_config(cfg, config_filename, output_directory)
@@ -175,9 +168,9 @@ if __name__ == "__main__":
                                                  y,
                                                  plotting_kwargs={'norm': LogNorm})
     # Initial position
-    initial_position = ift.from_random(sky.domain) * 0.1
-    if reconstruct_point_sources:
-        initial_ps = ift.MultiField.full(point_sources.domain, 0)
+    initial_position = ift.from_random(sky_dict['sky'].domain) * 0.1
+    if 'point_sources' in sky_dict:
+        initial_ps = ift.MultiField.full(sky_dict['point_sources'].domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 
     if minimization_config['geovi']:

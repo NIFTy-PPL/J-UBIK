@@ -30,12 +30,13 @@ class SkyModel:
     def create_sky_model(self):
         diffuse_component = self._create_diffuse_component_model()
         if self.priors['point_sources'] is None:
-            point_sources = None
             sky = diffuse_component
+            sky_dict = {'sky': sky}
         else:
             point_sources = self._create_point_source_model()
             sky = point_sources + diffuse_component
-        return point_sources, diffuse_component, sky
+            sky_dict = {'sky': sky, 'point_sources': point_sources, 'diffuse': diffuse_component}
+        return sky_dict
 
     def _create_point_source_model(self):
         if self.priors['point_sources'] is None:
