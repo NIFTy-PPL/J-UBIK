@@ -191,6 +191,7 @@ class eROSITA_PSF():
                                       want_cut = conv_params['want_cut'])
             print('...done build LIN-PSF')
         else:
+            # TODO enter FFT Convolution here as well
             raise ValueError(f'Unknown conv_method: {conv_method}')
         return op
 

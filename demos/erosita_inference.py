@@ -1,7 +1,9 @@
 import math
 import os
+import pickle
+import numpy as np
 
-from matplotlib.colors import LogNorm, SymLogNorm
+from matplotlib.colors import LogNorm
 import nifty8 as ift
 import xubik0 as xu
 
@@ -11,13 +13,14 @@ config.update('jax_enable_x64', True)
 
 if __name__ == "__main__":
     config_filename = "eROSITA_config.yaml"
-    try:
-        cfg = xu.get_cfg(config_filename)
-    except:
-        cfg = xu.get_cfg('demos/' + config_filename)
+    cfg = xu.get_cfg(config_filename)
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])  # FIXME USE DISTANCES!
     mock_run = cfg['mock']
+    mock_psf = cfg['mock_psf']
+    load_mock_data = cfg['load_mock_data']
+    if load_mock_data and not mock_run:
+        print('WARNING: Mockrun is set to False: Actual data is loaded')
 
     # File Location
     file_info = cfg['files']
@@ -38,6 +41,9 @@ if __name__ == "__main__":
     # Telescope Info
     tel_info = cfg['telescope']
     tm_id = tel_info['tm_id']
+
+    # Create the output directory
+    output_directory = xu.create_output_directory(file_info["res_dir"])
 
     # Bool to enable only diffuse reconstruction
     reconstruct_point_sources = cfg['priors']['point_sources'] is not None
@@ -74,17 +80,30 @@ if __name__ == "__main__":
                                             dpi=plot_info['dpi'])
 
     # PSF
-    center = observation_instance.get_center_coordinates(output_filename)
-    psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
+    if cfg['psf']['method'] in ['MSC', 'LIN']:
+        center = observation_instance.get_center_coordinates(output_filename)
+        psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
 
-    dom = sky_model.extended_space
-    center = tuple(0.5*ss*dd for ss, dd in zip(dom.shape, dom.distances))
+        dom = sky_model.extended_space
+        center = tuple(0.5*ss*dd for ss, dd in zip(dom.shape, dom.distances))
 
-    energy = cfg['psf']['energy']
-    conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
-                                   conv_method=cfg['psf']['method'],
-                                   conv_params=cfg['psf'])
+        energy = cfg['psf']['energy']
+        conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
+                                    conv_method=cfg['psf']['method'],
+                                    conv_params=cfg['psf'])
 
+    elif cfg['psf']['method'] == 'invariant':
+        if mock_psf:
+            conv_op = xu.get_gaussian_psf(sky, var=cfg['psf']['gauss_var'])
+        else:
+            center = observation_instance.get_center_coordinates(output_filename)
+            psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
+            psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
+            psf_kernel = psf_function(*center)
+            psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
+            conv_op = xu.get_fft_psf_op(psf_kernel, sky)
+
+    # Convolution
     convolved_sky = conv_op @ sky
     if reconstruct_point_sources:
         convolved_ps = conv_op @ point_sources
@@ -103,43 +122,25 @@ if __name__ == "__main__":
     R = mask @ sky_model.pad.adjoint @ exposure_op
 
     # Data
-    data = observation_instance.load_fits_data(output_filename)[0].data
-    data = ift.makeField(sky_model.position_space, data)
-    masked_data = mask(data)
-
-    p = ift.Plot()
-
     if mock_run:
         ift.random.push_sseq_from_seed(cfg['seed'])
-        mock_position = ift.from_random(sky.domain)
-
-        # Get mock data
-        mock_data = xu.get_data_realization(convolved_sky, mock_position, exposure=exposure_op, padder=sky_model.pad)
-        if reconstruct_point_sources:
-            mock_ps_data = xu.get_data_realization(convolved_ps, mock_position, exposure=exposure_op, padder=sky_model.pad)
-        mock_diffuse_data = xu.get_data_realization(convolved_diffuse, mock_position, exposure=exposure_op,
-                                                 padder=sky_model.pad)
+        if load_mock_data:
+            # FIXME: name of output folder for diagnostics into config
+            # FIXME: Put Mockdata to a better place
+            with open('diagnostics/mock_sky_data.pkl', "rb") as f:
+                mock_data = pickle.load(f)
+        else:
+            mock_data_tuple, _ = xu.generate_mock_data(sky_model, conv_op, exposure_field,
+                                                       sky_model.pad,
+                                                       output_directory=output_directory)
+            mock_data = mock_data_tuple[0]
 
         # Mask mock data
         masked_data = mask(mock_data)
-
-        # Get mock signal
-        mock_sky = xu.get_data_realization(convolved_sky, mock_position, data=False)
-        if reconstruct_point_sources:
-            mock_ps = xu.get_data_realization(convolved_ps, mock_position, data=False)
-        mock_diffuse = xu.get_data_realization(convolved_diffuse, mock_position, data=False)
-
-        norm = SymLogNorm(linthresh=5e-3)
-        if reconstruct_point_sources:
-            p.add(mock_ps, title='point sources response', norm=LogNorm())
-        p.add(mock_diffuse, title='diffuse component response', norm=LogNorm())
-        p.add(mock_sky, title='sky', norm=LogNorm())
-        if reconstruct_point_sources:
-            p.add(mock_ps_data, title='mock point source data', norm=norm)
-        p.add(data, title='data', norm=norm)
-        p.add(mock_data, title='mock data', norm=norm)
-        p.add(mock_diffuse_data, title='mock diffuse data', norm=norm)
-        p.output(nx=4, name=f'mock_data.png')
+    else:
+        data = observation_instance.load_fits_data(output_filename)[0].data
+        data = ift.makeField(sky_model.position_space, data)
+        masked_data = mask(data)
 
     # Print Exposure norm
     # norm = xu.get_norm(exposure, data)
@@ -163,10 +164,7 @@ if __name__ == "__main__":
                          'diffuse_component': sky_model.pad.adjoint(diffuse)}
 
     if reconstruct_point_sources:
-        operators_to_plot['point_sources']: sky_model.pad.adjoint(point_sources)
-
-    # Create the output directory
-    output_directory = xu.create_output_directory(file_info["res_dir"])
+        operators_to_plot['point_sources'] = sky_model.pad.adjoint(point_sources)
 
     # Save config file in output_directory
     xu.save_config(cfg, config_filename, output_directory)
@@ -175,7 +173,7 @@ if __name__ == "__main__":
                                                  operators_to_plot,
                                                  x,
                                                  y,
-                                                 plotting_kwargs={'norm': SymLogNorm(linthresh=10e-1)})
+                                                 plotting_kwargs={'norm': LogNorm})
     # Initial position
     initial_position = ift.from_random(sky.domain) * 0.1
     if reconstruct_point_sources:
