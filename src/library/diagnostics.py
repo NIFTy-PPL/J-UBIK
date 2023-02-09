@@ -22,7 +22,7 @@ def get_uncertainty_weighted_measure(sl, op=None,
         save_rgb_image_to_fits(wgt_res, output_dir_base,
                                overwrite=True, MPI_master=mpi_master)
         p = ift.Plot()
-        p.add(wgt_res, title="Uncertainty weighted mean", norm=LogNorm())
+        p.add(wgt_res, title="Uncertainty weighted measure", norm=LogNorm())
         p.output(name=f'{output_dir_base}.png')
     return wgt_res
 
