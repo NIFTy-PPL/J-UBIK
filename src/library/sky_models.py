@@ -26,14 +26,15 @@ class SkyModel:
         self.pad = ift.FieldZeroPadder(self.position_space, self.extended_space.shape)
 
     def create_sky_model(self):
-        diffuse_component = self._create_diffuse_component_model()
+        diffuse_component, pspec = self._create_diffuse_component_model()
         if self.priors['point_sources'] is None:
             sky = diffuse_component
             sky_dict = {'sky': sky}
         else:
             point_sources = self._create_point_source_model()
             sky = point_sources + diffuse_component
-            sky_dict = {'sky': sky, 'point_sources': point_sources, 'diffuse': diffuse_component}
+            sky_dict = {'sky': sky, 'point_sources': point_sources, 'diffuse': diffuse_component,
+                        'pspec': pspec}
         return sky_dict
 
     def _create_point_source_model(self):
@@ -45,7 +46,9 @@ class SkyModel:
         cfm = ift.CorrelatedFieldMaker("")
         cfm.set_amplitude_total_offset(**self.priors['diffuse']['offset'])
         cfm.add_fluctuations(self.extended_space, **self.priors['diffuse']['fluctuations'])
-        return cfm.finalize().exp()
+        diffuse = cfm.finalize().exp()
+        pspec = cfm.power_spectrum
+        return diffuse, pspec
 
 
 if __name__ == "__main__":
