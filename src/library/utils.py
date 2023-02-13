@@ -692,3 +692,54 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
         p.output(nx=3, name=os.path.join(diagnostics_dir, f'mock_data_a{alpha}_q{q}_sample{n}.png'))
 
     return mock_data_dict
+
+class _IGLikelihood(ift.EnergyOperator):
+    def __init__(self, data, alpha, q):
+        self._domain = ift.makeDomain(data.domain)
+        shift = ift.Adder(data) @ ift.ScalingOperator(self._domain, -1)
+        dummy = ift.ScalingOperator(self._domain, 1)
+        self._q = ift.ScalingOperator(self._domain, float(q))
+        self._apw = ift.ScalingOperator(self._domain, float(alpha + 1.))
+        op = self._q @ dummy.ptw('reciprocal') + self._apw @ dummy.ptw('log')
+        self._op = (op @ shift).sum()
+
+    def apply(self, x):
+        self._check_input(x)
+        res = self._op(x)
+        if not x.want_metric:
+            return res
+        raise NotImplementedError
+
+def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
+                            point_key = 'point_sources', stiffness = 1E6):
+    def _tr(samples):
+        position = samples._m
+        diffuse_pos = position.to_dict()
+        diffuse_pos.pop(point_key)
+        diffuse_pos = ift.MultiField.from_dict(diffuse_pos)
+
+        my_sky = sky(position)
+
+        lh = _IGLikelihood(my_sky, point_dict['alpha'], point_dict['q'])
+
+        ic_mini = ift.AbsDeltaEnergyController(
+                        deltaE = float(transition_dict['deltaE']),
+                        iteration_limit = transition_dict['iteration_limit'],
+                        name = transition_dict['name'])
+        minimizer = ift.VL_BFGS(ic_mini)
+        ham = ift.StandardHamiltonian(lh @ diffuse_sky)
+        en, _ = minimizer(ift.EnergyAdapter(diffuse_pos, ham))
+        diffuse_pos = en.position
+
+        new_pos = diffuse_pos.to_dict()
+        new_pos['point_sources'] = position['point_sources']
+        new_pos = ift.MultiField.from_dict(new_pos)
+
+        icov = ift.ScalingOperator(my_sky.domain, stiffness)
+        lh = ift.GaussianEnergy(data=my_sky, inverse_covariance=icov)
+        en = ift.EnergyAdapter(new_pos, lh @ sky,
+                               constants=list(diffuse_pos.keys()), 
+                               want_metric=False)
+        return minimizer(en)[0].position
+
+    return (lambda iiter: None if iiter < transition_dict['start'] else _tr)
