@@ -101,18 +101,39 @@ class ErositaObservation:
         else:
             print("eSASS task COMPLETE.")
 
-    def load_fits_data(self, filename):
-        print("Loading ouput data stored in {}.".format(filename))
+    def load_fits_data(self, filename, verbose=True):
+        if verbose:
+            print("Loading ouput data stored in {}.".format(filename))
         return fits.open(os.path.join(self.working_directory, filename))
 
-    def get_center_coordinates(self, input_filename):
-        conv = 3600 # to arcseconds
+    def get_pointing_coordinates_stats(self, module, input_filename=None):
+        if not isinstance(module, int):
+            raise TypeError('Telescope module must be of type int (1-7).')
+        module = 'CORRATT' + str(module)
+
+        if input_filename is None:
+            input_filename = self.input
+        print('Loading pointing coordinates for TM{} module from {}.'.format(module[-1],
+                                                                             input_filename))
+
         try:
-            input_header = self.load_fits_data(input_filename)[1].header # FIXME: think about nicer implementation
-            return conv*input_header['RA_PNT'], conv*input_header['DEC_PNT']
+            data = self.load_fits_data(input_filename, verbose=False)[module].data
+
         except ValueError:
-            print("Input filename does not contain center information.")
+            print("Input filename does not contain pointing information.")
             return None
+
+        # Convert pointing information to arcseconds
+        conv = 3600
+        ra = conv * data['RA']
+        dec = conv * data['DEC']
+        roll = conv * data['ROLL']
+
+        # Return pointing statistics
+        stats = {'RA': (ra.mean(), ra.std()), 'DEC': (dec.mean(), dec.std()), 'ROLL': (
+            roll.mean(), roll.std())}
+
+        return stats
 
     def plot_fits_data(self, filename, image_name, slice=None, lognorm=True, linthresh=10e-1,
                        show=False, dpi=None, **kwargs):
