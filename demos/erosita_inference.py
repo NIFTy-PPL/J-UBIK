@@ -152,9 +152,12 @@ if __name__ == "__main__":
     # Minimizers
     ic_newton = ift.AbsDeltaEnergyController(**minimization_config['ic_newton'])
     ic_sampling = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling'])
-    ic_sampling_nl = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling_nl'])
     minimizer = ift.NewtonCG(ic_newton)
-    minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
+    if minimization_config['geovi']:
+        ic_sampling_nl = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling_nl'])
+        minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
+    else:
+        minimizer_sampling = None
 
     # Prepare results
     operators_to_plot = {key: (sky_model.pad.adjoint(value)) for key, value in sky_dict.items()}
@@ -175,27 +178,13 @@ if __name__ == "__main__":
         initial_ps = ift.MultiField.full(sky_dict['point_sources'].domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 
-    if minimization_config['geovi']:
-        # geoVI
-        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
-                        minimization_config['n_samples'],
-                        minimizer,
-                        ic_sampling,
-                        minimizer_sampling,
-                        output_directory=output_directory,
-                        export_operator_outputs=operators_to_plot,
-                        inspect_callback=plot,
-                        resume=True,
-                        comm=xu.library.mpi.comm)
-    else:
-        # MGVI
-        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
-                        minimization_config['n_samples'],
-                        minimizer,
-                        ic_sampling,
-                        None,
-                        export_operator_outputs=operators_to_plot,
-                        output_directory=output_directory,
-                        inspect_callback=plot,
-                        resume=True,
-                        comm=xu.library.mpi.comm)
+    ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
+                    minimization_config['n_samples'],
+                    minimizer,
+                    ic_sampling,
+                    minimizer_sampling,
+                    output_directory=output_directory,
+                    export_operator_outputs=operators_to_plot,
+                    inspect_callback=plot,
+                    resume=minimization_config['resume'],
+                    comm=xu.library.mpi.comm)
