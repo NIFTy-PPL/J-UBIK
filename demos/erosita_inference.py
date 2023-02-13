@@ -83,7 +83,10 @@ if __name__ == "__main__":
 
     # PSF
     if cfg['psf']['method'] in ['MSC', 'LIN']:
-        center = observation_instance.get_center_coordinates(output_filename)
+        center_stats = observation_instance.get_pointing_coordinates_stats(tm_id,
+                                                                           input_filename=output_filename)
+
+        center = (center_stats['RA'][0], center_stats['DEC'][0])
         psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
 
         dom = sky_model.extended_space
