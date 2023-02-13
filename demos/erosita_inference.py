@@ -178,11 +178,21 @@ if __name__ == "__main__":
         initial_ps = ift.MultiField.full(sky_dict['point_sources'].domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 
+    if minimization_config['transition']:
+        transition = xu.get_equal_lh_transition(
+            sky_dict['sky'],
+            sky_dict['diffuse'],
+            cfg['priors']['point_sources'],
+            minimization_config['ic_transition'])
+    else:
+        transition = None
+
     ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
                     minimization_config['n_samples'],
                     minimizer,
                     ic_sampling,
                     minimizer_sampling,
+                    transitions=transition,
                     output_directory=output_directory,
                     export_operator_outputs=operators_to_plot,
                     inspect_callback=plot,
