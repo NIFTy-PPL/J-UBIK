@@ -1,4 +1,4 @@
-seed: 42
+seed: 86
 mock: True
 mock_psf: True
 load_mock_data: False
@@ -90,7 +90,8 @@ minimization:
     iteration_limit: 8
     name: Sampling(nonlin)
   ic_transition:
+    convergence_level: 2
     deltaE: 1e-4
-    iteration_limit: 50
+    iteration_limit: 60
     name: Transition
     start: 1
