@@ -247,8 +247,8 @@ class ErositaObservation:
 if __name__ == "__main__":
     get_data = True
 
-    obs = ErositaObservation('pm00_700161_020_EventList_c001.fits', 'DELETE.fits',
+    obs = ErositaObservation('pm00_700161_020_EventList_c001.fits', 'example_output.fits',
                              '../../data/LMC_SN1987A/')
     if get_data:
         obs.get_data(emin=1.0, emax=2.0, image=True, rebin=80, size=256, pattern=15, telid=1)
-    obs.plot_fits_data('DELETE.fits', 'DELETE_IM.png')
+    obs.plot_fits_data('example_output.fits', 'example_output.png')
