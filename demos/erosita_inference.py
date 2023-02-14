@@ -138,6 +138,7 @@ if __name__ == "__main__":
         masked_data = mask(mock_data)
     else:
         data = observation_instance.load_fits_data(output_filename)[0].data
+        data = np.array(data, dtype = int)
         data = ift.makeField(sky_model.position_space, data)
         masked_data = mask(data)
 
