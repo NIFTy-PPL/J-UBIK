@@ -44,6 +44,8 @@ if __name__ == "__main__":
     tm_id = tel_info['tm_id']
 
     # Create the output directory
+    if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
+        os.system('rm -rf '+file_info["res_dir"])
     output_directory = xu.create_output_directory(file_info["res_dir"])
 
     log = 'Output file {} already exists and is not regenerated. ' \
@@ -150,6 +152,12 @@ if __name__ == "__main__":
     minimization_config = cfg['minimization']
 
     # Minimizers
+    comm = xu.library.mpi.comm
+    if comm is not None:
+        if not xu.library.mpi.master:
+            minimization_config['ic_newton']['name'] = None
+        minimization_config['ic_sampling']['name'] += f"({comm.Get_rank()})"
+        minimization_config['ic_sampling_nl']['name'] += f"({comm.Get_rank()})"
     ic_newton = ift.AbsDeltaEnergyController(**minimization_config['ic_newton'])
     ic_sampling = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling'])
     minimizer = ift.NewtonCG(ic_newton)
