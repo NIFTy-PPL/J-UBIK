@@ -1,6 +1,6 @@
 seed: 86
-mock: True
-mock_psf: True
+mock: False
+mock_psf: False
 load_mock_data: False
 
 telescope:
@@ -9,7 +9,7 @@ telescope:
   pattern: 15
 
 psf:
-  method: 'invariant'
+  method: 'LIN'
   energy: '3000'
 
   # LIN config
