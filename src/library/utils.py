@@ -724,7 +724,7 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
     """Performs a likelihood (i.E. input sky) invariant transition between the
     dofs of a diffuse component and point sources. Assumes `sky`to be composed
     as
-        sky = diffuse_sky(\xi_diffuse) + point_sky(\xi_point)
+        sky = diffuse_sky(xi_diffuse) + point_sky(xi_point)
     where `(..._)sky` are `nifty` Operators and `xi` are the standard dofs of
     the components. The operator `point_sky` is assumed to be a generative
     process for an Inverse-Gamma distribution matching the convention of
