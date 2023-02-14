@@ -44,6 +44,8 @@ if __name__ == "__main__":
     tm_id = tel_info['tm_id']
 
     # Create the output directory
+    if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
+        raise FileExistsError("Resume is set to False but output directory exists already!")
     output_directory = xu.create_output_directory(file_info["res_dir"])
 
     log = 'Output file {} already exists and is not regenerated. ' \
@@ -139,6 +141,7 @@ if __name__ == "__main__":
         masked_data = mask(mock_data)
     else:
         data = observation_instance.load_fits_data(output_filename)[0].data
+        data = np.array(data, dtype = int)
         data = ift.makeField(sky_model.position_space, data)
         masked_data = mask(data)
 
@@ -153,11 +156,20 @@ if __name__ == "__main__":
     minimization_config = cfg['minimization']
 
     # Minimizers
+    comm = xu.library.mpi.comm
+    if comm is not None:
+        if not xu.library.mpi.master:
+            minimization_config['ic_newton']['name'] = None
+        minimization_config['ic_sampling']['name'] += f"({comm.Get_rank()})"
+        minimization_config['ic_sampling_nl']['name'] += f"({comm.Get_rank()})"
     ic_newton = ift.AbsDeltaEnergyController(**minimization_config['ic_newton'])
     ic_sampling = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling'])
-    ic_sampling_nl = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling_nl'])
     minimizer = ift.NewtonCG(ic_newton)
-    minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
+    if minimization_config['geovi']:
+        ic_sampling_nl = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling_nl'])
+        minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
+    else:
+        minimizer_sampling = None
 
     # Prepare results
     operators_to_plot = {key: (sky_model.pad.adjoint(value)) for key, value in sky_dict.items()}
@@ -178,27 +190,23 @@ if __name__ == "__main__":
         initial_ps = ift.MultiField.full(sky_dict['point_sources'].domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 
-    if minimization_config['geovi']:
-        # geoVI
-        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
-                        minimization_config['n_samples'],
-                        minimizer,
-                        ic_sampling,
-                        minimizer_sampling,
-                        output_directory=output_directory,
-                        export_operator_outputs=operators_to_plot,
-                        inspect_callback=plot,
-                        resume=True,
-                        comm=xu.library.mpi.comm)
+    if minimization_config['transition']:
+        transition = xu.get_equal_lh_transition(
+            sky_dict['sky'],
+            sky_dict['diffuse'],
+            cfg['priors']['point_sources'],
+            minimization_config['ic_transition'])
     else:
-        # MGVI
-        ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
-                        minimization_config['n_samples'],
-                        minimizer,
-                        ic_sampling,
-                        None,
-                        export_operator_outputs=operators_to_plot,
-                        output_directory=output_directory,
-                        inspect_callback=plot,
-                        resume=True,
-                        comm=xu.library.mpi.comm)
+        transition = None
+
+    ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
+                    minimization_config['n_samples'],
+                    minimizer,
+                    ic_sampling,
+                    minimizer_sampling,
+                    transitions=transition,
+                    output_directory=output_directory,
+                    export_operator_outputs=operators_to_plot,
+                    inspect_callback=plot,
+                    resume=minimization_config['resume'],
+                    comm=xu.library.mpi.comm)
