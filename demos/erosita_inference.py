@@ -44,6 +44,8 @@ if __name__ == "__main__":
     tm_id = tel_info['tm_id']
 
     # Create the output directory
+    if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
+        raise FileExistsError("Resume is set to False but output directory exists already!")
     output_directory = xu.create_output_directory(file_info["res_dir"])
 
     log = 'Output file {} already exists and is not regenerated. ' \
@@ -151,6 +153,12 @@ if __name__ == "__main__":
     minimization_config = cfg['minimization']
 
     # Minimizers
+    comm = xu.library.mpi.comm
+    if comm is not None:
+        if not xu.library.mpi.master:
+            minimization_config['ic_newton']['name'] = None
+        minimization_config['ic_sampling']['name'] += f"({comm.Get_rank()})"
+        minimization_config['ic_sampling_nl']['name'] += f"({comm.Get_rank()})"
     ic_newton = ift.AbsDeltaEnergyController(**minimization_config['ic_newton'])
     ic_sampling = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling'])
     minimizer = ift.NewtonCG(ic_newton)
@@ -179,11 +187,21 @@ if __name__ == "__main__":
         initial_ps = ift.MultiField.full(sky_dict['point_sources'].domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 
+    if minimization_config['transition']:
+        transition = xu.get_equal_lh_transition(
+            sky_dict['sky'],
+            sky_dict['diffuse'],
+            cfg['priors']['point_sources'],
+            minimization_config['ic_transition'])
+    else:
+        transition = None
+
     ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
                     minimization_config['n_samples'],
                     minimizer,
                     ic_sampling,
                     minimizer_sampling,
+                    transitions=transition,
                     output_directory=output_directory,
                     export_operator_outputs=operators_to_plot,
                     inspect_callback=plot,
