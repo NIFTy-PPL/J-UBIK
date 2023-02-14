@@ -711,9 +711,9 @@ class _IGLikelihood(ift.EnergyOperator):
         raise NotImplementedError
 
 def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
-                            point_key = 'point_sources', stiffness = 1E6):
-    def _tr(samples):
-        position = samples._m
+                            point_key = 'point_sources', stiffness = 1E6,
+                            red_factor = 1E-3):
+    def _transition(position):
         diffuse_pos = position.to_dict()
         diffuse_pos.pop(point_key)
         diffuse_pos = ift.MultiField.from_dict(diffuse_pos)
@@ -725,10 +725,10 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
         ic_mini = ift.AbsDeltaEnergyController(
                         deltaE = float(transition_dict['deltaE']),
                         iteration_limit = transition_dict['iteration_limit'],
+                        convergence_level=transition_dict['convergence_level'],
                         name = transition_dict['name'])
-        minimizer = ift.VL_BFGS(ic_mini)
         ham = ift.StandardHamiltonian(lh @ diffuse_sky)
-        en, _ = minimizer(ift.EnergyAdapter(diffuse_pos, ham))
+        en, _ = ift.VL_BFGS(ic_mini)(ift.EnergyAdapter(diffuse_pos, ham))
         diffuse_pos = en.position
 
         new_pos = diffuse_pos.to_dict()
@@ -738,8 +738,13 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
         icov = ift.ScalingOperator(my_sky.domain, stiffness)
         lh = ift.GaussianEnergy(data=my_sky, inverse_covariance=icov)
         en = ift.EnergyAdapter(new_pos, lh @ sky,
-                               constants=list(diffuse_pos.keys()), 
-                               want_metric=False)
-        return minimizer(en)[0].position
+                               constants=list(diffuse_pos.keys()))
+        ic_mini = ift.AbsDeltaEnergyController(
+                        deltaE = red_factor * float(transition_dict['deltaE']),
+                        iteration_limit = transition_dict['iteration_limit'],
+                        convergence_level=transition_dict['convergence_level'],
+                        name = transition_dict['name'])
+        return ift.VL_BFGS(ic_mini)(en)[0].position
 
+    _tr = (lambda samples: samples.average(_transition))
     return (lambda iiter: None if iiter < transition_dict['start'] else _tr)
