@@ -46,6 +46,8 @@ if __name__ == "__main__":
     # Create the output directory
     if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
         raise FileExistsError("Resume is set to False but output directory exists already!")
+    if xu.mpi.comm is not None:
+        xu.mpi.comm.Barrier()
     output_directory = xu.create_output_directory(file_info["res_dir"])
 
     log = 'Output file {} already exists and is not regenerated. ' \
