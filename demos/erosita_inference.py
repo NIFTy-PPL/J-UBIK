@@ -41,7 +41,9 @@ if __name__ == "__main__":
 
     # Telescope Info
     tel_info = cfg['telescope']
-    tm_id = tel_info['tm_id']
+    #tm_id = tel_info['tm_id']
+    tm_ids = [1,2,3,4,6]
+    start_center = None
 
     # Create the output directory
     if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
@@ -51,106 +53,121 @@ if __name__ == "__main__":
     log = 'Output file {} already exists and is not regenerated. ' \
           'If the observations parameters shall be changed please delete or rename the current output file.'
 
-    if not os.path.exists(os.path.join(obs_path, output_filename)):
-        observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
-                                                    size=npix, pattern=tel_info['pattern'],
-                                                    telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
-    else:
-        print(log.format(os.path.join(obs_path, output_filename)))
-
-    observation_instance = xu.ErositaObservation(output_filename, output_filename, obs_path)
-
-    # Exposure
-    if not os.path.exists(os.path.join(obs_path, exposure_filename)):
-        observation_instance.get_exposure_maps(output_filename, e_min, e_max, mergedmaps=exposure_filename)
-
-    else:
-        print(log.format(os.path.join(obs_path, output_filename)))
-
-    # Plotting
-    plot_info = cfg['plotting']
-    if plot_info['enabled']:
-        observation_instance.plot_fits_data(output_filename,
-                                            os.path.splitext(output_filename)[0],
-                                            slice=plot_info['slice'],
-                                            dpi=plot_info['dpi'])
-        observation_instance.plot_fits_data(exposure_filename,
-                                            f'{os.path.splitext(exposure_filename)[0]}.png',
-                                            slice=plot_info['slice'],
-                                            dpi=plot_info['dpi'])
-
-    # PSF
-    if cfg['psf']['method'] in ['MSC', 'LIN']:
-        center_stats = observation_instance.get_pointing_coordinates_stats(tm_id,
-                                                                           input_filename=output_filename)
-
-        center = (center_stats['RA'][0], center_stats['DEC'][0])
-        psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
-
-        dom = sky_model.extended_space
-        center = tuple(0.5*ss*dd for ss, dd in zip(dom.shape, dom.distances))
-
-        energy = cfg['psf']['energy']
-        conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
-                                    conv_method=cfg['psf']['method'],
-                                    conv_params=cfg['psf'])
-
-    elif cfg['psf']['method'] == 'invariant':
-        if mock_psf:
-            conv_op = xu.get_gaussian_psf(sky_dict['sky'], var=cfg['psf']['gauss_var'])
+    log_likelihood = None
+    for tm_id in tm_ids:
+        if not os.path.exists(os.path.join(obs_path, output_filename)):
+            observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
+                                                        size=npix, pattern=tel_info['pattern'],
+                                                        telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
         else:
-            center = observation_instance.get_center_coordinates(output_filename)
-            psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
-            psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
-            psf_kernel = psf_function(*center)
-            psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
-            conv_op = xu.get_fft_psf_op(psf_kernel, sky_dict['sky'])
-    else:
-        raise NotImplementedError
+            print(log.format(os.path.join(obs_path, output_filename)))
 
-    # Convolution
-    conv_sky_dict = {key: (conv_op @ value) for key, value in sky_dict.items()}
+        observation_instance = xu.ErositaObservation(output_filename, output_filename, obs_path)
 
-    # Exposure
-    exposure = observation_instance.load_fits_data(exposure_filename)[0].data
-    exposure_field = ift.makeField(sky_model.position_space, exposure)
-    padded_exposure_field = sky_model.pad(exposure_field)
-    exposure_op = ift.makeOp(padded_exposure_field)
+        # Exposure
+        if not os.path.exists(os.path.join(obs_path, exposure_filename)):
+            observation_instance.get_exposure_maps(output_filename, e_min, e_max, mergedmaps=exposure_filename)
 
-    # Mask
-    mask = xu.get_mask_operator(exposure_field)
-
-    # Response
-    R = mask @ sky_model.pad.adjoint @ exposure_op
-
-    # Data
-    if mock_run:
-        ift.random.push_sseq_from_seed(cfg['seed'])
-        if load_mock_data:
-            # FIXME: name of output folder for diagnostics into config
-            # FIXME: Put Mockdata to a better place
-            with open('diagnostics/mock_sky_data.pkl', "rb") as f:
-                mock_data = pickle.load(f)
         else:
-            mock_data_dict = xu.generate_mock_data(sky_model, conv_op, exposure_field,
-                                                       sky_model.pad,
-                                                       output_directory=output_directory)
-            mock_data = mock_data_dict['mock_data_sky']
+            print(log.format(os.path.join(obs_path, output_filename)))
 
-        # Mask mock data
-        masked_data = mask(mock_data)
-    else:
-        data = observation_instance.load_fits_data(output_filename)[0].data
-        data = np.array(data, dtype = int)
-        data = ift.makeField(sky_model.position_space, data)
-        masked_data = mask(data)
+        # Plotting
+        plot_info = cfg['plotting']
+        if plot_info['enabled']:
+            observation_instance.plot_fits_data(output_filename,
+                                                os.path.splitext(output_filename)[0],
+                                                slice=plot_info['slice'],
+                                                dpi=plot_info['dpi'])
+            observation_instance.plot_fits_data(exposure_filename,
+                                                f'{os.path.splitext(exposure_filename)[0]}.png',
+                                                slice=plot_info['slice'],
+                                                dpi=plot_info['dpi'])
 
-    # Print Exposure norm
-    # norm = xu.get_norm(exposure, data)
-    # print(norm)
+        # PSF
+        if cfg['psf']['method'] in ['MSC', 'LIN']:
+            center_stats = observation_instance.get_pointing_coordinates_stats(tm_id,
+                                                                            input_filename=output_filename)
+            print(center_stats['ROLL'])
+            center = (center_stats['RA'][0], center_stats['DEC'][0])
+            psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
+            if start_center is None:
+                dcenter = (0, 0)
+                start_center = center
+            else:
+                dcenter = (cc-ss for cc,ss in zip(center, start_center))
 
-    # Set up likelihood
-    log_likelihood = ift.PoissonianEnergy(masked_data) @ R @ conv_sky_dict['sky']
+
+            dom = sky_model.extended_space
+            center = tuple(0.5*ss*dd for ss, dd in zip(dom.shape, dom.distances))
+            center = tuple(cc+dd for cc,dd in zip(center, dcenter))
+
+            energy = cfg['psf']['energy']
+            conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
+                                        conv_method=cfg['psf']['method'],
+                                        conv_params=cfg['psf'])
+
+        elif cfg['psf']['method'] == 'invariant':
+            if mock_psf:
+                conv_op = xu.get_gaussian_psf(sky_dict['sky'], var=cfg['psf']['gauss_var'])
+            else:
+                center = observation_instance.get_center_coordinates(output_filename)
+                psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
+                psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
+                psf_kernel = psf_function(*center)
+                psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
+                conv_op = xu.get_fft_psf_op(psf_kernel, sky_dict['sky'])
+        else:
+            raise NotImplementedError
+
+        ## Convolution
+        #conv_sky_dict = {key: (conv_op @ value) for key, value in sky_dict.items()}
+
+        # Exposure
+        exposure = observation_instance.load_fits_data(exposure_filename)[0].data
+        exposure_field = ift.makeField(sky_model.position_space, exposure)
+        padded_exposure_field = sky_model.pad(exposure_field)
+        exposure_op = ift.makeOp(padded_exposure_field)
+
+        # Mask
+        mask = xu.get_mask_operator(exposure_field)
+
+        # Response
+        R = mask @ sky_model.pad.adjoint @ exposure_op
+
+        # Data
+        if mock_run:
+            ift.random.push_sseq_from_seed(cfg['seed'])
+            if load_mock_data:
+                # FIXME: name of output folder for diagnostics into config
+                # FIXME: Put Mockdata to a better place
+                with open('diagnostics/mock_sky_data.pkl', "rb") as f:
+                    mock_data = pickle.load(f)
+            else:
+                mock_data_dict = xu.generate_mock_data(sky_model, conv_op, exposure_field,
+                                                        sky_model.pad,
+                                                        output_directory=output_directory)
+                mock_data = mock_data_dict['mock_data_sky']
+
+            # Mask mock data
+            masked_data = mask(mock_data)
+        else:
+            data = observation_instance.load_fits_data(output_filename)[0].data
+            data = np.array(data, dtype = int)
+            data = ift.makeField(sky_model.position_space, data)
+            masked_data = mask(data)
+
+        # Print Exposure norm
+        # norm = xu.get_norm(exposure, data)
+        # print(norm)
+
+        # Set up likelihood
+        lh = ift.PoissonianEnergy(masked_data) @ R @ conv_op
+        if log_likelihood is None:
+            log_likelihood = lh
+        else:
+            log_likelihood = log_likelihood + lh
+
+    log_likelihood = log_likelihood @ sky_dict['sky']
 
     # Load minimization config
     minimization_config = cfg['minimization']
