@@ -80,6 +80,7 @@ def _get_e_dist(config):
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
 
+
 def get_normed_exposure(exposure_field, data_field):
     """
     Convenience function to get exposures on the order of 1, so that the signal is living on
@@ -93,6 +94,7 @@ def get_normed_exposure(exposure_field, data_field):
     norm = ratio.mean()
     normed_exp_field = exposure_field * norm
     return normed_exp_field
+
 
 def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
     warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
@@ -788,3 +790,17 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
 
     _tr = (lambda samples: samples.average(_transition))
     return (lambda iiter: None if iiter < transition_dict['start'] else _tr)
+
+
+def check_type(arg, type, name=''):
+    if arg is None:
+        pass
+    elif isinstance(arg, list):
+        if not isinstance(arg[0], type):
+            return TypeError(
+                "The arguments of the \"{}\" list must be of type {}.".format(name, str(type)))
+        else:
+            pass
+    elif not isinstance(arg, type):
+        print("arg:", arg)
+        raise TypeError("The \"{}\" argument must be of type {}.".format(name, str(type)))
