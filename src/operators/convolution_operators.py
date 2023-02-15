@@ -115,7 +115,7 @@ class OAConvolver(ift.LinearOperator):
     HINT:
     The Operator checks if the kernel is zero in the regions not being used.
     If the initialization fails it can either be forced or cut by value.
-    force: sets all unused areas to zero,
+    cut_force: sets all unused areas to zero,
     cut_by_value: sets everything below the threshold to zero.
     """
     def __init__(self, domain, kernel_arr, n, margin):
@@ -154,7 +154,7 @@ class OAConvolver(ift.LinearOperator):
         kernels_b = ift.Field.from_raw(cutter.domain, kernel_arr)
 
         if not self._check_kernel(domain, kernel_arr, n, margin):
-            raise ValueError("_check_kernel detected nonzero entries. Use .force, .cut_by_value!")
+            raise ValueError("_check_kernel detected nonzero entries. Use .cut_force, .cut_by_value!")
 
         kernels = cutter(kernels_b)
         spread = ift.ContractionOperator(kernels.domain, spaces=1).adjoint
@@ -195,7 +195,7 @@ class OAConvolver(ift.LinearOperator):
         return OAConvolver(domain, psfs, n, margin)
 
     @classmethod
-    def force(self, domain, kernel_list, n, margin):
+    def cut_force(self, domain, kernel_list, n, margin):
         """
         Sets the kernel to zero where it is not used and initializes the operator.
         """
@@ -327,7 +327,7 @@ class OAnew(ift.LinearOperator):
     HINT:
     The Operator checks if the kernel is zero in the regions not being used.
     If the initialization fails it can either be forced or cut by value.
-    force: sets all unused areas to zero,
+    cut_force: sets all unused areas to zero,
     cut_by_value: sets everything below the threshold to zero.
     """
     def __init__(self, domain, kernel_arr, n, margin, want_cut):
@@ -369,7 +369,7 @@ class OAnew(ift.LinearOperator):
 
         kernel_b = ift.Field.from_raw(cutter.domain, kernel_arr)
         if not self._check_kernel(domain, kernel_arr, n, margin):
-            raise ValueError("_check_kernel detected nonzero entries. Use .force, .cut_by_value!")
+            raise ValueError("_check_kernel detected nonzero entries. Use .cut_force, .cut_by_value!")
 
         kernel = cutter(kernel_b)
         spread = ift.ContractionOperator(kernel.domain, spaces=1).adjoint
@@ -418,7 +418,7 @@ class OAnew(ift.LinearOperator):
         return OAnew(domain, psfs, n, margin)
 
     @classmethod
-    def force(self, domain, kernel_list, n, margin):
+    def cut_force(self, domain, kernel_list, n, margin):
         """
         Sets the kernel to zero where it is not used and initializes the operator.
         """

@@ -41,6 +41,9 @@ if __name__ == "__main__":
     tm_ids = tel_info['tm_ids']
     start_center = None
 
+    # Exposure Info
+    det_map = tel_info['detmap']
+
     # Create the output directory
     if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
         raise FileExistsError("Resume is set to False but output directory exists already!")
@@ -67,7 +70,8 @@ if __name__ == "__main__":
 
         # Exposure
         if not os.path.exists(os.path.join(obs_path, exposure_filename)):
-            observation_instance.get_exposure_maps(output_filename, e_min, e_max, mergedmaps=exposure_filename)
+            observation_instance.get_exposure_maps(output_filename, e_min, e_max, mergedmaps=exposure_filename,
+                                                withdetmaps=det_map)
 
         else:
             print(log.format(os.path.join(obs_path, output_filename)))

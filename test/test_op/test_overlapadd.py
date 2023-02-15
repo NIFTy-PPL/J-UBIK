@@ -31,7 +31,7 @@ def test_oaconvolver():
     # Convolve Correlated Field with Gauss Kernel via Interpolation
     kern_domain = ift.makeDomain([ift.UnstructuredDomain(64), position_space])
     kernels_arr = xu.get_gaussian_kernel(35, kern_domain).val_rw()
-    convolve_oa = xu.OAConvolver.force(cf.domain, kernels_arr, n, margin)
+    convolve_oa = xu.OAConvolver.cut_force(cf.domain, kernels_arr, n, margin)
     res_1 = convolve_oa(cf)
 
     # Convolve Correlated Field via Conv Theorem
@@ -91,7 +91,7 @@ def test_oaconvolver():
     psfs = np.array(psfs, dtype="float64")
 
     # Test inhomogenous psf
-    oa_chandra = xu.OAConvolver.force(position_space, psfs, n, margin)
+    oa_chandra = xu.OAConvolver.cut_force(position_space, psfs, n, margin)
     oa_chandra = xu.OAConvolver.cut_by_value(position_space, psfs, n, margin, 50)
     res_4 = oa_chandra(cf)
 
@@ -169,7 +169,7 @@ def test_oanew():
     # Convolve Correlated Field with Gauss Kernel via Interpolation
     kern_domain = ift.makeDomain([ift.UnstructuredDomain(64), position_space])
     kernels_arr = xu.get_gaussian_kernel(35, kern_domain).val_rw()
-    convolve_oa = xu.OAnew.force(cf.domain, kernels_arr, n, margin)
+    convolve_oa = xu.OAnew.cut_force(cf.domain, kernels_arr, n, margin)
     # ift.extra.check_linear_operator(convolve_oa)
     res_1 = convolve_oa(cf)
 
