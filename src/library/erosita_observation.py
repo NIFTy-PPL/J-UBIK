@@ -77,19 +77,44 @@ class ErositaObservation:
 
         self._run_task(command)
 
-    def load_fits_data(self, filename):
-        print("Loading ouput data stored in {}.".format(filename))
+    def load_fits_data(self, filename, verbose=True):
+        if verbose:
+            print("Loading ouput data stored in {}.".format(filename))
         return fits.open(os.path.join(self.working_directory, filename))
 
-    def get_center_coordinates(self, input_filename):
-        conv = 3600  # to arcseconds
+    def get_pointing_coordinates_stats(self, module, input_filename=None):
+        if not isinstance(module, int):
+            raise TypeError('Telescope module must be of type int (1-7).')
+        module = 'CORRATT' + str(module)
+
+        if input_filename is None:
+            input_filename = self.input
+        print('Loading pointing coordinates for TM{} module from {}.'.format(module[-1],
+                                                                             input_filename))
+
         try:
-            input_header = self.load_fits_data(input_filename)[
-                1].header  # FIXME: think about nicer implementation
-            return conv * input_header['RA_PNT'], conv * input_header['DEC_PNT']
-        except ValueError:
-            print("Input filename does not contain center information.")
-            return None
+            data = self.load_fits_data(input_filename, verbose=False)[module].data
+            
+        except ValueError as err:
+            raise ValueError(
+            f"""
+            Input filename does not contain pointing information.
+            
+            {err}
+            """
+            )
+
+        # Convert pointing information to arcseconds
+        conv = 3600
+        ra = conv * data['RA']
+        dec = conv * data['DEC']
+        roll = conv * data['ROLL']
+
+        # Return pointing statistics
+        stats = {'RA': (ra.mean(), ra.std()), 'DEC': (dec.mean(), dec.std()), 'ROLL': (
+            roll.mean(), roll.std())}
+
+        return stats
 
     def plot_fits_data(self, filename, image_name, slice=None, lognorm=True, linthresh=10e-1,
                        show=False, dpi=None, **kwargs):
@@ -249,6 +274,9 @@ if __name__ == "__main__":
 
     obs = ErositaObservation('pm00_700161_020_EventList_c001.fits', 'example_output.fits',
                              '../../data/LMC_SN1987A/')
+    
+    print(obs.get_pointing_coordinates_stats(1))
+    
     if get_data:
         obs.get_data(emin=1.0, emax=2.0, image=True, rebin=80, size=256, pattern=15, telid=1)
     obs.plot_fits_data('example_output.fits', 'example_output.png')
