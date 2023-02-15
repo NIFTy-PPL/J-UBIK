@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from matplotlib import colors
 
-from src.library.utils import check_type
-
+from .utils import check_type
 
 class ErositaObservation:
     """
@@ -267,16 +266,3 @@ class ErositaObservation:
             return res
         else:
             raise TypeError("Type must be a list a string or a list of strings.")
-
-
-if __name__ == "__main__":
-    get_data = True
-
-    obs = ErositaObservation('pm00_700161_020_EventList_c001.fits', 'example_output.fits',
-                             '../../data/LMC_SN1987A/')
-    
-    print(obs.get_pointing_coordinates_stats(1))
-    
-    if get_data:
-        obs.get_data(emin=1.0, emax=2.0, image=True, rebin=80, size=256, pattern=15, telid=1)
-    obs.plot_fits_data('example_output.fits', 'example_output.png')
