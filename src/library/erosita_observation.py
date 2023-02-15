@@ -219,7 +219,7 @@ class ErositaObservation:
     def _get_exmap_flags(mounted_dir, templateimage, emin, emax,
                          withsinglemaps=False, withmergedmaps=True, singlemaps=None,
                          mergedmaps=None, gtitype='GTI', withvignetting=True,
-                         withdetmaps=False, withweights=True, withfilebadpix=True,
+                         withdetmaps=True, withweights=True, withfilebadpix=True,
                          withcalbadpix=True, withinputmaps=False):
 
         input_params = {'mounted_dir': str, 'templateimage': str, 'emin': float, 'emax': float,
