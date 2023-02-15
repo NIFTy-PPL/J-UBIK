@@ -48,7 +48,7 @@ for dataset in cfg['datasets']:
     data = observation["data"].val[:, :, energy_bin]
     data_field = ift.Field.from_raw(position_space, data)
     # Likelihood
-    conv_op = xu.OAnew.force(signal_fa.target, psfs, 64, 16)
+    conv_op = xu.OAnew.cut_force(signal_fa.target, psfs, 64, 16)
     convolved = conv_op @ signal_fa
     cut = xu.MarginZeroPadder(convolved.target,
                               ((position_space.shape[0] - convolved.target.shape[0])//2),
