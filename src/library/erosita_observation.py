@@ -94,10 +94,15 @@ class ErositaObservation:
 
         try:
             data = self.load_fits_data(input_filename, verbose=False)[module].data
-
-        except ValueError:
-            print("Input filename does not contain pointing information.")
-            return None
+            
+        except ValueError as err:
+            raise ValueError(
+            f"""
+            Input filename does not contain pointing information.
+            
+            {err}
+            """
+            )
 
         # Convert pointing information to arcseconds
         conv = 3600
