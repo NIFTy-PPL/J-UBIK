@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from matplotlib import colors
 
-from src.library.utils import check_type
-
+from utils import check_type
 
 class ErositaObservation:
     """
