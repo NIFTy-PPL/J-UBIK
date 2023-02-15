@@ -195,7 +195,7 @@ class ErositaObservation:
     def _get_exmap_flags(mounted_dir: str, templateimage: str, emin: float, emax: float,
                          withsinglemaps: bool = False, withmergedmaps: bool = True, singlemaps=None,
                          mergedmaps=None, gtitype: str = 'GTI', withvignetting: bool = True,
-                         withdetmaps: bool = False, withweights: bool = True, withfilebadpix: bool = True,
+                         withdetmaps: bool = True, withweights: bool = True, withfilebadpix: bool = True,
                          withcalbadpix: bool = True, withinputmaps: bool = False):
 
         flags = " "

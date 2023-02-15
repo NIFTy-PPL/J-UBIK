@@ -7,6 +7,7 @@ telescope:
   tm_id : 1
   fov: 3600 # in arcsec
   pattern: 15
+  detmap: True
 
 psf:
   method: 'LIN'
