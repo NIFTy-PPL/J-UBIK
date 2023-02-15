@@ -4,7 +4,7 @@ mock_psf: False
 load_mock_data: False
 
 telescope:
-  tm_id : 1
+  tm_ids : [1,2,3,4,6]
   fov: 3600 # in arcsec
   pattern: 15
 

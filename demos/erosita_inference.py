@@ -38,8 +38,7 @@ if __name__ == "__main__":
 
     # Telescope Info
     tel_info = cfg['telescope']
-    #tm_id = tel_info['tm_id']
-    tm_ids = [1,2,3,4,6]
+    tm_ids = tel_info['tm_ids']
     start_center = None
 
     # Create the output directory
