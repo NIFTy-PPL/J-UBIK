@@ -1,5 +1,5 @@
 seed: 86
-mock: True
+mock: False
 mock_psf: False
 load_mock_data: False
 
@@ -72,13 +72,15 @@ priors:
     prefix: diffuse_
 
 minimization:
+  resume: False
   geovi: True
+  transition: True
   total_iterations: 20
   n_samples: 4 #'lambda i_iter: 6 if i_iter < 13 else 10'
   ic_newton:
     convergence_level: 2
     deltaE: 0.1
-    iteration_limit: 15
+    iteration_limit: 10
     name: Newton
   ic_sampling:
     deltaE: 0.02
@@ -86,5 +88,11 @@ minimization:
     name: Sampling(lin)
   ic_sampling_nl:
     deltaE: 0.1
-    iteration_limit: 5
+    iteration_limit: 8
     name: Sampling(nonlin)
+  ic_transition:
+    convergence_level: 2
+    deltaE: 1e-4
+    iteration_limit: 60
+    name: Transition
+    start: 1
