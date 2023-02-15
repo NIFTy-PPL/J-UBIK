@@ -26,9 +26,6 @@ if __name__ == "__main__":
     file_info = cfg['files']
     obs_path = file_info['obs_path']
     input_filenames = file_info['input']
-    output_filename = file_info['output']
-    exposure_filename = file_info['exposure']
-    observation_instance = xu.ErositaObservation(input_filenames, output_filename, obs_path)
     sky_model = xu.SkyModel(config_filename)
     sky_dict = sky_model.create_sky_model()
     pspec = sky_dict.pop('pspec')
@@ -57,6 +54,9 @@ if __name__ == "__main__":
 
     log_likelihood = None
     for tm_id in tm_ids:
+        output_filename = f'{tm_id}_' + file_info['output']
+        exposure_filename = f'{tm_id}_' + file_info['exposure']
+        observation_instance = xu.ErositaObservation(input_filenames, output_filename, obs_path)
         if not os.path.exists(os.path.join(obs_path, output_filename)):
             observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
                                                         size=npix, pattern=tel_info['pattern'],
