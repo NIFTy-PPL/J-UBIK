@@ -148,7 +148,7 @@ if __name__ == "__main__":
                 with open('diagnostics/mock_sky_data.pkl', "rb") as f:
                     mock_data = pickle.load(f)
             else:
-                mock_data_dict = xu.generate_mock_data(sky_model, conv_op, exposure_field,
+                mock_data_dict = xu.generate_mock_setup(sky_model, conv_op, exposure_field,
                                                         sky_model.pad,
                                                         output_directory=output_directory)
                 mock_data = mock_data_dict['mock_data_sky']

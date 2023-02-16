@@ -22,11 +22,11 @@ pmp = pytest.mark.parametrize
 @pmp('psf_kernel', [None, psf_kernel])
 @pmp('exposure', [None, exposure])
 @pmp('padder', [sky_model.pad])
-def test_generate_mock_data(psf_kernel, gauss_var, exposure, padder):
+def test_generate_mock_setup(psf_kernel, gauss_var, exposure, padder):
     if gauss_var is None and psf_kernel is None:
         pass
     else:
-        xu.generate_mock_data(sky_model=sky_model,
+        xu.generate_mock_setup(sky_model=sky_model,
                               exposure=exposure,
                               pad=padder,
                               psf_op=psf_op,

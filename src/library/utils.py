@@ -635,8 +635,7 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True, ou
     return res
 
 
-def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q=None, n=None,
-                       output_directory=None):
+def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None, output_directory=None):
     if pad is None and sky_model.position_space != sky_model.extended_space:
         raise ValueError('The sky is padded but no padder is given')
     mpi_master = ift.utilities.get_MPI_params()[3]
@@ -662,8 +661,9 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
     # Mock sky
     mock_sky_position = ift.from_random(sky_dict['sky'].domain)
     mock_sky = sky_dict['sky'](mock_sky_position)
-    mock_sky_data = get_data_realization(sky_dict['sky'], mock_sky_position, exposure=exposure, padder=pad,
-                                         output_directory=diagnostics_dir)
+    mock_sky_data = get_data_realization(sky_dict['sky'], mock_sky_position, exposure=exposure,
+                                         padder=pad, output_directory=diagnostics_dir) #FIXME: split
+                                         # into R and get Poissonian data realization
 
     # Convolve sky operators and draw data realizations
     conv_sky_dict = {key: (psf_op @ value) for key, value in sky_dict.items()}
@@ -674,8 +674,9 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
                                                        padder=pad) for key, value in conv_sky_dict.items()}
 
     # Prepare output dictionary
-    output_dictionary = {**mock_data_dict,
-                         'mock_sky': mock_sky}
+    output_dictionary = {**mock_data_dict}
+    for key, val in sky_dict.items():
+        output_dictionary['mock_'+key] = val.force(mock_sky_position)
 
     if mpi_master and output_directory is not None:
         p = ift.Plot()
@@ -691,7 +692,7 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, alpha=None, q
             p.add(v, title=k, norm=LogNorm())
         if exposure_field is not None:
             p.add(exposure_field, title='exposure', norm=LogNorm())
-        p.output(nx=3, name=os.path.join(diagnostics_dir, f'mock_data_a{alpha}_q{q}_sample{n}.png'))
+        p.output(nx=3, name=os.path.join(diagnostics_dir, f'mock_data.png'))
 
     return mock_data_dict
 
