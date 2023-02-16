@@ -635,7 +635,7 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True, ou
     return res
 
 
-def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, output_directory=None):
+def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None, output_directory=None):
     if pad is None and sky_model.position_space != sky_model.extended_space:
         raise ValueError('The sky is padded but no padder is given')
     mpi_master = ift.utilities.get_MPI_params()[3]
@@ -661,8 +661,9 @@ def generate_mock_data(sky_model, psf_op, exposure=None, pad=None, output_direct
     # Mock sky
     mock_sky_position = ift.from_random(sky_dict['sky'].domain)
     mock_sky = sky_dict['sky'](mock_sky_position)
-    mock_sky_data = get_data_realization(sky_dict['sky'], mock_sky_position, exposure=exposure, padder=pad,
-                                         output_directory=diagnostics_dir)
+    mock_sky_data = get_data_realization(sky_dict['sky'], mock_sky_position, exposure=exposure,
+                                         padder=pad, output_directory=diagnostics_dir) #FIXME: split
+                                         # into R and get Poissonian data realization
 
     # Convolve sky operators and draw data realizations
     conv_sky_dict = {key: (psf_op @ value) for key, value in sky_dict.items()}
