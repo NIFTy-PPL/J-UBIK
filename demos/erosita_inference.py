@@ -212,12 +212,14 @@ if __name__ == "__main__":
         initial_ps = ift.MultiField.full(sky_dict['point_sources'].domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 
-    if minimization_config['transition']:
-        transition = xu.get_equal_lh_transition(
-            sky_dict['sky'],
-            sky_dict['diffuse'],
-            cfg['priors']['point_sources'],
-            minimization_config['ic_transition'])
+        if minimization_config['transition']:
+            transition = xu.get_equal_lh_transition(
+                sky_dict['sky'],
+                sky_dict['diffuse'],
+                cfg['priors']['point_sources'],
+                minimization_config['ic_transition'])
+        else:
+            transition = None
     else:
         transition = None
 

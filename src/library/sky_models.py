@@ -29,7 +29,7 @@ class SkyModel:
         diffuse_component, pspec = self._create_diffuse_component_model()
         if self.priors['point_sources'] is None:
             sky = diffuse_component
-            sky_dict = {'sky': sky}
+            sky_dict = {'sky': sky, 'pspec': pspec}
         else:
             point_sources = self._create_point_source_model()
             sky = point_sources + diffuse_component
