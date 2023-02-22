@@ -209,6 +209,7 @@ if __name__ == "__main__":
                                                  plotting_kwargs={'norm': LogNorm()})
     # Initial position
     initial_position = ift.from_random(sky_dict['sky'].domain) * 0.1
+    transition = None
     if 'point_sources' in sky_dict:
         initial_ps = ift.MultiField.full(sky_dict['point_sources'].domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
@@ -219,10 +220,6 @@ if __name__ == "__main__":
                 sky_dict['diffuse'],
                 cfg['priors']['point_sources'],
                 minimization_config['ic_transition'])
-        else:
-            transition = None
-    else:
-        transition = None
 
     ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
                     minimization_config['n_samples'],
