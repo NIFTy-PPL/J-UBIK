@@ -89,12 +89,13 @@ if __name__ == "__main__":
                                                 dpi=plot_info['dpi'])
 
         # PSF
+        psf_filename = cfg['files']['psf_path'] + f'tm{tm_id}_' + cfg['files']['psf_base_filename']
         if cfg['psf']['method'] in ['MSC', 'LIN']:
             center_stats = observation_instance.get_pointing_coordinates_stats(tm_id,
                                                 input_filename=input_filenames)
             print(center_stats['ROLL'])
             center = (center_stats['RA'][0], center_stats['DEC'][0])
-            psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])  # FIXME: load from config
+            psf_file = xu.eROSITA_PSF(psf_filename)
             if start_center is None:
                 dcenter = (0, 0)
                 start_center = center
@@ -116,7 +117,7 @@ if __name__ == "__main__":
                 conv_op = xu.get_gaussian_psf(sky_dict['sky'], var=cfg['psf']['gauss_var'])
             else:
                 center = observation_instance.get_center_coordinates(output_filename)
-                psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
+                psf_file = xu.eROSITA_PSF(psf_filename)
                 psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
                 psf_kernel = psf_function(*center)
                 psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
@@ -208,18 +209,17 @@ if __name__ == "__main__":
                                                  plotting_kwargs={'norm': LogNorm()})
     # Initial position
     initial_position = ift.from_random(sky_dict['sky'].domain) * 0.1
+    transition = None
     if 'point_sources' in sky_dict:
         initial_ps = ift.MultiField.full(sky_dict['point_sources'].domain, 0)
         initial_position = ift.MultiField.union([initial_position, initial_ps])
 
-    if minimization_config['transition']:
-        transition = xu.get_equal_lh_transition(
-            sky_dict['sky'],
-            sky_dict['diffuse'],
-            cfg['priors']['point_sources'],
-            minimization_config['ic_transition'])
-    else:
-        transition = None
+        if minimization_config['transition']:
+            transition = xu.get_equal_lh_transition(
+                sky_dict['sky'],
+                sky_dict['diffuse'],
+                cfg['priors']['point_sources'],
+                minimization_config['ic_transition'])
 
     ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
                     minimization_config['n_samples'],
