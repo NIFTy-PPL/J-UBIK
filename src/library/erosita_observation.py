@@ -217,7 +217,7 @@ class ErositaObservation:
 
     @staticmethod
     def _get_exmap_flags(mounted_dir, templateimage, emin, emax,
-                         withsinglemaps=False, withmergedmaps=True, singlemaps=None,
+                         withsinglemaps=True, withmergedmaps=False, singlemaps=None,
                          mergedmaps=None, gtitype='GTI', withvignetting=True,
                          withdetmaps=True, withweights=True, withfilebadpix=True,
                          withcalbadpix=True, withinputmaps=False):
