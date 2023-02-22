@@ -8,6 +8,7 @@ telescope:
   fov: 3600 # in arcsec
   pattern: 15
   detmap: True
+  exp_cut: False
 
 psf:
   method: 'LIN'
