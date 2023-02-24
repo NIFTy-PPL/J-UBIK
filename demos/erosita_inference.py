@@ -135,7 +135,7 @@ if __name__ == "__main__":
             exposure[exposure < 100] = 0
         exposure_field = ift.makeField(sky_model.position_space, exposure)
 
-        with open(diagnostics_directory+"/exposure.pkl", "wb") as f:
+        with open(diagnostics_directory+f"/{tm_id}_exposure.pkl", "wb") as f:
             pickle.dump(exposure_field, f)
         padded_exposure_field = sky_model.pad(exposure_field)
         exposure_op = ift.makeOp(padded_exposure_field)
@@ -166,7 +166,7 @@ if __name__ == "__main__":
             data = observation_instance.load_fits_data(output_filename)[0].data
             data = np.array(data, dtype = int)
             data = ift.makeField(sky_model.position_space, data)
-            with open(diagnostics_directory+"/data.pkl", "wb") as f:
+            with open(diagnostics_directory+f"/{tm_id}_data.pkl", "wb") as f:
                 pickle.dump(data, f)
             masked_data = mask(data)
 
