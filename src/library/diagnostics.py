@@ -6,6 +6,7 @@ from matplotlib.colors import LogNorm
 import nifty8 as ift
 
 from .utils import save_rgb_image_to_fits
+from .plot import plot_energy_slices
 
 
 def get_uncertainty_weighted_measure(sl, op=None,
@@ -27,9 +28,8 @@ def get_uncertainty_weighted_measure(sl, op=None,
             pickle.dump(wgt_res, file)
         save_rgb_image_to_fits(wgt_res, output_dir_base,
                                overwrite=True, MPI_master=mpi_master)
-        p = ift.Plot()
-        p.add(wgt_res, title=f"Uncertainty weighted {title}", norm=LogNorm())
-        p.output(name=f'{output_dir_base}.png')
+        plot_energy_slices(wgt_res, file_name=f'{output_dir_base}.png',
+                           title=title, logscale=True)
     return wgt_res
 
 
@@ -99,4 +99,5 @@ def weighted_residual_distribution(sl_path_base,
     plt.yscale('log')
     plt.title(title)
     plt.savefig(fname=output_dir_base + '.png')
+    plt.close()
     return wgt_res
