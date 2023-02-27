@@ -233,7 +233,7 @@ def plot_energy_slices(field, file_name, title=None, logscale=False):
     if len(domain) == 2:
         p = ift.Plot()
         for i in range(field.shape[2]):
-            slice = ift.Field(ift.DomainTuplemake(domain[0]), field.val[:,:,i])
+            slice = ift.Field(ift.DomainTuple.make(domain[0]), field.val[:,:,i])
             if logscale:
                 p.add(slice, title=f'{title}_e_bin={i}', norm=LogNorm())
             else:
@@ -245,7 +245,7 @@ def plot_energy_slices(field, file_name, title=None, logscale=False):
 
 def plot_energy_slice_overview(field_list, field_name_list, file_name, title=None, logscale=False):
     """
-    Plots a list of field for in one plot separated by energy bins
+    Plots a list of fields in one plot separated by energy bins
 
     Parameters:
     ----------
@@ -281,29 +281,42 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
 
     if len(field_list) != len(field_name_list):
         raise ValueError("Every field needs a name")
+
     pltargs = {"origin": "lower", "cmap": "cividis"}
     if logscale:
         pltargs["norm"] = LogNorm()
     cols = math.ceil(math.sqrt(len(field_list)))  # Calculate number of columns
     rows = math.ceil(len(field_list) / cols)
     if len(domain) == 1:
-        fig, ax = plt.subplots(
-            nrows=rows, ncols=cols, figsize=(11.7, 8.3), sharex=True, sharey=True, dpi=200
-        )
-        ax = ax.flatten()
-        for i, field in enumerate(field_list):
-            im = ax[i].imshow(field.val, **pltargs)
+        if len(field_list) == 1:
+            fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(11.7, 8.3),
+                                   sharex=True, sharey=True, dpi=200)
+            im = ax.imshow(field_list[0].val, **pltargs)
+            ax.set_title(f'{title}_{field_name_list[0]}')
+        else:
+            fig, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(11.7, 8.3),
+                                   sharex=True, sharey=True, dpi=200)
+            ax = ax.flatten()
+            for i, field in enumerate(field_list):
+                im = ax[i].imshow(field.val, **pltargs)
+                ax[i].set_title(f'{title}_{field_name_list[i]}')
         fig.tight_layout()
         fig.savefig(file_name)
         plt.close()
     if len(domain) == 2:
         for i in range(domain[1].shape):
-            fig, ax = plt.subplots(
-                nrows=rows, ncols=cols, figsize=(11.7, 8.3), sharex=True, sharey=True, dpi=200
-            )
-            ax = ax.flatten()
-            for j, field in enumerate(field_list):
-                slice = ax[i].imshow(field.val[:, :, i], **pltargs)
+            if len(field_list) == 1:
+                fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(11.7, 8.3),
+                                       sharex=True, sharey=True, dpi=200)
+                im = ax.imshow(field_list[0].val, **pltargs)
+                ax.set_title(f'{title}_{field_name_list[0]}')
+            else:
+                fig, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(11.7, 8.3),
+                                       sharex=True, sharey=True, dpi=200)
+                ax = ax.flatten()
+                for j, field in enumerate(field_list):
+                    im = ax[i].imshow(field.val[:, :, i], **pltargs)
+                    ax[i].set_title(f'{title}_{field_name_list[j]}')
             fig.tight_layout()
             fig.savefig(f'{file_name}_e_bin={i}')
             plt.close()

@@ -21,7 +21,7 @@ if __name__ == "__main__":
     exposure_base = "exposure.pkl"
     response_base = None  # FIXME response operator shall be loaded from path
     # Ground Truth path Only needed for mock run
-    ground_truth_name = "mock_sky.pkl"
+    ground_truth_filename = "mock_sky.pkl"
 
     # Config
     cfg = xu.get_cfg(reconstruction_path + config_filename)
@@ -49,7 +49,6 @@ if __name__ == "__main__":
     for tm_id in tm_ids:
         # Path
         tm_directory = xu.create_output_directory(os.path.join(diagnostics_path, f'tm{tm_id}/'))
-        print(tm_directory)
         data_path = tm_directory + f"tm{tm_id}_{data_base}"
 
         # Load observation
@@ -97,17 +96,17 @@ if __name__ == "__main__":
                 else:
                     center = observation_instance.get_center_coordinates(output_filename)
                     psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
-                psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
-                psf_kernel = psf_function(*center)
-                psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
-                conv_op = xu.get_fft_psf_op(psf_kernel, sky_dict['sky'])
+                    psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
+                    psf_kernel = psf_function(*center)
+                    psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
+                    conv_op = xu.get_fft_psf_op(psf_kernel, sky_dict['sky'])
+
+            R = mask @ sky_model.pad.adjoint @ exposure_op @ conv_op
         else:
             raise NotImplementedError
 
-        R = mask @ sky_model.pad.adjoint @ exposure_op @ conv_op
-
         if mock_run:
-            ground_truth_path = diagnostics_path + ground_truth_name
+            ground_truth_path = diagnostics_path + ground_truth_filename
             signal_space_uwrs.append(xu.signal_space_uwr_from_file(sl_path_base=sl_path_base,
                                                                    ground_truth_path=ground_truth_path,
                                                                    sky_op=sky_dict['sky'],
