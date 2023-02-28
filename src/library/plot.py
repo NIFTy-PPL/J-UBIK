@@ -1,4 +1,5 @@
 import os
+import math
 
 import nifty8 as ift
 import numpy as np
@@ -188,3 +189,136 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterato
         _plot_stats(filename, op, sample_list, plotting_kwargs)
         _plot_samples(filename_samples, sample_list.iterator(op), plotting_kwargs)
 
+
+def plot_energy_slices(field, file_name, title=None, logscale=False):
+    """
+    Plots the slices of a 3-dimensional field along the energy dimension.
+
+    Parameters:
+    ----------
+    field : ift.Field
+        The field to plot.
+    file_name : str
+        The name of the file to save the plot.
+    title : str or None
+        The title of the plot. Default is None.
+    logscale : bool
+        If True, the plot uses a logarithmic scale. Default is False.
+
+    Raises:
+    -------
+    ValueError : if the domain of the field is not as expected.
+
+    Returns:
+    --------
+    None
+    """
+    domain = field.domain
+    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) !=2:
+        raise ValueError(f"Expected DomainTuple with the first space"
+                         f"being a 2-dim RGSpace, but got {domain}")
+
+    if len(domain) == 2 and len(domain[1].shape) != 1:
+        raise ValueError(f"Expected DomainTuple with the second space"
+                         f"being a 1-dim RGSpace, but got {domain}")
+
+    if len(domain) == 1:
+        p = ift.Plot()
+        if logscale:
+            p.add(field, title=title, norm=LogNorm())
+        else:
+            p.add(field, title=title)
+        p.output(name=file_name)
+
+    if len(domain) == 2:
+        p = ift.Plot()
+        for i in range(field.shape[2]):
+            slice = ift.Field(ift.DomainTuple.make(domain[0]), field.val[:,:,i])
+            if logscale:
+                p.add(slice, title=f'{title}_e_bin={i}', norm=LogNorm())
+            else:
+                p.add(slice, title=title)
+        p.output(name=file_name)
+    else:
+        NotImplementedError
+
+
+def plot_energy_slice_overview(field_list, field_name_list, file_name, title=None, logscale=False):
+    """
+    Plots a list of fields in one plot separated by energy bins
+
+    Parameters:
+    ----------
+    field_list : List of ift.Fields
+                 The field to plot.
+    file_name : str
+        The name of the file to save the plot.
+    title : str or None
+        The title of the plot. Default is None.
+    logscale : bool
+        If True, the plot uses a logarithmic scale. Default is False.
+
+    Raises:
+    -------
+    ValueError : if the domain of the field is not as expected.
+    ValueError: If the number of field names does not match the number of fields.
+
+    Returns:
+    --------
+    None
+    """
+    domain = field_list[0].domain
+    if any(field.domain != domain for field in field_list):
+        raise ValueError('All fields need to have the same domain.')
+
+    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) != 2:
+        raise ValueError(f"Expected DomainTuple with the first space "
+                         f"being a 2-dim RGSpace, but got {domain}")
+
+    if len(domain) == 2 and len(domain[1].shape) != 1:
+        raise ValueError(f"Expected DomainTuple with the second space "
+                         f"being a 1-dim RGSpace, but got {domain}")
+
+    if len(field_list) != len(field_name_list):
+        raise ValueError("Every field needs a name")
+
+    pltargs = {"origin": "lower", "cmap": "cividis"}
+    if logscale:
+        pltargs["norm"] = LogNorm()
+    cols = math.ceil(math.sqrt(len(field_list)))  # Calculate number of columns
+    rows = math.ceil(len(field_list) / cols)
+    if len(domain) == 1:
+        if len(field_list) == 1:
+            fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(11.7, 8.3),
+                                   sharex=True, sharey=True, dpi=200)
+            im = ax.imshow(field_list[0].val, **pltargs)
+            ax.set_title(f'{title}_{field_name_list[0]}')
+        else:
+            fig, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(11.7, 8.3),
+                                   sharex=True, sharey=True, dpi=200)
+            ax = ax.flatten()
+            for i, field in enumerate(field_list):
+                im = ax[i].imshow(field.val, **pltargs)
+                ax[i].set_title(f'{title}_{field_name_list[i]}')
+        fig.tight_layout()
+        fig.savefig(file_name)
+        plt.close()
+    if len(domain) == 2:
+        for i in range(domain[1].shape):
+            if len(field_list) == 1:
+                fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(11.7, 8.3),
+                                       sharex=True, sharey=True, dpi=200)
+                im = ax.imshow(field_list[0].val, **pltargs)
+                ax.set_title(f'{title}_{field_name_list[0]}')
+            else:
+                fig, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(11.7, 8.3),
+                                       sharex=True, sharey=True, dpi=200)
+                ax = ax.flatten()
+                for j, field in enumerate(field_list):
+                    im = ax[i].imshow(field.val[:, :, i], **pltargs)
+                    ax[i].set_title(f'{title}_{field_name_list[j]}')
+            fig.tight_layout()
+            fig.savefig(f'{file_name}_e_bin={i}')
+            plt.close()
+    else:
+        NotImplementedError

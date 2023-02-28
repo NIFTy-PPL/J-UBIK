@@ -64,6 +64,7 @@ if __name__ == "__main__":
 
     log_likelihood = None
     for tm_id in tm_ids:
+        tm_directory = xu.create_output_directory(os.path.join(diagnostics_directory, f'tm{tm_id}'))
         output_filename = f'{tm_id}_' + file_info['output']
         exposure_filename = f'{tm_id}_' + file_info['exposure']
         observation_instance = xu.ErositaObservation(input_filenames, output_filename, obs_path)
@@ -142,7 +143,7 @@ if __name__ == "__main__":
             exposure[exposure < 100] = 0
         exposure_field = ift.makeField(sky_model.position_space, exposure)
 
-        with open(diagnostics_directory+"/exposure.pkl", "wb") as f:
+        with open(tm_directory+f"/tm{tm_id}_exposure.pkl", "wb") as f:
             pickle.dump(exposure_field, f)
         padded_exposure_field = sky_model.pad(exposure_field)
         exposure_op = ift.makeOp(padded_exposure_field)
@@ -159,7 +160,7 @@ if __name__ == "__main__":
             if load_mock_data:
                 # FIXME: name of output folder for diagnostics into config
                 # FIXME: Put Mockdata to a better place
-                with open('diagnostics/mock_sky_data.pkl', "rb") as f:
+                with open(diagnostics_directory+f'/tm{tm_id}_mock_sky_data.pkl', "rb") as f:
                     mock_data = pickle.load(f)
             else:
                 mock_data_dict = xu.generate_mock_setup(sky_model, conv_op, exposure_field,
@@ -173,7 +174,7 @@ if __name__ == "__main__":
             data = observation_instance.load_fits_data(output_filename)[0].data
             data = np.array(data, dtype = int)
             data = ift.makeField(sky_model.position_space, data)
-            with open(diagnostics_directory+"/data.pkl", "wb") as f:
+            with open(tm_directory+f"/tm{tm_id}_data.pkl", "wb") as f:
                 pickle.dump(data, f)
             masked_data = mask(data)
 

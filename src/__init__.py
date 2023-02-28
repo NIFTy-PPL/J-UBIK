@@ -11,7 +11,8 @@ from .library.utils import (get_mask_operator, prior_sample_plotter, get_norm,
                             get_equal_lh_transition, check_type)
 from .library.plot import (plot_slices, plot_result, plot_fused_data,
                            plot_rgb_image, plot_image_from_fits,
-                           plot_single_psf, plot_psfset, plot_sample_and_stats)
+                           plot_single_psf, plot_psfset, plot_sample_and_stats, plot_energy_slices,
+                           plot_energy_slice_overview)
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
