@@ -635,7 +635,8 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True, ou
     return res
 
 
-def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None, output_directory=None):
+def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None,
+                        tm_id=0, mock_sky_position=None, output_directory=None):
     if pad is None and sky_model.position_space != sky_model.extended_space:
         raise ValueError('The sky is padded but no padder is given')
     mpi_master = ift.utilities.get_MPI_params()[3]
@@ -659,7 +660,8 @@ def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None, output_direc
     sky_dict.pop('pspec')
 
     # Mock sky
-    mock_sky_position = ift.from_random(sky_dict['sky'].domain)
+    if mock_sky_position is None:
+        mock_sky_position = ift.from_random(sky_dict['sky'].domain)
     mock_sky = sky_dict['sky'](mock_sky_position)
     mock_sky_data = get_data_realization(sky_dict['sky'], mock_sky_position, exposure=exposure,
                                          padder=pad, output_directory=diagnostics_dir) #FIXME: split
@@ -674,15 +676,15 @@ def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None, output_direc
                                                        padder=pad) for key, value in conv_sky_dict.items()}
 
     # Prepare output dictionary
-    output_dictionary = {**mock_data_dict}
+    mock_sky_dict = {}
     for key, val in sky_dict.items():
-        output_dictionary['mock_'+key] = val.force(mock_sky_position)
+        mock_sky_dict['mock_'+key] = val.force(mock_sky_position)
 
     if mpi_master and output_directory is not None:
         p = ift.Plot()
-        for k, v in output_dictionary.items():
+        for k, v in mock_data_dict.items():
             # Save data and sky to Pickle
-            with open(os.path.join(diagnostics_dir, f'{k}.pkl'), 'wb') as file:
+            with open(os.path.join(diagnostics_dir, f'tm{tm_id}_{k}.pkl'), 'wb') as file:
                 pickle.dump(v, file)
 
             # Save data to fits
@@ -690,11 +692,22 @@ def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None, output_direc
 
             # Plot data
             p.add(v, title=k, norm=LogNorm())
+        for k, v in mock_sky_dict.items():
+            # Save data and sky to Pickle
+            path_to_pickle = os.path.join(diagnostics_dir, f'{k}.pkl')
+            if not os.path.exists(path_to_pickle):
+                with open(os.path.join(diagnostics_dir, f'{k}.pkl'), 'wb') as file:
+                    pickle.dump(v, file)
+
+                # Save data to fits
+                save_rgb_image_to_fits(v, os.path.join(diagnostics_dir, k), overwrite=True, MPI_master=mpi_master)
+            # Plot data
+            p.add(v, title=k, norm=LogNorm())
         if exposure_field is not None:
             p.add(exposure_field, title='exposure', norm=LogNorm())
         p.output(nx=3, name=os.path.join(diagnostics_dir, f'mock_data.png'))
-
     return mock_data_dict
+
 
 class _IGLikelihood(ift.EnergyOperator):
     """Functional form of the Inverse-Gamma distribution.

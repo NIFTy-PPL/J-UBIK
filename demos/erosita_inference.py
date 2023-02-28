@@ -35,6 +35,8 @@ if __name__ == "__main__":
     input_filenames = file_info['input']
     sky_model = xu.SkyModel(config_filename)
     sky_dict = sky_model.create_sky_model()
+    if mock_run:
+        mock_sky_position = ift.from_random(sky_dict['sky'].domain)
     pspec = sky_dict.pop('pspec')
 
     # Grid Info
@@ -164,7 +166,7 @@ if __name__ == "__main__":
                     mock_data = pickle.load(f)
             else:
                 mock_data_dict = xu.generate_mock_setup(sky_model, conv_op, exposure_field,
-                                                        sky_model.pad,
+                                                        sky_model.pad, tm_id,
                                                         output_directory=output_directory)
                 mock_data = mock_data_dict['mock_data_sky']
 
