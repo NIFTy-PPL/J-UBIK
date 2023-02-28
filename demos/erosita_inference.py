@@ -2,6 +2,7 @@ import math
 import os
 import pickle
 import numpy as np
+import argparse
 
 from matplotlib.colors import LogNorm
 import nifty8 as ift
@@ -11,8 +12,14 @@ from jax import config
 
 config.update('jax_enable_x64', True)
 
+# Parser Setup
+parser = argparse.ArgumentParser()
+parser.add_argument('config', type=str, help="Config file (.yaml) for eROSITA inference.",
+                    nargs='?', const=1, default="eROSITA_config.yaml")
+args = parser.parse_args()
+
 if __name__ == "__main__":
-    config_filename = "eROSITA_config.yaml"
+    config_filename = args.config
     cfg = xu.get_cfg(config_filename)
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])  # FIXME USE DISTANCES!
