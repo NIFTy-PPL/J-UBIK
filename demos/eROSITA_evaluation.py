@@ -20,6 +20,7 @@ if __name__ == "__main__":
     data_base = "data.pkl"
     exposure_base = "exposure.pkl"
     response_base = None  # FIXME response operator shall be loaded from path
+
     # Ground Truth path Only needed for mock run
     ground_truth_filename = "mock_sky.pkl"
 
@@ -45,6 +46,7 @@ if __name__ == "__main__":
     sky_dict = sky_model.create_sky_model()
     signal_space_uwrs = []
     data_space_uwrs = []
+    noise_weighted_residuals = []
 
     for tm_id in tm_ids:
         # Path
@@ -70,7 +72,8 @@ if __name__ == "__main__":
             mask = xu.get_mask_operator(exposure_field)
 
             # PSF
-            psf_filename = cfg['files']['psf_path'] + f'tm{tm_id}_' + cfg['files']['psf_base_filename']
+            psf_filename = cfg['files']['psf_path'] + f'tm{tm_id}_' + cfg['files'][
+                'psf_base_filename']
             if cfg['psf']['method'] in ['MSC', 'LIN']:
                 center_stats = observation_instance.get_pointing_coordinates_stats(1)  # FIXME
                 center = (center_stats['RA'][0], center_stats['DEC'][0])
@@ -96,7 +99,8 @@ if __name__ == "__main__":
                 else:
                     center = observation_instance.get_center_coordinates(output_filename)
                     psf_file = xu.eROSITA_PSF(cfg["files"]["psf_path"])
-                    psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
+                    psf_function = psf_file.psf_func_on_domain('3000', center,
+                                                               sky_model.extended_space)
                     psf_kernel = psf_function(*center)
                     psf_kernel = ift.makeField(sky_model.extended_space, np.array(psf_kernel))
                     conv_op = xu.get_fft_psf_op(psf_kernel, sky_dict['sky'])
@@ -112,21 +116,42 @@ if __name__ == "__main__":
                                                                    sky_op=sky_dict['sky'],
                                                                    output_dir_base=tm_directory +
                                                                                    f'/{tm_id}_signal_space_uwr'))
-        data_space_uwrs.append(xu.data_space_uwr_from_file(sl_path_base=sl_path_base, data_path=data_path,
-                                                           sky_op=sky_dict['sky'], response_op=R, mask_op=mask,
-                                                           output_dir_base=tm_directory + f'/{tm_id}_data_space_uwr'))
+        data_space_uwrs.append(
+            xu.data_space_uwr_from_file(sl_path_base=sl_path_base, data_path=data_path,
+                                        sky_op=sky_dict['sky'], response_op=R, mask_op=mask,
+                                        output_dir_base=tm_directory + f'/{tm_id}_data_space_uwr'))
+
+        noise_weighted_residuals.append(
+            xu.get_noise_weighted_residuals_from_file(sample_list_path=sl_path_base,
+                                                      data_path=data_path,
+                                                      sky_op=sky_dict['sky'], response_op=R,
+                                                      mask_op=mask,
+                                                      output_dir=diagnostics_path,
+                                                      base_filename=f'/tm{tm_id}/{tm_id}_nwr',
+                                                      abs=False,
+                                                      plot_kwargs={
+                                                          'title': 'Noise-weighted residuals',
+                                                          # 'norm': LogNorm()
+                                                      }))
+
         xu.weighted_residual_distribution(sl_path_base=sl_path_base, data_path=data_path,
                                           sky_op=sky_dict['sky'], response_op=R, mask_op=mask,
                                           output_dir_base=tm_directory + f'/{tm_id}_res_distribution')
+
     xu.signal_space_uwm_from_file(sl_path_base=sl_path_base, sky_op=sky_dict['sky'],
                                   output_dir_base=diagnostics_path + '/uwm')
+
     field_name_list = [f'tm{tm_id}' for tm_id in tm_ids]
     if mock_run:
         xu.plot_energy_slice_overview(signal_space_uwrs, field_name_list=field_name_list,
                                       file_name='signal_space_uwrs.png', title='signal_space_uwrs',
                                       logscale=True)
+
     xu.plot_energy_slice_overview(data_space_uwrs, field_name_list=field_name_list,
-                                  file_name=diagnostics_path+'data_space_uwrs.png', title='data_space_uwrs',
+                                  file_name=diagnostics_path + 'data_space_uwrs.png',
+                                  title='data_space_uwrs',
                                   logscale=True)
 
-
+    xu.plot_energy_slice_overview(noise_weighted_residuals, field_name_list=field_name_list,
+                                  file_name=diagnostics_path + 'nwr_overview.png',
+                                  title='Noise-weighted residuals', logscale=False)
