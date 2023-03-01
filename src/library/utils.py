@@ -635,8 +635,8 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True, ou
     return res
 
 
-def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None,
-                        tm_id=0, mock_sky_position=None, output_directory=None):
+def generate_mock_setup(sky_model, psf_op, mock_sky_position, exposure=None, pad=None,
+                        tm_id=0, output_directory=None):
     if pad is None and sky_model.position_space != sky_model.extended_space:
         raise ValueError('The sky is padded but no padder is given')
     mpi_master = ift.utilities.get_MPI_params()[3]
@@ -644,9 +644,11 @@ def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None,
     # Create output and diagnostic directories
     if output_directory is not None:
         diagnostics_dir = os.path.join(output_directory, 'diagnostics')
+        tm_directory = create_output_directory(os.path.join(diagnostics_dir, f'tm{tm_id}'))
         if mpi_master:
             create_output_directory(output_directory)
             create_output_directory(diagnostics_dir)
+            create_output_directory(tm_directory)
 
     # Exposure
     exposure_field = exposure
@@ -684,11 +686,12 @@ def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None,
         p = ift.Plot()
         for k, v in mock_data_dict.items():
             # Save data and sky to Pickle
-            with open(os.path.join(diagnostics_dir, f'tm{tm_id}_{k}.pkl'), 'wb') as file:
+            with open(os.path.join(tm_directory, f'tm{tm_id}_{k}.pkl'), 'wb') as file:
                 pickle.dump(v, file)
 
             # Save data to fits
-            save_rgb_image_to_fits(v, os.path.join(diagnostics_dir, k), overwrite=True, MPI_master=mpi_master)
+            save_rgb_image_to_fits(v, os.path.join(tm_directory, f'tm{tm_id}_{k}'), overwrite=True,
+                                   MPI_master=mpi_master)
 
             # Plot data
             p.add(v, title=k, norm=LogNorm())
@@ -700,12 +703,13 @@ def generate_mock_setup(sky_model, psf_op, exposure=None, pad=None,
                     pickle.dump(v, file)
 
                 # Save data to fits
-                save_rgb_image_to_fits(v, os.path.join(diagnostics_dir, k), overwrite=True, MPI_master=mpi_master)
+                save_rgb_image_to_fits(v, os.path.join(diagnostics_dir, k), overwrite=True,
+                                       MPI_master=mpi_master)
             # Plot data
             p.add(v, title=k, norm=LogNorm())
         if exposure_field is not None:
             p.add(exposure_field, title='exposure', norm=LogNorm())
-        p.output(nx=3, name=os.path.join(diagnostics_dir, f'mock_data.png'))
+        p.output(nx=3, name=os.path.join(tm_directory, f'tm{tm_id}_mock_data.png'))
     return mock_data_dict
 
 

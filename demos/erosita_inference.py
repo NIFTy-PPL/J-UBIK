@@ -26,6 +26,9 @@ if __name__ == "__main__":
     mock_run = cfg['mock']
     mock_psf = cfg['mock_psf']
     load_mock_data = cfg['load_mock_data']
+    if (cfg['minimization']['resume'] and mock_run) and (not load_mock_data):
+        raise ValueError('Resume is set to True on mock run. This is only possible if the mock data is loaded from'
+                         'file. Please set load_mock_data=True')
     if load_mock_data and not mock_run:
         print('WARNING: Mockrun is set to False: Actual data is loaded')
 
@@ -36,7 +39,18 @@ if __name__ == "__main__":
     sky_model = xu.SkyModel(config_filename)
     sky_dict = sky_model.create_sky_model()
     if mock_run:
-        mock_sky_position = ift.from_random(sky_dict['sky'].domain)
+        if sky_model.priors['point_sources'] is None:
+            try:
+                sky_model.priors['point_source'] = sky_model.config['point_source_defaults']
+                mock_sky_dict = sky_model.create_sky_model()
+                mock_sky_position = ift.from_random(mock_sky_dict['sky'].domain)
+                sky_model.priors['point_sources'] = None
+            except:
+                raise ValueError('Not able to create point source model for mock data. Creating mock data'
+                                 'for diffuse only. Please check point_source_defaults in config!')
+        else:
+            mock_sky_position = ift.from_random(sky_dict['sky'].domain)
+
     pspec = sky_dict.pop('pspec')
 
     # Grid Info
@@ -70,14 +84,15 @@ if __name__ == "__main__":
         output_filename = f'{tm_id}_' + file_info['output']
         exposure_filename = f'{tm_id}_' + file_info['exposure']
         observation_instance = xu.ErositaObservation(input_filenames, output_filename, obs_path)
-        if not os.path.exists(os.path.join(obs_path, output_filename)):
-            observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
-                                                        size=npix, pattern=tel_info['pattern'],
-                                                        telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
-        else:
-            print(log.format(os.path.join(obs_path, output_filename)))
+        if not mock_run:
+            if not os.path.exists(os.path.join(obs_path, output_filename)):
+                observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
+                                                            size=npix, pattern=tel_info['pattern'],
+                                                            telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
+            else:
+                print(log.format(os.path.join(obs_path, output_filename)))
 
-        observation_instance = xu.ErositaObservation(output_filename, output_filename, obs_path)
+            observation_instance = xu.ErositaObservation(output_filename, output_filename, obs_path)
 
         # Exposure
         if not os.path.exists(os.path.join(obs_path, exposure_filename)):
@@ -90,10 +105,11 @@ if __name__ == "__main__":
         # Plotting
         plot_info = cfg['plotting']
         if plot_info['enabled']:
-            observation_instance.plot_fits_data(output_filename,
-                                                os.path.splitext(output_filename)[0],
-                                                slice=plot_info['slice'],
-                                                dpi=plot_info['dpi'])
+            if not mock_run:
+                observation_instance.plot_fits_data(output_filename,
+                                                    os.path.splitext(output_filename)[0],
+                                                    slice=plot_info['slice'],
+                                                    dpi=plot_info['dpi'])
             observation_instance.plot_fits_data(exposure_filename,
                                                 f'{os.path.splitext(exposure_filename)[0]}.png',
                                                 slice=plot_info['slice'],
@@ -120,8 +136,8 @@ if __name__ == "__main__":
 
             energy = cfg['psf']['energy']
             conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
-                                        conv_method=cfg['psf']['method'],
-                                        conv_params=cfg['psf'])
+                                           conv_method=cfg['psf']['method'],
+                                           conv_params=cfg['psf'])
 
         elif cfg['psf']['method'] == 'invariant':
             if mock_psf:
@@ -165,7 +181,9 @@ if __name__ == "__main__":
                 with open(diagnostics_directory+f'/tm{tm_id}_mock_sky_data.pkl', "rb") as f:
                     mock_data = pickle.load(f)
             else:
-                mock_data_dict = xu.generate_mock_setup(sky_model, conv_op, exposure_field,
+                mock_data_dict = xu.generate_mock_setup(sky_model, conv_op,
+                                                        mock_sky_position,
+                                                        exposure_field,
                                                         sky_model.pad, tm_id,
                                                         output_directory=output_directory)
                 mock_data = mock_data_dict['mock_data_sky']
