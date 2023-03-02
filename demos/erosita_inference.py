@@ -277,4 +277,5 @@ if __name__ == "__main__":
                     export_operator_outputs=operators_to_plot,
                     inspect_callback=plot,
                     resume=minimization_config['resume'],
+                    initial_position=initial_position,
                     comm=xu.library.mpi.comm)
