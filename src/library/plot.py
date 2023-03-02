@@ -68,7 +68,8 @@ def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
     file_dict = {}
     for key in color_dict:
         file_dict[color_dict[key]] = pyfits.open(f"{file_name_in}_{color_dict[key]}.fits")[0].data
-    rgb_default = make_lupton_rgb(file_dict["red"], file_dict["green"], file_dict["blue"], filename=file_name_out)
+    rgb_default = make_lupton_rgb(file_dict["red"], file_dict["green"], file_dict["blue"],
+                                  filename=file_name_out)
     if log_scale:
         plt.imshow(rgb_default, norm=LogNorm(), origin='lower')
     else:
@@ -190,7 +191,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterato
         _plot_samples(filename_samples, sample_list.iterator(op), plotting_kwargs)
 
 
-def plot_energy_slices(field, file_name, title=None, logscale=False):
+def plot_energy_slices(field, file_name, title=None, plot_kwargs=None):
     """
     Plots the slices of a 3-dimensional field along the energy dimension.
 
@@ -202,7 +203,7 @@ def plot_energy_slices(field, file_name, title=None, logscale=False):
         The name of the file to save the plot.
     title : str or None
         The title of the plot. Default is None.
-    logscale : bool
+    plot_kwargs : `dict` keyword arguments for plotting.
         If True, the plot uses a logarithmic scale. Default is False.
 
     Raises:
@@ -224,23 +225,17 @@ def plot_energy_slices(field, file_name, title=None, logscale=False):
 
     if len(domain) == 1:
         p = ift.Plot()
-        if logscale:
-            p.add(field, title=title, norm=LogNorm())
-        else:
-            p.add(field, title=title)
+        p.add(field, **plot_kwargs)
         p.output(name=file_name)
 
-    if len(domain) == 2:
+    elif len(domain) == 2:
         p = ift.Plot()
         for i in range(field.shape[2]):
-            slice = ift.Field(ift.DomainTuple.make(domain[0]), field.val[:,:,i])
-            if logscale:
-                p.add(slice, title=f'{title}_e_bin={i}', norm=LogNorm())
-            else:
-                p.add(slice, title=title)
+            slice = ift.Field(ift.DomainTuple.make(domain[0]), field.val[:, :, i])
+            p.add(slice, title=f'{title}_e_bin={i}', **plot_kwargs)
         p.output(name=file_name)
     else:
-        NotImplementedError
+        raise NotImplementedError
 
 
 def plot_energy_slice_overview(field_list, field_name_list, file_name, title=None, logscale=False):
@@ -303,7 +298,7 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
         fig.tight_layout()
         fig.savefig(file_name)
         plt.close()
-    if len(domain) == 2:
+    elif len(domain) == 2:
         for i in range(domain[1].shape):
             if len(field_list) == 1:
                 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(11.7, 8.3),
@@ -321,4 +316,4 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
             fig.savefig(f'{file_name}_e_bin={i}')
             plt.close()
     else:
-        NotImplementedError
+        raise NotImplementedError

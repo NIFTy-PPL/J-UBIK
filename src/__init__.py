@@ -22,7 +22,8 @@ from .library.sky_models import SkyModel
 from .library.diagnostics import (signal_space_uwr_from_file,
                                   data_space_uwr_from_file,
                                   signal_space_uwm_from_file,
-                                  weighted_residual_distribution)
+                                  weighted_residual_distribution,
+                                  get_noise_weighted_residuals_from_file)
 from .operators.convolution_operators import OAConvolver, OAnew, OverlapAdd
 from .operators.convolution_operators import _get_weights
 from .operators.zero_padder import MarginZeroPadder
