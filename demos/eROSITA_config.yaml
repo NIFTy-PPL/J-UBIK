@@ -1,5 +1,8 @@
 seed: 86
 mock: False
+point_source_defaults:
+  alpha: 1.
+  q: 1e6
 mock_psf: False
 load_mock_data: False
 
@@ -8,7 +11,7 @@ telescope:
   fov: 3600 # in arcsec
   pattern: 15
   detmap: True
-  exp_cut: False
+  exp_cut: True
 
 psf:
   method: 'LIN'

@@ -18,6 +18,7 @@ if __name__ == "__main__":
     config_filename = "eROSITA_config.yaml"
     sl_path_base = reconstruction_path + "pickle/last"  # NIFTy dependency
     data_base = "data.pkl"
+    mock_data_base = "mock_data_sky.pkl"
     exposure_base = "exposure.pkl"
     response_base = None  # FIXME response operator shall be loaded from path
     # Ground Truth path Only needed for mock run
@@ -49,7 +50,10 @@ if __name__ == "__main__":
     for tm_id in tm_ids:
         # Path
         tm_directory = xu.create_output_directory(os.path.join(diagnostics_path, f'tm{tm_id}/'))
-        data_path = tm_directory + f"tm{tm_id}_{data_base}"
+        if mock_run:
+            data_path = tm_directory + f"tm{tm_id}_{mock_data_base}"
+        else:
+            data_path = tm_directory + f"tm{tm_id}_{data_base}"
 
         # Load observation
         output_filename = f'{tm_id}_' + file_info['output']
