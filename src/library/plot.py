@@ -228,15 +228,14 @@ def plot_energy_slices(field, file_name, title=None, plot_kwargs=None):
         p.add(field, **plot_kwargs)
         p.output(name=file_name)
 
-    if len(domain) == 2:
+    elif len(domain) == 2:
         p = ift.Plot()
         for i in range(field.shape[2]):
             slice = ift.Field(ift.DomainTuple.make(domain[0]), field.val[:, :, i])
             p.add(slice, title=f'{title}_e_bin={i}', **plot_kwargs)
-            p.add(slice, title=title)
         p.output(name=file_name)
     else:
-        NotImplementedError
+        raise NotImplementedError
 
 
 def plot_energy_slice_overview(field_list, field_name_list, file_name, title=None, logscale=False):
