@@ -26,9 +26,12 @@ if __name__ == "__main__":
     mock_run = cfg['mock']
     mock_psf = cfg['mock_psf']
     load_mock_data = cfg['load_mock_data']
+
     if (cfg['minimization']['resume'] and mock_run) and (not load_mock_data):
-        raise ValueError('Resume is set to True on mock run. This is only possible if the mock data is loaded from'
-                         'file. Please set load_mock_data=True')
+        raise ValueError(
+            'Resume is set to True on mock run. This is only possible if the mock data is loaded '
+            'from file. Please set load_mock_data=True')
+
     if load_mock_data and not mock_run:
         print('WARNING: Mockrun is set to False: Actual data is loaded')
 
@@ -38,6 +41,7 @@ if __name__ == "__main__":
     input_filenames = file_info['input']
     sky_model = xu.SkyModel(config_filename)
     sky_dict = sky_model.create_sky_model()
+
     if mock_run:
         if sky_model.priors['point_sources'] is None:
             try:
@@ -46,8 +50,9 @@ if __name__ == "__main__":
                 mock_sky_position = ift.from_random(mock_sky_dict['sky'].domain)
                 sky_model.priors['point_sources'] = None
             except:
-                raise ValueError('Not able to create point source model for mock data. Creating mock data'
-                                 'for diffuse only. Please check point_source_defaults in config!')
+                raise ValueError(
+                    'Not able to create point source model for mock data. Creating mock data'
+                    'for diffuse only. Please check point_source_defaults in config!')
         else:
             mock_sky_position = ift.from_random(sky_dict['sky'].domain)
 
@@ -73,22 +78,27 @@ if __name__ == "__main__":
     if xu.mpi.comm is not None:
         xu.mpi.comm.Barrier()
     output_directory = xu.create_output_directory(file_info["res_dir"])
-    diagnostics_directory = xu.create_output_directory(output_directory+'/diagnostics')
+    diagnostics_directory = xu.create_output_directory(output_directory + '/diagnostics')
 
     log = 'Output file {} already exists and is not regenerated. ' \
-          'If the observations parameters shall be changed please delete or rename the current output file.'
+          'If the observations parameters shall be changed please delete or rename the current ' \
+          'output file.'
 
     log_likelihood = None
+
     for tm_id in tm_ids:
         tm_directory = xu.create_output_directory(os.path.join(diagnostics_directory, f'tm{tm_id}'))
         output_filename = f'{tm_id}_' + file_info['output']
         exposure_filename = f'{tm_id}_' + file_info['exposure']
         observation_instance = xu.ErositaObservation(input_filenames, output_filename, obs_path)
+
         if not mock_run:
             if not os.path.exists(os.path.join(obs_path, output_filename)):
-                observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True, rebin=rebin,
+                observation = observation_instance.get_data(emin=e_min, emax=e_max, image=True,
+                                                            rebin=rebin,
                                                             size=npix, pattern=tel_info['pattern'],
-                                                            telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
+                                                            telid=tm_id)  # FIXME: exchange rebin
+                # by fov? 80 = 4arcsec
             else:
                 print(log.format(os.path.join(obs_path, output_filename)))
 
@@ -96,8 +106,9 @@ if __name__ == "__main__":
 
         # Exposure
         if not os.path.exists(os.path.join(obs_path, exposure_filename)):
-            observation_instance.get_exposure_maps(output_filename, e_min, e_max, singlemaps=exposure_filename,
-                                                withdetmaps=det_map)
+            observation_instance.get_exposure_maps(output_filename, e_min, e_max,
+                                                   singlemaps=exposure_filename,
+                                                   withdetmaps=det_map)
 
         else:
             print(log.format(os.path.join(obs_path, output_filename)))
@@ -119,7 +130,7 @@ if __name__ == "__main__":
         psf_filename = cfg['files']['psf_path'] + f'tm{tm_id}_' + cfg['files']['psf_base_filename']
         if cfg['psf']['method'] in ['MSC', 'LIN']:
             center_stats = observation_instance.get_pointing_coordinates_stats(tm_id,
-                                                input_filename=input_filenames)
+                                                                               input_filename=input_filenames)
             print(center_stats['ROLL'])
             center = (center_stats['RA'][0], center_stats['DEC'][0])
             psf_file = xu.eROSITA_PSF(psf_filename)
@@ -127,12 +138,11 @@ if __name__ == "__main__":
                 dcenter = (0, 0)
                 start_center = center
             else:
-                dcenter = (cc-ss for cc,ss in zip(center, start_center))
-
+                dcenter = (cc - ss for cc, ss in zip(center, start_center))
 
             dom = sky_model.extended_space
-            center = tuple(0.5*ss*dd for ss, dd in zip(dom.shape, dom.distances))
-            center = tuple(cc+dd for cc,dd in zip(center, dcenter))
+            center = tuple(0.5 * ss * dd for ss, dd in zip(dom.shape, dom.distances))
+            center = tuple(cc + dd for cc, dd in zip(center, dcenter))
 
             energy = cfg['psf']['energy']
             conv_op = psf_file.make_psf_op(energy, center, sky_model.extended_space,
@@ -143,7 +153,7 @@ if __name__ == "__main__":
             if mock_psf:
                 conv_op = xu.get_gaussian_psf(sky_dict['sky'], var=cfg['psf']['gauss_var'])
             else:
-                center = observation_instance.get_center_coordinates(output_filename)
+                center = observation_instance.get_pointing_coordinates_stats(tm_id)
                 psf_file = xu.eROSITA_PSF(psf_filename)
                 psf_function = psf_file.psf_func_on_domain('3000', center, sky_model.extended_space)
                 psf_kernel = psf_function(*center)
@@ -153,7 +163,7 @@ if __name__ == "__main__":
             raise NotImplementedError
 
         ## Convolution
-        #conv_sky_dict = {key: (conv_op @ value) for key, value in sky_dict.items()}
+        # conv_sky_dict = {key: (conv_op @ value) for key, value in sky_dict.items()}
 
         # Exposure
         exposure = observation_instance.load_fits_data(exposure_filename)[0].data
@@ -161,7 +171,7 @@ if __name__ == "__main__":
             exposure[exposure < 100] = 0
         exposure_field = ift.makeField(sky_model.position_space, exposure)
 
-        with open(tm_directory+f"/tm{tm_id}_exposure.pkl", "wb") as f:
+        with open(tm_directory + f"/tm{tm_id}_exposure.pkl", "wb") as f:
             pickle.dump(exposure_field, f)
         padded_exposure_field = sky_model.pad(exposure_field)
         exposure_op = ift.makeOp(padded_exposure_field)
@@ -178,7 +188,7 @@ if __name__ == "__main__":
             if load_mock_data:
                 # FIXME: name of output folder for diagnostics into config
                 # FIXME: Put Mockdata to a better place
-                with open(diagnostics_directory+f'/tm{tm_id}_mock_sky_data.pkl', "rb") as f:
+                with open(diagnostics_directory + f'/tm{tm_id}_mock_sky_data.pkl', "rb") as f:
                     mock_data = pickle.load(f)
             else:
                 mock_data_dict = xu.generate_mock_setup(sky_model, conv_op,
@@ -192,9 +202,9 @@ if __name__ == "__main__":
             masked_data = mask(mock_data)
         else:
             data = observation_instance.load_fits_data(output_filename)[0].data
-            data = np.array(data, dtype = int)
+            data = np.array(data, dtype=int)
             data = ift.makeField(sky_model.position_space, data)
-            with open(tm_directory+f"/tm{tm_id}_data.pkl", "wb") as f:
+            with open(tm_directory + f"/tm{tm_id}_data.pkl", "wb") as f:
                 pickle.dump(data, f)
             masked_data = mask(data)
 
@@ -224,6 +234,7 @@ if __name__ == "__main__":
     ic_newton = ift.AbsDeltaEnergyController(**minimization_config['ic_newton'])
     ic_sampling = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling'])
     minimizer = ift.NewtonCG(ic_newton)
+
     if minimization_config['geovi']:
         ic_sampling_nl = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling_nl'])
         minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
@@ -233,7 +244,6 @@ if __name__ == "__main__":
     # Prepare results
     operators_to_plot = {key: (sky_model.pad.adjoint(value)) for key, value in sky_dict.items()}
     operators_to_plot = {**operators_to_plot, 'pspec': pspec}
-
 
     # Save config file in output_directory
     xu.save_config(cfg, config_filename, output_directory)
