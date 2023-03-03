@@ -49,16 +49,3 @@ class SkyModel:
         diffuse = cfm.finalize().exp()
         pspec = cfm.power_spectrum
         return diffuse, pspec
-
-
-if __name__ == "__main__":
-    config = 'eROSITA_config_mw.yaml'
-    model = SkyModel(config)
-    ps, diffuse, sky = model.create_sky_model()
-
-    ift.random.push_sseq_from_seed(model.config['seed'])
-
-    n_samples = 6
-    ift.plot_priorsamples(ps, n_samples=n_samples, common_colorbar=False, norm=LogNorm(), nx=3)
-    ift.plot_priorsamples(diffuse, n_samples=n_samples, common_colorbar=False, norm=LogNorm(), nx=3)
-    ift.plot_priorsamples(sky, n_samples=n_samples, common_colorbar=False, norm=LogNorm(), nx=3)

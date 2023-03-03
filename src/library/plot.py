@@ -191,7 +191,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterato
         _plot_samples(filename_samples, sample_list.iterator(op), plotting_kwargs)
 
 
-def plot_energy_slices(field, file_name, title=None, plot_kwargs=None):
+def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):
     """
     Plots the slices of a 3-dimensional field along the energy dimension.
 
@@ -296,10 +296,10 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
                 im = ax[i].imshow(field.val, **pltargs)
                 ax[i].set_title(f'{title}_{field_name_list[i]}')
         fig.tight_layout()
-        fig.savefig(file_name)
+        fig.savefig(f'{file_name}.png')
         plt.close()
     elif len(domain) == 2:
-        for i in range(domain[1].shape):
+        for i in range(domain[1].shape[0]):
             if len(field_list) == 1:
                 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(11.7, 8.3),
                                        sharex=True, sharey=True, dpi=200)
@@ -313,7 +313,7 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
                     im = ax[i].imshow(field.val[:, :, i], **pltargs)
                     ax[i].set_title(f'{title}_{field_name_list[j]}')
             fig.tight_layout()
-            fig.savefig(f'{file_name}_e_bin={i}')
+            fig.savefig(f'{file_name}_e_bin={i}.png')
             plt.close()
     else:
         raise NotImplementedError

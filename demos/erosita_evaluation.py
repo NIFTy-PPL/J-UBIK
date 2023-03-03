@@ -118,6 +118,7 @@ if __name__ == "__main__":
             signal_space_uwrs.append(xu.signal_space_uwr_from_file(sl_path_base=sl_path_base,
                                                                    ground_truth_path=ground_truth_path,
                                                                    sky_op=sky_dict['sky'],
+                                                                   padder=sky_model.pad,
                                                                    output_dir_base=tm_directory +
                                                                                    f'/{tm_id}_signal_space_uwr'))
         data_space_uwrs.append(
@@ -143,6 +144,7 @@ if __name__ == "__main__":
                                           output_dir_base=tm_directory + f'/{tm_id}_res_distribution')
 
     xu.signal_space_uwm_from_file(sl_path_base=sl_path_base, sky_op=sky_dict['sky'],
+                                  padder=sky_model.pad,
                                   output_dir_base=diagnostics_path + '/uwm')
 
     field_name_list = [f'tm{tm_id}' for tm_id in tm_ids]
