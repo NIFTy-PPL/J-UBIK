@@ -310,8 +310,8 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
                                        sharex=True, sharey=True, dpi=200)
                 ax = ax.flatten()
                 for j, field in enumerate(field_list):
-                    im = ax[i].imshow(field.val[:, :, i], **pltargs)
-                    ax[i].set_title(f'{title}_{field_name_list[j]}')
+                    im = ax[j].imshow(field.val[:, :, i], **pltargs)
+                    ax[j].set_title(f'{field_name_list[j]}')
             fig.tight_layout()
             fig.savefig(f'{file_name}_e_bin={i}.png')
             plt.close()
