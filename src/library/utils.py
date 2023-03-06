@@ -804,10 +804,14 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
                         iteration_limit = transition_dict['iteration_limit'],
                         convergence_level=transition_dict['convergence_level'],
                         name = transition_dict['name'])
-        return ift.VL_BFGS(ic_mini)(en)[0].position
+
+        new_point_source_position = ift.VL_BFGS(ic_mini)(en)[0].position.to_dict()
+        new_pos = new_pos.to_dict()
+        new_pos['point_sources'] = new_point_source_position['point_sources']
+        return ift.MultiField.from_dict(new_pos)
 
     _tr = (lambda samples: samples.average(_transition))
-    return (lambda iiter: None if iiter < transition_dict['start'] else _tr)
+    return lambda iiter: None if iiter < transition_dict['start'] else _tr
 
 
 def check_type(arg, type, name=''):
