@@ -186,14 +186,13 @@ def psf_convolve_operator(domain, psf_infos, msc_infos, adj = False):
             "and locate it in a folder named 'adg' within the module /"+
             "`operators` ")
         raise(ModuleNotFoundError, msg)
-    c = msc_infos['c']
-    q = msc_infos['q']
-    b = msc_infos['b']
-    min_m0 = msc_infos['min_m0']
-    linear = msc_infos['linear']
-    local = True
-    func_psf = get_psf_func(domain, psf_infos)
-    return get_convolve(domain, func_psf, c, q, b, min_m0, linear, local, adj)
+    msc_keys = ('base', 'min_baseshape', 'linlevel', 'kernel_sizes',
+                'keep_overlap', 'local_kernel')
+    infos = {kk:msc_infos[kk] for kk in msc_keys}
+    infos['domain'] = domain
+    infos['func'] = get_psf_func(domain, psf_infos)
+    infos['adjoint'] = adj
+    return get_convolve(**infos)
 
 def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1, 
                          want_cut = False):
