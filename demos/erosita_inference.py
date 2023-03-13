@@ -167,8 +167,9 @@ if __name__ == "__main__":
 
         # Exposure
         exposure = observation_instance.load_fits_data(exposure_filename)[0].data
-        if tel_info["exp_cut"]:
-            exposure[exposure < 100] = 0
+        exposure_cut = tel_info["exp_cut"]
+        if exposure_cut is not None:
+            exposure[exposure < exposure_cut] = 0
         exposure_field = ift.makeField(sky_model.position_space, exposure)
 
         with open(tm_directory + f"/tm{tm_id}_exposure.pkl", "wb") as f:
