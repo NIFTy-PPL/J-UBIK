@@ -9,9 +9,11 @@ from .utils import save_rgb_image_to_fits
 from .plot import plot_energy_slices
 
 
-def get_uncertainty_weighted_measure(sl, op=None,
+def get_uncertainty_weighted_measure(sl,
+                                     op=None,
                                      reference=None,
                                      output_dir_base=None,
+                                     padder=None,
                                      mask_op=None,
                                      title=''):
     mpi_master = ift.utilities.get_MPI_params()[3]
@@ -23,6 +25,9 @@ def get_uncertainty_weighted_measure(sl, op=None,
     else:
         wgt_res = (mean - reference).abs() / var.sqrt()
     wgt_res = mask_op.adjoint(wgt_res)
+    if padder is None:
+        padder = ift.ScalingOperator(domain=wgt_res.domain, factor=1)
+    wgt_res = padder.adjoint(wgt_res)
     if mpi_master and output_dir_base is not None:
         with open(f'{output_dir_base}.pkl', 'wb') as file:
             pickle.dump(wgt_res, file)
@@ -70,7 +75,8 @@ def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=No
         filename = output_dir + base_filename
         plot_kwargs = {'title': 'Noise-weighted residuals'} if plot_kwargs is None else plot_kwargs
         save_rgb_image_to_fits(nwr_mean, file_name=filename, overwrite=True, MPI_master=mpi_master)
-        plot_energy_slices(nwr_mean, file_name=f'{filename}.png', plot_kwargs=plot_kwargs)
+        plot_energy_slices(nwr_mean, file_name=f'{filename}.png', title='Noise-weighted residuals',
+                           plot_kwargs={})
     return nwr_mean
 
 
@@ -96,6 +102,7 @@ def get_noise_weighted_residuals_from_file(sample_list_path,
 def signal_space_uwr_from_file(sl_path_base,
                                ground_truth_path,
                                sky_op,
+                               padder,
                                output_dir_base=None,
                                title='signal space UWR'):
     sl = ift.ResidualSampleList.load(sl_path_base)
@@ -124,10 +131,11 @@ def data_space_uwr_from_file(sl_path_base,
 
 def signal_space_uwm_from_file(sl_path_base,
                                sky_op,
+                               padder,
                                output_dir_base=None,
                                title='signal space UWM'):
     sl = ift.ResidualSampleList.load(sl_path_base)
-    wgt_mean = get_uncertainty_weighted_measure(sl, sky_op, output_dir_base=output_dir_base,
+    wgt_mean = get_uncertainty_weighted_measure(sl, sky_op, output_dir_base=output_dir_base, padder=padder,
                                                 title=title)
     return wgt_mean
 
