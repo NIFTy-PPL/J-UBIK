@@ -1,4 +1,5 @@
 seed: 86
+threads: 8
 mock: False
 point_source_defaults:
   alpha: 1.
