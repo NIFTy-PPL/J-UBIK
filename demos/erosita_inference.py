@@ -144,7 +144,7 @@ if __name__ == "__main__":
             else:
                 dcenter = (cc - ss for cc, ss in zip(center, start_center))
 
-            dom = sky_model.extended_space
+            dom = sky_model.position_space
             center = tuple(0.5 * ss * dd for ss, dd in zip(dom.shape, dom.distances))
             center = tuple(cc + dd for cc, dd in zip(center, dcenter))
 
