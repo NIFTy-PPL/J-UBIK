@@ -19,7 +19,7 @@ psf:
 
   # LIN config
   npatch: 8
-  margfrac: 0.2
+  margfrac: 0.062
   want_cut: False
 
   # MSC config
