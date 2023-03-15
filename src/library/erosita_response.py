@@ -5,8 +5,11 @@ import pickle
 import nifty8 as ift
 import numpy as np
 
-from src import ErositaObservation, get_cfg, create_output_directory, eROSITA_PSF, \
-    get_gaussian_psf, get_fft_psf_op, get_mask_operator, SkyModel
+from .erosita_observation import ErositaObservation
+from .erosita_psf import eROSITA_PSF
+from .sky_models import SkyModel
+from .utils import get_cfg, create_output_directory, get_gaussian_psf, get_fft_psf_op, \
+    get_mask_operator
 
 
 def get_erosita_response(config_filename, diagnostics_directory):
@@ -51,9 +54,9 @@ def get_erosita_response(config_filename, diagnostics_directory):
         if not mock_run:
             if not os.path.exists(os.path.join(obs_path, output_filename)):
                 observation_instance.get_data(emin=e_min, emax=e_max, image=True,
-                                                            rebin=rebin,
-                                                            size=npix, pattern=tel_info['pattern'],
-                                                            telid=tm_id)  # FIXME: exchange rebin
+                                              rebin=rebin,
+                                              size=npix, pattern=tel_info['pattern'],
+                                              telid=tm_id)  # FIXME: exchange rebin
                 # by fov? 80 = 4arcsec
             else:
                 print(log.format(os.path.join(obs_path, output_filename)))

@@ -4,7 +4,9 @@ import pickle
 import nifty8 as ift
 import numpy as np
 
-from src import get_cfg, generate_mock_setup, create_output_directory, ErositaObservation, SkyModel
+from .erosita_observation import ErositaObservation
+from .sky_models import SkyModel
+from .utils import get_cfg, create_output_directory, generate_mock_setup
 
 
 def get_erosita_data(config_filename, output_directory, diagnostics_directory, response_dict):
