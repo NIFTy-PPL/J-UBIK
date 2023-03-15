@@ -22,8 +22,6 @@ if __name__ == "__main__":
     exposure_base = "exposure.pkl"
     response_base = None  # FIXME response operator shall be loaded from path
 
-    # Ground Truth path Only needed for mock run
-    ground_truth_filename = "mock_sky.pkl"
 
     # Config
     cfg = xu.get_cfg(reconstruction_path + config_filename)
@@ -45,13 +43,16 @@ if __name__ == "__main__":
     # Sky
     sky_model = xu.SkyModel(reconstruction_path + config_filename)
     sky_dict = sky_model.create_sky_model()
-    signal_space_uwrs = []
-    data_space_uwrs = []
-    noise_weighted_residuals = []
+    sky_dict.pop('pspec')
+    signal_space_uwrs = {key: [] for key, value in sky_dict.items()}
+    data_space_uwrs = {key: [] for key, value in sky_dict.items()}
+    noise_weighted_residuals = {key: [] for key, value in sky_dict.items()}
 
     for tm_id in tm_ids:
         # Path
         tm_directory = xu.create_output_directory(os.path.join(diagnostics_path, f'tm{tm_id}/'))
+        for key, op in sky_dict.items():
+            xu.create_output_directory(os.path.join(tm_directory, key))
         if mock_run:
             data_path = tm_directory + f"tm{tm_id}_{mock_data_base}"
         else:
@@ -112,52 +113,57 @@ if __name__ == "__main__":
             R = mask @ sky_model.pad.adjoint @ exposure_op @ conv_op
         else:
             raise NotImplementedError
+        for key, op in sky_dict.items():
+            if mock_run:
+                ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')
+                signal_space_uwrs[key].append(
+                    xu.signal_space_uwr_from_file(sl_path_base=sl_path_base,
+                                                  ground_truth_path=ground_truth_path,
+                                                  sky_op=op,
+                                                  padder=sky_model.pad,
+                                                  output_dir_base=os.path.join(tm_directory,
+                                                                               key,
+                                                                               f'{tm_id}_signal_space_uwr')))
+            data_space_uwrs[key].append(
+                xu.data_space_uwr_from_file(sl_path_base=sl_path_base, data_path=data_path,
+                                            sky_op=op, response_op=R, mask_op=mask,
+                                            output_dir_base=os.path.join(tm_directory,
+                                                                         key, f'{tm_id}_data_space_uwr')))
 
+            noise_weighted_residuals[key].append(
+                xu.get_noise_weighted_residuals_from_file(sample_list_path=sl_path_base,
+                                                          data_path=data_path,
+                                                          sky_op=op, response_op=R,
+                                                          mask_op=mask,
+                                                          output_dir=diagnostics_path,
+                                                          base_filename=f'/tm{tm_id}/{key}/{tm_id}_nwr',
+                                                          abs=False,
+                                                          plot_kwargs={
+                                                            'title': 'Noise-weighted residuals',
+                                                            # 'norm': LogNorm()
+                                                          }))
+
+            xu.weighted_residual_distribution(sl_path_base=sl_path_base, data_path=data_path,
+                                            sky_op=op, response_op=R, mask_op=mask,
+                                            output_dir_base=os.path.join(tm_directory,
+                                                                         key, f'{tm_id}_res_distribution'))
+    for key, op in sky_dict.items():
+        xu.signal_space_uwm_from_file(sl_path_base=sl_path_base, sky_op=op,
+                                      padder=sky_model.pad,
+                                      output_dir_base=diagnostics_path + f'/uwm_{key}')
+        field_name_list = [f'tm{tm_id}' for tm_id in tm_ids]
         if mock_run:
-            ground_truth_path = diagnostics_path + ground_truth_filename
-            signal_space_uwrs.append(xu.signal_space_uwr_from_file(sl_path_base=sl_path_base,
-                                                                   ground_truth_path=ground_truth_path,
-                                                                   sky_op=sky_dict['sky'],
-                                                                   padder=sky_model.pad,
-                                                                   output_dir_base=tm_directory +
-                                                                                   f'/{tm_id}_signal_space_uwr'))
-        data_space_uwrs.append(
-            xu.data_space_uwr_from_file(sl_path_base=sl_path_base, data_path=data_path,
-                                        sky_op=sky_dict['sky'], response_op=R, mask_op=mask,
-                                        output_dir_base=tm_directory + f'/{tm_id}_data_space_uwr'))
+            xu.plot_energy_slice_overview(signal_space_uwrs[key], field_name_list=field_name_list,
+                                          file_name=diagnostics_path+f'{key}_signal_space_uwrs_overview.png',
+                                          title='signal_space_uwrs',
+                                          logscale=True)
 
-        noise_weighted_residuals.append(
-            xu.get_noise_weighted_residuals_from_file(sample_list_path=sl_path_base,
-                                                      data_path=data_path,
-                                                      sky_op=sky_dict['sky'], response_op=R,
-                                                      mask_op=mask,
-                                                      output_dir=diagnostics_path,
-                                                      base_filename=f'/tm{tm_id}/{tm_id}_nwr',
-                                                      abs=False,
-                                                      plot_kwargs={
-                                                          'title': 'Noise-weighted residuals',
-                                                          # 'norm': LogNorm()
-                                                      }))
-
-        xu.weighted_residual_distribution(sl_path_base=sl_path_base, data_path=data_path,
-                                          sky_op=sky_dict['sky'], response_op=R, mask_op=mask,
-                                          output_dir_base=tm_directory + f'/{tm_id}_res_distribution')
-
-    xu.signal_space_uwm_from_file(sl_path_base=sl_path_base, sky_op=sky_dict['sky'],
-                                  padder=sky_model.pad,
-                                  output_dir_base=diagnostics_path + '/uwm')
-
-    field_name_list = [f'tm{tm_id}' for tm_id in tm_ids]
-    if mock_run:
-        xu.plot_energy_slice_overview(signal_space_uwrs, field_name_list=field_name_list,
-                                      file_name='signal_space_uwrs.png', title='signal_space_uwrs',
+        xu.plot_energy_slice_overview(data_space_uwrs[key], field_name_list=field_name_list,
+                                      file_name=diagnostics_path + f'{key}_data_space_uwrs_overview.png',
+                                      title='data_space_uwrs',
                                       logscale=True)
 
-    xu.plot_energy_slice_overview(data_space_uwrs, field_name_list=field_name_list,
-                                  file_name=diagnostics_path + 'data_space_uwrs.png',
-                                  title='data_space_uwrs',
-                                  logscale=True)
+        xu.plot_energy_slice_overview(noise_weighted_residuals[key], field_name_list=field_name_list,
+                                      file_name=diagnostics_path + f'{key}_nwr_overview.png',
+                                      title='Noise-weighted residuals', logscale=False)
 
-    xu.plot_energy_slice_overview(noise_weighted_residuals, field_name_list=field_name_list,
-                                  file_name=diagnostics_path + 'nwr_overview.png',
-                                  title='Noise-weighted residuals', logscale=False)
