@@ -21,6 +21,10 @@ args = parser.parse_args()
 if __name__ == "__main__":
     config_filename = args.config
     cfg = xu.get_cfg(config_filename)
+
+    ift.set_nthreads(cfg["threads"])
+    print("Set the number of FFT-Threads to:", ift.nthreads())
+
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])  # FIXME USE DISTANCES!
     mock_run = cfg['mock']

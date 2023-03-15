@@ -1,4 +1,5 @@
 seed: 86
+threads: 8
 mock: False
 point_source_defaults:
   alpha: 1.
@@ -19,7 +20,7 @@ psf:
 
   # LIN config
   npatch: 8
-  margfrac: 0.2
+  margfrac: 0.062
   want_cut: False
 
   # MSC config
