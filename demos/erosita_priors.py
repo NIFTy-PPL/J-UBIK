@@ -1,3 +1,5 @@
+from matplotlib.colors import LogNorm
+
 import xubik0 as xu
 
 if __name__ == '__main__':
@@ -8,4 +10,7 @@ if __name__ == '__main__':
     priors_directory = 'priors/'
 
     path_to_response = True  # decides whether to plot signal response
-    xu.plot_erosita_priors(seed, n_samples, path_to_config, path_to_response, priors_directory)
+
+    kwgs = {'norm': LogNorm(), 'nx': 3}
+    xu.plot_erosita_priors(seed, n_samples, path_to_config, path_to_response, priors_directory,
+                           plotting_kwargs=kwgs)
