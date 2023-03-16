@@ -5,9 +5,10 @@ import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, SymLogNorm
-from .utils import get_data_domain
+from .utils import get_data_domain, get_cfg
+from ..library.sky_models import SkyModel
+from ..library.erosita_response import load_erosita_response
 from ..library.chandra_observation import ChandraObservationInformation
-import astropy as ao
 
 
 def plot_slices(field, outname, logscale=False):
@@ -317,3 +318,82 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
             plt.close()
     else:
         raise NotImplementedError
+
+
+def plot_erosita_priors(seed, n_samples, config_path, response_path, priors_dir,
+                        plotting_kwargs=None):
+    cfg = get_cfg(config_path) # load config
+
+    if plotting_kwargs is None:
+        plotting_kwargs = {}
+
+    if response_path is not None:
+        resp_dict = load_erosita_response(config_path, priors_dir)
+
+    sky_dict = SkyModel(config_path).create_sky_model()
+    sky, power_spectrum = sky_dict['sky'], sky_dict['pspec']
+
+    if 'point_sources' in sky_dict.keys():
+        point_sources = sky_dict['point_sources']
+        diffuse = sky_dict['diffuse']
+
+    # Loads random seed for mock positions
+    ift.random.push_sseq_from_seed(seed)
+    positions = []
+    for sample in range(n_samples):
+        positions.append(ift.from_random(sky.domain))
+
+    if 'point_sources' in sky_dict.keys():
+        p1 = ift.Plot()
+        p2 = ift.Plot()
+    p3 = ift.Plot()
+
+    for pos in positions:
+        if 'point_sources' in sky_dict.keys():
+            p1.add(point_sources.force(pos), n_samples=n_samples, norm=LogNorm(), **plotting_kwargs)
+            p2.add(diffuse.force(pos), n_samples=n_samples, norm=LogNorm(), **plotting_kwargs)
+        p3.add(sky(pos), n_samples=n_samples, norm=LogNorm(), **plotting_kwargs)
+
+    p1.output(name=priors_dir + 'priors_point_sources.png', title='Point sources priors')
+    p2.output(name=priors_dir + 'priors_diffuse.png', title='Diffuse priors')
+    p3.output(name=priors_dir + 'priors_sky.png', title='Sky priors')
+    print(f'Prior signal saved in {priors_dir}.')
+
+    if response_path is not None:  # FIXME: when R will be pickled, load from file
+        if 'point_sources' in sky_dict.keys():
+            p1 = ift.Plot()
+            p2 = ift.Plot()
+        p3 = ift.Plot()
+
+        base_filename = 'sr{}_priors_{}.png'
+        tm_ids = cfg['telescope']['tm_ids']
+
+        for tm_id in tm_ids:
+            tm_key = f'tm_{tm_id}'
+
+            R = resp_dict[tm_key]['mask'].adjoint @ resp_dict[tm_key]['R']
+            if 'point_sources' in sky_dict.keys():
+                point_sources_response = R @ point_sources
+                diffuse_response = R @ diffuse
+            sky_response = R @ sky
+
+            for pos in positions:
+                if 'point_sources' in sky_dict.keys():
+                    p1.add(point_sources_response.force(pos),
+                           title=f'Point sources response tm {tm_id}',
+                           norm=LogNorm(),
+                           **plotting_kwargs)
+                    p2.add(diffuse_response.force(pos), title=f'Diffuse response tm {tm_id}',
+                           norm=LogNorm(),
+                           **plotting_kwargs)
+                p3.add(sky_response(pos), title=f'Sky response tm{tm_id}', norm=LogNorm(),
+                       **plotting_kwargs)
+
+            res_path = priors_dir + f'tm{tm_id}/'
+            filename = res_path + base_filename
+            if 'point_sources' in sky_dict.keys():
+                p1.output(name=filename.format(tm_id, 'point_sources'),
+                          title='Point sources signal response')
+                p2.output(name=filename.format(tm_id, 'diffuse'), title='Diffuse signal response')
+            p3.output(name=filename.format(tm_id, 'sky'), title='Sky signal response')
+            print(f'Signal response for tm {tm_id} saved as {filename.format(tm_id, "XX")}.')
