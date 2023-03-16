@@ -50,7 +50,7 @@ if __name__ == "__main__":
     data_space_uwrs = []
     noise_weighted_residuals = []
 
-    response_dict = xu.get_erosita_response(config_file, diagnostics_path)
+    response_dict = xu.load_erosita_response(config_file, diagnostics_path)
     for tm_id in tm_ids:
         # Path
         tm_directory = xu.create_output_directory(os.path.join(diagnostics_path, f'tm{tm_id}/'))
@@ -76,7 +76,8 @@ if __name__ == "__main__":
             padded_exposure_field = sky_model.pad(exposure_field)
             exposure_op = ift.makeOp(padded_exposure_field)
             mask = xu.get_mask_operator(exposure_field)
-            R = response_dict[f'R_{tm_id}']
+            tm_key = f'tm_{tm_id}'
+            R = response_dict[tm_key]['R']
 
         else:
             raise NotImplementedError

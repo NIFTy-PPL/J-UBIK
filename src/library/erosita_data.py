@@ -9,7 +9,7 @@ from .sky_models import SkyModel
 from .utils import get_cfg, create_output_directory, generate_mock_setup
 
 
-def get_erosita_data(config_filename, output_directory, diagnostics_directory, response_dict):
+def load_erosita_data(config_filename, output_directory, diagnostics_directory, response_dict):
     cfg = get_cfg(config_filename)
 
     # Mock info
@@ -52,8 +52,11 @@ def get_erosita_data(config_filename, output_directory, diagnostics_directory, r
         tm_directory = create_output_directory(os.path.join(diagnostics_directory, f'tm{tm_id}'))
         output_filename = f'{tm_id}_' + file_info['output']
 
+        tm_key = f'tm_{tm_id}'
+        response_subdict = response_dict[tm_key]
+
         # Load mask
-        mask = response_dict[f'mask_{tm_id}']
+        mask = response_subdict[f'mask']
 
         if mock_run:
             ift.random.push_sseq_from_seed(cfg['seed'])
@@ -63,11 +66,11 @@ def get_erosita_data(config_filename, output_directory, diagnostics_directory, r
                 # FIXME: Put Mockdata to a better place
                 with open(diagnostics_directory + f'/tm{tm_id}_mock_sky_data.pkl', "rb") as f:
                     mock_data = pickle.load(f)
-                data_dict[tm_id] = mock_data
+                data_dict[tm_key] = mock_data
             else:
                 # Load response
-                conv_op = response_dict[f'convolution_op_{tm_id}']
-                exposure_op = response_dict[f'exposure_op_{tm_id}']
+                conv_op = response_subdict[f'convolution_op']
+                exposure_op = response_subdict[f'exposure_op']
                 exposure_field = exposure_op(ift.full(exposure_op.target, 1.))  # FIXME: check
                 mock_data_dict = generate_mock_setup(sky_model, conv_op,
                                                      mock_sky_position,
@@ -75,22 +78,22 @@ def get_erosita_data(config_filename, output_directory, diagnostics_directory, r
                                                      sky_model.pad, tm_id,
                                                      output_directory=output_directory)
                 mock_data = mock_data_dict['mock_data_sky']
-                data_dict[tm_id] = mock_data
+                data_dict[tm_key] = mock_data
 
             # Mask mock data
             masked_data = mask(mock_data)
-            masked_data_dict[tm_id] = masked_data
+            masked_data_dict[tm_key] = masked_data
 
         else:
             observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
             data = observation_instance.load_fits_data(output_filename)[0].data
             data = np.array(data, dtype=int)
             data = ift.makeField(sky_model.position_space, data)
-            data_dict[tm_id] = data
+            data_dict[tm_key] = data
             with open(tm_directory + f"/tm{tm_id}_data.pkl", "wb") as f:
                 pickle.dump(data, f)
             masked_data = mask(data)
-            masked_data_dict[tm_id] = masked_data
+            masked_data_dict[tm_key] = masked_data
 
         # Print Exposure norm
         # norm = xu.get_norm(exposure, data)

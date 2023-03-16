@@ -12,7 +12,7 @@ from .utils import get_cfg, create_output_directory, get_gaussian_psf, get_fft_p
     get_mask_operator
 
 
-def get_erosita_response(config_filename, diagnostics_directory):
+def load_erosita_response(config_filename, diagnostics_directory):
     cfg = get_cfg(config_filename)
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])  # FIXME USE DISTANCES!
@@ -50,6 +50,10 @@ def get_erosita_response(config_filename, diagnostics_directory):
         output_filename = f'{tm_id}_' + file_info['output']
         exposure_filename = f'{tm_id}_' + file_info['exposure']
         observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
+        # Create subdictionary to store individual tm response
+        tm_key = f'tm_{tm_id}'
+        response_dict[tm_key] = {}
+        response_subdict = response_dict[tm_key]
 
         if not mock_run:
             if not os.path.exists(os.path.join(obs_path, output_filename)):
@@ -120,7 +124,7 @@ def get_erosita_response(config_filename, diagnostics_directory):
                 conv_op = get_fft_psf_op(psf_kernel, sky_dict['sky'])
         else:
             raise NotImplementedError
-        response_dict[f'convolution_op_{tm_id}'] = conv_op
+        response_subdict[f'convolution_op'] = conv_op
 
         # Exposure
         exposure = observation_instance.load_fits_data(exposure_filename)[0].data
@@ -133,14 +137,14 @@ def get_erosita_response(config_filename, diagnostics_directory):
             pickle.dump(exposure_field, f)
         padded_exposure_field = sky_model.pad(exposure_field)
         exposure_op = ift.makeOp(padded_exposure_field)
-        response_dict[f'exposure_op_{tm_id}'] = exposure_op
+        response_subdict[f'exposure_op'] = exposure_op
 
         # Mask
         mask = get_mask_operator(exposure_field)
-        response_dict[f'mask_{tm_id}'] = mask
+        response_subdict[f'mask'] = mask
 
         # Response
         R = mask @ sky_model.pad.adjoint @ exposure_op @ conv_op
-        response_dict[f'R_{tm_id}'] = R
+        response_subdict[f'R'] = R
 
     return response_dict

@@ -1,7 +1,4 @@
-import math
 import os
-import pickle
-import numpy as np
 import argparse
 
 from matplotlib.colors import LogNorm
@@ -57,17 +54,18 @@ if __name__ == "__main__":
     diagnostics_directory = xu.create_output_directory(output_directory + '/diagnostics')
 
     # Load response dictionary
-    response_dict = xu.get_erosita_response(config_filename, diagnostics_directory)
+    response_dict = xu.load_erosita_response(config_filename, diagnostics_directory)
 
     # Load data
-    _, masked_data_dict = xu.get_erosita_data(config_filename, output_directory,
-                                            diagnostics_directory, response_dict)
+    _, masked_data_dict = xu.load_erosita_data(config_filename, output_directory,
+                                               diagnostics_directory, response_dict)
 
     # Set up likelihood
     log_likelihood = None
     for tm_id in cfg['telescope']['tm_ids']:
-        masked_data = masked_data_dict[tm_id]
-        R = response_dict[f'R_{tm_id}']
+        tm_key = f'tm_{tm_id}'
+        masked_data = masked_data_dict[tm_key]
+        R = response_dict[tm_key]['R']
         lh = ift.PoissonianEnergy(masked_data) @ R
         if log_likelihood is None:
             log_likelihood = lh
