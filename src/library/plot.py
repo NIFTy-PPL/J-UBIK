@@ -351,12 +351,18 @@ def plot_erosita_priors(seed, n_samples, config_path, response_path, priors_dir,
         if common_colorbar: # FIXME: not working
             vmin = min(np.min(val[i].val) for i in range(n_samples))
             vmax = max(np.max(val[i].val) for i in range(n_samples))
+            if float(vmin) == 0.:
+                vmin = 1e-18 # to prevent LogNorm throwing errors
         else:
             vmin = vmax = None
         p = ift.Plot()
         for i in range(n_samples):
-            p.add(val[i], vmin=vmin, vmax=vmax, norm=norm(),
-                  title=key + ' prior', **plotting_kwargs)
+            if norm is not None:
+                p.add(val[i], norm=norm(vmin=vmin, vmax=vmax),
+                      title=key + ' prior', **plotting_kwargs)
+            else:
+                p.add(val[i], vmin=vmin, vmax=vmax,
+                      title=key + ' prior', **plotting_kwargs)
             if 'title' in plotting_kwargs:
                 del (plotting_kwargs['title'])
         filename = priors_dir + f'priors_{key}.png'
@@ -383,12 +389,21 @@ def plot_erosita_priors(seed, n_samples, config_path, response_path, priors_dir,
                 if common_colorbar:
                     vmin = min(np.min(val[i].val) for i in range(n_samples))
                     vmax = max(np.max(val[i].val) for i in range(n_samples))
+                    if float(vmin) == 0.:
+                        vmin = 1e-18 # to prevent LogNorm throwing errors
                 else:
                     vmin = vmax = None
+
                 p = ift.Plot()
                 for i in range(n_samples):
-                    p.add(val[i], vmin=vmin, vmax=vmax, norm=norm(),
-                          title=tm_key + ' ' + key + ' prior signal response', **plotting_kwargs)
+                    if norm is not None:
+                        p.add(val[i], norm=norm(vmin=vmin, vmax=vmax),
+                              title=tm_key + ' ' + key + ' prior signal response',
+                              **plotting_kwargs)
+                    else:
+                        p.add(val[i], vmin=vmin, vmax=vmax,
+                              title=tm_key + ' ' + key + ' prior signal response',
+                              **plotting_kwargs)
                     if 'title' in plotting_kwargs:
                         del (plotting_kwargs['title'])
                 res_path = priors_dir + f'tm{tm_id}/'
