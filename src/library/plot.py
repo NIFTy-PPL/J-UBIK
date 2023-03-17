@@ -344,31 +344,12 @@ def plot_erosita_priors(seed, n_samples, config_path, response_path, priors_dir,
         positions.append(ift.from_random(plottable_ops['sky'].domain))
 
     plottable_samples = plottable_ops.copy()
-    for key, val in plottable_samples.items(): # FIXME: refactor into a function
+    for key, val in plottable_samples.items():
         plottable_samples[key] = [val.force(pos) for pos in positions]
 
-    for key, val in plottable_samples.items():
-        if common_colorbar: # FIXME: not working
-            vmin = min(np.min(val[i].val) for i in range(n_samples))
-            vmax = max(np.max(val[i].val) for i in range(n_samples))
-            if float(vmin) == 0.:
-                vmin = 1e-18 # to prevent LogNorm throwing errors
-        else:
-            vmin = vmax = None
-        p = ift.Plot()
-        for i in range(n_samples):
-            if norm is not None:
-                p.add(val[i], norm=norm(vmin=vmin, vmax=vmax),
-                      title=key + ' prior', **plotting_kwargs)
-            else:
-                p.add(val[i], vmin=vmin, vmax=vmax,
-                      title=key + ' prior', **plotting_kwargs)
-            if 'title' in plotting_kwargs:
-                del (plotting_kwargs['title'])
-        filename = priors_dir + f'priors_{key}.png'
-        p.output(name=filename,
-                 **plotting_kwargs)
-        print(f'Prior signal saved as {filename}.')
+    filename_base = priors_dir + 'priors_{}.png'
+    _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
+                          plotting_kwargs, filename_base, ' prior ', 'Prior samples')
 
     if response_path is not None:  # FIXME: when R will be pickled, load from file
         tm_ids = cfg['telescope']['tm_ids']
@@ -385,28 +366,37 @@ def plot_erosita_priors(seed, n_samples, config_path, response_path, priors_dir,
                 SR = R @ val
                 plottable_samples[key] = [SR.force(pos) for pos in positions]
 
-            for key, val in plottable_samples.items():
-                if common_colorbar:
-                    vmin = min(np.min(val[i].val) for i in range(n_samples))
-                    vmax = max(np.max(val[i].val) for i in range(n_samples))
-                    if float(vmin) == 0.:
-                        vmin = 1e-18 # to prevent LogNorm throwing errors
-                else:
-                    vmin = vmax = None
+            res_path = priors_dir + f'tm{tm_id}/'
+            filename = res_path + f'sr_tm_{tm_id}_priors'
+            filename += '_{}.png'
+            _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
+                                  plotting_kwargs, filename, f'tm {tm_id} prior signal response ',
+                                  'Signal response')
 
-                p = ift.Plot()
-                for i in range(n_samples):
-                    if norm is not None:
-                        p.add(val[i], norm=norm(vmin=vmin, vmax=vmax),
-                              title=tm_key + ' ' + key + ' prior signal response',
-                              **plotting_kwargs)
-                    else:
-                        p.add(val[i], vmin=vmin, vmax=vmax,
-                              title=tm_key + ' ' + key + ' prior signal response',
-                              **plotting_kwargs)
-                    if 'title' in plotting_kwargs:
-                        del (plotting_kwargs['title'])
-                res_path = priors_dir + f'tm{tm_id}/'
-                filename = res_path + f'sr{tm_id}_priors_{key}.png'
-                p.output(name=filename, **plotting_kwargs)
-                print(f'Signal response saved as {filename}.')
+
+def _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
+                          plotting_kwargs, filename_base='priors/samples_{}.png',
+                          title_base='', log_base=None):
+    for key, val in plottable_samples.items():
+        if common_colorbar:
+            vmin = min(np.min(val[i].val) for i in range(n_samples))
+            vmax = max(np.max(val[i].val) for i in range(n_samples))
+            if float(vmin) == 0.:
+                vmin = 1e-18  # to prevent LogNorm throwing errors
+        else:
+            vmin = vmax = None
+        p = ift.Plot()
+        for i in range(n_samples):
+            if norm is not None:
+                p.add(val[i], norm=norm(vmin=vmin, vmax=vmax),
+                      title=title_base + key, **plotting_kwargs)
+            else:
+                p.add(val[i], vmin=vmin, vmax=vmax,
+                      title=title_base + key, **plotting_kwargs)
+            if 'title' in plotting_kwargs:
+                del (plotting_kwargs['title'])
+        filename = filename_base.format(key)
+        p.output(name=filename, **plotting_kwargs)
+        if log_base is None:
+            log_base = 'Samples'
+        print(f'{log_base} saved as {filename}.')
