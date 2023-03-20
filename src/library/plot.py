@@ -32,7 +32,7 @@ def plot_slices(field, outname, logscale=False):
     plt.close()
 
 
-def plot_result(field, outname, logscale=False, **args):
+def plot_result(field, outname, logscale=False, title=None, **args):
     fig, ax = plt.subplots(dpi=300, figsize=(11.7, 8.3))
     img = field.val
     half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
@@ -41,6 +41,10 @@ def plot_result(field, outname, logscale=False, **args):
         pltargs["norm"] = LogNorm()
     pltargs.update(**args)
     im = ax.imshow(img, **pltargs)
+    ax.set_xlabel("FOV [arcmin]")
+    ax.set_ylabel("FOV [arcmin]")
+    if title is not None:
+        ax.set_title(title)
     cb = fig.colorbar(im)
     fig.tight_layout()
     if outname != None:
