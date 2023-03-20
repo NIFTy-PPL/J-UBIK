@@ -67,7 +67,7 @@ if __name__ == '__main__':
                     with open(exposure_path, "rb") as f:
                         exposure_field = pickle.load(f)
 
-                joint_mask[exposure_field.val == 0] = 1
+                joint_mask[exposure_field.val != 0] = 0
             joint_mask_field = ift.makeField(exposure_field.domain, joint_mask)
 
             with open(joint_mask_path, 'wb') as f:
