@@ -19,6 +19,8 @@ from .library.erosita_observation import ErositaObservation
 from .library.chandra_observation import ChandraObservationInformation
 from .library.erosita_psf import eROSITA_PSF
 from .library.sky_models import SkyModel
+from .library.erosita_response import load_erosita_response
+from .library.erosita_data import load_erosita_data
 from .library.diagnostics import (signal_space_uwr_from_file,
                                   data_space_uwr_from_file,
                                   signal_space_uwm_from_file,
