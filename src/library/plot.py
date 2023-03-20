@@ -296,7 +296,7 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
                 im = ax[i].imshow(field.val, **pltargs)
                 ax[i].set_title(f'{title}_{field_name_list[i]}')
         fig.tight_layout()
-        fig.savefig(f'{file_name}.png')
+        fig.savefig(f'{file_name}')
         plt.close()
     elif len(domain) == 2:
         for i in range(domain[1].shape[0]):
