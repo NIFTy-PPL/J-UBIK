@@ -137,6 +137,7 @@ def load_erosita_response(config_filename, diagnostics_directory):
             pickle.dump(exposure_field, f)
         padded_exposure_field = sky_model.pad(exposure_field)
         exposure_op = ift.makeOp(padded_exposure_field)
+        response_subdict[f'exposure_field'] = exposure_field
         response_subdict[f'exposure_op'] = exposure_op
 
         # Mask

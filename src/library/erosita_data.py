@@ -70,8 +70,7 @@ def load_erosita_data(config_filename, output_directory, diagnostics_directory, 
             else:
                 # Load response
                 conv_op = response_subdict[f'convolution_op']
-                exposure_op = response_subdict[f'exposure_op']
-                exposure_field = exposure_op(ift.full(exposure_op.target, 1.))  # FIXME: check
+                exposure_field = response_subdict[f'exposure_field']
                 mock_data_dict = generate_mock_setup(sky_model, conv_op,
                                                      mock_sky_position,
                                                      exposure_field,
