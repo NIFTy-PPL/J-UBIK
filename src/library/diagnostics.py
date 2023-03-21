@@ -2,10 +2,11 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+import os
 
 import nifty8 as ift
 
-from .utils import save_rgb_image_to_fits
+from .utils import save_rgb_image_to_fits, get_mask_operator
 from .plot import plot_energy_slices
 
 
@@ -235,6 +236,7 @@ def plot_points_diagnostics(sl_path_base, gt_path, op, op_name, output_path, res
     ax.set_title(f'Fluxes ({op_name}): Ground Truth vs. Reconstruction')
     plt.savefig(os.path.join(output_path, f'{op_name}_flux_diagnostics.png'))
     plt.close()
+
 
 def signal_space_weighted_residual_distribution(sl_path_base,
                                    ground_truth_path,

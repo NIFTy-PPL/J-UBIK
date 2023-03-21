@@ -83,16 +83,6 @@ if __name__ == "__main__":
         else:
             raise NotImplementedError
         for key, op in sky_dict.items():
-            if mock_run:
-                ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')
-                signal_space_uwrs[key].append(
-                    xu.signal_space_uwr_from_file(sl_path_base=sl_path_base,
-                                                  ground_truth_path=ground_truth_path,
-                                                  sky_op=op,
-                                                  padder=sky_model.pad,
-                                                  output_dir_base=os.path.join(tm_directory,
-                                                                               key,
-                                                                               f'{tm_id}_signal_space_uwr')))
             data_space_uwrs[key].append(
                 xu.data_space_uwr_from_file(sl_path_base=sl_path_base, data_path=data_path,
                                             sky_op=op, response_op=R, mask_op=mask,
@@ -112,27 +102,34 @@ if __name__ == "__main__":
                                                             # 'norm': LogNorm()
                                                           }))
 
-            xu.weighted_residual_distribution(sl_path_base=sl_path_base, data_path=data_path,
-                                            sky_op=op, response_op=R, mask_op=mask,
-                                            output_dir_base=os.path.join(tm_directory,
-                                                                         key, f'{tm_id}_res_distribution'))
-            if mock_run:
-                xu.signal_space_weighted_residual_distribution(sl_path_base=sl_path_base,
-                                                               ground_truth_path=ground_truth_path,
-                                                               sky_op=op,
-                                                               padder=sky_model.pad,
-                                                               output_dir_base=tm_directory + f'/{tm_id}_res_distribution_sp_{key}',
-                                                               title='Uncertainty Weighted Signal residuals')
+        xu.weighted_residual_distribution(sl_path_base=sl_path_base, data_path=data_path,
+                                          sky_op=sky_dict['sky'], response_op=R, mask_op=mask,
+                                          output_dir_base=tm_directory + f'/{tm_id}_res_distribution',
+                                          title='Uncertainty Weighted Signal residuals')
+
+
     for key, op in sky_dict.items():
         xu.signal_space_uwm_from_file(sl_path_base=sl_path_base, sky_op=op,
                                       padder=sky_model.pad,
                                       output_dir_base=diagnostics_path + f'/uwm_{key}')
         field_name_list = [f'tm{tm_id}' for tm_id in tm_ids]
         if mock_run:
-            xu.plot_energy_slice_overview(signal_space_uwrs[key], field_name_list=field_name_list,
-                                          file_name=diagnostics_path+f'{key}_signal_space_uwrs_overview.png',
-                                          title='signal_space_uwrs',
-                                          logscale=True)
+            ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')
+            signal_space_uwrs[key].append(
+                xu.signal_space_uwr_from_file(sl_path_base=sl_path_base,
+                                              ground_truth_path=ground_truth_path,
+                                              sky_op=op,
+                                              padder=sky_model.pad,
+                                              output_dir_base=os.path.join(diagnostics_path,
+                                                                           f'signal_space_uwr_{key}')))
+            xu.signal_space_weighted_residual_distribution(sl_path_base=sl_path_base,
+                                                           ground_truth_path=ground_truth_path,
+                                                           sky_op=sky_dict[key],
+                                                           padder=sky_model.pad,
+                                                           output_dir_base=diagnostics_path + f'/{tm_id}_res_distribution_sp_{key}',
+                                                           title='Uncertainty Weighted Signal residuals')
+
+
             if key == 'sky':
                 levels = [10, 100, 500]
                 xlim = (0.000005, 0.003)
