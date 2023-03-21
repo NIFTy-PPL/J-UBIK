@@ -170,6 +170,72 @@ def weighted_residual_distribution(sl_path_base,
     return wgt_res
 
 
+def plot_points_diagnostics(sl_path_base, gt_path, op, op_name, output_path, response_dict, bins,
+                            x_lim, y_lim, levels):
+    """ Plots distribution of reconstructed flux vs actual flux.
+    ! This is thus only applicable for mock reconstructions
+    Args:
+        sl_path_base: path base to `nifty8.ResidualSampleList` posterior samples.
+        gt_path: path to ground_truth of component
+        op: `nifty8.Operator`, component of sky operator
+        op_name: name of the operator compared
+        output_path: saving path
+        response_dict: xu.response_dict of mock reconstruction (mask, exposure_op, R)
+        bins: number of bins for 2Dhist
+        x_lim: limits of x_axis of plot
+        y_lim: limits of y_axis of plot
+        levels: levels of contours
+
+    Returns:
+        Noise-weighted residuals plots in .fits and .png format
+    """
+    sl = ift.ResidualSampleList.load(sl_path_base)
+    with open(gt_path, "rb") as f:
+        gt = pickle.load(f)
+    if gt.domain != op.target:
+        raise ValueError(f'Ground truth domain and operator target do not fit together:'
+                         f'Ground truth: {gt.domain}. op: {op.target}')
+    full_exposure = None
+    for key, dict in response_dict.items():
+        if full_exposure is None:
+            full_exposure = dict['exposure_op'](ift.full(dict['exposure_op'].target, 1.))
+        else:
+            full_exposure = full_exposure + dict['exposure_op'](ift.full(dict['exposure_op'].target, 1.))
+    mask = get_mask_operator(full_exposure)
+    gt_1d_array = mask(gt).val.flatten()
+    mean, var = sl.sample_stat(op)
+    rec_1d_array = mask(mean).val.flatten()
+
+    x_bins = np.logspace(np.log(np.min(gt_1d_array)), np.log(np.max(gt_1d_array)), bins)
+    y_bins = np.logspace(np.log(np.min(rec_1d_array)), np.log(np.max(rec_1d_array)), bins)
+
+    # Create the 2D histogram
+    fig, ax = plt.subplots()
+    hist = ax.hist2d(gt_1d_array, rec_1d_array, bins=(x_bins, y_bins), cmap=plt.cm.jet, norm=LogNorm())
+
+    # Generate contour lines
+    xedges = hist[1]
+    yedges = hist[2]
+    X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
+    Z = hist[0].T
+    contour = ax.contour(X, Y, Z, levels=levels, colors='white')
+
+    # Add a colorbar
+    cbar = fig.colorbar(hist[3], ax=ax)
+
+    # Add line for comparison
+    ax.plot(x_bins, x_bins, color='black')
+
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('$I_{gt}$')
+    ax.set_ylabel('$I_{rec}$')
+    ax.set_xlim(x_lim)
+    ax.set_ylim(y_lim)
+    ax.set_title(f'Fluxes ({op_name}): Ground Truth vs. Reconstruction')
+    plt.savefig(os.path.join(output_path, f'{op_name}_flux_diagnostics.png'))
+    plt.close()
+
 def signal_space_weighted_residual_distribution(sl_path_base,
                                    ground_truth_path,
                                    sky_op,
@@ -192,3 +258,7 @@ def signal_space_weighted_residual_distribution(sl_path_base,
     plt.savefig(fname=output_dir_base + '.png')
     plt.close()
     return wgt_res
+
+
+
+

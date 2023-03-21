@@ -133,6 +133,15 @@ if __name__ == "__main__":
                                           file_name=diagnostics_path+f'{key}_signal_space_uwrs_overview.png',
                                           title='signal_space_uwrs',
                                           logscale=True)
+            if key == 'sky':
+                levels = [10, 100, 500]
+                xlim = (0.000005, 0.003)
+                ylim = (0.000004, 0.003)
+                bins = 300
+                ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')
+                xu.plot_points_diagnostics(sl_path_base, ground_truth_path, sky_dict[key], key,
+                                           diagnostics_path, response_dict, bins=bins,
+                                           x_lim=xlim, y_lim=ylim, levels=levels)
 
         xu.plot_energy_slice_overview(data_space_uwrs[key], field_name_list=field_name_list,
                                       file_name=diagnostics_path + f'{key}_data_space_uwrs_overview.png',
