@@ -676,7 +676,6 @@ def generate_mock_setup(sky_model, psf_op, mock_sky_position, exposure=None, pad
                                                        mock_sky_position,
                                                        exposure=exposure,
                                                        padder=pad) for key, value in conv_sky_dict.items()}
-
     # Prepare output dictionary
     mock_sky_dict = {}
     for key, val in sky_dict.items():
