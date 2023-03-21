@@ -680,7 +680,8 @@ def generate_mock_setup(sky_model, psf_op, mock_sky_position, exposure=None, pad
     # Prepare output dictionary
     mock_sky_dict = {}
     for key, val in sky_dict.items():
-        mock_sky_dict['mock_'+key] = val.force(mock_sky_position)
+        op = pad.adjoint @ val
+        mock_sky_dict['mock_'+key] = op.force(mock_sky_position)
 
     if mpi_master and output_directory is not None:
         p = ift.Plot()
