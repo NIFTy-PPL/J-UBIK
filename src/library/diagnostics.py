@@ -174,7 +174,6 @@ def signal_space_weighted_residual_distribution(sl_path_base,
                                    ground_truth_path,
                                    sky_op,
                                    padder,
-                                   mask_op,
                                    bins=200,
                                    output_dir_base=None,
                                    title='Weighted signal space residuals'):
@@ -182,7 +181,7 @@ def signal_space_weighted_residual_distribution(sl_path_base,
         gt = pickle.load(f)
     sl = ift.ResidualSampleList.load(sl_path_base)
     wgt_res = get_uncertainty_weighted_measure(sl, sky_op, reference=gt, padder=padder,
-                                               output_dir_base=None, mask_op=mask_op, title=title)
+                                               output_dir_base=None, title=title)
     res = wgt_res.val.reshape(-1)
     _, edges = np.histogram(np.log10(res+1e-30), bins=bins)
 
