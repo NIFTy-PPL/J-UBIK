@@ -108,7 +108,7 @@ def signal_space_uwr_from_file(sl_path_base,
     sl = ift.ResidualSampleList.load(sl_path_base)
     with open(ground_truth_path, "rb") as f:
         gt = pickle.load(f)
-    wgt_res = get_uncertainty_weighted_measure(sl, sky_op, gt, output_dir_base,
+    wgt_res = get_uncertainty_weighted_measure(sl, sky_op, gt, output_dir_base, padder=padder,
                                                title=title)
     return wgt_res
 
@@ -160,6 +160,31 @@ def weighted_residual_distribution(sl_path_base,
 
     # pl.hist(data, bins=np.logspace(np.log10(1e-10), np.log10(1.0), 50))
     # pl.gca().set_xscale("log")
+
+    plt.hist(np.log10(res+1e-30), edges[0:])
+    # plt.xscale('log')
+    plt.yscale('log')
+    plt.title(title)
+    plt.savefig(fname=output_dir_base + '.png')
+    plt.close()
+    return wgt_res
+
+
+def signal_space_weighted_residual_distribution(sl_path_base,
+                                   ground_truth_path,
+                                   sky_op,
+                                   padder,
+                                   mask_op,
+                                   bins=200,
+                                   output_dir_base=None,
+                                   title='Weighted signal space residuals'):
+    with open(ground_truth_path, "rb") as f:
+        gt = pickle.load(f)
+    sl = ift.ResidualSampleList.load(sl_path_base)
+    wgt_res = get_uncertainty_weighted_measure(sl, sky_op, reference=gt, padder=padder,
+                                               output_dir_base=None, mask_op=mask_op, title=title)
+    res = wgt_res.val.reshape(-1)
+    _, edges = np.histogram(np.log10(res+1e-30), bins=bins)
 
     plt.hist(np.log10(res+1e-30), edges[0:])
     # plt.xscale('log')

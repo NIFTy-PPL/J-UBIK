@@ -52,6 +52,24 @@ def plot_result(field, outname, logscale=False, title=None, **args):
         fig.savefig(outname)
     plt.close()
 
+def plot_results(field_list, title_list, outname, logscale=False, ncols=3, nrows=1, cbar_shrink=1.0, **args):
+    fig, ax = plt.subplots(ncols=ncols, nrows=nrows, dpi=300, figsize=(11.7, 8.3))
+    ax = ax.ravel()
+    for i, field in enumerate(field_list):
+        img = field.val
+        half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
+        pltargs = {"origin": "lower", "cmap": "viridis", "extent": [-half_fov, half_fov] * 2}
+        if logscale == True:
+            pltargs["norm"] = LogNorm()
+        pltargs.update(**args)
+        im = ax[i].imshow(img, **pltargs)
+        cb = fig.colorbar(im, ax=ax[i], shrink=cbar_shrink)
+        ax[i].set_axis_off()  # remove axis lines and labels
+        ax[i].set_title(title_list[i])
+        fig.tight_layout()  # center the images
+    if outname != None:
+        fig.savefig(outname, bbox_inches='tight', pad_inches=0)
+    plt.close()
 
 def plot_fused_data(obs_info, img_cfg, obslist, outroot, center=None):
     grid = img_cfg["grid"]

@@ -116,6 +116,13 @@ if __name__ == "__main__":
                                             sky_op=op, response_op=R, mask_op=mask,
                                             output_dir_base=os.path.join(tm_directory,
                                                                          key, f'{tm_id}_res_distribution'))
+            if mock_run:
+                xu.signal_space_weighted_residual_distribution(sl_path_base=sl_path_base,
+                                                               ground_truth_path=ground_truth_path,
+                                                               sky_op=op,
+                                                               padder=sky_model.pad,
+                                                               output_dir_base=tm_directory + f'/{tm_id}_res_distribution_sp_{key}',
+                                                               title='Uncertainty Weighted Signal residuals')
     for key, op in sky_dict.items():
         xu.signal_space_uwm_from_file(sl_path_base=sl_path_base, sky_op=op,
                                       padder=sky_model.pad,
