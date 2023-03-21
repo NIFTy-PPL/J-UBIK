@@ -5,9 +5,10 @@ import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, SymLogNorm
-from .utils import get_data_domain
+from .utils import get_data_domain, get_cfg, create_output_directory
+from ..library.sky_models import SkyModel
+from ..library.erosita_response import load_erosita_response
 from ..library.chandra_observation import ChandraObservationInformation
-import astropy as ao
 
 
 def plot_slices(field, outname, logscale=False):
@@ -317,3 +318,85 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
             plt.close()
     else:
         raise NotImplementedError
+
+
+def plot_erosita_priors(seed, n_samples, config_path, response_path, priors_dir,
+                        plotting_kwargs=None, common_colorbar=False):
+    priors_dir = create_output_directory(priors_dir)
+    cfg = get_cfg(config_path)  # load config
+
+    if plotting_kwargs is None:
+        plotting_kwargs = {}
+
+    if 'norm' in plotting_kwargs:
+        norm = plotting_kwargs.pop('norm')
+        norm = type(norm)
+    else:
+        norm = None
+
+    sky_dict = SkyModel(config_path).create_sky_model()
+    plottable_ops = sky_dict.copy()
+
+    # Loads random seed for mock positions
+    ift.random.push_sseq_from_seed(seed)
+    positions = []
+    for sample in range(n_samples):
+        positions.append(ift.from_random(plottable_ops['sky'].domain))
+
+    plottable_samples = plottable_ops.copy()
+    for key, val in plottable_samples.items():
+        plottable_samples[key] = [val.force(pos) for pos in positions]
+
+    filename_base = priors_dir + 'priors_{}.png'
+    _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
+                          plotting_kwargs, filename_base, ' prior ', 'Prior samples')
+
+    if response_path is not None:  # FIXME: when R will be pickled, load from file
+        tm_ids = cfg['telescope']['tm_ids']
+        plottable_ops.pop('pspec')
+
+        resp_dict = load_erosita_response(config_path, priors_dir)
+
+        for tm_id in tm_ids:
+            tm_key = f'tm_{tm_id}'
+            R = resp_dict[tm_key]['mask'].adjoint @ resp_dict[tm_key]['R']
+            plottable_samples = {}
+
+            for key, val in plottable_ops.items():
+                SR = R @ val
+                plottable_samples[key] = [SR.force(pos) for pos in positions]
+
+            res_path = priors_dir + f'tm{tm_id}/'
+            filename = res_path + f'sr_tm_{tm_id}_priors'
+            filename += '_{}.png'
+            _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
+                                  plotting_kwargs, filename, f'tm {tm_id} prior signal response ',
+                                  'Signal response')
+
+
+def _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
+                          plotting_kwargs, filename_base='priors/samples_{}.png',
+                          title_base='', log_base=None):
+    for key, val in plottable_samples.items():
+        if common_colorbar:
+            vmin = min(np.min(val[i].val) for i in range(n_samples))
+            vmax = max(np.max(val[i].val) for i in range(n_samples))
+            if float(vmin) == 0.:
+                vmin = 1e-18  # to prevent LogNorm throwing errors
+        else:
+            vmin = vmax = None
+        p = ift.Plot()
+        for i in range(n_samples):
+            if norm is not None:
+                p.add(val[i], norm=norm(vmin=vmin, vmax=vmax),
+                      title=title_base + key, **plotting_kwargs)
+            else:
+                p.add(val[i], vmin=vmin, vmax=vmax,
+                      title=title_base + key, **plotting_kwargs)
+            if 'title' in plotting_kwargs:
+                del (plotting_kwargs['title'])
+        filename = filename_base.format(key)
+        p.output(name=filename, **plotting_kwargs)
+        if log_base is None:
+            log_base = 'Samples'
+        print(f'{log_base} saved as {filename}.')
