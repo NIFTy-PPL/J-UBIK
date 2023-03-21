@@ -116,7 +116,7 @@ class eROSITA_PSF():
             theta_list = [f[i].header["CBD10001"] for i in range(len(f))]
         return theta_list
 
-    def _cutnorm(self, psf, lower_cut=1E-5, want_frac=False):
+    def _cutnorm(self, psf, lower_cut=1E-6, want_frac=False):
         if len(psf.shape) != 2:
             raise ValueError
         if want_frac:
@@ -139,7 +139,7 @@ class eROSITA_PSF():
             "dpix": self._load_pix_size()}
         return full_dct
 
-    def plot_psfs(self, lower_cut=1E-5):
+    def plot_psfs(self, outroot='', lower_cut=1E-6):
         """plots the psfs in the fits file"""
         name = self._load_names()
         psf = self._load_data_full()
@@ -156,13 +156,13 @@ class eROSITA_PSF():
             axs.set_xlabel('[arcsec]')
             axs.set_ylabel('[arcsec]')
             fig.colorbar(mappable=im)
-            plt.savefig(f'psf_{j[0]}.png')
+            plt.savefig(f'{outroot}/psf_{j[0]}.png')
             plt.clf
             plt.close()
 
-    def _get_psf_infos(self, energy, pointing_center, lower_cut = 1E-5):
+    def _get_psf_infos(self, energy, pointing_center, lower_cut=1E-6):
         self._check_energy(energy)
-        newpsfs = np.array([self._cutnorm(pp, lower_cut = lower_cut) for pp in 
+        newpsfs = np.array([self._cutnorm(pp, lower_cut=lower_cut) for pp in
                             self._load_data(energy)])
         psf_infos = {'psfs' : newpsfs, 
                      'rs' : self._load_theta(energy), 
