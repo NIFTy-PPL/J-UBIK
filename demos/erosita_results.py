@@ -25,6 +25,8 @@ if __name__ == '__main__':
     cfg_filename_list = [r_path + config_filename for r_path in reconstruction_path_list]
     plottable_field_list = []
 
+    mask_plots = True
+
     for i in range(len(cfg_filename_list)):
         # Config
         cfg = xu.get_cfg(cfg_filename_list[i])
@@ -39,24 +41,39 @@ if __name__ == '__main__':
         sky_model = xu.SkyModel(cfg_filename_list[i])
         sky_dict = sky_model.create_sky_model()
         padder = sky_model.pad
-        response_dict = xu.load_erosita_response(cfg_filename_list[i], diagnostics_path_list[i])
 
-        # Plotting settings
-        join_masks = True
-        if join_masks:
+        joint_mask_filename = "joint_mask.pickle"
+        joint_mask_path = os.path.join(output_path, joint_mask_filename)
+
+        if os.path.exists(joint_mask_path):
+            with open(joint_mask_path, 'rb') as f:
+                joint_mask_field = pickle.load(f)
+
+        else:
+            response_dict = xu.load_erosita_response(cfg_filename_list[i], diagnostics_path_list[i])
+
             # Create joint mask
-            joint_mask = np.ones(sky_model.position_space.shape)
+            joint_mask_field = None
+            joint_mask = np.zeros(sky_model.position_space.shape)
             for tm_id in tm_ids:
                 tm_directory = xu.create_output_directory(
                     os.path.join(diagnostics_path_list[i], f'tm{tm_id}/'))
                 tm_key = f'tm_{tm_id}'
+
                 if exposure_base is not None:
                     exposure_path = tm_directory + f"tm{tm_id}_{exposure_base}"
                     with open(exposure_path, "rb") as f:
                         exposure_field = pickle.load(f)
-                joint_mask[exposure_field.val != 0] = 0
-            joint_mask = ift.MaskOperator(ift.makeField(exposure_field.domain, joint_mask))
 
+                joint_mask[exposure_field.val == 0] = 1
+            joint_mask_field = ift.makeField(exposure_field.domain, joint_mask)
+
+            with open(joint_mask_path, 'wb') as f:
+                pickle.dump(joint_mask_field, f)
+
+        joint_mask = ift.MaskOperator(joint_mask_field)
+
+        if mask_plots:
             masked_sky_dict = sky_dict.copy()
             pspec = masked_sky_dict.pop('pspec')
             for key, val in masked_sky_dict.items():
@@ -64,7 +81,6 @@ if __name__ == '__main__':
 
             masked_sky_dict['pspec'] = pspec
         else:
-            joint_mask = None
             masked_sky_dict = None
 
         # Get result fields to be plotted
@@ -84,11 +100,14 @@ if __name__ == '__main__':
 
     # Plot results
     outname_base = output_path + "final_res_{}_{}.pdf"
+
     if len(plottable_field_list) == 1:
         for key, stat in plottable_field_list[0].items():
-            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'), logscale=True)
-            xu.plot_result(stat['std'], outname_base.format(key, 'std'), logscale=True)
-            print(f'Results saved as {outname_base.format(key, "mean/std")}.')
+            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'), logscale=True, dpi=500,
+                           figsize=None)
+            xu.plot_result(stat['std'], outname_base.format(key, 'std'), logscale=True, dpi=500,
+                           figsize=None)
+            print(f'Results saved as {outname_base.format(key, "stat")} for stat in (mean, std, rel).')
 
     else:
         mean = {}
@@ -103,7 +122,6 @@ if __name__ == '__main__':
         mf_domain = ift.DomainTuple.make((sky_model.position_space, ift.RGSpace(3)))
         sky_field = ift.makeField(mf_domain, sky)
         xu.save_rgb_image_to_fits(sky_field, output_path + "skyRGB_lin.fits", True, True)
-
 
     # Plot power_spectrum FIXME
     # ps_mean, ps_std = sample_list.sample_stat(power_spectrum)
