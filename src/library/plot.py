@@ -342,6 +342,7 @@ def plot_erosita_priors(seed, n_samples, config_path, response_path, priors_dir,
     plottable_ops = sky_dict.copy()
 
     # Loads random seed for mock positions
+    raise NotImplementedError("FIX SEEDS")
     ift.random.push_sseq_from_seed(seed)
     positions = []
     for sample in range(n_samples):

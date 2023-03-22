@@ -59,7 +59,6 @@ def load_erosita_data(config_filename, output_directory, diagnostics_directory, 
         mask = response_subdict[f'mask']
 
         if mock_run:
-            ift.random.push_sseq_from_seed(cfg['seed'])
             print(f"Loading mock data for telescope module {tm_id}.")
             if load_mock_data:
                 # FIXME: name of output folder for diagnostics into config
