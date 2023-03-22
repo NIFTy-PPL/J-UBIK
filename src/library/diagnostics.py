@@ -46,7 +46,7 @@ def get_uncertainty_weighted_measure(sl,
 
 
 def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=None, output_dir=None,
-                                     base_filename='nwr', abs=True, plot_kwargs=None):
+                                     base_filename='nwr', abs=True, plot_kwargs=None, nbins=None):
     """ Computes the Poissonian noise-weighted residuals.
     The form of the residual is :math:`r = \\frac{s-d}{\\sqrt{s}}`, where s is the signal response
     and d the data.
@@ -62,11 +62,18 @@ def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=No
         plot_kwargs: Keyword arguments for plotting.
 
     Returns:
+        Posterior mean noise-weighted residuals
+        Noise-weigthed residuals distribution as a histogram
         Noise-weighted residuals plots in .fits and .png format
 
     """
     _, _, _, mpi_master = ift.utilities.get_MPI_params()
     sc = ift.StatCalculator()
+    if nbins is not None:
+        hist_list = []
+        edges_list = []
+
+
     for sample in sample_list.iterator():
         Rs = op.force(sample)
         nwr = (Rs - reference_data) / Rs.sqrt()
@@ -76,7 +83,17 @@ def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=No
             nwr = mask_op.adjoint(nwr)
         sc.add(nwr)
 
+        if nbins is not None:
+            hist, edges = np.histogram_bin_edges(nwr.val.reshape(-1), bins=nbins, range=(-10.,10.))
+            edges_list.append(edges)
+            hist_list.append(hist)
+
+    print(edges_list)
+    print(hist_list)
+    exit()
+
     nwr_mean = sc.mean
+    edges_mean = np.mean(edges)
 
     if mpi_master is not None and output_dir is not None:
         filename = output_dir + base_filename
