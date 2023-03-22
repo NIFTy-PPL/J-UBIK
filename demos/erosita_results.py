@@ -4,6 +4,8 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import nifty8 as ift
+from matplotlib.colors import LogNorm
+
 import xubik0 as xu
 
 if __name__ == '__main__':
@@ -103,9 +105,9 @@ if __name__ == '__main__':
 
     if len(plottable_field_list) == 1:
         for key, stat in plottable_field_list[0].items():
-            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'), logscale=True, dpi=500,
-                           figsize=None)
-            xu.plot_result(stat['std'], outname_base.format(key, 'std'), logscale=True, dpi=500,
+            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'),
+                           dpi=500, figsize=None, norm=LogNorm(vmin=1.e-5))
+            xu.plot_result(stat['std'], outname_base.format(key, 'std'), dpi=500,
                            figsize=None)
             print(f'Results saved as {outname_base.format(key, "stat")} for stat in (mean, std, rel).')
 
