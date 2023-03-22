@@ -15,16 +15,17 @@ def get_rel_unc(mean, std):
     res = np.zeros(mean.shape)
     mask = mean != 0
     res[mask] = std[mask] / mean[mask]
+    res[~mask] = np.nan
     return ift.makeField(domain, res)
 
 from  matplotlib.colors import LinearSegmentedColormap
-redmap = LinearSegmentedColormap.from_list('kg', ["k", "r"], N=256)
+redmap = LinearSegmentedColormap.from_list('kr', ["k", "darkred", "sandybrown"], N=256)
 greenmap = LinearSegmentedColormap.from_list('kg', ["k", "g", "palegreen"], N=256)
-bluemap = LinearSegmentedColormap.from_list('kg', ["k", "b"], N=256)
+bluemap = LinearSegmentedColormap.from_list('kb', ["k", "b", "paleturquoise"], N=256)
 
 COLOR_DICT = {'red':{'path':'red','config':'red', 'cmap':redmap},
               'green':{'path':'green','config':'blue', 'cmap':greenmap},
-              'blue' :{'path':'blue', 'config':'green','cmap':'gist_heat'}}
+              'blue' :{'path':'blue', 'config':'green','cmap':bluemap}}
 
 if __name__ == '__main__':
     col = 'red'
@@ -126,15 +127,25 @@ if __name__ == '__main__':
 
     if len(plottable_field_list) == 1:
         for key, stat in plottable_field_list[0].items():
-            args = {'norm':LogNorm(vmin=5E-6, vmax=1E-3), 
-                    'cmap': COLOR_DICT[col]['cmap']}
-            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'),
+            args = {'norm': LogNorm(vmin=8E-6, vmax=1E-3), 
+                    'cmap': COLOR_DICT[col]['cmap'],
+                    'title': "Reconstruction"}
+            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'), 
                            **args)
-            xu.plot_result(stat['std'], outname_base.format(key, 'std'), 
-                           norm=LogNorm(vmin=1.e-5))
+            args = {'norm':LogNorm(vmin=5E-6, vmax=1E-3), 
+                    'cmap': 'cividis',
+                    'title': "Absolute uncertainty"}
+            xu.plot_result(stat['std'], outname_base.format(key, 'std'), **args)
+
+            from matplotlib.ticker import FuncFormatter
+            fmt=FuncFormatter(lambda x, pos: '{:.1%}'.format(x))
+            args = {'vmin': 0.05, 
+                    'vmax': 1., 
+                    'cmap': 'cividis',
+                    'title': "Relative uncertainty"}
             xu.plot_result(get_rel_unc(stat['mean'],stat['std']), 
                            outname_base.format(key, 'rel_std'), 
-                           norm=LogNorm(vmin=1.e-5))
+                           cbar_formatter=fmt, **args)
             print(f'Results saved as {outname_base.format(key, "stat")} for stat in (mean, std, rel).')
 
     else:
