@@ -19,6 +19,7 @@ if __name__ == "__main__":
     # Load config file
     config_filename = args.config
     cfg = xu.get_cfg(config_filename)
+    ift.random.push_sseq_from_seed(cfg['seed'])
 
     # Mock reconstruction setup
     mock_run = cfg['mock']
