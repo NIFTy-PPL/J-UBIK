@@ -33,7 +33,7 @@ def plot_slices(field, outname, logscale=False):
     plt.close()
 
 
-def plot_result(field, outname, logscale=False, title=None, **args):
+def plot_result(field, outname, logscale=False, title=None, colorbar=True, **args):
     fig, ax = plt.subplots(dpi=300, figsize=(11.7, 8.3))
     img = field.val
     half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
@@ -45,14 +45,16 @@ def plot_result(field, outname, logscale=False, title=None, **args):
     ax.set_xlabel("FOV [arcmin]")
     ax.set_ylabel("FOV [arcmin]")
     if title is not None:
-        ax.set_title(title)
-    cb = fig.colorbar(im)
+        ax.set_title(title, fontsize=30)
+    if colorbar:
+        cb = fig.colorbar(im)
     fig.tight_layout()
     if outname != None:
-        fig.savefig(outname)
+        fig.savefig(outname, bbox_inches='tight', pad_inches=0)
     plt.close()
 
-def plot_results(field_list, title_list, outname, logscale=False, ncols=3, nrows=1, cbar_shrink=1.0, **args):
+
+def plot_results(field_list, title_list, outname, logscale=False, ncols=3, nrows=1, cbar_shrink=1.0, pltargs_list=None):
     fig, ax = plt.subplots(ncols=ncols, nrows=nrows, dpi=300, figsize=(11.7, 8.3))
     ax = ax.ravel()
     for i, field in enumerate(field_list):
@@ -61,7 +63,7 @@ def plot_results(field_list, title_list, outname, logscale=False, ncols=3, nrows
         pltargs = {"origin": "lower", "cmap": "viridis", "extent": [-half_fov, half_fov] * 2}
         if logscale == True:
             pltargs["norm"] = LogNorm()
-        pltargs.update(**args)
+        pltargs.update(**pltargs_list[i])
         im = ax[i].imshow(img, **pltargs)
         cb = fig.colorbar(im, ax=ax[i], shrink=cbar_shrink)
         ax[i].set_axis_off()  # remove axis lines and labels
@@ -360,7 +362,6 @@ def plot_erosita_priors(seed, n_samples, config_path, response_path, priors_dir,
     plottable_ops = sky_dict.copy()
 
     # Loads random seed for mock positions
-    raise NotImplementedError("FIX SEEDS")
     ift.random.push_sseq_from_seed(seed)
     positions = []
     for sample in range(n_samples):

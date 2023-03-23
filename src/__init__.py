@@ -26,7 +26,8 @@ from .library.diagnostics import (signal_space_uwr_from_file,
                                   signal_space_uwm_from_file,
                                   weighted_residual_distribution,
                                   get_noise_weighted_residuals_from_file,
-                                  plot_points_diagnostics,
+                                  plot_lambda_diagnostics,
+                                  plot_sky_flux_diagnostics,
                                   signal_space_weighted_residual_distribution)
 from .operators.convolution_operators import OAConvolver, OAnew, OverlapAdd
 from .operators.convolution_operators import _get_weights

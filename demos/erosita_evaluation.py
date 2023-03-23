@@ -45,10 +45,9 @@ if __name__ == "__main__":
     sky_model = xu.SkyModel(config_file)
     sky_dict = sky_model.create_sky_model()
     sky_dict.pop('pspec')
-    signal_space_uwrs = {key: [] for key, value in sky_dict.items()}
     data_space_uwrs = {key: [] for key, value in sky_dict.items()}
     noise_weighted_residuals = {key: [] for key, value in sky_dict.items()}
-
+    full_exposure = None
     response_dict = xu.load_erosita_response(config_file, diagnostics_path)
     for tm_id in tm_ids:
         # Path
@@ -74,6 +73,10 @@ if __name__ == "__main__":
             print('Not able to load response from file. Generating response from config ...')
             with open(exposure_path, "rb") as f:
                 exposure_field = pickle.load(f)
+            if full_exposure is None:
+                full_exposure =exposure_field
+            else:
+                full_exposure = full_exposure + exposure_field
             padded_exposure_field = sky_model.pad(exposure_field)
             exposure_op = ift.makeOp(padded_exposure_field)
             mask = xu.get_mask_operator(exposure_field)
@@ -101,12 +104,23 @@ if __name__ == "__main__":
                                                             'title': 'Noise-weighted residuals',
                                                             # 'norm': LogNorm()
                                                           }))
+            if mock_run:
+                if key in ['sky', 'diffuse']:
+                    levels = [10, 100, 500]
+                    xlim = (0.02, 170)
+                    ylim = (0.02, 170)
+                    bins = 600
+                    ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')
+                    xu.plot_lambda_diagnostics(sl_path_base, ground_truth_path, sky_dict[key], key,
+                                               os.path.join(tm_directory, f'{key}_diagnostics_path.png'),
+                                               R, bins=bins, x_lim=xlim, y_lim=ylim,
+                                               levels=levels)
 
         xu.weighted_residual_distribution(sl_path_base=sl_path_base, data_path=data_path,
                                           sky_op=sky_dict['sky'], response_op=R, mask_op=mask,
                                           output_dir_base=tm_directory + f'/{tm_id}_res_distribution',
                                           title='Uncertainty Weighted Signal residuals')
-
+        full_mask = xu.get_mask_operator(full_exposure)
 
     for key, op in sky_dict.items():
         xu.signal_space_uwm_from_file(sl_path_base=sl_path_base, sky_op=op,
@@ -115,30 +129,32 @@ if __name__ == "__main__":
         field_name_list = [f'tm{tm_id}' for tm_id in tm_ids]
         if mock_run:
             ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')
-            signal_space_uwrs[key].append(
-                xu.signal_space_uwr_from_file(sl_path_base=sl_path_base,
-                                              ground_truth_path=ground_truth_path,
-                                              sky_op=op,
-                                              padder=sky_model.pad,
-                                              output_dir_base=os.path.join(diagnostics_path,
-                                                                           f'signal_space_uwr_{key}')))
+            xu.signal_space_uwr_from_file(sl_path_base=sl_path_base,
+                                          ground_truth_path=ground_truth_path,
+                                          sky_op=op,
+                                          padder=sky_model.pad,
+                                          mask_op=full_mask,
+                                          output_dir_base=os.path.join(diagnostics_path,
+                                                                       f'signal_space_uwr_{key}'))
             xu.signal_space_weighted_residual_distribution(sl_path_base=sl_path_base,
                                                            ground_truth_path=ground_truth_path,
                                                            sky_op=sky_dict[key],
                                                            padder=sky_model.pad,
-                                                           output_dir_base=diagnostics_path + f'/{tm_id}_res_distribution_sp_{key}',
+                                                           mask_op=full_mask,
+                                                           sample_diag=False,
+                                                           output_dir_base=diagnostics_path + f'/res_distribution_sp_{key}',
                                                            title='Uncertainty Weighted Signal residuals')
 
-
-            if key == 'sky':
+            if key in ['sky']:
                 levels = [10, 100, 500]
-                xlim = (0.000005, 0.003)
-                ylim = (0.000004, 0.003)
-                bins = 300
+                xlim = (0.0000001, 0.003)
+                ylim = (0.0000001, 0.003)
+                bins = 600
                 ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')
-                xu.plot_points_diagnostics(sl_path_base, ground_truth_path, sky_dict[key], key,
-                                           diagnostics_path, response_dict, bins=bins,
-                                           x_lim=xlim, y_lim=ylim, levels=levels)
+                xu.plot_sky_flux_diagnostics(sl_path_base, ground_truth_path, sky_dict[key], key,
+                                             os.path.join(diagnostics_path, f'{key}_flux_diagnostics.png'),
+                                             response_dict, bins=bins,
+                                             x_lim=xlim, y_lim=ylim, levels=levels)
 
         xu.plot_energy_slice_overview(data_space_uwrs[key], field_name_list=field_name_list,
                                       file_name=diagnostics_path + f'{key}_data_space_uwrs_overview.png',
