@@ -34,7 +34,7 @@ def plot_slices(field, outname, logscale=False):
 
 
 def plot_result(field, outname, logscale=False, title=None, colorbar=True, figsize=(11.7, 8.3),
-                dpi=300, **args):
+                dpi=300, cbar_formatter=None, **args):
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     img = field.val
     half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
@@ -48,7 +48,7 @@ def plot_result(field, outname, logscale=False, title=None, colorbar=True, figsi
     if title is not None:
         ax.set_title(title)
     if colorbar:
-        fig.colorbar(im)
+        fig.colorbar(im, format=cbar_formatter)
     fig.tight_layout()
     if outname != None:
         fig.savefig(outname, bbox_inches='tight', pad_inches=0)

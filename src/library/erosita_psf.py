@@ -139,20 +139,29 @@ class eROSITA_PSF():
             "dpix": self._load_pix_size()}
         return full_dct
 
-    def plot_psfs(self, outroot='', lower_cut=1E-6):
+    def plot_psfs(self, outroot='', lower_cut=1E-6, **args):
         """plots the psfs in the fits file"""
         name = self._load_names()
         psf = self._load_data_full()
         theta = self._load_theta_full()
         center = self._load_p_center_full()
         obj = zip(name, psf, theta, center)
+        pltargs = {"origin":"lower", "norm": LogNorm()}
+        pltargs.update(**args)
+        # TODO refactor
         for _, j in enumerate(obj):
             fig, axs = plt.subplots(figsize = (10,10))
             axs.set_title(f"{j[0]} point_source at {j[3]}")
+            npix = np.array(j[1].shape)
+            pix_size = self._load_pix_size()[0]
+            hlf_fov = npix * pix_size / 60 / 2
+            pltargs.update({"extent": [-hlf_fov[0], hlf_fov[0], -hlf_fov[1], hlf_fov[1]]})
             tm, frac = self._cutnorm(j[1], lower_cut=lower_cut, want_frac=True)
             axs.text(10, 450, f"Norm. fraction: {frac}")
-            im = axs.imshow(tm.T, norm=LogNorm(), origin="lower")
-            axs.scatter(j[3][0], j[3][1], marker=".", color='r')
+            im = axs.imshow(tm.T, **pltargs)
+            axs.scatter((j[3][0]*pix_size[0]/60)-half_fov[0],
+                        (j[3][1]*pix_size[1]/60)-half_fov[1],
+                        marker=".", color='r')
             axs.set_xlabel('[arcsec]')
             axs.set_ylabel('[arcsec]')
             fig.colorbar(mappable=im)

@@ -8,16 +8,38 @@ from matplotlib.colors import LogNorm
 
 import xubik0 as xu
 
+
+def get_rel_unc(mean, std):
+    assert mean.domain == std.domain
+    domain = mean.domain
+    mean, std = mean.val, std.val
+    res = np.zeros(mean.shape)
+    mask = mean != 0
+    res[mask] = std[mask] / mean[mask]
+    res[~mask] = np.nan
+    return ift.makeField(domain, res)
+
+
+from  matplotlib.colors import LinearSegmentedColormap
+redmap = LinearSegmentedColormap.from_list('kr', ["k", "darkred", "sandybrown"], N=256)
+greenmap = LinearSegmentedColormap.from_list('kg', ["k", "g", "palegreen"], N=256)
+bluemap = LinearSegmentedColormap.from_list('kb', ["k", "b", "paleturquoise"], N=256)
+
+COLOR_DICT = {'red':{'path':'red','config':'_red', 'cmap':redmap},
+              'green':{'path':'green','config':'_green', 'cmap':greenmap},
+              'blue' :{'path':'blue', 'config':'_blue','cmap':bluemap}}
+
 if __name__ == '__main__':
+    col = 'red'
     # Paths -Set by user
-    output_path = 'final_results/'
+    output_path = f'final_results_{col}/'
     xu.create_output_directory(output_path)
-    reconstruction_path_list = ["results/LMC_red/", "results/LMC_first_blue_llzm_notrans/",
-                                "results/LMC_low_flex/"]  # FIXME filepath
+    reconstruction_path_list = [f"results/LMC_{COLOR_DICT[col]['path']}/",]#["results/LMC_red/", "results/LMC_first_blue_llzm_notrans/",
+                               # "results/LMC_low_flex/"]  # FIXME filepath
     if len(reconstruction_path_list) > 3:
         raise NotImplementedError
     diagnostics_path_list = [r_path + "diagnostics/" for r_path in reconstruction_path_list]
-    config_filename = "eROSITA_config.yaml"
+    config_filename = f"eROSITA_config{COLOR_DICT[col]['config']}.yaml"
     sl_path_base_list = [r_path + "pickle/last" for r_path in
                          reconstruction_path_list]  # NIFTy dependency
     data_base = "data.pkl"
@@ -52,11 +74,12 @@ if __name__ == '__main__':
                 joint_mask_field = pickle.load(f)
 
         else:
-            response_dict = xu.load_erosita_response(cfg_filename_list[i], diagnostics_path_list[i])
+            response_dict = xu.load_erosita_response(cfg_filename_list[i], 
+                                                     diagnostics_path_list[i])
 
             # Create joint mask
             joint_mask_field = None
-            joint_mask = np.zeros(sky_model.position_space.shape)
+            joint_mask = np.ones(sky_model.position_space.shape)
             for tm_id in tm_ids:
                 tm_directory = xu.create_output_directory(
                     os.path.join(diagnostics_path_list[i], f'tm{tm_id}/'))
@@ -67,19 +90,20 @@ if __name__ == '__main__':
                     with open(exposure_path, "rb") as f:
                         exposure_field = pickle.load(f)
 
-                joint_mask[exposure_field.val == 0] = 1
+                joint_mask[exposure_field.val != 0] = 0
             joint_mask_field = ift.makeField(exposure_field.domain, joint_mask)
 
             with open(joint_mask_path, 'wb') as f:
                 pickle.dump(joint_mask_field, f)
 
         joint_mask = ift.MaskOperator(joint_mask_field)
+        joint_mask = joint_mask.adjoint @ joint_mask
 
         if mask_plots:
             masked_sky_dict = sky_dict.copy()
             pspec = masked_sky_dict.pop('pspec')
             for key, val in masked_sky_dict.items():
-                masked_sky_dict[key] = joint_mask.adjoint @ joint_mask @ padder.adjoint @ val
+                masked_sky_dict[key] = joint_mask @ padder.adjoint @ val
 
             masked_sky_dict['pspec'] = pspec
         else:
@@ -101,14 +125,29 @@ if __name__ == '__main__':
         plottable_field_list.append(plottable_fields)
 
     # Plot results
-    outname_base = output_path + "final_res_{}_{}.pdf"
+    outname_base = output_path + "final_res_{}_{}.png"
 
     if len(plottable_field_list) == 1:
         for key, stat in plottable_field_list[0].items():
-            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'),
-                           dpi=500, figsize=None, norm=LogNorm(vmin=1.e-5))
-            xu.plot_result(stat['std'], outname_base.format(key, 'std'), dpi=500,
-                           figsize=None)
+            args = {'norm': LogNorm(vmin=8E-6, vmax=1E-3), 
+                    'cmap': COLOR_DICT[col]['cmap'],
+                    'title': "Reconstruction"}
+            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'), 
+                           **args)
+            args = {'norm':LogNorm(vmin=5E-6, vmax=1E-3), 
+                    'cmap': 'cividis',
+                    'title': "Absolute uncertainty"}
+            xu.plot_result(stat['std'], outname_base.format(key, 'std'), **args)
+
+            from matplotlib.ticker import FuncFormatter
+            fmt=FuncFormatter(lambda x, pos: '{:.1%}'.format(x))
+            args = {'vmin': 0.05, 
+                    'vmax': 1., 
+                    'cmap': 'cividis',
+                    'title': "Relative uncertainty"}
+            xu.plot_result(get_rel_unc(stat['mean'],stat['std']), 
+                           outname_base.format(key, 'rel_std'), 
+                           cbar_formatter=fmt, **args)
             print(f'Results saved as {outname_base.format(key, "stat")} for stat in (mean, std, rel).')
 
     else:
