@@ -10,9 +10,11 @@ from matplotlib.colors import LogNorm
 dir_path = "data/psf_info/"
 fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"]
 
+args = {'cmap': 'BuGn', 'norm': LogNorm(vmin=1E-7, vmax=0.012)}
+
 file = dir_path + fname[0]
 obs = xu.eROSITA_PSF(file)
-obs.plot_psfs("psf_plots")
+obs.plot_psfs("psf_plots", **args)
 
 energy = '3000'
 pointing_center = (1800, 1800)
