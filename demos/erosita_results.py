@@ -8,6 +8,7 @@ from matplotlib.colors import LogNorm
 
 import xubik0 as xu
 
+
 def get_rel_unc(mean, std):
     assert mean.domain == std.domain
     domain = mean.domain
@@ -17,6 +18,7 @@ def get_rel_unc(mean, std):
     res[mask] = std[mask] / mean[mask]
     res[~mask] = np.nan
     return ift.makeField(domain, res)
+
 
 from  matplotlib.colors import LinearSegmentedColormap
 redmap = LinearSegmentedColormap.from_list('kr', ["k", "darkred", "sandybrown"], N=256)
