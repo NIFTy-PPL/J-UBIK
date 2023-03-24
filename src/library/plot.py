@@ -4,7 +4,7 @@ import math
 import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm, SymLogNorm
+from matplotlib.colors import LogNorm
 from .utils import get_data_domain, get_cfg, create_output_directory
 from ..library.sky_models import SkyModel
 from ..library.erosita_response import load_erosita_response
