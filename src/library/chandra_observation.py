@@ -41,7 +41,7 @@ class ChandraObservationInformation():
                          fov is assumed to be the same for y.
         elim (tupel)   : minimum and maximum energy to be considered in keV
         center (tupel) : RA and DEC of the image center, if None the nominal pointing direction will be used
-        energy_ranges (tuple) : energy ranges for energy binning. Default: None, i.e. equal_width bins
+        energy_ranges (tuple) : energy ranges for energy binning. Default: None, i.e. logscale equal_width bins
         chips_off (tuple) : IDs of chips, which are not considered, Default: None, BI-Chips have IDs (5, 7)
         """
 
