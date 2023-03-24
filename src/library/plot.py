@@ -33,8 +33,8 @@ def plot_slices(field, outname, logscale=False):
     plt.close()
 
 
-def plot_result(field, outname, logscale=False, title=None, colorbar=True, **args):
-    fig, ax = plt.subplots(dpi=300, figsize=(11.7, 8.3))
+def plot_result(field, outname, logscale=False, title=None, figsize=(11.7, 8.3), dpi=300, **args):
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     img = field.val
     half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
     pltargs = {"origin": "lower", "cmap": "viridis", "extent": [-half_fov, half_fov] * 2}
@@ -45,9 +45,8 @@ def plot_result(field, outname, logscale=False, title=None, colorbar=True, **arg
     ax.set_xlabel("FOV [arcmin]")
     ax.set_ylabel("FOV [arcmin]")
     if title is not None:
-        ax.set_title(title, fontsize=30)
-    if colorbar:
-        cb = fig.colorbar(im)
+        ax.set_title(title)
+    cb = fig.colorbar(im)
     fig.tight_layout()
     if outname != None:
         fig.savefig(outname, bbox_inches='tight', pad_inches=0)
@@ -72,6 +71,7 @@ def plot_results(field_list, title_list, outname, logscale=False, ncols=3, nrows
     if outname != None:
         fig.savefig(outname, bbox_inches='tight', pad_inches=0)
     plt.close()
+
 
 def plot_fused_data(obs_info, img_cfg, obslist, outroot, center=None):
     grid = img_cfg["grid"]
