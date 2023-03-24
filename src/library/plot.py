@@ -4,7 +4,7 @@ import math
 import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm, SymLogNorm
+from matplotlib.colors import LogNorm
 from .utils import get_data_domain, get_cfg, create_output_directory
 from ..library.sky_models import SkyModel
 from ..library.erosita_response import load_erosita_response
@@ -346,7 +346,7 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
         raise NotImplementedError
 
 
-def plot_erosita_priors(seed, n_samples, config_path, response_path, priors_dir,
+def plot_erosita_priors(n_samples, config_path, response_path, priors_dir,
                         plotting_kwargs=None, common_colorbar=False):
     priors_dir = create_output_directory(priors_dir)
     cfg = get_cfg(config_path)  # load config
@@ -363,8 +363,6 @@ def plot_erosita_priors(seed, n_samples, config_path, response_path, priors_dir,
     sky_dict = SkyModel(config_path).create_sky_model()
     plottable_ops = sky_dict.copy()
 
-    # Loads random seed for mock positions
-    ift.random.push_sseq_from_seed(seed)
     positions = []
     for sample in range(n_samples):
         positions.append(ift.from_random(plottable_ops['sky'].domain))
