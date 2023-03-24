@@ -2,10 +2,11 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+import os
 
 import nifty8 as ift
 
-from .utils import save_rgb_image_to_fits
+from .utils import save_rgb_image_to_fits, get_mask_operator
 from .plot import plot_energy_slices
 
 
@@ -15,7 +16,9 @@ def get_uncertainty_weighted_measure(sl,
                                      output_dir_base=None,
                                      padder=None,
                                      mask_op=None,
-                                     title=''):
+                                     title='',
+                                     abs=True,
+                                     vmax=5):
     mpi_master = ift.utilities.get_MPI_params()[3]
     mean, var = sl.sample_stat(op)
     if mask_op is None:
@@ -23,7 +26,11 @@ def get_uncertainty_weighted_measure(sl,
     if reference is None:
         wgt_res = mean / var.sqrt()
     else:
-        wgt_res = (mean - reference).abs() / var.sqrt()
+        if abs:
+            wgt_res = (mean - reference).abs() / var.sqrt()
+        else:
+            wgt_res = (reference-mean) / var.sqrt()
+
     wgt_res = mask_op.adjoint(wgt_res)
     if padder is None:
         padder = ift.ScalingOperator(domain=wgt_res.domain, factor=1)
@@ -33,8 +40,8 @@ def get_uncertainty_weighted_measure(sl,
             pickle.dump(wgt_res, file)
         save_rgb_image_to_fits(wgt_res, output_dir_base,
                                overwrite=True, MPI_master=mpi_master)
-        plot_energy_slices(wgt_res, file_name=f'{output_dir_base}.png',
-                           title=title, plot_kwargs={'norm': LogNorm()})
+        plt_args = {'cmap': 'seismic', 'vmin': -vmax, 'vmax': vmax}
+        plot_energy_slices(wgt_res, file_name=f'{output_dir_base}.png', **plt_args)
     return wgt_res
 
 
@@ -103,13 +110,16 @@ def signal_space_uwr_from_file(sl_path_base,
                                ground_truth_path,
                                sky_op,
                                padder,
+                               mask_op,
                                output_dir_base=None,
                                title='signal space UWR'):
     sl = ift.ResidualSampleList.load(sl_path_base)
     with open(ground_truth_path, "rb") as f:
         gt = pickle.load(f)
-    wgt_res = get_uncertainty_weighted_measure(sl, sky_op, gt, output_dir_base,
-                                               title=title)
+    wgt_res = get_uncertainty_weighted_measure(sl, mask_op @ padder.adjoint @ sky_op.log(),
+                                               mask_op(padder.adjoint(gt.log())),
+                                               output_dir_base,
+                                               title=title, abs=False, mask_op=mask_op)
     return wgt_res
 
 
@@ -168,3 +178,166 @@ def weighted_residual_distribution(sl_path_base,
     plt.savefig(fname=output_dir_base + '.png')
     plt.close()
     return wgt_res
+
+
+def plot_points_diagnostics(sl_path_base, gt_path, op, op_name, output_path, response_dict, bins,
+                            x_lim, y_lim, levels):
+    """ Plots distribution of reconstructed flux vs actual flux.
+    ! This is thus only applicable for mock reconstructions
+    Args:
+        sl_path_base: path base to `nifty8.ResidualSampleList` posterior samples.
+        gt_path: path to ground_truth of component
+        op: `nifty8.Operator`, component of sky operator
+        op_name: name of the operator compared
+        output_path: saving path
+        response_dict: xu.response_dict of mock reconstruction (mask, exposure_op, R)
+        bins: number of bins for 2Dhist
+        x_lim: limits of x_axis of plot
+        y_lim: limits of y_axis of plot
+        levels: levels of contours
+
+    Returns:
+        Noise-weighted residuals plots in .fits and .png format
+    """
+    sl = ift.ResidualSampleList.load(sl_path_base)
+    with open(gt_path, "rb") as f:
+        gt = pickle.load(f)
+    if gt.domain != op.target:
+        raise ValueError(f'Ground truth domain and operator target do not fit together:'
+                         f'Ground truth: {gt.domain}. op: {op.target}')
+    full_exposure = None
+    for key, dict in response_dict.items():
+        if full_exposure is None:
+            full_exposure = dict['exposure_op'](ift.full(dict['exposure_op'].target, 1.))
+        else:
+            full_exposure = full_exposure + dict['exposure_op'](ift.full(dict['exposure_op'].target, 1.))
+    mask = get_mask_operator(full_exposure)
+    gt_1d_array = mask(gt).val.flatten()
+    mean, var = sl.sample_stat(op)
+    rec_1d_array = mask(mean).val.flatten()
+
+    x_bins = np.logspace(np.log(np.min(gt_1d_array)), np.log(np.max(gt_1d_array)), bins)
+    y_bins = np.logspace(np.log(np.min(rec_1d_array)), np.log(np.max(rec_1d_array)), bins)
+
+    # Create the 2D histogram
+    fig, ax = plt.subplots(dpi=400)
+    hist = ax.hist2d(gt_1d_array, rec_1d_array, bins=(x_bins, y_bins),
+                     cmap=plt.cm.jet, norm=LogNorm())
+
+    # Generate contour lines
+    # xedges = hist[1]
+    # yedges = hist[2]
+    # X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
+    # Z = hist[0].T
+    # contour = ax.contour(X, Y, Z, levels=levels, colors='white')
+
+    # Add a colorbar
+    cbar = fig.colorbar(hist[3], ax=ax)
+
+    # Add line for comparison
+    ax.plot(x_bins, x_bins, color='gray', linewidth=0.5, alpha=0.5)
+
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('$I_{gt}$')
+    ax.set_ylabel('$I_{rec}$')
+    ax.set_xlim(x_lim)
+    ax.set_ylim(y_lim)
+    ax.set_title(f'Fluxes ({op_name}): Ground Truth vs. Reconstruction')
+    plt.savefig(output_path)
+    plt.close()
+
+
+def plot_lambda_diagnostics(sl_path_base, gt_path, op, op_name, output_path, response_op, bins,
+                            x_lim, y_lim, levels):
+    """ Plots distribution of reconstructed lambda va. actual lambda
+    ! This is thus only applicable for mock reconstructions
+    Args:
+        sl_path_base: path base to `nifty8.ResidualSampleList` posterior samples.
+        gt_path: path to ground_truth of component
+        op: `nifty8.Operator`, component of sky operator
+        op_name: name of the operator compared
+        output_path: saving path
+        response_dict: xu.response_dict of mock reconstruction (mask, exposure_op, R)
+        bins: number of bins for 2Dhist
+        x_lim: limits of x_axis of plot
+        y_lim: limits of y_axis of plot
+        levels: levels of contours
+
+    Returns:
+        Noise-weighted residuals plots in .fits and .png format
+    """
+    sl = ift.ResidualSampleList.load(sl_path_base)
+    with open(gt_path, "rb") as f:
+        gt = pickle.load(f)
+    if gt.domain != op.target:
+        raise ValueError(f'Ground truth domain and operator target do not fit together:'
+                         f'Ground truth: {gt.domain}. op: {op.target}')
+
+    gt_1d_array = response_op(gt).val.flatten()
+    mean, var = sl.sample_stat(op)
+    rec_1d_array = response_op(mean).val.flatten()
+
+    x_bins = np.logspace(np.log(np.min(gt_1d_array)), np.log(np.max(gt_1d_array)), bins)
+    y_bins = np.logspace(np.log(np.min(rec_1d_array)), np.log(np.max(rec_1d_array)), bins)
+
+    # Create the 2D histogram
+    fig, ax = plt.subplots(dpi=400)
+    hist = ax.hist2d(gt_1d_array, rec_1d_array, bins=(x_bins, y_bins),
+                     cmap=plt.cm.jet, norm=LogNorm())
+
+    # Generate contour lines
+    # xedges = hist[1]
+    # yedges = hist[2]
+    # X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
+    # Z = hist[0].T
+    # contour = ax.contour(X, Y, Z, levels=levels, colors='white')
+
+    # Add a colorbar
+    cbar = fig.colorbar(hist[3], ax=ax)
+
+    # Add line for comparison
+    ax.plot(x_bins, x_bins, color='gray', linewidth=0.5, alpha=0.5)
+
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('$I_{gt}$')
+    ax.set_ylabel('$I_{rec}$')
+    ax.set_xlim(x_lim)
+    ax.set_ylim(y_lim)
+    ax.set_title(f'Lambda ({op_name}): Ground Truth vs. Reconstruction')
+    plt.savefig(output_path)
+    plt.close()
+
+
+def signal_space_weighted_residual_distribution(sl_path_base,
+                                   ground_truth_path,
+                                   sky_op,
+                                   padder,
+                                   mask_op,
+                                   bins=200,
+                                   output_dir_base=None,
+                                   sample_diag=False,
+                                   title='Weighted signal space residuals'):
+    with open(ground_truth_path, "rb") as f:
+        gt = pickle.load(f)
+    sl = ift.ResidualSampleList.load(sl_path_base)
+    wgt_res = get_uncertainty_weighted_measure(sl, mask_op @ padder.adjoint @ sky_op.log(),
+                                               mask_op(padder.adjoint(gt.log())),
+                                               output_dir_base, sample=sample_diag,
+                                               title=title, abs=False, mask_op=mask_op)
+    res = wgt_res.val.reshape(-1)
+    range = (-5, 5)
+    _, edges = np.histogram(np.log10(res+1e-30), bins=bins, range=range)
+    plt.hist(np.log10(res+1e-30), edges[0:])
+    # plt.xscale('log')
+    plt.yscale('log')
+    plt.title(title)
+    plt.savefig(fname=output_dir_base + '.png')
+    plt.close()
+    return wgt_res
+
+
+
+

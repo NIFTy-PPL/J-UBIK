@@ -12,7 +12,7 @@ from .library.utils import (get_mask_operator, prior_sample_plotter, get_norm,
 from .library.plot import (plot_slices, plot_result, plot_fused_data,
                            plot_rgb_image, plot_image_from_fits,
                            plot_single_psf, plot_psfset, plot_sample_and_stats, plot_energy_slices,
-                           plot_energy_slice_overview, plot_erosita_priors)
+                           plot_energy_slice_overview, plot_results)
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
@@ -25,7 +25,10 @@ from .library.diagnostics import (signal_space_uwr_from_file,
                                   data_space_uwr_from_file,
                                   signal_space_uwm_from_file,
                                   weighted_residual_distribution,
-                                  get_noise_weighted_residuals_from_file)
+                                  get_noise_weighted_residuals_from_file,
+                                  plot_lambda_diagnostics,
+                                  plot_sky_flux_diagnostics,
+                                  signal_space_weighted_residual_distribution)
 from .operators.convolution_operators import OAConvolver, OAnew, OverlapAdd
 from .operators.convolution_operators import _get_weights
 from .operators.zero_padder import MarginZeroPadder
