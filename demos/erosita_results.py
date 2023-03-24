@@ -25,9 +25,9 @@ redmap = LinearSegmentedColormap.from_list('kr', ["k", "darkred", "sandybrown"],
 greenmap = LinearSegmentedColormap.from_list('kg', ["k", "g", "palegreen"], N=256)
 bluemap = LinearSegmentedColormap.from_list('kb', ["k", "b", "paleturquoise"], N=256)
 
-COLOR_DICT = {'red':{'path':'red','config':'red', 'cmap':redmap},
-              'green':{'path':'green','config':'blue', 'cmap':greenmap},
-              'blue' :{'path':'blue', 'config':'green','cmap':bluemap}}
+COLOR_DICT = {'red':{'path':'red','config':'_red', 'cmap':redmap},
+              'green':{'path':'green','config':'_green', 'cmap':greenmap},
+              'blue' :{'path':'blue', 'config':'_blue','cmap':bluemap}}
 
 if __name__ == '__main__':
     col = 'red'
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     if len(reconstruction_path_list) > 3:
         raise NotImplementedError
     diagnostics_path_list = [r_path + "diagnostics/" for r_path in reconstruction_path_list]
-    config_filename = f"eROSITA_config_{COLOR_DICT[col]['config']}.yaml"
+    config_filename = f"eROSITA_config{COLOR_DICT[col]['config']}.yaml"
     sl_path_base_list = [r_path + "pickle/last" for r_path in
                          reconstruction_path_list]  # NIFTy dependency
     data_base = "data.pkl"
