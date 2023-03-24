@@ -7,7 +7,7 @@ import os
 import nifty8 as ift
 
 from .utils import save_rgb_image_to_fits, get_mask_operator
-from .plot import plot_energy_slices
+from .plot import plot_energy_slices, plot_result
 
 
 def get_uncertainty_weighted_measure(sl,
@@ -71,8 +71,6 @@ def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=No
     sc = ift.StatCalculator()
     if nbins is not None:
         hist_list = []
-        edges_list = []
-
 
     for sample in sample_list.iterator():
         Rs = op.force(sample)
@@ -84,24 +82,24 @@ def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=No
         sc.add(nwr)
 
         if nbins is not None:
-            hist, edges = np.histogram_bin_edges(nwr.val.reshape(-1), bins=nbins, range=(-10.,10.))
-            edges_list.append(edges)
+            hist, edges = np.histogram(nwr.val.reshape(-1), bins=nbins, range=(-10., 10.))
             hist_list.append(hist)
 
-    print(edges_list)
-    print(hist_list)
-    exit()
-
+    # print(np.array(hist_list).shape)
+    mean_hist = np.mean(np.array(hist_list), axis=0)
+    # print(mean_hist)
     nwr_mean = sc.mean
-    edges_mean = np.mean(edges)
 
     if mpi_master is not None and output_dir is not None:
         filename = output_dir + base_filename
-        plot_kwargs = {'title': 'Noise-weighted residuals'} if plot_kwargs is None else plot_kwargs
         save_rgb_image_to_fits(nwr_mean, file_name=filename, overwrite=True, MPI_master=mpi_master)
-        plot_energy_slices(nwr_mean, file_name=f'{filename}.png', title='Noise-weighted residuals',
-                           plot_kwargs={})
-    return nwr_mean
+        plot_kwargs.update({'cmap': 'seismic', 'vmin': -5., 'vmax': 5.})
+        # plt_args = {'cmap': 'seismic', 'vmin': -5., 'vmax': 5.}
+        plot_result(nwr_mean, outname=f'{filename}.png', **plot_kwargs)
+    if nbins is None:
+        return nwr_mean
+    else:
+        return nwr_mean, mean_hist, edges
 
 
 def get_noise_weighted_residuals_from_file(sample_list_path,
@@ -112,15 +110,20 @@ def get_noise_weighted_residuals_from_file(sample_list_path,
                                            output_dir=None,
                                            abs=True,
                                            base_filename=None,
-                                           plot_kwargs=None):
+                                           plot_kwargs=None,
+                                           nbins=None):
     sl = ift.ResidualSampleList.load(sample_list_path)
     with open(data_path, "rb") as f:
         d = pickle.load(f)
-    wgt_res = compute_noise_weighted_residuals(sl, response_op @ sky_op, mask_op(d),
-                                               mask_op=mask_op, output_dir=output_dir,
-                                               base_filename=base_filename, abs=abs,
-                                               plot_kwargs=plot_kwargs)
-    return wgt_res
+
+    return compute_noise_weighted_residuals(sl, response_op @ sky_op,
+                                            mask_op(d),
+                                            mask_op=mask_op,
+                                            output_dir=output_dir,
+                                            base_filename=base_filename,
+                                            abs=abs,
+                                            plot_kwargs=plot_kwargs,
+                                            nbins=nbins)
 
 
 def signal_space_uwr_from_file(sl_path_base,

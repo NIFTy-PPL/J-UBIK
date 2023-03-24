@@ -33,7 +33,8 @@ def plot_slices(field, outname, logscale=False):
     plt.close()
 
 
-def plot_result(field, outname, logscale=False, title=None, figsize=(11.7, 8.3), dpi=300, **args):
+def plot_result(field, outname, logscale=False, title=None, colorbar=True, figsize=(11.7, 8.3),
+                dpi=300, **args):
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     img = field.val
     half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
@@ -46,7 +47,8 @@ def plot_result(field, outname, logscale=False, title=None, figsize=(11.7, 8.3),
     ax.set_ylabel("FOV [arcmin]")
     if title is not None:
         ax.set_title(title)
-    cb = fig.colorbar(im)
+    if colorbar:
+        fig.colorbar(im)
     fig.tight_layout()
     if outname != None:
         fig.savefig(outname, bbox_inches='tight', pad_inches=0)
@@ -424,3 +426,17 @@ def _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
         if log_base is None:
             log_base = 'Samples'
         print(f'{log_base} saved as {filename}.')
+
+
+def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
+    # print(edges)
+    plt.bar(edges[:-1], hist)
+    # plt.scatter(edges[:-1], hist)
+    plt.yscale("log")
+    # plt.xscale("log")
+    plt.title(title)
+    # plt.show()
+    plt.savefig(filename)
+    plt.close()
+    print(f"Histogram saved as {filename}.")
+

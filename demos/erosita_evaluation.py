@@ -92,18 +92,21 @@ if __name__ == "__main__":
                                             output_dir_base=os.path.join(tm_directory,
                                                                          key, f'{tm_id}_data_space_uwr')))
 
-            noise_weighted_residuals[key].append(
-                xu.get_noise_weighted_residuals_from_file(sample_list_path=sl_path_base,
-                                                          data_path=data_path,
-                                                          sky_op=op, response_op=R,
-                                                          mask_op=mask,
-                                                          output_dir=diagnostics_path,
-                                                          base_filename=f'/tm{tm_id}/{key}/{tm_id}_nwr',
-                                                          abs=False,
-                                                          plot_kwargs={
-                                                            'title': 'Noise-weighted residuals',
-                                                            # 'norm': LogNorm()
-                                                          }))
+            nwr, hist, edges = xu.get_noise_weighted_residuals_from_file(sample_list_path=sl_path_base,
+                                                      data_path=data_path,
+                                                      sky_op=op, response_op=R,
+                                                      mask_op=mask,
+                                                      output_dir=diagnostics_path,
+                                                      base_filename=f'/tm{tm_id}/{key}_{tm_id}_nwr',
+                                                      abs=False,
+                                                      plot_kwargs={
+                                                          'title': 'Noise-weighted residuals',
+                                                          # 'norm': LogNorm()}
+                                                      },
+                                                      nbins=70)
+            noise_weighted_residuals[key].append(nwr)
+            xu.plot_histograms(hist, edges, f'{key}_{tm_id}_nwr_hist',
+                               title=f'Noise-weighted residuals tm {tm_id}')
             if mock_run:
                 if key in ['sky', 'diffuse']:
                     levels = [10, 100, 500]
