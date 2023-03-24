@@ -200,7 +200,7 @@ def weighted_residual_distribution(sl_path_base,
     return wgt_res
 
 
-def plot_points_diagnostics(sl_path_base, gt_path, op, op_name, output_path, response_dict, bins,
+def plot_sky_flux_diagnostics(sl_path_base, gt_path, op, op_name, output_path, response_dict, bins,
                             x_lim, y_lim, levels):
     """ Plots distribution of reconstructed flux vs actual flux.
     ! This is thus only applicable for mock reconstructions
