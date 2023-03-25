@@ -75,7 +75,6 @@ class OverlapAdd(ift.LinearOperator):
                     x_f = x_i + 2 * dx + 2 * self.dr
                     tmp = xplus[x_i:x_f, y_i:y_f]
                     listing.append(tmp)
-            array = np.array(listing)
             res = ift.Field.from_raw(self._target, np.array(listing))
         else:
             taped = np.zeros([self._domain.shape[0] + self.dx] * 2)

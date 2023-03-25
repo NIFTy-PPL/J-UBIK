@@ -4,10 +4,11 @@ import math
 import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm, SymLogNorm
-from .utils import get_data_domain
+from matplotlib.colors import LogNorm
+from .utils import get_data_domain, get_cfg, create_output_directory
+from ..library.sky_models import SkyModel
+from ..library.erosita_response import load_erosita_response
 from ..library.chandra_observation import ChandraObservationInformation
-import astropy as ao
 
 
 def plot_slices(field, outname, logscale=False):
@@ -32,8 +33,9 @@ def plot_slices(field, outname, logscale=False):
     plt.close()
 
 
-def plot_result(field, outname, logscale=False, **args):
-    fig, ax = plt.subplots(dpi=300, figsize=(11.7, 8.3))
+def plot_result(field, outname, logscale=False, title=None, colorbar=True, figsize=(11.7, 8.3),
+                dpi=300, cbar_formatter=None, **args):
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     img = field.val
     half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
     pltargs = {"origin": "lower", "cmap": "viridis", "extent": [-half_fov, half_fov] * 2}
@@ -41,10 +43,35 @@ def plot_result(field, outname, logscale=False, **args):
         pltargs["norm"] = LogNorm()
     pltargs.update(**args)
     im = ax.imshow(img, **pltargs)
-    cb = fig.colorbar(im)
+    ax.set_xlabel("FOV [arcmin]")
+    ax.set_ylabel("FOV [arcmin]")
+    if title is not None:
+        ax.set_title(title)
+    if colorbar:
+        fig.colorbar(im, format=cbar_formatter)
     fig.tight_layout()
     if outname != None:
-        fig.savefig(outname)
+        fig.savefig(outname, bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+
+def plot_results(field_list, title_list, outname, logscale=False, ncols=3, nrows=1, cbar_shrink=1.0, pltargs_list=None):
+    fig, ax = plt.subplots(ncols=ncols, nrows=nrows, dpi=300, figsize=(11.7, 8.3))
+    ax = ax.ravel()
+    for i, field in enumerate(field_list):
+        img = field.val
+        half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
+        pltargs = {"origin": "lower", "cmap": "viridis", "extent": [-half_fov, half_fov] * 2}
+        if logscale == True:
+            pltargs["norm"] = LogNorm()
+        pltargs.update(**pltargs_list[i])
+        im = ax[i].imshow(img, **pltargs)
+        cb = fig.colorbar(im, ax=ax[i], shrink=cbar_shrink)
+        ax[i].set_axis_off()  # remove axis lines and labels
+        ax[i].set_title(title_list[i])
+        fig.tight_layout()  # center the images
+    if outname != None:
+        fig.savefig(outname, bbox_inches='tight', pad_inches=0)
     plt.close()
 
 
@@ -191,7 +218,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterato
         _plot_samples(filename_samples, sample_list.iterator(op), plotting_kwargs)
 
 
-def plot_energy_slices(field, file_name, title=None, plot_kwargs=None):
+def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):
     """
     Plots the slices of a 3-dimensional field along the energy dimension.
 
@@ -296,10 +323,10 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
                 im = ax[i].imshow(field.val, **pltargs)
                 ax[i].set_title(f'{title}_{field_name_list[i]}')
         fig.tight_layout()
-        fig.savefig(file_name)
+        fig.savefig(f'{file_name}')
         plt.close()
     elif len(domain) == 2:
-        for i in range(domain[1].shape):
+        for i in range(domain[1].shape[0]):
             if len(field_list) == 1:
                 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(11.7, 8.3),
                                        sharex=True, sharey=True, dpi=200)
@@ -310,10 +337,104 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
                                        sharex=True, sharey=True, dpi=200)
                 ax = ax.flatten()
                 for j, field in enumerate(field_list):
-                    im = ax[i].imshow(field.val[:, :, i], **pltargs)
-                    ax[i].set_title(f'{title}_{field_name_list[j]}')
+                    im = ax[j].imshow(field.val[:, :, i], **pltargs)
+                    ax[j].set_title(f'{field_name_list[j]}')
             fig.tight_layout()
-            fig.savefig(f'{file_name}_e_bin={i}')
+            fig.savefig(f'{file_name}_e_bin={i}.png')
             plt.close()
     else:
         raise NotImplementedError
+
+
+def plot_erosita_priors(n_samples, config_path, response_path, priors_dir,
+                        plotting_kwargs=None, common_colorbar=False):
+    priors_dir = create_output_directory(priors_dir)
+    cfg = get_cfg(config_path)  # load config
+
+    if plotting_kwargs is None:
+        plotting_kwargs = {}
+
+    if 'norm' in plotting_kwargs:
+        norm = plotting_kwargs.pop('norm')
+        norm = type(norm)
+    else:
+        norm = None
+
+    sky_dict = SkyModel(config_path).create_sky_model()
+    plottable_ops = sky_dict.copy()
+
+    positions = []
+    for sample in range(n_samples):
+        positions.append(ift.from_random(plottable_ops['sky'].domain))
+
+    plottable_samples = plottable_ops.copy()
+    for key, val in plottable_samples.items():
+        plottable_samples[key] = [val.force(pos) for pos in positions]
+
+    filename_base = priors_dir + 'priors_{}.png'
+    _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
+                          plotting_kwargs, filename_base, ' prior ', 'Prior samples')
+
+    if response_path is not None:  # FIXME: when R will be pickled, load from file
+        tm_ids = cfg['telescope']['tm_ids']
+        plottable_ops.pop('pspec')
+
+        resp_dict = load_erosita_response(config_path, priors_dir)
+
+        for tm_id in tm_ids:
+            tm_key = f'tm_{tm_id}'
+            R = resp_dict[tm_key]['mask'].adjoint @ resp_dict[tm_key]['R']
+            plottable_samples = {}
+
+            for key, val in plottable_ops.items():
+                SR = R @ val
+                plottable_samples[key] = [SR.force(pos) for pos in positions]
+
+            res_path = priors_dir + f'tm{tm_id}/'
+            filename = res_path + f'sr_tm_{tm_id}_priors'
+            filename += '_{}.png'
+            _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
+                                  plotting_kwargs, filename, f'tm {tm_id} prior signal response ',
+                                  'Signal response')
+
+
+def _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
+                          plotting_kwargs, filename_base='priors/samples_{}.png',
+                          title_base='', log_base=None):
+    for key, val in plottable_samples.items():
+        if common_colorbar:
+            vmin = min(np.min(val[i].val) for i in range(n_samples))
+            vmax = max(np.max(val[i].val) for i in range(n_samples))
+            if float(vmin) == 0.:
+                vmin = 1e-18  # to prevent LogNorm throwing errors
+        else:
+            vmin = vmax = None
+        p = ift.Plot()
+        for i in range(n_samples):
+            if norm is not None:
+                p.add(val[i], norm=norm(vmin=vmin, vmax=vmax),
+                      title=title_base + key, **plotting_kwargs)
+            else:
+                p.add(val[i], vmin=vmin, vmax=vmax,
+                      title=title_base + key, **plotting_kwargs)
+            if 'title' in plotting_kwargs:
+                del (plotting_kwargs['title'])
+        filename = filename_base.format(key)
+        p.output(name=filename, **plotting_kwargs)
+        if log_base is None:
+            log_base = 'Samples'
+        print(f'{log_base} saved as {filename}.')
+
+
+def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
+    # print(edges)
+    plt.bar(edges[:-1], hist)
+    # plt.scatter(edges[:-1], hist)
+    plt.yscale("log")
+    # plt.xscale("log")
+    plt.title(title)
+    # plt.show()
+    plt.savefig(filename)
+    plt.close()
+    print(f"Histogram saved as {filename}.")
+

@@ -6,6 +6,7 @@ import timeit
 # from jax import config
 # config.update('jax_enable_x64', True)
 
+ift.set_nthreads(8)
 
 def get_kernels_and_sources(domain, psf_func):
     rnds = np.zeros(domain.shape)
@@ -27,7 +28,7 @@ def get_kernels_and_sources(domain, psf_func):
     return ift.makeField(domain, res), rnds
 
 
-dir_path = "data/tm1/bcf/"
+dir_path = "data/psf_info/"
 fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"]
 
 file = dir_path + fname[0]
@@ -52,8 +53,8 @@ msc_infos = {'base' : (3,3), 'min_baseshape' : (8,8), 'linlevel' : (1,1),
 op = obs.make_psf_op(energy, pointing_center, domain,
                      conv_method='MSC', conv_params=msc_infos)
 
-c2params = {'npatch': 8, 'margfrac': 0.2, 'want_cut': False}
-op2 = obs.make_psf_op(energy, pointing_center, domain, 
+c2params = {'npatch': 8, 'margfrac': 0.062, 'want_cut': False}
+op2 = obs.make_psf_op(energy, pointing_center, domain,
                       conv_method='LIN', conv_params=c2params)
 
 rnds = ift.from_random(op.domain)

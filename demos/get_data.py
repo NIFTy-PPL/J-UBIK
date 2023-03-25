@@ -18,9 +18,6 @@ outroot = img_cfg["outroot"]+img_cfg["prefix"]
 
 if not os.path.exists(outroot):
     os.makedirs(outroot)
-obs_type = img_cfg["type"]
-if obs_type not in ['CMF', 'EMF', 'SF']:
-    obs_type = None
 
 data_domain = xu.get_data_domain(grid)
 obslist = img_cfg["datasets"]
@@ -29,8 +26,7 @@ center = None
 for obsnr in obslist:
     info = xu.ChandraObservationInformation(obs_info["obs" + obsnr],
                                             **grid,
-                                            center=center,
-                                            obs_type=obs_type)
+                                            center=center)
     # retrieve data from observation
     data = info.get_data(f"../npdata/data_{obsnr}.fits")
     data = ift.makeField(data_domain, data)
