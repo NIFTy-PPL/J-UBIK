@@ -15,7 +15,7 @@ telescope:
   exp_cut: 500
 
 psf:
-  method: 'MSC'
+  method: 'LIN'
   energy: '3000'
 
   # LIN config
@@ -26,9 +26,9 @@ psf:
   # MSC config
   base: [3,3]
   min_baseshape: [8,8]
-  linlevel: [1,1]
+  linlevel: [100,100]
   kernel_sizes: [[3,3],]
-  keep_overlap: [[False,False],]
+  keep_overlap: [[True,True],]
   local_kernel: [True,True]
 
   # config for homogeneous gauss psf

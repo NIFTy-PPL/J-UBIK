@@ -3,8 +3,8 @@ import nifty8 as ift
 import numpy as np
 import timeit
 
-# from jax import config
-# config.update('jax_enable_x64', True)
+from jax import config
+config.update('jax_enable_x64', True)
 
 ift.set_nthreads(8)
 
@@ -46,9 +46,9 @@ psf_func = obs.psf_func_on_domain(energy, pointing_center, domain)
 
 kernels, sources = get_kernels_and_sources(domain, psf_func)
 
-msc_infos = {'base' : (3,3), 'min_baseshape' : (8,8), 'linlevel' : (1,1),
+msc_infos = {'base' : (3,3), 'min_baseshape' : (8,8), 'linlevel' : (10,10),
             'kernel_sizes' : ((3,3),),
-            'keep_overlap' : ((False,False),),
+            'keep_overlap' : ((True,True),),
             'local_kernel' : (True, True)}
 op = obs.make_psf_op(energy, pointing_center, domain,
                      conv_method='MSC', conv_params=msc_infos)
