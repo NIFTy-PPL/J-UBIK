@@ -3,9 +3,22 @@ import numpy as np
 import nifty8 as ift
 
 from .zero_padder import MarginZeroPadder
-from .bilinear_interpolation import get_weights
 from ..library.utils import convolve_field_operator
 
+
+def _bilinear_weights(domain):
+    psize = domain.shape[0]
+    if psize/2 != int(psize/2):
+        raise ValueError("this should happen")
+    a = np.linspace(0, 1, int(psize/2), dtype="float64")
+    b = np.concatenate([a, np.flip(a)])
+    c = np.outer(b,b)
+    return ift.Field.from_raw(domain, c)
+
+def _get_weights(domain):
+    weights = _bilinear_weights(domain[1])
+    explode = ift.ContractionOperator(domain, spaces=0).adjoint
+    return explode(weights)
 
 class OverlapAdd(ift.LinearOperator):
     """Slices a 2D array into N patches with dx offset and
@@ -62,7 +75,6 @@ class OverlapAdd(ift.LinearOperator):
                     x_f = x_i + 2 * dx + 2 * self.dr
                     tmp = xplus[x_i:x_f, y_i:y_f]
                     listing.append(tmp)
-            array = np.array(listing)
             res = ift.Field.from_raw(self._target, np.array(listing))
         else:
             taped = np.zeros([self._domain.shape[0] + self.dx] * 2)
@@ -102,7 +114,7 @@ class OAConvolver(ift.LinearOperator):
     HINT:
     The Operator checks if the kernel is zero in the regions not being used.
     If the initialization fails it can either be forced or cut by value.
-    force: sets all unused areas to zero,
+    cut_force: sets all unused areas to zero,
     cut_by_value: sets everything below the threshold to zero.
     """
     def __init__(self, domain, kernel_arr, n, margin):
@@ -141,7 +153,7 @@ class OAConvolver(ift.LinearOperator):
         kernels_b = ift.Field.from_raw(cutter.domain, kernel_arr)
 
         if not self._check_kernel(domain, kernel_arr, n, margin):
-            raise ValueError("_check_kernel detected nonzero entries. Use .force, .cut_by_value!")
+            raise ValueError("_check_kernel detected nonzero entries. Use .cut_force, .cut_by_value!")
 
         kernels = cutter(kernels_b)
         spread = ift.ContractionOperator(kernels.domain, spaces=1).adjoint
@@ -156,7 +168,7 @@ class OAConvolver(ift.LinearOperator):
 
         cut_conv_margin = MarginZeroPadder(pad_space, margin, space=1).adjoint
         convolved = cut_conv_margin(convolved)
-        weights = ift.makeOp(get_weights(convolved.target))
+        weights = ift.makeOp(_get_weights(convolved.target))
         weighted = weights @ convolved
         oa_back = OverlapAdd(domain[0], n, 0)
 
@@ -182,7 +194,7 @@ class OAConvolver(ift.LinearOperator):
         return OAConvolver(domain, psfs, n, margin)
 
     @classmethod
-    def force(self, domain, kernel_list, n, margin):
+    def cut_force(self, domain, kernel_list, n, margin):
         """
         Sets the kernel to zero where it is not used and initializes the operator.
         """
@@ -314,13 +326,14 @@ class OAnew(ift.LinearOperator):
     HINT:
     The Operator checks if the kernel is zero in the regions not being used.
     If the initialization fails it can either be forced or cut by value.
-    force: sets all unused areas to zero,
+    cut_force: sets all unused areas to zero,
     cut_by_value: sets everything below the threshold to zero.
     """
-    def __init__(self, domain, kernel_arr, n, margin):
+    def __init__(self, domain, kernel_arr, n, margin, want_cut):
         self._domain = ift.makeDomain(domain)
         self._n = n
-        self._op = self._build_op(domain, kernel_arr, n, margin)
+        self._op, self._cut = self._build_op(domain, kernel_arr, n, margin,
+                                             want_cut)
         self._target = self._op.target
         self._capability = self.TIMES | self.ADJOINT_TIMES
 
@@ -340,10 +353,10 @@ class OAnew(ift.LinearOperator):
         return res
 
     @classmethod
-    def _build_op(self, domain, kernel_arr, n, margin):
+    def _build_op(self, domain, kernel_arr, n, margin, want_cut):
         domain = ift.makeDomain(domain)
         oa = OverlapAdd(domain[0], n, 0)
-        weights = ift.makeOp(get_weights(oa.target))
+        weights = ift.makeOp(_get_weights(oa.target))
         zp = MarginZeroPadder(oa.target, margin, space=1)
         padded = zp @ weights @ oa
         cutter = ift.FieldZeroPadder(
@@ -355,7 +368,7 @@ class OAnew(ift.LinearOperator):
 
         kernel_b = ift.Field.from_raw(cutter.domain, kernel_arr)
         if not self._check_kernel(domain, kernel_arr, n, margin):
-            raise ValueError("_check_kernel detected nonzero entries. Use .force, .cut_by_value!")
+            raise ValueError("_check_kernel detected nonzero entries. Use .cut_force, .cut_by_value!")
 
         kernel = cutter(kernel_b)
         spread = ift.ContractionOperator(kernel.domain, spaces=1).adjoint
@@ -370,16 +383,23 @@ class OAnew(ift.LinearOperator):
             distances=domain[0].distances,
         )
         oa_back = OverlapAdd(pad_space, n, margin)
-
-        interpolation_margin = (domain.shape[0]//self._sqrt_n(n))*2
-        tgt_spc_shp = np.array([i-2*interpolation_margin for i in domain[0].shape])
-        target_space = ift.RGSpace(tgt_spc_shp, distances=domain[0].distances)
-
-        cut_interpolation_margin = MarginZeroPadder(target_space, interpolation_margin).adjoint
-
-        cut_pbc_margin = MarginZeroPadder(domain[0], ((oa_back.domain.shape[0] - domain.shape[0])//2), space=0).adjoint
-        res = cut_interpolation_margin @ cut_pbc_margin @ oa_back.adjoint @ convolved
-        return res
+        cut_pbc_margin = MarginZeroPadder(domain[0], 
+            ((oa_back.domain.shape[0] - domain.shape[0])//2), space=0).adjoint
+        
+        if want_cut:
+            interpolation_margin = (domain.shape[0]//self._sqrt_n(n))*2
+            tgt_spc_shp = np.array(
+                            [i-2*interpolation_margin for i in domain[0].shape])
+            target_space = ift.RGSpace(tgt_spc_shp, 
+                                       distances=domain[0].distances)
+            cut_interpolation_margin = (
+                MarginZeroPadder(target_space, interpolation_margin).adjoint)
+        else:
+            cut_interpolation_margin = ift.ScalingOperator(
+                                                    cut_pbc_margin.target, 1.)
+        res = oa_back.adjoint @ convolved
+        res = cut_interpolation_margin @ cut_pbc_margin @ res
+        return res, cut_interpolation_margin 
 
     @classmethod
     def cut_by_value(self, domain, kernel_list, n, margin, thrsh):
@@ -397,7 +417,7 @@ class OAnew(ift.LinearOperator):
         return OAnew(domain, psfs, n, margin)
 
     @classmethod
-    def force(self, domain, kernel_list, n, margin):
+    def cut_force(self, domain, kernel_list, n, margin):
         """
         Sets the kernel to zero where it is not used and initializes the operator.
         """

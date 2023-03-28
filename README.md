@@ -37,3 +37,14 @@ Either get the data [here](https://cda.harvard.edu/chaser/) or via `download_cha
             bpix_file: acisf11713_000N002_bpix1.fits
             mask_file: acisf11713_000N002_msk1.fits
             instrument: ACIS-I
+
+
+# TODO
+
+- Docker does not work without sudo on linux nativly (add user to group)
+- chmod of mounted directory recursively() Solution ? Dockeruser into group?
+- UBIK PLotting (symlock/lognorm)
+- error catching in the docker
+- psf for camera -> extract for user
+- data coordinates
+- add descriptions to eROSITA get data etc.

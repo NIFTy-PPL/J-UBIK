@@ -1,11 +1,11 @@
-from os.path import isdir, join
-from os import makedirs
+import os
 from warnings import warn
-
 import numpy as np
+import pickle
 import scipy
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, SymLogNorm
+
 import nifty8 as ift
 
 
@@ -19,20 +19,67 @@ def get_cfg(yaml_file):
     return cfg
 
 
+def save_config(config, filename, dir=None):
+    import yaml
+    if dir is not None:
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+        with open(os.path.join(dir, filename), "w") as f:
+            yaml.dump(config, f)
+
+
+def create_output_directory(directory_name):
+    os.makedirs(directory_name, exist_ok=True)
+    return directory_name
+
+
+def get_gaussian_psf(op, var):
+    # FIXME: cleanup -> refactor into get_gaussian_kernel
+    dist_x = op.target[0].distances[0]
+    dist_y = op.target[0].distances[1]
+
+    # Periodic Boundary conditions
+    x_ax = np.arange(op.target[0].shape[0])
+    x_ax = np.minimum(x_ax, op.target[0].shape[0] - x_ax) * dist_x
+    y_ax = np.arange(op.target[0].shape[1])
+    y_ax = np.minimum(y_ax, op.target[0].shape[1] - y_ax) * dist_y
+
+    center = (0, 0)
+    x_ax -= center[0]
+    y_ax -= center[1]
+    X, Y = np.meshgrid(x_ax, y_ax, indexing='ij')
+
+    var *= op.target[0].scalar_dvol  # ensures that the variance parameter is specified with respect to the
+
+    # normalized psf
+    log_psf = - (0.5 / var) * (X ** 2 + Y ** 2)
+    log_kernel = ift.makeField(op.target[0], log_psf)
+    log_kernel = log_kernel - np.log(log_kernel.exp().integrate().val)
+
+    # p = ift.Plot()
+    # import matplotlib.colors as colors
+    # p.add(log_kernel.exp(), norm=colors.SymLogNorm(linthresh=10e-8))
+    # p.output(nx=1)
+
+    conv_op = get_fft_psf_op(log_kernel.exp(), op.target)
+    return conv_op
+
+
 def get_data_domain(config):
-    dom_sp = ift.RGSpace(([config["npix_s"]]*2), distances = _get_sp_dist(config))
-    e_sp = ift.RGSpace((config["npix_e"]), distances = _get_e_dist(config))
+    dom_sp = ift.RGSpace(([config["npix_s"]] * 2), distances=_get_sp_dist(config))
+    e_sp = ift.RGSpace((config["npix_e"]), distances=_get_e_dist(config))
     return ift.DomainTuple.make([dom_sp, e_sp])
 
 
 def _get_sp_dist(config):
-    res = 2 * config["fov"] / config["npix_s"]
+    res = config["fov"] / config["npix_s"]
     return res
 
 
 def _get_e_dist(config):
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
+
 
 def get_normed_exposure(exposure_field, data_field):
     """
@@ -41,12 +88,13 @@ def get_normed_exposure(exposure_field, data_field):
     """
     warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     ratio = (
-        data_field.val[exposure_field.val != 0]
-        / exposure_field.val[exposure_field.val != 0]
+            data_field.val[exposure_field.val != 0]
+            / exposure_field.val[exposure_field.val != 0]
     )
     norm = ratio.mean()
     normed_exp_field = exposure_field * norm
     return normed_exp_field
+
 
 def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
     warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
@@ -55,10 +103,11 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
     norm_max = []
     norm_std = []
     if obs_type == None:
-        obs_type='SF'
+        obs_type = 'SF'
     for i in range(energy_bins):
         for dataset in datasets:
-            observation = np.load("npdata/"+obs_type+ "/df_" + str(dataset) + "_observation.npy", allow_pickle=True).item()
+            observation = np.load("npdata/" + obs_type + "/df_" + str(dataset) + "_observation.npy",
+                                  allow_pickle=True).item()
             exposure = observation["exposure"].val[:, :, i]
             data = observation["data"].val[:, :, i]
             norms.append(get_norm(ift.Field.from_raw(domain, exposure), ift.Field.from_raw(domain, data)))
@@ -67,15 +116,16 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
         norm_std.append(np.std(np.array(norms)))
     return norm_max, norm_mean, norm_std
 
+
 def get_norm(exposure_field, data_field):
     """
-    returns the only the order of magnitude of
+    returns only the order of magnitude of
     the norm of get_normed_exposure
     """
     warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     ratio = (
-        data_field.val[exposure_field.val != 0]
-        / exposure_field.val[exposure_field.val != 0]
+            data_field.val[exposure_field.val != 0]
+            / exposure_field.val[exposure_field.val != 0]
     )
     norm = ratio.mean()
     # norm = 10**math.floor(math.log10(norm))
@@ -105,13 +155,13 @@ def prior_sample_plotter(opchain, n):
     for ii in range(n):
         f = ift.from_random(opchain.domain)
         field = opchain(f)
-        fov = (
-            field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0
+        half_fov = (
+                field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0
         )  # is this true?
         pltargs = {
             "origin": "lower",
             "cmap": "inferno",
-            "extent": [-fov, fov] * 2,
+            "extent": [-half_fov, half_fov] * 2,
             "norm": LogNorm(),
         }
         img = field.val
@@ -121,8 +171,9 @@ def prior_sample_plotter(opchain, n):
     plt.show()
     plt.close()
 
+
 def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=True, Norm=True):
-    psf_domain = ift.RGSpace((npix_s, npix_s), distances=2.0 * fov / npix_s)
+    psf_domain = ift.RGSpace((npix_s, npix_s), distances=fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
     y_min = info.obsInfo["y_min"]
@@ -175,8 +226,8 @@ def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
     event_f = info.obsInfo["event_file"]
     dy = dx = xy_range * 2 / npix_s
     x_idx, y_idx = idx_tupel
-    x_pix_coord = x_min + x_idx*dx
-    y_pix_coord = y_min + y_idx*dy
+    x_pix_coord = x_min + x_idx * dx
+    y_pix_coord = y_min + y_idx * dy
     coords = get_radec_from_xy(x_pix_coord, y_pix_coord, event_f)
     ps = info.get_psf_fromsim(coords, outroot="./psf", num_rays=num_rays)
     return ps
@@ -185,7 +236,7 @@ def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
 def coord_center(side_length, side_n):
     """
     calculates the indices of the centers of the n**2 patches
-    for a quadratical domain with with the a certain side length
+    for a quadratical domain with a certain side length
 
     Parameters:
     ----------
@@ -213,7 +264,6 @@ def get_radec_from_xy(temp_x, temp_y, event_f):
     # TODO is this enough precision
 
 
-
 def convolve_operators(a, b):
     """
     convenience function for the convolution of two operators a and b.
@@ -229,14 +279,21 @@ def convolve_field_operator(kernel, op, space=None):
     convenience function for the convolution a fixed kernel (field) with an operator.
     This uses Fast Fourier Transformation (FFT).
     """
-    op = op.real
-    fft = ift.FFTOperator(op.target, space=space)
+    convolve_op = get_fft_psf_op(kernel, op.target, space)
+    return convolve_op @ op
+
+
+def get_fft_psf_op(kernel, domain, space=None):
+    """
+    convenience function for the generation of a convolution operator with fixed kernel (field).
+    This uses Fast Fourier Transformation (FFT).
+    """
+    fft = ift.FFTOperator(domain, space=space)
+    realizer = ift.Realizer(domain)
     hsp_kernel = fft(kernel.real)
     kernel_hp = ift.makeOp(hsp_kernel)
-    convolve = fft.inverse @ kernel_hp @ fft @ op
-    res = convolve.real
-    return res
-    #FIXME Hartley + Fix dirty hack
+    return realizer @ fft.inverse @ kernel_hp @ fft @ realizer
+    # FIXME Hartley + Fix dirty hack
 
 
 class PositiveSumPriorOperator(ift.LinearOperator):
@@ -392,7 +449,8 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
                  overwrite=False, obs_type="SF"):
     """Write sample list to FITS file.
 
-    This function writes properties of a sample list to a FITS file according to the obs_type
+    This function writes properties of a sample list to a FITS file according to the obs_type and based on the NIFTy8
+    function save_to_fits by P.Arras
 
     Parameters
     ----------
@@ -405,49 +463,37 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
         that takes a :class:`~nifty8.field.Field` as an input. Default:
         None.
     samples : bool
-        If True, samples are written into hdf5 file.
+        If True, samples are written into fits file.
     mean : bool
-        If True, mean of samples is written into hdf5 file.
+        If True, mean of samples is written into fits file.
     std : bool
-        If True, standard deviation of samples is written into hdf5 file.
+        If True, standard deviation of samples is written into fits file.
     overwrite : bool
         If True, a potentially existing file with the same file name as
         `file_name`, is overwritten.
     obs_type : string or None
         Describes the observation type. currently possible obs_types are [CMF (Chandra Multifrequency),
         EMF (Erosita Multifrequency), RGB and SF (Single Frequency]. The default observation is of type SF. In the case
-        of the type "RGB", the binning is automatically done by xubik
+        of the type "RGB", the binning is automatically done by xubik into equally sized bins.
     """
     if not (samples or mean or std):
         raise ValueError("Neither samples nor mean nor standard deviation shall be written.")
 
     if mean or std:
         m, s = sample_list.sample_stat(op)
-    if obs_type in ["CMF", "EMF", "RGB"]:
-        if obs_type == "RGB":
-            m = energy_binning(m, energy_bins=3)
-            s = energy_binning(s, energy_bins=3)
-        if mean:
-            save_rgb_image_to_fits(m, file_name_base + "_mean", overwrite, sample_list.MPI_master)
-        if std:
-            save_rgb_image_to_fits(s, file_name_base + "_std", overwrite, sample_list.MPI_master)
-        if samples:
-            for ii, ss in enumerate(sample_list.iterator(op)):
-                if obs_type == "RGB":
-                    ss = energy_binning(ss, energy_bins=3)
-                save_rgb_image_to_fits(ss, file_name_base + f"_sample_{ii}", overwrite, sample_list.MPI_master)
-    else:
-        try:
-            if mean:
-                sample_list._save_fits_2d(m, file_name_base + "_mean.fits", overwrite)
-            if std:
-                sample_list._save_fits_2d(s, file_name_base + "_std.fits", overwrite)
-            if samples:
-                for ii, ss in enumerate(sample_list.iterator(op)):
-                    sample_list._save_fits_2d(ss, file_name_base + f"_sample_{ii}.fits", overwrite)
-        except:
-            raise ValueError(f"The plotting routine is not implemented for observation type {obs_type}.")
 
+    if obs_type == "RGB":
+        m = energy_binning(m, energy_bins=3)
+        s = energy_binning(s, energy_bins=3)
+    if mean:
+        save_rgb_image_to_fits(m, file_name_base + "_mean", overwrite, sample_list.MPI_master)
+    if std:
+        save_rgb_image_to_fits(s, file_name_base + "_std", overwrite, sample_list.MPI_master)
+    if samples:
+        for ii, ss in enumerate(sample_list.iterator(op)):
+            if obs_type == "RGB":
+                ss = energy_binning(ss, energy_bins=3)
+            save_rgb_image_to_fits(ss, file_name_base + f"_sample_{ii}", overwrite, sample_list.MPI_master)
 
 
 def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
@@ -470,108 +516,48 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     import astropy.io.fits as pyfits
     from astropy.time import Time
     import time
-    color_dict = {0: "red", 1: "green", 2: "blue"}
     domain = fld.domain
-    if not isinstance(domain, ift.DomainTuple) or len(domain)!=2 or len(domain[0].shape)!=2:
-        raise ValueError("FITS file export of RGB data is only possible for 3d-fields. "
-                         f"Current domain:\n{domain}")
-    if fld.shape[2] != 3:
-        raise ValueError("Energy direction has to be binned to 3 to create an RGB image. "
-                         f"Current number of energy bins:\n{fld.shape[2]}")
+    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) !=2:
+        raise ValueError(f"Expected DomainTuple with the first space being a 2-dim RGSpace, but got {domain}")
+    if len(domain) == 2:
+        if fld.shape[2] != 3:
+            raise NotImplementedError("Energy direction has to be binned to 3 to create an RGB image. "
+                                        f"Current number of energy bins:\n{fld.shape[2]}")
+        npix_e = fld.shape[2]
+        color_dict = {0: "red", 1: "green", 2: "blue"}
+    elif len(domain) == 1:
+        npix_e = 1
+        color_dict = {0: "uni"}
+    else:
+        raise NotImplementedError
+    # FIXME: Header improvement
     h = pyfits.Header()
     h["DATE-MAP"] = Time(time.time(), format="unix").iso.split()[0]
-    h["CRVAL1"] = h["CRVAL2"] = 0
-    h["CRPIX1"] = h["CRPIX2"] = 0
-    h["CUNIT1"] = h["CUNIT2"] = "deg"
-    h["CDELT1"], h["CDELT2"] = -domain[0].distances[0], domain[0].distances[1]
-    h["CTYPE1"] = "RA---SIN"
-    h["CTYPE2"] = "DEC---SIN"
+    h["CRVAL1"] = h["CRVAL2"] = 0  # coordinate value at reference point
+    h["CRPIX1"] = h["CRPIX2"] = 0  # pixel coordinate of the reference point
+    h["CUNIT1"] = h["CUNIT2"] = "arcsec"
+    h["CDELT1"], h["CDELT2"] = -domain[0].distances[0], domain[0].distances[1] # coordinate increment
+    h["CTYPE1"] = "RA" # axis type
+    h["CTYPE2"] = "DEC"
     h["EQUINOX"] = 2000
     if MPI_master:
-        for i in range(fld.shape[2]):
-            hdu = pyfits.PrimaryHDU(fld.val[:,:,i], header=h)
+        for i in range(npix_e):
+            if npix_e > 1:
+                hdu = pyfits.PrimaryHDU(fld.val[:, :, i], header=h)
+            else:
+                hdu = pyfits.PrimaryHDU(fld.val, header=h)
             hdulist = pyfits.HDUList([hdu])
             file_name_colour = f"{file_name}_{color_dict[i]}.fits"
             hdulist.writeto(file_name_colour, overwrite=overwrite)
 
 
-def rgb_plotting_callback(sample_list, i_global, save_strategy, export_operator_outputs_old, obs_type_old,
-                          output_directory, obs_type_new = None,export_operator_outputs_new = None,
-                          change_iteration = None):
-    """
-    Callback for multifrequency plotting called after each iteration to be used in ift.optimize_kl, which should replace
-    the single frequency plotting routine in optimize_kl.
-
-    Parameters
-    ----------
-    sample_list:
-        Latest sample list, which is passed by optimize_kl
-    i_global:
-        Global iteration, which is passed by optimize_kl
-    export_operator_outputs : dict
-        Dictionary of operators that are exported during the minimization. The
-        key contains a string that serves as identifier. The value of the
-        dictionary is an operator.
-    output_directory : str or None
-        Directory in which all output files are saved. If None, no output is
-        stored.
-    save_strategy : str
-        If "last", only the samples of the last global iteration are stored. If
-        "all", all intermediate samples are written to disk. `save_strategy` is
-        only applicable if `output_directory` is not None. Default: "last".
-    obs_type : string or None
-        Describes the observation type. currently possible obs_types are [CMF (Chandra Multifrequency),
-        EMF (Erosita Multifrequency), RGB and SF (Single Frequency]. The default observation is of type SF. In the case
-        of the type "RGB", the binning is automatically done by xubik
-
-    Returns
-    ----------
-    None
-    """
-    try:
-        import astropy
-    except ImportError:
-        astropy = False
-    # TODO: Mögliche Fehler hier abfangen
-    if i_global < change_iteration:
-        export_operator_outputs = export_operator_outputs_old
-        obs_type = obs_type_old
-    else:
-        export_operator_outputs = export_operator_outputs_new
-        obs_type = obs_type_new
-    if not isinstance(export_operator_outputs, dict):
-        raise TypeError
-    if not isdir(output_directory):
-        print(f" Warning {output_directory} differs from output_directory of optimize_kl")
-        makedirs(output_directory, exist_ok=True)
-    if not isinstance(sample_list, ift.SampleListBase):
-        raise TypeError
-    for name, op in export_operator_outputs.items():
-        if not is_subdomain(op.domain, sample_list.domain):
-            continue
-        op_direc = join(output_directory, name)
-        makedirs(op_direc, exist_ok=True)
-        if sample_list.n_samples > 1:
-            cfg = {"samples": True, "mean": True, "std": True}
-        else:
-            cfg = {"samples": True, "mean": False, "std": False}
-        if astropy:
-            try:
-                if save_strategy == 'all':
-                    app = f"itertaion_{i_global}"
-                elif save_strategy == "last":
-                    app = "last"
-                else:
-                    raise RuntimeError
-                file_name_base = join(op_direc, app)
-                save_to_fits(sample_list, file_name_base, op=op, overwrite=True, **cfg, obs_type=obs_type)
-            except ValueError:
-                pass
-
-
 def energy_binning(fld, energy_bins):
     """
     Takes a field with an arbitrary number of energy bins and reshapes it into a field with three energy-bins.
+    Parameters. If the field has less than 3 energy-bins the field is padded with a constant value. If the field
+    has 3 energy bins, nothing happens and if the field has more than 3 energy bins the array is rebinned to three
+    equally sized energy bins.
+
     Parameters
     ----------
     fld: ift.Field
@@ -583,6 +569,10 @@ def energy_binning(fld, energy_bins):
     ----------
     fld: ift.Field
         Field with changed number of energy bins
+
+    Note
+    ----
+    If the number of energy-bins divided by 3 is not an integer, the last bin will be bigger.
     """
     domain = fld.domain
     arr = fld.val
@@ -590,25 +580,26 @@ def energy_binning(fld, energy_bins):
     new_shape = shape[:2]
     new_shape.append(energy_bins)
     new_domain = ift.DomainTuple.make((domain[0], ift.RGSpace(energy_bins)))
-    aux_arrs =[]
+    aux_arrs = []
     binned_array = arr
-    if shape[2]<energy_bins:
-        binned_array = np.pad(arr, [(0, 0), (0, 0), (0, (energy_bins-shape[2]))], mode='constant')
-    if shape[2]>energy_bins:
-        bins = np.arange(0, shape[2]+1, shape[2]/energy_bins)
-        for i in range(len(bins)-1):
+    if shape[2] < energy_bins:
+        binned_array = np.pad(arr, [(0, 0), (0, 0), (0, (energy_bins - shape[2]))], mode='constant')
+    if shape[2] > energy_bins:
+        bins = np.arange(0, shape[2] + 1, shape[2] / energy_bins)
+        for i in range(len(bins) - 1):
             bin1 = int(bins[i])
-            bin2 = int(bins[i+1])
-            aux_arrs.append(np.sum(arr[:,:,bin1:bin2], axis=2))
+            bin2 = int(bins[i + 1])
+            aux_arrs.append(np.sum(arr[:, :, bin1:bin2], axis=2))
         binned_array = np.stack(aux_arrs, axis=2)
     binned_field = ift.Field.from_raw(new_domain, binned_array)
     return binned_field
 
+
 def transform_loglog_slope_pars(slope_pars):
     """Transform slope parameters from log10/log10 to ln/log10 space"""
     res = slope_pars.copy()
-    res['mean'] = (res['mean']+1) *np.log(10)
-    res['sigma'] *=np.log(10)
+    res['mean'] = (res['mean'] + 1) * np.log(10)
+    res['sigma'] *= np.log(10)
     return res
 
 
@@ -619,3 +610,219 @@ def is_subdomain(sub_domain, total_domain):
         return sub_domain == total_domain
     return all(kk in total_domain.keys() and vv == total_domain[kk]
                for kk, vv in sub_domain.items())
+
+
+def get_data_realization(op, position, exposure=None, padder=None, data=True, output_directory=None):
+    mpi_master = ift.utilities.get_MPI_params()[3]
+    R = ift.ScalingOperator(op.target, 1)
+    if exposure is not None:
+        R = exposure @ R
+    R_no_pad = R
+
+    if padder is not None:
+        R = padder.adjoint @ R
+    res = op.force(position)
+    if data:
+        res = R(op.force(position))
+        res = ift.random.current_rng().poisson(res.val.astype(np.float64))
+        if padder is not None:
+            res = ift.makeField(padder.adjoint.target, res)
+        else:
+            res = ift.makeField(op.target, res)
+    if output_directory is not None and mpi_master:
+        with open(os.path.join(output_directory, f'response_op.pkl'), 'wb') as file:
+            pickle.dump(R_no_pad, file)
+    return res
+
+
+def generate_mock_setup(sky_model, psf_op, mock_sky_position, exposure=None, pad=None,
+                        tm_id=0, output_directory=None):
+    if pad is None and sky_model.position_space != sky_model.extended_space:
+        raise ValueError('The sky is padded but no padder is given')
+    mpi_master = ift.utilities.get_MPI_params()[3]
+
+    # Create output and diagnostic directories
+    if output_directory is not None:
+        diagnostics_dir = os.path.join(output_directory, 'diagnostics')
+        tm_directory = create_output_directory(os.path.join(diagnostics_dir, f'tm{tm_id}'))
+        if mpi_master:
+            create_output_directory(output_directory)
+            create_output_directory(diagnostics_dir)
+            create_output_directory(tm_directory)
+
+    # Exposure
+    exposure_field = exposure
+    if exposure is not None:
+        if pad is not None:
+            exposure = pad(exposure_field)
+        exposure = ift.makeOp(exposure)
+
+    # Get sky operators
+    sky_dict = sky_model.create_sky_model()
+    sky_dict.pop('pspec')
+
+    # Mock sky
+    if mock_sky_position is None:
+        mock_sky_position = ift.from_random(sky_dict['sky'].domain)
+    mock_sky = sky_dict['sky'](mock_sky_position)
+    mock_sky_data = get_data_realization(sky_dict['sky'], mock_sky_position, exposure=exposure,
+                                         padder=pad, output_directory=diagnostics_dir) #FIXME: split
+                                         # into R and get Poissonian data realization
+
+    # Convolve sky operators and draw data realizations
+    conv_sky_dict = {key: (psf_op @ value) for key, value in sky_dict.items()}
+    prefix = "mock_data_"
+    mock_data_dict = {prefix+key: get_data_realization(value,
+                                                       mock_sky_position,
+                                                       exposure=exposure,
+                                                       padder=pad) for key, value in conv_sky_dict.items()}
+    # Prepare output dictionary
+    mock_sky_dict = {}
+    for key, val in sky_dict.items():
+        op = pad.adjoint @ val
+        mock_sky_dict['mock_'+key] = op.force(mock_sky_position)
+
+    if mpi_master and output_directory is not None:
+        p = ift.Plot()
+        for k, v in mock_data_dict.items():
+            # Save data and sky to Pickle
+            with open(os.path.join(tm_directory, f'tm{tm_id}_{k}.pkl'), 'wb') as file:
+                pickle.dump(v, file)
+
+            # Save data to fits
+            save_rgb_image_to_fits(v, os.path.join(tm_directory, f'tm{tm_id}_{k}'), overwrite=True,
+                                   MPI_master=mpi_master)
+
+            # Plot data
+            p.add(v, title=k, norm=LogNorm())
+        for k, v in mock_sky_dict.items():
+            # Save data and sky to Pickle
+            path_to_pickle = os.path.join(diagnostics_dir, f'{k}.pkl')
+            if not os.path.exists(path_to_pickle):
+                with open(os.path.join(diagnostics_dir, f'{k}.pkl'), 'wb') as file:
+                    pickle.dump(v, file)
+
+                # Save data to fits
+                save_rgb_image_to_fits(v, os.path.join(diagnostics_dir, k), overwrite=True,
+                                       MPI_master=mpi_master)
+            # Plot data
+            p.add(v, title=k, norm=LogNorm())
+        if exposure_field is not None:
+            p.add(exposure_field, title='exposure', norm=LogNorm())
+        p.output(nx=3, name=os.path.join(tm_directory, f'tm{tm_id}_mock_data.png'))
+    return mock_data_dict
+
+
+class _IGLikelihood(ift.EnergyOperator):
+    """Functional form of the Inverse-Gamma distribution.
+    
+    Notes:
+    ------
+        This implementation is only designed for a point source component over
+        a single-frequency sky.
+    """
+    # TODO: Build MF-version
+    def __init__(self, data, alpha, q):
+        self._domain = ift.makeDomain(data.domain)
+        shift = ift.Adder(data) @ ift.ScalingOperator(self._domain, -1)
+        dummy = ift.ScalingOperator(self._domain, 1)
+        self._q = ift.ScalingOperator(self._domain, float(q))
+        self._apw = ift.ScalingOperator(self._domain, float(alpha + 1.))
+        op = self._q @ dummy.ptw('reciprocal') + self._apw @ dummy.ptw('log')
+        self._op = (op @ shift).sum()
+
+    def apply(self, x):
+        self._check_input(x)
+        res = self._op(x)
+        if not x.want_metric:
+            return res
+        raise NotImplementedError
+
+def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
+                            point_key = 'point_sources', stiffness = 1E6,
+                            red_factor = 1E-3):
+    """Performs a likelihood (i.E. input sky) invariant transition between the
+    dofs of a diffuse component and point sources. Assumes `sky`to be composed
+    as
+        sky = diffuse_sky(xi_diffuse) + point_sky(xi_point)
+    where `(..._)sky` are `nifty` Operators and `xi` are the standard dofs of
+    the components. The operator `point_sky` is assumed to be a generative
+    process for an Inverse-Gamma distribution matching the convention of
+    `_IGLikelihood`.
+
+    Parameters:
+    -----------
+        sky: nifty8.Operator
+            Generative model for the sky consisting of a point source component
+            and another additive component `diffuse_sky`.
+        diffuse_sky: nifty8.Operator
+            Generative model describing only the diffuse component.
+        point_dict: dict of float
+            Dictionary containing the Inverse-Gamma parameters `alpha` and `q`.
+        transition_dict: dict
+            Optimization parameters for the iteration controller of the
+            transition optimization loop.
+        point_key: str (default: 'point_sources')
+            Key of the point source dofs in the MultiField of the joint
+            reconstruction.
+        stiffness: float (default: 1E6)
+            Precision of the point source dof optimization after updating the
+            diffuse components
+        red_factor: float (default: 1E-3)
+            Scaling for the convergence criterion regarding the second
+            optimization for the point source dofs.
+    """
+    # TODO: replace second optimization with proper inverse transformation!
+    def _transition(position):
+        diffuse_pos = position.to_dict()
+        diffuse_pos.pop(point_key)
+        diffuse_pos = ift.MultiField.from_dict(diffuse_pos)
+
+        my_sky = sky(position)
+
+        lh = _IGLikelihood(my_sky, point_dict['alpha'], point_dict['q'])
+
+        ic_mini = ift.AbsDeltaEnergyController(
+                        deltaE = float(transition_dict['deltaE']),
+                        iteration_limit = transition_dict['iteration_limit'],
+                        convergence_level=transition_dict['convergence_level'],
+                        name = transition_dict['name'])
+        ham = ift.StandardHamiltonian(lh @ diffuse_sky)
+        en, _ = ift.VL_BFGS(ic_mini)(ift.EnergyAdapter(diffuse_pos, ham))
+        diffuse_pos = en.position
+
+        new_pos = diffuse_pos.to_dict()
+        new_pos['point_sources'] = position['point_sources']
+        new_pos = ift.MultiField.from_dict(new_pos)
+
+        icov = ift.ScalingOperator(my_sky.domain, stiffness)
+        lh = ift.GaussianEnergy(data=my_sky, inverse_covariance=icov)
+        en = ift.EnergyAdapter(new_pos, lh @ sky,
+                               constants=list(diffuse_pos.keys()))
+        ic_mini = ift.AbsDeltaEnergyController(
+                        deltaE = red_factor * float(transition_dict['deltaE']),
+                        iteration_limit = transition_dict['iteration_limit'],
+                        convergence_level=transition_dict['convergence_level'],
+                        name = transition_dict['name'])
+
+        new_point_source_position = ift.VL_BFGS(ic_mini)(en)[0].position.to_dict()
+        new_pos = new_pos.to_dict()
+        new_pos['point_sources'] = new_point_source_position['point_sources']
+        return ift.MultiField.from_dict(new_pos)
+
+    _tr = (lambda samples: samples.average(_transition))
+    return lambda iiter: None if iiter < transition_dict['start'] else _tr
+
+
+def check_type(arg, type, name=''):
+    if arg is None:
+        pass
+    elif isinstance(arg, list):
+        if not isinstance(arg[0], type):
+            return TypeError(
+                "The arguments of the \"{}\" list must be of type {}.".format(name, str(type)))
+        else:
+            pass
+    elif not isinstance(arg, type):
+        print("arg:", arg)
+        raise TypeError("The \"{}\" argument must be of type {}.".format(name, str(type)))
