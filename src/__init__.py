@@ -7,8 +7,8 @@ from .library.utils import (get_mask_operator, prior_sample_plotter, get_norm,
                             save_to_fits, generate_mock_setup, save_config,
                             create_output_directory, coord_center,
                             get_radec_from_xy, get_psfpatches,
-                            get_synth_pointsource, get_gaussian_psf,
-                            get_equal_lh_transition, check_type)
+                            get_synth_pointsource, get_gaussian_psf, get_rel_uncertainty,
+                            get_equal_lh_transition, check_type, get_RGB_image_from_field)
 from .library.plot import (plot_slices, plot_result, plot_results, plot_fused_data,
                            plot_rgb_image, plot_image_from_fits,
                            plot_single_psf, plot_psfset, plot_sample_and_stats, plot_energy_slices,

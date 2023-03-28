@@ -9,44 +9,6 @@ from matplotlib.colors import LogNorm
 import xubik0 as xu
 
 
-def get_rel_unc(mean, std):
-    assert mean.domain == std.domain
-    domain = mean.domain
-    mean, std = mean.val, std.val
-    res = np.zeros(mean.shape)
-    mask = mean != 0
-    res[mask] = std[mask] / mean[mask]
-    res[~mask] = np.nan
-    return ift.makeField(domain, res)
-
-
-def convert_field_to_RGB(field, norm=None, sat=None):
-    if norm is None:
-        norm = [np.log, np.log10, np.log10]
-    if sat is None:
-        sat = [1.75, 1.4, 1.3]
-    arr = field.val
-    res = []
-    for i in range(3):
-        sub_array = arr[:, :, i]
-        color_norm = norm[i]
-        r = np.zeros_like(sub_array)
-        mask = sub_array != 0
-        if norm is not None:
-            r[mask] = color_norm(sub_array[mask]) if color_norm is not None else sub_array[mask]
-            min = np.min(r[mask])
-            max = np.max(r[mask])
-            r[mask] -= min
-            r[mask] /= (max - min)
-            r[mask] *= sat[i]
-            r[mask] = r[mask] * 255.0
-            r[~mask] = 0
-        res.append(r)
-    res = np.array(res, dtype='int')
-    res = np.transpose(res, (1, 2, 0))
-    return res
-
-
 from matplotlib.colors import LinearSegmentedColormap
 redmap = LinearSegmentedColormap.from_list('kr', ["k", "darkred", "sandybrown"], N=256)
 greenmap = LinearSegmentedColormap.from_list('kg', ["k", "g", "palegreen"], N=256)
@@ -179,7 +141,7 @@ if __name__ == '__main__':
                     'vmax': 1., 
                     'cmap': 'cividis',
                     'title': "Relative uncertainty"}
-            xu.plot_result(get_rel_unc(stat['mean'], stat['std']),
+            xu.plot_result(xu.get_rel_unc(stat['mean'], stat['std']),
                            outname_base.format(key, 'rel_std'), 
                            cbar_formatter=fmt, **args)
             print(f'Results saved as {outname_base.format(key, "stat")} for stat in'
@@ -203,7 +165,7 @@ if __name__ == '__main__':
         xu.create_output_directory(output_path)
         xu.save_rgb_image_to_fits(sky_field, output_path + "skyRGB_lin.fits", True, True)
 
-        im = plt.imshow(convert_field_to_RGB(sky_field), origin="lower")
+        im = plt.imshow(xu.get_RGB_image_from_field(sky_field), origin="lower")
         rgb_filename = output_path + "sky_rgb.png"
         plt.savefig(rgb_filename, dpi=300)
         print(f"RGB image saved as {rgb_filename}.")
