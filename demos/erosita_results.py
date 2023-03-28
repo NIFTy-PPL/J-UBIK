@@ -1,7 +1,6 @@
 import os
 import pickle
 
-import matplotlib.pyplot as plt
 import numpy as np
 import nifty8 as ift
 from matplotlib.colors import LogNorm
@@ -20,7 +19,7 @@ def get_rel_unc(mean, std):
     return ift.makeField(domain, res)
 
 
-from  matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import LinearSegmentedColormap
 redmap = LinearSegmentedColormap.from_list('kr', ["k", "darkred", "sandybrown"], N=256)
 greenmap = LinearSegmentedColormap.from_list('kg', ["k", "g", "palegreen"], N=256)
 bluemap = LinearSegmentedColormap.from_list('kb', ["k", "b", "paleturquoise"], N=256)
@@ -30,12 +29,11 @@ COLOR_DICT = {'red':{'path':'red','config':'_red', 'cmap':redmap},
               'blue' :{'path':'blue', 'config':'_blue','cmap':bluemap}}
 
 if __name__ == '__main__':
-    col = 'red'
+    col = 'green'
     # Paths -Set by user
     output_path = f'final_results_{col}/'
     xu.create_output_directory(output_path)
-    reconstruction_path_list = [f"results/LMC_{COLOR_DICT[col]['path']}/",]#["results/LMC_red/", "results/LMC_first_blue_llzm_notrans/",
-                               # "results/LMC_low_flex/"]  # FIXME filepath
+    reconstruction_path_list = [f"results/LMC_{COLOR_DICT[col]['path']}/"]
     if len(reconstruction_path_list) > 3:
         raise NotImplementedError
     diagnostics_path_list = [r_path + "diagnostics/" for r_path in reconstruction_path_list]
@@ -141,14 +139,15 @@ if __name__ == '__main__':
 
             from matplotlib.ticker import FuncFormatter
             fmt=FuncFormatter(lambda x, pos: '{:.1%}'.format(x))
-            args = {'vmin': 0.05, 
+            args = {'vmin': 1e-7,
                     'vmax': 1., 
                     'cmap': 'cividis',
                     'title': "Relative uncertainty"}
-            xu.plot_result(get_rel_unc(stat['mean'],stat['std']), 
+            xu.plot_result(get_rel_unc(stat['mean'], stat['std']),
                            outname_base.format(key, 'rel_std'), 
                            cbar_formatter=fmt, **args)
-            print(f'Results saved as {outname_base.format(key, "stat")} for stat in (mean, std, rel).')
+            print(f'Results saved as {outname_base.format(key, "stat")} for stat in'
+                  f' {{mean, std, rel_std}}.')
 
     else:
         mean = {}

@@ -52,6 +52,7 @@ def plot_result(field, outname, logscale=False, title=None, colorbar=True, figsi
     fig.tight_layout()
     if outname != None:
         fig.savefig(outname, bbox_inches='tight', pad_inches=0)
+        print(f"Plot saved as {outname}.")
     plt.close()
 
 
@@ -427,13 +428,12 @@ def _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
 
 
 def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
-    # print(edges)
-    plt.bar(edges[:-1], hist)
-    # plt.scatter(edges[:-1], hist)
-    plt.yscale("log")
-    # plt.xscale("log")
+    plt.bar(edges[:-1], hist, width=edges[0]-edges[1])
+    if logx:
+        plt.xscale("log")
+    if logy:
+        plt.yscale("log")
     plt.title(title)
-    # plt.show()
     plt.savefig(filename)
     plt.close()
     print(f"Histogram saved as {filename}.")

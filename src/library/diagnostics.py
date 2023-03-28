@@ -41,12 +41,12 @@ def get_uncertainty_weighted_measure(sl,
         save_rgb_image_to_fits(wgt_res, output_dir_base,
                                overwrite=True, MPI_master=mpi_master)
         plt_args = {'cmap': 'seismic', 'vmin': -vmax, 'vmax': vmax}
-        plot_energy_slices(wgt_res, file_name=f'{output_dir_base}.png', **plt_args)
+        plot_result(wgt_res, f'{output_dir_base}.png', **plt_args)
     return wgt_res
 
 
 def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=None, output_dir=None,
-                                     base_filename='nwr', abs=True, plot_kwargs=None, nbins=None):
+                                     base_filename='nwr', abs=True, plot_kwargs=None, n_bins=None):
     """ Computes the Poissonian noise-weighted residuals.
     The form of the residual is :math:`r = \\frac{s-d}{\\sqrt{s}}`, where s is the signal response
     and d the data.
@@ -60,16 +60,18 @@ def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=No
         base_filename: `str` base filename for the output plots. No extension.
         abs: `bool`, if True the absolute of the residuals is calculated.
         plot_kwargs: Keyword arguments for plotting.
+        n_bins: `int` number of bins for histograms
 
     Returns:
         Posterior mean noise-weighted residuals
-        Noise-weigthed residuals distribution as a histogram
-        Noise-weighted residuals plots in .fits and .png format
+        If n_bins is not None:
+            Noise-weigthed residuals distribution as a histogram
+            Noise-weighted residuals plots in .fits and .png format
 
     """
     _, _, _, mpi_master = ift.utilities.get_MPI_params()
     sc = ift.StatCalculator()
-    if nbins is not None:
+    if n_bins is not None:
         hist_list = []
 
     for sample in sample_list.iterator():
@@ -79,24 +81,23 @@ def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=No
             nwr = nwr.abs()
         if mask_op is not None:
             nwr = mask_op.adjoint(nwr)
+            flags = mask_op._flags
         sc.add(nwr)
 
-        if nbins is not None:
-            hist, edges = np.histogram(nwr.val.reshape(-1), bins=nbins, range=(-10., 10.))
+        if n_bins is not None:
+            unmasked_nwr = nwr.val[flags] if mask_op is not None else nwr.val
+            hist, edges = np.histogram(unmasked_nwr.reshape(-1), bins=n_bins, range=(-5., 5.))
             hist_list.append(hist)
 
-    # print(np.array(hist_list).shape)
     mean_hist = np.mean(np.array(hist_list), axis=0)
-    # print(mean_hist)
     nwr_mean = sc.mean
 
     if mpi_master is not None and output_dir is not None:
         filename = output_dir + base_filename
         save_rgb_image_to_fits(nwr_mean, file_name=filename, overwrite=True, MPI_master=mpi_master)
         plot_kwargs.update({'cmap': 'seismic', 'vmin': -5., 'vmax': 5.})
-        # plt_args = {'cmap': 'seismic', 'vmin': -5., 'vmax': 5.}
         plot_result(nwr_mean, outname=f'{filename}.png', **plot_kwargs)
-    if nbins is None:
+    if n_bins is None:
         return nwr_mean
     else:
         return nwr_mean, mean_hist, edges
@@ -123,7 +124,7 @@ def get_noise_weighted_residuals_from_file(sample_list_path,
                                             base_filename=base_filename,
                                             abs=abs,
                                             plot_kwargs=plot_kwargs,
-                                            nbins=nbins)
+                                            n_bins=nbins)
 
 
 def signal_space_uwr_from_file(sl_path_base,
