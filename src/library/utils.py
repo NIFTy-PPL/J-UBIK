@@ -548,6 +548,7 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
             hdulist = pyfits.HDUList([hdu])
             file_name_colour = f"{file_name}_{color_dict[i]}.fits"
             hdulist.writeto(file_name_colour, overwrite=overwrite)
+            print(f"RGB image saved as {file_name_colour}.")
 
 
 def energy_binning(fld, energy_bins):
