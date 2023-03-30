@@ -99,7 +99,7 @@ if __name__ == "__main__":
     operators_to_plot = {key: (sky_model.pad.adjoint(value)) for key, value in sky_dict.items()}
     operators_to_plot = {**operators_to_plot, 'pspec': pspec}
 
-    # strip of directory of filename
+    # strip of directory of filepath
     config_filename = os.path.basename(config_path)
     # Save config file in output_directory
     xu.save_cfg(cfg, config_filename, output_directory)
