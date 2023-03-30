@@ -4,6 +4,18 @@ from matplotlib.colors import LogNorm
 
 
 class SkyModel:
+    """
+    Basic spatial SkyModel consisting of a diffuse (correlated) component
+    and a point-source like (not correlated) component. The latter can
+    be switched off.
+
+    Parameters:
+    ----------
+    config_file : python-dictionary, containing information about the grid,
+                   (the telescope (for the pixelization)), # TODO IMHO this should be part of the grid
+                   the priors on the correlated field and the uncorrelated inverse gamma
+                    component.
+    """
     def __init__(self, config_file):
         if not isinstance(config_file, str):
             raise TypeError("The config_file argument needs to be the path to a .yaml config file.")
@@ -26,6 +38,14 @@ class SkyModel:
         self.pad = ift.FieldZeroPadder(self.position_space, self.extended_space.shape)
 
     def create_sky_model(self):
+        """
+        returns a dictionary containing:
+            - sky-operator
+            - power-spectrum-operator
+        if point-sources are switched on:
+            - point-sources
+            - diffuse (correlated field)
+        """
         diffuse_component, pspec = self._create_diffuse_component_model()
         if self.priors['point_sources'] is None:
             sky = diffuse_component

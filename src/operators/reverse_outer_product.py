@@ -1,5 +1,7 @@
 import nifty8 as ift
 import numpy as np
+
+# TODO Could we rename this class? This sounds wrong to me
 class ReverseOuterProduct(ift.LinearOperator):
     """Performs the point-wise outer product `field x inp_field`.
 
