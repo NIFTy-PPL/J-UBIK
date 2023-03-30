@@ -46,14 +46,14 @@ if __name__ == '__main__':
     mock_data_base = "mock_data_sky.pkl"
     exposure_base = "exposure.pkl"
 
-    cfg_filename_list = [r_path + config_filename for r_path in reconstruction_path_list]
+    cfg_filepath_list = [r_path + config_filename for r_path in reconstruction_path_list]
     plottable_field_list = []
 
     mask_plots = True
 
-    for i in range(len(cfg_filename_list)):
+    for i in range(len(cfg_filepath_list)):
         # Config
-        cfg = xu.get_cfg(cfg_filename_list[i])
+        cfg = xu.get_cfg(cfg_filepath_list[i])
         file_info = cfg['files']
         obs_path = file_info['obs_path']
         exposure_filename = file_info['exposure']
@@ -62,7 +62,7 @@ if __name__ == '__main__':
         tel_info = cfg['telescope']  # FIXME
         tm_ids = tel_info['tm_ids']
 
-        sky_model = xu.SkyModel(cfg_filename_list[i])
+        sky_model = xu.SkyModel(cfg_filepath_list[i])
         sky_dict = sky_model.create_sky_model()
         padder = sky_model.pad
 
@@ -74,7 +74,7 @@ if __name__ == '__main__':
                 joint_mask_field = pickle.load(f)
 
         else:
-            response_dict = xu.load_erosita_response(cfg_filename_list[i], 
+            response_dict = xu.load_erosita_response(cfg_filepath_list[i],
                                                      diagnostics_path_list[i])
 
             # Create joint mask
