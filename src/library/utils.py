@@ -19,7 +19,7 @@ def get_cfg(yaml_file):
     return cfg
 
 
-def save_config(config, filename, dir=None):
+def save_cfg(config, filename, dir=None):
     import yaml
     if dir is not None:
         create_output_directory(dir)

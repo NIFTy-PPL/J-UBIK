@@ -100,7 +100,7 @@ if __name__ == "__main__":
     operators_to_plot = {**operators_to_plot, 'pspec': pspec}
 
     # Save config file in output_directory
-    xu.save_config(cfg, config_filename, output_directory)
+    xu.save_cfg(cfg, config_filename, output_directory)
 
     plot = lambda x, y: xu.plot_sample_and_stats(output_directory,
                                                  operators_to_plot,
