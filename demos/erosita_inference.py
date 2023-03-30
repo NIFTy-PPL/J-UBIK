@@ -17,8 +17,8 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
     # Load config file
-    config_filename = args.config
-    cfg = xu.get_cfg(config_filename)
+    config_path = args.config
+    cfg = xu.get_cfg(config_path)
     ift.random.push_sseq_from_seed(cfg['seed'])
 
     # Mock reconstruction setup
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     file_info = cfg['files']
 
     # Load sky model
-    sky_model = xu.SkyModel(config_filename)
+    sky_model = xu.SkyModel(config_path)
     sky_dict = sky_model.create_sky_model()
 
     # Get power spectrum
@@ -55,10 +55,10 @@ if __name__ == "__main__":
     diagnostics_directory = xu.create_output_directory(output_directory + '/diagnostics')
 
     # Load response dictionary
-    response_dict = xu.load_erosita_response(config_filename, diagnostics_directory)
+    response_dict = xu.load_erosita_response(config_path, diagnostics_directory)
 
     # Load data
-    _, masked_data_dict = xu.load_erosita_data(config_filename, output_directory,
+    _, masked_data_dict = xu.load_erosita_data(config_path, output_directory,
                                                diagnostics_directory, response_dict)
 
     # Set up likelihood
@@ -100,8 +100,9 @@ if __name__ == "__main__":
     operators_to_plot = {**operators_to_plot, 'pspec': pspec}
 
     # strip of directory of filename
+    config_filename = os.path.basename(config_path)
     # Save config file in output_directory
-    xu.save_cfg(cfg, cfg_name, output_directory)
+    xu.save_cfg(cfg, config_filename, output_directory)
 
     plot = lambda x, y: xu.plot_sample_and_stats(output_directory,
                                                  operators_to_plot,
