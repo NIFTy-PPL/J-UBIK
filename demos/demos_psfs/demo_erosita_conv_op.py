@@ -3,8 +3,8 @@ import nifty8 as ift
 import numpy as np
 import timeit
 
-# from jax import config
-# config.update('jax_enable_x64', True)
+from jax import config
+config.update('jax_enable_x64', True)
 
 ift.set_nthreads(8)
 
@@ -38,7 +38,7 @@ energy = '3000'
 pointing_center = (1800, 1800)
 fov = (3600, 3600)
 
-npix = (200, 200)
+npix = (512, 512)
 dists = tuple(ff/pp for ff, pp in zip(fov, npix))
 domain = ift.RGSpace(npix, distances=dists)
 
@@ -46,9 +46,12 @@ psf_func = obs.psf_func_on_domain(energy, pointing_center, domain)
 
 kernels, sources = get_kernels_and_sources(domain, psf_func)
 
-cparams = {'b':(3,3), 'q':(5,5), 'c':(2,2), 'min_m0':(10,10), 'linear':False}
+msc_infos = {'base' : (3,3), 'min_baseshape' : (8,8), 'linlevel' : (10,10),
+            'kernel_sizes' : ((3,3),),
+            'keep_overlap' : ((True,True),),
+            'local_kernel' : (True, True)}
 op = obs.make_psf_op(energy, pointing_center, domain,
-                     conv_method='MSC_ADJ', conv_params=cparams)
+                     conv_method='MSC', conv_params=msc_infos)
 
 c2params = {'npatch': 8, 'margfrac': 0.062, 'want_cut': False}
 op2 = obs.make_psf_op(energy, pointing_center, domain,

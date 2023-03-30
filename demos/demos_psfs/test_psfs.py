@@ -99,8 +99,10 @@ def compare_psf_ops():
                  'patch_center_ids' : patch_centers,
                  'patch_deltas' : patch_deltas, 
                  'pointing_center' : center}
-    msc_infos = {'c' : (1,1), 'q': (1,1), 'b' : (3,3), 'min_m0' : (5,5),
-                 'linear' : (True, True)}
+    msc_infos = {'base' : (3,3), 'min_baseshape' : (5,5), 'linlevel' : (1,1),
+                 'kernel_sizes' : ((5,5),(3,3)),
+                 'keep_overlap' : ((False,False),(True,True),(False,False)),
+                 'local_kernel' : (True, True)}
     msc_op = psf_convolve_operator(domain, psf_infos, msc_infos)
 
     int_op = psf_lin_int_operator(domain, 10, psf_infos, margfrac=0.1)
