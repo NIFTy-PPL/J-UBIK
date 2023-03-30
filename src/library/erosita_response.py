@@ -8,12 +8,12 @@ import numpy as np
 from .erosita_observation import ErositaObservation
 from .erosita_psf import eROSITA_PSF
 from .sky_models import SkyModel
-from .utils import get_cfg, create_output_directory, get_gaussian_psf, get_fft_psf_op, \
+from .utils import get_config, create_output_directory, get_gaussian_psf, get_fft_psf_op, \
     get_mask_operator
 
 
 def load_erosita_response(config_filepath, diagnostics_directory):
-    cfg = get_cfg(config_filepath)
+    cfg = get_config(config_filepath)
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])  # FIXME USE DISTANCES!
     mock_run = cfg['mock']

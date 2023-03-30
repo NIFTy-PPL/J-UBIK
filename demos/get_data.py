@@ -9,8 +9,8 @@ import xubik0 as xu
 # config.yaml contains the information about the inference, e.g.
 # binning/resolution/Fov and information about the prior
 
-obs_info = xu.get_cfg("obs/obs.yaml")
-img_cfg = xu.get_cfg("scripts/config.yaml")
+obs_info = xu.get_config("obs/obs.yaml")
+img_cfg = xu.get_config("scripts/config.yaml")
 
 obslist = img_cfg["datasets"]
 grid = img_cfg["grid"]

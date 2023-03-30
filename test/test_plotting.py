@@ -10,7 +10,7 @@ import time
 
 with open('models/mf_sky_trans.py', 'r') as fd:
     exec(fd.read())
-#cfg = xu.get_cfg("config_mf.yaml")
+#cfg = xu.get_config("config_mf.yaml")
 output_directory = "df_rec_old"
 fname = "last"
 fname = reduce(join, [output_directory, "pickle", fname])

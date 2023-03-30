@@ -5,7 +5,7 @@ import nifty8 as ift
 import xubik0 as xu
 
 config_path = 'test/mock_data_generation.yaml'
-cfg = xu.get_cfg(config_path)
+cfg = xu.get_config(config_path)
 sky_model = xu.SkyModel(config_path)
 
 psf_arr = np.random.choice([0.0, 1.0], sky_model.extended_space.shape)

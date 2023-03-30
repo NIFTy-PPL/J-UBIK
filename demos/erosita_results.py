@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     for i in range(len(cfg_filepath_list)):
         # Config
-        cfg = xu.get_cfg(cfg_filepath_list[i])
+        cfg = xu.get_config(cfg_filepath_list[i])
         file_info = cfg['files']
         obs_path = file_info['obs_path']
         exposure_filename = file_info['exposure']

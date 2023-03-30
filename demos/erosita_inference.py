@@ -18,7 +18,7 @@ args = parser.parse_args()
 if __name__ == "__main__":
     # Load config file
     config_path = args.config
-    cfg = xu.get_cfg(config_path)
+    cfg = xu.get_config(config_path)
     ift.random.push_sseq_from_seed(cfg['seed'])
 
     # Mock reconstruction setup
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     # strip of directory of filepath
     config_filename = os.path.basename(config_path)
     # Save config file in output_directory
-    xu.save_cfg(cfg, config_filename, output_directory)
+    xu.save_config(cfg, config_filename, output_directory)
 
     plot = lambda x, y: xu.plot_sample_and_stats(output_directory,
                                                  operators_to_plot,

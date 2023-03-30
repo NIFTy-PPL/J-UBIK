@@ -5,7 +5,7 @@ import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-from .utils import get_data_domain, get_cfg, create_output_directory
+from .utils import get_data_domain, get_config, create_output_directory
 from ..library.sky_models import SkyModel
 from ..library.erosita_response import load_erosita_response
 from ..library.chandra_observation import ChandraObservationInformation
@@ -349,7 +349,7 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
 def plot_erosita_priors(n_samples, config_path, response_path, priors_dir,
                         plotting_kwargs=None, common_colorbar=False):
     priors_dir = create_output_directory(priors_dir)
-    cfg = get_cfg(config_path)  # load config
+    cfg = get_config(config_path)  # load config
 
     if plotting_kwargs is None:
         plotting_kwargs = {}

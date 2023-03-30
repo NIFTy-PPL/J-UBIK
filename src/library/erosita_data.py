@@ -6,11 +6,11 @@ import numpy as np
 
 from .erosita_observation import ErositaObservation
 from .sky_models import SkyModel
-from .utils import get_cfg, create_output_directory, generate_mock_setup
+from .utils import get_config, create_output_directory, generate_mock_setup
 
 
 def load_erosita_data(config_filepath, output_directory, diagnostics_directory, response_dict):
-    cfg = get_cfg(config_filepath)
+    cfg = get_config(config_filepath)
 
     # Mock info
     mock_run = cfg['mock']
