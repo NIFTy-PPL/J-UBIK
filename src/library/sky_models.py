@@ -10,7 +10,7 @@ class SkyModel:
         # FIXME: add all relevant checks and docstrings
 
         # Load config
-        self.config = xu.get_cfg(config_file)
+        self.config = xu.get_config(config_file)
         self.priors = self.config['priors']
 
         # grid info

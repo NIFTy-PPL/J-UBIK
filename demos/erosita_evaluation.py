@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     # Config
     config_file = reconstruction_path + config_filename
-    cfg = xu.get_cfg(config_file)
+    cfg = xu.get_config(config_file)
     mock_run = cfg['mock']
     mock_psf = cfg['mock_psf']
     file_info = cfg['files']

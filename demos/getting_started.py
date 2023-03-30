@@ -7,7 +7,7 @@ import xubik0 as xu
 ift.set_nthreads(2)
 
 # Load config file
-cfg = xu.get_cfg("scripts/config.yaml")
+cfg = xu.get_config("scripts/config.yaml")
 prefix = cfg["prefix"]
 npix_s = cfg["grid"]["npix_s"]
 fov = cfg["grid"]["fov"]

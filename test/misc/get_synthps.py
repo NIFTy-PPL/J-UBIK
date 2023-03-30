@@ -3,8 +3,8 @@ import numpy as np
 import nifty8 as ift
 import xubik0 as xu
 
-obs_info = xu.get_cfg("obs/obs.yaml")
-cfg = xu.get_cfg("scripts/config.yaml")
+obs_info = xu.get_config("obs/obs.yaml")
+cfg = xu.get_config("scripts/config.yaml")
 grid = cfg["grid"]
 npix_s = grid["npix_s"]
 fov = grid["fov"]

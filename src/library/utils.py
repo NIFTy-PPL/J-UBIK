@@ -9,12 +9,12 @@ from matplotlib.colors import LogNorm, SymLogNorm
 import nifty8 as ift
 
 
-def get_cfg(yaml_file):
+def get_config(path_to_yaml_file):
     """
     Convenience function for loading yaml-config files
     """
     import yaml
-    with open(yaml_file, "r") as cfg_file:
+    with open(path_to_yaml_file, "r") as cfg_file:
         cfg = yaml.safe_load(cfg_file)
     return cfg
 
@@ -22,10 +22,9 @@ def get_cfg(yaml_file):
 def save_config(config, filename, dir=None):
     import yaml
     if dir is not None:
-        if not os.path.exists(dir):
-            os.mkdir(dir)
-        with open(os.path.join(dir, filename), "w") as f:
-            yaml.dump(config, f)
+        create_output_directory(dir)
+    with open(os.path.join(dir, filename), "w") as f:
+        yaml.dump(config, f)
 
 
 def create_output_directory(directory_name):

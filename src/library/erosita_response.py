@@ -8,12 +8,12 @@ import numpy as np
 from .erosita_observation import ErositaObservation
 from .erosita_psf import eROSITA_PSF
 from .sky_models import SkyModel
-from .utils import get_cfg, create_output_directory, get_gaussian_psf, get_fft_psf_op, \
+from .utils import get_config, create_output_directory, get_gaussian_psf, get_fft_psf_op, \
     get_mask_operator
 
 
-def load_erosita_response(config_filename, diagnostics_directory):
-    cfg = get_cfg(config_filename)
+def load_erosita_response(config_filepath, diagnostics_directory):
+    cfg = get_config(config_filepath)
     fov = cfg['telescope']['fov']
     rebin = math.floor(20 * fov // cfg['grid']['npix'])  # FIXME USE DISTANCES!
     mock_run = cfg['mock']
@@ -37,7 +37,7 @@ def load_erosita_response(config_filename, diagnostics_directory):
     file_info = cfg['files']
     obs_path = file_info['obs_path']
     input_filenames = file_info['input']
-    sky_model = SkyModel(config_filename)
+    sky_model = SkyModel(config_filepath)
     sky_dict = sky_model.create_sky_model()
 
     log = 'Output file {} already exists and is not regenerated. ' \

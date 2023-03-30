@@ -1,6 +1,6 @@
 from .library.utils import (get_mask_operator, prior_sample_plotter, get_norm,
                             get_normed_exposure, get_norm_exposure_patches,
-                            get_data_domain, get_cfg, convolve_operators,
+                            get_data_domain, get_config, convolve_operators,
                             convolve_field_operator, get_fft_psf_op, Transposer,
                             energy_binning, save_rgb_image_to_fits,
                             transform_loglog_slope_pars, is_subdomain,
