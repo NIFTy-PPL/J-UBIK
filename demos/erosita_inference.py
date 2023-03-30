@@ -99,8 +99,11 @@ if __name__ == "__main__":
     operators_to_plot = {key: (sky_model.pad.adjoint(value)) for key, value in sky_dict.items()}
     operators_to_plot = {**operators_to_plot, 'pspec': pspec}
 
+    # strip of directory of filename
+    # TODO cfg_name is the filename. config_filename should be called config_filepath
+    cfg_name = os.path.basename(config_filename)
     # Save config file in output_directory
-    xu.save_cfg(cfg, config_filename, output_directory)
+    xu.save_cfg(cfg, cfg_name, output_directory)
 
     plot = lambda x, y: xu.plot_sample_and_stats(output_directory,
                                                  operators_to_plot,
