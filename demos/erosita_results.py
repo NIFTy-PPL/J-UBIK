@@ -14,6 +14,24 @@ redmap = LinearSegmentedColormap.from_list('kr', ["k", "darkred", "sandybrown"],
 greenmap = LinearSegmentedColormap.from_list('kg', ["k", "g", "palegreen"], N=256)
 bluemap = LinearSegmentedColormap.from_list('kb', ["k", "b", "paleturquoise"], N=256)
 
+
+def build_joint_mask(sky_model, tm_ids, diagnostics_path, exposure_base):
+    joint_mask = np.ones(sky_model.position_space.shape)
+    for tm_id in tm_ids:
+        tm_directory = xu.create_output_directory(os.path.join(diagnostics_path, f'tm{tm_id}/'))
+
+        if exposure_base is not None:
+            exposure_path = tm_directory + f"tm{tm_id}_{exposure_base}"
+            with open(exposure_path, "rb") as f:
+                exposure_field = pickle.load(f)
+
+        joint_mask[exposure_field.val != 0] = 0
+    joint_mask_field = ift.makeField(exposure_field.domain, joint_mask)
+
+    mask = ift.MaskOperator(joint_mask_field)
+    return mask.adjoint @ mask
+
+
 COLOR_DICT = {'red': {'path': 'red', 'config': '_red', 'cmap': redmap},
               'green': {'path': 'green', 'config': '_green', 'cmap': greenmap},
               'blue': {'path': 'blue', 'config': '_blue', 'cmap': bluemap}}
@@ -41,7 +59,6 @@ if __name__ == '__main__':
         xu.create_output_directory(output_path)
         output_paths.append(output_path)
         reconstruction_path = f"results/LMC_{COLOR_DICT[col]['path']}/"
-        # reconstruction_paths.append(reconstruction_path)
         diagnostic_paths.append(reconstruction_path + "diagnostics/")
         config_paths.append(reconstruction_path + f"eROSITA_config{COLOR_DICT[col]['config']}.yaml")
         samples_paths.append(reconstruction_path + "pickle/last")
@@ -51,7 +68,7 @@ if __name__ == '__main__':
 
     for i in range(len(colors)):
         # Config
-        cfg = xu.get_cfg(config_paths[i])
+        cfg = xu.get_config(config_paths[i])
         file_info = cfg['files']
         obs_path = file_info['obs_path']
         exposure_filename = file_info['exposure']
@@ -64,37 +81,7 @@ if __name__ == '__main__':
         sky_dict = sky_model.create_sky_model()
         padder = sky_model.pad
 
-        joint_mask_filename = "joint_mask.pickle"
-        joint_mask_path = os.path.join(output_paths[i], joint_mask_filename)
-
-        if os.path.exists(joint_mask_path):
-            with open(joint_mask_path, 'rb') as f:
-                joint_mask_field = pickle.load(f)
-
-        else:
-            response_dict = xu.load_erosita_response(config_paths[i], diagnostic_paths[i])
-
-            # Create joint mask
-            joint_mask_field = None
-            joint_mask = np.ones(sky_model.position_space.shape)
-            for tm_id in tm_ids:
-                tm_directory = xu.create_output_directory(
-                    os.path.join(diagnostic_paths[i], f'tm{tm_id}/'))
-                tm_key = f'tm_{tm_id}'
-
-                if exposure_base is not None:
-                    exposure_path = tm_directory + f"tm{tm_id}_{exposure_base}"
-                    with open(exposure_path, "rb") as f:
-                        exposure_field = pickle.load(f)
-
-                joint_mask[exposure_field.val != 0] = 0
-            joint_mask_field = ift.makeField(exposure_field.domain, joint_mask)
-
-            with open(joint_mask_path, 'wb') as f:
-                pickle.dump(joint_mask_field, f)
-
-        joint_mask = ift.MaskOperator(joint_mask_field)
-        joint_mask = joint_mask.adjoint @ joint_mask
+        joint_mask = build_joint_mask(sky_model, tm_ids, diagnostic_paths[i], exposure_base)
 
         if mask_plots:
             masked_sky_dict = sky_dict.copy()
@@ -130,7 +117,7 @@ if __name__ == '__main__':
                     'title': "Reconstruction"}
             xu.plot_result(stat['mean'], outname_base.format(key, 'mean'), 
                            **args)
-            args = {'norm':LogNorm(vmin=5E-6, vmax=1E-3), 
+            args = {'norm': LogNorm(vmin=5E-6, vmax=1E-3),
                     'cmap': 'cividis',
                     'title': "Absolute uncertainty"}
             xu.plot_result(stat['std'], outname_base.format(key, 'std'), **args)
@@ -141,7 +128,7 @@ if __name__ == '__main__':
                     'vmax': 1., 
                     'cmap': 'cividis',
                     'title': "Relative uncertainty"}
-            xu.plot_result(xu.get_rel_unc(stat['mean'], stat['std']),
+            xu.plot_result(xu.get_rel_uncertainty(stat['mean'], stat['std']),
                            outname_base.format(key, 'rel_std'), 
                            cbar_formatter=fmt, **args)
             print(f'Results saved as {outname_base.format(key, "stat")} for stat in'
@@ -169,21 +156,3 @@ if __name__ == '__main__':
         rgb_filename = output_path + "sky_rgb.png"
         plt.savefig(rgb_filename, dpi=300)
         print(f"RGB image saved as {rgb_filename}.")
-        print()
-
-    # Plot power_spectrum FIXME
-    # ps_mean, ps_std = sample_list.sample_stat(power_spectrum)
-    # ps_std = ps_std.sqrt()
-    #
-    # def _get_xy(field):
-    #     return field.domain[0].k_lengths, field.val
-    #
-    # import matplotlib.pyplot as plt
-    # plt.plot(*_get_xy(ps_mean))
-    # plt.plot(*_get_xy(ps_std))
-    #
-    # # plt.plot(*_get_xy(ps_mean + ps_std))
-    # # plt.plot(*_get_xy(ps_mean - ps_std))
-    # plt.xscale("log")
-    # plt.yscale("log")
-    # plt.show()
