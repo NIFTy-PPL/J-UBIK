@@ -31,15 +31,13 @@ def build_joint_mask(sky_model, tm_ids, diagnostics_path, exposure_base):
     mask = ift.MaskOperator(joint_mask_field)
     return mask.adjoint @ mask
 
-
+# Paths set by user
 COLOR_DICT = {'red': {'path': 'red', 'config': '_red', 'cmap': redmap},
               'green': {'path': 'green', 'config': '_green', 'cmap': greenmap},
               'blue': {'path': 'blue', 'config': '_blue', 'cmap': bluemap}}
 
 if __name__ == '__main__':
-    colors = ['red', 'green', 'blue']
-    if len(colors) > 3 or len(colors) < 1:
-        raise NotImplementedError
+    colors = ['green']
 
     # Base path names for data and exp
     data_base = "data.pkl"
@@ -48,12 +46,10 @@ if __name__ == '__main__':
 
     output_path_base = 'final_results_{}/'
     output_paths = []
-    # reconstruction_paths = []
     diagnostic_paths = []
     config_paths = []
     samples_paths = []
 
-    # Paths -Set by user
     for col in colors:
         output_path = output_path_base.format(col)
         xu.create_output_directory(output_path)
@@ -66,7 +62,7 @@ if __name__ == '__main__':
     plottable_field_list = []
     mask_plots = True
 
-    for i in range(len(colors)):
+    for i, col in enumerate(colors):
         # Config
         cfg = xu.get_config(config_paths[i])
         file_info = cfg['files']
@@ -108,14 +104,13 @@ if __name__ == '__main__':
             plottable_fields[key]['std'] = var.sqrt()
         plottable_field_list.append(plottable_fields)
 
-    # Plot results
-    if len(plottable_field_list) == 1:
-        outname_base = output_paths[0] + "final_res_{}_{}.png"
-        for key, stat in plottable_field_list[0].items():
-            args = {'norm': LogNorm(vmin=8E-6, vmax=1E-3), 
+        # Plot results
+        outname_base = output_paths[i] + "final_res_{}_{}.png"
+        for key, stat in plottable_field_list[i].items():
+            args = {'norm': LogNorm(vmin=8E-6, vmax=1E-3),
                     'cmap': COLOR_DICT[col]['cmap'],
                     'title': "Reconstruction"}
-            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'), 
+            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'),
                            **args)
             args = {'norm': LogNorm(vmin=5E-6, vmax=1E-3),
                     'cmap': 'cividis',
@@ -123,18 +118,16 @@ if __name__ == '__main__':
             xu.plot_result(stat['std'], outname_base.format(key, 'std'), **args)
 
             from matplotlib.ticker import FuncFormatter
-            fmt=FuncFormatter(lambda x, pos: '{:.1%}'.format(x))
+            fmt = FuncFormatter(lambda x, pos: '{:.1%}'.format(x))
             args = {'vmin': 1e-7,
-                    'vmax': 1., 
+                    'vmax': 1.,
                     'cmap': 'cividis',
                     'title': "Relative uncertainty"}
             xu.plot_result(xu.get_rel_uncertainty(stat['mean'], stat['std']),
-                           outname_base.format(key, 'rel_std'), 
+                           outname_base.format(key, 'rel_std'),
                            cbar_formatter=fmt, **args)
-            print(f'Results saved as {outname_base.format(key, "stat")} for stat in'
-                  f' {{mean, std, rel_std}}.')
 
-    else:
+    if len(plottable_field_list) == 3:
         # Create RGB image
         output_path = output_path_base.format("RGB")
         mean = {}
@@ -156,3 +149,5 @@ if __name__ == '__main__':
         rgb_filename = output_path + "sky_rgb.png"
         plt.savefig(rgb_filename, dpi=300)
         print(f"RGB image saved as {rgb_filename}.")
+    else:
+        print(f"RGB image not produced, {len(plottable_field_list)} colors were provided.")
