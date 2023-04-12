@@ -143,9 +143,10 @@ if __name__ == '__main__':
         sky_field = ift.makeField(mf_domain, sky)
 
         xu.create_output_directory(output_path)
-        xu.save_rgb_image_to_fits(sky_field, output_path + "skyRGB_lin.fits", True, True)
+        xu.save_rgb_image_to_fits(sky_field, output_path + "skyRGB_lin", True, True)
 
-        im = plt.imshow(xu.get_RGB_image_from_field(sky_field), origin="lower")
+        im = plt.imshow(xu.get_RGB_image_from_field(sky_field, sat=[1.75, 1.4, 1.3]),
+                        origin="lower")
         rgb_filename = output_path + "sky_rgb.png"
         plt.savefig(rgb_filename, dpi=300)
         print(f"RGB image saved as {rgb_filename}.")
