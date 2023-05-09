@@ -46,7 +46,8 @@ def get_uncertainty_weighted_measure(sl,
 
 
 def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=None, output_dir=None,
-                                     base_filename='nwr', abs=True, plot_kwargs=None, n_bins=None):
+                                     base_filename='nwr', abs=True, min_counts=0, plot_kwargs=None,
+                                     n_bins=None):
     """ Computes the Poissonian noise-weighted residuals.
     The form of the residual is :math:`r = \\frac{s-d}{\\sqrt{s}}`, where s is the signal response
     and d the data.
@@ -59,6 +60,7 @@ def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=No
         output_dir: `str`, path to the output directory.
         base_filename: `str` base filename for the output plots. No extension.
         abs: `bool`, if True the absolute of the residuals is calculated.
+        min_counts: `int` minimum number of data counts for which the residuals will be calculated.
         plot_kwargs: Keyword arguments for plotting.
         n_bins: `int` number of bins for histograms
 
@@ -77,6 +79,11 @@ def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=No
     for sample in sample_list.iterator():
         Rs = op.force(sample)
         nwr = (Rs - reference_data) / Rs.sqrt()
+        if min_counts > 0:
+            low_count_loc = reference_data.val < min_counts
+            filtered_nwr = nwr.val.copy()
+            filtered_nwr[low_count_loc] = np.nan
+            nwr = ift.makeField(nwr.domain, filtered_nwr)
         if abs:
             nwr = nwr.abs()
         if mask_op is not None:
@@ -111,6 +118,7 @@ def get_noise_weighted_residuals_from_file(sample_list_path,
                                            output_dir=None,
                                            abs=True,
                                            base_filename=None,
+                                           min_counts=0,
                                            plot_kwargs=None,
                                            nbins=None):
     sl = ift.ResidualSampleList.load(sample_list_path)
@@ -123,6 +131,7 @@ def get_noise_weighted_residuals_from_file(sample_list_path,
                                             output_dir=output_dir,
                                             base_filename=base_filename,
                                             abs=abs,
+                                            min_counts=min_counts,
                                             plot_kwargs=plot_kwargs,
                                             n_bins=nbins)
 

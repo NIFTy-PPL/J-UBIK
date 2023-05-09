@@ -100,6 +100,7 @@ if __name__ == "__main__":
                                                       output_dir=diagnostics_path,
                                                       base_filename=f'tm{tm_id}/{key}_{tm_id}_nwr',
                                                       abs=False,
+                                                      min_counts=0,
                                                       plot_kwargs={
                                                           'title': 'Noise-weighted residuals',
                                                           # 'norm': LogNorm()}
