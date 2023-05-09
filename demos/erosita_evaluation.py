@@ -13,7 +13,7 @@ if __name__ == "__main__":
     additionally the UWR in signal space is calculated."""
 
     # Paths -Set by user
-    reconstruction_path = "results/LMC/"  # FIXME filepath
+    reconstruction_path = "results/LMC_/"  # FIXME filepath
     diagnostics_path = reconstruction_path + "diagnostics/"
     config_filename = "eROSITA_config.yaml"
     sl_path_base = reconstruction_path + "pickle/last"  # NIFTy dependency
@@ -21,7 +21,6 @@ if __name__ == "__main__":
     mock_data_base = "mock_data_sky.pkl"
     exposure_base = "exposure.pkl"
     response_base = None  # FIXME response operator shall be loaded from path
-
 
     # Config
     config_file = reconstruction_path + config_filename
@@ -45,8 +44,10 @@ if __name__ == "__main__":
     sky_model = xu.SkyModel(config_file)
     sky_dict = sky_model.create_sky_model()
     sky_dict.pop('pspec')
-    data_space_uwrs = {key: [] for key, value in sky_dict.items()}
-    noise_weighted_residuals = {key: [] for key, value in sky_dict.items()}
+    data_space_uwrs = {key: [] for key in sky_dict.keys()}
+    noise_weighted_residuals = {key: [] for key in sky_dict.keys()}
+    noise_weighted_residuals_hists = {key: [] for key in sky_dict.keys()}
+
     full_exposure = None
     response_dict = xu.load_erosita_response(config_file, diagnostics_path)
     for tm_id in tm_ids:
@@ -97,16 +98,20 @@ if __name__ == "__main__":
                                                       sky_op=op, response_op=R,
                                                       mask_op=mask,
                                                       output_dir=diagnostics_path,
-                                                      base_filename=f'/tm{tm_id}/{key}_{tm_id}_nwr',
+                                                      base_filename=f'tm{tm_id}/{key}_{tm_id}_nwr',
                                                       abs=False,
+                                                      min_counts=0,
                                                       plot_kwargs={
                                                           'title': 'Noise-weighted residuals',
                                                           # 'norm': LogNorm()}
                                                       },
-                                                      nbins=70)
+                                                      nbins=500)
             noise_weighted_residuals[key].append(nwr)
-            xu.plot_histograms(hist, edges, f'{key}_{tm_id}_nwr_hist',
-                               title=f'Noise-weighted residuals tm {tm_id}')
+            xu.plot_histograms(hist, edges, diagnostics_path+f'tm{tm_id}/{key}_tm{tm_id}_nwr_hist',
+                               logy=False, title=f'Noise-weighted residuals tm {tm_id}')
+
+            noise_weighted_residuals_hists[key].append(hist)
+
             if mock_run:
                 if key in ['sky', 'diffuse']:
                     levels = [10, 100, 500]
@@ -121,14 +126,18 @@ if __name__ == "__main__":
 
         xu.weighted_residual_distribution(sl_path_base=sl_path_base, data_path=data_path,
                                           sky_op=sky_dict['sky'], response_op=R, mask_op=mask,
-                                          output_dir_base=tm_directory + f'/{tm_id}_res_distribution',
+                                          output_dir_base=tm_directory + f'{tm_id}_res_distribution',
                                           title='Uncertainty Weighted Signal residuals')
         full_mask = xu.get_mask_operator(full_exposure)
 
     for key, op in sky_dict.items():
         xu.signal_space_uwm_from_file(sl_path_base=sl_path_base, sky_op=op,
                                       padder=sky_model.pad,
-                                      output_dir_base=diagnostics_path + f'/uwm_{key}')
+                                      output_dir_base=diagnostics_path + f'uwm_{key}')
+        # Plot mean over modules of the nwr histograms
+        mean_hist = np.array(noise_weighted_residuals_hists[key]).mean(axis=0)
+        xu.plot_histograms(mean_hist, edges, diagnostics_path + f'mean_{key}_nwr_hist',
+                           logy=False, title=f'Module-averaged {key} noise-weighted residuals')
         field_name_list = [f'tm{tm_id}' for tm_id in tm_ids]
         if mock_run:
             ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')

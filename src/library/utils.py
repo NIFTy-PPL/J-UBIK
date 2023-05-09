@@ -548,6 +548,7 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
             hdulist = pyfits.HDUList([hdu])
             file_name_colour = f"{file_name}_{color_dict[i]}.fits"
             hdulist.writeto(file_name_colour, overwrite=overwrite)
+            print(f"RGB image saved as {file_name_colour}.")
 
 
 def energy_binning(fld, energy_bins):
@@ -737,6 +738,7 @@ class _IGLikelihood(ift.EnergyOperator):
             return res
         raise NotImplementedError
 
+
 def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
                             point_key = 'point_sources', stiffness = 1E6,
                             red_factor = 1E-3):
@@ -825,3 +827,40 @@ def check_type(arg, type, name=''):
     elif not isinstance(arg, type):
         print("arg:", arg)
         raise TypeError("The \"{}\" argument must be of type {}.".format(name, str(type)))
+
+
+def get_rel_uncertainty(mean, std):
+    assert mean.domain == std.domain
+    domain = mean.domain
+    mean, std = mean.val, std.val
+    res = np.zeros(mean.shape)
+    mask = mean != 0
+    res[mask] = std[mask] / mean[mask]
+    res[~mask] = np.nan
+    return ift.makeField(domain, res)
+
+
+def get_RGB_image_from_field(field, norm=None, sat=None):
+    if norm is None:
+        norm = [np.log, np.log10, np.log10]
+    arr = field.val
+    res = []
+    for i in range(3):
+        sub_array = arr[:, :, i]
+        color_norm = norm[i]
+        r = np.zeros_like(sub_array)
+        mask = sub_array != 0
+        if norm is not None:
+            r[mask] = color_norm(sub_array[mask]) if color_norm is not None else sub_array[mask]
+        min = np.min(r[mask])
+        max = np.max(r[mask])
+        r[mask] -= min
+        r[mask] /= (max - min)
+        if sat is not None:
+            r[mask] *= sat[i]  # FIXME: this is not really saturation
+        r[mask] = r[mask] * 255.0
+        r[~mask] = 0
+        res.append(r)
+    res = np.array(res, dtype='int')
+    res = np.transpose(res, (1, 2, 0))
+    return res
