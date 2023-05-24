@@ -729,7 +729,7 @@ class _IGLikelihood(ift.EnergyOperator):
         self._q = ift.ScalingOperator(self._domain, float(q))
         self._apw = ift.ScalingOperator(self._domain, float(alpha + 1.))
         op = self._q @ dummy.ptw('reciprocal') + self._apw @ dummy.ptw('log')
-        self._op = (op @ shift).sum()
+        self._op = (op @ shift.ptw('abs')).sum()
 
     def apply(self, x):
         self._check_input(x)
