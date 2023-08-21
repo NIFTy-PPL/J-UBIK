@@ -1,0 +1,31 @@
+telescope:
+  fov: 3600 # in arcsec
+
+grid:
+  npix: 512
+  padding_ratio: 1
+
+priors:
+  point_sources:
+    alpha: 1.00001
+    q: 0.00000005
+  diffuse:
+    offset:
+      offset_mean: -9.5 # exposure norm = 4.4 *10^-5
+      offset_std:
+        - 0.2
+        - 0.05
+    fluctuations:
+      fluctuations:
+        - 1.5
+        - 0.8
+      loglogavgslope:
+        - -3.
+        - 1.0
+      flexibility:
+        - 0.8
+        - 0.1
+      asperity:
+        - 0.2
+        - 0.1
+    prefix: diffuse_
