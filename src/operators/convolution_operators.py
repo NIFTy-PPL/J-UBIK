@@ -487,13 +487,3 @@ class OAnew(ift.LinearOperator):
             plist.append(nondef_arr)
         plist = np.array(plist, dtype="float64")
         return np.all(plist == 0)
-
-
-def linpatch_convolve(signal, kernel):
-    """Functional version of linear patching convolution.
-
-    This is a longer part of the docstring:
-
-    """
-    signal
-    return kernel
