@@ -7,7 +7,7 @@ import xubik0 as xu
 
 
 config.update('jax_enable_x64', True)
-
+#TODO turn into pytest compatible test function
 if __name__ == "__main__":
     # Load config file
     seed = 42
