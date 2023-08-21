@@ -311,10 +311,11 @@ class OAConvolver(ift.LinearOperator):
 #         res = cut @ oa_back.adjoint @ convolved
 #         return res
 
+
 class OAnew(ift.LinearOperator):
-    """
-    Performing a approximation to an inhomogeneous convolution,
-    by OverlapAdd convolution with different kernels and bilinear
+    """Performing a approximation to an inhomogeneous convolution.
+
+    By OverlapAdd convolution with different kernels and bilinear
     interpolation of the result. In the case of one patch this simplifies
     to a regular Fourier domain convolution.
 
@@ -335,7 +336,9 @@ class OAnew(ift.LinearOperator):
     cut_force: sets all unused areas to zero,
     cut_by_value: sets everything below the threshold to zero.
     """
+
     def __init__(self, domain, kernel_arr, n, margin, want_cut):
+        """Initialize the Overlap Add Operator."""
         self._domain = ift.makeDomain(domain)
         self._n = n
         self._op, self._cut = self._build_op(domain, kernel_arr, n, margin,
@@ -347,10 +350,12 @@ class OAnew(ift.LinearOperator):
     def _sqrt_n(n):
         sqrt = int(np.sqrt(n))
         if sqrt != np.sqrt(n):
-            raise ValueError("Operation is only defined on square number of patches.")
+            raise ValueError("""Operation is only defined on
+                             square number of patches.""")
         return sqrt
 
     def apply(self, x, mode):
+        """Apply the Operator."""
         self._check_input(x, mode)
         if mode == self.TIMES:
             res = self._op(x)
@@ -374,7 +379,8 @@ class OAnew(ift.LinearOperator):
 
         kernel_b = ift.Field.from_raw(cutter.domain, kernel_arr)
         if not self._check_kernel(domain, kernel_arr, n, margin):
-            raise ValueError("_check_kernel detected nonzero entries. Use .cut_force, .cut_by_value!")
+            raise ValueError("""_check_kernel detected nonzero entries.
+                             Use .cut_force, .cut_by_value!""")
 
         kernel = cutter(kernel_b)
         spread = ift.ContractionOperator(kernel.domain, spaces=1).adjoint
@@ -389,9 +395,10 @@ class OAnew(ift.LinearOperator):
             distances=domain[0].distances,
         )
         oa_back = OverlapAdd(pad_space, n, margin)
-        cut_pbc_margin = MarginZeroPadder(domain[0], 
-            ((oa_back.domain.shape[0] - domain.shape[0])//2), space=0).adjoint
-        
+        extra_margin = (oa_back.domain.shape[0] - domain.shape[0])//2
+        cut_pbc_margin = MarginZeroPadder(domain[0], extra_margin,
+                                          space=0).adjoint
+
         if want_cut:
             interpolation_margin = (domain.shape[0]//self._sqrt_n(n))*2
             tgt_spc_shp = np.array(
@@ -409,40 +416,35 @@ class OAnew(ift.LinearOperator):
 
     @classmethod
     def cut_by_value(self, domain, kernel_list, n, margin, thrsh):
-        """
-        Sets the kernel zero for all values smaller than the threshold and initializes the operator.
-        """
+        """Set the kernel zero for all values smaller than the threshold."""
         psfs = []
-        for p in kernel_list:
-            arr = p#.val_rw()
+        for arr in kernel_list:
             arr[arr < thrsh] = 0
             psfs.append(arr)
         psfs = np.array(psfs, dtype="float64")
         if not self._check_kernel(domain, psfs, n, margin):
-            raise ValueError("_check_kernel detected nonzero entries. Lower threshold or check kernel!")
+            raise ValueError("""_check_kernel detected nonzero entries.""")
         return OAnew(domain, psfs, n, margin)
 
     @classmethod
     def cut_force(self, domain, kernel_list, n, margin):
-        """
-        Sets the kernel to zero where it is not used and initializes the operator.
-        """
+        """Set the kernel to zero where it is not used."""
         psfs = []
         nondef = self._psf_cut_area(domain, kernel_list, n, margin)
-        for p in kernel_list:
-            arr = p#.val_rw()
+        for arr in kernel_list:
             arr[nondef == 0] = 0
             psfs.append(arr)
         psfs = np.array(psfs, dtype="float64")
         if not self._check_kernel(domain, psfs, n, margin):
-            raise ValueError("_check_kernel detected nonzero entries in areas which should have been cut away. Please double check!")
+            raise ValueError("""_check_kernel detected nonzero entries in areas
+                            which should have been cut away.""")
         return OAnew(domain, psfs, n, margin)
 
     @classmethod
     def _psf_cut_area(self, domain, kernel_list, n, margin):
-        """
-        Returns an array with size of the full kernel.
-        It is one where the psf gets cut out.
+        """Return the cut_area for psf.
+
+        The returned is one where the psf gets cut.
         """
         psf_patch_shape = np.ones(np.array(domain.shape)//self._sqrt_n(n) * 2)
         psf_domain_shape = kernel_list[0].shape
@@ -462,8 +464,8 @@ class OAnew(ift.LinearOperator):
 
     @classmethod
     def _check_kernel(self, domain, kernel_list, n, margin):
-        """
-        checks if the kernel is appropriate for this method.
+        """Check if the kernel is appropriate for this method.
+
         For kernels being too large, this method is not suitable.
         """
         nondef = self._psf_cut_area(domain, kernel_list, n, margin)
@@ -474,3 +476,13 @@ class OAnew(ift.LinearOperator):
             plist.append(nondef_arr)
         plist = np.array(plist, dtype="float64")
         return np.all(plist == 0)
+
+
+def linpatch_convolve(signal, kernel):
+    """Functional version of linear patching convolution.
+
+    This is a longer part of the docstring:
+
+    """
+    signal
+    return kernel
