@@ -142,13 +142,26 @@ def apply_erosita_psf(psf_shape, tm_ids, energy, center, convolution_method):
     pass  # FIXME: implement
 
 
-def apply_erosita_psf_from_file():
+def apply_erosita_psf_from_file(exposure_filenames, exposure_cut, tm_ids):
     pass  # FIXME: implement
 
 
 def apply_erosita_response(exposures, exposure_cut, tm_ids):
-    # FIXME: should implement R = mask @ sky_model.pad.adjoint @ exposure_op @ conv_op
-    pass
+    exposure = apply_exposure(exposures, exposure_cut)
+    mask = apply_exposure_readout(exposures, exposure_cut, tm_ids)
+    R = mask @ exposure  # FIXME: should implement R = mask @ sky_model.pad.adjoint @ exposure_op
+    # @ conv_op
+    return R
+
+
+def apply_erosita_response_from_file(exposure_filenames, exposure_cut, tm_ids):
+    exposures = []
+    for file in exposure_filenames:
+        if not file.endswith('.npy'):
+            raise ValueError('Exposure files should be in a .npy format!')
+        exposures.append(np.load(file))
+    exposures = np.array(exposures)
+    return apply_erosita_response(exposures, exposure_cut, tm_ids)
 
 
 def apply_erosita_response_from_config(config_file):
