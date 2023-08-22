@@ -21,7 +21,9 @@ from .library.erosita_psf import eROSITA_PSF
 from .library.sky_models import (SkyModel, create_sky_model, create_point_source_model,
                                  create_diffuse_component_model, create_sky_model_from_config)
 from .library.erosita_response import load_erosita_response
-from .library.erosita_data import load_erosita_data
+from .library.data import (load_erosita_masked_data, load_masked_data_from_file,
+                           generate_mock_sky_from_prior_dict, generate_erosita_data_from_config,
+                           )
 from .library.diagnostics import (signal_space_uwr_from_file,
                                   data_space_uwr_from_file,
                                   signal_space_uwm_from_file,
