@@ -96,7 +96,13 @@ def apply_exposure_readout(exposures, exposure_cut, keys):
     if exposure_cut is not None:
         exposures[exposures < exposure_cut] = 0
     mask = exposures == 0
-    return lambda x: {key: x[i][~mask[i]] for i, key in enumerate(keys)}
+
+    def _apply_readout(x):
+        if not x.shape == mask.shape:
+            raise ValueError("exposure and input must have the same shape!")
+        return {key: x[i][~mask[i]] for i, key in enumerate(keys)}
+
+    return _apply_readout
 
 
 def apply_exposure_readout_from_file(exposure_filenames, exposure_cut, tm_ids):
@@ -105,7 +111,7 @@ def apply_exposure_readout_from_file(exposure_filenames, exposure_cut, tm_ids):
 
     Parameters
     ----------
-    exposure_filenames : ndarray
+    exposure_filenames : list[str]
         A list of file names containing instrument exposure maps in numpy format.
     exposure_cut: float or None, optional
             A threshold exposure value below which exposures are set to zero.
