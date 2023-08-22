@@ -45,21 +45,16 @@ def load_erosita_masked_data(file_info, tel_info, mask):
         observation_instance = ErositaObservation(file_info['input'], output_filename, file_info['obs_path'])
         data = np.array(observation_instance.load_fits_data(output_filename)[0].data, dtype=int)
         data_list.append(data)
-    masked_data_vector = jft.Vector({tel_info['tm_ids'][i]: mask(np.stack(data_list))[i, :] for
-                                     i in range(len(tel_info['tm_ids']))})
+    masked_data_vector = jft.Vector(mask(np.stack(data_list)))
     return masked_data_vector
 
 
 def generate_erosita_data_from_config(config_file_path, response, output_path=None):
     cfg = get_config(config_file_path)
 
-    file_info = cfg['files']
     tel_info = cfg['telescope']
     grid_info = cfg['grid']
     priors = cfg['priors']
-
-    sky_dict = create_sky_model(grid_info['npix'], grid_info['padding_ratio'],
-                                tel_info['fov'], priors)
 
     mock_sky_position = generate_mock_sky_from_prior_dict(grid_info['npix'],
                                                           grid_info['padding_ratio'],
@@ -67,8 +62,10 @@ def generate_erosita_data_from_config(config_file_path, response, output_path=No
                                                           priors,
                                                           cfg['seed'],
                                                           cfg['point_source_defaults'])
-    masked_mock_data = response(mock_sky_position)
+    sky = xu.create_sky_model(grid_info['npix'], grid_info['padding_ratio'],
+                              tel_info['fov'], priors)['sky']
+    masked_mock_data = response(sky(mock_sky_position))
     if output_path is not None:
         save_data_dict_to_file(masked_mock_data, output_path)
-    return jft.Vector(masked_mock_data)
+    return masked_mock_data
 
