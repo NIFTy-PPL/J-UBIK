@@ -149,8 +149,7 @@ def create_diffuse_component_model(shape, padding_ratio, distances, offset, fluc
     cf = cfm.finalize()
     pspec = cfm.power_spectrum
 
-    exp_padding = lambda x: jnp.exp(cf(x)[ext_shp[0]-shape[0]:ext_shp[0],
-                                    ext_shp[1]-shape[1]:ext_shp[1]])
+    exp_padding = lambda x: jnp.exp(cf(x)[:shape[0],:shape[1]])
     diffuse = jft.Model(exp_padding, domain=cf.domain)
     return diffuse, pspec
 
