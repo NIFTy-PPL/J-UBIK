@@ -40,8 +40,7 @@ if __name__ == "__main__":
     file_info = cfg['files']
 
     # Load sky model
-    sky_model = xu.SkyModel(config_path)
-    sky_dict = sky_model.create_sky_model()
+    sky_dict = xu.create_sky_model_from_config(config_path)
 
     # Get power spectrum
     pspec = sky_dict.pop('pspec')

@@ -4,6 +4,7 @@ from matplotlib.colors import LogNorm
 
 import nifty8.re as jft
 import xubik0 as xu
+from jax import numpy as jnp
 
 
 def create_sky_model_from_config(config_file_path):
@@ -70,10 +71,11 @@ def create_sky_model(npix, padding_ratio, fov, priors):
     sky_dict: dict
         Dictionary of sky component models
     """
-    extended_space_shape = 2 * (padding_ratio * npix, )
+    space_shape = 2 * (npix, )
     distances = fov / npix
 
-    diffuse_component, pspec = create_diffuse_component_model(extended_space_shape,
+    diffuse_component, pspec = create_diffuse_component_model(space_shape,
+                                                              padding_ratio,
                                                               distances,
                                                               priors['diffuse']['offset'],
                                                               priors['diffuse']['fluctuations'],
@@ -82,7 +84,7 @@ def create_sky_model(npix, padding_ratio, fov, priors):
         sky = diffuse_component
         sky_dict = {'sky': sky, 'pspec': pspec}
     else:
-        point_sources = create_point_source_model(extended_space_shape, **priors['point_sources'])
+        point_sources = create_point_source_model(space_shape, **priors['point_sources'])
         sky = fuse_model_components(diffuse_component, point_sources)
         sky_dict = {'sky': sky, 'point_sources': point_sources, 'diffuse': diffuse_component,
                     'pspec': pspec}
@@ -110,7 +112,7 @@ def fuse_model_components(model_a, model_b):
     return jft.Model(fusion, domain=domain)
 
 
-def create_diffuse_component_model(shape, distances, offset, fluctuations, prefix='diffuse'):
+def create_diffuse_component_model(shape, padding_ratio, distances, offset, fluctuations, prefix='diffuse_'):
     """ Returns a model for the diffuse component given the information on its shape and
     distances and the prior dictionaries for the offset and the fluctuations
 
@@ -140,11 +142,16 @@ def create_diffuse_component_model(shape, distances, offset, fluctuations, prefi
     pspec: Callable
         Power spectrum
     """
+    ext_shp = tuple(int(entry * padding_ratio) for entry in shape)
     cfm = jft.CorrelatedFieldMaker(prefix=prefix)
     cfm.set_amplitude_total_offset(**offset)
-    cfm.add_fluctuations(shape, distances, **fluctuations)
-    diffuse = cfm.finalize()
+    cfm.add_fluctuations(ext_shp, distances, **fluctuations)
+    cf = cfm.finalize()
     pspec = cfm.power_spectrum
+
+    exp_padding = lambda x: jnp.exp(cf(x)[ext_shp[0]-shape[0]:ext_shp[0],
+                                    ext_shp[1]-shape[1]:ext_shp[1]])
+    diffuse = jft.Model(exp_padding, domain=cf.domain)
     return diffuse, pspec
 
 
