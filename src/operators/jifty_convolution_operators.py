@@ -42,23 +42,28 @@ def linpatch_convolve(x, shape, kernel, n_patches_per_axis,
                      pad_width=((0, 0), (margin, margin), (margin, margin)),
                      mode="constant", constant_values=0)
 
-    # TODO Prep Kernel / Cut / Norm / Pad?
-    #
-    # TODO Convolution
+    dx = int((shape[0] - 2 * margin) / n_patches_per_axis)
+    dy = int((shape[1] - 2 * margin) / n_patches_per_axis)
 
-
+    cut_kernel = kernel[:, -dx:dx,  -dy: dy]
+    pkernel = jnp.pad(cut_kernel,
+                      pad_width=((0, 0), (margin, margin), (margin, margin)),
+                      mode="constant",
+                      constant_values=0)
+    # TODO Prep Kernel Norm
+    # FIXME Volumes in convolve
+    convolved = jifty_convolve(pkernel, padded, axes=(1, 2))
     padded_shape = [ii+2*margin for ii in shape]
-    print(padded_shape)
+
     def patch_w_margin(array):
         return slice_patches(array, padded_shape,
                              n_patches_per_axis, margin)
 
     primal = np.empty(padded_shape)
     overlap_add = jax.linear_transpose(patch_w_margin, primal)
-
-    # TODO Remove PBC
-    #
-    return overlap_add, padded
+    padded_res = overlap_add(padded)[0]
+    res = padded_res[margin:-margin, margin:-margin]
+    return res
 
 
 def slice_patches(x, shape, n_patches_per_axis, additional_margin):
@@ -91,3 +96,11 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
     f = jax.vmap(slicer, in_axes=(0, 0), out_axes=(0))
     return f(xs, ys)
 
+
+def jifty_convolve(x, y, axes):
+    """Perform an FFT convolution."""
+    hx = jnp.fft.fftn(x, axes=axes)
+    hy = jnp.fft.fftn(y, axes=axes)
+    res = jnp.fft.ifftn(hx*hy, axes=axes)
+    # FIXME FACTOR MISSING
+    return res.real
