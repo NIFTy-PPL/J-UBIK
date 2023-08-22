@@ -41,7 +41,8 @@ def apply_exposure_from_file(exposure_filenames, exposure_cut=None):
     Parameters
     ----------
     exposure_filenames : list[str]
-        A list of file names containing instrument exposure maps in numpy format (.npy).
+        A list of file names containing instrument exposure maps in numpy or fits format (.npy or
+        .fits).
     exposure_cut : float or None, optional
         A threshold exposure value below which exposures are set to zero.
         If None (default), no threshold is applied.
@@ -57,13 +58,17 @@ def apply_exposure_from_file(exposure_filenames, exposure_cut=None):
     ------
     ValueError
         If any of the exposure files cannot be loaded or `exposure_cut` is negative.
-        If any file in the exposure_filenames is not saved as a .npy file.
+        If any file in the exposure_filenames is not saved as a .npy or .fits file.
     """
     exposures = []
     for file in exposure_filenames:
-        if not file.endswith('.npy'):
-            raise ValueError('Exposure files should be in a .npy format!')
-        exposures.append(np.load(file))
+        if file.endswith('.npy'):
+            exposures.append(np.load(file))
+        elif file.endswith('.fits'):
+            from astropy.io import fits
+            exposures.append(fits.open(file)[0].data)
+        else:
+            raise ValueError('Exposure files should be in a .npy or .fits format!')
     exposures = np.array(exposures)
     return apply_exposure(exposures, exposure_cut)
 
@@ -127,13 +132,17 @@ def apply_exposure_readout_from_file(exposure_filenames, exposure_cut, tm_ids):
     -------
     ValueError:
         If exposure_cut is negative.
-        If any file in the exposure_filenames is not saved as a .npy file.
+        If any file in the exposure_filenames is not saved as a .npy or a .fits file.
     """
     exposures = []
     for file in exposure_filenames:
-        if not file.endswith('.npy'):
-            raise ValueError('Exposure files should be in a .npy format!')
-        exposures.append(np.load(file))
+        if file.endswith('.npy'):
+            exposures.append(np.load(file))
+        elif file.endswith('.fits'):
+            from astropy.io import fits
+            exposures.append(fits.open(file)[0].data)
+        else:
+            raise ValueError('Exposure files should be in a .npy or .fits format!')
     exposures = np.array(exposures)
     return apply_exposure_readout(exposures, exposure_cut, tm_ids)
 
@@ -157,9 +166,13 @@ def apply_erosita_response(exposures, exposure_cut, tm_ids):
 def apply_erosita_response_from_file(exposure_filenames, exposure_cut, tm_ids):
     exposures = []
     for file in exposure_filenames:
-        if not file.endswith('.npy'):
-            raise ValueError('Exposure files should be in a .npy format!')
-        exposures.append(np.load(file))
+        if file.endswith('.npy'):
+            exposures.append(np.load(file))
+        elif file.endswith('.fits'):
+            from astropy.io import fits
+            exposures.append(fits.open(file)[0].data)
+        else:
+            raise ValueError('Exposure files should be in a .npy or .fits format!')
     exposures = np.array(exposures)
     return apply_erosita_response(exposures, exposure_cut, tm_ids)
 
