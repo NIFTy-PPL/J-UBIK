@@ -64,20 +64,6 @@ def apply_erosita_exposure_from_file(exposure_filenames, exposure_cut=None):
     return apply_erosita_exposure(exposures, exposure_cut)
 
 
-def apply_erosita_psf(shape, tm_ids, energy, center, convolution_method):
-    pass  # FIXME: implement
-
-
-def apply_erosita_psf_from_file():
-    pass  # FIXME: implement
-
-
-# def apply_erosita_response(x, fov, emin, emax, npix, tm_ids):
-#
-#
-#     R = mask @ sky_model.pad.adjoint @ exposure_op @ conv_op
-#     return R
-
 def apply_erosita_readout(exposures, exposure_cut, tm_ids):
     """
     Applies a readout corresponding to the exposure masks.
@@ -137,9 +123,22 @@ def apply_erosita_readout_from_file(exposure_filenames, exposure_cut, tm_ids):
     return apply_erosita_readout(exposures, exposure_cut, tm_ids)
 
 
-def apply_erosita_response_from_config():
+def apply_erosita_psf(shape, tm_ids, energy, center, convolution_method):
+    pass  # FIXME: implement
+
+
+def apply_erosita_psf_from_file():
+    pass  # FIXME: implement
+
+
+def apply_erosita_response(x, fov, emin, emax, npix, tm_ids):
+    # FIXME: should implement R = mask @ sky_model.pad.adjoint @ exposure_op @ conv_op
     pass
+
+
+def apply_erosita_response_from_config(config_file):
+    pass  # FIXME: implement
 
 
 def load_erosita_response():
-    pass
+    pass # FIXME: implement
