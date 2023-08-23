@@ -18,6 +18,35 @@ def _bilinear_weights(shape):
     return np.outer(b, b)
 
 
+def slice_patches(x, shape, n_patches_per_axis, additional_margin):
+    """Slice object into equal sized patches.
+
+    Parameters:
+    -----------
+    x: input array
+    shape: shape of the input array
+    n_patches_per_axis: int
+        number of patches after the slicing
+    overlap_margin: int
+        additional margin at the borders
+    """
+    dr = additional_margin
+    dx = int((shape[0] - 2 * dr) / n_patches_per_axis)
+    dy = int((shape[1] - 2 * dr) / n_patches_per_axis)
+    padded_x = jnp.pad(x, pad_width=((dx//2, ) * 2, (dy//2, ) * 2),
+                       mode="constant", constant_values=0)
+
+    def slicer(x_pos, y_pos):
+        return jax.lax.dynamic_slice(padded_x, start_indices=(x_pos, y_pos),
+                                     slice_sizes=(2*dx + 2*dr, 2*dy + 2*dr))
+
+    ids = (np.arange(n_patches_per_axis)*dx, np.arange(n_patches_per_axis)*dy)
+
+    ndx = np.meshgrid(*ids, indexing="ij")
+    f = jax.vmap(slicer, in_axes=(0, 0), out_axes=(0))
+    return f(*(nn.flatten() for nn in ndx))
+
+
 def linpatch_convolve(x, shape, kernel, n_patches_per_axis,
                       margin):
     """Functional version of linear patching convolution.
@@ -69,35 +98,6 @@ def linpatch_convolve(x, shape, kernel, n_patches_per_axis,
     padded_res = overlap_add(convolved)[0]
     res = padded_res[margin:-margin, margin:-margin]
     return res
-
-
-def slice_patches(x, shape, n_patches_per_axis, additional_margin):
-    """Slice object into equal sized patches.
-
-    Parameters:
-    -----------
-    x: input array
-    shape: shape of the input array
-    n_patches_per_axis: int
-        number of patches after the slicing
-    overlap_margin: int
-        additional margin at the borders
-    """
-    dr = additional_margin
-    dx = int((shape[0] - 2 * dr) / n_patches_per_axis)
-    dy = int((shape[1] - 2 * dr) / n_patches_per_axis)
-    padded_x = jnp.pad(x, pad_width=((dx//2, ) * 2, (dy//2, ) * 2),
-                       mode="constant", constant_values=0)
-
-    def slicer(x_pos, y_pos):
-        return jax.lax.dynamic_slice(padded_x, start_indices=(x_pos, y_pos),
-                                     slice_sizes=(2*dx + 2*dr, 2*dy + 2*dr))
-
-    ids = (np.arange(n_patches_per_axis)*dx, np.arange(n_patches_per_axis)*dy)
-
-    ndx = np.meshgrid(*ids, indexing="ij")
-    f = jax.vmap(slicer, in_axes=(0, 0), out_axes=(0))
-    return f(*(nn.flatten() for nn in ndx))
 
 
 def jifty_convolve(x, y, axes):
