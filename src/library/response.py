@@ -93,7 +93,7 @@ def apply_exposure_readout(exposures, exposure_cut=None, keys=None):
         exposure_cut: float or None, optional
             A threshold exposure value below which exposures are set to zero.
             If None (default), no threshold is applied.
-        keys : tuple or list
+        keys : tuple or list or None
             A tuple containing the ids of the telescope modules to be used as keys for the
             response output dictionary. Optional for a single module observation.
     Returns
@@ -111,7 +111,7 @@ def apply_exposure_readout(exposures, exposure_cut=None, keys=None):
         exposures[exposures < exposure_cut] = 0
     mask = exposures == 0
     if keys is None:
-        keys = 'masked input'
+        keys = ('masked input',)
     elif len(keys) != exposures.shape[0]:
         raise ValueError("length of keys should match the number of exposure maps.")
 
@@ -134,10 +134,8 @@ def apply_erosita_psf_from_file(exposure_filenames, exposure_cut, tm_ids):
 def apply_erosita_response(exposures, exposure_cut, tm_ids):
     exposure = apply_exposure(exposures, exposure_cut)
     mask = apply_exposure_readout(exposures, exposure_cut, tm_ids)
-    R = chain_callables(mask,
-                        exposure)  # FIXME: should implement R = mask @ sky_model.pad.adjoint @
-    # exposure_op
-    # @ conv_op
+    R = chain_callables(mask, exposure)  # FIXME: should implement R = mask @ sky_model.pad.adjoint @
+    # exposure_op @ conv_op
     return R
 
 
