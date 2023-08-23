@@ -58,6 +58,7 @@ def build_exposure_readout_function(exposures, exposure_cut=None, keys=None):
     -------
         ValueError:
         If exposure_cut is negative.
+        If keys does not have the right shape.
         If the exposures do not have the right shape.
     """
     if exposure_cut < 0:
@@ -73,8 +74,6 @@ def build_exposure_readout_function(exposures, exposure_cut=None, keys=None):
     def _apply_readout(exposured_sky: np.array):
         if len(mask.shape) != 3:
             raise ValueError("exposures should have shape (n, m, q)!")
-        print(exposured_sky.shape)
-        print(mask[0].shape)
         return jft.Vector({key: exposured_sky[i][~mask[i]] for i, key in enumerate(keys)})
 
     return _apply_readout
