@@ -3,9 +3,7 @@ import jax.lax
 import jax
 
 import numpy as np
-import nifty8.re as jft
-
-from ..library.utils import convolve_field_operator
+from functools import reduce
 
 
 def _bilinear_weights(shape):
