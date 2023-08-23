@@ -158,6 +158,7 @@ def generate_erosita_data_from_config(config_file_path, response_func, output_pa
                               tel_info['fov'], priors)['sky']
     masked_mock_data = response_func(sky(mock_sky_position))
     if output_path is not None:
-        save_data_dict_to_pickle(masked_mock_data.tree, output_path)
+        save_data_dict_to_pickle(masked_mock_data.tree,
+                                 os.path.join(output_path, 'mock_data_dict.pkl'))
     return masked_mock_data
 

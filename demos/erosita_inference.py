@@ -19,35 +19,30 @@ if __name__ == "__main__":
     # Load config file
     config_path = args.config
     cfg = xu.get_config(config_path)
+    file_info = cfg['files']
     ift.random.push_sseq_from_seed(cfg['seed'])
 
-    # Mock reconstruction setup
-    mock_run = cfg['mock']
-    load_mock_data = cfg['load_mock_data']
+    # ift.set_nthreads(cfg["threads"])
+    # print("Set the number of FFT-Threads to:", ift.nthreads())
 
-    ift.set_nthreads(cfg["threads"])
-    print("Set the number of FFT-Threads to:", ift.nthreads())
-
-    if (cfg['minimization']['resume'] and mock_run) and (not load_mock_data):
+    # Sanity Checks
+    if (cfg['minimization']['resume'] and cfg['mock']) and (not cfg['load_mock_data']):
         raise ValueError(
             'Resume is set to True on mock run. This is only possible if the mock data is loaded '
             'from file. Please set load_mock_data=True')
 
-    if load_mock_data and not mock_run:
+    if cfg['load_mock_data'] and not cfg['mock']:
         print('WARNING: Mockrun is set to False: Actual data is loaded')
 
-    # File Location
-    file_info = cfg['files']
+    if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
+        raise FileExistsError("Resume is set to False but output directory exists already!")
 
     # Load sky model
     sky_dict = xu.create_sky_model_from_config(config_path)
-
-    # Get power spectrum
     pspec = sky_dict.pop('pspec')
 
     # Create the output directory
-    if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
-        raise FileExistsError("Resume is set to False but output directory exists already!")
+
     if xu.mpi.comm is not None:
         xu.mpi.comm.Barrier()
     output_directory = xu.create_output_directory(file_info["res_dir"])
