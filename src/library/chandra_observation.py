@@ -107,7 +107,7 @@ class ChandraObservationInformation():
         #####################################
         # get_data
         self.obsInfo['ntot_binned']       = 0.
-        # get_exposure
+        # build_exposure_function
         self.obsInfo['asphist_res_xy']    = None
         self.obsInfo['exp_ebins_per_bin'] = None
         self.obsInfo['chips_on']          = None
