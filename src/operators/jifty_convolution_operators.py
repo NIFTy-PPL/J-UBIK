@@ -98,10 +98,13 @@ def linpatch_convolve(x, shape, kernel, n_patches_per_axis,
     return res
 
 
-def jifty_convolve(x, y, axes):
+def jifty_convolve(x, y, domain, axes):
     """Perform an FFT convolution."""
+    dlist = [domain.distances[i] for i in axes]
+    dvol = float(reduce(lambda a, b: a*b, dlist))
+
     hx = jnp.fft.fftn(x, axes=axes)
     hy = jnp.fft.fftn(y, axes=axes)
     res = jnp.fft.ifftn(hx*hy, axes=axes)
-    # FIXME VOLUME FACTOR MISSING
+    res = dvol*res
     return res.real
