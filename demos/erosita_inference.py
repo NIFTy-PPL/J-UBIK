@@ -60,19 +60,8 @@ if __name__ == "__main__":
     _, masked_data_dict = xu.load_erosita_data(config_path, output_directory,
                                                diagnostics_directory, response_dict)
 
-    # Set up likelihood
-    log_likelihood = None
-    for tm_id in cfg['telescope']['tm_ids']:
-        tm_key = f'tm_{tm_id}'
-        masked_data = masked_data_dict[tm_key]
-        R = response_dict[tm_key]['R']
-        lh = ift.PoissonianEnergy(masked_data) @ R
-        if log_likelihood is None:
-            log_likelihood = lh
-        else:
-            log_likelihood = log_likelihood + lh
-
-    log_likelihood = log_likelihood @ sky_dict['sky']
+    # Generate loglikelihood
+    log_likelihood = xu.generate_erosita_likelihood_from_config(config_path) @ sky_dict['sky']
 
     # Load minimization config
     minimization_config = cfg['minimization']
@@ -95,13 +84,8 @@ if __name__ == "__main__":
         minimizer_sampling = None
 
     # Prepare results
-    operators_to_plot = {key: (sky_model.pad.adjoint(value)) for key, value in sky_dict.items()}
-    operators_to_plot = {**operators_to_plot, 'pspec': pspec}
-
-    # strip of directory of filepath
-    config_filename = os.path.basename(config_path)
-    # Save config file in output_directory
-    xu.save_config(cfg, config_filename, output_directory)
+    operators_to_plot = {**sky_dict, 'pspec': pspec}
+    xu.save_config(cfg, os.path.basename(config_path), output_directory)
 
     plot = lambda x, y: xu.plot_sample_and_stats(output_directory,
                                                  operators_to_plot,

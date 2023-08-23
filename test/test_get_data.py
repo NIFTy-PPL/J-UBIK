@@ -1,7 +1,4 @@
-from jax import config
-from jax import random
 import numpy as np
-import unittest
 import xubik0 as xu
 
 
