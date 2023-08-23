@@ -140,7 +140,7 @@ def build_erosita_response(exposures, exposure_cut, tm_ids):
     # TODO: write docstring
     exposure = build_exposure_function(exposures, exposure_cut)
     mask = build_exposure_readout_function(exposures, exposure_cut, tm_ids)
-    R = chain_callables(mask, exposure)  # FIXME: should implement R = mask @ exposure @ conv_op
+    R = chain_callables(exposures, mask)  # FIXME: should implement R = mask @ exposure @ conv_op
     return R
 
 

@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from .utils import get_data_domain, get_config, create_output_directory
 from ..library.sky_models import SkyModel
-# from ..library.erosita_response import load_erosita_response FIXME
 from ..library.chandra_observation import ChandraObservationInformation
 
 
@@ -15,7 +14,7 @@ def plot_slices(field, outname, logscale=False):
     img = field.val
     npix_e = field.domain.shape[-1]
     nax = np.ceil(np.sqrt(npix_e)).astype(int)
-    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60. # conv to arcmin
+    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60.  # conv to arcmin
     pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
         pltargs["norm"] = LogNorm()
@@ -37,7 +36,7 @@ def plot_result(field, outname, logscale=False, title=None, colorbar=True, figsi
                 dpi=300, cbar_formatter=None, **args):
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     img = field.val
-    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
+    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60  # conv to arcmin
     pltargs = {"origin": "lower", "cmap": "viridis", "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
         pltargs["norm"] = LogNorm()
@@ -56,12 +55,14 @@ def plot_result(field, outname, logscale=False, title=None, colorbar=True, figsi
     plt.close()
 
 
-def plot_results(field_list, title_list, outname, logscale=False, ncols=3, nrows=1, cbar_shrink=1.0, pltargs_list=None):
+def plot_results(field_list, title_list, outname, logscale=False, ncols=3, nrows=1, cbar_shrink=1.0,
+                 pltargs_list=None):
     fig, ax = plt.subplots(ncols=ncols, nrows=nrows, dpi=300, figsize=(11.7, 8.3))
     ax = ax.ravel()
     for i, field in enumerate(field_list):
         img = field.val
-        half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
+        half_fov = field.domain[0].distances[0] * field.domain[0].shape[
+            0] / 2.0 / 60  # conv to arcmin
         pltargs = {"origin": "lower", "cmap": "viridis", "extent": [-half_fov, half_fov] * 2}
         if logscale == True:
             pltargs["norm"] = LogNorm()
@@ -116,7 +117,7 @@ def plot_image_from_fits(file_name_in, file_name_out, log_scale=False):
 
 
 def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):
-    half_fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
+    half_fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0 / 60  # conv to arcmin
     psf = psf.val  # .reshape([1024, 1024])
     pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
@@ -243,7 +244,7 @@ def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):
     None
     """
     domain = field.domain
-    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) !=2:
+    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) != 2:
         raise ValueError(f"Expected DomainTuple with the first space"
                          f"being a 2-dim RGSpace, but got {domain}")
 
@@ -380,7 +381,7 @@ def plot_erosita_priors(n_samples, config_path, response_path, priors_dir,
         tm_ids = cfg['telescope']['tm_ids']
         plottable_ops.pop('pspec')
 
-        resp_dict = load_erosita_response(config_path, priors_dir)
+        resp_dict = load_erosita_response(config_path, priors_dir)  # FIXME
 
         for tm_id in tm_ids:
             tm_key = f'tm_{tm_id}'
@@ -428,7 +429,7 @@ def _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
 
 
 def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
-    plt.bar(edges[:-1], hist, width=edges[0]-edges[1])
+    plt.bar(edges[:-1], hist, width=edges[0] - edges[1])
     if logx:
         plt.xscale("log")
     if logy:
@@ -437,4 +438,3 @@ def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
     plt.savefig(filename)
     plt.close()
     print(f"Histogram saved as {filename}.")
-
