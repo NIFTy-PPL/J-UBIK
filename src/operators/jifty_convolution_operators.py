@@ -86,20 +86,18 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
     dr = additional_margin
     dx = int((shape[0] - 2 * dr) / n_patches_per_axis)
     dy = int((shape[1] - 2 * dr) / n_patches_per_axis)
-    padded_x = jnp.pad(x, pad_width=((dx//2, dx//2), (dy//2, dy//2)),
+    padded_x = jnp.pad(x, pad_width=((dx//2, ) * 2, (dy//2, ) * 2),
                        mode="constant", constant_values=0)
 
     def slicer(x_pos, y_pos):
         return jax.lax.dynamic_slice(padded_x, start_indices=(x_pos, y_pos),
                                      slice_sizes=(2*dx + 2*dr, 2*dy + 2*dr))
 
-    idxs = np.array([ll*dx for ll in range(n_patches_per_axis)])
-    idys = np.array([kk*dy for kk in range(n_patches_per_axis)])
-    ndx = np.meshgrid(idxs, idys, indexing="ij")
-    xs = ndx[0].flatten()
-    ys = ndx[1].flatten()
+    ids = (np.arange(n_patches_per_axis)*dx, np.arange(n_patches_per_axis)*dy)
+
+    ndx = np.meshgrid(*ids, indexing="ij")
     f = jax.vmap(slicer, in_axes=(0, 0), out_axes=(0))
-    return f(ys, xs)
+    return f(*(nn.flatten() for nn in ndx))
 
 
 def jifty_convolve(x, y, axes):
