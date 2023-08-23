@@ -36,20 +36,21 @@ def build_exposure_function(exposures, exposure_cut=None):
     return lambda x: exposures * x[np.newaxis, ...]
 
 
-def build_exposure_readout_function(exposures, exposure_cut=None, keys=None):
+def build_readout_function(flasgs, threshold=None, keys=None):
     """
-    Applies a readout corresponding to the exposure masks.
+    Applies a readout corresponding to input flags.
 
     Parameters
     ----------
-        exposures : ndarray
-        Array with instrument exposure maps. The 0-th axis indexes the telescope module (for
-        multi-module instruments).
-        exposure_cut: float or None, optional
-            A threshold exposure value below which exposures are set to zero.
+        flags : ndarray
+        Array with flags. Where flags are equal to zero the input will not be read out.
+        The 0-th axis indexes the number of 2D flag maps, e.g. it could index the telescope module
+        (for multi-module instruments exposure maps).
+        threshold: float or None, optional
+            A threshold value below which flags are set to zero (e.g., an exposure cut).
             If None (default), no threshold is applied.
         keys : tuple or list or None
-            A tuple containing the ids of the telescope modules to be used as keys for the
+            A tuple containing the keys ids of the telescope modules to be used as keys for the
             response output dictionary. Optional for a single module observation.
     Returns
     -------
@@ -57,24 +58,33 @@ def build_exposure_readout_function(exposures, exposure_cut=None, keys=None):
     Raises:
     -------
         ValueError:
-        If exposure_cut is negative.
+        If threshold is negative.
         If keys does not have the right shape.
-        If the exposures do not have the right shape.
+        If the flags do not have the right shape.
     """
-    if exposure_cut < 0:
-        raise ValueError("exposure_cut should be positive!")
-    if exposure_cut is not None:
-        exposures[exposures < exposure_cut] = 0
-    mask = exposures == 0
+    if threshold < 0:
+        raise ValueError("threshold should be positive!")
+    if threshold is not None:
+        flasgs[flasgs < threshold] = 0
+    mask = flasgs == 0
     if keys is None:
         keys = ['masked input']
-    elif len(keys) != exposures.shape[0]:
+    elif len(keys) != flasgs.shape[0]:
         raise ValueError("length of keys should match the number of exposure maps.")
 
-    def _apply_readout(exposured_sky: np.array):
+    def _apply_readout(x: np.array):
+        """
+        Reads out input array (e.g, sky signals to which an exposure is applied)
+        at locations specified by a mask.
+        Args:
+            x: ndarray
+
+        Returns:
+            readout = `nifty8.re.Vector` containing a dictionary of read-out inputs.
+        """
         if len(mask.shape) != 3:
-            raise ValueError("exposures should have shape (n, m, q)!")
-        return jft.Vector({key: exposured_sky[i][~mask[i]] for i, key in enumerate(keys)})
+            raise ValueError("flags should have shape (n, m, q)!")
+        return jft.Vector({key: x[i][~mask[i]] for i, key in enumerate(keys)})
 
     return _apply_readout
 
@@ -139,10 +149,9 @@ def build_erosita_psf_from_file(exposure_filenames, exposure_cut, tm_ids):
 def build_erosita_response(exposures, exposure_cut, tm_ids):
     # TODO: write docstring
     exposure = build_exposure_function(exposures, exposure_cut)
-    mask = build_exposure_readout_function(exposures, exposure_cut, tm_ids)
-    R = chain_callables(exposures, mask)  # FIXME: should implement R = mask @ exposure @ conv_op
+    mask = build_readout_function(exposures, exposure_cut, tm_ids)
+    R = chain_callables(exposure, mask)  # FIXME: should implement R = mask @ exposure @ conv_op
     return R
-
 
 
 def build_erosita_response_from_config(config_file):
