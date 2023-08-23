@@ -30,7 +30,7 @@ def load_masked_data_from_pickle(file_path, mask_func):
     """
     with open(file_path, "rb") as f:
         data_dict = pickle.load(f)
-    masked_data_dict = np.stack(list(data_dict.values()))
+    masked_data_dict = mask_func(np.stack(list(data_dict.values())))
     if set(data_dict.keys()) != set(masked_data_dict):
         raise ValueError('The loaded data dictionary and the given mask function '
                          'are not compatible!')
