@@ -897,3 +897,33 @@ def get_RGB_image_from_field(field, norm=None, sat=None):
     res = np.array(res, dtype='int')
     res = np.transpose(res, (1, 2, 0))
     return res
+
+
+def chain_callables(func1, func2):
+    """
+    Chains two callable objects together.
+
+    Args:
+        func1 (callable): The first function to be called.
+        func2 (callable): The second function to be called.
+
+    Returns:
+        callable: A function that applies func2 to the result of func1.
+
+    Example:
+        >>> def add_one(x):
+        ...     return x + 1
+        ...
+        >>> def multiply_by_two(x):
+        ...     return x * 2
+        ...
+        >>> chained_func = chain_callables(add_one, multiply_by_two)
+        >>> result = chained_func(3)
+        >>> print(result)
+        8
+    """
+
+    def chained_func(*args, **kwargs):
+        return func2(func1(*args, **kwargs))
+
+    return chained_func
