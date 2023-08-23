@@ -4,7 +4,7 @@ import nifty8.re as jft
 from .utils import chain_callables
 
 
-def apply_exposure(exposures, exposure_cut=None):
+def build_exposure_function(exposures, exposure_cut=None):
     """
     Returns a function that applies instrument exposures to an input array.
 
@@ -36,9 +36,53 @@ def apply_exposure(exposures, exposure_cut=None):
     return lambda x: exposures * x[np.newaxis, ...]
 
 
-def apply_callable_from_exposure_file(callable, exposure_filenames, **kwargs):
+def build_exposure_readout_function(exposures, exposure_cut=None, keys=None):
     """
-    Applies a callable function to a NumPy array of exposures loaded from file.
+    Applies a readout corresponding to the exposure masks.
+
+    Parameters
+    ----------
+        exposures : ndarray
+        Array with instrument exposure maps. The 0-th axis indexes the telescope module (for
+        multi-module instruments).
+        exposure_cut: float or None, optional
+            A threshold exposure value below which exposures are set to zero.
+            If None (default), no threshold is applied.
+        keys : tuple or list or None
+            A tuple containing the ids of the telescope modules to be used as keys for the
+            response output dictionary. Optional for a single module observation.
+    Returns
+    -------
+        function: A callable that applies an exposure mask to an input sky.
+    Raises:
+    -------
+        ValueError:
+        If exposure_cut is negative.
+        If the exposures do not have the right shape.
+    """
+    if exposure_cut < 0:
+        raise ValueError("exposure_cut should be positive!")
+    if exposure_cut is not None:
+        exposures[exposures < exposure_cut] = 0
+    mask = exposures == 0
+    if keys is None:
+        keys = ['masked input']
+    elif len(keys) != exposures.shape[0]:
+        raise ValueError("length of keys should match the number of exposure maps.")
+
+    def _apply_readout(exposured_sky: np.array):
+        if len(mask.shape) != 3:
+            raise ValueError("exposures should have shape (n, m, q)!")
+        print(exposured_sky.shape)
+        print(mask[0].shape)
+        return jft.Vector({key: exposured_sky[i][~mask[i]] for i, key in enumerate(keys)})
+
+    return _apply_readout
+
+
+def build_callable_from_exposure_file(callable, exposure_filenames, **kwargs):
+    """
+    Returns a callable function which is built from a NumPy array of exposures loaded from file.
 
     Parameters
     ----------
@@ -68,6 +112,8 @@ def apply_callable_from_exposure_file(callable, exposure_filenames, **kwargs):
     keyword arguments can be passed to the callable function using **kwargs. The result of
     applying the callable function to the loaded exposures is returned as output.
     """
+    if not isinstance(exposure_filenames, list):
+        raise ValueError('`exposure_filenames` should be a `list`.')
     exposures = []
     for file in exposure_filenames:
         if file.endswith('.npy'):
@@ -75,71 +121,32 @@ def apply_callable_from_exposure_file(callable, exposure_filenames, **kwargs):
         elif file.endswith('.fits'):
             from astropy.io import fits
             exposures.append(fits.open(file)[0].data)
+        elif not (file.endswith('.npy') or file.endswith('.fits')):
+            raise ValueError('exposure files should be in a .npy or .fits format!')
         else:
-            raise ValueError('Exposure files should be in a .npy or .fits format!')
+            raise FileNotFoundError(f'cannot find {file}!')
     exposures = np.array(exposures)
     return callable(exposures, **kwargs)
 
 
-def apply_exposure_readout(exposures, exposure_cut=None, keys=None):
-    """
-    Applies a readout corresponding to the exposure masks.
-
-    Parameters
-    ----------
-        exposures : ndarray
-        Array with instrument exposure maps. The 0-th axis indexes the telescope module (for
-        multi-module instruments).
-        exposure_cut: float or None, optional
-            A threshold exposure value below which exposures are set to zero.
-            If None (default), no threshold is applied.
-        keys : tuple or list or None
-            A tuple containing the ids of the telescope modules to be used as keys for the
-            response output dictionary. Optional for a single module observation.
-    Returns
-    -------
-        function: A callable that applies an exposure mask to an input sky.
-    Raises:
-    -------
-        ValueError:
-        If exposure_cut is negative.
-        If the keys length do not match the number of exposure maps.
-    """
-    if exposure_cut < 0:
-        raise ValueError("exposure_cut should be positive!")
-    if exposure_cut is not None:
-        exposures[exposures < exposure_cut] = 0
-    mask = exposures == 0
-    if keys is None:
-        keys = ('masked input',)
-    elif len(keys) != exposures.shape[0]:
-        raise ValueError("length of keys should match the number of exposure maps.")
-
-    def _apply_readout(sky: np.array):
-        if not sky.shape == mask.shape:
-            raise ValueError("exposure and input must have the same shape!")
-        return jft.Vector({key: sky[i][~mask[i]] for i, key in enumerate(keys)})
-
-    return _apply_readout
-
-
-def apply_erosita_psf(psf_shape, tm_ids, energy, center, convolution_method):
+def build_erosita_psf(psf_shape, tm_ids, energy, center, convolution_method):
     pass  # FIXME: implement
 
 
-def apply_erosita_psf_from_file(exposure_filenames, exposure_cut, tm_ids):
+def build_erosita_psf_from_file(exposure_filenames, exposure_cut, tm_ids):
     pass  # FIXME: implement
 
 
-def apply_erosita_response(exposures, exposure_cut, tm_ids):
-    exposure = apply_exposure(exposures, exposure_cut)
-    mask = apply_exposure_readout(exposures, exposure_cut, tm_ids)
-    R = chain_callables(mask, exposure)  # FIXME: should implement R = mask @ sky_model.pad.adjoint @
-    # exposure_op @ conv_op
+def build_erosita_response(exposures, exposure_cut, tm_ids):
+    # TODO: write docstring
+    exposure = build_exposure_function(exposures, exposure_cut)
+    mask = build_exposure_readout_function(exposures, exposure_cut, tm_ids)
+    R = chain_callables(mask, exposure)  # FIXME: should implement R = mask @ exposure @ conv_op
     return R
 
 
-def apply_erosita_response_from_config(config_file):
+
+def build_erosita_response_from_config(config_file):
     pass  # FIXME: implement
 
 
