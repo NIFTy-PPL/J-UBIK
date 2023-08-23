@@ -438,7 +438,7 @@ class OAnew(ift.LinearOperator):
         return OAnew(domain, psfs, n, margin)
 
     @classmethod
-    def cut_force(self, domain, kernel_list, n, margin):
+    def cut_force(self, domain, kernel_list, n, margin, want_cut):
         """Set the kernel to zero where it is not used."""
         psfs = []
         nondef = self._psf_cut_area(domain, kernel_list, n, margin)
@@ -449,7 +449,7 @@ class OAnew(ift.LinearOperator):
         if not self._check_kernel(domain, psfs, n, margin):
             raise ValueError("""_check_kernel detected nonzero entries in areas
                             which should have been cut away.""")
-        return OAnew(domain, psfs, n, margin)
+        return OAnew(domain, psfs, n, margin, want_cut)
 
     @classmethod
     def _psf_cut_area(self, domain, kernel_list, n, margin):
