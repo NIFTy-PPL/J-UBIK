@@ -2,6 +2,7 @@ import os
 import pickle
 from jax import random
 import numpy as np
+from astropy.io import fits
 
 import nifty8.re as jft
 import xubik0 as xu
@@ -67,7 +68,8 @@ def generate_mock_sky_from_prior_dict(npix, padding_ratio, fov, priors, seed=42,
     fov : int
         FOV of the telescope
     priors : dict
-        Dictionary of prior information
+        Dictionary of prior information containing the hyperparameters for the
+        used models etc. correlated field etc. (see sky_models.py)
     seed : int
         Random seed for mock sky generation
     default_point_source_prior: dict
@@ -117,8 +119,7 @@ def load_erosita_masked_data(file_info, tel_info, mask_func):
     data_list = []
     for tm_id in tel_info['tm_ids']:
         output_filename = f'{tm_id}_' + file_info['output']
-        observation_instance = ErositaObservation(file_info['input'], output_filename, file_info['obs_path'])
-        data = np.array(observation_instance.load_fits_data(output_filename)[0].data, dtype=int)
+        data = np.array(fits.open(output_filename)[0].data, dtype=int)
         data_list.append(data)
     masked_data_vector = mask_func(np.stack(data_list))
     return masked_data_vector
