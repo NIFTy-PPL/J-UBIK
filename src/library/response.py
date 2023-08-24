@@ -47,12 +47,14 @@ def build_readout_function(flasgs, threshold=None, keys=None):
         threshold: float or None, optional
             A threshold value below which flags are set to zero (e.g., an exposure cut).
             If None (default), no threshold is applied.
-        keys : tuple or list or None
-            A tuple containing the keys ids of the telescope modules to be used as keys for the
-            response output dictionary. Optional for a single module observation.
+        keys : list or tuple or None
+            A list or tuple containing the keys for the response output dictionary.
+            For example, a list of the telescope modules ids for a multi-module instrument.
+            Optional for a single-module observation.
     Returns
     -------
-        function: A callable that applies an exposure mask to an input sky.
+        function: A callable that applies a mask to an input array (e.g. an input sky) and returns
+        a `nifty8.re.Vector` containing a dictionary of read-out inputs.
     Raises:
     -------
         ValueError:
@@ -68,7 +70,7 @@ def build_readout_function(flasgs, threshold=None, keys=None):
     if keys is None:
         keys = ['masked input']
     elif len(keys) != flasgs.shape[0]:
-        raise ValueError("length of keys should match the number of exposure maps.")
+        raise ValueError("length of keys should match the number of flag maps.")
 
     def _apply_readout(x: np.array):
         """
@@ -87,14 +89,15 @@ def build_readout_function(flasgs, threshold=None, keys=None):
     return _apply_readout
 
 
-def build_callable_from_exposure_file(callable, exposure_filenames, **kwargs):
+def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     """
     Returns a callable function which is built from a NumPy array of exposures loaded from file.
 
     Parameters
     ----------
-    callable : function
-        A callable function that takes a NumPy array of exposures as input.
+    builder : function
+        A builder function that takes a NumPy array of exposures as input and outputs a callable.
+        The callable should perform an operation on a different object using the exposure.
     exposure_filenames : list[str]
         A list of filenames of exposure files to load.
         Files should be in a .npy or .fits format.
@@ -103,8 +106,8 @@ def build_callable_from_exposure_file(callable, exposure_filenames, **kwargs):
 
     Returns
     -------
-    result : object
-        The result of applying the callable function to the loaded exposures.
+    result : callable
+        The callable function built with the exposures loaded from file.
 
     Raises
     ------
@@ -133,7 +136,7 @@ def build_callable_from_exposure_file(callable, exposure_filenames, **kwargs):
         else:
             raise FileNotFoundError(f'cannot find {file}!')
     exposures = np.array(exposures)
-    return callable(exposures, **kwargs)
+    return builder(exposures, **kwargs)
 
 
 def build_erosita_psf(psf_shape, tm_ids, energy, center, convolution_method):
