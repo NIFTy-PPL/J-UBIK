@@ -1,62 +1,77 @@
-import unittest
 import numpy as np
 import xubik0 as xu
 import nifty8.re as jft
+import pytest
 
 
-class TestBuildExposureReadoutFunction(unittest.TestCase):
-    def setUp(self):
-        size = 100
-        self.exposures = np.random.uniform(0., 3e3, size=2 * size ** 2).reshape((2, size, size))
-        self.exposure_cut = 20
-        self.single_exposure = np.expand_dims(self.exposures[0], axis=0)
-        self.keys = ('tm1', 'tm2')
-        exposed_sky_1 = np.ones((size, size)) * 100
-        exposed_sky_2 = np.ones_like(exposed_sky_1) * 40
-
-        self.single_exposured_sky = np.expand_dims(np.ones((size, size)) * 100, axis=0)
-        self.x = np.stack((exposed_sky_1, exposed_sky_2))
-        mask = self.exposures < self.exposure_cut
-        self.expected_result = jft.Vector({'tm1': exposed_sky_1[~mask[0]],
-                                           'tm2': exposed_sky_2[~mask[1]]})
-
-    def test_build_exposure_readout_function(self):
-        build_exposure_readout = xu.build_exposure_readout_function(self.exposures,
-                                                                    self.exposure_cut,
-                                                                    self.keys)
-        result = build_exposure_readout(self.x)
-        self.assertEqual(result.tree.keys(), self.expected_result.tree.keys())
-        np.testing.assert_array_equal(list(result.tree.values())[0],
-                         list(self.expected_result.tree.values())[0])
-
-    def test_build_exposure_readout_wrong_input_shape(self):
-        build_exposure_readout = xu.build_exposure_readout_function(self.exposures,
-                                                                    self.exposure_cut,
-                                                                    self.keys)
-
-        x = self.x[0]
-        with self.assertRaises(IndexError):
-            build_exposure_readout(x)
-
-    def test_build_exposure_readout_negative_exposure_cut(self):
-        with self.assertRaises(ValueError):
-            xu.build_exposure_readout_function(self.exposures, -1, self.keys)
-
-    def test_build_exposure_readout_with_None_keys(self):
-        build_exposure_readout = xu.build_exposure_readout_function(self.single_exposure,
-                                                                    exposure_cut=self.exposure_cut,
-                                                                    keys=None)
-        result = build_exposure_readout(self.x)
-        exposure = self.single_exposure.copy()
-        exposure[exposure < self.exposure_cut] = 0
-        mask = exposure != 0
-
-        expected_result = jft.Vector({'masked input': self.single_exposured_sky[mask]})
-        self.assertEqual(result.tree.keys(), expected_result.tree.keys())
-        np.testing.assert_array_equal(list(result.tree.values())[0],
-                                      list(expected_result.tree.values())[0])
+@pytest.fixture
+def exposures():
+    size = 100
+    return np.random.uniform(0., 3e3, size=2 * size ** 2).reshape((2, size, size))
 
 
-# TODO: more tests on this module. Test the build_from_exposure_file. Test exp_cut.
-if __name__ == '__main__':
-    unittest.main()
+@pytest.fixture
+def exposure_cut():
+    return 20
+
+
+@pytest.fixture
+def single_exposure(exposures):
+    return np.expand_dims(exposures[0], axis=0)
+
+
+@pytest.fixture
+def keys():
+    return ('tm1', 'tm2')
+
+
+@pytest.fixture
+def x():
+    size = 100
+    exposed_sky_1 = np.ones((size, size)) * 100
+    exposed_sky_2 = np.ones_like(exposed_sky_1) * 40
+    return np.stack((exposed_sky_1, exposed_sky_2))
+
+
+@pytest.fixture
+def single_exposured_sky():
+    size = 100
+    return np.expand_dims(np.ones((size, size)) * 100, axis=0)
+
+
+@pytest.fixture
+def expected_result(exposures, exposure_cut, x):
+    mask = exposures < exposure_cut
+    return jft.Vector({'tm1': x[0][~mask[0]], 'tm2': x[1][~mask[1]]})
+
+
+def test_build_readout_function(exposures, exposure_cut, keys, x, expected_result):
+    build_exposure_readout = xu.build_readout_function(exposures, exposure_cut, keys)
+    result = build_exposure_readout(x)
+    assert result.tree.keys() == expected_result.tree.keys()
+    np.testing.assert_array_equal(list(result.tree.values())[0],
+                                  list(expected_result.tree.values())[0])
+
+
+def test_build_readout_function_wrong_input_shape(exposures, exposure_cut, keys, x):
+    build_exposure_readout = xu.build_readout_function(exposures, exposure_cut, keys)
+    with pytest.raises(IndexError):
+        build_exposure_readout(x[0])
+
+
+def test_build_readout_function_negative_exposure_cut(exposures, keys):
+    with pytest.raises(ValueError):
+        xu.build_readout_function(exposures, -1, keys)
+
+
+def test_build_readout_function_with_None_keys(single_exposure, exposure_cut, x,
+                                               single_exposured_sky):
+    build_exposure_readout = xu.build_readout_function(single_exposure, exposure_cut, None)
+    result = build_exposure_readout(x)
+    exposure = single_exposure.copy()
+    exposure[exposure < exposure_cut] = 0
+    mask = exposure != 0
+    expected_result = jft.Vector({'masked input': single_exposured_sky[mask]})
+    assert result.tree.keys() == expected_result.tree.keys()
+    np.testing.assert_array_equal(list(result.tree.values())[0],
+                                  list(expected_result.tree.values())[0])
