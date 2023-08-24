@@ -1,8 +1,6 @@
 import numpy as np
 import nifty8.re as jft
 
-from .utils import chain_callables
-
 
 def build_exposure_function(exposures, exposure_cut=None):
     """
@@ -142,15 +140,11 @@ def build_erosita_psf(psf_shape, tm_ids, energy, center, convolution_method):
     pass  # FIXME: implement
 
 
-def build_erosita_psf_from_file(exposure_filenames, exposure_cut, tm_ids):
-    pass  # FIXME: implement
-
-
-def build_erosita_response(exposures, exposure_cut, tm_ids):
+def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
     # TODO: write docstring
     exposure = build_exposure_function(exposures, exposure_cut)
     mask = build_readout_function(exposures, exposure_cut, tm_ids)
-    R = chain_callables(exposure, mask)  # FIXME: should implement R = mask @ exposure @ conv_op
+    R = lambda x: mask(exposure(x))  # FIXME: should implement R = mask @ exposure @ conv_op
     return R
 
 
