@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
+
 def test_nifty_vs_jifty_convolution():
     # set up a space
     sp = ift.RGSpace([30, 30], distances=(0.1, 5))
