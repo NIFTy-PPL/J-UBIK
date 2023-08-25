@@ -40,11 +40,11 @@ if __name__ == "__main__":
     sky_dict = xu.create_sky_model_from_config(config_path)
     pspec = sky_dict.pop('pspec')
 
-    # Generate loglikelihood
-    log_likelihood = xu.generate_erosita_likelihood_from_config(config_path) @ sky_dict['sky']
-
     # Save config
     xu.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
+    
+    # Generate loglikelihood
+    log_likelihood = xu.generate_erosita_likelihood_from_config(config_path) @ sky_dict['sky']
 
     # Minimization
     minimization_config = cfg['minimization']
