@@ -3,7 +3,8 @@ import nifty8.re as jft
 import xubik0 as xu
 from .data import (load_erosita_masked_data, generate_erosita_data_from_config,
                    load_masked_data_from_pickle)
-from .response import apply_callable_from_exposure_file, response, mask
+from .response import (build_callable_from_exposure_file, build_erosita_response,
+                       build_readout_function)
 
 
 # FIXME: Include into init
@@ -23,9 +24,16 @@ def generate_erosita_likelihood_from_config(config_file_path):
     cfg = xu.get_config(config_file_path)
     tel_info = cfg['telescope']
     file_info = cfg['files']
-    exposure_file_names = ['{key}_'+file_info['exposure']]
-    response_func = apply_callable_from_exposure_file(response, exposure_file_names, tel_info['exp_cut'])
-    mask_func = apply_callable_from_exposure_file(mask, exposure_file_names, tel_info['exp_cut'])
+    exposure_file_names = [os.path.join(file_info['obs_path'], f'{key}_'+file_info['exposure'])
+                           for key in tel_info['tm_ids']]
+    response_func = build_callable_from_exposure_file(build_erosita_response,
+                                                      exposure_file_names,
+                                                      exposure_cut=tel_info['exp_cut'],
+                                                      tm_ids=tel_info['tm_ids'])
+    mask_func = build_callable_from_exposure_file(build_readout_function,
+                                                  exposure_file_names,
+                                                  threshold=tel_info['exp_cut'],
+                                                  keys=tel_info['tm_ids'])
     if cfg['mock']:
         masked_data = generate_erosita_data_from_config(config_file_path, response_func,
                                                         file_info['res_dir'])
