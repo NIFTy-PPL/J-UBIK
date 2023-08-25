@@ -35,11 +35,12 @@ from .library.diagnostics import (signal_space_uwr_from_file,
                                   plot_lambda_diagnostics,
                                   plot_sky_flux_diagnostics,
                                   signal_space_weighted_residual_distribution)
-from .operators.convolution_operators import OAConvolver, OAnew, OverlapAdd
-from .operators.convolution_operators import _get_weights
+from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
+                                              get_weights)
+from .operators.jifty_convolution_operators import (_bilinear_weights,
+                                                    slice_patches,
+                                                    linpatch_convolve,
+                                                    jifty_convolve)
 from .operators.zero_padder import MarginZeroPadder
 from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
-
-from .operators.jifty_convolution_operators import *
-from .operators.convolution_operators import *
