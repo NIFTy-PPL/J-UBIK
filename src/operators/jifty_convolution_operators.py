@@ -99,7 +99,19 @@ def linpatch_convolve(x, shape, kernel, n_patches_per_axis,
 
 
 def jifty_convolve(x, y, domain, axes):
-    """Perform an FFT convolution."""
+    """Perform an FFT convolution.
+
+    Parameters:
+    -----------
+    x: numpy.array
+        input array
+    y: numpy.array
+        kernel array
+    domain: Domain(NamedTuple)
+        containing the information about distances and shape of the domain.
+    axes: tuple
+        axes for the convolution
+    """
     dlist = [domain.distances[i] for i in axes]
     dvol = float(reduce(lambda a, b: a*b, dlist))
 
