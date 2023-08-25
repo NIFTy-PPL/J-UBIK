@@ -5,6 +5,8 @@ import jax.numpy as jnp
 import numpy as np
 from functools import reduce
 
+from ..library.data import Domain
+
 
 def _bilinear_weights(shape):
     """Build bilinear interpolation kernel."""
@@ -45,14 +47,14 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
     return f(*(nn.flatten() for nn in ndx))
 
 
-def linpatch_convolve(x, shape, kernel, n_patches_per_axis,
+def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
                       margin):
     """Functional version of linear patching convolution.
 
     Parameters:
     -----------
     x : input array
-    shape: shape of input array
+    domain: domain (shape, distances) of input array
     kernel: np.array
         Array containing the different kernels for the inhomogeneos convolution
     n_patches_per_axis: int
@@ -61,6 +63,7 @@ def linpatch_convolve(x, shape, kernel, n_patches_per_axis,
         Size of the margin. Number of pixels on one boarder.
 
     """
+    shape = domain.shape
     slices = slice_patches(x, shape, n_patches_per_axis,
                            additional_margin=0)
     weights = _bilinear_weights(slices[0].shape)
@@ -84,7 +87,9 @@ def linpatch_convolve(x, shape, kernel, n_patches_per_axis,
     # TODO Prep Kernel Norm
 
     pkernel = kernel
-    convolved = jifty_convolve(pkernel, padded, axes=(1, 2))
+    ndom = Domain((1, *shape), (None, *domain.distances))
+    convolved = jifty_convolve(pkernel, padded,
+                               ndom, axes=(1, 2))
     padded_shape = [ii+2*margin for ii in shape]
 
     def patch_w_margin(array):
