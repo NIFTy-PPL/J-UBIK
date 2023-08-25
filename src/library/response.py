@@ -1,8 +1,6 @@
 import numpy as np
 import nifty8.re as jft
 
-from .utils import chain_callables
-
 
 def build_exposure_function(exposures, exposure_cut=None):
     """
@@ -36,58 +34,70 @@ def build_exposure_function(exposures, exposure_cut=None):
     return lambda x: exposures * x[np.newaxis, ...]
 
 
-def build_exposure_readout_function(exposures, exposure_cut=None, keys=None):
+def build_readout_function(flasgs, threshold=None, keys=None):
     """
-    Applies a readout corresponding to the exposure masks.
+    Applies a readout corresponding to input flags.
 
     Parameters
     ----------
-        exposures : ndarray
-        Array with instrument exposure maps. The 0-th axis indexes the telescope module (for
-        multi-module instruments).
-        exposure_cut: float or None, optional
-            A threshold exposure value below which exposures are set to zero.
+        flags : ndarray
+        Array with flags. Where flags are equal to zero the input will not be read out.
+        The 0-th axis indexes the number of 2D flag maps, e.g. it could index the telescope module
+        (for multi-module instruments exposure maps).
+        threshold: float or None, optional
+            A threshold value below which flags are set to zero (e.g., an exposure cut).
             If None (default), no threshold is applied.
-        keys : tuple or list or None
-            A tuple containing the ids of the telescope modules to be used as keys for the
-            response output dictionary. Optional for a single module observation.
+        keys : list or tuple or None
+            A list or tuple containing the keys for the response output dictionary.
+            For example, a list of the telescope modules ids for a multi-module instrument.
+            Optional for a single-module observation.
     Returns
     -------
-        function: A callable that applies an exposure mask to an input sky.
+        function: A callable that applies a mask to an input array (e.g. an input sky) and returns
+        a `nifty8.re.Vector` containing a dictionary of read-out inputs.
     Raises:
     -------
         ValueError:
-        If exposure_cut is negative.
-        If the exposures do not have the right shape.
+        If threshold is negative.
+        If keys does not have the right shape.
+        If the flags do not have the right shape.
     """
-    if exposure_cut < 0:
-        raise ValueError("exposure_cut should be positive!")
-    if exposure_cut is not None:
-        exposures[exposures < exposure_cut] = 0
-    mask = exposures == 0
+    if threshold < 0:
+        raise ValueError("threshold should be positive!")
+    if threshold is not None:
+        flasgs[flasgs < threshold] = 0
+    mask = flasgs == 0
     if keys is None:
         keys = ['masked input']
-    elif len(keys) != exposures.shape[0]:
-        raise ValueError("length of keys should match the number of exposure maps.")
+    elif len(keys) != flasgs.shape[0]:
+        raise ValueError("length of keys should match the number of flag maps.")
 
-    def _apply_readout(exposured_sky: np.array):
+    def _apply_readout(x: np.array):
+        """
+        Reads out input array (e.g, sky signals to which an exposure is applied)
+        at locations specified by a mask.
+        Args:
+            x: ndarray
+
+        Returns:
+            readout = `nifty8.re.Vector` containing a dictionary of read-out inputs.
+        """
         if len(mask.shape) != 3:
-            raise ValueError("exposures should have shape (n, m, q)!")
-        print(exposured_sky.shape)
-        print(mask[0].shape)
-        return jft.Vector({key: exposured_sky[i][~mask[i]] for i, key in enumerate(keys)})
+            raise ValueError("flags should have shape (n, m, q)!")
+        return jft.Vector({key: x[i][~mask[i]] for i, key in enumerate(keys)})
 
     return _apply_readout
 
 
-def build_callable_from_exposure_file(callable, exposure_filenames, **kwargs):
+def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     """
     Returns a callable function which is built from a NumPy array of exposures loaded from file.
 
     Parameters
     ----------
-    callable : function
-        A callable function that takes a NumPy array of exposures as input.
+    builder : function
+        A builder function that takes a NumPy array of exposures as input and outputs a callable.
+        The callable should perform an operation on a different object using the exposure.
     exposure_filenames : list[str]
         A list of filenames of exposure files to load.
         Files should be in a .npy or .fits format.
@@ -96,8 +106,8 @@ def build_callable_from_exposure_file(callable, exposure_filenames, **kwargs):
 
     Returns
     -------
-    result : object
-        The result of applying the callable function to the loaded exposures.
+    result : callable
+        The callable function built with the exposures loaded from file.
 
     Raises
     ------
@@ -126,24 +136,19 @@ def build_callable_from_exposure_file(callable, exposure_filenames, **kwargs):
         else:
             raise FileNotFoundError(f'cannot find {file}!')
     exposures = np.array(exposures)
-    return callable(exposures, **kwargs)
+    return builder(exposures, **kwargs)
 
 
 def build_erosita_psf(psf_shape, tm_ids, energy, center, convolution_method):
     pass  # FIXME: implement
 
 
-def build_erosita_psf_from_file(exposure_filenames, exposure_cut, tm_ids):
-    pass  # FIXME: implement
-
-
-def build_erosita_response(exposures, exposure_cut, tm_ids):
+def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
     # TODO: write docstring
     exposure = build_exposure_function(exposures, exposure_cut)
-    mask = build_exposure_readout_function(exposures, exposure_cut, tm_ids)
-    R = chain_callables(mask, exposure)  # FIXME: should implement R = mask @ exposure @ conv_op
+    mask = build_readout_function(exposures, exposure_cut, tm_ids)
+    R = lambda x: mask(exposure(x))  # FIXME: should implement R = mask @ exposure @ conv_op
     return R
-
 
 
 def build_erosita_response_from_config(config_file):
