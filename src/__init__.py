@@ -36,7 +36,7 @@ from .library.diagnostics import (signal_space_uwr_from_file,
                                   plot_sky_flux_diagnostics,
                                   signal_space_weighted_residual_distribution)
 from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
-                                              get_weights)
+                                              _get_weights)
 from .operators.jifty_convolution_operators import (_bilinear_weights,
                                                     slice_patches,
                                                     linpatch_convolve,
