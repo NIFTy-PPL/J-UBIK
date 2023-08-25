@@ -42,7 +42,7 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
 
     ids = (np.arange(n_patches_per_axis)*dx, np.arange(n_patches_per_axis)*dy)
 
-    ndx = np.meshgrid(*ids, indexing="ij")
+    ndx = np.meshgrid(*ids, indexing="xy")
     f = jax.vmap(slicer, in_axes=(0, 0), out_axes=(0))
     return f(*(nn.flatten() for nn in ndx))
 
