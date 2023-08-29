@@ -10,6 +10,66 @@ from ..library.sky_models import SkyModel
 from ..library.chandra_observation import ChandraObservationInformation
 
 
+def plot_result(array, domain=None, output_file=None, logscale=False, title=None, colorbar=True,
+                figsize=(5,5), dpi=100, cbar_formatter=None, **kwargs):
+    """
+    Plot a 2D array using imshow() from the matplotlib library.
+
+    Parameters:
+    -----------
+    array : numpy.ndarray
+        The 2D array to plot.
+    domain : dict, optional
+        The domain of the array.
+    output_file : str, optional
+        The name of the file to save the plot to.
+    logscale : bool, optional
+        Whether to use a logarithmic scale for the color map.
+    title : str, optional
+        The title of the plot.
+    colorbar : bool, optional
+        Whether to show the color bar.
+    figsize : tuple, optional
+        The size of the figure in inches.
+    dpi : int, optional
+        The resolution of the figure in dots per inch.
+    cbar_formatter : matplotlib.ticker.Formatter, optional
+        The formatter for the color bar ticks.
+    kwargs : dict, optional
+        Additional keyword arguments to pass to imshow().
+
+    Returns:
+    --------
+    None
+    """
+    if array.ndim != 2:
+        raise ValueError("Input array must be 2D.")
+
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+    pltargs = {"origin": "lower", "cmap": "viridis"}
+    if domain is not None:
+        half_fov = domain["distances"][0] * domain["shape"][
+            0] / 2.0 / 60  # conv to arcmin FIXME: works only for square array
+        pltargs["extent"] = [-half_fov, half_fov] * 2
+        ax.set_xlabel("FOV [arcmin]")
+        ax.set_ylabel("FOV [arcmin]")
+    if logscale:
+        pltargs["norm"] = LogNorm()
+    pltargs.update(**kwargs)
+    im = ax.imshow(array, **pltargs)
+    if title is not None:
+        ax.set_title(title)
+    if colorbar:
+        fig.colorbar(im, format=cbar_formatter)
+    fig.tight_layout()
+    if output_file is not None:
+        fig.savefig(output_file, bbox_inches='tight', pad_inches=0)
+        print(f"Plot saved as {output_file}.")
+    else:
+        plt.show()
+    plt.close()
+
+
 def plot_slices(field, outname, logscale=False):
     img = field.val
     npix_e = field.domain.shape[-1]
@@ -29,29 +89,6 @@ def plot_slices(field, outname, logscale=False):
     fig.tight_layout()
     if outname != None:
         fig.savefig(outname)
-    plt.close()
-
-
-def plot_result(field, outname, logscale=False, title=None, colorbar=True, figsize=(11.7, 8.3),
-                dpi=300, cbar_formatter=None, **args):
-    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    img = field.val
-    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
-    pltargs = {"origin": "lower", "cmap": "viridis", "extent": [-half_fov, half_fov] * 2}
-    if logscale == True:
-        pltargs["norm"] = LogNorm()
-    pltargs.update(**args)
-    im = ax.imshow(img, **pltargs)
-    ax.set_xlabel("FOV [arcmin]")
-    ax.set_ylabel("FOV [arcmin]")
-    if title is not None:
-        ax.set_title(title)
-    if colorbar:
-        fig.colorbar(im, format=cbar_formatter)
-    fig.tight_layout()
-    if outname != None:
-        fig.savefig(outname, bbox_inches='tight', pad_inches=0)
-        print(f"Plot saved as {outname}.")
     plt.close()
 
 
