@@ -72,23 +72,31 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
                      pad_width=((0, 0), (margin, margin), (margin, margin)),
                      mode="constant", constant_values=0)
 
-    # dx = int(shape[0] / n_patches_per_axis)
-    # dy = int(shape[1] / n_patches_per_axis)
+    # Do reshaping here
+    dx = int(shape[0] / n_patches_per_axis)
+    dy = int(shape[1] / n_patches_per_axis)
 
-    # kernelcuts = (shape[0] - 2*dx) // 2
-    # roll_kernel = np.fft.fftshift(kernel, axes=(1, 2))
-    # cut_kernel = roll_kernel[:, kernelcuts:-kernelcuts, kernelcuts:-kernelcuts]
-    # rollback_kernel = np.fft.ifftshift(cut_kernel, axes=(1, 2))
+    kernelcuts = (shape[0] - 2*dx) // 2
+    roll_kernel = np.fft.fftshift(kernel, axes=(1, 2))
+    cut_kernel = roll_kernel[:, kernelcuts:-kernelcuts, kernelcuts:-kernelcuts]
+    rollback_kernel = np.fft.fftshift(cut_kernel, axes=(1, 2))
 
-    # pkernel = jnp.pad(rollback_kernel,
-    #                   pad_width=((0, 0), (margin, margin), (margin, margin)),
-    #                   mode="constant",
-    #                   constant_values=0)
+    pkernel = jnp.pad(rollback_kernel,
+                      pad_width=((0, 0), (margin, margin), (margin, margin)),
+                      mode="constant",
+                      constant_values=0)
+
+    summed = pkernel.sum((1, 2))
+    dvol = domain.distances[0]*domain.distances[1]
+    norm = summed * np.array(dvol)
+    norm = norm[:, np.newaxis, np.newaxis]
+
+    normed_kernel = pkernel * norm**-1
     # TODO Prep Kernel Norm
 
-    pkernel = kernel
+    # pkernel = kernel
     ndom = Domain((1, *shape), (None, *domain.distances))
-    convolved = jifty_convolve(pkernel, padded,
+    convolved = jifty_convolve(normed_kernel, padded,
                                ndom, axes=(1, 2))
     padded_shape = [ii+2*margin for ii in shape]
 

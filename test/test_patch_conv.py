@@ -5,7 +5,6 @@ import xubik0 as xu
 import pytest
 import matplotlib.pyplot as plt
 
-
 def test_lin_patch_conv():
     # load Chandra PSFS from file
     psf_array = np.load("../../perseus/processed_data/11713.npy",
@@ -26,9 +25,14 @@ def test_lin_patch_conv():
     old_conv = xu.OAnew.cut_force(domain, psfs, n_patches, margin, False)
     res1 = old_conv(test_f)
 
+    plt.imshow(res1.val)
+    plt.show()
+
     # jax result
     psfs_prep = np.load("debugging_kernel.npy", allow_pickle=True).item().val
-    res2 = xu.linpatch_convolve(test_f.val, domain, psfs_prep,
+    res2 = xu.linpatch_convolve(test_f.val, domain, psfs,
                                 n_patches_per_axis, margin)
 
+    plt.imshow(res2)
+    plt.show()
     np.testing.assert_allclose(res2, res1.val)

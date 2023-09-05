@@ -1,9 +1,10 @@
 import jax
 import numpy as np
 import xubik0 as xu
+import pytest
 
-import matplotlib.pyplot as plt
-
+# import matplotlib.pyplot as plt
+# TODO Test against old implementation
 shape = (36, 36)
 n_patches = 16
 overlap = 2
