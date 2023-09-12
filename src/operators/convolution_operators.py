@@ -426,7 +426,7 @@ class OAnew(ift.LinearOperator):
         return res, cut_interpolation_margin
 
     @classmethod
-    def cut_by_value(self, domain, kernel_list, n, margin, thrsh):
+    def cut_by_value(self, domain, kernel_list, n, margin, thrsh, want_cut):
         """Set the kernel zero for all values smaller than the threshold."""
         psfs = []
         for arr in kernel_list:
@@ -435,7 +435,7 @@ class OAnew(ift.LinearOperator):
         psfs = np.array(psfs, dtype="float64")
         if not self._check_kernel(domain, psfs, n, margin):
             raise ValueError("""_check_kernel detected nonzero entries.""")
-        return OAnew(domain, psfs, n, margin)
+        return OAnew(domain, psfs, n, margin, want_cut)
 
     @classmethod
     def cut_force(self, domain, kernel_list, n, margin, want_cut):
