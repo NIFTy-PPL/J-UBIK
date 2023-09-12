@@ -14,7 +14,7 @@ def _bilinear_weights(shape):
         raise ValueError("this should happen")
     # FIXME get better weights for non by 2 divisible numbers
     a = np.linspace(0, 1, int(shape[0]/2), dtype="float64")
-    b = np.concatenate([a, jnp.flip(a)])
+    b = np.concatenate([a, np.flip(a)])
     return np.outer(b, b)
 
 
@@ -81,10 +81,10 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     roll_kernel = np.fft.fftshift(kernel, axes=(1, 2))
     cut_kernel = roll_kernel[:, kernelcuts:-kernelcuts, kernelcuts:-kernelcuts]
 
-    pkernel = jnp.pad(cut_kernel,
-                      pad_width=((0, 0), (margin, margin), (margin, margin)),
-                      mode="constant",
-                      constant_values=0)
+    pkernel = np.pad(cut_kernel,
+                     pad_width=((0, 0), (margin, margin), (margin, margin)),
+                     mode="constant",
+                     constant_values=0)
     rollback_kernel = np.fft.ifftshift(pkernel, axes=(1, 2))
 
     summed = rollback_kernel.sum((1, 2))
