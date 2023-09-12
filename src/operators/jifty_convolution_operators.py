@@ -77,24 +77,23 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     dy = int(shape[1] / n_patches_per_axis)
 
     kernelcuts = (shape[0] - 2*dx) // 2
+
     roll_kernel = np.fft.fftshift(kernel, axes=(1, 2))
     cut_kernel = roll_kernel[:, kernelcuts:-kernelcuts, kernelcuts:-kernelcuts]
-    rollback_kernel = np.fft.fftshift(cut_kernel, axes=(1, 2))
 
-    pkernel = jnp.pad(rollback_kernel,
+    pkernel = jnp.pad(cut_kernel,
                       pad_width=((0, 0), (margin, margin), (margin, margin)),
                       mode="constant",
                       constant_values=0)
+    rollback_kernel = np.fft.ifftshift(pkernel, axes=(1, 2))
 
-    summed = pkernel.sum((1, 2))
+    summed = rollback_kernel.sum((1, 2))
     dvol = domain.distances[0]*domain.distances[1]
     norm = summed * np.array(dvol)
     norm = norm[:, np.newaxis, np.newaxis]
 
-    normed_kernel = pkernel * norm**-1
-    # TODO Prep Kernel Norm
+    normed_kernel = rollback_kernel * norm**-1
 
-    # pkernel = kernel
     ndom = Domain((1, *shape), (None, *domain.distances))
     convolved = jifty_convolve(normed_kernel, padded,
                                ndom, axes=(1, 2))
