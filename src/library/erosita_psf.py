@@ -193,12 +193,17 @@ class eROSITA_PSF():
             scale = ift.ScalingOperator(domain, np.sqrt(domain.scalar_dvol))
             op = op @ scale
             print('...done build MSC-PSF')
-        elif conv_method == 'LIN':
-            print('Build LIN-PSF...')
+        elif conv_method == 'LIN' or conv_method == 'LINJAX':
+            if conv_method == 'LIN':
+                jaxop = False
+            else:
+                jaxop = True
+            print(f'Build {conv_method}-PSF...')
             op = psf_lin_int_operator(domain, conv_params['npatch'], psf_infos,
-                                      margfrac = conv_params['margfrac'],
-                                      want_cut = conv_params['want_cut'])
-            print('...done build LIN-PSF')
+                                      margfrac=conv_params['margfrac'],
+                                      want_cut=conv_params['want_cut'],
+                                      jaxop=jaxop)
+            print(f'...done build {conv_method}-PSF')
         else:
             # TODO enter FFT Convolution here as well
             raise ValueError(f'Unknown conv_method: {conv_method}')

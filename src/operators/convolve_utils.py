@@ -7,6 +7,7 @@ from jax import vmap
 from jax.scipy.ndimage import map_coordinates
 from jax.lax import cond
 from .convolution_operators import OAnew
+from .jifty_convolution_operators import linpatch_convolve
 
 try:
     from .adg.nifty_convolve import get_convolve
@@ -212,7 +213,7 @@ def psf_convolve_operator(domain, psf_infos, msc_infos, adj = False):
 
 
 def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1, 
-                         want_cut = False):
+                         want_cut=False, jaxop=True):
     """
     Psf convolution operator using bilinear interpolation of stationary patches.
     """
@@ -252,7 +253,15 @@ def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1,
     #patch_psfs = list([pp for pp in patch_psfs]) # FIXME
     patch_psfs = np.array(patch_psfs)
     margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
-    op = OAnew(domain, patch_psfs, len(patch_psfs), margin, want_cut)
+    if jaxop:
+        # TODO Want cut?
+        n_patches_per_axis = int(np.sqrt(len(patch_psfs)))
+
+        def op(x):
+            return linpatch_convolve(x, domain, patch_psfs,
+                                     n_patches_per_axis, margin)
+    else:
+        op = OAnew(domain, patch_psfs, len(patch_psfs), margin, want_cut)
     return op
 
 
