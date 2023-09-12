@@ -87,6 +87,8 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
                      constant_values=0)
     rollback_kernel = np.fft.ifftshift(pkernel, axes=(1, 2))
 
+    # TODO discuss this kind of normalization. Kernels should be normalized
+    # before and/or elsewhere.
     summed = rollback_kernel.sum((1, 2))
     dvol = domain.distances[0]*domain.distances[1]
     norm = summed * np.array(dvol)
