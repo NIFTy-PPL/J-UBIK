@@ -76,10 +76,11 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     dx = int(shape[0] / n_patches_per_axis)
     dy = int(shape[1] / n_patches_per_axis)
 
-    kernelcuts = (shape[0] - 2*dx) // 2
+    kernelcut_x = (shape[0] - 2*dx) // 2
+    kernelcut_y = (shape[0] - 2*dy) // 2
 
     roll_kernel = np.fft.fftshift(kernel, axes=(1, 2))
-    cut_kernel = roll_kernel[:, kernelcuts:-kernelcuts, kernelcuts:-kernelcuts]
+    cut_kernel = roll_kernel[:, kernelcut_x:-kernelcut_x, kernelcut_y:-kernelcut_y]
 
     pkernel = np.pad(cut_kernel,
                      pad_width=((0, 0), (margin, margin), (margin, margin)),
