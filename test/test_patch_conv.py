@@ -30,7 +30,8 @@ def test_lin_patch_conv():
 
     # jax result
     psfs_prep = np.load("debugging_kernel.npy", allow_pickle=True).item().val
-    res2 = xu.linpatch_convolve(test_f.val, domain, psfs,
+    cut_psfs = np.load("cut_psf.npy")
+    res2 = xu.linpatch_convolve(test_f.val, domain, cut_psfs,
                                 n_patches_per_axis, margin)
 
     plt.imshow(res2)
