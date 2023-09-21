@@ -1,12 +1,8 @@
 seed: 86
-threads: 8
+# threads: 8
 mock: False
-point_source_defaults:
-  alpha: 1.
-  q: 1e6
-mock_psf: False
+# mock_psf: False
 load_mock_data: False
-
 telescope:
   tm_ids : [1,2,3,4,6]
   fov: 3600 # in arcsec
@@ -14,39 +10,34 @@ telescope:
   detmap: True
   exp_cut: 500
 
-psf:
-  method: 'LIN'
-  energy: '3000'
+point_source_defaults:
+  alpha: 1.
+  q: 1e6
+
+# psf:
+#  method: 'LIN'
+#  energy: '3000'
 
   # LIN config
-  npatch: 8
-  margfrac: 0.062
-  want_cut: False
+#  npatch: 8
+#  margfrac: 0.062
+#  want_cut: False
 
   # MSC config
-  base: [3,3]
-  min_baseshape: [8,8]
-  linlevel: [100,100]
-  kernel_sizes: [[3,3],]
-  keep_overlap: [[True,True],]
-  local_kernel: [True,True]
+#  base: [3,3]
+#  min_baseshape: [8,8]
+#  linlevel: [100,100]
+#  kernel_sizes: [[3,3],]
+#  keep_overlap: [[True,True],]
+#  local_kernel: [True,True]
 
   # config for homogeneous gauss psf
-  gauss_var: 5
+#  gauss_var: 5
 
-plotting:
-  enabled: True
-  slice: Null
-  dpi: 800
-
-files:
-  obs_path: '../data/LMC_SN1987A/'
-  input: 'pm00_700161_020_EventList_c001.fits'
-  output: 'small_processed_pm00_700161_020_data.fits'
-  exposure: 'small_expmap_pm00_700161_020.fits'
-  psf_path : '../data/psf_info/'
-  psf_base_filename: '2dpsf_190219v05.fits'
-  res_dir: 'results/LMC_first_reconstruction'
+# plotting:
+#  enabled: True
+#  slice: Null
+#  dpi: 800
 
 grid:
   npix: 426
@@ -55,13 +46,23 @@ grid:
     e_min: 2.0
     e_max: 4.5
 
+
+files:
+  obs_path: '../data/LMC_SN1987A/'
+  input: 'pm00_700161_020_EventList_c001.fits'
+  output: 'low_e_processed_pm00_700161_020_data.fits'
+  exposure: 'low_e_expmap_pm00_700161_020.fits'
+  psf_path : '../data/psf_info/'
+  psf_base_filename: '2dpsf_190219v05.fits'
+  res_dir: 'results/Default_run'
+
 priors:
   point_sources:
-    alpha: 1.
-    q: 1e-6
+    alpha: 1.00001
+    q: 0.00000005
   diffuse:
     offset:
-      offset_mean: -10.
+      offset_mean: -9.5 # exposure norm = 4.4 *10^-5
       offset_std:
         - 0.2
         - 0.05
@@ -70,36 +71,23 @@ priors:
         - 1.5
         - 0.8
       loglogavgslope:
-        - -4.
-        - 1.5
+        - -3.
+        - 1.0
       flexibility:
-        - 1.2
-        - 0.5
-      asperity: Null
+        - 0.8
+        - 0.1
+      asperity:
+        - 0.2
+        - 0.1
     prefix: diffuse_
 
 minimization:
   resume: False
-  geovi: True
-  transition: True
   total_iterations: 20
-  n_samples: 4 #'lambda i_iter: 6 if i_iter < 13 else 10'
-  ic_newton:
-    convergence_level: 2
-    deltaE: 0.1
-    iteration_limit: 10
-    name: Newton
-  ic_sampling:
-    deltaE: 0.02
-    iteration_limit: 30
-    name: Sampling(lin)
-  ic_sampling_nl:
-    deltaE: 0.1
-    iteration_limit: 8
-    name: Sampling(nonlin)
-  ic_transition:
-    convergence_level: 2
-    deltaE: 1e-4
-    iteration_limit: 60
-    name: Transition
-    start: 1
+  n_samples: 4
+  minimizer: newtoncg
+  sampling_minimizer: newton_cg
+  sampling_method: linear
+  sampling_kwargs:
+    xtol: 0.001
+    maxiter: 10

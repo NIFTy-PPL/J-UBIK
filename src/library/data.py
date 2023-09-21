@@ -1,7 +1,7 @@
 import os
 import pickle
 from jax import random
-import numpy as np
+from jax import numpy as jnp
 from astropy.io import fits
 
 import nifty8.re as jft
@@ -31,7 +31,7 @@ def load_masked_data_from_pickle(file_path, mask_func):
     """
     with open(file_path, "rb") as f:
         data_dict = pickle.load(f)
-    masked_data_dict = mask_func(np.stack(list(data_dict.values())))
+    masked_data_dict = mask_func(jnp.stack(list(data_dict.values())))
     if set(data_dict.keys()) != set(masked_data_dict):
         raise ValueError('The loaded data dictionary and the given mask function '
                          'are not compatible!')
@@ -119,9 +119,9 @@ def load_erosita_masked_data(file_info, tel_info, mask_func):
     data_list = []
     for tm_id in tel_info['tm_ids']:
         output_filename = f'{tm_id}_' + file_info['output']
-        data = np.array(fits.open(output_filename)[0].data, dtype=int)
+        data = jnp.array(fits.open(os.path.join(file_info['obs_path'], output_filename))[0].data, dtype=int)
         data_list.append(data)
-    masked_data_vector = mask_func(np.stack(data_list))
+    masked_data_vector = mask_func(jnp.stack(data_list))
     return masked_data_vector
 
 
