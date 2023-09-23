@@ -5,13 +5,15 @@ import nifty8 as ift
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 from .utils import get_data_domain, get_config, create_output_directory
 from ..library.sky_models import SkyModel
 from ..library.chandra_observation import ChandraObservationInformation
 
 
-def plot_result(array, domain=None, output_file=None, logscale=False, title=None, colorbar=True,
-                figsize=(5,5), dpi=100, cbar_formatter=None, **kwargs):
+def plot_result(array, domains=None, output_file=None, logscale=False, title=None, colorbar=True,
+                figsize=(7,7), dpi=100, cbar_formatter=None, n_rows=1, n_cols=None, **kwargs):
     """
     Plot a 2D array using imshow() from the matplotlib library.
 
@@ -42,25 +44,56 @@ def plot_result(array, domain=None, output_file=None, logscale=False, title=None
     --------
     None
     """
-    if array.ndim != 2:
-        raise ValueError("Input array must be 2D.")
 
-    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+    shape_len = array.shape
+    if len(shape_len) < 2 or len(shape_len) > 3:
+        raise ValueError("Wrong input shape for array plot!")
+    if len(shape_len) == 2:
+        array = array[np.newaxis, :, :]
+
+    n_plots = array.shape[0]
+    if n_cols is None:
+        if n_plots == 1:
+            n_cols = 1
+        else:
+            n_cols = n_plots//n_rows
+
+    n_ax = n_rows * n_cols
+    n_del = n_ax - n_plots
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize, dpi=dpi)
+
+    if isinstance(axes, np.ndarray):
+        axes = axes.flatten()
+    else:
+        axes = [axes]
     pltargs = {"origin": "lower", "cmap": "viridis"}
-    if domain is not None:
-        half_fov = domain["distances"][0] * domain["shape"][
-            0] / 2.0 / 60  # conv to arcmin FIXME: works only for square array
-        pltargs["extent"] = [-half_fov, half_fov] * 2
-        ax.set_xlabel("FOV [arcmin]")
-        ax.set_ylabel("FOV [arcmin]")
-    if logscale:
-        pltargs["norm"] = LogNorm()
-    pltargs.update(**kwargs)
-    im = ax.imshow(array, **pltargs)
-    if title is not None:
-        ax.set_title(title)
-    if colorbar:
-        fig.colorbar(im, format=cbar_formatter)
+
+    for i in range(n_plots):
+        if array[i].ndim != 2:
+            raise ValueError("All arrays to plot must be 2-dimensional!")
+
+        if domains is not None:
+            half_fov = domains[i]["distances"][0] * domains[i]["shape"][
+                0] / 2.0 / 60  # conv to arcmin FIXME: works only for square array
+            pltargs["extent"] = [-half_fov, half_fov] * 2
+            axes[i].set_xlabel("FOV [arcmin]")
+            axes[i].set_ylabel("FOV [arcmin]")
+
+        if logscale:
+            pltargs["norm"] = LogNorm()
+
+        pltargs.update(**kwargs)
+        im = axes[i].imshow(array[i], **pltargs)
+
+        if title is not None:
+            axes[i].set_title(title[i])
+
+        if colorbar:
+            divider = make_axes_locatable(axes[i])
+            cax = divider.append_axes("right", size="5%", pad=0.1)
+            fig.colorbar(im, cax=cax, format=cbar_formatter)
+    for i in range(n_del):
+        fig.delaxes(axes[n_plots+i])
     fig.tight_layout()
     if output_file is not None:
         fig.savefig(output_file, bbox_inches='tight', pad_inches=0)
@@ -279,7 +312,7 @@ def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):
     None
     """
     domain = field.domain
-    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) !=2:
+    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) != 2:
         raise ValueError(f"Expected DomainTuple with the first space"
                          f"being a 2-dim RGSpace, but got {domain}")
 
@@ -464,7 +497,7 @@ def _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
 
 
 def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
-    plt.bar(edges[:-1], hist, width=edges[0]-edges[1])
+    plt.bar(edges[:-1], hist, width=edges[0] - edges[1])
     if logx:
         plt.xscale("log")
     if logy:
