@@ -20,15 +20,16 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
     Parameters:
     -----------
     array : numpy.ndarray
-        The 2D array to plot.
-    domain : dict, optional
-        The domain of the array.
+        Array of images. The first index indices through the different images
+        (e.g., shape = (5, 128, 128)).
+    domains : list[dict], optional
+        List of domains. Each domain should correspond to each image array.
     output_file : str, optional
         The name of the file to save the plot to.
     logscale : bool, optional
         Whether to use a logarithmic scale for the color map.
-    title : str, optional
-        The title of the plot.
+    title : list[str], optional
+        The title of each individual plot in the array.
     colorbar : bool, optional
         Whether to show the color bar.
     figsize : tuple, optional
@@ -37,6 +38,10 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
         The resolution of the figure in dots per inch.
     cbar_formatter : matplotlib.ticker.Formatter, optional
         The formatter for the color bar ticks.
+    n_rows : int
+        Number of columns of the final plot.
+    n_cols : int, optional
+        Number of rows of the final plot.
     kwargs : dict, optional
         Additional keyword arguments to pass to imshow().
 
