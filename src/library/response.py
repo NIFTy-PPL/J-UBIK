@@ -147,11 +147,13 @@ def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
     # TODO: write docstring
     exposure = build_exposure_function(exposures, exposure_cut)
     mask = build_readout_function(exposures, exposure_cut, tm_ids)
-    R = lambda x: mask(exposure(x))  # FIXME: should implement R = mask @ exposure @ conv_op
+    # psf = build_erosita_psf(-...)
+    R = lambda x: mask(exposure(x))  # FIXME: should implement R = lambda x: mask(exposure(psf(x)))
     return R
 
 
 def build_erosita_response_from_config(config_file):
+    #op = build_erosita_response(*config_file)
     pass  # FIXME: implement
 
 
