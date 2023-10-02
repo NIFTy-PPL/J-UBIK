@@ -58,8 +58,8 @@ files:
 
 priors:
   point_sources:
-    alpha: 1.00001
-    q: 0.00000005
+    alpha: 1.
+    q: 1e-6
   diffuse:
     offset:
       offset_mean: -9.5 # exposure norm = 4.4 *10^-5
