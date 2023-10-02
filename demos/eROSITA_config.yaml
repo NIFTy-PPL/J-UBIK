@@ -50,8 +50,8 @@ grid:
 files:
   obs_path: '../data/LMC_SN1987A/'
   input: 'pm00_700161_020_EventList_c001.fits'
-  output: 'low_e_processed_pm00_700161_020_data.fits'
-  exposure: 'low_e_expmap_pm00_700161_020.fits'
+  output: 'small_processed_pm00_700161_020_data.fits'
+  exposure: 'small_expmap_pm00_700161_020.fits'
   psf_path : '../data/psf_info/'
   psf_base_filename: '2dpsf_190219v05.fits'
   res_dir: 'results/Default_run'
