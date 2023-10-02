@@ -14,8 +14,6 @@
 # Copyright(C) 2013-2021 Max-Planck-Society
 #
 # NIFTy is being developed at the Max-Planck-Institut fuer Astrophysik.
-
-import numpy as np
 import nifty8 as ift
 from scipy.stats import invgamma, norm
 from nifty8.library.special_distributions import _InterpolationOperator
@@ -74,7 +72,7 @@ class InverseGammaOperator(ift.Operator):
         self.q_op = q_op.exp()
         expanded_q_op = ift.ContractionOperator(domain_dict['points'], None).adjoint(self.q_op)
         self._op = expanded_q_op * op
-        #TODO:Jax-Version
+        # TODO Jax-Version
 
     def apply(self, x):
         return self._op(x)
@@ -86,15 +84,19 @@ class InverseGammaOperator(ift.Operator):
 
     @property
     def mean_q(self):
-         """float : The value of the mean of the q-parameters of the inverse-gamma distribution"""
-         return self._mean_q
+        """float : The value of the mean of the q-parameters of the inverse-gamma distribution"""
+        return self._mean_q
+
     def q(self):
         """operator : Operator to the value of the q-parameter"""
         return self.q_op
 
 
+# TODO we could put this into Nifty instead?
 class InverseGammaOperator_alpha(ift.Operator):
-    """Transform a standard normal into an inverse gamma distribution with inferred parameter q.
+    """
+    Transform a standard normal into an inverse gamma distribution with
+    inferred parameter q.
 
     The pdf of the inverse gamma distribution is defined as follows:
 
@@ -102,13 +104,14 @@ class InverseGammaOperator_alpha(ift.Operator):
         \\frac{q^\\alpha}{\\Gamma(\\alpha)}x^{-\\alpha -1}
         \\exp \\left(-\\frac{q}{x}\\right)
 
-    That means that for large x the pdf falls off like :math:`x^{(-\\alpha -1)}`.
+    That means that for large x the pdf falls off like :math:`x^{(-\\alpha -1)}.
     The mean of the pdf is at :math:`q / (\\alpha - 1)` if :math:`\\alpha > 1`.
     The mode is :math:`q / (\\alpha + 1)`.
 
-    The operator can be initialized by setting either alpha and q or mode and mean.
-    In accordance to the statements above the mean must be greater
-    than the mode. Otherwise would get alpha < 0 and so no mean would be defined.
+    The operator can be initialized by setting either alpha and q or mode
+    and mean. In accordance to the statements above the mean must be greater
+    than the mode. Otherwise would get alpha < 0 and so no mean
+    would be defined.
 
     This transformation is implemented as a linear interpolation which maps a
     Gaussian onto an inverse gamma distribution.
@@ -138,29 +141,43 @@ class InverseGammaOperator_alpha(ift.Operator):
         self._mean_q = mean_q
         self._alpha = float(alpha)
         self._delta = float(delta)
-        op = _InterpolationOperator(self.target, lambda x: invgamma.ppf(norm._cdf(x), float(self._alpha)),
-                                    -8.2, 8.2, self._delta, lambda x: x.ptw("log"), lambda x: x.ptw("exp"))
+        op = _InterpolationOperator(self.target,
+                                    lambda x: invgamma.ppf(norm._cdf(x),
+                                                      float(self._alpha)),
+                                    -8.2, 8.2, self._delta, lambda x: x.ptw("log"),
+                                    lambda x: x.ptw("exp"))
         op = op.ducktape('points')
 
-        q_op = ift.LognormalTransform(self._mean_q, std_q, list(domain_dict.keys())[0], N_copies=0)
+        q_op = ift.LognormalTransform(self._mean_q,
+                                      std_q,
+                                      list(domain_dict.keys())[0],
+                                      N_copies=0)
         self.q_op = q_op.exp()
-        expanded_q_op = ift.ContractionOperator(domain_dict['points'], None).adjoint(self.q_op)
+        expanded_q_op = ift.ContractionOperator(domain_dict['points'],
+                                                None).adjoint(self.q_op)
         self._op = expanded_q_op * op
-        #TODO:Jax-Version
+        # TODO:Jax-Version
 
     def apply(self, x):
         return self._op(x)
 
     @property
     def alpha(self):
-        """float : The value of the alpha-parameter of the inverse-gamma distribution"""
+        """
+        float : The value of the alpha-parameter of
+                the inverse-gamma distribution
+        """
         return self._alpha
 
     @property
     def mean_q(self):
-         """float : The value of the mean of the q-parameters of the inverse-gamma distribution"""
-         return self._mean_q
+        """
+        float : The value of the mean of the q-parameters
+               of the inverse-gamma distribution"""
+        return self._mean_q
 
     def q(self):
-        """operator : Operator to the value of the q-parameter"""
+        """
+        operator : Operator to the value of the q-parameter
+        """
         return self.q_op

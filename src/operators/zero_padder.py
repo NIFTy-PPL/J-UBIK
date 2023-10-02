@@ -1,9 +1,21 @@
 import numpy as np
-
 import nifty8 as ift
 
+
 class MarginZeroPadder(ift.LinearOperator):
-    """ZeroPadder, adding zeros at the borders"""
+    """
+    ZeroPadder, adding zeros at the borders. This is different
+    from other zero padding as soon as there are nor periodic
+    boundary conditions.
+
+    Parameters:
+    ----------
+    domain: NIFTy.RGSpace
+    margin: int
+    space: int
+
+    return: operator
+    """
 
     def __init__(self, domain, margin, space=0):
         self._domain = ift.makeDomain(domain)

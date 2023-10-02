@@ -20,6 +20,9 @@ def get_config(path_to_yaml_file):
 
 
 def save_config(config, filename, dir=None):
+    """
+    Convenience function to save yaml-config files
+    """
     import yaml
     if dir is not None:
         create_output_directory(dir)
@@ -28,6 +31,9 @@ def save_config(config, filename, dir=None):
 
 
 def create_output_directory(directory_name):
+    """
+    Convenience function to create directories
+    """
     os.makedirs(directory_name, exist_ok=True)
     return directory_name
 
@@ -171,7 +177,29 @@ def prior_sample_plotter(opchain, n):
     plt.close()
 
 
-def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=True, Norm=True):
+def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
+                   debug=False, Roll=True, Norm=True):
+    """
+    Simulating the point spread function of chandra at n**2 positions.
+    This is needed for the application of OverlappAdd algorithm at the
+    moment. # TODO Interpolation of PSF
+
+    Parameters:
+    -----------
+
+    info: ChandraObservation
+    n: int, number of patches along x and y axis
+    npix_s: number of pixels along x and y axis
+    e_bin: energy bin of info, which is used for the simulation
+    fov: field of view in arcsec
+    num_rays: number of rays for the simulations
+    Roll: boolean, if True psf is rolled to the origin.
+    Norm: boolean, if True psf is normalized
+    debug: boolean, if True: returns also the sources, coordinates(RA/DEC)
+    and the positions (indices)
+
+    returns: Array of simulated point spread functions
+    """
     psf_domain = ift.RGSpace((npix_s, npix_s), distances=fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
@@ -219,6 +247,9 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6, debug=False, Roll=
 
 
 def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
+    """
+    Artificial point source for chandra
+    """
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
     y_min = info.obsInfo["y_min"]

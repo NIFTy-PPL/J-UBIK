@@ -26,6 +26,7 @@ def to_r_phi(cc):
     phi = jnp.angle(cc[..., 0] + 1.j*cc[..., 1]) - jnp.pi/2.
     return jnp.stack((r, phi), axis = -1)
 
+
 def to_ra_dec(rp):
     """
     Transforms form r-phi coordinates to ra-dec (sky) coordinates.
@@ -33,6 +34,7 @@ def to_ra_dec(rp):
     x = rp[..., 0]*jnp.cos(rp[..., 1] + jnp.pi/2.)
     y = rp[..., 0]*jnp.sin(rp[..., 1] + jnp.pi/2.)
     return jnp.stack((x,y), axis = -1)
+
 
 def get_interpolation_weights(rs, r):
     """
@@ -67,6 +69,7 @@ def get_interpolation_weights(rs, r):
                     (lambda _: jnp.zeros(rs.shape, dtype=float)), i)
     return res
 
+
 def to_patch_coordinates(dcoords, patch_center, patch_delta):
     """
     Transforms distances in sky coordinates to coordinates of the psf patch
@@ -82,6 +85,7 @@ def to_patch_coordinates(dcoords, patch_center, patch_delta):
     """
     res = (dcoords + patch_center * patch_delta) / patch_delta
     return jnp.moveaxis(res, -1, 0)
+
 
 def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
     """
@@ -101,7 +105,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
         Center of the pointing of the module on the sky.
     Returns:
     --------
-    func: 
+    func:
         Function that evaluates the psf at ra-dec (sky) coordinates and as a
         function of distance `dra` and `ddec`.
     """
@@ -159,7 +163,18 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
 
     return psf
 
+
 def get_psf_func(domain, psf_infos):
+    """
+    Convenience function for get_psf. Takes a dictionary,
+    build by eROSITA-PSF.psf_infos and returns a function.
+
+    Parameters:
+    -----------
+    psf_infos: dictionary built by #FIXME enter the right name
+
+    returns: psf-function
+    """
     psfs = psf_infos['psfs']
     rs = psf_infos['rs']
     patch_center_ids = psf_infos['patch_center_ids']
@@ -168,10 +183,11 @@ def get_psf_func(domain, psf_infos):
 
     if not isinstance(domain, ift.RGSpace):
         raise ValueError
-    if not domain.harmonic == False:
+    if not domain.harmonic is False:
         raise ValueError
 
     return get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center)
+
 
 def psf_convolve_operator(domain, psf_infos, msc_infos, adj = False):
     """
@@ -193,6 +209,7 @@ def psf_convolve_operator(domain, psf_infos, msc_infos, adj = False):
     infos['func'] = get_psf_func(domain, psf_infos)
     infos['adjoint'] = adj
     return get_convolve(**infos)
+
 
 def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1, 
                          want_cut = False):
@@ -238,13 +255,17 @@ def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1,
     op = OAnew(domain, patch_psfs, len(patch_psfs), margin, want_cut)
     return op
 
+
 def gauss(x, y, sig):
+    """2D Normal distribution"""
     const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
     r = np.sqrt(x ** 2 + y ** 2)
     f = const * np.exp(-r ** 2 / (2 * sig ** 2))
     return f
 
+
 def get_gaussian_kernel(width, domain):
+    """"2D Gaussian kernel for fft convolution"""
     x = y = np.linspace(-width, width, domain.shape[1])
     xv, yv = np.meshgrid(x, y)
     kern = gauss(xv, yv, 1)
@@ -254,4 +275,3 @@ def get_gaussian_kernel(width, domain):
     explode_pad = ift.ContractionOperator(domain, spaces=0)
     res = explode_pad.adjoint(kern)
     return res
-
