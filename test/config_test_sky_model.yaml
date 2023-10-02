@@ -12,7 +12,7 @@ grid:
   npix: 426
   padding_ratio: 1.203
 files:
-  obs_path: '../data/LMC_SN1987A/'
+  obs_path: 'data/LMC_SN1987A/'
   input: 'pm00_700161_020_EventList_c001.fits'
   output: 'low_e_processed_pm00_700161_020_data.fits'
   exposure: 'low_e_expmap_pm00_700161_020.fits'
@@ -54,4 +54,5 @@ minimization:
   sampling_kwargs:
     xtol: 0.001
     maxiter: 10
+
 
