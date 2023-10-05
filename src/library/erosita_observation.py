@@ -7,6 +7,7 @@ from matplotlib import colors
 
 from .utils import check_type
 
+
 class ErositaObservation:
     """
     Base class to retrieve and process eROSITA data.
@@ -65,8 +66,9 @@ class ErositaObservation:
         template image.
         emin:
         emax:
-        badpix_correction:
-        # TODO
+        badpix_correction: bool (default: True)
+        Loads the corrected eROSITA detmaps. To build the bad-pixel corrected maps,
+        use the auxiliary function create_erosita_badpix_to_detmaps.
         If withinputmaps=YES: input exposure maps
         """
         # TODO: parameter checks
@@ -270,7 +272,6 @@ class ErositaObservation:
 
         return flags
 
-
     @staticmethod
     def _parse_stringlists(stringlist, additional_path: str = ""):
         if isinstance(stringlist, str):
@@ -283,3 +284,41 @@ class ErositaObservation:
             return res
         else:
             raise TypeError("Type must be a list a string or a list of strings.")
+
+
+def create_erosita_badpix_to_detmap(badpix_filename="tm1_badpix_140602v01.fits",
+                                    detmap_filename="tm1_detmap_100602v02.fits",
+                                    output_filename="new_tm1_detmap_140602v01.fits"):
+    """
+    Creates new detmaps for Erosita in which bad pixels are added to the detector map.
+    To be run for ALL modules in the event file before getting exposure maps with bad pixel
+    correction.
+
+
+    Parameters:
+    - badpix_filename (str): The filename of the Erosita bad pixel file. Default is
+    "tm1_badpix_140602v01.fits".
+    - detmap_filename (str): The filename of the detector map file. Default is
+    "tm1_detmap_100602v02.fits".
+    - output_filename (str): The filename of the output detector map file. Default is
+    "new_tm1_detmap_140602v01.fits".
+
+    Returns:
+    - None
+    """
+    badpix_file = fits.open(badpix_filename)
+    badpix = np.vstack(badpix_file[1].data)
+    badpix_subselection = badpix[:, :3].astype(np.int32) - 1
+    hdulist = fits.open(detmap_filename)
+    detmap = hdulist[0].data
+    x_fix = badpix_subselection[:, 0]
+    y_fix_start = badpix_subselection[:, 1]
+    y_fix_end = y_fix_start + badpix_subselection[:, 2] + 1
+    for i in range(badpix_subselection[0].shape[0] - 1):
+        mask = (slice(y_fix_start[i], y_fix_end[i]), x_fix[i])
+        detmap[mask] = 0
+    import matplotlib.pyplot as plt
+    plt.imshow(detmap)
+    plt.show()
+    hdulist.writeto(output_filename)
+    hdulist.close()
