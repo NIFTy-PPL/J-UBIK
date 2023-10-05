@@ -36,6 +36,7 @@ def load_erosita_response(config_filepath, diagnostics_directory):
     # Load file location
     file_info = cfg['files']
     obs_path = file_info['obs_path']
+    plot_info = cfg['plotting']
     input_filenames = file_info['input']
     sky_model = SkyModel(config_filepath)
     sky_dict = sky_model.create_sky_model()
@@ -44,12 +45,15 @@ def load_erosita_response(config_filepath, diagnostics_directory):
           'If the observations parameters shall be changed please delete or rename the current ' \
           'output file.'
 
+    single_maps = []
+    for tm_id in range(1, 8):
+        single_maps.append(f'{tm_id}_' + file_info['exposure'])
+
     response_dict = {}
     for tm_id in tm_ids:
-        tm_directory = create_output_directory(os.path.join(diagnostics_directory, f'tm{tm_id}'))
         output_filename = f'{tm_id}_' + file_info['output']
-        exposure_filename = f'{tm_id}_' + file_info['exposure']
         observation_instance = ErositaObservation(input_filenames, output_filename, obs_path)
+
         # Create subdictionary to store individual tm response
         tm_key = f'tm_{tm_id}'
         response_dict[tm_key] = {}
@@ -62,32 +66,30 @@ def load_erosita_response(config_filepath, diagnostics_directory):
                                               size=npix, pattern=tel_info['pattern'],
                                               telid=tm_id)  # FIXME: exchange rebin
                 # by fov? 80 = 4arcsec
+
+                # Exposure
+                if not os.path.exists(os.path.join(obs_path, single_maps[tm_id-1])):
+                    template_image = f'{tm_id}_' + file_info['output']
+                    observation_instance.get_exposure_maps(template_image, e_min, e_max,
+                                                           singlemaps=single_maps,
+                                                           withdetmaps=det_map)
+                else:
+                    print(log.format(os.path.join(obs_path, single_maps[tm_id-1])))
             else:
                 print(log.format(os.path.join(obs_path, output_filename)))
 
-            observation_instance = ErositaObservation(output_filename, output_filename, obs_path)
-
-        # Exposure
-        if not os.path.exists(os.path.join(obs_path, exposure_filename)):
-            observation_instance.get_exposure_maps(output_filename, e_min, e_max,
-                                                   singlemaps=exposure_filename,
-                                                   withdetmaps=det_map)
-
-        else:
-            print(log.format(os.path.join(obs_path, output_filename)))
-
         # Plotting
-        plot_info = cfg['plotting']
         if plot_info['enabled']:
             if not mock_run:
                 observation_instance.plot_fits_data(output_filename,
                                                     os.path.splitext(output_filename)[0],
                                                     slice=plot_info['slice'],
                                                     dpi=plot_info['dpi'])
-            observation_instance.plot_fits_data(exposure_filename,
-                                                f'{os.path.splitext(exposure_filename)[0]}.png',
-                                                slice=plot_info['slice'],
-                                                dpi=plot_info['dpi'])
+
+                observation_instance.plot_fits_data(single_maps[tm_id-1],
+                                                    f'{os.path.splitext(single_maps[tm_id-1])[0]}.png',
+                                                    slice=plot_info['slice'],
+                                                    dpi=plot_info['dpi'])
 
         # PSF
         psf_filename = cfg['files']['psf_path'] + f'tm{tm_id}_' + cfg['files']['psf_base_filename']
@@ -126,8 +128,8 @@ def load_erosita_response(config_filepath, diagnostics_directory):
             raise NotImplementedError
         response_subdict[f'convolution_op'] = conv_op
 
-        # Exposure
-        exposure = observation_instance.load_fits_data(exposure_filename)[0].data
+        tm_directory = create_output_directory(os.path.join(diagnostics_directory, f'tm{tm_id}'))
+        exposure = observation_instance.load_fits_data(single_maps[tm_id-1])[0].data
         exposure_cut = tel_info["exp_cut"]
         if exposure_cut is not None:
             exposure[exposure < exposure_cut] = 0

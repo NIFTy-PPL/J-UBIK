@@ -7,6 +7,7 @@ from matplotlib import colors
 
 from .utils import check_type
 
+
 class ErositaObservation:
     """
     Base class to retrieve and process eROSITA data.
@@ -54,7 +55,7 @@ class ErositaObservation:
             os.path.join(self.working_directory, self.output)))
         return fits.open(os.path.join(self.working_directory, self.output))
 
-    def get_exposure_maps(self, template_image, emin, emax, **kwargs):
+    def get_exposure_maps(self, template_image, emin, emax, badpix_correction=True, **kwargs):
         """
         Computes exposure maps for eROSITA event files through the eSASS 'expmap' command.
 
@@ -65,7 +66,9 @@ class ErositaObservation:
         template image.
         emin:
         emax:
-        # TODO
+        badpix_correction: bool (default: True)
+        Loads the corrected eROSITA detmaps. To build the bad-pixel corrected maps,
+        use the auxiliary function create_erosita_badpix_to_detmaps.
         If withinputmaps=YES: input exposure maps
         """
         # TODO: parameter checks
@@ -73,6 +76,20 @@ class ErositaObservation:
         template_image = os.path.join(self._mounted_dir, template_image)
         flags = self._get_exmap_flags(self._mounted_dir, template_image, emin, emax, **kwargs)
         command = self._base_command + 'expmap ' + input_files + flags + "'"
+
+        caldb_loc_base = '/home/idies/caldb/data/erosita/tm{}/bcf/'
+        detmap_file_base = 'tm{}_detmap_100602v02.fits'
+
+        if badpix_correction:
+            command = self._base_command
+            for i in range(7):
+                caldb_loc = caldb_loc_base.format(i+1)
+                detmap_file = detmap_file_base.format(i+1)
+                update_detmap_command = f' mv {caldb_loc}{detmap_file} ' \
+                                f'{caldb_loc}tm{i+1}_detmap_100602v02_old.fits && ' \
+                      f'cp {self._mounted_dir}new_detmaps/{detmap_file} {caldb_loc} &&'
+                command += update_detmap_command
+            command += ' expmap ' + input_files + flags + "'"
 
         self._run_task(command)
 
@@ -223,7 +240,7 @@ class ErositaObservation:
                          withcalbadpix=True, withinputmaps=False):
 
         input_params = {'mounted_dir': str, 'templateimage': str, 'emin': float, 'emax': float,
-                        'withsinglemaps': bool, 'withmergedmaps': bool, 'singlemaps': str,
+                        'withsinglemaps': bool, 'withmergedmaps': bool, 'singlemaps': list,
                         'mergedmaps': str, 'gtitype': str, 'withvignetting': bool,
                         'withdetmaps': bool, 'withweights': bool, 'withfilebadpix': bool,
                         'withcalbadpix': bool, 'withinputmaps': bool}
@@ -232,6 +249,9 @@ class ErositaObservation:
         for key, val in input_params.items():
             check_type(eval(key), val, name=key)
 
+        singlemaps = list(map(lambda x: os.path.join(mounted_dir, x), singlemaps))
+        singlemaps_str = '"' + " ".join(singlemaps) + '"'
+
         flags = " "
         flags += templateimage if templateimage is not None else print(
             "template image cannot be None.")  # FIXME Add exit somehow
@@ -239,8 +259,7 @@ class ErositaObservation:
         flags += " emax={}".format(emax) if emax is not None else print("emax cannot be None.")
         flags += " withsinglemaps=yes" if withsinglemaps else ""
         flags += "" if withmergedmaps else " withmergedmaps=no"
-        flags += " singlemaps={}".format(
-            os.path.join(mounted_dir, singlemaps)) if singlemaps is not None else ""
+        flags += " singlemaps={}".format(singlemaps_str) if singlemaps is not None else ""
         flags += " mergedmaps={}".format(
             os.path.join(mounted_dir, mergedmaps)) if mergedmaps is not None else ""
         flags += " gtitype={}".format(gtitype) if gtitype != "GTI" else ""
@@ -252,7 +271,6 @@ class ErositaObservation:
         flags += " withinputmaps=yes" if withinputmaps else ""
 
         return flags
-
 
     @staticmethod
     def _parse_stringlists(stringlist, additional_path: str = ""):
@@ -266,3 +284,41 @@ class ErositaObservation:
             return res
         else:
             raise TypeError("Type must be a list a string or a list of strings.")
+
+
+def create_erosita_badpix_to_detmap(badpix_filename="tm1_badpix_140602v01.fits",
+                                    detmap_filename="tm1_detmap_100602v02.fits",
+                                    output_filename="new_tm1_detmap_140602v01.fits"):
+    """
+    Creates new detmaps for Erosita in which bad pixels are added to the detector map.
+    To be run for ALL modules in the event file before getting exposure maps with bad pixel
+    correction.
+
+
+    Parameters:
+    - badpix_filename (str): The filename of the Erosita bad pixel file. Default is
+    "tm1_badpix_140602v01.fits".
+    - detmap_filename (str): The filename of the detector map file. Default is
+    "tm1_detmap_100602v02.fits".
+    - output_filename (str): The filename of the output detector map file. Default is
+    "new_tm1_detmap_140602v01.fits".
+
+    Returns:
+    - None
+    """
+    badpix_file = fits.open(badpix_filename)
+    badpix = np.vstack(badpix_file[1].data)
+    badpix_subselection = badpix[:, :3].astype(np.int32) - 1
+    hdulist = fits.open(detmap_filename)
+    detmap = hdulist[0].data
+    x_fix = badpix_subselection[:, 0]
+    y_fix_start = badpix_subselection[:, 1]
+    y_fix_end = y_fix_start + badpix_subselection[:, 2] + 1
+    for i in range(badpix_subselection[0].shape[0] - 1):
+        mask = (slice(y_fix_start[i], y_fix_end[i]), x_fix[i])
+        detmap[mask] = 0
+    import matplotlib.pyplot as plt
+    plt.imshow(detmap)
+    plt.show()
+    hdulist.writeto(output_filename)
+    hdulist.close()
