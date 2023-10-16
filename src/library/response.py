@@ -1,6 +1,6 @@
 import numpy as np
 import nifty8.re as jft
-
+from .erosita_psf import eROSITA_PSF
 
 def build_exposure_function(exposures, exposure_cut=None):
     """
@@ -139,8 +139,21 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     return builder(exposures, **kwargs)
 
 
-def build_erosita_psf(psf_shape, tm_ids, energy, center, convolution_method):
-    pass  # FIXME: implement
+def build_erosita_psf(psf_filename, energy, pointing_center, domain, npatch,
+                      margfrac, want_cut=False, convolution_method='LINJAX'):
+    """
+    Parameters:
+    -----------
+    psf_file: str
+        filename tm_id_+ base / suffix, e.g. 2dpsf_190219v05.fits
+    """
+    psf = eROSITA_PSF(psf_filename)
+    cdict = {"npatch": npatch,
+             "margfrac": margfrac,
+             "want_cut": want_cut}
+    psf_func = psf.make_psf_op(energy, pointing_center, domain,
+                               convolution_method, cdict)
+    return psf_func
 
 
 def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
