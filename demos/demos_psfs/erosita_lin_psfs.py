@@ -31,10 +31,10 @@ def get_kernels_and_sources(domain, psf_func):
 # dirs
 dir_path = "data/psf_info/"
 fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"]
-file = dir_path + fname[0]
+filename = dir_path + fname[0]
 
 # PSF Object
-obs = xu.eROSITA_PSF(file)
+obs = xu.eROSITA_PSF(filename)
 
 # more numbers about the observation
 energy = '3000'
@@ -49,6 +49,8 @@ domain = ift.RGSpace(npix, distances=dists)
 
 c2params = {'npatch': 8, 'margfrac': 0.062, 'want_cut': False}
 
+test_psf = xu.build_erosita_psf(1, filename, energy, pointing_center, domain,
+                                c2params["npatch"], c2params["margfrac"], c2params["want_cut"])
 op1 = obs.make_psf_op(energy, pointing_center, domain,
                       conv_method='LINJAX', conv_params=c2params)
 op2 = obs.make_psf_op(energy, pointing_center, domain,
