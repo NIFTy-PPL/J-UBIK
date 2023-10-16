@@ -49,8 +49,6 @@ domain = ift.RGSpace(npix, distances=dists)
 
 c2params = {'npatch': 8, 'margfrac': 0.062, 'want_cut': False}
 
-test_psf = xu.build_erosita_psf(1, filename, energy, pointing_center, domain,
-                                c2params["npatch"], c2params["margfrac"], c2params["want_cut"])
 op1 = obs.make_psf_op(energy, pointing_center, domain,
                       conv_method='LINJAX', conv_params=c2params)
 op2 = obs.make_psf_op(energy, pointing_center, domain,
@@ -64,6 +62,15 @@ res2 = op2(rnds).val
 print("")
 print("Equality of LIN and LINJAX: ", np.allclose(res1, res2))
 
+# Test alternative to get the operator
+#
+
+test_psf = xu.build_erosita_psf(filename, energy, pointing_center, domain,
+                                c2params["npatch"], c2params["margfrac"],
+                                c2params["want_cut"])
+res3 = test_psf(rnds.val)
+print("Equality of other LINJAX instance: ", np.allclose(res2, res3))
+exit()
 # TODO add benchmarks for performace and do further tests
 # print('JIT LINJAX-PSF...')
 # t0 = timeit.default_timer()
