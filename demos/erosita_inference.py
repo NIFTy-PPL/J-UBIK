@@ -1,11 +1,11 @@
 import os
 import argparse
 
-from matplotlib.colors import LogNorm
 import nifty8 as ift
+import nifty8.re as jft
 import xubik0 as xu
 
-from jax import config
+from jax import config, random
 
 config.update('jax_enable_x64', True)
 
@@ -19,117 +19,48 @@ if __name__ == "__main__":
     # Load config file
     config_path = args.config
     cfg = xu.get_config(config_path)
+    file_info = cfg['files']
     ift.random.push_sseq_from_seed(cfg['seed'])
 
-    # Mock reconstruction setup
-    mock_run = cfg['mock']
-    load_mock_data = cfg['load_mock_data']
-
-    ift.set_nthreads(cfg["threads"])
-    print("Set the number of FFT-Threads to:", ift.nthreads())
-
-    if (cfg['minimization']['resume'] and mock_run) and (not load_mock_data):
+    # Sanity Checks
+    if (cfg['minimization']['resume'] and cfg['mock']) and (not cfg['load_mock_data']):
         raise ValueError(
             'Resume is set to True on mock run. This is only possible if the mock data is loaded '
             'from file. Please set load_mock_data=True')
 
-    if load_mock_data and not mock_run:
+    if cfg['load_mock_data'] and not cfg['mock']:
         print('WARNING: Mockrun is set to False: Actual data is loaded')
 
-    # File Location
-    file_info = cfg['files']
+    if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
+        raise FileExistsError("Resume is set to False but output directory exists already!")
 
     # Load sky model
     sky_dict = xu.create_sky_model_from_config(config_path)
-
-    # Get power spectrum
     pspec = sky_dict.pop('pspec')
 
-    # Create the output directory
-    if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
-        raise FileExistsError("Resume is set to False but output directory exists already!")
-    if xu.mpi.comm is not None:
-        xu.mpi.comm.Barrier()
-    output_directory = xu.create_output_directory(file_info["res_dir"])
-    diagnostics_directory = xu.create_output_directory(output_directory + '/diagnostics')
+    # Save config
+    xu.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
-    R = xu.apply_erosita_response_from_config(config_path) # FIXME: breaks the following
+    # Generate loglikelihood
+    log_likelihood = xu.generate_erosita_likelihood_from_config(config_path) @ sky_dict['sky']
 
-    # Load data
-    _, masked_data_dict = xu.load_erosita_data(config_path, output_directory,
-                                               diagnostics_directory, response_dict)
-
-    # Set up likelihood
-    log_likelihood = None
-    for tm_id in cfg['telescope']['tm_ids']:
-        tm_key = f'tm_{tm_id}'
-        masked_data = masked_data_dict[tm_key]
-        R = response_dict[tm_key]['R']
-        lh = ift.PoissonianEnergy(masked_data) @ R
-        if log_likelihood is None:
-            log_likelihood = lh
-        else:
-            log_likelihood = log_likelihood + lh
-
-    log_likelihood = log_likelihood @ sky_dict['sky']
-
-    # Load minimization config
+    # Minimization
     minimization_config = cfg['minimization']
+    key = random.PRNGKey(cfg['seed'])
+    key, subkey = random.split(key)
+    pos_init = jft.Vector(jft.random_like(subkey, sky_dict['sky'].domain))
 
-    # Minimizers
-    comm = xu.library.mpi.comm
-    if comm is not None:
-        if not xu.library.mpi.master:
-            minimization_config['ic_newton']['name'] = None
-        minimization_config['ic_sampling']['name'] += f"({comm.Get_rank()})"
-        minimization_config['ic_sampling_nl']['name'] += f"({comm.Get_rank()})"
-    ic_newton = ift.AbsDeltaEnergyController(**minimization_config['ic_newton'])
-    ic_sampling = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling'])
-    minimizer = ift.NewtonCG(ic_newton)
-
-    if minimization_config['geovi']:
-        ic_sampling_nl = ift.AbsDeltaEnergyController(**minimization_config['ic_sampling_nl'])
-        minimizer_sampling = ift.NewtonCG(ic_sampling_nl)
-    else:
-        minimizer_sampling = None
-
-    # Prepare results
-    operators_to_plot = {key: (sky_model.pad.adjoint(value)) for key, value in sky_dict.items()}
-    operators_to_plot = {**operators_to_plot, 'pspec': pspec}
-
-    # strip of directory of filepath
-    config_filename = os.path.basename(config_path)
-    # Save config file in output_directory
-    xu.save_config(cfg, config_filename, output_directory)
-
-    plot = lambda x, y: xu.plot_sample_and_stats(output_directory,
-                                                 operators_to_plot,
-                                                 x,
-                                                 y,
-                                                 plotting_kwargs={'norm': LogNorm()})
-    # Initial position
-    initial_position = ift.from_random(sky_dict['sky'].domain) * 0.1
-    transition = None
-    if 'point_sources' in sky_dict:
-        initial_ps = ift.MultiField.full(sky_dict['point_sources'].domain, 0)
-        initial_position = ift.MultiField.union([initial_position, initial_ps])
-
-        if minimization_config['transition']:
-            transition = xu.get_equal_lh_transition(
-                sky_dict['sky'],
-                sky_dict['diffuse'],
-                cfg['priors']['point_sources'],
-                minimization_config['ic_transition'])
-
-    ift.optimize_kl(log_likelihood, minimization_config['total_iterations'],
-                    minimization_config['n_samples'],
-                    minimizer,
-                    ic_sampling,
-                    minimizer_sampling,
-                    transitions=transition,
-                    output_directory=output_directory,
-                    export_operator_outputs=operators_to_plot,
-                    inspect_callback=plot,
-                    resume=minimization_config['resume'],
-                    initial_position=initial_position,
-                    comm=xu.library.mpi.comm)
+    absdelta = 1e-4 * cfg['grid']['npix']  # FIXME: Replace by domain information
+    n_newton_iterations = 10
+    minimization_kwargs = {"absdelta": absdelta, "maxiter": n_newton_iterations}
+    linear_sampling_kwargs = {"absdelta": absdelta / 10., "maxiter": 100}
+    pos, samples = jft.optimize_kl(log_likelihood,
+                                   pos_init,
+                                   key=key,
+                                   minimization_kwargs=minimization_kwargs,
+                                   sampling_cg_kwargs=linear_sampling_kwargs,
+                                   **minimization_config)
+    print("Likelihood residual(s)")
+    print(jft.reduced_chisq_stats(pos, samples, func=log_likelihood.normalized_residual))
+    print("Prior residual(s)")
+    print(jft.reduced_chisq_stats(pos, samples))
