@@ -31,6 +31,9 @@ def generate_erosita_likelihood_from_config(config_file_path):
     exposure_func = build_callable_from_exposure_file(build_exposure_function,
                                                       exposure_file_names,
                                                       exposure_cut=tel_info['exp_cut'])
+    psf_file_names = [os.path.join(file_info['psf_path'], 'tm'+f'{key}_'+file_info['psf_base_filename'])
+                      for key in tel_info['tm_ids']]
+
     mask_func = build_callable_from_exposure_file(build_readout_function,
                                                   exposure_file_names,
                                                   threshold=tel_info['exp_cut'],
