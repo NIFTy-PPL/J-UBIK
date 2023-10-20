@@ -14,14 +14,13 @@ point_source_defaults:
   alpha: 1.
   q: 1e6
 
-# psf:
-#  method: 'LIN'
-#  energy: '3000'
-
+psf:
+ method: 'LINJAX'
+ energy: '3000'
   # LIN config
-#  npatch: 8
-#  margfrac: 0.062
-#  want_cut: False
+ npatch: 8
+ margfrac: 0.062
+ want_cut: False
 
   # MSC config
 #  base: [3,3]
@@ -40,7 +39,7 @@ point_source_defaults:
 #  dpi: 800
 
 grid:
-  npix: 426
+  npix: 512
   padding_ratio: 1.203
   energy_bin:
     e_min: 2.0
