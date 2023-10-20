@@ -52,6 +52,11 @@ def generate_erosita_likelihood_from_config(config_file_path):
     pointing_center = d_centers + image_pointing_center
     domain = Domain(tuple([cfg['grid']['npix']]*2), tuple([cfg['telescope']['fov']/cfg['grid']['npix']]*2))
 
+    # get psf function
+    psf_func = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center, domain,
+                                 psf_info['npatch'], psf_info['margfrac'], psf_info['want_cut'],
+                                 psf_info['method'])
+
                                                       exposure_file_names,
                                                       exposure_cut=tel_info['exp_cut'],
                                                       tm_ids=tel_info['tm_ids'])
