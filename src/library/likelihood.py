@@ -22,15 +22,14 @@ def generate_erosita_likelihood_from_config(config_file_path):
         Poissoninan likelihood for the eROSITA data and response, specified in the config
     """
 
+    # load config
     cfg = xu.get_config(config_file_path)
     tel_info = cfg['telescope']
     file_info = cfg['files']
     psf_info = cfg['psf']
+    # lists for exposure and psf files
     exposure_file_names = [os.path.join(file_info['obs_path'], f'{key}_'+file_info['exposure'])
                            for key in tel_info['tm_ids']]
-    exposure_func = build_callable_from_exposure_file(build_exposure_function,
-                                                      exposure_file_names,
-                                                      exposure_cut=tel_info['exp_cut'])
     psf_file_names = [os.path.join(file_info['psf_path'], 'tm'+f'{key}_'+file_info['psf_base_filename'])
                       for key in tel_info['tm_ids']]
 
@@ -52,16 +51,20 @@ def generate_erosita_likelihood_from_config(config_file_path):
     pointing_center = d_centers + image_pointing_center
     domain = Domain(tuple([cfg['grid']['npix']]*2), tuple([cfg['telescope']['fov']/cfg['grid']['npix']]*2))
 
-    # get psf function
+    # get psf/exposure/mask function
     psf_func = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center, domain,
                                  psf_info['npatch'], psf_info['margfrac'], psf_info['want_cut'],
                                  psf_info['method'])
+
+    exposure_func = build_callable_from_exposure_file(build_exposure_function,
+                                                      exposure_file_names,
+                                                      exposure_cut=tel_info['exp_cut'])
 
     mask_func = build_callable_from_exposure_file(build_readout_function,
                                                   exposure_file_names,
                                                   threshold=tel_info['exp_cut'],
                                                   keys=tel_info['tm_ids'])
-    psf_func = lambda x: x
+    # plugin
     response_func = lambda x: mask_func(exposure_func(psf_func(x)))
 
     if cfg['mock']:
