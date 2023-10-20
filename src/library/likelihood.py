@@ -34,6 +34,27 @@ def generate_erosita_likelihood_from_config(config_file_path):
     psf_file_names = [os.path.join(file_info['psf_path'], 'tm'+f'{key}_'+file_info['psf_base_filename'])
                       for key in tel_info['tm_ids']]
 
+    # Get pointings for different telescope modules in RA/DEC
+    obs_instance = ErositaObservation(file_info['input'],
+                                      file_info['output'],
+                                      file_info['obs_path'])
+    center_stats = []
+    for tm_id in tel_info['tm_ids']:
+        tmp_center_stat = obs_instance.get_pointing_coordinates_stats(tm_id, file_info['input'])
+        tmp_center_stat = [tmp_center_stat['RA'][0], tmp_center_stat['DEC'][0]]
+        center_stats.append(tmp_center_stat)
+    center_stats = np.array(center_stats)
+    # with respect to TM1
+    ref_center = center_stats[0]
+    d_centers = center_stats - ref_center
+    # Set the Image pointing to the center and associate with TM1 pointing
+    image_pointing_center = np.array(tuple([cfg['telescope']['fov']/2.]*2))
+    pointing_center = d_centers + image_pointing_center
+    domain = Domain(tuple([cfg['grid']['npix']]*2), tuple([cfg['telescope']['fov']/cfg['grid']['npix']]*2))
+
+                                                      exposure_file_names,
+                                                      exposure_cut=tel_info['exp_cut'],
+                                                      tm_ids=tel_info['tm_ids'])
     mask_func = build_callable_from_exposure_file(build_readout_function,
                                                   exposure_file_names,
                                                   threshold=tel_info['exp_cut'],
