@@ -1,6 +1,7 @@
 import os
 import nifty8.re as jft
 import xubik0 as xu
+import numpy as np
 from .data import (load_erosita_masked_data, generate_erosita_data_from_config,
                    load_masked_data_from_pickle)
 from .response import (build_callable_from_exposure_file, build_erosita_response,
