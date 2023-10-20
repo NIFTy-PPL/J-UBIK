@@ -2,6 +2,10 @@ import numpy as np
 import nifty8.re as jft
 from .erosita_psf import eROSITA_PSF
 
+import jax.numpy as jnp
+from jax import lax, vmap
+
+
 def build_exposure_function(exposures, exposure_cut=None):
     """
     Returns a function that applies instrument exposures to an input array.
@@ -139,7 +143,7 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     return builder(exposures, **kwargs)
 
 
-def build_erosita_psf(psf_filename, energy, pointing_center, domain, npatch,
+def _build_tm_erosita_psf(psf_filename, energy, pointing_center, domain, npatch,
                       margfrac, want_cut=False, convolution_method='LINJAX'):
     """
     Parameters:
@@ -154,6 +158,19 @@ def build_erosita_psf(psf_filename, energy, pointing_center, domain, npatch,
     psf_func = psf.make_psf_op(energy, pointing_center, domain,
                                convolution_method, cdict)
     return psf_func
+
+def build_erosita_psf(psf_filenames, energy, pointing_center, domain, npatch,
+                      margfrac, want_cut=False, convolution_method='LINJAX'):
+
+    functions = [_build_tm_erosita_psf(psf_file, energy, pcenter,
+                                       domain, npatch, margfrac)
+                 for psf_file, pcenter in zip(psf_filenames, pointing_center)]
+    index = jnp.arange(len(functions))
+    vmap_functions = vmap(lambda i, x: lax.switch(i, functions, x), in_axes=(0, None))
+
+    def vmap_psf_func(x):
+        return vmap_functions(index, x)
+    return vmap_psf_func
 
 
 def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
