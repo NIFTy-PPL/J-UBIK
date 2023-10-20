@@ -8,6 +8,7 @@ from jax.scipy.ndimage import map_coordinates
 from jax.lax import cond
 from .convolution_operators import OAnew
 from .jifty_convolution_operators import linpatch_convolve
+from ..library.data import Domain
 
 try:
     from .adg.nifty_convolve import get_convolve
@@ -182,9 +183,7 @@ def get_psf_func(domain, psf_infos):
     patch_deltas = psf_infos['patch_deltas']
     pointing_center = psf_infos['pointing_center']
 
-    if not isinstance(domain, ift.RGSpace):
-        raise ValueError
-    if not domain.harmonic is False:
+    if not isinstance(domain, Domain):
         raise ValueError
 
     return get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center)
