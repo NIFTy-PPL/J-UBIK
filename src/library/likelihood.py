@@ -9,7 +9,6 @@ from .response import (build_callable_from_exposure_file, build_erosita_psf, bui
 from .erosita_observation import ErositaObservation
 
 
-# FIXME: Include into init
 def generate_erosita_likelihood_from_config(config_file_path):
     """ Creates the eROSITA Poissonian likelihood given the path to the config file.
 
