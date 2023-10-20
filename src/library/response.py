@@ -35,7 +35,8 @@ def build_exposure_function(exposures, exposure_cut=None):
         raise ValueError("exposure_cut should be positive or None!")
     if exposure_cut is not None:
         exposures[exposures < exposure_cut] = 0
-    return lambda x: exposures * x[np.newaxis, ...]
+    # FIXME short hack to remove additional axis. Also the Ifs should be restructed
+    return lambda x: exposures * x  # [np.newaxis, ...]
 
 
 def build_readout_function(flasgs, threshold=None, keys=None):
