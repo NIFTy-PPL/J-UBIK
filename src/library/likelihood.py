@@ -57,6 +57,7 @@ def generate_erosita_likelihood_from_config(config_file_path):
                                  psf_info['npatch'], psf_info['margfrac'], psf_info['want_cut'],
                                  psf_info['method'])
 
+    response_func = build_callable_from_exposure_file(build_erosita_response,
                                                       exposure_file_names,
                                                       exposure_cut=tel_info['exp_cut'],
                                                       tm_ids=tel_info['tm_ids'])
