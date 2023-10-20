@@ -25,6 +25,7 @@ def generate_erosita_likelihood_from_config(config_file_path):
     cfg = xu.get_config(config_file_path)
     tel_info = cfg['telescope']
     file_info = cfg['files']
+    psf_info = cfg['psf']
     exposure_file_names = [os.path.join(file_info['obs_path'], f'{key}_'+file_info['exposure'])
                            for key in tel_info['tm_ids']]
     exposure_func = build_callable_from_exposure_file(build_exposure_function,
