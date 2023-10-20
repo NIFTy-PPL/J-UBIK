@@ -65,7 +65,7 @@ def generate_erosita_likelihood_from_config(config_file_path):
                                                   threshold=tel_info['exp_cut'],
                                                   keys=tel_info['tm_ids'])
     # plugin
-    response_func = lambda x: mask_func(exposure_func(psf_func(x)))
+    response_func = lambda x: mask_func(exposure_func(psf_func(x))[:,43:-43,43:-43])
 
     if cfg['mock']:
         masked_data = generate_erosita_data_from_config(config_file_path, response_func,

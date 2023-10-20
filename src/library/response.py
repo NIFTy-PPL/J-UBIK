@@ -36,6 +36,7 @@ def build_exposure_function(exposures, exposure_cut=None):
     if exposure_cut is not None:
         exposures[exposures < exposure_cut] = 0
     # FIXME short hack to remove additional axis. Also the Ifs should be restructed
+    exposures = np.pad(exposures, ((0, 0), (43, 43), (43, 43)))
     return lambda x: exposures * x  # [np.newaxis, ...]
 
 
