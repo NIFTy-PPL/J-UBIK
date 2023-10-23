@@ -284,7 +284,7 @@ class ChandraObservationInformation():
             # note: the monoenergy keyword is only used if spectrumfile is None
             for det in det_num:
                 subdet = 'ACIS-{:d}' .format(det)
-                outf   = outroot + '_imap{:d}-{:.2f}.instmap'.format(det, src_e_min)
+                outf   = outroot + '_imap{:d}-{:.9f}.instmap'.format(det, src_e_min)
                 instmap_dic[det] = outf
                 rt.mkinstmap(outfile=outf, monoenergy=energy, pixelgrid=pgrid,\
                              obsfile=self.obsInfo['event_file'], detsubsys=subdet,\
@@ -300,7 +300,7 @@ class ChandraObservationInformation():
             rt.mkexpmap.punlearn()
 
             for det in det_num:
-                outf = outroot  + '_expmap-{:d}-{:.2f}.expmap' .format(det, src_e_min)
+                outf = outroot  + '_expmap-{:d}-{:.9f}.expmap' .format(det, src_e_min)
                 expmap_dic[det] = outf
                 rt.mkexpmap(instmapfile=instmap_dic[det], outfile=outf, asphistfile=asphist_dic[det],\
                             xygrid=xygrid, clobber='yes', normalize='no')
@@ -314,7 +314,7 @@ class ChandraObservationInformation():
             opstr = 'imgout=img1'
             for d in range(2,len(expmap_dic)+1):
                 opstr = opstr + '+img{:d}'.format(d)
-            outfs  = outroot + '_{:.2f}.expmap'.format(src_e_min)
+            outfs  = outroot + '_{:.9f}.expmap'.format(src_e_min)
 
             rt.dmimgcalc(infile=ifile, infile2='none', out=outfs, operation=opstr, clobber='yes')
             dict_exposure_maps[i] = outfs

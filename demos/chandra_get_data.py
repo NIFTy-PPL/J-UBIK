@@ -9,12 +9,11 @@ import xubik0 as xu
 # config.yaml contains the information about the inference, e.g.
 # binning/resolution/Fov and information about the prior
 
-obs_info = xu.get_config("obs/obs.yaml")
-img_cfg = xu.get_config("scripts/config.yaml")
+obs_info = xu.get_config("obs.yaml")
+img_cfg = xu.get_config("chandra_cfg.yaml")
 
-obslist = img_cfg["datasets"]
 grid = img_cfg["grid"]
-outroot = img_cfg["outroot"]+img_cfg["prefix"]
+outroot = img_cfg["paths"]["data_outroot"]
 
 if not os.path.exists(outroot):
     os.makedirs(outroot)
@@ -24,16 +23,16 @@ obslist = img_cfg["datasets"]
 center = None
 
 for obsnr in obslist:
-    info = xu.ChandraObservationInformation(obs_info["obs" + obsnr],
+    info = xu.ChandraObservationInformation(obs_info[f"obs{obsnr}"],
                                             **grid,
                                             center=center)
     # retrieve data from observation
-    data = info.get_data(f"../npdata/data_{obsnr}.fits")
+    data = info.get_data(outroot + f"/data_{obsnr}.fits")
     data = ift.makeField(data_domain, data)
     xu.plot_slices(data, outroot + f"_data_{obsnr}.png", logscale=True)
 
     # compute the exposure map
-    exposure = info.get_exposure(f"./exposure_{obsnr}")
+    exposure = info.get_exposure(outroot + f"./exposure_{obsnr}")
     exposure = ift.makeField(data_domain, exposure)
     xu.plot_slices(exposure, outroot + f"_exposure_{obsnr}.png", logscale=True)
 
@@ -41,7 +40,7 @@ for obsnr in obslist:
     psf_sim = info.get_psf_fromsim((info.obsInfo["aim_ra"],
                                     info.obsInfo["aim_dec"]),
                                    "./psf",
-                                   num_rays=cfg["psf_sim"]['num_rays'])
+                                   num_rays=img_cfg["psf"]['num_rays'])
     psf_sim = ift.makeField(data_domain, psf_sim)
     xu.plot_slices(psf_sim, outroot + f"_psfSIM_{obsnr}.png", logscale=False)
 
