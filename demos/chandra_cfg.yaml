@@ -1,0 +1,14 @@
+paths:
+    data_outroot : "Coma_processed_data"
+
+datasets:
+ - 14410 
+
+psf:
+  num_rays: 1.E+6
+
+grid:
+  npix_s : 512
+  npix_e : 3
+  elim : [0.5, 7]
+  fov: 3600
