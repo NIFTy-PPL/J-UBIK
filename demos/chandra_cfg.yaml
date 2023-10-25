@@ -1,5 +1,5 @@
 paths:
-    data_outroot : "Coma_processed_data/"
+    data_outroot : "Coma_processed_data"
 
 datasets:
  - 14410 
