@@ -205,7 +205,7 @@ def _append_key(s, key):
     return f"{s} ({key})"
 
 
-def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterator=None,
+def plot_sample_and_stats(output_directory, operators_dict, pos, res_sample_list, iteration=None,
                           log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None):
     """
     Plots operator samples and statistics from a sample list.
@@ -215,7 +215,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterato
     - output_directory: `str`. The directory where the plot files will be saved.
     - operators_dict: `dict[callable]`. A dictionary containing operators.
     - sample_list: `nifty8.re.kl.Samples`. The sample list.
-    - iterator: `int`, optional. An iterator value. Defaults to None.
+    - iteration: `int`, optional. The global iteration number value. Defaults to None.
     - log_scale: `bool`, optional. Whether to use a logarithmic scale. Defaults to True.
     - colorbar: `bool`, optional. Whether to show a colorbar. Defaults to True.
     - dpi: `int`, optional. The resolution of the plot. Defaults to 100.
@@ -225,9 +225,10 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterato
     --------
     - None
     """
+    sample_list = res_sample_list.samples.at(pos)
     sample_list = list(sample_list)
-    if iterator is None:
-        iterator = 0
+    if iteration is None:
+        iteration = 0
     if plotting_kwargs is None:
         plotting_kwargs = {}
 
@@ -235,8 +236,8 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterato
     for key in operators_dict:
         op = operators_dict[key]
         results_path = create_output_directory(os.path.join(output_directory, key))
-        filename_samples = os.path.join(results_path, "samples_{}.png".format(iterator))
-        filename_stats = os.path.join(results_path, "stats_{}.png".format(iterator))
+        filename_samples = os.path.join(results_path, "samples_{}.png".format(iteration))
+        filename_stats = os.path.join(results_path, "stats_{}.png".format(iteration))
 
         results[key] = np.stack([op(pos) for pos in sample_list])
         n_samples = len(sample_list)

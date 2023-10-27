@@ -54,13 +54,20 @@ if __name__ == "__main__":
     n_newton_iterations = 10
     minimization_kwargs = {"absdelta": absdelta, "maxiter": n_newton_iterations}
     linear_sampling_kwargs = {"absdelta": absdelta / 10., "maxiter": 100}
+
+    plot = lambda x, s, i: xu.plot_sample_and_stats(file_info["res_dir"], sky_dict, x, s,
+                                                    iteration=i)
     pos, samples = jft.optimize_kl(log_likelihood,
                                    pos_init,
                                    key=key,
                                    minimization_kwargs=minimization_kwargs,
                                    sampling_cg_kwargs=linear_sampling_kwargs,
-                                   **minimization_config)
+                                   callback=plot,
+                                   out_dir=file_info["res_dir"],
+                                   **minimization_config
+                                   )
+
     print("Likelihood residual(s)")
-    print(jft.reduced_chisq_stats(pos, samples, func=log_likelihood.normalized_residual))
+    print(jft.reduced_residual_stats(pos, samples, func=log_likelihood.normalized_residual))
     print("Prior residual(s)")
-    print(jft.reduced_chisq_stats(pos, samples))
+    print(jft.reduced_residual_stats(pos, samples))
