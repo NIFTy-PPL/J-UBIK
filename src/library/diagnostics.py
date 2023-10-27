@@ -229,21 +229,16 @@ def plot_sky_flux_diagnostics(sl_path_base, gt_path, op, op_name, output_path, r
     Returns:
         Noise-weighted residuals plots in .fits and .png format
     """
-    sl = ift.ResidualSampleList.load(sl_path_base)
+    with open(f"{sl_path_base}.p", "rb") as file:
+        samples = pickle.load(file)
+
     with open(gt_path, "rb") as f:
         gt = pickle.load(f)
-    if gt.domain != op.target:
-        raise ValueError(f'Ground truth domain and operator target do not fit together:'
-                         f'Ground truth: {gt.domain}. op: {op.target}')
-    full_exposure = None
-    for key, dict in response_dict.items():
-        if full_exposure is None:
-            full_exposure = dict['exposure_op'](ift.full(dict['exposure_op'].target, 1.))
-        else:
-            full_exposure = full_exposure + dict['exposure_op'](ift.full(dict['exposure_op'].target, 1.))
+    full_mask = None
     mask = get_mask_operator(full_exposure)
     gt_1d_array = mask(gt).val.flatten()
-    mean, var = sl.sample_stat(op)
+    mean, var = None
+    #mean, var = sl.sample_stat(op)
     rec_1d_array = mask(mean).val.flatten()
 
     x_bins = np.logspace(np.log(np.min(gt_1d_array)), np.log(np.max(gt_1d_array)), bins)
