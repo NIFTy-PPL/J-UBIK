@@ -170,7 +170,7 @@ def plot_image_from_fits(file_name_in, file_name_out, log_scale=False):
 
 
 def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):
-    half_fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0 / 60  # conv to arcmin
+    half_fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
     psf = psf.val  # .reshape([1024, 1024])
     pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
@@ -297,7 +297,7 @@ def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):
     None
     """
     domain = field.domain
-    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) != 2:
+    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) !=2:
         raise ValueError(f"Expected DomainTuple with the first space"
                          f"being a 2-dim RGSpace, but got {domain}")
 
@@ -434,7 +434,7 @@ def plot_erosita_priors(n_samples, config_path, response_path, priors_dir,
         tm_ids = cfg['telescope']['tm_ids']
         plottable_ops.pop('pspec')
 
-        resp_dict = load_erosita_response(config_path, priors_dir)  # FIXME
+        resp_dict = load_erosita_response(config_path, priors_dir)
 
         for tm_id in tm_ids:
             tm_key = f'tm_{tm_id}'
@@ -482,7 +482,7 @@ def _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
 
 
 def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
-    plt.bar(edges[:-1], hist, width=edges[0] - edges[1])
+    plt.bar(edges[:-1], hist, width=edges[0]-edges[1])
     if logx:
         plt.xscale("log")
     if logy:
@@ -491,3 +491,75 @@ def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
     plt.savefig(filename)
     plt.close()
     print(f"Histogram saved as {filename}.")
+
+# FIXME: Juibify this
+def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label, x_lim = None,
+                                            y_lim = None, bins=100, dpi=400,
+                                            title=None, output_path=None):
+    """ Plot a 2d histogram for the arrays given for x_array and y_array.
+
+
+    Parameters:
+    -----------
+    x_array_list : list of numpy.ndarray
+        list of samples of x_axis array of 2d-histogram
+    x_label : string
+        x-axis label of the 2d-histogram
+    y_array_list : numpy.ndarray
+        list of samples of y-axis array of 2d-histogram
+    y_label : string
+        y-axis label of the 2d-histogram
+    bins : int
+        Number of bins of the 2D-histogram
+    dpi : int, optional
+        Resolution of the figure
+    title : string, optional
+        Title of the 2D histogram
+    output_path : string, optional
+        Output directory for the plot. If None (Default) the plot is not saved.
+
+    Returns:
+    --------
+    None
+    """
+
+    if len(x_array_list) != len(y_array_list):
+        raise ValueError('Need same number of samples for x- and y-axis.')
+
+    x_bins = np.logspace(np.log(np.min(np.mean(x_array_list, axis=0))),
+                         np.log(np.max(np.mean(x_array_list, axis=0))), bins)
+    y_bins = np.logspace(np.log(np.min(np.mean(y_array_list, axis=0))),
+                         np.log(np.max(np.mean(y_array_list, axis=0))), bins)
+
+    hist_list = []
+    edges_x_list = []
+    edges_y_list = []
+
+    for i in range(len(x_array_list)):
+        hist, edges_x, edges_y = np.histogram2d(x_array_list[i], y_array_list[i], bins=(x_bins, y_bins))
+        hist_list.append(hist)
+        edges_x_list.append(edges_x)
+        edges_y_list.append(edges_y)
+
+    # Create the 2D histogram
+    fig, ax = plt.subplots(dpi=dpi)
+    counts = np.mean(hist_list, axis=0)
+    xedges = np.mean(edges_x_list, axis=0)
+    yedges = np.mean(edges_y_list, axis=0)
+
+    plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet, norm=LogNorm(vmin=1))
+    plt.colorbar()
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    if x_lim is not None:
+        ax.set_xlim(x_lim[0], x_lim[1])
+    if y_lim is not None:
+        ax.set_ylim(y_lim[0], y_lim[1])
+    if title is not None:
+        ax.set_title(title)
+    if output_path is not None:
+        plt.savefig(output_path)
+        print(f"2D histogram saved as {output_path}")
+    plt.close()
