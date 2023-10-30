@@ -1,18 +1,81 @@
 import numpy as np
 import pickle
+from os.path import join
+from functools import partial
 
 import nifty8 as ift
 
-from .utils import save_rgb_image_to_fits
+from .utils import save_rgb_image_to_fits, get_config, create_output_directory
 from .plot import plot_result, plot_sample_averaged_log_2d_histogram
+from .sky_models import create_sky_model_from_config
+from . response import build_callable_from_exposure_file, build_exposure_function,\
+    build_readout_function
+from .data import load_masked_data_from_pickle, load_erosita_masked_data
 
 
-def compute_uncertainty_weighted_residuals(sl,
-                                           op=None,
-                                           reference=None,
+def _build_full_mask_func_from_exp_files(exposure_file_names,
+                                         threshold):
+    def _set_zero(x, exp):
+        x = x.at[exp == 0].set(0)
+        return x
+
+    def _builder(exposures, threshold):
+        if threshold < 0:
+            raise ValueError("threshold should be positive!")
+        if threshold is not None:
+            exposures[exposures < threshold] = 0
+        summed_exp = np.sum(exposures, axis=0)
+        return partial(_set_zero, exp=summed_exp)
+
+    return build_callable_from_exposure_file(_builder, exposure_file_names, threshold=threshold)
+
+
+def get_diagnostics_from_file(diagnostic_builder,
+                              diagnostics_path,
+                              sl_path_base,
+                              pos_path_base,
+                              config_path,
+                              output_operators_keys,
+                              **kwargs):
+    # Build diagnostics directory
+    create_output_directory(diagnostics_path)
+
+    # Get config info
+    cfg = get_config(config_path)
+    # tel_info = cfg['telescope']
+    # file_info = cfg['files']
+
+    # Create sky operators
+    sky_dict = create_sky_model_from_config(config_path)
+    sky_dict.pop('pspec')
+
+
+    # # Load data
+    # if cfg['mock']:
+    #     masked_data = load_masked_data_from_pickle(join(file_info['res_dir'],
+    #                                                   'mock_data_dict.pkl'), mask_func)
+    # else:
+    #     masked_data = load_erosita_masked_data(file_info, tel_info, mask_func)
+
+    # Load position space sample list
+    with open(f"{sl_path_base}.p", "rb") as file:
+        samples = pickle.load(file)
+    with open(f"{pos_path_base}.p", "rb") as file:
+        pos = pickle.load(file)
+
+    lat_sp_sl = list(samples.at(pos))
+    pos_sp_sample_dict = {key: np.stack([op(lat_sp_sample) for lat_sp_sample in lat_sp_sl])
+                          for key, op in sky_dict.items() if key in output_operators_keys}
+
+    diagnostic_builder(pos_sp_sample_dict, diagnostics_path, cfg, **kwargs)
+
+
+def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
+                                           diagnostics_path,
+                                           cfg,
+                                           reference_dict=None,
                                            output_dir_base=None,
-                                           padder=None,
-                                           mask_op=None,
+                                           mask=False,
                                            abs=False,
                                            n_bins=None,
                                            range=None,
@@ -41,48 +104,54 @@ def compute_uncertainty_weighted_residuals(sl,
     """
 
     mpi_master = ift.utilities.get_MPI_params()[3]
+    uwr_dict = {}
+    hist_dict = {}
+    edges_dict = {}
+    for key, pos_sp_sl in pos_sp_sample_dict.items():
+        mean = pos_sp_sl.mean(axis=0)
+        std = pos_sp_sl. std(axis=0, ddof=1)
 
-    if padder is None:
-        padder = ift.ScalingOperator(domain=op.target, factor=1)
+        if reference_dict is None:
+            print("No reference ground truth provided. "
+                "Uncertainty weighted residuals calculation defaults to uncertainty-weighted mean.")
+            return mean / std
 
-    mean, var = sl.sample_stat(padder.adjoint(op))
+        if abs:
+            uwr = (mean - reference_dict[key]).abs() / std
+        else:
+            uwr = (reference_dict[key]-mean) / std
 
-    if reference is None:
-        print("No reference ground truth provided. "
-              "Uncertainty weighted residuals calculation defaults to uncertainty-weighted mean.")
-        return mean / var.sqrt()
+        if mask:
+            tel_info = cfg['telescope']
+            file_info = cfg['files']
+            exposure_file_names = [join(file_info['obs_path'], f'{key}_' + file_info['exposure'])
+                                  for key in tel_info['tm_ids']]
+            full_mask_func = _build_full_mask_func_from_exp_files(exposure_file_names,
+                                                                  tel_info['exp_cut'])
+            uwr = full_mask_func(uwr)
+        uwr_dict[key] = uwr
 
-    if mask_op is None:
-        mask_op = ift.ScalingOperator(domain=op.target, factor=1)
+        if mpi_master and output_dir_base is not None:
+            with open(f'{output_dir_base}.pkl', 'wb') as file:
+                pickle.dump(uwr, file)
+            # FIXME save_rgb-image_to_fits needs to be transferred to jubix here
+            # save_rgb_image_to_fits(uwr, output_dir_base, overwrite=True, MPI_master=mpi_master)
+            if plot_kwargs is None:
+                plot_kwargs = {}
+            if 'cmap' not in plot_kwargs:
+                plot_kwargs.update({'cmap': 'seismic'})
+            if 'vmin' not in plot_kwargs:
+                plot_kwargs.update({'vmin': -5})
+            if 'vmax' not in plot_kwargs:
+                plot_kwargs.update({'vmax': 5})
+            plot_result(uwr, output_file=join(diagnostics_path, f'{output_dir_base}_{key}.png'),
+                        **plot_kwargs)
 
-    if abs:
-        uwr = (mean - reference).abs() / var.sqrt()
-    else:
-        uwr = (reference-mean) / var.sqrt()
-
-    uwr = mask_op.adjoint(mask_op(uwr))
-
-    if mpi_master and output_dir_base is not None:
-        with open(f'{output_dir_base}.pkl', 'wb') as file:
-            pickle.dump(uwr, file)
-        save_rgb_image_to_fits(uwr, output_dir_base, overwrite=True, MPI_master=mpi_master)
-        if plot_kwargs is None:
-            plot_kwargs = {}
-        if 'cmap' not in plot_kwargs:
-            plot_kwargs.update({'cmap': 'seismic'})
-        if 'vmin' not in plot_kwargs:
-            plot_kwargs.update({'vmin': -5})
-        if 'vmax' not in plot_kwargs:
-            plot_kwargs.update({'vmax': 5})
-        plot_result(uwr, f'{output_dir_base}.png', **plot_kwargs)
-
-    if n_bins is not None:
-        if range is None:
-            range = (-5, 5)
-        hist, edges = np.histogram(uwr.val.reshape(-1), bins=n_bins, range=range)
-        return uwr, hist, edges
-    else:
-        return uwr
+        if n_bins is not None:
+            if range is None:
+                range = (-5, 5)
+            hist_dict[key], edges_dict[key] = np.histogram(uwr.reshape(-1), bins=n_bins, range=range)
+    return uwr_dict, hist_dict, edges_dict
 
 
 def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=None, output_dir=None,
@@ -224,10 +293,8 @@ def get_uwr_from_file(sample_list_path,
 
 
 def get_noise_weighted_residuals_from_file(sample_list_path,
-                                           data_path,
-                                           sky_op,
-                                           response_op,
-                                           mask_op,
+                                           config_path,
+                                           output_operators_keys,
                                            output_dir=None,
                                            abs=False,
                                            base_filename=None,
@@ -261,7 +328,8 @@ def get_noise_weighted_residuals_from_file(sample_list_path,
             `ndarray`: The histogram of the noise-weighted residuals.
             `ndarray`: The edges of the histogram of the noise-weighted residuals
     """
-    sl = ift.ResidualSampleList.load(sample_list_path)
+
+
     with open(data_path, "rb") as f:
         d = pickle.load(f)
 
@@ -307,8 +375,8 @@ def get_uwm_from_file(sample_list_path,
                                                       plot_kwargs=plot_kwargs)
     return wgt_mean
 
-
-def plot_2d_gt_vs_rec_histogram(sl_path_base, gt_path, op, op_name, response, pad, bins,
+# FIXME Docstring
+def plot_2d_gt_vs_rec_histogram(sl_path_base, pos_path_base, gt_path, op, op_name, response_func, pad, bins,
                                   output_path, x_lim=None, y_lim=None, x_label='', y_label='',
                                   dpi=400, title='', type='single', relative=False):
     """ Plots the 2D histogram of reconstruction vs. ground-truth in either
@@ -358,10 +426,19 @@ def plot_2d_gt_vs_rec_histogram(sl_path_base, gt_path, op, op_name, response, pa
     --------
     None
     """
-    sl = ift.ResidualSampleList.load(sl_path_base)
+    # Load position space sample list
+    with open(f"{sl_path_base}.p", "rb") as file:
+        samples = pickle.load(file)
+    with open(f"{pos_path_base}.p", "rb") as file:
+        pos = pickle.load(file)
+
+    lat_sp_sl = list(samples.at(pos))
+    pos_sp_sl = [op(lat_sp_sample) for lat_sp_sample in lat_sp_sl]
+
+    # Load ground truth
     with open(gt_path, "rb") as f:
         gt = pickle.load(f)
-    gt_1d_array = response(gt).val.flatten()
+    gt_1d_array = response_func(gt)
     if relative:
         masked_gt_1d_array = gt_1d_array[gt_1d_array != 0]
         gt_1d_array_list = [masked_gt_1d_array]

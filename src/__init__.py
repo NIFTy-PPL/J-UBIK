@@ -31,7 +31,9 @@ from .library.likelihood import generate_erosita_likelihood_from_config
 from .library.diagnostics import (get_uwm_from_file,
                                   get_uwr_from_file,
                                   get_noise_weighted_residuals_from_file,
-                                  plot_2d_gt_vs_rec_histogram)
+                                  plot_2d_gt_vs_rec_histogram,
+                                  get_diagnostics_from_file,
+                                  compute_uncertainty_weighted_residuals)
 from .operators.convolution_operators import OAConvolver, OAnew, OverlapAdd
 from .operators.convolution_operators import _get_weights
 from .operators.zero_padder import MarginZeroPadder

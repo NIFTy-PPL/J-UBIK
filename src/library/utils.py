@@ -643,6 +643,7 @@ def is_subdomain(sub_domain, total_domain):
                for kk, vv in sub_domain.items())
 
 
+# FIXME: get rid of this function
 def get_data_realization(op, position, exposure=None, padder=None, data=True, output_directory=None):
     mpi_master = ift.utilities.get_MPI_params()[3]
     R = ift.ScalingOperator(op.target, 1)
@@ -666,6 +667,7 @@ def get_data_realization(op, position, exposure=None, padder=None, data=True, ou
     return res
 
 
+# FIXME: get rid of this function
 def generate_mock_setup(sky_model, psf_op, mock_sky_position, exposure=None, pad=None,
                         tm_id=0, output_directory=None):
     if pad is None and sky_model.position_space != sky_model.extended_space:
