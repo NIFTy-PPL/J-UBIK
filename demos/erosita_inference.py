@@ -60,7 +60,6 @@ if __name__ == "__main__":
                                    minimization_kwargs=minimization_kwargs,
                                    sampling_cg_kwargs=linear_sampling_kwargs,
                                    **minimization_config)
-    exit()
     print("Likelihood residual(s)")
     print(jft.reduced_chisq_stats(pos, samples, func=log_likelihood.normalized_residual))
     print("Prior residual(s)")

@@ -1,0 +1,76 @@
+results_dir: 'results/512_Mock_test/'
+config_name: 'config_512_Mock_test.yaml'
+
+nwr:
+  base_filename: 'nwr'
+  mask: True
+  abs: False
+  min_counts: 0
+  plot_kwargs:
+    title: 'Noise-weighted residuals'
+  n_bins: Null
+  log_y: False
+
+uwm:
+  output_name: 'uwm'
+  plot_kwargs:
+    title: 'Uncertainty-weighted mean'
+
+uwr:
+  base_filename: 'uwr_'
+  mask: True
+  abs: False
+  plot_kwargs:
+    title: 'Uncertainty-weighted residuals'
+  n_bins: Null
+
+lambda_2D_hist:
+  x_lim:
+  y_lim:
+  bins: 600
+  x_label: '$\lambda_{gt}$'
+  y_label: '$\lambda_{rec}$'
+  dpi: 400
+  title: 'Distance between reconstruction and ground truth in data space'
+  output_name: 'data_space_gt_distance'
+  type: 'single'
+
+rel_lambda_2D_hist:
+  x_lim:
+  y_lim:
+  bins: 600
+  x_label: '$\lambda_{gt}$'
+  y_label: '$a$'
+  dpi: 400
+  title: 'Relative distance between reconstruction and ground truth in data space'
+  output_name: 'data_space_rel_gt_distance'
+  type: 'single'
+
+sky_2D_hist:
+  x_lim:
+    - 1.e-5
+    - 5.e-3
+  y_lim:
+    - 1.e-5
+    - 5.e-3
+  bins: 600
+  x_label: 's_gt'
+  y_label: 's'
+  dpi: 400
+  title: 'Distance between reconstruction and ground truth in signal space'
+  output_name: 'signal_space_gt_distance'
+  type: 'single'
+
+rel_sky_2D_hist:
+  x_lim:
+  y_lim:
+  bins: 600
+  x_label: 's_gt'
+  y_label: 'a'
+  dpi: 400
+  title: 'Relative distance between reconstruction and ground truth in signal space'
+  output_name: 'signal_space_rel_gt_distance'
+  type: 'single'
+
+
+
