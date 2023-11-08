@@ -28,9 +28,7 @@ from .library.data import (load_masked_data_from_pickle, load_erosita_masked_dat
                            generate_erosita_data_from_config, generate_mock_sky_from_prior_dict,
                            save_dict_to_pickle)
 from .library.likelihood import generate_erosita_likelihood_from_config
-from .library.diagnostics import (get_uwm_from_file,
-                                  get_uwr_from_file,
-                                  get_noise_weighted_residuals_from_file,
+from .library.diagnostics import (get_noise_weighted_residuals_from_file,
                                   plot_2d_gt_vs_rec_histogram,
                                   get_diagnostics_from_file,
                                   compute_uncertainty_weighted_residuals)

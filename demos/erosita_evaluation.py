@@ -244,10 +244,7 @@ if __name__ == "__main__":
     #                                            plot_kwargs=uwr_cfg['plot_kwargs'] if 'plot_kwargs' in uwr_cfg else None,
     #                                            )
     #
-    #             if 'nbins' in uwr_cfg and uwr_cfg['n_bins'] is not None:
-    #                 uwr, uwr_hist, uwr_edges = uwr_res
-    #                 xu.plot_histograms(uwr_hist, uwr_edges, uwr_filename, logy=uwr_cfg['log_y'],
-    #                                    title=uwr_cfg['title'])
+
     #
     #         # 2D histograms in signal space
     #         if key in ['sky']:

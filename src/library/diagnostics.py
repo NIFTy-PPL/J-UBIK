@@ -6,9 +6,9 @@ from functools import partial
 import nifty8 as ift
 
 from .utils import save_rgb_image_to_fits, get_config, create_output_directory
-from .plot import plot_result, plot_sample_averaged_log_2d_histogram
+from .plot import plot_result, plot_sample_averaged_log_2d_histogram, plot_histograms
 from .sky_models import create_sky_model_from_config
-from . response import build_callable_from_exposure_file, build_exposure_function,\
+from .response import build_callable_from_exposure_file, build_exposure_function,\
     build_readout_function
 from .data import load_masked_data_from_pickle, load_erosita_masked_data
 
@@ -16,7 +16,7 @@ from .data import load_masked_data_from_pickle, load_erosita_masked_data
 def _build_full_mask_func_from_exp_files(exposure_file_names,
                                          threshold):
     def _set_zero(x, exp):
-        x = x.at[exp == 0].set(0)
+        x[exp == 0] = 0
         return x
 
     def _builder(exposures, threshold):
@@ -42,20 +42,10 @@ def get_diagnostics_from_file(diagnostic_builder,
 
     # Get config info
     cfg = get_config(config_path)
-    # tel_info = cfg['telescope']
-    # file_info = cfg['files']
 
     # Create sky operators
     sky_dict = create_sky_model_from_config(config_path)
     sky_dict.pop('pspec')
-
-
-    # # Load data
-    # if cfg['mock']:
-    #     masked_data = load_masked_data_from_pickle(join(file_info['res_dir'],
-    #                                                   'mock_data_dict.pkl'), mask_func)
-    # else:
-    #     masked_data = load_erosita_masked_data(file_info, tel_info, mask_func)
 
     # Load position space sample list
     with open(f"{sl_path_base}.p", "rb") as file:
@@ -79,6 +69,7 @@ def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
                                            abs=False,
                                            n_bins=None,
                                            range=None,
+                                           log=True,
                                            plot_kwargs=None):
     """
     Computes and plots uncertainty-weighted residuals, defined as
@@ -105,11 +96,13 @@ def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
 
     mpi_master = ift.utilities.get_MPI_params()[3]
     uwr_dict = {}
-    hist_dict = {}
-    edges_dict = {}
+    if log:
+        pos_sp_sample_dict = {key: np.log(value) for key, value in pos_sp_sample_dict.items()}
+        if reference_dict is not None:
+            reference_dict = {key: np.log(value) for key, value in reference_dict.items()}
     for key, pos_sp_sl in pos_sp_sample_dict.items():
         mean = pos_sp_sl.mean(axis=0)
-        std = pos_sp_sl. std(axis=0, ddof=1)
+        std = pos_sp_sl.std(axis=0, ddof=1)
 
         if reference_dict is None:
             print("No reference ground truth provided. "
@@ -144,14 +137,17 @@ def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
                 plot_kwargs.update({'vmin': -5})
             if 'vmax' not in plot_kwargs:
                 plot_kwargs.update({'vmax': 5})
-            plot_result(uwr, output_file=join(diagnostics_path, f'{output_dir_base}_{key}.png'),
+            plot_result(uwr, output_file=join(diagnostics_path, f'{output_dir_base}{key}.png'),
                         **plot_kwargs)
 
-        if n_bins is not None:
+        if n_bins is not None and output_dir_base is not None:
             if range is None:
                 range = (-5, 5)
-            hist_dict[key], edges_dict[key] = np.histogram(uwr.reshape(-1), bins=n_bins, range=range)
-    return uwr_dict, hist_dict, edges_dict
+            hist, edges = np.histogram(uwr.reshape(-1), bins=n_bins, range=range)
+            plot_histograms(hist, edges,
+                            join(diagnostics_path, f'{output_dir_base}hist_{key}.png'),
+                            title=plot_kwargs['title'])
+    return uwr_dict
 
 
 def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=None, output_dir=None,
@@ -233,65 +229,6 @@ def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=No
         return nwr_mean, mean_hist, edges
 
 
-def get_uwr_from_file(sample_list_path,
-                      ground_truth_path,
-                      sky_op,
-                      padder,
-                      mask_op,
-                      log=True,
-                      output_dir_base=None,
-                      abs=False,
-                      n_bins=None,
-                      range=(-5, 5),
-                      plot_kwargs=None,
-                      ):
-    """
-    Retrieves signal-space uncertainty-weighted residuals from sample list file.
-
-    Args:
-        sample_list_path: `str`, the path to the sample list file.
-        ground_truth_path: `str`, the path to the ground-truth signal file.
-        sky_op: `nifty8.Operator`, the operator representing the sky.
-        padder: `nifty8.Operator`, the operator representing the field padding.
-        mask_op: `nifty8.Operator`, the operator representing the mask.
-        log: `bool`, whether to compute the residuals of the logarithm of the fields.
-        Default is True as for a lognormal field the residuals of the logarithm are expected to be
-        Gaussian distributed.
-        output_dir_base: `str`, Optional, the output directory path. Defaults to None.
-        abs: `bool`, Optional, whether to compute absolute values. Defaults to False.
-        plot_kwargs: `dict`, Optional, additional keyword arguments for plotting. Defaults to None.
-        n_bins: `int`, Optional, the number of bins for plotting. Defaults to None.
-            If none, no histogram is returned
-        range: `tuple`, (min, max) range of the histogram, defaults to (-5, 5).
-
-    Returns:
-        If nbins is None:
-            `nifty8.Field`: The uncertainty-weighted residuals.
-        If nbins is not None:
-            `nifty8.Field`: The uncertainty-weighted residuals.
-            `ndarray`: The histogram of the uncertainty-weighted residuals.
-            `ndarray`: The edges of the histogram of the uncertainty-weighted residuals
-    """
-    sl = ift.ResidualSampleList.load(sample_list_path)
-    with open(ground_truth_path, "rb") as f:
-        gt = pickle.load(f)
-
-    if log:
-        sky_op = sky_op.log()
-        gt = gt.log()
-
-    return compute_uncertainty_weighted_residuals(sl,
-                                                  sky_op,
-                                                  gt,
-                                                  output_dir_base,
-                                                  padder=padder,
-                                                  mask_op=mask_op,
-                                                  abs=abs,
-                                                  n_bins=n_bins,
-                                                  range=range,
-                                                  plot_kwargs=plot_kwargs)
-
-
 def get_noise_weighted_residuals_from_file(sample_list_path,
                                            config_path,
                                            output_operators_keys,
@@ -344,36 +281,6 @@ def get_noise_weighted_residuals_from_file(sample_list_path,
                                             n_bins=nbins,
                                             range=range)
 
-
-def get_uwm_from_file(sample_list_path,
-                      sky_op,
-                      mask,
-                      padder,
-                      output_dir_base=None,
-                      plot_kwargs=None):
-    """
-        Retrieves and plots uncertainty-weighted mean from sample list file.
-
-        Args:
-            sample_list_path: `str`, the base path of the sample list file.
-            sky_op: `nifty8.Operator`, the sky operator.
-            padder: `nifty8.Operator`, the padder operator.
-            mask: `nifty8.Operator`, the mask operator.
-            output_dir_base: `str`, the base directory for output files. Defaults to None.
-            plot_kwargs: `dict`, keyword arguments for plotting. Defaults to None.
-
-        Returns:
-            wgt_mean: `nifty8.Field`, the uncertainty-weighted mean.
-
-    """
-    sl = ift.ResidualSampleList.load(sample_list_path)
-    wgt_mean = compute_uncertainty_weighted_residuals(sl,
-                                                      sky_op,
-                                                      mask_op=mask,
-                                                      padder=padder,
-                                                      output_dir_base=output_dir_base,
-                                                      plot_kwargs=plot_kwargs)
-    return wgt_mean
 
 # FIXME Docstring
 def plot_2d_gt_vs_rec_histogram(sl_path_base, pos_path_base, gt_path, op, op_name, response_func, pad, bins,
