@@ -27,9 +27,9 @@ def build_exposure_function(exposures, exposure_cut=None):
     ValueError:
         If `exposures` is not a 2D array or `exposure_cut` is negative.
     """
-    if exposure_cut is not None and exposure_cut < 0:
-        raise ValueError("exposure_cut should be positive or None!")
     if exposure_cut is not None:
+        if exposure_cut < 0:
+            raise ValueError("exposure_cut should be non-negative or None!")
         exposures[exposures < exposure_cut] = 0
     return lambda x: exposures * x[np.newaxis, ...]
 
