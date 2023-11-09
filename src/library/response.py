@@ -135,7 +135,7 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
             raise ValueError('exposure files should be in a .npy or .fits format!')
         else:
             raise FileNotFoundError(f'cannot find {file}!')
-    exposures = np.array(exposures)
+    exposures = np.array(exposures, dtype="float64") # in fits there is only >f4 meaning float32
     return builder(exposures, **kwargs)
 
 
