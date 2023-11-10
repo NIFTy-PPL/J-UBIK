@@ -1,5 +1,4 @@
 import argparse
-import numpy as np
 from os.path import join
 import pickle
 
@@ -36,7 +35,6 @@ if __name__ == "__main__":
     sl_path_base = join(reconstruction_path, f'samples_{iteration}')
     pos_path_base = join(reconstruction_path, f'position_it_{iteration}')
     diagnostics_path = join(reconstruction_path, "diagnostics")
-
 
     cfg = xu.get_config(config_path)
     tel_info = cfg['telescope']
@@ -107,10 +105,10 @@ if __name__ == "__main__":
         output_operator_keys = nwr_cfg['output_operators_keys']
         # Load data
         if cfg['mock']:
-             masked_data = xu.load_masked_data_from_pickle(join(file_info['res_dir'],
+            masked_data = xu.load_masked_data_from_pickle(join(file_info['res_dir'],
                                                            'mock_data_dict.pkl'))
         else:
-             masked_data = xu.load_erosita_masked_data(file_info, tel_info, mask_func)
+            masked_data = xu.load_erosita_masked_data(file_info, tel_info, mask_func)
 
         xu.get_diagnostics_from_file(xu.compute_noise_weighted_residuals,
                                      diagnostics_path,
@@ -123,7 +121,6 @@ if __name__ == "__main__":
                                      output_dir_base=nwr_cfg['base_filename'],
                                      n_bins=nwr_cfg['n_bins'] if 'n_bins' in nwr_cfg else None,
                                      plot_kwargs=nwr_cfg['plot_kwargs'])
-
 
     # 2D histograms in signal space
     sky_2D_hist_cfg = eval_cfg['sky_2D_hist']
@@ -156,15 +153,16 @@ if __name__ == "__main__":
                                      reference_dict=gt_dict,
                                      output_dir_base=rel_sky_2D_hist_cfg['base_filename'],
                                      plot_kwargs=rel_sky_2D_hist_cfg['plot_kwargs'],
-                                     type=rel_sky_2D_hist_cfg['type'] if 'type' in rel_sky_2D_hist_cfg
+                                     type=rel_sky_2D_hist_cfg['type'] if 'type'
+                                                                         in rel_sky_2D_hist_cfg
                                      else 'single',
                                      relative=True)
-
 
     # 2D histograms in data space
     if cfg['mock']:
         lambda_2D_hist_cfg = eval_cfg['lambda_2D_hist']
         if lambda_2D_hist_cfg is not None:
+            output_operator_keys = lambda_2D_hist_cfg['output_operators_keys']
             xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
                                          diagnostics_path,
                                          sl_path_base,
@@ -175,12 +173,14 @@ if __name__ == "__main__":
                                          reference_dict=gt_dict,
                                          output_dir_base=lambda_2D_hist_cfg['base_filename'],
                                          plot_kwargs=lambda_2D_hist_cfg['plot_kwargs'],
-                                         type=lambda_2D_hist_cfg['type'] if 'type' in lambda_2D_hist_cfg
+                                         type=lambda_2D_hist_cfg['type'] if 'type'
+                                                                            in lambda_2D_hist_cfg
                                          else 'single',
                                          relative=False)
 
         rel_lambda_2D_hist_cfg = eval_cfg['rel_lambda_2D_hist']
         if rel_lambda_2D_hist_cfg is not None:
+            output_operator_keys = rel_lambda_2D_hist_cfg['output_operators_keys']
             xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
                                          diagnostics_path,
                                          sl_path_base,

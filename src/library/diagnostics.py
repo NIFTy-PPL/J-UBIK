@@ -7,14 +7,11 @@ from jax import numpy as jnp
 
 import nifty8 as ift
 import nifty8.re as jft
-import xubik0
 
-from .utils import save_rgb_image_to_fits, get_config, create_output_directory
+from .utils import get_config, create_output_directory
 from .plot import plot_result, plot_sample_averaged_log_2d_histogram, plot_histograms
 from .sky_models import create_sky_model_from_config
-from .response import build_callable_from_exposure_file, build_exposure_function,\
-    build_readout_function
-from .data import load_masked_data_from_pickle, load_erosita_masked_data
+from .response import build_callable_from_exposure_file
 
 
 def _build_full_mask_func_from_exp_files(exposure_file_names,
@@ -200,7 +197,8 @@ def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
                 plot_kwargs.update({'vmin': -5})
             if 'vmax' not in plot_kwargs:
                 plot_kwargs.update({'vmax': 5})
-            plot_result(diag_dict[key], output_file=join(diagnostics_path, f'{output_dir_base}{key}.png'),
+            plot_result(diag_dict[key], output_file=join(diagnostics_path,
+                                                         f'{output_dir_base}{key}.png'),
                         **plot_kwargs)
 
             if n_bins:
@@ -214,7 +212,7 @@ def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
     return diag_dict
 
 
-#FIXME: At the moment this only plotting the histograms
+# FIXME: At the moment this only plotting the histograms
 def compute_noise_weighted_residuals(pos_sp_sample_dict,
                                      diagnostics_path,
                                      cfg,
@@ -283,7 +281,8 @@ def compute_noise_weighted_residuals(pos_sp_sample_dict,
                 data_mean_hist = None
                 for dataset, mean in sample_mean_hist.tree.items():
                     title = plot_kwargs.get('title')
-                    output_dir = join(diagnostics_path, f'{output_dir_base}hist_{key}_{dataset}.png')
+                    output_dir = join(diagnostics_path,
+                                      f'{output_dir_base}hist_{key}_{dataset}.png')
                     plot_histograms(sample_mean_hist[dataset][0], sample_mean_hist[dataset][1],
                                     output_dir, logy=True, title=title)
 
@@ -295,7 +294,8 @@ def compute_noise_weighted_residuals(pos_sp_sample_dict,
                 data_mean_hist = (data_mean_hist[0]/ len(list(sample_mean_hist.tree.values())),
                                   data_mean_hist[1]/ len(list(sample_mean_hist.tree.values())))
                 plot_histograms(data_mean_hist[0], data_mean_hist[1],
-                                join(diagnostics_path, f'{output_dir_base}hist_{key}_dataset_mean.png'),
+                                join(diagnostics_path,
+                                     f'{output_dir_base}hist_{key}_dataset_mean.png'),
                                 logy=True, title=f'{title} - Dataset mean')
 
 
@@ -383,7 +383,7 @@ def plot_2d_gt_vs_rec_histogram(pos_sp_sample_dict,
         if mpi_master and output_dir_base:
             output_path = join(diagnostics_path, f'{output_dir_base}hist_{key}.png')
             plot_sample_averaged_log_2d_histogram(x_array_list=ref_list,
-                                              y_array_list=res_1d_array_list,
-                                              output_path=output_path,
-                                              **plot_kwargs)
+                                                  y_array_list=res_1d_array_list,
+                                                  output_path=output_path,
+                                                  **plot_kwargs)
 
