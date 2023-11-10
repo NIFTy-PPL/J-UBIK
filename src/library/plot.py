@@ -297,7 +297,7 @@ def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):
     None
     """
     domain = field.domain
-    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) !=2:
+    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) != 2:
         raise ValueError(f"Expected DomainTuple with the first space"
                          f"being a 2-dim RGSpace, but got {domain}")
 
@@ -434,7 +434,7 @@ def plot_erosita_priors(n_samples, config_path, response_path, priors_dir,
         tm_ids = cfg['telescope']['tm_ids']
         plottable_ops.pop('pspec')
 
-        resp_dict = load_erosita_response(config_path, priors_dir)
+        resp_dict = load_erosita_response(config_path, priors_dir) #FIXME
 
         for tm_id in tm_ids:
             tm_key = f'tm_{tm_id}'
@@ -482,7 +482,7 @@ def _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
 
 
 def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
-    plt.bar(edges[:-1], hist, width=edges[0]-edges[1])
+    plt.bar(edges[:-1], hist, width=edges[0] - edges[1])
     if logx:
         plt.xscale("log")
     if logy:
