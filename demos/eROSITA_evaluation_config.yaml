@@ -1,25 +1,26 @@
 results_dir: 'results/Test/'
 config_name: 'eROSITA_test_config.yaml'
-iteration: 1
+iteration: 1  # Add iteration for which you want to have the diagnostics here
 
 nwr:
-#  output_operators_keys:
-#    - 'sky'
-#    - 'diffuse'
-#    - 'point_sources'
-#  base_filename: 'nwr'
-#  mask: True
-#  abs: False
-#  min_counts: 0
-#  plot_kwargs:
-#    title: 'Noise-weighted residuals'
-#  n_bins: Null
-#  log_y: False
+  output_operators_keys:
+    - 'sky'
+  base_filename: 'nwr_'
+  n_bins: 10
+  plot_kwargs:
+    title: 'Noise-weighted residuals'
+  abs: False
 
 uwm:
-#  output_name: 'uwm'
-#  plot_kwargs:
-#    title: 'Uncertainty-weighted mean'
+  output_operators_keys:
+    - 'sky'
+    - 'diffuse'
+    - 'point_sources'
+  base_filename: 'uwm_'
+  mask: True
+  log: False
+  plot_kwargs:
+    title: 'Uncertainty-weighted mean'
 
 uwr:
   output_operators_keys:
@@ -29,57 +30,84 @@ uwr:
   base_filename: 'uwr_'
   mask: True
   abs: False
+#  log: False
   plot_kwargs:
     title: 'Uncertainty-weighted residuals'
-  n_bins: Null
+  n_bins: 10
 
 lambda_2D_hist:
-#  x_lim:
-#  y_lim:
-#  bins: 600
-#  x_label: '$\lambda_{gt}$'
-#  y_label: '$\lambda_{rec}$'
-#  dpi: 400
-#  title: 'Distance between reconstruction and ground truth in data space'
-#  output_name: 'data_space_gt_distance'
-#  type: 'single'
+  base_filename: 'lambda_2D_hist_'
+  output_operators_keys:
+    - 'sky'
+    - 'diffuse'
+  plot_kwargs:
+#    x_lim:
+#      - 1.e-5
+#      - 5.e-3
+#    y_lim:
+#      - 1.e-5
+#      - 5.e-3
+    bins: 600
+    x_label: '$\lambda_{gt}$'
+    y_label: '$\lambda$'
+    dpi: 400
+    title: 'Distance between reconstruction and ground truth in signal space'
+  type: 'single'
 
 rel_lambda_2D_hist:
-#  x_lim:
-#  y_lim:
-#  bins: 600
-#  x_label: '$\lambda_{gt}$'
-#  y_label: '$a$'
-#  dpi: 400
-#  title: 'Relative distance between reconstruction and ground truth in data space'
-#  output_name: 'data_space_rel_gt_distance'
-#  type: 'single'
+  base_filename: 'rel_lambda_2D_hist_'
+  output_operators_keys:
+    - 'sky'
+    - 'diffuse'
+  plot_kwargs:
+#    x_lim:
+#      - 1.e-5
+#      - 5.e-3
+#    y_lim:
+#      - 1.e-5
+#      - 5.e-3
+    bins: 600
+    x_label: '$\lambda_{gt}$'
+    y_label: 'a'
+    dpi: 400
+    title: 'Distance between reconstruction and ground truth in signal space'
+  type: 'single'
 
 sky_2D_hist:
-#  x_lim:
-#    - 1.e-5
-#    - 5.e-3
-#  y_lim:
-#    - 1.e-5
-#    - 5.e-3
-#  bins: 600
-#  x_label: 's_gt'
-#  y_label: 's'
-#  dpi: 400
-#  title: 'Distance between reconstruction and ground truth in signal space'
-#  output_name: 'signal_space_gt_distance'
-#  type: 'single'
+  base_filename: 'sky_2D_hist_'
+  output_operators_keys:
+    - 'sky'
+  plot_kwargs:
+#    x_lim:
+#      - 1.e-6
+#      - 5.e-3
+#    y_lim:
+#      - 1.e-8
+#      - 5.e-3
+    bins: 600
+    x_label: '$s_{gt}$'
+    y_label: 's'
+    dpi: 400
+    title: 'Distance between reconstruction and ground truth in signal space'
+  type: 'single'
 
 rel_sky_2D_hist:
-#  x_lim:
-#  y_lim:
-#  bins: 600
-#  x_label: 's_gt'
-#  y_label: 'a'
-#  dpi: 400
-#  title: 'Relative distance between reconstruction and ground truth in signal space'
-#  output_name: 'signal_space_rel_gt_distance'
-#  type: 'single'
+  base_filename: 'rel_sky_2D_hist_'
+  output_operators_keys:
+    - 'sky'
+  plot_kwargs:
+#    x_lim:
+#      - 1.e-6
+#      - 5.e-3
+#    y_lim:
+#      - 1.e-8
+#      - 1.e+2
+    bins: 600
+    x_label: 's_gt'
+    y_label: 'a'
+    dpi: 400
+    title: 'Distance between reconstruction and ground truth in signal space'
+  type: 'single'
 
 
 

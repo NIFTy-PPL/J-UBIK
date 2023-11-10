@@ -13,7 +13,7 @@ from .utils import get_config
 
 
 # GENERIC
-def load_masked_data_from_pickle(file_path, mask_func):
+def load_masked_data_from_pickle(file_path):
     """ Load data from pickle file as a data-dictionary and create a jft.Vector
     of masked data out of it
 
@@ -31,11 +31,7 @@ def load_masked_data_from_pickle(file_path, mask_func):
     """
     with open(file_path, "rb") as f:
         data_dict = pickle.load(f)
-    masked_data_dict = mask_func(jnp.stack(list(data_dict.values())))
-    if set(data_dict.keys()) != set(masked_data_dict):
-        raise ValueError('The loaded data dictionary and the given mask function '
-                         'are not compatible!')
-    return masked_data_dict
+    return data_dict
 
 
 def save_dict_to_pickle(dictionary, file_path):
