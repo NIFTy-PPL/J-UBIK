@@ -145,7 +145,7 @@ def create_diffuse_component_model(shape, padding_ratio, distances, offset, fluc
     ext_shp = tuple(int(entry * padding_ratio) for entry in shape)
     cfm = jft.CorrelatedFieldMaker(prefix=prefix)
     cfm.set_amplitude_total_offset(**offset)
-    cfm.add_fluctuations(ext_shp, distances, **fluctuations)
+    cfm.add_fluctuations(ext_shp, distances, **fluctuations, non_parametric_kind='power')
     cf = cfm.finalize()
     pspec = cfm.power_spectrum
 

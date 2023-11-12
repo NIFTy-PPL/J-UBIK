@@ -82,11 +82,6 @@ priors:
 
 minimization:
   resume: False
-  total_iterations: 20
+  total_iterations: 15
   n_samples: 4
-  minimizer: newtoncg
-  sampling_minimizer: newton_cg
-  sampling_method: linear
-  sampling_kwargs:
-    xtol: 0.001
-    maxiter: 10
+  sampling_method: altmetric
