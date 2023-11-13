@@ -324,7 +324,7 @@ class OAConvolver(ift.LinearOperator):
 
 
 class OAnew(ift.LinearOperator):
-    """Opperator for approximative inhomogeneous convolution.
+    """Operator for approximative inhomogeneous convolution.
 
     By OverlapAdd convolution with different kernels and bilinear
     interpolation of the result. In the case of one patch this simplifies
