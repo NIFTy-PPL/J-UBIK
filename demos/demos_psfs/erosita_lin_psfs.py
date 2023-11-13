@@ -63,47 +63,10 @@ print("")
 print("Equality of LIN and LINJAX: ", np.allclose(res1, res2))
 
 # Test alternative to get the operator
-#
-
 test_psf = xu.build_erosita_psf(filename, energy, pointing_center, domain,
                                 c2params["npatch"], c2params["margfrac"],
                                 c2params["want_cut"])
 res3 = test_psf(rnds.val)
 print("Equality of other LINJAX instance: ", np.allclose(res2, res3))
-exit()
+
 # TODO add benchmarks for performace and do further tests
-# print('JIT LINJAX-PSF...')
-# t0 = timeit.default_timer()
-# res = op1(rnds)
-# t1 = timeit.default_timer()
-# print('...done JIT LIN-PSF')
-# print('Compile time MSC:', t1-t0)
-# res2 = op2(rnds)
-
-# t0 = timeit.default_timer()
-# res = op(rnds)
-# t1 = timeit.default_timer()
-# print('MSC:', t1-t0)
-# t0 = timeit.default_timer()
-# res2 = op2(rnds)
-# t1 = timeit.default_timer()
-# print('LIN:', t1-t0)
-
-# pl = ift.Plot()
-# pl.add(res, title = 'MSC')
-# pl.add(res2, title = 'LIN')
-# pl.add((res-res2).abs(), title='ABS Diff')
-# pl.output(nx=2, ny=2, xsize=16, ysize=16)
-
-# res = op(sources)
-# res2 = op2(sources)
-
-# pl = ift.Plot()
-# pl.add(res, title = 'MSC')
-# pl.add((res-kernels).abs(), title='Abs diff MSC')
-# pl.add(kernels, title = 'GT')
-
-# pl.add(res2, title = 'LIN')
-# pl.add((res2-kernels).abs(), title='Abs diff LIN')
-# pl.add(kernels, title = 'GT')
-# pl.output(nx=3, ny=2, xsize=16, ysize=10)
