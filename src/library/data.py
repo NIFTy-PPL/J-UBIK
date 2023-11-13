@@ -15,7 +15,7 @@ from typing import NamedTuple
 
 
 class Domain(NamedTuple):
-    """Mimicing NIFTy Domain.
+    """Mimicking NIFTy Domain.
 
     Paramters:
     ----------
