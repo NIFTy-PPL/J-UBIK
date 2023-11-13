@@ -3,6 +3,7 @@ import math
 
 import nifty8 as ift
 import numpy as np
+import jax
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -205,7 +206,7 @@ def _append_key(s, key):
     return f"{s} ({key})"
 
 
-def plot_sample_and_stats(output_directory, operators_dict, pos, res_sample_list, iteration=None,
+def plot_sample_and_stats(output_directory, operators_dict, res_sample_list, state, iteration=None,
                           log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None):
     """
     Plots operator samples and statistics from a sample list.
@@ -214,7 +215,8 @@ def plot_sample_and_stats(output_directory, operators_dict, pos, res_sample_list
     -----------
     - output_directory: `str`. The directory where the plot files will be saved.
     - operators_dict: `dict[callable]`. A dictionary containing operators.
-    - sample_list: `nifty8.re.kl.Samples`. The sample list.
+    - res_sample_list: `nifty8.re.kl.Samples`. The residual sample list.
+    - state: `nifty8.re.kl.OptVIState`. The current minimization state.
     - iteration: `int`, optional. The global iteration number value. Defaults to None.
     - log_scale: `bool`, optional. Whether to use a logarithmic scale. Defaults to True.
     - colorbar: `bool`, optional. Whether to show a colorbar. Defaults to True.
@@ -225,8 +227,8 @@ def plot_sample_and_stats(output_directory, operators_dict, pos, res_sample_list
     --------
     - None
     """
-    sample_list = res_sample_list.samples.at(pos)
-    sample_list = list(sample_list)
+    samples = res_sample_list.at(state.minimization_state.x).samples
+
     if iteration is None:
         iteration = 0
     if plotting_kwargs is None:
@@ -239,8 +241,8 @@ def plot_sample_and_stats(output_directory, operators_dict, pos, res_sample_list
         filename_samples = os.path.join(results_path, "samples_{}.png".format(iteration))
         filename_stats = os.path.join(results_path, "stats_{}.png".format(iteration))
 
-        results[key] = np.stack([op(pos) for pos in sample_list])
-        n_samples = len(sample_list)
+        results[key] = jax.vmap(op)(samples)
+        n_samples = results[key].shape[0]
 
         if 'title' not in plotting_kwargs:
             title = [f"Sample {ii}" for ii in range(n_samples)]

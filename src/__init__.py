@@ -22,10 +22,10 @@ from .library.sky_models import (SkyModel, create_sky_model, create_point_source
                                  create_diffuse_component_model, create_sky_model_from_config)
 from .library.response import load_erosita_response, build_exposure_function, \
     build_callable_from_exposure_file, build_readout_function, build_erosita_response, \
-    build_erosita_response_from_config
+    build_erosita_response_from_config, build_erosita_psf
 from .library.data import (load_masked_data_from_pickle, load_erosita_masked_data,
                            generate_erosita_data_from_config, generate_mock_sky_from_prior_dict,
-                           save_data_dict_to_pickle)
+                           save_data_dict_to_pickle, Domain)
 from .library.likelihood import generate_erosita_likelihood_from_config
 from .library.diagnostics import (signal_space_uwr_from_file,
                                   data_space_uwr_from_file,
@@ -35,8 +35,12 @@ from .library.diagnostics import (signal_space_uwr_from_file,
                                   plot_lambda_diagnostics,
                                   plot_sky_flux_diagnostics,
                                   signal_space_weighted_residual_distribution)
-from .operators.convolution_operators import OAConvolver, OAnew, OverlapAdd
-from .operators.convolution_operators import _get_weights
+from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
+                                              _get_weights)
+from .operators.jifty_convolution_operators import (_bilinear_weights,
+                                                    slice_patches,
+                                                    linpatch_convolve,
+                                                    jifty_convolve)
 from .operators.zero_padder import MarginZeroPadder
 from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
