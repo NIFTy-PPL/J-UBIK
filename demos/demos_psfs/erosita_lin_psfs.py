@@ -2,7 +2,6 @@
 import xubik0 as xu
 import nifty8 as ift
 import numpy as np
-import timeit
 
 from jax import config
 config.update('jax_enable_x64', True)
@@ -44,8 +43,6 @@ npix = (512, 512)
 dists = tuple(ff/pp for ff, pp in zip(fov, npix))
 domain = ift.RGSpace(npix, distances=dists)
 
-# psf_func = obs.psf_func_on_domain(energy, pointing_center, domain)
-# kernels, sources = get_kernels_and_sources(domain, psf_func)
 
 c2params = {'npatch': 8, 'margfrac': 0.062, 'want_cut': False}
 
