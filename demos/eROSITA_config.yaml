@@ -82,11 +82,20 @@ priors:
 
 minimization:
   resume: False
-  total_iterations: 20
+  sampling_method: altmetric
+  total_iterations: 15
   n_samples: 4
-  minimizer: newtoncg
-  sampling_minimizer: newton_cg
-  sampling_method: linear
-  sampling_kwargs:
-    xtol: 0.001
-    maxiter: 10
+  kl_solver:
+    method: newtoncg
+    method_options:
+      absdelta: 1.e-4
+      maxiter: 10
+  sample_update_kwargs:
+    method: newtoncg
+    method_options:
+      xtol: 2.e-4
+      maxiter: 25
+  make_sample_generator_kwargs:
+    cg_kwargs:
+      absdelta: 1.e-4
+      maxiter: 60
