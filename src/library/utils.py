@@ -12,6 +12,18 @@ import nifty8 as ift
 def get_config(path_to_yaml_file):
     """
     Convenience function for loading yaml-config files
+
+    Parameters
+    ----------
+
+    path_to_yaml_file: str,
+        The location of the config file
+
+    Returns:
+    -------
+    dictionary
+        a dictionary containing all the information stored in the config.yaml
+
     """
     import yaml
     with open(path_to_yaml_file, "r") as cfg_file:
@@ -22,6 +34,13 @@ def get_config(path_to_yaml_file):
 def save_config(config, filename, dir=None):
     """
     Convenience function to save yaml-config files
+
+    Parameters
+    ----------
+    config: dictionary
+        dictionary containing the config information
+    filename: str
+        location where the filename.yaml should be safed
     """
     import yaml
     if dir is not None:
@@ -33,6 +52,11 @@ def save_config(config, filename, dir=None):
 def create_output_directory(directory_name):
     """
     Convenience function to create directories
+
+    Parameters
+    ----------
+    directory_name: str
+        path of the directory which will be created
     """
     os.makedirs(directory_name, exist_ok=True)
     return directory_name
@@ -71,6 +95,21 @@ def get_gaussian_psf(op, var):
 
 
 def get_data_domain(config):
+    """Convenience function building a DomainTuple from information stored in a dictionary
+
+    Parameters
+    ----------
+    config: dictionary
+        must contain the keys "npix_s", "npix_e" [The values have to be
+        integer and describe the number of pixels along one of the the
+        2D-spatial axis and the 1D energy axis.], and the "fov"
+        (Field of View in arcseconds).
+
+    Returns:
+    --------
+    DomainTuple
+
+    """
     dom_sp = ift.RGSpace(([config["npix_s"]] * 2), distances=_get_sp_dist(config))
     e_sp = ift.RGSpace((config["npix_e"]), distances=_get_e_dist(config))
     return ift.DomainTuple.make([dom_sp, e_sp])
@@ -90,6 +129,19 @@ def get_normed_exposure(exposure_field, data_field):
     """
     Convenience function to get exposures on the order of 1, so that the signal is living on
     the same order of magnitude as the data.
+
+    Parameters
+    ----------
+
+    exposure_field: NIFTy_8 field
+        the exposure of the obseration stored in a NIFTy field
+    data_field: NIFTy_8 field
+        the data
+
+    Returns:
+    --------
+    NIFTy_8 field
+        containing a normalized version of the exposure
     """
     warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     ratio = (
@@ -124,8 +176,20 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
 
 def get_norm(exposure_field, data_field):
     """
-    returns only the order of magnitude of
-    the norm of get_normed_exposure
+    Convenience function to get the order of magnitude of the flux (before the exposure).
+
+    Parameters
+    ----------
+
+    exposure_field: NIFTy_8 field
+        the exposure of the obseration stored in a NIFTy field
+    data_field: NIFTy_8 field
+        the data
+
+    Returns:
+    --------
+    scalar
+        numpy.float64
     """
     warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     ratio = (
