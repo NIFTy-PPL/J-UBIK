@@ -241,9 +241,9 @@ def build_erosita_response_from_config(config_file_path):
 
     # plugin
     response_func = lambda x: mask_func(exposure_func(psf_func(x))[:,43:-43,43:-43])
-    response_funcs = {'mask': mask_func, 'exposure': exposure_func, 'psf': psf_func,
+    response_dict = {'mask': mask_func, 'exposure': exposure_func, 'psf': psf_func,
                       'R': response_func}
-    return response_funcs
+    return response_dict
 
 
 def load_erosita_response():
