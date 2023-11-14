@@ -731,6 +731,18 @@ def transform_loglog_slope_pars(slope_pars):
 
 
 def is_subdomain(sub_domain, total_domain):
+    """Checks if a domain is a true sub_domain of a MultiDomain. If the
+    sub_domain is a DomainTuple equality with total_domain is checked.
+
+    Parameters
+    ----------
+    sub_domain: NIFTy_8 Domain, DomainTuple or MultiDomain
+    total_domain: NIFTy_8 Domain, DomainTuple or MultiDomain
+
+    Returns:
+    -------
+    Boolean
+    """
     if not isinstance(sub_domain, (ift.MultiDomain, ift.DomainTuple)):
         raise TypeError
     if isinstance(sub_domain, ift.DomainTuple):
@@ -843,7 +855,8 @@ def generate_mock_setup(sky_model, psf_op, mock_sky_position, exposure=None, pad
 
 
 class _IGLikelihood(ift.EnergyOperator):
-    """Functional form of the Inverse-Gamma distribution.
+    """Functional form of the Inverse-Gamma distribution. Can be used for
+    Equal-likelihood-optimization.
     
     Notes:
     ------
@@ -945,6 +958,7 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
 
 
 def check_type(arg, type, name=''):
+    # TODO Rename to _check_type. Or is this function for public use?
     if arg is None:
         pass
     elif isinstance(arg, list):
@@ -959,6 +973,18 @@ def check_type(arg, type, name=''):
 
 
 def get_rel_uncertainty(mean, std):
+    """Calculates the pointwise relative uncertainty from the mean
+    and the standard deviation.
+
+    Parameters
+    ----------
+    mean: NIFTy_8 Field
+    std: NIFTy_8 Field
+
+    Returns
+    -------
+    NIFTy_8 Field
+    """
     assert mean.domain == std.domain
     domain = mean.domain
     mean, std = mean.val, std.val
@@ -970,6 +996,21 @@ def get_rel_uncertainty(mean, std):
 
 
 def get_RGB_image_from_field(field, norm=None, sat=None):
+    """Turns a 3D Field into RGB image.
+
+    Paramters
+    ---------
+    field: NIFTy_8 Field
+    norm: list
+        containing normalization functions. Default:[np.log, np.log10, np.log10]
+    sat: float
+        Multiplicative factor defining maximum values in the RGB image.
+        Default: None.
+
+    Returns
+    -------
+    numpy.array
+    """
     if norm is None:
         norm = [np.log, np.log10, np.log10]
     arr = field.val
