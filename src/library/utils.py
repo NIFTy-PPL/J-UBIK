@@ -154,6 +154,29 @@ def get_normed_exposure(exposure_field, data_field):
 
 
 def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
+    """
+    Convenience function to get the order of magnitude of the
+    exposure corrected flux for several patches. It returns
+    the maximum, the mean and the standard deviation.
+
+    Parameters
+    ----------
+
+    datasets: list of strings
+        name (prefix) of the datasets. These contain the data and the exposure.
+    domain: NIFTy_8 domain
+        spatial domain of the datasets/exposure
+    energy_bins: int
+        number of energy bins
+    obs_type: string
+    # FIXME is still there?
+
+    Returns:
+    --------
+    list
+        maximum, mean and std of the exposure corrected flux as
+        numpy.float64 scalars.
+    """
     warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     norms = []
     norm_mean = []
@@ -176,7 +199,8 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
 
 def get_norm(exposure_field, data_field):
     """
-    Convenience function to get the order of magnitude of the flux (before the exposure).
+    Convenience function to get the order of magnitude of the
+    exposure corrected flux.
 
     Parameters
     ----------
