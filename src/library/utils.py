@@ -257,7 +257,7 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
     This is needed for the application of OverlappAdd algorithm at the
     moment. # TODO Interpolation of PSF
 
-    Parameters:
+    Parameters
     -----------
 
     info: ChandraObservation
@@ -271,7 +271,9 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
     debug: boolean, if True: returns also the sources, coordinates(RA/DEC)
     and the positions (indices)
 
-    returns: Array of simulated point spread functions
+    Returns
+    -------
+    Array of simulated point spread functions
     """
     psf_domain = ift.RGSpace((npix_s, npix_s), distances=fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
@@ -321,7 +323,23 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
 
 def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
     """
-    Artificial point source for chandra
+    Simulate an artificial point source at at pixel indices for a specific
+    observation.
+
+    Parameters
+    ----------
+    info: instance of ChandraObersvation
+    npix_s : int
+        Number of pixels along one spatial axis
+    idx_tuple: tuple
+        indices of the pointsource. (x_idx, y_idx)
+    num_rays: int
+        Number of rays for the psf simulation
+
+    Returns
+    -------
+    NIFTy_8 field
+        with a simulation pointsource at the position idx_tuple
     """
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
@@ -338,15 +356,19 @@ def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
 
 def coord_center(side_length, side_n):
     """
-    calculates the indices of the centers of the n**2 patches
+    Calculates the indices of the centers of the n**2 patches
     for a quadratical domain with a certain side length
 
-    Parameters:
+    Parameters
     ----------
     side_length: int
         length of one side
     side_n: int
         number of patches along one side
+
+    Returns
+    -------
+    Array
     """
     tdx = tdy = side_length // side_n
     xc = np.arange(tdx // 2, tdx * side_n, tdx)
@@ -357,6 +379,7 @@ def coord_center(side_length, side_n):
 
 
 def get_radec_from_xy(temp_x, temp_y, event_f):
+
     import ciao_contrib.runtool as rt
 
     rt.dmcoords.punlearn()
