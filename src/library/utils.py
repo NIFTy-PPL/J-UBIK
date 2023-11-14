@@ -321,7 +321,7 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
         return psf_sim
 
 
-def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
+def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
     """
     Simulate an artificial point source at at pixel indices for a specific
     observation.

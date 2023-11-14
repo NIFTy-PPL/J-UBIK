@@ -15,7 +15,7 @@ idxs = [(130, 130), (500, 500), (700, 700)]
 sp = ift.RGSpace([npix_s, npix_s])
 
 for i, idx_tupel in enumerate(idxs):
-    point_source = xu.get_synth_pointsource(info, npix_s, fov, idx_tupel, numrays)
+    point_source = xu.get_synth_pointsource(info, npix_s, idx_tupel, numrays)
     point_source = point_source[:, :, 0]
     point_source = ift.makeField(sp, point_source)
     if i == 0:
