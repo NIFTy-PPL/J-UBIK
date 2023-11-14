@@ -250,33 +250,6 @@ def get_mask_operator(exp_field):
     return mask_operator
 
 
-def prior_sample_plotter(opchain, n):
-    """
-    Convenience function for prior sample plotting.
-    #TODO Check if this is in nifty8 --> than this can be deleted
-    """
-    fig, ax = plt.subplots(1, n, figsize=(11.7, 8.3), dpi=200)
-    ax = ax.flatten()
-    for ii in range(n):
-        f = ift.from_random(opchain.domain)
-        field = opchain(f)
-        half_fov = (
-                field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0
-        )  # is this true?
-        pltargs = {
-            "origin": "lower",
-            "cmap": "inferno",
-            "extent": [-half_fov, half_fov] * 2,
-            "norm": LogNorm(),
-        }
-        img = field.val
-        im = ax[ii].imshow(img, **pltargs)
-        cb = fig.colorbar(im, ax=ax[ii])
-    fig.tight_layout()
-    plt.show()
-    plt.close()
-
-
 def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
                    debug=False, Roll=True, Norm=True):
     """
