@@ -133,14 +133,14 @@ def get_normed_exposure(exposure_field, data_field):
     Parameters
     ----------
 
-    exposure_field: NIFTy_8 field
-        the exposure of the obseration stored in a NIFTy field
-    data_field: NIFTy_8 field
+    exposure_field: nifty8.Field
+        the exposure of the obseration stored in a nifty8.Field
+    data_field: nifty8.Field
         the data
 
     Returns:
     --------
-    NIFTy_8 field
+    nifty8.Field
         containing a normalized version of the exposure
     """
     warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
@@ -164,7 +164,7 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
 
     datasets: list of strings
         name (prefix) of the datasets. These contain the data and the exposure.
-    domain: NIFTy_8 domain
+    domain: nifty8.Domain
         spatial domain of the datasets/exposure
     energy_bins: int
         number of energy bins
@@ -205,9 +205,9 @@ def get_norm(exposure_field, data_field):
     Parameters
     ----------
 
-    exposure_field: NIFTy_8 field
-        the exposure of the obseration stored in a NIFTy field
-    data_field: NIFTy_8 field
+    exposure_field: nifty8.Field
+        the exposure of the obseration stored in a nifty8.Field
+    data_field: nifty8.Field
         the data
 
     Returns:
@@ -233,13 +233,13 @@ def get_mask_operator(exp_field):
 
     Parameters
     ----------
-    exp_field: NIFTy_8 field
+    exp_field: nifty8.Field
         Exposure of the measurement. Typically in s/(cm**2)
 
     Returns
     -------
     operator
-        NIFTy_8 MaskOperator removing flagged values. The target
+        nifty8.MaskOperator removing flagged values. The target
         is therefore an unstructured Domain, smaller than the
         domain.
     """
@@ -338,7 +338,7 @@ def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
 
     Returns
     -------
-    NIFTy_8 field
+    nifty8.Field
         with a simulation pointsource at the position idx_tuple
     """
     xy_range = info.obsInfo["xy_range"]
@@ -379,20 +379,39 @@ def coord_center(side_length, side_n):
 
 
 def get_radec_from_xy(temp_x, temp_y, event_f):
-    import ciao_contrib.runtool as rt
+    # TODO is this enough precision
+    """Calculates sky ra and dec from sky pixel coordinates.
 
+    Parameters
+    ----------
+    temp_x: int
+    temp_y: int
+
+    Returns
+    -------
+    tuple
+    """
+    import ciao_contrib.runtool as rt
     rt.dmcoords.punlearn()
     rt.dmcoords(event_f, op="sky", celfmt="deg", x=temp_x, y=temp_y)
     x_p = float(rt.dmcoords.ra)
     y_p = float(rt.dmcoords.dec)
     return (x_p, y_p)
-    # TODO is this enough precision
 
 
 def convolve_operators(a, b):
     """
     Convenience function for the convolution of two operators a and b.
     This uses Fast Fourier Transformation (FFT).
+
+    Parameters
+    ----------
+    a: nifty8.Operator or OperatorChain
+    b: nifty8.Operator or OperatorChain
+
+    Returns
+    -------
+    nifty8.OperatorChain
     """
     FFT = ift.FFTOperator(a.target)
     convolved = FFT.inverse(FFT(a.real) * FFT(b.real))
@@ -551,6 +570,14 @@ def field_T(field):
     """
     Getting the transposed field of the original field.
     This only works for quadratical domains.
+
+    Parameters
+    ----------
+    field: nifty8.Field
+
+    Returns
+    -------
+    nifty8.Field
     """
     domain = field.domain
     arr = field.val.T
@@ -559,13 +586,36 @@ def field_T(field):
 
 
 class Transposer(ift.EndomorphicOperator):
-    """Operator which performs a transposition of the array."""
+    """
+    Operator which performs a transposition of the array.
+    """
     def __init__(self, domain):
+        """
+        Constructs the Transposer Operator.
+
+        Paramters
+        ---------
+        domain: nifty8.Domain
+
+        """
         self._domain = ift.makeDomain(domain)
         self._target = self.domain
         self._capability = self.TIMES | self.ADJOINT_TIMES
 
     def apply(self, x, mode):
+        """Transposes the input field.
+
+        Parameters
+        ----------
+        x: nifty8.Field
+        mode : int
+            - :attr:`TIMES`: normal application
+            - :attr:`ADJOINT_TIMES`: adjoint application
+            - :attr:`INVERSE_TIMES`: inverse application
+            - :attr:`ADJOINT_INVERSE_TIMES` or
+              :attr:`INVERSE_ADJOINT_TIMES`: adjoint inverse application
+
+        """
         self._check_input(x, mode)
         res = ift.Field.from_raw(self._tgt(mode), x.val.T)
         return res
@@ -575,7 +625,7 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
                  overwrite=False, obs_type="SF"):
     """Write sample list to FITS file.
 
-    This function writes properties of a sample list to a FITS file according to the obs_type and based on the NIFTy8
+    This function writes properties of a sample list to a FITS file according to the obs_type and based on the nifty8
     function save_to_fits by P.Arras
 
     Parameters
@@ -745,8 +795,8 @@ def is_subdomain(sub_domain, total_domain):
 
     Parameters
     ----------
-    sub_domain: NIFTy_8 Domain, DomainTuple or MultiDomain
-    total_domain: NIFTy_8 Domain, DomainTuple or MultiDomain
+    sub_domain: nifty8.Domain, DomainTuple or MultiDomain
+    total_domain: nifty8.Domain, DomainTuple or MultiDomain
 
     Returns:
     -------
@@ -864,16 +914,27 @@ def generate_mock_setup(sky_model, psf_op, mock_sky_position, exposure=None, pad
 
 
 class _IGLikelihood(ift.EnergyOperator):
-    """Functional form of the Inverse-Gamma distribution. Can be used for
+    """
+    Functional form of the Inverse-Gamma distribution. Can be used for
     Equal-likelihood-optimization.
-    
+
     Notes:
     ------
         This implementation is only designed for a point source component over
         a single-frequency sky.
     """
     # TODO: Build MF-version
+
     def __init__(self, data, alpha, q):
+        """
+        Constructs an EnergyOperator specifially for InverseGamma Likelihoods.
+
+        Parameters
+        ----------
+        data: nifty8.Field
+        alpha: float
+        q: float
+        """
         self._domain = ift.makeDomain(data.domain)
         shift = ift.Adder(data) @ ift.ScalingOperator(self._domain, -1)
         dummy = ift.ScalingOperator(self._domain, 1)
@@ -893,10 +954,12 @@ class _IGLikelihood(ift.EnergyOperator):
 def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
                             point_key = 'point_sources', stiffness = 1E6,
                             red_factor = 1E-3):
-    """Performs a likelihood (i.E. input sky) invariant transition between the
+    """
+    Performs a likelihood (i.E. input sky) invariant transition between the
     dofs of a diffuse component and point sources. Assumes `sky`to be composed
     as
         sky = diffuse_sky(xi_diffuse) + point_sky(xi_point)
+
     where `(..._)sky` are `nifty` Operators and `xi` are the standard dofs of
     the components. The operator `point_sky` is assumed to be a generative
     process for an Inverse-Gamma distribution matching the convention of
@@ -987,12 +1050,12 @@ def get_rel_uncertainty(mean, std):
 
     Parameters
     ----------
-    mean: NIFTy_8 Field
-    std: NIFTy_8 Field
+    mean: nifty8.Field
+    std: nifty8.Field
 
     Returns
     -------
-    NIFTy_8 Field
+    nifty8.Field
     """
     assert mean.domain == std.domain
     domain = mean.domain
@@ -1009,7 +1072,7 @@ def get_RGB_image_from_field(field, norm=None, sat=None):
 
     Paramters
     ---------
-    field: NIFTy_8 Field
+    field: nifty8.Field
     norm: list
         containing normalization functions. Default:[np.log, np.log10, np.log10]
     sat: float
