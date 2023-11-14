@@ -17,7 +17,7 @@ def get_config(path_to_yaml_file):
     path_to_yaml_file: str,
         The location of the config file
 
-    Returns:
+    Returns
     -------
     dictionary
         a dictionary containing all the information stored in the config.yaml
@@ -125,8 +125,8 @@ def _get_e_dist(config):
 
 def get_normed_exposure(exposure_field, data_field):
     """
-    Convenience function to get exposures on the order of 1, so that the signal is living on
-    the same order of magnitude as the data.
+    Convenience function to get exposures on the order of 1, so that the signal
+    is living on the same order of magnitude as the data.
 
     Parameters
     ----------
@@ -404,12 +404,12 @@ def convolve_operators(a, b):
 
     Parameters
     ----------
-    a: nifty8.Operator or OperatorChain
-    b: nifty8.Operator or OperatorChain
+    a: nifty8.Operator or OpChain
+    b: nifty8.Operator or OpChain
 
     Returns
     -------
-    nifty8.OperatorChain
+    nifty8.OpChain
     """
     FFT = ift.FFTOperator(a.target)
     convolved = FFT.inverse(FFT(a.real) * FFT(b.real))
@@ -418,8 +418,17 @@ def convolve_operators(a, b):
 
 def convolve_field_operator(kernel, op, space=None):
     """
-    Convenience function for the convolution a fixed kernel (field) with an operator.
-    This uses Fast Fourier Transformation (FFT).
+    Convenience function for the convolution a fixed kernel
+    with an operator. This uses Fast Fourier Transformation (FFT).
+
+    Parameters
+    ----------
+    kernel: nifty8.Field
+    op: nifty8.Operator
+
+    Returns
+    -------
+    nifty8.OpChain
     """
     convolve_op = get_fft_psf_op(kernel, op.target, space)
     return convolve_op @ op
@@ -427,15 +436,27 @@ def convolve_field_operator(kernel, op, space=None):
 
 def get_fft_psf_op(kernel, domain, space=None):
     """
-    Convenience function for the generation of a convolution operator with fixed kernel (field).
-    This uses Fast Fourier Transformation (FFT).
+    Convenience function for the generation of a convolution operator
+    with fixed kernel. This uses Fast Fourier Transformation (FFT).
+
+    Parameters
+    ----------
+    kernel: nifty8.field
+    domain: nifty8.Domain or DomainTuple
+    space: int
+        If domain is a DomainTuple the integeter decides on which of the
+        axes the convolution will take place.
+
+    Returns
+    -------
+    nifty8.OpChain
     """
+    # FIXME Hartley + Fix dirty hack
     fft = ift.FFTOperator(domain, space=space)
     realizer = ift.Realizer(domain)
     hsp_kernel = fft(kernel.real)
     kernel_hp = ift.makeOp(hsp_kernel)
     return realizer @ fft.inverse @ kernel_hp @ fft @ realizer
-    # FIXME Hartley + Fix dirty hack
 
 
 class PositiveSumPriorOperator(ift.LinearOperator):
