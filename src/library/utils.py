@@ -379,7 +379,6 @@ def coord_center(side_length, side_n):
 
 
 def get_radec_from_xy(temp_x, temp_y, event_f):
-
     import ciao_contrib.runtool as rt
 
     rt.dmcoords.punlearn()
@@ -392,7 +391,7 @@ def get_radec_from_xy(temp_x, temp_y, event_f):
 
 def convolve_operators(a, b):
     """
-    convenience function for the convolution of two operators a and b.
+    Convenience function for the convolution of two operators a and b.
     This uses Fast Fourier Transformation (FFT).
     """
     FFT = ift.FFTOperator(a.target)
@@ -402,7 +401,7 @@ def convolve_operators(a, b):
 
 def convolve_field_operator(kernel, op, space=None):
     """
-    convenience function for the convolution a fixed kernel (field) with an operator.
+    Convenience function for the convolution a fixed kernel (field) with an operator.
     This uses Fast Fourier Transformation (FFT).
     """
     convolve_op = get_fft_psf_op(kernel, op.target, space)
@@ -411,7 +410,7 @@ def convolve_field_operator(kernel, op, space=None):
 
 def get_fft_psf_op(kernel, domain, space=None):
     """
-    convenience function for the generation of a convolution operator with fixed kernel (field).
+    Convenience function for the generation of a convolution operator with fixed kernel (field).
     This uses Fast Fourier Transformation (FFT).
     """
     fft = ift.FFTOperator(domain, space=space)
@@ -560,6 +559,7 @@ def field_T(field):
 
 
 class Transposer(ift.EndomorphicOperator):
+    """Operator which performs a transposition of the array."""
     def __init__(self, domain):
         self._domain = ift.makeDomain(domain)
         self._target = self.domain
@@ -723,7 +723,16 @@ def energy_binning(fld, energy_bins):
 
 
 def transform_loglog_slope_pars(slope_pars):
-    """Transform slope parameters from log10/log10 to ln/log10 space"""
+    """Transform slope parameters from log10/log10 to ln/log10 space
+
+    Parameters
+    -----------
+    slope_pars: numpy.array
+
+    Returns
+    -------
+    numpy.array
+    """
     res = slope_pars.copy()
     res['mean'] = (res['mean'] + 1) * np.log(10)
     res['sigma'] *= np.log(10)
