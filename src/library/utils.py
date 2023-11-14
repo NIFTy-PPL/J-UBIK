@@ -730,10 +730,11 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
 
 def energy_binning(fld, energy_bins):
     """
-    Takes a field with an arbitrary number of energy bins and reshapes it into a field with three energy-bins.
-    Parameters. If the field has less than 3 energy-bins the field is padded with a constant value. If the field
-    has 3 energy bins, nothing happens and if the field has more than 3 energy bins the array is rebinned to three
-    equally sized energy bins.
+    Takes a field with an arbitrary number of energy bins and reshapes it into
+    a field with three energy-bins. Parameters. If the field has less than
+    3 energy-bins the field is padded with a constant value. If the field
+    has 3 energy bins, nothing happens and if the field has more than 3 energy
+    bins the array is rebinned to 3 equally sized energy bins.
 
     Parameters
     ----------
@@ -749,7 +750,8 @@ def energy_binning(fld, energy_bins):
 
     Note
     ----
-    If the number of energy-bins divided by 3 is not an integer, the last bin will be bigger.
+    If the number of energy-bins divided by 3 is not an integer,
+    the last bin will be bigger.
     """
     domain = fld.domain
     arr = fld.val
