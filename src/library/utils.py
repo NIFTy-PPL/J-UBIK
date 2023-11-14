@@ -226,16 +226,28 @@ def get_norm(exposure_field, data_field):
 
 
 def get_mask_operator(exp_field):
+    """
+    Turns a exposure field into a mask, removing all the pixels
+    which are not exposed from the measurement. This kind of mask is
+    needed to get a well defined Poissonian Likelihood.
+
+    Parameters
+    ----------
+    exp_field: NIFTy_8 field
+        Exposure of the measurement. Typically in s/(cm**2)
+
+    Returns
+    -------
+    operator
+        NIFTy_8 MaskOperator removing flagged values. The target
+        is therefore an unstructured Domain, smaller than the
+        domain.
+    """
     mask = np.zeros(exp_field.shape)
     mask[exp_field.val == 0] = 1
     mask_field = ift.Field.from_raw(exp_field.domain, mask)
     mask_operator = ift.MaskOperator(mask_field)
     return mask_operator
-
-    # FIXME actually here are pixels (Bad Pixels?) in the middle of
-    # the data, which are kind of dead which are NOT included in the
-    # expfield this should be fixed, otherwise we could run into
-    # problems with the reconstruction
 
 
 def prior_sample_plotter(opchain, n):
