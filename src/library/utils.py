@@ -1,11 +1,9 @@
 import os
 from warnings import warn
+
 import numpy as np
 import pickle
 import scipy
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm, SymLogNorm
-
 import nifty8 as ift
 
 
