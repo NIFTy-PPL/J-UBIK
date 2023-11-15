@@ -61,6 +61,21 @@ def create_output_directory(directory_name):
 
 
 def get_gaussian_psf(op, var):
+    """
+    Builds a convolution operator which can be applied to an nifty8.Operator.
+    It convolves the result of the operator with a Gaussian Kernel.
+
+    Paramters
+    ---------
+    op: nifty8.Operator
+        The Operator to which we'll apply the convolution
+    var: float
+        The variance of the Gaussian Kernel
+
+    Returns
+    -------
+    nifty8.Operator
+    """
     # FIXME: cleanup -> refactor into get_gaussian_kernel
     dist_x = op.target[0].distances[0]
     dist_y = op.target[0].distances[1]
