@@ -11,6 +11,21 @@ from .erosita_observation import ErositaObservation
 from .sky_models import create_sky_model
 from .utils import get_config
 
+from typing import NamedTuple
+
+
+class Domain(NamedTuple):
+    """Mimicking NIFTy Domain.
+
+    Paramters:
+    ----------
+    shape: tuple
+    distances: tuple
+    """
+
+    shape: tuple
+    distances: tuple
+
 
 # GENERIC
 def load_masked_data_from_pickle(file_path):

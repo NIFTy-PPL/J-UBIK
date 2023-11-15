@@ -33,28 +33,17 @@ if __name__ == "__main__":
     iteration = eval_cfg['iteration']
     config_path = join(reconstruction_path, eval_cfg['config_name'])
     sl_path_base = join(reconstruction_path, f'samples_{iteration}')
-    pos_path_base = join(reconstruction_path, f'position_it_{iteration}')
+    state_path_base = join(reconstruction_path, f'state_{iteration}')
     diagnostics_path = join(reconstruction_path, "diagnostics")
 
     cfg = xu.get_config(config_path)
     tel_info = cfg['telescope']
     file_info = cfg['files']
 
-    exposure_file_names = [join(file_info['obs_path'], f'{key}_'+file_info['exposure'])
-                           for key in tel_info['tm_ids']]
-    exposure_func = xu.build_callable_from_exposure_file(xu.build_exposure_function,
-                                                      exposure_file_names,
-                                                      exposure_cut=tel_info['exp_cut'])
+    response_dict = xu.build_erosita_response_from_config(config_path)
 
-    mask_func = xu.build_callable_from_exposure_file(xu.build_readout_function,
-                                                    exposure_file_names,
-                                                    threshold=tel_info['exp_cut'],
-                                                    keys=tel_info['tm_ids'],
-                                                    reshape=True
-                                                    )
-    # FIXME: Adjust psf_func generation here
-    psf_func = lambda x: x
-    response_func = lambda x: mask_func(exposure_func(psf_func(x)))
+    mask_func = response_dict['mask']
+    response_func = response_dict['R']
 
     # Signal space UWRs
     uwr_cfg = eval_cfg['uwr']
@@ -72,7 +61,7 @@ if __name__ == "__main__":
         xu.get_diagnostics_from_file(xu.compute_uncertainty_weighted_residuals,
                                      diagnostics_path,
                                      sl_path_base,
-                                     pos_path_base,
+                                     state_path_base,
                                      config_path,
                                      output_operator_keys,
                                      reference_dict=gt_dict,
@@ -91,7 +80,7 @@ if __name__ == "__main__":
         xu.get_diagnostics_from_file(xu.compute_uncertainty_weighted_residuals,
                                      diagnostics_path,
                                      sl_path_base,
-                                     pos_path_base,
+                                     state_path_base,
                                      config_path,
                                      output_operator_keys,
                                      output_dir_base=uwm_cfg['base_filename'],
@@ -113,7 +102,7 @@ if __name__ == "__main__":
         xu.get_diagnostics_from_file(xu.compute_noise_weighted_residuals,
                                      diagnostics_path,
                                      sl_path_base,
-                                     pos_path_base,
+                                     state_path_base,
                                      config_path,
                                      output_operator_keys,
                                      response_func=response_func,
@@ -121,52 +110,63 @@ if __name__ == "__main__":
                                      output_dir_base=nwr_cfg['base_filename'],
                                      n_bins=nwr_cfg['n_bins'] if 'n_bins' in nwr_cfg else None,
                                      plot_kwargs=nwr_cfg['plot_kwargs'])
-
-    # 2D histograms in signal space
-    sky_2D_hist_cfg = eval_cfg['sky_2D_hist']
-    if sky_2D_hist_cfg is not None:
-        output_operator_keys = sky_2D_hist_cfg['output_operators_keys']
-        xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
-                                     diagnostics_path,
-                                     sl_path_base,
-                                     pos_path_base,
-                                     config_path,
-                                     output_operator_keys,
-                                     response_func=None,
-                                     reference_dict=gt_dict,
-                                     output_dir_base=sky_2D_hist_cfg['base_filename'],
-                                     plot_kwargs=sky_2D_hist_cfg['plot_kwargs'],
-                                     type=sky_2D_hist_cfg['type'] if 'type' in sky_2D_hist_cfg
-                                     else 'single',
-                                     relative=False)
-
-    rel_sky_2D_hist_cfg = eval_cfg['rel_sky_2D_hist']
-    if rel_sky_2D_hist_cfg is not None:
-        output_operator_keys = sky_2D_hist_cfg['output_operators_keys']
-        xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
-                                     diagnostics_path,
-                                     sl_path_base,
-                                     pos_path_base,
-                                     config_path,
-                                     output_operator_keys,
-                                     response_func=None,
-                                     reference_dict=gt_dict,
-                                     output_dir_base=rel_sky_2D_hist_cfg['base_filename'],
-                                     plot_kwargs=rel_sky_2D_hist_cfg['plot_kwargs'],
-                                     type=rel_sky_2D_hist_cfg['type'] if 'type'
-                                                                         in rel_sky_2D_hist_cfg
-                                     else 'single',
-                                     relative=True)
-
-    # 2D histograms in data space
     if cfg['mock']:
-        lambda_2D_hist_cfg = eval_cfg['lambda_2D_hist']
-        if lambda_2D_hist_cfg is not None:
-            output_operator_keys = lambda_2D_hist_cfg['output_operators_keys']
+        # 2D histograms in signal space
+        sky_2D_hist_cfg = eval_cfg['sky_2D_hist']
+        if sky_2D_hist_cfg is not None:
+            output_operator_keys = sky_2D_hist_cfg['output_operators_keys']
+            gt_dict = {}
+            for key in output_operator_keys:
+                with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
+                    gt_dict[key] = pickle.load(file)
             xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
                                          diagnostics_path,
                                          sl_path_base,
-                                         pos_path_base,
+                                         state_path_base,
+                                         config_path,
+                                         output_operator_keys,
+                                         response_func=None,
+                                         reference_dict=gt_dict,
+                                         output_dir_base=sky_2D_hist_cfg['base_filename'],
+                                         plot_kwargs=sky_2D_hist_cfg['plot_kwargs'],
+                                         type=sky_2D_hist_cfg['type'] if 'type' in sky_2D_hist_cfg
+                                         else 'single',
+                                         relative=False)
+
+        rel_sky_2D_hist_cfg = eval_cfg['rel_sky_2D_hist']
+        if rel_sky_2D_hist_cfg is not None:
+            output_operator_keys = sky_2D_hist_cfg['output_operators_keys']
+            gt_dict = {}
+            for key in output_operator_keys:
+                with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
+                    gt_dict[key] = pickle.load(file)
+            xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
+                                         diagnostics_path,
+                                         sl_path_base,
+                                         state_path_base,
+                                         config_path,
+                                         output_operator_keys,
+                                         response_func=None,
+                                         reference_dict=gt_dict,
+                                         output_dir_base=rel_sky_2D_hist_cfg['base_filename'],
+                                         plot_kwargs=rel_sky_2D_hist_cfg['plot_kwargs'],
+                                         type=rel_sky_2D_hist_cfg['type'] if 'type'
+                                                                             in rel_sky_2D_hist_cfg
+                                         else 'single',
+                                         relative=True)
+
+        # 2D histograms in data space
+        lambda_2D_hist_cfg = eval_cfg['lambda_2D_hist']
+        if lambda_2D_hist_cfg is not None:
+            output_operator_keys = lambda_2D_hist_cfg['output_operators_keys']
+            gt_dict = {}
+            for key in output_operator_keys:
+                with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
+                    gt_dict[key] = pickle.load(file)
+            xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
+                                         diagnostics_path,
+                                         sl_path_base,
+                                         state_path_base,
                                          config_path,
                                          output_operator_keys,
                                          response_func=response_func,
@@ -181,10 +181,14 @@ if __name__ == "__main__":
         rel_lambda_2D_hist_cfg = eval_cfg['rel_lambda_2D_hist']
         if rel_lambda_2D_hist_cfg is not None:
             output_operator_keys = rel_lambda_2D_hist_cfg['output_operators_keys']
+            gt_dict = {}
+            for key in output_operator_keys:
+                with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
+                    gt_dict[key] = pickle.load(file)
             xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
                                          diagnostics_path,
                                          sl_path_base,
-                                         pos_path_base,
+                                         state_path_base,
                                          config_path,
                                          output_operator_keys,
                                          response_func=response_func,

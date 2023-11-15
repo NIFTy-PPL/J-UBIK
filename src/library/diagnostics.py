@@ -1,3 +1,4 @@
+import jax
 import numpy as np
 import pickle
 from os.path import join
@@ -46,7 +47,7 @@ def _build_full_mask_func_from_exp_files(exposure_file_names,
         if threshold is not None:
             exposures[exposures < threshold] = 0
         summed_exp = np.sum(exposures, axis=0)
-        return  partial(_set_zero, exp=summed_exp)
+        return partial(_set_zero, exp=summed_exp)
 
     return build_callable_from_exposure_file(_builder, exposure_file_names, trsh=threshold)
 
@@ -54,7 +55,7 @@ def _build_full_mask_func_from_exp_files(exposure_file_names,
 def get_diagnostics_from_file(diagnostic_builder,
                               diagnostics_path,
                               sl_path_base,
-                              pos_path_base,
+                              state_path_base,
                               config_path,
                               output_operators_keys,
                               **kwargs):
@@ -69,8 +70,8 @@ def get_diagnostics_from_file(diagnostic_builder,
         Path to the reconstruction diagnostic files.
     sl_path_base: str
         Path base to the sample list, e.g. 'results/diagnostics/samples_1'.
-    pos_path_base: str
-        Path base to pos list, e.g. 'results/diagnostics/position_it_1'.
+    state_path_base: str
+        Path base to state list, e.g. 'results/diagnostics/position_it_1'.
     config_path: str
         Path to config file
     output_operators_keys: list
@@ -83,6 +84,7 @@ def get_diagnostics_from_file(diagnostic_builder,
 
     # Get config info
     cfg = get_config(config_path)
+    grid_info = cfg['grid']
 
     # Create sky operators
     sky_dict = create_sky_model_from_config(config_path)
@@ -91,13 +93,16 @@ def get_diagnostics_from_file(diagnostic_builder,
     # Load position space sample list
     with open(f"{sl_path_base}.p", "rb") as file:
         samples = pickle.load(file)
-    with open(f"{pos_path_base}.p", "rb") as file:
-        pos = pickle.load(file)
 
-    lat_sp_sl = list(samples.at(pos))
-    pos_sp_sample_dict = {key: [op(lat_sp_sample) for lat_sp_sample in lat_sp_sl]
-                          for key, op in sky_dict.items() if key in output_operators_keys}
+    with open(f"{state_path_base}.p", "rb") as file:
+        state = pickle.load(file)
 
+    lat_sp_sl = samples.at(state.minimization_state.x).samples
+    padding_diff = int((grid_info['npix'] - round(grid_info['npix']/grid_info['padding_ratio']))/2)
+    pos_sp_sample_dict = {key: [jax.vmap(op)(lat_sp_sl)[i][padding_diff:-padding_diff,
+                                padding_diff:-padding_diff] for i in
+                                range(len(jax.vmap(op)(lat_sp_sl)))]
+                                for key, op in sky_dict.items() if key in output_operators_keys}
     diagnostic_builder(pos_sp_sample_dict, diagnostics_path, cfg, **kwargs)
 
 
@@ -262,7 +267,7 @@ def compute_noise_weighted_residuals(pos_sp_sample_dict,
         for Rs_sample in Rs_samples:
             diag = tree_map(lambda x, y: (x - y) / jnp.sqrt(x),
                             Rs_sample,
-                            jft.Vector(reference_dict))
+                            reference_dict)
             if abs:
                 diag = tree_map(jnp.abs, diag)
             diag_list.append(diag)

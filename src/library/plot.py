@@ -3,6 +3,7 @@ import math
 
 import nifty8 as ift
 import numpy as np
+import jax
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -205,72 +206,102 @@ def _append_key(s, key):
     return f"{s} ({key})"
 
 
-def _plot_samples(filename, samples, plotting_kwargs):
-    samples = list(samples)
+def plot_sample_and_stats(output_directory, operators_dict, res_sample_list, state, iteration=None,
+                          log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None):
+    """
+    Plots operator samples and statistics from a sample list.
 
-    if isinstance(samples[0].domain, ift.DomainTuple):
-        samples = [ift.MultiField.from_dict({"": ss}) for ss in samples]
-        # if ground_truth is not None:
-        #     ground_truth = ift.MultiField.from_dict({"": ground_truth})
-    if not all(isinstance(ss, ift.MultiField) for ss in samples):
-        raise TypeError
-    keys = samples[0].keys()
+    Parameters:
+    -----------
+    - output_directory: `str`. The directory where the plot files will be saved.
+    - operators_dict: `dict[callable]`. A dictionary containing operators.
+    - res_sample_list: `nifty8.re.kl.Samples`. The residual sample list.
+    - state: `nifty8.re.kl.OptVIState`. The current minimization state.
+    - iteration: `int`, optional. The global iteration number value. Defaults to None.
+    - log_scale: `bool`, optional. Whether to use a logarithmic scale. Defaults to True.
+    - colorbar: `bool`, optional. Whether to show a colorbar. Defaults to True.
+    - dpi: `int`, optional. The resolution of the plot. Defaults to 100.
+    - plotting_kwargs: `dict`, optional. Additional plotting keyword arguments. Defaults to None.
 
-    p = ift.Plot()
-    for kk in keys:
-        single_samples = [ss[kk] for ss in samples]
+    Returns:
+    --------
+    - None
+    """
+    samples = res_sample_list.at(state.minimization_state.x).samples
 
-        if ift.plot.plottable2D(samples[0][kk]):
-            # if ground_truth is not None:
-            # p.add(ground_truth[kk], title=_append_key("Ground truth", kk),
-            #       **plotting_kwargs)
-            # p.add(None)
-            for ii, ss in enumerate(single_samples):
-                # if (ground_truth is None and ii == 16) or (ground_truth is not None and ii == 14):
-                #     break
-                p.add(ss, title=_append_key(f"Sample {ii}", kk), **plotting_kwargs)
-        else:
-            n = len(samples)
-            alpha = n * [0.5]
-            color = n * ["maroon"]
-            label = None
-            # if ground_truth is not None:
-            #     single_samples = [ground_truth[kk]] + single_samples
-            #     alpha = [1.] + alpha
-            #     color = ["green"] + color
-            #     label = ["Ground truth", "Samples"] + (n-1)*[None]
-            p.add(single_samples, color=color, alpha=alpha, label=label,
-                  title=_append_key("Samples", kk), **plotting_kwargs)
-    p.output(name=filename)
+    if iteration is None:
+        iteration = 0
+    if plotting_kwargs is None:
+        plotting_kwargs = {}
 
-
-def _plot_stats(filename, op, sl, plotting_kwargs):
-    try:
-        from matplotlib.colors import LogNorm
-    except ImportError:
-        return
-
-    mean, var = sl.sample_stat(op)
-    p = ift.Plot()
-    # if op is not None: TODO: add Ground Truth plotting capabilities
-    #     p.add(op, title="Ground truth", **plotting_kwargs)
-    p.add(mean, title="Mean", **plotting_kwargs)
-    p.add(var.sqrt(), title="Standard deviation", **plotting_kwargs)
-    p.output(name=filename, ny=2)
-    # print("Output saved as {}.".format(filename))
-
-
-def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterator, plotting_kwargs):
+    results = {}
     for key in operators_dict:
         op = operators_dict[key]
-        results_path = os.path.join(output_directory, key)
-        if not os.path.exists(results_path):
-            os.mkdir(results_path)
-        filename = os.path.join(output_directory, key, "stats_{}.png".format(iterator))
-        filename_samples = os.path.join(output_directory, key, "samples_{}.png".format(iterator))
+        results_path = create_output_directory(os.path.join(output_directory, key))
+        filename_samples = os.path.join(results_path, "samples_{}.png".format(iteration))
+        filename_stats = os.path.join(results_path, "stats_{}.png".format(iteration))
 
-        _plot_stats(filename, op, sample_list, plotting_kwargs)
-        _plot_samples(filename_samples, sample_list.iterator(op), plotting_kwargs)
+        results[key] = jax.vmap(op)(samples)
+        n_samples = results[key].shape[0]
+
+        if 'title' not in plotting_kwargs:
+            title = [f"Sample {ii}" for ii in range(n_samples)]
+            plotting_kwargs.update({'title': title})
+        if 'n_rows' not in plotting_kwargs:
+            plotting_kwargs.update({'n_rows': _get_n_rows_from_n_samples(n_samples)})
+        if 'n_cols' not in plotting_kwargs:
+            n_rows = plotting_kwargs['n_rows']
+            if n_samples % n_rows == 0:
+                n_cols = n_samples // n_rows
+            else:
+                n_cols = n_samples // n_rows + 1
+            plotting_kwargs.update({'n_cols': n_cols})
+        if 'figsize' not in plotting_kwargs:
+            plotting_kwargs.update({'figsize': (plotting_kwargs['n_cols']*4,
+                                                plotting_kwargs['n_rows']*4)})
+
+        # Plot samples
+        plot_result(results[key], output_file=filename_samples, logscale=log_scale,
+                    colorbar=colorbar, dpi=dpi, **plotting_kwargs) # FIXME: works only for 2D
+        # outputs, add target capabilities
+
+        # Plot statistics
+        plotting_kwargs.pop('n_rows')
+        plotting_kwargs.pop('n_cols')
+        plotting_kwargs.pop('figsize')
+        plotting_kwargs.pop('title')
+        title = ["Posterior mean", "Posterior standard deviation"]
+
+        mean = results[key].mean(axis=0)
+        std = results[key].std(axis=0, ddof=1)
+        stats = np.stack([mean, std])
+        plot_result(stats, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
+                    title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
+
+
+def _get_n_rows_from_n_samples(n_samples):
+    """
+    A function to get the number of rows from the given number of samples.
+
+    Parameters:
+    ----------
+        n_samples: `int`. The number of samples.
+
+    Returns:
+    -------
+        `int`: The number of rows.
+    """
+    threshold = 2
+    n_rows = 1
+    if n_samples == 2:
+        return n_rows
+
+    while True:
+        if n_samples < threshold:
+            return n_rows
+
+        threshold = 4*threshold + 1
+        n_rows += 1
 
 
 def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):

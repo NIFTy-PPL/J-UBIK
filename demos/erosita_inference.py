@@ -1,7 +1,6 @@
 import os
 import argparse
 
-import nifty8 as ift
 import nifty8.re as jft
 import xubik0 as xu
 
@@ -20,7 +19,6 @@ if __name__ == "__main__":
     config_path = args.config
     cfg = xu.get_config(config_path)
     file_info = cfg['files']
-    ift.random.push_sseq_from_seed(cfg['seed'])
 
     # Sanity Checks
     if (cfg['minimization']['resume'] and cfg['mock']) and (not cfg['load_mock_data']):
@@ -48,19 +46,22 @@ if __name__ == "__main__":
     minimization_config = cfg['minimization']
     key = random.PRNGKey(cfg['seed'])
     key, subkey = random.split(key)
-    pos_init = jft.Vector(jft.random_like(subkey, sky_dict['sky'].domain))
+    pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky_dict['sky'].domain))
 
-    absdelta = 1e-4 * cfg['grid']['npix']  # FIXME: Replace by domain information
-    n_newton_iterations = 10
-    minimization_kwargs = {"absdelta": absdelta, "maxiter": n_newton_iterations}
-    linear_sampling_kwargs = {"absdelta": absdelta / 10., "maxiter": 100}
-    pos, samples = jft.optimize_kl(log_likelihood,
-                                   pos_init,
-                                   key=key,
-                                   minimization_kwargs=minimization_kwargs,
-                                   sampling_cg_kwargs=linear_sampling_kwargs,
-                                   **minimization_config)
-    print("Likelihood residual(s)")
-    print(jft.reduced_chisq_stats(pos, samples, func=log_likelihood.normalized_residual))
-    print("Prior residual(s)")
-    print(jft.reduced_chisq_stats(pos, samples))
+    kl_solver_kwargs = minimization_config.pop('kl_solver')
+    if kl_solver_kwargs['method'] == 'newtoncg':
+        kl_solver_kwargs['method_options']['absdelta'] *= cfg['grid']['npix']  # FIXME: Replace by domain information
+
+    # Plot
+    plot = lambda s, x, i: xu.plot_sample_and_stats(file_info["res_dir"], sky_dict, s, x,
+                                                    iteration=i)
+
+    samples, state = jft.optimize_kl(log_likelihood,
+                                     pos_init,
+                                     key=key,
+                                     kl_solver_kwargs=kl_solver_kwargs,
+                                     callback=plot,
+                                     out_dir=file_info["res_dir"],
+                                     resample=lambda ii: True if (ii < 2 or ii == 10) else False,
+                                     **minimization_config
+                                     )

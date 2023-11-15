@@ -1,13 +1,13 @@
 import os
+
 import nifty8.re as jft
-import xubik0 as xu
-from .data import (load_erosita_masked_data, generate_erosita_data_from_config,
-                   load_masked_data_from_pickle)
-from .response import (build_callable_from_exposure_file, build_erosita_response,
-                       build_readout_function, build_exposure_function)
+
+from .data import load_erosita_masked_data, generate_erosita_data_from_config, \
+    load_masked_data_from_pickle
+from .response import build_erosita_response_from_config
+from .utils import get_config
 
 
-# FIXME: Include into init
 def generate_erosita_likelihood_from_config(config_file_path):
     """ Creates the eROSITA Poissonian likelihood given the path to the config file.
 
@@ -21,20 +21,15 @@ def generate_erosita_likelihood_from_config(config_file_path):
         Poissoninan likelihood for the eROSITA data and response, specified in the config
     """
 
-    cfg = xu.get_config(config_file_path)
-    tel_info = cfg['telescope']
+    # load config
+    cfg = get_config(config_file_path)
     file_info = cfg['files']
-    exposure_file_names = [os.path.join(file_info['obs_path'], f'{key}_'+file_info['exposure'])
-                           for key in tel_info['tm_ids']]
-    exposure_func = build_callable_from_exposure_file(build_exposure_function,
-                                                      exposure_file_names,
-                                                      exposure_cut=tel_info['exp_cut'])
-    mask_func = build_callable_from_exposure_file(build_readout_function,
-                                                  exposure_file_names,
-                                                  threshold=tel_info['exp_cut'],
-                                                  keys=tel_info['tm_ids'])
-    psf_func = lambda x: x
-    response_func = lambda x: mask_func(exposure_func(psf_func(x)))
+    tel_info = cfg['telescope']
+
+    response_dict = build_erosita_response_from_config(config_file_path)
+
+    response_func = response_dict['R']
+    mask_func = response_dict['mask']
 
     if cfg['mock']:
         masked_data = generate_erosita_data_from_config(config_file_path, response_func,
