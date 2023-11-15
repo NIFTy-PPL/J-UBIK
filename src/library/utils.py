@@ -461,10 +461,23 @@ def get_fft_psf_op(kernel, domain, space=None):
 
 class PositiveSumPriorOperator(ift.LinearOperator):
     """
-    Operator performing a coordinate transformation, requiring MultiToTuple and Trafo.
+    Operator performing a coordinate transformation, requiring MultiToTuple
+    and PositiveSumTrafo. The operator takes the input, here a nifty8.MultiField, mixes
+    it using a coordinate tranformation and spits out a nifty8.MultiField
+    again.
     """
 
     def __init__(self, domain, target=None):
+        """
+        Creates the Operator.
+
+        Paramters
+        ---------
+        domain: nifty8.MultiDomain
+        target: nifty8.MultiDomain
+            Default: target == domain
+
+        """
         self._domain = domain
         if not isinstance(self._domain, ift.MultiDomain):
             raise TypeError("domain must be a MultiDomain")
@@ -474,7 +487,7 @@ class PositiveSumPriorOperator(ift.LinearOperator):
             self._target = target
         self._capability = self.TIMES | self.ADJOINT_TIMES
         self._multi = MultiToTuple(self._domain)
-        self._trafo = Trafo(self._multi.target)
+        self._trafo = PositiveSumTrafo(self._multi.target)
 
     def apply(self, x, mode):
         self._check_input(x, mode)
@@ -488,11 +501,18 @@ class PositiveSumPriorOperator(ift.LinearOperator):
 
 class MultiToTuple(ift.LinearOperator):
     """
-    Puts several Fields of a Multifield of the same domains, into a Domaintuple
-    along a UnstructuredDomain.
+    Puts several Fields of a Multifield of the same domains, into a DomainTuple
+    along a UnstructuredDomain. It's adjoint reverses the action.
     """
 
     def __init__(self, domain):
+        """
+        Creates the Operator.
+
+        Paramters
+        ---------
+        domain: nifty8.MultiDomain
+        """
         self._domain = domain
         if not isinstance(self._domain, ift.MultiDomain):
             raise TypeError("domain has to be a ift.MultiDomain")
@@ -523,15 +543,21 @@ class MultiToTuple(ift.LinearOperator):
         return res
 
 
-class Trafo(ift.EndomorphicOperator):
+class PositiveSumTrafo(ift.EndomorphicOperator):
     """
-    #NOTE RENAME TRAFO
     This Operator performs a coordinate transformation into a coordinate
     system, in which the Oth component is the sum of all components of
-    the former basis.
+    the former basis. Can be used as a replacement of softmax.
     """
 
     def __init__(self, domain):
+        """
+        Creates the Operator.
+
+        Parameters
+        ----------
+        domain: nifty8.domain
+        """
         self._domain = ift.makeDomain(domain)
         self._n = self.domain.shape[0]
         self._build_mat()
@@ -568,6 +594,24 @@ class Trafo(ift.EndomorphicOperator):
 
 
 def get_distributions_for_positive_sum_prior(domain, number):
+    """
+    Builds Priors for the PositiveSumTrafo Operator. Here the 0th Component is supposed
+    to be sum of all others. Since we want the sum to be positive, but some of
+    the summands may be negative. Therefore the 0th component is a priori
+    log-normal distributed.
+
+    Parameters
+    ----------
+    domain: nifty8.domain
+        Domain of each component
+    number: int
+        number of components
+
+    Returns
+    -------
+    nifty8.OpChain
+        Part of the generative model.
+    """
     for i in range(number):
         field_adapter = ift.FieldAdapter(domain, f"amp_{i}")
         tmp_operator = field_adapter.adjoint @ field_adapter
@@ -579,6 +623,21 @@ def get_distributions_for_positive_sum_prior(domain, number):
 
 
 def makePositiveSumPrior(domain, number):
+    """
+    Convenience function to combine PositiveSumPriorOperator and
+    get_distributions_for_prior.
+
+    Paramters
+    ---------
+    domain: nifty8.domain
+        Domain of one component, which will be mixed.
+    number: int
+        Number of components
+
+    Returns
+    -------
+    nifty8.OpChain
+    """
     distributions = get_distributions_for_positive_sum_prior(domain, number)
     positive_sum = PositiveSumPriorOperator(distributions.target)
     op = positive_sum @ distributions
