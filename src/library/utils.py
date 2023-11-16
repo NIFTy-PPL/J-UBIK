@@ -1,17 +1,27 @@
 import os
 from warnings import warn
+
 import numpy as np
 import pickle
 import scipy
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm, SymLogNorm
-
 import nifty8 as ift
 
 
 def get_config(path_to_yaml_file):
     """
     Convenience function for loading yaml-config files
+
+    Parameters
+    ----------
+
+    path_to_yaml_file: str,
+        The location of the config file
+
+    Returns
+    -------
+    dictionary
+        a dictionary containing all the information stored in the config.yaml
+
     """
     import yaml
     with open(path_to_yaml_file, "r") as cfg_file:
@@ -22,6 +32,13 @@ def get_config(path_to_yaml_file):
 def save_config(config, filename, dir=None):
     """
     Convenience function to save yaml-config files
+
+    Parameters
+    ----------
+    config: dictionary
+        dictionary containing the config information
+    filename: str
+        location where the filename.yaml should be safed
     """
     import yaml
     if dir is not None:
@@ -33,12 +50,32 @@ def save_config(config, filename, dir=None):
 def create_output_directory(directory_name):
     """
     Convenience function to create directories
+
+    Parameters
+    ----------
+    directory_name: str
+        path of the directory which will be created
     """
     os.makedirs(directory_name, exist_ok=True)
     return directory_name
 
 
 def get_gaussian_psf(op, var):
+    """
+    Builds a convolution operator which can be applied to an nifty8.Operator.
+    It convolves the result of the operator with a Gaussian Kernel.
+
+    Paramters
+    ---------
+    op: nifty8.Operator
+        The Operator to which we'll apply the convolution
+    var: float
+        The variance of the Gaussian Kernel
+
+    Returns
+    -------
+    nifty8.Operator
+    """
     # FIXME: cleanup -> refactor into get_gaussian_kernel
     dist_x = op.target[0].distances[0]
     dist_y = op.target[0].distances[1]
@@ -71,6 +108,21 @@ def get_gaussian_psf(op, var):
 
 
 def get_data_domain(config):
+    """Convenience function building a DomainTuple from information stored in a dictionary
+
+    Parameters
+    ----------
+    config: dictionary
+        must contain the keys "npix_s", "npix_e" [The values have to be
+        integer and describe the number of pixels along one of the the
+        2D-spatial axis and the 1D energy axis.], and the "fov"
+        (Field of View in arcseconds).
+
+    Returns:
+    --------
+    DomainTuple
+
+    """
     dom_sp = ift.RGSpace(([config["npix_s"]] * 2), distances=_get_sp_dist(config))
     e_sp = ift.RGSpace((config["npix_e"]), distances=_get_e_dist(config))
     return ift.DomainTuple.make([dom_sp, e_sp])
@@ -88,8 +140,21 @@ def _get_e_dist(config):
 
 def get_normed_exposure(exposure_field, data_field):
     """
-    Convenience function to get exposures on the order of 1, so that the signal is living on
-    the same order of magnitude as the data.
+    Convenience function to get exposures on the order of 1, so that the signal
+    is living on the same order of magnitude as the data.
+
+    Parameters
+    ----------
+
+    exposure_field: nifty8.Field
+        the exposure of the obseration stored in a nifty8.Field
+    data_field: nifty8.Field
+        the data
+
+    Returns:
+    --------
+    nifty8.Field
+        containing a normalized version of the exposure
     """
     warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     ratio = (
@@ -102,6 +167,29 @@ def get_normed_exposure(exposure_field, data_field):
 
 
 def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
+    """
+    Convenience function to get the order of magnitude of the
+    exposure corrected flux for several patches. It returns
+    the maximum, the mean and the standard deviation.
+
+    Parameters
+    ----------
+
+    datasets: list of strings
+        name (prefix) of the datasets. These contain the data and the exposure.
+    domain: nifty8.Domain
+        spatial domain of the datasets/exposure
+    energy_bins: int
+        number of energy bins
+    obs_type: string
+    # FIXME is still there?
+
+    Returns:
+    --------
+    list
+        maximum, mean and std of the exposure corrected flux as
+        numpy.float64 scalars.
+    """
     warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     norms = []
     norm_mean = []
@@ -124,8 +212,21 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
 
 def get_norm(exposure_field, data_field):
     """
-    returns only the order of magnitude of
-    the norm of get_normed_exposure
+    Convenience function to get the order of magnitude of the
+    exposure corrected flux.
+
+    Parameters
+    ----------
+
+    exposure_field: nifty8.Field
+        the exposure of the obseration stored in a nifty8.Field
+    data_field: nifty8.Field
+        the data
+
+    Returns:
+    --------
+    scalar
+        numpy.float64
     """
     warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
     ratio = (
@@ -138,43 +239,28 @@ def get_norm(exposure_field, data_field):
 
 
 def get_mask_operator(exp_field):
+    """
+    Turns a exposure field into a mask, removing all the pixels
+    which are not exposed from the measurement. This kind of mask is
+    needed to get a well defined Poissonian Likelihood.
+
+    Parameters
+    ----------
+    exp_field: nifty8.Field
+        Exposure of the measurement. Typically in s/(cm**2)
+
+    Returns
+    -------
+    operator
+        nifty8.MaskOperator removing flagged values. The target
+        is therefore an unstructured Domain, smaller than the
+        domain.
+    """
     mask = np.zeros(exp_field.shape)
     mask[exp_field.val == 0] = 1
     mask_field = ift.Field.from_raw(exp_field.domain, mask)
     mask_operator = ift.MaskOperator(mask_field)
     return mask_operator
-
-    # FIXME actually here are pixels (Bad Pixels?) in the middle of
-    # the data, which are kind of dead which are NOT included in the
-    # expfield this should be fixed, otherwise we could run into
-    # problems with the reconstruction
-
-
-def prior_sample_plotter(opchain, n):
-    """
-    Convenience function for prior sample plotting.
-    #TODO Check if this is in nifty8 --> than this can be deleted
-    """
-    fig, ax = plt.subplots(1, n, figsize=(11.7, 8.3), dpi=200)
-    ax = ax.flatten()
-    for ii in range(n):
-        f = ift.from_random(opchain.domain)
-        field = opchain(f)
-        half_fov = (
-                field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0
-        )  # is this true?
-        pltargs = {
-            "origin": "lower",
-            "cmap": "inferno",
-            "extent": [-half_fov, half_fov] * 2,
-            "norm": LogNorm(),
-        }
-        img = field.val
-        im = ax[ii].imshow(img, **pltargs)
-        cb = fig.colorbar(im, ax=ax[ii])
-    fig.tight_layout()
-    plt.show()
-    plt.close()
 
 
 def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
@@ -184,7 +270,7 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
     This is needed for the application of OverlappAdd algorithm at the
     moment. # TODO Interpolation of PSF
 
-    Parameters:
+    Parameters
     -----------
 
     info: ChandraObservation
@@ -198,7 +284,9 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
     debug: boolean, if True: returns also the sources, coordinates(RA/DEC)
     and the positions (indices)
 
-    returns: Array of simulated point spread functions
+    Returns
+    -------
+    Array of simulated point spread functions
     """
     psf_domain = ift.RGSpace((npix_s, npix_s), distances=fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
@@ -246,9 +334,25 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
         return psf_sim
 
 
-def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
+def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
     """
-    Artificial point source for chandra
+    Simulate an artificial point source at at pixel indices for a specific
+    observation.
+
+    Parameters
+    ----------
+    info: instance of ChandraObersvation
+    npix_s : int
+        Number of pixels along one spatial axis
+    idx_tuple: tuple
+        indices of the pointsource. (x_idx, y_idx)
+    num_rays: int
+        Number of rays for the psf simulation
+
+    Returns
+    -------
+    nifty8.Field
+        with a simulation pointsource at the position idx_tuple
     """
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
@@ -265,15 +369,19 @@ def get_synth_pointsource(info, npix_s, fov, idx_tupel, num_rays):
 
 def coord_center(side_length, side_n):
     """
-    calculates the indices of the centers of the n**2 patches
+    Calculates the indices of the centers of the n**2 patches
     for a quadratical domain with a certain side length
 
-    Parameters:
+    Parameters
     ----------
     side_length: int
         length of one side
     side_n: int
         number of patches along one side
+
+    Returns
+    -------
+    Array
     """
     tdx = tdy = side_length // side_n
     xc = np.arange(tdx // 2, tdx * side_n, tdx)
@@ -284,20 +392,39 @@ def coord_center(side_length, side_n):
 
 
 def get_radec_from_xy(temp_x, temp_y, event_f):
-    import ciao_contrib.runtool as rt
+    # TODO is this enough precision
+    """Calculates sky ra and dec from sky pixel coordinates.
 
+    Parameters
+    ----------
+    temp_x: int
+    temp_y: int
+
+    Returns
+    -------
+    tuple
+    """
+    import ciao_contrib.runtool as rt
     rt.dmcoords.punlearn()
     rt.dmcoords(event_f, op="sky", celfmt="deg", x=temp_x, y=temp_y)
     x_p = float(rt.dmcoords.ra)
     y_p = float(rt.dmcoords.dec)
     return (x_p, y_p)
-    # TODO is this enough precision
 
 
 def convolve_operators(a, b):
     """
-    convenience function for the convolution of two operators a and b.
+    Convenience function for the convolution of two operators a and b.
     This uses Fast Fourier Transformation (FFT).
+
+    Parameters
+    ----------
+    a: nifty8.Operator or OpChain
+    b: nifty8.Operator or OpChain
+
+    Returns
+    -------
+    nifty8.OpChain
     """
     FFT = ift.FFTOperator(a.target)
     convolved = FFT.inverse(FFT(a.real) * FFT(b.real))
@@ -306,8 +433,17 @@ def convolve_operators(a, b):
 
 def convolve_field_operator(kernel, op, space=None):
     """
-    convenience function for the convolution a fixed kernel (field) with an operator.
-    This uses Fast Fourier Transformation (FFT).
+    Convenience function for the convolution a fixed kernel
+    with an operator. This uses Fast Fourier Transformation (FFT).
+
+    Parameters
+    ----------
+    kernel: nifty8.Field
+    op: nifty8.Operator
+
+    Returns
+    -------
+    nifty8.OpChain
     """
     convolve_op = get_fft_psf_op(kernel, op.target, space)
     return convolve_op @ op
@@ -315,23 +451,48 @@ def convolve_field_operator(kernel, op, space=None):
 
 def get_fft_psf_op(kernel, domain, space=None):
     """
-    convenience function for the generation of a convolution operator with fixed kernel (field).
-    This uses Fast Fourier Transformation (FFT).
+    Convenience function for the generation of a convolution operator
+    with fixed kernel. This uses Fast Fourier Transformation (FFT).
+
+    Parameters
+    ----------
+    kernel: nifty8.field
+    domain: nifty8.Domain or DomainTuple
+    space: int
+        If domain is a DomainTuple the integeter decides on which of the
+        axes the convolution will take place.
+
+    Returns
+    -------
+    nifty8.OpChain
     """
+    # FIXME Hartley + Fix dirty hack
     fft = ift.FFTOperator(domain, space=space)
     realizer = ift.Realizer(domain)
     hsp_kernel = fft(kernel.real)
     kernel_hp = ift.makeOp(hsp_kernel)
     return realizer @ fft.inverse @ kernel_hp @ fft @ realizer
-    # FIXME Hartley + Fix dirty hack
 
 
 class PositiveSumPriorOperator(ift.LinearOperator):
     """
-    Operator performing a coordinate transformation, requiring MultiToTuple and Trafo.
+    Operator performing a coordinate transformation, requiring MultiToTuple
+    and PositiveSumTrafo. The operator takes the input, here a nifty8.MultiField, mixes
+    it using a coordinate tranformation and spits out a nifty8.MultiField
+    again.
     """
 
     def __init__(self, domain, target=None):
+        """
+        Creates the Operator.
+
+        Paramters
+        ---------
+        domain: nifty8.MultiDomain
+        target: nifty8.MultiDomain
+            Default: target == domain
+
+        """
         self._domain = domain
         if not isinstance(self._domain, ift.MultiDomain):
             raise TypeError("domain must be a MultiDomain")
@@ -341,7 +502,7 @@ class PositiveSumPriorOperator(ift.LinearOperator):
             self._target = target
         self._capability = self.TIMES | self.ADJOINT_TIMES
         self._multi = MultiToTuple(self._domain)
-        self._trafo = Trafo(self._multi.target)
+        self._trafo = PositiveSumTrafo(self._multi.target)
 
     def apply(self, x, mode):
         self._check_input(x, mode)
@@ -355,11 +516,18 @@ class PositiveSumPriorOperator(ift.LinearOperator):
 
 class MultiToTuple(ift.LinearOperator):
     """
-    Puts several Fields of a Multifield of the same domains, into a Domaintuple
-    along a UnstructuredDomain.
+    Puts several Fields of a Multifield of the same domains, into a DomainTuple
+    along a UnstructuredDomain. It's adjoint reverses the action.
     """
 
     def __init__(self, domain):
+        """
+        Creates the Operator.
+
+        Paramters
+        ---------
+        domain: nifty8.MultiDomain
+        """
         self._domain = domain
         if not isinstance(self._domain, ift.MultiDomain):
             raise TypeError("domain has to be a ift.MultiDomain")
@@ -390,15 +558,21 @@ class MultiToTuple(ift.LinearOperator):
         return res
 
 
-class Trafo(ift.EndomorphicOperator):
+class PositiveSumTrafo(ift.EndomorphicOperator):
     """
-    #NOTE RENAME TRAFO
     This Operator performs a coordinate transformation into a coordinate
     system, in which the Oth component is the sum of all components of
-    the former basis.
+    the former basis. Can be used as a replacement of softmax.
     """
 
     def __init__(self, domain):
+        """
+        Creates the Operator.
+
+        Parameters
+        ----------
+        domain: nifty8.domain
+        """
         self._domain = ift.makeDomain(domain)
         self._n = self.domain.shape[0]
         self._build_mat()
@@ -435,6 +609,24 @@ class Trafo(ift.EndomorphicOperator):
 
 
 def get_distributions_for_positive_sum_prior(domain, number):
+    """
+    Builds Priors for the PositiveSumTrafo Operator. Here the 0th Component is supposed
+    to be sum of all others. Since we want the sum to be positive, but some of
+    the summands may be negative. Therefore the 0th component is a priori
+    log-normal distributed.
+
+    Parameters
+    ----------
+    domain: nifty8.domain
+        Domain of each component
+    number: int
+        number of components
+
+    Returns
+    -------
+    nifty8.OpChain
+        Part of the generative model.
+    """
     for i in range(number):
         field_adapter = ift.FieldAdapter(domain, f"amp_{i}")
         tmp_operator = field_adapter.adjoint @ field_adapter
@@ -446,6 +638,21 @@ def get_distributions_for_positive_sum_prior(domain, number):
 
 
 def makePositiveSumPrior(domain, number):
+    """
+    Convenience function to combine PositiveSumPriorOperator and
+    get_distributions_for_prior.
+
+    Paramters
+    ---------
+    domain: nifty8.domain
+        Domain of one component, which will be mixed.
+    number: int
+        Number of components
+
+    Returns
+    -------
+    nifty8.OpChain
+    """
     distributions = get_distributions_for_positive_sum_prior(domain, number)
     positive_sum = PositiveSumPriorOperator(distributions.target)
     op = positive_sum @ distributions
@@ -456,6 +663,14 @@ def field_T(field):
     """
     Getting the transposed field of the original field.
     This only works for quadratical domains.
+
+    Parameters
+    ----------
+    field: nifty8.Field
+
+    Returns
+    -------
+    nifty8.Field
     """
     domain = field.domain
     arr = field.val.T
@@ -464,12 +679,36 @@ def field_T(field):
 
 
 class Transposer(ift.EndomorphicOperator):
+    """
+    Operator which performs a transposition of the array.
+    """
     def __init__(self, domain):
+        """
+        Constructs the Transposer Operator.
+
+        Paramters
+        ---------
+        domain: nifty8.Domain
+
+        """
         self._domain = ift.makeDomain(domain)
         self._target = self.domain
         self._capability = self.TIMES | self.ADJOINT_TIMES
 
     def apply(self, x, mode):
+        """Transposes the input field.
+
+        Parameters
+        ----------
+        x: nifty8.Field
+        mode : int
+            - :attr:`TIMES`: normal application
+            - :attr:`ADJOINT_TIMES`: adjoint application
+            - :attr:`INVERSE_TIMES`: inverse application
+            - :attr:`ADJOINT_INVERSE_TIMES` or
+              :attr:`INVERSE_ADJOINT_TIMES`: adjoint inverse application
+
+        """
         self._check_input(x, mode)
         res = ift.Field.from_raw(self._tgt(mode), x.val.T)
         return res
@@ -479,7 +718,7 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
                  overwrite=False, obs_type="SF"):
     """Write sample list to FITS file.
 
-    This function writes properties of a sample list to a FITS file according to the obs_type and based on the NIFTy8
+    This function writes properties of a sample list to a FITS file according to the obs_type and based on the nifty8
     function save_to_fits by P.Arras
 
     Parameters
@@ -584,10 +823,11 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
 
 def energy_binning(fld, energy_bins):
     """
-    Takes a field with an arbitrary number of energy bins and reshapes it into a field with three energy-bins.
-    Parameters. If the field has less than 3 energy-bins the field is padded with a constant value. If the field
-    has 3 energy bins, nothing happens and if the field has more than 3 energy bins the array is rebinned to three
-    equally sized energy bins.
+    Takes a field with an arbitrary number of energy bins and reshapes it into
+    a field with three energy-bins. Parameters. If the field has less than
+    3 energy-bins the field is padded with a constant value. If the field
+    has 3 energy bins, nothing happens and if the field has more than 3 energy
+    bins the array is rebinned to 3 equally sized energy bins.
 
     Parameters
     ----------
@@ -603,7 +843,8 @@ def energy_binning(fld, energy_bins):
 
     Note
     ----
-    If the number of energy-bins divided by 3 is not an integer, the last bin will be bigger.
+    If the number of energy-bins divided by 3 is not an integer,
+    the last bin will be bigger.
     """
     domain = fld.domain
     arr = fld.val
@@ -627,7 +868,16 @@ def energy_binning(fld, energy_bins):
 
 
 def transform_loglog_slope_pars(slope_pars):
-    """Transform slope parameters from log10/log10 to ln/log10 space"""
+    """Transform slope parameters from log10/log10 to ln/log10 space
+
+    Parameters
+    -----------
+    slope_pars: numpy.array
+
+    Returns
+    -------
+    numpy.array
+    """
     res = slope_pars.copy()
     res['mean'] = (res['mean'] + 1) * np.log(10)
     res['sigma'] *= np.log(10)
@@ -635,6 +885,18 @@ def transform_loglog_slope_pars(slope_pars):
 
 
 def is_subdomain(sub_domain, total_domain):
+    """Checks if a domain is a true sub_domain of a MultiDomain. If the
+    sub_domain is a DomainTuple equality with total_domain is checked.
+
+    Parameters
+    ----------
+    sub_domain: nifty8.Domain, DomainTuple or MultiDomain
+    total_domain: nifty8.Domain, DomainTuple or MultiDomain
+
+    Returns:
+    -------
+    Boolean
+    """
     if not isinstance(sub_domain, (ift.MultiDomain, ift.DomainTuple)):
         raise TypeError
     if isinstance(sub_domain, ift.DomainTuple):
@@ -643,119 +905,28 @@ def is_subdomain(sub_domain, total_domain):
                for kk, vv in sub_domain.items())
 
 
-# FIXME: get rid of this function
-def get_data_realization(op, position, exposure=None, padder=None, data=True, output_directory=None):
-    mpi_master = ift.utilities.get_MPI_params()[3]
-    R = ift.ScalingOperator(op.target, 1)
-    if exposure is not None:
-        R = exposure @ R
-    R_no_pad = R
-
-    if padder is not None:
-        R = padder.adjoint @ R
-    res = op.force(position)
-    if data:
-        res = R(op.force(position))
-        res = ift.random.current_rng().poisson(res.val.astype(np.float64))
-        if padder is not None:
-            res = ift.makeField(padder.adjoint.target, res)
-        else:
-            res = ift.makeField(op.target, res)
-    if output_directory is not None and mpi_master:
-        with open(os.path.join(output_directory, f'response_op.pkl'), 'wb') as file:
-            pickle.dump(R_no_pad, file)
-    return res
-
-
-# FIXME: get rid of this function
-def generate_mock_setup(sky_model, psf_op, mock_sky_position, exposure=None, pad=None,
-                        tm_id=0, output_directory=None):
-    if pad is None and sky_model.position_space != sky_model.extended_space:
-        raise ValueError('The sky is padded but no padder is given')
-    mpi_master = ift.utilities.get_MPI_params()[3]
-
-    # Create output and diagnostic directories
-    if output_directory is not None:
-        diagnostics_dir = os.path.join(output_directory, 'diagnostics')
-        tm_directory = create_output_directory(os.path.join(diagnostics_dir, f'tm{tm_id}'))
-        if mpi_master:
-            create_output_directory(output_directory)
-            create_output_directory(diagnostics_dir)
-            create_output_directory(tm_directory)
-
-    # Exposure
-    exposure_field = exposure
-    if exposure is not None:
-        if pad is not None:
-            exposure = pad(exposure_field)
-        exposure = ift.makeOp(exposure)
-
-    # Get sky operators
-    sky_dict = sky_model.create_sky_model()
-    sky_dict.pop('pspec')
-
-    # Mock sky
-    if mock_sky_position is None:
-        mock_sky_position = ift.from_random(sky_dict['sky'].domain)
-    mock_sky = sky_dict['sky'](mock_sky_position)
-    mock_sky_data = get_data_realization(sky_dict['sky'], mock_sky_position, exposure=exposure,
-                                         padder=pad, output_directory=diagnostics_dir) #FIXME: split
-                                         # into R and get Poissonian data realization
-
-    # Convolve sky operators and draw data realizations
-    conv_sky_dict = {key: (psf_op @ value) for key, value in sky_dict.items()}
-    prefix = "mock_data_"
-    mock_data_dict = {prefix+key: get_data_realization(value,
-                                                       mock_sky_position,
-                                                       exposure=exposure,
-                                                       padder=pad) for key, value in conv_sky_dict.items()}
-    # Prepare output dictionary
-    mock_sky_dict = {}
-    for key, val in sky_dict.items():
-        op = pad.adjoint @ val
-        mock_sky_dict['mock_'+key] = op.force(mock_sky_position)
-
-    if mpi_master and output_directory is not None:
-        p = ift.Plot()
-        for k, v in mock_data_dict.items():
-            # Save data and sky to Pickle
-            with open(os.path.join(tm_directory, f'tm{tm_id}_{k}.pkl'), 'wb') as file:
-                pickle.dump(v, file)
-
-            # Save data to fits
-            save_rgb_image_to_fits(v, os.path.join(tm_directory, f'tm{tm_id}_{k}'), overwrite=True,
-                                   MPI_master=mpi_master)
-
-            # Plot data
-            p.add(v, title=k, norm=LogNorm())
-        for k, v in mock_sky_dict.items():
-            # Save data and sky to Pickle
-            path_to_pickle = os.path.join(diagnostics_dir, f'{k}.pkl')
-            if not os.path.exists(path_to_pickle):
-                with open(os.path.join(diagnostics_dir, f'{k}.pkl'), 'wb') as file:
-                    pickle.dump(v, file)
-
-                # Save data to fits
-                save_rgb_image_to_fits(v, os.path.join(diagnostics_dir, k), overwrite=True,
-                                       MPI_master=mpi_master)
-            # Plot data
-            p.add(v, title=k, norm=LogNorm())
-        if exposure_field is not None:
-            p.add(exposure_field, title='exposure', norm=LogNorm())
-        p.output(nx=3, name=os.path.join(tm_directory, f'tm{tm_id}_mock_data.png'))
-    return mock_data_dict
-
-
 class _IGLikelihood(ift.EnergyOperator):
-    """Functional form of the Inverse-Gamma distribution.
-    
+    """
+    Functional form of the Inverse-Gamma distribution. Can be used for
+    Equal-likelihood-optimization.
+
     Notes:
     ------
         This implementation is only designed for a point source component over
         a single-frequency sky.
     """
     # TODO: Build MF-version
+
     def __init__(self, data, alpha, q):
+        """
+        Constructs an EnergyOperator specifially for InverseGamma Likelihoods.
+
+        Parameters
+        ----------
+        data: nifty8.Field
+        alpha: float
+        q: float
+        """
         self._domain = ift.makeDomain(data.domain)
         shift = ift.Adder(data) @ ift.ScalingOperator(self._domain, -1)
         dummy = ift.ScalingOperator(self._domain, 1)
@@ -775,10 +946,12 @@ class _IGLikelihood(ift.EnergyOperator):
 def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
                             point_key = 'point_sources', stiffness = 1E6,
                             red_factor = 1E-3):
-    """Performs a likelihood (i.E. input sky) invariant transition between the
+    """
+    Performs a likelihood (i.E. input sky) invariant transition between the
     dofs of a diffuse component and point sources. Assumes `sky`to be composed
     as
         sky = diffuse_sky(xi_diffuse) + point_sky(xi_point)
+
     where `(..._)sky` are `nifty` Operators and `xi` are the standard dofs of
     the components. The operator `point_sky` is assumed to be a generative
     process for an Inverse-Gamma distribution matching the convention of
@@ -848,7 +1021,7 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
     return lambda iiter: None if iiter < transition_dict['start'] else _tr
 
 
-def check_type(arg, type, name=''):
+def _check_type(arg, type, name=''):
     if arg is None:
         pass
     elif isinstance(arg, list):
@@ -863,6 +1036,18 @@ def check_type(arg, type, name=''):
 
 
 def get_rel_uncertainty(mean, std):
+    """Calculates the pointwise relative uncertainty from the mean
+    and the standard deviation.
+
+    Parameters
+    ----------
+    mean: nifty8.Field
+    std: nifty8.Field
+
+    Returns
+    -------
+    nifty8.Field
+    """
     assert mean.domain == std.domain
     domain = mean.domain
     mean, std = mean.val, std.val
@@ -874,6 +1059,21 @@ def get_rel_uncertainty(mean, std):
 
 
 def get_RGB_image_from_field(field, norm=None, sat=None):
+    """Turns a 3D Field into RGB image.
+
+    Paramters
+    ---------
+    field: nifty8.Field
+    norm: list
+        containing normalization functions. Default:[np.log, np.log10, np.log10]
+    sat: float
+        Multiplicative factor defining maximum values in the RGB image.
+        Default: None.
+
+    Returns
+    -------
+    numpy.array
+    """
     if norm is None:
         norm = [np.log, np.log10, np.log10]
     arr = field.val
