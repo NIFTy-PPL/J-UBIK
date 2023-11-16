@@ -17,7 +17,7 @@ from ..library.chandra_observation import ChandraObservationInformation
 
 
 def plot_result(array, domains=None, output_file=None, logscale=False, title=None, colorbar=True,
-                figsize=(8, 6), dpi=100, cbar_formatter=None, n_rows=None, n_cols=None,
+                figsize=(8, 8), dpi=100, cbar_formatter=None, n_rows=None, n_cols=None,
                 adjust_figsize=False, common_colorbar=False, **kwargs):
     """
     Plot a 2D array using imshow() from the matplotlib library.
@@ -47,6 +47,10 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
         Number of columns of the final plot.
     n_cols : int, optional
         Number of rows of the final plot.
+    adjust_figsize : bool, optional
+        Whether to automatically adjust the size of the figure.
+    common_colorbar : bool, optional
+        Whether to use the same color bar for all images. Overrides vmin and vmax.
     kwargs : dict, optional
         Additional keyword arguments to pass to imshow().
 
@@ -96,13 +100,21 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             axes[i].set_xlabel("FOV [arcmin]")
             axes[i].set_ylabel("FOV [arcmin]")
 
+        if "vmin" in pltargs:
+            vmin = pltargs["vmin"]
+        else:
+            vmin = None
+        if "vmax" in pltargs:
+            vmax = pltargs["vmax"]
+        else:
+            vmax = None
+
         if colorbar and common_colorbar:
             vmin = min(np.min(array[i]) for i in range(n_plots))
             vmax = max(np.max(array[i]) for i in range(n_plots))
-            if float(vmin) == 0.:
-                vmin = 1e-18  # to prevent LogNorm throwing errors
-        else:
-            vmin = vmax = None
+
+        if float(vmin) == 0.:
+            vmin = 1e-18  # to prevent LogNorm throwing errors
 
         if logscale:
             pltargs["norm"] = LogNorm(vmin, vmax)
@@ -444,18 +456,43 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
 def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
                         plotting_kwargs=None, common_colorbar=False, log_scale=True,
                         adjust_figsize=True,):
-    # TODO: write docstring
+    """
+    Plots prior samples for the signal components of the sky
+    through the eROSITA signal response from the config file.
+
+    Parameters:
+    ----------
+        key : np.ndarray
+            The random key for reproducibility.
+        n_samples : int
+            The number of samples to generate.
+        config_path : str
+            The path to the config file.
+        response_path : str
+            The path to the response file.
+            If None, only the signal will be plotted,
+            without passing it through the eROSITA response.
+        priors_dir : str
+            The directory to save the priors plots.
+        plotting_kwargs : dict, optional
+            Additional keyword arguments for plotting.
+        common_colorbar : bool, optional
+            Whether to use a common colorbar for all plots.
+        log_scale : bool, optional
+            Whether to use a logarithmic scale for the plots.
+        adjust_figsize : bool, optional
+            Whether to automatically adjust the figure
+            size aspect ratio for the plots.
+
+    Returns:
+    -------
+        None
+    """
     priors_dir = create_output_directory(priors_dir)
     cfg = get_config(config_path)  # load config
 
     if plotting_kwargs is None:
         plotting_kwargs = {}
-
-    if 'norm' in plotting_kwargs:
-        norm = plotting_kwargs.pop('norm')
-        norm = type(norm)
-    else:
-        norm = None
 
     sky_dict = create_sky_model_from_config(config_path)
     plottable_ops = sky_dict.copy()
@@ -473,7 +510,7 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
 
         plot_result(plottable_samples[key], output_file=filename_base.format(key),
                     logscale=log_scale, adjust_figsize=adjust_figsize,
-                    common_colorbar=common_colorbar, **plotting_kwargs) # FIXME: add common colorbar kwarg
+                    common_colorbar=common_colorbar, **plotting_kwargs)
 
     if response_path is not None:  # FIXME: when R will be pickled, load from file
         tm_ids = cfg['telescope']['tm_ids']
@@ -481,7 +518,7 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
 
         resp_dict = build_erosita_response_from_config(config_path)
 
-        mask_adj = jax.linear_transpose(resp_dict['mask'], np.zeros((len(tm_ids), 426, 426))) # FIXME: removed hardcoded value
+        mask_adj = jax.linear_transpose(resp_dict['mask'], np.zeros((len(tm_ids), 426, 426))) # FIXME: remove hardcoded value
         R = lambda x: mask_adj(resp_dict['R'](x))
         R = jax.vmap(R, in_axes=0, out_axes=1)
 
