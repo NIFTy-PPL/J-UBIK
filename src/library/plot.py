@@ -498,7 +498,7 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
     plottable_ops = sky_dict.copy()
 
     positions = []
-    for sample in range(n_samples):
+    for _ in range(n_samples):
         key, subkey = random.split(key)
         positions.append(jft.random_like(subkey, plottable_ops['sky'].domain))
 
