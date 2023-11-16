@@ -28,7 +28,7 @@ class Domain(NamedTuple):
 
 
 # GENERIC
-def load_masked_data_from_pickle(file_path, mask_func):
+def load_masked_data_from_pickle(file_path):
     """ Load data from pickle file as a data-dictionary and create a jft.Vector
     of masked data out of it
 
@@ -46,19 +46,15 @@ def load_masked_data_from_pickle(file_path, mask_func):
     """
     with open(file_path, "rb") as f:
         data_dict = pickle.load(f)
-    masked_data_dict = mask_func(jnp.stack(list(data_dict.values())))
-    if set(data_dict.keys()) != set(masked_data_dict):
-        raise ValueError('The loaded data dictionary and the given mask function '
-                         'are not compatible!')
-    return masked_data_dict
+    return data_dict
 
 
-def save_data_dict_to_pickle(data_dict, file_path):
+def save_dict_to_pickle(dictionary, file_path):
     """ Save data dictionary to pickle file
 
     Parameters
     ----------
-    data_dict : dict
+    dictionary : dict
         Data dictionary, which is saved.
     file_path : string
         Path to data file (.pkl)
@@ -66,7 +62,7 @@ def save_data_dict_to_pickle(data_dict, file_path):
     -------
     """
     with open(file_path, "wb") as file:
-        pickle.dump(data_dict, file)
+        pickle.dump(dictionary, file)
 
 
 # MOCK
@@ -169,12 +165,15 @@ def generate_erosita_data_from_config(config_file_path, response_func, output_pa
                                                           priors,
                                                           cfg['seed'],
                                                           cfg['point_source_defaults'])
-    sky = xu.create_sky_model(grid_info['npix'], grid_info['padding_ratio'],
-                              tel_info['fov'], priors)['sky']
-    masked_mock_data = response_func(sky(mock_sky_position))
+    sky_comps = xu.create_sky_model(grid_info['npix'], grid_info['padding_ratio'],
+                              tel_info['fov'], priors)
+    masked_mock_data = response_func(sky_comps['sky'](mock_sky_position))
     if output_path is not None:
         xu.create_output_directory(output_path)
-        save_data_dict_to_pickle(masked_mock_data.tree,
-                                 os.path.join(output_path, 'mock_data_dict.pkl'))
+        save_dict_to_pickle(masked_mock_data.tree,
+                            os.path.join(output_path, 'mock_data_dict.pkl'))
+        for key, sky_comp in sky_comps.items():
+            save_dict_to_pickle(sky_comp(mock_sky_position),
+                                os.path.join(output_path, f'{key}_gt.pkl'))
     return jft.Vector({key: val.astype(int) for key, val in masked_mock_data.tree.items()})
 

@@ -1,179 +1,202 @@
-import os.path
-
-import numpy as np
+import argparse
+from os.path import join
 import pickle
 
-import nifty8 as ift
 import xubik0 as xu
 
+# Parser Setup
+parser = argparse.ArgumentParser()
+parser.add_argument('evaluation_config', type=str,
+                    help="Config file (.yaml) for eROSITA inference.",
+                    nargs='?', const=1, default="eROSITA_evaluation_config.yaml")
+args = parser.parse_args()
+
 if __name__ == "__main__":
-    """This is the postprocessing pipeline for the eROSITA reconstruction:
-    The uncertainty weighted residual (UWR) as well as their distribution 
-    and the uncertainty weighted mean (UWM) are calculated. For mock data
-    additionally the UWR in signal space is calculated."""
+    """This is the postprocessing pipeline for the eROSITA reconstruction
+    It calculates and plots for the following quantities if the according parameters are specified 
+    in the evaluation config. 
+    If no parameters are not specified the quantities are neither calculated nor plotted. 
+        Module specific diagnostics:
+            - Histograms for noise-weighted residuals for each dataset and as average
+            - Sample averaged 2D histogram of distances in data space
+                                                                       
+        Non-Module specific diagnostics:
+            - uncertainty weighted mean 
+            Only for mock:
+            - uncertainty-weighted residuals
+            - Sample averaged 2D histogram of distances in signal space
+            
+    """
+    # Set paths
+    eval_cfg = xu.get_config(args.evaluation_config)
+    reconstruction_path = eval_cfg['results_dir']
+    iteration = eval_cfg['iteration']
+    config_path = join(reconstruction_path, eval_cfg['config_name'])
+    sl_path_base = join(reconstruction_path, f'samples_{iteration}')
+    state_path_base = join(reconstruction_path, f'state_{iteration}')
+    diagnostics_path = join(reconstruction_path, "diagnostics")
 
-    # Paths -Set by user
-    reconstruction_path = "results/LMC_/"  # FIXME filepath
-    diagnostics_path = reconstruction_path + "diagnostics/"
-    config_filename = "eROSITA_config.yaml"
-    sl_path_base = reconstruction_path + "pickle/last"  # NIFTy dependency
-    data_base = "data.pkl"
-    mock_data_base = "mock_data_sky.pkl"
-    exposure_base = "exposure.pkl"
-    response_base = None  # FIXME response operator shall be loaded from path
-
-    # Config
-    config_file = reconstruction_path + config_filename
-    cfg = xu.get_config(config_file)
-    mock_run = cfg['mock']
-    mock_psf = cfg['mock_psf']
-    file_info = cfg['files']
-    obs_path = file_info['obs_path']
-    exposure_filename = file_info['exposure']
-
-    # Telescope Info
+    cfg = xu.get_config(config_path)
     tel_info = cfg['telescope']
-    tm_ids = tel_info['tm_ids']
-    start_center = None
+    file_info = cfg['files']
 
-    # Exposure Info
-    det_map = tel_info['detmap']
+    response_dict = xu.build_erosita_response_from_config(config_path)
 
-    # Operators
-    # Sky
-    sky_model = xu.SkyModel(config_file)
-    sky_dict = sky_model.create_sky_model()
-    sky_dict.pop('pspec')
-    data_space_uwrs = {key: [] for key in sky_dict.keys()}
-    noise_weighted_residuals = {key: [] for key in sky_dict.keys()}
-    noise_weighted_residuals_hists = {key: [] for key in sky_dict.keys()}
+    mask_func = response_dict['mask']
+    response_func = response_dict['R']
 
-    full_exposure = None
-    response_dict = xu.load_erosita_response(config_file, diagnostics_path)
-    for tm_id in tm_ids:
-        # Path
-        tm_directory = xu.create_output_directory(os.path.join(diagnostics_path, f'tm{tm_id}/'))
-        for key, op in sky_dict.items():
-            xu.create_output_directory(os.path.join(tm_directory, key))
-        if mock_run:
-            data_path = tm_directory + f"tm{tm_id}_{mock_data_base}"
+    # Signal space UWRs
+    uwr_cfg = eval_cfg['uwr']
+    if not cfg['mock'] and uwr_cfg is not None:
+        raise Warning('Not able to calculate the UWRs in signal space as'
+                      'the considered run is not a mock run.')
+
+    elif cfg['mock'] and uwr_cfg is not None:
+        output_operator_keys = uwr_cfg['output_operators_keys']
+        gt_dict = {}
+        for key in output_operator_keys:
+            with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
+                gt_dict[key] = pickle.load(file)
+
+        xu.get_diagnostics_from_file(xu.compute_uncertainty_weighted_residuals,
+                                     diagnostics_path,
+                                     sl_path_base,
+                                     state_path_base,
+                                     config_path,
+                                     output_operator_keys,
+                                     reference_dict=gt_dict,
+                                     output_dir_base=uwr_cfg['base_filename'],
+                                     mask=uwr_cfg['mask'] if 'mask' in uwr_cfg else False,
+                                     abs=uwr_cfg['abs'] if 'abs' in uwr_cfg else False,
+                                     n_bins=uwr_cfg['n_bins'] if 'n_bins' in uwr_cfg else None,
+                                     range=uwr_cfg['range'] if 'range' in uwr_cfg else None,
+                                     log=uwr_cfg['log'] if 'log' in uwr_cfg else True,
+                                     plot_kwargs=uwr_cfg['plot_kwargs']
+                                     if 'plot_kwargs' in uwr_cfg else None)
+    # Signal space UWM
+    uwm_cfg = eval_cfg['uwm']
+    if uwm_cfg is not None:
+        output_operator_keys = uwm_cfg['output_operators_keys']
+        xu.get_diagnostics_from_file(xu.compute_uncertainty_weighted_residuals,
+                                     diagnostics_path,
+                                     sl_path_base,
+                                     state_path_base,
+                                     config_path,
+                                     output_operator_keys,
+                                     output_dir_base=uwm_cfg['base_filename'],
+                                     mask=uwm_cfg['mask'] if 'mask' in uwm_cfg else False,
+                                     log=uwm_cfg['log'] if 'log' in uwm_cfg else True,
+                                     plot_kwargs=uwm_cfg['plot_kwargs'])
+
+    # NWR
+    nwr_cfg = eval_cfg['nwr']
+    if nwr_cfg is not None:
+        output_operator_keys = nwr_cfg['output_operators_keys']
+        # Load data
+        if cfg['mock']:
+            masked_data = xu.load_masked_data_from_pickle(join(file_info['res_dir'],
+                                                           'mock_data_dict.pkl'))
         else:
-            data_path = tm_directory + f"tm{tm_id}_{data_base}"
+            masked_data = xu.load_erosita_masked_data(file_info, tel_info, mask_func)
 
-        # Load observation
-        output_filename = f'{tm_id}_' + file_info['output']
-        observation_instance = xu.ErositaObservation(output_filename, output_filename, obs_path)
+        xu.get_diagnostics_from_file(xu.compute_noise_weighted_residuals,
+                                     diagnostics_path,
+                                     sl_path_base,
+                                     state_path_base,
+                                     config_path,
+                                     output_operator_keys,
+                                     response_func=response_func,
+                                     reference_dict=masked_data,
+                                     output_dir_base=nwr_cfg['base_filename'],
+                                     n_bins=nwr_cfg['n_bins'] if 'n_bins' in nwr_cfg else None,
+                                     plot_kwargs=nwr_cfg['plot_kwargs'])
+    if cfg['mock']:
+        # 2D histograms in signal space
+        sky_2D_hist_cfg = eval_cfg['sky_2D_hist']
+        if sky_2D_hist_cfg is not None:
+            output_operator_keys = sky_2D_hist_cfg['output_operators_keys']
+            gt_dict = {}
+            for key in output_operator_keys:
+                with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
+                    gt_dict[key] = pickle.load(file)
+            xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
+                                         diagnostics_path,
+                                         sl_path_base,
+                                         state_path_base,
+                                         config_path,
+                                         output_operator_keys,
+                                         response_func=None,
+                                         reference_dict=gt_dict,
+                                         output_dir_base=sky_2D_hist_cfg['base_filename'],
+                                         plot_kwargs=sky_2D_hist_cfg['plot_kwargs'],
+                                         type=sky_2D_hist_cfg['type'] if 'type' in sky_2D_hist_cfg
+                                         else 'single',
+                                         relative=False)
 
-        # Repsonse
-        if response_base is not None:
-            response_path = tm_directory + f"tm{tm_id}_{response_base}"
-            with open(response_path, "rb") as f:
-                R = pickle.load(f)
-        elif exposure_base is not None:
-            exposure_path = tm_directory + f"tm{tm_id}_{exposure_base}"
-            print('Not able to load response from file. Generating response from config ...')
-            with open(exposure_path, "rb") as f:
-                exposure_field = pickle.load(f)
-            if full_exposure is None:
-                full_exposure =exposure_field
-            else:
-                full_exposure = full_exposure + exposure_field
-            padded_exposure_field = sky_model.pad(exposure_field)
-            exposure_op = ift.makeOp(padded_exposure_field)
-            mask = xu.get_mask_operator(exposure_field)
-            tm_key = f'tm_{tm_id}'
-            R = response_dict[tm_key]['R']
+        rel_sky_2D_hist_cfg = eval_cfg['rel_sky_2D_hist']
+        if rel_sky_2D_hist_cfg is not None:
+            output_operator_keys = sky_2D_hist_cfg['output_operators_keys']
+            gt_dict = {}
+            for key in output_operator_keys:
+                with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
+                    gt_dict[key] = pickle.load(file)
+            xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
+                                         diagnostics_path,
+                                         sl_path_base,
+                                         state_path_base,
+                                         config_path,
+                                         output_operator_keys,
+                                         response_func=None,
+                                         reference_dict=gt_dict,
+                                         output_dir_base=rel_sky_2D_hist_cfg['base_filename'],
+                                         plot_kwargs=rel_sky_2D_hist_cfg['plot_kwargs'],
+                                         type=rel_sky_2D_hist_cfg['type'] if 'type'
+                                                                             in rel_sky_2D_hist_cfg
+                                         else 'single',
+                                         relative=True)
 
-        else:
-            raise NotImplementedError
-        for key, op in sky_dict.items():
-            data_space_uwrs[key].append(
-                xu.data_space_uwr_from_file(sl_path_base=sl_path_base, data_path=data_path,
-                                            sky_op=op, response_op=R, mask_op=mask,
-                                            output_dir_base=os.path.join(tm_directory,
-                                                                         key, f'{tm_id}_data_space_uwr')))
+        # 2D histograms in data space
+        lambda_2D_hist_cfg = eval_cfg['lambda_2D_hist']
+        if lambda_2D_hist_cfg is not None:
+            output_operator_keys = lambda_2D_hist_cfg['output_operators_keys']
+            gt_dict = {}
+            for key in output_operator_keys:
+                with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
+                    gt_dict[key] = pickle.load(file)
+            xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
+                                         diagnostics_path,
+                                         sl_path_base,
+                                         state_path_base,
+                                         config_path,
+                                         output_operator_keys,
+                                         response_func=response_func,
+                                         reference_dict=gt_dict,
+                                         output_dir_base=lambda_2D_hist_cfg['base_filename'],
+                                         plot_kwargs=lambda_2D_hist_cfg['plot_kwargs'],
+                                         type=lambda_2D_hist_cfg['type'] if 'type'
+                                                                            in lambda_2D_hist_cfg
+                                         else 'single',
+                                         relative=False)
 
-            nwr, hist, edges = xu.get_noise_weighted_residuals_from_file(sample_list_path=sl_path_base,
-                                                      data_path=data_path,
-                                                      sky_op=op, response_op=R,
-                                                      mask_op=mask,
-                                                      output_dir=diagnostics_path,
-                                                      base_filename=f'tm{tm_id}/{key}_{tm_id}_nwr',
-                                                      abs=False,
-                                                      min_counts=0,
-                                                      plot_kwargs={
-                                                          'title': 'Noise-weighted residuals',
-                                                          # 'norm': LogNorm()}
-                                                      },
-                                                      nbins=500)
-            noise_weighted_residuals[key].append(nwr)
-            xu.plot_histograms(hist, edges, diagnostics_path+f'tm{tm_id}/{key}_tm{tm_id}_nwr_hist',
-                               logy=False, title=f'Noise-weighted residuals tm {tm_id}')
+        rel_lambda_2D_hist_cfg = eval_cfg['rel_lambda_2D_hist']
+        if rel_lambda_2D_hist_cfg is not None:
+            output_operator_keys = rel_lambda_2D_hist_cfg['output_operators_keys']
+            gt_dict = {}
+            for key in output_operator_keys:
+                with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
+                    gt_dict[key] = pickle.load(file)
+            xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
+                                         diagnostics_path,
+                                         sl_path_base,
+                                         state_path_base,
+                                         config_path,
+                                         output_operator_keys,
+                                         response_func=response_func,
+                                         reference_dict=gt_dict,
+                                         output_dir_base=rel_lambda_2D_hist_cfg['base_filename'],
+                                         plot_kwargs=rel_lambda_2D_hist_cfg['plot_kwargs'],
+                                         type=rel_lambda_2D_hist_cfg['type']
+                                         if 'type' in rel_lambda_2D_hist_cfg else 'single',
+                                         relative=True)
 
-            noise_weighted_residuals_hists[key].append(hist)
-
-            if mock_run:
-                if key in ['sky', 'diffuse']:
-                    levels = [10, 100, 500]
-                    xlim = (0.02, 170)
-                    ylim = (0.02, 170)
-                    bins = 600
-                    ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')
-                    xu.plot_lambda_diagnostics(sl_path_base, ground_truth_path, sky_dict[key], key,
-                                               os.path.join(tm_directory, f'{key}_diagnostics_path.png'),
-                                               R, bins=bins, x_lim=xlim, y_lim=ylim,
-                                               levels=levels)
-
-        xu.weighted_residual_distribution(sl_path_base=sl_path_base, data_path=data_path,
-                                          sky_op=sky_dict['sky'], response_op=R, mask_op=mask,
-                                          output_dir_base=tm_directory + f'{tm_id}_res_distribution',
-                                          title='Uncertainty Weighted Signal residuals')
-        full_mask = xu.get_mask_operator(full_exposure)
-
-    for key, op in sky_dict.items():
-        xu.signal_space_uwm_from_file(sl_path_base=sl_path_base, sky_op=op,
-                                      padder=sky_model.pad,
-                                      output_dir_base=diagnostics_path + f'uwm_{key}')
-        # Plot mean over modules of the nwr histograms
-        mean_hist = np.array(noise_weighted_residuals_hists[key]).mean(axis=0)
-        xu.plot_histograms(mean_hist, edges, diagnostics_path + f'mean_{key}_nwr_hist',
-                           logy=False, title=f'Module-averaged {key} noise-weighted residuals')
-        field_name_list = [f'tm{tm_id}' for tm_id in tm_ids]
-        if mock_run:
-            ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')
-            xu.signal_space_uwr_from_file(sl_path_base=sl_path_base,
-                                          ground_truth_path=ground_truth_path,
-                                          sky_op=op,
-                                          padder=sky_model.pad,
-                                          mask_op=full_mask,
-                                          output_dir_base=os.path.join(diagnostics_path,
-                                                                       f'signal_space_uwr_{key}'))
-            xu.signal_space_weighted_residual_distribution(sl_path_base=sl_path_base,
-                                                           ground_truth_path=ground_truth_path,
-                                                           sky_op=sky_dict[key],
-                                                           padder=sky_model.pad,
-                                                           mask_op=full_mask,
-                                                           sample_diag=False,
-                                                           output_dir_base=diagnostics_path + f'/res_distribution_sp_{key}',
-                                                           title='Uncertainty Weighted Signal residuals')
-
-            if key in ['sky']:
-                levels = [10, 100, 500]
-                xlim = (0.0000001, 0.003)
-                ylim = (0.0000001, 0.003)
-                bins = 600
-                ground_truth_path = os.path.join(diagnostics_path, f'mock_{key}.pkl')
-                xu.plot_sky_flux_diagnostics(sl_path_base, ground_truth_path, sky_dict[key], key,
-                                             os.path.join(diagnostics_path, f'{key}_flux_diagnostics.png'),
-                                             response_dict, bins=bins,
-                                             x_lim=xlim, y_lim=ylim, levels=levels)
-
-        xu.plot_energy_slice_overview(data_space_uwrs[key], field_name_list=field_name_list,
-                                      file_name=diagnostics_path + f'{key}_data_space_uwrs_overview.png',
-                                      title='data_space_uwrs',
-                                      logscale=True)
-
-        xu.plot_energy_slice_overview(noise_weighted_residuals[key], field_name_list=field_name_list,
-                                      file_name=diagnostics_path + f'{key}_nwr_overview.png',
-                                      title='Noise-weighted residuals', logscale=False)
 

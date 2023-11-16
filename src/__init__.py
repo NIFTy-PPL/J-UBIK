@@ -12,7 +12,8 @@ from .library.utils import (get_mask_operator, prior_sample_plotter, get_norm,
 from .library.plot import (plot_slices, plot_result, plot_fused_data,
                            plot_rgb_image, plot_image_from_fits,
                            plot_single_psf, plot_psfset, plot_sample_and_stats, plot_energy_slices,
-                           plot_energy_slice_overview, plot_erosita_priors, plot_histograms)
+                           plot_energy_slice_overview, plot_erosita_priors, plot_histograms,
+                           plot_sample_averaged_log_2d_histogram)
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
@@ -25,16 +26,12 @@ from .library.response import load_erosita_response, build_exposure_function, \
     build_erosita_response_from_config, build_erosita_psf
 from .library.data import (load_masked_data_from_pickle, load_erosita_masked_data,
                            generate_erosita_data_from_config, generate_mock_sky_from_prior_dict,
-                           save_data_dict_to_pickle, Domain)
+                           save_dict_to_pickle, Domain)
 from .library.likelihood import generate_erosita_likelihood_from_config
-from .library.diagnostics import (signal_space_uwr_from_file,
-                                  data_space_uwr_from_file,
-                                  signal_space_uwm_from_file,
-                                  weighted_residual_distribution,
-                                  get_noise_weighted_residuals_from_file,
-                                  plot_lambda_diagnostics,
-                                  plot_sky_flux_diagnostics,
-                                  signal_space_weighted_residual_distribution)
+from .library.diagnostics import (get_diagnostics_from_file,
+                                  compute_uncertainty_weighted_residuals,
+                                  compute_noise_weighted_residuals,
+                                  plot_2d_gt_vs_rec_histogram)
 from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
                                               _get_weights)
 from .operators.jifty_convolution_operators import (_bilinear_weights,

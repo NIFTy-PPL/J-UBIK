@@ -1,373 +1,394 @@
+import jax
 import numpy as np
 import pickle
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-import os
+from os.path import join
+from functools import partial
+from jax.tree_util import tree_map
+from jax import numpy as jnp
 
 import nifty8 as ift
+import nifty8.re as jft
 
-from .utils import save_rgb_image_to_fits, get_mask_operator
-from .plot import plot_energy_slices, plot_result
+from .utils import get_config, create_output_directory
+from .plot import plot_result, plot_sample_averaged_log_2d_histogram, plot_histograms
+from .sky_models import create_sky_model_from_config
+from .response import build_callable_from_exposure_file
 
 
-def get_uncertainty_weighted_measure(sl,
-                                     op=None,
-                                     reference=None,
-                                     output_dir_base=None,
-                                     padder=None,
-                                     mask_op=None,
-                                     title='',
-                                     abs=True,
-                                     vmax=5):
+def _build_full_mask_func_from_exp_files(exposure_file_names,
+                                         threshold=None):
+    """ Buils the full mask function for the reconstruction given the exposure_file_names
+
+    Parameters
+    ----------
+    exposure_file_names : list[str]
+        A list of filenames of exposure files to load.
+        Files should be in a .npy or .fits format.
+    threshold: float, None
+        A threshold value below which flags are set to zero (e.g., an exposure cut).
+        If None (default), no threshold is applied.
+
+    Returns
+    -------
+        function: A callable that applies a mask to an input array (e.g. an input sky) and returns
+        a `nifty8.re.Vector` containing a dictionary of read-out inputs.
+    """
+
+    def _set_zero(x, exp):
+        try:
+            x.at[exp == 0].set(0)
+        except:
+            x[exp == 0] = 0
+        return jft.Vector({0: x})
+
+    def _builder(exposures, trsh):
+        if threshold < 0:
+            raise ValueError("threshold should be positive!")
+        if threshold is not None:
+            exposures[exposures < threshold] = 0
+        summed_exp = np.sum(exposures, axis=0)
+        return partial(_set_zero, exp=summed_exp)
+
+    return build_callable_from_exposure_file(_builder, exposure_file_names, trsh=threshold)
+
+
+def get_diagnostics_from_file(diagnostic_builder,
+                              diagnostics_path,
+                              sl_path_base,
+                              state_path_base,
+                              config_path,
+                              output_operators_keys,
+                              **kwargs):
+    """ Creates sample list and sky model and passes the according sample list
+    to the considered diagnostic builde.
+
+    Parameters
+    ----------
+    diagnostic_builder: func
+        Diagnostic funstion that shall be calles with the build sample list.
+    diagnostics_path: str
+        Path to the reconstruction diagnostic files.
+    sl_path_base: str
+        Path base to the sample list, e.g. 'results/diagnostics/samples_1'.
+    state_path_base: str
+        Path base to state list, e.g. 'results/diagnostics/position_it_1'.
+    config_path: str
+        Path to config file
+    output_operators_keys: list
+        List of strings for keys of operators that shall be considered in the
+        diagnostic_builder function.
+    """
+
+    # Build diagnostics directory
+    create_output_directory(diagnostics_path)
+
+    # Get config info
+    cfg = get_config(config_path)
+    grid_info = cfg['grid']
+
+    # Create sky operators
+    sky_dict = create_sky_model_from_config(config_path)
+    sky_dict.pop('pspec')
+
+    # Load position space sample list
+    with open(f"{sl_path_base}.p", "rb") as file:
+        samples = pickle.load(file)
+
+    with open(f"{state_path_base}.p", "rb") as file:
+        state = pickle.load(file)
+
+    lat_sp_sl = samples.at(state.minimization_state.x).samples
+    padding_diff = int((grid_info['npix'] - round(grid_info['npix']/grid_info['padding_ratio']))/2)
+    pos_sp_sample_dict = {key: [jax.vmap(op)(lat_sp_sl)[i][padding_diff:-padding_diff,
+                                padding_diff:-padding_diff] for i in
+                                range(len(jax.vmap(op)(lat_sp_sl)))]
+                                for key, op in sky_dict.items() if key in output_operators_keys}
+    diagnostic_builder(pos_sp_sample_dict, diagnostics_path, cfg, **kwargs)
+
+
+def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
+                                           diagnostics_path,
+                                           cfg,
+                                           reference_dict=None,
+                                           output_dir_base=None,
+                                           mask=False,
+                                           abs=False,
+                                           n_bins=None,
+                                           range=None,
+                                           log=True,
+                                           plot_kwargs=None):
+    """
+    Computes uncertainty-weighted residuals (UWRs) given the position space sample list and
+    plots them and the according histogram. Definition:
+    :math:`uwr = \\frac{s-gt}{\\sigma_{s}}`,
+    where `s` is the signal, `gt` is the ground truth,
+    and `sigma_{s}` is the standard deviation of `s`.
+
+    Parameters
+    ----------
+    pos_sp_sample_dict: dict
+        Dictionary of position space sample lists for the operator specified by the key.
+    diagnostics_path: str
+        Path to the reconstruction diagnostic files.
+    cfg: dict
+        Recosntruction config dictionary.
+    reference_dict: dict, None
+        Dictionary of reference arrays (e.g. groundtruth for mock) to calculate the UWR. If the
+        reference_dict is set to none we assume the reference to be zero and the measure defaults
+        to the uncertainty-weighted mean (UWM)
+    output_dir_base: str, None
+        Base string of file name saved.
+    mask: bool, False
+        If true the outout is masked by a full mask generated from all exposure files.
+    abs: bool, False
+        If true the absolute value of the residual is calculated and plotted.
+    n_bins: int, None
+        Number of bins in the histogram plotted. If None, no histogram is plotted.
+    range: tuple, None
+        Range of the histogram. If None, the range defaults to (-5, 5)
+    log: bool, True
+        If True, the logrithm of the samples and reference are considered.
+    plot_kwargs: dict, None
+        Dictionary of plotting arguments for plot_results
+
+    Returns:
+    ----------
+    diag_dict: dict
+        Dictionary of UWRs or UWMs for each operator specified in the input
+        pos_sp_sample_dict.
+    """
+
     mpi_master = ift.utilities.get_MPI_params()[3]
-    mean, var = sl.sample_stat(op)
-    if mask_op is None:
-        mask_op = ift.ScalingOperator(domain=mean.domain, factor=1)
-    if reference is None:
-        wgt_res = mean / var.sqrt()
-    else:
-        if abs:
-            wgt_res = (mean - reference).abs() / var.sqrt()
+    diag_dict = {}
+    if log:
+        pos_sp_sample_dict = {key: np.log(value) for key, value in pos_sp_sample_dict.items()}
+        if reference_dict is not None:
+            reference_dict = {key: np.log(value) for key, value in reference_dict.items()}
+    for key, pos_sp_sl in pos_sp_sample_dict.items():
+        mean = np.stack(pos_sp_sl).mean(axis=0)
+        std = np.stack(pos_sp_sl).std(axis=0, ddof=1)
+
+        if reference_dict is None:
+            print("No reference ground truth provided. "
+                "Uncertainty weighted residuals calculation defaults to uncertainty-weighted mean.")
+            diag = mean / std
+
         else:
-            wgt_res = (reference-mean) / var.sqrt()
+            if abs:
+                diag = (mean - reference_dict[key]).abs() / std
+            else:
+                diag = (reference_dict[key]-mean) / std
 
-    wgt_res = mask_op.adjoint(wgt_res)
-    if padder is None:
-        padder = ift.ScalingOperator(domain=wgt_res.domain, factor=1)
-    wgt_res = padder.adjoint(wgt_res)
-    if mpi_master and output_dir_base is not None:
-        with open(f'{output_dir_base}.pkl', 'wb') as file:
-            pickle.dump(wgt_res, file)
-        save_rgb_image_to_fits(wgt_res, output_dir_base,
-                               overwrite=True, MPI_master=mpi_master)
-        plt_args = {'cmap': 'seismic', 'vmin': -vmax, 'vmax': vmax}
-        plot_result(wgt_res, f'{output_dir_base}.png', **plt_args)
-    return wgt_res
+        if mask:
+            tel_info = cfg['telescope']
+            file_info = cfg['files']
+            exposure_file_names = [join(file_info['obs_path'], f'{key}_' + file_info['exposure'])
+                                  for key in tel_info['tm_ids']]
+            full_mask_func = _build_full_mask_func_from_exp_files(exposure_file_names,
+                                                                  tel_info['exp_cut'])
+            diag = full_mask_func(diag)
+        diag_dict[key] = diag.tree[0]
+
+        if mpi_master and output_dir_base is not None:
+            with open(join(diagnostics_path, f'{output_dir_base}{key}.pkl'), 'wb') as file:
+                pickle.dump(diag_dict[key], file)
+            # FIXME save_rgb-image_to_fits needs to be transferred to jubix here
+            # save_rgb_image_to_fits(uwr, output_dir_base, overwrite=True, MPI_master=mpi_master)
+            if plot_kwargs is None:
+                plot_kwargs = {}
+            if 'cmap' not in plot_kwargs:
+                plot_kwargs.update({'cmap': 'seismic'})
+            if 'vmin' not in plot_kwargs:
+                plot_kwargs.update({'vmin': -5})
+            if 'vmax' not in plot_kwargs:
+                plot_kwargs.update({'vmax': 5})
+            plot_result(diag_dict[key], output_file=join(diagnostics_path,
+                                                         f'{output_dir_base}{key}.png'),
+                        **plot_kwargs)
+
+            if n_bins:
+                if range is None:
+                    range = (-5, 5)
+                hist, edges = np.histogram(diag_dict[key].reshape(-1), bins=n_bins, range=range)
+                title = plot_kwargs['title'] if plot_kwargs is not None else None
+                plot_histograms(hist, edges,
+                                join(diagnostics_path, f'{output_dir_base}hist_{key}.png'),
+                                title=title)
+    return diag_dict
 
 
-def compute_noise_weighted_residuals(sample_list, op, reference_data, mask_op=None, output_dir=None,
-                                     base_filename='nwr', abs=True, min_counts=0, plot_kwargs=None,
-                                     n_bins=None):
-    """ Computes the Poissonian noise-weighted residuals.
-    The form of the residual is :math:`r = \\frac{s-d}{\\sqrt{s}}`, where s is the signal response
-    and d the data.
-    Args:
-        sample_list: `nifty8.ResidualSampleList` posterior samples.
-        op: `nifty8.Operator`, usually the signal response with respect to which the residuals
-        are calculated.
-        reference_data: `nifty8.Field`, the reference (masked or unmasked data) data.
-        mask_op: `nifty8.Operator`, if the data is masked, the correspondent mask.
-        output_dir: `str`, path to the output directory.
-        base_filename: `str` base filename for the output plots. No extension.
-        abs: `bool`, if True the absolute of the residuals is calculated.
-        min_counts: `int` minimum number of data counts for which the residuals will be calculated.
-        plot_kwargs: Keyword arguments for plotting.
-        n_bins: `int` number of bins for histograms
-
-    Returns:
-        Posterior mean noise-weighted residuals
-        If n_bins is not None:
-            Noise-weigthed residuals distribution as a histogram
-            Noise-weighted residuals plots in .fits and .png format
-
+# FIXME: At the moment this only plotting the histograms
+def compute_noise_weighted_residuals(pos_sp_sample_dict,
+                                     diagnostics_path,
+                                     cfg,
+                                     response_func,
+                                     reference_dict,
+                                     output_dir_base=None,
+                                     abs=False,
+                                     n_bins=None,
+                                     range=None,
+                                     plot_kwargs=None):
     """
-    _, _, _, mpi_master = ift.utilities.get_MPI_params()
-    sc = ift.StatCalculator()
-    if n_bins is not None:
+    Computes noise-weighted residuals (NWRs) given the position space sample list and
+    plots the according histogram. Definition:
+    :math:`uwr = \\frac{Rs-d}{\\sqrt_{Rs}}`,
+    where `s` is the signal, 'R' is the response and  `d` is the reference data.
+
+    Parameters
+    ----------
+    pos_sp_sample_dict: dict
+        Dictionary of position space sample lists for the operator specified by the key.
+    diagnostics_path: str
+        Path to the reconstruction diagnostic files.
+    cfg: dict
+        Recosntruction config dictionary.
+    response_func: callable
+        Callable response function that can be applied to the signal returning an object of the type
+        'jft.Vector', that conatins the according data space representations.
+    reference_dict: dict, None
+        Dictionary of reference arrays (e.g. data) to calculate the NWR.
+    output_dir_base: str, None
+        Base string of file name saved.
+    abs: bool, False
+        If true the absolute value of the residual is calculated and plotted.
+    n_bins: int, None
+        Number of bins in the histogram plotted. If None, no histogram is plotted.
+    range: tuple, None
+        Range of the histogram. If None, the range defaults to (-5, 5)
+    plot_kwargs: dict, None
+        Dictionary of plotting arguments for plot_results
+    """
+    mpi_master = ift.utilities.get_MPI_params()[3]
+    Rs_sample_dict = {key: [response_func(sample) for sample in sample_list]
+                      for key, sample_list in pos_sp_sample_dict.items()}
+    for key, Rs_samples in Rs_sample_dict.items():
+        diag_list = []
         hist_list = []
-
-    for sample in sample_list.iterator():
-        Rs = op.force(sample)
-        nwr = (Rs - reference_data) / Rs.sqrt()
-        if min_counts > 0:
-            low_count_loc = reference_data.val < min_counts
-            filtered_nwr = nwr.val.copy()
-            filtered_nwr[low_count_loc] = np.nan
-            nwr = ift.makeField(nwr.domain, filtered_nwr)
-        if abs:
-            nwr = nwr.abs()
-        if mask_op is not None:
-            nwr = mask_op.adjoint(nwr)
-            flags = mask_op._flags
-        sc.add(nwr)
-
+        for Rs_sample in Rs_samples:
+            diag = tree_map(lambda x, y: (x - y) / jnp.sqrt(x),
+                            Rs_sample,
+                            reference_dict)
+            if abs:
+                diag = tree_map(jnp.abs, diag)
+            diag_list.append(diag)
+            if n_bins is not None:
+                if range is None:
+                    range = (-5, 5)
+                hist = tree_map(lambda x: np.histogram(x.reshape(-1), bins=n_bins, range=range),
+                                diag)
+                hist_list.append(hist)
         if n_bins is not None:
-            unmasked_nwr = nwr.val[flags] if mask_op is not None else nwr.val
-            hist, edges = np.histogram(unmasked_nwr.reshape(-1), bins=n_bins, range=(-5., 5.))
-            hist_list.append(hist)
+            sample_mean_hist = hist_list[0]
+            for hist in hist_list[1:]:
+                sample_mean_hist = tree_map(lambda x, y: x+y, sample_mean_hist, hist)
+            sample_mean_hist = tree_map(lambda x: x/len(hist_list), sample_mean_hist)
+            if mpi_master and output_dir_base:
+                data_mean_hist = None
+                for dataset, mean in sample_mean_hist.tree.items():
+                    title = plot_kwargs.get('title')
+                    output_dir = join(diagnostics_path,
+                                      f'{output_dir_base}hist_{key}_{dataset}.png')
+                    plot_histograms(sample_mean_hist[dataset][0], sample_mean_hist[dataset][1],
+                                    output_dir, logy=True, title=title)
 
-    mean_hist = np.mean(np.array(hist_list), axis=0)
-    nwr_mean = sc.mean
+                    data_mean_hist = sample_mean_hist[dataset] if data_mean_hist is None else (
+                        data_mean_hist[0] + sample_mean_hist[dataset][0],
+                        data_mean_hist[1] + sample_mean_hist[dataset][1]
+                    )
 
-    if mpi_master is not None and output_dir is not None:
-        filename = output_dir + base_filename
-        save_rgb_image_to_fits(nwr_mean, file_name=filename, overwrite=True, MPI_master=mpi_master)
-        plot_kwargs.update({'cmap': 'seismic', 'vmin': -5., 'vmax': 5.})
-        plot_result(nwr_mean, outname=f'{filename}.png', **plot_kwargs)
-    if n_bins is None:
-        return nwr_mean
-    else:
-        return nwr_mean, mean_hist, edges
-
-
-def get_noise_weighted_residuals_from_file(sample_list_path,
-                                           data_path,
-                                           sky_op,
-                                           response_op,
-                                           mask_op,
-                                           output_dir=None,
-                                           abs=True,
-                                           base_filename=None,
-                                           min_counts=0,
-                                           plot_kwargs=None,
-                                           nbins=None):
-    sl = ift.ResidualSampleList.load(sample_list_path)
-    with open(data_path, "rb") as f:
-        d = pickle.load(f)
-
-    return compute_noise_weighted_residuals(sl, response_op @ sky_op,
-                                            mask_op(d),
-                                            mask_op=mask_op,
-                                            output_dir=output_dir,
-                                            base_filename=base_filename,
-                                            abs=abs,
-                                            min_counts=min_counts,
-                                            plot_kwargs=plot_kwargs,
-                                            n_bins=nbins)
+                data_mean_hist = (data_mean_hist[0]/ len(list(sample_mean_hist.tree.values())),
+                                  data_mean_hist[1]/ len(list(sample_mean_hist.tree.values())))
+                plot_histograms(data_mean_hist[0], data_mean_hist[1],
+                                join(diagnostics_path,
+                                     f'{output_dir_base}hist_{key}_dataset_mean.png'),
+                                logy=True, title=f'{title} - Dataset mean')
 
 
-def signal_space_uwr_from_file(sl_path_base,
-                               ground_truth_path,
-                               sky_op,
-                               padder,
-                               mask_op,
-                               output_dir_base=None,
-                               title='signal space UWR'):
-    sl = ift.ResidualSampleList.load(sl_path_base)
-    with open(ground_truth_path, "rb") as f:
-        gt = pickle.load(f)
-    wgt_res = get_uncertainty_weighted_measure(sl, mask_op @ padder.adjoint @ sky_op.log(),
-                                               mask_op(padder.adjoint(gt.log())),
-                                               output_dir_base,
-                                               title=title, abs=False, mask_op=mask_op)
-    return wgt_res
-
-
-def data_space_uwr_from_file(sl_path_base,
-                             data_path,
-                             sky_op,
-                             response_op,
-                             mask_op,
-                             output_dir_base=None,
-                             title='data space UWR'):
-    sl = ift.ResidualSampleList.load(sl_path_base)
-    with open(data_path, "rb") as f:
-        d = pickle.load(f)
-    wgt_res = get_uncertainty_weighted_measure(sl, response_op @ sky_op, mask_op(d),
-                                               output_dir_base,
-                                               mask_op=mask_op, title=title)
-    return wgt_res
-
-
-def signal_space_uwm_from_file(sl_path_base,
-                               sky_op,
-                               padder,
-                               output_dir_base=None,
-                               title='signal space UWM'):
-    sl = ift.ResidualSampleList.load(sl_path_base)
-    wgt_mean = get_uncertainty_weighted_measure(sl, sky_op, output_dir_base=output_dir_base, padder=padder,
-                                                title=title)
-    return wgt_mean
-
-
-def weighted_residual_distribution(sl_path_base,
-                                   data_path,
-                                   sky_op,
-                                   response_op,
-                                   mask_op,
-                                   bins=200,
-                                   output_dir_base=None,
-                                   title='Weighted data residuals'):
-    sl = ift.ResidualSampleList.load(sl_path_base)
-    with open(data_path, "rb") as f:
-        d = pickle.load(f)
-    wgt_res = get_uncertainty_weighted_measure(sl, response_op @ sky_op, mask_op(d),
-                                               output_dir_base=None, mask_op=mask_op, title=title)
-    res = wgt_res.val.reshape(-1)
-    _, edges = np.histogram(np.log10(res+1e-30), bins=bins)
-
-    # _, edges = np.histogram(res, bins=np.logspace(np.log10(1e-10), np.log10(res.val.max), bins))
-
-    # pl.hist(data, bins=np.logspace(np.log10(1e-10), np.log10(1.0), 50))
-    # pl.gca().set_xscale("log")
-
-    plt.hist(np.log10(res+1e-30), edges[0:])
-    # plt.xscale('log')
-    plt.yscale('log')
-    plt.title(title)
-    plt.savefig(fname=output_dir_base + '.png')
-    plt.close()
-    return wgt_res
-
-
-def plot_sky_flux_diagnostics(sl_path_base, gt_path, op, op_name, output_path, response_dict, bins,
-                            x_lim, y_lim, levels):
-    """ Plots distribution of reconstructed flux vs actual flux.
-    ! This is thus only applicable for mock reconstructions
-    Args:
-        sl_path_base: path base to `nifty8.ResidualSampleList` posterior samples.
-        gt_path: path to ground_truth of component
-        op: `nifty8.Operator`, component of sky operator
-        op_name: name of the operator compared
-        output_path: saving path
-        response_dict: xu.response_dict of mock reconstruction (mask, exposure_op, R)
-        bins: number of bins for 2Dhist
-        x_lim: limits of x_axis of plot
-        y_lim: limits of y_axis of plot
-        levels: levels of contours
-
-    Returns:
-        Noise-weighted residuals plots in .fits and .png format
+def plot_2d_gt_vs_rec_histogram(pos_sp_sample_dict,
+                                diagnostics_path,
+                                cfg,
+                                response_func,
+                                reference_dict,
+                                output_dir_base,
+                                type= 'single',
+                                relative=False,
+                                plot_kwargs=None):
     """
-    sl = ift.ResidualSampleList.load(sl_path_base)
-    with open(gt_path, "rb") as f:
-        gt = pickle.load(f)
-    if gt.domain != op.target:
-        raise ValueError(f'Ground truth domain and operator target do not fit together:'
-                         f'Ground truth: {gt.domain}. op: {op.target}')
-    full_exposure = None
-    for key, dict in response_dict.items():
-        if full_exposure is None:
-            full_exposure = dict['exposure_op'](ift.full(dict['exposure_op'].target, 1.))
+    Plots the 2D histogram of reconstruction vs. ground-truth in either
+    the data_space (if response_func = response) or the signal space (if response_func= None).
+    If relative = True the realtive error of the reconstruction is plotted vs. the ground-truth.
+    It is possible to either plot the 2D histograms for reconstruction mean or instead the
+    sample-averaged histograms (type=sampled)
+
+
+    Parameters
+    ----------
+    pos_sp_sample_dict: dict
+        Dictionary of position space sample lists for the operator specified by the key.
+    diagnostics_path: str
+        Path to the reconstruction diagnostic files.
+    cfg: dict
+        Recosntruction config dictionary.
+    response_func: callable
+        Callable response function that can be applied to the signal returning an object of the type
+        'jft.Vector', that conatins the according data space representations.
+    reference_dict: dict, None
+        Dictionary of reference arrays (e.g. ground-truth) to calculate the NWR.
+    output_dir_base: str, None
+        Base string of file name saved.
+    type: str, 'single'
+        Either 'single' (default) taking the 2d histogram of the mean or 'sampled' to get
+        the sample averaged histogram.
+    relative: bool. False
+        If False, the histogram for reconstruction vs. ground-truth is plotted. If True,
+        the relative error vs. ground-truth histogram is generated.
+    plot_kwargs: dict, None
+        Dictionary of plotting arguments
+    """
+    mpi_master = ift.utilities.get_MPI_params()[3]
+    if response_func is None:
+        tel_info = cfg['telescope']
+        file_info = cfg['files']
+        exposure_file_names = [join(file_info['obs_path'], f'{key}_' + file_info['exposure'])
+                               for key in tel_info['tm_ids']]
+        response_func = _build_full_mask_func_from_exp_files(exposure_file_names,
+                                                             tel_info['exp_cut'])
+    Rs_sample_dict = {key: [response_func(sample) for sample in sample_list]
+                      for key, sample_list in pos_sp_sample_dict.items()}
+    Rs_reference_dict = {key: response_func(ref) for key, ref in reference_dict.items()}
+
+    for key, sl in pos_sp_sample_dict.items():
+        res_list = []
+        for Rs_sample in Rs_sample_dict[key]:
+            for i, data_key in enumerate(Rs_sample.tree.keys()):
+                if relative:
+                    ref = Rs_reference_dict[key][data_key][Rs_reference_dict[key][data_key] != 0]
+                    samp = Rs_sample[data_key][Rs_reference_dict[key][data_key] != 0]
+                    res = np.abs(ref-samp)/ref
+                else:
+                    res = Rs_sample[data_key]
+                    ref = Rs_reference_dict[key][data_key]
+                if i == 0:
+                    stacked_res = res.flatten()
+                    stacked_ref = ref.flatten()
+                else:
+                    stacked_res = np.concatenate([stacked_res, res.flatten()]).flatten()
+                    stacked_ref = np.concatenate([stacked_ref, ref.flatten()]).flatten()
+            res_list.append(stacked_res)
+        if type == 'single':
+            res_1d_array_list = [np.stack(res_list).mean(axis=0).flatten()]
+        elif type == 'sampled':
+            res_1d_array_list = [sample for sample in res_list]
         else:
-            full_exposure = full_exposure + dict['exposure_op'](ift.full(dict['exposure_op'].target, 1.))
-    mask = get_mask_operator(full_exposure)
-    gt_1d_array = mask(gt).val.flatten()
-    mean, var = sl.sample_stat(op)
-    rec_1d_array = mask(mean).val.flatten()
-
-    x_bins = np.logspace(np.log(np.min(gt_1d_array)), np.log(np.max(gt_1d_array)), bins)
-    y_bins = np.logspace(np.log(np.min(rec_1d_array)), np.log(np.max(rec_1d_array)), bins)
-
-    # Create the 2D histogram
-    fig, ax = plt.subplots(dpi=400)
-    hist = ax.hist2d(gt_1d_array, rec_1d_array, bins=(x_bins, y_bins),
-                     cmap=plt.cm.jet, norm=LogNorm())
-
-    # Generate contour lines
-    # xedges = hist[1]
-    # yedges = hist[2]
-    # X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
-    # Z = hist[0].T
-    # contour = ax.contour(X, Y, Z, levels=levels, colors='white')
-
-    # Add a colorbar
-    cbar = fig.colorbar(hist[3], ax=ax)
-
-    # Add line for comparison
-    ax.plot(x_bins, x_bins, color='gray', linewidth=0.5, alpha=0.5)
-
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.set_xlabel('$I_{gt}$')
-    ax.set_ylabel('$I_{rec}$')
-    ax.set_xlim(x_lim)
-    ax.set_ylim(y_lim)
-    ax.set_title(f'Fluxes ({op_name}): Ground Truth vs. Reconstruction')
-    plt.savefig(output_path)
-    plt.close()
-
-
-def plot_lambda_diagnostics(sl_path_base, gt_path, op, op_name, output_path, response_op, bins,
-                            x_lim, y_lim, levels):
-    """ Plots distribution of reconstructed lambda va. actual lambda
-    ! This is thus only applicable for mock reconstructions
-    Args:
-        sl_path_base: path base to `nifty8.ResidualSampleList` posterior samples.
-        gt_path: path to ground_truth of component
-        op: `nifty8.Operator`, component of sky operator
-        op_name: name of the operator compared
-        output_path: saving path
-        response_dict: xu.response_dict of mock reconstruction (mask, exposure_op, R)
-        bins: number of bins for 2Dhist
-        x_lim: limits of x_axis of plot
-        y_lim: limits of y_axis of plot
-        levels: levels of contours
-
-    Returns:
-        Noise-weighted residuals plots in .fits and .png format
-    """
-    sl = ift.ResidualSampleList.load(sl_path_base)
-    with open(gt_path, "rb") as f:
-        gt = pickle.load(f)
-    if gt.domain != op.target:
-        raise ValueError(f'Ground truth domain and operator target do not fit together:'
-                         f'Ground truth: {gt.domain}. op: {op.target}')
-
-    gt_1d_array = response_op(gt).val.flatten()
-    mean, var = sl.sample_stat(op)
-    rec_1d_array = response_op(mean).val.flatten()
-
-    x_bins = np.logspace(np.log(np.min(gt_1d_array)), np.log(np.max(gt_1d_array)), bins)
-    y_bins = np.logspace(np.log(np.min(rec_1d_array)), np.log(np.max(rec_1d_array)), bins)
-
-    # Create the 2D histogram
-    fig, ax = plt.subplots(dpi=400)
-    hist = ax.hist2d(gt_1d_array, rec_1d_array, bins=(x_bins, y_bins),
-                     cmap=plt.cm.jet, norm=LogNorm())
-
-    # Generate contour lines
-    # xedges = hist[1]
-    # yedges = hist[2]
-    # X, Y = np.meshgrid(xedges[:-1], yedges[:-1])
-    # Z = hist[0].T
-    # contour = ax.contour(X, Y, Z, levels=levels, colors='white')
-
-    # Add a colorbar
-    cbar = fig.colorbar(hist[3], ax=ax)
-
-    # Add line for comparison
-    ax.plot(x_bins, x_bins, color='gray', linewidth=0.5, alpha=0.5)
-
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.set_yscale('log')
-    ax.set_xlabel('$I_{gt}$')
-    ax.set_ylabel('$I_{rec}$')
-    ax.set_xlim(x_lim)
-    ax.set_ylim(y_lim)
-    ax.set_title(f'Lambda ({op_name}): Ground Truth vs. Reconstruction')
-    plt.savefig(output_path)
-    plt.close()
-
-
-def signal_space_weighted_residual_distribution(sl_path_base,
-                                   ground_truth_path,
-                                   sky_op,
-                                   padder,
-                                   mask_op,
-                                   bins=200,
-                                   output_dir_base=None,
-                                   sample_diag=False,
-                                   title='Weighted signal space residuals'):
-    with open(ground_truth_path, "rb") as f:
-        gt = pickle.load(f)
-    sl = ift.ResidualSampleList.load(sl_path_base)
-    wgt_res = get_uncertainty_weighted_measure(sl, mask_op @ padder.adjoint @ sky_op.log(),
-                                               mask_op(padder.adjoint(gt.log())),
-                                               output_dir_base, sample=sample_diag,
-                                               title=title, abs=False, mask_op=mask_op)
-    res = wgt_res.val.reshape(-1)
-    range = (-5, 5)
-    _, edges = np.histogram(np.log10(res+1e-30), bins=bins, range=range)
-    plt.hist(np.log10(res+1e-30), edges[0:])
-    # plt.xscale('log')
-    plt.yscale('log')
-    plt.title(title)
-    plt.savefig(fname=output_dir_base + '.png')
-    plt.close()
-    return wgt_res
-
-
-
+            raise NotImplementedError
+        ref_list = len(res_1d_array_list)*[stacked_ref]
+        if relative:
+            for i, sample in enumerate(res_1d_array_list):
+                res_1d_array_list[i] = np.abs(ref_list[i] - sample) / ref_list[i]
+        if mpi_master and output_dir_base:
+            output_path = join(diagnostics_path, f'{output_dir_base}hist_{key}.png')
+            plot_sample_averaged_log_2d_histogram(x_array_list=ref_list,
+                                                  y_array_list=res_1d_array_list,
+                                                  output_path=output_path,
+                                                  **plot_kwargs)
 
