@@ -523,7 +523,6 @@ def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
     plt.close()
     print(f"Histogram saved as {filename}.")
 
-# FIXME: Juibify this
 def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label, x_lim = None,
                                             y_lim = None, bins=100, dpi=400,
                                             title=None, output_path=None):
