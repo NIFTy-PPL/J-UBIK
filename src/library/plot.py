@@ -1,20 +1,24 @@
-import os
 import math
 
 import nifty8 as ift
+import nifty8.re as jft
 import numpy as np
 import jax
 import matplotlib.pyplot as plt
+from jax import random
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from os.path import join
 
+from .response import build_erosita_response_from_config
 from .utils import get_data_domain, get_config, create_output_directory
-from ..library.sky_models import SkyModel
+from ..library.sky_models import create_sky_model_from_config
 from ..library.chandra_observation import ChandraObservationInformation
 
 
 def plot_result(array, domains=None, output_file=None, logscale=False, title=None, colorbar=True,
-                figsize=(7,7), dpi=100, cbar_formatter=None, n_rows=1, n_cols=None, **kwargs):
+                figsize=(8, 6), dpi=100, cbar_formatter=None, n_rows=None, n_cols=None,
+                adjust_figsize=False, common_colorbar=False, **kwargs):
     """
     Plot a 2D array using imshow() from the matplotlib library.
 
@@ -58,11 +62,18 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
         array = array[np.newaxis, :, :]
 
     n_plots = array.shape[0]
+
+    if n_rows is None:
+        n_rows = _get_n_rows_from_n_samples(n_plots)
+
     if n_cols is None:
-        if n_plots == 1:
-            n_cols = 1
+        if n_plots % n_rows == 0:
+            n_cols = n_plots // n_rows
         else:
-            n_cols = n_plots//n_rows
+            n_cols = n_plots // n_rows + 1
+
+    if adjust_figsize:
+        figsize = (n_cols*figsize[0], n_rows*figsize[1])
 
     n_ax = n_rows * n_cols
     n_del = n_ax - n_plots
@@ -85,8 +96,18 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             axes[i].set_xlabel("FOV [arcmin]")
             axes[i].set_ylabel("FOV [arcmin]")
 
+        if colorbar and common_colorbar:
+            vmin = min(np.min(array[i]) for i in range(n_plots))
+            vmax = max(np.max(array[i]) for i in range(n_plots))
+            if float(vmin) == 0.:
+                vmin = 1e-18  # to prevent LogNorm throwing errors
+        else:
+            vmin = vmax = None
+
         if logscale:
-            pltargs["norm"] = LogNorm()
+            pltargs["norm"] = LogNorm(vmin, vmax)
+        else:
+            kwargs.update({'vmin': vmin, 'vmax': vmax})
 
         pltargs.update(**kwargs)
         im = axes[i].imshow(array[i], **pltargs)
@@ -237,9 +258,9 @@ def plot_sample_and_stats(output_directory, operators_dict, res_sample_list, sta
     results = {}
     for key in operators_dict:
         op = operators_dict[key]
-        results_path = create_output_directory(os.path.join(output_directory, key))
-        filename_samples = os.path.join(results_path, "samples_{}.png".format(iteration))
-        filename_stats = os.path.join(results_path, "stats_{}.png".format(iteration))
+        results_path = create_output_directory(join(output_directory, key))
+        filename_samples = join(results_path, "samples_{}.png".format(iteration))
+        filename_stats = join(results_path, "stats_{}.png".format(iteration))
 
         results[key] = jax.vmap(op)(samples)
         n_samples = results[key].shape[0]
@@ -247,23 +268,11 @@ def plot_sample_and_stats(output_directory, operators_dict, res_sample_list, sta
         if 'title' not in plotting_kwargs:
             title = [f"Sample {ii}" for ii in range(n_samples)]
             plotting_kwargs.update({'title': title})
-        if 'n_rows' not in plotting_kwargs:
-            plotting_kwargs.update({'n_rows': _get_n_rows_from_n_samples(n_samples)})
-        if 'n_cols' not in plotting_kwargs:
-            n_rows = plotting_kwargs['n_rows']
-            if n_samples % n_rows == 0:
-                n_cols = n_samples // n_rows
-            else:
-                n_cols = n_samples // n_rows + 1
-            plotting_kwargs.update({'n_cols': n_cols})
-        if 'figsize' not in plotting_kwargs:
-            plotting_kwargs.update({'figsize': (plotting_kwargs['n_cols']*4,
-                                                plotting_kwargs['n_rows']*4)})
 
         # Plot samples
+        # FIXME: works only for 2D outputs, add target capabilities
         plot_result(results[key], output_file=filename_samples, logscale=log_scale,
-                    colorbar=colorbar, dpi=dpi, **plotting_kwargs) # FIXME: works only for 2D
-        # outputs, add target capabilities
+                    colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
 
         # Plot statistics
         plotting_kwargs.pop('n_rows')
@@ -432,8 +441,10 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
         raise NotImplementedError
 
 
-def plot_erosita_priors(n_samples, config_path, response_path, priors_dir,
-                        plotting_kwargs=None, common_colorbar=False):
+def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
+                        plotting_kwargs=None, common_colorbar=False, log_scale=True,
+                        adjust_figsize=True,):
+    # TODO: write docstring
     priors_dir = create_output_directory(priors_dir)
     cfg = get_config(config_path)  # load config
 
@@ -446,70 +457,44 @@ def plot_erosita_priors(n_samples, config_path, response_path, priors_dir,
     else:
         norm = None
 
-    sky_dict = SkyModel(config_path).create_sky_model()
+    sky_dict = create_sky_model_from_config(config_path)
     plottable_ops = sky_dict.copy()
 
     positions = []
     for sample in range(n_samples):
-        positions.append(ift.from_random(plottable_ops['sky'].domain))
+        key, subkey = random.split(key)
+        positions.append(jft.random_like(subkey, plottable_ops['sky'].domain))
 
     plottable_samples = plottable_ops.copy()
-    for key, val in plottable_samples.items():
-        plottable_samples[key] = [val.force(pos) for pos in positions]
-
     filename_base = priors_dir + 'priors_{}.png'
-    _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
-                          plotting_kwargs, filename_base, ' prior ', 'Prior samples')
+
+    for key, val in plottable_samples.items():
+        plottable_samples[key] = np.array([val(pos) for pos in positions])
+
+        plot_result(plottable_samples[key], output_file=filename_base.format(key),
+                    logscale=log_scale, adjust_figsize=adjust_figsize,
+                    common_colorbar=common_colorbar, **plotting_kwargs) # FIXME: add common colorbar kwarg
 
     if response_path is not None:  # FIXME: when R will be pickled, load from file
         tm_ids = cfg['telescope']['tm_ids']
-        plottable_ops.pop('pspec')
+        plottable_samples.pop('pspec')
 
-        resp_dict = load_erosita_response(config_path, priors_dir) #FIXME
+        resp_dict = build_erosita_response_from_config(config_path)
 
-        for tm_id in tm_ids:
-            tm_key = f'tm_{tm_id}'
-            R = resp_dict[tm_key]['mask'].adjoint @ resp_dict[tm_key]['R']
-            plottable_samples = {}
+        mask_adj = jax.linear_transpose(resp_dict['mask'], np.zeros((len(tm_ids), 426, 426))) # FIXME: removed hardcoded value
+        R = lambda x: mask_adj(resp_dict['R'](x))
+        R = jax.vmap(R, in_axes=0, out_axes=1)
 
-            for key, val in plottable_ops.items():
-                SR = R @ val
-                plottable_samples[key] = [SR.force(pos) for pos in positions]
-
-            res_path = priors_dir + f'tm{tm_id}/'
-            filename = res_path + f'sr_tm_{tm_id}_priors'
-            filename += '_{}.png'
-            _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
-                                  plotting_kwargs, filename, f'tm {tm_id} prior signal response ',
-                                  'Signal response')
-
-
-def _plot_erosita_samples(common_colorbar, n_samples, norm, plottable_samples,
-                          plotting_kwargs, filename_base='priors/samples_{}.png',
-                          title_base='', log_base=None):
-    for key, val in plottable_samples.items():
-        if common_colorbar:
-            vmin = min(np.min(val[i].val) for i in range(n_samples))
-            vmax = max(np.max(val[i].val) for i in range(n_samples))
-            if float(vmin) == 0.:
-                vmin = 1e-18  # to prevent LogNorm throwing errors
-        else:
-            vmin = vmax = None
-        p = ift.Plot()
-        for i in range(n_samples):
-            if norm is not None:
-                p.add(val[i], norm=norm(vmin=vmin, vmax=vmax),
-                      title=title_base + key, **plotting_kwargs)
-            else:
-                p.add(val[i], vmin=vmin, vmax=vmax,
-                      title=title_base + key, **plotting_kwargs)
-            if 'title' in plotting_kwargs:
-                del (plotting_kwargs['title'])
-        filename = filename_base.format(key)
-        p.output(name=filename, **plotting_kwargs)
-        if log_base is None:
-            log_base = 'Samples'
-        print(f'{log_base} saved as {filename}.')
+        for key, val in plottable_samples.items():
+            tmp = R(val)[0]
+            for id, samps in enumerate(tmp):
+                tm_id = tm_ids[id]
+                res_path = join(priors_dir, f'tm{tm_id}/')
+                create_output_directory(res_path)
+                filename = join(res_path, f'sr_tm_{tm_id}_priors')
+                filename += '_{}.png'
+                plot_result(samps, output_file=filename.format(key), logscale=log_scale,
+                            common_colorbar=common_colorbar, adjust_figsize=True)
 
 
 def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
@@ -522,74 +507,3 @@ def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
     plt.savefig(filename)
     plt.close()
     print(f"Histogram saved as {filename}.")
-
-def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label, x_lim = None,
-                                            y_lim = None, bins=100, dpi=400,
-                                            title=None, output_path=None):
-    """ Plot a 2d histogram for the arrays given for x_array and y_array.
-
-
-    Parameters:
-    -----------
-    x_array_list : list of numpy.ndarray
-        list of samples of x_axis array of 2d-histogram
-    x_label : string
-        x-axis label of the 2d-histogram
-    y_array_list : numpy.ndarray
-        list of samples of y-axis array of 2d-histogram
-    y_label : string
-        y-axis label of the 2d-histogram
-    bins : int
-        Number of bins of the 2D-histogram
-    dpi : int, optional
-        Resolution of the figure
-    title : string, optional
-        Title of the 2D histogram
-    output_path : string, optional
-        Output directory for the plot. If None (Default) the plot is not saved.
-
-    Returns:
-    --------
-    None
-    """
-
-    if len(x_array_list) != len(y_array_list):
-        raise ValueError('Need same number of samples for x- and y-axis.')
-
-    x_bins = np.logspace(np.log(np.min(np.mean(x_array_list, axis=0))),
-                         np.log(np.max(np.mean(x_array_list, axis=0))), bins)
-    y_bins = np.logspace(np.log(np.min(np.mean(y_array_list, axis=0))),
-                         np.log(np.max(np.mean(y_array_list, axis=0))), bins)
-
-    hist_list = []
-    edges_x_list = []
-    edges_y_list = []
-
-    for i in range(len(x_array_list)):
-        hist, edges_x, edges_y = np.histogram2d(x_array_list[i], y_array_list[i], bins=(x_bins, y_bins))
-        hist_list.append(hist)
-        edges_x_list.append(edges_x)
-        edges_y_list.append(edges_y)
-
-    # Create the 2D histogram
-    fig, ax = plt.subplots(dpi=dpi)
-    counts = np.mean(hist_list, axis=0)
-    xedges = np.mean(edges_x_list, axis=0)
-    yedges = np.mean(edges_y_list, axis=0)
-
-    plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet, norm=LogNorm(vmin=1))
-    plt.colorbar()
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
-    if x_lim is not None:
-        ax.set_xlim(x_lim[0], x_lim[1])
-    if y_lim is not None:
-        ax.set_ylim(y_lim[0], y_lim[1])
-    if title is not None:
-        ax.set_title(title)
-    if output_path is not None:
-        plt.savefig(output_path)
-        print(f"2D histogram saved as {output_path}")
-    plt.close()
