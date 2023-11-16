@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from matplotlib import colors
 
-from .utils import check_type
+from .utils import _check_type
 
 
 class ErositaObservation:
@@ -177,7 +177,7 @@ class ErositaObservation:
 
         # Implements type checking
         for key, val in input_params.items():
-            check_type(eval(key), val, name=key)
+            _check_type(eval(key), val, name=key)
 
         """
         Returns appropriate evtool command flags.
@@ -247,7 +247,7 @@ class ErositaObservation:
 
         # Implements type checking
         for key, val in input_params.items():
-            check_type(eval(key), val, name=key)
+            _check_type(eval(key), val, name=key)
 
         singlemaps = list(map(lambda x: os.path.join(mounted_dir, x), singlemaps))
         singlemaps_str = '"' + " ".join(singlemaps) + '"'

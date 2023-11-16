@@ -1124,8 +1124,7 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
     return lambda iiter: None if iiter < transition_dict['start'] else _tr
 
 
-def check_type(arg, type, name=''):
-    # TODO Rename to _check_type. Or is this function for public use?
+def _check_type(arg, type, name=''):
     if arg is None:
         pass
     elif isinstance(arg, list):
