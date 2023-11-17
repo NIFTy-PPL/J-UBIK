@@ -46,7 +46,7 @@ def build_exposure_function(exposures, exposure_cut=None):
     return lambda x: exposures * x  # [np.newaxis, ...]
 
 
-def build_readout_function(flasgs, threshold=None, keys=None, reshape=True):
+def build_readout_function(flasgs, threshold=None, keys=None):
     """
     Applies a readout corresponding to input flags.
 
@@ -85,10 +85,6 @@ def build_readout_function(flasgs, threshold=None, keys=None, reshape=True):
     elif len(keys) != flasgs.shape[0]:
         raise ValueError("length of keys should match the number of flag maps.")
 
-    def _set_zero(x, exp):
-        x.at[exp == 0].set(0)
-        return x
-
     def _apply_readout(x: np.array):
         """
         Reads out input array (e.g, sky signals to which an exposure is applied)
@@ -101,10 +97,8 @@ def build_readout_function(flasgs, threshold=None, keys=None, reshape=True):
         """
         if len(mask.shape) != 3:
             raise ValueError("flags should have shape (n, m, q)!")
-        if reshape:
-            return jft.Vector({key: x[i][~mask[i]] for i, key in enumerate(keys)})
-        else:
-            return jft.Vector({key: _set_zero(x[i], mask[i]) for i, key in enumerate(keys)})
+
+        return jft.Vector({key: x[i][~mask[i]] for i, key in enumerate(keys)})
 
     return _apply_readout
 
