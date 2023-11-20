@@ -1,12 +1,13 @@
-# X-UBIK
+# J-UBIK
 
-*X*-ray *U*niversal *B*ayesian *I*maging *K*it is a python package for data analysis of modern X-ray telescopes as Chandra, XMM-Newton and eROSITA
+*J*ifty *U*niversal *B*ayesian *I*maging *K*it for photon count instruments is a python package for data analysis of modern X-ray telescopes as Chandra, XMM-Newton and eROSITA.
 
 ## Requirements
 - [NIFTy8](https://gitlab.mpcdf.mpg.de/ift/nifty) 
+- JAX
 - astropy
-- ciao (>4.13)
-- marx
+- ciao (>4.14)
+- marx (with ciao)
 - matplotlib
 
 
@@ -24,27 +25,3 @@ This package can be installed via pip.
     pip install --user .
 
 for a regular installation. For editable installation add the `-e` flag. 
-
-## Observations
-Either get the data [here](https://cda.harvard.edu/chaser/) or via `download_chandra_obsid` as described [here](https://cxc.cfa.harvard.edu/ciao/threads/archivedownload/). The information about the location, obsID, etc. of you data should be stored in /obs/obs.yaml.
-
-
-          obs11713:
-            obsID: 11713
-            data_location: data/11713/repro_20210131/
-            event_file: acisf11713_repro_evt2.fits
-            aspect_sol: pcadf11713_repro_asol1.fits
-            bpix_file: acisf11713_000N002_bpix1.fits
-            mask_file: acisf11713_000N002_msk1.fits
-            instrument: ACIS-I
-
-
-# TODO
-
-- Docker does not work without sudo on linux nativly (add user to group)
-- chmod of mounted directory recursively() Solution ? Dockeruser into group?
-- UBIK PLotting (symlock/lognorm)
-- error catching in the docker
-- psf for camera -> extract for user
-- data coordinates
-- add descriptions to eROSITA get data etc.
