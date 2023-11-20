@@ -21,7 +21,8 @@
 This package can be installed via pip. 
 
     git clone git@gitlab.mpcdf.mpg.de:ift/chandra.git
-    cd xubik
+    git clone https://gitlab.mpcdf.mpg.de/ift/j-ubik
+    cd j-ubik
     pip install --user .
 
 for a regular installation. For editable installation add the `-e` flag. 
