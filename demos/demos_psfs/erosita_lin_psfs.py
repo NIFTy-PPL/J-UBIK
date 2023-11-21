@@ -1,5 +1,4 @@
-
-import xubik0 as xu
+import jubik0 as ju
 import nifty8 as ift
 import numpy as np
 
@@ -33,7 +32,7 @@ fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"]
 filename = dir_path + fname[0]
 
 # PSF Object
-obs = xu.eROSITA_PSF(filename)
+obs = ju.eROSITA_PSF(filename)
 
 # more numbers about the observation
 energy = '3000'
@@ -60,7 +59,7 @@ print("")
 print("Equality of LIN and LINJAX: ", np.allclose(res1, res2))
 
 # Test alternative to get the operator
-test_psf = xu.build_erosita_psf(filename, energy, pointing_center, domain,
+test_psf = ju.build_erosita_psf(filename, energy, pointing_center, domain,
                                 c2params["npatch"], c2params["margfrac"],
                                 c2params["want_cut"])
 res3 = test_psf(rnds.val)

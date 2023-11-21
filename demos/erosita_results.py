@@ -6,7 +6,7 @@ import numpy as np
 import nifty8 as ift
 from matplotlib.colors import LogNorm
 
-import xubik0 as xu
+import jubik0 as ju
 
 
 from matplotlib.colors import LinearSegmentedColormap
@@ -18,7 +18,7 @@ bluemap = LinearSegmentedColormap.from_list('kb', ["k", "b", "paleturquoise"], N
 def build_joint_mask(sky_model, tm_ids, diagnostics_path, exposure_base):
     joint_mask = np.ones(sky_model.position_space.shape)
     for tm_id in tm_ids:
-        tm_directory = xu.create_output_directory(os.path.join(diagnostics_path, f'tm{tm_id}/'))
+        tm_directory = ju.create_output_directory(os.path.join(diagnostics_path, f'tm{tm_id}/'))
 
         if exposure_base is not None:
             exposure_path = tm_directory + f"tm{tm_id}_{exposure_base}"
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     for col in colors:
         output_path = output_path_base.format(col)
-        xu.create_output_directory(output_path)
+        ju.create_output_directory(output_path)
         output_paths.append(output_path)
         reconstruction_path = f"results/LMC_{COLOR_DICT[col]['path']}/"
         diagnostic_paths.append(reconstruction_path + "diagnostics/")
@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     for i, col in enumerate(colors):
         # Config
-        cfg = xu.get_config(config_paths[i])
+        cfg = ju.get_config(config_paths[i])
         file_info = cfg['files']
         obs_path = file_info['obs_path']
         exposure_filename = file_info['exposure']
@@ -73,7 +73,7 @@ if __name__ == '__main__':
         tel_info = cfg['telescope']  # FIXME
         tm_ids = tel_info['tm_ids']
 
-        sky_model = xu.SkyModel(config_paths[i])
+        sky_model = ju.SkyModel(config_paths[i])
         sky_dict = sky_model.create_sky_model()
         padder = sky_model.pad
 
@@ -110,12 +110,12 @@ if __name__ == '__main__':
             args = {'norm': LogNorm(vmin=8E-6, vmax=1E-3),
                     'cmap': COLOR_DICT[col]['cmap'],
                     'title': "Reconstruction"}
-            xu.plot_result(stat['mean'], outname_base.format(key, 'mean'),
+            ju.plot_result(stat['mean'], outname_base.format(key, 'mean'),
                            **args)
             args = {'norm': LogNorm(vmin=5E-6, vmax=1E-3),
                     'cmap': 'cividis',
                     'title': "Absolute uncertainty"}
-            xu.plot_result(stat['std'], outname_base.format(key, 'std'), **args)
+            ju.plot_result(stat['std'], outname_base.format(key, 'std'), **args)
 
             from matplotlib.ticker import FuncFormatter
             fmt = FuncFormatter(lambda x, pos: '{:.1%}'.format(x))
@@ -123,7 +123,7 @@ if __name__ == '__main__':
                     'vmax': 1.,
                     'cmap': 'cividis',
                     'title': "Relative uncertainty"}
-            xu.plot_result(xu.get_rel_uncertainty(stat['mean'], stat['std']),
+            ju.plot_result(ju.get_rel_uncertainty(stat['mean'], stat['std']),
                            outname_base.format(key, 'rel_std'),
                            cbar_formatter=fmt, **args)
 
@@ -142,10 +142,10 @@ if __name__ == '__main__':
         mf_domain = ift.DomainTuple.make((sky_model.position_space, ift.RGSpace(3)))
         sky_field = ift.makeField(mf_domain, sky)
 
-        xu.create_output_directory(output_path)
-        xu.save_rgb_image_to_fits(sky_field, output_path + "skyRGB_lin", True, True)
+        ju.create_output_directory(output_path)
+        ju.save_rgb_image_to_fits(sky_field, output_path + "skyRGB_lin", True, True)
 
-        im = plt.imshow(xu.get_RGB_image_from_field(sky_field, sat=[1.75, 1.4, 1.3]),
+        im = plt.imshow(ju.get_RGB_image_from_field(sky_field, sat=[1.75, 1.4, 1.3]),
                         origin="lower")
         rgb_filename = output_path + "sky_rgb.png"
         plt.savefig(rgb_filename, dpi=300)

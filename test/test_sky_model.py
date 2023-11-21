@@ -3,7 +3,7 @@ from jax import random
 import matplotlib.pyplot as plt
 
 import nifty8.re as jft
-import xubik0 as xu
+import jubik0 as ju
 
 
 config.update('jax_enable_x64', True)
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     seed = 42
     key = random.PRNGKey(seed)
     key, subkey = random.split(key)
-    sky_dict = xu.create_sky_model_from_config('config_test_sky_model.yaml')
+    sky_dict = ju.create_sky_model_from_config('config_test_sky_model.yaml')
     sky_dict.pop('pspec')
     for component in sky_dict.keys():
         comp_pos = jft.random_like(subkey, sky_dict[component].domain)

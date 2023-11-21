@@ -1,4 +1,4 @@
-import xubik0 as xu
+import jubik0 as ju
 import nifty8 as ift
 import numpy as np
 import timeit
@@ -32,7 +32,7 @@ dir_path = "data/psf_info/"
 fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"]
 
 file = dir_path + fname[0]
-obs = xu.eROSITA_PSF(file)
+obs = ju.eROSITA_PSF(file)
 
 energy = '3000'
 pointing_center = (1800, 1800)

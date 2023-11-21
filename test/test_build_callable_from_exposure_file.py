@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-import xubik0 as xu
+import jubik0 as ju
 
 
 class TestBuildCallableFromExposureFile:
@@ -14,7 +14,7 @@ class TestBuildCallableFromExposureFile:
         return ["./misc/erosita_example_exposure.npy"]
 
     def test_build_callable_from_exposure_file(self, file_list):
-        R = xu.build_callable_from_exposure_file(xu.build_erosita_response, file_list,
+        R = ju.build_callable_from_exposure_file(ju.build_erosita_response, file_list,
                                                  exposure_cut=0)
         sky = np.ones((426, 426))
         result = R(sky)['masked input'][20:30]
@@ -25,7 +25,7 @@ class TestBuildCallableFromExposureFile:
 
     def test_build_callable_from_exposure_file_not_list(self, file):
         with pytest.raises(ValueError):
-            xu.build_callable_from_exposure_file(xu.build_erosita_response, file)
+            ju.build_callable_from_exposure_file(ju.build_erosita_response, file)
 
 
 if __name__ == '__main__':

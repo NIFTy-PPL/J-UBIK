@@ -1,4 +1,4 @@
-import xubik0 as xu
+import jubik0 as ju
 from jax import random
 
 if __name__ == '__main__':
@@ -12,5 +12,5 @@ if __name__ == '__main__':
     path_to_response = False # decides whether to plot signal response
 
     kwgs = {'n_cols': 3}
-    xu.plot_erosita_priors(key, n_samples, path_to_config, path_to_response,
+    ju.plot_erosita_priors(key, n_samples, path_to_config, path_to_response,
                            priors_directory, plotting_kwargs=kwgs)

@@ -743,7 +743,7 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
     obs_type : string or None
         Describes the observation type. currently possible obs_types are [CMF (Chandra Multifrequency),
         EMF (Erosita Multifrequency), RGB and SF (Single Frequency]. The default observation is of type SF. In the case
-        of the type "RGB", the binning is automatically done by xubik into equally sized bins.
+        of the type "RGB", the binning is automatically done by jubik into equally sized bins.
     """
     if not (samples or mean or std):
         raise ValueError("Neither samples nor mean nor standard deviation shall be written.")

@@ -1,6 +1,6 @@
 
 # %%
-import xubik0 as xu
+import jubik0 as ju
 import nifty8 as ift
 import numpy as np
 
@@ -13,7 +13,7 @@ fname = ["tm1_2dpsf_190219v05.fits", "tm1_2dpsf_190220v03.fits"]
 args = {'cmap': 'BuGn', 'norm': LogNorm(vmin=1E-7, vmax=0.012)}
 
 file = dir_path + fname[0]
-obs = xu.eROSITA_PSF(file)
+obs = ju.eROSITA_PSF(file)
 obs.plot_psfs("psf_plots", **args)
 
 energy = '3000'
@@ -57,13 +57,13 @@ res = op2(sources)
 
 # %%
 args = {'cmap': 'BuGn', 'norm': LogNorm(vmin=1E-5, vmax=0.2)}
-xu.plot_result(kernels, outname="psf_plots/interpolated_kernel.png",
+ju.plot_result(kernels, outname="psf_plots/interpolated_kernel.png",
                title="Interpolated PSFs[tm1_2dpsf_190219v05.fits] from CALDB",
                **args)
-xu.plot_result(res, outname="psf_plots/lin_kernel.png",
+ju.plot_result(res, outname="psf_plots/lin_kernel.png",
                title="Patching and linear interpolation response",
                **args)
-xu.plot_result((res-kernels).abs(), outname="psf_plots/diff_kernel.png",
+ju.plot_result((res-kernels).abs(), outname="psf_plots/diff_kernel.png",
                title="Absolute difference response",
                **args)
 

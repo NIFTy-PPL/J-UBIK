@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-import xubik0 as xu
+import jubik0 as ju
 
 
 def test_build_exposure():
@@ -10,7 +10,7 @@ def test_build_exposure():
     exposures = np.random.uniform(0., 3e3, size=3 * size ** 2).reshape((3, size, size))
     x = np.ones(shape)
 
-    build_exposure = xu.build_exposure_function(exposures, exposure_cut)
+    build_exposure = ju.build_exposure_function(exposures, exposure_cut)
     result = build_exposure(x)
     expected_result = exposures
     expected_result[exposures < 500] = 0

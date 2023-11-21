@@ -1,5 +1,5 @@
 import nifty8 as ift
-import xubik0 as xu
+import jubik0 as ju
 import numpy as np
 from matplotlib.colors import SymLogNorm
 from matplotlib.colors import LogNorm
@@ -30,8 +30,8 @@ def test_oaconvolver():
 
     # Convolve Correlated Field with Gauss Kernel via Interpolation
     kern_domain = ift.makeDomain([ift.UnstructuredDomain(64), position_space])
-    kernels_arr = xu.get_gaussian_kernel(35, kern_domain).val_rw()
-    convolve_oa = xu.OAConvolver.cut_force(cf.domain, kernels_arr, n, margin)
+    kernels_arr = ju.get_gaussian_kernel(35, kern_domain).val_rw()
+    convolve_oa = ju.OAConvolver.cut_force(cf.domain, kernels_arr, n, margin)
     res_1 = convolve_oa(cf)
 
     # Convolve Correlated Field via Conv Theorem
@@ -40,16 +40,16 @@ def test_oaconvolver():
     kern_zeropadder = ift.FieldZeroPadder(kern.domain, [1280, 1280], central=True)
     kern = kern_zeropadder(kern)
     # signal padding
-    zp = xu.MarginZeroPadder(position_space, margin)
+    zp = ju.MarginZeroPadder(position_space, margin)
     sig_2 = zp @ correlated_field  # Break PBC
 
     # Convolve and remove PBC Margin
-    response_2 = zp.adjoint @ xu.convolve_field_operator(kern, sig_2)
+    response_2 = zp.adjoint @ ju.convolve_field_operator(kern, sig_2)
 
     # Cut interpolation Margin as in res_1, just for comparision
     inner_shape = [i - 2*margin for i in position_space.shape]
     inner_domain = ift.RGSpace(inner_shape, distances=position_space.distances)
-    cut_interpolate_margin = xu.MarginZeroPadder(inner_domain, margin).adjoint
+    cut_interpolate_margin = ju.MarginZeroPadder(inner_domain, margin).adjoint
     res_2 = (cut_interpolate_margin @ response_2)(xi)
 
     # Check if test holds
@@ -91,8 +91,8 @@ def test_oaconvolver():
     psfs = np.array(psfs, dtype="float64")
 
     # Test inhomogenous psf
-    oa_chandra = xu.OAConvolver.cut_force(position_space, psfs, n, margin)
-    oa_chandra = xu.OAConvolver.cut_by_value(position_space, psfs, n, margin, 50)
+    oa_chandra = ju.OAConvolver.cut_force(position_space, psfs, n, margin)
+    oa_chandra = ju.OAConvolver.cut_by_value(position_space, psfs, n, margin, 50)
     res_4 = oa_chandra(cf)
 
     pl = ift.Plot()
@@ -126,7 +126,7 @@ def test_oaconvolver():
     res_7 = oa_mock_field.integrate()
 
     mock_op = zp @ ift.ScalingOperator(position_space, 1)
-    full_op = zp.adjoint(xu.convolve_field_operator(kern, mock_op))
+    full_op = zp.adjoint(ju.convolve_field_operator(kern, mock_op))
     conv_fft = full_op(mock_field)
     res_8 = cut_interpolate_margin(conv_fft).integrate()
 
@@ -168,8 +168,8 @@ def test_oanew():
 
     # Convolve Correlated Field with Gauss Kernel via Interpolation
     kern_domain = ift.makeDomain([ift.UnstructuredDomain(64), position_space])
-    kernels_arr = xu.get_gaussian_kernel(35, kern_domain).val_rw()
-    convolve_oa = xu.OAnew.cut_force(cf.domain, kernels_arr, n, margin)
+    kernels_arr = ju.get_gaussian_kernel(35, kern_domain).val_rw()
+    convolve_oa = ju.OAnew.cut_force(cf.domain, kernels_arr, n, margin)
     # ift.extra.check_linear_operator(convolve_oa)
     res_1 = convolve_oa(cf)
 
@@ -179,17 +179,17 @@ def test_oanew():
     kern_zeropadder = ift.FieldZeroPadder(kern.domain, [1024+2*margin]*2, central=True)
     kern = kern_zeropadder(kern)
     # signal padding
-    zp = xu.MarginZeroPadder(position_space, margin)
+    zp = ju.MarginZeroPadder(position_space, margin)
     sig_2 = zp @ correlated_field  # Break PBC
 
     # Convolve and remove PBC Margin
-    response_2 = zp.adjoint @ xu.convolve_field_operator(kern, sig_2)
+    response_2 = zp.adjoint @ ju.convolve_field_operator(kern, sig_2)
 
     # Cut interpolation Margin as in res_1, just for comparision
     interpolation_margin = int(position_space.shape[0]//np.sqrt(n)*2)
     inner_shape = [i - 2*interpolation_margin for i in position_space.shape]
     inner_domain = ift.RGSpace(inner_shape, distances=position_space.distances)
-    cut_interpolate_margin = xu.MarginZeroPadder(inner_domain, interpolation_margin).adjoint
+    cut_interpolate_margin = ju.MarginZeroPadder(inner_domain, interpolation_margin).adjoint
     res_2 = (cut_interpolate_margin @ response_2)(xi)
 
     # Check if test holds
@@ -232,7 +232,7 @@ def test_oanew():
     psfs = np.array(psfs, dtype="float64")
 
     # Test inhomogenous psf
-    oa_chandra = xu.OAnew.cut_by_value(position_space, psfs, n, margin, 6)
+    oa_chandra = ju.OAnew.cut_by_value(position_space, psfs, n, margin, 6)
     # ift.extra.check_linear_operator(oa_chandra)
     res_4 = oa_chandra(cf)
 
@@ -256,7 +256,7 @@ def test_oanew():
     pl.output(name="test_normalization_test.png")
 
 
-    extracut = xu.MarginZeroPadder(ift.RGSpace([500,500], distances=position_space.distances), 6).adjoint
+    extracut = ju.MarginZeroPadder(ift.RGSpace([500,500], distances=position_space.distances), 6).adjoint
     double_test = np.zeros(position_space.shape)
     double_test[256:-256,256:-256] = 1.2
     double_test = ift.Field.from_raw(position_space, double_test)
@@ -288,7 +288,7 @@ def test_oanew():
     res_7 = oa_mock_field.integrate()
 
     # mock_op = zp @ ift.ScalingOperator(position_space, 1)
-    # full_op = zp.adjoint(xu.convolve_field_operator(kern, mock_op))
+    # full_op = zp.adjoint(ju.convolve_field_operator(kern, mock_op))
     # conv_fft = full_op(mock_field)
     # res_8 = cut_interpolate_margin(conv_fft).integrate()
 

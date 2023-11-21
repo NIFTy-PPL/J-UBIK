@@ -1,5 +1,5 @@
 import numpy as np
-import xubik0 as xu
+import jubik0 as ju
 import nifty8.re as jft
 import pytest
 
@@ -38,24 +38,24 @@ class TestBuildReadoutFunction:
         return jft.Vector({key: x[i][~mask[i]] for i, key in enumerate(keys)})
 
     def test_build_readout_function(self, exposures, exposure_cut, keys, x, expected_result):
-        build_exposure_readout = xu.build_readout_function(exposures, exposure_cut, keys)
+        build_exposure_readout = ju.build_readout_function(exposures, exposure_cut, keys)
         result = build_exposure_readout(x)
         assert result.tree.keys() == expected_result.tree.keys()
         np.testing.assert_array_equal(list(result.tree.values())[0],
                                       list(expected_result.tree.values())[0])
 
     def test_build_readout_function_wrong_input_shape(self, exposures, exposure_cut, keys, x):
-        build_exposure_readout = xu.build_readout_function(exposures, exposure_cut, keys)
+        build_exposure_readout = ju.build_readout_function(exposures, exposure_cut, keys)
         with pytest.raises(IndexError):
             build_exposure_readout(x[0])
 
     def test_build_readout_function_negative_exposure_cut(self, exposures, keys):
         with pytest.raises(ValueError):
-            xu.build_readout_function(exposures, -1, keys)
+            ju.build_readout_function(exposures, -1, keys)
 
     def test_build_readout_function_with_none_keys(self, single_exposure, exposure_cut, x,
                                                    single_exposured_sky, keys):
-        build_exposure_readout = xu.build_readout_function(single_exposure, exposure_cut, None)
+        build_exposure_readout = ju.build_readout_function(single_exposure, exposure_cut, None)
         result = build_exposure_readout(x)
         exposure = single_exposure.copy()
         exposure[exposure < exposure_cut] = 0
