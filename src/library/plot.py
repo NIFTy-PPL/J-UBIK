@@ -287,10 +287,14 @@ def plot_sample_and_stats(output_directory, operators_dict, res_sample_list, sta
                     colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
 
         # Plot statistics
-        plotting_kwargs.pop('n_rows')
-        plotting_kwargs.pop('n_cols')
-        plotting_kwargs.pop('figsize')
-        plotting_kwargs.pop('title')
+        if 'n_rows' in plotting_kwargs:
+            plotting_kwargs.pop('n_rows')
+        if 'n_cols' in plotting_kwargs:
+            plotting_kwargs.pop('n_cols')
+        if 'figsize' in plotting_kwargs:
+            plotting_kwargs.pop('figsize')
+        if 'title' in plotting_kwargs:
+            plotting_kwargs.pop('title')
         title = ["Posterior mean", "Posterior standard deviation"]
 
         mean = results[key].mean(axis=0)
