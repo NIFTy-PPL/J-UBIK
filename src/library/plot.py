@@ -113,7 +113,7 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             vmin = min(np.min(array[i]) for i in range(n_plots))
             vmax = max(np.max(array[i]) for i in range(n_plots))
 
-        if float(vmin) == 0.:
+        if vmin is not None and float(vmin) == 0.:
             vmin = 1e-18  # to prevent LogNorm throwing errors
 
         if logscale:

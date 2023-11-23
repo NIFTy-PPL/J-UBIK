@@ -92,7 +92,7 @@ minimization:
       maxiter: 10
   sample_update_kwargs:
     method: newtoncg
-    method_options:
+    minimize_kwargs:
       xtol: 2.e-4
       maxiter: 25
   make_sample_generator_kwargs:
