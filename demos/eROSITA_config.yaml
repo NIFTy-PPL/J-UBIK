@@ -82,7 +82,7 @@ priors:
 
 minimization:
   resume: False
-  sampling_method: altmetric
+  sampling_method: geometric
   total_iterations: 15
   n_samples: 4
   kl_solver:
@@ -91,8 +91,7 @@ minimization:
       absdelta: 1.e-4
       maxiter: 10
   sample_update_kwargs:
-    method: newtoncg
-    method_options:
+    minimize_kwargs:
       xtol: 2.e-4
       maxiter: 25
   make_sample_generator_kwargs:

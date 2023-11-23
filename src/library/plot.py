@@ -113,7 +113,7 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             vmin = min(np.min(array[i]) for i in range(n_plots))
             vmax = max(np.max(array[i]) for i in range(n_plots))
 
-        if float(vmin) == 0.:
+        if vmin is not None and float(vmin) == 0.:
             vmin = 1e-18  # to prevent LogNorm throwing errors
 
         if logscale:
@@ -287,10 +287,14 @@ def plot_sample_and_stats(output_directory, operators_dict, res_sample_list, sta
                     colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
 
         # Plot statistics
-        plotting_kwargs.pop('n_rows')
-        plotting_kwargs.pop('n_cols')
-        plotting_kwargs.pop('figsize')
-        plotting_kwargs.pop('title')
+        if 'n_rows' in plotting_kwargs:
+            plotting_kwargs.pop('n_rows')
+        if 'n_cols' in plotting_kwargs:
+            plotting_kwargs.pop('n_cols')
+        if 'figsize' in plotting_kwargs:
+            plotting_kwargs.pop('figsize')
+        if 'title' in plotting_kwargs:
+            plotting_kwargs.pop('title')
         title = ["Posterior mean", "Posterior standard deviation"]
 
         mean = results[key].mean(axis=0)
