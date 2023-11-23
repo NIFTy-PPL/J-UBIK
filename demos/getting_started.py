@@ -2,12 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nifty8 as ift
 
-import xubik0 as xu
+import jubik0 as ju
 
 ift.set_nthreads(2)
 
 # Load config file
-cfg = xu.get_config("scripts/config.yaml")
+cfg = ju.get_config("scripts/config.yaml")
 prefix = cfg["prefix"]
 npix_s = cfg["grid"]["npix_s"]
 fov = cfg["grid"]["fov"]
@@ -48,9 +48,9 @@ for dataset in cfg['datasets']:
     data = observation["data"].val[:, :, energy_bin]
     data_field = ift.Field.from_raw(position_space, data)
     # Likelihood
-    conv_op = xu.OAnew.cut_force(signal_fa.target, psfs, 64, 16)
+    conv_op = ju.OAnew.cut_force(signal_fa.target, psfs, 64, 16)
     convolved = conv_op @ signal_fa
-    cut = xu.MarginZeroPadder(convolved.target,
+    cut = ju.MarginZeroPadder(convolved.target,
                               ((position_space.shape[0] - convolved.target.shape[0])//2),
                               space=0).adjoint
 
@@ -62,7 +62,7 @@ for dataset in cfg['datasets']:
     exposure_op = ift.makeOp(cut_exp_field)
 
     # Mask
-    mask_op = xu.get_mask_operator(cut_exp_field)
+    mask_op = ju.get_mask_operator(cut_exp_field)
 
     # Signal Response
     signal_response = mask_op @ exposure_op @ convolved
@@ -88,7 +88,7 @@ minimizer = ift.NewtonCG(ic_newton)
 
 # Initial Position for inference
 pos = 0.1 * ift.from_random(signal.domain)
-transpose = xu.Transposer(signal.target)
+transpose = ju.Transposer(signal.target)
 
 global_it = cfg['global_it']
 n_samples = cfg['Nsamples']
@@ -107,6 +107,6 @@ samples = ift.optimize_kl(
     },
     output_directory="perseus_rec_2",
     initial_position=pos,
-    comm=xu.library.mpi.comm,
+    comm=ju.library.mpi.comm,
     resume=True
 )

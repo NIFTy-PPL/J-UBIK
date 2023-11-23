@@ -1,9 +1,8 @@
 import nifty8 as ift
-import xubik0 as xu
 from matplotlib.colors import LogNorm
 
 import nifty8.re as jft
-import xubik0 as xu
+import jubik0 as ju
 from jax import numpy as jnp
 
 
@@ -26,7 +25,7 @@ def create_sky_model_from_config(config_file_path):
     if not config_file_path.endswith('.yaml'):
         raise ValueError("The sky model parameters need to be safed in a .yaml-file.")
 
-    config = xu.get_config(config_file_path)
+    config = ju.get_config(config_file_path)
     priors = config['priors']
     grid_info = config['grid']
     tel_info = config['telescope']
@@ -200,7 +199,7 @@ class SkyModel:
         # FIXME: add all relevant checks and docstrings
 
         # Load config
-        self.config = xu.get_config(config_file)
+        self.config = ju.get_config(config_file)
         self.priors = self.config['priors']
 
         # grid info

@@ -2,7 +2,7 @@ import numpy as np
 import jax.numpy as jnp
 import nifty8 as ift
 
-from xubik0.operators.convolve_utils import (psf_convolve_operator,
+from jubik0.operators.convolve_utils import (psf_convolve_operator,
                                              psf_lin_int_operator, get_psf)
 
 def test_psf():

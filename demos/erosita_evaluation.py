@@ -2,7 +2,7 @@ import argparse
 from os.path import join
 import pickle
 
-import xubik0 as xu
+import jubik0 as ju
 
 # Parser Setup
 parser = argparse.ArgumentParser()
@@ -28,7 +28,7 @@ if __name__ == "__main__":
             
     """
     # Set paths
-    eval_cfg = xu.get_config(args.evaluation_config)
+    eval_cfg = ju.get_config(args.evaluation_config)
     reconstruction_path = eval_cfg['results_dir']
     iteration = eval_cfg['iteration']
     config_path = join(reconstruction_path, eval_cfg['config_name'])
@@ -36,11 +36,11 @@ if __name__ == "__main__":
     state_path_base = join(reconstruction_path, f'state_{iteration}')
     diagnostics_path = join(reconstruction_path, "diagnostics")
 
-    cfg = xu.get_config(config_path)
+    cfg = ju.get_config(config_path)
     tel_info = cfg['telescope']
     file_info = cfg['files']
 
-    response_dict = xu.build_erosita_response_from_config(config_path)
+    response_dict = ju.build_erosita_response_from_config(config_path)
 
     mask_func = response_dict['mask']
     response_func = response_dict['R']
@@ -58,7 +58,7 @@ if __name__ == "__main__":
             with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
                 gt_dict[key] = pickle.load(file)
 
-        xu.get_diagnostics_from_file(xu.compute_uncertainty_weighted_residuals,
+        ju.get_diagnostics_from_file(ju.compute_uncertainty_weighted_residuals,
                                      diagnostics_path,
                                      sl_path_base,
                                      state_path_base,
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     uwm_cfg = eval_cfg['uwm']
     if uwm_cfg is not None:
         output_operator_keys = uwm_cfg['output_operators_keys']
-        xu.get_diagnostics_from_file(xu.compute_uncertainty_weighted_residuals,
+        ju.get_diagnostics_from_file(ju.compute_uncertainty_weighted_residuals,
                                      diagnostics_path,
                                      sl_path_base,
                                      state_path_base,
@@ -94,12 +94,12 @@ if __name__ == "__main__":
         output_operator_keys = nwr_cfg['output_operators_keys']
         # Load data
         if cfg['mock']:
-            masked_data = xu.load_masked_data_from_pickle(join(file_info['res_dir'],
+            masked_data = ju.load_masked_data_from_pickle(join(file_info['res_dir'],
                                                            'mock_data_dict.pkl'))
         else:
-            masked_data = xu.load_erosita_masked_data(file_info, tel_info, mask_func)
+            masked_data = ju.load_erosita_masked_data(file_info, tel_info, mask_func)
 
-        xu.get_diagnostics_from_file(xu.compute_noise_weighted_residuals,
+        ju.get_diagnostics_from_file(ju.compute_noise_weighted_residuals,
                                      diagnostics_path,
                                      sl_path_base,
                                      state_path_base,
@@ -119,7 +119,7 @@ if __name__ == "__main__":
             for key in output_operator_keys:
                 with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
                     gt_dict[key] = pickle.load(file)
-            xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
+            ju.get_diagnostics_from_file(ju.plot_2d_gt_vs_rec_histogram,
                                          diagnostics_path,
                                          sl_path_base,
                                          state_path_base,
@@ -140,7 +140,7 @@ if __name__ == "__main__":
             for key in output_operator_keys:
                 with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
                     gt_dict[key] = pickle.load(file)
-            xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
+            ju.get_diagnostics_from_file(ju.plot_2d_gt_vs_rec_histogram,
                                          diagnostics_path,
                                          sl_path_base,
                                          state_path_base,
@@ -163,7 +163,7 @@ if __name__ == "__main__":
             for key in output_operator_keys:
                 with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
                     gt_dict[key] = pickle.load(file)
-            xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
+            ju.get_diagnostics_from_file(ju.plot_2d_gt_vs_rec_histogram,
                                          diagnostics_path,
                                          sl_path_base,
                                          state_path_base,
@@ -185,7 +185,7 @@ if __name__ == "__main__":
             for key in output_operator_keys:
                 with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
                     gt_dict[key] = pickle.load(file)
-            xu.get_diagnostics_from_file(xu.plot_2d_gt_vs_rec_histogram,
+            ju.get_diagnostics_from_file(ju.plot_2d_gt_vs_rec_histogram,
                                          diagnostics_path,
                                          sl_path_base,
                                          state_path_base,

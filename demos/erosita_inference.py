@@ -2,7 +2,7 @@ import os
 import argparse
 
 import nifty8.re as jft
-import xubik0 as xu
+import jubik0 as ju
 
 from jax import config, random
 
@@ -17,7 +17,7 @@ args = parser.parse_args()
 if __name__ == "__main__":
     # Load config file
     config_path = args.config
-    cfg = xu.get_config(config_path)
+    cfg = ju.get_config(config_path)
     file_info = cfg['files']
 
     # Sanity Checks
@@ -33,14 +33,14 @@ if __name__ == "__main__":
         raise FileExistsError("Resume is set to False but output directory exists already!")
 
     # Load sky model
-    sky_dict = xu.create_sky_model_from_config(config_path)
+    sky_dict = ju.create_sky_model_from_config(config_path)
     pspec = sky_dict.pop('pspec')
 
     # Save config
-    xu.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
+    ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
     # Generate loglikelihood
-    log_likelihood = xu.generate_erosita_likelihood_from_config(config_path) @ sky_dict['sky']
+    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path) @ sky_dict['sky']
 
     # Minimization
     minimization_config = cfg['minimization']
@@ -53,7 +53,7 @@ if __name__ == "__main__":
         kl_solver_kwargs['method_options']['absdelta'] *= cfg['grid']['npix']  # FIXME: Replace by domain information
 
     # Plot
-    plot = lambda s, x, i: xu.plot_sample_and_stats(file_info["res_dir"], sky_dict, s, x,
+    plot = lambda s, x, i: ju.plot_sample_and_stats(file_info["res_dir"], sky_dict, s, x,
                                                     iteration=i)
 
     samples, state = jft.optimize_kl(log_likelihood,

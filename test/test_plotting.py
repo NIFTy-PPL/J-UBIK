@@ -1,7 +1,7 @@
 #!/usr/bin/env
 #
 
-import xubik0 as xu
+import jubik0 as ju
 import nifty8 as ift
 import numpy as np
 from os.path import join, isfile
@@ -10,7 +10,7 @@ import time
 
 with open('models/mf_sky_trans.py', 'r') as fd:
     exec(fd.read())
-#cfg = xu.get_config("config_mf.yaml")
+#cfg = ju.get_config("config_mf.yaml")
 output_directory = "df_rec_old"
 fname = "last"
 fname = reduce(join, [output_directory, "pickle", fname])
@@ -33,9 +33,9 @@ print(len(signal_field_mean.domain))
 print(points_field_mean.domain)
 print(diffuse_field_mean.domain)
 
-binned_signal_field = xu.energy_binning(signal_field_mean, 3)
+binned_signal_field = ju.energy_binning(signal_field_mean, 3)
 print(binned_signal_field)
 
-xu.save_rgb_image_to_fits(fld = binned_signal_field, file_name = 'test', overwrite=True, mpi=mpi)
+ju.save_rgb_image_to_fits(fld = binned_signal_field, file_name = 'test', overwrite=True, mpi=mpi)
 
-xu.plot_rgb_image(file_name_in='test', file_name_out='test_out.jpeg')
+ju.plot_rgb_image(file_name_in='test', file_name_out='test_out.jpeg')

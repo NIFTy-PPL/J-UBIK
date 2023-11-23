@@ -1,6 +1,6 @@
 import nifty8 as ift
 import numpy as np
-import xubik0 as xu
+import jubik0 as ju
 
 import pytest
 import matplotlib.pyplot as plt
@@ -24,7 +24,7 @@ def test_lin_patch_conv():
     thrs = 3
 
     # nifty result
-    old_conv = xu.OAnew.cut_by_value(domain, psfs, n_patches, margin, thrs, False)
+    old_conv = ju.OAnew.cut_by_value(domain, psfs, n_patches, margin, thrs, False)
     res1 = old_conv(test_f)
     plt.imshow(res1.val)
     plt.show()
@@ -36,7 +36,7 @@ def test_lin_patch_conv():
     # cut by value
     psfs[psfs < thrs] = 0
     # jax result
-    res2 = xu.linpatch_convolve(test_f.val, domain, psfs,
+    res2 = ju.linpatch_convolve(test_f.val, domain, psfs,
                                 n_patches_per_axis, margin)
 
     plt.imshow(res2)

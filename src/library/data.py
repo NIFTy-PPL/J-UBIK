@@ -5,7 +5,7 @@ from jax import numpy as jnp
 from astropy.io import fits
 
 import nifty8.re as jft
-import xubik0 as xu
+import jubik0 as ju
 
 from .erosita_observation import ErositaObservation
 from .sky_models import create_sky_model
@@ -165,11 +165,11 @@ def generate_erosita_data_from_config(config_file_path, response_func, output_pa
                                                           priors,
                                                           cfg['seed'],
                                                           cfg['point_source_defaults'])
-    sky_comps = xu.create_sky_model(grid_info['npix'], grid_info['padding_ratio'],
+    sky_comps = ju.create_sky_model(grid_info['npix'], grid_info['padding_ratio'],
                               tel_info['fov'], priors)
     masked_mock_data = response_func(sky_comps['sky'](mock_sky_position))
     if output_path is not None:
-        xu.create_output_directory(output_path)
+        ju.create_output_directory(output_path)
         save_dict_to_pickle(masked_mock_data.tree,
                             os.path.join(output_path, 'mock_data_dict.pkl'))
         for key, sky_comp in sky_comps.items():
