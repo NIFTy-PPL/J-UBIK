@@ -239,7 +239,7 @@ def _append_key(s, key):
     return f"{s} ({key})"
 
 
-def plot_sample_and_stats(output_directory, operators_dict, res_sample_list, state, iteration=None,
+def plot_sample_and_stats(output_directory, operators_dict, sample_list, iteration=None,
                           log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None):
     """
     Plots operator samples and statistics from a sample list.
@@ -248,8 +248,7 @@ def plot_sample_and_stats(output_directory, operators_dict, res_sample_list, sta
     -----------
     - output_directory: `str`. The directory where the plot files will be saved.
     - operators_dict: `dict[callable]`. A dictionary containing operators.
-    - res_sample_list: `nifty8.re.kl.Samples`. The residual sample list.
-    - state: `nifty8.re.kl.OptVIState`. The current minimization state.
+    - sample_list: `nifty8.re.evi.Samples`. A list of samples.
     - iteration: `int`, optional. The global iteration number value. Defaults to None.
     - log_scale: `bool`, optional. Whether to use a logarithmic scale. Defaults to True.
     - colorbar: `bool`, optional. Whether to show a colorbar. Defaults to True.
@@ -260,7 +259,7 @@ def plot_sample_and_stats(output_directory, operators_dict, res_sample_list, sta
     --------
     - None
     """
-    samples = res_sample_list.at(state.minimization_state.x).samples
+    samples = sample_list.samples
 
     if iteration is None:
         iteration = 0
