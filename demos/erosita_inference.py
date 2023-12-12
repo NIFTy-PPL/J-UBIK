@@ -48,20 +48,20 @@ if __name__ == "__main__":
     key, subkey = random.split(key)
     pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky_dict['sky'].domain))
 
-    kl_solver_kwargs = minimization_config.pop('kl_solver')
-    if kl_solver_kwargs['method'] == 'newtoncg':
-        kl_solver_kwargs['method_options']['absdelta'] *= cfg['grid']['npix']  # FIXME: Replace by domain information
+    kl_solver_kwargs = minimization_config.pop('kl_kwargs')
+    kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['npix']  # FIXME: Replace by domain information
 
     # Plot
-    plot = lambda s, x, i: ju.plot_sample_and_stats(file_info["res_dir"], sky_dict, s, x,
-                                                    iteration=i)
+    plot = lambda s, x: ju.plot_sample_and_stats(file_info["res_dir"],
+                                                 sky_dict,
+                                                 s,
+                                                 iteration=x.nit)
 
     samples, state = jft.optimize_kl(log_likelihood,
                                      pos_init,
                                      key=key,
-                                     kl_solver_kwargs=kl_solver_kwargs,
+                                     kl_kwargs=kl_solver_kwargs,
                                      callback=plot,
-                                     out_dir=file_info["res_dir"],
-                                     resample=lambda ii: True if (ii < 2 or ii == 10) else False,
+                                     odir=file_info["res_dir"],
                                      **minimization_config
                                      )

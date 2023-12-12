@@ -61,7 +61,7 @@ priors:
     q: 1.E-6
   diffuse:
     offset:
-      offset_mean: -9.5 # exposure norm = 4.4 *10^-5
+      offset_mean: -10. # exposure norm = 4.4 *10^-5
       offset_std:
         - 0.2
         - 0.05
@@ -82,19 +82,25 @@ priors:
 
 minimization:
   resume: False
-  sampling_method: geometric
-  total_iterations: 15
+  n_total_iterations: 15
   n_samples: 4
-  kl_solver:
-    method: newtoncg
-    method_options:
-      absdelta: 1.e-4
-      maxiter: 10
-  sample_update_kwargs:
-    minimize_kwargs:
-      xtol: 2.e-4
-      maxiter: 25
-  make_sample_generator_kwargs:
+  draw_linear_kwargs:
+    cg_name : lin sampling
     cg_kwargs:
       absdelta: 1.e-4
       maxiter: 60
+  nonlinearly_update_kwargs:
+    minimize_kwargs:
+      name: nonlin sampling
+      xtol: 2.e-4
+      cg_kwargs:
+        name: null
+      maxiter: 25
+  kl_kwargs:
+    minimize_kwargs:
+      name: "M"
+      absdelta: 1.e-6
+      maxiter: 15
+      cg_kwargs:
+        name: "MCG"
+  sample_mode: nonlinear_sample
