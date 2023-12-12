@@ -54,24 +54,22 @@ def _build_full_mask_func_from_exp_files(exposure_file_names,
 
 def get_diagnostics_from_file(diagnostic_builder,
                               diagnostics_path,
-                              sl_path_base,
-                              state_path_base,
+                              minimization_output_path,
                               config_path,
                               output_operators_keys,
                               **kwargs):
     """ Creates sample list and sky model and passes the according sample list
-    to the considered diagnostic builde.
+    to the considered diagnostic builder function.
 
     Parameters
     ----------
-    diagnostic_builder: func
-        Diagnostic funstion that shall be calles with the build sample list.
+    diagnostic_builder: callable
+        Diagnostic function to be called on the build sample list.
     diagnostics_path: str
         Path to the reconstruction diagnostic files.
-    sl_path_base: str
-        Path base to the sample list, e.g. 'results/diagnostics/samples_1'.
-    state_path_base: str
-        Path base to state list, e.g. 'results/diagnostics/position_it_1'.
+    minimization_output_path: str
+        Path base to the minimization output file containing the samples and
+        the optimizer state.
     config_path: str
         Path to config file
     output_operators_keys: list
@@ -91,18 +89,14 @@ def get_diagnostics_from_file(diagnostic_builder,
     sky_dict.pop('pspec')
 
     # Load position space sample list
-    with open(f"{sl_path_base}.p", "rb") as file:
-        samples = pickle.load(file)
+    with open(minimization_output_path, "rb") as file:
+        samples, _ = pickle.load(file)
 
-    with open(f"{state_path_base}.p", "rb") as file:
-        state = pickle.load(file)
-
-    lat_sp_sl = samples.at(state.minimization_state.x).samples
+    samples = samples.samples
     padding_diff = int((grid_info['npix'] - round(grid_info['npix']/grid_info['padding_ratio']))/2)
-    # FIXME remove exposure padding
-    pos_sp_sample_dict = {key: [jax.vmap(op)(lat_sp_sl)[i][padding_diff:-padding_diff,
+    pos_sp_sample_dict = {key: [jax.vmap(op)(samples)[i][padding_diff:-padding_diff,
                                 padding_diff:-padding_diff] for i in
-                                range(len(jax.vmap(op)(lat_sp_sl)))]
+                                range(len(jax.vmap(op)(samples)))]
                                 for key, op in sky_dict.items() if key in output_operators_keys}
     diagnostic_builder(pos_sp_sample_dict, diagnostics_path, cfg, **kwargs)
 
@@ -132,7 +126,7 @@ def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
     diagnostics_path: str
         Path to the reconstruction diagnostic files.
     cfg: dict
-        Recosntruction config dictionary.
+        Reconstruction config dictionary.
     reference_dict: dict, None
         Dictionary of reference arrays (e.g. groundtruth for mock) to calculate the UWR. If the
         reference_dict is set to none we assume the reference to be zero and the measure defaults
@@ -218,21 +212,21 @@ def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
     return diag_dict
 
 
-# FIXME: At the moment this only plotting the histograms
 def compute_noise_weighted_residuals(pos_sp_sample_dict,
                                      diagnostics_path,
                                      cfg,
-                                     response_func,
+                                     response_dict,
                                      reference_dict,
                                      output_dir_base=None,
+                                     min_counts=0,
                                      abs=False,
                                      n_bins=None,
-                                     range=None,
+                                     extent=None,
                                      plot_kwargs=None):
     """
     Computes noise-weighted residuals (NWRs) given the position space sample list and
     plots the according histogram. Definition:
-    :math:`uwr = \\frac{Rs-d}{\\sqrt_{Rs}}`,
+    :math:`nwr = \\frac{Rs-d}{\\sqrt_{Rs}}`,
     where `s` is the signal, 'R' is the response and  `d` is the reference data.
 
     Parameters
@@ -242,10 +236,9 @@ def compute_noise_weighted_residuals(pos_sp_sample_dict,
     diagnostics_path: str
         Path to the reconstruction diagnostic files.
     cfg: dict
-        Recosntruction config dictionary.
-    response_func: callable
-        Callable response function that can be applied to the signal returning an object of the type
-        'jft.Vector', that conatins the according data space representations.
+        Reconstruction config dictionary
+    response_dict: dict
+        Dictionary with response callables.
     reference_dict: dict, None
         Dictionary of reference arrays (e.g. data) to calculate the NWR.
     output_dir_base: str, None
@@ -254,55 +247,93 @@ def compute_noise_weighted_residuals(pos_sp_sample_dict,
         If true the absolute value of the residual is calculated and plotted.
     n_bins: int, None
         Number of bins in the histogram plotted. If None, no histogram is plotted.
-    range: tuple, None
+    min_counts: `int`, minimum number of data counts for which the residuals will be calculated.
+    extent: tuple, None
         Range of the histogram. If None, the range defaults to (-5, 5)
     plot_kwargs: dict, None
-        Dictionary of plotting arguments for plot_results
+        Dictionary of plotting keyword arguments for plot_result.
     """
     mpi_master = ift.utilities.get_MPI_params()[3]
-    Rs_sample_dict = {key: [response_func(sample) for sample in sample_list]
-                      for key, sample_list in pos_sp_sample_dict.items()}
-    for key, Rs_samples in Rs_sample_dict.items():
-        diag_list = []
-        hist_list = []
-        for Rs_sample in Rs_samples:
-            diag = tree_map(lambda x, y: (x - y) / jnp.sqrt(x),
-                            Rs_sample,
-                            reference_dict)
-            if abs:
-                diag = tree_map(jnp.abs, diag)
-            diag_list.append(diag)
-            if n_bins is not None:
-                if range is None:
-                    range = (-5, 5)
-                hist = tree_map(lambda x: np.histogram(x.reshape(-1), bins=n_bins, range=range),
-                                diag)
-                hist_list.append(hist)
+    mask_adj = jax.linear_transpose(response_dict['mask'],
+                                    np.zeros((2, 426, 426))) # FIXME: remove hardcoded value
+    mask_adj = jax.vmap(mask_adj, in_axes=0, out_axes=1)
+
+    # R = lambda x: mask_adj(response_dict['R'](x))
+    R = response_dict['R']
+    R = jax.vmap(R, in_axes=0, out_axes=1)
+
+    nwr_func = lambda x, y: (x - y) / jnp.sqrt(x)
+
+    nwr_func = jax.vmap(nwr_func, in_axes=0, out_axes=1)
+
+    if min_counts > 0:
+        low_count_loc = lambda x: x < min_counts
+        low_count_loc = tree_map(low_count_loc, reference_dict)
+        mask_low_count = lambda x, cond: jnp.where(cond, np.nan, x)
+
+    nwr_dict = {}
+    unmasked_nwr_dict = {}
+    mean_hist_dict = {}
+    edges_dict = {}
+    for key, sample_list in pos_sp_sample_dict.items():
+        sample_list = np.array(sample_list)
+        Rs_sample = R(sample_list)
+        nwr = tree_map(lambda x, y: nwr_func(x, y), Rs_sample, reference_dict)
+        if abs:
+            nwr = tree_map(np.abs, nwr)
+        if min_counts > 0:
+            nwr = tree_map(mask_low_count, nwr, low_count_loc)
+        nwr_dict[key] = nwr
+        unmasked_nwr_dict[key] = mask_adj(nwr)
+        if mpi_master:
+            if plot_kwargs is None:
+                plot_kwargs = {}
+            if 'cmap' not in plot_kwargs:
+                plot_kwargs.update({'cmap': 'seismic'})
+            if 'vmin' not in plot_kwargs:
+                plot_kwargs.update({'vmin': -5})
+            if 'vmax' not in plot_kwargs:
+                plot_kwargs.update({'vmax': 5})
+
+            tm_ids = tuple(nwr.tree.keys())
+            for i, id in enumerate(tm_ids):
+                res_path = create_output_directory(join(diagnostics_path, f'tm{id}/{key}/'))
+                if 'title' not in plot_kwargs:
+                    plot_kwargs.update({'title': f'{key} NWR - TM{id}'})
+                plot_result(unmasked_nwr_dict[key][0][i,:,:,:],
+                            output_file=join(res_path,
+                                             f'{output_dir_base}{key}_tm{id}_samples.png'),
+                            adjust_figsize=True,
+                            **plot_kwargs,
+                            )
+
+                plot_result(np.mean(unmasked_nwr_dict[key][0][i,:,:,:], axis=0),
+                            output_file=join(res_path,
+                                             f'{output_dir_base}{key}_tm{id}_mean.png'),
+                            adjust_figsize=True,
+                            **plot_kwargs,
+                            )
+
         if n_bins is not None:
-            sample_mean_hist = hist_list[0]
-            for hist in hist_list[1:]:
-                sample_mean_hist = tree_map(lambda x, y: x+y, sample_mean_hist, hist)
-            sample_mean_hist = tree_map(lambda x: x/len(hist_list), sample_mean_hist)
-            if mpi_master and output_dir_base:
-                data_mean_hist = None
-                for dataset, mean in sample_mean_hist.tree.items():
-                    title = plot_kwargs.get('title')
-                    output_dir = join(diagnostics_path,
-                                      f'{output_dir_base}hist_{key}_{dataset}.png')
-                    plot_histograms(sample_mean_hist[dataset][0], sample_mean_hist[dataset][1],
-                                    output_dir, logy=True, title=title)
+            if extent is None:
+                extent = (-5, 5)
+            hist_func = lambda x: jnp.histogram(x.reshape(-1), bins=n_bins, range=extent)[0]
+            edges_func = lambda x: jnp.histogram(x.reshape(-1), bins=n_bins, range=extent)[1]
+            hist = tree_map(jax.vmap(hist_func, in_axes=0, out_axes=0), nwr)
+            edges = tree_map(edges_func, nwr)
+            mean_hist = tree_map(lambda x: np.mean(x, axis=0), hist)
+            mean_hist_dict[key] = mean_hist
+            edges_dict[key] = edges
 
-                    data_mean_hist = sample_mean_hist[dataset] if data_mean_hist is None else (
-                        data_mean_hist[0] + sample_mean_hist[dataset][0],
-                        data_mean_hist[1] + sample_mean_hist[dataset][1]
-                    )
+            for id in mean_hist.tree.keys():
+                if mpi_master:
+                    plot_histograms(mean_hist[id], edges[id], join(diagnostics_path,
+                                                                   f'{output_dir_base}hist_{key}_tm{id}.png'),
+                                    logy=False, title=f'NWR mean {key} - TM{id}')
+    if mpi_master:
+        return nwr_dict, unmasked_nwr_dict, mean_hist_dict, edges_dict
 
-                data_mean_hist = (data_mean_hist[0]/ len(list(sample_mean_hist.tree.values())),
-                                  data_mean_hist[1]/ len(list(sample_mean_hist.tree.values())))
-                plot_histograms(data_mean_hist[0], data_mean_hist[1],
-                                join(diagnostics_path,
-                                     f'{output_dir_base}hist_{key}_dataset_mean.png'),
-                                logy=True, title=f'{title} - Dataset mean')
+
 
 
 def plot_2d_gt_vs_rec_histogram(pos_sp_sample_dict,
