@@ -177,13 +177,14 @@ def build_erosita_psf(psf_filenames, energy, pointing_center, domain, npatch,
                                        domain, npatch, margfrac)
                  for psf_file, pcenter in zip(psf_filenames, pointing_center)]
     index = jnp.arange(len(functions))
+    # FIXME make this more efficient
     vmap_functions = vmap(lambda i, x: lax.switch(i, functions, x), in_axes=(0, None))
 
     def vmap_psf_func(x):
         return vmap_functions(index, x)
     return vmap_psf_func
 
-
+# FIXME only exposure 
 def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
     # TODO: write docstring
     exposure = build_exposure_function(exposures, exposure_cut)
