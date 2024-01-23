@@ -99,6 +99,7 @@ def get_diagnostics_from_file(diagnostic_builder,
 
     lat_sp_sl = samples.at(state.minimization_state.x).samples
     padding_diff = int((grid_info['npix'] - round(grid_info['npix']/grid_info['padding_ratio']))/2)
+    # FIXME remove exposure padding
     pos_sp_sample_dict = {key: [jax.vmap(op)(lat_sp_sl)[i][padding_diff:-padding_diff,
                                 padding_diff:-padding_diff] for i in
                                 range(len(jax.vmap(op)(lat_sp_sl)))]
