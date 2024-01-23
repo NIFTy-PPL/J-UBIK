@@ -37,6 +37,10 @@ if __name__ == "__main__":
     sky_dict = ju.create_sky_model_from_config(config_path)
     pspec = sky_dict.pop('pspec')
 
+    # Create data files
+    if not cfg['load_mock_data']:
+        ju.create_erosita_data_from_config(config_path)
+
     # Save config
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 

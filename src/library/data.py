@@ -1,5 +1,7 @@
 import os
 import pickle
+
+import numpy as np
 from jax import random
 from jax import numpy as jnp
 from astropy.io import fits
@@ -115,13 +117,6 @@ def load_erosita_masked_data(file_info, tel_info, mask_func):
     mask_func : Callable
         Mask function, which takes a three dimensional array and makes a jft.Vector
         out of it containing a dictionary of masked arrays
-    priors : dict
-        Dictionary of prior information
-    seed : int
-        Random seed for mock sky generation
-    default_point_source_prior: dict
-        Default values for the point sources for the mock sky generation if a reconstruction
-        with only diffuse is used.
     Returns
     -------
     masked_data_vector: jft.Vector
@@ -134,6 +129,78 @@ def load_erosita_masked_data(file_info, tel_info, mask_func):
         data_list.append(data)
     masked_data_vector = mask_func(jnp.stack(data_list))
     return masked_data_vector
+
+
+def create_erosita_data_from_config_dict(config_dict):
+    """ Create eROSITA data from config dictionary
+        (calls the eSASS interface)
+    """
+    tel_info = config_dict["telescope"]
+    file_info = config_dict["files"]
+    obs_path = config_dict["obs_path"]
+    input_filenames = config_dict["input"]
+
+    grid_info = config_dict['grid']
+    e_min = grid_info['energy_bin']['e_min']
+    e_max = grid_info['energy_bin']['e_max']
+    npix = grid_info['npix']
+
+    tm_ids = tel_info["tm_ids"]
+    fov = tel_info['fov']
+    detmap = tel_info['detmap']
+
+    rebin = np.floor(20 * fov // npix)  # FIXME: USE DISTANCES!
+
+    log = 'Output file {} already exists and is not regenerated. '\
+          'If the observation parameters have changed please'\
+           ' delete or rename the current output file.'
+
+    for tm_id in tm_ids:
+        output_filename = f'{tm_id}_' + file_info['output']
+        exposure_filename = f'{tm_id}_' + file_info['exposure']
+        observation_instance = ju.ErositaObservation(input_filenames, output_filename, obs_path)
+        if not os.path.exists(os.path.join(obs_path, output_filename)):
+            _ = observation_instance.get_data(emin=e_min,
+                                              emax=e_max,
+                                              image=True,
+                                              rebin=rebin,
+                                              size=npix,
+                                              pattern=tel_info['pattern'],
+                                              telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
+        else:
+            print(log.format(os.path.join(obs_path, output_filename)))
+
+        observation_instance = ju.ErositaObservation(output_filename, output_filename, obs_path)
+
+        # Exposure
+        if not os.path.exists(os.path.join(obs_path, exposure_filename)):
+            observation_instance.get_exposure_maps(output_filename, e_min, e_max,
+                                                   mergedmaps=exposure_filename,
+                                                   withdetmaps=detmap)
+
+        else:
+            print(log.format(os.path.join(obs_path, output_filename)))
+
+        # Exposure
+        if not os.path.exists(os.path.join(obs_path, exposure_filename)):
+            observation_instance.get_exposure_maps(output_filename, e_min, e_max,
+                                                   mergedmaps=exposure_filename,
+                                                   withdetmaps=detmap)
+
+        else:
+            print(log.format(os.path.join(obs_path, output_filename)))
+
+        # Plotting
+        plot_info = config_dict['plotting']
+        if plot_info['enabled']:
+            observation_instance.plot_fits_data(output_filename,
+                                                os.path.splitext(output_filename)[0],
+                                                slice=plot_info['slice'],
+                                                dpi=plot_info['dpi'])
+            observation_instance.plot_fits_data(exposure_filename,
+                                                f'{os.path.splitext(exposure_filename)[0]}.png',
+                                                slice=plot_info['slice'],
+                                                dpi=plot_info['dpi'])
 
 
 def generate_erosita_data_from_config(config_file_path, response_func, output_path=None):
