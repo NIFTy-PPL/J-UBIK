@@ -39,4 +39,4 @@ def generate_erosita_likelihood_from_config(config_file_path):
                                                    'mock_data_dict.pkl'), mask_func)
     else:
         masked_data = load_erosita_masked_data(file_info, tel_info, mask_func)
-    return jft.Poissonian(masked_data) @ response_func
+    return jft.Poissonian(masked_data).amend(response_func)

@@ -41,7 +41,7 @@ if __name__ == "__main__":
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
     # Generate loglikelihood
-    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path) @ sky_dict['sky']
+    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path).amend(sky_dict['sky'])
 
     # Minimization
     minimization_config = cfg['minimization']
