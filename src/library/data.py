@@ -137,10 +137,10 @@ def create_erosita_data_from_config_dict(config_dict):
     """
     tel_info = config_dict["telescope"]
     file_info = config_dict["files"]
-    obs_path = config_dict["obs_path"]
-    input_filenames = config_dict["input"]
-
     grid_info = config_dict['grid']
+
+    input_filenames = file_info["input"]
+    obs_path = file_info["obs_path"]
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
     npix = grid_info['npix']
@@ -149,7 +149,7 @@ def create_erosita_data_from_config_dict(config_dict):
     fov = tel_info['fov']
     detmap = tel_info['detmap']
 
-    rebin = np.floor(20 * fov // npix)  # FIXME: USE DISTANCES!
+    rebin = int(np.floor(20 * fov // npix))  # FIXME: USE DISTANCES!
 
     log = 'Output file {} already exists and is not regenerated. '\
           'If the observation parameters have changed please'\

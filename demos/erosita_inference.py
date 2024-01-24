@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     # Create data files
     if not cfg['load_mock_data']:
-        ju.create_erosita_data_from_config(config_path)
+        ju.create_erosita_data_from_config_dict(cfg)
 
     # Save config
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
