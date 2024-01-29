@@ -175,7 +175,8 @@ def create_erosita_data_from_config_dict(config_dict):
         # Exposure
         if not os.path.exists(os.path.join(obs_path, exposure_filename)):
             observation_instance.get_exposure_maps(output_filename, e_min, e_max,
-                                                   mergedmaps=exposure_filename,
+                                                   withsinglemaps=True,
+                                                   singlemaps=[exposure_filename],
                                                    withdetmaps=detmap)
 
         else:
@@ -184,7 +185,8 @@ def create_erosita_data_from_config_dict(config_dict):
         # Exposure
         if not os.path.exists(os.path.join(obs_path, exposure_filename)):
             observation_instance.get_exposure_maps(output_filename, e_min, e_max,
-                                                   mergedmaps=exposure_filename,
+                                                   withsinglemaps=True,
+                                                   singlemaps=[exposure_filename],
                                                    withdetmaps=detmap)
 
         else:

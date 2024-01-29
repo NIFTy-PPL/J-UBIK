@@ -33,7 +33,7 @@ psf:
   # config for homogeneous gauss psf
 #  gauss_var: 5
 
- plotting:
+plotting:
   enabled: True
   slice: Null
   dpi: 800
