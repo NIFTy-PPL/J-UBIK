@@ -13,6 +13,7 @@ def message_obs(obsInfo, verbose=1):
         print('Considered energy range = {0:.1f} to {1:.1f} keV'.format(obsInfo['energy_min'], obsInfo['energy_max']))
         print('------------------------')
 
+
 def message_binning(obsInfo, verbose=1):
     if verbose > 0:
         print('')
@@ -22,6 +23,7 @@ def message_binning(obsInfo, verbose=1):
         print('Number of events considered = {:d}'.format(obsInfo['ntot_binned']))
         print('------------------------')
 
+
 def message_exposure(obsInfo, verbose=1):
     if verbose > 0:
         print('')
@@ -29,3 +31,10 @@ def message_exposure(obsInfo, verbose=1):
         print('------------------------')
         print('Chips online = ', obsInfo['chips_on'])
         print('Chips in the region of interest = ', obsInfo['chips_in'])
+
+
+def log_file_exists(filename):
+    log = f'Output file {filename} already exists and is not regenerated. '\
+          'If the observation parameters have changed please'\
+           ' delete or rename the current output file.'
+    print(log)

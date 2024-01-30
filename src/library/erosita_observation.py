@@ -252,7 +252,7 @@ class ErositaObservation:
 
         if singlemaps is not None:
             singlemaps = list(map(lambda x: os.path.join(mounted_dir, x), singlemaps))
-            singlemaps_str = '"' + " ".join(singlemaps) + '"'
+            singlemaps_str = f'" {singlemaps}"'
 
         flags = " "
         flags += templateimage if templateimage is not None else print(
