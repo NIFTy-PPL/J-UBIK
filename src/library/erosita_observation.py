@@ -4,6 +4,7 @@ import subprocess
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from matplotlib import colors
+import numpy as np
 
 from .utils import _check_type
 
@@ -64,8 +65,8 @@ class ErositaObservation:
         template_image: str
         Path to the output exposure maps will be binned as specified in the WCS keywords of the
         template image.
-        emin:
-        emax:
+        emin: float
+        emax: float
         badpix_correction: bool (default: True)
         Loads the corrected eROSITA detmaps. To build the bad-pixel corrected maps,
         use the auxiliary function create_erosita_badpix_to_detmaps.
@@ -234,7 +235,7 @@ class ErositaObservation:
 
     @staticmethod
     def _get_exmap_flags(mounted_dir, templateimage, emin, emax,
-                         withsinglemaps=True, withmergedmaps=False, singlemaps=None,
+                         withsinglemaps=False, withmergedmaps=False, singlemaps=None,
                          mergedmaps=None, gtitype='GTI', withvignetting=True,
                          withdetmaps=True, withweights=True, withfilebadpix=True,
                          withcalbadpix=True, withinputmaps=False):
@@ -249,8 +250,9 @@ class ErositaObservation:
         for key, val in input_params.items():
             _check_type(eval(key), val, name=key)
 
-        singlemaps = list(map(lambda x: os.path.join(mounted_dir, x), singlemaps))
-        singlemaps_str = '"' + " ".join(singlemaps) + '"'
+        if singlemaps is not None:
+            singlemaps = list(map(lambda x: os.path.join(mounted_dir, x), singlemaps))
+            singlemaps_str = f'" {singlemaps}"'
 
         flags = " "
         flags += templateimage if templateimage is not None else print(

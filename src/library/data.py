@@ -1,5 +1,8 @@
 import os
 import pickle
+from os.path import join
+
+import numpy as np
 from jax import random
 from jax import numpy as jnp
 from astropy.io import fits
@@ -8,6 +11,7 @@ import nifty8.re as jft
 import jubik0 as ju
 
 from .erosita_observation import ErositaObservation
+from .messages import log_file_exists
 from .sky_models import create_sky_model
 from .utils import get_config
 
@@ -115,13 +119,6 @@ def load_erosita_masked_data(file_info, tel_info, mask_func):
     mask_func : Callable
         Mask function, which takes a three dimensional array and makes a jft.Vector
         out of it containing a dictionary of masked arrays
-    priors : dict
-        Dictionary of prior information
-    seed : int
-        Random seed for mock sky generation
-    default_point_source_prior: dict
-        Default values for the point sources for the mock sky generation if a reconstruction
-        with only diffuse is used.
     Returns
     -------
     masked_data_vector: jft.Vector
@@ -130,10 +127,70 @@ def load_erosita_masked_data(file_info, tel_info, mask_func):
     data_list = []
     for tm_id in tel_info['tm_ids']:
         output_filename = f'{tm_id}_' + file_info['output']
-        data = jnp.array(fits.open(os.path.join(file_info['obs_path'], output_filename))[0].data, dtype=int)
+        data = jnp.array(fits.open(join(file_info['obs_path'], output_filename))[0].data, dtype=int)
         data_list.append(data)
     masked_data_vector = mask_func(jnp.stack(data_list))
     return masked_data_vector
+
+
+def create_erosita_data_from_config_dict(config_dict):
+    """ Create eROSITA data from config dictionary
+        (calls the eSASS interface)
+    """
+    tel_info = config_dict["telescope"]
+    file_info = config_dict["files"]
+    grid_info = config_dict['grid']
+
+    input_filenames = file_info["input"]
+    obs_path = file_info["obs_path"]
+    e_min = grid_info['energy_bin']['e_min']
+    e_max = grid_info['energy_bin']['e_max']
+    npix = grid_info['npix']
+
+    tm_ids = tel_info["tm_ids"]
+    fov = tel_info['fov']
+    detmap = tel_info['detmap']
+
+    rebin = int(np.floor(20 * fov // npix))  # FIXME: USE DISTANCES!
+
+    for tm_id in tm_ids:
+        output_filename = f'{tm_id}_' + file_info['output']
+        exposure_filename = f'{tm_id}_' + file_info['exposure']
+        observation_instance = ju.ErositaObservation(input_filenames, output_filename, obs_path)
+        if not os.path.exists(join(obs_path, output_filename)):
+            _ = observation_instance.get_data(emin=e_min,
+                                              emax=e_max,
+                                              image=True,
+                                              rebin=rebin,
+                                              size=npix,
+                                              pattern=tel_info['pattern'],
+                                              telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
+        else:
+            log_file_exists(join(obs_path, output_filename))
+
+        observation_instance = ju.ErositaObservation(output_filename, output_filename, obs_path)
+
+        # Exposure
+        if not os.path.exists(join(obs_path, exposure_filename)):
+            observation_instance.get_exposure_maps(output_filename, e_min, e_max,
+                                                   withsinglemaps=True,
+                                                   singlemaps=[exposure_filename],
+                                                   withdetmaps=detmap)
+
+        else:
+            log_file_exists(join(obs_path, output_filename))
+            
+        # Plotting
+        plot_info = config_dict['plotting']
+        if plot_info['enabled']:
+            observation_instance.plot_fits_data(output_filename,
+                                                os.path.splitext(output_filename)[0],
+                                                slice=plot_info['slice'],
+                                                dpi=plot_info['dpi'])
+            observation_instance.plot_fits_data(exposure_filename,
+                                                f'{os.path.splitext(exposure_filename)[0]}.png',
+                                                slice=plot_info['slice'],
+                                                dpi=plot_info['dpi'])
 
 
 def generate_erosita_data_from_config(config_file_path, response_func, output_path=None):
@@ -171,9 +228,9 @@ def generate_erosita_data_from_config(config_file_path, response_func, output_pa
     if output_path is not None:
         ju.create_output_directory(output_path)
         save_dict_to_pickle(masked_mock_data.tree,
-                            os.path.join(output_path, 'mock_data_dict.pkl'))
+                            join(output_path, 'mock_data_dict.pkl'))
         for key, sky_comp in sky_comps.items():
             save_dict_to_pickle(sky_comp(mock_sky_position),
-                                os.path.join(output_path, f'{key}_gt.pkl'))
+                                join(output_path, f'{key}_gt.pkl'))
     return jft.Vector({key: val.astype(int) for key, val in masked_mock_data.tree.items()})
 

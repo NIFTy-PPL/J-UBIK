@@ -31,11 +31,16 @@ if __name__ == "__main__":
 
     if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
         file_info["res_dir"] = file_info["res_dir"] + "_new"
-        print("FYI: Resume is set to False, but the output directory already exists. The result_dir has been appended with the string *new*.")
+        print("FYI: Resume is set to False, but the output directory already exists. "
+              "The result_dir has been appended with the string *new*.")
 
     # Load sky model
     sky_dict = ju.create_sky_model_from_config(config_path)
     pspec = sky_dict.pop('pspec')
+
+    # Create data files
+    if not cfg['load_mock_data']:
+        ju.create_erosita_data_from_config_dict(cfg)
 
     # Save config
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
