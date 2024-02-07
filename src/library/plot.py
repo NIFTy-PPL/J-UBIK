@@ -81,13 +81,16 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
 
     n_ax = n_rows * n_cols
     n_del = n_ax - n_plots
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize, dpi=dpi)
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols,
+                             figsize=figsize, dpi=dpi)
 
     if isinstance(axes, np.ndarray):
         axes = axes.flatten()
     else:
         axes = [axes]
     pltargs = {"origin": "lower", "cmap": "viridis"}
+    pltargs.update({'vmin': kwargs.get('vmin', None),
+                    'vmax': kwargs.get('vmax', None)})
 
     for i in range(n_plots):
         if array[i].ndim != 2:
@@ -146,8 +149,10 @@ def plot_slices(field, outname, logscale=False):
     img = field.val
     npix_e = field.domain.shape[-1]
     nax = np.ceil(np.sqrt(npix_e)).astype(int)
-    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60. # conv to arcmin
-    pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
+    half_fov = field.domain[0].distances[0] * \
+        field.domain[0].shape[0] / 2.0 / 60.  # conv to arcmin
+    pltargs = {"origin": "lower", "cmap": "cividis",
+               "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
         pltargs["norm"] = LogNorm()
 
@@ -169,7 +174,8 @@ def plot_fused_data(obs_info, img_cfg, obslist, outroot, center=None):
     data_domain = get_data_domain(grid)
     data = []
     for obsnr in obslist:
-        info = ChandraObservationInformation(obs_info["obs" + obsnr], **grid, center=center)
+        info = ChandraObservationInformation(
+            obs_info["obs" + obsnr], **grid, center=center)
         data.append(info.get_data(f"./data_{obsnr}.fits"))
     full_data = sum(data)
     full_data_field = ift.makeField(data_domain, full_data)
@@ -183,7 +189,8 @@ def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
     color_dict = {0: "red", 1: "green", 2: "blue"}
     file_dict = {}
     for key in color_dict:
-        file_dict[color_dict[key]] = pyfits.open(f"{file_name_in}_{color_dict[key]}.fits")[0].data
+        file_dict[color_dict[key]] = pyfits.open(
+            f"{file_name_in}_{color_dict[key]}.fits")[0].data
     rgb_default = make_lupton_rgb(file_dict["red"], file_dict["green"], file_dict["blue"],
                                   filename=file_name_out)
     if log_scale:
@@ -204,9 +211,11 @@ def plot_image_from_fits(file_name_in, file_name_out, log_scale=False):
 
 
 def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):
-    half_fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
+    half_fov = psf.domain[0].distances[0] * \
+        psf.domain[0].shape[0] / 2.0 / 60  # conv to arcmin
     psf = psf.val  # .reshape([1024, 1024])
-    pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
+    pltargs = {"origin": "lower", "cmap": "cividis",
+               "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
         pltargs["norm"] = LogNorm(vmin=vmin, vmax=vmax)
     fig, ax = plt.subplots()
@@ -270,7 +279,8 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     for key in operators_dict:
         op = operators_dict[key]
         results_path = create_output_directory(join(output_directory, key))
-        filename_samples = join(results_path, "samples_{}.png".format(iteration))
+        filename_samples = join(
+            results_path, "samples_{}.png".format(iteration))
         filename_stats = join(results_path, "stats_{}.png".format(iteration))
 
         results[key] = jax.vmap(op)(samples)
@@ -368,7 +378,8 @@ def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):
     elif len(domain) == 2:
         p = ift.Plot()
         for i in range(field.shape[2]):
-            slice = ift.Field(ift.DomainTuple.make(domain[0]), field.val[:, :, i])
+            slice = ift.Field(ift.DomainTuple.make(
+                domain[0]), field.val[:, :, i])
             p.add(slice, title=f'{title}_e_bin={i}', **plot_kwargs)
         p.output(name=file_name)
     else:
@@ -521,8 +532,10 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
 
         resp_dict = build_erosita_response_from_config(config_path)
 
-        mask_adj = jax.linear_transpose(resp_dict['mask'], np.zeros((len(tm_ids), 426, 426))) # FIXME: remove hardcoded value
-        R = lambda x: mask_adj(resp_dict['R'](x))
+        mask_adj = jax.linear_transpose(resp_dict['mask'], np.zeros(
+            (len(tm_ids), 426, 426)))  # FIXME: remove hardcoded value
+
+        def R(x): return mask_adj(resp_dict['R'](x))
         R = jax.vmap(R, in_axes=0, out_axes=1)
 
         for key, val in plottable_samples.items():
@@ -549,9 +562,9 @@ def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
     print(f"Histogram saved as {filename}.")
 
 
-def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label, x_lim = None,
-                                            y_lim = None, bins=100, dpi=400,
-                                            title=None, output_path=None):
+def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label, x_lim=None,
+                                          y_lim=None, bins=100, dpi=400,
+                                          title=None, output_path=None):
     """ Plot a 2d histogram for the arrays given for x_array and y_array.
 
 
@@ -592,7 +605,8 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     edges_y_list = []
 
     for i in range(len(x_array_list)):
-        hist, edges_x, edges_y = np.histogram2d(x_array_list[i], y_array_list[i], bins=(x_bins, y_bins))
+        hist, edges_x, edges_y = np.histogram2d(
+            x_array_list[i], y_array_list[i], bins=(x_bins, y_bins))
         hist_list.append(hist)
         edges_x_list.append(edges_x)
         edges_y_list.append(edges_y)
@@ -603,7 +617,8 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     xedges = np.mean(edges_x_list, axis=0)
     yedges = np.mean(edges_y_list, axis=0)
 
-    plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet, norm=LogNorm(vmin=1))
+    plt.pcolormesh(xedges, yedges, counts.T,
+                   cmap=plt.cm.jet, norm=LogNorm(vmin=1))
     plt.colorbar()
     ax.set_xscale('log')
     ax.set_yscale('log')
