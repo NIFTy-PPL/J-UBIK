@@ -1,0 +1,98 @@
+seed: 42
+mock: False
+
+plotting:
+  enabled: True
+  slice: Null
+  dpi: 300
+
+grid:
+  npix: 512
+  padding_ratio: 1.0
+
+
+telescope:
+  fov: 8.064
+
+
+files:
+  res_dir: 'results/jwst/'
+
+  data:
+    likelihood_01:
+      pixel_size:  0.063
+      pixel_shift: '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/pix_shift.npy'
+      psf_path:    '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/psf_oversample_4.fits'
+      data_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/data.fits'
+      noise_path:  '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/err.fits'
+      mask_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/mask.fits'
+      source_path: null
+      zero_flux: 
+        mean:
+          distribution: 'normal'
+          mean: 0.3
+          sigma: 0.01
+
+    likelihood_02:
+      pixel_size:  0.063
+      pixel_shift: '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/pix_shift.npy'
+      psf_path:    '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/psf_oversample_4.fits'
+      data_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/data.fits'
+      noise_path:  '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/err.fits'
+      mask_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/mask.fits'
+      source_path: null
+      zero_flux: 
+        mean:
+          distribution: 'normal'
+          mean: 0.3
+          sigma: 0.01
+
+
+
+priors:
+  point_sources: null
+  diffuse:
+    offset:
+      offset_mean: -10. # exposure norm = 4.4 *10^-5
+      offset_std:
+        - 0.2
+        - 0.05
+    fluctuations:
+      fluctuations:
+        - 1.5
+        - 0.8
+      loglogavgslope:
+        - -3.
+        - 1.0
+      flexibility:
+        - 0.8
+        - 0.1
+      asperity:
+        - 0.2
+        - 0.1
+    prefix: diffuse_
+
+minimization:
+  resume: True
+  n_total_iterations: 15
+  n_samples: 4
+  draw_linear_kwargs:
+    cg_name : lin sampling
+    cg_kwargs:
+      absdelta: 1.e-4
+      maxiter: 60
+  nonlinearly_update_kwargs:
+    minimize_kwargs:
+      name: nonlin sampling
+      xtol: 2.e-4
+      cg_kwargs:
+        name: null
+      maxiter: 25
+  kl_kwargs:
+    minimize_kwargs:
+      name: "M"
+      absdelta: 1.e-6
+      maxiter: 15
+      cg_kwargs:
+        name: "MCG"
+  sample_mode: nonlinear_sample

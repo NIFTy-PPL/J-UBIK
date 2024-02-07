@@ -83,7 +83,8 @@ def build_readout_function(flasgs, threshold=None, keys=None):
     if keys is None:
         keys = ['masked input']
     elif len(keys) != flasgs.shape[0]:
-        raise ValueError("length of keys should match the number of flag maps.")
+        raise ValueError(
+            "length of keys should match the number of flag maps.")
 
     def _apply_readout(x: np.array):
         """
@@ -146,15 +147,17 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
             from astropy.io import fits
             exposures.append(fits.open(file)[0].data)
         elif not (file.endswith('.npy') or file.endswith('.fits')):
-            raise ValueError('exposure files should be in a .npy or .fits format!')
+            raise ValueError(
+                'exposure files should be in a .npy or .fits format!')
         else:
             raise FileNotFoundError(f'cannot find {file}!')
-    exposures = np.array(exposures, dtype="float64") # in fits there is only >f4 meaning float32
+    # in fits there is only >f4 meaning float32
+    exposures = np.array(exposures, dtype="float64")
     return builder(exposures, **kwargs)
 
 
 def _build_tm_erosita_psf(psf_filename, energy, pointing_center, domain, npatch,
-                      margfrac, want_cut=False, convolution_method='LINJAX'):
+                          margfrac, want_cut=False, convolution_method='LINJAX'):
     """
     Parameters:
     -----------
@@ -178,19 +181,23 @@ def build_erosita_psf(psf_filenames, energy, pointing_center, domain, npatch,
                  for psf_file, pcenter in zip(psf_filenames, pointing_center)]
     index = jnp.arange(len(functions))
     # FIXME make this more efficient
-    vmap_functions = vmap(lambda i, x: lax.switch(i, functions, x), in_axes=(0, None))
+    vmap_functions = vmap(lambda i, x: lax.switch(
+        i, functions, x), in_axes=(0, None))
 
     def vmap_psf_func(x):
         return vmap_functions(index, x)
     return vmap_psf_func
 
-# FIXME only exposure 
+# FIXME only exposure
+
+
 def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
     # TODO: write docstring
     exposure = build_exposure_function(exposures, exposure_cut)
     mask = build_readout_function(exposures, exposure_cut, tm_ids)
     # psf = build_erosita_psf(-...)
-    R = lambda x: mask(exposure(x))  # FIXME: should implement R = lambda x: mask(exposure(psf(x)))
+    # FIXME: should implement R = lambda x: mask(exposure(psf(x)))
+    def R(x): return mask(exposure(x))
     return R
 
 
@@ -214,7 +221,8 @@ def build_erosita_response_from_config(config_file_path):
                                       file_info['obs_path'])
     center_stats = []
     for tm_id in tel_info['tm_ids']:
-        tmp_center_stat = obs_instance.get_pointing_coordinates_stats(tm_id, file_info['input'])
+        tmp_center_stat = obs_instance.get_pointing_coordinates_stats(
+            tm_id, file_info['input'])
         tmp_center_stat = [tmp_center_stat['RA'][0], tmp_center_stat['DEC'][0]]
         center_stats.append(tmp_center_stat)
     center_stats = np.array(center_stats)
@@ -226,7 +234,7 @@ def build_erosita_response_from_config(config_file_path):
     image_pointing_center = np.array(tuple([cfg['telescope']['fov']/2.]*2))
     pointing_center = d_centers + image_pointing_center
     domain = Domain(tuple([cfg['grid']['npix']]*2), tuple([cfg['telescope']['fov']/cfg['grid']
-    ['npix']]*2))
+                                                           ['npix']]*2))
 
     # get psf/exposure/mask function
     psf_func = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center, domain,
@@ -243,9 +251,10 @@ def build_erosita_response_from_config(config_file_path):
                                                   keys=tel_info['tm_ids'])
 
     # plugin
-    response_func = lambda x: mask_func(exposure_func(psf_func(x))[:,43:-43,43:-43])
+    def response_func(x): return mask_func(
+        exposure_func(psf_func(x))[:, 43:-43, 43:-43])
     response_dict = {'mask': mask_func, 'exposure': exposure_func, 'psf': psf_func,
-                      'R': response_func}
+                     'R': response_func}
     return response_dict
 
 

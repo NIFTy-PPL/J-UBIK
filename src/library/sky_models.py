@@ -1,6 +1,8 @@
 import nifty8 as ift
 from matplotlib.colors import LogNorm
 
+from .spaces import Domain
+
 import nifty8.re as jft
 import jubik0 as ju
 from jax import numpy as jnp
@@ -23,7 +25,8 @@ def create_sky_model_from_config(config_file_path):
     if not isinstance(config_file_path, str):
         raise TypeError("The path to the config file needs to be a string")
     if not config_file_path.endswith('.yaml'):
-        raise ValueError("The sky model parameters need to be safed in a .yaml-file.")
+        raise ValueError(
+            "The sky model parameters need to be safed in a .yaml-file.")
 
     config = ju.get_config(config_file_path)
     priors = config['priors']
@@ -72,22 +75,32 @@ def create_sky_model(npix, padding_ratio, fov, priors):
     """
     space_shape = 2 * (npix, )
     distances = fov / npix
+    target = Domain(shape=space_shape, distances=(distances,)*2)
 
-    diffuse_component, pspec = create_diffuse_component_model(space_shape,
-                                                              padding_ratio,
-                                                              distances,
-                                                              priors['diffuse']['offset'],
-                                                              priors['diffuse']['fluctuations'],
-                                                              priors['diffuse']['prefix'])
+    diffuse_component, pspec = create_diffuse_component_model(
+        space_shape,
+        padding_ratio,
+        distances,
+        priors['diffuse']['offset'],
+        priors['diffuse']['fluctuations'],
+        priors['diffuse']['prefix']
+    )
+
     if priors['point_sources'] is None:
         sky = diffuse_component
-        sky_dict = {'sky': sky, 'pspec': pspec}
+        return {'sky': sky,
+                'pspec': pspec,
+                'target': target}
+
     else:
-        point_sources = create_point_source_model(space_shape, **priors['point_sources'])
+        point_sources = create_point_source_model(
+            space_shape, **priors['point_sources'])
         sky = fuse_model_components(diffuse_component, point_sources)
-        sky_dict = {'sky': sky, 'point_sources': point_sources, 'diffuse': diffuse_component,
-                    'pspec': pspec}
-    return sky_dict
+        return {'sky': sky,
+                'pspec': pspec,
+                'point_sources': point_sources,
+                'diffuse': diffuse_component,
+                'target': target}
 
 
 def fuse_model_components(model_a, model_b):
@@ -105,7 +118,7 @@ def fuse_model_components(model_a, model_b):
     model_c: jft.Model
         Model for a sky component C
     """
-    fusion = lambda x: model_a(x) + model_b(x)
+    def fusion(x): return model_a(x) + model_b(x)
     domain = model_a.domain
     domain.update(model_b.domain)
     return jft.Model(fusion, domain=domain)
@@ -144,11 +157,12 @@ def create_diffuse_component_model(shape, padding_ratio, distances, offset, fluc
     ext_shp = tuple(int(entry * padding_ratio) for entry in shape)
     cfm = jft.CorrelatedFieldMaker(prefix=prefix)
     cfm.set_amplitude_total_offset(**offset)
-    cfm.add_fluctuations(ext_shp, distances, **fluctuations, non_parametric_kind='power')
+    cfm.add_fluctuations(ext_shp, distances, **fluctuations,
+                         non_parametric_kind='power')
     cf = cfm.finalize()
     pspec = cfm.power_spectrum
 
-    exp_padding = lambda x: jnp.exp(cf(x)[:shape[0],:shape[1]])
+    def exp_padding(x): return jnp.exp(cf(x)[:shape[0], :shape[1]])
     diffuse = jft.Model(exp_padding, domain=cf.domain)
     return diffuse, pspec
 
@@ -174,7 +188,7 @@ def create_point_source_model(shape, alpha, q, key='points'):
         Model for the point-source component
     """
     point_sources = jft.invgamma_prior(a=alpha, scale=q)
-    points_func = lambda x: point_sources(x[key])
+    def points_func(x): return point_sources(x[key])
     return jft.Model(points_func, domain={key: jft.ShapeWithDtype(shape)})
 
 
@@ -193,9 +207,11 @@ class SkyModel:
                    the priors on the correlated field and the uncorrelated inverse gamma
                     component.
     """
+
     def __init__(self, config_file):
         if not isinstance(config_file, str):
-            raise TypeError("The config_file argument needs to be the path to a .yaml config file.")
+            raise TypeError(
+                "The config_file argument needs to be the path to a .yaml config file.")
         # FIXME: add all relevant checks and docstrings
 
         # Load config
@@ -207,12 +223,16 @@ class SkyModel:
         tel_info = self.config['telescope']
 
         # Prepare the spaces
-        self.position_space = ift.RGSpace(2*(self.config['grid']['npix'],), distances=[tel_info['fov'] / grid_info['npix']])
-        extended_size = int(self.config['grid']['padding_ratio'] * self.position_space.shape[0])
-        self.extended_space = ift.RGSpace(2*(extended_size,), distances=self.position_space.distances)
+        self.position_space = ift.RGSpace(
+            2*(self.config['grid']['npix'],), distances=[tel_info['fov'] / grid_info['npix']])
+        extended_size = int(
+            self.config['grid']['padding_ratio'] * self.position_space.shape[0])
+        self.extended_space = ift.RGSpace(
+            2*(extended_size,), distances=self.position_space.distances)
 
         # Prepare zero padding
-        self.pad = ift.FieldZeroPadder(self.position_space, self.extended_space.shape)
+        self.pad = ift.FieldZeroPadder(
+            self.position_space, self.extended_space.shape)
 
     def create_sky_model(self):
         """
@@ -235,14 +255,16 @@ class SkyModel:
         return sky_dict
 
     def _create_point_source_model(self):
-        point_sources = ift.InverseGammaOperator(self.extended_space, **self.priors['point_sources'])
+        point_sources = ift.InverseGammaOperator(
+            self.extended_space, **self.priors['point_sources'])
         return point_sources.ducktape('point_sources')
 
     def _create_diffuse_component_model(self):
         # FIXME: externalize power spectrum of diffuse model!
         cfm = ift.CorrelatedFieldMaker("")
         cfm.set_amplitude_total_offset(**self.priors['diffuse']['offset'])
-        cfm.add_fluctuations(self.extended_space, **self.priors['diffuse']['fluctuations'])
+        cfm.add_fluctuations(self.extended_space, **
+                             self.priors['diffuse']['fluctuations'])
         diffuse = cfm.finalize().exp()
         pspec = cfm.power_spectrum
         return diffuse, pspec

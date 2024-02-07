@@ -7,14 +7,12 @@ import jubik0 as ju
 from jax import config, random
 
 config.update('jax_enable_x64', True)
-config.update('jax_platform_name', 'cpu')
 
 # Parser Setup
 parser = argparse.ArgumentParser()
-parser.add_argument('config', type=str, help="Config file (.yaml) for eROSITA inference.",
-                    nargs='?', const=1, default="eROSITA_config.yaml")
+parser.add_argument('config', type=str, help="Config file (.yaml) for JWST inference.",
+                    nargs='?', const=1, default="JWST_config.yaml")
 args = parser.parse_args()
-
 
 if __name__ == "__main__":
     # Load config file
@@ -23,12 +21,13 @@ if __name__ == "__main__":
     file_info = cfg['files']
 
     # Sanity Checks
-    if (cfg['minimization']['resume'] and cfg['mock']) and (not cfg['load_mock_data']):
+    if ((cfg['minimization']['resume'] and cfg.get('mock', False)) and
+            (not cfg.get('load_mock_data', False))):
         raise ValueError(
             'Resume is set to True on mock run. This is only possible if the mock data is loaded '
             'from file. Please set load_mock_data=True')
 
-    if cfg['load_mock_data'] and not cfg['mock']:
+    if cfg.get('load_mock_data', False) and not cfg.get('mock', False):
         print('WARNING: Mockrun is set to False: Actual data is loaded')
 
     if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
@@ -38,29 +37,29 @@ if __name__ == "__main__":
 
     # Load sky model
     sky_dict = ju.create_sky_model_from_config(config_path)
-    pspec = sky_dict.pop('pspec')
-
-    # Create data files
-    if not cfg['load_mock_data']:
-        ju.create_erosita_data_from_config_dict(cfg)
 
     # Save config
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
     # Generate loglikelihood
-    log_likelihood = ju.generate_erosita_likelihood_from_config(
-        config_path).amend(sky_dict['sky'])
+    log_likelihood, data = ju.generate_jwst_likelihood_from_config(
+        sky_dict, config_path)
+
+    pspec = sky_dict.pop('pspec')
+    _ = sky_dict.pop('target')
 
     # Minimization
     minimization_config = cfg['minimization']
     key = random.PRNGKey(cfg['seed'])
     key, subkey = random.split(key)
     pos_init = 0.1 * \
-        jft.Vector(jft.random_like(subkey, sky_dict['sky'].domain))
+        jft.Vector(jft.random_like(subkey, log_likelihood.domain))
 
     kl_solver_kwargs = minimization_config.pop('kl_kwargs')
     # FIXME: Replace by domain information
     kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['npix']
+
+    s = sky_dict['sky'](pos_init)
 
     # Plot
     def plot(s, x): return ju.plot_sample_and_stats(file_info["res_dir"],

@@ -27,7 +27,8 @@ from .library.response import load_erosita_response, build_exposure_function, \
 from .library.data import (load_masked_data_from_pickle, load_erosita_masked_data,
                            generate_erosita_data_from_config, generate_mock_sky_from_prior_dict,
                            create_erosita_data_from_config_dict, save_dict_to_pickle, Domain)
-from .library.likelihood import generate_erosita_likelihood_from_config
+from .library.likelihood import (generate_erosita_likelihood_from_config,
+                                 generate_jwst_likelihood_from_config)
 from .library.diagnostics import (get_diagnostics_from_file,
                                   compute_uncertainty_weighted_residuals,
                                   compute_noise_weighted_residuals,
