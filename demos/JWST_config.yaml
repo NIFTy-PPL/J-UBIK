@@ -16,7 +16,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst/'
+  res_dir: 'results/jwst/test_02'
 
   data:
     likelihood_01:
@@ -73,7 +73,7 @@ priors:
     prefix: diffuse_
 
 minimization:
-  resume: True
+  resume: False
   n_total_iterations: 15
   n_samples: 4
   draw_linear_kwargs:

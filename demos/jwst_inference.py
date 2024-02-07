@@ -59,13 +59,25 @@ if __name__ == "__main__":
     # FIXME: Replace by domain information
     kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['npix']
 
-    s = sky_dict['sky'](pos_init)
+    residual_dict = {key: lambda x: (val.data_2d - val.response({
+        'sky': sky_dict['sky'](x),
+        '_'.join((key, 'zero_flux_mean')): x['_'.join((key, 'zero_flux_mean'))]}
+    ))/val.noise_2d for key, val in data.items()}
 
-    # Plot
-    def plot(s, x): return ju.plot_sample_and_stats(file_info["res_dir"],
-                                                    sky_dict,
-                                                    s,
-                                                    iteration=x.nit)
+    def plot(s, x):
+        ju.plot_sample_and_stats(file_info["res_dir"],
+                                 residual_dict,
+                                 s,
+                                 log_scale=False,
+                                 iteration=x.nit,
+                                 plotting_kwargs=dict(
+                                     vmin=-2, vmax=2, cmap='RdBu_r')
+                                 )
+        ju.plot_sample_and_stats(file_info["res_dir"],
+                                 sky_dict,
+                                 s,
+                                 log_scale=True,
+                                 iteration=x.nit)
 
     samples, state = jft.optimize_kl(log_likelihood,
                                      pos_init,
