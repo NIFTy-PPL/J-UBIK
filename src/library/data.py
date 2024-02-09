@@ -176,7 +176,7 @@ def create_erosita_data_from_config_dict(config_dict):
                                                    withsinglemaps=True,
                                                    singlemaps=[exposure_filename],
                                                    withdetmaps=detmap,
-                                                   badpix_correction=False)
+                                                   badpix_correction=tel_info['badpix_correction'])
 
         else:
             log_file_exists(join(obs_path, output_filename))
