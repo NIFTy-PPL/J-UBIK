@@ -9,6 +9,7 @@ telescope:
   pattern: 15
   detmap: True
   exp_cut: 500
+  badpix_correction: False
 
 point_source_defaults:
   alpha: 1.

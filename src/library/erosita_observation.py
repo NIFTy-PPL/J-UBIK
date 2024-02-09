@@ -252,7 +252,9 @@ class ErositaObservation:
 
         if singlemaps is not None:
             singlemaps = list(map(lambda x: os.path.join(mounted_dir, x), singlemaps))
-            singlemaps_str = f'" {singlemaps}"'
+            singlemaps_string = '"' + " ".join(singlemaps) + '"'
+        else:
+            singlemaps_string = " "
 
         flags = " "
         flags += templateimage if templateimage is not None else print(
@@ -261,7 +263,7 @@ class ErositaObservation:
         flags += " emax={}".format(emax) if emax is not None else print("emax cannot be None.")
         flags += " withsinglemaps=yes" if withsinglemaps else ""
         flags += "" if withmergedmaps else " withmergedmaps=no"
-        flags += " singlemaps={}".format(singlemaps_str) if singlemaps is not None else ""
+        flags += f" singlemaps={singlemaps_string}" if singlemaps is not None else ""
         flags += " mergedmaps={}".format(
             os.path.join(mounted_dir, mergedmaps)) if mergedmaps is not None else ""
         flags += " gtitype={}".format(gtitype) if gtitype != "GTI" else ""
