@@ -3,6 +3,7 @@ seed: 86
 mock: False
 # mock_psf: False
 load_mock_data: False
+esass_image: DR1 # EDR
 telescope:
   tm_ids : [1] #,2,3,4,6]
   fov: 3600 # in arcsec
