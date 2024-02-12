@@ -42,7 +42,6 @@ def build_exposure_function(exposures, exposure_cut=None):
             raise ValueError("exposure_cut should be non-negative or None!")
         exposures[exposures < exposure_cut] = 0
     # FIXME short hack to remove additional axis. Also the Ifs should be restructed
-    exposures = np.pad(exposures, ((0, 0), (43, 43), (43, 43)))
     return lambda x: exposures * x  # [np.newaxis, ...]
 
 
@@ -243,7 +242,7 @@ def build_erosita_response_from_config(config_file_path):
                                                   keys=tel_info['tm_ids'])
 
     # plugin
-    response_func = lambda x: mask_func(exposure_func(psf_func(x))[:,43:-43,43:-43])
+    response_func = lambda x: mask_func(exposure_func(psf_func(x)))
     response_dict = {'mask': mask_func, 'exposure': exposure_func, 'psf': psf_func,
                       'R': response_func}
     return response_dict
