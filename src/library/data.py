@@ -10,7 +10,6 @@ from astropy.io import fits
 import nifty8.re as jft
 import jubik0 as ju
 
-from .erosita_observation import ErositaObservation
 from .messages import log_file_exists
 from .sky_models import create_sky_model
 from .utils import get_config

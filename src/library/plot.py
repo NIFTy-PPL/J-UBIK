@@ -100,12 +100,12 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             axes[i].set_xlabel("FOV [arcmin]")
             axes[i].set_ylabel("FOV [arcmin]")
 
-        if "vmin" in pltargs:
-            vmin = pltargs["vmin"]
+        if "vmin" in kwargs:
+            vmin = kwargs["vmin"]
         else:
             vmin = None
-        if "vmax" in pltargs:
-            vmax = pltargs["vmax"]
+        if "vmax" in kwargs:
+            vmax = kwargs["vmax"]
         else:
             vmax = None
 
@@ -137,9 +137,9 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
     if output_file is not None:
         fig.savefig(output_file, bbox_inches='tight', pad_inches=0)
         print(f"Plot saved as {output_file}.")
+        plt.close()
     else:
         plt.show()
-    plt.close()
 
 
 def plot_slices(field, outname, logscale=False):
