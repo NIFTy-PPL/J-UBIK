@@ -249,7 +249,8 @@ def _append_key(s, key):
 
 
 def plot_sample_and_stats(output_directory, operators_dict, sample_list, iteration=None,
-                          log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None):
+                          log_scale=True, colorbar=True, dpi=100, relative_std=False,
+                          plotting_kwargs=None):
     """
     Plots operator samples and statistics from a sample list.
 
@@ -309,6 +310,9 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
         mean = results[key].mean(axis=0)
         std = results[key].std(axis=0, ddof=1)
         stats = np.stack([mean, std])
+        if relative_std:
+            stats[1] = stats[1] / mean
+            title[1] = "Posterior std/mean"
         plot_result(stats, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
                     title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
