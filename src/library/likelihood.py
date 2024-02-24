@@ -130,12 +130,15 @@ def generate_jwst_likelihood_from_config(
     likelihoods = []
     for key, lh_cfg in cfg['files']['data'].items():
         data_dict[key] = load_jwst_data(lh_cfg)
+
         R, response_no_psf = build_jwst_response(
             domain_key=SKY_KEY,
             domain=sky_dict['target'],
             data_pixel_size=data_dict[key].pixel_size,
             likelihood_key=key,
-            likelihood_config=lh_cfg)
+            likelihood_config=lh_cfg,
+            telescope_cfg=cfg.get('telescope', None),
+        )
 
         # Load mask and Mask operator
         Mask_d = build_mask_operator(R.target, ~data_dict[key].mask)

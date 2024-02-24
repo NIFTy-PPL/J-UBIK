@@ -78,9 +78,12 @@ def lanczos_kernel(
 
 def load_psf_and_lanczos_shift(
     response_cfg: dict,
-    kernel_space: Domain
+    kernel_space: Domain,
+    lanczos_window: int = LANCZOS_WINDOW
 ) -> Tuple[Union[ArrayLike, None], Tuple[int, int]]:
     '''Load data and PSF for a given key from configuration file.'''
+
+    print(f'Lanczos window: {lanczos_window}')
 
     psf_path = response_cfg.get('psf_path', None)
 
@@ -112,7 +115,7 @@ def load_psf_and_lanczos_shift(
             kernel_size=kernel_space.shape,
             shift=np.array((coordinate_shift[1], coordinate_shift[0])
                            ) / kernel_space.distances[0],
-            lanczos_window=LANCZOS_WINDOW)
+            lanczos_window=lanczos_window)
         lan_kern = lan_kern / np.sum(lan_kern)
 
         if psf is not None:
@@ -195,7 +198,8 @@ def build_jwst_response(
     domain: Domain,
     data_pixel_size: Tuple[float, float],
     likelihood_key: str,
-    likelihood_config: dict | None = None
+    likelihood_config: dict | None = None,
+    telescope_cfg: dict | None = None
 ) -> Tuple[jft.Model, jft.Model]:
     '''Build response operator
 
@@ -225,7 +229,9 @@ def build_jwst_response(
     # TODO: The check if psf, data and domain fit together can be done here.
     # PSF operator & pixel/coordinate shift
     psf_field, oversampling = load_psf_and_lanczos_shift(
-        likelihood_config, domain)
+        likelihood_config,
+        domain,
+        lanczos_window=telescope_cfg.get('lanczos_window', LANCZOS_WINDOW))
     integrator = build_integration_operator(
         domain,
         data_pixel_size,
