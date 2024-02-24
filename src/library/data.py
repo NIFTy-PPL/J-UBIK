@@ -158,8 +158,9 @@ def create_erosita_data_from_config_dict(config_dict):
     for tm_id in tm_ids:
         output_filename = f'{tm_id}_' + file_info['output']
         exposure_filename = f'{tm_id}_' + file_info['exposure']
-        observation_instance = ju.ErositaObservation(
-            input_filenames, output_filename, obs_path)
+
+        observation_instance = ju.ErositaObservation(input_filenames, output_filename, obs_path,
+                                                     esass_image=config_dict['esass_image'])
         if not os.path.exists(join(obs_path, output_filename)):
             _ = observation_instance.get_data(emin=e_min,
                                               emax=e_max,
@@ -171,8 +172,8 @@ def create_erosita_data_from_config_dict(config_dict):
         else:
             log_file_exists(join(obs_path, output_filename))
 
-        observation_instance = ju.ErositaObservation(
-            output_filename, output_filename, obs_path)
+        observation_instance = ju.ErositaObservation(output_filename, output_filename, obs_path,
+                                                     esass_image=config_dict['esass_image'])
 
         # Exposure
         if not os.path.exists(join(obs_path, exposure_filename)):
@@ -180,7 +181,8 @@ def create_erosita_data_from_config_dict(config_dict):
                                                    withsinglemaps=True,
                                                    singlemaps=[
                                                        exposure_filename],
-                                                   withdetmaps=detmap)
+                                                   withdetmaps=detmap,
+                                                   badpix_correction=tel_info['badpix_correction'])
 
         else:
             log_file_exists(join(obs_path, output_filename))
