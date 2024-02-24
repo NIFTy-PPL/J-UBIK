@@ -80,15 +80,21 @@ if __name__ == "__main__":
                                  residual_dict,
                                  s,
                                  log_scale=False,
+                                 relative_std=True,
                                  iteration=x.nit,
                                  plotting_kwargs=dict(
-                                     vmin=-3, vmax=3, cmap='RdBu_r')
+                                     vmin=-1, vmax=1, cmap='RdBu_r')
                                  )
         ju.plot_sample_and_stats(file_info["res_dir"],
                                  sky_dict,
                                  s,
                                  log_scale=True,
+                                 relative_std=True,
                                  iteration=x.nit)
+        ju.export_operator_output_to_fits(file_info["res_dir"],
+                                          sky_dict,
+                                          s,
+                                          iteration=x.nit)
 
     samples, state = jft.optimize_kl(log_likelihood,
                                      pos_init,
