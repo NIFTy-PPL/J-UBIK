@@ -4,7 +4,7 @@ mock: False
 plotting:
   enabled: True
   slice: Null
-  dpi: 300
+  dpi: 400
 
 grid:
   npix: 512
@@ -13,10 +13,11 @@ grid:
 
 telescope:
   fov: 8.064
+  lanczos_window: 64
 
 
 files:
-  res_dir: 'results/jwst/test_02'
+  res_dir: 'results/jwst/test_lw64'
 
   data:
     likelihood_01:
@@ -72,9 +73,10 @@ priors:
         - 0.1
     prefix: diffuse_
 
+
 minimization:
   resume: False
-  n_total_iterations: 15
+  n_total_iterations: 10
   n_samples: 4
   draw_linear_kwargs:
     cg_name : lin sampling

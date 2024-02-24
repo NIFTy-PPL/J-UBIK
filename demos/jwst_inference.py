@@ -7,12 +7,25 @@ import jubik0 as ju
 from jax import config, random
 
 config.update('jax_enable_x64', True)
+config.update('jax_platform_name', 'cpu')
 
 # Parser Setup
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, help="Config file (.yaml) for JWST inference.",
                     nargs='?', const=1, default="JWST_config.yaml")
 args = parser.parse_args()
+
+
+def build_residuals(key, val):
+    def response(x):
+        return val.response({
+            'sky': sky_dict['sky'](x),
+            '_'.join((key, 'zero_flux_mean')): x['_'.join((key, 'zero_flux_mean'))]
+        })
+    d = val.data_2d
+    n = val.noise_2d
+    return lambda x: (d - response(x))/n
+
 
 if __name__ == "__main__":
     # Load config file
@@ -59,10 +72,8 @@ if __name__ == "__main__":
     # FIXME: Replace by domain information
     kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['npix']
 
-    residual_dict = {key: lambda x: (val.data_2d - val.response({
-        'sky': sky_dict['sky'](x),
-        '_'.join((key, 'zero_flux_mean')): x['_'.join((key, 'zero_flux_mean'))]}
-    ))/val.noise_2d for key, val in data.items()}
+    residual_dict = {key: build_residuals(key, val)
+                     for key, val in data.items()}
 
     def plot(s, x):
         ju.plot_sample_and_stats(file_info["res_dir"],
@@ -71,7 +82,7 @@ if __name__ == "__main__":
                                  log_scale=False,
                                  iteration=x.nit,
                                  plotting_kwargs=dict(
-                                     vmin=-2, vmax=2, cmap='RdBu_r')
+                                     vmin=-3, vmax=3, cmap='RdBu_r')
                                  )
         ju.plot_sample_and_stats(file_info["res_dir"],
                                  sky_dict,
@@ -85,5 +96,4 @@ if __name__ == "__main__":
                                      kl_kwargs=kl_solver_kwargs,
                                      callback=plot,
                                      odir=file_info["res_dir"],
-                                     **minimization_config
-                                     )
+                                     **minimization_config)
