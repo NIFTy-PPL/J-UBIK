@@ -7,23 +7,23 @@ plotting:
   dpi: 400
 
 grid:
-  npix: 512
+  npix: 256
   padding_ratio: 1.0
 
 
 telescope:
   fov: 8.064
-  lanczos_window: 64
+  lanczos_window: 32
 
 
 files:
-  res_dir: 'results/jwst/test_lw64'
+  res_dir: 'results/jwst/test_256p_lw32'
 
   data:
     likelihood_01:
       pixel_size:  0.063
       pixel_shift: '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/pix_shift.npy'
-      psf_path:    '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/psf_oversample_4.fits'
+      psf_path:    '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/psf_oversample_2.fits'
       data_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/data.fits'
       noise_path:  '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/err.fits'
       mask_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/mask.fits'
@@ -37,7 +37,7 @@ files:
     likelihood_02:
       pixel_size:  0.063
       pixel_shift: '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/pix_shift.npy'
-      psf_path:    '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/psf_oversample_4.fits'
+      psf_path:    '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/psf_oversample_2.fits'
       data_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/data.fits'
       noise_path:  '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/err.fits'
       mask_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/mask.fits'
