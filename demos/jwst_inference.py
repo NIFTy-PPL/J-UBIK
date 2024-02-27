@@ -4,7 +4,7 @@ import argparse
 import nifty8.re as jft
 import jubik0 as ju
 
-from jax import config, random, profiler
+from jax import config, random
 
 config.update('jax_enable_x64', True)
 config.update('jax_platform_name', 'cpu')
@@ -134,13 +134,10 @@ if __name__ == "__main__":
 
         plot_simple_residuals(file_info["res_dir"], s, x.nit)
 
-    with profiler.trace("/tmp/jax-trace", create_perfetto_link=True):
-        # Run the operations to be profiled
-
-        samples, state = jft.optimize_kl(log_likelihood,
-                                         pos_init,
-                                         key=key,
-                                         kl_kwargs=kl_solver_kwargs,
-                                         callback=plot,
-                                         odir=file_info["res_dir"],
-                                         **minimization_config)
+    samples, state = jft.optimize_kl(log_likelihood,
+                                     pos_init,
+                                     key=key,
+                                     kl_kwargs=kl_solver_kwargs,
+                                     callback=plot,
+                                     odir=file_info["res_dir"],
+                                     **minimization_config)
