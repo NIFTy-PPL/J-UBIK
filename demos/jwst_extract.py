@@ -13,11 +13,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+from astropy.wcs import WCS
+from astropy.coordinates import SkyCoord
+from astropy import units as u
+
+
 from sys import exit
 
 
+OUT_PATH = './data/'
+
 FIG_SHAPE = 128  # 96 pixels
-WORLD_LOCATION = (64.66543063107049, -47.86462563973049)
+WORLD_LOCATION = (64.66543063107049, -47.86462563973049)  # (ra, dec) in deg
+WL = SkyCoord(
+    WORLD_LOCATION[0] * u.deg, WORLD_LOCATION[1] * u.deg, frame='icrs')
 DATA_RANGE = (1, 3)
 OVERSAMPLE_LIST = [2, 4]
 FILTER = 'F356W'
@@ -29,6 +38,7 @@ if FILTER == 'F356W':
     path = '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w'
     subfolder = 'jw01355016001_02103_0000{data_number}_nrcblong'
     filename = 'jw01355016001_02103_0000{data_number}_nrcblong_cal.fits'
+
 elif FILTER == 'F444W':
     out_dir_name = 'f444w_cal0{data_number}'
     path = '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w'
@@ -38,6 +48,7 @@ elif FILTER == 'F444W':
 
 for data_number in range(*DATA_RANGE):
     out_dir = out_dir_name.format(data_number=data_number)
+    out_dir = join(OUT_PATH, out_dir)
     if not exists(out_dir):
         mkdir(out_dir)
 
@@ -46,13 +57,11 @@ for data_number in range(*DATA_RANGE):
                                filename.format(data_number=data_number)))
 
     wtd = fin.meta.wcs.get_transform('world', 'detector')
-    header = fin.meta.wcs.to_fits()[0]
+    dtw = fin.meta.wcs.get_transform('detector', 'world')
 
     data = fin.data
     err = fin.err
     d_pix = wtd(*WORLD_LOCATION)
-
-    print(f'd_pix: {d_pix}')
 
     ii0 = int(np.round(d_pix[1])) - FIG_SHAPE//2
     ii1 = int(np.round(d_pix[1])) + FIG_SHAPE//2
