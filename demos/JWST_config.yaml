@@ -7,17 +7,42 @@ plotting:
   dpi: 400
 
 grid:
+  # Assuming the same fov as telescope
   npix: 256
   padding_ratio: 1.0
 
+# reconstruction_grid:
+#   npix: 256
+#   padding_ratio: 1.0
 
 telescope:
-  fov: 8.064
+  # fov: 8.064
+  fov: 5
+  fov_unit: arcsec
+
   lanczos_window: 32
+
+  pointing:
+    ra: 64.66543063107049
+    dec: -47.86462563973049
+    unit: deg
+    frame: icrs
 
 
 files:
   res_dir: 'results/jwst/test_256p_lw32'
+
+  # 'jw01355-o016_t001_nircam_clear-f115w'
+  # 'jw01355-o016_t001_nircam_clear-f150w'
+  # 'jw01355-o016_t001_nircam_clear-f200w'
+  # 'jw01355-o016_t001_nircam_clear-f277w'
+  # 'jw01355-o016_t001_nircam_clear-f356w'
+  # 'jw01355-o016_t001_nircam_clear-f444w'
+
+  filter:
+    f444w:
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
   data:
     likelihood_01:
