@@ -20,6 +20,12 @@ from numpy.typing import ArrayLike
 from charm_lensing.spaces import get_xycoords
 
 from shapely.geometry import Polygon, box
+from scipy.sparse import lil_matrix
+from scipy.sparse.linalg import aslinearoperator
+
+import scipy.sparse as sp
+from jax.experimental.sparse import BCOO
+import jax.numpy as jnp
 
 
 class Grid:
@@ -48,14 +54,15 @@ class Grid:
                 self.wcs.array_index_to_world(*(0, self.shape[1])),
                 self.wcs.array_index_to_world(*(self.shape[0], self.shape[1]))]
 
+    @property
+    def index_grid(self) -> Tuple[ArrayLike, ArrayLike]:
+        x, y = np.arange(self.shape[0]), np.arange(self.shape[1])
+        return np.meshgrid(x, y, indexing='xy')
+
     def relative_coords(self, unit="arcsec") -> ArrayLike:
         unit = getattr(units, unit)
         distances = [f.to(unit)/s for f, s in zip(self.fov, self.shape)]
         return get_xycoords(self.shape, distances)
-
-    def index_grid(self) -> Tuple[ArrayLike, ArrayLike]:
-        x, y = np.arange(self.shape[0]), np.arange(self.shape[1])
-        return np.meshgrid(x, y, indexing='xy')
 
 
 def get_coordinate_system(
@@ -205,7 +212,7 @@ def check_plot(index_edges, kk=0):
 def check_index(index_edges, N=5):
     for kk in range(N):
         vc = ValueCalculator(
-            reconstruction_grid.index_grid(), index_edges[:, :, kk])
+            reconstruction_grid.index_grid, index_edges[:, :, kk])
         values = vc.calculate_values()
 
         fig, axes = plt.subplots(1, 1)
@@ -222,11 +229,52 @@ def check_index(index_edges, N=5):
         plt.show()
 
 
-def calculate_interpolation(
-    index_grid: ArrayLike,
-    edges: ArrayLike
-):
-    pass
+def calculate_sparse_interpolation(index_grid: ArrayLike, edges: ArrayLike):
+    print('Calculating sparse interpolation matrix...')
+    data_length = edges[0, 0].size
+    assert data_length == edges[0, 1].size
+    assert data_length == edges[0, 0].shape[0]
+
+    rows = []
+    cols = []
+    data = []
+
+    for ii, pixel_edges in enumerate(edges.T):
+        # Ensure this is JAX compatible
+        vc = ValueCalculator(index_grid, pixel_edges.T)
+        values = vc.calculate_values()  # This also needs to be JAX compatible
+
+        for (index_x, index_y), val in values.items():
+            ind = np.ravel_multi_index((index_x, index_y), index_grid[0].shape)
+            rows.append(ii)
+            cols.append(ind)
+            data.append(val)
+
+    coo_matrix = sp.coo_matrix(
+        (data, (rows, cols)), shape=(data_length, index_grid[0].size))
+    sparse_matrix = BCOO.from_scipy_sparse(coo_matrix)
+
+    return sparse_matrix
+
+
+def check_plot2():
+
+    ones = np.zeros((reconstruction_grid.shape))
+    ones[::2, ::2] += 1
+    ones[1::2, ::2] += 2
+    ones[::2, 1::2] += 3
+
+    out = np.zeros((maxy-miny, maxx-minx))
+    out[mask] = data[miny:maxy, minx:maxx][mask]
+
+    fig, axes = plt.subplots(1, 3)
+    fig.suptitle(f'{fltname}', fontsize=16)
+    axes[0].imshow(data[miny:maxy, minx:maxx], origin='lower',
+                   norm=LogNorm())
+    axes[1].imshow(out, origin='lower', norm=LogNorm())
+    axes[1].contour(mask)
+    axes[2].imshow(adjoint_data, origin='lower', norm=LogNorm(vmin=0.03))
+    plt.show()
 
 
 for fltname, flt in config['files']['filter'].items():
@@ -256,7 +304,30 @@ for fltname, flt in config['files']['filter'].items():
         index_centers = index_centers[:, mask]
         index_edges = index_edges[:, :, mask]
 
+        nan_mask = ~np.isnan(data[miny:maxy, minx:maxx][mask])
+        index_centers = index_centers[:, nan_mask]
+        index_edges = index_edges[:, :, nan_mask]
+
         check_plot(index_edges, kk=0)
-        check_index(index_edges, N=2)
+        # check_index(index_edges, N=2)
+        sparse_matrix = calculate_sparse_interpolation(
+            reconstruction_grid.index_grid,
+            index_edges
+        )
+
+        d = data[miny:maxy, minx:maxx][mask]
+
+        # out = np.zeros_like(d)
+        # out[nan_mask] = sparse_matrix(
+        #     np.ones(reconstruction_grid.shape).reshape(-1))
+        # ones = np.zeros_like(data[miny:maxy, minx:maxx])
+        # ones[mask] = out
+        # plt.imshow(ones, origin='lower')
+        # plt.show()
+
+        adjoint_data = sparse_matrix.T @ jnp.array(d[nan_mask])
+        adjoint_data = adjoint_data.reshape(reconstruction_grid.shape)
+
+        check_plot2()
 
         exit()
