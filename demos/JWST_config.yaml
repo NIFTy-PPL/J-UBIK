@@ -32,17 +32,80 @@ telescope:
 files:
   res_dir: 'results/jwst/test_256p_lw32'
 
-  # 'jw01355-o016_t001_nircam_clear-f115w'
-  # 'jw01355-o016_t001_nircam_clear-f150w'
-  # 'jw01355-o016_t001_nircam_clear-f200w'
-  # 'jw01355-o016_t001_nircam_clear-f277w'
-  # 'jw01355-o016_t001_nircam_clear-f356w'
-  # 'jw01355-o016_t001_nircam_clear-f444w'
-
   filter:
+    # f115w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f115w/jw01355016001_02101_00002_nrcb4/jw01355016001_02101_00002_nrcb4_cal.fits'
+
+    # f150w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_cal.fits'
+
+    # f200w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_cal.fits'
+
+    # f277w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
+
+    # f356w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+
     f444w:
       - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
       - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
+
+    f560w: # MIRI
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+
+    # f770w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f770w/jw01355015001_05101_00002_mirimage/jw01355015001_05101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
+
+    # f1000w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_cal.fits'
+
+    # f1280w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1280w/jw01355015001_09101_00001_mirimage/jw01355015001_09101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1280w/jw01355015001_09101_00002_mirimage/jw01355015001_09101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1280w/jw01355015001_09101_00003_mirimage/jw01355015001_09101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1280w/jw01355015001_09101_00004_mirimage/jw01355015001_09101_00004_mirimage_cal.fits'
+
+    # f1500w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1500w/jw01355015001_11101_00001_mirimage/jw01355015001_11101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1500w/jw01355015001_11101_00002_mirimage/jw01355015001_11101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1500w/jw01355015001_11101_00003_mirimage/jw01355015001_11101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1500w/jw01355015001_11101_00004_mirimage/jw01355015001_11101_00004_mirimage_cal.fits'
+
+    # f1800w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_cal.fits'
+
+    # f2100w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00001_mirimage/jw01355015001_15101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00002_mirimage/jw01355015001_15101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00003_mirimage/jw01355015001_15101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00004_mirimage/jw01355015001_15101_00004_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00005_mirimage/jw01355015001_15101_00005_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00006_mirimage/jw01355015001_15101_00006_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00007_mirimage/jw01355015001_15101_00007_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00008_mirimage/jw01355015001_15101_00008_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00009_mirimage/jw01355015001_15101_00009_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00010_mirimage/jw01355015001_15101_00010_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_cal.fits'
 
   data:
     likelihood_01:

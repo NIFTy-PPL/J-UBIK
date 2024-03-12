@@ -19,6 +19,8 @@ from numpy.typing import ArrayLike
 
 from charm_lensing.spaces import get_xycoords
 
+from shapely.geometry import Polygon, box
+
 
 class Grid:
     def __init__(
@@ -50,6 +52,10 @@ class Grid:
         unit = getattr(units, unit)
         distances = [f.to(unit)/s for f, s in zip(self.fov, self.shape)]
         return get_xycoords(self.shape, distances)
+
+    def index_grid(self) -> Tuple[ArrayLike, ArrayLike]:
+        x, y = np.arange(self.shape[0]), np.arange(self.shape[1])
+        return np.meshgrid(x, y, indexing='xy')
 
 
 def get_coordinate_system(
@@ -98,14 +104,27 @@ reconstruction_grid = Grid(
 )
 
 
-def find_extrema_indices(
+def find_extrema_and_indices(
     points: list,
-    data_grid_wcs: gwcs
+    data_grid_wcs: gwcs,
+    data_shape: Tuple[int, int]
 ) -> tuple:
 
-    index_points = [get_pixel(data_grid_wcs, p, tol=1e-1) for p in points]
-    index_points = np.array([(pix[0].value, pix[1].value)
-                            for pix in index_points])
+    # index_points = [get_pixel(data_grid_wcs, p, tol=1e-4) for p in points]
+    # index_points = np.array([(pix[0].value, pix[1].value)
+    #                         for pix in index_points])
+    index_points = np.array(
+        [data_grid_wcs.world_to_pixel(p) for p in points])
+
+    check = (
+        np.any(index_points < 0) or
+        np.any(index_points >= data_shape[0]) or
+        np.any(index_points >= data_shape[1])
+    )
+    if check:
+        raise ValueError(
+            f"One of the points is outside the grid \n{index_points}")
+
     minx = int(np.floor(index_points[:, 0].min()))
     maxx = int(np.ceil(index_points[:, 0].max()))
     miny = int(np.floor(index_points[:, 1].min()))
@@ -123,7 +142,95 @@ def find_extrema_indices(
     return (minx, maxx, miny, maxy), dpix, (e00, e01, e10, e11)
 
 
+class ValueCalculator:
+    def __init__(self, coord_grid, points):
+        self.triangle = Polygon([p for p in points])
+        self.triangle_area = self.triangle.area
+
+        self.hside = (abs(coord_grid[0][0, 1]-coord_grid[0][0, 0])/2,
+                      abs(coord_grid[1][0, 0]-coord_grid[1][1, 0])/2)
+
+        minx = min([p[0] for p in points])-self.hside[0]
+        miny = min([p[1] for p in points])-self.hside[1]
+        maxx = max([p[0] for p in points])+self.hside[0]
+        maxy = max([p[1] for p in points])+self.hside[1]
+        mask = ((coord_grid[0] >= minx) * (coord_grid[0] <= maxx) *
+                (coord_grid[1] >= miny) * (coord_grid[1] <= maxy))
+
+        self.masked_grid = coord_grid[0][mask], coord_grid[1][mask]
+
+    def get_pixel_extrema(self, pix_cntr):
+        minx, miny = pix_cntr[0]-self.hside[0], pix_cntr[1]-self.hside[1]
+        maxx, maxy = pix_cntr[0]+self.hside[0], pix_cntr[1]+self.hside[1]
+        return (minx, miny, maxx, maxy)
+
+    def calculate_values(self, minimum=1e-11):
+        values = {}
+
+        for pix_cntr in zip(self.masked_grid[0], self.masked_grid[1]):
+            minxy_maxxy = self.get_pixel_extrema(pix_cntr)
+            pix_box = box(*minxy_maxxy)
+            fractional_area = self.triangle.intersection(
+                pix_box).area / self.triangle_area
+            values[pix_cntr] = fractional_area
+
+        values = {k: v for k, v in values.items() if v > minimum}
+
+        return values
+
+
+def check_plot(index_edges, kk=0):
+
+    ones = np.zeros((reconstruction_grid.shape))
+    ones[::2, ::2] += 1
+    ones[1::2, ::2] += 2
+    ones[::2, 1::2] += 3
+
+    out = np.zeros((maxy-miny, maxx-minx))
+    out[mask] = data[miny:maxy, minx:maxx][mask]
+
+    fig, axes = plt.subplots(1, 3)
+    fig.suptitle(f'{fltname}', fontsize=16)
+    axes[0].imshow(data[miny:maxy, minx:maxx], origin='lower',
+                   norm=LogNorm())
+    axes[1].imshow(out, origin='lower', norm=LogNorm())
+    axes[1].contour(mask)
+    axes[2].imshow(ones, origin='lower')
+    axes[2].scatter(index_edges[:, 1], index_edges[:, 0], s=2, c='r')
+    axes[2].scatter(index_centers[1], index_centers[0])
+    axes[2].scatter(index_edges[:, 1, kk], index_edges[:, 0, kk])
+    plt.show()
+
+
+def check_index(index_edges, N=5):
+    for kk in range(N):
+        vc = ValueCalculator(
+            reconstruction_grid.index_grid(), index_edges[:, :, kk])
+        values = vc.calculate_values()
+
+        fig, axes = plt.subplots(1, 1)
+        fig.suptitle(f'{fltname}', fontsize=16)
+
+        ones = np.zeros((reconstruction_grid.shape))
+        for index, val in values.items():
+            ones[index] = val
+
+        axes.imshow(ones, origin='lower',)
+        axes.scatter(index_edges[:, 1], index_edges[:, 0], s=2, c='r')
+        axes.scatter(index_centers[1], index_centers[0])
+        axes.scatter(index_edges[:, 1, kk], index_edges[:, 0, kk])
+        plt.show()
+
+
+def calculate_interpolation(
+    index_grid: ArrayLike,
+    edges: ArrayLike
+):
+    pass
+
+
 for fltname, flt in config['files']['filter'].items():
+
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
         dm = datamodels.open(filepath)
@@ -131,66 +238,25 @@ for fltname, flt in config['files']['filter'].items():
         data = dm.data
         wcs = dm.meta.wcs
 
-        (minx, maxx, miny, maxy), dpix, (e00, e01, e10, e11) = find_extrema_indices(
-            reconstruction_grid.world_extrema, wcs)
+        (minx, maxx, miny, maxy), dpix, (e00, e01, e10, e11) = \
+            find_extrema_and_indices(
+                reconstruction_grid.world_extrema, wcs, data.shape)
 
-        plt.imshow(data[miny:maxy, minx:maxx], origin='lower',
-                   norm=LogNorm(vmin=0.1, vmax=10))
-        plt.show()
+        indcc, ind00, ind01, ind10, ind11 = [
+            reconstruction_grid.wcs.world_to_pixel(p)
+            for p in [dpix, e00, e01, e10, e11]]
+        index_centers = np.array(indcc)
+        index_edges = np.array([ind00, ind01, ind11, ind10])
 
-indcc = reconstruction_grid.wcs.world_to_pixel(dpix)
-ind00 = reconstruction_grid.wcs.world_to_pixel(e00)
-ind01 = reconstruction_grid.wcs.world_to_pixel(e01)
-ind10 = reconstruction_grid.wcs.world_to_pixel(e10)
-ind11 = reconstruction_grid.wcs.world_to_pixel(e11)
+        mask = ((index_centers[0] > 0) *
+                (index_centers[1] > 0) *
+                (index_centers[0] < reconstruction_grid.shape[0]) *
+                (index_centers[1] < reconstruction_grid.shape[1]))
 
-indc = np.array([indcc[ii] for ii in [0, 1]])
-ind = np.array([[
-    i[jj] for i in [ind00, ind01, ind10, ind11]
-] for jj in [0, 1]])
+        index_centers = index_centers[:, mask]
+        index_edges = index_edges[:, :, mask]
 
+        check_plot(index_edges, kk=0)
+        check_index(index_edges, N=2)
 
-mask = ((indcc[0] > 0) *
-        (indcc[1] > 0) *
-        (indcc[0] < reconstruction_grid.shape[0]) *
-        (indcc[1] < reconstruction_grid.shape[1]))
-
-d = data[miny:maxy, minx:maxx][mask]
-
-indc = np.array([indcc[ii][mask] for ii in [0, 1]])
-ind = np.array([[
-    i[jj][mask] for i in [ind00, ind01, ind10, ind11]
-] for jj in [0, 1]])
-
-
-fig, axes = plt.subplots(1, 2, figsize=(10, 10), sharex=True, sharey=True)
-axes[0].imshow(data[miny:maxy, minx:maxx], origin='lower',
-               norm=LogNorm(vmin=0.1, vmax=10))
-axes[1].imshow(mask, origin='lower')
-plt.show()
-
-ones = np.ones((reconstruction_grid.shape))
-ones[::2, ::2] += 1
-ones[1::2, ::2] += 2
-ones[::2, 1::2] += 3
-
-out = np.zeros((maxy-miny, maxx-minx))
-out[mask] = d
-
-fig, axes = plt.subplots(1, 3, figsize=(10, 10))
-axes[0].imshow(data[miny:maxy, minx:maxx], origin='lower',
-               norm=LogNorm(vmin=0.1, vmax=10))
-axes[1].imshow(out, origin='lower', norm=LogNorm(vmin=0.1, vmax=10))
-axes[1].contour(mask)
-axes[2].imshow(ones)
-axes[2].scatter(ind[0], ind[1])
-axes[2].scatter(ind[0, :, ii], ind[1, :,  ii])
-axes[2].scatter(indc[0, ii], indc[1, ii])
-plt.show()
-
-for ii in range(5):
-    plt.imshow(ones)
-    plt.scatter(ind[0], ind[1])
-    plt.scatter(ind[0, :, ii], ind[1, :,  ii])
-    plt.scatter(indc[0, ii], indc[1, ii])
-    plt.show()
+        exit()
