@@ -21,7 +21,7 @@ telescope:
   fov_unit: arcsec
 
   integration_model:
-    model: 'sparse' # 'interpolation', 'sparse', 'udpating_interpolation'
+    model: 'interpolation' # 'interpolation', 'sparse', 'udpating_interpolation'
     subsample: 3
     mean: [0, 0]
     sigma: [0.1, 0.1]
@@ -37,7 +37,9 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst/f444w_64_sparse'
+  res_dir: 'results/jwst/f444w_64_inter3/'
+  # res_dir: 'results/jwst/f444w_64_sparse/'
+  # res_dir: 'results/jwst/f444w_64_udpating_interpolation/'
 
   filter:
     # f115w: # NIRCam
