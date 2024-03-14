@@ -59,15 +59,11 @@ class Grid:
                 self.wcs.array_index_to_world(*(0, self.shape[1])),
                 self.wcs.array_index_to_world(*(self.shape[0], self.shape[1]))]
 
-    @property
-    def index_grid(self) -> Tuple[ArrayLike, ArrayLike]:
-        x, y = np.arange(self.shape[0]), np.arange(self.shape[1])
+    def index_grid(self, extend_factor=1) -> Tuple[ArrayLike, ArrayLike]:
+        extent = [int(s * extend_factor) for s in self.shape]
+        extent = [(e - s) // 2 for s, e in zip(self.shape, extent)]
+        x, y = [np.arange(-e, s+e) for e, s in zip(extent, self.shape)]
         return np.meshgrid(x, y, indexing='xy')
-
-    def relative_coords(self, unit="arcsec") -> ArrayLike:
-        unit = getattr(units, unit)
-        distances = [f.to(unit)/s for f, s in zip(self.fov, self.shape)]
-        return get_xycoords(self.shape, distances)
 
 
 def get_coordinate_system(
@@ -156,8 +152,8 @@ def find_pixcenter_and_edges(
     e10 = pix_center - np.array([-0.5, 0.5])[:, None, None]
     e11 = pix_center - np.array([-0.5, -0.5])[:, None, None]
 
-    pix_center, e00, e01, e10, e11 = [data_grid_wcs(*p, with_units=True)
-                                      for p in [pix_center, e00, e01, e10, e11]]
+    pix_center, e00, e01, e10, e11 = [
+        data_grid_wcs(*p, with_units=True) for p in [pix_center, e00, e01, e10, e11]]
 
     # FIXME: pix_center is making the mask
 
@@ -213,96 +209,6 @@ class ValueCalculator:
         return values
 
 
-def check_plot(index_edges, kk=0):
-
-    ones = np.zeros((reconstruction_grid.shape))
-    ones[::2, ::2] += 1
-    ones[1::2, ::2] += 2
-    ones[::2, 1::2] += 3
-
-    out = np.zeros((maxy-miny, maxx-minx))
-    out[mask] = data[miny:maxy, minx:maxx][mask]
-
-    fig, axes = plt.subplots(1, 3)
-    fig.suptitle(f'{fltname}', fontsize=16)
-    axes[0].imshow(data[miny:maxy, minx:maxx], origin='lower',
-                   norm=LogNorm())
-    axes[1].imshow(out, origin='lower', norm=LogNorm())
-    axes[1].contour(mask)
-    axes[2].imshow(ones, origin='lower')
-    axes[2].scatter(index_edges[:, 1], index_edges[:, 0], s=2, c='r')
-    axes[2].scatter(index_centers[1], index_centers[0])
-    axes[2].scatter(index_edges[:, 1, kk], index_edges[:, 0, kk])
-    plt.show()
-
-
-def check_index(index_edges, N=5):
-    for kk in range(N):
-        vc = ValueCalculator(
-            reconstruction_grid.index_grid, index_edges[:, :, kk])
-        values = vc.calculate_values()
-
-        fig, axes = plt.subplots(1, 1)
-        fig.suptitle(f'{fltname}', fontsize=16)
-
-        ones = np.zeros((reconstruction_grid.shape))
-        for index, val in values.items():
-            ones[index] = val
-
-        axes.imshow(ones, origin='lower',)
-        axes.scatter(index_edges[:, 1], index_edges[:, 0], s=2, c='r')
-        axes.scatter(index_centers[1], index_centers[0])
-        axes.scatter(index_edges[:, 1, kk], index_edges[:, 0, kk])
-        plt.show()
-
-
-def calculate_sparse_interpolation(index_grid: ArrayLike, edges: ArrayLike):
-    print('Calculating sparse interpolation matrix...')
-    data_length = edges[0, 0].size
-    assert data_length == edges[0, 1].size
-    assert data_length == edges[0, 0].shape[0]
-
-    rows = []
-    cols = []
-    data = []
-
-    for ii, pixel_edges in enumerate(edges.T):
-        # Ensure this is JAX compatible
-        vc = ValueCalculator(index_grid, pixel_edges.T)
-        values = vc.calculate_values()  # This also needs to be JAX compatible
-
-        for (index_x, index_y), val in values.items():
-            ind = np.ravel_multi_index((index_x, index_y), index_grid[0].shape)
-            rows.append(ii)
-            cols.append(ind)
-            data.append(val)
-
-    coo_matrix = sp.coo_matrix(
-        (data, (rows, cols)), shape=(data_length, index_grid[0].size))
-    sparse_matrix = BCOO.from_scipy_sparse(coo_matrix)
-
-    return sparse_matrix
-
-
-def check_plot2():
-    d = data[mask]
-    adjoint_data = sparse_matrix.T @ jnp.array(d)
-
-    adjoint_data = adjoint_data.reshape(reconstruction_grid.shape)
-    out = np.zeros(data.shape)
-    out[mask] = data[mask]
-    fig, axes = plt.subplots(1, 3)
-    fig.suptitle(f'{fltname}', fontsize=16)
-    axes[0].imshow(data, origin='lower',
-                   norm=LogNorm())
-    axes[1].imshow(out, origin='lower', norm=LogNorm())
-    axes[1].contour(mask)
-    axes[2].imshow(adjoint_data, origin='lower',
-                   norm=LogNorm(vmin=adjoint_data.mean()*0.9))
-    plt.show()
-
-
-plots = False
 subsample = config['telescope']['integration_model']['subsample']
 likelihoods = {}
 
@@ -343,22 +249,45 @@ for fltname, flt in config['files']['filter'].items():
                 (index_centers[1] < reconstruction_grid.shape[1]) *
                 ~np.isnan(data[miny:maxy, minx:maxx]))
 
-        index_centers = index_centers[:, mask]
-        index_edges = index_edges[:, :, mask]
-
         lh_name = f'{fltname}_{ii}'
         likelihoods[lh_name] = dict(
             mask=mask,
-            index_centers=index_centers,
             index_edges=index_edges,
             index_subsample_centers=ind_subsample_centers,
             data=data[miny:maxy, minx:maxx],
             std=std[miny:maxy, minx:maxx],
         )
 
-        if plots:
-            check_plot(index_edges, kk=0)
-            check_index(index_edges, N=2)
+
+def build_sparse_interpolation(
+        index_grid: ArrayLike, edges: ArrayLike, mask: ArrayLike):
+    print('Calculating sparse interpolation matrix...')
+    edges = edges[:, :, mask]
+
+    data_length = edges[0, 0].size
+    assert data_length == edges[0, 1].size
+    assert data_length == edges[0, 0].shape[0]
+
+    rows = []
+    cols = []
+    data = []
+
+    for ii, pixel_edges in enumerate(edges.T):
+        # Ensure this is JAX compatible
+        vc = ValueCalculator(index_grid, pixel_edges.T)
+        values = vc.calculate_values()  # This also needs to be JAX compatible
+
+        for (index_x, index_y), val in values.items():
+            ind = np.ravel_multi_index((index_x, index_y), index_grid[0].shape)
+            rows.append(ii)
+            cols.append(ind)
+            data.append(val)
+
+    coo_matrix = sp.coo_matrix(
+        (data, (rows, cols)), shape=(data_length, index_grid[0].size))
+    sparse_matrix = BCOO.from_scipy_sparse(coo_matrix)
+
+    return sparse_matrix
 
 
 def build_interpolation(subsample_centers, order=3):
@@ -375,16 +304,33 @@ def build_interpolation(subsample_centers, order=3):
     return jit(integration)
 
 
+def build_updating_interpolation(subsample_centers, order=3):
+    from functools import partial
+    from jax import vmap, jit
+    interpolation = partial(
+        map_coordinates, order=order, mode='constant', cval=0.0)
+    interpolation = vmap(interpolation, in_axes=(None, 0))
+
+    def integration(x):
+        field, xy_shift = x
+        out = interpolation(
+            field, subsample_centers - xy_shift[None, :, None, None])
+        return out.sum(axis=0) / out.shape[0]
+
+    return jit(integration)
+
+
 for lh_name, lh in likelihoods.items():
-    index_edges = lh['index_edges']
-    sparse_matrix = calculate_sparse_interpolation(
-        reconstruction_grid.index_grid,
-        index_edges
-    )
+    sparse_matrix = build_sparse_interpolation(
+        reconstruction_grid.index_grid(), lh['index_edges'], lh['mask'])
     lh['sparse_matrix'] = sparse_matrix
 
     interpolation = build_interpolation(lh['index_subsample_centers'], order=1)
     lh['interpolation'] = interpolation
+
+    updating_interpolation = build_updating_interpolation(
+        lh['index_subsample_centers'], order=1)
+    lh['updating_interpolation'] = updating_interpolation
 
 
 if __name__ == '__main__':
@@ -401,10 +347,30 @@ if __name__ == '__main__':
             lambda x: interpolation(sky(x))[mask],
             domain=jft.Vector(sky.domain))
 
+    def build_updating_interpolation_model(interpolation, mask, sky, shift):
+        domain = sky.domain
+        domain.update(shift.domain)
+        return jft.Model(
+            lambda x: interpolation((sky(x), shift(x)))[mask],
+            domain=jft.Vector(domain))
+
+    def build_shift_model(key, mean_sigma):
+        from charm_lensing.models.parametric_models.parametric_prior import (
+            build_prior_operator)
+        distribution_model_key = ('normal', *mean_sigma)
+        shape = (2,)
+
+        shift_model = build_prior_operator(key, distribution_model_key, shape)
+        domain = {key: jft.ShapeWithDtype((shape))}
+        return jft.Model(shift_model, domain=domain)
+
     mock = False
     plots = True
 
     integration_model = config['telescope']['integration_model']['model']
+    mean, sigma = (config['telescope']['integration_model']['mean'],
+                   config['telescope']['integration_model']['sigma'])
+    mean_sigma = (mean, sigma)
 
     key = random.PRNGKey(42)
     key, subkey, sampling_key, mini_par_key = random.split(key, 4)
@@ -414,13 +380,18 @@ if __name__ == '__main__':
 
     likes = []
     models = []
-    for lh in likelihoods.values():
+    for lh_key, lh in likelihoods.items():
 
         sparse_model = build_sparse_model(lh['sparse_matrix'], sky)
         lh['sparse_model'] = sparse_model
 
         lh['interpolation_model'] = build_interpolation_model(
             lh['interpolation'], lh['mask'], sky)
+
+        shift = build_shift_model(lh_key+'shift', mean_sigma)
+        lh['shift_model'] = shift
+        lh['updating_interpolation_model'] = build_updating_interpolation_model(
+            lh['updating_interpolation'], lh['mask'], sky, shift)
 
         if mock:
             mock_sky = sky(jft.random_like(sampling_key, sky.domain))
@@ -447,13 +418,20 @@ if __name__ == '__main__':
             interpolation_model = lh['interpolation_model']
             tmp2[mask] = lh['interpolation_model'](pos)
 
+            tmp3 = np.zeros_like(plot_data)
+            pos3 = jft.random_like(
+                mini_par_key, lh['updating_interpolation_model'].domain)
+            shif = lh['shift_model'](pos3)
+            tmp3[mask] = lh['updating_interpolation_model'](pos3)
+
             if plots:
-                fig, axes = plt.subplots(1, 5)
+                fig, axes = plt.subplots(1, 6)
                 axes[0].imshow(plot_data, origin='lower', norm=LogNorm())
-                axes[1].imshow(tmp, origin='lower', norm=LogNorm())
-                axes[2].imshow(plot_data-tmp, origin='lower', norm=LogNorm())
+                axes[1].imshow(plot_data-tmp, origin='lower', norm=LogNorm())
+                axes[2].imshow(tmp, origin='lower', norm=LogNorm())
                 axes[3].imshow(tmp2, origin='lower', norm=LogNorm())
                 axes[4].imshow(tmp-tmp2, origin='lower', cmap='RdBu_r')
+                axes[5].imshow(tmp-tmp3, origin='lower', cmap='RdBu_r')
                 plt.show()
 
         like = ju.library.likelihood.build_gaussian_likelihood(data, std)
@@ -462,6 +440,10 @@ if __name__ == '__main__':
         elif integration_model in ['interpolation']:
             like = like.amend(interpolation_model,
                               domain=interpolation_model.domain)
+        elif integration_model in ['updating_interpolation']:
+            like = like.amend(lh['updating_interpolation_model'],
+                              domain=lh['updating_interpolation_model'].domain)
+
         likes.append(like)
 
     from functools import reduce

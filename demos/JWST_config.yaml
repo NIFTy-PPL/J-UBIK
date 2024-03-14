@@ -21,8 +21,10 @@ telescope:
   fov_unit: arcsec
 
   integration_model:
-    model: 'interpolation' # 'interpolation'
+    model: 'sparse' # 'interpolation', 'sparse', 'udpating_interpolation'
     subsample: 3
+    mean: [0, 0]
+    sigma: [0.1, 0.1]
 
 
   lanczos_window: 32
@@ -35,7 +37,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst/f1000w_64'
+  res_dir: 'results/jwst/f444w_64_sparse'
 
   filter:
     # f115w: # NIRCam
@@ -58,9 +60,9 @@ files:
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
-    # f444w:
-    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
-    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
+    f444w:
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
     # f444w_i2d:
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355-o016_t001_nircam_clear-f444w_i2d.fits'
@@ -77,11 +79,11 @@ files:
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
 
-    f1000w:
-      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_cal.fits'
-      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_cal.fits'
-      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_cal.fits'
-      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_cal.fits'
+    # f1000w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_cal.fits'
 
     # f1280w:
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1280w/jw01355015001_09101_00001_mirimage/jw01355015001_09101_00001_mirimage_cal.fits'
