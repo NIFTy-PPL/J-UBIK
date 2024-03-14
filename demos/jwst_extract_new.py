@@ -259,6 +259,12 @@ for fltname, flt in config['files']['filter'].items():
         )
 
 
+def get_nearest_index(coord, grid):
+    # Find the index of the nearest point in the grid to the given coordinate
+    dist_squared = (grid[0] - coord[0])**2 + (grid[1] - coord[1])**2
+    return np.unravel_index(np.argmin(dist_squared), grid[0].shape)
+
+
 def build_sparse_interpolation(
         index_grid: ArrayLike, edges: ArrayLike, mask: ArrayLike):
     print('Calculating sparse interpolation matrix...')
@@ -273,11 +279,12 @@ def build_sparse_interpolation(
     data = []
 
     for ii, pixel_edges in enumerate(edges.T):
-        # Ensure this is JAX compatible
         vc = ValueCalculator(index_grid, pixel_edges.T)
         values = vc.calculate_values()  # This also needs to be JAX compatible
 
         for (index_x, index_y), val in values.items():
+            index_y, index_x = get_nearest_index(
+                (index_x, index_y), index_grid)
             ind = np.ravel_multi_index((index_x, index_y), index_grid[0].shape)
             rows.append(ii)
             cols.append(ind)
@@ -290,12 +297,15 @@ def build_sparse_interpolation(
     return sparse_matrix
 
 
-def build_interpolation(subsample_centers, order=3):
+def build_interpolation(subsample_centers, mask, order=3):
     from functools import partial
     from jax import vmap, jit
     interpolation = partial(
         map_coordinates, order=order, mode='constant', cval=0.0)
     interpolation = vmap(interpolation, in_axes=(None, 0))
+
+    if mask is not None:
+        subsample_centers = subsample_centers[:, :, mask]
 
     def integration(x):
         out = interpolation(x, subsample_centers)
@@ -304,32 +314,38 @@ def build_interpolation(subsample_centers, order=3):
     return jit(integration)
 
 
-def build_updating_interpolation(subsample_centers, order=3):
+def build_updating_interpolation(subsample_centers, mask, order=3):
     from functools import partial
     from jax import vmap, jit
     interpolation = partial(
         map_coordinates, order=order, mode='constant', cval=0.0)
     interpolation = vmap(interpolation, in_axes=(None, 0))
 
+    if mask is not None:
+        subsample_centers = subsample_centers[:, :, mask]
+
     def integration(x):
         field, xy_shift = x
         out = interpolation(
-            field, subsample_centers - xy_shift[None, :, None, None])
+            field, subsample_centers - xy_shift[None, :, None])
         return out.sum(axis=0) / out.shape[0]
 
     return jit(integration)
 
 
 for lh_name, lh in likelihoods.items():
+    extend_factor = config['grid']['padding_ratio']
+
     sparse_matrix = build_sparse_interpolation(
         reconstruction_grid.index_grid(), lh['index_edges'], lh['mask'])
     lh['sparse_matrix'] = sparse_matrix
 
-    interpolation = build_interpolation(lh['index_subsample_centers'], order=1)
+    interpolation = build_interpolation(
+        lh['index_subsample_centers'], mask=lh['mask'], order=1)
     lh['interpolation'] = interpolation
 
     updating_interpolation = build_updating_interpolation(
-        lh['index_subsample_centers'], order=1)
+        lh['index_subsample_centers'], mask=lh['mask'], order=1)
     lh['updating_interpolation'] = updating_interpolation
 
 
@@ -344,14 +360,14 @@ if __name__ == '__main__':
 
     def build_interpolation_model(interpolation, mask, sky):
         return jft.Model(
-            lambda x: interpolation(sky(x))[mask],
+            lambda x: interpolation(sky(x)),
             domain=jft.Vector(sky.domain))
 
     def build_updating_interpolation_model(interpolation, mask, sky, shift):
-        domain = sky.domain
+        domain = sky.domain.copy()
         domain.update(shift.domain)
         return jft.Model(
-            lambda x: interpolation((sky(x), shift(x)))[mask],
+            lambda x: interpolation((sky(x), shift(x))),
             domain=jft.Vector(domain))
 
     def build_shift_model(key, mean_sigma):
@@ -376,6 +392,7 @@ if __name__ == '__main__':
     key, subkey, sampling_key, mini_par_key = random.split(key, 4)
 
     sky_dict = ju.create_sky_model_from_config(config_path)
+    sky = sky_dict['sky_padded']
     sky = sky_dict['sky']
 
     likes = []
@@ -438,11 +455,11 @@ if __name__ == '__main__':
         if integration_model in ['sparse']:
             like = like.amend(sparse_model, domain=sparse_model.domain)
         elif integration_model in ['interpolation']:
-            like = like.amend(interpolation_model,
-                              domain=interpolation_model.domain)
+            like = like.amend(
+                lh['interpolation_model'], domain=lh['interpolation_model'].domain)
         elif integration_model in ['updating_interpolation']:
-            like = like.amend(lh['updating_interpolation_model'],
-                              domain=lh['updating_interpolation_model'].domain)
+            like = like.amend(
+                lh['updating_interpolation_model'], domain=lh['updating_interpolation_model'].domain)
 
         likes.append(like)
 
