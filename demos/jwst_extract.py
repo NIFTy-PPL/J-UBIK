@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 
+import yaml
 
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
@@ -79,7 +80,7 @@ for data_number in range(*DATA_RANGE):
     # header['CRPIX1'] = FIG_SHAPE//2
 
     print('Building PSF')
-    environ["WEBBPSF_PATH"] = '/home/jruestig/Data/jwst/WebbPsf/webbpsf-data/'
+    environ["WEBBPSF_PATH"] = '/home/jruestig/Data/jwst/WebbPsf/webbpsf-data_1.2.1/'
     nircam = webbpsf.NIRCam()
     nircam.filter = FILTER
     nircam.detector_position = d_pix
