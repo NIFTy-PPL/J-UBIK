@@ -21,7 +21,7 @@ telescope:
   fov_unit: arcsec
 
   integration_model:
-    model: 'interpolation' # 'interpolation', 'sparse', 'udpating_interpolation'
+    model: 'interpolation' # 'sparse', 'interpolation', 'udpating_interpolation', 'nufft'
     subsample: 3
     mean: [0, 0]
     sigma: [0.1, 0.1]
@@ -37,9 +37,10 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst/f444w_64_inter3/'
-  # res_dir: 'results/jwst/f444w_64_sparse/'
-  # res_dir: 'results/jwst/f444w_64_udpating_interpolation/'
+  res_dir: 'results/jwst/f356w_64_interpad/'
+  # res_dir: 'results/jwst/f444w_64_sparsepad/'
+  # res_dir: 'results/jwst/f444w_64_updatepad/'
+  # res_dir: 'results/jwst/f444w_64_nufft/'
 
   filter:
     # f115w: # NIRCam
@@ -58,13 +59,13 @@ files:
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
 
-    # f356w:
-    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
-    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+    f356w:
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
-    f444w:
-      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
-      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
+    # f444w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
     # f444w_i2d:
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355-o016_t001_nircam_clear-f444w_i2d.fits'

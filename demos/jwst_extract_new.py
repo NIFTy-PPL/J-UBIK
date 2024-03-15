@@ -63,6 +63,7 @@ class Grid:
         extent = [int(s * extend_factor) for s in self.shape]
         extent = [(e - s) // 2 for s, e in zip(self.shape, extent)]
         x, y = [np.arange(-e, s+e) for e, s in zip(extent, self.shape)]
+        x, y = np.roll(x, -extent[0]), np.roll(y, -extent[1])
         return np.meshgrid(x, y, indexing='xy')
 
 
@@ -118,9 +119,6 @@ def find_data_extrema(
     data_grid_wcs: gwcs,
     data_shape: Tuple[int, int]
 ) -> tuple:
-    # index_points = [get_pixel(data_grid_wcs, p, tol=1e-4) for p in points]
-    # index_points = np.array([(pix[0].value, pix[1].value)
-    #                         for pix in index_points])
     index_points = np.array(
         [data_grid_wcs.world_to_pixel(p) for p in points])
 
@@ -152,10 +150,10 @@ def find_pixcenter_and_edges(
     e10 = pix_center - np.array([-0.5, 0.5])[:, None, None]
     e11 = pix_center - np.array([-0.5, -0.5])[:, None, None]
 
+    # Reminder: pix_center is used for the mask
     pix_center, e00, e01, e10, e11 = [
-        data_grid_wcs(*p, with_units=True) for p in [pix_center, e00, e01, e10, e11]]
-
-    # FIXME: pix_center is making the mask
+        data_grid_wcs(*p, with_units=True) for p in [
+            pix_center, e00, e01, e10, e11]]
 
     return pix_center, (e00, e01, e10, e11)
 
@@ -232,7 +230,7 @@ for fltname, flt in config['files']['filter'].items():
             minx, maxx, miny, maxy, subsample)
         subsample_centers = [wcs(*p, with_units=True)
                              for p in subsample_centers]
-        ind_subsample_centers = np.array(
+        index_subsample_centers = np.array(
             [reconstruction_grid.wcs.world_to_pixel(
                 p) for p in subsample_centers]
         )
@@ -253,7 +251,7 @@ for fltname, flt in config['files']['filter'].items():
         likelihoods[lh_name] = dict(
             mask=mask,
             index_edges=index_edges,
-            index_subsample_centers=ind_subsample_centers,
+            index_subsample_centers=index_subsample_centers,
             data=data[miny:maxy, minx:maxx],
             std=std[miny:maxy, minx:maxx],
         )
@@ -301,7 +299,8 @@ def build_interpolation(subsample_centers, mask, order=3):
     from functools import partial
     from jax import vmap, jit
     interpolation = partial(
-        map_coordinates, order=order, mode='constant', cval=0.0)
+        # map_coordinates, order=order, mode='constant', cval=0.0)
+        map_coordinates, order=order, mode='wrap')
     interpolation = vmap(interpolation, in_axes=(None, 0))
 
     if mask is not None:
@@ -318,7 +317,8 @@ def build_updating_interpolation(subsample_centers, mask, order=3):
     from functools import partial
     from jax import vmap, jit
     interpolation = partial(
-        map_coordinates, order=order, mode='constant', cval=0.0)
+        # map_coordinates, order=order, mode='constant', cval=0.0)
+        map_coordinates, order=order, mode='wrap')
     interpolation = vmap(interpolation, in_axes=(None, 0))
 
     if mask is not None:
@@ -333,11 +333,34 @@ def build_updating_interpolation(subsample_centers, mask, order=3):
     return jit(integration)
 
 
+def build_nufft(subsample_centers, mask, shape):
+    from jax_finufft import nufft2
+    from jax import jit, vmap
+
+    if mask is not None:
+        subsample_centers = subsample_centers[:, :, mask]
+
+    xy_finufft = subsample_centers / shape[None, :, None] * 2 * np.pi
+
+    def interpolation(field, coords):
+        return nufft2(field, coords[0], coords[1])
+
+    interpolation = vmap(interpolation, in_axes=(None, 0))
+
+    def integration(field):
+        f_field = jnp.fft.ifftshift(jnp.fft.ifft2(field))
+        # out = nufft2(f_field, xy_finufft[:, 0, :], xy_finufft[:, 1, :]).real
+        out = interpolation(f_field, xy_finufft).real
+        return out.sum(axis=0) / out.shape[0]
+
+    return (integration)
+
+
 for lh_name, lh in likelihoods.items():
     extend_factor = config['grid']['padding_ratio']
 
     sparse_matrix = build_sparse_interpolation(
-        reconstruction_grid.index_grid(), lh['index_edges'], lh['mask'])
+        reconstruction_grid.index_grid(extend_factor), lh['index_edges'], lh['mask'])
     lh['sparse_matrix'] = sparse_matrix
 
     interpolation = build_interpolation(
@@ -347,6 +370,11 @@ for lh_name, lh in likelihoods.items():
     updating_interpolation = build_updating_interpolation(
         lh['index_subsample_centers'], mask=lh['mask'], order=1)
     lh['updating_interpolation'] = updating_interpolation
+
+    shape = np.array(reconstruction_grid.index_grid(extend_factor)[0].shape)
+    nufft_interpolation = build_nufft(
+        lh['index_subsample_centers'], mask=lh['mask'], shape=shape)
+    lh['nufft_interpolation'] = nufft_interpolation
 
 
 if __name__ == '__main__':
@@ -358,12 +386,17 @@ if __name__ == '__main__':
             lambda x: sparse_matrix @ sky(x).reshape(-1),
             domain=jft.Vector(sky.domain))
 
-    def build_interpolation_model(interpolation, mask, sky):
+    def build_interpolation_model(interpolation, sky):
         return jft.Model(
             lambda x: interpolation(sky(x)),
             domain=jft.Vector(sky.domain))
 
-    def build_updating_interpolation_model(interpolation, mask, sky, shift):
+    def build_nufft_model(nufft_interpolation, sky):
+        return jft.Model(
+            lambda x: nufft_interpolation(sky(x)),
+            domain=jft.Vector(sky.domain))
+
+    def build_updating_interpolation_model(interpolation, sky, shift):
         domain = sky.domain.copy()
         domain.update(shift.domain)
         return jft.Model(
@@ -392,8 +425,8 @@ if __name__ == '__main__':
     key, subkey, sampling_key, mini_par_key = random.split(key, 4)
 
     sky_dict = ju.create_sky_model_from_config(config_path)
-    sky = sky_dict['sky_padded']
-    sky = sky_dict['sky']
+    sky = sky_dict['sky_full']
+    # sky = sky_dict['sky']
 
     likes = []
     models = []
@@ -403,12 +436,14 @@ if __name__ == '__main__':
         lh['sparse_model'] = sparse_model
 
         lh['interpolation_model'] = build_interpolation_model(
-            lh['interpolation'], lh['mask'], sky)
+            lh['interpolation'], sky)
 
         shift = build_shift_model(lh_key+'shift', mean_sigma)
         lh['shift_model'] = shift
         lh['updating_interpolation_model'] = build_updating_interpolation_model(
-            lh['updating_interpolation'], lh['mask'], sky, shift)
+            lh['updating_interpolation'], sky, shift)
+
+        lh['nufft_model'] = build_nufft_model(lh['nufft_interpolation'], sky)
 
         if mock:
             mock_sky = sky(jft.random_like(sampling_key, sky.domain))
@@ -441,14 +476,28 @@ if __name__ == '__main__':
             shif = lh['shift_model'](pos3)
             tmp3[mask] = lh['updating_interpolation_model'](pos3)
 
+            tmp4 = np.zeros_like(plot_data)
+            tmp4[mask] = lh['nufft_model'](pos)
+
             if plots:
-                fig, axes = plt.subplots(1, 6)
+                fig, axes = plt.subplots(2, 4, sharex=True, sharey=True)
+                axes = axes.flatten()
                 axes[0].imshow(plot_data, origin='lower', norm=LogNorm())
+                axes[0].set_title('data')
                 axes[1].imshow(plot_data-tmp, origin='lower', norm=LogNorm())
+                axes[1].set_title('data - sparse')
                 axes[2].imshow(tmp, origin='lower', norm=LogNorm())
+                axes[2].set_title('sparse')
                 axes[3].imshow(tmp2, origin='lower', norm=LogNorm())
+                axes[3].set_title('interpolation')
                 axes[4].imshow(tmp-tmp2, origin='lower', cmap='RdBu_r')
+                axes[4].set_title('sparse - interpolation')
                 axes[5].imshow(tmp-tmp3, origin='lower', cmap='RdBu_r')
+                axes[5].set_title('sparse - update_interpolation')
+                axes[6].imshow(tmp4, origin='lower', norm=LogNorm())
+                axes[6].set_title('nufft')
+                axes[7].imshow(tmp-tmp4, origin='lower', cmap='RdBu_r')
+                axes[7].set_title('sparse-nufft')
                 plt.show()
 
         like = ju.library.likelihood.build_gaussian_likelihood(data, std)
@@ -460,6 +509,9 @@ if __name__ == '__main__':
         elif integration_model in ['updating_interpolation']:
             like = like.amend(
                 lh['updating_interpolation_model'], domain=lh['updating_interpolation_model'].domain)
+        elif integration_model in ['nufft']:
+            like = like.amend(
+                lh['nufft_model'], domain=lh['nufft_model'].domain)
 
         likes.append(like)
 
@@ -472,6 +524,7 @@ if __name__ == '__main__':
     kl_solver_kwargs = minimization_config.pop('kl_kwargs')
 
     sky_dict.pop('target')
+    sky_dict.pop('pspec')
 
     def plot(s, x):
         ju.plot_sample_and_stats(file_info["res_dir"],
@@ -493,12 +546,21 @@ if __name__ == '__main__':
         if len(likelihoods.values()) == 1:
             axes = np.array([axes])
         for ii, lh in enumerate(likelihoods.values()):
-            sparse_model = lh['sparse_model']
+
+            if integration_model in ['sparse']:
+                model = lh['sparse_model']
+            elif integration_model in ['interpolation']:
+                model = lh['interpolation_model']
+            elif integration_model in ['updating_interpolation']:
+                model = lh['updating_interpolation_model']
+            elif integration_model in ['nufft']:
+                model = lh['nufft_model']
+
             plot_data = lh['data']
             mask = lh['mask']
 
             arr = np.zeros_like(plot_data)
-            arr[mask] = jft.mean([sparse_model(si) for si in s])
+            arr[mask] = jft.mean([model(si) for si in s])
             im0 = axes[ii, 0].imshow(plot_data, origin='lower', norm=LogNorm())
             im1 = axes[ii, 1].imshow(arr, origin='lower', norm=LogNorm())
             im2 = axes[ii, 2].imshow((plot_data - arr)/lh['std'], origin='lower',
@@ -519,13 +581,7 @@ if __name__ == '__main__':
                 fig.colorbar(im, ax=ax, shrink=0.7)
             plt.show()
 
-        # ju.export_operator_output_to_fits(file_info["res_dir"],
-        #                                   sky_dict,
-        #                                   s,
-        #                                   iteration=x.nit)
-        # plot_simple_residuals(file_info["res_dir"], s, x.nit)
-
-    pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky.domain))
+    pos_init = 0.1 * jft.Vector(jft.random_like(subkey, like.domain))
     samples, state = jft.optimize_kl(
         like,
         pos_init,
@@ -534,3 +590,5 @@ if __name__ == '__main__':
         callback=plot,
         odir=file_info["res_dir"],
         **minimization_config)
+
+    pos = jft.mean(samples)

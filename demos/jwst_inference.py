@@ -6,6 +6,8 @@ import jubik0 as ju
 
 from jax import config, random
 
+from sys import exit
+
 config.update('jax_enable_x64', True)
 config.update('jax_platform_name', 'cpu')
 
