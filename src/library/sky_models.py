@@ -77,7 +77,7 @@ def create_sky_model(npix, padding_ratio, fov, priors):
     distances = fov / npix
     target = Domain(shape=space_shape, distances=(distances,)*2)
 
-    diffuse_component, pspec = create_diffuse_component_model(
+    diffuse_component, pspec, diffuse_component_full = create_diffuse_component_model(
         space_shape,
         padding_ratio,
         distances,
@@ -89,6 +89,7 @@ def create_sky_model(npix, padding_ratio, fov, priors):
     if priors['point_sources'] is None:
         sky = diffuse_component
         return {'sky': sky,
+                'sky_full': diffuse_component_full,
                 'pspec': pspec,
                 'target': target}
 
@@ -100,6 +101,7 @@ def create_sky_model(npix, padding_ratio, fov, priors):
                 'pspec': pspec,
                 'point_sources': point_sources,
                 'diffuse': diffuse_component,
+                'diffuse_full': diffuse_component_full,
                 'target': target}
 
 
@@ -164,7 +166,8 @@ def create_diffuse_component_model(shape, padding_ratio, distances, offset, fluc
 
     def exp_padding(x): return jnp.exp(cf(x)[:shape[0], :shape[1]])
     diffuse = jft.Model(exp_padding, domain=cf.domain)
-    return diffuse, pspec
+    diffuse_full = jft.Model(lambda x: jnp.exp(cf(x)), domain=cf.domain)
+    return diffuse, pspec, diffuse_full
 
 
 def create_point_source_model(shape, alpha, q, key='points'):
