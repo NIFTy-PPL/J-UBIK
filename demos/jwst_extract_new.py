@@ -4,8 +4,16 @@ from jwst import datamodels
 import numpy as np
 import yaml
 
-import astropy
+# import astropy
 # import webbpsf
+
+from jwst_handling.interpolation_models import (
+    build_sparse_interpolation,
+    build_linear_interpolation,
+    build_nufft_interpolation,
+    build_interpolation_model,
+    build_sparse_interpolation_model
+)
 
 from sys import exit
 
@@ -13,19 +21,12 @@ import gwcs
 from astropy import units
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
-from typing import Tuple
+from typing import Tuple, List
 from astropy.units import Unit
 from numpy.typing import ArrayLike
 
-from charm_lensing.spaces import get_xycoords
-
-from shapely.geometry import Polygon, box
-
-import scipy.sparse as sp
-from jax.experimental.sparse import BCOO
 import jax.numpy as jnp
 
-from jax.scipy.ndimage import map_coordinates
 
 from jax import random
 from jax import config
@@ -63,8 +64,13 @@ class Grid:
         extent = [int(s * extend_factor) for s in self.shape]
         extent = [(e - s) // 2 for s, e in zip(self.shape, extent)]
         x, y = [np.arange(-e, s+e) for e, s in zip(extent, self.shape)]
-        x, y = np.roll(x, -extent[0]), np.roll(y, -extent[1])
+        x, y = np.roll(x, -extent[0]), np.roll(y, -extent[1])  # to bottom left
         return np.meshgrid(x, y, indexing='xy')
+
+    def indices_from_wl_array(self, wl_array: List[SkyCoord]) -> ArrayLike:
+        if isinstance(wl_array, SkyCoord):
+            wl_array = [wl_array]
+        return np.array([self.wcs.world_to_pixel(wl) for wl in wl_array])
 
 
 def get_coordinate_system(
@@ -90,12 +96,11 @@ def define_location(config: dict) -> SkyCoord:
     dec = config['telescope']['pointing']['dec']
     frame = config['telescope']['pointing'].get('frame', 'icrs')
     unit = getattr(units, config['telescope']['pointing'].get('unit', 'deg'))
-
     return SkyCoord(ra=ra*unit, dec=dec*unit, frame=frame)
 
 
-def get_pixel(wcs: gwcs.wcs, location: SkyCoord, tol=1e-7) -> tuple:
-    return wcs.numerical_inverse(location, with_units=True, tolerance=tol)
+def get_pixel(data_wcs: gwcs.wcs, location: SkyCoord, tol=1e-7) -> tuple:
+    return data_wcs.numerical_inverse(location, with_units=True, tolerance=tol)
 
 
 config_path = 'JWST_config.yaml'
@@ -114,34 +119,10 @@ reconstruction_grid = Grid(
 )
 
 
-def find_data_extrema(
-    points: list,
-    data_grid_wcs: gwcs,
-    data_shape: Tuple[int, int]
-) -> tuple:
-    index_points = np.array(
-        [data_grid_wcs.world_to_pixel(p) for p in points])
-
-    check = (
-        np.any(index_points < 0) or
-        np.any(index_points >= data_shape[0]) or
-        np.any(index_points >= data_shape[1])
-    )
-    if check:
-        raise ValueError(
-            f"One of the points is outside the grid \n{index_points}")
-
-    minx = int(np.floor(index_points[:, 0].min()))
-    maxx = int(np.ceil(index_points[:, 0].max()))
-    miny = int(np.floor(index_points[:, 1].min()))
-    maxy = int(np.ceil(index_points[:, 1].max()))
-
-    return (minx, maxx, miny, maxy)
-
-
-def find_pixcenter_and_edges(
-    minx: int, maxx: int, miny: int, maxy: int, data_grid_wcs: gwcs,
-) -> tuple:
+def wl_pixcenter_and_edges(
+    data_extrema: Tuple[int, int, int, int], data_wcs: gwcs
+) -> Tuple[SkyCoord, Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord]]:
+    minx, maxx, miny, maxy = data_extrema
 
     pix_center = np.meshgrid(np.arange(minx, maxx, 1),
                              np.arange(miny, maxy, 1))
@@ -152,59 +133,86 @@ def find_pixcenter_and_edges(
 
     # Reminder: pix_center is used for the mask
     pix_center, e00, e01, e10, e11 = [
-        data_grid_wcs(*p, with_units=True) for p in [
-            pix_center, e00, e01, e10, e11]]
+        data_wcs(*p, with_units=True) for p in [pix_center, e00, e01, e10, e11]
+    ]
 
     return pix_center, (e00, e01, e10, e11)
 
 
-def find_subsample_centers(
-    minx: int, maxx: int, miny: int, maxy: int, subsample: int
+def data_extrema_from_edge_points(
+    edge_points: List[SkyCoord],
+    data_wcs: gwcs,
+    data_shape: Tuple[int, int]
 ) -> tuple:
+    '''Find the minimum and maximum pixel coordinates of the data grid that
+    contain the edge points given in sky coordinates.
 
+    Parameters
+    ----------
+    edge_points : List
+        List of SkyCoord objects, representing the world location of the
+        reconstruction grid edges.
+
+    data_wcs : gwcs
+        WCS object for the data.
+
+    data_shape : Tuple
+        Shape of the data.
+    '''
+
+    edges_dgrid = np.array([data_wcs.world_to_pixel(p) for p in edge_points])
+
+    check = (
+        np.any(edges_dgrid < 0) or
+        np.any(edges_dgrid >= data_shape[0]) or
+        np.any(edges_dgrid >= data_shape[1])
+    )
+    if check:
+        raise ValueError(
+            f"One of the edge_points is outside the grid \n{edges_dgrid}")
+
+    minx = int(np.floor(edges_dgrid[:, 0].min()))
+    maxx = int(np.ceil(edges_dgrid[:, 0].max()))
+    miny = int(np.floor(edges_dgrid[:, 1].min()))
+    maxy = int(np.ceil(edges_dgrid[:, 1].max()))
+
+    return minx, maxx, miny, maxy
+
+
+def wl_subsample_centers(
+    data_extrema: Tuple[int, int, int, int], subsample: int, data_wcs: gwcs
+) -> ArrayLike:
+    '''Find the (subsampled) pixel centers for the location of pixels in
+    a larger grid. The sub-part of the (subsampled) pixel centers is provided
+    by the data_extrema argument.
+
+    Parameters
+    ----------
+    data_extrema : tuple
+        (minx, maxx, miny, maxy) inside the larger pixel grid
+
+    subsample : int
+        subsample factor of the pixel grid
+    '''
+
+    minx, maxx, miny, maxy = data_extrema
     pix_center = np.array(np.meshgrid(np.arange(minx, maxx, 1),
                                       np.arange(miny, maxy, 1)))
     ps = np.arange(0.5/subsample, 1, 1/subsample) - 0.5
     ms = np.vstack(np.array(np.meshgrid(ps, ps)).T)
+    subsample_centers = ms[:, :, None, None] + pix_center
 
-    return ms[:, :, None, None] + pix_center
+    return [data_wcs(*p, with_units=True) for p in subsample_centers]
 
 
-class ValueCalculator:
-    def __init__(self, coord_grid, points):
-        self.triangle = Polygon([p for p in points])
-        self.triangle_area = self.triangle.area
-
-        self.hside = (abs(coord_grid[0][0, 1]-coord_grid[0][0, 0])/2,
-                      abs(coord_grid[1][0, 0]-coord_grid[1][1, 0])/2)
-
-        minx = min([p[0] for p in points])-self.hside[0]
-        miny = min([p[1] for p in points])-self.hside[1]
-        maxx = max([p[0] for p in points])+self.hside[0]
-        maxy = max([p[1] for p in points])+self.hside[1]
-        mask = ((coord_grid[0] >= minx) * (coord_grid[0] <= maxx) *
-                (coord_grid[1] >= miny) * (coord_grid[1] <= maxy))
-
-        self.masked_grid = coord_grid[0][mask], coord_grid[1][mask]
-
-    def get_pixel_extrema(self, pix_cntr):
-        minx, miny = pix_cntr[0]-self.hside[0], pix_cntr[1]-self.hside[1]
-        maxx, maxy = pix_cntr[0]+self.hside[0], pix_cntr[1]+self.hside[1]
-        return (minx, miny, maxx, maxy)
-
-    def calculate_values(self, minimum=1e-11):
-        values = {}
-
-        for pix_cntr in zip(self.masked_grid[0], self.masked_grid[1]):
-            minxy_maxxy = self.get_pixel_extrema(pix_cntr)
-            pix_box = box(*minxy_maxxy)
-            fractional_area = self.triangle.intersection(
-                pix_box).area / self.triangle_area
-            values[pix_cntr] = fractional_area
-
-        values = {k: v for k, v in values.items() if v > minimum}
-
-        return values
+def mask_index_centers_and_nan(
+    index_centers: ArrayLike, data: ArrayLike, grid_shape: Tuple[int, int]
+) -> ArrayLike:
+    return ((index_centers[0] > 0) *
+            (index_centers[1] > 0) *
+            (index_centers[0] < grid_shape[0]) *
+            (index_centers[1] < grid_shape[1]) *
+            ~np.isnan(data))
 
 
 subsample = config['telescope']['integration_model']['subsample']
@@ -218,34 +226,31 @@ for fltname, flt in config['files']['filter'].items():
 
         data = dm.data
         std = dm.err
-        wcs = dm.meta.wcs
+        data_wcs = dm.meta.wcs
 
-        (minx, maxx, miny, maxy) = find_data_extrema(
-            reconstruction_grid.world_extrema, wcs, data.shape)
+        data_extrema = data_extrema_from_edge_points(
+            reconstruction_grid.world_extrema, data_wcs, data.shape)
 
-        pix_center, (e00, e01, e10, e11) = find_pixcenter_and_edges(
-            minx, maxx, miny, maxy, wcs)
+        # Find the sub-pixel centers for the interpolation integration
+        subsample_centers = wl_subsample_centers(
+            data_extrema, subsample, data_wcs)
+        index_subsample_centers = reconstruction_grid.indices_from_wl_array(
+            subsample_centers)
 
-        subsample_centers = find_subsample_centers(
-            minx, maxx, miny, maxy, subsample)
-        subsample_centers = [wcs(*p, with_units=True)
-                             for p in subsample_centers]
-        index_subsample_centers = np.array(
-            [reconstruction_grid.wcs.world_to_pixel(
-                p) for p in subsample_centers]
-        )
+        # Find the pixel edges for the sparse interpolation
+        pix_center, (e00, e01, e10, e11) = wl_pixcenter_and_edges(
+            data_extrema, data_wcs)
 
-        indcc, ind00, ind01, ind10, ind11 = [
-            reconstruction_grid.wcs.world_to_pixel(p)
-            for p in [pix_center, e00, e01, e10, e11]]
-        index_centers = np.array(indcc)
-        index_edges = np.array([ind00, ind01, ind11, ind10])
+        index_centers = reconstruction_grid.indices_from_wl_array(
+            pix_center)[0]
+        index_edges = reconstruction_grid.indices_from_wl_array(
+            [e00, e01, e11, e10])  # needs to be circular for sparse builder
 
-        mask = ((index_centers[0] > 0) *
-                (index_centers[1] > 0) *
-                (index_centers[0] < reconstruction_grid.shape[0]) *
-                (index_centers[1] < reconstruction_grid.shape[1]) *
-                ~np.isnan(data[miny:maxy, minx:maxx]))
+        # define a mask
+        minx, maxx, miny, maxy = data_extrema
+        mask = mask_index_centers_and_nan(
+            index_centers, data[miny:maxy, minx:maxx],
+            reconstruction_grid.shape)
 
         lh_name = f'{fltname}_{ii}'
         likelihoods[lh_name] = dict(
@@ -257,151 +262,25 @@ for fltname, flt in config['files']['filter'].items():
         )
 
 
-def get_nearest_index(coord, grid):
-    # Find the index of the nearest point in the grid to the given coordinate
-    dist_squared = (grid[0] - coord[0])**2 + (grid[1] - coord[1])**2
-    return np.unravel_index(np.argmin(dist_squared), grid[0].shape)
-
-
-def build_sparse_interpolation(
-        index_grid: ArrayLike, edges: ArrayLike, mask: ArrayLike):
-    print('Calculating sparse interpolation matrix...')
-    edges = edges[:, :, mask]
-
-    data_length = edges[0, 0].size
-    assert data_length == edges[0, 1].size
-    assert data_length == edges[0, 0].shape[0]
-
-    rows = []
-    cols = []
-    data = []
-
-    for ii, pixel_edges in enumerate(edges.T):
-        vc = ValueCalculator(index_grid, pixel_edges.T)
-        values = vc.calculate_values()  # This also needs to be JAX compatible
-
-        for (index_x, index_y), val in values.items():
-            index_y, index_x = get_nearest_index(
-                (index_x, index_y), index_grid)
-            ind = np.ravel_multi_index((index_x, index_y), index_grid[0].shape)
-            rows.append(ii)
-            cols.append(ind)
-            data.append(val)
-
-    coo_matrix = sp.coo_matrix(
-        (data, (rows, cols)), shape=(data_length, index_grid[0].size))
-    sparse_matrix = BCOO.from_scipy_sparse(coo_matrix)
-
-    return sparse_matrix
-
-
-def build_interpolation(subsample_centers, mask, order=3):
-    from functools import partial
-    from jax import vmap, jit
-    interpolation = partial(
-        # map_coordinates, order=order, mode='constant', cval=0.0)
-        map_coordinates, order=order, mode='wrap')
-    interpolation = vmap(interpolation, in_axes=(None, 0))
-
-    if mask is not None:
-        subsample_centers = subsample_centers[:, :, mask]
-
-    def integration(x):
-        out = interpolation(x, subsample_centers)
-        return out.sum(axis=0) / out.shape[0]
-
-    return jit(integration)
-
-
-def build_updating_interpolation(subsample_centers, mask, order=3):
-    from functools import partial
-    from jax import vmap, jit
-    interpolation = partial(
-        # map_coordinates, order=order, mode='constant', cval=0.0)
-        map_coordinates, order=order, mode='wrap')
-    interpolation = vmap(interpolation, in_axes=(None, 0))
-
-    if mask is not None:
-        subsample_centers = subsample_centers[:, :, mask]
-
-    def integration(x):
-        field, xy_shift = x
-        out = interpolation(
-            field, subsample_centers - xy_shift[None, :, None])
-        return out.sum(axis=0) / out.shape[0]
-
-    return jit(integration)
-
-
-def build_nufft(subsample_centers, mask, shape):
-    from jax_finufft import nufft2
-    from jax import jit, vmap
-
-    if mask is not None:
-        subsample_centers = subsample_centers[:, :, mask]
-
-    xy_finufft = subsample_centers / shape[None, :, None] * 2 * np.pi
-
-    def interpolation(field, coords):
-        return nufft2(field, coords[0], coords[1])
-
-    interpolation = vmap(interpolation, in_axes=(None, 0))
-
-    def integration(field):
-        f_field = jnp.fft.ifftshift(jnp.fft.ifft2(field))
-        # out = nufft2(f_field, xy_finufft[:, 0, :], xy_finufft[:, 1, :]).real
-        out = interpolation(f_field, xy_finufft).real
-        return out.sum(axis=0) / out.shape[0]
-
-    return (integration)
-
-
 for lh_name, lh in likelihoods.items():
-    extend_factor = config['grid']['padding_ratio']
+    ind_grid = reconstruction_grid.index_grid(config['grid']['padding_ratio'])
+    lh['sparse_matrix'] = build_sparse_interpolation(
+        ind_grid, lh['index_edges'], lh['mask'])
 
-    sparse_matrix = build_sparse_interpolation(
-        reconstruction_grid.index_grid(extend_factor), lh['index_edges'], lh['mask'])
-    lh['sparse_matrix'] = sparse_matrix
-
-    interpolation = build_interpolation(
+    lh['interpolation'] = build_linear_interpolation(
         lh['index_subsample_centers'], mask=lh['mask'], order=1)
-    lh['interpolation'] = interpolation
 
-    updating_interpolation = build_updating_interpolation(
-        lh['index_subsample_centers'], mask=lh['mask'], order=1)
-    lh['updating_interpolation'] = updating_interpolation
+    lh['updating_interpolation'] = build_linear_interpolation(
+        lh['index_subsample_centers'], mask=lh['mask'], order=1, updating=True)
 
-    shape = np.array(reconstruction_grid.index_grid(extend_factor)[0].shape)
-    nufft_interpolation = build_nufft(
-        lh['index_subsample_centers'], mask=lh['mask'], shape=shape)
-    lh['nufft_interpolation'] = nufft_interpolation
+    lh['nufft_interpolation'] = build_nufft_interpolation(
+        lh['index_subsample_centers'], mask=lh['mask'],
+        shape=np.array(ind_grid[0].shape))
 
 
 if __name__ == '__main__':
     import jubik0 as ju
     import nifty8.re as jft
-
-    def build_sparse_model(sparse_matrix, sky):
-        return jft.Model(
-            lambda x: sparse_matrix @ sky(x).reshape(-1),
-            domain=jft.Vector(sky.domain))
-
-    def build_interpolation_model(interpolation, sky):
-        return jft.Model(
-            lambda x: interpolation(sky(x)),
-            domain=jft.Vector(sky.domain))
-
-    def build_nufft_model(nufft_interpolation, sky):
-        return jft.Model(
-            lambda x: nufft_interpolation(sky(x)),
-            domain=jft.Vector(sky.domain))
-
-    def build_updating_interpolation_model(interpolation, sky, shift):
-        domain = sky.domain.copy()
-        domain.update(shift.domain)
-        return jft.Model(
-            lambda x: interpolation((sky(x), shift(x))),
-            domain=jft.Vector(domain))
 
     def build_shift_model(key, mean_sigma):
         from charm_lensing.models.parametric_models.parametric_prior import (
@@ -432,22 +311,23 @@ if __name__ == '__main__':
     models = []
     for lh_key, lh in likelihoods.items():
 
-        sparse_model = build_sparse_model(lh['sparse_matrix'], sky)
-        lh['sparse_model'] = sparse_model
+        lh['sparse_model'] = build_sparse_interpolation_model(
+            lh['sparse_matrix'], sky)
 
         lh['interpolation_model'] = build_interpolation_model(
             lh['interpolation'], sky)
 
         shift = build_shift_model(lh_key+'shift', mean_sigma)
         lh['shift_model'] = shift
-        lh['updating_interpolation_model'] = build_updating_interpolation_model(
+        lh['updating_interpolation_model'] = build_interpolation_model(
             lh['updating_interpolation'], sky, shift)
 
-        lh['nufft_model'] = build_nufft_model(lh['nufft_interpolation'], sky)
+        lh['nufft_model'] = build_interpolation_model(
+            lh['nufft_interpolation'], sky)
 
         if mock:
             mock_sky = sky(jft.random_like(sampling_key, sky.domain))
-            data = sparse_matrix @ mock_sky.reshape(-1)
+            data = lh['sparse_matrix'] @ mock_sky.reshape(-1)
             scale = 0.1*data.mean()
             data += np.random.normal(scale=scale, size=data.shape)
             std = np.full(data.shape, scale)
@@ -464,6 +344,7 @@ if __name__ == '__main__':
 
             pos = jft.random_like(sampling_key, sky.domain)
             tmp = np.zeros_like(plot_data)
+            sparse_model = lh['sparse_model']
             tmp[mask] = sparse_model(pos)
 
             tmp2 = np.zeros_like(plot_data)
@@ -479,25 +360,41 @@ if __name__ == '__main__':
             tmp4 = np.zeros_like(plot_data)
             tmp4[mask] = lh['nufft_model'](pos)
 
+            log_min, log_max = 1.0, tmp.max()
             if plots:
-                fig, axes = plt.subplots(2, 4, sharex=True, sharey=True)
+                fig, axes = plt.subplots(3, 3, sharex=True, sharey=True)
                 axes = axes.flatten()
-                axes[0].imshow(plot_data, origin='lower', norm=LogNorm())
+                ims = []
+                ims.append(axes[0].imshow(
+                    plot_data, origin='lower', norm=LogNorm()))
                 axes[0].set_title('data')
-                axes[1].imshow(plot_data-tmp, origin='lower', norm=LogNorm())
+                ims.append(axes[1].imshow(plot_data-tmp,
+                           origin='lower', norm=LogNorm()))
                 axes[1].set_title('data - sparse')
-                axes[2].imshow(tmp, origin='lower', norm=LogNorm())
-                axes[2].set_title('sparse')
-                axes[3].imshow(tmp2, origin='lower', norm=LogNorm())
-                axes[3].set_title('interpolation')
-                axes[4].imshow(tmp-tmp2, origin='lower', cmap='RdBu_r')
-                axes[4].set_title('sparse - interpolation')
-                axes[5].imshow(tmp-tmp3, origin='lower', cmap='RdBu_r')
-                axes[5].set_title('sparse - update_interpolation')
-                axes[6].imshow(tmp4, origin='lower', norm=LogNorm())
-                axes[6].set_title('nufft')
-                axes[7].imshow(tmp-tmp4, origin='lower', cmap='RdBu_r')
-                axes[7].set_title('sparse-nufft')
+                ims.append(axes[2].imshow(sky_dict['sky'](pos),
+                           origin='lower', norm=LogNorm(vmin=log_min, vmax=log_max)))
+                axes[2].set_title('data - finufft')
+                ims.append(axes[3].imshow(
+                    tmp, origin='lower',
+                    norm=LogNorm(vmin=log_min, vmax=log_max)))
+                axes[3].set_title('sparse')
+                ims.append(axes[4].imshow(
+                    tmp2, origin='lower', norm=LogNorm(vmin=log_min, vmax=log_max)))
+                axes[4].set_title('interpolation')
+                ims.append(axes[5].imshow(
+                    tmp4, origin='lower', norm=LogNorm(vmin=log_min, vmax=log_max)))
+                axes[5].set_title('nufft')
+                ims.append(axes[6].imshow((tmp-tmp2)/tmp,
+                           origin='lower', cmap='RdBu_r', vmin=-1, vmax=1))
+                axes[6].set_title('sparse - interpolation')
+                ims.append(axes[7].imshow((tmp-tmp3)/tmp,
+                           origin='lower', cmap='RdBu_r', vmin=-1, vmax=1))
+                axes[7].set_title('sparse - update_interpolation')
+                ims.append(axes[8].imshow((tmp-tmp4)/tmp,
+                           origin='lower', cmap='RdBu_r', vmin=-1, vmax=1))
+                axes[8].set_title('sparse-nufft')
+                for im, ax in zip(ims, axes):
+                    fig.colorbar(im, ax=ax, shrink=0.7)
                 plt.show()
 
         like = ju.library.likelihood.build_gaussian_likelihood(data, std)
