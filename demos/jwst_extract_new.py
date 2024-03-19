@@ -15,6 +15,8 @@ from jwst_handling.interpolation_models import (
     build_sparse_interpolation_model
 )
 
+from jwst_handling.data_model import JwstDataModel
+
 from sys import exit
 
 import gwcs
@@ -41,17 +43,31 @@ class Grid:
         shape: Tuple[int, int],
         fov: Tuple[Unit, Unit]
     ):
-        self.center = center
         self.shape = shape
-        self.fov = fov
-        self.wcs = self._get_wcs()
-
-    def _get_wcs(self) -> WCS:
-        return get_coordinate_system(
-            self.center,
-            self.shape,
-            (self.fov[0].to(units.deg), self.fov[1].to(units.deg))
+        self.wcs = self._get_wcs(
+            center,
+            shape,
+            (fov[0].to(units.deg), fov[1].to(units.deg))
         )
+
+    def _get_wcs(
+        self,
+        center: SkyCoord,
+        shape: Tuple[int, int],
+        fov: Tuple[Unit, Unit]
+    ) -> WCS:
+
+        # Create a WCS object
+        w = WCS(naxis=2)
+
+        # Set up ICRS system
+        w.wcs.crpix = [shape[0] / 2, shape[1] / 2]
+        w.wcs.cdelt = [-fov[0].to(units.deg).value / shape[0],
+                       fov[1].to(units.deg).value / shape[1]]
+        w.wcs.crval = [center.ra.deg, center.dec.deg]
+        w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+
+        return w
 
     @property
     def world_extrema(self) -> ArrayLike:
@@ -71,24 +87,6 @@ class Grid:
         if isinstance(wl_array, SkyCoord):
             wl_array = [wl_array]
         return np.array([self.wcs.world_to_pixel(wl) for wl in wl_array])
-
-
-def get_coordinate_system(
-    center: SkyCoord,
-    shape: Tuple[int, int],
-    fov: Tuple[Unit, Unit]
-) -> WCS:
-    # Create a WCS object
-    w = WCS(naxis=2)
-
-    # Set up ICRS system
-    w.wcs.crpix = [shape[0] / 2, shape[1] / 2]
-    w.wcs.cdelt = [-fov[0].to(units.deg).value / shape[0],
-                   fov[1].to(units.deg).value / shape[1]]
-    w.wcs.crval = [center.ra.deg, center.dec.deg]
-    w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-
-    return w
 
 
 def define_location(config: dict) -> SkyCoord:
@@ -113,105 +111,18 @@ shape = (config['grid']['npix'], config['grid']['npix'])
 
 # defining the reconstruction grid
 reconstruction_grid = Grid(
-    WORLD_LOCATION,
-    shape,
-    (FOV.to(units.deg), FOV.to(units.deg))
-)
-
-
-def wl_pixcenter_and_edges(
-    data_extrema: Tuple[int, int, int, int], data_wcs: gwcs
-) -> Tuple[SkyCoord, Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord]]:
-    minx, maxx, miny, maxy = data_extrema
-
-    pix_center = np.meshgrid(np.arange(minx, maxx, 1),
-                             np.arange(miny, maxy, 1))
-    e00 = pix_center - np.array([0.5, 0.5])[:, None, None]
-    e01 = pix_center - np.array([0.5, -0.5])[:, None, None]
-    e10 = pix_center - np.array([-0.5, 0.5])[:, None, None]
-    e11 = pix_center - np.array([-0.5, -0.5])[:, None, None]
-
-    # Reminder: pix_center is used for the mask
-    pix_center, e00, e01, e10, e11 = [
-        data_wcs(*p, with_units=True) for p in [pix_center, e00, e01, e10, e11]
-    ]
-
-    return pix_center, (e00, e01, e10, e11)
-
-
-def data_extrema_from_edge_points(
-    edge_points: List[SkyCoord],
-    data_wcs: gwcs,
-    data_shape: Tuple[int, int]
-) -> tuple:
-    '''Find the minimum and maximum pixel coordinates of the data grid that
-    contain the edge points given in sky coordinates.
-
-    Parameters
-    ----------
-    edge_points : List
-        List of SkyCoord objects, representing the world location of the
-        reconstruction grid edges.
-
-    data_wcs : gwcs
-        WCS object for the data.
-
-    data_shape : Tuple
-        Shape of the data.
-    '''
-
-    edges_dgrid = np.array([data_wcs.world_to_pixel(p) for p in edge_points])
-
-    check = (
-        np.any(edges_dgrid < 0) or
-        np.any(edges_dgrid >= data_shape[0]) or
-        np.any(edges_dgrid >= data_shape[1])
-    )
-    if check:
-        raise ValueError(
-            f"One of the edge_points is outside the grid \n{edges_dgrid}")
-
-    minx = int(np.floor(edges_dgrid[:, 0].min()))
-    maxx = int(np.ceil(edges_dgrid[:, 0].max()))
-    miny = int(np.floor(edges_dgrid[:, 1].min()))
-    maxy = int(np.ceil(edges_dgrid[:, 1].max()))
-
-    return minx, maxx, miny, maxy
-
-
-def wl_subsample_centers(
-    data_extrema: Tuple[int, int, int, int], subsample: int, data_wcs: gwcs
-) -> ArrayLike:
-    '''Find the (subsampled) pixel centers for the location of pixels in
-    a larger grid. The sub-part of the (subsampled) pixel centers is provided
-    by the data_extrema argument.
-
-    Parameters
-    ----------
-    data_extrema : tuple
-        (minx, maxx, miny, maxy) inside the larger pixel grid
-
-    subsample : int
-        subsample factor of the pixel grid
-    '''
-
-    minx, maxx, miny, maxy = data_extrema
-    pix_center = np.array(np.meshgrid(np.arange(minx, maxx, 1),
-                                      np.arange(miny, maxy, 1)))
-    ps = np.arange(0.5/subsample, 1, 1/subsample) - 0.5
-    ms = np.vstack(np.array(np.meshgrid(ps, ps)).T)
-    subsample_centers = ms[:, :, None, None] + pix_center
-
-    return [data_wcs(*p, with_units=True) for p in subsample_centers]
+    WORLD_LOCATION, shape, (FOV.to(units.deg), FOV.to(units.deg)))
 
 
 def mask_index_centers_and_nan(
-    index_centers: ArrayLike, data: ArrayLike, grid_shape: Tuple[int, int]
+    dpixcenter_in_rgrid: ArrayLike,
+    data: ArrayLike,
+    rgrid_shape: Tuple[int, int]
 ) -> ArrayLike:
-    return ((index_centers[0] > 0) *
-            (index_centers[1] > 0) *
-            (index_centers[0] < grid_shape[0]) *
-            (index_centers[1] < grid_shape[1]) *
+    return ((dpixcenter_in_rgrid[0] > 0) *
+            (dpixcenter_in_rgrid[1] > 0) *
+            (dpixcenter_in_rgrid[0] < rgrid_shape[0]) *
+            (dpixcenter_in_rgrid[1] < rgrid_shape[1]) *
             ~np.isnan(data))
 
 
@@ -223,25 +134,25 @@ for fltname, flt in config['files']['filter'].items():
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
         dm = datamodels.open(filepath)
+        jwst_data = JwstDataModel(filepath)
 
         data = dm.data
         std = dm.err
         data_wcs = dm.meta.wcs
 
-        data_extrema = data_extrema_from_edge_points(
-            reconstruction_grid.world_extrema, data_wcs, data.shape)
+        data_extrema = jwst_data.data_extrema(
+            reconstruction_grid.world_extrema)
 
         # Find the sub-pixel centers for the interpolation integration
-        subsample_centers = wl_subsample_centers(
-            data_extrema, subsample, data_wcs)
+        subsample_centers = jwst_data.wl_subsample_centers(
+            reconstruction_grid.world_extrema, subsample)
         index_subsample_centers = reconstruction_grid.indices_from_wl_array(
             subsample_centers)
 
         # Find the pixel edges for the sparse interpolation
-        pix_center, (e00, e01, e10, e11) = wl_pixcenter_and_edges(
-            data_extrema, data_wcs)
-
-        index_centers = reconstruction_grid.indices_from_wl_array(
+        pix_center, (e00, e01, e10, e11) = jwst_data.wl_pixelcenter_and_edges(
+            reconstruction_grid.world_extrema)
+        dpixcenter_in_rgrid = reconstruction_grid.indices_from_wl_array(
             pix_center)[0]
         index_edges = reconstruction_grid.indices_from_wl_array(
             [e00, e01, e11, e10])  # needs to be circular for sparse builder
@@ -249,7 +160,7 @@ for fltname, flt in config['files']['filter'].items():
         # define a mask
         minx, maxx, miny, maxy = data_extrema
         mask = mask_index_centers_and_nan(
-            index_centers, data[miny:maxy, minx:maxx],
+            dpixcenter_in_rgrid, data[miny:maxy, minx:maxx],
             reconstruction_grid.shape)
 
         lh_name = f'{fltname}_{ii}'
@@ -260,7 +171,7 @@ for fltname, flt in config['files']['filter'].items():
             data=data[miny:maxy, minx:maxx],
             std=std[miny:maxy, minx:maxx],
         )
-
+        exit()
 
 for lh_name, lh in likelihoods.items():
     ind_grid = reconstruction_grid.index_grid(config['grid']['padding_ratio'])
