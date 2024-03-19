@@ -3,6 +3,7 @@ from jwst import datamodels
 
 from typing import Tuple, List
 from astropy.coordinates import SkyCoord
+from numpy.typing import ArrayLike
 
 
 class JwstDataModel:
@@ -36,8 +37,9 @@ class JwstDataModel:
             np.any(edges_dgrid >= self.dm.data.shape[1])
         )
         if check:
-            raise ValueError(
-                f"One of the wcs extrema is outside the data grid \n{edges_dgrid}")
+            o = f"""One of the wcs extrema is outside the data grid
+            {edges_dgrid}"""
+            raise ValueError(o)
 
         minx = int(np.floor(edges_dgrid[:, 0].min()))
         maxx = int(np.ceil(edges_dgrid[:, 0].max()))
@@ -90,8 +92,8 @@ class JwstDataModel:
         subsample: int
     ) -> List[SkyCoord]:
         '''Find the (subsampled) pixel centers for the location of pixels in
-        a larger grid. The sub-part of the (subsampled) pixel centers is provided
-        by the data_extrema argument.
+        a larger grid. The sub-part of the (subsampled) pixel centers is
+        provided by the data_extrema argument.
 
         Parameters
         ----------
@@ -116,3 +118,39 @@ class JwstDataModel:
         subsample_centers = ms[:, :, None, None] + pix_center
 
         return [self.wcs(*p, with_units=True) for p in subsample_centers]
+
+    def data_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
+        '''Find the data values inside the extrema.
+
+        Parameters
+        ----------
+        extrema : List[SkyCoord]
+            List of SkyCoord objects, representing the world location of the
+            reconstruction grid edges.
+
+        Returns
+        -------
+        data : ArrayLike
+            Data values inside the extrema.
+
+        '''
+        minx, maxx, miny, maxy = self.data_extrema(extrema)
+        return self.dm.data[miny:maxy, minx:maxx]
+
+    def std_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
+        '''Find the data values inside the extrema.
+
+        Parameters
+        ----------
+        extrema : List[SkyCoord]
+            List of SkyCoord objects, representing the world location of the
+            reconstruction grid edges.
+
+        Returns
+        -------
+        data : ArrayLike
+            Data values inside the extrema.
+
+        '''
+        minx, maxx, miny, maxy = self.data_extrema(extrema)
+        return self.dm.err[miny:maxy, minx:maxx]

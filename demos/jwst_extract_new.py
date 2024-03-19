@@ -1,11 +1,12 @@
+import yaml
+import numpy as np
+
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
-from jwst import datamodels
-import numpy as np
-import yaml
 
 # import astropy
 # import webbpsf
+from astropy import units
 
 from jwst_handling.interpolation_models import (
     build_sparse_interpolation,
@@ -16,114 +17,30 @@ from jwst_handling.interpolation_models import (
 )
 
 from jwst_handling.data_model import JwstDataModel
+from jwst_handling.sky_grid import SkyGrid
+from jwst_handling.masking import mask_index_centers_and_nan
+from jwst_handling.config_handler import define_location, get_shape, get_fov
 
 from sys import exit
 
-import gwcs
-from astropy import units
-from astropy.wcs import WCS
-from astropy.coordinates import SkyCoord
-from typing import Tuple, List
-from astropy.units import Unit
-from numpy.typing import ArrayLike
 
 import jax.numpy as jnp
-
-
 from jax import random
 from jax import config
 config.update('jax_enable_x64', True)
 config.update('jax_platform_name', 'cpu')
 
 
-class Grid:
-    def __init__(
-        self,
-        center: SkyCoord,
-        shape: Tuple[int, int],
-        fov: Tuple[Unit, Unit]
-    ):
-        self.shape = shape
-        self.wcs = self._get_wcs(
-            center,
-            shape,
-            (fov[0].to(units.deg), fov[1].to(units.deg))
-        )
-
-    def _get_wcs(
-        self,
-        center: SkyCoord,
-        shape: Tuple[int, int],
-        fov: Tuple[Unit, Unit]
-    ) -> WCS:
-
-        # Create a WCS object
-        w = WCS(naxis=2)
-
-        # Set up ICRS system
-        w.wcs.crpix = [shape[0] / 2, shape[1] / 2]
-        w.wcs.cdelt = [-fov[0].to(units.deg).value / shape[0],
-                       fov[1].to(units.deg).value / shape[1]]
-        w.wcs.crval = [center.ra.deg, center.dec.deg]
-        w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-
-        return w
-
-    @property
-    def world_extrema(self) -> ArrayLike:
-        return [self.wcs.array_index_to_world(*(0, 0)),
-                self.wcs.array_index_to_world(*(self.shape[0], 0)),
-                self.wcs.array_index_to_world(*(0, self.shape[1])),
-                self.wcs.array_index_to_world(*(self.shape[0], self.shape[1]))]
-
-    def index_grid(self, extend_factor=1) -> Tuple[ArrayLike, ArrayLike]:
-        extent = [int(s * extend_factor) for s in self.shape]
-        extent = [(e - s) // 2 for s, e in zip(self.shape, extent)]
-        x, y = [np.arange(-e, s+e) for e, s in zip(extent, self.shape)]
-        x, y = np.roll(x, -extent[0]), np.roll(y, -extent[1])  # to bottom left
-        return np.meshgrid(x, y, indexing='xy')
-
-    def indices_from_wl_array(self, wl_array: List[SkyCoord]) -> ArrayLike:
-        if isinstance(wl_array, SkyCoord):
-            wl_array = [wl_array]
-        return np.array([self.wcs.world_to_pixel(wl) for wl in wl_array])
-
-
-def define_location(config: dict) -> SkyCoord:
-    ra = config['telescope']['pointing']['ra']
-    dec = config['telescope']['pointing']['dec']
-    frame = config['telescope']['pointing'].get('frame', 'icrs')
-    unit = getattr(units, config['telescope']['pointing'].get('unit', 'deg'))
-    return SkyCoord(ra=ra*unit, dec=dec*unit, frame=frame)
-
-
-def get_pixel(data_wcs: gwcs.wcs, location: SkyCoord, tol=1e-7) -> tuple:
-    return data_wcs.numerical_inverse(location, with_units=True, tolerance=tol)
-
-
 config_path = 'JWST_config.yaml'
 config = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
 WORLD_LOCATION = define_location(config)
-FOV = config['telescope']['fov'] * \
-    getattr(units, config['telescope'].get('fov_unit', 'arcsec'))
-shape = (config['grid']['npix'], config['grid']['npix'])
+FOV = get_fov(config)
+SHAPE = get_shape(config)
 
 
 # defining the reconstruction grid
-reconstruction_grid = Grid(
-    WORLD_LOCATION, shape, (FOV.to(units.deg), FOV.to(units.deg)))
-
-
-def mask_index_centers_and_nan(
-    dpixcenter_in_rgrid: ArrayLike,
-    data: ArrayLike,
-    rgrid_shape: Tuple[int, int]
-) -> ArrayLike:
-    return ((dpixcenter_in_rgrid[0] > 0) *
-            (dpixcenter_in_rgrid[1] > 0) *
-            (dpixcenter_in_rgrid[0] < rgrid_shape[0]) *
-            (dpixcenter_in_rgrid[1] < rgrid_shape[1]) *
-            ~np.isnan(data))
+reconstruction_grid = SkyGrid(
+    WORLD_LOCATION, SHAPE, (FOV.to(units.deg), FOV.to(units.deg)))
 
 
 subsample = config['telescope']['integration_model']['subsample']
@@ -133,12 +50,7 @@ for fltname, flt in config['files']['filter'].items():
 
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
-        dm = datamodels.open(filepath)
         jwst_data = JwstDataModel(filepath)
-
-        data = dm.data
-        std = dm.err
-        data_wcs = dm.meta.wcs
 
         data_extrema = jwst_data.data_extrema(
             reconstruction_grid.world_extrema)
@@ -157,21 +69,24 @@ for fltname, flt in config['files']['filter'].items():
         index_edges = reconstruction_grid.indices_from_wl_array(
             [e00, e01, e11, e10])  # needs to be circular for sparse builder
 
+        data = jwst_data.data_inside_extrema(reconstruction_grid.world_extrema)
+        std = jwst_data.std_inside_extrema(reconstruction_grid.world_extrema)
+
         # define a mask
-        minx, maxx, miny, maxy = data_extrema
         mask = mask_index_centers_and_nan(
-            dpixcenter_in_rgrid, data[miny:maxy, minx:maxx],
-            reconstruction_grid.shape)
+            dpixcenter_in_rgrid,
+            data,
+            reconstruction_grid.shape
+        )
 
         lh_name = f'{fltname}_{ii}'
         likelihoods[lh_name] = dict(
             mask=mask,
             index_edges=index_edges,
             index_subsample_centers=index_subsample_centers,
-            data=data[miny:maxy, minx:maxx],
-            std=std[miny:maxy, minx:maxx],
+            data=data,
+            std=std,
         )
-        exit()
 
 for lh_name, lh in likelihoods.items():
     ind_grid = reconstruction_grid.index_grid(config['grid']['padding_ratio'])
