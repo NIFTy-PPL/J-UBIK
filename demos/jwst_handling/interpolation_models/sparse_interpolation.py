@@ -15,8 +15,7 @@ def get_nearest_index(coord: Tuple[float, float], grid: ArrayLike):
 
 class ValueCalculator:
     def __init__(self, coord_grid, points):
-        self.triangle = Polygon([p for p in points])
-        self.triangle_area = self.triangle.area
+        self.data_pixel_polygon = Polygon([p for p in points])
         self.hside = (abs(coord_grid[0][0, 1]-coord_grid[0][0, 0])/2,
                       abs(coord_grid[1][0, 0]-coord_grid[1][1, 0])/2)
 
@@ -37,9 +36,9 @@ class ValueCalculator:
         values = {}
         for pix_cntr in zip(self.masked_grid[0], self.masked_grid[1]):
             minxy_maxxy = self.get_pixel_extrema(pix_cntr)
-            pix_box = box(*minxy_maxxy)
-            fractional_area = self.triangle.intersection(
-                pix_box).area / self.triangle_area
+            sky_pixel_polygon = box(*minxy_maxxy)
+            fractional_area = self.data_pixel_polygon.intersection(
+                sky_pixel_polygon).area / sky_pixel_polygon.area
             values[pix_cntr] = fractional_area
         return {k: v for k, v in values.items() if v > minimum}
 
@@ -63,7 +62,7 @@ def build_sparse_interpolation(
         values = vc.calculate_values()  # This also needs to be JAX compatible
 
         for (index_x, index_y), val in values.items():
-            index_y, index_x = get_nearest_index(
+            index_x, index_y = get_nearest_index(
                 (index_x, index_y), index_grid)
             ind = np.ravel_multi_index((index_x, index_y), index_grid[0].shape)
             rows.append(ii)
