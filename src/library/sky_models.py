@@ -73,19 +73,26 @@ def create_sky_model(npix, padding_ratio, fov, priors):
     space_shape = 2 * (npix, )
     distances = fov / npix
 
-    diffuse_component, pspec = create_diffuse_component_model(space_shape,
-                                                              padding_ratio,
-                                                              distances,
-                                                              priors['diffuse']['offset'],
-                                                              priors['diffuse']['fluctuations'],
-                                                              priors['diffuse']['prefix'])
+    diffuse_component, pspec, diffuse_component_full = create_diffuse_component_model(
+        space_shape,
+        padding_ratio,
+        distances,
+        priors['diffuse']['offset'],
+        priors['diffuse']['fluctuations'],
+        priors['diffuse']['prefix'])
+
     if priors['point_sources'] is None:
-        sky = diffuse_component
-        sky_dict = {'sky': sky, 'pspec': pspec}
+        sky_dict = {'sky': diffuse_component,
+                    'diffuse_full': diffuse_component_full,
+                    'pspec': pspec}
     else:
-        point_sources = create_point_source_model(space_shape, **priors['point_sources'])
+        point_sources = create_point_source_model(
+            space_shape, **priors['point_sources'])
         sky = fuse_model_components(diffuse_component, point_sources)
-        sky_dict = {'sky': sky, 'point_sources': point_sources, 'diffuse': diffuse_component,
+        sky_dict = {'sky': sky,
+                    'point_sources': point_sources,
+                    'diffuse': diffuse_component,
+                    'diffuse_full': diffuse_component_full,
                     'pspec': pspec}
     return sky_dict
 
@@ -150,7 +157,8 @@ def create_diffuse_component_model(shape, padding_ratio, distances, offset, fluc
 
     exp_padding = lambda x: jnp.exp(cf(x)[:shape[0],:shape[1]])
     diffuse = jft.Model(exp_padding, domain=cf.domain)
-    return diffuse, pspec
+    diffuse_full = jft.Model(lambda x: jnp.exp(cf(x)), domain=cf.domain)
+    return diffuse, pspec, diffuse_full
 
 
 def create_point_source_model(shape, alpha, q, key='points'):
