@@ -17,7 +17,7 @@ from jwst_handling.interpolation_models import (
 )
 
 from jwst_handling.data_model import JwstDataModel
-from jwst_handling.sky_grid import SkyGrid
+from jwst_handling.sky_grid import ReconstructionGrid
 from jwst_handling.masking import mask_index_centers_and_nan
 from jwst_handling.config_handler import define_location, get_shape, get_fov
 
@@ -39,7 +39,7 @@ SHAPE = get_shape(config)
 
 
 # defining the reconstruction grid
-reconstruction_grid = SkyGrid(
+reco_grid = ReconstructionGrid(
     WORLD_LOCATION, SHAPE, (FOV.to(units.deg), FOV.to(units.deg)))
 
 
@@ -52,31 +52,27 @@ for fltname, flt in config['files']['filter'].items():
         print(fltname, ii, filepath)
         jwst_data = JwstDataModel(filepath)
 
-        data_extrema = jwst_data.data_extrema(
-            reconstruction_grid.world_extrema)
-
         # Find the sub-pixel centers for the interpolation integration
         subsample_centers = jwst_data.wl_subsample_centers(
-            reconstruction_grid.world_extrema, subsample)
-        index_subsample_centers = reconstruction_grid.indices_from_wl_array(
+            reco_grid.world_extrema(), subsample)
+        index_subsample_centers = reco_grid.index_from_wl(
             subsample_centers)
 
         # Find the pixel edges for the sparse interpolation
         pix_center, (e00, e01, e10, e11) = jwst_data.wl_pixelcenter_and_edges(
-            reconstruction_grid.world_extrema)
-        dpixcenter_in_rgrid = reconstruction_grid.indices_from_wl_array(
-            pix_center)[0]
-        index_edges = reconstruction_grid.indices_from_wl_array(
+            reco_grid.world_extrema())
+        dpixcenter_in_rgrid = reco_grid.index_from_wl(pix_center)[0]
+        index_edges = reco_grid.index_from_wl(
             [e00, e01, e11, e10])  # needs to be circular for sparse builder
 
-        data = jwst_data.data_inside_extrema(reconstruction_grid.world_extrema)
-        std = jwst_data.std_inside_extrema(reconstruction_grid.world_extrema)
+        data = jwst_data.data_inside_extrema(reco_grid.world_extrema())
+        std = jwst_data.std_inside_extrema(reco_grid.world_extrema())
 
         # define a mask
         mask = mask_index_centers_and_nan(
             dpixcenter_in_rgrid,
             data,
-            reconstruction_grid.shape
+            reco_grid.shape
         )
 
         lh_name = f'{fltname}_{ii}'
@@ -89,7 +85,7 @@ for fltname, flt in config['files']['filter'].items():
         )
 
 for lh_name, lh in likelihoods.items():
-    ind_grid = reconstruction_grid.index_grid(config['grid']['padding_ratio'])
+    ind_grid = reco_grid.index_grid(config['grid']['padding_ratio'])
     lh['sparse_matrix'] = build_sparse_interpolation(
         ind_grid, lh['index_edges'], lh['mask'])
 

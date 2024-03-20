@@ -6,10 +6,10 @@ from astropy.units import Unit
 import numpy as np
 
 from numpy.typing import ArrayLike
-from typing import Tuple, List
+from typing import Tuple, List, Union
 
 
-class SkyGrid:
+class ReconstructionGrid:
     def __init__(
         self,
         center: SkyCoord,
@@ -42,12 +42,44 @@ class SkyGrid:
 
         return w
 
-    @property
-    def world_extrema(self) -> ArrayLike:
-        return [self.wcs.array_index_to_world(*(0, 0)),
-                self.wcs.array_index_to_world(*(self.shape[0], 0)),
-                self.wcs.array_index_to_world(*(0, self.shape[1])),
-                self.wcs.array_index_to_world(*(self.shape[0], self.shape[1]))]
+    def wl_from_index(
+        self, index: ArrayLike
+    ) -> Union[SkyCoord, List[SkyCoord]]:
+        '''Convert pixel coordinates to world coordinates.
+
+        Parameters
+        ----------
+        index : ArrayLike
+            Pixel coordinates in the data grid.
+
+        Returns
+        -------
+        wl : SkyCoord
+        '''
+        if len(np.shape(index)) == 1:
+            index = [index]
+        return [self.wcs.array_index_to_world(*idx) for idx in index]
+
+    def index_from_wl(self, wl_array: List[SkyCoord]) -> ArrayLike:
+        '''Convert world coordinates to pixel coordinates.
+
+        Parameters
+        ----------
+        wl : SkyCoord
+
+        Returns
+        -------
+        index : ArrayLike
+        '''
+        if isinstance(wl_array, SkyCoord):
+            wl_array = [wl_array]
+        return np.array([self.wcs.world_to_pixel(wl) for wl in wl_array])
+
+    def world_extrema(self, shape=None) -> ArrayLike:
+        if shape is None:
+            shape = self.shape
+        return self.wl_from_index(
+            [(0, 0), (shape[0], 0), (0, shape[1]), (shape[0], shape[1])])
 
     def index_grid(self, extend_factor=1) -> Tuple[ArrayLike, ArrayLike]:
         extent = [int(s * extend_factor) for s in self.shape]
@@ -55,8 +87,3 @@ class SkyGrid:
         x, y = [np.arange(-e, s+e) for e, s in zip(extent, self.shape)]
         x, y = np.roll(x, -extent[0]), np.roll(y, -extent[1])  # to bottom left
         return np.meshgrid(x, y, indexing='xy')
-
-    def indices_from_wl_array(self, wl_array: List[SkyCoord]) -> ArrayLike:
-        if isinstance(wl_array, SkyCoord):
-            wl_array = [wl_array]
-        return np.array([self.wcs.world_to_pixel(wl) for wl in wl_array])
