@@ -43,8 +43,10 @@ class ValueCalculator:
         return {k: v for k, v in values.items() if v > minimum}
 
 
-def build_sparse_interpolation(
-    index_grid: ArrayLike, edges: ArrayLike, mask: ArrayLike
+def build_sparse_integration(
+    index_grid: ArrayLike,
+    edges: ArrayLike,
+    mask: ArrayLike
 ):
     print('Calculating sparse interpolation matrix...')
     edges = edges[:, :, mask]

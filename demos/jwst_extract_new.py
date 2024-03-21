@@ -8,12 +8,12 @@ import matplotlib.pyplot as plt
 # import webbpsf
 from astropy import units
 
-from jwst_handling.interpolation_models import (
-    build_sparse_interpolation,
-    build_linear_interpolation,
-    build_nufft_interpolation,
-    build_interpolation_model,
-    build_sparse_interpolation_model
+from jwst_handling.integration_models import (
+    build_sparse_integration,
+    build_linear_integration,
+    build_nufft_integration,
+    build_integration_model,
+    build_sparse_integration_model
 )
 
 from jwst_handling.data_model import JwstDataModel
@@ -86,16 +86,16 @@ for fltname, flt in config['files']['filter'].items():
 
 for lh_name, lh in likelihoods.items():
     ind_grid = reco_grid.index_grid(config['grid']['padding_ratio'])
-    lh['sparse_matrix'] = build_sparse_interpolation(
+    lh['sparse_matrix'] = build_sparse_integration(
         ind_grid, lh['index_edges'], lh['mask'])
 
-    lh['interpolation'] = build_linear_interpolation(
+    lh['interpolation'] = build_linear_integration(
         lh['index_subsample_centers'], mask=lh['mask'], order=1)
 
-    lh['updating_interpolation'] = build_linear_interpolation(
+    lh['updating_interpolation'] = build_linear_integration(
         lh['index_subsample_centers'], mask=lh['mask'], order=1, updating=True)
 
-    lh['nufft_interpolation'] = build_nufft_interpolation(
+    lh['nufft_interpolation'] = build_nufft_integration(
         lh['index_subsample_centers'], mask=lh['mask'],
         shape=np.array(ind_grid[0].shape))
 
@@ -133,18 +133,18 @@ if __name__ == '__main__':
     models = []
     for lh_key, lh in likelihoods.items():
 
-        lh['sparse_model'] = build_sparse_interpolation_model(
+        lh['sparse_model'] = build_sparse_integration_model(
             lh['sparse_matrix'], sky)
 
-        lh['interpolation_model'] = build_interpolation_model(
+        lh['interpolation_model'] = build_integration_model(
             lh['interpolation'], sky)
 
         shift = build_shift_model(lh_key+'shift', mean_sigma)
         lh['shift_model'] = shift
-        lh['updating_interpolation_model'] = build_interpolation_model(
+        lh['updating_interpolation_model'] = build_integration_model(
             lh['updating_interpolation'], sky, shift)
 
-        lh['nufft_model'] = build_interpolation_model(
+        lh['nufft_model'] = build_integration_model(
             lh['nufft_interpolation'], sky)
 
         if mock:
