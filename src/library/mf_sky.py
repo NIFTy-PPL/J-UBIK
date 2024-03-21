@@ -1,32 +1,24 @@
 # Authors: Vincent Eberle, Margret Westerkamp, Philipp Frank
 
-from functools import partial
+from functools import partial, reduce
 import jax
 import nifty8.re as jft
 
 
 class MappedModel(jft.Model):
-    """Mapping of a CF Model.
-
-    This class builds a forward model "ndof" copies of a
-    correlated field model. The correlated fields share the
-    same power spectrum but will have different
-    "xi"s.
-    """
-
-    def __init__(self, correlated_field, cf_prefix, ndof, first_axis=True):
-        """Initialise the mapping.
-
-        Paramters:
+    def __init__(self, correlated_field, cf_prefix, shape, first_axis=True):
+        """
+        Parameters:
         ----------
         correlated_field : CF Model
         cf_prefix: probably string
-        ndof: int, number of copies
+        shape: tuple, number of copies in each dim
         first_axis: if True prepends the ndof copies els appends
         """
         self._cf = correlated_field
+        ndof = reduce(lambda x, y: x * y, shape)
         keys = correlated_field.domain.keys()
-        xi_key = cf_prefix+'xi'
+        xi_key = cf_prefix + 'xi'
         if xi_key not in keys:
             raise ValueError
 
@@ -35,11 +27,13 @@ class MappedModel(jft.Model):
             new_primals = jft.ShapeWithDtype((ndof,) + xi_dom.shape, xi_dom.dtype)
             axs = 0
             self._out_axs = 0
+            self._shape = shape + xi_dom.shape
         else:
             new_primals = jft.ShapeWithDtype(xi_dom.shape + (ndof,), xi_dom.dtype)
             axs = -1
             self._out_axs = 1
-
+            self._shape = xi_dom.shape + shape
+            
         new_domain = correlated_field.domain.copy()
         new_domain[xi_key] = new_primals
 
@@ -53,10 +47,8 @@ class MappedModel(jft.Model):
 
     def __call__(self, x):
         x = x.tree if isinstance(x, jft.Vector) else x
-        return jax.vmap(self._cf,
-                        in_axes=self._axs,
-                        out_axes=self._out_axs
-                        )(x)
+        return (jax.vmap(self._cf, in_axes=self._axs, out_axes=self._out_axs)(x)).reshape(
+            self._shape)
 
 
 def mf_model(freqs, alph, spatial, dev):
@@ -74,7 +66,10 @@ def mf_model(freqs, alph, spatial, dev):
     if isinstance(alph, jft.Model):
         plaw = lambda x: jnp.outer(freqs, alph(x)).reshape(freqs.shape + alph.target.shape)
         plaw_offset = lambda x: plaw(x) + spatial(x)
-        res = lambda x: plaw_offset(x) + dev(x)
+        def extract_keys(a, domain):
+            b = {key: a[key] for key in domain}
+            return b
+        res = lambda x: plaw_offset(x) + dev(extract_keys(x, dev.domain))
         domain = alph.domain | spatial.domain | dev.domain
         res = jft.Model(res, domain=domain)
     elif isinstance(alph, float):
