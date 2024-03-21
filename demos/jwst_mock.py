@@ -23,7 +23,7 @@ SHOW_DATA = False
 PRIOR_SAMPLE = False
 PADDING = 1.5
 STD_FACTOR = 0.02
-MODEL = 'nufft'  # 'sparse', 'linear', 'nufft'
+MODEL = 'linear'  # 'sparse', 'linear', 'nufft'
 SUBSAMPLE = 5
 RSHAPE = 256
 
@@ -287,15 +287,12 @@ def build_plot(plot_data, plot_sky, mask, data_model, sky_model, res_dir):
         ims.append(axes[1, 1].imshow(sky, origin='lower'))
         axes[1, 2].set_title('Sky residual')
         ims.append(axes[1, 2].imshow((plot_sky - sky)/plot_sky, origin='lower',
-                                     vmin=-1, vmax=1, cmap='RdBu_r'))
-
+                                     vmin=-0.3, vmax=0.3, cmap='RdBu_r'))
         ss = '\n'.join([f'{k}: {v:.3f}' for k, v in vals.items()])
         display_text(axes[1, 2], ss)
-
         for ax, im in zip(axes.flatten(), ims):
             fig.colorbar(im, ax=ax, shrink=0.7)
         fig.tight_layout()
-        # plt.show()
         fig.savefig(join(out_dir, f'{x.nit:02d}.png'), dpi=300)
         plt.close()
 
