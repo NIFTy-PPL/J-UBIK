@@ -18,7 +18,7 @@ from ..library.chandra_observation import ChandraObservationInformation
 
 def plot_result(array, domains=None, output_file=None, logscale=False, title=None, colorbar=True,
                 figsize=(8, 8), dpi=100, cbar_formatter=None, n_rows=None, n_cols=None,
-                adjust_figsize=False, common_colorbar=False, **kwargs):
+                adjust_figsize=False, common_colorbar=False, share_x=True, share_y=True, **kwargs):
     """
     Plot a 2D array using imshow() from the matplotlib library.
 
@@ -51,6 +51,10 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
         Whether to automatically adjust the size of the figure.
     common_colorbar : bool, optional
         Whether to use the same color bar for all images. Overrides vmin and vmax.
+    share_x : bool, optional
+        Whether to share the x axis.
+    share_y : bool, optional
+        Whether to share the y axis.
     kwargs : dict, optional
         Additional keyword arguments to pass to imshow().
 
@@ -77,11 +81,14 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             n_cols = n_plots // n_rows + 1
 
     if adjust_figsize:
-        figsize = (n_cols*figsize[0], n_rows*figsize[1])
+        x = int(n_cols/n_rows + 0.5)
+        y = int(n_rows/n_cols + 0.5)
+        figsize = (x*figsize[0], y*figsize[1])
 
     n_ax = n_rows * n_cols
     n_del = n_ax - n_plots
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize, dpi=dpi)
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize, dpi=dpi, sharex=share_x,
+                             sharey=share_y)
 
     if isinstance(axes, np.ndarray):
         axes = axes.flatten()
@@ -113,10 +120,9 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             vmin = min(np.min(array[i]) for i in range(n_plots))
             vmax = max(np.max(array[i]) for i in range(n_plots))
 
-        if vmin is not None and float(vmin) == 0.:
-            vmin = 1e-18  # to prevent LogNorm throwing errors
-
         if logscale:
+            if vmin is not None and float(vmin) == 0.:
+                vmin = 1e-18  # to prevent LogNorm throwing errors
             pltargs["norm"] = LogNorm(vmin, vmax)
         else:
             kwargs.update({'vmin': vmin, 'vmax': vmax})
@@ -125,7 +131,10 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
         im = axes[i].imshow(array[i], **pltargs)
 
         if title is not None:
-            axes[i].set_title(title[i])
+            if isinstance(title, list):
+                axes[i].set_title(title[i])
+            else:
+                fig.suptitle(title)
 
         if colorbar:
             divider = make_axes_locatable(axes[i])

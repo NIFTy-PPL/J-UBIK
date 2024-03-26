@@ -214,11 +214,11 @@ def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
 def compute_noise_weighted_residuals(samples,
                                      operator_dict,
                                      diagnostics_path,
-                                     cfg,
                                      response_dict,
                                      reference_data,
                                      output_dir_base=None,
                                      min_counts=0,
+                                     response=True,
                                      mask_exposure=True,
                                      abs=False,
                                      n_bins=None,
@@ -232,12 +232,12 @@ def compute_noise_weighted_residuals(samples,
 
     Parameters
     ----------
-    pos_sp_sample_dict: dict
-        Dictionary of position space sample lists for the operator specified by the key.
+    samples: nifty8.evi.Samples
+        Position-space samples.
+    operator_dict: dict
+        Dictionary of operators for which the NWRs should be calculated.
     diagnostics_path: str
         Path to the reconstruction diagnostic files.
-    cfg: dict
-        Reconstruction config dictionary
     response_dict: dict
         Dictionary with response callables.
     reference_data: dict, None
@@ -249,142 +249,101 @@ def compute_noise_weighted_residuals(samples,
     n_bins: int, None
         Number of bins in the histogram plotted. If None, no histogram is plotted.
     min_counts: `int`, minimum number of data counts for which the residuals will be calculated.
+    response: Bool, True
+        If True the response will be applied to the residuals.
+    mask_exposure: bool, True
+        If True the exposure mask will be applied to the residuals.
+    abs: bool, False
+        If true the absolute value of the residual is calculated and plotted.
     extent: tuple, None
         Range of the histogram. If None, the range defaults to (-5, 5)
     plot_kwargs: dict, None
         Dictionary of plotting keyword arguments for plot_result.
+
+    Returns
+    -------
+    res_dict: dict
+        Dictionary of noise-weighted residuals.
     """
-    mpi_master = ift.utilities.get_MPI_params()[3]
-    mask_adj = response_dict['mask_adj']
-    vmapped_mask_adj = jax.vmap(mask_adj, in_axes=1, out_axes=1)
-    output_shape = jax.vmap(operator_dict['sky'])(samples.samples).shape
+    res_dict = {}
+    for key, op in operator_dict.items():
+        if key == 'pspec':
+            continue
+        res_dict[key] = {}
+        nwrs, mask = _nwr(samples.samples, op, reference_data, response_dict,
+                          abs=abs, min_counts=min_counts, exposure_mask=mask_exposure,
+                          response=response)
+        masked_nwrs = nwrs.copy()
+        masked_nwrs[mask] = np.nan
+        res_dict[key]['nwrs'] = nwrs
+        res_dict[key]['masked_nwrs'] = masked_nwrs
+        if plot_kwargs is None:
+            plot_kwargs = {}
+        if 'cmap' not in plot_kwargs:
+            plot_kwargs.update({'cmap': 'RdYlBu_r'})
+        if 'vmin' not in plot_kwargs:
+            plot_kwargs.update({'vmin': -5})
+        if 'vmax' not in plot_kwargs:
+            plot_kwargs.update({'vmax': 5})
 
-    R = response_dict['R']
+        for id, i in enumerate(masked_nwrs):
+            results_path = create_output_directory(join(diagnostics_path, f"tm_{id+1}/{key}/"))
+            if 'title' not in plot_kwargs:
+                plot_kwargs.update({'title': f"NWR {key} - TM number {id+1}"})
+            plot_result(i,
+                        output_file=join(results_path, f'{output_dir_base}{key}_tm{id+1}_samples.png'),
+                        adjust_figsize=True,
+                        **plot_kwargs)
+            plot_result(np.mean(i, axis=0),
+                        output_file=join(results_path, f'{output_dir_base}{key}_tm{id+1}_mean.png'),
+                        **plot_kwargs)
 
-    sky = operator_dict['sky']
+            if n_bins is not None:
+                if extent is None:
+                    extent = (-5, 5)
+                hist_func = lambda x: jnp.histogram(x.reshape(-1), bins=n_bins, range=extent)[0]
+                edges_func = lambda x: jnp.histogram(x.reshape(-1), bins=n_bins, range=extent)[1]
+                hist = tree_map(jax.vmap(hist_func, in_axes=0, out_axes=0), i)
+                edges = tree_map(edges_func, nwrs)
+                mean_hist = tree_map(lambda x: np.mean(x, axis=0), hist)
+                plot_histograms(mean_hist, edges,
+                                join(results_path, f'{output_dir_base}{key}_tm{id+1}_hist.png'),
+                                logy=False, title=f'NWR mean {key} - TM number {id+1}')
+
+    return res_dict
+
+
+def _nwr(pos, op, data, response_dict,
+         abs=False, min_counts=None, exposure_mask=True, response=True):
+    if response:
+        R = response_dict['R']
+    else:
+        R = lambda x: x
+
+    adj_mask = response_dict['mask_adj']
     sqrt = lambda x: tree_map(jnp.sqrt, x)
-    nwr_func = lambda x: (R(sky(x)) - reference_data) / sqrt(R(sky(x)))
-    nwr_func = jax.vmap(nwr_func, out_axes=1)
-    nwr_samples = nwr_func(samples.samples)
+    res = lambda x: (R(op(x)) - data) / sqrt(R(op(x)))
+    if abs:
+        res = lambda x: jnp.abs(res(x))
+    res = jax.vmap(res, out_axes=1)
+    res = np.array(jax.vmap(adj_mask, in_axes=1, out_axes=1)(res(pos))[0])
 
-    exp_mask = lambda x: response_dict['exposure'](np.ones(sky(x).shape)) == 0. if mask_exposure else None
-    # exp_mask = lambda x: None
-    if min_counts > 0:
-        low_count_loc = lambda x: np.array(x < min_counts, dtype=float)
-        low_count_loc = tree_map(low_count_loc, reference_data)
-        low_count_mask = lambda x: mask_adj(low_count_loc)[0]
+    min_count_mask = None
+    if min_counts is not None:
+        masked_indices = lambda x: np.array(x < min_counts, dtype=float)
+        masked_indices = tree_map(masked_indices, data)
+        min_count_mask = lambda x: adj_mask(masked_indices)[0]
+    if exposure_mask:
+        exp_mask = lambda x: response_dict['exposure'](np.ones(op(x).shape)) == 0.
+        if min_count_mask is not None:
+            tot_mask = lambda x: np.logical_or(min_count_mask(x), exp_mask(x), dtype=bool)
+        else:
+            tot_mask = exp_mask
     else:
-        low_count_mask = None
-
-    if exp_mask is not None and low_count_mask is not None:
-        filter = lambda x: np.logical_or(exp_mask(x), low_count_mask(x), dtype=bool)
-        filter = jax.vmap(filter, out_axes=1)
-    else:
-        filter = None
-
-    # fig, ax = plt.subplots(1, 3, sharex=True, sharey=True)
-    # ax = ax.flatten()
-    # ax[0].imshow(jax.vmap(exp_mask, out_axes=1)(samples.samples)[0][0], origin='lower')
-    # ax[1].imshow(jax.vmap(low_count_mask, out_axes=1)(samples.samples)[0][0], origin='lower')
-    # ax[2].imshow(filter(samples.samples)[0][0], origin='lower')
-    # plt.show()
-
-    nwr_plot = vmapped_mask_adj(nwr_samples)[0]
-    if filter is not None:
-        nwr_plot = np.array(nwr_plot)
-        nwr_plot[filter(samples.samples)] = np.nan
-
-    plot_result(nwr_plot[0][0], cmap='coolwarm')
-
-    # data = mask_adj(masked_data)[0][0]
-    # fig, ax = plt.subplots(2, 3, sharex=True, sharey=True)
-    # ax = ax.flatten()
-    #
-    # sky_mean, sky_std = jft.mean_and_std(tuple(sky(s) for s in samples))
-    # im0 = ax[0].imshow(data, origin='lower', norm=LogNorm())
-    # im1 = ax[1].imshow(mask_adj(response_dict["R"](sky_mean))[0][0], origin='lower', norm=LogNorm())
-    # im2 = ax[2].imshow((mask_adj(response_dict["R"](sky_mean))[0][0]-data)/np.sqrt(mask_adj(response_dict["R"](sky_mean))[0][0]),
-    #                    origin='lower', cmap='coolwarm', vmin=10., vmax=-10.)
-    #
-    # # im4 = ax[3].imshow(response_dict["exposure"](), origin='lower')
-    # im3 = ax[3].imshow(response_dict["exposure"](np.ones_like(sky_mean))[0], norm=LogNorm())
-    # im4 = ax[4].imshow(sky_mean, origin='lower', norm=LogNorm())
-    # im5 = ax[5].imshow(sky_std, origin='lower', norm=LogNorm())
-    #
-    # fig.colorbar(im0, ax=ax[0])
-    # fig.colorbar(im1, ax=ax[1])
-    # fig.colorbar(im2, ax=ax[2])
-    # fig.colorbar(im3, ax=ax[3])
-    # fig.colorbar(im4, ax=ax[4])
-    # fig.colorbar(im5, ax=ax[5])
-    # plt.show()
-
-
-    # nwr_dict = {}
-    # unmasked_nwr_dict = {}
-    # mean_hist_dict = {}
-    # edges_dict = {}
-    # for key, sample_list in pos_sp_sample_dict.items():
-    #     sample_list = np.array(sample_list)
-    #     Rs_sample = R(sample_list)
-    #     nwr = tree_map(lambda x, y: nwr_func(x, y), Rs_sample, reference_dict)
-    #     # print(np.min(nwr.tree[2]))
-    #     # breakpoint()
-    #     if abs:
-    #         nwr = tree_map(np.abs, nwr)
-    #     if min_counts > 0:
-    #         nwr = tree_map(mask_low_count, nwr, low_count_loc)
-    #     nwr_dict[key] = nwr
-    #     unmasked_nwr_dict[key] = mask_adj(nwr)
-    #     if mpi_master:
-    #         if plot_kwargs is None:
-    #             plot_kwargs = {}
-    #         if 'cmap' not in plot_kwargs:
-    #             plot_kwargs.update({'cmap': 'seismic'})
-    #         if 'vmin' not in plot_kwargs:
-    #             plot_kwargs.update({'vmin': -5})
-    #         if 'vmax' not in plot_kwargs:
-    #             plot_kwargs.update({'vmax': 5})
-    #
-    #         tm_ids = tuple(nwr.tree.keys())
-    #         for i, id in enumerate(tm_ids):
-    #             res_path = create_output_directory(join(diagnostics_path, f'tm{id}/{key}/'))
-    #             if 'title' not in plot_kwargs:
-    #                 plot_kwargs.update({'title': f'{key} NWR - TM{id}'})
-    #             plot_result(unmasked_nwr_dict[key][0][i,:,:,:],
-    #                         output_file=join(res_path,
-    #                                          f'{output_dir_base}{key}_tm{id}_samples.png'),
-    #                         adjust_figsize=True,
-    #                         **plot_kwargs,
-    #                         )
-    #
-    #             plot_result(np.mean(unmasked_nwr_dict[key][0][i,:,:,:], axis=0),
-    #                         output_file=join(res_path,
-    #                                          f'{output_dir_base}{key}_tm{id}_mean.png'),
-    #                         adjust_figsize=True,
-    #                         **plot_kwargs,
-    #                         )
-    #
-    #     if n_bins is not None:
-    #         if extent is None:
-    #             extent = (-5, 5)
-    #         hist_func = lambda x: jnp.histogram(x.reshape(-1), bins=n_bins, range=extent)[0]
-    #         edges_func = lambda x: jnp.histogram(x.reshape(-1), bins=n_bins, range=extent)[1]
-    #         hist = tree_map(jax.vmap(hist_func, in_axes=0, out_axes=0), nwr)
-    #         edges = tree_map(edges_func, nwr)
-    #         mean_hist = tree_map(lambda x: np.mean(x, axis=0), hist)
-    #         mean_hist_dict[key] = mean_hist
-    #         edges_dict[key] = edges
-    #
-    #         for id in mean_hist.tree.keys():
-    #             if mpi_master:
-    #                 plot_histograms(mean_hist[id], edges[id], join(diagnostics_path,
-    #                                                                f'{output_dir_base}hist_{key}_tm{id}.png'),
-    #                                 logy=False, title=f'NWR mean {key} - TM{id}')
-    # if mpi_master:
-    #     return nwr_dict, unmasked_nwr_dict, mean_hist_dict, edges_dict
-
-
+        tot_mask = min_count_mask if min_count_mask is not None else None
+    if tot_mask is not None:
+        tot_mask = jax.vmap(tot_mask, out_axes=1)
+    return res, tot_mask(pos)
 
 
 def plot_2d_gt_vs_rec_histogram(pos_sp_sample_dict,
@@ -411,7 +370,7 @@ def plot_2d_gt_vs_rec_histogram(pos_sp_sample_dict,
     diagnostics_path: str
         Path to the reconstruction diagnostic files.
     cfg: dict
-        Recosntruction config dictionary.
+        Reconstruction config dictionary.
     response_func: callable
         Callable response function that can be applied to the signal returning an object of the type
         'jft.Vector', that conatins the according data space representations.
