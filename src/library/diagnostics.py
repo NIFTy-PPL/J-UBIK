@@ -1,108 +1,20 @@
 import jax
-import matplotlib.pyplot as plt
 import numpy as np
-import pickle
 from os.path import join
-from functools import partial
 from jax.tree_util import tree_map
 from jax import numpy as jnp
 
 import nifty8 as ift
 import nifty8.re as jft
 
-from .utils import get_config, create_output_directory
+from .utils import create_output_directory
 from .plot import plot_result, plot_sample_averaged_log_2d_histogram, plot_histograms
-from .sky_models import create_sky_model_from_config
-from .response import build_callable_from_exposure_file
 
 
-def _build_full_mask_func_from_exp_files(exposure_file_names,
-                                         threshold=None):
-    """ Buils the full mask function for the reconstruction given the exposure_file_names
-
-    Parameters
-    ----------
-    exposure_file_names : list[str]
-        A list of filenames of exposure files to load.
-        Files should be in a .npy or .fits format.
-    threshold: float, None
-        A threshold value below which flags are set to zero (e.g., an exposure cut).
-        If None (default), no threshold is applied.
-
-    Returns
-    -------
-        function: A callable that applies a mask to an input array (e.g. an input sky) and returns
-        a `nifty8.re.Vector` containing a dictionary of read-out inputs.
-    """
-
-    def _set_zero(x, exp):
-        try:
-            x.at[exp == 0].set(0)
-        except:
-            x[exp == 0] = 0
-        return jft.Vector({0: x})
-
-    def _builder(exposures, threshold):
-        if threshold < 0:
-            raise ValueError("threshold should be positive!")
-        if threshold is not None:
-            exposures[exposures < threshold] = 0
-        summed_exp = np.sum(exposures, axis=0)
-        return partial(_set_zero, exp=summed_exp)
-
-    return build_callable_from_exposure_file(_builder, exposure_file_names, trsh=threshold)
-
-
-def get_diagnostics_from_file(diagnostic_builder,
-                              diagnostics_path,
-                              minimization_output_path,
-                              config_path,
-                              operator_dict,
-                              **kwargs):
-    """ Creates sample list and sky model and passes the according sample list
-    to the considered diagnostic builder function.
-
-    Parameters
-    ----------
-    diagnostic_builder: callable
-        Diagnostic function to be called on the build sample list.
-    diagnostics_path: str
-        Path to the reconstruction diagnostic files.
-    minimization_output_path: str
-        Path base to the minimization output file containing the samples and
-        the optimizer state.
-    config_path: str
-        Path to config file
-    operator_dict: dict
-        A dictionary containing the sky model operators.
-    """
-
-    # Build diagnostics directory
-    create_output_directory(diagnostics_path)
-
-    # Get config info
-    cfg = get_config(config_path)
-    # grid_info = cfg['grid']
-
-    # Create sky operators
-    sky_dict = create_sky_model_from_config(config_path)
-    sky_dict.pop('pspec')
-
-    # Load position space sample list
-    with open(minimization_output_path, "rb") as file:
-        samples, _ = pickle.load(file)
-
-    # padding_diff = int((grid_info['npix'] - round(grid_info['npix']/grid_info['padding_ratio']))/2)
-    # pos_sp_sample_dict = {key: [jax.vmap(op)(samples)[i][padding_diff:-padding_diff,
-    #                             padding_diff:-padding_diff] for i in
-    #                             range(len(jax.vmap(op)(samples)))]
-    #                             for key, op in sky_dict.items() if key in output_operators_keys}
-    diagnostic_builder(samples, operator_dict, diagnostics_path, cfg, **kwargs)
-
-
-def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
+def compute_uncertainty_weighted_residuals(samples,
+                                           operator_dict,
                                            diagnostics_path,
-                                           cfg,
+                                           response_dict,
                                            reference_dict=None,
                                            output_dir_base=None,
                                            mask=False,
@@ -114,26 +26,28 @@ def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
     """
     Computes uncertainty-weighted residuals (UWRs) given the position space sample list and
     plots them and the according histogram. Definition:
-    :math:`uwr = \\frac{s-gt}{\\sigma_{s}}`,
+    :math:`uwrs = \\frac{s-gt}{\\sigma_{s}}`,
     where `s` is the signal, `gt` is the ground truth,
     and `sigma_{s}` is the standard deviation of `s`.
 
     Parameters
     ----------
-    pos_sp_sample_dict: dict
-        Dictionary of position space sample lists for the operator specified by the key.
+    samples: nifty8.re.evi.Samples
+        Position-space samples.
+    operator_dict: dict
+        Dictionary of operators for which the UWRs should be calculated.
     diagnostics_path: str
         Path to the reconstruction diagnostic files.
-    cfg: dict
-        Reconstruction config dictionary.
+    response_dict: dict
+        Dictionary with response callables.
     reference_dict: dict, None
-        Dictionary of reference arrays (e.g. groundtruth for mock) to calculate the UWR. If the
-        reference_dict is set to none we assume the reference to be zero and the measure defaults
-        to the uncertainty-weighted mean (UWM)
+        Dictionary of reference arrays (e.g. ground truth for mock) to calculate the UWR.
+        If the reference_dict is set to `None`, it is assumed to be zero everywhere and
+        the uncertainty-weighted mean (UWM) are calculated.
     output_dir_base: str, None
         Base string of file name saved.
     mask: bool, False
-        If true the outout is masked by a full mask generated from all exposure files.
+        If true the output is masked by a mask generated from the intersection of all the exposures.
     abs: bool, False
         If true the absolute value of the residual is calculated and plotted.
     n_bins: int, None
@@ -141,74 +55,50 @@ def compute_uncertainty_weighted_residuals(pos_sp_sample_dict,
     range: tuple, None
         Range of the histogram. If None, the range defaults to (-5, 5)
     log: bool, True
-        If True, the logrithm of the samples and reference are considered.
+        If True, the log of the samples and reference are considered.
     plot_kwargs: dict, None
-        Dictionary of plotting arguments for plot_results
+        Dictionary of plotting arguments for plot_results.
 
-    Returns:
+    Returns
     ----------
-    diag_dict: dict
-        Dictionary of UWRs or UWMs for each operator specified in the input
-        pos_sp_sample_dict.
+    res_dict: dict
+        Dictionary of UWRs for each operator specified in the input operator_dict.
     """
 
-    mpi_master = ift.utilities.get_MPI_params()[3]
-    diag_dict = {}
-    if log:
-        pos_sp_sample_dict = {key: np.log(value) for key, value in pos_sp_sample_dict.items()}
-        if reference_dict is not None:
-            reference_dict = {key: np.log(value) for key, value in reference_dict.items()}
-    for key, pos_sp_sl in pos_sp_sample_dict.items():
-        mean = np.stack(pos_sp_sl).mean(axis=0)
-        std = np.stack(pos_sp_sl).std(axis=0, ddof=1)
-
+    res_dict = {}
+    for key, op in operator_dict.items():
+        if key == "pspec":
+            continue
+        res_dict[key] = {}
         if reference_dict is None:
-            print("No reference ground truth provided. "
-                "Uncertainty weighted residuals calculation defaults to uncertainty-weighted mean.")
-            diag = mean / std
-
-        else:
-            if abs:
-                diag = (mean - reference_dict[key]).abs() / std
-            else:
-                diag = (reference_dict[key]-mean) / std
-
-        if mask:
-            tel_info = cfg['telescope']
-            file_info = cfg['files']
-            exposure_file_names = [join(file_info['obs_path'], f'{key}_' + file_info['exposure'])
-                                  for key in tel_info['tm_ids']]
-            full_mask_func = _build_full_mask_func_from_exp_files(exposure_file_names,
-                                                                  tel_info['exp_cut'])
-            diag = full_mask_func(diag)
-        diag_dict[key] = diag.tree[0]
-
-        if mpi_master and output_dir_base is not None:
-            with open(join(diagnostics_path, f'{output_dir_base}{key}.pkl'), 'wb') as file:
-                pickle.dump(diag_dict[key], file)
-            # FIXME save_rgb-image_to_fits needs to be transferred to jubix here
-            # save_rgb_image_to_fits(uwr, output_dir_base, overwrite=True, MPI_master=mpi_master)
-            if plot_kwargs is None:
-                plot_kwargs = {}
-            if 'cmap' not in plot_kwargs:
-                plot_kwargs.update({'cmap': 'seismic'})
-            if 'vmin' not in plot_kwargs:
-                plot_kwargs.update({'vmin': -5})
-            if 'vmax' not in plot_kwargs:
-                plot_kwargs.update({'vmax': 5})
-            plot_result(diag_dict[key], output_file=join(diagnostics_path,
-                                                         f'{output_dir_base}{key}.png'),
-                        **plot_kwargs)
-
-            if n_bins:
-                if range is None:
-                    range = (-5, 5)
-                hist, edges = np.histogram(diag_dict[key].reshape(-1), bins=n_bins, range=range)
-                title = plot_kwargs['title'] if plot_kwargs is not None else None
-                plot_histograms(hist, edges,
-                                join(diagnostics_path, f'{output_dir_base}hist_{key}.png'),
-                                title=title)
-    return diag_dict
+            reference_dict = {key: None}
+        if key not in reference_dict:
+            reference_dict[key] = None
+        uwrs, exp_mask = _calculate_uwr(samples.samples, op, reference_dict[key], response_dict,
+                                        abs=abs, exposure_mask=mask, log=log)
+        uwrs = np.array(uwrs)
+        masked_uwrs = uwrs.copy()
+        masked_uwrs[~exp_mask] = np.nan
+        res_dict[key]["uwrs"] = uwrs
+        res_dict[key]["masked_uwrs"] = masked_uwrs
+        if plot_kwargs is None:
+            plot_kwargs = {}
+        if 'cmap' not in plot_kwargs:
+            plot_kwargs.update({'cmap': 'RdYlBu_r'})
+        if 'vmin' not in plot_kwargs:
+            plot_kwargs.update({'vmin': -5})
+        if 'vmax' not in plot_kwargs:
+            plot_kwargs.update({'vmax': 5})
+        plot_result(masked_uwrs, output_file=join(diagnostics_path, f'{output_dir_base}{key}.png'),
+                    **plot_kwargs)
+        if n_bins:
+            if range is None:
+                range = (-5, 5)
+            hist, edges = np.histogram(masked_uwrs.reshape(-1), bins=n_bins, range=range)
+            title = plot_kwargs['title'] if plot_kwargs is not None else None
+            plot_histograms(hist, edges, join(diagnostics_path, f'{output_dir_base}{key}_hist.png'),
+                            title=title)
+    return res_dict
 
 
 def compute_noise_weighted_residuals(samples,
@@ -232,7 +122,7 @@ def compute_noise_weighted_residuals(samples,
 
     Parameters
     ----------
-    samples: nifty8.evi.Samples
+    samples: nifty8.re.evi.Samples
         Position-space samples.
     operator_dict: dict
         Dictionary of operators for which the NWRs should be calculated.
@@ -265,14 +155,15 @@ def compute_noise_weighted_residuals(samples,
     res_dict: dict
         Dictionary of noise-weighted residuals.
     """
+
     res_dict = {}
     for key, op in operator_dict.items():
         if key == 'pspec':
             continue
         res_dict[key] = {}
-        nwrs, mask = _nwr(samples.samples, op, reference_data, response_dict,
-                          abs=abs, min_counts=min_counts, exposure_mask=mask_exposure,
-                          response=response)
+        nwrs, mask = _calculate_nwr(samples.samples, op, reference_data, response_dict,
+                                    abs=abs, min_counts=min_counts, exposure_mask=mask_exposure,
+                                    response=response)
         masked_nwrs = nwrs.copy()
         masked_nwrs[mask] = np.nan
         res_dict[key]['nwrs'] = nwrs
@@ -313,8 +204,29 @@ def compute_noise_weighted_residuals(samples,
     return res_dict
 
 
-def _nwr(pos, op, data, response_dict,
-         abs=False, min_counts=None, exposure_mask=True, response=True):
+def _calculate_uwr(pos, op, ground_truth, response_dict,
+                   abs=False, exposure_mask=True, log=True):
+    op = jax.vmap(op)
+    if ground_truth is None:
+        print("No reference ground truth provided. "
+              "Uncertainty-weighted residuals calculation defaults to uncertainty-weighted mean.")
+    if log:
+        ground_truth = jnp.log(ground_truth) if ground_truth is not None else 0.
+        res = (jnp.mean(jnp.log(op(pos)), axis=0) - ground_truth) / jnp.std(jnp.log(op(pos)),
+                                                                            axis=0, ddof=1)
+    else:
+        ground_truth = 0. if ground_truth is None else ground_truth
+        res = (jnp.mean(op(pos), axis=0) - ground_truth) / jnp.std(op(pos), axis=0, ddof=1)
+    if abs:
+        res = jnp.abs(res)
+    if exposure_mask:
+        exposure = response_dict['exposure']
+        exposure_mask = np.array(exposure(np.ones_like(res))).sum(axis=0) > 0
+    return res, exposure_mask
+
+
+def _calculate_nwr(pos, op, data, response_dict,
+                   abs=False, min_counts=None, exposure_mask=True, response=True):
     if response:
         R = response_dict['R']
     else:

@@ -558,9 +558,9 @@ def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
     print(f"Histogram saved as {filename}.")
 
 
-def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label, x_lim = None,
-                                            y_lim = None, bins=100, dpi=400,
-                                            title=None, output_path=None):
+def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label,
+                                          x_lim=None, y_lim=None, bins=100, dpi=400,
+                                          title=None, output_path=None):
     """ Plot a 2d histogram for the arrays given for x_array and y_array.
 
 
@@ -601,7 +601,8 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     edges_y_list = []
 
     for i in range(len(x_array_list)):
-        hist, edges_x, edges_y = np.histogram2d(x_array_list[i], y_array_list[i], bins=(x_bins, y_bins))
+        hist, edges_x, edges_y = np.histogram2d(x_array_list[i], y_array_list[i],
+                                                bins=(x_bins, y_bins))
         hist_list.append(hist)
         edges_x_list.append(edges_x)
         edges_y_list.append(edges_y)
