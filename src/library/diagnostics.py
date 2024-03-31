@@ -4,7 +4,6 @@ from os.path import join
 from jax.tree_util import tree_map
 from jax import numpy as jnp
 
-import nifty8 as ift
 import nifty8.re as jft
 
 from .utils import create_output_directory
@@ -178,15 +177,17 @@ def compute_noise_weighted_residuals(samples,
             plot_kwargs.update({'vmax': 5})
 
         for id, i in enumerate(masked_nwrs):
-            results_path = create_output_directory(join(diagnostics_path, f"tm_{id+1}/{key}/"))
+            results_path = create_output_directory(join(diagnostics_path, f"tm_{id + 1}/{key}/"))
             if 'title' not in plot_kwargs:
-                plot_kwargs.update({'title': f"NWR {key} - TM number {id+1}"})
+                plot_kwargs.update({'title': f"NWR {key} - TM number {id + 1}"})
             plot_result(i,
-                        output_file=join(results_path, f'{output_dir_base}{key}_tm{id+1}_samples.png'),
+                        output_file=join(results_path,
+                                         f'{output_dir_base}{key}_tm{id + 1}_samples.png'),
                         adjust_figsize=True,
                         **plot_kwargs)
             plot_result(np.mean(i, axis=0),
-                        output_file=join(results_path, f'{output_dir_base}{key}_tm{id+1}_mean.png'),
+                        output_file=join(results_path,
+                                         f'{output_dir_base}{key}_tm{id + 1}_mean.png'),
                         **plot_kwargs)
 
             if n_bins is not None:
@@ -198,8 +199,8 @@ def compute_noise_weighted_residuals(samples,
                 edges = tree_map(edges_func, nwrs)
                 mean_hist = tree_map(lambda x: np.mean(x, axis=0), hist)
                 plot_histograms(mean_hist, edges,
-                                join(results_path, f'{output_dir_base}{key}_tm{id+1}_hist.png'),
-                                logy=False, title=f'NWR mean {key} - TM number {id+1}')
+                                join(results_path, f'{output_dir_base}{key}_tm{id + 1}_hist.png'),
+                                logy=False, title=f'NWR mean {key} - TM number {id + 1}')
 
     return res_dict
 
@@ -258,67 +259,75 @@ def _calculate_nwr(pos, op, data, response_dict,
     return res, tot_mask(pos)
 
 
-def plot_2d_gt_vs_rec_histogram(pos_sp_sample_dict,
-                                diagnostics_path,
-                                cfg,
-                                response_func,
+def plot_2d_gt_vs_rec_histogram(samples,
+                                operator_dict,
                                 reference_dict,
+                                response_dict,
+                                diagnostics_path,
                                 output_dir_base,
-                                type= 'single',
+                                response=True,
                                 relative=False,
+                                type='single',
+                                offset=0.,
                                 plot_kwargs=None):
     """
     Plots the 2D histogram of reconstruction vs. ground-truth in either
-    the data_space (if response_func = response) or the signal space (if response_func= None).
-    If relative = True the realtive error of the reconstruction is plotted vs. the ground-truth.
+    the data_space (if response_func = response) or the signal space (if response=False).
+    If relative = True the relative error of the reconstruction is plotted vs. the ground-truth.
     It is possible to either plot the 2D histograms for reconstruction mean or instead the
-    sample-averaged histograms (type=sampled)
+    sample-averaged histograms (type=sampled).
 
 
     Parameters
     ----------
-    pos_sp_sample_dict: dict
-        Dictionary of position space sample lists for the operator specified by the key.
-    diagnostics_path: str
-        Path to the reconstruction diagnostic files.
-    cfg: dict
-        Reconstruction config dictionary.
-    response_func: callable
-        Callable response function that can be applied to the signal returning an object of the type
-        'jft.Vector', that conatins the according data space representations.
+    samples: nifty8.re.evi.Samples
+        nifty8.re.evi.Samples object containing the posterior samples of the reconstruction.
+    operator_dict: dict
+        Dictionary of operators for which the histogram should be plotted.
     reference_dict: dict, None
         Dictionary of reference arrays (e.g. ground-truth) to calculate the NWR.
+    response_dict: dict
+        Dictionary containing the instrument response functions.
+    diagnostics_path: str
+        Path to the reconstruction diagnostic files.
     output_dir_base: str, None
         Base string of file name saved.
+    response: bool, True
+        If True, the histogram for reconstruction vs. ground-truth is plotted.
     type: str, 'single'
         Either 'single' (default) taking the 2d histogram of the mean or 'sampled' to get
         the sample averaged histogram.
-    relative: bool. False
-        If False, the histogram for reconstruction vs. ground-truth is plotted. If True,
-        the relative error vs. ground-truth histogram is generated.
+    offset: float, 0.
+        Offset for the histogram (to prevent nan in log).
+    relative: bool, False
+        If False, the histogram for reconstruction vs. ground-truth is plotted.
+        If True, the relative error vs. ground-truth histogram is generated.
     plot_kwargs: dict, None
         Dictionary of plotting arguments
     """
-    mpi_master = ift.utilities.get_MPI_params()[3]
-    if response_func is None:
-        tel_info = cfg['telescope']
-        file_info = cfg['files']
-        exposure_file_names = [join(file_info['obs_path'], f'{key}_' + file_info['exposure'])
-                               for key in tel_info['tm_ids']]
-        response_func = _build_full_mask_func_from_exp_files(exposure_file_names,
-                                                             tel_info['exp_cut'])
-    Rs_sample_dict = {key: [response_func(sample) for sample in sample_list]
-                      for key, sample_list in pos_sp_sample_dict.items()}
-    Rs_reference_dict = {key: response_func(ref) for key, ref in reference_dict.items()}
+    # FIXME: CLEAN UP
+    if 'pspec' in operator_dict.keys():
+        operator_dict.pop('pspec')
+    R = response_dict['R']
+    if response is False:
+        exp = response_dict['exposure']
+        shape = exp(operator_dict[tuple(operator_dict)[0]](jft.mean(samples))).shape
+        reshape = lambda x: np.tile(x, (shape[0], 1, 1))
+        R = lambda x: jft.Vector(
+            {k: response_dict['mask_adj'](response_dict['mask'](reshape(x)))[0] for k in
+            range(shape[0])})
 
-    for key, sl in pos_sp_sample_dict.items():
+    Rs_sample_dict = {key: [R(op(s)) for s in samples] for key, op in operator_dict.items()}
+    Rs_reference_dict = {key: R(ref) for key, ref in reference_dict.items()}
+
+    for key in operator_dict.keys():
         res_list = []
         for Rs_sample in Rs_sample_dict[key]:
             for i, data_key in enumerate(Rs_sample.tree.keys()):
                 if relative:
                     ref = Rs_reference_dict[key][data_key][Rs_reference_dict[key][data_key] != 0]
                     samp = Rs_sample[data_key][Rs_reference_dict[key][data_key] != 0]
-                    res = np.abs(ref-samp)/ref
+                    res = np.abs(ref - samp) / ref
                 else:
                     res = Rs_sample[data_key]
                     ref = Rs_reference_dict[key][data_key]
@@ -335,14 +344,14 @@ def plot_2d_gt_vs_rec_histogram(pos_sp_sample_dict,
             res_1d_array_list = [sample for sample in res_list]
         else:
             raise NotImplementedError
-        ref_list = len(res_1d_array_list)*[stacked_ref]
+        ref_list = len(res_1d_array_list) * [stacked_ref]
         if relative:
             for i, sample in enumerate(res_1d_array_list):
                 res_1d_array_list[i] = np.abs(ref_list[i] - sample) / ref_list[i]
-        if mpi_master and output_dir_base:
+        if output_dir_base is not None:
             output_path = join(diagnostics_path, f'{output_dir_base}hist_{key}.png')
             plot_sample_averaged_log_2d_histogram(x_array_list=ref_list,
                                                   y_array_list=res_1d_array_list,
                                                   output_path=output_path,
+                                                  offset=offset,
                                                   **plot_kwargs)
-

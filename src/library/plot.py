@@ -560,7 +560,7 @@ def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
 
 def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label,
                                           x_lim=None, y_lim=None, bins=100, dpi=400,
-                                          title=None, output_path=None):
+                                          title=None, output_path=None, offset=None, figsize=None):
     """ Plot a 2d histogram for the arrays given for x_array and y_array.
 
 
@@ -587,21 +587,24 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     --------
     None
     """
-
     if len(x_array_list) != len(y_array_list):
         raise ValueError('Need same number of samples for x- and y-axis.')
 
-    x_bins = np.logspace(np.log(np.min(np.mean(x_array_list, axis=0))),
-                         np.log(np.max(np.mean(x_array_list, axis=0))), bins)
-    y_bins = np.logspace(np.log(np.min(np.mean(y_array_list, axis=0))),
-                         np.log(np.max(np.mean(y_array_list, axis=0))), bins)
+    # Add small offset to avoid logarithm of zero or negative values
+    if offset is None:
+        offset = 0.
+    x_bins = np.logspace(np.log(np.min(np.nanmean(x_array_list, axis=0)) + offset),
+                         np.log(np.max(np.nanmean(x_array_list, axis=0)) + offset), bins)
+    y_bins = np.logspace(np.log(np.min(np.nanmean(y_array_list, axis=0)) + offset),
+                         np.log(np.max(np.nanmean(y_array_list, axis=0)) + offset), bins)
 
     hist_list = []
     edges_x_list = []
     edges_y_list = []
 
     for i in range(len(x_array_list)):
-        hist, edges_x, edges_y = np.histogram2d(x_array_list[i], y_array_list[i],
+        hist, edges_x, edges_y = np.histogram2d(x_array_list[i][~np.isnan(x_array_list[i])],
+                                                y_array_list[i][~np.isnan(y_array_list[i])],
                                                 bins=(x_bins, y_bins))
         hist_list.append(hist)
         edges_x_list.append(edges_x)
@@ -619,6 +622,7 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     ax.set_yscale('log')
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
+    plt.tight_layout()
     if x_lim is not None:
         ax.set_xlim(x_lim[0], x_lim[1])
     if y_lim is not None:
@@ -627,5 +631,7 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
         ax.set_title(title)
     if output_path is not None:
         plt.savefig(output_path)
-        print(f"2D histogram saved as {output_path}")
-    plt.close()
+        print(f"2D histogram saved as {output_path}.")
+        plt.close()
+    else:
+        plt.show()
