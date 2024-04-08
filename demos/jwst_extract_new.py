@@ -16,8 +16,10 @@ from jwst_handling.integration_models import (
     build_sparse_integration_model
 )
 
-from jwst_handling.data_model import JwstDataModel
-from jwst_handling.sky_grid import ReconstructionGrid
+# from jwst_handling.data_model import JwstDataModel
+from jwst_handling.reconstruction_grid import ReconstructionGrid
+from jwst_handling.jwst_data_model_handler import JwstDataModel
+
 from jwst_handling.masking import mask_index_centers_and_nan
 from jwst_handling.config_handler import define_location, get_shape, get_fov
 
@@ -53,20 +55,20 @@ for fltname, flt in config['files']['filter'].items():
         jwst_data = JwstDataModel(filepath)
 
         # Find the sub-pixel centers for the interpolation integration
-        subsample_centers = jwst_data.wl_subsample_centers(
-            reco_grid.world_extrema(), subsample)
-        index_subsample_centers = reco_grid.index_from_wl(
+        subsample_centers = jwst_data.wcs.wl_subsample_centers(
+            reco_grid.world_extrema, subsample, jwst_data.shape)
+        index_subsample_centers = reco_grid.wcs.index_from_wl(
             subsample_centers)
 
         # Find the pixel edges for the sparse interpolation
-        pix_center, (e00, e01, e10, e11) = jwst_data.wl_pixelcenter_and_edges(
-            reco_grid.world_extrema())
-        dpixcenter_in_rgrid = reco_grid.index_from_wl(pix_center)[0]
-        index_edges = reco_grid.index_from_wl(
+        pix_center, (e00, e01, e10, e11) = jwst_data.wcs.wl_pixelcenter_and_edges(
+            reco_grid.world_extrema)
+        dpixcenter_in_rgrid = reco_grid.wcs.index_from_wl(pix_center)[0]
+        index_edges = reco_grid.wcs.index_from_wl(
             [e00, e01, e11, e10])  # needs to be circular for sparse builder
 
-        data = jwst_data.data_inside_extrema(reco_grid.world_extrema())
-        std = jwst_data.std_inside_extrema(reco_grid.world_extrema())
+        data = jwst_data.data_inside_extrema(reco_grid.world_extrema)
+        std = jwst_data.std_inside_extrema(reco_grid.world_extrema)
 
         # define a mask
         mask = mask_index_centers_and_nan(
@@ -83,11 +85,14 @@ for fltname, flt in config['files']['filter'].items():
             data=data,
             std=std,
         )
-
 for lh_name, lh in likelihoods.items():
     ind_grid = reco_grid.index_grid(config['grid']['padding_ratio'])
     lh['sparse_matrix'] = build_sparse_integration(
         ind_grid, lh['index_edges'], lh['mask'])
+
+    sky_dvol = reco_grid.dvol
+    break
+    # sub_dvol = # dm.meta.wcsinfo.cd2_2
 
     lh['interpolation'] = build_linear_integration(
         lh['index_subsample_centers'], mask=lh['mask'], order=1)
