@@ -32,7 +32,7 @@ from .library.diagnostics import (get_diagnostics_from_file,
                                   compute_uncertainty_weighted_residuals,
                                   compute_noise_weighted_residuals,
                                   plot_2d_gt_vs_rec_histogram)
-from .library.mf_sky import MappedModel
+from .library.mf_sky import MappedModel, GeneralModel, build_power_law
 from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
                                               _get_weights)
 from .operators.jifty_convolution_operators import (_bilinear_weights,
