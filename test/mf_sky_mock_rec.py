@@ -68,20 +68,25 @@ def main():
     final_model = jft.Model(final_exp, domain=gen_mod.domain)
 
     key = random.PRNGKey(seed)
-    key, subkey = random.split(key)
-    pos_init = jft.Vector(jft.random_like(subkey, final_model.domain))
+    key, mockkey = random.split(key)
+    pos_init = jft.Vector(jft.random_like(mockkey, final_model.domain))
     mf_prior_field = final_model(pos_init)
 
-    lklhd = jft.Poissonian(mf_prior_field.astype(int)).amend(final_model)
+    key, poissonkey = random.split(key)
+    mock_data = random.poisson(poissonkey, mf_prior_field)
 
-    pos_init = 0.1 * jft.Vector(jft.random_like(subkey, gen_mod.domain))
+    lklhd = jft.Poissonian(mock_data).amend(final_model)
+
+    key, initkey = random.split(key)
+    pos_init = 0.1 * jft.Vector(jft.random_like(initkey, gen_mod.domain))
 
     kl_solver_kwargs = optimization_dict.pop('kl_kwargs')
     kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['space']['dims']
 
+    key, samplekey = random.split(key)
     samples, state = jft.optimize_kl(lklhd,
                                      pos_init,
-                                     key=key,
+                                     key=samplekey,
                                      kl_kwargs=kl_solver_kwargs,
                                      **optimization_dict
                                      )
