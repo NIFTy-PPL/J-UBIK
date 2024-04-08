@@ -117,4 +117,4 @@ def build_power_law(freqs, alph):
     elif isinstance(alph, float):
         # FIXME not working at the moment
         res = jnp.outer(freqs, alph).reshape(freqs.shape)
-        return jft.Model(res, domain=alph.domain)
+    return jft.Model(res, domain=alph.domain)
