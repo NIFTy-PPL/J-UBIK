@@ -59,13 +59,20 @@ class MappedModel(jft.Model):
 
 
 class GeneralModel(jft.Model):
-    """#FIXME Some Docstring."""
+    """General Sky Model, plugging together several components."""
 
     def __init__(self, dict_of_fields={}):
-        """Initziales the general sky model.
-        #NOTE Write some text, which of the keys are allowed.
+        """Initializes the general sky model.
 
-        Paramters:
+        keys for the dictionary:
+        -----------------------
+        spatial: typically 2D Model for spatial log flux(x),
+            where x is the spatial vector.
+        freq_plaw: jubik0.build_power_law or other 3D model.
+        freq_dev: additional flux(frequency / energy) dependent process.
+            often deviations from freq_plaw.
+
+        Parameters:
         ----------
         dict of fields: the respective keys and the
             nifty.re.models as values"""
@@ -111,7 +118,20 @@ class GeneralModel(jft.Model):
 
 
 def build_power_law(freqs, alph):
-    """Models a power law. Building bloc for e.g. a multifrequency model"""
+    """Models a logarithm of a power law.
+    Building bloc for e.g. a multifrequency model
+
+    Parameters:
+    -----------
+    freqs: log(frequencies) or log (energies) # FIXME use it like this in our code
+    alpha: 2D spectral index map
+
+    returns:
+    --------
+    logarithmic powerlaw, meaning a linear function
+    with slope alpha evaluated at freqs.
+
+    """
     if isinstance(alph, jft.Model):
         res = lambda x: jnp.outer(freqs, alph(x)).reshape(freqs.shape + alph.target.shape)
     elif isinstance(alph, float):
