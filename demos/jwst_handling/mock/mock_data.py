@@ -87,24 +87,54 @@ def create_mocksky(key, mshape, mdist, model_setup):
     return jnp.exp(mock_diffuse(jft.random_like(key, mock_diffuse.domain)))
 
 
+def create_data(
+    center,
+    mock_grid,
+    mock_sky,
+    rota_shape,
+    rota_fov,
+    data_shape,
+    rotation
+):
+
+    rota_grid = Grid(center, shape=rota_shape, fov=rota_fov, rotation=rotation)
+    data_grid = Grid(center, shape=data_shape, fov=rota_fov, rotation=rotation)
+
+    interpolation_points = mock_grid.wcs.index_from_wl(
+        rota_grid.wl_coords())[0]
+
+    mask = np.full(rota_shape, True)
+    nufft = build_nufft_integration(
+        1, 1, interpolation_points[::-1, :, :][None], mask, mock_grid.shape)
+
+    rota_sky = np.zeros(rota_shape)
+    rota_sky[mask] = nufft(mock_sky)
+
+    downscale = [r//d for r, d in zip(rota_shape, data_shape)]
+    assert downscale[0] == downscale[1]
+    data = downscale_sum(rota_sky, downscale[0])
+
+    return data_grid, data
 
 
+def setup(mock_key):
+    DISTANCE = 0.05
 
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    from jax import random
-    from charm_lensing.spaces import Space
-    from charm_lensing.models.parametric_models.rotation import rotation
-    from jwst_handling.integration_models import (
-        build_nufft_integration
-    )
+    CENTER = SkyCoord(0*u.rad, 0*u.rad)
+    MOCK_SHAPE = (1024, 1024)
+    MOCK_DIST = (DISTANCE, DISTANCE)
+    MOCK_FOV = [MOCK_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
+    mock_grid = Grid(CENTER, MOCK_SHAPE, MOCK_FOV)
 
-    key = random.PRNGKey(87)
-    RSHAPE = 256
-    key, mock_key, noise_key, rec_key = random.split(key, 4)
-    mock_shape, mock_dist = (1024, 1024), (0.5, 0.5)
-    reco_shape, reco_dist = (RSHAPE,)*2, (0.5*1024.0/RSHAPE,)*2
-    data_shape, data_dist = (64, 64), (8.0, 8.0)
+    RECO_SHAPE = (128, 128)
+    RECO_FOV = MOCK_FOV
+    reco_grid = Grid(CENTER, RECO_SHAPE, RECO_FOV)
+    comp_down = [r//d for r, d in zip(MOCK_SHAPE, RECO_SHAPE)]
+
+    ROTATION = 5*u.deg
+    ROTA_SHAPE = (768, 768)
+    ROTA_FOV = [ROTA_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
+    DATA_SHAPE = (48, 48)
 
     offset = dict(offset_mean=0.1, offset_std=[0.1, 0.05])
     fluctuations = dict(fluctuations=[0.3, 0.03],
@@ -112,54 +142,96 @@ if __name__ == '__main__':
                         flexibility=[0.8, 0.1],
                         asperity=[0.2, 0.1])
 
-    sky, *_ = create_data(
-        mock_key,
-        (mock_shape, reco_shape, data_shape),
-        mock_dist,
-        (offset, fluctuations),
-        show=False
+    mock_sky = create_mocksky(
+        mock_key, MOCK_SHAPE, MOCK_DIST, (offset, fluctuations))
+    comparison_sky = downscale_sum(mock_sky, comp_down[0])
+
+    data_grid, data = create_data(
+        CENTER, mock_grid, mock_sky, ROTA_SHAPE, ROTA_FOV, DATA_SHAPE, ROTATION)
+
+    return comparison_sky, reco_grid, data, data_grid
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    from jax import random
+    from charm_lensing.spaces import Space
+    from charm_lensing.models.parametric_models.rotation import rotation as rotation_func
+    from jwst_handling.integration_models import (
+        build_nufft_integration
     )
 
-    space = Space((1024, 1024), (0.5, 0.5))
+    from jwst_handling.reconstruction_grid import Grid
+    from astropy.coordinates import SkyCoord
+    from astropy import units as u
+
+    key = random.PRNGKey(87)
+    DISTANCE = 0.05
+    DSHAPE = 64
+    RSHAPE = 256
+    key, mock_key, noise_key, rec_key = random.split(key, 4)
+    mock_shape, mock_dist = (1024, 1024), (DISTANCE, DISTANCE)
+
+    offset = dict(offset_mean=0.1, offset_std=[0.1, 0.05])
+    fluctuations = dict(fluctuations=[0.3, 0.03],
+                        loglogavgslope=[-3., 1.],
+                        flexibility=[0.8, 0.1],
+                        asperity=[0.2, 0.1])
+
+    sky = create_mocksky(
+        mock_key, mock_shape, mock_dist, (offset, fluctuations))
+
+    comp_sky, reco_grid, data, data_grid = setup(mock_key)
+    fig, axes = plt.subplots(1, 3)
+    ax, ay, az = axes
+    ax.imshow(sky, origin='lower')
+    ay.imshow(comp_sky, origin='lower')
+    az.imshow(data, origin='lower')
+    plt.show()
+
+    exit()
+
+    CENTER = SkyCoord(0*u.rad, 0*u.rad)
+
+    space = Space((1024, 1024), (DISTANCE, DISTANCE))
+    mgrid = Grid(
+        CENTER,
+        shape=(1024, 1024),
+        fov=(1024*DISTANCE*u.arcsec, 1024*DISTANCE*u.arcsec),
+    )
+    mxy = mgrid.rel_coords()
     xy = space.coords()
+    assert np.allclose(xy, space.coords())
 
-    deg_rot = 30
-    rots, crops = [], []
-    for ii in range(3):
-        deg_rot += 10
-        xy_rotated = jnp.array(rotation(xy, deg_rot*jnp.pi/180))
-        mask = ~(
-            ((xy_rotated[0] < space.extent[0]) + (xy_rotated[0] > space.extent[1])) +
-            ((xy_rotated[1] < space.extent[2]) +
-             (xy_rotated[1] > space.extent[3]))
-        )
+    rotation = 5 * u.deg
+    smaller = 256
+    rshape = (1024-smaller, 1024-smaller)
+    downscale = 16
+    dshape = [s//downscale for s in rshape]
+    fov = [s*DISTANCE*u.arcsec for s in rshape]
+    rgrid = Grid(CENTER, shape=rshape, fov=fov, rotation=rotation)
+    dgrid = Grid(CENTER, shape=dshape, fov=fov, rotation=rotation)
 
-        interpolation_points = (xy_rotated - xy[0, 0, 0]) / space.distances[0]
-        interpolation_points = jnp.array(
-            (interpolation_points[1], interpolation_points[0]))[None]
+    xy_rotated = rgrid.rel_coords()
+    interpolation_points_old = (
+        (xy_rotated - mgrid.rel_coords()[0, 0, 0]) / mgrid.distances[0].to(u.arcsec).value)
+    interpolation_points = mgrid.wcs.index_from_wl(rgrid.wl_coords())[0]
+    assert np.allclose(interpolation_points_old, interpolation_points)
 
-        nufft = build_nufft_integration(
-            1, 1, interpolation_points, mask, sky.shape)
-        sky_rot = nufft(sky)
+    mask = np.full(rgrid.shape, True)
+    nufft = build_nufft_integration(
+        1, 1, interpolation_points[::-1, :, :][None], mask, sky.shape)
+    sky_rot = nufft(sky)
+    skysky = np.zeros(mask.shape)
+    skysky[mask] = sky_rot
+    data = downscale_sum(skysky, downscale)
 
-        down = 128+64
-
-        rotated = np.zeros_like(sky)
-        rotated[~mask] = np.nan
-        rotated[mask] = sky_rot
-        cropped_xy = xy_rotated[:, down:-down, down:-down]
-        rots.append(rotated)
-        crops.append(cropped_xy)
-
-    fig, axes = plt.subplots(3, 3)
-    # axes = axes.flatten()
-    for ii, ax in enumerate(axes):
-        cropped_xy = crops[ii]
-        rotated = rots[ii]
-        ax[0].imshow(sky, origin='lower', extent=space.extent)
-        plot_surrounding_square(
-            ax[0], cropped_xy.reshape(2, -1), color='orange')
-        ax[1].imshow(rotated[down: -down, down: -down], origin='lower')
-        dsd = downscale_sum(rotated[down: -down, down: -down], 8)
-        ax[2].imshow(dsd, origin='lower')
+    fig, ax = plt.subplots(1, 3)
+    ax, ay, az = ax
+    ax.imshow(sky, origin='lower')
+    # plot_square(ax, arr[::-1, :])
+    ay.imshow(skysky, origin='lower')
+    az.imshow(data, origin='lower')
+    arr = mgrid.wcs.index_from_wl(dgrid.wl_coords())[0]
+    ax.scatter(*arr, color='orange')
     plt.show()
