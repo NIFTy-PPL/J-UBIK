@@ -4,7 +4,7 @@ import nifty8.re as jft
 import numpy as np
 import matplotlib.pyplot as plt
 
-from jwst_handling.mock.mock_data import create_data
+from jwst_handling.mock.mock_data import create_data_old
 
 from jwst_handling.integration_models import (
     build_sparse_integration,
@@ -45,7 +45,7 @@ fluctuations = dict(fluctuations=[0.3, 0.03],
                     flexibility=[0.8, 0.1],
                     asperity=[0.2, 0.1])
 
-mock_sky, comparison_sky, data, mask = create_data(
+mock_sky, comparison_sky, data, mask = create_data_old(
     mock_key, (mock_shape, reco_shape, data_shape), mock_dist,
     (offset, fluctuations), show=SHOW_DATA
 )

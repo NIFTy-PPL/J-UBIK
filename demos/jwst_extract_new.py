@@ -16,7 +16,7 @@ from jwst_handling.integration_models import (
     build_sparse_integration_model
 )
 
-from jwst_handling.reconstruction_grid import ReconstructionGrid
+from jwst_handling.reconstruction_grid import Grid
 from jwst_handling.jwst_data_model_handler import JwstDataModel
 
 from jwst_handling.masking import mask_index_centers_and_nan
@@ -40,15 +40,13 @@ SHAPE = get_shape(config)
 
 
 # defining the reconstruction grid
-reco_grid = ReconstructionGrid(
-    WORLD_LOCATION, SHAPE, (FOV.to(units.deg), FOV.to(units.deg)))
+reco_grid = Grid(WORLD_LOCATION, SHAPE, (FOV.to(units.deg), FOV.to(units.deg)))
 
 
 subsample = config['telescope']['integration_model']['subsample']
 likelihoods = {}
 
 for fltname, flt in config['files']['filter'].items():
-
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
         jwst_data = JwstDataModel(filepath)

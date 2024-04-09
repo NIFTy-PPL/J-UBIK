@@ -10,7 +10,7 @@ from numpy.typing import ArrayLike
 from .wcs.wcs_astropy import build_astropy_wcs
 
 
-class ReconstructionGrid:
+class Grid:
     def __init__(
         self,
         center: SkyCoord,

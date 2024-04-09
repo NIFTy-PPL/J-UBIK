@@ -6,6 +6,27 @@ import jax
 jax.config.update('jax_platform_name', 'cpu')
 
 
+def plot_square(ax, xy_positions, color='r'):
+    # Convert to a NumPy array for easier manipulation
+    xy_positions = np.array(xy_positions)
+
+    maxx, maxy = np.argmax(xy_positions, axis=1)
+    minx, miny = np.argmin(xy_positions, axis=1)
+
+    square_corners = np.array([
+        xy_positions[:, maxx],
+        xy_positions[:, maxy],
+        xy_positions[:, minx],
+        xy_positions[:, miny],
+        xy_positions[:, maxx],
+    ])
+
+    ax.plot(square_corners[:, 1], square_corners[:, 0],
+            color=color,
+            linestyle='-',
+            linewidth=2)
+
+
 def downscale_sum(high_res_array, reduction_factor):
     """
     Sums the entries of a high-resolution array into a lower-resolution array
@@ -30,16 +51,9 @@ def downscale_sum(high_res_array, reduction_factor):
     return high_res_array.reshape(new_shape).sum(axis=(1, 3))
 
 
-def create_data(key, shapes, mock_dist, model_setup, show=True):
-    offset, fluctuations = model_setup
+def create_data_old(key, shapes, mock_dist, model_setup, show=True):
     mock_shape, reco_shape,  data_shape = shapes
-
-    cfm = jft.CorrelatedFieldMaker(prefix='mock')
-    cfm.set_amplitude_total_offset(**offset)
-    cfm.add_fluctuations(
-        mock_shape, mock_dist, **fluctuations, non_parametric_kind='power')
-    mock_diffuse = cfm.finalize()
-    mock_sky = jnp.exp(mock_diffuse(jft.random_like(key, mock_diffuse.domain)))
+    mock_sky = create_mocksky(key, mock_shape, mock_dist, model_setup)
 
     comparison_sky = downscale_sum(mock_sky, mock_shape[0] // reco_shape[0])
     data = downscale_sum(mock_sky, mock_shape[0] // data_shape[0])
@@ -63,25 +77,17 @@ def create_data(key, shapes, mock_dist, model_setup, show=True):
     return mock_sky, comparison_sky, data, mask
 
 
-def plot_surrounding_square(ax, xy_positions, color='r'):
-    # Convert to a NumPy array for easier manipulation
-    xy_positions = np.array(xy_positions)
+def create_mocksky(key, mshape, mdist, model_setup):
+    offset, fluctuations = model_setup
+    cfm = jft.CorrelatedFieldMaker(prefix='mock')
+    cfm.set_amplitude_total_offset(**offset)
+    cfm.add_fluctuations(
+        mock_shape, mock_dist, **fluctuations, non_parametric_kind='power')
+    mock_diffuse = cfm.finalize()
+    return jnp.exp(mock_diffuse(jft.random_like(key, mock_diffuse.domain)))
 
-    maxx, maxy = np.argmax(xy_positions, axis=1)
-    minx, miny = np.argmin(xy_positions, axis=1)
 
-    square_corners = np.array([
-        xy_positions[:, maxx],
-        xy_positions[:, maxy],
-        xy_positions[:, minx],
-        xy_positions[:, miny],
-        xy_positions[:, maxx],
-    ])
 
-    ax.plot(square_corners[:, 1], square_corners[:, 0],
-            color=color,
-            linestyle='-',
-            linewidth=2)
 
 
 if __name__ == '__main__':

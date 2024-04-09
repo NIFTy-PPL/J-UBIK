@@ -13,7 +13,7 @@ def build_nufft_integration(
     sub_dvol: ArrayLike,
     subsample_centers: ArrayLike,
     mask: ArrayLike,
-    reconstruction_shape: Tuple[int, int],
+    sky_shape: Tuple[int, int],
     sky_as_brightness: bool = False
 ) -> Callable[ArrayLike, ArrayLike]:
     '''Building nuFFT interpolation model.
@@ -32,7 +32,7 @@ def build_nufft_integration(
     mask : array
         Mask of the data array
 
-    reconstruction_shape : tuple
+    sky_shape : tuple
         The shape of the reconstruction array (sky shape)
 
     sky_as_brightness : bool (default False)
@@ -62,7 +62,7 @@ def build_nufft_integration(
 
     xy_finufft = (
         2 * pi * subsample_centers /
-        array(reconstruction_shape)[None, :, None]
+        array(sky_shape)[None, :, None]
     )
 
     def interpolation(field, coords):
