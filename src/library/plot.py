@@ -614,9 +614,10 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     fig, ax = plt.subplots(dpi=dpi)
     counts = np.mean(hist_list, axis=0)
     xedges = np.mean(edges_x_list, axis=0)
-    yedges = np.mean(edges_y_list, axis=0)
+    yedges = np.mean(edges_y_list, axis=0) # FIXME: should this be done after the log?
 
-    plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet, norm=LogNorm(vmin=1))
+    plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet,
+                   norm=LogNorm(vmin=1, vmax=np.max(counts))) # FIXME: here it may fail if the counts are all zeros
     plt.colorbar()
     ax.set_xscale('log')
     ax.set_yscale('log')

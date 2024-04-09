@@ -15,7 +15,7 @@ def compute_uncertainty_weighted_residuals(samples,
                                            diagnostics_path,
                                            response_dict,
                                            reference_dict=None,
-                                           output_dir_base=None,
+                                           base_filename=None,
                                            mask=False,
                                            abs=False,
                                            n_bins=None,
@@ -43,7 +43,7 @@ def compute_uncertainty_weighted_residuals(samples,
         Dictionary of reference arrays (e.g. ground truth for mock) to calculate the UWR.
         If the reference_dict is set to `None`, it is assumed to be zero everywhere and
         the uncertainty-weighted mean (UWM) are calculated.
-    output_dir_base: str, None
+    base_filename: str, None
         Base string of file name saved.
     mask: bool, False
         If true the output is masked by a mask generated from the intersection of all the exposures.
@@ -88,31 +88,22 @@ def compute_uncertainty_weighted_residuals(samples,
             plot_kwargs.update({'vmin': -5})
         if 'vmax' not in plot_kwargs:
             plot_kwargs.update({'vmax': 5})
-        plot_result(masked_uwrs, output_file=join(diagnostics_path, f'{output_dir_base}{key}.png'),
+        plot_result(masked_uwrs, output_file=join(diagnostics_path, f'{base_filename}{key}.png'),
                     **plot_kwargs)
         if n_bins:
             if range is None:
                 range = (-5, 5)
             hist, edges = np.histogram(masked_uwrs.reshape(-1), bins=n_bins, range=range)
             title = plot_kwargs['title'] if plot_kwargs is not None else None
-            plot_histograms(hist, edges, join(diagnostics_path, f'{output_dir_base}{key}_hist.png'),
+            plot_histograms(hist, edges, join(diagnostics_path, f'{base_filename}{key}_hist.png'),
                             title=title)
     return res_dict
 
 
-def compute_noise_weighted_residuals(samples,
-                                     operator_dict,
-                                     diagnostics_path,
-                                     response_dict,
-                                     reference_data,
-                                     output_dir_base=None,
-                                     min_counts=0,
-                                     response=True,
-                                     mask_exposure=True,
-                                     abs=False,
-                                     n_bins=None,
-                                     extent=None,
-                                     plot_kwargs=None):
+def compute_noise_weighted_residuals(samples, operator_dict, diagnostics_path, response_dict,
+                                     reference_data, base_filename=None, min_counts=0,
+                                     response=True, mask_exposure=True, abs=False, n_bins=None,
+                                     extent=None, plot_kwargs=None):
     """
     Computes noise-weighted residuals (NWRs) given the position space sample list and
     plots the according histogram. Definition:
@@ -131,7 +122,7 @@ def compute_noise_weighted_residuals(samples,
         Dictionary with response callables.
     reference_data: dict, None
         Dictionary of reference arrays (e.g. data) to calculate the NWR.
-    output_dir_base: str, None
+    base_filename: str, None
         Base string of file name saved.
     abs: bool, False
         If true the absolute value of the residual is calculated and plotted.
@@ -155,6 +146,8 @@ def compute_noise_weighted_residuals(samples,
         Dictionary of noise-weighted residuals.
     """
 
+    if base_filename is None:
+        base_filename = ""
     res_dict = {}
     for key, op in operator_dict.items():
         if key == 'pspec':
@@ -182,12 +175,12 @@ def compute_noise_weighted_residuals(samples,
                 plot_kwargs.update({'title': f"NWR {key} - TM number {id + 1}"})
             plot_result(i,
                         output_file=join(results_path,
-                                         f'{output_dir_base}{key}_tm{id + 1}_samples.png'),
+                                         f'{base_filename}{key}_tm{id + 1}_samples.png'),
                         adjust_figsize=True,
                         **plot_kwargs)
             plot_result(np.mean(i, axis=0),
                         output_file=join(results_path,
-                                         f'{output_dir_base}{key}_tm{id + 1}_mean.png'),
+                                         f'{base_filename}{key}_tm{id + 1}_mean.png'),
                         **plot_kwargs)
 
             if n_bins is not None:
@@ -199,7 +192,7 @@ def compute_noise_weighted_residuals(samples,
                 edges = tree_map(edges_func, nwrs)
                 mean_hist = tree_map(lambda x: np.mean(x, axis=0), hist)
                 plot_histograms(mean_hist, edges,
-                                join(results_path, f'{output_dir_base}{key}_tm{id + 1}_hist.png'),
+                                join(results_path, f'{base_filename}{key}_tm{id + 1}_hist.png'),
                                 logy=False, title=f'NWR mean {key} - TM number {id + 1}')
 
     return res_dict
@@ -236,10 +229,10 @@ def _calculate_nwr(pos, op, data, response_dict,
     adj_mask = response_dict['mask_adj']
     sqrt = lambda x: tree_map(jnp.sqrt, x)
     res = lambda x: (R(op(x)) - data) / sqrt(R(op(x)))
-    if abs:
-        res = lambda x: jnp.abs(res(x))
     res = jax.vmap(res, out_axes=1)
     res = np.array(jax.vmap(adj_mask, in_axes=1, out_axes=1)(res(pos))[0])
+    if abs:
+        res = np.abs(res)
 
     min_count_mask = None
     if min_counts is not None:
@@ -259,17 +252,9 @@ def _calculate_nwr(pos, op, data, response_dict,
     return res, tot_mask(pos)
 
 
-def plot_2d_gt_vs_rec_histogram(samples,
-                                operator_dict,
-                                reference_dict,
-                                response_dict,
-                                diagnostics_path,
-                                output_dir_base,
-                                response=True,
-                                relative=False,
-                                type='single',
-                                offset=0.,
-                                plot_kwargs=None):
+def plot_2d_gt_vs_rec_histogram(samples, operator_dict, diagnostics_path, response_dict,
+                                reference_dict, base_filename=None, response=True, relative=False,
+                                type='single', offset=0., plot_kwargs=None):
     """
     Plots the 2D histogram of reconstruction vs. ground-truth in either
     the data_space (if response_func = response) or the signal space (if response=False).
@@ -284,14 +269,14 @@ def plot_2d_gt_vs_rec_histogram(samples,
         nifty8.re.evi.Samples object containing the posterior samples of the reconstruction.
     operator_dict: dict
         Dictionary of operators for which the histogram should be plotted.
-    reference_dict: dict, None
-        Dictionary of reference arrays (e.g. ground-truth) to calculate the NWR.
-    response_dict: dict
-        Dictionary containing the instrument response functions.
     diagnostics_path: str
         Path to the reconstruction diagnostic files.
-    output_dir_base: str, None
-        Base string of file name saved.
+    response_dict: dict
+        Dictionary containing the instrument response functions.
+    reference_dict: dict, None
+        Dictionary of reference arrays (e.g. ground-truth) to calculate the NWR.
+    base_filename: str, None
+        Base string of file name saved. If None, the plot is displayed and not saved.
     response: bool, True
         If True, the histogram for reconstruction vs. ground-truth is plotted.
     type: str, 'single'
@@ -348,10 +333,12 @@ def plot_2d_gt_vs_rec_histogram(samples,
         if relative:
             for i, sample in enumerate(res_1d_array_list):
                 res_1d_array_list[i] = np.abs(ref_list[i] - sample) / ref_list[i]
-        if output_dir_base is not None:
-            output_path = join(diagnostics_path, f'{output_dir_base}hist_{key}.png')
-            plot_sample_averaged_log_2d_histogram(x_array_list=ref_list,
-                                                  y_array_list=res_1d_array_list,
-                                                  output_path=output_path,
-                                                  offset=offset,
-                                                  **plot_kwargs)
+        if base_filename is not None:
+            output_path = join(diagnostics_path, f'{base_filename}hist_{key}.png')
+        else:
+            output_path = None
+        plot_sample_averaged_log_2d_histogram(x_array_list=ref_list,
+                                              y_array_list=res_1d_array_list,
+                                              output_path=output_path,
+                                              offset=offset,
+                                              **plot_kwargs)
