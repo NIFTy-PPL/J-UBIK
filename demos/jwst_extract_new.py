@@ -16,7 +16,6 @@ from jwst_handling.integration_models import (
     build_sparse_integration_model
 )
 
-# from jwst_handling.data_model import JwstDataModel
 from jwst_handling.reconstruction_grid import ReconstructionGrid
 from jwst_handling.jwst_data_model_handler import JwstDataModel
 
