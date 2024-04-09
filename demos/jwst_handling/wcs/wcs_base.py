@@ -44,13 +44,13 @@ class WcsBase(ABC):
         '''
         pass
 
-    def indices_of_world_extrema(
+    def index_from_wl_extrema(
         self,
         extrema: SkyCoord,
         shape: Optional[Tuple[int, int]] = None
     ) -> Tuple[int, int, int, int]:
-        '''Find the minimum and maximum pixel coordinates of the grid that
-        contain the world location extrema.
+        '''Find the minimum and maximum pixel indices of the bounding box that
+        contain the world location extrema (wl_extrema).
 
         Parameters
         ----------
@@ -87,7 +87,7 @@ class WcsBase(ABC):
         maxy = int(np.ceil(edges_dgrid[:, 1].max()))
         return minx, maxx, miny, maxy
 
-    def world_of_index_extrema(
+    def wl_from_index_extrema(
         self,
         shape: Tuple[int, int],
     ) -> ArrayLike:
@@ -122,7 +122,7 @@ class WcsBase(ABC):
             pixel edges of the data grid in global wcs
 
         '''
-        minx, maxx, miny, maxy = self.indices_of_world_extrema(extrema)
+        minx, maxx, miny, maxy = self.index_from_wl_extrema(extrema)
 
         pix_center = np.meshgrid(np.arange(minx, maxx, 1),
                                  np.arange(miny, maxy, 1))
@@ -162,7 +162,7 @@ class WcsBase(ABC):
             pixel centers of the data grid in global wcs
 
         '''
-        minx, maxx, miny, maxy = self.indices_of_world_extrema(
+        minx, maxx, miny, maxy = self.index_from_wl_extrema(
             extrema, array_shape)
 
         pix_center = np.array(np.meshgrid(np.arange(minx, maxx, 1),

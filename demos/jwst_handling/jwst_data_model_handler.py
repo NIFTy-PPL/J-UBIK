@@ -3,7 +3,6 @@ from .wcs.wcs_jwst_data_model import WcsJwstDataModel
 
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
-from typing import Tuple
 
 
 class JwstDataModel:
@@ -27,7 +26,7 @@ class JwstDataModel:
             Data values inside the extrema.
 
         '''
-        minx, maxx, miny, maxy = self.wcs.indices_of_world_extrema(
+        minx, maxx, miny, maxy = self.wcs.index_from_wl_extrema(
             extrema, self.shape)
         return self.dm.data[miny:maxy, minx:maxx]
 
@@ -46,6 +45,6 @@ class JwstDataModel:
             Data values inside the extrema.
 
         '''
-        minx, maxx, miny, maxy = self.wcs.indices_of_world_extrema(
+        minx, maxx, miny, maxy = self.wcs.index_from_wl_extrema(
             extrema, self.shape)
         return self.dm.err[miny:maxy, minx:maxx]

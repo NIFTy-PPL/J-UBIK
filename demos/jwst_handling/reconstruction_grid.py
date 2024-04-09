@@ -28,7 +28,7 @@ class ReconstructionGrid:
 
     @property
     def world_extrema(self) -> ArrayLike:
-        return self.wcs.world_of_index_extrema(self.shape)
+        return self.wcs.wl_from_index_extrema(self.shape)
 
     def index_grid(self, extend_factor=1) -> Tuple[ArrayLike, ArrayLike]:
         extent = [int(s * extend_factor) for s in self.shape]
