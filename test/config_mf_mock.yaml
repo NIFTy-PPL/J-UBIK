@@ -1,32 +1,23 @@
 utils:
   seed: 42
 energy:
-  dims: 12
-  freqs:
-    - 1
-    - 3
-    - 3
-    - 4
-    - 7
-    - 12
-    - 17
-    - 19.3
+  dims: 100
   priors:
     plaw:
       fluctuations:
         fluctuations:
-          - 1.0e-1
+          - 1.0
           - 5.0e-3
         loglogavgslope:
-          - -1.
+          - -3.
           - 1.0e-2
         flexibility:
-          - 1.0e+0
+          - 2.0
           - 5.0e-1
         asperity:
           - 5.0e-1
           - 5.0e-2
-        harmonic_type: "Fourier"
+        # harmonic_type: "Fourier"
         prefix: "freq_plaw"
         non_parametric_kind: "power"
       offset:
@@ -37,20 +28,20 @@ energy:
     dev:
       fluctuations:
         fluctuations:
-          - 1.0e-1
+          - 1.0
           - 5.0e-3
         loglogavgslope:
-          - -1.
+          - -3
           - 1.0e-2
         flexibility:
-          - 1.0e-3
+          - 2.0
           - 5.0e-1
         asperity:
-        harmonic_type: "Fourier"
+        # harmonic_type: "Fourier"
         prefix: "freq_dev"
         non_parametric_kind: "power"
       offset:
-        offset_mean: 0.
+        offset_mean: 0.0
         offset_std:
           - 1.0e-3
           - 1.0e-4
@@ -68,11 +59,11 @@ space:
         - 1.0e+0
         - 5.0e-1
       asperity:
-      harmonic_type: "Fourier"
+      # harmonic_type: "Fourier"
       prefix: "spatial"
       non_parametric_kind: "power"
     offset:
-      offset_mean: 0.
+      offset_mean: 2.0
       offset_std:
         - 1.0e-3
         - 1.0e-4
