@@ -31,8 +31,8 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
         additional margin at the borders
     """
     dr = additional_margin
-    dx = int((shape[0] - 2 * dr) / n_patches_per_axis)
-    dy = int((shape[1] - 2 * dr) / n_patches_per_axis)
+    dx = int((shape[0] - 2 * dr) / n_patches_per_axis) # prelast
+    dy = int((shape[1] - 2 * dr) / n_patches_per_axis) # last
     padded_x = jnp.pad(x, pad_width=((dx//2, ) * 2, (dy//2, ) * 2),
                        mode="constant", constant_values=0)
 
@@ -73,25 +73,25 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
                      mode="constant", constant_values=0)
 
     # Do reshaping here
-    dx = int(shape[0] / n_patches_per_axis)
-    dy = int(shape[1] / n_patches_per_axis)
+    dx = int(shape[0] / n_patches_per_axis) #FIXME prelast -2
+    dy = int(shape[1] / n_patches_per_axis) #FIXME last -1
 
-    kernelcut_x = (shape[0] - 2*dx) // 2
-    kernelcut_y = (shape[0] - 2*dy) // 2
+    kernelcut_x = (shape[0] - 2*dx) // 2 #FIXME Same
+    kernelcut_y = (shape[0] - 2*dy) // 2 #FIXME Same
 
-    roll_kernel = np.fft.fftshift(kernel, axes=(1, 2))
+    roll_kernel = np.fft.fftshift(kernel, axes=(1, 2)) # For MF 2,3
     cut_kernel = roll_kernel[:, kernelcut_x:-kernelcut_x, kernelcut_y:-kernelcut_y]
 
     pkernel = np.pad(cut_kernel,
-                     pad_width=((0, 0), (margin, margin), (margin, margin)),
+                     pad_width=((0, 0), (margin, margin), (margin, margin)), #FIXME Prepend (0,0)
                      mode="constant",
                      constant_values=0)
     rollback_kernel = np.fft.ifftshift(pkernel, axes=(1, 2))
 
     # TODO discuss this kind of normalization. Kernels should be normalized
     # before and/or elsewhere.
-    summed = rollback_kernel.sum((1, 2))
-    dvol = domain.distances[0]*domain.distances[1]
+    summed = rollback_kernel.sum((1, 2)) #2 and 3
+    dvol = domain.distances[0]*domain.distances[1] # 1,2
     norm = summed * np.array(dvol)
     norm = norm[:, np.newaxis, np.newaxis]
 
@@ -109,12 +109,14 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     primal = np.empty(padded_shape)
     overlap_add = jax.linear_transpose(patch_w_margin, primal)
     padded_res = overlap_add(convolved)[0]
-    res = padded_res[margin:-margin, margin:-margin]
+    res = padded_res[margin:-margin, margin:-margin] #:,.....
     return res
 
 
 def jifty_convolve(x, y, domain, axes):
     """Perform an FFT convolution.
+    #FIXME alternatively use jnp.convolve could be faster?
+    #FIXME Even if it's just a FFT could be less python overhead
 
     Parameters:
     -----------
