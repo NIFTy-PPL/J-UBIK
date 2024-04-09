@@ -59,9 +59,10 @@ if __name__ == "__main__":
 
     # Plot
     plot = lambda s, x: ju.plot_sample_and_stats(file_info["res_dir"],
-                                                 sky_dict,
-                                                 s,
-                                                 iteration=x.nit)
+                                            sky_dict,
+                                            s,
+                                            dpi=300,
+                                            iteration=x.nit)
 
     samples, state = jft.optimize_kl(log_likelihood,
                                      pos_init,
