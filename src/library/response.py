@@ -181,7 +181,13 @@ def build_erosita_psf(psf_filenames, energy, pointing_center, domain, npatch,
 
     def vmap_psf_func(x):
         return vmap_functions(index, x)
+
     return vmap_psf_func
+
+# func = lambda psf_file,x,y,z: build_psf(psf_file,x, y, z)
+#     vmap_func = jax.vmap(func)(psf_file, x, y, z)
+#     vmap_func(x)
+
 
 # FIXME only exposure 
 def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
