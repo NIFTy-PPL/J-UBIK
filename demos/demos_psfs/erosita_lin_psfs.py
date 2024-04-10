@@ -41,19 +41,20 @@ fov = (3600, 3600)
 npix = (512, 512)
 dists = tuple(ff/pp for ff, pp in zip(fov, npix))
 domain = ift.RGSpace(npix, distances=dists)
+domain2 = ju.Domain(npix, dists)
 
 
 c2params = {'npatch': 8, 'margfrac': 0.062, 'want_cut': False}
 
-op1 = obs.make_psf_op(energy, pointing_center, domain,
+op1 = obs.make_psf_op(energy, pointing_center, domain2,
                       conv_method='LINJAX', conv_params=c2params)
-op2 = obs.make_psf_op(energy, pointing_center, domain,
-                      conv_method='LIN', conv_params=c2params)
+# op2 = obs.make_psf_op(energy, pointing_center, domain,
+#                       conv_method='LIN', conv_params=c2params)
 
-rnds = ift.from_random(op2.domain)
+# rnds = ift.from_random(op2.domain)
 
 res1 = op1(rnds.val)
-res2 = op2(rnds).val
+# res2 = op2(rnds).val
 
 print("")
 print("Equality of LIN and LINJAX: ", np.allclose(res1, res2))

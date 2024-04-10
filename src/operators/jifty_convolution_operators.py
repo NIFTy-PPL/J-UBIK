@@ -31,8 +31,8 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
         additional margin at the borders
     """
     dr = additional_margin
-    dx = int((shape[0] - 2 * dr) / n_patches_per_axis) # prelast
-    dy = int((shape[1] - 2 * dr) / n_patches_per_axis) # last
+    dx = int((shape[-2] - 2 * dr) / n_patches_per_axis) # prelast
+    dy = int((shape[-1] - 2 * dr) / n_patches_per_axis) # last
     padded_x = jnp.pad(x, pad_width=((dx//2, ) * 2, (dy//2, ) * 2),
                        mode="constant", constant_values=0)
 
