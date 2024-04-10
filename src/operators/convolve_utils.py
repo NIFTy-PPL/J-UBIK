@@ -168,6 +168,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
 
 def get_psf_func(domain, psf_infos):
     """
+    # FIXME Remove domain, is not needed.
     Convenience function for get_psf. Takes a dictionary,
     build by eROSITA-PSF.psf_infos and returns a function.
 
@@ -182,14 +183,10 @@ def get_psf_func(domain, psf_infos):
     patch_center_ids = psf_infos['patch_center_ids']
     patch_deltas = psf_infos['patch_deltas']
     pointing_center = psf_infos['pointing_center']
-
-    if not isinstance(domain, Domain):
-        raise ValueError
-
     return get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center)
 
 
-def psf_convolve_operator(domain, psf_infos, msc_infos, adj = False):
+def psf_convolve_operator(domain, psf_infos, msc_infos, adj=False):
     """
     Psf convolution operator using the MSC approximation.
     """
@@ -218,8 +215,8 @@ def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1,
     """
     func_psf = get_psf_func(domain, psf_infos)
 
-    shp = domain.shape
-    dist = domain.distances
+    shp = (domain.shape[-2], domain.shape[-1])
+    dist = (domain.distances[-2], domain.distances[-1])
     for ss in shp:
         if ss%npatch != 0:
             raise ValueError

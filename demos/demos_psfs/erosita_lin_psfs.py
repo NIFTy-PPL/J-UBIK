@@ -1,11 +1,17 @@
 import jubik0 as ju
 import nifty8 as ift
+import nifty8.re as jft
 import numpy as np
 
 from jax import config
+from jax import random
 config.update('jax_enable_x64', True)
 
 ift.set_nthreads(8)
+lin_vs_jaxlin = False
+
+seed = 42
+key = random.PRNGKey(seed)
 
 def get_kernels_and_sources(domain, psf_func):
     rnds = np.zeros(domain.shape)
@@ -20,8 +26,8 @@ def get_kernels_and_sources(domain, psf_func):
     res = np.zeros_like(rnds)
     for ix, iy, xx, yy in zip(inds[0],inds[1], cx, cy):
         psf = psf_func(xx, yy) * domain.scalar_dvol
-        psf = np.roll(psf, ix, axis = 0)
-        psf = np.roll(psf, iy, axis = 1)
+        psf = np.roll(psf, ix, axis=0)
+        psf = np.roll(psf, iy, axis=1)
         res += psf
     rnds = ift.makeField(domain, rnds)
     return ift.makeField(domain, res), rnds
@@ -36,34 +42,35 @@ obs = ju.eROSITA_PSF(filename)
 
 # more numbers about the observation
 energy = '3000'
-pointing_center = (1800, 1800)
-fov = (3600, 3600)
-npix = (512, 512)
+pointing_center = np.array([[1800, 1800]])
+fov = (20, 3600, 3600)
+npix = (10, 512, 512)
 dists = tuple(ff/pp for ff, pp in zip(fov, npix))
 domain = ift.RGSpace(npix, distances=dists)
 domain2 = ju.Domain(npix, dists)
-
+rnds = ift.from_random(domain)
 
 c2params = {'npatch': 8, 'margfrac': 0.062, 'want_cut': False}
 
 op1 = obs.make_psf_op(energy, pointing_center, domain2,
                       conv_method='LINJAX', conv_params=c2params)
-# op2 = obs.make_psf_op(energy, pointing_center, domain,
-#                       conv_method='LIN', conv_params=c2params)
-
-# rnds = ift.from_random(op2.domain)
-
 res1 = op1(rnds.val)
-# res2 = op2(rnds).val
 
-print("")
-print("Equality of LIN and LINJAX: ", np.allclose(res1, res2))
+if lin_vs_jaxlin:
+    op2 = obs.make_psf_op(energy, pointing_center, domain,
+                          conv_method='LIN', conv_params=c2params)
+    res2 = op2(rnds).val
+
+    print("")
+
+    print("Equality of LIN and LINJAX: ", np.allclose(res1, res2))
 
 # Test alternative to get the operator
-test_psf = ju.build_erosita_psf(filename, energy, pointing_center, domain,
+test_psf = ju.build_erosita_psf([filename], energy, pointing_center, domain2,
                                 c2params["npatch"], c2params["margfrac"],
                                 c2params["want_cut"])
 res3 = test_psf(rnds.val)
-print("Equality of other LINJAX instance: ", np.allclose(res2, res3))
+if lin_vs_jaxlin:
+    print("Equality of other LINJAX instance: ", np.allclose(res2, res3))
 
 # TODO add benchmarks for performace and do further tests

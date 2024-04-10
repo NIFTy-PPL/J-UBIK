@@ -171,7 +171,6 @@ def _build_tm_erosita_psf(psf_filename, energy, pointing_center, domain, npatch,
 
 def build_erosita_psf(psf_filenames, energy, pointing_center, domain, npatch,
                       margfrac, want_cut=False, convolution_method='LINJAX'):
-
     functions = [_build_tm_erosita_psf(psf_file, energy, pcenter,
                                        domain, npatch, margfrac)
                  for psf_file, pcenter in zip(psf_filenames, pointing_center)]
