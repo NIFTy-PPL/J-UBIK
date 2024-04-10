@@ -11,7 +11,7 @@ import nifty8.re as jft
 
 from .utils import get_config, create_output_directory
 from .plot import plot_result, plot_sample_averaged_log_2d_histogram, plot_histograms
-from .sky_models import create_sky_model_from_config
+from .sky_models import SkyModel
 from .response import build_callable_from_exposure_file
 
 
@@ -87,8 +87,7 @@ def get_diagnostics_from_file(diagnostic_builder,
     grid_info = cfg['grid']
 
     # Create sky operators
-    sky_dict = create_sky_model_from_config(config_path)
-    sky_dict.pop('pspec')
+    sky_dict = SkyModel(config_path).create_sky_model()
 
     # Load position space sample list
     with open(f"{sl_path_base}.p", "rb") as file:

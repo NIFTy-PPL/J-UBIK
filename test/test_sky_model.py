@@ -13,11 +13,11 @@ if __name__ == "__main__":
     seed = 42
     key = random.PRNGKey(seed)
     key, subkey = random.split(key)
-    sky_dict = ju.create_sky_model_from_config('config_test_sky_model.yaml')
-    sky_dict.pop('pspec')
-    for component in sky_dict.keys():
-        comp_pos = jft.random_like(subkey, sky_dict[component].domain)
-        image = sky_dict[component](comp_pos)
-        plt.imshow(image)
+    sky_model = ju.SkyModel('config_test_sky_model.yaml')
+    sky = sky_model.create_sky_model()
+    comp_pos = jft.random_like(subkey, sky.domain)
+    image = sky(comp_pos)
+    for i in range(image.shape[0]):
+        plt.imshow(image[i, :, :])
         plt.show()
         plt.close()

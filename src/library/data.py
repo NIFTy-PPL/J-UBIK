@@ -8,7 +8,7 @@ import nifty8.re as jft
 import jubik0 as ju
 
 from .erosita_observation import ErositaObservation
-from .sky_models import create_sky_model
+from .sky_models import SkyModel
 from .utils import get_config
 
 from typing import NamedTuple
@@ -66,6 +66,7 @@ def save_dict_to_pickle(dictionary, file_path):
 
 
 # MOCK
+# FIXME Rewrite or MF
 def generate_mock_sky_from_prior_dict(npix, padding_ratio, fov, priors, seed=42,
                                       default_point_source_prior=None):
     """ Generates a mock sky position for the given grid and prior information
@@ -96,7 +97,8 @@ def generate_mock_sky_from_prior_dict(npix, padding_ratio, fov, priors, seed=42,
         raise ValueError('Point source information is needed for the generation of a mock sky.')
     if priors['point_sources'] is None:
         priors['point_sources'] = default_point_source_prior
-    sky_dict = create_sky_model(npix, padding_ratio, fov, priors)
+    sky_dict = SkyModel.create_sky_model(sdim=npix, padding_ratio=padding_ratio, fov=fov,
+                                         priors=priors)
     key = random.PRNGKey(seed)
     key, subkey = random.split(key)
     return jft.random_like(subkey, sky_dict['sky'].domain)

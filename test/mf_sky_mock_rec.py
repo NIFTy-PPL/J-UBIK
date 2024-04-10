@@ -53,7 +53,6 @@ def main():
     alpha_field = alpha.finalize()
 
     plaw = ju.build_power_law(np.arange(0, e_dims, 1), alpha_field)
-
     # Spectral plaw dev
     dev_dict = cfg['energy']['priors']['plaw']
     plaw_dev = jft.CorrelatedFieldMaker(dev_dict['fluctuations']['prefix'])
@@ -63,10 +62,11 @@ def main():
         distances=1. / e_dims,
         **dev_dict['fluctuations']
     )
-    plaw_dev_field = alpha.finalize()
+    plaw_dev_field = plaw_dev.finalize()
+    mapped_dev = ju.MappedModel(plaw_dev_field, dev_dict['fluctuations']['prefix']+'xi', s_dims, True)
 
     gen_mod = ju.GeneralModel(
-        {'spatial': spatial_field, 'freq_plaw': plaw, 'freq_dev': plaw_dev_field}).build_model()
+        {'spatial': spatial_field, 'freq_plaw': plaw, 'freq_dev': mapped_dev}).build_model()
     final_exp = lambda x: jnp.exp(gen_mod(x))
     final_model = jft.Model(final_exp, domain=gen_mod.domain)
 

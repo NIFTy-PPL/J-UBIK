@@ -34,27 +34,26 @@ if __name__ == "__main__":
         print("FYI: Resume is set to False, but the output directory already exists. The result_dir has been appended with the string *new*.")
 
     # Load sky model
-    sky_dict = ju.create_sky_model_from_config(config_path)
-    pspec = sky_dict.pop('pspec')
+    sky_model = ju.SkyModel(config_path).create_sky_model()
 
     # Save config
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
     # Generate loglikelihood
-    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path).amend(sky_dict['sky'])
+    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path).amend(sky_model)
 
     # Minimization
     minimization_config = cfg['minimization']
     key = random.PRNGKey(cfg['seed'])
     key, subkey = random.split(key)
-    pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky_dict['sky'].domain))
+    pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky_model.domain))
 
     kl_solver_kwargs = minimization_config.pop('kl_kwargs')
     kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['npix']  # FIXME: Replace by domain information
 
     # Plot
     plot = lambda s, x: ju.plot_sample_and_stats(file_info["res_dir"],
-                                                 sky_dict,
+                                                 sky_model,
                                                  s,
                                                  iteration=x.nit)
 

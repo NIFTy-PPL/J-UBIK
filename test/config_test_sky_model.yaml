@@ -1,48 +1,175 @@
 seed: 86
-mock: True
+# threads: 8
+mock: False
+# mock_psf: False
 load_mock_data: False
 telescope:
-  tm_ids : [1,2,3,4,6]
+  tm_ids : [1] #,2,3,4,6]
   fov: 3600 # in arcsec
+  pattern: 15
+  detmap: True
   exp_cut: 500
+
 point_source_defaults:
   alpha: 1.
   q: 1e6
+
+psf:
+ method: 'LINJAX'
+ energy: '3000'
+  # LIN config
+ npatch: 8
+ margfrac: 0.062
+ want_cut: False
+
+  # MSC config
+#  base: [3,3]
+#  min_baseshape: [8,8]
+#  linlevel: [100,100]
+#  kernel_sizes: [[3,3],]
+#  keep_overlap: [[True,True],]
+#  local_kernel: [True,True]
+
+  # config for homogeneous gauss psf
+#  gauss_var: 5
+
+# plotting:
+#  enabled: True
+#  slice: Null
+#  dpi: 800
+
 grid:
-  npix: 426
+  sdim: 512
+  edim: 10
   padding_ratio: 1.203
+  energy_bin:
+    e_min: 2.0
+    e_max: 4.5
+
+
 files:
-  obs_path: 'data/LMC_SN1987A/'
+  obs_path: '../data/LMC_SN1987A/'
   input: 'pm00_700161_020_EventList_c001.fits'
-  output: 'low_e_processed_pm00_700161_020_data.fits'
-  exposure: 'low_e_expmap_pm00_700161_020.fits'
+  output: 'small_processed_pm00_700161_020_data.fits'
+  exposure: 'small_expmap_pm00_700161_020.fits'
   psf_path : '../data/psf_info/'
   psf_base_filename: '2dpsf_190219v05.fits'
-  res_dir: 'results/512_Mock_run'
+  res_dir: 'results/Default_run'
+
 priors:
   point_sources:
-    alpha: 1.00001
-    q: 0.00000005
-  diffuse:
-    offset:
-      offset_mean: -9.5 # exposure norm = 4.4 *10^-5
-      offset_std:
-        - 0.2
-        - 0.05
-    fluctuations:
+    spatial:
+      alpha: 1.
+      q: 1.E-6
+      key: points
+    plaw:
       fluctuations:
-        - 1.5
-        - 0.8
-      loglogavgslope:
-        - -3.
-        - 1.0
-      flexibility:
-        - 0.8
-        - 0.1
-      asperity:
-        - 0.2
-        - 0.1
-    prefix: diffuse_
+        fluctuations:
+          - 1.0
+          - 5.0e-3
+        loglogavgslope:
+          - -3.
+          - 1.0e-2
+        flexibility:
+          - 2.0
+          - 5.0e-1
+        asperity:
+          - 5.0e-1
+          - 5.0e-2
+        # harmonic_type: "Fourier"
+        non_parametric_kind: "power"
+      prefix: points_plaw
+      offset:
+        offset_mean: -2.0
+        offset_std:
+          - 1.0e-3
+          - 1.0e-4
+    dev:
+      fluctuations:
+        fluctuations:
+          - 1.0
+          - 5.0e-3
+        loglogavgslope:
+          - -3
+          - 1.0e-2
+        flexibility:
+          - 2.0
+          - 5.0e-1
+        asperity:
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: points_dev
+      offset:
+        offset_mean: 0.0
+        offset_std:
+          - 1.0e-3
+          - 1.0e-4
+  diffuse:
+    spatial:
+      offset:
+        offset_mean: -10. # exposure norm = 4.4 *10^-5
+        offset_std:
+          - 0.2
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 1.5
+          - 0.8
+        loglogavgslope:
+          - -3.
+          - 1.0
+        flexibility:
+          - 0.8
+          - 0.1
+        asperity:
+          - 0.2
+          - 0.1
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_spatial
+    plaw:
+      fluctuations:
+        fluctuations:
+          - 1.0
+          - 5.0e-3
+        loglogavgslope:
+          - -3.
+          - 1.0e-2
+        flexibility:
+          - 2.0
+          - 5.0e-1
+        asperity:
+          - 5.0e-1
+          - 5.0e-2
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_plaw
+      offset:
+        offset_mean: -2.0
+        offset_std:
+          - 1.0e-3
+          - 1.0e-4
+    dev:
+      fluctuations:
+        fluctuations:
+          - 1.0
+          - 5.0e-3
+        loglogavgslope:
+          - -3
+          - 1.0e-2
+        flexibility:
+          - 2.0
+          - 5.0e-1
+        asperity:
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_dev
+      offset:
+        offset_mean: 0.0
+        offset_std:
+          - 1.0e-3
+          - 1.0e-4
+
 
 minimization:
   resume: False

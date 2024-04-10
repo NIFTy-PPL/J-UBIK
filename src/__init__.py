@@ -19,8 +19,7 @@ from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
 from .library.chandra_observation import ChandraObservationInformation
 from .library.erosita_psf import eROSITA_PSF
-from .library.sky_models import (SkyModel, create_sky_model, create_point_source_model,
-                                 create_diffuse_component_model, create_sky_model_from_config)
+from .library.sky_models import SkyModel
 from .library.response import load_erosita_response, build_exposure_function, \
     build_callable_from_exposure_file, build_readout_function, build_erosita_response, \
     build_erosita_response_from_config, build_erosita_psf
