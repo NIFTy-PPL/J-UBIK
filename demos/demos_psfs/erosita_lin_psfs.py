@@ -83,7 +83,6 @@ print("Check JaxLin for Multifrequency")
 
 # TODO add benchmarks for performace and do further tests
 
-#FIXME Check why the energies are in a weird order when we get them from eROSITA_PSF
 energies = ['0277', '0930', '1486', '3000', '4508', '6398', '8040']
 fov = (1, 3600, 3600)
 npix = (7, 512, 512)
