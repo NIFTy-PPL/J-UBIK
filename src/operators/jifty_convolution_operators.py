@@ -116,6 +116,7 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
 
     normed_kernel = rollback_kernel * norm**-1
 
+    print(normed_kernel.shape)
     ndom = Domain((1, *shape), (None, *domain.distances))
     convolved = jifty_convolve(normed_kernel,
                                padded,
@@ -159,7 +160,9 @@ def jifty_convolve(x, y, domain, axes):
     hx = jnp.fft.fftn(x, axes=axes)
     hy = jnp.fft.fftn(y, axes=axes)
     if len(y.shape) > len(x.shape):
-        print("Dimension Error. Broadcasting PSFs")
+        print("kernel_shape:", x.shape)
+        print("signal_shape:", y.shape)
+        print("Dimension Inconsistency. Broadcasting PSFs")
         prod = hx[..., np.newaxis, :, :]*hy
     else:
         prod = hx*hy

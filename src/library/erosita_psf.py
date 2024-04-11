@@ -181,11 +181,22 @@ class eROSITA_PSF():
                      'pointing_center' : pointing_center}
         return psf_infos
 
-    def make_psf_op(self, energy, pointing_center, domain, conv_method,
+    def make_psf_op(self, energies, pointing_center, domain, conv_method,
                     conv_params):
-        #FIXME Energies instead of Energy, Type List
-        self._check_energy(energy)
-        psf_infos = self._get_psf_infos(energy, pointing_center)
+        """
+        Build the psf operator.
+
+        Parameters:
+        ----------
+        energies: list of int
+        """
+        psf_infos = []
+        if not isinstance(energies, list):
+            raise TypeError("energies needs to be a list")
+        for energy in energies:
+            self._check_energy(energy)
+            info = self._get_psf_infos(energy, pointing_center)
+            psf_infos.append(info)
 
         if conv_method == 'MSC' or conv_method == 'MSC_ADJ':
             print('Build MSC-PSF...')
