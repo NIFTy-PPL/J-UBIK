@@ -35,7 +35,9 @@ if __name__ == "__main__":
               "The result_dir has been appended with the string *new*.")
 
     # Load sky model
-    sky_model = ju.SkyModel(config_path).create_sky_model()
+    sky_model = ju.SkyModel(config_path)
+    sky = sky_model.create_sky_model()
+    sky_dict = sky_model.sky_model_to_dict()
 
     # Save config
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
@@ -54,7 +56,7 @@ if __name__ == "__main__":
 
     # Plot
     plot = lambda s, x: ju.plot_sample_and_stats(file_info["res_dir"],
-                                                 sky_model,
+                                                 sky_dict,
                                                  s,
                                                  iteration=x.nit)
 
