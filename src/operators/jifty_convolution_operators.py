@@ -97,7 +97,7 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     roll_kernel = np.fft.fftshift(kernel, axes=(-2, -1))
     cut_kernel = roll_kernel[..., kernelcut_x:-kernelcut_x, kernelcut_y:-kernelcut_y]
 
-    # FIXME Temp Fix for weird psfs
+    # FIXME Temp Fix for weird psfs/ We could / should leave it in.
     padding_for_extradims_width = [[0, 0],]*(len(cut_kernel.shape) - 2)
     pad_width_kernel = padding_for_extradims_width + margins
 
@@ -140,6 +140,7 @@ def jifty_convolve(x, y, domain, axes):
     """Perform an FFT convolution.
     #FIXME alternatively use jnp.convolve could be faster?
     #FIXME Even if it's just a FFT could be less python overhead
+    #FIXME Reconsider this
 
     Parameters:
     -----------
@@ -157,7 +158,8 @@ def jifty_convolve(x, y, domain, axes):
 
     hx = jnp.fft.fftn(x, axes=axes)
     hy = jnp.fft.fftn(y, axes=axes)
-    if len(y.shape) > 3:
+    if len(y.shape) > len(x.shape):
+        print("Dimension Error. Broadcasting PSFs")
         prod = hx[..., np.newaxis, :, :]*hy
     else:
         prod = hx*hy
