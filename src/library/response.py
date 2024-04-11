@@ -155,6 +155,8 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
 def _build_tm_erosita_psf(psf_filename, energy, pointing_center, domain, npatch,
                       margfrac, want_cut=False, convolution_method='LINJAX'):
     """
+    #TODO Docstring
+    #FIXME Energies instead of Energy Type == list
     Parameters:
     -----------
     psf_file: str
@@ -171,7 +173,8 @@ def _build_tm_erosita_psf(psf_filename, energy, pointing_center, domain, npatch,
 
 def build_erosita_psf(psf_filenames, energy, pointing_center, domain, npatch,
                       margfrac, want_cut=False, convolution_method='LINJAX'):
-
+    #FIXME Energies instead of Energy (List) NO LOOP Energie vectorized
+    """#TODO Add Docstring"""
     functions = [_build_tm_erosita_psf(psf_file, energy, pcenter,
                                        domain, npatch, margfrac)
                  for psf_file, pcenter in zip(psf_filenames, pointing_center)]
@@ -181,7 +184,13 @@ def build_erosita_psf(psf_filenames, energy, pointing_center, domain, npatch,
 
     def vmap_psf_func(x):
         return vmap_functions(index, x)
+
     return vmap_psf_func
+
+# func = lambda psf_file,x,y,z: build_psf(psf_file,x, y, z)
+#     vmap_func = jax.vmap(func)(psf_file, x, y, z)
+#     vmap_func(x)
+
 
 # FIXME only exposure 
 def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):

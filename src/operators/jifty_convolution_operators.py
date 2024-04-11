@@ -31,14 +31,20 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
         additional margin at the borders
     """
     dr = additional_margin
-    dx = int((shape[0] - 2 * dr) / n_patches_per_axis)
-    dy = int((shape[1] - 2 * dr) / n_patches_per_axis)
-    padded_x = jnp.pad(x, pad_width=((dx//2, ) * 2, (dy//2, ) * 2),
-                       mode="constant", constant_values=0)
+    dx = int((shape[-2] - 2 * dr) / n_patches_per_axis)
+    dy = int((shape[-1] - 2 * dr) / n_patches_per_axis)
 
+    pad_extra_dims = [[0, 0],]*(len(x.shape) - 2)
+    pad_spaces = [[dx//2, ] * 2, [dy//2, ] * 2]
+    pad_width = pad_extra_dims + pad_spaces
+
+    padded_x = jnp.pad(x, pad_width=pad_width,
+                       mode="constant", constant_values=0)
+    trailing_pos = (0,)*(len(padded_x.shape)-2)
+    trailing_slice_sizes = padded_x.shape[:-2]
     def slicer(x_pos, y_pos):
-        return jax.lax.dynamic_slice(padded_x, start_indices=(x_pos, y_pos),
-                                     slice_sizes=(2*dx + 2*dr, 2*dy + 2*dr))
+        return jax.lax.dynamic_slice(padded_x, start_indices=trailing_pos+(x_pos, y_pos),
+                                     slice_sizes=trailing_slice_sizes+(2*dx + 2*dr, 2*dy + 2*dr))
 
     ids = (np.arange(n_patches_per_axis)*dx, np.arange(n_patches_per_axis)*dy)
 
@@ -63,44 +69,61 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
         Size of the margin. Number of pixels on one boarder.
 
     """
+    if not isinstance(domain, Domain):
+        raise ValueError("domain has to be an instance of jubik.Domain")
+
     shape = domain.shape
+    spatial_shape = [shape[-2], shape[-1]]
     slices = slice_patches(x, shape, n_patches_per_axis,
                            additional_margin=0)
-    weights = _bilinear_weights(slices[0].shape)
+    slice_spatial_shape = (slices.shape[-2], slices.shape[-1])
+    weights = _bilinear_weights(slice_spatial_shape)
     weighted_slices = weights * slices
+
+    padding_for_extradims_width = [[0, 0],]*(len(weighted_slices.shape) - 2)
+    margins = [[margin, margin],]*2
+    pad_width = padding_for_extradims_width + margins
     padded = jnp.pad(weighted_slices,
-                     pad_width=((0, 0), (margin, margin), (margin, margin)),
+                     pad_width=pad_width,
                      mode="constant", constant_values=0)
 
     # Do reshaping here
-    dx = int(shape[0] / n_patches_per_axis)
-    dy = int(shape[1] / n_patches_per_axis)
+    dx = int(shape[-2] / n_patches_per_axis)
+    dy = int(shape[-1] / n_patches_per_axis)
 
-    kernelcut_x = (shape[0] - 2*dx) // 2
-    kernelcut_y = (shape[0] - 2*dy) // 2
+    kernelcut_x = (shape[-2] - 2*dx) // 2
+    kernelcut_y = (shape[-1] - 2*dy) // 2
 
-    roll_kernel = np.fft.fftshift(kernel, axes=(1, 2))
-    cut_kernel = roll_kernel[:, kernelcut_x:-kernelcut_x, kernelcut_y:-kernelcut_y]
+    roll_kernel = np.fft.fftshift(kernel, axes=(-2, -1))
+    cut_kernel = roll_kernel[..., kernelcut_x:-kernelcut_x, kernelcut_y:-kernelcut_y]
+
+    # FIXME Temp Fix for weird psfs/ We could / should leave it in.
+    padding_for_extradims_width = [[0, 0],]*(len(cut_kernel.shape) - 2)
+    pad_width_kernel = padding_for_extradims_width + margins
 
     pkernel = np.pad(cut_kernel,
-                     pad_width=((0, 0), (margin, margin), (margin, margin)),
+                     pad_width=pad_width_kernel,
                      mode="constant",
                      constant_values=0)
-    rollback_kernel = np.fft.ifftshift(pkernel, axes=(1, 2))
+    rollback_kernel = np.fft.ifftshift(pkernel, axes=(-2, -1))
 
     # TODO discuss this kind of normalization. Kernels should be normalized
     # before and/or elsewhere.
-    summed = rollback_kernel.sum((1, 2))
-    dvol = domain.distances[0]*domain.distances[1]
+    summed = rollback_kernel.sum((-2, -1))
+    dvol = domain.distances[-2]*domain.distances[-1]
     norm = summed * np.array(dvol)
-    norm = norm[:, np.newaxis, np.newaxis]
+    norm = norm[..., np.newaxis, np.newaxis]
 
     normed_kernel = rollback_kernel * norm**-1
 
     ndom = Domain((1, *shape), (None, *domain.distances))
-    convolved = jifty_convolve(normed_kernel, padded,
-                               ndom, axes=(1, 2))
-    padded_shape = [ii+2*margin for ii in shape]
+    convolved = jifty_convolve(normed_kernel,
+                               padded,
+                               ndom,
+                               axes=(-2, -1))
+
+    remaining_shape = list(shape[:-2]) #FIXME
+    padded_shape = remaining_shape + [ii+2*margin for ii in spatial_shape]
 
     def patch_w_margin(array):
         return slice_patches(array, padded_shape,
@@ -109,12 +132,15 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     primal = np.empty(padded_shape)
     overlap_add = jax.linear_transpose(patch_w_margin, primal)
     padded_res = overlap_add(convolved)[0]
-    res = padded_res[margin:-margin, margin:-margin]
+    res = padded_res[..., margin:-margin, margin:-margin]
     return res
 
 
 def jifty_convolve(x, y, domain, axes):
     """Perform an FFT convolution.
+    #FIXME alternatively use jnp.convolve could be faster?
+    #FIXME Even if it's just a FFT could be less python overhead
+    #FIXME Reconsider this
 
     Parameters:
     -----------
@@ -132,6 +158,11 @@ def jifty_convolve(x, y, domain, axes):
 
     hx = jnp.fft.fftn(x, axes=axes)
     hy = jnp.fft.fftn(y, axes=axes)
-    res = jnp.fft.ifftn(hx*hy, axes=axes)
+    if len(y.shape) > len(x.shape):
+        print("Dimension Error. Broadcasting PSFs")
+        prod = hx[..., np.newaxis, :, :]*hy
+    else:
+        prod = hx*hy
+    res = jnp.fft.ifftn(prod, axes=axes)
     res = dvol*res
     return res.real

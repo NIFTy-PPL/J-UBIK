@@ -168,6 +168,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
 
 def get_psf_func(domain, psf_infos):
     """
+    # FIXME Remove domain, is not needed.
     Convenience function for get_psf. Takes a dictionary,
     build by eROSITA-PSF.psf_infos and returns a function.
 
@@ -182,14 +183,10 @@ def get_psf_func(domain, psf_infos):
     patch_center_ids = psf_infos['patch_center_ids']
     patch_deltas = psf_infos['patch_deltas']
     pointing_center = psf_infos['pointing_center']
-
-    if not isinstance(domain, Domain):
-        raise ValueError
-
     return get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center)
 
 
-def psf_convolve_operator(domain, psf_infos, msc_infos, adj = False):
+def psf_convolve_operator(domain, psf_infos, msc_infos, adj=False):
     """
     Psf convolution operator using the MSC approximation.
     """
@@ -214,12 +211,13 @@ def psf_convolve_operator(domain, psf_infos, msc_infos, adj = False):
 def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1, 
                          want_cut=False, jaxop=True):
     """
+    #FIXME could add a list of PSF Infos
     Psf convolution operator using bilinear interpolation of stationary patches.
     """
     func_psf = get_psf_func(domain, psf_infos)
 
-    shp = domain.shape
-    dist = domain.distances
+    shp = (domain.shape[-2], domain.shape[-1])
+    dist = (domain.distances[-2], domain.distances[-1])
     for ss in shp:
         if ss%npatch != 0:
             raise ValueError
@@ -250,6 +248,7 @@ def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1,
         [np.roll(np.roll(pp, -shp[0]//2, axis = 0), -shp[1]//2, axis = 1)
         for pp in patch_psfs])
     #patch_psfs = list([pp for pp in patch_psfs]) # FIXME
+    # FIXME Patch_psfs should be of shape (n_patches, energies, x, y)
     patch_psfs = np.array(patch_psfs)
     margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
     if jaxop:
