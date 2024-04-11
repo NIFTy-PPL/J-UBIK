@@ -179,7 +179,7 @@ class ErositaObservation:
         input_params = {'clobber': bool, 'events': bool, 'image': bool, 'size': int,
                         'rebin': int, 'center_position': tuple, 'region': str,
                         'gti': str, 'flag': str, 'flag_invert': bool, 'pattern': int,
-                        'telid': int, 'emin': float, 'emax': float, 'rawxy': str,
+                        'telid': int, 'emin': float | str, 'emax': float | str, 'rawxy': str,
                         'rawxy_telid': int, 'rawxy_invert': bool, 'memset': int,
                         'overlap': float, 'skyfield': str}
 
@@ -247,11 +247,11 @@ class ErositaObservation:
                          withdetmaps=True, withweights=True, withfilebadpix=True,
                          withcalbadpix=True, withinputmaps=False):
 
-        input_params = {'mounted_dir': str, 'templateimage': str, 'emin': float, 'emax': float,
-                        'withsinglemaps': bool, 'withmergedmaps': bool, 'singlemaps': list,
-                        'mergedmaps': str, 'gtitype': str, 'withvignetting': bool,
-                        'withdetmaps': bool, 'withweights': bool, 'withfilebadpix': bool,
-                        'withcalbadpix': bool, 'withinputmaps': bool}
+        input_params = {'mounted_dir': str, 'templateimage': str, 'emin': float | str,
+                        'emax': float | str, 'withsinglemaps': bool, 'withmergedmaps': bool,
+                        'singlemaps': list, 'mergedmaps': str, 'gtitype': str,
+                        'withvignetting': bool, 'withdetmaps': bool, 'withweights': bool,
+                        'withfilebadpix': bool, 'withcalbadpix': bool, 'withinputmaps': bool}
 
         # Implements type checking
         for key, val in input_params.items():

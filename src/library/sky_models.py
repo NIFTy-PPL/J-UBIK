@@ -253,7 +253,7 @@ class SkyModel:
             self.alpha_cf, self.alpa_pspec = self._create_correlated_field(ext_s_shp,
                                                                            sdistances,
                                                                            prior_dict['plaw'])
-            self.plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1), alpha_cf)
+            self.plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1), self.alpha_cf)
         if 'dev' in prior_dict:
             dev_cf, self.dev_pspec = self._create_correlated_field(ext_e_shp,
                                                                    edistances,

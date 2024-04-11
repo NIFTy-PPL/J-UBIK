@@ -25,6 +25,7 @@ def generate_erosita_likelihood_from_config(config_file_path):
     cfg = get_config(config_file_path)
     file_info = cfg['files']
     tel_info = cfg['telescope']
+    grid_info = cfg['grid']
 
     response_dict = build_erosita_response_from_config(config_file_path)
 
@@ -33,10 +34,10 @@ def generate_erosita_likelihood_from_config(config_file_path):
 
     if cfg['mock']:
         masked_data = generate_erosita_data_from_config(config_file_path, response_func,
-                                                        file_info['res_dir'])
+                                                        file_info['res_dir']) #FIXME: fix for MF
     elif cfg['load_mock_data']:
         masked_data = load_masked_data_from_pickle(os.path.join(file_info['res_dir'],
-                                                   'mock_data_dict.pkl'), mask_func)
+                                                   'mock_data_dict.pkl'), mask_func) #FIXME: fix for MF
     else:
-        masked_data = load_erosita_masked_data(file_info, tel_info, mask_func)
+        masked_data = load_erosita_masked_data(file_info, tel_info, grid_info, mask_func)
     return jft.Poissonian(masked_data).amend(response_func)
