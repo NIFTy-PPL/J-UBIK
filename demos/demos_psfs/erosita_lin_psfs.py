@@ -79,7 +79,7 @@ res3 = test_psf(rnds.val)
 print("Equality of other LINJAX instance: ", np.allclose(res1, res3))
 
 # Jax Lin with Energy dimension
-print("Check JaxLin with broadcasting over energies")
+print("Check JaxLin for Multifrequency")
 
 # TODO add benchmarks for performace and do further tests
 
@@ -104,6 +104,7 @@ points[:,::20, ::20] = 1.
 res_points = op3(points)
 
 def plotter(arr):
+    "Make fast plots for MF"
     import matplotlib.pyplot as plt
     for i in range(arr.shape[0]):
         plt.imshow(arr[i])
