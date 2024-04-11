@@ -141,22 +141,23 @@ class eROSITA_PSF():
         return full_dct
 
     def plot_psfs(self, outroot='', lower_cut=1E-6, **args):
-        """plots the psfs in the fits file"""
+        """Plot the psfs in the fits file."""
         name = self._load_names()
         psf = self._load_data_full()
         theta = self._load_theta_full()
         center = self._load_p_center_full()
         obj = zip(name, psf, theta, center)
-        pltargs = {"origin":"lower", "norm": LogNorm()}
+        pltargs = {"origin": "lower", "norm": LogNorm()}
         pltargs.update(**args)
         # TODO refactor
         for _, j in enumerate(obj):
-            fig, axs = plt.subplots(figsize = (10,10))
+            fig, axs = plt.subplots(figsize=(10, 10))
             axs.set_title(f"{j[0]} point_source at {j[3]}")
             npix = np.array(j[1].shape)
             pix_size = self._load_pix_size()[0]
             hlf_fov = npix * pix_size / 60 / 2
-            pltargs.update({"extent": [-hlf_fov[0], hlf_fov[0], -hlf_fov[1], hlf_fov[1]]})
+            pltargs.update({"extent": [-hlf_fov[0], hlf_fov[0],
+                                       -hlf_fov[1], hlf_fov[1]]})
             tm, frac = self._cutnorm(j[1], lower_cut=lower_cut, want_frac=True)
             axs.text(10, 450, f"Norm. fraction: {frac}")
             im = axs.imshow(tm.T, **pltargs)
@@ -174,11 +175,11 @@ class eROSITA_PSF():
         self._check_energy(energy)
         newpsfs = np.array([self._cutnorm(pp, lower_cut=lower_cut) for pp in
                             self._load_data(energy)])
-        psf_infos = {'psfs' : newpsfs, 
-                     'rs' : self._load_theta(energy), 
-                     'patch_center_ids' : self._load_p_center(energy),
-                     'patch_deltas' : self._load_pix_size(), 
-                     'pointing_center' : pointing_center}
+        psf_infos = {'psfs': newpsfs,
+                     'rs': self._load_theta(energy),
+                     'patch_center_ids': self._load_p_center(energy),
+                     'patch_deltas': self._load_pix_size(),
+                     'pointing_center': pointing_center}
         return psf_infos
 
     def make_psf_op(self, energies, pointing_center, domain, conv_method,
