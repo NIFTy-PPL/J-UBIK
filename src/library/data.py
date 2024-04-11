@@ -3,7 +3,7 @@ import pickle
 from os.path import join
 
 import numpy as np
-from jax import random
+from jax import random, tree_map
 from jax import numpy as jnp
 from astropy.io import fits
 
@@ -41,7 +41,7 @@ def load_masked_data_from_pickle(file_path):
     file_path : string
         Path to data file (.pkl)
     mask_func : Callable
-        Mask function, which takes a three dimensional array and makes a jft.Vector
+        Mask function, which takes a 3D array and makes a jft.Vector
         out of it containing a dictionary of masked arrays
     Returns
     -------
@@ -70,8 +70,7 @@ def save_dict_to_pickle(dictionary, file_path):
 
 
 # MOCK
-# FIXME Rewrite for MF
-def generate_mock_sky_from_prior_dict(npix, padding_ratio, fov, priors, seed=42,
+def generate_mock_sky_from_prior_dict(npix, padding_ratio, fov, priors, key,
                                       default_point_source_prior=None):
     """ Generates a mock sky position for the given grid and prior information
 
@@ -86,8 +85,8 @@ def generate_mock_sky_from_prior_dict(npix, padding_ratio, fov, priors, seed=42,
     priors : dict
         Dictionary of prior information containing the hyperparameters for the
         used models etc. correlated field etc. (see sky_models.py)
-    seed : int
-        Random seed for mock sky generation
+    key : jax.random.PRNGKey
+        Random key for mock sky generation
     default_point_source_prior: dict
         Default values for the point sources for the mock sky generation if a reconstruction
         with only diffuse is used.
@@ -119,7 +118,7 @@ def load_erosita_masked_data(file_info, tel_info, mask_func):
     tel_info : dict
         Dictionary of telescope information
     mask_func : Callable
-        Mask function, which takes a three dimensional array and makes a jft.Vector
+        Mask function, which takes a 3D array and makes a jft.Vector
         out of it containing a dictionary of masked arrays
     Returns
     -------
@@ -184,7 +183,7 @@ def create_erosita_data_from_config_dict(config_dict):
 
         else:
             log_file_exists(join(obs_path, output_filename))
-
+            
         # Plotting
         plot_info = config_dict['plotting']
         if plot_info['enabled']:
@@ -216,20 +215,25 @@ def generate_erosita_data_from_config(config_file_path, response_func, output_pa
         Dictionary of masked mock data arrays
     """
     cfg = get_config(config_file_path)
+    key = random.PRNGKey(cfg['seed'])
 
     tel_info = cfg['telescope']
     grid_info = cfg['grid']
     priors = cfg['priors']
 
+    key, subkey = random.split(key)
     mock_sky_position = generate_mock_sky_from_prior_dict(grid_info['npix'],
                                                           grid_info['padding_ratio'],
                                                           tel_info['fov'],
                                                           priors,
-                                                          cfg['seed'],
+                                                          subkey,
                                                           cfg['point_source_defaults'])
     sky_comps = ju.create_sky_model(grid_info['npix'], grid_info['padding_ratio'],
                               tel_info['fov'], priors)
     masked_mock_data = response_func(sky_comps['sky'](mock_sky_position))
+    key, subkey = random.split(key)
+    masked_mock_data = tree_map(lambda x: random.poisson(subkey, x), masked_mock_data.tree)
+    masked_mock_data = jft.Vector(masked_mock_data)
     if output_path is not None:
         ju.create_output_directory(output_path)
         save_dict_to_pickle(masked_mock_data.tree,

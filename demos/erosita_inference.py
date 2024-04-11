@@ -39,6 +39,10 @@ if __name__ == "__main__":
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
+    # Create data files
+    if not cfg['mock']:
+        ju.create_erosita_data_from_config_dict(cfg)
+
     # Save config
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
@@ -55,16 +59,19 @@ if __name__ == "__main__":
     kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['sdim']  # FIXME: Replace by domain information
 
     # Plot
-    plot = lambda s, x: ju.plot_sample_and_stats(file_info["res_dir"],
-                                                 sky_dict,
-                                                 s,
-                                                 iteration=x.nit)
+    def simple_eval_plots(s, x):
+        """Call plot_sample_and_stat for every iteration."""
+        ju.plot_sample_and_stats(file_info["res_dir"],
+                                 sky_dict,
+                                 s,
+                                 dpi=300,
+                                 iteration=x.nit)
 
     samples, state = jft.optimize_kl(log_likelihood,
                                      pos_init,
                                      key=key,
                                      kl_kwargs=kl_solver_kwargs,
-                                     callback=plot,
+                                     callback=simple_eval_plots,
                                      odir=file_info["res_dir"],
                                      **minimization_config
                                      )

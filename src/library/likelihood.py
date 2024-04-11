@@ -9,7 +9,7 @@ from .utils import get_config
 
 
 def generate_erosita_likelihood_from_config(config_file_path):
-    """ Creates the eROSITA Poissonian likelihood given the path to the config file.
+    """ Creates the eROSITA Poissonian log-likelihood given the path to the config file.
 
     Parameters
     ----------

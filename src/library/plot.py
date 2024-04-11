@@ -18,7 +18,7 @@ from ..library.chandra_observation import ChandraObservationInformation
 
 def plot_result(array, domains=None, output_file=None, logscale=False, title=None, colorbar=True,
                 figsize=(8, 8), dpi=100, cbar_formatter=None, n_rows=None, n_cols=None,
-                adjust_figsize=False, common_colorbar=False, **kwargs):
+                adjust_figsize=False, common_colorbar=False, share_x=True, share_y=True, **kwargs):
     """
     Plot a 2D array using imshow() from the matplotlib library.
 
@@ -51,6 +51,10 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
         Whether to automatically adjust the size of the figure.
     common_colorbar : bool, optional
         Whether to use the same color bar for all images. Overrides vmin and vmax.
+    share_x : bool, optional
+        Whether to share the x axis.
+    share_y : bool, optional
+        Whether to share the y axis.
     kwargs : dict, optional
         Additional keyword arguments to pass to imshow().
 
@@ -77,11 +81,14 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             n_cols = n_plots // n_rows + 1
 
     if adjust_figsize:
-        figsize = (n_cols*figsize[0], n_rows*figsize[1])
+        x = int(n_cols/n_rows + 0.5)
+        y = int(n_rows/n_cols + 0.5)
+        figsize = (x*figsize[0], y*figsize[1])
 
     n_ax = n_rows * n_cols
     n_del = n_ax - n_plots
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize, dpi=dpi)
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize, dpi=dpi, sharex=share_x,
+                             sharey=share_y)
 
     if isinstance(axes, np.ndarray):
         axes = axes.flatten()
@@ -100,12 +107,12 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             axes[i].set_xlabel("FOV [arcmin]")
             axes[i].set_ylabel("FOV [arcmin]")
 
-        if "vmin" in pltargs:
-            vmin = pltargs["vmin"]
+        if "vmin" in kwargs:
+            vmin = kwargs["vmin"]
         else:
             vmin = None
-        if "vmax" in pltargs:
-            vmax = pltargs["vmax"]
+        if "vmax" in kwargs:
+            vmax = kwargs["vmax"]
         else:
             vmax = None
 
@@ -113,10 +120,9 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             vmin = min(np.min(array[i]) for i in range(n_plots))
             vmax = max(np.max(array[i]) for i in range(n_plots))
 
-        if vmin is not None and float(vmin) == 0.:
-            vmin = 1e-18  # to prevent LogNorm throwing errors
-
         if logscale:
+            if vmin is not None and float(vmin) == 0.:
+                vmin = 1e-18  # to prevent LogNorm throwing errors
             pltargs["norm"] = LogNorm(vmin, vmax)
         else:
             kwargs.update({'vmin': vmin, 'vmax': vmax})
@@ -125,7 +131,10 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
         im = axes[i].imshow(array[i], **pltargs)
 
         if title is not None:
-            axes[i].set_title(title[i])
+            if isinstance(title, list):
+                axes[i].set_title(title[i])
+            else:
+                fig.suptitle(title)
 
         if colorbar:
             divider = make_axes_locatable(axes[i])
@@ -137,9 +146,9 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
     if output_file is not None:
         fig.savefig(output_file, bbox_inches='tight', pad_inches=0)
         print(f"Plot saved as {output_file}.")
+        plt.close()
     else:
         plt.show()
-    plt.close()
 
 
 def plot_slices(field, outname, logscale=False):
@@ -549,9 +558,9 @@ def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
     print(f"Histogram saved as {filename}.")
 
 
-def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label, x_lim = None,
-                                            y_lim = None, bins=100, dpi=400,
-                                            title=None, output_path=None):
+def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label,
+                                          x_lim=None, y_lim=None, bins=100, dpi=400,
+                                          title=None, output_path=None, offset=None, figsize=None):
     """ Plot a 2d histogram for the arrays given for x_array and y_array.
 
 
@@ -578,21 +587,25 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     --------
     None
     """
-
     if len(x_array_list) != len(y_array_list):
         raise ValueError('Need same number of samples for x- and y-axis.')
 
-    x_bins = np.logspace(np.log(np.min(np.mean(x_array_list, axis=0))),
-                         np.log(np.max(np.mean(x_array_list, axis=0))), bins)
-    y_bins = np.logspace(np.log(np.min(np.mean(y_array_list, axis=0))),
-                         np.log(np.max(np.mean(y_array_list, axis=0))), bins)
+    # Add small offset to avoid logarithm of zero or negative values
+    if offset is None:
+        offset = 0.
+    x_bins = np.logspace(np.log(np.min(np.nanmean(x_array_list, axis=0)) + offset),
+                         np.log(np.max(np.nanmean(x_array_list, axis=0)) + offset), bins)
+    y_bins = np.logspace(np.log(np.min(np.nanmean(y_array_list, axis=0)) + offset),
+                         np.log(np.max(np.nanmean(y_array_list, axis=0)) + offset), bins)
 
     hist_list = []
     edges_x_list = []
     edges_y_list = []
 
     for i in range(len(x_array_list)):
-        hist, edges_x, edges_y = np.histogram2d(x_array_list[i], y_array_list[i], bins=(x_bins, y_bins))
+        hist, edges_x, edges_y = np.histogram2d(x_array_list[i][~np.isnan(x_array_list[i])],
+                                                y_array_list[i][~np.isnan(y_array_list[i])],
+                                                bins=(x_bins, y_bins))
         hist_list.append(hist)
         edges_x_list.append(edges_x)
         edges_y_list.append(edges_y)
@@ -601,14 +614,16 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     fig, ax = plt.subplots(dpi=dpi)
     counts = np.mean(hist_list, axis=0)
     xedges = np.mean(edges_x_list, axis=0)
-    yedges = np.mean(edges_y_list, axis=0)
+    yedges = np.mean(edges_y_list, axis=0) # FIXME: should this be done after the log?
 
-    plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet, norm=LogNorm(vmin=1))
+    plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet,
+                   norm=LogNorm(vmin=1, vmax=np.max(counts))) # FIXME: here it may fail if the counts are all zeros
     plt.colorbar()
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
+    plt.tight_layout()
     if x_lim is not None:
         ax.set_xlim(x_lim[0], x_lim[1])
     if y_lim is not None:
@@ -617,5 +632,7 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
         ax.set_title(title)
     if output_path is not None:
         plt.savefig(output_path)
-        print(f"2D histogram saved as {output_path}")
-    plt.close()
+        print(f"2D histogram saved as {output_path}.")
+        plt.close()
+    else:
+        plt.show()

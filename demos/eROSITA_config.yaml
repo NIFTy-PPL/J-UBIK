@@ -6,9 +6,9 @@ load_mock_data: False
 esass_image: DR1 # EDR
 telescope:
   tm_ids : [1] #,2,3,4,6]
-  fov: 3600 # in arcsec
+  fov: 4327 # in arcsec
   pattern: 15
-  detmap: True
+  detmap: False
   exp_cut: 500
   badpix_correction: False
 
@@ -35,10 +35,10 @@ psf:
   # config for homogeneous gauss psf
 #  gauss_var: 5
 
-# plotting:
-#  enabled: True
-#  slice: Null
-#  dpi: 800
+plotting:
+  enabled: True
+  slice: Null
+  dpi: 800
 
 grid:
   sdim: 512

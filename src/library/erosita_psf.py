@@ -18,6 +18,7 @@ class eROSITA_PSF():
         self._myheader = {'ra': "1", 'dec': "2"}
 
     def _check_energy(self, energy):
+        #FIXME Loop over entries in energy List
         e_list = list(set(self._load_energy()))
         if energy not in e_list:
             raise ValueError("Plase use one of the defined energies. \n" \
@@ -180,8 +181,9 @@ class eROSITA_PSF():
                      'pointing_center' : pointing_center}
         return psf_infos
 
-    def make_psf_op(self, energy, pointing_center, domain, conv_method, 
+    def make_psf_op(self, energy, pointing_center, domain, conv_method,
                     conv_params):
+        #FIXME Energies instead of Energy, Type List
         self._check_energy(energy)
         psf_infos = self._get_psf_infos(energy, pointing_center)
 
