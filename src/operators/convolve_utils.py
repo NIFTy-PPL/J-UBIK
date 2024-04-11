@@ -211,6 +211,7 @@ def psf_convolve_operator(domain, psf_infos, msc_infos, adj=False):
 def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1, 
                          want_cut=False, jaxop=True):
     """
+    #FIXME could add a list of PSF Infos
     Psf convolution operator using bilinear interpolation of stationary patches.
     """
     func_psf = get_psf_func(domain, psf_infos)
@@ -247,6 +248,7 @@ def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1,
         [np.roll(np.roll(pp, -shp[0]//2, axis = 0), -shp[1]//2, axis = 1)
         for pp in patch_psfs])
     #patch_psfs = list([pp for pp in patch_psfs]) # FIXME
+    # FIXME Patch_psfs should be of shape (n_patches, energies, x, y)
     patch_psfs = np.array(patch_psfs)
     margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
     if jaxop:
