@@ -70,12 +70,8 @@ def save_dict_to_pickle(dictionary, file_path):
 
 
 # MOCK
-<<<<<<< HEAD
 # FIXME Rewrite for MF
 def generate_mock_xi_from_prior_dict(npix, padding_ratio, fov, priors, seed=42,
-=======
-def generate_mock_sky_from_prior_dict(npix, padding_ratio, fov, priors, key,
->>>>>>> 8496d103cf2ae9548f362c5a6f0c6000420f61dd
                                       default_point_source_prior=None):
     """ Generates a mock sky position for the given grid and prior information
 
