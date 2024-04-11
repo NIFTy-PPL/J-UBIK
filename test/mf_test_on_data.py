@@ -51,7 +51,7 @@ samples, state = jft.optimize_kl(log_likelihood,
                                  pos_init,
                                  key=key,
                                  kl_kwargs=kl_solver_kwargs,
-                                 callback=plot,
+                                 # callback=plot,
                                  odir=file_info["res_dir"],
                                  **minimization_config
                                  )
