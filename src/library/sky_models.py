@@ -65,10 +65,14 @@ class SkyModel:
         self.plaw = None
         self.dev_cf = None
         self.dev_pspec = None
+        self.alpha_cf = None
+        self.alpa_pspec = None
 
         self.points_plaw = None
         self.points_dev_cf = None
         self.points_dev_pspec = None
+        self.points_alpha_cf = None
+        self.points_alpha_pspec = None
 
     def create_sky_model(self, sdim=None, edim=None, s_padding_ratio=None,
                          e_padding_ratio=None,
@@ -144,12 +148,12 @@ class SkyModel:
         sdistances = fov / sdim[0]
         edistances = energy_range/ edim
 
-        _ = self._create_diffuse_component_model(sdim, edim, s_padding_ratio, e_padding_ratio,
+        self._create_diffuse_component_model(sdim, edim, s_padding_ratio, e_padding_ratio,
                                                  sdistances, edistances, priors['diffuse'])
         if 'point_sources' not in priors:
             self.sky = self.diffuse
         else:
-            _ = self._create_point_source_model(sdim, edim, e_padding_ratio,
+            self._create_point_source_model(sdim, edim, e_padding_ratio,
                                                 sdistances, edistances, priors['point_sources'])
             self.sky = fuse_model_components(self.diffuse, self.point_sources)
         return self.sky
@@ -246,7 +250,9 @@ class SkyModel:
                                                                             sdistances,
                                                                             prior_dict['spatial'])
         if 'plaw' in prior_dict:
-            alpha_cf, _ = self._create_correlated_field(ext_s_shp, sdistances, prior_dict['plaw'])
+            self.alpha_cf, self.alpa_pspec = self._create_correlated_field(ext_s_shp,
+                                                                           sdistances,
+                                                                           prior_dict['plaw'])
             self.plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1), alpha_cf)
         if 'dev' in prior_dict:
             dev_cf, self.dev_pspec = self._create_correlated_field(ext_e_shp,
@@ -260,7 +266,6 @@ class SkyModel:
                                        'freq_dev': self.dev_cf}).build_model()
         exp_padding = lambda x: jnp.exp(log_diffuse(x)[:edim, :sdim[0], :sdim[1]])
         self.diffuse = jft.Model(exp_padding, domain=log_diffuse.domain)
-        return self.diffuse
 
     def _create_point_source_model(self, sdim, edim, e_padding_ratio,
                                    sdistances, edistances, prior_dict):
@@ -304,13 +309,16 @@ class SkyModel:
         self.points_invg = jft.Model(points_func,
                                     domain={prior_dict['spatial']['key']: jft.ShapeWithDtype(sdim)})
         if 'plaw' in prior_dict:
-            points_alpha_cf, _ = self._create_correlated_field(sdim, sdistances, prior_dict['plaw'])
-            self.points_plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1), points_alpha_cf)
+            self.points_alpha_cf, self.points_alpha_pspec = self._create_correlated_field(sdim,
+                                                                    sdistances,
+                                                                    prior_dict['plaw'])
+            self.points_plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1),
+                                                  self.points_alpha_cf)
         if 'dev' in prior_dict:
-            points_dev_cf, self.points_dev_pspec = self._create_correlated_field(ext_e_shp,
+            self.points_dev_cf, self.points_dev_pspec = self._create_correlated_field(ext_e_shp,
                                                                                  edistances,
                                                                                  prior_dict['dev'])
-            self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev']['prefix']+'xi',
+            self.points_dev_cf = ju.MappedModel(self.points_dev_cf, prior_dict['dev']['prefix']+'xi',
                                                 sdim, False)
 
         log_points = ju.GeneralModel({'spatial': self.points_invg,
@@ -318,7 +326,6 @@ class SkyModel:
                                        'freq_dev': self.points_dev_cf}).build_model()
         exp_padding = lambda x: jnp.exp(log_points(x)[:edim, :, :])
         self.point_sources = jft.Model(exp_padding, domain=log_points.domain)
-        return self.point_sources
 
     def sky_model_to_dict(self):
         return {'sky': self.sky, 'diffuse': self.diffuse, 'points': self.point_sources}
