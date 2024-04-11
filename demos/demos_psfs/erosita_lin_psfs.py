@@ -1,6 +1,5 @@
 import jubik0 as ju
 import nifty8 as ift
-import nifty8.re as jft
 import numpy as np
 
 from jax import config
@@ -8,10 +7,10 @@ from jax import random
 config.update('jax_enable_x64', True)
 
 ift.set_nthreads(8)
-lin_vs_jaxlin = False
 
 seed = 42
 key = random.PRNGKey(seed)
+
 
 def get_kernels_and_sources(domain, psf_func):
     rnds = np.zeros(domain.shape)
@@ -42,35 +41,57 @@ obs = ju.eROSITA_PSF(filename)
 
 # more numbers about the observation
 energy = '3000'
+# FIXME Convention for Pointing Center (Array / List ?)
 pointing_center = np.array([[1800, 1800]])
-fov = (20, 3600, 3600)
-npix = (10, 512, 512)
+fov = (3600, 3600)
+npix = (512, 512)
 dists = tuple(ff/pp for ff, pp in zip(fov, npix))
-domain = ift.RGSpace(npix, distances=dists)
-domain2 = ju.Domain(npix, dists)
-rnds = ift.from_random(domain)
+
+domain_nifty = ift.RGSpace(npix, distances=dists)
+domain_jubik = ju.Domain(npix, dists)
+rnds = ift.from_random(domain_nifty)
 
 c2params = {'npatch': 8, 'margfrac': 0.062, 'want_cut': False}
 
-op1 = obs.make_psf_op(energy, pointing_center, domain2,
+op1 = obs.make_psf_op(energy, pointing_center, domain_jubik,
                       conv_method='LINJAX', conv_params=c2params)
 res1 = op1(rnds.val)
 
-if lin_vs_jaxlin:
-    op2 = obs.make_psf_op(energy, pointing_center, domain,
-                          conv_method='LIN', conv_params=c2params)
-    res2 = op2(rnds).val
+op2 = obs.make_psf_op(energy,
+                    pointing_center,
+                    domain_nifty,
+                    conv_method='LIN',
+                    conv_params=c2params)
+res2 = op2(rnds).val
 
-    print("")
-
-    print("Equality of LIN and LINJAX: ", np.allclose(res1, res2))
+print("")
+print("Equality of LIN and LINJAX: ", np.allclose(res1, res2))
 
 # Test alternative to get the operator
-test_psf = ju.build_erosita_psf([filename], energy, pointing_center, domain2,
-                                c2params["npatch"], c2params["margfrac"],
+test_psf = ju.build_erosita_psf([filename],
+                                energy, pointing_center,
+                                domain_jubik,
+                                c2params["npatch"],
+                                c2params["margfrac"],
                                 c2params["want_cut"])
 res3 = test_psf(rnds.val)
-if lin_vs_jaxlin:
-    print("Equality of other LINJAX instance: ", np.allclose(res2, res3))
+print("Equality of other LINJAX instance: ", np.allclose(res2, res3))
+
+# Jax Lin with Energy dimension
+print("Check JaxLin with broadcasting over energies")
 
 # TODO add benchmarks for performace and do further tests
+
+fov = (20, 3600, 3600)
+npix = (10, 512, 512)
+dists = tuple(ff/pp for ff, pp in zip(fov, npix))
+
+domain_nifty_2 = ift.RGSpace(npix, distances=dists)
+domain_jubik_2 = ju.Domain(npix, dists)
+rnds_3d = ift.from_random(domain_nifty_2)
+
+op3 = obs.make_psf_op(energy, pointing_center, domain_jubik_2,
+                      conv_method='LINJAX', conv_params=c2params)
+
+res1 = op3(rnds_3d.val)
+print("Success")
