@@ -18,11 +18,11 @@ class eROSITA_PSF():
         self._myheader = {'ra': "1", 'dec': "2"}
 
     def _check_energy(self, energy):
-        #FIXME Loop over entries in energy List
         e_list = list(set(self._load_energy()))
         if energy not in e_list:
-            raise ValueError("Plase use one of the defined energies. \n" \
-                             f"Energies for PSFs = {e_list}")
+            raise ValueError("Plase use one of the defined energies. \n",
+                             f"Energies for PSFs = {e_list}.\n",
+                             "This list is unordered")
 
     def _load_fits(self):
         return ast.open(self._fname)
