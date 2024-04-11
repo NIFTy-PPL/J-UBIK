@@ -258,8 +258,8 @@ def generate_erosita_data_from_config(config_file_path, response_func, output_pa
                                                           tel_info['fov'],
                                                           priors,
                                                           subkey,
-                                                          cfg['point_source_defaults'])
-    sky_comps = create_sky_model(grid_info['npix'], grid_info['padding_ratio'],
+                                                          cfg['point_source_defaults']) # FIXME: mock data generation does not work
+    sky_comps = create_sky_model(grid_info['npix'], grid_info['padding_ratio'], # fixme: this does not work anymore
                                  tel_info['fov'], priors)
     masked_mock_data = response_func(sky_comps['sky'](mock_sky_position))
     key, subkey = random.split(key)
