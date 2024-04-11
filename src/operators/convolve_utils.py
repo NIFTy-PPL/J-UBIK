@@ -264,7 +264,6 @@ def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1,
         all_patches.append(patch_psfs)
     all_patches = np.stack(all_patches)
     all_patches = np.moveaxis(all_patches, 0, -3)
-    print(all_patches.shape)
     margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
     if jaxop:
         # TODO Want cut?

@@ -116,7 +116,6 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
 
     normed_kernel = rollback_kernel * norm**-1
 
-    print(normed_kernel.shape)
     ndom = Domain((1, *shape), (None, *domain.distances))
     convolved = jifty_convolve(normed_kernel,
                                padded,
