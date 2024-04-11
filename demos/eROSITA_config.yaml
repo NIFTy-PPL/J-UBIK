@@ -40,7 +40,7 @@ psf:
 
 grid:
   sdim: 512
-  edim: 10
+  edim: 3
   padding_ratio: 1.203
   energy_bin:
     e_min: 2.0
@@ -63,7 +63,47 @@ priors:
       q: 1.E-6
       key: points
     plaw:
+      fluctuations:
+        fluctuations:
+          - 1.0
+          - 5.0e-3
+        loglogavgslope:
+          - -3.
+          - 1.0e-2
+        flexibility:
+          - 2.0
+          - 5.0e-1
+        asperity:
+          - 5.0e-1
+          - 5.0e-2
+        # harmonic_type: "Fourier"
+        non_parametric_kind: "power"
+      prefix: points_plaw
+      offset:
+        offset_mean: -2.0
+        offset_std:
+          - 1.0e-3
+          - 1.0e-4
     dev:
+      fluctuations:
+        fluctuations:
+          - 1.0
+          - 5.0e-3
+        loglogavgslope:
+          - -3
+          - 1.0e-2
+        flexibility:
+          - 2.0
+          - 5.0e-1
+        asperity:
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: points_dev
+      offset:
+        offset_mean: 0.0
+        offset_std:
+          - 1.0e-3
+          - 1.0e-4
   diffuse:
     spatial:
       offset:
@@ -84,10 +124,51 @@ priors:
         asperity:
           - 0.2
           - 0.1
-      prefix: diffuse_
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_spatial
     plaw:
+      fluctuations:
+        fluctuations:
+          - 1.0
+          - 5.0e-3
+        loglogavgslope:
+          - -3.
+          - 1.0e-2
+        flexibility:
+          - 2.0
+          - 5.0e-1
+        asperity:
+          - 5.0e-1
+          - 5.0e-2
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_plaw
+      offset:
+        offset_mean: -2.0
+        offset_std:
+          - 1.0e-3
+          - 1.0e-4
     dev:
-
+      fluctuations:
+        fluctuations:
+          - 1.0
+          - 5.0e-3
+        loglogavgslope:
+          - -3
+          - 1.0e-2
+        flexibility:
+          - 2.0
+          - 5.0e-1
+        asperity:
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_dev
+      offset:
+        offset_mean: 0.0
+        offset_std:
+          - 1.0e-3
+          - 1.0e-4
 
 minimization:
   resume: False

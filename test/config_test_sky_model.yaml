@@ -40,8 +40,9 @@ psf:
 
 grid:
   sdim: 512
-  edim: 10
-  padding_ratio: 1.203
+  edim: 3
+  s_padding_ratio: 1.203
+  e_padding_ratio: 1.334
   energy_bin:
     e_min: 2.0
     e_max: 4.5
@@ -65,40 +66,38 @@ priors:
     plaw:
       fluctuations:
         fluctuations:
-          - 1.0
+          - 1.0e-1
           - 5.0e-3
         loglogavgslope:
-          - -3.
+          - -1
           - 1.0e-2
         flexibility:
-          - 2.0
+          - 1.0
           - 5.0e-1
         asperity:
-          - 5.0e-1
-          - 5.0e-2
         # harmonic_type: "Fourier"
         non_parametric_kind: "power"
-      prefix: points_plaw
+      prefix: "points_freq_plaw"
       offset:
-        offset_mean: -2.0
+        offset_mean: 0.0
         offset_std:
           - 1.0e-3
           - 1.0e-4
     dev:
       fluctuations:
         fluctuations:
-          - 1.0
+          - 1.0e-1
           - 5.0e-3
         loglogavgslope:
-          - -3
+          - -1
           - 1.0e-2
         flexibility:
-          - 2.0
+          - 1.0e-3
           - 5.0e-1
         asperity:
-        non_parametric_kind: "power"
         # harmonic_type: "Fourier"
-      prefix: points_dev
+        non_parametric_kind: "power"
+      prefix: "points_freq_dev"
       offset:
         offset_mean: 0.0
         offset_std:
@@ -130,40 +129,38 @@ priors:
     plaw:
       fluctuations:
         fluctuations:
-          - 1.0
+          - 1.0e-1
           - 5.0e-3
         loglogavgslope:
-          - -3.
+          - -1
           - 1.0e-2
         flexibility:
-          - 2.0
+          - 1.0
           - 5.0e-1
         asperity:
-          - 5.0e-1
-          - 5.0e-2
-        non_parametric_kind: "power"
         # harmonic_type: "Fourier"
-      prefix: diffuse_plaw
+        non_parametric_kind: "power"
+      prefix: "freq_plaw"
       offset:
-        offset_mean: -2.0
+        offset_mean: 0.0
         offset_std:
           - 1.0e-3
           - 1.0e-4
     dev:
       fluctuations:
         fluctuations:
-          - 1.0
+          - 1.0e-1
           - 5.0e-3
         loglogavgslope:
-          - -3
+          - -1
           - 1.0e-2
         flexibility:
-          - 2.0
+          - 1.0e-3
           - 5.0e-1
         asperity:
-        non_parametric_kind: "power"
         # harmonic_type: "Fourier"
-      prefix: diffuse_dev
+        non_parametric_kind: "power"
+      prefix: "freq_dev"
       offset:
         offset_mean: 0.0
         offset_std:
@@ -173,13 +170,27 @@ priors:
 
 minimization:
   resume: False
-  total_iterations: 20
+  n_total_iterations: 15
   n_samples: 4
-  minimizer: newtoncg
-  sampling_minimizer: newton_cg
-  sampling_method: linear
-  sampling_kwargs:
-    xtol: 0.001
-    maxiter: 10
+  draw_linear_kwargs:
+    cg_name : lin sampling
+    cg_kwargs:
+      absdelta: 1.e-4
+      maxiter: 60
+  nonlinearly_update_kwargs:
+    minimize_kwargs:
+      name: nonlin sampling
+      xtol: 2.e-4
+      cg_kwargs:
+        name: null
+      maxiter: 25
+  kl_kwargs:
+    minimize_kwargs:
+      name: "M"
+      absdelta: 1.e-6
+      maxiter: 15
+      cg_kwargs:
+        name: "MCG"
+  sample_mode: nonlinear_sample
 
 

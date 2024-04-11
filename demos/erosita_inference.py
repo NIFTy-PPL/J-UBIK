@@ -49,7 +49,7 @@ if __name__ == "__main__":
     pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky_model.domain))
 
     kl_solver_kwargs = minimization_config.pop('kl_kwargs')
-    kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['npix']  # FIXME: Replace by domain information
+    kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['sdim']  # FIXME: Replace by domain information
 
     # Plot
     plot = lambda s, x: ju.plot_sample_and_stats(file_info["res_dir"],

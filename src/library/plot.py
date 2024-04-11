@@ -298,7 +298,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
 
         mean = results[key].mean(axis=0)
         std = results[key].std(axis=0, ddof=1)
-        stats = np.stack([mean, std])
+        stats = np.stack([mean, std], axis=0)
         plot_result(stats, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
                     title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
