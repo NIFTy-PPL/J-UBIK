@@ -161,8 +161,8 @@ class eROSITA_PSF():
             tm, frac = self._cutnorm(j[1], lower_cut=lower_cut, want_frac=True)
             axs.text(10, 450, f"Norm. fraction: {frac}")
             im = axs.imshow(tm.T, **pltargs)
-            axs.scatter((j[3][0]*pix_size[0]/60)-half_fov[0],
-                        (j[3][1]*pix_size[1]/60)-half_fov[1],
+            axs.scatter((j[3][0]*pix_size[0]/60)-hlf_fov[0],
+                        (j[3][1]*pix_size[1]/60)-hlf_fov[1],
                         marker=".", color='r')
             axs.set_xlabel('[arcsec]')
             axs.set_ylabel('[arcsec]')
