@@ -152,30 +152,39 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     return builder(exposures, **kwargs)
 
 
-def _build_tm_erosita_psf(psf_filename, energy, pointing_center, domain, npatch,
-                      margfrac, want_cut=False, convolution_method='LINJAX'):
+def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
+                          npatch, margfrac, want_cut=False,
+                          convolution_method='LINJAX'):
     """
-    #TODO Docstring
-    #FIXME Energies instead of Energy Type == list
+    #TODO only brief docstring, not public.
+
     Parameters:
     -----------
     psf_file: str
         filename tm_id_+ base / suffix, e.g. 2dpsf_190219v05.fits
+    energies: list
     """
     psf = eROSITA_PSF(psf_filename)
     cdict = {"npatch": npatch,
              "margfrac": margfrac,
              "want_cut": want_cut}
-    psf_func = psf.make_psf_op(energy, pointing_center, domain,
-                               convolution_method, cdict)
+    psf_func = psf.make_psf_op(energies,
+                               pointing_center,
+                               domain,
+                               convolution_method,
+                               cdict)
     return psf_func
 
 
-def build_erosita_psf(psf_filenames, energy, pointing_center, domain, npatch,
+def build_erosita_psf(psf_filenames, energies, pointing_center, domain, npatch,
                       margfrac, want_cut=False, convolution_method='LINJAX'):
     #FIXME Energies instead of Energy (List) NO LOOP Energie vectorized
-    """#TODO Add Docstring"""
-    functions = [_build_tm_erosita_psf(psf_file, energy, pcenter,
+    """#TODO Add Docstring
+    Parameters:
+    ----------
+    energies: list
+    """
+    functions = [_build_tm_erosita_psf(psf_file, energies, pcenter,
                                        domain, npatch, margfrac)
                  for psf_file, pcenter in zip(psf_filenames, pointing_center)]
     index = jnp.arange(len(functions))

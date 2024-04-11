@@ -40,11 +40,11 @@ filename = dir_path + fname[0]
 obs = ju.eROSITA_PSF(filename)
 
 # more numbers about the observation
-energy = '3000'
+energy = ['3000']
 # FIXME Convention for Pointing Center (Array / List ?)
 pointing_center = np.array([[1800, 1800]])
-fov = (3600, 3600)
-npix = (512, 512)
+fov = (1, 3600, 3600)
+npix = (1, 512, 512)
 dists = tuple(ff/pp for ff, pp in zip(fov, npix))
 
 domain_nifty = ift.RGSpace(npix, distances=dists)
@@ -57,15 +57,16 @@ op1 = obs.make_psf_op(energy, pointing_center, domain_jubik,
                       conv_method='LINJAX', conv_params=c2params)
 res1 = op1(rnds.val)
 
-op2 = obs.make_psf_op(energy,
-                    pointing_center,
-                    domain_nifty,
-                    conv_method='LIN',
-                    conv_params=c2params)
-res2 = op2(rnds).val
+# TODO FIX LIN for 3D
+# op2 = obs.make_psf_op(energy,
+#                       pointing_center,
+#                       domain_nifty,
+#                       conv_method='LIN',
+#                       conv_params=c2params)
+# res2 = op2(rnds).val
 
-print("")
-print("Equality of LIN and LINJAX: ", np.allclose(res1, res2))
+# print("")
+# print("Equality of LIN and LINJAX: ", np.allclose(res1, res2))
 
 # Test alternative to get the operator
 test_psf = ju.build_erosita_psf([filename],
@@ -75,23 +76,37 @@ test_psf = ju.build_erosita_psf([filename],
                                 c2params["margfrac"],
                                 c2params["want_cut"])
 res3 = test_psf(rnds.val)
-print("Equality of other LINJAX instance: ", np.allclose(res2, res3))
+print("Equality of other LINJAX instance: ", np.allclose(res1, res3))
 
 # Jax Lin with Energy dimension
-print("Check JaxLin with broadcasting over energies")
+print("Check JaxLin for Multifrequency")
 
 # TODO add benchmarks for performace and do further tests
 
-fov = (20, 3600, 3600)
-npix = (10, 512, 512)
+energies = ['0277', '0930', '1486', '3000', '4508', '6398', '8040']
+fov = (1, 3600, 3600)
+npix = (7, 512, 512)
 dists = tuple(ff/pp for ff, pp in zip(fov, npix))
 
 domain_nifty_2 = ift.RGSpace(npix, distances=dists)
 domain_jubik_2 = ju.Domain(npix, dists)
 rnds_3d = ift.from_random(domain_nifty_2)
 
-op3 = obs.make_psf_op(energy, pointing_center, domain_jubik_2,
+op3 = obs.make_psf_op(energies, pointing_center, domain_jubik_2,
                       conv_method='LINJAX', conv_params=c2params)
 
 res1 = op3(rnds_3d.val)
+
+points = np.zeros(domain_jubik_2.shape)
+points[:,::20, ::20] = 1.
+
+res_points = op3(points)
+
+def plotter(arr):
+    "Make fast plots for MF"
+    import matplotlib.pyplot as plt
+    for i in range(arr.shape[0]):
+        plt.imshow(arr[i])
+        plt.show()
+
 print("Success")

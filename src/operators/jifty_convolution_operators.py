@@ -159,7 +159,9 @@ def jifty_convolve(x, y, domain, axes):
     hx = jnp.fft.fftn(x, axes=axes)
     hy = jnp.fft.fftn(y, axes=axes)
     if len(y.shape) > len(x.shape):
-        print("Dimension Error. Broadcasting PSFs")
+        print("kernel_shape:", x.shape)
+        print("signal_shape:", y.shape)
+        print("Dimension Inconsistency. Broadcasting PSFs")
         prod = hx[..., np.newaxis, :, :]*hy
     else:
         prod = hx*hy
