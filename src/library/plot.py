@@ -12,7 +12,7 @@ from os.path import join
 
 from .response import build_erosita_response_from_config
 from .utils import get_data_domain, get_config, create_output_directory
-from ..library.sky_models import create_sky_model_from_config
+from ..library.sky_models import SkyModel
 from ..library.chandra_observation import ChandraObservationInformation
 
 
@@ -298,7 +298,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
 
         mean = results[key].mean(axis=0)
         std = results[key].std(axis=0, ddof=1)
-        stats = np.stack([mean, std])
+        stats = np.stack([mean, std], axis=0)
         plot_result(stats, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
                     title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
@@ -497,8 +497,10 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
     if plotting_kwargs is None:
         plotting_kwargs = {}
 
-    sky_dict = create_sky_model_from_config(config_path)
-    plottable_ops = sky_dict.copy()
+    sky_model = SkyModel(config_path).create_sky_model()
+    plottable_ops = {'point_sources': sky_model.point_sources,
+                     'diffuse': sky_model.diffuse,
+                     'sky': sky_model.sky}
 
     positions = []
     for _ in range(n_samples):
@@ -517,7 +519,6 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
 
     if response_path is not None:  # FIXME: when R will be pickled, load from file
         tm_ids = cfg['telescope']['tm_ids']
-        plottable_samples.pop('pspec')
 
         resp_dict = build_erosita_response_from_config(config_path)
 

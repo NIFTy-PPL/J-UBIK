@@ -113,7 +113,9 @@ class GeneralModel(jft.Model):
                 raise NotImplementedError
             if 'time' in self._available_fields.keys() and self._available_fields['time'] is not None:
                 raise NotImplementedError
-            res = jft.Model(func, domain=domain)
+            res_func = lambda x: func(x) if len(func(x).shape) == 3 else jnp.reshape(func(x),
+                                                                                     (1,) + func(x).shape)
+            res = jft.Model(res_func, domain=domain)
         return res
 
 
