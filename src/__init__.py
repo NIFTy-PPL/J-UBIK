@@ -19,17 +19,18 @@ from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
 from .library.chandra_observation import ChandraObservationInformation
 from .library.erosita_psf import eROSITA_PSF
-from .library.sky_models import (SkyModel, create_sky_model, create_point_source_model,
-                                 create_diffuse_component_model, create_sky_model_from_config)
+from .library.sky_models import SkyModel
 from .library.response import load_erosita_response, build_exposure_function, \
     build_callable_from_exposure_file, build_readout_function, build_erosita_response, \
     build_erosita_response_from_config, build_erosita_psf
 from .library.data import (load_masked_data_from_pickle, load_erosita_masked_data,
-                           generate_erosita_data_from_config, generate_mock_sky_from_prior_dict,
+                           generate_erosita_data_from_config, generate_mock_xi_from_prior_dict,
                            create_erosita_data_from_config_dict, save_dict_to_pickle, Domain)
 from .library.likelihood import generate_erosita_likelihood_from_config
-from .library.diagnostics import compute_uncertainty_weighted_residuals, \
-    compute_noise_weighted_residuals, plot_2d_gt_vs_rec_histogram
+from .library.diagnostics import (compute_uncertainty_weighted_residuals,
+                                  compute_noise_weighted_residuals,
+                                  plot_2d_gt_vs_rec_histogram)
+from .library.mf_sky import MappedModel, GeneralModel, build_power_law
 from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
                                               _get_weights)
 from .operators.jifty_convolution_operators import (_bilinear_weights,

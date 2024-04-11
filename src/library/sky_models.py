@@ -6,97 +6,6 @@ import jubik0 as ju
 from jax import numpy as jnp
 
 
-def create_sky_model_from_config(config_file_path):
-    """Gets the parameters needed for building the sky model from the config file
-    given the corresponding path and uses these to create the sky model.
-
-    Parameters
-    ----------
-    config_file_path : string
-        Path to the config file
-
-    Returns
-    -------
-    sky_dict: dict
-        Dictionary of sky component models
-    """
-    if not isinstance(config_file_path, str):
-        raise TypeError("The path to the config file needs to be a string")
-    if not config_file_path.endswith('.yaml'):
-        raise ValueError("The sky model parameters need to be safed in a .yaml-file.")
-
-    config = ju.get_config(config_file_path)
-    priors = config['priors']
-    grid_info = config['grid']
-    tel_info = config['telescope']
-
-    return create_sky_model(grid_info['npix'], grid_info['padding_ratio'],
-                            tel_info['fov'], priors)
-
-
-def create_sky_model(npix, padding_ratio, fov, priors):
-    """Returns a dictionary of sky component models given the grid information
-    (# pixels and padding ration) and the telescope information (FOV: field of view) as well as a
-    dictionary for the prior parameters
-
-    Parameters
-    ----------
-    npix: int
-        Number of pixels in each direction
-    padding_ratio: float
-        Ratio between number of pixels in the actual space and the padded space
-    fov: float
-        FOV of the telescope
-    priors: dict
-        Dictionary of prior parameters for the correlated field needed and for the point sources optional
-        in the format:
-                priors:
-                    point_sources:
-                        alpha: optional
-                        q: optional
-                    diffuse:
-                        offset:
-                            offset_mean:
-                            offset_std:
-                        fluctuations:
-                            fluctuations:
-                            loglogavgslope:
-                            flexibility:
-                            asperity:
-                        prefix:
-
-    Returns
-    -------
-    sky_dict: dict
-        Dictionary of sky component models
-    """
-    space_shape = 2 * (npix, )
-    distances = fov / npix
-
-    diffuse_component, pspec, diffuse_component_full = create_diffuse_component_model(
-        space_shape,
-        padding_ratio,
-        distances,
-        priors['diffuse']['offset'],
-        priors['diffuse']['fluctuations'],
-        priors['diffuse']['prefix'])
-
-    if priors['point_sources'] is None:
-        sky_dict = {'sky': diffuse_component,
-                    'diffuse_full': diffuse_component_full,
-                    'pspec': pspec}
-    else:
-        point_sources = create_point_source_model(
-            space_shape, **priors['point_sources'])
-        sky = fuse_model_components(diffuse_component, point_sources)
-        sky_dict = {'sky': sky,
-                    'point_sources': point_sources,
-                    'diffuse': diffuse_component,
-                    'diffuse_full': diffuse_component_full,
-                    'pspec': pspec}
-    return sky_dict
-
-
 def fuse_model_components(model_a, model_b):
     """ Takes two models A and B and fuses them to a model C such that the application
     of model C to some latent space x yields C(X) = A(X) + B(X)
@@ -118,76 +27,6 @@ def fuse_model_components(model_a, model_b):
     return jft.Model(fusion, domain=domain)
 
 
-def create_diffuse_component_model(shape, padding_ratio, distances, offset, fluctuations, prefix='diffuse_'):
-    """ Returns a model for the diffuse component given the information on its shape and
-    distances and the prior dictionaries for the offset and the fluctuations
-
-    Parameters
-    ----------
-    shape : tuple of int or int
-        Position-space shape.
-    distances : tuple of float or float
-        Position-space distances
-    offset: dict
-        Prior dictionary for the offset of the diffuse component of the form
-            offset_mean: float
-            offset_std: (float, float)
-    fluctuations: dict
-        Prior dictionary for the fluctuations of the diffuse component of the form
-            fluctuations: (float, float)
-            loglogavgslope: (float, float)
-            flexibility: (float, float)
-            asperity: (float, float)
-    prefix: string
-        Prefix for the power spectrum parameter domain names
-
-    Returns
-    -------
-    diffuse: jft.Model
-        Model for the diffuse component
-    pspec: Callable
-        Power spectrum
-    """
-    ext_shp = tuple(int(entry * padding_ratio) for entry in shape)
-    cfm = jft.CorrelatedFieldMaker(prefix=prefix)
-    cfm.set_amplitude_total_offset(**offset)
-    cfm.add_fluctuations(ext_shp, distances, **fluctuations, non_parametric_kind='power')
-    cf = cfm.finalize()
-    pspec = cfm.power_spectrum
-
-    exp_padding = lambda x: jnp.exp(cf(x)[:shape[0],:shape[1]])
-    diffuse = jft.Model(exp_padding, domain=cf.domain)
-    diffuse_full = jft.Model(lambda x: jnp.exp(cf(x)), domain=cf.domain)
-    return diffuse, pspec, diffuse_full
-
-
-def create_point_source_model(shape, alpha, q, key='points'):
-    """ Returns a model for the point-source component given the information on its shape
-     and information on the shape and scaling parameters
-
-    Parameters
-    ----------
-    shape : tuple of int or int
-        Position-space shape.
-    alpha: float
-        Inverse gamma shape parameter
-    q: float
-        Inverse gamma scaling parameter
-    key: string
-        Prefix for the point-source parameter domain names
-
-    Returns
-    -------
-    points: jft.Model
-        Model for the point-source component
-    """
-    point_sources = jft.invgamma_prior(a=alpha, scale=q)
-    points_func = lambda x: point_sources(x[key])
-    return jft.Model(points_func, domain={key: jft.ShapeWithDtype(shape)})
-
-
-# FIXME: DELETE SKY MODEL CLASS
-
 class SkyModel:
     """
     Basic spatial SkyModel consisting of a diffuse (correlated) component
@@ -201,56 +40,292 @@ class SkyModel:
                    the priors on the correlated field and the uncorrelated inverse gamma
                     component.
     """
-    def __init__(self, config_file):
-        if not isinstance(config_file, str):
-            raise TypeError("The config_file argument needs to be the path to a .yaml config file.")
-        # FIXME: add all relevant checks and docstrings
 
-        # Load config
-        self.config = ju.get_config(config_file)
-        self.priors = self.config['priors']
+    def __init__(self, config_file_path):
 
-        # grid info
-        grid_info = self.config['grid']
-        tel_info = self.config['telescope']
+        """Gets the parameters needed for building the sky model from the config file
+        given the corresponding path.
 
-        # Prepare the spaces
-        self.position_space = ift.RGSpace(2*(self.config['grid']['npix'],), distances=[tel_info['fov'] / grid_info['npix']])
-        extended_size = int(self.config['grid']['padding_ratio'] * self.position_space.shape[0])
-        self.extended_space = ift.RGSpace(2*(extended_size,), distances=self.position_space.distances)
-
-        # Prepare zero padding
-        self.pad = ift.FieldZeroPadder(self.position_space, self.extended_space.shape)
-
-    def create_sky_model(self):
+        Parameters
+        ----------
+        config_file_path : string
+            Path to the config file
         """
-        returns a dictionary containing:
-            - sky-operator
-            - power-spectrum-operator
-        if point-sources are switched on:
-            - point-sources
-            - diffuse (correlated field)
+        if not isinstance(config_file_path, str):
+            raise TypeError("The path to the config file needs to be a string")
+        if not config_file_path.endswith('.yaml'):
+            raise ValueError("The sky model parameters need to be safed in a .yaml-file.")
+
+        self.config = ju.get_config(config_file_path)
+        self.diffuse = None
+        self.point_sources = None
+        self.pspec = None
+        self.sky = None
+
+        self.plaw = None
+        self.dev_cf = None
+        self.dev_pspec = None
+        self.alpha_cf = None
+        self.alpa_pspec = None
+
+        self.points_plaw = None
+        self.points_dev_cf = None
+        self.points_dev_pspec = None
+        self.points_alpha_cf = None
+        self.points_alpha_pspec = None
+
+    def create_sky_model(self, sdim=None, edim=None, s_padding_ratio=None,
+                         e_padding_ratio=None,
+                         fov=None, energy_range= None, priors=None):
+        """Returns the sky model composed out of components given the grid information
+        (# pixels and padding ration), the telescope information (FOV: field of view) as well as a
+        dictionary for the prior parameters. All these parameters can be set externally or taken
+        the SkyModels config file, if they are set to None.
+
+        Parameters
+        ----------
+        sdim: int or tuple of int
+            Number of pixels in each spatial dimension
+        edim: int
+            Number of pixels in spectral direction
+        s_padding_ratio: float
+            Ratio between number of pixels in the actual space and the padded space
+        e_padding_ratio: float
+            Ratio between number of pixels in the actual enegery space and the padded energy space.
+            It needs to be taken such that the correlated fields in energy direction has more than 3
+            pixels.
+        fov: float
+            FOV of the telescope
+        energy_range:
+            Total range of energies (i.e. max. - min. energy)
+        priors: dict
+            Dictionary of prior parameters for the correlated field
+            in the format:
+                    point_sources:
+                        spatial:
+                            alpha:
+                            q:
+                        plaw: optional
+                        dev: optional
+                    diffuse:
+                        spatial:
+                            offset:
+                                offset_mean:
+                                offset_std:
+                            fluctuations:
+                                fluctuations:
+                                loglogavgslope:
+                                flexibility:
+                                asperity:
+                                harmonic_type:
+                                non_parametric_kind:
+                            prefix:
+                        plaw: optional
+                        dev: optional
+
+        Returns
+        -------
+        sky: jft.Model
         """
-        diffuse_component, pspec = self._create_diffuse_component_model()
-        if self.priors['point_sources'] is None:
-            sky = diffuse_component
-            sky_dict = {'sky': sky, 'pspec': pspec}
+        if sdim is None:
+            sdim = self.config['grid']['sdim']
+        if edim is None:
+            edim = self.config['grid']['edim']
+        if s_padding_ratio is None:
+            s_padding_ratio = self.config['grid']['s_padding_ratio']
+        if e_padding_ratio is None:
+            e_padding_ratio = self.config['grid']['e_padding_ratio']
+        if fov is None:
+            fov = self.config['telescope']['fov']
+        if energy_range is None:
+            e_min = self.config['grid']['energy_bin']['e_min']
+            e_max = self.config['grid']['energy_bin']['e_max']
+            energy_range = e_max - e_min
+        if priors is None:
+            priors = self.config['priors']
+
+        sdim = 2 * (sdim,)
+        sdistances = fov / sdim[0]
+        edistances = energy_range/ edim
+
+        self._create_diffuse_component_model(sdim, edim, s_padding_ratio, e_padding_ratio,
+                                                 sdistances, edistances, priors['diffuse'])
+        if 'point_sources' not in priors:
+            self.sky = self.diffuse
         else:
-            point_sources = self._create_point_source_model()
-            sky = point_sources + diffuse_component
-            sky_dict = {'sky': sky, 'point_sources': point_sources, 'diffuse': diffuse_component,
-                        'pspec': pspec}
-        return sky_dict
+            self._create_point_source_model(sdim, edim, e_padding_ratio,
+                                                sdistances, edistances, priors['point_sources'])
+            self.sky = fuse_model_components(self.diffuse, self.point_sources)
+        return self.sky
 
-    def _create_point_source_model(self):
-        point_sources = ift.InverseGammaOperator(self.extended_space, **self.priors['point_sources'])
-        return point_sources.ducktape('point_sources')
+    def _create_correlated_field(self, shape, distances, prior_dict):
+        """ Returns a 1- or 2-dim correlated field and the corresponding
+        power spectrum given its shape, the distances and the prior specification.
 
-    def _create_diffuse_component_model(self):
-        # FIXME: externalize power spectrum of diffuse model!
-        cfm = ift.CorrelatedFieldMaker("")
-        cfm.set_amplitude_total_offset(**self.priors['diffuse']['offset'])
-        cfm.add_fluctuations(self.extended_space, **self.priors['diffuse']['fluctuations'])
-        diffuse = cfm.finalize().exp()
-        pspec = cfm.power_spectrum
-        return diffuse, pspec
+        Parameters
+        ----------
+        shape: int or tuple of int
+            Number of pixels of the correlated field in one or in two dimensions
+        distances : tuple of float or float
+            Distances in the space of the correlated field
+        prior_dict: dict
+            Dictionary of prior parameters for the correlated field
+            in the format:
+                    offset:
+                        offset_mean:
+                        offset_std:
+                    fluctuations:
+                        fluctuations:
+                        loglogavgslope:
+                        flexibility:
+                        asperity:
+                        harmonic_type:
+                        non_parametric_kind:
+                    prefix:
+
+        Returns
+        -------
+        cf: jft.Model
+            Model for the correlated field
+        pspec: Callable
+            Power spectrum of the correlated field
+        """
+
+        cfm = jft.CorrelatedFieldMaker(prefix=prior_dict['prefix'])
+        cfm.set_amplitude_total_offset(**prior_dict['offset'])
+        cfm.add_fluctuations(shape, distances, **prior_dict['fluctuations'])
+        cf = cfm.finalize()
+        return cf, cfm.power_spectrum
+
+    def _create_diffuse_component_model(self, sdim, edim, s_padding_ratio, e_padding_ratio,
+                                        sdistances,
+                                        edistances, prior_dict):
+        """ Returns a model for the diffuse component given the information on its shape and
+        distances and the prior dictionaries for the offset and the fluctuations
+
+        Parameters
+        ----------
+        sdim: int or tuple of int
+            Number of pixels in each spatial dimension
+        edim: int
+            Number of pixels in spectral direction
+        s_padding_ratio: float
+            Ratio between number of pixels in the actual space and the padded space
+        e_padding_ratio: float
+            Ratio between number of pixels in the actual enegery space and the padded energy space.
+            It needs to be taken such that the correlated fields in energy direction has more than 3
+            pixels.
+        sdistances : tuple of float or float
+            Position-space distances
+        edistances : tuple of float or float
+            Energy-space distances
+        prior_dict: dict
+            Dictionary of prior parameters for the correlated field
+            in the format:
+                    spatial:
+                        offset:
+                            offset_mean:
+                            offset_std:
+                        fluctuations:
+                            fluctuations:
+                            loglogavgslope:
+                            flexibility:
+                            asperity:
+                            harmonic_type:
+                            non_parametric_kind:
+                        prefix:
+                    plaw: optional
+                    dev: optional
+
+        Returns
+        -------
+        diffuse: jft.Model
+            Model for the diffuse component
+        """
+        if not 'spatial' in prior_dict:
+            return ValueError('Every diffuse component needs a spatial component')
+        ext_s_shp = tuple(int(entry * s_padding_ratio) for entry in sdim)
+        ext_e_shp = int(edim * e_padding_ratio)
+        self.spatial_cf, self.spatial_pspec = self._create_correlated_field(ext_s_shp,
+                                                                            sdistances,
+                                                                            prior_dict['spatial'])
+        if 'plaw' in prior_dict:
+            self.alpha_cf, self.alpa_pspec = self._create_correlated_field(ext_s_shp,
+                                                                           sdistances,
+                                                                           prior_dict['plaw'])
+            self.plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1), alpha_cf)
+        if 'dev' in prior_dict:
+            dev_cf, self.dev_pspec = self._create_correlated_field(ext_e_shp,
+                                                                   edistances,
+                                                                   prior_dict['dev'])
+            self.dev_cf = ju.MappedModel(dev_cf, prior_dict['dev']['prefix']+'xi',
+                                         ext_s_shp, False)
+
+        log_diffuse = ju.GeneralModel({'spatial': self.spatial_cf,
+                                       'freq_plaw': self.plaw,
+                                       'freq_dev': self.dev_cf}).build_model()
+        exp_padding = lambda x: jnp.exp(log_diffuse(x)[:edim, :sdim[0], :sdim[1]])
+        self.diffuse = jft.Model(exp_padding, domain=log_diffuse.domain)
+
+    def _create_point_source_model(self, sdim, edim, e_padding_ratio,
+                                   sdistances, edistances, prior_dict):
+        """ Returns a model for the point-source component given the information on its shape
+         and information on the shape and scaling parameters
+
+        Parameters
+        ----------
+        sdim: int or tuple of int
+            Number of pixels in each spatial dimension
+        edim: int
+            Number of pixels in spectral direction
+        e_padding_ratio: float
+            Ratio between number of pixels in the actual enegery space and the padded energy space.
+            It needs to be taken such that the correlated fields in energy direction has more than 3
+            pixels.
+        sdistances : tuple of float or float
+            Position-space distances
+        edistances : tuple of float or float
+            Energy-space distances
+        prior_dict: dict
+            Dictionary of prior parameters for the correlated field
+            in the format:
+                    spatial:
+                        alpha:
+                        q:
+                    plaw: optional
+                    dev: optional
+
+        Returns
+        -------
+        points: jft.Model
+            Model for the point-source component
+        """
+        if not 'spatial' in prior_dict:
+            return ValueError('Point source component needs a spatial component')
+        ext_e_shp = int(edim * e_padding_ratio)
+        point_sources = jft.invgamma_prior(a=prior_dict['spatial']['alpha'],
+                                           scale=prior_dict['spatial']['q'])
+        points_func = lambda x: point_sources(x[prior_dict['spatial']['key']])
+        self.points_invg = jft.Model(points_func,
+                                    domain={prior_dict['spatial']['key']: jft.ShapeWithDtype(sdim)})
+        if 'plaw' in prior_dict:
+            self.points_alpha_cf, self.points_alpha_pspec = self._create_correlated_field(sdim,
+                                                                    sdistances,
+                                                                    prior_dict['plaw'])
+            self.points_plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1),
+                                                  self.points_alpha_cf)
+        if 'dev' in prior_dict:
+            self.points_dev_cf, self.points_dev_pspec = self._create_correlated_field(ext_e_shp,
+                                                                                 edistances,
+                                                                                 prior_dict['dev'])
+            self.points_dev_cf = ju.MappedModel(self.points_dev_cf, prior_dict['dev']['prefix']+'xi',
+                                                sdim, False)
+
+        log_points = ju.GeneralModel({'spatial': self.points_invg,
+                                       'freq_plaw': self.points_plaw,
+                                       'freq_dev': self.points_dev_cf}).build_model()
+        exp_padding = lambda x: jnp.exp(log_points(x)[:edim, :, :])
+        self.point_sources = jft.Model(exp_padding, domain=log_points.domain)
+
+    def sky_model_to_dict(self):
+        return {'sky': self.sky, 'diffuse': self.diffuse, 'points': self.point_sources}

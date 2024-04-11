@@ -244,8 +244,8 @@ def build_erosita_response_from_config(config_file_path):
     # Set the Image pointing to the center and associate with TM1 pointing
     image_pointing_center = np.array(tuple([cfg['telescope']['fov']/2.]*2))
     pointing_center = d_centers + image_pointing_center
-    domain = Domain(tuple([cfg['grid']['npix']]*2), tuple([cfg['telescope']['fov']/cfg['grid']
-    ['npix']]*2))
+    domain = Domain(tuple([cfg['grid']['sdim']]*2), tuple([cfg['telescope']['fov']/cfg['grid']
+    ['sdim']]*2))
 
     # get psf/exposure/mask function
     psf_func = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center, domain,

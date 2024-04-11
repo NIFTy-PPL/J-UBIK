@@ -12,7 +12,7 @@ from os.path import join
 
 from .response import build_erosita_response_from_config
 from .utils import get_data_domain, get_config, create_output_directory
-from ..library.sky_models import create_sky_model_from_config
+from ..library.sky_models import SkyModel
 from ..library.chandra_observation import ChandraObservationInformation
 
 
@@ -506,8 +506,9 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
     if plotting_kwargs is None:
         plotting_kwargs = {}
 
-    sky_dict = create_sky_model_from_config(config_path)
-    plottable_ops = sky_dict.copy()
+    sky_model = SkyModel(config_path)
+    _ = sky_model.create_sky_model()
+    plottable_ops = sky_model.sky_model_to_dict()
 
     positions = []
     for _ in range(n_samples):
@@ -526,7 +527,6 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
 
     if response_path is not None:  # FIXME: when R will be pickled, load from file
         tm_ids = cfg['telescope']['tm_ids']
-        plottable_samples.pop('pspec')
 
         resp_dict = build_erosita_response_from_config(config_path)
 

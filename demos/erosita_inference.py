@@ -35,8 +35,9 @@ if __name__ == "__main__":
               "The result_dir has been appended with the string *new*.")
 
     # Load sky model
-    sky_dict = ju.create_sky_model_from_config(config_path)
-    pspec = sky_dict.pop('pspec')
+    sky_model = ju.SkyModel(config_path)
+    sky = sky_model.create_sky_model()
+    sky_dict = sky_model.sky_model_to_dict()
 
     # Create data files
     if not cfg['mock']:
@@ -46,16 +47,16 @@ if __name__ == "__main__":
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
     # Generate loglikelihood
-    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path).amend(sky_dict['sky'])
+    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path).amend(sky_model)
 
     # Minimization
     minimization_config = cfg['minimization']
     key = random.PRNGKey(cfg['seed'])
     key, subkey = random.split(key)
-    pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky_dict['sky'].domain))
+    pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky_model.domain))
 
     kl_solver_kwargs = minimization_config.pop('kl_kwargs')
-    kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['npix']  # FIXME: Replace by domain information
+    kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['sdim']  # FIXME: Replace by domain information
 
     # Plot
     def simple_eval_plots(s, x):
