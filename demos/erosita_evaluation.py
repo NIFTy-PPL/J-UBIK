@@ -123,9 +123,12 @@ if __name__ == "__main__":
     # Load data and ground truth
     gt_dict = {}
     if cfg['mock']:
-        import nifty8.re as jft
-        masked_data = jft.Vector(ju.load_masked_data_from_pickle(join(file_info['res_dir'],
-                                                           'mock_data_dict.pkl')))
+        if cfg['load_mock_data']:
+            import nifty8.re as jft
+            masked_data = jft.Vector(ju.load_masked_data_from_pickle(join(file_info['res_dir'],
+                                                               'mock_data_dict.pkl')))
+        else:
+            masked_data = ju.generate_erosita_data_from_config(config_path, response_dict['R'])
         for key in sky_dict:
             with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
                 gt_dict[key] = pickle.load(file)
