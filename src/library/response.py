@@ -203,7 +203,9 @@ def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
 
 
 def build_erosita_response_from_config(config_file_path):
-    # TODO: write docstring
+    """ Builds the eROSITA reponse from a yaml config file.
+    #TODO Example / Needed Entries in yaml
+    """
     # load config
     cfg = get_config(config_file_path)
     tel_info = cfg['telescope']
