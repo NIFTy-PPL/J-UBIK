@@ -35,7 +35,7 @@ class SkyModel:
 
     Parameters:
     ----------
-    config_file : yaml-dictionary, containing information about the grid,
+    config_file : python-dictionary, containing information about the grid,
                    (the telescope (for the pixelization)), # TODO IMHO this should be part of the grid
                    the priors on the correlated field and the uncorrelated inverse gamma
                     component.
