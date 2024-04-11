@@ -320,3 +320,5 @@ class SkyModel:
         self.point_sources = jft.Model(exp_padding, domain=log_points.domain)
         return self.point_sources
 
+    def sky_model_to_dict(self):
+        return {'sky': self.sky, 'diffuse': self.diffuse, 'points': self.point_sources}

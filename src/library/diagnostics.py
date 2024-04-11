@@ -87,7 +87,9 @@ def get_diagnostics_from_file(diagnostic_builder,
     grid_info = cfg['grid']
 
     # Create sky operators
-    sky_dict = SkyModel(config_path).create_sky_model()
+    sky_model = SkyModel(config_path)
+    _ = sky_model.create_sky_model()
+    sky_dict = sky_model.sky_model_to_dict()
 
     # Load position space sample list
     with open(f"{sl_path_base}.p", "rb") as file:
@@ -98,6 +100,7 @@ def get_diagnostics_from_file(diagnostic_builder,
 
     lat_sp_sl = samples.at(state.minimization_state.x).samples
     padding_diff = int((grid_info['npix'] - round(grid_info['npix']/grid_info['padding_ratio']))/2)
+    # FIXME remove exposure padding
     pos_sp_sample_dict = {key: [jax.vmap(op)(lat_sp_sl)[i][padding_diff:-padding_diff,
                                 padding_diff:-padding_diff] for i in
                                 range(len(jax.vmap(op)(lat_sp_sl)))]

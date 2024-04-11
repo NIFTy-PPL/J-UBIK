@@ -298,7 +298,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
 
         mean = results[key].mean(axis=0)
         std = results[key].std(axis=0, ddof=1)
-        stats = np.stack([mean, std], axis=0)
+        stats = np.stack([mean, std])
         plot_result(stats, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
                     title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
@@ -497,10 +497,9 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
     if plotting_kwargs is None:
         plotting_kwargs = {}
 
-    sky_model = SkyModel(config_path).create_sky_model()
-    plottable_ops = {'point_sources': sky_model.point_sources,
-                     'diffuse': sky_model.diffuse,
-                     'sky': sky_model.sky}
+    sky_model = SkyModel(config_path)
+    _ = sky_model.create_sky_model()
+    plottable_ops = sky_model.sky_model_to_dict()
 
     positions = []
     for _ in range(n_samples):

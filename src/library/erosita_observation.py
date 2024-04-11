@@ -1,11 +1,14 @@
 # FIXME: add copyright
 import os
 import subprocess
+from os.path import join
+
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from matplotlib import colors
+import numpy as np
 
-from .utils import _check_type
+from .utils import _check_type, create_output_directory
 
 
 class ErositaObservation:
@@ -18,12 +21,17 @@ class ErositaObservation:
 
     """
 
-    def __init__(self, input_filename, output_filename, working_directory):
+    def __init__(self, input_filename, output_filename, working_directory, esass_image=None):
         # TODO: Add parameter checks
         self.working_directory = os.path.abspath(working_directory)
         self.input = input_filename
         self.output = output_filename
-        self.image = " erosita/esass:latest "
+        if esass_image is None or esass_image == "EDR":
+            self.image = " erosita/esass:latest "
+        elif esass_image == "DR1":
+            self.image = " erosita/esass-x64:latest "
+        else:
+            raise ValueError(f"esass_image must be either EDR or DR1, got {esass_image}.")
 
         # TODO: Add all fits file fields
 
@@ -52,8 +60,8 @@ class ErositaObservation:
 
         self._run_task(command)
         print("The processed dataset has been saved as {}.".format(
-            os.path.join(self.working_directory, self.output)))
-        return fits.open(os.path.join(self.working_directory, self.output))
+            join(self.working_directory, self.output)))
+        return fits.open(join(self.working_directory, self.output))
 
     def get_exposure_maps(self, template_image, emin, emax, badpix_correction=True, **kwargs):
         """
@@ -64,8 +72,8 @@ class ErositaObservation:
         template_image: str
         Path to the output exposure maps will be binned as specified in the WCS keywords of the
         template image.
-        emin:
-        emax:
+        emin: float
+        emax: float
         badpix_correction: bool (default: True)
         Loads the corrected eROSITA detmaps. To build the bad-pixel corrected maps,
         use the auxiliary function create_erosita_badpix_to_detmaps.
@@ -73,7 +81,7 @@ class ErositaObservation:
         """
         # TODO: parameter checks
         input_files = self._parse_stringlists(self.input, additional_path=self._mounted_dir)
-        template_image = os.path.join(self._mounted_dir, template_image)
+        template_image = join(self._mounted_dir, template_image)
         flags = self._get_exmap_flags(self._mounted_dir, template_image, emin, emax, **kwargs)
         command = self._base_command + 'expmap ' + input_files + flags + "'"
 
@@ -96,7 +104,7 @@ class ErositaObservation:
     def load_fits_data(self, filename, verbose=True):
         if verbose:
             print("Loading ouput data stored in {}.".format(filename))
-        return fits.open(os.path.join(self.working_directory, filename))
+        return fits.open(join(self.working_directory, filename))
 
     def get_pointing_coordinates_stats(self, module, input_filename=None):
         if not isinstance(module, int):
@@ -138,7 +146,7 @@ class ErositaObservation:
         if slice is not None:
             slice = tuple(slice)
             im = im[slice[2]:slice[3], slice[0]:slice[1]]
-        output = os.path.join(self.working_directory, image_name)
+        output = join(self.working_directory, image_name)
         norm = None
         if lognorm:
             norm = colors.SymLogNorm(linthresh=linthresh)
@@ -234,7 +242,7 @@ class ErositaObservation:
 
     @staticmethod
     def _get_exmap_flags(mounted_dir, templateimage, emin, emax,
-                         withsinglemaps=True, withmergedmaps=False, singlemaps=None,
+                         withsinglemaps=False, withmergedmaps=False, singlemaps=None,
                          mergedmaps=None, gtitype='GTI', withvignetting=True,
                          withdetmaps=True, withweights=True, withfilebadpix=True,
                          withcalbadpix=True, withinputmaps=False):
@@ -249,8 +257,11 @@ class ErositaObservation:
         for key, val in input_params.items():
             _check_type(eval(key), val, name=key)
 
-        singlemaps = list(map(lambda x: os.path.join(mounted_dir, x), singlemaps))
-        singlemaps_str = '"' + " ".join(singlemaps) + '"'
+        if singlemaps is not None:
+            singlemaps = list(map(lambda x: join(mounted_dir, x), singlemaps))
+            singlemaps_string = '"' + " ".join(singlemaps) + '"'
+        else:
+            singlemaps_string = " "
 
         flags = " "
         flags += templateimage if templateimage is not None else print(
@@ -259,9 +270,9 @@ class ErositaObservation:
         flags += " emax={}".format(emax) if emax is not None else print("emax cannot be None.")
         flags += " withsinglemaps=yes" if withsinglemaps else ""
         flags += "" if withmergedmaps else " withmergedmaps=no"
-        flags += " singlemaps={}".format(singlemaps_str) if singlemaps is not None else ""
+        flags += f" singlemaps={singlemaps_string}" if singlemaps is not None else ""
         flags += " mergedmaps={}".format(
-            os.path.join(mounted_dir, mergedmaps)) if mergedmaps is not None else ""
+            join(mounted_dir, mergedmaps)) if mergedmaps is not None else ""
         flags += " gtitype={}".format(gtitype) if gtitype != "GTI" else ""
         flags += "" if withvignetting else " withvignetting=no"
         flags += " withdetmaps=yes" if withdetmaps else ""
@@ -275,7 +286,7 @@ class ErositaObservation:
     @staticmethod
     def _parse_stringlists(stringlist, additional_path: str = ""):
         if isinstance(stringlist, str):
-            return '"' + os.path.join(additional_path, stringlist) + '"'
+            return '"' + join(additional_path, stringlist) + '"'
         elif isinstance(stringlist, list):
             res = '"'
             for string in stringlist:

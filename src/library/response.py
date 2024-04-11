@@ -241,13 +241,11 @@ def build_erosita_response_from_config(config_file_path):
                                                   exposure_file_names,
                                                   threshold=tel_info['exp_cut'],
                                                   keys=tel_info['tm_ids'])
+
     # plugin
-    mask_func = lambda x: x
-    exposure_func = lambda x: x
-    psf_func = lambda x: x
     response_func = lambda x: mask_func(exposure_func(psf_func(x))[:,43:-43,43:-43])
     response_dict = {'mask': mask_func, 'exposure': exposure_func, 'psf': psf_func,
-                     'R': response_func}
+                      'R': response_func}
     return response_dict
 
 
