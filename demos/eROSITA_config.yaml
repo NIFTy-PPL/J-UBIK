@@ -18,7 +18,7 @@ point_source_defaults:
 
 psf:
  method: 'LINJAX'
- energy: '3000'
+ energy: ['3000']
   # LIN config
  npatch: 8
  margfrac: 0.062
@@ -91,26 +91,26 @@ priors:
         offset_std:
           - 1.0e-3
           - 1.0e-4
-    dev:
-      fluctuations:
-        fluctuations:
-          - 1.0
-          - 5.0e-3
-        loglogavgslope:
-          - -3
-          - 1.0e-2
-        flexibility:
-          - 2.0
-          - 5.0e-1
-        asperity:
-        non_parametric_kind: "power"
-        # harmonic_type: "Fourier"
-      prefix: points_dev
-      offset:
-        offset_mean: 0.0
-        offset_std:
-          - 1.0e-3
-          - 1.0e-4
+#    dev:
+#      fluctuations:
+#        fluctuations:
+#          - 1.0
+#          - 5.0e-3
+#        loglogavgslope:
+#          - -3
+#          - 1.0e-2
+#        flexibility:
+#          - 2.0
+#          - 5.0e-1
+#        asperity:
+#        non_parametric_kind: "power"
+#        # harmonic_type: "Fourier"
+#      prefix: points_dev
+#      offset:
+#        offset_mean: 0.0
+#        offset_std:
+#          - 1.0e-3
+#          - 1.0e-4
   diffuse:
     spatial:
       offset:
@@ -156,26 +156,26 @@ priors:
         offset_std:
           - 1.0e-3
           - 1.0e-4
-    dev:
-      fluctuations:
-        fluctuations:
-          - 1.0
-          - 5.0e-3
-        loglogavgslope:
-          - -3
-          - 1.0e-2
-        flexibility:
-          - 2.0
-          - 5.0e-1
-        asperity:
-        non_parametric_kind: "power"
-        # harmonic_type: "Fourier"
-      prefix: diffuse_dev
-      offset:
-        offset_mean: 0.0
-        offset_std:
-          - 1.0e-3
-          - 1.0e-4
+#    dev:
+#      fluctuations:
+#        fluctuations:
+#          - 1.0
+#          - 5.0e-3
+#        loglogavgslope:
+#          - -3
+#          - 1.0e-2
+#        flexibility:
+#          - 2.0
+#          - 5.0e-1
+#        asperity:
+#        non_parametric_kind: "power"
+#        # harmonic_type: "Fourier"
+#      prefix: diffuse_dev
+#      offset:
+#        offset_mean: 0.0
+#        offset_std:
+#          - 1.0e-3
+#          - 1.0e-4
 
 minimization:
   resume: False

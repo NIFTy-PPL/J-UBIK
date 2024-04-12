@@ -165,7 +165,7 @@ def create_erosita_data_from_config_dict(config_dict):
 
     input_filenames = file_info["input"]
     obs_path = file_info["obs_path"]
-    npix = grid_info['npix']
+    sdim = grid_info['sdim']
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
 
@@ -182,7 +182,7 @@ def create_erosita_data_from_config_dict(config_dict):
     fov = tel_info['fov']
     detmap = tel_info['detmap']
 
-    rebin = int(np.floor(20 * fov // npix))  # FIXME: USE DISTANCES!
+    rebin = int(np.floor(20 * fov // sdim))  # FIXME: USE DISTANCES!
 
     processed_obs_path = create_output_directory(join(obs_path, 'processed'))
 
@@ -206,7 +206,7 @@ def create_erosita_data_from_config_dict(config_dict):
                                                   emax=e_max[e],
                                                   image=True,
                                                   rebin=rebin,
-                                                  size=npix,
+                                                  size=sdim,
                                                   pattern=tel_info['pattern'],
                                                   telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
             else:
@@ -264,13 +264,13 @@ def generate_erosita_data_from_config(config_file_path, response_func, output_pa
     priors = cfg['priors']
 
     key, subkey = random.split(key)
-    mock_sky_position = generate_mock_xi_from_prior_dict(grid_info['npix'],
+    mock_sky_position = generate_mock_xi_from_prior_dict(grid_info['sdim'],
                                                           grid_info['padding_ratio'],
                                                           tel_info['fov'],
                                                           priors,
                                                           subkey,
                                                           cfg['point_source_defaults']) # FIXME: mock data generation does not work
-    sky_comps = SkyModel.create_sky_model(grid_info['npix'], grid_info['padding_ratio'], # FIXME: make prettier
+    sky_comps = SkyModel.create_sky_model(grid_info['sdim'], grid_info['padding_ratio'], # FIXME: make prettier
                                  tel_info['fov'], priors)
     masked_mock_data = response_func(sky_comps['sky'](mock_sky_position))
     key, subkey = random.split(key)

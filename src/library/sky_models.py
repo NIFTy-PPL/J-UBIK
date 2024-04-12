@@ -1,4 +1,5 @@
 import nifty8 as ift
+import numpy as np
 from matplotlib.colors import LogNorm
 
 import nifty8.re as jft
@@ -140,13 +141,13 @@ class SkyModel:
         if energy_range is None:
             e_min = self.config['grid']['energy_bin']['e_min']
             e_max = self.config['grid']['energy_bin']['e_max']
-            energy_range = e_max - e_min
+            energy_range = np.array(e_max) - np.array(e_min)
         if priors is None:
             priors = self.config['priors']
 
         sdim = 2 * (sdim,)
         sdistances = fov / sdim[0]
-        edistances = energy_range/ edim
+        edistances = energy_range / edim
 
         self._create_diffuse_component_model(sdim, edim, s_padding_ratio, e_padding_ratio,
                                                  sdistances, edistances, priors['diffuse'])
@@ -244,6 +245,8 @@ class SkyModel:
         """
         if not 'spatial' in prior_dict:
             return ValueError('Every diffuse component needs a spatial component')
+
+        # FIXME: make it possible to have Wiener Process here to have irregular energy bins
         ext_s_shp = tuple(int(entry * s_padding_ratio) for entry in sdim)
         ext_e_shp = int(edim * e_padding_ratio)
         self.spatial_cf, self.spatial_pspec = self._create_correlated_field(ext_s_shp,
