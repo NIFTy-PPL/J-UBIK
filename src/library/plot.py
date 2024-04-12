@@ -11,7 +11,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from os.path import join
 
 from .response import build_erosita_response_from_config
-from .utils import get_data_domain, get_config, create_output_directory
+from .utils import get_data_domain, get_config, create_output_directory, get_stats
 from ..library.sky_models import SkyModel
 from ..library.chandra_observation import ChandraObservationInformation
 
@@ -275,23 +275,23 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     if plotting_kwargs is None:
         plotting_kwargs = {}
 
-    results = {}
     for key in operators_dict:
         op = operators_dict[key]
+        n_samples = len(samples)
+
         results_path = create_output_directory(join(output_directory, key))
         filename_samples = join(results_path, "samples_{}.png".format(iteration))
         filename_stats = join(results_path, "stats_{}.png".format(iteration))
 
-        results[key] = jax.vmap(op)(samples)
-        n_samples = results[key].shape[0]
-
+        # Plot Samples
+        f_samples = np.array([op(s) for s in samples])
         if 'title' not in plotting_kwargs:
             title = [f"Sample {ii}" for ii in range(n_samples)]
             plotting_kwargs.update({'title': title})
 
         # Plot samples
         # FIXME: works only for 2D outputs, add target capabilities
-        plot_result(results[key], output_file=filename_samples, logscale=log_scale,
+        plot_result(f_samples, output_file=filename_samples, logscale=log_scale,
                     colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
 
         # Plot statistics
@@ -305,12 +305,12 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
             plotting_kwargs.pop('title')
         title = ["Posterior mean", "Posterior standard deviation"]
 
-        mean = results[key].mean(axis=0)
-        std = results[key].std(axis=0, ddof=1)
-        stats = np.stack([mean, std])
-        plot_result(stats, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
+        mean, std = get_stats(samples, op)
+        plot_result(mean, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
                     title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
+        plot_result(std, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
+                    title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
 def _get_n_rows_from_n_samples(n_samples):
     """
