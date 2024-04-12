@@ -42,11 +42,16 @@ plotting:
 
 grid:
   sdim: 512
-  edim: 3
-  padding_ratio: 1.203
+  edim: 2 # FIXME: remove this parameter
+  s_padding_ratio: 1.203
+  e_padding_ratio: 2.
   energy_bin:
-    e_min: 2.0
-    e_max: 4.5
+    e_min:
+    - 1.0
+    - 2.0
+    e_max:
+    - 2.0
+    - 4.5
 
 
 files:

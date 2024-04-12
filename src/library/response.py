@@ -54,7 +54,7 @@ def build_readout_function(flasgs, threshold=None, keys=None):
     ----------
         flags : ndarray
         Array with flags. Where flags are equal to zero the input will not be read out.
-        The 0-th axis indexes the number of 2D flag maps, e.g. it could index the telescope module
+        The 0-th axis indexes the number of 3D flag maps, e.g. it could index the telescope module
         (for multi-module instruments exposure maps).
         The 1st axis indexes the energy direction.
         The 2nd and 3rd axis refer to the spatial direction.
@@ -242,16 +242,19 @@ def build_erosita_response_from_config(config_file_path):
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
 
+    if not isinstance(e_min, list):
+        raise TypeError("e_min must be a list!")
+
+    if not isinstance(e_max, list):
+        raise TypeError("e_max must be a list!")
+
+    if len(e_max) != len(e_max):
+        raise ValueError("e_min and e_max must have the same length!")
+
     # lists for exposure and psf files
     exposure_filenames = []
     for tm_id in tel_info['tm_ids']:
         exposure_filename = f'tm{tm_id}_' + file_info['exposure']
-        if isinstance(e_min, list):
-            if not isinstance(e_max, list):
-                raise ValueError('e_min and e_max must have the same length!')
-        else:
-            e_min = [e_min]
-            e_max = [e_max]
         [exposure_filenames.append(join(file_info['obs_path'],
                                         "processed",
                                         f"{Path(exposure_filename).stem}_emin{e}_emax{E}.fits"))

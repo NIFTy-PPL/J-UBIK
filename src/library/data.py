@@ -127,16 +127,24 @@ def load_erosita_masked_data(file_info, tel_info, grid_info, mask_func):
     masked_data_vector: jft.Vector
         Dictionary of masked data arrays
     """
-    emin = grid_info['energy_bin']['e_min']
-    emax = grid_info['energy_bin']['e_max']
+    # load energies
+    e_min = grid_info['energy_bin']['e_min']
+    e_max = grid_info['energy_bin']['e_max']
+
+    if not isinstance(e_min, list):
+        raise TypeError("e_min must be a list!")
+
+    if not isinstance(e_max, list):
+        raise TypeError("e_max must be a list!")
+
+    if len(e_min) != len(e_max):
+        raise ValueError("e_min and e_max must have the same length!")
+
     data_list = []
     for tm_id in tel_info['tm_ids']:
         output_filenames = f'tm{tm_id}_' + file_info['output']
-        if isinstance(emin, list):
-            output_filenames = [f"{output_filenames.split('.')[0]}_emin{e}_emax{E}.fits" for e, E in
-                                zip(emin, emax)]
-        else:
-            output_filenames = [output_filenames]
+        output_filenames = [f"{output_filenames.split('.')[0]}_emin{e}_emax{E}.fits" for e, E in
+                            zip(e_min, e_max)]
         data = []
         for output_filename in output_filenames:
             data.append(fits.open(join(file_info['obs_path'], "processed", output_filename))[0].data)
@@ -161,6 +169,15 @@ def create_erosita_data_from_config_dict(config_dict):
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
 
+    if not isinstance(e_min, list):
+        raise TypeError("e_min must be a list!")
+
+    if not isinstance(e_max, list):
+        raise TypeError("e_max must be a list!")
+
+    if len(e_max) != len(e_max):
+        raise ValueError("e_min and e_max must have the same length!")
+
     tm_ids = tel_info["tm_ids"]
     fov = tel_info['fov']
     detmap = tel_info['detmap']
@@ -174,12 +191,6 @@ def create_erosita_data_from_config_dict(config_dict):
         # tm_processed_path = create_output_directory(join(processed_obs_path, f'tm{tm_id}'))
         output_filenames = f'tm{tm_id}_' + file_info['output']
         exposure_filenames = f'tm{tm_id}_' + file_info['exposure']
-        if isinstance(e_min, list):
-            if not isinstance(e_max, list):
-                raise ValueError('e_min and e_max must have the same length!')
-        else:
-            e_min = [e_min]
-            e_max = [e_max]
         output_filenames = [f"{output_filenames.split('.')[0]}_emin{e}_emax{E}.fits"
                             for e, E in zip(e_min, e_max)]
         exposure_filenames = [f"{exposure_filenames.split('.')[0]}_emin{e}_emax{E}.fits"
@@ -253,13 +264,13 @@ def generate_erosita_data_from_config(config_file_path, response_func, output_pa
     priors = cfg['priors']
 
     key, subkey = random.split(key)
-    mock_sky_position = generate_mock_sky_from_prior_dict(grid_info['npix'],
+    mock_sky_position = generate_mock_xi_from_prior_dict(grid_info['npix'],
                                                           grid_info['padding_ratio'],
                                                           tel_info['fov'],
                                                           priors,
                                                           subkey,
                                                           cfg['point_source_defaults']) # FIXME: mock data generation does not work
-    sky_comps = create_sky_model(grid_info['npix'], grid_info['padding_ratio'], # fixme: this does not work anymore
+    sky_comps = SkyModel.create_sky_model(grid_info['npix'], grid_info['padding_ratio'], # FIXME: make prettier
                                  tel_info['fov'], priors)
     masked_mock_data = response_func(sky_comps['sky'](mock_sky_position))
     key, subkey = random.split(key)
