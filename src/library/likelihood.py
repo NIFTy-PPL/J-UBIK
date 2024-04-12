@@ -2,7 +2,7 @@ import os
 
 import nifty8.re as jft
 
-from .data import load_erosita_masked_data, generate_erosita_data_from_config, \
+from .data import load_erosita_masked_data, generate_mock_erosita_data_from_config, \
     load_masked_data_from_pickle
 from .response import build_erosita_response_from_config
 from .utils import get_config
@@ -33,11 +33,11 @@ def generate_erosita_likelihood_from_config(config_file_path):
     mask_func = response_dict['mask']
 
     if cfg['mock']:
-        masked_data = generate_erosita_data_from_config(config_file_path, response_func,
-                                                        file_info['res_dir']) #FIXME: fix for MF
+        masked_data = generate_mock_erosita_data_from_config(config_file_path, response_func,
+                                                        file_info['res_dir'])
     elif cfg['load_mock_data']:
         masked_data = load_masked_data_from_pickle(os.path.join(file_info['res_dir'],
-                                                   'mock_data_dict.pkl'), mask_func) #FIXME: fix for MF
+                                                   'mock_data_dict.pkl'), mask_func)
     else:
         masked_data = load_erosita_masked_data(file_info, tel_info, grid_info, mask_func)
     return jft.Poissonian(masked_data).amend(response_func)

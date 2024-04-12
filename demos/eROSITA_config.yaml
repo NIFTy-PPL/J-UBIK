@@ -1,6 +1,6 @@
 seed: 86
 # threads: 8
-mock: False
+mock: True
 # mock_psf: False
 load_mock_data: False
 esass_image: DR1
@@ -13,8 +13,6 @@ telescope:
   badpix_correction: True
 
 point_source_defaults:
-  alpha: 1.
-  q: 1e6
 
 psf:
  method: 'LINJAX'

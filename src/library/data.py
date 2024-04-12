@@ -68,10 +68,9 @@ def save_dict_to_pickle(dictionary, file_path):
         pickle.dump(dictionary, file)
 
 
-# MOCK
-# FIXME Rewrite for MF
-def generate_mock_xi_from_prior_dict(npix, padding_ratio, fov, priors, seed=42,
-                                      default_point_source_prior=None):
+def generate_mock_xi_from_prior_dict(sdim, edim, s_padding_ratio, e_padding_ratio,
+                                     fov, energy_range, priors, subkey,
+                                     default_point_source_prior=None):
     """ Generates a mock sky position for the given grid and prior information
 
     Parameters
@@ -100,10 +99,14 @@ def generate_mock_xi_from_prior_dict(npix, padding_ratio, fov, priors, seed=42,
         raise ValueError('Point source information is needed for the generation of a mock sky.')
     if priors['point_sources'] is None:
         priors['point_sources'] = default_point_source_prior
-    sky = SkyModel.create_sky_model(sdim=npix, padding_ratio=padding_ratio, fov=fov,
-                                         priors=priors)
-    key = random.PRNGKey(seed)
-    key, subkey = random.split(key)
+    sky = SkyModel().create_sky_model(sdim=sdim,
+                                    edim=edim,
+                                    s_padding_ratio=s_padding_ratio,
+                                    e_padding_ratio=e_padding_ratio,
+                                    fov=fov,
+                                    energy_range=energy_range,
+                                    priors=priors)
+
     return jft.random_like(subkey, sky.domain)
 
 
@@ -238,8 +241,7 @@ def create_erosita_data_from_config_dict(config_dict):
                                                     slice=plot_info['slice'],
                                                     dpi=plot_info['dpi'])
 
-
-def generate_erosita_data_from_config(config_file_path, response_func, output_path=None):
+def generate_mock_erosita_data_from_config(config_file_path, response_func, output_path=None):
     """ Generated mock data for the information given in the config_file and a response func
 
     Parameters
@@ -263,24 +265,33 @@ def generate_erosita_data_from_config(config_file_path, response_func, output_pa
     grid_info = cfg['grid']
     priors = cfg['priors']
 
+    e_min = cfg['grid']['energy_bin']['e_min']
+    e_max = cfg['grid']['energy_bin']['e_max']
+    energy_range = np.array(e_max) - np.array(e_min)
+
     key, subkey = random.split(key)
     mock_sky_position = generate_mock_xi_from_prior_dict(grid_info['sdim'],
-                                                          grid_info['padding_ratio'],
-                                                          tel_info['fov'],
-                                                          priors,
-                                                          subkey,
-                                                          cfg['point_source_defaults']) # FIXME: mock data generation does not work
-    sky_comps = SkyModel.create_sky_model(grid_info['sdim'], grid_info['padding_ratio'], # FIXME: make prettier
-                                 tel_info['fov'], priors)
-    masked_mock_data = response_func(sky_comps['sky'](mock_sky_position))
+                                                         grid_info['edim'],
+                                                         grid_info['s_padding_ratio'],
+                                                         grid_info['e_padding_ratio'],
+                                                         tel_info['fov'],
+                                                         energy_range,
+                                                         priors=priors,
+                                                         subkey=subkey,
+                                                         default_point_source_prior=cfg['point_source_defaults'])
+    sky_model = SkyModel(config_file_path)
+    sky = sky_model.create_sky_model()
+    sky_comps = sky_model.sky_model_to_dict()
     key, subkey = random.split(key)
-    masked_mock_data = tree_map(lambda x: random.poisson(subkey, x), masked_mock_data.tree)
-    masked_mock_data = jft.Vector(masked_mock_data)
     if output_path is not None:
         create_output_directory(output_path)
-        save_dict_to_pickle(masked_mock_data.tree,
-                            join(output_path, 'mock_data_dict.pkl'))
-        for key, sky_comp in sky_comps.items():
+    for key, sky_comp in sky_comps.items():
+        masked_mock_data = response_func(sky_comp(mock_sky_position))
+        masked_mock_data = tree_map(lambda x: random.poisson(subkey, x), masked_mock_data.tree)
+        masked_mock_data = jft.Vector(masked_mock_data)
+        if output_path is not None:
+            save_dict_to_pickle(response_func(sky_comp(mock_sky_position)),
+                                join(output_path, f'{key}_mock_data.pkl'))
             save_dict_to_pickle(sky_comp(mock_sky_position),
                                 join(output_path, f'{key}_gt.pkl'))
     return jft.Vector({key: val.astype(int) for key, val in masked_mock_data.tree.items()})

@@ -42,7 +42,7 @@ class SkyModel:
                     component.
     """
 
-    def __init__(self, config_file_path):
+    def __init__(self, config_file_path=None):
 
         """Gets the parameters needed for building the sky model from the config file
         given the corresponding path.
@@ -52,12 +52,13 @@ class SkyModel:
         config_file_path : string
             Path to the config file
         """
-        if not isinstance(config_file_path, str):
-            raise TypeError("The path to the config file needs to be a string")
-        if not config_file_path.endswith('.yaml'):
-            raise ValueError("The sky model parameters need to be safed in a .yaml-file.")
+        if config_file_path is not None:
+            if not isinstance(config_file_path, str):
+                raise TypeError("The path to the config file needs to be a string")
+            if not config_file_path.endswith('.yaml'):
+                raise ValueError("The sky model parameters need to be safed in a .yaml-file.")
 
-        self.config = ju.get_config(config_file_path)
+            self.config = ju.get_config(config_file_path)
         self.diffuse = None
         self.point_sources = None
         self.pspec = None
@@ -333,10 +334,10 @@ class SkyModel:
             self.points_alpha_cf, self.points_alpha_pspec = self._create_correlated_field(sdim,
                                                                     sdistances,
                                                                     prior_dict['plaw'])
-            self.points_plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1),
+            log_points_plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1),
                                                   self.points_alpha_cf)
-            exp_points_plaw = jft.Model(lambda x: jnp.exp(self.points_plaw(x)),
-                                    domain=self.points_plaw.domain)
+            self.points_plaw = jft.Model(lambda x: jnp.exp(log_points_plaw(x)),
+                                    domain=log_points_plaw.domain)
 
         if 'dev_corr' in prior_dict:
             points_dev_cf, self.points_dev_pspec = self._create_correlated_field(ext_e_shp,
@@ -347,15 +348,15 @@ class SkyModel:
         if 'dev_wp' in prior_dict:
             points_dev_cf = self._create_wiener_process(edims=ext_e_shp,
                                                                 **prior_dict['dev_wp'])
-            self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
+            log_points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
                                          sdim, False)
 
-            exp_points_dev_cf = jft.Model(lambda x: jnp.exp(self.points_dev_cf(x)),
-                                          domain=self.points_dev_cf.domain)
+            self.points_dev_cf = jft.Model(lambda x: jnp.exp(log_points_dev_cf(x)),
+                                          domain=log_points_dev_cf.domain)
 
         points = ju.GeneralModel({'spatial': self.points_invg,
-                                       'freq_plaw': exp_points_plaw,
-                                       'freq_dev': exp_points_dev_cf}).build_model()
+                                  'freq_plaw': self.points_plaw,
+                                  'freq_dev': self.points_dev_cf}).build_model()
         padding = lambda x: points(x)[:edim, :, :]
         self.point_sources = jft.Model(padding, domain=points.domain)
 
