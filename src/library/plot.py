@@ -264,6 +264,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     - dpi: `int`, optional. The resolution of the plot. Defaults to 100.
     - plotting_kwargs: `dict`, optional. Additional plotting keyword arguments. Defaults to None.
 
+    # FIXME Title available again?
     Returns:
     --------
     - None
@@ -285,14 +286,15 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
 
         # Plot Samples
         f_samples = np.array([op(s) for s in samples])
-        if 'title' not in plotting_kwargs:
-            title = [f"Sample {ii}" for ii in range(n_samples)]
-            plotting_kwargs.update({'title': title})
 
+        e_length = f_samples[0].shape[0]
         # Plot samples
         # FIXME: works only for 2D outputs, add target capabilities
-        plot_result(f_samples, output_file=filename_samples, logscale=log_scale,
-                    colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
+        for i in range(n_samples):
+            title = ["Sample {i}_Energy_{ii}" for ii in range(e_length)]
+            plotting_kwargs.update({'title': title})
+            plot_result(f_samples[i], output_file=filename_samples, logscale=log_scale,
+                        colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
 
         # Plot statistics
         if 'n_rows' in plotting_kwargs:
@@ -301,14 +303,12 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
             plotting_kwargs.pop('n_cols')
         if 'figsize' in plotting_kwargs:
             plotting_kwargs.pop('figsize')
-        if 'title' in plotting_kwargs:
-            plotting_kwargs.pop('title')
-        title = ["Posterior mean", "Posterior standard deviation"]
 
         mean, std = get_stats(samples, op)
+        title = ["Posterior_Mean_Energy_{ii}" for ii in range(e_length)]
         plot_result(mean, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
                     title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
-
+        title = ["Posterior_Std_Energy_{ii}" for ii in range(e_length)]
         plot_result(std, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
                     title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
