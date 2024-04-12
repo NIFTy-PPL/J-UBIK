@@ -269,7 +269,6 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     --------
     - None
     """
-    samples = sample_list.samples
 
     if iteration is None:
         iteration = 0
@@ -278,20 +277,20 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
 
     for key in operators_dict:
         op = operators_dict[key]
-        n_samples = len(samples)
+        n_samples = len(sample_list)
 
         results_path = create_output_directory(join(output_directory, key))
-        filename_samples = join(results_path, "samples_{}.png".format(iteration))
-        filename_stats = join(results_path, "stats_{}.png".format(iteration))
-
+        filename_mean = join(results_path, "mean_it_{}.png".format(iteration))
+        filename_std = join(results_path, "std_it_{}.png".format(iteration))
         # Plot Samples
-        f_samples = np.array([op(s) for s in samples])
+        f_samples = np.array([op(s) for s in sample_list])
 
         e_length = f_samples[0].shape[0]
         # Plot samples
         # FIXME: works only for 2D outputs, add target capabilities
         for i in range(n_samples):
-            title = ["Sample {i}_Energy_{ii}" for ii in range(e_length)]
+            filename_samples = join(results_path, f"sample_{i+1}_it_{iteration}.png")
+            title = [f"Sample {i+1}_Energy_{ii+1}" for ii in range(e_length)]
             plotting_kwargs.update({'title': title})
             plot_result(f_samples[i], output_file=filename_samples, logscale=log_scale,
                         colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
@@ -303,13 +302,15 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
             plotting_kwargs.pop('n_cols')
         if 'figsize' in plotting_kwargs:
             plotting_kwargs.pop('figsize')
+        if 'title' in plotting_kwargs:
+            plotting_kwargs.pop('title')
 
-        mean, std = get_stats(samples, op)
-        title = ["Posterior_Mean_Energy_{ii}" for ii in range(e_length)]
-        plot_result(mean, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
+        mean, std = get_stats(sample_list, op)
+        title = [f"Posterior_Mean_Energy_{ii+1}" for ii in range(e_length)]
+        plot_result(mean, output_file=filename_mean, logscale=log_scale, colorbar=colorbar,
                     title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
-        title = ["Posterior_Std_Energy_{ii}" for ii in range(e_length)]
-        plot_result(std, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
+        title = [f"Posterior_Std_Energy_{ii+1}" for ii in range(e_length)]
+        plot_result(std, output_file=filename_std, logscale=log_scale, colorbar=colorbar,
                     title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
 def _get_n_rows_from_n_samples(n_samples):
