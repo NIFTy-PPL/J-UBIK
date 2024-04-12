@@ -20,7 +20,7 @@ class eROSITA_PSF():
     def _check_energy(self, energy):
         e_list = list(set(self._load_energy()))
         if energy not in e_list:
-            raise ValueError("Plase use one of the defined energies. \n",
+            raise ValueError("Please use one of the defined energies. \n",
                              f"Energies for PSFs = {e_list}.\n",
                              "This list is unordered")
 

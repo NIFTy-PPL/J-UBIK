@@ -47,13 +47,13 @@ if __name__ == "__main__":
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
     # Generate loglikelihood
-    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path).amend(sky_model)
+    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path).amend(sky)
 
     # Minimization
     minimization_config = cfg['minimization']
     key = random.PRNGKey(cfg['seed'])
     key, subkey = random.split(key)
-    pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky_model.domain))
+    pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky.domain))
 
     kl_solver_kwargs = minimization_config.pop('kl_kwargs')
     kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['sdim']  # FIXME: Replace by domain information

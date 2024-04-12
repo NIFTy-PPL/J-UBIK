@@ -219,7 +219,7 @@ def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1,
     """
     all_patches = []
     for info in psf_infos:
-        # TODO enabla this test
+        # TODO enable this test
         # if not isinstance(info, dict):
         # TypeError("psf_infos has to be a list of dictionaries")
         func_psf = get_psf_func(domain, info)

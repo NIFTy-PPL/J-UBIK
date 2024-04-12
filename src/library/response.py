@@ -1,4 +1,5 @@
-from os.path import join
+from os.path import join, basename
+from pathlib import Path
 
 import numpy as np
 import nifty8.re as jft
@@ -53,8 +54,10 @@ def build_readout_function(flasgs, threshold=None, keys=None):
     ----------
         flags : ndarray
         Array with flags. Where flags are equal to zero the input will not be read out.
-        The 0-th axis indexes the number of 2D flag maps, e.g. it could index the telescope module
+        The 0-th axis indexes the number of 3D flag maps, e.g. it could index the telescope module
         (for multi-module instruments exposure maps).
+        The 1st axis indexes the energy direction.
+        The 2nd and 3rd axis refer to the spatial direction.
         threshold: float or None, optional
             A threshold value below which flags are set to zero (e.g., an exposure cut).
             If None (default), no threshold is applied.
@@ -94,9 +97,11 @@ def build_readout_function(flasgs, threshold=None, keys=None):
         Returns:
             readout = `nifty8.re.Vector` containing a dictionary of read-out inputs.
         """
-        if len(mask.shape) != 3:
-            raise ValueError("flags should have shape (n, m, q)!")
+        if len(mask.shape) != 4:
+            raise ValueError("flags should have shape (n, m, q, l)!")
 
+        if len(x.shape) != 4:
+            raise ValueError("input should have shape (n, m, q, l)!")
         return jft.Vector({key: x[i][~mask[i]] for i, key in enumerate(keys)})
 
     return _apply_readout
@@ -114,6 +119,8 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     exposure_filenames : list[str]
         A list of filenames of exposure files to load.
         Files should be in a .npy or .fits format.
+        The filenames should begin with "tm" followed by the index of the telescope module,
+        e.g. "tm1".
     **kwargs : dict, optional
         Additional keyword arguments to be passed to the callable function.
 
@@ -138,16 +145,24 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     if not isinstance(exposure_filenames, list):
         raise ValueError('`exposure_filenames` should be a `list`.')
     exposures = []
+    tm_id = basename(exposure_filenames[0])[2]
+    tm_exposures = []
     for file in exposure_filenames:
-        if file.endswith('.npy'):
-            exposures.append(np.load(file))
-        elif file.endswith('.fits'):
-            from astropy.io import fits
-            exposures.append(fits.open(file)[0].data)
-        elif not (file.endswith('.npy') or file.endswith('.fits')):
-            raise ValueError('exposure files should be in a .npy or .fits format!')
-        else:
-            raise FileNotFoundError(f'cannot find {file}!')
+        if basename(file)[2] != tm_id:
+            exposures.append(tm_exposures)
+            tm_exposures = []
+            tm_id = basename(file)[2]
+        if basename(file)[2] == tm_id:
+            if file.endswith('.npy'):
+                tm_exposures.append(np.load(file))
+            elif file.endswith('.fits'):
+                from astropy.io import fits
+                tm_exposures.append(fits.open(file)[0].data)
+            elif not (file.endswith('.npy') or file.endswith('.fits')):
+                raise ValueError('exposure files should be in a .npy or .fits format!')
+            else:
+                raise FileNotFoundError(f'cannot find {file}!')
+    exposures.append(tm_exposures)
     exposures = np.array(exposures, dtype="float64") # in fits there is only >f4 meaning float32
     return builder(exposures, **kwargs)
 
@@ -196,12 +211,13 @@ def build_erosita_psf(psf_filenames, energies, pointing_center, domain, npatch,
 
     return vmap_psf_func
 
+
 # func = lambda psf_file,x,y,z: build_psf(psf_file,x, y, z)
 #     vmap_func = jax.vmap(func)(psf_file, x, y, z)
 #     vmap_func(x)
 
 
-# FIXME only exposure 
+# FIXME only exposure
 def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
     # TODO: write docstring
     exposure = build_exposure_function(exposures, exposure_cut)
@@ -220,10 +236,30 @@ def build_erosita_response_from_config(config_file_path):
     tel_info = cfg['telescope']
     file_info = cfg['files']
     psf_info = cfg['psf']
+    grid_info = cfg['grid']
+
+    # load energies
+    e_min = grid_info['energy_bin']['e_min']
+    e_max = grid_info['energy_bin']['e_max']
+
+    if not isinstance(e_min, list):
+        raise TypeError("e_min must be a list!")
+
+    if not isinstance(e_max, list):
+        raise TypeError("e_max must be a list!")
+
+    if len(e_max) != len(e_max):
+        raise ValueError("e_min and e_max must have the same length!")
 
     # lists for exposure and psf files
-    exposure_file_names = [join(file_info['obs_path'], f'{key}_'+file_info['exposure'])
-                           for key in tel_info['tm_ids']]
+    exposure_filenames = []
+    for tm_id in tel_info['tm_ids']:
+        exposure_filename = f'tm{tm_id}_' + file_info['exposure']
+        [exposure_filenames.append(join(file_info['obs_path'],
+                                        "processed",
+                                        f"{Path(exposure_filename).stem}_emin{e}_emax{E}.fits"))
+         for e, E in zip(e_min, e_max)]
+
     psf_file_names = [join(file_info['psf_path'], 'tm'+f'{key}_'+file_info['psf_base_filename'])
                       for key in tel_info['tm_ids']]
 
@@ -244,8 +280,10 @@ def build_erosita_response_from_config(config_file_path):
     # Set the Image pointing to the center and associate with TM1 pointing
     image_pointing_center = np.array(tuple([cfg['telescope']['fov']/2.]*2))
     pointing_center = d_centers + image_pointing_center
-    domain = Domain(tuple([cfg['grid']['sdim']]*2), tuple([cfg['telescope']['fov']/cfg['grid']
-    ['sdim']]*2))
+
+    #FIXME distances for domain energy shouldn't be hardcoded 1
+    domain = Domain(tuple([cfg['grid']['edim']] + [cfg['grid']['sdim']]*2),
+                    tuple([1]+[cfg['telescope']['fov']/cfg['grid']['sdim']]*2))
 
     # get psf/exposure/mask function
     psf_func = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center, domain,
@@ -253,11 +291,11 @@ def build_erosita_response_from_config(config_file_path):
                                  psf_info['method'])
 
     exposure_func = build_callable_from_exposure_file(build_exposure_function,
-                                                      exposure_file_names,
+                                                      exposure_filenames,
                                                       exposure_cut=tel_info['exp_cut'])
 
     mask_func = build_callable_from_exposure_file(build_readout_function,
-                                                  exposure_file_names,
+                                                  exposure_filenames,
                                                   threshold=tel_info['exp_cut'],
                                                   keys=tel_info['tm_ids'])
 
