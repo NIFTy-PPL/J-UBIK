@@ -282,7 +282,7 @@ def build_erosita_response_from_config(config_file_path):
     pointing_center = d_centers + image_pointing_center
 
     #FIXME distances for domain energy shouldn't be hardcoded 1
-    domain = Domain(tuple(cfg['grid']['edim'],[cfg['grid']['sdim']]*2), tuple(1, [cfg['telescope']['fov']/cfg['grid']
+    domain = Domain(tuple(cfg['grid']['edim'] + [cfg['grid']['sdim']]*2), tuple([1]+[cfg['telescope']['fov']/cfg['grid']
     ['sdim']]*2))
 
     # get psf/exposure/mask function
