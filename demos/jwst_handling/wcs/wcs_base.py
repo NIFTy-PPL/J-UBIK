@@ -155,7 +155,7 @@ class WcsBase(ABC):
         e10 = pix_center - np.array([-0.5, 0.5])[:, None, None]
         e11 = pix_center - np.array([-0.5, -0.5])[:, None, None]
 
-        return (self.wl_from_index(pix_center),
+        return (self.wl_from_index([pix_center])[0],
                 self.wl_from_index([e00, e01, e10, e11]))
 
     def wl_subsample_centers(

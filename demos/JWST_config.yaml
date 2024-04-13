@@ -21,7 +21,7 @@ telescope:
   fov_unit: arcsec
 
   integration_model:
-    model: 'interpolation' # 'sparse', 'interpolation', 'udpating_interpolation', 'nufft'
+    model: 'sparse' # 'sparse', 'interpolation', 'udpating_interpolation', 'nufft'
     subsample: 3
     mean: [0, 0]
     sigma: [0.1, 0.1]
@@ -37,8 +37,8 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/f444w_64_interpad/'
-  # res_dir: 'results/jwst_test/f444w_64_sparsepad/'
+  # res_dir: 'results/jwst_test/f444w_64_interpad/'
+  res_dir: 'results/jwst_test/f444w_64_sparsepad_new2/'
   # res_dir: 'results/jwst_test/f444w_64_updatepad/'
   # res_dir: 'results/jwst_test/f444w_64_nufft/'
 
