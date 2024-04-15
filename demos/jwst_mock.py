@@ -4,7 +4,7 @@ import nifty8.re as jft
 import numpy as np
 import matplotlib.pyplot as plt
 
-from jwst_handling.mock.mock_data import create_data_old
+from jwst_handling.mock_data import create_data_old
 
 from jwst_handling.integration_models import (
     build_sparse_integration,
