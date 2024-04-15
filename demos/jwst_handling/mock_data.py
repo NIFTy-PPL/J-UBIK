@@ -6,7 +6,7 @@ import jax
 jax.config.update('jax_platform_name', 'cpu')
 
 
-def build_plot(plot_data, plot_sky, mask, data_model, sky_model, res_dir):
+def build_plot(datas, data_models, masks, plot_sky, sky_model, res_dir):
     from charm_lensing.analysis_tools import source_distortion_ratio
     from scipy.stats import wasserstein_distance
     from charm_lensing.plotting import display_text
@@ -17,22 +17,13 @@ def build_plot(plot_data, plot_sky, mask, data_model, sky_model, res_dir):
             np.fft.fft2(input).conj() * np.fft.fft2(recon)
         ).real.max()
 
-    def plot(s, x):
+    def plot(samples, x):
         from os.path import join
         from os import makedirs
         out_dir = join(res_dir, 'residuals')
         makedirs(out_dir, exist_ok=True)
 
-        sky = jft.mean([sky_model(si) for si in s])
-
-        dms = []
-        for si in s:
-            dm = np.zeros_like(plot_data)
-            dm[mask] = data_model(si)
-            dms.append(dm)
-        mod_mean = jft.mean(dms)
-        redchi_mean, redchi2_std = jft.mean_and_std(
-            [redchi2(plot_data, m, std, plot_data.size) for m in dms])
+        sky = jft.mean([sky_model(si) for si in samples])
 
         vals = dict(
             sdr=source_distortion_ratio(plot_sky, sky),
@@ -40,29 +31,46 @@ def build_plot(plot_data, plot_sky, mask, data_model, sky_model, res_dir):
             cc=cross_correlation(plot_sky, sky),
         )
 
-        fig, axes = plt.subplots(2, 3, figsize=(9, 6), dpi=300)
+        ylen = 1+len(datas)
+        fig, axes = plt.subplots(ylen, 3, figsize=(9, 3*ylen), dpi=300)
         ims = []
-        axes[0, 0].set_title('Data')
-        ims.append(axes[0, 0].imshow(plot_data, origin='lower'))
-        axes[0, 1].set_title('Data model')
-        ims.append(axes[0, 1].imshow(dm, origin='lower'))
-        axes[0, 2].set_title('Data residual')
-        ims.append(axes[0, 2].imshow((plot_data - dm)/std, origin='lower',
-                                     vmin=-3, vmax=3, cmap='RdBu_r'))
-        chi = '\n'.join((
-            f'MSE/var: {wmse(plot_data, mod_mean, std):.2f}',
-            f'redChi2: {redchi_mean:.2f} +/- {redchi2_std:.2f}',
-        ))
-        display_text(axes[0, 2], chi)
-        axes[1, 0].set_title('Sky')
-        ims.append(axes[1, 0].imshow(plot_sky, origin='lower'))
-        axes[1, 1].set_title('Sky model')
-        ims.append(axes[1, 1].imshow(sky, origin='lower'))
-        axes[1, 2].set_title('Sky residual')
-        ims.append(axes[1, 2].imshow((plot_sky - sky)/plot_sky, origin='lower',
-                                     vmin=-0.3, vmax=0.3, cmap='RdBu_r'))
+
+        for ii, (d, dm, mask) in enumerate(zip(datas, data_models, masks)):
+            model_data = []
+            for si in samples:
+                tmp = np.zeros_like(data)
+                tmp[mask] = dm(si)
+                model_data.append(tmp)
+
+            mod_mean = jft.mean(model_data)
+            redchi_mean, redchi2_std = jft.mean_and_std(
+                [redchi2(d, m, std, d.size) for m in model_data])
+
+            axes[ii, 0].set_title('Data')
+            ims.append(axes[ii, 0].imshow(d, origin='lower'))
+            axes[ii, 1].set_title('Data model')
+            ims.append(axes[ii, 1].imshow(mod_mean, origin='lower'))
+            axes[ii, 2].set_title('Data residual')
+            ims.append(axes[ii, 2].imshow((d - mod_mean)/std, origin='lower',
+                                          vmin=-3, vmax=3, cmap='RdBu_r'))
+            chi = '\n'.join((
+                f'MSE/var: {wmse(d, mod_mean, std):.2f}',
+                f'redChi2: {redchi_mean:.2f} +/- {redchi2_std:.2f}',
+            ))
+
+            display_text(axes[ii, 2], chi)
+
+        axes[ii+1, 0].set_title('Sky')
+        ims.append(axes[ii+1, 0].imshow(plot_sky, origin='lower'))
+        axes[ii+1, 1].set_title('Sky model')
+        ims.append(axes[ii+1, 1].imshow(sky, origin='lower'))
+        axes[ii+1, 2].set_title('Sky residual')
+        ims.append(axes[ii+1, 2].imshow(
+            (plot_sky - sky)/plot_sky, origin='lower',
+            vmin=-0.3, vmax=0.3, cmap='RdBu_r'))
+
         ss = '\n'.join([f'{k}: {v:.3f}' for k, v in vals.items()])
-        display_text(axes[1, 2], ss)
+        display_text(axes[ii+1, 2], ss)
         for ax, im in zip(axes.flatten(), ims):
             fig.colorbar(im, ax=ax, shrink=0.7)
         fig.tight_layout()
@@ -292,18 +300,18 @@ if __name__ == '__main__':
     NOISE_SCALE = 0.01
     MODEL = 'sparse'
     RSHAPE = 128
-    ROTATION_0 = 10
-    ROTATION_1 = 20
+    ROTATION_0 = 2
+    ROTATION_1 = 22
 
     key = random.PRNGKey(87)
     key, mock_key, noise_key, rec_key = random.split(key, 4)
     comp_sky, reco_grid, data_set = setup(
-        mock_key, RSHAPE, rotation=[ROTATION_0], plot=True)
+        mock_key, RSHAPE, rotation=[ROTATION_0, ROTATION_1], plot=True)
 
     sky_model = build_sky_model(
         reco_grid.shape, [d.to(u.arcsec).value for d in reco_grid.distances])
 
-    if True:
+    if False:
         key, check_key = random.split(key)
         m = sky_model(jft.random_like(check_key, sky_model.domain))
         fig, axis = plt.subplots(1, 3)
@@ -317,6 +325,9 @@ if __name__ == '__main__':
             fig.colorbar(im, ax=ax, shrink=0.7)
         plt.show()
 
+    datas = []
+    models = []
+    masks = []
     likelihoods = []
     for data_key in data_set.keys():
         data, data_grid = data_set[data_key]['data'], data_set[data_key]['grid']
@@ -353,14 +364,16 @@ if __name__ == '__main__':
             model = build_sparse_integration_model(sparse_matrix, sky_model)
             res_dir = f'results/mock_rotation/c{ROTATION_0}_{ROTATION_1}/{RSHAPE}_sparse'
 
+        masks.append(mask)
+        datas.append(d)
+        models.append(model)
         likelihoods.append(likelihood_func.amend(model, domain=model.domain))
-        like = likelihood_func.amend(model, domain=model.domain)
 
-    # from functools import reduce
-    # like = reduce(lambda a, b: a + b, likelihoods)
+    from functools import reduce
+    like = reduce(lambda a, b: a + b, likelihoods)
 
     plot = build_plot(
-        d, comp_sky, mask, model, sky_model, res_dir)
+        datas, models, masks, comp_sky, sky_model, res_dir)
 
     pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, like.domain))
 

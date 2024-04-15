@@ -214,10 +214,11 @@ def build_plot(plot_data, plot_sky, mask, data_model, sky_model, res_dir):
         axes[0, 0].set_title('Data')
         ims.append(axes[0, 0].imshow(plot_data, origin='lower'))
         axes[0, 1].set_title('Data model')
-        ims.append(axes[0, 1].imshow(dm, origin='lower'))
+        ims.append(axes[0, 1].imshow(mod_mean, origin='lower'))
         axes[0, 2].set_title('Data residual')
-        ims.append(axes[0, 2].imshow((plot_data - dm)/std, origin='lower',
-                                     vmin=-3, vmax=3, cmap='RdBu_r'))
+        ims.append(axes[0, 2].imshow(
+            (plot_data - mod_mean)/std, origin='lower', vmin=-3, vmax=3,
+            cmap='RdBu_r'))
         chi = '\n'.join((
             f'MSE/var: {wmse(plot_data, mod_mean, std):.2f}',
             f'redChi2: {redchi_mean:.2f} +/- {redchi2_std:.2f}',
