@@ -71,7 +71,7 @@ if __name__ == "__main__":
                                      pos_init,
                                      key=key,
                                      kl_kwargs=kl_solver_kwargs,
-                                     # callback=simple_eval_plots,
+                                     callback=simple_eval_plots,
                                      odir=file_info["res_dir"],
                                      **minimization_config
                                      )

@@ -11,7 +11,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from os.path import join
 
 from .response import build_erosita_response_from_config
-from .utils import get_data_domain, get_config, create_output_directory
+from .utils import get_data_domain, get_config, create_output_directory, get_stats
 from ..library.sky_models import SkyModel
 from ..library.chandra_observation import ChandraObservationInformation
 
@@ -264,35 +264,36 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     - dpi: `int`, optional. The resolution of the plot. Defaults to 100.
     - plotting_kwargs: `dict`, optional. Additional plotting keyword arguments. Defaults to None.
 
+    # FIXME Title available again?
     Returns:
     --------
     - None
     """
-    samples = sample_list.samples
 
     if iteration is None:
         iteration = 0
     if plotting_kwargs is None:
         plotting_kwargs = {}
 
-    results = {}
     for key in operators_dict:
         op = operators_dict[key]
+        n_samples = len(sample_list)
+
         results_path = create_output_directory(join(output_directory, key))
-        filename_samples = join(results_path, "samples_{}.png".format(iteration))
-        filename_stats = join(results_path, "stats_{}.png".format(iteration))
+        filename_mean = join(results_path, "mean_it_{}.png".format(iteration))
+        filename_std = join(results_path, "std_it_{}.png".format(iteration))
+        # Plot Samples
+        f_samples = np.array([op(s) for s in sample_list])
 
-        results[key] = jax.vmap(op)(samples)
-        n_samples = results[key].shape[0]
-
-        if 'title' not in plotting_kwargs:
-            title = [f"Sample {ii}" for ii in range(n_samples)]
-            plotting_kwargs.update({'title': title})
-
+        e_length = f_samples[0].shape[0]
         # Plot samples
         # FIXME: works only for 2D outputs, add target capabilities
-        plot_result(results[key], output_file=filename_samples, logscale=log_scale,
-                    colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
+        for i in range(n_samples):
+            filename_samples = join(results_path, f"sample_{i+1}_it_{iteration}.png")
+            title = [f"Sample {i+1}_Energy_{ii+1}" for ii in range(e_length)]
+            plotting_kwargs.update({'title': title})
+            plot_result(f_samples[i], output_file=filename_samples, logscale=log_scale,
+                        colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
 
         # Plot statistics
         if 'n_rows' in plotting_kwargs:
@@ -303,14 +304,14 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
             plotting_kwargs.pop('figsize')
         if 'title' in plotting_kwargs:
             plotting_kwargs.pop('title')
-        title = ["Posterior mean", "Posterior standard deviation"]
 
-        mean = results[key].mean(axis=0)
-        std = results[key].std(axis=0, ddof=1)
-        stats = np.stack([mean, std])
-        plot_result(stats, output_file=filename_stats, logscale=log_scale, colorbar=colorbar,
+        mean, std = get_stats(sample_list, op)
+        title = [f"Posterior_Mean_Energy_{ii+1}" for ii in range(e_length)]
+        plot_result(mean, output_file=filename_mean, logscale=log_scale, colorbar=colorbar,
                     title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
-
+        title = [f"Posterior_Std_Energy_{ii+1}" for ii in range(e_length)]
+        plot_result(std, output_file=filename_std, logscale=log_scale, colorbar=colorbar,
+                    title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
 def _get_n_rows_from_n_samples(n_samples):
     """

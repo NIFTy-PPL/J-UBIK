@@ -7,6 +7,18 @@ import scipy
 import nifty8 as ift
 
 
+def get_stats(sample_list, func):
+    """Return stats(mean and std) for sample_list.
+
+    Parameters:
+    ----------
+    sample_list: list of posterior samples
+    func: callable
+    """
+    f_s = np.array([func(s) for s in sample_list])
+    return f_s.mean(axis=0), f_s.std(axis=0, ddof=1)
+
+
 def get_config(path_to_yaml_file):
     """
     Convenience function for loading yaml-config files
@@ -128,12 +140,12 @@ def get_data_domain(config):
     return ift.DomainTuple.make([dom_sp, e_sp])
 
 
-def _get_sp_dist(config):
+def _get_sp_dist(config): #FIXME is this still used
     res = config["fov"] / config["npix_s"]
     return res
 
 
-def _get_e_dist(config):
+def _get_e_dist(config): #FIXME is this still used
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
 
