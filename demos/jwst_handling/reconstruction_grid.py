@@ -11,6 +11,8 @@ from .wcs.wcs_astropy import build_astropy_wcs
 
 
 class Grid:
+    '''Grid wraps a 2d array with a world coordinate system.'''
+
     def __init__(
         self,
         center: SkyCoord,
@@ -34,7 +36,21 @@ class Grid:
 
     @property
     def world_extrema(self) -> ArrayLike:
-        return self.wcs.wl_from_index_extrema(self.shape)
+        '''The world location of the center of the pixels with the index
+        locations = ((0, 0), (0, -1), (-1, 0), (-1, -1))
+
+        Note
+        ----
+        The indices are assumed to coincide with the convention of the first
+        index (x) aligning with the columns and the second index (y) aligning
+        with the rows.
+        '''
+        xmin = 0
+        xmax = self.shape[0]  # - 1 FIXME: Which of the two
+        ymin = 0
+        ymax = self.shape[1]  # - 1
+        return self.wcs.wl_from_index([
+            (xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)])
 
     def extent(self, unit=units.arcsec):
         '''Convinience property which gives the extent of the grid in '''

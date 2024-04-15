@@ -124,7 +124,7 @@ def create_data(
     return data_grid, data
 
 
-def setup(mock_key, plot=False):
+def setup(mock_key, reco_shape, rotation, plot=False):
     from astropy.coordinates import SkyCoord
     from astropy import units as u
     from jwst_handling.reconstruction_grid import Grid
@@ -140,13 +140,13 @@ def setup(mock_key, plot=False):
     mock_grid = Grid(CENTER, MOCK_SHAPE, MOCK_FOV)
 
     # Reco sky
-    RECO_SHAPE = (128, 128)
+    RECO_SHAPE = (reco_shape,)*2
     RECO_FOV = MOCK_FOV
     reco_grid = Grid(CENTER, RECO_SHAPE, RECO_FOV)
     comp_down = [r//d for r, d in zip(MOCK_SHAPE, RECO_SHAPE)]
 
     # Intermediate rotated sky
-    ROTATION = 5*u.deg
+    ROTATION = rotation*u.deg
     ROTA_SHAPE = (768, 768)
     ROTA_FOV = [ROTA_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
 
@@ -171,30 +171,146 @@ def setup(mock_key, plot=False):
         import matplotlib.pyplot as plt
         arr = mock_grid.wcs.index_from_wl(data_grid.world_extrema).T
 
-        fig, ax = plt.subplots(1, 3)
-        ax, ay, az = ax
-        ax.imshow(mock_sky, origin='lower')
-        plot_square(ax, arr)
-        ay.imshow(rota_sky, origin='lower')
-        az.imshow(data, origin='lower')
+        fig, ax = plt.subplots(2, 2)
+        (a00, a01), (a10, a11) = ax
+        a00.imshow(mock_sky, origin='lower')
+        plot_square(a00, arr)
+        a01.imshow(rota_sky, origin='lower')
+        a10.imshow(comparison_sky, origin='lower')
+        a11.imshow(data, origin='lower')
         plt.show()
 
     return comparison_sky, reco_grid, data, data_grid
 
 
+def build_sky_model(shape, dist):
+
+    offset = dict(offset_mean=3.7, offset_std=[0.1, 0.05])
+    fluctuations = dict(fluctuations=[0.7, 0.03],
+                        loglogavgslope=[-4.8, 1.],
+                        flexibility=[0.8, 0.1],
+                        asperity=[0.2, 0.1])
+
+    cfm = jft.CorrelatedFieldMaker(prefix='reco')
+    cfm.set_amplitude_total_offset(**offset)
+    cfm.add_fluctuations(
+        [int(shp) for shp in shape], dist,
+        **fluctuations, non_parametric_kind='power')
+
+    reco_diffuse = cfm.finalize()
+    # sky_model = jft.Model(
+    #     lambda x: jnp.exp(reco_diffuse(x)[:reco_shape[0], :reco_shape[1]]),
+    #     domain=reco_diffuse.domain)
+
+    sky_model_full = jft.Model(
+        lambda x: jnp.exp(reco_diffuse(x)),
+        domain=reco_diffuse.domain)
+
+    return sky_model_full
+
+
+def build_plot(plot_data, plot_sky, mask, data_model, sky_model, res_dir):
+    from charm_lensing.analysis_tools import source_distortion_ratio
+    from scipy.stats import wasserstein_distance
+    from charm_lensing.plotting import display_text
+    from charm_lensing.analysis_tools import wmse, redchi2
+
+    def cross_correlation(input, recon):
+        return np.fft.ifft2(
+            np.fft.fft2(input).conj() * np.fft.fft2(recon)
+        ).real.max()
+
+    def plot(s, x):
+        from os.path import join
+        from os import makedirs
+        out_dir = join(res_dir, 'residuals')
+        makedirs(out_dir, exist_ok=True)
+
+        sky = jft.mean([sky_model(si) for si in s])
+
+        dms = []
+        for si in s:
+            dm = np.zeros_like(plot_data)
+            dm[mask] = data_model(si)
+            dms.append(dm)
+        mod_mean = jft.mean(dms)
+        redchi_mean, redchi2_std = jft.mean_and_std(
+            [redchi2(plot_data, m, std, plot_data.size) for m in dms])
+
+        vals = dict(
+            sdr=source_distortion_ratio(plot_sky, sky),
+            wd=wasserstein_distance(plot_sky.reshape(-1), sky.reshape(-1)),
+            cc=cross_correlation(plot_sky, sky),
+        )
+
+        fig, axes = plt.subplots(2, 3, figsize=(9, 6), dpi=300)
+        ims = []
+        axes[0, 0].set_title('Data')
+        ims.append(axes[0, 0].imshow(plot_data, origin='lower'))
+        axes[0, 1].set_title('Data model')
+        ims.append(axes[0, 1].imshow(dm, origin='lower'))
+        axes[0, 2].set_title('Data residual')
+        ims.append(axes[0, 2].imshow((plot_data - dm)/std, origin='lower',
+                                     vmin=-3, vmax=3, cmap='RdBu_r'))
+        chi = '\n'.join((
+            f'MSE/var: {wmse(plot_data, mod_mean, std):.2f}',
+            f'redChi2: {redchi_mean:.2f} +/- {redchi2_std:.2f}',
+        ))
+        display_text(axes[0, 2], chi)
+        axes[1, 0].set_title('Sky')
+        ims.append(axes[1, 0].imshow(plot_sky, origin='lower'))
+        axes[1, 1].set_title('Sky model')
+        ims.append(axes[1, 1].imshow(sky, origin='lower'))
+        axes[1, 2].set_title('Sky residual')
+        ims.append(axes[1, 2].imshow((plot_sky - sky)/plot_sky, origin='lower',
+                                     vmin=-0.3, vmax=0.3, cmap='RdBu_r'))
+        ss = '\n'.join([f'{k}: {v:.3f}' for k, v in vals.items()])
+        display_text(axes[1, 2], ss)
+        for ax, im in zip(axes.flatten(), ims):
+            fig.colorbar(im, ax=ax, shrink=0.7)
+        fig.tight_layout()
+        fig.savefig(join(out_dir, f'{x.nit:02d}.png'), dpi=300)
+        plt.close()
+
+    return plot
+
+
 if __name__ == '__main__':
     from jax import random
     import matplotlib.pyplot as plt
-    from jwst_handling.integration_models import (build_sparse_integration,
-                                                  build_linear_integration)
-
-    key = random.PRNGKey(87)
-    key, mock_key, noise_key, rec_key = random.split(key, 4)
-    comp_sky, reco_grid, data, data_grid = setup(mock_key, plot=True)
+    from jwst_handling.integration_models import (
+        build_sparse_integration, build_sparse_integration_model)
+    from astropy import units as u
+    import jubik0 as ju
 
     # Reconstruction Setup
     SUBSAMPLE = 3
     NOISE_SCALE = 0.01
+    MODEL = 'sparse'
+    RSHAPE = 128
+    ROTATION = 15
+
+    key = random.PRNGKey(87)
+    key, mock_key, noise_key, rec_key = random.split(key, 4)
+    comp_sky, reco_grid, data, data_grid = setup(
+        mock_key, RSHAPE, rotation=ROTATION, plot=True)
+
+    sky_model = build_sky_model(
+        reco_grid.shape, [d.to(u.arcsec).value for d in reco_grid.distances])
+
+    if False:
+        key, check_key = random.split(key)
+        m = sky_model(jft.random_like(check_key, sky_model.domain))
+        fig, axis = plt.subplots(1, 3)
+        im0 = axis[0].imshow(comp_sky, origin='lower')
+        im1 = axis[1].imshow(m, origin='lower')
+        im2 = axis[2].imshow(comp_sky-m, origin='lower', cmap='RdBu_r')
+        axis[0].set_title('sky')
+        axis[1].set_title('model')
+        axis[2].set_title('residual')
+        for im, ax in zip([im0, im1, im2], axis):
+            fig.colorbar(im, ax=ax, shrink=0.7)
+        plt.show()
 
     std = data.mean() * NOISE_SCALE
     d = data + random.normal(noise_key, data.shape, dtype=data.dtype) * std
@@ -224,5 +340,34 @@ if __name__ == '__main__':
         std=std
     )
 
-    sparse_matrix = build_sparse_integration(
-        reco_grid.index_grid(), likelihood_info['index_edges'], likelihood_info['mask'])
+    mask = likelihood_info['mask']
+    edges = likelihood_info['index_edges']
+
+    if MODEL == 'sparse':
+        sparse_matrix = build_sparse_integration(
+            reco_grid.index_grid(), likelihood_info['index_edges'], likelihood_info['mask'])
+        model = build_sparse_integration_model(sparse_matrix, sky_model)
+        res_dir = f'results/mock_rotation/c{ROTATION}/{RSHAPE}_sparse'
+
+    like = ju.library.likelihood.build_gaussian_likelihood(
+        d.reshape(-1), float(std))
+    like = like.amend(model, domain=model.domain)
+
+    plot = build_plot(
+        d, comp_sky, mask, model, sky_model, res_dir)
+
+    pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, like.domain))
+
+    cfg = ju.get_config('./JWST_config.yaml')
+    minimization_config = cfg['minimization']
+    kl_solver_kwargs = minimization_config.pop('kl_kwargs')
+    minimization_config['n_total_iterations'] = 15
+
+    samples, state = jft.optimize_kl(
+        like,
+        pos_init,
+        key=key,
+        kl_kwargs=kl_solver_kwargs,
+        callback=plot,
+        odir=res_dir,
+        **minimization_config)

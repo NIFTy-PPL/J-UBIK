@@ -71,7 +71,7 @@ sky_model_full = jft.Model(
 
 if PRIOR_SAMPLE:
     key, check_key = random.split(key)
-    m = sky_model(jft.random_like(rec_key, sky_model.domain))
+    m = sky_model(jft.random_like(check_key, sky_model.domain))
     fig, axis = plt.subplots(1, 3)
     im0 = axis[0].imshow(comparison_sky, origin='lower')
     im1 = axis[1].imshow(m, origin='lower')

@@ -81,42 +81,12 @@ class WcsBase(ABC):
                 {edges_dgrid}"""
                 raise ValueError(o)
 
-        minx = int(np.floor(edges_dgrid[:, 0].min()))
-        maxx = int(np.ceil(edges_dgrid[:, 0].max()))
-        miny = int(np.floor(edges_dgrid[:, 1].min()))
-        maxy = int(np.ceil(edges_dgrid[:, 1].max()))
+        # FIXME: What to do here... round, ceil, or floor?
+        minx = int(np.round(edges_dgrid[:, 0].min()))
+        maxx = int(np.round(edges_dgrid[:, 0].max()))
+        miny = int(np.round(edges_dgrid[:, 1].min()))
+        maxy = int(np.round(edges_dgrid[:, 1].max()))
         return minx, maxx, miny, maxy
-
-    def wl_from_index_extrema(
-        self,
-        shape_or_extrema: Union[Tuple[int, int], Tuple[int, int, int, int]],
-    ) -> ArrayLike:
-        '''Calculate the world location of the index extrema.
-
-        Parameters
-        ----------
-        shape_or_extrema: tuple
-            The shape of the underlying array or pixel values of a bounding
-            box: (xmin, xmax, ymin, ymax)
-
-        Returns
-        -------
-        The world location (wl) of the extrema
-
-        Note
-        ----
-        The indices are assumed to coincide with the convention of the first
-        index (x) aligning with the columns and the second index (y) aligning
-        with the rows.
-        '''
-        if len(shape_or_extrema) == 2:
-            xmin, xmax, ymin, ymax = (
-                0, shape_or_extrema[0], 0, shape_or_extrema[1])
-        else:
-            xmin, xmax, ymin, ymax = shape_or_extrema
-
-        return self.wl_from_index(
-            [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)])
 
     def wl_pixelcenter_and_edges(
         self,
