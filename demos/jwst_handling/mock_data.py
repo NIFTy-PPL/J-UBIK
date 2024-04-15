@@ -6,7 +6,7 @@ import jax
 jax.config.update('jax_platform_name', 'cpu')
 
 
-def build_plot(datas, data_models, masks, plot_sky, sky_model, res_dir):
+def build_plot(datas, data_models, masks, plot_sky, sky_model, res_dir, vals_calc_mask):
     from charm_lensing.analysis_tools import source_distortion_ratio
     from scipy.stats import wasserstein_distance
     from charm_lensing.plotting import display_text
@@ -69,7 +69,8 @@ def build_plot(datas, data_models, masks, plot_sky, sky_model, res_dir):
             (plot_sky - sky)/plot_sky, origin='lower',
             vmin=-0.3, vmax=0.3, cmap='RdBu_r'))
 
-        ss = '\n'.join([f'{k}: {v:.3f}' for k, v in vals.items()])
+        ss = '\n'.join(
+            [f'{k}: {v:.3f}' if k != 'cc' else f'{k}: {v:e}' for k, v in vals.items()])
         display_text(axes[ii+1, 2], ss)
         for ax, im in zip(axes.flatten(), ims):
             fig.colorbar(im, ax=ax, shrink=0.7)
@@ -291,9 +292,12 @@ if __name__ == '__main__':
     from jax import random
     import matplotlib.pyplot as plt
     from jwst_handling.integration_models import (
-        build_sparse_integration, build_sparse_integration_model)
+        build_sparse_integration, build_sparse_integration_model,
+        build_linear_integration, build_integration_model,
+        build_nufft_integration)
     from astropy import units as u
     import jubik0 as ju
+    from sys import exit
 
     # Reconstruction Setup
     SUBSAMPLE = 3
@@ -325,6 +329,7 @@ if __name__ == '__main__':
             fig.colorbar(im, ax=ax, shrink=0.7)
         plt.show()
 
+    evaluation_mask = np.full(reco_grid.shape, False)
     datas = []
     models = []
     masks = []
@@ -337,17 +342,21 @@ if __name__ == '__main__':
             data_grid.world_extrema, SUBSAMPLE)
         px_reco_subsample_centers = reco_grid.wcs.index_from_wl(
             wl_data_subsample_centers)
-
-        # plt.imshow(comp_sky, origin='lower')
-        # plt.scatter(*px_reco_subsample_centers[0])
-        # plt.show()
+        px_reco_subsample_centers = px_reco_subsample_centers[:, ::-1, :, :]
 
         # For sparse
         wl_data_centers, (e00, e01, e10, e11) = data_grid.wcs.wl_pixelcenter_and_edges(
             data_grid.world_extrema)
-        dpixcenter_in_rgrid = reco_grid.wcs.index_from_wl(wl_data_centers)[0]
+        px_reco_datapix_cntr = reco_grid.wcs.index_from_wl(wl_data_centers)[0]
         px_reco_index_edges = reco_grid.wcs.index_from_wl(
             [e00, e01, e11, e10])  # needs to be circular for sparse builder
+
+        # evaluation_mask
+        pix_hits = np.array(
+            np.round(px_reco_datapix_cntr),
+            dtype=int
+        ).reshape(2, -1)
+        evaluation_mask[pix_hits[0], pix_hits[1]] = True
 
         std = data.mean() * NOISE_SCALE
         d = data + random.normal(noise_key, data.shape, dtype=data.dtype) * std
@@ -355,6 +364,9 @@ if __name__ == '__main__':
             d.reshape(-1), float(std))
 
         mask = np.full(data.shape, True)
+        sky_dvol = reco_grid.dvol
+        sub_dvol = data_grid.dvol / (SUBSAMPLE**2)
+
         if MODEL == 'sparse':
             sparse_matrix = build_sparse_integration(
                 reco_grid.index_grid(),
@@ -363,6 +375,28 @@ if __name__ == '__main__':
             # FIXME: This is not optimal; better distribute the model to the operator
             model = build_sparse_integration_model(sparse_matrix, sky_model)
             res_dir = f'results/mock_rotation/c{ROTATION_0}_{ROTATION_1}/{RSHAPE}_sparse'
+
+        elif MODEL == 'linear':
+            linear = build_linear_integration(
+                sky_dvol,
+                sub_dvol,
+                px_reco_subsample_centers,
+                mask,
+                order=1,
+                updating=False)
+            model = build_integration_model(linear, sky_model)
+            res_dir = f'results/mock_rotation/c{ROTATION_0}_{ROTATION_1}/{RSHAPE}_linear'
+
+        elif MODEL == 'nufft':
+            nufft = build_nufft_integration(
+                sky_dvol=sky_dvol,
+                sub_dvol=sub_dvol,
+                subsample_centers=px_reco_subsample_centers,
+                mask=mask,
+                sky_shape=reco_grid.shape,
+            )
+            model = build_integration_model(nufft, sky_model)
+            res_dir = f'results/mock_rotation/c{ROTATION_0}_{ROTATION_1}/{RSHAPE}_nufft'
 
         masks.append(mask)
         datas.append(d)
@@ -380,7 +414,9 @@ if __name__ == '__main__':
     cfg = ju.get_config('./JWST_config.yaml')
     minimization_config = cfg['minimization']
     kl_solver_kwargs = minimization_config.pop('kl_kwargs')
-    minimization_config['n_total_iterations'] = 15
+    minimization_config['n_total_iterations'] = 25
+    minimization_config['resume'] = True
+    minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
     samples, state = jft.optimize_kl(
         like,
@@ -390,3 +426,7 @@ if __name__ == '__main__':
         callback=plot,
         odir=res_dir,
         **minimization_config)
+
+    plot = build_plot(
+        datas, models, masks, comp_sky, sky_model, res_dir)
+    plot(samples, state)
