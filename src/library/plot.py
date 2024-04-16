@@ -270,6 +270,8 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     - None
     """
 
+    if len(sample_list) == 0:
+        sample_list = [sample_list.pos]
     if iteration is None:
         iteration = 0
     if plotting_kwargs is None:
@@ -305,13 +307,16 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
         if 'title' in plotting_kwargs:
             plotting_kwargs.pop('title')
 
-        mean, std = get_stats(sample_list, op)
-        title = [f"Posterior_Mean_Energy_{ii+1}" for ii in range(e_length)]
-        plot_result(mean, output_file=filename_mean, logscale=log_scale, colorbar=colorbar,
-                    title=title, dpi=dpi, figsize=(8, 4), **plotting_kwargs)
-        title = [f"Posterior_Std_Energy_{ii+1}" for ii in range(e_length)]
-        plot_result(std, output_file=filename_std, logscale=log_scale, colorbar=colorbar,
-                    title=title, dpi=dpi, figsize=(8, 4), **plotting_kwargs)
+        if len(sample_list) > 1:
+            mean, std = get_stats(sample_list, op)
+            title = [f"Posterior_Mean_Energy_{ii+1}" for ii in range(e_length)]
+            plot_result(mean, output_file=filename_mean, logscale=log_scale,
+                        colorbar=colorbar, title=title, dpi=dpi, n_rows=1,
+                        n_cols=2, figsize=(8, 4), **plotting_kwargs)
+            title = [f"Posterior_Std_Energy_{ii+1}" for ii in range(e_length)]
+            plot_result(std, output_file=filename_std, logscale=log_scale,
+                        colorbar=colorbar, title=title, dpi=dpi, n_rows=1,
+                        n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
 def _get_n_rows_from_n_samples(n_samples):
     """
