@@ -362,4 +362,6 @@ class SkyModel:
         self.point_sources = jft.Model(padding, domain=points.domain)
 
     def sky_model_to_dict(self):
-        return {'sky': self.sky, 'diffuse': self.diffuse, 'points': self.point_sources}
+        sky_dict = {'sky': self.sky, 'diffuse': self.diffuse, 'points': self.point_sources}
+        no_none_dict = {key: value for (key,value) in sky_dict.items() if value is not None}
+        return no_none_dict
