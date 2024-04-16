@@ -18,7 +18,7 @@ point_source_defaults:
 
 psf:
  method: 'LINJAX'
- energy: ['1486', '3000']
+ energy: ['0277', '1486', '3000'] #FIXME: check whether to use '0930'
   # LIN config
  npatch: 8
  margfrac: 0.062
@@ -42,14 +42,16 @@ plotting:
 
 grid:
   sdim: 512
-  edim: 2 # FIXME: remove this parameter
+  edim: 3 # FIXME: remove this parameter
   s_padding_ratio: 1.203
   e_padding_ratio: 2.
   energy_bin:
     e_min:
+    - 0.2
     - 1.0
     - 2.0
     e_max:
+    - 1.0
     - 2.0
     - 4.5
 
@@ -57,11 +59,11 @@ grid:
 files:
   obs_path: '../data/LMC_SN1987A/'
   input: 'pm00_700161_020_EventList_c001.fits'
-  output: 'small_processed_pm00_700161_020_data.fits'
-  exposure: 'small_expmap_pm00_700161_020.fits'
+  output: 'pm00_700161_020_data.fits'
+  exposure: 'pm00_700161_020_expmap.fits'
   psf_path : '../data/psf_info/'
   psf_base_filename: '2dpsf_190219v05.fits'
-  res_dir: 'results/Default_run'
+  res_dir: 'results/Default_run_mf'
 
 priors:
   point_sources:
@@ -70,6 +72,11 @@ priors:
       q: 5.E-7
       key: points
     plaw:
+      offset:
+        offset_mean: -2.0
+        offset_std:
+          - 0.5
+          - 0.1
       fluctuations:
         fluctuations:
           - 0.5
@@ -85,11 +92,6 @@ priors:
         # harmonic_type: "Fourier"
         non_parametric_kind: "power"
       prefix: points_plaw
-      offset:
-        offset_mean: -2.0
-        offset_std:
-          - 0.3
-          - 0.1
     dev_wp:
       x0:
         - 0
@@ -142,6 +144,11 @@ priors:
         # harmonic_type: "Fourier"
       prefix: diffuse_spatial
     plaw:
+      offset:
+        offset_mean: -2.0
+        offset_std:
+          - 0.5
+          - 0.1
       fluctuations:
         fluctuations:
           - 0.5
@@ -157,11 +164,6 @@ priors:
         non_parametric_kind: "power"
         # harmonic_type: "Fourier"
       prefix: diffuse_plaw
-      offset:
-        offset_mean: -2.0
-        offset_std:
-          - 0.3
-          - 0.1
     # dev_wp:
     #   x0:
     #     - 0
@@ -195,7 +197,7 @@ priors:
 minimization:
   resume: False
   n_total_iterations: 15
-  n_samples: 0
+  n_samples: 4
   draw_linear_kwargs:
     cg_name : lin sampling
     cg_kwargs:
@@ -215,4 +217,4 @@ minimization:
       maxiter: 10
       cg_kwargs:
         name: "MCG"
-  sample_mode: nonlinear_sample
+  sample_mode: nonlinear_resample
