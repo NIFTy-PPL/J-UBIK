@@ -359,8 +359,8 @@ class SkyModel:
                                       'freq_plaw': points_plaw,
                                       'freq_dev': points_dev_cf}).build_model()
 
-        padding = lambda x: points(x)[:edim, :, :]
-        self.point_sources = jft.Model(padding, domain=points.domain)
+        exp_padding = lambda x: jnp.exp(log_points(x)[:edim, :, :])
+        self.point_sources = jft.Model(exp_padding, domain=log_points.domain)
 
     def sky_model_to_dict(self):
         sky_dict = {'sky': self.sky, 'diffuse': self.diffuse, 'points': self.point_sources}
