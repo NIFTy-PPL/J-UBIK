@@ -320,7 +320,7 @@ class SkyModel:
         points: jft.Model
             Model for the point-source component
         """
-        if not 'spatial' in prior_dict:
+        if 'spatial' not in prior_dict:
             return ValueError('Point source component needs a spatial component')
         if 'dev_wp' in prior_dict and 'dev_corr' in prior_dict:
             raise ValueError('You can only inlude Wiener process or correlated field'
