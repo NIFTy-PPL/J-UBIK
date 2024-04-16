@@ -149,8 +149,7 @@ class SkyModel:
         sdistances = fov / sdim[0]
         edistances = energy_range / edim
 
-        if not isinstance(edistances, float) and ('dev_corr' in priors['diffuse'].keys()
-        or 'dev_corr' in priors['point_sources'].keys()):
+        if not isinstance(edistances, float) and 'dev_corr' in priors['diffuse'].keys():
             raise ValueError('Grid distances in energy direction have to be regular and defined by'
                              'one float of a corrlated field in energy direction is taken.')
 
@@ -159,6 +158,9 @@ class SkyModel:
         if 'point_sources' not in priors:
             self.sky = self.diffuse
         else:
+            if 'dev_corr' in priors['point_sources'].keys():
+                raise ValueError('Grid distances in energy direction have to be regular and defined by'
+                             'one float of a corrlated field in energy direction is taken.')
             self._create_point_source_model(sdim, edim, e_padding_ratio,
                                                 sdistances, edistances, priors['point_sources'])
             self.sky = fuse_model_components(self.diffuse, self.point_sources)
