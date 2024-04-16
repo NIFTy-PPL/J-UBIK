@@ -355,10 +355,10 @@ class SkyModel:
             points_dev_cf = jft.Model(lambda x: self.points_dev_cf(x),
                                       domain=self.points_dev_cf.domain)
 
+        log_points = ju.GeneralModel({'spatial': self.points_log_invg,
+                                      'freq_plaw': points_plaw,
+                                      'freq_dev': points_dev_cf}).build_model()
 
-        points = ju.GeneralModel({'spatial': self.points_invg,
-                                       'freq_plaw': exp_points_plaw,
-                                       'freq_dev': exp_points_dev_cf}).build_model()
         padding = lambda x: points(x)[:edim, :, :]
         self.point_sources = jft.Model(padding, domain=points.domain)
 
