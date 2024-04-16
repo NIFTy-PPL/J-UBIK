@@ -67,7 +67,7 @@ priors:
   point_sources:
     spatial:
       alpha: 1.0001
-      q: 5.E-7 # VIEL ZU HOCH
+      q: 5.E-7
       key: points
     plaw:
       fluctuations:
