@@ -337,7 +337,7 @@ class SkyModel:
                                                                     prior_dict['plaw'])
             self.points_plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1),
                                                   self.points_alpha_cf)
-            exp_points_plaw = jft.Model(lambda x: jnp.exp(self.points_plaw(x)),
+            points_plaw = jft.Model(lambda x: self.points_plaw(x),
                                     domain=self.points_plaw.domain)
 
         if 'dev_corr' in prior_dict:
@@ -352,8 +352,9 @@ class SkyModel:
             self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
                                          sdim, False)
 
-            exp_points_dev_cf = jft.Model(lambda x: jnp.exp(self.points_dev_cf(x)),
-                                          domain=self.points_dev_cf.domain)
+            points_dev_cf = jft.Model(lambda x: self.points_dev_cf(x),
+                                      domain=self.points_dev_cf.domain)
+
 
         points = ju.GeneralModel({'spatial': self.points_invg,
                                        'freq_plaw': exp_points_plaw,
