@@ -331,6 +331,7 @@ class SkyModel:
         points_log_func = lambda x: jnp.log(point_sources(x[prior_dict['spatial']['key']]))
         self.points_log_invg = jft.Model(points_log_func,
                                      domain={prior_dict['spatial']['key']: jft.ShapeWithDtype(sdim)})
+
         if 'plaw' in prior_dict:
             self.points_alpha_cf, self.points_alpha_pspec = self._create_correlated_field(sdim,
                                                                     sdistances,
@@ -348,9 +349,9 @@ class SkyModel:
                                          sdim, False)
         if 'dev_wp' in prior_dict:
             points_dev_cf = self._create_wiener_process(edims=ext_e_shp,
-                                                                **prior_dict['dev_wp'])
+                                                        **prior_dict['dev_wp'])
             self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
-                                         sdim, False)
+                                                sdim, False)
 
             points_dev_cf = jft.Model(lambda x: self.points_dev_cf(x),
                                       domain=self.points_dev_cf.domain)
@@ -363,6 +364,9 @@ class SkyModel:
         self.point_sources = jft.Model(exp_padding, domain=log_points.domain)
 
     def sky_model_to_dict(self):
-        sky_dict = {'sky': self.sky, 'diffuse': self.diffuse, 'points': self.point_sources}
-        no_none_dict = {key: value for (key,value) in sky_dict.items() if value is not None}
+        """Return a dictionary with callables for the major sky models."""
+        sky_dict = {'sky': self.sky,
+                    'diffuse': self.diffuse,
+                    'points': self.point_sources}
+        no_none_dict = {key: value for (key, value) in sky_dict.items() if value is not None}
         return no_none_dict
