@@ -149,8 +149,7 @@ class SkyModel:
         sdistances = fov / sdim[0]
         edistances = energy_range / edim
 
-        if not isinstance(edistances, float) and ('dev_corr' in priors['diffuse'].keys()
-        or 'dev_corr' in priors['point_sources'].keys()):
+        if not isinstance(edistances, float) and 'dev_corr' in priors['diffuse'].keys():
             raise ValueError('Grid distances in energy direction have to be regular and defined by'
                              'one float of a corrlated field in energy direction is taken.')
 
@@ -159,6 +158,9 @@ class SkyModel:
         if 'point_sources' not in priors:
             self.sky = self.diffuse
         else:
+            if 'dev_corr' in priors['point_sources'].keys():
+                raise ValueError('Grid distances in energy direction have to be regular and defined by'
+                             'one float of a corrlated field in energy direction is taken.')
             self._create_point_source_model(sdim, edim, e_padding_ratio,
                                                 sdistances, edistances, priors['point_sources'])
             self.sky = fuse_model_components(self.diffuse, self.point_sources)
@@ -318,7 +320,7 @@ class SkyModel:
         points: jft.Model
             Model for the point-source component
         """
-        if not 'spatial' in prior_dict:
+        if 'spatial' not in prior_dict:
             return ValueError('Point source component needs a spatial component')
         if 'dev_wp' in prior_dict and 'dev_corr' in prior_dict:
             raise ValueError('You can only inlude Wiener process or correlated field'
@@ -326,16 +328,17 @@ class SkyModel:
         ext_e_shp = int(edim * e_padding_ratio)
         point_sources = jft.invgamma_prior(a=prior_dict['spatial']['alpha'],
                                            scale=prior_dict['spatial']['q'])
-        points_func = lambda x: point_sources(x[prior_dict['spatial']['key']])
-        self.points_invg = jft.Model(points_func,
-                                    domain={prior_dict['spatial']['key']: jft.ShapeWithDtype(sdim)})
+        points_log_func = lambda x: jnp.log(point_sources(x[prior_dict['spatial']['key']]))
+        self.points_log_invg = jft.Model(points_log_func,
+                                     domain={prior_dict['spatial']['key']: jft.ShapeWithDtype(sdim)})
+
         if 'plaw' in prior_dict:
             self.points_alpha_cf, self.points_alpha_pspec = self._create_correlated_field(sdim,
                                                                     sdistances,
                                                                     prior_dict['plaw'])
             self.points_plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1),
                                                   self.points_alpha_cf)
-            exp_points_plaw = jft.Model(lambda x: jnp.exp(self.points_plaw(x)),
+            points_plaw = jft.Model(lambda x: self.points_plaw(x),
                                     domain=self.points_plaw.domain)
 
         if 'dev_corr' in prior_dict:
@@ -346,18 +349,24 @@ class SkyModel:
                                          sdim, False)
         if 'dev_wp' in prior_dict:
             points_dev_cf = self._create_wiener_process(edims=ext_e_shp,
-                                                                **prior_dict['dev_wp'])
+                                                        **prior_dict['dev_wp'])
             self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
-                                         sdim, False)
+                                                sdim, False)
 
-            exp_points_dev_cf = jft.Model(lambda x: jnp.exp(self.points_dev_cf(x)),
-                                          domain=self.points_dev_cf.domain)
+            points_dev_cf = jft.Model(lambda x: self.points_dev_cf(x),
+                                      domain=self.points_dev_cf.domain)
 
-        points = ju.GeneralModel({'spatial': self.points_invg,
-                                       'freq_plaw': exp_points_plaw,
-                                       'freq_dev': exp_points_dev_cf}).build_model()
-        padding = lambda x: points(x)[:edim, :, :]
-        self.point_sources = jft.Model(padding, domain=points.domain)
+        log_points = ju.GeneralModel({'spatial': self.points_log_invg,
+                                      'freq_plaw': points_plaw,
+                                      'freq_dev': points_dev_cf}).build_model()
+
+        exp_padding = lambda x: jnp.exp(log_points(x)[:edim, :, :])
+        self.point_sources = jft.Model(exp_padding, domain=log_points.domain)
 
     def sky_model_to_dict(self):
-        return {'sky': self.sky, 'diffuse': self.diffuse, 'points': self.point_sources}
+        """Return a dictionary with callables for the major sky models."""
+        sky_dict = {'sky': self.sky,
+                    'diffuse': self.diffuse,
+                    'points': self.point_sources}
+        no_none_dict = {key: value for (key, value) in sky_dict.items() if value is not None}
+        return no_none_dict
