@@ -328,9 +328,9 @@ class SkyModel:
         ext_e_shp = int(edim * e_padding_ratio)
         point_sources = jft.invgamma_prior(a=prior_dict['spatial']['alpha'],
                                            scale=prior_dict['spatial']['q'])
-        points_func = lambda x: point_sources(x[prior_dict['spatial']['key']])
-        self.points_invg = jft.Model(points_func,
-                                    domain={prior_dict['spatial']['key']: jft.ShapeWithDtype(sdim)})
+        points_log_func = lambda x: jnp.log(point_sources(x[prior_dict['spatial']['key']]))
+        self.points_log_invg = jft.Model(points_log_func,
+                                     domain={prior_dict['spatial']['key']: jft.ShapeWithDtype(sdim)})
         if 'plaw' in prior_dict:
             self.points_alpha_cf, self.points_alpha_pspec = self._create_correlated_field(sdim,
                                                                     sdistances,
