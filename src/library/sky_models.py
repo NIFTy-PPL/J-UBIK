@@ -335,17 +335,17 @@ class SkyModel:
 
         if 'plaw' in prior_dict:
             self.points_alpha_cf, self.points_alpha_pspec = self._create_correlated_field(sdim,
-                                                                    sdistances,
-                                                                    prior_dict['plaw'])
-            log_points_plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1),
+                                                                                          sdistances,
+                                                                                          prior_dict['plaw'])
+            self.points_plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1),
                                                   self.points_alpha_cf)
             points_plaw = jft.Model(lambda x: self.points_plaw(x),
                                     domain=self.points_plaw.domain)
 
         if 'dev_corr' in prior_dict:
             points_dev_cf, self.points_dev_pspec = self._create_correlated_field(ext_e_shp,
-                                                                   edistances,
-                                                                   prior_dict['dev_cor'])
+                                                                                 edistances,
+                                                                                 prior_dict['dev_cor'])
             self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_corr']['prefix']+'xi',
                                          sdim, False)
         if 'dev_wp' in prior_dict:
