@@ -75,8 +75,8 @@ priors:
       offset:
         offset_mean: -2.0
         offset_std:
-          - 0.5
-          - 0.1
+          - 0.3
+          - 0.05
       fluctuations:
         fluctuations:
           - 0.5
@@ -91,7 +91,7 @@ priors:
           Null
         # harmonic_type: "Fourier"
         non_parametric_kind: "power"
-      prefix: points_plaw
+      prefix: points_plaw_
     dev_wp:
       x0:
         - 0
@@ -124,9 +124,9 @@ priors:
   diffuse:
     spatial:
       offset:
-        offset_mean: -12. #
+        offset_mean: -11.
         offset_std:
-          - 0.2
+          - 0.5
           - 0.1
       fluctuations:
         fluctuations:
@@ -142,13 +142,13 @@ priors:
           Null
         non_parametric_kind: "power"
         # harmonic_type: "Fourier"
-      prefix: diffuse_spatial
+      prefix: diffuse_spatial_
     plaw:
       offset:
         offset_mean: -2.0
         offset_std:
-          - 0.5
-          - 0.1
+          - 0.3
+          - 0.05
       fluctuations:
         fluctuations:
           - 0.5
@@ -163,7 +163,7 @@ priors:
           Null
         non_parametric_kind: "power"
         # harmonic_type: "Fourier"
-      prefix: diffuse_plaw
+      prefix: diffuse_plaw_
     # dev_wp:
     #   x0:
     #     - 0
@@ -187,7 +187,7 @@ priors:
 #        asperity:
 #        non_parametric_kind: "power"
 #        # harmonic_type: "Fourier"
-#      prefix: diffuse_dev
+#      prefix: diffuse_dev_
 #      offset:
 #        offset_mean: 0.0
 #        offset_std:
