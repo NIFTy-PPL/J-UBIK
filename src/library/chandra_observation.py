@@ -6,12 +6,6 @@ import shutil
 
 import numpy as np
 from astropy.io import fits
-try:
-    import ciao_contrib.runtool as rt
-    from paramio import pset
-except ImportError:
-    print("Ciao is not sourced or installed. Therefore some operations can't be performed")
-    pass
 
 from ..library.messages import message_obs, message_binning, message_exposure
 
@@ -44,6 +38,12 @@ class ChandraObservationInformation():
         energy_ranges (tuple) : energy ranges for energy binning. Default: None, i.e. logscale equal_width bins
         chips_off (tuple) : IDs of chips, which are not considered, Default: None, BI-Chips have IDs (5, 7)
         """
+
+        try:
+            import ciao_contrib.runtool as rt
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
 
         self.obsInfo = obsInfo
 
@@ -370,6 +370,12 @@ class ChandraObservationInformation():
         --------
         psf_arr (np.array) : npix_e x npix_s x npix_s array with the simulated PSF
         """
+
+        try:
+            from paramio import pset
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
 
         self.psf_sim_coords.append(location)
 
