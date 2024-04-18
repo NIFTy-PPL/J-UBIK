@@ -11,16 +11,10 @@ from ..library.messages import message_obs, message_binning, message_exposure
 
 
 class ChandraObservationInformation():
-
-    """
-    Base class to provide an interface with the CXC analysis and simulation tools.
-
-    """
+    """Base class to provide an interface with the CXC analysis and simulation tools."""
 
     def __init__(self, obsInfo, npix_s, npix_e, fov, elim, center=None, energy_ranges=None, chips_off=()):
-
-        """
-        Interface to the CXC data and simulation tools.
+        """Interface to the CXC data and simulation tools.
 
         Parameters:
         -----------
