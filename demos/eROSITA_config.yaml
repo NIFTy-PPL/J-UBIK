@@ -98,7 +98,6 @@ priors:
       sigma:
         - 1
         - 3
-      dt: 2
       name: 'points_dev_wp'
 #    dev_corr:
 #      fluctuations:
@@ -172,7 +171,6 @@ priors:
       sigma:
         - 1
         - 3
-      dt: 2
       name: 'diffuse_dev_wp'
 #    dev_corr:
 #      fluctuations:
