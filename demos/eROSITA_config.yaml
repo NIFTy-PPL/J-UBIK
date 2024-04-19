@@ -52,6 +52,8 @@ grid:
     e_max:
     - 2.0
     - 4.5
+    e_ref:
+    - 2
 
 
 files:
