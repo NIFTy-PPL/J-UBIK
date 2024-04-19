@@ -205,8 +205,8 @@ class SkyModel:
         cf = cfm.finalize()
         return cf, cfm.power_spectrum
 
-    def _create_wiener_process(self, x0, sigma, dt, name, edims):
-        return jft.WienerProcess(tuple(x0), tuple(sigma), dt, name=name, N_steps=edims - 1)
+    def _create_wiener_process(self, x0, sigma, dE, name, edims):
+        return jft.WienerProcess(tuple(x0), tuple(sigma), dt=dE, name=name, N_steps=edims - 1)
 
     def _create_diffuse_component_model(self, sdim, edim, s_padding_ratio, e_padding_ratio,
                                         sdistances,
