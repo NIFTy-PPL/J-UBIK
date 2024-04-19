@@ -44,7 +44,7 @@ grid:
   sdim: 512
   edim: 2 # FIXME: remove this parameter
   s_padding_ratio: 1.203
-  e_padding_ratio: 2.
+  e_padding_ratio: 1.
   energy_bin:
     e_min:
     - 1.0
