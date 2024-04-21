@@ -81,8 +81,12 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             n_cols = n_plots // n_rows + 1
 
     if adjust_figsize:
-        x = int(n_cols/n_rows + 0.5)
-        y = int(n_rows/n_cols + 0.5)
+        x = int(n_cols/n_rows)
+        y = int(n_rows/n_cols)
+        if x == 0:
+            x = 1
+        if y == 0:
+            y = 1
         figsize = (x*figsize[0], y*figsize[1])
 
     n_ax = n_rows * n_cols
@@ -318,6 +322,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
                         colorbar=colorbar, title=title, dpi=dpi, n_rows=1,
                         n_cols=2, figsize=(8, 4), **plotting_kwargs)
 
+
 def _get_n_rows_from_n_samples(n_samples):
     """
     A function to get the number of rows from the given number of samples.
@@ -473,7 +478,7 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
 
 def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
                         plotting_kwargs=None, common_colorbar=False, log_scale=True,
-                        adjust_figsize=True,):
+                        adjust_figsize=False,):
     """
     Plots prior samples for the signal components of the sky
     through the eROSITA signal response from the config file.
@@ -509,47 +514,58 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
     priors_dir = create_output_directory(priors_dir)
     cfg = get_config(config_path)  # load config
 
+    e_min = cfg['grid']['energy_bin']['e_min']
+    e_max = cfg['grid']['energy_bin']['e_max']
+
     if plotting_kwargs is None:
         plotting_kwargs = {}
 
     sky_model = SkyModel(config_path)
     _ = sky_model.create_sky_model()
     plottable_ops = sky_model.sky_model_to_dict()
-
     positions = []
     for _ in range(n_samples):
         key, subkey = random.split(key)
         positions.append(jft.random_like(subkey, plottable_ops['sky'].domain))
 
     plottable_samples = plottable_ops.copy()
-    filename_base = priors_dir + 'priors_{}.png'
+    sample_dirs = [join(priors_dir, f'sample_{i}/') for i in range(n_samples)]
 
-    for key, val in plottable_samples.items():
-        plottable_samples[key] = np.array([val(pos) for pos in positions])
-
-        plot_result(plottable_samples[key], output_file=filename_base.format(key),
-                    logscale=log_scale, adjust_figsize=adjust_figsize,
-                    common_colorbar=common_colorbar, **plotting_kwargs)
+    for i, pos in enumerate(positions):
+        sample_dir = create_output_directory(sample_dirs[i])
+        filename_base = sample_dir + 'priors_{}.png'
+        for key, val in plottable_samples.items():
+            plot_result(val(pos), output_file=filename_base.format(key),
+                        logscale=log_scale, adjust_figsize=adjust_figsize,
+                        title=[f'E_min={emin}, E_max={emax}' for emin, emax in zip(e_min, e_max)],
+                        common_colorbar=common_colorbar, **plotting_kwargs)
 
     if response_path is not None:  # FIXME: when R will be pickled, load from file
         tm_ids = cfg['telescope']['tm_ids']
+        n_modules = len(tm_ids)
 
-        resp_dict = build_erosita_response_from_config(config_path)
+        spix = cfg['grid']['sdim']
+        epix = cfg['grid']['edim']
+        response_dict = build_erosita_response_from_config(config_path)
 
-        mask_adj = jax.linear_transpose(resp_dict['mask'], np.zeros((len(tm_ids), 426, 426))) # FIXME: remove hardcoded value
-        R = lambda x: mask_adj(resp_dict['R'](x))
-        R = jax.vmap(R, in_axes=0, out_axes=1)
+        mask_adj = jax.linear_transpose(response_dict['mask'],
+                                        np.zeros((n_modules, epix, spix, spix)))
 
-        for key, val in plottable_samples.items():
-            tmp = R(val)[0]
-            for id, samps in enumerate(tmp):
-                tm_id = tm_ids[id]
-                res_path = join(priors_dir, f'tm{tm_id}/')
-                create_output_directory(res_path)
-                filename = join(res_path, f'sr_tm_{tm_id}_priors')
-                filename += '_{}.png'
-                plot_result(samps, output_file=filename.format(key), logscale=log_scale,
-                            common_colorbar=common_colorbar, adjust_figsize=True)
+        R = lambda x: mask_adj(response_dict['R'](x))[0]
+
+        for i, pos in enumerate(positions):
+            for key, val in plottable_samples.items():
+                tmp = R(val(pos))
+                for id, samps in enumerate(tmp):
+                    tm_id = tm_ids[id]
+                    res_path = join(sample_dirs[i], f'tm{tm_id}/')
+                    create_output_directory(res_path)
+                    filename = join(res_path, f'sr_priors')
+                    filename += '_{}.png'
+                    plot_result(samps, output_file=filename.format(key), logscale=log_scale,
+                                title=[f'E_min={emin}, E_max={emax}' for emin, emax in
+                                       zip(e_min, e_max)],
+                                common_colorbar=common_colorbar, adjust_figsize=adjust_figsize)
 
 
 def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):

@@ -7,9 +7,9 @@ if __name__ == '__main__':
 
     key = random.PRNGKey(seed)
     path_to_config = 'eROSITA_config.yaml'
-    priors_directory = 'jubix_priors/'
+    priors_directory = 'jubik_priors_mf/'
 
-    path_to_response = False # decides whether to plot signal response
+    path_to_response = True # decides whether to plot signal response
 
     kwgs = {'n_cols': 3}
     ju.plot_erosita_priors(key, n_samples, path_to_config, path_to_response,
