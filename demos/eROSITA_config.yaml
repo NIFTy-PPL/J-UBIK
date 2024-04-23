@@ -44,7 +44,7 @@ grid:
   sdim: 512
   edim: 3 # FIXME: remove this parameter
   s_padding_ratio: 1.203
-  e_padding_ratio: 2.
+  e_padding_ratio: 1.
   energy_bin:
     e_min:
     - 0.2
@@ -54,6 +54,8 @@ grid:
     - 1.0
     - 2.0
     - 4.5
+    e_ref:
+    - 2
 
 
 files:
@@ -99,7 +101,6 @@ priors:
       sigma:
         - 0.01
         - 0.02
-      dt: 1
       name: 'points_dev_wp'
 #    dev_corr:
 #      fluctuations:

@@ -205,8 +205,8 @@ class SkyModel:
         cf = cfm.finalize()
         return cf, cfm.power_spectrum
 
-    def _create_wiener_process(self, x0, sigma, dt, name, edims):
-        return jft.WienerProcess(tuple(x0), tuple(sigma), dt, name=name, N_steps=edims - 1)
+    def _create_wiener_process(self, x0, sigma, dE, name, edims):
+        return jft.WienerProcess(tuple(x0), tuple(sigma), dt=dE, name=name, N_steps=edims - 1)
 
     def _create_diffuse_component_model(self, sdim, edim, s_padding_ratio, e_padding_ratio,
                                         sdistances,
@@ -268,7 +268,7 @@ class SkyModel:
             self.alpha_cf, self.alpa_pspec = self._create_correlated_field(ext_s_shp,
                                                                            sdistances,
                                                                            prior_dict['plaw'])
-            self.plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1), self.alpha_cf)
+            self.plaw = ju.build_power_law(self._log_rel_ebin_centers(), self.alpha_cf)
 
         if 'dev_corr' in prior_dict:
             dev_cf, self.dev_pspec = self._create_correlated_field(ext_e_shp,
@@ -277,8 +277,9 @@ class SkyModel:
             self.dev_cf = ju.MappedModel(dev_cf, prior_dict['dev_corr']['prefix']+'xi',
                                          ext_s_shp, False)
         if 'dev_wp' in prior_dict:
-            dev_cf = self._create_wiener_process(edims=ext_e_shp,
-                                                                **prior_dict['dev_wp'])
+            dev_cf = self._create_wiener_process(edims=len(self._log_rel_ebin_centers()),
+                                                 dE=self._log_dE(),
+                                                 **prior_dict['dev_wp'])
             self.dev_cf = ju.MappedModel(dev_cf, prior_dict['dev_wp']['name'],
                                          ext_s_shp, False)
         log_diffuse = ju.GeneralModel({'spatial': self.spatial_cf,
@@ -336,7 +337,7 @@ class SkyModel:
             self.points_alpha_cf, self.points_alpha_pspec = self._create_correlated_field(sdim,
                                                                     sdistances,
                                                                     prior_dict['plaw'])
-            self.points_plaw = ju.build_power_law(jnp.arange(0, ext_e_shp, 1),
+            self.points_plaw = ju.build_power_law(self._log_rel_ebin_centers(),
                                                   self.points_alpha_cf)
             points_plaw = jft.Model(lambda x: self.points_plaw(x),
                                     domain=self.points_plaw.domain)
@@ -348,8 +349,10 @@ class SkyModel:
             self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_corr']['prefix']+'xi',
                                          sdim, False)
         if 'dev_wp' in prior_dict:
-            points_dev_cf = self._create_wiener_process(edims=ext_e_shp,
+            points_dev_cf = self._create_wiener_process(edims=len(self._log_rel_ebin_centers()),
+                                                        dE=self._log_dE(),
                                                         **prior_dict['dev_wp'])
+
             self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
                                                 sdim, False)
 
@@ -370,3 +373,20 @@ class SkyModel:
                     'points': self.point_sources}
         no_none_dict = {key: value for (key, value) in sky_dict.items() if value is not None}
         return no_none_dict
+
+    def _log_ebin_centers(self):
+        e_max = np.array(self.config['grid']['energy_bin']['e_max'])
+        e_min = np.array(self.config['grid']['energy_bin']['e_min'])
+        result = 0.5 * np.log(e_max*e_min)
+        return result
+
+    def _log_ref_energy(self):
+        return np.log(self.config['grid']['energy_bin']['e_ref'])
+
+    def _log_rel_ebin_centers(self):
+        res = self._log_ebin_centers() - self._log_ref_energy()
+        return res
+
+    def _log_dE(self):
+        log_e = self._log_rel_ebin_centers()
+        return log_e[1:]-log_e[:-1]
