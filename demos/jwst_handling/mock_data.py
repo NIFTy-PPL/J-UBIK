@@ -6,35 +6,134 @@ import jax
 jax.config.update('jax_platform_name', 'cpu')
 
 
+def point_in_polygon(point, polygon):
+    """Determine if the point (x, y) is inside the given polygon.
+    polygon is a list of tuples [(x1, y1), (x2, y2), ..., (xn, yn)]"""
+    x, y = point
+    n = len(polygon)
+    inside = False
+    p1x, p1y = polygon[0]
+    for i in range(n+1):
+        p2x, p2y = polygon[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
+                    if p1x == p2x or x <= xinters:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    return inside
+
+
+def pixels_in_rectangle(corners, shape):
+    """Get a boolean numpy array where each element indicates whether the center of the pixel at that index is inside the rectangle."""
+    # Convert corners to a list of tuples
+    polygon = [(corners[i][0], corners[i][1]) for i in range(corners.shape[0])]
+
+    pixel_map = np.zeros(shape, dtype=bool)
+
+    min_x = np.floor(np.min(corners[:, 0]))
+    max_x = np.ceil(np.max(corners[:, 0]))
+    min_y = np.floor(np.min(corners[:, 1]))
+    max_y = np.ceil(np.max(corners[:, 1]))
+
+    start_x = max(0, int(min_x))
+    end_x = min(shape[1], int(max_x) + 1)
+    start_y = max(0, int(min_y))
+    end_y = min(shape[0], int(max_y) + 1)
+
+    for x in range(start_x, end_x):
+        for y in range(start_y, end_y):
+            if point_in_polygon((x + 0.5, y + 0.5), polygon):
+                pixel_map[x, y] = True
+
+    return pixel_map
+
+
+def smallest_enclosing_mask(pixel_map):
+    """Finds the edge points of the largest and smallest `True` pixels in specified sections of the pixel_map."""
+    assert pixel_map.shape[0] == pixel_map.shape[1]
+
+    mask = np.zeros_like(pixel_map)
+
+    shape = pixel_map.shape[0]
+    for ii in range(shape):
+        if np.all(pixel_map[ii:shape-ii, ii:shape-ii]):
+            mask[ii:shape-ii, ii:shape-ii] = True
+            return ii, mask
+
+    return ii, mask
+
+
 def build_plot(datas, data_models, masks, plot_sky, sky_model, res_dir, vals_calc_mask):
     from charm_lensing.analysis_tools import source_distortion_ratio
     from scipy.stats import wasserstein_distance
     from charm_lensing.plotting import display_text
     from charm_lensing.analysis_tools import wmse, redchi2
+    from nifty8.re.caramel import power_analyze
+    from os.path import join
+    from os import makedirs
+
+    out_dir = join(res_dir, 'residuals')
+    makedirs(out_dir, exist_ok=True)
+
+    def get_power(field):
+        return power_analyze(
+            np.fft.fft2(field[smallest_mask].reshape((reshape,)*2)),
+            (1.0,)*2  # FAKE DISTANCES ::FIXME::
+        )
 
     def cross_correlation(input, recon):
         return np.fft.ifft2(
             np.fft.fft2(input).conj() * np.fft.fft2(recon)
         ).real.max()
 
+    eval_comp_sky = np.zeros_like(plot_sky)
+    eval_self_sky = np.zeros_like(plot_sky)
+
+    ii, smallest_mask = smallest_enclosing_mask(vals_calc_mask)
+    reshape = vals_calc_mask.shape[0] - 2*ii
+    true_power_spectrum = get_power(plot_sky)
+
+    def plot_pspec(samples, x):
+        YLIMS = (1e2, 1e11)
+
+        skys = [sky_model(si) for si in samples]
+
+        pws = [get_power(sky) for sky in skys]
+        pw = get_power(jft.mean(skys))
+
+        fig, ax = plt.subplots(1, 1, figsize=(9, 3), dpi=300)
+        ax.plot(pw, label='reco', color='blue', linewidth=0.5)
+        for pw in pws:
+            ax.plot(pw, color='blue', alpha=0.5, linewidth=0.3)
+        ax.plot(true_power_spectrum, label='true',
+                color='orange', linewidth=0.5)
+        plt.ylim(YLIMS)
+        ax.loglog()
+        ax.legend()
+        fig.savefig(join(out_dir, f'pspec_{x.nit:02d}.png'), dpi=300)
+        plt.close()
+
     def plot(samples, x):
-        from os.path import join
-        from os import makedirs
-        out_dir = join(res_dir, 'residuals')
-        makedirs(out_dir, exist_ok=True)
+        plot_pspec(samples, x)
 
         sky = jft.mean([sky_model(si) for si in samples])
 
+        eval_comp_sky[vals_calc_mask] = plot_sky[vals_calc_mask]
+        eval_self_sky[vals_calc_mask] = sky[vals_calc_mask]
+
         vals = dict(
-            sdr=source_distortion_ratio(plot_sky, sky),
-            wd=wasserstein_distance(plot_sky.reshape(-1), sky.reshape(-1)),
-            cc=cross_correlation(plot_sky, sky),
+            sdr=source_distortion_ratio(eval_comp_sky, eval_self_sky),
+            wd=wasserstein_distance(eval_comp_sky.reshape(-1),
+                                    eval_self_sky.reshape(-1)),
+            # cc=cross_correlation(eval_comp_sky, eval_self_sky),
         )
 
         ylen = 1+len(datas)
         fig, axes = plt.subplots(ylen, 3, figsize=(9, 3*ylen), dpi=300)
         ims = []
-
         for ii, (d, dm, mask) in enumerate(zip(datas, data_models, masks)):
             model_data = []
             for si in samples:
@@ -69,6 +168,10 @@ def build_plot(datas, data_models, masks, plot_sky, sky_model, res_dir, vals_cal
             (plot_sky - sky)/plot_sky, origin='lower',
             vmin=-0.3, vmax=0.3, cmap='RdBu_r'))
 
+        axes[ii+1, 0].contour(vals_calc_mask.T, levels=1, colors='orange')
+        axes[ii+1, 1].contour(vals_calc_mask.T, levels=1, colors='orange')
+        axes[ii+1, 2].contour(vals_calc_mask.T, levels=1, colors='orange')
+
         ss = '\n'.join(
             [f'{k}: {v:.3f}' if k != 'cc' else f'{k}: {v:e}' for k, v in vals.items()])
         display_text(axes[ii+1, 2], ss)
@@ -79,6 +182,21 @@ def build_plot(datas, data_models, masks, plot_sky, sky_model, res_dir, vals_cal
         plt.close()
 
     return plot
+
+
+def find_corners(xy_positions):
+    xy_positions = np.array(xy_positions)
+
+    maxx, maxy = np.argmax(xy_positions, axis=1)
+    minx, miny = np.argmin(xy_positions, axis=1)
+
+    square_corners = np.array([
+        xy_positions[:, maxx],
+        xy_positions[:, maxy],
+        xy_positions[:, minx],
+        xy_positions[:, miny],
+    ])
+    return square_corners
 
 
 def plot_square(ax, xy_positions, color='red'):
@@ -127,32 +245,6 @@ def downscale_sum(high_res_array, reduction_factor):
     return high_res_array.reshape(new_shape).sum(axis=(1, 3))
 
 
-def create_data_old(key, shapes, mock_dist, model_setup, show=True):
-    mock_shape, reco_shape,  data_shape = shapes
-    mock_sky = create_mocksky(key, mock_shape, mock_dist, model_setup)
-
-    comparison_sky = downscale_sum(mock_sky, mock_shape[0] // reco_shape[0])
-    data = downscale_sum(mock_sky, mock_shape[0] // data_shape[0])
-    mask = np.full(data_shape, True, dtype=bool)
-
-    if show:
-        import matplotlib.pyplot as plt
-        fig, axes = plt.subplots(1, 3)
-        ims = []
-        ims.append(axes[0].imshow(mock_sky, origin='lower'))
-        ims.append(axes[1].imshow(comparison_sky,
-                   origin='lower'))
-        ims.append(axes[2].imshow(data, origin='lower'))
-        axes[0].set_title('Mock sky')
-        axes[1].set_title('Comparison sky')
-        axes[2].set_title('Data')
-        for im, ax in zip(ims, axes):
-            fig.colorbar(im, ax=ax, shrink=0.7)
-        plt.show()
-
-    return mock_sky, comparison_sky, data, mask
-
-
 def create_mocksky(key, mshape, mdist, model_setup):
     offset, fluctuations = model_setup
     cfm = jft.CorrelatedFieldMaker(prefix='mock')
@@ -199,7 +291,7 @@ def create_data(
     return data_grid, data
 
 
-def setup(mock_key, reco_shape, rotation, plot=False):
+def setup(mock_key, rotation, reco_shape, rota_shape=768, data_shape=48, plot=False):
     from astropy.coordinates import SkyCoord
     from astropy import units as u
     from jwst_handling.reconstruction_grid import Grid
@@ -230,16 +322,18 @@ def setup(mock_key, reco_shape, rotation, plot=False):
         mock_key, MOCK_SHAPE, MOCK_DIST, (offset, fluctuations))
     comparison_sky = downscale_sum(mock_sky, comp_down[0])
 
+    # DATA SETUP
+    ROTA_SHAPE = (rota_shape,)*2
+    DATA_SHAPE = (data_shape,)*2
     rotation = rotation if isinstance(rotation, list) else [rotation]
     datas = {}
     for ii, rot in enumerate(rotation):
         # Intermediate rotated sky
         ROTATION = rot*u.deg
-        ROTA_SHAPE = (768, 768)
         ROTA_FOV = [ROTA_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
 
         # Data sky
-        DATA_SHAPE = (48, 48)
+        DATA_DIST = [r//d*MOCK_DIST[0] for r, d in zip(ROTA_SHAPE, DATA_SHAPE)]
 
         data_grid, data, rota_sky = create_data(
             CENTER, mock_grid, mock_sky, ROTA_SHAPE, ROTA_FOV, DATA_SHAPE,
@@ -252,11 +346,22 @@ def setup(mock_key, reco_shape, rotation, plot=False):
 
             fig, ax = plt.subplots(2, 2)
             (a00, a01), (a10, a11) = ax
-            a00.imshow(mock_sky, origin='lower')
+            ims = []
+            ims.append(a00.imshow(mock_sky, origin='lower'))
             plot_square(a00, arr)
-            a01.imshow(rota_sky, origin='lower')
-            a10.imshow(comparison_sky, origin='lower')
-            a11.imshow(data, origin='lower')
+            ims.append(a01.imshow(rota_sky, origin='lower'))
+            ims.append(a10.imshow(comparison_sky, origin='lower'))
+            ims.append(a11.imshow(data, origin='lower'))
+
+            a00.set_title(
+                f'Underlying sky; sh={MOCK_SHAPE[0]}, dist={MOCK_DIST[0]}')
+            a01.set_title(f'Cut out; sh={ROTA_SHAPE[0]}, dist={MOCK_DIST[0]}')
+            a10.set_title(
+                f'Comparison sky; sh={RECO_SHAPE[0]}, dist={comp_down[0]*MOCK_DIST[0]}')
+            a11.set_title(f'data sky; sh={DATA_SHAPE[0]}, dist={DATA_DIST[0]}')
+
+            for a, i in zip(ax.flatten(), ims):
+                plt.colorbar(i, ax=a, shrink=0.7)
             plt.show()
 
     return comparison_sky, reco_grid, datas
@@ -297,20 +402,23 @@ if __name__ == '__main__':
         build_nufft_integration)
     from astropy import units as u
     import jubik0 as ju
-    from sys import exit
 
     # Reconstruction Setup
-    SUBSAMPLE = 3
+    SUBSAMPLE = 7
     NOISE_SCALE = 0.01
-    MODEL = 'sparse'
+    MODEL = 'linear'
     RSHAPE = 128
     ROTATION_0 = 2
-    ROTATION_1 = 22
+    ROTATION_1 = 23
+    PLOT = False
 
     key = random.PRNGKey(87)
     key, mock_key, noise_key, rec_key = random.split(key, 4)
     comp_sky, reco_grid, data_set = setup(
-        mock_key, RSHAPE, rotation=[ROTATION_0, ROTATION_1], plot=True)
+        mock_key,
+        rotation=[ROTATION_0, ROTATION_1],
+        reco_shape=RSHAPE,
+        plot=PLOT)
 
     sky_model = build_sky_model(
         reco_grid.shape, [d.to(u.arcsec).value for d in reco_grid.distances])
@@ -351,12 +459,18 @@ if __name__ == '__main__':
         px_reco_index_edges = reco_grid.wcs.index_from_wl(
             [e00, e01, e11, e10])  # needs to be circular for sparse builder
 
-        # evaluation_mask
-        pix_hits = np.array(
-            np.round(px_reco_datapix_cntr),
-            dtype=int
-        ).reshape(2, -1)
-        evaluation_mask[pix_hits[0], pix_hits[1]] = True
+        corners = find_corners(px_reco_datapix_cntr.reshape(2, -1))
+        tmp_mask = pixels_in_rectangle(corners, comp_sky.shape)
+        evaluation_mask += tmp_mask
+
+        if PLOT:
+            fig, axes = plt.subplots(1, 3)
+            ax, ay = axes
+            ax.imshow(comp_sky)
+            ax.scatter(*corners.T[::-1], color='orange')
+            ay.imshow(tmp_mask)
+            ay.scatter(*corners.T[::-1], color='orange')
+            plt.show()
 
         std = data.mean() * NOISE_SCALE
         d = data + random.normal(noise_key, data.shape, dtype=data.dtype) * std
@@ -385,7 +499,7 @@ if __name__ == '__main__':
                 order=1,
                 updating=False)
             model = build_integration_model(linear, sky_model)
-            res_dir = f'results/mock_rotation/c{ROTATION_0}_{ROTATION_1}/{RSHAPE}_linear'
+            res_dir = f'results/mock_rotation/c{ROTATION_0}_{ROTATION_1}/{RSHAPE}_linear_sub{SUBSAMPLE}'
 
         elif MODEL == 'nufft':
             nufft = build_nufft_integration(
@@ -407,7 +521,7 @@ if __name__ == '__main__':
     like = reduce(lambda a, b: a + b, likelihoods)
 
     plot = build_plot(
-        datas, models, masks, comp_sky, sky_model, res_dir)
+        datas, models, masks, comp_sky, sky_model, res_dir, evaluation_mask)
 
     pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, like.domain))
 
@@ -415,9 +529,10 @@ if __name__ == '__main__':
     minimization_config = cfg['minimization']
     kl_solver_kwargs = minimization_config.pop('kl_kwargs')
     minimization_config['n_total_iterations'] = 25
-    minimization_config['resume'] = True
+    # minimization_config['resume'] = True
     minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
+    print(f'Results: {res_dir}')
     samples, state = jft.optimize_kl(
         like,
         pos_init,
@@ -428,5 +543,5 @@ if __name__ == '__main__':
         **minimization_config)
 
     plot = build_plot(
-        datas, models, masks, comp_sky, sky_model, res_dir)
+        datas, models, masks, comp_sky, sky_model, res_dir, evaluation_mask)
     plot(samples, state)

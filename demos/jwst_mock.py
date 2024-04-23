@@ -4,7 +4,7 @@ import nifty8.re as jft
 import numpy as np
 import matplotlib.pyplot as plt
 
-from jwst_handling.mock_data import create_data_old
+from jwst_handling.mock_data import setup
 
 from jwst_handling.integration_models import (
     build_sparse_integration,
@@ -24,17 +24,17 @@ SHOW_DATA = False
 PRIOR_SAMPLE = False
 PADDING = 1.5
 STD_FACTOR = 0.02
-MODEL = 'linear'  # 'sparse', 'linear', 'nufft'
+MODEL = 'sparse'  # 'sparse', 'linear', 'nufft'
 SUBSAMPLE = 5
-RSHAPE = 256
+MSHAPE = 1024
+RSHAPE = 128
+DSHAPE = 64
 
 subsample = SUBSAMPLE
 
-mock_shape, mock_dist = (1024, 1024), (0.5, 0.5)
+mock_shape, mock_dist = (MSHAPE,)*2, (0.5,)*2
 reco_shape, reco_dist = (RSHAPE,)*2, (0.5*1024.0/RSHAPE,)*2
-data_shape, data_dist = (64, 64), (8.0, 8.0)
-
-exit()
+data_shape, data_dist = (DSHAPE,)*2, (0.5*1024.0/DSHAPE,)*2
 
 key = random.PRNGKey(42)
 key, mock_key, noise_key, rec_key = random.split(key, 4)
@@ -45,17 +45,22 @@ fluctuations = dict(fluctuations=[0.3, 0.03],
                     flexibility=[0.8, 0.1],
                     asperity=[0.2, 0.1])
 
-mock_sky, comparison_sky, data, mask = create_data_old(
-    mock_key, (mock_shape, reco_shape, data_shape), mock_dist,
-    (offset, fluctuations), show=SHOW_DATA
-)
+comp_sky, reco_grid, data_set = setup(
+    mock_key, rotation=[0],
+    reco_shape=RSHAPE,
+    rota_shape=MSHAPE,
+    data_shape=DSHAPE,
+    plot=False)
+data = data_set['d_0']['data']
+data_grid = data_set['d_0']['grid']
+mask = np.full(data.shape, True)
+
 
 offset = dict(offset_mean=3.7, offset_std=[0.1, 0.05])
 fluctuations = dict(fluctuations=[0.7, 0.03],
                     loglogavgslope=[-4.8, 1.],
                     flexibility=[0.8, 0.1],
                     asperity=[0.2, 0.1])
-
 cfm = jft.CorrelatedFieldMaker(prefix='reco')
 cfm.set_amplitude_total_offset(**offset)
 cfm.add_fluctuations(
@@ -73,9 +78,9 @@ if PRIOR_SAMPLE:
     key, check_key = random.split(key)
     m = sky_model(jft.random_like(check_key, sky_model.domain))
     fig, axis = plt.subplots(1, 3)
-    im0 = axis[0].imshow(comparison_sky, origin='lower')
+    im0 = axis[0].imshow(comp_sky, origin='lower')
     im1 = axis[1].imshow(m, origin='lower')
-    im2 = axis[2].imshow(comparison_sky-m, origin='lower', cmap='RdBu_r')
+    im2 = axis[2].imshow(comp_sky-m, origin='lower', cmap='RdBu_r')
     axis[0].set_title('sky')
     axis[1].set_title('model')
     axis[2].set_title('residual')
@@ -109,6 +114,20 @@ def get_sparse_model(mask):
     sparse_model = build_sparse_integration_model(
         sparse_matrix, sky_model_full)
     return sparse_model
+
+
+def get_sparse_model_new(mask):
+    wl_data_centers, (e00, e01, e10, e11) = data_grid.wcs.wl_pixelcenter_and_edges(
+        data_grid.world_extrema)
+    px_reco_index_edges = reco_grid.wcs.index_from_wl(
+        [e00, e01, e11, e10])  # needs to be circular for sparse builder
+
+    sparse_matrix = build_sparse_integration(
+        reco_grid.index_grid(),
+        px_reco_index_edges,
+        mask)
+
+    return build_sparse_integration_model(sparse_matrix, sky_model)
 
 
 def get_subsample_centers(subsample):
@@ -156,12 +175,19 @@ def get_nufft_model(subsample, mask):
     return build_integration_model(nufft, sky_model_full)
 
 
-exit()
-
 std = STD_FACTOR*data.mean()
 d = data + random.normal(noise_key, data.shape, dtype=data.dtype) * std
 if MODEL == 'sparse':
     model = get_sparse_model(mask)
+    model_check = get_sparse_model_new(mask)
+
+    tmp_pos = jft.random_like(key, model.domain)
+
+    fo = model(tmp_pos)
+    fn = model_check(tmp_pos)
+
+    exit()
+
     res_dir = f'results/mock_integration/{RSHAPE}_sparse'
 elif MODEL == 'linear':
     model = get_linear_model(subsample=SUBSAMPLE, mask=mask)
@@ -169,6 +195,11 @@ elif MODEL == 'linear':
 elif MODEL == 'nufft':
     model = get_nufft_model(subsample=SUBSAMPLE, mask=mask)
     res_dir = f'results/mock_integration/{RSHAPE}_nufft{SUBSAMPLE}'
+
+res_dir += '_new'
+print('*'*80)
+print(f'\nResults: {res_dir}\n')
+print('*'*80)
 
 like = ju.library.likelihood.build_gaussian_likelihood(
     d.reshape(-1), float(std))
@@ -243,7 +274,7 @@ def build_plot(plot_data, plot_sky, mask, data_model, sky_model, res_dir):
 
 
 plot = build_plot(
-    d, comparison_sky, mask, model, sky_model, res_dir)
+    d, comp_sky, mask, model, sky_model, res_dir)
 
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, like.domain))
 

@@ -82,13 +82,19 @@ for fltname, flt in config['files']['filter'].items():
             data=data,
             std=std,
         )
+
+exit()
+
 for lh_name, lh in likelihoods.items():
     ind_grid = reco_grid.index_grid(config['grid']['padding_ratio'])
     lh['sparse_matrix'] = build_sparse_integration(
         ind_grid, lh['index_edges'], lh['mask'])
 
     sky_dvol = reco_grid.dvol
-    break
+    sp = lh['sparse_matrix']
+    continue
+    # exit()
+    # break
     # sub_dvol = # dm.meta.wcsinfo.cd2_2
 
     lh['interpolation'] = build_linear_integration(
@@ -117,7 +123,7 @@ if __name__ == '__main__':
         return jft.Model(shift_model, domain=domain)
 
     mock = False
-    plots = True
+    plots = False
 
     integration_model = config['telescope']['integration_model']['model']
     mean, sigma = (config['telescope']['integration_model']['mean'],
@@ -138,16 +144,17 @@ if __name__ == '__main__':
         lh['sparse_model'] = build_sparse_integration_model(
             lh['sparse_matrix'], sky)
 
-        lh['interpolation_model'] = build_integration_model(
-            lh['interpolation'], sky)
+        if plots:
+            lh['interpolation_model'] = build_integration_model(
+                lh['interpolation'], sky)
 
-        shift = build_shift_model(lh_key+'shift', mean_sigma)
-        lh['shift_model'] = shift
-        lh['updating_interpolation_model'] = build_integration_model(
-            lh['updating_interpolation'], sky, shift)
+            shift = build_shift_model(lh_key+'shift', mean_sigma)
+            lh['shift_model'] = shift
+            lh['updating_interpolation_model'] = build_integration_model(
+                lh['updating_interpolation'], sky, shift)
 
-        lh['nufft_model'] = build_integration_model(
-            lh['nufft_interpolation'], sky)
+            lh['nufft_model'] = build_integration_model(
+                lh['nufft_interpolation'], sky)
 
         if mock:
             mock_sky = sky(jft.random_like(sampling_key, sky.domain))
@@ -171,18 +178,19 @@ if __name__ == '__main__':
             sparse_model = lh['sparse_model']
             tmp[mask] = sparse_model(pos)
 
-            tmp2 = np.zeros_like(plot_data)
-            interpolation_model = lh['interpolation_model']
-            tmp2[mask] = lh['interpolation_model'](pos)
+            if plots:
+                tmp2 = np.zeros_like(plot_data)
+                interpolation_model = lh['interpolation_model']
+                tmp2[mask] = lh['interpolation_model'](pos)
 
-            tmp3 = np.zeros_like(plot_data)
-            pos3 = jft.random_like(
-                mini_par_key, lh['updating_interpolation_model'].domain)
-            shif = lh['shift_model'](pos3)
-            tmp3[mask] = lh['updating_interpolation_model'](pos3)
+                tmp3 = np.zeros_like(plot_data)
+                pos3 = jft.random_like(
+                    mini_par_key, lh['updating_interpolation_model'].domain)
+                shif = lh['shift_model'](pos3)
+                tmp3[mask] = lh['updating_interpolation_model'](pos3)
 
-            tmp4 = np.zeros_like(plot_data)
-            tmp4[mask] = lh['nufft_model'](pos)
+                tmp4 = np.zeros_like(plot_data)
+                tmp4[mask] = lh['nufft_model'](pos)
 
             log_min, log_max = 1.0, tmp.max()
             if plots:
