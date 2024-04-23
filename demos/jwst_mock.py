@@ -90,33 +90,6 @@ if PRIOR_SAMPLE:
 
 
 def get_sparse_model(mask):
-    # Sparse Interpolation
-    extent = [int(s * PADDING) for s in reco_shape]
-    extent = [(e - s) // 2 for s, e in zip(reco_shape, extent)]
-    x, y = [np.arange(-e, s+e) for e, s in zip(extent, reco_shape)]
-    x, y = np.roll(x, -extent[0]), np.roll(y, -extent[1])  # to bottom left
-    index_grid_reco = np.meshgrid(x, y, indexing='xy')
-
-    # Index Edges
-    factor = [int(dd/rd) for dd, rd in zip(data_dist, reco_dist)]
-    pix_center = np.array(np.meshgrid(
-        *[np.arange(ds)*f for ds, f in zip(data_shape, factor)]
-    )) + np.array([1/f for f in factor])[..., None, None]
-    e00 = pix_center - np.array([0.5*factor[0], 0.5*factor[1]])[:, None, None]
-    e01 = pix_center - np.array([0.5*factor[0], -0.5*factor[1]])[:, None, None]
-    e10 = pix_center - np.array([-0.5*factor[0], 0.5*factor[1]])[:, None, None]
-    e11 = pix_center - \
-        np.array([-0.5*factor[0], -0.5*factor[1]])[:, None, None]
-    index_edges = np.array([e00, e01, e11, e10])
-
-    sparse_matrix = build_sparse_integration(
-        index_grid_reco, index_edges, mask)
-    sparse_model = build_sparse_integration_model(
-        sparse_matrix, sky_model_full)
-    return sparse_model
-
-
-def get_sparse_model_new(mask):
     wl_data_centers, (e00, e01, e10, e11) = data_grid.wcs.wl_pixelcenter_and_edges(
         data_grid.world_extrema)
     px_reco_index_edges = reco_grid.wcs.index_from_wl(
@@ -178,15 +151,7 @@ def get_nufft_model(subsample, mask):
 std = STD_FACTOR*data.mean()
 d = data + random.normal(noise_key, data.shape, dtype=data.dtype) * std
 if MODEL == 'sparse':
-    model = get_sparse_model(mask)
-    model_check = get_sparse_model_new(mask)
-
-    tmp_pos = jft.random_like(key, model.domain)
-
-    fo = model(tmp_pos)
-    fn = model_check(tmp_pos)
-
-    exit()
+    model = get_sparse_model_new(mask)
 
     res_dir = f'results/mock_integration/{RSHAPE}_sparse'
 elif MODEL == 'linear':
