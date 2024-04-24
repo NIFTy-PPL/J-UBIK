@@ -89,14 +89,14 @@ if PRIOR_SAMPLE:
     plt.show()
 
 
-def get_sparse_model(mask):
+def get_sparse_model(data_grid, reconstruction_grid, mask):
     wl_data_centers, (e00, e01, e10, e11) = data_grid.wcs.wl_pixelcenter_and_edges(
         data_grid.world_extrema)
-    px_reco_index_edges = reco_grid.wcs.index_from_wl(
+    px_reco_index_edges = reconstruction_grid.wcs.index_from_wl(
         [e00, e01, e11, e10])  # needs to be circular for sparse builder
 
     sparse_matrix = build_sparse_integration(
-        reco_grid.index_grid(),
+        reconstruction_grid.index_grid(),
         px_reco_index_edges,
         mask)
 
@@ -117,8 +117,8 @@ def get_subsample_centers(subsample):
     return ms[:, :, None, None] + pix_center
 
 
-def get_linear_model(subsample, mask):
-    subsample_centers = get_subsample_centers(subsample)
+def get_linear_model(subsample_centers, mask):
+    # subsample_centers = get_subsample_centers(subsample)
 
     sky_dvol = np.prod(reco_dist)
     sub_dvol = np.prod((data_dist[0] / subsample, data_dist[1] / subsample))
@@ -134,8 +134,17 @@ def get_linear_model(subsample, mask):
     return build_integration_model(linear, sky_model_full)
 
 
-def get_nufft_model(subsample, mask):
-    subsample_centers = get_subsample_centers(subsample)
+def get_subsample_centers_new(data_grid, reconstruction_grid, subsample):
+    wl_data_subsample_centers = data_grid.wcs.wl_subsample_centers(
+        data_grid.world_extrema, subsample)
+    px_reco_subsample_centers = reconstruction_grid.wcs.index_from_wl(
+        wl_data_subsample_centers)
+    px_reco_subsample_centers = px_reco_subsample_centers[:, ::-1, :, :]
+    return px_reco_subsample_centers
+
+
+def get_nufft_model(subsample_centers, mask):
+    # subsample_centers = get_subsample_centers(subsample)
     sky_dvol = np.prod(reco_dist)
     sub_dvol = np.prod((data_dist[0] / subsample, data_dist[1] / subsample))
 
@@ -148,15 +157,21 @@ def get_nufft_model(subsample, mask):
     return build_integration_model(nufft, sky_model_full)
 
 
+exit()
 std = STD_FACTOR*data.mean()
 d = data + random.normal(noise_key, data.shape, dtype=data.dtype) * std
 if MODEL == 'sparse':
-    model = get_sparse_model_new(mask)
-
+    model = get_sparse_model(data_grid, reco_grid, mask)
     res_dir = f'results/mock_integration/{RSHAPE}_sparse'
+
 elif MODEL == 'linear':
+    subsample_centers = get_subsample_centers(SUBSAMPLE)
+    subsample_centers_new = get_subsample_centers_new(
+        data_grid, reco_grid, SUBSAMPLE)
+
     model = get_linear_model(subsample=SUBSAMPLE, mask=mask)
     res_dir = f'results/mock_integration/{RSHAPE}_linear{SUBSAMPLE}'
+
 elif MODEL == 'nufft':
     model = get_nufft_model(subsample=SUBSAMPLE, mask=mask)
     res_dir = f'results/mock_integration/{RSHAPE}_nufft{SUBSAMPLE}'
