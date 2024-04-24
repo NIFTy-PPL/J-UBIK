@@ -476,9 +476,9 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
         raise NotImplementedError
 
 
-def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
+def plot_erosita_priors(key, n_samples, config_path, priors_dir, signal_response=False,
                         plotting_kwargs=None, common_colorbar=False, log_scale=True,
-                        adjust_figsize=False,):
+                        adjust_figsize=False):
     """
     Plots prior samples for the signal components of the sky
     through the eROSITA signal response from the config file.
@@ -491,12 +491,12 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
             The number of samples to generate.
         config_path : str
             The path to the config file.
-        response_path : str
-            The path to the response file.
-            If None, only the signal will be plotted,
-            without passing it through the eROSITA response.
         priors_dir : str
             The directory to save the priors plots.
+        signal_response : bool, optional
+            Whether to pass the signal through the eROSITA response.
+            If False, only the signal will be plotted,
+            without passing it through the eROSITA response.
         plotting_kwargs : dict, optional
             Additional keyword arguments for plotting.
         common_colorbar : bool, optional
@@ -540,7 +540,7 @@ def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
                         title=[f'E_min={emin}, E_max={emax}' for emin, emax in zip(e_min, e_max)],
                         common_colorbar=common_colorbar, **plotting_kwargs)
 
-    if response_path is not None:  # FIXME: when R will be pickled, load from file
+    if signal_response:  # FIXME: when R will be pickled, load the response from file
         tm_ids = cfg['telescope']['tm_ids']
         n_modules = len(tm_ids)
 
