@@ -11,6 +11,8 @@ def build_integration_model(
     sky: jft.Model,
     shift: Optional[jft.Model] = None
 ):
+    # FIXME: Update such that the integration model takes a key (SKY_INTERNAL)
+    # or index for the multifrequency model?
 
     if shift is None:
         return jft.Model(

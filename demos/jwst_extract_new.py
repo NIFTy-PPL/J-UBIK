@@ -101,10 +101,12 @@ for lh_name, lh in likelihoods.items():
         lh['index_subsample_centers'], mask=lh['mask'], order=1)
 
     lh['updating_interpolation'] = build_linear_integration(
-        lh['index_subsample_centers'], mask=lh['mask'], order=1, updating=True)
+        lh['index_subsample_centers'],
+        mask=lh['mask'], order=1, updating=True)
 
     lh['nufft_interpolation'] = build_nufft_integration(
-        lh['index_subsample_centers'], mask=lh['mask'],
+        lh['index_subsample_centers'],
+        mask=lh['mask'],
         shape=np.array(ind_grid[0].shape))
 
 

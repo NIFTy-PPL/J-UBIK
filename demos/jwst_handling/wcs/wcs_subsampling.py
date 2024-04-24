@@ -1,7 +1,7 @@
 from typing import Tuple
-
 from .wcs_base import WcsBase
 from astropy.coordinates import SkyCoord
+from numpy.typing import ArrayLike
 
 
 def get_subsamples_from_wcs(
@@ -9,7 +9,7 @@ def get_subsamples_from_wcs(
     data_grid_wcs: WcsBase,
     reconstruction_grid_wcs: WcsBase,
     subsample: int
-):
+) -> ArrayLike:
     '''This function finds the index positions for the centers of the data_grid
     inside the reconstruction_grid.
 
