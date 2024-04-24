@@ -400,6 +400,11 @@ if __name__ == '__main__':
         build_sparse_integration, build_sparse_integration_model,
         build_linear_integration, build_integration_model,
         build_nufft_integration)
+
+    from jwst_handling.wcs.wcs_subsampling import get_subsamples_from_wcs
+
+    from sys import exit
+
     from astropy import units as u
     import jubik0 as ju
 
@@ -445,12 +450,11 @@ if __name__ == '__main__':
     for data_key in data_set.keys():
         data, data_grid = data_set[data_key]['data'], data_set[data_key]['grid']
 
-        # For interpolation
-        wl_data_subsample_centers = data_grid.wcs.wl_subsample_centers(
-            data_grid.world_extrema, SUBSAMPLE)
-        px_reco_subsample_centers = reco_grid.wcs.index_from_wl(
-            wl_data_subsample_centers)
-        px_reco_subsample_centers = px_reco_subsample_centers[:, ::-1, :, :]
+        px_reco_subsample_centers_new = get_subsamples_from_wcs(
+            data_grid.world_extrema,
+            data_grid.wcs,
+            reco_grid.wcs,
+            SUBSAMPLE)
 
         # For sparse
         wl_data_centers, (e00, e01, e10, e11) = data_grid.wcs.wl_pixelcenter_and_edges(

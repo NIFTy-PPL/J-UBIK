@@ -56,7 +56,7 @@ class WcsBase(ABC):
         ----------
         extrema : List[SkyCoord]
             List of SkyCoord objects, representing the world location of the
-            reconstruction grid edges.
+            reconstruction grid corners.
         shape : Optional[Tuple[int, int]]
             When provided the extrema are checked for consistency with the
             underlying data array.
@@ -93,14 +93,14 @@ class WcsBase(ABC):
         extrema: SkyCoord,
         array_shape: Optional[Tuple[int, int]] = None,
     ) -> Tuple[SkyCoord, Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord]]:
-        '''Find the world locations of the pixel centers and edges of the data
+        '''Find the world locations of the pixel centers and corners of the
         grid inside the extrema.
 
         Parameters
         ----------
         extrema : List[SkyCoord]
             List of SkyCoord objects, representing the world location of the
-            reconstruction grid edges.
+            reconstruction grid corners.
 
         array_shape: tuple
             When provided the extremas are checked for consistency with the
@@ -110,10 +110,10 @@ class WcsBase(ABC):
         Returns
         -------
         pix_center : SkyCoord
-            pixel centers of the data grid in global wcs
+            pixel centers of the grid in sky/world coordinates
 
         e00, e01, e10, e11 : SkyCoord
-            pixel edges of the data grid in global wcs
+            pixel corners of the grid in sky/world coordinates
 
         '''
         minx, maxx, miny, maxy = self.index_from_wl_extrema(extrema)

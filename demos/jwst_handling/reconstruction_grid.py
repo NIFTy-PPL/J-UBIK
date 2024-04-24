@@ -53,34 +53,50 @@ class Grid:
             (xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)])
 
     def extent(self, unit=units.arcsec):
-        '''Convinience property which gives the extent of the grid in '''
+        '''Convinience method which gives the extent of the grid in physical units.'''
         distances = [d.to(unit).value for d in self.distances]
         shape = self.shape
         halfside = np.array(shape)/2 * np.array(distances)
         return (-halfside[0], halfside[0], -halfside[1], halfside[1])
 
-    def index_grid(self, extend_factor=1) -> Tuple[ArrayLike, ArrayLike]:
+    def index_grid(self, extend_factor=1, to_bottom_left=True) -> Tuple[ArrayLike, ArrayLike]:
         '''Calculate the index array of the grid.
 
         Parameters
         ----------
         extend_factor: float
             A factor by which to increase the grid.
-            The indices are rolled such that index (0, 0) of the extended and
-            the un-extended (extend_factor=1) grid coalign.
+
+        to_bottom_left: bool
+            Flag which controlls if the indices of the extended array which are
+            relative to the un-extended array co-align such that the (0, 0)
+            index of the extended and un-extended array are in the upper left
+            corner of the matrix.
+
+            Example:
+            unextended = (0, 1, 2)
+            extended_centered = (-1, 0, 1, 2, 3)
+            extended_bottom_left = (0, 1, 2, 3, -1)
         '''
         extent = [int(s * extend_factor) for s in self.shape]
         extent = [(e - s) // 2 for s, e in zip(self.shape, extent)]
         x, y = [np.arange(-e, s+e) for e, s in zip(extent, self.shape)]
-        x, y = np.roll(x, -extent[0]), np.roll(y, -extent[1])  # to bottom left
+        if to_bottom_left:
+            x, y = np.roll(x, -extent[0]), np.roll(y, -extent[1])
         return np.meshgrid(x, y, indexing='xy')
 
-    def wl_coords(self, extend_factor=1) -> SkyCoord:
-        indices = self.index_grid(extend_factor)
+    def wl_coords(self, extend_factor=1, to_bottom_left=True) -> SkyCoord:
+        indices = self.index_grid(extend_factor, to_bottom_left=to_bottom_left)
         return self.wcs.wl_from_index([indices])[0]
 
-    def rel_coords(self, extend_factor=1, unit=units.arcsec) -> ArrayLike:
-        wl_coords = self.wl_coords(extend_factor)
+    def rel_coords(
+            self,
+            extend_factor=1,
+            unit=units.arcsec,
+            to_bottom_left=True
+    ) -> ArrayLike:
+        wl_coords = self.wl_coords(
+            extend_factor, to_bottom_left=to_bottom_left)
         r = wl_coords.separation(self.center)
         phi = wl_coords.position_angle(self.center)
         x = r.to(unit) * np.sin(phi.to(units.rad).value)
