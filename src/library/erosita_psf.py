@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from matplotlib.colors import LogNorm
 from ..operators.convolve_utils import (get_psf_func, psf_convolve_operator,
-                                        psf_lin_int_operator)
+                                        psf_lin_int_operator, psf_interpolator)
 
 
 class eROSITA_PSF():
@@ -181,6 +181,27 @@ class eROSITA_PSF():
                      'patch_deltas': self._load_pix_size(),
                      'pointing_center': pointing_center}
         return psf_infos
+
+    def make_interpolated_psf_array(self, energies, pointing_center,
+                                    domain, npatch):
+        """
+        Build the psf operator.
+
+        Parameters:
+        ----------
+        energies: list of int
+        """
+        psf_infos = []
+        if not isinstance(energies, list):
+            raise TypeError("energies needs to be a list")
+        for energy in energies:
+            self._check_energy(energy)
+            info = self._get_psf_infos(energy, pointing_center)
+            psf_infos.append(info)
+        print('Interpolate PSF on Grid...')
+        array = psf_interpolator(domain, npatch, psf_infos)
+        print('...done build PSF-interpolation')
+        return array
 
     def make_psf_op(self, energies, pointing_center, domain, conv_method,
                     conv_params):

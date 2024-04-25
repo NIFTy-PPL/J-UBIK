@@ -11,6 +11,7 @@ import jax.numpy as jnp
 from jax import lax, vmap
 
 from .erosita_observation import ErositaObservation
+from ..operators.convolve_utils import linpatch_convolve
 
 
 def build_exposure_function(exposures, exposure_cut=None):
@@ -190,10 +191,28 @@ def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
                                cdict)
     return psf_func
 
+def _build_tm_erosita_psf_array(psf_filename, energies, pointing_center,
+                                domain, npatch):
+    """
+    #TODO only brief docstring, not public.
 
-def build_erosita_psf(psf_filenames, energies, pointing_center, domain, npatch,
-                      margfrac, want_cut=False, convolution_method='LINJAX'):
-    """#TODO Add Docstring
+    Parameters:
+    -----------
+    psf_file: str
+        filename tm_id_+ base / suffix, e.g. 2dpsf_190219v05.fits
+    energies: list
+    """
+    psf = eROSITA_PSF(psf_filename)
+    psf_array = psf.make_interpolated_psf_array(energies,
+                                                pointing_center,
+                                                domain,
+                                                npatch)
+    return psf_array
+
+
+def build_erosita_psf(psf_filenames, energies, pointing_center,
+                      domain, npatch, margfrac):
+    """
     Parameters:
     ----------
     psf_filenames: list(str), path to psf files from calibration
@@ -204,21 +223,21 @@ def build_erosita_psf(psf_filenames, energies, pointing_center, domain, npatch,
     margfrac: margin fraction, fractional size of the margin. margin/inputsize.
             Needed to break the periodic boundary conditions (PBC) in the patch
             convolution.
-    want_cut: REMOVE? FIXME
-    convolution_method: "LIN", "MSC", "LINJAX". Default "LINJAX"
     """
+    psfs = [_build_tm_erosita_psf_array(psf_file, energies, pcenter,
+                                        domain, npatch)
+            for psf_file, pcenter in zip(psf_filenames, pointing_center)]
+    psfs = np.array(psfs)
 
-    functions = [_build_tm_erosita_psf(psf_file, energies, pcenter,
-                                       domain, npatch, margfrac)
-                 for psf_file, pcenter in zip(psf_filenames, pointing_center)]
-    index = jnp.arange(len(functions))
-    # FIXME make this more efficient
-    vmap_functions = vmap(lambda i, x: lax.switch(i, functions, x), in_axes=(0, None))
+    # FIXME Check sqrt npatches etc
 
-    def vmap_psf_func(x):
-        return vmap_functions(index, x)
+    shp = (domain.shape[-2], domain.shape[-1])
+    margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
 
-    return vmap_psf_func
+    def psf_op(x):
+        return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(x, domain, psfs, npatch, margin)
+
+    return psf_op
 
 
 # func = lambda psf_file,x,y,z: build_psf(psf_file,x, y, z)
@@ -295,9 +314,8 @@ def build_erosita_response_from_config(config_file_path):
                     tuple([1]+[cfg['telescope']['fov']/cfg['grid']['sdim']]*2))
 
     # get psf/exposure/mask function
-    psf_func = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center, domain,
-                                 psf_info['npatch'], psf_info['margfrac'], psf_info['want_cut'],
-                                 psf_info['method'])
+    psf_func = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center,
+                                 domain, psf_info['npatch'], psf_info['margfrac'])
 
     exposure_func = build_callable_from_exposure_file(build_exposure_function,
                                                       exposure_filenames,
