@@ -193,12 +193,21 @@ def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
 
 def build_erosita_psf(psf_filenames, energies, pointing_center, domain, npatch,
                       margfrac, want_cut=False, convolution_method='LINJAX'):
-    #FIXME Energies instead of Energy (List) NO LOOP Energie vectorized
     """#TODO Add Docstring
     Parameters:
     ----------
+    psf_filenames: list(str), path to psf files from calibration
     energies: list
+    pointing_center: list(float) #TODO Check types
+    domain: ju.Domain
+    npatch: int, number of patches
+    margfrac: margin fraction, fractional size of the margin. margin/inputsize.
+            Needed to break the periodic boundary conditions (PBC) in the patch
+            convolution.
+    want_cut: REMOVE? FIXME
+    convolution_method: "LIN", "MSC", "LINJAX". Default "LINJAX"
     """
+
     functions = [_build_tm_erosita_psf(psf_file, energies, pcenter,
                                        domain, npatch, margfrac)
                  for psf_file, pcenter in zip(psf_filenames, pointing_center)]
