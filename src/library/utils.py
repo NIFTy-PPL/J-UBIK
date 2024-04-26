@@ -7,6 +7,76 @@ import scipy
 import nifty8 as ift
 
 
+def profile(func, pos, n_loops=1e6, n_rep=5):
+    """Wrapper for basic profiling.
+
+    Use minimal time for benchmark
+
+    parameters:
+    -----------
+
+    func: callable
+    pos: input
+    n_loops: number of executions
+    n_rep: number of outer loop
+    """
+
+    import timeit
+    import numpy as np
+
+    stats = timeit.repeat(lambda: func(pos),repeat=n_rep, number=n_loops)
+    stats = np.array(stats)/n_loops
+    # Testing {func.__name__}
+    print(f"""
+    t_Min: {stats.min()}s
+    t_Max: {stats.max()}s
+    t_Mean: {stats.mean():.3e}s
+    t_Std: {stats.std():.3e}s
+    """)
+    return stats
+
+
+def benchmark_jit(func, pos, name, loops, reps):
+    import jax
+    from memory_profiler import memory_usage
+    print(f"""
+    Benchmark: {name}
+    ==========
+
+    un-jitted:
+    ---------
+    """)
+    profile(func, pos, loops, reps)
+
+    mem = memory_usage((func, [pos]))
+    print(f"""
+    Mem_consumption:
+    ----------------
+    {mem}
+    """)
+
+    print("""jitted:
+    -----
+-
+    """)
+
+    func_jit = jax.jit(func, inline=False)
+    mem = memory_usage((func_jit, [pos]))
+    print(f"""
+    Mem_consumption for Jit:
+    ----------------
+    {mem}
+    """)
+    func_jit(pos)
+    profile(func_jit, pos, loops, reps)
+
+    mem = memory_usage((func_jit, [pos]))
+    print(f"""
+    Mem_consumption for Jit(exec):
+    ----------------
+    {mem}
+    """)
+
 def get_stats(sample_list, func):
     """Return stats(mean and std) for sample_list.
 
