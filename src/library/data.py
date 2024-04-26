@@ -3,17 +3,16 @@ import pickle
 from os.path import join, splitext
 
 import numpy as np
-from jax import random, tree_map
+from jax import random, tree_map, linear_transpose
 from jax import numpy as jnp
 from astropy.io import fits
 
 import nifty8.re as jft
-
 from .erosita_observation import ErositaObservation
 from .messages import log_file_exists
 from .sky_models import SkyModel
-from .utils import get_config, create_output_directory
-
+from .utils import get_config, create_output_directory, save_config
+from .plot import plot_result
 from typing import NamedTuple
 
 
@@ -30,18 +29,15 @@ class Domain(NamedTuple):
     distances: tuple
 
 
-# GENERIC
-def load_masked_data_from_pickle(file_path):
-    """ Load data from pickle file as a data-dictionary and create a jft.Vector
-    of masked data out of it
+# generic data loading & saving
+
+def load_data_dict_from_pickle(file_path):
+    """ Load data from pickle file as a data-dictionary
 
     Parameters
     ----------
     file_path : string
         Path to data file (.pkl)
-    mask_func : Callable
-        Mask function, which takes a 3D array and makes a jft.Vector
-        out of it containing a dictionary of masked arrays
     Returns
     -------
     masked_data : jft.Vector
@@ -68,51 +64,82 @@ def save_dict_to_pickle(dictionary, file_path):
         pickle.dump(dictionary, file)
 
 
-def generate_mock_xi_from_prior_dict(sdim, edim, s_padding_ratio, e_padding_ratio,
-                                     fov, energy_range, priors, subkey,
-                                     default_point_source_prior=None):
-    """ Generates a mock sky position for the given grid and prior information
+# eROSITA - Generation
+def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_info,
+                             seed, response_dict):
+    """ Generates and saves eROSITA mock data to pickle file.
 
     Parameters
     ----------
-    npix : int
-        Number of pixels
-    padding_ratio : float
-        Ratio between padded and actual space
-    fov : int
-        FOV of the telescope
-    priors : dict
-        Dictionary of prior information containing the hyperparameters for the
-        used models etc. correlated field etc. (see sky_models.py)
-    key : jax.random.PRNGKey
-        Random key for mock sky generation
-    default_point_source_prior: dict
-        Default values for the point sources for the mock sky generation if a reconstruction
-        with only diffuse is used.
-
+    tel_info : dict
+        Dictionary of telescope information
+    file_info : dict
+        Dictionary of file paths
+    grid_info : dict
+        Dictionary with grid information
+    grid_info : dict
+        Dictionary with prior information
+    plot_info: dict
+        Dictionary with plotting information
+    seed: int
+        Random seed for mock position generataion
+    response_dict : dict
+        Dictionary of all available response functionalities i.e. response, mask, psf
     Returns
     -------
-    mock_sky_position: jft.Vector
-        Random position of the latent parameters
+    masked_mock_data: jft.Vector
+        Dictionary of masked mock data arrays
     """
-    if priors['point_sources'] is None and default_point_source_prior is None:
-        raise ValueError('Point source information is needed for the generation of a mock sky.')
-    if priors['point_sources'] is None:
-        priors['point_sources'] = default_point_source_prior
-    sky = SkyModel().create_sky_model(sdim=sdim,
-                                    edim=edim,
-                                    s_padding_ratio=s_padding_ratio,
-                                    e_padding_ratio=e_padding_ratio,
-                                    fov=fov,
-                                    energy_range=energy_range,
-                                    priors=priors)
+    key = random.PRNGKey(seed)
 
-    return jft.random_like(subkey, sky.domain)
+    e_min = grid_info['energy_bin']['e_min']
+    e_max = grid_info['energy_bin']['e_max']
+    energy_range = np.array(e_max) - np.array(e_min)
+
+    key, subkey = random.split(key)
+    sky_model = SkyModel()
+    sky = sky_model.create_sky_model(sdim=grid_info['sdim'], edim=grid_info['edim'],
+                                     s_padding_ratio=grid_info['s_padding_ratio'],
+                                     e_padding_ratio=grid_info['e_padding_ratio'],
+                                     fov=tel_info['fov'],
+                                     e_min=grid_info['energy_bin']['e_min'],
+                                     e_max=grid_info['energy_bin']['e_max'],
+                                     e_ref=grid_info['energy_bin']['e_ref'],
+                                     priors=prior_info)
+
+    jft.random_like(subkey, sky.domain)
+    # Generate response func
+    sky_comps = sky_model.sky_model_to_dict()
+    key, subkey = random.split(key)
+    output_path = os.path.join(file_info['obs_path'])
+    create_output_directory(output_path)
+    mock_sky_position = jft.Vector(jft.random_like(subkey, sky.domain))
+    masked_mock_data = response_dict['R'](sky(mock_sky_position))
+    masked_mock_data = tree_map(lambda x: random.poisson(subkey, x), masked_mock_data.tree)
+    masked_mock_data = jft.Vector({key: val.astype(int) for key, val in masked_mock_data.items()})
+    save_dict_to_pickle(masked_mock_data.tree, os.path.join(output_path, file_info['data_dict']))
+    save_dict_to_pickle(mock_sky_position.tree, os.path.join(output_path, file_info['pos_dict']))
+    if plot_info['enabled']:
+        jft.logger.info('Plotting mock data and mock sky.')
+        plottable_vector = jft.Vector({key: val.astype(float) for key, val
+                                        in masked_mock_data.tree.items()})
+        mask_adj = linear_transpose(response_dict['mask'],
+                                    np.zeros((len(tel_info['tm_ids']),) + sky.target.shape))
+        mask_adj_func = lambda x: mask_adj(x)[0]
+        plottable_data_array = np.stack(mask_adj_func(plottable_vector), axis=0)
+        for tm_id in range(plottable_data_array.shape[0]):
+            plot_result(plottable_data_array[tm_id], logscale=True,
+                    output_file=os.path.join(output_path, f'mock_data_tm{tm_id+1}.png'))
+        for key, sky_comp in sky_comps.items():
+            plot_result(sky_comp(mock_sky_position), logscale=True,
+                        output_file=os.path.join(output_path, f'mock_{key}.png'))
+
+    return masked_mock_data
 
 
-# eROSITA
-def load_erosita_masked_data(file_info, tel_info, grid_info, mask_func):
-    """ Load eROSITA data from file, mask it and generate a jft.Vector out of it
+def create_erosita_masked_data(file_info, tel_info, grid_info, mask_func):
+    """ Creates and saves eROSITA masked data as pickle file from
+     eROSITA processed fits-files.
 
     Parameters
     ----------
@@ -143,6 +170,8 @@ def load_erosita_masked_data(file_info, tel_info, grid_info, mask_func):
     if len(e_min) != len(e_max):
         raise ValueError("e_min and e_max must have the same length!")
 
+    processed_obs_path = create_output_directory(join(file_info['obs_path'],
+                                                      file_info['processed_obs_folder']))
     data_list = []
     for tm_id in tel_info['tm_ids']:
         output_filenames = f'tm{tm_id}_' + file_info['output']
@@ -150,23 +179,35 @@ def load_erosita_masked_data(file_info, tel_info, grid_info, mask_func):
                             zip(e_min, e_max)]
         data = []
         for output_filename in output_filenames:
-            data.append(fits.open(join(file_info['obs_path'], "processed", output_filename))[0].data)
+            data.append(
+                fits.open(join(file_info['obs_path'], "processed", output_filename))[0].data)
         data = jnp.stack(jnp.array(data, dtype=int))
         data_list.append(data)
     data = jnp.stack(jnp.array(data_list, dtype=int))
     masked_data_vector = mask_func(data)
+    save_dict_to_pickle(masked_data_vector.tree, os.path.join(processed_obs_path,
+                                                              file_info["data_dict"]))
     return masked_data_vector
 
 
-def create_erosita_data_from_config_dict(config_dict):
-    """ Create eROSITA data from config dictionary
-        (calls the eSASS interface)
-    """
-    tel_info = config_dict["telescope"]
-    file_info = config_dict["files"]
-    grid_info = config_dict['grid']
+def create_erosita_data_from_config(config_path):
+    """ Creates eROSITA data from config path
+        (calls the eSASS interface) as fits files.
 
-    input_filenames = file_info["input"]
+    Parameters
+    ----------
+    config_path : str
+        Path to inference config file
+
+    """
+
+    cfg = get_config(config_path)
+
+    tel_info = cfg["telescope"]
+    file_info = cfg["files"]
+    grid_info = cfg['grid']
+    plot_info = cfg['plotting']
+    esass_image =cfg['esass_image']
     obs_path = file_info["obs_path"]
     sdim = grid_info['sdim']
     e_min = grid_info['energy_bin']['e_min']
@@ -181,15 +222,12 @@ def create_erosita_data_from_config_dict(config_dict):
     if len(e_max) != len(e_max):
         raise ValueError("e_min and e_max must have the same length!")
 
-    tm_ids = tel_info["tm_ids"]
-    fov = tel_info['fov']
-    detmap = tel_info['detmap']
+    rebin = int(np.floor(20 * tel_info['fov'] // sdim))  # FIXME: USE DISTANCES!
 
-    rebin = int(np.floor(20 * fov // sdim))  # FIXME: USE DISTANCES!
-
-    processed_obs_path = create_output_directory(join(obs_path, 'processed'))
-
-    for tm_id in tm_ids:
+    processed_obs_path = create_output_directory(join(obs_path,
+                                                      file_info['processed_obs_folder']))
+    data_list = []
+    for tm_id in tel_info["tm_ids"]:
         # TODO: implement the following by changing the eSASS interface ErositaObservation
         # tm_processed_path = create_output_directory(join(processed_obs_path, f'tm{tm_id}'))
         output_filenames = f'tm{tm_id}_' + file_info['output']
@@ -200,10 +238,10 @@ def create_erosita_data_from_config_dict(config_dict):
                               for e, E in zip(e_min, e_max)]
 
         for e, output_filename in enumerate(output_filenames):
-            observation_instance = ErositaObservation(input_filenames,
+            observation_instance = ErositaObservation(file_info["input"],
                                                          join("processed", output_filename),
                                                          obs_path,
-                                                         esass_image=config_dict['esass_image'])
+                                                         esass_image=esass_image)
             if not os.path.exists(join(processed_obs_path, output_filename)):
                 _ = observation_instance.get_data(emin=e_min[e],
                                                   emax=e_max[e],
@@ -211,26 +249,26 @@ def create_erosita_data_from_config_dict(config_dict):
                                                   rebin=rebin,
                                                   size=sdim,
                                                   pattern=tel_info['pattern'],
-                                                  telid=tm_id)  # FIXME: exchange rebin by fov? 80 = 4arcsec
+                                                  telid=tm_id)
+                # FIXME: exchange rebin by fov? 80 = 4arcsec
             else:
                 log_file_exists(join(processed_obs_path, output_filename))
 
             observation_instance = ErositaObservation(output_filename, output_filename, processed_obs_path,
-                                                         esass_image=config_dict['esass_image'])
+                                                         esass_image=esass_image)
 
             # Exposure
             if not os.path.exists(join(processed_obs_path, exposure_filenames[e])):
                 observation_instance.get_exposure_maps(output_filename, e_min[e], e_max[e],
                                                        withsinglemaps=True,
                                                        singlemaps=[exposure_filenames[e]],
-                                                       withdetmaps=detmap,
+                                                       withdetmaps=tel_info['detmap'],
                                                        badpix_correction=tel_info['badpix_correction'])
 
             else:
                 log_file_exists(join(processed_obs_path, exposure_filenames[e]))
 
             # Plotting
-            plot_info = config_dict['plotting']
             if plot_info['enabled']:
                 observation_instance.plot_fits_data(output_filename,
                                                     f'{splitext(output_filename)[0]}.png',
@@ -241,58 +279,91 @@ def create_erosita_data_from_config_dict(config_dict):
                                                     slice=plot_info['slice'],
                                                     dpi=plot_info['dpi'])
 
-def generate_mock_erosita_data_from_config(config_file_path, response_func, output_path=None):
-    """ Generated mock data for the information given in the config_file and a response func
+
+# Data creation wrapper
+def create_data_from_config(config_path, response_dct):
+    """ Wrapper function to create masked eROSITA data from config path
+        from generated fits-files and save as pickle.
 
     Parameters
     ----------
-    config_file_path : string
-        Path to config
-    response_func : Callable
-        Response function, which takes an array and makes a jft.Vector
-        out of it containing a dictionary of mock data
-    output_path: string
-        If output_path is given the generated data is saved to a pickle file
-    Returns
-    -------
-    masked_mock_data: jft.Vector
-        Dictionary of masked mock data arrays
+    config_path : str
+        Path to inference config file
+
     """
-    cfg = get_config(config_file_path)
-    key = random.PRNGKey(cfg['seed'])
+    cfg = get_config(config_path)
 
-    tel_info = cfg['telescope']
+    tel_info = cfg["telescope"]
+    file_info = cfg["files"]
     grid_info = cfg['grid']
-    priors = cfg['priors']
+    plot_info = cfg['plotting']
+    if not os.path.exists(os.path.join(file_info['obs_path'], file_info['data_dict'])):
+        if bool(file_info.get("mock_gen_config")):
+            jft.logger.info(f'Generating new mock data in {file_info["obs_path"]}...')
+            mock_prior_info = get_config(file_info["mock_gen_config"])
+            _ = create_mock_erosita_data(tel_info, file_info, grid_info, mock_prior_info,
+                                         plot_info, cfg['seed'], response_dct)
+            save_config(mock_prior_info, file_info['mock_gen_config'], file_info['obs_path'])
+        else:
+            jft.logger.info(f'Generating masked eROSITA data in {file_info["obs_path"]}...')
+            create_erosita_masked_data(file_info, tel_info, grid_info, response_dct['mask'])
+    else:
+        jft.logger.info(f'Data in {file_info["obs_path"]} already exists...')
 
-    e_min = cfg['grid']['energy_bin']['e_min']
-    e_max = cfg['grid']['energy_bin']['e_max']
-    energy_range = np.array(e_max) - np.array(e_min)
 
-    key, subkey = random.split(key)
-    mock_sky_position = generate_mock_xi_from_prior_dict(grid_info['sdim'],
-                                                         grid_info['edim'],
-                                                         grid_info['s_padding_ratio'],
-                                                         grid_info['e_padding_ratio'],
-                                                         tel_info['fov'],
-                                                         energy_range,
-                                                         priors=priors,
-                                                         subkey=subkey,
-                                                         default_point_source_prior=cfg['point_source_defaults'])
-    sky_model = SkyModel(config_file_path)
-    sky = sky_model.create_sky_model()
-    sky_comps = sky_model.sky_model_to_dict()
-    key, subkey = random.split(key)
-    if output_path is not None:
-        create_output_directory(output_path)
-    for key, sky_comp in sky_comps.items():
-        masked_mock_data = response_func(sky_comp(mock_sky_position))
-        masked_mock_data = tree_map(lambda x: random.poisson(subkey, x), masked_mock_data.tree)
-        masked_mock_data = jft.Vector(masked_mock_data)
-        if output_path is not None:
-            save_dict_to_pickle(response_func(sky_comp(mock_sky_position)),
-                                join(output_path, f'{key}_mock_data.pkl'))
-            save_dict_to_pickle(sky_comp(mock_sky_position),
-                                join(output_path, f'{key}_gt.pkl'))
-    return jft.Vector({key: val.astype(int) for key, val in masked_mock_data.tree.items()})
+# Data loading wrapper
+def load_masked_data_from_config(config_path):
+    """ Wrapper function load masked eROSITA data from config path
+        from generated pickle-files.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to inference config file
+
+    Returns
+    ----------
+    masked data: jft.Vector
+        Vector of masked eROSITA (mock) data for each TM
+    """
+    cfg = get_config(config_path)
+    file_info = cfg['files']
+    data_path = os.path.join(file_info['obs_path'], file_info['data_dict'])
+    if os.path.exists(data_path):
+        jft.logger.info('...Loading data from file')
+        masked_data = jft.Vector(load_data_dict_from_pickle(data_path))
+    else:
+        raise ValueError('Data path does not exist')
+        masked_data = None
+    return masked_data
+
+
+def load_mock_position_from_config(config_path):
+    """ Wrapper function to load the mock sky position for the eROSITA mock data config path
+        from pickle-file.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to inference config file
+
+    Returns
+    ----------
+    mock_pos : jft.Vector
+        Vector of latent parameters for the mock sky position
+
+    """
+    cfg = get_config(config_path)
+    file_info = cfg['files']
+    pos_path = os.path.join(file_info['obs_path'], file_info['pos_dict'])
+    if os.path.exists(pos_path):
+        jft.logger.info('...Loading mock position')
+        mock_pos = load_data_dict_from_pickle(pos_path)
+    else:
+        raise ValueError('Mock position path does not exist')
+        mock_pos = None
+    return mock_pos
+
+
+
 

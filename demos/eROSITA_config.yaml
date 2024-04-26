@@ -1,8 +1,4 @@
 seed: 86
-# threads: 8
-mock: True
-# mock_psf: False
-load_mock_data: False
 esass_image: DR1
 telescope:
   tm_ids : [1, 2]
@@ -12,11 +8,9 @@ telescope:
   exp_cut: 500
   badpix_correction: True
 
-point_source_defaults:
-
 psf:
  method: 'LINJAX'
- energy: ['1486', '3000']
+ energy: ['0277', '1486', '3000'] #FIXME: check whether to use '0930'
   # LIN config
  npatch: 8
  margfrac: 0.062
@@ -40,20 +34,28 @@ plotting:
 
 grid:
   sdim: 512
-  edim: 2 # FIXME: remove this parameter
+  edim: 3 # FIXME: remove this parameter
   s_padding_ratio: 1.203
-  e_padding_ratio: 2.
+  e_padding_ratio: 1.
   energy_bin:
     e_min:
+    - 0.2
     - 1.0
     - 2.0
     e_max:
+    - 1.0
     - 2.0
     - 4.5
+    e_ref:
+    - 2
 
 
 files:
-  obs_path: '../data/LMC_SN1987A/'
+  mock_gen_config: 'mock_config.yaml' # Only set for mock
+  obs_path: '../data/LMC_SN1987A_mock/'
+  data_dict: 'data.pkl'
+  pos_dict: 'pos.pkl' # only needed for mock
+  processed_obs_folder: 'processed'  # only needed for actual data
   input: 'pm00_700161_020_EventList_c001.fits'
   output: 'small_processed_pm00_700161_020_data.fits'
   exposure: 'small_expmap_pm00_700161_020.fits'
@@ -64,39 +66,37 @@ files:
 priors:
   point_sources:
     spatial:
-      alpha: 1.
-      q: 1.E-6
+      alpha: 1.0001
+      q: 5.E-7
       key: points
     plaw:
-      fluctuations:
-        fluctuations:
-          - 1.0
-          - 5.0e-3
-        loglogavgslope:
-          - -3.
-          - 1.0e-2
-        flexibility:
-          - 2.0
-          - 5.0e-1
-        asperity:
-          - 5.0e-1
-          - 5.0e-2
-        # harmonic_type: "Fourier"
-        non_parametric_kind: "power"
-      prefix: points_plaw
       offset:
         offset_mean: -2.0
         offset_std:
-          - 1.0e-3
-          - 1.0e-4
+          - 0.3
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.05
+        loglogavgslope:
+          - -1.
+          - 0.0002
+        flexibility:
+          - 0.3
+          - 0.1
+        asperity:
+          Null
+        # harmonic_type: "Fourier"
+        non_parametric_kind: "power"
+      prefix: points_plaw_
     dev_wp:
       x0:
         - 0
-        - 1
+        - 0.01
       sigma:
-        - 1
-        - 3
-      dt: 2
+        - 0.01
+        - 0.02
       name: 'points_dev_wp'
 #    dev_corr:
 #      fluctuations:
@@ -121,57 +121,55 @@ priors:
   diffuse:
     spatial:
       offset:
-        offset_mean: -10. # exposure norm = 4.4 *10^-5
+        offset_mean: -11.
         offset_std:
-          - 0.2
-          - 0.05
+          - 0.5
+          - 0.1
       fluctuations:
         fluctuations:
-          - 1.5
-          - 0.8
+          - 0.5
+          - 0.2
         loglogavgslope:
-          - -3.
-          - 1.0
+          - -4.0
+          - 0.3
         flexibility:
-          - 0.8
+          - 0.4
           - 0.1
         asperity:
-          - 0.2
-          - 0.1
+          Null
         non_parametric_kind: "power"
         # harmonic_type: "Fourier"
-      prefix: diffuse_spatial
+      prefix: diffuse_spatial_
     plaw:
-      fluctuations:
-        fluctuations:
-          - 1.0
-          - 5.0e-3
-        loglogavgslope:
-          - -3.
-          - 1.0e-2
-        flexibility:
-          - 2.0
-          - 5.0e-1
-        asperity:
-          - 5.0e-1
-          - 5.0e-2
-        non_parametric_kind: "power"
-        # harmonic_type: "Fourier"
-      prefix: diffuse_plaw
       offset:
         offset_mean: -2.0
         offset_std:
-          - 1.0e-3
-          - 1.0e-4
-    dev_wp:
-      x0:
-        - 0
-        - 1
-      sigma:
-        - 1
-        - 3
-      dt: 2
-      name: 'diffuse_dev_wp'
+          - 0.3
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.05
+        loglogavgslope:
+          - -5.
+          - 1.0e-2
+        flexibility:
+          - 0.5
+          - 0.05
+        asperity:
+          Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_plaw_
+    # dev_wp:
+    #   x0:
+    #     - 0
+    #     - 0.1
+    #   sigma:
+    #     - 0.3
+    #     - 0.1
+    #   dt: 1
+    #   name: 'diffuse_dev_wp'
 #    dev_corr:
 #      fluctuations:
 #        fluctuations:
@@ -186,7 +184,7 @@ priors:
 #        asperity:
 #        non_parametric_kind: "power"
 #        # harmonic_type: "Fourier"
-#      prefix: diffuse_dev
+#      prefix: diffuse_dev_
 #      offset:
 #        offset_mean: 0.0
 #        offset_std:
@@ -213,7 +211,7 @@ minimization:
     minimize_kwargs:
       name: "M"
       absdelta: 1.e-6
-      maxiter: 15
+      maxiter: 10
       cg_kwargs:
         name: "MCG"
-  sample_mode: nonlinear_sample
+  sample_mode: nonlinear_resample

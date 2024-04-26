@@ -1,5 +1,4 @@
 import math
-
 import nifty8 as ift
 import nifty8.re as jft
 import numpy as np
@@ -9,11 +8,6 @@ from jax import random
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from os.path import join
-
-from .response import build_erosita_response_from_config
-from .utils import get_data_domain, get_config, create_output_directory, get_stats
-from ..library.sky_models import SkyModel
-from ..library.chandra_observation import ChandraObservationInformation
 
 
 def plot_result(array, domains=None, output_file=None, logscale=False, title=None, colorbar=True,
@@ -71,6 +65,30 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
 
     n_plots = array.shape[0]
 
+    def _get_n_rows_from_n_samples(n_samples):
+        """
+        A function to get the number of rows from the given number of samples.
+
+        Parameters:
+        ----------
+            n_samples: `int`. The number of samples.
+
+        Returns:
+        -------
+            `int`: The number of rows.
+        """
+        threshold = 2
+        n_rows = 1
+        if n_samples == 2:
+            return n_rows
+
+        while True:
+            if n_samples < threshold:
+                return n_rows
+
+            threshold = 4 * threshold + 1
+            n_rows += 1
+
     if n_rows is None:
         n_rows = _get_n_rows_from_n_samples(n_plots)
 
@@ -81,8 +99,12 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             n_cols = n_plots // n_rows + 1
 
     if adjust_figsize:
-        x = int(n_cols/n_rows + 0.5)
-        y = int(n_rows/n_cols + 0.5)
+        x = int(n_cols/n_rows)
+        y = int(n_rows/n_cols)
+        if x == 0:
+            x = 1
+        if y == 0:
+            y = 1
         figsize = (x*figsize[0], y*figsize[1])
 
     n_ax = n_rows * n_cols
@@ -173,34 +195,6 @@ def plot_slices(field, outname, logscale=False):
     plt.close()
 
 
-def plot_fused_data(obs_info, img_cfg, obslist, outroot, center=None):
-    grid = img_cfg["grid"]
-    data_domain = get_data_domain(grid)
-    data = []
-    for obsnr in obslist:
-        info = ChandraObservationInformation(obs_info["obs" + obsnr], **grid, center=center)
-        data.append(info.get_data(f"./data_{obsnr}.fits"))
-    full_data = sum(data)
-    full_data_field = ift.makeField(data_domain, full_data)
-    plot_slices(full_data_field, outroot + "_full_data.png")
-
-
-def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
-    import astropy.io.fits as pyfits
-    from astropy.visualization import make_lupton_rgb
-    import matplotlib.pyplot as plt
-    color_dict = {0: "red", 1: "green", 2: "blue"}
-    file_dict = {}
-    for key in color_dict:
-        file_dict[color_dict[key]] = pyfits.open(f"{file_name_in}_{color_dict[key]}.fits")[0].data
-    rgb_default = make_lupton_rgb(file_dict["red"], file_dict["green"], file_dict["blue"],
-                                  filename=file_name_out)
-    if log_scale:
-        plt.imshow(rgb_default, norm=LogNorm(), origin='lower')
-    else:
-        plt.imshow(rgb_default, origin='lower')
-
-
 def plot_image_from_fits(file_name_in, file_name_out, log_scale=False):
     import matplotlib.pyplot as plt
     from astropy.utils.data import get_pkg_data_filename
@@ -240,102 +234,6 @@ def plot_psfset(fname, outname, npix, n, in_one=True):
         for k in range(10):
             p.add(psf[k], title=f"{k}", norm=LogNorm())
         p.output(name=outname + "psfs.png", xsize=20, ysize=20)
-
-
-def _append_key(s, key):
-    if key == "":
-        return s
-    return f"{s} ({key})"
-
-
-def plot_sample_and_stats(output_directory, operators_dict, sample_list, iteration=None,
-                          log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None):
-    """
-    Plots operator samples and statistics from a sample list.
-
-    Parameters:
-    -----------
-    - output_directory: `str`. The directory where the plot files will be saved.
-    - operators_dict: `dict[callable]`. A dictionary containing operators.
-    - sample_list: `nifty8.re.evi.Samples`. A list of samples.
-    - iteration: `int`, optional. The global iteration number value. Defaults to None.
-    - log_scale: `bool`, optional. Whether to use a logarithmic scale. Defaults to True.
-    - colorbar: `bool`, optional. Whether to show a colorbar. Defaults to True.
-    - dpi: `int`, optional. The resolution of the plot. Defaults to 100.
-    - plotting_kwargs: `dict`, optional. Additional plotting keyword arguments. Defaults to None.
-
-    # FIXME Title available again?
-    Returns:
-    --------
-    - None
-    """
-
-    if iteration is None:
-        iteration = 0
-    if plotting_kwargs is None:
-        plotting_kwargs = {}
-
-    for key in operators_dict:
-        op = operators_dict[key]
-        n_samples = len(sample_list)
-
-        results_path = create_output_directory(join(output_directory, key))
-        filename_mean = join(results_path, "mean_it_{}.png".format(iteration))
-        filename_std = join(results_path, "std_it_{}.png".format(iteration))
-        # Plot Samples
-        f_samples = np.array([op(s) for s in sample_list])
-
-        e_length = f_samples[0].shape[0]
-        # Plot samples
-        # FIXME: works only for 2D outputs, add target capabilities
-        for i in range(n_samples):
-            filename_samples = join(results_path, f"sample_{i+1}_it_{iteration}.png")
-            title = [f"Sample {i+1}_Energy_{ii+1}" for ii in range(e_length)]
-            plotting_kwargs.update({'title': title})
-            plot_result(f_samples[i], output_file=filename_samples, logscale=log_scale,
-                        colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
-
-        # Plot statistics
-        if 'n_rows' in plotting_kwargs:
-            plotting_kwargs.pop('n_rows')
-        if 'n_cols' in plotting_kwargs:
-            plotting_kwargs.pop('n_cols')
-        if 'figsize' in plotting_kwargs:
-            plotting_kwargs.pop('figsize')
-        if 'title' in plotting_kwargs:
-            plotting_kwargs.pop('title')
-
-        mean, std = get_stats(sample_list, op)
-        title = [f"Posterior_Mean_Energy_{ii+1}" for ii in range(e_length)]
-        plot_result(mean, output_file=filename_mean, logscale=log_scale, colorbar=colorbar,
-                    title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
-        title = [f"Posterior_Std_Energy_{ii+1}" for ii in range(e_length)]
-        plot_result(std, output_file=filename_std, logscale=log_scale, colorbar=colorbar,
-                    title=title, dpi=dpi, n_rows=1, n_cols=2, figsize=(8, 4), **plotting_kwargs)
-
-def _get_n_rows_from_n_samples(n_samples):
-    """
-    A function to get the number of rows from the given number of samples.
-
-    Parameters:
-    ----------
-        n_samples: `int`. The number of samples.
-
-    Returns:
-    -------
-        `int`: The number of rows.
-    """
-    threshold = 2
-    n_rows = 1
-    if n_samples == 2:
-        return n_rows
-
-    while True:
-        if n_samples < threshold:
-            return n_rows
-
-        threshold = 4*threshold + 1
-        n_rows += 1
 
 
 def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):
@@ -464,87 +362,6 @@ def plot_energy_slice_overview(field_list, field_name_list, file_name, title=Non
             plt.close()
     else:
         raise NotImplementedError
-
-
-def plot_erosita_priors(key, n_samples, config_path, response_path, priors_dir,
-                        plotting_kwargs=None, common_colorbar=False, log_scale=True,
-                        adjust_figsize=True,):
-    """
-    Plots prior samples for the signal components of the sky
-    through the eROSITA signal response from the config file.
-
-    Parameters:
-    ----------
-        key : np.ndarray
-            The random key for reproducibility.
-        n_samples : int
-            The number of samples to generate.
-        config_path : str
-            The path to the config file.
-        response_path : str
-            The path to the response file.
-            If None, only the signal will be plotted,
-            without passing it through the eROSITA response.
-        priors_dir : str
-            The directory to save the priors plots.
-        plotting_kwargs : dict, optional
-            Additional keyword arguments for plotting.
-        common_colorbar : bool, optional
-            Whether to use a common colorbar for all plots.
-        log_scale : bool, optional
-            Whether to use a logarithmic scale for the plots.
-        adjust_figsize : bool, optional
-            Whether to automatically adjust the figure
-            size aspect ratio for the plots.
-
-    Returns:
-    -------
-        None
-    """
-    priors_dir = create_output_directory(priors_dir)
-    cfg = get_config(config_path)  # load config
-
-    if plotting_kwargs is None:
-        plotting_kwargs = {}
-
-    sky_model = SkyModel(config_path)
-    _ = sky_model.create_sky_model()
-    plottable_ops = sky_model.sky_model_to_dict()
-
-    positions = []
-    for _ in range(n_samples):
-        key, subkey = random.split(key)
-        positions.append(jft.random_like(subkey, plottable_ops['sky'].domain))
-
-    plottable_samples = plottable_ops.copy()
-    filename_base = priors_dir + 'priors_{}.png'
-
-    for key, val in plottable_samples.items():
-        plottable_samples[key] = np.array([val(pos) for pos in positions])
-
-        plot_result(plottable_samples[key], output_file=filename_base.format(key),
-                    logscale=log_scale, adjust_figsize=adjust_figsize,
-                    common_colorbar=common_colorbar, **plotting_kwargs)
-
-    if response_path is not None:  # FIXME: when R will be pickled, load from file
-        tm_ids = cfg['telescope']['tm_ids']
-
-        resp_dict = build_erosita_response_from_config(config_path)
-
-        mask_adj = jax.linear_transpose(resp_dict['mask'], np.zeros((len(tm_ids), 426, 426))) # FIXME: remove hardcoded value
-        R = lambda x: mask_adj(resp_dict['R'](x))
-        R = jax.vmap(R, in_axes=0, out_axes=1)
-
-        for key, val in plottable_samples.items():
-            tmp = R(val)[0]
-            for id, samps in enumerate(tmp):
-                tm_id = tm_ids[id]
-                res_path = join(priors_dir, f'tm{tm_id}/')
-                create_output_directory(res_path)
-                filename = join(res_path, f'sr_tm_{tm_id}_priors')
-                filename += '_{}.png'
-                plot_result(samps, output_file=filename.format(key), logscale=log_scale,
-                            common_colorbar=common_colorbar, adjust_figsize=True)
 
 
 def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
