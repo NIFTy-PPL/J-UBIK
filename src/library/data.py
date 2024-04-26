@@ -170,8 +170,6 @@ def create_erosita_masked_data(file_info, tel_info, grid_info, mask_func):
     if len(e_min) != len(e_max):
         raise ValueError("e_min and e_max must have the same length!")
 
-    processed_obs_path = create_output_directory(join(file_info['obs_path'],
-                                                      file_info['processed_obs_folder']))
     data_list = []
     for tm_id in tel_info['tm_ids']:
         output_filenames = f'tm{tm_id}_' + file_info['output']
@@ -185,7 +183,7 @@ def create_erosita_masked_data(file_info, tel_info, grid_info, mask_func):
         data_list.append(data)
     data = jnp.stack(jnp.array(data_list, dtype=int))
     masked_data_vector = mask_func(data)
-    save_dict_to_pickle(masked_data_vector.tree, os.path.join(processed_obs_path,
+    save_dict_to_pickle(masked_data_vector.tree, os.path.join(file_info['obs_path'],
                                                               file_info["data_dict"]))
     return masked_data_vector
 
