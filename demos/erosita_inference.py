@@ -21,15 +21,6 @@ if __name__ == "__main__":
     file_info = cfg['files']
     ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
-    # Sanity Checks
-    # if (cfg['minimization']['resume'] and cfg['mock']) and (not cfg['load_mock_data']):
-    #     raise ValueError(
-    #         'Resume is set to True on mock run. This is only possible if the mock data is loaded '
-    #         'from file. Please set load_mock_data=True')
-
-    # if cfg['load_mock_data'] and not cfg['mock']:
-    #     print('WARNING: Mockrun is set to False: Actual data is loaded')
-
     if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
         file_info["res_dir"] = file_info["res_dir"] + "_new"
         print("FYI: Resume is set to False, but the output directory already exists. "
