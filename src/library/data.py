@@ -308,7 +308,7 @@ def create_data_from_config(config_path, response_dct):
             jft.logger.info(f'Generating masked eROSITA data in {file_info["obs_path"]}...')
             create_erosita_masked_data(file_info, tel_info, grid_info, response_dct['mask'])
     else:
-        jft.logger.info(f'Data in {file_info["obs_path"]} already exists...')
+        jft.logger.info(f'Data in {file_info["obs_path"]} already exists. No data generation.')
 
 
 # Data loading wrapper
