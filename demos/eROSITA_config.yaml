@@ -1,7 +1,7 @@
 seed: 86
 esass_image: DR1
 telescope:
-  tm_ids : [1, 2]
+  tm_ids : [1, 2, 3, 4, 6]
   fov: 4327 # in arcsec
   pattern: 15
   detmap: True
@@ -57,11 +57,11 @@ files:
   pos_dict: 'pos.pkl' # only needed for mock
   processed_obs_folder: 'processed'  # only needed for actual data
   input: 'pm00_700161_020_EventList_c001.fits'
-  output: 'small_processed_pm00_700161_020_data.fits'
-  exposure: 'small_expmap_pm00_700161_020.fits'
+  output: 'pm00_700161_020_data.fits'
+  exposure: 'pm00_700161_020_expmap.fits'
   psf_path : '../data/psf_info/'
   psf_base_filename: '2dpsf_190219v05.fits'
-  res_dir: 'results/Default_run'
+  res_dir: 'results/Default_run_mf'
 
 priors:
   point_sources:
