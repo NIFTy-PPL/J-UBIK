@@ -75,8 +75,8 @@ test_psf = ju.build_erosita_psf([filename],
                                 c2params["npatch"],
                                 c2params["margfrac"],
                                 c2params["want_cut"])
-res3 = test_psf(rnds.val)
-print("Equality of other LINJAX instance: ", np.allclose(res1, res3))
+restest = test_psf(rnds.val)
+print("Equality of other LINJAX instance: ", np.allclose(res1, restest))
 
 # Jax Lin with Energy dimension
 print("Check JaxLin for Multifrequency")
@@ -95,8 +95,13 @@ rnds_3d = ift.from_random(domain_nifty_2)
 op3 = obs.make_psf_op(energies, pointing_center, domain_jubik_2,
                       conv_method='LINJAX', conv_params=c2params)
 
-res1 = op3(rnds_3d.val)
+op4 = ju.build_erosita_psf([filename], energies, pointing_center,
+                           domain_jubik_2, c2params["npatch"],
+                           c2params["margfrac"])
+res3 = op3(rnds_3d.val)
+res4 = op4(rnds_3d.val)
 
+print("Equality of other LINJAX instance: ", np.allclose(res3, res4))
 points = np.zeros(domain_jubik_2.shape)
 points[:,::20, ::20] = 1.
 

@@ -94,18 +94,18 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     kernelcut_x = (shape[-2] - 2*dx) // 2
     kernelcut_y = (shape[-1] - 2*dy) // 2
 
-    roll_kernel = np.fft.fftshift(kernel, axes=(-2, -1))
+    roll_kernel = jnp.fft.fftshift(kernel, axes=(-2, -1))
     cut_kernel = roll_kernel[..., kernelcut_x:-kernelcut_x, kernelcut_y:-kernelcut_y]
 
     # FIXME Temp Fix for weird psfs/ We could / should leave it in.
     padding_for_extradims_width = [[0, 0],]*(len(cut_kernel.shape) - 2)
     pad_width_kernel = padding_for_extradims_width + margins
 
-    pkernel = np.pad(cut_kernel,
+    pkernel = jnp.pad(cut_kernel,
                      pad_width=pad_width_kernel,
                      mode="constant",
                      constant_values=0)
-    rollback_kernel = np.fft.ifftshift(pkernel, axes=(-2, -1))
+    rollback_kernel = jnp.fft.ifftshift(pkernel, axes=(-2, -1))
 
     # TODO discuss this kind of normalization. Kernels should be normalized
     # before and/or elsewhere.
