@@ -10,7 +10,7 @@ import jubik0 as ju
 
 def get_gaussian_kernel(domain, sigma):
     """"2D Gaussian kernel for fft convolution"""
-    border = (shape* distances // 2)
+    border = (domain.shape * domain.distances // 2)
     x = jnp.linspace(-border[0], border[0], domain.shape[0])
     y = jnp.linspace(-border[1], border[1], domain.shape[1])
     xv, yv = jnp.meshgrid(x, y)
