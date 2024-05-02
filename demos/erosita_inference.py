@@ -19,13 +19,13 @@ if __name__ == "__main__":
     config_path = args.config
     cfg = ju.get_config(config_path)
     file_info = cfg['files']
-    ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
     if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
         file_info["res_dir"] = file_info["res_dir"] + "_new"
         print("FYI: Resume is set to False, but the output directory already exists. "
               "The result_dir has been appended with the string *new*.")
 
+    ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
     # Load sky model
     sky_model = ju.SkyModel(config_path)
     sky = sky_model.create_sky_model()
