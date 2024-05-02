@@ -61,8 +61,8 @@ files:
   psf_base_filename: '2dpsf_190219v05.fits'
   res_dir: 'results/Default_run_mf'
 # If mock:
-  mock_gen_config: 'mock_config.yaml' # Only set for mock
-  pos_dict: 'pos.pkl' # only needed for mock
+  # mock_gen_config: 'mock_config.yaml'
+  # pos_dict: 'pos.pkl'
 
 priors:
   point_sources:

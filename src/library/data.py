@@ -137,7 +137,7 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
     return masked_mock_data
 
 
-def create_erosita_masked_data(file_info, tel_info, grid_info, mask_func):
+def mask_erosita_data_from_disk(file_info, tel_info, grid_info, mask_func):
     """ Creates and saves eROSITA masked data as pickle file from
      eROSITA processed fits-files.
 
@@ -280,8 +280,10 @@ def create_erosita_data_from_config(config_path):
 
 # Data creation wrapper
 def create_data_from_config(config_path, response_dct):
-    """ Wrapper function to create masked eROSITA data from config path
-        from generated fits-files and save as pickle.
+    """ Wrapper function to create masked data either from
+    actual eROSITA observtaions or from generated mock data, as specified
+    in the config given at config path. In any case the data is saved to the
+    same pickle file.
 
     Parameters
     ----------
