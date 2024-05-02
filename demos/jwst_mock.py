@@ -21,17 +21,18 @@ key = random.PRNGKey(87)
 key, mock_key, noise_key, rec_key = random.split(key, 4)
 
 # Sky setup
-MOCK_SHAPE = 1024
+MOCK_SHAPE = 1536
 ROTA_SHAPE = 768
 RECO_SHAPE = 256
 DATA_SHAPE = 48
+SHIFTS = [(10, 0), (0, 0)]
 ROTATIONS = [2, 23]
 SKY_DICT = dict(
     offset=dict(offset_mean=0.1, offset_std=[0.1, 0.05]),
     fluctuations=dict(fluctuations=[0.3, 0.03], loglogavgslope=[-3., 1.],
                       flexibility=[0.8, 0.1], asperity=[0.2, 0.1])
 )
-PLOT_SETUP = False
+PLOT_SETUP = True
 
 # Reconstruction setup
 SUBSAMPLE = 2
@@ -42,13 +43,15 @@ PLOT_SKYMODEL = False
 # Results
 rot_string = '_'.join([f'{r}' for r in ROTATIONS])
 met_string = MODEL if MODEL == 'sparse' else MODEL + f'{SUBSAMPLE}'
-res_dir = f'results/mock_data/{RECO_SHAPE}_{met_string}/r{rot_string}/'
+res_dir = f'results/mock_data/{RECO_SHAPE}_{met_string}/r{rot_string}_shift/'
 
 
 comp_sky, reco_grid, data_set = setup(
     mock_key,
     rotation=ROTATIONS,
+    shift=SHIFTS,
     reco_shape=RECO_SHAPE,
+    mock_shape=MOCK_SHAPE,
     rota_shape=ROTA_SHAPE,
     data_shape=DATA_SHAPE,
     plot=PLOT_SETUP,

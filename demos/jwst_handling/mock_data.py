@@ -68,9 +68,9 @@ def create_mocksky(key, mshape, mdist, model_setup):
 
 
 def create_data(
-    center,
     mock_grid,
     mock_sky,
+    data_center,
     rota_shape,
     rota_fov,
     data_shape,
@@ -80,8 +80,10 @@ def create_data(
     from jwst_handling.reconstruction_grid import Grid
     from jwst_handling.integration_models import build_nufft_integration
 
-    rota_grid = Grid(center, shape=rota_shape, fov=rota_fov, rotation=rotation)
-    data_grid = Grid(center, shape=data_shape, fov=rota_fov, rotation=rotation)
+    rota_grid = Grid(
+        data_center, shape=rota_shape, fov=rota_fov, rotation=rotation)
+    data_grid = Grid(
+        data_center, shape=data_shape, fov=rota_fov, rotation=rotation)
 
     interpolation_points = mock_grid.wcs.index_from_wl(
         rota_grid.wl_coords())[0]
@@ -106,19 +108,22 @@ def create_data(
 def setup(
     mock_key,
     rotation,
+    shift,
     reco_shape,
     mock_shape=1024,
     rota_shape=768,
     data_shape=48,
     plot=False,
 ):
+
     from astropy.coordinates import SkyCoord
     from astropy import units as u
     from jwst_handling.reconstruction_grid import Grid
 
     DISTANCE = 0.05
 
-    CENTER = SkyCoord(0*u.rad, 0*u.rad)
+    cx, cy = 0, 0
+    CENTER = SkyCoord(cx*u.rad, cy*u.rad)
 
     # True sky
     MOCK_SHAPE = (mock_shape,)*2
@@ -147,7 +152,7 @@ def setup(
     DATA_SHAPE = (data_shape,)*2
     rotation = rotation if isinstance(rotation, list) else [rotation]
     datas = {}
-    for ii, rot in enumerate(rotation):
+    for ii, (rot, shft) in enumerate(zip(rotation, shift)):
         # Intermediate rotated sky
         ROTATION = rot*u.deg
         ROTA_FOV = [ROTA_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
@@ -155,8 +160,10 @@ def setup(
         # Data sky
         DATA_DIST = [r//d*MOCK_DIST[0] for r, d in zip(ROTA_SHAPE, DATA_SHAPE)]
 
+        data_center = SkyCoord(cx*u.rad+(shft[0]*u.arcsec).to(u.rad),
+                               cy*u.rad+(shft[1]*u.arcsec).to(u.rad))
         data_grid, data, rota_sky = create_data(
-            CENTER, mock_grid, mock_sky, ROTA_SHAPE, ROTA_FOV, DATA_SHAPE,
+            mock_grid, mock_sky, data_center, ROTA_SHAPE, ROTA_FOV, DATA_SHAPE,
             ROTATION, full_info=True)
         datas[f'd_{ii}'] = dict(data=data, grid=data_grid)
 
