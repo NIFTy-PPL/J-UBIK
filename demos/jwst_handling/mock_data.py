@@ -193,7 +193,7 @@ def setup(
     return comparison_sky, reco_grid, datas
 
 
-def build_sky_model(shape, dist):
+def build_sky_model(sky_key, shape, dist):
 
     offset = dict(offset_mean=3.7, offset_std=[0.1, 0.05])
     fluctuations = dict(fluctuations=[0.7, 0.03],
@@ -206,17 +206,13 @@ def build_sky_model(shape, dist):
     cfm.add_fluctuations(
         [int(shp) for shp in shape], dist,
         **fluctuations, non_parametric_kind='power')
+    log_diffuse = cfm.finalize()
 
-    reco_diffuse = cfm.finalize()
-    # sky_model = jft.Model(
-    #     lambda x: jnp.exp(reco_diffuse(x)[:reco_shape[0], :reco_shape[1]]),
-    #     domain=reco_diffuse.domain)
+    def diffuse(x):
+        return jnp.exp(log_diffuse(x))
+    diffuse = jft.wrap_left(diffuse, sky_key)
 
-    sky_model_full = jft.Model(
-        lambda x: jnp.exp(reco_diffuse(x)),
-        domain=reco_diffuse.domain)
-
-    return sky_model_full
+    return jft.Model(diffuse, domain=log_diffuse.domain)
 
 
 def sky_model_check(
@@ -239,7 +235,27 @@ def sky_model_check(
     plt.show()
 
 
-def build_data_model(reco_grid, data_grid, data_mask, sky_model, data_model, subsample):
+def build_shift_model(key, mean_sigma):
+    from charm_lensing.models.parametric_models.parametric_prior import (
+        build_prior_operator)
+    distribution_model_key = ('normal', *mean_sigma)
+    shape = (2,)
+
+    shift_model = build_prior_operator(key, distribution_model_key, shape)
+    domain = {key: jft.ShapeWithDtype((shape))}
+    return jft.Model(shift_model, domain=domain)
+
+
+def build_data_model(
+        reco_grid,
+        data_key,
+        data_grid,
+        data_mask,
+        sky_key,
+        sky_model,
+        data_model_keyword,
+        subsample,
+        updating=False):
     # FIXME: Better distribute the sky_model field to the operators (per key)
     from jwst_handling.integration_models import (
         build_sparse_integration, build_sparse_integration_model,
@@ -260,24 +276,27 @@ def build_data_model(reco_grid, data_grid, data_mask, sky_model, data_model, sub
         reco_grid.wcs,
         subsample)
 
-    if data_model == 'sparse':
+    if data_model_keyword == 'sparse':
         sparse_matrix = build_sparse_integration(
             reco_grid.index_grid(),
             pixel_corners,
             data_mask)
-        return build_sparse_integration_model(sparse_matrix, sky_model)
+        return build_sparse_integration_model(sparse_matrix, sky_model, sky_key)
 
-    elif data_model == 'linear':
+    elif data_model_keyword == 'linear':
         linear = build_linear_integration(
             sky_dvol,
             sub_dvol,
             subsample_centers,
             data_mask,
             order=1,
-            updating=False)
-        return build_integration_model(linear, sky_model)
+            updating=updating)
+        if updating:
+            raise NotImplementedError
+        else:
+            return build_integration_model(linear, sky_model, sky_key)
 
-    elif data_model == 'nufft':
+    elif data_model_keyword == 'nufft':
         nufft = build_nufft_integration(
             sky_dvol=sky_dvol,
             sub_dvol=sub_dvol,
@@ -285,4 +304,4 @@ def build_data_model(reco_grid, data_grid, data_mask, sky_model, data_model, sub
             mask=data_mask,
             sky_shape=reco_grid.shape,
         )
-        return build_integration_model(nufft, sky_model)
+        return build_integration_model(nufft, sky_model, sky_key)

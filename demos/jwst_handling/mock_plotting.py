@@ -115,7 +115,7 @@ def smallest_enclosing_mask(pixel_map):
 
 
 def build_plot(
-    likelihood_dicts, comparison_sky, sky_model, res_dir, eval_mask
+    likelihood_dicts, comparison_sky, sky_key, sky_model, res_dir, eval_mask
 ):
     datas = [ll['data'] for ll in likelihood_dicts.values()]
     data_models = [ll['data_model'] for ll in likelihood_dicts.values()]
@@ -146,7 +146,7 @@ def build_plot(
     def plot_pspec(samples, x):
         YLIMS = (1e2, 1e11)
 
-        skys = [sky_model(si) for si in samples]
+        skys = [sky_model(si)[sky_key] for si in samples]
 
         pws = [get_power(sky) for sky in skys]
         pw = get_power(jft.mean(skys))
@@ -166,7 +166,7 @@ def build_plot(
     def plot(samples, x):
         plot_pspec(samples, x)
 
-        sky = jft.mean([sky_model(si) for si in samples])
+        sky = jft.mean([sky_model(si)[sky_key] for si in samples])
 
         eval_comp_sky[eval_mask] = comparison_sky[eval_mask]
         eval_self_sky[eval_mask] = sky[eval_mask]
@@ -185,7 +185,7 @@ def build_plot(
             model_data = []
             for si in samples:
                 tmp = np.zeros_like(d)
-                tmp[mask] = dm(si)
+                tmp[mask] = dm(sky_model(si))
                 model_data.append(tmp)
 
             mod_mean = jft.mean(model_data)

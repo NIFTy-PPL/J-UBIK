@@ -21,6 +21,7 @@ class Grid:
         rotation: Unit = 0.0 * units.deg,
     ):
         self.shape = shape
+        self.fov = fov
         self.distances = [f.to(units.deg)/s for f, s in zip(fov, shape)]
         self.center = center
         self.wcs = build_astropy_wcs(
