@@ -19,15 +19,7 @@ if __name__ == "__main__":
     config_path = args.config
     cfg = ju.get_config(config_path)
     file_info = cfg['files']
-
-    # Sanity Checks
-    if (cfg['minimization']['resume'] and cfg['mock']) and (not cfg['load_mock_data']):
-        raise ValueError(
-            'Resume is set to True on mock run. This is only possible if the mock data is loaded '
-            'from file. Please set load_mock_data=True')
-
-    if cfg['load_mock_data'] and not cfg['mock']:
-        print('WARNING: Mockrun is set to False: Actual data is loaded')
+    ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
 
     if (not cfg['minimization']['resume']) and os.path.exists(file_info["res_dir"]):
         file_info["res_dir"] = file_info["res_dir"] + "_new"
@@ -39,14 +31,10 @@ if __name__ == "__main__":
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
-    # Create data files
-    if not cfg['mock']:
-        ju.create_erosita_data_from_config_dict(cfg)
+    # Generate eROSITA data (if it does not alread exist)
+    _ = ju.create_erosita_data_from_config(config_path)
 
-    # Save config
-    ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
-
-    # Generate loglikelihood
+    # Generate loglikelihood (Building masked (mock) data and response)
     log_likelihood = ju.generate_erosita_likelihood_from_config(config_path).amend(sky)
 
     # Minimization

@@ -42,7 +42,7 @@ class SkyModel:
                     component.
     """
 
-    def __init__(self, config_file_path):
+    def __init__(self, config_file_path=None):
 
         """Gets the parameters needed for building the sky model from the config file
         given the corresponding path.
@@ -52,12 +52,15 @@ class SkyModel:
         config_file_path : string
             Path to the config file
         """
-        if not isinstance(config_file_path, str):
-            raise TypeError("The path to the config file needs to be a string")
-        if not config_file_path.endswith('.yaml'):
-            raise ValueError("The sky model parameters need to be safed in a .yaml-file.")
+        if config_file_path is not None:
+            if not isinstance(config_file_path, str):
+                raise TypeError("The path to the config file needs to be a string")
+            if not config_file_path.endswith('.yaml'):
+                raise ValueError("The sky model parameters need to be safed in a .yaml-file.")
 
-        self.config = ju.get_config(config_file_path)
+            self.config = ju.get_config(config_file_path)
+        else:
+            self.config = {}
         self.diffuse = None
         self.point_sources = None
         self.pspec = None
@@ -76,8 +79,8 @@ class SkyModel:
         self.points_alpha_pspec = None
 
     def create_sky_model(self, sdim=None, edim=None, s_padding_ratio=None,
-                         e_padding_ratio=None,
-                         fov=None, energy_range= None, priors=None):
+                         e_padding_ratio=None, fov=None, e_min=None, e_max=None, e_ref=None,
+                         priors=None):
         """Returns the sky model composed out of components given the grid information
         (# pixels and padding ration), the telescope information (FOV: field of view) as well as a
         dictionary for the prior parameters. All these parameters can be set externally or taken
@@ -128,25 +131,50 @@ class SkyModel:
         -------
         sky: jft.Model
         """
+        if 'grid' not in self.config.keys():
+            self.config['grid'] = {}
+        if 'telescope' not in self.config.keys():
+            self.config['telescope'] = {}
         if sdim is None:
             sdim = self.config['grid']['sdim']
+        else:
+            self.config['grid']['sdim'] = sdim
         if edim is None:
             edim = self.config['grid']['edim']
+        else:
+            self.config['grid']['edim'] = edim
         if s_padding_ratio is None:
             s_padding_ratio = self.config['grid']['s_padding_ratio']
+        else:
+            self.config['grid']['s_padding_ratio'] = s_padding_ratio
         if e_padding_ratio is None:
             e_padding_ratio = self.config['grid']['e_padding_ratio']
+        else:
+            self.config['grid']['e_padding_ratio'] = e_padding_ratio
         if fov is None:
             fov = self.config['telescope']['fov']
-        if energy_range is None:
+        else:
+            self.config['telescope']['fov'] = fov
+        if 'energy_bin' not in self.config['grid'].keys():
+            self.config['grid']['energy_bin'] = {}
+        if e_min is None:
             e_min = self.config['grid']['energy_bin']['e_min']
+        else:
+            self.config['grid']['energy_bin']['e_min'] = e_min
+        if e_max is None:
             e_max = self.config['grid']['energy_bin']['e_max']
-            energy_range = np.array(e_max) - np.array(e_min)
+        else:
+            self.config['grid']['energy_bin']['e_max'] = e_max
+        if e_ref is not None:
+            self.config['grid']['energy_bin']['e_ref'] = e_ref
         if priors is None:
             priors = self.config['priors']
+        else:
+            self.config['priors'] = priors
 
         sdim = 2 * (sdim,)
         sdistances = fov / sdim[0]
+        energy_range = np.array(e_max) - np.array(e_min)
         edistances = energy_range / edim
 
         if not isinstance(edistances, float) and 'dev_corr' in priors['diffuse'].keys():
