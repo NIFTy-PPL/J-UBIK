@@ -190,7 +190,7 @@ class SkyModel:
                 raise ValueError('Grid distances in energy direction have to be regular and defined by'
                              'one float of a corrlated field in energy direction is taken.')
             self._create_point_source_model(sdim, edim, e_padding_ratio,
-                                                sdistances, edistances, priors['point_sources'])
+                                            edistances, priors['point_sources'])
             self.sky = fuse_model_components(self.diffuse, self.point_sources)
         return self.sky
 
@@ -316,8 +316,7 @@ class SkyModel:
         exp_padding = lambda x: jnp.exp(log_diffuse(x)[:edim, :sdim[0], :sdim[1]])
         self.diffuse = jft.Model(exp_padding, domain=log_diffuse.domain)
 
-    def _create_point_source_model(self, sdim, edim, e_padding_ratio,
-                                   sdistances, edistances, prior_dict):
+    def _create_point_source_model(self, sdim, edim, e_padding_ratio, edistances, prior_dict):
         """ Returns a model for the point-source component given the information on its shape
          and information on the shape and scaling parameters
 
@@ -331,8 +330,6 @@ class SkyModel:
             Ratio between number of pixels in the actual enegery space and the padded energy space.
             It needs to be taken such that the correlated fields in energy direction has more than 3
             pixels.
-        sdistances : tuple of float or float
-            Position-space distances
         edistances : tuple of float or float
             Energy-space distances
         prior_dict: dict
@@ -362,11 +359,10 @@ class SkyModel:
                                      domain={prior_dict['spatial']['key']: jft.ShapeWithDtype(sdim)})
 
         if 'plaw' in prior_dict:
-            self.points_alpha_cf, self.points_alpha_pspec = self._create_correlated_field(sdim,
-                                                                    sdistances,
-                                                                    prior_dict['plaw'])
-            self.points_plaw = ju.build_power_law(self._log_rel_ebin_centers(),
-                                                  self.points_alpha_cf)
+            self.points_alpha = jft.NormalPrior(prior_dict['plaw']['mean'], prior_dict['plaw']['std'],
+                                               name=prior_dict['plaw']['name'],
+                                               shape=sdim, dtype=jnp.float64)
+            self.points_plaw = ju.build_power_law(self._log_rel_ebin_centers(), self.points_alpha)
             points_plaw = jft.Model(lambda x: self.points_plaw(x),
                                     domain=self.points_plaw.domain)
 

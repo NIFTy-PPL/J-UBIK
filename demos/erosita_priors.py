@@ -11,6 +11,6 @@ if __name__ == '__main__':
 
     plot_signal_response = True # decides whether to plot signal response
 
-    kwgs = {'n_cols': 3}
+    kwgs = {'n_cols': 3, 'n_rows': 1}
     ju.plot_erosita_priors(key, n_samples, path_to_config, priors_directory, plot_signal_response,
                            plotting_kwargs=kwgs, adjust_figsize=True)
