@@ -74,26 +74,9 @@ priors:
       q: 5.E-7
       key: points
     plaw:
-      offset:
-        offset_mean: -2.0
-        offset_std:
-          - 0.3
-          - 0.05
-      fluctuations:
-        fluctuations:
-          - 0.5
-          - 0.05
-        loglogavgslope:
-          - -1.
-          - 0.0002
-        flexibility:
-          - 0.3
-          - 0.1
-        asperity:
-          Null
-        # harmonic_type: "Fourier"
-        non_parametric_kind: "power"
-      prefix: points_plaw_
+      mean: -1.5
+      std: 1.5
+      name: points_plaw_
     dev_wp:
       x0:
         - 0
