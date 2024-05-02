@@ -73,8 +73,8 @@ priors:
       alpha: 1.0001
       q: 5.E-7
       key: points
-    plaw:
-      mean: -1.5
+    plaw: # for physical point sources (e.g. AGNs) one expects a slope around -2
+      mean: -2.
       std: 1.5
       name: points_plaw_
     dev_wp:
