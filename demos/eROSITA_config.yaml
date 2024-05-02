@@ -1,7 +1,7 @@
 seed: 86
 esass_image: DR1
 telescope:
-  tm_ids : [1, 2, 3, 4, 6]
+  tm_ids : [1]
   fov: 4327 # in arcsec
   pattern: 15
   detmap: True
