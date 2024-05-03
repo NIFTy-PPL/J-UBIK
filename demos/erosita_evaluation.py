@@ -34,34 +34,25 @@ def run_evaluation_function(function, samples, operators_dict, diagnostics_path,
             function = ju.compute_noise_weighted_residuals
             reference = masked_data.copy()
         case 'uncertainty_weighted_residuals':
-            function = ju.compute_uncertainty_weighted_residuals
             reference = gt_dict
+            if reference is {}:
+                return False
+            function = ju.compute_uncertainty_weighted_residuals
         case 'uncertainty_weighted_mean':
             function = ju.compute_uncertainty_weighted_residuals
             reference = None
-        case 'lambda_2D_histogram': # FIXME: the following cases could be merged
-            function = ju.plot_2d_gt_vs_rec_histogram
+        case 'rel_lambda_2D_histogram' | 'lambda_2D_histogram'| \
+             'signal_space_2D_histogram' | 'rel_signal_space_2D_histogram':
             reference = gt_dict
-            if "offset" not in kwargs:
-                kwargs["offset"] = 1.e-10
-        case 'rel_lambda_2D_histogram':
+            if reference is {}:
+                return False
             function = ju.plot_2d_gt_vs_rec_histogram
-            reference = gt_dict
-            if "offset" not in kwargs:
-                kwargs["offset"] = 1.e-10
-        case 'signal_space_2D_histogram':
-            function = ju.plot_2d_gt_vs_rec_histogram
-            reference = gt_dict
-            if "offset" not in kwargs:
-                kwargs["offset"] = 1.e-10
-        case 'rel_signal_space_2D_histogram':
-            function = ju.plot_2d_gt_vs_rec_histogram
-            reference = gt_dict
             if "offset" not in kwargs:
                 kwargs["offset"] = 1.e-10
         case _:
             raise ValueError(f'Function {function} is not supported.')
     function(samples, operators_dict, diagnostics_path, response_dict, reference, **kwargs)
+    return True
 
 
 def run_evaluation_from_config(samples, config, op_dict, diagnostics_path, response_dict,
