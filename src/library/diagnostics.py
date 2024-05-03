@@ -72,7 +72,7 @@ def compute_uncertainty_weighted_residuals(samples,
         if reference_dict is None:
             reference_dict = {key: None}
         if key not in reference_dict:
-            reference_dict[key] = None
+            continue
         uwrs, exp_mask = _calculate_uwr(samples.samples, op, reference_dict[key], response_dict,
                                         abs=abs, exposure_mask=mask, log=log)
         uwrs = np.array(uwrs)

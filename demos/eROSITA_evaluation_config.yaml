@@ -1,5 +1,5 @@
-results_dir: 'results/Default_run_mock/'
-config_name: 'eROSITA_config.yaml'
+results_dir: 'results/Default_run_mf/'
+config_name: 'eROSITA_config_mw.yaml'
 minimization_output_file: 'last.pkl'  # Add iteration for which you want to have the diagnostics here
 
 diagnostics:
