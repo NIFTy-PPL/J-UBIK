@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 # import webbpsf
 from astropy import units
 
-from jubik0.jwst.integration_models import (
+from jubik0.jwst.rotation_and_shift import (
     build_sparse_integration,
     build_linear_integration,
     build_nufft_integration,

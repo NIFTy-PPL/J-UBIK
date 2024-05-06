@@ -1,7 +1,8 @@
 import jubik0 as ju
 from jubik0.jwst.mock_data import (
-    setup, build_sky_model, build_data_model, build_evaluation_mask,
+    setup, build_sky_model, build_evaluation_mask,
     build_plot)
+from jubik0.jwst import build_data_model
 from jubik0.jwst.likelihood import connect_likelihood_to_model
 
 import nifty8.re as jft
@@ -82,7 +83,7 @@ for ii, (dkey, data_dict) in enumerate(data_set.items()):
     mask = np.full(data.shape, True)
 
     data_model = build_data_model(
-        reco_grid=reco_grid,
+        reconstruction_grid=reco_grid,
         data_key=dkey,
         data_grid=data_grid,
         data_mask=mask,
