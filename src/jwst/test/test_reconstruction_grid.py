@@ -1,7 +1,7 @@
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from jwst_handling.reconstruction_grid import Grid
+from ..reconstruction_grid import Grid
 
 
 def coords(shape: int, distance: float):

@@ -50,10 +50,7 @@ def build_rotation_and_shift_model(
             data_mask,
             order=1,
             updating=updating)
-        if updating:
-            raise NotImplementedError
-        else:
-            return build_integration_model(linear, sky_model, sky_key)
+        return build_integration_model(linear, sky_model, sky_key)
 
     elif data_model_keyword == 'nufft':
         nufft = build_nufft_integration(

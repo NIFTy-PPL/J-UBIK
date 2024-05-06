@@ -3,8 +3,8 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
-from jwst_handling.reconstruction_grid import Grid
-from jwst_handling.wcs.wcs_subsampling import get_subsamples_from_wcs
+from ..reconstruction_grid import Grid
+from ..wcs.wcs_subsampling import get_subsamples_from_wcs
 
 
 def colinear_subsampling(
