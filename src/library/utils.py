@@ -103,7 +103,8 @@ def get_gaussian_psf(op, var):
     y_ax -= center[1]
     X, Y = np.meshgrid(x_ax, y_ax, indexing='ij')
 
-    var *= op.target[0].scalar_dvol  # ensures that the variance parameter is specified with respect to the
+    # ensures that the variance parameter is specified with respect to the
+    var *= op.target[0].scalar_dvol
 
     # normalized psf
     log_psf = - (0.5 / var) * (X ** 2 + Y ** 2)
@@ -135,7 +136,8 @@ def get_data_domain(config):
     DomainTuple
 
     """
-    dom_sp = ift.RGSpace(([config["npix_s"]] * 2), distances=_get_sp_dist(config))
+    dom_sp = ift.RGSpace(([config["npix_s"]] * 2),
+                         distances=_get_sp_dist(config))
     e_sp = ift.RGSpace((config["npix_e"]), distances=_get_e_dist(config))
     return ift.DomainTuple.make([dom_sp, e_sp])
 
@@ -168,10 +170,11 @@ def get_normed_exposure(exposure_field, data_field):
     nifty8.Field
         containing a normalized version of the exposure
     """
-    warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
+    warn("get_normed_exposure: This feauture was used for development only and will be deprecated soon.",
+         DeprecationWarning, stacklevel=2)
     ratio = (
-            data_field.val[exposure_field.val != 0]
-            / exposure_field.val[exposure_field.val != 0]
+        data_field.val[exposure_field.val != 0]
+        / exposure_field.val[exposure_field.val != 0]
     )
     norm = ratio.mean()
     normed_exp_field = exposure_field * norm
@@ -202,7 +205,8 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
         maximum, mean and std of the exposure corrected flux as
         numpy.float64 scalars.
     """
-    warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
+    warn("get_norm_exposure_patches: This feauture was used for development only and will be deprecated soon.",
+         DeprecationWarning, stacklevel=2)
     norms = []
     norm_mean = []
     norm_max = []
@@ -215,7 +219,8 @@ def get_norm_exposure_patches(datasets, domain, energy_bins, obs_type=None):
                                   allow_pickle=True).item()
             exposure = observation["exposure"].val[:, :, i]
             data = observation["data"].val[:, :, i]
-            norms.append(get_norm(ift.Field.from_raw(domain, exposure), ift.Field.from_raw(domain, data)))
+            norms.append(get_norm(ift.Field.from_raw(
+                domain, exposure), ift.Field.from_raw(domain, data)))
         norm_mean.append(np.mean(np.array(norms)))
         norm_max.append(np.amax(np.array(norms)))
         norm_std.append(np.std(np.array(norms)))
@@ -240,10 +245,11 @@ def get_norm(exposure_field, data_field):
     scalar
         numpy.float64
     """
-    warn("get_norm: This feauture was used for development only and will be deprecated soon.", DeprecationWarning, stacklevel=2)
+    warn("get_norm: This feauture was used for development only and will be deprecated soon.",
+         DeprecationWarning, stacklevel=2)
     ratio = (
-            data_field.val[exposure_field.val != 0]
-            / exposure_field.val[exposure_field.val != 0]
+        data_field.val[exposure_field.val != 0]
+        / exposure_field.val[exposure_field.val != 0]
     )
     norm = ratio.mean()
     # norm = 10**math.floor(math.log10(norm))
@@ -317,7 +323,8 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
             x_p = x_i + i * dx
             y_p = y_i + l * dy
             radec_c = get_radec_from_xy(x_p, y_p, info.obsInfo["event_file"])
-            tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf", num_rays=num_rays)
+            tmp_psf_sim = info.get_psf_fromsim(
+                radec_c, outroot="./psf", num_rays=num_rays)
             tmp_psf_sim = tmp_psf_sim[:, :, ebin]
             if Roll:
                 tmp_coord = coords[u]
@@ -335,7 +342,8 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
 
             if debug:
                 tmp_source = np.zeros(tmp_psf_sim.shape)
-                pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape)
+                pos = np.unravel_index(
+                    np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape)
                 tmp_source[pos] = 1
                 source_field = ift.makeField(psf_domain, tmp_source)
                 source.append(source_field)
@@ -563,7 +571,8 @@ class MultiToTuple(ift.LinearOperator):
             dct = {}
             ii = 0
             for key in self._domain.keys():
-                tmp_field = ift.Field.from_raw(self._first_dom, x.val[ii, :, :])
+                tmp_field = ift.Field.from_raw(
+                    self._first_dom, x.val[ii, :, :])
                 dct.update({key: tmp_field})
                 ii += 1
             res = ift.MultiField.from_dict(dct)
@@ -694,6 +703,7 @@ class Transposer(ift.EndomorphicOperator):
     """
     Operator which performs a transposition of the array.
     """
+
     def __init__(self, domain):
         """
         Constructs the Transposer Operator.
@@ -758,7 +768,8 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
         of the type "RGB", the binning is automatically done by jubik into equally sized bins.
     """
     if not (samples or mean or std):
-        raise ValueError("Neither samples nor mean nor standard deviation shall be written.")
+        raise ValueError(
+            "Neither samples nor mean nor standard deviation shall be written.")
 
     if mean or std:
         m, s = sample_list.sample_stat(op)
@@ -767,14 +778,17 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
         m = energy_binning(m, energy_bins=3)
         s = energy_binning(s, energy_bins=3)
     if mean:
-        save_rgb_image_to_fits(m, file_name_base + "_mean", overwrite, sample_list.MPI_master)
+        save_rgb_image_to_fits(m, file_name_base + "_mean",
+                               overwrite, sample_list.MPI_master)
     if std:
-        save_rgb_image_to_fits(s, file_name_base + "_std", overwrite, sample_list.MPI_master)
+        save_rgb_image_to_fits(s, file_name_base + "_std",
+                               overwrite, sample_list.MPI_master)
     if samples:
         for ii, ss in enumerate(sample_list.iterator(op)):
             if obs_type == "RGB":
                 ss = energy_binning(ss, energy_bins=3)
-            save_rgb_image_to_fits(ss, file_name_base + f"_sample_{ii}", overwrite, sample_list.MPI_master)
+            save_rgb_image_to_fits(
+                ss, file_name_base + f"_sample_{ii}", overwrite, sample_list.MPI_master)
 
 
 def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
@@ -798,12 +812,13 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     from astropy.time import Time
     import time
     domain = fld.domain
-    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) !=2:
-        raise ValueError(f"Expected DomainTuple with the first space being a 2-dim RGSpace, but got {domain}")
+    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) != 2:
+        raise ValueError(
+            f"Expected DomainTuple with the first space being a 2-dim RGSpace, but got {domain}")
     if len(domain) == 2:
         if fld.shape[2] != 3:
             raise NotImplementedError("Energy direction has to be binned to 3 to create an RGB image. "
-                                        f"Current number of energy bins:\n{fld.shape[2]}")
+                                      f"Current number of energy bins:\n{fld.shape[2]}")
         npix_e = fld.shape[2]
         color_dict = {0: "red", 1: "green", 2: "blue"}
     elif len(domain) == 1:
@@ -817,8 +832,9 @@ def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
     h["CRVAL1"] = h["CRVAL2"] = 0  # coordinate value at reference point
     h["CRPIX1"] = h["CRPIX2"] = 0  # pixel coordinate of the reference point
     h["CUNIT1"] = h["CUNIT2"] = "arcsec"
-    h["CDELT1"], h["CDELT2"] = -domain[0].distances[0], domain[0].distances[1] # coordinate increment
-    h["CTYPE1"] = "RA" # axis type
+    h["CDELT1"], h["CDELT2"] = - \
+        domain[0].distances[0], domain[0].distances[1]  # coordinate increment
+    h["CTYPE1"] = "RA"  # axis type
     h["CTYPE2"] = "DEC"
     h["EQUINOX"] = 2000
     if MPI_master:
@@ -867,7 +883,8 @@ def energy_binning(fld, energy_bins):
     aux_arrs = []
     binned_array = arr
     if shape[2] < energy_bins:
-        binned_array = np.pad(arr, [(0, 0), (0, 0), (0, (energy_bins - shape[2]))], mode='constant')
+        binned_array = np.pad(
+            arr, [(0, 0), (0, 0), (0, (energy_bins - shape[2]))], mode='constant')
     if shape[2] > energy_bins:
         bins = np.arange(0, shape[2] + 1, shape[2] / energy_bins)
         for i in range(len(bins) - 1):
@@ -956,8 +973,8 @@ class _IGLikelihood(ift.EnergyOperator):
 
 
 def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
-                            point_key = 'point_sources', stiffness = 1E6,
-                            red_factor = 1E-3):
+                            point_key='point_sources', stiffness=1E6,
+                            red_factor=1E-3):
     """
     Performs a likelihood (i.E. input sky) invariant transition between the
     dofs of a diffuse component and point sources. Assumes `sky`to be composed
@@ -1002,10 +1019,10 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
         lh = _IGLikelihood(my_sky, point_dict['alpha'], point_dict['q'])
 
         ic_mini = ift.AbsDeltaEnergyController(
-                        deltaE = float(transition_dict['deltaE']),
-                        iteration_limit = transition_dict['iteration_limit'],
-                        convergence_level=transition_dict['convergence_level'],
-                        name = transition_dict['name'])
+            deltaE=float(transition_dict['deltaE']),
+            iteration_limit=transition_dict['iteration_limit'],
+            convergence_level=transition_dict['convergence_level'],
+            name=transition_dict['name'])
         ham = ift.StandardHamiltonian(lh @ diffuse_sky)
         en, _ = ift.VL_BFGS(ic_mini)(ift.EnergyAdapter(diffuse_pos, ham))
         diffuse_pos = en.position
@@ -1019,12 +1036,13 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
         en = ift.EnergyAdapter(new_pos, lh @ sky,
                                constants=list(diffuse_pos.keys()))
         ic_mini = ift.AbsDeltaEnergyController(
-                        deltaE = red_factor * float(transition_dict['deltaE']),
-                        iteration_limit = transition_dict['iteration_limit'],
-                        convergence_level=transition_dict['convergence_level'],
-                        name = transition_dict['name'])
+            deltaE=red_factor * float(transition_dict['deltaE']),
+            iteration_limit=transition_dict['iteration_limit'],
+            convergence_level=transition_dict['convergence_level'],
+            name=transition_dict['name'])
 
-        new_point_source_position = ift.VL_BFGS(ic_mini)(en)[0].position.to_dict()
+        new_point_source_position = ift.VL_BFGS(
+            ic_mini)(en)[0].position.to_dict()
         new_pos = new_pos.to_dict()
         new_pos['point_sources'] = new_point_source_position['point_sources']
         return ift.MultiField.from_dict(new_pos)
@@ -1044,7 +1062,8 @@ def _check_type(arg, type, name=''):
             pass
     elif not isinstance(arg, type):
         print("arg:", arg)
-        raise TypeError("The \"{}\" argument must be of type {}.".format(name, str(type)))
+        raise TypeError(
+            "The \"{}\" argument must be of type {}.".format(name, str(type)))
 
 
 def get_rel_uncertainty(mean, std):
@@ -1096,7 +1115,8 @@ def get_RGB_image_from_field(field, norm=None, sat=None):
         r = np.zeros_like(sub_array)
         mask = sub_array != 0
         if norm is not None:
-            r[mask] = color_norm(sub_array[mask]) if color_norm is not None else sub_array[mask]
+            r[mask] = color_norm(
+                sub_array[mask]) if color_norm is not None else sub_array[mask]
         min = np.min(r[mask])
         max = np.max(r[mask])
         r[mask] -= min
@@ -1109,3 +1129,23 @@ def get_RGB_image_from_field(field, norm=None, sat=None):
     res = np.array(res, dtype='int')
     res = np.transpose(res, (1, 2, 0))
     return res
+
+
+def load_fits(path_to_file, fits_number=0, get_header=False):
+    from astropy.io import fits
+    from astropy.io.fits.hdu.image import ImageHDU
+
+    with fits.open(path_to_file) as hdul:
+        headers = [h.header for h in hdul if isinstance(h, ImageHDU)]
+        datas = [h.data for h in hdul if isinstance(h, ImageHDU)]
+        if len(headers) == 0:
+            header = hdul[0].header
+            data = hdul[0].data
+        else:
+            header = headers[fits_number]
+            data = datas[fits_number]
+
+    if get_header:
+        return np.array(data).astype(np.float64), header
+
+    return np.array(data).astype(np.float64)

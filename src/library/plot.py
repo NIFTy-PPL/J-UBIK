@@ -117,6 +117,8 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
     else:
         axes = [axes]
     pltargs = {"origin": "lower", "cmap": "viridis"}
+    pltargs.update({'vmin': kwargs.get('vmin', None),
+                    'vmax': kwargs.get('vmax', None)})
 
     for i in range(n_plots):
         if array[i].ndim != 2:
@@ -177,8 +179,10 @@ def plot_slices(field, outname, logscale=False):
     img = field.val
     npix_e = field.domain.shape[-1]
     nax = np.ceil(np.sqrt(npix_e)).astype(int)
-    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60. # conv to arcmin
-    pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
+    half_fov = field.domain[0].distances[0] * \
+        field.domain[0].shape[0] / 2.0 / 60.  # conv to arcmin
+    pltargs = {"origin": "lower", "cmap": "cividis",
+               "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
         pltargs["norm"] = LogNorm()
 
@@ -207,9 +211,11 @@ def plot_image_from_fits(file_name_in, file_name_out, log_scale=False):
 
 
 def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):
-    half_fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
+    half_fov = psf.domain[0].distances[0] * \
+        psf.domain[0].shape[0] / 2.0 / 60  # conv to arcmin
     psf = psf.val  # .reshape([1024, 1024])
-    pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
+    pltargs = {"origin": "lower", "cmap": "cividis",
+               "extent": [-half_fov, half_fov] * 2}
     if logscale == True:
         pltargs["norm"] = LogNorm(vmin=vmin, vmax=vmax)
     fig, ax = plt.subplots()
@@ -307,7 +313,8 @@ def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):
     elif len(domain) == 2:
         p = ift.Plot()
         for i in range(field.shape[2]):
-            slice = ift.Field(ift.DomainTuple.make(domain[0]), field.val[:, :, i])
+            slice = ift.Field(ift.DomainTuple.make(
+                domain[0]), field.val[:, :, i])
             p.add(slice, title=f'{title}_e_bin={i}', **plot_kwargs)
         p.output(name=file_name)
     else:
@@ -453,7 +460,8 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
 
     for i in range(len(x_array_list)):
         hist, edges_x, edges_y = np.histogram2d(x_array_list[i][~np.isnan(x_array_list[i])],
-                                                y_array_list[i][~np.isnan(y_array_list[i])],
+                                                y_array_list[i][~np.isnan(
+                                                    y_array_list[i])],
                                                 bins=(x_bins, y_bins))
         hist_list.append(hist)
         edges_x_list.append(edges_x)
@@ -463,10 +471,11 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     fig, ax = plt.subplots(dpi=dpi)
     counts = np.mean(hist_list, axis=0)
     xedges = np.mean(edges_x_list, axis=0)
-    yedges = np.mean(edges_y_list, axis=0) # FIXME: should this be done after the log?
+    # FIXME: should this be done after the log?
+    yedges = np.mean(edges_y_list, axis=0)
 
     plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet,
-                   norm=LogNorm(vmin=1, vmax=np.max(counts))) # FIXME: here it may fail if the counts are all zeros
+                   norm=LogNorm(vmin=1, vmax=np.max(counts)))  # FIXME: here it may fail if the counts are all zeros
     plt.colorbar()
     ax.set_xscale('log')
     ax.set_yscale('log')

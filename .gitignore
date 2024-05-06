@@ -9,6 +9,8 @@ docs/source/user/getting_started_4_CorrelatedFields.rst
 demos/results/*
 demos/eROSITA_config_*
 
+results/
+
 # custom
 config/*
 src/operators/adg

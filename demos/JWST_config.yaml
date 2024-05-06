@@ -1,0 +1,201 @@
+seed: 42
+mock: False
+
+plotting:
+  enabled: True
+  slice: Null
+  dpi: 400
+
+grid:
+  # Assuming the same fov as telescope
+  npix: 64
+  padding_ratio: 1.5
+
+# reconstruction_grid:
+#   npix: 256
+#   padding_ratio: 1.0
+
+telescope:
+  # fov: 8.064
+  fov: 5
+  fov_unit: arcsec
+
+  integration_model:
+    model: 'sparse' # 'sparse', 'interpolation', 'udpating_interpolation', 'nufft'
+    subsample: 3
+    mean: [0, 0]
+    sigma: [0.1, 0.1]
+
+
+  lanczos_window: 32
+
+  pointing:
+    ra: 64.66543063107049
+    dec: -47.86462563973049
+    unit: deg
+    frame: icrs
+
+
+files:
+  # res_dir: 'results/jwst_test/f444w_64_interpad/'
+  res_dir: 'results/jwst_test/f444w_64_sparsepad_new2/'
+  # res_dir: 'results/jwst_test/f444w_64_updatepad/'
+  # res_dir: 'results/jwst_test/f444w_64_nufft/'
+
+  filter:
+    # f115w: # NIRCam
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f115w/jw01355016001_02101_00002_nrcb4/jw01355016001_02101_00002_nrcb4_cal.fits'
+
+    # f150w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_cal.fits'
+
+    # f200w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_cal.fits'
+
+    # f277w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
+
+    # f356w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+
+    f444w:
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
+
+    # f444w_i2d:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355-o016_t001_nircam_clear-f444w_i2d.fits'
+
+    # f560w: # MIRI
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+
+    # f770w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f770w/jw01355015001_05101_00002_mirimage/jw01355015001_05101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
+
+    # f1000w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_cal.fits'
+
+    # f1280w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1280w/jw01355015001_09101_00001_mirimage/jw01355015001_09101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1280w/jw01355015001_09101_00002_mirimage/jw01355015001_09101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1280w/jw01355015001_09101_00003_mirimage/jw01355015001_09101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1280w/jw01355015001_09101_00004_mirimage/jw01355015001_09101_00004_mirimage_cal.fits'
+
+    # f1500w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1500w/jw01355015001_11101_00001_mirimage/jw01355015001_11101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1500w/jw01355015001_11101_00002_mirimage/jw01355015001_11101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1500w/jw01355015001_11101_00003_mirimage/jw01355015001_11101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1500w/jw01355015001_11101_00004_mirimage/jw01355015001_11101_00004_mirimage_cal.fits'
+
+    # f1800w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_cal.fits'
+
+    # f2100w:
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00001_mirimage/jw01355015001_15101_00001_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00002_mirimage/jw01355015001_15101_00002_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00003_mirimage/jw01355015001_15101_00003_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00004_mirimage/jw01355015001_15101_00004_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00005_mirimage/jw01355015001_15101_00005_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00006_mirimage/jw01355015001_15101_00006_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00007_mirimage/jw01355015001_15101_00007_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00008_mirimage/jw01355015001_15101_00008_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00009_mirimage/jw01355015001_15101_00009_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00010_mirimage/jw01355015001_15101_00010_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_cal.fits'
+    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_cal.fits'
+
+  data:
+    likelihood_01:
+      pixel_size:  0.063
+      pixel_shift: '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/pix_shift.npy'
+      psf_path:    '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/psf_oversample_2.fits'
+      data_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/data.fits'
+      noise_path:  '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/err.fits'
+      mask_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/mask.fits'
+      source_path: null
+      zero_flux: 
+        mean:
+          distribution: 'normal'
+          mean: 0.3
+          sigma: 0.01
+
+    likelihood_02:
+      pixel_size:  0.063
+      pixel_shift: '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/pix_shift.npy'
+      psf_path:    '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/psf_oversample_2.fits'
+      data_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/data.fits'
+      noise_path:  '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/err.fits'
+      mask_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/mask.fits'
+      source_path: null
+      zero_flux: 
+        mean:
+          distribution: 'normal'
+          mean: 0.3
+          sigma: 0.01
+
+
+
+priors:
+  point_sources: null
+  diffuse:
+    offset:
+      offset_mean: 1. # exposure norm = 4.4 *10^-5
+      offset_std:
+        - 0.2
+        - 0.05
+    fluctuations:
+      fluctuations:
+        - 1.5
+        - 0.8
+      loglogavgslope:
+        - -3.
+        - 1.0
+      flexibility:
+        - 0.8
+        - 0.1
+      asperity:
+        - 0.2
+        - 0.1
+    prefix: diffuse_
+
+
+minimization:
+  resume: False
+  n_total_iterations: 10
+  n_samples: 4
+  draw_linear_kwargs:
+    cg_name : lin sampling
+    cg_kwargs:
+      absdelta: 1.e-4
+      maxiter: 60
+  nonlinearly_update_kwargs:
+    minimize_kwargs:
+      name: nonlin sampling
+      xtol: 2.e-4
+      cg_kwargs:
+        name: null
+      maxiter: 25
+  kl_kwargs:
+    minimize_kwargs:
+      name: "M"
+      absdelta: 1.e-6
+      maxiter: 15
+      cg_kwargs:
+        name: "MCG"
+  sample_mode: nonlinear_sample

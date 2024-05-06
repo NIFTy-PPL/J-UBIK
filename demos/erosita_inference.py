@@ -7,12 +7,14 @@ import jubik0 as ju
 from jax import config, random
 
 config.update('jax_enable_x64', True)
+config.update('jax_platform_name', 'cpu')
 
 # Parser Setup
 parser = argparse.ArgumentParser()
 parser.add_argument('config', type=str, help="Config file (.yaml) for eROSITA inference.",
                     nargs='?', const=1, default="eROSITA_config.yaml")
 args = parser.parse_args()
+
 
 if __name__ == "__main__":
     # Load config file
@@ -35,7 +37,8 @@ if __name__ == "__main__":
     _ = ju.create_erosita_data_from_config(config_path)
 
     # Generate loglikelihood (Building masked (mock) data and response)
-    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path).amend(sky)
+    log_likelihood = ju.generate_erosita_likelihood_from_config(
+        config_path).amend(sky)
 
     # Minimization
     minimization_config = cfg['minimization']
@@ -44,7 +47,8 @@ if __name__ == "__main__":
     pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky.domain))
 
     kl_solver_kwargs = minimization_config.pop('kl_kwargs')
-    kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['sdim']  # FIXME: Replace by domain information
+    # FIXME: Replace by domain information
+    kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['sdim']
 
     # Plot
     def simple_eval_plots(s, x):

@@ -115,21 +115,27 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
     create_output_directory(output_path)
     mock_sky_position = jft.Vector(jft.random_like(subkey, sky.domain))
     masked_mock_data = response_dict['R'](sky(mock_sky_position))
-    masked_mock_data = tree_map(lambda x: random.poisson(subkey, x), masked_mock_data.tree)
-    masked_mock_data = jft.Vector({key: val.astype(int) for key, val in masked_mock_data.items()})
-    save_dict_to_pickle(masked_mock_data.tree, os.path.join(output_path, file_info['data_dict']))
-    save_dict_to_pickle(mock_sky_position.tree, os.path.join(output_path, file_info['pos_dict']))
+    masked_mock_data = tree_map(
+        lambda x: random.poisson(subkey, x), masked_mock_data.tree)
+    masked_mock_data = jft.Vector(
+        {key: val.astype(int) for key, val in masked_mock_data.items()})
+    save_dict_to_pickle(masked_mock_data.tree, os.path.join(
+        output_path, file_info['data_dict']))
+    save_dict_to_pickle(mock_sky_position.tree, os.path.join(
+        output_path, file_info['pos_dict']))
     if plot_info['enabled']:
         jft.logger.info('Plotting mock data and mock sky.')
         plottable_vector = jft.Vector({key: val.astype(float) for key, val
-                                        in masked_mock_data.tree.items()})
+                                       in masked_mock_data.tree.items()})
         mask_adj = linear_transpose(response_dict['mask'],
                                     np.zeros((len(tel_info['tm_ids']),) + sky.target.shape))
-        mask_adj_func = lambda x: mask_adj(x)[0]
-        plottable_data_array = np.stack(mask_adj_func(plottable_vector), axis=0)
+
+        def mask_adj_func(x): return mask_adj(x)[0]
+        plottable_data_array = np.stack(
+            mask_adj_func(plottable_vector), axis=0)
         for tm_id in range(plottable_data_array.shape[0]):
             plot_result(plottable_data_array[tm_id], logscale=True,
-                    output_file=os.path.join(output_path, f'mock_data_tm{tm_id+1}.png'))
+                        output_file=os.path.join(output_path, f'mock_data_tm{tm_id+1}.png'))
         for key, sky_comp in sky_comps.items():
             plot_result(sky_comp(mock_sky_position), logscale=True,
                         output_file=os.path.join(output_path, f'mock_{key}.png'))
@@ -205,7 +211,7 @@ def create_erosita_data_from_config(config_path):
     file_info = cfg["files"]
     grid_info = cfg['grid']
     plot_info = cfg['plotting']
-    esass_image =cfg['esass_image']
+    esass_image = cfg['esass_image']
     obs_path = file_info["obs_path"]
     sdim = grid_info['sdim']
     e_min = grid_info['energy_bin']['e_min']
@@ -220,7 +226,8 @@ def create_erosita_data_from_config(config_path):
     if len(e_max) != len(e_max):
         raise ValueError("e_min and e_max must have the same length!")
 
-    rebin = int(np.floor(20 * tel_info['fov'] // sdim))  # FIXME: USE DISTANCES!
+    # FIXME: USE DISTANCES!
+    rebin = int(np.floor(20 * tel_info['fov'] // sdim))
 
     processed_obs_path = create_output_directory(join(obs_path,
                                                       file_info['processed_obs_folder']))
@@ -237,9 +244,10 @@ def create_erosita_data_from_config(config_path):
 
         for e, output_filename in enumerate(output_filenames):
             observation_instance = ErositaObservation(file_info["input"],
-                                                         join("processed", output_filename),
-                                                         obs_path,
-                                                         esass_image=esass_image)
+                                                      join("processed",
+                                                           output_filename),
+                                                      obs_path,
+                                                      esass_image=esass_image)
             if not os.path.exists(join(processed_obs_path, output_filename)):
                 _ = observation_instance.get_data(emin=e_min[e],
                                                   emax=e_max[e],
@@ -253,18 +261,20 @@ def create_erosita_data_from_config(config_path):
                 log_file_exists(join(processed_obs_path, output_filename))
 
             observation_instance = ErositaObservation(output_filename, output_filename, processed_obs_path,
-                                                         esass_image=esass_image)
+                                                      esass_image=esass_image)
 
             # Exposure
             if not os.path.exists(join(processed_obs_path, exposure_filenames[e])):
                 observation_instance.get_exposure_maps(output_filename, e_min[e], e_max[e],
                                                        withsinglemaps=True,
-                                                       singlemaps=[exposure_filenames[e]],
+                                                       singlemaps=[
+                                                           exposure_filenames[e]],
                                                        withdetmaps=tel_info['detmap'],
                                                        badpix_correction=tel_info['badpix_correction'])
 
             else:
-                log_file_exists(join(processed_obs_path, exposure_filenames[e]))
+                log_file_exists(
+                    join(processed_obs_path, exposure_filenames[e]))
 
             # Plotting
             if plot_info['enabled']:
@@ -299,16 +309,21 @@ def create_data_from_config(config_path, response_dct):
     plot_info = cfg['plotting']
     if not os.path.exists(os.path.join(file_info['obs_path'], file_info['data_dict'])):
         if bool(file_info.get("mock_gen_config")):
-            jft.logger.info(f'Generating new mock data in {file_info["obs_path"]}...')
+            jft.logger.info(
+                f'Generating new mock data in {file_info["obs_path"]}...')
             mock_prior_info = get_config(file_info["mock_gen_config"])
             _ = create_mock_erosita_data(tel_info, file_info, grid_info, mock_prior_info,
                                          plot_info, cfg['seed'], response_dct)
-            save_config(mock_prior_info, file_info['mock_gen_config'], file_info['obs_path'])
+            save_config(mock_prior_info,
+                        file_info['mock_gen_config'], file_info['obs_path'])
         else:
-            jft.logger.info(f'Generating masked eROSITA data in {file_info["obs_path"]}...')
-            mask_erosita_data_from_disk(file_info, tel_info, grid_info, response_dct['mask'])
+            jft.logger.info(
+                f'Generating masked eROSITA data in {file_info["obs_path"]}...')
+            mask_erosita_data_from_disk(
+                file_info, tel_info, grid_info, response_dct['mask'])
     else:
-        jft.logger.info(f'Data in {file_info["obs_path"]} already exists. No data generation.')
+        jft.logger.info(
+            f'Data in {file_info["obs_path"]} already exists. No data generation.')
 
 
 # Data loading wrapper
@@ -363,7 +378,3 @@ def load_mock_position_from_config(config_path):
         raise ValueError('Mock position path does not exist')
         mock_pos = None
     return mock_pos
-
-
-
-
