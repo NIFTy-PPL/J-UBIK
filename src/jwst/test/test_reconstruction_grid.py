@@ -51,6 +51,9 @@ def test_coords():
 
 
 def test_rotation():
+    '''Check that roation by 25 degrees inside Grid returns the expected
+    rotated coordinates.'''
+
     shape = (128, 128)
     fov = (128*0.05*u.arcsec,)*2
     distances = (0.05,)*2
