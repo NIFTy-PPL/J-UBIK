@@ -45,3 +45,4 @@ from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
 
 from . import jwst
+from .jwst.wcs.wcs_astropy import build_astropy_wcs
