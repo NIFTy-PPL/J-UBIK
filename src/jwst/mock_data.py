@@ -77,8 +77,8 @@ def create_data(
     rotation,
     full_info=False
 ):
-    from jwst_handling.reconstruction_grid import Grid
-    from jwst_handling.integration_models import build_nufft_integration
+    from .reconstruction_grid import Grid
+    from .integration_models import build_nufft_integration
 
     rota_grid = Grid(
         data_center, shape=rota_shape, fov=rota_fov, rotation=rotation)
@@ -120,7 +120,7 @@ def setup(
 
     from astropy.coordinates import SkyCoord
     from astropy import units as u
-    from jwst_handling.reconstruction_grid import Grid
+    from .reconstruction_grid import Grid
 
     DISTANCE = 0.05
 
@@ -268,7 +268,7 @@ def build_data_model(
         subsample,
         updating=False):
     # FIXME: Better distribute the sky_model field to the operators (per key)
-    from jwst_handling.integration_models import (
+    from .integration_models import (
         build_sparse_integration, build_sparse_integration_model,
         build_linear_integration, build_integration_model,
         build_nufft_integration)

@@ -70,7 +70,7 @@ sky_model = build_sky_model(
     reco_grid.shape,
     [d.to(u.arcsec).value for d in reco_grid.distances])
 if PLOT_SKYMODEL:
-    from jwst_handling.mock_data import sky_model_check
+    from jubik0.jwst.mock_data import sky_model_check
     key, check_key = random.split(key)
     sky_model_check(check_key, sky_model, comp_sky)
 
@@ -120,7 +120,7 @@ plot = build_plot(
 
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
-cfg = ju.get_config('./JWST_config.yaml')
+cfg = ju.get_config('./demos/JWST_config.yaml')
 minimization_config = cfg['minimization']
 kl_solver_kwargs = minimization_config.pop('kl_kwargs')
 minimization_config['n_total_iterations'] = 25
