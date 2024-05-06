@@ -229,3 +229,25 @@ def build_plot(
         plt.close()
 
     return plot
+
+
+def sky_model_check(
+    key,
+    sky_model,
+    sky_key,
+    comp_sky,
+):
+
+    m = sky_model(jft.random_like(key, sky_model.domain))
+    m = m[sky_key]
+
+    fig, axis = plt.subplots(1, 3)
+    im0 = axis[0].imshow(comp_sky, origin='lower')
+    im1 = axis[1].imshow(m, origin='lower')
+    im2 = axis[2].imshow(comp_sky-m, origin='lower', cmap='RdBu_r')
+    axis[0].set_title('sky')
+    axis[1].set_title('model')
+    axis[2].set_title('residual')
+    for im, ax in zip([im0, im1, im2], axis):
+        fig.colorbar(im, ax=ax, shrink=0.7)
+    plt.show()

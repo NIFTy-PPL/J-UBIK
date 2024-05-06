@@ -1,14 +1,14 @@
 from jwst import datamodels
-from .wcs.wcs_jwst_data_model import WcsJwstDataModel
+from .wcs.wcs_jwst_data import WcsJwstData
 
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 
-class JwstDataModel:
+class JwstData:
     def __init__(self, filepath: str):
         self.dm = datamodels.open(filepath)
-        self.wcs = WcsJwstDataModel(self.dm.meta.wcs)
+        self.wcs = WcsJwstData(self.dm.meta.wcs)
         self.shape = self.dm.data.shape
 
     def data_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:

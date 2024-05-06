@@ -1,14 +1,23 @@
-from .wcs.wcs_corners import get_pixel_corners
-from .wcs.wcs_subsampling import get_subsamples_from_wcs
 import nifty8.re as jft
+
 import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
+from astropy.coordinates import SkyCoord
+from astropy import units as u
 
-from .mock_plotting import build_plot, build_evaluation_mask
 
-import jax
-jax.config.update('jax_platform_name', 'cpu')
+from ..wcs.wcs_corners import get_pixel_corners
+from ..wcs.wcs_subsampling import get_subsamples_from_wcs
+from ..reconstruction_grid import Grid
+from ..integration_models import (
+    build_sparse_integration, build_sparse_integration_model,
+    build_linear_integration, build_integration_model,
+    build_nufft_integration)
+
+
+from jax import config
+config.update('jax_platform_name', 'cpu')
 
 
 def plot_square(ax, xy_positions, color='red'):
@@ -77,8 +86,6 @@ def create_data(
     rotation,
     full_info=False
 ):
-    from .reconstruction_grid import Grid
-    from .integration_models import build_nufft_integration
 
     rota_grid = Grid(
         data_center, shape=rota_shape, fov=rota_fov, rotation=rotation)
@@ -117,10 +124,6 @@ def setup(
     data_shape=48,
     plot=False,
 ):
-
-    from astropy.coordinates import SkyCoord
-    from astropy import units as u
-    from .reconstruction_grid import Grid
 
     DISTANCE = 0.05
 
@@ -226,26 +229,6 @@ def build_sky_model(sky_key, shape, dist):
     return jft.Model(diffuse, domain=log_diffuse.domain)
 
 
-def sky_model_check(
-    key,
-    sky_model,
-    comp_sky,
-):
-
-    m = sky_model(jft.random_like(key, sky_model.domain))
-
-    fig, axis = plt.subplots(1, 3)
-    im0 = axis[0].imshow(comp_sky, origin='lower')
-    im1 = axis[1].imshow(m, origin='lower')
-    im2 = axis[2].imshow(comp_sky-m, origin='lower', cmap='RdBu_r')
-    axis[0].set_title('sky')
-    axis[1].set_title('model')
-    axis[2].set_title('residual')
-    for im, ax in zip([im0, im1, im2], axis):
-        fig.colorbar(im, ax=ax, shrink=0.7)
-    plt.show()
-
-
 def build_shift_model(key, mean_sigma):
     from charm_lensing.models.parametric_models.parametric_prior import (
         build_prior_operator)
@@ -268,10 +251,6 @@ def build_data_model(
         subsample,
         updating=False):
     # FIXME: Better distribute the sky_model field to the operators (per key)
-    from .integration_models import (
-        build_sparse_integration, build_sparse_integration_model,
-        build_linear_integration, build_integration_model,
-        build_nufft_integration)
 
     sky_dvol = reco_grid.dvol.value
     sub_dvol = data_grid.dvol.value / subsample**2,

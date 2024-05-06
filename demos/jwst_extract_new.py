@@ -19,7 +19,7 @@ from jubik0.jwst.integration_models import (
     build_sparse_integration_model
 )
 from jubik0.jwst.reconstruction_grid import Grid
-from jubik0.jwst.jwst_data_model import JwstDataModel
+from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import mask_index_centers_and_nan
 from jubik0.jwst.config_handler import define_location, get_shape, get_fov
 
@@ -30,7 +30,7 @@ config.update('jax_enable_x64', True)
 config.update('jax_platform_name', 'cpu')
 
 
-config_path = 'JWST_config.yaml'
+config_path = './demos/JWST_config.yaml'
 config = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
 WORLD_LOCATION = define_location(config)
 FOV = get_fov(config)
@@ -47,7 +47,7 @@ likelihoods = {}
 for fltname, flt in config['files']['filter'].items():
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
-        jwst_data = JwstDataModel(filepath)
+        jwst_data = JwstData(filepath)
 
         # Find the sub-pixel centers for the interpolation integration
         subsample_centers = jwst_data.wcs.wl_subsample_centers(

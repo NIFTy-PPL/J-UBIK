@@ -7,7 +7,7 @@ from numpy.typing import ArrayLike
 from .wcs_base import WcsBase
 
 
-class WcsJwstDataModel(WcsBase):
+class WcsJwstData(WcsBase):
     def __init__(self, wcs):
         self._wcs = wcs
 

@@ -1,18 +1,16 @@
-from sys import exit
-import nifty8.re as jft
-
-import numpy as np
-
-from jubik0.jwst.mock_data import setup, build_sky_model, build_data_model
-from jubik0.jwst.mock_plotting import (build_evaluation_mask, build_plot)
+import jubik0 as ju
+from jubik0.jwst.mock_data import (
+    setup, build_sky_model, build_data_model, build_evaluation_mask,
+    build_plot)
 from jubik0.jwst.likelihood import connect_likelihood_to_model
 
-from functools import reduce
-import jubik0 as ju
+import nifty8.re as jft
 
-from astropy.coordinates import SkyCoord
+from functools import reduce
+import numpy as np
 from astropy import units as u
 
+from sys import exit
 from jax import config, random
 config.update('jax_enable_x64', True)
 config.update('jax_platform_name', 'cpu')
@@ -36,20 +34,19 @@ SKY_DICT = dict(
     fluctuations=dict(fluctuations=[0.3, 0.03], loglogavgslope=[-3., 1.],
                       flexibility=[0.8, 0.1], asperity=[0.2, 0.1])
 )
-PLOT_SETUP = False
+PLOT_SETUP = True
 
 # Reconstruction setup
 SUBSAMPLE = 2
 NOISE_SCALE = 0.01
 MODEL = 'linear'  # linear, nufft, sparse
-PLOT_SKYMODEL = False
+PLOT_SKYMODEL = True
 
 # Results
 rot_string = 'r' + '_'.join([f'{r}' for r in ROTATIONS])
 met_string = MODEL if MODEL == 'sparse' else MODEL + f'{SUBSAMPLE}'
 sh_string = 's' + '_'.join([f'{np.hypot(*r)}' for r in SHIFTS])
 res_dir = f'results/mock_data/{RECO_SHAPE}_{met_string}/{rot_string}_{sh_string}/'
-
 
 comp_sky, reco_grid, data_set = setup(
     mock_key,
@@ -70,9 +67,9 @@ sky_model = build_sky_model(
     reco_grid.shape,
     [d.to(u.arcsec).value for d in reco_grid.distances])
 if PLOT_SKYMODEL:
-    from jubik0.jwst.mock_data import sky_model_check
+    from jubik0.jwst.mock_data.mock_plotting import sky_model_check
     key, check_key = random.split(key)
-    sky_model_check(check_key, sky_model, comp_sky)
+    sky_model_check(check_key, sky_model, internal_sky_key, comp_sky)
 
 
 likelihood_dicts = {}
