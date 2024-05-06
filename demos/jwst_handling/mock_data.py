@@ -108,7 +108,9 @@ def create_data(
 def setup(
     mock_key,
     rotation,
+    repo_rotation,
     shift,
+    repo_shift,
     reco_shape,
     mock_shape=1024,
     rota_shape=768,
@@ -152,7 +154,7 @@ def setup(
     DATA_SHAPE = (data_shape,)*2
     rotation = rotation if isinstance(rotation, list) else [rotation]
     datas = {}
-    for ii, (rot, shft) in enumerate(zip(rotation, shift)):
+    for ii, (rot, repo_rot, shft, repo_shft) in enumerate(zip(rotation, repo_rotation,  shift, repo_shift)):
         # Intermediate rotated sky
         ROTATION = rot*u.deg
         ROTA_FOV = [ROTA_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
@@ -165,6 +167,15 @@ def setup(
         data_grid, data, rota_sky = create_data(
             mock_grid, mock_sky, data_center, ROTA_SHAPE, ROTA_FOV, DATA_SHAPE,
             ROTATION, full_info=True)
+
+        # UPDATE REPORTED CENTER, AND ROTATION.
+        data_grid = Grid(
+            SkyCoord((repo_shft[0]*u.arcsec).to(u.rad),
+                     (repo_shft[1]*u.arcsec).to(u.rad)),
+            shape=data_grid.shape,
+            fov=data_grid.fov,
+            rotation=repo_rot*u.deg)
+
         datas[f'd_{ii}'] = dict(data=data, grid=data_grid)
 
         if plot:

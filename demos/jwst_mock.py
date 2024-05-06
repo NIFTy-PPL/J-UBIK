@@ -29,7 +29,7 @@ ROTA_SHAPE = 768
 RECO_SHAPE = 256
 DATA_SHAPE = 48
 SHIFTS = [(10, 0), (0, 0)]
-REPORTED_SHIFTS = [(9, 0), (0, 0)]
+REPORTED_SHIFTS = [(10, 0), (0, 0)]
 ROTATIONS = [2, 23]
 REPORTED_ROTATIONS = [2, 23]
 SKY_DICT = dict(
@@ -55,7 +55,9 @@ res_dir = f'results/mock_data/{RECO_SHAPE}_{met_string}/{rot_string}_{sh_string}
 comp_sky, reco_grid, data_set = setup(
     mock_key,
     rotation=ROTATIONS,
+    repo_rotation=REPORTED_ROTATIONS,
     shift=SHIFTS,
+    repo_shift=REPORTED_SHIFTS,
     reco_shape=RECO_SHAPE,
     mock_shape=MOCK_SHAPE,
     rota_shape=ROTA_SHAPE,
@@ -77,14 +79,6 @@ if PLOT_SKYMODEL:
 likelihood_dicts = {}
 for ii, (dkey, data_dict) in enumerate(data_set.items()):
     data, data_grid = data_dict['data'], data_dict['grid']
-
-    # # Update data grid to be wrong
-    # data_grid = Grid(
-    #     SkyCoord((REPORTED_SHIFTS[ii][0]*u.arcsec).to(u.rad),
-    #              (REPORTED_SHIFTS[ii][1]*u.arcsec).to(u.rad)),
-    #     shape=data_grid.shape,
-    #     fov=data_grid.fov,
-    #     rotation=REPORTED_ROTATIONS[ii]*u.deg)
 
     # Create noise
     std = data.mean() * NOISE_SCALE

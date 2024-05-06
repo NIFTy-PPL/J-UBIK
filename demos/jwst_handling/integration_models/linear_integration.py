@@ -53,7 +53,6 @@ def build_linear_integration(
     The sky is the reconstruction array, we assume a one to one relation
     between the sky brightness and the flux:
         flux(x, y) = sky(x, y) * sky_dvol
-
     '''
 
     subsample_centers = subsample_centers[:, :, mask]
