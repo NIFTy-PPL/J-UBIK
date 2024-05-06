@@ -43,3 +43,5 @@ from .operators.jifty_convolution_operators import (_bilinear_weights,
 from .operators.zero_padder import MarginZeroPadder
 from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
+
+from . import jwst

@@ -3,10 +3,9 @@ import nifty8.re as jft
 
 import numpy as np
 
-from jwst_handling.mock_data import setup, build_sky_model, build_data_model
-from jwst_handling.mock_plotting import (build_evaluation_mask, build_plot)
-from jwst_handling.reconstruction_grid import Grid
-from jwst_handling.likelihood import connect_likelihood_to_model
+from jubik0.jwst.mock_data import setup, build_sky_model, build_data_model
+from jubik0.jwst.mock_plotting import (build_evaluation_mask, build_plot)
+from jubik0.jwst.likelihood import connect_likelihood_to_model
 
 from functools import reduce
 import jubik0 as ju

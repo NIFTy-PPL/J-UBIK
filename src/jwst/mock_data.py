@@ -1,5 +1,5 @@
-from jwst_handling.wcs.wcs_corners import get_pixel_corners
-from jwst_handling.wcs.wcs_subsampling import get_subsamples_from_wcs
+from .wcs.wcs_corners import get_pixel_corners
+from .wcs.wcs_subsampling import get_subsamples_from_wcs
 import nifty8.re as jft
 import jax.numpy as jnp
 import numpy as np
