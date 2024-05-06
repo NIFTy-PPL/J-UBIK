@@ -1,3 +1,6 @@
+from jax import config
+from jax import random
+import jax.numpy as jnp
 import yaml
 import numpy as np
 
@@ -8,26 +11,21 @@ import matplotlib.pyplot as plt
 # import webbpsf
 from astropy import units
 
-from jwst_handling.integration_models import (
+from jubik0.jwst.integration_models import (
     build_sparse_integration,
     build_linear_integration,
     build_nufft_integration,
     build_integration_model,
     build_sparse_integration_model
 )
-
-from jwst_handling.reconstruction_grid import Grid
-from jwst_handling.jwst_data_model_handler import JwstDataModel
-
-from jwst_handling.masking import mask_index_centers_and_nan
-from jwst_handling.config_handler import define_location, get_shape, get_fov
+from jubik0.jwst.reconstruction_grid import Grid
+from jubik0.jwst.jwst_data_model import JwstDataModel
+from jubik0.jwst.masking import mask_index_centers_and_nan
+from jubik0.jwst.config_handler import define_location, get_shape, get_fov
 
 from sys import exit
 
 
-import jax.numpy as jnp
-from jax import random
-from jax import config
 config.update('jax_enable_x64', True)
 config.update('jax_platform_name', 'cpu')
 
