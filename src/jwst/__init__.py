@@ -1,4 +1,4 @@
-from . import rotation_and_shift
+from . import integration_model
 from . import wcs
 from . import mock_data
 
