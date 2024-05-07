@@ -24,7 +24,8 @@ def build_linear_integration(
         The volume of the sky/reconstruction pixels
 
     sub_dvol : float
-        The volume of the subsample pixels (typically the data pixel is subsampled)
+        The volume of the subsample pixels.
+        Typically the data pixel is subsampled.
 
     subsample_centers : array
         The coordinates of the subsample centers

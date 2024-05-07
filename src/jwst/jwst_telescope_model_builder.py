@@ -40,7 +40,8 @@ def build_rotation_and_shift_model(
             reconstruction_grid.index_grid(),
             pixel_corners,
             data_mask)
-        return build_sparse_integration_model(sparse_matrix, sky_model, sky_key)
+        return build_sparse_integration_model(
+            sparse_matrix, sky_model, sky_key)
 
     elif data_model_keyword == 'linear':
         linear = build_linear_integration(
