@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
-from ..rotation_and_shift import build_nufft_integration
+from ..integration_model import build_nufft_integration
+from ..rotation_and_shift import build_nufft_rotation_and_shift
 from ..reconstruction_grid import Grid
 
 
@@ -89,12 +90,12 @@ def create_data(
     interpolation_points = mock_grid.wcs.index_from_wl(
         rota_grid.wl_coords())[0]
 
-    mask = np.full(rota_shape, True)
-    nufft = build_nufft_integration(
-        1, 1, interpolation_points[::-1, :, :][None], mask, mock_grid.shape)
+    nufft2 = build_nufft_rotation_and_shift(
+        1, 1, interpolation_points[::-1, :, :].reshape(2, -1), mock_grid.shape)
 
     rota_sky = np.zeros(rota_shape)
-    rota_sky[mask] = nufft(mock_sky)
+    mask = np.full(rota_shape, True)
+    rota_sky[mask] = nufft2(mock_sky)
 
     downscale = [r//d for r, d in zip(rota_shape, data_shape)]
     assert downscale[0] == downscale[1]

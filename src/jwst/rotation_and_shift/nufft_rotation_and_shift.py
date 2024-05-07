@@ -60,17 +60,12 @@ def build_nufft_rotation_and_shift(
 
     xy_finufft = (
         2 * pi * subsample_centers /
-        array(sky_shape)[None, :, None]
+        array(sky_shape)[:, None]
     )
-
-    def interpolation(field, coords):
-        return nufft2(field, coords[0], coords[1])
-
-    interpolation = vmap(interpolation, in_axes=(None, 0))
 
     def rotate_shift_subsample(field):
         f_field = ifftshift(ifft2(field))
-        out = interpolation(f_field, xy_finufft).real
+        out = nufft2(f_field, xy_finufft[0], xy_finufft[1]).real
         return out * flux_conversion
 
     return rotate_shift_subsample

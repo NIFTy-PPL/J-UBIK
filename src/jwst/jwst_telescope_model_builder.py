@@ -1,6 +1,6 @@
 from .wcs.wcs_corners import get_pixel_corners
 from .wcs.wcs_subsampling import get_subsamples_from_wcs
-from .rotation_and_shift import (
+from .integration_model import (
     build_sparse_integration, build_sparse_integration_model,
     build_linear_integration, build_integration_model,
     build_nufft_integration)
