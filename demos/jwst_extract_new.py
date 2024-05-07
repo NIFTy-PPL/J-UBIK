@@ -20,7 +20,7 @@ from jubik0.jwst.rotation_and_shift import (
 )
 from jubik0.jwst.reconstruction_grid import Grid
 from jubik0.jwst.jwst_data import JwstData
-from jubik0.jwst.masking import mask_index_centers_and_nan
+from jubik0.jwst.masking import get_mask_from_index_centers
 from jubik0.jwst.config_handler import define_location, get_shape, get_fov
 
 from sys import exit
@@ -66,11 +66,9 @@ for fltname, flt in config['files']['filter'].items():
         std = jwst_data.std_inside_extrema(reco_grid.world_extrema)
 
         # define a mask
-        mask = mask_index_centers_and_nan(
-            dpixcenter_in_rgrid,
-            data,
-            reco_grid.shape
-        )
+        mask = get_mask_from_index_centers(
+            dpixcenter_in_rgrid, reco_grid.shape)
+        mask *= jwst_data.nan_inside_extrema(reco_grid.world_extrema)
 
         lh_name = f'{fltname}_{ii}'
         likelihoods[lh_name] = dict(
