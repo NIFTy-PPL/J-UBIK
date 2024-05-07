@@ -79,7 +79,6 @@ def create_data(
     rota_fov,
     data_shape,
     rotation,
-    full_info=False
 ):
 
     rota_grid = Grid(
@@ -90,21 +89,16 @@ def create_data(
     interpolation_points = mock_grid.wcs.index_from_wl(
         rota_grid.wl_coords())[0]
 
-    nufft2 = build_nufft_rotation_and_shift(
-        1, 1, interpolation_points[::-1, :, :].reshape(2, -1), mock_grid.shape)
-
-    rota_sky = np.zeros(rota_shape)
-    mask = np.full(rota_shape, True)
-    rota_sky[mask] = nufft2(mock_sky)
+    nufft = build_nufft_rotation_and_shift(
+        1, 1, interpolation_points[::-1, :, :].reshape(2, -1), mock_grid.shape,
+        out_shape=rota_shape)
+    rota_sky = nufft(mock_sky)
 
     downscale = [r//d for r, d in zip(rota_shape, data_shape)]
     assert downscale[0] == downscale[1]
     data = downscale_sum(rota_sky, downscale[0])
 
-    if full_info:
-        return data_grid, data, rota_sky
-
-    return data_grid, data
+    return data_grid, data, rota_sky
 
 
 def setup(
@@ -152,7 +146,8 @@ def setup(
     DATA_SHAPE = (data_shape,)*2
     rotation = rotation if isinstance(rotation, list) else [rotation]
     datas = {}
-    for ii, (rot, repo_rot, shft, repo_shft) in enumerate(zip(rotation, repo_rotation,  shift, repo_shift)):
+    for ii, (rot, repo_rot, shft, repo_shft) in enumerate(
+            zip(rotation, repo_rotation, shift, repo_shift)):
         # Intermediate rotated sky
         ROTATION = rot*u.deg
         ROTA_FOV = [ROTA_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
@@ -164,7 +159,7 @@ def setup(
                                cy*u.rad+(shft[1]*u.arcsec).to(u.rad))
         data_grid, data, rota_sky = create_data(
             mock_grid, mock_sky, data_center, ROTA_SHAPE, ROTA_FOV, DATA_SHAPE,
-            ROTATION, full_info=True)
+            ROTATION)
 
         # UPDATE REPORTED CENTER, AND ROTATION.
         data_grid = Grid(

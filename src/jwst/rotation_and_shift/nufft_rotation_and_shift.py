@@ -1,11 +1,11 @@
 from jax_finufft import nufft2
-from jax import vmap
 from jax.numpy.fft import ifftshift, ifft2
+from jax.numpy import reshape
 
 from numpy import pi, array
 
 from numpy.typing import ArrayLike
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Optional
 
 
 def build_nufft_rotation_and_shift(
@@ -13,6 +13,7 @@ def build_nufft_rotation_and_shift(
     sub_dvol: ArrayLike,
     subsample_centers: ArrayLike,
     sky_shape: Tuple[int, int],
+    out_shape: Optional[Tuple[int, int]] = None,
     sky_as_brightness: bool = False
 ) -> Callable[ArrayLike, ArrayLike]:
     '''Building nuFFT interpolation model.
@@ -67,5 +68,8 @@ def build_nufft_rotation_and_shift(
         f_field = ifftshift(ifft2(field))
         out = nufft2(f_field, xy_finufft[0], xy_finufft[1]).real
         return out * flux_conversion
+
+    if out_shape is not None:
+        return lambda x: reshape(rotate_shift_subsample(x), out_shape)
 
     return rotate_shift_subsample
