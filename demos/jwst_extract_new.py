@@ -22,8 +22,8 @@ from jubik0.jwst.reconstruction_grid import Grid
 from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
 from jubik0.jwst.config_handler import define_location, get_shape, get_fov
-from jubik0.jwst.wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
-from jubik0.jwst.wcs.wcs_subsample_corners import subsample_grid_corners_in_index_grid
+from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid,
+                             subsample_grid_corners_in_index_grid)
 
 from sys import exit
 
@@ -72,7 +72,7 @@ for fltname, flt in config['files']['filter'].items():
             reco_grid.wcs,
             1)
         # FIXME: Sould this be so????
-        data_centers = data_centers_in_reco[:, ::-1, :, :]
+        data_centers = np.squeeze(data_centers_in_reco[:, ::-1, :, :])
 
         data = jwst_data.data_inside_extrema(reco_grid.world_extrema)
         std = jwst_data.std_inside_extrema(reco_grid.world_extrema)

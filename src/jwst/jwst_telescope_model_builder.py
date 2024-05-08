@@ -1,5 +1,5 @@
-from .wcs.wcs_subsample_corners import subsample_grid_corners_in_index_grid
-from .wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
+from .wcs import subsample_grid_corners_in_index_grid
+from .wcs import subsample_grid_centers_in_index_grid
 from .integration_model import (
     build_sparse_integration, build_sparse_integration_model,
     build_linear_integration, build_integration_model,
