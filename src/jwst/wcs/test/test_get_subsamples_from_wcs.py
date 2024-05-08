@@ -3,7 +3,7 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 
 from ...reconstruction_grid import Grid
-from ..wcs_subsampling import get_subsamples_from_wcs
+from ..wcs_subsampling import subsample_grid_centers_in_index_grid
 
 
 def test_subsample_centers():
@@ -16,7 +16,7 @@ def test_subsample_centers():
     reconstruction_grid = Grid(CENTER, RECO_SHAPE, FOV)
     subsample = 3
 
-    subsample_centers = get_subsamples_from_wcs(
+    subsample_centers = subsample_grid_centers_in_index_grid(
         data_grid.world_extrema,
         data_grid.wcs,
         reconstruction_grid.wcs,

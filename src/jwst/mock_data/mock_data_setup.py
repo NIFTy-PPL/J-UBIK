@@ -12,6 +12,7 @@ from ..reconstruction_grid import Grid
 
 
 from jax import config
+from jax import random
 config.update('jax_platform_name', 'cpu')
 
 
@@ -103,18 +104,23 @@ def create_data(
 
 def setup(
     mock_key,
-    rotation,
-    reported_rotation,
-    shift,
-    reported_shift,
-    reco_shape,
-    sky_dict,
-    mock_distance=0.05,
-    mock_shape=1024,
-    rota_shape=768,
-    data_shape=48,
-    plot=False,
+    noise_key,
+    **kwargs,
 ):
+
+    noise_scale = kwargs['noise_scale']
+    rotation = kwargs['rotations']
+    reported_rotation = kwargs['reported_rotations']
+    shift = kwargs['shifts']
+    reported_shift = kwargs['reported_shifts']
+    reco_shape = kwargs['reco_shape']
+    sky_dict = kwargs['sky_dict']
+    mock_distance = kwargs['mock_distance']
+    mock_shape = kwargs['mock_shape']
+    rota_shape = kwargs['rota_shape']
+    data_shape = kwargs['data_shape']
+    plot = kwargs.get('plot', False)
+
     cx, cy = 0, 0
     CENTER = SkyCoord(cx*u.rad, cy*u.rad)
 
@@ -125,10 +131,10 @@ def setup(
     mock_grid = Grid(CENTER, MOCK_SHAPE, MOCK_FOV)
 
     # Reco sky
-    RECO_SHAPE = (reco_shape,)*2
+    reco_shape = (reco_shape,)*2
     RECO_FOV = MOCK_FOV
-    reco_grid = Grid(CENTER, RECO_SHAPE, RECO_FOV)
-    comp_down = [r//d for r, d in zip(MOCK_SHAPE, RECO_SHAPE)]
+    reco_grid = Grid(CENTER, reco_shape, RECO_FOV)
+    comp_down = [r//d for r, d in zip(MOCK_SHAPE, reco_shape)]
 
     offset = sky_dict.get('offset')
     fluctuations = sky_dict.get('fluctuations')
@@ -157,6 +163,12 @@ def setup(
             mock_grid, mock_sky, data_center, ROTA_SHAPE, ROTA_FOV, DATA_SHAPE,
             ROTATION)
 
+        # Create noise
+        std = data.mean() * noise_scale
+        data = data + random.normal(
+            noise_key, data.shape, dtype=data.dtype) * std
+        mask = np.full(data.shape, True)
+
         # UPDATE REPORTED CENTER, AND ROTATION.
         data_grid = Grid(
             SkyCoord((repo_shft[0]*u.arcsec).to(u.rad),
@@ -165,7 +177,7 @@ def setup(
             fov=data_grid.fov,
             rotation=repo_rot*u.deg)
 
-        datas[f'd_{ii}'] = dict(data=data, grid=data_grid)
+        datas[f'd_{ii}'] = dict(data=data, mask=mask, std=std, grid=data_grid)
 
         if plot:
             arr = mock_grid.wcs.index_from_wl(data_grid.world_extrema).T
@@ -183,7 +195,7 @@ def setup(
                 f'Underlying sky; sh={MOCK_SHAPE[0]}, dist={MOCK_DIST[0]}')
             a01.set_title(f'Cut out; sh={ROTA_SHAPE[0]}, dist={MOCK_DIST[0]}')
             a10.set_title(
-                f'Comparison sky; sh={RECO_SHAPE[0]}, dist={comp_down[0]*MOCK_DIST[0]}')
+                f'Comparison sky; sh={reco_shape[0]}, dist={comp_down[0]*MOCK_DIST[0]}')
             a11.set_title(f'data sky; sh={DATA_SHAPE[0]}, dist={DATA_DIST[0]}')
 
             for a, i in zip(ax.flatten(), ims):

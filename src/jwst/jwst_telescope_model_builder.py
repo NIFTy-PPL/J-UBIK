@@ -1,5 +1,5 @@
-from .wcs.wcs_corners import get_pixel_corners
-from .wcs.wcs_subsampling import get_subsamples_from_wcs
+from .wcs.wcs_subsample_corners import get_pixel_corners
+from .wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
 from .integration_model import (
     build_sparse_integration, build_sparse_integration_model,
     build_linear_integration, build_integration_model,
@@ -7,6 +7,18 @@ from .integration_model import (
 
 
 def build_rotation_and_shift_model(
+        reconstruction_grid,
+        data_key,
+        data_grid,
+        data_mask,
+        sky_model,
+        data_model_keyword,
+        subsample,
+        updating=False):
+    pass
+
+
+def build_integration(
         reconstruction_grid,
         data_key,
         data_grid,
@@ -28,7 +40,7 @@ def build_rotation_and_shift_model(
         data_grid.wcs,
         reconstruction_grid.wcs)
 
-    subsample_centers = get_subsamples_from_wcs(
+    subsample_centers = subsample_grid_centers_in_index_grid(
         data_grid.world_extrema,
         data_grid.wcs,
         reconstruction_grid.wcs,
@@ -73,7 +85,7 @@ def build_data_model(
         subsample,
         updating=False):
 
-    return build_rotation_and_shift_model(
+    return build_integration(
         reconstruction_grid,
         data_key,
         data_grid,
@@ -82,3 +94,19 @@ def build_data_model(
         data_model_keyword,
         subsample,
         updating)
+
+
+# if __name__ == '__main__':
+#     from astropy.coordinates import SkyCoord
+#     import astropy.units as u
+
+#     from .reconstruction_grid import Grid
+
+#     reco_grid = Grid(SkyCoord(0*u.rad, 0*u.rad), (32,)*2, (0.1*u.arcsec,)*2)
+#     data_grid = Grid(SkyCoord(0*u.rad, 0*u.rad), (16,)*2, (0.2*u.arcsec,)*2)
+
+#     lin = build_integration(
+#         reco_grid,
+#         'data',
+#         data_grid,
+#         data_mask,)

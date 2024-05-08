@@ -28,7 +28,7 @@ def config_transform(config: dict):
         if isinstance(val, str):
             try:
                 config[key] = eval(val)
-            except NameError:
+            except:
                 continue
         elif isinstance(val, dict):
             config_transform(val)
@@ -51,6 +51,6 @@ def define_mock_output(config: dict):
 
     return join(
         config['output'],
-        f'{reco_shape}',
+        f'{reco_shape}pix',
         f'rot{rot_string}_shf{shift_string}',
         f'{method_string}')

@@ -65,12 +65,12 @@ def display_text(ax: plt.Axes, text: dict, **kwargs):
 
 
 def build_mock_plot(
-    likelihood_dicts, comparison_sky, sky_model, res_dir, eval_mask
+    data_set, comparison_sky, sky_model, res_dir, eval_mask
 ):
-    datas = [ll['data'] for ll in likelihood_dicts.values()]
-    data_models = [ll['data_model'] for ll in likelihood_dicts.values()]
-    masks = [ll['mask'] for ll in likelihood_dicts.values()]
-    stds = [ll['std'] for ll in likelihood_dicts.values()]
+    datas = [ll['data'] for ll in data_set.values()]
+    data_models = [ll['data_model'] for ll in data_set.values()]
+    masks = [ll['mask'] for ll in data_set.values()]
+    stds = [ll['std'] for ll in data_set.values()]
 
     out_dir = join(res_dir, 'residuals')
     makedirs(out_dir, exist_ok=True)

@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 # import webbpsf
 from astropy import units
 
-from jubik0.jwst.rotation_and_shift import (
+from jubik0.jwst.integration_model import (
     build_sparse_integration,
     build_linear_integration,
     build_nufft_integration,
@@ -51,7 +51,8 @@ for fltname, flt in config['files']['filter'].items():
 
         # Find the sub-pixel centers for the interpolation integration
         subsample_centers = jwst_data.wcs.wl_subsample_centers(
-            reco_grid.world_extrema, subsample, jwst_data.shape)
+            reco_grid.world_extrema, subsample)
+
         index_subsample_centers = reco_grid.wcs.index_from_wl(
             subsample_centers)
 

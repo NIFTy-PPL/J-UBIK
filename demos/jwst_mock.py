@@ -29,7 +29,7 @@ res_dir = define_mock_output(cfg)
 key = random.PRNGKey(87)
 key, mock_key, noise_key, rec_key = random.split(key, 4)
 
-comp_sky, reco_grid, data_set = setup(mock_key, **cfg['mock_setup'])
+comp_sky, reco_grid, data_set = setup(mock_key, noise_key, **cfg['mock_setup'])
 sky_model = build_sky_model(
     reco_grid.shape,
     [d.to(u.arcsec).value for d in reco_grid.distances],
@@ -43,14 +43,11 @@ if cfg['sky_model'].get('plot_sky_model', False):
 
 
 internal_sky_key = 'sky'
-likelihood_dicts = {}
+likelihoods = []
 for ii, (dkey, data_dict) in enumerate(data_set.items()):
-    data, data_grid = data_dict['data'], data_dict['grid']
-
-    # Create noise
-    std = data.mean() * cfg['mock_setup']['noise_scale']
-    d = data + random.normal(noise_key, data.shape, dtype=data.dtype) * std
-    mask = np.full(data.shape, True)
+    data, mask, std, data_grid = (
+        data_dict['data'], data_dict['mask'], data_dict['std'],
+        data_dict['grid'])
 
     data_model = build_data_model(
         reconstruction_grid=reco_grid,
@@ -60,21 +57,17 @@ for ii, (dkey, data_dict) in enumerate(data_set.items()):
         sky_model=jft.Model(
             jft.wrap_left(sky_model, internal_sky_key),
             domain=sky_model.domain),
-        data_model_keyword=cfg['telescope']['model'],
-        subsample=cfg['telescope']['subsample'],
+        data_model_keyword=cfg['telescope']['rotation_model']['model'],
+        subsample=cfg['telescope']['rotation_model']['subsample'],
         updating=False)
+    data_dict['data_model'] = data_model
 
     likelihood = ju.library.likelihood.build_gaussian_likelihood(
-        d.reshape(-1), float(std))
+        data.reshape(-1), float(std))
     likelihood = likelihood.amend(data_model, domain=data_model.domain)
-    likelihood_dicts[dkey] = dict(
-        data=d, std=std, mask=mask, data_model=data_model,
-        likelihood=likelihood)
+    likelihoods.append(likelihood)
 
-likelihood = reduce(
-    lambda x, y: x+y,
-    [ll['likelihood'] for ll in likelihood_dicts.values()]
-)
+likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(
     likelihood,
     jft.Model(jft.wrap_left(sky_model, internal_sky_key),
@@ -83,7 +76,7 @@ likelihood = connect_likelihood_to_model(
 
 evaluation_mask = build_evaluation_mask(reco_grid, data_set)
 plot = build_mock_plot(
-    likelihood_dicts=likelihood_dicts,
+    data_set=data_set,
     comparison_sky=comp_sky,
     sky_model=sky_model,
     res_dir=res_dir,

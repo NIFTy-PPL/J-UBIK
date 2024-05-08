@@ -4,10 +4,10 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 
-def get_subsamples_from_wcs(
+def subsample_grid_centers_in_index_grid(
     world_extrema: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
-    data_grid_wcs: WcsBase,
-    reconstruction_grid_wcs: WcsBase,
+    to_be_subsampled_grid_wcs: WcsBase,
+    index_grid_wcs: WcsBase,
     subsample: int
 ) -> ArrayLike:
     '''This function finds the index positions for the centers of the data_grid
@@ -20,21 +20,21 @@ def get_subsamples_from_wcs(
         subsampling centers.
         Works also if they are outside the grids.
 
-    data_grid_wcs: WcsBase
+    to_be_subsampled_grid_wcs: WcsBase
         The world coordinate system associated with the grid to be subsampled.
 
-    reconstruction_grid_wcs: WcsBase
+    index_grid_wcs: WcsBase
         The world coordinate system associated with the grid which will be
-        indexed into. Hence, the subsample centers will be given with respect
-        to the indices of the reconstruction_grid.
+        indexed into. This will typically be the reconstruction_grid. The
+        subsample centers will be in units/indices of this grid.
 
     subsample:
-        The multiplicity of the subsampling along each dimension.
-        How many sub-pixels will a single pixel in the data_grid be having
-        along one dimension.
+        The multiplicity of the subsampling along each axis. How many
+        sub-pixels will a single pixel in the to_be_subsampled_grid have along
+        each axis.
     '''
-    wl_data_subsample_centers = data_grid_wcs.wl_subsample_centers(
+    wl_data_subsample_centers = to_be_subsampled_grid_wcs.wl_subsample_centers(
         world_extrema, subsample)
-    px_reco_subsample_centers = reconstruction_grid_wcs.index_from_wl(
+    px_reco_subsample_centers = index_grid_wcs.index_from_wl(
         wl_data_subsample_centers)
     return px_reco_subsample_centers[:, ::-1, :, :]
