@@ -1,7 +1,10 @@
+import yaml
+
 import jubik0 as ju
 from jubik0.jwst.mock_data import (
     setup, build_sky_model, build_evaluation_mask,
     build_mock_plot)
+from jubik0.jwst.config_handler import config_transform, define_mock_output
 from jubik0.jwst import build_data_model
 from jubik0.jwst.likelihood import connect_likelihood_to_model
 
@@ -17,55 +20,23 @@ config.update('jax_enable_x64', True)
 config.update('jax_platform_name', 'cpu')
 
 
+cfg = yaml.load(
+    open('demos/jwst_mock_config.yaml', 'r'), Loader=yaml.SafeLoader)
+config_transform(cfg)
+res_dir = define_mock_output(cfg)
+
 # Draw random numbers
 key = random.PRNGKey(87)
 key, mock_key, noise_key, rec_key = random.split(key, 4)
 
-# Sky setup
-MOCK_SHAPE = 1536 // 8
-ROTA_SHAPE = 768 // 8
-RECO_SHAPE = 256 // 8
-DATA_SHAPE = 48 // 8
-SHIFTS = [(10, 0), (0, 0)]
-REPORTED_SHIFTS = [(10, 0), (0, 0)]
-ROTATIONS = [2, 23]
-REPORTED_ROTATIONS = [2, 23]
-SKY_DICT = dict(
-    offset=dict(offset_mean=0.1, offset_std=[0.1, 0.05]),
-    fluctuations=dict(fluctuations=[0.3, 0.03], loglogavgslope=[-3., 1.],
-                      flexibility=[0.8, 0.1], asperity=[0.2, 0.1])
-)
-PLOT_SETUP = False
-
-# Reconstruction setup
-SUBSAMPLE = 2
-NOISE_SCALE = 0.01
-MODEL = 'linear'  # linear, nufft, sparse
-PLOT_SKYMODEL = False
-
-# Results
-rot_string = 'r' + '_'.join([f'{r}' for r in ROTATIONS])
-met_string = MODEL if MODEL == 'sparse' else MODEL + f'{SUBSAMPLE}'
-sh_string = 's' + '_'.join([f'{np.hypot(*r)}' for r in SHIFTS])
-res_dir = f'results/mock_data/{RECO_SHAPE}_{met_string}/{rot_string}_{sh_string}/'
-
-comp_sky, reco_grid, data_set = setup(
-    mock_key,
-    rotation=ROTATIONS,
-    repo_rotation=REPORTED_ROTATIONS,
-    shift=SHIFTS,
-    repo_shift=REPORTED_SHIFTS,
-    reco_shape=RECO_SHAPE,
-    mock_shape=MOCK_SHAPE,
-    rota_shape=ROTA_SHAPE,
-    data_shape=DATA_SHAPE,
-    plot=PLOT_SETUP,
-)
-
+comp_sky, reco_grid, data_set = setup(mock_key, **cfg['mock_setup'])
 sky_model = build_sky_model(
     reco_grid.shape,
-    [d.to(u.arcsec).value for d in reco_grid.distances])
-if PLOT_SKYMODEL:
+    [d.to(u.arcsec).value for d in reco_grid.distances],
+    cfg['sky_model']['offset'],
+    cfg['sky_model']['fluctuations'],
+)
+if cfg['sky_model'].get('plot_sky_model', False):
     from jubik0.jwst.mock_data.mock_plotting import sky_model_check
     key, check_key = random.split(key)
     sky_model_check(check_key, sky_model, comp_sky)
@@ -77,7 +48,7 @@ for ii, (dkey, data_dict) in enumerate(data_set.items()):
     data, data_grid = data_dict['data'], data_dict['grid']
 
     # Create noise
-    std = data.mean() * NOISE_SCALE
+    std = data.mean() * cfg['mock_setup']['noise_scale']
     d = data + random.normal(noise_key, data.shape, dtype=data.dtype) * std
     mask = np.full(data.shape, True)
 
@@ -89,8 +60,8 @@ for ii, (dkey, data_dict) in enumerate(data_set.items()):
         sky_model=jft.Model(
             jft.wrap_left(sky_model, internal_sky_key),
             domain=sky_model.domain),
-        data_model_keyword=MODEL,
-        subsample=SUBSAMPLE,
+        data_model_keyword=cfg['telescope']['model'],
+        subsample=cfg['telescope']['subsample'],
         updating=False)
 
     likelihood = ju.library.likelihood.build_gaussian_likelihood(
@@ -121,7 +92,7 @@ plot = build_mock_plot(
 
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
-cfg = ju.get_config('./demos/JWST_config.yaml')
+cfg = ju.get_config('demos/jwst_mock_config.yaml')
 minimization_config = cfg['minimization']
 kl_solver_kwargs = minimization_config.pop('kl_kwargs')
 minimization_config['n_total_iterations'] = 25

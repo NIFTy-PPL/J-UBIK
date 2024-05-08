@@ -1,0 +1,66 @@
+output: 'results/mock_data'
+
+mock_setup:
+  noise_scale: 0.01
+  plot_setup: False
+  mock_distance: 0.05
+  mock_shape: 1536 // 8
+  rota_shape: 768 // 8
+  reco_shape: 256 // 8
+  data_shape: 48 // 8
+  shifts: [[10, 0], [0, 0]]
+  reported_shifts: [[10, 0], [0, 0]]
+  rotations: [2, 23]
+  reported_rotations: [2, 23]
+  sky_dict:
+    offset: 
+      offset_mean: 0.1
+      offset_std: [0.1, 0.05]
+    fluctuations: 
+      fluctuations: [0.3, 0.03]
+      loglogavgslope: [-3., 1.]
+      flexibility: [0.8, 0.1]
+      asperity: [0.2, 0.1]
+
+sky_model:
+  plot_sky_model: False
+  offset: 
+    offset_mean: 3.7
+    offset_std: [0.1, 0.05]
+  fluctuations: 
+    fluctuations: [0.7, 0.03]
+    loglogavgslope: [-4.8, 1.]
+    flexibility: [0.8, 0.1]
+    asperity: [0.2, 0.1]
+
+telescope:
+  rotation_model:
+    model: 'linear' # 'sparse', 'interpolation', 'udpating_interpolation', 'nufft'
+    subsample: 2
+    mean: [0, 0]
+    sigma: [0.1, 0.1]
+
+minimization:
+  resume: False
+  n_total_iterations: 10
+  n_samples: 4
+  draw_linear_kwargs:
+    cg_name : lin sampling
+    cg_kwargs:
+      absdelta: 1.e-4
+      maxiter: 60
+  nonlinearly_update_kwargs:
+    minimize_kwargs:
+      name: nonlin sampling
+      xtol: 2.e-4
+      cg_kwargs:
+        name: null
+      maxiter: 25
+  kl_kwargs:
+    minimize_kwargs:
+      name: "M"
+      absdelta: 1.e-6
+      maxiter: 15
+      cg_kwargs:
+        name: "MCG"
+  sample_mode: nonlinear_sample

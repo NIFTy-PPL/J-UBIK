@@ -21,3 +21,36 @@ def get_fov(config: dict) -> Tuple[units.Quantity, units.Quantity]:
     fov = config['telescope']['fov']
     unit = getattr(units, config['telescope'].get('fov_unit', 'arcsec'))
     return fov*unit
+
+
+def config_transform(config: dict):
+    for key, val in config.items():
+        if isinstance(val, str):
+            try:
+                config[key] = eval(val)
+            except NameError:
+                continue
+        elif isinstance(val, dict):
+            config_transform(val)
+
+
+def define_mock_output(config: dict):
+    from numpy import hypot
+    from os.path import join
+
+    reco_shape = config['mock_setup']['reco_shape']
+
+    rot_string = 'r' + \
+        '_'.join([f'{r}' for r in config['mock_setup']['rotations']])
+    shift_string = 's' + \
+        '_'.join([f'{hypot(*r)}' for r in config['mock_setup']['shifts']])
+
+    model = config['telescope']['rotation_model']['model']
+    subsample = config['telescope']['rotation_model']['subsample']
+    method_string = model if model == 'sparse' else model + f'{subsample}'
+
+    return join(
+        config['output'],
+        f'{reco_shape}',
+        f'rot{rot_string}_shf{shift_string}',
+        f'{method_string}')

@@ -104,9 +104,7 @@ def build_mock_plot(
         fig.savefig(join(out_dir, f'pspec_{x.nit:02d}.png'), dpi=300)
         plt.close()
 
-    def plot(samples, x):
-        plot_pspec(samples, x)
-
+    def sky_plot(samples, x):
         sky = jft.mean([sky_model(si) for si in samples])
 
         eval_comp_sky[eval_mask] = comparison_sky[eval_mask]
@@ -169,6 +167,12 @@ def build_mock_plot(
         fig.tight_layout()
         fig.savefig(join(out_dir, f'{x.nit:02d}.png'), dpi=300)
         plt.close()
+
+    def plot(samples, x):
+        print(f'Results: {res_dir}')
+
+        plot_pspec(samples, x)
+        sky_plot(samples, x)
 
     return plot
 

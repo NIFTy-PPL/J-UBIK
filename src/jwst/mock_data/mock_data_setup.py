@@ -104,10 +104,11 @@ def create_data(
 def setup(
     mock_key,
     rotation,
-    repo_rotation,
+    reported_rotation,
     shift,
-    repo_shift,
+    reported_shift,
     reco_shape,
+    sky_dict,
     mock_distance=0.05,
     mock_shape=1024,
     rota_shape=768,
@@ -129,11 +130,8 @@ def setup(
     reco_grid = Grid(CENTER, RECO_SHAPE, RECO_FOV)
     comp_down = [r//d for r, d in zip(MOCK_SHAPE, RECO_SHAPE)]
 
-    offset = dict(offset_mean=0.1, offset_std=[0.1, 0.05])
-    fluctuations = dict(fluctuations=[0.3, 0.03],
-                        loglogavgslope=[-3., 1.],
-                        flexibility=[0.8, 0.1],
-                        asperity=[0.2, 0.1])
+    offset = sky_dict.get('offset')
+    fluctuations = sky_dict.get('fluctuations')
 
     mock_sky = create_mocksky(
         mock_key, MOCK_SHAPE, MOCK_DIST, (offset, fluctuations))
@@ -145,7 +143,7 @@ def setup(
     rotation = rotation if isinstance(rotation, list) else [rotation]
     datas = {}
     for ii, (rot, repo_rot, shft, repo_shft) in enumerate(
-            zip(rotation, repo_rotation, shift, repo_shift)):
+            zip(rotation, reported_rotation, shift, reported_shift)):
         # Intermediate rotated sky
         ROTATION = rot*u.deg
         ROTA_FOV = [ROTA_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
@@ -195,14 +193,7 @@ def setup(
     return comparison_sky, reco_grid, datas
 
 
-def build_sky_model(shape, dist):
-
-    offset = dict(offset_mean=3.7, offset_std=[0.1, 0.05])
-    fluctuations = dict(fluctuations=[0.7, 0.03],
-                        loglogavgslope=[-4.8, 1.],
-                        flexibility=[0.8, 0.1],
-                        asperity=[0.2, 0.1])
-
+def build_sky_model(shape, dist, offset, fluctuations):
     cfm = jft.CorrelatedFieldMaker(prefix='reco')
     cfm.set_amplitude_total_offset(**offset)
     cfm.add_fluctuations(
@@ -212,7 +203,6 @@ def build_sky_model(shape, dist):
 
     def diffuse(x):
         return jnp.exp(log_diffuse(x))
-    # diffuse = jft.wrap_left(diffuse, sky_key)
 
     return jft.Model(diffuse, domain=log_diffuse.domain)
 
