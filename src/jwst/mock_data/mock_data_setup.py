@@ -108,20 +108,18 @@ def setup(
     shift,
     repo_shift,
     reco_shape,
+    mock_distance=0.05,
     mock_shape=1024,
     rota_shape=768,
     data_shape=48,
     plot=False,
 ):
-
-    DISTANCE = 0.05
-
     cx, cy = 0, 0
     CENTER = SkyCoord(cx*u.rad, cy*u.rad)
 
     # True sky
     MOCK_SHAPE = (mock_shape,)*2
-    MOCK_DIST = (DISTANCE, DISTANCE)
+    MOCK_DIST = (mock_distance,)*2
     MOCK_FOV = [MOCK_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
     mock_grid = Grid(CENTER, MOCK_SHAPE, MOCK_FOV)
 
@@ -197,7 +195,7 @@ def setup(
     return comparison_sky, reco_grid, datas
 
 
-def build_sky_model(sky_key, shape, dist):
+def build_sky_model(shape, dist):
 
     offset = dict(offset_mean=3.7, offset_std=[0.1, 0.05])
     fluctuations = dict(fluctuations=[0.7, 0.03],
@@ -214,7 +212,7 @@ def build_sky_model(sky_key, shape, dist):
 
     def diffuse(x):
         return jnp.exp(log_diffuse(x))
-    diffuse = jft.wrap_left(diffuse, sky_key)
+    # diffuse = jft.wrap_left(diffuse, sky_key)
 
     return jft.Model(diffuse, domain=log_diffuse.domain)
 

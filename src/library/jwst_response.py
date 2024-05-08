@@ -18,8 +18,8 @@ from .jwst_psf import instantiate_psf
 from .utils import load_fits
 from .spaces import Domain
 
-from charm_lensing.models.parametric_models import (
-    read_parametric_model, build_parametric_prior)
+# from charm_lensing.models.parametric_models import (
+#     read_parametric_model, build_parametric_prior)
 
 import nifty8.re as jft
 import numpy as np

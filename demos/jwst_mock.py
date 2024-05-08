@@ -1,7 +1,7 @@
 import jubik0 as ju
 from jubik0.jwst.mock_data import (
     setup, build_sky_model, build_evaluation_mask,
-    build_plot)
+    build_mock_plot)
 from jubik0.jwst import build_data_model
 from jubik0.jwst.likelihood import connect_likelihood_to_model
 
@@ -22,10 +22,10 @@ key = random.PRNGKey(87)
 key, mock_key, noise_key, rec_key = random.split(key, 4)
 
 # Sky setup
-MOCK_SHAPE = 1536
-ROTA_SHAPE = 768
-RECO_SHAPE = 256
-DATA_SHAPE = 48
+MOCK_SHAPE = 1536 // 8
+ROTA_SHAPE = 768 // 8
+RECO_SHAPE = 256 // 8
+DATA_SHAPE = 48 // 8
 SHIFTS = [(10, 0), (0, 0)]
 REPORTED_SHIFTS = [(10, 0), (0, 0)]
 ROTATIONS = [2, 23]
@@ -35,13 +35,13 @@ SKY_DICT = dict(
     fluctuations=dict(fluctuations=[0.3, 0.03], loglogavgslope=[-3., 1.],
                       flexibility=[0.8, 0.1], asperity=[0.2, 0.1])
 )
-PLOT_SETUP = True
+PLOT_SETUP = False
 
 # Reconstruction setup
 SUBSAMPLE = 2
 NOISE_SCALE = 0.01
 MODEL = 'linear'  # linear, nufft, sparse
-PLOT_SKYMODEL = True
+PLOT_SKYMODEL = False
 
 # Results
 rot_string = 'r' + '_'.join([f'{r}' for r in ROTATIONS])
@@ -62,17 +62,16 @@ comp_sky, reco_grid, data_set = setup(
     plot=PLOT_SETUP,
 )
 
-internal_sky_key = 'SKY_KEY'
 sky_model = build_sky_model(
-    internal_sky_key,
     reco_grid.shape,
     [d.to(u.arcsec).value for d in reco_grid.distances])
 if PLOT_SKYMODEL:
     from jubik0.jwst.mock_data.mock_plotting import sky_model_check
     key, check_key = random.split(key)
-    sky_model_check(check_key, sky_model, internal_sky_key, comp_sky)
+    sky_model_check(check_key, sky_model, comp_sky)
 
 
+internal_sky_key = 'sky'
 likelihood_dicts = {}
 for ii, (dkey, data_dict) in enumerate(data_set.items()):
     data, data_grid = data_dict['data'], data_dict['grid']
@@ -87,8 +86,9 @@ for ii, (dkey, data_dict) in enumerate(data_set.items()):
         data_key=dkey,
         data_grid=data_grid,
         data_mask=mask,
-        sky_key=internal_sky_key,
-        sky_model=sky_model,
+        sky_model=jft.Model(
+            jft.wrap_left(sky_model, internal_sky_key),
+            domain=sky_model.domain),
         data_model_keyword=MODEL,
         subsample=SUBSAMPLE,
         updating=False)
@@ -97,20 +97,23 @@ for ii, (dkey, data_dict) in enumerate(data_set.items()):
         d.reshape(-1), float(std))
     likelihood = likelihood.amend(data_model, domain=data_model.domain)
     likelihood_dicts[dkey] = dict(
-        data=d, std=std, mask=mask, data_model=data_model, likelihood=likelihood)
+        data=d, std=std, mask=mask, data_model=data_model,
+        likelihood=likelihood)
 
 likelihood = reduce(
     lambda x, y: x+y,
     [ll['likelihood'] for ll in likelihood_dicts.values()]
 )
-likelihood = connect_likelihood_to_model(likelihood, sky_model)
+likelihood = connect_likelihood_to_model(
+    likelihood,
+    jft.Model(jft.wrap_left(sky_model, internal_sky_key),
+              domain=sky_model.domain)
+)
 
 evaluation_mask = build_evaluation_mask(reco_grid, data_set)
-
-plot = build_plot(
+plot = build_mock_plot(
     likelihood_dicts=likelihood_dicts,
     comparison_sky=comp_sky,
-    sky_key=internal_sky_key,
     sky_model=sky_model,
     res_dir=res_dir,
     eval_mask=evaluation_mask,

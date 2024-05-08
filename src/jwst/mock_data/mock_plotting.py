@@ -2,120 +2,70 @@ import numpy as np
 import nifty8.re as jft
 import matplotlib.pyplot as plt
 
-from charm_lensing.analysis_tools import source_distortion_ratio
-from scipy.stats import wasserstein_distance
-from charm_lensing.plotting import display_text
-from charm_lensing.analysis_tools import wmse, redchi2
-from nifty8.re.caramel import power_analyze
 from os.path import join
 from os import makedirs
 
-
-def find_corners(xy_positions):
-    xy_positions = np.array(xy_positions)
-
-    maxx, maxy = np.argmax(xy_positions, axis=1)
-    minx, miny = np.argmin(xy_positions, axis=1)
-
-    square_corners = np.array([
-        xy_positions[:, maxx],
-        xy_positions[:, maxy],
-        xy_positions[:, minx],
-        xy_positions[:, miny],
-    ])
-    return square_corners
+from .mock_evaluation import (
+    wasserstein_distance, source_distortion_ratio, redchi2, wmse,
+    smallest_enclosing_mask, get_power)
 
 
-def point_in_polygon(point, polygon):
-    """Determine if the point (x, y) is inside the given polygon.
-    polygon is a list of tuples [(x1, y1), (x2, y2), ..., (xn, yn)]"""
-    x, y = point
-    n = len(polygon)
-    inside = False
-    p1x, p1y = polygon[0]
-    for i in range(n+1):
-        p2x, p2y = polygon[i % n]
-        if y > min(p1y, p2y):
-            if y <= max(p1y, p2y):
-                if x <= max(p1x, p2x):
-                    if p1y != p2y:
-                        xinters = (y-p1y)*(p2x-p1x)/(p2y-p1y)+p1x
-                    if p1x == p2x or x <= xinters:
-                        inside = not inside
-        p1x, p1y = p2x, p2y
-    return inside
+def display_text(ax: plt.Axes, text: dict, **kwargs):
+    '''Display text on plot
+    ax: matplotlib axis
+    text: dict or str (default: {'s': str, 'color': 'white'})
+    kwargs:
+    - keyword: str
+        options: 'top_left' (default), 'top_right', 'bottom_left', 'bottom_right'
+    - x_offset_ticker: float (default: 0)
+    - y_offset_ticker: float (default: 0)
+    '''
+    keyword = kwargs.get('keyword', 'top_left')
+    x_offset_ticker = kwargs.get('x_offset_ticker', 0)
+    y_offset_ticker = kwargs.get('y_offset_ticker', 0)
+
+    if type(text) is str:
+        text = dict(
+            s=text,
+            color='white',
+            bbox=dict(facecolor='black', alpha=0.5, edgecolor='none'),
+        )
+
+    if keyword == 'top_left':
+        ax.text(x=0.05 + x_offset_ticker*0.05,
+                y=0.95 - y_offset_ticker*0.05,
+                ha='left',
+                va='top',
+                transform=ax.transAxes,
+                **text)
+    elif keyword == 'top_right':
+        ax.text(x=0.95 - x_offset_ticker*0.05,
+                y=0.95 - y_offset_ticker*0.05,
+                ha='right',
+                va='top',
+                transform=ax.transAxes,
+                **text)
+    elif keyword == 'bottom_left':
+        ax.text(x=0.05 + x_offset_ticker*0.05,
+                y=0.05 + y_offset_ticker*0.05,
+                ha='left',
+                va='bottom',
+                transform=ax.transAxes,
+                **text)
+    elif keyword == 'bottom_right':
+        ax.text(x=0.95 - x_offset_ticker*0.05,
+                y=0.05 + y_offset_ticker*0.05,
+                ha='right',
+                va='bottom',
+                transform=ax.transAxes,
+                **text)
+    else:
+        raise ValueError(
+            "Invalid keyword. Use 'top_left', 'top_right', 'bottom_left', or 'bottom_right'.")
 
 
-def pixels_in_rectangle(corners, shape):
-    """Get a boolean numpy array where each element indicates whether the
-    center of the pixel at that index is inside the rectangle."""
-
-    # Convert corners to a list of tuples
-    polygon = [(corners[i][0], corners[i][1]) for i in range(corners.shape[0])]
-
-    pixel_map = np.zeros(shape, dtype=bool)
-
-    min_x = np.floor(np.min(corners[:, 0]))
-    max_x = np.ceil(np.max(corners[:, 0]))
-    min_y = np.floor(np.min(corners[:, 1]))
-    max_y = np.ceil(np.max(corners[:, 1]))
-
-    start_x = max(0, int(min_x))
-    end_x = min(shape[1], int(max_x) + 1)
-    start_y = max(0, int(min_y))
-    end_y = min(shape[0], int(max_y) + 1)
-
-    for x in range(start_x, end_x):
-        for y in range(start_y, end_y):
-            if point_in_polygon((x + 0.5, y + 0.5), polygon):
-                pixel_map[x, y] = True
-
-    return pixel_map
-
-
-def build_evaluation_mask(reco_grid, data_set, comp_sky=None):
-    evaluation_mask = np.full(reco_grid.shape, False)
-
-    for data_key in data_set.keys():
-        _, data_grid = data_set[data_key]['data'], data_set[data_key]['grid']
-
-        wl_data_centers, _ = data_grid.wcs.wl_pixelcenter_and_edges(
-            data_grid.world_extrema)
-        px_reco_datapix_cntr = reco_grid.wcs.index_from_wl(wl_data_centers)[0]
-        corners = find_corners(px_reco_datapix_cntr.reshape(2, -1))
-        tmp_mask = pixels_in_rectangle(corners, reco_grid.shape)
-        evaluation_mask += tmp_mask
-
-        if comp_sky is not None:
-            import matplotlib.pyplot as plt
-            fig, axes = plt.subplots(1, 2)
-            ax, ay = axes
-            ax.imshow(comp_sky)
-            ax.scatter(*corners.T[::-1], color='orange')
-            ay.imshow(tmp_mask)
-            ay.scatter(*corners.T[::-1], color='orange')
-            plt.show()
-
-    return evaluation_mask
-
-
-def smallest_enclosing_mask(pixel_map):
-    """Finds the edge points of the largest and smallest `True` pixels in specified sections of the pixel_map."""
-    assert pixel_map.shape[0] == pixel_map.shape[1]
-
-    mask = np.zeros_like(pixel_map)
-
-    shape = pixel_map.shape[0]
-    for ii in range(shape):
-        if np.all(pixel_map[ii:shape-ii, ii:shape-ii]):
-            mask[ii:shape-ii, ii:shape-ii] = True
-            return ii, mask
-
-    return ii, mask
-
-
-def build_plot(
-    likelihood_dicts, comparison_sky, sky_key, sky_model, res_dir, eval_mask
+def build_mock_plot(
+    likelihood_dicts, comparison_sky, sky_model, res_dir, eval_mask
 ):
     datas = [ll['data'] for ll in likelihood_dicts.values()]
     data_models = [ll['data_model'] for ll in likelihood_dicts.values()]
@@ -125,31 +75,22 @@ def build_plot(
     out_dir = join(res_dir, 'residuals')
     makedirs(out_dir, exist_ok=True)
 
-    def get_power(field):
-        return power_analyze(
-            np.fft.fft2(field[smallest_mask].reshape((reshape,)*2)),
-            (1.0,)*2  # FAKE DISTANCES ::FIXME::
-        )
-
-    def cross_correlation(input, recon):
-        return np.fft.ifft2(
-            np.fft.fft2(input).conj() * np.fft.fft2(recon)
-        ).real.max()
-
     eval_comp_sky = np.zeros_like(comparison_sky)
     eval_self_sky = np.zeros_like(comparison_sky)
 
     ii, smallest_mask = smallest_enclosing_mask(eval_mask)
     reshape = eval_mask.shape[0] - 2*ii
-    true_power_spectrum = get_power(comparison_sky)
+    true_power_spectrum = get_power(comparison_sky, smallest_mask, reshape)
+
+    internal_sky_key = next(iter(data_models[0].domain.tree.keys()))
 
     def plot_pspec(samples, x):
         YLIMS = (1e2, 1e11)
 
-        skys = [sky_model(si)[sky_key] for si in samples]
+        skys = [sky_model(si) for si in samples]
 
-        pws = [get_power(sky) for sky in skys]
-        pw = get_power(jft.mean(skys))
+        pws = [get_power(sky, smallest_mask, reshape) for sky in skys]
+        pw = get_power(jft.mean(skys), smallest_mask, reshape)
 
         fig, ax = plt.subplots(1, 1, figsize=(9, 3), dpi=300)
         ax.plot(pw, label='reco', color='blue', linewidth=0.5)
@@ -166,7 +107,7 @@ def build_plot(
     def plot(samples, x):
         plot_pspec(samples, x)
 
-        sky = jft.mean([sky_model(si)[sky_key] for si in samples])
+        sky = jft.mean([sky_model(si) for si in samples])
 
         eval_comp_sky[eval_mask] = comparison_sky[eval_mask]
         eval_self_sky[eval_mask] = sky[eval_mask]
@@ -181,11 +122,12 @@ def build_plot(
         ylen = 1+len(datas)
         fig, axes = plt.subplots(ylen, 3, figsize=(9, 3*ylen), dpi=300)
         ims = []
-        for ii, (d, std, dm, mask) in enumerate(zip(datas, stds, data_models, masks)):
+        for ii, (d, std, dm, mask) in enumerate(
+                zip(datas, stds, data_models, masks)):
             model_data = []
             for si in samples:
                 tmp = np.zeros_like(d)
-                tmp[mask] = dm(sky_model(si))
+                tmp[mask] = dm({internal_sky_key: sky_model(si)})
                 model_data.append(tmp)
 
             mod_mean = jft.mean(model_data)
@@ -234,12 +176,10 @@ def build_plot(
 def sky_model_check(
     key,
     sky_model,
-    sky_key,
     comp_sky,
 ):
 
     m = sky_model(jft.random_like(key, sky_model.domain))
-    m = m[sky_key]
 
     fig, axis = plt.subplots(1, 3)
     im0 = axis[0].imshow(comp_sky, origin='lower')

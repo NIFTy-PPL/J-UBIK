@@ -11,7 +11,6 @@ def build_rotation_and_shift_model(
         data_key,
         data_grid,
         data_mask,
-        sky_key,
         sky_model,
         data_model_keyword,
         subsample,
@@ -41,7 +40,7 @@ def build_rotation_and_shift_model(
             pixel_corners,
             data_mask)
         return build_sparse_integration_model(
-            sparse_matrix, sky_model, sky_key)
+            sparse_matrix, sky_model)
 
     elif data_model_keyword == 'linear':
         linear = build_linear_integration(
@@ -51,7 +50,7 @@ def build_rotation_and_shift_model(
             data_mask,
             order=1,
             updating=updating)
-        return build_integration_model(linear, sky_model, sky_key)
+        return build_integration_model(linear, sky_model)
 
     elif data_model_keyword == 'nufft':
         nufft = build_nufft_integration(
@@ -61,7 +60,7 @@ def build_rotation_and_shift_model(
             mask=data_mask,
             sky_shape=reconstruction_grid.shape,
         )
-        return build_integration_model(nufft, sky_model, sky_key)
+        return build_integration_model(nufft, sky_model)
 
 
 def build_data_model(
@@ -69,7 +68,6 @@ def build_data_model(
         data_key,
         data_grid,
         data_mask,
-        sky_key,
         sky_model,
         data_model_keyword,
         subsample,
@@ -80,7 +78,6 @@ def build_data_model(
         data_key,
         data_grid,
         data_mask,
-        sky_key,
         sky_model,
         data_model_keyword,
         subsample,
