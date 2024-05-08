@@ -37,11 +37,9 @@ def subsample_grid_centers_in_index_grid(
         sub-pixels will a single pixel in the to_be_subsampled_grid have along
         each axis.
     '''
-    minx, maxx, miny, maxy = to_be_subsampled_grid_wcs.index_from_wl_extrema(
+    ssg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
         world_extrema)
 
-    ssg_pixcenter_indices = np.array(np.meshgrid(np.arange(minx, maxx, 1),
-                                                 np.arange(miny, maxy, 1)))
     ps = np.arange(0.5/subsample, 1, 1/subsample) - 0.5
     ms = np.vstack(np.array(np.meshgrid(ps, ps)).T)
     subsample_centers = ms[:, :, None, None] + ssg_pixcenter_indices

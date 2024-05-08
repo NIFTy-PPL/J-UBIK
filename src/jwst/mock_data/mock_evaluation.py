@@ -101,8 +101,10 @@ def build_evaluation_mask(reco_grid, data_set, comp_sky=None):
     for data_key in data_set.keys():
         _, data_grid = data_set[data_key]['data'], data_set[data_key]['grid']
 
-        wl_data_centers, _ = data_grid.wcs.wl_pixelcenter_and_edges(
+        index = data_grid.wcs.index_grid_from_wl_extrema(
             data_grid.world_extrema)
+        wl_data_centers = data_grid.wcs.wl_from_index([index])[0]
+
         px_reco_datapix_cntr = reco_grid.wcs.index_from_wl(wl_data_centers)[0]
         corners = find_corners(px_reco_datapix_cntr.reshape(2, -1))
         tmp_mask = pixels_in_rectangle(corners, reco_grid.shape)

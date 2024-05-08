@@ -46,20 +46,20 @@ class WcsBase(ABC):
 
     def index_from_wl_extrema(
         self,
-        extrema: SkyCoord,
-        shape: Optional[Tuple[int, int]] = None
+        world_extrema: SkyCoord,
+        shape_check: Optional[Tuple[int, int]] = None
     ) -> Tuple[int, int, int, int]:
         '''Find the minimum and maximum pixel indices of the bounding box that
-        contain the world location extrema (wl_extrema).
+        contain the world location world_extrema (wl_extrema).
 
         Parameters
         ----------
-        extrema : List[SkyCoord]
+        world_extrema : List[SkyCoord]
             List of SkyCoord objects, representing the world location of the
             reconstruction grid corners.
-        shape : Optional[Tuple[int, int]]
-            When provided the extrema are checked for consistency with the
-            underlying data array.
+        shape_check : Optional[Tuple[int, int]]
+            When provided the world_extrema are checked for consistency with
+            the underlying data array.
 
         Returns
         -------
@@ -68,16 +68,16 @@ class WcsBase(ABC):
             the edge points.
         '''
 
-        edges_dgrid = self.index_from_wl(extrema)
+        edges_dgrid = self.index_from_wl(world_extrema)
 
-        if shape is not None:
+        if shape_check is not None:
             check = (
                 np.any(edges_dgrid < 0) or
-                np.any(edges_dgrid >= shape[0]) or
-                np.any(edges_dgrid >= shape[1])
+                np.any(edges_dgrid >= shape_check[0]) or
+                np.any(edges_dgrid >= shape_check[1])
             )
             if check:
-                o = f"""One of the wcs extrema is outside the data grid
+                o = f"""One of the wcs world_extrema is outside the data grid
                 {edges_dgrid}"""
                 raise ValueError(o)
 
@@ -87,3 +87,33 @@ class WcsBase(ABC):
         miny = int(np.round(edges_dgrid[:, 1].min()))
         maxy = int(np.round(edges_dgrid[:, 1].max()))
         return minx, maxx, miny, maxy
+
+    def index_grid_from_wl_extrema(
+        self,
+        world_extrema: SkyCoord,
+        shape_check: Optional[Tuple[int, int]] = None
+    ) -> np.typing.ArrayLike:
+        '''Find the pixel indices of the bounding box that contain the world
+        location world_extrema (wl_extrema).
+
+        Parameters
+        ----------
+        world_extrema : List[SkyCoord]
+            List of SkyCoord objects, representing the world location of the
+            reconstruction grid corners.
+        shape_check : Optional[Tuple[int, int]]
+            When provided the world_extrema are checked for consistency with
+            the underlying data array.
+
+        Returns
+        -------
+        minx, maxx, miny, maxy : Tuple[int, int, int, int]
+            Minimum and maximum pixel coordinates of the data grid that contain
+            the edge points.
+        '''
+
+        minx, maxx, miny, maxy = self.index_from_wl_extrema(
+            world_extrema, shape_check)
+
+        return np.array(np.meshgrid(np.arange(minx, maxx, 1),
+                                    np.arange(miny, maxy, 1)))

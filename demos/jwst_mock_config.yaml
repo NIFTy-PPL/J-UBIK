@@ -34,7 +34,7 @@ sky_model:
     asperity: [0.2, 0.1]
 
 telescope:
-  rotation_model:
+  rotation_and_shift:
     model: 'linear' # 'sparse', 'interpolation', 'udpating_interpolation', 'nufft'
     subsample: 2
     mean: [0, 0]

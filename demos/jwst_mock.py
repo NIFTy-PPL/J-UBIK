@@ -51,23 +51,15 @@ for ii, (dkey, data_dict) in enumerate(data_set.items()):
 
     data_model = build_data_model(
         reconstruction_grid=reco_grid,
-        data_key=dkey,
         data_grid=data_grid,
         data_mask=mask,
         sky_model=jft.Model(
             jft.wrap_left(sky_model, internal_sky_key),
             domain=sky_model.domain),
-        data_model_keyword=cfg['telescope']['rotation_model']['model'],
-        subsample=cfg['telescope']['rotation_model']['subsample'],
+        data_model_keyword=cfg['telescope']['rotation_and_shift']['model'],
+        subsample=cfg['telescope']['rotation_and_shift']['subsample'],
         updating=False)
     data_dict['data_model'] = data_model
-
-    world_extrema = data_grid.world_extrema
-    to_be_subsampled_grid_wcs = data_grid.wcs
-    index_grid_wcs = reco_grid.wcs
-    subsample = 3
-
-    exit()
 
     likelihood = ju.library.likelihood.build_gaussian_likelihood(
         data.reshape(-1), float(std))

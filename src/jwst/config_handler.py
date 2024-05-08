@@ -45,8 +45,8 @@ def define_mock_output(config: dict):
     shift_string = 's' + \
         '_'.join([f'{hypot(*r)}' for r in config['mock_setup']['shifts']])
 
-    model = config['telescope']['rotation_model']['model']
-    subsample = config['telescope']['rotation_model']['subsample']
+    model = config['telescope']['rotation_and_shift']['model']
+    subsample = config['telescope']['rotation_and_shift']['subsample']
     method_string = model if model == 'sparse' else model + f'{subsample}'
 
     return join(
