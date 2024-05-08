@@ -1,9 +1,11 @@
-from .wcs.wcs_subsample_corners import get_pixel_corners
+from .wcs.wcs_subsample_corners import subsample_grid_corners_in_index_grid
 from .wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
 from .integration_model import (
     build_sparse_integration, build_sparse_integration_model,
     build_linear_integration, build_integration_model,
     build_nufft_integration)
+
+from numpy import squeeze
 
 
 def build_rotation_and_shift_model(
@@ -35,10 +37,12 @@ def build_integration(
     sky_dvol = reconstruction_grid.dvol.value
     sub_dvol = data_grid.dvol.value / subsample**2,
 
-    pixel_corners = get_pixel_corners(
+    pixel_corners = subsample_grid_corners_in_index_grid(
         data_grid.world_extrema,
         data_grid.wcs,
-        reconstruction_grid.wcs)
+        reconstruction_grid.wcs,
+        1)
+    pixel_corners = squeeze(pixel_corners)
 
     subsample_centers = subsample_grid_centers_in_index_grid(
         data_grid.world_extrema,

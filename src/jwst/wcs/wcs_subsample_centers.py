@@ -1,6 +1,9 @@
-from typing import Tuple
+import numpy as np
+
 from .wcs_base import WcsBase
 from astropy.coordinates import SkyCoord
+
+from typing import Tuple
 from numpy.typing import ArrayLike
 
 
@@ -10,8 +13,9 @@ def subsample_grid_centers_in_index_grid(
     index_grid_wcs: WcsBase,
     subsample: int
 ) -> ArrayLike:
-    '''This function finds the index positions for the centers of the data_grid
-    inside the reconstruction_grid.
+    '''This function finds the index positions for the centers of a subsampled
+    grid (the to_be_subsampled_grid, typcially the data_grid) inside another
+    grid (the index_grid, typically the reconstruction_grid).
 
     Parameters
     ----------
@@ -33,8 +37,18 @@ def subsample_grid_centers_in_index_grid(
         sub-pixels will a single pixel in the to_be_subsampled_grid have along
         each axis.
     '''
-    wl_data_subsample_centers = to_be_subsampled_grid_wcs.wl_subsample_centers(
-        world_extrema, subsample)
-    px_reco_subsample_centers = index_grid_wcs.index_from_wl(
-        wl_data_subsample_centers)
-    return px_reco_subsample_centers[:, ::-1, :, :]
+    minx, maxx, miny, maxy = to_be_subsampled_grid_wcs.index_from_wl_extrema(
+        world_extrema)
+
+    ssg_pixcenter_indices = np.array(np.meshgrid(np.arange(minx, maxx, 1),
+                                                 np.arange(miny, maxy, 1)))
+    ps = np.arange(0.5/subsample, 1, 1/subsample) - 0.5
+    ms = np.vstack(np.array(np.meshgrid(ps, ps)).T)
+    subsample_centers = ms[:, :, None, None] + ssg_pixcenter_indices
+
+    wl_subsample_centers = to_be_subsampled_grid_wcs.wl_from_index(
+        subsample_centers)
+
+    subsample_center_indices = index_grid_wcs.index_from_wl(
+        wl_subsample_centers)
+    return subsample_center_indices[:, ::-1, :, :]

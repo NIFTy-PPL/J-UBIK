@@ -62,6 +62,13 @@ for ii, (dkey, data_dict) in enumerate(data_set.items()):
         updating=False)
     data_dict['data_model'] = data_model
 
+    world_extrema = data_grid.world_extrema
+    to_be_subsampled_grid_wcs = data_grid.wcs
+    index_grid_wcs = reco_grid.wcs
+    subsample = 3
+
+    exit()
+
     likelihood = ju.library.likelihood.build_gaussian_likelihood(
         data.reshape(-1), float(std))
     likelihood = likelihood.amend(data_model, domain=data_model.domain)

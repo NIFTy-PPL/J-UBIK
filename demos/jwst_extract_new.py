@@ -22,6 +22,8 @@ from jubik0.jwst.reconstruction_grid import Grid
 from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
 from jubik0.jwst.config_handler import define_location, get_shape, get_fov
+from jubik0.jwst.wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
+from jubik0.jwst.wcs.wcs_subsample_corners import subsample_grid_corners_in_index_grid
 
 from sys import exit
 
@@ -49,26 +51,35 @@ for fltname, flt in config['files']['filter'].items():
         print(fltname, ii, filepath)
         jwst_data = JwstData(filepath)
 
-        # Find the sub-pixel centers for the interpolation integration
-        subsample_centers = jwst_data.wcs.wl_subsample_centers(
-            reco_grid.world_extrema, subsample)
+        index_subsample_centers_new = subsample_grid_centers_in_index_grid(
+            reco_grid.world_extrema,
+            jwst_data.wcs,
+            reco_grid.wcs,
+            subsample)
+        # FIXME: Should this be so????
+        index_subsample_centers = index_subsample_centers_new[:, ::-1, :, :]
 
-        index_subsample_centers = reco_grid.wcs.index_from_wl(
-            subsample_centers)
+        index_edges_new = subsample_grid_corners_in_index_grid(
+            reco_grid.world_extrema,
+            jwst_data.wcs,
+            reco_grid.wcs,
+            1)
+        index_edges = np.squeeze(index_edges_new)
 
-        # Find the pixel edges for the sparse interpolation
-        pix_center, (e00, e01, e10, e11) = jwst_data.wcs.wl_pixelcenter_and_edges(
-            reco_grid.world_extrema)
-        dpixcenter_in_rgrid = reco_grid.wcs.index_from_wl(pix_center)[0]
-        index_edges = reco_grid.wcs.index_from_wl(
-            [e00, e01, e11, e10])  # needs to be circular for sparse builder
+        data_centers_in_reco = subsample_grid_centers_in_index_grid(
+            reco_grid.world_extrema,
+            jwst_data.wcs,
+            reco_grid.wcs,
+            1)
+        # FIXME: Sould this be so????
+        data_centers = data_centers_in_reco[:, ::-1, :, :]
 
         data = jwst_data.data_inside_extrema(reco_grid.world_extrema)
         std = jwst_data.std_inside_extrema(reco_grid.world_extrema)
 
         # define a mask
         mask = get_mask_from_index_centers(
-            dpixcenter_in_rgrid, reco_grid.shape)
+            data_centers, reco_grid.shape)
         mask *= jwst_data.nan_inside_extrema(reco_grid.world_extrema)
 
         lh_name = f'{fltname}_{ii}'
