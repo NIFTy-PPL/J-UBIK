@@ -3,6 +3,8 @@ from pathlib import Path
 
 import numpy as np
 import nifty8.re as jft
+from astropy.io import fits
+
 from .erosita_psf import eROSITA_PSF
 from .data import Domain
 from .utils import get_config
@@ -168,6 +170,50 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     return builder(exposures, **kwargs)
 
 
+def calculate_erosita_effective_area(path_to_caldb, tm_ids, energy,
+                               arf_filename_suffix='_arf_filter_000101v02.fits'):
+    """
+    Returns the effective area for the given energy (in keV) and telescope module list (in cm^2).
+    The value is linearly interpolated from the ARF file for the desired energy.
+
+    Parameters
+    ----------
+    path_to_caldb : str
+        Path to the eROSITA calibration database.
+    tm_ids : list
+        List of telescope module IDs.
+    energy : float
+        Energy in keV.
+    arf_filename_suffix : str
+        Suffix of the ARF file name.
+
+    Returns
+    -------
+    effective_areas : np.ndarray
+        Effective area in cm^2
+
+    Raises
+    ------
+    ValueError
+        If the energy is out of range.
+    """
+    path = join(path_to_caldb, 'caldb', 'data', 'erosita')
+    effective_areas = []
+    for tm_id in tm_ids:
+        arf_filename = join(path, f'tm{tm_id}', 'bcf', f'tm{tm_id}{arf_filename_suffix}')
+        with fits.open(arf_filename) as f:
+            energy_low = f['SPECRESP'].data["ENERG_LO"]
+            energy_hi = f['SPECRESP'].data["ENERG_HI"]
+            if energy < energy_low[0]:
+                raise ValueError(f'Energy {energy} keV is out of range!')
+            if energy > energy_hi[-1]:
+                raise ValueError(f'Energy {energy} keV is out of range!')
+            coords = (energy_hi + energy_low)/2
+            effective_area = f['SPECRESP'].data["SPECRESP"]
+            effective_areas.append(np.interp(energy, coords, effective_area))
+    return np.array(effective_areas)
+
+
 def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
                           npatch, margfrac, want_cut=False,
                           convolution_method='LINJAX'):
@@ -190,6 +236,7 @@ def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
                                convolution_method,
                                cdict)
     return psf_func
+
 
 def _build_tm_erosita_psf_array(psf_filename, energies, pointing_center,
                                 domain, npatch):
