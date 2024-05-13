@@ -23,13 +23,9 @@ def get_gaussian_kernel(domain, sigma):
     return kern.T
 
 
-Log = False
-smooth = False
-# Sat_max = [150, 100, 40] #Pretty
-Sat_max = [60, 50, 27]
-Sat_min = [2, 2, 2]
+plot_name = "prototyp"
 fbase = "data/LMC_SN1987A/processed/"
-tms = ["tm1", "tm2", "tm3", "tm4", "tm6"]
+tms = ["tm1",  "tm3", "tm4", "tm6"] # "tm2",
 
 nrg = ["_pm00_700161_020_data_emin0.2_emax1.0.fits",
        "_pm00_700161_020_data_emin1.0_emax2.0.fits",
@@ -47,15 +43,25 @@ for fpathl in fpath_list:
     data_arr_i = np.array(data_list_i)
     data_list.append(data_arr_i)
 
-sigma = 1
+sigma = 2
 domain = ju.Domain(np.array([3, 512, 512]), np.array([1, 7.03125, 7.03125]))
 gauss_domain = ju.Domain(np.array([512, 512]), np.array([7.03125, 7.03125]))
 
 data_arr = np.array(data_list)
 data_arr = data_arr.sum(1)
 
+Log = False
+smooth = True
+Sat_max = [60, 50, 27] # VERY NICE in NONLOG
+Sat_min = [1, 1, 1]
+
+# def _prep_plot(arr):
+
+
 if smooth:
+    plot_name = plot_name + "_smooth"
     smoothing_kernel = get_gaussian_kernel(gauss_domain, sigma)
+    smoothing_kernel = smoothing_kernel[np.newaxis, ...]
     smooth_data = ju.jifty_convolve(data_arr, smoothing_kernel, domain, [1, 2])
     smooth_data = np.array(smooth_data)
     data_arr = smooth_data
@@ -70,7 +76,7 @@ if Sat_max is not None:
     data_arr = clipped
 
 if Log:
-    data_arr[data_arr > 0] = np.log(data_arr[data_arr > 0])
+    data_arr[data_arr >= 1] = np.log(data_arr[data_arr >= 1])
 
 data_arr = np.moveaxis(data_arr, 0, -1)
 
@@ -81,6 +87,6 @@ plot_data = np.zeros(data_arr.shape)
 for i in range(3):
     plot_data[:, :, i] = (data_arr[:, :, i] / maxim[i])
 
-plt.imshow(plot_data, origin="lower", norm=LogNorm())
-plt.savefig("prototyp.png", dpi=500)
+plt.imshow(plot_data, origin="lower")
+plt.savefig(plot_name + ".png", dpi=500)
 plt.close()
