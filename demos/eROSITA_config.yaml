@@ -7,6 +7,7 @@ telescope:
   detmap: True
   exp_cut: 500
   badpix_correction: True
+  effective_area_correction: True
 
 psf:
  method: 'LINJAX'
@@ -57,7 +58,9 @@ files:
   input: 'pm00_700161_020_EventList_c001.fits'
   output: 'pm00_700161_020_data.fits'
   exposure: 'pm00_700161_020_expmap.fits'
+  calibration_path : '../data/'
   psf_path : '../data/psf_info/'
+  effective_area_filename_suffix: '_arf_filter_000101v02.fits'
   psf_base_filename: '2dpsf_190219v05.fits'
   res_dir: 'results/Default_run_mf'
 # If mock:
