@@ -169,11 +169,14 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     return builder(exposures, **kwargs)
 
 
-def calculate_erosita_effective_area(path_to_caldb, tm_ids, energies,
-                                     arf_filename_suffix='_arf_filter_000101v02.fits'):
+def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
+                                     arf_filename_suffix='_arf_filter_000101v02.fits',
+                                     n_points=500):
     """
-    Returns the effective area for the given energy (in keV) and telescope module list (in cm^2).
-    The value is linearly interpolated from the ARF file for the desired energy.
+    Returns the effective area for the given energy range (in keV) and
+    telescope module list (in cm^2).
+    The effective area is computed by linearly interpolating the effective area contained in the ARF
+     file on the desired energy ranges and taking the average within each energy range.
 
     Parameters
     ----------
@@ -181,10 +184,14 @@ def calculate_erosita_effective_area(path_to_caldb, tm_ids, energies,
         Path to the eROSITA calibration database.
     tm_ids : list
         List of telescope module IDs.
-    energies : np.ndarray
-        Energies (in keV) at which to calculate the effective area.
+    e_min : np.ndarray
+        Minimum energies (in keV) at which to calculate the effective area.
+    e_max : np.ndarray
+        Maximum energies (in keV) at which to calculate the effective area.
     arf_filename_suffix : str
         Suffix of the ARF file name.
+    n_points : int, optional
+        Number of points to use for the interpolation.
 
     Returns
     -------
@@ -198,18 +205,26 @@ def calculate_erosita_effective_area(path_to_caldb, tm_ids, energies,
     """
     path = join(path_to_caldb, 'caldb', 'data', 'erosita')
     effective_areas = []
+    e_min = np.array(e_min)
+    e_max = np.array(e_max)
     for tm_id in tm_ids:
         arf_filename = join(path, f'tm{tm_id}', 'bcf', f'tm{tm_id}{arf_filename_suffix}')
         with fits.open(arf_filename) as f:
             energy_low = f['SPECRESP'].data["ENERG_LO"]
             energy_hi = f['SPECRESP'].data["ENERG_HI"]
             effective_area = f['SPECRESP'].data["SPECRESP"]
-        if np.any(energies < energy_low[0]):
-            raise ValueError(f'Energy {energies} keV is out of range!')
-        if np.any(energies > energy_hi[-1]):
-            raise ValueError(f'Energy {energies} keV is out of range!')
-        coords = (energy_hi + energy_low)/2
-        effective_areas.append(np.interp(energies, coords, effective_area))
+        if np.any(e_min < energy_low[0]):
+            loc = np.where(e_min < energy_low[0])
+            raise ValueError(f'Energy {e_min[loc]} keV is out of range!')
+        if np.any(e_max > energy_hi[-1]):
+            loc = np.where(e_max > energy_hi[-1])
+            raise ValueError(f'Energy {e_max[loc]} keV is out of range!')
+        coords = (energy_hi + energy_low) / 2
+        effective_areas_in_bin = []
+        for i in range(e_min.shape[0]):
+            energies = np.linspace(e_min[i], e_max[i], n_points)
+            effective_areas_in_bin.append(np.mean(np.interp(energies, coords, effective_area)))
+        effective_areas.append(effective_areas_in_bin)
     return np.array(effective_areas)
 
 
@@ -368,10 +383,10 @@ def build_erosita_response_from_config(config_file_path):
                                             exposure_cut=tel_info['exp_cut'])
 
     if tel_info['effective_area_correction']:
-        energies = (np.array(e_min) + np.array(e_max))/2
         effective_area = calculate_erosita_effective_area(file_info['calibration_path'],
                                                           tel_info['tm_ids'],
-                                                          energies,
+                                                          np.array(e_min),
+                                                          np.array(e_max),
                                                           arf_filename_suffix=file_info['effective_area_filename_suffix'])
         exposure_func = lambda x: tmp(x) * effective_area[:, :, np.newaxis, np.newaxis]
     else:

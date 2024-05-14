@@ -26,3 +26,16 @@ This package can be installed via pip.
     pip install --user .
 
 for a regular installation. For editable installation add the `-e` flag. 
+
+
+## Additional Files
+Additional calibration files might be needed for instrument-specific pipelines.
+
+### Chandra
+
+### eROSITA
+In order to compute the eROSITA response accurately, 
+the [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/) folder from DR1 
+should be present inside the data folder.
+
+### JWST
