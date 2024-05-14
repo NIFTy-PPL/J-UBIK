@@ -15,7 +15,7 @@ def build_linear_rotation_and_shift(
     updating: bool = False,
     sky_as_brightness: bool = False
 ) -> Callable[ArrayLike, ArrayLike]:
-    '''Building linear (higher orders not yet supported) interpolation model.
+    '''Building linear (higher orders not yet supported) rotation_and_shift model.
 
     Parameters
     ----------
@@ -33,7 +33,7 @@ def build_linear_rotation_and_shift(
         Mask of the data array
 
     order : int (default 1)
-        The order of the interpolation scheme (only linear supported by JAX)
+        The order of the rotation_and_shift scheme (only linear supported by JAX)
 
     updating : bool (default False)
         If True, a model for an xy_shift can be supplied which will infer the
@@ -46,7 +46,7 @@ def build_linear_rotation_and_shift(
     Returns
     -------
     rotation_shift_subsample : function
-        The interpolation function
+        The rotation_and_shift function
 
     Notes
     -----
@@ -61,19 +61,19 @@ def build_linear_rotation_and_shift(
         sky_dvol = 1
     flux_conversion = sub_dvol / sky_dvol
 
-    interpolation = partial(
+    rotation_and_shift = partial(
         map_coordinates, order=order, mode='wrap')
 
     if updating:
         def rotation_shift_subsample(x, y):
             field, xy_shift = x, y
-            out = interpolation(
+            out = rotation_and_shift(
                 field, subsample_centers - xy_shift[None, :, None])
             return out * flux_conversion
 
     else:
         def rotation_shift_subsample(x, y):
-            out = interpolation(x, subsample_centers)
+            out = rotation_and_shift(x, subsample_centers)
             return out * flux_conversion
 
     return rotation_shift_subsample
