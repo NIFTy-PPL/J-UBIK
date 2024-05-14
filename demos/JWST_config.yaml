@@ -26,6 +26,9 @@ telescope:
     mean: [0, 0]
     sigma: [0.1, 0.1]
 
+  web_psf:
+    webpsf_path: '/home/jruestig/Data/jwst/WebbPsf/webbpsf-data_1.2.1/'
+    psf_library: '/home/jruestig/Data/jwst/psf_library'
 
   lanczos_window: 32
 

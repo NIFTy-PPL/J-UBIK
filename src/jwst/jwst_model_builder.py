@@ -4,7 +4,8 @@ from functools import reduce
 
 from .rotation_and_shift import build_rotation_and_shift_model
 from .masking import build_mask
-from .integration_model import build_sum_integration, build_sum_integration_old
+from .psf import build_no_psf, build_psf
+from .integration_model import build_sum_integration
 from .rotation_and_shift import RotationAndShiftModel
 from ..library.likelihood import build_gaussian_likelihood
 
@@ -58,13 +59,12 @@ def build_jwst_model(
         )
 
         # psf = build_psf_model(parameters)
-        def psf(x): return x
+        psf = build_no_psf()
+
         integrate = build_sum_integration(
             rotation_and_shift.target.shape,
             data['subsample'])
-        # integrate = build_sum_integration_old(
-        #     rotation_and_shift.target.shape,
-        #     data['subsample'])
+
         mask = build_mask(data['mask'])
 
         data_model = DataModel(

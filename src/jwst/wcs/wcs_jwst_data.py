@@ -4,11 +4,13 @@ from typing import List, Union
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
+from gwcs import WCS
+
 from .wcs_base import WcsBase
 
 
 class WcsJwstData(WcsBase):
-    def __init__(self, wcs):
+    def __init__(self, wcs: WCS):
         self._wcs = wcs
 
     def wl_from_index(

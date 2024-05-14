@@ -56,64 +56,6 @@ for key, val in data_set_new.items():
     val['model_type'] = 'linear'
     val['subsample'] = cfg['telescope']['rotation_and_shift']['subsample']
 
-
-# smodel = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
-#                    domain=sky_model.domain)
-# dkey, data_dict = next(iter(data_set_new.items()))
-# rotation_and_shift = build_rotation_and_shift_model(
-#     smodel.target,
-#     world_extrema_key='from_data',
-#     reconstruction_grid=reco_grid,
-#     data_key=dkey,
-#     data_grid=data_dict['grid'],
-#     **data_dict)
-
-# test_val = jft.random_like(test_key, sky_model.domain)
-# test_sky = smodel(test_val)
-
-# sky = rotation_and_shift(test_sky)
-
-# fig, axes = plt.subplots(2, 2)
-# axes = axes.flatten()
-# for ax, s in zip(axes, sky):
-#     ax.imshow(s)
-# plt.show()
-
-
-# reconstruction_grid = reco_grid
-# data_grid = data_dict['grid']
-# subsample = data_dict['subsample']
-# world_extrema = data_grid.world_extrema
-
-# to_be_subsampled_grid_wcs = data_grid.wcs
-# index_grid_wcs = reco_grid.wcs
-# ssg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
-#     world_extrema)
-
-# ps = np.arange(0.5/subsample, 1, 1/subsample) - 0.5
-# ms = np.vstack(np.array(np.meshgrid(ps, ps)).T)
-# subsample_centers = ms[:, :, None, None] + ssg_pixcenter_indices
-
-# subsample_centers = subsample_grid_centers_in_index_grid(
-#     world_extrema,
-#     data_grid.wcs,
-#     reconstruction_grid.wcs,
-#     subsample)
-
-
-# def subsample_stack(array, subsample):
-#     new_array = np.zeros(
-#         (2, subsample*array.shape[-2], subsample*array.shape[-1]))
-
-#     for ii in range(array.shape[0]):
-#         xx = ii % 2
-#         yy = ii // 2
-#         new_array[:, xx::subsample, yy::subsample] = array[ii]
-
-#     return new_array
-# exit()
-
-
 likelihood = build_jwst_model(
     sky_model=jft.Model(jft.wrap_left(sky_model, internal_sky_key),
                         domain=sky_model.domain),

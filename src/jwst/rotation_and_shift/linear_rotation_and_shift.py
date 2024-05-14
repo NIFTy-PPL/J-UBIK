@@ -63,7 +63,6 @@ def build_linear_rotation_and_shift(
 
     interpolation = partial(
         map_coordinates, order=order, mode='wrap')
-    # interpolation = vmap(interpolation, in_axes=(None, 0))
 
     if updating:
         def rotation_shift_subsample(x, y):

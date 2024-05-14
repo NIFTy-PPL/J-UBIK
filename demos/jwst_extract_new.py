@@ -16,7 +16,6 @@ from jubik0.jwst.integration_model import (
     build_linear_integration,
     build_nufft_integration,
     build_integration_model,
-    build_sparse_integration_model
 )
 from jubik0.jwst.reconstruction_grid import Grid
 from jubik0.jwst.jwst_data import JwstData
