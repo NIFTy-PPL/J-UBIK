@@ -2,7 +2,7 @@ from . import integration_model
 from . import wcs
 from . import mock_data
 
-from .jwst_telescope_model_builder import build_data_model
+from .jwst_model_builder import build_jwst_model
 
 from .config_handler import (define_location, get_shape, get_fov)
 from .jwst_data import JwstData

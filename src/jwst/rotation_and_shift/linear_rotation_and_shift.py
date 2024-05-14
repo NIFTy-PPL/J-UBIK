@@ -66,14 +66,14 @@ def build_linear_rotation_and_shift(
     interpolation = vmap(interpolation, in_axes=(None, 0))
 
     if updating:
-        def rotation_shift_subsample(x):
-            field, xy_shift = x
+        def rotation_shift_subsample(x, y):
+            field, xy_shift = x, y
             out = interpolation(
                 field, subsample_centers - xy_shift[None, :, None])
             return out * flux_conversion
 
     else:
-        def rotation_shift_subsample(x):
+        def rotation_shift_subsample(x, y):
             out = interpolation(x, subsample_centers)
             return out * flux_conversion
 

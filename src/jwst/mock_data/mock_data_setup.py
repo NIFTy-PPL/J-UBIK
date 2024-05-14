@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
-from ..integration_model import build_nufft_integration
 from ..rotation_and_shift import build_nufft_rotation_and_shift
 from ..reconstruction_grid import Grid
 
@@ -203,28 +202,3 @@ def setup(
             plt.show()
 
     return comparison_sky, reco_grid, datas
-
-
-def build_sky_model(shape, dist, offset, fluctuations):
-    cfm = jft.CorrelatedFieldMaker(prefix='reco')
-    cfm.set_amplitude_total_offset(**offset)
-    cfm.add_fluctuations(
-        [int(shp) for shp in shape], dist,
-        **fluctuations, non_parametric_kind='power')
-    log_diffuse = cfm.finalize()
-
-    def diffuse(x):
-        return jnp.exp(log_diffuse(x))
-
-    return jft.Model(diffuse, domain=log_diffuse.domain)
-
-
-def build_shift_model(key, mean_sigma):
-    from charm_lensing.models.parametric_models.parametric_prior import (
-        build_prior_operator)
-    distribution_model_key = ('normal', *mean_sigma)
-    shape = (2,)
-
-    shift_model = build_prior_operator(key, distribution_model_key, shape)
-    domain = {key: jft.ShapeWithDtype((shape))}
-    return jft.Model(shift_model, domain=domain)

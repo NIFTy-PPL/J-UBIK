@@ -1,20 +1,22 @@
-import yaml
+import nifty8.re as jft
 
 import jubik0 as ju
 from jubik0.jwst.mock_data import (
-    setup, build_sky_model, build_evaluation_mask,
-    build_mock_plot)
+    setup, build_evaluation_mask, build_mock_plot)
+from jubik0.jwst.utils import build_sky_model
 from jubik0.jwst.config_handler import config_transform, define_mock_output
-from jubik0.jwst import build_data_model
+from jubik0.jwst.integration_model import build_integration
 from jubik0.jwst.likelihood import connect_likelihood_to_model
+from jubik0.jwst.jwst_model_builder import build_jwst_model
 
-import nifty8.re as jft
-
+from copy import deepcopy
 from functools import reduce
-import numpy as np
-from astropy import units as u
-
 from sys import exit
+
+from numpy import allclose
+
+import yaml
+from astropy import units as u
 from jax import config, random
 config.update('jax_enable_x64', True)
 config.update('jax_platform_name', 'cpu')
@@ -27,7 +29,7 @@ res_dir = define_mock_output(cfg)
 
 # Draw random numbers
 key = random.PRNGKey(87)
-key, mock_key, noise_key, rec_key = random.split(key, 4)
+key, mock_key, noise_key, rec_key, test_key = random.split(key, 5)
 
 comp_sky, reco_grid, data_set = setup(mock_key, noise_key, **cfg['mock_setup'])
 sky_model = build_sky_model(
@@ -43,13 +45,32 @@ if cfg['sky_model'].get('plot_sky_model', False):
 
 
 internal_sky_key = 'sky'
+
+data_set_new = deepcopy(data_set)
+for key, val in data_set_new.items():
+    val['model_type'] = 'linear'
+    val['subsample'] = cfg['telescope']['rotation_and_shift']['subsample']
+
+
+likelihood = build_jwst_model(
+    sky_model=jft.Model(jft.wrap_left(sky_model, internal_sky_key),
+                        domain=sky_model.domain),
+    reconstruction_grid=reco_grid,
+    data_set=data_set_new,
+    world_extrema_key='from_data')
+likelihood_new = connect_likelihood_to_model(
+    likelihood,
+    jft.Model(jft.wrap_left(sky_model, internal_sky_key),
+              domain=sky_model.domain)
+)
+
 likelihoods = []
 for ii, (dkey, data_dict) in enumerate(data_set.items()):
     data, mask, std, data_grid = (
         data_dict['data'], data_dict['mask'], data_dict['std'],
         data_dict['grid'])
 
-    data_model = build_data_model(
+    data_model = build_integration(
         reconstruction_grid=reco_grid,
         data_grid=data_grid,
         data_mask=mask,
@@ -67,11 +88,15 @@ for ii, (dkey, data_dict) in enumerate(data_set.items()):
     likelihoods.append(likelihood)
 
 likelihood = reduce(lambda x, y: x+y, likelihoods)
-likelihood = connect_likelihood_to_model(
+likelihood_old = connect_likelihood_to_model(
     likelihood,
     jft.Model(jft.wrap_left(sky_model, internal_sky_key),
               domain=sky_model.domain)
 )
+
+test_val = jft.random_like(test_key, sky_model.domain)
+assert allclose(likelihood_new(test_val), likelihood_old(test_val))
+
 
 evaluation_mask = build_evaluation_mask(reco_grid, data_set)
 plot = build_mock_plot(
@@ -82,7 +107,7 @@ plot = build_mock_plot(
     eval_mask=evaluation_mask,
 )
 
-pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
+pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood_new.domain))
 
 cfg = ju.get_config('demos/jwst_mock_config.yaml')
 minimization_config = cfg['minimization']
@@ -93,7 +118,7 @@ minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
 print(f'Results: {res_dir}')
 samples, state = jft.optimize_kl(
-    likelihood,
+    likelihood_new,
     pos_init,
     key=rec_key,
     kl_kwargs=kl_solver_kwargs,
