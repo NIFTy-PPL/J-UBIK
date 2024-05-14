@@ -1,6 +1,6 @@
 import nifty8.re as jft
 
-from ..wcs import (subsample_grid_centers_in_index_grid,
+from ..wcs import (subsample_grid_centers_in_index_grid_non_vstack,
                    subsample_grid_corners_in_index_grid)
 from ..reconstruction_grid import Grid
 from .linear_rotation_and_shift import build_linear_rotation_and_shift
@@ -62,7 +62,7 @@ def build_rotation_and_shift_model(
     parameters = dict(
         sky_dvol=reconstruction_grid.dvol.value,
         sub_dvol=data_grid.dvol.value / subsample**2,
-        subsample_centers=subsample_grid_centers_in_index_grid(
+        subsample_centers=subsample_grid_centers_in_index_grid_non_vstack(
             world_extrema,
             data_grid.wcs,
             reconstruction_grid.wcs,

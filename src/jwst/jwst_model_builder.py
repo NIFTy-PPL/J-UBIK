@@ -59,12 +59,12 @@ def build_jwst_model(
 
         # psf = build_psf_model(parameters)
         def psf(x): return x
-        # integrate = build_sum_integration(
-        #     rotation_and_shift.target.shape,
-        #     data['subsample'])
-        integrate = build_sum_integration_old(
+        integrate = build_sum_integration(
             rotation_and_shift.target.shape,
             data['subsample'])
+        # integrate = build_sum_integration_old(
+        #     rotation_and_shift.target.shape,
+        #     data['subsample'])
         mask = build_mask(data['mask'])
 
         data_model = DataModel(
