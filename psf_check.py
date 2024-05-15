@@ -1,4 +1,4 @@
-from jubik0.jwst.psf import build_webb_psf
+from jubik0.jwst.psf.build_psf import build_webb_psf
 
 
 psf = build_webb_psf(
@@ -6,5 +6,6 @@ psf = build_webb_psf(
     filter='f444w',
     center_pixel=(0, 0),
     webbpsf_path='/home/jruestig/Data/jwst/WebbPsf/webbpsf-data_1.2.1/',
-    fov_arcsec=4,
+    fov_pixels=12,
+    # fov_arcsec=4,
     subsample=2)

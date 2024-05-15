@@ -1,0 +1,199 @@
+import matplotlib.pyplot as plt
+import yaml
+from functools import reduce
+
+import nifty8.re as jft
+from jax import config
+from jax import random
+import jax.numpy as jnp
+
+import numpy as np
+
+from matplotlib.colors import LogNorm
+
+# import astropy
+# import webbpsf
+from astropy import units as u
+
+import jubik0 as ju
+from jubik0.library.likelihood import (
+    connect_likelihood_to_model, build_gaussian_likelihood)
+from jubik0.jwst.reconstruction_grid import Grid
+from jubik0.jwst.jwst_data import JwstData
+from jubik0.jwst.masking import get_mask_from_index_centers
+from jubik0.jwst.config_handler import define_location, get_shape, get_fov
+from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
+from jubik0.jwst.jwst_model_builder import build_data_model
+from jubik0.jwst.utils import build_sky_model
+from jubik0.jwst.jwst_plotting import build_plot, plot_sky
+
+
+from sys import exit
+
+
+# cfg.update('jax_enable_x64', True)
+# cfg.update('jax_platform_name', 'cpu')
+
+
+config_path = './demos/JWST_config.yaml'
+cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
+WORLD_LOCATION = define_location(cfg)
+FOV = get_fov(cfg)
+SHAPE = get_shape(cfg)
+
+res_dir = cfg['files']['res_dir']
+
+# defining the reconstruction grid
+reconstruction_grid = Grid(
+    WORLD_LOCATION, SHAPE, (FOV.to(u.deg), FOV.to(u.deg)))
+internal_sky_key = 'sky'
+
+# sky_model_new = ju.SkyModel(config_file_path=config_path)
+# sky_model = sky_model_new.create_sky_model()
+# # sky_model = sky_dict['sky']
+
+sky_model_small, sky_model = build_sky_model(
+    reconstruction_grid.shape,
+    [d.to(u.arcsec).value for d in reconstruction_grid.distances],
+    cfg['priors']['diffuse']['spatial']['offset'],
+    cfg['priors']['diffuse']['spatial']['fluctuations'],
+    extend=cfg['grid']['s_padding_factor']
+)
+sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
+                               domain=sky_model.domain)
+
+key = random.PRNGKey(87)
+key, test_key, rec_key = random.split(key, 3)
+x = jft.random_like(test_key, sky_model.domain)
+
+# FIXME: This needs to provided somewhere else
+SUBSAMPLE = cfg['telescope']['integration_model']['subsample']
+MODEL_TYPE = 'linear'
+DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
+
+data_plotting = {}
+
+for fltname, flt in cfg['files']['filter'].items():
+    likelihoods = []
+    for ii, filepath in enumerate(flt):
+        print(fltname, ii, filepath)
+        jwst_data = JwstData(filepath)
+
+        data_key = f'{fltname}_{ii}'
+
+        # define a mask
+        data_centers_in_reco = subsample_grid_centers_in_index_grid(
+            reconstruction_grid.world_extrema,
+            jwst_data.wcs,
+            reconstruction_grid.wcs,
+            1)
+        # # FIXME: Sould this be so????
+        # data_centers = np.squeeze(data_centers_in_reco[:, ::-1, :, :])
+        data_centers = np.squeeze(data_centers_in_reco)
+        mask = get_mask_from_index_centers(
+            data_centers, reconstruction_grid.shape)
+        mask *= jwst_data.nan_inside_extrema(reconstruction_grid.world_extrema)
+
+        data = jwst_data.data_inside_extrema(reconstruction_grid.world_extrema)
+        std = jwst_data.std_inside_extrema(reconstruction_grid.world_extrema)
+
+        data_model = build_data_model(
+            sky_model_with_key.target,
+
+            reconstruction_grid=reconstruction_grid,
+
+            subsample=SUBSAMPLE,
+
+            rotation_and_shift_kwargs=dict(
+                data_dvol=DATA_DVOL,
+                data_wcs=jwst_data.wcs,
+                data_model_type=MODEL_TYPE,
+            ),
+
+            psf_kwargs=dict(
+                camera=jwst_data.camera,
+                filter=jwst_data.filter,
+                center_pixel=jwst_data.wcs.index_from_wl(
+                    reconstruction_grid.center)[0],
+                webbpsf_path=cfg['telescope']['web_psf']['webpsf_path'],
+                fov_pixels=64,
+            ),
+
+            # psf_kwargs=dict(),
+
+            data_mask=mask,
+
+            world_extrema=reconstruction_grid.world_extrema
+        )
+
+        data_plotting[data_key] = dict(
+            data=data,
+            std=std,
+            mask=mask,
+            data_model=data_model)
+
+        likelihood = build_gaussian_likelihood(
+            jnp.array(data[mask], dtype=float),
+            jnp.array(std[mask], dtype=float))
+        likelihood = likelihood.amend(
+            data_model, domain=jft.Vector(data_model.domain))
+        likelihoods.append(likelihood)
+
+    likelihood = reduce(lambda x, y: x+y, likelihoods)
+    likelihood_new = connect_likelihood_to_model(
+        likelihood,
+        sky_model_with_key
+    )
+
+
+plot = build_plot(
+    data_dict=data_plotting,
+    sky_model=sky_model_with_key,
+    results_directory=res_dir,
+    plotting_config=dict(
+        norm=LogNorm,
+        sky_extent=reconstruction_grid.extent()
+    ))
+
+key = random.PRNGKey(87)
+key, rec_key = random.split(key, 2)
+
+for ii in range(3):
+    key, test_key = random.split(key, 2)
+    sky = sky_model_with_key(jft.random_like(test_key, sky_model.domain))
+    plot_sky(sky, data_plotting)
+
+    fig, axes = plt.subplots(1, 2)
+    ax, ay = axes
+    ax.imshow(sky['sky'], origin='lower', norm=LogNorm())
+    ay.imshow(data_model.rotation_and_shift(sky),
+              origin='lower', norm=LogNorm())
+    plt.show()
+
+pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood_new.domain))
+
+cfg_mini = ju.get_config('demos/jwst_mock_config.yaml')
+minimization_config = cfg_mini['minimization']
+kl_solver_kwargs = minimization_config.pop('kl_kwargs')
+minimization_config['n_total_iterations'] = 12
+# minimization_config['resume'] = True
+minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
+
+print(f'Results: {res_dir}')
+samples, state = jft.optimize_kl(
+    likelihood_new,
+    pos_init,
+    key=rec_key,
+    kl_kwargs=kl_solver_kwargs,
+    callback=plot,
+    odir=res_dir,
+    **minimization_config)
+
+sky = jft.mean([sky_model_with_key(si) for si in samples])
+data_model = next(iter(data_plotting.values()))['data_model']
+
+plt.imshow(sky['sky'], origin='lower')
+plt.show()
+
+plt.imshow(data_model.rotation_and_shift(sky), origin='lower', norm=LogNorm())
+plt.show()

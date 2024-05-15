@@ -49,6 +49,7 @@ for fltname, flt in config['files']['filter'].items():
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
         jwst_data = JwstData(filepath)
+        exit()
 
         index_subsample_centers_new = subsample_grid_centers_in_index_grid(
             reco_grid.world_extrema,

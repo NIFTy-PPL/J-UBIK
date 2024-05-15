@@ -65,7 +65,7 @@ def display_text(ax: plt.Axes, text: dict, **kwargs):
 
 
 def build_mock_plot(
-    data_set, comparison_sky, sky_model, res_dir, eval_mask
+    data_set, comparison_sky, internal_sky_key, sky_model, res_dir, eval_mask
 ):
     datas = [ll['data'] for ll in data_set.values()]
     data_models = [ll['data_model'] for ll in data_set.values()]
@@ -81,8 +81,6 @@ def build_mock_plot(
     ii, smallest_mask = smallest_enclosing_mask(eval_mask)
     reshape = eval_mask.shape[0] - 2*ii
     true_power_spectrum = get_power(comparison_sky, smallest_mask, reshape)
-
-    internal_sky_key = next(iter(data_models[0].domain.tree.keys()))
 
     def plot_pspec(samples, x):
         YLIMS = (1e2, 1e11)

@@ -24,9 +24,13 @@ def fuse_model_components(model_a, model_b):
     model_c: jft.Model
         Model for a sky component C
     """
+    if model_a is None:
+        return model_b
+    elif model_b is None:
+        return model_a
+
     def fusion(x): return model_a(x) + model_b(x)
-    domain = model_a.domain
-    domain.update(model_b.domain)
+    domain = model_a.domain | model_b.domain
     return jft.Model(fusion, domain=domain)
 
 

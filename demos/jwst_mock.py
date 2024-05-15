@@ -5,9 +5,8 @@ from jubik0.jwst.mock_data import (
     setup, build_evaluation_mask, build_mock_plot)
 from jubik0.jwst.utils import build_sky_model
 from jubik0.jwst.config_handler import config_transform, define_mock_output
-from jubik0.jwst.integration_model import build_integration
-from jubik0.jwst.likelihood import connect_likelihood_to_model
-from jubik0.jwst.jwst_model_builder import build_jwst_model
+from jubik0.jwst.jwst_model_builder import build_data_model
+from jubik0.library.likelihood import connect_likelihood_to_model, build_gaussian_likelihood
 
 from copy import deepcopy
 from functools import reduce
@@ -45,69 +44,49 @@ if cfg['sky_model'].get('plot_sky_model', False):
 
 
 internal_sky_key = 'sky'
-
-data_set_new = deepcopy(data_set)
-for key, val in data_set_new.items():
-    val['model_type'] = 'linear'
-    val['subsample'] = cfg['telescope']['rotation_and_shift']['subsample']
-
-
-likelihood = build_jwst_model(
-    sky_model=jft.Model(jft.wrap_left(sky_model, internal_sky_key),
-                        domain=sky_model.domain),
-    reconstruction_grid=reco_grid,
-    data_set=data_set_new,
-    world_extrema_key='from_data')
-likelihood_new = connect_likelihood_to_model(
-    likelihood,
-    jft.Model(jft.wrap_left(sky_model, internal_sky_key),
-              domain=sky_model.domain)
-)
+sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
+                               domain=sky_model.domain)
 
 likelihoods = []
-for ii, (dkey, data_dict) in enumerate(data_set.items()):
-    data, mask, std, data_grid = (
-        data_dict['data'], data_dict['mask'], data_dict['std'],
-        data_dict['grid'])
+for ii, (dkey, data) in enumerate(data_set.items()):
 
-    data_model = build_integration(
-        reconstruction_grid=reco_grid,
-        data_grid=data_grid,
-        data_mask=mask,
-        sky_model=jft.Model(
-            jft.wrap_left(sky_model, internal_sky_key),
-            domain=sky_model.domain),
-        data_model_keyword=cfg['telescope']['rotation_and_shift']['model'],
-        subsample=cfg['telescope']['rotation_and_shift']['subsample'],
-        updating=False)
-    data_dict['data_model'] = data_model
+    data_grid = data['grid']
+    data_model = build_data_model(
+        sky_model_with_key.target,
+        reco_grid,
+        data_grid.dvol,
+        data_grid.wcs,
+        cfg['telescope']['rotation_and_shift']['model'],
+        cfg['telescope']['rotation_and_shift']['subsample'],
+        data['mask'],
+        data_grid.world_extrema)
 
-    likelihood = ju.library.likelihood.build_gaussian_likelihood(
-        data.reshape(-1), float(std))
-    likelihood = likelihood.amend(data_model, domain=data_model.domain)
+    data['data_model'] = data_model
+
+    likelihood = build_gaussian_likelihood(
+        data['data'].reshape(-1), float(data['std']))
+    likelihood = likelihood.amend(
+        data_model, domain=jft.Vector(data_model.domain))
     likelihoods.append(likelihood)
 
 likelihood = reduce(lambda x, y: x+y, likelihoods)
-likelihood_old = connect_likelihood_to_model(
+likelihood = connect_likelihood_to_model(
     likelihood,
-    jft.Model(jft.wrap_left(sky_model, internal_sky_key),
-              domain=sky_model.domain)
+    sky_model_with_key
 )
-
-test_val = jft.random_like(test_key, sky_model.domain)
-assert allclose(likelihood_new(test_val), likelihood_old(test_val))
 
 
 evaluation_mask = build_evaluation_mask(reco_grid, data_set)
 plot = build_mock_plot(
     data_set=data_set,
     comparison_sky=comp_sky,
+    internal_sky_key=internal_sky_key,
     sky_model=sky_model,
     res_dir=res_dir,
     eval_mask=evaluation_mask,
 )
 
-pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood_new.domain))
+pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
 cfg = ju.get_config('demos/jwst_mock_config.yaml')
 minimization_config = cfg['minimization']
@@ -118,7 +97,7 @@ minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
 print(f'Results: {res_dir}')
 samples, state = jft.optimize_kl(
-    likelihood_new,
+    likelihood,
     pos_init,
     key=rec_key,
     kl_kwargs=kl_solver_kwargs,

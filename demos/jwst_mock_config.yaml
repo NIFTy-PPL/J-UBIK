@@ -4,10 +4,10 @@ mock_setup:
   plot: False
   noise_scale: 0.01
   mock_distance: 0.05
-  mock_shape: 1536 // 8
-  rota_shape: 768 // 8
-  reco_shape: 256 // 8
-  data_shape: 48 // 8
+  mock_shape: 1536 
+  rota_shape: 768 
+  reco_shape: 256
+  data_shape: 48
   shifts: [[10, 0], [0, 0]]
   reported_shifts: [[10, 0], [0, 0]]
   rotations: [2, 23]

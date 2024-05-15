@@ -11,6 +11,8 @@ class JwstData:
         self.dm = datamodels.open(filepath)
         self.wcs = WcsJwstData(self.dm.meta.wcs)
         self.shape = self.dm.data.shape
+        self.filter = self.dm.meta.instrument.filter.lower()
+        self.camera = self.dm.meta.instrument.name.lower()
 
     def data_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
         '''Find the data values inside the extrema.

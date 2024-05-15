@@ -1,19 +1,22 @@
 seed: 42
 mock: False
 
-plotting:
-  enabled: True
-  slice: Null
-  dpi: 400
-
 grid:
   # Assuming the same fov as telescope
-  npix: 64
-  padding_ratio: 1.5
+  sdim: 256
+  edim: 1
+  s_padding_ratio: 1.5
+  e_padding_ratio: 1
 
-# reconstruction_grid:
-#   npix: 256
-#   padding_ratio: 1.0
+  energy_bin:
+    e_min:
+    - 0.2
+    - 1.0
+    e_max:
+    - 1.0
+    - 1.8
+    e_ref:
+    - 0
 
 telescope:
   # fov: 8.064
@@ -21,7 +24,7 @@ telescope:
   fov_unit: arcsec
 
   integration_model:
-    model: 'sparse' # 'sparse', 'interpolation', 'udpating_interpolation', 'nufft'
+    model: 'linear' # 'sparse', 'linear', 'nufft'
     subsample: 3
     mean: [0, 0]
     sigma: [0.1, 0.1]
@@ -40,10 +43,7 @@ telescope:
 
 
 files:
-  # res_dir: 'results/jwst_test/f444w_64_interpad/'
-  res_dir: 'results/jwst_test/f444w_64_sparsepad_new2/'
-  # res_dir: 'results/jwst_test/f444w_64_updatepad/'
-  # res_dir: 'results/jwst_test/f444w_64_nufft/'
+  res_dir: 'results/jwst_test/f444w_256_wpsf'
 
   filter:
     # f115w: # NIRCam
@@ -155,27 +155,80 @@ files:
 
 
 priors:
-  point_sources: null
+  point_sources: 
+    nothing: Null
+
   diffuse:
-    offset:
-      offset_mean: 1. # exposure norm = 4.4 *10^-5
-      offset_std:
-        - 0.2
-        - 0.05
-    fluctuations:
+    spatial:
+      offset:
+        offset_mean: -5.0
+        offset_std:
+          - 0.2
+          - 0.05
       fluctuations:
-        - 1.5
-        - 0.8
-      loglogavgslope:
-        - -3.
-        - 1.0
-      flexibility:
-        - 0.8
-        - 0.1
-      asperity:
-        - 0.2
-        - 0.1
-    prefix: diffuse_
+        fluctuations:
+          - 0.8
+          - 0.08
+        loglogavgslope:
+          - -4.0
+          - 0.4
+        flexibility:
+          - 0.8
+          - 0.08
+        asperity: Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_spatial_
+    plaw:
+      offset:
+        offset_mean: -2.0
+        offset_std:
+          - 0.3
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.05
+        loglogavgslope:
+          - -5.
+          - 1.0e-2
+        flexibility:
+          - 0.5
+          - 0.05
+        asperity:
+          Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_plaw_
+    # dev_wp:
+    #   x0:
+    #     - 0
+    #     - 0.1
+    #   sigma:
+    #     - 0.3
+    #     - 0.1
+    #   dt: 1
+    #   name: 'diffuse_dev_wp'
+#    dev_corr:
+#      fluctuations:
+#        fluctuations:
+#          - 1.0
+#          - 5.0e-3
+#        loglogavgslope:
+#          - -3
+#          - 1.0e-2
+#        flexibility:
+#          - 2.0
+#          - 5.0e-1
+#        asperity:
+#        non_parametric_kind: "power"
+#        # harmonic_type: "Fourier"
+#      prefix: diffuse_dev_
+#      offset:
+#        offset_mean: 0.0
+#        offset_std:
+#          - 1.0e-3
+#          - 1.0e-4
 
 
 minimization:

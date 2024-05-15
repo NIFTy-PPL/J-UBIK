@@ -1,14 +1,13 @@
 import nifty8.re as jft
 
-from functools import reduce
-
+from .wcs.wcs_base import WcsBase
 from .rotation_and_shift import build_rotation_and_shift_model
 from .masking import build_mask
-from .psf import build_no_psf, build_psf
+from .psf.build_psf import instantiate_psf, build_webb_psf
 from .integration_model import build_sum_integration
 from .rotation_and_shift import RotationAndShiftModel
-from ..library.likelihood import build_gaussian_likelihood
 
+from .reconstruction_grid import Grid
 from astropy.coordinates import SkyCoord
 from typing import Tuple, Callable
 from numpy.typing import ArrayLike
@@ -39,44 +38,76 @@ class DataModel(jft.Model):
         return self.mask(self.integrate(self.psf(self.rotation_and_shift(x))))
 
 
-def build_jwst_model(
-    sky_model,
-    reconstruction_grid,
-    data_set,
-    world_extrema_key: Tuple[SkyCoord]
-):
+def build_data_model(
+    sky_domain: dict,
+    reconstruction_grid: Grid,
+    subsample: int,
+    rotation_and_shift_kwargs: dict,
+    psf_kwargs: dict,
+    data_mask: ArrayLike,
+    world_extrema: Tuple[SkyCoord],
+) -> DataModel:
+    '''Build the data model for a Jwst observation. The data model pipline:
+    rotation_and_shift | psf | integrate | mask
 
-    likelihoods = []
-    for ii, (dkey, data) in enumerate(data_set.items()):
+    Parameters
+    ----------
+    sky_domain: dict
+        Containing the sky_key and the shape_dtype of the reconstruction sky.
 
-        rotation_and_shift = build_rotation_and_shift_model(
-            sky_domain=sky_model.target,
-            world_extrema_key=world_extrema_key,
-            reconstruction_grid=reconstruction_grid,
-            data_key=dkey,
-            data_grid=data['grid'],
-            **data,
-        )
+    reconstruction_grid: Grid
 
-        # psf = build_psf_model(parameters)
-        psf = build_no_psf()
+    subsample: int
+        The subsample factor for the data grid.
 
-        integrate = build_sum_integration(
-            rotation_and_shift.target.shape,
-            data['subsample'])
+    rotation_and_shift_kwargs: dict
+        data_dvol: Unit, the volume of a data pixel
+        data_wcs: WcsBase,
+        data_model_type: str,
 
-        mask = build_mask(data['mask'])
+    psf_kwargs:
+        camera: str, NIRCam or MIRI
+        filter: str
+        center_pix: tuple, pixel according to which to evaluate the psf model
+        webbpsf_path: str
+        fov_pixels: int, how many pixles considered for the psf,
 
-        data_model = DataModel(
-            sky_model.target, rotation_and_shift, psf, integrate, mask)
+    data_mask: ArrayLike
+        The mask on the data
 
-        data['data_model'] = data_model
+    world_extrema: Tuple[SkyCoord]
+        The extrema for the evaluation
+    '''
 
-        likelihood = build_gaussian_likelihood(
-            data['data'].reshape(-1), float(data['std']))
-        likelihood = likelihood.amend(
-            data_model, domain=jft.Vector(data_model.domain))
-        likelihoods.append(likelihood)
+    need_sky_key = 'Need to provide an internal key to the target of the sky model'
+    assert isinstance(sky_domain, dict), need_sky_key
 
-    likelihood = reduce(lambda x, y: x+y, likelihoods)
-    return likelihood
+    rotation_and_shift = build_rotation_and_shift_model(
+        sky_domain=sky_domain,
+        world_extrema=world_extrema,
+        reconstruction_grid=reconstruction_grid,
+        data_grid_dvol=rotation_and_shift_kwargs['data_dvol'],
+        data_grid_wcs=rotation_and_shift_kwargs['data_wcs'],
+        model_type=rotation_and_shift_kwargs['data_model_type'],
+        subsample=subsample,
+        kwargs={},
+    )
+
+    psf_kernel = build_webb_psf(
+        camera=psf_kwargs['camera'],
+        filter=psf_kwargs['filter'],
+        center_pixel=psf_kwargs['center_pixel'],
+        webbpsf_path=psf_kwargs['webbpsf_path'],
+        fov_pixels=psf_kwargs['fov_pixels'],
+        subsample=subsample,
+    ) if len(psf_kwargs) != 0 else None
+    psf = instantiate_psf(psf_kernel)
+
+    integrate = build_sum_integration(
+        high_res_shape=rotation_and_shift.target.shape,
+        reduction_factor=subsample,
+    )
+
+    mask = build_mask(data_mask)
+
+    return DataModel(sky_domain, rotation_and_shift, psf, integrate, mask)

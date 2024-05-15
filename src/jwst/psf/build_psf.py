@@ -1,8 +1,8 @@
-from typing import Tuple
+from jax.scipy.signal import fftconvolve
+from functools import partial
 
-
-def build_no_psf():
-    return lambda x: x
+from typing import Tuple, Callable
+from numpy.typing import ArrayLike
 
 
 def build_webb_psf(
@@ -10,7 +10,7 @@ def build_webb_psf(
     filter: str,
     center_pixel: Tuple[float],
     webbpsf_path: str,
-    fov_arcsec: float,
+    fov_pixels: int,
     subsample: int,
     normalize: str = 'last'
 ):
@@ -35,12 +35,33 @@ def build_webb_psf(
     psf_model.detector_position = center_pixel
 
     psf = psf_model.calc_psf(
-        fov_arcsec=fov_arcsec,
+        fov_pixels=fov_pixels,
+        # fov_arcsec=fov_arcsec,
         oversample=subsample,
         normalize='last')
 
-    return psf[0].data
+    return psf[2].data
 
 
-def build_psf():
-    pass
+def PsfOperator_fft(field, kernel):
+    '''Creates a Psf-operator: convolution of field by kernel'''
+    return fftconvolve(field, kernel, mode='same')
+
+
+def instantiate_psf(psf: ArrayLike | None) -> Callable[ArrayLike, ArrayLike]:
+    '''Build psf convolution operator from psf array. If None is provided the 
+    psf operator returns the field.
+
+    Parameters
+    ----------
+    psf : ArrayLike or None
+
+    Return
+    ------
+    Callable which convolves its input by the psf kernel. 
+    If psf kernel is None, the Callable is lambda x: x
+    '''
+    if psf is None:
+        return lambda x: x
+
+    return partial(PsfOperator_fft, kernel=psf)

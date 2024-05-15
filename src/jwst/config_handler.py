@@ -13,7 +13,7 @@ def define_location(config: dict) -> SkyCoord:
 
 
 def get_shape(config: dict) -> Tuple[int, int]:
-    npix = config['grid']['npix']
+    npix = config['grid']['sdim']
     return (npix, npix)
 
 

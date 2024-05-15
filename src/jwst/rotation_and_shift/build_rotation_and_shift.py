@@ -1,11 +1,14 @@
 import nifty8.re as jft
 
+from ..wcs.wcs_base import WcsBase
 from ..wcs import (subsample_grid_centers_in_index_grid_non_vstack,
                    subsample_grid_corners_in_index_grid)
 from ..reconstruction_grid import Grid
 from .linear_rotation_and_shift import build_linear_rotation_and_shift
 from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
 
+
+from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 from typing import Callable, Union, Tuple
 
@@ -38,33 +41,23 @@ class RotationAndShiftModel(jft.Model):
 
 def build_rotation_and_shift_model(
     sky_domain: dict,
-    world_extrema_key: str,
+    world_extrema: Tuple[SkyCoord],
     reconstruction_grid: Grid,
-    data_key: str,
-    data_grid: Grid,
+    data_grid_dvol: float,
+    data_grid_wcs: WcsBase,
     model_type: str,
     subsample: int,
     **kwargs
 ) -> Callable[Union[ArrayLike, Tuple[ArrayLike, ArrayLike]], ArrayLike]:
 
-    assert isinstance(world_extrema_key, str)
-    try:
-        world_extrema = {
-            'from_data': data_grid.world_extrema,
-            'from_reco': reconstruction_grid.world_extrema
-        }[world_extrema_key]
-    except KeyError as ke:
-        raise KeyError(
-            "The world_extrema_key is either 'from_data' or 'from_reco'"
-            f"provided {world_extrema_key}."
-        ) from ke
+    assert reconstruction_grid.dvol.unit == data_grid_dvol.unit
 
     parameters = dict(
         sky_dvol=reconstruction_grid.dvol.value,
-        sub_dvol=data_grid.dvol.value / subsample**2,
+        sub_dvol=data_grid_dvol.value / subsample**2,
         subsample_centers=subsample_grid_centers_in_index_grid_non_vstack(
             world_extrema,
-            data_grid.wcs,
+            data_grid_wcs,
             reconstruction_grid.wcs,
             subsample),
         order=1
