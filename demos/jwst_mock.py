@@ -59,7 +59,7 @@ for ii, (dkey, data) in enumerate(data_set.items()):
         cfg['telescope']['rotation_and_shift']['model'],
         cfg['telescope']['rotation_and_shift']['subsample'],
         data['mask'],
-        data_grid.world_extrema)
+        data_grid.world_extrema())
 
     data['data_model'] = data_model
 

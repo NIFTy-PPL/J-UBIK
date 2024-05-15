@@ -21,12 +21,12 @@ reconstruction_grid = Grid(CENTER, RECO_SHAPE, FOV)
 subsample = 3
 
 pixel_corners = get_pixel_corners(
-    data_grid.world_extrema,
+    data_grid.world_extrema(),
     data_grid.wcs,
     reconstruction_grid.wcs)
 
 subsample_centers = get_subsamples_from_wcs(
-    data_grid.world_extrema,
+    data_grid.world_extrema(),
     data_grid.wcs,
     reconstruction_grid.wcs,
     subsample)

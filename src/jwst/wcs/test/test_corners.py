@@ -17,7 +17,7 @@ def test_pixel_corners():
     reconstruction_grid = Grid(CENTER, RECO_SHAPE, FOV)
 
     pixel_corners = get_pixel_corners(
-        data_grid.world_extrema,
+        data_grid.world_extrema(),
         data_grid.wcs,
         reconstruction_grid.wcs)
 

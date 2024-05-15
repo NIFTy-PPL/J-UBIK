@@ -35,8 +35,7 @@ class Grid:
     def dvol(self) -> Unit:
         return self.distances[0] * self.distances[1]
 
-    @property
-    def world_extrema(self) -> ArrayLike:
+    def world_extrema(self, extend_factor=1) -> ArrayLike:
         '''The world location of the center of the pixels with the index
         locations = ((0, 0), (0, -1), (-1, 0), (-1, -1))
 
@@ -46,10 +45,12 @@ class Grid:
         index (x) aligning with the columns and the second index (y) aligning
         with the rows.
         '''
-        xmin = 0
-        xmax = self.shape[0]  # - 1 FIXME: Which of the two
-        ymin = 0
-        ymax = self.shape[1]  # - 1
+        ext0, ext1 = [int(shp*extend_factor - shp)//2 for shp in self.shape]
+
+        xmin = -ext0
+        xmax = self.shape[0] + ext1  # - 1 FIXME: Which of the two
+        ymin = -ext1
+        ymax = self.shape[1] + ext1  # - 1
         return self.wcs.wl_from_index([
             (xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)])
 

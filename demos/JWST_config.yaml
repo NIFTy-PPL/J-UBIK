@@ -5,6 +5,7 @@ grid:
   # Assuming the same fov as telescope
   sdim: 256
   edim: 1
+  d_padding_ratio: 1.2
   s_padding_ratio: 1.5
   e_padding_ratio: 1
 

@@ -102,7 +102,7 @@ def build_evaluation_mask(reco_grid, data_set, comp_sky=None):
         _, data_grid = data_set[data_key]['data'], data_set[data_key]['grid']
 
         index = data_grid.wcs.index_grid_from_wl_extrema(
-            data_grid.world_extrema)
+            data_grid.world_extrema())
         wl_data_centers = data_grid.wcs.wl_from_index([index])[0]
 
         px_reco_datapix_cntr = reco_grid.wcs.index_from_wl(wl_data_centers)[0]

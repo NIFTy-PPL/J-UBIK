@@ -179,7 +179,7 @@ def setup(
         datas[f'd_{ii}'] = dict(data=data, mask=mask, std=std, grid=data_grid)
 
         if plot:
-            arr = mock_grid.wcs.index_from_wl(data_grid.world_extrema).T
+            arr = mock_grid.wcs.index_from_wl(data_grid.world_extrema()).T
 
             fig, ax = plt.subplots(2, 2)
             (a00, a01), (a10, a11) = ax

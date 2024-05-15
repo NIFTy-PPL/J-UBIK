@@ -52,12 +52,14 @@ internal_sky_key = 'sky'
 # sky_model = sky_model_new.create_sky_model()
 # # sky_model = sky_dict['sky']
 
+S_PADDING_RATIO = cfg['grid']['s_padding_ratio']
+D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
 sky_model_small, sky_model = build_sky_model(
     reconstruction_grid.shape,
     [d.to(u.arcsec).value for d in reconstruction_grid.distances],
     cfg['priors']['diffuse']['spatial']['offset'],
     cfg['priors']['diffuse']['spatial']['fluctuations'],
-    extend=cfg['grid']['s_padding_factor']
+    extend=S_PADDING_RATIO
 )
 sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
                                domain=sky_model.domain)
@@ -82,20 +84,20 @@ for fltname, flt in cfg['files']['filter'].items():
         data_key = f'{fltname}_{ii}'
 
         # define a mask
-        data_centers_in_reco = subsample_grid_centers_in_index_grid(
-            reconstruction_grid.world_extrema,
+        data_centers = np.squeeze(subsample_grid_centers_in_index_grid(
+            reconstruction_grid.world_extrema(D_PADDING_RATIO),
             jwst_data.wcs,
             reconstruction_grid.wcs,
-            1)
-        # # FIXME: Sould this be so????
-        # data_centers = np.squeeze(data_centers_in_reco[:, ::-1, :, :])
-        data_centers = np.squeeze(data_centers_in_reco)
+            1))
         mask = get_mask_from_index_centers(
             data_centers, reconstruction_grid.shape)
-        mask *= jwst_data.nan_inside_extrema(reconstruction_grid.world_extrema)
+        mask *= jwst_data.nan_inside_extrema(
+            reconstruction_grid.world_extrema(D_PADDING_RATIO))
 
-        data = jwst_data.data_inside_extrema(reconstruction_grid.world_extrema)
-        std = jwst_data.std_inside_extrema(reconstruction_grid.world_extrema)
+        data = jwst_data.data_inside_extrema(
+            reconstruction_grid.world_extrema(D_PADDING_RATIO))
+        std = jwst_data.std_inside_extrema(
+            reconstruction_grid.world_extrema(D_PADDING_RATIO))
 
         data_model = build_data_model(
             sky_model_with_key.target,
@@ -116,14 +118,13 @@ for fltname, flt in cfg['files']['filter'].items():
                 center_pixel=jwst_data.wcs.index_from_wl(
                     reconstruction_grid.center)[0],
                 webbpsf_path=cfg['telescope']['web_psf']['webpsf_path'],
-                fov_pixels=64,
+                fov_pixels=32,
             ),
-
             # psf_kwargs=dict(),
 
             data_mask=mask,
 
-            world_extrema=reconstruction_grid.world_extrema
+            world_extrema=reconstruction_grid.world_extrema(D_PADDING_RATIO)
         )
 
         data_plotting[data_key] = dict(
@@ -190,10 +191,17 @@ samples, state = jft.optimize_kl(
     **minimization_config)
 
 sky = jft.mean([sky_model_with_key(si) for si in samples])
-data_model = next(iter(data_plotting.values()))['data_model']
 
-plt.imshow(sky['sky'], origin='lower')
-plt.show()
 
-plt.imshow(data_model.rotation_and_shift(sky), origin='lower', norm=LogNorm())
+rs = data_model.rotation_and_shift(sky)
+p = data_model.psf(rs)
+i = data_model.integrate(p)
+
+fig, axes = plt.subplots(1, 4)
+ax, ay, az, aa = axes
+ax.imshow(sky['sky'], origin='lower', norm=LogNorm())
+ay.imshow(rs, origin='lower', norm=LogNorm())
+az.imshow(p, origin='lower', norm=LogNorm())
+aa.imshow(i, origin='lower', norm=LogNorm())
+aa.contour(mask)
 plt.show()

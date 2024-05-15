@@ -17,7 +17,7 @@ def test_subsample_centers():
     subsample = 3
 
     subsample_centers = subsample_grid_centers_in_index_grid(
-        data_grid.world_extrema,
+        data_grid.world_extrema(),
         data_grid.wcs,
         reconstruction_grid.wcs,
         subsample)

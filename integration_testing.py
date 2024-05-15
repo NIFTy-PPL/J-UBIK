@@ -67,7 +67,7 @@ for ii, (dkey, data) in enumerate(data_set.items()):
             data_model_type=MODEL_TYPE),
         psf_kwargs=dict(),
         data_mask=data['mask'],
-        world_extrema=data_grid.world_extrema)
+        world_extrema=data_grid.world_extrema())
 
     data['data_model'] = data_model
 

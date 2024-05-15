@@ -38,14 +38,14 @@ def test_subsample_same_fov():
 
     # Test subsampling of 2
     grid_subs = subsample_grid_centers_in_index_grid(
-        data_grid.world_extrema, data_grid.wcs, reco_grid.wcs, subsample=2)
+        data_grid.world_extrema(), data_grid.wcs, reco_grid.wcs, subsample=2)
     coli_subs = colinear_subsampling(
         data_grid.shape, data_grid.distances, reco_grid.distances, subsample=2)
     assert np.allclose(grid_subs, coli_subs, atol=1e-7)
 
     # Test subsampling of 3
     grid_subs = subsample_grid_centers_in_index_grid(
-        data_grid.world_extrema, data_grid.wcs, reco_grid.wcs, subsample=3)
+        data_grid.world_extrema(), data_grid.wcs, reco_grid.wcs, subsample=3)
     coli_subs = colinear_subsampling(
         data_grid.shape, data_grid.distances, reco_grid.distances, subsample=3)
     assert np.allclose(grid_subs, coli_subs, atol=1e-7)
@@ -63,7 +63,7 @@ def test_subsample_bigger_data_fov():
     reco_grid = Grid(center, reco_shape, reco_fov)
 
     grid_subs = subsample_grid_centers_in_index_grid(
-        reco_grid.world_extrema, data_grid.wcs, reco_grid.wcs, subsample=2)
+        reco_grid.world_extrema(), data_grid.wcs, reco_grid.wcs, subsample=2)
     coli_subs = colinear_subsampling(
         reco_grid.shape, data_grid.distances, reco_grid.distances, subsample=2)
 
@@ -82,7 +82,7 @@ def test_subsample_smaller_data_fov():
     reco_grid = Grid(center, reco_shape, reco_fov)
 
     grid_subs = subsample_grid_centers_in_index_grid(
-        reco_grid.world_extrema, data_grid.wcs, reco_grid.wcs, subsample=2)
+        reco_grid.world_extrema(), data_grid.wcs, reco_grid.wcs, subsample=2)
     coli_subs = colinear_subsampling(
         reco_grid.shape, data_grid.distances, reco_grid.distances, subsample=2)
 
