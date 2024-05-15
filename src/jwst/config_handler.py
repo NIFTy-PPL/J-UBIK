@@ -23,6 +23,12 @@ def get_fov(config: dict) -> Tuple[units.Quantity, units.Quantity]:
     return fov*unit
 
 
+def get_rotation(config: dict) -> units.Quantity:
+    rotation = config['telescope']['pointing']['rotation']
+    unit = getattr(units, config['telescope']['pointing'].get('unit', 'deg'))
+    return rotation*unit
+
+
 def config_transform(config: dict):
     for key, val in config.items():
         if isinstance(val, str):

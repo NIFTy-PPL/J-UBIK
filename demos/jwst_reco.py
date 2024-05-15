@@ -21,7 +21,8 @@ from jubik0.library.likelihood import (
 from jubik0.jwst.reconstruction_grid import Grid
 from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
-from jubik0.jwst.config_handler import define_location, get_shape, get_fov
+from jubik0.jwst.config_handler import (define_location, get_shape, get_fov,
+                                        get_rotation)
 from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_model_builder import build_data_model
 from jubik0.jwst.utils import build_sky_model
@@ -40,12 +41,13 @@ cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
 WORLD_LOCATION = define_location(cfg)
 FOV = get_fov(cfg)
 SHAPE = get_shape(cfg)
+ROTATION = get_rotation(cfg)
 
 res_dir = cfg['files']['res_dir']
 
 # defining the reconstruction grid
 reconstruction_grid = Grid(
-    WORLD_LOCATION, SHAPE, (FOV.to(u.deg), FOV.to(u.deg)))
+    WORLD_LOCATION, SHAPE, (FOV.to(u.deg), FOV.to(u.deg)), rotation=ROTATION)
 internal_sky_key = 'sky'
 
 # sky_model_new = ju.SkyModel(config_file_path=config_path)
@@ -54,7 +56,7 @@ internal_sky_key = 'sky'
 
 S_PADDING_RATIO = cfg['grid']['s_padding_ratio']
 D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
-sky_model_small, sky_model = build_sky_model(
+small_sky_model, sky_model = build_sky_model(
     reconstruction_grid.shape,
     [d.to(u.arcsec).value for d in reconstruction_grid.distances],
     cfg['priors']['diffuse']['spatial']['offset'],
@@ -120,6 +122,7 @@ for fltname, flt in cfg['files']['filter'].items():
                 webbpsf_path=cfg['telescope']['web_psf']['webpsf_path'],
                 fov_pixels=32,
             ),
+
             # psf_kwargs=dict(),
 
             data_mask=mask,
@@ -147,29 +150,20 @@ for fltname, flt in cfg['files']['filter'].items():
     )
 
 
-plot = build_plot(
-    data_dict=data_plotting,
-    sky_model=sky_model_with_key,
-    results_directory=res_dir,
-    plotting_config=dict(
-        norm=LogNorm,
-        sky_extent=reconstruction_grid.extent()
-    ))
-
 key = random.PRNGKey(87)
 key, rec_key = random.split(key, 2)
 
-for ii in range(3):
-    key, test_key = random.split(key, 2)
-    sky = sky_model_with_key(jft.random_like(test_key, sky_model.domain))
-    plot_sky(sky, data_plotting)
+# for ii in range(3):
+#     key, test_key = random.split(key, 2)
+#     sky = sky_model_with_key(jft.random_like(test_key, sky_model.domain))
+#     plot_sky(sky, data_plotting)
 
-    fig, axes = plt.subplots(1, 2)
-    ax, ay = axes
-    ax.imshow(sky['sky'], origin='lower', norm=LogNorm())
-    ay.imshow(data_model.rotation_and_shift(sky),
-              origin='lower', norm=LogNorm())
-    plt.show()
+#     fig, axes = plt.subplots(1, 2)
+#     ax, ay = axes
+#     ax.imshow(sky['sky'], origin='lower', norm=LogNorm())
+#     ay.imshow(data_model.rotation_and_shift(sky),
+#               origin='lower', norm=LogNorm())
+#     plt.show()
 
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood_new.domain))
 
@@ -179,6 +173,16 @@ kl_solver_kwargs = minimization_config.pop('kl_kwargs')
 minimization_config['n_total_iterations'] = 12
 # minimization_config['resume'] = True
 minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
+
+plot = build_plot(
+    data_dict=data_plotting,
+    sky_model=sky_model_with_key,
+    small_sky_model=small_sky_model,
+    results_directory=res_dir,
+    plotting_config=dict(
+        norm=LogNorm,
+        sky_extent=reconstruction_grid.extent()
+    ))
 
 print(f'Results: {res_dir}')
 samples, state = jft.optimize_kl(
@@ -191,7 +195,6 @@ samples, state = jft.optimize_kl(
     **minimization_config)
 
 sky = jft.mean([sky_model_with_key(si) for si in samples])
-
 
 rs = data_model.rotation_and_shift(sky)
 p = data_model.psf(rs)

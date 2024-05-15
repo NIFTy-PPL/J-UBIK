@@ -21,10 +21,15 @@ def build_sky_model(shape, dist, offset, fluctuations, extend=1.5):
         **fluctuations)
     log_diffuse = cfm.finalize()
 
-    ext0, ext1 = [int(shp*extend - shp)//2 for shp in shape]
+    # ext0, ext1 = [int(shp*extend - shp)//2 for shp in shape]
+
+    # def diffuse(x):
+    #     return jnp.exp(log_diffuse(x)[ext0:-ext0, ext1:-ext1])
+
+    ext0, ext1 = [int(shp*extend - shp) for shp in shape]
 
     def diffuse(x):
-        return jnp.exp(log_diffuse(x)[ext0:-ext0, ext1:-ext1])
+        return jnp.exp(log_diffuse(x)[:-ext0, :-ext1])
 
     def full_diffuse(x):
         return jnp.exp(log_diffuse(x))

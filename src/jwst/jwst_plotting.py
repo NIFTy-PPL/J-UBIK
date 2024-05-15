@@ -39,6 +39,7 @@ def find_closest_factors(number):
 def build_plot(
     data_dict: dict,
     sky_model: jft.Model,
+    small_sky_model: jft.Model,
     results_directory: str,
     plotting_config: dict
 ):
@@ -105,7 +106,7 @@ def build_plot(
         fig, axes = plt.subplots(
             ylen, xlen, figsize=(2*xlen, 1.5*ylen), dpi=300)
 
-        samps = [next(iter(sky_model(si).values())) for si in samples]
+        samps = [small_sky_model(si) for si in samples]
         mean, std = jft.mean_and_std(samps)
         flds = [mean, std/mean] + samps
 
