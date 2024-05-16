@@ -33,6 +33,15 @@ def _smooth(sig, x):
     return np.array(smooth_data)
 
 
+def _clip(x, sat_min, sat_max):
+    clipped = np.zeros(x.shape)
+    print("Change the Saturation")
+    for i in range(3):
+        clipped[i] = np.clip(x[i], a_min=sat_min[i], a_max=sat_max[i])
+        clipped[i] = clipped[i]-sat_min[i]
+    return clipped
+
+
 def _non_zero_log(x):
     x[x >= 1] = np.log(x[x >= 1])
     return x
