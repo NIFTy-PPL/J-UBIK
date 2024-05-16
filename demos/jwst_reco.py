@@ -120,6 +120,7 @@ for fltname, flt in cfg['files']['filter'].items():
                 center_pixel=jwst_data.wcs.index_from_wl(
                     reconstruction_grid.center)[0],
                 webbpsf_path=cfg['telescope']['web_psf']['webpsf_path'],
+                psf_library_path=cfg['telescope']['web_psf']['psf_library'],
                 fov_pixels=32,
             ),
 

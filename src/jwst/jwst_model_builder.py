@@ -1,9 +1,8 @@
 import nifty8.re as jft
 
-from .wcs.wcs_base import WcsBase
 from .rotation_and_shift import build_rotation_and_shift_model
 from .masking import build_mask
-from .psf.build_psf import instantiate_psf, build_webb_psf
+from .psf.build_psf import instantiate_psf, load_psf_kernel
 from .integration_model import build_sum_integration
 from .rotation_and_shift import RotationAndShiftModel
 
@@ -93,11 +92,12 @@ def build_data_model(
         kwargs={},
     )
 
-    psf_kernel = build_webb_psf(
+    psf_kernel = load_psf_kernel(
         camera=psf_kwargs['camera'],
         filter=psf_kwargs['filter'],
         center_pixel=psf_kwargs['center_pixel'],
         webbpsf_path=psf_kwargs['webbpsf_path'],
+        psf_library_path=psf_kwargs['psf_library_path'],
         fov_pixels=psf_kwargs['fov_pixels'],
         subsample=subsample,
     ) if len(psf_kwargs) != 0 else None
