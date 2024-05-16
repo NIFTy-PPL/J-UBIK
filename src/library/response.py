@@ -170,6 +170,7 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
 
 
 def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
+                                     caldb_folder_name='caldb',
                                      arf_filename_suffix='_arf_filter_000101v02.fits',
                                      n_points=500):
     """
@@ -188,7 +189,9 @@ def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
         Minimum energies (in keV) at which to calculate the effective area.
     e_max : np.ndarray
         Maximum energies (in keV) at which to calculate the effective area.
-    arf_filename_suffix : str
+    caldb_folder_name : str, optional
+        Name of the calibration database folder.
+    arf_filename_suffix : str, optional
         Suffix of the ARF file name.
     n_points : int, optional
         Number of points to use for the interpolation.
@@ -203,7 +206,7 @@ def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
     ValueError
         If the energy is out of range.
     """
-    path = join(path_to_caldb, 'caldb', 'data', 'erosita')
+    path = join(path_to_caldb, caldb_folder_name, 'data', 'erosita')
     effective_areas = []
     e_min = np.array(e_min)
     e_max = np.array(e_max)
@@ -383,11 +386,18 @@ def build_erosita_response_from_config(config_file_path):
                                             exposure_cut=tel_info['exp_cut'])
 
     if tel_info['effective_area_correction']:
+        caldb_folder_name = 'caldb'
+        arf_filename_suffix = '_arf_filter_000101v02.fits'
+        if 'caldb_folder_name' in file_info.keys():
+            caldb_folder_name = file_info['caldb_folder_name']
+        if 'arf_filename_suffix' in file_info.keys():
+            arf_filename_suffix = file_info['arf_filename_suffix']
         effective_area = calculate_erosita_effective_area(file_info['calibration_path'],
                                                           tel_info['tm_ids'],
                                                           np.array(e_min),
                                                           np.array(e_max),
-                                                          arf_filename_suffix=file_info['effective_area_filename_suffix'])
+                                                          caldb_folder_name=caldb_folder_name,
+                                                          arf_filename_suffix=arf_filename_suffix)
         exposure_func = lambda x: tmp(x) * effective_area[:, :, np.newaxis, np.newaxis]
     else:
         exposure_func = tmp
