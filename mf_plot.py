@@ -23,10 +23,13 @@ def get_gaussian_kernel(domain, sigma):
     return kern.T
 
 
-def _smooth(sig, data):
+def _smooth(sig, x):
+    domain = ju.Domain(x.shape, np.ones([3]))
+    gauss_domain = ju.Domain(x.shape[1:], np.ones([2]))
+
     smoothing_kernel = get_gaussian_kernel(gauss_domain, sig)
     smoothing_kernel = smoothing_kernel[np.newaxis, ...]
-    smooth_data = ju.jifty_convolve(data, smoothing_kernel, domain, [1, 2])
+    smooth_data = ju.jifty_convolve(x, smoothing_kernel, domain, [1, 2])
     return np.array(smooth_data)
 
 
