@@ -3,6 +3,8 @@ from pathlib import Path
 
 import numpy as np
 import nifty8.re as jft
+from astropy.io import fits
+
 from .erosita_psf import eROSITA_PSF
 from .data import Domain
 from .utils import get_config
@@ -157,7 +159,6 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
             if file.endswith('.npy'):
                 tm_exposures.append(np.load(file))
             elif file.endswith('.fits'):
-                from astropy.io import fits
                 tm_exposures.append(fits.open(file)[0].data)
             elif not (file.endswith('.npy') or file.endswith('.fits')):
                 raise ValueError('exposure files should be in a .npy or .fits format!')
@@ -166,6 +167,68 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     exposures.append(tm_exposures)
     exposures = np.array(exposures, dtype="float64") # in fits there is only >f4 meaning float32
     return builder(exposures, **kwargs)
+
+
+def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
+                                     caldb_folder_name='caldb',
+                                     arf_filename_suffix='_arf_filter_000101v02.fits',
+                                     n_points=500):
+    """
+    Returns the effective area for the given energy range (in keV) and
+    telescope module list (in cm^2).
+    The effective area is computed by linearly interpolating the effective area contained in the ARF
+     file on the desired energy ranges and taking the average within each energy range.
+
+    Parameters
+    ----------
+    path_to_caldb : str
+        Path to the eROSITA calibration database.
+    tm_ids : list
+        List of telescope module IDs.
+    e_min : np.ndarray
+        Minimum energies (in keV) at which to calculate the effective area.
+    e_max : np.ndarray
+        Maximum energies (in keV) at which to calculate the effective area.
+    caldb_folder_name : str, optional
+        Name of the calibration database folder.
+    arf_filename_suffix : str, optional
+        Suffix of the ARF file name.
+    n_points : int, optional
+        Number of points to use for the interpolation.
+
+    Returns
+    -------
+    effective_areas : np.ndarray
+        Effective area in cm^2
+
+    Raises
+    ------
+    ValueError
+        If the energy is out of range.
+    """
+    path = join(path_to_caldb, caldb_folder_name, 'data', 'erosita')
+    effective_areas = []
+    e_min = np.array(e_min)
+    e_max = np.array(e_max)
+    for tm_id in tm_ids:
+        arf_filename = join(path, f'tm{tm_id}', 'bcf', f'tm{tm_id}{arf_filename_suffix}')
+        with fits.open(arf_filename) as f:
+            energy_low = f['SPECRESP'].data["ENERG_LO"]
+            energy_hi = f['SPECRESP'].data["ENERG_HI"]
+            effective_area = f['SPECRESP'].data["SPECRESP"]
+        if np.any(e_min < energy_low[0]):
+            loc = np.where(e_min < energy_low[0])
+            raise ValueError(f'Energy {e_min[loc]} keV is out of range!')
+        if np.any(e_max > energy_hi[-1]):
+            loc = np.where(e_max > energy_hi[-1])
+            raise ValueError(f'Energy {e_max[loc]} keV is out of range!')
+        coords = (energy_hi + energy_low) / 2
+        effective_areas_in_bin = []
+        for i in range(e_min.shape[0]):
+            energies = np.linspace(e_min[i], e_max[i], n_points)
+            effective_areas_in_bin.append(np.mean(np.interp(energies, coords, effective_area)))
+        effective_areas.append(effective_areas_in_bin)
+    return np.array(effective_areas)
 
 
 def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
@@ -190,6 +253,7 @@ def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
                                convolution_method,
                                cdict)
     return psf_func
+
 
 def _build_tm_erosita_psf_array(psf_filename, energies, pointing_center,
                                 domain, npatch):
@@ -256,7 +320,7 @@ def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
 
 
 def build_erosita_response_from_config(config_file_path):
-    """ Builds the eROSITA reponse from a yaml config file.
+    """ Builds the eROSITA response from a yaml config file.
     #TODO Example / Needed Entries in yaml
     """
     # load config
@@ -317,9 +381,26 @@ def build_erosita_response_from_config(config_file_path):
     psf_func = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center,
                                  domain, psf_info['npatch'], psf_info['margfrac'])
 
-    exposure_func = build_callable_from_exposure_file(build_exposure_function,
-                                                      exposure_filenames,
-                                                      exposure_cut=tel_info['exp_cut'])
+    tmp = build_callable_from_exposure_file(build_exposure_function,
+                                            exposure_filenames,
+                                            exposure_cut=tel_info['exp_cut'])
+
+    if tel_info['effective_area_correction']:
+        caldb_folder_name = 'caldb'
+        arf_filename_suffix = '_arf_filter_000101v02.fits'
+        if 'caldb_folder_name' in file_info.keys():
+            caldb_folder_name = file_info['caldb_folder_name']
+        if 'arf_filename_suffix' in file_info.keys():
+            arf_filename_suffix = file_info['arf_filename_suffix']
+        effective_area = calculate_erosita_effective_area(file_info['calibration_path'],
+                                                          tel_info['tm_ids'],
+                                                          np.array(e_min),
+                                                          np.array(e_max),
+                                                          caldb_folder_name=caldb_folder_name,
+                                                          arf_filename_suffix=arf_filename_suffix)
+        exposure_func = lambda x: tmp(x) * effective_area[:, :, np.newaxis, np.newaxis]
+    else:
+        exposure_func = tmp
 
     mask_func = build_callable_from_exposure_file(build_readout_function,
                                                   exposure_filenames,
