@@ -1,12 +1,12 @@
 # Basic MF Plot
 
-import jubik0 as ju
+from functools import reduce
+import numpy as np
+
 from astropy.io import fits
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
 
-import numpy as np
-from functools import reduce
+import jubik0 as ju
 
 
 def get_gaussian_kernel(domain, sigma):
