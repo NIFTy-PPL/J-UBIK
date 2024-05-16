@@ -51,8 +51,9 @@ reconstruction_grid = Grid(
 internal_sky_key = 'sky'
 
 # sky_model_new = ju.SkyModel(config_file_path=config_path)
-# sky_model = sky_model_new.create_sky_model()
-# # sky_model = sky_dict['sky']
+# small_sky_model = sky_model_new.create_sky_model()
+# sky_model = sky_model_new.full_diffuse
+# exit()
 
 S_PADDING_RATIO = cfg['grid']['s_padding_ratio']
 D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
@@ -124,8 +125,6 @@ for fltname, flt in cfg['files']['filter'].items():
                 fov_pixels=32,
             ),
 
-            # psf_kwargs=dict(),
-
             data_mask=mask,
 
             world_extrema=reconstruction_grid.world_extrema(D_PADDING_RATIO)
@@ -154,17 +153,25 @@ for fltname, flt in cfg['files']['filter'].items():
 key = random.PRNGKey(87)
 key, rec_key = random.split(key, 2)
 
-# for ii in range(3):
-#     key, test_key = random.split(key, 2)
-#     sky = sky_model_with_key(jft.random_like(test_key, sky_model.domain))
-#     plot_sky(sky, data_plotting)
+for ii in range(3):
+    key, test_key = random.split(key, 2)
+    sky = sky_model_with_key(jft.random_like(test_key, sky_model.domain))
+    # plot_sky(sky, data_plotting)
 
-#     fig, axes = plt.subplots(1, 2)
-#     ax, ay = axes
-#     ax.imshow(sky['sky'], origin='lower', norm=LogNorm())
-#     ay.imshow(data_model.rotation_and_shift(sky),
-#               origin='lower', norm=LogNorm())
-#     plt.show()
+    fig, axes = plt.subplots(1, 3)
+    ax, az, aa = axes
+    ims = []
+    ax.set_title('high_res sky')
+    az.set_title('integrated sky')
+    aa.set_title('data')
+    ims.append(ax.imshow(sky['sky'], origin='lower', norm=LogNorm()))
+    ims.append(az.imshow(data_model.integrate(data_model.rotation_and_shift(
+        sky)), origin='lower', norm=LogNorm()))
+    ims.append(aa.imshow(next(iter(data_plotting.values()))['data'],
+                         origin='lower', norm=LogNorm()))
+    for ax, im in zip(axes, ims):
+        plt.colorbar(im, ax=ax)
+    plt.show()
 
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood_new.domain))
 
@@ -177,12 +184,13 @@ minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
 plot = build_plot(
     data_dict=data_plotting,
-    sky_model=sky_model_with_key,
+    sky_model_with_key=sky_model_with_key,
+    sky_model=sky_model,
     small_sky_model=small_sky_model,
     results_directory=res_dir,
     plotting_config=dict(
         norm=LogNorm,
-        sky_extent=reconstruction_grid.extent()
+        sky_extent=None
     ))
 
 print(f'Results: {res_dir}')

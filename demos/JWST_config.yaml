@@ -125,55 +125,23 @@ files:
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_cal.fits'
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o015_t001_miri_f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_cal.fits'
 
-  data:
-    likelihood_01:
-      pixel_size:  0.063
-      pixel_shift: '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/pix_shift.npy'
-      psf_path:    '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/psf_oversample_2.fits'
-      data_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/data.fits'
-      noise_path:  '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/err.fits'
-      mask_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal01/mask.fits'
-      source_path: null
-      zero_flux: 
-        mean:
-          distribution: 'normal'
-          mean: 0.3
-          sigma: 0.01
-
-    likelihood_02:
-      pixel_size:  0.063
-      pixel_shift: '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/pix_shift.npy'
-      psf_path:    '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/psf_oversample_2.fits'
-      data_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/data.fits'
-      noise_path:  '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/err.fits'
-      mask_path:   '/home/jruestig/Data/jwst/jw01355_SPT0418-47/final/f444w_cal02/mask.fits'
-      source_path: null
-      zero_flux: 
-        mean:
-          distribution: 'normal'
-          mean: 0.3
-          sigma: 0.01
-
-
 
 priors:
-  point_sources: 
-    nothing: Null
 
   diffuse:
     spatial:
       offset:
-        offset_mean: -5.0
+        offset_mean: -7.0
         offset_std:
-          - 0.2
-          - 0.05
+          - 1.2
+          - 0.5
       fluctuations:
         fluctuations:
-          - 0.8
-          - 0.08
+          - 1.6
+          - 0.1
         loglogavgslope:
-          - -4.0
-          - 0.4
+          - -3.7
+          - 0.3
         flexibility:
           - 0.8
           - 0.08
@@ -181,6 +149,7 @@ priors:
         non_parametric_kind: "power"
         # harmonic_type: "Fourier"
       prefix: diffuse_spatial_
+
     plaw:
       offset:
         offset_mean: -2.0

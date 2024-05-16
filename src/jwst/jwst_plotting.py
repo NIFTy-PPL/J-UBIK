@@ -38,6 +38,7 @@ def find_closest_factors(number):
 
 def build_plot(
     data_dict: dict,
+    sky_model_with_key: jft.Model,
     sky_model: jft.Model,
     small_sky_model: jft.Model,
     results_directory: str,
@@ -72,7 +73,7 @@ def build_plot(
             model_data = []
             for si in samples:
                 tmp = np.zeros_like(dd)
-                tmp[mask] = dm(sky_model(si))
+                tmp[mask] = dm(sky_model_with_key(si))
                 model_data.append(tmp)
 
             mod_mean = jft.mean(model_data)
@@ -101,14 +102,16 @@ def build_plot(
         plt.close()
 
     def plot_sky_with_samples(samples, x):
-        ylen, xlen = find_closest_factors(len(samples)+2)
+        ylen, xlen = find_closest_factors(len(samples)+4)
 
         fig, axes = plt.subplots(
             ylen, xlen, figsize=(2*xlen, 1.5*ylen), dpi=300)
 
-        samps = [small_sky_model(si) for si in samples]
-        mean, std = jft.mean_and_std(samps)
-        flds = [mean, std/mean] + samps
+        samps_big = [sky_model(si) for si in samples]
+        mean, std = jft.mean_and_std(samps_big)
+        mean_small, std_small = jft.mean_and_std(
+            [small_sky_model(si) for si in samples])
+        flds = [mean_small, std_small/mean_small, mean, std/mean] + samps_big
 
         for ax, fld in zip(axes.flatten(), flds):
             im = ax.imshow(fld, origin='lower', norm=norm(), extent=sky_extent)
