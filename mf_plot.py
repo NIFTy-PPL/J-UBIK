@@ -56,7 +56,27 @@ def _norm_rgb_plot(x):
     return plot_data
 
 
-plot_name = "prototyp"
+def plot_rgb(x, name, sat_min, sat_max, sigma=None,log=False):
+    """
+    x: array with shape (RGB, Space, Space)
+    name: str, name of the plot
+    sigma: float or None, if None, no smoothing
+    linsat: boolean, if it should be saturated
+    log: boolean
+    """
+    if sigma is not None:
+        x = _smooth(sigma, x)
+    if sat_min and sat_max is not None:
+        x = _clip(x, sat_min, sat_max)
+    if log:
+        x = _non_zero_log(x)
+    x = np.moveaxis(x, 0, -1)
+    plot_data = _norm_rgb_plot(x)
+    plt.imshow(plot_data, origin="lower")
+    plt.savefig(name + ".png", dpi=500)
+    plt.close()
+
+# Prep Data
 fbase = "data/LMC_SN1987A/processed/"
 tms = ["tm1",  "tm3", "tm4", "tm6", "tm2"]
 
@@ -76,43 +96,15 @@ for fpathl in fpath_list:
     data_arr_i = np.array(data_list_i)
     data_list.append(data_arr_i)
 
-sigma = 0.2
-domain = ju.Domain(np.array([3, 512, 512]), np.array([1, 7.03125, 7.03125]))
-gauss_domain = ju.Domain(np.array([512, 512]), np.array([7.03125, 7.03125]))
-
 data_arr = np.array(data_list)
 data_arr = data_arr.sum(1)
 
+# Plotting Config
+plot_name = "prototyp"
 Log = False
-smooth = True
-lin_sat = True
-
-Sat_min = [1, 1, 1]
-max_percent = [1.412e-3, 9.6e-4, 3.41e-3]
+sigma = 0.02
+max_percent = [1.412e-3, 9.6e-4, 3.00e-3]
 Sat_max = [max_percent[i] * data_arr[i].max() for i in range(3)]
+Sat_min = [2, 0, 2]
 
-
-
-if smooth:
-    plot_name = plot_name + "_smooth"
-    data_arr = _smooth(sigma, data_arr)
-
-# Sat
-if lin_sat:
-    clipped = np.zeros(data_arr.shape)
-    print("Change the Saturation")
-    for i in range(3):
-        clipped[i] = np.clip(data_arr[i], a_min=Sat_min[i], a_max=Sat_max[i])
-        clipped[i] = clipped[i]-Sat_min[i]
-    data_arr = clipped
-
-if Log:
-    data_arr = _non_zero_log(data_arr)
-
-
-data_arr = np.moveaxis(data_arr, 0, -1)
-plot_data = _norm_rgb_plot(data_arr)
-
-plt.imshow(plot_data, origin="lower")
-plt.savefig(plot_name + ".png", dpi=500)
-plt.close()
+plot_rgb(data_arr, plot_name, Sat_min, Sat_max, sigma, log=Log)
