@@ -36,6 +36,7 @@ Additional calibration files might be needed for instrument-specific pipelines.
 ### eROSITA
 In order to compute the eROSITA response accurately, 
 the [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/) folder from DR1 
-should be present inside the data folder.
+should be present inside the `data` directory. 
+This folder can be downloaded at [caldb download](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/caldb4DR1.tgz).
 
 ### JWST
