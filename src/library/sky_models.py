@@ -324,6 +324,9 @@ class SkyModel:
 
         def exp_padding(x): return jnp.exp(
             log_diffuse(x)[:edim, :sdim[0], :sdim[1]])
+        self.full_diffuse = jft.Model(
+            lambda x: jnp.exp(log_diffuse(x))[:edim, :, :],
+            domain=log_diffuse.domain)
         self.diffuse = jft.Model(exp_padding, domain=log_diffuse.domain)
 
     def _create_point_source_model(self, sdim, edim, e_padding_ratio, edistances, prior_dict):
