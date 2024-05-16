@@ -362,9 +362,9 @@ class SkyModel:
             self.points_alpha = jft.NormalPrior(prior_dict['plaw']['mean'], prior_dict['plaw']['std'],
                                                name=prior_dict['plaw']['name'],
                                                shape=sdim, dtype=jnp.float64)
-            self.points_plaw = ju.build_power_law(self._log_rel_ebin_centers(), self.points_alpha)
-            points_plaw = jft.Model(lambda x: self.points_plaw(x),
-                                    domain=self.points_plaw.domain)
+            points_plaw = ju.build_power_law(self._log_rel_ebin_centers(), self.points_alpha)
+            self.points_plaw = jft.Model(lambda x: points_plaw(x),
+                                    domain=points_plaw.domain)
 
         if 'dev_corr' in prior_dict:
             points_dev_cf, self.points_dev_pspec = self._create_correlated_field(ext_e_shp,
@@ -377,15 +377,15 @@ class SkyModel:
                                                         dE=self._log_dE(),
                                                         **prior_dict['dev_wp'])
 
-            self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
+            points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
                                                 sdim, False)
 
-            points_dev_cf = jft.Model(lambda x: self.points_dev_cf(x),
-                                      domain=self.points_dev_cf.domain)
+            self.points_dev_cf = jft.Model(lambda x: points_dev_cf(x),
+                                      domain=points_dev_cf.domain)
 
         log_points = ju.GeneralModel({'spatial': self.points_log_invg,
-                                      'freq_plaw': points_plaw,
-                                      'freq_dev': points_dev_cf}).build_model()
+                                      'freq_plaw': self.points_plaw,
+                                      'freq_dev': self.points_dev_cf}).build_model()
 
         exp_padding = lambda x: jnp.exp(log_points(x)[:edim, :, :])
         self.point_sources = jft.Model(exp_padding, domain=log_points.domain)
