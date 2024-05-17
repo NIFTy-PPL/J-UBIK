@@ -16,6 +16,7 @@ from .library.plot import (plot_slices, plot_result,
                            plot_sample_averaged_log_2d_histogram)
 from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_sample_and_stats,
                                  plot_sample_and_stats)
+from .library.mf_plot import plot_rgb
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
