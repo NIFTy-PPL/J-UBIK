@@ -78,7 +78,7 @@ def build_plot(
 
             model_mean = jft.mean(model_data)
             redchi_mean, redchi2_std = jft.mean_and_std(
-                [redchi2(dd, m, std, dd.size) for m in model_data])
+                [redchi2(dd[mask], m[mask], std[mask], dd[mask].size) for m in model_data])
 
             axes[ii, 0].set_title(f'Data {dkey}')
             ims.append(axes[ii, 0].imshow(dd, origin='lower', norm=norm()))
