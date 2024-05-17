@@ -4,10 +4,12 @@ mock: False
 grid:
   # Assuming the same fov as telescope
   sdim: 256
-  edim: 1
+  edim: 2
   d_padding_ratio: 1.2
   s_padding_ratio: 1.5
-  e_padding_ratio: 1
+  e_padding_ratio: 1.5
+
+  e_keys: [f356w, f444w]
 
   energy_bin:
     e_min:
@@ -17,7 +19,7 @@ grid:
     - 1.0
     - 1.8
     e_ref:
-    - 0
+    - 1
 
 telescope:
   # fov: 8.064
@@ -45,7 +47,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/f356w_256_wpsf'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_256'
 
   filter:
     # f115w: # NIRCam
@@ -68,9 +70,9 @@ files:
       - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
       - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
-    # f444w:
-    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
-    #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
+    f444w:
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
+      - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
     # f444w_i2d:
     #   - '/home/jruestig/Data/jwst/jw01355_SPT0418-47/jw01355-o016_t001_nircam_clear-f444w/jw01355-o016_t001_nircam_clear-f444w_i2d.fits'
@@ -161,8 +163,8 @@ priors:
           - 0.5
           - 0.05
         loglogavgslope:
-          - -5.
-          - 1.0e-2
+          - 0.0
+          - 1.0
         flexibility:
           - 0.5
           - 0.05

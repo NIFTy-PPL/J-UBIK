@@ -76,7 +76,7 @@ def build_plot(
                 tmp[mask] = dm(sky_model_with_key(si))
                 model_data.append(tmp)
 
-            mod_mean = jft.mean(model_data)
+            model_mean = jft.mean(model_data)
             redchi_mean, redchi2_std = jft.mean_and_std(
                 [redchi2(dd, m, std, dd.size) for m in model_data])
 
@@ -84,9 +84,9 @@ def build_plot(
             ims.append(axes[ii, 0].imshow(dd, origin='lower', norm=norm()))
             axes[ii, 1].set_title('Data model')
             ims.append(axes[ii, 1].imshow(
-                mod_mean, origin='lower', norm=norm()))
+                model_mean, origin='lower', norm=norm()))
             axes[ii, 2].set_title('Data - Data model')
-            ims.append(axes[ii, 2].imshow((dd - mod_mean)/std,
+            ims.append(axes[ii, 2].imshow((dd - model_mean)/std,
                        origin='lower', vmin=-3, vmax=3, cmap='RdBu_r'))
 
             chi = '\n'.join((
@@ -104,21 +104,23 @@ def build_plot(
     def plot_sky_with_samples(samples, x):
         ylen, xlen = find_closest_factors(len(samples)+4)
 
-        fig, axes = plt.subplots(
-            ylen, xlen, figsize=(2*xlen, 1.5*ylen), dpi=300)
-
         samps_big = [sky_model(si) for si in samples]
         mean, std = jft.mean_and_std(samps_big)
         mean_small, std_small = jft.mean_and_std(
             [small_sky_model(si) for si in samples])
         flds = [mean_small, std_small/mean_small, mean, std/mean] + samps_big
 
-        for ax, fld in zip(axes.flatten(), flds):
-            im = ax.imshow(fld, origin='lower', norm=norm(), extent=sky_extent)
-            fig.colorbar(im, ax=ax, shrink=0.7)
-        fig.tight_layout()
-        fig.savefig(join(sky_dir, f'{x.nit:02d}.png'), dpi=300)
-        plt.close()
+        for ii, filter_name in enumerate(sky_model_with_key.target.keys()):
+            fig, axes = plt.subplots(
+                ylen, xlen, figsize=(2*xlen, 1.5*ylen), dpi=300)
+            for ax, fld in zip(axes.flatten(), flds):
+                im = ax.imshow(
+                    fld[ii], origin='lower', norm=norm(), extent=sky_extent)
+                fig.colorbar(im, ax=ax, shrink=0.7)
+            fig.tight_layout()
+            fig.savefig(
+                join(sky_dir, f'{x.nit:02d}_{filter_name}.png'), dpi=300)
+            plt.close()
 
     def sky_plot(samples, x):
         sky_plot_residuals(samples, x)

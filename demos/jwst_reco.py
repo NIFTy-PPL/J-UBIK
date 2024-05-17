@@ -27,6 +27,7 @@ from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_model_builder import build_data_model
 from jubik0.jwst.utils import build_sky_model
 from jubik0.jwst.jwst_plotting import build_plot, plot_sky
+from jubik0.jwst.filter_projector import FilterProjector
 
 
 from sys import exit
@@ -50,22 +51,22 @@ reconstruction_grid = Grid(
     WORLD_LOCATION, SHAPE, (FOV.to(u.deg), FOV.to(u.deg)), rotation=ROTATION)
 internal_sky_key = 'sky'
 
-# sky_model_new = ju.SkyModel(config_file_path=config_path)
-# small_sky_model = sky_model_new.create_sky_model()
-# sky_model = sky_model_new.full_diffuse
-# exit()
+sky_model_new = ju.SkyModel(config_file_path=config_path)
+small_sky_model = sky_model_new.create_sky_model()
+sky_model = sky_model_new.full_diffuse
+
 
 S_PADDING_RATIO = cfg['grid']['s_padding_ratio']
 D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
-small_sky_model, sky_model = build_sky_model(
-    reconstruction_grid.shape,
-    [d.to(u.arcsec).value for d in reconstruction_grid.distances],
-    cfg['priors']['diffuse']['spatial']['offset'],
-    cfg['priors']['diffuse']['spatial']['fluctuations'],
-    extend=S_PADDING_RATIO
-)
-sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
-                               domain=sky_model.domain)
+# small_sky_model, sky_model = build_sky_model(
+#     reconstruction_grid.shape,
+#     [d.to(u.arcsec).value for d in reconstruction_grid.distances],
+#     cfg['priors']['diffuse']['spatial']['offset'],
+#     cfg['priors']['diffuse']['spatial']['fluctuations'],
+#     extend=S_PADDING_RATIO
+# )
+# sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
+#                                domain=sky_model.domain)
 
 key = random.PRNGKey(87)
 key, test_key, rec_key = random.split(key, 3)
@@ -76,10 +77,20 @@ SUBSAMPLE = cfg['telescope']['integration_model']['subsample']
 MODEL_TYPE = 'linear'
 DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
 
-data_plotting = {}
 
+filter_projector = FilterProjector(
+    sky_domain=sky_model.target,
+    key_and_index={key: ii for ii, key in enumerate(cfg['grid']['e_keys'])}
+)
+sky_model_with_keys = jft.Model(
+    lambda x: filter_projector(sky_model(x)),
+    init=sky_model.init
+)
+
+
+data_plotting = {}
+likelihoods = []
 for fltname, flt in cfg['files']['filter'].items():
-    likelihoods = []
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
         jwst_data = JwstData(filepath)
@@ -103,7 +114,7 @@ for fltname, flt in cfg['files']['filter'].items():
             reconstruction_grid.world_extrema(D_PADDING_RATIO))
 
         data_model = build_data_model(
-            sky_model_with_key.target,
+            {fltname: sky_model_with_keys.target[fltname]},
 
             reconstruction_grid=reconstruction_grid,
 
@@ -143,11 +154,11 @@ for fltname, flt in cfg['files']['filter'].items():
             data_model, domain=jft.Vector(data_model.domain))
         likelihoods.append(likelihood)
 
-    likelihood = reduce(lambda x, y: x+y, likelihoods)
-    likelihood_new = connect_likelihood_to_model(
-        likelihood,
-        sky_model_with_key
-    )
+likelihood = reduce(lambda x, y: x+y, likelihoods)
+likelihood = connect_likelihood_to_model(
+    likelihood,
+    sky_model_with_keys
+)
 
 
 key = random.PRNGKey(87)
@@ -155,25 +166,32 @@ key, rec_key = random.split(key, 2)
 
 for ii in range(3):
     key, test_key = random.split(key, 2)
-    sky = sky_model_with_key(jft.random_like(test_key, sky_model.domain))
+    x = jft.random_like(test_key, sky_model.domain)
+    sky = sky_model_with_keys(x)
     # plot_sky(sky, data_plotting)
 
-    fig, axes = plt.subplots(1, 3)
-    ax, az, aa = axes
+    fig, axes = plt.subplots(len(sky), 3)
     ims = []
-    ax.set_title('high_res sky')
-    az.set_title('integrated sky')
-    aa.set_title('data')
-    ims.append(ax.imshow(sky['sky'], origin='lower', norm=LogNorm()))
-    ims.append(az.imshow(data_model.integrate(data_model.rotation_and_shift(
-        sky)), origin='lower', norm=LogNorm()))
-    ims.append(aa.imshow(next(iter(data_plotting.values()))['data'],
-                         origin='lower', norm=LogNorm()))
-    for ax, im in zip(axes, ims):
-        plt.colorbar(im, ax=ax)
+    for axi, sky_key in zip(axes, sky.keys()):
+        print(sky_key)
+        data_model = data_plotting[f'{sky_key}_0']['data_model']
+        data = data_plotting[f'{sky_key}_0']['data']
+
+        ax, az, aa = axi
+        ax.set_title('high_res sky')
+        az.set_title('integrated sky')
+        aa.set_title(f'data {sky_key}')
+        ims.append(ax.imshow(sky[sky_key], origin='lower', norm=LogNorm()))
+        ims.append(az.imshow(
+            data_model.integrate(data_model.rotation_and_shift(sky)),
+            origin='lower', norm=LogNorm()))
+        ims.append(aa.imshow(data, origin='lower', norm=LogNorm()))
+        for ax, im in zip(axi, ims):
+            plt.colorbar(im, ax=ax)
     plt.show()
 
-pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood_new.domain))
+
+pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
 cfg_mini = ju.get_config('demos/jwst_mock_config.yaml')
 minimization_config = cfg_mini['minimization']
@@ -184,7 +202,7 @@ minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
 plot = build_plot(
     data_dict=data_plotting,
-    sky_model_with_key=sky_model_with_key,
+    sky_model_with_key=sky_model_with_keys,
     sky_model=sky_model,
     small_sky_model=small_sky_model,
     results_directory=res_dir,
@@ -195,7 +213,7 @@ plot = build_plot(
 
 print(f'Results: {res_dir}')
 samples, state = jft.optimize_kl(
-    likelihood_new,
+    likelihood,
     pos_init,
     key=rec_key,
     kl_kwargs=kl_solver_kwargs,
@@ -203,7 +221,7 @@ samples, state = jft.optimize_kl(
     odir=res_dir,
     **minimization_config)
 
-sky = jft.mean([sky_model_with_key(si) for si in samples])
+sky = jft.mean([sky_model_with_keys(si) for si in samples])
 
 rs = data_model.rotation_and_shift(sky)
 p = data_model.psf(rs)
