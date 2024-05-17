@@ -1,5 +1,7 @@
 import gwcs
 from astropy.coordinates import SkyCoord
+from astropy import units as u
+from astropy import constants as const
 
 import nifty8.re as jft
 import jax.numpy as jnp
@@ -47,3 +49,11 @@ def build_shift_model(key, mean_sigma):
     shift_model = build_prior_operator(key, distribution_model_key, shape)
     domain = {key: jft.ShapeWithDtype((shape))}
     return jft.Model(shift_model, domain=domain)
+
+
+def wave_to_freq(wavelength: u.Quantity):
+    return (const.c/wavelength).to(u.Hz)
+
+
+def wave_to_energy(wavelength: u.Quantity):
+    return (const.h*const.c/wavelength).to(u.eV)

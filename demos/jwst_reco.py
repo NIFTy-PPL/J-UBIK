@@ -58,19 +58,9 @@ sky_model = sky_model_new.full_diffuse
 
 S_PADDING_RATIO = cfg['grid']['s_padding_ratio']
 D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
-# small_sky_model, sky_model = build_sky_model(
-#     reconstruction_grid.shape,
-#     [d.to(u.arcsec).value for d in reconstruction_grid.distances],
-#     cfg['priors']['diffuse']['spatial']['offset'],
-#     cfg['priors']['diffuse']['spatial']['fluctuations'],
-#     extend=S_PADDING_RATIO
-# )
-# sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
-#                                domain=sky_model.domain)
 
 key = random.PRNGKey(87)
 key, test_key, rec_key = random.split(key, 3)
-x = jft.random_like(test_key, sky_model.domain)
 
 # FIXME: This needs to provided somewhere else
 SUBSAMPLE = cfg['telescope']['integration_model']['subsample']
@@ -220,18 +210,3 @@ samples, state = jft.optimize_kl(
     callback=plot,
     odir=res_dir,
     **minimization_config)
-
-sky = jft.mean([sky_model_with_keys(si) for si in samples])
-
-rs = data_model.rotation_and_shift(sky)
-p = data_model.psf(rs)
-i = data_model.integrate(p)
-
-fig, axes = plt.subplots(1, 4)
-ax, ay, az, aa = axes
-ax.imshow(sky['sky'], origin='lower', norm=LogNorm())
-ay.imshow(rs, origin='lower', norm=LogNorm())
-az.imshow(p, origin='lower', norm=LogNorm())
-aa.imshow(i, origin='lower', norm=LogNorm())
-aa.contour(mask)
-plt.show()
