@@ -3,19 +3,20 @@
 from functools import reduce
 import numpy as np
 
-from astropy.io import fits
 import matplotlib.pyplot as plt
 
-import jubik0 as ju
+from ..operators.jifty_convolution_operators import jifty_convolve
+from ..operators.convolve_utils import gauss
+from .data import Domain
 
 
 def get_gaussian_kernel(domain, sigma):
-    """"2D Gaussian kernel for fft convolution"""
+    """"2D Gaussian kernel for fft convolution."""
     border = (domain.shape * domain.distances // 2)
     x = np.linspace(-border[0], border[0], domain.shape[0])
     y = np.linspace(-border[1], border[1], domain.shape[1])
     xv, yv = np.meshgrid(x, y)
-    kern = ju.operators.convolve_utils.gauss(xv, yv, sigma)
+    kern = gauss(xv, yv, sigma)
     kern = np.fft.fftshift(kern)
     dvol = reduce(lambda a, b: a*b, domain.distances)
     normalization = kern.sum() * dvol
@@ -24,12 +25,12 @@ def get_gaussian_kernel(domain, sigma):
 
 
 def _smooth(sig, x):
-    domain = ju.Domain(x.shape, np.ones([3]))
-    gauss_domain = ju.Domain(x.shape[1:], np.ones([2]))
+    domain = Domain(x.shape, np.ones([3]))
+    gauss_domain = Domain(x.shape[1:], np.ones([2]))
 
     smoothing_kernel = get_gaussian_kernel(gauss_domain, sig)
     smoothing_kernel = smoothing_kernel[np.newaxis, ...]
-    smooth_data = ju.jifty_convolve(x, smoothing_kernel, domain, [1, 2])
+    smooth_data = jifty_convolve(x, smoothing_kernel, domain, [1, 2])
     return np.array(smooth_data)
 
 
@@ -43,21 +44,30 @@ def _clip(x, sat_min, sat_max):
 
 
 def _non_zero_log(x):
-    x[x >= 1] = np.log(x[x >= 1])
-    return x
+    x_arr = np.array(x)
+    log_x = np.zeros(x_arr.shape)
+    log_x[x_arr>0] = np.log(x_arr[x_arr>0])
+    return log_x
 
 
 def _norm_rgb_plot(x):
     plot_data = np.zeros(x.shape)
-    maxim = np.array([np.max(x[:, :, i]) for i in range(3)])
+    x = np.array(x)
+    # minim = np.array([np.min(x[:, :, i] for i in range(3))])
+    # maxim = np.array([np.max(x[:, :, i]) for i in range(3)])
     # norm on RGB to 0-1
     for i in range(3):
-        plot_data[:, :, i] = (x[:, :, i] / maxim[i])
+        a = x[:, :, i]
+        minim = a[a!=0].min()
+        maxim = a[a!=0].max()
+        a[a != 0] = (a[a != 0] - minim) / (maxim - minim)
+        plot_data[:, :, i] = a
     return plot_data
 
 
-def plot_rgb(x, name, sat_min, sat_max, sigma=None,log=False):
-    """
+def plot_rgb(x, name, sat_min=[0, 0, 0], sat_max=[1, 1, 1], sigma=None, log=False):
+    """Routine for plotting RGB images.
+
     x: array with shape (RGB, Space, Space)
     name: str, name of the plot
     sigma: float or None, if None, no smoothing
@@ -75,36 +85,3 @@ def plot_rgb(x, name, sat_min, sat_max, sigma=None,log=False):
     plt.imshow(plot_data, origin="lower")
     plt.savefig(name + ".png", dpi=500)
     plt.close()
-
-# Prep Data
-fbase = "data/LMC_SN1987A/processed/"
-tms = ["tm1",  "tm3", "tm4", "tm6", "tm2"]
-
-nrg = ["_pm00_700161_020_data_emin0.2_emax1.0.fits",
-       "_pm00_700161_020_data_emin1.0_emax2.0.fits",
-       "_pm00_700161_020_data_emin2.0_emax4.5.fits"]
-
-fpath_list = [[fbase + tm + energy for tm in tms] for energy in nrg]
-
-data_list = []
-for fpathl in fpath_list:
-    data_list_i = []
-    for fpath in fpathl:
-        with fits.open(fpath) as hdul:
-            data = hdul[0].data
-            data_list_i.append(data)
-    data_arr_i = np.array(data_list_i)
-    data_list.append(data_arr_i)
-
-data_arr = np.array(data_list)
-data_arr = data_arr.sum(1)
-
-# Plotting Config
-plot_name = "prototyp"
-Log = False
-sigma = 0.02
-max_percent = [1.412e-3, 9.6e-4, 3.00e-3]
-Sat_max = [max_percent[i] * data_arr[i].max() for i in range(3)]
-Sat_min = [2, 0, 2]
-
-plot_rgb(data_arr, plot_name, Sat_min, Sat_max, sigma, log=Log)
