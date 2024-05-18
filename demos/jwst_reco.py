@@ -187,7 +187,7 @@ cfg_mini = ju.get_config('demos/jwst_mock_config.yaml')
 minimization_config = cfg_mini['minimization']
 kl_solver_kwargs = minimization_config.pop('kl_kwargs')
 minimization_config['n_total_iterations'] = 12
-# minimization_config['resume'] = True
+minimization_config['resume'] = True
 minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
 plot = build_plot(
@@ -210,3 +210,12 @@ samples, state = jft.optimize_kl(
     callback=plot,
     odir=res_dir,
     **minimization_config)
+
+
+field = jft.mean([sky_model_new.plaw(si) for si in samples])
+
+fig, axes = plt.subplots(1, 3)
+for ax, f in zip(axes, field):
+    im = ax.imshow(f, origin='lower')
+    plt.colorbar(im, ax=ax)
+plt.show()

@@ -89,6 +89,10 @@ def build_data_model(
         data_grid_wcs=rotation_and_shift_kwargs['data_wcs'],
         model_type=rotation_and_shift_kwargs['data_model_type'],
         subsample=subsample,
+        kwargs_linear=rotation_and_shift_kwargs.get(
+            'kwargs_linear', dict(order=1)),
+        kwargs_sparse=rotation_and_shift_kwargs.get(
+            'kwargs_sparse', dict(extend_factor=1, to_bottom_left=True)),
         kwargs={},
     )
 

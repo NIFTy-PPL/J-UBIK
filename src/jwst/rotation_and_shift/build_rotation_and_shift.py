@@ -6,6 +6,7 @@ from ..wcs import (subsample_grid_centers_in_index_grid_non_vstack,
 from ..reconstruction_grid import Grid
 from .linear_rotation_and_shift import build_linear_rotation_and_shift
 from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
+from .sparse_rotation_and_shift import build_sparse_rotation_and_shift
 
 
 from astropy.coordinates import SkyCoord
@@ -47,12 +48,14 @@ def build_rotation_and_shift_model(
     data_grid_wcs: WcsBase,
     model_type: str,
     subsample: int,
+    kwargs_linear: dict,
+    kwargs_sparse: dict,
     **kwargs
 ) -> Callable[Union[ArrayLike, Tuple[ArrayLike, ArrayLike]], ArrayLike]:
 
     assert reconstruction_grid.dvol.unit == data_grid_dvol.unit
 
-    parameters = dict(
+    parameters_center = dict(
         sky_dvol=reconstruction_grid.dvol.value,
         sub_dvol=data_grid_dvol.value / subsample**2,
         subsample_centers=subsample_grid_centers_in_index_grid_non_vstack(
@@ -60,12 +63,21 @@ def build_rotation_and_shift_model(
             data_grid_wcs,
             reconstruction_grid.wcs,
             subsample),
-        order=1
+        order=kwargs_linear['order']
+    )
+    parameters_corners = dict(
+        index_grid=reconstruction_grid.index_grid(**kwargs_sparse),
+        subsample_corners=subsample_grid_corners_in_index_grid(
+            world_extrema,
+            data_grid_wcs,
+            reconstruction_grid.wcs,
+            subsample),
     )
 
     MODELS = dict(
-        linear=(build_linear_rotation_and_shift, parameters),
-        nufft=(build_nufft_rotation_and_shift, parameters)
+        linear=(build_linear_rotation_and_shift, parameters_center),
+        nufft=(build_nufft_rotation_and_shift, parameters_center),
+        sparse=(build_sparse_rotation_and_shift, parameters_corners)
     )
 
     if kwargs.get('updating', False):

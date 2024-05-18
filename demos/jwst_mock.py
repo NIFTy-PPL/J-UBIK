@@ -31,11 +31,12 @@ key = random.PRNGKey(87)
 key, mock_key, noise_key, rec_key, test_key = random.split(key, 5)
 
 comp_sky, reco_grid, data_set = setup(mock_key, noise_key, **cfg['mock_setup'])
-sky_model = build_sky_model(
+sky_model, sky_model_full = build_sky_model(
     reco_grid.shape,
     [d.to(u.arcsec).value for d in reco_grid.distances],
     cfg['sky_model']['offset'],
     cfg['sky_model']['fluctuations'],
+    extend_factor=cfg['sky_model']['extend_factor'],
 )
 if cfg['sky_model'].get('plot_sky_model', False):
     from jubik0.jwst.mock_data.mock_plotting import sky_model_check
@@ -52,14 +53,19 @@ for ii, (dkey, data) in enumerate(data_set.items()):
 
     data_grid = data['grid']
     data_model = build_data_model(
-        sky_model_with_key.target,
-        reco_grid,
-        data_grid.dvol,
-        data_grid.wcs,
-        cfg['telescope']['rotation_and_shift']['model'],
-        cfg['telescope']['rotation_and_shift']['subsample'],
-        data['mask'],
-        data_grid.world_extrema())
+        sky_domain=sky_model_with_key.target,
+        reconstruction_grid=reco_grid,
+        subsample=cfg['telescope']['rotation_and_shift']['subsample'],
+        rotation_and_shift_kwargs=dict(
+            data_dvol=data_grid.dvol,
+            data_wcs=data_grid.wcs,
+            data_model_type=cfg['telescope']['rotation_and_shift']['model'],
+            kwargs_sparse=dict(extend_factor=1,  # cfg['sky_model']['extend_factor'],
+                               to_bottom_left=True),
+        ),
+        psf_kwargs=dict(),
+        data_mask=data['mask'],
+        world_extrema=data_grid.world_extrema())
 
     data['data_model'] = data_model
 
@@ -74,7 +80,6 @@ likelihood = connect_likelihood_to_model(
     likelihood,
     sky_model_with_key
 )
-
 
 evaluation_mask = build_evaluation_mask(reco_grid, data_set)
 plot = build_mock_plot(

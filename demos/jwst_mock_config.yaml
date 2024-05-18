@@ -24,6 +24,7 @@ mock_setup:
 
 sky_model:
   plot_sky_model: False
+  extend_factor: 1.5
   offset: 
     offset_mean: 3.7
     offset_std: [0.1, 0.05]
@@ -35,8 +36,8 @@ sky_model:
 
 telescope:
   rotation_and_shift:
-    model: 'linear' # 'sparse', 'interpolation', 'udpating_interpolation', 'nufft'
-    subsample: 2
+    model: 'sparse' # 'sparse', 'interpolation', 'udpating_interpolation', 'nufft'
+    subsample: 1
     mean: [0, 0]
     sigma: [0.1, 0.1]
 
