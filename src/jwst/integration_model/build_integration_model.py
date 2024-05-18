@@ -69,14 +69,14 @@ def build_integration(
     sub_dvol = data_grid.dvol.value / subsample**2,
 
     pixel_corners = subsample_grid_corners_in_index_grid(
-        data_grid.world_extrema,
+        data_grid.world_extrema(),
         data_grid.wcs,
         reconstruction_grid.wcs,
         1)
     pixel_corners = squeeze(pixel_corners)
 
     subsample_centers = subsample_grid_centers_in_index_grid(
-        data_grid.world_extrema,
+        data_grid.world_extrema(),
         data_grid.wcs,
         reconstruction_grid.wcs,
         subsample)

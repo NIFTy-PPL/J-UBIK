@@ -39,7 +39,7 @@ key = random.PRNGKey(87)
 key, mock_key, noise_key, test_key = random.split(key, 4)
 
 comp_sky, reco_grid, data_set = setup(mock_key, noise_key, **cfg['mock_setup'])
-sky_model = build_sky_model(
+sky_model, sky_model_full = build_sky_model(
     reco_grid.shape,
     [d.to(u.arcsec).value for d in reco_grid.distances],
     cfg['sky_model']['offset'],
