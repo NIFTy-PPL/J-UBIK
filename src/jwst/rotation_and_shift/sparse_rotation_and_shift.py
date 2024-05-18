@@ -48,10 +48,9 @@ def build_sparse_rotation_and_shift(
     subsample_corners: ArrayLike,
 ):
     print('Calculating sparse interpolation matrix...')
-    data_shape = subsample_corners.shape[3:]
+    data_shape = subsample_corners.shape[2:]
     subsample_corners = subsample_corners.reshape(
-        *subsample_corners.shape[:3], -1)
-    subsample_corners = np.squeeze(subsample_corners)
+        *subsample_corners.shape[:2], -1)
 
     data_length = subsample_corners[0, 0].size
     assert data_length == subsample_corners[0, 1].size

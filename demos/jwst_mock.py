@@ -8,11 +8,8 @@ from jubik0.jwst.config_handler import config_transform, define_mock_output
 from jubik0.jwst.jwst_model_builder import build_data_model
 from jubik0.library.likelihood import connect_likelihood_to_model, build_gaussian_likelihood
 
-from copy import deepcopy
 from functools import reduce
 from sys import exit
-
-from numpy import allclose
 
 import yaml
 from astropy import units as u

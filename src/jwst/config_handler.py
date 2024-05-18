@@ -53,7 +53,7 @@ def define_mock_output(config: dict):
 
     model = config['telescope']['rotation_and_shift']['model']
     subsample = config['telescope']['rotation_and_shift']['subsample']
-    method_string = model if model == 'sparse' else model + f'{subsample}'
+    method_string = model + f'{subsample}'
 
     return join(
         config['output'],

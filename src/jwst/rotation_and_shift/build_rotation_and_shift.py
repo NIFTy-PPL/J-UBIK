@@ -2,7 +2,7 @@ import nifty8.re as jft
 
 from ..wcs.wcs_base import WcsBase
 from ..wcs import (subsample_grid_centers_in_index_grid_non_vstack,
-                   subsample_grid_corners_in_index_grid)
+                   subsample_grid_corners_in_index_grid_non_vstack)
 from ..reconstruction_grid import Grid
 from .linear_rotation_and_shift import build_linear_rotation_and_shift
 from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
@@ -67,7 +67,7 @@ def build_rotation_and_shift_model(
     )
     parameters_corners = dict(
         index_grid=reconstruction_grid.index_grid(**kwargs_sparse),
-        subsample_corners=subsample_grid_corners_in_index_grid(
+        subsample_corners=subsample_grid_corners_in_index_grid_non_vstack(
             world_extrema,
             data_grid_wcs,
             reconstruction_grid.wcs,
