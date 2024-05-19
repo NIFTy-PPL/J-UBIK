@@ -24,6 +24,7 @@ cfg = yaml.load(
 config_transform(cfg)
 res_dir = define_mock_output(cfg)
 
+
 # Draw random numbers
 key = random.PRNGKey(87)
 key, mock_key, noise_key, rec_key, test_key = random.split(key, 5)

@@ -1,14 +1,15 @@
 from astropy.coordinates import SkyCoord
 from astropy import units
+from .reconstruction_grid import Grid
 
 from typing import Tuple
 
 
-def define_location(config: dict) -> SkyCoord:
-    ra = config['telescope']['pointing']['ra']
-    dec = config['telescope']['pointing']['dec']
-    frame = config['telescope']['pointing'].get('frame', 'icrs')
-    unit = getattr(units, config['telescope']['pointing'].get('unit', 'deg'))
+def define_world_location(config: dict) -> SkyCoord:
+    ra = config['grid']['pointing']['ra']
+    dec = config['grid']['pointing']['dec']
+    frame = config['grid']['pointing'].get('frame', 'icrs')
+    unit = getattr(units, config['grid']['pointing'].get('unit', 'deg'))
     return SkyCoord(ra=ra*unit, dec=dec*unit, frame=frame)
 
 
@@ -18,15 +19,23 @@ def get_shape(config: dict) -> Tuple[int, int]:
 
 
 def get_fov(config: dict) -> Tuple[units.Quantity, units.Quantity]:
-    fov = config['telescope']['fov']
-    unit = getattr(units, config['telescope'].get('fov_unit', 'arcsec'))
+    fov = config['grid']['fov']
+    unit = getattr(units, config['grid'].get('fov_unit', 'arcsec'))
     return fov*unit
 
 
 def get_rotation(config: dict) -> units.Quantity:
-    rotation = config['telescope']['pointing']['rotation']
-    unit = getattr(units, config['telescope']['pointing'].get('unit', 'deg'))
+    rotation = config['grid']['pointing']['rotation']
+    unit = getattr(units, config['grid']['pointing'].get('unit', 'deg'))
     return rotation*unit
+
+
+def build_reconstruction_grid_from_config(config: dict) -> Grid:
+    wl = define_world_location(config)
+    fov = get_fov(config)
+    shape = get_shape(config)
+    rotation = get_rotation(config)
+    return Grid(wl, shape, (fov.to(units.deg), fov.to(units.deg)), rotation=rotation)
 
 
 def config_transform(config: dict):
@@ -46,10 +55,14 @@ def define_mock_output(config: dict):
 
     reco_shape = config['mock_setup']['reco_shape']
 
-    rot_string = 'r' + \
-        '_'.join([f'{r}' for r in config['mock_setup']['rotations']])
-    shift_string = 's' + \
-        '_'.join([f'{hypot(*r)}' for r in config['mock_setup']['shifts']])
+    rot_string = 'r' + '_'.join([f'({r}*{rr})' for r, rr in zip(
+        config['mock_setup']['rotations'],
+        config['mock_setup']['reported_rotations'],
+    )])
+    shi_string = 's' + '_'.join([f'({hypot(*s)}*{hypot(*rs)})' for s, rs in zip(
+        config['mock_setup']['shifts'],
+        config['mock_setup']['reported_shifts'],
+    )])
 
     model = config['telescope']['rotation_and_shift']['model']
     subsample = config['telescope']['rotation_and_shift']['subsample']
@@ -58,5 +71,5 @@ def define_mock_output(config: dict):
     return join(
         config['output'],
         f'{reco_shape}pix',
-        f'rot{rot_string}_shf{shift_string}',
+        f'rot{rot_string}_shf{shi_string}',
         f'{method_string}')

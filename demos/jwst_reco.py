@@ -3,7 +3,6 @@ import yaml
 from functools import reduce
 
 import nifty8.re as jft
-from jax import config
 from jax import random
 import jax.numpy as jnp
 
@@ -21,11 +20,9 @@ from jubik0.library.likelihood import (
 from jubik0.jwst.reconstruction_grid import Grid
 from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
-from jubik0.jwst.config_handler import (define_location, get_shape, get_fov,
-                                        get_rotation)
+from jubik0.jwst.config_handler import build_reconstruction_grid_from_config
 from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_model_builder import build_data_model
-from jubik0.jwst.utils import build_sky_model
 from jubik0.jwst.jwst_plotting import build_plot, plot_sky
 from jubik0.jwst.filter_projector import FilterProjector
 
@@ -33,39 +30,23 @@ from jubik0.jwst.filter_projector import FilterProjector
 from sys import exit
 
 
-# cfg.update('jax_enable_x64', True)
-# cfg.update('jax_platform_name', 'cpu')
-
-
 config_path = './demos/JWST_config.yaml'
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
-WORLD_LOCATION = define_location(cfg)
-FOV = get_fov(cfg)
-SHAPE = get_shape(cfg)
-ROTATION = get_rotation(cfg)
 
-res_dir = cfg['files']['res_dir']
+RES_DIR = cfg['files']['res_dir']
+D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
+# FIXME: This needs to provided somewhere else
+DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
 
-# defining the reconstruction grid
-reconstruction_grid = Grid(
-    WORLD_LOCATION, SHAPE, (FOV.to(u.deg), FOV.to(u.deg)), rotation=ROTATION)
-internal_sky_key = 'sky'
+reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 
 sky_model_new = ju.SkyModel(config_file_path=config_path)
-small_sky_model = sky_model_new.create_sky_model()
+small_sky_model = sky_model_new.create_sky_model(fov=cfg['grid']['fov'])
 sky_model = sky_model_new.full_diffuse
 
 
-S_PADDING_RATIO = cfg['grid']['s_padding_ratio']
-D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
-
 key = random.PRNGKey(87)
 key, test_key, rec_key = random.split(key, 3)
-
-# FIXME: This needs to provided somewhere else
-SUBSAMPLE = cfg['telescope']['integration_model']['subsample']
-MODEL_TYPE = 'linear'
-DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
 
 
 filter_projector = FilterProjector(
@@ -108,12 +89,12 @@ for fltname, flt in cfg['files']['filter'].items():
 
             reconstruction_grid=reconstruction_grid,
 
-            subsample=SUBSAMPLE,
+            subsample=cfg['telescope']['rotation_and_shift']['subsample'],
 
             rotation_and_shift_kwargs=dict(
                 data_dvol=DATA_DVOL,
                 data_wcs=jwst_data.wcs,
-                data_model_type=MODEL_TYPE,
+                data_model_type=cfg['telescope']['rotation_and_shift']['model'],
             ),
 
             psf_kwargs=dict(
@@ -121,8 +102,8 @@ for fltname, flt in cfg['files']['filter'].items():
                 filter=jwst_data.filter,
                 center_pixel=jwst_data.wcs.index_from_wl(
                     reconstruction_grid.center)[0],
-                webbpsf_path=cfg['telescope']['web_psf']['webpsf_path'],
-                psf_library_path=cfg['telescope']['web_psf']['psf_library'],
+                webbpsf_path=cfg['telescope']['psf']['webbpsf_path'],
+                psf_library_path=cfg['telescope']['psf']['psf_library'],
                 fov_pixels=32,
             ),
 
@@ -195,20 +176,20 @@ plot = build_plot(
     sky_model_with_key=sky_model_with_keys,
     sky_model=sky_model,
     small_sky_model=small_sky_model,
-    results_directory=res_dir,
+    results_directory=RES_DIR,
     plotting_config=dict(
         norm=LogNorm,
         sky_extent=None
     ))
 
-print(f'Results: {res_dir}')
+print(f'Results: {RES_DIR}')
 samples, state = jft.optimize_kl(
     likelihood,
     pos_init,
     key=rec_key,
     kl_kwargs=kl_solver_kwargs,
     callback=plot,
-    odir=res_dir,
+    odir=RES_DIR,
     **minimization_config)
 
 

@@ -2,7 +2,17 @@ seed: 42
 mock: False
 
 grid:
-  # Assuming the same fov as telescope
+  # fov: 8.064
+  fov: 5
+  fov_unit: arcsec
+
+  pointing:
+    ra: 64.66543063107049
+    dec: -47.86462563973049
+    unit: deg
+    frame: icrs
+    rotation: 65
+
   sdim: 256
   edim: 2
   d_padding_ratio: 1.2
@@ -24,28 +34,20 @@ grid:
     - 0.311
 
 telescope:
-  # fov: 8.064
-  fov: 5
-  fov_unit: arcsec
-
-  integration_model:
-    model: 'linear' # 'sparse', 'linear', 'nufft'
-    subsample: 3
-    mean: [0, 0]
-    sigma: [0.1, 0.1]
-
-  web_psf:
-    webpsf_path: '/home/jruestig/Data/jwst/WebbPsf/webbpsf-data_1.2.1/'
+  psf:
+    webbpsf_path: '/home/jruestig/Data/jwst/WebbPsf/webbpsf-data_1.2.1/'
     psf_library: '/home/jruestig/Data/jwst/psf_library'
 
-  lanczos_window: 32
+  rotation_and_shift:
+    model: 'linear' # 'sparse', 'linear', 'nufft'
+    subsample: 3
 
-  pointing:
-    ra: 64.66543063107049
-    dec: -47.86462563973049
-    unit: deg
-    frame: icrs
-    rotation: 65
+    f115w:
+      data_dvol: 0.0169  # 0.13**2 arcsec
+      data_dvol_unit: arcsec
+      01_shift_model:
+        mean: [0, 0]
+        sigma: [0.1, 0.1]
 
 
 files:
