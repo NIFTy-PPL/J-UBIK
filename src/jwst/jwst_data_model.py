@@ -63,6 +63,9 @@ def build_data_model(
         data_dvol: Unit, the volume of a data pixel
         data_wcs: WcsBase,
         data_model_type: str,
+        kwargs_linear: dict,
+        kwargs_sparse: dict,
+        shift_and_rotation_correction_domain: dict, correction_key, shape_dtype
 
     psf_kwargs:
         camera: str, NIRCam or MIRI
@@ -89,11 +92,16 @@ def build_data_model(
         data_grid_wcs=rotation_and_shift_kwargs['data_wcs'],
         model_type=rotation_and_shift_kwargs['data_model_type'],
         subsample=subsample,
-        kwargs_linear=rotation_and_shift_kwargs.get(
-            'kwargs_linear', dict(order=1)),
-        kwargs_sparse=rotation_and_shift_kwargs.get(
-            'kwargs_sparse', dict(extend_factor=1, to_bottom_left=True)),
-        kwargs={},
+        kwargs=dict(
+            linear=rotation_and_shift_kwargs.get(
+                'kwargs_linear', dict(order=1, sky_as_brightness=False)),
+            nufft=rotation_and_shift_kwargs.get(
+                'kwargs_nufft', dict(sky_as_brightness=False)),
+            sparse=rotation_and_shift_kwargs.get(
+                'kwargs_sparse', dict(extend_factor=1, to_bottom_left=True)),
+        ),
+        shift_and_rotation_correction_domain=rotation_and_shift_kwargs.get(
+            'shift_and_rotation_correction_domain', None)
     )
 
     psf_kernel = load_psf_kernel(

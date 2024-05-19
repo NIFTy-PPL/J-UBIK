@@ -13,7 +13,6 @@ def build_nufft_rotation_and_shift(
     sub_dvol: ArrayLike,
     subsample_centers: ArrayLike,
     sky_shape: Tuple[int, int],
-    out_shape: Optional[Tuple[int, int]] = None,
     sky_as_brightness: bool = False
 ) -> Callable[ArrayLike, ArrayLike]:
     '''Building nuFFT interpolation model.
@@ -53,23 +52,23 @@ def build_nufft_rotation_and_shift(
 
     '''
 
+    out_shape = subsample_centers.shape[1:]
+
     # The conversion factor from sky to subpixel
     # (flux = sky_brightness * flux_conversion)
     if sky_as_brightness:
         sky_dvol = 1
     flux_conversion = sub_dvol / sky_dvol
 
+    subsample_centers = subsample_centers.reshape(2, -1)
     xy_finufft = (
         2 * pi * subsample_centers /
         array(sky_shape)[:, None]
     )
 
-    def rotate_shift_subsample(field):
+    def rotate_shift_subsample(field, correction):
         f_field = ifftshift(ifft2(field))
         out = nufft2(f_field, xy_finufft[0], xy_finufft[1]).real
-        return out * flux_conversion
-
-    if out_shape is not None:
-        return lambda x: reshape(rotate_shift_subsample(x), out_shape)
+        return reshape(out, out_shape) * flux_conversion
 
     return rotate_shift_subsample

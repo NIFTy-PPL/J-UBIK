@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import yaml
 from functools import reduce
 
@@ -7,23 +6,19 @@ from jax import random
 import jax.numpy as jnp
 
 import numpy as np
-
+import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-
-# import astropy
-# import webbpsf
 from astropy import units as u
 
 import jubik0 as ju
 from jubik0.library.likelihood import (
     connect_likelihood_to_model, build_gaussian_likelihood)
-from jubik0.jwst.reconstruction_grid import Grid
 from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
 from jubik0.jwst.config_handler import build_reconstruction_grid_from_config
 from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
-from jubik0.jwst.jwst_model_builder import build_data_model
-from jubik0.jwst.jwst_plotting import build_plot, plot_sky
+from jubik0.jwst.jwst_data_model import build_data_model
+from jubik0.jwst.jwst_plotting import build_plot
 from jubik0.jwst.filter_projector import FilterProjector
 
 
@@ -32,11 +27,11 @@ from sys import exit
 
 config_path = './demos/JWST_config.yaml'
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
-
 RES_DIR = cfg['files']['res_dir']
 D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
 # FIXME: This needs to provided somewhere else
 DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
+FOV_PIXELS = 32
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 
@@ -104,7 +99,7 @@ for fltname, flt in cfg['files']['filter'].items():
                     reconstruction_grid.center)[0],
                 webbpsf_path=cfg['telescope']['psf']['webbpsf_path'],
                 psf_library_path=cfg['telescope']['psf']['psf_library'],
-                fov_pixels=32,
+                fov_pixels=FOV_PIXELS,
             ),
 
             data_mask=mask,

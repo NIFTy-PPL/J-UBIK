@@ -66,9 +66,9 @@ def build_linear_rotation_and_shift(
 
     if updating:
         def rotation_shift_subsample(x, y):
-            field, xy_shift = x, y
+            field, xy_correction = x, y
             out = rotation_and_shift(
-                field, subsample_centers - xy_shift[None, :, None])
+                field, subsample_centers - xy_correction)
             return out * flux_conversion
 
     else:

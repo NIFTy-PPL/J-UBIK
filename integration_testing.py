@@ -6,7 +6,7 @@ from jubik0.jwst.utils import build_sky_model
 from jubik0.jwst.integration_model import build_integration
 from jubik0.library.likelihood import (
     connect_likelihood_to_model, build_gaussian_likelihood)
-from jubik0.jwst.jwst_model_builder import build_data_model
+from jubik0.jwst.jwst_data_model import build_data_model
 
 from functools import reduce
 
@@ -25,6 +25,9 @@ cfg['mock_setup']['mock_shape'] = cfg['mock_setup']['mock_shape'] // 8
 cfg['mock_setup']['rota_shape'] = cfg['mock_setup']['rota_shape'] // 8
 cfg['mock_setup']['reco_shape'] = cfg['mock_setup']['reco_shape'] // 8
 cfg['mock_setup']['data_shape'] = cfg['mock_setup']['data_shape'] // 8
+cfg['mock_setup']['mock_distance'] = cfg['mock_setup']['mock_distance'] * 8
+cfg['mock_setup']['shifts'] = [cfg['mock_setup']['shifts'][0]]
+cfg['mock_setup']['rotations'] = [cfg['mock_setup']['rotations'][0]]
 
 # Draw random numbers
 key = random.PRNGKey(87)
