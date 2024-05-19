@@ -79,10 +79,16 @@ def build_rotation_and_shift_model(
         subsampled in each direction.
 
     kwargs: dict
-        linear:  dict, options for the linear model
-            order: (0, 1), default 1
+        linear:  dict, options
+            - order: (0, 1), default: 1
+            - sky_as_brightness: default: False
 
-        sparse: dict,
+        sparse: dict, options
+            - extend_factor, default: 1 (extension of the sky grid)
+            - to_bottom_left: default: True (reconstruction in bottom left of extended grid)
+
+        nufft: dict, options
+            - sky_as_brightness: default: False
 
     shift_and_rotation_correction_domain: Optional[dict]
         The target domain of the shift and rotation correction model:
@@ -115,6 +121,7 @@ def build_rotation_and_shift_model(
             )
 
         case 'nufft':
+            nufft_kwargs = kwargs.get('nufft', dict(sky_as_brightness=False))
             call = build_nufft_rotation_and_shift(
                 sky_dvol=reconstruction_grid.dvol.value,
                 sub_dvol=data_grid_dvol.value / subsample**2,
@@ -123,7 +130,8 @@ def build_rotation_and_shift_model(
                     data_grid_wcs,
                     reconstruction_grid.wcs,
                     subsample),
-                sky_shape=next(iter(sky_domain.values())).shape
+                sky_shape=next(iter(sky_domain.values())).shape,
+                **nufft_kwargs
             )
 
         case 'sparse':
