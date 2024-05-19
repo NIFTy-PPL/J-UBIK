@@ -6,7 +6,8 @@ from jubik0.jwst.mock_data import (
 from jubik0.jwst.utils import build_sky_model
 from jubik0.jwst.config_handler import config_transform, define_mock_output
 from jubik0.jwst.jwst_model_builder import build_data_model
-from jubik0.library.likelihood import connect_likelihood_to_model, build_gaussian_likelihood
+from jubik0.library.likelihood import (
+    connect_likelihood_to_model, build_gaussian_likelihood)
 
 from functools import reduce
 from sys import exit
@@ -77,6 +78,8 @@ likelihood = connect_likelihood_to_model(
     likelihood,
     sky_model_with_key
 )
+
+exit()
 
 evaluation_mask = build_evaluation_mask(reco_grid, data_set)
 plot = build_mock_plot(

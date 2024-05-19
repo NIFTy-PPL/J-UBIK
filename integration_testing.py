@@ -1,25 +1,17 @@
-import numpy as np
-from jubik0.jwst.wcs import subsample_grid_centers_in_index_grid
-import matplotlib.pyplot as plt
-from jubik0.jwst.rotation_and_shift import build_rotation_and_shift_model
-
 import nifty8.re as jft
 
 import jubik0 as ju
 from jubik0.jwst.mock_data import setup
 from jubik0.jwst.utils import build_sky_model
-from jubik0.jwst.config_handler import config_transform, define_mock_output
 from jubik0.jwst.integration_model import build_integration
-from jubik0.library.likelihood import connect_likelihood_to_model, build_gaussian_likelihood
+from jubik0.library.likelihood import (
+    connect_likelihood_to_model, build_gaussian_likelihood)
 from jubik0.jwst.jwst_model_builder import build_data_model
 
-from copy import deepcopy
 from functools import reduce
 
 from numpy import allclose
 
-
-from sys import exit
 import yaml
 from astropy import units as u
 from jax import config, random

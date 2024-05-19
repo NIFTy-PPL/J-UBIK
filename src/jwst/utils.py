@@ -40,17 +40,6 @@ def build_sky_model(shape, dist, offset, fluctuations, extend_factor=1.5):
             jft.Model(full_diffuse, domain=log_diffuse.domain))
 
 
-def build_shift_model(key, mean_sigma):
-    from charm_lensing.models.parametric_models.parametric_prior import (
-        build_prior_operator)
-    distribution_model_key = ('normal', *mean_sigma)
-    shape = (2,)
-
-    shift_model = build_prior_operator(key, distribution_model_key, shape)
-    domain = {key: jft.ShapeWithDtype((shape))}
-    return jft.Model(shift_model, domain=domain)
-
-
 def wave_to_freq(wavelength: u.Quantity):
     return (const.c/wavelength).to(u.Hz)
 
