@@ -60,6 +60,7 @@ for fltname, flt in cfg['files']['filter'].items():
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
         jwst_data = JwstData(filepath)
+        # print(jwst_data.dm.meta.date)
 
         data_key = f'{fltname}_{ii}'
 
@@ -136,24 +137,43 @@ for ii in range(3):
     sky = sky_model_with_keys(x)
     # plot_sky(sky, data_plotting)
 
-    fig, axes = plt.subplots(len(sky), 3)
-    ims = []
-    for axi, sky_key in zip(axes, sky.keys()):
+    plaw = sky_model_new.plaw(x)
+    alpha = sky_model_new.alpha_cf(x)
+
+    fig, axes = plt.subplots(len(sky)+1, 4)
+    integrated_sky = []
+    for ii, (axi, sky_key) in enumerate(zip(axes, sky.keys())):
         print(sky_key)
         data_model = data_plotting[f'{sky_key}_0']['data_model']
         data = data_plotting[f'{sky_key}_0']['data']
 
-        ax, az, aa = axi
-        ax.set_title('high_res sky')
-        az.set_title('integrated sky')
-        aa.set_title(f'data {sky_key}')
-        ims.append(ax.imshow(sky[sky_key], origin='lower', norm=LogNorm()))
-        ims.append(az.imshow(
-            data_model.integrate(data_model.rotation_and_shift(sky)),
-            origin='lower', norm=LogNorm()))
-        ims.append(aa.imshow(data, origin='lower', norm=LogNorm()))
+        intsky = data_model.integrate(data_model.rotation_and_shift(sky))
+        integrated_sky.append(intsky)
+
+        a0, a1, a2, a3 = axi
+        a0.set_title(f'plaw {sky_key}')
+        a1.set_title('high_res sky')
+        a2.set_title('integrated sky')
+        a3.set_title(f'data {sky_key}')
+
+        ims = []
+        ims.append(a0.imshow(plaw[ii], origin='lower', cmap='RdBu_r'))
+        ims.append(a1.imshow(sky[sky_key], origin='lower', norm=LogNorm()))
+        ims.append(a2.imshow(intsky, origin='lower', norm=LogNorm()))
+        ims.append(a3.imshow(data, origin='lower', norm=LogNorm()))
         for ax, im in zip(axi, ims):
             plt.colorbar(im, ax=ax)
+
+    first = integrated_sky[0]
+    diffs = map(lambda y: first-y, integrated_sky[1:])
+    for ii, (ax, diff) in enumerate(zip(axes[-1][1:], diffs)):
+        im = ax.imshow(diff, origin='lower', cmap='RdBu_r')
+        plt.colorbar(im, ax=ax)
+        ax.set_title(f'0 - {ii+1}')
+
+    im = axes[-1][0].imshow(alpha, origin='lower')
+    plt.colorbar(im, ax=axes[-1][0])
+
     plt.show()
 
 
@@ -163,7 +183,7 @@ cfg_mini = ju.get_config('demos/jwst_mock_config.yaml')
 minimization_config = cfg_mini['minimization']
 kl_solver_kwargs = minimization_config.pop('kl_kwargs')
 minimization_config['n_total_iterations'] = 12
-minimization_config['resume'] = True
+# minimization_config['resume'] = True
 minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
 plot = build_plot(
@@ -172,6 +192,7 @@ plot = build_plot(
     sky_model=sky_model,
     small_sky_model=small_sky_model,
     results_directory=RES_DIR,
+    plaw=sky_model_new.plaw,
     plotting_config=dict(
         norm=LogNorm,
         sky_extent=None

@@ -51,7 +51,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_256'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_256_02'
 
   filter:
     # f115w: # NIRCam
@@ -143,7 +143,7 @@ priors:
           - 1.6
           - 0.1
         loglogavgslope:
-          - -3.7
+          - -3.2
           - 0.3
         flexibility:
           - 0.8
@@ -164,8 +164,8 @@ priors:
           - 0.5
           - 0.05
         loglogavgslope:
-          - 0.0
-          - 1.0
+          - -2.5
+          - 0.5
         flexibility:
           - 0.5
           - 0.05
