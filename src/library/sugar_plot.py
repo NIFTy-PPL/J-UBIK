@@ -61,6 +61,8 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     - colorbar: `bool`, optional. Whether to show a colorbar. Defaults to True.
     - dpi: `int`, optional. The resolution of the plot. Defaults to 100.
     - plotting_kwargs: `dict`, optional. Additional plotting keyword arguments. Defaults to None.
+    - rgb_max_sat: relative maximal saturation for individual color channels.
+                   E.g. 0.5 clips the plot at half the flux.
 
     # FIXME Title available again?
     Returns:
