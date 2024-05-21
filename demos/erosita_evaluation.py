@@ -34,29 +34,19 @@ def run_evaluation_function(function, samples, operators_dict, diagnostics_path,
             function = ju.compute_noise_weighted_residuals
             reference = masked_data.copy()
         case 'uncertainty_weighted_residuals':
-            function = ju.compute_uncertainty_weighted_residuals
             reference = gt_dict
+            if reference is {}:
+                return False
+            function = ju.compute_uncertainty_weighted_residuals
         case 'uncertainty_weighted_mean':
             function = ju.compute_uncertainty_weighted_residuals
             reference = None
-        case 'lambda_2D_histogram': # FIXME: the following cases could be merged
-            function = ju.plot_2d_gt_vs_rec_histogram
+        case 'rel_lambda_2D_histogram' | 'lambda_2D_histogram'| \
+             'signal_space_2D_histogram' | 'rel_signal_space_2D_histogram':
             reference = gt_dict
-            if "offset" not in kwargs:
-                kwargs["offset"] = 1.e-10
-        case 'rel_lambda_2D_histogram':
+            if reference is {}:
+                return False
             function = ju.plot_2d_gt_vs_rec_histogram
-            reference = gt_dict
-            if "offset" not in kwargs:
-                kwargs["offset"] = 1.e-10
-        case 'signal_space_2D_histogram':
-            function = ju.plot_2d_gt_vs_rec_histogram
-            reference = gt_dict
-            if "offset" not in kwargs:
-                kwargs["offset"] = 1.e-10
-        case 'rel_signal_space_2D_histogram':
-            function = ju.plot_2d_gt_vs_rec_histogram
-            reference = gt_dict
             if "offset" not in kwargs:
                 kwargs["offset"] = 1.e-10
         case _:
@@ -108,32 +98,26 @@ if __name__ == "__main__":
     # Load response
     response_dict = ju.build_erosita_response_from_config(config_path)
 
+    # Load sky models
+    sky_model = ju.SkyModel(config_path)
+    sky = sky_model.create_sky_model()
+    sky_dict = sky_model.sky_model_to_dict()
+
     # Load telescope information
-    npix = cfg['grid']['npix']
-    n_modules = len(cfg['telescope']['tm_ids'])
     mask_adj = jax.linear_transpose(response_dict['mask'],
-                                    np.zeros((n_modules, npix, npix)))
+                                    np.zeros((len(tel_info['tm_ids']),) + sky.target.shape))
     response_dict['mask_adj'] = mask_adj
     mask_func = response_dict['mask']
 
-    # Load sky models
-    sky_dict = ju.create_sky_model_from_config(config_path)
-    sky_dict = {k: v for k, v in sky_dict.items() if "full" not in k} # FIXME: make prettier
-
     # Load data and ground truth
     gt_dict = {}
-    if cfg['mock']:
-        if cfg['load_mock_data']:
-            import nifty8.re as jft
-            masked_data = jft.Vector(ju.load_masked_data_from_pickle(join(file_info['res_dir'],
-                                                               'mock_data_dict.pkl')))
-        else:
-            masked_data = ju.generate_erosita_data_from_config(config_path, response_dict['R'])
-        for key in sky_dict:
-            with open(join(reconstruction_path, f'{key}_gt.pkl'), 'rb') as file:
-                gt_dict[key] = pickle.load(file)
-    else:
-        print("This is not a mock run. "
+    masked_data = ju.load_masked_data_from_config(config_path)
+    try:
+        pos = ju.load_mock_position_from_config(config_path)
+        for key, comp in sky_dict.items():
+            gt_dict[key] = comp(pos)
+    except:
+        print("Ground truth not available."
               "Ground-truth-dependent metrics (e.g. uncertainty-weighted residuals) "
               "will not be calculated.")
         masked_data = ju.load_erosita_masked_data(file_info, tel_info, mask_func)

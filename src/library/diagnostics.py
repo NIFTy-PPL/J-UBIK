@@ -72,7 +72,7 @@ def compute_uncertainty_weighted_residuals(samples,
         if reference_dict is None:
             reference_dict = {key: None}
         if key not in reference_dict:
-            reference_dict[key] = None
+            continue
         uwrs, exp_mask = _calculate_uwr(samples.samples, op, reference_dict[key], response_dict,
                                         abs=abs, exposure_mask=mask, log=log)
         uwrs = np.array(uwrs)
@@ -169,7 +169,7 @@ def compute_noise_weighted_residuals(samples, operator_dict, diagnostics_path, r
         if 'vmax' not in plot_kwargs:
             plot_kwargs.update({'vmax': 5})
 
-        for id, i in enumerate(masked_nwrs):
+        for id, i in enumerate(list(masked_nwrs[0])):
             results_path = create_output_directory(join(diagnostics_path, f"tm_{id + 1}/{key}/"))
             if 'title' not in plot_kwargs:
                 plot_kwargs.update({'title': f"NWR {key} - TM number {id + 1}"})
