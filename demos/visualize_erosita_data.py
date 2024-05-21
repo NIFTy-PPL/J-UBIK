@@ -9,7 +9,7 @@ from jubik0.library.response import calculate_erosita_effective_area
 if __name__ == "__main__":
     config_path = "eROSITA_config.yaml"
     config_dict = ju.get_config(config_path)
-    path_to_caldb = '~/PycharmProjects/jubik/data/'
+    path_to_caldb = '../data/'
     file_info = config_dict["files"]
     grid_info = config_dict["grid"]
     tm_ids = config_dict["telescope"]["tm_ids"]
