@@ -73,6 +73,10 @@ def compute_uncertainty_weighted_residuals(samples,
             reference_dict = {key: None}
         if key not in reference_dict:
             continue
+        if reference_dict[key] is None:
+            print(f"No reference ground truth provided for {key}. "
+                  "Uncertainty-weighted residuals calculation defaults to uncertainty-weighted mean.")
+
         uwrs, exp_mask = _calculate_uwr(samples.samples, op, reference_dict[key], response_dict,
                                         abs=abs, exposure_mask=mask, log=log)
         uwrs = np.array(uwrs)
@@ -169,15 +173,16 @@ def compute_noise_weighted_residuals(samples, operator_dict, diagnostics_path, r
         if 'vmax' not in plot_kwargs:
             plot_kwargs.update({'vmax': 5})
 
-        for id, i in enumerate(list(masked_nwrs[0])):
+        for id, i in enumerate(masked_nwrs):
             results_path = create_output_directory(join(diagnostics_path, f"tm_{id + 1}/{key}/"))
             if 'title' not in plot_kwargs:
                 plot_kwargs.update({'title': f"NWR {key} - TM number {id + 1}"})
-            plot_result(i,
-                        output_file=join(results_path,
-                                         f'{base_filename}{key}_tm{id + 1}_samples.png'),
-                        adjust_figsize=True,
-                        **plot_kwargs)
+            for sample in range(i.shape[0]):
+                plot_result(i[sample],
+                            output_file=join(results_path,
+                                         f'{base_filename}{key}_tm{id + 1}_sample_{sample}.png'),
+                            adjust_figsize=True,
+                            **plot_kwargs)
             plot_result(np.mean(i, axis=0),
                         output_file=join(results_path,
                                          f'{base_filename}{key}_tm{id + 1}_mean.png'),
@@ -189,7 +194,7 @@ def compute_noise_weighted_residuals(samples, operator_dict, diagnostics_path, r
                 hist_func = lambda x: jnp.histogram(x.reshape(-1), bins=n_bins, range=extent)[0]
                 edges_func = lambda x: jnp.histogram(x.reshape(-1), bins=n_bins, range=extent)[1]
                 hist = tree_map(jax.vmap(hist_func, in_axes=0, out_axes=0), i)
-                edges = tree_map(edges_func, nwrs)
+                edges = tree_map(edges_func, masked_nwrs)
                 mean_hist = tree_map(lambda x: np.mean(x, axis=0), hist)
                 plot_histograms(mean_hist, edges,
                                 join(results_path, f'{base_filename}{key}_tm{id + 1}_hist.png'),
@@ -201,9 +206,6 @@ def compute_noise_weighted_residuals(samples, operator_dict, diagnostics_path, r
 def _calculate_uwr(pos, op, ground_truth, response_dict,
                    abs=False, exposure_mask=True, log=True):
     op = jax.vmap(op)
-    if ground_truth is None:
-        print("No reference ground truth provided. "
-              "Uncertainty-weighted residuals calculation defaults to uncertainty-weighted mean.")
     if log:
         ground_truth = jnp.log(ground_truth) if ground_truth is not None else 0.
         res = (jnp.mean(jnp.log(op(pos)), axis=0) - ground_truth) / jnp.std(jnp.log(op(pos)),
@@ -297,7 +299,7 @@ def plot_2d_gt_vs_rec_histogram(samples, operator_dict, diagnostics_path, respon
     if response is False:
         exp = response_dict['exposure']
         shape = exp(operator_dict[tuple(operator_dict)[0]](jft.mean(samples))).shape
-        reshape = lambda x: np.tile(x, (shape[0], 1, 1))
+        reshape = lambda x: np.tile(x, (shape[0], 1, 1, 1))
         R = lambda x: jft.Vector(
             {k: response_dict['mask_adj'](response_dict['mask'](reshape(x)))[0] for k in
             range(shape[0])})
