@@ -52,7 +52,6 @@ def run_evaluation_function(function, samples, operators_dict, diagnostics_path,
         case _:
             raise ValueError(f'Function {function} is not supported.')
     function(samples, operators_dict, diagnostics_path, response_dict, reference, **kwargs)
-    return True
 
 
 def run_evaluation_from_config(samples, config, op_dict, diagnostics_path, response_dict,
