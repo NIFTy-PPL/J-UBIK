@@ -4,7 +4,7 @@ import numpy as np
 import jubik0 as ju
 from os.path import join
 import astropy.io.fits as fits
-
+from jubik0.library.response import calculate_erosita_effective_area
 
 if __name__ == "__main__":
     config_path = "eROSITA_config.yaml"
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     exposures = np.array(exposures, dtype=float)
     correct_exposures_for_effective_area = True
     if correct_exposures_for_effective_area:
-        from src.library.response import calculate_erosita_effective_area
+        # from src.library.response import calculate_erosita_effective_area
         ea = calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max)
         exposures *= ea[:, :, np.newaxis, np.newaxis]
 
