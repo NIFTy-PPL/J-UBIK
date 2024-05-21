@@ -11,6 +11,8 @@ from ..library.chandra_observation import ChandraObservationInformation
 from ..library.response import build_erosita_response_from_config
 from ..library.sky_models import SkyModel
 
+from .mf_plot import plot_rgb
+
 """FIXME: Clean this module - Plotting routines that are specific and are loading skymodels 
 or reponses should go here"""
 
@@ -44,7 +46,8 @@ def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
 
 
 def plot_sample_and_stats(output_directory, operators_dict, sample_list, iteration=None,
-                          log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None):
+                          log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None,
+                          rgb_max_sat=[1.412e-3, 9.6e-4, 3.00e-3]):
     """
     Plots operator samples and statistics from a sample list.
 
@@ -58,6 +61,8 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     - colorbar: `bool`, optional. Whether to show a colorbar. Defaults to True.
     - dpi: `int`, optional. The resolution of the plot. Defaults to 100.
     - plotting_kwargs: `dict`, optional. Additional plotting keyword arguments. Defaults to None.
+    - rgb_max_sat: relative maximal saturation for individual color channels.
+                   E.g. 0.5 clips the plot at half the intensity.
 
     # FIXME Title available again?
     Returns:
@@ -91,6 +96,14 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
             plotting_kwargs.update({'title': title})
             plot_result(f_samples[i], output_file=filename_samples, logscale=log_scale,
                         colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
+            rgb_name = join(results_path, f"rgb_{iteration}")
+
+            # TODO this only works for 3 E-Bins
+            if e_length == 3:
+                sat_max = [rgb_max_sat[j] * f_samples[i][j].max() for j in range(3)]
+                plot_rgb(f_samples[i], rgb_name, sat_max=sat_max)
+                plot_rgb(f_samples[i], rgb_name+"_log", sat_min=None, sat_max=None, log=True)
+
 
         # Plot statistics
         if 'n_rows' in plotting_kwargs:
