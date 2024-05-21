@@ -98,10 +98,11 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
                         colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
             rgb_name = join(results_path, f"rgb_{iteration}")
 
-            # FIXME this only works for 3 E-Bins
-            sat_max = [rgb_max_sat[j] * f_samples[i][j].max() for j in range(3)]
-            plot_rgb(f_samples[i], rgb_name, sat_max=sat_max)
-            plot_rgb(f_samples[i], rgb_name+"_log", sat_min=None, sat_max=None, log=True)
+            # TODO this only works for 3 E-Bins
+            if e_length == 3:
+                sat_max = [rgb_max_sat[j] * f_samples[i][j].max() for j in range(3)]
+                plot_rgb(f_samples[i], rgb_name, sat_max=sat_max)
+                plot_rgb(f_samples[i], rgb_name+"_log", sat_min=None, sat_max=None, log=True)
 
 
         # Plot statistics
