@@ -169,7 +169,7 @@ def compute_noise_weighted_residuals(samples, operator_dict, diagnostics_path, r
         if 'vmax' not in plot_kwargs:
             plot_kwargs.update({'vmax': 5})
 
-        for id, i in enumerate(masked_nwrs):
+        for id, i in enumerate(list(masked_nwrs[0])):
             results_path = create_output_directory(join(diagnostics_path, f"tm_{id + 1}/{key}/"))
             if 'title' not in plot_kwargs:
                 plot_kwargs.update({'title': f"NWR {key} - TM number {id + 1}"})
