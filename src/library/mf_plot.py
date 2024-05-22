@@ -58,8 +58,12 @@ def _norm_rgb_plot(x):
     # norm on RGB to 0-1
     for i in range(3):
         a = x[:, :, i]
-        minim = a[a!=0].min()
-        maxim = a[a!=0].max()
+        if a[a != 0].size == 0:
+            minim = 0
+            maxim = 0
+        else:
+            minim = a[a != 0].min()
+            maxim = a[a != 0].max()
         a[a != 0] = (a[a != 0] - minim) / (maxim - minim)
         plot_data[:, :, i] = a
     return plot_data
