@@ -48,12 +48,30 @@ if __name__ == "__main__":
                    adjust_figsize=False, common_colorbar=False)
     ju.plot_result(exposures[0], logscale=True, n_rows=1, n_cols=3, adjust_figsize=False,
                    figsize=(15, 5), common_colorbar=False)
-    ju.plot_result(np.sum(data, axis=0)/np.sum(exposures, axis=0), logscale=True, n_rows=1, n_cols=3, adjust_figsize=False,
+
+    summed_data = np.sum(data, axis=0)
+    summed_exposure = np.sum(exposures, axis=0)
+    exposure_corrected_data = summed_data/summed_exposure
+    mask_data = np.isnan(exposure_corrected_data)
+    mask_exp = summed_exposure == 0
+    exposure_corrected_data[mask_data] = 0
+    exposure_corrected_data[mask_exp] = 0
+    ju.plot_result(exposure_corrected_data, logscale=True, n_rows=1, n_cols=3, adjust_figsize=False,
                    figsize=(15, 5), common_colorbar=False)
+    sat_min = [3e-8, 3e-8, 3e-8]
 
-    # ju.plot_result(exposures[0], logscale=True, n_cols=3, adjust_figsize=True, common_colorbar=True)
-    plt.imshow(exposures[0][1] - exposures[0][2], origin='lower')
+    # for setting the value
+    maxim = [np.max(exposure_corrected_data[i]) for i in range(3)]
+    for i in range(3):
+        print(f"Max Bin {i}", maxim[i])
+
+    # maxima set by eye
+    sat_max = [2.0167e-6, 1.05618e-6, 1.5646e-6]
+
+    ju.plot_rgb(exposure_corrected_data, "blib", sat_min, sat_max, sigma=None, log=False)
+    ju.plot_rgb(exposure_corrected_data, "blib_log",sat_min, log=True)
+    ju.plot_result(exposures[0], logscale=True, n_cols=3, adjust_figsize=True, common_colorbar=True)
+    # plt.imshow(exposures[0][1] - exposures[0][2], origin='lower')
     # plt.imshow(exposures[0][1]/exposures[0][2], origin='lower')
-    plt.colorbar()
-    plt.show()
-
+    # plt.colorbar()
+    # plt.show()
