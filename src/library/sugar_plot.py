@@ -47,7 +47,7 @@ def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
 
 def plot_sample_and_stats(output_directory, operators_dict, sample_list, iteration=None,
                           log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None,
-                          rgb_max_sat=[1.412e-3, 9.6e-4, 3.00e-3]):
+                          rgb_max_sat=None):
     """
     Plots operator samples and statistics from a sample list.
 
@@ -61,7 +61,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     - colorbar: `bool`, optional. Whether to show a colorbar. Defaults to True.
     - dpi: `int`, optional. The resolution of the plot. Defaults to 100.
     - plotting_kwargs: `dict`, optional. Additional plotting keyword arguments. Defaults to None.
-    - rgb_max_sat: relative maximal saturation for individual color channels.
+    - rgb_max_sat: absolute maximal saturation for individual color channels.
                    E.g. 0.5 clips the plot at half the intensity.
 
     # FIXME Title available again?
@@ -100,9 +100,11 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
 
             # TODO this only works for 3 E-Bins
             if e_length == 3:
-                sat_max = [rgb_max_sat[j] * f_samples[i][j].max() for j in range(3)]
-                plot_rgb(f_samples[i], rgb_name, sat_max=sat_max)
-                plot_rgb(f_samples[i], rgb_name+"_log", sat_min=None, sat_max=None, log=True)
+                # sat_max = [rgb_max_sat[j] * f_samples[i][j].max() for j in range(3)]
+                sat_max = rgb_max_sat
+                sat_min = [3e-8, 3e-8, 3e-8]
+                plot_rgb(f_samples[i], rgb_name, sat_min = sat_min, sat_max=sat_max)
+                plot_rgb(f_samples[i], rgb_name+"_log", sat_min=sat_min, sat_max=None, log=True)
 
 
         # Plot statistics
