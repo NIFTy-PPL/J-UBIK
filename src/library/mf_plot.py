@@ -46,7 +46,7 @@ def _clip(x, sat_min, sat_max):
 def _non_zero_log(x):
     x_arr = np.array(x)
     log_x = np.zeros(x_arr.shape)
-    log_x[x_arr>0] = np.log(x_arr[x_arr>0])
+    log_x[x_arr > 0] = np.log(x_arr[x_arr > 0])
     return log_x
 
 
