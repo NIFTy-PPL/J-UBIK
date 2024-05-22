@@ -53,8 +53,6 @@ def _non_zero_log(x):
 def _norm_rgb_plot(x):
     plot_data = np.zeros(x.shape)
     x = np.array(x)
-    # minim = np.array([np.min(x[:, :, i] for i in range(3))])
-    # maxim = np.array([np.max(x[:, :, i]) for i in range(3)])
     # norm on RGB to 0-1
     for i in range(3):
         a = x[:, :, i]
