@@ -60,7 +60,9 @@ for fltname, flt in cfg['files']['filter'].items():
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
         jwst_data = JwstData(filepath)
-        # print(jwst_data.dm.meta.date)
+        # m = jwst_data.dm.meta
+        # print(m.date, m.pointing.ra_v1, m.pointing.dec_v1)
+        # exit()
 
         data_key = f'{fltname}_{ii}'
 
@@ -109,6 +111,7 @@ for fltname, flt in cfg['files']['filter'].items():
         )
 
         data_plotting[data_key] = dict(
+            index=filter_projector.key_and_index[fltname],
             data=data,
             std=std,
             mask=mask,
@@ -131,7 +134,7 @@ likelihood = connect_likelihood_to_model(
 key = random.PRNGKey(87)
 key, rec_key = random.split(key, 2)
 
-for ii in range(3):
+for ii in range(0):
     key, test_key = random.split(key, 2)
     x = jft.random_like(test_key, sky_model.domain)
     sky = sky_model_with_keys(x)

@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LogNorm
 import numpy as np
 
+from typing import Optional
+
 
 def find_closest_factors(number):
     """
@@ -42,7 +44,8 @@ def build_plot(
     sky_model: jft.Model,
     small_sky_model: jft.Model,
     results_directory: str,
-    plotting_config: dict
+    plotting_config: dict,
+    plaw: Optional[jft.Model] = None,
 ):
     from jubik0.jwst.mock_data.mock_evaluation import redchi2
     from jubik0.jwst.mock_data.mock_plotting import display_text
@@ -53,6 +56,10 @@ def build_plot(
     sky_dir = join(results_directory, 'sky')
     makedirs(residual_dir, exist_ok=True)
     makedirs(sky_dir, exist_ok=True)
+
+    if plaw is not None:
+        plaw_dir = join(results_directory, 'plaw')
+        makedirs(plaw_dir, exist_ok=True)
 
     norm = plotting_config.get('norm', Normalize)
     sky_extent = plotting_config.get('sky_extent', None)
@@ -101,6 +108,45 @@ def build_plot(
         fig.savefig(join(residual_dir, f'{x.nit:02d}.png'), dpi=300)
         plt.close()
 
+    def plot_plaw(samples, x):
+        m_plaw, s_plaw = jft.mean_and_std([plaw(si) for si in samples])
+        m_sky, s_sky = jft.mean_and_std(
+            [small_sky_model(si) for si in samples])
+
+        ylen = len(data_dict)
+        fig, axes = plt.subplots(ylen, 3, figsize=(9, 3*ylen), dpi=300)
+        ims = []
+        for ii, (dkey, data) in enumerate(data_dict.items()):
+            dm = data['data_model']
+            dd = data['data']
+            std = data['std']
+            mask = data['mask']
+            index = data['index']
+
+            model_data = []
+            for si in samples:
+                tmp = np.zeros_like(dd)
+                tmp[mask] = dm(sky_model_with_key(si))
+                model_data.append(tmp)
+
+            model_mean = jft.mean(model_data)
+
+            print(index)
+            axes[ii, 0].set_title('p-law model')
+            ims.append(axes[ii, 0].imshow(m_plaw[index], origin='lower'))
+            axes[ii, 1].set_title('data model')
+            ims.append(axes[ii, 1].imshow(
+                m_sky[index], origin='lower', norm=norm()))
+            axes[ii, 2].set_title('Data - Data model')
+            ims.append(axes[ii, 2].imshow((dd - model_mean)/std,
+                       origin='lower', vmin=-3, vmax=3, cmap='RdBu_r'))
+
+        for ax, im in zip(axes.flatten(), ims):
+            fig.colorbar(im, ax=ax, shrink=0.7)
+        fig.tight_layout()
+        fig.savefig(join(plaw_dir, f'{x.nit:02d}.png'), dpi=300)
+        plt.close()
+
     def plot_sky_with_samples(samples, x):
         ylen, xlen = find_closest_factors(len(samples)+4)
 
@@ -125,6 +171,8 @@ def build_plot(
     def sky_plot(samples, x):
         sky_plot_residuals(samples, x)
         plot_sky_with_samples(samples, x)
+        if plaw is not None:
+            plot_plaw(samples, x)
 
     return sky_plot
 
