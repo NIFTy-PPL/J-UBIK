@@ -37,6 +37,7 @@ if __name__ == "__main__":
 
     data = np.array(data, dtype=int)
     exposures = np.array(exposures, dtype=float)
+    exposures[exposures<=500] = 0 # FIXME FROM CONFIG Instroduce Exposure cut
     correct_exposures_for_effective_area = True
     if correct_exposures_for_effective_area:
         # from src.library.response import calculate_erosita_effective_area
