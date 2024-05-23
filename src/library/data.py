@@ -111,14 +111,13 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
     # Generate response func
     sky_comps = sky_model.sky_model_to_dict()
     key, subkey = random.split(key)
-    output_path = os.path.join(file_info['obs_path'])
-    create_output_directory(output_path)
+    output_path = create_output_directory(file_info['res_dir'])
     mock_sky_position = jft.Vector(jft.random_like(subkey, sky.domain))
     masked_mock_data = response_dict['R'](sky(mock_sky_position))
     masked_mock_data = tree_map(lambda x: random.poisson(subkey, x), masked_mock_data.tree)
     masked_mock_data = jft.Vector({key: val.astype(int) for key, val in masked_mock_data.items()})
-    save_dict_to_pickle(masked_mock_data.tree, os.path.join(output_path, file_info['data_dict']))
-    save_dict_to_pickle(mock_sky_position.tree, os.path.join(output_path, file_info['pos_dict']))
+    save_dict_to_pickle(masked_mock_data.tree, join(output_path, file_info['data_dict']))
+    save_dict_to_pickle(mock_sky_position.tree, join(output_path, file_info['pos_dict']))
     if plot_info['enabled']:
         jft.logger.info('Plotting mock data and mock sky.')
         plottable_vector = jft.Vector({key: val.astype(float) for key, val
@@ -129,10 +128,10 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
         plottable_data_array = np.stack(mask_adj_func(plottable_vector), axis=0)
         for tm_id in range(plottable_data_array.shape[0]):
             plot_result(plottable_data_array[tm_id], logscale=True,
-                    output_file=os.path.join(output_path, f'mock_data_tm{tm_id+1}.png'))
+                    output_file=join(output_path, f'mock_data_tm{tm_id+1}.png'))
         for key, sky_comp in sky_comps.items():
             plot_result(sky_comp(mock_sky_position), logscale=True,
-                        output_file=os.path.join(output_path, f'mock_{key}.png'))
+                        output_file=join(output_path, f'mock_{key}.png'))
 
     return masked_mock_data
 
