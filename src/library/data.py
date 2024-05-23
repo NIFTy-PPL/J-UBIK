@@ -111,14 +111,13 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
     # Generate response func
     sky_comps = sky_model.sky_model_to_dict()
     key, subkey = random.split(key)
-    output_path = os.path.join(file_info['obs_path'])
-    create_output_directory(output_path)
+    output_path = create_output_directory(file_info['res_dir'])
     mock_sky_position = jft.Vector(jft.random_like(subkey, sky.domain))
     masked_mock_data = response_dict['R'](sky(mock_sky_position))
     masked_mock_data = tree_map(lambda x: random.poisson(subkey, x), masked_mock_data.tree)
     masked_mock_data = jft.Vector({key: val.astype(int) for key, val in masked_mock_data.items()})
-    save_dict_to_pickle(masked_mock_data.tree, os.path.join(output_path, file_info['data_dict']))
-    save_dict_to_pickle(mock_sky_position.tree, os.path.join(output_path, file_info['pos_dict']))
+    save_dict_to_pickle(masked_mock_data.tree, join(output_path, file_info['data_dict']))
+    save_dict_to_pickle(mock_sky_position.tree, join(output_path, file_info['pos_dict']))
     if plot_info['enabled']:
         jft.logger.info('Plotting mock data and mock sky.')
         plottable_vector = jft.Vector({key: val.astype(float) for key, val
@@ -129,10 +128,10 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
         plottable_data_array = np.stack(mask_adj_func(plottable_vector), axis=0)
         for tm_id in range(plottable_data_array.shape[0]):
             plot_result(plottable_data_array[tm_id], logscale=True,
-                    output_file=os.path.join(output_path, f'mock_data_tm{tm_id+1}.png'))
+                    output_file=join(output_path, f'mock_data_tm{tm_id+1}.png'))
         for key, sky_comp in sky_comps.items():
             plot_result(sky_comp(mock_sky_position), logscale=True,
-                        output_file=os.path.join(output_path, f'mock_{key}.png'))
+                        output_file=join(output_path, f'mock_{key}.png'))
 
     return masked_mock_data
 
@@ -183,8 +182,7 @@ def mask_erosita_data_from_disk(file_info, tel_info, grid_info, mask_func):
         data_list.append(data)
     data = jnp.stack(jnp.array(data_list, dtype=int))
     masked_data_vector = mask_func(data)
-    save_dict_to_pickle(masked_data_vector.tree, os.path.join(file_info['obs_path'],
-                                                              file_info["data_dict"]))
+    save_dict_to_pickle(masked_data_vector.tree, join(file_info['res_dir'], file_info["data_dict"]))
     return masked_data_vector
 
 
@@ -222,9 +220,7 @@ def create_erosita_data_from_config(config_path):
 
     rebin = int(np.floor(20 * tel_info['fov'] // sdim))  # FIXME: USE DISTANCES!
 
-    processed_obs_path = create_output_directory(join(obs_path,
-                                                      file_info['processed_obs_folder']))
-    data_list = []
+    processed_obs_path = create_output_directory(join(obs_path, file_info['processed_obs_folder']))
     for tm_id in tel_info["tm_ids"]:
         # TODO: implement the following by changing the eSASS interface ErositaObservation
         # tm_processed_path = create_output_directory(join(processed_obs_path, f'tm{tm_id}'))
@@ -281,7 +277,7 @@ def create_erosita_data_from_config(config_path):
 # Data creation wrapper
 def create_data_from_config(config_path, response_dct):
     """ Wrapper function to create masked data either from
-    actual eROSITA observtaions or from generated mock data, as specified
+    actual eROSITA observations or from generated mock data, as specified
     in the config given at config path. In any case the data is saved to the
     same pickle file.
 
@@ -297,18 +293,19 @@ def create_data_from_config(config_path, response_dct):
     file_info = cfg["files"]
     grid_info = cfg['grid']
     plot_info = cfg['plotting']
-    if not os.path.exists(os.path.join(file_info['obs_path'], file_info['data_dict'])):
+    data_path = join(file_info['res_dir'], file_info['data_dict'])
+    if not os.path.exists(data_path):
         if bool(file_info.get("mock_gen_config")):
-            jft.logger.info(f'Generating new mock data in {file_info["obs_path"]}...')
+            jft.logger.info(f'Generating new mock data in {file_info["res_dir"]}...')
             mock_prior_info = get_config(file_info["mock_gen_config"])
             _ = create_mock_erosita_data(tel_info, file_info, grid_info, mock_prior_info,
                                          plot_info, cfg['seed'], response_dct)
-            save_config(mock_prior_info, file_info['mock_gen_config'], file_info['obs_path'])
+            save_config(mock_prior_info, file_info['mock_gen_config'], file_info['res_dir'])
         else:
-            jft.logger.info(f'Generating masked eROSITA data in {file_info["obs_path"]}...')
+            jft.logger.info(f'Generating masked eROSITA data in {file_info["res_dir"]}...')
             mask_erosita_data_from_disk(file_info, tel_info, grid_info, response_dct['mask'])
     else:
-        jft.logger.info(f'Data in {file_info["obs_path"]} already exists. No data generation.')
+        jft.logger.info(f'Data in {file_info["res_dir"]} already exists. No data generation.')
 
 
 # Data loading wrapper
@@ -328,13 +325,12 @@ def load_masked_data_from_config(config_path):
     """
     cfg = get_config(config_path)
     file_info = cfg['files']
-    data_path = os.path.join(file_info['obs_path'], file_info['data_dict'])
+    data_path = join(file_info['res_dir'], file_info['data_dict'])
     if os.path.exists(data_path):
         jft.logger.info('...Loading data from file')
         masked_data = jft.Vector(load_data_dict_from_pickle(data_path))
     else:
-        raise ValueError('Data path does not exist')
-        masked_data = None
+        raise ValueError('Data path does not exist.')
     return masked_data
 
 
@@ -355,13 +351,12 @@ def load_mock_position_from_config(config_path):
     """
     cfg = get_config(config_path)
     file_info = cfg['files']
-    pos_path = os.path.join(file_info['obs_path'], file_info['pos_dict'])
+    pos_path = join(file_info['res_dir'], file_info['pos_dict'])
     if os.path.exists(pos_path):
         jft.logger.info('...Loading mock position')
         mock_pos = load_data_dict_from_pickle(pos_path)
     else:
-        raise ValueError('Mock position path does not exist')
-        mock_pos = None
+        raise ValueError('Mock position path does not exist.')
     return mock_pos
 
 
