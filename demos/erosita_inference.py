@@ -53,7 +53,8 @@ if __name__ == "__main__":
                                  sky_dict,
                                  s,
                                  dpi=300,
-                                 iteration=x.nit)
+                                 iteration=x.nit,
+                                 rgb_max_sat=[2.0167e-6, 1.05618e-6, 1.5646e-6])
 
     samples, state = jft.optimize_kl(log_likelihood,
                                      pos_init,

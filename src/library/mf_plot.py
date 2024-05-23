@@ -46,20 +46,22 @@ def _clip(x, sat_min, sat_max):
 def _non_zero_log(x):
     x_arr = np.array(x)
     log_x = np.zeros(x_arr.shape)
-    log_x[x_arr>0] = np.log(x_arr[x_arr>0])
+    log_x[x_arr > 0] = np.log(x_arr[x_arr > 0])
     return log_x
 
 
 def _norm_rgb_plot(x):
     plot_data = np.zeros(x.shape)
     x = np.array(x)
-    # minim = np.array([np.min(x[:, :, i] for i in range(3))])
-    # maxim = np.array([np.max(x[:, :, i]) for i in range(3)])
     # norm on RGB to 0-1
     for i in range(3):
         a = x[:, :, i]
-        minim = a[a!=0].min()
-        maxim = a[a!=0].max()
+        if a[a != 0].size == 0:
+            minim = 0
+            maxim = 0
+        else:
+            minim = a[a != 0].min()
+            maxim = a[a != 0].max()
         a[a != 0] = (a[a != 0] - minim) / (maxim - minim)
         plot_data[:, :, i] = a
     return plot_data
