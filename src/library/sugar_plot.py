@@ -47,7 +47,7 @@ def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
 
 def plot_sample_and_stats(output_directory, operators_dict, sample_list, iteration=None,
                           log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None,
-                          rgb_max_sat=None):
+                          rgb_min_sat=None, rgb_max_sat=None):
     """
     Plots operator samples and statistics from a sample list.
 
@@ -101,10 +101,10 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
             # TODO this only works for 3 E-Bins
             if e_length == 3:
                 # sat_max = [rgb_max_sat[j] * f_samples[i][j].max() for j in range(3)]
-                sat_max = rgb_max_sat
-                sat_min = [3e-8, 3e-8, 3e-8]
-                plot_rgb(f_samples[i], rgb_name, sat_min = sat_min, sat_max=sat_max)
-                plot_rgb(f_samples[i], rgb_name+"_log", sat_min=sat_min, sat_max=None, log=True)
+                plot_rgb(f_samples[i], rgb_name, sat_min=rgb_min_sat,
+                         sat_max=rgb_max_sat)
+                plot_rgb(f_samples[i], rgb_name+"_log", sat_min=rgb_min_sat,
+                         sat_max=None, log=True)
 
 
         # Plot statistics
