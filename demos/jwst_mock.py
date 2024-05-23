@@ -2,7 +2,7 @@ import nifty8.re as jft
 
 import jubik0 as ju
 from jubik0.jwst.mock_data import (
-    setup, build_evaluation_mask, build_mock_plot)
+    mock_setup, build_evaluation_mask, build_mock_plot)
 from jubik0.jwst.utils import build_sky_model
 from jubik0.jwst.config_handler import config_transform, define_mock_output
 from jubik0.jwst.jwst_data_model import build_data_model
@@ -29,7 +29,8 @@ res_dir = define_mock_output(cfg)
 key = random.PRNGKey(87)
 key, mock_key, noise_key, rec_key, test_key = random.split(key, 5)
 
-comp_sky, reco_grid, data_set = setup(mock_key, noise_key, **cfg['mock_setup'])
+comp_sky, reco_grid, data_set = mock_setup(
+    mock_key, noise_key, **cfg['mock_setup'])
 sky_model, sky_model_full = build_sky_model(
     reco_grid.shape,
     [d.to(u.arcsec).value for d in reco_grid.distances],

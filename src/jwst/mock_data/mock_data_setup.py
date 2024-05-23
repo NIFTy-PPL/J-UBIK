@@ -100,7 +100,7 @@ def create_data(
     return data_grid, data, rota_sky
 
 
-def setup(
+def mock_setup(
     mock_key,
     noise_key,
     **kwargs,
