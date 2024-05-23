@@ -47,6 +47,9 @@ if __name__ == "__main__":
     kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['sdim']  # FIXME: Replace by domain information
 
     # Plot
+    additional_plot_dict = {"diffuse_alpha": sky_model.alpha_cf,
+                            "point_sources_alpha": sky_model.points_alpha}
+
     def simple_eval_plots(s, x):
         """Call plot_sample_and_stat for every iteration."""
         ju.plot_sample_and_stats(file_info["res_dir"],
