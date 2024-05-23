@@ -12,7 +12,7 @@ def build_linear_rotation_and_shift(
     sub_dvol: float,
     subsample_centers: ArrayLike,
     order: int = 1,
-    updating: bool = False,
+    correction: bool = False,
     sky_as_brightness: bool = False
 ) -> Callable[ArrayLike, ArrayLike]:
     '''Building linear (higher orders not yet supported) rotation_and_shift model.
@@ -35,7 +35,7 @@ def build_linear_rotation_and_shift(
     order : int (default 1)
         The order of the rotation_and_shift scheme (only linear supported by JAX)
 
-    updating : bool (default False)
+    correction : bool (default False)
         If True, a model for an xy_shift can be supplied which will infer the
         a linear shift correction.
 
@@ -64,7 +64,7 @@ def build_linear_rotation_and_shift(
     rotation_and_shift = partial(
         map_coordinates, order=order, mode='wrap')
 
-    if updating:
+    if correction:
         def rotation_shift_subsample(x, y):
             field, xy_correction = x, y
             out = rotation_and_shift(

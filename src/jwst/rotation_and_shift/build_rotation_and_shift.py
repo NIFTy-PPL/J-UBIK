@@ -106,7 +106,7 @@ def build_rotation_and_shift_model(
         case 'linear':
             linear_kwargs = kwargs.get('linear', dict(
                 order=1, sky_as_brightness=False))
-            linear_kwargs['updating'] = (
+            linear_kwargs['correction'] = (
                 False if shift_and_rotation_correction_domain is None else True
             )
             call = build_linear_rotation_and_shift(
