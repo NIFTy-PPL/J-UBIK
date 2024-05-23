@@ -55,6 +55,14 @@ if __name__ == "__main__":
                                  dpi=300,
                                  iteration=x.nit,
                                  rgb_max_sat=[2.0167e-6, 1.05618e-6, 1.5646e-6])
+        ju.plot_sample_and_stats(file_info["res_dir"],
+                                 additional_plot_dict,
+                                 s,
+                                 dpi=300,
+                                 iteration=x.nit,
+                                 log_scale=False,
+                                 plot_samples=False,
+                                 )
 
     samples, state = jft.optimize_kl(log_likelihood,
                                      pos_init,

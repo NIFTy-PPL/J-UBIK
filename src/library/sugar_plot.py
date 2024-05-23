@@ -47,7 +47,7 @@ def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
 
 def plot_sample_and_stats(output_directory, operators_dict, sample_list, iteration=None,
                           log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None,
-                          rgb_min_sat=None, rgb_max_sat=None):
+                          rgb_min_sat=None, rgb_max_sat=None, plot_samples=True):
     """
     Plots operator samples and statistics from a sample list.
 
@@ -63,6 +63,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     - plotting_kwargs: `dict`, optional. Additional plotting keyword arguments. Defaults to None.
     - rgb_max_sat: absolute maximal saturation for individual color channels.
                    E.g. 0.5 clips the plot at half the intensity.
+    - plot_samples: `bool`, optional. Whether to plot the samples. Defaults to True.
 
     # FIXME Title available again?
     Returns:
@@ -90,21 +91,22 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
         e_length = f_samples[0].shape[0]
         # Plot samples
         # FIXME: works only for 2D outputs, add target capabilities
-        for i in range(n_samples):
-            filename_samples = join(results_path, f"sample_{i+1}_it_{iteration}.png")
-            title = [f"Sample {i+1}_Energy_{ii+1}" for ii in range(e_length)]
-            plotting_kwargs.update({'title': title})
-            plot_result(f_samples[i], output_file=filename_samples, logscale=log_scale,
-                        colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
-            rgb_name = join(results_path, f"rgb_{iteration}")
+        if plot_samples:
+            for i in range(n_samples):
+                filename_samples = join(results_path, f"sample_{i+1}_it_{iteration}.png")
+                title = [f"Sample {i+1}_Energy_{ii+1}" for ii in range(e_length)]
+                plotting_kwargs.update({'title': title})
+                plot_result(f_samples[i], output_file=filename_samples, logscale=log_scale,
+                            colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
+                rgb_name = join(results_path, f"rgb_{iteration}")
 
-            # TODO this only works for 3 E-Bins
-            if e_length == 3:
-                # sat_max = [rgb_max_sat[j] * f_samples[i][j].max() for j in range(3)]
-                plot_rgb(f_samples[i], rgb_name, sat_min=rgb_min_sat,
-                         sat_max=rgb_max_sat)
-                plot_rgb(f_samples[i], rgb_name+"_log", sat_min=rgb_min_sat,
-                         sat_max=None, log=True)
+                # TODO this only works for 3 E-Bins
+                if e_length == 3:
+                    # sat_max = [rgb_max_sat[j] * f_samples[i][j].max() for j in range(3)]
+                    plot_rgb(f_samples[i], rgb_name, sat_min=rgb_min_sat,
+                             sat_max=rgb_max_sat)
+                    plot_rgb(f_samples[i], rgb_name+"_log", sat_min=rgb_min_sat,
+                             sat_max=None, log=True)
 
 
         # Plot statistics
