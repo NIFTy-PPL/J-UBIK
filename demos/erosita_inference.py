@@ -47,6 +47,9 @@ if __name__ == "__main__":
     kl_solver_kwargs['minimize_kwargs']['absdelta'] *= cfg['grid']['sdim']  # FIXME: Replace by domain information
 
     # Plot
+    additional_plot_dict = {"diffuse_alpha": sky_model.alpha_cf,
+                            "point_sources_alpha": sky_model.points_alpha}
+
     def simple_eval_plots(s, x):
         """Call plot_sample_and_stat for every iteration."""
         ju.plot_sample_and_stats(file_info["res_dir"],
@@ -55,6 +58,14 @@ if __name__ == "__main__":
                                  dpi=300,
                                  iteration=x.nit,
                                  rgb_max_sat=[2.0167e-6, 1.05618e-6, 1.5646e-6])
+        ju.plot_sample_and_stats(file_info["res_dir"],
+                                 additional_plot_dict,
+                                 s,
+                                 dpi=300,
+                                 iteration=x.nit,
+                                 log_scale=False,
+                                 plot_samples=False,
+                                 )
 
     samples, state = jft.optimize_kl(log_likelihood,
                                      pos_init,
