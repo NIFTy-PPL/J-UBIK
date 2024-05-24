@@ -25,7 +25,7 @@ if __name__ == "__main__":
         print("FYI: Resume is set to False, but the output directory already exists. "
               "The result_dir has been appended with the string *new*.")
 
-    ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
+    ju.save_config_copy(os.path.basename(config_path), output_dir=file_info['res_dir'])
     # Load sky model
     sky_model = ju.SkyModel(config_path)
     sky = sky_model.create_sky_model()
