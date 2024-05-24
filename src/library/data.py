@@ -137,10 +137,10 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
         for key, sky_comp in sky_comps.items():
             plot_rgb(sky_comp(mock_sky_position),
                      name=join(output_path, f'mock_rgb_log_{key}'), log=True)
-            plot_rgb(plottable_data_array[tm_id],
-                    name=join(output_path, f'mock_rgb_{tm_id+1}'), log=False)
-            plot_result(plottable_data_array[tm_id], logscale=True,
-                    output_file=join(output_path, f'mock_tm{tm_id+1}.png'))
+            plot_rgb(sky_comp(mock_sky_position),
+                    name=join(output_path, f'mock_rgb_{key}'), log=False)
+            plot_result(sky_comp(mock_sky_position), logscale=True,
+                    output_file=join(output_path, f'mock_{key}.png'))
 
     return masked_mock_data
 
