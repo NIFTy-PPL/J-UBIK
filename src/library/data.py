@@ -131,14 +131,18 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
             plot_rgb(plottable_data_array[tm_id],
                     name=join(output_path, f'mock_data_tm_rgb_log{tm_id+1}'), log=True)
             plot_rgb(plottable_data_array[tm_id],
-                    name=join(output_path, f'mock_data_tm_rgb_{tm_id+1}'), log=False)
+                    name=join(output_path, f'mock_data_tm_rgb_{tm_id+1}'), log=False,
+                    sat_min=(np.min(plottable_data_array[0], axis=(1, 2))).tolist(),
+                    sat_max=(0.1*np.max(plottable_data_array[0], axis=(1, 2))).tolist())
             plot_result(plottable_data_array[tm_id], logscale=True,
                     output_file=join(output_path, f'mock_data_tm{tm_id+1}.png'))
         for key, sky_comp in sky_comps.items():
             plot_rgb(sky_comp(mock_sky_position),
                      name=join(output_path, f'mock_rgb_log_{key}'), log=True)
             plot_rgb(sky_comp(mock_sky_position),
-                    name=join(output_path, f'mock_rgb_{key}'), log=False)
+                    name=join(output_path, f'mock_rgb_{key}'), log=False,
+                     sat_min=(np.min(sky_comp(mock_sky_position), axis=(1, 2))).tolist(),
+                     sat_max=(0.1 * np.max(sky_comp(mock_sky_position), axis=(1, 2))).tolist())
             plot_result(sky_comp(mock_sky_position), logscale=True,
                     output_file=join(output_path, f'mock_{key}.png'))
 
