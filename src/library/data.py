@@ -11,7 +11,7 @@ import nifty8.re as jft
 from .erosita_observation import ErositaObservation
 from .messages import log_file_exists
 from .sky_models import SkyModel
-from .utils import get_config, create_output_directory, save_config
+from .utils import get_config, create_output_directory, save_config_copy
 from .plot import plot_result
 from typing import NamedTuple
 
@@ -300,7 +300,7 @@ def create_data_from_config(config_path, response_dct):
             mock_prior_info = get_config(file_info["mock_gen_config"])
             _ = create_mock_erosita_data(tel_info, file_info, grid_info, mock_prior_info,
                                          plot_info, cfg['seed'], response_dct)
-            save_config(mock_prior_info, file_info['mock_gen_config'], file_info['res_dir'])
+            save_config_copy(file_info['mock_gen_config'], output_dir=file_info['res_dir'])
         else:
             jft.logger.info(f'Generating masked eROSITA data in {file_info["res_dir"]}...')
             mask_erosita_data_from_disk(file_info, tel_info, grid_info, response_dct['mask'])

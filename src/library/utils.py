@@ -1,4 +1,5 @@
 import os
+from os.path import join
 from warnings import warn
 
 import numpy as np
@@ -41,7 +42,7 @@ def get_config(path_to_yaml_file):
     return cfg
 
 
-def save_config(config, filename, dir=None):
+def save_config(config, filename, dir=None, verbose=True):
     """
     Convenience function to save yaml-config files
 
@@ -50,13 +51,45 @@ def save_config(config, filename, dir=None):
     config: dictionary
         dictionary containing the config information
     filename: str
-        location where the filename.yaml should be safed
+        Name of the config file to be saved.
+    dir: str
+        Location where the filename.yaml should be saved.
+    verbose: bool
+        If true, print a message when the config file is saved.
     """
     import yaml
     if dir is not None:
         create_output_directory(dir)
-    with open(os.path.join(dir, filename), "w") as f:
+    with open(join(dir, filename), "w") as f:
         yaml.dump(config, f)
+    if verbose:
+        print(f"Config file saved to: {join(dir, filename)}.")
+
+
+def save_config_copy(filename, path_to_yaml_file=None,
+                     output_dir=None, verbose=True):
+    """
+    Convenience function to save yaml-config files
+
+    Parameters
+    ----------
+    filename: str
+        Name of the config file to be copied.
+    path_to_yaml_file: str
+        The location of the config file.
+    output_dir: str
+        Location to which the filename.yaml should be copied.
+    verbose: bool
+        If true, print a message when the config file is saved.
+    """
+    if output_dir is not None:
+        create_output_directory(output_dir)
+    current_filename = filename
+    if path_to_yaml_file is not None:
+        current_filename = join(path_to_yaml_file, current_filename)
+    os.popen(f'cp {current_filename} {join(output_dir, filename)}')
+    if verbose:
+        print(f"Config file saved to: {join(output_dir, filename)}.")
 
 
 def create_output_directory(directory_name):
@@ -77,7 +110,7 @@ def get_gaussian_psf(op, var):
     Builds a convolution operator which can be applied to an nifty8.Operator.
     It convolves the result of the operator with a Gaussian Kernel.
 
-    Paramters
+    Parameters
     ---------
     op: nifty8.Operator
         The Operator to which we'll apply the convolution
