@@ -175,7 +175,14 @@ def mock_setup(
             fov=data_grid.fov,
             rotation=repo_rot*u.deg)
 
-        datas[f'd_{ii}'] = dict(data=data, mask=mask, std=std, grid=data_grid)
+        datas[f'd_{ii}'] = dict(
+            data=data,
+            mask=mask,
+            std=std,
+            grid=data_grid,
+            shift=dict(true=shft, reported=repo_shft),
+            rotation=dict(true=rot, reported=repo_rot),
+        )
 
         if plot:
             arr = mock_grid.wcs.index_from_wl(data_grid.world_extrema()).T

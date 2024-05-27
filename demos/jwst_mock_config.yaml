@@ -36,7 +36,7 @@ sky_model:
 
 telescope:
   rotation_and_shift:
-    model: 'nufft' # 'sparse', 'linear', 'nufft'
+    model: 'linear' # 'sparse', 'linear', 'nufft'
     subsample: 2
     order: 1
     mean: [0, 0]

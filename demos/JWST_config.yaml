@@ -2,7 +2,7 @@ seed: 42
 mock: False
 
 grid:
-  # fov: 8.064
+# fov: 8.064
   fov: 5
   fov_unit: arcsec
 
@@ -51,7 +51,8 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_256_02'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_256_03'
+  # res_dir: 'results/jwst_test/with_lensing'
 
   filter:
     # f115w: # NIRCam

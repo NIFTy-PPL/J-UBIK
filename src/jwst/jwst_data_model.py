@@ -63,8 +63,9 @@ def build_data_model(
         data_dvol: Unit, the volume of a data pixel
         data_wcs: WcsBase,
         data_model_type: str,
-        kwargs_linear: dict,
-        kwargs_sparse: dict,
+        kwargs_linear: dict, (order, sky_as_brightness, mode)
+        kwargs_nufft: dict, (sky_as_brightness)
+        kwargs_sparse: dict, (extend_factor, to_bottom_left)
         shift_and_rotation_correction_domain: dict, correction_key, shape_dtype
 
     psf_kwargs:
