@@ -8,6 +8,7 @@ from jubik0.jwst.config_handler import config_transform, define_mock_output
 from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.library.likelihood import (
     connect_likelihood_to_model, build_gaussian_likelihood)
+from jubik0.jwst.rotation_and_shift.shift_model import build_shift_model
 
 from functools import reduce
 from sys import exit
@@ -51,6 +52,15 @@ sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
 likelihoods = []
 for ii, (dkey, data) in enumerate(data_set.items()):
 
+    if ii == 1:
+        shift_model = None
+    else:
+        subsample = cfg['telescope']['rotation_and_shift']['subsample']
+        dist = [d.to(u.arcsec).value / subsample
+                for d in data['grid'].distances]
+        # dist = [1, 1]
+        shift_model = build_shift_model(dkey + '_shift_cor', (0, 1.0), dist)
+
     data_grid = data['grid']
     data_model = build_data_model(
         sky_domain=sky_model_with_key.target,
@@ -60,14 +70,17 @@ for ii, (dkey, data) in enumerate(data_set.items()):
             data_dvol=data_grid.dvol,
             data_wcs=data_grid.wcs,
             data_model_type=cfg['telescope']['rotation_and_shift']['model'],
-            kwargs_sparse=dict(extend_factor=1,  # cfg['sky_model']['extend_factor'],
-                               to_bottom_left=True),
+            kwargs_sparse=dict(extend_factor=1, to_bottom_left=True),
+            shift_and_rotation_correction_domain=shift_model.target if shift_model is not None else None,
+            kwargs_linear=dict(
+                order=1, sky_as_brightness=False, mode='wrap'),
         ),
         psf_kwargs=dict(),
         data_mask=data['mask'],
         world_extrema=data_grid.world_extrema())
 
     data['data_model'] = data_model
+    data['correction_model'] = shift_model
 
     likelihood = build_gaussian_likelihood(
         data['data'].reshape(-1), float(data['std']))
@@ -81,7 +94,6 @@ likelihood = connect_likelihood_to_model(
     sky_model_with_key
 )
 
-exit()
 
 evaluation_mask = build_evaluation_mask(reco_grid, data_set)
 plot = build_mock_plot(
@@ -98,9 +110,10 @@ pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 cfg = ju.get_config('demos/jwst_mock_config.yaml')
 minimization_config = cfg['minimization']
 kl_solver_kwargs = minimization_config.pop('kl_kwargs')
-minimization_config['n_total_iterations'] = 25
+minimization_config['n_total_iterations'] = 12
 # minimization_config['resume'] = True
 minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
+# minimization_config['n_samples'] = lambda it: 1 if it < 10 else 10
 
 print(f'Results: {res_dir}')
 samples, state = jft.optimize_kl(

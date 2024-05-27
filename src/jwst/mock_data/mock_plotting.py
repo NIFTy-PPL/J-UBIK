@@ -123,7 +123,8 @@ def build_mock_plot(
             model_data = []
             for si in samples:
                 tmp = np.zeros_like(d)
-                tmp[mask] = dm({internal_sky_key: sky_model(si)})
+                val = si.tree.tree | {internal_sky_key: sky_model(si)}
+                tmp[mask] = dm(val)
                 model_data.append(tmp)
 
             mod_mean = jft.mean(model_data)
@@ -166,9 +167,27 @@ def build_mock_plot(
         fig.savefig(join(out_dir, f'{x.nit:02d}.png'), dpi=300)
         plt.close()
 
+    def report_correction(samples, x):
+
+        print('data', 'true-reported', 'corr')
+        for key, val in data_set.items():
+            shift_true, shift_reported = val['shift']['true'], val['shift']['reported']
+
+            cm = val['correction_model']
+            if cm is not None:
+                corr, cors = jft.mean_and_std(
+                    [cm.prior_model(s) for s in samples])
+                # corr, cors = (next(iter(corr.values())).reshape(2),
+                #               next(iter(cors.values())).reshape(2))
+                corr, cors = (corr[::-1].reshape(2), cors[::-1].reshape(2))
+                cor = f'[{corr[0]:.1f}+-{cors[0]:.1f}, {corr[1]:.1f}+-{cors[1]:.1f}]'
+            else:
+                cor = '[0+-0, 0+-0]'
+            print(key, np.array(shift_true) - np.array(shift_reported), cor)
+
     def plot(samples, x):
         print(f'Results: {res_dir}')
-
+        report_correction(samples, x)
         plot_pspec(samples, x)
         sky_plot(samples, x)
 
@@ -179,6 +198,8 @@ def sky_model_check(
     key,
     sky_model,
     comp_sky,
+
+
 ):
 
     m = sky_model(jft.random_like(key, sky_model.domain))
