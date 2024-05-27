@@ -115,9 +115,9 @@ def build_evaluation_mask(reco_grid, data_set, comp_sky=None):
             fig, axes = plt.subplots(1, 2)
             ax, ay = axes
             ax.imshow(comp_sky)
-            ax.scatter(*corners.T[::-1], color='orange')
+            ax.scatter(*corners.T, color='orange')
             ay.imshow(tmp_mask)
-            ay.scatter(*corners.T[::-1], color='orange')
+            ay.scatter(*corners.T, color='orange')
             plt.show()
 
     return evaluation_mask

@@ -119,4 +119,6 @@ def subsample_grid_corners_in_index_grid_non_vstack(
         [e00, e01, e10, e11])
 
     # rotation to make them circular for the sparse builder
-    return np.array(index_grid_wcs.index_from_wl([e00, e01, e11, e10]))
+    return np.array(
+        index_grid_wcs.index_from_wl([e00, e01, e11, e10])
+    )[:, ::-1, :, :]

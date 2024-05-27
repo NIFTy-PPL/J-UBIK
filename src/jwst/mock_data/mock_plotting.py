@@ -154,9 +154,9 @@ def build_mock_plot(
             (comparison_sky - sky)/comparison_sky, origin='lower',
             vmin=-0.3, vmax=0.3, cmap='RdBu_r'))
 
-        axes[ii+1, 0].contour(eval_mask.T, levels=1, colors='orange')
-        axes[ii+1, 1].contour(eval_mask.T, levels=1, colors='orange')
-        axes[ii+1, 2].contour(eval_mask.T, levels=1, colors='orange')
+        axes[ii+1, 0].contour(eval_mask, levels=1, colors='orange')
+        axes[ii+1, 1].contour(eval_mask, levels=1, colors='orange')
+        axes[ii+1, 2].contour(eval_mask, levels=1, colors='orange')
 
         ss = '\n'.join(
             [f'{k}: {v:.3f}' if k != 'cc' else f'{k}: {v:e}' for k, v in vals.items()])
@@ -201,7 +201,6 @@ def sky_model_check(
 
 
 ):
-
     m = sky_model(jft.random_like(key, sky_model.domain))
 
     fig, axis = plt.subplots(1, 3)

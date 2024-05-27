@@ -122,7 +122,7 @@ def create_data(
         rota_grid.wl_coords())[0]
 
     nufft = build_nufft_rotation_and_shift(
-        1, 1, interpolation_points[::-1, :, :], mock_grid.shape)
+        1, 1, interpolation_points, mock_grid.shape)
     rota_sky = nufft(mock_sky, None)
 
     downscale = [r//d for r, d in zip(rota_shape, data_shape)]
