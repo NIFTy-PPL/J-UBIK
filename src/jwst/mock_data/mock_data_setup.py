@@ -37,6 +37,38 @@ def plot_square(ax, xy_positions, color='red'):
     ax.scatter(*square_corners.T, color=color)
 
 
+def plot_setup(
+    mock_sky, mock_grid,
+    rota_sky,
+    comparison_sky, comp_down,
+    data, data_grid,
+):
+
+    arr = mock_grid.wcs.index_from_wl(data_grid.world_extrema()).T
+
+    fig, ax = plt.subplots(2, 2)
+    (a00, a01), (a10, a11) = ax
+    ims = []
+    ims.append(a00.imshow(mock_sky, origin='lower'))
+    plot_square(a00, arr)
+    ims.append(a01.imshow(rota_sky, origin='lower'))
+    ims.append(a10.imshow(comparison_sky, origin='lower'))
+    ims.append(a11.imshow(data, origin='lower'))
+
+    a00.set_title(
+        f'Underlying sky; sh={mock_grid.shape[0]}, dist={mock_grid.distances[0].to(u.arcsec).value:.2f}')
+    a01.set_title(
+        f'Cut out; sh={rota_sky.shape[0]}, dist={mock_grid.distances[0].to(u.arcsec).value:.2f}')
+    a10.set_title(
+        f'Comparison sky; sh={comparison_sky.shape[0]}, dist={comp_down[0]*mock_grid.distances[0].to(u.arcsec).value:.2f}')
+    a11.set_title(
+        f'data sky; sh={data_grid.shape[0]}, dist={data_grid.distances[0].to(u.arcsec).value:.2f}')
+
+    for a, i in zip(ax.flatten(), ims):
+        plt.colorbar(i, ax=a, shrink=0.7)
+    plt.show()
+
+
 def downscale_sum(high_res_array, reduction_factor):
     """
     Sums the entries of a high-resolution array into a lower-resolution array
@@ -120,46 +152,48 @@ def mock_setup(
     plot = kwargs.get('plot', False)
 
     cx, cy = 0, 0
-    CENTER = SkyCoord(cx*u.rad, cy*u.rad)
+    center = SkyCoord(cx*u.rad, cy*u.rad)
 
     # True sky
-    MOCK_SHAPE = (mock_shape,)*2
-    MOCK_DIST = (mock_distance,)*2
-    MOCK_FOV = [MOCK_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
-    mock_grid = Grid(CENTER, MOCK_SHAPE, MOCK_FOV)
+    mock_shape = (mock_shape,)*2
+    mock_dist = (mock_distance,)*2
+    mock_fov = [mock_shape[ii]*(mock_dist[ii]*u.arcsec) for ii in range(2)]
+    mock_grid = Grid(center, mock_shape, mock_fov)
 
     # Reco sky
     reco_shape = (reco_shape,)*2
-    RECO_FOV = MOCK_FOV
-    reco_grid = Grid(CENTER, reco_shape, RECO_FOV)
-    comp_down = [r//d for r, d in zip(MOCK_SHAPE, reco_shape)]
+    reco_grid = Grid(center, reco_shape, mock_fov)
+    comp_down = [r//d for r, d in zip(mock_shape, reco_shape)]
 
     offset = sky_dict.get('offset')
     fluctuations = sky_dict.get('fluctuations')
 
     mock_sky = create_mocksky(
-        mock_key, MOCK_SHAPE, MOCK_DIST, (offset, fluctuations))
+        mock_key, mock_shape, mock_dist, (offset, fluctuations))
     comparison_sky = downscale_sum(mock_sky, comp_down[0])
 
     # DATA SETUP
-    ROTA_SHAPE = (rota_shape,)*2
-    DATA_SHAPE = (data_shape,)*2
+    rota_shape = (rota_shape,)*2
+    data_shape = (data_shape,)*2
     rotation = rotation if isinstance(rotation, list) else [rotation]
     datas = {}
     for ii, (rot, repo_rot, shft, repo_shft) in enumerate(
             zip(rotation, reported_rotation, shift, reported_shift)):
-        # Intermediate rotated sky
-        ROTATION = rot*u.deg
-        ROTA_FOV = [ROTA_SHAPE[ii]*(MOCK_DIST[ii]*u.arcsec) for ii in range(2)]
 
         # Data sky
-        DATA_DIST = [r//d*MOCK_DIST[0] for r, d in zip(ROTA_SHAPE, DATA_SHAPE)]
-
-        data_center = SkyCoord(cx*u.rad+(shft[0]*u.arcsec).to(u.rad),
-                               cy*u.rad+(shft[1]*u.arcsec).to(u.rad))
         data_grid, data, rota_sky = create_data(
-            mock_grid, mock_sky, data_center, ROTA_SHAPE, ROTA_FOV, DATA_SHAPE,
-            ROTATION)
+            mock_grid=mock_grid,
+            mock_sky=mock_sky,
+            data_center=SkyCoord(
+                cx*u.rad+(shft[0]*u.arcsec).to(u.rad),
+                cy*u.rad+(shft[1]*u.arcsec).to(u.rad)
+            ),
+            rota_shape=rota_shape,
+            rota_fov=[rota_shape[ii]*(mock_dist[ii]*u.arcsec)
+                      for ii in range(2)],
+            data_shape=data_shape,
+            rotation=rot*u.deg
+        )
 
         # Create noise
         std = data.mean() * noise_scale
@@ -167,7 +201,7 @@ def mock_setup(
             noise_key, data.shape, dtype=data.dtype) * std
         mask = np.full(data.shape, True)
 
-        # UPDATE REPORTED CENTER, AND ROTATION.
+        # Save reported center, shift, and rotation
         data_grid = Grid(
             SkyCoord((repo_shft[0]*u.arcsec).to(u.rad),
                      (repo_shft[1]*u.arcsec).to(u.rad)),
@@ -185,26 +219,13 @@ def mock_setup(
         )
 
         if plot:
-            arr = mock_grid.wcs.index_from_wl(data_grid.world_extrema()).T
-
-            fig, ax = plt.subplots(2, 2)
-            (a00, a01), (a10, a11) = ax
-            ims = []
-            ims.append(a00.imshow(mock_sky, origin='lower'))
-            plot_square(a00, arr)
-            ims.append(a01.imshow(rota_sky, origin='lower'))
-            ims.append(a10.imshow(comparison_sky, origin='lower'))
-            ims.append(a11.imshow(data, origin='lower'))
-
-            a00.set_title(
-                f'Underlying sky; sh={MOCK_SHAPE[0]}, dist={MOCK_DIST[0]}')
-            a01.set_title(f'Cut out; sh={ROTA_SHAPE[0]}, dist={MOCK_DIST[0]}')
-            a10.set_title(
-                f'Comparison sky; sh={reco_shape[0]}, dist={comp_down[0]*MOCK_DIST[0]}')
-            a11.set_title(f'data sky; sh={DATA_SHAPE[0]}, dist={DATA_DIST[0]}')
-
-            for a, i in zip(ax.flatten(), ims):
-                plt.colorbar(i, ax=a, shrink=0.7)
-            plt.show()
-
+            plot_setup(
+                mock_sky,
+                mock_grid,
+                rota_sky,
+                comparison_sky,
+                comp_down,
+                data,
+                data_grid,
+            )
     return comparison_sky, reco_grid, datas
