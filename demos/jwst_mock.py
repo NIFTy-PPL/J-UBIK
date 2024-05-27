@@ -52,20 +52,22 @@ sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
 likelihoods = []
 for ii, (dkey, data) in enumerate(data_set.items()):
 
+    print(data['shift'])
     if ii == 1:
         shift_model = None
     else:
         subsample = cfg['telescope']['rotation_and_shift']['subsample']
         dist = [d.to(u.arcsec).value / subsample
                 for d in data['grid'].distances]
-        # dist = [1, 1]
         shift_model = build_shift_model(dkey + '_shift_cor', (0, 1.0), dist)
 
     data_grid = data['grid']
     data_model = build_data_model(
         sky_domain=sky_model_with_key.target,
         reconstruction_grid=reco_grid,
+
         subsample=cfg['telescope']['rotation_and_shift']['subsample'],
+
         rotation_and_shift_kwargs=dict(
             data_dvol=data_grid.dvol,
             data_wcs=data_grid.wcs,
@@ -75,8 +77,11 @@ for ii, (dkey, data) in enumerate(data_set.items()):
             kwargs_linear=dict(
                 order=1, sky_as_brightness=False, mode='wrap'),
         ),
+
         psf_kwargs=dict(),
+
         data_mask=data['mask'],
+
         world_extrema=data_grid.world_extrema())
 
     data['data_model'] = data_model
