@@ -55,12 +55,15 @@ class SkyModel:
         if config_file_path is not None:
             if not isinstance(config_file_path, str):
                 raise TypeError("The path to the config file needs to be a string")
-            if not config_file_path.endswith('.yaml'):
-                raise ValueError("The sky model parameters need to be safed in a .yaml-file.")
+            if not config_file_path.endswith('.yaml') and not config_file_path.endswith('.yml'):
+                raise ValueError("The sky model parameters need to be saved in a .yaml or .yml "
+                                 "file.")
 
             self.config = ju.get_config(config_file_path)
         else:
             self.config = {}
+        self.s_distances = None
+        self.e_distances = None
         self.diffuse = None
         self.point_sources = None
         self.pspec = None
@@ -173,16 +176,16 @@ class SkyModel:
             self.config['priors'] = priors
 
         sdim = 2 * (sdim,)
-        sdistances = fov / sdim[0]
+        self.s_distances = fov / sdim[0]
         energy_range = np.array(e_max) - np.array(e_min)
-        edistances = energy_range / edim
+        self.e_distances = energy_range / edim # FIXME: add proper distances for irregular energy grid
 
-        if not isinstance(edistances, float) and 'dev_corr' in priors['diffuse'].keys():
+        if not isinstance(self.e_distances, float) and 'dev_corr' in priors['diffuse'].keys():
             raise ValueError('Grid distances in energy direction have to be regular and defined by'
                              'one float of a corrlated field in energy direction is taken.')
 
         self._create_diffuse_component_model(sdim, edim, s_padding_ratio, e_padding_ratio,
-                                                 sdistances, edistances, priors['diffuse'])
+                                             self.s_distances, self.e_distances, priors['diffuse'])
         if 'point_sources' not in priors:
             self.sky = self.diffuse
         else:
@@ -190,7 +193,7 @@ class SkyModel:
                 raise ValueError('Grid distances in energy direction have to be regular and defined by'
                              'one float of a corrlated field in energy direction is taken.')
             self._create_point_source_model(sdim, edim, e_padding_ratio,
-                                            edistances, priors['point_sources'])
+                                            self.e_distances, priors['point_sources'])
             self.sky = fuse_model_components(self.diffuse, self.point_sources)
         return self.sky
 
