@@ -178,7 +178,7 @@ class SkyModel:
         sdim = 2 * (sdim,)
         self.s_distances = fov / sdim[0]
         energy_range = np.array(e_max) - np.array(e_min)
-        self.e_distances = energy_range / edim
+        self.e_distances = energy_range / edim # FIXME: add proper distances for irregular energy grid
 
         if not isinstance(self.e_distances, float) and 'dev_corr' in priors['diffuse'].keys():
             raise ValueError('Grid distances in energy direction have to be regular and defined by'
