@@ -136,8 +136,8 @@ def build_mock_plot(
             axes[ii, 1].set_title('Data model')
             ims.append(axes[ii, 1].imshow(mod_mean, origin='lower'))
             axes[ii, 2].set_title('Data residual')
-            ims.append(axes[ii, 2].imshow((d - mod_mean)/std, origin='lower',
-                                          vmin=-3, vmax=3, cmap='RdBu_r'))
+            ims.append(axes[ii, 2].imshow((d - mod_mean)/std,
+                       origin='lower', vmin=-3, vmax=3, cmap='RdBu_r'))
             chi = '\n'.join((
                 f'MSE/var: {wmse(d, mod_mean, std):.2f}',
                 f'redChi2: {redchi_mean:.2f} +/- {redchi2_std:.2f}',

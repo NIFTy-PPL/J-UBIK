@@ -21,8 +21,24 @@ from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import build_plot
 from jubik0.jwst.filter_projector import FilterProjector
 
+# from charm_lensing import config_parser, build_lens_system
 
 from sys import exit
+
+
+# class SkyExpand(jft.Model):
+#     def __init__(self, sky_model: jft.Model, expand: float):
+#         self.sdim = sky_model.target.shape[1:]
+#         ndim = tuple([int(sd*expand) for sd in self.sdim])
+#         self.newarr = jnp.zeros((sky_model.target.shape[0], ) + ndim)
+#         print(self.sdim)
+#         self.sky_model = sky_model
+
+#         super().__init__(domain=self.sky_model.domain)
+
+#     def __call__(self, x):
+#         return self.newarr.at[:, :self.sdim[0], :self.sdim[1]].set(
+#             self.sky_model(x))
 
 
 config_path = './demos/JWST_config.yaml'
@@ -38,6 +54,12 @@ reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 sky_model_new = ju.SkyModel(config_file_path=config_path)
 small_sky_model = sky_model_new.create_sky_model(fov=cfg['grid']['fov'])
 sky_model = sky_model_new.full_diffuse
+
+# lens_cfg = config_parser.load_and_save_config(
+#     default='/home/jruestig/pro/python/lensing/configs/spt0418_ubik.yaml')
+# lens_system = build_lens_system.build_lens_system(lens_cfg)
+# small_sky_model = lens_system.get_forward_model_parametric(without_key=True)
+# sky_model = SkyExpand(small_sky_model, cfg['grid']['s_padding_ratio'])
 
 
 key = random.PRNGKey(87)
@@ -175,6 +197,7 @@ for ii in range(0):
         ax.set_title(f'0 - {ii+1}')
 
     im = axes[-1][0].imshow(alpha, origin='lower')
+    axes[-1][0].set_title('alpha')
     plt.colorbar(im, ax=axes[-1][0])
 
     plt.show()

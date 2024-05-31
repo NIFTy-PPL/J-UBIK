@@ -51,7 +51,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_256_03'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_256_04_gpu'
   # res_dir: 'results/jwst_test/with_lensing'
 
   filter:
@@ -210,7 +210,7 @@ priors:
 
 minimization:
   resume: False
-  n_total_iterations: 10
+  n_total_iterations: 12
   n_samples: 4
   draw_linear_kwargs:
     cg_name : lin sampling
@@ -230,5 +230,6 @@ minimization:
       absdelta: 1.e-6
       maxiter: 15
       cg_kwargs:
-        name: "MCG"
-  sample_mode: nonlinear_sample
+        name: null
+        # name: "MCG"
+  sample_mode: nonlinear_resample
