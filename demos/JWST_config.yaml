@@ -35,8 +35,8 @@ grid:
 
 telescope:
   psf:
-    webbpsf_path: '/home/jruestig/Data/jwst/WebbPsf/webbpsf-data_1.2.1/'
-    psf_library: '/home/jruestig/Data/jwst/psf_library'
+    webbpsf_path: '/home/jruestig/Data/JWST/WebbPsf/webbpsf-data_1.2.1/'
+    psf_library: '/home/jruestig/Data/JWST/psf_library'
 
   rotation_and_shift:
     model: 'linear' # 'sparse', 'linear', 'nufft'

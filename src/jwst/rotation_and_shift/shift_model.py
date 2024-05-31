@@ -7,15 +7,18 @@ from typing import Tuple
 
 class ShiftModel(jft.Model):
     def __init__(self, prior_model: jft.Model, pix_distance: Tuple[float]):
+        assert len(prior_model.target.keys()) == 1
+
         self.pix_distance = pix_distance
         self.prior_model = prior_model
-        self._key = next(iter(prior_model.domain.keys()))
+        self._tkey = next(iter(prior_model.target.keys()))
 
         super().__init__(domain=prior_model.domain)
 
     def __call__(self, x):
-        arr = self.prior_model(x) / self.pix_distance
-        return {self._key: arr}
+        return {
+            self._tkey: self.prior_model(x)[self._tkey] / self.pix_distance
+        }
 
 
 def build_shift_model(
@@ -34,10 +37,13 @@ def build_shift_model(
         The mean and sigma for the Gaussian distribution of shift model.
     '''
     shape = (2, 1, 1)
-    prior_parameters = ('normal', *mean_sigma)
-
     pix_distance = array(subsample_distances).reshape(shape)
 
-    domain = {domain_key: jft.ShapeWithDtype(shape)}
-    shift_prior = build_parametric_prior(domain_key, prior_parameters, shape)
-    return ShiftModel(jft.Model(shift_prior, domain=domain), pix_distance)
+    # Build Prior
+    shift_prior = build_parametric_prior(
+        domain_key, ('normal', *mean_sigma), shape)
+    shift_prior = jft.wrap_left(shift_prior, domain_key + '_t')
+    shift_prior_model = jft.Model(
+        shift_prior, domain={domain_key: jft.ShapeWithDtype(shape)})
+
+    return ShiftModel(shift_prior_model, pix_distance)

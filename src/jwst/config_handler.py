@@ -68,8 +68,9 @@ def define_mock_output(config: dict):
     subsample = config['telescope']['rotation_and_shift']['subsample']
     method_string = model + f'{subsample}'
 
+    output_attach = config['output']['output_attach']
     return join(
-        config['output'],
+        config['output']['dir'],
         f'{reco_shape}pix',
         f'rot{rot_string}_shf{shi_string}',
-        f'{method_string}')
+        f'{method_string}_{output_attach}')

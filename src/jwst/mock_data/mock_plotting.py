@@ -71,6 +71,7 @@ def build_mock_plot(
     data_models = [ll['data_model'] for ll in data_set.values()]
     masks = [ll['mask'] for ll in data_set.values()]
     stds = [ll['std'] for ll in data_set.values()]
+    corrs = [ll['correction_model'] for ll in data_set.values()]
 
     out_dir = join(res_dir, 'residuals')
     makedirs(out_dir, exist_ok=True)
@@ -118,12 +119,14 @@ def build_mock_plot(
         ylen = 1+len(datas)
         fig, axes = plt.subplots(ylen, 3, figsize=(9, 3*ylen), dpi=300)
         ims = []
-        for ii, (d, std, dm, mask) in enumerate(
-                zip(datas, stds, data_models, masks)):
+        for ii, (d, std, dm, corr, mask) in enumerate(
+                zip(datas, stds, data_models, corrs, masks)):
             model_data = []
             for si in samples:
                 tmp = np.zeros_like(d)
-                val = si.tree.tree | {internal_sky_key: sky_model(si)}
+                val = {internal_sky_key: sky_model(si)}
+                if corr is not None:
+                    val = val | corr(si)
                 tmp[mask] = dm(val)
                 model_data.append(tmp)
 
@@ -177,9 +180,8 @@ def build_mock_plot(
             if cm is not None:
                 corr, cors = jft.mean_and_std(
                     [cm.prior_model(s) for s in samples])
-                # corr, cors = (next(iter(corr.values())).reshape(2),
-                #               next(iter(cors.values())).reshape(2))
-                corr, cors = (corr[::-1].reshape(2), cors[::-1].reshape(2))
+                corr, cors = (next(iter(corr.values())).reshape(2),
+                              next(iter(cors.values())).reshape(2))
                 cor = f'[{corr[0]:.1f}+-{cors[0]:.1f}, {corr[1]:.1f}+-{cors[1]:.1f}]'
             else:
                 cor = '[0+-0, 0+-0]'

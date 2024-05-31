@@ -1,3 +1,5 @@
+from jubik0.jwst.integration_model.sum_integration import build_sum_integration
+import matplotlib.pyplot as plt
 import nifty8.re as jft
 
 import jubik0 as ju
@@ -16,8 +18,6 @@ from sys import exit
 import yaml
 from astropy import units as u
 from jax import config, random
-config.update('jax_enable_x64', True)
-config.update('jax_platform_name', 'cpu')
 
 
 cfg = yaml.load(
@@ -25,6 +25,10 @@ cfg = yaml.load(
 config_transform(cfg)
 res_dir = define_mock_output(cfg)
 
+if cfg['mock_setup']['rotation'] == 'nufft':
+    print("Using cpu")
+    config.update('jax_enable_x64', True)
+    config.update('jax_platform_name', 'cpu')
 
 # Draw random numbers
 key = random.PRNGKey(87)
@@ -52,15 +56,16 @@ sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
 likelihoods = []
 for ii, (dkey, data) in enumerate(data_set.items()):
 
-    shift_model = None
-    # print(data['shift'])
-    # if ii == 1:
-    #     shift_model = None
-    # else:
-    #     subsample = cfg['telescope']['rotation_and_shift']['subsample']
-    #     dist = [d.to(u.arcsec).value / subsample
-    #             for d in data['grid'].distances]
-    #     shift_model = build_shift_model(dkey + '_shift_cor', (0, 1.0), dist)
+    print(data['shift'])
+    if ii == 1:
+        shift_model = None
+    else:
+        subsample = cfg['telescope']['rotation_and_shift']['subsample']
+        dist = [rd.to(u.arcsec).value for rd in
+                reco_grid.distances]
+        shift_model = build_shift_model(dkey + '_shift_cor', (0, 1.0), dist)
+
+    # shift_model = None
 
     data_grid = data['grid']
     data_model = build_data_model(
@@ -75,8 +80,7 @@ for ii, (dkey, data) in enumerate(data_set.items()):
             data_model_type=cfg['telescope']['rotation_and_shift']['model'],
             kwargs_sparse=dict(extend_factor=1, to_bottom_left=True),
             shift_and_rotation_correction_domain=shift_model.target if shift_model is not None else None,
-            kwargs_linear=dict(
-                order=1, sky_as_brightness=False, mode='wrap'),
+            kwargs_linear=dict(order=1, sky_as_brightness=False, mode='wrap'),
         ),
 
         psf_kwargs=dict(),
@@ -94,11 +98,47 @@ for ii, (dkey, data) in enumerate(data_set.items()):
         data_model, domain=jft.Vector(data_model.domain))
     likelihoods.append(likelihood)
 
+
+class ConnectModels(jft.Model):
+    def __init__(self, models: list[jft.Model]):
+        domain = {}
+        target = {}
+        for m in models:
+            domain = domain | m.domain
+            target = target | m.target
+        self.models = models
+
+        super().__init__(domain=domain, target=target)
+
+    def __call__(self, x):
+        out = {}
+        for m in self.models:
+            out = out | m(x)
+        return out
+
+
+models = [sky_model_with_key] + [
+    dm['correction_model'] for dm in data_set.values() if isinstance(dm['correction_model'], jft.Model)
+]
+model = ConnectModels(models)
+
 likelihood = reduce(lambda x, y: x+y, likelihoods)
-likelihood = connect_likelihood_to_model(
-    likelihood,
-    sky_model_with_key
-)
+likelihood = connect_likelihood_to_model(likelihood, model)
+
+# integration = build_sum_integration(sky_model.target.shape, 8)
+# x = {'sky': comp_sky}
+# data_no_noise = data['data_no_noise']
+# mod_sky = data_model(x).reshape(data_no_noise.shape)
+
+# fig, axes = plt.subplots(1, 3)
+# ax, ay, az = axes
+# ax.imshow(data_no_noise)
+# ay.imshow(mod_sky)
+# im = az.imshow((data_no_noise-mod_sky)/data_no_noise)
+# plt.colorbar(im, ax=az)
+# plt.show()
+
+# exit()
 
 
 evaluation_mask = build_evaluation_mask(reco_grid, data_set)
@@ -127,3 +167,26 @@ samples, state = jft.optimize_kl(
     callback=plot,
     odir=res_dir,
     **minimization_config)
+
+# data_models = [data_model(sky_model_with_key(si)) for si in samples]
+
+# im = plt.imshow((data['data'] - mod_mean), origin='lower')
+# plt.colorbar(im)
+# plt.show()
+
+# sky = np.zeros(mask.shape)
+# for si in samples:
+#     sky[mask] += data_model(sky_model_with_key(si))
+# sky = sky / len(samples)
+
+# fig, axes = plt.subplots(3, 3, sharey=True, sharex=True)
+
+# mask = data['mask']
+
+# for si, ax in zip(samples, axes.flatten()):
+#     sky = np.zeros(mask.shape)
+#     sky[mask] = data_model(sky_model_with_key(si))
+#     im = ax.imshow(sky, origin='lower')
+#     plt.colorbar(im, ax=ax)
+
+# plt.show()
