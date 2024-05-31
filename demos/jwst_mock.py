@@ -5,6 +5,7 @@ import nifty8.re as jft
 import jubik0 as ju
 from jubik0.jwst.mock_data import (
     mock_setup, build_evaluation_mask, build_mock_plot)
+from jubik0.jwst import ConnectModels
 from jubik0.jwst.utils import build_sky_model
 from jubik0.jwst.config_handler import config_transform, define_mock_output
 from jubik0.jwst.jwst_data_model import build_data_model
@@ -56,16 +57,12 @@ sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
 likelihoods = []
 for ii, (dkey, data) in enumerate(data_set.items()):
 
-    print(data['shift'])
     if ii == 1:
         shift_model = None
     else:
         subsample = cfg['telescope']['rotation_and_shift']['subsample']
-        dist = [rd.to(u.arcsec).value for rd in
-                reco_grid.distances]
+        dist = [rd.to(u.arcsec).value for rd in reco_grid.distances]
         shift_model = build_shift_model(dkey + '_shift_cor', (0, 1.0), dist)
-
-    # shift_model = None
 
     data_grid = data['grid']
     data_model = build_data_model(
@@ -99,27 +96,8 @@ for ii, (dkey, data) in enumerate(data_set.items()):
     likelihoods.append(likelihood)
 
 
-class ConnectModels(jft.Model):
-    def __init__(self, models: list[jft.Model]):
-        domain = {}
-        target = {}
-        for m in models:
-            domain = domain | m.domain
-            target = target | m.target
-        self.models = models
-
-        super().__init__(domain=domain, target=target)
-
-    def __call__(self, x):
-        out = {}
-        for m in self.models:
-            out = out | m(x)
-        return out
-
-
 models = [sky_model_with_key] + [
-    dm['correction_model'] for dm in data_set.values() if isinstance(dm['correction_model'], jft.Model)
-]
+    dm['correction_model'] for dm in data_set.values() if isinstance(dm['correction_model'], jft.Model)]
 model = ConnectModels(models)
 
 likelihood = reduce(lambda x, y: x+y, likelihoods)

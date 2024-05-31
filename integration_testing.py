@@ -1,7 +1,7 @@
 import nifty8.re as jft
 
 import jubik0 as ju
-from jubik0.jwst.mock_data import setup
+from jubik0.jwst.mock_data import mock_setup
 from jubik0.jwst.utils import build_sky_model
 from jubik0.jwst.integration_model import build_integration
 from jubik0.library.likelihood import (
@@ -33,7 +33,8 @@ cfg['mock_setup']['rotations'] = [cfg['mock_setup']['rotations'][0]]
 key = random.PRNGKey(87)
 key, mock_key, noise_key, test_key = random.split(key, 4)
 
-comp_sky, reco_grid, data_set = setup(mock_key, noise_key, **cfg['mock_setup'])
+comp_sky, reco_grid, data_set = mock_setup(
+    mock_key, noise_key, **cfg['mock_setup'])
 sky_model, sky_model_full = build_sky_model(
     reco_grid.shape,
     [d.to(u.arcsec).value for d in reco_grid.distances],

@@ -232,6 +232,9 @@ def mock_setup(
             grid=data_grid,
             shift=dict(true=shft, reported=repo_shft),
             rotation=dict(true=rot, reported=repo_rot),
+            rota_sky=rota_sky,
+            # mock_sky=mock_sky,
+            data_no_noise=data_no_noise,
         )
 
         if plot:

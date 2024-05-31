@@ -171,7 +171,6 @@ def build_mock_plot(
         plt.close()
 
     def report_correction(samples, x):
-
         print('data', 'true-reported', 'corr')
         for key, val in data_set.items():
             shift_true, shift_reported = val['shift']['true'], val['shift']['reported']

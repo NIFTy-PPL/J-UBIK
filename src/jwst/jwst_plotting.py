@@ -76,12 +76,24 @@ def build_plot(
             dd = data['data']
             std = data['std']
             mask = data['mask']
+            cm = data['correction_model']
 
             model_data = []
             for si in samples:
                 tmp = np.zeros_like(dd)
-                tmp[mask] = dm(sky_model_with_key(si))
+                val = sky_model_with_key(si)
+                if cm is not None:
+                    val = val | cm(si)
+                tmp[mask] = dm(val)
                 model_data.append(tmp)
+
+            if cm is not None:
+                corr, cors = jft.mean_and_std(
+                    [cm.prior_model(s) for s in samples])
+                corr, cors = (next(iter(corr.values())).reshape(2),
+                              next(iter(cors.values())).reshape(2))
+            else:
+                corr, cors = (0, 0), (0, 0)
 
             model_mean = jft.mean(model_data)
             redchi_mean, redchi2_std = jft.mean_and_std(
@@ -89,7 +101,8 @@ def build_plot(
 
             axes[ii, 0].set_title(f'Data {dkey}')
             ims.append(axes[ii, 0].imshow(dd, origin='lower', norm=norm()))
-            axes[ii, 1].set_title('Data model')
+            axes[ii, 1].set_title(
+                f'Data model ({corr[0]:.1e}+-{cors[0]:.1e}, {corr[1]:.1e}+-{cors[1]:.1e})')
             ims.append(axes[ii, 1].imshow(
                 model_mean, origin='lower', norm=norm()))
             axes[ii, 2].set_title('Data - Data model')
@@ -122,19 +135,32 @@ def build_plot(
             std = data['std']
             mask = data['mask']
             index = data['index']
+            cm = data['correction_model']
 
             model_data = []
             for si in samples:
                 tmp = np.zeros_like(dd)
-                tmp[mask] = dm(sky_model_with_key(si))
+                val = sky_model_with_key(si)
+                if cm is not None:
+                    val = val | cm(si)
+                tmp[mask] = dm(val)
                 model_data.append(tmp)
+
+            if cm is not None:
+                corr, cors = jft.mean_and_std(
+                    [cm.prior_model(s) for s in samples])
+                corr, cors = (next(iter(corr.values())).reshape(2),
+                              next(iter(cors.values())).reshape(2))
+            else:
+                corr, cors = (0, 0), (0, 0)
 
             model_mean = jft.mean(model_data)
 
             print(index)
             axes[ii, 0].set_title('p-law model')
             ims.append(axes[ii, 0].imshow(m_plaw[index], origin='lower'))
-            axes[ii, 1].set_title('data model')
+            axes[ii, 1].set_title(
+                f'Data model ({corr[0]:.1e}+-{cors[0]:.1e}, {corr[1]:.1e}+-{cors[1]:.1e})')
             ims.append(axes[ii, 1].imshow(
                 m_sky[index], origin='lower', norm=norm()))
             axes[ii, 2].set_title('Data - Data model')

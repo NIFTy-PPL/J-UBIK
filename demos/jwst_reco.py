@@ -11,6 +11,7 @@ from matplotlib.colors import LogNorm
 from astropy import units as u
 
 import jubik0 as ju
+from jubik0.jwst import ConnectModels
 from jubik0.library.likelihood import (
     connect_likelihood_to_model, build_gaussian_likelihood)
 from jubik0.jwst.jwst_data import JwstData
@@ -25,22 +26,6 @@ from jubik0.jwst.filter_projector import FilterProjector
 
 from sys import exit
 
-
-# class SkyExpand(jft.Model):
-#     def __init__(self, sky_model: jft.Model, expand: float):
-#         self.sdim = sky_model.target.shape[1:]
-#         ndim = tuple([int(sd*expand) for sd in self.sdim])
-#         self.newarr = jnp.zeros((sky_model.target.shape[0], ) + ndim)
-#         print(self.sdim)
-#         self.sky_model = sky_model
-
-#         super().__init__(domain=self.sky_model.domain)
-
-#     def __call__(self, x):
-#         return self.newarr.at[:, :self.sdim[0], :self.sdim[1]].set(
-#             self.sky_model(x))
-
-
 config_path = './demos/JWST_config.yaml'
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
 RES_DIR = cfg['files']['res_dir']
@@ -54,14 +39,6 @@ reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 sky_model_new = ju.SkyModel(config_file_path=config_path)
 small_sky_model = sky_model_new.create_sky_model(fov=cfg['grid']['fov'])
 sky_model = sky_model_new.full_diffuse
-
-# lens_cfg = config_parser.load_and_save_config(
-#     default='/home/jruestig/pro/python/lensing/configs/spt0418_ubik.yaml')
-# lens_system = build_lens_system.build_lens_system(lens_cfg)
-# small_sky_model = lens_system.get_forward_model_parametric(without_key=True)
-# sky_model = SkyExpand(small_sky_model, cfg['grid']['s_padding_ratio'])
-
-
 key = random.PRNGKey(87)
 key, test_key, rec_key = random.split(key, 3)
 
@@ -78,15 +55,26 @@ sky_model_with_keys = jft.Model(
 
 data_plotting = {}
 likelihoods = []
+kk = 0
 for fltname, flt in cfg['files']['filter'].items():
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
         jwst_data = JwstData(filepath)
-        # m = jwst_data.dm.meta
-        # print(m.date, m.pointing.ra_v1, m.pointing.dec_v1)
-        # exit()
 
         data_key = f'{fltname}_{ii}'
+
+        if kk == 0:
+            shift_model = None
+        else:
+            from jubik0.jwst.rotation_and_shift.shift_model import build_shift_model
+            subsample = cfg['telescope']['rotation_and_shift']['subsample']
+            dist = [rd.to(u.arcsec).value for rd in
+                    reconstruction_grid.distances]
+            shift_model = build_shift_model(
+                data_key + '_shift_cor', (0, 1.0e-1), dist)
+        kk += 1
+
+        correction_model = shift_model
 
         # define a mask
         data_centers = np.squeeze(subsample_grid_centers_in_index_grid(
@@ -115,6 +103,7 @@ for fltname, flt in cfg['files']['filter'].items():
                 data_dvol=DATA_DVOL,
                 data_wcs=jwst_data.wcs,
                 data_model_type=cfg['telescope']['rotation_and_shift']['model'],
+                shift_and_rotation_correction_domain=correction_model.target if correction_model is not None else None,
             ),
 
             psf_kwargs=dict(
@@ -137,7 +126,8 @@ for fltname, flt in cfg['files']['filter'].items():
             data=data,
             std=std,
             mask=mask,
-            data_model=data_model)
+            data_model=data_model,
+            correction_model=correction_model)
 
         likelihood = build_gaussian_likelihood(
             jnp.array(data[mask], dtype=float),
@@ -146,19 +136,21 @@ for fltname, flt in cfg['files']['filter'].items():
             data_model, domain=jft.Vector(data_model.domain))
         likelihoods.append(likelihood)
 
+
+models = [sky_model_with_keys] + [
+    dm['correction_model'] for dm in data_plotting.values() if isinstance(dm['correction_model'], jft.Model)]
+model = ConnectModels(models)
+
 likelihood = reduce(lambda x, y: x+y, likelihoods)
-likelihood = connect_likelihood_to_model(
-    likelihood,
-    sky_model_with_keys
-)
+likelihood = connect_likelihood_to_model(likelihood, model)
 
 
 key = random.PRNGKey(87)
 key, rec_key = random.split(key, 2)
 
-for ii in range(0):
+for ii in range(1):
     key, test_key = random.split(key, 2)
-    x = jft.random_like(test_key, sky_model.domain)
+    x = jft.random_like(test_key, model.domain)
     sky = sky_model_with_keys(x)
     # plot_sky(sky, data_plotting)
 
@@ -170,9 +162,13 @@ for ii in range(0):
     for ii, (axi, sky_key) in enumerate(zip(axes, sky.keys())):
         print(sky_key)
         data_model = data_plotting[f'{sky_key}_0']['data_model']
+        correction_model = data_plotting[f'{sky_key}_0']['correction_model']
         data = data_plotting[f'{sky_key}_0']['data']
 
-        intsky = data_model.integrate(data_model.rotation_and_shift(sky))
+        val = sky
+        if correction_model is not None:
+            val = val | correction_model(x)
+        intsky = data_model.integrate(data_model.rotation_and_shift(val))
         integrated_sky.append(intsky)
 
         a0, a1, a2, a3 = axi
@@ -205,10 +201,9 @@ for ii in range(0):
 
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
-cfg_mini = ju.get_config('demos/jwst_mock_config.yaml')
+cfg_mini = ju.get_config('demos/JWST_config.yaml')
 minimization_config = cfg_mini['minimization']
 kl_solver_kwargs = minimization_config.pop('kl_kwargs')
-minimization_config['n_total_iterations'] = 12
 # minimization_config['resume'] = True
 minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
