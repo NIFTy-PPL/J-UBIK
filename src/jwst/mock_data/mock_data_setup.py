@@ -7,12 +7,11 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 
 from ..rotation_and_shift import build_nufft_rotation_and_shift
+from ..rotation_and_shift import build_linear_rotation_and_shift
 from ..reconstruction_grid import Grid
 
 
-from jax import config
 from jax import random
-config.update('jax_platform_name', 'cpu')
 
 
 def plot_square(ax, xy_positions, color='red'):
@@ -111,6 +110,7 @@ def create_data(
     rota_fov,
     data_shape,
     rotation,
+    rotation_model_key,
 ):
 
     rota_grid = Grid(
@@ -121,9 +121,22 @@ def create_data(
     interpolation_points = mock_grid.wcs.index_from_wl(
         rota_grid.wl_coords())[0]
 
-    nufft = build_nufft_rotation_and_shift(
-        1, 1, interpolation_points, mock_grid.shape)
-    rota_sky = nufft(mock_sky, None)
+    if rotation_model_key == 'nufft':
+        print('data created with nufft rotation and shift')
+        nufft = build_nufft_rotation_and_shift(
+            1, 1, interpolation_points, mock_grid.shape)
+        rota_sky = nufft(mock_sky, None)
+
+    elif rotation_model_key == 'linear':
+        print('data created with linear rotation and shift')
+        linear = build_linear_rotation_and_shift(
+            1, 1, interpolation_points, order=1
+        )
+        rota_sky = linear(mock_sky, None)
+
+    else:
+        msg = f'{rotation_model_key} model does not exist for data creation'
+        raise NotImplementedError(msg)
 
     downscale = [r//d for r, d in zip(rota_shape, data_shape)]
     assert downscale[0] == downscale[1]
@@ -150,6 +163,7 @@ def mock_setup(
     rota_shape = kwargs['rota_shape']
     data_shape = kwargs['data_shape']
     plot = kwargs.get('plot', False)
+    data_creation_rotation_model_key = kwargs.get('rotation', 'nufft')
 
     cx, cy = 0, 0
     center = SkyCoord(cx*u.rad, cy*u.rad)
@@ -181,7 +195,7 @@ def mock_setup(
             zip(rotation, reported_rotation, shift, reported_shift)):
 
         # Data sky
-        data_grid, data, rota_sky = create_data(
+        data_grid, data_no_noise, rota_sky = create_data(
             mock_grid=mock_grid,
             mock_sky=mock_sky,
             data_center=SkyCoord(
@@ -192,13 +206,15 @@ def mock_setup(
             rota_fov=[rota_shape[ii]*(mock_dist[ii]*u.arcsec)
                       for ii in range(2)],
             data_shape=data_shape,
-            rotation=rot*u.deg
+            rotation=rot*u.deg,
+            rotation_model_key=data_creation_rotation_model_key,
         )
 
         # Create noise
-        std = data.mean() * noise_scale
-        data = data + random.normal(
-            noise_key, data.shape, dtype=data.dtype) * std
+        key, noise_key = random.split(noise_key)
+        std = data_no_noise.mean() * noise_scale
+        data = data_no_noise + random.normal(
+            noise_key, data_no_noise.shape, dtype=data_no_noise.dtype) * std
         mask = np.full(data.shape, True)
 
         # Save reported center, shift, and rotation

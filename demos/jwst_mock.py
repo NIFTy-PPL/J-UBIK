@@ -52,14 +52,15 @@ sky_model_with_key = jft.Model(jft.wrap_left(sky_model, internal_sky_key),
 likelihoods = []
 for ii, (dkey, data) in enumerate(data_set.items()):
 
-    print(data['shift'])
-    if ii == 1:
-        shift_model = None
-    else:
-        subsample = cfg['telescope']['rotation_and_shift']['subsample']
-        dist = [d.to(u.arcsec).value / subsample
-                for d in data['grid'].distances]
-        shift_model = build_shift_model(dkey + '_shift_cor', (0, 1.0), dist)
+    shift_model = None
+    # print(data['shift'])
+    # if ii == 1:
+    #     shift_model = None
+    # else:
+    #     subsample = cfg['telescope']['rotation_and_shift']['subsample']
+    #     dist = [d.to(u.arcsec).value / subsample
+    #             for d in data['grid'].distances]
+    #     shift_model = build_shift_model(dkey + '_shift_cor', (0, 1.0), dist)
 
     data_grid = data['grid']
     data_model = build_data_model(
@@ -115,10 +116,7 @@ pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 cfg = ju.get_config('demos/jwst_mock_config.yaml')
 minimization_config = cfg['minimization']
 kl_solver_kwargs = minimization_config.pop('kl_kwargs')
-minimization_config['n_total_iterations'] = 12
 # minimization_config['resume'] = True
-minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
-# minimization_config['n_samples'] = lambda it: 1 if it < 10 else 10
 
 print(f'Results: {res_dir}')
 samples, state = jft.optimize_kl(
