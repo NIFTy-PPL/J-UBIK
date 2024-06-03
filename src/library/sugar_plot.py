@@ -98,7 +98,7 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
                 plotting_kwargs.update({'title': title})
                 plot_result(f_samples[i], output_file=filename_samples, logscale=log_scale,
                             colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
-                rgb_name = join(results_path, f"rgb_{iteration}")
+                rgb_name = join(results_path, f"rgb_sample_{i+1}_{iteration}")
 
                 # TODO this only works for 3 E-Bins
                 if e_length == 3:
@@ -107,7 +107,6 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
                              sat_max=rgb_max_sat)
                     plot_rgb(f_samples[i], rgb_name+"_log", sat_min=rgb_min_sat,
                              sat_max=None, log=True)
-
 
         # Plot statistics
         if 'n_rows' in plotting_kwargs:
@@ -129,6 +128,13 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
             plot_result(std, output_file=filename_std, logscale=log_scale,
                         colorbar=colorbar, title=title, dpi=dpi,
                         figsize=(8, 4), **plotting_kwargs)
+
+            rgb_name = join(results_path, f"rgb_posterior_mean_it_{iteration}")
+            if e_length == 3:
+                plot_rgb(mean, rgb_name, sat_min=rgb_min_sat,
+                         sat_max=rgb_max_sat)
+                plot_rgb(mean, rgb_name+"_log", sat_min=rgb_min_sat,
+                         sat_max=None, log=True)
 
 
 def plot_erosita_priors(key, n_samples, config_path, priors_dir, signal_response=False,
