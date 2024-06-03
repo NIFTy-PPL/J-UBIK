@@ -53,22 +53,33 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
 
     Parameters:
     -----------
-    - output_directory: `str`. The directory where the plot files will be saved.
-    - operators_dict: `dict[callable]`. A dictionary containing operators.
-    - sample_list: `nifty8.re.evi.Samples`. A list of samples.
-    - iteration: `int`, optional. The global iteration number value. Defaults to None.
-    - log_scale: `bool`, optional. Whether to use a logarithmic scale. Defaults to True.
-    - colorbar: `bool`, optional. Whether to show a colorbar. Defaults to True.
-    - dpi: `int`, optional. The resolution of the plot. Defaults to 100.
-    - plotting_kwargs: `dict`, optional. Additional plotting keyword arguments. Defaults to None.
-    - rgb_max_sat: absolute maximal saturation for individual color channels.
-                   E.g. 0.5 clips the plot at half the intensity.
-    - plot_samples: `bool`, optional. Whether to plot the samples. Defaults to True.
+    output_directory : str
+        The directory where the plot files will be saved.
+    operators_dict : dict[callable]
+        A dictionary containing operators.
+    sample_list : nifty8.re.evi.Samples
+        A list of samples.
+    iteration : int, optional
+        The global iteration number value. Defaults to None.
+    log_scale : bool, optional
+        Whether to use a logarithmic scale. Defaults to True.
+    colorbar : bool, optional
+        Whether to show a colorbar. Defaults to True.
+    dpi : int, optional
+        The resolution of the plot. Defaults to 100.
+    plotting_kwargs : dict, optional
+        Additional plotting keyword arguments. Defaults to None.
+    rgb_min_sat : float, optional
+        Absolute minimal saturation for individual color channels.
+    rgb_max_sat : float, optional
+        Absolute maximal saturation for individual color channels.
+        For example, 0.5 clips the plot at half the intensity.
+    plot_samples : bool, optional
+        Whether to plot the samples. Defaults to True.
 
-    # FIXME Title available again?
     Returns:
     --------
-    - None
+    None
     """
 
     if len(sample_list) == 0:
@@ -82,19 +93,25 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
         op = operators_dict[key]
         n_samples = len(sample_list)
 
+        # Create output directories
         results_path = create_output_directory(join(output_directory, key))
-        filename_mean = join(results_path, "mean_it_{}.png".format(iteration))
-        filename_std = join(results_path, "std_it_{}.png".format(iteration))
+        stats_result_path = create_output_directory(join(results_path, "stats"))
+        filename_mean = join(stats_result_path, f"mean_it_{iteration}.png")
+        filename_std = join(stats_result_path, f"std_it_{iteration}.png")
+
         # Plot Samples
         f_samples = np.array([op(s) for s in sample_list])
 
         e_length = f_samples[0].shape[0]
         # Plot samples
         # FIXME: works only for 2D outputs, add target capabilities
+
+        samples_result_paths = [create_output_directory(join(results_path, "samples", f"{ii+1}"))
+                                for ii in range(n_samples)]
         if plot_samples:
             for i in range(n_samples):
-                filename_samples = join(results_path, f"sample_{i+1}_it_{iteration}.png")
-                title = [f"Sample {i+1}_Energy_{ii+1}" for ii in range(e_length)]
+                filename_samples = join(samples_result_paths[i], f"sample_{i+1}_it_{iteration}.png")
+                title = [f"Energy {ii+1}" for ii in range(e_length)]
                 plotting_kwargs.update({'title': title})
                 plot_result(f_samples[i], output_file=filename_samples, logscale=log_scale,
                             colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
@@ -120,11 +137,11 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
 
         if len(sample_list) > 1:
             mean, std = get_stats(sample_list, op)
-            title = [f"Posterior_Mean_Energy_{ii+1}" for ii in range(e_length)]
+            title = [f"Posterior mean (energy {ii+1})" for ii in range(e_length)]
             plot_result(mean, output_file=filename_mean, logscale=log_scale,
                         colorbar=colorbar, title=title, dpi=dpi,
                         figsize=(8, 4), **plotting_kwargs)
-            title = [f"Posterior_Std_Energy_{ii+1}" for ii in range(e_length)]
+            title = [f"Posterior std (energy {ii+1})" for ii in range(e_length)]
             plot_result(std, output_file=filename_std, logscale=log_scale,
                         colorbar=colorbar, title=title, dpi=dpi,
                         figsize=(8, 4), **plotting_kwargs)
