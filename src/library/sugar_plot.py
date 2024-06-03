@@ -46,7 +46,7 @@ def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
 
 
 def plot_sample_and_stats(output_directory, operators_dict, sample_list, iteration=None,
-                          log_scale=True, colorbar=True, dpi=100, plotting_kwargs=None,
+                          log_scale=True, colorbar=True, dpi=300, plotting_kwargs=None,
                           rgb_min_sat=None, rgb_max_sat=None, plot_samples=True):
     """
     Plots operator samples and statistics from a sample list.
@@ -92,37 +92,42 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
     for key in operators_dict:
         op = operators_dict[key]
         n_samples = len(sample_list)
+        operator_samples = np.array([op(s) for s in sample_list])
+        e_length = operator_samples[0].shape[0]
 
         # Create output directories
         results_path = create_output_directory(join(output_directory, key))
         stats_result_path = create_output_directory(join(results_path, "stats"))
+        samples_result_path = create_output_directory(join(results_path,
+                                                           "samples", f"iteration_{iteration}"))
+        if e_length == 3:
+            rgb_result_path_samples = create_output_directory(join(results_path, "rgb", "samples",
+                                                                   f"iteration_{iteration}"))
+            rgb_result_path_stats = create_output_directory(join(results_path, "rgb", "stats"))
+
         filename_mean = join(stats_result_path, f"mean_it_{iteration}.png")
         filename_std = join(stats_result_path, f"std_it_{iteration}.png")
 
-        # Plot Samples
-        f_samples = np.array([op(s) for s in sample_list])
-
-        e_length = f_samples[0].shape[0]
         # Plot samples
         # FIXME: works only for 2D outputs, add target capabilities
 
-        samples_result_paths = [create_output_directory(join(results_path, "samples", f"{ii+1}"))
-                                for ii in range(n_samples)]
         if plot_samples:
             for i in range(n_samples):
-                filename_samples = join(samples_result_paths[i], f"sample_{i+1}_it_{iteration}.png")
+                filename_samples = join(samples_result_path, f"sample_{i+1}_it_{iteration}.png")
                 title = [f"Energy {ii+1}" for ii in range(e_length)]
                 plotting_kwargs.update({'title': title})
-                plot_result(f_samples[i], output_file=filename_samples, logscale=log_scale,
+                plot_result(operator_samples[i], output_file=filename_samples, logscale=log_scale,
                             colorbar=colorbar, dpi=dpi, adjust_figsize=True, **plotting_kwargs)
-                rgb_name = join(results_path, f"rgb_sample_{i+1}_{iteration}")
+                rgb_name = join(results_path, f"rgb_{iteration}")
 
                 # TODO this only works for 3 E-Bins
                 if e_length == 3:
-                    # sat_max = [rgb_max_sat[j] * f_samples[i][j].max() for j in range(3)]
-                    plot_rgb(f_samples[i], rgb_name, sat_min=rgb_min_sat,
+                    # Plot RGB
+                    rgb_filename = join(rgb_result_path_samples, f"sample_{i+1}_{iteration}_rgb")
+                    # sat_max = [rgb_max_sat[j] * operator_samples[i][j].max() for j in range(3)]
+                    plot_rgb(operator_samples[i], rgb_filename, sat_min=rgb_min_sat,
                              sat_max=rgb_max_sat)
-                    plot_rgb(f_samples[i], rgb_name+"_log", sat_min=rgb_min_sat,
+                    plot_rgb(operator_samples[i], rgb_filename+"_log", sat_min=rgb_min_sat,
                              sat_max=None, log=True)
 
         # Plot statistics
@@ -139,15 +144,13 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list, iterati
             mean, std = get_stats(sample_list, op)
             title = [f"Posterior mean (energy {ii+1})" for ii in range(e_length)]
             plot_result(mean, output_file=filename_mean, logscale=log_scale,
-                        colorbar=colorbar, title=title, dpi=dpi,
-                        figsize=(8, 4), **plotting_kwargs)
+                        colorbar=colorbar, title=title, dpi=dpi, **plotting_kwargs)
             title = [f"Posterior std (energy {ii+1})" for ii in range(e_length)]
             plot_result(std, output_file=filename_std, logscale=log_scale,
-                        colorbar=colorbar, title=title, dpi=dpi,
-                        figsize=(8, 4), **plotting_kwargs)
+                        colorbar=colorbar, title=title, dpi=dpi, **plotting_kwargs)
 
-            rgb_name = join(results_path, f"rgb_posterior_mean_it_{iteration}")
             if e_length == 3:
+                rgb_name = join(rgb_result_path_stats, f"_mean_it_{iteration}_rgb")
                 plot_rgb(mean, rgb_name, sat_min=rgb_min_sat,
                          sat_max=rgb_max_sat)
                 plot_rgb(mean, rgb_name+"_log", sat_min=rgb_min_sat,
