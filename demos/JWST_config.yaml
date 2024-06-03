@@ -51,7 +51,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_256_05_shift_corr'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_256_05_sc2'
   # res_dir: 'results/jwst_test/with_lensing'
 
   filter:
@@ -209,27 +209,35 @@ priors:
 
 
 minimization:
-  resume: False
-  n_total_iterations: 12
-  n_samples: 4
-  draw_linear_kwargs:
-    cg_name : lin sampling
-    cg_kwargs:
-      absdelta: 1.e-4
-      maxiter: 100
-  nonlinearly_update_kwargs:
-    minimize_kwargs:
-      name: nonlin sampling
-      xtol: 2.e-4
-      cg_kwargs:
-        name: null
-      maxiter: 25
-  kl_kwargs:
-    minimize_kwargs:
-      name: "M"
-      absdelta: 1.e-8
-      maxiter: 12
-      cg_kwargs:
-        name: null
-        # name: "MCG"
-  sample_mode: nonlinear_resample
+    resume: True
+    n_total_iterations: 12
+
+    samples: # nonlinear_sample # linear, nonlinear
+      switches: [0, 5, 9]
+      name: [lin, nonlin]  # For logging
+      # "linear_sample", 
+      # "linear_resample",
+      # "nonlinear_sample",
+      # "nonlinear_resample",
+      # "nonlinear_update",
+      mode: [linear_resample, nonlinear_update]
+      n_samples: [5, 6, 10]
+
+      lin_deltaE: [0.1, 0.001] # , 0.00001]
+      lin_maxiter: [50, 100] # , 200]
+      lin_convergence_level: 2
+
+      nonlin_deltaE: [0.1, 0.01]
+      nonlin_maxiter: [7, 13]
+      nonlin_cg_deltaE: [0.1, 0.01]
+      nonlin_cg_maxiter: [20, 30]
+      nonlin_convergence_level: 2
+
+    kl_mini:
+      switches: [0, 3]
+      name: Newton
+      kl_convergence_level: 2
+      kl_deltaE: [0.01, 0.0001]
+      kl_maxiter: [7, 15]
+
+

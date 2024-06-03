@@ -22,6 +22,7 @@ from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import build_plot
 from jubik0.jwst.filter_projector import FilterProjector
 
+from charm_lensing import minimization_parser
 # from charm_lensing import config_parser, build_lens_system
 
 from sys import exit
@@ -32,7 +33,7 @@ RES_DIR = cfg['files']['res_dir']
 D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
 # FIXME: This needs to provided somewhere else
 DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
-FOV_PIXELS = 32
+PSF_PIXELS = 32
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 
@@ -113,7 +114,7 @@ for fltname, flt in cfg['files']['filter'].items():
                     reconstruction_grid.center)[0],
                 webbpsf_path=cfg['telescope']['psf']['webbpsf_path'],
                 psf_library_path=cfg['telescope']['psf']['psf_library'],
-                fov_pixels=FOV_PIXELS,
+                fov_pixels=PSF_PIXELS,
             ),
 
             data_mask=mask,
@@ -148,7 +149,7 @@ likelihood = connect_likelihood_to_model(likelihood, model)
 key = random.PRNGKey(87)
 key, rec_key = random.split(key, 2)
 
-for ii in range(1):
+for ii in range(0):
     key, test_key = random.split(key, 2)
     x = jft.random_like(test_key, model.domain)
     sky = sky_model_with_keys(x)
@@ -201,11 +202,17 @@ for ii in range(1):
 
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
-cfg_mini = ju.get_config('demos/JWST_config.yaml')
-minimization_config = cfg_mini['minimization']
-kl_solver_kwargs = minimization_config.pop('kl_kwargs')
+cfg_mini = ju.get_config('demos/JWST_config.yaml')["minimization"]
+n_samples = minimization_parser.n_samples_factory(cfg_mini)
+mode_samples = minimization_parser.sample_type_factory(cfg_mini)
+linear_kwargs = minimization_parser.linear_sample_kwargs_factory(cfg_mini)
+nonlin_kwargs = minimization_parser.nonlinear_sample_kwargs_factory(cfg_mini)
+kl_kwargs = minimization_parser.kl_kwargs_factory(cfg_mini)
+
+# minimization_config = cfg_mini['minimization']
+# kl_solver_kwargs = minimization_config.pop('kl_kwargs')
 # minimization_config['resume'] = True
-minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
+# minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
 plot = build_plot(
     data_dict=data_plotting,
@@ -224,10 +231,18 @@ samples, state = jft.optimize_kl(
     likelihood,
     pos_init,
     key=rec_key,
-    kl_kwargs=kl_solver_kwargs,
+
     callback=plot,
     odir=RES_DIR,
-    **minimization_config)
+
+    n_total_iterations=cfg_mini['n_total_iterations'],
+    n_samples=n_samples,
+    sample_mode=mode_samples,
+    draw_linear_kwargs=linear_kwargs,
+    nonlinearly_update_kwargs=nonlin_kwargs,
+    kl_kwargs=kl_kwargs,
+    resume=cfg_mini.get('resume', False),
+)
 
 
 field = jft.mean([sky_model_new.plaw(si) for si in samples])
