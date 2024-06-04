@@ -64,7 +64,7 @@ def build_plot(
     norm = plotting_config.get('norm', Normalize)
     sky_extent = plotting_config.get('sky_extent', None)
 
-    def sky_plot_residuals(samples, x):
+    def sky_plot_residuals(samples: jft.Samples, x: jft.OptimizeVIState):
         print(f"Results: {results_directory}")
 
         ylen = len(data_dict)
@@ -121,7 +121,7 @@ def build_plot(
         fig.savefig(join(residual_dir, f'{x.nit:02d}.png'), dpi=300)
         plt.close()
 
-    def plot_plaw(samples, x):
+    def plot_plaw(samples: jft.Samples, x: jft.OptimizeVIState):
         m_plaw, s_plaw = jft.mean_and_std([plaw(si) for si in samples])
         m_sky, s_sky = jft.mean_and_std(
             [small_sky_model(si) for si in samples])
@@ -173,7 +173,7 @@ def build_plot(
         fig.savefig(join(plaw_dir, f'{x.nit:02d}.png'), dpi=300)
         plt.close()
 
-    def plot_sky_with_samples(samples, x):
+    def plot_sky_with_samples(samples: jft.Samples, x: jft.OptimizeVIState):
         ylen, xlen = find_closest_factors(len(samples)+4)
 
         samps_big = [sky_model(si) for si in samples]
@@ -194,7 +194,8 @@ def build_plot(
                 join(sky_dir, f'{x.nit:02d}_{filter_name}.png'), dpi=300)
             plt.close()
 
-    def sky_plot(samples, x):
+    def sky_plot(samples: jft.Samples, x: jft.OptimizeVIState):
+        print(f'Plotting: {x.nit}')
         sky_plot_residuals(samples, x)
         plot_sky_with_samples(samples, x)
         if plaw is not None:

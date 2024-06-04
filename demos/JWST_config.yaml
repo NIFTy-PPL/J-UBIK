@@ -1,6 +1,3 @@
-seed: 42
-mock: False
-
 grid:
 # fov: 8.064
   fov: 5
@@ -209,7 +206,8 @@ priors:
 
 
 minimization:
-    resume: True
+    key: 49
+    resume: False
     n_total_iterations: 12
 
     samples: # nonlinear_sample # linear, nonlinear
@@ -239,5 +237,3 @@ minimization:
       kl_convergence_level: 2
       kl_deltaE: [0.01, 0.0001]
       kl_maxiter: [7, 15]
-
-

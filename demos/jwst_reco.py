@@ -27,6 +27,10 @@ from charm_lensing import minimization_parser
 
 from sys import exit
 
+if False:
+    from jax import config, devices
+    config.update('jax_default_device', devices('cpu')[0])
+
 config_path = './demos/JWST_config.yaml'
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
 RES_DIR = cfg['files']['res_dir']
@@ -40,8 +44,6 @@ reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 sky_model_new = ju.SkyModel(config_file_path=config_path)
 small_sky_model = sky_model_new.create_sky_model(fov=cfg['grid']['fov'])
 sky_model = sky_model_new.full_diffuse
-key = random.PRNGKey(87)
-key, test_key, rec_key = random.split(key, 3)
 
 
 filter_projector = FilterProjector(
@@ -150,7 +152,7 @@ key = random.PRNGKey(87)
 key, rec_key = random.split(key, 2)
 
 for ii in range(0):
-    key, test_key = random.split(key, 2)
+    key, test_key = random.split(random.PRNGKey(42+ii), 2)
     x = jft.random_like(test_key, model.domain)
     sky = sky_model_with_keys(x)
     # plot_sky(sky, data_plotting)
@@ -200,9 +202,11 @@ for ii in range(0):
     plt.show()
 
 
+cfg_mini = ju.get_config('demos/JWST_config.yaml')["minimization"]
+key = random.PRNGKey(cfg_mini.get('key', 42))
+key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
-cfg_mini = ju.get_config('demos/JWST_config.yaml')["minimization"]
 n_samples = minimization_parser.n_samples_factory(cfg_mini)
 mode_samples = minimization_parser.sample_type_factory(cfg_mini)
 linear_kwargs = minimization_parser.linear_sample_kwargs_factory(cfg_mini)
@@ -213,6 +217,7 @@ kl_kwargs = minimization_parser.kl_kwargs_factory(cfg_mini)
 # kl_solver_kwargs = minimization_config.pop('kl_kwargs')
 # minimization_config['resume'] = True
 # minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
+
 
 plot = build_plot(
     data_dict=data_plotting,
@@ -225,6 +230,7 @@ plot = build_plot(
         norm=LogNorm,
         sky_extent=None
     ))
+
 
 print(f'Results: {RES_DIR}')
 samples, state = jft.optimize_kl(
@@ -243,12 +249,3 @@ samples, state = jft.optimize_kl(
     kl_kwargs=kl_kwargs,
     resume=cfg_mini.get('resume', False),
 )
-
-
-field = jft.mean([sky_model_new.plaw(si) for si in samples])
-
-fig, axes = plt.subplots(1, 3)
-for ax, f in zip(axes, field):
-    im = ax.imshow(f, origin='lower')
-    plt.colorbar(im, ax=ax)
-plt.show()
