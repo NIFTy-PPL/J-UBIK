@@ -145,7 +145,7 @@ models = [sky_model_with_keys] + [
 model = ConnectModels(models)
 
 likelihood = reduce(lambda x, y: x+y, likelihoods)
-likelihood = connect_likelihood_to_model(likelihood, model)
+likelihood = likelihood.amend(model, domain=jft.Vector(model.domain))
 
 
 key = random.PRNGKey(87)

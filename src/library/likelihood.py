@@ -52,14 +52,17 @@ def connect_likelihood_to_model(
     likelihood: jft.Likelihood,
     model: jft.Model
 ) -> jft.Likelihood:
+    '''Connect the likelihood and model, this is necessery when some models are
+    inside the likelihood.
+    In this case the keys necessery are passed up the chain, such that white
+    priors are passed to the respective keys of the likelihood.
+    '''
 
     ldom = likelihood.domain.tree
     tdom = {t: ldom[t] for t in ldom.keys() if t not in model.target.keys()}
-    mdom = {t: model.domain[t] for t in model.domain.keys()}
-    mdom.update(tdom)
+    mdom = tdom | model.domain
 
     model_wrapper = model_wrap(model, tdom)
-
     model = jft.Model(
         lambda x: jft.Vector(model_wrapper(x)),
         domain=jft.Vector(mdom)
