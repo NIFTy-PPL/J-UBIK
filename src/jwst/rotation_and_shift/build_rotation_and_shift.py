@@ -13,32 +13,25 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 from typing import Callable, Union, Tuple, Optional
 
+from functools import partial
+
 
 class RotationAndShiftModel(jft.Model):
     def __init__(
         self,
         sky_domain: dict,
         call: Callable,
-        correction_domain: Optional[dict] = None
+        correction_domain: dict = {}
     ):
         need_sky_key = 'Need to provide an internal key to the target of the sky model'
         assert isinstance(sky_domain, dict), need_sky_key
 
         self.sky_key = next(iter(sky_domain.keys()))
-
-        if correction_domain is None:
-            domain = sky_domain
-            self.apply = lambda x: call(x[self.sky_key], None)
-
-        else:
-            domain = sky_domain | correction_domain
-            self.sec_key = next(iter(correction_domain.keys()))
-            self.apply = lambda x: call(x[self.sky_key], x[self.sec_key])
-
-        super().__init__(domain=domain)
+        self.call = call
+        super().__init__(domain=sky_domain | correction_domain)
 
     def __call__(self, x):
-        return self.apply(x)
+        return self.call(x[self.sky_key], x)
 
 
 def build_rotation_and_shift_model(
@@ -50,7 +43,7 @@ def build_rotation_and_shift_model(
     model_type: str,
     subsample: int,
     kwargs: dict,
-    shift_and_rotation_correction_domain: Optional[dict] = None,
+    coordinate_correction: Optional[jft.Model] = None,
 ) -> Callable[Union[ArrayLike, Tuple[ArrayLike, ArrayLike]], ArrayLike]:
     '''Rotation and shift model builder
 
@@ -90,9 +83,9 @@ def build_rotation_and_shift_model(
         nufft: dict, options
             - sky_as_brightness: default: False
 
-    shift_and_rotation_correction_domain: Optional[dict]
-        The target domain of the shift and rotation correction model:
-        {key: ShapeDtype}
+    coordinate_correction
+        The shift and rotation correction model, which returns corrected
+        coordinates.
 
     Returns
     -------
@@ -101,22 +94,25 @@ def build_rotation_and_shift_model(
 
     assert reconstruction_grid.dvol.unit == data_grid_dvol.unit
 
+    if coordinate_correction is None:
+        def coordinate_correction(_, coords): return coords
+
     match model_type:
 
         case 'linear':
             linear_kwargs = kwargs.get('linear', dict(
                 order=1, sky_as_brightness=False))
-            linear_kwargs['correction'] = (
-                False if shift_and_rotation_correction_domain is None else True
-            )
+
             call = build_linear_rotation_and_shift(
                 sky_dvol=reconstruction_grid.dvol.value,
                 sub_dvol=data_grid_dvol.value / subsample**2,
-                subsample_centers=subsample_grid_centers_in_index_grid_non_vstack(
-                    world_extrema,
-                    data_grid_wcs,
-                    reconstruction_grid.wcs,
-                    subsample),
+                subsample_centers=partial(
+                    coordinate_correction,
+                    coords=subsample_grid_centers_in_index_grid_non_vstack(
+                        world_extrema,
+                        data_grid_wcs,
+                        reconstruction_grid.wcs,
+                        subsample)),
                 **linear_kwargs
             )
 
@@ -125,16 +121,20 @@ def build_rotation_and_shift_model(
             call = build_nufft_rotation_and_shift(
                 sky_dvol=reconstruction_grid.dvol.value,
                 sub_dvol=data_grid_dvol.value / subsample**2,
-                subsample_centers=subsample_grid_centers_in_index_grid_non_vstack(
-                    world_extrema,
-                    data_grid_wcs,
-                    reconstruction_grid.wcs,
-                    subsample),
+                subsample_centers=partial(
+                    coordinate_correction,
+                    coords=subsample_grid_centers_in_index_grid_non_vstack(
+                        world_extrema,
+                        data_grid_wcs,
+                        reconstruction_grid.wcs,
+                        subsample)),
                 sky_shape=next(iter(sky_domain.values())).shape,
                 **nufft_kwargs
             )
 
         case 'sparse':
+            # Sparse cannot update the coordinates, this is why the
+            # coordinate_correction is not passed to the builder.
             sparse_kwargs = kwargs.get('sparse', dict(
                 extend_factor=1, to_bottom_left=True))
             call = build_sparse_rotation_and_shift(
@@ -155,5 +155,6 @@ def build_rotation_and_shift_model(
     return RotationAndShiftModel(
         sky_domain=sky_domain,
         call=call,
-        correction_domain=shift_and_rotation_correction_domain
+        correction_domain=coordinate_correction.domain if isinstance(
+            coordinate_correction, jft.Model) else {}
     )

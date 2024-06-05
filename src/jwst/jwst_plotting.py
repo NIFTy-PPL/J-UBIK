@@ -83,15 +83,16 @@ def build_plot(
                 tmp = np.zeros_like(dd)
                 val = sky_model_with_key(si)
                 if cm is not None:
-                    val = val | cm(si)
+                    while isinstance(si, jft.Vector):
+                        si = si.tree
+                    val = val | si
                 tmp[mask] = dm(val)
                 model_data.append(tmp)
 
             if cm is not None:
                 corr, cors = jft.mean_and_std(
                     [cm.prior_model(s) for s in samples])
-                corr, cors = (next(iter(corr.values())).reshape(2),
-                              next(iter(cors.values())).reshape(2))
+                corr, cors = (corr.reshape(2), cors.reshape(2))
             else:
                 corr, cors = (0, 0), (0, 0)
 
@@ -142,15 +143,16 @@ def build_plot(
                 tmp = np.zeros_like(dd)
                 val = sky_model_with_key(si)
                 if cm is not None:
-                    val = val | cm(si)
+                    while isinstance(si, jft.Vector):
+                        si = si.tree
+                    val = val | si
                 tmp[mask] = dm(val)
                 model_data.append(tmp)
 
             if cm is not None:
                 corr, cors = jft.mean_and_std(
                     [cm.prior_model(s) for s in samples])
-                corr, cors = (next(iter(corr.values())).reshape(2),
-                              next(iter(cors.values())).reshape(2))
+                corr, cors = (corr.reshape(2), cors.reshape(2))
             else:
                 corr, cors = (0, 0), (0, 0)
 
@@ -197,9 +199,9 @@ def build_plot(
     def sky_plot(samples: jft.Samples, x: jft.OptimizeVIState):
         print(f'Plotting: {x.nit}')
         sky_plot_residuals(samples, x)
-        plot_sky_with_samples(samples, x)
-        if plaw is not None:
-            plot_plaw(samples, x)
+        # plot_sky_with_samples(samples, x)
+        # if plaw is not None:
+        #     plot_plaw(samples, x)
 
     return sky_plot
 

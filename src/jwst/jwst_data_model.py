@@ -66,7 +66,7 @@ def build_data_model(
         kwargs_linear: dict, (order, sky_as_brightness, mode)
         kwargs_nufft: dict, (sky_as_brightness)
         kwargs_sparse: dict, (extend_factor, to_bottom_left)
-        shift_and_rotation_correction_domain: dict, correction_key, shape_dtype
+        shift_and_rotation_correction: Optional[jft.Model]
 
     psf_kwargs:
         camera: str, NIRCam or MIRI
@@ -101,8 +101,8 @@ def build_data_model(
             sparse=rotation_and_shift_kwargs.get(
                 'kwargs_sparse', dict(extend_factor=1, to_bottom_left=True)),
         ),
-        shift_and_rotation_correction_domain=rotation_and_shift_kwargs.get(
-            'shift_and_rotation_correction_domain', None)
+        coordinate_correction=rotation_and_shift_kwargs.get(
+            'shift_and_rotation_correction', None)
     )
 
     psf_kernel = load_psf_kernel(

@@ -1,5 +1,4 @@
 from jax.scipy.ndimage import map_coordinates
-from jax import vmap
 
 from functools import partial
 
@@ -10,9 +9,8 @@ from typing import Callable
 def build_linear_rotation_and_shift(
     sky_dvol: float,
     sub_dvol: float,
-    subsample_centers: ArrayLike,
+    subsample_centers: Callable[dict, ArrayLike],
     order: int = 1,
-    correction: bool = False,
     sky_as_brightness: bool = False,
     mode='wrap'
 ) -> Callable[ArrayLike, ArrayLike]:
@@ -20,27 +18,23 @@ def build_linear_rotation_and_shift(
 
     Parameters
     ----------
-    sky_dvol : float
+    sky_dvol:
         The volume of the sky/reconstruction pixels
 
-    sub_dvol : float
+    sub_dvol:
         The volume of the subsample pixels.
         Typically the data pixel is subsampled
 
-    subsample_centers : array
-        The coordinates of the subsample centers
+    subsample_centers:
+        A callable which returns the subsample_centers
 
-    mask : array
+    mask:
         Mask of the data array
 
-    order : int (default 1)
+    order:
         The order of the rotation_and_shift scheme (only linear supported by JAX)
 
-    correction : bool (default False)
-        If True, a model for an xy_shift can be supplied which will infer the
-        a linear shift correction.
-
-    sky_as_brightness : bool (default False)
+    sky_as_brightness:
         If True, the sky will be treated as a brightness distribution.
         This is the same as setting sky_dvol = 1.
 
@@ -64,14 +58,8 @@ def build_linear_rotation_and_shift(
 
     rotation_and_shift = partial(map_coordinates, order=order, mode=mode)
 
-    if correction:
-        def rotation_shift_subsample(field, xy_correction):
-            out = rotation_and_shift(field, subsample_centers - xy_correction)
-            return out * flux_conversion
-
-    else:
-        def rotation_shift_subsample(field, _):
-            out = rotation_and_shift(field, subsample_centers)
-            return out * flux_conversion
+    def rotation_shift_subsample(field, params):
+        out = rotation_and_shift(field, subsample_centers(params))
+        return out * flux_conversion
 
     return rotation_shift_subsample

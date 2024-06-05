@@ -5,13 +5,13 @@ from jax.numpy import reshape
 from numpy import pi, array
 
 from numpy.typing import ArrayLike
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable
 
 
 def build_nufft_rotation_and_shift(
     sky_dvol: ArrayLike,
     sub_dvol: ArrayLike,
-    subsample_centers: ArrayLike,
+    subsample_centers: Callable[dict, ArrayLike],
     sky_shape: Tuple[int, int],
     sky_as_brightness: bool = False
 ) -> Callable[ArrayLike, ArrayLike]:
@@ -19,23 +19,23 @@ def build_nufft_rotation_and_shift(
 
     Parameters
     ----------
-    sky_dvol : float
+    sky_dvol
         The volume of the sky/reconstruction pixels
 
-    sub_dvol : float
+    sub_dvol
         The volume of the subsample pixels.
         Typically the data pixel is subsampled
 
-    subsample_centers : array
-        Coordinates of the subsample centers in the reconstruction pixel frame
+    subsample_centers
+        A callable which returns the subsample_centers
 
-    mask : array
+    mask
         Mask of the data array
 
-    sky_shape : tuple
+    sky_shape
         The shape of the reconstruction array (sky shape)
 
-    sky_as_brightness : bool (default False)
+    sky_as_brightness
         If True, the sky will be treated as a brightness distribution.
         This is the same as setting sky_dvol = 1.
 
@@ -60,14 +60,11 @@ def build_nufft_rotation_and_shift(
         sky_dvol = 1
     flux_conversion = sub_dvol / sky_dvol
 
-    subsample_centers = subsample_centers.reshape(2, -1)
-    xy_finufft = (
-        2 * pi * subsample_centers /
-        array(sky_shape)[:, None]
-    )
+    xy_conversion = 2 * pi / array(sky_shape)[:, None]
 
-    def rotate_shift_subsample(field, correction):
+    def rotate_shift_subsample(field, params):
         f_field = ifftshift(ifft2(field))
+        xy_finufft = xy_conversion * subsample_centers(params).reshape(2, -1)
         out = nufft2(f_field, xy_finufft[0], xy_finufft[1]).real
         return reshape(out, out_shape) * flux_conversion
 

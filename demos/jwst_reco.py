@@ -71,8 +71,8 @@ for fltname, flt in cfg['files']['filter'].items():
         else:
             from jubik0.jwst.rotation_and_shift.shift_model import build_shift_model
             subsample = cfg['telescope']['rotation_and_shift']['subsample']
-            dist = [rd.to(u.arcsec).value for rd in
-                    reconstruction_grid.distances]
+            dist = [
+                rd.to(u.arcsec).value for rd in reconstruction_grid.distances]
             shift_model = build_shift_model(
                 data_key + '_shift_cor', (0, 1.0e-1), dist)
         kk += 1
@@ -106,7 +106,7 @@ for fltname, flt in cfg['files']['filter'].items():
                 data_dvol=DATA_DVOL,
                 data_wcs=jwst_data.wcs,
                 data_model_type=cfg['telescope']['rotation_and_shift']['model'],
-                shift_and_rotation_correction_domain=correction_model.target if correction_model is not None else None,
+                shift_and_rotation_correction=correction_model,
             ),
 
             psf_kwargs=dict(
@@ -140,9 +140,10 @@ for fltname, flt in cfg['files']['filter'].items():
         likelihoods.append(likelihood)
 
 
-models = [sky_model_with_keys] + [
-    dm['correction_model'] for dm in data_plotting.values() if isinstance(dm['correction_model'], jft.Model)]
-model = ConnectModels(models)
+# models = [sky_model_with_keys] + [
+#     dm['correction_model'] for dm in data_plotting.values() if isinstance(dm['correction_model'], jft.Model)]
+# model = ConnectModels(models)
+model = sky_model_with_keys
 
 likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)

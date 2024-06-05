@@ -48,7 +48,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_256_05_sc2'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_256_06_shn'
   # res_dir: 'results/jwst_test/with_lensing'
 
   filter:

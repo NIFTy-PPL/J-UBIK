@@ -77,4 +77,5 @@ def build_sparse_rotation_and_shift(
         shape=(data_length, index_grid[0].size))
     sparse_matrix = BCOO.from_scipy_sparse(mat)
 
-    return lambda x, y: (sparse_matrix @ x.reshape(-1)).reshape(data_shape)
+    return lambda field, _: (sparse_matrix @ field.reshape(-1)).reshape(
+        data_shape)
