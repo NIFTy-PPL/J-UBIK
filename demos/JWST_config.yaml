@@ -48,7 +48,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_256_06_shn'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_256_06_rotshift'
   # res_dir: 'results/jwst_test/with_lensing'
 
   filter:
@@ -207,7 +207,7 @@ priors:
 
 minimization:
     key: 49
-    resume: False
+    resume: True
     n_total_iterations: 12
 
     samples: # nonlinear_sample # linear, nonlinear

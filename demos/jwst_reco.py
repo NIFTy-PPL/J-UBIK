@@ -67,17 +67,24 @@ for fltname, flt in cfg['files']['filter'].items():
         data_key = f'{fltname}_{ii}'
 
         if kk == 0:
-            shift_model = None
+            correction_model = None
         else:
-            from jubik0.jwst.rotation_and_shift.shift_model import build_shift_model
-            subsample = cfg['telescope']['rotation_and_shift']['subsample']
-            dist = [
-                rd.to(u.arcsec).value for rd in reconstruction_grid.distances]
-            shift_model = build_shift_model(
-                data_key + '_shift_cor', (0, 1.0e-1), dist)
-        kk += 1
+            from jubik0.jwst.rotation_and_shift.coordinates_correction import build_coordinates_correction_model
+            header = jwst_data.wcs._wcs.to_fits()[0]
+            rpix = (header['CRPIX1'],),  (header['CRPIX2'],)
+            rpix = jwst_data.wcs.wl_from_index(rpix)
+            rpix = reconstruction_grid.wcs.index_from_wl(rpix)[0]
 
-        correction_model = shift_model
+            correction_model = build_coordinates_correction_model(
+                data_key + '_correction',
+                dict(shift=(0, 1.0e-1),
+                     # rotation=(0, (1.0e-1*u.deg).to(u.rad).value)),
+                     rotation=(0, (1.0e-1*u.deg).to(u.rad).value)),
+                pix_distance=[
+                    rd.to(u.arcsec).value for rd in reconstruction_grid.distances],
+                rotation_center=rpix)
+
+        kk += 1
 
         # define a mask
         data_centers = np.squeeze(subsample_grid_centers_in_index_grid(
@@ -154,12 +161,27 @@ key, rec_key = random.split(key, 2)
 
 for ii in range(0):
     key, test_key = random.split(random.PRNGKey(42+ii), 2)
-    x = jft.random_like(test_key, model.domain)
+    x = jft.random_like(test_key, likelihood.domain).tree
     sky = sky_model_with_keys(x)
     # plot_sky(sky, data_plotting)
 
     plaw = sky_model_new.plaw(x)
     alpha = sky_model_new.alpha_cf(x)
+
+    # k = 'f356w'
+    # a, b = (data_plotting[k + '_0']['data_model'],
+    #         data_plotting[k+'_1']['data_model'])
+    # val = sky | x
+    # sa, sb = a.rotation_and_shift(val), b.rotation_and_shift(val)
+
+    # fig, axes = plt.subplots(1, 3, sharex=True, sharey=True,)
+    # ax, ay, az = axes
+    # ax.imshow(sa, origin='lower')
+    # ay.imshow(sb, origin='lower')
+    # az.imshow(sa-sb[:, :-3], origin='lower')
+    # plt.show()
+
+    # exit()
 
     fig, axes = plt.subplots(len(sky)+1, 4)
     integrated_sky = []
@@ -169,9 +191,7 @@ for ii in range(0):
         correction_model = data_plotting[f'{sky_key}_0']['correction_model']
         data = data_plotting[f'{sky_key}_0']['data']
 
-        val = sky
-        if correction_model is not None:
-            val = val | correction_model(x)
+        val = sky | x
         intsky = data_model.integrate(data_model.rotation_and_shift(val))
         integrated_sky.append(intsky)
 

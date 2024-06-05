@@ -90,11 +90,14 @@ def build_plot(
                 model_data.append(tmp)
 
             if cm is not None:
-                corr, cors = jft.mean_and_std(
-                    [cm.prior_model(s) for s in samples])
-                corr, cors = (corr.reshape(2), cors.reshape(2))
+                sh_m, sh_s = jft.mean_and_std(
+                    [cm.shift_prior(s) for s in samples])
+                ro_m, ro_s = jft.mean_and_std(
+                    [cm.rotation_prior(s) for s in samples])
+                ro_m, ro_s = ro_m[0], ro_s[0]
+                sh_m, sh_s = (sh_m.reshape(2), sh_s.reshape(2))
             else:
-                corr, cors = (0, 0), (0, 0)
+                sh_m, sh_s, ro_m, ro_s = (0, 0), (0, 0), 0, 0
 
             model_mean = jft.mean(model_data)
             redchi_mean, redchi2_std = jft.mean_and_std(
@@ -103,7 +106,7 @@ def build_plot(
             axes[ii, 0].set_title(f'Data {dkey}')
             ims.append(axes[ii, 0].imshow(dd, origin='lower', norm=norm()))
             axes[ii, 1].set_title(
-                f'Data model ({corr[0]:.1e}+-{cors[0]:.1e}, {corr[1]:.1e}+-{cors[1]:.1e})')
+                f'Data model ({sh_m[0]:.1e}+-{sh_s[0]:.1e}, {sh_m[1]:.1e}+-{sh_s[1]:.1e},\n{ro_m:.1e}+-{ro_s:.1e})')
             ims.append(axes[ii, 1].imshow(
                 model_mean, origin='lower', norm=norm()))
             axes[ii, 2].set_title('Data - Data model')
@@ -150,11 +153,14 @@ def build_plot(
                 model_data.append(tmp)
 
             if cm is not None:
-                corr, cors = jft.mean_and_std(
-                    [cm.prior_model(s) for s in samples])
-                corr, cors = (corr.reshape(2), cors.reshape(2))
+                sh_m, sh_s = jft.mean_and_std(
+                    [cm.shift_prior(s) for s in samples])
+                ro_m, ro_s = jft.mean_and_std(
+                    [cm.rotation_prior(s) for s in samples])
+                sh_m, sh_s = (sh_m.reshape(2), sh_s.reshape(2))
+                ro_m, ro_s = ro_m[0], ro_s[0]
             else:
-                corr, cors = (0, 0), (0, 0)
+                sh_m, sh_s, ro_m, ro_s = (0, 0), (0, 0), 0, 0
 
             model_mean = jft.mean(model_data)
 
@@ -162,7 +168,7 @@ def build_plot(
             axes[ii, 0].set_title('p-law model')
             ims.append(axes[ii, 0].imshow(m_plaw[index], origin='lower'))
             axes[ii, 1].set_title(
-                f'Data model ({corr[0]:.1e}+-{cors[0]:.1e}, {corr[1]:.1e}+-{cors[1]:.1e})')
+                f'Data model ({sh_m[0]:.1e}+-{sh_s[0]:.1e}, {sh_m[1]:.1e}+-{sh_s[1]:.1e},\n{ro_m:.1e}+-{ro_s:.1e})')
             ims.append(axes[ii, 1].imshow(
                 m_sky[index], origin='lower', norm=norm()))
             axes[ii, 2].set_title('Data - Data model')
@@ -199,7 +205,7 @@ def build_plot(
     def sky_plot(samples: jft.Samples, x: jft.OptimizeVIState):
         print(f'Plotting: {x.nit}')
         sky_plot_residuals(samples, x)
-        # plot_sky_with_samples(samples, x)
+        plot_sky_with_samples(samples, x)
         # if plaw is not None:
         #     plot_plaw(samples, x)
 
