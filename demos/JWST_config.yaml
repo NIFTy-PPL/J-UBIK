@@ -48,7 +48,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_256_06_rotshift'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_256_07'
   # res_dir: 'results/jwst_test/with_lensing'
 
   filter:
@@ -206,7 +206,7 @@ priors:
 
 
 minimization:
-    key: 49
+    key: 51
     resume: True
     n_total_iterations: 12
 

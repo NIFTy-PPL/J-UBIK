@@ -85,7 +85,7 @@ def build_rotation_and_shift_model(
 
     coordinate_correction
         The shift and rotation correction model, which returns corrected
-        coordinates.
+        coordinates. 
 
     Returns
     -------

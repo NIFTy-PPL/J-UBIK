@@ -31,21 +31,6 @@ class CoordinatesCorrection(jft.Model):
         super().__init__(domain=rotation_prior.domain | shift_prior.domain,
                          target=rotation_prior.target)
 
-    def rotation(self, params: dict, coords: ArrayLike) -> ArrayLike:
-        theta = self.rotation_prior(params)
-        x = (jnp.cos(theta) * (coords[0]-self.rotation_center[0]) -
-             jnp.sin(theta) * (coords[1]-self.rotation_center[1])
-             ) + self.rotation_center[0]
-
-        y = (jnp.sin(theta) * (coords[0]-self.rotation_center[0]) +
-             jnp.cos(theta) * (coords[1]-self.rotation_center[1])
-             ) + self.rotation_center[1]
-        return jnp.array((x, y))
-
-    def shift(self, params: dict, coords: ArrayLike) -> ArrayLike:
-        shft = self.shift_prior(params) / self.pix_distance
-        return coords + shft.reshape(2, 1, 1)
-
     def __call__(self, params: dict, coords: ArrayLike) -> ArrayLike:
         shft = self.shift_prior(params) / self.pix_distance
         theta = self.rotation_prior(params)
@@ -58,10 +43,25 @@ class CoordinatesCorrection(jft.Model):
              ) + self.rotation_center[1] + shft[1]
         return jnp.array((x, y))
 
+    def _rotation(self, params: dict, coords: ArrayLike) -> ArrayLike:
+        theta = self.rotation_prior(params)
+        x = (jnp.cos(theta) * (coords[0]-self.rotation_center[0]) -
+             jnp.sin(theta) * (coords[1]-self.rotation_center[1])
+             ) + self.rotation_center[0]
+
+        y = (jnp.sin(theta) * (coords[0]-self.rotation_center[0]) +
+             jnp.cos(theta) * (coords[1]-self.rotation_center[1])
+             ) + self.rotation_center[1]
+        return jnp.array((x, y))
+
+    def _shift(self, params: dict, coords: ArrayLike) -> ArrayLike:
+        shft = self.shift_prior(params) / self.pix_distance
+        return coords + shft.reshape(2, 1, 1)
+
 
 def build_coordinates_correction_model(
     domain_key: str,
-    mean_sigma: dict[str, tuple[float]],
+    priors: dict[str, tuple[float]],
     pix_distance: tuple[float],
     rotation_center: tuple[float, float],
 ) -> CoordinatesCorrection:
@@ -78,7 +78,7 @@ def build_coordinates_correction_model(
     ----------
     domain_key
 
-    mean_sigma
+    priors
         shift: Mean and sigma for the Gaussian distribution of shift model.
         rotation: Mean and sigma of the Gaussian distribution for theta [rad]
 
@@ -93,19 +93,19 @@ def build_coordinates_correction_model(
     '''
 
     # Build shift prior
+    shift_key = domain_key + '_shift'
     shift_shape = (2,)
     pix_distance = array(pix_distance).reshape(shift_shape)
-    shift_key = domain_key + '_shift'
     shift_prior = build_parametric_prior(
-        shift_key, ('normal', *mean_sigma['shift']), shift_shape)
+        shift_key, priors['shift'], shift_shape)
     shift_prior_model = jft.Model(
         shift_prior, domain={shift_key: jft.ShapeWithDtype(shift_shape)})
 
     # Build rotation prior
-    rot_shape = (1,)
     rotation_key = domain_key + '_rotation'
+    rot_shape = (1,)
     rotation_prior = build_parametric_prior(
-        rotation_key, ('normal', *mean_sigma['rotation']), rot_shape)
+        rotation_key, priors['rotation'], rot_shape)
     rotation_prior_model = jft.Model(
         rotation_prior, domain={rotation_key: jft.ShapeWithDtype(rot_shape)})
 

@@ -76,9 +76,9 @@ for fltname, flt in cfg['files']['filter'].items():
 
             correction_model = build_coordinates_correction_model(
                 data_key + '_correction',
-                dict(shift=(0, 1.0e-1),
-                     # rotation=(0, (1.0e-1*u.deg).to(u.rad).value)),
-                     rotation=(0, (1.0e-1*u.deg).to(u.rad).value)),
+                priors=dict(
+                    shift=('normal', 0, 1.0e-1),
+                    rotation=('normal', 0, (1.0e-1*u.deg).to(u.rad).value)),
                 pix_distance=[
                     rd.to(u.arcsec).value for rd in reconstruction_grid.distances],
                 rotation_center=rpix)
