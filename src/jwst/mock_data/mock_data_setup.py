@@ -124,13 +124,13 @@ def create_data(
     if rotation_model_key == 'nufft':
         print('data created with nufft rotation and shift')
         nufft = build_nufft_rotation_and_shift(
-            1, 1, interpolation_points, mock_grid.shape)
+            1, 1, lambda _: interpolation_points, mock_grid.shape)
         rota_sky = nufft(mock_sky, None)
 
     elif rotation_model_key == 'linear':
         print('data created with linear rotation and shift')
         linear = build_linear_rotation_and_shift(
-            1, 1, interpolation_points, order=1
+            1, 1, lambda _: interpolation_points, order=1
         )
         rota_sky = linear(mock_sky, None)
 

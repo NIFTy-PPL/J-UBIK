@@ -125,8 +125,9 @@ def build_mock_plot(
             for si in samples:
                 tmp = np.zeros_like(d)
                 val = {internal_sky_key: sky_model(si)}
-                if corr is not None:
-                    val = val | corr(si)
+                while isinstance(si, jft.Vector):
+                    si = si.tree
+                val = val | si
                 tmp[mask] = dm(val)
                 model_data.append(tmp)
 
@@ -179,8 +180,7 @@ def build_mock_plot(
             if cm is not None:
                 corr, cors = jft.mean_and_std(
                     [cm.prior_model(s) for s in samples])
-                corr, cors = (next(iter(corr.values())).reshape(2),
-                              next(iter(cors.values())).reshape(2))
+                corr, cors = (corr.reshape(2), cors.reshape(2))
                 cor = f'[{corr[0]:.1f}+-{cors[0]:.1f}, {corr[1]:.1f}+-{cors[1]:.1f}]'
             else:
                 cor = '[0+-0, 0+-0]'

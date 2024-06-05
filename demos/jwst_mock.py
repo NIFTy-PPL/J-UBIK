@@ -76,7 +76,7 @@ for ii, (dkey, data) in enumerate(data_set.items()):
             data_wcs=data_grid.wcs,
             data_model_type=cfg['telescope']['rotation_and_shift']['model'],
             kwargs_sparse=dict(extend_factor=1, to_bottom_left=True),
-            shift_and_rotation_correction_domain=shift_model.target if shift_model is not None else None,
+            shift_and_rotation_correction=shift_model,
             kwargs_linear=dict(order=1, sky_as_brightness=False, mode='wrap'),
         ),
 
@@ -96,10 +96,7 @@ for ii, (dkey, data) in enumerate(data_set.items()):
     likelihoods.append(likelihood)
 
 
-models = [sky_model_with_key] + [
-    dm['correction_model'] for dm in data_set.values() if isinstance(dm['correction_model'], jft.Model)]
-model = ConnectModels(models)
-
+model = sky_model_with_key
 likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)
 
