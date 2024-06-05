@@ -5,7 +5,6 @@ import nifty8.re as jft
 import jubik0 as ju
 from jubik0.jwst.mock_data import (
     mock_setup, build_evaluation_mask, build_mock_plot)
-from jubik0.jwst import ConnectModels
 from jubik0.jwst.utils import build_sky_model
 from jubik0.jwst.config_handler import config_transform, define_mock_output
 from jubik0.jwst.jwst_data_model import build_data_model

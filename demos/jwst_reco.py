@@ -11,7 +11,6 @@ from matplotlib.colors import LogNorm
 from astropy import units as u
 
 import jubik0 as ju
-from jubik0.jwst import ConnectModels
 from jubik0.library.likelihood import (
     connect_likelihood_to_model, build_gaussian_likelihood)
 from jubik0.jwst.jwst_data import JwstData
@@ -147,11 +146,7 @@ for fltname, flt in cfg['files']['filter'].items():
         likelihoods.append(likelihood)
 
 
-# models = [sky_model_with_keys] + [
-#     dm['correction_model'] for dm in data_plotting.values() if isinstance(dm['correction_model'], jft.Model)]
-# model = ConnectModels(models)
 model = sky_model_with_keys
-
 likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)
 
