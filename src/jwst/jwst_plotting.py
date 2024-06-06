@@ -197,3 +197,75 @@ def plot_sky(sky, data_dict, norm=LogNorm):
     for ax, im in zip(axes.flatten(), ims):
         fig.colorbar(im, ax=ax, shrink=0.7)
     plt.show()
+
+
+def build_plot_lens_light(
+    results_directory: str,
+    sky_model_keys: tuple[str],
+    lens_light: tuple[jft.Model, jft.Model],
+    source_light: tuple[jft.Model, jft.Model],
+    lensed_light: jft.Model,
+    plotting_config: dict,
+):
+    from os.path import join
+    from os import makedirs
+    from matplotlib.colors import Normalize
+
+    light_dir = join(results_directory, 'light')
+    makedirs(light_dir, exist_ok=True)
+
+    norm_source = plotting_config.get('norm_source', Normalize)
+    norm_lens = plotting_config.get('norm_lens', Normalize)
+
+    lens_light_alpha, lens_light_full = lens_light
+    source_light_alpha, source_light_full = source_light
+
+    xlen = len(sky_model_keys) + 1
+
+    def plot_sky(samples: jft.Samples, x: jft.OptimizeVIState):
+        print(f"Results: {results_directory}")
+
+        fig, axes = plt.subplots(3, xlen, figsize=(3*xlen, 8), dpi=300)
+        ims = np.zeros_like(axes)
+
+        # Plot lens light
+        ims[0, 0] = axes[0, 0].imshow(
+            jft.mean([lens_light_alpha(si) for si in samples]), origin='lower')
+        leli = jft.mean([lens_light_full(si) for si in samples])
+        for ii, filter_name in enumerate(sky_model_keys):
+            axes[0, ii+1].set_title(f'Lens light {filter_name}')
+            ims[0, ii+1] = axes[0, ii+1].imshow(
+                leli[ii], origin='lower',
+                norm=norm_lens(vmin=np.max((1e-5, leli.min())), vmax=leli.max()))
+
+        # PLOT lensed light
+        lsli = jft.mean([lensed_light(si) for si in samples])
+        ims[1, 0] = axes[1, 0].imshow(
+            (leli+lsli)[0], origin='lower',
+            norm=norm_lens(vmin=np.max((1e-5, (leli+lsli)[0].min())),
+                           vmax=(leli+lsli)[0].max()))
+        for ii, filter_name in enumerate(sky_model_keys):
+            axes[1, ii+1].set_title(f'Lensed light {filter_name}')
+            ims[1, ii+1] = axes[1, ii+1].imshow(
+                lsli[ii], origin='lower',
+                norm=norm_lens(vmin=np.max((1e-5, lsli.min())), vmax=lsli.max()))
+
+        # Plot lens light
+        ims[2, 0] = axes[2, 0].imshow(
+            jft.mean([source_light_alpha(si) for si in samples]),
+            origin='lower')
+        slli = jft.mean([source_light_full(si) for si in samples])
+        for ii, filter_name in enumerate(sky_model_keys):
+            axes[2, ii+1].set_title(f'Lens light {filter_name}')
+            ims[2, ii+1] = axes[2, ii+1].imshow(
+                slli[ii], origin='lower',
+                norm=norm_source(vmin=slli.min(), vmax=slli.max()))
+
+        for ax, im in zip(axes.flatten(), ims.flatten()):
+            if not isinstance(im, int):
+                fig.colorbar(im, ax=ax, shrink=0.7)
+        fig.tight_layout()
+        fig.savefig(join(light_dir, f'{x.nit:02d}.png'), dpi=300)
+        plt.close()
+
+    return plot_sky

@@ -1,0 +1,415 @@
+grid:
+# fov: 8.064
+  fov: 5
+  fov_unit: arcsec
+
+  pointing:
+    ra: 64.66543063107049
+    dec: -47.86462563973049
+    unit: deg
+    frame: icrs
+    rotation: 65
+
+  sdim: 256
+  edim: 2
+  s_padding_ratio: 1.5
+  e_padding_ratio: 1.5
+
+  e_keys: [f444w, f356w]
+  # f356w [
+  # f444w [3.881ym, 4.982ym]
+
+  energy_bin:
+    e_min:
+    - 0.249  # eV
+    - 0.311
+    e_max:
+    - 0.311
+    - 0.395
+    e_ref:
+    - 0.311
+
+telescope:
+  psf:
+    webbpsf_path: '/home/jruestig/Data/JWST/WebbPsf/webbpsf-data_1.2.1/'
+    psf_library: '/home/jruestig/Data/JWST/psf_library'
+    psf_pixels: 32
+
+  rotation_and_shift:
+    model: 'linear' # 'sparse', 'linear', 'nufft'
+    subsample: 3
+
+
+files:
+  res_dir: 'results/jwst_test/mf_f356w_f444w_lens_02'
+
+  filter:
+    # f115w: # NIRCam
+    #   - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_cal.fits'
+    #   - './data/spt0418/f115w/jw01355016001_02101_00002_nrcb4/jw01355016001_02101_00002_nrcb4_cal.fits'
+
+    # f150w:
+    #   - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_cal.fits'
+    #   - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_cal.fits'
+
+    # f200w:
+    #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_cal.fits'
+    #   - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_cal.fits'
+
+    # f277w:
+    #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
+    #   - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
+
+    f356w:
+      - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+      - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+
+    f444w:
+      - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
+      - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
+
+    # f560w: # MIRI
+    #   - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+
+    # f770w:
+    #   - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f770w/jw01355015001_05101_00002_mirimage/jw01355015001_05101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
+
+    # f1000w:
+    #   - './data/spt0418/f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_cal.fits'
+
+    # f1280w:
+    #   - './data/spt0418/f1280w/jw01355015001_09101_00001_mirimage/jw01355015001_09101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f1280w/jw01355015001_09101_00002_mirimage/jw01355015001_09101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f1280w/jw01355015001_09101_00003_mirimage/jw01355015001_09101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f1280w/jw01355015001_09101_00004_mirimage/jw01355015001_09101_00004_mirimage_cal.fits'
+
+    # f1500w:
+    #   - './data/spt0418/f1500w/jw01355015001_11101_00001_mirimage/jw01355015001_11101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f1500w/jw01355015001_11101_00002_mirimage/jw01355015001_11101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f1500w/jw01355015001_11101_00003_mirimage/jw01355015001_11101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f1500w/jw01355015001_11101_00004_mirimage/jw01355015001_11101_00004_mirimage_cal.fits'
+
+    # f1800w:
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_cal.fits'
+
+    # f2100w:
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00001_mirimage/jw01355015001_15101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00002_mirimage/jw01355015001_15101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00003_mirimage/jw01355015001_15101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00004_mirimage/jw01355015001_15101_00004_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00005_mirimage/jw01355015001_15101_00005_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00006_mirimage/jw01355015001_15101_00006_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00007_mirimage/jw01355015001_15101_00007_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00008_mirimage/jw01355015001_15101_00008_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00009_mirimage/jw01355015001_15101_00009_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00010_mirimage/jw01355015001_15101_00010_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_cal.fits'
+
+lensing: 
+  spaces:
+    lens_space:
+      padding_ratio: 1.5
+      Npix:
+        - 256
+        - 256
+      fov: 5
+
+    source_space:
+      padding_ratio: 1.0
+      Npix:
+        - 256
+        - 256
+      distance:
+        - 0.008
+        - 0.008
+
+  model:
+    source:
+
+      light:
+          mean:
+            gaussian:
+              center:
+                distribution: 'normal'
+                mean: 0.0
+                  # - 0.2
+                  # - -0.2
+                sigma: 0.1
+                  # - 0.1
+                  # - 0.1
+              covariance:
+                distribution: 'log_normal'
+                mean: 0.06
+                sigma: 0.05
+              off_diagonal:
+                sigma: 10
+                distribution: 'normal'
+                mean: 0.0
+
+          perturbations:
+            ubik:
+              grid:
+                edim: 2
+                e_padding_ratio: 1.5
+                e_keys: [f444w, f356w]
+
+              energy_bin:
+                e_min:
+                - 0.249  # eV
+                - 0.311
+                e_max:
+                - 0.311
+                - 0.395
+                e_ref:
+                - 0.311
+
+              priors:
+                  diffuse:
+                    spatial:
+                      offset:
+                        offset_mean: -2.5
+                        offset_std:
+                          - 0.7
+                          - 0.4
+                      fluctuations:
+                        fluctuations:
+                          - 1.6
+                          - 0.1
+                        loglogavgslope:
+                          - -3.2
+                          - 0.3
+                        flexibility:
+                          - 0.8
+                          - 0.08
+                        asperity: Null
+                        non_parametric_kind: "power"
+                        # harmonic_type: "Fourier"
+                      prefix: diffuse_spatial_
+
+                    plaw:
+                      offset:
+                        offset_mean: -2.0
+                        offset_std:
+                          - 0.3
+                          - 0.05
+                      fluctuations:
+                        fluctuations:
+                          - 0.5
+                          - 0.05
+                        loglogavgslope:
+                          - -2.5
+                          - 0.5
+                        flexibility:
+                          - 0.5
+                          - 0.05
+                        asperity:
+                          Null
+                        non_parametric_kind: "power"
+                        # harmonic_type: "Fourier"
+                      prefix: diffuse_plaw_
+
+
+    lens:
+
+      light:
+
+        mean:
+          sersic:
+            ie:
+              distribution: 'log_normal'
+              mean: 2.0
+              sigma: 0.5
+            re:
+              distribution: 'log_normal'
+              mean: 0.05  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+              sigma: 0.008
+            n:
+              distribution: 'uniform'
+              # mean: 0.36
+              # sigma: 8.0
+              min: 2.36  # 3.17+-0.02 (Jared Cathey et.al. 2023)
+              max: 8.0
+            center:
+              distribution: 'normal'
+              mean: 0.0
+              sigma: 0.2
+            q:
+              distribution: 'uniform'
+              min: 0.8
+              max: 1.0
+            theta:
+              distribution: 'normal'
+              mean: 0.0
+              sigma: 10
+
+        perturbations:
+          ubik:
+            grid:
+              edim: 2
+              e_padding_ratio: 1.5
+              e_keys: [f444w, f356w]
+
+            energy_bin:
+              e_min:
+              - 0.249  # eV
+              - 0.311
+              e_max:
+              - 0.311
+              - 0.395
+              e_ref:
+              - 0.311
+
+            priors:
+                diffuse:
+                  spatial:
+                    offset:
+                      offset_mean: 0.0
+                      offset_std:
+                        - 1.2
+                        - 0.5
+                    fluctuations:
+                      fluctuations:
+                        - 1.6
+                        - 0.1
+                      loglogavgslope:
+                        - -3.2
+                        - 0.3
+                      flexibility:
+                        - 0.8
+                        - 0.08
+                      asperity: Null
+                      non_parametric_kind: "power"
+                      # harmonic_type: "Fourier"
+                    prefix: diffuse_spatial_
+
+                  plaw:
+                    offset:
+                      offset_mean: -1.0
+                      offset_std:
+                        - 0.3
+                        - 0.05
+                    fluctuations:
+                      fluctuations:
+                        - 0.5
+                        - 0.05
+                      loglogavgslope:
+                        - -2.5
+                        - 0.5
+                      flexibility:
+                        - 0.5
+                        - 0.05
+                      asperity:
+                        Null
+                      non_parametric_kind: "power"
+                      # harmonic_type: "Fourier"
+                    prefix: diffuse_plaw_
+
+
+      convergence:
+        mean:
+          piemd:
+            b:
+              distribution: 'log_normal'
+              mean: 1.3
+              sigma: 0.1
+            rs:
+              distribution: 'log_normal'
+              mean: 0.1
+              sigma: 0.05
+            center:
+              distribution: 'normal'
+              mean: 0.0
+              sigma: 0.1
+            q:
+              distribution: 'uniform'
+              min: 1.0
+              max: 1.25
+            theta:
+              distribution: 'normal'
+              mean: 0.0
+              sigma: 10
+
+        perturbations: 
+          cfm:
+            amplitude:
+              offset_mean: 0.0
+              offset_std:
+                - 1.e-1
+                - 1.e-6
+            fluctuations:
+              fluctuations:
+                - 0.5
+                - 5.e-2
+              loglogavgslope:
+                - -6.0
+                - 0.7
+              flexibility:
+                - 0.5
+                - 1.0
+              asperity: null
+                # - 0.1
+                # - 0.5
+
+        poisson_padding: 2
+        shear:
+          shear:
+            strength:
+              distribution: 'normal'
+              mean: 0
+              sigma: 0.001
+            theta:
+              distribution: 'normal'
+              mean: 0.0
+              sigma: 10
+            center:
+              distribution: null
+              mean: 0.
+              sigma: 0.2
+
+
+
+minimization:
+    key: 28
+    resume: False
+    n_total_iterations: 6
+
+    samples: # nonlinear_sample # linear, nonlinear
+      switches: [0, 5, 9]
+      name: [lin, nonlin]  # For logging
+      # "linear_sample", 
+      # "linear_resample",
+      # "nonlinear_sample",
+      # "nonlinear_resample",
+      # "nonlinear_update",
+      mode: [linear_resample, nonlinear_update]
+      n_samples: [5, 6, 10]
+
+      lin_deltaE: [0.1, 0.001] # , 0.00001]
+      lin_maxiter: [50, 100] # , 200]
+      lin_convergence_level: 2
+
+      nonlin_deltaE: [0.1, 0.01]
+      nonlin_maxiter: [7, 13]
+      nonlin_cg_deltaE: [0.1, 0.01]
+      nonlin_cg_maxiter: [20, 30]
+      nonlin_convergence_level: 2
+
+    kl_mini:
+      switches: [0, 3]
+      name: Newton
+      kl_convergence_level: 2
+      kl_deltaE: [0.01, 0.0001]
+      kl_maxiter: [7, 15]
