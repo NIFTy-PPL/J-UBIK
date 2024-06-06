@@ -36,7 +36,6 @@ RES_DIR = cfg['files']['res_dir']
 D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
 # FIXME: This needs to provided somewhere else
 DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
-PSF_PIXELS = 32
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 
@@ -122,7 +121,7 @@ for fltname, flt in cfg['files']['filter'].items():
                     reconstruction_grid.center)[0],
                 webbpsf_path=cfg['telescope']['psf']['webbpsf_path'],
                 psf_library_path=cfg['telescope']['psf']['psf_library'],
-                fov_pixels=PSF_PIXELS,
+                fov_pixels=cfg['telescope']['psf']['psf_pixels'],
             ),
 
             data_mask=mask,
@@ -162,21 +161,6 @@ for ii in range(0):
 
     plaw = sky_model_new.plaw(x)
     alpha = sky_model_new.alpha_cf(x)
-
-    # k = 'f356w'
-    # a, b = (data_plotting[k + '_0']['data_model'],
-    #         data_plotting[k+'_1']['data_model'])
-    # val = sky | x
-    # sa, sb = a.rotation_and_shift(val), b.rotation_and_shift(val)
-
-    # fig, axes = plt.subplots(1, 3, sharex=True, sharey=True,)
-    # ax, ay, az = axes
-    # ax.imshow(sa, origin='lower')
-    # ay.imshow(sb, origin='lower')
-    # az.imshow(sa-sb[:, :-3], origin='lower')
-    # plt.show()
-
-    # exit()
 
     fig, axes = plt.subplots(len(sky)+1, 4)
     integrated_sky = []
@@ -241,10 +225,11 @@ plot = build_plot(
     sky_model=sky_model,
     small_sky_model=small_sky_model,
     results_directory=RES_DIR,
-    plaw=sky_model_new.plaw,
+    alpha=sky_model_new.alpha_cf,
     plotting_config=dict(
         norm=LogNorm,
-        sky_extent=None
+        sky_extent=None,
+        plot_sky=False
     ))
 
 
