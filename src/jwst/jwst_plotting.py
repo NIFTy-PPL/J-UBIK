@@ -127,6 +127,7 @@ def build_plot(
         # Calculate sky
         mean_small = jft.mean([small_sky_model(si) for si in samples])
         ma, mi = jft.max(mean_small), jft.min(mean_small)
+        ma, mi = np.max((1e-5, ma)), np.max((1e-5, mi))
 
         for ii, filter_name in enumerate(sky_model_with_key.target.keys()):
             axes[ii+1, 0].set_title(f'Sky {filter_name}')
@@ -223,8 +224,6 @@ def build_plot_lens_light(
     xlen = len(sky_model_keys) + 1
 
     def plot_sky(samples: jft.Samples, x: jft.OptimizeVIState):
-        print(f"Results: {results_directory}")
-
         fig, axes = plt.subplots(3, xlen, figsize=(3*xlen, 8), dpi=300)
         ims = np.zeros_like(axes)
 
@@ -256,7 +255,7 @@ def build_plot_lens_light(
             origin='lower')
         slli = jft.mean([source_light_full(si) for si in samples])
         for ii, filter_name in enumerate(sky_model_keys):
-            axes[2, ii+1].set_title(f'Lens light {filter_name}')
+            axes[2, ii+1].set_title(f'Source light {filter_name}')
             ims[2, ii+1] = axes[2, ii+1].imshow(
                 slli[ii], origin='lower',
                 norm=norm_source(vmin=slli.min(), vmax=slli.max()))

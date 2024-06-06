@@ -152,8 +152,8 @@ lensing:
                   # - 0.1
               covariance:
                 distribution: 'log_normal'
-                mean: 0.06
-                sigma: 0.05
+                mean: 0.02
+                sigma: 0.008
               off_diagonal:
                 sigma: 10
                 distribution: 'normal'
@@ -383,8 +383,8 @@ lensing:
 
 minimization:
     key: 28
-    resume: False
-    n_total_iterations: 6
+    resume: True
+    n_total_iterations: 15
 
     samples: # nonlinear_sample # linear, nonlinear
       switches: [0, 5, 9]

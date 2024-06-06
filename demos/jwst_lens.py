@@ -26,7 +26,7 @@ from charm_lensing import build_lens_system
 
 from sys import exit
 
-if True:
+if False:
     from jax import config, devices
     config.update('jax_default_device', devices('cpu')[0])
 
@@ -51,7 +51,7 @@ sky_model_with_keys = jft.Model(
     init=sky_model.init
 )
 
-for ii in range(4):
+for ii in range(0):
     key, test_key = random.split(random.PRNGKey(42+ii), 2)
     x = jft.random_like(test_key, sky_model.domain)
 
@@ -209,9 +209,42 @@ likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)
 
 
+plot_sky = build_plot_lens_light(
+    results_directory=RES_DIR,
+    sky_model_keys=sky_model_with_keys.target.keys(),
+    lens_light=(
+        lens_system.lens_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
+        lens_system.lens_plane_model.light_model),
+    source_light=(
+        lens_system.source_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
+        lens_system.source_plane_model.light_model),
+    lensed_light=lens_system.get_forward_model_parametric(only_source=True),
+    plotting_config=dict(
+        norm_lens=LogNorm,
+        # norm_source=LogNorm,
+    )
+)
+residual_plot = build_plot(
+    data_dict=data_plotting,
+    sky_model_with_key=sky_model_with_keys,
+    sky_model=sky_model,
+    small_sky_model=lens_system.source_plane_model.light_model,
+    results_directory=RES_DIR,
+    alpha=lens_system.source_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
+    plotting_config=dict(
+        norm=LogNorm,
+        sky_extent=None,
+        plot_sky=False
+    ))
+
+
+def plot_new(samples, state):
+    plot_sky(samples, state)
+    residual_plot(samples, state)
+
+
 key = random.PRNGKey(87)
 key, rec_key = random.split(key, 2)
-
 
 cfg_mini = ju.get_config('demos/lens_config.yaml')["minimization"]
 key = random.PRNGKey(cfg_mini.get('key', 42))
@@ -228,43 +261,6 @@ kl_kwargs = minimization_parser.kl_kwargs_factory(cfg_mini)
 # kl_solver_kwargs = minimization_config.pop('kl_kwargs')
 # minimization_config['resume'] = True
 # minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
-
-
-plot_sky = build_plot_lens_light(
-    results_directory=RES_DIR,
-    sky_model_keys=sky_model_with_keys.target.keys(),
-    lens_light=(
-        lens_system.lens_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
-        lens_system.lens_plane_model.light_model),
-    source_light=(
-        lens_system.source_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
-        lens_system.source_plane_model.light_model),
-    lensed_light=lens_system.get_forward_model_parametric(only_source=True),
-    plotting_config=dict(
-        norm_lens=LogNorm,
-        # norm_source=LogNorm,
-    )
-)
-
-
-residual_plot = build_plot(
-    data_dict=data_plotting,
-    sky_model_with_key=sky_model_with_keys,
-    sky_model=sky_model,
-    small_sky_model=lens_system.source_plane_model.light_model,
-    results_directory=RES_DIR,
-    alpha=lens_system.source_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
-    plotting_config=dict(
-        norm=LogNorm,
-        sky_extent=None,
-        plot_sky=False
-    ))
-
-
-def plot_new(samples, state):
-    residual_plot(samples, state)
-    plot_sky(samples, state)
-
 
 print(f'Results: {RES_DIR}')
 samples, state = jft.optimize_kl(
