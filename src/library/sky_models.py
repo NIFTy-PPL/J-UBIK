@@ -313,11 +313,16 @@ class SkyModel:
             self.dev_cf = ju.MappedModel(dev_cf, prior_dict['dev_corr']['prefix']+'xi',
                                          ext_s_shp, False)
         if 'dev_wp' in prior_dict:
-            dev_cf = self._create_wiener_process(edims=len(self._log_rel_ebin_centers()),
-                                                 dE=self._log_dE(),
-                                                 **prior_dict['dev_wp'])
+            dev_cf = self._create_wiener_process(
+                x0=prior_dict['dev_wp'].get('x0'),
+                sigma=prior_dict['dev_wp'].get('sigma'),
+                dE=self._log_dE(),
+                edims=len(self._log_rel_ebin_centers()),
+                name=prior_dict['dev_wp'].get('name'),
+            )
             self.dev_cf = ju.MappedModel(dev_cf, prior_dict['dev_wp']['name'],
                                          ext_s_shp, False)
+
         log_diffuse = ju.GeneralModel({'spatial': self.spatial_cf,
                                        'freq_plaw': self.plaw,
                                        'freq_dev': self.dev_cf}).build_model()

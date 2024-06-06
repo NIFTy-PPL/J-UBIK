@@ -2,9 +2,14 @@ import jax.numpy as jnp
 import nifty8.re as jft
 
 from jax.numpy import array
-from ..parametric_model import build_parametric_prior
 from typing import Tuple
 from numpy.typing import ArrayLike
+
+from astropy import units as u
+
+from ..parametric_model import build_parametric_prior
+from ..wcs.wcs_jwst_data import WcsJwstData
+from ..reconstruction_grid import Grid
 
 
 class CoordinatesCorrection(jft.Model):
@@ -111,3 +116,44 @@ def build_coordinates_correction_model(
 
     return CoordinatesCorrection(
         shift_prior_model, rotation_prior_model, pix_distance, rotation_center)
+
+
+def build_coordinates_correction_model_from_grid(
+    domain_key: str,
+    priors: dict[str, tuple[float]],
+    data_wcs: WcsJwstData,
+    reconstruction_grid: Grid,
+):
+    '''The shift correction is a normal distribution on the shift: (x, y).
+    (x, y) <- Gaussian(mean, sigma)
+
+    Rotation correction is defined via:
+    ri = si Rot(theta) (pi - r)
+        = Rot(theta) (si*pi -si*r),
+    where si*r=rotation_center given in units of the coordinates (si*pi).
+    The prior distribution over theta is a normal distribution.
+
+    Parameters
+    ----------
+    domain_key
+
+    priors
+        - shift: Mean and sigma for the Gaussian distribution of shift model.
+        - rotation: Mean and sigma of the Gaussian distribution for theta [rad]
+
+    data_wcs
+
+    reconstruction_grid
+    '''
+
+    header = data_wcs._wcs.to_fits()[0]
+    rpix = (header['CRPIX1'],),  (header['CRPIX2'],)
+    rpix = data_wcs.wl_from_index(rpix)
+    rpix = reconstruction_grid.wcs.index_from_wl(rpix)[0]
+
+    return build_coordinates_correction_model(
+        domain_key=domain_key,
+        priors=priors,
+        pix_distance=[
+            rd.to(u.arcsec).value for rd in reconstruction_grid.distances],
+        rotation_center=rpix)

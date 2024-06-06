@@ -33,7 +33,6 @@ if False:
 config_path = './demos/JWST_config.yaml'
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
 RES_DIR = cfg['files']['res_dir']
-D_PADDING_RATIO = cfg['grid']['d_padding_ratio']
 # FIXME: This needs to provided somewhere else
 DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
 
@@ -64,41 +63,45 @@ for fltname, flt in cfg['files']['filter'].items():
 
         data_key = f'{fltname}_{ii}'
 
+        # FIXME: This can also be handled by passing a delta for the priors
+        # of the shift, and rotation
+        # FIXME: The creation of the correction_model should be moved in the
+        # build_rotation_and_shift_model inside build_data_model.
+        # This will remove the coords partial over-write inside the
+        # build_rotation_and_shift_model. Once this is done only the prior for
+        # the rotation and shift correction will be passed to the
+        # shift_and_rotation kwargs dictionary.
         if kk == 0:
             correction_model = None
         else:
-            from jubik0.jwst.rotation_and_shift.coordinates_correction import build_coordinates_correction_model
-            header = jwst_data.wcs._wcs.to_fits()[0]
-            rpix = (header['CRPIX1'],),  (header['CRPIX2'],)
-            rpix = jwst_data.wcs.wl_from_index(rpix)
-            rpix = reconstruction_grid.wcs.index_from_wl(rpix)[0]
-
-            correction_model = build_coordinates_correction_model(
-                data_key + '_correction',
+            from jubik0.jwst.rotation_and_shift.coordinates_correction import build_coordinates_correction_model_from_grid
+            correction_model = build_coordinates_correction_model_from_grid(
+                domain_key=data_key + '_correction',
                 priors=dict(
                     shift=('normal', 0, 1.0e-1),
                     rotation=('normal', 0, (1.0e-1*u.deg).to(u.rad).value)),
-                pix_distance=[
-                    rd.to(u.arcsec).value for rd in reconstruction_grid.distances],
-                rotation_center=rpix)
+                data_wcs=jwst_data.wcs,
+                reconstruction_grid=reconstruction_grid,
+            )
 
         kk += 1
 
+        psf_ext = int(cfg['telescope']['psf']['psf_pixels'] // 2)
         # define a mask
         data_centers = np.squeeze(subsample_grid_centers_in_index_grid(
-            reconstruction_grid.world_extrema(D_PADDING_RATIO),
+            reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)),
             jwst_data.wcs,
             reconstruction_grid.wcs,
             1))
         mask = get_mask_from_index_centers(
             data_centers, reconstruction_grid.shape)
         mask *= jwst_data.nan_inside_extrema(
-            reconstruction_grid.world_extrema(D_PADDING_RATIO))
+            reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
 
         data = jwst_data.data_inside_extrema(
-            reconstruction_grid.world_extrema(D_PADDING_RATIO))
+            reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
         std = jwst_data.std_inside_extrema(
-            reconstruction_grid.world_extrema(D_PADDING_RATIO))
+            reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
 
         data_model = build_data_model(
             {fltname: sky_model_with_keys.target[fltname]},
@@ -126,7 +129,8 @@ for fltname, flt in cfg['files']['filter'].items():
 
             data_mask=mask,
 
-            world_extrema=reconstruction_grid.world_extrema(D_PADDING_RATIO)
+            world_extrema=reconstruction_grid.world_extrema(
+                ext=(psf_ext, psf_ext))
         )
 
         data_plotting[data_key] = dict(
@@ -161,6 +165,9 @@ for ii in range(0):
 
     plaw = sky_model_new.plaw(x)
     alpha = sky_model_new.alpha_cf(x)
+    dev = sky_model_new.dev_cf(x)
+
+    exit()
 
     fig, axes = plt.subplots(len(sky)+1, 4)
     integrated_sky = []

@@ -4,7 +4,7 @@ from astropy.coordinates import SkyCoord
 from astropy.units import Unit
 from astropy import units
 
-from typing import Tuple
+from typing import Tuple, Optional
 from numpy.typing import ArrayLike
 
 from .wcs.wcs_astropy import build_astropy_wcs
@@ -35,7 +35,11 @@ class Grid:
     def dvol(self) -> Unit:
         return self.distances[0] * self.distances[1]
 
-    def world_extrema(self, extend_factor=1) -> ArrayLike:
+    def world_extrema(
+        self,
+        extend_factor: float = 1,
+        ext: Optional[tuple[int, int]] = None
+    ) -> ArrayLike:
         '''The world location of the center of the pixels with the index
         locations = ((0, 0), (0, -1), (-1, 0), (-1, -1))
 
@@ -45,7 +49,10 @@ class Grid:
         index (x) aligning with the columns and the second index (y) aligning
         with the rows.
         '''
-        ext0, ext1 = [int(shp*extend_factor - shp)//2 for shp in self.shape]
+        if ext is None:
+            ext0, ext1 = [int(shp*extend_factor-shp)//2 for shp in self.shape]
+        else:
+            ext0, ext1 = ext
 
         xmin = -ext0
         xmax = self.shape[0] + ext1  # - 1 FIXME: Which of the two

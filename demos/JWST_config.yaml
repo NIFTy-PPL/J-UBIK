@@ -12,7 +12,6 @@ grid:
 
   sdim: 256
   edim: 2
-  d_padding_ratio: 1.2
   s_padding_ratio: 1.5
   e_padding_ratio: 1.5
 
@@ -38,7 +37,7 @@ telescope:
 
   rotation_and_shift:
     model: 'linear' # 'sparse', 'linear', 'nufft'
-    subsample: 4
+    subsample: 3
 
     f115w:
       data_dvol: 0.0169  # 0.13**2 arcsec
@@ -49,7 +48,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_256_08_subsample4'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_256_11'
   # res_dir: 'results/jwst_test/with_lensing'
 
   filter:
@@ -174,15 +173,15 @@ priors:
         # harmonic_type: "Fourier"
       prefix: diffuse_plaw_
 
-    # dev_wp:
-    #   x0:
-    #     - 0
-    #     - 0.1
-    #   sigma:
-    #     - 0.3
-    #     - 0.1
-    #   dt: 1
-    #   name: 'diffuse_dev_wp'
+    dev_wp:
+      x0:
+        - 0
+        - 0.1
+      sigma:
+        - 0.3
+        - 0.1
+      dt: 1
+      name: 'diffuse_dev_wp'
 
 #    dev_corr:
 #      fluctuations:
@@ -207,9 +206,9 @@ priors:
 
 
 minimization:
-    key: 39
+    key: 51
     resume: False
-    n_total_iterations: 12
+    n_total_iterations: 15
 
     samples: # nonlinear_sample # linear, nonlinear
       switches: [0, 5, 9]
