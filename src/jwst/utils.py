@@ -38,11 +38,3 @@ def build_sky_model(shape, dist, offset, fluctuations, extend_factor=1.5):
 
     return (jft.Model(diffuse, domain=log_diffuse.domain),
             jft.Model(full_diffuse, domain=log_diffuse.domain))
-
-
-def wave_to_freq(wavelength: u.Quantity):
-    return (const.c/wavelength).to(u.Hz)
-
-
-def wave_to_energy(wavelength: u.Quantity):
-    return (const.h*const.c/wavelength).to(u.eV)

@@ -8,7 +8,7 @@ grid:
     dec: -47.86462563973049
     unit: deg
     frame: icrs
-    rotation: 65
+    rotation: -25
 
   sdim: 256
   edim: 2
@@ -41,7 +41,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_lens_02'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_lens_04'
 
   filter:
     # f115w: # NIRCam
@@ -140,20 +140,38 @@ lensing:
     source:
 
       light:
+
           mean:
-            gaussian:
+            gaussian_01:
               center:
                 distribution: 'normal'
-                mean: 0.0
-                  # - 0.2
-                  # - -0.2
-                sigma: 0.1
-                  # - 0.1
-                  # - 0.1
+                mean: 
+                  - -0.4
+                  - 0.4
+                sigma: 
+                  - 0.1
+                  - 0.1
               covariance:
                 distribution: 'log_normal'
-                mean: 0.02
-                sigma: 0.008
+                mean: 0.06
+                sigma: 0.01
+              off_diagonal:
+                sigma: 10
+                distribution: 'normal'
+                mean: 0.0
+            gaussian_02:
+              center:
+                distribution: 'normal'
+                mean: 
+                  - 0.2
+                  - -0.2
+                sigma: 
+                  - 0.1
+                  - 0.1
+              covariance:
+                distribution: 'log_normal'
+                mean: 0.06
+                sigma: 0.01
               off_diagonal:
                 sigma: 10
                 distribution: 'normal'
@@ -165,7 +183,6 @@ lensing:
                 edim: 2
                 e_padding_ratio: 1.5
                 e_keys: [f444w, f356w]
-
               energy_bin:
                 e_min:
                 - 0.249  # eV
@@ -240,7 +257,7 @@ lensing:
               distribution: 'uniform'
               # mean: 0.36
               # sigma: 8.0
-              min: 2.36  # 3.17+-0.02 (Jared Cathey et.al. 2023)
+              min: 0.36  # 3.17+-0.02 (Jared Cathey et.al. 2023)
               max: 8.0
             center:
               distribution: 'normal'
@@ -383,7 +400,7 @@ lensing:
 
 minimization:
     key: 28
-    resume: True
+    resume: False
     n_total_iterations: 15
 
     samples: # nonlinear_sample # linear, nonlinear

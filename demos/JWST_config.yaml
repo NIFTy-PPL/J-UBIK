@@ -15,17 +15,16 @@ grid:
   s_padding_ratio: 1.5
   e_padding_ratio: 1.5
 
-  e_keys: [f444w, f356w]
-  # f356w [
-  # f444w [3.881ym, 4.982ym]
-
   energy_bin:
+    unit: eV
     e_min:
     - 0.249  # eV
     - 0.311
+    # - 0.395
     e_max:
     - 0.311
     - 0.395
+    # - 0.511
     e_ref:
     - 0.311
 
@@ -48,8 +47,8 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_256_11'
-  # res_dir: 'results/jwst_test/with_lensing'
+  # res_dir: 'results/jwst_test/mf_f227w_f356w_f444w_256_01'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_256_12'
 
   filter:
     # f115w: # NIRCam

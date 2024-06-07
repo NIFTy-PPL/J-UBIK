@@ -21,6 +21,8 @@ from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import build_plot, build_plot_lens_light
 from jubik0.jwst.filter_projector import FilterProjector
 
+from jubik0.jwst.color import Color, ColorRange
+
 from charm_lensing import minimization_parser
 from charm_lensing import build_lens_system
 
@@ -42,9 +44,16 @@ lens_system = build_lens_system.build_lens_system(cfg['lensing'])
 sky_model = lens_system.get_forward_model_parametric()
 
 
+energy_cfg = cfg['grid']['energy_bin']
+e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
+keys_and_colors = {
+    f'e_{ii:02d}': ColorRange(Color(emin*e_unit), Color(emax*e_unit))
+    for ii, (emin, emax) in enumerate(zip(energy_cfg.get('e_min'), energy_cfg.get('e_max')))}
+
+
 filter_projector = FilterProjector(
     sky_domain=sky_model.target,
-    key_and_index={key: ii for ii, key in enumerate(cfg['grid']['e_keys'])}
+    keys_and_colors=keys_and_colors,
 )
 sky_model_with_keys = jft.Model(
     lambda x: filter_projector(sky_model(x)),
@@ -158,8 +167,9 @@ for fltname, flt in cfg['files']['filter'].items():
         std = jwst_data.std_inside_extrema(
             reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
 
+        flt = filter_projector.get_key(jwst_data.pivot_wavelength)
         data_model = build_data_model(
-            {fltname: sky_model_with_keys.target[fltname]},
+            {flt: sky_model_with_keys.target[flt]},
 
             reconstruction_grid=reconstruction_grid,
 
@@ -189,7 +199,7 @@ for fltname, flt in cfg['files']['filter'].items():
         )
 
         data_plotting[data_key] = dict(
-            index=filter_projector.key_and_index[fltname],
+            index=filter_projector.keys_and_index[flt],
             data=data,
             std=std,
             mask=mask,
