@@ -17,6 +17,12 @@
 - how to install [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
 - set an alias in your .bashrc to source ciao and marx easily
 
+### Install JWST Dependencies
+<!-- THe gwcs could be potentially removed from the Requirements, such taht UBIK doesn't crash once one doesn't have it.-->
+- gwcs 
+- webbpsf
+
+
 ## Installation
 This package can be installed via pip. 
 
