@@ -1149,7 +1149,7 @@ def get_RGB_image_from_field(field, norm=None, sat=None):
     return res
 
 
-def _get_git_hash_from_local_package(package_name):
+def _get_git_hash_from_local_package(package_name, git_path=None):
     """
     Retrieve the latest Git commit hash for a local Python package.
 
@@ -1238,11 +1238,21 @@ def _get_git_hash_from_local_package(package_name):
             return git_hash
         except subprocess.CalledProcessError:
             raise ValueError('Failed to get the latest commit hash')
+    elif git_path is not None:
+        try:
+            # Run git command to get the latest commit hash
+            git_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                               cwd=git_path).strip().decode('utf-8')
+            return git_hash
+        except subprocess.CalledProcessError:
+            raise ValueError('Failed to get the latest commit hash')
     else:
-        raise FileNotFoundError('No .git directory found')
+        raise FileNotFoundError('\nNo .git directory found.\n'
+                                'Please provide the path to the git repository '
+                                'for the given package.')
 
 
-def save_local_packages_hashes_to_txt(packages_names, filename, verbose=True):
+def save_local_packages_hashes_to_txt(packages_names, filename, paths_to_git=None, verbose=True):
     """
     Save the latest Git hashes of local packages to a text file.
 
@@ -1258,6 +1268,10 @@ def save_local_packages_hashes_to_txt(packages_names, filename, verbose=True):
     filename : str
         The name of the file where the Git hashes will be saved. The output file
         will be in JSON format, making it easy to read and parse.
+    paths_to_git : list of str, optional
+        A list of paths to the git repositories for the specified packages.
+        If not provided or None, the function will attempt to retrieve the paths
+        from the editable path file.
     verbose : bool, optional
         If True, print out the progress of the function.
 
@@ -1281,19 +1295,23 @@ def save_local_packages_hashes_to_txt(packages_names, filename, verbose=True):
     handles any errors encountered, and saves the results to 'package_hashes.txt'.
     """
     hashes = {}
-    for package_name in packages_names:
+    for it, package_name in enumerate(packages_names):
         try:
             if verbose:
                 print(f"Processing package: {package_name}")
-            git_hash = _get_git_hash_from_local_package(package_name)
+                if paths_to_git is not None and paths_to_git[it] is not None:
+                    print(paths_to_git[it])
+                    git_hash = _get_git_hash_from_local_package(package_name, git_path=paths_to_git[it])
+                else:
+                    git_hash = _get_git_hash_from_local_package(package_name)
             hashes[package_name] = git_hash
             if verbose:
                 print(f"Successfully retrieved hash for {package_name}: {git_hash}")
         except (ValueError, FileNotFoundError, KeyError) as e:
-            print(f"Error processing package {package_name}: {e}")
-            hashes[package_name] = None
+            print(f"Error processing package {package_name}:\n")
+            raise e
 
     with open(filename, 'w') as f:
         json.dump(hashes, f, indent=4)
 
-    print(f"Hashes have been saved to {filename}")
+    print(f"Hashes have been saved to {filename}.")
