@@ -16,9 +16,10 @@
 
 ### Does VI work?
 - NO, but why?
-- 1: geoVI gets lost? - MGVI only -> look at minisanity then (Margret)
+- 1: geoVI gets lost? - MGVI only -> look at minisanity then (Margret) - does not work either. 
+  => Wrong Priors?
+  => too many samples? Could start with less (e.g. 1 or 2) atm 4 (8 mirrored)
 - 1: the model cannot fit the data, because some DOF are missing or very unlikely, it tries to go somewhere and gradients point in the wrong direction (WAIT) - Switch on DEVS?
-
 
 ## Mock
 - works with Map (Good Chi^² but no comp separation, but this is seen to be normal)
@@ -32,4 +33,3 @@
 - 4: Frank Hypothesis: too may DOF / Deg. switching of DEVs 
 - 5: too broad priors: check with smaller stds (Margret)
 
-## MISC
