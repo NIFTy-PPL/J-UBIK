@@ -1220,6 +1220,10 @@ def _get_git_hash_from_local_package(package_name):
         # Use the distribution location for non-editable installations
         source_path = dist.location
 
+    # Attempt to fix path
+    if source_path.endswith("site-packages"):
+        source_path = join(source_path, package_name)
+
     # Construct the path to the .git directory
     git_dir = join(source_path, '.git')
 
