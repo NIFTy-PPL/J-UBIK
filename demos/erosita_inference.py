@@ -1,5 +1,6 @@
 import os
 import argparse
+from os.path import join
 
 import nifty8.re as jft
 import jubik0 as ju
@@ -25,7 +26,12 @@ if __name__ == "__main__":
         print("FYI: Resume is set to False, but the output directory already exists. "
               "The result_dir has been appended with the string *new*.")
 
+    # Save run configuration
     ju.save_config_copy(os.path.basename(config_path), output_dir=file_info['res_dir'])
+    ju.save_local_packages_hashes_to_txt(['jubik0', 'nifty8'],
+                                         join(file_info['res_dir'], "packages_hashes.txt"),
+                                         verbose=False)
+
     # Load sky model
     sky_model = ju.SkyModel(config_path)
     sky = sky_model.create_sky_model()

@@ -1,11 +1,16 @@
+import ast
+import fnmatch
+import json
 import os
+import re
+import subprocess
 from os.path import join
 from warnings import warn
 
-import numpy as np
-import pickle
-import scipy
 import nifty8 as ift
+import numpy as np
+import pkg_resources
+import scipy
 
 
 def get_stats(sample_list, func):
@@ -1106,7 +1111,7 @@ def get_rel_uncertainty(mean, std):
 def get_RGB_image_from_field(field, norm=None, sat=None):
     """Turns a 3D Field into RGB image.
 
-    Paramters
+    Parameters
     ---------
     field: nifty8.Field
     norm: list
@@ -1142,3 +1147,146 @@ def get_RGB_image_from_field(field, norm=None, sat=None):
     res = np.array(res, dtype='int')
     res = np.transpose(res, (1, 2, 0))
     return res
+
+
+def _get_git_hash_from_local_package(package_name):
+    """
+    Retrieve the latest Git commit hash for a local Python package.
+
+    This function fetches the latest Git commit hash for a specified local
+    Python package. It handles both editable and non-editable installations.
+
+    Parameters:
+    -----------
+    package_name : str
+        The name of the package for which to retrieve the Git commit hash.
+
+    Returns:
+    --------
+    str
+        The latest Git commit hash for the specified package.
+
+    Raises:
+    -------
+    ValueError
+        If the Git hash cannot be retrieved due to a command error or evaluation issue.
+    FileNotFoundError
+        If the .git directory or necessary files are not found.
+    KeyError
+        If the package mapping variable is not found in the editable path file.
+    """
+    # Get the distribution metadata for the package
+    try:
+        dist = pkg_resources.get_distribution(package_name)
+    except pkg_resources.DistributionNotFound:
+        raise ValueError(f"Package '{package_name}' not found")
+
+    editable_path = None
+    variable_value = None
+
+    for file_name in os.listdir(dist.location):
+        if fnmatch.fnmatch(file_name, f"*{package_name}*.py"):
+            editable_path = join(dist.location, file_name)
+            break
+
+    if editable_path is not None:
+        # Read the path to the source directory from the .egg-link file
+        variable_name = 'MAPPING'
+        pattern = re.compile(rf"^\s*{variable_name}\s*=\s*(.+)")
+
+        try:
+            with open(editable_path, 'r') as f:
+                for line in f:
+                    match = pattern.match(line)
+                    if match:
+                        # Get the value part of the assignment
+                        value_str = match.group(1)
+                        # Safely evaluate the value using ast.literal_eval
+                        try:
+                            variable_value = ast.literal_eval(value_str)
+                        except (SyntaxError, ValueError):
+                            raise ValueError(f"Could not evaluate the value of '{variable_name}'")
+                        break
+        except FileNotFoundError:
+            raise FileNotFoundError(f"File '{editable_path}' not found")
+
+        # Check if the variable was found
+        if variable_value is not None and package_name in variable_value:
+            source_path = os.path.dirname(variable_value[package_name])  # Get the parent directory
+        else:
+            raise KeyError(
+                f"Variable '{variable_name}' not found or '{package_name}' not in mapping")
+    else:
+        # Use the distribution location for non-editable installations
+        source_path = dist.location
+
+    # Construct the path to the .git directory
+    git_dir = join(source_path, '.git')
+
+    if os.path.isdir(git_dir):
+        try:
+            # Run git command to get the latest commit hash
+            git_hash = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                               cwd=source_path).strip().decode('utf-8')
+            return git_hash
+        except subprocess.CalledProcessError:
+            raise ValueError('Failed to get the latest commit hash')
+    else:
+        raise FileNotFoundError('No .git directory found')
+
+
+def save_local_packages_hashes_to_txt(packages_names, filename, verbose=True):
+    """
+    Save the latest Git hashes of local packages to a text file.
+
+    This function retrieves the latest Git commit hashes for a list of specified
+    local Python packages and saves these hashes to a text file in JSON format.
+    The output file will contain a dictionary where the keys are package names
+    and the values are the corresponding Git hashes.
+
+    Parameters:
+    -----------
+    packages_names : list of str
+        A list of package names for which the Git hashes are to be retrieved.
+    filename : str
+        The name of the file where the Git hashes will be saved. The output file
+        will be in JSON format, making it easy to read and parse.
+    verbose : bool, optional
+        If True, print out the progress of the function.
+
+    Returns:
+    --------
+    None
+        This function does not return a value. It writes the output to the specified
+        file.
+
+    Example:
+    --------
+    >>> save_local_packages_hashes_to_txt(['example_package1', 'example_package2'],
+    'package_hashes.txt')
+    Processing package: example_package1
+    Successfully retrieved hash for example_package1: a1b2c3d4e5
+    Processing package: example_package2
+    Error processing package example_package2: Package 'example_package2' not found
+    Hashes have been saved to package_hashes.txt
+
+    The above example retrieves the Git hashes for 'example_package1' and 'example_package2',
+    handles any errors encountered, and saves the results to 'package_hashes.txt'.
+    """
+    hashes = {}
+    for package_name in packages_names:
+        try:
+            if verbose:
+                print(f"Processing package: {package_name}")
+            git_hash = _get_git_hash_from_local_package(package_name)
+            hashes[package_name] = git_hash
+            if verbose:
+                print(f"Successfully retrieved hash for {package_name}: {git_hash}")
+        except (ValueError, FileNotFoundError, KeyError) as e:
+            print(f"Error processing package {package_name}: {e}")
+            hashes[package_name] = None
+
+    with open(filename, 'w') as f:
+        json.dump(hashes, f, indent=4)
+
+    print(f"Hashes have been saved to {filename}")
