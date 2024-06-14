@@ -4,12 +4,12 @@ import json
 import os
 import re
 import subprocess
+from importlib import resources
 from os.path import join
 from warnings import warn
 
 import nifty8 as ift
 import numpy as np
-import pkg_resources
 import scipy
 
 
@@ -1177,16 +1177,16 @@ def _get_git_hash_from_local_package(package_name):
     """
     # Get the distribution metadata for the package
     try:
-        dist = pkg_resources.get_distribution(package_name)
-    except pkg_resources.DistributionNotFound:
-        raise ValueError(f"Package '{package_name}' not found")
+        package_path = resources.files(package_name).__str__()
+    except ModuleNotFoundError:
+        raise FileNotFoundError(f"Package '{package_name}' not found")
 
     editable_path = None
     variable_value = None
 
-    for file_name in os.listdir(dist.location):
+    for file_name in os.listdir(package_path):
         if fnmatch.fnmatch(file_name, f"*{package_name}*.py"):
-            editable_path = join(dist.location, file_name)
+            editable_path = join(package_path, file_name)
             break
 
     if editable_path is not None:
@@ -1212,13 +1212,16 @@ def _get_git_hash_from_local_package(package_name):
 
         # Check if the variable was found
         if variable_value is not None and package_name in variable_value:
-            source_path = os.path.dirname(variable_value[package_name])  # Get the parent directory
+            source_path = variable_value[package_name]
         else:
             raise KeyError(
                 f"Variable '{variable_name}' not found or '{package_name}' not in mapping")
     else:
         # Use the distribution location for non-editable installations
-        source_path = dist.location
+        source_path = package_path
+
+    # Get the parent directory
+    source_path = os.path.dirname(source_path)
 
     # Attempt to fix path
     if source_path.endswith("site-packages"):
