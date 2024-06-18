@@ -33,3 +33,15 @@
 - 4: Frank Hypothesis: too may DOF / Deg. switching of DEVs 
 - 5: too broad priors: check with smaller stds (Margret)
 
+# TODO
+- Matteo checks cluster for VI minisanity ()
+- Meeting with Philipp at 15:00 here: Signal Link (All)
+
+- Resolution Fix / Rebin / Flux density (Vincent)
+- Fix diagnostics (Matteo)
+- Writing (Margret)
+- Send Overleaf Link (Vincent)
+- Terminal Output > Save it 
+
+# Inference 
+- not enough CG steps? increasing miniter
