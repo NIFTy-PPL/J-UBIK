@@ -78,8 +78,7 @@ priors:
       std: 1.5
       name: points_plaw_
     dev_wp:
-      x0:
-        - 0
+      x0: 0.
       sigma:
         - 0.01
         - 0.02
@@ -148,8 +147,7 @@ priors:
         # harmonic_type: "Fourier"
       prefix: diffuse_plaw_
     # dev_wp:
-    #   x0:
-    #     - 0
+    #   x0: 0.
     #   sigma:
     #     - 0.3
     #     - 0.1
