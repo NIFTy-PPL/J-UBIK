@@ -45,3 +45,13 @@
 
 # Inference 
 - not enough CG steps? increasing miniter
+
+# MAP -> fischer laplace at minimum
+# DIFFUSE only run with vi
+# PS only 
+# inference 
+nlupdate maxiter 5
+minimze 
+
+xtol / abstelda same order
+linear sampling smaller
