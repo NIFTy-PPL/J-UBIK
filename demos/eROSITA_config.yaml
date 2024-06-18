@@ -2,7 +2,8 @@ seed: 86
 esass_image: DR1
 telescope:
   tm_ids : [1, 2, 3, 4, 6]
-  fov: 4327 # in arcsec
+  rebin: 80 # set by the consortium
+  fov: 4096
   pattern: 15
   detmap: True
   exp_cut: 500
@@ -34,9 +35,9 @@ plotting:
   dpi: 800
 
 grid:
-  sdim: 512
+  sdim: 1024
   edim: 3 # FIXME: remove this parameter
-  s_padding_ratio: 1.203
+  s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
   e_padding_ratio: 1.
   energy_bin:
     e_min:
