@@ -240,8 +240,7 @@ class SkyModel:
         return jft.WienerProcess(tuple(x0), tuple(sigma), dt=dE, name=name, N_steps=edims - 1)
 
     def _create_diffuse_component_model(self, sdim, edim, s_padding_ratio, e_padding_ratio,
-                                        sdistances,
-                                        edistances, prior_dict):
+                                        sdistances, edistances, prior_dict):
         """ Returns a model for the diffuse component given the information on its shape and
         distances and the prior dictionaries for the offset and the fluctuations
 
