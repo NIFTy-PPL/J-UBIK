@@ -50,17 +50,34 @@ if __name__ == "__main__":
     key, subkey = random.split(key)
     pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky.domain))
 
-    delta = minimization_config["delta"] if "delta" in minimization_config else None
     kl_solver_kwargs = minimization_config.pop('kl_kwargs')
+
+    delta = minimization_config["delta"] if "delta" in minimization_config else None
+    absdelta = None
     if delta is not None:
-        n_dof = len(cfg["telescope"]["tm_ids"]) * cfg['grid']['sdim']**2 * cfg['grid']['edim'] #FIXME: not sure why log_likelihood.left_sqrt_metric_tangents_shape.size is wrong
+        n_dof_data = len(cfg["telescope"]["tm_ids"]) * cfg['grid']['sdim']**2 * cfg['grid']['edim'] #FIXME: not sure why log_likelihood.left_sqrt_metric_tangents_shape.size is wrong
+        n_dof_model = jft.Vector(sky_model.sky.domain).size
+        n_dof = min(n_dof_model, n_dof_data)
         absdelta = delta * n_dof
 
-        # update kl_solver kwargs
-        kl_solver_kwargs['minimize_kwargs']['absdelta'] = absdelta
+    # update kl_solver kwargs
+    minimize_kwargs = kl_solver_kwargs['minimize_kwargs']
+    if "absdelta" not in minimize_kwargs or minimize_kwargs['absdelta'] is None:
+        if absdelta is None:
+            raise ValueError("Either 'delta' or 'absdelta' must be specified in the config file.")
+        minimize_kwargs['absdelta'] = absdelta
 
         # update minimization config
         minimization_config['draw_linear_kwargs']['cg_kwargs']['absdelta'] = absdelta / 10.
+
+    else:
+        raise ValueError("Either 'delta' or 'absdelta' must be specified in the config file but "
+                         "not both.")
+
+    if "xtol" not in minimization_config['nonlinearly_update_kwargs']['minimize_kwargs']['xtol'] or \
+       minimization_config['nonlinearly_update_kwargs']['minimize_kwargs']['xtol'] is None:
+        if delta is None:
+            raise ValueError("Either 'delta' or 'xtol' must be specified in the config file.")
         minimization_config['nonlinearly_update_kwargs']['minimize_kwargs']['xtol'] = delta
 
     # Plot
