@@ -32,7 +32,7 @@ if False:
     from jax import config, devices
     config.update('jax_default_device', devices('cpu')[0])
 
-config_path = './demos/lens_config.yaml'
+config_path = './demos/jwst_lens_config.yaml'
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
 RES_DIR = cfg['files']['res_dir']
 # FIXME: This needs to provided somewhere else
