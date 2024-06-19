@@ -1,14 +1,5 @@
-import gwcs
-from astropy.coordinates import SkyCoord
-from astropy import units as u
-from astropy import constants as const
-
 import nifty8.re as jft
 import jax.numpy as jnp
-
-
-def get_pixel(data_wcs: gwcs.wcs, location: SkyCoord, tol=1e-7) -> tuple:
-    return data_wcs.numerical_inverse(location, with_units=True, tolerance=tol)
 
 
 def build_sky_model(shape, dist, offset, fluctuations, extend_factor=1.5):

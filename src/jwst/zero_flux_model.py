@@ -14,25 +14,21 @@
 # Author: Julian Ruestig
 
 
-from jax.scipy.signal import convolve2d, fftconvolve
-from functools import partial
+import nifty8.re as jft
 
-from typing import Callable
-from numpy.typing import ArrayLike
-
-
-def PsfOperator_dir(field, kernel):
-    '''Creates a Psf-operator: convolution of field by kernel'''
-    return convolve2d(field, kernel, mode='same')
+LANCZOS_WINDOW = 3
+ZERO_FLUX_KEY = 'zero_flux'
 
 
-def PsfOperator_fft(field, kernel):
-    '''Creates a Psf-operator: convolution of field by kernel'''
-    return fftconvolve(field, kernel, mode='same')
+def build_zero_flux(prefix: str, likelihood_config: dict) -> jft.Model:
+    model_cfg = likelihood_config.get(ZERO_FLUX_KEY, None)
+    if model_cfg is None:
+        return None
 
-
-def instantiate_psf(psf: ArrayLike | None) -> Callable:
-    if psf is None:
-        return lambda x: x
-
-    return partial(PsfOperator_fft, kernel=psf)
+    prefix = '_'.join([prefix, ZERO_FLUX_KEY])
+    zf = read_parametric_model(ZERO_FLUX_KEY)
+    zfp = build_parametric_prior(zf, prefix, model_cfg)
+    return jft.Model(
+        lambda x: zf(zfp(x)),
+        domain=zfp.domain
+    )

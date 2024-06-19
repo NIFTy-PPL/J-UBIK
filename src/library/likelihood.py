@@ -2,10 +2,6 @@ import nifty8.re as jft
 
 from .data import create_data_from_config, load_masked_data_from_config
 from .response import build_erosita_response_from_config
-from .utils import get_config
-
-from .jwst_data import load_jwst_data
-from .jwst_response import build_jwst_response, build_mask_operator
 
 
 def generate_erosita_likelihood_from_config(config_file_path):
@@ -86,75 +82,3 @@ def build_gaussian_likelihood(
         noise_std_inv=lambda x: x/std
     )
 
-
-def generate_jwst_likelihood_from_config(
-    sky_dict: dict,
-    config_file_path: str
-):
-    """Creates the JWST Gaussian likelihood from the path to the config file.
-
-    Parameters
-    ----------
-    sky_dict: dict
-        Dictionary of sky component models, including the target Domain
-
-    config_file_path : string
-        Path to config file
-
-    Returns
-    -------
-    likelihood: jft.Likelihood
-        Gaussian likelihood for the JWST data with applied response and model
-
-    data: dict
-        dictionary containing data dicts, containing all necessery information
-        to build the response operator, which is also kept for book-keeping.
-
-    """
-    from functools import reduce
-
-    cfg = get_config(config_file_path)
-
-    SKY_KEY = 'sky'
-
-    data_dict = {}
-    likelihoods = []
-    for key, lh_cfg in cfg['files']['data'].items():
-        data_dict[key] = load_jwst_data(lh_cfg)
-
-        R, response_no_psf = build_jwst_response(
-            domain_key=SKY_KEY,
-            domain=sky_dict['target'],
-            data_pixel_size=data_dict[key].pixel_size,
-            likelihood_key=key,
-            likelihood_config=lh_cfg,
-            telescope_cfg=cfg.get('telescope', None),
-        )
-
-        # Load mask and Mask operator
-        Mask_d = build_mask_operator(R.target, ~data_dict[key].mask)
-
-        likelihood = build_gaussian_likelihood(
-            data=data_dict[key].data_2d[~(data_dict[key].mask)],
-            std=data_dict[key].noise_2d[~(data_dict[key].mask)]
-        )
-
-        likelihood = likelihood.amend(Mask_d)
-        likelihood = likelihood.amend(R, domain=R.domain)
-
-        data_dict[key].response = R
-        data_dict[key].response_no_psf = response_no_psf
-        data_dict[key].mask2data = Mask_d
-        likelihoods.append(likelihood)
-
-    likelihood = reduce(lambda x, y: x + y, likelihoods)
-
-    # Connect Model to likelihood, first create model
-    likelihood = connect_likelihood_to_model(
-        likelihood,
-        jft.Model(jft.wrap_left(sky_dict['sky'], SKY_KEY),
-                  domain=sky_dict['sky'].domain)
-
-    )
-
-    return likelihood, data_dict

@@ -16,13 +16,12 @@ class FilterProjector(jft.Model):
             if color in v:
                 if out_key != '':
                     raise IndexError(
-                        f'{color} fits into multiple keys of the' +
-                        ' FilterProjector: This is not intended')
+                        f'{color} fits into multiple keys of the '
+                        'FilterProjector')
                 out_key = k
         if out_key == '':
             raise IndexError(
-                f'{color} fits into no keys of the FilterProjector: ' +
-                'This is not intended')
+                f"{color} doesn't fit in the bounds of the FilterProjector.")
 
         return out_key
 
