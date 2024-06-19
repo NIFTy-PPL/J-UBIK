@@ -1,10 +1,16 @@
+import ast
+import fnmatch
+import json
 import os
+import re
+import subprocess
+from importlib import resources
+from os.path import join
 from warnings import warn
 
-import numpy as np
-import pickle
-import scipy
 import nifty8 as ift
+import numpy as np
+import scipy
 
 
 def get_stats(sample_list, func):
@@ -41,7 +47,7 @@ def get_config(path_to_yaml_file):
     return cfg
 
 
-def save_config(config, filename, dir=None):
+def save_config(config, filename, dir=None, verbose=True):
     """
     Convenience function to save yaml-config files
 
@@ -50,13 +56,45 @@ def save_config(config, filename, dir=None):
     config: dictionary
         dictionary containing the config information
     filename: str
-        location where the filename.yaml should be safed
+        Name of the config file to be saved.
+    dir: str
+        Location where the filename.yaml should be saved.
+    verbose: bool
+        If true, print a message when the config file is saved.
     """
     import yaml
     if dir is not None:
         create_output_directory(dir)
-    with open(os.path.join(dir, filename), "w") as f:
+    with open(join(dir, filename), "w") as f:
         yaml.dump(config, f)
+    if verbose:
+        print(f"Config file saved to: {join(dir, filename)}.")
+
+
+def save_config_copy(filename, path_to_yaml_file=None,
+                     output_dir=None, verbose=True):
+    """
+    Convenience function to save yaml-config files
+
+    Parameters
+    ----------
+    filename: str
+        Name of the config file to be copied.
+    path_to_yaml_file: str
+        The location of the config file.
+    output_dir: str
+        Location to which the filename.yaml should be copied.
+    verbose: bool
+        If true, print a message when the config file is saved.
+    """
+    if output_dir is not None:
+        create_output_directory(output_dir)
+    current_filename = filename
+    if path_to_yaml_file is not None:
+        current_filename = join(path_to_yaml_file, current_filename)
+    os.popen(f'cp {current_filename} {join(output_dir, filename)}')
+    if verbose:
+        print(f"Config file saved to: {join(output_dir, filename)}.")
 
 
 def create_output_directory(directory_name):
@@ -77,7 +115,7 @@ def get_gaussian_psf(op, var):
     Builds a convolution operator which can be applied to an nifty8.Operator.
     It convolves the result of the operator with a Gaussian Kernel.
 
-    Paramters
+    Parameters
     ---------
     op: nifty8.Operator
         The Operator to which we'll apply the convolution
@@ -1092,7 +1130,7 @@ def get_rel_uncertainty(mean, std):
 def get_RGB_image_from_field(field, norm=None, sat=None):
     """Turns a 3D Field into RGB image.
 
-    Paramters
+    Parameters
     ---------
     field: nifty8.Field
     norm: list
@@ -1131,21 +1169,205 @@ def get_RGB_image_from_field(field, norm=None, sat=None):
     return res
 
 
-def load_fits(path_to_file, fits_number=0, get_header=False):
-    from astropy.io import fits
-    from astropy.io.fits.hdu.image import ImageHDU
+def _get_git_hash_from_local_package(package_name, git_path=None):
+    """
+    Retrieve the latest Git commit hash for a local Python package.
 
-    with fits.open(path_to_file) as hdul:
-        headers = [h.header for h in hdul if isinstance(h, ImageHDU)]
-        datas = [h.data for h in hdul if isinstance(h, ImageHDU)]
-        if len(headers) == 0:
-            header = hdul[0].header
-            data = hdul[0].data
+    This function fetches the latest Git commit hash for a specified local
+    Python package. It handles both editable and non-editable installations.
+
+    Parameters:
+    -----------
+    package_name : str
+        The name of the package for which to retrieve the Git commit hash.
+    git_path : str, optional
+        The path to the git repository. If not provided, it will try to find it.
+
+    Returns:
+    --------
+    str
+        The latest Git commit hash for the specified package.
+
+    Raises:
+    -------
+    ValueError
+        If the Git hash cannot be retrieved due to a command error or evaluation issue.
+    FileNotFoundError
+        If the .git directory or necessary files are not found.
+    KeyError
+        If the package mapping variable is not found in the editable path file.
+    """
+    def get_git_hash(path):
+        try:
+            return subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                           cwd=path).strip().decode('utf-8')
+        except subprocess.CalledProcessError:
+            raise ValueError('Failed to get the latest commit hash')
+
+    # Get the distribution metadata for the package
+    try:
+        package_path = resources.files(package_name).__str__()
+    except ModuleNotFoundError:
+        raise FileNotFoundError(f"Package '{package_name}' not found")
+
+    editable_path = None
+    variable_value = None
+
+    for file_name in os.listdir(package_path):
+        if fnmatch.fnmatch(file_name, f"*{package_name}*.py"):
+            editable_path = join(package_path, file_name)
+            break
+
+    if editable_path is not None:
+        # Read the path to the source directory from the .egg-link file
+        variable_name = 'MAPPING'
+        pattern = re.compile(rf"^\s*{variable_name}\s*=\s*(.+)")
+
+        try:
+            with open(editable_path, 'r') as f:
+                for line in f:
+                    match = pattern.match(line)
+                    if match:
+                        value_str = match.group(1)
+                        try:
+                            variable_value = ast.literal_eval(value_str)
+                        except (SyntaxError, ValueError):
+                            raise ValueError(f"Could not evaluate the value of '{variable_name}'")
+                        break
+        except FileNotFoundError:
+            raise FileNotFoundError(f"File '{editable_path}' not found")
+
+        if variable_value is not None and package_name in variable_value:
+            source_path = variable_value[package_name]
         else:
-            header = headers[fits_number]
-            data = datas[fits_number]
+            raise KeyError(f"Variable '{variable_name}' not found or '{package_name}' "
+                           f"not in mapping.")
+    else:
+        # Use the distribution location for non-editable installations
+        source_path = package_path
 
-    if get_header:
-        return np.array(data).astype(np.float64), header
+    # Get the parent directory
+    source_path = os.path.dirname(source_path)
 
-    return np.array(data).astype(np.float64)
+    # Attempt to fix path
+    if source_path.endswith("site-packages"):
+        source_path = join(source_path, package_name)
+
+    # Construct the path to the .git directory
+    git_dir = join(source_path, '.git')
+
+    if os.path.isdir(git_dir):
+        return get_git_hash(source_path)
+    elif git_path is not None:
+        return get_git_hash(git_path)
+    else:
+        raise FileNotFoundError('No .git directory found. \n'
+                                'Please provide the path to the git '
+                                'repository for the given package.')
+
+
+def save_local_packages_hashes_to_txt(packages_names, filename, paths_to_git=None, verbose=True):
+    """
+    Save the latest Git hashes of local packages to a text file.
+
+    This function retrieves the latest Git commit hashes for a list of specified
+    local Python packages and saves these hashes to a text file in JSON format.
+    The output file will contain a dictionary where the keys are package names
+    and the values are the corresponding Git hashes.
+
+    Parameters:
+    -----------
+    packages_names : list of str
+        A list of package names for which the Git hashes are to be retrieved.
+    filename : str
+        The name of the file where the Git hashes will be saved. The output file
+        will be in JSON format, making it easy to read and parse.
+    paths_to_git : list of str, optional
+        A list of paths to the git repositories for the specified packages.
+        If not provided or None, the function will attempt to retrieve the paths
+        from the editable path file.
+    verbose : bool, optional
+        If True, print out the progress of the function.
+
+    Returns:
+    --------
+    None
+        This function does not return a value. It writes the output to the specified
+        file.
+
+    Example:
+    --------
+    >>> save_local_packages_hashes_to_txt(['example_package1', 'example_package2'], 'hashes.txt')
+    Processing package: example_package1
+    Successfully retrieved hash for example_package1: a1b2c3d4e5
+    Processing package: example_package2
+    Error processing package example_package2: Package 'example_package2' not found
+    Hashes have been saved to package_hashes.txt
+
+    The above example retrieves the Git hashes for 'example_package1' and 'example_package2',
+    handles any errors encountered, and saves the results to 'package_hashes.txt'.
+    """
+    hashes = {}
+    for it, package_name in enumerate(packages_names):
+        try:
+            if verbose:
+                print(f"Processing package: {package_name}")
+            if paths_to_git is not None and paths_to_git[it] is not None:
+                git_hash = _get_git_hash_from_local_package(package_name, git_path=paths_to_git[it])
+            else:
+                git_hash = _get_git_hash_from_local_package(package_name)
+            hashes[package_name] = git_hash
+            if verbose:
+                print(f"Successfully retrieved hash for {package_name}: {git_hash}")
+        except (ValueError, FileNotFoundError, KeyError) as e:
+            if verbose:
+                print(f"Error processing package {package_name}:\n")
+            raise e
+
+    with open(filename, 'w') as f:
+        json.dump(hashes, f, indent=4)
+
+    print(f"Hashes have been saved to {filename}.")
+
+
+def safe_config_update(key: str, new_value, config: dict, verbose: bool = True) -> dict:
+    """
+    Update the configuration dictionary with a new value for the given key
+    if the key is not already set or its current value is None.
+
+    This function checks if the specified key exists in the given configuration
+    dictionary and whether it has a non-None value. If the key is not present
+    or its value is None, the function updates the dictionary with the provided
+    new value. If both the existing value and new value are None, the function
+    raises a ValueError.
+
+    Parameters:
+    -----------
+    key : str
+        The key to update in the configuration.
+    new_value :
+        The new value to set for the key.
+    config : dict
+        The configuration dictionary to update.
+    verbose : bool, optional
+        If True, print out the updated value. Default is True.
+
+    Returns:
+    --------
+    dict
+        The updated configuration dictionary.
+
+    Raises:
+    -------
+    ValueError
+        If the key is not set in the config and the new value is None.
+    """
+    if key in config and config[key] is not None:
+        return config
+    if new_value is not None:
+        config[key] = new_value
+        if verbose:
+            print(f"{key} set to {new_value}.")
+        return config
+    raise ValueError(f"Either '{key}' must be set in the config file "
+                     f"or a new value must be provided!")

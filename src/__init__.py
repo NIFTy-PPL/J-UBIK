@@ -4,18 +4,21 @@ from .library.utils import (get_mask_operator, get_norm,
                             convolve_field_operator, get_fft_psf_op, Transposer,
                             energy_binning, save_rgb_image_to_fits,
                             transform_loglog_slope_pars, is_subdomain,
-                            save_to_fits, save_config,
+                            save_to_fits, save_config_copy,
                             create_output_directory, coord_center,
                             get_radec_from_xy, get_psfpatches,
                             get_synth_pointsource, get_gaussian_psf, get_rel_uncertainty,
-                            get_equal_lh_transition, get_RGB_image_from_field, get_stats)
+                            get_equal_lh_transition, get_RGB_image_from_field, get_stats,
+                            save_local_packages_hashes_to_txt, safe_config_update)
 from .library.plot import (plot_slices, plot_result,
                            plot_image_from_fits,
                            plot_single_psf, plot_psfset, plot_energy_slices,
                            plot_energy_slice_overview, plot_histograms,
                            plot_sample_averaged_log_2d_histogram)
 from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_sample_and_stats,
-                                 plot_sample_and_stats)
+                                 plot_sample_and_stats, plot_erosita_priors)
+from .library.mf_plot import plot_rgb
+                                 
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation

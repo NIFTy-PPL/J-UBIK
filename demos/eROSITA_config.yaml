@@ -7,6 +7,7 @@ telescope:
   detmap: True
   exp_cut: 500
   badpix_correction: True
+  effective_area_correction: True
 
 psf:
  method: 'LINJAX'
@@ -57,7 +58,9 @@ files:
   input: 'pm00_700161_020_EventList_c001.fits'
   output: 'pm00_700161_020_data.fits'
   exposure: 'pm00_700161_020_expmap.fits'
+  calibration_path : '../data/'
   psf_path : '../data/psf_info/'
+  effective_area_filename_suffix: '_arf_filter_000101v02.fits'
   psf_base_filename: '2dpsf_190219v05.fits'
   res_dir: 'results/Default_run_mf'
 # If mock:
@@ -68,16 +71,14 @@ priors:
   point_sources:
     spatial:
       alpha: 1.0001
-      q: 5.E-7
+      q: 3.E-10
       key: points
     plaw: # for physical point sources (e.g. AGNs) one expects a slope around -2
       mean: -2.
       std: 1.5
       name: points_plaw_
     dev_wp:
-      x0:
-        - 0
-        - 0.01
+      x0: 0.
       sigma:
         - 0.01
         - 0.02
@@ -105,10 +106,10 @@ priors:
   diffuse:
     spatial:
       offset:
-        offset_mean: -11.
+        offset_mean: -14.
         offset_std:
           - 0.5
-          - 0.1
+          - 0.05
       fluctuations:
         fluctuations:
           - 0.5
@@ -146,9 +147,7 @@ priors:
         # harmonic_type: "Fourier"
       prefix: diffuse_plaw_
     # dev_wp:
-    #   x0:
-    #     - 0
-    #     - 0.1
+    #   x0: 0.
     #   sigma:
     #     - 0.3
     #     - 0.1
@@ -179,22 +178,23 @@ minimization:
   resume: False
   n_total_iterations: 15
   n_samples: 4
+  delta: 1.e-5
   draw_linear_kwargs:
     cg_name : lin sampling
     cg_kwargs:
-      absdelta: 1.e-4
+#      absdelta: 1.e-4 # either delta or absdelta needs to be set
       maxiter: 60
   nonlinearly_update_kwargs:
     minimize_kwargs:
       name: nonlin sampling
-      xtol: 2.e-4
+#      xtol: 2.e-4
       cg_kwargs:
         name: null
       maxiter: 25
   kl_kwargs:
     minimize_kwargs:
       name: "M"
-      absdelta: 1.e-6
+#      absdelta: 1.e-6
       maxiter: 10
       cg_kwargs:
         name: "MCG"
