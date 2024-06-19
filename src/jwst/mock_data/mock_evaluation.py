@@ -1,8 +1,12 @@
 import numpy as np
 from scipy.stats import wasserstein_distance
-from charm_lensing.analysis_tools import source_distortion_ratio
 
 from nifty8.re.caramel import power_analyze
+
+
+def source_distortion_ratio(input_source, model_source):
+    return 10 * np.log10(np.linalg.norm(input_source) /
+                         np.linalg.norm(input_source - model_source))
 
 
 def cross_correlation(input, recon):

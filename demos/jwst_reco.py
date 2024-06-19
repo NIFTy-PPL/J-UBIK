@@ -227,11 +227,6 @@ linear_kwargs = minimization_parser.linear_sample_kwargs_factory(cfg_mini)
 nonlin_kwargs = minimization_parser.nonlinear_sample_kwargs_factory(cfg_mini)
 kl_kwargs = minimization_parser.kl_kwargs_factory(cfg_mini)
 
-# minimization_config = cfg_mini['minimization']
-# kl_solver_kwargs = minimization_config.pop('kl_kwargs')
-# minimization_config['resume'] = True
-# minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
-
 
 plot = build_plot(
     data_dict=data_plotting,
