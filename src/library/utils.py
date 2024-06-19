@@ -1308,3 +1308,46 @@ def save_local_packages_hashes_to_txt(packages_names, filename, paths_to_git=Non
         json.dump(hashes, f, indent=4)
 
     print(f"Hashes have been saved to {filename}.")
+
+
+def safe_config_update(key: str, new_value, config: dict, verbose: bool = True) -> dict:
+    """
+    Update the configuration dictionary with a new value for the given key
+    if the key is not already set or its current value is None.
+
+    This function checks if the specified key exists in the given configuration
+    dictionary and whether it has a non-None value. If the key is not present
+    or its value is None, the function updates the dictionary with the provided
+    new value. If both the existing value and new value are None, the function
+    raises a ValueError.
+
+    Parameters:
+    -----------
+    key : str
+        The key to update in the configuration.
+    new_value :
+        The new value to set for the key.
+    config : dict
+        The configuration dictionary to update.
+    verbose : bool, optional
+        If True, print out the updated value. Default is True.
+
+    Returns:
+    --------
+    dict
+        The updated configuration dictionary.
+
+    Raises:
+    -------
+    ValueError
+        If the key is not set in the config and the new value is None.
+    """
+    if key in config and config[key] is not None:
+        return config
+    if new_value is not None:
+        config[key] = new_value
+        if verbose:
+            print(f"{key} set to {new_value}.")
+        return config
+    raise ValueError(f"Either '{key}' must be set in the config file "
+                     f"or a new value must be provided!")

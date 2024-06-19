@@ -60,25 +60,17 @@ if __name__ == "__main__":
         n_dof = min(n_dof_model, n_dof_data)
         absdelta = delta * n_dof
 
-    # update kl_solver kwargs
-    minimize_kwargs = kl_solver_kwargs['minimize_kwargs']
-    if "absdelta" not in minimize_kwargs or minimize_kwargs['absdelta'] is None:
-        if absdelta is None:
-            raise ValueError("Either 'delta' or 'absdelta' must be specified in the config file.")
-        minimize_kwargs['absdelta'] = absdelta
+    # update kwargs
+    kl_minimize_kwargs = kl_solver_kwargs['minimize_kwargs']
+    linear_sampling_kwargs = minimization_config['draw_linear_kwargs']['cg_kwargs']
+    nonlinear_sampling_kwargs = minimization_config['nonlinearly_update_kwargs']['minimize_kwargs']
 
-        # update minimization config
-        minimization_config['draw_linear_kwargs']['cg_kwargs']['absdelta'] = absdelta / 10.
-
-    else:
-        raise ValueError("Either 'delta' or 'absdelta' must be specified in the config file but "
-                         "not both.")
-
-    if "xtol" not in minimization_config['nonlinearly_update_kwargs']['minimize_kwargs']['xtol'] or \
-       minimization_config['nonlinearly_update_kwargs']['minimize_kwargs']['xtol'] is None:
-        if delta is None:
-            raise ValueError("Either 'delta' or 'xtol' must be specified in the config file.")
-        minimization_config['nonlinearly_update_kwargs']['minimize_kwargs']['xtol'] = delta
+    # safe update minimize_kwargs
+    kl_minimize_kwargs = ju.safe_config_update("absdelta", absdelta, kl_minimize_kwargs)
+    _ = ju.safe_config_update("absdelta", absdelta / 10., linear_sampling_kwargs)
+    _ = ju.safe_config_update("xtol", delta, nonlinear_sampling_kwargs)
+    if delta is not None:
+        minimization_config.pop('delta')
 
     # Plot
     additional_plot_dict = {"diffuse_alpha": sky_model.alpha_cf,
