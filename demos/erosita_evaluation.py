@@ -127,5 +127,11 @@ if __name__ == "__main__":
 
     with open(minimization_output_file, "rb") as file:
         samples, _ = pickle.load(file)
+
+    # Make a fake samples object for MAP case
+    if not samples:
+        samples = {key: np.array([val]) for key, val in samples.pos.tree.items()}
+        samples = jft.Samples(pos=None, samples=jft.Vector(samples))
+
     run_evaluation_from_config(samples, eval_cfg, sky_dict, diagnostics_path, response_dict,
                                masked_data, gt_dict)
