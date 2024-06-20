@@ -31,7 +31,7 @@ if False:
     from jax import config, devices
     config.update('jax_default_device', devices('cpu')[0])
 
-config_path = './demos/JWST_config.yaml'
+config_path = './demos/jwst_config.yaml'
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
 RES_DIR = cfg['files']['res_dir']
 # FIXME: This needs to provided somewhere else
@@ -46,7 +46,7 @@ sky_model = sky_model_new.full_diffuse
 energy_cfg = sky_model_new.config['grid']['energy_bin']
 e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
 keys_and_colors = {
-    f'e_{ii:02d}': ColorRange(Color(emin*e_unit), Color(emax*e_unit))
+    f'e{ii:02d}': ColorRange(Color(emin*e_unit), Color(emax*e_unit))
     for ii, (emin, emax) in enumerate(zip(energy_cfg.get('e_min'), energy_cfg.get('e_max')))}
 
 filter_projector = FilterProjector(
@@ -62,12 +62,13 @@ sky_model_with_keys = jft.Model(
 data_plotting = {}
 likelihoods = []
 kk = 0
-for fltname, flt in cfg['files']['filter'].items():
-    for ii, filepath in enumerate(flt):
+for fltname, flt_dct in cfg['files']['filter'].items():
+    for ii, filepath in enumerate(flt_dct):
         print(fltname, ii, filepath)
         jwst_data = JwstData(filepath)
+        ekey = filter_projector.get_key(jwst_data.pivot_wavelength)
 
-        data_key = f'{fltname}_{ii}'
+        data_key = f'{fltname}_{ekey}_{ii}'
 
         # FIXME: This can also be handled by passing a delta for the priors
         # of the shift, and rotation
@@ -109,9 +110,8 @@ for fltname, flt in cfg['files']['filter'].items():
         std = jwst_data.std_inside_extrema(
             reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
 
-        flt = filter_projector.get_key(jwst_data.pivot_wavelength)
         data_model = build_data_model(
-            {flt: sky_model_with_keys.target[flt]},
+            {ekey: sky_model_with_keys.target[ekey]},
 
             reconstruction_grid=reconstruction_grid,
 
@@ -141,7 +141,7 @@ for fltname, flt in cfg['files']['filter'].items():
         )
 
         data_plotting[data_key] = dict(
-            index=filter_projector.keys_and_index[flt],
+            index=filter_projector.keys_and_index[ekey],
             data=data,
             std=std,
             mask=mask,
@@ -216,7 +216,7 @@ for ii in range(0):
     plt.show()
 
 
-cfg_mini = ju.get_config('demos/JWST_config.yaml')["minimization"]
+cfg_mini = ju.get_config('demos/jwst_config.yaml')["minimization"]
 key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
