@@ -1,6 +1,6 @@
 output: 
   dir: 'results/mock_data'
-  output_attach: 'test'
+  output_attach: 'test_01'
 
 mock_setup:
   plot: False

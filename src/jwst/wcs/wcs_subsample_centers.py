@@ -49,8 +49,9 @@ def subsample_grid_centers_in_index_grid(
 
     subsample_center_indices = index_grid_wcs.index_from_wl(
         wl_subsample_centers)
-    return subsample_center_indices
-    # return subsample_center_indices[:, ::-1, :, :]
+
+    # FIXME: JWST data seems to be axis-swapped
+    return subsample_center_indices  # [::-1, :, :]
 
 
 def subsample_grid_centers_in_index_grid_non_vstack(
@@ -106,4 +107,5 @@ def subsample_grid_centers_in_index_grid_non_vstack(
     subsample_center_indices = index_grid_wcs.index_from_wl(
         wl_subsample_centers)[0]
 
-    return subsample_center_indices
+    # FIXME: JWST data seems to be axis-swapped
+    return subsample_center_indices  # [::-1, :, :]

@@ -9,7 +9,8 @@ grid:
     dec: -47.86462563973049
     unit: deg
     frame: icrs
-    rotation: 65
+    # rotation: 65
+    rotation: -115
 
   edim: 2
   e_padding_ratio: 1.5

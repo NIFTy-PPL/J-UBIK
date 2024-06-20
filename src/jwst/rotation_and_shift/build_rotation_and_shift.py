@@ -98,7 +98,6 @@ def build_rotation_and_shift_model(
         def coordinate_correction(_, coords): return coords
 
     match model_type:
-
         case 'linear':
             linear_kwargs = kwargs.get('linear', dict(
                 order=1, sky_as_brightness=False))
