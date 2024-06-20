@@ -25,6 +25,7 @@ from jubik0.jwst.color import Color, ColorRange
 
 from charm_lensing import minimization_parser
 
+from os.path import join
 from sys import exit
 
 if False:
@@ -36,6 +37,11 @@ cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
 RES_DIR = cfg['files']['res_dir']
 # FIXME: This needs to provided somewhere else
 DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
+
+
+# ju.save_local_packages_hashes_to_txt(
+#     ['nifty8', 'charm_lensing', 'jubik0'],
+#     join(RES_DIR, 'hashes.txt'))
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 
@@ -137,8 +143,12 @@ for fltname, flt_dct in cfg['files']['filter'].items():
             data_mask=mask,
 
             world_extrema=reconstruction_grid.world_extrema(
-                ext=(psf_ext, psf_ext))
-        )
+                ext=(psf_ext, psf_ext)),
+
+            zero_flux=dict(
+                dkey=data_key,
+                zero_flux=dict(prior=('lognormal', 1, 3))
+            ))
 
         data_plotting[data_key] = dict(
             index=filter_projector.keys_and_index[ekey],

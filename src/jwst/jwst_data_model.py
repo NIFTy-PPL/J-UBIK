@@ -5,6 +5,7 @@ from .masking import build_mask
 from .psf.build_psf import instantiate_psf, load_psf_kernel
 from .integration_model import build_sum_integration
 from .rotation_and_shift import RotationAndShiftModel
+from .zero_flux_model import build_zero_flux_model, ZeroFlux
 
 from .reconstruction_grid import Grid
 from astropy.coordinates import SkyCoord
@@ -19,22 +20,30 @@ class DataModel(jft.Model):
         rotation_and_shift: RotationAndShiftModel,
         psf: Callable[ArrayLike, ArrayLike],
         integrate: Callable[ArrayLike, ArrayLike],
+        zero_flux_model: ZeroFlux,
         mask: Callable[ArrayLike, ArrayLike]
     ):
-        need_sky_key = 'Need to provide an internal key to the target of the sky model'
+        need_sky_key = ('Need to provide an internal key to the target of the '
+                        'sky model')
         assert isinstance(sky_domain, dict), need_sky_key
 
         self.rotation_and_shift = rotation_and_shift
         self.psf = psf
         self.integrate = integrate
+        self.zero_flux_model = zero_flux_model
         self.mask = mask
 
         super().__init__(
-            domain=sky_domain | self.rotation_and_shift.domain
+            domain=sky_domain | self.rotation_and_shift.domain | self.zero_flux_model.domain
         )
 
     def __call__(self, x):
-        return self.mask(self.integrate(self.psf(self.rotation_and_shift(x))))
+        out = self.rotation_and_shift(x)
+        out = self.psf(out)
+        out = self.integrate(out)
+        out = self.zero_flux_model(x, out)
+        out = self.mask(out)
+        return out
 
 
 def build_data_model(
@@ -45,6 +54,7 @@ def build_data_model(
     psf_kwargs: dict,
     data_mask: ArrayLike,
     world_extrema: Tuple[SkyCoord],
+    zero_flux: dict,
 ) -> DataModel:
     '''Build the data model for a Jwst observation. The data model pipline:
     rotation_and_shift | psf | integrate | mask
@@ -82,7 +92,8 @@ def build_data_model(
         The extrema for the evaluation
     '''
 
-    need_sky_key = 'Need to provide an internal key to the target of the sky model'
+    need_sky_key = ('Need to provide an internal key to the target of the sky '
+                    'model.')
     assert isinstance(sky_domain, dict), need_sky_key
 
     rotation_and_shift = build_rotation_and_shift_model(
@@ -121,6 +132,9 @@ def build_data_model(
         reduction_factor=subsample,
     )
 
+    zero_flux_model = build_zero_flux_model(
+        zero_flux['dkey'], zero_flux, data_mask.shape)
+
     mask = build_mask(data_mask)
 
-    return DataModel(sky_domain, rotation_and_shift, psf, integrate, mask)
+    return DataModel(sky_domain, rotation_and_shift, psf, integrate, zero_flux_model, mask)

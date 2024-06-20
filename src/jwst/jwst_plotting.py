@@ -71,10 +71,9 @@ def build_plot_sky_residuals(
             for si in samples:
                 tmp = np.zeros_like(dd)
                 val = sky_model_with_key(si)
-                if cm is not None:
-                    while isinstance(si, jft.Vector):
-                        si = si.tree
-                    val = val | si
+                while isinstance(si, jft.Vector):
+                    si = si.tree
+                val = val | si
                 tmp[mask] = dm(val)
                 model_data.append(tmp)
 
