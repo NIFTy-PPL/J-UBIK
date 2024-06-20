@@ -1,10 +1,15 @@
-import nifty8.re as jft
-
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LogNorm
 import numpy as np
 
-from typing import Optional
+from typing import Tuple
+from os.path import join
+from os import makedirs
+
+import nifty8.re as jft
+
+from jubik0.jwst.mock_data.mock_evaluation import redchi2
+from jubik0.jwst.mock_data.mock_plotting import display_text
 
 
 def find_closest_factors(number):
@@ -38,30 +43,17 @@ def find_closest_factors(number):
     return jj-jminus+1, kk-kminus
 
 
-def build_plot(
-    data_dict: dict,
-    sky_model_with_key: jft.Model,
-    sky_model: jft.Model,
-    small_sky_model: jft.Model,
+def build_plot_sky_residuals(
     results_directory: str,
-    plotting_config: dict,
+    residual_directory: str,
+    data_dict: dict,
     alpha: jft.Model,
+    sky_model_with_key: jft.Model,
+    small_sky_model: jft.Model,
+    norm: callable,
 ):
-    from jubik0.jwst.mock_data.mock_evaluation import redchi2
-    from jubik0.jwst.mock_data.mock_plotting import display_text
-    from os.path import join
-    from os import makedirs
 
-    residual_dir = join(results_directory, 'residuals')
-    sky_dir = join(results_directory, 'sky')
-    makedirs(residual_dir, exist_ok=True)
-    makedirs(sky_dir, exist_ok=True)
-
-    norm = plotting_config.get('norm', Normalize)
-    sky_extent = plotting_config.get('sky_extent', None)
-    plot_sky = plotting_config.get('plot_sky', True)
-
-    def sky_plot_residuals(samples: jft.Samples, x: jft.OptimizeVIState):
+    def sky_residuals(samples: jft.Samples, x: jft.OptimizeVIState):
         print(f"Results: {results_directory}")
 
         ylen = len(data_dict)
@@ -105,18 +97,22 @@ def build_plot(
             axes[ii, 1].set_title(f'Data {dkey}')
             ims[ii, 1] = axes[ii, 1].imshow(
                 dd, origin='lower', norm=norm(vmin=min_d, vmax=max_d))
-            axes[ii, 2].set_title(
-                f'Data model ({sh_m[0]:.1e}+-{sh_s[0]:.1e}, {sh_m[1]:.1e}+-{sh_s[1]:.1e},\n{ro_m:.1e}+-{ro_s:.1e})')
+            axes[ii, 2].set_title('Data model')
             ims[ii, 2] = axes[ii, 2].imshow(
                 model_mean, origin='lower', norm=norm(vmin=min_d, vmax=max_d))
             axes[ii, 3].set_title('Data - Data model')
             ims[ii, 3] = axes[ii, 3].imshow(
                 (dd - model_mean)/std, origin='lower', vmin=-3, vmax=3, cmap='RdBu_r')
 
+            data_model_text = '\n'.join(
+                (f'dx={sh_m[0]:.1e}+-{sh_s[0]:.1e}',
+                 f'dy={sh_m[1]:.1e}+-{sh_s[1]:.1e}',
+                 f'dth={ro_m:.1e}+-{ro_s:.1e}')
+            )
             chi = '\n'.join((
                 f'redChi2: {redchi_mean:.2f} +/- {redchi2_std:.2f}',
             ))
-
+            display_text(axes[ii, 2], data_model_text)
             display_text(axes[ii, 3], chi)
 
         # Alpha field
@@ -138,10 +134,22 @@ def build_plot(
             if not isinstance(im, int):
                 fig.colorbar(im, ax=ax, shrink=0.7)
         fig.tight_layout()
-        fig.savefig(join(residual_dir, f'{x.nit:02d}.png'), dpi=300)
+        fig.savefig(join(residual_directory, f'{x.nit:02d}.png'), dpi=300)
         plt.close()
 
-    def plot_sky_with_samples(samples: jft.Samples, x: jft.OptimizeVIState):
+    return sky_residuals
+
+
+def build_sky_plot_samples(
+    sky_directory: str,
+    sky_model: jft.Model,
+    small_sky_model: jft.Model,
+    sky_model_with_key: jft.Model,
+    norm: callable,
+    sky_extent: Tuple[int],
+):
+
+    def plot_sky_samples(samples: jft.Samples, x: jft.OptimizeVIState):
         ylen, xlen = find_closest_factors(len(samples)+4)
 
         samps_big = [sky_model(si) for si in samples]
@@ -159,16 +167,56 @@ def build_plot(
                 fig.colorbar(im, ax=ax, shrink=0.7)
             fig.tight_layout()
             fig.savefig(
-                join(sky_dir, f'{x.nit:02d}_{filter_name}.png'), dpi=300)
+                join(sky_directory, f'{x.nit:02d}_{filter_name}.png'), dpi=300)
             plt.close()
 
-    def sky_plot(samples: jft.Samples, x: jft.OptimizeVIState):
-        print(f'Plotting: {x.nit}')
-        sky_plot_residuals(samples, x)
-        if plot_sky:
-            plot_sky_with_samples(samples, x)
+    return plot_sky_samples
 
-    return sky_plot
+
+def build_plot(
+    data_dict: dict,
+    sky_model_with_key: jft.Model,
+    sky_model: jft.Model,
+    small_sky_model: jft.Model,
+    results_directory: str,
+    plotting_config: dict,
+    alpha: jft.Model,
+):
+
+    residual_directory = join(results_directory, 'residuals')
+    sky_directory = join(results_directory, 'sky')
+    makedirs(residual_directory, exist_ok=True)
+    makedirs(sky_directory, exist_ok=True)
+
+    norm = plotting_config.get('norm', Normalize)
+    sky_extent = plotting_config.get('sky_extent', None)
+    plot_sky = plotting_config.get('plot_sky', True)
+
+    plot_sky_residuals = build_plot_sky_residuals(
+        results_directory=results_directory,
+        residual_directory=residual_directory,
+        data_dict=data_dict,
+        alpha=alpha,
+        sky_model_with_key=sky_model_with_key,
+        small_sky_model=small_sky_model,
+        norm=norm)
+
+    plot_sky_samples = build_sky_plot_samples(
+        sky_directory=sky_directory,
+        sky_model=sky_model,
+        small_sky_model=small_sky_model,
+        sky_model_with_key=sky_model_with_key,
+        norm=norm,
+        sky_extent=sky_extent,
+    )
+
+    def plot(samples: jft.Samples, x: jft.OptimizeVIState):
+        print(f'Plotting: {x.nit}')
+        plot_sky_residuals(samples, x)
+        if plot_sky:
+            plot_sky_samples(samples, x)
+
+    return plot
 
 
 def plot_sky(sky, data_dict, norm=LogNorm):
