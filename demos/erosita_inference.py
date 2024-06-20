@@ -55,8 +55,8 @@ if __name__ == "__main__":
     delta = minimization_config["delta"] if "delta" in minimization_config else None
     absdelta = None
     if delta is not None:
-        n_dof_data = len(cfg["telescope"]["tm_ids"]) * cfg['grid']['sdim']**2 * cfg['grid']['edim'] #FIXME: not sure why log_likelihood.left_sqrt_metric_tangents_shape.size is wrong
-        n_dof_model = jft.Vector(sky_model.sky.domain).size
+        n_dof_data = jft.size(log_likelihood.likelihood.data)
+        n_dof_model = jft.size(log_likelihood.domain)
         n_dof = min(n_dof_model, n_dof_data)
         absdelta = delta * n_dof
 
