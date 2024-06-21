@@ -45,15 +45,45 @@ DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 
-sky_model_new = ju.SkyModel(config_file_path=config_path)
-small_sky_model = sky_model_new.create_sky_model(fov=cfg['grid']['fov'])
-sky_model = sky_model_new.full_diffuse
+if cfg['priors']['diffuse'].get('colormix'):
+    energy_bins = cfg['grid'].get('edim')
+    energy_cfg = cfg['grid'].get('energy_bin')
+    diffuse_priors = cfg['priors']['diffuse']
 
-energy_cfg = sky_model_new.config['grid']['energy_bin']
+    components_config = dict(
+        shape=reconstruction_grid.shape,
+        distances=[
+            d.to(u.arcsec).value for d in reconstruction_grid.distances],
+        s_padding_ratio=cfg['grid'].get('s_padding_ratio', 1.0),
+        prior={f'k{ii}': diffuse_priors['spatial']
+               for ii in range(energy_bins)},
+    )
+
+    sky_model = ju.build_colormix_components(
+        'sky',
+        colormix_config=diffuse_priors['colormix'],
+        components_config=components_config)
+    small_sky_model = sky_model
+
+    def alpha(x):
+        return jnp.ones((10, 10))
+
+
+else:
+    sky_model_new = ju.SkyModel(config_file_path=config_path)
+    small_sky_model = sky_model_new.create_sky_model(fov=cfg['grid']['fov'])
+    sky_model = sky_model_new.full_diffuse
+    energy_cfg = sky_model_new.config['grid']['energy_bin']
+
+    alpha = sky_model_new.alpha_cf
+
+
 e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
 keys_and_colors = {
     f'e{ii:02d}': ColorRange(Color(emin*e_unit), Color(emax*e_unit))
-    for ii, (emin, emax) in enumerate(zip(energy_cfg.get('e_min'), energy_cfg.get('e_max')))}
+    for ii, (emin, emax) in
+    enumerate(zip(energy_cfg.get('e_min'), energy_cfg.get('e_max')))
+}
 
 filter_projector = FilterProjector(
     sky_domain=sky_model.target,
@@ -179,12 +209,11 @@ for ii in range(0):
     x = jft.random_like(test_key, likelihood.domain).tree
     sky = sky_model_with_keys(x)
     # plot_sky(sky, data_plotting)
+    exit()
 
     plaw = sky_model_new.plaw(x)
     alpha = sky_model_new.alpha_cf(x)
     dev = sky_model_new.dev_cf(x)
-
-    exit()
 
     fig, axes = plt.subplots(len(sky)+1, 4)
     integrated_sky = []
@@ -244,7 +273,7 @@ plot = build_plot(
     sky_model=sky_model,
     small_sky_model=small_sky_model,
     results_directory=RES_DIR,
-    alpha=sky_model_new.alpha_cf,
+    alpha=alpha,
     plotting_config=dict(
         norm=LogNorm,
         sky_extent=None,

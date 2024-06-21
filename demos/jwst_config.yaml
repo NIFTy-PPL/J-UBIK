@@ -12,22 +12,22 @@ grid:
     # rotation: 65
     rotation: -115
 
-  edim: 2
+  edim: 3
   e_padding_ratio: 1.5
 
   energy_bin:
     unit: eV
     e_min:
     # - 0.143
-    - 0.200
+    # - 0.200
     - 0.249  # eV
-    # - 0.311
+    - 0.311
     # - 0.395
     e_max:
     # - 0.188
-    - 0.245
+    # - 0.245
     - 0.311
-    # - 0.395
+    - 0.395
     # - 0.511
     e_ref:
     - 0.311
@@ -53,7 +53,7 @@ telescope:
 files:
   # res_dir: 'results/jwst_test/mf_f227w_f356w_f444w_256_01'
   # res_dir: 'results/jwst_test/mf_f356w_f444w_256_12'
-  res_dir: 'results/jwst_test/mf_f444w_f560w_03'
+  res_dir: 'results/jwst_test/cm_f356w_f444w_02_nm'
 
   filter:
     # f115w: # NIRCam
@@ -72,19 +72,19 @@ files:
     #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
     #   - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
 
-    # f356w:
-    #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
-    #   - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+    f356w:
+      - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+      - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
     f444w:
       - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
       - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
-    f560w: # MIRI
-      - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
-      - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
-      - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
-      - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+    # f560w: # MIRI
+    #   - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
 
     # f770w:
     #   - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
@@ -154,6 +154,10 @@ priors:
         non_parametric_kind: "power"
         # harmonic_type: "Fourier"
       prefix: diffuse_spatial_
+
+    colormix:
+      diagonal_prior: ['lognormal', 1, 0.1]
+      off_diagonal_prior: ['normal', 0, 0.3]
 
     plaw:
       offset:
