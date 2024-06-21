@@ -18,7 +18,7 @@ from .library.plot import (plot_slices, plot_result,
 from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_sample_and_stats,
                                  plot_sample_and_stats, plot_erosita_priors)
 from .library.mf_plot import plot_rgb
-                                 
+
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
@@ -49,3 +49,4 @@ from .operators.convolve_utils import get_gaussian_kernel
 
 from . import jwst
 from .jwst.wcs.wcs_astropy import build_astropy_wcs
+from .library.sky_colormix import *
