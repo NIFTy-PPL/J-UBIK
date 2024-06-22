@@ -22,13 +22,13 @@ grid:
     # - 0.200
     - 0.249  # eV
     - 0.311
-    # - 0.395
+    - 0.395
     e_max:
     # - 0.188
     # - 0.245
     - 0.311
     - 0.395
-    # - 0.511
+    - 0.511
     e_ref:
     - 0.311
 
@@ -42,18 +42,11 @@ telescope:
     model: 'linear' # 'sparse', 'linear', 'nufft'
     subsample: 3
 
-    f115w:
-      data_dvol: 0.0169  # 0.13**2 arcsec
-      data_dvol_unit: arcsec
-      01_shift_model:
-        mean: [0, 0]
-        sigma: [0.1, 0.1]
-
 
 files:
   # res_dir: 'results/jwst_test/mf_f227w_f356w_f444w_256_01'
   # res_dir: 'results/jwst_test/mf_f356w_f444w_256_12'
-  res_dir: 'results/jwst_test/cm_f356w_f444w_02_nm'
+  res_dir: 'results/jwst_test/cm_f356w_f444w_08_nm'
 
   filter:
     # f115w: # NIRCam
@@ -68,13 +61,13 @@ files:
     #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_cal.fits'
     #   - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_cal.fits'
 
-    # f277w:
-    #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
+    f277w:
+      - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
     #   - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
 
     f356w:
       - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
-      - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+      # - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
     f444w:
       - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
@@ -156,8 +149,8 @@ priors:
       prefix: diffuse_spatial_
 
     colormix:
-      diagonal_prior: ['lognormal', 1, 0.1]
-      off_diagonal_prior: ['normal', 0, 0.3]
+      diagonal_prior: ['lognormal', 1.2, 0.2]
+      off_diagonal_prior: ['normal', 0.6, 0.3]
 
     plaw:
       offset:
@@ -184,28 +177,28 @@ priors:
 
 
 minimization:
-    key: 51
+    key: 23
     resume: False
     n_total_iterations: 15
 
     samples: # nonlinear_sample # linear, nonlinear
-      switches: [0, 5, 9]
+      switches: [0, 3, 9]
       name: [lin, nonlin]  # For logging
       # "linear_sample", 
       # "linear_resample",
       # "nonlinear_sample",
       # "nonlinear_resample",
       # "nonlinear_update",
-      mode: [linear_resample, nonlinear_update]
+      mode: [linear_resample, nonlinear_resample, nonlinear_update]
       n_samples: [5, 6, 10]
 
-      lin_deltaE: [0.1, 0.001] # , 0.00001]
+      lin_absdelta: [0.1, 0.001] # , 0.00001]
       lin_maxiter: [50, 100] # , 200]
       lin_convergence_level: 2
 
       nonlin_deltaE: [0.1, 0.01]
       nonlin_maxiter: [7, 13]
-      nonlin_cg_deltaE: [0.1, 0.01]
+      nonlin_cg_deltaE: [0.1, 0.001]
       nonlin_cg_maxiter: [20, 30]
       nonlin_convergence_level: 2
 

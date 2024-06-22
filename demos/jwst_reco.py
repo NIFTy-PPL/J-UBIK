@@ -46,27 +46,57 @@ DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 
 if cfg['priors']['diffuse'].get('colormix'):
+    from copy import deepcopy
     energy_bins = cfg['grid'].get('edim')
+
     energy_cfg = cfg['grid'].get('energy_bin')
     diffuse_priors = cfg['priors']['diffuse']
+
+    components_prior_config = {
+        f'k{ii}': deepcopy(diffuse_priors['spatial']) for ii in range(energy_bins)}
+
+    # components_prior_config['k2']['mean'] = dict(
+    #     sersic=dict(
+    #         ie=('log_normal', 0.03, 0.003),
+    #         re=('log_normal', 1.9, 0.19),
+    #         n=('uniform', 1.0, 7.0),
+    #         center=('normal', (0., 0.), 0.8),
+    #         q=('uniform', 0.8, 1.0),
+    #         theta=('normal', 0.0, 10.)),
+    #     exponentialdisk=dict(
+    #         ie=('log_normal', 1.0, 0.1),
+    #         re=('log_normal', 0.05, 0.005),
+    #         center=('normal', 0, 0.8),
+    #         q=('uniform', 0.8, 1.0),
+    #         theta=('normal', 0.0, 10.)),
+    # )
 
     components_config = dict(
         shape=reconstruction_grid.shape,
         distances=[
             d.to(u.arcsec).value for d in reconstruction_grid.distances],
         s_padding_ratio=cfg['grid'].get('s_padding_ratio', 1.0),
-        prior={f'k{ii}': diffuse_priors['spatial']
-               for ii in range(energy_bins)},
+        prior=components_prior_config,
     )
 
-    sky_model = ju.build_colormix_components(
+    small_sky_model = sky_model = ju.build_colormix_components(
         'sky',
         colormix_config=diffuse_priors['colormix'],
         components_config=components_config)
-    small_sky_model = sky_model
 
     def alpha(x):
         return jnp.ones((10, 10))
+
+    # if energy_bins == 1:
+    #     comps = ju.build_components(
+    #         'sky',
+    #         shape=components_config['shape'],
+    #         distances=components_config['distances'],
+    #         padding_ratio=components_config['s_padding_ratio'],
+    #         prior_config=components_config['prior'])
+    #     small_sky_model = sky_model = jft.Model(
+    #         lambda x: jnp.exp(comps(x)),
+    #         domain=comps.domain)
 
 
 else:
@@ -77,6 +107,41 @@ else:
 
     alpha = sky_model_new.alpha_cf
 
+
+def prior_samples(NNN):
+
+    from jax import random
+    import matplotlib.pyplot as plt
+    key = random.PRNGKey(42)
+
+    N_comps = len(sky_model.components._comps)
+
+    for _ in range(NNN):
+        key, rec_key = random.split(key, 2)
+        x = jft.random_like(key, sky_model.domain)
+
+        comps = sky_model.components(x)
+        correlated_comps = sky_model(x)
+
+        mat_mean = sky_model.color.matrix(x)
+        print()
+        print('Color Mixing Matrix')
+        print(mat_mean)
+        print()
+
+        fig, axes = plt.subplots(N_comps, 2)
+        for ax, cor_comps, comps in zip(axes, correlated_comps, comps):
+            im0 = ax[0].imshow(cor_comps, origin='lower', norm=LogNorm())
+            im1 = ax[1].imshow(np.exp(comps), origin='lower', norm=LogNorm())
+            plt.colorbar(im0, ax=ax[0])
+            plt.colorbar(im1, ax=ax[1])
+            ax[0].set_title('Correlated Comps')
+            ax[1].set_title('Comps')
+
+        plt.show()
+
+
+prior_samples(4)
 
 e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
 keys_and_colors = {
@@ -93,7 +158,6 @@ sky_model_with_keys = jft.Model(
     lambda x: filter_projector(sky_model(x)),
     init=sky_model.init
 )
-
 
 data_plotting = {}
 likelihoods = []

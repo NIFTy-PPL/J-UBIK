@@ -10,6 +10,7 @@ import nifty8.re as jft
 
 from jubik0.jwst.mock_data.mock_evaluation import redchi2
 from jubik0.jwst.mock_data.mock_plotting import display_text
+from jubik0.library.sky_colormix import ColorMixComponents
 
 
 def find_closest_factors(number):
@@ -172,6 +173,39 @@ def build_sky_plot_samples(
     return plot_sky_samples
 
 
+def build_color_components_plotting(
+    sky_model: ColorMixComponents,
+    output_folder: str,
+):
+
+    N_comps = len(sky_model.components._comps)
+
+    def cc_print(samples: jft.Samples, x: jft.OptimizeVIState):
+        mat_mean, mat_std = jft.mean_and_std(
+            [sky_model.color.matrix(si) for si in samples])
+        print()
+        print('Color Mixing Matrix')
+        print(mat_mean, '\n+-\n', mat_std)
+        print()
+
+        comps = jft.mean([sky_model.components(si) for si in samples])
+        correlated_comps = jft.mean([sky_model(si) for si in samples])
+
+        fig, axes = plt.subplots(N_comps, 2)
+        for ax, cor_comps, comps in zip(axes, correlated_comps, comps):
+            im0 = ax[0].imshow(cor_comps, origin='lower', norm=LogNorm())
+            im1 = ax[1].imshow(np.exp(comps), origin='lower', norm=LogNorm())
+            plt.colorbar(im0, ax=ax[0])
+            plt.colorbar(im1, ax=ax[1])
+            ax[0].set_title('Correlated Comps')
+            ax[1].set_title('Comps')
+
+        plt.tight_layout()
+        plt.savefig(join(output_folder, f'componets_{x.nit}.png'))
+
+    return cc_print
+
+
 def build_plot(
     data_dict: dict,
     sky_model_with_key: jft.Model,
@@ -184,12 +218,20 @@ def build_plot(
 
     residual_directory = join(results_directory, 'residuals')
     sky_directory = join(results_directory, 'sky')
+    colors_directory = join(results_directory, 'colors')
     makedirs(residual_directory, exist_ok=True)
-    makedirs(sky_directory, exist_ok=True)
+
+    color_switch = hasattr(sky_model, 'color')
+
+    plot_sky = plotting_config.get('plot_sky', True)
+    if plot_sky:
+        makedirs(sky_directory, exist_ok=True)
+
+    if color_switch:
+        makedirs(colors_directory, exist_ok=True)
 
     norm = plotting_config.get('norm', Normalize)
     sky_extent = plotting_config.get('sky_extent', None)
-    plot_sky = plotting_config.get('plot_sky', True)
 
     plot_sky_residuals = build_plot_sky_residuals(
         results_directory=results_directory,
@@ -209,11 +251,20 @@ def build_plot(
         sky_extent=sky_extent,
     )
 
+    if color_switch:
+        plot_color = build_color_components_plotting(
+            sky_model, colors_directory)
+
     def plot(samples: jft.Samples, x: jft.OptimizeVIState):
         print(f'Plotting: {x.nit}')
-        plot_sky_residuals(samples, x)
+
+        if color_switch:
+            plot_color(samples, x)
+
         if plot_sky:
             plot_sky_samples(samples, x)
+
+        plot_sky_residuals(samples, x)
 
     return plot
 

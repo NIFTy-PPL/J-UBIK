@@ -24,12 +24,14 @@ class ColorMixer(jft.Model):
             target=components_domain
         )
 
-    def _matrix(self, parameters: dict):
+    def matrix(self, parameters: dict):
         dia = self._dia(parameters)
         off = self._off(parameters)
 
         # outer
         mat = (dia[:, None] * dia[None, :])
+        # FIXME: THIS IS ONLY DONE TO UNDERSTAND THE PRIORS
+        mat = jnp.sqrt(mat)
         mat = mat.at[self._upper_triangle].set(
             mat[self._upper_triangle] * off)
         mat = mat.at[self._upper_triangle[1], self._upper_triangle[0]].set(
@@ -37,7 +39,7 @@ class ColorMixer(jft.Model):
         return mat
 
     def __call__(self, parameters: dict, components: ArrayLike):
-        mat = self._matrix(parameters)
+        mat = self.matrix(parameters)
         return jnp.einsum('ij,jkl->ikl', mat, components)
 
 
@@ -50,6 +52,8 @@ def build_colormix(
     assert len(components_target.shape) == 3
 
     n = components_target.shape[0]
+    print(f'Building {n} frequency components')
+
     shape_dia = n
     shape_off = (n**2 - n) // 2
 
@@ -80,33 +84,61 @@ class Components(jft.Model):
                           for c in self._comps])
 
 
-def build_components(prefix, shape, distances, padding_ratio, prior_config):
-    prefix = f'{prefix}_comp'
-
-    pad_shape = [int(s*padding_ratio) for s in shape]
-
-    def component(key, shape, distances, config):
-        cfm = jft.CorrelatedFieldMaker(prefix=key)
-        cfm.set_amplitude_total_offset(**config['offset'])
-        cfm.add_fluctuations(shape, distances, **config['fluctuations'])
-        return cfm.finalize()
-
-    components = [component(f'{prefix}_{key}', pad_shape, distances, config)
-                  for key, config in prior_config.items()]
-
-    return Components(components, shape)
-
-
 class ColorMixComponents(jft.Model):
     def __init__(self, components: Components, colormix: ColorMixer):
-        self._comps = components
-        self._color = colormix
+        self.components = components
+        self.color = colormix
 
-        super().__init__(domain=self._comps.domain | self._color.domain)
+        super().__init__(domain=self.components.domain | self.color.domain)
 
     def __call__(self, x):
-        comps = self._comps(x)
-        return jnp.exp(self._color(x, comps))
+        comps = self.components(x)
+        return jnp.exp(self.color(x, comps))
+
+
+def component(key, shape, distances, config):
+    cfm = jft.CorrelatedFieldMaker(prefix=key)
+    cfm.set_amplitude_total_offset(**config['offset'])
+    cfm.add_fluctuations(shape, distances, **config['fluctuations'])
+    return cfm.finalize()
+
+
+def build_components(
+    prefix: str,
+    shape: tuple[int],
+    distances: tuple[int],
+    padding_ratio: float,
+    prior_config: dict
+):
+
+    from charm_lensing.models.parametric_models import build_parametric
+    from charm_lensing.spaces import get_xycoords
+
+    prefix = f'{prefix}_comp_'
+
+    pad_shape = [int(s*padding_ratio) for s in shape]
+    coords = get_xycoords(pad_shape, distances)
+
+    components = []
+    for key, config in prior_config.items():
+        comp = component(f'{prefix}_{key}', pad_shape, distances, config)
+
+        if 'mean' in config:
+            mean = build_parametric(
+                coords=coords,
+                prefix=f'{prefix}_{key}',
+                model_config=config['mean'],
+            )
+            model = jft.Model(
+                lambda x: jnp.log(mean(x)),  # + comp(x),
+                domain=mean.domain | comp.domain)
+
+        else:
+            model = comp
+
+        components.append(model)
+
+    return Components(components, shape)
 
 
 def build_colormix_components(
