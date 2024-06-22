@@ -46,7 +46,7 @@ telescope:
 files:
   # res_dir: 'results/jwst_test/mf_f227w_f356w_f444w_256_01'
   # res_dir: 'results/jwst_test/mf_f356w_f444w_256_12'
-  res_dir: 'results/jwst_test/cm_f356w_f444w_08_nm'
+  res_dir: 'results/jwst_test/cm_f277w_f356w_f444w_09_plaw'
 
   filter:
     # f115w: # NIRCam
@@ -148,9 +148,9 @@ priors:
         # harmonic_type: "Fourier"
       prefix: diffuse_spatial_
 
-    colormix:
-      diagonal_prior: ['lognormal', 1.2, 0.2]
-      off_diagonal_prior: ['normal', 0.6, 0.3]
+    # colormix:
+    #   diagonal_prior: ['lognormal', 1.2, 0.2]
+    #   off_diagonal_prior: ['normal', 0.6, 0.3]
 
     plaw:
       offset:

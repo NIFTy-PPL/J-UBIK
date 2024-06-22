@@ -111,26 +111,26 @@ def build_components(
     prior_config: dict
 ):
 
-    from charm_lensing.models.parametric_models import build_parametric
-    from charm_lensing.spaces import get_xycoords
-
     prefix = f'{prefix}_comp_'
 
     pad_shape = [int(s*padding_ratio) for s in shape]
-    coords = get_xycoords(pad_shape, distances)
 
     components = []
     for key, config in prior_config.items():
         comp = component(f'{prefix}_{key}', pad_shape, distances, config)
 
         if 'mean' in config:
+            from charm_lensing.models.parametric_models import build_parametric
+            from charm_lensing.spaces import get_xycoords
+            coords = get_xycoords(pad_shape, distances)
+
             mean = build_parametric(
                 coords=coords,
                 prefix=f'{prefix}_{key}',
                 model_config=config['mean'],
             )
             model = jft.Model(
-                lambda x: jnp.log(mean(x)),  # + comp(x),
+                lambda x: jnp.log(mean(x)) + comp(x),
                 domain=mean.domain | comp.domain)
 
         else:
@@ -161,3 +161,36 @@ def build_colormix_components(
         off_diagonal_prior=colormix_config['off_diagonal_prior'])
 
     return ColorMixComponents(comps, color)
+
+
+def prior_samples_colormix_components(sky_model, n_samples=4):
+    from jax import random
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm
+
+    key = random.PRNGKey(42)
+    N_comps = len(sky_model.components._comps)
+
+    for _ in range(n_samples):
+        key, rec_key = random.split(key, 2)
+        x = jft.random_like(key, sky_model.domain)
+
+        comps = sky_model.components(x)
+        correlated_comps = sky_model(x)
+
+        mat_mean = sky_model.color.matrix(x)
+        print()
+        print('Color Mixing Matrix')
+        print(mat_mean)
+        print()
+
+        fig, axes = plt.subplots(N_comps, 2)
+        for ax, cor_comps, comps in zip(axes, correlated_comps, comps):
+            im0 = ax[0].imshow(cor_comps, origin='lower', norm=LogNorm())
+            im1 = ax[1].imshow(np.exp(comps), origin='lower', norm=LogNorm())
+            plt.colorbar(im0, ax=ax[0])
+            plt.colorbar(im1, ax=ax[1])
+            ax[0].set_title('Correlated Comps')
+            ax[1].set_title('Comps')
+
+        plt.show()
