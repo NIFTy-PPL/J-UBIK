@@ -205,60 +205,6 @@ likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)
 
 
-key = random.PRNGKey(87)
-key, rec_key = random.split(key, 2)
-
-for ii in range(0):
-    key, test_key = random.split(random.PRNGKey(42+ii), 2)
-    x = jft.random_like(test_key, likelihood.domain).tree
-    sky = sky_model_with_keys(x)
-    # plot_sky(sky, data_plotting)
-    exit()
-
-    plaw = sky_model_new.plaw(x)
-    alpha = sky_model_new.alpha_cf(x)
-    dev = sky_model_new.dev_cf(x)
-
-    fig, axes = plt.subplots(len(sky)+1, 4)
-    integrated_sky = []
-    for ii, (axi, sky_key) in enumerate(zip(axes, sky.keys())):
-        print(sky_key)
-        data_model = data_plotting[f'{sky_key}_0']['data_model']
-        correction_model = data_plotting[f'{sky_key}_0']['correction_model']
-        data = data_plotting[f'{sky_key}_0']['data']
-
-        val = sky | x
-        intsky = data_model.integrate(data_model.rotation_and_shift(val))
-        integrated_sky.append(intsky)
-
-        a0, a1, a2, a3 = axi
-        a0.set_title(f'plaw {sky_key}')
-        a1.set_title('high_res sky')
-        a2.set_title('integrated sky')
-        a3.set_title(f'data {sky_key}')
-
-        ims = []
-        ims.append(a0.imshow(plaw[ii], origin='lower', cmap='RdBu_r'))
-        ims.append(a1.imshow(sky[sky_key], origin='lower', norm=LogNorm()))
-        ims.append(a2.imshow(intsky, origin='lower', norm=LogNorm()))
-        ims.append(a3.imshow(data, origin='lower', norm=LogNorm()))
-        for ax, im in zip(axi, ims):
-            plt.colorbar(im, ax=ax)
-
-    first = integrated_sky[0]
-    diffs = map(lambda y: first-y, integrated_sky[1:])
-    for ii, (ax, diff) in enumerate(zip(axes[-1][1:], diffs)):
-        im = ax.imshow(diff, origin='lower', cmap='RdBu_r')
-        plt.colorbar(im, ax=ax)
-        ax.set_title(f'0 - {ii+1}')
-
-    im = axes[-1][0].imshow(alpha, origin='lower')
-    axes[-1][0].set_title('alpha')
-    plt.colorbar(im, ax=axes[-1][0])
-
-    plt.show()
-
-
 cfg_mini = ju.get_config('demos/jwst_config.yaml')["minimization"]
 key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)

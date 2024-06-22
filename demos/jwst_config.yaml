@@ -13,7 +13,7 @@ grid:
     rotation: -115
 
   edim: 3
-  e_padding_ratio: 1.5
+  e_padding_ratio: 1.2
 
   energy_bin:
     unit: eV
@@ -44,9 +44,7 @@ telescope:
 
 
 files:
-  # res_dir: 'results/jwst_test/mf_f227w_f356w_f444w_256_01'
-  # res_dir: 'results/jwst_test/mf_f356w_f444w_256_12'
-  res_dir: 'results/jwst_test/cm_f277w_f356w_f444w_09_plaw'
+  res_dir: 'results/jwst_test/cm_f277w_f356w_f444w_10_plawdiffkey'
 
   filter:
     # f115w: # NIRCam
@@ -177,7 +175,7 @@ priors:
 
 
 minimization:
-    key: 23
+    key: 49
     resume: False
     n_total_iterations: 15
 
