@@ -1,3 +1,7 @@
+if True:
+    from jax import config, devices
+    config.update('jax_default_device', devices('cpu')[0])
+
 import yaml
 from functools import reduce
 
@@ -28,9 +32,6 @@ from charm_lensing import build_lens_system
 
 from sys import exit
 
-if False:
-    from jax import config, devices
-    config.update('jax_default_device', devices('cpu')[0])
 
 config_path = './demos/jwst_lens_config.yaml'
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
@@ -60,64 +61,8 @@ sky_model_with_keys = jft.Model(
     init=sky_model.init
 )
 
-for ii in range(0):
-    key, test_key = random.split(random.PRNGKey(42+ii), 2)
-    x = jft.random_like(test_key, sky_model.domain)
 
-    _sky_model = lens_system.source_plane_model.light_model.nonparametric().model._sky_model
-    alpha = _sky_model.alpha_cf(x)
-    plaw = _sky_model.plaw(x)
-
-    sky_model_keys = sky_model_with_keys.target.keys()
-    lens_light_alpha, lens_light_full = (
-        lens_system.lens_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
-        lens_system.lens_plane_model.light_model)
-    source_light_alpha, source_light_full = (
-        lens_system.source_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
-        lens_system.source_plane_model.light_model)
-    lensed_light = lens_system.get_forward_model_parametric(only_source=True)
-
-    xlen = len(sky_model_keys) + 1
-    fig, axes = plt.subplots(3, xlen, figsize=(3*xlen, 8), dpi=300)
-    ims = np.zeros_like(axes)
-
-    # Plot lens light
-    ims[0, 0] = axes[0, 0].imshow(lens_light_alpha(x), origin='lower')
-    leli = lens_light_full(x)
-    for ii, filter_name in enumerate(sky_model_keys):
-        axes[0, ii+1].set_title(f'Lens light {filter_name}')
-        ims[0, ii+1] = axes[0, ii+1].imshow(
-            leli[ii], origin='lower',
-            norm=LogNorm(vmin=np.max((1e-5, leli.min())), vmax=leli.max()))
-
-    # PLOT lensed light
-    lsli = lensed_light(x)
-    ims[1, 0] = axes[1, 0].imshow(
-        (leli+lsli)[0], origin='lower',
-        norm=LogNorm(vmin=np.max((1e-5, (leli+lsli)[0].min())),
-                     vmax=(leli+lsli)[0].max()))
-    for ii, filter_name in enumerate(sky_model_keys):
-        axes[1, ii+1].set_title(f'Lensed light {filter_name}')
-        ims[1, ii+1] = axes[1, ii+1].imshow(
-            lsli[ii], origin='lower',
-            norm=LogNorm(vmin=np.max((1e-5, lsli.min())), vmax=lsli.max()))
-
-    # Plot lens light
-    ims[2, 0] = axes[2, 0].imshow(source_light_alpha(x), origin='lower')
-    slli = source_light_full(x)
-    for ii, filter_name in enumerate(sky_model_keys):
-        axes[2, ii+1].set_title(f'Lens light {filter_name}')
-        ims[2, ii+1] = axes[2, ii+1].imshow(
-            slli[ii], origin='lower',
-            vmin=slli.min(), vmax=slli.max())
-
-    for ax, im in zip(axes.flatten(), ims.flatten()):
-        if not isinstance(im, int):
-            fig.colorbar(im, ax=ax, shrink=0.7)
-    fig.tight_layout()
-    plt.show()
-
-data_plotting = {}
+data_dict = {}
 likelihoods = []
 kk = 0
 for fltname, flt in cfg['files']['filter'].items():
@@ -195,10 +140,16 @@ for fltname, flt in cfg['files']['filter'].items():
             data_mask=mask,
 
             world_extrema=reconstruction_grid.world_extrema(
-                ext=(psf_ext, psf_ext))
+                ext=(psf_ext, psf_ext)),
+
+            zero_flux=dict(
+                dkey=data_key,
+                zero_flux=dict(prior=('lognormal', 1, 3))
+            ),
+
         )
 
-        data_plotting[data_key] = dict(
+        data_dict[data_key] = dict(
             index=filter_projector.keys_and_index[flt],
             data=data,
             std=std,
@@ -212,6 +163,84 @@ for fltname, flt in cfg['files']['filter'].items():
         likelihood = likelihood.amend(
             data_model, domain=jft.Vector(data_model.domain))
         likelihoods.append(likelihood)
+
+
+for ii in range(1):
+
+    # import os
+    # opath = 'results/jwst_test/mf_f356w_f444w_lens_06'
+    # compsky = last_fn = os.path.join(opath, 'last.pkl')
+
+    key, test_key = random.split(random.PRNGKey(42+ii), 2)
+    x = jft.random_like(test_key, sky_model.domain)
+
+    _sky_model = lens_system.source_plane_model.light_model.nonparametric().model._sky_model
+    alpha = _sky_model.alpha_cf(x)
+    plaw = _sky_model.plaw(x)
+
+    sky_model_keys = sky_model_with_keys.target.keys()
+    lens_light_alpha, lens_light_full = (
+        lens_system.lens_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
+        lens_system.lens_plane_model.light_model)
+    source_light_alpha, source_light_full = (
+        lens_system.source_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
+        lens_system.source_plane_model.light_model)
+    lensed_light = lens_system.get_forward_model_parametric(only_source=True)
+
+    xlen = max(len(sky_model_keys) + 1, 3)
+    fig, axes = plt.subplots(
+        3 + len(keys_and_colors.keys()), xlen, figsize=(3*xlen, 8), dpi=300)
+    ims = np.zeros_like(axes)
+
+    # Plot lens light
+    ims[0, 0] = axes[0, 0].imshow(lens_light_alpha(x), origin='lower')
+    leli = lens_light_full(x)
+    for ii, filter_name in enumerate(sky_model_keys):
+        axes[0, ii+1].set_title(f'Lens light {filter_name}')
+        ims[0, ii+1] = axes[0, ii+1].imshow(
+            leli[ii], origin='lower',
+            norm=LogNorm(vmin=np.max((1e-5, leli.min())), vmax=leli.max()))
+
+    # PLOT lensed light
+    lsli = lensed_light(x)
+    ims[1, 0] = axes[1, 0].imshow(
+        (leli+lsli)[0], origin='lower',
+        norm=LogNorm(vmin=np.max((1e-5, (leli+lsli)[0].min())),
+                     vmax=(leli+lsli)[0].max()))
+    for ii, filter_name in enumerate(sky_model_keys):
+        axes[1, ii+1].set_title(f'Lensed light {filter_name}')
+        ims[1, ii+1] = axes[1, ii+1].imshow(
+            lsli[ii], origin='lower',
+            norm=LogNorm(vmin=np.max((1e-5, lsli.min())), vmax=lsli.max()))
+
+    # Plot lens light
+    ims[2, 0] = axes[2, 0].imshow(source_light_alpha(x), origin='lower')
+    slli = source_light_full(x)
+    for ii, filter_name in enumerate(sky_model_keys):
+        axes[2, ii+1].set_title(f'Source light {filter_name}')
+        ims[2, ii+1] = axes[2, ii+1].imshow(
+            slli[ii], origin='lower',
+            vmin=slli.min(), vmax=slli.max())
+
+    all_light = leli + lsli
+    color_indices = []
+    for jj, (key, valdict) in enumerate(data_dict.items()):
+        if valdict['index'] in color_indices:
+            continue
+        color_indices.append(valdict['index'])
+
+        data, std, data_model = (
+            valdict['data'], valdict['std'], valdict['data_model'])
+        rs = data_model(all_light)
+        axes[jj+3, 0].imshow(data, origin='lower')
+        axes[jj+3, 1].imshow(rs, origin='lower')
+        axes[jj+3, 2].imshow((data-rs)/std, origin='lower', cmap='RdBu_r')
+
+    for ax, im in zip(axes.flatten(), ims.flatten()):
+        if not isinstance(im, int):
+            fig.colorbar(im, ax=ax, shrink=0.7)
+    fig.tight_layout()
+    plt.show()
 
 
 model = sky_model_with_keys
@@ -235,7 +264,7 @@ plot_sky = build_plot_lens_light(
     )
 )
 residual_plot = build_plot(
-    data_dict=data_plotting,
+    data_dict=data_dict,
     sky_model_with_key=sky_model_with_keys,
     sky_model=sky_model,
     small_sky_model=lens_system.source_plane_model.light_model,
@@ -256,7 +285,7 @@ def plot_new(samples, state):
 key = random.PRNGKey(87)
 key, rec_key = random.split(key, 2)
 
-cfg_mini = ju.get_config('demos/lens_config.yaml')["minimization"]
+cfg_mini = ju.get_config('demos/jwst_lens_config.yaml')["minimization"]
 key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))

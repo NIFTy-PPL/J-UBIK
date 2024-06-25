@@ -8,7 +8,8 @@ grid:
     dec: -47.86462563973049
     unit: deg
     frame: icrs
-    rotation: -25
+    # rotation: -25
+    rotation: -115
 
   sdim: 256
   edim: 2
@@ -16,8 +17,6 @@ grid:
   e_padding_ratio: 1.5
 
   e_keys: [f444w, f356w]
-  # f356w [
-  # f444w [3.881ym, 4.982ym]
 
   energy_bin:
     e_min:
@@ -41,7 +40,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_lens_04'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_lens_06'
 
   filter:
     # f115w: # NIRCam
@@ -185,13 +184,13 @@ lensing:
                 e_keys: [f444w, f356w]
               energy_bin:
                 e_min:
-                - 0.249  # eV
-                - 0.311
-                e_max:
-                - 0.311
-                - 0.395
-                e_ref:
-                - 0.311
+                - 0.249  # 0.0488 @ z=4.1 (eV)
+                - 0.311  # 0.0609 
+                e_max:                    
+                - 0.311  # 0.0609
+                - 0.395  # 0.0775
+                e_ref:                    
+                - 0.311  # 0.0609
 
               priors:
                   diffuse:
@@ -227,7 +226,7 @@ lensing:
                           - 0.5
                           - 0.05
                         loglogavgslope:
-                          - -2.5
+                          - -4.5
                           - 0.5
                         flexibility:
                           - 0.5
@@ -279,15 +278,15 @@ lensing:
               e_padding_ratio: 1.5
               e_keys: [f444w, f356w]
 
-            energy_bin:
+            energy_bin: # eV
               e_min:
-              - 0.249  # eV
-              - 0.311
+              - 0.249 
+              - 0.311 
               e_max:
-              - 0.311
-              - 0.395
+              - 0.311 
+              - 0.395 
               e_ref:
-              - 0.311
+              - 0.311 
 
             priors:
                 diffuse:
@@ -323,7 +322,7 @@ lensing:
                         - 0.5
                         - 0.05
                       loglogavgslope:
-                        - -2.5
+                        - -4.5
                         - 0.5
                       flexibility:
                         - 0.5
@@ -400,8 +399,8 @@ lensing:
 
 minimization:
     key: 28
-    resume: False
-    n_total_iterations: 15
+    resume: True
+    n_total_iterations: 30
 
     samples: # nonlinear_sample # linear, nonlinear
       switches: [0, 5, 9]
@@ -411,11 +410,11 @@ minimization:
       # "nonlinear_sample",
       # "nonlinear_resample",
       # "nonlinear_update",
-      mode: [linear_resample, nonlinear_update]
-      n_samples: [5, 6, 10]
+      mode: [linear_resample, nonlinear_resample]
+      n_samples: [5, 6]
 
-      lin_deltaE: [0.1, 0.001] # , 0.00001]
-      lin_maxiter: [50, 100] # , 200]
+      lin_deltaE: [0.1, 0.001, 0.00001]
+      lin_maxiter: [50, 100 , 200]
       lin_convergence_level: 2
 
       nonlin_deltaE: [0.1, 0.01]

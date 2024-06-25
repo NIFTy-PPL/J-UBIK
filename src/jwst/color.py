@@ -35,6 +35,9 @@ class Color(u.Quantity):
         self.frequency = (energy / const.h).to(u.Hz)
         self.wavelength = (const.c / self.frequency).to(u.m)
 
+    def redshift(self, z: float):
+        return Color((1+z)*self.wavelength)
+
     def __repr__(self):
         return f'Color: {self.energy}'
 

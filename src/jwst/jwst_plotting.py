@@ -328,6 +328,7 @@ def build_plot_lens_light(
         # Plot lens light
         ims[0, 0] = axes[0, 0].imshow(
             jft.mean([lens_light_alpha(si) for si in samples]), origin='lower')
+        axes[0, 0].set_title("Lens light alpha")
         leli = jft.mean([lens_light_full(si) for si in samples])
         for ii, filter_name in enumerate(sky_model_keys):
             axes[0, ii+1].set_title(f'Lens light {filter_name}')
@@ -341,6 +342,7 @@ def build_plot_lens_light(
             (leli+lsli)[0], origin='lower',
             norm=norm_lens(vmin=np.max((1e-5, (leli+lsli)[0].min())),
                            vmax=(leli+lsli)[0].max()))
+        axes[1, 0].set_title("Ls + lens")
         for ii, filter_name in enumerate(sky_model_keys):
             axes[1, ii+1].set_title(f'Lensed light {filter_name}')
             ims[1, ii+1] = axes[1, ii+1].imshow(
@@ -351,6 +353,7 @@ def build_plot_lens_light(
         ims[2, 0] = axes[2, 0].imshow(
             jft.mean([source_light_alpha(si) for si in samples]),
             origin='lower')
+        axes[2, 0].set_title("Alpha source")
         slli = jft.mean([source_light_full(si) for si in samples])
         for ii, filter_name in enumerate(sky_model_keys):
             axes[2, ii+1].set_title(f'Source light {filter_name}')

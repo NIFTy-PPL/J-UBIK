@@ -44,7 +44,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/cm_f277w_f356w_f444w_10_plawdiffkey'
+  res_dir: 'results/jwst_test/cm_f277w_f356w_f444w_13_cmfixed_diffkey2'
 
   filter:
     # f115w: # NIRCam
@@ -146,9 +146,10 @@ priors:
         # harmonic_type: "Fourier"
       prefix: diffuse_spatial_
 
-    # colormix:
-    #   diagonal_prior: ['lognormal', 1.2, 0.2]
-    #   off_diagonal_prior: ['normal', 0.6, 0.3]
+    colormix:
+      # diagonal_prior: ['lognormal', 1.2, 0.2]
+      diagonal_prior: ['delta', 1.0, 0.2]
+      off_diagonal_prior: ['normal', 0.6, 0.3]
 
     plaw:
       offset:
@@ -175,9 +176,9 @@ priors:
 
 
 minimization:
-    key: 49
+    key: 12011990
     resume: False
-    n_total_iterations: 15
+    n_total_iterations: 20
 
     samples: # nonlinear_sample # linear, nonlinear
       switches: [0, 3, 9]

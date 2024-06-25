@@ -16,7 +16,7 @@ from jubik0.library.likelihood import (
 from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
 from jubik0.jwst.config_handler import build_reconstruction_grid_from_config
-from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
+from jubik0.jwst.wcs import subsample_grid_centers_in_index_grid
 from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import build_plot
 from jubik0.jwst.filter_projector import FilterProjector
@@ -179,10 +179,13 @@ for fltname, flt_dct in cfg['files']['filter'].items():
             world_extrema=reconstruction_grid.world_extrema(
                 ext=(psf_ext, psf_ext)),
 
+            # FIXME: The PRIOR needs to be set elsewhere
             zero_flux=dict(
                 dkey=data_key,
                 zero_flux=dict(prior=('lognormal', 1, 3))
-            ))
+            ),
+
+        )
 
         data_plotting[data_key] = dict(
             index=filter_projector.keys_and_index[ekey],
