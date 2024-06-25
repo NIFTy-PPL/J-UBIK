@@ -175,27 +175,34 @@ priors:
 #          - 1.0e-4
 
 minimization:
-  resume: False
-  n_total_iterations: 15
-  n_samples: 4
-  delta: 1.e-5
-  draw_linear_kwargs:
-    cg_name : lin sampling
-    cg_kwargs:
-#      absdelta: 1.e-4 # either delta or absdelta needs to be set
-      maxiter: 60
-  nonlinearly_update_kwargs:
-    minimize_kwargs:
-      name: nonlin sampling
-#      xtol: 2.e-4
-      cg_kwargs:
-        name: null
-      maxiter: 25
-  kl_kwargs:
-    minimize_kwargs:
-      name: "M"
-#      absdelta: 1.e-6
-      maxiter: 10
-      cg_kwargs:
-        name: "MCG"
-  sample_mode: nonlinear_resample
+    resume: False
+    n_total_iterations: 15
+    delta:
+      switches: [0, 10]
+      values: [1.e-5, 1.e-6]
+
+    samples:
+      switches: [0, 10]
+      n_samples: [4, 5]
+      mode: [nonlinear_resample, nonlinear_update]
+      # Possible modes:
+      # - "linear_sample",
+      # - "linear_resample",
+      # - "nonlinear_sample",
+      # - "nonlinear_resample",
+      # - "nonlinear_update",
+
+      # LIN SAMPLING
+      # lin_absdelta: [Null, 1.e-4] # if set, delta is ignored
+      lin_maxiter: [60, 70]
+
+      # NONLIN SAMPLING
+      # nonlin_xtol: [Null, 0.1] # if set, delta is ignored
+      nonlin_maxiter: [25, 35]
+      # nonlin_cg_atol: [0.1, 0.01]
+      # nonlin_cg_maxiter: [20, 30]
+
+    kl_minimization:
+      switches: [0, 10]
+      # kl_absdelta: [Null, 1.e-6] # if set, delta is ignored
+      kl_maxiter: [10, 13]
