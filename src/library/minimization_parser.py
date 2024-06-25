@@ -1,6 +1,10 @@
 from typing import Callable, Union, Any, Optional
 import nifty8.re as jft
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 # CONFIGURATION CONSTANTS
 SWITCHES = 'switches'
 SAMPLES = 'samples'
@@ -109,55 +113,81 @@ def sample_mode_factory(mini_cfg: dict) -> Callable[[int], str]:
 
 
 def _delta_logic(
-    keyword: str,
-    delta: dict,
-    overwritten_value: Union[float, None],
-    iteration: int,
-    range_index: int,
-    ndof: Optional[int] = None
+        keyword: str,
+        delta: dict,
+        overwritten_value: Union[float, None],
+        iteration: int,
+        switches_index: int,
+        ndof: Optional[int] = None
 ) -> float:
-    '''keyword can be kl, linear, nonlinear'''
+    """
+    Calculates minimization config value if `delta` is in config.
+    If the minimization value is already set at the given iteration,
+    it will not be overwritten.
 
-    if delta is None and overwritten_value is None:
-        raise ValueError(
-            'Linear sample: Either delta or overwritten_value need to be set')
+    Parameters
+    ----------
+    keyword : str
+        Type of the delta logic ('kl', 'linear', 'nonlinear').
+    delta : dict
+        Configuration dictionary for delta values.
+    overwritten_value : Union[float, None]
+        Value to possibly be overwritten.
+    iteration : int
+        Current global iteration index.
+    switches_index : int
+        Index within the current `switches` range.
+    ndof : Optional[int]
+        Number of constrained degrees of freedom, required for
+        minimization parameter recalculation with `delta`.
 
-    elif overwritten_value is None:
-        delta_value = get_config_value(
-            DELTA_VALUE, delta, range_index, default=None)
+    Returns
+    -------
+    float
+        Possibly recalculated minimization parameter value.
 
-        msg = f'{keyword}: Either delta or overwritten_value need to be set'
+    Raises
+    ------
+    ValueError
+        If required values are not set or if an unknown keyword is used.
 
-        match keyword:
-            case 'kl':
-                if delta_value is None:
-                    raise ValueError(msg)
+    Examples
+    --------
+    >>> delta_config = {'delta': [0.1, 0.2, 0.3]}
+    >>> _delta_logic('kl', delta_config, None, 0, 0, 10)
+    1.0
+    >>> _delta_logic('linear', delta_config, None, 0, 0, 10)
+    0.1
+    >>> _delta_logic('nonlinear', delta_config, None, 0, 0, None)
+    0.1
+    """
 
-                return_value = delta_value * ndof
-                print(
-                    f'it {iteration}: kl absdelta set to {return_value}')
-                return return_value
-
-            case 'linear':
-                if delta_value is None:
-                    raise ValueError(msg)
-
-                return_value = delta_value * ndof / 10
-                print(
-                    f'it {iteration}: linear absdelta set to {return_value}')
-                return return_value
-
-            case 'nonlinear':
-                if delta_value is None:
-                    raise ValueError(msg)
-
-                return_value = delta_value
-                print(
-                    f'it {iteration}: nonlinear xtol set to {return_value}')
-                return return_value
-
-    else:
+    if overwritten_value is not None:
         return overwritten_value
+
+    params = {
+        'kl': {'variable': 'absdelta', 'factor': ndof},
+        'linear': {'variable': 'absdelta', 'factor': ndof / 10},
+        'nonlinear': {'variable': 'xtol', 'factor': 1.0}
+    }
+
+    param = params.get(keyword)
+
+    if param is None:
+        raise ValueError(f"Unknown keyword: {keyword}.")
+
+    if delta is None:
+        raise ValueError(f'The {keyword} {param["variable"]} in iteration {iteration} '
+                         f'is not set. A `delta` must be set in the config.')
+
+    delta_value = get_config_value(DELTA_VALUE, delta, switches_index, default=None)
+
+    if delta_value is None:
+        raise ValueError(f'{keyword}: delta value must be set.')
+
+    return_value = delta_value * param['factor']
+    logging.info(f'it {iteration}: {keyword} {param["variable"]} set to {return_value}')
+    return return_value
 
 
 def linear_sample_kwargs_factory(
