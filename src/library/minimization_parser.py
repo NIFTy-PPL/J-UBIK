@@ -1,8 +1,6 @@
 from typing import Callable, Union, Any, Optional, Dict
 
-import logging
-
-logging.basicConfig(level=logging.INFO)
+import nifty8.re as jft
 
 # CONFIGURATION CONSTANTS
 SWITCHES = 'switches'
@@ -185,7 +183,7 @@ def _delta_logic(
 
     params = {
         'kl': {'variable': 'absdelta', 'factor': ndof},
-        'linear': {'variable': 'absdelta', 'factor': ndof / 10},
+        'linear': {'variable': 'absdelta', 'factor': ndof / 10 if ndof is not None else ndof},
         'nonlinear': {'variable': 'xtol', 'factor': 1.0}
     }
 
@@ -205,7 +203,7 @@ def _delta_logic(
 
     return_value = delta_value * param['factor']
     if verbose:
-        logging.info(f'it {iteration}: {keyword} {param["variable"]} set to {return_value}')
+        jft.logger.info(f'it {iteration}: {keyword} {param["variable"]} set to {return_value}')
     return return_value
 
 
@@ -359,7 +357,7 @@ def linear_sample_kwargs_factory(
     return linear_kwargs
 
 
-def nonlinear_update_kwargs_factory(
+def nonlinearly_update_kwargs_factory(
     mini_cfg: dict,
     delta: Optional[dict] = None,
     verbose: bool = True
@@ -387,7 +385,7 @@ def nonlinear_update_kwargs_factory(
         If the `xtol` for any iteration is not set.
     """
 
-    def nonlinear_update_kwargs(iteration: int) -> dict:
+    def nonlinearly_update_kwargs(iteration: int) -> dict:
         range_index = get_range_index(
             mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
 
@@ -432,12 +430,12 @@ def nonlinear_update_kwargs_factory(
                 )))
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        non_linear_samples_dict = nonlinear_update_kwargs(ii)
+        non_linear_samples_dict = nonlinearly_update_kwargs(ii)
         if non_linear_samples_dict['minimize_kwargs']['xtol'] is None:
             raise ValueError(
                 f"nonlinear xtol at iteration {ii} needs to be set.")
 
-    return nonlinear_update_kwargs
+    return nonlinearly_update_kwargs
 
 
 def kl_kwargs_factory(
@@ -534,7 +532,7 @@ class MinimizationParser:
         Function returning the sample mode for each iteration.
     draw_linear_kwargs : Callable[[int], dict]
         Function returning linear sample kwargs for each iteration.
-    nonlinear_update_kwargs : Callable[[int], dict]
+    nonlinearly_update_kwargs : Callable[[int], dict]
         Function returning nonlinear update kwargs for each iteration.
     kl_kwargs : Callable[[int], dict]
         Function returning KL minimization kwargs for each iteration.
@@ -552,6 +550,6 @@ class MinimizationParser:
         self.sample_mode = sample_mode_factory(config)
         self.draw_linear_kwargs = linear_sample_kwargs_factory(
             config, delta, ndof=n_dof, verbose=verbose)
-        self.nonlinear_update_kwargs = nonlinear_update_kwargs_factory(
+        self.nonlinearly_update_kwargs = nonlinearly_update_kwargs_factory(
             config, delta, verbose=verbose)
         self.kl_kwargs = kl_kwargs_factory(config, delta, ndof=n_dof, verbose=verbose)
