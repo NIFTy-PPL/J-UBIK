@@ -219,7 +219,6 @@ linear_kwargs = minimization_parser.linear_sample_kwargs_factory(cfg_mini)
 nonlin_kwargs = minimization_parser.nonlinear_sample_kwargs_factory(cfg_mini)
 kl_kwargs = minimization_parser.kl_kwargs_factory(cfg_mini)
 
-
 plot = build_plot(
     data_dict=data_plotting,
     sky_model_with_key=sky_model_with_keys,

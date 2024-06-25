@@ -40,7 +40,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_lens_06'
+  res_dir: 'results/jwst_test/mf_f356w_f444w_lens_07'
 
   filter:
     # f115w: # NIRCam
@@ -402,9 +402,15 @@ minimization:
     resume: True
     n_total_iterations: 30
 
+    delta:
+      switches: [0, 3, 5]
+      values: [1.e-3, 1.e-5, 1.e-9]
+
     samples: # nonlinear_sample # linear, nonlinear
       switches: [0, 5, 9]
-      name: [lin, nonlin]  # For logging
+
+      # name: [lin, nonlin]  # For logging
+
       # "linear_sample", 
       # "linear_resample",
       # "nonlinear_sample",
@@ -413,19 +419,15 @@ minimization:
       mode: [linear_resample, nonlinear_resample]
       n_samples: [5, 6]
 
-      lin_deltaE: [0.1, 0.001, 0.00001]
-      lin_maxiter: [50, 100 , 200]
-      lin_convergence_level: 2
+      # lin_absdelta: [Null, Null, 0.00001]
+      lin_maxiter: [50, 100, 200]
 
-      nonlin_deltaE: [0.1, 0.01]
+      # nonlin_xtol: [Null, 0.1, 0.01]
       nonlin_maxiter: [7, 13]
-      nonlin_cg_deltaE: [0.1, 0.01]
-      nonlin_cg_maxiter: [20, 30]
-      nonlin_convergence_level: 2
+      # nonlin_cg_atol: [0.1, 0.01]
+      # nonlin_cg_maxiter: [20, 30]
 
-    kl_mini:
-      switches: [0, 3]
-      name: Newton
-      kl_convergence_level: 2
-      kl_deltaE: [0.01, 0.0001]
+    kl_minimization:
+      switches: [0, 3, 7]
+      # kl_absdelta: [Null, 0.01, 0.0001]
       kl_maxiter: [7, 15]

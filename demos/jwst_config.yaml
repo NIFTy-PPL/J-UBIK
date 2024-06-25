@@ -180,30 +180,32 @@ minimization:
     resume: False
     n_total_iterations: 20
 
+    delta: 
+      switches: [0, 3, 9, 12]
+      values: [0.1, 2, 3, 120]
+
     samples: # nonlinear_sample # linear, nonlinear
-      switches: [0, 3, 9]
-      name: [lin, nonlin]  # For logging
+      switches: [0, 3, 9, 11]
       # "linear_sample", 
       # "linear_resample",
       # "nonlinear_sample",
       # "nonlinear_resample",
       # "nonlinear_update",
+
       mode: [linear_resample, nonlinear_resample, nonlinear_update]
       n_samples: [5, 6, 10]
 
-      lin_absdelta: [0.1, 0.001] # , 0.00001]
+      lin_absdelta: [Null, 0.1, 0.001] # , 0.00001]
       lin_maxiter: [50, 100] # , 200]
-      lin_convergence_level: 2
 
-      nonlin_deltaE: [0.1, 0.01]
-      nonlin_maxiter: [7, 13]
-      nonlin_cg_deltaE: [0.1, 0.001]
-      nonlin_cg_maxiter: [20, 30]
-      nonlin_convergence_level: 2
+      # nonlin_xtol: [0.1, 0.01]
+      # nonlin_maxiter: [7, 13]
+      # nonlin_cg_absdelta: [0.1, 0.001]
+      # nonlin_cg_xtol: 1.0e-5
+      # nonlin_cg_maxiter: [20, 30]
 
-    kl_mini:
+    kl_minimization:
       switches: [0, 3]
       name: Newton
-      kl_convergence_level: 2
-      kl_deltaE: [0.01, 0.0001]
+      kl_absdelta: [0.01, 0.0001]
       kl_maxiter: [7, 15]

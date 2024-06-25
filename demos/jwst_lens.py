@@ -165,7 +165,7 @@ for fltname, flt in cfg['files']['filter'].items():
         likelihoods.append(likelihood)
 
 
-for ii in range(1):
+for ii in range(0):
 
     # import os
     # opath = 'results/jwst_test/mf_f356w_f444w_lens_06'
@@ -222,19 +222,30 @@ for ii in range(1):
             slli[ii], origin='lower',
             vmin=slli.min(), vmax=slli.max())
 
-    all_light = leli + lsli
+    flight = filter_projector(leli + lsli)
+
     color_indices = []
-    for jj, (key, valdict) in enumerate(data_dict.items()):
+    jj = 0
+    for (dkey, valdict) in data_dict.items():
         if valdict['index'] in color_indices:
             continue
         color_indices.append(valdict['index'])
+        print(dkey, jj)
 
-        data, std, data_model = (
-            valdict['data'], valdict['std'], valdict['data_model'])
-        rs = data_model(all_light)
-        axes[jj+3, 0].imshow(data, origin='lower')
-        axes[jj+3, 1].imshow(rs, origin='lower')
+        data, std, mask, data_model = (
+            valdict['data'], valdict['std'], valdict['mask'], valdict['data_model'])
+
+        latent_position = jft.random_like(test_key, data_model.domain)
+        for ckey, cval in flight.items():
+            latent_position[ckey] = cval
+        rs = np.zeros(mask.shape)
+        rs[mask] = data_model(latent_position)
+
+        axes[jj+3, 0].imshow(data, origin='lower', norm=LogNorm())
+        axes[jj+3, 1].imshow(rs, origin='lower', norm=LogNorm())
         axes[jj+3, 2].imshow((data-rs)/std, origin='lower', cmap='RdBu_r')
+
+        jj += 1
 
     for ax, im in zip(axes.flatten(), ims.flatten()):
         if not isinstance(im, int):
@@ -290,11 +301,15 @@ key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
-n_samples = minimization_parser.n_samples_factory(cfg_mini)
-mode_samples = minimization_parser.sample_type_factory(cfg_mini)
-linear_kwargs = minimization_parser.linear_sample_kwargs_factory(cfg_mini)
-nonlin_kwargs = minimization_parser.nonlinear_sample_kwargs_factory(cfg_mini)
-kl_kwargs = minimization_parser.kl_kwargs_factory(cfg_mini)
+
+ndof = ju.calculate_constrained_ndof(likelihood)
+minpars = ju.MinimizationParser(cfg_mini, ndof)
+
+# n_samples = minimization_parser.n_samples_factory(cfg_mini)
+# mode_samples = minimization_parser.sample_type_factory(cfg_mini)
+# linear_kwargs = minimization_parser.linear_sample_kwargs_factory(cfg_mini)
+# nonlin_kwargs = minimization_parser.nonlinear_sample_kwargs_factory(cfg_mini)
+# kl_kwargs = minimization_parser.kl_kwargs_factory(cfg_mini)
 
 # minimization_config = cfg_mini['minimization']
 # kl_solver_kwargs = minimization_config.pop('kl_kwargs')
@@ -311,10 +326,10 @@ samples, state = jft.optimize_kl(
     odir=RES_DIR,
 
     n_total_iterations=cfg_mini['n_total_iterations'],
-    n_samples=n_samples,
-    sample_mode=mode_samples,
-    draw_linear_kwargs=linear_kwargs,
-    nonlinearly_update_kwargs=nonlin_kwargs,
-    kl_kwargs=kl_kwargs,
+    n_samples=minpars.n_samples,
+    sample_mode=minpars.sample_mode,
+    draw_linear_kwargs=minpars.draw_linear_kwargs,
+    nonlinearly_update_kwargs=minpars.nonlinear_update_kwargs,
+    kl_kwargs=minpars.kl_kwargs,
     resume=cfg_mini.get('resume', False),
 )
