@@ -18,7 +18,7 @@ from .library.plot import (plot_slices, plot_result,
 from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_sample_and_stats,
                                  plot_sample_and_stats, plot_erosita_priors)
 from .library.mf_plot import plot_rgb
-                                 
+
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
@@ -46,3 +46,5 @@ from .operators.jifty_convolution_operators import (_bilinear_weights,
 from .operators.zero_padder import MarginZeroPadder
 from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
+
+from .library.minimization_parser import MinimizationParser, calculate_constrained_ndof
