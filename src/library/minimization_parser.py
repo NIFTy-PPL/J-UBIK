@@ -11,7 +11,8 @@ N_SAMPLES = 'n_samples'
 N_TOTAL_ITERATIONS = 'n_total_iterations'
 MODE = 'mode'
 DELTA = 'delta'
-LINKEY = 'lin'
+LIN = 'lin'
+LIN_NAME = 'lin sampling'
 ABSDELTA = 'absdelta'
 MINITER = 'miniter'
 MAXITER = 'maxiter'
@@ -19,6 +20,7 @@ DELTA_VALUE = 'values'
 ATOL = 'atol'
 XTOL = 'xtol'
 NONLIN = 'nonlin'
+NONLIN_NAME = 'nonlin sampling'
 NONLIN_CG = 'nonlin_cg'
 KL_MINI = 'kl_minimization'
 KL = 'kl'
@@ -330,9 +332,9 @@ def linear_sample_kwargs_factory(
         range_index = get_range_index(
             mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
 
-        absdelta_name = f'{LINKEY}_{ABSDELTA}'
-        miniter_name = f'{LINKEY}_{MINITER}'
-        maxiter_name = f'{LINKEY}_{MAXITER}'
+        absdelta_name = f'{LIN}_{ABSDELTA}'
+        miniter_name = f'{LIN}_{MINITER}'
+        maxiter_name = f'{LIN}_{MAXITER}'
 
         minit = get_config_value(
             miniter_name, mini_cfg[SAMPLES], range_index, default=None)
@@ -345,7 +347,7 @@ def linear_sample_kwargs_factory(
             'linear', delta, absdelta, iteration, range_index, ndof, verbose)
 
         return dict(
-            cg_name=f'Lin: {absdelta}',
+            cg_name=LIN_NAME,
             cg_kwargs=dict(absdelta=absdelta, miniter=minit, maxiter=maxit))
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
@@ -415,16 +417,14 @@ def nonlinear_update_kwargs_factory(
         cg_maxit = get_config_value(
             cg_maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
 
-        nl_name = f'{NONLIN}'
-        cg_name = f'{NONLIN_CG}'
         return dict(
             minimize_kwargs=dict(
-                name=nl_name,
+                name=NONLIN_NAME,
                 xtol=xtol,
                 miniter=minit,
                 maxiter=maxit,
                 cg_kwargs=dict(
-                    name=cg_name,
+                    name=NONLIN_CG,
                     absdelta=cg_delta,
                     atol=cg_atol,
                     miniter=cg_minit,
@@ -492,7 +492,7 @@ def kl_kwargs_factory(
 
         return dict(
             minimize_kwargs=dict(
-                name=f'{KL}',
+                name=KL,
                 absdelta=absdelta,
                 miniter=minit,
                 maxiter=maxit,
