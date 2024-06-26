@@ -118,6 +118,8 @@ def get_range_index(
     """
 
     switches = mini_cfg.get(SWITCHES, [0])
+    if switches is None:
+        switches = [0]
     switches = switches + [total_iterations]
 
     for i in range(len(switches)-1):
