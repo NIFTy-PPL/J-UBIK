@@ -9,6 +9,7 @@ from os.path import join
 from warnings import warn
 
 import nifty8 as ift
+import nifty8.re as jft
 import numpy as np
 import scipy
 
@@ -1371,3 +1372,24 @@ def safe_config_update(key: str, new_value, config: dict, verbose: bool = True) 
         return config
     raise ValueError(f"Either '{key}' must be set in the config file "
                      f"or a new value must be provided!")
+
+
+def calculate_n_constrained_dof(likelihood: jft.Likelihood) -> int:
+    """
+    Calculates the number of constrained degrees of freedom (DOF) based on the likelihood.
+
+    Parameters
+    ----------
+    likelihood : jft.Likelihood
+        The likelihood object which contains information about the model and data.
+
+    Returns
+    -------
+    int
+        The number of constrained degrees of freedom, which is the minimum of the
+        model degrees of freedom and the data degrees of freedom.
+    """
+
+    n_dof_data = jft.size(likelihood.left_sqrt_metric_tangents_shape)
+    n_dof_model = jft.size(likelihood.domain)
+    return min(n_dof_model, n_dof_data)
