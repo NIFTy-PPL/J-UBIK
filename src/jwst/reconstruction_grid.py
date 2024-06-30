@@ -99,10 +99,10 @@ class Grid:
         return self.wcs.wl_from_index([indices])[0]
 
     def rel_coords(
-            self,
-            extend_factor=1,
-            unit=units.arcsec,
-            to_bottom_left=True
+        self,
+        extend_factor=1,
+        unit=units.arcsec,
+        to_bottom_left=True
     ) -> ArrayLike:
         wl_coords = self.wl_coords(
             extend_factor, to_bottom_left=to_bottom_left)

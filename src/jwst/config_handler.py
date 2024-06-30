@@ -1,11 +1,18 @@
-from astropy.coordinates import SkyCoord
-from astropy import units
-from .reconstruction_grid import Grid
-
 from typing import Tuple
 
+import nifty8.re as jft
+import jax.numpy as jnp
 
-def define_world_location(config: dict) -> SkyCoord:
+from astropy.coordinates import SkyCoord
+from astropy import units
+
+from .reconstruction_grid import Grid
+from ..library.sky_models import SkyModel
+from ..library.sky_colormix import (
+    build_colormix_components, prior_samples_colormix_components)
+
+
+def _get_world_location(config: dict) -> SkyCoord:
     ra = config['grid']['pointing']['ra']
     dec = config['grid']['pointing']['dec']
     frame = config['grid']['pointing'].get('frame', 'icrs')
@@ -13,29 +20,73 @@ def define_world_location(config: dict) -> SkyCoord:
     return SkyCoord(ra=ra*unit, dec=dec*unit, frame=frame)
 
 
-def get_shape(config: dict) -> Tuple[int, int]:
+def _get_shape(config: dict) -> Tuple[int, int]:
     npix = config['grid']['sdim']
     return (npix, npix)
 
 
-def get_fov(config: dict) -> Tuple[units.Quantity, units.Quantity]:
+def _get_fov(config: dict) -> Tuple[units.Quantity, units.Quantity]:
     fov = config['grid']['fov']
     unit = getattr(units, config['grid'].get('fov_unit', 'arcsec'))
     return fov*unit
 
 
-def get_rotation(config: dict) -> units.Quantity:
+def _get_rotation(config: dict) -> units.Quantity:
     rotation = config['grid']['pointing']['rotation']
     unit = getattr(units, config['grid']['pointing'].get('unit', 'deg'))
     return rotation*unit
 
 
 def build_reconstruction_grid_from_config(config: dict) -> Grid:
-    wl = define_world_location(config)
-    fov = get_fov(config)
-    shape = get_shape(config)
-    rotation = get_rotation(config)
+    wl = _get_world_location(config)
+    fov = _get_fov(config)
+    shape = _get_shape(config)
+    rotation = _get_rotation(config)
     return Grid(wl, shape, (fov.to(units.deg), fov.to(units.deg)), rotation=rotation)
+
+
+def build_sky_model_from_config(
+        config: dict, reconstruction_grid: Grid, plot=False) -> jft.Model:
+
+    if config['priors']['diffuse'].get('colormix'):
+        from copy import deepcopy
+        energy_bins = config['grid'].get('edim')
+
+        energy_cfg = config['grid'].get('energy_bin')
+        diffuse_priors = config['priors']['diffuse']
+
+        components_prior_config = {
+            f'k{ii}': deepcopy(diffuse_priors['spatial']) for ii in range(energy_bins)}
+
+        components_config = dict(
+            shape=reconstruction_grid.shape,
+            distances=[
+                d.to(units.arcsec).value for d in reconstruction_grid.distances],
+            s_padding_ratio=config['grid'].get('s_padding_ratio', 1.0),
+            prior=components_prior_config,
+        )
+
+        small_sky_model = sky_model = build_colormix_components(
+            'sky',
+            colormix_config=diffuse_priors['colormix'],
+            components_config=components_config)
+
+        def alpha(x):
+            return jnp.ones((10, 10))
+
+        if plot:
+            prior_samples_colormix_components(sky_model, 4)
+
+    else:
+        sky_model_new = SkyModel(config_file_path=config)
+        small_sky_model = sky_model_new.create_sky_model(
+            fov=config['grid']['fov'])
+        sky_model = sky_model_new.full_diffuse
+        energy_cfg = sky_model_new.config['grid']['energy_bin']
+
+        alpha = sky_model_new.alpha_cf
+
+    return small_sky_model, sky_model, alpha, energy_cfg
 
 
 def config_transform(config: dict):

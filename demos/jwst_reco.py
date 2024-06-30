@@ -15,7 +15,8 @@ from jubik0.library.likelihood import (
     connect_likelihood_to_model, build_gaussian_likelihood)
 from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
-from jubik0.jwst.config_handler import build_reconstruction_grid_from_config
+from jubik0.jwst.config_handler import (
+    build_reconstruction_grid_from_config, build_sky_model_from_config)
 from jubik0.jwst.wcs import subsample_grid_centers_in_index_grid
 from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import build_plot
@@ -35,6 +36,7 @@ if False:
 
 config_path = './demos/jwst_config.yaml'
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
+
 RES_DIR = cfg['files']['res_dir']
 os.makedirs(RES_DIR, exist_ok=True)
 ju.save_local_packages_hashes_to_txt(
@@ -45,42 +47,8 @@ ju.save_local_packages_hashes_to_txt(
 DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
-
-if cfg['priors']['diffuse'].get('colormix'):
-    from copy import deepcopy
-    energy_bins = cfg['grid'].get('edim')
-
-    energy_cfg = cfg['grid'].get('energy_bin')
-    diffuse_priors = cfg['priors']['diffuse']
-
-    components_prior_config = {
-        f'k{ii}': deepcopy(diffuse_priors['spatial']) for ii in range(energy_bins)}
-
-    components_config = dict(
-        shape=reconstruction_grid.shape,
-        distances=[
-            d.to(u.arcsec).value for d in reconstruction_grid.distances],
-        s_padding_ratio=cfg['grid'].get('s_padding_ratio', 1.0),
-        prior=components_prior_config,
-    )
-
-    small_sky_model = sky_model = ju.build_colormix_components(
-        'sky',
-        colormix_config=diffuse_priors['colormix'],
-        components_config=components_config)
-
-    def alpha(x):
-        return jnp.ones((10, 10))
-
-    ju.prior_samples_colormix_components(sky_model, 4)
-
-else:
-    sky_model_new = ju.SkyModel(config_file_path=config_path)
-    small_sky_model = sky_model_new.create_sky_model(fov=cfg['grid']['fov'])
-    sky_model = sky_model_new.full_diffuse
-    energy_cfg = sky_model_new.config['grid']['energy_bin']
-
-    alpha = sky_model_new.alpha_cf
+small_sky_model, sky_model, alpha, energy_cfg = build_sky_model_from_config(
+    cfg, reconstruction_grid)
 
 
 e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
