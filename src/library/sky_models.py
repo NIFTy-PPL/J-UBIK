@@ -57,14 +57,20 @@ class SkyModel:
         config_file_path : string
             Path to the config file
         """
-        if config_file_path is not None:
-            if not isinstance(config_file_path, str):
-                raise TypeError("The path to the config file needs to be a string")
+        if isinstance(config_file_path, str):
             if not config_file_path.endswith('.yaml') and not config_file_path.endswith('.yml'):
                 raise ValueError("The sky model parameters need to be saved in a .yaml or .yml "
                                  "file.")
-
             self.config = ju.get_config(config_file_path)
+
+        elif isinstance(config_file_path, dict):
+            self.config = config_file_path
+
+        elif config_file_path is not None:
+            if not isinstance(config_file_path, str):
+                raise TypeError(
+                    "The path to the config file needs to be a string")
+
         else:
             self.config = {}
         self.s_distances = None
