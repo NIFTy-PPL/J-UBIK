@@ -43,8 +43,6 @@ ju.save_local_packages_hashes_to_txt(
     ['nifty8', 'charm_lensing', 'jubik0'],
     join(RES_DIR, 'hashes.txt'))
 
-# FIXME: This needs to provided somewhere else
-DATA_DVOL = (0.13*u.arcsec**2).to(u.deg**2)
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 small_sky_model, sky_model, alpha, energy_cfg = build_sky_model_from_config(
@@ -126,7 +124,7 @@ for fltname, flt_dct in cfg['files']['filter'].items():
             subsample=cfg['telescope']['rotation_and_shift']['subsample'],
 
             rotation_and_shift_kwargs=dict(
-                data_dvol=DATA_DVOL,
+                data_dvol=jwst_data.dvol,
                 data_wcs=jwst_data.wcs,
                 data_model_type=cfg['telescope']['rotation_and_shift']['model'],
                 shift_and_rotation_correction=correction_model,
