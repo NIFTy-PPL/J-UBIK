@@ -53,6 +53,7 @@ def build_plot_sky_residuals(
     sky_model_with_key: jft.Model,
     small_sky_model: jft.Model,
     norm: callable,
+    sky_min: float = 5e-4,
 ):
 
     def sky_residuals(samples: jft.Samples, x: jft.OptimizeVIState):
@@ -93,6 +94,8 @@ def build_plot_sky_residuals(
             redchi_mean, redchi2_std = jft.mean_and_std(
                 [redchi2(dd[mask], m[mask], std[mask], dd[mask].size) for m in model_data])
 
+            residual = jft.mean([(dd - md)/std for md in model_data])
+
             max_d, min_d = np.nanmax(dd), np.nanmin(dd)
             min_d = np.max((min_d, 0.1))
             axes[ii, 1].set_title(f'Data {dkey}')
@@ -103,7 +106,7 @@ def build_plot_sky_residuals(
                 model_mean, origin='lower', norm=norm(vmin=min_d, vmax=max_d))
             axes[ii, 3].set_title('Data - Data model')
             ims[ii, 3] = axes[ii, 3].imshow(
-                (dd - model_mean)/std, origin='lower', vmin=-3, vmax=3, cmap='RdBu_r')
+                residual, origin='lower', vmin=-3, vmax=3, cmap='RdBu_r')
 
             data_model_text = '\n'.join(
                 (f'dx={sh_m[0]:.1e}+-{sh_s[0]:.1e}',
@@ -124,7 +127,7 @@ def build_plot_sky_residuals(
         # Calculate sky
         mean_small = jft.mean([small_sky_model(si) for si in samples])
         ma, mi = jft.max(mean_small), jft.min(mean_small)
-        ma, mi = np.max((1e-5, ma)), np.max((1e-5, mi))
+        ma, mi = np.max((sky_min, ma)), np.max((sky_min, mi))
 
         for ii, filter_name in enumerate(sky_model_with_key.target.keys()):
             axes[ii+1, 0].set_title(f'Sky {filter_name}')
