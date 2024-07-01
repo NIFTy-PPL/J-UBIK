@@ -189,7 +189,8 @@ class SkyModel:
         sdim = 2 * (sdim,)
         self.s_distances = fov / sdim[0]
         energy_range = np.array(e_max) - np.array(e_min)
-        self.e_distances = energy_range / edim # FIXME: add proper distances for irregular energy grid
+        # FIXME: add proper distances for irregular energy grid
+        self.e_distances = energy_range / edim
 
         if not isinstance(self.e_distances, float) and 'dev_corr' in priors['diffuse'].keys():
             raise ValueError('Grid distances in energy direction have to be regular and defined by'
@@ -242,6 +243,8 @@ class SkyModel:
         """
 
         cfm = jft.CorrelatedFieldMaker(prefix=prior_dict['prefix'])
+        if prior_dict['offset']['offset_std'] is None:
+            prior_dict['offset']['offset_std'] = lambda _: 1
         cfm.set_amplitude_total_offset(**prior_dict['offset'])
         cfm.add_fluctuations(shape, distances, **prior_dict['fluctuations'])
         cf = cfm.finalize()
@@ -387,11 +390,12 @@ class SkyModel:
 
         if 'plaw' in prior_dict:
             self.points_alpha = jft.NormalPrior(prior_dict['plaw']['mean'], prior_dict['plaw']['std'],
-                                               name=prior_dict['plaw']['name'],
-                                               shape=sdim, dtype=jnp.float64)
-            points_plaw = ju.build_power_law(self._log_rel_ebin_centers(), self.points_alpha)
+                                                name=prior_dict['plaw']['name'],
+                                                shape=sdim, dtype=jnp.float64)
+            points_plaw = ju.build_power_law(
+                self._log_rel_ebin_centers(), self.points_alpha)
             self.points_plaw = jft.Model(lambda x: points_plaw(x),
-                                    domain=points_plaw.domain)
+                                         domain=points_plaw.domain)
 
         if 'dev_corr' in prior_dict:
             points_dev_cf, self.points_dev_pspec = self._create_correlated_field(ext_e_shp,
@@ -405,10 +409,10 @@ class SkyModel:
                                                         **prior_dict['dev_wp'])
 
             points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
-                                                sdim, False)
+                                           sdim, False)
 
             self.points_dev_cf = jft.Model(lambda x: points_dev_cf(x),
-                                      domain=points_dev_cf.domain)
+                                           domain=points_dev_cf.domain)
 
         log_points = ju.GeneralModel({'spatial': self.points_log_invg,
                                       'freq_plaw': self.points_plaw,

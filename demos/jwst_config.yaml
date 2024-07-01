@@ -183,6 +183,7 @@ priors:
 
 
 minimization:
+    key: 28
     resume: True
     n_total_iterations: 15
     delta:

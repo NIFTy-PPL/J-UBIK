@@ -25,7 +25,6 @@ from jubik0.jwst.filter_projector import FilterProjector
 
 from jubik0.jwst.color import Color, ColorRange
 
-from charm_lensing import minimization_parser
 
 import os
 from os.path import join
@@ -172,7 +171,6 @@ cfg_mini = ju.get_config('demos/jwst_config.yaml')["minimization"]
 key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
-
 
 n_dof = ju.calculate_n_constrained_dof(likelihood)
 minpars = ju.MinimizationParser(cfg_mini, n_dof)

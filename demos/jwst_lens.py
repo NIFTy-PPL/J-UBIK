@@ -1,4 +1,4 @@
-if True:
+if False:
     from jax import config, devices
     config.update('jax_default_device', devices('cpu')[0])
 
@@ -19,7 +19,9 @@ from jubik0.library.likelihood import (
     connect_likelihood_to_model, build_gaussian_likelihood)
 from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
-from jubik0.jwst.config_handler import build_reconstruction_grid_from_config
+from jubik0.jwst.config_handler import (
+    build_reconstruction_grid_from_config,
+    build_coordinates_correction_prior_from_config)
 from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import build_plot, build_plot_lens_light
@@ -27,11 +29,9 @@ from jubik0.jwst.filter_projector import FilterProjector
 
 from jubik0.jwst.color import Color, ColorRange
 
-from charm_lensing import minimization_parser
 from charm_lensing import build_lens_system
 
 from sys import exit
-
 
 config_path = './demos/jwst_lens_config.yaml'
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
@@ -72,29 +72,6 @@ for fltname, flt in cfg['files']['filter'].items():
 
         data_key = f'{fltname}_{ii}'
 
-        # FIXME: This can also be handled by passing a delta for the priors
-        # of the shift, and rotation
-        # FIXME: The creation of the correction_model should be moved in the
-        # build_rotation_and_shift_model inside build_data_model.
-        # This will remove the coords partial over-write inside the
-        # build_rotation_and_shift_model. Once this is done only the prior for
-        # the rotation and shift correction will be passed to the
-        # shift_and_rotation kwargs dictionary.
-        if kk == 0:
-            correction_model = None
-        else:
-            from jubik0.jwst.rotation_and_shift.coordinates_correction import build_coordinates_correction_model_from_grid
-            correction_model = build_coordinates_correction_model_from_grid(
-                domain_key=data_key + '_correction',
-                priors=dict(
-                    shift=('normal', 0, 1.0e-1),
-                    rotation=('normal', 0, (1.0e-1*u.deg).to(u.rad).value)),
-                data_wcs=jwst_data.wcs,
-                reconstruction_grid=reconstruction_grid,
-            )
-
-        kk += 1
-
         psf_ext = int(cfg['telescope']['psf']['psf_pixels'] // 2)
         # define a mask
         data_centers = np.squeeze(subsample_grid_centers_in_index_grid(
@@ -124,7 +101,11 @@ for fltname, flt in cfg['files']['filter'].items():
                 data_dvol=DATA_DVOL,
                 data_wcs=jwst_data.wcs,
                 data_model_type=cfg['telescope']['rotation_and_shift']['model'],
-                shift_and_rotation_correction=correction_model,
+                shift_and_rotation_correction=dict(
+                    domain_key=data_key + '_correction',
+                    priors=build_coordinates_correction_prior_from_config(
+                        kk, cfg),
+                )
             ),
 
             psf_kwargs=dict(
@@ -144,7 +125,7 @@ for fltname, flt in cfg['files']['filter'].items():
 
             zero_flux=dict(
                 dkey=data_key,
-                zero_flux=dict(prior=('lognormal', 1, 3))
+                zero_flux=dict(prior=cfg['telescope']['zero_flux']['prior']),
             ),
 
         )
@@ -155,7 +136,7 @@ for fltname, flt in cfg['files']['filter'].items():
             std=std,
             mask=mask,
             data_model=data_model,
-            correction_model=correction_model)
+        )
 
         likelihood = build_gaussian_likelihood(
             jnp.array(data[mask], dtype=float),
@@ -163,6 +144,8 @@ for fltname, flt in cfg['files']['filter'].items():
         likelihood = likelihood.amend(
             data_model, domain=jft.Vector(data_model.domain))
         likelihoods.append(likelihood)
+
+        kk += 1
 
 
 for ii in range(0):
@@ -174,22 +157,22 @@ for ii in range(0):
     key, test_key = random.split(random.PRNGKey(42+ii), 2)
     x = jft.random_like(test_key, sky_model.domain)
 
-    _sky_model = lens_system.source_plane_model.light_model.nonparametric().model._sky_model
+    _sky_model = lens_system.source_plane_model.light_model.nonparametric()._sky_model
     alpha = _sky_model.alpha_cf(x)
     plaw = _sky_model.plaw(x)
 
     sky_model_keys = sky_model_with_keys.target.keys()
     lens_light_alpha, lens_light_full = (
-        lens_system.lens_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
+        lens_system.lens_plane_model.light_model.nonparametric()._sky_model.alpha_cf,
         lens_system.lens_plane_model.light_model)
     source_light_alpha, source_light_full = (
-        lens_system.source_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
+        lens_system.source_plane_model.light_model.nonparametric()._sky_model.alpha_cf,
         lens_system.source_plane_model.light_model)
     lensed_light = lens_system.get_forward_model_parametric(only_source=True)
 
     xlen = max(len(sky_model_keys) + 1, 3)
     fig, axes = plt.subplots(
-        3 + len(keys_and_colors.keys()), xlen, figsize=(3*xlen, 8), dpi=300)
+        3 + len(keys_and_colors.keys()), xlen, figsize=(3*xlen*3, 8*3), dpi=300)
     ims = np.zeros_like(axes)
 
     # Plot lens light
@@ -244,6 +227,7 @@ for ii in range(0):
         axes[jj+3, 0].imshow(data, origin='lower', norm=LogNorm())
         axes[jj+3, 1].imshow(rs, origin='lower', norm=LogNorm())
         axes[jj+3, 2].imshow((data-rs)/std, origin='lower', cmap='RdBu_r')
+        axes[jj+3, 2].set_title('data-data_model')
 
         jj += 1
 
@@ -259,14 +243,18 @@ likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)
 
 
+tmp_alpha = lens_system.lens_plane_model.light_model.nonparametric()._sky_model.alpha_cf
+ll_shape = lens_system.lens_plane_model.space.shape
+ll_alpha = jft.Model(
+    lambda x: tmp_alpha(x)[:ll_shape[0], :ll_shape[1]],
+    domain=tmp_alpha.domain)
+
 plot_sky = build_plot_lens_light(
     results_directory=RES_DIR,
     sky_model_keys=sky_model_with_keys.target.keys(),
-    lens_light=(
-        lens_system.lens_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
-        lens_system.lens_plane_model.light_model),
+    lens_light=(ll_alpha, lens_system.lens_plane_model.light_model),
     source_light=(
-        lens_system.source_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
+        lens_system.source_plane_model.light_model.nonparametric()._sky_model.alpha_cf,
         lens_system.source_plane_model.light_model),
     lensed_light=lens_system.get_forward_model_parametric(only_source=True),
     plotting_config=dict(
@@ -278,9 +266,9 @@ residual_plot = build_plot(
     data_dict=data_dict,
     sky_model_with_key=sky_model_with_keys,
     sky_model=sky_model,
-    small_sky_model=lens_system.source_plane_model.light_model,
+    small_sky_model=lens_system.get_forward_model_parametric(),
     results_directory=RES_DIR,
-    alpha=lens_system.source_plane_model.light_model.nonparametric().model._sky_model.alpha_cf,
+    alpha=ll_alpha,
     plotting_config=dict(
         norm=LogNorm,
         sky_extent=None,
@@ -288,33 +276,18 @@ residual_plot = build_plot(
     ))
 
 
-def plot_new(samples, state):
+def plot(samples, state):
     plot_sky(samples, state)
     residual_plot(samples, state)
 
 
-key = random.PRNGKey(87)
-key, rec_key = random.split(key, 2)
-
 cfg_mini = ju.get_config('demos/jwst_lens_config.yaml')["minimization"]
+n_dof = ju.calculate_n_constrained_dof(likelihood)
+minpars = ju.MinimizationParser(cfg_mini, n_dof)
 key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
-
-n_dof = ju.calculate_n_constrained_dof(likelihood)
-minpars = ju.MinimizationParser(cfg_mini, n_dof)
-
-# n_samples = minimization_parser.n_samples_factory(cfg_mini)
-# mode_samples = minimization_parser.sample_type_factory(cfg_mini)
-# linear_kwargs = minimization_parser.linear_sample_kwargs_factory(cfg_mini)
-# nonlin_kwargs = minimization_parser.nonlinear_sample_kwargs_factory(cfg_mini)
-# kl_kwargs = minimization_parser.kl_kwargs_factory(cfg_mini)
-
-# minimization_config = cfg_mini['minimization']
-# kl_solver_kwargs = minimization_config.pop('kl_kwargs')
-# minimization_config['resume'] = True
-# minimization_config['n_samples'] = lambda it: 4 if it < 10 else 10
 
 print(f'Results: {RES_DIR}')
 samples, state = jft.optimize_kl(
@@ -322,7 +295,7 @@ samples, state = jft.optimize_kl(
     pos_init,
     key=rec_key,
 
-    callback=plot_new,
+    callback=plot,
     odir=RES_DIR,
 
     n_total_iterations=cfg_mini['n_total_iterations'],
