@@ -302,8 +302,8 @@ key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
 
-ndof = ju.calculate_constrained_ndof(likelihood)
-minpars = ju.MinimizationParser(cfg_mini, ndof)
+n_dof = ju.calculate_n_constrained_dof(likelihood)
+minpars = ju.MinimizationParser(cfg_mini, n_dof)
 
 # n_samples = minimization_parser.n_samples_factory(cfg_mini)
 # mode_samples = minimization_parser.sample_type_factory(cfg_mini)
@@ -329,7 +329,7 @@ samples, state = jft.optimize_kl(
     n_samples=minpars.n_samples,
     sample_mode=minpars.sample_mode,
     draw_linear_kwargs=minpars.draw_linear_kwargs,
-    nonlinearly_update_kwargs=minpars.nonlinear_update_kwargs,
+    nonlinearly_update_kwargs=minpars.nonlinearly_update_kwargs,
     kl_kwargs=minpars.kl_kwargs,
     resume=cfg_mini.get('resume', False),
 )

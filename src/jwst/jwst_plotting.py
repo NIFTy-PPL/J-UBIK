@@ -11,6 +11,7 @@ import nifty8.re as jft
 from jubik0.jwst.mock_data.mock_evaluation import redchi2
 from jubik0.jwst.mock_data.mock_plotting import display_text
 from jubik0.library.sky_colormix import ColorMixComponents
+from jubik0.jwst.rotation_and_shift.coordinates_correction import CoordinatesCorrection
 
 
 def find_closest_factors(number):
@@ -66,7 +67,7 @@ def build_plot_sky_residuals(
             dd = data['data']
             std = data['std']
             mask = data['mask']
-            cm = data['correction_model']
+            cm = dm.rotation_and_shift.correction_model
 
             model_data = []
             for si in samples:
@@ -78,7 +79,7 @@ def build_plot_sky_residuals(
                 tmp[mask] = dm(val)
                 model_data.append(tmp)
 
-            if cm is not None:
+            if isinstance(cm, CoordinatesCorrection):
                 sh_m, sh_s = jft.mean_and_std(
                     [cm.shift_prior(s) for s in samples])
                 ro_m, ro_s = jft.mean_and_std(

@@ -11,8 +11,8 @@ from typing import Tuple, Callable
 def build_nufft_rotation_and_shift(
     sky_dvol: ArrayLike,
     sub_dvol: ArrayLike,
-    subsample_centers: Callable[dict, ArrayLike],
     sky_shape: Tuple[int, int],
+    out_shape: Tuple[int, int],
     sky_as_brightness: bool = False
 ) -> Callable[ArrayLike, ArrayLike]:
     '''Building nuFFT interpolation model.
@@ -25,9 +25,6 @@ def build_nufft_rotation_and_shift(
     sub_dvol
         The volume of the subsample pixels.
         Typically the data pixel is subsampled
-
-    subsample_centers
-        A callable which returns the subsample_centers
 
     mask
         Mask of the data array
@@ -52,7 +49,7 @@ def build_nufft_rotation_and_shift(
 
     '''
 
-    out_shape = subsample_centers.shape[1:]
+    # out_shape = subsample_centers.shape[1:]
 
     # The conversion factor from sky to subpixel
     # (flux = sky_brightness * flux_conversion)
@@ -62,9 +59,9 @@ def build_nufft_rotation_and_shift(
 
     xy_conversion = 2 * pi / array(sky_shape)[:, None]
 
-    def rotate_shift_subsample(field, params):
+    def rotate_shift_subsample(field, subsample_centers):
         f_field = ifftshift(ifft2(field))
-        xy_finufft = xy_conversion * subsample_centers(params).reshape(2, -1)
+        xy_finufft = xy_conversion * subsample_centers.reshape(2, -1)
         out = nufft2(f_field, xy_finufft[0], xy_finufft[1]).real
         return reshape(out, out_shape) * flux_conversion
 

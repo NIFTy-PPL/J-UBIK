@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import nifty8.re as jft
 
 from jax.numpy import array
-from typing import Tuple
+from typing import Optional, Callable, Union
 from numpy.typing import ArrayLike
 
 from astropy import units as u
@@ -17,8 +17,9 @@ class CoordinatesCorrection(jft.Model):
         self,
         shift_prior: jft.Model,
         rotation_prior: jft.Model,
-        pix_distance: Tuple[float],
+        pix_distance: tuple[float],
         rotation_center: tuple[int, int],
+        coords: ArrayLike,
     ):
         '''Rotation correction according to:
         ri = si Rot(theta) (pi - r)
@@ -29,47 +30,45 @@ class CoordinatesCorrection(jft.Model):
         self.pix_distance = pix_distance
         self.shift_prior = shift_prior
         self.rotation_prior = rotation_prior
+        self._coords = coords
 
-        # FIXME: HACK, the target shape is actually prescribed by the coords.
-        # However, one does not necesserily know the coordinates shape upon
-        # shift model creation.
-        super().__init__(domain=rotation_prior.domain | shift_prior.domain,
-                         target=rotation_prior.target)
+        super().__init__(domain=rotation_prior.domain | shift_prior.domain)
 
-    def __call__(self, params: dict, coords: ArrayLike) -> ArrayLike:
+    def __call__(self, params: dict) -> ArrayLike:
         shft = self.shift_prior(params) / self.pix_distance
         theta = self.rotation_prior(params)
-        x = (jnp.cos(theta) * (coords[0]-self.rotation_center[0]) -
-             jnp.sin(theta) * (coords[1]-self.rotation_center[1])
+        x = (jnp.cos(theta) * (self._coords[0]-self.rotation_center[0]) -
+             jnp.sin(theta) * (self._coords[1]-self.rotation_center[1])
              ) + self.rotation_center[0] + shft[0]
 
-        y = (jnp.sin(theta) * (coords[0]-self.rotation_center[0]) +
-             jnp.cos(theta) * (coords[1]-self.rotation_center[1])
+        y = (jnp.sin(theta) * (self._coords[0]-self.rotation_center[0]) +
+             jnp.cos(theta) * (self._coords[1]-self.rotation_center[1])
              ) + self.rotation_center[1] + shft[1]
         return jnp.array((x, y))
 
-    def _rotation(self, params: dict, coords: ArrayLike) -> ArrayLike:
-        theta = self.rotation_prior(params)
-        x = (jnp.cos(theta) * (coords[0]-self.rotation_center[0]) -
-             jnp.sin(theta) * (coords[1]-self.rotation_center[1])
-             ) + self.rotation_center[0]
+    # def _rotation(self, params: dict) -> ArrayLike:
+    #     theta = self.rotation_prior(params)
+    #     x = (jnp.cos(theta) * (self._coords[0]-self.rotation_center[0]) -
+    #          jnp.sin(theta) * (self._coords[1]-self.rotation_center[1])
+    #          ) + self.rotation_center[0]
 
-        y = (jnp.sin(theta) * (coords[0]-self.rotation_center[0]) +
-             jnp.cos(theta) * (coords[1]-self.rotation_center[1])
-             ) + self.rotation_center[1]
-        return jnp.array((x, y))
+    #     y = (jnp.sin(theta) * (self._coords[0]-self.rotation_center[0]) +
+    #          jnp.cos(theta) * (self._coords[1]-self.rotation_center[1])
+    #          ) + self.rotation_center[1]
+    #     return jnp.array((x, y))
 
-    def _shift(self, params: dict, coords: ArrayLike) -> ArrayLike:
-        shft = self.shift_prior(params) / self.pix_distance
-        return coords + shft.reshape(2, 1, 1)
+    # def _shift(self, params: dict) -> ArrayLike:
+    #     shft = self.shift_prior(params) / self.pix_distance
+    #     return self._coords + shft.reshape(2, 1, 1)
 
 
 def build_coordinates_correction_model(
     domain_key: str,
-    priors: dict[str, tuple[float]],
+    priors: Optional[dict],
     pix_distance: tuple[float],
     rotation_center: tuple[float, float],
-) -> CoordinatesCorrection:
+    coords: ArrayLike,
+) -> Union[Callable[[dict, ArrayLike], ArrayLike], CoordinatesCorrection]:
     '''The shift correction is a normal distribution on the shift: (x, y).
     (x, y) <- Gaussian(mean, sigma)
 
@@ -95,7 +94,11 @@ def build_coordinates_correction_model(
         The rotation center, has to be relative to the coords which will be
         supplied to the RotationCorrection.
 
+    coords
+        The coordinates to be corrected
     '''
+    if priors is None:
+        return lambda _: coords
 
     # Build shift prior
     shift_key = domain_key + '_shift'
@@ -115,15 +118,21 @@ def build_coordinates_correction_model(
         rotation_prior, domain={rotation_key: jft.ShapeWithDtype(rot_shape)})
 
     return CoordinatesCorrection(
-        shift_prior_model, rotation_prior_model, pix_distance, rotation_center)
+        shift_prior_model,
+        rotation_prior_model,
+        pix_distance,
+        rotation_center,
+        coords,
+    )
 
 
 def build_coordinates_correction_model_from_grid(
     domain_key: str,
-    priors: dict[str, tuple[float]],
+    priors: Optional[dict],
     data_wcs: WcsJwstData,
     reconstruction_grid: Grid,
-):
+    coords: ArrayLike,
+) -> Union[Callable[[dict, ArrayLike], ArrayLike], CoordinatesCorrection]:
     '''The shift correction is a normal distribution on the shift: (x, y).
     (x, y) <- Gaussian(mean, sigma)
 
@@ -144,7 +153,13 @@ def build_coordinates_correction_model_from_grid(
     data_wcs
 
     reconstruction_grid
+
+    coords
+        The coordinates to be corrected
     '''
+
+    if priors is None:
+        return lambda _: coords
 
     header = data_wcs._wcs.to_fits()[0]
     rpix = (header['CRPIX1'],),  (header['CRPIX2'],)
@@ -156,4 +171,5 @@ def build_coordinates_correction_model_from_grid(
         priors=priors,
         pix_distance=[
             rd.to(u.arcsec).value for rd in reconstruction_grid.distances],
-        rotation_center=rpix)
+        rotation_center=rpix,
+        coords=coords)

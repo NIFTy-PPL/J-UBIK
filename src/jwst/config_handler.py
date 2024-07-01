@@ -45,6 +45,23 @@ def build_reconstruction_grid_from_config(config: dict) -> Grid:
     return Grid(wl, shape, (fov.to(units.deg), fov.to(units.deg)), rotation=rotation)
 
 
+def build_coordinates_correction_prior_from_config(kk: int, config: dict) -> dict:
+    if kk == 0:
+        return None
+
+    shift = config['telescope']['rotation_and_shift']['priors']['shift']
+    rotation = config['telescope']['rotation_and_shift']['priors']['rotation']
+    rotation_unit = getattr(
+        units,
+        config['telescope']['rotation_and_shift']['priors'].get(
+            'rotation_unit', 'deg'))
+
+    rotation = (rotation[0],
+                rotation[1],
+                (rotation[2] * rotation_unit).to(units.rad).value)
+    return dict(shift=shift, rotation=rotation)
+
+
 def build_sky_model_from_config(
         config: dict, reconstruction_grid: Grid, plot=False) -> jft.Model:
 

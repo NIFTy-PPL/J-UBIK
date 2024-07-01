@@ -9,7 +9,6 @@ from typing import Callable
 def build_linear_rotation_and_shift(
     sky_dvol: float,
     sub_dvol: float,
-    subsample_centers: Callable[dict, ArrayLike],
     order: int = 1,
     sky_as_brightness: bool = False,
     mode='wrap'
@@ -24,9 +23,6 @@ def build_linear_rotation_and_shift(
     sub_dvol:
         The volume of the subsample pixels.
         Typically the data pixel is subsampled
-
-    subsample_centers:
-        A callable which returns the subsample_centers
 
     mask:
         Mask of the data array
@@ -58,8 +54,8 @@ def build_linear_rotation_and_shift(
 
     rotation_and_shift = partial(map_coordinates, order=order, mode=mode)
 
-    def rotation_shift_subsample(field, params):
-        out = rotation_and_shift(field, subsample_centers(params))
+    def rotation_shift_subsample(field, subsample_centers):
+        out = rotation_and_shift(field, subsample_centers)
         return out * flux_conversion
 
     return rotation_shift_subsample

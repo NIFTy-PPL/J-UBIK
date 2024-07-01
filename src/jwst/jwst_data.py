@@ -69,7 +69,7 @@ def _get_dvol(filter: str):
 
     elif filter in nircam_filters:
         # https://jwst-docs.stsci.edu/jwst-near-infrared-camera#gsc.tab=0
-        pivot = nircam_filters[filter][0] * units.micrometer
+        pivot = Color(nircam_filters[filter][0] * units.micrometer)
 
         if pivot in ColorRange(Color(0.6*units.micrometer),
                                Color(2.3*units.micrometer)):

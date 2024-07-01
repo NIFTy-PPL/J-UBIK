@@ -38,13 +38,20 @@ telescope:
     psf_library: '/home/jruestig/Data/JWST/psf_library'
     psf_pixels: 32
 
+  zero_flux:
+    prior: ['lognormal', 1, 3]
+
   rotation_and_shift:
     model: 'linear' # 'sparse', 'linear', 'nufft'
     subsample: 3
+    priors: # will be ignored in case of sparse
+      shift: ['normal', 0, 1.0e-1]  # pixel units
+      rotation: ['normal', 0, 1.0e-1]
+      rotation_unit: deg
 
 
 files:
-  res_dir: 'results/jwst_test/cm_f277w_f356w_f444w_13_cmfixed_diffkey2'
+  res_dir: 'results/jwst_test/cm_f277w_f356w_f444w_14_test'
 
   filter:
     # f115w: # NIRCam
@@ -176,36 +183,34 @@ priors:
 
 
 minimization:
-    key: 12011990
     resume: False
-    n_total_iterations: 20
+    n_total_iterations: 15
+    delta:
+      switches: [0, 10]
+      values: [1.e-5, 1.e-6]
 
-    delta: 
-      switches: [0, 3, 9, 12]
-      values: [0.1, 2, 3, 120]
+    samples:
+      switches: [0, 10]
+      n_samples: [4, 5]
+      mode: [nonlinear_resample, nonlinear_update]
+      # Possible modes:
+      # - "linear_sample",
+      # - "linear_resample",
+      # - "nonlinear_sample",
+      # - "nonlinear_resample",
+      # - "nonlinear_update",
 
-    samples: # nonlinear_sample # linear, nonlinear
-      switches: [0, 3, 9, 11]
-      # "linear_sample", 
-      # "linear_resample",
-      # "nonlinear_sample",
-      # "nonlinear_resample",
-      # "nonlinear_update",
+      # LIN SAMPLING
+      # lin_absdelta: [Null, 1.e-4] # if set, delta is ignored
+      lin_maxiter: [60, 70]
 
-      mode: [linear_resample, nonlinear_resample, nonlinear_update]
-      n_samples: [5, 6, 10]
-
-      lin_absdelta: [Null, 0.1, 0.001] # , 0.00001]
-      lin_maxiter: [50, 100] # , 200]
-
-      # nonlin_xtol: [0.1, 0.01]
-      # nonlin_maxiter: [7, 13]
-      # nonlin_cg_absdelta: [0.1, 0.001]
-      # nonlin_cg_xtol: 1.0e-5
+      # NONLIN SAMPLING
+      # nonlin_xtol: [Null, 0.1] # if set, delta is ignored
+      nonlin_maxiter: [25, 35]
+      # nonlin_cg_atol: [0.1, 0.01]
       # nonlin_cg_maxiter: [20, 30]
 
     kl_minimization:
-      switches: [0, 3]
-      name: Newton
-      kl_absdelta: [0.01, 0.0001]
-      kl_maxiter: [7, 15]
+      switches: [0, 10]
+      # kl_absdelta: [Null, 1.e-6] # if set, delta is ignored
+      kl_maxiter: [10, 13]

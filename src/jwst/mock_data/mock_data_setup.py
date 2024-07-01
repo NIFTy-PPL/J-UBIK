@@ -124,15 +124,13 @@ def create_data(
     if rotation_model_key == 'nufft':
         print('data created with nufft rotation and shift')
         nufft = build_nufft_rotation_and_shift(
-            1, 1, lambda _: interpolation_points, mock_grid.shape)
-        rota_sky = nufft(mock_sky, None)
+            1, 1, mock_grid.shape, interpolation_points.shape[1:])
+        rota_sky = nufft(mock_sky, interpolation_points)
 
     elif rotation_model_key == 'linear':
         print('data created with linear rotation and shift')
-        linear = build_linear_rotation_and_shift(
-            1, 1, lambda _: interpolation_points, order=1
-        )
-        rota_sky = linear(mock_sky, None)
+        linear = build_linear_rotation_and_shift(1, 1, order=1)
+        rota_sky = linear(mock_sky, interpolation_points)
 
     else:
         msg = f'{rotation_model_key} model does not exist for data creation'
