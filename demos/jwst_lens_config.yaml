@@ -55,7 +55,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/mf_f356w_f444w_f560w_01'
+  res_dir: 'results/jwst_lens/mf_f356w_f444w_f560w_02'
 
   filter:
     # f115w: # NIRCam
@@ -210,14 +210,14 @@ lensing:
                   diffuse:
                     spatial:
                       offset:
-                        offset_mean: -4.0
+                        offset_mean: -2.0
                         offset_std: Null
                           # - 0.7
                           # - 0.4
                       fluctuations:
                         fluctuations:
-                          - 0.6
-                          - 0.1
+                          - 1.6
+                          - 0.2
                         loglogavgslope:
                           - -3.2
                           - 0.3
@@ -233,8 +233,8 @@ lensing:
                       offset:
                         offset_mean: -2.0
                         offset_std:
-                          - 0.3
-                          - 0.05
+                          - 1.5
+                          - 0.5
                       fluctuations:
                         fluctuations:
                           - 0.5
@@ -351,10 +351,10 @@ lensing:
 
                   plaw:
                     offset:
-                      offset_mean: -1.0
+                      offset_mean: +2.0
                       offset_std:
-                        - 0.3
-                        - 0.05
+                        - 1.0
+                        - 0.5
                     fluctuations:
                       fluctuations:
                         - 0.5

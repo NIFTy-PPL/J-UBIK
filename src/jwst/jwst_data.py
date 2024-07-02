@@ -151,13 +151,24 @@ class JwstData:
             extrema, self.shape)
         return ~isnan(self.dm.data[miny:maxy, minx:maxx])
 
-    @ property
+    @property
     def half_power_wavelength(self):
         pivot, bw, er, blue, red = JWST_FILTERS[self.filter]
         return ColorRange(Color(blue*units.micrometer),
                           Color(red*units.micrometer))
 
-    @ property
+    @property
     def pivot_wavelength(self):
         pivot, *_ = JWST_FILTERS[self.filter]
         return Color(pivot * units.micrometer)
+
+    @property
+    def transmission(self):
+        '''Effective response is the mean transmission value over the
+        wavelength range.
+
+        see:
+        https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-instrumentation/miri-filters-and-dispersers#gsc.tab=0
+        '''
+        pivot, bw, effective_response, blue, red = JWST_FILTERS[self.filter]
+        return effective_response

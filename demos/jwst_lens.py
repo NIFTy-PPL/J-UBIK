@@ -117,6 +117,8 @@ for fltname, flt in cfg['files']['filter'].items():
                 fov_pixels=cfg['telescope']['psf']['psf_pixels'],
             ),
 
+            transmission=jwst_data.transmission,
+
             data_mask=mask,
 
             world_extrema=reconstruction_grid.world_extrema(
@@ -146,13 +148,16 @@ for fltname, flt in cfg['files']['filter'].items():
         kk += 1
 
 
-for ii in range(0):
+key, test_key = random.split(random.PRNGKey(42), 2)
+for ii in range(3):
+
+    from charm_lensing.plotting import display_text
 
     # import os
     # opath = 'results/jwst_test/mf_f356w_f444w_lens_06'
     # compsky = last_fn = os.path.join(opath, 'last.pkl')
 
-    key, test_key = random.split(random.PRNGKey(42+ii), 2)
+    key, test_key = random.split(test_key, 2)
     x = jft.random_like(test_key, sky_model.domain)
 
     _sky_model = lens_system.source_plane_model.light_model.nonparametric()._sky_model
@@ -175,12 +180,15 @@ for ii in range(0):
 
     # Plot lens light
     ims[0, 0] = axes[0, 0].imshow(lens_light_alpha(x), origin='lower')
+    axes[0, 0].set_title('lens alpha')
     leli = lens_light_full(x)
+    leli_sums = leli.sum(axis=-1).sum(axis=-1)
     for ii, filter_name in enumerate(sky_model_keys):
-        axes[0, ii+1].set_title(f'Lens light {filter_name}')
         ims[0, ii+1] = axes[0, ii+1].imshow(
             leli[ii], origin='lower',
             norm=LogNorm(vmin=np.max((1e-5, leli.min())), vmax=leli.max()))
+        display_text(
+            axes[0, ii+1], f'Lens light {filter_name} {leli_sums[ii]:.1f}')
 
     # PLOT lensed light
     lsli = lensed_light(x)
@@ -196,12 +204,15 @@ for ii in range(0):
 
     # Plot lens light
     ims[2, 0] = axes[2, 0].imshow(source_light_alpha(x), origin='lower')
+    axes[2, 0].set_title('source alpha')
     slli = source_light_full(x)
+    slli_sums = slli.sum(axis=-1).sum(axis=-1)
     for ii, filter_name in enumerate(sky_model_keys):
-        axes[2, ii+1].set_title(f'Source light {filter_name}')
         ims[2, ii+1] = axes[2, ii+1].imshow(
             slli[ii], origin='lower',
             vmin=slli.min(), vmax=slli.max())
+        display_text(
+            axes[2, ii+1], f'Source light {filter_name} {slli_sums[ii]:.1f}')
 
     flight = filter_projector(leli + lsli)
 
@@ -222,9 +233,12 @@ for ii in range(0):
         rs = np.zeros(mask.shape)
         rs[mask] = data_model(latent_position)
 
-        axes[jj+3, 0].imshow(data, origin='lower', norm=LogNorm())
-        axes[jj+3, 1].imshow(rs, origin='lower', norm=LogNorm())
-        axes[jj+3, 2].imshow(data-rs, origin='lower', cmap='RdBu_r')
+        ims[jj+3, 0] = axes[
+            jj+3, 0].imshow(data, origin='lower', norm=LogNorm())
+        axes[jj+3, 0].set_title(f'data {dkey}')
+        ims[jj+3, 1] = axes[jj+3, 1].imshow(rs, origin='lower', norm=LogNorm())
+        ims[jj+3, 2] = axes[
+            jj+3, 2].imshow(data-rs, origin='lower', cmap='RdBu_r')
         axes[jj+3, 2].set_title('data-data_model')
 
         jj += 1

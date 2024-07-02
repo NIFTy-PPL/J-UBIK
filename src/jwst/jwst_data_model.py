@@ -20,6 +20,7 @@ class DataModel(jft.Model):
         rotation_and_shift: RotationAndShiftModel,
         psf: Callable[ArrayLike, ArrayLike],
         integrate: Callable[ArrayLike, ArrayLike],
+        transmission: float,
         zero_flux_model: ZeroFlux,
         mask: Callable[ArrayLike, ArrayLike]
     ):
@@ -30,6 +31,7 @@ class DataModel(jft.Model):
         self.rotation_and_shift = rotation_and_shift
         self.psf = psf
         self.integrate = integrate
+        self.transmission = transmission
         self.zero_flux_model = zero_flux_model
         self.mask = mask
 
@@ -41,6 +43,7 @@ class DataModel(jft.Model):
         out = self.rotation_and_shift(x)
         out = self.psf(out)
         out = self.integrate(out)
+        out = out * self.transmission
         out = self.zero_flux_model(x, out)
         out = self.mask(out)
         return out
@@ -52,6 +55,7 @@ def build_data_model(
     subsample: int,
     rotation_and_shift_kwargs: dict,
     psf_kwargs: dict,
+    transmission: float,
     data_mask: ArrayLike,
     world_extrema: Tuple[SkyCoord],
     zero_flux: dict,
@@ -137,4 +141,10 @@ def build_data_model(
 
     mask = build_mask(data_mask)
 
-    return DataModel(sky_domain, rotation_and_shift, psf, integrate, zero_flux_model, mask)
+    return DataModel(sky_domain=sky_domain,
+                     rotation_and_shift=rotation_and_shift,
+                     psf=psf,
+                     integrate=integrate,
+                     transmission=transmission,
+                     zero_flux_model=zero_flux_model,
+                     mask=mask)

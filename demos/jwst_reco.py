@@ -117,6 +117,8 @@ for fltname, flt_dct in cfg['files']['filter'].items():
                 fov_pixels=cfg['telescope']['psf']['psf_pixels'],
             ),
 
+            transmission=jwst_data.transmission,
+
             data_mask=mask,
 
             world_extrema=reconstruction_grid.world_extrema(
