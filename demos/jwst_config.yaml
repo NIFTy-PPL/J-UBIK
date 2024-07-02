@@ -13,7 +13,7 @@ grid:
     rotation: -115
 
   edim: 3
-  e_padding_ratio: 1.2
+  e_padding_ratio: 1.0
 
   energy_bin:
     unit: eV
@@ -183,7 +183,7 @@ priors:
 
 
 minimization:
-    key: 28
+    key: 288
     resume: True
     n_total_iterations: 15
     delta:

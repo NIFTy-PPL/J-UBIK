@@ -1,3 +1,5 @@
+cpu: False
+
 grid:
 # fov: 8.064
   fov: 5
@@ -12,17 +14,21 @@ grid:
     rotation: -115
 
   sdim: 256
-  edim: 2
+  edim: 3
   s_padding_ratio: 1.5
-  e_padding_ratio: 1.5
+  e_padding_ratio: 1.0
 
   # e_keys: [f444w, f356w]
 
   energy_bin:
     e_min:
+    # - 0.143
+    - 0.200
     - 0.249  # eV
     - 0.311
     e_max:
+    # - 0.188
+    - 0.245
     - 0.311
     - 0.395
     e_ref:
@@ -35,7 +41,8 @@ telescope:
     psf_pixels: 32
 
   zero_flux:
-    prior: ['lognormal', 1, 3]
+    prior: ['lognormal', 0.1, 3]
+    # prior: ['delta', 0.1, 3]
 
   rotation_and_shift:
     model: 'linear' # 'sparse', 'linear', 'nufft'
@@ -48,7 +55,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_test/mf_f356w_f444w_lens_08_newsky'
+  res_dir: 'results/jwst_lens/mf_f356w_f444w_f560w_01'
 
   filter:
     # f115w: # NIRCam
@@ -75,11 +82,11 @@ files:
       - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
       - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
-    # f560w: # MIRI
-    #   - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+    f560w: # MIRI
+      - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+      # - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+      # - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
 
     # f770w:
     #   - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
@@ -145,20 +152,14 @@ lensing:
 
   model:
     source:
-
       light:
-
           mean:
             gaussian_01:
-              i0: ['log_normal', 0.08, 0.008]
+              i0: ['log_normal', 4.0e-2, 8.0e-3]
               center:
                 distribution: 'normal'
-                mean: 
-                  - -0.4
-                  - 0.4
-                sigma: 
-                  - 0.1
-                  - 0.1
+                mean: 0
+                sigma: 0.1
               covariance:
                 distribution: 'log_normal'
                 mean: 0.06
@@ -167,13 +168,14 @@ lensing:
                 sigma: 10
                 distribution: 'normal'
                 mean: 0.0
+
             gaussian_02:
-              i0: ['log_normal', 0.08, 0.008]
+              i0: ['log_normal', 4.0e-2, 8.0e-3]
               center:
                 distribution: 'normal'
                 mean: 
-                  - 0.2
-                  - -0.2
+                  - 0.4
+                  - -0.4
                 sigma: 
                   - 0.1
                   - 0.1
@@ -189,18 +191,20 @@ lensing:
           perturbations:
             ubik:
               grid:
-                edim: 2
-                e_padding_ratio: 1.5
+                edim: 3
+                e_padding_ratio: 1.0
                 # e_keys: [f444w, f356w]
               energy_bin:
                 e_min:
-                - 0.249  # 0.0488 @ z=4.1 (eV)
-                - 0.311  # 0.0609 
+                - 0.0385  # 0.200 
+                - 0.0488  # 0.249  @ z=4.1 (eV)
+                - 0.0609  # 0.311  # 
                 e_max:                    
-                - 0.311  # 0.0609
-                - 0.395  # 0.0775
+                - 0.0471  # 0.245
+                - 0.0609  # 0.311  # 
+                - 0.0775  # 0.395  # 
                 e_ref:                    
-                - 0.311  # 0.0609
+                - 0.0609  # 0.311  # 
 
               priors:
                   diffuse:
@@ -249,16 +253,12 @@ lensing:
 
 
     lens:
-
       light:
-
         mean:
-            
           exponentialpower: # i0*exp(-a(r/re)**b)
-            i0: ['log_normal', 0.5, 0.08]
-
-            a: ['lognormal', 0.2, 0.1]
-
+            i0: ['delta', 5.0e-2, 8.0e-3]
+            # a: ['lognormal', 0.2, 0.1]
+            a: ['delta', 0.2, 0.1]
             re:
               distribution: 'log_normal'
               mean: 0.03
@@ -280,42 +280,46 @@ lensing:
               mean: 0.0
               sigma: 10
 
-            # radial_correction: 
-            #   extent_factor: 1.5
-            #   Npix: 128
-            #   matern: 
-            #     amplitude:
-            #       offset_mean: 4.2
-            #       offset_std:
-            #         - 1.e-1
-            #         - 1e-2
-            #     fluctuations:
-            #       scale:
-            #         - .8e+0
-            #         - 3e-1
-            #       cutoff:
-            #         - 0.1
-            #         - 1e-2
-            #       loglogslope:
-            #         - -4.0
-            #         - 5e-1
+            radial_correction: 
+              extent_factor: 1.5
+              Npix: 128
+              matern: 
+                amplitude:
+                  offset_mean: 0.
+                  offset_std: Null
+                    # - 1.0e-1
+                    # - 1.0e-2
+                fluctuations:
+                  scale:
+                    - 0.8e+0
+                    - 3.0e-1
+                  cutoff:
+                    - 0.1
+                    - 1.0e-2
+                  loglogslope:
+                    - -4.0
+                    - 5.0e-1
 
         perturbations:
           ubik:
             grid:
-              edim: 2
-              e_padding_ratio: 1.5
+              edim: 3
+              e_padding_ratio: 1.0
               # e_keys: [f444w, f356w]
 
             energy_bin: # eV
               e_min:
-              - 0.249 
-              - 0.311 
+              # - 0.143
+              - 0.200
+              - 0.249  # eV
+              - 0.311
               e_max:
-              - 0.311 
-              - 0.395 
+              # - 0.188
+              - 0.245
+              - 0.311
+              - 0.395
               e_ref:
-              - 0.311 
+              - 0.311
 
             plaw_only: True 
             # Only take the plaw for the energy correlation.
@@ -433,13 +437,13 @@ lensing:
 
 
 minimization:
-    key: 28
-    resume: True
+    key: 2228
+    resume: False
     n_total_iterations: 15
 
     delta:
-      switches: [0, 10]
-      values: [1.e-5, 1.e-6]
+      switches: [0, 10, 15]
+      values: [1.e-5, 1.e-6, 1.e-7]
 
     samples:
       switches: [0, 5, 9]
@@ -463,5 +467,5 @@ minimization:
 
     kl_minimization:
       switches: [0, 3, 7]
-      # kl_absdelta: [Null, 0.01, 0.0001]
+      # kl_absdelta: [Null, 1.0e-2, 1.0e-4]
       kl_maxiter: [7, 15]

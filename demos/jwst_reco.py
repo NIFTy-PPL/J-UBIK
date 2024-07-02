@@ -27,7 +27,6 @@ from jubik0.jwst.color import Color, ColorRange
 
 
 import os
-from os.path import join
 from sys import exit
 
 if False:
@@ -65,7 +64,7 @@ sky_model_with_keys = jft.Model(
     init=sky_model.init
 )
 
-data_plotting = {}
+data_dict = {}
 likelihoods = []
 kk = 0
 for fltname, flt_dct in cfg['files']['filter'].items():
@@ -94,9 +93,7 @@ for fltname, flt_dct in cfg['files']['filter'].items():
 
         data_model = build_data_model(
             {ekey: sky_model_with_keys.target[ekey]},
-
             reconstruction_grid=reconstruction_grid,
-
             subsample=cfg['telescope']['rotation_and_shift']['subsample'],
 
             rotation_and_shift_kwargs=dict(
@@ -131,7 +128,7 @@ for fltname, flt_dct in cfg['files']['filter'].items():
             ),
         )
 
-        data_plotting[data_key] = dict(
+        data_dict[data_key] = dict(
             index=filter_projector.keys_and_index[ekey],
             data=data,
             std=std,
@@ -155,7 +152,7 @@ likelihood = connect_likelihood_to_model(likelihood, model)
 
 
 plot = build_plot(
-    data_dict=data_plotting,
+    data_dict=data_dict,
     sky_model_with_key=sky_model_with_keys,
     sky_model=sky_model,
     small_sky_model=small_sky_model,

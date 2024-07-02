@@ -244,6 +244,7 @@ class SkyModel:
 
         cfm = jft.CorrelatedFieldMaker(prefix=prior_dict['prefix'])
         if prior_dict['offset']['offset_std'] is None:
+            # FIXME: Is this correct?
             prior_dict['offset']['offset_std'] = lambda _: 1
         cfm.set_amplitude_total_offset(**prior_dict['offset'])
         cfm.add_fluctuations(shape, distances, **prior_dict['fluctuations'])

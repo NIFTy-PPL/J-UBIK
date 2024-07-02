@@ -308,6 +308,7 @@ def build_plot_lens_light(
     lens_light: tuple[jft.Model, jft.Model],
     source_light: tuple[jft.Model, jft.Model],
     lensed_light: jft.Model,
+    mass_model: jft.Model,
     plotting_config: dict,
 ):
     from os.path import join
@@ -320,10 +321,10 @@ def build_plot_lens_light(
     norm_source = plotting_config.get('norm_source', Normalize)
     norm_lens = plotting_config.get('norm_lens', Normalize)
 
-    lens_light_alpha, lens_light_full = lens_light
-    source_light_alpha, source_light_full = source_light
+    lens_light_alpha, lens_light_full, lens_light_nonpar = lens_light
+    source_light_alpha, source_light_full, source_light_nonpar = source_light
 
-    xlen = len(sky_model_keys) + 1
+    xlen = len(sky_model_keys) + 2
 
     def plot_sky(samples: jft.Samples, x: jft.OptimizeVIState):
         fig, axes = plt.subplots(3, xlen, figsize=(3*xlen, 8), dpi=300)
@@ -333,35 +334,47 @@ def build_plot_lens_light(
         ims[0, 0] = axes[0, 0].imshow(
             jft.mean([lens_light_alpha(si) for si in samples]), origin='lower')
         axes[0, 0].set_title("Lens light alpha")
+        ims[0, 1] = axes[0, 1].imshow(
+            jft.mean([lens_light_nonpar(si) for si in samples]),
+            origin='lower')
+        axes[0, 1].set_title("Lens light nonpar")
         leli = jft.mean([lens_light_full(si) for si in samples])
         for ii, filter_name in enumerate(sky_model_keys):
-            axes[0, ii+1].set_title(f'Lens light {filter_name}')
-            ims[0, ii+1] = axes[0, ii+1].imshow(
+            axes[0, ii+2].set_title(f'Lens light {filter_name}')
+            ims[0, ii+2] = axes[0, ii+2].imshow(
                 leli[ii], origin='lower',
                 norm=norm_lens(vmin=np.max((1e-5, leli.min())), vmax=leli.max()))
 
-        # PLOT lensed light
+        # PLOT lensed light & mass
         lsli = jft.mean([lensed_light(si) for si in samples])
         ims[1, 0] = axes[1, 0].imshow(
             (leli+lsli)[0], origin='lower',
             norm=norm_lens(vmin=np.max((1e-5, (leli+lsli)[0].min())),
                            vmax=(leli+lsli)[0].max()))
+        ims[1, 1] = axes[1, 1].imshow(
+            jft.mean([mass_model(si) for si in samples]),
+            origin='lower')
+        axes[1, 1].set_title("Mass model")
         axes[1, 0].set_title("Ls + lens")
         for ii, filter_name in enumerate(sky_model_keys):
-            axes[1, ii+1].set_title(f'Lensed light {filter_name}')
-            ims[1, ii+1] = axes[1, ii+1].imshow(
+            axes[1, ii+2].set_title(f'Lensed light {filter_name}')
+            ims[1, ii+2] = axes[1, ii+2].imshow(
                 lsli[ii], origin='lower',
                 norm=norm_lens(vmin=np.max((1e-5, lsli.min())), vmax=lsli.max()))
 
-        # Plot lens light
+        # Plot source light
         ims[2, 0] = axes[2, 0].imshow(
             jft.mean([source_light_alpha(si) for si in samples]),
             origin='lower')
         axes[2, 0].set_title("Alpha source")
+        ims[2, 1] = axes[2, 1].imshow(
+            jft.mean([source_light_nonpar(si) for si in samples]),
+            origin='lower')
+        axes[2, 1].set_title("source nonpar")
         slli = jft.mean([source_light_full(si) for si in samples])
         for ii, filter_name in enumerate(sky_model_keys):
-            axes[2, ii+1].set_title(f'Source light {filter_name}')
-            ims[2, ii+1] = axes[2, ii+1].imshow(
+            axes[2, ii+2].set_title(f'Source light {filter_name}')
+            ims[2, ii+2] = axes[2, ii+2].imshow(
                 slli[ii], origin='lower',
                 norm=norm_source(vmin=slli.min(), vmax=slli.max()))
 

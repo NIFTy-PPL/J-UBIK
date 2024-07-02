@@ -198,14 +198,16 @@ def _delta_logic(
         raise ValueError(f'The {keyword} {param["variable"]} in iteration {iteration} '
                          f'is not set. A `delta` must be set in the config.')
 
-    delta_value = get_config_value(DELTA_VALUE, delta, switches_index, default=None)
+    delta_value = get_config_value(
+        DELTA_VALUE, delta, switches_index, default=None)
 
     if delta_value is None:
         raise ValueError(f'{keyword}: delta value must be set.')
 
     return_value = delta_value * param['factor']
     if verbose:
-        jft.logger.info(f'it {iteration}: {keyword} {param["variable"]} set to {return_value}')
+        jft.logger.info(
+            f'it {iteration}: {keyword} {param["variable"]} set to {return_value}')
     return return_value
 
 
@@ -354,7 +356,8 @@ def linear_sample_kwargs_factory(
         lin_config = linear_kwargs(ii)
         absdelta = lin_config['cg_kwargs']['absdelta']
         if absdelta is None:
-            raise ValueError(f'Linear absdelta at iteration {ii} needs to be set.')
+            raise ValueError(
+                f'Linear absdelta at iteration {ii} needs to be set.')
 
     return linear_kwargs
 
@@ -494,6 +497,7 @@ def kl_kwargs_factory(
             minimize_kwargs=dict(
                 name=KL,
                 absdelta=absdelta,
+                xtol=1e-12,
                 miniter=minit,
                 maxiter=maxit,
                 cg_kwargs=dict(name=f'{KL}CG')
@@ -554,4 +558,5 @@ class MinimizationParser:
             config, delta, ndof=n_dof, verbose=verbose)
         self.nonlinearly_update_kwargs = nonlinearly_update_kwargs_factory(
             config, delta, verbose=verbose)
-        self.kl_kwargs = kl_kwargs_factory(config, delta, ndof=n_dof, verbose=verbose)
+        self.kl_kwargs = kl_kwargs_factory(
+            config, delta, ndof=n_dof, verbose=verbose)
