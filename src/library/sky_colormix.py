@@ -117,34 +117,16 @@ def build_components(
 
     components = []
     for key, config in prior_config.items():
-        comp = component(f'{prefix}_{key}', pad_shape, distances, config)
-
-        if 'mean' in config:
-            from charm_lensing.models.parametric_models import build_parametric
-            from charm_lensing.spaces import get_xycoords
-            coords = get_xycoords(pad_shape, distances)
-
-            mean = build_parametric(
-                coords=coords,
-                prefix=f'{prefix}_{key}',
-                model_config=config['mean'],
-            )
-            model = jft.Model(
-                lambda x: jnp.log(mean(x)) + comp(x),
-                domain=mean.domain | comp.domain)
-
-        else:
-            model = comp
-
-        components.append(model)
+        components.append(
+            component(f'{prefix}_{key}', pad_shape, distances, config))
 
     return Components(components, shape)
 
 
 def build_colormix_components(
-        prefix: str,
-        colormix_config: dict,
-        components_config: dict
+    prefix: str,
+    colormix_config: dict,
+    components_config: dict
 ):
 
     comps = build_components(

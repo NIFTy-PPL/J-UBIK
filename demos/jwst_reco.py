@@ -20,7 +20,7 @@ from jubik0.jwst.config_handler import (
     build_coordinates_correction_prior_from_config)
 from jubik0.jwst.wcs import subsample_grid_centers_in_index_grid
 from jubik0.jwst.jwst_data_model import build_data_model
-from jubik0.jwst.jwst_plotting import build_plot
+from jubik0.jwst.jwst_plotting import build_plot, build_color_components_plotting
 from jubik0.jwst.filter_projector import FilterProjector
 
 from jubik0.jwst.color import Color, ColorRange
@@ -40,7 +40,7 @@ RES_DIR = cfg['files']['res_dir']
 os.makedirs(RES_DIR, exist_ok=True)
 ju.save_local_packages_hashes_to_txt(
     ['nifty8', 'charm_lensing', 'jubik0'],
-    join(RES_DIR, 'hashes.txt'))
+    os.path.join(RES_DIR, 'hashes.txt'))
 
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
@@ -153,7 +153,7 @@ likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)
 
 
-plot = build_plot(
+base_plot = build_plot(
     data_dict=data_dict,
     sky_model_with_key=sky_model_with_keys,
     sky_model=sky_model,
@@ -165,6 +165,16 @@ plot = build_plot(
         sky_extent=None,
         plot_sky=False
     ))
+
+if hasattr(sky_model, 'color'):
+    plot_color = build_color_components_plotting(sky_model, RES_DIR)
+
+
+def plot(samples, x):
+    base_plot(samples, x)
+    if hasattr(sky_model, 'color'):
+        plot_color(samples, x)
+
 
 cfg_mini = ju.get_config('demos/jwst_config.yaml')["minimization"]
 key = random.PRNGKey(cfg_mini.get('key', 42))

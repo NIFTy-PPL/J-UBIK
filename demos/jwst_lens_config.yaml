@@ -14,7 +14,7 @@ grid:
     rotation: -115
 
   sdim: 256
-  edim: 3
+  edim: 2
   s_padding_ratio: 1.5
   e_padding_ratio: 1.0
 
@@ -22,15 +22,17 @@ grid:
 
   energy_bin:
     e_min:
-    # - 0.143
-    - 0.200
-    - 0.249  # eV
-    - 0.311
+    # - 0.143 # F770W
+    - 0.200 # F560W
+    - 0.249 # F444W
+    # - 0.311 # F356W
+    # - 0.396 # F277W
     e_max:
-    # - 0.188
-    - 0.245
-    - 0.311
-    - 0.395
+    # - 0.188 # F770W
+    - 0.245 # F560W
+    - 0.311 # F444W
+    # - 0.395 # F356W
+    # - 0.512 # F277W
     e_ref:
     - 0.311
 
@@ -55,7 +57,9 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/mf_f356w_f444w_f560w_02'
+  res_dir: 'results/jwst_lens/mf_f444w_f560w_02_alpha'
+  # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f277w_f356w_f444w_f560w_03_colormat'
+
 
   filter:
     # f115w: # NIRCam
@@ -74,9 +78,9 @@ files:
     #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
     #   - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
 
-    f356w:
-      - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
-      - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+    # f356w:
+    #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+    #   - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
     f444w:
       - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
@@ -85,8 +89,8 @@ files:
     f560w: # MIRI
       - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
       - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
-      # - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
-      # - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
 
     # f770w:
     #   - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
@@ -154,22 +158,22 @@ lensing:
     source:
       light:
           mean:
-            gaussian_01:
+            gaussian_01: # i0*Gauss
               i0: ['log_normal', 4.0e-2, 8.0e-3]
               center:
                 distribution: 'normal'
                 mean: 0
-                sigma: 0.1
+                sigma: 0.2
               covariance:
                 distribution: 'log_normal'
                 mean: 0.06
-                sigma: 0.01
+                sigma: 0.05
               off_diagonal:
                 sigma: 10
                 distribution: 'normal'
                 mean: 0.0
 
-            gaussian_02:
+            gaussian_02: # i0*Gauss
               i0: ['log_normal', 4.0e-2, 8.0e-3]
               center:
                 distribution: 'normal'
@@ -177,12 +181,12 @@ lensing:
                   - 0.4
                   - -0.4
                 sigma: 
-                  - 0.1
-                  - 0.1
+                  - 0.2
+                  - 0.2
               covariance:
                 distribution: 'log_normal'
                 mean: 0.06
-                sigma: 0.01
+                sigma: 0.05
               off_diagonal:
                 sigma: 10
                 distribution: 'normal'
@@ -191,65 +195,72 @@ lensing:
           perturbations:
             ubik:
               grid:
-                edim: 3
+                edim: 2
                 e_padding_ratio: 1.0
                 # e_keys: [f444w, f356w]
               energy_bin:
                 e_min:
                 - 0.0385  # 0.200 
                 - 0.0488  # 0.249  @ z=4.1 (eV)
-                - 0.0609  # 0.311  # 
+                # - 0.0609  # 0.311  # 
+                # - 0.0761  # F277W 
                 e_max:                    
                 - 0.0471  # 0.245
                 - 0.0609  # 0.311  # 
-                - 0.0775  # 0.395  # 
+                # - 0.0775  # 0.395  # 
+                # - 0.0984  # F227W
                 e_ref:                    
                 - 0.0609  # 0.311  # 
 
               priors:
-                  diffuse:
-                    spatial:
-                      offset:
-                        offset_mean: -2.0
-                        offset_std: Null
-                          # - 0.7
-                          # - 0.4
+                diffuse:
+                  spatial:
+                    offset:
+                      offset_mean: -2.0
+                      offset_std: Null
+                        # - 0.2
+                        # - 0.1
+                    fluctuations:
                       fluctuations:
-                        fluctuations:
-                          - 1.6
-                          - 0.2
-                        loglogavgslope:
-                          - -3.2
-                          - 0.3
-                        flexibility:
-                          - 0.8
-                          - 0.08
-                        asperity: Null
-                        non_parametric_kind: "power"
-                        # harmonic_type: "Fourier"
-                      prefix: diffuse_spatial_
+                        - 1.6
+                        - 0.2
+                      loglogavgslope:
+                        - -3.2
+                        - 0.3
+                      flexibility:
+                        - 0.8
+                        - 0.08
+                      asperity: Null
+                      non_parametric_kind: "power"
+                      # harmonic_type: "Fourier"
+                    prefix: diffuse_spatial_
 
-                    plaw:
-                      offset:
-                        offset_mean: -2.0
-                        offset_std:
-                          - 1.5
-                          - 0.5
+                  # colormix:
+                  #   # diagonal_prior: ['lognormal', 1.2, 0.2]
+                  #   diagonal_prior: ['delta', 1.0, 0.2]
+                  #   off_diagonal_prior: ['normal', 0.0, 0.3]
+
+                  plaw:  # Gets ignored when colormix is there
+                    offset:
+                      offset_mean: -2.0
+                      offset_std:
+                        - 1.0
+                        - 0.3
+                    fluctuations:
                       fluctuations:
-                        fluctuations:
-                          - 0.5
-                          - 0.05
-                        loglogavgslope:
-                          - -4.5
-                          - 0.5
-                        flexibility:
-                          - 0.5
-                          - 0.05
-                        asperity:
-                          Null
-                        non_parametric_kind: "power"
-                        # harmonic_type: "Fourier"
-                      prefix: diffuse_plaw_
+                        - 0.8
+                        - 0.08
+                      loglogavgslope:
+                        - -4.0
+                        - 0.8
+                      flexibility:
+                        - 0.5
+                        - 0.05
+                      asperity:
+                        Null
+                      non_parametric_kind: "power"
+                      # harmonic_type: "Fourier"
+                    prefix: diffuse_plaw_
 
 
     lens:
@@ -291,35 +302,38 @@ lensing:
                     # - 1.0e-2
                 fluctuations:
                   scale:
-                    - 0.8e+0
-                    - 3.0e-1
+                    - 5.0e-1
+                    - 5.0e-2
                   cutoff:
-                    - 0.1
+                    - 1.0e-1
                     - 1.0e-2
                   loglogslope:
-                    - -4.0
-                    - 5.0e-1
+                    - -5.0e+0
+                    -  5.0e-1
 
         perturbations:
           ubik:
             grid:
-              edim: 3
+              edim: 2
               e_padding_ratio: 1.0
               # e_keys: [f444w, f356w]
 
-            energy_bin: # eV
+            energy_bin:
               e_min:
-              # - 0.143
-              - 0.200
-              - 0.249  # eV
-              - 0.311
+              # - 0.143 # F770W
+              - 0.200 # F560W
+              - 0.249 # F444W
+              # - 0.311 # F356W
+              # - 0.396 # F277W
               e_max:
-              # - 0.188
-              - 0.245
-              - 0.311
-              - 0.395
+              # - 0.188 # F770W
+              - 0.245 # F560W
+              - 0.311 # F444W
+              # - 0.395 # F356W
+              # - 0.512 # F277W
               e_ref:
               - 0.311
+
 
             plaw_only: True 
             # Only take the plaw for the energy correlation.
@@ -351,7 +365,7 @@ lensing:
 
                   plaw:
                     offset:
-                      offset_mean: +2.0
+                      offset_mean: 0.0
                       offset_std:
                         - 1.0
                         - 0.5
@@ -362,11 +376,8 @@ lensing:
                       loglogavgslope:
                         - -4.5
                         - 0.5
-                      flexibility:
-                        - 0.5
-                        - 0.05
-                      asperity:
-                        Null
+                      flexibility: Null
+                      asperity: Null
                       non_parametric_kind: "power"
                       # harmonic_type: "Fourier"
                     prefix: diffuse_plaw_
@@ -446,7 +457,7 @@ minimization:
       values: [1.e-5, 1.e-6, 1.e-7]
 
     samples:
-      switches: [0, 5, 9]
+      switches: [0, 10]
       n_samples: [5, 6]
       mode: [linear_resample, nonlinear_resample]
       # Possible modes:
@@ -458,7 +469,7 @@ minimization:
 
 
       # lin_absdelta: [Null, Null, 0.00001]
-      lin_maxiter: [50, 100, 200]
+      lin_maxiter: [50, 100, 250]
 
       # nonlin_xtol: [Null, 0.1, 0.01]
       nonlin_maxiter: [7, 13]
@@ -468,4 +479,4 @@ minimization:
     kl_minimization:
       switches: [0, 3, 7]
       # kl_absdelta: [Null, 1.0e-2, 1.0e-4]
-      kl_maxiter: [7, 15]
+      kl_maxiter: [7, 20]

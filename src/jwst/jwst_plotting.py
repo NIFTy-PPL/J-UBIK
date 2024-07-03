@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LogNorm
 import numpy as np
 
-from typing import Tuple
+from typing import Tuple, Union, Optional
 from os.path import join
 from os import makedirs
 
@@ -179,8 +179,12 @@ def build_sky_plot_samples(
 
 def build_color_components_plotting(
     sky_model: ColorMixComponents,
-    output_folder: str,
+    results_directory: str,
+    substring='',
 ):
+
+    colors_directory = join(results_directory, f'colors_{substring}')
+    makedirs(colors_directory, exist_ok=True)
 
     N_comps = len(sky_model.components._comps)
 
@@ -205,7 +209,7 @@ def build_color_components_plotting(
             ax[1].set_title('Comps')
 
         plt.tight_layout()
-        plt.savefig(join(output_folder, f'componets_{x.nit}.png'))
+        plt.savefig(join(colors_directory, f'componets_{x.nit}.png'))
 
     return cc_print
 
@@ -222,17 +226,11 @@ def build_plot(
 
     residual_directory = join(results_directory, 'residuals')
     sky_directory = join(results_directory, 'sky')
-    colors_directory = join(results_directory, 'colors')
     makedirs(residual_directory, exist_ok=True)
-
-    color_switch = hasattr(sky_model, 'color')
 
     plot_sky = plotting_config.get('plot_sky', True)
     if plot_sky:
         makedirs(sky_directory, exist_ok=True)
-
-    if color_switch:
-        makedirs(colors_directory, exist_ok=True)
 
     norm = plotting_config.get('norm', Normalize)
     sky_extent = plotting_config.get('sky_extent', None)
@@ -255,15 +253,8 @@ def build_plot(
         sky_extent=sky_extent,
     )
 
-    if color_switch:
-        plot_color = build_color_components_plotting(
-            sky_model, colors_directory)
-
     def plot(samples: jft.Samples, x: jft.OptimizeVIState):
         print(f'Plotting: {x.nit}')
-
-        if color_switch:
-            plot_color(samples, x)
 
         if plot_sky:
             plot_sky_samples(samples, x)
@@ -300,6 +291,50 @@ def plot_sky(sky, data_dict, norm=LogNorm):
     for ax, im in zip(axes.flatten(), ims):
         fig.colorbar(im, ax=ax, shrink=0.7)
     plt.show()
+
+
+def build_plot_lens_system(
+    results_directory: str,
+    plotting_config: dict,
+    lens_system,  # : LensSystem,
+):
+
+    from charm_lensing.plotting import get_values
+
+    lens_dir = join(results_directory, 'lens')
+    makedirs(lens_dir, exist_ok=True)
+
+    norm_source = plotting_config.get('norm_source', Normalize)
+    norm_lens = plotting_config.get('norm_lens', Normalize)
+
+    xlen = len(lens_system.get_forward_model_parametric().target) + 2
+
+    def plot_lens_system(
+        position_or_samples: Union[jft.Samples, dict],
+        state_or_none: Optional[jft.SamplingState],
+        parametric: bool,
+    ):
+
+        if isinstance(position_or_samples, jft.Samples):
+            (source_reconstruction,
+             lens_light,
+             lensed_light,
+             convergence,
+             convergence_perturbations,
+             deflection_field,
+             sky) = jft.mean([get_values(lens_system, si, parametric)
+                              for si in position_or_samples])
+
+        elif isinstance(position_or_samples, dict):
+            (source_reconstruction,
+             lens_light,
+             lensed_light,
+             convergence,
+             convergence_perturbations,
+             deflection_field,
+             sky) = get_values(lens_system, position_or_samples, parametric)
+
+    return plot_lens_system
 
 
 def build_plot_lens_light(
@@ -351,9 +386,9 @@ def build_plot_lens_light(
             (leli+lsli)[0], origin='lower',
             norm=norm_lens(vmin=np.max((1e-5, (leli+lsli)[0].min())),
                            vmax=(leli+lsli)[0].max()))
+        mm = jft.mean([mass_model(si) for si in samples])
         ims[1, 1] = axes[1, 1].imshow(
-            jft.mean([mass_model(si) for si in samples]),
-            origin='lower')
+            mm, origin='lower', norm=LogNorm(vmin=np.max((1e-5, mm.min()))))
         axes[1, 1].set_title("Mass model")
         axes[1, 0].set_title("Ls + lens")
         for ii, filter_name in enumerate(sky_model_keys):
@@ -386,3 +421,93 @@ def build_plot_lens_light(
         plt.close()
 
     return plot_sky
+
+
+def sky_model_alpha_test_plotting(test_key, lens_system, sky_model_with_keys, keys_and_colors, filter_projector, data_dict):
+    x = jft.random_like(test_key, sky_model_with_keys.domain)
+    _sky_model = lens_system.source_plane_model.light_model.nonparametric()._sky_model
+
+    sky_model_keys = sky_model_with_keys.target.keys()
+    lens_light_alpha, lens_light_full = (
+        lens_system.lens_plane_model.light_model.nonparametric()._sky_model.alpha_cf,
+        lens_system.lens_plane_model.light_model)
+    source_light_alpha, source_light_full = (
+        lens_system.source_plane_model.light_model.nonparametric()._sky_model.alpha_cf,
+        lens_system.source_plane_model.light_model)
+    lensed_light = lens_system.get_forward_model_parametric(only_source=True)
+
+    xlen = max(len(sky_model_keys) + 1, 3)
+    fig, axes = plt.subplots(
+        3 + len(keys_and_colors.keys()), xlen, figsize=(3*xlen*3, 8*3), dpi=300)
+    ims = np.zeros_like(axes)
+
+    # Plot lens light
+    ims[0, 0] = axes[0, 0].imshow(lens_light_alpha(x), origin='lower')
+    axes[0, 0].set_title('lens alpha')
+    leli = lens_light_full(x)
+    leli_sums = leli.sum(axis=-1).sum(axis=-1)
+    for ii, filter_name in enumerate(sky_model_keys):
+        ims[0, ii+1] = axes[0, ii+1].imshow(
+            leli[ii], origin='lower',
+            norm=LogNorm(vmin=np.max((1e-5, leli.min())), vmax=leli.max()))
+        display_text(
+            axes[0, ii+1], f'Lens light {filter_name} {leli_sums[ii]:.1f}')
+
+    # PLOT lensed light
+    lsli = lensed_light(x)
+    ims[1, 0] = axes[1, 0].imshow(
+        (leli+lsli)[0], origin='lower',
+        norm=LogNorm(vmin=np.max((1e-5, (leli+lsli)[0].min())),
+                     vmax=(leli+lsli)[0].max()))
+    for ii, filter_name in enumerate(sky_model_keys):
+        axes[1, ii+1].set_title(f'Lensed light {filter_name}')
+        ims[1, ii+1] = axes[1, ii+1].imshow(
+            lsli[ii], origin='lower',
+            norm=LogNorm(vmin=np.max((1e-5, lsli.min())), vmax=lsli.max()))
+
+    # Plot lens light
+    ims[2, 0] = axes[2, 0].imshow(source_light_alpha(x), origin='lower')
+    axes[2, 0].set_title('source alpha')
+    slli = source_light_full(x)
+    slli_sums = slli.sum(axis=-1).sum(axis=-1)
+    for ii, filter_name in enumerate(sky_model_keys):
+        ims[2, ii+1] = axes[2, ii+1].imshow(
+            slli[ii], origin='lower',
+            vmin=slli.min(), vmax=slli.max())
+        display_text(
+            axes[2, ii+1], f'Source light {filter_name} {slli_sums[ii]:.1f}')
+
+    flight = filter_projector(leli + lsli)
+
+    color_indices = []
+    jj = 0
+    for (dkey, valdict) in data_dict.items():
+        if valdict['index'] in color_indices:
+            continue
+        color_indices.append(valdict['index'])
+        print(dkey, jj)
+
+        data, std, mask, data_model = (
+            valdict['data'], valdict['std'], valdict['mask'], valdict['data_model'])
+
+        latent_position = jft.random_like(test_key, data_model.domain)
+        for ckey, cval in flight.items():
+            latent_position[ckey] = cval
+        rs = np.zeros(mask.shape)
+        rs[mask] = data_model(latent_position)
+
+        ims[jj+3, 0] = axes[
+            jj+3, 0].imshow(data, origin='lower', norm=LogNorm())
+        axes[jj+3, 0].set_title(f'data {dkey}')
+        ims[jj+3, 1] = axes[jj+3, 1].imshow(rs, origin='lower', norm=LogNorm())
+        ims[jj+3, 2] = axes[
+            jj+3, 2].imshow(data-rs, origin='lower', cmap='RdBu_r')
+        axes[jj+3, 2].set_title('data-data_model')
+
+        jj += 1
+
+    for ax, im in zip(axes.flatten(), ims.flatten()):
+        if not isinstance(im, int):
+            fig.colorbar(im, ax=ax, shrink=0.7)
+    fig.tight_layout()
+    plt.show()

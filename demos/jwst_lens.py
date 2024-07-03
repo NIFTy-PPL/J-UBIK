@@ -20,7 +20,7 @@ from jubik0.jwst.config_handler import (
     build_coordinates_correction_prior_from_config)
 from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_data_model import build_data_model
-from jubik0.jwst.jwst_plotting import build_plot, build_plot_lens_light
+from jubik0.jwst.jwst_plotting import build_plot, build_plot_lens_light, build_color_components_plotting
 from jubik0.jwst.filter_projector import FilterProjector
 
 from jubik0.jwst.color import Color, ColorRange
@@ -147,114 +147,29 @@ for fltname, flt in cfg['files']['filter'].items():
 
         kk += 1
 
-
-key, test_key = random.split(random.PRNGKey(42), 2)
-for ii in range(3):
-
-    from charm_lensing.plotting import display_text
-
-    # import os
-    # opath = 'results/jwst_test/mf_f356w_f444w_lens_06'
-    # compsky = last_fn = os.path.join(opath, 'last.pkl')
-
-    key, test_key = random.split(test_key, 2)
-    x = jft.random_like(test_key, sky_model.domain)
-
-    _sky_model = lens_system.source_plane_model.light_model.nonparametric()._sky_model
-    alpha = _sky_model.alpha_cf(x)
-    plaw = _sky_model.plaw(x)
-
-    sky_model_keys = sky_model_with_keys.target.keys()
-    lens_light_alpha, lens_light_full = (
-        lens_system.lens_plane_model.light_model.nonparametric()._sky_model.alpha_cf,
-        lens_system.lens_plane_model.light_model)
-    source_light_alpha, source_light_full = (
-        lens_system.source_plane_model.light_model.nonparametric()._sky_model.alpha_cf,
-        lens_system.source_plane_model.light_model)
-    lensed_light = lens_system.get_forward_model_parametric(only_source=True)
-
-    xlen = max(len(sky_model_keys) + 1, 3)
-    fig, axes = plt.subplots(
-        3 + len(keys_and_colors.keys()), xlen, figsize=(3*xlen*3, 8*3), dpi=300)
-    ims = np.zeros_like(axes)
-
-    # Plot lens light
-    ims[0, 0] = axes[0, 0].imshow(lens_light_alpha(x), origin='lower')
-    axes[0, 0].set_title('lens alpha')
-    leli = lens_light_full(x)
-    leli_sums = leli.sum(axis=-1).sum(axis=-1)
-    for ii, filter_name in enumerate(sky_model_keys):
-        ims[0, ii+1] = axes[0, ii+1].imshow(
-            leli[ii], origin='lower',
-            norm=LogNorm(vmin=np.max((1e-5, leli.min())), vmax=leli.max()))
-        display_text(
-            axes[0, ii+1], f'Lens light {filter_name} {leli_sums[ii]:.1f}')
-
-    # PLOT lensed light
-    lsli = lensed_light(x)
-    ims[1, 0] = axes[1, 0].imshow(
-        (leli+lsli)[0], origin='lower',
-        norm=LogNorm(vmin=np.max((1e-5, (leli+lsli)[0].min())),
-                     vmax=(leli+lsli)[0].max()))
-    for ii, filter_name in enumerate(sky_model_keys):
-        axes[1, ii+1].set_title(f'Lensed light {filter_name}')
-        ims[1, ii+1] = axes[1, ii+1].imshow(
-            lsli[ii], origin='lower',
-            norm=LogNorm(vmin=np.max((1e-5, lsli.min())), vmax=lsli.max()))
-
-    # Plot lens light
-    ims[2, 0] = axes[2, 0].imshow(source_light_alpha(x), origin='lower')
-    axes[2, 0].set_title('source alpha')
-    slli = source_light_full(x)
-    slli_sums = slli.sum(axis=-1).sum(axis=-1)
-    for ii, filter_name in enumerate(sky_model_keys):
-        ims[2, ii+1] = axes[2, ii+1].imshow(
-            slli[ii], origin='lower',
-            vmin=slli.min(), vmax=slli.max())
-        display_text(
-            axes[2, ii+1], f'Source light {filter_name} {slli_sums[ii]:.1f}')
-
-    flight = filter_projector(leli + lsli)
-
-    color_indices = []
-    jj = 0
-    for (dkey, valdict) in data_dict.items():
-        if valdict['index'] in color_indices:
-            continue
-        color_indices.append(valdict['index'])
-        print(dkey, jj)
-
-        data, std, mask, data_model = (
-            valdict['data'], valdict['std'], valdict['mask'], valdict['data_model'])
-
-        latent_position = jft.random_like(test_key, data_model.domain)
-        for ckey, cval in flight.items():
-            latent_position[ckey] = cval
-        rs = np.zeros(mask.shape)
-        rs[mask] = data_model(latent_position)
-
-        ims[jj+3, 0] = axes[
-            jj+3, 0].imshow(data, origin='lower', norm=LogNorm())
-        axes[jj+3, 0].set_title(f'data {dkey}')
-        ims[jj+3, 1] = axes[jj+3, 1].imshow(rs, origin='lower', norm=LogNorm())
-        ims[jj+3, 2] = axes[
-            jj+3, 2].imshow(data-rs, origin='lower', cmap='RdBu_r')
-        axes[jj+3, 2].set_title('data-data_model')
-
-        jj += 1
-
-    for ax, im in zip(axes.flatten(), ims.flatten()):
-        if not isinstance(im, int):
-            fig.colorbar(im, ax=ax, shrink=0.7)
-    fig.tight_layout()
-    plt.show()
-
-
 model = sky_model_with_keys
 likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)
 
 
+# PLOTTING
+key, test_key = random.split(random.PRNGKey(42), 2)
+for ii in range(3):
+
+    from jubik0.jwst.jwst_plotting import sky_model_alpha_test_plotting
+
+    key, test_key = random.split(test_key, 2)
+    if hasattr(lens_system.source_plane_model.light_model.nonparametric(), 'color'):
+        pass
+
+    else:
+        sky_model_alpha_test_plotting(
+            test_key, lens_system, sky_model_with_keys, keys_and_colors,
+            filter_projector, data_dict)
+
+
+components_plot_switch = hasattr(
+    lens_system.source_plane_model.light_model.nonparametric(), 'color')
 tmp_alpha = lens_system.lens_plane_model.light_model.nonparametric()._sky_model.alpha_cf
 ll_shape = lens_system.lens_plane_model.space.shape
 ll_alpha = jft.Model(
@@ -266,9 +181,20 @@ ll_nonpar = lens_system.lens_plane_model.light_model.parametric(
 if ll_nonpar is None:
     def ll_nonpar(_): return jnp.zeros((12, 12))
 
-sl_nonpar = lens_system.source_plane_model.light_model.nonparametric()._sky_model.spatial_cf
-if sl_nonpar is None:
+if components_plot_switch:
+    pass
+
+    plot_color = build_color_components_plotting(
+        lens_system.source_plane_model.light_model.nonparametric(), RES_DIR)
+
     def sl_nonpar(_): return jnp.zeros((12, 12))
+    def sl_alpha(_): return jnp.zeros((12, 12))
+
+else:
+    sl_alpha = lens_system.source_plane_model.light_model.nonparametric()._sky_model.alpha_cf
+    sl_nonpar = lens_system.source_plane_model.light_model.nonparametric()._sky_model.spatial_cf
+    if sl_nonpar is None:
+        def sl_nonpar(_): return jnp.zeros((12, 12))
 
 mass_model = lens_system.lens_plane_model.convergence_model.parametric()
 
@@ -277,8 +203,7 @@ plot_sky = build_plot_lens_light(
     sky_model_keys=sky_model_with_keys.target.keys(),
     lens_light=(ll_alpha, lens_system.lens_plane_model.light_model, ll_nonpar),
     source_light=(
-        lens_system.source_plane_model.light_model.nonparametric()._sky_model.alpha_cf,
-        lens_system.source_plane_model.light_model, sl_nonpar),
+        sl_alpha, lens_system.source_plane_model.light_model, sl_nonpar),
     lensed_light=lens_system.get_forward_model_parametric(only_source=True),
     mass_model=mass_model,
     plotting_config=dict(
@@ -302,8 +227,10 @@ residual_plot = build_plot(
 
 
 def plot(samples, state):
-    plot_sky(samples, state)
     residual_plot(samples, state)
+    plot_sky(samples, state)
+    if components_plot_switch:
+        plot_color(samples, state)
 
 
 cfg_mini = ju.get_config('demos/jwst_lens_config.yaml')["minimization"]
