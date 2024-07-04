@@ -1,5 +1,5 @@
 cpu: False
-prior_samples: 3
+prior_samples: Null
 
 grid:
   sdim: 256
@@ -145,7 +145,7 @@ files:
       - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
       - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
 
-    f444w:
+    f444w: # NIRCam
       - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
       - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
@@ -177,37 +177,15 @@ lensing:
           mean:
             gaussian_01: # i0*Gauss
               i0: ['log_normal', 1.0e-2, 8.0e-3]
-              center:
-                distribution: 'normal'
-                mean: 0
-                sigma: 0.1
-              covariance:
-                distribution: 'log_normal'
-                mean: 0.04
-                sigma: 0.05
-              off_diagonal:
-                sigma: 10
-                distribution: 'normal'
-                mean: 0.0
+              center: ['normal', 0, 0.1]
+              covariance: ['log_normal', 0.04, 0.05]
+              off_diagonal: ['normal', 0.0, 10.0]
 
             gaussian_02: # i0*Gauss
               i0: ['log_normal', 1.0e-2, 8.0e-3]
-              center:
-                distribution: 'normal'
-                mean: 
-                  - 0.4
-                  - -0.4
-                sigma: 
-                  - 0.1
-                  - 0.1
-              covariance:
-                distribution: 'log_normal'
-                mean: 0.04
-                sigma: 0.05
-              off_diagonal:
-                sigma: 10
-                distribution: 'normal'
-                mean: 0.0
+              center: ['normal', [0.4, -0.4], [0.1, 0.1]]
+              covariance: ['log_normal', 0.04, 0.05]
+              off_diagonal: ['normal', 0.0, 10.0]
 
           perturbations:
             ubik:

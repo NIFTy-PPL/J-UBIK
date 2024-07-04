@@ -278,7 +278,9 @@ def build_color_components_plotting(
 ):
 
     if not hasattr(sky_model, 'components'):
-        return lambda x: None
+        def _(pos, state=None):
+            return None
+        return _
 
     colors_directory = join(results_directory, f'colors_{substring}')
     makedirs(colors_directory, exist_ok=True)
