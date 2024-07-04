@@ -23,7 +23,7 @@ from jubik0.jwst.config_handler import (
 from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import (
-    build_plot, build_color_components_plotting, build_plot_lens_system, get_alpha_nonpar)
+    build_plot_sky_residuals, build_color_components_plotting, build_plot_lens_system, get_alpha_nonpar)
 from jubik0.jwst.filter_projector import FilterProjector
 
 from jubik0.jwst.color import Color, ColorRange
@@ -163,7 +163,7 @@ parametric_flag = lens_system.lens_plane_model.convergence_model.nonparametric()
 ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(
     lens_system, plot_components_switch)
 
-plot_lens_light = build_plot_lens_system(
+lens_plot = build_plot_lens_system(
     RES_DIR,
     plotting_config=dict(
         # norm_source=LogNorm,
@@ -175,52 +175,38 @@ plot_lens_light = build_plot_lens_system(
     lens_light_alpha_nonparametric=(ll_alpha, ll_nonpar),
     source_light_alpha_nonparametric=(sl_alpha, sl_nonpar),
 )
-
-mass_model = lens_system.lens_plane_model.convergence_model.parametric()
-residual_plot = build_plot(
+residual_plot = build_plot_sky_residuals(
+    results_directory=RES_DIR,
     data_dict=data_dict,
     sky_model_with_key=sky_model_with_keys,
-    sky_model=sky_model,
     small_sky_model=lens_system.get_forward_model_parametric(),
-    results_directory=RES_DIR,
-    upperleft=('Mass field', mass_model),
     plotting_config=dict(
         norm=LogNorm,
         sky_extent=None,
         plot_sky=False
     ))
-
-
-if plot_components_switch:
-    plot_color = build_color_components_plotting(
-        lens_system.source_plane_model.light_model.nonparametric(), RES_DIR)
+plot_color = build_color_components_plotting(
+    lens_system.source_plane_model.light_model.nonparametric(), RES_DIR)
 
 
 if cfg.get('prior_samples') is not None:
     test_key, _ = random.split(random.PRNGKey(42), 2)
     for ii in range(cfg.get('prior_samples', 3)):
         test_key, _ = random.split(test_key, 2)
-        position = jft.random_like(test_key, model.domain)
+        position = likelihood.init(test_key)
+        while isinstance(position, jft.Vector):
+            position = position.tree
 
-        key, test_key = random.split(test_key, 2)
-        if plot_components_switch:
-            pass
-
-        else:
-            plot_lens_light(position, None, parametric=parametric_flag)
-
-            for ii, (dkey, data) in enumerate(data_dict.items()):
-                dm = data['data_model']
-                dd = data['data']
-                std = data['std']
-                mask = data['mask']
+        lens_plot(position, None, parametric=parametric_flag)
+        residual_plot(position)
+        plot_color(position)
 
 
-def plot(samples, state):
+def plot(samples: jft.Samples, state: jft.OptimizeVIState):
+    print(f'Plotting: {state.nit}')
     residual_plot(samples, state)
-    plot_lens_light(samples, state, parametric=parametric_flag)
-    if plot_components_switch:
-        plot_color(samples, state)
+    lens_plot(samples, state, parametric=parametric_flag)
+    plot_color(samples, state)
 
 
 cfg_mini = ju.get_config('demos/jwst_lens_config.yaml')["minimization"]

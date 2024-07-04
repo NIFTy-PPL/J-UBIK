@@ -48,18 +48,100 @@ def find_closest_factors(number):
     return jj-jminus+1, kk-kminus
 
 
+def get_position_or_samples_of_model(
+    position_or_samples: Union[dict, jft.Samples],
+    model: jft.Model
+) -> tuple[ArrayLike, ArrayLike]:
+    '''Returns (mean, std) of model'''
+
+    if isinstance(position_or_samples, jft.Samples):
+        mean, std = jft.mean_and_std(
+            [model(si) for si in position_or_samples])
+    else:
+        mean = model(position_or_samples)
+        std = np.full(mean.shape, 0.)
+
+    return mean, std
+
+
+def get_shift_rotation_correction(
+    position_or_samples: Union[dict, jft.Samples],
+    correction_model: Optional[CoordinatesCorrection],
+):
+    if not isinstance(correction_model, CoordinatesCorrection):
+        return (0, 0), (0, 0), 0, 0
+
+    shift_mean, shift_std = get_position_or_samples_of_model(
+        position_or_samples, correction_model.shift_prior)
+    rotation_mean, rotation_std = get_position_or_samples_of_model(
+        position_or_samples, correction_model.rotation_prior)
+    shift_mean, shift_std = shift_mean.reshape(2), shift_std.reshape(2)
+    rotation_mean, rotation_std = rotation_mean[0], rotation_std[0]
+
+    return (shift_mean, shift_std), (rotation_mean, rotation_std)
+
+
+def get_data_model_chi2(
+    position_or_samples: Union[dict, jft.Samples],
+    sky_model_with_key: jft.Model,
+    data_model: jft.Model,
+    data: ArrayLike,
+    mask: ArrayLike,
+    std: ArrayLike,
+):
+    if isinstance(std, float):
+        std = np.full_like(data, std)
+
+    if isinstance(position_or_samples, jft.Samples):
+        model_data = []
+        for si in position_or_samples:
+            tmp = np.zeros_like(data)
+            tmp_sky = sky_model_with_key(si)
+            while isinstance(si, jft.Vector):
+                si = si.tree
+            tmp_sky = tmp_sky | si
+            tmp[mask] = data_model(tmp_sky)
+            model_data.append(tmp)
+        model_mean = jft.mean(model_data)
+        redchi_mean, redchi_std = jft.mean_and_std(
+            [redchi2(data[mask], m[mask], std[mask], data[mask].size)
+             for m in model_data])
+
+    else:
+        model_data = np.zeros_like(data)
+        tmp_sky = sky_model_with_key(position_or_samples)
+        position_or_samples = position_or_samples | tmp_sky
+        model_data[mask] = data_model(position_or_samples)
+        redchi_mean = redchi2(
+            data[mask], model_data[mask], std[mask], data[mask].size)
+        redchi_std = 0
+        model_mean = model_data
+
+    return model_mean, (redchi_mean, redchi_std)
+
+
 def build_plot_sky_residuals(
     results_directory: str,
-    residual_directory: str,
     data_dict: dict,
-    upperleft: tuple[str, jft.Model],
     sky_model_with_key: jft.Model,
     small_sky_model: jft.Model,
-    norm: callable,
-    sky_min: float = 5e-4,
+    overwrite_model: Optional[tuple[tuple[int], str, jft.Model]] = None,
+    plotting_config: dict = {},
 ):
 
-    def sky_residuals(samples: jft.Samples, x: jft.OptimizeVIState):
+    residual_directory = join(results_directory, 'residuals')
+    makedirs(residual_directory, exist_ok=True)
+
+    norm = plotting_config.get('norm', Normalize)
+    sky_min = plotting_config.get('sky_min', 5e-4)
+
+    residual_plotting_config = plotting_config.get(
+        'data_config', dict(min=5e-4, norm=Normalize))
+
+    def sky_residuals(
+        position_or_samples: Union[dict, jft.Samples],
+        state_or_none: Optional[jft.OptimizeVIState] = None
+    ):
         print(f"Results: {results_directory}")
 
         ylen = len(data_dict)
@@ -67,116 +149,124 @@ def build_plot_sky_residuals(
         ims = np.zeros_like(axes)
         for ii, (dkey, data) in enumerate(data_dict.items()):
 
-            dm = data['data_model']
-            dd = data['data']
+            data_model = data['data_model']
+            data_i = data['data']
             std = data['std']
             mask = data['mask']
-            cm = dm.rotation_and_shift.correction_model
 
-            model_data = []
-            for si in samples:
-                tmp = np.zeros_like(dd)
-                val = sky_model_with_key(si)
-                while isinstance(si, jft.Vector):
-                    si = si.tree
-                val = val | si
-                tmp[mask] = dm(val)
-                model_data.append(tmp)
-
-            if isinstance(cm, CoordinatesCorrection):
-                sh_m, sh_s = jft.mean_and_std(
-                    [cm.shift_prior(s) for s in samples])
-                ro_m, ro_s = jft.mean_and_std(
-                    [cm.rotation_prior(s) for s in samples])
-                ro_m, ro_s = ro_m[0], ro_s[0]
-                sh_m, sh_s = (sh_m.reshape(2), sh_s.reshape(2))
-            else:
-                sh_m, sh_s, ro_m, ro_s = (0, 0), (0, 0), 0, 0
-
-            model_mean = jft.mean(model_data)
-            redchi_mean, redchi2_std = jft.mean_and_std(
-                [redchi2(dd[mask], m[mask], std[mask], dd[mask].size) for m in model_data])
-
-            residual = jft.mean([(dd - md)/std for md in model_data])
-
-            max_d, min_d = np.nanmax(dd), np.nanmin(dd)
-            min_d = np.max((min_d, 0.1))
-            axes[ii, 1].set_title(f'Data {dkey}')
-            ims[ii, 1] = axes[ii, 1].imshow(
-                dd, origin='lower', norm=norm(vmin=min_d, vmax=max_d))
-            axes[ii, 2].set_title('Data model')
-            ims[ii, 2] = axes[ii, 2].imshow(
-                model_mean, origin='lower', norm=norm(vmin=min_d, vmax=max_d))
-            axes[ii, 3].set_title('Data - Data model')
-            ims[ii, 3] = axes[ii, 3].imshow(
-                residual, origin='lower', vmin=-3, vmax=3, cmap='RdBu_r')
-
+            (sh_m, sh_s), (ro_m, ro_s) = get_shift_rotation_correction(
+                position_or_samples,
+                data_model.rotation_and_shift.correction_model)
             data_model_text = '\n'.join(
                 (f'dx={sh_m[0]:.1e}+-{sh_s[0]:.1e}',
                  f'dy={sh_m[1]:.1e}+-{sh_s[1]:.1e}',
                  f'dth={ro_m:.1e}+-{ro_s:.1e}')
             )
+
+            model_mean, (redchi_mean, redchi_std) = get_data_model_chi2(
+                position_or_samples,
+                sky_model_with_key=sky_model_with_key,
+                data_model=data_model,
+                data=data_i,
+                mask=mask,
+                std=std)
             chi = '\n'.join((
-                f'redChi2: {redchi_mean:.2f} +/- {redchi2_std:.2f}',
+                f'redChi2: {redchi_mean:.2f} +/- {redchi_std:.2f}',
             ))
+
+            ims[ii, 1:] = _plot_data_data_model_residuals(
+                ims[ii, 1:],
+                axes[ii, 1:],
+                data_key=dkey,
+                data=data_i,
+                data_model=model_mean,
+                std=std,
+                plotting_config=residual_plotting_config)
+
             display_text(axes[ii, 2], data_model_text)
             display_text(axes[ii, 3], chi)
 
-        # Alpha or Mass field
-        uleft_name, uleft_model = upperleft
-        alpha_mean = jft.mean([uleft_model(si) for si in samples])
-        axes[0, 0].set_title(uleft_name)
-        ims[0, 0] = axes[0, 0].imshow(alpha_mean, origin='lower')
-
-        # Calculate sky
-        mean_small = jft.mean([small_sky_model(si) for si in samples])
-        ma, mi = jft.max(mean_small), jft.min(mean_small)
+        small_mean, small_std = get_position_or_samples_of_model(
+            position_or_samples,
+            small_sky_model)
+        ma, mi = jft.max(small_mean), jft.min(small_mean)
         ma, mi = np.max((sky_min, ma)), np.max((sky_min, mi))
 
         for ii, filter_name in enumerate(sky_model_with_key.target.keys()):
-            axes[ii+1, 0].set_title(f'Sky {filter_name}')
-            ims[ii+1, 0] = axes[ii+1, 0].imshow(
-                mean_small[ii], origin='lower', norm=norm(vmax=ma, vmin=mi))
+            axes[ii, 0].set_title(f'Sky {filter_name}')
+            ims[ii, 0] = axes[ii, 0].imshow(
+                small_mean[ii], origin='lower', norm=norm(vmax=ma, vmin=mi))
+
+        for kk, (jj, filter_name) in zip(
+                range(ii+1, len(axes)),
+                enumerate(sky_model_with_key.target.keys())):
+            axes[kk, 0].set_title(f'Sky {filter_name} std')
+            ims[kk, 0] = axes[kk, 0].imshow(
+                small_std[jj], origin='lower', norm=norm(vmax=ma, vmin=mi))
+
+        if overwrite_model is not None:
+            ii, jj = overwrite_model[0]
+            name = overwrite_model[1]
+            model = overwrite_model[2]
+            mean, _ = get_position_or_samples_of_model(
+                position_or_samples, model)
+            axes[ii, jj].set_title(name)
+            ims[ii, jj] = axes[ii, jj].imshow(mean, origin='lower')
 
         for ax, im in zip(axes.flatten(), ims.flatten()):
             if not isinstance(im, int):
                 fig.colorbar(im, ax=ax, shrink=0.7)
         fig.tight_layout()
-        fig.savefig(join(residual_directory, f'{x.nit:02d}.png'), dpi=300)
-        plt.close()
+
+        if state_or_none is None:
+            plt.show()
+        else:
+            fig.savefig(join(residual_directory,
+                        f'{state_or_none.nit:02d}.png'), dpi=300)
+            plt.close()
 
     return sky_residuals
 
 
-def build_sky_plot_samples(
-    sky_directory: str,
-    sky_model: jft.Model,
-    small_sky_model: jft.Model,
-    sky_model_with_key: jft.Model,
-    norm: callable,
-    sky_extent: Tuple[int],
+def build_plot_model_samples(
+    results_directory: str,
+    model_name: str,
+    model: jft.Model,
+    mapping_axis: Optional[int] = None,
+    plotting_config: dict = {},
 ):
+    sky_directory = join(results_directory, model_name)
+    makedirs(sky_directory, exist_ok=True)
+
+    norm = plotting_config.get('norm', Normalize)
+    sky_min = plotting_config.get('min', 5e-4)
+    extent = plotting_config.get('extent')
 
     def plot_sky_samples(samples: jft.Samples, x: jft.OptimizeVIState):
-        ylen, xlen = find_closest_factors(len(samples)+4)
-
-        samps_big = [sky_model(si) for si in samples]
+        samps_big = [model(si) for si in samples]
         mean, std = jft.mean_and_std(samps_big)
-        mean_small, std_small = jft.mean_and_std(
-            [small_sky_model(si) for si in samples])
-        flds = [mean_small, std_small/mean_small, mean, std/mean] + samps_big
+        vmin = np.max((mean.min(), sky_min))
+        vmax = mean.max()
 
-        for ii, filter_name in enumerate(sky_model_with_key.target.keys()):
-            fig, axes = plt.subplots(
-                ylen, xlen, figsize=(2*xlen, 1.5*ylen), dpi=300)
-            for ax, fld in zip(axes.flatten(), flds):
-                im = ax.imshow(
-                    fld[ii], origin='lower', norm=norm(), extent=sky_extent)
+        if mapping_axis is None:
+            ylen, xlen = find_closest_factors(len(samples)+2)
+        else:
+            ylen, xlen = model.target[mapping_axis], len(samples)+2
+        fig, axes = plt.subplots(
+            ylen, xlen, figsize=(2*xlen, 1.5*ylen), dpi=300)
+
+        if mapping_axis is None:
+            axes = [axes]
+
+        for axi in axes:
+            for ax, fld in zip(axi.flatten(), samps_big):
+                im = ax.imshow(fld, origin='lower', extent=extent,
+                               norm=norm(vmin=vmin, vmax=vmax))
                 fig.colorbar(im, ax=ax, shrink=0.7)
-            fig.tight_layout()
-            fig.savefig(
-                join(sky_directory, f'{x.nit:02d}_{filter_name}.png'), dpi=300)
-            plt.close()
+
+        fig.tight_layout()
+        fig.savefig(join(sky_directory, f'{x.nit:02d}.png'), dpi=300)
+        plt.close()
 
     return plot_sky_samples
 
@@ -187,24 +277,32 @@ def build_color_components_plotting(
     substring='',
 ):
 
+    if not hasattr(sky_model, 'components'):
+        return lambda x: None
+
     colors_directory = join(results_directory, f'colors_{substring}')
     makedirs(colors_directory, exist_ok=True)
-
     N_comps = len(sky_model.components._comps)
 
-    def cc_print(samples: jft.Samples, x: jft.OptimizeVIState):
-        mat_mean, mat_std = jft.mean_and_std(
-            [sky_model.color.matrix(si) for si in samples])
+    def color_plot(
+        position_or_samples: Union[dict, jft.Samples],
+        state_or_none: Optional[jft.OptimizeVIState] = None,
+    ):
+        mat_mean, mat_std = get_position_or_samples_of_model(
+            position_or_samples,
+            sky_model.color.matrix)
         print()
         print('Color Mixing Matrix')
         print(mat_mean, '\n+-\n', mat_std)
         print()
 
-        comps = jft.mean([sky_model.components(si) for si in samples])
-        correlated_comps = jft.mean([sky_model(si) for si in samples])
+        components_mean, _ = get_position_or_samples_of_model(
+            position_or_samples, sky_model.components)
+        correlated_mean, _ = get_position_or_samples_of_model(
+            position_or_samples, sky_model)
 
         fig, axes = plt.subplots(2, N_comps, figsize=(4*N_comps, 3))
-        for ax, cor_comps, comps in zip(axes.T, correlated_comps, comps):
+        for ax, cor_comps, comps in zip(axes.T, correlated_mean, components_mean):
             im0 = ax[0].imshow(cor_comps, origin='lower', norm=LogNorm())
             im1 = ax[1].imshow(np.exp(comps), origin='lower', norm=LogNorm())
             plt.colorbar(im0, ax=ax[0])
@@ -213,97 +311,42 @@ def build_color_components_plotting(
             ax[1].set_title('Comps')
 
         plt.tight_layout()
-        plt.savefig(join(colors_directory, f'componets_{x.nit}.png'))
+        if isinstance(state_or_none, jft.OptimizeVIState):
+            plt.savefig(
+                join(colors_directory, f'componets_{state_or_none.nit}.png'))
+            plt.close()
+        else:
+            plt.show()
 
-    return cc_print
-
-
-def build_plot(
-    data_dict: dict,
-    sky_model_with_key: jft.Model,
-    sky_model: jft.Model,
-    small_sky_model: jft.Model,
-    results_directory: str,
-    plotting_config: dict,
-    upperleft: tuple[str, jft.Model],
-):
-
-    residual_directory = join(results_directory, 'residuals')
-    sky_directory = join(results_directory, 'sky')
-    makedirs(residual_directory, exist_ok=True)
-
-    plot_sky = plotting_config.get('plot_sky', True)
-    if plot_sky:
-        makedirs(sky_directory, exist_ok=True)
-
-    norm = plotting_config.get('norm', Normalize)
-    sky_extent = plotting_config.get('sky_extent', None)
-
-    plot_sky_residuals = build_plot_sky_residuals(
-        results_directory=results_directory,
-        residual_directory=residual_directory,
-        data_dict=data_dict,
-        upperleft=upperleft,
-        sky_model_with_key=sky_model_with_key,
-        small_sky_model=small_sky_model,
-        norm=norm)
-
-    plot_sky_samples = build_sky_plot_samples(
-        sky_directory=sky_directory,
-        sky_model=sky_model,
-        small_sky_model=small_sky_model,
-        sky_model_with_key=sky_model_with_key,
-        norm=norm,
-        sky_extent=sky_extent,
-    )
-
-    def plot(samples: jft.Samples, x: jft.OptimizeVIState):
-        print(f'Plotting: {x.nit}')
-
-        if plot_sky:
-            plot_sky_samples(samples, x)
-
-        plot_sky_residuals(samples, x)
-
-    return plot
+    return color_plot
 
 
-def plot_sky(sky, data_dict, norm=LogNorm):
-
-    ylen = len(data_dict)
-    fig, axes = plt.subplots(ylen, 3, figsize=(9, 3*ylen), dpi=300)
-    ims = []
-    for ii, (dkey, data) in enumerate(data_dict.items()):
-
-        dm = data['data_model']
-        dd = data['data']
-        std = data['std']
-        mask = data['mask']
-
-        model_data = np.zeros_like(dd)
-        model_data[mask] = dm(sky)
-
-        axes[ii, 0].set_title(f'Data {dkey}')
-        ims.append(axes[ii, 0].imshow(dd, origin='lower', norm=norm()))
-        axes[ii, 1].set_title('Data model')
-        ims.append(axes[ii, 1].imshow(
-            model_data, origin='lower', norm=norm()))
-        axes[ii, 2].set_title('Data - Data model')
-        ims.append(axes[ii, 2].imshow((dd - model_data)/std,
-                   origin='lower', vmin=-3, vmax=3, cmap='RdBu_r'))
-
-    for ax, im in zip(axes.flatten(), ims):
-        fig.colorbar(im, ax=ax, shrink=0.7)
-    plt.show()
-
-
-def plot_data_data_model_residuals(
-    axes,
+def _plot_data_data_model_residuals(
+    ims: list,
+    axes: list,
+    data_key: str,
     data: ArrayLike,
     data_model: ArrayLike,
     std: ArrayLike,
+    plotting_config: dict = {}
 ):
-    pass
+
+    min = plotting_config.get('min', 5e-4)
+    norm = plotting_config.get('norm', Normalize)
+
+    max_d, min_d = np.nanmax(data), np.max((np.nanmin(data), min))
+
+    axes[0].set_title(f'Data {data_key}')
+    axes[1].set_title('Data model')
+    axes[2].set_title('Data - Data model')
+    ims[0] = axes[0].imshow(data, origin='lower',
+                            norm=norm(vmin=min_d, vmax=max_d))
+    ims[1] = axes[1].imshow(data_model, origin='lower',
+                            norm=norm(vmin=min_d, vmax=max_d))
+    ims[2] = axes[2].imshow((data-data_model)/std, origin='lower',
+                            vmin=-3, vmax=3, cmap='RdBu_r')
+
+    return ims
 
 
 def get_alpha_nonpar(lens_system, plot_components_switch):

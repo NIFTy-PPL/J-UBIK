@@ -73,10 +73,36 @@ def build_coordinates_correction_prior_from_config(
 def build_sky_model_from_config(
         config: dict, reconstruction_grid: Grid, plot=False) -> jft.Model:
 
+    if 'mean' in config['priors']:
+        from charm_lensing.models.hybrid_model import build_hybrid_model
+        from charm_lensing.spaces import Space
+
+        model_cfg = dict(
+            mean=config['priors']['mean'],
+            perturbations=dict(
+                ubik=dict(priors=config['priors'], grid=config['grid'],
+                          energy_bin=config['grid']['energy_bin']))
+        )
+        space = Space(
+            shape=reconstruction_grid.shape,
+            distances=[
+                d.to(units.arcsec).value for d in reconstruction_grid.distances],
+            space_key='',
+            extend_factor=config['grid'].get('s_padding_ratio', 1.0),
+        )
+        small_sky_model = sky_model = build_hybrid_model(
+            space=space,
+            model_key='light',
+            model_cfg=model_cfg)
+
+        alpha_tmp = sky_model.nonparametric()._sky_model.alpha_cf
+        energy_cfg = sky_model.nonparametric(
+        )._sky_model.config['grid']['energy_bin']
+        def alpha(x): return alpha_tmp(x)[:sdim, :sdim]
+
     if config['priors']['diffuse'].get('colormix'):
         from copy import deepcopy
         energy_bins = config['grid'].get('edim')
-
         energy_cfg = config['grid'].get('energy_bin')
         diffuse_priors = config['priors']['diffuse']
 
@@ -108,7 +134,6 @@ def build_sky_model_from_config(
             fov=config['grid']['fov'])
         sky_model = sky_model_new.full_diffuse
         energy_cfg = sky_model_new.config['grid']['energy_bin']
-
         sdim = config['grid']['sdim']
 
         def alpha(x):

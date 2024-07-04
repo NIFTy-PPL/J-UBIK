@@ -20,11 +20,11 @@ from jubik0.jwst.config_handler import (
     build_coordinates_correction_prior_from_config)
 from jubik0.jwst.wcs import subsample_grid_centers_in_index_grid
 from jubik0.jwst.jwst_data_model import build_data_model
-from jubik0.jwst.jwst_plotting import build_plot, build_color_components_plotting
+from jubik0.jwst.jwst_plotting import (
+    build_plot_sky_residuals, build_color_components_plotting)
 from jubik0.jwst.filter_projector import FilterProjector
 
 from jubik0.jwst.color import Color, ColorRange
-
 
 import os
 from sys import exit
@@ -44,11 +44,18 @@ ju.save_local_packages_hashes_to_txt(
 ju.save_config_copy('jwst_config.yaml', './demos', RES_DIR)
 
 
+if cfg['cpu']:
+    from jax import config, devices
+    config.update('jax_default_device', devices('cpu')[0])
+
+
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 small_sky_model, sky_model, alpha, energy_cfg = build_sky_model_from_config(
     cfg, reconstruction_grid)
 
 
+assert cfg['grid']['edim'] == len(cfg['grid']['energy_bin']['e_min'])
+assert cfg['grid']['edim'] == len(cfg['grid']['energy_bin']['e_max'])
 e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
 keys_and_colors = {
     f'e{ii:02d}': ColorRange(Color(emin*e_unit), Color(emax*e_unit))
@@ -151,27 +158,34 @@ likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)
 
 
-base_plot = build_plot(
+residual_plot = build_plot_sky_residuals(
+    results_directory=RES_DIR,
     data_dict=data_dict,
     sky_model_with_key=sky_model_with_keys,
-    sky_model=sky_model,
     small_sky_model=small_sky_model,
-    results_directory=RES_DIR,
-    upperleft=('Alpha field', alpha),
+    overwrite_model=((-1, 0), 'Alpha field', alpha),
     plotting_config=dict(
         norm=LogNorm,
         sky_extent=None,
         plot_sky=False
     ))
+plot_color = build_color_components_plotting(sky_model, RES_DIR)
 
-if hasattr(sky_model, 'color'):
-    plot_color = build_color_components_plotting(sky_model, RES_DIR)
+
+if cfg.get('prior_samples') is not None:
+    test_key, _ = random.split(random.PRNGKey(42), 2)
+    for ii in range(cfg.get('prior_samples', 3)):
+        test_key, _ = random.split(test_key, 2)
+        position = jft.random_like(test_key, likelihood.domain)
+        while isinstance(position, jft.Vector):
+            position = position.tree
+        residual_plot(position)
+        plot_color(position)
 
 
 def plot(samples, x):
-    base_plot(samples, x)
-    if hasattr(sky_model, 'color'):
-        plot_color(samples, x)
+    residual_plot(samples, x)
+    plot_color(samples, x)
 
 
 cfg_mini = ju.get_config('demos/jwst_config.yaml')["minimization"]

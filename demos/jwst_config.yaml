@@ -1,3 +1,6 @@
+cpu: False
+prior_samples: 1
+
 grid:
   sdim: 128
   s_padding_ratio: 1.5
@@ -12,25 +15,25 @@ grid:
     # rotation: 65
     rotation: -115
 
-  edim: 2
+  edim: 3
   e_padding_ratio: 1.0
 
   energy_bin:
     unit: eV
     e_min:
-      # - 0.396 # F277W
-      # - 0.311 # F356W
-      - 0.249 # F444W
-      - 0.200 # F560W
       # - 0.143 # F770W
+      - 0.200 # F560W
+      - 0.249 # F444W
+      - 0.311 # F356W
+      # - 0.396 # F277W
     e_max:
-      # - 0.512 # F277W
-      # - 0.395 # F356W
-      - 0.311 # F444W
-      - 0.245 # F560W
       # - 0.188 # F770W
+      - 0.245 # F560W
+      - 0.311 # F444W
+      - 0.395 # F356W
+      # - 0.512 # F277W
     e_ref:
-      - 0.280
+      - 0.278
 
 
 telescope:
@@ -137,13 +140,35 @@ files:
 
 priors:
 
+  # mean:
+  #   exponentialpower: # i0*exp(-a (r/re)**b)
+  #     i0: ['log_normal', 9.0, 9.0e-1]
+  #     a: ['log_normal', 0.2, 0.1]
+  #     re: ['log_normal', 0.03, 0.01]
+  #     b:
+  #       distribution: 'uniform'
+  #       min: 0.25  # 0.25 deVaucouleurs profile 
+  #       max: 2.2
+  #     center:
+  #       distribution: 'normal'
+  #       mean: 0.0
+  #       sigma: 0.01
+  #     q:
+  #       distribution: 'uniform'
+  #       min: 0.68
+  #       max: 1.0
+  #     theta:
+  #       distribution: 'normal'
+  #       mean: 0.0
+  #       sigma: 10
+
   diffuse:
     spatial:
       offset:
-        offset_mean: -7.0
-        offset_std:
-          - 1.2
-          - 0.5
+        offset_mean: 0.0
+        offset_std: Null
+          # - 1.2
+          # - 0.5
       fluctuations:
         fluctuations:
           - 1.6
@@ -166,7 +191,7 @@ priors:
 
     plaw: # Gets ignored if colormix
       offset:
-        offset_mean: -1.0
+        offset_mean: 1.0
         offset_std:
           - 0.8
           - 0.1
