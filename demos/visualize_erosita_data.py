@@ -17,6 +17,8 @@ if __name__ == "__main__":
     e_max = grid_info['energy_bin']['e_max']
     data_path = join(file_info['obs_path'], 'processed')
 
+    pixel_area = (config_dict['telescope']['fov'] / config_dict['grid']['sdim']) **2 # density to flux
+
     data = []
     exposures = []
     for it, tm_id in enumerate(tm_ids):
@@ -52,13 +54,14 @@ if __name__ == "__main__":
     summed_data = np.sum(data, axis=0)
     summed_exposure = np.sum(exposures, axis=0)
     exposure_corrected_data = summed_data/summed_exposure
+    exposure_corrected_data = exposure_corrected_data / pixel_area
     mask_data = np.isnan(exposure_corrected_data)
     mask_exp = summed_exposure == 0
     exposure_corrected_data[mask_data] = 0
     exposure_corrected_data[mask_exp] = 0
     ju.plot_result(exposure_corrected_data, logscale=True, n_rows=1, n_cols=3, adjust_figsize=False,
                    figsize=(15, 5), common_colorbar=False)
-    sat_min = [3e-8, 3e-8, 3e-8]
+    sat_min = [3e-9, 3e-9, 3e-9]
 
     # for setting the value
     maxim = [np.max(exposure_corrected_data[i]) for i in range(3)]
@@ -66,10 +69,10 @@ if __name__ == "__main__":
         print(f"Max Bin {i}", maxim[i])
 
     # maxima set by eye
-    sat_max = [2.0167e-6, 1.05618e-6, 1.5646e-6]
+    sat_max = [1.5e-7, 0.9e-7, 1.0e-7]
 
     ju.plot_rgb(exposure_corrected_data, "blib", sat_min, sat_max, sigma=None, log=False)
-    ju.plot_rgb(exposure_corrected_data, "blib_log",sat_min, log=True)
+    ju.plot_rgb(exposure_corrected_data, "blib_log", log=True)
     ju.plot_result(exposures[0], logscale=True, n_cols=3, adjust_figsize=True, common_colorbar=True)
     # plt.imshow(exposures[0][1] - exposures[0][2], origin='lower')
     # plt.imshow(exposures[0][1]/exposures[0][2], origin='lower')

@@ -231,7 +231,11 @@ def create_erosita_data_from_config(config_path):
     if len(e_max) != len(e_max):
         raise ValueError("e_min and e_max must have the same length!")
 
-    rebin = int(np.floor(20 * tel_info['fov'] // sdim))  # FIXME: USE DISTANCES!
+    rebin = tel_info["rebin"]
+    rebin_check = int(np.floor(20 * tel_info['fov'] // sdim))
+
+    if rebin != rebin_check:
+        raise ValueError("rebin, which sets the angular resolution and fov do not match")
 
     processed_obs_path = create_output_directory(join(obs_path, file_info['processed_obs_folder']))
     for tm_id in tel_info["tm_ids"]:

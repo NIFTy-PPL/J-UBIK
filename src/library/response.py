@@ -407,10 +407,14 @@ def build_erosita_response_from_config(config_file_path):
                                                   threshold=tel_info['exp_cut'],
                                                   keys=tel_info['tm_ids'])
 
+    pixel_area = (cfg['telescope']['fov'] /cfg['grid']['sdim']) **2 # density to flux
     # plugin
-    response_func = lambda x: mask_func(exposure_func(psf_func(x)))
-    response_dict = {'mask': mask_func, 'exposure': exposure_func, 'psf': psf_func,
-                      'R': response_func}
+    response_func = lambda x: mask_func(exposure_func(psf_func(x*pixel_area)))
+    response_dict = {'pix_area': pixel_area,
+                     'psf': psf_func,
+                     'exposure': exposure_func,
+                     'mask': mask_func,
+                     'R': response_func}
     return response_dict
 
 
