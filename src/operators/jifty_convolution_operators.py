@@ -1,12 +1,14 @@
 import jax
 import jax.lax
 import jax.numpy as jnp
-
+import nifty8.re as jft
 import numpy as np
 from functools import reduce
 
 from ..library.data import Domain
 
+import dataclasses
+from typing import Any
 
 def _bilinear_weights(shape):
     """Build bilinear interpolation kernel."""
@@ -52,8 +54,14 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
     f = jax.vmap(slicer, in_axes=(0, 0), out_axes=(0))
     return f(*(nn.flatten() for nn in ndx))
 
+class linpatch_convolve(jft.Model):
+    kernel: Any = dataclasses.field(metadata=dict(static=False))
+    def __init__(self):
+        self.func = _linpatch_convolve
+    def __call__(self, x, domain, kernel, n_patches_per_axis, margin):
+        return self.func(x, domain, kernel, n_patches_per_axis, margin)
 
-def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
+def _linpatch_convolve(x, domain, kernel, n_patches_per_axis,
                       margin):
     """Functional version of linear patching convolution.
 

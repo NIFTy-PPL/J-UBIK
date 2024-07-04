@@ -298,8 +298,9 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
     shp = (domain.shape[-2], domain.shape[-1])
     margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
 
+    linpatch = linpatch_convolve()
     def psf_op(x):
-        return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(x, domain, psfs, npatch, margin)
+        return vmap(linpatch, in_axes=(None, None, 0, None, None))(x, domain, psfs, npatch, margin)
 
     return psf_op
 
