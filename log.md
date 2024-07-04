@@ -4,9 +4,7 @@
 ### Data not a powerlaw after exposure correction.
 - Test 1: Look at exp corrected data with and without effective area
   looks normal, shouldn't be a problem.
-  
-- Test 2: Fit with 2 Bins
-  DELAY or not neccessary
+- Test 2: Fit with 2 Bins (DELAY or not neccessary)
   
 ### Does Map work
 - Testing with config ve_1.yaml (get Chi² of 1 and below)
@@ -26,10 +24,25 @@
 
 - VI fails
 - 1: check configs (priors are off)- is the same
-
 - 2: let's look at the minisanity (Not Sampling enough) - We try with lower xtol/absdelta. (Margret)
-
 - 3: let's look at the diagnostics (what is going wrong with chi2, describe where the bigest problem is) (Matteo)
 - 4: Frank Hypothesis: too may DOF / Deg. switching of DEVs 
 - 5: too broad priors: check with smaller stds (Margret)
 
+# TODO
+- Check cluster for VI minisanity (matteo)
+- Resolution Fix / Rebin / Flux density (Vincent)
+- Fix diagnostics (Matteo)
+- Writing (Margret)
+- Terminal Output > Save it 
+
+# TODO from call
+- smaller non linear update newton steps (approximately 5)
+- KL minimizer limit approx 25
+- more linear sampling / first MGVI only runs?
+- define absdelta and xtol via delta / see demo
+
+## more
+- DIFFUSE only run with VI 
+- PS only with VI
+- MAP -> fischer laplace at minimum

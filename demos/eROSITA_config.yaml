@@ -79,9 +79,7 @@ priors:
       std: 0.5
       name: points_plaw_
     dev_wp:
-      x0:
-        - 0
-        - 0.01
+      x0: 0.
       sigma:
         - 0.01
         - 0.02
@@ -150,9 +148,7 @@ priors:
         # harmonic_type: "Fourier"
       prefix: diffuse_plaw_
     # dev_wp:
-    #   x0:
-    #     - 0
-    #     - 0.1
+    #   x0: 0.
     #   sigma:
     #     - 0.3
     #     - 0.1
@@ -183,22 +179,23 @@ minimization:
   resume: False
   n_total_iterations: 15
   n_samples: 4
+  delta: 1.e-5
   draw_linear_kwargs:
     cg_name : lin sampling
     cg_kwargs:
-      absdelta: 1.e-4
+#      absdelta: 1.e-4 # either delta or absdelta needs to be set
       maxiter: 60
   nonlinearly_update_kwargs:
     minimize_kwargs:
       name: nonlin sampling
-      xtol: 2.e-4
+#      xtol: 2.e-4
       cg_kwargs:
         name: null
       maxiter: 25
   kl_kwargs:
     minimize_kwargs:
       name: "M"
-      absdelta: 1.e-8
+#      absdelta: 1.e-6
       maxiter: 10
       cg_kwargs:
         name: "MCG"
