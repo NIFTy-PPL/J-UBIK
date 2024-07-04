@@ -73,8 +73,11 @@ if __name__ == "__main__":
         minimization_config.pop('delta')
 
     # Plot
-    additional_plot_dict = {"diffuse_alpha": sky_model.alpha_cf,
-                            "point_sources_alpha": sky_model.points_alpha}
+    additional_plot_dict = {}
+    if hasattr(sky_model, 'alpha_cf'):
+        additional_plot_dict['diffuse_alfa'] = sky_model.alpha_cf
+    if hasattr(sky_model, 'points_alfa'):
+        additional_plot_dict['points_alfa'] = sky_model.points_alfa
 
     def simple_eval_plots(s, x):
         """Call plot_sample_and_stat for every iteration."""
