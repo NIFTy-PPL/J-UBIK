@@ -17,6 +17,8 @@ if __name__ == "__main__":
     e_max = grid_info['energy_bin']['e_max']
     data_path = join(file_info['obs_path'], 'processed')
 
+    pixel_area = (config_dict['telescope']['fov'] / config_dict['grid']['sdim']) **2 # density to flux
+
     data = []
     exposures = []
     for it, tm_id in enumerate(tm_ids):
@@ -52,7 +54,7 @@ if __name__ == "__main__":
     summed_data = np.sum(data, axis=0)
     summed_exposure = np.sum(exposures, axis=0)
     exposure_corrected_data = summed_data/summed_exposure
-    exposure_corrected_data = exposure_corrected_data / 16
+    exposure_corrected_data = exposure_corrected_data / pixel_area
     mask_data = np.isnan(exposure_corrected_data)
     mask_exp = summed_exposure == 0
     exposure_corrected_data[mask_data] = 0
