@@ -80,7 +80,11 @@ def build_data_model(
         kwargs_linear: dict, (order, sky_as_brightness, mode)
         kwargs_nufft: dict, (sky_as_brightness)
         kwargs_sparse: dict, (extend_factor, to_bottom_left)
-        shift_and_rotation_correction: Optional[jft.Model]
+        coordinate_correction: Optional[dict]
+            domain_key: str
+            priors: dict
+                - shift: Mean and sigma for the Gaussian distribution of shift model.
+                - rotation: Mean and sigma of the Gaussian distribution for theta [rad]
 
     psf_kwargs:
         camera: str, NIRCam or MIRI

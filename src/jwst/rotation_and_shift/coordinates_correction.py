@@ -28,7 +28,7 @@ class CoordinatesCorrection(jft.Model):
         '''
         self.rotation_center = rotation_center
         self.pix_distance = pix_distance
-        self.shift_prior = shift_prior
+        self.shift_prior = shift_prior  # FIXME: Not prior to distribution_operator
         self.rotation_prior = rotation_prior
         self._coords = coords
 

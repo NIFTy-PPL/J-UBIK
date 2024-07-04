@@ -86,9 +86,12 @@ def build_rotation_and_shift_model(
         nufft: dict, options
             - sky_as_brightness: default: False
 
-    coordinate_correction
-        The shift and rotation correction model, which returns corrected
-        coordinates.
+    coordinate_correction: dict
+        domain_key: str
+        priors: dict
+            - shift: Mean and sigma for the Gaussian distribution of shift model.
+            - rotation: Mean and sigma of the Gaussian distribution for theta [rad]
+
 
     Returns
     -------
@@ -134,7 +137,7 @@ def build_rotation_and_shift_model(
             # Sparse cannot update the coordinates, this is why the
             # correction_model is not passed to the builder.
             sparse_kwargs = kwargs.get('sparse', dict(
-                extend_factor=1, to_bottom_left=True))
+                extend_factor=1, to_bottom_left=False))
             call = build_sparse_rotation_and_shift(
                 index_grid=reconstruction_grid.index_grid(**sparse_kwargs),
                 subsample_corners=subsample_grid_corners_in_index_grid_non_vstack(

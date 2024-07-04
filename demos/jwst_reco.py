@@ -41,6 +41,7 @@ os.makedirs(RES_DIR, exist_ok=True)
 ju.save_local_packages_hashes_to_txt(
     ['nifty8', 'charm_lensing', 'jubik0'],
     os.path.join(RES_DIR, 'hashes.txt'))
+ju.save_config_copy('jwst_config.yaml', './demos', RES_DIR)
 
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
@@ -66,7 +67,6 @@ sky_model_with_keys = jft.Model(
 
 data_dict = {}
 likelihoods = []
-kk = 0
 for fltname, flt_dct in cfg['files']['filter'].items():
     for ii, filepath in enumerate(flt_dct):
         print(fltname, ii, filepath)
@@ -103,7 +103,7 @@ for fltname, flt_dct in cfg['files']['filter'].items():
                 shift_and_rotation_correction=dict(
                     domain_key=data_key + '_correction',
                     priors=build_coordinates_correction_prior_from_config(
-                        kk, cfg),
+                        cfg, jwst_data.filter, ii),  # could also be None
                 )
             ),
 
@@ -145,8 +145,6 @@ for fltname, flt_dct in cfg['files']['filter'].items():
             data_model, domain=jft.Vector(data_model.domain))
         likelihoods.append(likelihood)
 
-        kk += 1
-
 
 model = sky_model_with_keys
 likelihood = reduce(lambda x, y: x+y, likelihoods)
@@ -159,7 +157,7 @@ base_plot = build_plot(
     sky_model=sky_model,
     small_sky_model=small_sky_model,
     results_directory=RES_DIR,
-    alpha=alpha,
+    upperleft=('Alpha field', alpha),
     plotting_config=dict(
         norm=LogNorm,
         sky_extent=None,
@@ -180,7 +178,6 @@ cfg_mini = ju.get_config('demos/jwst_config.yaml')["minimization"]
 key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
-
 n_dof = ju.calculate_n_constrained_dof(likelihood)
 minpars = ju.MinimizationParser(cfg_mini, n_dof)
 
@@ -201,3 +198,15 @@ samples, state = jft.optimize_kl(
     kl_kwargs=minpars.kl_kwargs,
     resume=cfg_mini.get('resume', False),
 )
+
+
+for ii, (data_key, data_set) in enumerate(data_dict.items()):
+    data_model = data_set['data_model']
+    rotation_trafo = data_model.rotation_and_shift.correction_model.rotation_prior
+    shift_trafo = data_model.rotation_and_shift.correction_model.shift_prior
+
+    shift = jft.mean([shift_trafo(x) for x in samples])
+    rotation = jft.mean([rotation_trafo(x) for x in samples])
+
+    print(data_key, f'shift: [{shift[0]}, {shift[1]}]',
+          f'rotation: {rotation}')

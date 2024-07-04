@@ -11,6 +11,8 @@ from ..library.sky_models import SkyModel
 from ..library.sky_colormix import (
     build_colormix_components, prior_samples_colormix_components)
 
+from typing import Optional
+
 
 def _get_world_location(config: dict) -> SkyCoord:
     ra = config['grid']['pointing']['ra']
@@ -45,17 +47,23 @@ def build_reconstruction_grid_from_config(config: dict) -> Grid:
     return Grid(wl, shape, (fov.to(units.deg), fov.to(units.deg)), rotation=rotation)
 
 
-def build_coordinates_correction_prior_from_config(kk: int, config: dict) -> dict:
-    if kk == 0:
-        return None
+def build_coordinates_correction_prior_from_config(
+    config: dict,
+    filter: Optional[str] = '',
+    filter_data_set_id: Optional[int] = 0
+) -> dict:
+    rs_priors = config['telescope']['rotation_and_shift']['priors']
 
-    shift = config['telescope']['rotation_and_shift']['priors']['shift']
-    rotation = config['telescope']['rotation_and_shift']['priors']['rotation']
-    rotation_unit = getattr(
-        units,
-        config['telescope']['rotation_and_shift']['priors'].get(
-            'rotation_unit', 'deg'))
+    flower = filter.lower()
+    if (flower in rs_priors) and (filter_data_set_id in rs_priors.get(flower, dict())):
+        shift = rs_priors[flower][filter_data_set_id]['shift']
+        rotation = rs_priors[flower][filter_data_set_id]['rotation']
 
+    else:
+        shift = rs_priors['shift']
+        rotation = rs_priors['rotation']
+
+    rotation_unit = getattr(units, rs_priors.get('rotation_unit', 'deg'))
     rotation = (rotation[0],
                 rotation[1],
                 (rotation[2] * rotation_unit).to(units.rad).value)
@@ -101,7 +109,10 @@ def build_sky_model_from_config(
         sky_model = sky_model_new.full_diffuse
         energy_cfg = sky_model_new.config['grid']['energy_bin']
 
-        alpha = sky_model_new.alpha_cf
+        sdim = config['grid']['sdim']
+
+        def alpha(x):
+            return sky_model_new.alpha_cf(x)[:sdim, :sdim]
 
     return small_sky_model, sky_model, alpha, energy_cfg
 
@@ -142,3 +153,55 @@ def define_mock_output(config: dict):
         f'{reco_shape}pix',
         f'rot{rot_string}_shf{shi_string}',
         f'{method_string}_{output_attach}')
+
+
+def insert_ubik_energy_in_lensing(cfg, zsource):
+    from jubik0.jwst.color import Color
+    edim = cfg['grid']['edim']
+    e_padding_ratio = cfg['grid']['e_padding_ratio']
+    energy_bin = cfg['grid']['energy_bin']
+    eunit = getattr(units, cfg['grid'].get('energy_unit', 'eV'))
+
+    source_pert_cfg = cfg['lensing']['model']['source']['light']['perturbations']
+    if 'ubik' in source_pert_cfg:
+        source_pert_cfg['ubik']['grid'] = dict(
+            edim=edim,
+            e_padding_ratio=e_padding_ratio)
+        source_pert_cfg['ubik']['energy_bin'] = dict(
+            e_min=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
+                   for e in energy_bin['e_min']],
+            e_max=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
+                   for e in energy_bin['e_max']],
+            e_ref=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
+                   for e in energy_bin['e_max']],
+        )
+
+    lens_pert_cfg = cfg['lensing']['model']['lens']['light']['perturbations']
+    if 'ubik' in lens_pert_cfg:
+        lens_pert_cfg['ubik']['grid'] = dict(
+            edim=edim,
+            e_padding_ratio=e_padding_ratio)
+        lens_pert_cfg['ubik']['energy_bin'] = energy_bin
+
+
+def insert_spaces_in_lensing(cfg):
+    lens_fov = cfg['grid']['fov']
+    lens_npix = cfg['grid']['sdim']
+    lens_padd = cfg['grid']['s_padding_ratio']
+    lens_npix = (lens_npix, lens_npix)
+    lens_dist = [lens_fov/p for p in lens_npix]
+    lens_space = dict(padding_ratio=lens_padd,
+                      Npix=lens_npix,
+                      distance=lens_dist)
+
+    source_fov = cfg['grid']['source_grid']['fov']
+    source_npix = cfg['grid']['source_grid']['sdim']
+    source_padd = cfg['grid']['source_grid']['s_padding_ratio']
+    source_npix = (source_npix, source_npix)
+    source_dist = [source_fov/p for p in source_npix]
+    source_space = dict(padding_ratio=source_padd,
+                        Npix=source_npix,
+                        distance=source_dist)
+
+    cfg['lensing']['spaces'] = dict(
+        lens_space=lens_space, source_space=source_space)

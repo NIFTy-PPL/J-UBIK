@@ -17,10 +17,13 @@ from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
 from jubik0.jwst.config_handler import (
     build_reconstruction_grid_from_config,
-    build_coordinates_correction_prior_from_config)
+    build_coordinates_correction_prior_from_config,
+    insert_ubik_energy_in_lensing,
+    insert_spaces_in_lensing)
 from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_data_model import build_data_model
-from jubik0.jwst.jwst_plotting import build_plot, build_plot_lens_light, build_color_components_plotting
+from jubik0.jwst.jwst_plotting import (
+    build_plot, build_color_components_plotting, build_plot_lens_system, get_alpha_nonpar)
 from jubik0.jwst.filter_projector import FilterProjector
 
 from jubik0.jwst.color import Color, ColorRange
@@ -38,6 +41,7 @@ os.makedirs(RES_DIR, exist_ok=True)
 ju.save_local_packages_hashes_to_txt(
     ['nifty8', 'charm_lensing', 'jubik0'],
     os.path.join(RES_DIR, 'hashes.txt'))
+ju.save_config_copy('jwst_lens_config.yaml', './demos', RES_DIR)
 
 if cfg['cpu']:
     from jax import config, devices
@@ -45,6 +49,8 @@ if cfg['cpu']:
 
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
+insert_ubik_energy_in_lensing(cfg, zsource=4.2)
+insert_spaces_in_lensing(cfg)
 lens_system = build_lens_system.build_lens_system(cfg['lensing'])
 sky_model = lens_system.get_forward_model_parametric()
 
@@ -66,7 +72,6 @@ sky_model_with_keys = jft.Model(
 
 data_dict = {}
 likelihoods = []
-kk = 0
 for fltname, flt in cfg['files']['filter'].items():
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
@@ -103,7 +108,7 @@ for fltname, flt in cfg['files']['filter'].items():
                 shift_and_rotation_correction=dict(
                     domain_key=data_key + '_correction',
                     priors=build_coordinates_correction_prior_from_config(
-                        kk, cfg),
+                        cfg, jwst_data.filter, ii),
                 )
             ),
 
@@ -145,80 +150,40 @@ for fltname, flt in cfg['files']['filter'].items():
             data_model, domain=jft.Vector(data_model.domain))
         likelihoods.append(likelihood)
 
-        kk += 1
 
 model = sky_model_with_keys
 likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)
 
-
 # PLOTTING
-key, test_key = random.split(random.PRNGKey(42), 2)
-for ii in range(3):
-
-    from jubik0.jwst.jwst_plotting import sky_model_alpha_test_plotting
-
-    key, test_key = random.split(test_key, 2)
-    if hasattr(lens_system.source_plane_model.light_model.nonparametric(), 'color'):
-        pass
-
-    else:
-        sky_model_alpha_test_plotting(
-            test_key, lens_system, sky_model_with_keys, keys_and_colors,
-            filter_projector, data_dict)
-
-
-components_plot_switch = hasattr(
+plot_components_switch = hasattr(
     lens_system.source_plane_model.light_model.nonparametric(), 'color')
-tmp_alpha = lens_system.lens_plane_model.light_model.nonparametric()._sky_model.alpha_cf
-ll_shape = lens_system.lens_plane_model.space.shape
-ll_alpha = jft.Model(
-    lambda x: tmp_alpha(x)[:ll_shape[0], :ll_shape[1]],
-    domain=tmp_alpha.domain)
+parametric_flag = lens_system.lens_plane_model.convergence_model.nonparametric() is not None
 
-ll_nonpar = lens_system.lens_plane_model.light_model.parametric(
-).nonparametric()[0].nonparametric()
-if ll_nonpar is None:
-    def ll_nonpar(_): return jnp.zeros((12, 12))
+ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(
+    lens_system, plot_components_switch)
 
-if components_plot_switch:
-    pass
-
-    plot_color = build_color_components_plotting(
-        lens_system.source_plane_model.light_model.nonparametric(), RES_DIR)
-
-    def sl_nonpar(_): return jnp.zeros((12, 12))
-    def sl_alpha(_): return jnp.zeros((12, 12))
-
-else:
-    sl_alpha = lens_system.source_plane_model.light_model.nonparametric()._sky_model.alpha_cf
-    sl_nonpar = lens_system.source_plane_model.light_model.nonparametric()._sky_model.spatial_cf
-    if sl_nonpar is None:
-        def sl_nonpar(_): return jnp.zeros((12, 12))
-
-mass_model = lens_system.lens_plane_model.convergence_model.parametric()
-
-plot_sky = build_plot_lens_light(
-    results_directory=RES_DIR,
-    sky_model_keys=sky_model_with_keys.target.keys(),
-    lens_light=(ll_alpha, lens_system.lens_plane_model.light_model, ll_nonpar),
-    source_light=(
-        sl_alpha, lens_system.source_plane_model.light_model, sl_nonpar),
-    lensed_light=lens_system.get_forward_model_parametric(only_source=True),
-    mass_model=mass_model,
+plot_lens_light = build_plot_lens_system(
+    RES_DIR,
     plotting_config=dict(
-        norm_lens=LogNorm,
         # norm_source=LogNorm,
-    )
+        norm_lens=LogNorm,
+        # norm_mass=LogNorm,
+    ),
+    lens_system=lens_system,
+    filter_projector=filter_projector,
+    lens_light_alpha_nonparametric=(ll_alpha, ll_nonpar),
+    source_light_alpha_nonparametric=(sl_alpha, sl_nonpar),
 )
 
+mass_model = lens_system.lens_plane_model.convergence_model.parametric()
 residual_plot = build_plot(
     data_dict=data_dict,
     sky_model_with_key=sky_model_with_keys,
     sky_model=sky_model,
     small_sky_model=lens_system.get_forward_model_parametric(),
     results_directory=RES_DIR,
-    alpha=ll_alpha,
+    upperleft=('Mass field', mass_model),
     plotting_config=dict(
         norm=LogNorm,
         sky_extent=None,
@@ -226,10 +191,35 @@ residual_plot = build_plot(
     ))
 
 
+if plot_components_switch:
+    plot_color = build_color_components_plotting(
+        lens_system.source_plane_model.light_model.nonparametric(), RES_DIR)
+
+
+if cfg.get('prior_samples') is not None:
+    test_key, _ = random.split(random.PRNGKey(42), 2)
+    for ii in range(cfg.get('prior_samples', 3)):
+        test_key, _ = random.split(test_key, 2)
+        position = jft.random_like(test_key, model.domain)
+
+        key, test_key = random.split(test_key, 2)
+        if plot_components_switch:
+            pass
+
+        else:
+            plot_lens_light(position, None, parametric=parametric_flag)
+
+            for ii, (dkey, data) in enumerate(data_dict.items()):
+                dm = data['data_model']
+                dd = data['data']
+                std = data['std']
+                mask = data['mask']
+
+
 def plot(samples, state):
     residual_plot(samples, state)
-    plot_sky(samples, state)
-    if components_plot_switch:
+    plot_lens_light(samples, state, parametric=parametric_flag)
+    if plot_components_switch:
         plot_color(samples, state)
 
 

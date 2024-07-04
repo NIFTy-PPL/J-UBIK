@@ -12,25 +12,26 @@ grid:
     # rotation: 65
     rotation: -115
 
-  edim: 3
+  edim: 2
   e_padding_ratio: 1.0
 
   energy_bin:
     unit: eV
     e_min:
-    # - 0.143
-    # - 0.200
-    - 0.249  # eV
-    - 0.311
-    - 0.395
+      # - 0.396 # F277W
+      # - 0.311 # F356W
+      - 0.249 # F444W
+      - 0.200 # F560W
+      # - 0.143 # F770W
     e_max:
-    # - 0.188
-    # - 0.245
-    - 0.311
-    - 0.395
-    - 0.511
+      # - 0.512 # F277W
+      # - 0.395 # F356W
+      - 0.311 # F444W
+      - 0.245 # F560W
+      # - 0.188 # F770W
     e_ref:
-    - 0.311
+      - 0.280
+
 
 telescope:
   psf:
@@ -45,13 +46,18 @@ telescope:
     model: 'linear' # 'sparse', 'linear', 'nufft'
     subsample: 3
     priors: # will be ignored in case of sparse
-      shift: ['normal', 0, 1.0e-1]  # pixel units
-      rotation: ['normal', 0, 1.0e-1]
-      rotation_unit: deg
+      shift: ['normal', 0, 1.0e-2]  # pixel units
+      rotation: ['normal', 0, 1.0e-2]
+      rotation_unit: 'deg'
+
+      f444w:
+        0:
+          shift: ['delta', 0, 0]  # pixel units
+          rotation: ['delta', 0, 0]
 
 
 files:
-  res_dir: 'results/jwst_test/cm_f277w_f356w_f444w_15_offGauss0'
+  res_dir: 'results/jwst_test/f356w_f444w_f560w_03_alphaprior'
 
   filter:
     # f115w: # NIRCam
@@ -66,23 +72,23 @@ files:
     #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_cal.fits'
     #   - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_cal.fits'
 
-    f277w:
-      - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
+    # f277w:
+    #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
     #   - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
 
-    f356w:
-      - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
-      # - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+    # f356w:
+    #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+    #   - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
     f444w:
       - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
       - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
-    # f560w: # MIRI
-    #   - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+    f560w: # MIRI
+      - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
 
     # f770w:
     #   - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
@@ -153,21 +159,21 @@ priors:
         # harmonic_type: "Fourier"
       prefix: diffuse_spatial_
 
-    colormix:
-      # diagonal_prior: ['lognormal', 1.2, 0.2]
-      diagonal_prior: ['delta', 1.0, 0.2]
-      off_diagonal_prior: ['normal', 0.0, 0.3]
+    # colormix:
+    #   # diagonal_prior: ['lognormal', 1.2, 0.2]
+    #   diagonal_prior: ['delta', 1.0, 0.2]
+    #   off_diagonal_prior: ['normal', 0.0, 0.3]
 
     plaw: # Gets ignored if colormix
       offset:
-        offset_mean: -2.0
+        offset_mean: -1.0
         offset_std:
-          - 0.3
-          - 0.05
+          - 0.8
+          - 0.1
       fluctuations:
         fluctuations:
-          - 0.5
-          - 0.05
+          - 1.0
+          - 0.12
         loglogavgslope:
           - -2.5
           - 0.5
@@ -184,16 +190,16 @@ priors:
 
 minimization:
     key: 288
-    resume: True
-    n_total_iterations: 15
+    resume: False
+    n_total_iterations: 20
     delta:
       switches: [0, 10]
       values: [1.e-5, 1.e-6]
 
     samples:
-      switches: [0, 10]
+      switches: [0, 11]
       n_samples: [4, 5]
-      mode: [nonlinear_resample, nonlinear_update]
+      mode: [linear_resample]
       # Possible modes:
       # - "linear_sample",
       # - "linear_resample",
@@ -203,11 +209,11 @@ minimization:
 
       # LIN SAMPLING
       # lin_absdelta: [Null, 1.e-4] # if set, delta is ignored
-      lin_maxiter: [60, 70]
+      lin_maxiter: [60, 150]
 
       # NONLIN SAMPLING
       # nonlin_xtol: [Null, 0.1] # if set, delta is ignored
-      nonlin_maxiter: [25, 35]
+      nonlin_maxiter: 10
       # nonlin_cg_atol: [0.1, 0.01]
       # nonlin_cg_maxiter: [20, 30]
 
