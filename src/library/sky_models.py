@@ -2,6 +2,7 @@ import nifty8 as ift
 import numpy as np
 from matplotlib.colors import LogNorm
 
+from ducc0.fft import good_size as good_fft_size
 import nifty8.re as jft
 import jubik0 as ju
 from jax import numpy as jnp
@@ -289,8 +290,9 @@ class SkyModel:
         if 'dev_wp' in prior_dict and 'dev_corr' in prior_dict:
             raise ValueError('You can only inlude Wiener process or correlated field'
                              'for the deviations around the plaw.')
-        ext_s_shp = tuple(int(entry * s_padding_ratio) for entry in sdim)
-        ext_e_shp = int(edim * e_padding_ratio)
+        ext_s_shp = tuple(good_fft_size(int(entry * s_padding_ratio))
+                          for entry in sdim)
+        ext_e_shp = good_fft_size(int(edim * e_padding_ratio))
         self.spatial_cf, self.spatial_pspec = self._create_correlated_field(ext_s_shp,
                                                                             sdistances,
                                                                             prior_dict['spatial'])
