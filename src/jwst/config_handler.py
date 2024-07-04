@@ -167,14 +167,16 @@ def insert_ubik_energy_in_lensing(cfg, zsource):
         source_pert_cfg['ubik']['grid'] = dict(
             edim=edim,
             e_padding_ratio=e_padding_ratio)
-        source_pert_cfg['ubik']['energy_bin'] = dict(
-            e_min=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
-                   for e in energy_bin['e_min']],
-            e_max=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
-                   for e in energy_bin['e_max']],
-            e_ref=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
-                   for e in energy_bin['e_max']],
-        )
+        source_pert_cfg['ubik']['energy_bin'] = energy_bin
+
+        # source_pert_cfg['ubik']['energy_bin'] = dict(
+        #     e_min=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
+        #            for e in energy_bin['e_min']],
+        #     e_max=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
+        #            for e in energy_bin['e_max']],
+        #     e_ref=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
+        #            for e in energy_bin['e_max']],
+        # )
 
     lens_pert_cfg = cfg['lensing']['model']['lens']['light']['perturbations']
     if 'ubik' in lens_pert_cfg:
