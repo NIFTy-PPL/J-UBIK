@@ -1,5 +1,6 @@
 cpu: False
 prior_samples: Null
+prestep: False
 
 grid:
   sdim: 256
@@ -89,7 +90,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/mf_f356w_f444w_f560w_09_newplot'
+  res_dir: 'results/jwst_lens/mf_f356w_f444w_f560w_11_plaw_onlysource'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
 
 
@@ -174,77 +175,93 @@ lensing:
   model:
     source:
       light:
-          mean:
-            gaussian_01: # i0*Gauss
-              i0: ['log_normal', 1.0e-2, 8.0e-3]
-              center: ['normal', 0, 0.1]
-              covariance: ['log_normal', 0.04, 0.05]
-              off_diagonal: ['normal', 0.0, 10.0]
+        mean:
+          gaussian_01: # i0*Gauss
+            i0: ['log_normal', 1.0e-2, 8.0e-3]
+            center: ['normal', 0, 0.1]
+            covariance: ['log_normal', 0.04, 0.05]
+            off_diagonal: ['normal', 0.0, 10.0]
+          gaussian_02: # i0*Gauss
+            i0: ['log_normal', 1.0e-2, 8.0e-3]
+            center: ['normal', [0.4, -0.4], [0.1, 0.1]]
+            covariance: ['log_normal', 0.04, 0.05]
+            off_diagonal: ['normal', 0.0, 10.0]
 
-            gaussian_02: # i0*Gauss
-              i0: ['log_normal', 1.0e-2, 8.0e-3]
-              center: ['normal', [0.4, -0.4], [0.1, 0.1]]
-              covariance: ['log_normal', 0.04, 0.05]
-              off_diagonal: ['normal', 0.0, 10.0]
+        multifrequency:
 
-          perturbations:
-            ubik:
+          spectralindex:
+            spatial:
+              correlated_field:
+                offset:
+                  offset_mean: -2.0
+                  offset_std: Null
+                    # - 0.2
+                    # - 0.1
+                fluctuations:
+                  fluctuations:
+                    - 1.6
+                    - 0.2
+                  loglogavgslope:
+                    - -3.2
+                    - 0.3
+                  flexibility:
+                    - 0.8
+                    - 0.08
+                  asperity: Null
+                  non_parametric_kind: "power"
+                  # harmonic_type: "Fourier"
+            plaw:
+              correlated_field:
+                offset:
+                  offset_mean: -1.0
+                  offset_std:
+                    - 1.5
+                    - 0.3
+                fluctuations:
+                  fluctuations:
+                    - 0.8
+                    - 0.08
+                  loglogavgslope:
+                    - -4.3
+                    - 0.8
+                  flexibility:
+                    - 0.5
+                    - 0.05
+                  asperity:
+                    Null
+                  non_parametric_kind: "power"
+          #         # harmonic_type: "Fourier"
 
-              priors:
-                diffuse:
-                  spatial:
-                    offset:
-                      offset_mean: -2.0
-                      offset_std: Null
-                        # - 0.2
-                        # - 0.1
-                    fluctuations:
-                      fluctuations:
-                        - 1.6
-                        - 0.2
-                      loglogavgslope:
-                        - -3.2
-                        - 0.3
-                      flexibility:
-                        - 0.8
-                        - 0.08
-                      asperity: Null
-                      non_parametric_kind: "power"
-                      # harmonic_type: "Fourier"
-                    prefix: diffuse_spatial_
-
-                  # colormix:
-                  #   # diagonal_prior: ['lognormal', 1.2, 0.2]
-                  #   diagonal_prior: ['delta', 1.0, 0.2]
-                  #   off_diagonal_prior: ['normal', 0.0, 0.3]
-
-                  plaw:  # Gets ignored when colormix is there
-                    offset:
-                      offset_mean: -1.0
-                      offset_std:
-                        - 1.5
-                        - 0.3
-                    fluctuations:
-                      fluctuations:
-                        - 0.8
-                        - 0.08
-                      loglogavgslope:
-                        - -4.3
-                        - 0.8
-                      flexibility:
-                        - 0.5
-                        - 0.05
-                      asperity:
-                        Null
-                      non_parametric_kind: "power"
-                      # harmonic_type: "Fourier"
-                    prefix: diffuse_plaw_
+          # colormix:
+          #   matrix: 
+          #     # diagonal_prior: ['lognormal', 1.2, 0.2]
+          #     diagonal_prior: ['delta', 1.0, 0.2]
+          #     off_diagonal_prior: ['normal', 0.0, 0.3]
+          #   spatial:
+          #     correlated_field:
+          #       offset:
+          #         offset_mean: -2.0
+          #         offset_std: Null
+          #           # - 0.2
+          #           # - 0.1
+          #       fluctuations:
+          #         fluctuations:
+          #           - 1.6
+          #           - 0.2
+          #         loglogavgslope:
+          #           - -3.2
+          #           - 0.3
+          #         flexibility:
+          #           - 0.8
+          #           - 0.08
+          #         asperity: Null
+          #         non_parametric_kind: "power"
+          #         # harmonic_type: "Fourier"
 
 
     lens:
       light:
         mean:
-
           exponentialpower: # i0*exp(-a (r/re)**b)
             i0: ['log_normal', 3.0e-1, 5.0e-2]
             a: ['log_normal', 0.2, 0.1]
@@ -254,77 +271,71 @@ lensing:
             q: ['uniform', 0.68, 1.0]
             theta: ['normal', 0.0, 10]
 
-            # radial_correction: 
-            #   extent_factor: 1.5
-            #   Npix: 128
-            #   matern: 
-            #     amplitude:
-            #       offset_mean: 0.
-            #       offset_std: Null
-            #         # - 1.0e-1
-            #         # - 1.0e-2
-            #     fluctuations:
-            #       scale:
-            #         - 5.0e-1
-            #         - 5.0e-2
-            #       cutoff:
-            #         - 1.0e-1
-            #         - 1.0e-2
-            #       loglogslope:
-            #         - -5.0e+0
-            #         -  5.0e-1
+            radial_correction: 
+              extent_factor: 1.5
+              Npix: 128
+              rsigmoid: 0.5
+              matern: 
+                amplitude:
+                  offset_mean: 0.
+                  offset_std: Null
+                    # - 1.0e-1
+                    # - 1.0e-2
+                fluctuations:
+                  scale:
+                    - 5.0e-1
+                    - 5.0e-2
+                  cutoff:
+                    - 1.0e-1
+                    - 1.0e-2
+                  loglogslope:
+                    - -5.0e+0
+                    -  5.0e-1
 
-        perturbations:
-          ubik:
+        multifrequency:
+          spectralnumber:
+            values: ['lognormal', 1.0, 1.0]
 
-            plaw_only: True 
-            # Only take the plaw for the energy correlation.
-            # Spatial model is only the mean model !
-
-            priors:
-                freqnumbers:
-                  values: ['lognormal', 1.0, 1.0]
-
-                diffuse:
-                  spatial:
-                    offset:
-                      offset_mean: 0.0
-                      offset_std:
-                        - 1.2
-                        - 0.5
-                    fluctuations:
-                      fluctuations:
-                        - 1.6
-                        - 0.1
-                      loglogavgslope:
-                        - -3.2
-                        - 0.3
-                      flexibility:
-                        - 0.8
-                        - 0.08
-                      asperity: Null
-                      non_parametric_kind: "power"
-                      # harmonic_type: "Fourier"
-                    prefix: diffuse_spatial_
-
-                  plaw:
-                    offset:
-                      offset_mean: 1.0
-                      offset_std:
-                        - 0.5
-                        - 0.2
-                    fluctuations:
-                      fluctuations:
-                        - 0.5
-                        - 0.05
-                      loglogavgslope:
-                        - -5.5
-                        - 0.5
-                      flexibility: Null
-                      asperity: Null
-                      non_parametric_kind: "power"
-                      # harmonic_type: "Fourier"
-                    prefix: diffuse_plaw_
+          # spectralindex:
+          #   diffuse:
+          #     spatial:
+          #       offset:
+          #         offset_mean: 0.0
+          #         offset_std:
+          #           - 1.2
+          #           - 0.5
+          #       fluctuations:
+          #         fluctuations:
+          #           - 1.6
+          #           - 0.1
+          #         loglogavgslope:
+          #           - -3.2
+          #           - 0.3
+          #         flexibility:
+          #           - 0.8
+          #           - 0.08
+          #         asperity: Null
+          #         non_parametric_kind: "power"
+          #         # harmonic_type: "Fourier"
+          #       prefix: diffuse_spatial_
+          #   plaw:
+          #     offset:
+          #       offset_mean: 1.0
+          #       offset_std:
+          #         - 0.5
+          #         - 0.2
+          #     fluctuations:
+          #       fluctuations:
+          #         - 0.5
+          #         - 0.05
+          #       loglogavgslope:
+          #         - -5.5
+          #         - 0.5
+          #       flexibility: Null
+          #       asperity: Null
+          #       non_parametric_kind: "power"
+          #       # harmonic_type: "Fourier"
+          #     prefix: diffuse_plaw_
 
 
       convergence:
@@ -392,8 +403,9 @@ lensing:
 
 
 minimization:
-    key: 52
+    key: 525
     resume: False
+    prestep_n_total_iterations: 5
     n_total_iterations: 15
 
     delta:

@@ -1,4 +1,4 @@
-from charm_lensing.build_lens_system import LensSystem
+from charm_lensing.lens_system import LensSystem
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LogNorm
 import numpy as np
@@ -128,6 +128,13 @@ def build_plot_sky_residuals(
     overwrite_model: Optional[tuple[tuple[int], str, jft.Model]] = None,
     plotting_config: dict = {},
 ):
+    '''
+
+    overwrite_model:
+        - ii, jj
+        - name
+        - model
+    '''
 
     residual_directory = join(results_directory, 'residuals')
     makedirs(residual_directory, exist_ok=True)
@@ -352,8 +359,8 @@ def _plot_data_data_model_residuals(
 
 
 def get_alpha_nonpar(lens_system, plot_components_switch):
-    if hasattr(lens_system.lens_plane_model.light_model.nonparametric(), '_sky_model'):
-        tmp_alpha = lens_system.lens_plane_model.light_model.nonparametric()._sky_model.alpha_cf
+    if hasattr(lens_system.lens_plane_model.light_model.nonparametric(), 'alpha'):
+        tmp_alpha = lens_system.lens_plane_model.light_model.nonparametric().alpha
         ll_shape = lens_system.lens_plane_model.space.shape
         ll_alpha = jft.Model(
             lambda x: tmp_alpha(x)[:ll_shape[0], :ll_shape[1]],
@@ -375,8 +382,8 @@ def get_alpha_nonpar(lens_system, plot_components_switch):
         def sl_alpha(_): return np.zeros((12, 12))
 
     else:
-        sl_alpha = lens_system.source_plane_model.light_model.nonparametric()._sky_model.alpha_cf
-        sl_nonpar = lens_system.source_plane_model.light_model.nonparametric()._sky_model.spatial_cf
+        sl_alpha = lens_system.source_plane_model.light_model.nonparametric().alpha
+        sl_nonpar = lens_system.source_plane_model.light_model.nonparametric().spatial
         if sl_nonpar is None:
             def sl_nonpar(_): return np.zeros((12, 12))
 

@@ -28,7 +28,8 @@ from jubik0.jwst.filter_projector import FilterProjector
 
 from jubik0.jwst.color import Color, ColorRange
 
-from charm_lensing import build_lens_system
+from charm_lensing.lens_system import build_lens_system
+
 
 from sys import exit
 import os
@@ -49,11 +50,10 @@ if cfg['cpu']:
 
 
 reconstruction_grid = build_reconstruction_grid_from_config(cfg)
-insert_ubik_energy_in_lensing(cfg, zsource=4.2)
+# insert_ubik_energy_in_lensing(cfg, zsource=4.2)
 insert_spaces_in_lensing(cfg)
-lens_system = build_lens_system.build_lens_system(cfg['lensing'])
+lens_system = build_lens_system(cfg['lensing'])
 sky_model = lens_system.get_forward_model_parametric()
-
 
 energy_cfg = cfg['grid']['energy_bin']
 e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
@@ -163,6 +163,10 @@ parametric_flag = lens_system.lens_plane_model.convergence_model.nonparametric()
 ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(
     lens_system, plot_components_switch)
 
+
+# def sl_nonpar(_): return np.zeros((12, 12))
+
+
 lens_plot = build_plot_lens_system(
     RES_DIR,
     plotting_config=dict(
@@ -216,6 +220,56 @@ key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
+# TODO: First reconstruct only the lens light!!!!
+if cfg['prestep']:
+    lh = reduce(lambda x, y: x+y, likelihoods)
+    m = lens_system.lens_plane_model.light_model
+    prem = jft.Model(
+        lambda x: filter_projector(m(x)),
+        init=sky_model.init
+    )
+
+    lh = connect_likelihood_to_model(lh, prem)
+    n_dof = ju.calculate_n_constrained_dof(lh)
+    miner = ju.MinimizationParser(cfg_mini, n_dof)
+    prestep_plot_residuals = build_plot_sky_residuals(
+        results_directory=os.path.join(RES_DIR, 'prestep'),
+        data_dict=data_dict,
+        sky_model_with_key=prem,
+        small_sky_model=lens_system.lens_plane_model.light_model,
+        plotting_config=dict(
+            norm=LogNorm,
+            sky_extent=None,
+            plot_sky=False
+        ))
+
+    def prestep_plot(samples, state):
+        prestep_plot_residuals(samples, state)
+
+    print(f'Results: {RES_DIR}/prestep')
+    samples, state = jft.optimize_kl(
+        lh,
+        pos_init,
+        key=rec_key,
+        callback=prestep_plot,
+        odir=os.path.join(RES_DIR, 'prestep'),
+        n_total_iterations=cfg_mini['prestep_n_total_iterations'],
+        n_samples=miner.n_samples,
+        sample_mode=miner.sample_mode,
+        draw_linear_kwargs=miner.draw_linear_kwargs,
+        nonlinearly_update_kwargs=miner.nonlinearly_update_kwargs,
+        kl_kwargs=miner.kl_kwargs,
+        resume=cfg_mini.get('resume', False),
+    )
+
+    lpara = lens_system.lens_plane_model.light_model.parametric(
+    )._models[0].parametric()
+    ll_mean, ll_std = jft.mean_and_std([lpara._prior(si) for si in samples])
+    print('Lens Parametric')
+    for lm, ls, k in zip(ll_mean, ll_std, lpara._model.prior_keys):
+        print(k[0], lm, ls)
+
+    pos_init = jft.mean(samples)
 
 print(f'Results: {RES_DIR}')
 samples, state = jft.optimize_kl(
