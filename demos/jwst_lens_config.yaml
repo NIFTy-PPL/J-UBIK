@@ -89,7 +89,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/mf_f356w_f444w_03_priors'
+  res_dir: 'results/jwst_lens/mf_f356w_f444w_04_higheralphastd'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
 
 
@@ -212,10 +212,10 @@ lensing:
             plaw:
               correlated_field:
                 offset:
-                  offset_mean: -1.0
+                  offset_mean: 0.0
                   offset_std:
-                    - 1.5
-                    - 0.3
+                    - 1.0
+                    - 0.6
                 fluctuations:
                   fluctuations:
                     - 0.8
