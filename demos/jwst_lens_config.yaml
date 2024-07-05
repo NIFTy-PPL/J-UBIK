@@ -1,6 +1,5 @@
 cpu: False
 prior_samples: Null
-prestep: False
 
 grid:
   sdim: 256
@@ -26,15 +25,15 @@ grid:
   energy_bin:
     e_min:
       # - 0.143 # F770W
-      - 0.200 # F560W
+      # - 0.200 # F560W
       - 0.249 # F444W
-      # - 0.311 # F356W
+      - 0.311 # F356W
       # - 0.396 # F277W
     e_max:
       # - 0.188 # F770W
-      - 0.245 # F560W
+      # - 0.245 # F560W
       - 0.311 # F444W
-      # - 0.395 # F356W
+      - 0.395 # F356W
       # - 0.512 # F277W
     e_ref:
       - 0.278
@@ -90,7 +89,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/mf_f356w_f444w_f560w_11_plaw_onlysource'
+  res_dir: 'results/jwst_lens/mf_f356w_f444w_03_priors'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
 
 
@@ -140,19 +139,19 @@ files:
     #   - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
     #   - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
 
-    f560w: # MIRI
-      - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
-      - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
-      - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
-      - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+    # f560w: # MIRI
+    #   - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
 
     f444w: # NIRCam
       - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
       - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
-    # f356w:
-    #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
-    #   - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+    f356w:
+      - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+      - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
     # f277w:
     #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
@@ -177,14 +176,14 @@ lensing:
       light:
         mean:
           gaussian_01: # i0*Gauss
-            i0: ['log_normal', 1.0e-2, 8.0e-3]
+            i0: ['log_normal', 5.0e-2, 8.0e-3]
             center: ['normal', 0, 0.1]
-            covariance: ['log_normal', 0.04, 0.05]
+            covariance: ['log_normal', 0.07, 0.05]
             off_diagonal: ['normal', 0.0, 10.0]
           gaussian_02: # i0*Gauss
-            i0: ['log_normal', 1.0e-2, 8.0e-3]
+            i0: ['log_normal', 5.0e-2, 8.0e-3]
             center: ['normal', [0.4, -0.4], [0.1, 0.1]]
-            covariance: ['log_normal', 0.04, 0.05]
+            covariance: ['log_normal', 0.07, 0.05]
             off_diagonal: ['normal', 0.0, 10.0]
 
         multifrequency:
@@ -230,7 +229,6 @@ lensing:
                   asperity:
                     Null
                   non_parametric_kind: "power"
-          #         # harmonic_type: "Fourier"
 
           # colormix:
           #   matrix: 
@@ -263,34 +261,34 @@ lensing:
       light:
         mean:
           exponentialpower: # i0*exp(-a (r/re)**b)
-            i0: ['log_normal', 3.0e-1, 5.0e-2]
-            a: ['log_normal', 0.2, 0.1]
+            i0: ['log_normal', 3.0e+1, 5.0e-2]
+            a: ['delta', 4., 0.1]
             re: ['log_normal', 0.03, 0.01]
-            b: ['uniform', 0.25, 2.25] # 0.25 deVaucouleurs profile 
-            center: ['normal', 0.0, 0.02]
+            b: ['log_normal', 0.25, 0.05] # 0.25 deVaucouleurs profile 
+            center: ['normal', 0.0, 0.1]
             q: ['uniform', 0.68, 1.0]
             theta: ['normal', 0.0, 10]
 
-            radial_correction: 
-              extent_factor: 1.5
-              Npix: 128
-              rsigmoid: 0.5
-              matern: 
-                amplitude:
-                  offset_mean: 0.
-                  offset_std: Null
-                    # - 1.0e-1
-                    # - 1.0e-2
-                fluctuations:
-                  scale:
-                    - 5.0e-1
-                    - 5.0e-2
-                  cutoff:
-                    - 1.0e-1
-                    - 1.0e-2
-                  loglogslope:
-                    - -5.0e+0
-                    -  5.0e-1
+            # radial_correction: 
+            #   extent_factor: 1.5
+            #   Npix: 128
+            #   rsigmoid: 0.5
+            #   matern: 
+            #     amplitude:
+            #       offset_mean: 0.
+            #       offset_std: Null
+            #         # - 1.0e-1
+            #         # - 1.0e-2
+            #     fluctuations:
+            #       scale:
+            #         - 5.0e-1
+            #         - 5.0e-2
+            #       cutoff:
+            #         - 1.0e-1
+            #         - 1.0e-2
+            #       loglogslope:
+            #         - -5.0e+0
+            #         -  5.0e-1
 
         multifrequency:
           spectralnumber:
@@ -403,7 +401,7 @@ lensing:
 
 
 minimization:
-    key: 525
+    key: 5252
     resume: False
     prestep_n_total_iterations: 5
     n_total_iterations: 15
