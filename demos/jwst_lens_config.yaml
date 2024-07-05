@@ -89,7 +89,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/mf_f356w_f444w_04_higheralphastd'
+  res_dir: 'results/jwst_lens/mf_f356w_f444w_05_withrad'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
 
 
@@ -269,26 +269,26 @@ lensing:
             q: ['uniform', 0.68, 1.0]
             theta: ['normal', 0.0, 10]
 
-            # radial_correction: 
-            #   extent_factor: 1.5
-            #   Npix: 128
-            #   rsigmoid: 0.5
-            #   matern: 
-            #     amplitude:
-            #       offset_mean: 0.
-            #       offset_std: Null
-            #         # - 1.0e-1
-            #         # - 1.0e-2
-            #     fluctuations:
-            #       scale:
-            #         - 5.0e-1
-            #         - 5.0e-2
-            #       cutoff:
-            #         - 1.0e-1
-            #         - 1.0e-2
-            #       loglogslope:
-            #         - -5.0e+0
-            #         -  5.0e-1
+            radial_correction: 
+              extent_factor: 1.5
+              Npix: 128
+              rsigmoid: 0.5
+              matern: 
+                amplitude:
+                  offset_mean: 0.
+                  offset_std: Null
+                    # - 1.0e-1
+                    # - 1.0e-2
+                fluctuations:
+                  scale:
+                    - 5.0e-1
+                    - 5.0e-2
+                  cutoff:
+                    - 1.0e-1
+                    - 1.0e-2
+                  loglogslope:
+                    - -5.0e+0
+                    -  5.0e-1
 
         multifrequency:
           spectralnumber:
