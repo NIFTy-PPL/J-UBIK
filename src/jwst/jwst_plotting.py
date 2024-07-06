@@ -81,7 +81,7 @@ def get_shift_rotation_correction(
     return (shift_mean, shift_std), (rotation_mean, rotation_std)
 
 
-def get_data_model_chi2(
+def get_data_model_and_chi2(
     position_or_samples: Union[dict, jft.Samples],
     sky_model_with_key: jft.Model,
     data_model: jft.Model,
@@ -140,6 +140,10 @@ def build_plot_sky_residuals(
     makedirs(residual_directory, exist_ok=True)
 
     norm = plotting_config.get('norm', Normalize)
+    display_pointing = plotting_config.get('display_pointing', True)
+    display_chi2 = plotting_config.get('display_chi2', True)
+    std_relative = plotting_config.get('std_relative', True)
+
     sky_min = plotting_config.get('sky_min', 5e-4)
 
     residual_plotting_config = plotting_config.get(
@@ -161,25 +165,13 @@ def build_plot_sky_residuals(
             std = data['std']
             mask = data['mask']
 
-            (sh_m, sh_s), (ro_m, ro_s) = get_shift_rotation_correction(
-                position_or_samples,
-                data_model.rotation_and_shift.correction_model)
-            data_model_text = '\n'.join(
-                (f'dx={sh_m[0]:.1e}+-{sh_s[0]:.1e}',
-                 f'dy={sh_m[1]:.1e}+-{sh_s[1]:.1e}',
-                 f'dth={ro_m:.1e}+-{ro_s:.1e}')
-            )
-
-            model_mean, (redchi_mean, redchi_std) = get_data_model_chi2(
+            model_mean, (redchi_mean, redchi_std) = get_data_model_and_chi2(
                 position_or_samples,
                 sky_model_with_key=sky_model_with_key,
                 data_model=data_model,
                 data=data_i,
                 mask=mask,
                 std=std)
-            chi = '\n'.join((
-                f'redChi2: {redchi_mean:.2f} +/- {redchi_std:.2f}',
-            ))
 
             ims[ii, 1:] = _plot_data_data_model_residuals(
                 ims[ii, 1:],
@@ -187,11 +179,25 @@ def build_plot_sky_residuals(
                 data_key=dkey,
                 data=data_i,
                 data_model=model_mean,
-                std=std,
+                std=std if std_relative else 1.0,
                 plotting_config=residual_plotting_config)
 
-            display_text(axes[ii, 2], data_model_text)
-            display_text(axes[ii, 3], chi)
+            if display_pointing:
+                (sh_m, sh_s), (ro_m, ro_s) = get_shift_rotation_correction(
+                    position_or_samples,
+                    data_model.rotation_and_shift.correction_model)
+                data_model_text = '\n'.join(
+                    (f'dx={sh_m[0]:.1e}+-{sh_s[0]:.1e}',
+                     f'dy={sh_m[1]:.1e}+-{sh_s[1]:.1e}',
+                     f'dth={ro_m:.1e}+-{ro_s:.1e}')
+                )
+                display_text(axes[ii, 2], data_model_text)
+
+            if display_chi2:
+                chi = '\n'.join((
+                    f'redChi2: {redchi_mean:.2f} +/- {redchi_std:.2f}',
+                ))
+                display_text(axes[ii, 3], chi)
 
         small_mean, small_std = get_position_or_samples_of_model(
             position_or_samples,

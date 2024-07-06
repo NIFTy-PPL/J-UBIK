@@ -180,37 +180,6 @@ def define_mock_output(config: dict):
         f'{method_string}_{output_attach}')
 
 
-def insert_ubik_energy_in_lensing(cfg, zsource):
-    # from jubik0.jwst.color import Color
-    edim = cfg['grid']['edim']
-    e_padding_ratio = cfg['grid']['e_padding_ratio']
-    energy_bin = cfg['grid']['energy_bin']
-    # eunit = getattr(units, cfg['grid'].get('energy_unit', 'eV'))
-
-    # source_pert_cfg = cfg['lensing']['model']['source']['light']['perturbations']
-    # if 'ubik' in source_pert_cfg:
-    #     source_pert_cfg['ubik']['grid'] = dict(
-    #         edim=edim,
-    #         e_padding_ratio=e_padding_ratio)
-    #     source_pert_cfg['ubik']['energy_bin'] = energy_bin
-
-    #     source_pert_cfg['ubik']['energy_bin'] = dict(
-    #         e_min=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
-    #                for e in energy_bin['e_min']],
-    #         e_max=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
-    #                for e in energy_bin['e_max']],
-    #         e_ref=[Color(e*eunit).redshift(zsource).energy.to(eunit).value
-    #                for e in energy_bin['e_max']],
-    #     )
-
-    lens_pert_cfg = cfg['lensing']['model']['lens']['light']['perturbations']
-    if 'ubik' in lens_pert_cfg:
-        lens_pert_cfg['ubik']['grid'] = dict(
-            edim=edim,
-            e_padding_ratio=e_padding_ratio)
-        lens_pert_cfg['ubik']['energy_bin'] = energy_bin
-
-
 def insert_spaces_in_lensing(cfg):
     lens_fov = cfg['grid']['fov']
     lens_npix = cfg['grid']['sdim']

@@ -18,7 +18,6 @@ from jubik0.jwst.masking import get_mask_from_index_centers
 from jubik0.jwst.config_handler import (
     build_reconstruction_grid_from_config,
     build_coordinates_correction_prior_from_config,
-    insert_ubik_energy_in_lensing,
     insert_spaces_in_lensing)
 from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_data_model import build_data_model
@@ -185,16 +184,39 @@ residual_plot = build_plot_sky_residuals(
     sky_model_with_key=sky_model_with_keys,
     small_sky_model=lens_system.get_forward_model_parametric(),
     plotting_config=dict(
-        norm=LogNorm,
-        sky_extent=None,
-        plot_sky=False
-    ))
+        norm=LogNorm, data_config=dict(norm=LogNorm))
+)
 plot_color = build_color_components_plotting(
     lens_system.source_plane_model.light_model.nonparametric(), RES_DIR)
 
 
 if cfg.get('prior_samples') is not None:
     test_key, _ = random.split(random.PRNGKey(42), 2)
+
+    def filter_data(datas: dict):
+        filters = list()
+
+        for kk, vv in datas.items():
+            f = kk.split('_')[0]
+            if f not in filters:
+                filters.append(f)
+                yield kk, vv
+
+    prior_dict = {kk: vv for kk, vv in filter_data(data_dict)}
+    prior_plot = build_plot_sky_residuals(
+        results_directory=RES_DIR,
+        data_dict=prior_dict,
+        sky_model_with_key=sky_model_with_keys,
+        small_sky_model=lens_system.get_forward_model_parametric(),
+        plotting_config=dict(
+            norm=LogNorm,
+            data_config=dict(norm=LogNorm),
+            display_chi2=False,
+            display_pointing=False,
+            std_relative=False,
+        )
+    )
+
     for ii in range(cfg.get('prior_samples', 3)):
         test_key, _ = random.split(test_key, 2)
         position = likelihood.init(test_key)
@@ -202,7 +224,7 @@ if cfg.get('prior_samples') is not None:
             position = position.tree
 
         # lens_plot(position, None, parametric=parametric_flag)
-        residual_plot(position)
+        prior_plot(position)
         plot_color(position)
 
 
