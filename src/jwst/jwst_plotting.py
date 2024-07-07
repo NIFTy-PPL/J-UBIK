@@ -50,7 +50,7 @@ def find_closest_factors(number):
 
 def get_position_or_samples_of_model(
     position_or_samples: Union[dict, jft.Samples],
-    model: jft.Model
+    model: jft.Model,
 ) -> tuple[ArrayLike, ArrayLike]:
     '''Returns (mean, std) of model'''
 
@@ -81,9 +81,9 @@ def get_shift_rotation_correction(
     return (shift_mean, shift_std), (rotation_mean, rotation_std)
 
 
-def get_data_model_and_chi2(
+def _get_data_model_and_chi2(
     position_or_samples: Union[dict, jft.Samples],
-    sky_model_with_key: jft.Model,
+    sky_or_skies: ArrayLike,
     data_model: jft.Model,
     data: ArrayLike,
     mask: ArrayLike,
@@ -94,13 +94,11 @@ def get_data_model_and_chi2(
 
     if isinstance(position_or_samples, jft.Samples):
         model_data = []
-        for si in position_or_samples:
+        for ii, si in enumerate(position_or_samples):
             tmp = np.zeros_like(data)
-            tmp_sky = sky_model_with_key(si)
             while isinstance(si, jft.Vector):
                 si = si.tree
-            tmp_sky = tmp_sky | si
-            tmp[mask] = data_model(tmp_sky)
+            tmp[mask] = data_model(sky_or_skies[ii] | si)
             model_data.append(tmp)
         model_mean = jft.mean(model_data)
         redchi_mean, redchi_std = jft.mean_and_std(
@@ -109,8 +107,7 @@ def get_data_model_and_chi2(
 
     else:
         model_data = np.zeros_like(data)
-        tmp_sky = sky_model_with_key(position_or_samples)
-        position_or_samples = position_or_samples | tmp_sky
+        position_or_samples = position_or_samples | sky_or_skies
         model_data[mask] = data_model(position_or_samples)
         redchi_mean = redchi2(
             data[mask], model_data[mask], std[mask], data[mask].size)
@@ -118,6 +115,12 @@ def get_data_model_and_chi2(
         model_mean = model_data
 
     return model_mean, (redchi_mean, redchi_std)
+
+
+def _get_sky_or_skies(position_or_samples, sky_model):
+    if isinstance(position_or_samples, jft.Samples):
+        return [sky_model(si) for si in position_or_samples]
+    return sky_model(position_or_samples)
 
 
 def build_plot_sky_residuals(
@@ -158,6 +161,8 @@ def build_plot_sky_residuals(
         ylen = len(data_dict)
         fig, axes = plt.subplots(ylen, 4, figsize=(12, 3*ylen), dpi=300)
         ims = np.zeros_like(axes)
+        sky_or_skies = _get_sky_or_skies(
+            position_or_samples, sky_model_with_key)
         for ii, (dkey, data) in enumerate(data_dict.items()):
 
             data_model = data['data_model']
@@ -165,9 +170,9 @@ def build_plot_sky_residuals(
             std = data['std']
             mask = data['mask']
 
-            model_mean, (redchi_mean, redchi_std) = get_data_model_and_chi2(
+            model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples,
-                sky_model_with_key=sky_model_with_key,
+                sky_or_skies,
                 data_model=data_model,
                 data=data_i,
                 mask=mask,
@@ -316,7 +321,7 @@ def build_color_components_plotting(
         correlated_mean, _ = get_position_or_samples_of_model(
             position_or_samples, sky_model)
 
-        fig, axes = plt.subplots(2, N_comps, figsize=(4*N_comps, 3))
+        fig, axes = plt.subplots(2, N_comps, figsize=(3, 4*N_comps))
         for ax, cor_comps, comps in zip(axes.T, correlated_mean, components_mean):
             im0 = ax[0].imshow(cor_comps, origin='lower', norm=LogNorm())
             im1 = ax[1].imshow(np.exp(comps), origin='lower', norm=LogNorm())
