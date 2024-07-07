@@ -321,10 +321,10 @@ def build_color_components_plotting(
         correlated_mean, _ = get_position_or_samples_of_model(
             position_or_samples, sky_model)
 
-        fig, axes = plt.subplots(2, N_comps, figsize=(3, 4*N_comps))
+        fig, axes = plt.subplots(2, N_comps, figsize=(4*N_comps, 6))
         for ax, cor_comps, comps in zip(axes.T, correlated_mean, components_mean):
             im0 = ax[0].imshow(cor_comps, origin='lower', norm=LogNorm())
-            im1 = ax[1].imshow(np.exp(comps), origin='lower', norm=LogNorm())
+            im1 = ax[1].imshow(comps, origin='lower', norm=LogNorm())
             plt.colorbar(im0, ax=ax[0])
             plt.colorbar(im1, ax=ax[1])
             ax[0].set_title('Correlated Comps')

@@ -29,19 +29,35 @@ from jubik0.jwst.color import Color, ColorRange
 
 from charm_lensing.lens_system import build_lens_system
 
-
-from sys import exit
+import argparse
 import os
 
+from sys import exit
 
-config_path = './demos/jwst_lens_config.yaml'
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "config",
+    help="Config File",
+    type=str,
+    nargs='?',
+    const=1,
+    default='./demos/jwst_lens_config.yaml')
+parser.add_argument(
+    '--cpu',
+    action='store_true',
+    help='Use CPU',
+    default=False
+)
+args = parser.parse_args()
+config_path = args.config
+
 cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
 RES_DIR = cfg['files']['res_dir']
 os.makedirs(RES_DIR, exist_ok=True)
 ju.save_local_packages_hashes_to_txt(
     ['nifty8', 'charm_lensing', 'jubik0'],
     os.path.join(RES_DIR, 'hashes.txt'))
-ju.save_config_copy('jwst_lens_config.yaml', './demos', RES_DIR)
+ju.save_config_copy(config_path, output_dir=RES_DIR)
 
 if cfg['cpu']:
     from jax import config, devices
@@ -166,7 +182,7 @@ ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(
 # def sl_nonpar(_): return np.zeros((12, 12))
 
 
-lens_plot = build_plot_lens_system(
+plot_lens = build_plot_lens_system(
     RES_DIR,
     plotting_config=dict(
         # norm_source=LogNorm,
@@ -178,7 +194,7 @@ lens_plot = build_plot_lens_system(
     lens_light_alpha_nonparametric=(ll_alpha, ll_nonpar),
     source_light_alpha_nonparametric=(sl_alpha, sl_nonpar),
 )
-residual_plot = build_plot_sky_residuals(
+plot_residual = build_plot_sky_residuals(
     results_directory=RES_DIR,
     data_dict=data_dict,
     sky_model_with_key=sky_model_with_keys,
@@ -203,7 +219,7 @@ if cfg.get('prior_samples') is not None:
                 yield kk, vv
 
     prior_dict = {kk: vv for kk, vv in filter_data(data_dict)}
-    prior_plot = build_plot_sky_residuals(
+    plot_prior = build_plot_sky_residuals(
         results_directory=RES_DIR,
         data_dict=prior_dict,
         sky_model_with_key=sky_model_with_keys,
@@ -223,19 +239,19 @@ if cfg.get('prior_samples') is not None:
         while isinstance(position, jft.Vector):
             position = position.tree
 
-        # lens_plot(position, None, parametric=parametric_flag)
-        prior_plot(position)
-        plot_color(position)
+        plot_lens(position, None, parametric=parametric_flag)
+        plot_prior(position)
+        # plot_color(position)
 
 
 def plot(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f'Plotting: {state.nit}')
-    residual_plot(samples, state)
-    lens_plot(samples, state, parametric=parametric_flag)
+    plot_residual(samples, state)
+    plot_lens(samples, state, parametric=parametric_flag)
     plot_color(samples, state)
 
 
-cfg_mini = ju.get_config('demos/jwst_lens_config.yaml')["minimization"]
+cfg_mini = ju.get_config(config_path)["minimization"]
 n_dof = ju.calculate_n_constrained_dof(likelihood)
 minpars = ju.MinimizationParser(cfg_mini, n_dof)
 key = random.PRNGKey(cfg_mini.get('key', 42))
