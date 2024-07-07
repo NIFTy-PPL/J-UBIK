@@ -1,5 +1,5 @@
 cpu: False
-prior_samples: Null
+prior_samples: 3
 
 grid:
   sdim: 256
@@ -25,13 +25,13 @@ grid:
   energy_bin:
     e_min:
       # - 0.143 # F770W
-      # - 0.200 # F560W
+      - 0.200 # F560W
       - 0.249 # F444W
       - 0.311 # F356W
       # - 0.396 # F277W
     e_max:
       # - 0.188 # F770W
-      # - 0.245 # F560W
+      - 0.245 # F560W
       - 0.311 # F444W
       - 0.395 # F356W
       # - 0.512 # F277W
@@ -89,7 +89,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/mf_f356w_f444w_05_withrad'
+  res_dir: 'results/jwst_lens/mf_f356w_f444w_f560w_13_colormix'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
 
 
@@ -139,11 +139,11 @@ files:
     #   - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
     #   - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
 
-    # f560w: # MIRI
-    #   - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+    f560w: # MIRI
+      - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
 
     f444w: # NIRCam
       - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
@@ -176,65 +176,19 @@ lensing:
       light:
         mean:
           gaussian_01: # i0*Gauss
-            i0: ['log_normal', 5.0e-2, 8.0e-3]
+            i0: ['log_normal', 1.0e-2, 8.0e-3]
             center: ['normal', 0, 0.1]
             covariance: ['log_normal', 0.07, 0.05]
             off_diagonal: ['normal', 0.0, 10.0]
           gaussian_02: # i0*Gauss
-            i0: ['log_normal', 5.0e-2, 8.0e-3]
+            i0: ['log_normal', 1.0e-2, 8.0e-3]
             center: ['normal', [0.4, -0.4], [0.1, 0.1]]
             covariance: ['log_normal', 0.07, 0.05]
             off_diagonal: ['normal', 0.0, 10.0]
 
         multifrequency:
 
-          spectralindex:
-            spatial:
-              correlated_field:
-                offset:
-                  offset_mean: -2.0
-                  offset_std: Null
-                    # - 0.2
-                    # - 0.1
-                fluctuations:
-                  fluctuations:
-                    - 1.6
-                    - 0.2
-                  loglogavgslope:
-                    - -3.2
-                    - 0.3
-                  flexibility:
-                    - 0.8
-                    - 0.08
-                  asperity: Null
-                  non_parametric_kind: "power"
-                  # harmonic_type: "Fourier"
-            plaw:
-              correlated_field:
-                offset:
-                  offset_mean: 0.0
-                  offset_std:
-                    - 1.0
-                    - 0.6
-                fluctuations:
-                  fluctuations:
-                    - 0.8
-                    - 0.08
-                  loglogavgslope:
-                    - -4.3
-                    - 0.8
-                  flexibility:
-                    - 0.5
-                    - 0.05
-                  asperity:
-                    Null
-                  non_parametric_kind: "power"
-
-          # colormix:
-          #   matrix: 
-          #     # diagonal_prior: ['lognormal', 1.2, 0.2]
-          #     diagonal_prior: ['delta', 1.0, 0.2]
-          #     off_diagonal_prior: ['normal', 0.0, 0.3]
+          # spectralindex:
           #   spatial:
           #     correlated_field:
           #       offset:
@@ -255,6 +209,52 @@ lensing:
           #         asperity: Null
           #         non_parametric_kind: "power"
           #         # harmonic_type: "Fourier"
+          #   plaw:
+          #     correlated_field:
+          #       offset:
+          #         offset_mean: 0.0
+          #         offset_std: Null
+          #           # - 1.0
+          #           # - 0.6
+          #       fluctuations:
+          #         fluctuations:
+          #           - 0.8
+          #           - 0.08
+          #         loglogavgslope:
+          #           - -4.3
+          #           - 0.8
+          #         flexibility:
+          #           - 0.5
+          #           - 0.05
+          #         asperity:
+          #           Null
+          #         non_parametric_kind: "power"
+
+          colormix:
+            matrix: 
+              # diagonal_prior: ['lognormal', 1.2, 0.2]
+              diagonal_prior: ['delta', 1.0, 0.2]
+              off_diagonal_prior: ['normal', 0.0, 0.5]
+            spatial:
+              correlated_field:
+                offset:
+                  offset_mean: -2.0
+                  offset_std: Null
+                    # - 0.2
+                    # - 0.1
+                fluctuations:
+                  fluctuations:
+                    - 1.6
+                    - 0.2
+                  loglogavgslope:
+                    - -3.2
+                    - 0.3
+                  flexibility:
+                    - 0.8
+                    - 0.08
+                  asperity: Null
+                  non_parametric_kind: "power"
+                  # harmonic_type: "Fourier"
 
 
     lens:
@@ -403,8 +403,7 @@ lensing:
 minimization:
     key: 5252
     resume: False
-    prestep_n_total_iterations: 5
-    n_total_iterations: 15
+    n_total_iterations: 25
 
     delta:
       switches: [0, 10, 15]

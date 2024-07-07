@@ -16,8 +16,9 @@ from jubik0.library.likelihood import (
 from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
 from jubik0.jwst.config_handler import (
-    build_reconstruction_grid_from_config, build_sky_model_from_config,
+    build_reconstruction_grid_from_config,
     build_coordinates_correction_prior_from_config)
+from jubik0.jwst.utils import build_sky_model_from_config
 from jubik0.jwst.wcs import subsample_grid_centers_in_index_grid
 from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import (

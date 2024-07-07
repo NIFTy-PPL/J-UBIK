@@ -44,10 +44,10 @@ class ColorMixer(jft.Model):
 
 
 def build_colormix(
-        prefix,
-        components_target,
-        diagonal_prior,
-        off_diagonal_prior
+    prefix: str,
+    components_target,
+    diagonal_prior,
+    off_diagonal_prior
 ):
     assert len(components_target.shape) == 3
 
@@ -57,7 +57,7 @@ def build_colormix(
     shape_dia = n
     shape_off = (n**2 - n) // 2
 
-    prefix = f'{prefix}_colormix'
+    prefix = f'{prefix}_matrix'
 
     diagonal = jft.Model(
         build_parametric_prior(prefix + '_dia', diagonal_prior, shape_dia),
