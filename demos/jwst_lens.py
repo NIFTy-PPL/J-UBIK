@@ -179,9 +179,6 @@ ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(
     lens_system, plot_components_switch)
 
 
-# def sl_nonpar(_): return np.zeros((12, 12))
-
-
 plot_lens = build_plot_lens_system(
     RES_DIR,
     plotting_config=dict(
