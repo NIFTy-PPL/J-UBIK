@@ -98,6 +98,15 @@ def save_config_copy(filename, path_to_yaml_file=None,
         print(f"Config file saved to: {join(output_dir, filename)}.")
 
 
+def save_config_copy_easy(path_to_file: str, path_to_save_file: str):
+    from shutil import copy, SameFileError
+    try:
+        copy(path_to_file, path_to_save_file)
+        print(f"Config file saved to: {path_to_save_file}.")
+    except SameFileError:
+        pass
+
+
 def create_output_directory(directory_name):
     """
     Convenience function to create directories
@@ -181,12 +190,12 @@ def get_data_domain(config):
     return ift.DomainTuple.make([dom_sp, e_sp])
 
 
-def _get_sp_dist(config): #FIXME is this still used
+def _get_sp_dist(config):  # FIXME is this still used
     res = config["fov"] / config["npix_s"]
     return res
 
 
-def _get_e_dist(config): #FIXME is this still used
+def _get_e_dist(config):  # FIXME is this still used
     res = np.log(config["elim"][1] / config["elim"][0]) / config["npix_e"]
     return res
 
@@ -1233,7 +1242,8 @@ def _get_git_hash_from_local_package(package_name, git_path=None):
                         try:
                             variable_value = ast.literal_eval(value_str)
                         except (SyntaxError, ValueError):
-                            raise ValueError(f"Could not evaluate the value of '{variable_name}'")
+                            raise ValueError(
+                                f"Could not evaluate the value of '{variable_name}'")
                         break
         except FileNotFoundError:
             raise FileNotFoundError(f"File '{editable_path}' not found")
@@ -1314,12 +1324,14 @@ def save_local_packages_hashes_to_txt(packages_names, filename, paths_to_git=Non
             if verbose:
                 print(f"Processing package: {package_name}")
             if paths_to_git is not None and paths_to_git[it] is not None:
-                git_hash = _get_git_hash_from_local_package(package_name, git_path=paths_to_git[it])
+                git_hash = _get_git_hash_from_local_package(
+                    package_name, git_path=paths_to_git[it])
             else:
                 git_hash = _get_git_hash_from_local_package(package_name)
             hashes[package_name] = git_hash
             if verbose:
-                print(f"Successfully retrieved hash for {package_name}: {git_hash}")
+                print(
+                    f"Successfully retrieved hash for {package_name}: {git_hash}")
         except (ValueError, FileNotFoundError, KeyError) as e:
             if verbose:
                 print(f"Error processing package {package_name}:\n")

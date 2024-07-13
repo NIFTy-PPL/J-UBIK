@@ -57,7 +57,7 @@ os.makedirs(RES_DIR, exist_ok=True)
 ju.save_local_packages_hashes_to_txt(
     ['nifty8', 'charm_lensing', 'jubik0'],
     os.path.join(RES_DIR, 'hashes.txt'))
-ju.save_config_copy(config_path, output_dir=RES_DIR)
+ju.save_config_copy_easy(config_path, os.path.join(RES_DIR, 'config.yaml'))
 
 if cfg['cpu']:
     from jax import config, devices
@@ -182,7 +182,7 @@ ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(
 plot_lens = build_plot_lens_system(
     RES_DIR,
     plotting_config=dict(
-        # norm_source=LogNorm,
+        norm_source=LogNorm,
         norm_lens=LogNorm,
         # norm_mass=LogNorm,
     ),
@@ -200,7 +200,7 @@ plot_residual = build_plot_sky_residuals(
         norm=LogNorm, data_config=dict(norm=LogNorm))
 )
 plot_color = build_color_components_plotting(
-    lens_system.source_plane_model.light_model.nonparametric(), RES_DIR)
+    lens_system.source_plane_model.light_model.nonparametric(), RES_DIR, substring='source')
 
 
 if cfg.get('prior_samples') is not None:
@@ -230,7 +230,9 @@ if cfg.get('prior_samples') is not None:
         )
     )
 
-    for ii in range(cfg.get('prior_samples', 3)):
+    nsamples = 3 if cfg.get(
+        'prior_samples') is None else cfg.get('prior_samples')
+    for ii in range(nsamples):
         test_key, _ = random.split(test_key, 2)
         position = likelihood.init(test_key)
         while isinstance(position, jft.Vector):
@@ -273,3 +275,64 @@ samples, state = jft.optimize_kl(
     kl_kwargs=minpars.kl_kwargs,
     resume=cfg_mini.get('resume', False),
 )
+
+exit()
+if __name__ == "__main__":
+    sl = lens_system.source_plane_model.light_model
+    ms, mss = jft.mean_and_std([sl(si) for si in samples])
+
+    print(filter_projector.keys_and_colors)
+    print(filter_projector.keys_and_index)
+
+    # for ii, mo in enumerate(lens_system.lens_plane_model.light_model.nonparametric()._comps):
+    #     para = mo.parametric()[0]
+    #     keys = [k[0] for k in para._model.prior_keys]
+    #     pp, pps = jft.mean_and_std([para._prior(s) for s in samples])
+    #     print(ii)
+    #     print(
+    #         '\n'.join((f'{k:10} {p}+-{ps}' for
+    #                    k, p, ps in zip(keys, pp, pps)))
+    #     )
+    #     print()
+
+    from astropy import units, cosmology
+
+    sextent = np.array(lens_system.source_plane_model.space.extend().extent)
+    extent_kpc = (np.tan(sextent * units.arcsec) *
+                  cosmology.Planck13.angular_diameter_distance(4.2).to(
+                      units.kpc)
+                  ).value
+
+    vmin, vmax = 1e-5, 2.3e-3
+
+    rgb = np.zeros((384, 384, 3))
+    # rgb[:, :, 0] = ms[0]
+    rgb[:, :, 1] = ms[0]
+    rgb[:, :, 2] = ms[1]
+
+    rgb = rgb / np.max(rgb)
+    rgb = np.sqrt(rgb)
+
+    from charm_lensing.plotting import display_scalebar, display_text
+    import matplotlib.font_manager as fm
+    fig, ax = plt.subplots(1, 1, figsize=(11.5, 10))
+    im = ax.imshow(rgb, origin='lower', extent=extent_kpc)
+    display_scalebar(ax, dict(size=5, unit='kpc',
+                     font_properties=fm.FontProperties(size=24)))
+    display_text(ax,
+                 text=dict(s='f444w', color='green',
+                           fontproperties=fm.FontProperties(size=30)),
+                 keyword='top_right',
+                 y_offset_ticker=0,)
+    display_text(ax,
+                 text=dict(s='f356w', color='blue',
+                           fontproperties=fm.FontProperties(size=30)),
+                 keyword='top_right',
+                 y_offset_ticker=1,
+                 )
+    ax.set_xlim(-5.5, 6)
+    ax.set_ylim(-4, 6)
+    plt.axis('off')  # Turn off axis
+    plt.tight_layout()
+    plt.savefig('f444w_f356w_source.png')
+    plt.close()

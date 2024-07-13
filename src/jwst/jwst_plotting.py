@@ -300,7 +300,8 @@ def build_color_components_plotting(
             return None
         return _
 
-    colors_directory = join(results_directory, f'colors_{substring}')
+    colors_directory = join(
+        results_directory, f'colors_{substring}' if substring != '' else 'colors')
     makedirs(colors_directory, exist_ok=True)
     N_comps = len(sky_model.components._comps)
 
@@ -324,7 +325,7 @@ def build_color_components_plotting(
         fig, axes = plt.subplots(2, N_comps, figsize=(4*N_comps, 6))
         for ax, cor_comps, comps in zip(axes.T, correlated_mean, components_mean):
             im0 = ax[0].imshow(cor_comps, origin='lower', norm=LogNorm())
-            im1 = ax[1].imshow(comps, origin='lower', norm=LogNorm())
+            im1 = ax[1].imshow(comps, origin='lower')
             plt.colorbar(im0, ax=ax[0])
             plt.colorbar(im1, ax=ax[1])
             ax[0].set_title('Correlated Comps')
@@ -454,9 +455,12 @@ def build_plot_lens_system(
     lens_dir = join(results_directory, 'lens')
     makedirs(lens_dir, exist_ok=True)
 
+    # plotting_config
     norm_source = plotting_config.get('norm_source', Normalize)
     norm_lens = plotting_config.get('norm_lens', Normalize)
     norm_mass = plotting_config.get('norm_mass', Normalize)
+    min_source = plotting_config.get('min_source', 1e-5)
+    min_lens = plotting_config.get('min_lens', 1e-5)
 
     xlen = len(lens_system.get_forward_model_parametric().target) + 2
 
@@ -528,19 +532,19 @@ def build_plot_lens_system(
             axes[0, ii+filter_offset].set_title(f'Lens light {filter_name}')
             ims[0, ii+filter_offset] = axes[0, ii+filter_offset].imshow(
                 lens_light[ii], origin='lower', extent=lens_ext,
-                norm=norm_lens(vmin=np.max((1e-5, lens_light.min())),
+                norm=norm_lens(vmin=np.max((min_lens, lens_light.min())),
                                vmax=lens_light.max()))
 
             axes[1, ii+filter_offset].set_title(f'Source light {filter_name}')
             ims[1, ii+filter_offset] = axes[1, ii+filter_offset].imshow(
                 source_light[ii], origin='lower', extent=source_ext,
-                norm=norm_source(vmin=np.max((1e-5, source_light.min())),
+                norm=norm_source(vmin=np.max((min_source, source_light.min())),
                                  vmax=source_light.max()))
 
             axes[2, ii+filter_offset].set_title(f'Lensed light {filter_name}')
             ims[2, ii+filter_offset] = axes[2, ii+filter_offset].imshow(
                 lensed_light[ii], origin='lower', extent=lens_ext,
-                norm=norm_source(vmin=np.max((1e-5, lensed_light.min())),
+                norm=norm_source(vmin=np.max((min_source, lensed_light.min())),
                                  vmax=lensed_light.max()))
 
         for ax, im in zip(axes.flatten(), ims.flatten()):
