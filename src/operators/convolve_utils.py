@@ -2,6 +2,7 @@ import nifty8 as ift
 import numpy as np
 import jax.numpy as jnp
 
+from ducc0.fft import good_size as good_fft_size
 from functools import partial
 from jax import vmap
 from jax.scipy.ndimage import map_coordinates
@@ -313,7 +314,7 @@ def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1,
         all_patches.append(patch_psfs)
     all_patches = np.stack(all_patches)
     all_patches = np.moveaxis(all_patches, 0, -3)
-    margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
+    margin = max(good_fft_size(int(np.ceil(margfrac*ss))) for ss in shp)
     if jaxop:
         # TODO Want cut?
         n_patches_per_axis = int(np.sqrt(len(patch_psfs)))

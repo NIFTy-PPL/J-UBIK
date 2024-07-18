@@ -9,6 +9,7 @@
 - ciao (>4.14)
 - marx (with ciao)
 - matplotlib
+- [ducc0](https://pypi.org/project/ducc0/)
 
 
 ## Installation of Dependencies
