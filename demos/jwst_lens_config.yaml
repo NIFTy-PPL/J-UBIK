@@ -1,5 +1,5 @@
 cpu: False
-prior_samples: 3
+prior_samples: 5
 
 grid:
   sdim: 256
@@ -19,22 +19,24 @@ grid:
     fov: 2
     s_padding_ratio: 1.5
 
-  edim: 3
+  edim: 1
   e_padding_ratio: 1.0
   energy_unit: eV
   energy_bin:
     e_min:
       # - 0.143 # F770W
-      # - 0.200 # F560W
-      - 0.249 # F444W
-      - 0.311 # F356W
-      - 0.396 # F277W
+      - 0.200 # F560W
+      # - 0.249 # F444W
+      # - 0.311 # F356W
+      # - 0.396 # F277W
+      # - 0.557 # F200W
     e_max:
       # - 0.188 # F770W
-      # - 0.245 # F560W
-      - 0.311 # F444W
-      - 0.395 # F356W
-      - 0.512 # F277W
+      - 0.245 # F560W
+      # - 0.311 # F444W
+      # - 0.395 # F356W
+      # - 0.512 # F277W
+      # - 0.707 # F200W
     e_ref:
       - 0.278
 
@@ -89,7 +91,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/mf_f277w_f356w_f444w_02'
+  res_dir: 'results/jwst_lens/single_f/f560w_01'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
 
 
@@ -139,23 +141,23 @@ files:
     #   - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
     #   - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
 
-    # f560w: # MIRI
-    #   - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
-    #   - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+    f560w: # MIRI
+      - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
 
-    f444w: # NIRCam
-      - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
-      # - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
+    # f444w: # NIRCam
+    #   - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
+    #   - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
-    f356w:
-      - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
-      # - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+    # f356w:
+    #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+    #   - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
-    f277w:
-      - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
-      # - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
+    # f277w:
+    #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
+    #   - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
 
     # f200w:
     #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_cal.fits'
@@ -179,58 +181,79 @@ lensing:
             # i0: ['log_normal', 8.0e-4, 9.0e-5]
             i0: ['delta', 1.0e-2, 1.0e-3]
             center: ['normal', 0, 0.02]
-            covariance: ['log_normal', 0.06, 0.01]
+            covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
           gaussian_02: # i0*Gauss
             # i0: ['log_normal', 8.0e-4, 9.0e-5]
             i0: ['delta', 1.0e-2, 1.0e-3]
             center: ['normal', [0.4, -0.4], 0.02]
-            covariance: ['log_normal', 0.06, 0.01]
+            covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
 
-        multifrequency:
+        perturbations:
+          correlated_field:
+            offset:
+              offset_mean: -3.0
+              offset_std: Null
+                # - 0.2
+                # - 0.1
+            fluctuations:
+              fluctuations:
+                - 0.6
+                - 0.2
+              loglogavgslope:
+                - -3.2
+                - 0.3
+              flexibility:
+                - 0.8
+                - 0.08
+              asperity: Null
+              non_parametric_kind: "power"
+              # harmonic_type: "Fourier"
 
-          spectralindex:
-            spatial:
-              correlated_field:
-                offset:
-                  offset_mean: -3.0
-                  offset_std: Null
-                    # - 0.2
-                    # - 0.1
-                fluctuations:
-                  fluctuations:
-                    - 0.6
-                    - 0.2
-                  loglogavgslope:
-                    - -3.2
-                    - 0.3
-                  flexibility:
-                    - 0.8
-                    - 0.08
-                  asperity: Null
-                  non_parametric_kind: "power"
-                  # harmonic_type: "Fourier"
-            plaw:
-              correlated_field:
-                offset:
-                  offset_mean: -2.0
-                  offset_std: 
-                    - 1.0
-                    - 0.6
-                fluctuations:
-                  fluctuations:
-                    - 8.0e-1
-                    - 8.0e-2
-                  loglogavgslope:
-                    - -5.0
-                    - 1.0
-                  flexibility:
-                    - 5.0e-3
-                    - 5.0e-4
-                  asperity:
-                    Null
-                  non_parametric_kind: "power"
+
+        # multifrequency:
+        #   spectralindex:
+        #     spatial:
+        #       correlated_field:
+        #         offset:
+        #           offset_mean: -3.0
+        #           offset_std: Null
+        #             # - 0.2
+        #             # - 0.1
+        #         fluctuations:
+        #           fluctuations:
+        #             - 0.6
+        #             - 0.2
+        #           loglogavgslope:
+        #             - -3.2
+        #             - 0.3
+        #           flexibility:
+        #             - 0.8
+        #             - 0.08
+        #           asperity: Null
+        #           non_parametric_kind: "power"
+        #           # harmonic_type: "Fourier"
+        #     plaw:
+        #       correlated_field:
+        #         offset:
+        #           offset_mean: -2.0
+        #           offset_std: 
+        #             - 1.0
+        #             - 0.6
+        #         fluctuations:
+        #           fluctuations:
+        #             - 8.0e-1
+        #             - 8.0e-2
+        #           loglogavgslope:
+        #             - -5.0
+        #             - 1.0
+        #           flexibility:
+        #             - 5.0e-3
+        #             - 5.0e-4
+        #           asperity:
+        #             Null
+        #           non_parametric_kind: "power"
 
           # colormix:
           #   matrix: 
@@ -261,8 +284,27 @@ lensing:
     lens:
       light:
         mean:
-          constant: 
-            value: ['delta', 1.0, 0.0]
+          exponentialdecay: # i0*exp(-a r**b)
+            i0: ['log_normal', 15.0e-1, 4.0e-1]
+            a: ['log_normal', 5.6, 0.2]
+            b: ['log_normal', 0.25, 0.05] # 0.25 deVaucouleurs profile 
+            center: ['normal', 0.0, 0.3]
+            q: ['uniform', 0.68, 1.0]
+            theta: ['normal', 0.0, 10]
+
+
+          # exponentialdecay: # i0*exp(-a r**b)
+          #   i0: ['log_normal', 1000.2, 9.0e+2]
+          #   a: ['log_normal', 12.6, 0.2e+1]
+          #   b: ['log_normal', 0.25, 3.0e-2] # 0.25 deVaucouleurs profile 
+          #   center: ['normal', [0.2, -0.02], [0.1, 0.1]]
+          #   q: ['uniform', 0.68, 1.0]
+          #   theta: ['normal', 0.0, 10]
+
+
+          # constant: 
+          #   value: ['delta', 1.0, 0.0]
+
         #   exponentialpower: # i0*exp(-a (r/re)**b)
         #     i0: ['log_normal', 8.0, 1.0]
         #     a: ['delta', 4., 0.1]
@@ -293,16 +335,15 @@ lensing:
         #             - -5.0e+0
         #             -  5.0e-1
 
-        multifrequency:
-          pcopy: 
-
-            exponentialdecay: # i0*exp(-a r**b)
-              i0: ['log_normal', 1000.2, 5.0e+2]
-              a: ['log_normal', 12.6, 0.2e+1]
-              b: ['log_normal', 0.25, 3.0e-2] # 0.25 deVaucouleurs profile 
-              center: ['normal', [0.2, -0.02], [0.1, 0.1]]
-              q: ['uniform', 0.68, 1.0]
-              theta: ['normal', 0.0, 10]
+          # multifrequency:
+          #   pcopy: 
+          #     exponentialdecay: # i0*exp(-a r**b)
+          #       i0: ['log_normal', 1000.2, 5.0e+2]
+          #       a: ['log_normal', 12.6, 0.2e+1]
+          #       b: ['log_normal', 0.25, 3.0e-2] # 0.25 deVaucouleurs profile 
+          #       center: ['normal', [0.2, -0.02], [0.1, 0.1]]
+          #       q: ['uniform', 0.68, 1.0]
+          #       theta: ['normal', 0.0, 10]
 
               # radial_correction: 
               #   extent_factor: 1.5
@@ -437,8 +478,8 @@ lensing:
 
 minimization:
     key: 130724
-    resume: True
-    n_total_iterations: 30
+    resume: False
+    n_total_iterations: 25
 
     delta:
       switches: [0, 10, 19]

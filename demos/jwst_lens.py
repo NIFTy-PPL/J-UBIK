@@ -176,7 +176,7 @@ plot_components_switch = hasattr(
 parametric_flag = lens_system.lens_plane_model.convergence_model.nonparametric() is not None
 
 ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(
-    lens_system, plot_components_switch)
+    lens_system, plot_components_switch if len(sky_model.target.shape) != 2 else True)
 
 
 plot_lens = build_plot_lens_system(
@@ -238,7 +238,7 @@ if cfg.get('prior_samples') is not None:
         while isinstance(position, jft.Vector):
             position = position.tree
 
-        plot_lens(position, None, parametric=parametric_flag)
+        # plot_lens(position, None, parametric=parametric_flag)
         plot_prior(position)
         # plot_color(position)
 

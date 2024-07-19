@@ -161,6 +161,10 @@ def build_plot_sky_residuals(
         ylen = len(data_dict)
         fig, axes = plt.subplots(ylen, 4, figsize=(12, 3*ylen), dpi=300)
         ims = np.zeros_like(axes)
+        if ylen == 1:
+            ims = ims[None]
+            axes = axes[None]
+
         sky_or_skies = _get_sky_or_skies(
             position_or_samples, sky_model_with_key)
         for ii, (dkey, data) in enumerate(data_dict.items()):
@@ -209,6 +213,10 @@ def build_plot_sky_residuals(
             small_sky_model)
         ma, mi = jft.max(small_mean), jft.min(small_mean)
         ma, mi = np.max((sky_min, ma)), np.max((sky_min, mi))
+        # FIXME: This should be handled by a source with shape 3
+        if len(small_mean.shape) == 2:
+            small_mean = small_mean[None]
+            small_std = small_std[None]
 
         for ii, filter_name in enumerate(sky_model_with_key.target.keys()):
             axes[ii, 0].set_title(f'Sky {filter_name}')
@@ -382,7 +390,9 @@ def get_alpha_nonpar(lens_system, plot_components_switch):
 
     try:
         ll_nonpar = lens_system.lens_plane_model.light_model.parametric(
-        ).nonparametric()[0].nonparametric()
+        )[0].nonparametric()
+        # ll_nonpar = lens_system.lens_plane_model.light_model.parametric(
+        # ).nonparametric()[0].nonparametric()
     except IndexError:
         ll_nonpar = None
     if ll_nonpar is None:
@@ -462,7 +472,9 @@ def build_plot_lens_system(
     min_source = plotting_config.get('min_source', 1e-5)
     min_lens = plotting_config.get('min_lens', 1e-5)
 
-    xlen = len(lens_system.get_forward_model_parametric().target) + 2
+    tshape = lens_system.get_forward_model_parametric().target.shape
+    # FIXME: This should be handled by a source with shape 3
+    xlen = len(tshape) + 2 if len(tshape) == 3 else 3
 
     lens_light_alph, lens_light_nonp = lens_light_alpha_nonparametric
     lens_ext = lens_system.lens_plane_model.space.extent
@@ -503,6 +515,14 @@ def build_plot_lens_system(
             lln = lens_light_nonp(position_or_samples)
             sla = source_light_alph(position_or_samples)
             sln = source_light_nonp(position_or_samples)
+
+        # FIXME: This should be handled by a source with shape 3
+        if len(lensed_light.shape) == 2:
+            lensed_light = lensed_light[None]
+        if len(lens_light.shape) == 2:
+            lens_light = lens_light[None]
+        if len(source_light.shape) == 2:
+            source_light = source_light[None]
 
         fig, axes = plt.subplots(3, xlen, figsize=(3*xlen, 8), dpi=300)
         ims = np.zeros_like(axes)
