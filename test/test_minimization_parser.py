@@ -1,6 +1,10 @@
-from jubik0.library.minimization_parser import get_config_value, get_range_index, _delta_logic, \
-    n_samples_factory, sample_mode_factory, linear_sample_kwargs_factory, \
-    nonlinearly_update_kwargs_factory, kl_kwargs_factory, MinimizationParser
+import pytest
+from jubik0.library.minimization_parser import (
+    get_config_value, get_range_index, _delta_logic,
+    n_samples_factory, sample_mode_factory,
+    linear_sample_kwargs_factory, nonlinearly_update_kwargs_factory,
+    kl_kwargs_factory, MinimizationParser
+)
 
 # Sample configuration
 config = {
@@ -24,33 +28,32 @@ config = {
 
 
 class TestMinimizationParser:
-    def test_get_config_value(self):
-        config = {'key1': [1, 2, 3]}
-        assert get_config_value('key1', config, 0, 0) == 1
-        assert get_config_value('key1', config, 3, 0) == 3
-        assert get_config_value('key2', config, 0, 0) == 0
 
-    def test_get_range_index(self):
-        mini_cfg = {'switches': [0, 5, 10]}
-        assert get_range_index(mini_cfg, 3, 10) == 0
-        assert get_range_index(mini_cfg, 6, 10) == 1
-        assert get_range_index(mini_cfg, 11, 15) == 2
+    @pytest.mark.parametrize("key, config, iteration, expected", [
+        ('key1', {'key1': [1, 2, 3]}, 0, 1),
+        ('key1', {'key1': [1, 2, 3]}, 3, 3),
+        ('key2', {'key1': [1, 2, 3]}, 0, 0)
+    ])
+    def test_get_config_value(self, key, config, iteration, expected):
+        assert get_config_value(key, config, iteration, 0) == expected
 
-    def test_delta_logic_kl(self):
-        delta_config = {'values': [0.1, 0.2, 0.3]}
-        assert _delta_logic('kl', delta_config, None, 0,
-                            0, 10) == 1.0
+    @pytest.mark.parametrize("mini_cfg, iteration, total_iterations, expected", [
+        ({'switches': [0, 5, 10]}, 3, 10, 0),
+        ({'switches': [0, 5, 10]}, 6, 10, 1),
+        ({'switches': [0, 5, 10]}, 11, 15, 2)
+    ])
+    def test_get_range_index(self, mini_cfg, iteration, total_iterations, expected):
+        assert get_range_index(mini_cfg, iteration, total_iterations) == expected
 
-    def test_delta_logic_linear(self):
-        delta_config = {'values': [0.1, 0.2, 0.3]}
-        assert _delta_logic('linear', delta_config, None, 0,
-                            0, 10) == 0.1
-        assert _delta_logic('linear', delta_config, None, 11,
-                            1, 10) == 0.2
-
-    def test_delta_logic_nonlinear(self):
-        delta_config = {'values': [0.1, 0.2, 0.3]}
-        assert _delta_logic('nonlinear', delta_config, None, 0, 0, None) == 0.1
+    @pytest.mark.parametrize("type, config, switches_index, expected", [
+        ('kl', {'values': [0.1, 0.2, 0.3]}, 0, 1.0),
+        ('linear', {'values': [0.1, 0.2, 0.3]}, 0, 0.1),
+        ('linear', {'values': [0.1, 0.2, 0.3]}, 1, 0.2),
+        ('nonlinear', {'values': [0.1, 0.2, 0.3]}, 0, 0.1)
+    ])
+    def test_delta_logic(self, type, config, switches_index, expected):
+        assert _delta_logic(type, config, None,
+                            0, switches_index, 10) == expected
 
     def test_n_samples_factory(self):
         n_samples = n_samples_factory(config)
