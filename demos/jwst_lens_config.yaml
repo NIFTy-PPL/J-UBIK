@@ -1,5 +1,5 @@
 cpu: False
-prior_samples: 5
+prior_samples: 1
 
 grid:
   sdim: 256
@@ -19,21 +19,21 @@ grid:
     fov: 2
     s_padding_ratio: 1.5
 
-  edim: 1
+  edim: 2
   e_padding_ratio: 1.0
   energy_unit: eV
   energy_bin:
     e_min:
       # - 0.143 # F770W
       - 0.200 # F560W
-      # - 0.249 # F444W
+      - 0.249 # F444W
       # - 0.311 # F356W
       # - 0.396 # F277W
       # - 0.557 # F200W
     e_max:
       # - 0.188 # F770W
       - 0.245 # F560W
-      # - 0.311 # F444W
+      - 0.311 # F444W
       # - 0.395 # F356W
       # - 0.512 # F277W
       # - 0.707 # F200W
@@ -91,9 +91,8 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/single_f/f560w_01'
+  res_dir: 'results/jwst_lens/mfnew/f444w_f560w_02'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
-
 
   filter:
 
@@ -147,9 +146,9 @@ files:
       - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
       - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
 
-    # f444w: # NIRCam
-    #   - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
-    #   - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
+    f444w: # NIRCam
+      - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
+      - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
     # f356w:
     #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
@@ -190,70 +189,86 @@ lensing:
             covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
 
-        perturbations:
-          correlated_field:
-            offset:
-              offset_mean: -3.0
-              offset_std: Null
-                # - 0.2
-                # - 0.1
-            fluctuations:
-              fluctuations:
-                - 0.6
-                - 0.2
-              loglogavgslope:
-                - -3.2
-                - 0.3
-              flexibility:
-                - 0.8
-                - 0.08
-              asperity: Null
-              non_parametric_kind: "power"
-              # harmonic_type: "Fourier"
+        # perturbations:
+        #   correlated_field:
+        #     offset:
+        #       offset_mean: -3.0
+        #       offset_std: Null
+        #         # - 0.2
+        #         # - 0.1
+        #     fluctuations:
+        #       fluctuations:
+        #         - 0.6
+        #         - 0.2
+        #       loglogavgslope:
+        #         - -3.2
+        #         - 0.3
+        #       flexibility:
+        #         - 0.8
+        #         - 0.08
+        #       asperity: Null
+        #       non_parametric_kind: "power"
+        #       # harmonic_type: "Fourier"
 
 
-        # multifrequency:
-        #   spectralindex:
-        #     spatial:
-        #       correlated_field:
-        #         offset:
-        #           offset_mean: -3.0
-        #           offset_std: Null
-        #             # - 0.2
-        #             # - 0.1
-        #         fluctuations:
-        #           fluctuations:
-        #             - 0.6
-        #             - 0.2
-        #           loglogavgslope:
-        #             - -3.2
-        #             - 0.3
-        #           flexibility:
-        #             - 0.8
-        #             - 0.08
-        #           asperity: Null
-        #           non_parametric_kind: "power"
-        #           # harmonic_type: "Fourier"
-        #     plaw:
-        #       correlated_field:
-        #         offset:
-        #           offset_mean: -2.0
-        #           offset_std: 
-        #             - 1.0
-        #             - 0.6
-        #         fluctuations:
-        #           fluctuations:
-        #             - 8.0e-1
-        #             - 8.0e-2
-        #           loglogavgslope:
-        #             - -5.0
-        #             - 1.0
-        #           flexibility:
-        #             - 5.0e-3
-        #             - 5.0e-4
-        #           asperity:
-        #             Null
-        #           non_parametric_kind: "power"
+        multifrequency:
+          nifty_mf:
+            zero_mode:
+              mean: 0.0
+              deviations: [0.0, 0.01]
+            spatial_amplitude:
+              model: 'matern'
+              scale: [1.0, 0.02]
+              cutoff: [0.1, 0.01]
+              loglogslope: [-3.0, 0.1]
+            frequency_slope:
+              mean: [-2.0, 0.1]
+            frequency_deviations:
+              process: 'wiener'
+              sigma: [0.1, 0.01]
+
+
+          # spectralindex:
+          #   spatial:
+          #     correlated_field:
+          #       offset:
+          #         offset_mean: -3.0
+          #         offset_std: Null
+          #           # - 0.2
+          #           # - 0.1
+          #       fluctuations:
+          #         fluctuations:
+          #           - 0.6
+          #           - 0.2
+          #         loglogavgslope:
+          #           - -3.2
+          #           - 0.3
+          #         flexibility:
+          #           - 0.8
+          #           - 0.08
+          #         asperity: Null
+          #         non_parametric_kind: "power"
+          #         # harmonic_type: "Fourier"
+          #   plaw:
+          #     correlated_field:
+          #       offset:
+          #         offset_mean: -2.0
+          #         offset_std: 
+          #           - 1.0
+          #           - 0.6
+          #       fluctuations:
+          #         fluctuations:
+          #           - 8.0e-1
+          #           - 8.0e-2
+          #         loglogavgslope:
+          #           - -5.0
+          #           - 1.0
+          #         flexibility:
+          #           - 5.0e-3
+          #           - 5.0e-4
+          #         asperity:
+          #           Null
+          #         non_parametric_kind: "power"
 
           # colormix:
           #   matrix: 
@@ -284,14 +299,13 @@ lensing:
     lens:
       light:
         mean:
-          exponentialdecay: # i0*exp(-a r**b)
-            i0: ['log_normal', 15.0e-1, 4.0e-1]
-            a: ['log_normal', 5.6, 0.2]
-            b: ['log_normal', 0.25, 0.05] # 0.25 deVaucouleurs profile 
-            center: ['normal', 0.0, 0.3]
-            q: ['uniform', 0.68, 1.0]
-            theta: ['normal', 0.0, 10]
-
+          # exponentialdecay: # i0*exp(-a r**b)
+          #   i0: ['log_normal', 15.0e-1, 4.0e-1]
+          #   a: ['log_normal', 5.6, 0.2]
+          #   b: ['log_normal', 0.25, 0.05] # 0.25 deVaucouleurs profile 
+          #   center: ['normal', 0.0, 0.3]
+          #   q: ['uniform', 0.68, 1.0]
+          #   theta: ['normal', 0.0, 10]
 
           # exponentialdecay: # i0*exp(-a r**b)
           #   i0: ['log_normal', 1000.2, 9.0e+2]
@@ -301,9 +315,6 @@ lensing:
           #   q: ['uniform', 0.68, 1.0]
           #   theta: ['normal', 0.0, 10]
 
-
-          # constant: 
-          #   value: ['delta', 1.0, 0.0]
 
         #   exponentialpower: # i0*exp(-a (r/re)**b)
         #     i0: ['log_normal', 8.0, 1.0]
@@ -335,15 +346,18 @@ lensing:
         #             - -5.0e+0
         #             -  5.0e-1
 
-          # multifrequency:
-          #   pcopy: 
-          #     exponentialdecay: # i0*exp(-a r**b)
-          #       i0: ['log_normal', 1000.2, 5.0e+2]
-          #       a: ['log_normal', 12.6, 0.2e+1]
-          #       b: ['log_normal', 0.25, 3.0e-2] # 0.25 deVaucouleurs profile 
-          #       center: ['normal', [0.2, -0.02], [0.1, 0.1]]
-          #       q: ['uniform', 0.68, 1.0]
-          #       theta: ['normal', 0.0, 10]
+
+          constant: 
+            value: ['delta', 1.0, 0.0]
+        multifrequency:
+          pcopy: 
+            exponentialdecay: # i0*exp(-a r**b)
+              i0: ['log_normal', 1000.2, 5.0e+2]
+              a: ['log_normal', 12.6, 0.2e+1]
+              b: ['log_normal', 0.25, 3.0e-2] # 0.25 deVaucouleurs profile 
+              center: ['normal', [0.2, -0.02], [0.1, 0.1]]
+              q: ['uniform', 0.68, 1.0]
+              theta: ['normal', 0.0, 10]
 
               # radial_correction: 
               #   extent_factor: 1.5

@@ -393,8 +393,9 @@ def get_alpha_nonpar(lens_system, plot_components_switch):
         )[0].nonparametric()
         # ll_nonpar = lens_system.lens_plane_model.light_model.parametric(
         # ).nonparametric()[0].nonparametric()
-    except IndexError:
+    except:
         ll_nonpar = None
+
     if ll_nonpar is None:
         def ll_nonpar(_): return np.zeros((12, 12))
 
@@ -404,8 +405,9 @@ def get_alpha_nonpar(lens_system, plot_components_switch):
         def sl_alpha(_): return np.zeros((12, 12))
 
     else:
-        sl_alpha = lens_system.source_plane_model.light_model.nonparametric().alpha
-        sl_nonpar = lens_system.source_plane_model.light_model.nonparametric().spatial
+        slm = lens_system.source_plane_model.light_model.nonparametric()
+        sl_alpha = slm.alpha
+        sl_nonpar = slm.spatial
         if sl_nonpar is None:
             def sl_nonpar(_): return np.zeros((12, 12))
 

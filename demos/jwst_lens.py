@@ -238,7 +238,7 @@ if cfg.get('prior_samples') is not None:
         while isinstance(position, jft.Vector):
             position = position.tree
 
-        # plot_lens(position, None, parametric=parametric_flag)
+        plot_lens(position, None, parametric=parametric_flag)
         plot_prior(position)
         # plot_color(position)
 
