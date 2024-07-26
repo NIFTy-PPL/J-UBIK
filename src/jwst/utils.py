@@ -4,8 +4,7 @@ from .reconstruction_grid import Grid
 from astropy import units
 
 from ..library.sky_models import SkyModel
-from ..library.sky_colormix import (
-    build_colormix_components, prior_samples_colormix_components)
+from ..library.sky_colormix import ColorMix, Components, build_color_matrix
 
 
 def build_sky_model(shape, dist, offset, fluctuations, extend_factor=1.5):
@@ -35,6 +34,87 @@ def build_sky_model(shape, dist, offset, fluctuations, extend_factor=1.5):
 
     return (jft.Model(diffuse, domain=log_diffuse.domain),
             jft.Model(full_diffuse, domain=log_diffuse.domain))
+
+
+def build_components(
+    prefix: str,
+    shape: tuple[int],
+    distances: tuple[int],
+    padding_ratio: float,
+    prior_config: dict
+):
+
+    def component(key, shape, distances, config):
+        cfm = jft.CorrelatedFieldMaker(prefix=key)
+        cfm.set_amplitude_total_offset(**config['offset'])
+        cfm.add_fluctuations(shape, distances, **config['fluctuations'])
+        return cfm.finalize()
+
+    prefix = f'{prefix}_comp_'
+
+    pad_shape = [int(s*padding_ratio) for s in shape]
+
+    components = []
+    for key, config in prior_config.items():
+        components.append(
+            component(f'{prefix}_{key}', pad_shape, distances, config))
+
+    return Components(components, shape)
+
+
+def build_colormix_components(
+    prefix: str,
+    colormix_config: dict,
+    components_config: dict
+):
+
+    comps = build_components(
+        prefix=prefix,
+        shape=components_config['shape'],
+        distances=components_config['distances'],
+        padding_ratio=components_config['s_padding_ratio'],
+        prior_config=components_config['prior'])
+
+    color = build_color_matrix(
+        prefix,
+        comps.target,
+        diagonal_prior=colormix_config['diagonal_prior'],
+        off_diagonal_prior=colormix_config['off_diagonal_prior'])
+
+    return ColorMix(comps, color)
+
+
+def prior_samples_colormix_components(sky_model: ColorMix, n_samples=4):
+    from jax import random
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm
+
+    key = random.PRNGKey(42)
+    N_comps = len(sky_model.components._comps)
+
+    for _ in range(n_samples):
+        key, rec_key = random.split(key, 2)
+        x = jft.random_like(key, sky_model.domain)
+
+        comps = sky_model.components(x)
+        correlated_comps = sky_model(x)
+
+        mat_mean = sky_model.color_matrix(x)
+        print()
+        print('Color Mixing Matrix')
+        print(mat_mean)
+        print()
+
+        fig, axes = plt.subplots(N_comps, 2)
+        for ax, cor_comps, comps in zip(axes, correlated_comps, comps):
+            im0 = ax[0].imshow(cor_comps, origin='lower', norm=LogNorm())
+            im1 = ax[1].imshow(jnp.exp(comps), origin='lower', norm=LogNorm())
+            plt.colorbar(im0, ax=ax[0])
+            plt.colorbar(im1, ax=ax[1])
+            ax[0].set_title('Correlated Comps')
+            ax[1].set_title('Comps')
+
+        plt.show()
 
 
 def build_sky_model_from_config(

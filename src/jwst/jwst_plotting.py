@@ -10,7 +10,7 @@ import nifty8.re as jft
 
 from jubik0.jwst.mock_data.mock_evaluation import redchi2
 from jubik0.jwst.mock_data.mock_plotting import display_text
-from jubik0.library.sky_colormix import ColorMixComponents
+from jubik0.library.sky_colormix import ColorMix
 from jubik0.jwst.rotation_and_shift.coordinates_correction import CoordinatesCorrection
 
 from typing import Tuple, Union, Optional
@@ -298,7 +298,7 @@ def build_plot_model_samples(
 
 
 def build_color_components_plotting(
-    sky_model: ColorMixComponents,
+    sky_model: ColorMix,
     results_directory: str,
     substring='',
 ):
@@ -319,7 +319,7 @@ def build_color_components_plotting(
     ):
         mat_mean, mat_std = get_position_or_samples_of_model(
             position_or_samples,
-            sky_model.color.matrix)
+            sky_model.color_matrix)
         print()
         print('Color Mixing Matrix')
         print(mat_mean, '\n+-\n', mat_std)
@@ -378,38 +378,29 @@ def _plot_data_data_model_residuals(
     return ims
 
 
-def get_alpha_nonpar(lens_system, plot_components_switch):
-    if hasattr(lens_system.lens_plane_model.light_model.nonparametric(), 'alpha'):
-        tmp_alpha = lens_system.lens_plane_model.light_model.nonparametric().alpha
+def get_alpha_nonpar(lens_system):
+    ll_nonpar, ll_alpha, sl_nonpar, sl_alpha = [
+        lambda _: np.zeros((12, 12)) for ii in range(4)]
+
+    llm, slm = (lens_system.lens_plane_model.light_model.nonparametric(),
+                lens_system.source_plane_model.light_model.nonparametric())
+
+    if hasattr(llm, 'alpha'):
         ll_shape = lens_system.lens_plane_model.space.shape
         ll_alpha = jft.Model(
-            lambda x: tmp_alpha(x)[:ll_shape[0], :ll_shape[1]],
-            domain=tmp_alpha.domain)
-    else:
-        def ll_alpha(_): return np.zeros((12, 12))
+            lambda x: llm.alpha(x)[:ll_shape[0], :ll_shape[1]],
+            domain=llm.alpha.domain)
+
+    if hasattr(slm, 'alpha'):
+        slm = lens_system.source_plane_model.light_model.nonparametric()
+        sl_alpha = slm.alpha
+        sl_nonpar = slm.spatial
 
     try:
         ll_nonpar = lens_system.lens_plane_model.light_model.parametric(
         )[0].nonparametric()
-        # ll_nonpar = lens_system.lens_plane_model.light_model.parametric(
-        # ).nonparametric()[0].nonparametric()
     except:
-        ll_nonpar = None
-
-    if ll_nonpar is None:
-        def ll_nonpar(_): return np.zeros((12, 12))
-
-    if plot_components_switch:
-
-        def sl_nonpar(_): return np.zeros((12, 12))
-        def sl_alpha(_): return np.zeros((12, 12))
-
-    else:
-        slm = lens_system.source_plane_model.light_model.nonparametric()
-        sl_alpha = slm.alpha
-        sl_nonpar = slm.spatial
-        if sl_nonpar is None:
-            def sl_nonpar(_): return np.zeros((12, 12))
+        pass
 
     return ll_alpha, ll_nonpar, sl_alpha, sl_nonpar
 
@@ -476,7 +467,7 @@ def build_plot_lens_system(
 
     tshape = lens_system.get_forward_model_parametric().target.shape
     # FIXME: This should be handled by a source with shape 3
-    xlen = len(tshape) + 2 if len(tshape) == 3 else 3
+    xlen = tshape[0] + 2 if len(tshape) == 3 else 3
 
     lens_light_alph, lens_light_nonp = lens_light_alpha_nonparametric
     lens_ext = lens_system.lens_plane_model.space.extent

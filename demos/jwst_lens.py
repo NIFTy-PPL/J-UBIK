@@ -171,12 +171,9 @@ likelihood = reduce(lambda x, y: x+y, likelihoods)
 likelihood = connect_likelihood_to_model(likelihood, model)
 
 # PLOTTING
-plot_components_switch = hasattr(
-    lens_system.source_plane_model.light_model.nonparametric(), 'color')
 parametric_flag = lens_system.lens_plane_model.convergence_model.nonparametric() is not None
 
-ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(
-    lens_system, plot_components_switch if len(sky_model.target.shape) != 2 else True)
+ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)
 
 
 plot_lens = build_plot_lens_system(

@@ -1,5 +1,5 @@
 cpu: False
-prior_samples: 1
+prior_samples: 3
 
 grid:
   sdim: 256
@@ -91,7 +91,7 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/mfnew/f444w_f560w_02'
+  res_dir: 'results/jwst_lens/colormix/f444w_f560w_01'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
 
   filter:
@@ -178,18 +178,19 @@ lensing:
         mean:
           gaussian_01: # i0*Gauss
             # i0: ['log_normal', 8.0e-4, 9.0e-5]
-            i0: ['delta', 1.0e-2, 1.0e-3]
+            i0: ['delta', 1.0e-1, 5.0e-2]
             center: ['normal', 0, 0.02]
             covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
           gaussian_02: # i0*Gauss
             # i0: ['log_normal', 8.0e-4, 9.0e-5]
-            i0: ['delta', 1.0e-2, 1.0e-3]
+            i0: ['delta', 1.0e-1, 5.0e-2]
             center: ['normal', [0.4, -0.4], 0.02]
             covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
 
-        # perturbations: # For single frequency reconstructions
+        # # For single frequency reconstructions
+        # perturbations: 
         #   correlated_field:
         #     offset:
         #       offset_mean: -3.0
@@ -213,50 +214,54 @@ lensing:
 
         multifrequency:
 
-          nifty_mf:
-            zero_mode:
-              mean: 0.0
-              deviations: [0.0, 0.01]
-            spatial_amplitude:
-              model: 'matern'
-              scale: [1.0, 0.02]
-              cutoff: [0.1, 0.01]
-              loglogslope: [-3.0, 0.1]
-            frequency_slope:
-              mean: [-2.0, 0.1]
-            frequency_deviations:
-              process: 'wiener'
-              sigma: [0.1, 0.01]
+          # nifty_mf:
+          #   zero_mode:
+          #     mean: 0.0
+          #     deviations: [0.0, 0.01]
+          #   spatial_amplitude:
+          #     model: 'matern'
+          #     scale: [1.0, 0.02]
+          #     cutoff: [0.1, 0.01]
+          #     loglogslope: [-3.0, 0.1]
+          #   frequency_slope:
+          #     mean: [-2.0, 0.1]
+          #   frequency_deviations:
+          #     process: 'wiener'
+          #     sigma: [0.1, 0.01]
 
-          # colormix:
-          #   matrix: 
-          #     diagonal_prior: ['delta', 1.0, 0.2]
-          #     off_diagonal_prior: ['normal', 0.0, 0.5]
-          #   spatial:
-          #     correlated_field:
-          #       offset:
-          #         offset_mean: -4.0
-          #         offset_std:
-          #           - 0.5
-          #           - 0.4
-          #       fluctuations:
-          #         fluctuations:
-          #           - 2.3
-          #           - 0.5
-          #         loglogavgslope:
-          #           - -2.9
-          #           - 0.4
-          #         flexibility:
-          #           - 0.8
-          #           - 0.08
-          #         asperity: Null
-          #         non_parametric_kind: "power"
-          #         # harmonic_type: "Fourier"
+          colormix:
+            matrix: 
+              diagonal_prior: ['delta', 1.0, 0.2]
+              off_diagonal_prior: ['normal', 0.0, 0.5]
+            spatial:
+              correlated_field:
+                offset:
+                  offset_mean: -4.0
+                  offset_std:
+                    - 0.5
+                    - 0.4
+                fluctuations:
+                  fluctuations:
+                    - 2.3
+                    - 0.5
+                  loglogavgslope:
+                    - -2.9
+                    - 0.4
+                  flexibility:
+                    - 0.8
+                    - 0.08
+                  asperity: Null
+                  non_parametric_kind: "power"
+                  # harmonic_type: "Fourier"
 
 
     lens:
       light:
         mean:
+
+          constant: 
+            value: ['delta', 1.0, 0.0]
+
           # exponentialdecay: # i0*exp(-a r**b)
           #   i0: ['log_normal', 15.0e-1, 4.0e-1]
           #   a: ['log_normal', 5.6, 0.2]
@@ -305,12 +310,10 @@ lensing:
         #             -  5.0e-1
 
 
-          constant: 
-            value: ['delta', 1.0, 0.0]
         multifrequency:
           pcopy: 
             exponentialdecay: # i0*exp(-a r**b)
-              i0: ['log_normal', 1000.2, 5.0e+2]
+              i0: ['log_normal', 1.0e+2, 5.0e+1]
               a: ['log_normal', 12.6, 0.2e+1]
               b: ['log_normal', 0.25, 3.0e-2] # 0.25 deVaucouleurs profile 
               center: ['normal', [0.2, -0.02], [0.1, 0.1]]
