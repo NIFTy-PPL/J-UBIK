@@ -7,7 +7,7 @@ import jax.numpy as jnp
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, FuncNorm
 from astropy import units as u
 
 import jubik0 as ju
@@ -172,7 +172,6 @@ likelihood = connect_likelihood_to_model(likelihood, model)
 
 # PLOTTING
 parametric_flag = lens_system.lens_plane_model.convergence_model.nonparametric() is not None
-
 ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)
 
 
@@ -200,7 +199,7 @@ plot_color = build_color_components_plotting(
     lens_system.source_plane_model.light_model.nonparametric(), RES_DIR, substring='source')
 
 
-if cfg.get('prior_samples') is not None:
+if cfg.get('prior_samples'):
     test_key, _ = random.split(random.PRNGKey(42), 2)
 
     def filter_data(datas: dict):
@@ -227,8 +226,7 @@ if cfg.get('prior_samples') is not None:
         )
     )
 
-    nsamples = 3 if cfg.get(
-        'prior_samples') is None else cfg.get('prior_samples')
+    nsamples = cfg.get('prior_samples') if cfg.get('prior_samples') else 3
     for ii in range(nsamples):
         test_key, _ = random.split(test_key, 2)
         position = likelihood.init(test_key)

@@ -49,15 +49,16 @@ class Components(jft.Model):
     def __init__(self, components: list[jft.Model], out_shape: tuple[int]):
         assert len(out_shape) == 2
 
-        self._comps = components
+        self.components = components
         self._out_shape = out_shape
 
-        cdomain = reduce(lambda x, y: x | y, [c.domain for c in self._comps])
+        cdomain = reduce(
+            lambda x, y: x | y, [c.domain for c in self.components])
         super().__init__(domain=cdomain)
 
     def __call__(self, x):
         return jnp.array([c(x)[:self._out_shape[0], :self._out_shape[1]]
-                          for c in self._comps])
+                          for c in self.components])
 
 
 class ColorMix(jft.Model):
