@@ -189,7 +189,7 @@ lensing:
             covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
 
-        # perturbations:
+        # perturbations: # For single frequency reconstructions
         #   correlated_field:
         #     offset:
         #       offset_mean: -3.0
@@ -212,6 +212,7 @@ lensing:
 
 
         multifrequency:
+
           nifty_mf:
             zero_mode:
               mean: 0.0
@@ -226,49 +227,6 @@ lensing:
             frequency_deviations:
               process: 'wiener'
               sigma: [0.1, 0.01]
-
-
-          # spectralindex:
-          #   spatial:
-          #     correlated_field:
-          #       offset:
-          #         offset_mean: -3.0
-          #         offset_std: Null
-          #           # - 0.2
-          #           # - 0.1
-          #       fluctuations:
-          #         fluctuations:
-          #           - 0.6
-          #           - 0.2
-          #         loglogavgslope:
-          #           - -3.2
-          #           - 0.3
-          #         flexibility:
-          #           - 0.8
-          #           - 0.08
-          #         asperity: Null
-          #         non_parametric_kind: "power"
-          #         # harmonic_type: "Fourier"
-          #   plaw:
-          #     correlated_field:
-          #       offset:
-          #         offset_mean: -2.0
-          #         offset_std: 
-          #           - 1.0
-          #           - 0.6
-          #       fluctuations:
-          #         fluctuations:
-          #           - 8.0e-1
-          #           - 8.0e-2
-          #         loglogavgslope:
-          #           - -5.0
-          #           - 1.0
-          #         flexibility:
-          #           - 5.0e-3
-          #           - 5.0e-4
-          #         asperity:
-          #           Null
-          #         non_parametric_kind: "power"
 
           # colormix:
           #   matrix: 
@@ -382,48 +340,6 @@ lensing:
 
           # spectralnumber:
           #   values: ['lognormal', 1.0, 1.0]
-
-          # spectralindex:
-          #   # spatial:
-          #   #   correlated_field:
-          #   #     offset:
-          #   #       offset_mean: 0.0
-          #   #       offset_std:
-          #   #         - 1.2
-          #   #         - 0.5
-          #   #     fluctuations:
-          #   #       fluctuations:
-          #   #         - 1.6
-          #   #         - 0.1
-          #   #       loglogavgslope:
-          #   #         - -3.2
-          #   #         - 0.3
-          #   #       flexibility:
-          #   #         - 0.8
-          #   #         - 0.08
-          #   #       asperity: Null
-          #   #       non_parametric_kind: "power"
-          #   #       # harmonic_type: "Fourier"
-          #   #     prefix: diffuse_spatial_
-          #   plaw:
-          #     correlated_field:
-          #       offset:
-          #         offset_mean: 1.0
-          #         offset_std:
-          #           - 0.5
-          #           - 0.2
-          #       fluctuations:
-          #         fluctuations:
-          #           - 0.5
-          #           - 0.05
-          #         loglogavgslope:
-          #           - -5.5
-          #           - 0.5
-          #         flexibility: Null
-          #         asperity: Null
-          #         non_parametric_kind: "power"
-          #         # harmonic_type: "Fourier"
-          #       prefix: diffuse_plaw_
 
 
       convergence:
