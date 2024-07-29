@@ -9,7 +9,8 @@ from .library.utils import (get_mask_operator, get_norm,
                             get_radec_from_xy, get_psfpatches,
                             get_synth_pointsource, get_gaussian_psf, get_rel_uncertainty,
                             get_equal_lh_transition, get_RGB_image_from_field, get_stats,
-                            save_local_packages_hashes_to_txt, safe_config_update)
+                            save_local_packages_hashes_to_txt, safe_config_update,
+                            calculate_n_constrained_dof)
 from .library.plot import (plot_slices, plot_result,
                            plot_image_from_fits,
                            plot_single_psf, plot_psfset, plot_energy_slices,
@@ -18,7 +19,7 @@ from .library.plot import (plot_slices, plot_result,
 from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_sample_and_stats,
                                  plot_sample_and_stats, plot_erosita_priors)
 from .library.mf_plot import plot_rgb
-                                 
+
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
@@ -46,3 +47,5 @@ from .operators.jifty_convolution_operators import (_bilinear_weights,
 from .operators.zero_padder import MarginZeroPadder
 from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
+
+from .library.minimization_parser import MinimizationParser
