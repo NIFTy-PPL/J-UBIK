@@ -18,6 +18,7 @@ from jubik0.jwst.masking import get_mask_from_index_centers
 from jubik0.jwst.config_handler import (
     build_reconstruction_grid_from_config,
     build_coordinates_correction_prior_from_config,
+    build_filter_zero_flux,
     insert_spaces_in_lensing)
 from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_data_model import build_data_model
@@ -111,6 +112,10 @@ for fltname, flt in cfg['files']['filter'].items():
         std = jwst_data.std_inside_extrema(
             reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
 
+        # plt.imshow(data)
+        # plt.title(f'{fltname} {ii} {data[mask].sum()}')
+        # plt.show()
+
         data_model = build_data_model(
             {ekey: sky_model_with_keys.target[ekey]},
             reconstruction_grid=reconstruction_grid,
@@ -146,7 +151,7 @@ for fltname, flt in cfg['files']['filter'].items():
 
             zero_flux=dict(
                 dkey=data_key,
-                zero_flux=dict(prior=cfg['telescope']['zero_flux']['prior']),
+                zero_flux=build_filter_zero_flux(cfg, jwst_data.filter, ii),
             ),
         )
 
@@ -300,34 +305,51 @@ if __name__ == "__main__":
 
     vmin, vmax = 1e-5, 2.3e-3
 
+    # f0, f1, f2 = 'f560w', 'f444w', 'f356w'
+    f0, f1, f2 = 'f1000w', 'f770w', 'f560w'
     rgb = np.zeros((384, 384, 3))
-    # rgb[:, :, 0] = ms[0]
-    rgb[:, :, 1] = ms[0]
-    rgb[:, :, 2] = ms[1]
+    rgb[:, :, 0] = ms[0]
+    rgb[:, :, 1] = ms[1]
+    rgb[:, :, 2] = ms[2]
 
     rgb = rgb / np.max(rgb)
     rgb = np.sqrt(rgb)
 
     from charm_lensing.plotting import display_scalebar, display_text
     import matplotlib.font_manager as fm
+
     fig, ax = plt.subplots(1, 1, figsize=(11.5, 10))
     im = ax.imshow(rgb, origin='lower', extent=extent_kpc)
     display_scalebar(ax, dict(size=5, unit='kpc',
-                     font_properties=fm.FontProperties(size=24)))
+                     fontproperties=fm.FontProperties(size=24)))
     display_text(ax,
-                 text=dict(s='f444w', color='green',
+                 text=dict(s=f0, color='red',
                            fontproperties=fm.FontProperties(size=30)),
                  keyword='top_right',
                  y_offset_ticker=0,)
     display_text(ax,
-                 text=dict(s='f356w', color='blue',
+                 text=dict(s=f1, color='green',
                            fontproperties=fm.FontProperties(size=30)),
                  keyword='top_right',
-                 y_offset_ticker=1,
+                 y_offset_ticker=1,)
+    display_text(ax,
+                 text=dict(s=f2, color='blue',
+                           fontproperties=fm.FontProperties(size=30)),
+                 keyword='top_right',
+                 y_offset_ticker=2,
                  )
     ax.set_xlim(-5.5, 6)
     ax.set_ylim(-4, 6)
     plt.axis('off')  # Turn off axis
     plt.tight_layout()
-    plt.savefig('f444w_f356w_source.png')
+    plt.savefig(f'{f0}_{f1}_{f2}_source.png')
     plt.close()
+
+    llm = lens_system.lens_plane_model.light_model
+    for comp in llm.nonparametric().components:
+        distro = comp.parametric().prior
+        prior_keys = comp.parametric().model.prior_keys
+        ms, ss = jft.mean_and_std([distro(s) for s in samples])
+        for (k, _), m, s in zip(prior_keys, ms, ss):
+            print(k, m, s, sep='\t')
+        print()

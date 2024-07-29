@@ -42,6 +42,21 @@ def build_reconstruction_grid_from_config(config: dict) -> Grid:
     return Grid(wl, shape, (fov.to(units.deg), fov.to(units.deg)), rotation=rotation)
 
 
+def build_filter_zero_flux(
+    config: dict,
+    filter: str,
+    filter_data_set_id: int
+) -> dict:
+    prior_config = config['telescope']['zero_flux']
+    flower = filter.lower()
+
+    if ((flower in prior_config) and
+            (filter_data_set_id in prior_config.get(flower, dict()))):
+        return dict(prior=prior_config[flower][filter_data_set_id])
+
+    return dict(prior=prior_config['prior'])
+
+
 def build_coordinates_correction_prior_from_config(
     config: dict,
     filter: Optional[str] = '',
