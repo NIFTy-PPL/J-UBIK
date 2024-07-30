@@ -34,23 +34,41 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
     dx = int((shape[-2] - 2 * dr) / n_patches_per_axis)
     dy = int((shape[-1] - 2 * dr) / n_patches_per_axis)
 
-    pad_extra_dims = [[0, 0],]*(len(x.shape) - 2)
+    pad_extra_dims = [[0, 0],]*(len(shape) - 2)
     pad_spaces = [[dx//2, ] * 2, [dy//2, ] * 2]
     pad_width = pad_extra_dims + pad_spaces
 
     padded_x = jnp.pad(x, pad_width=pad_width,
                        mode="constant", constant_values=0)
-    trailing_pos = (0,)*(len(padded_x.shape)-2)
-    trailing_slice_sizes = padded_x.shape[:-2]
-    def slicer(x_pos, y_pos):
-        return jax.lax.dynamic_slice(padded_x, start_indices=trailing_pos+(x_pos, y_pos),
-                                     slice_sizes=trailing_slice_sizes+(2*dx + 2*dr, 2*dy + 2*dr))
 
-    ids = (np.arange(n_patches_per_axis)*dx, np.arange(n_patches_per_axis)*dy)
+    trailing_pos = (0,)*(len(shape)-2)
+    trailing_slice_sizes = shape[:-2]
 
+    ids = [np.arange(n_patches_per_axis)*dx,
+           np.arange(n_patches_per_axis)*dy]
     ndx = np.meshgrid(*ids, indexing="xy")
-    f = jax.vmap(slicer, in_axes=(0, 0), out_axes=(0))
-    return f(*(nn.flatten() for nn in ndx))
+    ndx = [nn.flatten() for nn in ndx]
+    ndx = list(zip(ndx[0], ndx[1]))
+    start = tuple(trailing_pos + _ for _ in ndx)
+
+    traling_slice_sizes = (3,)
+    size = (int(2*dx+2*dr), int(2*dy+2*dr))
+    eids = [ids[0] + size[0], ids[1] + size[1]] # for ENDS
+    ndx_e = np.meshgrid(*eids, indexing="xy")
+    ndx_e = [nn.flatten() for nn in ndx_e]
+    ndx_e = list(zip(ndx_e[0], ndx_e[1]))
+    end = tuple(traling_slice_sizes +_ for _ in ndx_e)
+
+    def slicer(padded_array, args):
+        start, end = args
+        return jax.lax.slice(padded_array, start_indices=start, limit_indices=end)
+    # def slicer(x_pos, y_pos):
+    #     return jax.lax.dynamic_slice(padded_x, start_indices=trailing_pos+(x_pos, y_pos),
+    #                                  slice_sizes=trailing_slice_sizes+(2*dx + 2*dr, 2*dy + 2*dr))
+    res = []
+    for i in range(n_patches_per_axis**2):
+        res.append(slicer(padded_x, (start[i], end[i])))
+    return jnp.array(res)
 
 
 def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
@@ -76,6 +94,7 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     spatial_shape = [shape[-2], shape[-1]]
     slices = slice_patches(x, shape, n_patches_per_axis,
                            additional_margin=0)
+
     slice_spatial_shape = (slices.shape[-2], slices.shape[-1])
     weights = _bilinear_weights(slice_spatial_shape)
     weighted_slices = weights * slices
