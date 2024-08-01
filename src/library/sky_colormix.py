@@ -1,6 +1,7 @@
 import nifty8.re as jft
 from ..jwst.parametric_model import build_parametric_prior
 
+from jax import vmap
 import jax.numpy as jnp
 import numpy as np
 

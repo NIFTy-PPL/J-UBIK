@@ -23,7 +23,11 @@ from jubik0.jwst.config_handler import (
 from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import (
-    build_plot_sky_residuals, build_color_components_plotting, build_plot_lens_system, get_alpha_nonpar)
+    build_plot_sky_residuals,
+    build_color_components_plotting,
+    build_plot_lens_system, get_alpha_nonpar,
+    rgb_plotting,
+)
 from jubik0.jwst.filter_projector import FilterProjector
 
 from jubik0.jwst.color import Color, ColorRange
@@ -70,6 +74,8 @@ reconstruction_grid = build_reconstruction_grid_from_config(cfg)
 insert_spaces_in_lensing(cfg)
 lens_system = build_lens_system(cfg['lensing'])
 sky_model = lens_system.get_forward_model_parametric()
+if cfg['lens_only']:
+    sky_model = lens_system.lens_plane_model.light_model
 
 energy_cfg = cfg['grid']['energy_bin']
 e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
@@ -92,8 +98,9 @@ for fltname, flt in cfg['files']['filter'].items():
     for ii, filepath in enumerate(flt):
         print(fltname, ii, filepath)
         jwst_data = JwstData(filepath)
-        ekey = filter_projector.get_key(jwst_data.pivot_wavelength)
+        # print(fltname, jwst_data.half_power_wavelength)
 
+        ekey = filter_projector.get_key(jwst_data.pivot_wavelength)
         data_key = f'{fltname}_{ekey}_{ii}'
 
         # Loading data, std, and mask.
@@ -151,7 +158,7 @@ for fltname, flt in cfg['files']['filter'].items():
 
             zero_flux=dict(
                 dkey=data_key,
-                zero_flux=build_filter_zero_flux(cfg, jwst_data.filter, ii),
+                zero_flux=build_filter_zero_flux(cfg, jwst_data.filter),
             ),
         )
 
@@ -161,6 +168,7 @@ for fltname, flt in cfg['files']['filter'].items():
             std=std,
             mask=mask,
             data_model=data_model,
+            data_dvol=jwst_data.dvol,
         )
 
         likelihood = build_gaussian_likelihood(
@@ -196,7 +204,8 @@ plot_residual = build_plot_sky_residuals(
     results_directory=RES_DIR,
     data_dict=data_dict,
     sky_model_with_key=sky_model_with_keys,
-    small_sky_model=lens_system.get_forward_model_parametric(),
+    small_sky_model=lens_system.lens_plane_model.light_model if cfg[
+        'lens_only'] else lens_system.get_forward_model_parametric(),
     plotting_config=dict(
         norm=LogNorm, data_config=dict(norm=LogNorm))
 )
@@ -221,7 +230,8 @@ if cfg.get('prior_samples'):
         results_directory=RES_DIR,
         data_dict=prior_dict,
         sky_model_with_key=sky_model_with_keys,
-        small_sky_model=lens_system.get_forward_model_parametric(),
+        small_sky_model=lens_system.lens_plane_model.light_model if cfg[
+            'lens_only'] else lens_system.get_forward_model_parametric(),
         plotting_config=dict(
             norm=LogNorm,
             data_config=dict(norm=LogNorm),
@@ -238,7 +248,8 @@ if cfg.get('prior_samples'):
         while isinstance(position, jft.Vector):
             position = position.tree
 
-        plot_lens(position, None, parametric=parametric_flag)
+        # if not cfg['lens_only']:
+        #     plot_lens(position, None, parametric=parametric_flag)
         plot_prior(position)
         # plot_color(position)
 
@@ -246,13 +257,14 @@ if cfg.get('prior_samples'):
 def plot(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f'Plotting: {state.nit}')
     plot_residual(samples, state)
-    plot_lens(samples, state, parametric=parametric_flag)
     plot_color(samples, state)
+    if not cfg['lens_only']:
+        plot_lens(samples, state, parametric=parametric_flag)
 
 
 cfg_mini = ju.get_config(config_path)["minimization"]
 n_dof = ju.calculate_n_constrained_dof(likelihood)
-minpars = ju.MinimizationParser(cfg_mini, n_dof)
+minpars = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
 key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
@@ -263,10 +275,8 @@ samples, state = jft.optimize_kl(
     likelihood,
     pos_init,
     key=rec_key,
-
     callback=plot,
     odir=RES_DIR,
-
     n_total_iterations=cfg_mini['n_total_iterations'],
     n_samples=minpars.n_samples,
     sample_mode=minpars.sample_mode,
@@ -278,78 +288,141 @@ samples, state = jft.optimize_kl(
 
 exit()
 if __name__ == "__main__":
-    sl = lens_system.source_plane_model.light_model
-    ms, mss = jft.mean_and_std([sl(si) for si in samples])
 
-    print(filter_projector.keys_and_colors)
-    print(filter_projector.keys_and_index)
-
-    # for ii, mo in enumerate(lens_system.lens_plane_model.light_model.nonparametric()._comps):
-    #     para = mo.parametric()[0]
-    #     keys = [k[0] for k in para._model.prior_keys]
-    #     pp, pps = jft.mean_and_std([para._prior(s) for s in samples])
-    #     print(ii)
-    #     print(
-    #         '\n'.join((f'{k:10} {p}+-{ps}' for
-    #                    k, p, ps in zip(keys, pp, pps)))
-    #     )
-    #     print()
-
-    from astropy import units, cosmology
-
-    sextent = np.array(lens_system.source_plane_model.space.extend().extent)
-    extent_kpc = (np.tan(sextent * units.arcsec) *
-                  cosmology.Planck13.angular_diameter_distance(4.2).to(
-                      units.kpc)
-                  ).value
-
-    vmin, vmax = 1e-5, 2.3e-3
-
-    # f0, f1, f2 = 'f560w', 'f444w', 'f356w'
-    f0, f1, f2 = 'f1000w', 'f770w', 'f560w'
-    rgb = np.zeros((384, 384, 3))
-    rgb[:, :, 0] = ms[0]
-    rgb[:, :, 1] = ms[1]
-    rgb[:, :, 2] = ms[2]
-
-    rgb = rgb / np.max(rgb)
-    rgb = np.sqrt(rgb)
-
-    from charm_lensing.plotting import display_scalebar, display_text
-    import matplotlib.font_manager as fm
-
-    fig, ax = plt.subplots(1, 1, figsize=(11.5, 10))
-    im = ax.imshow(rgb, origin='lower', extent=extent_kpc)
-    display_scalebar(ax, dict(size=5, unit='kpc',
-                     fontproperties=fm.FontProperties(size=24)))
-    display_text(ax,
-                 text=dict(s=f0, color='red',
-                           fontproperties=fm.FontProperties(size=30)),
-                 keyword='top_right',
-                 y_offset_ticker=0,)
-    display_text(ax,
-                 text=dict(s=f1, color='green',
-                           fontproperties=fm.FontProperties(size=30)),
-                 keyword='top_right',
-                 y_offset_ticker=1,)
-    display_text(ax,
-                 text=dict(s=f2, color='blue',
-                           fontproperties=fm.FontProperties(size=30)),
-                 keyword='top_right',
-                 y_offset_ticker=2,
-                 )
-    ax.set_xlim(-5.5, 6)
-    ax.set_ylim(-4, 6)
-    plt.axis('off')  # Turn off axis
-    plt.tight_layout()
-    plt.savefig(f'{f0}_{f1}_{f2}_source.png')
-    plt.close()
+    rgb_plotting(
+        lens_system, samples, three_filter_names=('f1000w', 'f770w', 'f560w')
+    )
 
     llm = lens_system.lens_plane_model.light_model
-    for comp in llm.nonparametric().components:
+    for comp, fltname in zip(
+            llm.nonparametric().components, cfg['files']['filter'].keys()):
+        print(fltname)
         distro = comp.parametric().prior
         prior_keys = comp.parametric().model.prior_keys
         ms, ss = jft.mean_and_std([distro(s) for s in samples])
         for (k, _), m, s in zip(prior_keys, ms, ss):
             print(k, m, s, sep='\t')
         print()
+
+    from jubik0.jwst.jwst_plotting import (_get_data_model_and_chi2,
+                                           _get_sky_or_skies)
+    sky = _get_sky_or_skies(samples, sky_model_with_keys)
+
+    llm = lens_system.lens_plane_model.light_model
+    sky_ll_with_keys = jft.Model(
+        lambda x: filter_projector(llm(x)),
+        init=llm.init
+    )
+    sky_ll = _get_sky_or_skies(samples, sky_ll_with_keys)
+
+    slm = lens_system.get_forward_model_parametric(only_source=True)
+    sky_sl_with_keys = jft.Model(
+        lambda x: filter_projector(slm(x)),
+        init=slm.init
+    )
+    sky_sl = _get_sky_or_skies(samples, sky_sl_with_keys)
+
+    def get_pixel_radius_from_max_value(sky):
+        shape = sky.shape
+        xx, yy = np.meshgrid(*(np.arange(shape[1]), np.arange(shape[0])))
+        xmax, ymax = np.unravel_index(np.argmax(sky), sky.shape)
+        return np.hypot(yy-xmax, xx-ymax)
+
+    radii = []
+    radial_fm = []
+    radial_data = []
+    radial_ll = []
+    radial_sl = []
+    zz = {'f2100w': 221.56061654,
+          'f1800w': 92.48311537,
+          'f1500w': 42.64578287,
+          'f1280w': 24.97585328,
+          'f1000w': 13.98030351,
+          'f770w': 4.2036279,
+          'f560w': 1.22458536,
+          'f444w': 0.14007522,
+          'f356w': 0.01034513,
+          'f277w': 0.01760561,
+          'f200w': 0.02736996,
+          'f150w': 0.00221736,
+          'f115w': 0.11671709}
+
+    for dkey, dval in data_dict.items():
+        flt, ekey, _ = dkey.split('_')
+        print(flt)
+        index = int(ekey.split('e')[1])
+
+        data = dval['data']
+        data_model = dval['data_model']
+
+        full_model_mean, _ = _get_data_model_and_chi2(
+            samples,
+            sky,
+            data_model=data_model,
+            data=data,
+            mask=dval['mask'],
+            std=dval['std'])
+        ll_model_mean, _ = _get_data_model_and_chi2(
+            samples,
+            sky_ll,
+            data_model=data_model,
+            data=data,
+            mask=dval['mask'],
+            std=dval['std'])
+        sl_model_mean, _ = _get_data_model_and_chi2(
+            samples,
+            sky_sl,
+            data_model=data_model,
+            data=data,
+            mask=dval['mask'],
+            std=dval['std'])
+
+        rel_r = get_pixel_radius_from_max_value(ll_model_mean)
+        max = int(np.ceil(np.max(rel_r)))
+        pixel_radius = np.linspace(0, np.max(rel_r), max)
+        ddist = np.sqrt(dval['data_dvol']).to(u.arcsec).value
+
+        pr = []  # physical radius
+        fm_radial = []
+        ll_radial = []
+        sl_radial = []
+        data_radial = []
+        for ii in range(pixel_radius.shape[0]-1):
+            mask = ((pixel_radius[ii] < rel_r) *
+                    (rel_r < pixel_radius[ii+1]) *
+                    dval['mask'])
+            pr.append(ii*ddist)
+            fm_radial.append(np.nanmean(full_model_mean[mask]))
+            ll_radial.append(np.nanmean(ll_model_mean[mask]))
+            sl_radial.append(np.nanmean(sl_model_mean[mask]))
+            data_radial.append(np.nanmean(data[mask]))
+        radii.append(np.array(pr))
+        radial_fm.append(np.array(fm_radial))
+        radial_ll.append(np.array(ll_radial))
+        radial_sl.append(np.array(sl_radial))
+        radial_data.append(np.array(data_radial))
+
+    fig, axes = plt.subplots(2, len(sky_model_with_keys.target))
+    axes = axes.T
+    jj = -1
+    for dkey, pr,  data_radial, fm_radial, ll_radial, sl_radial in zip(
+            data_dict.keys(), radii, radial_data, radial_fm, radial_ll, radial_sl):
+        maxindex = fm_radial.shape[0]
+        flt, ekey, _ = dkey.split('_')
+        jj += 1
+        ax = axes[jj]
+        ax[0].set_title(flt)
+        ax[0].plot(pr, data_radial-zz[flt], label='data', color='black')
+        ax[0].plot(pr, fm_radial-zz[flt], label='full_model')
+        ax[0].plot(pr, ll_radial-zz[flt], label='lens_light_model')
+        ax[0].plot(pr, sl_radial-zz[flt], label='source_light_model')
+        ax[0].set_ylim(bottom=0.1, top=100)
+        ax[0].loglog()
+        ax[0].legend()
+        ax[1].plot(pr, data_radial-fm_radial, label='data - full_model')
+        ax[1].plot(pr, data_radial-ll_radial, label='data - lens_light_model')
+        ax[1].plot(pr, data_radial-sl_radial,
+                   label='data - source_light_model')
+        ax[1].set_ylim(bottom=-0.5, top=0.5)
+        ax[1].legend()
+    plt.show()

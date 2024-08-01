@@ -15,37 +15,22 @@
 
 
 import nifty8.re as jft
-from numpy.typing import ArrayLike
 
 from .parametric_model import build_parametric_prior
 
 ZERO_FLUX_KEY = 'zero_flux'
 
 
-class ZeroFlux(jft.Model):
-    def __init__(self, flux_prior: jft.Model, target: jft.ShapeWithDtype):
-        self.flux_prior = flux_prior
-
-        super().__init__(domain=self.flux_prior.domain, target=target)
-
-    def __call__(self, params: dict, field: ArrayLike):
-        return field + self.flux_prior(params)
-
-
 def build_zero_flux_model(
     prefix: str,
     likelihood_config: dict,
-    target_shape: jft.ShapeWithDtype
 ) -> jft.Model:
     model_cfg = likelihood_config.get(ZERO_FLUX_KEY, None)
     if model_cfg is None:
-        return jft.Model(lambda x, y: y, domain=dict(), target=target_shape)
+        return jft.Model(lambda _: 0, domain=dict())
 
     prefix = '_'.join([prefix, ZERO_FLUX_KEY])
 
     shape = (1,)
-    prior = build_parametric_prior(
-        prefix, model_cfg['prior'], shape)
-    prior_model = jft.Model(prior, domain={prefix: jft.ShapeWithDtype(shape)})
-
-    return ZeroFlux(prior_model, target=target_shape)
+    prior = build_parametric_prior(prefix, model_cfg['prior'], shape)
+    return jft.Model(prior, domain={prefix: jft.ShapeWithDtype(shape)})

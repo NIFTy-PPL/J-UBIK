@@ -5,7 +5,7 @@ from .masking import build_mask
 from .psf.build_psf import instantiate_psf, load_psf_kernel
 from .integration_model import build_sum_integration
 from .rotation_and_shift import RotationAndShiftModel
-from .zero_flux_model import build_zero_flux_model, ZeroFlux
+from .zero_flux_model import build_zero_flux_model
 
 from .reconstruction_grid import Grid
 from astropy.coordinates import SkyCoord
@@ -21,7 +21,7 @@ class DataModel(jft.Model):
         psf: Callable[ArrayLike, ArrayLike],
         integrate: Callable[ArrayLike, ArrayLike],
         transmission: float,
-        zero_flux_model: ZeroFlux,
+        zero_flux_model: jft.Model,
         mask: Callable[ArrayLike, ArrayLike]
     ):
         need_sky_key = ('Need to provide an internal key to the target of the '
@@ -44,7 +44,7 @@ class DataModel(jft.Model):
         out = self.psf(out)
         out = self.integrate(out)
         out = out * self.transmission
-        out = self.zero_flux_model(x, out)
+        out = out + self.zero_flux_model(x)
         out = self.mask(out)
         return out
 
@@ -140,8 +140,7 @@ def build_data_model(
         reduction_factor=subsample,
     )
 
-    zero_flux_model = build_zero_flux_model(
-        zero_flux['dkey'], zero_flux, data_mask.shape)
+    zero_flux_model = build_zero_flux_model(zero_flux['dkey'], zero_flux)
 
     mask = build_mask(data_mask)
 

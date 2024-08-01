@@ -573,3 +573,63 @@ def build_plot_lens_system(
             plt.show()
 
     return plot_lens_system
+
+
+def rgb_plotting(
+    lens_system: LensSystem,
+    samples: jft.Samples,
+    three_filter_names: tuple[str] = ('f1000w', 'f770w', 'f560w')
+):
+
+    sl = lens_system.source_plane_model.light_model
+    ms, mss = jft.mean_and_std([sl(si) for si in samples])
+
+    from astropy import units, cosmology
+
+    sextent = np.array(lens_system.source_plane_model.space.extend().extent)
+    extent_kpc = (np.tan(sextent * units.arcsec) *
+                  cosmology.Planck13.angular_diameter_distance(4.2).to(
+                      units.kpc)
+                  ).value
+
+    # f0, f1, f2 = 'f560w', 'f444w', 'f356w'
+    # f0, f1, f2 = 'f1000w', 'f770w', 'f560w'
+    f0, f1, f2 = three_filter_names
+
+    rgb = np.zeros((384, 384, 3))
+    rgb[:, :, 0] = ms[0]
+    rgb[:, :, 1] = ms[1]
+    rgb[:, :, 2] = ms[2]
+
+    rgb = rgb / np.max(rgb)
+    rgb = np.sqrt(rgb)
+
+    from charm_lensing.plotting import display_scalebar, display_text
+    import matplotlib.font_manager as fm
+
+    fig, ax = plt.subplots(1, 1, figsize=(11.5, 10))
+    ax.imshow(rgb, origin='lower', extent=extent_kpc)
+    display_scalebar(ax, dict(size=5, unit='kpc',
+                     fontproperties=fm.FontProperties(size=24)))
+    display_text(ax,
+                 text=dict(s=f0, color='red',
+                           fontproperties=fm.FontProperties(size=30)),
+                 keyword='top_right',
+                 y_offset_ticker=0,)
+    display_text(ax,
+                 text=dict(s=f1, color='green',
+                           fontproperties=fm.FontProperties(size=30)),
+                 keyword='top_right',
+                 y_offset_ticker=1,)
+    display_text(ax,
+                 text=dict(s=f2, color='blue',
+                           fontproperties=fm.FontProperties(size=30)),
+                 keyword='top_right',
+                 y_offset_ticker=2,
+                 )
+    ax.set_xlim(-5.5, 6)
+    ax.set_ylim(-4, 6)
+    plt.axis('off')  # Turn off axis
+    plt.tight_layout()
+    plt.savefig(f'{f0}_{f1}_{f2}_source.png')
+    plt.close()
