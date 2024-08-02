@@ -65,7 +65,7 @@ def _get_dvol(filter: str):
     if filter in miri_filters:
         # https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument#gsc.tab=0
         # https://iopscience.iop.org/article/10.1086/682254
-        return (0.11*units.arcsec**2).to(units.deg**2)
+        return (0.11*units.arcsec).to(units.deg)**2
 
     elif filter in nircam_filters:
         # https://jwst-docs.stsci.edu/jwst-near-infrared-camera#gsc.tab=0
@@ -74,11 +74,11 @@ def _get_dvol(filter: str):
         if pivot in ColorRange(Color(0.6*units.micrometer),
                                Color(2.3*units.micrometer)):
             # 0.6–2.3 µm wavelength range
-            return (0.031*units.arcsec**2).to(units.deg**2)
+            return (0.031*units.arcsec).to(units.deg)**2
 
         else:
             # 2.4–5.0 µm wavelength range
-            return (0.063*units.arcsec**2).to(units.deg**2)
+            return (0.063*units.arcsec).to(units.deg)**2
 
     else:
         raise NotImplementedError('filter has to be in the supported filters'
