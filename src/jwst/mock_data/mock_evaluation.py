@@ -1,7 +1,41 @@
 import numpy as np
 from scipy.stats import wasserstein_distance
 
-from nifty8.re.caramel import power_analyze
+# from nifty8.re.caramel import power_analyze
+
+import jax.numpy as jnp
+from nifty8.re.correlated_field import get_fourier_mode_distributor
+import numpy as np
+
+
+def _single_power_analyze(field, distances):
+    # super slow but works
+
+    mode_id, mode_dist, mode_mul = get_fourier_mode_distributor(
+        field.shape, distances)
+
+    tmp = np.zeros(mode_mul.shape)
+    for ii in range(len(mode_mul)):
+        tmp[ii] = field[mode_id == ii].mean()
+    return tmp
+
+
+def power_analyze(field, distances, keep_phase_information=False, return_distances=False):
+
+    field_real = not jnp.any(jnp.iscomplex(field))
+
+    if keep_phase_information:
+        parts = [field.real*field.real, field.imag*field.imag]
+    else:
+        if field_real:
+            parts = [field**2]
+        else:
+            parts = [field.real*field.real + field.imag*field.imag]
+
+    parts = [_single_power_analyze(part, distances)
+             for part in parts]
+
+    return parts[0] + 1j*parts[1] if keep_phase_information else parts[0]
 
 
 def source_distortion_ratio(input_source, model_source):

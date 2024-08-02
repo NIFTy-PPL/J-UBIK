@@ -134,8 +134,8 @@ telescope:
 
 
 files:
-  res_dir: 'results/jwst_lens/mfnew/eight_filters_01'
-  # res_dir: 'results/jwst_lens/llonly/all_filters_lowfilterprior_02'
+  res_dir: 'results/jwst_lens/mfnew/eight_filters_03'
+  # res_dir: 'results/jwst_lens/llonly/eight_filters_02'
   # res_dir: 'results/jwst_lens/mfnew/f444w_f560w_03'
   # res_dir: 'results/jwst_lens/mfnew/f356w_f444w_01'
   # res_dir: 'results/jwst_lens/colormix/f356w_f444w_01'
@@ -264,18 +264,18 @@ lensing:
           nifty_mf:
             zero_mode:
               mean: -1.0
-              deviations: [0.0, 0.01]
+              deviations: [0.0, 1.0]    # normal
             spatial_amplitude:
               model: 'matern'
-              scale: [1.0, 0.02]
-              cutoff: [0.1, 0.01]
-              loglogslope: [-3.0, 0.1]
+              scale: [1.0, 0.02]        # lognormal
+              cutoff: [0.1, 0.01]       # lognormal
+              loglogslope: [-3.0, 0.1]  # normal
             frequency_slope:
-              mean: [-2.0, 0.1]
-              fluctuations: [1.0, 0.2]
+              mean: [-2.0, 1.0]         # normal
+              fluctuations: [1.0, 0.2]  # lognormal 
             frequency_deviations:
               process: 'wiener'
-              sigma: [0.1, 0.01]
+              sigma: [2.0, 1.0]  # lognormal
 
           # colormix:
           #   matrix: 
@@ -314,8 +314,8 @@ lensing:
         multifrequency:
           pcopy: 
             sersicrenormalized_01: # i0*exp(-bn * (r/re)**1/n - 1)
-              ie: ['log_normal', 600, 350.0]
-              # re: ['log_normal', 0.88, 0.12]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+              # ie: ['log_normal', 600, 350.0]  # before error detection
+              ie: ['log_normal', 6000, 7000]
               re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
               n: ['log_normal', 4.2, 1.2]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
               center: ['normal', [0.22, 0.09], 0.04]

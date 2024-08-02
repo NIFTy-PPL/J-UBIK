@@ -390,10 +390,17 @@ def get_alpha_nonpar(lens_system):
         ll_alpha = jft.Model(
             lambda x: llm.alpha(x)[:ll_shape[0], :ll_shape[1]],
             domain=llm.alpha.domain)
+    elif hasattr(llm, 'spectral_index'):
+        ll_shape = lens_system.lens_plane_model.space.shape
+        ll_alpha = jft.Model(
+            lambda x: llm.spectral_index(x)[:ll_shape[0], :ll_shape[1]],
+            domain=llm.domain)
 
     if hasattr(slm, 'alpha'):
-        slm = lens_system.source_plane_model.light_model.nonparametric()
         sl_alpha = slm.alpha
+        sl_nonpar = slm.spatial
+    elif hasattr(slm, 'spectral_index'):
+        sl_alpha = slm.spectral_index
         sl_nonpar = slm.spatial
 
     try:

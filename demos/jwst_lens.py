@@ -187,7 +187,6 @@ likelihood = connect_likelihood_to_model(likelihood, model)
 parametric_flag = lens_system.lens_plane_model.convergence_model.nonparametric() is not None
 ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)
 
-
 plot_lens = build_plot_lens_system(
     RES_DIR,
     plotting_config=dict(
@@ -304,6 +303,9 @@ if __name__ == "__main__":
             print(k, m, s, sep='\t')
         print()
 
+    sm = lens_system.source_plane_model.light_model
+    sm_non = sm.nonparametric()
+
     from jubik0.jwst.jwst_plotting import (_get_data_model_and_chi2,
                                            _get_sky_or_skies)
     sky = _get_sky_or_skies(samples, sky_model_with_keys)
@@ -315,12 +317,13 @@ if __name__ == "__main__":
     )
     sky_ll = _get_sky_or_skies(samples, sky_ll_with_keys)
 
-    slm = lens_system.get_forward_model_parametric(only_source=True)
-    sky_sl_with_keys = jft.Model(
-        lambda x: filter_projector(slm(x)),
-        init=slm.init
-    )
-    sky_sl = _get_sky_or_skies(samples, sky_sl_with_keys)
+    if not cfg['lens_only']:
+        slm = lens_system.get_forward_model_parametric(only_source=True)
+        sky_sl_with_keys = jft.Model(
+            lambda x: filter_projector(slm(x)),
+            init=slm.init
+        )
+        sky_sl = _get_sky_or_skies(samples, sky_sl_with_keys)
 
     def get_pixel_radius_from_max_value(sky):
         shape = sky.shape
@@ -349,7 +352,8 @@ if __name__ == "__main__":
 
     for dkey, dval in data_dict.items():
         flt, ekey, _ = dkey.split('_')
-        print(flt)
+        ddist = np.sqrt(dval['data_dvol']).to(u.arcsec).value
+        print(flt, ddist)
         index = int(ekey.split('e')[1])
 
         data = dval['data']
@@ -369,13 +373,14 @@ if __name__ == "__main__":
             data=data,
             mask=dval['mask'],
             std=dval['std'])
-        sl_model_mean, _ = _get_data_model_and_chi2(
-            samples,
-            sky_sl,
-            data_model=data_model,
-            data=data,
-            mask=dval['mask'],
-            std=dval['std'])
+        if not cfg['lens_only']:
+            sl_model_mean, _ = _get_data_model_and_chi2(
+                samples,
+                sky_sl,
+                data_model=data_model,
+                data=data,
+                mask=dval['mask'],
+                std=dval['std'])
 
         rel_r = get_pixel_radius_from_max_value(ll_model_mean)
         max = int(np.ceil(np.max(rel_r)))
@@ -394,7 +399,8 @@ if __name__ == "__main__":
             pr.append(ii*ddist)
             fm_radial.append(np.nanmean(full_model_mean[mask]))
             ll_radial.append(np.nanmean(ll_model_mean[mask]))
-            sl_radial.append(np.nanmean(sl_model_mean[mask]))
+            if not cfg['lens_only']:
+                sl_radial.append(np.nanmean(sl_model_mean[mask]))
             data_radial.append(np.nanmean(data[mask]))
         radii.append(np.array(pr))
         radial_fm.append(np.array(fm_radial))
@@ -415,14 +421,16 @@ if __name__ == "__main__":
         ax[0].plot(pr, data_radial-zz[flt], label='data', color='black')
         ax[0].plot(pr, fm_radial-zz[flt], label='full_model')
         ax[0].plot(pr, ll_radial-zz[flt], label='lens_light_model')
-        ax[0].plot(pr, sl_radial-zz[flt], label='source_light_model')
+        if not cfg['lens_only']:
+            ax[0].plot(pr, sl_radial-zz[flt], label='source_light_model')
         ax[0].set_ylim(bottom=0.1, top=100)
         ax[0].loglog()
         ax[0].legend()
         ax[1].plot(pr, data_radial-fm_radial, label='data - full_model')
         ax[1].plot(pr, data_radial-ll_radial, label='data - lens_light_model')
-        ax[1].plot(pr, data_radial-sl_radial,
-                   label='data - source_light_model')
+        if not cfg['lens_only']:
+            ax[1].plot(pr, data_radial-sl_radial,
+                       label='data - source_light_model')
         ax[1].set_ylim(bottom=-0.5, top=0.5)
         ax[1].legend()
     plt.show()
