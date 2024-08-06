@@ -1,4 +1,7 @@
 import yaml
+import argparse
+import os
+
 from functools import reduce
 
 import nifty8.re as jft
@@ -29,13 +32,12 @@ from jubik0.jwst.jwst_plotting import (
     rgb_plotting,
 )
 from jubik0.jwst.filter_projector import FilterProjector
+from jubik0.jwst.pretrain_model import pretrain_lens_system
 
 from jubik0.jwst.color import Color, ColorRange
 
 from charm_lensing.lens_system import build_lens_system
 
-import argparse
-import os
 
 from sys import exit
 
@@ -47,12 +49,6 @@ parser.add_argument(
     nargs='?',
     const=1,
     default='./demos/jwst_lens_config.yaml')
-parser.add_argument(
-    '--cpu',
-    action='store_true',
-    help='Use CPU',
-    default=False
-)
 args = parser.parse_args()
 config_path = args.config
 
@@ -169,6 +165,7 @@ for fltname, flt in cfg['files']['filter'].items():
             mask=mask,
             data_model=data_model,
             data_dvol=jwst_data.dvol,
+            data_transmission=jwst_data.transmission,
         )
 
         likelihood = build_gaussian_likelihood(
@@ -247,10 +244,10 @@ if cfg.get('prior_samples'):
         while isinstance(position, jft.Vector):
             position = position.tree
 
-        # if not cfg['lens_only']:
-        #     plot_lens(position, None, parametric=parametric_flag)
+        if not cfg['lens_only']:
+            plot_lens(position, None, parametric=parametric_flag)
         plot_prior(position)
-        # plot_color(position)
+        plot_color(position)
 
 
 def plot(samples: jft.Samples, state: jft.OptimizeVIState):
@@ -261,12 +258,25 @@ def plot(samples: jft.Samples, state: jft.OptimizeVIState):
         plot_lens(samples, state, parametric=parametric_flag)
 
 
+pretrain_position = pretrain_lens_system(
+    cfg, lens_system)
+
+
 cfg_mini = ju.get_config(config_path)["minimization"]
 n_dof = ju.calculate_n_constrained_dof(likelihood)
 minpars = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
 key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
+
+if pretrain_position is not None:
+    while isinstance(pos_init, jft.Vector):
+        pos_init = pos_init.tree
+
+    for key in pretrain_position.keys():
+        pos_init[key] = pretrain_position[key]
+
+    pos_init = jft.Vector(pos_init)
 
 
 print(f'Results: {RES_DIR}')
@@ -356,31 +366,33 @@ if __name__ == "__main__":
         print(flt, ddist)
         index = int(ekey.split('e')[1])
 
-        data = dval['data']
         data_model = dval['data_model']
+        # to_brightness = (
+        #     1/(dval['data_dvol'] * dval['data_transmission'])).value
+        data = dval['data']  # * to_brightness
 
-        full_model_mean, _ = _get_data_model_and_chi2(
+        full_model_mean = _get_data_model_and_chi2(
             samples,
             sky,
             data_model=data_model,
             data=data,
             mask=dval['mask'],
-            std=dval['std'])
-        ll_model_mean, _ = _get_data_model_and_chi2(
+            std=dval['std'])[0]  # * to_brightness
+        ll_model_mean = _get_data_model_and_chi2(
             samples,
             sky_ll,
             data_model=data_model,
             data=data,
             mask=dval['mask'],
-            std=dval['std'])
+            std=dval['std'])[0]  # * to_brightness
         if not cfg['lens_only']:
-            sl_model_mean, _ = _get_data_model_and_chi2(
+            sl_model_mean = _get_data_model_and_chi2(
                 samples,
                 sky_sl,
                 data_model=data_model,
                 data=data,
                 mask=dval['mask'],
-                std=dval['std'])
+                std=dval['std'])[0]  # * to_brightness
 
         rel_r = get_pixel_radius_from_max_value(ll_model_mean)
         max = int(np.ceil(np.max(rel_r)))
@@ -408,9 +420,12 @@ if __name__ == "__main__":
         radial_sl.append(np.array(sl_radial))
         radial_data.append(np.array(data_radial))
 
-    fig, axes = plt.subplots(2, len(sky_model_with_keys.target))
+    xlen = len(sky_model_with_keys.target)
+    fig, axes = plt.subplots(2, xlen, figsize=(3*xlen, 8), dpi=300)
     axes = axes.T
     jj = -1
+    vmin, vmax = 0.01, 100
+    dmin, dmax = -0.2, 2.0
     for dkey, pr,  data_radial, fm_radial, ll_radial, sl_radial in zip(
             data_dict.keys(), radii, radial_data, radial_fm, radial_ll, radial_sl):
         maxindex = fm_radial.shape[0]
@@ -423,14 +438,21 @@ if __name__ == "__main__":
         ax[0].plot(pr, ll_radial-zz[flt], label='lens_light_model')
         if not cfg['lens_only']:
             ax[0].plot(pr, sl_radial-zz[flt], label='source_light_model')
-        ax[0].set_ylim(bottom=0.1, top=100)
         ax[0].loglog()
-        ax[0].legend()
         ax[1].plot(pr, data_radial-fm_radial, label='data - full_model')
         ax[1].plot(pr, data_radial-ll_radial, label='data - lens_light_model')
         if not cfg['lens_only']:
             ax[1].plot(pr, data_radial-sl_radial,
                        label='data - source_light_model')
-        ax[1].set_ylim(bottom=-0.5, top=0.5)
-        ax[1].legend()
-    plt.show()
+
+        ax[0].set_ylim(bottom=vmin, top=vmax)
+        ax[1].set_ylim(bottom=dmin, top=dmax)
+
+        if jj == 0:
+            ax[0].legend()
+            ax[1].legend()
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(RES_DIR, 'radial_profile.png'))
+    plt.close()
+    # plt.show()

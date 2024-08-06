@@ -74,11 +74,11 @@ def build_gaussian_likelihood(
     if not isinstance(std, float):
         assert data.shape == std.shape
 
-    var = std**2
+    var_inv = 1/(std**2)
+    std_inv = 1/std
 
     return jft.Gaussian(
         data=data,
-        noise_cov_inv=lambda x: x/var,
-        noise_std_inv=lambda x: x/std
+        noise_cov_inv=lambda x: x*var_inv,
+        noise_std_inv=lambda x: x*std_inv,
     )
-

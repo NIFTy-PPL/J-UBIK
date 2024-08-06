@@ -117,7 +117,7 @@ def _get_data_model_and_chi2(
     return model_mean, (redchi_mean, redchi_std)
 
 
-def _get_sky_or_skies(position_or_samples, sky_model):
+def _get_model_samples_or_position(position_or_samples, sky_model):
     if isinstance(position_or_samples, jft.Samples):
         return [sky_model(si) for si in position_or_samples]
     return sky_model(position_or_samples)
@@ -165,7 +165,7 @@ def build_plot_sky_residuals(
             ims = ims[None]
             axes = axes[None]
 
-        sky_or_skies = _get_sky_or_skies(
+        sky_or_skies = _get_model_samples_or_position(
             position_or_samples, sky_model_with_key)
         for ii, (dkey, data) in enumerate(data_dict.items()):
 
@@ -311,7 +311,7 @@ def build_color_components_plotting(
     colors_directory = join(
         results_directory, f'colors_{substring}' if substring != '' else 'colors')
     makedirs(colors_directory, exist_ok=True)
-    N_comps = len(sky_model.components._comps)
+    N_comps = len(sky_model.components.components)
 
     def color_plot(
         position_or_samples: Union[dict, jft.Samples],
@@ -359,6 +359,10 @@ def _plot_data_data_model_residuals(
     std: ArrayLike,
     plotting_config: dict = {}
 ):
+    '''plotting_config:
+        - min
+        - norm
+    '''
 
     min = plotting_config.get('min', 5e-4)
     norm = plotting_config.get('norm', Normalize)
@@ -401,7 +405,7 @@ def get_alpha_nonpar(lens_system):
         sl_nonpar = slm.spatial
     elif hasattr(slm, 'spectral_index'):
         sl_alpha = slm.spectral_index
-        sl_nonpar = slm.spatial
+        sl_nonpar = slm.spatial_distribution
 
     try:
         ll_nonpar = lens_system.lens_plane_model.light_model.parametric(
