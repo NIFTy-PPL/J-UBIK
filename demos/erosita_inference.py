@@ -41,7 +41,7 @@ if __name__ == "__main__":
     ju.create_erosita_data_from_config(config_path)
 
     # Generate loglikelihood (Building masked (mock) data and response)
-    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path).amend(sky)
+    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path, sky) # FIXME .amend(sky)
 
     # Set initial position
     key = random.PRNGKey(cfg['seed'])
