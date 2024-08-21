@@ -53,7 +53,6 @@ if __name__ == "__main__":
 
     summed_data = np.sum(data, axis=0)
     summed_exposure = np.sum(exposures, axis=0)
-
     non_zero_mask = summed_exposure != 0
 
     exposure_corrected_data = np.zeros_like(summed_data, dtype=float)
