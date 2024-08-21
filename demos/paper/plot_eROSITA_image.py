@@ -82,7 +82,7 @@ def plot(array, pixel_measure=None, pixel_factor =1, output_file=None, logscale=
             ax[i].plot([x4, x5], [y4, y5], color='white', linewidth=1)
 
     fig.subplots_adjust(right=0.84, wspace=0.04)
-    cbar_ax = fig.add_axes([0.88, 0.38, 0.03, 0.235])
+    cbar_ax = fig.add_axes([0.88, 0.38, 0.03, 0.225])
     cbar = fig.colorbar(im, cax=cbar_ax)
     cbar.ax.tick_params(labelsize=fs)
 
@@ -126,7 +126,7 @@ def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], sigma=None, log=False,
                  verticalalignment='top', horizontalalignment='left', transform=ax.transAxes,
                  bbox=(dict(facecolor=bbox_info[3], alpha=alpha, edgecolor='none')))
     if pixel_measure is not None:
-        distance_measure = int(2.16 * pixel_measure / 60)
+        distance_measure = int(4 * pixel_measure / 60)
         x0, y0 = 10 * pixel_factor, 10 * pixel_factor
         x1, y1 = pixel_measure + 10 * pixel_factor, 10 * pixel_factor
 
