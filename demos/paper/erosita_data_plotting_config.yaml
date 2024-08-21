@@ -1,0 +1,69 @@
+seed: 86
+esass_image: DR1
+telescope:
+  tm_ids : [1, 2, 3, 4, 6]
+  rebin: 80 # set by the consortium
+  fov: 4096
+  pattern: 15
+  detmap: True
+  exp_cut: 500
+  badpix_correction: True
+  effective_area_correction: True
+
+psf:
+ method: 'LINJAX'
+ energy: ['0277', '1486', '3000'] #FIXME: check whether to use '0930'
+  # LIN config
+ npatch: 8
+ margfrac: 0.062
+ want_cut: False
+
+  # MSC config
+#  base: [3,3]
+#  min_baseshape: [8,8]
+#  linlevel: [100,100]
+#  kernel_sizes: [[3,3],]
+#  keep_overlap: [[True,True],]
+#  local_kernel: [True,True]
+
+  # config for homogeneous gauss psf
+#  gauss_var: 5
+
+plotting:
+  enabled: True
+  slice: Null
+  dpi: 800
+
+grid:
+  sdim: 1024
+  edim: 3 # FIXME: remove this parameter
+  s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
+  e_padding_ratio: 1.
+  energy_bin:
+    e_min:
+    - 0.2
+    - 1.0
+    - 2.0
+    e_max:
+    - 1.0
+    - 2.0
+    - 4.5
+    e_ref:
+    - 2
+
+
+files:
+  obs_path: '../data/LMC_SN1987A-1024full/'
+  data_dict: 'data.pkl'
+  processed_obs_folder: 'processed'  # only needed for actual data
+  input: 'pm00_700161_020_EventList_c001.fits'
+  output: 'pm00_700161_020_data.fits'
+  exposure: 'pm00_700161_020_expmap.fits'
+  calibration_path : '../data/'
+  psf_path : '../data/psf_info/'
+  effective_area_filename_suffix: '_arf_filter_000101v02.fits'
+  psf_base_filename: '2dpsf_190219v05.fits'
+  res_dir: 'results/LMC-08082024-001M'
+# If mock:
+  # mock_gen_config: 'mock_config.yaml'
+  # pos_dict: 'pos.pkl'
