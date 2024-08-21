@@ -9,7 +9,8 @@ from .library.utils import (get_mask_operator, get_norm,
                             get_radec_from_xy, get_psfpatches,
                             get_synth_pointsource, get_gaussian_psf, get_rel_uncertainty,
                             get_equal_lh_transition, get_RGB_image_from_field, get_stats,
-                            save_local_packages_hashes_to_txt, safe_config_update)
+                            save_local_packages_hashes_to_txt, safe_config_update,
+                            calculate_n_constrained_dof)
 from .library.plot import (plot_slices, plot_result,
                            plot_image_from_fits,
                            plot_single_psf, plot_psfset, plot_energy_slices,
@@ -17,8 +18,9 @@ from .library.plot import (plot_slices, plot_result,
                            plot_sample_averaged_log_2d_histogram)
 from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_sample_and_stats,
                                  plot_sample_and_stats, plot_erosita_priors)
-from .library.mf_plot import plot_rgb
-                                 
+from .library.mf_plot import plot_rgb, _norm_rgb_plot, _clip, _smooth, _non_zero_log
+from .library.mf_plot import plot_rgb, _norm_rgb_plot, _clip, _smooth, _non_zero_log
+
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
@@ -35,7 +37,7 @@ from .library.data import (load_data_dict_from_pickle, create_mock_erosita_data,
 from .library.likelihood import generate_erosita_likelihood_from_config
 from .library.diagnostics import (compute_uncertainty_weighted_residuals,
                                   compute_noise_weighted_residuals,
-                                  plot_2d_gt_vs_rec_histogram)
+                                  plot_2d_gt_vs_rec_histogram, _calculate_uwr)
 from .library.mf_sky import MappedModel, GeneralModel, build_power_law
 from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
                                               _get_weights)
@@ -46,3 +48,5 @@ from .operators.jifty_convolution_operators import (_bilinear_weights,
 from .operators.zero_padder import MarginZeroPadder
 from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
+
+from .library.minimization_parser import MinimizationParser

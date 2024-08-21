@@ -16,7 +16,7 @@ from plot_eROSITA_image import plot, plot_rgb
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
-    results_path = "results/LMC-06082024-002M-mock"
+    results_path = "results/LMC-19082024-001M-mock"
     config_name = "eROSITA_config_small.yaml"
     output_dir = ju.create_output_directory(join(results_path, 'paper'))
     config_path = join(results_path, config_name)
@@ -42,7 +42,8 @@ if __name__ == "__main__":
     tms = plottable_vector.tree.keys()
     # Plotting the data
     unmasked_data = mask_adj_func(plottable_vector)
-    plotting_kwargs = {'vmin':1e0, 'vmax':1.1e2}
+    plotting_kwargs = {'vmin':1e0, 'vmax':4e2}
+    bbox_info = [(7, 4), 7,  20, 'black']
     for i in range(unmasked_data.shape[0]):
         plot(unmasked_data[i],
              pixel_measure=28,
@@ -54,11 +55,12 @@ if __name__ == "__main__":
                         colorbar=True,
                         common_colorbar=True,
                         n_rows=1,
+                        bbox_info=bbox_info,
                         output_file=join(output_dir,
                         f'tm{list(tms)[i]}_data.png'),
                         **plotting_kwargs)
     summed_data = np.sum(unmasked_data, axis=0)
-    bbox_info = [(7, 4), 7,  20]
+    bbox_info = [(7, 4), 7,  20, 'black']
     plot(unmasked_data[i],
          pixel_measure=28,
          fs=8,
@@ -73,9 +75,9 @@ if __name__ == "__main__":
                           f'summed_data.png'),
          bbox_info=bbox_info,
          **plotting_kwargs)
-    bbox_info = [(7, 4), 7,  24]
+    bbox_info = [(7, 4), 7,  24, 'black']
     plot_rgb(summed_data, sat_min=[0, 0, 0],
-             sat_max=[2e2, 8e1, 8e0],
+             sat_max=[4e2, 1e2, 1e1],
              sigma=None, log=True,
              title='simulated data', fs=18, pixel_measure=28,
              output_file=join(output_dir, 'simulated_data_rgb.png'),

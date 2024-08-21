@@ -36,13 +36,45 @@ if __name__ == "__main__":
         op = jax.vmap(op)
         real_samples = op(samples.samples)
         real_mean = jnp.mean(real_samples, axis=0)
-        bbox_info = [(7, 4), 7, 24]
+        bbox_info = [(7, 4), 7, 24, 'black']
         plot_rgb(real_mean, sat_min=sat_min[key],
                  sat_max=sat_max[key],
                  sigma=None, log=True,
                  title= f'reconstructed {key}', fs=18, pixel_measure=28,
-                 output_file=join(output_dir, f'mock_rec_{key}.png'),
+                 output_file=join(output_dir, f'mock_rec_{key}_rgb.png'),
                  alpha=0.5,
                  bbox_info=bbox_info
                  )
+        plotting_kwargs_rec = {}
+        plot(real_mean,
+             pixel_measure=28,
+             fs=8,
+                        title=['0.2-1.0 keV',
+                               '1.0-2.0 keV',
+                               '2.0-4.5 keV'],
+                        logscale=True,
+                        colorbar=True,
+                        common_colorbar=True,
+                        n_rows=1,
+                        bbox_info=bbox_info,
+                        output_file=join(output_dir,
+                        f'mock_rec_{key}.png'),
+                        **plotting_kwargs_rec)
+        real_std = jnp.std(real_samples, axis=0)
+        plotting_kwargs_unc = {'cmap': 'seismic'}
+        plot(real_std,
+             pixel_measure=28,
+             fs=8,
+                        title=['0.2-1.0 keV',
+                               '1.0-2.0 keV',
+                               '2.0-4.5 keV'],
+                        logscale=True,
+                        colorbar=True,
+                        common_colorbar=True,
+                        n_rows=1,
+                        bbox_info=bbox_info,
+                        output_file=join(output_dir,
+                        f'mock_unc_{key}.png'),
+                        **plotting_kwargs_unc)
+
 

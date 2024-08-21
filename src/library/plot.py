@@ -129,6 +129,10 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             axes[i].set_xlabel("FOV [arcmin]")
             axes[i].set_ylabel("FOV [arcmin]")
 
+        if colorbar and common_colorbar:
+            vmin = min(np.min(array[i]) for i in range(n_plots))
+            vmax = max(np.max(array[i]) for i in range(n_plots))
+
         if "vmin" in kwargs:
             vmin = kwargs["vmin"]
         else:
@@ -138,19 +142,14 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
         else:
             vmax = None
 
-        if colorbar and common_colorbar:
-            vmin = min(np.min(array[i]) for i in range(n_plots))
-            vmax = max(np.max(array[i]) for i in range(n_plots))
-
         if logscale:
             if vmin is not None and float(vmin) == 0.:
                 vmin = 1e-18  # to prevent LogNorm throwing errors
             pltargs["norm"] = LogNorm(vmin, vmax)
         else:
             kwargs.update({'vmin': vmin, 'vmax': vmax})
-
-        pltargs.update(**kwargs)
-        im = axes[i].imshow(array[i], **pltargs)
+            pltargs.update(**kwargs)
+        im = axes[i].imshow(array[i], **pltargs, interpolation='None')
 
         if title is not None:
             if isinstance(title, list):

@@ -17,7 +17,7 @@ from plot_eROSITA_image import plot_2d_gt_vs_rec_histogram
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
-    results_path = "results/LMC-06082024-002M-mock"
+    results_path = "results/LMC-09082024-002M-mock"
     config_name = "eROSITA_config_small.yaml"
     output_dir = ju.create_output_directory(join(results_path, 'paper'))
     config_path = join(results_path, config_name)
@@ -45,6 +45,9 @@ if __name__ == "__main__":
 
     masked_data = jax.tree_map(lambda x: np.array(x, dtype=np.float64),
                             masked_data)
-    plotting_kwargs =  {'bins': 600, 'x_label': '$s_{gt}$', 'y_label': 'a', 'dpi': 400, 'title': 'piiip'}
-    ju.plot_2d_gt_vs_rec_histogram(samples, sky_dict, output_dir, response_dict,
-                                gt_dict, plot_kwargs=plotting_kwargs, base_filename='gtvsrec')
+    plotting_kwargs =  {'bins': 600, 'x_label': '$s_{gt}$', 'y_label': 'a', 'dpi': 400, 'title': 'standardised error',
+                        'x_lim': (1e-9,3e-6), 'y_lim': (1e-4, 1e2)}
+    plot_2d_gt_vs_rec_histogram(samples=samples, operator_dict=sky_dict, diagnostics_path=output_dir,
+                                response_dict=response_dict, type='sampled',relative=True, response=False,
+                                reference_dict=gt_dict, plot_kwargs=plotting_kwargs, base_filename='gtvsrec',
+                                fs=18, alpha=0.5, max_counts=1e2)

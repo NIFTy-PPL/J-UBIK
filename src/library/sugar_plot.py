@@ -232,7 +232,7 @@ def plot_erosita_priors(key, n_samples, config_path, priors_dir, signal_response
         mask_adj = linear_transpose(response_dict['mask'],
                                         np.zeros((n_modules, epix, spix, spix)))
 
-        R = lambda x: mask_adj(response_dict['R'](x))[0]
+        R = lambda x: mask_adj(response_dict['R'](x, response_dict['kernel_arr']))[0]
 
         for i, pos in enumerate(positions):
             for key, val in plottable_samples.items():
@@ -246,4 +246,5 @@ def plot_erosita_priors(key, n_samples, config_path, priors_dir, signal_response
                     plot_result(samps, output_file=filename.format(key), logscale=log_scale,
                                 title=[f'E_min={emin}, E_max={emax}' for emin, emax in
                                        zip(e_min, e_max)],
-                                common_colorbar=common_colorbar, adjust_figsize=adjust_figsize)
+                                common_colorbar=common_colorbar, adjust_figsize=adjust_figsize,
+                                vmin=1, vmax=1e3)
