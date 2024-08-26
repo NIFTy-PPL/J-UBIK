@@ -148,7 +148,10 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
                      sat_max=(0.1 * np.max(sky_comp(mock_sky_position), axis=(1, 2))).tolist())
             plot_result(sky_comp(mock_sky_position), logscale=True,
                     output_file=join(output_path, f'mock_{key}.png'))
-
+        if hasattr(sky_model, 'alpha_cf'):
+            diffuse_alpha = sky_model.alpha_cf
+            plot_result(diffuse_alpha(mock_sky_position), logscale=False,
+                    output_file=join(output_path, f'mock_diffuse_alpha.png'))
     return masked_mock_data
 
 
