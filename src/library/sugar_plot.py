@@ -49,16 +49,19 @@ def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
 
 def plot_pspec(pspec, shape, distances,
                sample_list, output_directory,
-               iteration=None, dpi=300):
+               iteration=None, dpi=300,
+               directory_prefix="spatial_"
+               ):
     if iteration is None:
         iteration = 0
-    results_path = create_output_directory(join(output_directory, "pspec"))
+    results_path = create_output_directory(join(output_directory,
+                                                f"{directory_prefix}pspec"))
     samples = jax.vmap(pspec)(sample_list.samples)
     filename_samples = join(results_path, f"samples_{iteration}.png")
     from nifty8.re.correlated_field import get_fourier_mode_distributor
     _, unique_modes, _ = get_fourier_mode_distributor(shape, distances)
 
-    plt.plot(unique_modes, jft.mean(samples), label = "mean")
+    plt.plot(unique_modes, jft.mean(samples), label="mean")
     [plt.plot(unique_modes, s, alpha=0.5, color='k') for s in samples]
     plt.loglog()
     plt.savefig(filename_samples, dpi=dpi)
