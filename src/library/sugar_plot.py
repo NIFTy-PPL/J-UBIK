@@ -52,6 +52,40 @@ def plot_pspec(pspec, shape, distances,
                iteration=None, dpi=300,
                directory_prefix="spatial_"
                ):
+    """
+    Plots the power spectrum from a list of samples.
+
+    Parameters:
+    -----------
+    pspec : callable
+        The power spectrum function to be applied
+        to the samples.
+    shape : tuple[int]
+        The shape of the grid or field for which the
+        power spectrum is computed.
+    distances : Union[float, tuple[float]]
+        The distances in the grid corresponding
+        to each axis.
+    sample_list : nifty8.re.evi.Samples
+        A list of samples to be used for generating the
+        power spectrum.
+    output_directory : str
+        The directory where the plot files will be saved.
+    iteration : int, optional
+        The global iteration number value.
+        Defaults to None, which uses 0.
+    dpi : int, optional
+        The resolution of the plot in dots per inch.
+        Defaults to 300.
+    directory_prefix : str, optional
+        A prefix for the directory name where
+        plots are saved.
+        Defaults to "spatial_".
+
+    Returns:
+    --------
+    None
+    """
     if iteration is None:
         iteration = 0
     results_path = create_output_directory(join(output_directory,
