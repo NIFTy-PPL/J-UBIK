@@ -114,8 +114,8 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
     output_path = create_output_directory(file_info['res_dir'])
     mock_sky_position = jft.Vector(jft.random_like(subkey, sky.domain))
     masked_mock_data = response_dict['R'](sky(mock_sky_position))
-    masked_mock_data = tree_map(lambda x: random.poisson(subkey, x), masked_mock_data.tree)
-    masked_mock_data = jft.Vector({key: val.astype(int) for key, val in masked_mock_data.items()})
+    masked_mock_data = jft.Vector({tm: random.poisson(subkey, data).astype(int) for
+                                   tm, data in masked_mock_data.tree.items()})
     save_dict_to_pickle(masked_mock_data.tree, join(output_path, file_info['data_dict']))
     save_dict_to_pickle(mock_sky_position.tree, join(output_path, file_info['pos_dict']))
     if plot_info['enabled']:
