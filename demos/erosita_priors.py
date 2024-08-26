@@ -6,7 +6,7 @@ if __name__ == '__main__':
     seed = 96
 
     key = random.PRNGKey(seed)
-    path_to_config = 'eROSITA_config.yaml'
+    path_to_config = 'eROSITA_config_small.yaml'
     priors_directory = 'jubik_priors_mf/'
 
     plot_signal_response = True # decides whether to plot signal response

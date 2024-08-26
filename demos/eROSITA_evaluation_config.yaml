@@ -1,5 +1,5 @@
-results_dir: 'results/Default_run/'
-config_name: 'eROSITA_config.yaml'
+results_dir: 'results/LMC-01082024-001M-mock'
+config_name: 'eROSITA_config_small.yaml'
 minimization_output_file: 'last.pkl'  # Add iteration for which you want to have the diagnostics here
 
 diagnostics:
@@ -13,7 +13,7 @@ diagnostics:
       min_counts: 0
       abs: True
       plot_kwargs:
-        vmin: -5
+        vmin: 0
         vmax: 5
         title: Null
     #    title: 'Noise-weighted residuals'
@@ -68,14 +68,15 @@ diagnostics:
     output_operators_keys:
       - 'sky'
       - 'diffuse'
+    #  - 'point_sources'
     kwargs:
       base_filename: 'rel_lambda_2D_hist_'
       type: 'single'
       relative: True
       plot_kwargs:
-    #    x_lim:
-    #      - 1.e-5
-    #      - 5.e-3
+        x_lim:
+   #       - 1.e-2
+   #       - 1.e3
     #    y_lim:
     #      - 1.e-5
     #      - 5.e-3

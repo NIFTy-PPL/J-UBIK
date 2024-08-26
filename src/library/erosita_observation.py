@@ -333,3 +333,59 @@ def create_erosita_badpix_to_detmap(badpix_filename="tm1_badpix_140602v01.fits",
     plt.show()
     hdulist.writeto(output_filename)
     hdulist.close()
+
+
+#     @staticmethod
+#     def _get_srctool_flags(eventfiles, srccoord, prefix=None, suffix=None, todo='EVENTS',
+#                            insts=[1,2,3,4,6], srcreg=None, bacreg=None, exttype="POINT",
+#                            withsinglemaps=False, withmergedmaps=False, singlemaps=None,
+#                            mergedmaps=None, gtitype='GTI', withvignetting=True,
+#                            withdetmaps=True, withweights=True, withfilebadpix=True,
+#                            withcalbadpix=True, withinputmaps=False):
+#
+#         input_params = {'mounted_dir': str, 'templateimage': str, 'emin': float | str,
+#                         'emax': float | str, 'withsinglemaps': bool, 'withmergedmaps': bool,
+#                         'singlemaps': list, 'mergedmaps': str, 'gtitype': str,
+#                         'withvignetting': bool, 'withdetmaps': bool, 'withweights': bool,
+#                         'withfilebadpix': bool, 'withcalbadpix': bool, 'withinputmaps': bool}
+#
+#         # Implements type checking
+#         for key, val in input_params.items():
+#             _check_type(eval(key), val, name=key)
+#
+#         if singlemaps is not None:
+#             singlemaps = list(map(lambda x: join(mounted_dir, x), singlemaps))
+#             singlemaps_string = '"' + " ".join(singlemaps) + '"'
+#         else:
+#             singlemaps_string = " "
+#
+#         flags = " "
+#         flags += templateimage if templateimage is not None else print(
+#             "template image cannot be None.")  # FIXME Add exit somehow
+#         flags += " emin={}".format(emin) if emin is not None else print("emin cannot be None.")
+#         flags += " emax={}".format(emax) if emax is not None else print("emax cannot be None.")
+#         flags += " withsinglemaps=yes" if withsinglemaps else ""
+#         flags += "" if withmergedmaps else " withmergedmaps=no"
+#         flags += f" singlemaps={singlemaps_string}" if singlemaps is not None else ""
+#         flags += " mergedmaps={}".format(
+#             join(mounted_dir, mergedmaps)) if mergedmaps is not None else ""
+#         flags += " gtitype={}".format(gtitype) if gtitype != "GTI" else ""
+#         flags += "" if withvignetting else " withvignetting=no"
+#         flags += " withdetmaps=yes" if withdetmaps else ""
+#         flags += "" if withweights else " withweights=no"
+#         flags += "" if withfilebadpix else " withfilebadpix=no"
+#         flags += "" if withcalbadpix else " withcalbadpix=no"
+#         flags += " withinputmaps=yes" if withinputmaps else ""
+#
+#         return flags
+#
+# def get_eROSITA_sources():
+#     input_files = self._parse_stringlists(self.input, additional_path=self._mounted_dir)
+#
+#     flags = self._get_evtool_flags(**kwargs)
+#     command = self._base_command + 'srctool ' + input_files + " " + output_file + flags + "'"
+#
+#     self._run_task(command)
+#     print("The processed dataset has been saved as {}.".format(
+#         join(self.working_directory, self.output)))
+#     return fits.open(join(self.working_directory, self.output))

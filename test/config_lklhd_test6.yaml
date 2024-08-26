@@ -1,9 +1,9 @@
-seed: 86
+seed: 42
 esass_image: DR1
 telescope:
-  tm_ids : [1]
+  tm_ids : [6]
   rebin: 80 # set by the consortium
-  fov: 4096
+  fov: 512
   pattern: 15
   detmap: True
   exp_cut: 500
@@ -11,7 +11,7 @@ telescope:
   effective_area_correction: True
 
 psf:
- method: 'LINJAX'
+ method: 'LIN'
  energy: ['0277', '1486', '3000'] #FIXME: check whether to use '0930'
   # LIN config
  npatch: 8
@@ -35,7 +35,7 @@ plotting:
   dpi: 800
 
 grid:
-  sdim: 1024
+  sdim: 128
   edim: 3 # FIXME: remove this parameter
   s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
   e_padding_ratio: 1.
@@ -53,7 +53,7 @@ grid:
 
 
 files:
-  obs_path: '../data/LMC_SN1987A-1024full/'
+  obs_path: '../data/LMC_SN1987A-128/'
   data_dict: 'data.pkl'
   processed_obs_folder: 'processed'  # only needed for actual data
   input: 'pm00_700161_020_EventList_c001.fits'
@@ -63,17 +63,17 @@ files:
   psf_path : '../data/psf_info/'
   effective_area_filename_suffix: '_arf_filter_000101v02.fits'
   psf_base_filename: '2dpsf_190219v05.fits'
-  res_dir: 'results/LMC-08082024-001M'
+  res_dir: 'results/lklhdtest_4'
 # If mock:
-  # mock_gen_config: 'mock_config.yaml'
-  # pos_dict: 'pos.pkl'
+  mock_gen_config: 'mock_config.yaml'
+  pos_dict: 'pos.pkl'
 
 priors:
   point_sources:
     spatial:
-      alpha: 1.0052423392975538
+      alpha: 1.5372972659780446
       key: points
-      q: 1.0899834483573917e-11
+      q: 1.1171446438749864e-09
 #    dev_wp:
 #      name: points_dev_wp
 #      sigma:
@@ -111,16 +111,16 @@ priors:
         asperity: null
         flexibility:
         - 0.4
-        - 0.1
+        - 0.01
         fluctuations:
         - 0.5
-        - 0.2
+        - 0.01
         loglogavgslope:
-        - -2.5
-        - 0.3
+        - -4.0
+        - 0.1
         non_parametric_kind: power
       offset:
-        offset_mean: -18.5
+        offset_mean: -20.3
         offset_std:
         - 0.3
         - 0.05
@@ -149,13 +149,13 @@ minimization:
     resume: False
     n_total_iterations: 15
     delta:
-      switches: [0, 10]
-      values: [1.e-5, 1.e-6]
+      switches:
+      values: 1.e-5
 
     samples:
-      switches:
-      n_samples: 4
-      mode: nonlinear_resample
+      switches: [0, 10]
+      n_samples: 8
+      mode: [linear_resample, nonlinear_resample]
       # Possible modes:
       # - "linear_sample",
       # - "linear_resample",
@@ -169,7 +169,7 @@ minimization:
 
       # NONLIN SAMPLING
       # nonlin_xtol: [Null, 0.1] # if set, delta is ignored
-      nonlin_maxiter: 5
+      nonlin_maxiter: 3
       # nonlin_cg_atol: [0.1, 0.01]
       # nonlin_cg_maxiter: [20, 30]
 

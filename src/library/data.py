@@ -127,7 +127,7 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
         mask_adj_func = lambda x: mask_adj(x)[0]
         plottable_data_array = np.stack(mask_adj_func(plottable_vector), axis=0)
         from .mf_plot import plot_rgb
-        for tm_id in range(plottable_data_array.shape[0]):
+        for tm_id in range(plottable_data_array.shape[0]): #FIXME: rewrite with actual tm_ids
             plot_rgb(plottable_data_array[tm_id],
                     name=join(output_path, f'mock_data_tm_rgb_log{tm_id+1}'), log=True)
             plot_rgb(plottable_data_array[tm_id],

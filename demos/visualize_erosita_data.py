@@ -60,8 +60,8 @@ if __name__ == "__main__":
     exposure_corrected_data[mask_data] = 0
     exposure_corrected_data[mask_exp] = 0
     ju.plot_result(exposure_corrected_data, logscale=True, n_rows=1, n_cols=3, adjust_figsize=False,
-                   figsize=(15, 5), common_colorbar=False)
-    sat_min = [3e-9, 3e-9, 3e-9]
+                   figsize=(15, 5), common_colorbar=False, output_file='expcordata.png')
+    sat_min = [3e-10, 3e-10, 3e-10]
 
     # for setting the value
     maxim = [np.max(exposure_corrected_data[i]) for i in range(3)]
@@ -69,12 +69,11 @@ if __name__ == "__main__":
         print(f"Max Bin {i}", maxim[i])
 
     # maxima set by eye
-    sat_max = [1.5e-7, 0.9e-7, 1.0e-7]
+    sat_max = [1.5e-8, 0.9e-8, 1.0e-8]
 
     ju.plot_rgb(exposure_corrected_data, "blib", sat_min, sat_max, sigma=None, log=False)
     ju.plot_rgb(exposure_corrected_data, "blib_log", log=True)
+    ju.plot_rgb(summed_data, "blib", sat_min, sat_max, sigma=None, log=False)
+    ju.plot_rgb(exposure_corrected_data, "blib_log", log=True)
     ju.plot_result(exposures[0], logscale=True, n_cols=3, adjust_figsize=True, common_colorbar=True)
-    # plt.imshow(exposures[0][1] - exposures[0][2], origin='lower')
-    # plt.imshow(exposures[0][1]/exposures[0][2], origin='lower')
-    # plt.colorbar()
-    # plt.show()
+

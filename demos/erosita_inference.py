@@ -1,6 +1,5 @@
 import os
 import argparse
-from os.path import join
 
 import nifty8.re as jft
 import jubik0 as ju
