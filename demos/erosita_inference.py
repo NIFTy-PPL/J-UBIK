@@ -77,6 +77,14 @@ if __name__ == "__main__":
                                  log_scale=False,
                                  plot_samples=False,
                                  )
+        ju.plot_pspec(sky_model.spatial_pspec,
+                      sky_model.spatial_cf.target.shape,
+                      sky_model.s_distances,
+                      s,
+                      file_info["res_dir"],
+                      iteration=x.nit,
+                      dpi=300,
+                      )
 
     samples, state = jft.optimize_kl(log_likelihood,
                                      pos_init,

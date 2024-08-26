@@ -67,7 +67,7 @@ class SkyModel:
         self.e_distances = None
         self.diffuse = None
         self.point_sources = None
-        self.pspec = None
+        self.spatial_pspec = None
         self.sky = None
 
         self.plaw = None

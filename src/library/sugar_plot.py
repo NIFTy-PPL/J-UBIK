@@ -1,3 +1,5 @@
+import jax
+from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 from os.path import join
 import numpy as np
@@ -43,6 +45,62 @@ def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
         plt.imshow(rgb_default, norm=LogNorm(), origin='lower')
     else:
         plt.imshow(rgb_default, origin='lower')
+
+
+def plot_pspec(pspec, shape, distances,
+               sample_list, output_directory,
+               iteration=None, dpi=300,
+               directory_prefix="spatial_"
+               ):
+    """
+    Plots the power spectrum from a list of samples.
+
+    Parameters:
+    -----------
+    pspec : callable
+        The power spectrum function to be applied
+        to the samples.
+    shape : tuple[int]
+        The shape of the grid or field for which the
+        power spectrum is computed.
+    distances : Union[float, tuple[float]]
+        The distances in the grid corresponding
+        to each axis.
+    sample_list : nifty8.re.evi.Samples
+        A list of samples to be used for generating the
+        power spectrum.
+    output_directory : str
+        The directory where the plot files will be saved.
+    iteration : int, optional
+        The global iteration number value.
+        Defaults to None, which uses 0.
+    dpi : int, optional
+        The resolution of the plot in dots per inch.
+        Defaults to 300.
+    directory_prefix : str, optional
+        A prefix for the directory name where
+        plots are saved.
+        Defaults to "spatial_".
+
+    Returns:
+    --------
+    None
+    """
+    if iteration is None:
+        iteration = 0
+    results_path = create_output_directory(join(output_directory,
+                                                f"{directory_prefix}pspec"))
+    samples = jax.vmap(pspec)(sample_list.samples)
+    filename_samples = join(results_path, f"samples_{iteration}.png")
+    from nifty8.re.correlated_field import get_fourier_mode_distributor
+    _, unique_modes, _ = get_fourier_mode_distributor(shape, distances)
+
+    plt.plot(unique_modes, jft.mean(samples), label="mean")
+    [plt.plot(unique_modes, s, alpha=0.5, color='k') for s in samples]
+    plt.loglog()
+    plt.savefig(filename_samples, dpi=dpi)
+    plt.close()
+    print(f"Power spectrum saved as {filename_samples}.")
 
 
 def plot_sample_and_stats(output_directory, operators_dict, sample_list, iteration=None,
