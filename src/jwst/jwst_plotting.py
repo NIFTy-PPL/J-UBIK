@@ -382,7 +382,7 @@ def _plot_data_data_model_residuals(
     return ims
 
 
-def get_alpha_nonpar(lens_system):
+def get_alpha_nonpar(lens_system: LensSystem):
     ll_nonpar, ll_alpha, sl_nonpar, sl_alpha = [
         lambda _: np.zeros((12, 12)) for ii in range(4)]
 
@@ -394,17 +394,19 @@ def get_alpha_nonpar(lens_system):
         ll_alpha = jft.Model(
             lambda x: llm.alpha(x)[:ll_shape[0], :ll_shape[1]],
             domain=llm.alpha.domain)
-    elif hasattr(llm, 'spectral_index'):
+
+    elif isinstance(llm, jft.CorrelatedMultiFrequencySky):
+        call = llm.spectral_index_distribution
         ll_shape = lens_system.lens_plane_model.space.shape
         ll_alpha = jft.Model(
-            lambda x: llm.spectral_index(x)[:ll_shape[0], :ll_shape[1]],
+            lambda x: call(x)[:ll_shape[0], :ll_shape[1]],
             domain=llm.domain)
 
     if hasattr(slm, 'alpha'):
         sl_alpha = slm.alpha
         sl_nonpar = slm.spatial
-    elif hasattr(slm, 'spectral_index'):
-        sl_alpha = slm.spectral_index
+    elif isinstance(slm, jft.CorrelatedMultiFrequencySky):
+        sl_alpha = slm.spectral_index_distribution
         sl_nonpar = slm.spatial_distribution
 
     try:

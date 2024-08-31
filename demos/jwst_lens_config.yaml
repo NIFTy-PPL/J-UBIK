@@ -1,5 +1,5 @@
 cpu: False
-prior_samples: False
+prior_samples: 2
 lens_only: False
 
 grid:
@@ -28,28 +28,28 @@ grid:
       # - 0.054 # F2100W
       # - 0.068 # F1800W  # mistake here actually 0.064
       # - 0.075 # F1500W
-      - 0.093 # F1280W  # mistake here actually 0.088
-      - 0.114 # F1000W
-      - 0.143 # F770W
+      # - 0.093 # F1280W  # mistake here actually 0.088
+      # - 0.114 # F1000W
+      # - 0.143 # F770W
       - 0.201 # F560W
       - 0.249 # F444W
-      - 0.319 # F356W  # mistake here actually 0.311
-      - 0.396 # F277W
-      - 0.557 # F200W
+      # - 0.319 # F356W  # mistake here actually 0.311
+      # - 0.396 # F277W
+      # - 0.557 # F200W
       # - 0.743 # F150W
       # - 0.967 # F115W
     e_max:
       # - 0.067 # F2100W
       # - 0.075 # F1800W
       # - 0.092 # F1500W
-      - 0.107 # F1280W
-      - 0.137 # F1000W
-      - 0.188 # F770W
+      # - 0.107 # F1280W
+      # - 0.137 # F1000W
+      # - 0.188 # F770W
       - 0.245 # F560W
       - 0.319 # F444W
-      - 0.395 # F356W
-      - 0.512 # F277W
-      - 0.707 # F200W
+      # - 0.395 # F356W
+      # - 0.512 # F277W
+      # - 0.707 # F200W
       # - 0.932 # F150W
       # - 1.224 # F115W
     e_ref:
@@ -102,19 +102,19 @@ telescope:
         #   shift: ['delta', [-0.008288844083290482, -0.006739260212401062], 0]
         #   rotation: ['delta', 4.71342797e-05, 0]  # pixel units
 
-      # f560w:
-      #   0:
-      #     shift: ['delta', [0.013943353185671414, 0.1686635097411474], 0]  # pixel units
-      #     rotation: ['delta', 0.00142048, 0]
-      #   # 1:
-      #   #   shift: ['delta', [0.029061850283971038, 0.1846891810150492], 0]  # pixel units
-      #   #   rotation: ['delta', 0.0010294, 0]
-      #   # 2:
-      #   #   shift: ['delta', [0.0170866596425826, 0.19037883814189283], 0]  # pixel units
-      #   #   rotation: ['delta', 0.00036936, 0]
-      #   # 3:
-      #   #   shift: ['delta', [0.014616841857891878, 0.18975897850217469], 0]  # pixel units
-      #   #   rotation: ['delta', 0.00081478, 0]
+      f560w:
+        0:
+          shift: ['delta', [0.013943353185671414, 0.1686635097411474], 0]  # pixel units
+          rotation: ['delta', 0.00142048, 0]
+        # 1:
+        #   shift: ['delta', [0.029061850283971038, 0.1846891810150492], 0]  # pixel units
+        #   rotation: ['delta', 0.0010294, 0]
+        # 2:
+        #   shift: ['delta', [0.0170866596425826, 0.19037883814189283], 0]  # pixel units
+        #   rotation: ['delta', 0.00036936, 0]
+        # 3:
+        #   shift: ['delta', [0.014616841857891878, 0.18975897850217469], 0]  # pixel units
+        #   rotation: ['delta', 0.00081478, 0]
 
 
     f200w:
@@ -141,7 +141,7 @@ files:
   # res_dir: 'results/jwst_lens/colormix/f356w_f444w_01'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
 
-  res_dir: '/home/jruestig/pro/python/j-ubik/results/jwst_lens/pretrain/eight_filters_01'
+  res_dir: '/home/jruestig/pro/python/j-ubik/results/jwst_lens/mfreworked/two_filters'
 
   pretrain_path: '/home/jruestig/pro/python/j-ubik/results/jwst_lens/mfnew/eight_filters_05_f444w_radial/config.yaml'
 
@@ -173,23 +173,23 @@ files:
     #   # - './data/spt0418/f1500w/jw01355015001_11101_00003_mirimage/jw01355015001_11101_00003_mirimage_cal.fits'
     #   # - './data/spt0418/f1500w/jw01355015001_11101_00004_mirimage/jw01355015001_11101_00004_mirimage_cal.fits'
 
-    f1280w:
-      - './data/spt0418/f1280w/jw01355015001_09101_00001_mirimage/jw01355015001_09101_00001_mirimage_cal.fits'
-      # - './data/spt0418/f1280w/jw01355015001_09101_00002_mirimage/jw01355015001_09101_00002_mirimage_cal.fits'
-      # - './data/spt0418/f1280w/jw01355015001_09101_00003_mirimage/jw01355015001_09101_00003_mirimage_cal.fits'
-      # - './data/spt0418/f1280w/jw01355015001_09101_00004_mirimage/jw01355015001_09101_00004_mirimage_cal.fits'
+    # f1280w:
+    #   - './data/spt0418/f1280w/jw01355015001_09101_00001_mirimage/jw01355015001_09101_00001_mirimage_cal.fits'
+    #   # - './data/spt0418/f1280w/jw01355015001_09101_00002_mirimage/jw01355015001_09101_00002_mirimage_cal.fits'
+    #   # - './data/spt0418/f1280w/jw01355015001_09101_00003_mirimage/jw01355015001_09101_00003_mirimage_cal.fits'
+    #   # - './data/spt0418/f1280w/jw01355015001_09101_00004_mirimage/jw01355015001_09101_00004_mirimage_cal.fits'
 
-    f1000w:
-      - './data/spt0418/f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_cal.fits'
-      # - './data/spt0418/f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_cal.fits' # Broken ?
-      # - './data/spt0418/f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_cal.fits' # Broken ?
-      # - './data/spt0418/f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_cal.fits'
+    # f1000w:
+    #   - './data/spt0418/f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_cal.fits'
+    #   # - './data/spt0418/f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_cal.fits' # Broken ?
+    #   # - './data/spt0418/f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_cal.fits' # Broken ?
+    #   # - './data/spt0418/f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_cal.fits'
 
-    f770w:
-      - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
-      # - './data/spt0418/f770w/jw01355015001_05101_00002_mirimage/jw01355015001_05101_00002_mirimage_cal.fits'
-      # - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
-      # - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
+    # f770w:
+    #   - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
+    #   # - './data/spt0418/f770w/jw01355015001_05101_00002_mirimage/jw01355015001_05101_00002_mirimage_cal.fits'
+    #   # - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
+    #   # - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
 
     f560w: # MIRI
       - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
@@ -201,17 +201,17 @@ files:
       - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
       # - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
-    f356w:
-      - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
-      # - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+    # f356w:
+    #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+    #   # - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
-    f277w:
-      - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
-      # - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
+    # f277w:
+    #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
+    #   # - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
 
-    f200w:
-      - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_cal.fits'
-      # - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_cal.fits'
+    # f200w:
+    #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_cal.fits'
+    #   # - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_cal.fits'
 
     # f150w:
     #   - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_cal.fits'
@@ -229,13 +229,13 @@ lensing:
         mean:
           gaussian_01: # i0*Gauss
             # i0: ['log_normal', 8.0e-4, 9.0e-5]
-            i0: ['delta', 5.0e-3, 1.0e-3]
+            i0: ['delta', 1.0e-1, 1.0e-3]
             center: ['normal', 0, 0.02]
             covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
           gaussian_02: # i0*Gauss
             # i0: ['log_normal', 8.0e-4, 9.0e-5]
-            i0: ['delta', 5.0e-3, 1.0e-3]
+            i0: ['log_normal', 2.0e-2, 1.0e-2]
             center: ['normal', [0.4, -0.4], 0.02]
             covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
@@ -265,54 +265,52 @@ lensing:
 
         multifrequency:
 
-          # nifty_mf:
-          #   zero_mode:
-          #     mean: -1.0
-          #     deviations: [0.0, 1.0]    # normal
-          #   spatial_amplitude:
-          #     model: 'matern'
-          #     scale: [1.0, 0.02]        # lognormal
-          #     cutoff: [0.1, 0.01]       # lognormal
-          #     loglogslope: [-3.0, 0.1]  # normal
-          #   frequency_slope:
-          #     mean: [-2.0, 1.0]         # normal
-          #     fluctuations: [1.0, 0.2]  # lognormal 
-          #   frequency_deviations:
-          #     process: 'wiener'
-          #     sigma: [2.0, 1.0]  # lognormal
+          nifty_mf:
+            zero_mode: [0.0, 0.1] # normal
+            spatial_amplitude:
+              model: 'matern'
+              scale: [0.08, 0.01]        # lognormal
+              cutoff: [0.1, 0.01]       # lognormal
+              loglogslope: [-4.0, 0.1]  # normal
+            frequency_slope:
+              mean: [-0.2, 0.4]         # normal
+              fluctuations: [0.08, 0.1]  # lognormal 
+            frequency_deviations:
+              process: 'wiener'
+              sigma: [0.2, 0.1]  # lognormal
 
-          colormix:
-            matrix: 
-              diagonal_prior: ['delta', 1.0, 0.2]
-              off_diagonal_prior: ['normal', 0.0, 0.5]
-            spatial:
-              matern:
-                amplitude:
-                  offset_mean: -1.0
-                  offset_std: [0.01, 1.0]
-                fluctuations:
-                  scale: [1.0, 0.02]
-                  cutoff: [0.1, 0.01]
-                  loglogslope: [-3.0, 0.1]
-              # correlated_field:
-              #   offset:
-              #     offset_mean: 0.0
-              #     offset_std:
-              #       - 0.001
-              #       - 0.4
-              #   fluctuations:
-              #     fluctuations:
-              #       - 2.3
-              #       - 0.5
-              #     loglogavgslope:
-              #       - -3.0
-              #       - 0.4
-              #     flexibility:
-              #       - 0.8
-              #       - 0.08
-              #     asperity: Null
-              #     non_parametric_kind: "power"
-              #     # harmonic_type: "Fourier"
+          # colormix:
+          #   matrix: 
+          #     diagonal_prior: ['delta', 1.0, 0.2]
+          #     off_diagonal_prior: ['normal', 0.0, 0.5]
+          #   spatial:
+          #     matern:
+          #       amplitude:
+          #         offset_mean: -1.0
+          #         offset_std: [0.01, 1.0]
+          #       fluctuations:
+          #         scale: [1.0, 0.02]
+          #         cutoff: [0.1, 0.01]
+          #         loglogslope: [-3.0, 0.1]
+          #     # correlated_field:
+          #     #   offset:
+          #     #     offset_mean: 0.0
+          #     #     offset_std:
+          #     #       - 0.001
+          #     #       - 0.4
+          #     #   fluctuations:
+          #     #     fluctuations:
+          #     #       - 2.3
+          #     #       - 0.5
+          #     #     loglogavgslope:
+          #     #       - -3.0
+          #     #       - 0.4
+          #     #     flexibility:
+          #     #       - 0.8
+          #     #       - 0.08
+          #     #     asperity: Null
+          #     #     non_parametric_kind: "power"
+          #     #     # harmonic_type: "Fourier"
 
 
     lens:
@@ -333,26 +331,26 @@ lensing:
               center: ['normal', [0.22, 0.09], 0.04]
               q: [ 'uniform', 0.8, 1.0]
               theta: ['normal', 0.0, 10.0]
-              radial_correction: 
-                extent_factor: 1.5
-                Npix: 128
-                rsigmoid: 0.3
-                matern: 
-                  amplitude:
-                    offset_mean: 0.
-                    offset_std: Null
-                      # - 1.0e-1
-                      # - 1.0e-2
-                  fluctuations:
-                    scale:
-                      - 5.0e-1
-                      - 5.0e-2
-                    cutoff:
-                      - 1.0e-1
-                      - 1.0e-2
-                    loglogslope:
-                      - -5.0e+0
-                      -  5.0e-1
+              # radial_correction: 
+              #   extent_factor: 1.5
+              #   Npix: 128
+              #   rsigmoid: 0.3
+              #   matern: 
+              #     amplitude:
+              #       offset_mean: 0.
+              #       offset_std: Null
+              #         # - 1.0e-1
+              #         # - 1.0e-2
+              #     fluctuations:
+              #       scale:
+              #         - 5.0e-1
+              #         - 5.0e-2
+              #       cutoff:
+              #         - 1.0e-1
+              #         - 1.0e-2
+              #       loglogslope:
+              #         - -5.0e+0
+              #         -  5.0e-1
 
             # multisersicrenormalized: # i0*exp(-bn * (r/re)**1/n - 1) / exp(...)
             #   N: 2
@@ -434,15 +432,15 @@ lensing:
 minimization:
     key: 1060824
     resume: True
-    n_total_iterations: 15
-    pretraining_steps: 10
+    n_total_iterations: 20
+    pretraining_steps: Null
 
     delta:
-      switches: [0, 10, 19]
+      switches: [0, 10, 16]
       values: [5.e-6, 1.e-6, 1.e-7]
 
     samples:
-      switches: [0, 10, 20]
+      switches: [0, 10, 16]
       n_samples: [5, 5, 5]
       mode: [linear_resample, nonlinear_resample, nonlinear_update]
       # Possible modes:

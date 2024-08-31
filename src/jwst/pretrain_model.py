@@ -163,7 +163,8 @@ def pretrain_model(
 def pretrain_lens_system(cfg: dict, lens_system: LensSystem):
     from matplotlib.colors import LogNorm
 
-    if cfg['minimization']['pretraining_steps'] is None:
+    if ((cfg['minimization']['pretraining_steps'] is None) or
+            (cfg['minimization']['pretraining_steps'] == 0)):
         return None
 
     pretrain_res_dir = join(cfg['files']['res_dir'], 'pretrain')
