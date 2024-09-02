@@ -517,8 +517,6 @@ class GeneralModel(jft.Model):
     def build_model(self):
         """Returns Model from the dict_of_fields."""
 
-
-
         if 'spatial' not in self._available_fields.keys() or self._available_fields['spatial'] is None:
             raise NotImplementedError
         else:
