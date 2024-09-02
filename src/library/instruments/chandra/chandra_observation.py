@@ -184,7 +184,7 @@ class ChandraObservationInformation():
                   (self.obsInfo['y_min'],self.obsInfo['y_max']),
                   (np.log(self.obsInfo['energy_min']), np.log(self.obsInfo['energy_max'])))
 
-        data, edges = np.histogramdd(evts, bins=bins, range=ranges, normed=False, weights=None)
+        data, edges = np.histogramdd(evts, bins=bins, range=ranges, density=False, weights=None)
         data = data.transpose((1,0,2)).astype(int)
         self.obsInfo['ntot_binned'] = np.sum(data)
 
