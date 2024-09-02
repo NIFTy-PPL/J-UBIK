@@ -12,7 +12,7 @@ import jubik0 as ju
 
 
 def add_models(m1, m2):
-    """ Summation of two models.
+    """Summation of two models.
 
     Builds a model that takes two models m1 and m2 and adds their results.
 
