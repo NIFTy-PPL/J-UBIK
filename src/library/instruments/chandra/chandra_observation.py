@@ -197,18 +197,18 @@ class ChandraObservationInformation():
 
         Parameters:
         -----------
-            outroot: string
-                file path to which the temporary CXC products are saved
-            res_xy: float
-                resolution in x and y for the aspect histogramm in arcsec
-                (0.5 arcsex is about 1 pixel and the CXC default).
-            energy_subbins: int
-                energy sub-binning to compute the instrumnt map (see below).
+        outroot: string
+            file path to which the temporary CXC products are saved
+        res_xy: float
+            resolution in x and y for the aspect histogramm in arcsec
+            (0.5 arcsex is about 1 pixel and the CXC default).
+        energy_subbins: int
+            energy sub-binning to compute the instrumnt map (see below).
 
         Returns:
         --------
-            expmap: (np.array) 
-                npix_e x npix_s x npix_s array with the exposure in units of  [sec * cm**(2) counts/photon]
+        expmap: (np.array) 
+            npix_e x npix_s x npix_s array with the exposure in units of  [sec * cm**(2) counts/photon]
         """
 
         self.obsInfo['asphist_res_xy']    = res_xy
@@ -390,23 +390,23 @@ class ChandraObservationInformation():
 
         Parameters:
         -----------
-            location : tuple
-                Location at which to compute the PSF in celestial coordinates (RA, DEC) in units of degrees.
-            outroot : str
-                Directory where the intermediate MARX files are saved.
-            num_rays : int, optional
-                Number of detected rays in the simulation. Default is 1e4.
-            detector_type : str, optional
-                Type of detector used, either 'ACIS-I' or 'ACIS-S'. If None, the detector type from obsInfo will be used.
-                Default is None.
-            aspect_blur : float, optional
-                Accounts for the observed widening of the PSF with respect to simulations. If None, values suggested by the
-                CXC team will be used. Default is None.
+        location : tuple
+            Location at which to compute the PSF in celestial coordinates (RA, DEC) in units of degrees.
+        outroot : str
+            Directory where the intermediate MARX files are saved.
+        num_rays : int, optional
+            Number of detected rays in the simulation. Default is 1e4.
+        detector_type : str, optional
+            Type of detector used, either 'ACIS-I' or 'ACIS-S'. If None, the detector type from obsInfo will be used.
+            Default is None.
+        aspect_blur : float, optional
+            Accounts for the observed widening of the PSF with respect to simulations. If None, values suggested by the
+            CXC team will be used. Default is None.
 
         Returns:
         --------
-            np.array
-                A 3D numpy array (npix_e x npix_s x npix_s) with the simulated PSF.
+        np.array
+            A 3D numpy array (npix_e x npix_s x npix_s) with the simulated PSF.
         """
 
         self.psf_sim_coords.append(location)
