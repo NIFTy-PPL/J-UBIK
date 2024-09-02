@@ -13,7 +13,7 @@ except ImportError:
     print("Ciao is not sourced or installed. Therefore some operations can't be performed")
     pass
 
-from jubik0.library.messages import message_obs, message_binning, message_exposure
+from .library.messages import message_obs, message_binning, message_exposure
 
 
 class ChandraObservationInformation():
