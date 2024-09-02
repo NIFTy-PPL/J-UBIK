@@ -11,24 +11,27 @@ import nifty8.re as jft
 import jubik0 as ju
 
 
-def fuse_model_components(model_a, model_b):
-    """ Takes two models A and B and fuses them to a model C such that the application
-    of model C to some latent space x yields C(X) = A(X) + B(X)
+def fuse_model_components(a, b):
+    # FIXME change name
+    """ Summation of two models.
+
+    Builds a model that takes two models A and B and adds their results.
 
     Parameters
     ----------
-    model_a: jft.Model
+    a: jft.Model
         Model for a sky component A
-    model_b: jft.Model
+    b: jft.Model
         Model for a sky component B
     Returns
     -------
     model_c: jft.Model
         Model for a sky component C
     """
-    fusion = lambda x: model_a(x) + model_b(x)
-    domain = model_a.domain
-    domain.update(model_b.domain)
+    fusion = lambda x: a(x) + b(x)
+    # TODO Update to | notation
+    domain = a.domain
+    domain.update(b.domain)
     return jft.Model(fusion, domain=domain)
 
 
