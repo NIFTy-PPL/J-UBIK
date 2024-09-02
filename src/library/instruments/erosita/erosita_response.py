@@ -259,15 +259,10 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
     return psf_op
 
 
-# FIXME: only exposure
+# TODO: split functionality and config loading by implementing
+#  build_erosita_response
 def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
-    # TODO: write docstring
-    exposure = build_exposure_function(exposures, exposure_cut)
-    mask = build_readout_function(exposures, exposure_cut, tm_ids)
-    # psf = build_erosita_psf(-...)
-    R = lambda x: mask(exposure(
-        x))  # FIXME: should implement R = lambda x: mask(exposure(psf(x)))
-    return R
+    pass
 
 
 def build_erosita_response_from_config(config_file_path):
@@ -378,10 +373,5 @@ def build_erosita_response_from_config(config_file_path):
     return response_dict
 
 
-# func = lambda psf_file,x,y,z: build_psf(psf_file,x, y, z)
-#     vmap_func = jax.vmap(func)(psf_file, x, y, z)
-#     vmap_func(x)
-
-
 def load_erosita_response():
-    pass  # FIXME: implement
+    pass  # TODO: implement pickle response
