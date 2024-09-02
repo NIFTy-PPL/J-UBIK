@@ -13,7 +13,7 @@ except ImportError:
     print("Ciao is not sourced or installed. Therefore some operations can't be performed")
     pass
 
-from ..library.messages import message_obs, message_binning, message_exposure
+from jubik0.library.messages import message_obs, message_binning, message_exposure
 
 
 class ChandraObservationInformation():
@@ -24,25 +24,39 @@ class ChandraObservationInformation():
     """
 
     def __init__(self, obsInfo, npix_s, npix_e, fov, elim, center=None, energy_ranges=None, chips_off=()):
-
         """
-        Interface to the CXC data and simulation tools.
+        Initialize the ChandraObservationInformation class.
+
+        This method sets up the interface to the CXC data and simulation tools by initializing
+        the observation information and configuring the necessary parameters.
 
         Parameters:
         -----------
+        obsInfo : dict
+            A dictionary specifying the location of all required Chandra data products:
+            - event_file: The L2 event file, usually found in primary and ending in _evt2.fits
+            - aspect_sol: The pointing to the telescope, found in the primary data products and ending in _asol1.fits
+            - bpix_file: The bad pixel file
+            - mask_file: The mask file
+            - data_location: The base directory where the data files are located
+        npix_s : int
+            Number of pixels along each spatial axis.
+        npix_e : int
+            Number of (logarithmic) pixels in the energy direction.
+        fov : float
+            Spatial extent to be considered (in arcseconds).
+        elim : tuple of int
+            Minimum and maximum energy to be considered in keV.
+        center : tuple, optional
+            RA and DEC of the image center. If None, the nominal pointing direction will be used. Default is None.
+        energy_ranges : tuple, optional
+            Energy ranges for energy binning. Default is None, which means logscale equal-width bins will be used.
+        chips_off : tuple, optional
+            IDs of chips that are not considered. Default is an empty tuple. BI-Chips have IDs (5, 7).
 
-        obsInfo (dict) : a dictionary which specifies the loaction of all required chandra data products, i.e.
-        * event_file = the L2 event file, usually found in primary and ending in _evt2.fits
-        * aspect_sol = the pointing to the telescope, found in the primary data products and ending in _asol1.fits
-
-        npix_s (int)   : number of pixels along each spatial axis
-        npix_e (int)   : number of (logarithmic) pixels in the energy direction
-        fov (float)    : spatial extent from xmin to xmax, to be considered (in arcsec).
-                         fov is assumed to be the same for y.
-        elim (tupel)   : minimum and maximum energy to be considered in keV
-        center (tupel) : RA and DEC of the image center, if None the nominal pointing direction will be used
-        energy_ranges (tuple) : energy ranges for energy binning. Default: None, i.e. logscale equal_width bins
-        chips_off (tuple) : IDs of chips, which are not considered, Default: None, BI-Chips have IDs (5, 7)
+        Returns:
+        --------
+        None
         """
 
         self.obsInfo = obsInfo
@@ -62,7 +76,12 @@ class ChandraObservationInformation():
         # 2.a) pointing direction in RA and DEC
         #      this should be identical to the nominal pointing direction calculated above
         rt.dmcoords.punlearn()
-        rt.dmcoords(self.obsInfo['event_file'], op='msc', theta=0.0, phi=0.0, celfmt='deg', asol=self.obsInfo['aspect_sol'])
+        rt.dmcoords(self.obsInfo['event_file'],
+                    op='msc',
+                    theta=0.0,
+                    phi=0.0,
+                    celfmt='deg',
+                    asol=self.obsInfo['aspect_sol'])
         self.obsInfo['aim_ra']  = float(rt.dmcoords.ra)
         self.obsInfo['aim_dec'] = float(rt.dmcoords.dec)
 
@@ -82,7 +101,12 @@ class ChandraObservationInformation():
 
         # 3.b) convert the image center to sky coordinates
         rt.dmcoords.punlearn()
-        rt.dmcoords(self.obsInfo['event_file'], op='cel', ra=ra_center, dec=dec_center, celfmt='deg', asol=self.obsInfo['aspect_sol'])
+        rt.dmcoords(self.obsInfo['event_file'],
+                    op='cel',
+                    ra=ra_center,
+                    dec=dec_center,
+                    celfmt='deg',
+                    asol=self.obsInfo['aspect_sol'])
         self.obsInfo['x_center'] = float(rt.dmcoords.x)
         self.obsInfo['y_center'] = float(rt.dmcoords.y)
 
@@ -127,11 +151,13 @@ class ChandraObservationInformation():
 
         Parameters:
         -----------
-        outfile (strig) : fits file to which CXC saves the filtered event list
+        outfile: string
+            fits file to which CXC saves the filtered event list
 
         Returns:
-        --------
-        data (np.array) : event counts on a 3D grid
+        --------    
+        data: np.array
+            event counts on a 3D grid
 
         """
 
@@ -171,13 +197,18 @@ class ChandraObservationInformation():
 
         Parameters:
         -----------
-        outroot (string)     : file path to which the temporary CXC products are saved
-        res_xy (float)       : resolution in x and y for the aspect histogramm in arcsec (0.5 arcsex is about 1 pixel and the CXC default).
-        energy_subbins (int) : energy sub-binning to compute the instrumnt map (see below).
+            outroot: string
+                file path to which the temporary CXC products are saved
+            res_xy: float
+                resolution in x and y for the aspect histogramm in arcsec
+                (0.5 arcsex is about 1 pixel and the CXC default).
+            energy_subbins: int
+                energy sub-binning to compute the instrumnt map (see below).
 
         Returns:
         --------
-        expmap (np.array) : npix_e x npix_s x npix_s array with the exposure in units of  [sec * cm**(2) counts/photon]
+            expmap: (np.array) 
+                npix_e x npix_s x npix_s array with the exposure in units of  [sec * cm**(2) counts/photon]
         """
 
         self.obsInfo['asphist_res_xy']    = res_xy
@@ -192,7 +223,7 @@ class ChandraObservationInformation():
         # get all chips that are on
         ##############################
         det_str = rt.dmkeypar(infile=self.obsInfo['event_file'], keyword='detnam', echo=True)
-        chips_on = [int(d) for d in re.findall('\d', det_str)]
+        chips_on = [int(d) for d in re.findall(r'\d', det_str)]
         for i in range(len(self.obsInfo['chips_off'])):
             if self.obsInfo['chips_off'] in chips_on:
                 chips_on.remove(self.obsInfo['chips_off'])
@@ -208,7 +239,9 @@ class ChandraObservationInformation():
                 for chipy in [0.5, 1024.5]:
 
                     rt.dmcoords.punlearn()
-                    rt.dmcoords(self.obsInfo['event_file'], asol=self.obsInfo['aspect_sol'], opt='chip', chip_id=chips_on[chip],\
+                    rt.dmcoords(self.obsInfo['event_file'],
+                                asol=self.obsInfo['aspect_sol'],
+                                opt='chip', chip_id=chips_on[chip],\
                                 chipx=chipx, chipy=chipy)
                     edgex += [rt.dmcoords.x]
                     edgey += [rt.dmcoords.y]
@@ -228,7 +261,8 @@ class ChandraObservationInformation():
 
         # compute the aspect histogramm
         ###############################
-        # the aspect solution is given every 0.256 s during an observation and can be represented in a compressed form as a
+        # the aspect solution is given every 0.256 s during an observation and can be
+        # represented in a compressed form as a
         # histogramm of the pointing vs. x-offset, y-offset, and roll-offset
         # see https://cxc.cfa.harvard.edu/ciao/ahelp/asphist.html
         rt.asphist.punlearn()
@@ -256,7 +290,8 @@ class ChandraObservationInformation():
 
             # calculate the instrument map
             ############################
-            # the instrument map is essentially the product of the mirror effective area projected onto the detector surface with
+            # the instrument map is essentially the product of the mirror effective area
+            # projected onto the detector surface with
             # the detector quantum efficiency, [units = cm**(2) counts/photon], and also accounts for bad pixels
             # see https://cxc.harvard.edu/ciao/ahelp/mkinstmap.html
 
@@ -293,8 +328,9 @@ class ChandraObservationInformation():
 
             # individual detector's exposure maps
             #####################################
-            # the exposure map combines the instrument map with the aspect solution and can be used to convert counts to flux
-            # with normalize set to 'no' the units are (time) * (effective area) [sec * cm**(2) counts/photon]
+            # the exposure map combines the instrument map with the aspect solution and can be used to
+            # convert counts to flux with normalize set to 'no' the units are
+            # (time) * (effective area) [sec * cm**(2) counts/photon]
             # see https://cxc.harvard.edu/ciao/ahelp/mkexpmap.html
             #TODO what about not combining data and exposure? different psf? etc?
             rt.mkexpmap.punlearn()
@@ -344,31 +380,33 @@ class ChandraObservationInformation():
         return expmap
 
 
-    def get_psf_fromsim(
-            self,
-            location,
-            outroot,
-            num_rays=1e4,
-            detector_type=None,
-            aspect_blur=None
-    ):
+    def get_psf_fromsim(self, location, outroot, num_rays=1e4, detector_type=None, aspect_blur=None):
 
         """
-        Obtain the PSF from simulations at the specified position in all energy channels (center of each channel).
+        Obtain the Point Spread Function (PSF) from simulations at the specified position in all energy channels.
+
+        This method simulates the PSF at a given celestial location using MARX simulations. 
+        The PSF is computed for the center of each energy channel.
 
         Parameters:
         -----------
-
-        location (tuple)       : location at which to compute the PSF in celestial coordinates, RA, DEC in units of degree
-        outroot (string)       : location where the intermediate MARX files are saved
-        num_rays (int)         : number of detected rays in the simulation
-        detector_type (string) : either ACIS-I or ACIS-S
-        aspect_blur (float)    : accounts for the observed widening of the PSF w.r.t simulations, if None values suggested by the CXC team
-                                 will be used
+        location : tuple
+            Location at which to compute the PSF in celestial coordinates (RA, DEC) in units of degrees.
+        outroot : str
+            Directory where the intermediate MARX files are saved.
+        num_rays : int, optional
+            Number of detected rays in the simulation. Default is 1e4.
+        detector_type : str, optional
+            Type of detector used, either 'ACIS-I' or 'ACIS-S'. If None, the detector type from obsInfo will be used.
+             Default is None.
+        aspect_blur : float, optional
+            Accounts for the observed widening of the PSF with respect to simulations. If None, values suggested by the
+            CXC team will be used. Default is None.
 
         Returns:
         --------
-        psf_arr (np.array) : npix_e x npix_s x npix_s array with the simulated PSF
+        np.array
+            A 3D numpy array (npix_e x npix_s x npix_s) with the simulated PSF.
         """
 
         self.psf_sim_coords.append(location)
@@ -423,7 +461,8 @@ class ChandraObservationInformation():
         # 3. set marx parameters
         ########################
         # see https://space.mit.edu/cxc/marx/inbrief/simsetup.html for details
-        # negative NumRays specifies the detected number of rays not the generated number (some will scatter and not reach the detector)
+        # negative NumRays specifies the detected number of rays not the generated number (some will scatter and not
+        # reach the detector)
         # DetIdeal suppresses the detector quantum efficiency which is already accounted for by the exposure map
 
         marxpara_file = outroot + '_marx.par'
@@ -494,11 +533,16 @@ class ChandraObservationInformation():
 
             # 5.a) filter events for the FOV
             outfits2 = outroot + 'psf_e{:d}.fits'.format(i)
-            infile = outfits + '[EVENTS][x={0:.1f}:{1:.1f}, y={2:.1f}:{3:.1f}]'.format(self.obsInfo['x_min'], self.obsInfo['x_max'],\
-                                                                                       self.obsInfo['y_min'], self.obsInfo['y_max'])
-            infile += '[bin x={:.1f}:{:.1f}:#{:d}, y={:.1f}:{:.1f}:#{:d}]'.format(self.obsInfo['x_min'], self.obsInfo['x_max'],\
-                                                                                  self.obsInfo['npix_s'], self.obsInfo['y_min'],\
-                                                                                  self.obsInfo['y_max'], self.obsInfo['npix_s'])
+            infile = outfits + '[EVENTS][x={0:.1f}:{1:.1f}, y={2:.1f}:{3:.1f}]'.format(self.obsInfo['x_min'],
+                                                                                       self.obsInfo['x_max'],\
+                                                                                       self.obsInfo['y_min'],
+                                                                                       self.obsInfo['y_max'])
+            infile += '[bin x={:.1f}:{:.1f}:#{:d}, y={:.1f}:{:.1f}:#{:d}]'.format(self.obsInfo['x_min'],
+                                                                                  self.obsInfo['x_max'],\
+                                                                                  self.obsInfo['npix_s'],
+                                                                                  self.obsInfo['y_min'],\
+                                                                                  self.obsInfo['y_max'],
+                                                                                  self.obsInfo['npix_s'])
             infile += '[opt type=i4]'
             sim_dic[i] = outfits2
             rt.dmcopy(infile=infile, outfile=outfits2, clobber='yes')

@@ -9,7 +9,7 @@ import nifty8 as ift
 
 from .plot import plot_slices, plot_result
 from .utils import get_data_domain, get_stats, create_output_directory, get_config
-from ..library.chandra_observation import ChandraObservationInformation
+from ..library.instruments.chandra.chandra_observation import ChandraObservationInformation
 from ..library.response import build_erosita_response_from_config
 from ..library.sky_models import SkyModel
 

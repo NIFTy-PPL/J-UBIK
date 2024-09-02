@@ -21,7 +21,7 @@ from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_pspec,
                                  plot_erosita_priors)
 from .library.mf_plot import plot_rgb
 from .library.erosita_observation import ErositaObservation
-from .library.chandra_observation import ChandraObservationInformation
+from .library.instruments.chandra.chandra_observation import ChandraObservationInformation
 from .library.erosita_psf import eROSITA_PSF
 from .library.sky_models import SkyModel
 from .library.response import load_erosita_response, build_exposure_function, \
