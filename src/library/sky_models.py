@@ -9,7 +9,7 @@ import jax.numpy as jnp
 from ducc0.fft import good_size as good_fft_size
 import nifty8.re as jft
 
-
+from ..library.utils import get_config, add_functions, add_models
 
 class SkyModel:
     """
