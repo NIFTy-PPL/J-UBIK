@@ -8,7 +8,6 @@ import jax.numpy as jnp
 
 from ducc0.fft import good_size as good_fft_size
 import nifty8.re as jft
-import jubik0 as ju
 
 
 def add_models(m1, m2):
