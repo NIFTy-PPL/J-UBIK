@@ -19,7 +19,7 @@ from typing import NamedTuple
 class Domain(NamedTuple):
     """Mimicking NIFTy Domain.
 
-    Paramters:
+    Parameters
     ----------
     shape: tuple
     distances: tuple

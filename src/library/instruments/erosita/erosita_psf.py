@@ -1,11 +1,11 @@
-import nifty8 as ift
-import numpy as np
 import astropy.io.fits as ast
 import matplotlib.pyplot as plt
-
+import nifty8 as ift
+import numpy as np
 from matplotlib.colors import LogNorm
-from ..operators.convolve_utils import (get_psf_func, psf_convolve_operator,
-                                        psf_lin_int_operator, psf_interpolator)
+
+from ....operators.convolve_utils import (get_psf_func, psf_convolve_operator,
+                                          psf_lin_int_operator, psf_interpolator)
 
 
 class eROSITA_PSF():
@@ -185,11 +185,33 @@ class eROSITA_PSF():
     def make_interpolated_psf_array(self, energies, pointing_center,
                                     domain, npatch):
         """
-        Build the psf operator.
+        Constructs an interpolated PSF (Point Spread Function) array for the given energies,
+        pointing center, and domain.
 
         Parameters:
         ----------
-        energies: list of int
+        energies : list of int
+            List of energies (in keV) for which the PSF will be interpolated.
+            Each energy value must be an integer.
+        pointing_center : list of float
+            Coordinates of the pointing center [ra, dec] for the
+            PSF interpolation.
+        domain : jubk0.library.data.Domain
+            The domain over which the PSF will be defined,
+            typically representing the spatial grid or region of interest.
+        npatch : int
+            Number of patches used to divide the domain for PSF interpolation.
+
+        Returns:
+        --------
+        array : np.ndarray
+            A multidimensional array representing the interpolated PSF over the specified
+            domain and energies.
+
+        Raises:
+        -------
+        TypeError
+            If `energies` is not a list.
         """
         psf_infos = []
         if not isinstance(energies, list):
