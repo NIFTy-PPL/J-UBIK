@@ -22,7 +22,6 @@ from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_pspec,
 from .library.mf_plot import plot_rgb
 
 from .library import mpi
-from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
 from .library.chandra_observation import ChandraObservationInformation
 from .library.erosita_psf import eROSITA_PSF
