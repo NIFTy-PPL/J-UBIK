@@ -512,25 +512,11 @@ class GeneralModel(jft.Model):
 
 
 def _apply_slope(freqs, alph):
-    """Models a logarithm of a power law.
-
-    Building bloc for e.g. a multifrequency model
-
-    Parameters:
-    -----------
-    freqs: log(frequencies) or log (energies)
-    # FIXME use it like this in our code
-    alpha: 2D spectral index map
-
-    returns:
-    --------
-    linear function: jft.Model
-        linear function, with slope alpha evaluated at freqs.
-
-    """
     if isinstance(alph, jft.Model):
-        res = lambda x: jnp.outer(freqs, alph(x)).reshape(freqs.shape + alph.target.shape)
+        res = lambda x: jnp.outer(freqs, alph(x)).reshape(
+            freqs.shape + alph.target.shape)
     elif isinstance(alph, float):
-        # FIXME not working at the moment
-        res = jnp.outer(freqs, alph).reshape(freqs.shape)
+        raise NotImplementedError
+        # TODO enable inferable scalar spectral index
+        # res = jnp.outer(freqs, alph).reshape(freqs.shape)
     return jft.Model(res, domain=alph.domain)
