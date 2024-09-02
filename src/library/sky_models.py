@@ -488,13 +488,15 @@ class GeneralModel(jft.Model):
         spatial: typically 2D Model for spatial log flux(x),
             where x is the spatial vector.
         freq_plaw: jubik0.build_power_law or other 3D model.
-        freq_dev: additional flux(frequency / energy) dependent process.
+        freq_dev: additional flux (frequency / energy) dependent process.
             often deviations from freq_plaw.
 
         Parameters:
         ----------
-        dict of fields: the respective keys and the
-            nifty.re.models as values"""
+        dict of fields: dict
+            keys: str, name of the field
+            val: nifty.re.Model
+        """
         self._available_fields = dict_of_fields
 
     def build_model(self):
