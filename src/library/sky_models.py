@@ -25,11 +25,9 @@ def add_models(m1, m2):
     -------
     sum: jft.Model
     """
-    fusion = lambda x: m1(x) + m2(x)
-    # TODO Update to | notation
     domain = m1.domain
     domain.update(m2.domain)
-    return jft.Model(fusion, domain=domain)
+    return jft.Model(lambda x: m1(x) + m2(x), domain=domain)
 
 
 def add_functions(f1, f2):
