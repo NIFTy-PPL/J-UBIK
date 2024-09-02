@@ -18,7 +18,9 @@ from .library.plot import (plot_slices, plot_result,
                            plot_sample_averaged_log_2d_histogram)
 from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_pspec,
                                  plot_sample_and_stats, plot_sample_and_stats,
-                                 plot_erosita_priors)
+                                 plot_erosita_priors, plot_2d_gt_vs_rec_histogram,
+                                 plot_noise_weighted_residuals, 
+                                 plot_uncertainty_weighted_residuals)
 from .library.mf_plot import plot_rgb
 from .library.erosita_observation import ErositaObservation
 from .library.instruments.chandra.chandra_observation import ChandraObservationInformation
@@ -32,9 +34,8 @@ from .library.data import (load_data_dict_from_pickle, create_mock_erosita_data,
                            mask_erosita_data_from_disk, load_masked_data_from_config,
                            load_mock_position_from_config, save_dict_to_pickle, Domain)
 from .library.likelihood import generate_erosita_likelihood_from_config
-from .library.diagnostics import (compute_uncertainty_weighted_residuals,
-                                  compute_noise_weighted_residuals,
-                                  plot_2d_gt_vs_rec_histogram)
+from .library.diagnostics import (calculate_nwr, 
+                                  calculate_uwr)
 from .library.mf_sky import MappedModel, GeneralModel, build_power_law
 from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
                                               _get_weights)
