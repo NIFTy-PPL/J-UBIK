@@ -323,7 +323,7 @@ def plot_uncertainty_weighted_residuals(samples,
                                            log=True,
                                            plot_kwargs=None):
     """
-    Computes uncertainty-weighted residuals (UWRs) given the position space sample list and
+    Plots uncertainty-weighted residuals (UWRs) given the position space sample list and
     plots them and the according histogram. Definition:
     :math:`uwrs = \\frac{s-gt}{\\sigma_{s}}`,
     where `s` is the signal, `gt` is the ground truth,
@@ -409,7 +409,7 @@ def plot_noise_weighted_residuals(samples, operator_dict, diagnostics_path, resp
                                   response=True, mask_exposure=True, abs=False, n_bins=None,
                                   extent=None, plot_kwargs=None):
     """
-    Computes noise-weighted residuals (NWRs) given the position space sample list and
+    Plots noise-weighted residuals (NWRs) given the position space sample list and
     plots the according histogram. Definition:
     :math:`nwr = \\frac{Rs-d}{\\sqrt_{Rs}}`,
     where `s` is the signal, 'R' is the response and  `d` is the reference data.
