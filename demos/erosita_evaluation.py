@@ -32,15 +32,15 @@ def run_evaluation_function(function, samples, operators_dict, diagnostics_path,
     reference = None
     match function:
         case 'noise_weighted_residuals':
-            function = ju.compute_noise_weighted_residuals
+            function = ju.plot_noise_weighted_residuals
             reference = masked_data.copy()
         case 'uncertainty_weighted_residuals':
             reference = gt_dict
             if reference is {}:
                 return
-            function = ju.compute_uncertainty_weighted_residuals
+            function = ju.plot_uncertainty_weighted_residuals
         case 'uncertainty_weighted_mean':
-            function = ju.compute_uncertainty_weighted_residuals
+            function = ju.plot_uncertainty_weighted_residuals
             reference = None
         case 'rel_lambda_2D_histogram' | 'lambda_2D_histogram'| \
              'signal_space_2D_histogram' | 'rel_signal_space_2D_histogram':
