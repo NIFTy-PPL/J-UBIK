@@ -1,6 +1,4 @@
-import nifty8 as ift
 import numpy as np
-from matplotlib.colors import LogNorm
 
 from ducc0.fft import good_size as good_fft_size
 import nifty8.re as jft
