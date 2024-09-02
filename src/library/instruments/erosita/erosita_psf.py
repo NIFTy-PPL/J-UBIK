@@ -189,12 +189,12 @@ class eROSITA_PSF():
 
         Parameters:
         ----------
-        energies : tuple or list of float, Array
+        energies : list of int
             List of energies (in keV) for which the PSF will be interpolated.
             Each energy value must be an integer.
         pointing_center : list of float
             Coordinates of the pointing center [x, y] for the PSF interpolation.
-        domain : pytree
+        domain : Array
             The domain over which the PSF will be defined, typically representing
             the spatial grid or region of interest.
         npatch : int
