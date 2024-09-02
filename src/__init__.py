@@ -34,7 +34,9 @@ from .library.data import (load_data_dict_from_pickle, create_mock_erosita_data,
 from .library.likelihood import generate_erosita_likelihood_from_config
 from .library.diagnostics import (compute_uncertainty_weighted_residuals,
                                   compute_noise_weighted_residuals,
-                                  plot_2d_gt_vs_rec_histogram)
+                                  plot_2d_gt_vs_rec_histogram,
+                                  calculate_nwr, 
+                                  calculate_uwr)
 from .library.mf_sky import MappedModel, GeneralModel, build_power_law
 from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
                                               _get_weights)
