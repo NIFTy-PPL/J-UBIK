@@ -1,4 +1,5 @@
 import pytest
+
 from jubik0.library.minimization_parser import (
     get_config_value, get_range_index, _delta_logic,
     n_samples_factory, sample_mode_factory,
@@ -37,13 +38,16 @@ class TestMinimizationParser:
     def test_get_config_value(self, key, config, iteration, expected):
         assert get_config_value(key, config, iteration, 0) == expected
 
-    @pytest.mark.parametrize("mini_cfg, iteration, total_iterations, expected", [
-        ({'switches': [0, 5, 10]}, 3, 10, 0),
-        ({'switches': [0, 5, 10]}, 6, 10, 1),
-        ({'switches': [0, 5, 10]}, 11, 15, 2)
-    ])
-    def test_get_range_index(self, mini_cfg, iteration, total_iterations, expected):
-        assert get_range_index(mini_cfg, iteration, total_iterations) == expected
+    @pytest.mark.parametrize("mini_cfg, iteration, total_iterations, expected",
+                             [
+                                 ({'switches': [0, 5, 10]}, 3, 10, 0),
+                                 ({'switches': [0, 5, 10]}, 6, 10, 1),
+                                 ({'switches': [0, 5, 10]}, 11, 15, 2)
+                             ])
+    def test_get_range_index(self, mini_cfg, iteration, total_iterations,
+                             expected):
+        assert get_range_index(mini_cfg, iteration,
+                               total_iterations) == expected
 
     @pytest.mark.parametrize("type, config, switches_index, expected", [
         ('kl', {'values': [0.1, 0.2, 0.3]}, 0, 1.0),
@@ -72,7 +76,8 @@ class TestMinimizationParser:
         assert kwargs['cg_kwargs']['maxiter'] == 60
 
     def test_nonlinearly_update_kwargs_factory(self):
-        nonlin_kwargs = nonlinearly_update_kwargs_factory(config, config['delta'])
+        nonlin_kwargs = nonlinearly_update_kwargs_factory(config,
+                                                          config['delta'])
         kwargs = nonlin_kwargs(11)
         assert kwargs['minimize_kwargs']['name'] == 'nonlin sampling'
         assert kwargs['minimize_kwargs']['xtol'] == 1.e-6
@@ -90,5 +95,6 @@ class TestMinimizationParser:
         assert parser.n_samples(0) == 4
         assert parser.sample_mode(0) == 'nonlinear_resample'
         assert parser.draw_linear_kwargs(0)['cg_kwargs']['maxiter'] == 60
-        assert parser.nonlinearly_update_kwargs(11)['minimize_kwargs']['maxiter'] == 35
+        assert parser.nonlinearly_update_kwargs(11)['minimize_kwargs'][
+                   'maxiter'] == 35
         assert parser.kl_kwargs(0)['minimize_kwargs']['maxiter'] == 10

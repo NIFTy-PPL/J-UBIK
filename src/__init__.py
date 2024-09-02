@@ -19,22 +19,24 @@ from .library.plot import (plot_slices, plot_result,
 from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_pspec,
                                  plot_sample_and_stats, plot_sample_and_stats,
                                  plot_erosita_priors, plot_2d_gt_vs_rec_histogram,
-                                 plot_noise_weighted_residuals, 
+                                 plot_noise_weighted_residuals,
                                  plot_uncertainty_weighted_residuals)
 from .library.mf_plot import plot_rgb
 from .library.erosita_observation import ErositaObservation
 from .library.instruments.chandra.chandra_observation import ChandraObservationInformation
 from .library.erosita_psf import eROSITA_PSF
 from .library.sky_models import SkyModel
-from .library.response import load_erosita_response, build_exposure_function, \
-    build_callable_from_exposure_file, build_readout_function,\
-    build_erosita_response_from_config, build_erosita_psf
+from .library.response import build_exposure_function, \
+    build_readout_function
+from .library.instruments.erosita.erosita_response import build_callable_from_exposure_file, \
+    build_erosita_psf, build_erosita_response_from_config, load_erosita_response
+from .library.instruments.erosita.erosita_psf import eROSITA_PSF
 from .library.data import (load_data_dict_from_pickle, create_mock_erosita_data,
                            create_erosita_data_from_config,
                            mask_erosita_data_from_disk, load_masked_data_from_config,
                            load_mock_position_from_config, save_dict_to_pickle, Domain)
 from .library.likelihood import generate_erosita_likelihood_from_config
-from .library.diagnostics import (calculate_nwr, 
+from .library.diagnostics import (calculate_nwr,
                                   calculate_uwr)
 from .library.mf_sky import MappedModel, GeneralModel, build_power_law
 from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,

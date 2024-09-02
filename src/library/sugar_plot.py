@@ -12,8 +12,8 @@ import jax.numpy as jnp
 from .diagnostics import calculate_uwr, calculate_nwr
 from .plot import plot_slices, plot_result, plot_sample_averaged_log_2d_histogram, plot_histograms
 from .utils import get_data_domain, get_stats, create_output_directory, get_config
-from ..library.instruments.chandra.chandra_observation import ChandraObservationInformation
-from ..library.response import build_erosita_response_from_config
+from .instruments.chandra.chandra_observation import ChandraObservationInformation
+from .instruments.erosita.erosita_response import build_erosita_response_from_config
 from ..library.sky_models import SkyModel
 
 from .mf_plot import plot_rgb
