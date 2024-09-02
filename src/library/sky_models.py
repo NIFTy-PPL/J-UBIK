@@ -1,3 +1,5 @@
+# Authors: Vincent Eberle, Philipp Frank, Matteo Guardiani, Margret Westerkamp
+
 from functools import partial, reduce
 
 import jax
