@@ -19,9 +19,7 @@ def add_models(m1, m2):
     Parameters
     ----------
     m1: jft.Model
-        Model for a sky component m1
     m2: jft.Model
-        Model for a sky component m2
 
     Returns
     -------
@@ -42,10 +40,8 @@ def add_functions(f1, f2):
 
     Parameters
     ----------
-    f1: jft.Model
-        Model for a sky component f1
-    f2: jft.Model
-        Model for a sky component f2
+    f1: callable 
+    f2: callable
 
     Returns
     -------
