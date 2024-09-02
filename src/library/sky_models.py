@@ -11,28 +11,49 @@ import nifty8.re as jft
 import jubik0 as ju
 
 
-def fuse_model_components(a, b):
-    # FIXME change name
+def add_models(m1, m2):
     """ Summation of two models.
 
-    Builds a model that takes two models A and B and adds their results.
+    Builds a model that takes two models m1 and m2 and adds their results.
 
     Parameters
     ----------
-    a: jft.Model
-        Model for a sky component A
-    b: jft.Model
-        Model for a sky component B
+    m1: jft.Model
+        Model for a sky component m1
+    m2: jft.Model
+        Model for a sky component m2
+
     Returns
     -------
-    model_c: jft.Model
-        Model for a sky component C
+    sum: jft.Model
     """
-    fusion = lambda x: a(x) + b(x)
+    fusion = lambda x: m1(x) + m2(x)
     # TODO Update to | notation
-    domain = a.domain
-    domain.update(b.domain)
+    domain = m1.domain
+    domain.update(m2.domain)
     return jft.Model(fusion, domain=domain)
+
+
+def add_functions(f1, f2):
+    """Summation of two functions.
+
+    Builds a function that takes two functions f1 and f2
+    and adds their results.
+
+    Parameters
+    ----------
+    f1: jft.Model
+        Model for a sky component f1
+    f2: jft.Model
+        Model for a sky component f2
+
+    Returns
+    -------
+    sum: callable
+    """
+    def function(x):
+        return f1(x) + f2(x)
+    return function
 
 
 class SkyModel:
@@ -201,7 +222,7 @@ class SkyModel:
                              'one float of a corrlated field in energy direction is taken.')
             self._create_point_source_model(sdim, edim, e_padding_ratio,
                                             self.e_distances, priors['point_sources'])
-            self.sky = fuse_model_components(self.diffuse, self.point_sources)
+            self.sky = add_models(self.diffuse, self.point_sources)
         return self.sky
 
     def _create_correlated_field(self, shape, distances, prior_dict):
@@ -500,11 +521,9 @@ class GeneralModel(jft.Model):
         self._available_fields = dict_of_fields
 
     def build_model(self):
-        """#NOTE Docstring."""
-        def add_functions(f1, f2):
-            def function(x):
-                return f1(x) + f2(x)
-            return function
+        """Returns Model from the dict_of_fields."""
+
+
 
         if 'spatial' not in self._available_fields.keys() or self._available_fields['spatial'] is None:
             raise NotImplementedError
