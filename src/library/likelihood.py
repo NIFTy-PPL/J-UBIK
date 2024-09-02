@@ -1,14 +1,12 @@
-import os
-
 import nifty8.re as jft
 
-from .data import  create_data_from_config, load_masked_data_from_config
-from .response import build_erosita_response_from_config
-from .utils import get_config
+from .data import create_data_from_config, load_masked_data_from_config
+from .. import build_erosita_response_from_config
 
 
 def generate_erosita_likelihood_from_config(config_file_path):
-    """ Creates the eROSITA Poissonian log-likelihood given the path to the config file.
+    """ Creates the eROSITA Poissonian log-likelihood given the path to the
+    config file.
 
     Parameters
     ----------
@@ -17,7 +15,8 @@ def generate_erosita_likelihood_from_config(config_file_path):
     Returns
     -------
     poissonian: jft.Likelihood
-        Poissoninan likelihood for the eROSITA data and response, specified in the config
+        Poissoninan likelihood for the eROSITA data and response, specified
+        in the config.
     """
 
     # load config

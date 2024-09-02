@@ -1,4 +1,5 @@
 import numpy as np
+
 import jubik0 as ju
 
 
@@ -12,9 +13,10 @@ def test_load_and_generate_data():
     keys = tel_info['tm_ids']
     exposures = np.random.uniform(0.,
                                   3e3,
-                                   size=len(keys) * grid_info['npix'] ** 2).reshape(len(keys),
-                                                                                    grid_info['npix'],
-                                                                                    grid_info['npix'])
+                                  size=len(keys) * grid_info[
+                                      'npix'] ** 2).reshape(len(keys),
+                                                            grid_info['npix'],
+                                                            grid_info['npix'])
 
     apply_exposure = ju.apply_exposure(exposures, 500)
     apply_mask = ju.apply_exposure_readout(exposures, 500, keys)
@@ -26,6 +28,3 @@ def test_load_and_generate_data():
     assert set(mock_data.tree.keys()) == set(masked_data.tree.keys())
     for key in mock_data.tree.keys():
         assert mock_data.tree[key].shape == masked_data.tree[key].shape
-
-
-
