@@ -501,10 +501,6 @@ class GeneralModel(jft.Model):
 
                 func = add_functions(func, extracted_dev(dev))
                 domain = domain | dev.domain
-            if 'pol' in self._available_fields.keys() and self._available_fields['pol'] is not None:
-                raise NotImplementedError
-            if 'time' in self._available_fields.keys() and self._available_fields['time'] is not None:
-                raise NotImplementedError
             res_func = lambda x: func(x) if len(func(x).shape) == 3 else jnp.reshape(func(x),
                                                                                      (1,) + func(x).shape)
             res = jft.Model(res_func, domain=domain)
