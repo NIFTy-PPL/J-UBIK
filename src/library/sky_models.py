@@ -10,44 +10,6 @@ from ducc0.fft import good_size as good_fft_size
 import nifty8.re as jft
 
 
-def add_models(m1, m2):
-    """Summation of two models.
-
-    Builds a model that takes two models m1 and m2 and adds their results.
-
-    Parameters
-    ----------
-    m1: jft.Model
-    m2: jft.Model
-
-    Returns
-    -------
-    sum: jft.Model
-    """
-    domain = m1.domain
-    domain.update(m2.domain)
-    return jft.Model(lambda x: m1(x) + m2(x), domain=domain)
-
-
-def add_functions(f1, f2):
-    """Summation of two functions.
-
-    Builds a function that takes two functions f1 and f2
-    and adds their results.
-
-    Parameters
-    ----------
-    f1: callable
-    f2: callable
-
-    Returns
-    -------
-    sum: callable
-    """
-    def function(x):
-        return f1(x) + f2(x)
-    return function
-
 
 class SkyModel:
     """
