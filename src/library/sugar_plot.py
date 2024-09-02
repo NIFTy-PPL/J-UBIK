@@ -4,6 +4,7 @@ from matplotlib.colors import LogNorm
 from os.path import join
 import numpy as np
 from jax import random, linear_transpose
+from jax.tree_util import tree_map
 import nifty8.re as jft
 import nifty8 as ift
 import jax.numpy as jnp
@@ -376,7 +377,7 @@ def plot_uncertainty_weighted_residuals(samples,
             print(f"No reference ground truth provided for {key}. "
                   "Uncertainty-weighted residuals calculation defaults to uncertainty-weighted mean.")
 
-        uwrs, exp_mask = _calculate_uwr(samples.samples, op, reference_dict[key], response_dict,
+        uwrs, exp_mask = calculate_uwr(samples.samples, op, reference_dict[key], response_dict,
                                         abs=abs, exposure_mask=mask, log=log)
         uwrs = np.array(uwrs)
         masked_uwrs = uwrs.copy()
@@ -456,7 +457,7 @@ def plot_noise_weighted_residuals(samples, operator_dict, diagnostics_path, resp
         if key == 'pspec':
             continue
         res_dict[key] = {}
-        nwrs, mask = _calculate_nwr(samples.samples, op, reference_data, response_dict,
+        nwrs, mask = calculate_nwr(samples.samples, op, reference_data, response_dict,
                                     abs=abs, min_counts=min_counts, exposure_mask=mask_exposure,
                                     response=response)
         masked_nwrs = nwrs.copy()
