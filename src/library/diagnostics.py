@@ -92,7 +92,7 @@ def calculate_nwr(pos, op, data, response_dict,
     if exposure_mask:
         exp_mask = lambda x: response_dict['exposure'](jnp.ones(op(x).shape)) == 0.
         if min_count_mask is not None:
-            tot_mask = lambda x: jnp.logical_or(min_count_mask(x), exp_mask(x), dtype=bool)
+            tot_mask = lambda x: np.logical_or(min_count_mask(x), exp_mask(x), dtype=bool)
         else:
             tot_mask = exp_mask
     else:
