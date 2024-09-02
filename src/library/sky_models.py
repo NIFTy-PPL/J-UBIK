@@ -1,7 +1,6 @@
 # Authors: Vincent Eberle, Philipp Frank, Matteo Guardiani, Margret Westerkamp
 
 from functools import partial, reduce
-
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -42,7 +41,7 @@ class SkyModel:
                 raise ValueError("The sky model parameters need to be saved in a .yaml or .yml "
                                  "file.")
 
-            self.config = ju.get_config(config_file_path)
+            self.config = get_config(config_file_path)
         else:
             self.config = {}
         self.s_distances = None
@@ -282,21 +281,21 @@ class SkyModel:
             self.alpha_cf, self.alpa_pspec = self._create_correlated_field(ext_s_shp,
                                                                            sdistances,
                                                                            prior_dict['plaw'])
-            self.plaw = ju.build_power_law(self._log_rel_ebin_centers(), self.alpha_cf)
+            self.plaw = build_power_law(self._log_rel_ebin_centers(), self.alpha_cf)
 
         if 'dev_corr' in prior_dict:
             dev_cf, self.dev_pspec = self._create_correlated_field(ext_e_shp,
                                                                    edistances,
                                                                    prior_dict['dev_cor'])
-            self.dev_cf = ju.MappedModel(dev_cf, prior_dict['dev_corr']['prefix']+'xi',
+            self.dev_cf = MappedModel(dev_cf, prior_dict['dev_corr']['prefix']+'xi',
                                          ext_s_shp, False)
         if 'dev_wp' in prior_dict:
             dev_cf = self._create_wiener_process(edims=len(self._log_rel_ebin_centers()),
                                                  dE=self._log_dE(),
                                                  **prior_dict['dev_wp'])
-            self.dev_cf = ju.MappedModel(dev_cf, prior_dict['dev_wp']['name'],
+            self.dev_cf = MappedModel(dev_cf, prior_dict['dev_wp']['name'],
                                          ext_s_shp, False)
-        log_diffuse = ju.GeneralModel({'spatial': self.spatial_cf,
+        log_diffuse = GeneralModel({'spatial': self.spatial_cf,
                                        'freq_plaw': self.plaw,
                                        'freq_dev': self.dev_cf}).build_model()
         exp_padding = lambda x: jnp.exp(log_diffuse(x)[:edim, :sdim[0], :sdim[1]])
@@ -348,7 +347,7 @@ class SkyModel:
             self.points_alpha = jft.NormalPrior(prior_dict['plaw']['mean'], prior_dict['plaw']['std'],
                                                name=prior_dict['plaw']['name'],
                                                shape=sdim, dtype=jnp.float64)
-            points_plaw = ju.build_power_law(self._log_rel_ebin_centers(), self.points_alpha)
+            points_plaw = build_power_law(self._log_rel_ebin_centers(), self.points_alpha)
             self.points_plaw = jft.Model(lambda x: points_plaw(x),
                                     domain=points_plaw.domain)
 
@@ -356,20 +355,20 @@ class SkyModel:
             points_dev_cf, self.points_dev_pspec = self._create_correlated_field(ext_e_shp,
                                                                    edistances,
                                                                    prior_dict['dev_cor'])
-            self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_corr']['prefix']+'xi',
+            self.points_dev_cf = MappedModel(points_dev_cf, prior_dict['dev_corr']['prefix']+'xi',
                                          sdim, False)
         if 'dev_wp' in prior_dict:
             points_dev_cf = self._create_wiener_process(edims=len(self._log_rel_ebin_centers()),
                                                         dE=self._log_dE(),
                                                         **prior_dict['dev_wp'])
 
-            points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
+            points_dev_cf = MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
                                                 sdim, False)
 
             self.points_dev_cf = jft.Model(lambda x: points_dev_cf(x),
                                       domain=points_dev_cf.domain)
 
-        log_points = ju.GeneralModel({'spatial': self.points_log_invg,
+        log_points = GeneralModel({'spatial': self.points_log_invg,
                                       'freq_plaw': self.points_plaw,
                                       'freq_dev': self.points_dev_cf}).build_model()
 
