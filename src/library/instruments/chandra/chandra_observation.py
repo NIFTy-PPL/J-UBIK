@@ -390,23 +390,23 @@ class ChandraObservationInformation():
 
         Parameters:
         -----------
-        location : tuple
-            Location at which to compute the PSF in celestial coordinates (RA, DEC) in units of degrees.
-        outroot : str
-            Directory where the intermediate MARX files are saved.
-        num_rays : int, optional
-            Number of detected rays in the simulation. Default is 1e4.
-        detector_type : str, optional
-            Type of detector used, either 'ACIS-I' or 'ACIS-S'. If None, the detector type from obsInfo will be used.
-             Default is None.
-        aspect_blur : float, optional
-            Accounts for the observed widening of the PSF with respect to simulations. If None, values suggested by the
-            CXC team will be used. Default is None.
+            location : tuple
+                Location at which to compute the PSF in celestial coordinates (RA, DEC) in units of degrees.
+            outroot : str
+                Directory where the intermediate MARX files are saved.
+            num_rays : int, optional
+                Number of detected rays in the simulation. Default is 1e4.
+            detector_type : str, optional
+                Type of detector used, either 'ACIS-I' or 'ACIS-S'. If None, the detector type from obsInfo will be used.
+                Default is None.
+            aspect_blur : float, optional
+                Accounts for the observed widening of the PSF with respect to simulations. If None, values suggested by the
+                CXC team will be used. Default is None.
 
         Returns:
         --------
-        np.array
-            A 3D numpy array (npix_e x npix_s x npix_s) with the simulated PSF.
+            np.array
+                A 3D numpy array (npix_e x npix_s x npix_s) with the simulated PSF.
         """
 
         self.psf_sim_coords.append(location)
