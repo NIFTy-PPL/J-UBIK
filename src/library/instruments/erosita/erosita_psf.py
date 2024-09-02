@@ -193,10 +193,11 @@ class eROSITA_PSF():
             List of energies (in keV) for which the PSF will be interpolated.
             Each energy value must be an integer.
         pointing_center : list of float
-            Coordinates of the pointing center [x, y] for the PSF interpolation.
-        domain : Array
-            The domain over which the PSF will be defined, typically representing
-            the spatial grid or region of interest.
+            Coordinates of the pointing center [ra, dec] for the
+            PSF interpolation.
+        domain : jubk0.library.data.Domain
+            The domain over which the PSF will be defined,
+            typically representing the spatial grid or region of interest.
         npatch : int
             Number of patches used to divide the domain for PSF interpolation.
 

@@ -17,10 +17,9 @@ from typing import NamedTuple
 
 
 class Domain(NamedTuple):
-    # FIXME: are we using this? Or
     """Mimicking NIFTy Domain.
 
-    Paramters:
+    Parameters
     ----------
     shape: tuple
     distances: tuple
