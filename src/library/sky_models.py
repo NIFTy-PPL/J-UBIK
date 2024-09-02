@@ -540,17 +540,19 @@ class GeneralModel(jft.Model):
 
 def build_power_law(freqs, alph):
     """Models a logarithm of a power law.
+
     Building bloc for e.g. a multifrequency model
 
     Parameters:
     -----------
-    freqs: log(frequencies) or log (energies) # FIXME use it like this in our code
+    freqs: log(frequencies) or log (energies)
+    # FIXME use it like this in our code
     alpha: 2D spectral index map
 
     returns:
     --------
-    logarithmic powerlaw, meaning a linear function
-    with slope alpha evaluated at freqs.
+    linear function: jft.Model
+        linear function, with slope alpha evaluated at freqs.
 
     """
     if isinstance(alph, jft.Model):
