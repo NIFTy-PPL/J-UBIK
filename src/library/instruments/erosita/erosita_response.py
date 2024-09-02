@@ -78,9 +78,7 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
             else:
                 raise FileNotFoundError(f'cannot find {file}!')
     exposures.append(tm_exposures)
-    exposures = np.array(exposures,
-                         dtype="float64")  # in fits there is only >f4
-    # meaning float32
+    exposures = np.array(exposures, dtype="float64")
     return builder(exposures, **kwargs)
 
 
@@ -246,8 +244,6 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
             for psf_file, pcenter in zip(psf_filenames, pointing_center)]
     psfs = np.array(psfs)
 
-    # FIXME: Check sqrt(npatch) and other related parameters
-
     shp = (domain.shape[-2], domain.shape[-1])
     margin = max((int(np.ceil(margfrac * ss)) for ss in shp))
 
@@ -261,7 +257,7 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
 
 # TODO: split functionality and config loading by implementing
 #  build_erosita_response
-def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
+def build_erosita_response():
     pass
 
 
@@ -322,7 +318,7 @@ def build_erosita_response_from_config(config_file_path):
     image_pointing_center = np.array(tuple([cfg['telescope']['fov'] / 2.] * 2))
     pointing_center = d_centers + image_pointing_center
 
-    # FIXME distances for domain energy shouldn't be hardcoded 1
+    # TODO: enable energy distances
     domain = Domain(tuple([cfg['grid']['edim']] + [cfg['grid']['sdim']] * 2),
                     tuple([1] + [
                         cfg['telescope']['fov'] / cfg['grid']['sdim']] * 2))
@@ -374,4 +370,4 @@ def build_erosita_response_from_config(config_file_path):
 
 
 def load_erosita_response():
-    pass  # TODO: implement pickle response
+    pass  # TODO: implement response pickling
