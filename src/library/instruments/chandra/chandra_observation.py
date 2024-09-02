@@ -13,7 +13,7 @@ except ImportError:
     print("Ciao is not sourced or installed. Therefore some operations can't be performed")
     pass
 
-from .library.messages import message_obs, message_binning, message_exposure
+from ....library.messages import message_obs, message_binning, message_exposure
 
 
 class ChandraObservationInformation():
@@ -534,7 +534,7 @@ class ChandraObservationInformation():
             # 5.a) filter events for the FOV
             outfits2 = outroot + 'psf_e{:d}.fits'.format(i)
             infile = outfits + '[EVENTS][x={0:.1f}:{1:.1f}, y={2:.1f}:{3:.1f}]'.format(self.obsInfo['x_min'],
-                                                                                       self.obsInfo['x_max']
+                                                                                       self.obsInfo['x_max'],
                                                                                        self.obsInfo['y_min'],
                                                                                        self.obsInfo['y_max'])
             infile += '[bin x={:.1f}:{:.1f}:#{:d}, y={:.1f}:{:.1f}:#{:d}]'.format(self.obsInfo['x_min'],
