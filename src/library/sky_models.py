@@ -2,8 +2,8 @@
 
 from functools import partial, reduce
 
-import jax
 import numpy as np
+import jax
 import jax.numpy as jnp
 
 from ducc0.fft import good_size as good_fft_size
