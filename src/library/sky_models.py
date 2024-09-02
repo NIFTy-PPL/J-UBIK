@@ -40,7 +40,7 @@ def add_functions(f1, f2):
 
     Parameters
     ----------
-    f1: callable 
+    f1: callable
     f2: callable
 
     Returns
