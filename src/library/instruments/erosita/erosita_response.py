@@ -15,17 +15,21 @@ from ....operators.jifty_convolution_operators import linpatch_convolve
 
 def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     """
-    Returns a callable function which is built from a NumPy array of exposures loaded from file.
+    Returns a callable function which is built from a NumPy array of
+    exposures loaded from file.
 
     Parameters
     ----------
     builder : function
-        A builder function that takes a NumPy array of exposures as input and outputs a callable.
-        The callable should perform an operation on a different object using the exposure.
+        A builder function that takes a NumPy array of exposures as input and
+        outputs a callable.
+        The callable should perform an operation on a different object using
+        the exposure.
     exposure_filenames : list[str]
         A list of filenames of exposure files to load.
         Files should be in a .npy or .fits format.
-        The filenames should begin with "tm" followed by the index of the telescope module,
+        The filenames should begin with "tm" followed by the index of the
+        telescope module,
         e.g. "tm1".
     **kwargs : dict, optional
         Additional keyword arguments to be passed to the callable function.
@@ -42,11 +46,16 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
 
     Notes
     -----
-    This function loads exposure files from disk and applies a callable function to the loaded
-    exposures. The exposure files should be in a .npy or .fits format. The loaded exposures are
-    stored in a NumPy array, which is passed as input to the callable function. Additional
-    keyword arguments can be passed to the callable function using **kwargs. The result of
-    applying the callable function to the loaded exposures is returned as output.
+    This function loads exposure files from disk and applies a callable
+    function to the loaded
+    exposures. The exposure files should be in a .npy or .fits format. The
+    loaded exposures are
+    stored in a NumPy array, which is passed as input to the callable
+    function. Additional
+    keyword arguments can be passed to the callable function using **kwargs.
+    The result of
+    applying the callable function to the loaded exposures is returned as
+    output.
     """
     if not isinstance(exposure_filenames, list):
         raise ValueError('`exposure_filenames` should be a `list`.')
@@ -64,11 +73,14 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
             elif file.endswith('.fits'):
                 tm_exposures.append(fits.open(file)[0].data)
             elif not (file.endswith('.npy') or file.endswith('.fits')):
-                raise ValueError('exposure files should be in a .npy or .fits format!')
+                raise ValueError(
+                    'exposure files should be in a .npy or .fits format!')
             else:
                 raise FileNotFoundError(f'cannot find {file}!')
     exposures.append(tm_exposures)
-    exposures = np.array(exposures, dtype="float64") # in fits there is only >f4 meaning float32
+    exposures = np.array(exposures,
+                         dtype="float64")  # in fits there is only >f4
+    # meaning float32
     return builder(exposures, **kwargs)
 
 
@@ -79,8 +91,10 @@ def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
     """
     Returns the effective area for the given energy range (in keV) and
     telescope module list (in cm^2).
-    The effective area is computed by linearly interpolating the effective area contained in the ARF
-     file on the desired energy ranges and taking the average within each energy range.
+    The effective area is computed by linearly interpolating the effective
+    area contained in the ARF
+     file on the desired energy ranges and taking the average within each
+     energy range.
 
     Parameters
     ----------
@@ -114,7 +128,8 @@ def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
     e_min = np.array(e_min)
     e_max = np.array(e_max)
     for tm_id in tm_ids:
-        arf_filename = join(path, f'tm{tm_id}', 'bcf', f'tm{tm_id}{arf_filename_suffix}')
+        arf_filename = join(path, f'tm{tm_id}', 'bcf',
+                            f'tm{tm_id}{arf_filename_suffix}')
         with fits.open(arf_filename) as f:
             energy_low = f['SPECRESP'].data["ENERG_LO"]
             energy_hi = f['SPECRESP'].data["ENERG_HI"]
@@ -129,7 +144,8 @@ def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
         effective_areas_in_bin = []
         for i in range(e_min.shape[0]):
             energies = np.linspace(e_min[i], e_max[i], n_points)
-            effective_areas_in_bin.append(np.mean(np.interp(energies, coords, effective_area)))
+            effective_areas_in_bin.append(
+                np.mean(np.interp(energies, coords, effective_area)))
         effective_areas.append(effective_areas_in_bin)
     return np.array(effective_areas)
 
@@ -138,7 +154,8 @@ def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
                           npatch, margfrac, want_cut=False,
                           convolution_method='LINJAX'):
     """
-    Creates a point spread function (PSF) operator for eROSITA using the provided
+    Creates a point spread function (PSF) operator for eROSITA using the
+    provided
     PSF file and parameters.
 
     Parameters:
@@ -200,20 +217,24 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
     Parameters:
     ----------
     psf_filenames : list of str
-        Paths to PSF files obtained from calibration, e.g., ['psf1.fits', 'psf2.fits'].
+        Paths to PSF files obtained from calibration, e.g., ['psf1.fits',
+        'psf2.fits'].
     energies : list of float, Array
         List of energies in keV for which the PSF will be computed.
     pointing_center : tuple or list of float, Array
-        List of pointing centers, where each center is a list of coordinates [x, y].
+        List of pointing centers, where each center is a list of coordinates
+        [x, y].
     domain : pytree
         The domain over which the PSF will be defined. This typically includes
         the spatial grid or area of interest.
     npatch : int
-        Number of patches in the PSF. This divides the domain into smaller regions
+        Number of patches in the PSF. This divides the domain into smaller
+        regions
         for convolution.
     margfrac : float
         Fractional size of the margin, defined as margin/input size. This margin
-        is needed to break periodic boundary conditions (PBC) in the patch convolution.
+        is needed to break periodic boundary conditions (PBC) in the patch
+        convolution.
 
     Returns:
     --------
@@ -244,7 +265,8 @@ def build_erosita_response(exposures, exposure_cut=0, tm_ids=None):
     exposure = build_exposure_function(exposures, exposure_cut)
     mask = build_readout_function(exposures, exposure_cut, tm_ids)
     # psf = build_erosita_psf(-...)
-    R = lambda x: mask(exposure(x))  # FIXME: should implement R = lambda x: mask(exposure(psf(x)))
+    R = lambda x: mask(exposure(
+        x))  # FIXME: should implement R = lambda x: mask(exposure(psf(x)))
     return R
 
 
@@ -281,7 +303,8 @@ def build_erosita_response_from_config(config_file_path):
                                         f"{Path(exposure_filename).stem}_emin{e}_emax{E}.fits"))
          for e, E in zip(e_min, e_max)]
 
-    psf_file_names = [join(file_info['psf_path'], 'tm'+f'{key}_'+file_info['psf_base_filename'])
+    psf_file_names = [join(file_info['psf_path'],
+                           'tm' + f'{key}_' + file_info['psf_base_filename'])
                       for key in tel_info['tm_ids']]
 
     # Get pointings for different telescope modules in RA/DEC
@@ -290,7 +313,9 @@ def build_erosita_response_from_config(config_file_path):
                                       file_info['obs_path'])
     center_stats = []
     for tm_id in tel_info['tm_ids']:
-        tmp_center_stat = obs_instance.get_pointing_coordinates_stats(tm_id, file_info['input'])
+        tmp_center_stat = obs_instance.get_pointing_coordinates_stats(tm_id,
+                                                                      file_info[
+                                                                          'input'])
         tmp_center_stat = [tmp_center_stat['RA'][0], tmp_center_stat['DEC'][0]]
         center_stats.append(tmp_center_stat)
     center_stats = np.array(center_stats)
@@ -299,16 +324,19 @@ def build_erosita_response_from_config(config_file_path):
     ref_center = center_stats[0]
     d_centers = center_stats - ref_center
     # Set the Image pointing to the center and associate with TM1 pointing
-    image_pointing_center = np.array(tuple([cfg['telescope']['fov']/2.]*2))
+    image_pointing_center = np.array(tuple([cfg['telescope']['fov'] / 2.] * 2))
     pointing_center = d_centers + image_pointing_center
 
-    #FIXME distances for domain energy shouldn't be hardcoded 1
-    domain = Domain(tuple([cfg['grid']['edim']] + [cfg['grid']['sdim']]*2),
-                    tuple([1]+[cfg['telescope']['fov']/cfg['grid']['sdim']]*2))
+    # FIXME distances for domain energy shouldn't be hardcoded 1
+    domain = Domain(tuple([cfg['grid']['edim']] + [cfg['grid']['sdim']] * 2),
+                    tuple([1] + [
+                        cfg['telescope']['fov'] / cfg['grid']['sdim']] * 2))
 
     # get psf/exposure/mask function
-    psf_func = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center,
-                                 domain, psf_info['npatch'], psf_info['margfrac'])
+    psf_func = build_erosita_psf(psf_file_names, psf_info['energy'],
+                                 pointing_center,
+                                 domain, psf_info['npatch'],
+                                 psf_info['margfrac'])
 
     tmp = build_callable_from_exposure_file(build_exposure_function,
                                             exposure_filenames,
@@ -321,13 +349,15 @@ def build_erosita_response_from_config(config_file_path):
             caldb_folder_name = file_info['caldb_folder_name']
         if 'arf_filename_suffix' in file_info.keys():
             arf_filename_suffix = file_info['arf_filename_suffix']
-        effective_area = calculate_erosita_effective_area(file_info['calibration_path'],
-                                                          tel_info['tm_ids'],
-                                                          np.array(e_min),
-                                                          np.array(e_max),
-                                                          caldb_folder_name=caldb_folder_name,
-                                                          arf_filename_suffix=arf_filename_suffix)
-        exposure_func = lambda x: tmp(x) * effective_area[:, :, np.newaxis, np.newaxis]
+        effective_area = calculate_erosita_effective_area(
+            file_info['calibration_path'],
+            tel_info['tm_ids'],
+            np.array(e_min),
+            np.array(e_max),
+            caldb_folder_name=caldb_folder_name,
+            arf_filename_suffix=arf_filename_suffix)
+        exposure_func = lambda x: tmp(x) * effective_area[:, :, np.newaxis,
+                                           np.newaxis]
     else:
         exposure_func = tmp
 
@@ -336,9 +366,10 @@ def build_erosita_response_from_config(config_file_path):
                                                   threshold=tel_info['exp_cut'],
                                                   keys=tel_info['tm_ids'])
 
-    pixel_area = (cfg['telescope']['fov'] /cfg['grid']['sdim']) **2 # density to flux
+    pixel_area = (cfg['telescope']['fov'] / cfg['grid'][
+        'sdim']) ** 2  # density to flux
     # plugin
-    response_func = lambda x: mask_func(exposure_func(psf_func(x*pixel_area)))
+    response_func = lambda x: mask_func(exposure_func(psf_func(x * pixel_area)))
     response_dict = {'pix_area': pixel_area,
                      'psf': psf_func,
                      'exposure': exposure_func,
