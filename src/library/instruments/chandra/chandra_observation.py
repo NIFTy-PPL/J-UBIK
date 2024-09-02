@@ -180,8 +180,8 @@ class ChandraObservationInformation():
             bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], np.log(self.obsInfo['energy_ranges']))
         else:
             bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], self.obsInfo['npix_e'])
-        ranges = ((self.obsInfo['x_min'],self.obsInfo['x_max']),\
-                  (self.obsInfo['y_min'],self.obsInfo['y_max']), \
+        ranges = ((self.obsInfo['x_min'],self.obsInfo['x_max']),
+                  (self.obsInfo['y_min'],self.obsInfo['y_max']),
                   (np.log(self.obsInfo['energy_min']), np.log(self.obsInfo['energy_max'])))
 
         data, edges = np.histogramdd(evts, bins=bins, range=ranges, normed=False, weights=None)
@@ -241,7 +241,7 @@ class ChandraObservationInformation():
                     rt.dmcoords.punlearn()
                     rt.dmcoords(self.obsInfo['event_file'],
                                 asol=self.obsInfo['aspect_sol'],
-                                opt='chip', chip_id=chips_on[chip],\
+                                opt='chip', chip_id=chips_on[chip],
                                 chipx=chipx, chipy=chipy)
                     edgex += [rt.dmcoords.x]
                     edgey += [rt.dmcoords.y]
@@ -272,7 +272,7 @@ class ChandraObservationInformation():
             outf = outroot + '_acis-{:d}.asphis'.format(det)
             asphist_dic[det] = outf
             evtf = self.obsInfo['event_file'] + '[ccd_id={:d}]'.format(det)
-            rt.asphist(infile=self.obsInfo['aspect_sol'], outfile=outf, evtfile=evtf,\
+            rt.asphist(infile=self.obsInfo['aspect_sol'], outfile=outf, evtfile=evtf,
                        res_xy=self.obsInfo['asphist_res_xy'], clobber='yes')
 
         # from here on things depend on energy
@@ -282,7 +282,7 @@ class ChandraObservationInformation():
         logstep = np.log(self.obsInfo['energy_max']/self.obsInfo['energy_min'])/self.obsInfo['npix_e']
         pgrid  = "1:1024:#1024,1:1024:#1024"
         xygrid = '{0:.4f}:{1:.4f}:#{2:d},{3:.4f}:{4:.4f}:#{5:d}'.format(
-                   self.obsInfo['x_min'], self.obsInfo['x_max'], self.obsInfo['npix_s'],\
+                   self.obsInfo['x_min'], self.obsInfo['x_max'], self.obsInfo['npix_s'],
                    self.obsInfo['y_min'], self.obsInfo['y_max'], self.obsInfo['npix_s'])
 
         dict_exposure_maps = {}
@@ -321,8 +321,8 @@ class ChandraObservationInformation():
                 subdet = 'ACIS-{:d}' .format(det)
                 outf   = outroot + '_imap{:d}-{:.9f}.instmap'.format(det, src_e_min)
                 instmap_dic[det] = outf
-                rt.mkinstmap(outfile=outf, monoenergy=energy, pixelgrid=pgrid,\
-                             obsfile=self.obsInfo['event_file'], detsubsys=subdet,\
+                rt.mkinstmap(outfile=outf, monoenergy=energy, pixelgrid=pgrid,
+                             obsfile=self.obsInfo['event_file'], detsubsys=subdet,
                              maskfile=self.obsInfo['mask_file'], clobber="yes", spectrumfile=specfile)
 
 
@@ -338,7 +338,7 @@ class ChandraObservationInformation():
             for det in det_num:
                 outf = outroot  + '_expmap-{:d}-{:.9f}.expmap' .format(det, src_e_min)
                 expmap_dic[det] = outf
-                rt.mkexpmap(instmapfile=instmap_dic[det], outfile=outf, asphistfile=asphist_dic[det],\
+                rt.mkexpmap(instmapfile=instmap_dic[det], outfile=outf, asphistfile=asphist_dic[det],
                             xygrid=xygrid, clobber='yes', normalize='no')
 
             # combined exposure maps for all detectors
@@ -534,13 +534,13 @@ class ChandraObservationInformation():
             # 5.a) filter events for the FOV
             outfits2 = outroot + 'psf_e{:d}.fits'.format(i)
             infile = outfits + '[EVENTS][x={0:.1f}:{1:.1f}, y={2:.1f}:{3:.1f}]'.format(self.obsInfo['x_min'],
-                                                                                       self.obsInfo['x_max'],\
+                                                                                       self.obsInfo['x_max']
                                                                                        self.obsInfo['y_min'],
                                                                                        self.obsInfo['y_max'])
             infile += '[bin x={:.1f}:{:.1f}:#{:d}, y={:.1f}:{:.1f}:#{:d}]'.format(self.obsInfo['x_min'],
-                                                                                  self.obsInfo['x_max'],\
+                                                                                  self.obsInfo['x_max'],
                                                                                   self.obsInfo['npix_s'],
-                                                                                  self.obsInfo['y_min'],\
+                                                                                  self.obsInfo['y_min'],
                                                                                   self.obsInfo['y_max'],
                                                                                   self.obsInfo['npix_s'])
             infile += '[opt type=i4]'
