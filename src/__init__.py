@@ -25,7 +25,7 @@ from .library.mf_plot import plot_rgb
 from .library.erosita_observation import ErositaObservation
 from .library.instruments.chandra.chandra_observation import ChandraObservationInformation
 from .library.instruments.erosita.erosita_psf import eROSITA_PSF
-from .library.sky_models import SkyModel, MappedModel, GeneralModel, build_power_law
+from .library.sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope
 
 from .library.response import build_exposure_function, \
     build_readout_function

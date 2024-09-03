@@ -281,7 +281,7 @@ class SkyModel:
             self.alpha_cf, self.alpa_pspec = self._create_correlated_field(ext_s_shp,
                                                                            sdistances,
                                                                            prior_dict['plaw'])
-            self.plaw = build_power_law(self._log_rel_ebin_centers(), self.alpha_cf)
+            self.plaw = _apply_slope(self._log_rel_ebin_centers(), self.alpha_cf)
 
         if 'dev_corr' in prior_dict:
             dev_cf, self.dev_pspec = self._create_correlated_field(ext_e_shp,
@@ -347,7 +347,7 @@ class SkyModel:
             self.points_alpha = jft.NormalPrior(prior_dict['plaw']['mean'], prior_dict['plaw']['std'],
                                                name=prior_dict['plaw']['name'],
                                                shape=sdim, dtype=jnp.float64)
-            points_plaw = build_power_law(self._log_rel_ebin_centers(), self.points_alpha)
+            points_plaw = _apply_slope(self._log_rel_ebin_centers(), self.points_alpha)
             self.points_plaw = jft.Model(lambda x: points_plaw(x),
                                     domain=points_plaw.domain)
 
@@ -511,7 +511,7 @@ class GeneralModel(jft.Model):
         return res
 
 
-def build_power_law(freqs, alph):
+def _apply_slope(freqs, alph):
     """Models a logarithm of a power law.
 
     Building bloc for e.g. a multifrequency model
