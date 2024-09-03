@@ -14,8 +14,9 @@ import nifty8.re as jft
 import numpy as np
 import scipy
 
+
 def load_from_pickle(file_path):
-    """ Load an object from a pickle file.
+    """Load an object from a pickle file.
 
     Parameters
     ----------
@@ -34,7 +35,7 @@ def load_from_pickle(file_path):
 
 
 def save_to_pickle(obj, file_path):
-    """ Save an object to a pickle file.
+    """Save an object to a pickle file.
 
     Parameters
     ----------
@@ -43,8 +44,6 @@ def save_to_pickle(obj, file_path):
         depending on what shall be saved to the pickle file.
     file_path : string
         Path to data file (.pkl)
-    Returns
-    -------
     """
     with open(file_path, "wb") as file:
         pickle.dump(obj, file)
