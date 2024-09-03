@@ -2,10 +2,44 @@ from astropy.io import fits
 from jax import numpy as jnp
 from os.path import join, splitext, exists
 
+import nifty8.re as jft
 from ...erosita_observation import ErositaObservation
 from ...messages import log_file_exists
-from ...utils import save_dict_to_pickle, get_config, create_output_directory, 
+from ...utils import (save_dict_to_pickle, get_config, create_output_directory,
+                      save_config_copy) 
+from ...data import create_mock_data
 
+def create_erosita_data_from_config(config_path, response_dct):
+    """ Wrapper function to create masked data either from
+    actual eROSITA observations or from generated mock data, as specified
+    in the config given at config path. In any case the data is saved to the
+    same pickle file.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to inference config file
+
+    """
+    cfg = get_config(config_path)
+
+    tel_info = cfg["telescope"]
+    file_info = cfg["files"]
+    grid_info = cfg['grid']
+    plot_info = cfg['plotting']
+    data_path = join(file_info['res_dir'], file_info['data_dict'])
+    if not exists(data_path):
+        if bool(file_info.get("mock_gen_config")):
+            jft.logger.info(f'Generating new mock data in {file_info["res_dir"]}...')
+            mock_prior_info = get_config(file_info["mock_gen_config"])
+            _ = create_mock_data(tel_info, file_info, grid_info, mock_prior_info,
+                                         plot_info, cfg['seed'], response_dct)
+            save_config_copy(file_info['mock_gen_config'], output_dir=file_info['res_dir'])
+        else:
+            jft.logger.info(f'Generating masked eROSITA data in {file_info["res_dir"]}...')
+            mask_erosita_data_from_disk(file_info, tel_info, grid_info, response_dct['mask'])
+    else:
+        jft.logger.info(f'Data in {file_info["res_dir"]} already exists. No data generation.')
 
 
 def mask_erosita_data_from_disk(file_info, tel_info, grid_info, mask_func):

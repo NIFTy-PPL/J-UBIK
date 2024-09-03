@@ -1,6 +1,7 @@
 import nifty8.re as jft
 
-from .data import create_data_from_config, load_masked_data_from_config
+from .data import load_masked_data_from_config
+from .instruments.erosita.erosita_data import create_erosita_data_from_config
 from .. import build_erosita_response_from_config
 
 
@@ -23,7 +24,7 @@ def generate_erosita_likelihood_from_config(config_file_path):
     response_dict = build_erosita_response_from_config(config_file_path)
 
     # Create data files
-    create_data_from_config(config_file_path, response_dict)
+    create_erosita_data_from_config(config_file_path, response_dict) 
     # Load data files
     masked_data = load_masked_data_from_config(config_file_path)
     response_func = response_dict['R']
