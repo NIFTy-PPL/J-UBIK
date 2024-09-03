@@ -1,3 +1,5 @@
+from .version import __version__
+
 from .library.utils import (save_to_pickle, load_from_pickle,
                             get_mask_operator, get_norm,
                             get_normed_exposure, get_norm_exposure_patches,
