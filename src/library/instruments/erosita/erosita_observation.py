@@ -13,13 +13,54 @@ from ...utils import _check_type
 
 class ErositaObservation:
     """
-    Base class to retrieve and process eROSITA data.
+    Base class for retrieving and processing eROSITA data using eSASS commands.
 
+    This class facilitates the retrieval and manipulation of eROSITA event
+    files and images.
+    It assumes the presence of standard eSASS file extensions and utilizes
+    Docker to run eSASS commands in a containerized environment.
 
-    # Input datasets: eSASS event files or images with a full set of eSASS
-    standard file
-    extensions. FIXME
+    Attributes
+    ----------
+    working_directory : str
+        Absolute path to the directory where output files will be stored.
+    input : str
+        Filename of the input eROSITA event file or image.
+    output : str
+        Filename for the output file.
+    image : str
+        Docker image to use for running eSASS commands. Defaults to the latest
+        EDR or DR1 image.
+    _mounted_dir : str
+        Directory path inside the Docker container where the working directory
+        is mounted.
+    _base_command : str
+        Base command for running eSASS commands in the Docker container.
 
+    Parameters
+    ----------
+    input_filename : str
+        Filename of the input eROSITA event file or image.
+    output_filename : str
+        Filename for the output file.
+    working_directory : str
+        Directory where output files will be stored.
+    esass_image : str, optional
+        Docker image tag to use for running eSASS commands.
+        Options are 'EDR' or 'DR1'. Defaults to 'EDR'.
+        If not provided, defaults to the latest EDR image.
+
+    Raises
+    ------
+    ValueError
+        If `esass_image` is provided but does not match 'EDR' or 'DR1'.
+
+    Notes
+    -----
+    - Ensure Docker is installed and properly configured on the system.
+    - This class assumes that eSASS commands are run in a Docker container with
+    the specified image and that the eSASS environment is correctly set up
+    within the container.
     """
 
     def __init__(self, input_filename, output_filename, working_directory,
@@ -46,14 +87,32 @@ class ErositaObservation:
 
     def get_data(self, **kwargs):
         """
-        Allows to extract and manipulate data from eROSITA event files
-        through the eSASS 'evtool'
-        command.
+        Extracts and manipulates data from eROSITA event files using the eSASS
+        'evtool' command.
+
+        This method constructs and executes a command to process eROSITA event
+        files and save the resulting dataset. The command is executed with
+        options specified through keyword arguments.
 
         Parameters
         ----------
+        **kwargs : keyword arguments
+            Additional arguments passed to the `_get_evtool_flags` method to
+            customize the behavior of the 'evtool' command.
 
-        **kwargs : keyword arguments to be passed to _get_evtool_flags
+        Returns
+        -------
+        astropy.io.fits.HDUList
+            An HDU list object containing the processed dataset, which is saved
+            to the output file path specified.
+
+        Notes
+        -----
+        - Ensure that the eSASS software is correctly installed and configured.
+        - The output file is saved in the directory specified by
+        `self.working_directory` and named according to `self.output`.
+        - This method prints messages about the status of the data collection
+        and saving process.
         """
         print("Collecting data from {}.".format(self.input))
         input_files = self._parse_stringlists(self.input,
@@ -72,22 +131,45 @@ class ErositaObservation:
     def get_exposure_maps(self, template_image, emin, emax,
                           badpix_correction=True, **kwargs):
         """
-        Computes exposure maps for eROSITA event files through the eSASS
+        Computes exposure maps for eROSITA event files using the eSASS
         'expmap' command.
+
+        This method constructs and executes the command to generate exposure
+        maps based on the provided template image and energy range.
+        If bad pixel correction is enabled, it updates the detector maps
+        before running the exposure map computation.
 
         Parameters
         ----------
-        template_image: str
-        Path to the output exposure maps will be binned as specified in the
-        WCS keywords of the
-        template image.
-        emin: float
-        emax: float
-        badpix_correction: bool (default: True)
-        Loads the corrected eROSITA detmaps. To build the bad-pixel corrected
-        maps,
-        use the auxiliary function create_erosita_badpix_to_detmaps.
-        If withinputmaps=YES: input exposure maps
+        template_image : str
+            Path to the template image file.
+            The exposure maps will be binned according
+            to the WCS keywords of this template image.
+        emin : float
+            Minimum energy in keV for the exposure map computation.
+        emax : float
+            Maximum energy in keV for the exposure map computation.
+        badpix_correction : bool, optional
+            Whether to apply bad pixel correction to the detector maps.
+            If  True, the method will update the detector maps using
+            `create_erosita_badpix_to_detmap` before computing the
+            exposure maps. Default is True.
+        **kwargs : keyword arguments
+            Additional arguments to pass to the `_get_exmap_flags` method.
+
+        Returns
+        -------
+        None
+            The method does not return a value.
+            It executes a command to generate the exposure maps, which are
+            saved to file.
+
+        Notes
+        -----
+        - Ensure that the bad pixel correction files are available in the
+        specified paths.
+        - This method requires that the eSASS software is properly installed
+        and configured.
         """
         # TODO: parameter checks
         input_files = self._parse_stringlists(self.input,
@@ -106,11 +188,11 @@ class ErositaObservation:
                 caldb_loc = caldb_loc_base.format(i + 1)
                 detmap_file = detmap_file_base.format(i + 1)
                 update_detmap_command = f' mv {caldb_loc}{detmap_file} ' \
-                                        (f'{caldb_loc}tm'
-                                         f'{i + 1}_detmap_100602v02_old.fits '
-                                         f'&& ') \
-                                        (f'cp {self._mounted_dir}new_detmaps/'
-                                         f'{detmap_file} {caldb_loc} &&')
+                    (f'{caldb_loc}tm'
+                     f'{i + 1}_detmap_100602v02_old.fits '
+                     f'&& ') \
+                    (f'cp {self._mounted_dir}new_detmaps/'
+                     f'{detmap_file} {caldb_loc} &&')
                 command += update_detmap_command
             command += ' expmap ' + input_files + flags + "'"
 
@@ -301,7 +383,7 @@ class ErositaObservation:
             "emax cannot be None.")
         flags += " withsinglemaps=yes" if withsinglemaps else ""
         flags += "" if withmergedmaps else " withmergedmaps=no"
-        flags += f" singlemaps={singlemaps_string}" if singlemaps is not None\
+        flags += f" singlemaps={singlemaps_string}" if singlemaps is not None \
             else ""
         flags += " mergedmaps={}".format(
             join(mounted_dir, mergedmaps)) if mergedmaps is not None else ""
@@ -330,29 +412,31 @@ class ErositaObservation:
                 "Type must be a list a string or a list of strings.")
 
 
-def create_erosita_badpix_to_detmap(badpix_filename="tm1_badpix_140602v01.fits",
-                                    detmap_filename="tm1_detmap_100602v02.fits",
-                                    output_filename="new_tm1_detmap_140602v01.fits"):
+def create_erosita_badpix_to_detmap(
+    badpix_filename="tm1_badpix_140602v01.fits",
+    detmap_filename="tm1_detmap_100602v02.fits",
+    output_filename="new_tm1_detmap_140602v01.fits"):
     """
-    Creates new detmaps for Erosita in which bad pixels are added to the
-    detector map.
-    To be run for ALL modules in the event file before getting exposure maps
-    with bad pixel
+    Creates a new detector map (detmap) for eROSITA by incorporating bad pixels
+    into the existing detector map. This process should be performed for all
+    modules in the event file before generating exposure maps with bad pixel
     correction.
 
-
     Parameters:
-    - badpix_filename (str): The filename of the Erosita bad pixel file.
-    Default is
-    "tm1_badpix_140602v01.fits".
-    - detmap_filename (str): The filename of the detector map file. Default is
-    "tm1_detmap_100602v02.fits".
-    - output_filename (str): The filename of the output detector map file.
-    Default is
-    "new_tm1_detmap_140602v01.fits".
+    ----------
+    badpix_filename : str, optional
+        The filename of the eROSITA bad pixel file. Default is
+        "tm1_badpix_140602v01.fits".
+    detmap_filename : str, optional
+        The filename of the detector map file. Default is
+        "tm1_detmap_100602v02.fits".
+    output_filename : str, optional
+        The filename for the output detector map with the bad pixels included.
+        Default is "new_tm1_detmap_140602v01.fits".
 
     Returns:
-    - None
+    -------
+    None
     """
     badpix_file = fits.open(badpix_filename)
     badpix = np.vstack(badpix_file[1].data)
