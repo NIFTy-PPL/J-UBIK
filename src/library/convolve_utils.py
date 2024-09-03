@@ -7,9 +7,8 @@ from functools import partial
 from jax import vmap
 from jax.scipy.ndimage import map_coordinates
 from jax.lax import cond
-from .convolution_operators import OAnew
-from src.library.jifty_convolution_operators import linpatch_convolve
-from src.library.data import Domain
+from .jifty_convolution_operators import linpatch_convolve
+from .data import Domain
 
 try:
     from .adg.nifty_convolve import get_convolve
