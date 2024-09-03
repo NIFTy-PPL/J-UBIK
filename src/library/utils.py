@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import pickle
 from importlib import resources
 from os.path import join
 from warnings import warn
