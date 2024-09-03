@@ -132,8 +132,6 @@ def create_erosita_data_from_config(config_path):
 
     processed_obs_path = create_output_directory(join(obs_path, file_info['processed_obs_folder']))
     for tm_id in tel_info["tm_ids"]:
-        # TODO: implement the following by changing the eSASS interface ErositaObservation
-        # tm_processed_path = create_output_directory(join(processed_obs_path, f'tm{tm_id}'))
         output_filenames = f'tm{tm_id}_' + file_info['output']
         exposure_filenames = f'tm{tm_id}_' + file_info['exposure']
         output_filenames = [f"{output_filenames.split('.')[0]}_emin{e}_emax{E}.fits"
@@ -150,11 +148,10 @@ def create_erosita_data_from_config(config_path):
                 _ = observation_instance.get_data(emin=e_min[e],
                                                   emax=e_max[e],
                                                   image=True,
-                                                  rebin=rebin,
+                                                  rebin=rebin, #TODO: exchange rebin by fov - 80 = 4arcsec
                                                   size=sdim,
                                                   pattern=tel_info['pattern'],
                                                   telid=tm_id)
-                # FIXME: exchange rebin by fov? 80 = 4arcsec
             else:
                 log_file_exists(join(processed_obs_path, output_filename))
 
