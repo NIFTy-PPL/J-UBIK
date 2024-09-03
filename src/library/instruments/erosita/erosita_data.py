@@ -1,5 +1,6 @@
 from astropy.io import fits
 from jax import numpy as jnp
+import numpy as np
 from os.path import join, splitext, exists
 
 import nifty8.re as jft
