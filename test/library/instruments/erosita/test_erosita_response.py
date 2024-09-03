@@ -45,7 +45,7 @@ def test_build_erosita_psf(
 
 
 @pmp("path_to_caldb", ["test_data/"])
-@pmp("tm_ids", [[1,], [1, 2], [3], [1, 2]])
+@pmp("tm_ids", [[1, ], [1, 2], [3], [1, 2]])
 @pmp("e_min, e_max", [
     ([0.2], [2.]),
     ([0.2, 2.], [1.0, 2.5]),
@@ -107,7 +107,7 @@ def test_calculate_effective_area(
 
 @pmp("s_dim", [20])
 @pmp("e_dim", [1])
-@pmp("e_min", [[0.]])
+@pmp("e_min", [[0.2]])
 @pmp("e_max", [[2.]])
 @pmp("fov", [1000])
 @pmp("tm_ids", [[1, 2]])
@@ -171,3 +171,117 @@ def test_build_erosita_response(
     assert 'exposure' in response_dict and callable(response_dict['exposure'])
     assert 'mask' in response_dict and callable(response_dict['mask'])
     assert 'R' in response_dict and callable(response_dict['R'])
+
+
+@pmp("s_dim", [20])
+@pmp("e_dim", [1])
+@pmp("e_min", [[0.2]])
+@pmp("e_max", [[2.]])
+@pmp("fov", [1000])
+@pmp("tm_ids", [[1, 2]])
+@pmp("exposure_filenames",
+     [["test_data/tm1_test_expmap_emin0.2_emax1.0.fits",
+       "test_data/tm2_test_expmap_emin0.2_emax1.0.fits", ]])
+@pmp("psf_filenames", [["test_data/tm1_2dpsf_190219v05.fits",
+                        "test_data/tm2_2dpsf_190219v05.fits"]])
+@pmp("psf_energy", [["3000"]])
+@pmp("pointing_center", [[(1., 1.), (1., 1.)]])
+@pmp("n_patch", [1])
+@pmp("margfrac", [0.1])
+@pmp("exposure_threshold", [0.1])
+@pmp("path_to_caldb", [None, "test_data/"])
+@pmp("caldb_folder_name", [None, "caldb"])
+@pmp("arf_filename_suffix", [None, "_arf_filter_000101v02.fits"])
+@pmp("effective_area_correction", [False, False])
+def test_build_erosita_response_2(
+    s_dim,
+    e_dim,
+    e_min,
+    e_max,
+    fov,
+    tm_ids,
+    exposure_filenames,
+    psf_filenames,
+    psf_energy,
+    pointing_center,
+    n_patch,
+    margfrac,
+    exposure_threshold,
+    path_to_caldb,
+    caldb_folder_name,
+    arf_filename_suffix,
+    effective_area_correction,
+):
+    # Mock the data that would be read from the FITS files
+    mock_exposure_data = np.ones((s_dim, s_dim)) * 1000  # Example exposure data
+    mock_psf_data = np.ones((s_dim, s_dim)) * 0.001  # Example PSF data
+    mock_arf_data = {
+        'ENERG_LO': np.array([0.1, 1.0, 2.0]),
+        'ENERG_HI': np.array([1.0, 2.0, 3.0]),
+        'SPECRESP': np.array([100, 200, 300])
+    }  # Example ARF data
+
+    # Example energy data that the PSF is supposed to handle
+    mock_energy_data = ['3000', '5000', '7000'] # Replace with the correct values
+
+    with patch('astropy.io.fits.open') as mock_fits_open:
+        # Mocking the FITS files
+        mock_fits_exposure = MagicMock()
+        mock_fits_exposure.__enter__.return_value = [
+            MagicMock(data=mock_exposure_data)]
+
+        mock_fits_psf = MagicMock()
+        mock_fits_psf.__enter__.return_value = [MagicMock(data=mock_psf_data)]
+
+        mock_fits_arf = MagicMock()
+        mock_fits_arf.__enter__.return_value = {
+            'SPECRESP': MagicMock(data=mock_arf_data)
+        }
+
+        # Set up the side effect for `fits.open`
+        def side_effect(file, *args, **kwargs):
+            if "expmap" in file:
+                return mock_fits_exposure
+            elif "2dpsf" in file:
+                return mock_fits_psf
+            elif "arf_filter" in file:
+                return mock_fits_arf
+            else:
+                return MagicMock()
+
+        mock_fits_open.side_effect = side_effect
+
+        # Patch the method `_load_energy` to return the mock energy data
+        with patch(
+            'jubik0.library.instruments.erosita.erosita_psf.eROSITA_PSF._load_energy',
+            return_value=mock_energy_data):
+
+            response_dict = ju.build_erosita_response(
+                s_dim,
+                e_dim,
+                e_min,
+                e_max,
+                fov,
+                tm_ids,
+                exposure_filenames,
+                psf_filenames,
+                psf_energy,
+                pointing_center,
+                n_patch,
+                margfrac,
+                exposure_threshold,
+                path_to_caldb,
+                caldb_folder_name,
+                arf_filename_suffix,
+                effective_area_correction,
+            )
+
+            # Assertions to verify that the function behaves as expected
+            assert isinstance(response_dict, dict)
+            assert 'pix_area' in response_dict and isinstance(
+                response_dict['pix_area'], float)
+            assert 'psf' in response_dict and callable(response_dict['psf'])
+            assert 'exposure' in response_dict and callable(
+                response_dict['exposure'])
+            assert 'mask' in response_dict and callable(response_dict['mask'])
+            assert 'R' in response_dict and callable(response_dict['R'])
