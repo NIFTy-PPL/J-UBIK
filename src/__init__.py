@@ -47,7 +47,6 @@ from .operators.jifty_convolution_operators import (_bilinear_weights,
                                                     linpatch_convolve,
                                                     jifty_convolve)
 from .operators.zero_padder import MarginZeroPadder
-from .operators.reverse_outer_product import ReverseOuterProduct
 from .operators.convolve_utils import get_gaussian_kernel
 
 from .library.minimization_parser import MinimizationParser
