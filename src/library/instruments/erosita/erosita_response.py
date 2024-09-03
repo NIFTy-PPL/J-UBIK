@@ -47,15 +47,13 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     Notes
     -----
     This function loads exposure files from disk and applies a callable
-    function to the loaded
-    exposures. The exposure files should be in a .npy or .fits format. The
-    loaded exposures are
-    stored in a NumPy array, which is passed as input to the callable
-    function. Additional
-    keyword arguments can be passed to the callable function using **kwargs.
-    The result of
-    applying the callable function to the loaded exposures is returned as
-    output.
+    function to the loaded exposures.
+    The exposure files should be in a .npy or .fits format.
+    The loaded exposures are stored in a NumPy array, which is passed as
+    input to the callable function. Additional keyword arguments can be
+    passed to the callable function using **kwargs.
+    The result of applying the callable function to the loaded exposures
+    is returned as output.
     """
     if not isinstance(exposure_filenames, list):
         raise ValueError('`exposure_filenames` should be a `list`.')
@@ -90,9 +88,8 @@ def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
     Returns the effective area for the given energy range (in keV) and
     telescope module list (in cm^2).
     The effective area is computed by linearly interpolating the effective
-    area contained in the ARF
-     file on the desired energy ranges and taking the average within each
-     energy range.
+    area contained in the ARF file on the desired energy ranges and taking
+    the average within each energy range.
 
     Parameters
     ----------
@@ -153,8 +150,7 @@ def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
                           convolution_method='LINJAX'):
     """
     Creates a point spread function (PSF) operator for eROSITA using the
-    provided
-    PSF file and parameters.
+    provided PSF file and parameters.
 
     Parameters:
     -----------
@@ -227,11 +223,11 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
         List of lists containing RA and Dec coordinates (in degrees)
         of the observations' pointing center.
     domain : jubik0.library.data Domain
-        The domain over which the PSF will be defined. This contains
-        information about the grid on which the PSF is defined.
+        The domain over which the PSF will be defined.
+        This contains information about the grid on which the PSF is defined.
     npatch : int
-        Number of patches in the PSF. This divides the domain into smaller
-        regions for convolution.
+        Number of patches in the PSF.
+        This divides the domain into smaller regions for convolution.
     margfrac : float
         Specifies the fraction of the zero-padding with respect to the spatial
         domain shape size. This margin is needed to break periodic boundary
@@ -278,8 +274,8 @@ def build_erosita_response(
     effective_area_correction: bool = True,
 ):
     """
-    Constructs a response function for the eROSITA X-ray telescope, incorporating
-    exposure, point spread function (PSF), and mask data.
+    Constructs a response function for the eROSITA X-ray telescope,
+    incorporating exposure, point spread function (PSF), and mask data.
 
     Parameters
     ----------
@@ -318,7 +314,8 @@ def build_erosita_response(
         Suffix for the ARF (Auxiliary Response File) filenames,
         by default '_arf_filter_000101v02.fits'.
     effective_area_correction : bool, optional
-        If True, apply effective area correction using the ARF files, by default True.
+        If True, apply effective area correction using the ARF files,
+        by default True.
 
     Returns
     -------
@@ -329,7 +326,8 @@ def build_erosita_response(
             'psf': callable
                 PSF function applied over the defined domain.
             'exposure': callable
-                Exposure function incorporating optional effective area correction.
+                Exposure function incorporating optional effective area
+                correction.
             'mask': callable
                 Mask function derived from exposure maps.
             'R': callable
@@ -348,14 +346,14 @@ def build_erosita_response(
 
     tmp = build_callable_from_exposure_file(build_exposure_function,
                                             exposure_filenames,
-                                            exposure_cut=exposure_threshold,)
+                                            exposure_cut=exposure_threshold, )
 
     if effective_area_correction:
         if path_to_caldb is None:
             raise ValueError(
                 '`path_to_caldb` is required when `effective_area_correction` '
                 'is True.'
-                )
+            )
         effective_area = calculate_erosita_effective_area(
             path_to_caldb,
             tm_ids,
