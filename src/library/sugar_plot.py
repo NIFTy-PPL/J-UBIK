@@ -9,8 +9,8 @@ import nifty8.re as jft
 import nifty8 as ift
 import jax.numpy as jnp
 
-
-from .plot import plot_slices, plot_result, plot_histograms, plot_sample_averaged_log_2d_histogram
+from .diagnostics import calculate_uwr, calculate_nwr
+from .plot import plot_slices, plot_result, plot_sample_averaged_log_2d_histogram, plot_histograms
 from .utils import get_data_domain, get_stats, create_output_directory, get_config
 from .instruments.chandra.chandra_observation import ChandraObservationInformation
 from .instruments.erosita.erosita_response import build_erosita_response_from_config
