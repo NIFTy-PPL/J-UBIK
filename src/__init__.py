@@ -39,9 +39,8 @@ from .library.data import (load_data_dict_from_pickle, create_mock_erosita_data,
 from .library.likelihood import generate_erosita_likelihood_from_config
 from .library.diagnostics import (calculate_nwr,
                                   calculate_uwr)
-from src.library.jifty_convolution_operators import (_bilinear_weights,
+from .library.jifty_convolution_operators import (_bilinear_weights,
                                                      slice_patches,
                                                      linpatch_convolve,
                                                      jifty_convolve)
-
 from .library.minimization_parser import MinimizationParser
