@@ -10,7 +10,7 @@ from ...data import Domain
 from ...erosita_observation import ErositaObservation
 from ...response import build_exposure_function, build_readout_function
 from ...utils import get_config
-from ....operators.jifty_convolution_operators import linpatch_convolve
+from ...jifty_convolution_operators import linpatch_convolve
 
 
 def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):

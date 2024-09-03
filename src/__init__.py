@@ -40,14 +40,8 @@ from .library.data import (create_mock_data, load_masked_data_from_config,
 from .library.likelihood import generate_erosita_likelihood_from_config
 from .library.diagnostics import (calculate_nwr,
                                   calculate_uwr)
-from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
-                                              _get_weights)
-from .operators.jifty_convolution_operators import (_bilinear_weights,
-                                                    slice_patches,
-                                                    linpatch_convolve,
-                                                    jifty_convolve)
-from .operators.zero_padder import MarginZeroPadder
-from .operators.reverse_outer_product import ReverseOuterProduct
-from .operators.convolve_utils import get_gaussian_kernel
-
+from .library.jifty_convolution_operators import (_bilinear_weights,
+                                                     slice_patches,
+                                                     linpatch_convolve,
+                                                     jifty_convolve)
 from .library.minimization_parser import MinimizationParser
