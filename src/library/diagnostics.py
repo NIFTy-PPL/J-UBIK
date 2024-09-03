@@ -9,6 +9,11 @@ def calculate_uwr(pos, op, ground_truth, response_dict,
     """
     Calculate the uncertainty-weighted residuals.
     
+    The formula used is:
+        (mean(op(pos)) - ground_truth) / std(op(pos))
+
+    if ground_truth is None, it is set to 0.
+
     Parameters
     ----------
     pos : jft.Vector
