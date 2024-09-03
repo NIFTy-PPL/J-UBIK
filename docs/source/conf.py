@@ -52,17 +52,17 @@ add_module_names = False
 
 html_theme = "pydata_sphinx_theme"
 # html_context = {"default_mode": "light"}
-# html_logo = 'nifty_logo_black.png'
+# html_logo = 'logo_black.png'
 
 html_theme_options = {
     "logo": {
-     #   "image_light": "nifty_logo_black.png",
-     #   "image_dark": "nifty_logo_black.png"
+     #   "image_light": "logo_black.png",
+     #   "image_dark": "logo_black.png"
     },
     "icon_links": [
         #{
         #    "name": "PyPI",
-        #    "url": "https://pypi.org/project/nifty8",
+        #    "url": "https://pypi.org/project/jubik0",
         #    "icon": "fas fa-box",
         #},
         {
