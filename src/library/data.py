@@ -105,7 +105,6 @@ def create_mock_data(tel_info, file_info, grid_info, prior_info, plot_info,
 
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
-    energy_range = np.array(e_max) - np.array(e_min)
 
     key, subkey = random.split(key)
     sky_model = SkyModel()
