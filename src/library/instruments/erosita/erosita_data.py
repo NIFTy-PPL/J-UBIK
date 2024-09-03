@@ -10,7 +10,7 @@ from ...utils import (save_to_pickle, get_config, create_output_directory,
                       save_config_copy) 
 from ...data import create_mock_data
 
-def create_erosita_data_from_config(config_path, response_dct):
+def create_erosita_data_from_config(config_path, response_dict):
     """ Wrapper function to create masked data either from
     actual eROSITA observations or from generated mock data, as specified
     in the config given at config path. In any case the data is saved to the
@@ -20,6 +20,8 @@ def create_erosita_data_from_config(config_path, response_dct):
     ----------
     config_path : str
         Path to inference config file
+    response_dict : dict
+        Dictionary of all available response functionalities i.e. response, mask, psf
 
     """
     cfg = get_config(config_path)
@@ -34,11 +36,11 @@ def create_erosita_data_from_config(config_path, response_dct):
             jft.logger.info(f'Generating new mock data in {file_info["res_dir"]}...')
             mock_prior_info = get_config(file_info["mock_gen_config"])
             _ = create_mock_data(tel_info, file_info, grid_info, mock_prior_info,
-                                         plot_info, cfg['seed'], response_dct)
+                                         plot_info, cfg['seed'], response_dict)
             save_config_copy(file_info['mock_gen_config'], output_dir=file_info['res_dir'])
         else:
             jft.logger.info(f'Generating masked eROSITA data in {file_info["res_dir"]}...')
-            mask_erosita_data_from_disk(file_info, tel_info, grid_info, response_dct['mask'])
+            mask_erosita_data_from_disk(file_info, tel_info, grid_info, response_dict['mask'])
     else:
         jft.logger.info(f'Data in {file_info["res_dir"]} already exists. No data generation.')
 
