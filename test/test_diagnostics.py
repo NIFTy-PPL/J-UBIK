@@ -33,7 +33,7 @@ def test_calculate_uwr(sample_data):
 
 def test_calculate_nwr(sample_data):
     pos, op, _, data, response_dict = sample_data
-    res, tot_mask = ju. calculate_nwr(pos, op, data, response_dict, abs=True, 
+    res, tot_mask = ju.calculate_nwr(pos, op, data, response_dict, abs=True,
                                       min_counts=1, exposure_mask=True, response=True)
     
     assert res is not None
