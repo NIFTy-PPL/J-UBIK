@@ -47,15 +47,13 @@ def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
     Notes
     -----
     This function loads exposure files from disk and applies a callable
-    function to the loaded
-    exposures. The exposure files should be in a .npy or .fits format. The
-    loaded exposures are
-    stored in a NumPy array, which is passed as input to the callable
-    function. Additional
-    keyword arguments can be passed to the callable function using **kwargs.
-    The result of
-    applying the callable function to the loaded exposures is returned as
-    output.
+    function to the loaded exposures.
+    The exposure files should be in a .npy or .fits format.
+    The loaded exposures are stored in a NumPy array, which is passed as
+    input to the callable function. Additional keyword arguments can be
+    passed to the callable function using **kwargs.
+    The result of applying the callable function to the loaded exposures
+    is returned as output.
     """
     if not isinstance(exposure_filenames, list):
         raise ValueError('`exposure_filenames` should be a `list`.')
@@ -90,9 +88,8 @@ def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
     Returns the effective area for the given energy range (in keV) and
     telescope module list (in cm^2).
     The effective area is computed by linearly interpolating the effective
-    area contained in the ARF
-     file on the desired energy ranges and taking the average within each
-     energy range.
+    area contained in the ARF file on the desired energy ranges and taking
+    the average within each energy range.
 
     Parameters
     ----------
@@ -153,8 +150,7 @@ def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
                           convolution_method='LINJAX'):
     """
     Creates a point spread function (PSF) operator for eROSITA using the
-    provided
-    PSF file and parameters.
+    provided PSF file and parameters.
 
     Parameters:
     -----------
@@ -162,14 +158,18 @@ def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
         Filename of the PSF file, e.g., '2dpsf_190219v05.fits'.
     energies : list of float
         List of energies in keV for which the PSF will be computed.
-    pointing_center : array-like
-        The pointing center coordinates for the PSF.
+    pointing_center : list of list, Array
+        List of lists containing RA and Dec coordinates (in degrees)
+        of the observations' pointing center.
     domain : object
         The domain over which the PSF will be defined.
     npatch : int
-        Number of patches in the PSF.
+        Number of patches in the PSF. This divides the domain into smaller
+        regions for convolution.
     margfrac : float
-        Fraction of margin to be considered for the linpatch convolution.
+        Specifies the fraction of the zero-padding with respect to the spatial
+        domain shape size. This margin is needed to break periodic boundary
+        conditions in the patch convolution.
     want_cut : bool, optional
         If True, apply a cut to the PSF. Default is False.
     convolution_method : str, optional
@@ -219,20 +219,19 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
         'psf2.fits'].
     energies : list of float, Array
         List of energies in keV for which the PSF will be computed.
-    pointing_center : tuple or list of float, Array
-        List of pointing centers, where each center is a list of coordinates
-        [x, y].
-    domain : pytree
-        The domain over which the PSF will be defined. This typically includes
-        the spatial grid or area of interest.
+    pointing_center : list of list, Array
+        List of lists containing RA and Dec coordinates (in degrees)
+        of the observations' pointing center.
+    domain : jubik0.library.data Domain
+        The domain over which the PSF will be defined.
+        This contains information about the grid on which the PSF is defined.
     npatch : int
-        Number of patches in the PSF. This divides the domain into smaller
-        regions
-        for convolution.
+        Number of patches in the PSF.
+        This divides the domain into smaller regions for convolution.
     margfrac : float
-        Fractional size of the margin, defined as margin/input size. This margin
-        is needed to break periodic boundary conditions (PBC) in the patch
-        convolution.
+        Specifies the fraction of the zero-padding with respect to the spatial
+        domain shape size. This margin is needed to break periodic boundary
+        conditions in the patch convolution.
 
     Returns:
     --------
@@ -255,10 +254,142 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
     return psf_op
 
 
-# TODO: split functionality and config loading by implementing
-#  build_erosita_response
-def build_erosita_response():
-    pass
+def build_erosita_response(
+    s_dim,
+    e_dim,
+    e_min,
+    e_max,
+    fov,
+    tm_ids,
+    exposure_filenames,
+    psf_filenames,
+    psf_energy,
+    pointing_center,
+    n_patch,
+    margfrac,
+    exposure_threshold,
+    path_to_caldb: str = None,
+    caldb_folder_name: str = 'caldb',
+    arf_filename_suffix: str = '_arf_filter_000101v02.fits',
+    effective_area_correction: bool = True,
+):
+    """
+    Constructs a response function for the eROSITA X-ray telescope,
+    incorporating exposure, point spread function (PSF), and mask data.
+
+    Parameters
+    ----------
+    s_dim : int
+        Spatial dimension (number of pixels) along one axis of the image grid.
+    e_dim : int
+        Energy dimension (number of energy bins).
+    e_min : array-like
+        Lower bounds of the energy bins (in keV).
+    e_max : array-like
+        Upper bounds of the energy bins (in keV).
+    fov : float
+        Field of view (FOV) of the observation, in arcseconds.
+    tm_ids : list of int
+        List of telescope module IDs to be used.
+    exposure_filenames : list of str
+        Filenames of the exposure maps.
+    psf_filenames : list of str
+        Filenames of the PSF data files.
+    psf_energy : Array
+        Energy levels at which the PSF is defined.
+    pointing_center : list of list, Array
+        List of lists containing RA and Dec coordinates (in degrees)
+        of the observations' pointing center.
+    n_patch : int
+        Number of patches used in PSF interpolation.
+    margfrac : float
+        Fraction of the PSF margin to include.
+    exposure_threshold : float
+        Threshold below which exposure is considered zero.
+    path_to_caldb : str
+        Path to the calibration database (CALDB).
+    caldb_folder_name : str, optional
+        Name of the calibration database folder, by default 'caldb'.
+    arf_filename_suffix : str, optional
+        Suffix for the ARF (Auxiliary Response File) filenames,
+        by default '_arf_filter_000101v02.fits'.
+    effective_area_correction : bool, optional
+        If True, apply effective area correction using the ARF files,
+        by default True.
+
+    Returns
+    -------
+    response_dict : dict
+        Dictionary containing the following keys:
+            'pix_area': float
+                Pixel area corresponding to the FOV and spatial dimension.
+            'psf': callable
+                PSF function applied over the defined domain.
+            'exposure': callable
+                Exposure function incorporating optional effective area
+                correction.
+            'mask': callable
+                Mask function derived from exposure maps.
+            'R': callable
+                Combined response function including PSF, exposure, and mask.
+    """
+    if not isinstance(e_min, list):
+        raise TypeError("e_min must be a list!")
+
+    if not isinstance(e_max, list):
+        raise TypeError("e_max must be a list!")
+
+    if len(e_max) != len(e_max):
+        raise ValueError("e_min and e_max must have the same length!")
+
+    pixel_area = (fov / s_dim) ** 2  # density to flux
+
+    tmp = build_callable_from_exposure_file(build_exposure_function,
+                                            exposure_filenames,
+                                            exposure_cut=exposure_threshold, )
+
+    if effective_area_correction:
+        if path_to_caldb is None:
+            raise ValueError(
+                '`path_to_caldb` is required when `effective_area_correction` '
+                'is True.'
+            )
+        effective_area = calculate_erosita_effective_area(
+            path_to_caldb,
+            tm_ids,
+            np.array(e_min),
+            np.array(e_max),
+            caldb_folder_name=caldb_folder_name,
+            arf_filename_suffix=arf_filename_suffix)
+        exposure_func = lambda x: (tmp(x) *
+                                   effective_area[:, :, np.newaxis, np.newaxis])
+    else:
+        exposure_func = tmp
+
+    mask_func = build_callable_from_exposure_file(
+        build_readout_function,
+        exposure_filenames,
+        threshold=exposure_threshold,
+        keys=tm_ids)
+
+    # TODO: enable energy distances
+    domain = Domain(tuple([e_dim] + [s_dim] * 2),
+                    tuple([1] + [fov / s_dim] * 2))
+
+    psf_func = build_erosita_psf(psf_filenames,
+                                 psf_energy,
+                                 pointing_center,
+                                 domain,
+                                 n_patch,
+                                 margfrac)
+
+    response_func = lambda x: mask_func(exposure_func(psf_func(x * pixel_area)))
+    response_dict = {'pix_area': pixel_area,
+                     'psf': psf_func,
+                     'exposure': exposure_func,
+                     'mask': mask_func,
+                     'R': response_func}
+    return response_dict
 
 
 def build_erosita_response_from_config(config_file_path):
@@ -275,15 +406,6 @@ def build_erosita_response_from_config(config_file_path):
     # load energies
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
-
-    if not isinstance(e_min, list):
-        raise TypeError("e_min must be a list!")
-
-    if not isinstance(e_max, list):
-        raise TypeError("e_max must be a list!")
-
-    if len(e_max) != len(e_max):
-        raise ValueError("e_min and e_max must have the same length!")
 
     # lists for exposure and psf files
     exposure_filenames = []
@@ -314,24 +436,10 @@ def build_erosita_response_from_config(config_file_path):
     # center with respect to TM1
     ref_center = center_stats[0]
     d_centers = center_stats - ref_center
+
     # Set the Image pointing to the center and associate with TM1 pointing
     image_pointing_center = np.array(tuple([cfg['telescope']['fov'] / 2.] * 2))
     pointing_center = d_centers + image_pointing_center
-
-    # TODO: enable energy distances
-    domain = Domain(tuple([cfg['grid']['edim']] + [cfg['grid']['sdim']] * 2),
-                    tuple([1] + [
-                        cfg['telescope']['fov'] / cfg['grid']['sdim']] * 2))
-
-    # get psf/exposure/mask function
-    psf_func = build_erosita_psf(psf_file_names, psf_info['energy'],
-                                 pointing_center,
-                                 domain, psf_info['npatch'],
-                                 psf_info['margfrac'])
-
-    tmp = build_callable_from_exposure_file(build_exposure_function,
-                                            exposure_filenames,
-                                            exposure_cut=tel_info['exp_cut'])
 
     if tel_info['effective_area_correction']:
         caldb_folder_name = 'caldb'
@@ -340,33 +448,25 @@ def build_erosita_response_from_config(config_file_path):
             caldb_folder_name = file_info['caldb_folder_name']
         if 'arf_filename_suffix' in file_info.keys():
             arf_filename_suffix = file_info['arf_filename_suffix']
-        effective_area = calculate_erosita_effective_area(
-            file_info['calibration_path'],
-            tel_info['tm_ids'],
-            np.array(e_min),
-            np.array(e_max),
-            caldb_folder_name=caldb_folder_name,
-            arf_filename_suffix=arf_filename_suffix)
-        exposure_func = lambda x: tmp(x) * effective_area[:, :, np.newaxis,
-                                           np.newaxis]
-    else:
-        exposure_func = tmp
 
-    mask_func = build_callable_from_exposure_file(build_readout_function,
-                                                  exposure_filenames,
-                                                  threshold=tel_info['exp_cut'],
-                                                  keys=tel_info['tm_ids'])
-
-    pixel_area = (cfg['telescope']['fov'] / cfg['grid'][
-        'sdim']) ** 2  # density to flux
-    # plugin
-    response_func = lambda x: mask_func(exposure_func(psf_func(x * pixel_area)))
-    response_dict = {'pix_area': pixel_area,
-                     'psf': psf_func,
-                     'exposure': exposure_func,
-                     'mask': mask_func,
-                     'R': response_func}
-    return response_dict
+    return build_erosita_response(
+        e_dim=grid_info['edim'],
+        s_dim=grid_info['sdim'],
+        e_min=e_min,
+        e_max=e_max,
+        exposure_filenames=exposure_filenames,
+        psf_filenames=psf_file_names,
+        psf_energy=psf_info['energy'],
+        pointing_center=pointing_center,
+        fov=tel_info['fov'],
+        tm_ids=tel_info['tm_ids'],
+        n_patch=psf_info['npatch'],
+        margfrac=psf_info['margfrac'],
+        exposure_threshold=tel_info['exp_cut'],
+        path_to_caldb=file_info['calibration_path'],
+        caldb_folder_name=caldb_folder_name,
+        arf_filename_suffix=arf_filename_suffix
+    )
 
 
 def load_erosita_response():
