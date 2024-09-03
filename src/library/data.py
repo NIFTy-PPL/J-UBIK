@@ -27,7 +27,7 @@ class Domain(NamedTuple):
 
 
 def load_masked_data_from_config(config_path):
-    """ Wrapper function load masked eROSITA data from config path
+    """ Wrapper function load masked data from config path
         from generated pickle-files.
 
     Parameters
@@ -52,7 +52,7 @@ def load_masked_data_from_config(config_path):
 
 
 def load_mock_position_from_config(config_path):
-    """ Wrapper function to load the mock sky position for the eROSITA mock data config path
+    """ Wrapper function to load the mock sky position for the mock data config path
         from pickle-file.
 
     Parameters
@@ -79,7 +79,7 @@ def load_mock_position_from_config(config_path):
 
 def create_mock_data(tel_info, file_info, grid_info, prior_info, plot_info,
                              seed, response_dict):
-    """ Generates and saves eROSITA mock data to pickle file.
+    """ Generates and saves mock data to pickle file.
 
     Parameters
     ----------
@@ -97,6 +97,7 @@ def create_mock_data(tel_info, file_info, grid_info, prior_info, plot_info,
         Random seed for mock position generataion
     response_dict : dict
         Dictionary of all available response functionalities i.e. response, mask, psf
+    
     Returns
     -------
     masked_mock_data: jft.Vector
