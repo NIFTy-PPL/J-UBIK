@@ -5,7 +5,7 @@ from os.path import join, splitext, exists
 import nifty8.re as jft
 from ...erosita_observation import ErositaObservation
 from ...messages import log_file_exists
-from ...utils import (save_dict_to_pickle, get_config, create_output_directory,
+from ...utils import (save_to_pickle, get_config, create_output_directory,
                       save_config_copy) 
 from ...data import create_mock_data
 
@@ -88,7 +88,7 @@ def mask_erosita_data_from_disk(file_info, tel_info, grid_info, mask_func):
         data_list.append(data)
     data = jnp.stack(jnp.array(data_list, dtype=int))
     masked_data_vector = mask_func(data)
-    save_dict_to_pickle(masked_data_vector.tree, join(file_info['res_dir'], file_info["data_dict"]))
+    save_to_pickle(masked_data_vector.tree, join(file_info['res_dir'], file_info["data_dict"]))
     return masked_data_vector
 
 

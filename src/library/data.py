@@ -9,7 +9,7 @@ import nifty8.re as jft
 
 from .erosita_observation import ErositaObservation
 from .sky_models import SkyModel
-from .utils import (get_config, create_output_directory, save_dict_to_pickle,
+from .utils import (get_config, create_output_directory, save_to_pickle,
                     load_from_pickle)
 from .plot import plot_result
 
@@ -131,8 +131,8 @@ def create_mock_data(tel_info, file_info, grid_info, prior_info, plot_info,
         tm: random.poisson(subkeys[i], data).astype(int)
         for i, (tm, data) in enumerate(masked_mock_data.tree.items())
     })
-    save_dict_to_pickle(masked_mock_data.tree, join(output_path, file_info['data_dict']))
-    save_dict_to_pickle(mock_sky_position.tree, join(output_path, file_info['pos_dict']))
+    save_to_pickle(masked_mock_data.tree, join(output_path, file_info['data_dict']))
+    save_to_pickle(mock_sky_position.tree, join(output_path, file_info['pos_dict']))
     if plot_info['enabled']:
         jft.logger.info('Plotting mock data and mock sky.')
         plottable_vector = jft.Vector({key: val.astype(float) for key, val

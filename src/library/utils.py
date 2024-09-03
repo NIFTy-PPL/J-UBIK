@@ -25,7 +25,7 @@ def load_from_pickle(file_path):
 
     Returns
     -------
-    dct : object
+    obj : object
         The object loaded from the pickle file. The type of this object can vary
         depending on what was originally serialized into the pickle file.
     """
@@ -34,20 +34,21 @@ def load_from_pickle(file_path):
     return obj
 
 
-def save_dict_to_pickle(dictionary, file_path):
-    """ Save data dictionary to pickle file
+def save_to_pickle(obj, file_path):
+    """ Save an object to a pickle file.
 
     Parameters
     ----------
-    dictionary : dict
-        Data dictionary, which is saved.
+    obj : object
+        The object saved to the pickle file. The type of this object can vary
+        depending on what shall be saved to the pickle file.
     file_path : string
         Path to data file (.pkl)
     Returns
     -------
     """
     with open(file_path, "wb") as file:
-        pickle.dump(dictionary, file)
+        pickle.dump(obj, file)
 
 
 def get_stats(sample_list, func):
