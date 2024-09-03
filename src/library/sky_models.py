@@ -1,33 +1,14 @@
-import nifty8 as ift
+# Authors: Vincent Eberle, Philipp Frank, Matteo Guardiani, Margret Westerkamp
+
+from functools import partial, reduce
 import numpy as np
-from matplotlib.colors import LogNorm
+import jax
+import jax.numpy as jnp
 
 from ducc0.fft import good_size as good_fft_size
 import nifty8.re as jft
-import jubik0 as ju
-from jax import numpy as jnp
 
-
-def fuse_model_components(model_a, model_b):
-    """ Takes two models A and B and fuses them to a model C such that the application
-    of model C to some latent space x yields C(X) = A(X) + B(X)
-
-    Parameters
-    ----------
-    model_a: jft.Model
-        Model for a sky component A
-    model_b: jft.Model
-        Model for a sky component B
-    Returns
-    -------
-    model_c: jft.Model
-        Model for a sky component C
-    """
-    fusion = lambda x: model_a(x) + model_b(x)
-    domain = model_a.domain
-    domain.update(model_b.domain)
-    return jft.Model(fusion, domain=domain)
-
+from ..library.utils import get_config, add_functions, add_models
 
 class SkyModel:
     """
@@ -60,7 +41,7 @@ class SkyModel:
                 raise ValueError("The sky model parameters need to be saved in a .yaml or .yml "
                                  "file.")
 
-            self.config = ju.get_config(config_file_path)
+            self.config = get_config(config_file_path)
         else:
             self.config = {}
         self.s_distances = None
@@ -195,7 +176,7 @@ class SkyModel:
                              'one float of a corrlated field in energy direction is taken.')
             self._create_point_source_model(sdim, edim, e_padding_ratio,
                                             self.e_distances, priors['point_sources'])
-            self.sky = fuse_model_components(self.diffuse, self.point_sources)
+            self.sky = add_models(self.diffuse, self.point_sources)
         return self.sky
 
     def _create_correlated_field(self, shape, distances, prior_dict):
@@ -300,21 +281,21 @@ class SkyModel:
             self.alpha_cf, self.alpa_pspec = self._create_correlated_field(ext_s_shp,
                                                                            sdistances,
                                                                            prior_dict['plaw'])
-            self.plaw = ju.build_power_law(self._log_rel_ebin_centers(), self.alpha_cf)
+            self.plaw = _apply_slope(self._log_rel_ebin_centers(), self.alpha_cf)
 
         if 'dev_corr' in prior_dict:
             dev_cf, self.dev_pspec = self._create_correlated_field(ext_e_shp,
                                                                    edistances,
                                                                    prior_dict['dev_cor'])
-            self.dev_cf = ju.MappedModel(dev_cf, prior_dict['dev_corr']['prefix']+'xi',
+            self.dev_cf = MappedModel(dev_cf, prior_dict['dev_corr']['prefix']+'xi',
                                          ext_s_shp, False)
         if 'dev_wp' in prior_dict:
             dev_cf = self._create_wiener_process(edims=len(self._log_rel_ebin_centers()),
                                                  dE=self._log_dE(),
                                                  **prior_dict['dev_wp'])
-            self.dev_cf = ju.MappedModel(dev_cf, prior_dict['dev_wp']['name'],
+            self.dev_cf = MappedModel(dev_cf, prior_dict['dev_wp']['name'],
                                          ext_s_shp, False)
-        log_diffuse = ju.GeneralModel({'spatial': self.spatial_cf,
+        log_diffuse = GeneralModel({'spatial': self.spatial_cf,
                                        'freq_plaw': self.plaw,
                                        'freq_dev': self.dev_cf}).build_model()
         exp_padding = lambda x: jnp.exp(log_diffuse(x)[:edim, :sdim[0], :sdim[1]])
@@ -366,7 +347,7 @@ class SkyModel:
             self.points_alpha = jft.NormalPrior(prior_dict['plaw']['mean'], prior_dict['plaw']['std'],
                                                name=prior_dict['plaw']['name'],
                                                shape=sdim, dtype=jnp.float64)
-            points_plaw = ju.build_power_law(self._log_rel_ebin_centers(), self.points_alpha)
+            points_plaw = _apply_slope(self._log_rel_ebin_centers(), self.points_alpha)
             self.points_plaw = jft.Model(lambda x: points_plaw(x),
                                     domain=points_plaw.domain)
 
@@ -374,20 +355,20 @@ class SkyModel:
             points_dev_cf, self.points_dev_pspec = self._create_correlated_field(ext_e_shp,
                                                                    edistances,
                                                                    prior_dict['dev_cor'])
-            self.points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_corr']['prefix']+'xi',
+            self.points_dev_cf = MappedModel(points_dev_cf, prior_dict['dev_corr']['prefix']+'xi',
                                          sdim, False)
         if 'dev_wp' in prior_dict:
             points_dev_cf = self._create_wiener_process(edims=len(self._log_rel_ebin_centers()),
                                                         dE=self._log_dE(),
                                                         **prior_dict['dev_wp'])
 
-            points_dev_cf = ju.MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
+            points_dev_cf = MappedModel(points_dev_cf, prior_dict['dev_wp']['name'],
                                                 sdim, False)
 
             self.points_dev_cf = jft.Model(lambda x: points_dev_cf(x),
                                       domain=points_dev_cf.domain)
 
-        log_points = ju.GeneralModel({'spatial': self.points_log_invg,
+        log_points = GeneralModel({'spatial': self.points_log_invg,
                                       'freq_plaw': self.points_plaw,
                                       'freq_dev': self.points_dev_cf}).build_model()
 
@@ -418,3 +399,120 @@ class SkyModel:
     def _log_dE(self):
         log_e = self._log_rel_ebin_centers()
         return log_e[1:]-log_e[:-1]
+
+
+class MappedModel(jft.Model):
+    """Maps a model to a higher dimensional space."""
+
+    def __init__(self, model, mapped_key, shape, first_axis=True):
+        """Intitializes the mapping class.
+
+        Parameters:
+        ----------
+        model: nifty.re.Model most probable a Correlated Field Model or a
+            Gauss-Markov Process
+        mapped_key: string, dictionary key for input dimension which is
+            going to be mapped.
+        shape: tuple, number of copies in each dim. Size of the
+        first_axis: if True prepends the number of copies
+            else they will be appended
+        """
+        self._model = model
+        ndof = reduce(lambda x, y: x * y, shape)
+        keys = model.domain.keys()
+        if mapped_key not in keys:
+            raise ValueError
+
+        xi_dom = model.domain[mapped_key]
+        if first_axis:
+            new_primals = jft.ShapeWithDtype((ndof,) + xi_dom.shape, xi_dom.dtype)
+            axs = 0
+            self._out_axs = 0
+            self._shape = shape + model.target.shape
+        else:
+            new_primals = jft.ShapeWithDtype(xi_dom.shape + (ndof,), xi_dom.dtype)
+            axs = -1
+            self._out_axs = 1
+            self._shape = model.target.shape + shape
+
+        new_domain = model.domain.copy()
+        new_domain[mapped_key] = new_primals
+
+        xiinit = partial(jft.random_like, primals=new_primals)
+
+        init = model.init
+        init = {k: init[k] if k != mapped_key else xiinit for k in keys}
+
+        self._axs = ({k: axs if k == mapped_key else None for k in keys},)
+        super().__init__(domain=new_domain, init=jft.Initializer(init))
+
+    def __call__(self, x):
+        x = x.tree if isinstance(x, jft.Vector) else x
+        return (jax.vmap(self._model, in_axes=self._axs,
+                         out_axes=self._out_axs)(x)).reshape(self._shape)
+
+
+class GeneralModel(jft.Model):
+    """General Sky Model, plugging together several components."""
+
+    def __init__(self, dict_of_fields={}):
+        """Initializes the general sky model.
+
+        keys for the dictionary:
+        -----------------------
+        spatial: typically 2D Model for spatial log flux(x),
+            where x is the spatial vector.
+        freq_plaw: jubik0.build_power_law or other 3D model.
+        freq_dev: additional flux (frequency / energy) dependent process.
+            often deviations from freq_plaw.
+
+        Parameters:
+        ----------
+        dict of fields: dict
+            keys: str, name of the field
+            val: nifty.re.Model
+        """
+        self._available_fields = dict_of_fields
+
+    def build_model(self):
+        """Returns Model from the dict_of_fields."""
+
+        if 'spatial' not in self._available_fields.keys() or self._available_fields['spatial'] is None:
+            raise NotImplementedError
+        else:
+            spatial = self._available_fields['spatial']
+            func = spatial
+            domain = spatial.domain
+            if 'freq_plaw' in self._available_fields.keys() and self._available_fields['freq_plaw'] is not None:
+                plaw = self._available_fields['freq_plaw']
+                func = add_functions(func, plaw)
+                domain = domain | plaw.domain
+            if 'freq_dev' in self._available_fields.keys() and self._available_fields['freq_dev'] is not None:
+                dev = self._available_fields['freq_dev']
+
+                def extract_keys(a, domain):
+                    b = {key: a[key] for key in domain}
+                    return b
+
+                def extracted_dev(op):
+                    def callable_dev(x):
+                        return op(extract_keys(x, op.domain))
+                    return callable_dev
+
+                func = add_functions(func, extracted_dev(dev))
+                domain = domain | dev.domain
+            res_func = lambda x: func(x) if len(func(x).shape) == 3 else jnp.reshape(func(x),
+                                                                                     (1,) + func(x).shape)
+            res = jft.Model(res_func, domain=domain)
+        return res
+
+
+def _apply_slope(freqs, alph):
+    if isinstance(alph, jft.Model):
+        res = lambda x: jnp.outer(freqs, alph(x)).reshape(
+            freqs.shape + alph.target.shape)
+    elif isinstance(alph, float):
+        raise NotImplementedError
+        # TODO enable inferable scalar spectral index
+        # res = jnp.outer(freqs, alph).reshape(freqs.shape)
+    return jft.Model(res, domain=alph.domain)
