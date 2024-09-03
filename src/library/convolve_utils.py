@@ -327,16 +327,3 @@ def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1,
         op = OAnew(domain, patch_psfs, len(patch_psfs), margin, want_cut)
     return op
 
-
-
-def get_gaussian_kernel(width, domain):
-    """"2D Gaussian kernel for fft convolution"""
-    x = y = np.linspace(-width, width, domain.shape[1])
-    xv, yv = np.meshgrid(x, y)
-    kern = gauss(xv, yv, 1)
-    kern = np.fft.fftshift(kern)
-    kern = ift.makeField(domain[1], kern)
-    kern = kern * (kern.integrate().val) ** -1
-    explode_pad = ift.ContractionOperator(domain, spaces=0)
-    res = explode_pad.adjoint(kern)
-    return res
