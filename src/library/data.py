@@ -1,20 +1,15 @@
-import os
-import pickle
-from os.path import join, splitext
 
+from os.path import join, exists
 import numpy as np
-from jax import random, tree_map, linear_transpose
-from jax import numpy as jnp
-from astropy.io import fits
-
-import nifty8.re as jft
-from .erosita_observation import ErositaObservation
-from .messages import log_file_exists
-from .sky_models import SkyModel
-from .utils import get_config, create_output_directory, save_config_copy
-from .plot import plot_result
+from jax import random, linear_transpose
 from typing import NamedTuple
 
+import nifty8.re as jft
+
+from .sky_models import SkyModel
+from .utils import (get_config, create_output_directory, save_to_pickle,
+                    load_from_pickle)
+from .plot import plot_result
 
 class Domain(NamedTuple):
     """Mimicking NIFTy Domain.
@@ -29,45 +24,60 @@ class Domain(NamedTuple):
     distances: tuple
 
 
-# generic data loading & saving
-
-def load_data_dict_from_pickle(file_path):
-    """ Load data from pickle file as a data-dictionary
-
-    Parameters
-    ----------
-    file_path : string
-        Path to data file (.pkl)
-    Returns
-    -------
-    masked_data : jft.Vector
-        Dictionary of masked data
-    """
-    with open(file_path, "rb") as f:
-        data_dict = pickle.load(f)
-    return data_dict
-
-
-def save_dict_to_pickle(dictionary, file_path):
-    """ Save data dictionary to pickle file
+def load_masked_data_from_config(config_path):
+    """ Wrapper function load masked data from config path
+        from generated pickle-files.
 
     Parameters
     ----------
-    dictionary : dict
-        Data dictionary, which is saved.
-    file_path : string
-        Path to data file (.pkl)
+    config_path : str
+        Path to inference config file
+
     Returns
-    -------
+    ----------
+    masked data: jft.Vector
+        Vector of masked eROSITA (mock) data for each TM
     """
-    with open(file_path, "wb") as file:
-        pickle.dump(dictionary, file)
+    cfg = get_config(config_path)
+    file_info = cfg['files']
+    data_path = join(file_info['res_dir'], file_info['data_dict'])
+    if exists(data_path):
+        jft.logger.info('...Loading data from file')
+        masked_data = jft.Vector(load_from_pickle(data_path))
+    else:
+        raise ValueError('Data path does not exist.')
+    return masked_data
 
 
-# eROSITA - Generation
-def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_info,
+def load_mock_position_from_config(config_path):
+    """ Wrapper function to load the mock sky position for the mock data config path
+        from pickle-file.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to inference config file
+
+    Returns
+    ----------
+    mock_pos : jft.Vector
+        Vector of latent parameters for the mock sky position
+
+    """
+    cfg = get_config(config_path)
+    file_info = cfg['files']
+    pos_path = join(file_info['res_dir'], file_info['pos_dict'])
+    if exists(pos_path):
+        jft.logger.info('...Loading mock position')
+        mock_pos = load_from_pickle(pos_path)
+    else:
+        raise ValueError('Mock position path does not exist.')
+    return mock_pos
+
+
+def create_mock_data(tel_info, file_info, grid_info, prior_info, plot_info,
                              seed, response_dict):
-    """ Generates and saves eROSITA mock data to pickle file.
+    """ Generates and saves mock data to pickle file.
 
     Parameters
     ----------
@@ -85,6 +95,7 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
         Random seed for mock position generataion
     response_dict : dict
         Dictionary of all available response functionalities i.e. response, mask, psf
+    
     Returns
     -------
     masked_mock_data: jft.Vector
@@ -94,7 +105,6 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
 
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
-    energy_range = np.array(e_max) - np.array(e_min)
 
     key, subkey = random.split(key)
     sky_model = SkyModel()
@@ -108,7 +118,6 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
                                      priors=prior_info)
 
     jft.random_like(subkey, sky.domain)
-    # Generate response func
     sky_comps = sky_model.sky_model_to_dict()
     key, subkey = random.split(key)
     output_path = create_output_directory(file_info['res_dir'])
@@ -119,8 +128,8 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
         tm: random.poisson(subkeys[i], data).astype(int)
         for i, (tm, data) in enumerate(masked_mock_data.tree.items())
     })
-    save_dict_to_pickle(masked_mock_data.tree, join(output_path, file_info['data_dict']))
-    save_dict_to_pickle(mock_sky_position.tree, join(output_path, file_info['pos_dict']))
+    save_to_pickle(masked_mock_data.tree, join(output_path, file_info['data_dict']))
+    save_to_pickle(mock_sky_position.tree, join(output_path, file_info['pos_dict']))
     if plot_info['enabled']:
         jft.logger.info('Plotting mock data and mock sky.')
         plottable_vector = jft.Vector({key: val.astype(float) for key, val
@@ -153,235 +162,5 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
             plot_result(diffuse_alpha(mock_sky_position), logscale=False,
                     output_file=join(output_path, f'mock_diffuse_alpha.png'))
     return masked_mock_data
-
-
-def mask_erosita_data_from_disk(file_info, tel_info, grid_info, mask_func):
-    """ Creates and saves eROSITA masked data as pickle file from
-     eROSITA processed fits-files.
-
-    Parameters
-    ----------
-    file_info : dict
-        Dictionary of file paths
-    tel_info : dict
-        Dictionary of telescope information
-    grid_info : dict
-        Dictionary with grid information
-    mask_func : Callable
-        Mask function, which takes a 3D array and makes a jft.Vector
-        out of it containing a dictionary of masked arrays
-    Returns
-    -------
-    masked_data_vector: jft.Vector
-        Dictionary of masked data arrays
-    """
-    # load energies
-    e_min = grid_info['energy_bin']['e_min']
-    e_max = grid_info['energy_bin']['e_max']
-
-    if not isinstance(e_min, list):
-        raise TypeError("e_min must be a list!")
-
-    if not isinstance(e_max, list):
-        raise TypeError("e_max must be a list!")
-
-    if len(e_min) != len(e_max):
-        raise ValueError("e_min and e_max must have the same length!")
-
-    data_list = []
-    for tm_id in tel_info['tm_ids']:
-        output_filenames = f'tm{tm_id}_' + file_info['output']
-        output_filenames = [f"{output_filenames.split('.')[0]}_emin{e}_emax{E}.fits" for e, E in
-                            zip(e_min, e_max)]
-        data = []
-        for output_filename in output_filenames:
-            data.append(
-                fits.open(join(file_info['obs_path'], "processed", output_filename))[0].data)
-        data = jnp.stack(jnp.array(data, dtype=int))
-        data_list.append(data)
-    data = jnp.stack(jnp.array(data_list, dtype=int))
-    masked_data_vector = mask_func(data)
-    save_dict_to_pickle(masked_data_vector.tree, join(file_info['res_dir'], file_info["data_dict"]))
-    return masked_data_vector
-
-
-def create_erosita_data_from_config(config_path):
-    """ Creates eROSITA data from config path
-        (calls the eSASS interface) as fits files.
-
-    Parameters
-    ----------
-    config_path : str
-        Path to inference config file
-
-    """
-
-    cfg = get_config(config_path)
-
-    tel_info = cfg["telescope"]
-    file_info = cfg["files"]
-    grid_info = cfg['grid']
-    plot_info = cfg['plotting']
-    esass_image =cfg['esass_image']
-    obs_path = file_info["obs_path"]
-    sdim = grid_info['sdim']
-    e_min = grid_info['energy_bin']['e_min']
-    e_max = grid_info['energy_bin']['e_max']
-
-    if not isinstance(e_min, list):
-        raise TypeError("e_min must be a list!")
-
-    if not isinstance(e_max, list):
-        raise TypeError("e_max must be a list!")
-
-    if len(e_max) != len(e_max):
-        raise ValueError("e_min and e_max must have the same length!")
-
-    rebin = tel_info["rebin"]
-    rebin_check = int(np.floor(20 * tel_info['fov'] // sdim))
-
-    if rebin != rebin_check:
-        raise ValueError("rebin, which sets the angular resolution and fov do not match")
-
-    processed_obs_path = create_output_directory(join(obs_path, file_info['processed_obs_folder']))
-    for tm_id in tel_info["tm_ids"]:
-        # TODO: implement the following by changing the eSASS interface ErositaObservation
-        # tm_processed_path = create_output_directory(join(processed_obs_path, f'tm{tm_id}'))
-        output_filenames = f'tm{tm_id}_' + file_info['output']
-        exposure_filenames = f'tm{tm_id}_' + file_info['exposure']
-        output_filenames = [f"{output_filenames.split('.')[0]}_emin{e}_emax{E}.fits"
-                            for e, E in zip(e_min, e_max)]
-        exposure_filenames = [f"{exposure_filenames.split('.')[0]}_emin{e}_emax{E}.fits"
-                              for e, E in zip(e_min, e_max)]
-
-        for e, output_filename in enumerate(output_filenames):
-            observation_instance = ErositaObservation(file_info["input"],
-                                                         join("processed", output_filename),
-                                                         obs_path,
-                                                         esass_image=esass_image)
-            if not os.path.exists(join(processed_obs_path, output_filename)):
-                _ = observation_instance.get_data(emin=e_min[e],
-                                                  emax=e_max[e],
-                                                  image=True,
-                                                  rebin=rebin,
-                                                  size=sdim,
-                                                  pattern=tel_info['pattern'],
-                                                  telid=tm_id)
-                # FIXME: exchange rebin by fov? 80 = 4arcsec
-            else:
-                log_file_exists(join(processed_obs_path, output_filename))
-
-            observation_instance = ErositaObservation(output_filename, output_filename, processed_obs_path,
-                                                         esass_image=esass_image)
-
-            # Exposure
-            if not os.path.exists(join(processed_obs_path, exposure_filenames[e])):
-                observation_instance.get_exposure_maps(output_filename, e_min[e], e_max[e],
-                                                       withsinglemaps=True,
-                                                       singlemaps=[exposure_filenames[e]],
-                                                       withdetmaps=tel_info['detmap'],
-                                                       badpix_correction=tel_info['badpix_correction'])
-
-            else:
-                log_file_exists(join(processed_obs_path, exposure_filenames[e]))
-
-            # Plotting
-            if plot_info['enabled']:
-                observation_instance.plot_fits_data(output_filename,
-                                                    f'{splitext(output_filename)[0]}.png',
-                                                    slice=plot_info['slice'],
-                                                    dpi=plot_info['dpi'])
-                observation_instance.plot_fits_data(exposure_filenames[e],
-                                                    f'{splitext(exposure_filenames[e])[0]}.png',
-                                                    slice=plot_info['slice'],
-                                                    dpi=plot_info['dpi'])
-
-
-# Data creation wrapper
-def create_data_from_config(config_path, response_dct):
-    """ Wrapper function to create masked data either from
-    actual eROSITA observations or from generated mock data, as specified
-    in the config given at config path. In any case the data is saved to the
-    same pickle file.
-
-    Parameters
-    ----------
-    config_path : str
-        Path to inference config file
-
-    """
-    cfg = get_config(config_path)
-
-    tel_info = cfg["telescope"]
-    file_info = cfg["files"]
-    grid_info = cfg['grid']
-    plot_info = cfg['plotting']
-    data_path = join(file_info['res_dir'], file_info['data_dict'])
-    if not os.path.exists(data_path):
-        if bool(file_info.get("mock_gen_config")):
-            jft.logger.info(f'Generating new mock data in {file_info["res_dir"]}...')
-            mock_prior_info = get_config(file_info["mock_gen_config"])
-            _ = create_mock_erosita_data(tel_info, file_info, grid_info, mock_prior_info,
-                                         plot_info, cfg['seed'], response_dct)
-            save_config_copy(file_info['mock_gen_config'], output_dir=file_info['res_dir'])
-        else:
-            jft.logger.info(f'Generating masked eROSITA data in {file_info["res_dir"]}...')
-            mask_erosita_data_from_disk(file_info, tel_info, grid_info, response_dct['mask'])
-    else:
-        jft.logger.info(f'Data in {file_info["res_dir"]} already exists. No data generation.')
-
-
-# Data loading wrapper
-def load_masked_data_from_config(config_path):
-    """ Wrapper function load masked eROSITA data from config path
-        from generated pickle-files.
-
-    Parameters
-    ----------
-    config_path : str
-        Path to inference config file
-
-    Returns
-    ----------
-    masked data: jft.Vector
-        Vector of masked eROSITA (mock) data for each TM
-    """
-    cfg = get_config(config_path)
-    file_info = cfg['files']
-    data_path = join(file_info['res_dir'], file_info['data_dict'])
-    if os.path.exists(data_path):
-        jft.logger.info('...Loading data from file')
-        masked_data = jft.Vector(load_data_dict_from_pickle(data_path))
-    else:
-        raise ValueError('Data path does not exist.')
-    return masked_data
-
-
-def load_mock_position_from_config(config_path):
-    """ Wrapper function to load the mock sky position for the eROSITA mock data config path
-        from pickle-file.
-
-    Parameters
-    ----------
-    config_path : str
-        Path to inference config file
-
-    Returns
-    ----------
-    mock_pos : jft.Vector
-        Vector of latent parameters for the mock sky position
-
-    """
-    cfg = get_config(config_path)
-    file_info = cfg['files']
-    pos_path = join(file_info['res_dir'], file_info['pos_dict'])
-    if os.path.exists(pos_path):
-        jft.logger.info('...Loading mock position')
-        mock_pos = load_data_dict_from_pickle(pos_path)
-    else:
-        raise ValueError('Mock position path does not exist.')
-    return mock_pos
-
-
 
 

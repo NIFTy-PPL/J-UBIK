@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import pickle
 from importlib import resources
 from os.path import join
 from warnings import warn
@@ -12,6 +13,41 @@ import nifty8 as ift
 import nifty8.re as jft
 import numpy as np
 import scipy
+
+def load_from_pickle(file_path):
+    """ Load an object from a pickle file.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the pickle file (.pkl) from which the object will be loaded.
+
+    Returns
+    -------
+    obj : object
+        The object loaded from the pickle file. The type of this object can vary
+        depending on what was originally serialized into the pickle file.
+    """
+    with open(file_path, "rb") as f:
+        obj = pickle.load(f)
+    return obj
+
+
+def save_to_pickle(obj, file_path):
+    """ Save an object to a pickle file.
+
+    Parameters
+    ----------
+    obj : object
+        The object saved to the pickle file. The type of this object can vary
+        depending on what shall be saved to the pickle file.
+    file_path : string
+        Path to data file (.pkl)
+    Returns
+    -------
+    """
+    with open(file_path, "wb") as file:
+        pickle.dump(obj, file)
 
 
 def add_models(m1, m2):
