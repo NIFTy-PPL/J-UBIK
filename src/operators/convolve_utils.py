@@ -186,27 +186,6 @@ def get_psf_func(domain, psf_infos):
     return get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center)
 
 
-def psf_convolve_operator(domain, psf_infos, msc_infos, adj=False):
-    """
-    Psf convolution operator using the MSC approximation.
-    """
-    # NOTE: Assumes the repository "https://gitlab.mpcdf.mpg.de/pfrank/adg.git"
-    # to be cloned and located in a folder named "adg" within the module
-    # `operators`
-    if adg_import is False:
-        msg = ("This function needs modules from the repository / " +
-            "'https://gitlab.mpcdf.mpg.de/pfrank/adg.git'. Please clone it /"+
-            "and locate it in a folder named 'adg' within the module /"+
-            "`operators` ")
-        raise(ModuleNotFoundError, msg)
-    msc_keys = ('base', 'min_baseshape', 'linlevel', 'kernel_sizes',
-                'keep_overlap', 'local_kernel')
-    infos = {kk:msc_infos[kk] for kk in msc_keys}
-    infos['domain'] = domain
-    infos['func'] = get_psf_func(domain, psf_infos)
-    infos['adjoint'] = adj
-    return get_convolve(**infos)
-
 def psf_interpolator(domain, npatch, psf_infos):
     all_patches = []
     for info in psf_infos:
