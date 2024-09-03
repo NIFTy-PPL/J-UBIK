@@ -19,7 +19,7 @@ def calculate_uwr(pos, op, ground_truth, response_dict,
     pos : jft.Vector
         List of samples in latent space.
     op : jft.Model
-        Operator for which the NWRs should be calculated.
+        Operator for which the NWRs should be calculated, e.g. sky, point source, etc.
     response_dict : dict
         Dictionary containing the response information.
     abs : bool, optional
@@ -65,7 +65,7 @@ def calculate_nwr(pos, op, data, response_dict,
     pos : jft.Vector
         List of samples in latent space.
     op : jft.Model
-        Operator for which the NWRs should be calculated.
+        Operator for which the NWRs should be calculated, e.g. sky, point source, etc.
     data : jnp.ndarray
         The data.
     response_dict : dict
