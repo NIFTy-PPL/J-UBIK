@@ -186,57 +186,6 @@ def get_psf_func(domain, psf_infos):
     return get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center)
 
 
-def psf_interpolator(domain, npatch, psf_infos):
-    all_patches = []
-    for info in psf_infos:
-        # TODO enable this test
-        # if not isinstance(info, dict):
-        # TypeError("psf_infos has to be a list of dictionaries")
-        func_psf = get_psf_func(domain, info)
-
-        shp = (domain.shape[-2], domain.shape[-1])
-        dist = (domain.distances[-2], domain.distances[-1])
-        for ss in shp:
-            if ss % npatch != 0:
-                raise ValueError
-            if ss % 2 != 0:
-                raise ValueError
-        patch_shp = tuple(ss//npatch for ss in shp)
-
-        # NOTE This change would symmetrically evaluate the psf but puts
-        # the center in between Pixels.
-        # c_p = ((np.arange(ss) - ss/2 + 0.5)*dd for ss,dd in zip(shp, dist))
-        # centers = (np.array([(i*ss + ss/2 + 0.5)*dd for i in range(npatch)])
-        #            for ss, dd in zip(patch_shp, dist))
-
-        c_p = ((np.arange(ss) - ss/2)*dd for ss, dd in zip(shp, dist))
-        centers = (np.array([(i*ss + ss/2)*dd for i in range(npatch)]) for
-                   ss, dd in zip(patch_shp, dist))
-
-        c_p = np.meshgrid(*c_p, indexing='ij')
-        d_ra = c_p[0]
-        d_dec = c_p[1]
-        # Using 'xy' here instead of 'ij' ensures correct ordering as requested by
-        # OAnew.
-        centers = np.meshgrid(*centers, indexing='xy')
-        c_ra = centers[0].flatten()
-        c_dec = centers[1].flatten()
-
-        patch_psfs = (func_psf(ra, dec, d_ra, d_dec) for ra, dec in
-                      zip(c_ra, c_dec))
-        patch_psfs = list([np.roll(np.roll(pp, -shp[0]//2, axis=0),
-                                   -shp[1]//2,
-                                   axis=1)
-                           for pp in patch_psfs])
-        # patch_psfs = list([pp for pp in patch_psfs]) # FIXME
-        # FIXME Patch_psfs should be of shape (n_patches, energies, x, y)
-        patch_psfs = np.array(patch_psfs)
-        all_patches.append(patch_psfs)
-    all_patches = np.stack(all_patches)
-    all_patches = np.moveaxis(all_patches, 0, -3)
-    return all_patches
-
-
 def gauss(x, y, sig):
     """2D Normal distribution"""
     const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
