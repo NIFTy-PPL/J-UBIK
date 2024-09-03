@@ -43,6 +43,5 @@ from .operators.jifty_convolution_operators import (_bilinear_weights,
                                                     slice_patches,
                                                     linpatch_convolve,
                                                     jifty_convolve)
-from .operators.convolve_utils import get_gaussian_kernel
 
 from .library.minimization_parser import MinimizationParser

@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from ..operators.jifty_convolution_operators import jifty_convolve
-from ..operators.convolve_utils import gauss
+from src.library.convolve_utils import gauss
 from .data import Domain
 
 
