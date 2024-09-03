@@ -56,6 +56,9 @@ def calculate_nwr(pos, op, data, response_dict,
                    abs=False, min_counts=None, exposure_mask=True, response=True):
     """
     Calculate the noise-weighted residuals.
+
+    The formula used is:
+        (response(op(pos)) - data) / sqrt(response(op(pos)))
     
     Parameters
     ----------
@@ -75,6 +78,13 @@ def calculate_nwr(pos, op, data, response_dict,
         If True, the exposure mask is applied. Default is True.
     response : bool, optional
         If True, the response is applied. Default is True.
+
+    Returns
+    ------- 
+    res : jnp.ndarray
+        The noise-weighted residuals.
+    tot_mask : jnp.ndarray
+        The total mask.
     """
     if response:
         R = response_dict['R']
