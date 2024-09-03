@@ -23,7 +23,7 @@ from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_pspec,
                                  plot_noise_weighted_residuals,
                                  plot_uncertainty_weighted_residuals)
 from .library.mf_plot import plot_rgb
-from .library.erosita_observation import ErositaObservation
+from src.library.instruments.erosita.erosita_observation import ErositaObservation
 from .library.instruments.chandra.chandra_observation import ChandraObservationInformation
 from .library.instruments.erosita.erosita_psf import eROSITA_PSF
 from .library.sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope

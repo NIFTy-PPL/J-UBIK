@@ -1,14 +1,16 @@
-from astropy.io import fits
-from jax import numpy as jnp
-import numpy as np
 from os.path import join, splitext, exists
 
 import nifty8.re as jft
-from ...erosita_observation import ErositaObservation
+import numpy as np
+from astropy.io import fits
+from jax import numpy as jnp
+
+from .erosita_observation import ErositaObservation
+from ...data import create_mock_data
 from ...messages import log_file_exists
 from ...utils import (save_to_pickle, get_config, create_output_directory,
-                      save_config_copy) 
-from ...data import create_mock_data
+                      save_config_copy)
+
 
 def create_erosita_data_from_config(config_path, response_dict):
     """ Wrapper function to create masked data either from
