@@ -15,40 +15,43 @@ import numpy as np
 import scipy
 
 
-def load_from_pickle(file_path):
-    """ Load an object from a pickle file.
+def add_models(m1, m2):
+    """Summation of two models.
+
+    Builds a model that takes two models m1 and m2 and adds their results.
 
     Parameters
     ----------
-    file_path : str
-        Path to the pickle file (.pkl) from which the object will be loaded.
+    m1: jft.Model
+    m2: jft.Model
 
     Returns
     -------
-    obj : object
-        The object loaded from the pickle file. The type of this object can vary
-        depending on what was originally serialized into the pickle file.
+    sum: jft.Model
     """
-    with open(file_path, "rb") as f:
-        obj = pickle.load(f)
-    return obj
+    domain = m1.domain
+    domain.update(m2.domain)
+    return jft.Model(lambda x: m1(x) + m2(x), domain=domain)
 
 
-def save_to_pickle(obj, file_path):
-    """ Save an object to a pickle file.
+def add_functions(f1, f2):
+    """Summation of two functions.
+
+    Builds a function that takes two functions f1 and f2
+    and adds their results.
 
     Parameters
     ----------
-    obj : object
-        The object saved to the pickle file. The type of this object can vary
-        depending on what shall be saved to the pickle file.
-    file_path : string
-        Path to data file (.pkl)
+    f1: callable
+    f2: callable
+
     Returns
     -------
+    sum: callable
     """
-    with open(file_path, "wb") as file:
-        pickle.dump(obj, file)
+    def function(x):
+        return f1(x) + f2(x)
+    return function
 
 
 def get_stats(sample_list, func):

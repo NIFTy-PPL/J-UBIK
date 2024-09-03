@@ -1,10 +1,41 @@
 from jax import vmap
 from jax.tree_util import tree_map
 from jax import numpy as jnp
+import numpy as np
 
 
 def calculate_uwr(pos, op, ground_truth, response_dict,
                    abs=False, exposure_mask=True, log=True):
+    """
+    Calculate the uncertainty-weighted residuals.
+    
+    The formula used is:
+        (mean(op(pos)) - ground_truth) / std(op(pos))
+
+    if ground_truth is None, it is set to 0.
+
+    Parameters
+    ----------
+    pos : jft.Vector
+        List of samples in latent space.
+    op : jft.Model
+        Operator for which the NWRs should be calculated, e.g. sky, point source, etc.
+    response_dict : dict
+        Dictionary containing the response information.
+    abs : bool, optional
+        If True, the absolute value of the residuals is returned. Default is False.
+    exposure_mask : bool, optional
+        If True, the exposure mask is applied. Default is True.
+    log : bool, optional
+        If True, the residuals are calculated in log space. Default is True.
+    
+    Returns
+    -------
+    res : jnp.ndarray   
+        The uncertainty-weighted residuals.
+    exposure_mask : jnp.ndarray
+        The exposure mask.
+        """
     op = vmap(op)
     if log:
         ground_truth = jnp.log(ground_truth) if ground_truth is not None else 0.
@@ -23,6 +54,38 @@ def calculate_uwr(pos, op, ground_truth, response_dict,
 
 def calculate_nwr(pos, op, data, response_dict,
                    abs=False, min_counts=None, exposure_mask=True, response=True):
+    """
+    Calculate the noise-weighted residuals.
+
+    The formula used is:
+        (response(op(pos)) - data) / sqrt(response(op(pos)))
+    
+    Parameters
+    ----------
+    pos : jft.Vector
+        List of samples in latent space.
+    op : jft.Model
+        Operator for which the NWRs should be calculated, e.g. sky, point source, etc.
+    data : jnp.ndarray
+        The data.
+    response_dict : dict
+        Dictionary containing the response information.
+    abs : bool, optional
+        If True, the absolute value of the residuals is returned. Default is False.
+    min_counts : int, optional
+        Minimum number of counts. Default is None.
+    exposure_mask : bool, optional
+        If True, the exposure mask is applied. Default is True.
+    response : bool, optional
+        If True, the response is applied. Default is True.
+
+    Returns
+    ------- 
+    res : jnp.ndarray
+        The noise-weighted residuals.
+    tot_mask : jnp.ndarray
+        The total mask.
+    """
     if response:
         R = response_dict['R']
     else:
@@ -44,7 +107,7 @@ def calculate_nwr(pos, op, data, response_dict,
     if exposure_mask:
         exp_mask = lambda x: response_dict['exposure'](jnp.ones(op(x).shape)) == 0.
         if min_count_mask is not None:
-            tot_mask = lambda x: jnp.logical_or(min_count_mask(x), exp_mask(x), dtype=bool)
+            tot_mask = lambda x: np.logical_or(min_count_mask(x), exp_mask(x), dtype=bool)
         else:
             tot_mask = exp_mask
     else:
