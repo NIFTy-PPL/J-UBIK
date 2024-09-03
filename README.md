@@ -1,3 +1,42 @@
+## TODOS Joss Paper
+
+### Restructure and Test code
+
+- [ ] response.py (including erosita_response.py) -> Matteo
+- [ ] data.py (including erosita_data.py) -> Margret
+- [ ] sky_models.py (including mf_sk) -> Vincent
+- [x] diagnostics.py -> Margret
+- [ ] erosita_observation.py -> Matteo 
+- [x] chandra_observation.py -> Margret
+- [ ] erosita_likelihood.py 
+- [ ] chandra_data.py 
+- [ ] chandra_response.py
+- [ ] chandra_likelihood.py
+- [ ] (JWST -> Julian)
+- [ ] plotting (mf_plot.py, plot.py, sugar_plot.py) -> Matteo
+- [ ] messages.py 
+- [ ] utils.py -> Vincent
+- [ ] operators
+- [ ] structure/ delete tests
+
+### Demos
+- [ ] config folder
+- [ ] eROSITA demo
+- [ ] Chandra demo
+- [ ] (JWST demo)
+- [ ] evaluation demo
+
+### Paper writing
+ - [ ] Write paper text
+ - [ ] Include mock example from the view of different instruments
+ - [ ] generate homepage
+
+### Afterwards
+ - [ ] License
+ - [ ] Github accounts
+ - [ ] Fix memory state
+ - [ ] create git repo with paper.md inside
+
 # J-UBIK
 
 *J*ifty *U*niversal *B*ayesian *I*maging *K*it for photon count instruments is a python package for data analysis of modern X-ray telescopes as Chandra, XMM-Newton and eROSITA.
