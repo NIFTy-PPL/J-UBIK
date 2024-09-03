@@ -162,8 +162,9 @@ def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
         Filename of the PSF file, e.g., '2dpsf_190219v05.fits'.
     energies : list of float
         List of energies in keV for which the PSF will be computed.
-    pointing_center : array-like
-        The pointing center coordinates for the PSF.
+    pointing_center : list of list, Array
+        List of lists containing RA and Dec coordinates (in degrees)
+        of the observations' pointing center.
     domain : object
         The domain over which the PSF will be defined.
     npatch : int
@@ -222,9 +223,9 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
         'psf2.fits'].
     energies : list of float, Array
         List of energies in keV for which the PSF will be computed.
-    pointing_center : tuple or list of float, Array
-        List of pointing centers, where each center is a list of coordinates
-        [x, y].
+    pointing_center : list of list, Array
+        List of lists containing RA and Dec coordinates (in degrees)
+        of the observations' pointing center.
     domain : jubik0.library.data Domain
         The domain over which the PSF will be defined. This contains
         information about the grid on which the PSF is defined.
@@ -300,9 +301,9 @@ def build_erosita_response(
         Filenames of the PSF data files.
     psf_energy : Array
         Energy levels at which the PSF is defined.
-    pointing_center : tuple of float, Array
-        RA and Dec coordinates (in degrees) of the
-        observation's pointing center.
+    pointing_center : list of list, Array
+        List of lists containing RA and Dec coordinates (in degrees)
+        of the observations' pointing center.
     n_patch : int
         Number of patches used in PSF interpolation.
     margfrac : float
