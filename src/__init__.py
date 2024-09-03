@@ -25,7 +25,8 @@ from .library.mf_plot import plot_rgb
 from .library.erosita_observation import ErositaObservation
 from .library.instruments.chandra.chandra_observation import ChandraObservationInformation
 from .library.instruments.erosita.erosita_psf import eROSITA_PSF
-from .library.sky_models import SkyModel
+from .library.sky_models import SkyModel, MappedModel, GeneralModel, build_power_law
+
 from .library.response import build_exposure_function, \
     build_readout_function
 from .library.instruments.erosita.erosita_response import build_callable_from_exposure_file, \
@@ -38,7 +39,6 @@ from .library.data import (load_data_dict_from_pickle, create_mock_erosita_data,
 from .library.likelihood import generate_erosita_likelihood_from_config
 from .library.diagnostics import (calculate_nwr,
                                   calculate_uwr)
-from .library.mf_sky import MappedModel, GeneralModel, build_power_law
 from .operators.convolution_operators import (OAConvolver, OAnew, OverlapAdd,
                                               _get_weights)
 from .operators.jifty_convolution_operators import (_bilinear_weights,
