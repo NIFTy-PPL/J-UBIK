@@ -328,13 +328,6 @@ def psf_lin_int_operator(domain, npatch, psf_infos, margfrac=0.1,
     return op
 
 
-def gauss(x, y, sig):
-    """2D Normal distribution"""
-    const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
-    r = np.sqrt(x ** 2 + y ** 2)
-    f = const * np.exp(-r ** 2 / (2 * sig ** 2))
-    return f
-
 
 def get_gaussian_kernel(width, domain):
     """"2D Gaussian kernel for fft convolution"""

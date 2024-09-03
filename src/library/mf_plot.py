@@ -6,9 +6,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from ..operators.jifty_convolution_operators import jifty_convolve
-from src.library.convolve_utils import gauss
 from .data import Domain
 
+def gauss(x, y, sig):
+    """2D Normal distribution"""
+    const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
+    r = np.sqrt(x ** 2 + y ** 2)
+    f = const * np.exp(-r ** 2 / (2 * sig ** 2))
+    return f
 
 def get_gaussian_kernel(domain, sigma):
     """"2D Gaussian kernel for fft convolution."""
