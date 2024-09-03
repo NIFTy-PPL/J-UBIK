@@ -167,9 +167,12 @@ def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
     domain : object
         The domain over which the PSF will be defined.
     npatch : int
-        Number of patches in the PSF.
+        Number of patches in the PSF. This divides the domain into smaller
+        regions for convolution.
     margfrac : float
-        Fraction of margin to be considered for the linpatch convolution.
+        Specifies the fraction of the zero-padding with respect to the spatial
+        domain shape size. This margin is needed to break periodic boundary
+        conditions in the patch convolution.
     want_cut : bool, optional
         If True, apply a cut to the PSF. Default is False.
     convolution_method : str, optional
@@ -227,12 +230,11 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
         information about the grid on which the PSF is defined.
     npatch : int
         Number of patches in the PSF. This divides the domain into smaller
-        regions
-        for convolution.
+        regions for convolution.
     margfrac : float
-        Fractional size of the margin, defined as margin/input size. This margin
-        is needed to break periodic boundary conditions (PBC) in the patch
-        convolution.
+        Specifies the fraction of the zero-padding with respect to the spatial
+        domain shape size. This margin is needed to break periodic boundary
+        conditions in the patch convolution.
 
     Returns:
     --------
@@ -269,7 +271,7 @@ def build_erosita_response(
     n_patch,
     margfrac,
     exposure_threshold,
-    path_to_caldb,
+    path_to_caldb: str = None,
     caldb_folder_name: str = 'caldb',
     arf_filename_suffix: str = '_arf_filter_000101v02.fits',
     effective_area_correction: bool = True,
@@ -299,7 +301,8 @@ def build_erosita_response(
     psf_energy : Array
         Energy levels at which the PSF is defined.
     pointing_center : tuple of float, Array
-        RA and Dec coordinates (in degrees) of the observation's pointing center.
+        RA and Dec coordinates (in degrees) of the
+        observation's pointing center.
     n_patch : int
         Number of patches used in PSF interpolation.
     margfrac : float
@@ -331,6 +334,15 @@ def build_erosita_response(
             'R': callable
                 Combined response function including PSF, exposure, and mask.
     """
+    if not isinstance(e_min, list):
+        raise TypeError("e_min must be a list!")
+
+    if not isinstance(e_max, list):
+        raise TypeError("e_max must be a list!")
+
+    if len(e_max) != len(e_max):
+        raise ValueError("e_min and e_max must have the same length!")
+
     pixel_area = (fov / s_dim) ** 2  # density to flux
 
     tmp = build_callable_from_exposure_file(build_exposure_function,
@@ -338,6 +350,11 @@ def build_erosita_response(
                                             exposure_cut=exposure_threshold,)
 
     if effective_area_correction:
+        if path_to_caldb is None:
+            raise ValueError(
+                '`path_to_caldb` is required when `effective_area_correction` '
+                'is True.'
+                )
         effective_area = calculate_erosita_effective_area(
             path_to_caldb,
             tm_ids,
@@ -390,15 +407,6 @@ def build_erosita_response_from_config(config_file_path):
     # load energies
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
-
-    if not isinstance(e_min, list):
-        raise TypeError("e_min must be a list!")
-
-    if not isinstance(e_max, list):
-        raise TypeError("e_max must be a list!")
-
-    if len(e_max) != len(e_max):
-        raise ValueError("e_min and e_max must have the same length!")
 
     # lists for exposure and psf files
     exposure_filenames = []
