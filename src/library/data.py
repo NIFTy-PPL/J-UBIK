@@ -11,10 +11,10 @@ import nifty8.re as jft
 from .erosita_observation import ErositaObservation
 from .messages import log_file_exists
 from .sky_models import SkyModel
-from .utils import get_config, create_output_directory, save_config_copy
+from .utils import (get_config, create_output_directory, save_config_copy, save_dict_to_pickle,
+                    load_vector_from_pickle)
 from .plot import plot_result
 from typing import NamedTuple
-
 
 class Domain(NamedTuple):
     """Mimicking NIFTy Domain.
@@ -31,41 +31,7 @@ class Domain(NamedTuple):
 
 # generic data loading & saving
 
-def load_data_dict_from_pickle(file_path):
-    """ Load data from pickle file as a data-dictionary
-
-    Parameters
-    ----------
-    file_path : string
-        Path to data file (.pkl)
-    Returns
-    -------
-    masked_data : jft.Vector
-        Dictionary of masked data
-    """
-    with open(file_path, "rb") as f:
-        data_dict = pickle.load(f)
-    return data_dict
-
-
-def save_dict_to_pickle(dictionary, file_path):
-    """ Save data dictionary to pickle file
-
-    Parameters
-    ----------
-    dictionary : dict
-        Data dictionary, which is saved.
-    file_path : string
-        Path to data file (.pkl)
-    Returns
-    -------
-    """
-    with open(file_path, "wb") as file:
-        pickle.dump(dictionary, file)
-
-
-# eROSITA - Generation
-def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_info,
+def create_mock_data(tel_info, file_info, grid_info, prior_info, plot_info,
                              seed, response_dict):
     """ Generates and saves eROSITA mock data to pickle file.
 
@@ -77,12 +43,12 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
         Dictionary of file paths
     grid_info : dict
         Dictionary with grid information
-    grid_info : dict
+    gridinfo : dict
         Dictionary with prior information
     plot_info: dict
         Dictionary with plotting information
     seed: int
-        Random seed for mock position generataion
+        Random seed for mock position generataaion
     response_dict : dict
         Dictionary of all available response functionalities i.e. response, mask, psf
     Returns
@@ -129,6 +95,7 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
                                     np.zeros((len(tel_info['tm_ids']),) + sky.target.shape))
         mask_adj_func = lambda x: mask_adj(x)[0]
         plottable_data_array = np.stack(mask_adj_func(plottable_vector), axis=0)
+        from .mf_plot import plot_rgb
         from .mf_plot import plot_rgb
         for tm_id in range(plottable_data_array.shape[0]):
             plot_rgb(plottable_data_array[tm_id],
@@ -321,7 +288,7 @@ def create_data_from_config(config_path, response_dct):
         if bool(file_info.get("mock_gen_config")):
             jft.logger.info(f'Generating new mock data in {file_info["res_dir"]}...')
             mock_prior_info = get_config(file_info["mock_gen_config"])
-            _ = create_mock_erosita_data(tel_info, file_info, grid_info, mock_prior_info,
+            _ = create_mock_data(tel_info, file_info, grid_info, mock_prior_info,
                                          plot_info, cfg['seed'], response_dct)
             save_config_copy(file_info['mock_gen_config'], output_dir=file_info['res_dir'])
         else:
@@ -351,7 +318,7 @@ def load_masked_data_from_config(config_path):
     data_path = join(file_info['res_dir'], file_info['data_dict'])
     if os.path.exists(data_path):
         jft.logger.info('...Loading data from file')
-        masked_data = jft.Vector(load_data_dict_from_pickle(data_path))
+        masked_data = jft.Vector(load_dict_from_pickle(data_path))
     else:
         raise ValueError('Data path does not exist.')
     return masked_data
@@ -377,7 +344,7 @@ def load_mock_position_from_config(config_path):
     pos_path = join(file_info['res_dir'], file_info['pos_dict'])
     if os.path.exists(pos_path):
         jft.logger.info('...Loading mock position')
-        mock_pos = load_data_dict_from_pickle(pos_path)
+        mock_pos = load_dict_from_pickle(pos_path)
     else:
         raise ValueError('Mock position path does not exist.')
     return mock_pos

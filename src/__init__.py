@@ -1,4 +1,5 @@
-from .library.utils import (get_mask_operator, get_norm,
+from .library.utils import (save_dict_to_pickle, load_vector_from_pickle, 
+                            get_mask_operator, get_norm,
                             get_normed_exposure, get_norm_exposure_patches,
                             get_data_domain, get_config, convolve_operators,
                             convolve_field_operator, get_fft_psf_op, Transposer,
@@ -31,10 +32,10 @@ from .library.response import build_exposure_function, \
 from .library.instruments.erosita.erosita_response import build_callable_from_exposure_file, \
     build_erosita_psf, build_erosita_response_from_config, load_erosita_response
 from .library.instruments.erosita.erosita_psf import eROSITA_PSF
-from .library.data import (load_data_dict_from_pickle, create_mock_erosita_data,
+from .library.data import (create_mock_erosita_data,
                            create_erosita_data_from_config,
                            mask_erosita_data_from_disk, load_masked_data_from_config,
-                           load_mock_position_from_config, save_dict_to_pickle, Domain)
+                           load_mock_position_from_config, Domain)
 from .library.likelihood import generate_erosita_likelihood_from_config
 from .library.diagnostics import (calculate_nwr,
                                   calculate_uwr)

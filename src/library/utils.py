@@ -14,6 +14,38 @@ import numpy as np
 import scipy
 
 
+def load_vector_from_pickle(file_path):
+    """ Load vector from pickle file as a data-dictionary
+
+    Parameters
+    ----------
+    file_path : string
+        Path to vector (.pkl)
+    Returns
+    -------
+    dict : jft.Vector
+    """
+    with open(file_path, "rb") as f:
+        dict = pickle.load(f)
+    return dict
+
+
+def save_dict_to_pickle(dictionary, file_path):
+    """ Save data dictionary to pickle file
+
+    Parameters
+    ----------
+    dictionary : dict
+        Data dictionary, which is saved.
+    file_path : string
+        Path to data file (.pkl)
+    Returns
+    -------
+    """
+    with open(file_path, "wb") as file:
+        pickle.dump(dictionary, file)
+
+
 def get_stats(sample_list, func):
     """Return stats(mean and std) for sample_list.
 
