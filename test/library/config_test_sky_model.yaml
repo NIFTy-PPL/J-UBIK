@@ -34,26 +34,7 @@ priors:
         - 0.01
         - 0.02
       name: 'points_dev_wp'
-#    dev_corr:
-#      fluctuations:
-#        fluctuations:
-#          - 1.0
-#          - 5.0e-3
-#        loglogavgslope:
-#          - -3
-#          - 1.0e-2
-#        flexibility:
-#          - 2.0
-#          - 5.0e-1
-#        asperity:
-#        non_parametric_kind: "power"
-#        # harmonic_type: "Fourier"
-#      prefix: points_dev
-#      offset:
-#        offset_mean: 0.0
-#        offset_std:
-#          - 1.0e-3
-#          - 1.0e-4
+
   diffuse:
     spatial:
       offset:
@@ -95,31 +76,9 @@ priors:
           Null
         non_parametric_kind: "power"
       prefix: diffuse_plaw_
-    # dev_wp:
-    #   x0: 0.
-    #   sigma:
-    #     - 0.3
-    #     - 0.1
-    #   dt: 1
-    #   name: 'diffuse_dev_wp'
-#    dev_corr:
-#      fluctuations:
-#        fluctuations:
-#          - 1.0
-#          - 5.0e-3
-#        loglogavgslope:
-#          - -3
-#          - 1.0e-2
-#        flexibility:
-#          - 2.0
-#          - 5.0e-1
-#        asperity:
-#        non_parametric_kind: "power"
-#        # harmonic_type: "Fourier"
-#      prefix: diffuse_dev_
-#      offset:
-#        offset_mean: 0.0
-#        offset_std:
-#          - 1.0e-3
-#          - 1.0e-4
-
+    dev_wp:
+      x0: 0.
+      sigma:
+        - 0.3
+        - 0.1
+      name: 'diffuse_dev_wp'
