@@ -1,4 +1,4 @@
-from .library.utils import (save_dict_to_pickle, load_vector_from_pickle,
+from .library.utils import (save_dict_to_pickle, load_from_pickle,
                             get_mask_operator, get_norm,
                             get_normed_exposure, get_norm_exposure_patches,
                             get_data_domain, get_config, convolve_operators,

@@ -15,20 +15,23 @@ import numpy as np
 import scipy
 
 
-def load_vector_from_pickle(file_path):
-    """ Load vector from pickle file as a data-dictionary
+def load_from_pickle(file_path):
+    """ Load an object from a pickle file.
 
     Parameters
     ----------
-    file_path : string
-        Path to vector (.pkl)
+    file_path : str
+        Path to the pickle file (.pkl) from which the object will be loaded.
+
     Returns
     -------
-    dict : jft.Vector
+    dct : object
+        The object loaded from the pickle file. The type of this object can vary
+        depending on what was originally serialized into the pickle file.
     """
     with open(file_path, "rb") as f:
-        dict = pickle.load(f)
-    return dict
+        obj = pickle.load(f)
+    return obj
 
 
 def save_dict_to_pickle(dictionary, file_path):

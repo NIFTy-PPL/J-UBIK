@@ -10,7 +10,7 @@ import nifty8.re as jft
 from .erosita_observation import ErositaObservation
 from .sky_models import SkyModel
 from .utils import (get_config, create_output_directory, save_dict_to_pickle,
-                    load_vector_from_pickle)
+                    load_from_pickle)
 from .plot import plot_result
 
 class Domain(NamedTuple):
@@ -45,7 +45,7 @@ def load_masked_data_from_config(config_path):
     data_path = join(file_info['res_dir'], file_info['data_dict'])
     if exists(data_path):
         jft.logger.info('...Loading data from file')
-        masked_data = jft.Vector(load_vector_from_pickle(data_path))
+        masked_data = jft.Vector(load_from_pickle(data_path))
     else:
         raise ValueError('Data path does not exist.')
     return masked_data
@@ -71,7 +71,7 @@ def load_mock_position_from_config(config_path):
     pos_path = join(file_info['res_dir'], file_info['pos_dict'])
     if exists(pos_path):
         jft.logger.info('...Loading mock position')
-        mock_pos = load_vector_from_pickle(pos_path)
+        mock_pos = load_from_pickle(pos_path)
     else:
         raise ValueError('Mock position path does not exist.')
     return mock_pos
