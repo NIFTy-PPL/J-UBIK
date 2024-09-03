@@ -1,7 +1,12 @@
-import matplotlib.pyplot as plt
+from functools import reduce
+
 import numpy as np
+from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+from .data import Domain
+from .jifty_convolution_operators import jifty_convolve
 
 
 def plot_result(array,
@@ -334,6 +339,71 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list,
         plt.show()
 
 
+def plot_rgb(array,
+             name,
+             sat_min=[0, 0, 0],
+             sat_max=[1, 1, 1],
+             sigma=None,
+             log=False):
+    """
+    Plots an RGB image and saves it to a file.
+
+    This function processes an RGB image array, applies optional smoothing,
+    clipping, and logarithmic scaling, and then saves the image to a PNG file.
+
+    Parameters
+    ----------
+    array : ndarray
+        An array with shape (RGB, Space, Space) representing the RGB image data.
+        The first dimension should correspond to the color channels
+        (Red, Green, Blue).
+    name : str
+        The base name of the file where the plot will be saved.
+        The file extension '.png' will be added automatically.
+    sat_min : list of float, optional
+        Minimum values for saturation clipping in each color channel.
+        Should be a list with three elements corresponding to the RGB channels.
+        Default is [0, 0, 0].
+    sat_max : list of float, optional
+        Maximum values for saturation clipping in each color channel.
+        Should be a list with three elements corresponding to the RGB channels.
+        Default is [1, 1, 1].
+    sigma : float or None, optional
+        Standard deviation for Gaussian smoothing.
+        If None, no smoothing is applied. Default is None.
+    log : bool, optional
+        If True, apply logarithmic scaling to the
+        image data (non-zero values only). Default is False.
+
+    Returns
+    -------
+    None
+        The function saves the RGB image to a PNG file and does not
+        return any value.
+
+    Notes
+    -----
+    - The image will be saved with the filename format '<name>.png'.
+    - Ensure that the input array is correctly formatted with the first
+    dimension as RGB channels.
+    """
+    if sigma is not None:
+        array = _smooth(sigma, array)
+    if sat_min is not None and sat_max is not None:
+        array = _clip(array, sat_min, sat_max)
+    if log:
+        array = _non_zero_log(array)
+
+    array = np.moveaxis(array, 0,
+                        -1)  # Move the RGB dimension to the last axis for
+    # plotting
+    plot_data = _norm_rgb_plot(array)  # Normalize data for RGB plotting
+    plt.imshow(plot_data, origin="lower")
+    plt.savefig(name + ".png", dpi=500)
+    plt.close()
+    print(f"RGB image saved as {name}.png")
+
+
 def _get_n_rows_from_n_samples(n_samples):
     """
     A function to get the number of rows from the given number of samples.
@@ -358,3 +428,68 @@ def _get_n_rows_from_n_samples(n_samples):
 
         threshold = 4 * threshold + 1
         n_rows += 1
+
+
+def _norm_rgb_plot(x):
+    plot_data = np.zeros(x.shape)
+    x = np.array(x)
+    # norm on RGB to 0-1
+    for i in range(3):
+        a = x[:, :, i]
+        if a[a != 0].size == 0:
+            minim = 0
+            maxim = 0
+        else:
+            minim = a[a != 0].min()
+            maxim = a[a != 0].max()
+        a[a != 0] = (a[a != 0] - minim) / (maxim - minim)
+        plot_data[:, :, i] = a
+    return plot_data
+
+
+def gauss(x, y, sig):
+    """2D Normal distribution"""
+    const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
+    r = np.sqrt(x ** 2 + y ** 2)
+    f = const * np.exp(-r ** 2 / (2 * sig ** 2))
+    return f
+
+
+def get_gaussian_kernel(domain, sigma):
+    """"2D Gaussian kernel for fft convolution."""
+    border = (domain.shape * domain.distances // 2)
+    x = np.linspace(-border[0], border[0], domain.shape[0])
+    y = np.linspace(-border[1], border[1], domain.shape[1])
+    xv, yv = np.meshgrid(x, y)
+    kern = gauss(xv, yv, sigma)
+    kern = np.fft.fftshift(kern)
+    dvol = reduce(lambda a, b: a * b, domain.distances)
+    normalization = kern.sum() * dvol
+    kern = kern * normalization ** -1
+    return kern.T
+
+
+def _smooth(sig, x):
+    domain = Domain(x.shape, np.ones([3]))
+    gauss_domain = Domain(x.shape[1:], np.ones([2]))
+
+    smoothing_kernel = get_gaussian_kernel(gauss_domain, sig)
+    smoothing_kernel = smoothing_kernel[np.newaxis, ...]
+    smooth_data = jifty_convolve(x, smoothing_kernel, domain, [1, 2])
+    return np.array(smooth_data)
+
+
+def _clip(x, sat_min, sat_max):
+    clipped = np.zeros(x.shape)
+    print("Change the Saturation")
+    for i in range(3):
+        clipped[i] = np.clip(x[i], a_min=sat_min[i], a_max=sat_max[i])
+        clipped[i] = clipped[i] - sat_min[i]
+    return clipped
+
+
+def _non_zero_log(x):
+    x_arr = np.array(x)
+    log_x = np.zeros(x_arr.shape)
+    log_x[x_arr > 0] = np.log(x_arr[x_arr > 0])
+    return log_x

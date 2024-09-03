@@ -1,5 +1,4 @@
 from .version import __version__
-
 from .library.utils import (save_to_pickle, load_from_pickle,
                             get_mask_operator, get_norm,
                             get_normed_exposure, get_norm_exposure_patches,
@@ -15,13 +14,12 @@ from .library.utils import (save_to_pickle, load_from_pickle,
                             save_local_packages_hashes_to_txt, safe_config_update,
                             calculate_n_constrained_dof)
 from .library.plot import (plot_result, plot_histograms,
-                           plot_sample_averaged_log_2d_histogram)
+                           plot_sample_averaged_log_2d_histogram, plot_rgb)
 from .library.sugar_plot import (plot_rgb_image, plot_pspec,
                                  plot_sample_and_stats, plot_sample_and_stats,
                                  plot_erosita_priors, plot_2d_gt_vs_rec_histogram,
                                  plot_noise_weighted_residuals,
                                  plot_uncertainty_weighted_residuals)
-from .library.mf_plot import plot_rgb
 from .library.instruments.erosita.erosita_observation import ErositaObservation
 from .library.instruments.chandra.chandra_observation import ChandraObservationInformation
 from .library.instruments.erosita.erosita_psf import eROSITA_PSF

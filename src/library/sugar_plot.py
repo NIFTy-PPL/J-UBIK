@@ -12,10 +12,10 @@ from matplotlib.colors import LogNorm
 from .diagnostics import calculate_uwr, calculate_nwr
 from .instruments.erosita.erosita_response import \
     build_erosita_response_from_config
-from .mf_plot import plot_rgb
 from .plot import plot_result, plot_sample_averaged_log_2d_histogram, \
     plot_histograms
 from .utils import get_stats, create_output_directory, get_config
+from .. import plot_rgb
 from ..library.sky_models import SkyModel
 
 
