@@ -14,10 +14,7 @@ from .library.utils import (save_to_pickle, load_from_pickle,
                             get_equal_lh_transition, get_RGB_image_from_field, get_stats,
                             save_local_packages_hashes_to_txt, safe_config_update,
                             calculate_n_constrained_dof)
-from .library.plot import (plot_slices, plot_result,
-                           plot_image_from_fits,
-                           plot_single_psf, plot_psfset, plot_energy_slices,
-                           plot_energy_slice_overview, plot_histograms,
+from .library.plot import (plot_result, plot_histograms,
                            plot_sample_averaged_log_2d_histogram)
 from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_pspec,
                                  plot_sample_and_stats, plot_sample_and_stats,
