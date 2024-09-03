@@ -4,10 +4,8 @@ import numpy as np
 from jax import random, linear_transpose
 from typing import NamedTuple
 
-
 import nifty8.re as jft
 
-from .erosita_observation import ErositaObservation
 from .sky_models import SkyModel
 from .utils import (get_config, create_output_directory, save_to_pickle,
                     load_from_pickle)
