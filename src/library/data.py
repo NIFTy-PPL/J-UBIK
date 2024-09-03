@@ -11,7 +11,8 @@ import nifty8.re as jft
 from .erosita_observation import ErositaObservation
 from .messages import log_file_exists
 from .sky_models import SkyModel
-from .utils import get_config, create_output_directory, save_config_copy
+from .utils import (get_config, create_output_directory, save_config_copy, save_dict_to_pickle,
+                    load_vector_from_pickle)
 from .plot import plot_result
 from typing import NamedTuple
 
@@ -31,41 +32,7 @@ class Domain(NamedTuple):
 
 # generic data loading & saving
 
-def load_data_dict_from_pickle(file_path):
-    """ Load data from pickle file as a data-dictionary
-
-    Parameters
-    ----------
-    file_path : string
-        Path to data file (.pkl)
-    Returns
-    -------
-    masked_data : jft.Vector
-        Dictionary of masked data
-    """
-    with open(file_path, "rb") as f:
-        data_dict = pickle.load(f)
-    return data_dict
-
-
-def save_dict_to_pickle(dictionary, file_path):
-    """ Save data dictionary to pickle file
-
-    Parameters
-    ----------
-    dictionary : dict
-        Data dictionary, which is saved.
-    file_path : string
-        Path to data file (.pkl)
-    Returns
-    -------
-    """
-    with open(file_path, "wb") as file:
-        pickle.dump(dictionary, file)
-
-
-# eROSITA - Generation
-def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_info,
+def create_mock_data(tel_info, file_info, grid_info, prior_info, plot_info,
                              seed, response_dict):
     """ Generates and saves eROSITA mock data to pickle file.
 
