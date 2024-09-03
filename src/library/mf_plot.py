@@ -5,7 +5,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from ..operators.jifty_convolution_operators import jifty_convolve
+from src.library.jifty_convolution_operators import jifty_convolve
 from .data import Domain
 
 def gauss(x, y, sig):

@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 from functools import reduce
 
-from ..library.data import Domain
+from src.library.data import Domain
 
 
 def _bilinear_weights(shape):
