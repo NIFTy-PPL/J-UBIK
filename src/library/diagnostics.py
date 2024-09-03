@@ -1,36 +1,10 @@
 from jax import vmap
 from jax.tree_util import tree_map
 from jax import numpy as jnp
-import numpy as np
 
 
 def calculate_uwr(pos, op, ground_truth, response_dict,
                    abs=False, exposure_mask=True, log=True):
-    """
-    Calculate the uncertainty-weighted residuals.
-    
-    Parameters
-    ----------
-    pos : jft.Vector
-        The position of the samples.
-    op : jft.Model
-        Operator for which the NWRs should be calculated.
-    response_dict : dict
-        Dictionary containing the response information.
-    abs : bool, optional
-        If True, the absolute value of the residuals is returned. Default is False.
-    exposure_mask : bool, optional
-        If True, the exposure mask is applied. Default is True.
-    log : bool, optional
-        If True, the residuals are calculated in log space. Default is True.
-    
-    Returns
-    -------
-    res : jnp.ndarray   
-        The uncertainty-weighted residuals.
-    exposure_mask : jnp.ndarray
-        The exposure mask.
-        """
     op = vmap(op)
     if log:
         ground_truth = jnp.log(ground_truth) if ground_truth is not None else 0.
@@ -49,28 +23,6 @@ def calculate_uwr(pos, op, ground_truth, response_dict,
 
 def calculate_nwr(pos, op, data, response_dict,
                    abs=False, min_counts=None, exposure_mask=True, response=True):
-    """
-    Calculate the noise-weighted residuals.
-    
-    Parameters
-    ----------
-    pos : jft.Vector
-        The position of the samples.
-    op : jft.Model
-        Operator for which the NWRs should be calculated.
-    data : jnp.ndarray
-        The data.
-    response_dict : dict
-        Dictionary containing the response information.
-    abs : bool, optional
-        If True, the absolute value of the residuals is returned. Default is False.
-    min_counts : int, optional
-        Minimum number of counts. Default is None.
-    exposure_mask : bool, optional
-        If True, the exposure mask is applied. Default is True.
-    response : bool, optional
-        If True, the response is applied. Default is True.
-    """
     if response:
         R = response_dict['R']
     else:
