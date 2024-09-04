@@ -171,7 +171,6 @@ def copy_config(filename, path_to_yaml_file=None,
 
 def create_output_directory(directory_name):
     """Convenience function to create directories.
-    # TODO: is this needed?
     Parameters
     ----------
     directory_name: str
