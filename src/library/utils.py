@@ -446,59 +446,7 @@ def makePositiveSumPrior(domain, number):
     return op
 
 
-def field_T(field):
-    """
-    Getting the transposed field of the original field.
-    This only works for quadratical domains.
 
-    Parameters
-    ----------
-    field: nifty8.Field
-
-    Returns
-    -------
-    nifty8.Field
-    """
-    domain = field.domain
-    arr = field.val.T
-    res = ift.Field.from_raw(domain, arr)
-    return res
-
-
-class Transposer(ift.EndomorphicOperator):
-    """
-    Operator which performs a transposition of the array.
-    """
-    def __init__(self, domain):
-        """
-        Constructs the Transposer Operator.
-
-        Paramters
-        ---------
-        domain: nifty8.Domain
-
-        """
-        self._domain = ift.makeDomain(domain)
-        self._target = self.domain
-        self._capability = self.TIMES | self.ADJOINT_TIMES
-
-    def apply(self, x, mode):
-        """Transposes the input field.
-
-        Parameters
-        ----------
-        x: nifty8.Field
-        mode : int
-            - :attr:`TIMES`: normal application
-            - :attr:`ADJOINT_TIMES`: adjoint application
-            - :attr:`INVERSE_TIMES`: inverse application
-            - :attr:`ADJOINT_INVERSE_TIMES` or
-              :attr:`INVERSE_ADJOINT_TIMES`: adjoint inverse application
-
-        """
-        self._check_input(x, mode)
-        res = ift.Field.from_raw(self._tgt(mode), x.val.T)
-        return res
 
 
 def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False, std=False,
