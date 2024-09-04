@@ -11,6 +11,7 @@ from ...messages import log_file_exists
 from ...utils import (save_to_pickle, get_config, create_output_directory,
                       copy_config)
 
+
 def create_erosita_data_from_config(config_path, response_dict):
     """ Wrapper function to create masked data either from
     actual eROSITA observations or from generated mock data, as specified
