@@ -106,7 +106,6 @@ def get_config(path_to_yaml_file):
 
     Parameters
     ----------
-
     path_to_yaml_file: str,
         The location of the config file
 
