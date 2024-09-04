@@ -186,54 +186,6 @@ def create_output_directory(directory_name):
     return directory_name
 
 
-def get_gaussian_psf(op, var):
-    """
-    # TODO ask matteani if he uses that one
-    Builds a convolution operator which can be applied to an nifty8.Operator.
-    It convolves the result of the operator with a Gaussian Kernel.
-
-    Parameters
-    ---------
-    op: nifty8.Operator
-        The Operator to which we'll apply the convolution
-    var: float
-        The variance of the Gaussian Kernel
-
-    Returns
-    -------
-    nifty8.Operator
-    """
-    # FIXME: cleanup -> refactor into get_gaussian_kernel
-    dist_x = op.target[0].distances[0]
-    dist_y = op.target[0].distances[1]
-
-    # Periodic Boundary conditions
-    x_ax = np.arange(op.target[0].shape[0])
-    x_ax = np.minimum(x_ax, op.target[0].shape[0] - x_ax) * dist_x
-    y_ax = np.arange(op.target[0].shape[1])
-    y_ax = np.minimum(y_ax, op.target[0].shape[1] - y_ax) * dist_y
-
-    center = (0, 0)
-    x_ax -= center[0]
-    y_ax -= center[1]
-    X, Y = np.meshgrid(x_ax, y_ax, indexing='ij')
-
-    var *= op.target[0].scalar_dvol  # ensures that the variance parameter is specified with respect to the
-
-    # normalized psf
-    log_psf = - (0.5 / var) * (X ** 2 + Y ** 2)
-    log_kernel = ift.makeField(op.target[0], log_psf)
-    log_kernel = log_kernel - np.log(log_kernel.exp().integrate().val)
-
-    # p = ift.Plot()
-    # import matplotlib.colors as colors
-    # p.add(log_kernel.exp(), norm=colors.SymLogNorm(linthresh=10e-8))
-    # p.output(nx=1)
-
-    conv_op = get_fft_psf_op(log_kernel.exp(), op.target)
-    return conv_op
-
-
 def coord_center(side_length, side_n):
     """
     Calculates the indices of the centers of the n**2 patches
