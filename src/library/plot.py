@@ -1,18 +1,30 @@
-import math
-import nifty8 as ift
-import nifty8.re as jft
+from functools import reduce
+
 import numpy as np
-import jax
-import matplotlib.pyplot as plt
-from jax import random
+from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from os.path import join
+
+from .data import Domain
+from .jifty_convolution_operators import jifty_convolve
 
 
-def plot_result(array, domains=None, output_file=None, logscale=False, title=None, colorbar=True,
-                figsize=(8, 8), dpi=100, cbar_formatter=None, n_rows=None, n_cols=None,
-                adjust_figsize=False, common_colorbar=False, share_x=True, share_y=True, **kwargs):
+def plot_result(array,
+                domains=None,
+                output_file=None,
+                logscale=False,
+                title=None,
+                colorbar=True,
+                figsize=(8, 8),
+                dpi=100,
+                cbar_formatter=None,
+                n_rows=None,
+                n_cols=None,
+                adjust_figsize=False,
+                common_colorbar=False,
+                share_x=True,
+                share_y=True,
+                **kwargs):
     """
     Plot a 2D array using imshow() from the matplotlib library.
 
@@ -44,7 +56,8 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
     adjust_figsize : bool, optional
         Whether to automatically adjust the size of the figure.
     common_colorbar : bool, optional
-        Whether to use the same color bar for all images. Overrides vmin and vmax.
+        Whether to use the same color bar for all images. Overrides vmin and
+        vmax.
     share_x : bool, optional
         Whether to share the x axis.
     share_y : bool, optional
@@ -65,30 +78,6 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
 
     n_plots = array.shape[0]
 
-    def _get_n_rows_from_n_samples(n_samples):
-        """
-        A function to get the number of rows from the given number of samples.
-
-        Parameters:
-        ----------
-            n_samples: `int`. The number of samples.
-
-        Returns:
-        -------
-            `int`: The number of rows.
-        """
-        threshold = 2
-        n_rows = 1
-        if n_samples == 2:
-            return n_rows
-
-        while True:
-            if n_samples < threshold:
-                return n_rows
-
-            threshold = 4 * threshold + 1
-            n_rows += 1
-
     if n_rows is None:
         n_rows = _get_n_rows_from_n_samples(n_plots)
 
@@ -99,17 +88,18 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             n_cols = n_plots // n_rows + 1
 
     if adjust_figsize:
-        x = int(n_cols/n_rows)
-        y = int(n_rows/n_cols)
+        x = int(n_cols / n_rows)
+        y = int(n_rows / n_cols)
         if x == 0:
             x = 1
         if y == 0:
             y = 1
-        figsize = (x*figsize[0], y*figsize[1])
+        figsize = (x * figsize[0], y * figsize[1])
 
     n_ax = n_rows * n_cols
     n_del = n_ax - n_plots
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize, dpi=dpi, sharex=share_x,
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize,
+                             dpi=dpi, sharex=share_x,
                              sharey=share_y)
 
     if isinstance(axes, np.ndarray):
@@ -124,7 +114,8 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
 
         if domains is not None:
             half_fov = domains[i]["distances"][0] * domains[i]["shape"][
-                0] / 2.0 / 60  # conv to arcmin FIXME: works only for square array
+                0] / 2.0 / 60  # conv to arcmin FIXME: works only for square
+            # array
             pltargs["extent"] = [-half_fov, half_fov] * 2
             axes[i].set_xlabel("FOV [arcmin]")
             axes[i].set_ylabel("FOV [arcmin]")
@@ -163,7 +154,7 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
             cax = divider.append_axes("right", size="5%", pad=0.1)
             fig.colorbar(im, cax=cax, format=cbar_formatter)
     for i in range(n_del):
-        fig.delaxes(axes[n_plots+i])
+        fig.delaxes(axes[n_plots + i])
     fig.tight_layout()
     if output_file is not None:
         fig.savefig(output_file, bbox_inches='tight', pad_inches=0)
@@ -173,243 +164,82 @@ def plot_result(array, domains=None, output_file=None, logscale=False, title=Non
         plt.show()
 
 
-def plot_slices(field, outname, logscale=False):
-    img = field.val
-    npix_e = field.domain.shape[-1]
-    nax = np.ceil(np.sqrt(npix_e)).astype(int)
-    half_fov = field.domain[0].distances[0] * field.domain[0].shape[0] / 2.0 / 60. # conv to arcmin
-    pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
-    if logscale == True:
-        pltargs["norm"] = LogNorm()
-
-    fig, ax = plt.subplots(
-        nax, nax, figsize=(11.7, 8.3), sharex=True, sharey=True, dpi=200
-    )
-    ax = ax.flatten()
-    for ii in range(npix_e):
-        im = ax[ii].imshow(img[:, :, ii], **pltargs)
-        cb = fig.colorbar(im, ax=ax[ii])
-    fig.tight_layout()
-    if outname != None:
-        fig.savefig(outname)
-    plt.close()
-
-
-def plot_image_from_fits(file_name_in, file_name_out, log_scale=False):
-    import matplotlib.pyplot as plt
-    from astropy.utils.data import get_pkg_data_filename
-    from astropy.io import fits
-    image_file = get_pkg_data_filename(file_name_in)
-    image_data = fits.getdata(image_file, ext=0)
-    plt.figure()
-    plt.imshow(image_data, norm=LogNorm())
-    plt.savefig(file_name_out)
-
-
-def plot_single_psf(psf, outname, logscale=True, vmin=None, vmax=None):
-    half_fov = psf.domain[0].distances[0] * psf.domain[0].shape[0] / 2.0 / 60 # conv to arcmin
-    psf = psf.val  # .reshape([1024, 1024])
-    pltargs = {"origin": "lower", "cmap": "cividis", "extent": [-half_fov, half_fov] * 2}
-    if logscale == True:
-        pltargs["norm"] = LogNorm(vmin=vmin, vmax=vmax)
-    fig, ax = plt.subplots()
-    psf_plot = ax.imshow(psf, **pltargs)
-    fig.colorbar(psf_plot)
-    fig.tight_layout()
-    fig.savefig(outname, dpi=1500)
-    plt.close()
-
-
-def plot_psfset(fname, outname, npix, n, in_one=True):
-    fileloader = np.load(fname, allow_pickle=True).item()
-    psf = fileloader["psf_sim"]
-    if in_one:
-        psfset = psf[0]
-        for i in range(1, n ** 2):
-            psfset = psfset + psf[i]
-        plot_single_psf(psfset, outname + "psfset.png", logscale=True)
-
-    else:
-        p = ift.Plot()
-        for k in range(10):
-            p.add(psf[k], title=f"{k}", norm=LogNorm())
-        p.output(name=outname + "psfs.png", xsize=20, ysize=20)
-
-
-def _append_key(s, key):
-    if key == "":
-        return s
-    return f"{s} ({key})"
-
-
-def _get_n_rows_from_n_samples(n_samples):
+def plot_histograms(hist,
+                    edges,
+                    filename,
+                    logx=False,
+                    logy=False,
+                    title=None):
     """
-    A function to get the number of rows from the given number of samples.
+    Plots a histogram and saves it to a file.
 
-    Parameters:
+    This function creates a bar plot from histogram data and optionally applies
+    logarithmic scaling to the x-axis and/or y-axis.
+    The plot is saved to the specified file.
+
+    Parameters
     ----------
-        n_samples: `int`. The number of samples.
+    hist : array-like
+        The values of the histogram bars.
+        Should be a one-dimensional array-like object.
+    edges : array-like
+        The bin edges of the histogram.
+        Should be a one-dimensional array-like object with length
+        one more than `hist`.
+    filename : str
+        The path where the histogram plot will be saved.
+        Should include the file extension (e.g., '.png', '.pdf').
+    logx : bool, optional
+        If True, the x-axis will be scaled logarithmically.
+        Default is False.
+    logy : bool, optional
+        If True, the y-axis will be scaled logarithmically.
+        Default is False.
+    title : str, optional
+        The title of the histogram plot.
+        If None, no title will be displayed.
+        Default is None.
 
-    Returns:
+    Returns
     -------
-        `int`: The number of rows.
-    """
-    threshold = 2
-    n_rows = 1
-    if n_samples == 2:
-        return n_rows
-
-    while True:
-        if n_samples < threshold:
-            return n_rows
-
-        threshold = 4*threshold + 1
-        n_rows += 1
-
-
-def plot_energy_slices(field, file_name, title=None, plot_kwargs={}):
-    """
-    Plots the slices of a 3-dimensional field along the energy dimension.
-
-    Parameters:
-    ----------
-    field : ift.Field
-        The field to plot.
-    file_name : str
-        The name of the file to save the plot.
-    title : str or None
-        The title of the plot. Default is None.
-    plot_kwargs : `dict` keyword arguments for plotting.
-        If True, the plot uses a logarithmic scale. Default is False.
-
-    Raises:
-    -------
-    ValueError : if the domain of the field is not as expected.
-
-    Returns:
-    --------
     None
+        The function does not return any value. It saves the plot to the
+        specified file.
+
+    Notes
+    -----
+    - Ensure that `hist` and `edges` are compatible with each other. `edges`
+    should have
+      one more element than `hist`.
+    - The file specified by `filename` will be overwritten if it already exists.
     """
-    domain = field.domain
-    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) != 2:
-        raise ValueError(f"Expected DomainTuple with the first space"
-                         f"being a 2-dim RGSpace, but got {domain}")
+    plt.bar(edges[:-1], hist, width=edges[1] - edges[0], align='edge')
 
-    if len(domain) == 2 and len(domain[1].shape) != 1:
-        raise ValueError(f"Expected DomainTuple with the second space"
-                         f"being a 1-dim RGSpace, but got {domain}")
-
-    if len(domain) == 1:
-        p = ift.Plot()
-        p.add(field, **plot_kwargs)
-        p.output(name=file_name)
-
-    elif len(domain) == 2:
-        p = ift.Plot()
-        for i in range(field.shape[2]):
-            slice = ift.Field(ift.DomainTuple.make(domain[0]), field.val[:, :, i])
-            p.add(slice, title=f'{title}_e_bin={i}', **plot_kwargs)
-        p.output(name=file_name)
-    else:
-        raise NotImplementedError
-
-
-def plot_energy_slice_overview(field_list, field_name_list, file_name, title=None, logscale=False):
-    """
-    Plots a list of fields in one plot separated by energy bins
-
-    Parameters:
-    ----------
-    field_list : List of ift.Fields
-                 The field to plot.
-    file_name : str
-        The name of the file to save the plot.
-    title : str or None
-        The title of the plot. Default is None.
-    logscale : bool
-        If True, the plot uses a logarithmic scale. Default is False.
-
-    Raises:
-    -------
-    ValueError : if the domain of the field is not as expected.
-    ValueError: If the number of field names does not match the number of fields.
-
-    Returns:
-    --------
-    None
-    """
-    domain = field_list[0].domain
-    if any(field.domain != domain for field in field_list):
-        raise ValueError('All fields need to have the same domain.')
-
-    if not isinstance(domain, ift.DomainTuple) or len(domain[0].shape) != 2:
-        raise ValueError(f"Expected DomainTuple with the first space "
-                         f"being a 2-dim RGSpace, but got {domain}")
-
-    if len(domain) == 2 and len(domain[1].shape) != 1:
-        raise ValueError(f"Expected DomainTuple with the second space "
-                         f"being a 1-dim RGSpace, but got {domain}")
-
-    if len(field_list) != len(field_name_list):
-        raise ValueError("Every field needs a name")
-
-    pltargs = {"origin": "lower", "cmap": "cividis"}
-    if logscale:
-        pltargs["norm"] = LogNorm()
-    cols = math.ceil(math.sqrt(len(field_list)))  # Calculate number of columns
-    rows = math.ceil(len(field_list) / cols)
-    if len(domain) == 1:
-        if len(field_list) == 1:
-            fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(11.7, 8.3),
-                                   sharex=True, sharey=True, dpi=200)
-            im = ax.imshow(field_list[0].val, **pltargs)
-            ax.set_title(f'{title}_{field_name_list[0]}')
-        else:
-            fig, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(11.7, 8.3),
-                                   sharex=True, sharey=True, dpi=200)
-            ax = ax.flatten()
-            for i, field in enumerate(field_list):
-                im = ax[i].imshow(field.val, **pltargs)
-                ax[i].set_title(f'{title}_{field_name_list[i]}')
-        fig.tight_layout()
-        fig.savefig(f'{file_name}')
-        plt.close()
-    elif len(domain) == 2:
-        for i in range(domain[1].shape[0]):
-            if len(field_list) == 1:
-                fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(11.7, 8.3),
-                                       sharex=True, sharey=True, dpi=200)
-                im = ax.imshow(field_list[0].val, **pltargs)
-                ax.set_title(f'{title}_{field_name_list[0]}')
-            else:
-                fig, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(11.7, 8.3),
-                                       sharex=True, sharey=True, dpi=200)
-                ax = ax.flatten()
-                for j, field in enumerate(field_list):
-                    im = ax[j].imshow(field.val[:, :, i], **pltargs)
-                    ax[j].set_title(f'{field_name_list[j]}')
-            fig.tight_layout()
-            fig.savefig(f'{file_name}_e_bin={i}.png')
-            plt.close()
-    else:
-        raise NotImplementedError
-
-
-def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
-    plt.bar(edges[:-1], hist, width=edges[0] - edges[1])
     if logx:
         plt.xscale("log")
     if logy:
         plt.yscale("log")
-    plt.title(title)
+
+    if title:
+        plt.title(title)
+
     plt.savefig(filename)
     plt.close()
     print(f"Histogram saved as {filename}.")
 
 
-def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y_label,
-                                          x_lim=None, y_lim=None, bins=100, dpi=400,
-                                          title=None, output_path=None, offset=None, figsize=None):
+def plot_sample_averaged_log_2d_histogram(x_array_list,
+                                          x_label,
+                                          y_array_list,
+                                          y_label,
+                                          x_lim=None,
+                                          y_lim=None,
+                                          bins=100,
+                                          dpi=400,
+                                          title=None,
+                                          output_path=None,
+                                          offset=0.,
+                                          figsize=None):
     """ Plot a 2d histogram for the arrays given for x_array and y_array.
 
 
@@ -423,6 +253,10 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
         list of samples of y-axis array of 2d-histogram
     y_label : string
         y-axis label of the 2d-histogram
+    x_lim : tuple, optional
+        Limits of the x-axis
+    y_lim : tuple, optional
+        Limits of the y-axis
     bins : int
         Number of bins of the 2D-histogram
     dpi : int, optional
@@ -430,7 +264,13 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     title : string, optional
         Title of the 2D histogram
     output_path : string, optional
-        Output directory for the plot. If None (Default) the plot is not saved.
+        Output directory for the plot.
+        If None (Default) the plot is not saved.
+    offset : float, optional
+        Offset for the logarithmic binning.
+        Default is 0.
+    figsize : tuple, optional
+        Size of the figure
 
     Returns:
     --------
@@ -439,22 +279,22 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     if len(x_array_list) != len(y_array_list):
         raise ValueError('Need same number of samples for x- and y-axis.')
 
-    # Add small offset to avoid logarithm of zero or negative values
-    if offset is None:
-        offset = 0.
-    x_bins = np.logspace(np.log(np.min(np.nanmean(x_array_list, axis=0)) + offset),
-                         np.log(np.max(np.nanmean(x_array_list, axis=0)) + offset), bins)
-    y_bins = np.logspace(np.log(np.min(np.nanmean(y_array_list, axis=0)) + offset),
-                         np.log(np.max(np.nanmean(y_array_list, axis=0)) + offset), bins)
+    x_bins = np.logspace(
+        np.log(np.min(np.nanmean(x_array_list, axis=0)) + offset),
+        np.log(np.max(np.nanmean(x_array_list, axis=0)) + offset), bins)
+    y_bins = np.logspace(
+        np.log(np.min(np.nanmean(y_array_list, axis=0)) + offset),
+        np.log(np.max(np.nanmean(y_array_list, axis=0)) + offset), bins)
 
     hist_list = []
     edges_x_list = []
     edges_y_list = []
 
     for i in range(len(x_array_list)):
-        hist, edges_x, edges_y = np.histogram2d(x_array_list[i][~np.isnan(x_array_list[i])],
-                                                y_array_list[i][~np.isnan(y_array_list[i])],
-                                                bins=(x_bins, y_bins))
+        hist, edges_x, edges_y = np.histogram2d(
+            x_array_list[i][~np.isnan(x_array_list[i])],
+            y_array_list[i][~np.isnan(y_array_list[i])],
+            bins=(x_bins, y_bins))
         hist_list.append(hist)
         edges_x_list.append(edges_x)
         edges_y_list.append(edges_y)
@@ -463,10 +303,11 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     fig, ax = plt.subplots(dpi=dpi)
     counts = np.mean(hist_list, axis=0)
     xedges = np.mean(edges_x_list, axis=0)
-    yedges = np.mean(edges_y_list, axis=0) # FIXME: should this be done after the log?
-
+    yedges = np.mean(edges_y_list, axis=0)
     plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet,
-                   norm=LogNorm(vmin=1, vmax=np.max(counts))) # FIXME: here it may fail if the counts are all zeros
+                   norm=LogNorm(vmin=1, vmax=np.max(counts)))
+
+    plt.figure(figsize=figsize)
     plt.colorbar()
     ax.set_xscale('log')
     ax.set_yscale('log')
@@ -485,3 +326,158 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
         plt.close()
     else:
         plt.show()
+
+
+def plot_rgb(array,
+             name,
+             sat_min=[0, 0, 0],
+             sat_max=[1, 1, 1],
+             sigma=None,
+             log=False):
+    """
+    Plots an RGB image and saves it to a file.
+
+    This function processes an RGB image array, applies optional smoothing,
+    clipping, and logarithmic scaling, and then saves the image to a PNG file.
+
+    Parameters
+    ----------
+    array : ndarray
+        An array with shape (RGB, Space, Space) representing the RGB image data.
+        The first dimension should correspond to the color channels
+        (Red, Green, Blue).
+    name : str
+        The base name of the file where the plot will be saved.
+        The file extension '.png' will be added automatically.
+    sat_min : list of float, optional
+        Minimum values for saturation clipping in each color channel.
+        Should be a list with three elements corresponding to the RGB channels.
+        Default is [0, 0, 0].
+    sat_max : list of float, optional
+        Maximum values for saturation clipping in each color channel.
+        Should be a list with three elements corresponding to the RGB channels.
+        Default is [1, 1, 1].
+    sigma : float or None, optional
+        Standard deviation for Gaussian smoothing.
+        If None, no smoothing is applied. Default is None.
+    log : bool, optional
+        If True, apply logarithmic scaling to the
+        image data (non-zero values only). Default is False.
+
+    Returns
+    -------
+    None
+        The function saves the RGB image to a PNG file and does not
+        return any value.
+
+    Notes
+    -----
+    - The image will be saved with the filename format '<name>.png'.
+    - Ensure that the input array is correctly formatted with the first
+    dimension as RGB channels.
+    """
+    if sigma is not None:
+        array = _smooth(sigma, array)
+    if sat_min is not None and sat_max is not None:
+        array = _clip(array, sat_min, sat_max)
+    if log:
+        array = _non_zero_log(array)
+
+    array = np.moveaxis(array, 0, -1)  # Move the RGB dimension
+    # to the last axis for plotting
+    plot_data = _norm_rgb_plot(array)  # Normalize data for RGB plotting
+    plt.imshow(plot_data, origin="lower")
+    plt.savefig(name + ".png", dpi=500)
+    plt.close()
+    print(f"RGB image saved as {name}.png")
+
+
+def _get_n_rows_from_n_samples(n_samples):
+    """
+    A function to get the number of rows from the given number of samples.
+
+    Parameters:
+    ----------
+    n_samples: `int`.
+    The number of samples.
+
+    Returns:
+    -------
+    `int`: The number of rows.
+    """
+    threshold = 2
+    n_rows = 1
+    if n_samples == 2:
+        return n_rows
+
+    while True:
+        if n_samples < threshold:
+            return n_rows
+
+        threshold = 4 * threshold + 1
+        n_rows += 1
+
+
+def _norm_rgb_plot(x):
+    plot_data = np.zeros(x.shape)
+    x = np.array(x)
+    # norm on RGB to 0-1
+    for i in range(3):
+        a = x[:, :, i]
+        if a[a != 0].size == 0:
+            minim = 0
+            maxim = 0
+        else:
+            minim = a[a != 0].min()
+            maxim = a[a != 0].max()
+        a[a != 0] = (a[a != 0] - minim) / (maxim - minim)
+        plot_data[:, :, i] = a
+    return plot_data
+
+
+def _gauss(x, y, sig):
+    """2D Normal distribution"""
+    const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
+    r = np.sqrt(x ** 2 + y ** 2)
+    f = const * np.exp(-r ** 2 / (2 * sig ** 2))
+    return f
+
+
+def get_gaussian_kernel(domain, sigma):
+    """"2D Gaussian kernel for fft convolution."""
+    border = (domain.shape * domain.distances // 2)
+    x = np.linspace(-border[0], border[0], domain.shape[0])
+    y = np.linspace(-border[1], border[1], domain.shape[1])
+    xv, yv = np.meshgrid(x, y)
+    kern = _gauss(xv, yv, sigma)
+    kern = np.fft.fftshift(kern)
+    dvol = reduce(lambda a, b: a * b, domain.distances)
+    normalization = kern.sum() * dvol
+    kern = kern * normalization ** -1
+    return kern.T
+
+
+def _smooth(sig, x):
+    domain = Domain(x.shape, np.ones([3]))
+    gauss_domain = Domain(x.shape[1:], np.ones([2]))
+
+    smoothing_kernel = get_gaussian_kernel(gauss_domain, sig)
+    smoothing_kernel = smoothing_kernel[np.newaxis, ...]
+    smooth_data = jifty_convolve(x, smoothing_kernel, domain, [1, 2])
+    return np.array(smooth_data)
+
+
+def _clip(x, sat_min, sat_max):
+    clipped = np.zeros(x.shape)
+    print("Change the Saturation")
+    for i in range(3):
+        clipped[i] = np.clip(x[i], a_min=sat_min[i], a_max=sat_max[i])
+        clipped[i] = clipped[i] - sat_min[i]
+    return clipped
+
+
+def _non_zero_log(x):
+    x_arr = np.array(x)
+    log_x = np.zeros(x_arr.shape)
+    log_x[x_arr > 0] = np.log(x_arr[x_arr > 0])
+    return log_x

@@ -29,6 +29,3 @@ test_pic[500, 500] = 1
 test_pic[700, 700] = 1
 test = ift.makeField(sp, test_pic)
 np.save("synth_data.npy", ps_sum)
-ju.plot_single_psf(ps_sum, "sim_ps_log.png", logscale=True)
-ju.plot_single_psf(ps_sum, "sim_ps.png", logscale=False)
-ju.plot_single_psf(test, "test_ps.png", logscale=False)

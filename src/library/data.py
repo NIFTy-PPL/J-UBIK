@@ -1,4 +1,3 @@
-
 from os.path import join, exists
 import numpy as np
 from jax import random, linear_transpose
@@ -10,6 +9,7 @@ from .sky_models import SkyModel
 from .utils import (get_config, create_output_directory, save_to_pickle,
                     load_from_pickle)
 from .plot import plot_result
+
 
 class Domain(NamedTuple):
     """Mimicking NIFTy Domain.
@@ -138,7 +138,7 @@ def create_mock_data(tel_info, file_info, grid_info, prior_info, plot_info,
                                     np.zeros((len(tel_info['tm_ids']),) + sky.target.shape))
         mask_adj_func = lambda x: mask_adj(x)[0]
         plottable_data_array = np.stack(mask_adj_func(plottable_vector), axis=0)
-        from .mf_plot import plot_rgb
+        from .. import plot_rgb
         for tm_id in range(plottable_data_array.shape[0]):
             plot_rgb(plottable_data_array[tm_id],
                     name=join(output_path, f'mock_data_tm_rgb_log{tm_id+1}'), log=True)
