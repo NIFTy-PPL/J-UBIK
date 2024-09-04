@@ -425,23 +425,6 @@ def energy_binning(fld, energy_bins):
     binned_field = ift.Field.from_raw(new_domain, binned_array)
     return binned_field
 
-# TODO do we need this?
-def transform_loglog_slope_pars(slope_pars):
-    """Transform slope parameters from log10/log10 to ln/log10 space
-
-    Parameters
-    -----------
-    slope_pars: numpy.array
-
-    Returns
-    -------
-    numpy.array
-    """
-    res = slope_pars.copy()
-    res['mean'] = (res['mean'] + 1) * np.log(10)
-    res['sigma'] *= np.log(10)
-    return res
-
 
 def _check_type(arg, type, name=''):
     if arg is None:
