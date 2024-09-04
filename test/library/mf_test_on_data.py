@@ -27,7 +27,7 @@ sky_model = ju.SkyModel(config_path)
 sky = sky_model.create_sky_model()
 
 file_info = cfg['files']
-ju.save_config(cfg, os.path.basename(config_path), file_info['res_dir'])
+ju.save_to_yaml(cfg, os.path.basename(config_path), file_info['res_dir'])
 response_func = ju.build_erosita_response_from_config(config_path)['R']
 
 log_likelihood = jft.Poissonian(data_arr).amend(response_func).amend(sky)
