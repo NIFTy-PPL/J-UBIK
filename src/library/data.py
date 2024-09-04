@@ -102,6 +102,9 @@ def create_mock_data(tel_info, file_info, grid_info, prior_info, plot_info,
     """
     key = random.PRNGKey(seed)
 
+    e_min = grid_info['energy_bin']['e_min']
+    e_max = grid_info['energy_bin']['e_max']
+
     key, subkey = random.split(key)
     sky_model = SkyModel()
     sky = sky_model.create_sky_model(sdim=grid_info['sdim'], edim=grid_info['edim'],

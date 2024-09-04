@@ -4,8 +4,8 @@ import nifty8 as ift
 import numpy as np
 from matplotlib.colors import LogNorm
 
-from ...convolve_utils import (get_psf_func, psf_convolve_operator,
-                                        psf_lin_int_operator, psf_interpolator)
+from ....operators.convolve_utils import (get_psf_func, psf_convolve_operator,
+                                          psf_lin_int_operator, psf_interpolator)
 
 
 class eROSITA_PSF():

@@ -97,7 +97,7 @@ def mask_erosita_data_from_disk(file_info, tel_info, grid_info, mask_func):
     return masked_data_vector
 
 
-def generate_erosita_data_from_config(config_path):
+def create_erosita_data_from_config(config_path):
     """ Creates eROSITA data from config path
         (calls the eSASS interface) as fits files.
 
