@@ -443,26 +443,6 @@ def transform_loglog_slope_pars(slope_pars):
     return res
 
 
-def is_subdomain(sub_domain, total_domain):
-    """Checks if a domain is a true sub_domain of a MultiDomain. If the
-    sub_domain is a DomainTuple equality with total_domain is checked.
-
-    Parameters
-    ----------
-    sub_domain: nifty8.Domain, DomainTuple or MultiDomain
-    total_domain: nifty8.Domain, DomainTuple or MultiDomain
-
-    Returns:
-    -------
-    Boolean
-    """
-    if not isinstance(sub_domain, (ift.MultiDomain, ift.DomainTuple)):
-        raise TypeError
-    if isinstance(sub_domain, ift.DomainTuple):
-        return sub_domain == total_domain
-    return all(kk in total_domain.keys() and vv == total_domain[kk]
-               for kk, vv in sub_domain.items())
-
 # TODO transfer this knowledge to jubix / likelihood
 class _IGLikelihood(ift.EnergyOperator):
     """
