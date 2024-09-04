@@ -938,46 +938,53 @@ def _get_git_hash_from_local_package(package_name, git_path=None):
                                 'repository for the given package.')
 
 
-def save_local_packages_hashes_to_txt(packages_names, filename, paths_to_git=None, verbose=True):
+def save_local_packages_hashes_to_txt(packages_names,
+                                      filename,
+                                      paths_to_git=None,
+                                      verbose=True):
     """
     Save the latest Git hashes of local packages to a text file.
 
-    This function retrieves the latest Git commit hashes for a list of specified
-    local Python packages and saves these hashes to a text file in JSON format.
-    The output file will contain a dictionary where the keys are package names
-    and the values are the corresponding Git hashes.
+    This function retrieves the latest Git commit hashes for a list of
+    specified local Python packages and saves these hashes to a text file
+    in JSON format. The output file will contain a dictionary where the
+    keys are package names and the values are the corresponding Git hashes.
 
     Parameters:
     -----------
     packages_names : list of str
         A list of package names for which the Git hashes are to be retrieved.
     filename : str
-        The name of the file where the Git hashes will be saved. The output file
-        will be in JSON format, making it easy to read and parse.
+        The name of the file where the Git hashes will be saved.
+        The output file will be in JSON format, making it easy to
+        read and parse.
     paths_to_git : list of str, optional
         A list of paths to the git repositories for the specified packages.
-        If not provided or None, the function will attempt to retrieve the paths
-        from the editable path file.
+        If not provided or None, the function will attempt to retrieve
+        the paths from the editable path file.
     verbose : bool, optional
         If True, print out the progress of the function.
 
     Returns:
     --------
     None
-        This function does not return a value. It writes the output to the specified
-        file.
+        This function does not return a value.
+        It writes the output to the specified file.
 
     Example:
     --------
-    >>> save_local_packages_hashes_to_txt(['example_package1', 'example_package2'], 'hashes.txt')
+    >>> save_local_packages_hashes_to_txt(['example_package1',
+                                         'example_package2'],
+                                         'hashes.txt')
     Processing package: example_package1
     Successfully retrieved hash for example_package1: a1b2c3d4e5
     Processing package: example_package2
     Error processing package example_package2: Package 'example_package2' not found
     Hashes have been saved to package_hashes.txt
 
-    The above example retrieves the Git hashes for 'example_package1' and 'example_package2',
-    handles any errors encountered, and saves the results to 'package_hashes.txt'.
+    The above example retrieves the Git hashes for 'example_package1'
+    and 'example_package2', handles any errors encountered, and saves
+    the results to 'package_hashes.txt'.
     """
     hashes = {}
     for it, package_name in enumerate(packages_names):
@@ -985,7 +992,8 @@ def save_local_packages_hashes_to_txt(packages_names, filename, paths_to_git=Non
             if verbose:
                 print(f"Processing package: {package_name}")
             if paths_to_git is not None and paths_to_git[it] is not None:
-                git_hash = _get_git_hash_from_local_package(package_name, git_path=paths_to_git[it])
+                git_hash = _get_git_hash_from_local_package(package_name,
+                                                            git_path=paths_to_git[it])
             else:
                 git_hash = _get_git_hash_from_local_package(package_name)
             hashes[package_name] = git_hash
@@ -1002,7 +1010,10 @@ def save_local_packages_hashes_to_txt(packages_names, filename, paths_to_git=Non
     print(f"Hashes have been saved to {filename}.")
 
 
-def safe_config_update(key: str, new_value, config: dict, verbose: bool = True) -> dict:
+def safe_config_update(key: str,
+                       new_value,
+                       config: dict,
+                       verbose: bool = True) -> dict:
     """
     Update the configuration dictionary with a new value for the given key
     if the key is not already set or its current value is None.
