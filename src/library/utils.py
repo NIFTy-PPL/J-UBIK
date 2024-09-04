@@ -89,6 +89,7 @@ def add_functions(f1, f2):
 
 
 def get_stats(sample_list, func):
+    # TODO replace with jft.mean_and_std
     """Return stats(mean and std) for sample_list.
 
     Parameters:
@@ -101,8 +102,7 @@ def get_stats(sample_list, func):
 
 
 def get_config(path_to_yaml_file):
-    """
-    Convenience function for loading yaml-config files
+    """Convenience function for loading yaml-config files.
 
     Parameters
     ----------
@@ -123,8 +123,7 @@ def get_config(path_to_yaml_file):
 
 
 def save_config(config, filename, dir=None, verbose=True):
-    """
-    Convenience function to save yaml-config files
+    """Convenience function to save yaml-config files.
 
     Parameters
     ----------
@@ -148,8 +147,8 @@ def save_config(config, filename, dir=None, verbose=True):
 
 def save_config_copy(filename, path_to_yaml_file=None,
                      output_dir=None, verbose=True):
-    """
-    Convenience function to save yaml-config files
+    # TODO can this be replaced by save config?
+    """Convenience function to save yaml-config files.
 
     Parameters
     ----------
@@ -173,13 +172,16 @@ def save_config_copy(filename, path_to_yaml_file=None,
 
 
 def create_output_directory(directory_name):
-    """
-    Convenience function to create directories
-
+    """Convenience function to create directories.
+    # TODO: is this needed?
     Parameters
     ----------
     directory_name: str
         path of the directory which will be created
+
+    Returns:
+    --------
+    directory_name: str
     """
     os.makedirs(directory_name, exist_ok=True)
     return directory_name
@@ -187,6 +189,7 @@ def create_output_directory(directory_name):
 
 def get_gaussian_psf(op, var):
     """
+    # TODO ask matteani if he uses that one
     Builds a convolution operator which can be applied to an nifty8.Operator.
     It convolves the result of the operator with a Gaussian Kernel.
 
@@ -393,7 +396,9 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
     """
     Simulating the point spread function of chandra at n**2 positions.
     This is needed for the application of OverlappAdd algorithm at the
-    moment. # TODO Interpolation of PSF
+    moment.
+    # TODO Interpolation of PSF
+    # TODO remove old nifty dependency
 
     Parameters
     -----------
@@ -496,6 +501,7 @@ def coord_center(side_length, side_n):
     """
     Calculates the indices of the centers of the n**2 patches
     for a quadratical domain with a certain side length
+    # TODO hide from scope
 
     Parameters
     ----------
@@ -542,6 +548,7 @@ def convolve_operators(a, b):
     Convenience function for the convolution of two operators a and b.
     This uses Fast Fourier Transformation (FFT).
 
+    # TODO covered in jax
     Parameters
     ----------
     a: nifty8.Operator or OpChain
