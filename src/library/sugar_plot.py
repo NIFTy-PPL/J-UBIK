@@ -1,12 +1,14 @@
 from os.path import join
 
+import astropy.io.fits as pyfits
 import jax
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import nifty8.re as jft
 import numpy as np
+from astropy.visualization import make_lupton_rgb
 from jax import random, linear_transpose
 from jax.tree_util import tree_map
-from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 
 from .diagnostics import calculate_uwr, calculate_nwr
@@ -20,9 +22,46 @@ from ..library.sky_models import SkyModel
 
 
 def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
-    import astropy.io.fits as pyfits
-    from astropy.visualization import make_lupton_rgb
-    import matplotlib.pyplot as plt
+    """
+    Generates and plots an RGB image from separate FITS files for the red,
+    green, and blue channels, and saves the image to a file.
+
+    This function reads FITS files corresponding to the red, green,
+    and blue color channels, combines them into an RGB image using the
+    Lupton RGB algorithm, and then plots and saves the resulting image.
+    Optionally, logarithmic scaling can be applied to the image display.
+
+    Parameters
+    ----------
+    file_name_in : str
+        Base filename for the input FITS files.
+        The function expects the red, green, and blue channel files to be
+        named as '<file_name_in>_red.fits',
+        '<file_name_in>_green.fits', and '<file_name_in>_blue.fits'.
+    file_name_out : str
+        The filename where the resulting RGB image will be saved.
+        The format is determined by the file extension (e.g., '.png', '.jpg').
+    log_scale : bool, optional
+        If True, apply logarithmic scaling to the image display.
+        Default is False.
+
+    Returns
+    -------
+    None
+        The function saves the combined RGB image to the specified
+        file and does not return any value.
+
+    Notes
+    -----
+    - This function uses the `make_lupton_rgb` function from the
+    `astropy.visualization` module to combine the color channels
+    into an RGB image.
+    - Ensure that the input FITS files exist and are correctly named according
+    to the expected format.
+    - The output image is saved using the specified filename and file extension.
+    The image is displayed using either a linear or logarithmic scale based on
+    the `log_scale` parameter.
+    """
     color_dict = {0: "red", 1: "green", 2: "blue"}
     file_dict = {}
     for key in color_dict:
@@ -93,9 +132,13 @@ def plot_pspec(pspec, shape, distances,
     print(f"Power spectrum saved as {filename_samples}.")
 
 
-def plot_sample_and_stats(output_directory, operators_dict, sample_list,
+def plot_sample_and_stats(output_directory,
+                          operators_dict,
+                          sample_list,
                           iteration=None,
-                          log_scale=True, colorbar=True, dpi=300,
+                          log_scale=True,
+                          colorbar=True,
+                          dpi=300,
                           plotting_kwargs=None,
                           rgb_min_sat=None, rgb_max_sat=None,
                           plot_samples=True):
@@ -172,19 +215,19 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list,
                                         f"sample_{i + 1}_it_{iteration}.png")
                 title = [f"Energy {ii + 1}" for ii in range(e_length)]
                 plotting_kwargs.update({'title': title})
-                plot_result(operator_samples[i], output_file=filename_samples,
+                plot_result(operator_samples[i],
+                            output_file=filename_samples,
                             logscale=log_scale,
-                            colorbar=colorbar, dpi=dpi, adjust_figsize=True,
+                            colorbar=colorbar,
+                            dpi=dpi,
+                            adjust_figsize=True,
                             **plotting_kwargs)
-                rgb_name = join(results_path, f"rgb_{iteration}")
 
-                # TODO this only works for 3 E-Bins
+                # :TODO enable arbitrary multi-frequency rgb plotting
                 if e_length == 3:
                     # Plot RGB
                     rgb_filename = join(rgb_result_path_samples,
                                         f"sample_{i + 1}_{iteration}_rgb")
-                    # sat_max = [rgb_max_sat[j] * operator_samples[i][j].max(
-                    # ) for j in range(3)]
                     plot_rgb(operator_samples[i], rgb_filename,
                              sat_min=rgb_min_sat,
                              sat_max=rgb_max_sat)
@@ -224,9 +267,13 @@ def plot_sample_and_stats(output_directory, operators_dict, sample_list,
                          sat_max=None, log=True)
 
 
-def plot_erosita_priors(key, n_samples, config_path, priors_dir,
+def plot_erosita_priors(key,
+                        n_samples,
+                        config_path,
+                        priors_dir,
                         signal_response=False,
-                        plotting_kwargs=None, common_colorbar=False,
+                        plotting_kwargs=None,
+                        common_colorbar=False,
                         log_scale=True,
                         adjust_figsize=False):
     """
@@ -291,8 +338,8 @@ def plot_erosita_priors(key, n_samples, config_path, priors_dir,
                                zip(e_min, e_max)],
                         common_colorbar=common_colorbar, **plotting_kwargs)
 
-    if signal_response:  # FIXME: when R will be pickled, load the response
-        # from file
+    # TODO: load from pickle, when response pickle is enabled
+    if signal_response:
         tm_ids = cfg['telescope']['tm_ids']
         n_modules = len(tm_ids)
 
@@ -301,7 +348,8 @@ def plot_erosita_priors(key, n_samples, config_path, priors_dir,
         response_dict = build_erosita_response_from_config(config_path)
 
         mask_adj = linear_transpose(response_dict['mask'],
-                                    np.zeros((n_modules, epix, spix, spix)))
+                                    np.zeros(
+                                        (n_modules, epix, spix, spix)))
 
         R = lambda x: mask_adj(response_dict['R'](x))[0]
 
@@ -427,13 +475,19 @@ def plot_uncertainty_weighted_residuals(samples,
     return res_dict
 
 
-def plot_noise_weighted_residuals(samples, operator_dict, diagnostics_path,
+def plot_noise_weighted_residuals(samples,
+                                  operator_dict,
+                                  diagnostics_path,
                                   response_dict,
-                                  reference_data, base_filename=None,
+                                  reference_data,
+                                  base_filename=None,
                                   min_counts=0,
-                                  response=True, mask_exposure=True, abs=False,
+                                  response=True,
+                                  mask_exposure=True,
+                                  abs=False,
                                   n_bins=None,
-                                  extent=None, plot_kwargs=None):
+                                  extent=(-5, 5),
+                                  plot_kwargs=None):
     """
     Plots noise-weighted residuals (NWRs) given the position space sample
     list and
@@ -470,7 +524,8 @@ def plot_noise_weighted_residuals(samples, operator_dict, diagnostics_path,
     abs: bool, False
         If true the absolute value of the residual is calculated and plotted.
     extent: tuple, None
-        Range of the histogram. If None, the range defaults to (-5, 5)
+        Range of the histogram.
+        Default is (-5, 5).
     plot_kwargs: dict, None
         Dictionary of plotting keyword arguments for plot_result.
 
@@ -524,30 +579,37 @@ def plot_noise_weighted_residuals(samples, operator_dict, diagnostics_path,
                         **plot_kwargs)
 
             if n_bins is not None:
-                if extent is None:
-                    extent = (-5, 5)
-                hist_func = lambda x: \
-                jnp.histogram(x.reshape(-1), bins=n_bins, range=extent)[0]
-                edges_func = lambda x: \
-                jnp.histogram(x.reshape(-1), bins=n_bins, range=extent)[1]
+                hist_func = lambda x: jnp.histogram(x.reshape(-1),
+                                                    bins=n_bins,
+                                                    range=extent)[0]
+                edges_func = lambda x: jnp.histogram(x.reshape(-1),
+                                                     bins=n_bins,
+                                                     range=extent)[1]
                 hist = tree_map(jax.vmap(hist_func, in_axes=0, out_axes=0), i)
                 edges = tree_map(edges_func, masked_nwrs)
                 mean_hist = tree_map(lambda x: np.mean(x, axis=0), hist)
-                plot_histograms(mean_hist, edges,
-                                join(results_path,
+                hist_filename = join(results_path,
                                      f'{base_filename}{key}_tm'
-                                     f'{id + 1}_hist.png'),
+                                     f'{id + 1}_hist.png')
+                plot_histograms(mean_hist, edges,
+                                hist_filename,
                                 logy=False,
                                 title=f'NWR mean {key} - TM number {id + 1}')
 
     return res_dict
 
 
-def plot_2d_gt_vs_rec_histogram(samples, operator_dict, diagnostics_path,
+def plot_2d_gt_vs_rec_histogram(samples,
+                                operator_dict,
+                                diagnostics_path,
                                 response_dict,
-                                reference_dict, base_filename=None,
-                                response=True, relative=False,
-                                type='single', offset=0., plot_kwargs=None):
+                                reference_dict,
+                                base_filename=None,
+                                response=True,
+                                relative=False,
+                                type='single',
+                                offset=0.,
+                                plot_kwargs=None):
     """
     Plots the 2D histogram of reconstruction vs. ground-truth in either
     the data_space (if response_func = response) or the signal space (if
@@ -593,13 +655,12 @@ def plot_2d_gt_vs_rec_histogram(samples, operator_dict, diagnostics_path,
     R = response_dict['R']
     if response is False:
         exp = response_dict['exposure']
-        shape = exp(
-            operator_dict[tuple(operator_dict)[0]](jft.mean(samples))).shape
+        shape = exp(operator_dict[tuple(operator_dict)[0]](
+            jft.mean(samples))).shape
         reshape = lambda x: np.tile(x, (shape[0], 1, 1, 1))
         R = lambda x: jft.Vector(
             {k: response_dict['mask_adj'](response_dict['mask'](reshape(x)))[0]
-             for k in
-             range(shape[0])})
+             for k in range(shape[0])})
 
     Rs_sample_dict = {key: [R(op(s)) for s in samples] for key, op in
                       operator_dict.items()}
@@ -636,8 +697,8 @@ def plot_2d_gt_vs_rec_histogram(samples, operator_dict, diagnostics_path,
         ref_list = len(res_1d_array_list) * [stacked_ref]
         if relative:
             for i, sample in enumerate(res_1d_array_list):
-                res_1d_array_list[i] = np.abs(ref_list[i] - sample) / ref_list[
-                    i]
+                res_1d_array_list[i] = (np.abs(ref_list[i] - sample) /
+                                        ref_list[i])
         if base_filename is not None:
             output_path = join(diagnostics_path,
                                f'{base_filename}hist_{key}.png')

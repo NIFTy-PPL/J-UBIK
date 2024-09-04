@@ -78,30 +78,6 @@ def plot_result(array,
 
     n_plots = array.shape[0]
 
-    def _get_n_rows_from_n_samples(n_samples):
-        """
-        A function to get the number of rows from the given number of samples.
-
-        Parameters:
-        ----------
-            n_samples: `int`. The number of samples.
-
-        Returns:
-        -------
-            `int`: The number of rows.
-        """
-        threshold = 2
-        n_rows = 1
-        if n_samples == 2:
-            return n_rows
-
-        while True:
-            if n_samples < threshold:
-                return n_rows
-
-            threshold = 4 * threshold + 1
-            n_rows += 1
-
     if n_rows is None:
         n_rows = _get_n_rows_from_n_samples(n_plots)
 
@@ -319,6 +295,7 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list,
                    norm=LogNorm(vmin=1, vmax=np.max(
                        counts)))  # FIXME: here it may fail if the counts are
     # all zeros
+    plt.figure(figsize=figsize)
     plt.colorbar()
     ax.set_xscale('log')
     ax.set_yscale('log')
@@ -394,9 +371,8 @@ def plot_rgb(array,
     if log:
         array = _non_zero_log(array)
 
-    array = np.moveaxis(array, 0,
-                        -1)  # Move the RGB dimension to the last axis for
-    # plotting
+    array = np.moveaxis(array, 0, -1)  # Move the RGB dimension
+    # to the last axis for plotting
     plot_data = _norm_rgb_plot(array)  # Normalize data for RGB plotting
     plt.imshow(plot_data, origin="lower")
     plt.savefig(name + ".png", dpi=500)
