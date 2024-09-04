@@ -19,6 +19,8 @@ class ErositaObservation:
     files and images.
     It assumes the presence of standard eSASS file extensions and utilizes
     Docker to run eSASS commands in a containerized environment.
+    For more information on the eSASS software and installation, see
+    <https://erosita.mpe.mpg.de/dr1/eSASS4DR1/>
 
     Attributes
     ----------
@@ -29,42 +31,46 @@ class ErositaObservation:
     output : str
         Filename for the output file.
     image : str
-        Docker image to use for running eSASS commands. Defaults to the latest
-        EDR or DR1 image.
+        Docker image to use for running eSASS commands.
+        Defaults to the latest EDR or DR1 image.
     _mounted_dir : str
         Directory path inside the Docker container where the working directory
         is mounted.
     _base_command : str
         Base command for running eSASS commands in the Docker container.
 
-    Parameters
-    ----------
-    input_filename : str
-        Filename of the input eROSITA event file or image.
-    output_filename : str
-        Filename for the output file.
-    working_directory : str
-        Directory where output files will be stored.
-    esass_image : str, optional
-        Docker image tag to use for running eSASS commands.
-        Options are 'EDR' or 'DR1'. Defaults to 'EDR'.
-        If not provided, defaults to the latest EDR image.
-
-    Raises
-    ------
-    ValueError
-        If `esass_image` is provided but does not match 'EDR' or 'DR1'.
-
-    Notes
-    -----
-    - Ensure Docker is installed and properly configured on the system.
-    - This class assumes that eSASS commands are run in a Docker container with
-    the specified image and that the eSASS environment is correctly set up
-    within the container.
     """
 
     def __init__(self, input_filename, output_filename, working_directory,
                  esass_image=None):
+        """
+        Initializes the ErositaObservation class.
+
+        Parameters
+        ----------
+        input_filename : str
+            Filename of the input eROSITA event file or image.
+        output_filename : str
+            Filename for the output file.
+        working_directory : str
+            Directory where output files will be stored.
+        esass_image : str, optional
+        Docker image tag to use for running eSASS commands.
+        Options are 'EDR' or 'DR1'. Defaults to 'EDR'.
+        If not provided, defaults to the latest EDR image.
+
+        Raises
+        ------
+        ValueError
+            If `esass_image` is provided but does not match 'EDR' or 'DR1'.
+
+        Notes
+        -----
+        - Ensure Docker is installed and properly configured on the system.
+        - This class assumes that eSASS commands are run in a Docker container
+        with the specified image and that the eSASS environment is correctly
+        set up within the container.
+        """
         # TODO: Add parameter checks
         self.working_directory = os.path.abspath(working_directory)
         self.input = input_filename
@@ -114,7 +120,7 @@ class ErositaObservation:
         - This method prints messages about the status of the data collection
         and saving process.
         """
-        print("Collecting data from {}.".format(self.input))
+        print(f"Collecting data from {self.input}.")
         input_files = self._parse_stringlists(self.input,
                                               additional_path=self._mounted_dir)
         output_file = self._mounted_dir + self.output
@@ -124,8 +130,8 @@ class ErositaObservation:
                    output_file + flags + "'")
 
         self._run_task(command)
-        print("The processed dataset has been saved as {}.".format(
-            join(self.working_directory, self.output)))
+        print(f"The processed dataset has been saved "
+              f"as {join(self.working_directory, self.output)}.")
         return fits.open(join(self.working_directory, self.output))
 
     def get_exposure_maps(self, template_image, emin, emax,
@@ -162,7 +168,9 @@ class ErositaObservation:
         None
             The method does not return a value.
             It executes a command to generate the exposure maps, which are
-            saved to file.
+            saved to file. The output file is saved in the directory specified
+            by `self.working_directory` and named according to
+            `output_filename`.
 
         Notes
         -----
@@ -187,12 +195,9 @@ class ErositaObservation:
             for i in range(7):
                 caldb_loc = caldb_loc_base.format(i + 1)
                 detmap_file = detmap_file_base.format(i + 1)
-                update_detmap_command = f' mv {caldb_loc}{detmap_file} ' \
-                    (f'{caldb_loc}tm'
-                     f'{i + 1}_detmap_100602v02_old.fits '
-                     f'&& ') \
-                    (f'cp {self._mounted_dir}new_detmaps/'
-                     f'{detmap_file} {caldb_loc} &&')
+                update_detmap_command = f' mv {caldb_loc}{detmap_file} {caldb_loc}' \
+                                        f'tm{i + 1}_detmap_100602v02_old.fits && ' \
+                                        f'cp {self._mounted_dir}new_detmaps/{detmap_file} {caldb_loc} &&'
                 command += update_detmap_command
             command += ' expmap ' + input_files + flags + "'"
 
@@ -200,7 +205,7 @@ class ErositaObservation:
 
     def load_fits_data(self, filename, verbose=True):
         if verbose:
-            print("Loading ouput data stored in {}.".format(filename))
+            print(f"Loading ouput data stored in {filename}.")
         return fits.open(join(self.working_directory, filename))
 
     def get_pointing_coordinates_stats(self, module, input_filename=None):
@@ -210,13 +215,12 @@ class ErositaObservation:
 
         if input_filename is None:
             input_filename = self.input
-        print('Loading pointing coordinates for TM{} module from {}.'.format(
-            module[-1],
-            input_filename))
+        print(f'Loading pointing coordinates for TM{module[-1]} '
+              f'module from {input_filename}.')
 
         try:
-            data = self.load_fits_data(input_filename, verbose=False)[
-                module].data
+            data = self.load_fits_data(input_filename,
+                                       verbose=False)[module].data
 
         except ValueError as err:
             raise ValueError(
@@ -257,7 +261,7 @@ class ErositaObservation:
             plt.show()
         plt.savefig(output, dpi=dpi)
         plt.close()
-        print(filename + " data image saved as {}.".format(output))
+        print(f"Plot from fits data saved as {output}.")
 
     @staticmethod
     def _run_task(command):
@@ -276,21 +280,6 @@ class ErositaObservation:
                           telid=None, emin=None, emax=None, rawxy=None,
                           rawxy_telid=None, rawxy_invert=False, memset=None,
                           overlap=None, skyfield=None):
-
-        input_params = {'clobber': bool, 'events': bool, 'image': bool,
-                        'size': int,
-                        'rebin': int, 'center_position': tuple, 'region': str,
-                        'gti': str, 'flag': str, 'flag_invert': bool,
-                        'pattern': int,
-                        'telid': int, 'emin': float | str, 'emax': float | str,
-                        'rawxy': str,
-                        'rawxy_telid': int, 'rawxy_invert': bool, 'memset': int,
-                        'overlap': float, 'skyfield': str}
-
-        # Implements type checking
-        for key, val in input_params.items():
-            _check_type(eval(key), val, name=key)
-
         """
         Returns appropriate evtool command flags.
 
@@ -318,6 +307,32 @@ class ErositaObservation:
         overlap: float
         skyfield: str
         """
+
+        input_params = {'clobber': bool,
+                        'events': bool,
+                        'image': bool,
+                        'size': int,
+                        'rebin': int,
+                        'center_position': tuple,
+                        'region': str,
+                        'gti': str,
+                        'flag': str,
+                        'flag_invert': bool,
+                        'pattern': int,
+                        'telid': int,
+                        'emin': float | str,
+                        'emax': float | str,
+                        'rawxy': str,
+                        'rawxy_telid': int,
+                        'rawxy_invert': bool,
+                        'memset': int,
+                        'overlap': float,
+                        'skyfield': str}
+
+        # Implements type checking
+        for key, val in input_params.items():
+            _check_type(eval(key), val, name=key)
+
 
         flags = ""
         flags += "" if clobber else " clobber=no"
@@ -348,20 +363,25 @@ class ErositaObservation:
     @staticmethod
     def _get_exmap_flags(mounted_dir, templateimage, emin, emax,
                          withsinglemaps=False, withmergedmaps=False,
-                         singlemaps=None,
-                         mergedmaps=None, gtitype='GTI', withvignetting=True,
-                         withdetmaps=True, withweights=True,
-                         withfilebadpix=True,
+                         singlemaps=None, mergedmaps=None, gtitype='GTI',
+                         withvignetting=True, withdetmaps=True,
+                         withweights=True, withfilebadpix=True,
                          withcalbadpix=True, withinputmaps=False):
 
-        input_params = {'mounted_dir': str, 'templateimage': str,
+        input_params = {'mounted_dir': str,
+                        'templateimage': str,
                         'emin': float | str,
-                        'emax': float | str, 'withsinglemaps': bool,
+                        'emax': float | str,
+                        'withsinglemaps': bool,
                         'withmergedmaps': bool,
-                        'singlemaps': list, 'mergedmaps': str, 'gtitype': str,
-                        'withvignetting': bool, 'withdetmaps': bool,
+                        'singlemaps': list,
+                        'mergedmaps': str,
+                        'gtitype': str,
+                        'withvignetting': bool,
+                        'withdetmaps': bool,
                         'withweights': bool,
-                        'withfilebadpix': bool, 'withcalbadpix': bool,
+                        'withfilebadpix': bool,
+                        'withcalbadpix': bool,
                         'withinputmaps': bool}
 
         # Implements type checking
