@@ -164,7 +164,12 @@ def plot_result(array,
         plt.show()
 
 
-def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
+def plot_histograms(hist,
+                    edges,
+                    filename,
+                    logx=False,
+                    logy=False,
+                    title=None):
     """
     Plots a histogram and saves it to a file.
 
@@ -225,12 +230,18 @@ def plot_histograms(hist, edges, filename, logx=False, logy=False, title=None):
     print(f"Histogram saved as {filename}.")
 
 
-def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list,
+def plot_sample_averaged_log_2d_histogram(x_array_list,
+                                          x_label,
+                                          y_array_list,
                                           y_label,
-                                          x_lim=None, y_lim=None, bins=100,
+                                          x_lim=None,
+                                          y_lim=None,
+                                          bins=100,
                                           dpi=400,
-                                          title=None, output_path=None,
-                                          offset=None, figsize=None):
+                                          title=None,
+                                          output_path=None,
+                                          offset=0.,
+                                          figsize=None):
     """ Plot a 2d histogram for the arrays given for x_array and y_array.
 
 
@@ -244,6 +255,10 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list,
         list of samples of y-axis array of 2d-histogram
     y_label : string
         y-axis label of the 2d-histogram
+    x_lim : tuple, optional
+        Limits of the x-axis
+    y_lim : tuple, optional
+        Limits of the y-axis
     bins : int
         Number of bins of the 2D-histogram
     dpi : int, optional
@@ -253,6 +268,11 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list,
     output_path : string, optional
         Output directory for the plot.
         If None (Default) the plot is not saved.
+    offset : float, optional
+        Offset for the logarithmic binning.
+        Default is 0.
+    figsize : tuple, optional
+        Size of the figure
 
     Returns:
     --------
@@ -261,9 +281,6 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list,
     if len(x_array_list) != len(y_array_list):
         raise ValueError('Need same number of samples for x- and y-axis.')
 
-    # Add small offset to avoid logarithm of zero or negative values
-    if offset is None:
-        offset = 0.
     x_bins = np.logspace(
         np.log(np.min(np.nanmean(x_array_list, axis=0)) + offset),
         np.log(np.max(np.nanmean(x_array_list, axis=0)) + offset), bins)
@@ -290,11 +307,10 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list,
     xedges = np.mean(edges_x_list, axis=0)
     yedges = np.mean(edges_y_list,
                      axis=0)  # FIXME: should this be done after the log?
-
     plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet,
                    norm=LogNorm(vmin=1, vmax=np.max(
-                       counts)))  # FIXME: here it may fail if the counts are
-    # all zeros
+                       counts)))
+
     plt.figure(figsize=figsize)
     plt.colorbar()
     ax.set_xscale('log')
@@ -423,7 +439,7 @@ def _norm_rgb_plot(x):
     return plot_data
 
 
-def gauss(x, y, sig):
+def _gauss(x, y, sig):
     """2D Normal distribution"""
     const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
     r = np.sqrt(x ** 2 + y ** 2)
@@ -437,7 +453,7 @@ def get_gaussian_kernel(domain, sigma):
     x = np.linspace(-border[0], border[0], domain.shape[0])
     y = np.linspace(-border[1], border[1], domain.shape[1])
     xv, yv = np.meshgrid(x, y)
-    kern = gauss(xv, yv, sigma)
+    kern = _gauss(xv, yv, sigma)
     kern = np.fft.fftshift(kern)
     dvol = reduce(lambda a, b: a * b, domain.distances)
     normalization = kern.sum() * dvol

@@ -1,79 +1,20 @@
 from os.path import join
 
-import astropy.io.fits as pyfits
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import nifty8.re as jft
 import numpy as np
-from astropy.visualization import make_lupton_rgb
 from jax import random, linear_transpose
 from jax.tree_util import tree_map
-from matplotlib.colors import LogNorm
 
 from .diagnostics import calculate_uwr, calculate_nwr
 from .instruments.erosita.erosita_response import \
     build_erosita_response_from_config
 from .plot import plot_result, plot_sample_averaged_log_2d_histogram, \
-    plot_histograms
+    plot_histograms, plot_rgb
 from .utils import get_stats, create_output_directory, get_config
-from .. import plot_rgb
 from ..library.sky_models import SkyModel
-
-
-def plot_rgb_image(file_name_in, file_name_out, log_scale=False):
-    """
-    Generates and plots an RGB image from separate FITS files for the red,
-    green, and blue channels, and saves the image to a file.
-
-    This function reads FITS files corresponding to the red, green,
-    and blue color channels, combines them into an RGB image using the
-    Lupton RGB algorithm, and then plots and saves the resulting image.
-    Optionally, logarithmic scaling can be applied to the image display.
-
-    Parameters
-    ----------
-    file_name_in : str
-        Base filename for the input FITS files.
-        The function expects the red, green, and blue channel files to be
-        named as '<file_name_in>_red.fits',
-        '<file_name_in>_green.fits', and '<file_name_in>_blue.fits'.
-    file_name_out : str
-        The filename where the resulting RGB image will be saved.
-        The format is determined by the file extension (e.g., '.png', '.jpg').
-    log_scale : bool, optional
-        If True, apply logarithmic scaling to the image display.
-        Default is False.
-
-    Returns
-    -------
-    None
-        The function saves the combined RGB image to the specified
-        file and does not return any value.
-
-    Notes
-    -----
-    - This function uses the `make_lupton_rgb` function from the
-    `astropy.visualization` module to combine the color channels
-    into an RGB image.
-    - Ensure that the input FITS files exist and are correctly named according
-    to the expected format.
-    - The output image is saved using the specified filename and file extension.
-    The image is displayed using either a linear or logarithmic scale based on
-    the `log_scale` parameter.
-    """
-    color_dict = {0: "red", 1: "green", 2: "blue"}
-    file_dict = {}
-    for key in color_dict:
-        file_dict[color_dict[key]] = \
-        pyfits.open(f"{file_name_in}_{color_dict[key]}.fits")[0].data
-    rgb_default = make_lupton_rgb(file_dict["red"], file_dict["green"],
-                                  file_dict["blue"],
-                                  filename=file_name_out)
-    if log_scale:
-        plt.imshow(rgb_default, norm=LogNorm(), origin='lower')
-    else:
-        plt.imshow(rgb_default, origin='lower')
 
 
 def plot_pspec(pspec, shape, distances,
