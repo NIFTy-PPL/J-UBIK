@@ -1,3 +1,4 @@
+import nifty8 as ift
 import nifty8.re as jft
 
 from .data import load_masked_data_from_config

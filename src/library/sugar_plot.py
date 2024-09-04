@@ -14,6 +14,7 @@ from .instruments.erosita.erosita_response import \
 from .plot import plot_result, plot_sample_averaged_log_2d_histogram, \
     plot_histograms, plot_rgb
 from .utils import get_stats, create_output_directory, get_config
+
 from ..library.sky_models import SkyModel
 
 
