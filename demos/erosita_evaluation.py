@@ -11,9 +11,12 @@ import nifty8.re as jft
 
 # Parser Setup
 parser = argparse.ArgumentParser()
-parser.add_argument('evaluation_config', type=str,
+parser.add_argument('evaluation_config',
+                    type=str,
                     help="Config file (.yaml) for eROSITA inference.",
-                    nargs='?', const=1, default="eROSITA_evaluation_config.yaml")
+                    nargs='?',
+                    const=1,
+                    default="configs/eROSITA_evaluation_config.yaml")
 args = parser.parse_args()
 
 

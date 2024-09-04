@@ -1,0 +1,196 @@
+seed: 86
+esass_image: DR1
+telescope:
+  tm_ids : [1, 2, 3, 4, 6]
+  rebin: 80 # set by the consortium
+  fov: 4096
+  pattern: 15
+  detmap: True
+  exp_cut: 500
+  badpix_correction: True
+  effective_area_correction: True
+
+psf:
+ method: 'LINJAX'
+ energy: ['0277', '1486', '3000']
+  # LIN config
+ npatch: 8
+ margfrac: 0.062
+ want_cut: False
+
+plotting:
+  enabled: True
+  slice: Null
+  dpi: 800
+
+grid:
+  sdim: 1024
+  edim: 3 # FIXME: remove this parameter
+  s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
+  e_padding_ratio: 1.
+  energy_bin:
+    e_min:
+    - 0.2
+    - 1.0
+    - 2.0
+    e_max:
+    - 1.0
+    - 2.0
+    - 4.5
+    e_ref:
+    - 2
+
+files:
+  obs_path: '../data/LMC_SN1987A/'
+  data_dict: 'data.pkl'
+  processed_obs_folder: 'processed'  # only needed for actual data
+  input: 'pm00_700161_020_EventList_c001.fits'
+  output: 'pm00_700161_020_data.fits'
+  exposure: 'pm00_700161_020_expmap.fits'
+  calibration_path : '../data/'
+  psf_path : '../data/psf_info/'
+  effective_area_filename_suffix: '_arf_filter_000101v02.fits'
+  psf_base_filename: '2dpsf_190219v05.fits'
+  res_dir: 'results/Default_run_mf'
+  mock_gen_config: 'mock_config.yaml' # only needed for mock
+  pos_dict: 'pos.pkl' # only needed for mock
+
+priors:
+  point_sources:
+    spatial:
+      alpha: 1.0001
+      q: 3.E-10
+      key: points
+    plaw:
+      mean: -2.
+      std: 1.5
+      name: points_plaw_
+    dev_wp:
+      x0: 0.
+      sigma:
+        - 0.01
+        - 0.02
+      name: 'points_dev_wp'
+#    dev_corr:
+#      fluctuations:
+#        fluctuations:
+#          - 1.0
+#          - 5.0e-3
+#        loglogavgslope:
+#          - -3
+#          - 1.0e-2
+#        flexibility:
+#          - 2.0
+#          - 5.0e-1
+#        asperity:
+#        non_parametric_kind: "power"
+#        # harmonic_type: "Fourier"
+#      prefix: points_dev
+#      offset:
+#        offset_mean: 0.0
+#        offset_std:
+#          - 1.0e-3
+#          - 1.0e-4
+  diffuse:
+    spatial:
+      offset:
+        offset_mean: -14.
+        offset_std:
+          - 0.5
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.2
+        loglogavgslope:
+          - -4.0
+          - 0.3
+        flexibility:
+          - 0.4
+          - 0.1
+        asperity:
+          Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_spatial_
+    plaw:
+      offset:
+        offset_mean: -2.0
+        offset_std:
+          - 0.3
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.05
+        loglogavgslope:
+          - -5.
+          - 1.0e-2
+        flexibility:
+          - 0.5
+          - 0.05
+        asperity:
+          Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_plaw_
+    # dev_wp:
+    #   x0: 0.
+    #   sigma:
+    #     - 0.3
+    #     - 0.1
+    #   dt: 1
+    #   name: 'diffuse_dev_wp'
+#    dev_corr:
+#      fluctuations:
+#        fluctuations:
+#          - 1.0
+#          - 5.0e-3
+#        loglogavgslope:
+#          - -3
+#          - 1.0e-2
+#        flexibility:
+#          - 2.0
+#          - 5.0e-1
+#        asperity:
+#        non_parametric_kind: "power"
+#        # harmonic_type: "Fourier"
+#      prefix: diffuse_dev_
+#      offset:
+#        offset_mean: 0.0
+#        offset_std:
+#          - 1.0e-3
+#          - 1.0e-4
+
+minimization:
+    resume: False
+    n_total_iterations: 15
+    delta:
+      switches: [0, 10]
+      values: [1.e-5, 1.e-6]
+
+    samples:
+      switches: [0, 10]
+      n_samples: [4, 5]
+      mode: [nonlinear_resample, nonlinear_update]
+      # Possible modes:
+      # - "linear_sample",
+      # - "linear_resample",
+      # - "nonlinear_sample",
+      # - "nonlinear_resample",
+      # - "nonlinear_update",
+
+      # LIN SAMPLING
+      # lin_absdelta: [Null, 1.e-4] # if set, delta is ignored
+      lin_maxiter: [60, 70]
+
+      # NONLIN SAMPLING
+      # nonlin_xtol: [Null, 0.1] # if set, delta is ignored
+      nonlin_maxiter: [25, 35]
+      # nonlin_cg_atol: [0.1, 0.01]
+      # nonlin_cg_maxiter: [20, 30]
+
+    kl_minimization:
+      switches: [0, 10]
+      # kl_absdelta: [Null, 1.e-6] # if set, delta is ignored
+      kl_maxiter: [10, 13]
