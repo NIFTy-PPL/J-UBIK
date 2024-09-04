@@ -87,7 +87,7 @@ def build_chandra_response_from_config(config_file_path):
             # Compute PSF if it hasn't been loaded
             if not exists(psf_path):
                 psf_sim = obs_info_instance.get_psf_fromsim(
-                    (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]),
+                    (obsInfo["aim_ra"], obsInfo["aim_dec"]),
                     join(outroot, "psf"),
                     num_rays=obs_info_instance['num_rays']
                 )
