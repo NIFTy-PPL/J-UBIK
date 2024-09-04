@@ -572,27 +572,3 @@ def _check_type(arg, type, name=''):
     elif not isinstance(arg, type):
         print("arg:", arg)
         raise TypeError("The \"{}\" argument must be of type {}.".format(name, str(type)))
-
-
-# TODO do we have the equivalent?
-def get_rel_uncertainty(mean, std):
-    """Calculates the pointwise relative uncertainty from the mean
-    and the standard deviation.
-
-    Parameters
-    ----------
-    mean: nifty8.Field
-    std: nifty8.Field
-
-    Returns
-    -------
-    nifty8.Field
-    """
-    assert mean.domain == std.domain
-    domain = mean.domain
-    mean, std = mean.val, std.val
-    res = np.zeros(mean.shape)
-    mask = mean != 0
-    res[mask] = std[mask] / mean[mask]
-    res[~mask] = np.nan
-    return ift.makeField(domain, res)

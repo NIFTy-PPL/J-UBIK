@@ -9,7 +9,7 @@ from .library.utils import (save_to_pickle, load_from_pickle,
                             save_to_fits, save_config_copy,
                             create_output_directory, coord_center,
                             get_radec_from_xy, get_psfpatches,
-                            get_synth_pointsource, get_gaussian_psf, get_rel_uncertainty,
+                            get_synth_pointsource, get_gaussian_psf,
                             get_equal_lh_transition, get_stats)
 from .library.plot import (plot_result, plot_histograms,
                            plot_sample_averaged_log_2d_histogram, plot_rgb)
