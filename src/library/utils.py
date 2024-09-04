@@ -425,7 +425,7 @@ def energy_binning(fld, energy_bins):
     binned_field = ift.Field.from_raw(new_domain, binned_array)
     return binned_field
 
-
+# TODO do we need this?
 def transform_loglog_slope_pars(slope_pars):
     """Transform slope parameters from log10/log10 to ln/log10 space
 
@@ -463,7 +463,7 @@ def is_subdomain(sub_domain, total_domain):
     return all(kk in total_domain.keys() and vv == total_domain[kk]
                for kk, vv in sub_domain.items())
 
-# TODO transfer this knowledge to jubix?
+# TODO transfer this knowledge to jubix / likelihood
 class _IGLikelihood(ift.EnergyOperator):
     """
     Functional form of the Inverse-Gamma distribution. Can be used for
@@ -501,7 +501,7 @@ class _IGLikelihood(ift.EnergyOperator):
             return res
         raise NotImplementedError
 
-
+# TODO to likelihood
 def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
                             point_key = 'point_sources', stiffness = 1E6,
                             red_factor = 1E-3):
@@ -874,7 +874,7 @@ def safe_config_update(key: str,
                      f"or a new value must be provided!")
 
 
-# TODO do we need this?
+# TODO do we need this -> to likelihood?
 def get_n_constrained_dof(likelihood: jft.Likelihood) -> int:
     """
     Extacts the number of constrained degrees of freedom (DOF)
