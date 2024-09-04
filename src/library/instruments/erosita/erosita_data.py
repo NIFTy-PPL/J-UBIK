@@ -9,8 +9,7 @@ from .erosita_observation import ErositaObservation
 from ...data import create_mock_data
 from ...messages import log_file_exists
 from ...utils import (save_to_pickle, get_config, create_output_directory,
-                      save_config_copy)
-
+                      copy_config)
 
 def create_erosita_data_from_config(config_path, response_dict):
     """ Wrapper function to create masked data either from
@@ -39,7 +38,7 @@ def create_erosita_data_from_config(config_path, response_dict):
             mock_prior_info = get_config(file_info["mock_gen_config"])
             _ = create_mock_data(tel_info, file_info, grid_info, mock_prior_info,
                                          plot_info, cfg['seed'], response_dict)
-            save_config_copy(file_info['mock_gen_config'], output_dir=file_info['res_dir'])
+            copy_config(file_info['mock_gen_config'], output_dir=file_info['res_dir'])
         else:
             jft.logger.info(f'Generating masked eROSITA data in {file_info["res_dir"]}...')
             mask_erosita_data_from_disk(file_info, tel_info, grid_info, response_dict['mask'])
