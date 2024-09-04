@@ -66,7 +66,8 @@ def plot_pspec(pspec, shape, distances,
     _, unique_modes, _ = get_fourier_mode_distributor(shape, distances)
 
     plt.plot(unique_modes, jft.mean(samples), label="mean")
-    [plt.plot(unique_modes, s, alpha=0.5, color='k') for s in samples]
+    for s in samples:
+        plt.plot(unique_modes, s, alpha=0.5, color='k')
     plt.loglog()
     plt.savefig(filename_samples, dpi=dpi)
     plt.close()
@@ -148,8 +149,6 @@ def plot_sample_and_stats(output_directory,
         filename_std = join(stats_result_path, f"std_it_{iteration}.png")
 
         # Plot samples
-        # FIXME: works only for 2D outputs, add target capabilities
-
         if plot_samples:
             for i in range(n_samples):
                 filename_samples = join(samples_result_path,
@@ -386,8 +385,8 @@ def plot_uncertainty_weighted_residuals(samples,
                   "uncertainty-weighted mean.")
 
         uwrs, exp_mask = calculate_uwr(samples.samples, op, reference_dict[key],
-                                       response_dict,
-                                       abs=abs, exposure_mask=mask, log=log)
+                                       response_dict, abs=abs,
+                                       exposure_mask=mask, log=log)
         uwrs = np.array(uwrs)
         masked_uwrs = uwrs.copy()
         masked_uwrs[~exp_mask] = np.nan

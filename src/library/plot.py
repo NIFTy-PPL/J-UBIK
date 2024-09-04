@@ -224,9 +224,7 @@ def plot_histograms(hist,
         plt.title(title)
 
     plt.savefig(filename)
-
     plt.close()
-
     print(f"Histogram saved as {filename}.")
 
 
@@ -305,11 +303,9 @@ def plot_sample_averaged_log_2d_histogram(x_array_list,
     fig, ax = plt.subplots(dpi=dpi)
     counts = np.mean(hist_list, axis=0)
     xedges = np.mean(edges_x_list, axis=0)
-    yedges = np.mean(edges_y_list,
-                     axis=0)  # FIXME: should this be done after the log?
+    yedges = np.mean(edges_y_list, axis=0)
     plt.pcolormesh(xedges, yedges, counts.T, cmap=plt.cm.jet,
-                   norm=LogNorm(vmin=1, vmax=np.max(
-                       counts)))
+                   norm=LogNorm(vmin=1, vmax=np.max(counts)))
 
     plt.figure(figsize=figsize)
     plt.colorbar()
