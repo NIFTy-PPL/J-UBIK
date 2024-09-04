@@ -234,8 +234,6 @@ def get_gaussian_psf(op, var):
     return conv_op
 
 
-
-
 def coord_center(side_length, side_n):
     """
     Calculates the indices of the centers of the n**2 patches
