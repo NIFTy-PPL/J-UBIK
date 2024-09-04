@@ -1,18 +1,9 @@
-import ast
-import fnmatch
-import json
 import os
-import re
-import subprocess
-import pickle
-from importlib import resources
 from os.path import join
-from warnings import warn
+import pickle
 
-import nifty8 as ift
-import nifty8.re as jft
 import numpy as np
-import scipy
+import nifty8.re as jft
 
 
 def load_from_pickle(file_path):
@@ -89,7 +80,7 @@ def add_functions(f1, f2):
 
 
 def get_stats(sample_list, func):
-    # TODO replace with jft.mean_and_std
+    # TODO replace with nifty.re.mean_and_std
     """Return stats(mean and std) for sample_list.
 
     Parameters:
