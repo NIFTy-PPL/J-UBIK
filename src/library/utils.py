@@ -1156,6 +1156,7 @@ def safe_config_update(key: str, new_value, config: dict, verbose: bool = True) 
 
 
 def calculate_n_constrained_dof(likelihood: jft.Likelihood) -> int:
+def get_n_constrained_dof(likelihood: jft.Likelihood) -> int:
     """
     Calculates the number of constrained degrees of freedom (DOF) based on the likelihood.
 

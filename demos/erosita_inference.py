@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     # Minimization
     minimization_config = cfg['minimization']
-    n_dof = ju.calculate_n_constrained_dof(log_likelihood)
+    n_dof = ju.get_n_constrained_dof(log_likelihood)
     minimization_parser = ju.MinimizationParser(minimization_config, n_dof=n_dof)
 
     # Plot
