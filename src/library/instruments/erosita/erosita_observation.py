@@ -238,15 +238,14 @@ class ErositaObservation:
         roll = conv * data['ROLL']
 
         # Return pointing statistics
-        stats = {'RA': (ra.mean(), ra.std()), 'DEC': (dec.mean(), dec.std()),
-                 'ROLL': (
-                     roll.mean(), roll.std())}
+        stats = {'RA': (ra.mean(), ra.std()),
+                 'DEC': (dec.mean(), dec.std()),
+                 'ROLL': (roll.mean(), roll.std())}
 
         return stats
 
     def plot_fits_data(self, filename, image_name, slice=None, lognorm=True,
-                       linthresh=10e-1,
-                       show=False, dpi=None, **kwargs):
+                       linthresh=10e-1, show=False, dpi=None, **kwargs):
         im = self.load_fits_data(filename)[0].data
         if slice is not None:
             slice = tuple(slice)
