@@ -68,7 +68,7 @@ def build_chandra_response_from_config(config_file_path):
         center = None
         for obsnr in obslist:
             # Observation information for both exposure and PSF
-            obs_info_instance = ChandraObservationInformation(
+            info = ChandraObservationInformation(
                 obs_info[obsnr],
                 npix_s=grid_info['sdim'],
                 npix_e=grid_info['edim'],
@@ -80,16 +80,16 @@ def build_chandra_response_from_config(config_file_path):
 
             # Compute exposure if it hasn't been loaded
             if not exists(exposure_path):
-                exposure = obs_info_instance.get_exposure(
+                exposure = info.get_exposure(
                     join(outroot, f"exposure_{obsnr}"))
                 exposure_list.append(np.transpose(exposure))
 
             # Compute PSF if it hasn't been loaded
             if not exists(psf_path):
-                psf_sim = obs_info_instance.get_psf_fromsim(
-                    (obsInfo["aim_ra"], obsInfo["aim_dec"]),
+                psf_sim = info.get_psf_fromsim(
+                    (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]),
                     join(outroot, "psf"),
-                    num_rays=obs_info_instance['num_rays']
+                    num_rays=psf_info['num_rays']
                 )
                 psf_list.append(psf_sim)
 
