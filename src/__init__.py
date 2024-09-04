@@ -1,13 +1,7 @@
 from .version import __version__
 from .library.utils import (save_to_pickle, load_from_pickle,
-                            get_mask_operator, get_norm,
-                            get_normed_exposure, get_norm_exposure_patches,
-                            get_data_domain, get_config, convolve_operators,
-                            convolve_field_operator, get_fft_psf_op, Transposer,
-                            is_subdomain, save_to_yaml, copy_config,
+                            get_config, save_to_yaml, copy_config,
                             create_output_directory, coord_center,
-                            get_radec_from_xy, get_psfpatches,
-                            get_synth_pointsource,
                             get_stats)
 from .library.plot import (plot_result, plot_histograms,
                            plot_sample_averaged_log_2d_histogram, plot_rgb)
@@ -17,6 +11,9 @@ from .library.sugar_plot import (plot_pspec, plot_sample_and_stats, plot_sample_
                                  plot_uncertainty_weighted_residuals)
 from .library.instruments.erosita.erosita_observation import ErositaObservation
 from .library.instruments.chandra.chandra_observation import ChandraObservationInformation
+from .library.instruments.chandra.chandra_psf import (get_radec_from_xy, 
+                                                      get_psfpatches, 
+                                                      get_synth_pointsource)
 from .library.instruments.erosita.erosita_psf import eROSITA_PSF
 from .library.sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope
 
