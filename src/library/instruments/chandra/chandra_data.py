@@ -4,7 +4,8 @@ import numpy as np
 import nifty8.re as jft
 import jubik0 as ju
 
-from ...utils import get_config, create_output_directory, save_to_pickle
+from ...utils import get_config, create_output_directory, save_to_pickle,\
+    save_config_copy
 from .chandra_observation import ChandraObservationInformation
 from ...plot import plot_result
 from ...data import create_mock_data
@@ -95,18 +96,23 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
     energy_ranges = tuple(set(energy_bins['e_min']+energy_bins['e_max']))
     elim = (min(energy_ranges), max(energy_ranges))
 
-    for obsnr in obslist:
-        info = ChandraObservationInformation(obs_info[obsnr],
-                                             npix_s=grid_info['sdim'],
-                                             npix_e=grid_info['edim'],
-                                             fov=tel_info['fov'],
-                                             elim=elim,
-                                             energy_ranges=energy_ranges,
-                                             center=center)
-        # retrieve data from observation
-        data = info.get_data(os.path.join(outroot, f"data_{obsnr}.fits"))
-        ju.plot_result(data, output_file=os.path.join(outroot,
+    data_path = join(outroot, 'data.pkl')
+    if exists(psf_path):
+        data_array = load_from_pickle(data_path)
+    else:
+        for obsnr in obslist:
+            info = ChandraObservationInformation(obs_info[obsnr],
+                                                npix_s=grid_info['sdim'],
+                                                npix_e=grid_info['edim'],
+                                                fov=tel_info['fov'],
+                                                elim=elim,
+                                                energy_ranges=energy_ranges,
+                                                center=center)
+            # retrieve data from observation
+            data = info.get_data(os.path.join(outroot, f"data_{obsnr}.fits"))
+            ju.plot_result(data, output_file=os.path.join(outroot,
                                                       f"data_{obsnr}.png"))
-        psf_list.append(psf_sim)
-    data_array = jnp.stack(jnp.array(data_list, dtype=int))
+            data_list.append(data)
+        data_array = jnp.stack(jnp.array(data_list, dtype=int))
+    save_to_pickle(data_array, data_path)
     return data_array

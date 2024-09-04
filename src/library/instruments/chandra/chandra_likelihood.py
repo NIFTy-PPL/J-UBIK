@@ -1,3 +1,5 @@
+import nifty8.re as jft
+
 from .chandra_response import build_chandra_response_from_config
 from .chandra_data import create_chandra_data_from_config
 from ...data import load_masked_data_from_config

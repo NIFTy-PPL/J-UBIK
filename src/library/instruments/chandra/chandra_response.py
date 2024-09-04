@@ -4,7 +4,8 @@ from jax import vmap
 import numpy as np
 
 from .chandra_observation import ChandraObservationInformation
-from ...utils import get_config, create_output_directory
+from ...utils import get_config, create_output_directory, load_from_pickle,\
+    save_to_pickle
 from ...plot import plot_result
 from ...response import build_readout_function, build_exposure_function
 from ...data import Domain
@@ -41,7 +42,6 @@ def build_chandra_response_from_config(config_file_path):
     tel_info = cfg['telescope']
 
     obslist = list(obs_info.keys())
-    center = None
     psf_list = []
     exposure_list = []
 
@@ -49,36 +49,62 @@ def build_chandra_response_from_config(config_file_path):
     energy_ranges = tuple(set(energy_bins['e_min']+energy_bins['e_max']))
     elim = (min(energy_ranges), max(energy_ranges))
 
-    for obsnr in obslist:
-        info = ChandraObservationInformation(obs_info[obsnr],
-                                             npix_s=grid_info['sdim'],
-                                             npix_e=grid_info['edim'],
-                                             fov=tel_info['fov'],
-                                             elim=elim,
-                                             energy_ranges=energy_ranges,
-                                             center=center)
-        # compute the exposure map
-        exposure = info.get_exposure(join(outroot, f"exposure_{obsnr}"))
+    exposure_path = join(outroot, 'exposure.pkl')
+    psf_path = join(outroot, 'psf.pkl')
 
-        # compute the point spread function
-        psf_sim = info.get_psf_fromsim((info.obsInfo["aim_ra"],
-                                        info.obsInfo["aim_dec"]),
-                                        join(outroot, "psf"),
-                                        num_rays=psf_info['num_rays'])
-        exposure_list.append(exposure)
-        psf_list.append(psf_sim)
+    # Load exposures if the file exists, otherwise compute it
+    if exists(exposure_path):
+        exposures = load_from_pickle(exposure_path)
+    else:
+        exposure_list = []
 
-    domain = Domain(tuple([grid_info['edim']] + [grid_info['sdim']] * 2),
-                    tuple([1] + [tel_info['fov'] / grid_info['sdim']] * 2))
-    psfs = jnp.stack(jnp.array(psf_list, dtype=int))
-    def psf_func(x): #FIXME: Please check
-        return vmap(linpatch_convolve,
-                    in_axes=(None, None, 0, None, None))(x,
-                                                         domain,
-                                                         psfs,
-                                                         psf_info['npatch'],
-                                                         psf_info['margfrac'])
-    exposures = np.stack(np.array(exposure_list, dtype=int))
+    # Load PSFs if the file exists, otherwise compute it
+    if exists(psf_path):
+        psfs = load_from_pickle(psf_path)
+    else:
+        psf_list = []
+
+    if not exists(exposure_path) or not exists(psf_path):
+        center = None
+        for obsnr in obslist:
+            # Observation information for both exposure and PSF
+            obs_info_instance = ChandraObservationInformation(
+                obs_info[obsnr],
+                npix_s=grid_info['sdim'],
+                npix_e=grid_info['edim'],
+                fov=tel_info['fov'],
+                elim=elim,
+                energy_ranges=energy_ranges,
+                center=center
+            )
+
+            # Compute exposure if it hasn't been loaded
+            if not exists(exposure_path):
+                exposure = obs_info_instance.get_exposure(
+                    join(outroot, f"exposure_{obsnr}"))
+                exposure_list.append(np.transpose(exposure))
+
+            # Compute PSF if it hasn't been loaded
+            if not exists(psf_path):
+                psf_sim = obs_info_instance.get_psf_fromsim(
+                    (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]),
+                    join(outroot, "psf"),
+                    num_rays=obs_info_instance['num_rays']
+                )
+                psf_list.append(psf_sim)
+
+        # Save exposures if they were computed
+        if not exists(exposure_path):
+            exposures = np.stack(np.array(exposure_list, dtype=int))
+            save_to_pickle(exposures, exposure_path)
+
+        # Save PSFs if they were computed
+        if not exists(psf_path):
+            psfs = jnp.stack(jnp.array(psf_list, dtype=int))
+            save_to_pickle(psfs, psf_path)
+
+    def psf_func(x): #FIXME: Veberle please adjust with spat.inv. psf
+        return jnp.expand_dims(x, axis=0)
     mask_func = build_readout_function(exposures, keys=obslist,
                                        threshold=tel_info['exp_cut'])
     exposure_func = build_exposure_function(exposures)
