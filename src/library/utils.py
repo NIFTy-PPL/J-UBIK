@@ -259,8 +259,6 @@ def coord_center(side_length, side_n):
     return res
 
 
-
-
 class PositiveSumPriorOperator(ift.LinearOperator):
     """
     Operator performing a coordinate transformation, requiring MultiToTuple
@@ -268,7 +266,6 @@ class PositiveSumPriorOperator(ift.LinearOperator):
     it using a coordinate tranformation and spits out a nifty8.MultiField
     again.
     """
-
     def __init__(self, domain, target=None):
         """
         Creates the Operator.
@@ -447,14 +444,18 @@ def makePositiveSumPrior(domain, number):
 
 
 
-
-
-def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False, std=False,
-                 overwrite=False, obs_type="SF"):
+def save_to_fits(sample_list,
+                 file_name_base,
+                 op=None,
+                 samples=False,
+                 mean=False,
+                 std=False,
+                 overwrite=False,
+                 obs_type="SF"):
     """Write sample list to FITS file.
 
-    This function writes properties of a sample list to a FITS file according to the obs_type and based on the nifty8
-    function save_to_fits by P.Arras
+    This function writes properties of a sample list to a FITS file according
+    to the obs_type and based on the nifty8 function save_to_fits by P.Arras
 
     Parameters
     ----------
@@ -476,9 +477,11 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
         If True, a potentially existing file with the same file name as
         `file_name`, is overwritten.
     obs_type : string or None
-        Describes the observation type. currently possible obs_types are [CMF (Chandra Multifrequency),
-        EMF (Erosita Multifrequency), RGB and SF (Single Frequency]. The default observation is of type SF. In the case
-        of the type "RGB", the binning is automatically done by jubik into equally sized bins.
+        Describes the observation type. currently possible obs_types are
+        [CMF (Chandra Multifrequency), EMF (Erosita Multifrequency),
+        RGB and SF (Single Frequency]. The default observation is of type SF.
+        In the case of the type "RGB", the binning is automatically done
+        by jubik into equally sized bins.
     """
     if not (samples or mean or std):
         raise ValueError("Neither samples nor mean nor standard deviation shall be written.")
@@ -490,14 +493,17 @@ def save_to_fits(sample_list, file_name_base, op=None, samples=False, mean=False
         m = energy_binning(m, energy_bins=3)
         s = energy_binning(s, energy_bins=3)
     if mean:
-        save_rgb_image_to_fits(m, file_name_base + "_mean", overwrite, sample_list.MPI_master)
+        save_rgb_image_to_fits(m, file_name_base + "_mean", overwrite,
+                               sample_list.MPI_master)
     if std:
-        save_rgb_image_to_fits(s, file_name_base + "_std", overwrite, sample_list.MPI_master)
+        save_rgb_image_to_fits(s, file_name_base + "_std", overwrite,
+                               sample_list.MPI_master)
     if samples:
         for ii, ss in enumerate(sample_list.iterator(op)):
             if obs_type == "RGB":
                 ss = energy_binning(ss, energy_bins=3)
-            save_rgb_image_to_fits(ss, file_name_base + f"_sample_{ii}", overwrite, sample_list.MPI_master)
+            save_rgb_image_to_fits(ss, file_name_base + f"_sample_{ii}",
+                                   overwrite, sample_list.MPI_master)
 
 
 def save_rgb_image_to_fits(fld, file_name, overwrite, MPI_master):
@@ -639,7 +645,7 @@ def is_subdomain(sub_domain, total_domain):
     return all(kk in total_domain.keys() and vv == total_domain[kk]
                for kk, vv in sub_domain.items())
 
-
+# TODO transfer this knowledge to jubix?
 class _IGLikelihood(ift.EnergyOperator):
     """
     Functional form of the Inverse-Gamma distribution. Can be used for
@@ -770,6 +776,7 @@ def _check_type(arg, type, name=''):
         raise TypeError("The \"{}\" argument must be of type {}.".format(name, str(type)))
 
 
+# TODO do we have the equivalent?
 def get_rel_uncertainty(mean, std):
     """Calculates the pointwise relative uncertainty from the mean
     and the standard deviation.
@@ -1038,21 +1045,24 @@ def safe_config_update(key: str, new_value, config: dict, verbose: bool = True) 
                      f"or a new value must be provided!")
 
 
-def calculate_n_constrained_dof(likelihood: jft.Likelihood) -> int:
+# TODO do we need this?
 def get_n_constrained_dof(likelihood: jft.Likelihood) -> int:
     """
-    Calculates the number of constrained degrees of freedom (DOF) based on the likelihood.
+    Extacts the number of constrained degrees of freedom (DOF)
+    based on the likelihood.
 
     Parameters
     ----------
     likelihood : jft.Likelihood
-        The likelihood object which contains information about the model and data.
+        The likelihood object which contains information about
+       the model and data.
 
     Returns
     -------
     int
-        The number of constrained degrees of freedom, which is the minimum of the
-        model degrees of freedom and the data degrees of freedom.
+        The number of constrained degrees of freedom, which is the
+        minimum of the model degrees of freedom and the data
+        degrees of freedom.
     """
 
     n_dof_data = jft.size(likelihood.left_sqrt_metric_tangents_shape)
