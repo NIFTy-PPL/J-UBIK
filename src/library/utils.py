@@ -121,12 +121,12 @@ def get_config(path_to_yaml_file):
     return cfg
 
 
-def save_config(config, filename, dir=None, verbose=True):
-    """Convenience function to save yaml-config files.
+def save_to_yaml(dict, filename, dir=None, verbose=True):
+    """Convenience function to save dicts to yaml files.
 
     Parameters
     ----------
-    config: dictionary
+    dict: dictionary
         dictionary containing the config information
     filename: str
         Name of the config file to be saved.
@@ -139,15 +139,14 @@ def save_config(config, filename, dir=None, verbose=True):
     if dir is not None:
         create_output_directory(dir)
     with open(join(dir, filename), "w") as f:
-        yaml.dump(config, f)
+        yaml.dump(dict, f)
     if verbose:
         print(f"Config file saved to: {join(dir, filename)}.")
 
 
-def save_config_copy(filename, path_to_yaml_file=None,
+def copy_config(filename, path_to_yaml_file=None,
                      output_dir=None, verbose=True):
-    # TODO can this be replaced by save config?
-    """Convenience function to save yaml-config files.
+    """Convenience function to copy yaml-config files.
 
     Parameters
     ----------

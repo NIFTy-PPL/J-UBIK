@@ -26,7 +26,7 @@ if __name__ == "__main__":
               "The result_dir has been appended with the string *new*.")
 
     # Save run configuration
-    ju.save_config_copy(os.path.basename(config_path), output_dir=file_info['res_dir'])
+    ju.copy_config(os.path.basename(config_path), output_dir=file_info['res_dir'])
     # ju.save_local_packages_hashes_to_txt(['jubik0', 'nifty8'], # FIXME: fix for cluster
     #                                      join(file_info['res_dir'], "packages_hashes.txt"),
     #                                      paths_to_git=[os.path.dirname(os.getcwd()), None],
