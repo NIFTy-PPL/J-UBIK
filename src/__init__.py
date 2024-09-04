@@ -15,6 +15,10 @@ from .library.instruments.chandra.chandra_psf import (get_radec_from_xy,
                                                       get_psfpatches, 
                                                       get_synth_pointsource)
 from .library.instruments.erosita.erosita_psf import eROSITA_PSF
+from .library.instruments.chandra.chandra_data import generate_chandra_data,\
+    create_chandra_data_from_config
+from .library.instruments.chandra.chandra_response import build_chandra_response_from_config
+from .library.instruments.chandra.chandra_likelihood import generate_chandra_likelihood_from_config
 from .library.sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope
 
 from .library.response import build_exposure_function, \
