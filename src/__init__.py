@@ -10,11 +10,11 @@ from .library.utils import (save_to_pickle, load_from_pickle,
                             create_output_directory, coord_center,
                             get_radec_from_xy, get_psfpatches,
                             get_synth_pointsource, get_gaussian_psf, get_rel_uncertainty,
-                            get_equal_lh_transition, get_RGB_image_from_field, get_stats,
-                            save_local_packages_hashes_to_txt)
+                            get_equal_lh_transition, get_RGB_image_from_field, get_stats)
 from .library.plot import (plot_result, plot_histograms,
                            plot_sample_averaged_log_2d_histogram, plot_rgb)
 from .library.sugar_plot import (plot_pspec, plot_sample_and_stats, plot_sample_and_stats,
+
                                  plot_erosita_priors, plot_2d_gt_vs_rec_histogram,
                                  plot_noise_weighted_residuals,
                                  plot_uncertainty_weighted_residuals)
@@ -40,3 +40,4 @@ from .library.jifty_convolution_operators import (_bilinear_weights,
                                                      linpatch_convolve,
                                                      jifty_convolve)
 from .library.minimization_parser import MinimizationParser
+from .library.hashcollector import save_local_packages_hashes_to_txt
