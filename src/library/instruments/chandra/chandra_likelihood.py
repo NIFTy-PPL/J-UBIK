@@ -14,7 +14,7 @@ def generate_chandra_likelihood_from_config(config_file_path):
         Path to config file
     Returns
     -------
-    poissonian: jft.Likelihood
+    Poissonian: jft.Likelihood
         Poissoninan likelihood for the eROSITA data and response, specified
         in the config.
     """
