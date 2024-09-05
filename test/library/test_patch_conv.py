@@ -5,6 +5,7 @@ import jubik0 as ju
 import pytest
 import matplotlib.pyplot as plt
 
+#FIXME: is this needed? Or can this be rewritten without actual data?
 
 def test_lin_patch_conv():
     # load Chandra PSFS from file
