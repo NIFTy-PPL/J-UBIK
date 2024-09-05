@@ -10,12 +10,6 @@ from jax.lax import cond
 from .jifty_convolution_operators import linpatch_convolve
 from .data import Domain
 
-try:
-    from .adg.nifty_convolve import get_convolve
-    adg_import = True
-except ImportError:
-    adg_import = False
-
 
 def to_r_phi(cc):
     """
