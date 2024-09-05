@@ -99,7 +99,7 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
     if exists(data_path):
         data_array = load_from_pickle(data_path)
     else:
-        for obsnr in obslist:
+        for i, obsnr in enumerate(obslist):
             info = ChandraObservationInformation(obs_info[obsnr],
                                                 npix_s=grid_info['sdim'],
                                                 npix_e=grid_info['edim'],
@@ -113,5 +113,6 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
                                                       f"data_{obsnr}.png"))
             data_list.append(data)
         data_array = jnp.stack(jnp.array(data_list, dtype=int))
-    save_to_pickle(data_array, data_path)
+        if i==0:
+            center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
     return data_array
