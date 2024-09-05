@@ -42,9 +42,9 @@ For the sake of a suitable reconstruction do the following:
     the number of pixels according (sdim, edim) according to the desired resolution
     - adjust the priors according (priors) according to the object looked at.
     A description of the prior search can be found at 
-    (https://arxiv.org/abs/2308.09176)
+    (https://doi.org/10.1051/0004-6361/202347750 )
     - For all the information about the minimization part of the config
-    please look at (https://arxiv.org/abs/2402.16683)
+    please look at (https://doi.org/10.21105/joss.06593)
 """
 
 
