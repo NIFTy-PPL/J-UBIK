@@ -25,7 +25,7 @@ from .library.response import build_exposure_function, \
     build_readout_function
 from .library.instruments.erosita.erosita_response import build_callable_from_exposure_file, \
     build_erosita_psf, build_erosita_response_from_config, load_erosita_response
-from .library.instruments.erosita.erosita_data import create_erosita_data_from_config, \
+from .library.instruments.erosita.erosita_data import generate_erosita_data_from_config, \
     mask_erosita_data_from_disk
 from .library.instruments.erosita.erosita_psf import eROSITA_PSF
 from .library.data import (create_mock_data, load_masked_data_from_config,

@@ -8,9 +8,7 @@ point_sources:
     std: 1.5
     name: points_plaw_
   dev_wp:
-    x0:
-      - 0
-      - 0.01
+    x0: 0.
     sigma:
       - 0.01
       - 0.02
@@ -79,9 +77,7 @@ diffuse:
       # harmonic_type: "Fourier"
     prefix: diffuse_plaw_
   # dev_wp:
-  #   x0:
-  #     - 0
-  #     - 0.1
+  #   x0: 0
   #   sigma:
   #     - 0.3
   #     - 0.1

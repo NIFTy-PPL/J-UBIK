@@ -98,8 +98,10 @@ def mask_erosita_data_from_disk(file_info, tel_info, grid_info, mask_func):
 
 
 def generate_erosita_data_from_config(config_path):
-    """ Creates eROSITA data from config path
-        (calls the eSASS interface) as fits files.
+    """
+    Generates eROSITA data by invoking the eSASS interface based on the
+    configurations provided in a YAML file. The function processes event files,
+    generates exposure maps, and optionally plots the results as FITS images.
 
     Parameters
     ----------

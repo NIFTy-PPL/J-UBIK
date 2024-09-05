@@ -18,6 +18,8 @@ done:
 
 In the `eROSITA_demo.yaml` config file you should then specify according
 to the observation:
+    - `seed`:
+        The seed for the random number generator.
     - `esass_image`:
         The esass_image you have installed (DR1 or EDR).
     - `telescope:tm_ids`:
@@ -73,8 +75,9 @@ if __name__ == "__main__":
               "The result_dir has been appended with the string *new*.")
 
     # Save run configuration
-    ju.save_config_copy(os.path.basename(config_path),
-                        output_dir=file_info['res_dir'])
+    ju.copy_config(os.path.basename(config_path),
+                   path_to_yaml_file=os.path.dirname(config_path),
+                   output_dir=file_info['res_dir'])
 
     # Uncomment to save local packages git hashes to file
     # ju.save_local_packages_hashes_to_txt(
@@ -89,7 +92,7 @@ if __name__ == "__main__":
     sky_dict = sky_model.sky_model_to_dict()
 
     # Generate eROSITA data (if it does not already exist)
-    ju.create_erosita_data_from_config(config_path)
+    ju.generate_erosita_data_from_config(config_path)
 
     # Generate loglikelihood (Building masked (mock) data and response)
     log_likelihood = ju.generate_erosita_likelihood_from_config(
@@ -102,7 +105,7 @@ if __name__ == "__main__":
 
     # Minimization
     minimization_config = cfg['minimization']
-    n_dof = ju.calculate_n_constrained_dof(log_likelihood)
+    n_dof = ju.get_n_constrained_dof(log_likelihood)
     minimization_parser = ju.MinimizationParser(minimization_config,
                                                 n_dof=n_dof)
 

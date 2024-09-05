@@ -1,7 +1,7 @@
 seed: 86
 esass_image: DR1
 telescope:
-  tm_ids : [1, 2, 3, 4, 6]
+  tm_ids : [1, ]#2, 3, 4, 6]
   rebin: 80 # set by the consortium
   fov: 4096
   pattern: 15
@@ -60,7 +60,8 @@ files:
   output: 'pm00_700161_020_data.fits'
   exposure: 'pm00_700161_020_expmap.fits'
   calibration_path : '../data/'
-  psf_path : '../data/psf_info/'
+  caldb_folder_name: 'caldb'
+  psf_filename_suffix: '_2dpsf_190219v05.fits'
   effective_area_filename_suffix: '_arf_filter_000101v02.fits'
   psf_base_filename: '2dpsf_190219v05.fits'
   res_dir: 'results/Default_run_mf'
@@ -84,26 +85,7 @@ priors:
         - 0.01
         - 0.02
       name: 'points_dev_wp'
-#    dev_corr:
-#      fluctuations:
-#        fluctuations:
-#          - 1.0
-#          - 5.0e-3
-#        loglogavgslope:
-#          - -3
-#          - 1.0e-2
-#        flexibility:
-#          - 2.0
-#          - 5.0e-1
-#        asperity:
-#        non_parametric_kind: "power"
-#        # harmonic_type: "Fourier"
-#      prefix: points_dev
-#      offset:
-#        offset_mean: 0.0
-#        offset_std:
-#          - 1.0e-3
-#          - 1.0e-4
+
   diffuse:
     spatial:
       offset:

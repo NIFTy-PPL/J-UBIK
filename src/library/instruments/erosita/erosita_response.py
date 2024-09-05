@@ -403,6 +403,12 @@ def build_erosita_response_from_config(config_file_path):
     psf_info = cfg['psf']
     grid_info = cfg['grid']
 
+    # load calibration directory paths
+    caldb_path = file_info['calibration_path']
+    caldb_dir_name = file_info['caldb_folder_name']
+
+    psf_file_suffix = file_info['psf_filename_suffix']
+
     # load energies
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
@@ -416,8 +422,10 @@ def build_erosita_response_from_config(config_file_path):
                                         f"{Path(exposure_filename).stem}_emin{e}_emax{E}.fits"))
          for e, E in zip(e_min, e_max)]
 
-    psf_file_names = [join(file_info['psf_path'],
-                           'tm' + f'{key}_' + file_info['psf_base_filename'])
+    psf_file_names = [get_erosita_psf_filenames(caldb_path,
+                                                key,
+                                                psf_filename_suffix=psf_file_suffix,
+                                                caldb_name=caldb_dir_name, )
                       for key in tel_info['tm_ids']]
 
     # Get pointings for different telescope modules in RA/DEC
@@ -471,3 +479,52 @@ def build_erosita_response_from_config(config_file_path):
 
 def load_erosita_response():
     pass  # TODO: implement response pickling
+
+
+def get_erosita_psf_filenames(
+    path_to_caldb: str,
+    tm_id: int,
+    psf_filename_suffix: str = "_2dpsf_190219v05.fits",
+    caldb_name: str = "caldb",
+) -> str:
+    """
+    Constructs the full path to an eROSITA PSF (Point Spread Function) file
+    for a specific telescope module (TM).
+
+    The path is built in accordance with the standard directory structure
+    for eROSITA calibration database (CALDB) data.
+
+    Parameters
+    ----------
+    path_to_caldb : str
+        The base path to the eROSITA calibration database (CALDB) directory.
+    tm_id : int
+        The telescope module (TM) ID for which the PSF file is being retrieved.
+        Must be a valid integer representing the TM (e.g., 1-7).
+    psf_filename_suffix : str, optional
+        The suffix for the PSF filename. Default is "_2dpsf_190219v05.fits".
+    caldb_name : str, optional
+        The name of the CALDB folder within the base directory.
+        Default is "caldb".
+
+    Returns
+    -------
+    str
+        The full path to the PSF file for the specified telescope module.
+
+    Example
+    -------
+    >>> get_erosita_psf_filenames("/path/to/caldb", 1)
+    '/path/to/caldb/caldb/data/erosita/tm1/bcf/tm1_2dpsf_190219v05.fits'
+
+    Notes
+    -----
+    - The function assumes the eROSITA PSF files are stored in the following
+    format:
+      `/path/to/caldb/{caldb_name}/data/erosita/tm{tm_id}/bcf/tm{tm_id}{psf_filename_suffix}`
+    """
+    path_to_psf_file = join("data", "erosita", f"tm{tm_id}", "bcf")
+    path_to_psf_file = join(path_to_caldb, caldb_name, path_to_psf_file)
+    filename = f"tm{tm_id}{psf_filename_suffix}"
+    return join(path_to_psf_file, filename)
+
