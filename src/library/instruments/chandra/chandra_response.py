@@ -1,6 +1,5 @@
 from os.path import join, exists
 from jax import numpy as jnp
-from jax import vmap
 import numpy as np
 
 from .chandra_observation import ChandraObservationInformation
