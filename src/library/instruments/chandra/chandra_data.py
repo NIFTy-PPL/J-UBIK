@@ -5,7 +5,7 @@ import nifty8.re as jft
 import jubik0 as ju
 
 from ...utils import get_config, create_output_directory, save_to_pickle,\
-    copy_config
+    copy_config, load_from_pickle
 from .chandra_observation import ChandraObservationInformation
 from ...data import create_mock_data
 
@@ -96,7 +96,7 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
     elim = (min(energy_ranges), max(energy_ranges))
 
     data_path = join(outroot, 'data.pkl')
-    if exists(psf_path):
+    if exists(data_path):
         data_array = load_from_pickle(data_path)
     else:
         for obsnr in obslist:
@@ -109,7 +109,7 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
                                                 center=center)
             # retrieve data from observation
             data = info.get_data(os.path.join(outroot, f"data_{obsnr}.fits"))
-            ju.plot_result(data, output_file=os.path.join(outroot,
+            ju.plot_result(data, output_file=join(outroot,
                                                       f"data_{obsnr}.png"))
             data_list.append(data)
         data_array = jnp.stack(jnp.array(data_list, dtype=int))
