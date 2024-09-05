@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 import jubik0 as ju
 
+# FIXME: matteani please adjust
 
 class TestBuildCallableFromExposureFile:
     # TODO: add .fits tests

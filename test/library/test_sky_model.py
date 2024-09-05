@@ -8,7 +8,7 @@ import nifty8.re as jft
 
 @pytest.fixture
 def config():
-    return 'config_test_sky_model.yaml'
+    return 'instruments/erosita/config_test_sky_model.yaml'
 
 @pytest.fixture
 def sky_model(config):

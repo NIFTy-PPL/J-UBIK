@@ -70,7 +70,8 @@ class TestMinimizationParser:
         assert sample_mode(11) == 'nonlinear_update'
 
     def test_linear_sample_kwargs_factory(self):
-        lin_kwargs = linear_sample_kwargs_factory(config, config['delta'], 10)
+        lin_kwargs = linear_sample_kwargs_factory(config, config['delta'],
+                                                  10)
         kwargs = lin_kwargs(0)
         assert kwargs['cg_kwargs']['absdelta'] == 1.e-5
         assert kwargs['cg_kwargs']['maxiter'] == 60
