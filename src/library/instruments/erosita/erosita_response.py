@@ -393,8 +393,92 @@ def build_erosita_response(
 
 
 def build_erosita_response_from_config(config_file_path):
-    """ Builds the eROSITA response from a yaml config file.
-    #TODO Example / Needed Entries in yaml
+    """
+    Builds the eROSITA response using configuration settings from a YAML file.
+
+    This function loads a YAML configuration file and uses its entries to build
+    the eROSITA response model.
+    The response is built based on the telescope modules' Point Spread Function
+    (PSF), exposure files, grid information, and pointing coordinates for
+    various telescope modules (TMs).
+
+    Parameters
+    ----------
+    config_file_path : str
+        Path to the YAML configuration file.
+        The file should contain information about the telescope, PSF settings,
+        energy grid, and file paths needed to build the eROSITA response.
+
+    YAML Configuration Structure
+    ----------------------------
+    The YAML configuration file is expected to include the following sections:
+
+    telescope:
+        tm_ids: list of int
+            List of telescope module IDs to be used (e.g., [1, 2, 3, 4, 5, 6, 7]).
+        fov: float
+            Field of view for the observation.
+        effective_area_correction: bool
+            Whether to apply effective area corrections to the response.
+        exp_cut: float
+            Exposure threshold to be applied.
+
+    files:
+        calibration_path: str
+            Path to the eROSITA calibration database (CALDB).
+        caldb_folder_name: str
+            Name of the CALDB folder (default is "caldb").
+        psf_filename_suffix: str
+            Suffix for PSF file naming (default is "_2dpsf_190219v05.fits").
+        exposure: str
+            Filename template for exposure files.
+        obs_path: str
+            Path to the observation data.
+        input: str
+            Input file for processing.
+        output: str
+            Output file for the generated response.
+
+    psf:
+        energy: list of float
+            List of energies at which to compute the PSF.
+        npatch: int
+            Number of patches for PSF processing.
+        margfrac: float
+            Fractional margin to avoid periodic boundary effects.
+
+    grid:
+        edim: int
+            Number of energy bins.
+        sdim: int
+            Spatial dimension for the response grid.
+        energy_bin:
+            e_min: list of float
+                List of minimum energy values for each bin.
+            e_max: list of float
+                List of maximum energy values for each bin.
+
+    Returns
+    -------
+    response : dict
+        The constructed eROSITA response dictionary, which includes
+        exposure maps and PSF models.
+
+    Notes
+    -----
+    - The function assumes that the PSF and exposure files are named according
+    to the telescope module ID and the specified filename suffix.
+    - Pointing coordinates for the different telescope modules are adjusted
+    relative to TM1.
+    - Effective area corrections are applied if specified in the configuration.
+
+    Example
+    -------
+    Assuming the YAML config file contains the required fields, you can build
+    the response like this:
+
+    >>> response = build_erosita_response_from_config("/path/to/config.yaml")
+
     """
     # load config
     cfg = get_config(config_file_path)
@@ -417,10 +501,11 @@ def build_erosita_response_from_config(config_file_path):
     exposure_filenames = []
     for tm_id in tel_info['tm_ids']:
         exposure_filename = f'tm{tm_id}_' + file_info['exposure']
-        [exposure_filenames.append(join(file_info['obs_path'],
-                                        "processed",
-                                        f"{Path(exposure_filename).stem}_emin{e}_emax{E}.fits"))
-         for e, E in zip(e_min, e_max)]
+        [exposure_filenames.append(join(
+            file_info['obs_path'],
+            "processed",
+            f"{Path(exposure_filename).stem}_emin{e}_emax{E}.fits"))
+            for e, E in zip(e_min, e_max)]
 
     psf_file_names = [get_erosita_psf_filenames(caldb_path,
                                                 key,
@@ -434,9 +519,9 @@ def build_erosita_response_from_config(config_file_path):
                                       file_info['obs_path'])
     center_stats = []
     for tm_id in tel_info['tm_ids']:
-        tmp_center_stat = obs_instance.get_pointing_coordinates_stats(tm_id,
-                                                                      file_info[
-                                                                          'input'])
+        tmp_center_stat = obs_instance.get_pointing_coordinates_stats(
+            tm_id,
+            file_info['input'])
         tmp_center_stat = [tmp_center_stat['RA'][0], tmp_center_stat['DEC'][0]]
         center_stats.append(tmp_center_stat)
     center_stats = np.array(center_stats)

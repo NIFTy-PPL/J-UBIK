@@ -2,44 +2,167 @@
 eROSITA DEMO
 ------------
 
-This demo can be modified easily by the user modifying the `eROSITA_demo.yaml`
-which is located in `demos/configs/`.
+This demo showcases how to process eROSITA data using eSASS (eROSITA Science
+Analysis Software System) and the provided configuration file.
+The `eROSITA_demo.yaml` config file, located in `demos/configs/`,
+can be modified by the user to suit their specific observation setup.
 
-Before running this demo the following installations and downloads have to be
-done:
+Requirements
+------------
+Before running this demo, ensure the following installations and downloads
+are complete:
 
-    - Install [eSASS]<https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/>
-    in a Docker container.
-    - Download CALDB folder
-    <https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/caldb4DR1.tgz>
-    - Download eROSITA data
-    EDR: <https://erosita.mpe.mpg.de/edr/index.php>
-    DR1: <https://erosita.mpe.mpg.de/dr1/AllSkySurveyData_dr1/>
+1. Install [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/)
+in a Docker container.
+2. Download the eROSITA CALDB (Calibration Database) folder:
+   [CALDB](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/caldb4DR1.tgz)
+3. Download eROSITA data:
+   - Early Data Release (EDR): [eROSITA EDR](https://erosita.mpe.mpg.de/edr/index.php)
+   - Data Release 1 (DR1): [eROSITA DR1](https://erosita.mpe.mpg.de/dr1/AllSkySurveyData_dr1/)
 
-In the `eROSITA_demo.yaml` config file you should then specify according
-to the observation:
-    - `seed`:
-        The seed for the random number generator.
-    - `esass_image`:
-        The esass_image you have installed (DR1 or EDR).
-    - `telescope:tm_ids`:
-        The list of telescope modules (TM) IDs you want to use.
-    - `telescope:rebin`:
-        The rebin parameter for the data.
-    - `telescope:pattern`:
-        The pattern you want to use for the data processing (only for real data).
-    - `telescope:exp_cut`:
-        The lower threshold for the exposure [in seconds].
-        XXxX
-    - `files:obs_path:`
-        The path where the downloaded data is located.
-    - The `obsinfo`: FIXME
-        Information about all the filenames needed for building data
-        and the repsonse.
-    - Add the following paths if you want to work on simulated data:
-        -   mock_gen_config: path to prior config which is used to generate
-                             a simulated sky
-        -   pos_dict: ....
+YAML Configuration File Structure
+---------------------------------
+In the `eROSITA_demo.yaml` config file, you need to define several parameters
+based on your observation data and settings.
+Below is a breakdown of key settings:
+
+- **seed**: Random seed for generating reproducible results.
+
+- **esass_image**: Version of the eSASS image (DR1 or EDR) you have installed.
+
+- **files**:
+  - `obs_path`: Path to the folder containing the downloaded eROSITA data
+   (e.g., '../data/LMC_SN1987A/').
+  - `data_dict`: Name of the pickle file storing the processed observation data
+  (e.g., 'data.pkl').
+  - `processed_obs_folder`: Directory where processed observation files are
+  stored (e.g., 'processed'). Only needed for real data.
+  - `input`: Name of the input event list file
+  (e.g., 'pm00_700161_020_EventList_c001.fits').
+  - `output`: Name of the processed data output file
+  (e.g., 'pm00_700161_020_data.fits').
+  - `exposure`: Name of the exposure map file created after processing
+  (e.g., 'pm00_700161_020_expmap.fits').
+  - `calibration_path`: Path to the folder where the CALDB calibration data is
+  located (e.g., '../data/').
+  - `caldb_folder_name`: Name of the CALDB folder (e.g., 'caldb').
+  - `psf_filename_suffix`: Suffix for PSF (Point Spread Function) files.
+  - `effective_area_filename_suffix`: Suffix for effective area files.
+  - `res_dir`: Directory where the results of the run will be saved
+  (e.g., 'results/my_results').
+  - `mock_gen_config`: Path to the mock data generation configuration file
+  (e.g., 'configs/mock_config.yaml'). Only needed for simulated data.
+  - `pos_dict`: Name of the file storing position data (e.g., 'pos.pkl').
+  Only needed for simulated data.
+
+- **telescope**:
+  - `tm_ids`: List of Telescope Module (TM) IDs to use (e.g., [1, 2, 3, 4]).
+  - `rebin`: Rebin parameter for data processing (see eSASS evtool
+  documentation).
+  - `pattern`: Pattern parameter for data processing (see eSASS
+  evtool documentation).
+  - `detmap`: Flag to enable or disable the use of detector maps.
+  - `exp_cut`: Lower exposure threshold in seconds.
+  - `badpix_correction: Whether to correct the exposure maps for badpixels
+  that might not be accounted for by eSASS. If true, you will need to produce
+        new detmaps. See `create_erosita_badpix_to_detmaps` for details.
+  - `effective_area_correction`: Whether to correct the exposure maps for
+  the detector's effective area.
+
+- **psf**:
+  - `method`: Method for PSF calculation (e.g., "LINJAX").
+  - `energy`: List of energy levels (in keV) at which PSF files are defined
+  (e.g., ['0277', '1486', '3000']).
+  - Additional PSF method-specific settings, such as `npatch`, `margfrac`, etc.
+
+- **plotting**: Settings for output plots.
+  - `enabled`: Enable or disable plotting of data.
+  - `slice`: Specify the slice of data to plot (optional).
+  - `dpi`: DPI setting for plot resolution.
+
+- **grid**: Parameters defining the data grid for processing.
+  - `sdim`: Spatial dimensions for the image grid.
+  - `energy_bin`: Energy binning with `e_min`, `e_max`, and `e_ref` values
+  for each bin.
+
+
+- **priors**: Parameters defining the prior distributions for the SkyModel.
+  - **point_sources**: Prior parameters for point sources in the sky model.
+    - `spatial`:
+      - `alpha`: The `alpha` parameter in the Inverse-Gamma distribution.
+      - `q`: The `q` parameter in the Inverse-Gamma distribution.
+      - `key`: A unique identifier for the point sources (e.g., "points").
+    - `plaw`:
+      - `mean`: Mean value for the power-law distribution of point sources.
+      - `std`: Standard deviation for the power-law distribution.
+      - `name`: A prefix for naming the point source power-law component.
+    - `dev_wp`:
+      - `x0`: Initial value for the Wiener process deviations of point sources
+      along the energy axis.
+      - `sigma`: A list defining the standard deviations for deviations in the
+      point source model.
+      - `name`: A name for the point source deviation component.
+
+  - **diffuse**: Prior parameters for the diffuse emission component.
+    - `spatial`:
+      - `offset`:
+        - `offset_mean`: Mean value for the offset in the spatial component of
+        diffuse emission.
+        - `offset_std`: Standard deviation for the offset.
+      - `fluctuations`: Parameters controlling fluctuations in the diffuse
+      spatial emission.
+        - `fluctuations`: List of fluctuation priors (mean, std).
+        - `loglogavgslope`: List of log-log average slope of fluctuations (mean, std).
+        - `flexibility`: List of flexibility priors (mean, std).
+        - `asperity`: Controls the roughness of the spatial power spectrum
+        (set to `Null` if not used).
+        - `non_parametric_kind`: Specifies the type of non-parametric model
+        used for fluctuations (e.g., "power").
+      - `prefix`: A prefix used for naming the diffuse spatial component.
+
+    - `plaw`: Power-law prior for the diffuse emission component.
+    Similar as for the diffuse component.
+
+- **minimization**: Settings for the minimization algorithm used for likelihood
+estimation.
+  - `resume`: Whether to resume a previous minimization run.
+  - `n_total_iterations`: Total number of iterations for minimization.
+  - Additional parameters to control the sampling and KL-divergence
+  calculations.
+
+How to Run the Demo
+-------------------
+1. Ensure you have installed eSASS in a Docker container and downloaded the
+required data.
+2. Modify the `eROSITA_demo.yaml` file to reflect your observation setup.
+3. Run the demo from the command line as follows:
+
+    ```
+    python eROSITA_demo.py [config_file]
+    ```
+
+    If no config file is provided, the default
+    `configs/eROSITA_demo.yaml` will be used (mock data reconstruction).
+
+4. The script will load the configuration, process the observation data, and
+   save the processed data and plots (if enabled) in the specified
+   output directory.
+
+Notes
+-----
+- If processing simulated data, specify the `mock_gen_config` and `pos_dict` in
+the configuration file.
+- If during a new reconstruction, an old results directory is used, the
+"data.pkl" file will be sourced. If any telescope- or data-related
+parameters are changed, the "data.pkl" file must be deleted.
+- If resuming a previous run, the output directory will be checked,
+and a new directory will be created
+  if one already exists.
+
+References
+----------
+- [eROSITA eSASS Installation Guide](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/)
+- [eROSITA Data Release 1 (DR1)](https://erosita.mpe.mpg.de/dr1/AllSkySurveyData_dr1/)
 """
 
 import argparse
