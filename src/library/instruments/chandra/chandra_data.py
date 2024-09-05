@@ -49,7 +49,7 @@ def create_chandra_data_from_config(config_path, response_dict):
             copy_config(file_info['mock_gen_config'],
                              output_dir=file_info['res_dir'])
         else:
-            jft.logger.info(f'Generating masked eROSITA '
+            jft.logger.info(f'Generating masked Chandra'
                             f'data in {file_info["res_dir"]}...')
             data_array = generate_chandra_data(file_info, tel_info,
                                                grid_info, obs_info)
