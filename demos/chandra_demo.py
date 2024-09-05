@@ -31,7 +31,7 @@ done:
 In the config you should then specify according to the observation:
     - The files:obs_path: The path where, the downloaded data is located
     - The obsinfo: Information about all the filenames needed for building
-                   the data and the repsonse
+                   the data and the response
     - Add the following paths if you want to work on simulated data:
         -   mock_gen_config: path to prior config which is used to generate
                              a simulated sky
