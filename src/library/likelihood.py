@@ -1,10 +1,6 @@
 import nifty8 as ift
 import nifty8.re as jft
 
-from .data import load_masked_data_from_config
-from .instruments.erosita.erosita_data import generate_erosita_data_from_config
-from .. import build_erosita_response_from_config
-
 def get_n_constrained_dof(likelihood: jft.Likelihood) -> int:
     """
     Extacts the number of constrained degrees of freedom (DOF)
