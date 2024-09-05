@@ -113,6 +113,6 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
                                                       f"data_{obsnr}.png"))
             data_list.append(data)
         data_array = jnp.stack(jnp.array(data_list, dtype=int))
-        if i==0:
+        if i == 0:
             center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
     return data_array
