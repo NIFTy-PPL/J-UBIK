@@ -5,11 +5,7 @@ import numpy as np
 from .chandra_observation import ChandraObservationInformation
 from ...utils import get_config, create_output_directory, load_from_pickle,\
     save_to_pickle
-from ...plot import plot_result
 from ...response import build_readout_function, build_exposure_function
-from ...data import Domain
-from ...jifty_convolution_operators import linpatch_convolve
-
 
 def build_chandra_response_from_config(config_file_path):
     """
