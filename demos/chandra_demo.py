@@ -1,19 +1,3 @@
-import os
-import argparse
-
-import nifty8.re as jft
-import jubik0 as ju
-
-from jax import config, random
-
-config.update('jax_enable_x64', True)
-
-# Parser Setup
-parser = argparse.ArgumentParser()
-parser.add_argument('config', type=str, help="Config file (.yaml) for Chandra inference.",
-                    nargs='?', const=1, default="chandra_config.yaml")
-args = parser.parse_args()
-
 """
 CHANDRA DEMO:
 ------------
@@ -38,14 +22,31 @@ In the config you should then specify according to the observation:
         -   pos_dict: path to the .pkl-file, where the latent parameters
                       of the simulated sky will be saved to.
 For the sake of a suitable reconstruction do the following:
-    - adjust the energy_ranges (energy_bin:) and 
+    - adjust the energy_ranges (energy_bin:) and
     the number of pixels according (sdim, edim) according to the desired resolution
     - adjust the priors according (priors) according to the object looked at.
-    A description of the prior search can be found at 
+    A description of the prior search can be found at
     (https://doi.org/10.1051/0004-6361/202347750 )
     - For all the information about the minimization part of the config
     please look at (https://doi.org/10.21105/joss.06593)
 """
+
+import os
+import argparse
+
+import nifty8.re as jft
+import jubik0 as ju
+
+from jax import config, random
+
+config.update('jax_enable_x64', True)
+
+# Parser Setup
+parser = argparse.ArgumentParser()
+parser.add_argument('config', type=str, help="Config file (.yaml) for Chandra inference.",
+                    nargs='?', const=1, default="chandra_config.yaml")
+args = parser.parse_args()
+
 
 
 if __name__ == "__main__":
