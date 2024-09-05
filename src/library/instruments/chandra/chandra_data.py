@@ -1,5 +1,5 @@
 from os.path import join, exists
-import numpy as np
+from jax import numpy as jnp
 
 import nifty8.re as jft
 import jubik0 as ju
