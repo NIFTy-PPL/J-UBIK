@@ -138,26 +138,6 @@ priors:
 #         - 0.1
 #       dt: 1
 #       name: 'diffuse_dev_wp'
-#    dev_corr:
-#      fluctuations:
-#        fluctuations:
-#          - 1.0
-#          - 5.0e-3
-#        loglogavgslope:
-#          - -3
-#          - 1.0e-2
-#        flexibility:
-#          - 2.0
-#          - 5.0e-1
-#        asperity:
-#        non_parametric_kind: "power"
-#        # harmonic_type: "Fourier"
-#      prefix: diffuse_dev_
-#      offset:
-#        offset_mean: 0.0
-#        offset_std:
-#          - 1.0e-3
-#          - 1.0e-4
 
 minimization:
     resume: False
