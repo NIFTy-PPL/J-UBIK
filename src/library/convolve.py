@@ -118,7 +118,7 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     normed_kernel = rollback_kernel * norm**-1
 
     ndom = Domain((1, *shape), (None, *domain.distances))
-    convolved = jifty_convolve(normed_kernel,
+    convolved = convolve(normed_kernel,
                                padded,
                                ndom,
                                axes=(-2, -1))
@@ -137,7 +137,7 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     return res
 
 
-def jifty_convolve(x, y, domain, axes):
+def convolve(x, y, domain, axes):
     """Perform an FFT convolution.
     #TODO implement jnp.convolve wrapper
 
