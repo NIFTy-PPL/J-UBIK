@@ -63,7 +63,7 @@ def create_chandra_data_from_config(config_path, response_dict):
 
 def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
     """
-    Generate Chandra data based on the provided observation information.
+    Generate the necessary binned data files from Chandra observation info.
 
     This function processes the observation information for Chandra 
     and generates the corresponding Chandra data arrays.
