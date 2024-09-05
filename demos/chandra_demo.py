@@ -26,7 +26,7 @@ done:
 
     - Install ciao (https://cxc.cfa.harvard.edu/ciao/threads/ciao_install_tool/)
     - Install marx (https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
-    - Download Chandra data (https://cda.harvard.edu/chaser/)
+    - Download & unpack Chandra data (https://cda.harvard.edu/chaser/)
 
 In the config you should then specify according to the observation:
     - The files:obs_path: The path where, the downloaded data is located
