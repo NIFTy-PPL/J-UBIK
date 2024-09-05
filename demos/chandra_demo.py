@@ -2,8 +2,8 @@
 CHANDRA DEMO:
 ------------
 
-This demo can be modified easily by the user modifying the chandra_config.yaml
-which is located in demos/ as well.
+This demo can be modified easily by the user modifying the chandra_demo.yaml
+which is located in demos/configs.
 
 Before running this demo the following installations and downloads have to be
 done:
@@ -23,7 +23,8 @@ In the config you should then specify according to the observation:
                       of the simulated sky will be saved to.
 For the sake of a suitable reconstruction do the following:
     - adjust the energy_ranges (energy_bin:) and
-    the number of pixels according (sdim, edim) according to the desired resolution
+    the number of pixels according (sdim, edim) according to the desired
+    resolution
     - adjust the priors according (priors) according to the object looked at.
     A description of the prior search can be found at
     (https://doi.org/10.1051/0004-6361/202347750 )
@@ -43,10 +44,10 @@ config.update('jax_enable_x64', True)
 
 # Parser Setup
 parser = argparse.ArgumentParser()
-parser.add_argument('config', type=str, help="Config file (.yaml) for Chandra inference.",
-                    nargs='?', const=1, default="chandra_config.yaml")
+parser.add_argument('config', type=str,
+                    help="Config file (.yaml) for Chandra inference.",
+                    nargs='?', const=1, default="configs/chandra_demo.yaml")
 args = parser.parse_args()
-
 
 
 if __name__ == "__main__":

@@ -49,7 +49,9 @@ Below is a breakdown of key settings:
   - `psf_filename_suffix`: Suffix for PSF (Point Spread Function) files.
   - `effective_area_filename_suffix`: Suffix for effective area files.
   - `res_dir`: Directory where the results of the run will be saved
-  (e.g., 'results/my_results').
+  (e.g., 'results/my_results'). Since the final processed data will be
+  saved here, a new res_dir name should be chosen if the minimization parameter
+  `resume` is set to `False`.
   - `mock_gen_config`: Path to the mock data generation configuration file
   (e.g., 'configs/mock_config.yaml'). Only needed for simulated data.
   - `pos_dict`: Name of the file storing position data (e.g., 'pos.pkl').
@@ -152,9 +154,10 @@ Notes
 -----
 - If processing simulated data, specify the `mock_gen_config` and `pos_dict` in
 the configuration file.
-- If during a new reconstruction, an old results directory is used, the
+- If during a new reconstruction an old results directory is used, the
 "data.pkl" file will be sourced. If any telescope- or data-related
-parameters are changed, the "data.pkl" file must be deleted.
+parameters are changed, the "data.pkl" file must be deleted or the results
+directory renamed.
 - If resuming a previous run, the output directory will be checked,
 and a new directory will be created
   if one already exists.
