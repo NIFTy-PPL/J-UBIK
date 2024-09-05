@@ -69,7 +69,7 @@ if __name__ == "__main__":
     #     verbose=False)
 
     # Save run configuration
-    ju.save_config_copy(os.path.basename(config_path),
+    ju.copy_config(os.path.basename(config_path),
                         output_dir=file_info['res_dir'])
 
     # Load sky model

@@ -5,7 +5,7 @@ import nifty8.re as jft
 import jubik0 as ju
 
 from ...utils import get_config, create_output_directory, save_to_pickle,\
-    save_config_copy
+    copy_config
 from .chandra_observation import ChandraObservationInformation
 from ...plot import plot_result
 from ...data import create_mock_data
@@ -47,7 +47,7 @@ def create_chandra_data_from_config(config_path, response_dict):
             create_mock_data(tel_info, file_info, grid_info,
                              mock_prior_info['priors'],
                              plot_info, cfg['seed'], response_dict)
-            save_config_copy(file_info['mock_gen_config'],
+            copy_config(file_info['mock_gen_config'],
                              output_dir=file_info['res_dir'])
         else:
             jft.logger.info(f'Generating masked eROSITA '
