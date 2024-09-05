@@ -30,7 +30,9 @@ from .library.instruments.erosita.erosita_data import create_erosita_data_from_c
 from .library.instruments.erosita.erosita_psf import eROSITA_PSF
 from .library.data import (create_mock_data, load_masked_data_from_config,
                            load_mock_position_from_config, Domain)
-from .library.likelihood import generate_erosita_likelihood_from_config, get_n_constrained_dof
+from .library.likelihood import get_n_constrained_dof
+from .library.instruments.erosita.erosita_likelihood import \
+    generate_erosita_likelihood_from_config
 from .library.diagnostics import (calculate_nwr,
                                   calculate_uwr)
 from .library.jifty_convolution_operators import (_bilinear_weights,
