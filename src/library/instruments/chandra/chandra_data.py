@@ -7,7 +7,6 @@ import jubik0 as ju
 from ...utils import get_config, create_output_directory, save_to_pickle,\
     copy_config
 from .chandra_observation import ChandraObservationInformation
-from ...plot import plot_result
 from ...data import create_mock_data
 
 def create_chandra_data_from_config(config_path, response_dict):
