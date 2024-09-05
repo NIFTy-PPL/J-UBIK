@@ -145,54 +145,6 @@ def calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max,
     return np.array(effective_areas)
 
 
-def _build_tm_erosita_psf(psf_filename, energies, pointing_center, domain,
-                          npatch, margfrac, want_cut=False,
-                          convolution_method='LINJAX'):
-    """
-    Creates a point spread function (PSF) operator for eROSITA using the
-    provided PSF file and parameters.
-
-    Parameters:
-    -----------
-    psf_filename : str
-        Filename of the PSF file, e.g., '2dpsf_190219v05.fits'.
-    energies : list of float
-        List of energies in keV for which the PSF will be computed.
-    pointing_center : list of list, Array
-        List of lists containing RA and Dec coordinates (in degrees)
-        of the observations' pointing center.
-    domain : object
-        The domain over which the PSF will be defined.
-    npatch : int
-        Number of patches in the PSF. This divides the domain into smaller
-        regions for convolution.
-    margfrac : float
-        Specifies the fraction of the zero-padding with respect to the spatial
-        domain shape size. This margin is needed to break periodic boundary
-        conditions in the patch convolution.
-    want_cut : bool, optional
-        If True, apply a cut to the PSF. Default is False.
-    convolution_method : str, optional
-        Method for convolution, default is 'LINJAX', which corresponds
-        to the linpatch convolution method.
-
-    Returns:
-    --------
-    psf_func : callable
-        A function representing the PSF operator.
-    """
-    psf = eROSITA_PSF(psf_filename)
-    cdict = {"npatch": npatch,
-             "margfrac": margfrac,
-             "want_cut": want_cut}
-    psf_func = psf.make_psf_op(energies,
-                               pointing_center,
-                               domain,
-                               convolution_method,
-                               cdict)
-    return psf_func
-
-
 def _build_tm_erosita_psf_array(psf_filename, energies, pointing_center,
                                 domain, npatch):
     """
