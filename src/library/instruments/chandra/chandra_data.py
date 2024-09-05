@@ -53,7 +53,7 @@ def create_chandra_data_from_config(config_path, response_dict):
                             f'data in {file_info["res_dir"]}...')
             data_array = generate_chandra_data(file_info, tel_info,
                                                grid_info, obs_info)
-            mask_func = response_dict['mask_func']
+            mask_func = response_dict['mask']
             masked_data_vector = mask_func(data_array)
             save_to_pickle(masked_data_vector.tree,
                            data_path)
@@ -78,7 +78,6 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
         Dictionary containing grid dimensions and energy bin information.
     obs_info : dict
         Dictionary containing observation information.
-
     Returns
     -------
     data_array : jnp.ndarray
@@ -88,6 +87,11 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
                                            file_info['processed_obs_folder']))
 
     obslist = list(obs_info.keys())
+    center_obs_id = tel_info.get('center_obs_id', None)
+    if center_obs_id is not None and center_obs_id in obslist:
+        obslist.remove(center_obs_id)
+        obslist.insert(0, center_obs_id)
+
     center = None
     data_list = []
 
@@ -108,10 +112,8 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
                                                 energy_ranges=energy_ranges,
                                                 center=center)
             # retrieve data from observation
-            data = info.get_data(os.path.join(outroot, f"data_{obsnr}.fits"))
-            ju.plot_result(data, output_file=join(outroot,
-                                                      f"data_{obsnr}.png"))
-            data_list.append(data)
+            data = info.get_data(join(outroot, f"data_{obsnr}.fits"))
+            data_list.append(jnp.transpose(data))
         data_array = jnp.stack(jnp.array(data_list, dtype=int))
         if i == 0:
             center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])

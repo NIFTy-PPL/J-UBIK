@@ -30,6 +30,7 @@ grid:
 telescope:
   fov: 2040
   exp_cut: 500
+  center_obs_id:
 
 files:
   obs_path: '../data/14424/'
