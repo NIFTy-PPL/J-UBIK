@@ -43,7 +43,7 @@ J-UBIK allows to process and image event files from the eROSITA x-ray observator
 #### Requirements
 In order to process eROSITA observations and produce realistic synthetic data,
 you will need to:
-- Unstall [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/), the eROSITA
+- Install [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/), the eROSITA
 Science Analysis Software System. In particular, the current version of J-UBIK
 works with the Docker image version.
 - Download the [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/) folder, this allows to compute the eROSITA response accurately. 

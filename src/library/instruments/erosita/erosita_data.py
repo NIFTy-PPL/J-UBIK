@@ -13,8 +13,8 @@ from ...utils import (save_to_pickle, get_config, create_output_directory,
 
 
 def create_erosita_data_from_config(
-    config_path,
-    response_dict
+        config_path,
+        response_dict
 ):
     """ Wrapper function to create masked data either from
     actual eROSITA observations or from generated mock data, as specified
@@ -65,10 +65,10 @@ def create_erosita_data_from_config(
 
 
 def mask_erosita_data_from_disk(
-    file_info,
-    tel_info,
-    grid_info,
-    mask_func
+        file_info,
+        tel_info,
+        grid_info,
+        mask_func
 ):
     """ Creates and saves eROSITA masked data as pickle file from
      eROSITA processed fits-files.
@@ -124,7 +124,7 @@ def mask_erosita_data_from_disk(
 
 
 def generate_erosita_data_from_config(
-    config_path
+        config_path
 ):
     """
     Generates eROSITA data by invoking the eSASS interface based on the
@@ -208,13 +208,13 @@ def generate_erosita_data_from_config(
                 esass_image=esass_image)
             if not exists(join(processed_obs_path, output_filename)):
                 _ = observation_instance.get_data(
-                    emin=e_min[e],
-                    emax=e_max[e],
-                    image=True,
-                    rebin=rebin, #TODO: exchange rebin by fov - 80 = 4arcsec
-                    size=sdim,
-                    pattern=tel_info['pattern'],
-                    telid=tm_id)
+                        emin=e_min[e],
+                        emax=e_max[e],
+                        image=True,
+                        rebin=rebin, #TODO: exchange rebin by fov - 80 = 4arcsec
+                        size=sdim,
+                        pattern=tel_info['pattern'],
+                        telid=tm_id)
             else:
                 log_file_exists(join(processed_obs_path, output_filename))
 
@@ -226,13 +226,14 @@ def generate_erosita_data_from_config(
             # Exposure
             if not exists(join(processed_obs_path, exposure_filenames[e])):
                 observation_instance.get_exposure_maps(
-                    output_filename,
-                    e_min[e],
-                    e_max[e],
-                    withsinglemaps=True,
-                    singlemaps=[exposure_filenames[e]],
-                    withdetmaps=tel_info['detmap'],
-                    badpix_correction=tel_info['badpix_correction'])
+                        output_filename,
+                        e_min[e],
+                        e_max[e],
+                        withsinglemaps=True,
+                        singlemaps=[exposure_filenames[e]],
+                        withdetmaps=tel_info['detmap'],
+                        badpix_correction=tel_info['badpix_correction']
+                )
 
             else:
                 log_file_exists(join(processed_obs_path, exposure_filenames[e]))
