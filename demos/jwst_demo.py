@@ -1,12 +1,13 @@
 import nifty8.re as jft
 
 import jubik0 as ju
-from jubik0.library.jwst.mock_data import (
+from jubik0.library.instruments.jwst.mock_data import (
     mock_setup, build_evaluation_mask, build_mock_plot)
-from jubik0.library.jwst.utils import build_sky_model
-from jubik0.library.jwst.config_handler import config_transform, define_mock_output
-from jubik0.library.jwst.jwst_data_model import build_data_model
-from jubik0.library.jwst.likelihood import (
+from jubik0.library.instruments.jwst.utils import build_sky_model
+from jubik0.library.instruments.jwst.config_handler import (
+    config_transform, define_mock_output)
+from jubik0.library.instruments.jwst.jwst_data_model import build_data_model
+from jubik0.library.instruments.jwst.likelihood import (
     connect_likelihood_to_model, build_gaussian_likelihood)
 
 from functools import reduce
@@ -17,7 +18,7 @@ from jax import config, random
 
 
 cfg = yaml.load(
-    open('demos/jwst_mock_config.yaml', 'r'), Loader=yaml.SafeLoader)
+    open('demos/jwst_demo_config.yaml', 'r'), Loader=yaml.SafeLoader)
 config_transform(cfg)
 res_dir = define_mock_output(cfg)
 
@@ -109,7 +110,7 @@ plot = build_mock_plot(
 
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
-cfg = ju.get_config('demos/jwst_mock_config.yaml')
+cfg = ju.get_config('demos/jwst_demo_config.yaml')
 minimization_config = cfg['minimization']
 kl_solver_kwargs = minimization_config.pop('kl_kwargs')
 

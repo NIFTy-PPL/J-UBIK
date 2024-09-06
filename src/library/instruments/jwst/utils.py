@@ -3,8 +3,8 @@ import jax.numpy as jnp
 from .reconstruction_grid import Grid
 from astropy import units
 
-from ..library.sky_models import SkyModel
-from ..library.sky_colormix import ColorMix, Components, build_color_matrix
+from ....library.sky_models import SkyModel
+# from ..library.sky_colormix import ColorMix, Components, build_color_matrix
 
 
 def build_sky_model(shape, dist, offset, fluctuations, extend_factor=1.5):
@@ -84,37 +84,37 @@ def build_colormix_components(
     return ColorMix(comps, color)
 
 
-def prior_samples_colormix_components(sky_model: ColorMix, n_samples=4):
-    from jax import random
-    import matplotlib.pyplot as plt
-    from matplotlib.colors import LogNorm
+# def prior_samples_colormix_components(sky_model: ColorMix, n_samples=4):
+#     from jax import random
+#     import matplotlib.pyplot as plt
+#     from matplotlib.colors import LogNorm
 
-    key = random.PRNGKey(42)
-    N_comps = len(sky_model.components._comps)
+#     key = random.PRNGKey(42)
+#     N_comps = len(sky_model.components._comps)
 
-    for _ in range(n_samples):
-        key, rec_key = random.split(key, 2)
-        x = jft.random_like(key, sky_model.domain)
+#     for _ in range(n_samples):
+#         key, rec_key = random.split(key, 2)
+#         x = jft.random_like(key, sky_model.domain)
 
-        comps = sky_model.components(x)
-        correlated_comps = sky_model(x)
+#         comps = sky_model.components(x)
+#         correlated_comps = sky_model(x)
 
-        mat_mean = sky_model.color_matrix(x)
-        print()
-        print('Color Mixing Matrix')
-        print(mat_mean)
-        print()
+#         mat_mean = sky_model.color_matrix(x)
+#         print()
+#         print('Color Mixing Matrix')
+#         print(mat_mean)
+#         print()
 
-        fig, axes = plt.subplots(N_comps, 2)
-        for ax, cor_comps, comps in zip(axes, correlated_comps, comps):
-            im0 = ax[0].imshow(cor_comps, origin='lower', norm=LogNorm())
-            im1 = ax[1].imshow(jnp.exp(comps), origin='lower', norm=LogNorm())
-            plt.colorbar(im0, ax=ax[0])
-            plt.colorbar(im1, ax=ax[1])
-            ax[0].set_title('Correlated Comps')
-            ax[1].set_title('Comps')
+#         fig, axes = plt.subplots(N_comps, 2)
+#         for ax, cor_comps, comps in zip(axes, correlated_comps, comps):
+#             im0 = ax[0].imshow(cor_comps, origin='lower', norm=LogNorm())
+#             im1 = ax[1].imshow(jnp.exp(comps), origin='lower', norm=LogNorm())
+#             plt.colorbar(im0, ax=ax[0])
+#             plt.colorbar(im1, ax=ax[1])
+#             ax[0].set_title('Correlated Comps')
+#             ax[1].set_title('Comps')
 
-        plt.show()
+#         plt.show()
 
 
 def build_sky_model_from_config(
