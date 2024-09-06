@@ -119,6 +119,24 @@ demos for Chandra, eROSITA and JWST, which shows how to use or build this models
 generate an inference pipeline upon on that to get posterior estimates.
 
 ## Prior models
+The package contains a prior model that can be adapted to the user's needs in both 
+and spectral directions. In this model, it is possible to obtain spatially uncorrelated
+point sources or correlated extended sources defined by the correlated field model
+described in [@Arras:2022]. In the spectral direction, it is possible to fit a power
+law or to describe the correlation structure in the spectral direction by a Wiener process. 
+The structure of the previous model is in any case coded, so that further dimensions and
+descriptions of the correlation structures can be changed.  Figures \autoref{fig:SimSky} -
+\autoref{fig:SimDiffuse} show an example of a simulated X-ray sky in UBIK as sampled from
+a corresponding generative prior model. Here the sky contains 2 components, where one is
+spatially uncorrelated, simulating the points, and one is spatially correlated, simulating
+extended structures. The model has three energy bins, for which the power law behaviour is
+also described by a generative model.
+
+| Simulated X-ray Sky                                               | Simulated X-ray Point Sources #FIXME                                              | Simulated X-ray Extended Sources                                                       |
+|-------------------------------------------------------------------|-----------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
+| ![Simulated X-ray Sky. \label{fig:SimSky}](simulated_sky_rgb.png) | ![Simulated X-ray Point Sources. \label{fig:SimPoints}](simulated_points_rgb.png) | ![Simulated X-ray Extended Sources. \label{fig:SimDiffuse}](simulated_diffuse_rgb.png) |
+
+
 ## Likelihood models
 
 
