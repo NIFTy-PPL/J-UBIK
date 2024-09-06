@@ -39,8 +39,7 @@ bibliography: paper.bib
 # aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
 # aas-journal: Astrophysical Journal <- The name of the AAS journal.
 ---
-#FIXME: Add Julia &Julian? How do we indicate corresponding authors? We should ake sure that
-this is the three of us :)
+#FIXME: Add Julia &Julian? 
 
 #FIXME: I would call it UBIK without X-ray if JWST is there as well
 
@@ -89,7 +88,7 @@ different types of response applications, for example using spatially variant or
 allowing for different types of noise statistics of the signal, such as Poissonian or Gaussian, 
 and allowing the user to build different correlation structures on different components of the sky.
 On the other hand, it includes a set of instrument implementations. So far, three instrument 
-implementations are accessible, i.e. Chandra, eROSITA and JWST, and we expect this number to 
+implementations are accessible, i.e. Chandra, eROSITA pointings and JWST, and we expect this number to 
 grow with the number of users, leading to a set of easily accessible inference algorithms 
 for different instruments. Ultimately UBIK enables the user, through Bayesian 
 statistics, not only to obtain posterior samples and hence measures of interest such as the
@@ -97,7 +96,7 @@ posterior mean and uncertainty of the signal for a several data sets, but also t
 perform multi-instrument reconstructions.
 
 The according software has been applied already in [@Westerkamp:2023] and currently according publications
-on eROSITA and JWST are in perparation. Afterwards, the set of instruments even further 
+on eROSITA pointings and JWST are in perparation. Afterwards, the set of instruments even further 
 by already exitsing imaging tasks with NIFTy and NIFTy.re like, [@Platz:2023], ...., and new ones.
 
 # Bayesian Imaging with UBIK
@@ -108,7 +107,7 @@ $d$, is given, the likelihood $\mathcal{P}(d|s)$ describes the measurement and t
 or an approximation of the posterior $\mathcal{P}(s|d)$ is the measure of interest in 
 the inference. The main task UBIK shall be used for, is to model the prior in a generative fashion and to use or build
 instrument models easily in order to get a likelihood model. The package itself contains
-demos for Chandra, eROSITA and JWST, which shows how to use or build this models and how to 
+demos for Chandra, eROSITA pointings and JWST, which shows how to use or build this models and how to 
 generate an inference pipeline upon on that to get posterior estimates.
 
 ## Prior models
@@ -145,7 +144,8 @@ tool for testing the implemented model for consistency.
 
 Figures \autoref{fig:Erosita} - \autoref{fig:Chandra} show the same simulated sky 
 (\autoref{fig:SimSky}) seen from two different instruments, eROSITA and Chandra, 
-with Poissonian noise with the pointing center of the telescopes being at the center of the 
+with Poissonian noise for the photon count data with the pointing center of the
+telescopes being at the center of the 
 image. Figure #FIXME shows the same image with shifting pointing centers as indicated 
 with the red cross.
 
