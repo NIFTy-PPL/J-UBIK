@@ -55,7 +55,7 @@ bibliography: paper.bib
 # Summary
 To facilitate multi-instrument analysis of correlated signals in general, we are developing 
 the Universal Bayesian Imaging Kit (UBIK), a flexible and modular framework for high-fidelity 
-Bayesian imaging. UBIK is based on the NIFTy.re software, which is an accelerated 
+Bayesian imaging. UBIK is based on the NIFTy.re [@Edenhofer:2024] software, which is an accelerated 
 Bayesian framework for imaging. It facilitates the implementation of the main components of Bayesian 
 inference, i.e. likelihood models for different instruments and prior models. The package includes
 three instrument implementations, two X-ray telescopes, Chandra and eROSITA, and JWST in the infrared,
@@ -76,14 +76,16 @@ to be separated.
 
 UBIK as the universal Bayesian imaging kit, uses Bayesian statistics to facilitate the 
 reconstruction of these complex signals, whether in astronomy or in other areas such as medical imaging,
-from multi-instrument data. UBIK is based on the theory of information field theory (reference?)
-and on the according software package NIFTy.re (reference?). According to this, it uses a prior model
+from multi-instrument data. UBIK is based on the theory of information field theory [@Ennslin:2013]
+and on the according software package NIFTy.re [@Edenhofer:2024], which is an accelerated and
+jax-bases version of NIFTy [@Arras:2019]. According to this, it uses a prior model
 , which describes the prior assumptions before we have any further knowledge from 
 the instruments data, in a generative fashion and a likelihood model, which describes the measurement 
 or in other words the responses of the possible multiple instruments and the noise statistics.
 Using NIFTy.re as a basis, the package supports to give the physical, high-dimensional
 signal field a sparse, adaptive and distributed representations and provides different methods,
-like MAP, HMC or two variational inference algorithms, MGVI (reference) and geoVI (reference), for
+like MAP, HMC or two variational inference algorithms, MGVI [@Knollmueller:2020] and 
+geoVI [@Frank:2021], for
 the efficient inference using parallel computing on clusters and GPUs. 
 
 Up to now, the likelihood models and prior models have been built from scratch for different 
@@ -100,6 +102,13 @@ for different instruments. Ultimately UBIK enables the user, through Bayesian
 statistics, not only to obtain posterior samples and hence measures of interest such as the
 posterior mean and uncertainty of the signal for a several data sets, but also to 
 perform multi-instrument reconstructions.
+
+The according software has been applied already in [@Westerkamp:2023] and currently according publications
+on eROSITA and JWST are in perparation. Afterwards, the set of instruments even further 
+by already exitsing imaging tasks with NIFTy and NIFTy.re like, [@Platz:2023], ...., and new ones.
+
+# Bayesian Imaging with UBIK
+
 
 
 
