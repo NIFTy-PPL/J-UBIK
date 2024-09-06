@@ -108,19 +108,25 @@ on eROSITA and JWST are in perparation. Afterwards, the set of instruments even 
 by already exitsing imaging tasks with NIFTy and NIFTy.re like, [@Platz:2023], ...., and new ones.
 
 # Bayesian Imaging with UBIK
+The basis of the UBIK package is Bayes theorem, 
+$$ \mathcal{P}(s|d) \propto \mathcal{P}(d|s)\mathcal{P}(s),$$
+where the prior $\mathcal{P}(s)$ describes the knowledge on the signal, $s$, before the data, 
+$d$, is given, the likelihood $\mathcal{P}(d|s)$ describes the measurement and the actual 
+or an approximation of the posterior $\mathcal{P}(s|d)$ is the measure of interest in 
+the inference. The main task UBIK shall be used for, is to model the prior in a generative fashion and to use or build
+instrument models easily in order to get a likelihood model. The package itself contains
+demos for Chandra, eROSITA and JWST, which shows how to use or build this models and how to 
+generate an inference pipeline upon on that to get posterior estimates.
 
+## Prior models
+## Likelihood models
 
-
-
-# Past and ongoing research projects
 
 # Conclusion
 
 
 # Acknowledgements
 
-# More structure info here
-https://joss.readthedocs.io/en/latest/paper.html#what-should-my-paper-contain
 
 # References
 
