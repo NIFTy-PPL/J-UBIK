@@ -2,6 +2,9 @@
 
 *J*ifty *U*niversal *B*ayesian *I*maging *K*it for photon count instruments is a python package for data analysis of modern X-ray telescopes as Chandra, XMM-Newton and eROSITA.
 
+J-UBIK allows to image observations from different instruments with Bayesian posterior uncertainties and component separation.
+
+
 ## Requirements
 - [NIFTy8](https://gitlab.mpcdf.mpg.de/ift/nifty) 
 - JAX
@@ -35,19 +38,19 @@ Additional calibration files might be needed for instrument-specific pipelines.
 ### Chandra
 
 ### eROSITA
-J-UBIK allows to image eROSITA observations with Bayesian posterior uncertainties
-and component separation.
+J-UBIK allows to process and image event files from the eROSITA x-ray observatory.  
 
 #### Requirements
 In order to process eROSITA observations and produce realistic synthetic data,
-you will need to install [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/), the eROSITA
+you will need to:
+- Unstall [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/), the eROSITA
 Science Analysis Software System. In particular, the current version of J-UBIK
 works with the Docker image version.
-Moreover, to compute the eROSITA response accurately, the [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/) folder 
-from data release 1 (DR1) or from the early data release (EDR) should be present 
+- Download the [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/) folder, this allows to compute the eROSITA response accurately. 
+Either the caldb from data release 1 (DR1) or from the early data release (EDR) should be present 
 inside the `data/` directory. 
 This folder can be downloaded at [caldb download](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/caldb4DR1.tgz).
-
+- Download the data if you want to work with public eROSITA data, see [edr](https://erosita.mpe.mpg.de/edr/index.php) and [dr1](https://erosita.mpe.mpg.de/dr1/index.html).  
 #### Demo
 In the `demo/` repository, `erosita_inference.py` allows to run a generic 
 image reconstruction with real and synthetic (mock) eROSITA data.

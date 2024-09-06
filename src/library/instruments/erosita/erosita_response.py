@@ -406,57 +406,10 @@ def build_erosita_response_from_config(config_file_path):
     ----------
     config_file_path : str
         Path to the YAML configuration file.
+        For a description of the required fields in the configuration file,
+        see demos/erosita_demo.py.
         The file should contain information about the telescope, PSF settings,
         energy grid, and file paths needed to build the eROSITA response.
-
-    YAML Configuration Structure
-    ----------------------------
-    The YAML configuration file is expected to include the following sections:
-
-    telescope:
-        tm_ids: list of int
-            List of telescope module IDs to be used (e.g., [1, 2, 3, 4, 5, 6, 7]).
-        fov: float
-            Field of view for the observation.
-        effective_area_correction: bool
-            Whether to apply effective area corrections to the response.
-        exp_cut: float
-            Exposure threshold to be applied.
-
-    files:
-        calibration_path: str
-            Path to the eROSITA calibration database (CALDB).
-        caldb_folder_name: str
-            Name of the CALDB folder (default is "caldb").
-        psf_filename_suffix: str
-            Suffix for PSF file naming (default is "_2dpsf_190219v05.fits").
-        exposure: str
-            Filename template for exposure files.
-        obs_path: str
-            Path to the observation data.
-        input: str
-            Input file for processing.
-        output: str
-            Output file for the generated response.
-
-    psf:
-        energy: list of float
-            List of energies at which to compute the PSF.
-        npatch: int
-            Number of patches for PSF processing.
-        margfrac: float
-            Fractional margin to avoid periodic boundary effects.
-
-    grid:
-        edim: int
-            Number of energy bins.
-        sdim: int
-            Spatial dimension for the response grid.
-        energy_bin:
-            e_min: list of float
-                List of minimum energy values for each bin.
-            e_max: list of float
-                List of maximum energy values for each bin.
 
     Returns
     -------

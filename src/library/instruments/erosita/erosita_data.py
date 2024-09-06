@@ -123,7 +123,9 @@ def mask_erosita_data_from_disk(
     return masked_data_vector
 
 
-def generate_erosita_data_from_config(config_path):
+def generate_erosita_data_from_config(
+    config_path
+):
     """
     Generates eROSITA data by invoking the eSASS interface based on the
     configurations provided in a YAML file. The function processes event files,
@@ -135,56 +137,8 @@ def generate_erosita_data_from_config(config_path):
         Path to the YAML configuration file that contains the necessary
         information about the observation settings, telescope modules,
         energy bins, file paths, and plotting options.
-
-    YAML Configuration Structure
-    ----------------------------
-    The YAML configuration file should contain the following sections:
-
-    telescope:
-        tm_ids: list of int
-            List of telescope module IDs (e.g., [1, 2, 3, 4, 5, 6, 7]).
-        fov: float
-            Field of view for the observation.
-        rebin: int
-            Rebinning factor to set the angular resolution.
-        pattern: str
-            Pattern to be applied for data extraction.
-        detmap: bool
-            Whether to include detector maps in the processing.
-        badpix_correction: bool
-            Whether to apply bad pixel correction to the exposure maps.
-
-    files:
-        obs_path: str
-            Path to the raw observation data.
-        processed_obs_folder: str
-            Subfolder where processed observations will be saved.
-        input: str
-            Input file name (event file) for processing.
-        output: str
-            Base name for the output files.
-        exposure: str
-            Base name for the exposure files.
-
-    grid:
-        sdim: int
-            Spatial dimension for the output image grid.
-        energy_bin:
-            e_min: list of float
-                List of minimum energy values for each bin.
-            e_max: list of float
-                List of maximum energy values for each bin.
-
-    plotting:
-        enabled: bool
-            Whether to enable plotting of FITS images.
-        slice: list of int
-            Slice parameters for plotting (e.g., [x_min, x_max, y_min, y_max]).
-        dpi: int
-            Resolution (DPI) for saved plot images.
-
-    esass_image: str
-        Docker image to use for eSASS software (e.g., "EDR" or "DR1").
+        For a description of the required fields in the configuration file,
+        see demos/erosita_demo.py.
 
     Returns
     -------
@@ -253,13 +207,14 @@ def generate_erosita_data_from_config(config_path):
                 obs_path,
                 esass_image=esass_image)
             if not exists(join(processed_obs_path, output_filename)):
-                _ = observation_instance.get_data(emin=e_min[e],
-                                                  emax=e_max[e],
-                                                  image=True,
-                                                  rebin=rebin, #TODO: exchange rebin by fov - 80 = 4arcsec
-                                                  size=sdim,
-                                                  pattern=tel_info['pattern'],
-                                                  telid=tm_id)
+                _ = observation_instance.get_data(
+                    emin=e_min[e],
+                    emax=e_max[e],
+                    image=True,
+                    rebin=rebin, #TODO: exchange rebin by fov - 80 = 4arcsec
+                    size=sdim,
+                    pattern=tel_info['pattern'],
+                    telid=tm_id)
             else:
                 log_file_exists(join(processed_obs_path, output_filename))
 

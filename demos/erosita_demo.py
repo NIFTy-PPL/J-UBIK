@@ -12,8 +12,8 @@ Requirements
 Before running this demo, ensure the following installations and downloads
 are complete:
 
-1. Install [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/)
-in a Docker container.
+1. Download [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/)
+Docker image and ensure that the image is running.
 2. Download the eROSITA CALDB (Calibration Database) folder:
    [CALDB](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/caldb4DR1.tgz)
 3. Download eROSITA data:
@@ -255,7 +255,7 @@ if __name__ == "__main__":
         ju.plot_sample_and_stats(file_info["res_dir"],
                                  additional_plot_dict,
                                  s,
-                                 dpi=300,
+                                 dpi=config["plotting"]["dpi"],
                                  iteration=x.nit,
                                  log_scale=False,
                                  plot_samples=False,
@@ -266,7 +266,7 @@ if __name__ == "__main__":
                       s,
                       file_info["res_dir"],
                       iteration=x.nit,
-                      dpi=300,
+                      dpi=config["plotting"]["dpi"],
                       )
 
 
