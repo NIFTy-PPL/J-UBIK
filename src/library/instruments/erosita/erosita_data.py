@@ -41,7 +41,7 @@ def create_erosita_data_from_config(
         if bool(file_info.get("mock_gen_config")):
             jft.logger.info(
                 f'Generating new mock data in {file_info["res_dir"]}...')
-            mock_prior_info = get_config(file_info["mock_gen_config"])
+            mock_prior_info = get_config(file_info["mock_gen_config"])['priors']
             _ = create_mock_data(tel_info,
                                  file_info,
                                  grid_info,
