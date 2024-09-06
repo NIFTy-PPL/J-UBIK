@@ -1,56 +1,60 @@
-# should be structured as eROSITA
-seed: 67
-obs_info:
-  obs14410: # SN1006
-    obsID: 14424
-    data_location: ../data/14424/
-    event_file: primary/acisf14424N002_evt2.fits
-    aspect_sol: primary/pcadf14424_000N001_asol1.fits
-    bpix_file: primary/acisf14424_000N002_bpix1.fits
-    mask_file: secondary/acisf14424_000N002_msk1.fits
-    instrument: ACIS-I
-
-grid:
-  sdim: 1024
-  edim: 3
-  s_padding_ratio: 1.1075
-  e_padding_ratio: 1.
-  energy_bin:
-    e_min:
-      - 0.5
-      - 1.2
-      - 2.0
-    e_max:
-      - 1.2
-      - 2.0
-      - 7.0
-    e_ref:
-      - 2
-
-telescope:
-  fov: 2040
-  exp_cut: 500
-  center_obs_id:
+seed: 86
+esass_image: DR1
 
 files:
-  obs_path: '../data/14424/'
+  obs_path: '../data/LMC_SN1987A/'
   data_dict: 'data.pkl'
-  processed_obs_folder: 'processed'
-  res_dir: 'results/chandra_demo/'
-# If mock:
-  mock_gen_config: 'chandra_config.yaml'
-  pos_dict: 'pos.pkl'
+  processed_obs_folder: 'processed'  # only needed for actual data
+  input: 'pm00_700161_020_EventList_c001.fits'
+  output: 'pm00_700161_020_data.fits'
+  exposure: 'pm00_700161_020_expmap.fits'
+  calibration_path : '../data/'
+  caldb_folder_name: 'caldb'
+  psf_filename_suffix: '_2dpsf_190219v05.fits'
+  effective_area_filename_suffix: '_arf_filter_000101v02.fits'
+  res_dir: 'results/Default_run_mf'
+  # If mock:
+  mock_gen_config: 'configs/erosita_demo.yaml' # only needed for mock
+  pos_dict: 'pos.pkl' # only needed for mock
+
+telescope:
+  tm_ids : [1, 2] #, 3, 4, 6]
+  rebin: 80 # typical value used in analysis; equals 4 arcsec resolution
+  fov: 4096
+  pattern: 15
+  detmap: True
+  exp_cut: 500
+  badpix_correction: True
+  effective_area_correction: True
 
 psf:
-  num_rays: 10000
-  npatch: 8
-  margfrac: 0.062
+ energy: ['0277', '1486', '3000']
+  # LIN config
+ npatch: 8
+ margfrac: 0.062
+ want_cut: False
 
 plotting:
   enabled: True
   slice: Null
   dpi: 800
 
+grid:
+  sdim: 1024
+  edim: 3 # FIXME: remove this parameter
+  s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
+  e_padding_ratio: 1.
+  energy_bin:
+    e_min:
+    - 0.2
+    - 1.0
+    - 2.0
+    e_max:
+    - 1.0
+    - 2.0
+    - 4.5
+    e_ref:
+    - 2
 
 priors:
   point_sources:
@@ -68,26 +72,6 @@ priors:
         - 0.01
         - 0.02
       name: 'points_dev_wp'
-#    dev_corr:
-#      fluctuations:
-#        fluctuations:
-#          - 1.0
-#          - 5.0e-3
-#        loglogavgslope:
-#          - -3
-#          - 1.0e-2
-#        flexibility:
-#          - 2.0
-#          - 5.0e-1
-#        asperity:
-#        non_parametric_kind: "power"
-#        # harmonic_type: "Fourier"
-#      prefix: points_dev
-#      offset:
-#        offset_mean: 0.0
-#        offset_std:
-#          - 1.0e-3
-#          - 1.0e-4
   diffuse:
     spatial:
       offset:
@@ -131,13 +115,13 @@ priors:
         non_parametric_kind: "power"
         # harmonic_type: "Fourier"
       prefix: diffuse_plaw_
-#     dev_wp:
-#       x0: 0.
-#       sigma:
-#         - 0.3
-#         - 0.1
-#       dt: 1
-#       name: 'diffuse_dev_wp'
+    # dev_wp:
+    #   x0: 0.
+    #   sigma:
+    #     - 0.3
+    #     - 0.1
+    #   dt: 1
+    #   name: 'diffuse_dev_wp'
 
 minimization:
     resume: False

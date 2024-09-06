@@ -1,72 +1,56 @@
-seed: 86
-esass_image: DR1
+# should be structured as eROSITA
+seed: 67
+obs_info:
+  obs14410: # SN1006
+    obsID: 14424
+    data_location: ../data/14424/
+    event_file: primary/acisf14424N002_evt2.fits
+    aspect_sol: primary/pcadf14424_000N001_asol1.fits
+    bpix_file: primary/acisf14424_000N002_bpix1.fits
+    mask_file: secondary/acisf14424_000N002_msk1.fits
+    instrument: ACIS-I
+
+grid:
+  sdim: 1024
+  edim: 3
+  s_padding_ratio: 1.1075
+  e_padding_ratio: 1.
+  energy_bin:
+    e_min:
+      - 0.5
+      - 1.2
+      - 2.0
+    e_max:
+      - 1.2
+      - 2.0
+      - 7.0
+    e_ref:
+      - 2
+
 telescope:
-  tm_ids : [1, 2, 3, 4, 6]
-  rebin: 80 # set by the consortium
-  fov: 4096
-  pattern: 15
-  detmap: True
+  fov: 2040
   exp_cut: 500
-  badpix_correction: True
-  effective_area_correction: True
+  center_obs_id:
+
+files:
+  obs_path: '../data/14424/'
+  data_dict: 'data.pkl'
+  processed_obs_folder: 'processed'
+  res_dir: 'results/chandra_demo/'
+# If mock:
+  mock_gen_config: 'configs/chandra_demo.yaml'
+  pos_dict: 'pos.pkl'
 
 psf:
- method: 'LINJAX'
- energy: ['0277', '1486', '3000'] #FIXME: check whether to use '0930'
-  # LIN config
- npatch: 8
- margfrac: 0.062
- want_cut: False
-
-  # MSC config
-#  base: [3,3]
-#  min_baseshape: [8,8]
-#  linlevel: [100,100]
-#  kernel_sizes: [[3,3],]
-#  keep_overlap: [[True,True],]
-#  local_kernel: [True,True]
-
-  # config for homogeneous gauss psf
-#  gauss_var: 5
+  num_rays: 10000
+  npatch: 8
+  margfrac: 0.062
 
 plotting:
   enabled: True
   slice: Null
   dpi: 800
 
-grid:
-  sdim: 1024
-  edim: 3 # FIXME: remove this parameter
-  s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
-  e_padding_ratio: 1.
-  energy_bin:
-    e_min:
-    - 0.2
-    - 1.0
-    - 2.0
-    e_max:
-    - 1.0
-    - 2.0
-    - 4.5
-    e_ref:
-    - 2
-
-
-files:
-  obs_path: '../data/LMC_SN1987A/'
-  data_dict: 'data.pkl'
-  processed_obs_folder: 'processed'  # only needed for actual data
-  input: 'pm00_700161_020_EventList_c001.fits'
-  output: 'pm00_700161_020_data.fits'
-  exposure: 'pm00_700161_020_expmap.fits'
-  calibration_path : '../data/'
-  psf_path : '../data/psf_info/'
-  effective_area_filename_suffix: '_arf_filter_000101v02.fits'
-  psf_base_filename: '2dpsf_190219v05.fits'
-  res_dir: 'results/Default_run_mf'
-# If mock:
-  # mock_gen_config: 'mock_config.yaml'
-  # pos_dict: 'pos.pkl'
 
 priors:
   point_sources:
@@ -74,7 +58,7 @@ priors:
       alpha: 1.0001
       q: 3.E-10
       key: points
-    plaw: # for physical point sources (e.g. AGNs) one expects a slope around -2
+    plaw:
       mean: -2.
       std: 1.5
       name: points_plaw_
@@ -147,33 +131,13 @@ priors:
         non_parametric_kind: "power"
         # harmonic_type: "Fourier"
       prefix: diffuse_plaw_
-    # dev_wp:
-    #   x0: 0.
-    #   sigma:
-    #     - 0.3
-    #     - 0.1
-    #   dt: 1
-    #   name: 'diffuse_dev_wp'
-#    dev_corr:
-#      fluctuations:
-#        fluctuations:
-#          - 1.0
-#          - 5.0e-3
-#        loglogavgslope:
-#          - -3
-#          - 1.0e-2
-#        flexibility:
-#          - 2.0
-#          - 5.0e-1
-#        asperity:
-#        non_parametric_kind: "power"
-#        # harmonic_type: "Fourier"
-#      prefix: diffuse_dev_
-#      offset:
-#        offset_mean: 0.0
-#        offset_std:
-#          - 1.0e-3
-#          - 1.0e-4
+#     dev_wp:
+#       x0: 0.
+#       sigma:
+#         - 0.3
+#         - 0.1
+#       dt: 1
+#       name: 'diffuse_dev_wp'
 
 minimization:
     resume: False

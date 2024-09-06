@@ -1,13 +1,14 @@
-import matplotlib.pyplot as plt
+from os.path import join
+
+import astropy.io.fits as fits
 import numpy as np
 
 import jubik0 as ju
-from os.path import join
-import astropy.io.fits as fits
-from jubik0.library.response import calculate_erosita_effective_area
+from jubik0.library.instruments.erosita.erosita_response import (
+    calculate_erosita_effective_area)
 
 if __name__ == "__main__":
-    config_path = "eROSITA_config.yaml"
+    config_path = "configs/eROSITA_config.yaml"
     config_dict = ju.get_config(config_path)
     path_to_caldb = '../data/'
     file_info = config_dict["files"]
