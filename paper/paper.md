@@ -68,7 +68,7 @@ to be separated.
 
 UBIK as the universal Bayesian imaging kit, uses Bayesian statistics to facilitate the 
 reconstruction of these complex signals, whether in astronomy or in other areas such as medical imaging,
-from multi-instrument data. UBIK is based on the theory of information field theory [@Ennslin:2013]
+from multi-instrument data. UBIK is based on the theory of information field theory [@Ensslin:2013]
 and on the according software package NIFTy.re [@Edenhofer:2024], which is an accelerated and
 jax-bases version of NIFTy [@Arras:2019]. According to this, it uses a prior model
 , which describes the prior assumptions before we have any further knowledge from 
@@ -117,16 +117,17 @@ point sources or correlated extended sources defined by the correlated field mod
 described in [@Arras:2022]. In the spectral direction, it is possible to fit a power
 law or to describe the correlation structure in the spectral direction by a Wiener process. 
 The structure of the previous model is in any case coded, so that further dimensions and
-descriptions of the correlation structures can be changed.  Figures \autoref{fig:SimSky} -
-\autoref{fig:SimDiffuse} show an example of a simulated X-ray sky in UBIK as sampled from
+descriptions of the correlation structures can be changed.  Figures [Figure 1](#fig:sky) -
+[Figure 3](#fig:extended) show an example of a simulated X-ray sky in UBIK as sampled from
 a corresponding generative prior model. Here the sky contains 2 components, where one is
 spatially uncorrelated, simulating the points, and one is spatially correlated, simulating
 extended structures. The model has three energy bins, for which the power law behaviour is
 also described by a generative model.
 
-| Simulated X-ray Sky                                               | Simulated X-ray Point Sources #FIXME                                              | Simulated X-ray Extended Sources                                                       |
-|-------------------------------------------------------------------|-----------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
-| ![Simulated X-ray Sky. \label{fig:SimSky}](simulated_sky_rgb.png) | ![Simulated X-ray Point Sources. \label{fig:SimPoints}](simulated_points_rgb.png) | ![Simulated X-ray Extended Sources. \label{fig:SimDiffuse}](simulated_diffuse_rgb.png) |
+| Simulated X-ray Sky                                      | Simulated X-ray Point Sources                                  | Simulated X-ray Extended Sources                                  |
+|----------------------------------------------------------|----------------------------------------------------------------|-------------------------------------------------------------------|
+| ![Figure 1](simulated_sky_rgb.png){ width=30% #fig:sky } | ![Figure 2](simulated_points_rgb.png){ width=30% #fig:points } | ![Figure 3](simulated_diffuse_rgb.png){ width=30% #fig:extended } |
+
 
 
 ## Likelihood models
@@ -137,13 +138,13 @@ a signal from actual data, but the instrument model can also be used to generate
 data by passing through the instrument response and including noise. This is a powerful
 tool for testing the implemented model for consistency.
 
-| Simulated eROSITA Data                           | Simulated Chandra Data #FIXME                                            | 
-|--------------------------------------------------|--------------------------------------------------------------------------|
-| ![Simulated eROSITA Data . \label{fig:Erosita}](simulated_data_rgb.png) | ![Simulated Chandra Data. \label{fig:Chandra}](simulated_points_rgb.png) |
+| Simulated eROSITA Data                                        | Simulated Chandra Data                                          | 
+|---------------------------------------------------------------|-----------------------------------------------------------------|
+| ![Figure 4](simulated_data_rgb.png){ width=50% #fig:Erosita } | ![Figure 5](simulated_points_rgb.png){ width=50% #fig:Chandra } |
 
 
-Figures \autoref{fig:Erosita} - \autoref{fig:Chandra} show the same simulated sky 
-(\autoref{fig:SimSky}) seen from two different instruments, eROSITA and Chandra, 
+Figures [Figure 4](#fig:Erosita) - [Figure 5](#fig:Chandra) show the same simulated sky 
+([Figure 1](#fig:sky)) seen from two different instruments, eROSITA and Chandra, 
 with Poissonian noise for the photon count data with the pointing center of the
 telescopes being at the center of the 
 image. Figure #FIXME shows the same image with shifting pointing centers as indicated 
