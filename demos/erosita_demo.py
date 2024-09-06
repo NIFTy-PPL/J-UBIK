@@ -53,7 +53,8 @@ Below is a breakdown of key settings:
   saved here, a new res_dir name should be chosen if the minimization parameter
   `resume` is set to `False`.
   - `mock_gen_config`: Path to the mock data generation configuration file
-  (e.g., 'configs/mock_config.yaml'). Only needed for simulated data.
+  (e.g., 'configs/erosita_demo.yaml'). Only needed for simulated data.
+  Can be a different file than the reconstruction config.
   - `pos_dict`: Name of the file storing position data (e.g., 'pos.pkl').
   Only needed for simulated data.
 
@@ -72,7 +73,6 @@ Below is a breakdown of key settings:
   the detector's effective area.
 
 - **psf**:
-  - `method`: Method for PSF calculation (e.g., "LINJAX").
   - `energy`: List of energy levels (in keV) at which PSF files are defined
   (e.g., ['0277', '1486', '3000']).
   - Additional PSF method-specific settings, such as `npatch`, `margfrac`, etc.

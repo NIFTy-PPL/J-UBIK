@@ -14,7 +14,7 @@ files:
   effective_area_filename_suffix: '_arf_filter_000101v02.fits'
   res_dir: 'results/Default_run_mf'
   # If mock:
-  mock_gen_config: 'configs/mock_config.yaml' # only needed for mock
+  mock_gen_config: 'configs/erosita_demo.yaml' # only needed for mock
   pos_dict: 'pos.pkl' # only needed for mock
 
 telescope:
@@ -28,7 +28,6 @@ telescope:
   effective_area_correction: True
 
 psf:
- method: 'LINJAX'
  energy: ['0277', '1486', '3000']
   # LIN config
  npatch: 8
