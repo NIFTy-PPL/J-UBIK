@@ -188,11 +188,11 @@ def build_mock_plot(
 
     def plot(samples, x):
         print(f'Results: {res_dir}')
-        report_correction(samples, x)
         sky_plot(samples, x)
 
         try:
-            plot_pspec(samples, x)
+            # plot_pspec(samples, x)
+            pass
         except:
             None
 
