@@ -36,22 +36,12 @@ bibliography: paper.bib
 # aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
 # aas-journal: Astrophysical Journal <- The name of the AAS journal.
 ---
+#FIXME: Add Julia &Julian? How do we indicate corresponding authors? We should ake sure that
+this is the three of us :)
 
-<!--
-## JAX + NIFTy Paper
-* USP: selling point: speed
-* Bonus: higher order diff for more efficient optimization and all of Tensorflow and Tensorflow for all
-* GP
-  * Regular Grid Refinement
-  * KISS-GP
-  * Grid Refinement
-* Posterior Approx.
-  * HMC but with variable dtype handling
-  * JIT-able VI and also (indirectly) available for Tensorflow
-* predecessor enabled 100B reconstruction
-* middle ground between tools like blackjax and pymc
--->
+#FIXME: I would call it UBIK without X-ray if JWST is there as well
 
+#FIXME: Check for Fixmes inside here :D
 # Summary
 To facilitate multi-instrument analysis of correlated signals in general, we are developing 
 the Universal Bayesian Imaging Kit (UBIK), a flexible and modular framework for high-fidelity 
@@ -157,7 +147,11 @@ image. Figure #FIXME shows the same image with shifting pointing centers as indi
 with the red cross.
 
 # Acknowledgements
+V. Eberle and M. Guardiani, M. Westerkamp acknowledge support for this research through
+the project Universal Bayesian Imaging Kit (UBIK, Förderkennzeichen 50OO2103) funded
+by the Deutsches Zentrum für Luft- und Raumfahrt e.V. (DLR).
 
+#FIXME: Ask for further acknowledgements.
 
 # References
 
