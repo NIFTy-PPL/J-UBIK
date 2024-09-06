@@ -17,8 +17,10 @@ with open("README.md") as f:
 setup(
     name="jubik0",
     version=__version__,
-    author="Vincent Eberle",
-    author_email="veberle@mpa-garching.mpg.de",
+    author="Vincent Eberle, Matteo Guardiani, Margret Westerkamp",
+    author_email="veberle@mpa-garching.mpg.de, "
+                 "matteani@mpa-garching.mpg.de,"
+                 "wmargret@mpa-garching.mpg.de",
     description="Universal Bayesian Imaging Kit",
     long_description=long_description,
     long_desription_content_type = "text/markdown",
