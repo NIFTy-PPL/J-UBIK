@@ -86,6 +86,20 @@ signal field a sparse, adaptive and distributed representations and provides dif
 like MAP, HMC or two variational inference algorithms, MGVI (reference) and geoVI (reference), for
 the efficient inference using parallel computing on clusters and GPUs. 
 
+Up to now, the likelihood models and prior models have been built from scratch for different 
+imaging problems that Nifty.re tackles. This accounts for most of the work in this Bayesian imaging
+process. UBIK approaches this difficulty from two sides. On the one hand, UBIK contains tools to
+facilitate the implementation of new likelihood and prior models. It is a toolbox that allows for
+different types of response applications, for example using spatially variant or invariant psfs,
+allowing for different types of noise statistics of the signal, such as Poissonian or Gaussian, 
+and allowing the user to build different correlation structures on different components of the sky.
+On the other hand, it includes a set of instrument implementations. So far, three instrument 
+implementations are accessible, i.e. Chandra, eROSITA and JWST, and we expect this number to 
+grow with the number of users, leading to a set of easily accessible inference algorithms 
+for different instruments. Ultimately UBIK enables the user, through Bayesian 
+statistics, not only to obtain posterior samples and hence measures of interest such as the
+posterior mean and uncertainty of the signal for a several data sets, but also to 
+perform multi-instrument reconstructions.
 
 
 
