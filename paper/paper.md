@@ -138,10 +138,23 @@ also described by a generative model.
 
 
 ## Likelihood models
+Several instrument models are implemented in the package, and there are data and response 
+loading functionalities implemented to facilitate loading these models into the inference
+pipeline. Given an implemented likelihood model, UBIK can not only use it to reconstruct 
+a signal from actual data, but the instrument model can also be used to generate simulated 
+data by passing through the instrument response and including noise. This is a powerful
+tool for testing the implemented model for consistency.
+
+| Simulated eROSITA Data                           | Simulated Chandra Data #FIXME                                            | 
+|--------------------------------------------------|--------------------------------------------------------------------------|
+| ![Simulated eROSITA Data . \label{fig:Erosita}](simulated_data_rgb.png) | ![Simulated Chandra Data. \label{fig:Chandra}](simulated_points_rgb.png) |
 
 
-# Conclusion
-
+Figures \autoref{fig:Erosita} - \autoref{fig:Chandra} show the same simulated sky 
+(\autoref{fig:SimSky}) seen from two different instruments, eROSITA and Chandra, 
+with Poissonian noise with the pointing center of the telescopes being at the center of the 
+image. Figure #FIXME shows the same image with shifting pointing centers as indicated 
+with the red cross.
 
 # Acknowledgements
 
