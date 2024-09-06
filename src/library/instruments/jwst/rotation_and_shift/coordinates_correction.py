@@ -9,6 +9,7 @@ from astropy import units as u
 
 from ..parametric_model import build_parametric_prior
 from ..wcs.wcs_jwst_data import WcsJwstData
+from ..wcs.wcs_astropy import WcsAstropy
 from ..reconstruction_grid import Grid
 
 
@@ -129,7 +130,7 @@ def build_coordinates_correction_model(
 def build_coordinates_correction_model_from_grid(
     domain_key: str,
     priors: Optional[dict],
-    data_wcs: WcsJwstData,
+    data_wcs: Union[WcsJwstData, WcsAstropy],
     reconstruction_grid: Grid,
     coords: ArrayLike,
 ) -> Union[Callable[[dict, ArrayLike], ArrayLike], CoordinatesCorrection]:
@@ -161,9 +162,21 @@ def build_coordinates_correction_model_from_grid(
     if priors is None:
         return lambda _: coords
 
-    header = data_wcs._wcs.to_fits()[0]
-    rpix = (header['CRPIX1'],),  (header['CRPIX2'],)
-    rpix = data_wcs.wl_from_index(rpix)
+    if isinstance(data_wcs, WcsJwstData):
+        header = data_wcs._wcs.to_fits()[0]
+        rpix = (header['CRPIX1'],),  (header['CRPIX2'],)
+        rpix = data_wcs.wl_from_index(rpix)
+    elif isinstance(data_wcs, WcsAstropy):
+        # FIXME: The following lines should be the same with the previous
+        header = data_wcs._wcs.to_header()
+        rpix = (header['CRPIX1'],  header['CRPIX2'])
+        rpix = data_wcs.wl_from_index(rpix)[0]
+    else:
+        raise NotImplementedError(
+            f"The type of world coordinate system {type(data_wcs)} is not "
+            "supported. Supported types [WcsAstropy, WcsJwstData]."
+        )
+
     rpix = reconstruction_grid.wcs.index_from_wl(rpix)[0]
 
     return build_coordinates_correction_model(
