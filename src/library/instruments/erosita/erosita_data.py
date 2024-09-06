@@ -226,13 +226,13 @@ def generate_erosita_data_from_config(
             # Exposure
             if not exists(join(processed_obs_path, exposure_filenames[e])):
                 observation_instance.get_exposure_maps(
-                        output_filename,
-                        e_min[e],
-                        e_max[e],
-                        withsinglemaps=True,
-                        singlemaps=[exposure_filenames[e]],
-                        withdetmaps=tel_info['detmap'],
-                        badpix_correction=tel_info['badpix_correction']
+                    output_filename,
+                    e_min[e],
+                    e_max[e],
+                    withsinglemaps=True,
+                    singlemaps=[exposure_filenames[e]],
+                    withdetmaps=tel_info['detmap'],
+                    badpix_correction=tel_info['badpix_correction']
                 )
 
             else:
