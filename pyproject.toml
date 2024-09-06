@@ -1,17 +1,17 @@
 [project]
 name = "jubik0"
-description = "X-ray Universal Bayesian Imaging Kit"
+description = "X-Ubik"
 readme = "README.md"
 authors = [
-    {name = "Vincent Eberle, email = "veberle@mpa-garching.mpg.de"},
-    {name = "Matteo Guardiani, email = "matteani@mpa-garching.mpg.de"},
-    {name = "Margret Westerkamp, email = "margret@mpa-garching.mpg.de"},
+    {name = "Vincent Eberle", email = "veberle@mpa-garching.mpg.de"},
+    {name = "Matteo Guardiani", email = "matteani@mpa-garching.mpg.de"},
+    {name = "Margret Westerkamp", email = "margret@mpa-garching.mpg.de"},
 ]
 requires-python = ">=3.10"
 dependencies = [
     "numpy >= 1.17.0",
     "scipy >= 1.9.0",
-    "nifty8 >= 8.5.2",
+    "nifty8 >= 8.5.1",
 ]
 license = {file = "LICENSE"}
 classifiers = [
@@ -28,28 +28,8 @@ dynamic = ["version"]
 [tool.setuptools.dynamic]
 version = {attr = "jubik0.__version__"}
 
-[project.urls]
-Homepage = "https://github.com/nifty-ppl/nifty"
-"Source Code" = "https://github.com/nifty-ppl/nifty"
-"Bug Tracker" = "https://github.com/nifty-ppl/nifty/issues"
-"Documentation" = "https://ift.pages.mpcdf.de/nifty/"
-"Changelog" = "https://github.com/NIFTy-PPL/NIFTy/blob/NIFTy_8/ChangeLog.md"
 
 [project.optional-dependencies]
-re = [
-    "jax",
-    "jaxlib",
-]
-re_sht = [
-    "jaxbind",
-    "ducc0>=0.27.0",
-]
-native = [
-    "ducc0>=0.27.0",
-]
-parallel = [
-    "mpi4py",
-]
 doc = [
     "sphinx",
     "pydata-sphinx-theme",
@@ -58,27 +38,22 @@ doc = [
     "nbconvert",
     "jupytext",
 ]
-util = [
-    "astropy",
-    "healpy",
-    "h5py",
-    "matplotlib",
-]
 test = [
     "pytest",
     "pytest-cov",
-    "ducc0",
-    "jaxbind",
 ]
-all = ["nifty8[re,re_sht,native,parallel,doc,util,test]"]
 
 [build-system]
 requires = [
     "setuptools >= 65.7.0",
     "numpy >= 1.23.0",
     "scipy >= 1.9.0",
+    "nifty8 >= 8.5.2",
+    "jax",
+    "matplotlib",
+    "astropy",
 ]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["nifty8", "nifty8*"]
+include = ["jubik0", "jubik0*"]
