@@ -53,11 +53,41 @@ bibliography: paper.bib
 -->
 
 # Summary
-To facilitate multi-instrument analysis of correlated signals in general, we are developing the Universal Bayesian Imaging Kit (UBIK), a flexible and modular framework for high-fidelity Bayesian imaging. UBIK is based on the NIFTy.re software, which is an accelerated 
-Bayesian framework for imaging. It facilitates the implementation of the main components of Bayesian inference, i.e. likelihood models for different instruments and prior models. The package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA, and JWST in the infrared, as well as a prior model adaptable to different sky realisations. The demos show how the likelihood and prior implementation can be integrated into an inference pipeline, with the possibility to choose different optimisation schemes such as maximum a posteriori or variational inference.
-
+To facilitate multi-instrument analysis of correlated signals in general, we are developing 
+the Universal Bayesian Imaging Kit (UBIK), a flexible and modular framework for high-fidelity 
+Bayesian imaging. UBIK is based on the NIFTy.re software, which is an accelerated 
+Bayesian framework for imaging. It facilitates the implementation of the main components of Bayesian 
+inference, i.e. likelihood models for different instruments and prior models. The package includes
+three instrument implementations, two X-ray telescopes, Chandra and eROSITA, and JWST in the infrared,
+as well as a prior model adaptable to different sky realisations. The demos show how the likelihood 
+and prior implementation can be integrated into an inference pipeline, with the possibility to
+choose different optimisation schemes such as maximum a posteriori or variational inference.
 
 # Statement of Need
+In imaging , we are often confronted with high-dimensional signals of interest,
+that vary in terms of space, time and energy. In astronomy, for example, the new generation 
+of telescopes  offers many opportunities in capturing those signals, 
+but at the same time also challenges in imaging,
+to get the most information out of the corresponding data. 
+These challenges include modelling the response of the instruments to the signal, 
+the modelling of the noise structure and the modelling of the signal, which is typically
+a mixture of overlapping signal components with non-trivial correlation structures that need 
+to be separated.
+
+UBIK as the universal Bayesian imaging kit, uses Bayesian statistics to facilitate the 
+reconstruction of these complex signals, whether in astronomy or in other areas such as medical imaging,
+from multi-instrument data. UBIK is based on the theory of information field theory (reference?)
+and on the according software package NIFTy.re (reference?). According to this, it uses a prior model
+, which describes the prior assumptions before we have any further knowledge from 
+the instruments data, in a generative fashion and a likelihood model, which describes the measurement 
+or in other words the responses of the possible multiple instruments and the noise statistics.
+Using NIFTy.re as a basis, the package supports to give the physical, high-dimensional
+signal field a sparse, adaptive and distributed representations and provides different methods,
+like MAP, HMC or two variational inference algorithms, MGVI (reference) and geoVI (reference), for
+the efficient inference using parallel computing on clusters and GPUs. 
+
+
+
 
 # Past and ongoing research projects
 
