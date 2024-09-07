@@ -248,14 +248,14 @@ if __name__ == "__main__":
         ju.plot_sample_and_stats(file_info["res_dir"],
                                  sky_dict,
                                  s,
-                                 dpi=config["plotting"]["dpi"],
+                                 dpi=cfg["plotting"]["dpi"],
                                  iteration=x.nit,
                                  rgb_min_sat=[3e-8, 3e-8, 3e-8],
                                  rgb_max_sat=[2.0167e-6, 1.05618e-6, 1.5646e-6])
         ju.plot_sample_and_stats(file_info["res_dir"],
                                  additional_plot_dict,
                                  s,
-                                 dpi=config["plotting"]["dpi"],
+                                 dpi=cfg["plotting"]["dpi"],
                                  iteration=x.nit,
                                  log_scale=False,
                                  plot_samples=False,
@@ -266,7 +266,7 @@ if __name__ == "__main__":
                       s,
                       file_info["res_dir"],
                       iteration=x.nit,
-                      dpi=config["plotting"]["dpi"],
+                      dpi=cfg["plotting"]["dpi"],
                       )
 
 
