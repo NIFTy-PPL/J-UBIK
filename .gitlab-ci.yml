@@ -4,8 +4,8 @@ stages:
   - test
 
 before_script:
-  - python3 -m pip install --user --break-system-packages .
   - python3 -m pip install --user numpy, ducc0, jax, jaxlib, astropy
+  - python3 -m pip install --user --break-system-packages .
 
 test:
   stage: test
