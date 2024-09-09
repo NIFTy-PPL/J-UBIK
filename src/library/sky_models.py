@@ -29,14 +29,14 @@ def fuse_model_components(model_a, model_b):
     return jft.Model(fusion, domain=domain)
 
 def add_masked_model(model, masked_model, mask):
-    domain = domain(model.domain)
+    domain = model.domain
     domain.update(masked_model.domain)
     def func(x):
         eval_model = model(x)
         eval_masked_model = masked_model(x)
-        eval_model[mask] += eval_masked_model
+        eval_model.at[mask].add(eval_masked_model)
         return eval_model
-    return func
+    return jft.Model(func, domain=domain)
 
 class SkyModel:
     """
@@ -219,8 +219,9 @@ class SkyModel:
             self.sky = sky
         else:
             masked_prior_dict = priors['masked_diffuse']
-            mask = masked_prior_dict.pop('mask')
-            mask_sdim = 2*(mask[1]-mask[0],)
+            mask_dict = masked_prior_dict.pop('mask')
+            mask_sdim = (mask_dict['x'][1]-mask_dict['x'][0],
+                         mask_dict['y'][1]-mask_dict['y'][0])
             self._create_masked_diffuse_component_model(mask_sdim,
                                                         edim,
                                                         s_padding_ratio,
@@ -228,6 +229,9 @@ class SkyModel:
                                                         self.s_distances,
                                                         self.e_distances,
                                                         masked_prior_dict)
+            mask = (slice(None),
+                    slice(mask_dict['y'][0], mask_dict['y'][1]),
+                    slice(mask_dict['x'][0], mask_dict['x'][1]))
             self.sky = add_masked_model(sky, self.masked_diffuse,
                                         mask)
         return self.sky
@@ -524,7 +528,8 @@ class SkyModel:
         """Return a dictionary with callables for the major sky models."""
         sky_dict = {'sky': self.sky,
                     'diffuse': self.diffuse,
-                    'points': self.point_sources}
+                    'points': self.point_sources,
+                    'masked_diffue': self.masked_diffuse}
         no_none_dict = {key: value for (key, value) in sky_dict.items() if value is not None}
         return no_none_dict
 
