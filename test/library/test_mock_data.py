@@ -76,8 +76,9 @@ def sample_plot_info():
     return {
         'enabled': False,
     }
-def test_create_mock_data(sample_grid_info, sample_file_info, sample_tel_info, sample_prior_info,
-                          sample_plot_info, sample_response_dict):
+def test_create_mock_data(sample_grid_info, sample_file_info, sample_tel_info,
+                          sample_prior_info, sample_plot_info,
+                          sample_response_dict):
     seed = 42
     masked_mock_data = ju.create_mock_data(
         file_info=sample_file_info,
