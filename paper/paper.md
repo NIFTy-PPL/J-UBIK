@@ -48,15 +48,18 @@ bibliography: paper.bib
 
 #FIXME: Check for Fixmes inside here :D
 # Summary
-To facilitate multi-instrument analysis of correlated signals in general, we are developing 
-the Universal Bayesian Imaging Kit (UBIK), a flexible and modular framework for high-fidelity 
-Bayesian imaging. UBIK is based on the NIFTy.re [@Edenhofer:2024] software, which is an accelerated 
-Bayesian framework for imaging. It facilitates the implementation of the main components of Bayesian 
-inference, i.e. likelihood models for different instruments and prior models. The package includes
-three instrument implementations, two X-ray telescopes, Chandra and eROSITA, and JWST in the infrared,
-as well as a prior model adaptable to different sky realisations. The demos show how the likelihood 
+Many advances in astronomy and astrophysics rely on accurately mapping sky emissions across various
+wavelengths, which often requires reconstructing spatially and spectrally correlated signals from multiple
+instruments. To facilitate this, we introduce the Universal Bayesian Imaging Kit (UBIK), a flexible and 
+modular platform designed for high-fidelity Bayesian imaging. Specifically, we present J-UBIK, an 
+implementation leveraging the JAX-accelerated NIFTy.re [@Edenhofer:2024] software as its backend.
+UBIK streamlines the implementation of key Bayesian inference components, providing customizable 
+likelihood models for different instruments and adaptable prior models for various applications.
+The package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA,
+and JWST in the infrared,
+as well as a prior model adaptable to different sky realizations. The demos show how the likelihood 
 and prior implementation can be integrated into an inference pipeline, with the possibility to
-choose different optimisation schemes such as maximum a posteriori or variational inference.
+choose different optimization schemes such as maximum a posteriori or variational inference.
 
 # Statement of Need
 In imaging , we are often confronted with high-dimensional signals of interest,
@@ -134,12 +137,12 @@ also described by a generative model.
 
 
 ## Likelihood models
-Several instrument models are implemented in the package, and there are data and response 
-loading functionalities implemented to facilitate loading these models into the inference
-pipeline. Given an implemented likelihood model, UBIK can not only use it to reconstruct 
-a signal from actual data, but the instrument model can also be used to generate simulated 
-data by passing through the instrument response and including noise. This is a powerful
-tool for testing the implemented model for consistency.
+J-UBIK implements several instrument models (Chandra, eROSITA, JWST) and their respective data- and response-loading
+functionalities, enabling their seamless integration into the inference pipeline. Due to its fully modular structure,
+we anticipate the inclusion of more instruments into the J-UBIK platform in the future. UBIK is not only capable of 
+reconstructing signals from real data; since each instrument model acts as a digital twin of the corresponding 
+instrument, it can also be used to generate simulated data by passing sky prior models through the instrument’s
+response. This provides a powerful tool for testing the consistency of the implemented models.
 
 | Simulated eROSITA Data                                        | Simulated Chandra Data                                          | 
 |---------------------------------------------------------------|-----------------------------------------------------------------|
