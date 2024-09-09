@@ -11,4 +11,4 @@ before_script:
 test:
   stage: test
   script:
-    - pytest-3 test/library/test_build_exposure_function.py
+    - pytest test/library/test_build_exposure_function.py
