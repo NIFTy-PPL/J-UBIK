@@ -298,10 +298,10 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
     shp = (domain.shape[-2], domain.shape[-1])
     margin = max((int(np.ceil(margfrac*ss)) for ss in shp))
 
-    def psf_op(x):
-        return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(x, domain, psfs, npatch, margin)
+    def psf_op(x, kernel):
+        return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(x, domain, kernel, npatch, margin)
 
-    return psf_op
+    return psf_op, psfs
 
 
 # func = lambda psf_file,x,y,z: build_psf(psf_file,x, y, z)
@@ -378,7 +378,7 @@ def build_erosita_response_from_config(config_file_path):
                     tuple([1]+[cfg['telescope']['fov']/cfg['grid']['sdim']]*2))
 
     # get psf/exposure/mask function
-    psf_func = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center,
+    psf_func, kernel = build_erosita_psf(psf_file_names, psf_info['energy'], pointing_center,
                                  domain, psf_info['npatch'], psf_info['margfrac'])
 
     tmp = build_callable_from_exposure_file(build_exposure_function,
@@ -408,13 +408,32 @@ def build_erosita_response_from_config(config_file_path):
                                                   keys=tel_info['tm_ids'])
 
     pixel_area = (cfg['telescope']['fov'] /cfg['grid']['sdim']) **2 # density to flux
-    # plugin
-    response_func = lambda x: mask_func(exposure_func(psf_func(x*pixel_area)))
+
+    # class Response(jft.Model):
+    #     # kern: Any = dataclasses.field(metadata=dict(static=False))
+    #     def __init__(self, psf_func, exposure, mask, pixel_area, judomain): # kern,
+    #         self.psf_func = psf_func
+    #         # self.kern = kern
+    #         self.exposure_func = exposure
+    #         self.pixel_area = pixel_area
+    #         self.mask_func = mask_func
+    #         self.judomain = judomain
+    #         super().__init__(domain=jft.ShapeWithDtype(judomain.shape))
+
+    #     def __call__(self, x, k):
+    #         return self.mask_func(self.exposure_func(self.psf_func(x*self.pixel_area, k)))
+
+    # response_func = Response(psf_func, exposure_func, mask_func, pixel_area, domain)  #  kernel,
+
+
+    response_func = lambda x, k: mask_func(exposure_func(psf_func(x*pixel_area, k)))
+
     response_dict = {'pix_area': pixel_area,
                      'psf': psf_func,
                      'exposure': exposure_func,
                      'mask': mask_func,
-                     'R': response_func}
+                     'R': response_func,
+                     'kernel_arr': kernel}
     return response_dict
 
 
