@@ -1,8 +1,3 @@
-import numpy as np
-from scipy.stats import wasserstein_distance
-
-# from nifty8.re.caramel import power_analyze
-
 import jax.numpy as jnp
 from nifty8.re.correlated_field import get_fourier_mode_distributor
 import numpy as np
@@ -20,7 +15,7 @@ def _single_power_analyze(field, distances):
     return tmp
 
 
-def power_analyze(field, distances, keep_phase_information=False, return_distances=False):
+def power_analyze(field, distances, keep_phase_information=False):
 
     field_real = not jnp.any(jnp.iscomplex(field))
 
@@ -162,7 +157,8 @@ def build_evaluation_mask(reco_grid, data_set, comp_sky=None):
 
 
 def smallest_enclosing_mask(pixel_map):
-    """Finds the edge points of the largest and smallest `True` pixels in specified sections of the pixel_map."""
+    """Finds the edge points of the largest and smallest `True` pixels in
+    specified sections of the pixel_map."""
     assert pixel_map.shape[0] == pixel_map.shape[1]
 
     mask = np.zeros_like(pixel_map)
