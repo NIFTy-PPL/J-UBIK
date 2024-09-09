@@ -4,9 +4,7 @@ import nifty8 as ift
 import numpy as np
 from matplotlib.colors import LogNorm
 
-from ...convolve_utils import (get_psf_func, psf_convolve_operator,
-                                        psf_lin_int_operator, psf_interpolator)
-
+from .erosita_psf_utils import get_psf_func, psf_interpolator
 
 class eROSITA_PSF():
     """
@@ -224,47 +222,6 @@ class eROSITA_PSF():
         array = psf_interpolator(domain, npatch, psf_infos)
         print('...done build PSF-interpolation')
         return array
-
-    def make_psf_op(self, energies, pointing_center, domain, conv_method,
-                    conv_params):
-        """
-        Build the psf operator.
-
-        Parameters:
-        ----------
-        energies: list of int
-        """
-        psf_infos = []
-        if not isinstance(energies, list):
-            raise TypeError("energies needs to be a list")
-        for energy in energies:
-            self._check_energy(energy)
-            info = self._get_psf_infos(energy, pointing_center)
-            psf_infos.append(info)
-
-        if conv_method == 'MSC' or conv_method == 'MSC_ADJ':
-            print('Build MSC-PSF...')
-            adj = conv_method == 'MSC_ADJ'
-            op = psf_convolve_operator(domain, psf_infos, conv_params, adj)
-            # Scale to match the integration convention of 'LIN'
-            scale = ift.ScalingOperator(domain, np.sqrt(domain.scalar_dvol))
-            op = op @ scale
-            print('...done build MSC-PSF')
-        elif conv_method == 'LIN' or conv_method == 'LINJAX':
-            if conv_method == 'LIN':
-                jaxop = False
-            else:
-                jaxop = True
-            print(f'Build {conv_method}-PSF...')
-            op = psf_lin_int_operator(domain, conv_params['npatch'], psf_infos,
-                                      margfrac=conv_params['margfrac'],
-                                      want_cut=conv_params['want_cut'],
-                                      jaxop=jaxop)
-            print(f'...done build {conv_method}-PSF')
-        else:
-            # TODO enter FFT Convolution here as well
-            raise ValueError(f'Unknown conv_method: {conv_method}')
-        return op
 
     def _get_psf_func(self, energy, pointing_center, domain):
         self._check_energy(energy)

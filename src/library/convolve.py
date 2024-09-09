@@ -103,9 +103,9 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     pad_width_kernel = padding_for_extradims_width + margins
 
     pkernel = jnp.pad(cut_kernel,
-                     pad_width=pad_width_kernel,
-                     mode="constant",
-                     constant_values=0)
+                      pad_width=pad_width_kernel,
+                      mode="constant",
+                      constant_values=0)
     rollback_kernel = jnp.fft.ifftshift(pkernel, axes=(-2, -1))
 
     # TODO discuss this kind of normalization. Kernels should be normalized
@@ -118,12 +118,12 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     normed_kernel = rollback_kernel * norm**-1
 
     ndom = Domain((1, *shape), (None, *domain.distances))
-    convolved = jifty_convolve(normed_kernel,
+    convolved = convolve(normed_kernel,
                                padded,
                                ndom,
                                axes=(-2, -1))
 
-    remaining_shape = list(shape[:-2]) #FIXME
+    remaining_shape = list(shape[:-2])
     padded_shape = remaining_shape + [ii+2*margin for ii in spatial_shape]
 
     def patch_w_margin(array):
@@ -137,11 +137,9 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     return res
 
 
-def jifty_convolve(x, y, domain, axes):
+def convolve(x, y, domain, axes):
     """Perform an FFT convolution.
-    #FIXME alternatively use jnp.convolve could be faster?
-    #FIXME Even if it's just a FFT could be less python overhead
-    #FIXME Reconsider this
+    #TODO implement jnp.convolve wrapper
 
     Parameters:
     -----------

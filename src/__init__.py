@@ -35,9 +35,6 @@ from .library.instruments.erosita.erosita_likelihood import \
     generate_erosita_likelihood_from_config
 from .library.diagnostics import (calculate_nwr,
                                   calculate_uwr)
-from .library.jifty_convolution_operators import (_bilinear_weights,
-                                                     slice_patches,
-                                                     linpatch_convolve,
-                                                     jifty_convolve)
+from .library.convolve import linpatch_convolve, convolve
 from .library.minimization_parser import MinimizationParser
 from .library.hashcollector import save_local_packages_hashes_to_txt

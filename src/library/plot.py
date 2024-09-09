@@ -6,7 +6,7 @@ from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from .data import Domain
-from .jifty_convolution_operators import jifty_convolve
+from .convolve import convolve
 
 
 def plot_result(array,
@@ -463,7 +463,7 @@ def _smooth(sig, x):
 
     smoothing_kernel = get_gaussian_kernel(gauss_domain, sig)
     smoothing_kernel = smoothing_kernel[np.newaxis, ...]
-    smooth_data = jifty_convolve(x, smoothing_kernel, domain, [1, 2])
+    smooth_data = convolve(x, smoothing_kernel, domain, [1, 2])
     return np.array(smooth_data)
 
 
