@@ -1,0 +1,5 @@
+image: python:latest
+
+before_script:
+  - python3 -m pip install --user --break-system-packages .
+  - python3 -m pip install numpy
