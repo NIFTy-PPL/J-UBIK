@@ -118,18 +118,21 @@ The package includes demos for Chandra, eROSITA pointings, and JWST, which illus
 how to use or build these models and how to construct an inference pipeline to obtain posterior estimates.
 
 ## Prior models
-The package contains a prior model that can be adapted to the user's needs in both 
-spatial and spectral directions. In this model, it is possible to obtain spatially uncorrelated
+The package includes a prior model for the sky’s brightness distribution across different wavelengths, 
+which can be customized to meet user needs in both spatial and spectral dimensions. 
+In this model, it is possible to obtain spatially uncorrelated
 point sources or correlated extended sources defined by the correlated field model
-described in [@Arras:2022]. In the spectral direction, it is possible to fit a power
-law or to describe the correlation structure in the spectral direction by a Wiener process. 
-The structure of the previous model is in any case coded, so that further dimensions and
-descriptions of the correlation structures can be changed.  Figures [Figure 1](#fig:sky) -
-[Figure 3](#fig:extended) show an example of a simulated X-ray sky in J-UBIK as sampled from
-a corresponding generative prior model. Here the sky contains 2 components, where one is
-spatially uncorrelated, simulating the points, and one is spatially correlated, simulating
-extended structures. The model has three energy bins, for which the power law behaviour is
-also described by a generative model.
+described in [@Arras:2022]. his model allows for the generation of spatially 
+uncorrelated point sources or spatially correlated extended sources, as described 
+by the correlated field model in [@Arras:2022]. In the spectral dimension, the model can fit 
+a power law and describe the correlation structure along the spectral axis using a Wiener process.
+The prior model’s structure is designed to be flexible, allowing for modifications to accommodate 
+additional dimensions and correlation structures. Figures [Figure 1](#fig:sky) -
+[Figure 3](#fig:extended) illustrate an example of a simulated X-ray sky in J-UBIK, 
+sampled from a corresponding generative prior model. This example features two components: 
+one representing spatially uncorrelated point sources and the other representing spatially 
+correlated extended structures. The model includes three energy bins, spectrally correlated 
+through a power-law model.
 
 | Simulated X-ray Sky                                      | Simulated X-ray Point Sources                                  | Simulated X-ray Extended Sources                                  |
 |----------------------------------------------------------|----------------------------------------------------------------|-------------------------------------------------------------------|
