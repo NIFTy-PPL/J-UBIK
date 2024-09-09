@@ -33,5 +33,5 @@ def test_build_exposure(build_exposure, exposures, x, exposure_cut):
     expected_result = exposures.copy()
     expected_result[exposures < exposure_cut] = 0
 
-    assert (result == expected_result).any()
+    np.testing.assert_array_equal(result, expected_result)
 

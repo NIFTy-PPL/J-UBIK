@@ -49,4 +49,4 @@ def test_adjointness(f, fadj, shape):
     # backward
     res2 = np.vdot(fadj(b), a)
 
-    assert np.allclose(res1, res2)
+    np.testing.assert_allclose(res1, res2)
