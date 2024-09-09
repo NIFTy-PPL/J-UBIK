@@ -52,6 +52,7 @@ requires = [
     "jax",
     "matplotlib",
     "astropy",
+    "ducc0",
 ]
 build-backend = "setuptools.build_meta"
 
