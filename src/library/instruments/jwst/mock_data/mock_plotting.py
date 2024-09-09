@@ -5,8 +5,9 @@ import matplotlib.pyplot as plt
 from os.path import join
 from os import makedirs
 
+from scipy.stats import wasserstein_distance
 from .mock_evaluation import (
-    wasserstein_distance, source_distortion_ratio, redchi2, wmse,
+    source_distortion_ratio, redchi2, wmse,
     smallest_enclosing_mask, get_power)
 
 

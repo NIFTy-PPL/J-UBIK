@@ -37,7 +37,7 @@ psf:
 plotting:
   enabled: True
   slice: Null
-  dpi: 800
+  dpi: 300
 
 grid:
   sdim: 1024

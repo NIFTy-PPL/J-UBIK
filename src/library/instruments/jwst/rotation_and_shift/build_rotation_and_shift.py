@@ -47,7 +47,7 @@ def build_rotation_and_shift_model(
     subsample: int,
     kwargs: dict,
     coordinate_correction: Optional[dict] = None,
-) -> Callable[Union[ArrayLike, Tuple[ArrayLike, ArrayLike]], ArrayLike]:
+) -> Callable[[Union[ArrayLike, Tuple[ArrayLike, ArrayLike]]], ArrayLike]:
     '''Rotation and shift model builder
 
     Parameters
