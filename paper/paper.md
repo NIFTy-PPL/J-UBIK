@@ -104,15 +104,18 @@ instruments will be further expanded to include existing imaging pipelines from 
 and NIFTy.re such as those described in [@Platz:2023], ...., as well as new ones. #FIXME: add resolve?
 
 # Bayesian Imaging with J-UBIK
-The basis of the J-UBIK package is Bayes theorem, 
-$$ \mathcal{P}(s|d) \propto \mathcal{P}(d|s)\mathcal{P}(s),$$
-where the prior $\mathcal{P}(s)$ describes the knowledge on the signal, $s$, before the data, 
-$d$, is given, the likelihood $\mathcal{P}(d|s)$ describes the measurement and the actual 
-or an approximation of the posterior $\mathcal{P}(s|d)$ is the measure of interest in 
-the inference. The main task J-UBIK shall be used for, is to model the prior in a generative fashion and to use or build
-instrument models easily in order to get a likelihood model. The package itself contains
-demos for Chandra, eROSITA pointings and JWST, which shows how to use or build this models and how to 
-generate an inference pipeline upon on that to get posterior estimates.
+At the core of the J-UBIK package is Bayes’ theorem:
+
+$$ \mathcal{P}(s|d) \propto \mathcal{P}(d|s) \mathcal{P}(s), $$
+
+where the prior $\mathcal{P}(s)$ represents our knowledge about the signal $s$ before 
+observing the data $d$, and the likelihood $\mathcal{P}(d|s)$ describes the measurement process. 
+The posterior $\mathcal{P}(s|d)$, which can be exact or approximated, is the primary measure 
+of interest in the inference process. 
+J-UBIK’s main role is to model the prior in a generative fashion and to facilitate 
+the creation and use of instrument models to develop the likelihood model. 
+The package includes demos for Chandra, eROSITA pointings, and JWST, which illustrate 
+how to use or build these models and how to construct an inference pipeline to obtain posterior estimates.
 
 ## Prior models
 The package contains a prior model that can be adapted to the user's needs in both 
