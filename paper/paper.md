@@ -10,14 +10,17 @@ authors:
   - name: Vincent Eberle
     orcid: 0000-0002-5713-3475
     affiliation: "1, 2"
+    equal-contrib: true
     corresponding: true
   - name: Matteo Guardiani
     orcid: 0000-0002-4905-6692
     affiliation: "1, 2"
+    equal-contrib: true
     corresponding: true
   - name: Margret Westerkamp
     orcid: 0000-0001-7218-8282
     affiliation: "1, 2"
+    equal-contrib: true
     corresponding: true
   - name: Philipp Frank
     orcid: 0000-0001-5610-3779
