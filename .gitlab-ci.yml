@@ -1,5 +1,13 @@
 image: python:latest
 
+stages:
+  - test
+
 before_script:
   - python3 -m pip install --user --break-system-packages .
   - python3 -m pip install numpy
+
+test:
+  stage: test
+  script:
+    - pytest-3 test/library/test_build_exposure_function.py
