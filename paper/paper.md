@@ -76,7 +76,7 @@ UBIK as the universal Bayesian imaging kit, uses Bayesian statistics to facilita
 reconstruction of these complex signals, whether in astronomy or in other areas such as medical imaging,
 from multi-instrument data. UBIK is based on the theory of information field theory [@Ensslin:2013]
 and on the according software package NIFTy.re [@Edenhofer:2024], which is an accelerated and
-jax-bases version of NIFTy [@Arras:2019]. According to this, it uses a prior model
+JAX-based version of NIFTy [@Arras:2019]. According to this, it uses a prior model
 , which describes the prior assumptions before we have any further knowledge from 
 the instruments data, in a generative fashion and a likelihood model, which describes the measurement 
 or in other words the responses of the possible multiple instruments and the noise statistics.
