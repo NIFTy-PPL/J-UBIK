@@ -118,7 +118,7 @@ generate an inference pipeline upon on that to get posterior estimates.
 
 ## Prior models
 The package contains a prior model that can be adapted to the user's needs in both 
-and spectral directions. In this model, it is possible to obtain spatially uncorrelated
+spatial and spectral directions. In this model, it is possible to obtain spatially uncorrelated
 point sources or correlated extended sources defined by the correlated field model
 described in [@Arras:2022]. In the spectral direction, it is possible to fit a power
 law or to describe the correlation structure in the spectral direction by a Wiener process. 
