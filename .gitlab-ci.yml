@@ -4,8 +4,9 @@ stages:
   - test
 
 before_script:
-  - python3 -m pip install numpy ducc0 jax jaxlib astropy
+  # - python3 -m pip install numpy ducc0 jax jaxlib astropy
   - python3 -m pip install .
+  - python3 -m pip install -U pytest
 
 test:
   stage: test
