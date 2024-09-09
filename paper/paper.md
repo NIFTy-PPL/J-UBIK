@@ -1,5 +1,5 @@
 ---
-title: 'Universal Bayesian Imaging Kit or X-ray Astronomy'
+title: 'J-UBIK: The JAX-accelerated Universal Bayesian Imaging Kit'
 tags:
   - Python
   - Astronomy
@@ -44,16 +44,15 @@ bibliography: paper.bib
 ---
 #FIXME: Add Julia &Julian? 
 
-#FIXME: I would call it UBIK without X-ray if JWST is there as well
 
 #FIXME: Check for Fixmes inside here :D
 # Summary
 Many advances in astronomy and astrophysics rely on accurately mapping sky emissions across various
 wavelengths, which often requires reconstructing spatially and spectrally correlated signals from multiple
-instruments. To facilitate this, we introduce the Universal Bayesian Imaging Kit (UBIK), a flexible and 
+instruments. To facilitate this, we introduce a universal Bayesian imaging kit, a flexible and 
 modular platform designed for high-fidelity Bayesian imaging. Specifically, we present J-UBIK, an 
 implementation leveraging the JAX-accelerated NIFTy.re [@Edenhofer:2024] software as its backend.
-UBIK streamlines the implementation of key Bayesian inference components, providing customizable 
+J-UBIK streamlines the implementation of key Bayesian inference components, providing customizable 
 likelihood models for different instruments and adaptable prior models for various applications.
 The package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA,
 and JWST in the infrared,
@@ -72,9 +71,9 @@ the modelling of the noise structure and the modelling of the signal, which is t
 a mixture of overlapping signal components with non-trivial correlation structures that need 
 to be separated.
 
-UBIK as the universal Bayesian imaging kit, uses Bayesian statistics to facilitate the 
+J-UBIK as the JAX-accelerated universal Bayesian imaging kit, uses Bayesian statistics to facilitate the 
 reconstruction of these complex signals, whether in astronomy or in other areas such as medical imaging,
-from multi-instrument data. UBIK is based on the theory of information field theory [@Ensslin:2013]
+from multi-instrument data. J-UBIK is based on the theory of information field theory [@Ensslin:2013]
 and on the according software package NIFTy.re [@Edenhofer:2024], which is an accelerated and
 JAX-based version of NIFTy [@Arras:2019]. According to this, it uses a prior model
 , which describes the prior assumptions before we have any further knowledge from 
@@ -88,7 +87,7 @@ the efficient inference using parallel computing on clusters and GPUs.
 
 Up to now, the likelihood models and prior models have been built from scratch for different 
 imaging problems that Nifty.re tackles. This accounts for most of the work in this Bayesian imaging
-process. UBIK approaches this difficulty from two sides. On the one hand, UBIK contains tools to
+process. J-UBIK approaches this difficulty from two sides. On the one hand, J-UBIK contains tools to
 facilitate the implementation of new likelihood and prior models. It is a toolbox that allows for
 different types of response applications, for example using spatially variant or invariant psfs,
 allowing for different types of noise statistics of the signal, such as Poissonian or Gaussian, 
@@ -96,7 +95,7 @@ and allowing the user to build different correlation structures on different com
 On the other hand, it includes a set of instrument implementations. So far, three instrument 
 implementations are accessible, i.e. Chandra, eROSITA pointings and JWST, and we expect this number to 
 grow with the number of users, leading to a set of easily accessible inference algorithms 
-for different instruments. Ultimately UBIK enables the user, through Bayesian 
+for different instruments. Ultimately J-UBIK enables the user, through Bayesian 
 statistics, not only to obtain posterior samples and hence measures of interest such as the
 posterior mean and uncertainty of the signal for a several data sets, but also to 
 perform multi-instrument reconstructions.
@@ -105,13 +104,13 @@ The according software has been applied already in [@Westerkamp:2023] and curren
 on eROSITA pointings and JWST are in perparation. Afterwards, the set of instruments even further 
 by already exitsing imaging tasks with NIFTy and NIFTy.re like, [@Platz:2023], ...., and new ones.
 
-# Bayesian Imaging with UBIK
-The basis of the UBIK package is Bayes theorem, 
+# Bayesian Imaging with J-UBIK
+The basis of the J-UBIK package is Bayes theorem, 
 $$ \mathcal{P}(s|d) \propto \mathcal{P}(d|s)\mathcal{P}(s),$$
 where the prior $\mathcal{P}(s)$ describes the knowledge on the signal, $s$, before the data, 
 $d$, is given, the likelihood $\mathcal{P}(d|s)$ describes the measurement and the actual 
 or an approximation of the posterior $\mathcal{P}(s|d)$ is the measure of interest in 
-the inference. The main task UBIK shall be used for, is to model the prior in a generative fashion and to use or build
+the inference. The main task J-UBIK shall be used for, is to model the prior in a generative fashion and to use or build
 instrument models easily in order to get a likelihood model. The package itself contains
 demos for Chandra, eROSITA pointings and JWST, which shows how to use or build this models and how to 
 generate an inference pipeline upon on that to get posterior estimates.
@@ -124,7 +123,7 @@ described in [@Arras:2022]. In the spectral direction, it is possible to fit a p
 law or to describe the correlation structure in the spectral direction by a Wiener process. 
 The structure of the previous model is in any case coded, so that further dimensions and
 descriptions of the correlation structures can be changed.  Figures [Figure 1](#fig:sky) -
-[Figure 3](#fig:extended) show an example of a simulated X-ray sky in UBIK as sampled from
+[Figure 3](#fig:extended) show an example of a simulated X-ray sky in J-UBIK as sampled from
 a corresponding generative prior model. Here the sky contains 2 components, where one is
 spatially uncorrelated, simulating the points, and one is spatially correlated, simulating
 extended structures. The model has three energy bins, for which the power law behaviour is
@@ -139,7 +138,7 @@ also described by a generative model.
 ## Likelihood models
 J-UBIK implements several instrument models (Chandra, eROSITA, JWST) and their respective data- and response-loading
 functionalities, enabling their seamless integration into the inference pipeline. Due to its fully modular structure,
-we anticipate the inclusion of more instruments into the J-UBIK platform in the future. UBIK is not only capable of 
+we anticipate the inclusion of more instruments into the J-UBIK platform in the future. J-UBIK is not only capable of 
 reconstructing signals from real data; since each instrument model acts as a digital twin of the corresponding 
 instrument, it can also be used to generate simulated data by passing sky prior models through the instrument’s
 response. This provides a powerful tool for testing the consistency of the implemented models.
