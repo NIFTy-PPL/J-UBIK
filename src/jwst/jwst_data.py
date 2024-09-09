@@ -149,7 +149,10 @@ class JwstData:
         '''
         minx, maxx, miny, maxy = self.wcs.index_from_wl_extrema(
             extrema, self.shape)
-        return ~isnan(self.dm.data[miny:maxy, minx:maxx])
+        return (
+            (~isnan(self.dm.data[miny:maxy, minx:maxx])) *
+            (~isnan(self.dm.err[miny:maxy, minx:maxx]))
+        )
 
     @property
     def half_power_wavelength(self):
