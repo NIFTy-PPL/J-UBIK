@@ -3,8 +3,6 @@ import jubik0 as ju
 import nifty8.re as jft
 import pytest
 
-# FIXME: This does not work - is it needed? And if yes can you fix it @matteani?
-
 @pytest.mark.parametrize("keys", [
     ('tm_1', 'tm_2')])  # TODO: test more cases (e.g. the single tm case which would now fail.)
 class TestBuildReadoutFunction:
