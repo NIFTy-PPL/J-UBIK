@@ -13,6 +13,7 @@ files:
   psf_filename_suffix: '_2dpsf_190219v05.fits'
   effective_area_filename_suffix: '_arf_filter_000101v02.fits'
   res_dir: 'results/Default_run_mf'
+  prior_plot_subdir: 'prior_samples'
   # If mock:
   mock_gen_config: 'configs/eROSITA_demo.yaml' # only needed for mock
   pos_dict: 'pos.pkl' # only needed for mock
@@ -35,6 +36,9 @@ psf:
  want_cut: False
 
 plotting:
+  plot_priors: False
+  priors_signal_response: True
+  n_prior_samples: 5
   enabled: True
   slice: Null
   dpi: 800

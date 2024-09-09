@@ -170,6 +170,7 @@ References
 
 import argparse
 import os
+from os.path import join
 
 import nifty8.re as jft
 from jax import config, random
@@ -192,6 +193,7 @@ if __name__ == "__main__":
     config_path = args.config
     cfg = ju.get_config(config_path)
     file_info = cfg['files']
+    plot_info = cfg['plotting']
 
     if ((not cfg['minimization']['resume'])
         and os.path.exists(file_info["res_dir"])):
@@ -208,7 +210,7 @@ if __name__ == "__main__":
     # Uncomment to save local packages git hashes to file
     # ju.save_local_packages_hashes_to_txt(
     #     ['jubik0', 'nifty8'],
-    #     os.path.join(file_info['res_dir'], "packages_hashes.txt"),
+    #     join(file_info['res_dir'], "packages_hashes.txt"),
     #     paths_to_git=[os.path.dirname(os.getcwd()), None],
     #     verbose=False)
 
@@ -228,6 +230,24 @@ if __name__ == "__main__":
     key = random.PRNGKey(cfg['seed'])
     key, subkey = random.split(key)
     pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky.domain))
+
+    # Plot priors
+    if plot_info['plot_priors']:
+        if 'prior_plot_subdir' in file_info:
+            prior_plot_subdir = file_info['prior_plot_subdir']
+            prior_plot_subdir = join(file_info['res_dir'],
+                                     prior_plot_subdir)
+        else:
+            raise ValueError(
+                "The 'prior_plot_subdir' parameter must be specified in "
+                "the 'files' section of the config file.")
+        ju.plot_erosita_priors(subkey,
+                               plot_info['n_prior_samples'],
+                               config_path,
+                               prior_plot_subdir,
+                               plot_info['priors_signal_response'],
+                               adjust_figsize=True,
+                               )
 
     # Minimization
     minimization_config = cfg['minimization']
