@@ -90,13 +90,15 @@ def build_chandra_response_from_config(config_file_path):
 
             # Compute PSF if it hasn't been loaded
             if not exists(psf_path):
-                psf_array = get_psfpatches(info,
-                                           psf_info["npatch"],
-                                           grid_info["sdim"],
-                                           grid_info["edim"],
-                                           tel_info["fov"])
-                # psfs.update({f"psf_{obsnr}": psf_array})
-                psf_list.append(np.transpose(psf_array))
+                tmp_psfs = []
+                for ebin in range(grid_info["edim"]):
+                    psf_array = get_psfpatches(info,
+                                               psf_info["npatch"],
+                                               grid_info["sdim"],
+                                               ebin,
+                                               tel_info["fov"])
+                    tmp_psfs.append(psf_array)
+                psf_list.append(np.transpose(np.array(tmp_psfs)))
             if i == 0:
                 center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
         # Save exposures if they were computed
