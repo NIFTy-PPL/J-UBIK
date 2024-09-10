@@ -17,14 +17,11 @@ J-UBIK allows to image observations from different instruments with Bayesian pos
 
 ## Installation of Dependencies
 - Information on how to install NIFTy8 can be found [here](https://gitlab.mpcdf.mpg.de/ift/nifty)
-- how to install [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html)
-- how to install [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
-- set an alias in your .bashrc to source ciao and marx easily
+- Depeding on the instrument you want to use, consider the requirements for chandra / eROSITA / JWST data below.
 
 ## Installation
 This package can be installed via pip. 
 
-    git clone git@gitlab.mpcdf.mpg.de:ift/chandra.git
     git clone https://gitlab.mpcdf.mpg.de/ift/j-ubik
     cd j-ubik
     pip install --user .
@@ -36,9 +33,15 @@ for a regular installation. For editable installation add the `-e` flag.
 Additional calibration files might be needed for instrument-specific pipelines.
 
 ### Chandra
+J-UBIK allows to process observations from chandra x-ray observatory.
+
+#### Requirements
+- how to install [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html)
+- how to install [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
+- set an alias in your .bashrc to source ciao and marx easily
 
 ### eROSITA
-J-UBIK allows to process and image event files from the eROSITA x-ray observatory.  
+J-UBIK allows to process and image event files from the eROSITA x-ray observatory.
 
 #### Requirements
 In order to process eROSITA observations and produce realistic synthetic data,
