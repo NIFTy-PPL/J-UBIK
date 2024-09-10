@@ -17,5 +17,5 @@ test:
     - pytest test/library/test_minimization_parser.py
     - pytest test/library/test_mock_data.py
     - pytest test/library/test_sky_model.py
-    # - pytest test/library/test_slice_patches.py
+    - pytest test/library/test_slice_patches.py
     # - pytest test/library/instruments/chandra/test_chandra_observation.py
