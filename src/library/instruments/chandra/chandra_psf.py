@@ -104,15 +104,12 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
             tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf",
                                                num_rays=num_rays)
             tmp_psf_sim = tmp_psf_sim[:, :, ebin]
+
             if Roll:
                 tmp_coord = coords[u]
                 co_x, co_y = np.unravel_index(tmp_coord, [npix_s, npix_s])
                 tmp_psf_sim = np.roll(tmp_psf_sim, (-co_x, -co_y), axis=(0, 1))
                 u += 1
-            # if Norm:
-            #     norm = psf_field.integrate().val ** -1
-            #     psf_norm = norm*psf_field * tmp_psf_sim
-            #     psf_sim.append(psf_norm)
             psf_sim.append(tmp_psf_sim)
 
             if debug:
@@ -122,6 +119,9 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
                 tmp_source[pos] = 1
                 source.append(tmp_source)
                 positions.append(pos)
+    psf_sim = np.array(psf_sim)
+    if Norm:
+        psf_sim = psf_sim / num_rays
     if debug:
         return psf_sim, source, positions, coords
     else:
