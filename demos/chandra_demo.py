@@ -72,7 +72,8 @@ if __name__ == "__main__":
 
     # Save run configuration
     ju.copy_config(os.path.basename(config_path),
-                        output_dir=file_info['res_dir'])
+                   path_to_yaml_file=os.path.dirname(config_path),
+                   output_dir=file_info['res_dir'])
 
     # Load sky model
     sky_model = ju.SkyModel(config_path)
