@@ -60,8 +60,8 @@ grid:
 
 telescope:
   psf:
-    webbpsf_path: '/home/jruestig/Data/JWST/WebbPsf/webbpsf-data-LATEST/'
-    psf_library: '/home/jruestig/Data/JWST/psf_library'
+    webbpsf_path: './data/JWST/WebbPsf/webbpsf-data-LATEST/'
+    psf_library: './data/JWST/psf_library'
     psf_pixels: 32
 
   zero_flux:
@@ -125,9 +125,9 @@ files:
   # res_dir: 'results/jwst_lens/colormix/f356w_f444w_01'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
 
-  res_dir: '/home/jruestig/pro/python/j-ubik/results/jwst_lens/mfreworked/all_data'
+  res_dir: './results/jwst_lens/mfreworked/all_data_01'
 
-  pretrain_path: '/home/jruestig/pro/python/j-ubik/results/jwst_lens/mfreworked/all_filters_01/config.yaml'
+  pretrain_path: './results/jwst_lens/mfreworked/all_filters_01/config.yaml'
 
   filter:
 
