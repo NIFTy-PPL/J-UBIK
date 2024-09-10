@@ -61,7 +61,7 @@ def build_chandra_response_from_config(config_file_path):
     if exists(psf_path):
         psfs = load_from_pickle(psf_path)
     else:
-        psfs_list = []
+        psf_list = []
 
     if not exists(exposure_path) or not exists(psf_path):
         center_obs_id = tel_info.get('center_obs_id', None)
