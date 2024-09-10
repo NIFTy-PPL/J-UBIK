@@ -81,7 +81,7 @@ def create_mock_data(tel_info,
                      plot_info,
                      seed,
                      response_dict
-                    ):
+                     ):
     """ Generates and saves mock data to pickle file.
 
     Parameters
