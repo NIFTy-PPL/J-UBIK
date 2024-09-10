@@ -194,5 +194,5 @@ if __name__ == "__main__":
         nonlinearly_update_kwargs=minimization_parser.nonlinearly_update_kwargs,
         kl_kwargs=minimization_parser.kl_kwargs,
         sample_mode=minimization_parser.sample_mode,
-        callback=simple_eval_plots,
+        callback=None,  # simple_eval_plots,
         odir=file_info["res_dir"], )

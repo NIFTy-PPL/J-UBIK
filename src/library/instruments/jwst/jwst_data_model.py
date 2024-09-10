@@ -1,5 +1,3 @@
-from functools import reduce
-
 import nifty8.re as jft
 
 from .rotation_and_shift import build_rotation_and_shift_model
@@ -9,9 +7,7 @@ from .integration_model import build_sum_integration
 from .rotation_and_shift import RotationAndShiftModel
 from .zero_flux_model import build_zero_flux_model
 
-from .reconstruction_grid import Grid
-from astropy.coordinates import SkyCoord
-from typing import Tuple, Callable, Union, Optional
+from typing import Callable, Optional
 from numpy.typing import ArrayLike
 
 
