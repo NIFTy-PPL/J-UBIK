@@ -85,7 +85,6 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
     -------
     Array of simulated point spread functions
     """
-    psf_domain = ift.RGSpace((npix_s, npix_s), distances=fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
     y_min = info.obsInfo["y_min"]
@@ -110,22 +109,19 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
                 co_x, co_y = np.unravel_index(tmp_coord, [npix_s, npix_s])
                 tmp_psf_sim = np.roll(tmp_psf_sim, (-co_x, -co_y), axis=(0, 1))
                 u += 1
-            psf_field = ift.makeField(psf_domain, tmp_psf_sim)
-            if Norm:
-                norm_val = psf_field.integrate().val ** -1
-                norm = ift.ScalingOperator(psf_domain, norm_val)
-                psf_norm = norm(psf_field)
-                psf_sim.append(psf_norm)
+            # if Norm:
+            #     norm = psf_field.integrate().val ** -1
+            #     psf_norm = norm*psf_field * tmp_psf_sim
+            #     psf_sim.append(psf_norm)
             else:
-                psf_sim.append(psf_field)
+                psf_sim.append(tmp_psf_sim)
 
             if debug:
                 tmp_source = np.zeros(tmp_psf_sim.shape)
                 pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None),
                                        tmp_psf_sim.shape)
                 tmp_source[pos] = 1
-                source_field = ift.makeField(psf_domain, tmp_source)
-                source.append(source_field)
+                source.append(tmp_source)
                 positions.append(pos)
     if debug:
         return psf_sim, source, positions, coords

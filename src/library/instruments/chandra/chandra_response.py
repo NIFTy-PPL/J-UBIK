@@ -1,11 +1,14 @@
 from os.path import join, exists
 from jax import numpy as jnp
+from jax import vmap
 import numpy as np
 
 from .chandra_observation import ChandraObservationInformation
+from .chandra_psf import get_psfpatches
 from ...utils import get_config, create_output_directory, load_from_pickle,\
     save_to_pickle
 from ...response import build_readout_function, build_exposure_function
+from ....library.convolve import linpatch_convolve
 
 def build_chandra_response_from_config(config_file_path):
     """
@@ -57,7 +60,7 @@ def build_chandra_response_from_config(config_file_path):
     if exists(psf_path):
         psfs = load_from_pickle(psf_path)
     else:
-        psf_list = []
+        psfs_list = []
 
     if not exists(exposure_path) or not exists(psf_path):
         center_obs_id = tel_info.get('center_obs_id', None)
@@ -86,12 +89,13 @@ def build_chandra_response_from_config(config_file_path):
 
             # Compute PSF if it hasn't been loaded
             if not exists(psf_path):
-                psf_sim = info.get_psf_fromsim(
-                    (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]),
-                    join(outroot, "psf"),
-                    num_rays=psf_info['num_rays']
-                )
-                psf_list.append(psf_sim)
+                psf_array = get_psfpatches(info,
+                                           psf_info["npatch"],
+                                           grid_info["sdim"],
+                                           grid_info["edim"],
+                                           tel_info["fov"])
+                # psfs.update({f"psf_{obsnr}": psf_array})
+                psf_list.append(psf_array)
             if i == 0:
                 center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
         # Save exposures if they were computed
@@ -101,19 +105,32 @@ def build_chandra_response_from_config(config_file_path):
 
         # Save PSFs if they were computed
         if not exists(psf_path):
-            psfs = jnp.stack(jnp.array(psf_list, dtype=int))
+            psfs = np.stack(np.array(psf_list, dtype=int))
             save_to_pickle(psfs, psf_path)
 
-    def psf_func(x): #FIXME: Veberle please adjust with spat.inv. psf
-        return jnp.expand_dims(x, axis=0)
+    domain = Domain(tuple(grid_info["e_dim"] + grid_info["s_dim"] * 2),
+                    tuple([1] + [tel_info"[fov"] / grid_info["s_dim"]] * 2))
+    shp = (domain.shape[-2], domain.shape[-1])
+    margin = max((int(np.ceil(psf_info["margfrac"] * ss)) for ss in shp))
+
+    def psf_op(x):
+        return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(
+            x, domain, psfs, psf_info["npatch"], margin
+        )
+
+
     mask_func = build_readout_function(exposures, keys=obslist,
                                        threshold=tel_info['exp_cut'])
     exposure_func = build_exposure_function(exposures)
 
     pixel_area = (tel_info['fov'] / grid_info['sdim']) ** 2
 
-    response_func = lambda x: mask_func(exposure_func(psf_func(x \
-                                                               * pixel_area)))
+    def response_func(x):
+        conv = psf_func(x*pixel_area)
+        exposed = exposure_func(conv)
+        masked = mask_func(exposed)
+        return masked
+
     response_dict = {'pix_area': pixel_area,
                      'psf': psf_func,
                      'exposure': exposure_func,
