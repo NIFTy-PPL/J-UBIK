@@ -113,8 +113,7 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
             #     norm = psf_field.integrate().val ** -1
             #     psf_norm = norm*psf_field * tmp_psf_sim
             #     psf_sim.append(psf_norm)
-            else:
-                psf_sim.append(tmp_psf_sim)
+            psf_sim.append(tmp_psf_sim)
 
             if debug:
                 tmp_source = np.zeros(tmp_psf_sim.shape)
