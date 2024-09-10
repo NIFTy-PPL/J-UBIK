@@ -99,7 +99,7 @@ def build_chandra_response_from_config(config_file_path):
                                                tel_info["fov"],
                                                num_rays=psf_info["num_rays"])
                     tmp_psfs.append(psf_array)
-                psf_list.append(np.transpose(np.array(tmp_psfs)))
+                psf_list.append(np.moveaxis(np.array(tmp_psfs), 0, 1))
             if i == 0:
                 center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
         # Save exposures if they were computed
@@ -121,7 +121,6 @@ def build_chandra_response_from_config(config_file_path):
         return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(
             x, domain, psfs, psf_info["npatch"], margin
         )
-
 
     mask_func = build_readout_function(exposures, keys=obslist,
                                        threshold=tel_info['exp_cut'])
