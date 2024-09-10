@@ -96,7 +96,8 @@ def build_chandra_response_from_config(config_file_path):
                                                psf_info["npatch"],
                                                grid_info["sdim"],
                                                ebin,
-                                               tel_info["fov"])
+                                               tel_info["fov"],
+                                               num_rays=psf_info["num_rays"])
                     tmp_psfs.append(psf_array)
                 psf_list.append(np.transpose(np.array(tmp_psfs)))
             if i == 0:
