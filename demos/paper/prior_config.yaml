@@ -9,7 +9,7 @@ plotting:
 
 grid:
   sdim: 1024
-  edim: 3 # FIXME: remove this parameter
+  edim: 1 # FIXME: remove this parameter
   s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
   e_padding_ratio: 1.
   energy_bin:

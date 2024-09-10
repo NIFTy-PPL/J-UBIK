@@ -16,8 +16,8 @@ from plot_eROSITA_image import plot, plot_rgb
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
-    eROSITA_config_name = "configs/eROSITA_demo.yaml"
-    chandra_config_name = "configs/chandra_demo.yaml"
+    eROSITA_config_name = "paper/eROSITA_demo.yaml"
+    chandra_config_name = "paper/chandra_demo.yaml"
     output_dir = ju.create_output_directory("paper/")
     eROSITA_cfg_dict = ju.get_config(eROSITA_config_name)
     chandra_cfg_dict = ju.get_config(chandra_config_name)
@@ -70,5 +70,5 @@ if __name__ == "__main__":
          vmax=7e-7,
          bbox_info=bbox_info,
          output_file=join(output_dir,
-         f'simulated_sky.png'))
+         f'simulated_data.png'))
 
