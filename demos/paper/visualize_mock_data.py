@@ -52,12 +52,47 @@ if __name__ == "__main__":
     unmasked_erosita_data = mask_adj_func(plottable_vector)
 
     # Chandra:
-    response_dict1 = ju.build_chandra_response_from_config()
+    response_dict = ju.build_chandra_response_from_config(chandra_config_name1)
+    masked_mock_data = response_dict['R'](sky(pos))
+    key = random.PRNGKey(67)
+    key, subkey = random.split(key)
+    masked_mock_data = jft.Vector({
+        tm: random.poisson(subkey, data).astype(int)
+        for i, (tm, data) in enumerate(masked_mock_data.tree.items())
+    })
+    plottable_vector = jft.Vector({key: val.astype(float) for key, val
+                                   in masked_mock_data.tree.items()})
+    mask = response_dict['mask']
+    mask_adj = linear_transpose(mask,
+                                np.zeros((1, 1, 1024, 1024)))
+    mask_adj_func = lambda x: mask_adj(x)[0]
+    tms = plottable_vector.tree.keys()
+    # Plotting the data
+    unmasked_chandra_data1 = mask_adj_func(plottable_vector)
 
-    plottabel_data_list = 3*[unmasked_data[0]]
+    response_dict = ju.build_chandra_response_from_config(chandra_config_name2)
+    masked_mock_data = response_dict['R'](sky(pos))
+    key = random.PRNGKey(67)
+    key, subkey = random.split(key)
+    masked_mock_data = jft.Vector({
+        tm: random.poisson(subkey, data).astype(int)
+        for i, (tm, data) in enumerate(masked_mock_data.tree.items())
+    })
+    plottable_vector = jft.Vector({key: val.astype(float) for key, val
+                                   in masked_mock_data.tree.items()})
+    mask = response_dict['mask']
+    mask_adj = linear_transpose(mask,
+                                np.zeros((1, 1, 1024, 1024)))
+    mask_adj_func = lambda x: mask_adj(x)[0]
+    tms = plottable_vector.tree.keys()
+    # Plotting the data
+    unmasked_chandra_data2 = mask_adj_func(plottable_vector)
+
+
+    plottabel_data_list = [unmasked_data[0], unmasked_chandra_data1[0],
+                           unmasked_chandra_data2[0]]
     plottable_data = np.vstack(plottabel_data_list)
-    title_list = 3*['eROSITA']
-    title_list.insert(0, 'sky')
+    title_list = ['eROSITA', 'Chandra', 'Chandra']
     bbox_info = [(7, 4), 28, 96,  'black']
     plot(plottable_data,
          pixel_measure=112,
