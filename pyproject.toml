@@ -12,6 +12,11 @@ dependencies = [
     "numpy >= 1.17.0",
     "scipy >= 1.9.0",
     "nifty8 >= 8.5.1",
+    "jax",
+    "jaxlib",
+    "matplotlib",
+    "astropy",
+    "ducc0",
 ]
 license = {file = "LICENSE"}
 classifiers = [
@@ -50,8 +55,10 @@ requires = [
     "scipy >= 1.9.0",
     "nifty8 >= 8.5.2",
     "jax",
+    "jaxlib",
     "matplotlib",
     "astropy",
+    "ducc0",
 ]
 build-backend = "setuptools.build_meta"
 

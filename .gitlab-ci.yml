@@ -1,0 +1,15 @@
+image: python:latest
+
+stages:
+  - test
+
+before_script:
+  # - python3 -m pip install numpy ducc0 jax jaxlib astropy
+  - python3 -m pip install .
+  - pip install -U pytest
+
+test:
+  stage: test
+  script:
+    - pytest test/library/ --ignore=test/library/instruments/chandra/
+
