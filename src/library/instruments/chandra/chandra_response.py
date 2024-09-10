@@ -110,7 +110,7 @@ def build_chandra_response_from_config(config_file_path):
             save_to_pickle(psfs, psf_path)
 
     domain = Domain(tuple(grid_info["e_dim"] + grid_info["s_dim"] * 2),
-                    tuple([1] + [tel_info"[fov"] / grid_info["s_dim"]] * 2))
+                    tuple([1] + [tel_info["fov"] / grid_info["s_dim"]] * 2))
     shp = (domain.shape[-2], domain.shape[-1])
     margin = max((int(np.ceil(psf_info["margfrac"] * ss)) for ss in shp))
 
