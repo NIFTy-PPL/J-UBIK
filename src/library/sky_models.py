@@ -34,8 +34,8 @@ def add_masked_model(model, masked_model, mask):
     def func(x):
         eval_model = model(x)
         eval_masked_model = masked_model(x)
-        eval_model.at[mask].add(eval_masked_model)
-        return eval_model
+        added_model = eval_model.at[mask].add(eval_masked_model)
+        return added_model
     return jft.Model(func, domain=domain)
 
 class SkyModel:
@@ -93,6 +93,7 @@ class SkyModel:
         self.points_alpha_cf = None
         self.points_alpha_pspec = None
 
+        self.mask = None
         self.masked_diffuse_spatial_cf = None
         self.masked_diffuse_spatial_pspec = None
         self.masked_diffuse_plaw = None
@@ -229,11 +230,11 @@ class SkyModel:
                                                         self.s_distances,
                                                         self.e_distances,
                                                         masked_prior_dict)
-            mask = (slice(None),
-                    slice(mask_dict['y'][0], mask_dict['y'][1]),
-                    slice(mask_dict['x'][0], mask_dict['x'][1]))
+            self.mask = (slice(None),
+                        slice(mask_dict['y'][0], mask_dict['y'][1]),
+                        slice(mask_dict['x'][0], mask_dict['x'][1]))
             self.sky = add_masked_model(sky, self.masked_diffuse,
-                                        mask)
+                                        self.mask)
         return self.sky
 
     def _create_correlated_field(self, shape, distances, prior_dict):
@@ -340,7 +341,9 @@ class SkyModel:
             self.masked_diffuse_alpha_cf, self.masked_diffuse_alpa_pspec =\
                 self._create_correlated_field(ext_s_shp, sdistances,
                                               prior_dict['plaw'])
-            self.plaw = ju.build_power_law(self._log_rel_ebin_centers(), self.alpha_cf)
+            self.masked_diffuse_plaw = \
+                ju.build_power_law(self._log_rel_ebin_centers(),
+                                   self.masked_diffuse_alpha_cf)
 
         if 'dev_corr' in prior_dict:
             dev_cf, self.masked_diffuse_dev_pspec = \
@@ -358,12 +361,12 @@ class SkyModel:
                                                         prior_dict['dev_wp']['name'],
                                                         ext_s_shp,
                                                         False)
-        log_diffuse = ju.GeneralModel({'spatial': self.spatial_cf,
-                                       'freq_plaw': self.plaw,
-                                       'freq_dev': self.dev_cf}).build_model()
-        exp_padding = lambda x: jnp.exp(log_diffuse(x)[:edim, :sdim[0], :sdim[1]])
+        log_mdiffuse = ju.GeneralModel({'spatial': self.masked_diffuse_spatial_cf,
+                                       'freq_plaw': self.masked_diffuse_plaw,
+                                       'freq_dev': self.masked_diffuse_dev_cf}).build_model()
+        exp_padding = lambda x: jnp.exp(log_mdiffuse(x)[:edim, :sdim[0], :sdim[1]])
         self.masked_diffuse = jft.Model(exp_padding,
-                                        domain=log_diffuse.domain)
+                                        domain=log_mdiffuse.domain)
 
     def _create_diffuse_component_model(self, sdim, edim,
                                                s_padding_ratio,
@@ -529,7 +532,7 @@ class SkyModel:
         sky_dict = {'sky': self.sky,
                     'diffuse': self.diffuse,
                     'points': self.point_sources,
-                    'masked_diffue': self.masked_diffuse}
+                    'masked_diffuse': self.masked_diffuse}
         no_none_dict = {key: value for (key, value) in sky_dict.items() if value is not None}
         return no_none_dict
 
