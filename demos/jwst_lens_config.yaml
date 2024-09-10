@@ -20,14 +20,14 @@ grid:
     fov: 2
     s_padding_ratio: 1.5
 
-  edim: 13
-  e_padding_ratio: 1.0
+  # edim: 13
+  # e_padding_ratio: 1.0
   energy_unit: eV
   energy_bin:
     e_min:
-      # - 0.054 # F2100W
-      # - 0.068 # F1800W  # mistake here actually 0.064
-      # - 0.075 # F1500W
+      - 0.054 # F2100W
+      - 0.068 # F1800W  # mistake here actually 0.064
+      - 0.075 # F1500W
       - 0.093 # F1280W  # mistake here actually 0.088
       - 0.114 # F1000W
       - 0.143 # F770W
@@ -36,12 +36,12 @@ grid:
       - 0.319 # F356W  # mistake here actually 0.311
       - 0.396 # F277W
       - 0.557 # F200W
-      # - 0.743 # F150W
-      # - 0.967 # F115W
+      - 0.743 # F150W
+      - 0.967 # F115W
     e_max:
-      # - 0.067 # F2100W
-      # - 0.075 # F1800W
-      # - 0.092 # F1500W
+      - 0.067 # F2100W
+      - 0.075 # F1800W
+      - 0.092 # F1500W
       - 0.107 # F1280W
       - 0.137 # F1000W
       - 0.188 # F770W
@@ -50,16 +50,17 @@ grid:
       - 0.395 # F356W
       - 0.512 # F277W
       - 0.707 # F200W
-      # - 0.932 # F150W
-      # - 1.224 # F115W
+      - 0.932 # F150W
+      - 1.224 # F115W
     e_ref:
+      # - 0.08 # F1500W
       # - 0.2225 # F560W
       - 0.278 # F444W
       # - 0.8 # F150W
 
 telescope:
   psf:
-    webbpsf_path: '/home/jruestig/Data/JWST/WebbPsf/webbpsf-data_1.2.1/'
+    webbpsf_path: '/home/jruestig/Data/JWST/WebbPsf/webbpsf-data-LATEST/'
     psf_library: '/home/jruestig/Data/JWST/psf_library'
     psf_pixels: 32
 
@@ -75,8 +76,6 @@ telescope:
     f2100w: ['lognormal', 226.0, 1.0]
 
 
-
-
   rotation_and_shift:
     model: 'linear' # 'sparse', 'linear', 'nufft'
     subsample: 3
@@ -84,7 +83,6 @@ telescope:
       rotation_unit: deg
       rotation: ['normal', 0, 1.0e-1]
       shift: ['normal', 0, 1.0e-1]  # pixel units
-
 
       # f356w:
       #   0: 
@@ -101,20 +99,6 @@ telescope:
         # 1: 
         #   shift: ['delta', [-0.008288844083290482, -0.006739260212401062], 0]
         #   rotation: ['delta', 4.71342797e-05, 0]  # pixel units
-
-      f560w:
-        0:
-          shift: ['delta', [0.013943353185671414, 0.1686635097411474], 0]  # pixel units
-          rotation: ['delta', 0.00142048, 0]
-        # 1:
-        #   shift: ['delta', [0.029061850283971038, 0.1846891810150492], 0]  # pixel units
-        #   rotation: ['delta', 0.0010294, 0]
-        # 2:
-        #   shift: ['delta', [0.0170866596425826, 0.19037883814189283], 0]  # pixel units
-        #   rotation: ['delta', 0.00036936, 0]
-        # 3:
-        #   shift: ['delta', [0.014616841857891878, 0.18975897850217469], 0]  # pixel units
-        #   rotation: ['delta', 0.00081478, 0]
 
 
     f200w:
@@ -141,85 +125,85 @@ files:
   # res_dir: 'results/jwst_lens/colormix/f356w_f444w_01'
   # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
 
-  res_dir: '/home/jruestig/pro/python/j-ubik/results/jwst_lens/mfreworked/eight_filters_01'
+  res_dir: '/home/jruestig/pro/python/j-ubik/results/jwst_lens/mfreworked/all_data'
 
-  pretrain_path: '/home/jruestig/pro/python/j-ubik/results/jwst_lens/mfnew/eight_filters_05_f444w_radial/config.yaml'
+  pretrain_path: '/home/jruestig/pro/python/j-ubik/results/jwst_lens/mfreworked/all_filters_01/config.yaml'
 
   filter:
 
-    # f2100w:
-    #   - './data/spt0418/f2100w/jw01355015001_15101_00001_mirimage/jw01355015001_15101_00001_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00002_mirimage/jw01355015001_15101_00002_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00003_mirimage/jw01355015001_15101_00003_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00004_mirimage/jw01355015001_15101_00004_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00005_mirimage/jw01355015001_15101_00005_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00006_mirimage/jw01355015001_15101_00006_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00007_mirimage/jw01355015001_15101_00007_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00008_mirimage/jw01355015001_15101_00008_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00009_mirimage/jw01355015001_15101_00009_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00010_mirimage/jw01355015001_15101_00010_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_cal.fits'
-    #   # - './data/spt0418/f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_cal.fits'
+    f2100w:
+      - './data/spt0418/f2100w/jw01355015001_15101_00001_mirimage/jw01355015001_15101_00001_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00002_mirimage/jw01355015001_15101_00002_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00003_mirimage/jw01355015001_15101_00003_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00004_mirimage/jw01355015001_15101_00004_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00005_mirimage/jw01355015001_15101_00005_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00006_mirimage/jw01355015001_15101_00006_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00007_mirimage/jw01355015001_15101_00007_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00008_mirimage/jw01355015001_15101_00008_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00009_mirimage/jw01355015001_15101_00009_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00010_mirimage/jw01355015001_15101_00010_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_cal.fits'
+      - './data/spt0418/f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_cal.fits'
 
-    # f1800w:
-    #   - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_cal.fits'
-    #   # - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_cal.fits'
-    #   # - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_cal.fits'
-    #   # - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_cal.fits'
+    f1800w:
+      - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_cal.fits'
+      - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_cal.fits'
+      - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_cal.fits'
+      - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_cal.fits'
 
-    # f1500w:
-    #   - './data/spt0418/f1500w/jw01355015001_11101_00001_mirimage/jw01355015001_11101_00001_mirimage_cal.fits'
-    #   # - './data/spt0418/f1500w/jw01355015001_11101_00002_mirimage/jw01355015001_11101_00002_mirimage_cal.fits'
-    #   # - './data/spt0418/f1500w/jw01355015001_11101_00003_mirimage/jw01355015001_11101_00003_mirimage_cal.fits'
-    #   # - './data/spt0418/f1500w/jw01355015001_11101_00004_mirimage/jw01355015001_11101_00004_mirimage_cal.fits'
+    f1500w:
+      - './data/spt0418/f1500w/jw01355015001_11101_00001_mirimage/jw01355015001_11101_00001_mirimage_cal.fits'
+      - './data/spt0418/f1500w/jw01355015001_11101_00002_mirimage/jw01355015001_11101_00002_mirimage_cal.fits'
+      - './data/spt0418/f1500w/jw01355015001_11101_00003_mirimage/jw01355015001_11101_00003_mirimage_cal.fits'
+      - './data/spt0418/f1500w/jw01355015001_11101_00004_mirimage/jw01355015001_11101_00004_mirimage_cal.fits'
 
     f1280w:
       - './data/spt0418/f1280w/jw01355015001_09101_00001_mirimage/jw01355015001_09101_00001_mirimage_cal.fits'
-      # - './data/spt0418/f1280w/jw01355015001_09101_00002_mirimage/jw01355015001_09101_00002_mirimage_cal.fits'
-      # - './data/spt0418/f1280w/jw01355015001_09101_00003_mirimage/jw01355015001_09101_00003_mirimage_cal.fits'
-      # - './data/spt0418/f1280w/jw01355015001_09101_00004_mirimage/jw01355015001_09101_00004_mirimage_cal.fits'
+      - './data/spt0418/f1280w/jw01355015001_09101_00002_mirimage/jw01355015001_09101_00002_mirimage_cal.fits'
+      - './data/spt0418/f1280w/jw01355015001_09101_00003_mirimage/jw01355015001_09101_00003_mirimage_cal.fits'
+      - './data/spt0418/f1280w/jw01355015001_09101_00004_mirimage/jw01355015001_09101_00004_mirimage_cal.fits'
 
     f1000w:
       - './data/spt0418/f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_cal.fits'
-      # - './data/spt0418/f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_cal.fits' # Broken ?
-      # - './data/spt0418/f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_cal.fits' # Broken ?
-      # - './data/spt0418/f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_cal.fits'
+      - './data/spt0418/f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_cal.fits'
+      - './data/spt0418/f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_cal.fits'
+      - './data/spt0418/f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_cal.fits'
 
     f770w:
       - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
-      # - './data/spt0418/f770w/jw01355015001_05101_00002_mirimage/jw01355015001_05101_00002_mirimage_cal.fits'
-      # - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
-      # - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
+      - './data/spt0418/f770w/jw01355015001_05101_00002_mirimage/jw01355015001_05101_00002_mirimage_cal.fits'
+      - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
+      - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
 
     f560w: # MIRI
       - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
-      # - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
-      # - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
-      # - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+      - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
 
     f444w: # NIRCam
       - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
-      # - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
+      - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
 
     f356w:
       - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
-      # - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+      - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
 
     f277w:
       - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
-      # - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
+      - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
 
     f200w:
       - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_cal.fits'
-      # - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_cal.fits'
+      - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_cal.fits'
 
-    # f150w:
-    #   - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_cal.fits'
-    #   # - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_cal.fits'
+    f150w:
+      - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_cal.fits'
+      - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_cal.fits'
 
-    # f115w: # NIRCam
-    #   - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_cal.fits'
-    #   # - './data/spt0418/f115w/jw01355016001_02101_00002_nrcb4/jw01355016001_02101_00002_nrcb4_cal.fits'
+    f115w: # NIRCam
+      - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_cal.fits'
+      - './data/spt0418/f115w/jw01355016001_02101_00002_nrcb4/jw01355016001_02101_00002_nrcb4_cal.fits'
 
 lensing: 
 
@@ -272,10 +256,15 @@ lensing:
               scale: [0.08, 0.01]        # lognormal
               cutoff: [0.1, 0.01]       # lognormal
               loglogslope: [-4.0, 0.1]  # normal
-            frequency_slope:
+            # spectral_amplitude:
+            #   model: 'matern'
+            #   scale: [0.08, 0.01]        # lognormal
+            #   cutoff: [0.1, 0.01]       # lognormal
+            #   loglogslope: [-4.0, 0.1]  # normal
+            spectral_index:
               mean: [-0.2, 0.4]         # normal
               fluctuations: [0.08, 0.1]  # lognormal 
-            frequency_deviations:
+            spectral_deviations:
               process: 'wiener'
               sigma: [0.2, 0.1]  # lognormal
 
@@ -431,7 +420,7 @@ lensing:
 
 minimization:
     key: 310824
-    resume: True
+    resume: False
     n_total_iterations: 20
     pretraining_steps: Null
 

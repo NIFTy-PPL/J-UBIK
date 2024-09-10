@@ -407,7 +407,7 @@ def get_alpha_nonpar(lens_system: LensSystem):
         sl_nonpar = slm.spatial
     elif isinstance(slm, jft.CorrelatedMultiFrequencySky):
         sl_alpha = slm.spectral_index_distribution
-        sl_nonpar = slm.spatial_distribution
+        sl_nonpar = slm.reference_frequency_distribution
 
     try:
         ll_nonpar = lens_system.lens_plane_model.light_model.parametric(

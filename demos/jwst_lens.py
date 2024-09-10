@@ -115,10 +115,6 @@ for fltname, flt in cfg['files']['filter'].items():
         std = jwst_data.std_inside_extrema(
             reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
 
-        # plt.imshow(data)
-        # plt.title(f'{fltname} {ii} {data[mask].sum()}')
-        # plt.show()
-
         data_model = build_data_model(
             {ekey: sky_model_with_keys.target[ekey]},
             reconstruction_grid=reconstruction_grid,
