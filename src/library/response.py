@@ -33,10 +33,12 @@ def build_exposure_function(exposures, exposure_cut=None):
         exposures[exposures < exposure_cut] = 0
     # FIXME short hack to remove additional axis. Also the Ifs should be
     #  restructed
-    return lambda x: exposures * x  # [np.newaxis, ...]
+
+    def exposure(x): return exposures * x
+    return exposure
 
 
-def build_readout_function(flasgs, threshold=None, keys=None):
+def build_readout_function(flags, threshold=None, keys=None):
     """
     Applies a readout corresponding to input flags.
 
@@ -75,12 +77,12 @@ def build_readout_function(flasgs, threshold=None, keys=None):
     if threshold < 0:
         raise ValueError("threshold should be positive!")
     if threshold is not None:
-        flasgs[flasgs < threshold] = 0
-    mask = flasgs == 0
+        flags[flags < threshold] = 0
+    mask = flags == 0
 
     if keys is None:
         keys = ['masked input']
-    elif len(keys) != flasgs.shape[0]:
+    elif len(keys) != flags.shape[0]:
         raise ValueError("length of keys should match the number of flag maps.")
 
     def _apply_readout(x: np.array):
