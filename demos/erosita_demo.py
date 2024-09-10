@@ -237,9 +237,8 @@ if __name__ == "__main__":
     # Plot priors
     if plot_info['priors']:
         if 'prior_plot_dir' in file_info:
-            prior_plot_dir = file_info['prior_plot_dir']
             prior_plot_dir = join(file_info['res_dir'],
-                                  prior_plot_dir)
+                                  file_info['prior_plot_dir'])
         else:
             raise ValueError(
                 "The 'prior_plot_dir' parameter must be specified in "
