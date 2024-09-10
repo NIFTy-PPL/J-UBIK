@@ -4,16 +4,19 @@ from functools import reduce
 from os.path import join
 
 import astropy.units as u
+from astropy.coordinates import SkyCoord
+
 import nifty8.re as jft
 import numpy as np
 from jax import config, random
 
 import jubik0 as ju
-from build.lib.jubik0.jwst.filter_projector import FilterProjector
-from jubik0.library.instruments.jwst.likelihood import \
-    build_gaussian_likelihood, connect_likelihood_to_model
+from jubik0.library.instruments.jwst.filter_projector import FilterProjector
+from jubik0.library.instruments.jwst.likelihood import (
+    build_gaussian_likelihood, connect_likelihood_to_model)
 
 config.update('jax_enable_x64', True)
+
 
 # Parser Setup
 parser = argparse.ArgumentParser()
@@ -22,6 +25,11 @@ parser.add_argument('config', type=str,
                     nargs='?', const=1, default="configs/jwst_demo.yaml")
 args = parser.parse_args()
 
+filter_distance = dict(
+    f115w=0.031,
+    f150w=0.031,
+    f200w=0.031,
+)
 
 if __name__ == "__main__":
     # Load config file
@@ -62,43 +70,64 @@ if __name__ == "__main__":
         domain=sky.domain)
 
     mock_sky = sky_model_with_filters(sky_model_with_filters.init(subkey))
+    center = (0, 0)
+    reconstruction_grid = ju.Grid(
+        center=SkyCoord(center[0]*u.rad, center[1]*u.rad),
+        shape=(cfg['grid']['sdim'],)*2,
+        fov=(cfg['grid']['fov']*u.arcsec,)*2
+    )
 
     data_set = {}
     likelihoods = []
     for fltname in filters.keys():
 
-        fov_arcsec = 2
         psf_kwargs = dict(
             camera='nircam',
             filter=fltname,
             center_pixel=cfg['telescope']['pointing_pixel'],
             webbpsf_path=file_info['webbpsf_path'],
             psf_library_path=file_info['psf_library'],
-            fov_pixels=cfg['telescope']['fov_pixels'],
+            fov_pixels=cfg['telescope']['fov'],
+        )
+
+        data_fov = cfg['telescope']['fov']
+        data_shape = int(data_fov/filter_distance[fltname])
+        data_grid = ju.Grid(
+            center=SkyCoord(center[0]*u.rad, center[1]*u.rad),
+            shape=(data_shape,)*2,
+            fov=(data_fov*u.arcsec,)*2
+        )
+        rotation_and_shift_kwargs = dict(
+            reconstruction_grid=reconstruction_grid,
+            data_dvol=data_grid.dvol,
+            data_wcs=data_grid.wcs,
+            data_model_type='linear',
+            world_extrema=data_grid.world_extrema(),
         )
 
         data_model = ju.build_jwst_data_model(
             sky_domain={fltname: filter_projector.target[fltname]},
-            reconstruction_grid=None,
-            subsample=1,
-            rotation_and_shift_kwargs=None,
+            subsample=cfg['telescope']['subsample'],
+            rotation_and_shift_kwargs=rotation_and_shift_kwargs,
             psf_kwargs=psf_kwargs,
             data_mask=None,
             transmission=1.,
             zero_flux=None,
-            world_extrema=None)
+        )
 
-        mock_sky = sky_model_with_filters(sky_model_with_filters.init(subkey))
         # Create mock data
         noise_std = cfg['mock_config']['noise_std']
         key, subkey = random.split(key)
-        data = (data_model(mock_sky) + random.normal(subkey, data_model.target.shape) *
-                noise_std)
+        data = (
+            data_model(mock_sky) +
+            random.normal(subkey, data_model.target.shape) * noise_std
+        )
 
         data_set[fltname] = {
             'data': data,
             'std': noise_std,
             'data_model': data_model,
+            'data_grid': data_grid,
         }
 
         likelihood = build_gaussian_likelihood(data, noise_std)
@@ -107,11 +136,11 @@ if __name__ == "__main__":
         likelihoods.append(likelihood)
 
     likelihood = reduce(lambda x, y: x+y, likelihoods)
-    likelihood = connect_likelihood_to_model(likelihood, sky_model_with_filters)
+    likelihood = connect_likelihood_to_model(
+        likelihood, sky_model_with_filters)
 
     data = np.array([d["data"] for d in data_set.values()])
-    ju.plot_result(data, output_file=join(file_info["res_dir"], "data.png")
-                   )
+    ju.plot_result(data, output_file=join(file_info["res_dir"], "data.png"))
 
     # Plot
     additional_plot_dict = {}
@@ -119,7 +148,6 @@ if __name__ == "__main__":
         additional_plot_dict['diffuse_alfa'] = sky_model.alpha_cf
     if hasattr(sky_model, 'points_alfa'):
         additional_plot_dict['points_alfa'] = sky_model.points_alfa
-
 
     def simple_eval_plots(s, x):
         """Call plot_sample_and_stat for every iteration."""

@@ -7,20 +7,19 @@ files:
 
 telescope:
   pointing_pixel: [128, 128]
-  fov: 8. # in arcsec
-  fov_pixels: 64 # FIXME
+  fov: 6. # in arcsec
+  subsample: 2
 
 mock_config:
   noise_std: 0.5
-
 
 plotting:
   enabled: True
   slice: Null
   dpi: 300
 
-
 grid:
+  fov: 6. # in arcsec
   sdim: 256
   edim: 3 # FIXME: remove this parameter
   s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space

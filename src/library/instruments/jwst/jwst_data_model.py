@@ -30,7 +30,6 @@ class DataModel(jft.Model):
                         'sky model')
         assert isinstance(sky_domain, dict), need_sky_key
         assert len(sky_domain.keys()) == 1, need_sky_key
-        self._sky_key = next(iter(sky_domain.keys()))
 
         self.rotation_and_shift = rotation_and_shift
         self.psf = psf
@@ -39,18 +38,13 @@ class DataModel(jft.Model):
         self.zero_flux_model = zero_flux_model
         self.mask = mask
 
-        domain = sky_domain
-        if rotation_and_shift is not None:
-            domain = domain | rotation_and_shift.domain
+        domain = sky_domain | rotation_and_shift.domain
         if zero_flux_model is not None:
             domain = domain | zero_flux_model.domain
         super().__init__(domain=domain)
 
     def __call__(self, x):
-        if self.rotation_and_shift is not None:
-            out = self.rotation_and_shift(x)
-        else:
-            out = x[self._sky_key]
+        out = self.rotation_and_shift(x)
         out = self.psf(out)
         out = self.integrate(out)
         out = out * self.transmission
@@ -62,13 +56,11 @@ class DataModel(jft.Model):
 
 def build_jwst_data_model(
     sky_domain: dict,
-    reconstruction_grid: Optional[Grid], # FIXME: should be part of rotation_and_shift_kwargs
     subsample: int,
     rotation_and_shift_kwargs: Optional[dict],
     psf_kwargs: dict,
     transmission: float,
     data_mask: Optional[ArrayLike],
-    world_extrema: Optional[Tuple[SkyCoord]],  # FIXME: should be part of rotation_and_shift_kwargs
     zero_flux: Optional[dict],
 ) -> DataModel:
     '''Build the data model for a Jwst observation. The data model pipline:
@@ -79,18 +71,18 @@ def build_jwst_data_model(
     sky_domain: dict
         Containing the sky_key and the shape_dtype of the reconstruction sky.
 
-    reconstruction_grid: Grid
-
     subsample: int
         The subsample factor for the data grid.
 
     rotation_and_shift_kwargs: dict
+        reconstruction_grid: Grid
         data_dvol: Unit, the volume of a data pixel
         data_wcs: WcsBase,
         data_model_type: str,
         kwargs_linear: dict, (order, sky_as_brightness, mode)
         kwargs_nufft: dict, (sky_as_brightness)
         kwargs_sparse: dict, (extend_factor, to_bottom_left)
+        world_extrema: Tuple[SkyCoord]
         coordinate_correction: Optional[dict]
             domain_key: str
             priors: dict
@@ -106,43 +98,36 @@ def build_jwst_data_model(
 
     data_mask: ArrayLike
         The mask on the data
-
-    world_extrema: Tuple[SkyCoord]
-        The extrema for the evaluation
     '''
 
     need_sky_key = ('Need to provide an internal key to the target of the sky '
                     'model.')
     assert isinstance(sky_domain, dict), need_sky_key
 
-    if rotation_and_shift_kwargs is None:
-        rotation_and_shift = None
-        def integrate(x): return x
-    else:
-        rotation_and_shift = build_rotation_and_shift_model(
-            sky_domain=sky_domain,
-            world_extrema=world_extrema,
-            reconstruction_grid=reconstruction_grid,
-            data_grid_dvol=rotation_and_shift_kwargs['data_dvol'],
-            data_grid_wcs=rotation_and_shift_kwargs['data_wcs'],
-            model_type=rotation_and_shift_kwargs['data_model_type'],
-            subsample=subsample,
-            kwargs=dict(
-                linear=rotation_and_shift_kwargs.get(
-                    'kwargs_linear', dict(order=1, sky_as_brightness=False)),
-                nufft=rotation_and_shift_kwargs.get(
-                    'kwargs_nufft', dict(sky_as_brightness=False)),
-                sparse=rotation_and_shift_kwargs.get(
-                    'kwargs_sparse', dict(extend_factor=1, to_bottom_left=True)),
-            ),
-            coordinate_correction=rotation_and_shift_kwargs.get(
-                'shift_and_rotation_correction', None)
-        )
+    rotation_and_shift = build_rotation_and_shift_model(
+        sky_domain=sky_domain,
+        reconstruction_grid=rotation_and_shift_kwargs['reconstruction_grid'],
+        world_extrema=rotation_and_shift_kwargs['world_extrema'],
+        data_grid_dvol=rotation_and_shift_kwargs['data_dvol'],
+        data_grid_wcs=rotation_and_shift_kwargs['data_wcs'],
+        model_type=rotation_and_shift_kwargs['data_model_type'],
+        subsample=subsample,
+        kwargs=dict(
+            linear=rotation_and_shift_kwargs.get(
+                'kwargs_linear', dict(order=1, sky_as_brightness=False)),
+            nufft=rotation_and_shift_kwargs.get(
+                'kwargs_nufft', dict(sky_as_brightness=False)),
+            sparse=rotation_and_shift_kwargs.get(
+                'kwargs_sparse', dict(extend_factor=1, to_bottom_left=True)),
+        ),
+        coordinate_correction=rotation_and_shift_kwargs.get(
+            'shift_and_rotation_correction', None)
+    )
 
-        integrate = build_sum_integration(
-            high_res_shape=rotation_and_shift.target.shape,
-            reduction_factor=subsample,
-        )
+    integrate = build_sum_integration(
+        high_res_shape=rotation_and_shift.target.shape,
+        reduction_factor=subsample,
+    )
 
     psf_kernel = load_psf_kernel(
         camera=psf_kwargs['camera'],

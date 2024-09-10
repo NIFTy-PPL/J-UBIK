@@ -39,8 +39,8 @@ class RotationAndShiftModel(jft.Model):
 
 def build_rotation_and_shift_model(
     sky_domain: dict,
-    world_extrema: Tuple[SkyCoord],
     reconstruction_grid: Grid,
+    world_extrema: Tuple[SkyCoord],
     data_grid_dvol: float,  # FIXME: should this be for each data pixel, i.e. an array?
     data_grid_wcs: WcsBase,
     model_type: str,
@@ -101,8 +101,8 @@ def build_rotation_and_shift_model(
     assert reconstruction_grid.dvol.unit == data_grid_dvol.unit
 
     correction_model = build_coordinates_correction_model_from_grid(
-        coordinate_correction['domain_key'],
-        coordinate_correction['priors'],
+        coordinate_correction['domain_key'] if coordinate_correction is not None else None,
+        coordinate_correction['priors'] if coordinate_correction is not None else None,
         data_grid_wcs,
         reconstruction_grid,
         subsample_grid_centers_in_index_grid_non_vstack(

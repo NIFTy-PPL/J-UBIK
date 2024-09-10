@@ -29,6 +29,7 @@ from .library.instruments.erosita.erosita_data import generate_erosita_data_from
     mask_erosita_data_from_disk
 from .library.instruments.erosita.erosita_psf import eROSITA_PSF
 from .library.instruments.jwst.jwst_data_model import build_jwst_data_model
+from .library.instruments.jwst.reconstruction_grid import Grid
 from .library.data import (create_mock_data, load_masked_data_from_config,
                            load_mock_position_from_config, Domain)
 from .library.likelihood import get_n_constrained_dof
