@@ -17,12 +17,12 @@ from plot_eROSITA_image import plot, plot_rgb
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
     eROSITA_config_name = "paper/eROSITA_demo.yaml"
-    chandra_config_name = "paper/chandra_demo.yaml"
+    chandra_config_name1 = "paper/chandra_demo_1.yaml"
+    chandra_config_name2 = "paper/chandra_demo_2.yaml"
     output_dir = ju.create_output_directory("paper/")
     eROSITA_cfg_dict = ju.get_config(eROSITA_config_name)
-    chandra_cfg_dict = ju.get_config(chandra_config_name)
-    config_dicts = {'eROSITA': eROSITA_cfg_dict,
-                    'Chandra': chandra_cfg_dict}
+    chandra_cfg_dict1 = ju.get_config(chandra_config_name1)
+    chandra_cfg_dict2 = ju.get_config(chandra_config_name2)
 
     prior_config_path = "paper/prior_config.yaml"
     prior_config_dict = ju.get_config(prior_config_path)
@@ -49,13 +49,14 @@ if __name__ == "__main__":
     mask_adj_func = lambda x: mask_adj(x)[0]
     tms = plottable_vector.tree.keys()
     # Plotting the data
-    unmasked_data = mask_adj_func(plottable_vector)
+    unmasked_erosita_data = mask_adj_func(plottable_vector)
 
+    # Chandra:
+    response_dict1 = ju.build_chandra_response_from_config()
 
-    plottabel_data_list = 2*[unmasked_data[0]]
-    plottabel_data_list.insert(0, sky(pos))
+    plottabel_data_list = 3*[unmasked_data[0]]
     plottable_data = np.vstack(plottabel_data_list)
-    title_list = 2*['eROSITA']
+    title_list = 3*['eROSITA']
     title_list.insert(0, 'sky')
     bbox_info = [(7, 4), 28, 96,  'black']
     plot(plottable_data,
@@ -66,8 +67,8 @@ if __name__ == "__main__":
          colorbar=True,
          common_colorbar=True,
          n_rows=1,
-         vmin=7e-9,
-         vmax=7e-7,
+         vmin=1e-0,
+         vmax=1e4,
          bbox_info=bbox_info,
          output_file=join(output_dir,
          f'simulated_data.png'))
