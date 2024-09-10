@@ -96,7 +96,7 @@ def build_chandra_response_from_config(config_file_path):
                                            grid_info["edim"],
                                            tel_info["fov"])
                 # psfs.update({f"psf_{obsnr}": psf_array})
-                psf_list.append(psf_array)
+                psf_list.append(np.transpose(psf_array))
             if i == 0:
                 center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
         # Save exposures if they were computed
@@ -109,8 +109,8 @@ def build_chandra_response_from_config(config_file_path):
             psfs = np.stack(np.array(psf_list, dtype=int))
             save_to_pickle(psfs, psf_path)
 
-    domain = Domain(tuple(grid_info["e_dim"] + grid_info["s_dim"] * 2),
-                    tuple([1] + [tel_info["fov"] / grid_info["s_dim"]] * 2))
+    domain = Domain(tuple([grid_info["edim"]] + [grid_info["sdim"]] * 2),
+                    tuple([1] + [tel_info["fov"] / grid_info["sdim"]] * 2))
     shp = (domain.shape[-2], domain.shape[-1])
     margin = max((int(np.ceil(psf_info["margfrac"] * ss)) for ss in shp))
 
