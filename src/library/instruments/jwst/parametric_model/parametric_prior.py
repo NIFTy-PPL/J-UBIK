@@ -97,32 +97,3 @@ def build_parametric_prior(
         return jft.wrap(lambda x: trafo(prior(x)), domain_key)
 
     return jft.wrap(prior, domain_key)
-
-
-class ParametricPrior(jft.Model):
-    def __init__(self, priors: dict, domain: dict):
-        self._keys = priors.keys()
-        self._priors = priors
-
-        super().__init__(domain=domain)
-
-    def __call__(self, x):
-        return {key: self._priors[key](x) for key in self._keys}
-
-
-def build_parametric_prior_model(
-    domain_key: str,
-    parameters: dict,
-) -> jft.Model:
-
-    ptree = {}
-    priors = {}
-    for key, params in parameters.items():
-        dom_key = '_'.join((domain_key, key))
-        params = _transform_setting(params)
-        shape = _infer_shape(params)
-
-        ptree[key] = jft.ShapeWithDtype(shape)
-        priors[key] = build_parametric_prior(dom_key, params, shape)
-
-    return ParametricPrior(priors, ptree)

@@ -47,21 +47,6 @@ class CoordinatesCorrection(jft.Model):
              ) + self.rotation_center[1] + shft[1]
         return jnp.array((x, y))
 
-    # def _rotation(self, params: dict) -> ArrayLike:
-    #     theta = self.rotation_prior(params)
-    #     x = (jnp.cos(theta) * (self._coords[0]-self.rotation_center[0]) -
-    #          jnp.sin(theta) * (self._coords[1]-self.rotation_center[1])
-    #          ) + self.rotation_center[0]
-
-    #     y = (jnp.sin(theta) * (self._coords[0]-self.rotation_center[0]) +
-    #          jnp.cos(theta) * (self._coords[1]-self.rotation_center[1])
-    #          ) + self.rotation_center[1]
-    #     return jnp.array((x, y))
-
-    # def _shift(self, params: dict) -> ArrayLike:
-    #     shft = self.shift_prior(params) / self.pix_distance
-    #     return self._coords + shft.reshape(2, 1, 1)
-
 
 def build_coordinates_correction_model(
     domain_key: str,
