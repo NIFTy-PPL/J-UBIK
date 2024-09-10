@@ -9,6 +9,7 @@ from ...utils import get_config, create_output_directory, load_from_pickle,\
     save_to_pickle
 from ...response import build_readout_function, build_exposure_function
 from ....library.convolve import linpatch_convolve
+from ....library.data import Domain
 
 def build_chandra_response_from_config(config_file_path):
     """
@@ -113,7 +114,7 @@ def build_chandra_response_from_config(config_file_path):
     shp = (domain.shape[-2], domain.shape[-1])
     margin = max((int(np.ceil(psf_info["margfrac"] * ss)) for ss in shp))
 
-    def psf_op(x):
+    def psf_func(x):
         return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(
             x, domain, psfs, psf_info["npatch"], margin
         )
