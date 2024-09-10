@@ -1,6 +1,7 @@
 cpu: False
 prior_samples: False
 lens_only: False
+plot_results: False
 
 grid:
   sdim: 256

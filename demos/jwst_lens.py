@@ -4,6 +4,8 @@ import os
 
 from functools import reduce
 
+import pickle
+
 import nifty8.re as jft
 from jax import random
 import jax.numpy as jnp
@@ -248,10 +250,16 @@ if cfg.get('prior_samples'):
 
 def plot(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f'Plotting: {state.nit}')
-    plot_residual(samples, state)
-    plot_color(samples, state)
-    if not cfg['lens_only']:
-        plot_lens(samples, state, parametric=parametric_flag)
+
+    last_fn = os.path.join(RES_DIR, f'position_{state.nit: 02d}')
+    with open(last_fn, "wb") as f:
+        pickle.dump((samples, state._replace(config={})), f)
+
+    if cfg['plot_results']:
+        plot_residual(samples, state)
+        plot_color(samples, state)
+        if not cfg['lens_only']:
+            plot_lens(samples, state, parametric=parametric_flag)
 
 
 pretrain_position = pretrain_lens_system(
