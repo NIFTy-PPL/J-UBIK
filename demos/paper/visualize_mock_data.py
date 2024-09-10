@@ -51,48 +51,24 @@ if __name__ == "__main__":
     # Plotting the data
     unmasked_data = mask_adj_func(plottable_vector)
 
-    plottabel_data_list = {'eROSITA': unmasked_data}
-    exit()
-    plotting_kwargs = {'vmin':1e0, 'vmax':4e2}
-    bbox_info = [(7, 4), 7,  20, 'black']
-    for i in range(unmasked_data.shape[0]):
-        plot(unmasked_data[i],
-             pixel_measure=28,
-             fs=8,
-                        title=['0.2-1.0 keV',
-                               '1.0-2.0 keV',
-                               '2.0-4.5 keV'],
-                        logscale=True,
-                        colorbar=True,
-                        common_colorbar=True,
-                        n_rows=1,
-                        bbox_info=bbox_info,
-                        output_file=join(output_dir,
-                        f'tm{list(tms)[i]}_data.png'),
-                        **plotting_kwargs)
-    summed_data = np.sum(unmasked_data, axis=0)
-    bbox_info = [(7, 4), 7,  20, 'black']
-    plot(unmasked_data[i],
-         pixel_measure=28,
+
+    plottabel_data_list = 2*[unmasked_data[0]]
+    plottabel_data_list.insert(0, sky(pos))
+    plottable_data = np.vstack(plottabel_data_list)
+    title_list = 2*['eROSITA']
+    title_list.insert(0, 'sky')
+    bbox_info = [(7, 4), 28, 96,  'black']
+    plot(plottable_data,
+         pixel_measure=112,
          fs=8,
-         title=['0.2-1.0 keV',
-                '1.0-2.0 keV',
-                '2.0-4.5 keV'],
+         title=title_list,
          logscale=True,
          colorbar=True,
          common_colorbar=True,
          n_rows=1,
-         output_file=join(output_dir,
-                          f'summed_data.png'),
+         vmin=7e-9,
+         vmax=7e-7,
          bbox_info=bbox_info,
-         **plotting_kwargs)
-    bbox_info = [(7, 4), 7,  24, 'black']
-    plot_rgb(summed_data, sat_min=[0, 0, 0],
-             sat_max=[4e2, 1e2, 1e1],
-             sigma=None, log=True,
-             title='simulated data', fs=18, pixel_measure=28,
-             output_file=join(output_dir, 'simulated_data_rgb.png'),
-             alpha=0.5,
-             bbox_info=bbox_info
-             )
+         output_file=join(output_dir,
+         f'simulated_sky.png'))
 
