@@ -19,14 +19,14 @@ from .library.plot import (plot_slices, plot_result,
 from .library.sugar_plot import (plot_fused_data, plot_rgb_image, plot_pspec,
                                  plot_sample_and_stats, plot_sample_and_stats,
                                  plot_erosita_priors)
-from .library.mf_plot import plot_rgb
+from .library.mf_plot import plot_rgb, _clip, _non_zero_log, _norm_rgb_plot
 
 from .library import mpi
 from .library.special_distributions import InverseGammaOperator
 from .library.erosita_observation import ErositaObservation
 from .library.chandra_observation import ChandraObservationInformation
 from .library.erosita_psf import eROSITA_PSF
-from .library.sky_models import SkyModel
+from .library.sky_models import SkyModel, add_masked_model, fuse_model_components
 from .library.response import load_erosita_response, build_exposure_function, \
     build_callable_from_exposure_file, build_readout_function,\
     build_erosita_response_from_config, build_erosita_psf

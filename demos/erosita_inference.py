@@ -37,6 +37,20 @@ if __name__ == "__main__":
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
+    # Plot priors
+    key = random.PRNGKey(cfg['seed'])
+    key, subkey = random.split(key)
+    n_samples = 1
+    priors_directory = os.path.join(file_info['res_dir'],'jubik_priors_mf/')
+
+    plot_signal_response = False # decides whether to plot signal response
+
+    kwgs = {'n_cols': 3, 'n_rows': 1}
+    ju.plot_erosita_priors(key, n_samples, config_path, priors_directory,
+                           signal_response=False,
+                           plotting_kwargs={'n_cols': 3, 'n_rows': 1},
+                           adjust_figsize=True)
+
     # Generate eROSITA data (if it does not alread exist)
     ju.create_erosita_data_from_config(config_path)
 
@@ -44,8 +58,6 @@ if __name__ == "__main__":
     log_likelihood = ju.generate_erosita_likelihood_from_config(config_path, sky) # FIXME .amend(sky)
 
     # Set initial position
-    key = random.PRNGKey(cfg['seed'])
-    key, subkey = random.split(key)
     pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky.domain))
 
     # Minimization
