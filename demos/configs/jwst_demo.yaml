@@ -21,7 +21,7 @@ plotting:
 grid:
   fov: 6. # in arcsec
   sdim: 256
-  edim: 3 # FIXME: remove this parameter
+  edim: 3
   s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
   e_padding_ratio: 1.
   energy_bin:

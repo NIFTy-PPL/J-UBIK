@@ -12,7 +12,8 @@ Requirements
 Before running this demo, ensure the following installations and downloads
 are complete:
 
-1. Install [webbpsf](https://webbpsf.readthedocs.io/en/stable/installation.html).
+1. Install [JWST](https://jwst-pipeline.readthedocs.io/en/latest/install.html)
+2. Install [webbpsf](https://webbpsf.readthedocs.io/en/stable/installation.html).
 Remember to download and unzip the [webbpsf-data](https://stsci.box.com/shared/static/qxpiaxsjwo15ml6m4pkhtk36c9jgj70k.gz)
 and specify the path to it in the config.
 
