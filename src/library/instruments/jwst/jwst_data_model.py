@@ -4,7 +4,6 @@ import nifty8.re as jft
 from numpy.typing import ArrayLike
 
 from .integration_model import build_sum_integration
-from .masking import build_mask
 from .psf.build_psf import instantiate_psf, load_psf_kernel
 from .rotation_and_shift import build_rotation_and_shift_model, \
     RotationAndShiftModel
@@ -188,7 +187,10 @@ def build_jwst_data_model(
     else:
         zero_flux_model = build_zero_flux_model(zero_flux['dkey'], zero_flux)
 
-    mask = build_mask(data_mask)
+    if data_mask is None:
+        def mask(x): return x
+    else:
+        def mask(x): return x[data_mask]
 
     return DataModel(sky_domain=sky_domain,
                      rotation_and_shift=rotation_and_shift,
