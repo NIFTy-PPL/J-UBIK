@@ -90,7 +90,16 @@ def _get_dvol(filter: str):
 
 
 class JwstData:
+    """Class to contain JWST data metadata."""
     def __init__(self, filepath: str):
+        """
+        Initializes the JwstData class.
+
+        Parameters
+        ----------
+        filepath : str
+            Path to the JWST data file.
+        """
         self.dm = datamodels.open(filepath)
         self.wcs = WcsJwstData(self.dm.meta.wcs)
         self.shape = self.dm.data.shape

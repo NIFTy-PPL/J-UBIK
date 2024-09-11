@@ -36,7 +36,29 @@ def _get_rotation(config: dict) -> units.Quantity:
 
 
 def build_reconstruction_grid_from_config(config: dict) -> Grid:
-    """Get the reconstruction grid from the config."""
+    """
+    Builds the reconstruction grid from the given configuration.
+
+    The reconstruction grid is defined by the world location, field of view
+    (FOV), shape (resolution), and rotation, all specified in the input
+    configuration. These parameters are extracted from the config dictionary
+    using helper functions.
+
+    Parameters
+    ----------
+    config : dict
+        The configuration dictionary containing the following keys:
+        - 'world_location': World coordinates defining the center of the grid.
+        - 'fov': Field of view of the grid in appropriate units.
+        - 'shape': Shape of the grid (resolution) as a tuple (nx, ny).
+        - 'rotation': Rotation of the grid in degrees.
+
+    Returns
+    -------
+    Grid
+        A `Grid` object constructed using the world location, shape,
+        field of view, and rotation provided in the configuration.
+    """
     wl = _get_world_location(config)
     fov = _get_fov(config)
     shape = _get_shape(config)
@@ -50,7 +72,29 @@ def build_filter_zero_flux(
     config: dict,
     filter: str,
 ) -> dict:
-    """Build the zero flux prior for the filter."""
+    """
+    Builds the zero flux prior for the specified filter.
+
+    This function retrieves the zero flux prior for a given filter from the
+    configuration dictionary. If the filter-specific prior is not available,
+    it falls back to a general prior defined in the configuration.
+
+    Parameters
+    ----------
+    config : dict
+        The configuration dictionary containing the zero flux priors for
+        different filters under `config['telescope']['zero_flux']`.
+
+    filter : str
+        The name of the filter (case-insensitive) for which the zero flux prior
+        is to be built.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the zero flux prior for the specified filter.
+        If the filter is not present, returns the default prior.
+    """
     prior_config = config['telescope']['zero_flux']
     lower_filter = filter.lower()
 
@@ -65,7 +109,36 @@ def build_coordinates_correction_prior_from_config(
     filter: Optional[str] = '',
     filter_data_set_id: Optional[int] = 0
 ) -> dict:
-    """Build the coordinate correction prior for the filter."""
+    """
+    Builds the coordinate correction prior for the specified filter and dataset.
+
+    The function extracts the shift and rotation priors for the given filter and
+    dataset ID from the configuration.
+    If the specific filter or dataset ID is not found, it returns the default
+    shift and rotation priors. The rotation prior is converted to radians
+    if needed.
+
+    Parameters
+    ----------
+    config : dict
+        The configuration dictionary containing rotation and shift priors under
+        `config['telescope']['rotation_and_shift']['priors']`.
+
+    filter : Optional[str], default=''
+        The name of the filter (case-insensitive) for which the prior is needed.
+        If not specified, the default priors are used.
+
+    filter_data_set_id : Optional[int], default=0
+        The dataset ID for which the prior is needed. If not provided or not
+        found, the function uses the default dataset priors.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the shift and rotation priors for the specified
+        filter and dataset. If the filter or dataset is not found, returns the
+        default priors.
+    """
     rs_priors = config['telescope']['rotation_and_shift']['priors']
 
     lower_filter = filter.lower()

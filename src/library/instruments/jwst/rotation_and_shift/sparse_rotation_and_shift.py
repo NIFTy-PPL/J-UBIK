@@ -55,6 +55,30 @@ def build_sparse_rotation_and_shift(
     index_grid: ArrayLike,
     subsample_corners: ArrayLike,
 ):
+    """
+    Builds a sparse interpolation matrix to apply rotation and shift
+    transformations to an input grid using subsample-corner information.
+
+    The function calculates a sparse matrix that can later be used to apply a
+    rotation and shift operation on a field by performing sparse matrix
+    multiplication.
+    It uses the corner points of a subsampled grid for precise interpolation.
+
+    Parameters
+    ----------
+    index_grid : ArrayLike
+        The grid of indices representing the input field (e.g., a pixel grid).
+    subsample_corners : ArrayLike
+        A set of subsampled corners that represent the transformation applied to
+        the field. This should have the shape (2, 2, ...) where the third
+        dimension corresponds to the data field.
+
+    Returns
+    -------
+    Callable[[ArrayLike, Any], ArrayLike]
+        A function that takes in the field and applies the rotation and shift
+        transformation using sparse matrix multiplication.
+    """
     print('Calculating sparse interpolation matrix...')
     data_shape = subsample_corners.shape[2:]
     subsample_corners = subsample_corners.reshape(

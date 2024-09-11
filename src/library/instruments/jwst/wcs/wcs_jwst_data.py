@@ -13,6 +13,10 @@ from .wcs_base import WcsBase
 
 
 class WcsJwstData(WcsBase):
+    """
+    A class for converting between world coordinates and pixel coordinates
+    in JWST data.
+    """
     def __init__(self, wcs: WCS):
         self._wcs = wcs
 

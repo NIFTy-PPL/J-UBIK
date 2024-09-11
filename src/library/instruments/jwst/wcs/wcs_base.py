@@ -7,6 +7,10 @@ from numpy.typing import ArrayLike
 
 
 class WcsBase(ABC):
+    """
+    A base class for converting between world coordinates and pixel coordinates
+    in JWST data.
+    """
     def __init__(self, wcs):
         self._wcs = wcs
 

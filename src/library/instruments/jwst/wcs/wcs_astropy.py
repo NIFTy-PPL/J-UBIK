@@ -12,6 +12,10 @@ from .wcs_base import WcsBase
 
 
 class WcsAstropy(WcsBase):
+    """
+    A class for converting between world coordinates and pixel coordinates
+    in JWST data.
+    """
     def __init__(self, wcs):
         self._wcs = wcs
 
@@ -68,7 +72,7 @@ def build_astropy_wcs(
     fov: Tuple[Unit, Unit],
     rotation: Unit = 0.0 * units.deg,
 ) -> WCS:
-    '''
+    """
     Specify the Astropy wcs.
 
     Parameters
@@ -83,8 +87,9 @@ def build_astropy_wcs(
         The field of view of the grid. Typically given in degrees.
 
     rotation : units.Quantity
-        The rotation of the grid WCS with respect to the ICRS system, in degrees.
-    '''
+        The rotation of the grid WCS with respect to the ICRS system,
+        in degrees.
+    """
 
     # Create a WCS object
     w = WCS(naxis=2)

@@ -91,6 +91,12 @@ def subsample_grid_corners_in_index_grid_non_vstack(
         The multiplicity of the subsampling along each axis. How many
         sub-pixels will a single pixel in the to_be_subsampled_grid have along
         each axis.
+
+    Returns
+    -------
+    ArrayLike
+        The index positions of the corners of the pixels of the data_grid
+        inside the reconstruction_grid.
     """
     tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
         world_extrema)
