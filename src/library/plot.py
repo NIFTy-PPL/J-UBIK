@@ -159,7 +159,6 @@ def plot_result(array,
     if output_file is not None:
         fig.savefig(output_file, bbox_inches='tight', pad_inches=0)
         print(f"Plot saved as {output_file}.")
-        plt.clf()
         plt.close()
     else:
         plt.show()
@@ -324,7 +323,6 @@ def plot_sample_averaged_log_2d_histogram(x_array_list,
     if output_path is not None:
         plt.savefig(output_path)
         print(f"2D histogram saved as {output_path}.")
-        plt.clf()
         plt.close()
     else:
         plt.show()
@@ -390,7 +388,6 @@ def plot_rgb(array,
     plot_data = _norm_rgb_plot(array)  # Normalize data for RGB plotting
     plt.imshow(plot_data, origin="lower")
     plt.savefig(name + ".png", dpi=500)
-    plt.clf()
     plt.close()
     print(f"RGB image saved as {name}.png")
 
