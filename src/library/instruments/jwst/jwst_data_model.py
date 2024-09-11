@@ -181,7 +181,6 @@ def build_jwst_data_model(
         fov_arcsec=psf_kwargs.get('fov_arcsec'),
         subsample=subsample,
     ) if len(psf_kwargs) != 0 else None
-    print(psf_kernel.shape)
     psf = instantiate_psf(psf_kernel)
 
     if zero_flux is None:
