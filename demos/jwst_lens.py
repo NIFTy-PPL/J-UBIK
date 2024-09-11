@@ -12,7 +12,7 @@ import jax.numpy as jnp
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm, FuncNorm
+from matplotlib.colors import LogNorm
 from astropy import units as u
 
 import jubik0 as ju
@@ -258,7 +258,7 @@ if cfg.get('prior_samples'):
 def plot(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f'Plotting: {state.nit}')
 
-    if cfg['save_intermediate_pickle']:
+    if cfg.get('save_intermediate_pickle', False):
         last_fn = os.path.join(RES_DIR, f'samples_state_{state.nit:02d}.pkl')
         with open(last_fn, "wb") as f:
             pickle.dump((samples, state._replace(config={})), f)
