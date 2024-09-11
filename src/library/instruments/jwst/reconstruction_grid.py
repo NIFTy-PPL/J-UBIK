@@ -1,17 +1,24 @@
-import numpy as np
+from typing import Tuple, Optional
 
+import numpy as np
+from astropy import units
 from astropy.coordinates import SkyCoord
 from astropy.units import Unit
-from astropy import units
-
-from typing import Tuple, Optional
 from numpy.typing import ArrayLike
 
 from .wcs.wcs_astropy import build_astropy_wcs
 
 
 class Grid:
-    '''Grid wraps a 2d array with a world coordinate system.'''
+    """
+    Grid that wraps a 2D array with a world coordinate system (WCS).
+
+    This class represents a grid in the sky with a world coordinate system (WCS)
+    centered around a given sky location.
+    It provides methods to calculate physical properties of the grid,
+    such as distances between pixels, and allows easy access to the world and
+    relative coordinates of the grid points.
+    """
 
     def __init__(
         self,
@@ -20,6 +27,23 @@ class Grid:
         fov: Tuple[Unit, Unit],
         rotation: Unit = 0.0 * units.deg,
     ):
+        """
+        Initialize the Grid with a center, shape, field of view,
+        and optional rotation.
+
+        Parameters
+        ----------
+        center : SkyCoord
+            The central sky coordinate of the grid.
+        shape : tuple of int
+            The shape of the grid, specified as (rows, columns).
+        fov : tuple of Unit
+            The field of view of the grid in angular units for both axes
+            (width, height).
+        rotation : Unit, optional
+            The rotation of the grid in degrees, counterclockwise from north.
+            Default is 0 degrees.
+        """
         self.shape = shape
         self.fov = fov
         self.distances = [f.to(units.deg)/s for f, s in zip(fov, shape)]
@@ -33,6 +57,7 @@ class Grid:
 
     @property
     def dvol(self) -> Unit:
+        """Computes the area of a grid cell (pixel) in angular units."""
         return self.distances[0] * self.distances[1]
 
     def world_extrema(
@@ -40,15 +65,28 @@ class Grid:
         extend_factor: float = 1,
         ext: Optional[tuple[int, int]] = None
     ) -> ArrayLike:
-        '''The world location of the center of the pixels with the index
+        """
+        The world location of the center of the pixels with the index
         locations = ((0, 0), (0, -1), (-1, 0), (-1, -1))
+
+        Parameters
+        ----------
+        extend_factor : float, optional
+            A factor by which to extend the grid. Default is 1.
+        ext : tuple of int, optional
+            Specific extension values for the grid's rows and columns.
+
+        Returns
+        -------
+        ArrayLike
+            The world coordinates of the corner pixels.
 
         Note
         ----
         The indices are assumed to coincide with the convention of the first
         index (x) aligning with the columns and the second index (y) aligning
         with the rows.
-        '''
+        """
         if ext is None:
             ext0, ext1 = [int(shp*extend_factor-shp)//2 for shp in self.shape]
         else:
@@ -62,31 +100,41 @@ class Grid:
             (xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)])
 
     def extent(self, unit=units.arcsec):
-        '''Convinience method which gives the extent of the grid in physical units.'''
+        """Convenience method which gives the extent of the grid in
+        physical units."""
         distances = [d.to(unit).value for d in self.distances]
         shape = self.shape
         halfside = np.array(shape)/2 * np.array(distances)
-        return (-halfside[0], halfside[0], -halfside[1], halfside[1])
+        return -halfside[0], halfside[0], -halfside[1], halfside[1]
 
-    def index_grid(self, extend_factor=1, to_bottom_left=True) -> Tuple[ArrayLike, ArrayLike]:
-        '''Calculate the index array of the grid.
+    def index_grid(
+        self,
+        extend_factor=1,
+        to_bottom_left=True
+    ) -> Tuple[ArrayLike, ArrayLike]:
+        """
+        Compute the grid of indices for the array.
 
         Parameters
         ----------
-        extend_factor: float
-            A factor by which to increase the grid.
+        extend_factor : float, optional
+            A factor to increase the grid size. Default is 1 (no extension).
+        to_bottom_left : bool, optional
+            Whether to shift the indices of the extended array such that (0, 0)
+            is aligned with the upper left corner of the unextended array.
+            Default is True.
 
-        to_bottom_left: bool
-            Flag which controlls if the indices of the extended array which are
-            relative to the un-extended array co-align such that the (0, 0)
-            index of the extended and un-extended array are in the upper left
-            corner of the matrix.
+        Returns
+        -------
+        tuple of ArrayLike
+            The meshgrid of index arrays for the extended grid.
 
-            Example:
-            unextended = (0, 1, 2)
+        Example
+        -------
+            un_extended = (0, 1, 2)
             extended_centered = (-1, 0, 1, 2, 3)
             extended_bottom_left = (0, 1, 2, 3, -1)
-        '''
+        """
         extent = [int(s * extend_factor) for s in self.shape]
         extent = [(e - s) // 2 for s, e in zip(self.shape, extent)]
         x, y = [np.arange(-e, s+e) for e, s in zip(extent, self.shape)]
@@ -95,6 +143,22 @@ class Grid:
         return np.meshgrid(x, y, indexing='xy')
 
     def wl_coords(self, extend_factor=1, to_bottom_left=True) -> SkyCoord:
+        """
+        Get the world coordinates of the grid points.
+
+        Parameters
+        ----------
+        extend_factor : float, optional
+            A factor by which to extend the grid. Default is 1.
+        to_bottom_left : bool, optional
+            Whether to align the extended grid indices with the unextended grid.
+            Default is True.
+
+        Returns
+        -------
+        SkyCoord
+            The world coordinates of each grid point.
+        """
         indices = self.index_grid(extend_factor, to_bottom_left=to_bottom_left)
         return self.wcs.wl_from_index([indices])[0]
 
@@ -104,6 +168,25 @@ class Grid:
         unit=units.arcsec,
         to_bottom_left=True
     ) -> ArrayLike:
+        """
+        Get the relative coordinates of the grid points in a specified unit.
+
+        Parameters
+        ----------
+        extend_factor : float, optional
+            A factor by which to extend the grid. Default is 1.
+        unit : Unit, optional
+            The physical unit for the output coordinates. Default is arcseconds.
+        to_bottom_left : bool, optional
+            Whether to align the extended grid indices with the unextended grid.
+            Default is True.
+
+        Returns
+        -------
+        ArrayLike
+            A 2D array of relative coordinates (x, y) for each grid point in the
+            specified unit.
+        """
         wl_coords = self.wl_coords(
             extend_factor, to_bottom_left=to_bottom_left)
         r = wl_coords.separation(self.center)
