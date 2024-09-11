@@ -2,7 +2,6 @@ from typing import Tuple, Callable
 
 from jax.numpy import reshape
 from jax.numpy.fft import ifftshift, ifft2
-from jax_finufft import nufft2
 from numpy import pi, array
 from numpy.typing import ArrayLike
 
@@ -43,6 +42,9 @@ def build_nufft_rotation_and_shift(
     between the sky brightness and the flux:
         flux(x, y) = sky(x, y) * sky_dvol
     """
+
+    from jax_finufft import nufft2
+
     # The conversion factor from sky to subpixel
     # (flux = sky_brightness * flux_conversion)
     if sky_as_brightness:
