@@ -64,7 +64,7 @@ telescope:
   psf:
     webbpsf_path: './data/JWST/WebbPsf/webbpsf-data-LATEST-2/'
     psf_library: './data/JWST/psf_library'
-    psf_pixels: 33
+    psf_pixels: 32  # FIXME: Check again
 
   zero_flux:
     prior: ['lognormal', 0.9, 4]
@@ -86,47 +86,12 @@ telescope:
       rotation: ['normal', 0, 1.0e-1]
       shift: ['normal', 0, 1.0e-1]  # pixel units
 
-      # f356w:
-      #   0: 
-      #     shift: ['delta', [0.0022578816715793783, 0.0019321891064715655], 0]
-      #     rotation: ['delta', -1.66623511e-05, 0]
-      #   1:
-      #     shift: ['delta', [-0.0059653777756892516, -0.003621006559990827], 0]
-      #     rotation: ['delta', 1.4685677e-05, 0]
-
       f444w:
         0: 
           shift: ['delta', 0, 0]  # pixel units
           rotation: ['delta', 0, 0]
-        # 1: 
-        #   shift: ['delta', [-0.008288844083290482, -0.006739260212401062], 0]
-        #   rotation: ['delta', 4.71342797e-05, 0]  # pixel units
-
-
-    f200w:
-        0: 
-          shift: ['delta', 0, 0]  # pixel units
-          rotation: ['delta', 0, 0]
-
-    f150w:
-        0: 
-          shift: ['delta', 0, 0]  # pixel units
-          rotation: ['delta', 0, 0]
-
-    f115w:
-        0: 
-          shift: ['delta', 0, 0]  # pixel units
-          rotation: ['delta', 0, 0]
-
 
 files:
-  # res_dir: 'results/jwst_lens/mfnew/eight_filters_05_f444w_radial'
-  # res_dir: 'results/jwst_lens/llonly/eight_filters_02'
-  # res_dir: 'results/jwst_lens/mfnew/f444w_f560w_03'
-  # res_dir: 'results/jwst_lens/mfnew/f356w_f444w_01'
-  # res_dir: 'results/jwst_lens/colormix/f356w_f444w_01'
-  # res_dir: '/home/jruestig/ownCloud - jruestig@jcloud.ddns.net/reconstruction_output/mf_f444w_f560w_05_nolenscorr'
-
   res_dir: './results/jwst_lens/mfreworked/all_data_01'
 
   pretrain_path: './results/jwst_lens/mfreworked/all_filters_01/config.yaml'
