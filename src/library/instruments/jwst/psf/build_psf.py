@@ -1,9 +1,9 @@
-import numpy as np
-from jax.scipy.signal import fftconvolve
 from functools import partial
 from os.path import join, isfile
-
 from typing import Tuple, Callable, Optional
+
+import numpy as np
+from jax.scipy.signal import fftconvolve
 from numpy.typing import ArrayLike
 
 
@@ -17,6 +17,79 @@ def build_webb_psf(
     fov_arcsec: Optional[float] = None,
     normalize: str = 'last'
 ):
+    """
+    Builds a Point Spread Function (PSF) model for the JWST using the specified
+    camera and filter.
+
+    This function computes the PSF using the `webbpsf` library.
+    It requires specifying the camera, filter, and center pixel position.
+    You must also provide either the field of view (FOV) in pixels or
+    in arcseconds.
+    The resulting PSF can be used for further analysis or simulations.
+
+    Parameters
+    ----------
+    camera : str
+        The camera for which to compute the PSF. Supported options are 'nircam'
+        and 'miri'.
+    filter : str
+        The filter for which to compute the PSF.
+    center_pixel : tuple of float
+        The position of the center pixel (x, y) for the PSF calculation.
+    webbpsf_path : str
+        The file path to the directory where the `webbpsf` data is stored.
+        This directory is
+        used to load the PSF models.
+    subsample : int
+        The oversampling factor for the PSF computation.
+        This determines how finely the PSF is sampled.
+    fov_pixels : int, optional
+        The field of view (FOV) in pixels.
+        If provided, it specifies the size of the PSF image in
+        pixels. If not provided, `fov_arcsec` must be specified.
+    fov_arcsec : float, optional
+        The field of view (FOV) in arcseconds.
+        If provided, it specifies the size of the PSF image
+        in arcseconds. If not provided, `fov_pixels` must be specified.
+    normalize : str, optional
+        The normalization method for the PSF.
+        Default is 'last', which normalizes based on the
+        last computed value. Other options may be supported by `webbpsf`.
+
+    Returns
+    -------
+    numpy.ndarray
+        The computed PSF data as a 2D array.
+
+    Raises
+    ------
+    ValueError
+        If neither `fov_pixels` nor `fov_arcsec` is provided.
+    KeyError
+        If the specified `camera` is not supported by the `webbpsf` library.
+
+    Notes
+    -----
+    - Ensure that the `webbpsf` library is properly installed and that `
+      webbpsf_path` is correctly set to point to the location of the JWST
+      PSF data files.
+    - The PSF data is returned as a 2D numpy array.
+
+    Example
+    -------
+    To build a PSF for the NIRCam camera using the F090W filter,
+    centered at pixel (100, 100), with a field of view of 256 pixels and an
+    oversampling factor of 3:
+
+    >>> psf = build_webb_psf(
+    >>>     camera='nircam',
+    >>>     filter='F090W',
+    >>>     center_pixel=(100, 100),
+    >>>     webbpsf_path='/path/to/webbpsf/data',
+    >>>     subsample=3,
+    >>>     fov_pixels=256
+    >>> )
+    """
     if fov_pixels is None and fov_arcsec is None:
         raise ValueError('You need to provide either fov_pixels or fov_arcsec')
 
@@ -60,7 +133,51 @@ def load_psf_kernel(
     fov_arcsec: Optional[float] = None,
     normalize: str = 'last'
 ) -> ArrayLike:
+    """
+    Loads or computes the Point Spread Function (PSF) kernel for a specified
+    camera and filter.
 
+    This function attempts to load a precomputed PSF kernel from a specified
+    library path.
+    If the PSF kernel file does not exist, it computes the PSF using the
+    `build_webb_psf` function, saves the result to the specified library path,
+    and then returns the PSF data.
+
+    Parameters
+    ----------
+    camera : str
+        The camera model for which to compute the PSF.
+        Options are 'nircam' and 'miri'.
+        This value is converted to lowercase before processing.
+    filter : str
+        The filter for which to compute the PSF.
+    center_pixel : tuple of float
+        The (x, y) coordinates of the center pixel for the PSF calculation.
+    webbpsf_path : str
+        The path to the directory containing the `webbpsf` data files.
+    psf_library_path : str
+        The directory where the computed PSF files are stored. The PSF kernel will be saved here
+        if it is not already present.
+    subsample : int
+        The oversampling factor for the PSF computation.
+    fov_pixels : int, optional
+        The field of view (FOV) in pixels. If not provided, `fov_arcsec` must be specified.
+    fov_arcsec : float, optional
+        The field of view (FOV) in arcseconds. If not provided, `fov_pixels` must be specified.
+    normalize : str, optional
+        The normalization method for the PSF. Default is 'last', but other methods may be supported
+        by `webbpsf`.
+
+    Returns
+    -------
+    numpy.ndarray
+        The PSF data as a 2D array.
+
+    Raises
+    ------
+    ValueError
+        If neither `fov_pixels` nor `fov_arcsec` is provided.
+    """
     if fov_pixels is None and fov_arcsec is None:
         raise ValueError('You need to provide either fov_pixels or fov_arcsec')
 
@@ -96,13 +213,13 @@ def load_psf_kernel(
     return psf
 
 
-def PsfOperator_fft(field, kernel):
-    '''Creates a Psf-operator: convolution of field by kernel'''
+def psf_operator_fft(field, kernel):
+    """Creates a Psf-operator: convolution of field by kernel"""
     return fftconvolve(field, kernel, mode='same')
 
 
 def instantiate_psf(psf: ArrayLike | None) -> Callable[[ArrayLike], ArrayLike]:
-    '''Build psf convolution operator from psf array. If None is provided the
+    """Build psf convolution operator from psf array. If None is provided the
     psf operator returns the field.
 
     Parameters
@@ -113,8 +230,8 @@ def instantiate_psf(psf: ArrayLike | None) -> Callable[[ArrayLike], ArrayLike]:
     ------
     Callable which convolves its input by the psf kernel.
     If psf kernel is None, the Callable is lambda x: x
-    '''
+    """
     if psf is None:
         return lambda x: x
 
-    return partial(PsfOperator_fft, kernel=psf)
+    return partial(psf_operator_fft, kernel=psf)
