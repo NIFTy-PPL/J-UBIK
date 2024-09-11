@@ -63,6 +63,8 @@ def build_webb_psf(
 
     Raises
     ------
+    ImportError
+        If `webbpsf` is not installed.
     ValueError
         If neither `fov_pixels` nor `fov_arcsec` is provided.
     KeyError
@@ -93,7 +95,10 @@ def build_webb_psf(
     if fov_pixels is None and fov_arcsec is None:
         raise ValueError('You need to provide either fov_pixels or fov_arcsec')
 
-    import webbpsf
+    try:
+        import webbpsf
+    except ImportError:
+        raise ImportError("webbpsf is not installed. Please install it first")
     from os import environ
     environ["WEBBPSF_PATH"] = webbpsf_path
 

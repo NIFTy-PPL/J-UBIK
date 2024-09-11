@@ -8,6 +8,7 @@ from scipy.sparse import coo_matrix
 try:
     from shapely.geometry import Polygon, box
 except ImportError:
+    print("shapely not installed. Some JWST functions will not work.")
     pass
 
 

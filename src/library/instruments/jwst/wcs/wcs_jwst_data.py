@@ -2,7 +2,11 @@ from typing import List, Union
 
 import numpy as np
 from astropy.coordinates import SkyCoord
-from gwcs import WCS
+try:
+    from gwcs import WCS
+except ImportError:
+    print("gwcs not installed. Some JWST functions will not work.")
+    pass
 from numpy.typing import ArrayLike
 
 from .wcs_base import WcsBase

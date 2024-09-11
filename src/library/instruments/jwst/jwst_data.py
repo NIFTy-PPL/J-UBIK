@@ -1,6 +1,10 @@
 from astropy import units
 from astropy.coordinates import SkyCoord
-from jwst import datamodels
+try:
+    from jwst import datamodels
+except ImportError:
+    print("jwst not installed. Some JWST functions will not work.")
+    pass
 from numpy import isnan
 from numpy.typing import ArrayLike
 
