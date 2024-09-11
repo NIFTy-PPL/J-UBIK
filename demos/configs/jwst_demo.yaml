@@ -2,8 +2,8 @@ seed: 86
 
 files:
   res_dir: 'results/jwst_demo'
-  webbpsf_path: './data/JWST/WebbPsf/webbpsf-data-LATEST' # webbpsf-data-'
-  psf_library: './data/JWST/psf_library'
+  webbpsf_path: '../data/JWST/webbpsf-data'
+  psf_library: '../data/JWST/psf_library'
 
 telescope:
   pointing_pixel: [128, 128]

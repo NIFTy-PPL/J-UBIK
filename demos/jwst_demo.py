@@ -1,13 +1,119 @@
+"""
+JWST DEMO
+------------
+
+This demo showcases how to reconstruct mock JWST data
+using the provided configuration file.
+The `jwst_demo.yaml` config file, located in `demos/configs/`,
+can be modified by the user to suit their specific observation setup.
+
+Requirements
+------------
+Before running this demo, ensure the following installations and downloads
+are complete:
+
+1. Install [webbpsf](https://webbpsf.readthedocs.io/en/stable/installation.html).
+Remember to download and unzip the [webbpsf-data](https://stsci.box.com/shared/static/qxpiaxsjwo15ml6m4pkhtk36c9jgj70k.gz)
+and specify the path to it in the config.
+
+YAML Configuration File Structure
+---------------------------------
+In the `JWST_demo.yaml` config file, you can define several parameters.
+Below is a breakdown of key settings:
+
+- **seed**: Random seed for generating reproducible results.
+
+- **files**:
+ - `res_dir`: Directory where the results of the run will be saved.
+ - `webbpsf_path`: Path to the webbpsf-data folder.
+ - `psf_library`: Path to the psf_library folder in which intermediate
+ psf files will be stored.
+
+- **telescope**:
+  - `pointing_pixel`: Pixel position of the pointing (in pixels).
+  - `fov`: Field of view (in arcsec).
+  - `subsample`: Subsampling factor for the data grid
+
+- **plotting**: Settings for output plots.
+  - `enabled`: Enable or disable plotting of data.
+  - `slice`: Specify the slice of data to plot (optional).
+  - `dpi`: DPI setting for plot resolution.
+
+- **grid**: Parameters defining the data grid for processing.
+  - `sdim`: Spatial dimensions for the image grid.
+  - `energy_bin`: Energy binning with `e_min`, `e_max`, and `e_ref` values
+  for each bin.
+
+- **priors**: Parameters defining the prior distributions for the SkyModel.
+  - **point_sources**: Prior parameters for point sources in the sky model.
+    - `spatial`:
+      - `alpha`: The `alpha` parameter in the Inverse-Gamma distribution.
+      - `q`: The `q` parameter in the Inverse-Gamma distribution.
+      - `key`: A unique identifier for the point sources (e.g., "points").
+    - `plaw`:
+      - `mean`: Mean value for the power-law distribution of point sources.
+      - `std`: Standard deviation for the power-law distribution.
+      - `name`: A prefix for naming the point source power-law component.
+    - `dev_wp`:
+      - `x0`: Initial value for the Wiener process deviations of point sources
+      along the energy axis.
+      - `sigma`: A list defining the standard deviations for deviations in the
+      point source model.
+      - `name`: A name for the point source deviation component.
+
+  - **diffuse**: Prior parameters for the diffuse emission component.
+    - `spatial`:
+      - `offset`:
+        - `offset_mean`: Mean value for the offset in the spatial component of
+        diffuse emission.
+        - `offset_std`: Standard deviation for the offset.
+      - `fluctuations`: Parameters controlling fluctuations in the diffuse
+      spatial emission.
+        - `fluctuations`: List of fluctuation priors (mean, std).
+        - `loglogavgslope`: List of log-log average slope of fluctuations (mean, std).
+        - `flexibility`: List of flexibility priors (mean, std).
+        - `asperity`: Controls the roughness of the spatial power spectrum
+        (set to `Null` if not used).
+        - `non_parametric_kind`: Specifies the type of non-parametric model
+        used for fluctuations (e.g., "power").
+      - `prefix`: A prefix used for naming the diffuse spatial component.
+
+    - `plaw`: Power-law prior for the diffuse emission component.
+    Similar as for the diffuse component.
+
+- **minimization**: Settings for the minimization algorithm used for likelihood
+estimation.
+  - `resume`: Whether to resume a previous minimization run.
+  - `n_total_iterations`: Total number of iterations for minimization.
+  - Additional parameters to control the sampling and KL-divergence
+  calculations.
+
+How to Run the Demo
+-------------------
+1. Ensure you have installed webbpsf correctly.
+2. Modify the `jwst_demo.yaml` file to reflect your observation setup.
+3. Run the demo from the command line as follows:
+
+    ```
+    python jwst_demo.py [config_file]
+    ```
+
+    If no config file is provided, the default
+    `configs/jwst_demo.yaml` will be used (mock data reconstruction).
+
+4. The script will load the configuration, process the observation data, and
+   save the processed data and plots (if enabled) in the specified
+   output directory.
+"""
 import argparse
 import os
 from functools import reduce
 from os.path import join
 
 import astropy.units as u
-from astropy.coordinates import SkyCoord
-
 import nifty8.re as jft
 import numpy as np
+from astropy.coordinates import SkyCoord
 from jax import config, random
 
 import jubik0 as ju
@@ -46,6 +152,7 @@ if __name__ == "__main__":
 
     # Save run configuration
     ju.copy_config(os.path.basename(config_path),
+                   path_to_yaml_file=os.path.dirname(config_path),
                    output_dir=file_info['res_dir'])
 
     # Load sky model
@@ -194,5 +301,5 @@ if __name__ == "__main__":
         nonlinearly_update_kwargs=minimization_parser.nonlinearly_update_kwargs,
         kl_kwargs=minimization_parser.kl_kwargs,
         sample_mode=minimization_parser.sample_mode,
-        callback=None,  # simple_eval_plots,
+        callback=simple_eval_plots,  # simple_eval_plots,
         odir=file_info["res_dir"], )

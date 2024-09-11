@@ -390,6 +390,7 @@ def plot_rgb(array,
     plot_data = _norm_rgb_plot(array)  # Normalize data for RGB plotting
     plt.imshow(plot_data, origin="lower")
     plt.savefig(name + ".png", dpi=500)
+    plt.clf()
     plt.close()
     print(f"RGB image saved as {name}.png")
 
