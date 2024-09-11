@@ -1,11 +1,10 @@
-from jax_finufft import nufft2
-from jax.numpy.fft import ifftshift, ifft2
-from jax.numpy import reshape
-
-from numpy import pi, array
-
-from numpy.typing import ArrayLike
 from typing import Tuple, Callable
+
+from jax.numpy import reshape
+from jax.numpy.fft import ifftshift, ifft2
+from jax_finufft import nufft2
+from numpy import pi, array
+from numpy.typing import ArrayLike
 
 
 def build_nufft_rotation_and_shift(
@@ -14,43 +13,36 @@ def build_nufft_rotation_and_shift(
     sky_shape: Tuple[int, int],
     out_shape: Tuple[int, int],
     sky_as_brightness: bool = False
-) -> Callable[ArrayLike, ArrayLike]:
-    '''Building nuFFT interpolation model.
+) -> Callable[[ArrayLike], ArrayLike]:
+    """
+    Builds non-uniform FFT interpolation model.
 
     Parameters
     ----------
-    sky_dvol
+    sky_dvol: float
         The volume of the sky/reconstruction pixels
-
-    sub_dvol
+    sub_dvol: float
         The volume of the subsample pixels.
-        Typically the data pixel is subsampled
-
-    mask
-        Mask of the data array
-
-    sky_shape
+        Typically, the data pixel is subsampled.
+    sky_shape: Tuple[int, int]
         The shape of the reconstruction array (sky shape)
-
-    sky_as_brightness
+    out_shape: Tuple[int, int]
+        The shape of the subsample array.
+    sky_as_brightness: bool
         If True, the sky will be treated as a brightness distribution.
         This is the same as setting sky_dvol = 1.
 
     Returns
     -------
     rotate_shift_subsample : function
-        The interpolation function
+        The interpolation function.
 
     Notes
     -----
-    The sky is the reconstruction array, we assume a one to one relation
+    The sky is the reconstruction array, we assume a one-to-one relation
     between the sky brightness and the flux:
         flux(x, y) = sky(x, y) * sky_dvol
-
-    '''
-
-    # out_shape = subsample_centers.shape[1:]
-
+    """
     # The conversion factor from sky to subpixel
     # (flux = sky_brightness * flux_conversion)
     if sky_as_brightness:

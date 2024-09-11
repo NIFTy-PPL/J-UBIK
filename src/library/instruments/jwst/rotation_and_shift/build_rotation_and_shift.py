@@ -1,27 +1,50 @@
-import nifty8.re as jft
+from typing import Callable, Union, Tuple, Optional
 
-from ..wcs.wcs_base import WcsBase
-from ..wcs import (subsample_grid_centers_in_index_grid_non_vstack,
-                   subsample_grid_corners_in_index_grid_non_vstack)
-from ..reconstruction_grid import Grid
+import nifty8.re as jft
+from astropy.coordinates import SkyCoord
+from numpy.typing import ArrayLike
+
+from .coordinates_correction import (
+    build_coordinates_correction_model_from_grid, CoordinatesCorrection)
 from .linear_rotation_and_shift import build_linear_rotation_and_shift
 from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
 from .sparse_rotation_and_shift import build_sparse_rotation_and_shift
-from .coordinates_correction import (
-    build_coordinates_correction_model_from_grid, CoordinatesCorrection)
-
-from astropy.coordinates import SkyCoord
-from numpy.typing import ArrayLike
-from typing import Callable, Union, Tuple, Optional
+from ..reconstruction_grid import Grid
+from ..wcs import (subsample_grid_centers_in_index_grid_non_vstack,
+                   subsample_grid_corners_in_index_grid_non_vstack)
+from ..wcs.wcs_base import WcsBase
 
 
 class RotationAndShiftModel(jft.Model):
+    """
+    A model for applying rotation and/or shift corrections to sky coordinates.
+
+    This model adjusts the sky coordinates by applying a specified correction
+    model and then using a callable function to transform the corrected
+    coordinates.
+    """
     def __init__(
         self,
         sky_domain: dict,
         call: Callable,
         correction_model: Union[Callable, CoordinatesCorrection],
     ):
+        """
+        Initialize the RotationAndShiftModel.
+
+        Parameters
+        ----------
+        sky_domain : dict
+            A dictionary specifying the domain for the sky coordinates.
+            This should include the internal key for accessing the target
+            of the sky model.
+        call : callable
+            A function that applies a callable transformation to the
+            input data.
+        correction_model : Union[Callable, CoordinatesCorrection]
+            A model or function used to compute the correction to be applied to
+            the sky coordinates.
+        """
         assert isinstance(sky_domain, dict), ('Need to provide an internal key'
                                               'to the target of the sky model')
 
@@ -48,7 +71,7 @@ def build_rotation_and_shift_model(
     kwargs: dict,
     coordinate_correction: Optional[dict] = None,
 ) -> Callable[[Union[ArrayLike, Tuple[ArrayLike, ArrayLike]]], ArrayLike]:
-    '''Rotation and shift model builder
+    """Rotation and shift model builder
 
     Parameters
     ----------
@@ -81,7 +104,8 @@ def build_rotation_and_shift_model(
 
         sparse: dict, options
             - extend_factor, default: 1 (extension of the sky grid)
-            - to_bottom_left: default: True (reconstruction in bottom left of extended grid)
+            - to_bottom_left: default: True (reconstruction in bottom
+            left of extended grid)
 
         nufft: dict, options
             - sky_as_brightness: default: False
@@ -89,14 +113,16 @@ def build_rotation_and_shift_model(
     coordinate_correction: dict
         domain_key: str
         priors: dict
-            - shift: Mean and sigma for the Gaussian distribution of shift model.
-            - rotation: Mean and sigma of the Gaussian distribution for theta [rad]
+            - shift: Mean and sigma for the Gaussian distribution of
+            shift model.
+            - rotation: Mean and sigma of the Gaussian distribution
+            for theta [rad]
 
 
     Returns
     -------
     RotationAndShiftModel(dict(sky, correction)) -> rotated_and_shifted_sky
-    '''
+    """
 
     assert reconstruction_grid.dvol.unit == data_grid_dvol.unit
 
@@ -121,7 +147,7 @@ def build_rotation_and_shift_model(
             )
 
         case 'nufft':
-            # FIXME: is the out_shape correct?
+            # TODO: check output shape
             out_shape = correction_model.target.shape[1:] if isinstance(
                 correction_model, CoordinatesCorrection) else correction_model(None).shape[1:]
 

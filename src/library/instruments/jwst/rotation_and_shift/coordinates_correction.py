@@ -1,19 +1,30 @@
+from typing import Optional, Callable, Union
+
 import jax.numpy as jnp
 import nifty8.re as jft
-
+from astropy import units as u
 from jax.numpy import array
-from typing import Optional, Callable, Union
 from numpy.typing import ArrayLike
 
-from astropy import units as u
-
 from ..parametric_model import build_parametric_prior
-from ..wcs.wcs_jwst_data import WcsJwstData
-from ..wcs.wcs_astropy import WcsAstropy
 from ..reconstruction_grid import Grid
+from ..wcs.wcs_astropy import WcsAstropy
+from ..wcs.wcs_jwst_data import WcsJwstData
 
 
 class CoordinatesCorrection(jft.Model):
+    """
+    Applies rotation and shift corrections to a set of coordinates.
+
+    This model applies a rotation and shift to the given coordinates based on
+    the provided priors for rotation and shift. The rotation is applied around
+    a specified center, and the shift is scaled by the pixel distance.
+
+    The transformation is defined as:
+        ri = si * Rot(theta) * (pi - r)
+           = Rot(theta) * (si * pi - si * r),
+    where `si * r` is the rotation center.
+    """
     def __init__(
         self,
         shift_prior: jft.Model,
@@ -22,14 +33,26 @@ class CoordinatesCorrection(jft.Model):
         rotation_center: tuple[int, int],
         coords: ArrayLike,
     ):
-        '''Rotation correction according to:
-        ri = si Rot(theta) (pi - r)
-            = Rot(theta) (si*pi -si*r),
-        where si*r=rotation_center.
-        '''
+        """
+        Initialize the CoordinatesCorrection model.
+
+        Parameters
+        ----------
+        shift_prior : jft.Model
+            A model that provides the prior distribution for the
+            shift parameters.
+        rotation_prior : jft.Model
+            A model that provides the prior distribution for the rotation angle.
+        pix_distance : tuple of float
+            The distances between pixels used to scale the shift values.
+        rotation_center : tuple of int
+            The (x, y) coordinates around which the rotation is applied.
+        coords : ArrayLike
+            The coordinates to which the corrections will be applied.
+        """
         self.rotation_center = rotation_center
         self.pix_distance = pix_distance
-        self.shift_prior = shift_prior  # FIXME: Not prior to distribution_operator
+        self.shift_prior = shift_prior
         self.rotation_prior = rotation_prior
         self._coords = coords
 
@@ -55,34 +78,60 @@ def build_coordinates_correction_model(
     rotation_center: tuple[float, float],
     coords: ArrayLike,
 ) -> Union[Callable[[dict, ArrayLike], ArrayLike], CoordinatesCorrection]:
-    '''The shift correction is a normal distribution on the shift: (x, y).
-    (x, y) <- Gaussian(mean, sigma)
+    """
+    Builds a model for applying coordinate corrections including shifts and
+    rotations.
 
-    Rotation correction is defined via:
-    ri = si Rot(theta) (pi - r)
-        = Rot(theta) (si*pi -si*r),
-    where si*r=rotation_center given in units of the coordinates (si*pi).
-    The prior distribution over theta is a normal distribution.
+    This function constructs a `CoordinatesCorrection` model.
+    If no priors are provided, it returns a lambda function that simply
+    returns the original coordinates.
+
+    The shift correction is modeled as a Gaussian distribution for
+    shifts (x, y):
+        (x, y) ~ Gaussian(mean, sigma)
+
+    The rotation correction is applied as:
+        ri = si * Rot(theta) * (pi - r)
+           = Rot(theta) * (si * pi - si * r),
+    where `si * r` represents the rotation center in the coordinate units
+    (si * pi).
 
     Parameters
     ----------
-    domain_key
+    domain_key : str
+        A key used to generate names for the shift and rotation priors.
+    priors : dict or None
+        A dictionary containing the priors for shift and rotation.
+        Should include:
+            - 'shift': Dictionary with 'mean' and 'sigma' for the Gaussian
+            shift distribution.
+            - 'rotation': Dictionary with 'mean' and 'sigma' for the
+            Gaussian distribution of the rotation angle in radians.
+        If None, a lambda function returning the original coordinates
+        is returned.
+    pix_distance : tuple of float
+        The distances between pixels, used to scale the shift values
+        to the coordinate units.
+    rotation_center : tuple of float
+        The (x, y) coordinates around which the rotation is applied,
+        in the units of the provided coordinates.
+    coords : ArrayLike
+        The coordinates to be corrected by the model.
 
-    priors
-        shift: Mean and sigma for the Gaussian distribution of shift model.
-        rotation: Mean and sigma of the Gaussian distribution for theta [rad]
+    Returns
+    -------
+    Union[Callable[[dict, ArrayLike], ArrayLike], CoordinatesCorrection]
+        If `priors` is None, returns a lambda function that returns the
+        original coordinates.
+        Otherwise, returns an instance of `CoordinatesCorrection` with
+        the specified priors and parameters.
 
-    pix_distance
-        The si, i.e. the size of an individual pixel s.t. the shift is in units
-        of the coords.
-
-    rotation_center
-        The rotation center, has to be relative to the coords which will be
-        supplied to the RotationCorrection.
-
-    coords
-        The coordinates to be corrected
-    '''
+    Raises
+    ------
+    ValueError
+        If `priors` is provided but does not contain both 'shift' and
+        'rotation' keys with the appropriate values.
+    """
     if priors is None:
         return lambda _: coords
 
@@ -119,30 +168,44 @@ def build_coordinates_correction_model_from_grid(
     reconstruction_grid: Grid,
     coords: ArrayLike,
 ) -> Union[Callable[[dict, ArrayLike], ArrayLike], CoordinatesCorrection]:
-    '''The shift correction is a normal distribution on the shift: (x, y).
-    (x, y) <- Gaussian(mean, sigma)
-
-    Rotation correction is defined via:
-    ri = si Rot(theta) (pi - r)
-        = Rot(theta) (si*pi -si*r),
-    where si*r=rotation_center given in units of the coordinates (si*pi).
-    The prior distribution over theta is a normal distribution.
+    """
+    Builds a coordinate correction model based on a grid and WCS data.
 
     Parameters
     ----------
-    domain_key
+    domain_key : str
+        A key used to generate names for the shift and rotation priors.
+    priors : dict or None
+        A dictionary containing the priors for shift and rotation.
+        Should include:
+            - 'shift': Dictionary with 'mean' and 'sigma' for the Gaussian
+            shift distribution.
+            - 'rotation': Dictionary with 'mean' and 'sigma' for the Gaussian
+            distribution of the rotation angle in radians.
+        If None, a lambda function returning the original coordinates
+        is returned.
+    data_wcs : Union[WcsJwstData, WcsAstropy]
+        The WCS data used to determine the reference pixel coordinates
+        for the correction model.
+    reconstruction_grid : Grid
+        The grid used to define the coordinate system for the correction model.
+    coords : ArrayLike
+        The coordinates to be corrected by the model.
 
-    priors
-        - shift: Mean and sigma for the Gaussian distribution of shift model.
-        - rotation: Mean and sigma of the Gaussian distribution for theta [rad]
+    Returns
+    -------
+    Union[Callable[[dict, ArrayLike], ArrayLike], CoordinatesCorrection]
+        If `priors` is None, returns a lambda function that returns the
+        original coordinates.
+        Otherwise, returns an instance of `CoordinatesCorrection` with
+        the specified priors and parameters.
 
-    data_wcs
-
-    reconstruction_grid
-
-    coords
-        The coordinates to be corrected
-    '''
+    Raises
+    ------
+    NotImplementedError
+        If `data_wcs` is of a type not supported by this function
+        (i.e., not `WcsJwstData` or `WcsAstropy`).
+    """
 
     if priors is None:
         return lambda _: coords

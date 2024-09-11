@@ -1,9 +1,8 @@
-from jax.scipy.ndimage import map_coordinates
-
 from functools import partial
-
-from numpy.typing import ArrayLike
 from typing import Callable
+
+from jax.scipy.ndimage import map_coordinates
+from numpy.typing import ArrayLike
 
 
 def build_linear_rotation_and_shift(
@@ -13,26 +12,24 @@ def build_linear_rotation_and_shift(
     sky_as_brightness: bool = False,
     mode='wrap'
 ) -> Callable[ArrayLike, ArrayLike]:
-    '''Building linear (higher orders not yet supported) rotation_and_shift model.
+    """
+    Builds linear (higher orders not yet supported) rotation_and_shift model.
 
     Parameters
     ----------
-    sky_dvol:
+    sky_dvol: float
         The volume of the sky/reconstruction pixels
-
-    sub_dvol:
+    sub_dvol: float
         The volume of the subsample pixels.
-        Typically the data pixel is subsampled
-
-    mask:
-        Mask of the data array
-
-    order:
-        The order of the rotation_and_shift scheme (only linear supported by JAX)
-
+        Typically, the data pixel is subsampled
+    order: int
+        The order of the rotation_and_shift scheme
+        (only linear supported by JAX)
     sky_as_brightness:
         If True, the sky will be treated as a brightness distribution.
         This is the same as setting sky_dvol = 1.
+    mode: str
+        The mode of the interpolation.
 
     Returns
     -------
@@ -41,10 +38,10 @@ def build_linear_rotation_and_shift(
 
     Notes
     -----
-    The sky is the reconstruction array, we assume a one to one relation
+    The sky is the reconstruction array, we assume a one-to-one relation
     between the sky brightness and the flux:
         flux(x, y) = sky(x, y) * sky_dvol
-    '''
+    """
 
     # The conversion factor from sky to subpixel
     # (flux = sky_brightness * flux_conversion)

@@ -1,10 +1,10 @@
-import numpy as np
-from shapely.geometry import Polygon, box
-from scipy.sparse import coo_matrix
-from jax.experimental.sparse import BCOO
-
-from numpy.typing import ArrayLike
 from typing import Tuple
+
+import numpy as np
+from jax.experimental.sparse import BCOO
+from numpy.typing import ArrayLike
+from scipy.sparse import coo_matrix
+from shapely.geometry import Polygon, box
 
 
 class _ValueCalculator:
@@ -22,11 +22,13 @@ class _ValueCalculator:
         self.masked_grid = coord_grid[0][mask], coord_grid[1][mask]
 
     def get_pixel_extrema(self, pix_cntr):
+        """ Find the extrema of the pixel. """
         minx, miny = pix_cntr[0]-self.hside[0], pix_cntr[1]-self.hside[1]
         maxx, maxy = pix_cntr[0]+self.hside[0], pix_cntr[1]+self.hside[1]
-        return (minx, miny, maxx, maxy)
+        return minx, miny, maxx, maxy
 
     def calculate_values(self, minimum=1e-11):
+        """ Calculate the fractional area of the data pixel. """
         values = {}
         for pix_cntr in zip(self.masked_grid[0], self.masked_grid[1]):
             minxy_maxxy = self.get_pixel_extrema(pix_cntr)
@@ -38,7 +40,8 @@ class _ValueCalculator:
 
 
 def _get_nearest_index(coord: Tuple[float, float], grid: ArrayLike):
-    '''Find the index of the nearest grid point to the given coordinate.'''
+    """ Find the index of the nearest grid point to the given
+    coordinate."""
     dist_squared = (grid[0] - coord[0])**2 + (grid[1] - coord[1])**2
     return np.unravel_index(np.argmin(dist_squared), grid[0].shape)
 
@@ -67,7 +70,8 @@ def build_sparse_rotation_and_shift(
         for (index_x, index_y), val in values.items():
             index_x, index_y = _get_nearest_index(
                 (index_x, index_y), index_grid)
-            ind = np.ravel_multi_index((index_x, index_y), index_grid[0].shape)
+            ind = np.ravel_multi_index((index_x, index_y),
+                                       index_grid[0].shape)
             rows.append(ii)
             cols.append(ind)
             data.append(val)
