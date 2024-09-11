@@ -16,6 +16,7 @@ are complete:
 2. Install [webbpsf](https://webbpsf.readthedocs.io/en/stable/installation.html).
 Remember to download and unzip the [webbpsf-data](https://stsci.box.com/shared/static/qxpiaxsjwo15ml6m4pkhtk36c9jgj70k.gz)
 and specify the path to it in the config.
+3. Install [gwcs](https://gwcs.readthedocs.io/en/latest/#installation).
 
 YAML Configuration File Structure
 ---------------------------------
