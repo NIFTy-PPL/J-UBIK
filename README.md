@@ -62,3 +62,9 @@ A good example is [LMC_dataset](https://erosita.mpe.mpg.de/edr/eROSITAObservatio
 For more information on how to run `erosita_demo.py` see the corresponding docstring.
 
 ### JWST
+J-UBIK allows to process and image event files from the James Webb Space Telescope.
+
+#### Requirements
+In order to make use of the JWST capabilities of the package, you will need to install
+[WebbPSF](https://webbpsf.readthedocs.io/en/stable/installation.html).
+For more details see `jwst_demo.py` in the `demo/` repository.
