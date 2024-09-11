@@ -133,11 +133,12 @@ parser.add_argument('config', type=str,
                     nargs='?', const=1, default="configs/jwst_demo.yaml")
 args = parser.parse_args()
 
-filter_distance = dict(
-    f115w=0.031,
-    f150w=0.031,
-    f200w=0.031,
+filters = dict(
+    f200w=dict(distance=0.031, key=0),
+    f150w=dict(distance=0.031, key=1),
+    f115w=dict(distance=0.031, key=2),
 )
+pointing_center = (0, 0)
 
 if __name__ == "__main__":
     # Load config file
@@ -167,10 +168,9 @@ if __name__ == "__main__":
 
     energy_cfg = cfg['grid']['energy_bin']
     e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
-    filters = {'f115w': 2, 'f150w': 1, 'f200w': 0}
     filter_projector = FilterProjector(
         sky_domain=sky.target,
-        keys_and_colors=filters,
+        keys_and_colors={key: val['key'] for key, val in filters.items()},
     )
 
     key, subkey = random.split(key)
@@ -179,9 +179,8 @@ if __name__ == "__main__":
         domain=sky.domain)
 
     mock_sky = sky_model_with_filters(sky_model_with_filters.init(subkey))
-    center = (0, 0)
     reconstruction_grid = ju.Grid(
-        center=SkyCoord(center[0]*u.rad, center[1]*u.rad),
+        center=SkyCoord(pointing_center[0]*u.rad, pointing_center[1]*u.rad),
         shape=(cfg['grid']['sdim'],)*2,
         fov=(cfg['grid']['fov']*u.arcsec,)*2
     )
@@ -200,9 +199,10 @@ if __name__ == "__main__":
         )
 
         data_fov = cfg['telescope']['fov']
-        data_shape = int(data_fov/filter_distance[fltname])
+        data_shape = int(data_fov/filters[fltname]['distance'])
         data_grid = ju.Grid(
-            center=SkyCoord(center[0]*u.rad, center[1]*u.rad),
+            center=SkyCoord(
+                pointing_center[0]*u.rad, pointing_center[1]*u.rad),
             shape=(data_shape,)*2,
             fov=(data_fov*u.arcsec,)*2
         )
