@@ -187,6 +187,8 @@ plot_lens = build_plot_lens_system(
     plotting_config=dict(
         norm_source=LogNorm,
         norm_lens=LogNorm,
+        # norm_source_alpha=LogNorm,
+        norm_source_nonparametric=LogNorm,
         # norm_mass=LogNorm,
     ),
     lens_system=lens_system,
@@ -258,8 +260,9 @@ def plot(samples: jft.Samples, state: jft.OptimizeVIState):
     if cfg['plot_results']:
         plot_residual(samples, state)
         plot_color(samples, state)
-        if not cfg['lens_only']:
-            plot_lens(samples, state, parametric=parametric_flag)
+
+    if not cfg['lens_only']:
+        plot_lens(samples, state, parametric=parametric_flag)
 
 
 pretrain_position = pretrain_lens_system(

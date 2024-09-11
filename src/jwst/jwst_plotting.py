@@ -473,6 +473,9 @@ def build_plot_lens_system(
 
     # plotting_config
     norm_source = plotting_config.get('norm_source', Normalize)
+    norm_sl_alpha = plotting_config.get('norm_source_alpha', Normalize)
+    norm_sl_nonparametric = plotting_config.get(
+        'norm_source_nonparametric', Normalize)
     norm_lens = plotting_config.get('norm_lens', Normalize)
     norm_mass = plotting_config.get('norm_mass', Normalize)
     min_source = plotting_config.get('min_source', 1e-5)
@@ -543,8 +546,10 @@ def build_plot_lens_system(
         # Plot source light
         axes[1, 0].set_title("Source light alpha")
         axes[1, 1].set_title("Source light nonpar")
-        ims[1, 0] = axes[1, 0].imshow(sla, origin='lower', extent=source_ext)
-        ims[1, 1] = axes[1, 1].imshow(sln, origin='lower', extent=source_ext)
+        ims[1, 0] = axes[1, 0].imshow(sla, origin='lower', extent=source_ext,
+                                      norm=norm_sl_alpha)
+        ims[1, 1] = axes[1, 1].imshow(sln, origin='lower', extent=source_ext,
+                                      norm=norm_sl_nonparametric)
 
         # Plot mass field
         axes[2, 0].set_title("Mass par")
