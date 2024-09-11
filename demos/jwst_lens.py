@@ -251,7 +251,7 @@ if cfg.get('prior_samples'):
 def plot(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f'Plotting: {state.nit}')
 
-    last_fn = os.path.join(RES_DIR, f'position_{state.nit: 02d}')
+    last_fn = os.path.join(RES_DIR, f'samples_state_{state.nit:02d}.pkl')
     with open(last_fn, "wb") as f:
         pickle.dump((samples, state._replace(config={})), f)
 
