@@ -10,6 +10,7 @@ import astropy.io.fits as fits
 import nifty8.re as jft
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from plot_eROSITA_image import plot, plot_rgb
 
@@ -89,11 +90,12 @@ if __name__ == "__main__":
     unmasked_chandra_data2 = mask_adj_func(plottable_vector)
 
 
-    plottabel_data_list = [unmasked_data[0], unmasked_chandra_data1[0],
+    plottabel_data_list = [unmasked_erosita_data[0], unmasked_chandra_data1[0],
                            unmasked_chandra_data2[0]]
     plottable_data = np.vstack(plottabel_data_list)
     title_list = ['eROSITA', 'Chandra', 'Chandra']
     bbox_info = [(7, 4), 28, 96,  'black']
+    pointing_center = [(512, 512), (512, 512), (512, 512)]
     plot(plottable_data,
          pixel_measure=112,
          fs=8,
@@ -103,8 +105,9 @@ if __name__ == "__main__":
          common_colorbar=True,
          n_rows=1,
          vmin=1e-0,
-         vmax=1e4,
+         vmax=1e2,
          bbox_info=bbox_info,
+         pointing_center = pointing_center,
          output_file=join(output_dir,
          f'simulated_data.png'))
 

@@ -10,7 +10,8 @@ from matplotlib.ticker import LogLocator
 def plot(array, pixel_measure=None, pixel_factor =1, output_file=None, logscale=False, title=None, colorbar=True,
          figsize=(8, 8), dpi=200, n_rows=None,
          share_x=True, share_y=True, fs=14, alpha=0.8,
-             bbox_info= [(7, 4), 7,  30, 'black'], **kwargs):
+             bbox_info= [(7, 4), 7,  30, 'black'],
+         pointing_center = None, **kwargs):
     n_cols= int(np.ceil(array.shape[0]/n_rows))
     fig, ax = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize, dpi=dpi, sharex=share_x,
                              sharey=share_y)
@@ -80,6 +81,13 @@ def plot(array, pixel_measure=None, pixel_factor =1, output_file=None, logscale=
             ax[i].plot([x0, x1], [y0, y1], color='white', linewidth=1)
             ax[i].plot([x2, x3], [y2, y3], color='white', linewidth=1)
             ax[i].plot([x4, x5], [y4, y5], color='white', linewidth=1)
+        if pointing_center is not None:
+            ax[i].plot(pointing_center[i][0],
+                       pointing_center[i][1],
+                       marker='+',
+                       color='red',
+                       markersize=10,
+                       markeredgewidth=1)
 
     fig.subplots_adjust(right=0.84, wspace=0.04)
     cbar_ax = fig.add_axes([0.88, 0.38, 0.04, 0.225])

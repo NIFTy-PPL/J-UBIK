@@ -340,7 +340,8 @@ def build_erosita_response(
                      'psf': psf_func,
                      'exposure': exposure_func,
                      'mask': mask_func,
-                     'R': response_func}
+                     'R': response_func,
+                     'pointing': pointing_center}
     return response_dict
 
 
