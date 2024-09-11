@@ -1,1 +1,1 @@
-from .sum_integration import build_sum_integration, build_sum_integration_old
+from .sum_integration import build_sum_integration

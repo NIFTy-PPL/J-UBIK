@@ -46,14 +46,3 @@ def build_sum_integration(
                  high_res_shape[1] // reduction_factor, reduction_factor)
 
     return lambda x: x.reshape(new_shape).sum(axis=(1, 3))
-
-
-# TODO: deprecate
-def build_sum_integration_old(
-    shape: tuple,
-    reduction_factor: int
-):
-    """Old version of build_sum_integration."""
-    assert shape[0] == reduction_factor ** 2
-
-    return lambda x: x.sum(axis=0)
