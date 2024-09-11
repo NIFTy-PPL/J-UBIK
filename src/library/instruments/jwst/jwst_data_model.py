@@ -4,7 +4,7 @@ import nifty8.re as jft
 from numpy.typing import ArrayLike
 
 from .integration_model import build_sum_integration
-from .psf.build_psf import instantiate_psf, load_psf_kernel
+from .jwst_psf import instantiate_psf, load_psf_kernel
 from .rotation_and_shift import build_rotation_and_shift_model, \
     RotationAndShiftModel
 from .zero_flux_model import build_zero_flux_model
