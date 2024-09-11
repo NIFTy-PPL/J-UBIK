@@ -1,14 +1,14 @@
+from astropy import units
+from astropy.coordinates import SkyCoord
 from jwst import datamodels
-from .wcs.wcs_jwst_data import WcsJwstData
+from numpy import isnan
+from numpy.typing import ArrayLike
 
 from .color import Color, ColorRange
+from .wcs.wcs_jwst_data import WcsJwstData
 
-from astropy.coordinates import SkyCoord
-from astropy import units
-from numpy.typing import ArrayLike
-from numpy import isnan
+# TODO: NIRCam filter response can also be handled by the throughput curves
 
-# FIXME: NIRCam filter response can also be handled by the throughput curves: see,
 nircam_filters = dict(
     # https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-instrumentation/miri-filters-and-dispersers#gsc.tab=0
     # Pivot λ (μm), BW Δλ (μm), Effective response, Blue λ- (µm), Red λ+ (µm)
@@ -95,7 +95,8 @@ class JwstData:
         self.dvol = _get_dvol(self.filter)
 
     def data_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
-        '''Find the data values inside the extrema.
+        """
+        Find the data values inside the extrema.
 
         Parameters
         ----------
@@ -107,14 +108,13 @@ class JwstData:
         -------
         data : ArrayLike
             Data values inside the extrema.
-
-        '''
+        """
         minx, maxx, miny, maxy = self.wcs.index_from_wl_extrema(
             extrema, self.shape)
         return self.dm.data[miny:maxy, minx:maxx]
 
     def std_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
-        '''Find the data values inside the extrema.
+        """Find the data values inside the extrema.
 
         Parameters
         ----------
@@ -126,14 +126,14 @@ class JwstData:
         -------
         data : ArrayLike
             Data values inside the extrema.
-
-        '''
+        """
         minx, maxx, miny, maxy = self.wcs.index_from_wl_extrema(
             extrema, self.shape)
         return self.dm.err[miny:maxy, minx:maxx]
 
     def nan_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
-        '''Get a nan-mask of the data inside the extrema.
+        """
+        Get a nan-mask of the data inside the extrema.
 
         Parameters
         ----------
@@ -145,8 +145,7 @@ class JwstData:
         -------
         nan-mask : ArrayLike
             Mask corresponding to the nan values inside the extrema.
-
-        '''
+        """
         minx, maxx, miny, maxy = self.wcs.index_from_wl_extrema(
             extrema, self.shape)
         return ~isnan(self.dm.data[miny:maxy, minx:maxx])
@@ -164,11 +163,12 @@ class JwstData:
 
     @property
     def transmission(self):
-        '''Effective response is the mean transmission value over the
+        """
+        Effective response is the mean transmission value over the
         wavelength range.
 
         see:
         https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-instrumentation/miri-filters-and-dispersers#gsc.tab=0
-        '''
+        """
         pivot, bw, effective_response, blue, red = JWST_FILTERS[self.filter]
         return effective_response
