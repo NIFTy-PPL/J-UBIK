@@ -1,10 +1,10 @@
+from typing import Tuple
+
 import numpy as np
+from astropy.coordinates import SkyCoord
+from numpy.typing import ArrayLike
 
 from .wcs_base import WcsBase
-from astropy.coordinates import SkyCoord
-
-from typing import Tuple
-from numpy.typing import ArrayLike
 
 
 def subsample_grid_corners_in_index_grid(
@@ -13,7 +13,8 @@ def subsample_grid_corners_in_index_grid(
     index_grid_wcs: WcsBase,
     subsample: int
 ) -> ArrayLike:
-    '''This function finds the index positions for the corners of the pixels of
+    """
+    This function finds the index positions for the corners of the pixels of
     the data_grid inside the reconstruction_grid.
 
 
@@ -36,7 +37,7 @@ def subsample_grid_corners_in_index_grid(
         The multiplicity of the subsampling along each axis. How many
         sub-pixels will a single pixel in the to_be_subsampled_grid have along
         each axis.
-    '''
+    """
     ssg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
         world_extrema)
 
@@ -66,7 +67,8 @@ def subsample_grid_corners_in_index_grid_non_vstack(
     index_grid_wcs: WcsBase,
     subsample: int
 ) -> ArrayLike:
-    '''This function finds the index positions for the corners of the pixels of
+    """
+    This function finds the index positions for the corners of the pixels of
     the data_grid inside the reconstruction_grid.
 
 
@@ -89,7 +91,7 @@ def subsample_grid_corners_in_index_grid_non_vstack(
         The multiplicity of the subsampling along each axis. How many
         sub-pixels will a single pixel in the to_be_subsampled_grid have along
         each axis.
-    '''
+    """
     tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
         world_extrema)
 

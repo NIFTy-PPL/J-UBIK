@@ -1,10 +1,10 @@
+from typing import Tuple
+
 import numpy as np
+from astropy.coordinates import SkyCoord
+from numpy.typing import ArrayLike
 
 from .wcs_base import WcsBase
-from astropy.coordinates import SkyCoord
-
-from typing import Tuple
-from numpy.typing import ArrayLike
 
 
 def subsample_grid_centers_in_index_grid(
@@ -13,7 +13,8 @@ def subsample_grid_centers_in_index_grid(
     index_grid_wcs: WcsBase,
     subsample: int
 ) -> ArrayLike:
-    '''This function finds the index positions for the centers of a subsampled
+    """
+    This function finds the index positions for the centers of a subsampled
     grid (the to_be_subsampled_grid, typcially the data_grid) inside another
     grid (the index_grid, typically the reconstruction_grid).
 
@@ -36,7 +37,7 @@ def subsample_grid_centers_in_index_grid(
         The multiplicity of the subsampling along each axis. How many
         sub-pixels will a single pixel in the to_be_subsampled_grid have along
         each axis.
-    '''
+    """
     tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
         world_extrema)
 
@@ -50,7 +51,7 @@ def subsample_grid_centers_in_index_grid(
     subsample_center_indices = index_grid_wcs.index_from_wl(
         wl_subsample_centers)
 
-    # FIXME: JWST data seems to be axis-swapped
+    # TODO: check for JWST, data seems to be axis-swapped
     return subsample_center_indices[::-1, :, :]
 
 
@@ -60,7 +61,8 @@ def subsample_grid_centers_in_index_grid_non_vstack(
     index_grid_wcs: WcsBase,
     subsample: int
 ) -> ArrayLike:
-    '''This function finds the index positions for the centers of a subsampled
+    """
+    This function finds the index positions for the centers of a subsampled
     grid (the to_be_subsampled_grid, typcially the data_grid) inside another
     grid (the index_grid, typically the reconstruction_grid).
 
@@ -83,7 +85,7 @@ def subsample_grid_centers_in_index_grid_non_vstack(
         The multiplicity of the subsampling along each axis. How many
         sub-pixels will a single pixel in the to_be_subsampled_grid have along
         each axis.
-    '''
+    """
     tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
         world_extrema)
 
@@ -107,5 +109,5 @@ def subsample_grid_centers_in_index_grid_non_vstack(
     subsample_center_indices = index_grid_wcs.index_from_wl(
         wl_subsample_centers)[0]
 
-    # FIXME: JWST data seems to be axis-swapped
+    # TODO: check for JWST data seems to be axis-swapped
     return subsample_center_indices[::-1, :, :]

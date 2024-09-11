@@ -1,10 +1,9 @@
 from abc import ABC, abstractmethod
-
 from typing import List, Union, Tuple, Optional
-from astropy.coordinates import SkyCoord
-from numpy.typing import ArrayLike
 
 import numpy as np
+from astropy.coordinates import SkyCoord
+from numpy.typing import ArrayLike
 
 
 class WcsBase(ABC):
@@ -15,7 +14,8 @@ class WcsBase(ABC):
     def wl_from_index(
         self, index: ArrayLike
     ) -> Union[SkyCoord, List[SkyCoord]]:
-        '''Convert pixel coordinates to world coordinates.
+        """
+        Convert pixel coordinates to world coordinates.
 
         Parameters
         ----------
@@ -25,14 +25,15 @@ class WcsBase(ABC):
         Returns
         -------
         wl : SkyCoord
-        '''
+        """
         pass
 
     @abstractmethod
     def index_from_wl(
         self, wl: Union[SkyCoord, List[SkyCoord]]
     ) -> Union[ArrayLike, List[ArrayLike]]:
-        '''Convert world coordinates to pixel coordinates.
+        """
+        Convert world coordinates to pixel coordinates.
 
         Parameters
         ----------
@@ -41,7 +42,7 @@ class WcsBase(ABC):
         Returns
         -------
         index : ArrayLike
-        '''
+        """
         pass
 
     def index_from_wl_extrema(
@@ -49,7 +50,8 @@ class WcsBase(ABC):
         world_extrema: SkyCoord,
         shape_check: Optional[Tuple[int, int]] = None
     ) -> Tuple[int, int, int, int]:
-        '''Find the minimum and maximum pixel indices of the bounding box that
+        """
+        Find the minimum and maximum pixel indices of the bounding box that
         contain the world location world_extrema (wl_extrema).
 
         Parameters
@@ -66,7 +68,7 @@ class WcsBase(ABC):
         minx, maxx, miny, maxy : Tuple[int, int, int, int]
             Minimum and maximum pixel coordinates of the data grid that contain
             the edge points.
-        '''
+        """
 
         edges_dgrid = self.index_from_wl(world_extrema)
 
@@ -93,7 +95,8 @@ class WcsBase(ABC):
         world_extrema: SkyCoord,
         shape_check: Optional[Tuple[int, int]] = None
     ) -> np.typing.ArrayLike:
-        '''Find the pixel indices of the bounding box that contain the world
+        """
+        Find the pixel indices of the bounding box that contain the world
         location world_extrema (wl_extrema).
 
         Parameters
@@ -107,10 +110,10 @@ class WcsBase(ABC):
 
         Returns
         -------
-        minx, maxx, miny, maxy : Tuple[int, int, int, int]
+        minx, max, miny, maxy : Tuple[int, int, int, int]
             Minimum and maximum pixel coordinates of the data grid that contain
             the edge points.
-        '''
+        """
 
         minx, maxx, miny, maxy = self.index_from_wl_extrema(
             world_extrema, shape_check)

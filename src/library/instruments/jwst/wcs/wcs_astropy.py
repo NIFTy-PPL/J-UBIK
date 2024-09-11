@@ -18,7 +18,8 @@ class WcsAstropy(WcsBase):
     def wl_from_index(
         self, index: ArrayLike
     ) -> Union[SkyCoord, List[SkyCoord]]:
-        '''Convert pixel coordinates to world coordinates.
+        """
+        Convert pixel coordinates to world coordinates.
 
         Parameters
         ----------
@@ -33,14 +34,15 @@ class WcsAstropy(WcsBase):
         ----
         We use the convention of x aligning with the columns, second dimension,
         and y aligning with the rows, first dimension.
-        '''
+        """
         if len(np.shape(index)) == 1:
             index = [index]
         return [self._wcs.pixel_to_world(*idx) for idx in index]
         # return [self._wcs.array_index_to_world(*idx) for idx in index]
 
     def index_from_wl(self, wl_array: List[SkyCoord]) -> ArrayLike:
-        '''Convert world coordinates to pixel coordinates.
+        """
+        Convert world coordinates to pixel coordinates.
 
         Parameters
         ----------
@@ -54,11 +56,10 @@ class WcsAstropy(WcsBase):
         ----
         We use the convention of x aligning with the columns, second dimension,
         and y aligning with the rows, first dimension.
-        '''
+        """
         if isinstance(wl_array, SkyCoord):
             wl_array = [wl_array]
         return np.array([self._wcs.world_to_pixel(wl) for wl in wl_array])
-        # return ([self._wcs.world_to_array_index_values(wl) for wl in wl_array])
 
 
 def build_astropy_wcs(

@@ -1,10 +1,9 @@
-import numpy as np
-
 from typing import List, Union
-from astropy.coordinates import SkyCoord
-from numpy.typing import ArrayLike
 
+import numpy as np
+from astropy.coordinates import SkyCoord
 from gwcs import WCS
+from numpy.typing import ArrayLike
 
 from .wcs_base import WcsBase
 
@@ -16,7 +15,8 @@ class WcsJwstData(WcsBase):
     def wl_from_index(
         self, index: ArrayLike
     ) -> Union[SkyCoord, List[SkyCoord]]:
-        '''Convert pixel coordinates to world coordinates.
+        """
+        Convert pixel coordinates to world coordinates.
 
         Parameters
         ----------
@@ -26,7 +26,7 @@ class WcsJwstData(WcsBase):
         Returns
         -------
         wl : SkyCoord
-        '''
+        """
         shp = np.shape(index)
         if (len(shp) == 2) or ((len(shp) == 3) and (shp[0] == 2)):
             return self._wcs(*index, with_units=True)
@@ -35,7 +35,8 @@ class WcsJwstData(WcsBase):
     def index_from_wl(
         self, wl: Union[SkyCoord, List[SkyCoord]]
     ) -> Union[ArrayLike, List[ArrayLike]]:
-        '''Convert world coordinates to pixel coordinates.
+        """
+        Convert world coordinates to pixel coordinates.
 
         Parameters
         ----------
@@ -44,7 +45,7 @@ class WcsJwstData(WcsBase):
         Returns
         -------
         index : ArrayLike
-        '''
+        """
         if isinstance(wl, SkyCoord):
             wl = [wl]
         return np.array([self._wcs.world_to_pixel(w) for w in wl])
