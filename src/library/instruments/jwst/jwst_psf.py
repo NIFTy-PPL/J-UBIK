@@ -161,17 +161,19 @@ def load_psf_kernel(
     webbpsf_path : str
         The path to the directory containing the `webbpsf` data files.
     psf_library_path : str
-        The directory where the computed PSF files are stored. The PSF kernel will be saved here
-        if it is not already present.
+        The directory where the computed PSF files are stored.
+        The PSF kernel will be saved here if it is not already present.
     subsample : int
         The oversampling factor for the PSF computation.
     fov_pixels : int, optional
-        The field of view (FOV) in pixels. If not provided, `fov_arcsec` must be specified.
+        The field of view (FOV) in pixels. If not provided, `fov_arcsec`
+        must be specified.
     fov_arcsec : float, optional
-        The field of view (FOV) in arcseconds. If not provided, `fov_pixels` must be specified.
+        The field of view (FOV) in arcseconds. If not provided, `fov_pixels`
+        must be specified.
     normalize : str, optional
-        The normalization method for the PSF. Default is 'last', but other methods may be supported
-        by `webbpsf`.
+        The normalization method for the PSF. Default is 'last',
+        but other methods may be supported by `webbpsf`.
 
     Returns
     -------
@@ -219,7 +221,30 @@ def load_psf_kernel(
 
 
 def psf_operator_fft(field, kernel):
-    """Creates a Psf-operator: convolution of field by kernel"""
+    """
+    Apply a Point Spread Function (PSF) operator using FFT-based convolution.
+
+    This function performs the convolution of an input field (e.g., an image)
+    with a PSF kernel using FFT (Fast Fourier Transform) for efficient
+    computation.
+    The convolution is done in 'same' mode, meaning the output array has the
+    same shape as the input field.
+
+    Parameters
+    ----------
+    field : np.ndarray
+        The input 2D array (e.g., an image or field) to be convolved with
+        the kernel.
+    kernel : np.ndarray
+        The PSF kernel to apply to the field. It should have the same or
+        compatible dimensions as the field.
+
+    Returns
+    -------
+    np.ndarray
+        The resulting field after convolving with the PSF kernel.
+        This will have the same shape as the input field.
+    """
     return fftconvolve(field, kernel, mode='same')
 
 
