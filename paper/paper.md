@@ -42,10 +42,7 @@ bibliography: paper.bib
 # aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
 # aas-journal: Astrophysical Journal <- The name of the AAS journal.
 ---
-#FIXME: Add Julia &Julian? 
 
-
-#FIXME: Check for Fixmes inside here :D
 # Summary
 Many advances in astronomy and astrophysics rely on accurately mapping sky emissions across various
 wavelengths, which often requires reconstructing spatially and spectrally correlated signals from multiple
@@ -62,28 +59,36 @@ choose different optimization schemes such as maximum a posteriori or variationa
 
 # Statement of Need
 In astrophysical imaging, we often encounter high-dimensional signals that vary across space, time, and energy. 
-The new generation of telescopes in astronomy offers exciting opportunities to capture these signals but also presents 
+The new generation of telescopes in astronomy offers exciting opportunities to capture these signals
+but also presents 
 significant challenges in extracting the most information from the resulting data. 
-These challenges include accurately modeling the instrument’s response to the signals, 
+These challenges include accurately modeling the instrument’s response to the signal, 
 accounting for complex noise structures, and separating overlapping signal components, 
 which often exhibit non-trivial correlation patterns.
 
-Here, we introduce J-UBIK, the JAX-accelerated Universal Bayesian Imaging Kit, which leverages Bayesian statistics to reconstruct complex signals. 
-Although initially designed for astronomy, we envision its applicability to other fields, such as medical imaging, 
-particularly in the context of multi-instrument data. 
-J-UBIK is built on information field theory (IFT, [@Ensslin:2013]) and the NIFTy.re software package [@Edenhofer:2024], 
+Here, we introduce J-UBIK, the JAX-accelerated Universal Bayesian Imaging Kit, which leverages 
+Bayesian statistics to reconstruct complex signals. In particular, we envision its application in the context of
+multi-instrument data in astronomy and also other fields,
+such as medical imaging. 
+J-UBIK is built on information field theory (IFT, [@Ensslin:2013]) and the NIFTy.re software package
+[@Edenhofer:2024], 
 a JAX-accelerated version of NIFTy [@Arras:2019]. 
 
-Following the IFT paradigm, J-UBIK employs a generative prior model that encodes assumptions 
+Following the NIFTy paradigm, J-UBIK employs a generative prior model that encodes assumptions 
 about the signal before incorporating any data, and a likelihood model that describes the measurements, 
 including the responses of multiple instruments and noise statistics.
-Built on NIFTy.re, J-UBIK supports adaptive and distributed representations of high-dimensional physical signal fields and 
+Built on NIFTy.re, J-UBIK supports adaptive and distributed representations of high-dimensional
+physical signal fields and 
 accelerates their inference from observational data using advanced Bayesian algorithms. 
-These include maximum a posteriori (MAP), Hamiltonian Monte Carlo (HMC), and two variational inference techniques: 
-metric Gaussian variational inference (MGVI, [@Knollmueller:2020]) and geometric variational inference (geoVI, [@Frank:2021]). 
-As NIFTy.re is fully implemented in JAX, J-UBIK benefits from accelerated inference through parallel computing on clusters or GPUs.
+These include maximum a posteriori (MAP), Hamiltonian Monte Carlo (HMC), and two variational
+inference techniques: 
+metric Gaussian variational inference (MGVI, [@Knollmueller:2020]) and geometric variational
+inference (geoVI, [@Frank:2021]). 
+As NIFTy.re is fully implemented in JAX, J-UBIK benefits from accelerated inference through
+parallel computing on clusters or GPUs.
 
-Previously, NIFTy.re users had to manually construct likelihood and prior models for each imaging problem, 
+Previously, NIFTy.re users had to manually construct likelihood and prior models for each 
+imaging problem, 
 which is one of the most labor-intensive parts of the Bayesian imaging process. 
 J-UBIK addresses this challenge from two angles. First, it provides tools to simplify the creation 
 of new likelihood and prior models. Acting as a flexible toolbox, J-UBIK supports a variety of response 
@@ -93,15 +98,17 @@ correlation structures for various sky components.
 Additionally, J-UBIK includes implementations for several instruments. 
 Currently, it supports Chandra, eROSITA pointings, and James Webb Space Telescope (JWST) observations, 
 with plans to expand this list as the user base grows. 
-This expansion will provide users with a diverse set of accessible inference algorithms for various instruments. 
-Ultimately, J-UBIK enables users to obtain posterior samples, including measures of interest such as the posterior 
-mean and uncertainty of the signal across multiple datasets, and to perform multi-instrument reconstructions 
-through Bayesian statistics.
+This expansion will provide users with a diverse set of accessible inference algorithms for various
+instruments. Ultimately J-UBIK enables the user, through Bayesian
+statistics, not only to obtain posterior samples and hence measures of interest such as the
+posterior mean and uncertainty of the signal for a several data sets, but also to
+perform multi-instrument reconstructions.
 
 The software has already been applied in [@Westerkamp:2023], and publications
 on eROSITA pointings and JWST are currently in preparation. In the future, the set of 
 instruments will be further expanded to include existing imaging pipelines from NIFTy  
-and NIFTy.re such as those described in [@Platz:2023], ...., as well as new ones. #FIXME: add resolve?
+and NIFTy.re such as those described in [@Platz:2023], [@Roth:2023], [@Hutschenreuter:2022],
+as well as new ones.
 
 # Bayesian Imaging with J-UBIK
 At the core of the J-UBIK package is Bayes’ theorem:
@@ -110,12 +117,13 @@ $$ \mathcal{P}(s|d) \propto \mathcal{P}(d|s) \mathcal{P}(s), $$
 
 where the prior $\mathcal{P}(s)$ represents our knowledge about the signal $s$ before 
 observing the data $d$, and the likelihood $\mathcal{P}(d|s)$ describes the measurement process. 
-The posterior $\mathcal{P}(s|d)$, which can be exact or approximated, is the primary measure 
-of interest in the inference process. 
+The posterior $\mathcal{P}(s|d)$ is the primary measure 
+of interest in the inference process.
 J-UBIK’s main role is to model the prior in a generative fashion and to facilitate 
 the creation and use of instrument models to develop the likelihood model. 
 The package includes demos for Chandra, eROSITA pointings, and JWST, which illustrate 
-how to use or build these models and how to construct an inference pipeline to obtain posterior estimates.
+how to use or build these models and how to construct an inference pipeline to obtain 
+posterior estimates.
 
 ## Prior models
 The package includes a prior model for the sky’s brightness distribution across different wavelengths, 
@@ -125,7 +133,8 @@ point sources or correlated extended sources defined by the correlated field mod
 described in [@Arras:2022]. This model allows for the generation of spatially 
 uncorrelated point sources or spatially correlated extended sources, as described 
 by the correlated field model in [@Arras:2022]. In the spectral dimension, the model can fit 
-a power law and describe the correlation structure along the spectral axis using a Wiener process.
+a power law, describe the correlation structure along the spectral axis using a Wiener process or 
+combine both of these models.
 The prior model’s structure is designed to be flexible, allowing for modifications to accommodate 
 additional dimensions and correlation structures. Figures [Figure 1](#fig:sky) -
 [Figure 3](#fig:extended) illustrate an example of a simulated X-ray sky in J-UBIK, 
