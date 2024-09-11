@@ -4,7 +4,11 @@ import numpy as np
 from jax.experimental.sparse import BCOO
 from numpy.typing import ArrayLike
 from scipy.sparse import coo_matrix
-from shapely.geometry import Polygon, box
+
+try:
+    from shapely.geometry import Polygon, box
+except ImportError:
+    pass
 
 
 class _ValueCalculator:
