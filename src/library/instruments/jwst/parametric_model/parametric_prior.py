@@ -1,7 +1,7 @@
-import nifty8.re as jft
-import jax.numpy as jnp
-
 from typing import Callable, Tuple, Union
+
+import jax.numpy as jnp
+import nifty8.re as jft
 
 DISTRIBUTION_MAPPING = {
     'normal': (jft.normal_prior, ['mean', 'sigma']),
@@ -14,6 +14,7 @@ DISTRIBUTION_MAPPING = {
 
 
 def _shape_adjust(val, shape):
+    """Adjusts the shape of the prior."""
     if jnp.shape(val) == shape:
         return jnp.array(val)
     else:
@@ -21,6 +22,7 @@ def _shape_adjust(val, shape):
 
 
 def _infer_shape(params: dict, shape: tuple):
+    """Infers the shape of the prior."""
     if shape != ():
         return shape
 
@@ -39,6 +41,7 @@ def _infer_shape(params: dict, shape: tuple):
 
 
 def _transform_setting(parameters: Union[dict, tuple]):
+    """Transforms the prior setting into a dictionary."""
     if isinstance(parameters, dict):
         return parameters
 
@@ -66,9 +69,68 @@ def _transform_setting(parameters: Union[dict, tuple]):
 
 
 def build_parametric_prior(
-    domain_key: str, parameters: Union[dict, tuple], shape: Tuple[int] = ()
+    domain_key: str,
+    parameters: Union[dict, tuple],
+    shape: Tuple[int] = ()
 ) -> Callable:
+    """
+    Builds a parametric prior based on the specified distribution and
+    transformation.
 
+    This function constructs a prior distribution for a given model domain by
+    interpreting the provided `parameters` and selecting the appropriate
+    prior function based on the distribution specified therein.
+    The prior can be optionally transformed if a transformation
+    function is specified.
+
+    Parameters
+    ----------
+    domain_key : str
+        A string key identifying the domain of the model to which this prior
+        applies.
+    parameters : dict or tuple
+        A dictionary or tuple containing the prior configuration.
+        The dictionary should have a 'distribution' key, which specifies the
+        distribution type, and additional keys
+        required for the distribution (e.g., 'mean', 'std' for a Gaussian).
+        The required keys depend on the distribution.
+    shape : tuple of int, optional
+        A tuple representing the shape of the parameters.
+        This shape is applied to adjust the values of the prior parameters to
+        match the specified shape. Default is an empty tuple.
+
+    Returns
+    -------
+    Callable
+        A wrapped callable function representing the prior distribution.
+        If a transformation is specified in `parameters`,
+        the prior is wrapped with the transformation; otherwise,
+        the raw prior function is returned.
+
+    Raises
+    ------
+    NotImplementedError
+        If the specified distribution is not found in the
+        `DISTRIBUTION_MAPPING`.
+    KeyError
+        If the required keys for the distribution are missing in `parameters`.
+
+    Example
+    -------
+    Given a Gaussian distribution with mean and standard deviation,
+    the function returns a Gaussian prior with an optional transformation
+    (e.g., `log`):
+
+    >>> params = {'distribution': 'Gaussian', 'mean': 0, 'std': 1, 'transformation': 'log'}
+    >>> prior = build_parametric_prior('my_domain', params)
+    >>> prior(x)  # returns the log of the Gaussian prior evaluated at x
+
+    Notes
+    -----
+    The available distributions and their required keys are stored in
+    `DISTRIBUTION_MAPPING`, which maps each distribution to its corresponding
+    prior function and required parameters.
+    """
     parameters = _transform_setting(parameters)
 
     try:
