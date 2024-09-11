@@ -1,7 +1,8 @@
 cpu: False
 prior_samples: False
 lens_only: False
-plot_results: False
+plot_results: True
+save_intermediate_pickle: False
 
 grid:
   sdim: 256
@@ -61,9 +62,9 @@ grid:
 
 telescope:
   psf:
-    webbpsf_path: './data/JWST/WebbPsf/webbpsf-data-LATEST/'
+    webbpsf_path: './data/JWST/WebbPsf/webbpsf-data-LATEST-2/'
     psf_library: './data/JWST/psf_library'
-    psf_pixels: 32
+    psf_pixels: 33
 
   zero_flux:
     prior: ['lognormal', 0.9, 4]

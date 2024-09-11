@@ -123,6 +123,27 @@ def _get_model_samples_or_position(position_or_samples, sky_model):
     return sky_model(position_or_samples)
 
 
+def determine_xlen_residuals(data_dict: dict, xmax_residuals):
+    maximum = 0
+    for dkey in data_dict.keys():
+        index = int(dkey.split('_')[-1])
+        if index > maximum:
+            maximum = index
+    if maximum > xmax_residuals:
+        return xmax_residuals
+    return maximum  # because 0 is already there and will not be counted
+
+
+def determine_xpos(dkey: str):
+    index = int(dkey.split('_')[-1])
+    return 4 + index - 1
+
+
+def determine_ypos(dkey: str):
+    ekey = dkey.split('_')[1]
+    return int(ekey.split('e')[1])
+
+
 def build_plot_sky_residuals(
     results_directory: str,
     data_dict: dict,
@@ -132,7 +153,6 @@ def build_plot_sky_residuals(
     plotting_config: dict = {},
 ):
     '''
-
     overwrite_model:
         - ii, jj
         - name
@@ -146,20 +166,25 @@ def build_plot_sky_residuals(
     display_pointing = plotting_config.get('display_pointing', True)
     display_chi2 = plotting_config.get('display_chi2', True)
     std_relative = plotting_config.get('std_relative', True)
+    fileformat = plotting_config.get('fileformat', 'png')
+    xmax_residuals = plotting_config.get('xmax_residuals', np.inf)
 
     sky_min = plotting_config.get('sky_min', 5e-4)
 
     residual_plotting_config = plotting_config.get(
         'data_config', dict(min=5e-4, norm=Normalize))
 
+    ylen = len(sky_model_with_key.target)
+    xlen = 3 + determine_xlen_residuals(data_dict, xmax_residuals)
+
     def sky_residuals(
         position_or_samples: Union[dict, jft.Samples],
         state_or_none: Optional[jft.OptimizeVIState] = None
     ):
         print(f"Results: {results_directory}")
+        print('Plotting residuals')
 
-        ylen = len(data_dict)
-        fig, axes = plt.subplots(ylen, 4, figsize=(12, 3*ylen), dpi=300)
+        fig, axes = plt.subplots(ylen, xlen, figsize=(3*xlen, 3*ylen), dpi=300)
         ims = np.zeros_like(axes)
         if ylen == 1:
             ims = ims[None]
@@ -167,7 +192,12 @@ def build_plot_sky_residuals(
 
         sky_or_skies = _get_model_samples_or_position(
             position_or_samples, sky_model_with_key)
-        for ii, (dkey, data) in enumerate(data_dict.items()):
+        for dkey, data in data_dict.items():
+
+            xpos_residual = determine_xpos(dkey)
+            ypos = determine_ypos(dkey)
+            if xpos_residual > xlen - 1:
+                continue
 
             data_model = data['data_model']
             data_i = data['data']
@@ -182,31 +212,37 @@ def build_plot_sky_residuals(
                 mask=mask,
                 std=std)
 
-            ims[ii, 1:] = _plot_data_data_model_residuals(
-                ims[ii, 1:],
-                axes[ii, 1:],
-                data_key=dkey,
-                data=data_i,
-                data_model=model_mean,
-                std=std if std_relative else 1.0,
-                plotting_config=residual_plotting_config)
+            if xpos_residual == 3:
+                ims[ypos, 1:] = _plot_data_data_model_residuals(
+                    ims[ypos, 1:],
+                    axes[ypos, 1:],
+                    data_key=dkey,
+                    data=data_i,
+                    data_model=model_mean,
+                    std=std if std_relative else 1.0,
+                    plotting_config=residual_plotting_config)
 
-            if display_pointing:
-                (sh_m, sh_s), (ro_m, ro_s) = get_shift_rotation_correction(
-                    position_or_samples,
-                    data_model.rotation_and_shift.correction_model)
-                data_model_text = '\n'.join(
-                    (f'dx={sh_m[0]:.1e}+-{sh_s[0]:.1e}',
-                     f'dy={sh_m[1]:.1e}+-{sh_s[1]:.1e}',
-                     f'dth={ro_m:.1e}+-{ro_s:.1e}')
-                )
-                display_text(axes[ii, 2], data_model_text)
+                if display_pointing:
+                    (sh_m, sh_s), (ro_m, ro_s) = get_shift_rotation_correction(
+                        position_or_samples,
+                        data_model.rotation_and_shift.correction_model)
+                    data_model_text = '\n'.join(
+                        (f'dx={sh_m[0]:.1e}+-{sh_s[0]:.1e}',
+                         f'dy={sh_m[1]:.1e}+-{sh_s[1]:.1e}',
+                         f'dth={ro_m:.1e}+-{ro_s:.1e}')
+                    )
+                    display_text(axes[ypos, 2], data_model_text)
+
+            else:
+                ims[ypos, xpos_residual] = axes[ypos, xpos_residual].imshow(
+                    (data_i-model_mean)/std, origin='lower',
+                    vmin=-3, vmax=3, cmap='RdBu_r')
 
             if display_chi2:
                 chi = '\n'.join((
                     f'redChi2: {redchi_mean:.2f} +/- {redchi_std:.2f}',
                 ))
-                display_text(axes[ii, 3], chi)
+                display_text(axes[ypos, xpos_residual], chi)
 
         small_mean, small_std = get_position_or_samples_of_model(
             position_or_samples,
@@ -248,7 +284,8 @@ def build_plot_sky_residuals(
             plt.show()
         else:
             fig.savefig(join(residual_directory,
-                        f'{state_or_none.nit:02d}.png'), dpi=300)
+                        f'{state_or_none.nit:02d}.{fileformat}'), dpi=300)
+            # plt.clf()
             plt.close()
 
     return sky_residuals
@@ -473,8 +510,8 @@ def build_plot_lens_system(
 
     # plotting_config
     norm_source = plotting_config.get('norm_source', Normalize)
-    norm_sl_alpha = plotting_config.get('norm_source_alpha', Normalize)
-    norm_sl_nonparametric = plotting_config.get(
+    norm_source_alpha = plotting_config.get('norm_source_alpha', Normalize)
+    norm_source_nonparametric = plotting_config.get(
         'norm_source_nonparametric', Normalize)
     norm_lens = plotting_config.get('norm_lens', Normalize)
     norm_mass = plotting_config.get('norm_mass', Normalize)
@@ -496,6 +533,7 @@ def build_plot_lens_system(
         state_or_none: Optional[jft.OptimizeVIState],
         parametric: bool,
     ):
+        print('Plotting lens system')
 
         get_values = build_get_values(lens_system, parametric)
 
@@ -547,9 +585,9 @@ def build_plot_lens_system(
         axes[1, 0].set_title("Source light alpha")
         axes[1, 1].set_title("Source light nonpar")
         ims[1, 0] = axes[1, 0].imshow(sla, origin='lower', extent=source_ext,
-                                      norm=norm_sl_alpha)
+                                      norm=norm_source_alpha())
         ims[1, 1] = axes[1, 1].imshow(sln, origin='lower', extent=source_ext,
-                                      norm=norm_sl_nonparametric)
+                                      norm=norm_source_nonparametric())
 
         # Plot mass field
         axes[2, 0].set_title("Mass par")

@@ -196,6 +196,7 @@ plot_lens = build_plot_lens_system(
     lens_light_alpha_nonparametric=(ll_alpha, ll_nonpar),
     source_light_alpha_nonparametric=(sl_alpha, sl_nonpar),
 )
+
 plot_residual = build_plot_sky_residuals(
     results_directory=RES_DIR,
     data_dict=data_dict,
@@ -203,7 +204,11 @@ plot_residual = build_plot_sky_residuals(
     small_sky_model=lens_system.lens_plane_model.light_model if cfg[
         'lens_only'] else lens_system.get_forward_model_parametric(),
     plotting_config=dict(
-        norm=LogNorm, data_config=dict(norm=LogNorm))
+        norm=LogNorm,
+        data_config=dict(norm=LogNorm),
+        display_pointing=False,
+        xmax_residuals=4,
+    ),
 )
 plot_color = build_color_components_plotting(
     lens_system.source_plane_model.light_model.nonparametric(), RES_DIR, substring='source')
@@ -253,15 +258,15 @@ if cfg.get('prior_samples'):
 def plot(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f'Plotting: {state.nit}')
 
-    last_fn = os.path.join(RES_DIR, f'samples_state_{state.nit:02d}.pkl')
-    with open(last_fn, "wb") as f:
-        pickle.dump((samples, state._replace(config={})), f)
+    if cfg['save_intermediate_pickle']:
+        last_fn = os.path.join(RES_DIR, f'samples_state_{state.nit:02d}.pkl')
+        with open(last_fn, "wb") as f:
+            pickle.dump((samples, state._replace(config={})), f)
 
     if cfg['plot_results']:
         plot_residual(samples, state)
         plot_color(samples, state)
 
-    if not cfg['lens_only']:
         plot_lens(samples, state, parametric=parametric_flag)
 
 

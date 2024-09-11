@@ -164,13 +164,6 @@ if plot_residuals:
                 data_transmission=jwst_data.transmission,
             )
 
-            likelihood = build_gaussian_likelihood(
-                jnp.array(data[mask], dtype=float),
-                jnp.array(std[mask], dtype=float))
-            likelihood = likelihood.amend(
-                data_model, domain=jft.Vector(data_model.domain))
-            likelihoods.append(likelihood)
-
     plot_residual = build_plot_sky_residuals(
         results_directory=RES_DIR,
         data_dict=data_dict,
@@ -178,7 +171,11 @@ if plot_residuals:
         small_sky_model=lens_system.lens_plane_model.light_model if cfg[
             'lens_only'] else lens_system.get_forward_model_parametric(),
         plotting_config=dict(
-            norm=LogNorm, data_config=dict(norm=LogNorm))
+            norm=LogNorm,
+            data_config=dict(norm=LogNorm),
+            display_pointing=False,
+            xmax_residuals=4,
+        ),
     )
 
 
@@ -190,6 +187,7 @@ plot_lens = build_plot_lens_system(
     plotting_config=dict(
         norm_source=LogNorm,
         norm_lens=LogNorm,
+        norm_source_nonparametric=LogNorm,
         # norm_mass=LogNorm,
     ),
     lens_system=lens_system,
@@ -199,8 +197,9 @@ plot_lens = build_plot_lens_system(
 )
 
 n_iters = cfg['minimization']['n_total_iterations']
-
 for ii in range(n_iters):
+    if ii < 30:
+        continue
     position_path = os.path.join(RES_DIR, f'position_{ii: 02d}')
     if os.path.isfile(position_path):
         if not os.path.isfile(os.path.join(RES_DIR, 'lens', f'{ii:02d}.png')):
