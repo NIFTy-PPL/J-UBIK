@@ -1,17 +1,26 @@
-import nifty8.re as jft
+from typing import Callable, Optional
 
-from .rotation_and_shift import build_rotation_and_shift_model
+import nifty8.re as jft
+from numpy.typing import ArrayLike
+
+from .integration_model import build_sum_integration
 from .masking import build_mask
 from .psf.build_psf import instantiate_psf, load_psf_kernel
-from .integration_model import build_sum_integration
-from .rotation_and_shift import RotationAndShiftModel
+from .rotation_and_shift import build_rotation_and_shift_model, \
+    RotationAndShiftModel
 from .zero_flux_model import build_zero_flux_model
-
-from typing import Callable, Optional
-from numpy.typing import ArrayLike
 
 
 class DataModel(jft.Model):
+    """
+    A that connects observational data to the corresponding sky and
+    instrument models.
+
+    This class models a data pipeline that includes rotation, shifting,
+    PSF application, integration, transmission correction, and masking,
+    with an optional zero-flux model.
+    """
+
     def __init__(
         self,
         sky_domain: dict,
@@ -22,6 +31,38 @@ class DataModel(jft.Model):
         zero_flux_model: Optional[jft.Model],
         mask: Callable[[ArrayLike], ArrayLike]
     ):
+        """
+        Initialize the DataModel with components for various data
+        transformations.
+
+        Parameters
+        ----------
+        sky_domain : dict
+            A dictionary defining the sky domain, with a single key
+            corresponding to the internal target of the sky model.
+            This defines the input space of the data.
+        rotation_and_shift : RotationAndShiftModel, optional
+            A model that applies rotation and shift transformations
+            to the input data.
+        psf : callable
+            A function that applies a point spread function (PSF) to the
+            input data.
+        integrate : callable
+            A function that performs integration on the input data.
+        transmission : float
+            A transmission factor by which the output data is multiplied.
+        zero_flux_model : jft.Model, optional
+            A secondary model to account for zero flux.
+            If provided, its output is added to the domain model's output.
+        mask : callable
+            A function that applies a mask to the final output.
+
+        Raises
+        ------
+        AssertionError
+            If `sky_domain` is not a dictionary or if it contains
+            more than one key.
+        """
         need_sky_key = ('Need to provide an internal key to the target of the '
                         'sky model')
         assert isinstance(sky_domain, dict), need_sky_key
@@ -59,7 +100,10 @@ def build_jwst_data_model(
     data_mask: Optional[ArrayLike],
     zero_flux: Optional[dict],
 ) -> DataModel:
-    '''Build the data model for a Jwst observation. The data model pipline:
+    """
+    Builds the data model for a Jwst observation.
+
+    The data model pipline:
     rotation_and_shift | psf | integrate | mask
 
     Parameters
@@ -82,8 +126,10 @@ def build_jwst_data_model(
         coordinate_correction: Optional[dict]
             domain_key: str
             priors: dict
-                - shift: Mean and sigma for the Gaussian distribution of shift model.
-                - rotation: Mean and sigma of the Gaussian distribution for theta [rad]
+                - shift: Mean and sigma for the Gaussian distribution
+                of shift model.
+                - rotation: Mean and sigma of the Gaussian distribution
+                for theta [rad]
 
     psf_kwargs:
         camera: str, NIRCam or MIRI
@@ -94,7 +140,7 @@ def build_jwst_data_model(
 
     data_mask: ArrayLike
         The mask on the data
-    '''
+    """
 
     need_sky_key = ('Need to provide an internal key to the target of the sky '
                     'model.')
