@@ -41,7 +41,7 @@ plotting:
   n_prior_samples: 5
   enabled: True
   slice: Null
-  dpi: 800
+  dpi: 300
 
 grid:
   sdim: 1024
