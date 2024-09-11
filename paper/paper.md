@@ -136,63 +136,45 @@ by the correlated field model in [@Arras:2022]. In the spectral dimension, the m
 a power law, describe the correlation structure along the spectral axis using a Wiener process or 
 combine both of these models.
 The prior model’s structure is designed to be flexible, allowing for modifications to accommodate 
-additional dimensions and correlation structures. Figures [Figure 1](#fig:sky) -
-[Figure 3](#fig:extended) illustrate an example of a simulated X-ray sky in J-UBIK, 
-sampled from a corresponding generative prior model. This example features two components: 
+additional dimensions and correlation structures. [Figure 1](#fig:sky) illustrates an example of 
+a simulated X-ray sky in J-UBIK, 
+sampled from a corresponding generative prior model with one energy bin.
+This example features two components: 
 one representing spatially uncorrelated point sources and the other representing spatially 
-correlated extended structures. The model includes three energy bins, spectrally correlated 
-through a power-law model.
-
-
-| Simulated X-ray Sky                                      | Simulated X-ray Point Sources                                  | Simulated X-ray Extended Sources                                  |
-|----------------------------------------------------------|----------------------------------------------------------------|-------------------------------------------------------------------|
-| ![Figure 1](simulated_sky_rgb.png){ width=30% #fig:sky } | ![Figure 2](simulated_points_rgb.png){ width=30% #fig:points } | ![Figure 3](simulated_diffuse_rgb.png){ width=30% #fig:extended } |
-
-
+correlated extended structures. [Figure 1](#fig:sky) shows from left to right the full sky and its
+components, the diffuse, extended structures and the point sources.
+                                        
+| Simulated X-ray Sky                       |
+|-------------------------------------------|
+| ![Figure 1](simulated_sky.png){#fig:sky}  |
 
 ## Likelihood models
-J-UBIK implements several instrument models (Chandra, eROSITA, JWST) and their respective data- and response-loading
-functionalities, enabling their seamless integration into the inference pipeline. Due to its fully modular structure,
-we anticipate the inclusion of more instruments into the J-UBIK platform in the future. J-UBIK is not only capable of 
-reconstructing signals from real data; since each instrument model acts as a digital twin of the corresponding 
-instrument, it can also be used to generate simulated data by passing sky prior models through the instrument’s
+J-UBIK implements several instrument models (Chandra, eROSITA, JWST) and their respective data-
+and response-loading
+functionalities, enabling their seamless integration into the inference pipeline. Due to its fully
+modular structure,
+we anticipate the inclusion of more instruments into the J-UBIK platform in the future. J-UBIK
+is not only capable of 
+reconstructing signals from real data; since each instrument model acts as a digital twin of 
+the corresponding 
+instrument, it can also be used to generate simulated data by passing sky prior models through
+the instrument’s
 response. This provides a powerful tool for testing the consistency of the implemented models.
+                                        
+| Simulated X-ray Sky                        |
+|--------------------------------------------|
+| ![Figure 2](simulated_data.png){#fig:data} |
 
-| Simulated eROSITA Data                                        | Simulated Chandra Data                                          | 
-|---------------------------------------------------------------|-----------------------------------------------------------------|
-| ![Figure 4](simulated_data_rgb.png){ width=50% #fig:Erosita } | ![Figure 5](simulated_points_rgb.png){ width=50% #fig:Chandra } |
-
-
-Figures [Figure 4](#fig:Erosita) - [Figure 5](#fig:Chandra) show the same simulated sky 
-([Figure 1](#fig:sky)) seen from two different instruments, eROSITA and Chandra, 
-with Poissonian noise for the photon count data with the pointing center of the
-telescopes being at the center of the 
-image. Figure #FIXME shows the same image with shifting pointing centers as indicated 
-with the red cross.
+Figure [Figure 2](#fig:data) shows the same simulated sky 
+([Figure 1](#fig:sky)) seen by two different instruments, eROSITA and Chandra, 
+with Poisson noise on the photon count data. The pointing center for each observation is marked
+in red. The two images on the right illustrate the same simulated sky seen by Chandra, but with
+different pointing centers, showing the impact of spatially varying PSFs [@Eberle:2023]. 
 
 # Acknowledgements
 V. Eberle, M. Guardiani, and M. Westerkamp acknowledge support for this research through
 the project Universal Bayesian Imaging Kit (UBIK, Förderkennzeichen 50OO2103) funded
-by the Deutsches Zentrum für Luft- und Raumfahrt e.V. (DLR).
-
-#FIXME: Ask for further acknowledgements.
+by the Deutsches Zentrum für Luft- und Raumfahrt e.V. (DLR). 
 
 # References
 
-<!-- Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
-
-For a quick reference, the following citation commands can be used:
-- `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
-# Figures
-
-Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
-
-Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
--->
