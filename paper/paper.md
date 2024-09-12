@@ -54,7 +54,7 @@ modular platform designed for high-fidelity Bayesian imaging. Specifically, we p
 implementation leveraging the JAX-accelerated NIFTy.re [@Edenhofer:2024] software as its backend.
 J-UBIK streamlines the implementation of key Bayesian inference components, providing customizable 
 likelihood models for different instruments and adaptable prior models for various applications.
-So far the package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA,
+So far, the package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA,
 and the James Webb Space Telescope (JWST) in the infrared,
 as well as a prior model adaptable to different sky realizations. The demos show how the likelihood 
 and prior implementation can be integrated into an inference pipeline, with the possibility to
