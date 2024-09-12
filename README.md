@@ -1,30 +1,29 @@
 # J-UBIK
-
-*J*ifty *U*niversal *B*ayesian *I*maging *K*it for photon count instruments is a python package for data analysis of modern telescopes such as Chandra and eROSITA (X-ray), and JWST (infrared).
+The **J**AX-accelerated **U**niversal **B**ayesian **I**maging **K**it  is a python package for high-fidelity Bayesian imaging.
 
 J-UBIK allows to image observations from different instruments with Bayesian posterior uncertainties and component separation.
+Next to many useful generic tools and building blocks, JUBIK comes with a series of sky models and instrument implementations, namely:
 
+ - Chandra
+ - eROSITA
+ - James Webb Space Telescope
 
 ## Requirements
+- [JAX](https://jax.readthedocs.io/en/latest/installation.html)
+- [astropy](https://www.astropy.org)
 - [NIFTy8](https://gitlab.mpcdf.mpg.de/ift/nifty) 
-- JAX
-- astropy
-- ciao (>4.14)
-- marx (with ciao)
-- matplotlib
 - [ducc0](https://pypi.org/project/ducc0/)
+- [matplotlib](https://matplotlib.org/stable/install/index.html)
 
 
-## Installation of Dependencies
-- Information on how to install NIFTy8 can be found [here](https://gitlab.mpcdf.mpg.de/ift/nifty)
-- how to install [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html)
-- how to install [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
-- set an alias in your .bashrc to source ciao and marx easily
+## Instrument specific Requirements 
+- [Chandra](#chandra)
+- [eROSITA](#erosita)
+- [James Webb Space Telescope](#jwst)
 
 ## Installation
 This package can be installed via pip. 
 
-    git clone git@gitlab.mpcdf.mpg.de:ift/chandra.git
     git clone https://gitlab.mpcdf.mpg.de/ift/j-ubik
     cd j-ubik
     pip install --user .
@@ -35,19 +34,29 @@ for a regular installation. For editable installation add the `-e` flag.
 ## Additional Files
 Additional calibration files might be needed for instrument-specific pipelines.
 
-### Chandra
-
-### eROSITA
-J-UBIK allows to process and image event files from the eROSITA x-ray observatory.  
+### Chandra{#chandra}
+J-UBIK allows to process observations from Chandra x-ray observatory.
 
 #### Requirements
-In order to process eROSITA observations and produce realistic synthetic data,
-you will need to:
-- Get [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/), the eROSITA
+- [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html) > 4.16
+- [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
+- set an alias in your .bashrc to source ciao and marx easily 
+
+NOTE: in case you install ciao via conda, make sure that all environmental are set
+conda env config vars set MARX_ROOT /soft/marx/marx-5.2.0 (or where your marx is installed)
+conda env config vars set MARX_DATA_DIR ${MARX_ROOT}/share/marx/data
+
+### eROSITA{#erosita}
+J-UBIK allows to process and image event files from the eROSITA x-ray observatory.
+
+#### Requirements
+To process eROSITA observations or produce realistic synthetic data,
+you will need:
+- [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/), the eROSITA
 Science Analysis Software System. 
 In particular, the current version of J-UBIK only supports using eSASS through the 
 official docker container to ensure cross-compatibility.
-- Download the [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/) folder, this allows to compute the eROSITA response accurately. 
+- [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/) folder, this allows to compute the eROSITA response accurately. 
 Either the caldb from data release 1 (DR1) or from the early data release (EDR) should be present 
 inside the `data/` directory. 
 This folder can be downloaded at [caldb download](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/caldb4DR1.tgz).
@@ -61,7 +70,7 @@ in order to build realistic exposure maps.
 A good example is [LMC_dataset](https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/LMC_SN1987A.tar.gz).
 For more information on how to run `erosita_demo.py` see the corresponding docstring.
 
-### JWST
+### James Webb Space Telescope{#jwst}
 J-UBIK allows to process and image event files from the James Webb Space Telescope.
 
 #### Requirements
