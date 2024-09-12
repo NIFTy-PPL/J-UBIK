@@ -120,7 +120,7 @@ from jax import config, random
 
 import jubik0 as ju
 from jubik0.library.instruments.jwst.filter_projector import FilterProjector
-from jubik0.library.instruments.jwst.likelihood import (
+from jubik0.library.likelihood import (
     build_gaussian_likelihood, connect_likelihood_to_model)
 
 config.update('jax_enable_x64', True)
