@@ -54,11 +54,7 @@ grid:
       - 0.707 # F200W
       - 0.932 # F150W
       - 1.224 # F115W
-    e_ref:
-      # - 0.08 # F1500W
-      # - 0.2225 # F560W
-      - 0.278 # F444W
-      # - 0.8 # F150W
+    reference_bin: 7 # F444W
 
 telescope:
   psf:
