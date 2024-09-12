@@ -38,6 +38,30 @@ from jax import config, devices
 config.update('jax_default_device', devices('cpu')[0])
 
 
+filter_ranges = {
+    'F2100W': ColorRange(Color(0.054*u.eV), Color(0.067*u.eV)),
+    'F1800W': ColorRange(Color(0.068*u.eV), Color(0.075*u.eV)),
+    'F1500W': ColorRange(Color(0.075*u.eV), Color(0.092*u.eV)),
+    'F1280W': ColorRange(Color(0.093*u.eV), Color(0.107*u.eV)),
+    'F1000W': ColorRange(Color(0.114*u.eV), Color(0.137*u.eV)),
+    'F770W':  ColorRange(Color(0.143*u.eV), Color(0.188*u.eV)),
+    'F560W':  ColorRange(Color(0.201*u.eV), Color(0.245*u.eV)),
+    'F444W':  ColorRange(Color(0.249*u.eV), Color(0.319*u.eV)),
+    'F356W':  ColorRange(Color(0.319*u.eV), Color(0.395*u.eV)),
+    'F277W':  ColorRange(Color(0.396*u.eV), Color(0.512*u.eV)),
+    'F200W':  ColorRange(Color(0.557*u.eV), Color(0.707*u.eV)),
+    'F150W':  ColorRange(Color(0.743*u.eV), Color(0.932*u.eV)),
+    'F115W':  ColorRange(Color(0.967*u.eV), Color(1.224*u.eV)),
+}
+
+
+def get_filter(color):
+    # works since the filter_ranges don't overlap
+    for f, cr in filter_ranges.items():
+        if color in cr:
+            return f
+
+
 PLOT_RESIDUALS = False
 PLOT_ALL_RECONSTRUCTION = False
 
@@ -64,27 +88,15 @@ sky_model = lens_system.get_forward_model_parametric()
 if cfg['lens_only']:
     sky_model = lens_system.lens_plane_model.light_model
 
+
 energy_cfg = cfg['grid']['energy_bin']
 e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
-filter_keys = dict(
-    e00='F2100W',
-    e01='F1800W',
-    e02='F1500W',
-    e03='F1280W',
-    e04='F1000W',
-    e05='F770W',
-    e06='F560W',
-    e07='F444W',
-    e08='F356W',
-    e09='F277W',
-    e10='F200W',
-    e11='F150W',
-    e12='F115W',
-)
-keys_and_colors = {
-    filter_keys[f'e{ii:02d}']: ColorRange(
-        Color(emin*e_unit), Color(emax*e_unit))
-    for ii, (emin, emax) in enumerate(zip(energy_cfg.get('e_min'), energy_cfg.get('e_max')))}
+keys_and_colors = {}
+for emin, emax in zip(energy_cfg.get('e_min'), energy_cfg.get('e_max')):
+    assert emin < emax
+    cr = ColorRange(Color(emin*e_unit), Color(emax*e_unit))
+    key = get_filter(cr.center)
+    keys_and_colors[key] = cr
 
 filter_projector = FilterProjector(
     sky_domain=sky_model.target,
@@ -96,113 +108,8 @@ sky_model_with_keys = jft.Model(
 )
 
 
-if PLOT_RESIDUALS:
-    data_dict = {}
-    for fltname, flt in cfg['files']['filter'].items():
-        for ii, filepath in enumerate(flt):
-            print(fltname, ii, filepath)
-            jwst_data = JwstData(filepath)
-            # print(fltname, jwst_data.half_power_wavelength)
-
-            ekey = filter_projector.get_key(jwst_data.pivot_wavelength)
-            data_key = f'{fltname}_{ekey}_{ii}'
-
-            # Loading data, std, and mask.
-            psf_ext = int(cfg['telescope']['psf']['psf_pixels'] // 2)
-            mask = get_mask_from_index_centers(
-                np.squeeze(subsample_grid_centers_in_index_grid(
-                    reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)),
-                    jwst_data.wcs,
-                    reconstruction_grid.wcs,
-                    1)),
-                reconstruction_grid.shape)
-            mask *= jwst_data.nan_inside_extrema(
-                reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
-            data = jwst_data.data_inside_extrema(
-                reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
-            std = jwst_data.std_inside_extrema(
-                reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
-
-            data_model = build_data_model(
-                {ekey: sky_model_with_keys.target[ekey]},
-                reconstruction_grid=reconstruction_grid,
-                subsample=cfg['telescope']['rotation_and_shift']['subsample'],
-
-                rotation_and_shift_kwargs=dict(
-                    data_dvol=jwst_data.dvol,
-                    data_wcs=jwst_data.wcs,
-                    data_model_type=cfg['telescope']['rotation_and_shift']['model'],
-                    shift_and_rotation_correction=dict(
-                        domain_key=data_key + '_correction',
-                        priors=build_coordinates_correction_prior_from_config(
-                            cfg, jwst_data.filter, ii),
-                    )
-                ),
-
-                psf_kwargs=dict(
-                    camera=jwst_data.camera,
-                    filter=jwst_data.filter,
-                    center_pixel=jwst_data.wcs.index_from_wl(
-                        reconstruction_grid.center)[0],
-                    webbpsf_path=cfg['telescope']['psf']['webbpsf_path'],
-                    psf_library_path=cfg['telescope']['psf']['psf_library'],
-                    fov_pixels=cfg['telescope']['psf']['psf_pixels'],
-                ),
-
-                transmission=jwst_data.transmission,
-
-                data_mask=mask,
-
-                world_extrema=reconstruction_grid.world_extrema(
-                    ext=(psf_ext, psf_ext)),
-
-                zero_flux=dict(
-                    dkey=data_key,
-                    zero_flux=build_filter_zero_flux(cfg, jwst_data.filter),
-                ),
-            )
-
-            data_dict[data_key] = dict(
-                index=filter_projector.keys_and_index[ekey],
-                data=data,
-                std=std,
-                mask=mask,
-                data_model=data_model,
-                data_dvol=jwst_data.dvol,
-                data_transmission=jwst_data.transmission,
-            )
-
-    plot_residual = build_plot_sky_residuals(
-        results_directory=RES_DIR,
-        data_dict=data_dict,
-        sky_model_with_key=sky_model_with_keys,
-        small_sky_model=lens_system.lens_plane_model.light_model if cfg[
-            'lens_only'] else lens_system.get_forward_model_parametric(),
-        plotting_config=dict(
-            norm=LogNorm,
-            data_config=dict(norm=LogNorm),
-            display_pointing=False,
-            xmax_residuals=4,
-        ),
-    )
-
-
 parametric_flag = lens_system.lens_plane_model.convergence_model.nonparametric() is not None
 ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)
-
-plot_lens = build_plot_lens_system(
-    RES_DIR,
-    plotting_config=dict(
-        norm_source=LogNorm,
-        norm_lens=LogNorm,
-        norm_source_nonparametric=LogNorm,
-        # norm_mass=LogNorm,
-    ),
-    lens_system=lens_system,
-    filter_projector=filter_projector,
-    lens_light_alpha_nonparametric=(ll_alpha, ll_nonpar),
-    source_light_alpha_nonparametric=(sl_alpha, sl_nonpar),
-)
 
 source_light = lens_system.source_plane_model.light_model
 plot_source = build_plot_source(
@@ -258,14 +165,6 @@ if PLOT_ALL_RECONSTRUCTION:
             res_path = os.path.join(RES_DIR, 'residuals', f'{ii:02d}.png')
             source_path = os.path.join(RES_DIR, 'source', f'{ii:02d}.png')
             dev_path = os.path.join(RES_DIR, 'source', f'dev_{ii:02d}.png')
-
-            # if not os.path.isfile(lens_path):
-            #     print('Plotting', ii)
-            #     plot_lens(samples, opt_vi_st, parametric=parametric_flag)
-
-            # if not os.path.isfile(res_path) and PLOT_RESIDUALS:
-            #     print('Plotting residuals', ii)
-            #     plot_residual(samples, opt_vi_st)
 
             if not os.path.isfile(source_path):
                 print('Plotting source', ii)
