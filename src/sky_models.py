@@ -1,5 +1,9 @@
-# Authors: Vincent Eberle, Philipp Frank, Matteo Guardiani, Margret Westerkamp
+# SPDX-License-Identifier: BSD-2-Clause
+# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp, Philipp Frank
 
+# Copyright(C) 2024 Max-Planck-Society
+
+# %%
 from functools import partial, reduce
 
 import jax

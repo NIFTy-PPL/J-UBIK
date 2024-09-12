@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Authors: Julia Stadler, Vincent Eberle, Matteo Guardiani, Margret Westerkamp
+
+# Copyright(C) 2024 Max-Planck-Society
+
+# %%
+
 def message_obs(obsInfo, verbose=1):
     """
     Print observation information for Chandra.
