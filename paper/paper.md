@@ -145,7 +145,7 @@ one representing spatially uncorrelated point sources and the other representing
 correlated extended structures. [Figure 1](#fig:sky) shows from left to right the full sky and its
 components, the diffuse, extended structures and the point sources.
                                         
-| Simulated X-ray Sky                       |
+| Fig.1: Simulated X-ray Sky                |
 |-------------------------------------------|
 | ![Figure 1](simulated_sky.png){#fig:sky}  |
 
@@ -162,11 +162,11 @@ instrument, it can also be used to generate simulated data by passing sky prior 
 the instrument’s
 response. This provides a powerful tool for testing the consistency of the implemented models.
                                         
-| Simulated X-ray Data                       |
+|Fig.2: Simulated X-ray Data                 |
 |--------------------------------------------|
 | ![Figure 2](simulated_data.png){#fig:data} |
 
-Figure [Figure 2](#fig:data) shows the same simulated sky 
+[Figure 2](#fig:data) shows the same simulated sky 
 ([Figure 1](#fig:sky)) seen by two different instruments, eROSITA and Chandra, 
 with Poisson noise on the photon count data. The pointing center for each observation is marked
 in red. The two images on the right illustrate the same simulated sky seen by Chandra, but with
