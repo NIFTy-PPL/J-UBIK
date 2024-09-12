@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Authors: Julia Stadler, Vincent Eberle and Margret Westerkamp
+
+# Copyright(C) 2024 Max-Planck-Society
+
+# %%
+
 import os
 import re
 import subprocess

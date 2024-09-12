@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp
+
+# Copyright(C) 2024 Max-Planck-Society
+
+# %%
+
 from jax import vmap
 from jax.tree_util import tree_map
 from jax import numpy as jnp

@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp
+
+# Copyright(C) 2024 Max-Planck-Society
+
+# %%
+
 from os.path import join, splitext, exists
 
 import nifty8.re as jft

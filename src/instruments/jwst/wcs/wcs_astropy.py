@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Authors: Julian Rüstig and Matteo Guardiani
+
+# Copyright(C) 2024 Max-Planck-Society
+
+# %%
+
 import numpy as np
 
 from numpy.typing import ArrayLike
