@@ -1,11 +1,31 @@
 import nifty8.re as jft
+from typing import Optional
+import numpy as np
+
+
+def sorted_keys_and_index(keys_and_colors: dict):
+    keys, colors = keys_and_colors.keys(), keys_and_colors.values()
+    sorted_indices = np.argsort([c.center.energy.value for c in colors])
+    return {
+        key: index for key, index in zip(keys, sorted_indices)
+    }
 
 
 class FilterProjector(jft.Model):
-    def __init__(self, sky_domain: jft.ShapeWithDtype, keys_and_colors: dict):
+    def __init__(
+        self,
+        sky_domain: jft.ShapeWithDtype,
+        keys_and_colors: dict,
+        sorted: Optional[bool] = True
+    ):
         self.keys_and_colors = keys_and_colors
-        self.keys_and_index = {
-            key: index for index, key in enumerate(keys_and_colors.keys())}
+
+        if sorted:
+            self.keys_and_index = sorted_keys_and_index(keys_and_colors)
+        else:
+            self.keys_and_index = {
+                key: index for index, key in enumerate(keys_and_colors.keys())
+            }
 
         self.apply = self._get_apply()
         super().__init__(domain=sky_domain)

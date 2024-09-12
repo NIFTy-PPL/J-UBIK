@@ -22,8 +22,6 @@ grid:
     fov: 2
     s_padding_ratio: 1.5
 
-  # edim: 13
-  # e_padding_ratio: 1.0
   energy_unit: eV
   energy_bin:
     e_min:
@@ -88,7 +86,7 @@ telescope:
           rotation: ['delta', 0, 0]
 
 files:
-  res_dir: './results/jwst_lens/mfreworked/all_data_01'
+  res_dir: './results/jwst_lens/mfreworked/all_data_04_specA'
 
   pretrain_path: './results/jwst_lens/mfreworked/all_filters_01/config.yaml'
 
@@ -219,17 +217,17 @@ lensing:
               scale: [0.08, 0.01]        # lognormal
               cutoff: [0.1, 0.01]       # lognormal
               loglogslope: [-4.0, 0.1]  # normal
-            # spectral_amplitude:
-            #   model: 'matern'
-            #   scale: [0.08, 0.01]        # lognormal
-            #   cutoff: [0.1, 0.01]       # lognormal
-            #   loglogslope: [-4.0, 0.1]  # normal
+            spectral_amplitude:
+              model: 'matern'
+              scale: [0.08, 0.01]        # lognormal
+              cutoff: [0.1, 0.01]       # lognormal
+              loglogslope: [-4.0, 0.1]  # normal
             spectral_index:
-              mean: [-0.2, 0.4]         # normal
-              fluctuations: [0.08, 0.1]  # lognormal 
+              mean: [-0.5, 1.0]         # normal
+              fluctuations: [0.5, 0.1]  # lognormal 
             spectral_deviations:
               process: 'wiener'
-              sigma: [0.2, 0.1]  # lognormal
+              sigma: [0.5, 0.2]  # lognormal
 
           # colormix:
           #   matrix: 

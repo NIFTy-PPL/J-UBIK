@@ -48,6 +48,10 @@ class ColorRange():
         self.start = start
         self.end = end
 
+    @property
+    def center(self):
+        return Color((self.end.energy - self.start.energy) / 2 + self.start.energy)
+
     def __contains__(self, item: Color):
         assert isinstance(item, Color)
         return (

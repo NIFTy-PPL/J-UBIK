@@ -29,6 +29,7 @@ from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import (
     build_plot_sky_residuals,
+    build_plot_source,
     build_color_components_plotting,
     build_plot_lens_system, get_alpha_nonpar,
     rgb_plotting,
@@ -42,6 +43,31 @@ from charm_lensing.lens_system import build_lens_system
 
 
 from sys import exit
+
+
+filter_ranges = {
+    'F2100W': ColorRange(Color(0.054*u.eV), Color(0.067*u.eV)),
+    'F1800W': ColorRange(Color(0.068*u.eV), Color(0.075*u.eV)),
+    'F1500W': ColorRange(Color(0.075*u.eV), Color(0.092*u.eV)),
+    'F1280W': ColorRange(Color(0.093*u.eV), Color(0.107*u.eV)),
+    'F1000W': ColorRange(Color(0.114*u.eV), Color(0.137*u.eV)),
+    'F770W':  ColorRange(Color(0.143*u.eV), Color(0.188*u.eV)),
+    'F560W':  ColorRange(Color(0.201*u.eV), Color(0.245*u.eV)),
+    'F444W':  ColorRange(Color(0.249*u.eV), Color(0.319*u.eV)),
+    'F356W':  ColorRange(Color(0.319*u.eV), Color(0.395*u.eV)),
+    'F277W':  ColorRange(Color(0.396*u.eV), Color(0.512*u.eV)),
+    'F200W':  ColorRange(Color(0.557*u.eV), Color(0.707*u.eV)),
+    'F150W':  ColorRange(Color(0.743*u.eV), Color(0.932*u.eV)),
+    'F115W':  ColorRange(Color(0.967*u.eV), Color(1.224*u.eV)),
+}
+
+
+def get_filter(color):
+    # works since the filter_ranges don't overlap
+    for f, cr in filter_ranges.items():
+        if color in cr:
+            return f
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -77,9 +103,13 @@ if cfg['lens_only']:
 
 energy_cfg = cfg['grid']['energy_bin']
 e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
-keys_and_colors = {
-    f'e{ii:02d}': ColorRange(Color(emin*e_unit), Color(emax*e_unit))
-    for ii, (emin, emax) in enumerate(zip(energy_cfg.get('e_min'), energy_cfg.get('e_max')))}
+keys_and_colors = {}
+for emin, emax in zip(energy_cfg.get('e_min'), energy_cfg.get('e_max')):
+    assert emin < emax
+    cr = ColorRange(Color(emin*e_unit), Color(emax*e_unit))
+    key = get_filter(cr.center)
+    keys_and_colors[key] = cr
+
 
 filter_projector = FilterProjector(
     sky_domain=sky_model.target,
@@ -89,6 +119,7 @@ sky_model_with_keys = jft.Model(
     lambda x: filter_projector(sky_model(x)),
     init=sky_model.init
 )
+
 
 data_dict = {}
 likelihoods = []
@@ -199,6 +230,7 @@ plot_lens = build_plot_lens_system(
 
 plot_residual = build_plot_sky_residuals(
     results_directory=RES_DIR,
+    filter_projector=filter_projector,
     data_dict=data_dict,
     sky_model_with_key=sky_model_with_keys,
     small_sky_model=lens_system.lens_plane_model.light_model if cfg[
@@ -213,6 +245,21 @@ plot_residual = build_plot_sky_residuals(
 plot_color = build_color_components_plotting(
     lens_system.source_plane_model.light_model.nonparametric(), RES_DIR, substring='source')
 
+plot_source = build_plot_source(
+    RES_DIR,
+    plotting_config=dict(
+        norm_source=LogNorm,
+        norm_source_parametric=LogNorm,
+        norm_source_nonparametric=LogNorm,
+        extent=lens_system.source_plane_model.space.extend().extent,
+    ),
+    filter_projector=filter_projector,
+    source_light_model=lens_system.source_plane_model.light_model,
+    source_light_alpha=sl_alpha,
+    source_light_parametric=lens_system.source_plane_model.light_model.parametric(),
+    source_light_nonparametric=sl_nonpar,
+    attach_name=''
+)
 
 if cfg.get('prior_samples'):
     test_key, _ = random.split(random.PRNGKey(42), 2)
@@ -230,6 +277,7 @@ if cfg.get('prior_samples'):
     plot_prior = build_plot_sky_residuals(
         results_directory=RES_DIR,
         data_dict=prior_dict,
+        filter_projector=filter_projector,
         sky_model_with_key=sky_model_with_keys,
         small_sky_model=lens_system.lens_plane_model.light_model if cfg[
             'lens_only'] else lens_system.get_forward_model_parametric(),
@@ -242,6 +290,24 @@ if cfg.get('prior_samples'):
         )
     )
 
+    cfm = lens_system.source_plane_model.light_model.nonparametric()
+    plot_deviations = build_plot_source(
+        RES_DIR,
+        plotting_config=dict(
+            # norm_source=LogNorm,
+            norm_source_parametric=LogNorm,
+            norm_source_nonparametric=LogNorm,
+            extent=lens_system.source_plane_model.space.extend().extent,
+        ),
+        filter_projector=filter_projector,
+        source_light_model=cfm.spectral_deviations_distribution,
+        # source_light_model=cfm.spectral_distribution,
+        source_light_alpha=sl_alpha,
+        source_light_parametric=lens_system.source_plane_model.light_model.parametric(),
+        source_light_nonparametric=sl_nonpar,
+        attach_name='dev_'
+    )
+
     nsamples = cfg.get('prior_samples') if cfg.get('prior_samples') else 3
     for ii in range(nsamples):
         test_key, _ = random.split(test_key, 2)
@@ -249,9 +315,11 @@ if cfg.get('prior_samples'):
         while isinstance(position, jft.Vector):
             position = position.tree
 
-        if not cfg['lens_only']:
-            plot_lens(position, None, parametric=parametric_flag)
-        plot_prior(position)
+        # if not cfg['lens_only']:
+        #     plot_lens(position, None, parametric=parametric_flag)
+        # plot_prior(position)
+        plot_deviations(position)
+        # plot_source(position)
         plot_color(position)
 
 
@@ -266,7 +334,7 @@ def plot(samples: jft.Samples, state: jft.OptimizeVIState):
     if cfg['plot_results']:
         plot_residual(samples, state)
         plot_color(samples, state)
-
+        plot_source(samples, state)
         plot_lens(samples, state, parametric=parametric_flag)
 
 

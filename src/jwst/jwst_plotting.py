@@ -12,6 +12,7 @@ from jubik0.jwst.mock_data.mock_evaluation import redchi2
 from jubik0.jwst.mock_data.mock_plotting import display_text
 from jubik0.library.sky_colormix import ColorMix
 from jubik0.jwst.rotation_and_shift.coordinates_correction import CoordinatesCorrection
+from jubik0.jwst.filter_projector import FilterProjector
 
 from typing import Tuple, Union, Optional
 from numpy.typing import ArrayLike
@@ -129,6 +130,7 @@ def determine_xlen_residuals(data_dict: dict, xmax_residuals):
         index = int(dkey.split('_')[-1])
         if index > maximum:
             maximum = index
+    maximum += 1
     if maximum > xmax_residuals:
         return xmax_residuals
     return maximum  # because 0 is already there and will not be counted
@@ -136,16 +138,17 @@ def determine_xlen_residuals(data_dict: dict, xmax_residuals):
 
 def determine_xpos(dkey: str):
     index = int(dkey.split('_')[-1])
-    return 4 + index - 1
+    return 3 + index
 
 
-def determine_ypos(dkey: str):
+def determine_ypos(dkey: str, filter_projector: FilterProjector):
     ekey = dkey.split('_')[1]
-    return int(ekey.split('e')[1])
+    return filter_projector.keys_and_index[ekey]
 
 
 def build_plot_sky_residuals(
     results_directory: str,
+    filter_projector: FilterProjector,
     data_dict: dict,
     sky_model_with_key: jft.Model,
     small_sky_model: jft.Model,
@@ -195,7 +198,7 @@ def build_plot_sky_residuals(
         for dkey, data in data_dict.items():
 
             xpos_residual = determine_xpos(dkey)
-            ypos = determine_ypos(dkey)
+            ypos = determine_ypos(dkey, filter_projector)
             if xpos_residual > xlen - 1:
                 continue
 
@@ -497,7 +500,7 @@ def build_get_values(
 def build_plot_source(
     results_directory: str,
     plotting_config: dict,
-    filter_projector,
+    filter_projector: FilterProjector,
     source_light_model,
     source_light_alpha,
     source_light_parametric,
@@ -540,7 +543,7 @@ def build_plot_source(
 
     def plot_source(
         position_or_samples: Union[jft.Samples, dict],
-        state_or_none: Optional[jft.OptimizeVIState],
+        state_or_none: Optional[jft.OptimizeVIState] = None,
     ):
         print('Plotting source light')
 
@@ -611,7 +614,7 @@ def build_plot_lens_system(
     results_directory: str,
     plotting_config: dict,
     lens_system,  # : LensSystem,
-    filter_projector,
+    filter_projector: FilterProjector,
     lens_light_alpha_nonparametric,
     source_light_alpha_nonparametric,
 ):
