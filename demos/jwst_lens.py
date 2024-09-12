@@ -294,24 +294,6 @@ if cfg.get('prior_samples'):
         )
     )
 
-    cfm = lens_system.source_plane_model.light_model.nonparametric()
-    plot_deviations = build_plot_source(
-        RES_DIR,
-        plotting_config=dict(
-            # norm_source=LogNorm,
-            norm_source_parametric=LogNorm,
-            norm_source_nonparametric=LogNorm,
-            extent=lens_system.source_plane_model.space.extend().extent,
-        ),
-        filter_projector=filter_projector,
-        source_light_model=cfm.spectral_deviations_distribution,
-        # source_light_model=cfm.spectral_distribution,
-        source_light_alpha=sl_alpha,
-        source_light_parametric=lens_system.source_plane_model.light_model.parametric(),
-        source_light_nonparametric=sl_nonpar,
-        attach_name='dev_'
-    )
-
     nsamples = cfg.get('prior_samples') if cfg.get('prior_samples') else 3
     for ii in range(nsamples):
         test_key, _ = random.split(test_key, 2)
@@ -319,12 +301,11 @@ if cfg.get('prior_samples'):
         while isinstance(position, jft.Vector):
             position = position.tree
 
-        # if not cfg['lens_only']:
-        #     plot_lens(position, None, parametric=parametric_flag)
-        plot_prior(position)
-        # plot_deviations(position)
         plot_source(position)
+        plot_prior(position)
         plot_color(position)
+        if not cfg['lens_only']:
+            plot_lens(position, None, parametric=parametric_flag)
 
 
 def plot(samples: jft.Samples, state: jft.OptimizeVIState):
@@ -336,10 +317,10 @@ def plot(samples: jft.Samples, state: jft.OptimizeVIState):
             pickle.dump((samples, state._replace(config={})), f)
 
     if cfg['plot_results']:
+        plot_source(samples, state)
         plot_residual(samples, state)
         plot_color(samples, state)
-        plot_source(samples, state)
-        plot_lens(samples, state, parametric=parametric_flag)
+        # plot_lens(samples, state, parametric=parametric_flag)
 
 
 pretrain_position = pretrain_lens_system(

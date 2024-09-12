@@ -14,9 +14,10 @@ grid:
     dec: -47.86462563973049
     unit: deg
     frame: icrs
-    rotation: 0
+    # rotation: 0
     # rotation: -25
-    # rotation: -115
+    # rotation: 65
+    rotation: -115
 
   source_grid:
     sdim: 256
@@ -91,7 +92,8 @@ telescope:
           rotation: ['delta', 0, 0]
 
 files:
-  res_dir: './results/jwst_lens/mfreworked/all_filters_02_norotation'
+  # res_dir: './results/jwst_lens/mfreworked/test'
+  res_dir: './results/jwst_lens/mfreworked/all_filters_02_swap'
 
   pretrain_path: './results/jwst_lens/mfreworked/all_filters_01/config.yaml'
 
@@ -186,7 +188,7 @@ lensing:
           gaussian_02: # i0*Gauss
             # i0: ['log_normal', 8.0e-4, 9.0e-5]
             i0: ['log_normal', 2.0e-2, 1.0e-2]
-            center: ['normal', [-0.4, -0.2], 0.00001]
+            center: ['normal', [-0.4, 0.4], 0.1]
             covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
 
@@ -283,7 +285,7 @@ lensing:
               ie: ['log_normal', 6000, 7000]
               re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
               n: ['log_normal', 4.2, 1.2]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
-              center: ['normal', [0.22, 0.09], 0.04]
+              center: ['normal', [0.0, 0.0], 0.1]
               q: [ 'uniform', 0.8, 1.0]
               theta: ['normal', 0.0, 10.0]
               # radial_correction: 
@@ -385,19 +387,19 @@ lensing:
 
 
 minimization:
-    key: 310824
+    key: 12092024
     resume: False
     n_total_iterations: 20
     pretraining_steps: Null
 
     delta:
-      switches: [0, 10, 16]
+      switches: [0, 10, 15]
       values: [5.e-6, 1.e-6, 1.e-7]
 
     samples:
-      switches: [0, 10, 16]
-      n_samples: [5, 5, 5]
-      mode: [linear_resample, nonlinear_resample, nonlinear_update]
+      switches: [0, 3, 15, 18]
+      n_samples: [5, 5, 7]
+      mode: [linear_resample, nonlinear_resample, nonlinear_resample, nonlinear_update]
       # Possible modes:
       # - "linear_sample",
       # - "linear_resample",
@@ -407,14 +409,14 @@ minimization:
 
 
       # lin_absdelta: [Null, Null, 0.00001]
-      lin_maxiter: [80, 150, 250]
+      lin_maxiter: [80, 250, 350]
 
       # nonlin_xtol: [Null, 0.1, 0.01]
-      nonlin_maxiter: [7, 13]
+      nonlin_maxiter: [7, 13, 18]
       # nonlin_cg_atol: [0.1, 0.01]
       # nonlin_cg_maxiter: [20, 30]
 
     kl_minimization:
-      switches: [0, 10]
+      switches: [0, 10, 15]
       # kl_absdelta: [Null, 1.0e-2, 1.0e-4]
-      kl_maxiter: [15, 20]
+      kl_maxiter: [15, 20, 25]
