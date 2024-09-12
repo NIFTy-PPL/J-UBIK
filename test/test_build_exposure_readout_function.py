@@ -1,7 +1,9 @@
-import numpy as np
-import jubik0 as ju
 import nifty8.re as jft
+import numpy as np
 import pytest
+
+import jubik0 as ju
+
 
 @pytest.mark.parametrize("keys", [
     ('tm_1', 'tm_2')])  # TODO: test more cases (e.g. the single tm case which would now fail.)

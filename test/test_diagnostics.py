@@ -1,7 +1,7 @@
 # test_diagnostics.py
 
-import pytest
 import jax.numpy as jnp
+import pytest
 from jax import random
 
 import jubik0 as ju

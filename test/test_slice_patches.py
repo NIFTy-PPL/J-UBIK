@@ -1,9 +1,10 @@
 import jax
-from jax import numpy as jnp
 import numpy as np
-import jubik0 as ju
 import pytest
-import matplotlib.pyplot as plt
+from jax import numpy as jnp
+
+import jubik0 as ju
+
 
 @pytest.fixture
 def shape():

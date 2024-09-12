@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
+
 import jubik0 as ju
+
 
 @pytest.fixture
 def size():

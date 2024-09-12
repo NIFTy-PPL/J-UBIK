@@ -1,8 +1,8 @@
+import nifty8.re as jft
 import pytest
-import numpy as np
 
 import jubik0 as ju
-import nifty8.re as jft
+
 
 @pytest.fixture
 def sample_grid_info():
