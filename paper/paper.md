@@ -54,7 +54,7 @@ modular platform designed for high-fidelity Bayesian imaging. Specifically, we p
 implementation leveraging the JAX-accelerated NIFTy.re [@Edenhofer:2024] software as its backend.
 J-UBIK streamlines the implementation of key Bayesian inference components, providing customizable 
 likelihood models for different instruments and adaptable prior models for various applications.
-The package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA,
+So far, the package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA,
 and the James Webb Space Telescope (JWST) in the infrared,
 as well as a prior model adaptable to different sky realizations. The demos show how the likelihood 
 and prior implementation can be integrated into an inference pipeline, with the possibility to
@@ -83,6 +83,7 @@ including the responses of multiple instruments and noise statistics.
 Built on NIFTy.re, J-UBIK supports adaptive and distributed representations of high-dimensional
 physical signal fields and 
 accelerates their inference from observational data using advanced Bayesian algorithms. 
+
 These include maximum a posteriori (MAP), Hamiltonian Monte Carlo (HMC), and two variational
 inference techniques: 
 metric Gaussian variational inference (MGVI, [@Knollmueller:2020]) and geometric variational
@@ -90,15 +91,13 @@ inference (geoVI, [@Frank:2021]).
 As NIFTy.re is fully implemented in JAX, J-UBIK benefits from accelerated inference through
 parallel computing on clusters or GPUs.
 
-Previously, NIFTy.re users had to manually construct likelihood and prior models for each 
-imaging problem, 
-which is one of the most labor-intensive parts of the Bayesian imaging process. 
-J-UBIK addresses this challenge from two angles. First, it provides tools to simplify the creation 
-of new likelihood and prior models. Acting as a flexible toolbox, J-UBIK supports a variety of response 
-functions, such as spatially-varying point-spread functions (PSFs), and accommodates different 
-noise statistics (e.g., Poissonian or Gaussian). It also enables users to define diverse 
-correlation structures for various sky components.
-Additionally, J-UBIK includes implementations for several instruments. 
+Building generative models with NIFTy.re for specific instruments and applications can be very
+tedious and labor-intensive. Here, J-UBIK comes into play, which adresses this challenge from two 
+angles. First, it provides tools to simplify the creation of new likelihood and 
+prior models and acts as a flexible toolbox. It implements a variety of generic
+response functions, such as spatially-varying point-spread functions (PSFs) [@Eberle:2023] and 
+enables the user to define diverse correlation structures for various sky components. Second, 
+J-UBIK includes implementations for several instruments. 
 Currently, it supports Chandra, eROSITA pointings, and JWST observations, 
 with plans to expand this list as the user base grows. 
 This expansion will provide users with a diverse set of accessible inference algorithms for various
@@ -147,7 +146,7 @@ one representing spatially uncorrelated point sources and the other representing
 correlated extended structures. [Figure 1](#fig:sky) shows from left to right the full sky and its
 components, the diffuse, extended structures and the point sources.
                                         
-| Simulated X-ray Sky                       |
+| Fig.1: Simulated X-ray Sky                |
 |-------------------------------------------|
 | ![Figure 1](simulated_sky.png){#fig:sky}  |
 
@@ -164,11 +163,11 @@ instrument, it can also be used to generate simulated data by passing sky prior 
 the instrument’s
 response. This provides a powerful tool for testing the consistency of the implemented models.
                                         
-| Simulated X-ray Data                       |
+|Fig.2: Simulated X-ray Data                 |
 |--------------------------------------------|
 | ![Figure 2](simulated_data.png){#fig:data} |
 
-Figure [Figure 2](#fig:data) shows the same simulated sky 
+[Figure 2](#fig:data) shows the same simulated sky 
 ([Figure 1](#fig:sky)) seen by two different instruments, eROSITA and Chandra, 
 with Poisson noise on the photon count data. The pointing center for each observation is marked
 in red. The two images on the right illustrate the same simulated sky seen by Chandra, but with
