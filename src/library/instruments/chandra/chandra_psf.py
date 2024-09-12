@@ -5,7 +5,7 @@ from ....library.utils import coord_center
 
 def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
     """
-    Simulate an artificial point source at at pixel indices for a specific
+    Simulate an artificial point source at pixel indices for a specific
     observation.
 
     Parameters
