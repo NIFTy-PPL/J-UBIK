@@ -1,13 +1,21 @@
-# should be structured as eROSITA
 seed: 67
 obs_info:
-  obs14410: # SN1006
-    obsID: 14424
-    data_location: ../data/14424/
-    event_file: primary/acisf14424N002_evt2.fits
-    aspect_sol: primary/pcadf14424_000N001_asol1.fits
-    bpix_file: primary/acisf14424_000N002_bpix1.fits
-    mask_file: secondary/acisf14424_000N002_msk1.fits
+  obs4952: # Perseus Cluster
+    obsID: 4952
+    data_location: ../data/4952/repro/
+    event_file: acisf04952_repro_evt2.fits
+    aspect_sol: pcadf04952_000N001_asol1.fits
+    bpix_file: acisf04952_repro_bpix1.fits
+    mask_file: acisf04952_000N004_msk1.fits
+    instrument: ACIS-S
+
+  obs11713: # Perseus Cluster
+    obsID: 11713
+    data_location: ../data/11713/
+    event_file: primary/acisf11713N003_evt2.fits
+    aspect_sol: primary/pcadf11713_000N001_asol1.fits
+    bpix_file: primary/acisf11713_000N003_bpix1.fits
+    mask_file: secondary/acisf11713_000N003_msk1.fits
     instrument: ACIS-I
 
 grid:
