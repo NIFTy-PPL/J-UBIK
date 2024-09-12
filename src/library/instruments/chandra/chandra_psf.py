@@ -3,7 +3,7 @@ import numpy as np
 from ....library.utils import coord_center
 
 
-def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
+def get_synth_pointsource(info, npix_s, idx_tuple, num_rays):
     """
     Simulate an artificial point source at pixel indices for a specific
     observation.
@@ -28,7 +28,7 @@ def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
     y_min = info.obsInfo["y_min"]
     event_f = info.obsInfo["event_file"]
     dy = dx = xy_range * 2 / npix_s
-    x_idx, y_idx = idx_tupel
+    x_idx, y_idx = idx_tuple
     x_pix_coord = x_min + x_idx * dx
     y_pix_coord = y_min + y_idx * dy
     coords = get_radec_from_xy(x_pix_coord, y_pix_coord, event_f)
