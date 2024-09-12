@@ -1,14 +1,13 @@
 seed: 67
 obs_info:
-  obs4952: # Perseus Cluster
-    obsID: 4952
-    data_location: ../data/4952/repro/
-    event_file: acisf04952_repro_evt2.fits
-    aspect_sol: pcadf04952_000N001_asol1.fits
-    bpix_file: acisf04952_repro_bpix1.fits
-    mask_file: acisf04952_000N004_msk1.fits
-    instrument: ACIS-S
-
+  obs4948: # Perseus Cluster
+    obsID: 4948
+    data_location: ../data/4948/
+    event_file: primary/acisf04948N004_evt2.fits
+    aspect_sol: primary/pcadf04948_001N001_asol1.fits
+    bpix_file: primary/acisf04948_001N004_bpix1.fits
+    mask_file: secondary/acisf04948_001N004_msk1.fits
+    instrument: ACIS-I
   obs11713: # Perseus Cluster
     obsID: 11713
     data_location: ../data/11713/
@@ -17,6 +16,14 @@ obs_info:
     bpix_file: primary/acisf11713_000N003_bpix1.fits
     mask_file: secondary/acisf11713_000N003_msk1.fits
     instrument: ACIS-I
+  # obs4952: # Perseus Cluster
+  #   obsID: 4952
+  #   data_location: ../data/4952/
+  #   event_file: primary/acisf04952N004_evt2.fits
+  #   aspect_sol: primary/pcadf04952_000N001_asol1.fits
+  #   bpix_file: primary/acisf04952_000N004_bpix1.fits
+  #   mask_file: secondary/acisf04952_000N004_msk1.fits
+  #   instrument: ACIS-S
 
 grid:
   sdim: 1024
