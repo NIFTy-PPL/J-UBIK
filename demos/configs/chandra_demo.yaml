@@ -48,7 +48,6 @@ telescope:
   center_obs_id:
 
 files:
-  obs_path: '../data/4948/'
   data_dict: 'data.pkl'
   processed_obs_folder: 'processed'
   res_dir: 'results/chandra_demo'

@@ -83,7 +83,7 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
     data_array : jnp.ndarray
         The generated Chandra data array.
     """
-    outroot = create_output_directory(join(file_info['obs_path'],
+    outroot = create_output_directory(join(file_info['res_dir'],
                                            file_info['processed_obs_folder']))
 
     obslist = list(obs_info.keys())
