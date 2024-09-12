@@ -9,8 +9,6 @@ J-UBIK allows to image observations from different instruments with Bayesian pos
 - [NIFTy8](https://gitlab.mpcdf.mpg.de/ift/nifty) 
 - JAX
 - astropy
-- ciao (>4.14)
-- marx (with ciao)
 - matplotlib
 - [ducc0](https://pypi.org/project/ducc0/)
 
@@ -36,9 +34,13 @@ Additional calibration files might be needed for instrument-specific pipelines.
 J-UBIK allows to process observations from chandra x-ray observatory.
 
 #### Requirements
-- how to install [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html)
-- how to install [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
-- set an alias in your .bashrc to source ciao and marx easily
+- [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html) > 4.16
+- [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
+- set an alias in your .bashrc to source ciao and marx easily 
+
+NOTE: in case you install ciao via conda, make sure that all environmental are set
+conda env config vars set MARX_ROOT /soft/marx/marx-5.2.0 (or where your marx is installed)
+conda env config vars set MARX_DATA_DIR ${MARX_ROOT}/share/marx/data
 
 ### eROSITA
 J-UBIK allows to process and image event files from the eROSITA x-ray observatory.
