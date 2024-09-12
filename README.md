@@ -9,11 +9,11 @@ Next to many useful generic tools and building blocks, JUBIK comes with a series
  - James Webb Space Telescope
 
 ## Requirements
-- JAX
-- astropy
+- [JAX](https://jax.readthedocs.io/en/latest/installation.html)
+- [astropy](https://www.astropy.org)
 - [NIFTy8](https://gitlab.mpcdf.mpg.de/ift/nifty) 
 - [ducc0](https://pypi.org/project/ducc0/)
-- matplotlib
+- [matplotlib](https://matplotlib.org/stable/install/index.html)
 
 
 ## Instrument specific Requirements 
@@ -35,7 +35,7 @@ for a regular installation. For editable installation add the `-e` flag.
 Additional calibration files might be needed for instrument-specific pipelines.
 
 ### Chandra{#chandra}
-J-UBIK allows to process observations from chandra x-ray observatory.
+J-UBIK allows to process observations from Chandra x-ray observatory.
 
 #### Requirements
 - [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html) > 4.16
@@ -50,13 +50,13 @@ conda env config vars set MARX_DATA_DIR ${MARX_ROOT}/share/marx/data
 J-UBIK allows to process and image event files from the eROSITA x-ray observatory.
 
 #### Requirements
-In order to process eROSITA observations and produce realistic synthetic data,
-you will need to:
-- Get [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/), the eROSITA
+To process eROSITA observations or produce realistic synthetic data,
+you will need:
+- [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/), the eROSITA
 Science Analysis Software System. 
 In particular, the current version of J-UBIK only supports using eSASS through the 
 official docker container to ensure cross-compatibility.
-- Download the [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/) folder, this allows to compute the eROSITA response accurately. 
+- [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/) folder, this allows to compute the eROSITA response accurately. 
 Either the caldb from data release 1 (DR1) or from the early data release (EDR) should be present 
 inside the `data/` directory. 
 This folder can be downloaded at [caldb download](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/caldb4DR1.tgz).
