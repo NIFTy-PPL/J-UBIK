@@ -167,3 +167,9 @@ def convolve(x, y, domain, axes):
     res = jnp.fft.ifftn(prod, axes=axes)
     res = dvol*res
     return res.real
+
+def integrate(x, domain, axes):
+    sumation = np.sum(x, axis=tuple(axes))
+    dlist = [domain.distances[i] for i in axes]
+    dvol = float(reduce(lambda a, b: a*b, dlist))
+    return dvol*sumation

@@ -1,11 +1,15 @@
 from os.path import join, exists
 from jax import numpy as jnp
+from jax import vmap
 import numpy as np
 
 from .chandra_observation import ChandraObservationInformation
+from .chandra_psf import get_psfpatches
 from ...utils import get_config, create_output_directory, load_from_pickle,\
     save_to_pickle
 from ...response import build_readout_function, build_exposure_function
+from ....library.convolve import linpatch_convolve, integrate
+from ....library.data import Domain
 
 def build_chandra_response_from_config(config_file_path):
     """
@@ -31,7 +35,7 @@ def build_chandra_response_from_config(config_file_path):
     grid_info = cfg['grid']
     file_info = cfg['files']
     psf_info = cfg['psf']
-    outroot = create_output_directory(join(file_info['obs_path'],
+    outroot = create_output_directory(join(file_info['res_dir'],
                                            file_info['processed_obs_folder']))
 
     tel_info = cfg['telescope']
@@ -46,6 +50,11 @@ def build_chandra_response_from_config(config_file_path):
 
     exposure_path = join(outroot, 'exposure.pkl')
     psf_path = join(outroot, 'psf.pkl')
+
+    domain = Domain(tuple([grid_info["edim"]] + [grid_info["sdim"]] * 2),
+                    tuple([1] + [tel_info["fov"] / grid_info["sdim"]] * 2))
+    shp = (domain.shape[-2], domain.shape[-1])
+    margin = max((int(np.ceil(psf_info["margfrac"] * ss)) for ss in shp))
 
     # Load exposures if the file exists, otherwise compute it
     if exists(exposure_path):
@@ -86,12 +95,16 @@ def build_chandra_response_from_config(config_file_path):
 
             # Compute PSF if it hasn't been loaded
             if not exists(psf_path):
-                psf_sim = info.get_psf_fromsim(
-                    (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"]),
-                    join(outroot, "psf"),
-                    num_rays=psf_info['num_rays']
-                )
-                psf_list.append(psf_sim)
+                tmp_psfs = []
+                for ebin in range(grid_info["edim"]):
+                    psf_array = get_psfpatches(info,
+                                               psf_info["npatch"],
+                                               grid_info["sdim"],
+                                               ebin,
+                                               num_rays=psf_info["num_rays"],
+                                               Norm=False)
+                    tmp_psfs.append(psf_array)
+                psf_list.append(np.moveaxis(np.array(tmp_psfs), 0, 1))
             if i == 0:
                 center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
         # Save exposures if they were computed
@@ -101,19 +114,28 @@ def build_chandra_response_from_config(config_file_path):
 
         # Save PSFs if they were computed
         if not exists(psf_path):
-            psfs = jnp.stack(jnp.array(psf_list, dtype=int))
+            psfs = np.stack(np.array(psf_list, dtype=int))
+            norm = np.max(integrate(psfs, domain, [-2, -1]))
+            psfs = psfs / norm
             save_to_pickle(psfs, psf_path)
 
-    def psf_func(x): #FIXME: Veberle please adjust with spat.inv. psf
-        return jnp.expand_dims(x, axis=0)
+    def psf_func(x):
+        return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(
+            x, domain, psfs, psf_info["npatch"], margin
+        )
+
     mask_func = build_readout_function(exposures, keys=obslist,
                                        threshold=tel_info['exp_cut'])
     exposure_func = build_exposure_function(exposures)
 
     pixel_area = (tel_info['fov'] / grid_info['sdim']) ** 2
 
-    response_func = lambda x: mask_func(exposure_func(psf_func(x \
-                                                               * pixel_area)))
+    def response_func(x):
+        conv = psf_func(x*pixel_area)
+        exposed = exposure_func(conv)
+        masked = mask_func(exposed)
+        return masked
+
     response_dict = {'pix_area': pixel_area,
                      'psf': psf_func,
                      'exposure': exposure_func,

@@ -1,12 +1,11 @@
 import numpy as np
-import nifty8 as ift
 
 from ....library.utils import coord_center
 
 
-def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
+def get_synth_pointsource(info, npix_s, idx_tuple, num_rays):
     """
-    Simulate an artificial point source at at pixel indices for a specific
+    Simulate an artificial point source at pixel indices for a specific
     observation.
 
     Parameters
@@ -29,7 +28,7 @@ def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
     y_min = info.obsInfo["y_min"]
     event_f = info.obsInfo["event_file"]
     dy = dx = xy_range * 2 / npix_s
-    x_idx, y_idx = idx_tupel
+    x_idx, y_idx = idx_tuple
     x_pix_coord = x_min + x_idx * dx
     y_pix_coord = y_min + y_idx * dy
     coords = get_radec_from_xy(x_pix_coord, y_pix_coord, event_f)
@@ -38,7 +37,7 @@ def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
 
 
 def get_radec_from_xy(temp_x, temp_y, event_f):
-    # TODO is this enough precision
+    # TODO test precision
     """Calculates sky ra and dec from sky pixel coordinates.
 
     Parameters
@@ -58,14 +57,13 @@ def get_radec_from_xy(temp_x, temp_y, event_f):
     return (x_p, y_p)
 
 
-def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
+def get_psfpatches(info, n, npix_s, ebin, num_rays=10e6,
                    debug=False, Roll=True, Norm=True):
     """
     Simulating the point spread function of chandra at n**2 positions.
     This is needed for the application of OverlappAdd algorithm at the
     moment.
     # TODO Interpolation of PSF
-    # TODO remove old nifty dependency
 
     Parameters
     -----------
@@ -74,7 +72,6 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
     n: int, number of patches along x and y axis
     npix_s: number of pixels along x and y axis
     e_bin: energy bin of info, which is used for the simulation
-    fov: field of view in arcsec
     num_rays: number of rays for the simulations
     Roll: boolean, if True psf is rolled to the origin.
     Norm: boolean, if True psf is normalized
@@ -85,7 +82,6 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
     -------
     Array of simulated point spread functions
     """
-    psf_domain = ift.RGSpace((npix_s, npix_s), distances=fov / npix_s)
     xy_range = info.obsInfo["xy_range"]
     x_min = info.obsInfo["x_min"]
     y_min = info.obsInfo["y_min"]
@@ -110,23 +106,17 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
                 co_x, co_y = np.unravel_index(tmp_coord, [npix_s, npix_s])
                 tmp_psf_sim = np.roll(tmp_psf_sim, (-co_x, -co_y), axis=(0, 1))
                 u += 1
-            psf_field = ift.makeField(psf_domain, tmp_psf_sim)
-            if Norm:
-                norm_val = psf_field.integrate().val ** -1
-                norm = ift.ScalingOperator(psf_domain, norm_val)
-                psf_norm = norm(psf_field)
-                psf_sim.append(psf_norm)
-            else:
-                psf_sim.append(psf_field)
-
+            psf_sim.append(tmp_psf_sim)
             if debug:
                 tmp_source = np.zeros(tmp_psf_sim.shape)
                 pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None),
                                        tmp_psf_sim.shape)
                 tmp_source[pos] = 1
-                source_field = ift.makeField(psf_domain, tmp_source)
-                source.append(source_field)
+                source.append(tmp_source)
                 positions.append(pos)
+    psf_sim = np.array(psf_sim)
+    if Norm:
+        psf_sim = psf_sim / num_rays
     if debug:
         return psf_sim, source, positions, coords
     else:
