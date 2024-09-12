@@ -1,21 +1,25 @@
 # J-UBIK
-
-*J*ifty *U*niversal *B*ayesian *I*maging *K*it for photon count instruments is a python package for data analysis of modern telescopes such as Chandra and eROSITA (X-ray), and JWST (infrared).
+The **J**AX-accelerated **U**niversal **B**ayesian **I**maging **K**it  is a python package for high-fidelity Bayesian imaging.
 
 J-UBIK allows to image observations from different instruments with Bayesian posterior uncertainties and component separation.
+Next to many useful generic tools and building blocks, JUBIK comes with a series of sky models and instrument implementations, namely:
 
+ - Chandra
+ - eROSITA
+ - James Webb Space Telescope
 
 ## Requirements
-- [NIFTy8](https://gitlab.mpcdf.mpg.de/ift/nifty) 
 - JAX
 - astropy
-- matplotlib
+- [NIFTy8](https://gitlab.mpcdf.mpg.de/ift/nifty) 
 - [ducc0](https://pypi.org/project/ducc0/)
+- matplotlib
 
 
-## Installation of Dependencies
-- Information on how to install NIFTy8 can be found [here](https://gitlab.mpcdf.mpg.de/ift/nifty)
-- Depeding on the instrument you want to use, consider the requirements for chandra / eROSITA / JWST data below.
+## Instrument specific Requirements 
+- [Chandra](#chandra)
+- [eROSITA](#erosita)
+- [James Webb Space Telescope](#jwst)
 
 ## Installation
 This package can be installed via pip. 
@@ -30,7 +34,7 @@ for a regular installation. For editable installation add the `-e` flag.
 ## Additional Files
 Additional calibration files might be needed for instrument-specific pipelines.
 
-### Chandra
+### Chandra{#chandra}
 J-UBIK allows to process observations from chandra x-ray observatory.
 
 #### Requirements
@@ -42,7 +46,7 @@ NOTE: in case you install ciao via conda, make sure that all environmental are s
 conda env config vars set MARX_ROOT /soft/marx/marx-5.2.0 (or where your marx is installed)
 conda env config vars set MARX_DATA_DIR ${MARX_ROOT}/share/marx/data
 
-### eROSITA
+### eROSITA{#erosita}
 J-UBIK allows to process and image event files from the eROSITA x-ray observatory.
 
 #### Requirements
@@ -66,7 +70,7 @@ in order to build realistic exposure maps.
 A good example is [LMC_dataset](https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/LMC_SN1987A.tar.gz).
 For more information on how to run `erosita_demo.py` see the corresponding docstring.
 
-### JWST
+### James Webb Space Telescope{#jwst}
 J-UBIK allows to process and image event files from the James Webb Space Telescope.
 
 #### Requirements
