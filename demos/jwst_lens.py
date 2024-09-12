@@ -321,9 +321,9 @@ if cfg.get('prior_samples'):
 
         # if not cfg['lens_only']:
         #     plot_lens(position, None, parametric=parametric_flag)
-        # plot_prior(position)
-        plot_deviations(position)
-        # plot_source(position)
+        plot_prior(position)
+        # plot_deviations(position)
+        plot_source(position)
         plot_color(position)
 
 
