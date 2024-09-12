@@ -2,22 +2,15 @@ import yaml
 import argparse
 import os
 
-from functools import reduce
-
 import pickle
 
 import nifty8.re as jft
-from jax import random
-import jax.numpy as jnp
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, FuncNorm
 from astropy import units as u
 
-import jubik0 as ju
-from jubik0.library.likelihood import (
-    connect_likelihood_to_model, build_gaussian_likelihood)
 from jubik0.jwst.jwst_data import JwstData
 from jubik0.jwst.masking import get_mask_from_index_centers
 from jubik0.jwst.config_handler import (
@@ -29,9 +22,9 @@ from jubik0.jwst.wcs import (subsample_grid_centers_in_index_grid)
 from jubik0.jwst.jwst_data_model import build_data_model
 from jubik0.jwst.jwst_plotting import (
     build_plot_sky_residuals,
-    build_color_components_plotting,
-    build_plot_lens_system, get_alpha_nonpar,
-    rgb_plotting,
+    build_plot_lens_system,
+    build_plot_source,
+    get_alpha_nonpar,
 )
 from jubik0.jwst.filter_projector import FilterProjector
 
@@ -44,6 +37,9 @@ from sys import exit
 from jax import config, devices
 config.update('jax_default_device', devices('cpu')[0])
 
+
+PLOT_RESIDUALS = False
+PLOT_ALL_RECONSTRUCTION = False
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -70,8 +66,24 @@ if cfg['lens_only']:
 
 energy_cfg = cfg['grid']['energy_bin']
 e_unit = getattr(u, energy_cfg.get('unit', 'eV'))
+filter_keys = dict(
+    e00='F2100W',
+    e01='F1800W',
+    e02='F1500W',
+    e03='F1280W',
+    e04='F1000W',
+    e05='F770W',
+    e06='F560W',
+    e07='F444W',
+    e08='F356W',
+    e09='F277W',
+    e10='F200W',
+    e11='F150W',
+    e12='F115W',
+)
 keys_and_colors = {
-    f'e{ii:02d}': ColorRange(Color(emin*e_unit), Color(emax*e_unit))
+    filter_keys[f'e{ii:02d}']: ColorRange(
+        Color(emin*e_unit), Color(emax*e_unit))
     for ii, (emin, emax) in enumerate(zip(energy_cfg.get('e_min'), energy_cfg.get('e_max')))}
 
 filter_projector = FilterProjector(
@@ -84,12 +96,8 @@ sky_model_with_keys = jft.Model(
 )
 
 
-plot_residuals = True
-
-if plot_residuals:
-
+if PLOT_RESIDUALS:
     data_dict = {}
-    likelihoods = []
     for fltname, flt in cfg['files']['filter'].items():
         for ii, filepath in enumerate(flt):
             print(fltname, ii, filepath)
@@ -196,19 +204,80 @@ plot_lens = build_plot_lens_system(
     source_light_alpha_nonparametric=(sl_alpha, sl_nonpar),
 )
 
-n_iters = cfg['minimization']['n_total_iterations']
-for ii in range(n_iters):
-    if ii < 30:
-        continue
-    position_path = os.path.join(RES_DIR, f'position_{ii: 02d}')
-    if os.path.isfile(position_path):
-        if not os.path.isfile(os.path.join(RES_DIR, 'lens', f'{ii:02d}.png')):
-            print('Plotting', ii)
-            with open(position_path, "rb") as f:
+source_light = lens_system.source_plane_model.light_model
+plot_source = build_plot_source(
+    RES_DIR,
+    plotting_config=dict(
+        norm_source=LogNorm,
+        norm_source_parametric=LogNorm,
+        norm_source_nonparametric=LogNorm,
+        extent=lens_system.source_plane_model.space.extend().extent,
+    ),
+    filter_projector=filter_projector,
+    source_light_model=lens_system.source_plane_model.light_model,
+    source_light_alpha=sl_alpha,
+    source_light_parametric=lens_system.source_plane_model.light_model.parametric(),
+    source_light_nonparametric=sl_nonpar,
+    attach_name=''
+)
+
+cfm = lens_system.source_plane_model.light_model.nonparametric()
+plot_deviations = build_plot_source(
+    RES_DIR,
+    plotting_config=dict(
+        # norm_source=LogNorm,
+        norm_source_parametric=LogNorm,
+        norm_source_nonparametric=LogNorm,
+        extent=lens_system.source_plane_model.space.extend().extent,
+    ),
+    filter_projector=filter_projector,
+    source_light_model=cfm.spectral_deviations_distribution,
+    # source_light_model=cfm.spectral_distribution,
+    source_light_alpha=sl_alpha,
+    source_light_parametric=lens_system.source_plane_model.light_model.parametric(),
+    source_light_nonparametric=sl_nonpar,
+    attach_name='dev_'
+)
+
+
+if PLOT_ALL_RECONSTRUCTION:
+    n_iters = cfg['minimization']['n_total_iterations']
+    for ii in range(n_iters):
+        # if ii < 35:
+        #     continue
+
+        samp_stat = os.path.join(RES_DIR, f'position_{ii: 02d}')
+        if not os.path.isfile(samp_stat):
+            samp_stat = os.path.join(RES_DIR, f'samples_state_{ii:02d}.pkl')
+
+        if os.path.isfile(samp_stat):
+            with open(samp_stat, "rb") as f:
                 samples, opt_vi_st = pickle.load(f)
-            plot_lens(samples, opt_vi_st, parametric=parametric_flag)
-        if not os.path.isfile(os.path.join(RES_DIR, 'residuals', f'{ii:02d}.png')) and plot_residuals:
-            print('Plotting residuals', ii)
-            with open(position_path, "rb") as f:
-                samples, opt_vi_st = pickle.load(f)
-            plot_residual(samples, opt_vi_st)
+
+            lens_path = os.path.join(RES_DIR, 'lens', f'{ii:02d}.png')
+            res_path = os.path.join(RES_DIR, 'residuals', f'{ii:02d}.png')
+            source_path = os.path.join(RES_DIR, 'source', f'{ii:02d}.png')
+            dev_path = os.path.join(RES_DIR, 'source', f'dev_{ii:02d}.png')
+
+            # if not os.path.isfile(lens_path):
+            #     print('Plotting', ii)
+            #     plot_lens(samples, opt_vi_st, parametric=parametric_flag)
+
+            # if not os.path.isfile(res_path) and PLOT_RESIDUALS:
+            #     print('Plotting residuals', ii)
+            #     plot_residual(samples, opt_vi_st)
+
+            if not os.path.isfile(source_path):
+                print('Plotting source', ii)
+                plot_source(samples, opt_vi_st)
+
+            if not os.path.isfile(dev_path) and ii > 45:
+                print('Plotting source deviations', ii)
+                plot_deviations(samples, opt_vi_st)
+
+else:
+    samp_stat = os.path.join(RES_DIR, 'last.pkl')
+    with open(samp_stat, "rb") as f:
+        samples, opt_vi_st = pickle.load(f)
+    plot_source(samples, opt_vi_st)
+    plot_deviations(samples, opt_vi_st)
