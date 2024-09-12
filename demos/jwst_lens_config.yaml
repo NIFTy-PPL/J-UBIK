@@ -14,8 +14,9 @@ grid:
     dec: -47.86462563973049
     unit: deg
     frame: icrs
+    rotation: 0
     # rotation: -25
-    rotation: -115
+    # rotation: -115
 
   source_grid:
     sdim: 256
@@ -74,6 +75,10 @@ telescope:
 
   rotation_and_shift:
     model: 'linear' # 'sparse', 'linear', 'nufft'
+    kwargs_linear:
+      # order: 1
+      # sky_as_brightness: False
+      mode: 'constant'
     subsample: 3
     priors: # will be ignored in case of sparse
       rotation_unit: deg
@@ -175,13 +180,13 @@ lensing:
           gaussian_01: # i0*Gauss
             # i0: ['log_normal', 8.0e-4, 9.0e-5]
             i0: ['delta', 1.0e-1, 1.0e-3]
-            center: ['normal', 0, 0.02]
+            center: ['normal', 0, 0.1]
             covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
           gaussian_02: # i0*Gauss
             # i0: ['log_normal', 8.0e-4, 9.0e-5]
             i0: ['log_normal', 2.0e-2, 1.0e-2]
-            center: ['normal', [0.4, -0.4], 0.02]
+            center: ['normal', [-0.4, -0.2], 0.00001]
             covariance: ['log_normal', 0.05, 0.007]
             off_diagonal: ['normal', 0.0, 10.0]
 

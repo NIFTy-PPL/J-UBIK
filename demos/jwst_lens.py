@@ -134,19 +134,23 @@ for fltname, flt in cfg['files']['filter'].items():
 
         # Loading data, std, and mask.
         psf_ext = int(cfg['telescope']['psf']['psf_pixels'] // 2)
+        psf_ext = [int(np.sqrt(jwst_data.dvol) * psf_ext / dist)
+                   for dist in reconstruction_grid.distances]
+        # print(psf_ext)
+
         mask = get_mask_from_index_centers(
             np.squeeze(subsample_grid_centers_in_index_grid(
-                reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)),
+                reconstruction_grid.world_extrema(ext=psf_ext),
                 jwst_data.wcs,
                 reconstruction_grid.wcs,
                 1)),
             reconstruction_grid.shape)
         mask *= jwst_data.nan_inside_extrema(
-            reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
+            reconstruction_grid.world_extrema(ext=psf_ext))
         data = jwst_data.data_inside_extrema(
-            reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
+            reconstruction_grid.world_extrema(ext=psf_ext))
         std = jwst_data.std_inside_extrema(
-            reconstruction_grid.world_extrema(ext=(psf_ext, psf_ext)))
+            reconstruction_grid.world_extrema(ext=psf_ext))
 
         data_model = build_data_model(
             {ekey: sky_model_with_keys.target[ekey]},
@@ -157,6 +161,7 @@ for fltname, flt in cfg['files']['filter'].items():
                 data_dvol=jwst_data.dvol,
                 data_wcs=jwst_data.wcs,
                 data_model_type=cfg['telescope']['rotation_and_shift']['model'],
+                kwargs_linear=cfg['telescope']['rotation_and_shift']['kwargs_linear'],
                 shift_and_rotation_correction=dict(
                     domain_key=data_key + '_correction',
                     priors=build_coordinates_correction_prior_from_config(
@@ -178,8 +183,7 @@ for fltname, flt in cfg['files']['filter'].items():
 
             data_mask=mask,
 
-            world_extrema=reconstruction_grid.world_extrema(
-                ext=(psf_ext, psf_ext)),
+            world_extrema=reconstruction_grid.world_extrema(ext=psf_ext),
 
             zero_flux=dict(
                 dkey=data_key,

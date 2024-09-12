@@ -78,6 +78,7 @@ def build_rotation_and_shift_model(
         linear:  dict, options
             - order: (0, 1), default: 1
             - sky_as_brightness: default: False
+            - mode: wrap (default)
 
         sparse: dict, options
             - extend_factor, default: 1 (extension of the sky grid)
@@ -114,10 +115,16 @@ def build_rotation_and_shift_model(
 
     match model_type:
         case 'linear':
+            linear_kwargs = kwargs.get(
+                'linear',
+                dict(order=1,
+                     sky_as_brightness=False,
+                     mode='wrap',)
+            )
             call = build_linear_rotation_and_shift(
                 sky_dvol=reconstruction_grid.dvol.value,
                 sub_dvol=data_grid_dvol.value / subsample**2,
-                **kwargs.get('linear', dict(order=1, sky_as_brightness=False)),
+                **linear_kwargs,
             )
 
         case 'nufft':

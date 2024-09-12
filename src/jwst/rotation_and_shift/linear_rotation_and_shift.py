@@ -11,7 +11,8 @@ def build_linear_rotation_and_shift(
     sub_dvol: float,
     order: int = 1,
     sky_as_brightness: bool = False,
-    mode='wrap'
+    mode='wrap',
+    cval=0,
 ) -> Callable[ArrayLike, ArrayLike]:
     '''Building linear (higher orders not yet supported) rotation_and_shift model.
 
@@ -52,7 +53,8 @@ def build_linear_rotation_and_shift(
         sky_dvol = 1
     flux_conversion = sub_dvol / sky_dvol
 
-    rotation_and_shift = partial(map_coordinates, order=order, mode=mode)
+    rotation_and_shift = partial(
+        map_coordinates, order=order, mode=mode, cval=cval)
 
     def rotation_shift_subsample(field, subsample_centers):
         out = rotation_and_shift(field, subsample_centers)
