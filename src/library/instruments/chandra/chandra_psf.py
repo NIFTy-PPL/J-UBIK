@@ -57,14 +57,13 @@ def get_radec_from_xy(temp_x, temp_y, event_f):
     return (x_p, y_p)
 
 
-def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
+def get_psfpatches(info, n, npix_s, ebin, num_rays=10e6,
                    debug=False, Roll=True, Norm=True):
     """
     Simulating the point spread function of chandra at n**2 positions.
     This is needed for the application of OverlappAdd algorithm at the
     moment.
     # TODO Interpolation of PSF
-    # TODO remove old nifty dependency
 
     Parameters
     -----------
@@ -73,7 +72,6 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
     n: int, number of patches along x and y axis
     npix_s: number of pixels along x and y axis
     e_bin: energy bin of info, which is used for the simulation
-    fov: field of view in arcsec
     num_rays: number of rays for the simulations
     Roll: boolean, if True psf is rolled to the origin.
     Norm: boolean, if True psf is normalized
