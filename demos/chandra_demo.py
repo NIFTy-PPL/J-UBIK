@@ -32,13 +32,13 @@ For the sake of a suitable reconstruction do the following:
     please look at (https://doi.org/10.21105/joss.06593)
 """
 
-import os
 import argparse
+import os
 
 import nifty8.re as jft
-import jubik0 as ju
-
 from jax import config, random
+
+import jubik0 as ju
 
 config.update('jax_enable_x64', True)
 
