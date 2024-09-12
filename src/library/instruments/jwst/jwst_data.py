@@ -64,24 +64,29 @@ miri_filters = dict(
 JWST_FILTERS = nircam_filters | miri_filters
 
 
+# https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument#gsc.tab=0
+# https://iopscience.iop.org/article/10.1086/682254
+# https://jwst-docs.stsci.edu/jwst-near-infrared-camera#gsc.tab=0
+MIRI_PIXEL_DISTANCE = 0.11 * units.arcsec
+NIRCAM_PIXEL_DISTANCE_01 = (0.031*units.arcsec)  # 0.6–2.3 µm wavelength range
+NIRCAM_PIXEL_DISTANCE_02 = (0.063*units.arcsec)  # 2.4–5.0 µm wavelength range
+
+
 def _get_dvol(filter: str):
     if filter in miri_filters:
-        # https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument#gsc.tab=0
-        # https://iopscience.iop.org/article/10.1086/682254
-        return (0.11*units.arcsec).to(units.deg)**2
+        return (MIRI_PIXEL_DISTANCE.to(units.deg))**2
 
     elif filter in nircam_filters:
-        # https://jwst-docs.stsci.edu/jwst-near-infrared-camera#gsc.tab=0
         pivot = Color(nircam_filters[filter][0] * units.micrometer)
 
         if pivot in ColorRange(Color(0.6*units.micrometer),
                                Color(2.3*units.micrometer)):
             # 0.6–2.3 µm wavelength range
-            return (0.031*units.arcsec).to(units.deg)**2
+            return NIRCAM_PIXEL_DISTANCE_01.to(units.deg)**2
 
         else:
             # 2.4–5.0 µm wavelength range
-            return (0.063*units.arcsec).to(units.deg)**2
+            return NIRCAM_PIXEL_DISTANCE_02.to(units.deg)**2
 
     else:
         raise NotImplementedError('filter has to be in the supported filters'
