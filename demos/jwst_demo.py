@@ -185,7 +185,7 @@ if __name__ == "__main__":
         fov=(cfg['grid']['fov']*u.arcsec,)*2
     )
 
-    data_set = {}
+    datas = []
     likelihoods = []
     for fltname in filters.keys():
 
@@ -214,7 +214,7 @@ if __name__ == "__main__":
             world_extrema=data_grid.world_extrema(),
         )
 
-        data_model = ju.build_jwst_data_model(
+        response = ju.build_jwst_response(
             sky_domain={fltname: filter_projector.target[fltname]},
             subsample=cfg['telescope']['subsample'],
             rotation_and_shift_kwargs=rotation_and_shift_kwargs,
@@ -228,27 +228,21 @@ if __name__ == "__main__":
         noise_std = cfg['mock_config']['noise_std']
         key, subkey = random.split(key)
         data = (
-            data_model(mock_sky) +
-            random.normal(subkey, data_model.target.shape) * noise_std
+            response(mock_sky) +
+            random.normal(subkey, response.target.shape) * noise_std
         )
-
-        data_set[fltname] = {
-            'data': data,
-            'std': noise_std,
-            'data_model': data_model,
-            'data_grid': data_grid,
-        }
+        datas.append(data)
 
         likelihood = build_gaussian_likelihood(data, noise_std)
         likelihood = likelihood.amend(
-            data_model, domain=jft.Vector(data_model.domain))
+            response, domain=jft.Vector(response.domain))
         likelihoods.append(likelihood)
 
     likelihood = reduce(lambda x, y: x+y, likelihoods)
     likelihood = connect_likelihood_to_model(
         likelihood, sky_model_with_filters)
 
-    data = np.array([d["data"] for d in data_set.values()])
+    data = np.array(datas)
     ju.plot_result(data, output_file=join(file_info["res_dir"], "data.png"))
 
     # Plot

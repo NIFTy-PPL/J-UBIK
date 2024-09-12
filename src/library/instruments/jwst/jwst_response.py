@@ -10,7 +10,7 @@ from .rotation_and_shift import build_rotation_and_shift_model, \
 from .zero_flux_model import build_zero_flux_model
 
 
-class DataModel(jft.Model):
+class JwstResponse(jft.Model):
     """
     A that connects observational data to the corresponding sky and
     instrument models.
@@ -90,7 +90,7 @@ class DataModel(jft.Model):
         return out
 
 
-def build_jwst_data_model(
+def build_jwst_response(
     sky_domain: dict,
     subsample: int,
     rotation_and_shift_kwargs: Optional[dict],
@@ -98,7 +98,7 @@ def build_jwst_data_model(
     transmission: float,
     data_mask: Optional[ArrayLike],
     zero_flux: Optional[dict],
-) -> DataModel:
+) -> JwstResponse:
     """
     Builds the data model for a Jwst observation.
 
@@ -192,10 +192,10 @@ def build_jwst_data_model(
     else:
         def mask(x): return x[data_mask]
 
-    return DataModel(sky_domain=sky_domain,
-                     rotation_and_shift=rotation_and_shift,
-                     psf=psf,
-                     integrate=integrate,
-                     transmission=transmission,
-                     zero_flux_model=zero_flux_model,
-                     mask=mask)
+    return JwstResponse(sky_domain=sky_domain,
+                        rotation_and_shift=rotation_and_shift,
+                        psf=psf,
+                        integrate=integrate,
+                        transmission=transmission,
+                        zero_flux_model=zero_flux_model,
+                        mask=mask)
