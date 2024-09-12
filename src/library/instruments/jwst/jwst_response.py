@@ -3,7 +3,7 @@ from typing import Callable, Optional
 import nifty8.re as jft
 from numpy.typing import ArrayLike
 
-from .integration_model import build_sum_integration
+from .integration_model import build_sum
 from .jwst_psf import instantiate_psf, load_psf_kernel
 from .rotation_and_shift import build_rotation_and_shift_model, \
     RotationAndShiftModel
@@ -165,7 +165,7 @@ def build_jwst_response(
             'shift_and_rotation_correction', None)
     )
 
-    integrate = build_sum_integration(
+    integrate = build_sum(
         high_res_shape=rotation_and_shift.target.shape,
         reduction_factor=subsample,
     )

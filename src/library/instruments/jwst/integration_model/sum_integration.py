@@ -1,11 +1,11 @@
-
-def build_sum_integration(
+def build_sum(
     high_res_shape: tuple,
     reduction_factor: int
 ):
     """
-    Builds a function that integrates (sums) over a high-resolution grid,
-    reducing it by a specified factor.
+    Builds a function that sums over a high-resolution grid, reducing it by a
+    specified factor. This can be understood as an integration over the field,
+    assuming that the volume factor is part/inside of the pixel value.
 
     This function reshapes the input data from a high-resolution grid to a
     lower-resolution grid by dividing each axis by the reduction factor. The
