@@ -1,5 +1,4 @@
 import numpy as np
-import nifty8 as ift
 
 from ....library.utils import coord_center
 
@@ -104,14 +103,12 @@ def get_psfpatches(info, n, npix_s, ebin, fov, num_rays=10e6,
             tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf",
                                                num_rays=num_rays)
             tmp_psf_sim = tmp_psf_sim[:, :, ebin]
-
             if Roll:
                 tmp_coord = coords[u]
                 co_x, co_y = np.unravel_index(tmp_coord, [npix_s, npix_s])
                 tmp_psf_sim = np.roll(tmp_psf_sim, (-co_x, -co_y), axis=(0, 1))
                 u += 1
             psf_sim.append(tmp_psf_sim)
-
             if debug:
                 tmp_source = np.zeros(tmp_psf_sim.shape)
                 pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None),
