@@ -17,7 +17,7 @@ class WcsAstropy(WcsBase):
     in JWST data.
     """
     def __init__(self, wcs):
-        self._wcs = wcs
+        super().__init__(wcs)
 
     def wl_from_index(
         self, index: ArrayLike

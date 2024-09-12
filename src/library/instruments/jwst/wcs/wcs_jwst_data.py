@@ -2,11 +2,6 @@ from typing import List, Union
 
 import numpy as np
 from astropy.coordinates import SkyCoord
-try:
-    from gwcs import WCS
-except ImportError:
-    print("gwcs not installed. Some JWST functions will not work.")
-    pass
 from numpy.typing import ArrayLike
 
 from .wcs_base import WcsBase
@@ -17,8 +12,17 @@ class WcsJwstData(WcsBase):
     A class for converting between world coordinates and pixel coordinates
     in JWST data.
     """
-    def __init__(self, wcs: WCS):
-        self._wcs = wcs
+    def __init__(self, wcs):
+        try:
+            from gwcs import WCS
+        except ImportError:
+            raise ImportError("gwcs not installed."
+                              "Please install via 'pip install gwcs'.")
+
+        if not isinstance(wcs, WCS):
+            raise TypeError('wcs must be a gwcs.WCS')
+
+        super().__init__(wcs)
 
     def wl_from_index(
         self, index: ArrayLike
