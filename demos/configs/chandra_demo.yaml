@@ -26,7 +26,7 @@ obs_info:
   #   instrument: ACIS-S
 
 grid:
-  sdim: 1024
+  sdim: 512
   edim: 3
   s_padding_ratio: 1.1075
   e_padding_ratio: 1.
@@ -48,7 +48,6 @@ telescope:
   center_obs_id:
 
 files:
-  obs_path: '../data/14424/'
   data_dict: 'data.pkl'
   processed_obs_folder: 'processed'
   res_dir: 'results/chandra_demo'
@@ -70,19 +69,20 @@ plotting:
 priors:
   point_sources:
     spatial:
-      alpha: 1.0001
-      q: 3.E-10
+      alpha: 1.9952748894654722
       key: points
+      q: 1.6281324151282162e-09
+    # dev_wp:
+    #  name: points_dev_wp
+    #  sigma:
+    #  - 0.01
+    #  - 0.02
+    #  x0: 0
     plaw:
-      mean: -2.
-      std: 1.5
+      mean: -0.3
       name: points_plaw_
-    dev_wp:
-      x0: 0.
-      sigma:
-        - 0.01
-        - 0.02
-      name: 'points_dev_wp'
+      std: 0.1
+
 #    dev_corr:
 #      fluctuations:
 #        fluctuations:
@@ -105,54 +105,43 @@ priors:
 #          - 1.0e-4
   diffuse:
     spatial:
-      offset:
-        offset_mean: -14.
-        offset_std:
-          - 0.5
-          - 0.05
       fluctuations:
-        fluctuations:
-          - 0.5
-          - 0.2
-        loglogavgslope:
-          - -4.0
-          - 0.3
+        asperity: null
         flexibility:
-          - 0.4
-          - 0.1
-        asperity:
-          Null
-        non_parametric_kind: "power"
-        # harmonic_type: "Fourier"
+        - 0.3
+        - 0.01
+        fluctuations:
+        - 0.3
+        - 0.01
+        loglogavgslope:
+        - -5.0
+        - 0.1
+        non_parametric_kind: power
+      offset:
+        offset_mean: -19.5
+        offset_std:
+        - 0.3
+        - 0.05
       prefix: diffuse_spatial_
     plaw:
-      offset:
-        offset_mean: -2.0
-        offset_std:
-          - 0.3
-          - 0.05
       fluctuations:
-        fluctuations:
-          - 0.5
-          - 0.05
-        loglogavgslope:
-          - -5.
-          - 1.0e-2
+        asperity: null
         flexibility:
-          - 0.5
-          - 0.05
-        asperity:
-          Null
-        non_parametric_kind: "power"
-        # harmonic_type: "Fourier"
+        - 0.01
+        - 0.001
+        fluctuations:
+        - 0.01
+        - 0.001
+        loglogavgslope:
+        - -6.0
+        - 0.01
+        non_parametric_kind: power
+      offset:
+        offset_mean: -1.3
+        offset_std:
+        - 0.01
+        - 0.001
       prefix: diffuse_plaw_
-#     dev_wp:
-#       x0: 0.
-#       sigma:
-#         - 0.3
-#         - 0.1
-#       dt: 1
-#       name: 'diffuse_dev_wp'
 
 minimization:
     resume: False
