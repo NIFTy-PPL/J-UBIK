@@ -37,7 +37,7 @@ def get_synth_pointsource(info, npix_s, idx_tupel, num_rays):
 
 
 def get_radec_from_xy(temp_x, temp_y, event_f):
-    # TODO is this enough precision
+    # TODO test precision
     """Calculates sky ra and dec from sky pixel coordinates.
 
     Parameters
