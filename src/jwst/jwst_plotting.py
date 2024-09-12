@@ -583,11 +583,12 @@ def build_plot_source(
 
         axes = axes.flatten()
         ims = ims.flatten()
-        for fltname, ii in filter_projector.keys_and_index.items():
+        for ii, (fltname, fld) in enumerate(
+                filter_projector(source_light).items()):
             ii += 3
             axes[ii].set_title(f'{fltname}')
             ims[ii] = axes[ii].imshow(
-                source_light[ii],
+                fld,
                 origin='lower',
                 extent=extent,
                 norm=norm_source(
@@ -597,9 +598,9 @@ def build_plot_source(
         for ax, im in zip(axes.flatten(), ims.flatten()):
             if not isinstance(im, int):
                 fig.colorbar(im, ax=ax, shrink=0.7)
-        fig.tight_layout()
 
         if state_or_none is not None:
+            fig.tight_layout()
             fig.savefig(
                 join(lens_dir, f'{attach_name}{state_or_none.nit:02d}.png'),
                 dpi=300)
