@@ -92,11 +92,12 @@ As NIFTy.re is fully implemented in JAX, J-UBIK benefits from accelerated infere
 parallel computing on clusters or GPUs.
 
 Building generative models with NIFTy.re for specific instruments and applications can be very
-tedious and labor-intensive. Here, J-UBIK comes into play.
-It provides tools to simplify the creation of new likelihood and prior models and acts as a flexible toolbox.
-Also it implements a variety of generic response functions, such as spatially-varying point-spread functions (PSFs).
-It also enables users to define diverse correlation structures for various sky components.
-Additionally, J-UBIK includes implementations for several instruments. 
+tedious and labor-intensive. Here, J-UBIK comes into play, which adresses this challenge from two 
+angles. First, it provides tools to simplify the creation of new likelihood and 
+prior models and acts as a flexible toolbox. It implements a variety of generic
+response functions, such as spatially-varying point-spread functions (PSFs) [@Eberle:2023] and 
+enables the user to define diverse correlation structures for various sky components. Second, 
+J-UBIK includes implementations for several instruments. 
 Currently, it supports Chandra, eROSITA pointings, and JWST observations, 
 with plans to expand this list as the user base grows. 
 This expansion will provide users with a diverse set of accessible inference algorithms for various
