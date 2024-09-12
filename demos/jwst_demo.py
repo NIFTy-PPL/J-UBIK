@@ -185,7 +185,7 @@ if __name__ == "__main__":
         fov=(cfg['grid']['fov']*u.arcsec,)*2
     )
 
-    datas = []
+    all_filter_data = []
     likelihoods = []
     for fltname in filters.keys():
 
@@ -231,7 +231,7 @@ if __name__ == "__main__":
             response(mock_sky) +
             random.normal(subkey, response.target.shape) * noise_std
         )
-        datas.append(data)
+        all_filter_data.append(data)
 
         likelihood = build_gaussian_likelihood(data, noise_std)
         likelihood = likelihood.amend(
@@ -242,8 +242,9 @@ if __name__ == "__main__":
     likelihood = connect_likelihood_to_model(
         likelihood, sky_model_with_filters)
 
-    data = np.array(datas)
-    ju.plot_result(data, output_file=join(file_info["res_dir"], "data.png"))
+    all_filter_data = np.array(all_filter_data)
+    ju.plot_result(all_filter_data, output_file=join(file_info["res_dir"],
+                                                     "data.png"))
 
     # Plot
     additional_plot_dict = {}
@@ -297,5 +298,5 @@ if __name__ == "__main__":
         nonlinearly_update_kwargs=minimization_parser.nonlinearly_update_kwargs,
         kl_kwargs=minimization_parser.kl_kwargs,
         sample_mode=minimization_parser.sample_mode,
-        callback=simple_eval_plots,  # simple_eval_plots,
+        callback=simple_eval_plots,
         odir=file_info["res_dir"], )
