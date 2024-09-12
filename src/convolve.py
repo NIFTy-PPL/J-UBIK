@@ -1,9 +1,9 @@
+from functools import reduce
+
 import jax
 import jax.lax
 import jax.numpy as jnp
-
 import numpy as np
-from functools import reduce
 
 from .data import Domain
 

@@ -1,5 +1,4 @@
 from os.path import join, exists
-from jax import numpy as jnp
 from jax import vmap
 import numpy as np
 
@@ -8,8 +7,9 @@ from .chandra_psf import get_psfpatches
 from ...utils import get_config, create_output_directory, load_from_pickle,\
     save_to_pickle
 from ...response import build_readout_function, build_exposure_function
-from ....library.convolve import linpatch_convolve, integrate
-from ....library.data import Domain
+from ...convolve import linpatch_convolve, integrate
+from ...data import Domain
+
 
 def build_chandra_response_from_config(config_file_path):
     """

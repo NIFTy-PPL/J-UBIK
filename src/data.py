@@ -6,8 +6,8 @@ import numpy as np
 from jax import random, linear_transpose
 
 from .sky_models import SkyModel
-from .utils import (get_config, create_output_directory, save_to_pickle,
-                    load_from_pickle)
+from .utils import (get_config, create_output_directory,
+                    save_to_pickle, load_from_pickle)
 
 
 class Domain(NamedTuple):

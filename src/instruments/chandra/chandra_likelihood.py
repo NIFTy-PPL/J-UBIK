@@ -4,6 +4,7 @@ from .chandra_response import build_chandra_response_from_config
 from .chandra_data import create_chandra_data_from_config
 from ...data import load_masked_data_from_config
 
+
 def generate_chandra_likelihood_from_config(config_file_path):
     """ Creates the Chandra Poissonian log-likelihood given the path to the
     config file.
