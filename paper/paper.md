@@ -161,7 +161,7 @@ instrument, it can also be used to generate simulated data by passing sky prior 
 the instrument’s
 response. This provides a powerful tool for testing the consistency of the implemented models.
                                         
-| Simulated X-ray Sky                        |
+| Simulated X-ray Data                       |
 |--------------------------------------------|
 | ![Figure 2](simulated_data.png){#fig:data} |
 
