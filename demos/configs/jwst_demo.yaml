@@ -1,0 +1,137 @@
+seed: 86
+
+files:
+  res_dir: 'results/jwst_demo'
+  webbpsf_path: '../data/JWST/webbpsf-data'
+  psf_library: '../data/JWST/psf_library'
+
+telescope:
+  pointing_pixel: [128, 128]
+  fov: 6. # in arcsec
+  subsample: 2
+
+mock_config:
+  noise_std: 0.5
+
+plotting:
+  enabled: True
+  slice: Null
+  dpi: 300
+
+grid:
+  fov: 6. # in arcsec
+  sdim: 256
+  edim: 3
+  s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
+  e_padding_ratio: 1.
+  energy_bin:
+    e_min:
+    - 0.557
+    - 0.743
+    - 0.967
+    e_max:
+    - 0.707
+    - 0.932
+    - 1.224
+    e_ref:
+    - 2
+
+priors:
+  point_sources:
+    spatial:
+      alpha: 1.0001
+      q: 3.E-4
+      key: points
+    plaw:
+      mean: -2.
+      std: 1.
+      name: points_plaw_
+    dev_wp:
+      x0: 0.
+      sigma:
+        - 0.01
+        - 0.02
+      name: 'points_dev_wp'
+  diffuse:
+    spatial:
+      offset:
+        offset_mean: 0.
+        offset_std:
+          - 0.5
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.2
+        loglogavgslope:
+          - -4.0
+          - 0.3
+        flexibility:
+          - 0.4
+          - 0.1
+        asperity:
+          Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_spatial_
+    plaw:
+      offset:
+        offset_mean: -1.0
+        offset_std:
+          - 0.3
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.05
+        loglogavgslope:
+          - -5.
+          - 1.0e-2
+        flexibility:
+          - 0.5
+          - 0.05
+        asperity:
+          Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: diffuse_plaw_
+    # dev_wp:
+    #   x0: 0.
+    #   sigma:
+    #     - 0.3
+    #     - 0.1
+    #   dt: 1
+    #   name: 'diffuse_dev_wp'
+
+minimization:
+    resume: False
+    n_total_iterations: 15
+    delta:
+      switches: [0, 10]
+      values: [1.e-5, 1.e-6]
+
+    samples:
+      switches: [0, 10]
+      n_samples: [4, 5]
+      mode: [nonlinear_resample, nonlinear_update]
+      # Possible modes:
+      # - "linear_sample",
+      # - "linear_resample",
+      # - "nonlinear_sample",
+      # - "nonlinear_resample",
+      # - "nonlinear_update",
+
+      # LIN SAMPLING
+      # lin_absdelta: [Null, 1.e-4] # if set, delta is ignored
+      lin_maxiter: [60, 70]
+
+      # NONLIN SAMPLING
+      # nonlin_xtol: [Null, 0.1] # if set, delta is ignored
+      nonlin_maxiter: [25, 35]
+      # nonlin_cg_atol: [0.1, 0.01]
+      # nonlin_cg_maxiter: [20, 30]
+
+    kl_minimization:
+      switches: [0, 10]
+      # kl_absdelta: [Null, 1.e-6] # if set, delta is ignored
+      kl_maxiter: [10, 13]
