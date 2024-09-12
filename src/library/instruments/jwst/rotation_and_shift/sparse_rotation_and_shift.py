@@ -94,7 +94,7 @@ def build_sparse_rotation_and_shift(
 
     for ii, pixel_edges in enumerate(subsample_corners.T):
         vc = _ValueCalculator(index_grid, pixel_edges.T)
-        values = vc.calculate_values()  # This also needs to be JAX compatible
+        values = vc.calculate_values()
 
         for (index_x, index_y), val in values.items():
             index_x, index_y = _get_nearest_index(
