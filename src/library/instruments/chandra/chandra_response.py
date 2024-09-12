@@ -8,7 +8,7 @@ from .chandra_psf import get_psfpatches
 from ...utils import get_config, create_output_directory, load_from_pickle,\
     save_to_pickle
 from ...response import build_readout_function, build_exposure_function
-from ....library.convolve import linpatch_convolve
+from ....library.convolve import linpatch_convolve, integrate
 from ....library.data import Domain
 
 def build_chandra_response_from_config(config_file_path):
@@ -35,7 +35,7 @@ def build_chandra_response_from_config(config_file_path):
     grid_info = cfg['grid']
     file_info = cfg['files']
     psf_info = cfg['psf']
-    outroot = create_output_directory(join(file_info['obs_path'],
+    outroot = create_output_directory(join(file_info['res_dir'],
                                            file_info['processed_obs_folder']))
 
     tel_info = cfg['telescope']
@@ -50,6 +50,11 @@ def build_chandra_response_from_config(config_file_path):
 
     exposure_path = join(outroot, 'exposure.pkl')
     psf_path = join(outroot, 'psf.pkl')
+
+    domain = Domain(tuple([grid_info["edim"]] + [grid_info["sdim"]] * 2),
+                    tuple([1] + [tel_info["fov"] / grid_info["sdim"]] * 2))
+    shp = (domain.shape[-2], domain.shape[-1])
+    margin = max((int(np.ceil(psf_info["margfrac"] * ss)) for ss in shp))
 
     # Load exposures if the file exists, otherwise compute it
     if exists(exposure_path):
@@ -97,7 +102,8 @@ def build_chandra_response_from_config(config_file_path):
                                                grid_info["sdim"],
                                                ebin,
                                                tel_info["fov"],
-                                               num_rays=psf_info["num_rays"])
+                                               num_rays=psf_info["num_rays"],
+                                               Norm=False)
                     tmp_psfs.append(psf_array)
                 psf_list.append(np.moveaxis(np.array(tmp_psfs), 0, 1))
             if i == 0:
@@ -110,12 +116,9 @@ def build_chandra_response_from_config(config_file_path):
         # Save PSFs if they were computed
         if not exists(psf_path):
             psfs = np.stack(np.array(psf_list, dtype=int))
+            norm = np.max(integrate(psfs, domain, [-2, -1]))
+            psfs = psfs / norm
             save_to_pickle(psfs, psf_path)
-
-    domain = Domain(tuple([grid_info["edim"]] + [grid_info["sdim"]] * 2),
-                    tuple([1] + [tel_info["fov"] / grid_info["sdim"]] * 2))
-    shp = (domain.shape[-2], domain.shape[-1])
-    margin = max((int(np.ceil(psf_info["margfrac"] * ss)) for ss in shp))
 
     def psf_func(x):
         return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(
