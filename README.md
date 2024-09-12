@@ -1,6 +1,6 @@
 # J-UBIK
 
-*J*ifty *U*niversal *B*ayesian *I*maging *K*it for photon count instruments is a python package for data analysis of modern X-ray telescopes as Chandra, XMM-Newton and eROSITA.
+*J*ifty *U*niversal *B*ayesian *I*maging *K*it for photon count instruments is a python package for data analysis of modern telescopes such as Chandra and eROSITA (X-ray), and JWST (infrared).
 
 J-UBIK allows to image observations from different instruments with Bayesian posterior uncertainties and component separation.
 

@@ -25,6 +25,9 @@ authors:
   - name: Philipp Frank
     orcid: 0000-0001-5610-3779
     affiliation: "1"
+  - name: Julian Rüstig
+    orcid: 0009-0003-6405-8332
+#    affiliation: "1"
   - name: Torsten A. Enßlin
     orcid: 0000-0001-5246-1624
     affiliation: "1, 2"
@@ -52,7 +55,7 @@ implementation leveraging the JAX-accelerated NIFTy.re [@Edenhofer:2024] softwar
 J-UBIK streamlines the implementation of key Bayesian inference components, providing customizable 
 likelihood models for different instruments and adaptable prior models for various applications.
 The package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA,
-and JWST in the infrared,
+and the James Webb Space Telescope (JWST) in the infrared,
 as well as a prior model adaptable to different sky realizations. The demos show how the likelihood 
 and prior implementation can be integrated into an inference pipeline, with the possibility to
 choose different optimization schemes such as maximum a posteriori or variational inference.
@@ -96,7 +99,7 @@ functions, such as spatially-varying point-spread functions (PSFs), and accommod
 noise statistics (e.g., Poissonian or Gaussian). It also enables users to define diverse 
 correlation structures for various sky components.
 Additionally, J-UBIK includes implementations for several instruments. 
-Currently, it supports Chandra, eROSITA pointings, and James Webb Space Telescope (JWST) observations, 
+Currently, it supports Chandra, eROSITA pointings, and JWST observations, 
 with plans to expand this list as the user base grows. 
 This expansion will provide users with a diverse set of accessible inference algorithms for various
 instruments. Ultimately J-UBIK enables the user, through Bayesian
