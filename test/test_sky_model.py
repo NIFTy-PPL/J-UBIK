@@ -1,10 +1,9 @@
+import nifty8.re as jft
 import pytest
-import numpy as np
-from jax import numpy as jnp
-from jax import random
+from jax import numpy as jnp, random
 
 import jubik0 as ju
-import nifty8.re as jft
+
 
 @pytest.fixture
 def priors():

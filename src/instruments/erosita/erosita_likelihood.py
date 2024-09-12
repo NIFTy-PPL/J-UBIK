@@ -1,8 +1,8 @@
-from nifty8 import re as jft
+import nifty8.re as jft
 
-from ...data import load_masked_data_from_config
 from .erosita_data import create_erosita_data_from_config
 from .erosita_response import build_erosita_response_from_config
+from ...data import load_masked_data_from_config
 
 
 def generate_erosita_likelihood_from_config(config_file_path):

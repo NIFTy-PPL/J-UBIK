@@ -1,10 +1,10 @@
 import astropy.io.fits as ast
 import matplotlib.pyplot as plt
-import nifty8 as ift
 import numpy as np
 from matplotlib.colors import LogNorm
 
 from .erosita_psf_utils import get_psf_func, psf_interpolator
+
 
 class eROSITA_PSF():
     """

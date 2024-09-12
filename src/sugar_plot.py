@@ -9,13 +9,12 @@ from jax import random, linear_transpose
 from jax.tree_util import tree_map
 
 from .diagnostics import calculate_uwr, calculate_nwr
-from .instruments.erosita.erosita_response import \
-    build_erosita_response_from_config
-from .plot import plot_result, plot_sample_averaged_log_2d_histogram, \
-    plot_histograms, plot_rgb
+from .instruments.erosita.erosita_response import (
+    build_erosita_response_from_config)
+from .plot import (plot_result, plot_sample_averaged_log_2d_histogram,
+                   plot_histograms, plot_rgb)
+from .sky_models import SkyModel
 from .utils import get_stats, create_output_directory, get_config
-
-from ..library.sky_models import SkyModel
 
 
 def plot_pspec(pspec, shape, distances,

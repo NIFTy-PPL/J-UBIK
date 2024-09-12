@@ -1,8 +1,10 @@
 # test_chandra_observation.py
-import nifty8 as ift
-import jubik0 as ju
-import pytest
 from os.path import join
+
+import pytest
+
+import jubik0 as ju
+
 
 @pytest.fixture
 def sample_obs_info():
@@ -14,6 +16,7 @@ def sample_obs_info():
         'mask_file': 'secondary/structure_only_msk.fits',
         'data_location': 'chandra_test_data/'
     }
+
 
 def test_initialization(sample_obs_info):
     npix_s = 1024

@@ -1,6 +1,6 @@
 import numpy as np
 
-from ....library.utils import coord_center
+from ...utils import coord_center
 
 
 def get_synth_pointsource(info, npix_s, idx_tuple, num_rays):

@@ -7,10 +7,10 @@ from jax import vmap
 
 from .erosita_observation import ErositaObservation
 from .erosita_psf import eROSITA_PSF
+from ...convolve import linpatch_convolve
 from ...data import Domain
 from ...response import build_exposure_function, build_readout_function
 from ...utils import get_config
-from ...convolve import linpatch_convolve
 
 
 def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):

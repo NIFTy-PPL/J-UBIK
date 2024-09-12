@@ -2,12 +2,12 @@ from os.path import join, exists
 from jax import numpy as jnp
 
 import nifty8.re as jft
-import jubik0 as ju
 
 from ...utils import get_config, create_output_directory, save_to_pickle,\
     copy_config, load_from_pickle
 from .chandra_observation import ChandraObservationInformation
 from ...data import create_mock_data
+
 
 def create_chandra_data_from_config(config_path, response_dict):
     """
