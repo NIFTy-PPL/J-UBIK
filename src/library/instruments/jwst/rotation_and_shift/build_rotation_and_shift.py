@@ -64,7 +64,7 @@ def build_rotation_and_shift_model(
     sky_domain: dict,
     reconstruction_grid: Grid,
     world_extrema: Tuple[SkyCoord],
-    data_grid_dvol: float,  # FIXME: should this be for each data pixel, i.e. an array?
+    data_grid_dvol: float,  # TODO: should this be for each data pixel, i.e. an array?
     data_grid_wcs: WcsBase,
     model_type: str,
     subsample: int,

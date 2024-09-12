@@ -36,7 +36,7 @@ def _infer_shape(params: dict, shape: tuple):
         case _:
             shp1, shp2 = map(jnp.shape, (params['mean'], params['sigma']))
 
-    # FIXME do some checks on compatibility of the two shapes
+    # TODO: do some checks on compatibility of the two shapes
     return shp1
 
 
