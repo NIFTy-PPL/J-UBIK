@@ -39,7 +39,7 @@ def build_nufft_rotation_and_shift(
     Notes
     -----
     The sky is the reconstruction array, we assume a one-to-one relation
-    between the sky brightness and the flux:
+    between the sky brightness (flux density) and the flux:
         flux(x, y) = sky(x, y) * sky_dvol
     """
 
