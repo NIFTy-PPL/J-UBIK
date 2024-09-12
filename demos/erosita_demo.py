@@ -193,13 +193,6 @@ if __name__ == "__main__":
     cfg = ju.get_config(config_path)
     file_info = cfg['files']
 
-    if ((not cfg['minimization']['resume'])
-        and os.path.exists(file_info["res_dir"])):
-        file_info["res_dir"] = file_info["res_dir"] + "_new"
-        print("FYI: Resume is set to False, but the output "
-              "directory already exists. "
-              "The result_dir has been appended with the string *new*.")
-
     # Save run configuration
     ju.copy_config(os.path.basename(config_path),
                    path_to_yaml_file=os.path.dirname(config_path),

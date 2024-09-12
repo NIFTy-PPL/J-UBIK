@@ -56,13 +56,6 @@ if __name__ == "__main__":
     cfg = ju.get_config(config_path)
     file_info = cfg['files']
 
-    if ((not cfg['minimization']['resume']) and
-            os.path.exists(file_info["res_dir"])):
-        file_info["res_dir"] = file_info["res_dir"] + "_new"
-        print("FYI: Resume is set to False, but the output "
-              "directory already exists. "
-              "The result_dir has been appended with the string *new*.")
-
     # Uncomment to save local packages git hashes to file
     # ju.save_local_packages_hashes_to_txt(
     #     ['jubik0', 'nifty8'],
