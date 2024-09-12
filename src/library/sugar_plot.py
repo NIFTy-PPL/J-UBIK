@@ -71,6 +71,8 @@ def plot_pspec(pspec, shape, distances,
         plt.plot(unique_modes, s, alpha=0.5, color='k')
     plt.loglog()
     plt.savefig(filename_samples, dpi=dpi)
+    plt.cla()
+    plt.clf()
     plt.close()
     print(f"Power spectrum saved as {filename_samples}.")
 
