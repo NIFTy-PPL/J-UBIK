@@ -494,6 +494,119 @@ def build_get_values(
     return get_values
 
 
+def build_plot_source(
+    results_directory: str,
+    plotting_config: dict,
+    filter_projector,
+    source_light_model,
+    source_light_alpha,
+    source_light_parametric,
+    source_light_nonparametric,
+    attach_name='',
+):
+    """
+
+    plotting_config:
+        norm_source: Normalize (default)
+        norm_source_alpha: Normalize (default)
+        norm_source_parametric: Normalize (default)
+        norm_source_nonparametric: Normalize (default)
+        min_source: 1e-5 (default)
+        extent: None (default)
+    """
+
+    # from charm_lensing.plotting import get_values
+
+    lens_dir = join(results_directory, 'source')
+    makedirs(lens_dir, exist_ok=True)
+
+    # plotting_config
+    norm_source = plotting_config.get('norm_source', Normalize)
+    norm_source_alpha = plotting_config.get('norm_source_alpha', Normalize)
+    norm_source_parametric = plotting_config.get(
+        'norm_source_parametric', Normalize)
+    norm_source_nonparametric = plotting_config.get(
+        'norm_source_nonparametric', Normalize)
+    min_source = plotting_config.get('min_source', 1e-5)
+    extent = plotting_config.get('extent', None)
+
+    freq_len = filter_projector.domain.shape[0]
+    xlen = 3
+    ylen = 1 + int(np.ceil(freq_len/xlen))
+
+    slight_alpha = source_light_alpha
+    slight_parametric = source_light_parametric
+    slight_nonparametric = source_light_nonparametric
+
+    def plot_source(
+        position_or_samples: Union[jft.Samples, dict],
+        state_or_none: Optional[jft.OptimizeVIState],
+    ):
+        print('Plotting source light')
+
+        if isinstance(position_or_samples, jft.Samples):
+            sla = jft.mean([slight_alpha(x) for x in position_or_samples])
+            slnonpar = jft.mean(
+                [slight_nonparametric(x) for x in position_or_samples])
+            slpar = jft.mean(
+                [slight_parametric(x) for x in position_or_samples])
+            source_light = jft.mean(
+                [source_light_model(x) for x in position_or_samples])
+
+        elif isinstance(position_or_samples, dict):
+            sla = slight_alpha(position_or_samples)
+            slnonpar = slight_nonparametric(position_or_samples)
+            slpar = slight_parametric(position_or_samples)
+            source_light = source_light_model(position_or_samples)
+
+        fig, axes = plt.subplots(ylen, xlen, figsize=(3*xlen, 3*ylen), dpi=300)
+        ims = np.zeros_like(axes)
+
+        # Plot lens light
+        axes[0, 0].set_title("Parametric model")
+        axes[0, 1].set_title("Nonparametric correction at I0")
+        axes[0, 2].set_title("Spectral index")
+        ims[0, 0] = axes[0, 0].imshow(
+            slpar,
+            origin='lower',
+            extent=extent,
+            norm=norm_source_parametric(vmin=min_source))
+        ims[0, 1] = axes[0, 1].imshow(
+            slnonpar,
+            origin='lower',
+            extent=extent, norm=norm_source_nonparametric())
+        ims[0, 2] = axes[0, 2].imshow(
+            sla, origin='lower', extent=extent, norm=norm_source_alpha())
+
+        axes = axes.flatten()
+        ims = ims.flatten()
+        for fltname, ii in filter_projector.keys_and_index.items():
+            ii += 3
+            axes[ii].set_title(f'{fltname}')
+            ims[ii] = axes[ii].imshow(
+                source_light[ii],
+                origin='lower',
+                extent=extent,
+                norm=norm_source(
+                    vmin=np.max((min_source, source_light.min())),
+                    vmax=source_light.max()))
+
+        for ax, im in zip(axes.flatten(), ims.flatten()):
+            if not isinstance(im, int):
+                fig.colorbar(im, ax=ax, shrink=0.7)
+        fig.tight_layout()
+
+        if state_or_none is not None:
+            fig.savefig(
+                join(lens_dir, f'{attach_name}{state_or_none.nit:02d}.png'),
+                dpi=300)
+            plt.close()
+        else:
+            plt.show()
+
+    return plot_source
+
+
 def build_plot_lens_system(
     results_directory: str,
     plotting_config: dict,
@@ -525,7 +638,7 @@ def build_plot_lens_system(
     lens_light_alph, lens_light_nonp = lens_light_alpha_nonparametric
     lens_ext = lens_system.lens_plane_model.space.extent
 
-    source_light_alph, source_light_nonp = source_light_alpha_nonparametric
+    slight_alpha, slight_nonparametric = source_light_alpha_nonparametric
     source_ext = lens_system.source_plane_model.space.extend().extent
 
     def plot_lens_system(
@@ -547,8 +660,9 @@ def build_plot_lens_system(
 
             lla = jft.mean([lens_light_alph(x) for x in position_or_samples])
             lln = jft.mean([lens_light_nonp(x) for x in position_or_samples])
-            sla = jft.mean([source_light_alph(x) for x in position_or_samples])
-            sln = jft.mean([source_light_nonp(x) for x in position_or_samples])
+            sla = jft.mean([slight_alpha(x) for x in position_or_samples])
+            slnonpar = jft.mean([slight_nonparametric(x)
+                                 for x in position_or_samples])
 
         elif isinstance(position_or_samples, dict):
             (source_light,
@@ -560,8 +674,8 @@ def build_plot_lens_system(
 
             lla = lens_light_alph(position_or_samples)
             lln = lens_light_nonp(position_or_samples)
-            sla = source_light_alph(position_or_samples)
-            sln = source_light_nonp(position_or_samples)
+            sla = slight_alpha(position_or_samples)
+            slnonpar = slight_nonparametric(position_or_samples)
 
         # FIXME: This should be handled by a source with shape 3
         if len(lensed_light.shape) == 2:
@@ -586,7 +700,7 @@ def build_plot_lens_system(
         axes[1, 1].set_title("Source light nonpar")
         ims[1, 0] = axes[1, 0].imshow(sla, origin='lower', extent=source_ext,
                                       norm=norm_source_alpha())
-        ims[1, 1] = axes[1, 1].imshow(sln, origin='lower', extent=source_ext,
+        ims[1, 1] = axes[1, 1].imshow(slnonpar, origin='lower', extent=source_ext,
                                       norm=norm_source_nonparametric())
 
         # Plot mass field
