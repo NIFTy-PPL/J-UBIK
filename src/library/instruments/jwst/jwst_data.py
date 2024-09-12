@@ -11,7 +11,6 @@ from numpy.typing import ArrayLike
 from .color import Color, ColorRange
 from .wcs.wcs_jwst_data import WcsJwstData
 
-# TODO: NIRCam filter response can also be handled by the throughput curves
 
 nircam_filters = dict(
     # https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-instrumentation/miri-filters-and-dispersers#gsc.tab=0
@@ -91,6 +90,7 @@ def _get_dvol(filter: str):
 
 class JwstData:
     """Class to contain JWST data metadata."""
+
     def __init__(self, filepath: str):
         """
         Initializes the JwstData class.
