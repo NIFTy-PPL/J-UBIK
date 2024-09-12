@@ -25,6 +25,9 @@ authors:
   - name: Philipp Frank
     orcid: 0000-0001-5610-3779
     affiliation: "1"
+  - name: Julian Rüstig
+    orcid: 0009-0003-6405-8332
+#    affiliation: "1"
   - name: Torsten A. Enßlin
     orcid: 0000-0001-5246-1624
     affiliation: "1, 2"
@@ -42,10 +45,7 @@ bibliography: paper.bib
 # aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
 # aas-journal: Astrophysical Journal <- The name of the AAS journal.
 ---
-#FIXME: Add Julia &Julian? 
 
-
-#FIXME: Check for Fixmes inside here :D
 # Summary
 Many advances in astronomy and astrophysics rely on accurately mapping sky emissions across various
 wavelengths, which often requires reconstructing spatially and spectrally correlated signals from multiple
@@ -55,129 +55,129 @@ implementation leveraging the JAX-accelerated NIFTy.re [@Edenhofer:2024] softwar
 J-UBIK streamlines the implementation of key Bayesian inference components, providing customizable 
 likelihood models for different instruments and adaptable prior models for various applications.
 The package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA,
-and JWST in the infrared,
+and the James Webb Space Telescope (JWST) in the infrared,
 as well as a prior model adaptable to different sky realizations. The demos show how the likelihood 
 and prior implementation can be integrated into an inference pipeline, with the possibility to
 choose different optimization schemes such as maximum a posteriori or variational inference.
 
 # Statement of Need
-In imaging , we are often confronted with high-dimensional signals of interest,
-that vary in terms of space, time and energy. In astronomy, for example, the new generation 
-of telescopes  offers many opportunities in capturing those signals, 
-but at the same time also challenges in imaging,
-to get the most information out of the corresponding data. 
-These challenges include modelling the response of the instruments to the signal, 
-the modelling of the noise structure and the modelling of the signal, which is typically
-a mixture of overlapping signal components with non-trivial correlation structures that need 
-to be separated.
+In astrophysical imaging, we often encounter high-dimensional signals that vary across space, time, and energy. 
+The new generation of telescopes in astronomy offers exciting opportunities to capture these signals
+but also presents 
+significant challenges in extracting the most information from the resulting data. 
+These challenges include accurately modeling the instrument’s response to the signal, 
+accounting for complex noise structures, and separating overlapping signal components, 
+which often exhibit non-trivial correlation patterns.
 
-J-UBIK as the JAX-accelerated universal Bayesian imaging kit, uses Bayesian statistics to facilitate the 
-reconstruction of these complex signals, whether in astronomy or in other areas such as medical imaging,
-from multi-instrument data. J-UBIK is based on the theory of information field theory [@Ensslin:2013]
-and on the according software package NIFTy.re [@Edenhofer:2024], which is an accelerated and
-JAX-based version of NIFTy [@Arras:2019]. According to this, it uses a prior model
-, which describes the prior assumptions before we have any further knowledge from 
-the instruments data, in a generative fashion and a likelihood model, which describes the measurement 
-or in other words the responses of the possible multiple instruments and the noise statistics.
-Using NIFTy.re as a basis, the package supports to give the physical, high-dimensional
-signal field a sparse, adaptive and distributed representations and provides different methods,
-like MAP, HMC or two variational inference algorithms, MGVI [@Knollmueller:2020] and 
-geoVI [@Frank:2021], for
-the efficient inference using parallel computing on clusters and GPUs. 
+Here, we introduce J-UBIK, the JAX-accelerated Universal Bayesian Imaging Kit, which leverages 
+Bayesian statistics to reconstruct complex signals. In particular, we envision its application in the context of
+multi-instrument data in astronomy and also other fields,
+such as medical imaging. 
+J-UBIK is built on information field theory (IFT, [@Ensslin:2013]) and the NIFTy.re software package
+[@Edenhofer:2024], 
+a JAX-accelerated version of NIFTy [@Arras:2019]. 
 
-Up to now, the likelihood models and prior models have been built from scratch for different 
-imaging problems that Nifty.re tackles. This accounts for most of the work in this Bayesian imaging
-process. J-UBIK approaches this difficulty from two sides. On the one hand, J-UBIK contains tools to
-facilitate the implementation of new likelihood and prior models. It is a toolbox that allows for
-different types of response applications, for example using spatially variant or invariant psfs,
-allowing for different types of noise statistics of the signal, such as Poissonian or Gaussian, 
-and allowing the user to build different correlation structures on different components of the sky.
-On the other hand, it includes a set of instrument implementations. So far, three instrument 
-implementations are accessible, i.e. Chandra, eROSITA pointings and JWST, and we expect this number to 
-grow with the number of users, leading to a set of easily accessible inference algorithms 
-for different instruments. Ultimately J-UBIK enables the user, through Bayesian 
+Following the NIFTy paradigm, J-UBIK employs a generative prior model that encodes assumptions 
+about the signal before incorporating any data, and a likelihood model that describes the measurements, 
+including the responses of multiple instruments and noise statistics.
+Built on NIFTy.re, J-UBIK supports adaptive and distributed representations of high-dimensional
+physical signal fields and 
+accelerates their inference from observational data using advanced Bayesian algorithms. 
+These include maximum a posteriori (MAP), Hamiltonian Monte Carlo (HMC), and two variational
+inference techniques: 
+metric Gaussian variational inference (MGVI, [@Knollmueller:2020]) and geometric variational
+inference (geoVI, [@Frank:2021]). 
+As NIFTy.re is fully implemented in JAX, J-UBIK benefits from accelerated inference through
+parallel computing on clusters or GPUs.
+
+Previously, NIFTy.re users had to manually construct likelihood and prior models for each 
+imaging problem, 
+which is one of the most labor-intensive parts of the Bayesian imaging process. 
+J-UBIK addresses this challenge from two angles. First, it provides tools to simplify the creation 
+of new likelihood and prior models. Acting as a flexible toolbox, J-UBIK supports a variety of response 
+functions, such as spatially-varying point-spread functions (PSFs), and accommodates different 
+noise statistics (e.g., Poissonian or Gaussian). It also enables users to define diverse 
+correlation structures for various sky components.
+Additionally, J-UBIK includes implementations for several instruments. 
+Currently, it supports Chandra, eROSITA pointings, and JWST observations, 
+with plans to expand this list as the user base grows. 
+This expansion will provide users with a diverse set of accessible inference algorithms for various
+instruments. Ultimately J-UBIK enables the user, through Bayesian
 statistics, not only to obtain posterior samples and hence measures of interest such as the
-posterior mean and uncertainty of the signal for a several data sets, but also to 
+posterior mean and uncertainty of the signal for a several data sets, but also to
 perform multi-instrument reconstructions.
 
-The according software has been applied already in [@Westerkamp:2023] and currently according publications
-on eROSITA pointings and JWST are in perparation. Afterwards, the set of instruments even further 
-by already exitsing imaging tasks with NIFTy and NIFTy.re like, [@Platz:2023], ...., and new ones.
+The software has already been applied in [@Westerkamp:2023], and publications
+on eROSITA pointings and JWST are currently in preparation. In the future, the set of 
+instruments will be further expanded to include existing imaging pipelines from NIFTy  
+and NIFTy.re such as those described in [@Platz:2023], [@Roth:2023], [@Hutschenreuter:2022],
+as well as new ones.
 
 # Bayesian Imaging with J-UBIK
-The basis of the J-UBIK package is Bayes theorem, 
-$$ \mathcal{P}(s|d) \propto \mathcal{P}(d|s)\mathcal{P}(s),$$
-where the prior $\mathcal{P}(s)$ describes the knowledge on the signal, $s$, before the data, 
-$d$, is given, the likelihood $\mathcal{P}(d|s)$ describes the measurement and the actual 
-or an approximation of the posterior $\mathcal{P}(s|d)$ is the measure of interest in 
-the inference. The main task J-UBIK shall be used for, is to model the prior in a generative fashion and to use or build
-instrument models easily in order to get a likelihood model. The package itself contains
-demos for Chandra, eROSITA pointings and JWST, which shows how to use or build this models and how to 
-generate an inference pipeline upon on that to get posterior estimates.
+At the core of the J-UBIK package is Bayes’ theorem:
+
+$$ \mathcal{P}(s|d) \propto \mathcal{P}(d|s) \mathcal{P}(s), $$
+
+where the prior $\mathcal{P}(s)$ represents our knowledge about the signal $s$ before 
+observing the data $d$, and the likelihood $\mathcal{P}(d|s)$ describes the measurement process. 
+The posterior $\mathcal{P}(s|d)$ is the primary measure 
+of interest in the inference process.
+J-UBIK’s main role is to model the prior in a generative fashion and to facilitate 
+the creation and use of instrument models to develop the likelihood model. 
+The package includes demos for Chandra, eROSITA pointings, and JWST, which illustrate 
+how to use or build these models and how to construct an inference pipeline to obtain 
+posterior estimates.
 
 ## Prior models
-The package contains a prior model that can be adapted to the user's needs in both 
-spatial and spectral directions. In this model, it is possible to obtain spatially uncorrelated
+The package includes a prior model for the sky’s brightness distribution across different wavelengths, 
+which can be customized to meet user needs in both spatial and spectral dimensions. 
+In this model, it is possible to obtain spatially uncorrelated
 point sources or correlated extended sources defined by the correlated field model
-described in [@Arras:2022]. In the spectral direction, it is possible to fit a power
-law or to describe the correlation structure in the spectral direction by a Wiener process. 
-The structure of the previous model is in any case coded, so that further dimensions and
-descriptions of the correlation structures can be changed.  Figures [Figure 1](#fig:sky) -
-[Figure 3](#fig:extended) show an example of a simulated X-ray sky in J-UBIK as sampled from
-a corresponding generative prior model. Here the sky contains 2 components, where one is
-spatially uncorrelated, simulating the points, and one is spatially correlated, simulating
-extended structures. The model has three energy bins, for which the power law behaviour is
-also described by a generative model.
-
-| Simulated X-ray Sky                                      | Simulated X-ray Point Sources                                  | Simulated X-ray Extended Sources                                  |
-|----------------------------------------------------------|----------------------------------------------------------------|-------------------------------------------------------------------|
-| ![Figure 1](simulated_sky_rgb.png){ width=30% #fig:sky } | ![Figure 2](simulated_points_rgb.png){ width=30% #fig:points } | ![Figure 3](simulated_diffuse_rgb.png){ width=30% #fig:extended } |
-
-
+described in [@Arras:2022]. This model allows for the generation of spatially 
+uncorrelated point sources or spatially correlated extended sources, as described 
+by the correlated field model in [@Arras:2022]. In the spectral dimension, the model can fit 
+a power law, describe the correlation structure along the spectral axis using a Wiener process or 
+combine both of these models.
+The prior model’s structure is designed to be flexible, allowing for modifications to accommodate 
+additional dimensions and correlation structures. [Figure 1](#fig:sky) illustrates an example of 
+a simulated X-ray sky in J-UBIK, 
+sampled from a corresponding generative prior model with one energy bin.
+This example features two components: 
+one representing spatially uncorrelated point sources and the other representing spatially 
+correlated extended structures. [Figure 1](#fig:sky) shows from left to right the full sky and its
+components, the diffuse, extended structures and the point sources.
+                                        
+| Simulated X-ray Sky                       |
+|-------------------------------------------|
+| ![Figure 1](simulated_sky.png){#fig:sky}  |
 
 ## Likelihood models
-J-UBIK implements several instrument models (Chandra, eROSITA, JWST) and their respective data- and response-loading
-functionalities, enabling their seamless integration into the inference pipeline. Due to its fully modular structure,
-we anticipate the inclusion of more instruments into the J-UBIK platform in the future. J-UBIK is not only capable of 
-reconstructing signals from real data; since each instrument model acts as a digital twin of the corresponding 
-instrument, it can also be used to generate simulated data by passing sky prior models through the instrument’s
+J-UBIK implements several instrument models (Chandra, eROSITA, JWST) and their respective data-
+and response-loading
+functionalities, enabling their seamless integration into the inference pipeline. Due to its fully
+modular structure,
+we anticipate the inclusion of more instruments into the J-UBIK platform in the future. J-UBIK
+is not only capable of 
+reconstructing signals from real data; since each instrument model acts as a digital twin of 
+the corresponding 
+instrument, it can also be used to generate simulated data by passing sky prior models through
+the instrument’s
 response. This provides a powerful tool for testing the consistency of the implemented models.
+                                        
+| Simulated X-ray Data                       |
+|--------------------------------------------|
+| ![Figure 2](simulated_data.png){#fig:data} |
 
-| Simulated eROSITA Data                                        | Simulated Chandra Data                                          | 
-|---------------------------------------------------------------|-----------------------------------------------------------------|
-| ![Figure 4](simulated_data_rgb.png){ width=50% #fig:Erosita } | ![Figure 5](simulated_points_rgb.png){ width=50% #fig:Chandra } |
-
-
-Figures [Figure 4](#fig:Erosita) - [Figure 5](#fig:Chandra) show the same simulated sky 
-([Figure 1](#fig:sky)) seen from two different instruments, eROSITA and Chandra, 
-with Poissonian noise for the photon count data with the pointing center of the
-telescopes being at the center of the 
-image. Figure #FIXME shows the same image with shifting pointing centers as indicated 
-with the red cross.
+Figure [Figure 2](#fig:data) shows the same simulated sky 
+([Figure 1](#fig:sky)) seen by two different instruments, eROSITA and Chandra, 
+with Poisson noise on the photon count data. The pointing center for each observation is marked
+in red. The two images on the right illustrate the same simulated sky seen by Chandra, but with
+different pointing centers, showing the impact of spatially varying PSFs [@Eberle:2023]. 
 
 # Acknowledgements
-V. Eberle and M. Guardiani, M. Westerkamp acknowledge support for this research through
+V. Eberle, M. Guardiani, and M. Westerkamp acknowledge support for this research through
 the project Universal Bayesian Imaging Kit (UBIK, Förderkennzeichen 50OO2103) funded
-by the Deutsches Zentrum für Luft- und Raumfahrt e.V. (DLR).
-
-#FIXME: Ask for further acknowledgements.
+by the Deutsches Zentrum für Luft- und Raumfahrt e.V. (DLR). 
 
 # References
 
-<!-- Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
-
-For a quick reference, the following citation commands can be used:
-- `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
-# Figures
-
-Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
-
-Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
--->
