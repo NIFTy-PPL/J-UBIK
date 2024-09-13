@@ -48,7 +48,7 @@ if __name__ == "__main__":
     for i in range(unmasked_data.shape[0]):
         plot(unmasked_data[i],
              pixel_measure=112,
-             fs=8,
+             fs=12,
                         title=['0.2-1.0 keV',
                                '1.0-2.0 keV',
                                '2.0-4.5 keV'],
@@ -64,7 +64,7 @@ if __name__ == "__main__":
                         **plotting_kwargs)
     summed_data = np.sum(unmasked_data, axis=0)
     bbox_info = [(28, 16), 28,  160, 'black']
-    plot(unmasked_data[i],
+    plot(summed_data,
          pixel_measure=112,
          fs=8,
          title=['0.2-1.0 keV',
