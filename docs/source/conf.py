@@ -8,7 +8,7 @@ extensions = [
     'sphinx.ext.viewcode',    # Add links to highlighted source code
     'sphinx.ext.intersphinx', # Links to other sphinx docs (mostly numpy)
     'myst_parser',            # Parse markdown
-    'sphinxcontrib.bibtex',
+    # 'sphinxcontrib.bibtex',
 ] 
 
 bibtex_bibfiles = ['user/paper.bib']
