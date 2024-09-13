@@ -158,7 +158,7 @@ reconstructing signals from real data; since each instrument model acts as a dig
 the corresponding 
 instrument, it can also be used to generate simulated data by passing sky prior models through
 the instrument’s
-response. This provides a powerful tool for testing the consistency of the implemented models.
+response. This allows to test the consistency of the implemented models.
                                         
 |Fig.2: Simulated X-ray Data                 |
 |--------------------------------------------|
