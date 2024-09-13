@@ -2,7 +2,7 @@ seed: 86
 esass_image: DR1
 
 files:
-  obs_path: '../data/LMC_SN1987A-1024full/'
+  obs_path: '../data/LMC_SN1987A/'
   data_dict: 'data.pkl'
   processed_obs_folder: 'processed'  # only needed for actual data
   input: 'pm00_700161_020_EventList_c001.fits'
@@ -19,9 +19,9 @@ files:
   pos_dict: 'pos.pkl' # only needed for mock
 
 telescope:
-  tm_ids : [1] #, 3, 4, 6]
+  tm_ids : [1, 2] #, 3, 4, 6]
   rebin: 80 # typical value used in analysis; equals 4 arcsec resolution
-  fov: 4096
+  fov: 2048
   pattern: 15
   detmap: True
   exp_cut: 500
@@ -41,10 +41,10 @@ plotting:
   n_prior_samples: 5
   enabled: True
   slice: Null
-  dpi: 800
+  dpi: 300
 
 grid:
-  sdim: 1024
+  sdim: 512
   edim: 3 # FIXME: remove this parameter
   s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
   e_padding_ratio: 1.
@@ -63,69 +63,79 @@ grid:
 priors:
   point_sources:
     spatial:
-      alpha: 1.0001
-      q: 3.E-10
+      alpha: 1.9952748894654722
       key: points
+      q: 1.6281324151282162e-09
+    # dev_wp:
+    #  name: points_dev_wp
+    #  sigma:
+    #  - 0.01
+    #  - 0.02
+    #  x0: 0
     plaw:
-      mean: -2.
-      std: 1.5
+      mean: -0.3
       name: points_plaw_
-    dev_wp:
-      x0: 0.
-      sigma:
-        - 0.01
-        - 0.02
-      name: 'points_dev_wp'
+      std: 0.1
+
+#    dev_corr:
+#      fluctuations:
+#        fluctuations:
+#          - 1.0
+#          - 5.0e-3
+#        loglogavgslope:
+#          - -3
+#          - 1.0e-2
+#        flexibility:
+#          - 2.0
+#          - 5.0e-1
+#        asperity:
+#        non_parametric_kind: "power"
+#        # harmonic_type: "Fourier"
+#      prefix: points_dev
+#      offset:
+#        offset_mean: 0.0
+#        offset_std:
+#          - 1.0e-3
+#          - 1.0e-4
   diffuse:
     spatial:
-      offset:
-        offset_mean: -14.
-        offset_std:
-          - 0.5
-          - 0.05
       fluctuations:
-        fluctuations:
-          - 0.5
-          - 0.2
-        loglogavgslope:
-          - -4.0
-          - 0.3
+        asperity: null
         flexibility:
-          - 0.4
-          - 0.1
-        asperity:
-          Null
-        non_parametric_kind: "power"
-        # harmonic_type: "Fourier"
+        - 0.3
+        - 0.01
+        fluctuations:
+        - 0.3
+        - 0.01
+        loglogavgslope:
+        - -5.0
+        - 0.1
+        non_parametric_kind: power
+      offset:
+        offset_mean: -19.5
+        offset_std:
+        - 0.3
+        - 0.05
       prefix: diffuse_spatial_
     plaw:
-      offset:
-        offset_mean: -2.0
-        offset_std:
-          - 0.3
-          - 0.05
       fluctuations:
-        fluctuations:
-          - 0.5
-          - 0.05
-        loglogavgslope:
-          - -5.
-          - 1.0e-2
+        asperity: null
         flexibility:
-          - 0.5
-          - 0.05
-        asperity:
-          Null
-        non_parametric_kind: "power"
-        # harmonic_type: "Fourier"
+        - 0.01
+        - 0.001
+        fluctuations:
+        - 0.01
+        - 0.001
+        loglogavgslope:
+        - -6.0
+        - 0.01
+        non_parametric_kind: power
+      offset:
+        offset_mean: -1.3
+        offset_std:
+        - 0.01
+        - 0.001
       prefix: diffuse_plaw_
-    # dev_wp:
-    #   x0: 0.
-    #   sigma:
-    #     - 0.3
-    #     - 0.1
-    #   dt: 1
-    #   name: 'diffuse_dev_wp'
 
 minimization:
     resume: False

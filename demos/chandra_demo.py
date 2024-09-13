@@ -32,13 +32,13 @@ For the sake of a suitable reconstruction do the following:
     please look at (https://doi.org/10.21105/joss.06593)
 """
 
-import os
 import argparse
+import os
 
 import nifty8.re as jft
-import jubik0 as ju
-
 from jax import config, random
+
+import jubik0 as ju
 
 config.update('jax_enable_x64', True)
 
@@ -56,13 +56,6 @@ if __name__ == "__main__":
     cfg = ju.get_config(config_path)
     file_info = cfg['files']
 
-    if ((not cfg['minimization']['resume']) and
-            os.path.exists(file_info["res_dir"])):
-        file_info["res_dir"] = file_info["res_dir"] + "_new"
-        print("FYI: Resume is set to False, but the output "
-              "directory already exists. "
-              "The result_dir has been appended with the string *new*.")
-
     # Uncomment to save local packages git hashes to file
     # ju.save_local_packages_hashes_to_txt(
     #     ['jubik0', 'nifty8'],
@@ -72,7 +65,8 @@ if __name__ == "__main__":
 
     # Save run configuration
     ju.copy_config(os.path.basename(config_path),
-                        output_dir=file_info['res_dir'])
+                   path_to_yaml_file=os.path.dirname(config_path),
+                   output_dir=file_info['res_dir'])
 
     # Load sky model
     sky_model = ju.SkyModel(config_path)

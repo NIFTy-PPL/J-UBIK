@@ -4,5 +4,3 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
-
-__version__ = '0.2'

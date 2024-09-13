@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: BSD-2-Clause
-# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp
+# Authors: Julian Rüstig and Matteo Guardiani
 
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
 
-__version__ = '0.2'
+from .sum_integration import build_sum
