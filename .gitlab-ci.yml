@@ -18,7 +18,6 @@ pages:
   stage: release
   script:
     - pip install pydata-sphinx-theme
-    - git clean -xfd docs/source
     - sh docs/generate.sh
     - mv docs/build/ public/
   artifacts:
