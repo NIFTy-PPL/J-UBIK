@@ -2,7 +2,7 @@ image: python:latest
 
 stages:
   - test
-  -
+  - pages
 
 before_script:
   # - python3 -m pip install numpy ducc0 jax jaxlib astropy
