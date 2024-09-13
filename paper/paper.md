@@ -130,9 +130,7 @@ posterior estimates.
 ## Prior models
 The package includes a prior model for the sky’s brightness distribution across different wavelengths, 
 which can be customized to meet user needs in both spatial and spectral dimensions. 
-In this model, it is possible to obtain spatially uncorrelated
-point sources or correlated extended sources defined by the correlated field model
-described in [@Arras:2022]. This model allows for the generation of spatially 
+This model allows for the generation of spatially 
 uncorrelated point sources or spatially correlated extended sources, as described 
 by the correlated field model in [@Arras:2022]. In the spectral dimension, the model can fit 
 a power law, describe the correlation structure along the spectral axis using a Wiener process or 
