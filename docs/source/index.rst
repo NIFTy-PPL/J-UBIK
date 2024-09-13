@@ -1,7 +1,7 @@
-UBIK X-ray Manual
+J-UBIK Manual
 ============
 
-Welcome to the "Universal Bayesian Imaging Kit for X-ray" (jubik) documentation!
+Welcome to the J-UBIK - "The JAX-accelerated Universal Bayesian Imaging Kit" - documentation!
 
 .. toctree::
    :maxdepth: 1
