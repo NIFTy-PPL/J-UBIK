@@ -74,7 +74,7 @@ Bayesian statistics to reconstruct complex signals. In particular, we envision i
 multi-instrument data in astronomy and also other fields such as medical imaging. 
 J-UBIK is built on information field theory (IFT, [@Ensslin:2013]) and the NIFTy.re software package
 [@Edenhofer:2024], 
-a JAX-accelerated version of NIFTy [@Arras:2019]. 
+a JAX-accelerated version of NIFTy [Selig:2013; Steininger:2019; @Arras:2019]. 
 
 Following the NIFTy paradigm, J-UBIK employs a generative prior model that encodes assumptions 
 about the signal before incorporating any data, and a likelihood model that describes the measurements, 
@@ -110,7 +110,7 @@ The software has already been applied to Chandra data [@Westerkamp:2023], and
 publications on eROSITA pointings and JWST are currently in preparation. In the
 future, the set of instruments will be further expanded to include existing
 imaging pipelines from NIFTy and NIFTy.re such as those described in
-[@Platz:2023], [@Roth:2023], [@Hutschenreuter:2022], as well as new ones.
+[@Platz:2023], [@Roth:2023; Roth:2024], [@Hutschenreuter:2022; Hutschenreuter:2023], as well as new ones.
 
 # Bayesian Imaging with J-UBIK
 At the core of the J-UBIK package is Bayes’ theorem:
