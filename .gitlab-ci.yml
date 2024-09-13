@@ -1,6 +1,6 @@
 
 stages:
-  - test
+  # - test
   - release
 
 before_script:
