@@ -55,7 +55,7 @@ implementation leveraging the JAX-accelerated NIFTy.re [@Edenhofer:2024] softwar
 J-UBIK streamlines the implementation of key Bayesian inference components, providing customizable 
 likelihood models for different instruments and adaptable prior models for various applications.
 So far, the package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA,
-and the James Webb Space Telescope (JWST) in the infrared,
+and the James Webb Space Telescope (JWST) in the near- and mid-infrared,
 as well as a prior model adaptable to different sky realizations. The demos show how the likelihood 
 and prior implementation can be integrated into an inference pipeline, with the possibility to
 choose different optimization schemes such as maximum a posteriori or variational inference.
