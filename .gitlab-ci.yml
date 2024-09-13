@@ -7,7 +7,8 @@ stages:
 before_script:
   # - python3 -m pip install numpy ducc0 jax jaxlib astropy
   - python3 -m pip install .
-  - pip install pytest dvipng texlive-latex-base texlive-latex-extra pandoc
+  - pip install pytest
+  - apt-get update && apt-get install -y dvipng texlive-latex-base texlive-latex-extra pandoc
   - pip install sphinx pydata-sphinx-theme
 
 test:
