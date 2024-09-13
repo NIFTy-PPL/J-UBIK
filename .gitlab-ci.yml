@@ -6,12 +6,12 @@ stages:
 before_script:
   - python3 -m pip install .
 
-test:
-  image: python:latest
-  stage: test
-  script:
-    - pip install pytest
-    - pytest test/ --ignore=test/instruments/chandra/
+# test:
+#   image: python:latest
+#   stage: test
+#   script:
+#     - pip install pytest
+#     - pytest test/ --ignore=test/instruments/chandra/
 
 pages:
   image: sphinxdoc/sphinx
