@@ -195,7 +195,8 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
     Returns:
     --------
     psf_op : callable
-        A function that applies the PSF operator to an input sky array.
+        A function that applies the PSF operator to an input sky array
+        and convolution kernel.
     """
     psfs = [_build_tm_erosita_psf_array(psf_file, energies, pcenter,
                                         domain, npatch)
@@ -205,12 +206,12 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
     shp = (domain.shape[-2], domain.shape[-1])
     margin = max((int(np.ceil(margfrac * ss)) for ss in shp))
 
-    def psf_op(x):
+    def psf_op(x, kernel):
         return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(
-            x, domain, psfs, npatch, margin
+            x, domain, kernel, npatch, margin
         )
 
-    return psf_op
+    return psf_op, psfs
 
 
 def build_erosita_response(
@@ -320,8 +321,9 @@ def build_erosita_response(
             np.array(e_max),
             caldb_folder_name=caldb_folder_name,
             arf_filename_suffix=arf_filename_suffix)
-        exposure_func = lambda x: (tmp(x) *
-                                   effective_area[:, :, np.newaxis, np.newaxis])
+
+        def exposure_func(x):
+            return tmp(x) * effective_area[:, :, np.newaxis, np.newaxis]
     else:
         exposure_func = tmp
 
@@ -335,18 +337,21 @@ def build_erosita_response(
     domain = Domain(tuple([e_dim] + [s_dim] * 2),
                     tuple([1] + [fov / s_dim] * 2))
 
-    psf_func = build_erosita_psf(psf_filenames,
-                                 psf_energy,
-                                 pointing_center,
-                                 domain,
-                                 n_patch,
-                                 margfrac)
+    psf_func, kernel = build_erosita_psf(psf_filenames,
+                                         psf_energy,
+                                         pointing_center,
+                                         domain,
+                                         n_patch,
+                                         margfrac)
 
-    response_func = lambda x: mask_func(exposure_func(psf_func(x * pixel_area)))
+    def response_func(x, k):
+        return mask_func(exposure_func(psf_func(x * pixel_area, k)))
+
     response_dict = {'pix_area': pixel_area,
                      'psf': psf_func,
                      'exposure': exposure_func,
                      'mask': mask_func,
+                     'kernel': kernel,
                      'R': response_func}
     return response_dict
 

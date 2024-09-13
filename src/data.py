@@ -136,7 +136,12 @@ def create_mock_data(tel_info,
     key, subkey = random.split(key)
     output_path = create_output_directory(file_info['res_dir'])
     mock_sky_position = jft.Vector(jft.random_like(subkey, sky.domain))
-    masked_mock_data = response_dict['R'](sky(mock_sky_position))
+    # TODO: unify cases
+    if 'kernel' in response_dict:
+        masked_mock_data = response_dict['R'](sky(mock_sky_position),
+                                              response_dict['kernel'])
+    else:
+        masked_mock_data = response_dict['R'](sky(mock_sky_position))
     subkeys = random.split(subkey, len(masked_mock_data.tree))
     masked_mock_data = jft.Vector({
         tm: random.poisson(subkeys[i], data).astype(int)
@@ -155,7 +160,7 @@ def create_mock_data(tel_info,
                                              + sky.target.shape))
         mask_adj_func = lambda x: mask_adj(x)[0]
         plottable_data_array = np.stack(mask_adj_func(plottable_vector), axis=0)
-        from .. import plot_rgb
+        from .plot import plot_rgb
         from .plot import plot_result
 
         mock_output = create_output_directory(join(file_info['res_dir'],
