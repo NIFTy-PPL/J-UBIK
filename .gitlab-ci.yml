@@ -2,14 +2,25 @@ image: python:latest
 
 stages:
   - test
+  -
 
 before_script:
   # - python3 -m pip install numpy ducc0 jax jaxlib astropy
   - python3 -m pip install .
-  - pip install -U pytest
+  - pip install pytest dvipng texlive-latex-base texlive-latex-extra pandoc
+  - pip install sphinx pydata-sphinx-theme
 
 test:
   stage: test
   script:
     - pytest test/ --ignore=test/instruments/chandra/
 
+pages:
+  stage: release
+  script:
+    - git clean -xfd docs/source
+    - sh docs/generate.sh
+    - mv docs/build/ public/
+  artifacts:
+    paths:
+    - public
