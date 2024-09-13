@@ -49,7 +49,7 @@ if __name__ == "__main__":
     for i in range(exposures.shape[0]):
         plot(exposures[i],
              pixel_measure=112,
-             fs=8,
+             fs=12,
                         title=['0.2-1.0 keV',
                                '1.0-2.0 keV',
                                '2.0-4.5 keV'],
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     bbox_info = [(28, 16), 28,  160, 'black']
     plot(summed_exposure,
          pixel_measure=112,
-         fs=8,
+         fs=12,
          title=['0.2-1.0 keV',
                 '1.0-2.0 keV',
                 '2.0-4.5 keV'],
@@ -80,5 +80,8 @@ if __name__ == "__main__":
          pixel_factor=4,
          bbox_info=bbox_info,
          alpha=0.5,
+         vmax=1e6,
+         vmin=1e4,
+         dpi=300,
          cmap='plasma',
          **plotting_kwargs)
