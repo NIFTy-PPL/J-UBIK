@@ -174,6 +174,9 @@ different pointing centers, showing the impact of spatially varying PSFs [@Eberl
 V. Eberle, M. Guardiani, and M. Westerkamp acknowledge support for this research through
 the project Universal Bayesian Imaging Kit (UBIK, Förderkennzeichen 50OO2103) funded
 by the Deutsches Zentrum für Luft- und Raumfahrt e.V. (DLR). 
+P. Frank acknowledges funding through the German Federal Ministry of Education
+and Research for the project “ErUM-IFT: Informationsfeldtheorie für Experi-
+mente an Großforschungsanlagen” (Förderkennzeichen: 05D23EO1).
 
 # References
 
