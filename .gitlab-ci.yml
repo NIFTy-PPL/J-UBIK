@@ -1,24 +1,23 @@
-image: python:latest
 
 stages:
   - test
   - release
 
 before_script:
-  # - python3 -m pip install numpy ducc0 jax jaxlib astropy
   - python3 -m pip install .
-  - pip install pytest
-  - apt-get update && apt-get install -y dvipng texlive-latex-base texlive-latex-extra pandoc
-  - pip install sphinx pydata-sphinx-theme
 
 test:
+  image: python:latest
   stage: test
   script:
+    - pip install pytest
     - pytest test/ --ignore=test/instruments/chandra/
 
 pages:
+  image: sphinxdoc/sphinx
   stage: release
   script:
+    - pip install pydata-sphinx-theme
     - git clean -xfd docs/source
     - sh docs/generate.sh
     - mv docs/build/ public/
