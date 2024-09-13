@@ -132,9 +132,8 @@ The package includes a prior model for the sky’s brightness distribution acros
 which can be customized to meet user needs in both spatial and spectral dimensions. 
 This model allows for the generation of spatially 
 uncorrelated point sources or spatially correlated extended sources, as described 
-by the correlated field model in [@Arras:2022]. In the spectral dimension, the model can fit 
-a power law, describe the correlation structure along the spectral axis using a Wiener process or 
-combine both of these models.
+by the correlated field model in [@Arras:2022]. 
+In the spectral dimension, the model can be a power law, describe the correlation structure of the logarithmic flux using a Wiener process along the spectral axis or combine both of these models.
 The prior model’s structure is designed to be flexible, allowing for modifications to accommodate 
 additional dimensions and correlation structures. [Figure 1](#fig:sky) illustrates an example of 
 a simulated X-ray sky in J-UBIK, 
