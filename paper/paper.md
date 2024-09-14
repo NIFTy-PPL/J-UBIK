@@ -53,18 +53,18 @@ bibliography: paper.bib
 ---
 
 # Summary
-Many advances in astronomy and astrophysics rely on accurately mapping sky emissions across various
-wavelengths, which often requires reconstructing spatially and spectrally correlated signals from multiple
-instruments. To facilitate this, we introduce a universal Bayesian imaging kit, a flexible and 
-modular platform designed for high-fidelity Bayesian imaging. Specifically, we present J-UBIK, an 
-implementation leveraging the JAX-accelerated NIFTy.re [@Edenhofer:2024] software as its backend.
-J-UBIK streamlines the implementation of key Bayesian inference components, providing customizable 
-likelihood models for different instruments and adaptable prior models for various applications.
-So far, the package includes three instrument implementations, two X-ray telescopes, Chandra and eROSITA,
-and the James Webb Space Telescope (JWST) in the near- and mid-infrared,
-as well as a prior model adaptable to different sky realizations. The demos show how the likelihood 
-and prior implementation can be integrated into an inference pipeline, with the possibility to
-choose different optimization schemes such as maximum a posteriori or variational inference.
+Many advances in astronomy and astrophysics originate from accurate images of the sky emission across multiple wavelengths.
+This which often requires reconstructing spatially and spectrally correlated signals detected from multiple
+instruments. To facilitate the high-fidelity imaging of these singals, we introduce the universal Bayesian 
+imaging kit (UBIK). Specifically, we present J-UBIK, a flexible and modular implementation leveraging the JAX-accelerated 
+NIFTy.re [@Edenhofer:2024] software as its backend.
+J-UBIK streamlines the implementation of the key Bayesian inference components, providing for all the necessary steps of Bayesian imaging pipelines. 
+First, it provides adaptable prior models for different sky realizations.
+Second, it includes likelihood models tailored to specific instruments. So far, the package includes three instruments: Chandra and eROSITA for X-ray observations,
+and the James Webb Space Telescope (JWST) for the near- and mid-infrared. The aim is to expand this set in the future.
+Third, these models can be integrated with various inference and optimization schemes, such as maximum a posteriori estimation and variational inference.
+Explicit demos show how to integrate the individual modules into a full analysis pipeline.
+Overall, J-UBIK enables efficient generation of high-fidelity images via Bayesian pipelines that can be tailored to specific research objectives.
 
 # Statement of Need
 In astrophysical imaging, we often encounter high-dimensional signals that vary across space, time, and energy. 
