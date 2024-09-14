@@ -299,8 +299,12 @@ def plot_erosita_priors(key,
         mask_adj = linear_transpose(response_dict['mask'],
                                     np.zeros(
                                         (n_modules, epix, spix, spix)))
-
-        R = lambda x: mask_adj(response_dict['R'](x))[0]
+        # TODO: unify cases
+        if 'kernel' in response_dict:
+            R = lambda x: mask_adj(
+                response_dict['R'](x, response_dict['kernel']))[0]
+        else:
+            R = lambda x: mask_adj(response_dict['R'](x))[0]
 
         for i, pos in enumerate(positions):
             for key, val in plottable_samples.items():
@@ -611,9 +615,17 @@ def plot_2d_gt_vs_rec_histogram(samples,
             {k: response_dict['mask_adj'](response_dict['mask'](reshape(x)))[0]
              for k in range(shape[0])})
 
-    Rs_sample_dict = {key: [R(op(s)) for s in samples] for key, op in
-                      operator_dict.items()}
-    Rs_reference_dict = {key: R(ref) for key, ref in reference_dict.items()}
+    # TODO: unify cases
+    if 'kernel' in response_dict:
+        k = response_dict['kernel']
+        Rs_sample_dict = {key: [R(op(s), k) for s in samples] for key, op in
+                          operator_dict.items()}
+        Rs_reference_dict = {key: R(ref, k) for key, ref in
+                             reference_dict.items()}
+    else:
+        Rs_sample_dict = {key: [R(op(s)) for s in samples] for key, op in
+                          operator_dict.items()}
+        Rs_reference_dict = {key: R(ref) for key, ref in reference_dict.items()}
 
     for key in operator_dict.keys():
         res_list = []
