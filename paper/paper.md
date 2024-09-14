@@ -69,11 +69,9 @@ Overall, J-UBIK enables efficient generation of high-fidelity images via Bayesia
 # Statement of Need
 In astrophysical imaging, we often encounter high-dimensional signals that vary across space, time, and energy. 
 The new generation of telescopes in astronomy offers exciting opportunities to capture these signals
-but also presents 
-significant challenges in extracting the most information from the resulting data. 
+but also presents significant challenges in extracting the most information from the resulting data. 
 These challenges include accurately modeling the instrument’s response to the signal, 
-accounting for complex noise structures, and separating overlapping signal components, 
-which often exhibit non-trivial correlation patterns.
+accounting for complex noise structures, and separating overlapping signals of distinct physical origin.
 
 Here, we introduce J-UBIK, the JAX-accelerated Universal Bayesian Imaging Kit, which leverages 
 Bayesian statistics to reconstruct complex signals. In particular, we envision its application in the context of
@@ -104,18 +102,17 @@ prior models and acts as a flexible toolbox. It implements a variety of generic
 response functions, such as spatially-varying point-spread functions (PSFs) [@Eberle:2023] and 
 enables the user to define diverse correlation structures for various sky components. Second, 
 J-UBIK includes implementations for several instruments. 
-Currently, it supports Chandra, eROSITA pointings, and JWST observations, 
-with plans to expand this list as the user base grows. 
+Currently, it supports Chandra, eROSITA pointings, and JWST observations, with plans to expand this list as the user base grows. 
 This expansion will provide users with a diverse set of accessible inference algorithms for various
 instruments. Ultimately J-UBIK enables the user, through Bayesian
 statistics, not only to obtain posterior samples and hence measures of interest such as the
 posterior mean and uncertainty of the signal for a several data sets, but also to
 perform multi-instrument reconstructions.
 
-The software has already been applied in [@Westerkamp:2023], and publications
+The software has already been applied by @Westerkamp:2023, and publications
 on eROSITA pointings and JWST are currently in preparation. In the future, the set of 
 instruments will be further expanded to include existing imaging pipelines from NIFTy  
-and NIFTy.re such as those described in [@Platz:2023], [@Roth:2023], [@Hutschenreuter:2022],
+and NIFTy.re such as those described in @Platz:2023, @Roth:2023, @Hutschenreuter:2022,
 as well as new ones.
 
 # Bayesian Imaging with J-UBIK
