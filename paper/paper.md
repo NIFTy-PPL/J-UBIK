@@ -29,7 +29,7 @@ authors:
     orcid: 0009-0003-6405-8332
     affiliation: "2"
   - name: Julia Stadler
-    orcid: 
+    orcid: 0000-0001-5888-023X
     affiliation: "1, 3"
   - name: Torsten A. Enßlin
     orcid: 0000-0001-5246-1624
@@ -41,9 +41,7 @@ affiliations:
     index: 2
   - name: ORIGINS Excellence Cluster, Boltzmannstr. 2, D-85748 Garching, Germany
     index: 3
-  - name: Department of Astrophysics, University of Vienna, Türkenschanzstraße 17, A-1180 Vienna, Austria
-    index: 4 #FIXME: who has this affiliation?
-date: 2 September 2024
+date: 16 September 2024
 bibliography: paper.bib
 
 # Optional fields if submitting to a AAS journal too, see this blog post:
