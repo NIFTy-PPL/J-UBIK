@@ -139,17 +139,17 @@ uncorrelated point sources or spatially correlated extended sources, as describe
 by the correlated field model in [@Arras:2022]. 
 In the spectral dimension, the model can be a power law, describe the correlation structure of the logarithmic flux using a Wiener process along the spectral axis or combine both of these models.
 The prior model’s structure is designed to be flexible, allowing for modifications to accommodate 
-additional dimensions and correlation structures. [Figure 1](#fig:sky) illustrates an example of 
+additional dimensions and correlation structures. Figure \ref{fig:sky} illustrates an example of 
 a simulated X-ray sky in J-UBIK, 
 sampled from a corresponding generative prior model with one energy bin.
 This example features two components: 
 one representing spatially uncorrelated point sources and the other representing spatially 
-correlated extended structures. [Figure 1](#fig:sky) shows from left to right the full sky and its
+correlated extended structures. Figure \ref{fig:sky} shows from left to right the full sky and its
 components, the diffuse, extended structures and the point sources.
                                         
-| Fig.1: Simulated X-ray Sky                |
-|-------------------------------------------|
-| ![Figure 1](simulated_sky.png){#fig:sky}  |
+| Figure 1: Simulated X-ray Sky\label{fig:sky}       |
+|----------------------------------------------------|
+| ![](simulated_sky.png)                             |
 
 ## Likelihood models
 J-UBIK implements several instrument models (Chandra, eROSITA, JWST) and their respective data-
@@ -164,12 +164,11 @@ instrument, it can also be used to generate simulated data by passing sky prior 
 the instrument’s
 response. This allows to test the consistency of the implemented models.
                                         
-|Fig.2: Simulated X-ray Data                 |
-|--------------------------------------------|
-| ![Figure 2](simulated_data.png){#fig:data} |
+| Figure 2: Simulated X-ray Data\label{fig:data} |
+|------------------------------------------------|
+| ![](simulated_data.png)                        |
 
-[Figure 2](#fig:data) shows the same simulated sky 
-([Figure 1](#fig:sky)) seen by two different instruments, eROSITA and Chandra, 
+Figure \ref{fig:data} shows the same simulated sky from Figure \ref{fig:sky} seen by two different instruments, eROSITA and Chandra, 
 with Poisson noise on the photon count data. The pointing center for each observation is marked
 in red. The two images on the right illustrate the same simulated sky seen by Chandra, but with
 different pointing centers, showing the impact of spatially varying PSFs [@Eberle:2023]. 
@@ -181,6 +180,8 @@ by the Deutsches Zentrum für Luft- und Raumfahrt e.V. (DLR).
 P. Frank acknowledges funding through the German Federal Ministry of Education
 and Research for the project “ErUM-IFT: Informationsfeldtheorie für Experi-
 mente an Großforschungsanlagen” (Förderkennzeichen: 05D23EO1).
+J. Stadler acknowledges support by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) 
+under Germany’s Excellence Strategy – EXC-2094 – 390783311.
 
 # References
 
