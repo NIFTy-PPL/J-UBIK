@@ -23,5 +23,5 @@ pages:
   artifacts:
     paths:
     - public
-  # only: # remove comment before merge
-  # - joss_paper
+  only:
+  - joss_paper
