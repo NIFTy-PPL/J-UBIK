@@ -71,7 +71,7 @@ if __name__ == "__main__":
     mask_delta = exposure_corrected_data <= detection_threshold
     exp_delta_data[mask_delta] = 0
     mean = np.sum(exp_delta_data)/reduce(mul, exp_delta_data.shape)
-    mode = 0.9**2/(np.max(non_zero_elements)* pixel_area)
+    mode = 0.1**2/(np.max(non_zero_elements)* pixel_area)
     alpha = 2/(mean/mode-1)+1
     q = mode * (alpha +1)
     print(f'alpha is {alpha} and q is {q}')

@@ -92,9 +92,8 @@ def compute_uncertainty_weighted_residuals(samples,
             plot_kwargs.update({'vmin': -5})
         if 'vmax' not in plot_kwargs:
             plot_kwargs.update({'vmax': 5})
-        for i in range(masked_uwrs.shape[0]):
-            plot_result(masked_uwrs[i], output_file=join(diagnostics_path, f'{base_filename}{key}_i.png'),
-                        **plot_kwargs)
+        plot_result(masked_uwrs, output_file=join(diagnostics_path, f'{base_filename}{key}.png'),
+                    **plot_kwargs)
         if n_bins:
             if range is None:
                 range = (-5, 5)

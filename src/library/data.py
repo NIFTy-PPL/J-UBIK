@@ -113,9 +113,12 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
     key, subkey = random.split(key)
     output_path = create_output_directory(file_info['res_dir'])
     mock_sky_position = jft.Vector(jft.random_like(subkey, sky.domain))
-    masked_mock_data = response_dict['R'](sky(mock_sky_position), response_dict['kernel_arr'])
-    masked_mock_data = tree_map(lambda x: random.poisson(subkey, x), masked_mock_data.tree)
-    masked_mock_data = jft.Vector({key: val.astype(int) for key, val in masked_mock_data.items()})
+    masked_mock_data = response_dict['R'](sky(mock_sky_position))
+    subkeys = random.split(subkey, len(masked_mock_data.tree))
+    masked_mock_data = jft.Vector({
+        tm: random.poisson(subkeys[i], data).astype(int)
+        for i, (tm, data) in enumerate(masked_mock_data.tree.items())
+    })
     save_dict_to_pickle(masked_mock_data.tree, join(output_path, file_info['data_dict']))
     save_dict_to_pickle(mock_sky_position.tree, join(output_path, file_info['pos_dict']))
     if plot_info['enabled']:
@@ -145,7 +148,10 @@ def create_mock_erosita_data(tel_info, file_info, grid_info, prior_info, plot_in
                      sat_max=(0.1 * np.max(sky_comp(mock_sky_position), axis=(1, 2))).tolist())
             plot_result(sky_comp(mock_sky_position), logscale=True,
                     output_file=join(output_path, f'mock_{key}.png'))
-
+        if hasattr(sky_model, 'alpha_cf'):
+            diffuse_alpha = sky_model.alpha_cf
+            plot_result(diffuse_alpha(mock_sky_position), logscale=False,
+                    output_file=join(output_path, f'mock_diffuse_alpha.png'))
     return masked_mock_data
 
 

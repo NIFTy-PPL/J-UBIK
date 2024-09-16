@@ -4,9 +4,10 @@ import pickle
 from jax import linear_transpose, vmap
 import jax.numpy as jnp
 import jax
+from pathlib import Path
 
 import jubik0 as ju
-from os.path import join
+from os.path import join, basename
 import astropy.io.fits as fits
 import nifty8.re as jft
 import sys
@@ -28,6 +29,8 @@ if __name__ == "__main__":
     grid_info = config_dict["grid"]
     epix = grid_info['edim']
     spix = grid_info['sdim']
+    e_min = grid_info['energy_bin']['e_min']
+    e_max = grid_info['energy_bin']['e_max']
 
     with open(os.path.join(results_path, 'last.pkl'), "rb") as file:
         samples, _ = pickle.load(file)
@@ -36,38 +39,71 @@ if __name__ == "__main__":
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
-    response_dict = ju.build_erosita_response_from_config(config_path)
-    exit()
-    mask = ju.build_readout_function()
-    mask = response_dict['mask']
-    mask_adj = linear_transpose(mask,
-                                np.zeros((len(tm_ids), epix, spix, spix)))
-    mask_adj_func = lambda x: mask_adj(x)[0]
+    file_info = config_dict['files']
+    exposure_filenames = []
+    for tm_id in tel_info['tm_ids']:
+        exposure_filename = f'tm{tm_id}_' + file_info['exposure']
+        [exposure_filenames.append(join(file_info['obs_path'],
+                                        "processed",
+                                        f"{Path(exposure_filename).stem}_emin{e}_emax{E}.fits"))
+         for e, E in zip(e_min, e_max)]
+
+    exposures = []
+    tm_id = basename(exposure_filenames[0])[2]
+    tm_exposures = []
+    for file in exposure_filenames:
+        if basename(file)[2] != tm_id:
+            exposures.append(tm_exposures)
+            tm_exposures = []
+            tm_id = basename(file)[2]
+        if basename(file)[2] == tm_id:
+            if file.endswith('.npy'):
+                tm_exposures.append(np.load(file))
+            elif file.endswith('.fits'):
+                tm_exposures.append(fits.open(file)[0].data)
+            elif not (file.endswith('.npy') or file.endswith('.fits')):
+                raise ValueError('exposure files should be in a .npy or .fits format!')
+            else:
+                raise FileNotFoundError(f'cannot find {file}!')
+    exposures.append(tm_exposures)
+    exposures = np.array(exposures, dtype="float64")
+    summed_exposure = np.sum(exposures, axis=0)
+
+    def mask(x):
+        masked_x = x.at[summed_exposure<=tel_info['exp_cut']].set(0)
+        return masked_x
 
 
-
-    sat_max = {'sky': [1e-4, 8e-5, 3e-5], 'diffuse': [1e-4, 8e-5, 3e-5], 'points': [1e-4, 8e-5, 3e-5]}
-    sat_min = {'sky': [8e-10, 5e-10, 2e-10], 'diffuse': [8e-10, 5e-10, 2e-10], 'points': [8e-10, 5e-10, 2e-10]}
+    sat_max = {'sky': [9e-5, 7e-5, 2e-5], 'diffuse': [1e-4, 8e-5, 3e-5], 'points': [1e-4, 8e-5, 3e-5]}
+    sat_min = {'sky': [7e-10, 4e-10, 1e-10], 'diffuse': [8e-10, 5e-10, 2e-10], 'points': [8e-10, 5e-10, 2e-10]}
     for key, op in sky_dict.items():
         op = jax.vmap(op)
         real_samples = op(samples.samples)
         real_mean = jnp.mean(real_samples, axis=0)
-        real_mean = np.mean(mask_adj_func(mask(np.repeat(real_mean[np.newaxis, :,
-                                                 :, :], 5, axis=0))), axis=0)
-
-        bbox_info = [(7, 4), 7, 24, 'black']
-        plot_rgb(real_mean, sat_min=sat_min[key],
-                 sat_max=sat_max[key],
+        if key != 'masked_diffuse':
+            real_mean = mask(real_mean)
+            pixel_measure = 112
+            bbox_info = [(28, 16), 28, 160, 'black']
+        else:
+            pixel_measure = 20
+            bbox_info = [(3,2 ), 3, 16, 'black']
+        real_mean = real_mean.at[real_mean<2.0e-9].set(0)
+        plot_rgb(real_mean,
+                 pixel_factor=1,
+                 sat_min= [1e-9, 1e-9, 1e-9],
+                 sat_max=[4e-6, 1e-6, 1e-7],
                  sigma=None, log=True,
-                 title= f'reconstructed {key}', fs=18, pixel_measure=28,
-                 output_file=join(output_dir, f'mock_rec_{key}_rgb.png'),
+                 title= f'reconstructed {key}', fs=18,
+                 pixel_measure=pixel_measure,
+                 output_file=join(output_dir, f'rec_{key}_rgb.png'),
                  alpha=0.5,
                  bbox_info=bbox_info
                  )
         plotting_kwargs_rec = {}
         plot(real_mean,
-             pixel_measure=28,
-             fs=8,
+             pixel_factor=4,
+             pixel_measure=112,
+             fs=12,
                         title=['0.2-1.0 keV',
                                '1.0-2.0 keV',
                                '2.0-4.5 keV'],
@@ -80,12 +116,13 @@ if __name__ == "__main__":
                         f'rec_{key}.png'),
                         **plotting_kwargs_rec)
         real_std = jnp.std(real_samples, axis=0)
-        real_std = np.mean(mask_adj_func(mask(np.repeat(real_std[np.newaxis, :,
-                                                 :, :], 5, axis=0))), axis=0)
+        if key != 'masked_diffuse':
+            real_std = mask(real_std)
         plotting_kwargs_unc = {'cmap': 'seismic'}
         plot(real_std,
-             pixel_measure=28,
-             fs=8,
+             pixel_factor=4,
+             pixel_measure=112,
+             fs=12,
                         title=['0.2-1.0 keV',
                                '1.0-2.0 keV',
                                '2.0-4.5 keV'],

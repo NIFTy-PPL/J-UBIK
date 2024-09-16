@@ -42,13 +42,14 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
                        mode="constant", constant_values=0)
     trailing_pos = (0,)*(len(padded_x.shape)-2)
     trailing_slice_sizes = padded_x.shape[:-2]
+
     def slicer(x_pos, y_pos):
         return jax.lax.dynamic_slice(padded_x, start_indices=trailing_pos+(x_pos, y_pos),
                                      slice_sizes=trailing_slice_sizes+(2*dx + 2*dr, 2*dy + 2*dr))
 
-    ids = (np.arange(n_patches_per_axis)*dx, np.arange(n_patches_per_axis)*dy)
+    ids = (jnp.arange(n_patches_per_axis)*dx, jnp.arange(n_patches_per_axis)*dy)
 
-    ndx = np.meshgrid(*ids, indexing="xy")
+    ndx = jnp.meshgrid(*ids, indexing="xy")
     f = jax.vmap(slicer, in_axes=(0, 0), out_axes=(0))
     return f(*(nn.flatten() for nn in ndx))
 
