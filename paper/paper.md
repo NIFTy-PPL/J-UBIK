@@ -86,7 +86,6 @@ including the responses of multiple instruments and noise statistics.
 Built on \texttt{NIFTy.re}, \texttt{J-UBIK} supports adaptive and distributed representations of high-dimensional
 physical signal fields and 
 accelerates their inference from observational data using advanced Bayesian algorithms. 
-
 These include maximum a posteriori (MAP), Hamiltonian Monte Carlo (HMC), and two variational
 inference techniques: 
 metric Gaussian variational inference (MGVI, [@Knollmueller:2020]) and geometric variational
