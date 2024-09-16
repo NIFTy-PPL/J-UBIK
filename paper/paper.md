@@ -55,7 +55,7 @@ bibliography: paper.bib
 # Summary
 Many advances in astronomy and astrophysics originate from accurate images of the sky emission across multiple wavelengths.
 This often requires reconstructing spatially and spectrally correlated signals detected from multiple
-instruments. To facilitate the high-fidelity imaging of these singals, we introduce the universal Bayesian 
+instruments. To facilitate the high-fidelity imaging of these signals, we introduce the universal Bayesian 
 imaging kit (UBIK). Specifically, we present \texttt{J-UBIK}, a flexible and modular implementation leveraging the \texttt{JAX}-accelerated 
 \texttt{NIFTy.re} [@Edenhofer:2024] software as its backend.
 \texttt{J-UBIK} streamlines the implementation of the key Bayesian inference components, providing for all the necessary steps of Bayesian imaging pipelines. 
