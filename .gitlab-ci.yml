@@ -1,15 +1,27 @@
-image: python:latest
 
 stages:
   - test
+  - release
 
 before_script:
-  # - python3 -m pip install numpy ducc0 jax jaxlib astropy
   - python3 -m pip install .
-  - pip install -U pytest
 
 test:
+  image: python:latest
   stage: test
   script:
+    - pip install pytest
     - pytest test/ --ignore=test/instruments/chandra/
 
+pages:
+  image: sphinxdoc/sphinx
+  stage: release
+  script:
+    - pip install pydata-sphinx-theme myst-parser
+    - sh docs/generate.sh
+    - mv docs/build/ public/
+  artifacts:
+    paths:
+    - public
+  only:
+  - joss_paper
