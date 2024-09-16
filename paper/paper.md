@@ -71,11 +71,10 @@ which often exhibit non-trivial correlation patterns.
 
 Here, we introduce J-UBIK, the JAX-accelerated Universal Bayesian Imaging Kit, which leverages 
 Bayesian statistics to reconstruct complex signals. In particular, we envision its application in the context of
-multi-instrument data in astronomy and also other fields,
-such as medical imaging. 
+multi-instrument data in astronomy and also other fields such as medical imaging. 
 J-UBIK is built on information field theory (IFT, [@Ensslin:2013]) and the NIFTy.re software package
 [@Edenhofer:2024], 
-a JAX-accelerated version of NIFTy [@Arras:2019]. 
+a JAX-accelerated version of NIFTy [Selig:2013; Steininger:2019; @Arras:2019]. 
 
 Following the NIFTy paradigm, J-UBIK employs a generative prior model that encodes assumptions 
 about the signal before incorporating any data, and a likelihood model that describes the measurements, 
@@ -92,25 +91,26 @@ As NIFTy.re is fully implemented in JAX, J-UBIK benefits from accelerated infere
 parallel computing on clusters or GPUs.
 
 Building generative models with NIFTy.re for specific instruments and applications can be very
-tedious and labor-intensive. Here, J-UBIK comes into play, which adresses this challenge from two 
+tedious and labor-intensive. Here, J-UBIK comes into play which adresses this challenge from two 
 angles. First, it provides tools to simplify the creation of new likelihood and 
 prior models and acts as a flexible toolbox. It implements a variety of generic
 response functions, such as spatially-varying point-spread functions (PSFs) [@Eberle:2023] and 
 enables the user to define diverse correlation structures for various sky components. Second, 
 J-UBIK includes implementations for several instruments. 
-Currently, it supports Chandra, eROSITA pointings, and JWST observations, 
-with plans to expand this list as the user base grows. 
-This expansion will provide users with a diverse set of accessible inference algorithms for various
-instruments. Ultimately J-UBIK enables the user, through Bayesian
-statistics, not only to obtain posterior samples and hence measures of interest such as the
-posterior mean and uncertainty of the signal for a several data sets, but also to
-perform multi-instrument reconstructions.
+Currently, it supports Chandra, eROSITA pointings, and JWST observations.
+Through the use of Bayesian statistics, J-UBIK enables the user to obtain
+posterior samples and hence measures of interest such as the posterior mean and
+uncertainty of the signal and arbitrary derived quantities.
+It also allows for seamless integration of several data sets and to perform
+multi-instrument reconstructions.
+As the list of supported instruments grows, these capabilities and accessible
+inference algorithms will be accessible by a diverse set of usergroups.
 
-The software has already been applied in [@Westerkamp:2023], and publications
-on eROSITA pointings and JWST are currently in preparation. In the future, the set of 
-instruments will be further expanded to include existing imaging pipelines from NIFTy  
-and NIFTy.re such as those described in [@Platz:2023], [@Roth:2023], [@Hutschenreuter:2022],
-as well as new ones.
+The software has already been applied to Chandra data [@Westerkamp:2023], and
+publications on eROSITA pointings and JWST are currently in preparation. In the
+future, the set of instruments will be further expanded to include existing
+imaging pipelines from NIFTy and NIFTy.re such as those described in
+[@Platz:2023], [@Roth:2023; Roth:2024], [@Hutschenreuter:2022; Hutschenreuter:2023], as well as new ones.
 
 # Bayesian Imaging with J-UBIK
 At the core of the J-UBIK package is Bayes’ theorem:
@@ -174,6 +174,9 @@ different pointing centers, showing the impact of spatially varying PSFs [@Eberl
 V. Eberle, M. Guardiani, and M. Westerkamp acknowledge support for this research through
 the project Universal Bayesian Imaging Kit (UBIK, Förderkennzeichen 50OO2103) funded
 by the Deutsches Zentrum für Luft- und Raumfahrt e.V. (DLR). 
+P. Frank acknowledges funding through the German Federal Ministry of Education
+and Research for the project “ErUM-IFT: Informationsfeldtheorie für Experi-
+mente an Großforschungsanlagen” (Förderkennzeichen: 05D23EO1).
 
 # References
 
