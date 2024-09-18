@@ -12,7 +12,7 @@ import nifty8.re as jft
 import numpy as np
 from ducc0.fft import good_size as good_fft_size
 
-from .utils import get_config, add_functions, add_models
+from .utils import get_config, add_functions, add_models, add_masked_model
 
 
 class SkyModel:
@@ -49,10 +49,13 @@ class SkyModel:
             self.config = get_config(config_file_path)
         else:
             self.config = {}
+
         self.s_distances = None
         self.e_distances = None
         self.diffuse = None
         self.point_sources = None
+        self.masked_diffuse = None
+        self.spatial_cf = None
         self.spatial_pspec = None
         self.sky = None
 
@@ -67,6 +70,16 @@ class SkyModel:
         self.points_dev_pspec = None
         self.points_alpha_cf = None
         self.points_alpha_pspec = None
+
+        self.mask = None
+        self.masked_diffuse_spatial_cf = None
+        self.masked_diffuse_spatial_pspec = None
+        self.masked_diffuse_plaw = None
+        self.masked_diffuse_dev_cf = None
+        self.masked_diffuse_dev_pspec = None
+        self.masked_diffuse_alpha_cf = None
+        self.masked_diffuse_alpha_pspec = None
+
 
     def create_sky_model(self, sdim=None, edim=None, s_padding_ratio=None,
                          e_padding_ratio=None, fov=None, e_min=None, e_max=None, e_ref=None,
@@ -174,14 +187,33 @@ class SkyModel:
         self._create_diffuse_component_model(sdim, edim, s_padding_ratio, e_padding_ratio,
                                              self.s_distances, self.e_distances, priors['diffuse'])
         if 'point_sources' not in priors:
-            self.sky = self.diffuse
+            sky = self.diffuse
         else:
             if 'dev_corr' in priors['point_sources'].keys():
                 raise ValueError('Grid distances in energy direction have to be regular and defined by'
                              'one float of a corrlated field in energy direction is taken.')
             self._create_point_source_model(sdim, edim, e_padding_ratio,
                                             self.e_distances, priors['point_sources'])
-            self.sky = add_models(self.diffuse, self.point_sources)
+            sky = add_models(self.diffuse, self.point_sources)
+        if 'masked_diffuse' not in priors:
+            self.sky = sky
+        else:
+            masked_prior_dict = priors['masked_diffuse']
+            mask_dict = masked_prior_dict.pop('mask')
+            mask_sdim = (mask_dict['x'][1] - mask_dict['x'][0],
+                         mask_dict['y'][1] - mask_dict['y'][0])
+            self._create_masked_diffuse_component_model(mask_sdim,
+                                                        edim,
+                                                        s_padding_ratio,
+                                                        e_padding_ratio,
+                                                        self.s_distances,
+                                                        self.e_distances,
+                                                        masked_prior_dict)
+            self.mask = (slice(None),
+                         slice(mask_dict['y'][0], mask_dict['y'][1]),
+                         slice(mask_dict['x'][0], mask_dict['x'][1]))
+            self.sky = add_masked_model(sky, self.masked_diffuse,
+                                        self.mask)
         return self.sky
 
     def _create_correlated_field(self, shape, distances, prior_dict):
@@ -306,6 +338,96 @@ class SkyModel:
         exp_padding = lambda x: jnp.exp(log_diffuse(x)[:edim, :sdim[0], :sdim[1]])
         self.diffuse = jft.Model(exp_padding, domain=log_diffuse.domain)
 
+    def _create_masked_diffuse_component_model(self, sdim, edim,
+                                               s_padding_ratio,
+                                               e_padding_ratio, sdistances,
+                                               edistances, prior_dict):
+        """ Returns a model for the diffuse component given the information on its shape and
+        distances and the prior dictionaries for the offset and the fluctuations
+
+        Parameters
+
+        ----------
+        sdim: int or tuple of int
+            Number of pixels in each spatial dimension
+        edim: int
+            Number of pixels in spectral direction
+        s_padding_ratio: float
+            Ratio between number of pixels in the actual space and the padded space
+        e_padding_ratio: float
+            Ratio between number of pixels in the actual enegery space and the padded energy space.
+            It needs to be taken such that the correlated fields in energy direction has more than 3
+            pixels.
+        sdistances : tuple of float or float
+            Position-space distances
+        edistances : tuple of float or float
+            Energy-space distances
+        prior_dict: dict
+            Dictionary of prior parameters for the correlated field
+            in the format:
+                    spatial:
+                        offset:
+                            offset_mean:
+                            offset_std:
+                        fluctuations:
+                            fluctuations:
+                            loglogavgslope:
+                            flexibility:
+                            asperity:
+                            harmonic_type:
+                            non_parametric_kind:
+                        prefix:
+                    plaw: optional
+                    dev: optional
+
+        Returns
+        -------
+        diffuse: jft.Model
+            Model for the diffuse component
+        """
+        if not 'spatial' in prior_dict:
+            return ValueError('Every diffuse component needs a spatial component')
+        if 'dev_wp' in prior_dict and 'dev_corr' in prior_dict:
+            raise ValueError('You can only inlude Wiener process or correlated field'
+                             'for the deviations around the plaw.')
+        ext_s_shp = tuple(good_fft_size(int(entry * s_padding_ratio))
+                          for entry in sdim)
+        ext_e_shp = good_fft_size(int(edim * e_padding_ratio))
+        self.masked_diffuse_spatial_cf, self.masked_diffuse_spatial_pspec = \
+            self._create_correlated_field(ext_s_shp, sdistances,
+                                          prior_dict['spatial'])
+        if 'plaw' in prior_dict:
+            self.masked_diffuse_alpha_cf, self.masked_diffuse_alpa_pspec =\
+                self._create_correlated_field(ext_s_shp, sdistances,
+                                              prior_dict['plaw'])
+            self.masked_diffuse_plaw = \
+                _apply_slope(self._log_rel_ebin_centers(),
+                                   self.masked_diffuse_alpha_cf)
+
+        if 'dev_corr' in prior_dict:
+            dev_cf, self.masked_diffuse_dev_pspec = \
+                self._create_correlated_field(ext_e_shp, edistances,
+                                              prior_dict['dev_cor'])
+            self.masked_diffuse_dev_cf = \
+                MappedModel(dev_cf, prior_dict['dev_corr']['prefix']+'xi',
+                               ext_s_shp, False)
+        if 'dev_wp' in prior_dict:
+            dev_cf = \
+                self._create_wiener_process(edims=len(self._log_rel_ebin_centers()),
+                                            dE=self._log_dE(),
+                                            **prior_dict['dev_wp'])
+            self.masked_diffuse_dev_cf = MappedModel(dev_cf,
+                                                        prior_dict['dev_wp']['name'],
+                                                        ext_s_shp,
+                                                        False)
+        log_mdiffuse = GeneralModel({'spatial': self.masked_diffuse_spatial_cf,
+                                       'freq_plaw': self.masked_diffuse_plaw,
+                                       'freq_dev': self.masked_diffuse_dev_cf}).build_model()
+        exp_padding = lambda x: jnp.exp(log_mdiffuse(x)[:edim, :sdim[0], :sdim[1]])
+        self.masked_diffuse = jft.Model(exp_padding,
+                                        domain=log_mdiffuse.domain)
+
+
     def _create_point_source_model(self, sdim, edim, e_padding_ratio, edistances, prior_dict):
         """ Returns a model for the point-source component given the information on its shape
          and information on the shape and scaling parameters
@@ -384,7 +506,9 @@ class SkyModel:
         """Return a dictionary with callables for the major sky models."""
         sky_dict = {'sky': self.sky,
                     'diffuse': self.diffuse,
-                    'points': self.point_sources}
+                    'points': self.point_sources,
+                    'masked_diffuse': self.masked_diffuse}
+
         no_none_dict = {key: value for (key, value) in sky_dict.items() if value is not None}
         return no_none_dict
 

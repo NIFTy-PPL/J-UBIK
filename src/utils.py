@@ -86,6 +86,17 @@ def add_functions(f1, f2):
     return function
 
 
+def add_masked_model(model, masked_model, mask):
+    domain = model.domain
+    domain.update(masked_model.domain)
+    def func(x):
+        eval_model = model(x)
+        eval_masked_model = masked_model(x)
+        added_model = eval_model.at[mask].add(eval_masked_model)
+        return added_model
+    return jft.Model(func, domain=domain)
+
+
 def get_stats(sample_list, func):
     # TODO replace with nifty.re.mean_and_std
     """Return stats(mean and std) for sample_list.

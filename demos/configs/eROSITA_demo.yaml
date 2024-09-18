@@ -63,9 +63,9 @@ grid:
 priors:
   point_sources:
     spatial:
-      alpha: 1.9952748894654722
+      alpha: 1.0052423392975538
       key: points
-      q: 1.6281324151282162e-09
+      q: 1.0899834483573917e-11
     # dev_wp:
     #  name: points_dev_wp
     #  sigma:
@@ -112,7 +112,7 @@ priors:
         - 0.1
         non_parametric_kind: power
       offset:
-        offset_mean: -19.5
+        offset_mean: -19.0
         offset_std:
         - 0.3
         - 0.05
@@ -138,62 +138,61 @@ priors:
       prefix: diffuse_plaw_
   masked_diffuse:
     mask:
-      - 200
-      - 400
+      x:
+        - 390
+        - 510
+      y:
+        - 570
+        - 690
     spatial:
-      offset:
-        offset_mean: -14.
-        offset_std:
-          - 0.5
-          - 0.05
       fluctuations:
+        asperity: null
+        flexibility:
+          - 0.5
+          - 0.01
         fluctuations:
           - 0.5
-          - 0.2
+          - 0.01
         loglogavgslope:
           - -4.0
-          - 0.3
-        flexibility:
-          - 0.4
           - 0.1
-        asperity:
-          Null
-        non_parametric_kind: "power"
-        # harmonic_type: "Fourier"
+        non_parametric_kind: power
+      offset:
+        offset_mean: -19.0
+        offset_std:
+          - 0.3
+          - 0.05
       prefix: masked_diffuse_spatial_
     plaw:
+      fluctuations:
+        asperity: null
+        flexibility:
+          - 0.1
+          - 0.001
+        fluctuations:
+          - 0.1
+          - 0.001
+        loglogavgslope:
+          - -6.0
+          - 0.01
+        non_parametric_kind: power
       offset:
         offset_mean: -0.3
         offset_std:
-          - 0.3
-          - 0.05
-      fluctuations:
-        fluctuations:
-          - 0.5
-          - 0.05
-        loglogavgslope:
-          - -5.
-          - 1.0e-2
-        flexibility:
-          - 0.5
-          - 0.05
-        asperity:
-          Null
-        non_parametric_kind: "power"
-        # harmonic_type: "Fourier"
+          - 0.01
+          - 0.001
       prefix: masked_diffuse_plaw_
-
 minimization:
     resume: False
-    n_total_iterations: 15
+    n_total_iterations: 30
     delta:
-      switches: [0, 10]
-      values: [1.e-5, 1.e-6]
+      switches:
+      values: 1.e-5
 
     samples:
       switches: [0, 10]
-      n_samples: [4, 5]
-      mode: [nonlinear_resample, nonlinear_update]
+      n_samples: 4
+      mode: [nonlinear_resample, nonlinear_resample]
       # Possible modes:
       # - "linear_sample",
       # - "linear_resample",
@@ -203,15 +202,15 @@ minimization:
 
       # LIN SAMPLING
       # lin_absdelta: [Null, 1.e-4] # if set, delta is ignored
-      lin_maxiter: [60, 70]
+      lin_maxiter: 100
 
       # NONLIN SAMPLING
       # nonlin_xtol: [Null, 0.1] # if set, delta is ignored
-      nonlin_maxiter: [25, 35]
+      nonlin_maxiter: 3
       # nonlin_cg_atol: [0.1, 0.01]
       # nonlin_cg_maxiter: [20, 30]
 
     kl_minimization:
-      switches: [0, 10]
+      switches:
       # kl_absdelta: [Null, 1.e-6] # if set, delta is ignored
-      kl_maxiter: [10, 13]
+      kl_maxiter: 20
