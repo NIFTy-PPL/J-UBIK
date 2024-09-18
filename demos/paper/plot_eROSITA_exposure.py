@@ -43,7 +43,7 @@ if __name__ == "__main__":
     exposures = np.array(exposures, dtype=float)
     exposures[exposures<=500] = 0 # FIXME FROM CONFIG Instroduce Exposure cut
     summed_exposure = np.sum(exposures, axis=0)
-
+    correct_exposures_for_effective_area = True
     if correct_exposures_for_effective_area:
         # from src.library.response import calculate_erosita_effective_area
         ea = calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max)
