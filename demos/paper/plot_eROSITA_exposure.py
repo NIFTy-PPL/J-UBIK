@@ -16,6 +16,7 @@ from plot_eROSITA_image import plot, plot_rgb
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
     output_dir = "paper/"
+    path_to_caldb = '../data/'
     config_path = join(output_dir, 'erosita_data_plotting_config.yaml')
     config_dict = ju.get_config(config_path)
     grid_info = config_dict["grid"]
@@ -42,6 +43,11 @@ if __name__ == "__main__":
     exposures = np.array(exposures, dtype=float)
     exposures[exposures<=500] = 0 # FIXME FROM CONFIG Instroduce Exposure cut
     summed_exposure = np.sum(exposures, axis=0)
+
+    if correct_exposures_for_effective_area:
+        # from src.library.response import calculate_erosita_effective_area
+        ea = calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max)
+        exposures *= ea[:, :, np.newaxis, np.newaxis]
 
     plotting_kwargs ={}
     # Plotting the data

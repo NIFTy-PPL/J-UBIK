@@ -29,7 +29,8 @@ from .library.erosita_psf import eROSITA_PSF
 from .library.sky_models import SkyModel, add_masked_model, fuse_model_components
 from .library.response import load_erosita_response, build_exposure_function, \
     build_callable_from_exposure_file, build_readout_function,\
-    build_erosita_response_from_config, build_erosita_psf
+    build_erosita_response_from_config, build_erosita_psf, \
+    calculate_erosita_effective_area
 from .library.data import (load_data_dict_from_pickle, create_mock_erosita_data,
                            create_erosita_data_from_config,
                            mask_erosita_data_from_disk, load_masked_data_from_config,

@@ -70,12 +70,12 @@ if __name__ == "__main__":
     summed_exposure = np.sum(exposures, axis=0)
 
     def mask(x):
-        masked_x = x.at[summed_exposure<=tel_info['exp_cut']].set(0)
+        masked_x = x.at[summed_exposure<=500].set(0)
         return masked_x
 
 
-    sat_max = {'sky': [9e-5, 7e-5, 2e-5], 'diffuse': [1e-4, 8e-5, 3e-5], 'points': [1e-4, 8e-5, 3e-5]}
-    sat_min = {'sky': [7e-10, 4e-10, 1e-10], 'diffuse': [8e-10, 5e-10, 2e-10], 'points': [8e-10, 5e-10, 2e-10]}
+    # sat_max = {'sky': [1.5e-7, 0.9e-7, 1.0e-7], 'diffuse': [1e-4, 8e-5, 3e-5], 'points': [1e-4, 8e-5, 3e-5]}
+    # sat_min = {'sky': [7e-10, 4e-10, 1e-10], 'diffuse': [8e-10, 5e-10, 2e-10], 'points': [8e-10, 5e-10, 2e-10]}
     for key, op in sky_dict.items():
         op = jax.vmap(op)
         real_samples = op(samples.samples)
@@ -83,16 +83,18 @@ if __name__ == "__main__":
         if key != 'masked_diffuse':
             real_mean = mask(real_mean)
             pixel_measure = 112
+            pixel_factor = 4
             bbox_info = [(28, 16), 28, 160, 'black']
         else:
             pixel_measure = 20
+            pixel_factor = 1
             bbox_info = [(3,2 ), 3, 16, 'black']
-        real_mean = real_mean.at[real_mean<2.0e-9].set(0)
+        real_mean = real_mean.at[real_mean<2.5e-9].set(0)
         plot_rgb(real_mean,
-                 pixel_factor=1,
-                 sat_min= [1e-9, 1e-9, 1e-9],
-                 sat_max=[4e-6, 1e-6, 1e-7],
-                 sigma=None, log=True,
+                sat_min=[2e-9, 2e-9, 2e-9],
+                sat_max=[0.1, 0.1, 0.1],
+                 pixel_factor=pixel_factor,
+                 log=True,
                  title= f'reconstructed {key}', fs=18,
                  pixel_measure=pixel_measure,
                  output_file=join(output_dir, f'rec_{key}_rgb.png'),
