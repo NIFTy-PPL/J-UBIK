@@ -121,7 +121,7 @@ def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], norm=None,
     if norm is not None:
         ax.imshow(plot_data, origin="lower", norm=norm)
     else:
-        ax.imshow(plot_data, origin="lower", norm=norm)
+        ax.imshow(plot_data, origin="lower")
 
     if title is not None:
         ax.text(0.05, 0.95, title, fontsize=fs,
