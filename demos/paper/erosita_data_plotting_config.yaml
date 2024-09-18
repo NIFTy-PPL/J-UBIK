@@ -61,8 +61,9 @@ files:
   exposure: 'pm00_700161_020_expmap.fits'
   calibration_path : '../data/'
   psf_path : '../data/psf_info/'
+  caldb_folder_name: 'caldb'
   effective_area_filename_suffix: '_arf_filter_000101v02.fits'
-  psf_base_filename: '2dpsf_190219v05.fits'
+  psf_filename_suffix: '_2dpsf_190219v05.fits'
   res_dir: 'results/LMC-08082024-001M'
 # If mock:
   # mock_gen_config: 'mock_config.yaml'
