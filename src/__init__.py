@@ -32,7 +32,8 @@ from .response import build_exposure_function, build_readout_function
 from .instruments.erosita.erosita_response import (build_callable_from_exposure_file,
                                                    build_erosita_psf,
                                                    build_erosita_response_from_config,
-                                                   load_erosita_response)
+                                                   load_erosita_response,
+                                                   calculate_erosita_effective_area)
 from .instruments.erosita.erosita_data import (generate_erosita_data_from_config,
                                                mask_erosita_data_from_disk)
 from .instruments.erosita.erosita_psf import eROSITA_PSF
