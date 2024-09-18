@@ -136,6 +136,52 @@ priors:
         - 0.01
         - 0.001
       prefix: diffuse_plaw_
+  masked_diffuse:
+    mask:
+      - 200
+      - 400
+    spatial:
+      offset:
+        offset_mean: -14.
+        offset_std:
+          - 0.5
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.2
+        loglogavgslope:
+          - -4.0
+          - 0.3
+        flexibility:
+          - 0.4
+          - 0.1
+        asperity:
+          Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: masked_diffuse_spatial_
+    plaw:
+      offset:
+        offset_mean: -0.3
+        offset_std:
+          - 0.3
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.05
+        loglogavgslope:
+          - -5.
+          - 1.0e-2
+        flexibility:
+          - 0.5
+          - 0.05
+        asperity:
+          Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
+      prefix: masked_diffuse_plaw_
 
 minimization:
     resume: False

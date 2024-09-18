@@ -244,6 +244,17 @@ if __name__ == "__main__":
                                plot_info['priors_signal_response'],
                                adjust_figsize=True,
                                )
+    key = random.PRNGKey(cfg['seed'])
+    key, subkey = random.split(key)
+    n_samples = 1
+    priors_directory = os.path.join(file_info['res_dir'],'jubik_priors_mf/')
+
+    kwgs = {'n_cols': 3, 'n_rows': 1}
+    ju.plot_erosita_priors(key, n_samples, config_path, priors_directory,
+                           signal_response=False,
+                           plotting_kwargs={'n_cols': 3, 'n_rows': 1},
+                           adjust_figsize=True)
+
 
     # Minimization
     minimization_config = cfg['minimization']
