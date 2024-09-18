@@ -17,8 +17,8 @@ from plot_eROSITA_image import plot, plot_rgb
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
-    results_path = "results/LMC-06082024-002M-mock"
-    config_name = "eROSITA_config_small.yaml"
+    results_path = "results/LMC-10092024-002M"
+    config_name = "eROSITA_config.yaml"
     output_dir = ju.create_output_directory(join(results_path, 'paper'))
     config_path = join(results_path, config_name)
     config_dict = ju.get_config(config_path)
@@ -32,28 +32,28 @@ if __name__ == "__main__":
     sky_dict = sky_model.sky_model_to_dict()
     response_dict = ju.build_erosita_response_from_config(config_path)
 
-    mask_adj = jax.linear_transpose(response_dict['mask'],
-                                    np.zeros((len(tm_ids),) + sky.target.shape))
+    data = ju.load_masked_data_from_config(config_path)
+    plottable_vector = jft.Vector({key: val.astype(float) for key, val
+                                   in data.tree.items()})
+    grid_info = config_dict["grid"]
+    epix = grid_info['edim']
+    spix = grid_info['sdim']
+    mask_adj = linear_transpose(response_dict['mask'],
+                                np.zeros((len(tm_ids), epix, spix, spix)))
     response_dict['mask_adj'] = mask_adj
-    mask_func = response_dict['mask']
+    # mask_adj_func = lambda x: mask_adj(x)[0]
 
-    gt_dict = {}
-    masked_data = ju.load_masked_data_from_config(config_path)
-    pos = ju.load_mock_position_from_config(config_path)
-    for key, comp in sky_dict.items():
-        gt_dict[key] = comp(pos)
-
-    masked_data = jax.tree_map(lambda x: np.array(x, dtype=np.float64),
-                            masked_data)
-
+    #  unmasked_data = mask_adj_func(plottable_vector)
     for key, op in sky_dict.items():
-        uwrs, exp_mask = ju.calculate_uwr(samples.samples, op, gt_dict[key], response_dict,
-                                        abs=False, exposure_mask=mask_func, log=True)
-        bbox_info = [(7, 4), 7, 24]
-        plotting_kwargs = {'vmin': -5, 'vmax': 5, 'cmap': 'RdYlBu_r'}
-        plot(uwrs,
-             pixel_measure=28,
-             fs=8,
+        nwrs, exp_mask = ju.calculate_nwr(samples.samples, op,
+                                          data,
+                                          response_dict)
+        bbox_info = [(28, 16), 28, 160, 'black']
+        plotting_kwargs = {'vmin': -5, 'vmax': 5, 'cmap': 'RdBu'}
+        plot(np.mean(np.mean(nwrs, axis=0),axis=0),
+             pixel_factor=4,
+             pixel_measure=112,
+             fs=12,
                         title=['0.2-1.0 keV',
                                '1.0-2.0 keV',
                                '2.0-4.5 keV'],
@@ -61,5 +61,5 @@ if __name__ == "__main__":
                         colorbar=True,
                         n_rows=1,
                         output_file=join(output_dir,
-                        f'uwr_{key}.png'),
+                        f'nwr_{key}.png'),
              **plotting_kwargs)

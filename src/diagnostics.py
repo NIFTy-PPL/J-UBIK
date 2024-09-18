@@ -95,12 +95,13 @@ def calculate_nwr(pos, op, data, response_dict,
     """
     if response:
         R = response_dict['R']
+        kernel = response_dict['kernel']
     else:
-        R = lambda x: x
+        R = lambda x, k: x
 
     adj_mask = response_dict['mask_adj']
     sqrt = lambda x: tree_map(jnp.sqrt, x)
-    res = lambda x: (R(op(x)) - data) / sqrt(R(op(x)))
+    res = lambda x: (R(op(x), kernel) - data) / sqrt(R(op(x), kernel))
     res = vmap(res, out_axes=1)
     res = jnp.array(vmap(adj_mask, in_axes=1, out_axes=1)(res(pos))[0])
     if abs:

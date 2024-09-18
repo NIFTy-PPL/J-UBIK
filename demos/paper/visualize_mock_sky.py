@@ -16,8 +16,8 @@ from plot_eROSITA_image import plot, plot_rgb
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
-    results_path = "results/LMC-19082024-001M-mock"
-    config_name = "eROSITA_config_small.yaml"
+    results_path = "results/Mock-17092024-001M"
+    config_name = "eROSITA_demo.yaml"
     output_dir = ju.create_output_directory(join(results_path, 'paper'))
     config_path = join(results_path, config_name)
     config_dict = ju.get_config(config_path)

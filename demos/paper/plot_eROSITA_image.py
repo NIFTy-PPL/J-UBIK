@@ -93,7 +93,8 @@ def plot(array, pixel_measure=None, pixel_factor =1, output_file=None, logscale=
         plt.show()
     plt.close()
 
-def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], sigma=None, log=False,
+def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], norm=None,
+             sigma=None, log=False,
              title=None, pixel_measure=None, pixel_factor =1, fs=14, figsize=(8, 8), dpi=200,
              output_file=None, alpha=0.8,
              bbox_info= [(7, 4), 7,  30, 'black']):
@@ -117,7 +118,10 @@ def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], sigma=None, log=False,
         labelbottom=False,
         labelleft=False,
     )
-    ax.imshow(plot_data, origin="lower")
+    if norm is not None:
+        ax.imshow(plot_data, origin="lower", norm=norm)
+    else:
+        ax.imshow(plot_data, origin="lower", norm=norm)
 
     if title is not None:
         ax.text(0.05, 0.95, title, fontsize=fs,

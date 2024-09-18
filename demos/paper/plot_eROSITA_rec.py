@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
 import numpy as np
 import pickle
 from jax import linear_transpose, vmap
@@ -74,8 +75,14 @@ if __name__ == "__main__":
         return masked_x
 
 
-    # sat_max = {'sky': [1.5e-7, 0.9e-7, 1.0e-7], 'diffuse': [1e-4, 8e-5, 3e-5], 'points': [1e-4, 8e-5, 3e-5]}
-    # sat_min = {'sky': [7e-10, 4e-10, 1e-10], 'diffuse': [8e-10, 5e-10, 2e-10], 'points': [8e-10, 5e-10, 2e-10]}
+    sat_min = {'sky': [2e-9, 2e-9, 2e-9], 'diffuse': [0, 0, 0],
+               'points': [2e-9, 2e-9, 2e-9],
+               'masked_diffuse': [2e-9, 2e-9, 2e-9]}
+    sat_max = {'sky': [1, 1, 1], 'diffuse': [1, 1, 1],
+               'points': [1, 1, 1], 'masked_diffuse': [1, 1, 1]}
+    min_sat_min = min(min(lst) for lst in sat_min.values())
+    max_sat_max = max(max(lst) for lst in sat_max.values())
+    norm = Normalize(vmin=min_sat_min, vmax=max_sat_max)
     for key, op in sky_dict.items():
         op = jax.vmap(op)
         real_samples = op(samples.samples)
@@ -91,15 +98,17 @@ if __name__ == "__main__":
             bbox_info = [(3,2 ), 3, 16, 'black']
         real_mean = real_mean.at[real_mean<2.5e-9].set(0)
         plot_rgb(real_mean,
-                sat_min=[2e-9, 2e-9, 2e-9],
-                sat_max=[0.1, 0.1, 0.1],
+                 sat_min=sat_min[key],
+                 sat_max=sat_max[key],
                  pixel_factor=pixel_factor,
                  log=True,
-                 title= f'reconstructed {key}', fs=18,
+                 # title= f'reconstructed {key}',
+                 fs=18,
                  pixel_measure=pixel_measure,
                  output_file=join(output_dir, f'rec_{key}_rgb.png'),
                  alpha=0.5,
-                 bbox_info=bbox_info
+                 bbox_info=bbox_info,
+                 norm=norm
                  )
         plotting_kwargs_rec = {}
         plot(real_mean,
@@ -120,7 +129,7 @@ if __name__ == "__main__":
         real_std = jnp.std(real_samples, axis=0)
         if key != 'masked_diffuse':
             real_std = mask(real_std)
-        plotting_kwargs_unc = {'cmap': 'seismic'}
+        plotting_kwargs_unc = {'cmap': 'jet'}
         plot(real_std,
              pixel_factor=4,
              pixel_measure=112,
@@ -135,6 +144,22 @@ if __name__ == "__main__":
                         bbox_info=bbox_info,
                         output_file=join(output_dir,
                         f'unc_{key}.png'),
+                        **plotting_kwargs_unc)
+
+        plot(real_std/real_mean,
+             pixel_factor=4,
+             pixel_measure=112,
+             fs=12,
+                        title=['0.2-1.0 keV',
+                               '1.0-2.0 keV',
+                               '2.0-4.5 keV'],
+                        logscale=False,
+                        colorbar=True,
+                        #common_colorbar=True,
+                        n_rows=1,
+                        bbox_info=bbox_info,
+                        output_file=join(output_dir,
+                        f'rel_unc_{key}.png'),
                         **plotting_kwargs_unc)
 
 
