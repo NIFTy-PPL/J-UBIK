@@ -10,16 +10,19 @@ import astropy.io.fits as fits
 import nifty8.re as jft
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from plot_eROSITA_image import plot, plot_rgb
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
     output_dir = "paper/"
+    path_to_caldb = '../data/'
     config_path = join(output_dir, 'erosita_data_plotting_config.yaml')
     config_dict = ju.get_config(config_path)
     grid_info = config_dict["grid"]
     file_info = config_dict["files"]
+    data_path = join(file_info['obs_path'], 'processed')
     tel_info = config_dict["telescope"]
     tm_ids = tel_info["tm_ids"]
     e_min = grid_info['energy_bin']['e_min']
@@ -27,66 +30,55 @@ if __name__ == "__main__":
 
     epix = grid_info['edim']
     spix = grid_info['sdim']
-    response_dict = ju.build_erosita_response_from_config(config_path)
-    mask = response_dict['mask']
-    data = ju.mask_erosita_data_from_disk(file_info=file_info,
-                                   grid_info=grid_info,
-                                   tel_info=tel_info,
-                                   mask_func=mask)
-    plottable_vector = jft.Vector({key: val.astype(float) for key, val
-                                   in data.tree.items()})
-    mask_adj = linear_transpose(mask,
-                                np.zeros((len(tm_ids), epix, spix, spix)))
-    mask_adj_func = lambda x: mask_adj(x)[0]
+    pixel_area = (config_dict['telescope']['fov'] / config_dict['grid']['sdim']) **2 # density to flux
 
+    data = []
+    exposures = []
+    for it, tm_id in enumerate(tm_ids):
+        data_filenames = f'tm{tm_id}_' + file_info['output']
+        exposure_filenames = f'tm{tm_id}_' + file_info['exposure']
+        data_filenames = [join(data_path, f"{data_filenames.split('.')[0]}_emin{e}_emax{E}.fits")
+                          for e, E in zip(e_min, e_max)]
+        exposure_filenames = [join(data_path,
+                                   f"{exposure_filenames.split('.')[0]}_emin{e}_emax{E}.fits")
+                              for e, E in zip(e_min, e_max)]
+        data.append([])
+        exposures.append([])
+        for e, output_filename in enumerate(data_filenames):
+            with fits.open(output_filename) as hdul:
+                data[it].append(hdul[0].data)
+            with fits.open(exposure_filenames[e]) as hdul:
+                exposures[it].append(hdul[0].data)
 
-    # Plotting the data
-    unmasked_data = mask_adj_func(plottable_vector)
-    plotting_kwargs = {'vmin':1e0, 'vmax':4e2}
+    data = np.array(data, dtype=int)
+    exposures = np.array(exposures, dtype=float)
+    exposures[exposures<=500] = 0 # FIXME FROM CONFIG Instroduce Exposure cut
+    correct_exposures_for_effective_area = True
+    if correct_exposures_for_effective_area:
+        # from src.library.response import calculate_erosita_effective_area
+        ea = ju.calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max)
+        exposures *= ea[:, :, np.newaxis, np.newaxis]
 
+    summed_data = np.sum(data, axis=0)
+    exposures = np.array(exposures, dtype=float)
+    exposures[exposures<=500] = 0 # FIXME FROM CONFIG Instroduce Exposure cut
+    summed_exposure = np.sum(exposures, axis=0)
+    exposure_corrected_data = summed_data/summed_exposure
+    exposure_corrected_data = exposure_corrected_data / pixel_area
+    mask_exp = summed_exposure == 0
+    mask_data = np.isnan(exposure_corrected_data)
+
+    exposure_corrected_data[mask_data] = 0
+    exposure_corrected_data[mask_exp] = 0
     bbox_info = [(28, 16), 28, 160, 'black']
-    for i in range(unmasked_data.shape[0]):
-        plot(unmasked_data[i],
-             pixel_measure=112,
-             fs=12,
-                        title=['0.2-1.0 keV',
-                               '1.0-2.0 keV',
-                               '2.0-4.5 keV'],
-                        logscale=True,
-                        colorbar=True,
-                        common_colorbar=True,
-                        n_rows=1,
-                        alpha=0.5,
-                        bbox_info= bbox_info,
-                        pixel_factor=4,
-                        output_file=join(output_dir,
-                        f'eROSITA_tm{tm_ids[i]}_data.png'),
-                        **plotting_kwargs)
-    summed_data = np.sum(unmasked_data, axis=0)
-    bbox_info = [(28, 16), 28,  160, 'black']
-    plot(summed_data,
-         pixel_measure=112,
-         fs=8,
-         title=['0.2-1.0 keV',
-                '1.0-2.0 keV',
-                '2.0-4.5 keV'],
-         logscale=True,
-         colorbar=True,
-         common_colorbar=True,
-         n_rows=1,
-         output_file=join(output_dir,
-                          f'summed_eROSITA_data.png'),
-         pixel_factor=4,
-         bbox_info=bbox_info,
-         alpha=0.5,
-         **plotting_kwargs)
-    bbox_info = [(28, 16), 28,  160, 'black']
-    plot_rgb(summed_data, sat_min=[0, 0, 0],
-             sat_max=[4e2, 1e2, 1e1],
-             sigma=None, log=True,
+    plot_rgb(exposure_corrected_data,
+             sat_min=[2e-9, 2e-9, 2e-9],
+             sat_max=[0.1, 0.1, 0.1],
+             log=True,
              title='eROSITA LMC data', fs=18, pixel_measure=112,
-             output_file=join(output_dir, 'eRSOITA_data_rgb.png'),
+             output_file=join(output_dir, 'expcor_eRSOITA_data_rgb.png'),
              alpha=0.0,
              pixel_factor=4,
-             bbox_info=bbox_info
+             bbox_info=bbox_info,
              )
+
