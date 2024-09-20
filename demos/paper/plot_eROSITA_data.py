@@ -71,14 +71,27 @@ if __name__ == "__main__":
     exposure_corrected_data[mask_data] = 0
     exposure_corrected_data[mask_exp] = 0
     bbox_info = [(28, 16), 28, 160, 'black']
+
+    #### LOG Plot
     plot_rgb(exposure_corrected_data,
-             sat_min=[2e-9, 2e-9, 2e-9],
-             sat_max=[0.1, 0.1, 0.1],
+             sat_min=[2e-12, 2e-12, 2e-12],
+             sat_max=[1, 1, 1],
              log=True,
              title='eROSITA LMC data', fs=18, pixel_measure=112,
-             output_file=join(output_dir, 'expcor_eRSOITA_data_rgb.png'),
+             output_file=join(output_dir, 'log_expcor_eRSOITA_data_rgb.png'),
              alpha=0.0,
              pixel_factor=4,
              bbox_info=bbox_info,
              )
 
+    #### Lin Plot
+    plot_rgb(exposure_corrected_data,
+             sat_min=[1e-10, 1e-10, 1e-10],
+             sat_max=[5e-8, 5e-8, 5e-8],
+             # log=True,
+             title='eROSITA LMC data', fs=18, pixel_measure=112,
+             output_file=join(output_dir, 'lin_expcor_eRSOITA_data_rgb.png'),
+             alpha=0.0,
+             pixel_factor=4,
+             bbox_info=bbox_info,
+             )
