@@ -171,7 +171,7 @@ def plot_2d_gt_vs_rec_histogram(samples, operator_dict, diagnostics_path, respon
         R = lambda x, y: jft.Vector(
             {k: response_dict['mask_adj'](response_dict['mask'](reshape(x)))[0] for k in
             range(shape[0])})
-    k = response_dict['kernel_arr']
+    k = response_dict['kernel']
 
     Rs_sample_dict = {key: [R(op(s), k) for s in samples] for key, op in operator_dict.items()}
     Rs_reference_dict = {key: R(ref, k) for key, ref in reference_dict.items()}
@@ -261,7 +261,9 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     ax.set_yscale('log')
     ax.set_xlabel(x_label, fontsize=fs)
     ax.set_ylabel(y_label, fontsize=fs)
-    ax.axhline(y=1, color='r', linestyle='-')
+    # ax.axhline(y=1, color='r', linestyle='-')
+    ax.axvline(x=2.5e-9, color='r', linestyle='-', label='detection threshold')
+    ax.legend(frameon=False)
     plt.tight_layout()
     if x_lim is not None:
         ax.set_xlim(x_lim[0], x_lim[1])

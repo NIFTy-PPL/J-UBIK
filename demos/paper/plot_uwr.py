@@ -63,3 +63,20 @@ if __name__ == "__main__":
                         output_file=join(output_dir,
                         f'uwr_{key}.png'),
              **plotting_kwargs)
+        op = jax.vmap(op)
+        real_samples = op(samples.samples)
+        real_mean = jnp.mean(real_samples, axis=0)
+        residual = real_mean - gt_dict[key]
+        rel_residual = np.abs(residual) / gt_dict[key]
+        plot(rel_residual,
+             pixel_measure=28,
+             fs=8,
+                        title=['0.2-1.0 keV',
+                               '1.0-2.0 keV',
+                               '2.0-4.5 keV'],
+                        logscale=False,
+                        colorbar=True,
+                        n_rows=1,
+                        output_file=join(output_dir,
+                        f'relresidual_{key}.png'),
+             **plotting_kwargs)
