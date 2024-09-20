@@ -36,7 +36,7 @@ if __name__ == "__main__":
     for key, op in sky_dict.items():
         real_pos = op(pos)
         bbox_info = [(28, 16), 28, 160, 'black']
-        plot_rgb(real_pos, sat_min=[1e-9, 1e-9, 1e-9],
+        plot_rgb(real_pos, sat_min=[1e-10, 1e-10, 1e-10],
                  sat_max=[4e-7, 1e-7, 1e-8],
                  sigma=None, log=True,
                  title='simulated sky', fs=18, pixel_measure=112,
@@ -61,3 +61,7 @@ if __name__ == "__main__":
                         output_file=join(output_dir,
                         f'prior_{key}.png'))
 
+    alpha_diffuse = sky_model.alpha_cf(pos)
+    ju.plot_result(alpha_diffuse, output_file=join(output_dir, "alpha_diffuse.png"))
+    spatial_diffuse = sky_model.spatial_cf(pos)
+    ju.plot_result(spatial_diffuse, output_file=join(output_dir, "spatial_diffuse.png"))
