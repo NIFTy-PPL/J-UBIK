@@ -49,6 +49,7 @@ if __name__ == "__main__":
                                           data,
                                           response_dict)
         bbox_info = [(28, 16), 28, 160, 'black']
+
         plotting_kwargs = {'vmin': -5, 'vmax': 5, 'cmap': 'RdBu'}
         plot(np.mean(np.mean(nwrs, axis=0),axis=0),
              pixel_factor=4,
@@ -60,6 +61,7 @@ if __name__ == "__main__":
                         logscale=False,
                         colorbar=True,
                         n_rows=1,
+             bbox_info=bbox_info,
                         output_file=join(output_dir,
                         f'nwr_{key}.png'),
              **plotting_kwargs)
