@@ -18,7 +18,7 @@ def sample_data():
     op = lambda x: x
     response_dict = {
         'exposure': lambda x: x,
-        'R': lambda x: x,
+        'R': lambda x, k: x,
         'mask_adj': lambda x: x
     }
     return sky, op, sky, data, response_dict
