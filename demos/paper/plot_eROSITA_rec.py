@@ -75,14 +75,17 @@ if __name__ == "__main__":
         return masked_x
 
 
-    sat_min = {'sky': [2e-9, 2e-9, 2e-9], 'diffuse': [0, 0, 0],
-               'points': [2e-9, 2e-9, 2e-9],
-               'masked_diffuse': [2e-9, 2e-9, 2e-9]}
+    sat_min = {'sky': [2e-12, 2e-12, 2e-12], 'diffuse': [0, 0, 0],
+               'points': [2e-12, 2e-12, 2e-12],
+               'masked_diffuse': [2e-12, 2e-12, 2e-12],
+               "lin": [1e-10, 1e-10, 1e-10]}
     sat_max = {'sky': [1, 1, 1], 'diffuse': [1, 1, 1],
-               'points': [1, 1, 1], 'masked_diffuse': [1, 1, 1]}
+               'points': [1, 1, 1], 'masked_diffuse': [1, 1, 1],
+               "lin": [5e-8, 5e-8, 5e-8]}
     min_sat_min = min(min(lst) for lst in sat_min.values())
     max_sat_max = max(max(lst) for lst in sat_max.values())
     norm = Normalize(vmin=min_sat_min, vmax=max_sat_max)
+
     for key, op in sky_dict.items():
         op = jax.vmap(op)
         real_samples = op(samples.samples)
@@ -109,7 +112,38 @@ if __name__ == "__main__":
                  alpha=0.5,
                  bbox_info=bbox_info,
                  norm=norm
+        )
+                 #LINEAR
+                 #
+        plot_rgb(real_mean,
+                 sat_min=sat_min["lin"],
+                 sat_max=sat_max["lin"],
+                 pixel_factor=pixel_factor,
+                 # title= f'reconstructed {key}',
+                 fs=18,
+                 pixel_measure=pixel_measure,
+                 output_file=join(output_dir, f'rec_{key}_rgb_lin.png'),
+                 alpha=0.5,
+                 bbox_info=bbox_info,
+                 norm=norm
                  )
+
+        if key == "sky":
+            k = 0
+            for sample in real_samples:
+                plot_rgb(mask(sample),
+                        sat_min=sat_min["lin"],
+                        sat_max=sat_max["lin"],
+                        pixel_factor=pixel_factor,
+                        # title= f'reconstructed {key}',
+                        fs=18,
+                        pixel_measure=pixel_measure,
+                        output_file=join(output_dir, f'rec_{key}_rgb_lin_sample_{k}.png'),
+                        alpha=0.5,
+                        bbox_info=bbox_info,
+                        norm=norm
+                        )
+                k = k+1
         plotting_kwargs_rec = {}
         plot(real_mean,
              pixel_factor=4,
