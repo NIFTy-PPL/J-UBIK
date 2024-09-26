@@ -93,7 +93,7 @@ def plot(array, pixel_measure=None, pixel_factor =1, output_file=None, logscale=
         plt.show()
     plt.close()
 
-def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], norm=None,
+def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], minmax=None,
              sigma=None, log=False,
              title=None, pixel_measure=None, pixel_factor =1, fs=14, figsize=(8, 8), dpi=200,
              output_file=None, alpha=0.8,
@@ -106,7 +106,7 @@ def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], norm=None,
     if log:
         x = ju._non_zero_log(x)
     x = np.moveaxis(x, 0, -1)
-    plot_data = ju._norm_rgb_plot(x)
+    plot_data = ju._norm_rgb_plot(x, minmax=minmax)
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     ax.tick_params(
         axis='both',
@@ -118,10 +118,7 @@ def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], norm=None,
         labelbottom=False,
         labelleft=False,
     )
-    if norm is not None:
-        ax.imshow(plot_data, origin="lower", norm=norm)
-    else:
-        ax.imshow(plot_data, origin="lower")
+    ax.imshow(plot_data, origin="lower")
 
     if title is not None:
         ax.text(0.05, 0.95, title, fontsize=fs,

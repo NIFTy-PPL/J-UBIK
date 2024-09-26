@@ -17,8 +17,8 @@ from plot_eROSITA_image import plot_2d_gt_vs_rec_histogram
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
-    results_path = "results/LMC-09082024-002M-mock"
-    config_name = "eROSITA_config_small.yaml"
+    results_path = "results/Mock-17092024-001M"
+    config_name = "eROSITA_demo.yaml"
     output_dir = ju.create_output_directory(join(results_path, 'paper'))
     config_path = join(results_path, config_name)
     config_dict = ju.get_config(config_path)

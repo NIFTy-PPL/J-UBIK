@@ -60,8 +60,6 @@ if __name__ == "__main__":
         exposures *= ea[:, :, np.newaxis, np.newaxis]
 
     summed_data = np.sum(data, axis=0)
-    exposures = np.array(exposures, dtype=float)
-    exposures[exposures<=500] = 0 # FIXME FROM CONFIG Instroduce Exposure cut
     summed_exposure = np.sum(exposures, axis=0)
     exposure_corrected_data = summed_data/summed_exposure
     exposure_corrected_data = exposure_corrected_data / pixel_area

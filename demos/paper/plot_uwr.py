@@ -17,8 +17,8 @@ from plot_eROSITA_image import plot, plot_rgb
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
-    results_path = "results/LMC-06082024-002M-mock"
-    config_name = "eROSITA_config_small.yaml"
+    results_path = "results/Mock-17092024-001M"
+    config_name = "eROSITA_demo.yaml"
     output_dir = ju.create_output_directory(join(results_path, 'paper'))
     config_path = join(results_path, config_name)
     config_dict = ju.get_config(config_path)
@@ -45,12 +45,11 @@ if __name__ == "__main__":
 
     masked_data = jax.tree_map(lambda x: np.array(x, dtype=np.float64),
                             masked_data)
-
+    plotting_kwargs = {'vmin': -5, 'vmax': 5, 'cmap': 'RdBu'}
     for key, op in sky_dict.items():
         uwrs, exp_mask = ju.calculate_uwr(samples.samples, op, gt_dict[key], response_dict,
                                         abs=False, exposure_mask=mask_func, log=True)
         bbox_info = [(7, 4), 7, 24]
-        plotting_kwargs = {'vmin': -5, 'vmax': 5, 'cmap': 'RdYlBu_r'}
         plot(uwrs,
              pixel_measure=28,
              fs=8,
@@ -80,3 +79,16 @@ if __name__ == "__main__":
                         output_file=join(output_dir,
                         f'relresidual_{key}.png'),
              **plotting_kwargs)
+        plotting_kwargs_res = {}
+        plot(np.abs(residual),
+             pixel_measure=28,
+             fs=8,
+             title=['0.2-1.0 keV',
+             '1.0-2.0 keV',
+             '2.0-4.5 keV'],
+                        logscale=True,
+                        colorbar=True,
+                        n_rows=1,
+                        output_file=join(output_dir,
+                        f'residual_{key}.png'),
+             **plotting_kwargs_res)

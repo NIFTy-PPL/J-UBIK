@@ -433,18 +433,22 @@ def _get_n_rows_from_n_samples(n_samples):
         n_rows += 1
 
 
-def _norm_rgb_plot(x):
+def _norm_rgb_plot(x, minmax=None):
     plot_data = np.zeros(x.shape)
     x = np.array(x)
     # norm on RGB to 0-1
     for i in range(3):
         a = x[:, :, i]
-        if a[a != 0].size == 0:
-            minim = 0
-            maxim = 0
+        if minmax is None:
+            if a[a != 0].size == 0:
+                minim = 0
+                maxim = 0
+            else:
+                minim = a[a != 0].min()
+                maxim = a[a != 0].max()
         else:
-            minim = a[a != 0].min()
-            maxim = a[a != 0].max()
+            minim = minmax[0]
+            maxim = minmax[1]
         a[a != 0] = (a[a != 0] - minim) / (maxim - minim)
         plot_data[:, :, i] = a
     return plot_data
