@@ -75,17 +75,13 @@ if __name__ == "__main__":
         return masked_x
 
 
-    sat_min = {'sky': [2e-12, 2e-12, 2e-12], 'diffuse': [0, 0, 0],
+    sat_min = {'sky': [2e-12, 2e-12, 2e-12], 'diffuse': [2e-12, 2e-12, 2e-12],
                'points': [2e-12, 2e-12, 2e-12],
                'masked_diffuse': [2e-12, 2e-12, 2e-12],
                "lin": [1e-10, 1e-10, 1e-10]}
     sat_max = {'sky': [1, 1, 1], 'diffuse': [1, 1, 1],
                'points': [1, 1, 1], 'masked_diffuse': [1, 1, 1],
                "lin": [5e-8, 5e-8, 5e-8]}
-    min_sat_min = min(min(lst) for lst in sat_min.values())
-    max_sat_max = max(max(lst) for lst in sat_max.values())
-    norm = Normalize(vmin=min_sat_min, vmax=max_sat_max)
-
     for key, op in sky_dict.items():
         op = jax.vmap(op)
         real_samples = op(samples.samples)
@@ -99,7 +95,6 @@ if __name__ == "__main__":
             pixel_measure = 20
             pixel_factor = 1
             bbox_info = [(3,2 ), 3, 16, 'black']
-        real_mean = real_mean.at[real_mean<2.5e-9].set(0)
         plot_rgb(real_mean,
                  sat_min=sat_min[key],
                  sat_max=sat_max[key],
@@ -111,7 +106,6 @@ if __name__ == "__main__":
                  output_file=join(output_dir, f'rec_{key}_rgb.png'),
                  alpha=0.5,
                  bbox_info=bbox_info,
-                 norm=norm
         )
                  #LINEAR
                  #
@@ -125,7 +119,6 @@ if __name__ == "__main__":
                  output_file=join(output_dir, f'rec_{key}_rgb_lin.png'),
                  alpha=0.5,
                  bbox_info=bbox_info,
-                 norm=norm
                  )
 
         if key == "sky":
@@ -141,7 +134,6 @@ if __name__ == "__main__":
                         output_file=join(output_dir, f'rec_{key}_rgb_lin_sample_{k}.png'),
                         alpha=0.5,
                         bbox_info=bbox_info,
-                        norm=norm
                         )
                 k = k+1
         plotting_kwargs_rec = {}
@@ -195,5 +187,46 @@ if __name__ == "__main__":
                         output_file=join(output_dir,
                         f'rel_unc_{key}.png'),
                         **plotting_kwargs_unc)
+    points_op = jax.vmap(sky_dict['points'])
+    point_samples = points_op(samples.samples)
+    real_points_cut = np.mean(point_samples, axis=0).at[\
+        np.mean(point_samples, axis=0)<2.5e-9].set(0)
+    diffuse_op = jax.vmap(sky_dict['diffuse'])
+    diffuse_samples = diffuse_op(samples.samples)
+    real_diffuse = np.mean(diffuse_samples, axis=0)
+    masked_diffuse_op = jax.vmap(sky_dict['masked_diffuse'])
+    masked_diffuse_samples = masked_diffuse_op(samples.samples)
+    real_masked_diffuse = np.mean(masked_diffuse_samples, axis=0)
 
+    cut_sky = real_points_cut + real_diffuse
+    cut_sky = ju.add_masked_array(cut_sky, real_masked_diffuse,
+                                  config_dict['priors']['masked_diffuse'])
+    cut_sky = mask(cut_sky)
+
+    pixel_measure = 112
+    pixel_factor = 4
+    bbox_info = [(28, 16), 28, 160, 'black']
+
+    plot_rgb(cut_sky,
+             sat_min=sat_min['lin'],
+             sat_max=sat_max['lin'],
+             sigma=None,
+             title=f'reconstructed sky', fs=18, pixel_measure=pixel_measure,
+             output_file=join(output_dir, f'cut_rec_sky_lin_rgb.png'),
+             alpha=0.5,
+             bbox_info=bbox_info
+             )
+    plot_rgb(cut_sky,
+             sat_min=sat_min['sky'],
+             sat_max=sat_max['sky'],
+             pixel_factor=pixel_factor,
+             log=True,
+             # title= f'reconstructed {key}',
+             fs=18,
+             title=f'reconstructed sky',
+             pixel_measure=pixel_measure,
+             output_file=join(output_dir, f'cut_rec_sky_rgb.png'),
+             alpha=0.5,
+             bbox_info=bbox_info,
+             )
 

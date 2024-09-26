@@ -93,7 +93,7 @@ def plot(array, pixel_measure=None, pixel_factor =1, output_file=None, logscale=
         plt.show()
     plt.close()
 
-def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], minmax=None,
+def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1],
              sigma=None, log=False,
              title=None, pixel_measure=None, pixel_factor =1, fs=14, figsize=(8, 8), dpi=200,
              output_file=None, alpha=0.8,
@@ -106,7 +106,7 @@ def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1], minmax=None,
     if log:
         x = ju._non_zero_log(x)
     x = np.moveaxis(x, 0, -1)
-    plot_data = ju._norm_rgb_plot(x, minmax=minmax)
+    plot_data = ju._norm_rgb_plot(x, minmax=(min(sat_min), max(sat_max)))
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     ax.tick_params(
         axis='both',
@@ -259,8 +259,8 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     ax.set_xlabel(x_label, fontsize=fs)
     ax.set_ylabel(y_label, fontsize=fs)
     # ax.axhline(y=1, color='r', linestyle='-')
-    ax.axvline(x=2.5e-9, color='r', linestyle='-', label='detection threshold')
-    ax.legend(frameon=False)
+    ax.axvline(x=2.5e-9, color='r', linestyle='-', label=r'$\theta=2.5e-9$')
+    ax.legend(frameon=False, fontsize=fs)
     plt.tight_layout()
     if x_lim is not None:
         ax.set_xlim(x_lim[0], x_lim[1])

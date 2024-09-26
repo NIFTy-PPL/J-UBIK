@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     masked_data = jax.tree_map(lambda x: np.array(x, dtype=np.float64),
                             masked_data)
-    plotting_kwargs = {'vmin': -5, 'vmax': 5, 'cmap': 'RdBu'}
+    plotting_kwargs = {'vmin': -2, 'vmax': 2, 'cmap': 'RdBu'}
     for key, op in sky_dict.items():
         uwrs, exp_mask = ju.calculate_uwr(samples.samples, op, gt_dict[key], response_dict,
                                         abs=False, exposure_mask=mask_func, log=True)
@@ -66,7 +66,7 @@ if __name__ == "__main__":
         real_samples = op(samples.samples)
         real_mean = jnp.mean(real_samples, axis=0)
         residual = real_mean - gt_dict[key]
-        rel_residual = np.abs(residual) / gt_dict[key]
+        rel_residual = residual / gt_dict[key]
         plot(rel_residual,
              pixel_measure=28,
              fs=8,
@@ -79,14 +79,14 @@ if __name__ == "__main__":
                         output_file=join(output_dir,
                         f'relresidual_{key}.png'),
              **plotting_kwargs)
-        plotting_kwargs_res = {}
-        plot(np.abs(residual),
+        plotting_kwargs_res = {'vmin': -1e-7, 'vmax': 1e-7, 'cmap': 'RdBu'}
+        plot(residual,
              pixel_measure=28,
              fs=8,
              title=['0.2-1.0 keV',
              '1.0-2.0 keV',
              '2.0-4.5 keV'],
-                        logscale=True,
+                        logscale=False,
                         colorbar=True,
                         n_rows=1,
                         output_file=join(output_dir,

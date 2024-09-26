@@ -85,6 +85,14 @@ def add_functions(f1, f2):
         return f1(x) + f2(x)
     return function
 
+def add_masked_array(array, masked_array, priors_mask):
+    mask_dict = priors_mask['mask']
+    mask = (slice(None),
+                 slice(mask_dict['y'][0], mask_dict['y'][1]),
+                 slice(mask_dict['x'][0], mask_dict['x'][1]))
+    summed_array = array.at[mask].add(masked_array)
+    return summed_array
+
 
 def add_masked_model(model, masked_model, mask):
     domain = model.domain
