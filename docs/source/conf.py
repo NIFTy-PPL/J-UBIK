@@ -66,9 +66,9 @@ html_theme_options = {
         #    "icon": "fas fa-box",
         #},
         {
-            "name": "GitLab",
-            "url": "https://gitlab.mpcdf.mpg.de/ift/j-ubik",
-            "icon": "fab fa-gitlab",
+            "name": "GitHub",
+            "url": "https://github.com/NIFTy-PPL/J-UBIK",
+            "icon": "fab fa-github",
         }
     ],
     "navbar_persistent": ["search-field", "theme-switcher"],
