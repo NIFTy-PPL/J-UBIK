@@ -91,8 +91,11 @@ def plot_sample_and_stats(output_directory,
                           colorbar=True,
                           dpi=300,
                           plotting_kwargs=None,
-                          rgb_min_sat=None, rgb_max_sat=None,
-                          plot_samples=True):
+                          rgb_min_sat=None,
+                          rgb_max_sat=None,
+                          plot_samples=True,
+                          plot_rgb_samples=True,
+                          ):
     """
     Plots operator samples and statistics from a sample list.
 
@@ -121,6 +124,8 @@ def plot_sample_and_stats(output_directory,
         For example, 0.5 clips the plot at half the intensity.
     plot_samples : bool, optional
         Whether to plot the samples. Defaults to True.
+    plot_rgb_samples : bool, optional
+        Whether to plot the RGB samples. Defaults to True.
 
     Returns:
     --------
@@ -136,6 +141,8 @@ def plot_sample_and_stats(output_directory,
 
     for key in operators_dict:
         op = operators_dict[key]
+        if op is None:
+            continue
         n_samples = len(sample_list)
         operator_samples = np.array([op(s) for s in sample_list])
         e_length = operator_samples[0].shape[0]
@@ -173,14 +180,16 @@ def plot_sample_and_stats(output_directory,
                             **plotting_kwargs)
 
                 # :TODO enable arbitrary multi-frequency rgb plotting
-                if e_length == 3:
+                if e_length == 3 and plot_rgb_samples:
                     # Plot RGB
                     rgb_filename = join(rgb_result_path_samples,
                                         f"sample_{i + 1}_{iteration}_rgb")
-                    plot_rgb(operator_samples[i], rgb_filename,
+                    plot_rgb(operator_samples[i],
+                             name=rgb_filename,
                              sat_min=rgb_min_sat,
                              sat_max=rgb_max_sat)
-                    plot_rgb(operator_samples[i], rgb_filename + "_log",
+                    plot_rgb(operator_samples[i],
+                             name=rgb_filename + "_log",
                              sat_min=rgb_min_sat,
                              sat_max=None, log=True)
 
@@ -210,9 +219,9 @@ def plot_sample_and_stats(output_directory,
             if e_length == 3:
                 rgb_name = join(rgb_result_path_stats,
                                 f"_mean_it_{iteration}_rgb")
-                plot_rgb(mean, rgb_name, sat_min=rgb_min_sat,
+                plot_rgb(mean, name=rgb_name, sat_min=rgb_min_sat,
                          sat_max=rgb_max_sat)
-                plot_rgb(mean, rgb_name + "_log", sat_min=rgb_min_sat,
+                plot_rgb(mean, name=rgb_name + "_log", sat_min=rgb_min_sat,
                          sat_max=None, log=True)
 
 
