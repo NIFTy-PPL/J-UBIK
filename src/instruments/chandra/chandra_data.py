@@ -16,7 +16,7 @@ from .chandra_observation import ChandraObservationInformation
 from ...data import create_mock_data
 
 
-def create_chandra_data_from_config(config_path, response_dict):
+def create_chandra_data_from_config(config, response_dict):
     """
     Create Chandra data from a given configuration file.
 
@@ -27,8 +27,8 @@ def create_chandra_data_from_config(config_path, response_dict):
 
     Parameters
     ----------
-    config_path : str
-        Path to the configuration file.
+    config : dict
+        YAML configuration dictionary.
     response_dict : dict
         A dictionary containing the response information, including:
         - 'mask_func': Function to apply a mask to the data.
@@ -37,12 +37,11 @@ def create_chandra_data_from_config(config_path, response_dict):
     -------
     None
     """
-    cfg = get_config(config_path)
-    tel_info = cfg["telescope"]
-    file_info = cfg["files"]
-    grid_info = cfg['grid']
-    plot_info = cfg['plotting']
-    obs_info = cfg['obs_info']
+    tel_info = config["telescope"]
+    file_info = config["files"]
+    grid_info = config['grid']
+    plot_info = config['plotting']
+    obs_info = config['obs_info']
     data_path = join(file_info['res_dir'], file_info["data_dict"])
     tel_info['tm_ids'] = list(obs_info.keys())
     if not exists(data_path):
@@ -52,7 +51,7 @@ def create_chandra_data_from_config(config_path, response_dict):
             mock_prior_info = get_config(file_info["mock_gen_config"])
             create_mock_data(tel_info, file_info, grid_info,
                              mock_prior_info['priors'],
-                             plot_info, cfg['seed'], response_dict)
+                             plot_info, config['seed'], response_dict)
             copy_config(file_info['mock_gen_config'],
                              output_dir=file_info['res_dir'])
         else:
@@ -67,6 +66,7 @@ def create_chandra_data_from_config(config_path, response_dict):
     else:
         jft.logger.info(f'Data in {file_info["res_dir"]} already '
                         f'exists. No data generation.')
+
 
 def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
     """
