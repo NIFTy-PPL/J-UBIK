@@ -21,7 +21,7 @@ from .instruments.erosita.erosita_response import (
 from .plot import (plot_result, plot_sample_averaged_log_2d_histogram,
                    plot_histograms, plot_rgb)
 from .sky_models import SkyModel
-from .utils import get_stats, create_output_directory, get_config
+from .utils import get_stats, create_output_directory
 
 
 def plot_pspec(pspec, shape, distances,
@@ -227,7 +227,7 @@ def plot_sample_and_stats(output_directory,
 
 def plot_erosita_priors(key,
                         n_samples,
-                        config_path,
+                        config,
                         priors_dir,
                         signal_response=False,
                         plotting_kwargs=None,
@@ -244,8 +244,8 @@ def plot_erosita_priors(key,
             The random key for reproducibility.
         n_samples : int
             The number of samples to generate.
-        config_path : str
-            The path to the config file.
+        config : dict
+            YAML configuration dictionary.
         priors_dir : str
             The directory to save the priors plots.
         signal_response : bool, optional
@@ -267,15 +267,14 @@ def plot_erosita_priors(key,
         None
     """
     priors_dir = create_output_directory(priors_dir)
-    cfg = get_config(config_path)  # load config
 
-    e_min = cfg['grid']['energy_bin']['e_min']
-    e_max = cfg['grid']['energy_bin']['e_max']
+    e_min = config['grid']['energy_bin']['e_min']
+    e_max = config['grid']['energy_bin']['e_max']
 
     if plotting_kwargs is None:
         plotting_kwargs = {}
 
-    sky_model = SkyModel(config_path)
+    sky_model = SkyModel(config)
     _ = sky_model.create_sky_model()
     plottable_ops = sky_model.sky_model_to_dict()
     positions = []
@@ -298,12 +297,12 @@ def plot_erosita_priors(key,
 
     # TODO: load from pickle, when response pickle is enabled
     if signal_response:
-        tm_ids = cfg['telescope']['tm_ids']
+        tm_ids = config['telescope']['tm_ids']
         n_modules = len(tm_ids)
 
-        spix = cfg['grid']['sdim']
-        epix = cfg['grid']['edim']
-        response_dict = build_erosita_response_from_config(config_path)
+        spix = config['grid']['sdim']
+        epix = config['grid']['edim']
+        response_dict = build_erosita_response_from_config(config)
 
         mask_adj = linear_transpose(response_dict['mask'],
                                     np.zeros(

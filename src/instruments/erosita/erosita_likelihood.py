@@ -15,15 +15,15 @@ from .erosita_response import build_erosita_response_from_config
 from ...data import load_masked_data_from_config
 
 
-def generate_erosita_likelihood_from_config(config_file_path,
+def generate_erosita_likelihood_from_config(config,
                                             prepend_operator):
     """ Creates the eROSITA Poissonian log-likelihood given the path to the
     config file.
 
     Parameters
     ----------
-    config_file_path : string
-        Path to config file
+    config : dict
+        YAML configuration dictionary.
     prepend_operator : Union[Callable, jft.Model]
         Operator to be prepended to the likelihood chain.
 
@@ -35,13 +35,13 @@ def generate_erosita_likelihood_from_config(config_file_path,
     """
 
     # load config
-    response_dict = build_erosita_response_from_config(config_file_path)
+    response_dict = build_erosita_response_from_config(config)
 
     # Create data files
-    create_erosita_data_from_config(config_file_path, response_dict)
+    create_erosita_data_from_config(config, response_dict)
 
     # Load data files
-    masked_data = load_masked_data_from_config(config_file_path)
+    masked_data = load_masked_data_from_config(config)
 
     return generate_erosita_likelihood(response_dict,
                                        masked_data,
@@ -56,7 +56,7 @@ def generate_erosita_likelihood(response_dict,
 
     Parameters
     ----------
-    response_dict : python-dictionary
+    response_dict : dict
         Dictionary containing the response function and the kernel
     masked_data : jft.Vector
         Vector of masked eROSITA (mock) data for each TM
