@@ -42,6 +42,7 @@ class SkyModel:
         if config is not None:
             if not isinstance(config, dict):
                 raise TypeError("The config must be a python-dictionary.")
+            self.config = config
         else:
             self.config = {}
         self.s_distances = None
