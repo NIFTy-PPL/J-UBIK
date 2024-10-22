@@ -13,8 +13,7 @@ import numpy as np
 from jax import random, linear_transpose
 
 from .sky_models import SkyModel
-from .utils import (get_config, create_output_directory,
-                    save_to_pickle, load_from_pickle)
+from .utils import create_output_directory, save_to_pickle, load_from_pickle
 
 
 class Domain(NamedTuple):
@@ -30,22 +29,21 @@ class Domain(NamedTuple):
     distances: tuple
 
 
-def load_masked_data_from_config(config_path):
+def load_masked_data_from_config(config):
     """ Wrapper function load masked data from config path
         from generated pickle-files.
 
     Parameters
     ----------
-    config_path : str
-        Path to inference config file
+    config : dict
+        YAML configuration dictionary.
 
     Returns
     ----------
     masked data: jft.Vector
         Vector of masked eROSITA (mock) data for each TM
     """
-    cfg = get_config(config_path)
-    file_info = cfg['files']
+    file_info = config['files']
     data_path = join(file_info['res_dir'], file_info['data_dict'])
     if exists(data_path):
         jft.logger.info('...Loading data from file')
@@ -55,14 +53,14 @@ def load_masked_data_from_config(config_path):
     return masked_data
 
 
-def load_mock_position_from_config(config_path):
+def load_mock_position_from_config(config):
     """ Wrapper function to load the mock sky position for the
     mock data config path from pickle-file.
 
     Parameters
     ----------
-    config_path : str
-        Path to inference config file
+    config : dict
+        YAML configuration dictionary.
 
     Returns
     ----------
@@ -70,8 +68,7 @@ def load_mock_position_from_config(config_path):
         Vector of latent parameters for the mock sky position
 
     """
-    cfg = get_config(config_path)
-    file_info = cfg['files']
+    file_info = config['files']
     pos_path = join(file_info['res_dir'], file_info['pos_dict'])
     if exists(pos_path):
         jft.logger.info('...Loading mock position')
