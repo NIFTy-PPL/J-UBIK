@@ -1,7 +1,7 @@
 import pytest
 
 from jubik0.minimization_parser import (
-    get_config_value, get_range_index, _delta_logic, n_samples_factory,
+    _get_config_value, _get_range_index, _delta_logic, n_samples_factory,
     sample_mode_factory, linear_sample_kwargs_factory,
     nonlinearly_update_kwargs_factory, kl_kwargs_factory, MinimizationParser
 )
@@ -35,7 +35,7 @@ class TestMinimizationParser:
         ('key2', {'key1': [1, 2, 3]}, 0, 0)
     ])
     def test_get_config_value(self, key, config, iteration, expected):
-        assert get_config_value(key, config, iteration, 0) == expected
+        assert _get_config_value(key, config, iteration, 0) == expected
 
     @pytest.mark.parametrize("mini_cfg, iteration, total_iterations, expected",
                              [
@@ -45,8 +45,8 @@ class TestMinimizationParser:
                              ])
     def test_get_range_index(self, mini_cfg, iteration, total_iterations,
                              expected):
-        assert get_range_index(mini_cfg, iteration,
-                               total_iterations) == expected
+        assert _get_range_index(mini_cfg, iteration,
+                                total_iterations) == expected
 
     @pytest.mark.parametrize("type, config, switches_index, expected", [
         ('kl', {'values': [0.1, 0.2, 0.3]}, 0, 1.0),
@@ -96,5 +96,5 @@ class TestMinimizationParser:
         assert parser.sample_mode(0) == 'nonlinear_resample'
         assert parser.draw_linear_kwargs(0)['cg_kwargs']['maxiter'] == 60
         assert parser.nonlinearly_update_kwargs(11)['minimize_kwargs'][
-                   'maxiter'] == 35
+            'maxiter'] == 35
         assert parser.kl_kwargs(0)['minimize_kwargs']['maxiter'] == 10
