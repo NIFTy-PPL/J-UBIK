@@ -185,13 +185,14 @@ def plot_sample_and_stats(output_directory,
                     rgb_filename = join(rgb_result_path_samples,
                                         f"sample_{i + 1}_{iteration}_rgb")
                     plot_rgb(operator_samples[i],
-                             name=rgb_filename,
                              sat_min=rgb_min_sat,
-                             sat_max=rgb_max_sat)
+                             sat_max=rgb_max_sat,
+                             name=rgb_filename,)
                     plot_rgb(operator_samples[i],
-                             name=rgb_filename + "_log",
                              sat_min=rgb_min_sat,
-                             sat_max=None, log=True)
+                             sat_max=None,
+                             name=rgb_filename + "_log",
+                             log=True)
 
         # Plot statistics
         if 'n_rows' in plotting_kwargs:
