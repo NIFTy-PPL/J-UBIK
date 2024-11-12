@@ -13,13 +13,12 @@ from ...data import load_masked_data_from_config
 
 
 def generate_chandra_likelihood_from_config(config):
-    """ Creates the Chandra Poissonian log-likelihood given a config dict
-     from a YAML config file.
+    """ Creates the Chandra Poissonian log-likelihood from a config dictionary.
 
     Parameters
     ----------
     config : dict
-        YAML configuration dictionary.
+        Dictionary containing the configuration parameters.
     Returns
     -------
     Poissonian: jft.Likelihood

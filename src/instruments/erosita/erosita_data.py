@@ -31,7 +31,7 @@ def create_erosita_data_from_config(
     Parameters
     ----------
     config : dict
-        YAML configuration dictionary.
+        Dictionary containing the configuration parameters.
     response_dict : dict
         Dictionary of all available response functionalities i.e. response,
         mask, psf
@@ -133,14 +133,15 @@ def generate_erosita_data_from_config(
 ):
     """
     Generates eROSITA data by invoking the eSASS interface based on the
-    configurations provided in a YAML file. The function processes event files,
-    generates exposure maps, and optionally plots the results as FITS images.
+    configurations provided in a configuration dictionary.
+    The function processes event files, generates exposure maps,
+    and optionally plots the results as FITS images.
 
     Parameters
     ----------
     config : dict
-        YAML configuration dictionary.
-        The YAML configuration file should contain the necessary
+        Dictionary containing the configuration parameters.
+        The configuration dictionary should contain the necessary
         information about the observation settings, telescope modules,
         energy bins, file paths, and plotting options.
         For a description of the required fields in the configuration file,

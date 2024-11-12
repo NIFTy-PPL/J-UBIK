@@ -23,7 +23,7 @@ def generate_erosita_likelihood_from_config(config,
     Parameters
     ----------
     config : dict
-        YAML configuration dictionary.
+        Dictionary containing the configuration parameters.
     prepend_operator : Union[Callable, jft.Model]
         Operator to be prepended to the likelihood chain.
 

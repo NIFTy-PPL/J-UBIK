@@ -245,7 +245,7 @@ def plot_erosita_priors(key,
         n_samples : int
             The number of samples to generate.
         config : dict
-            YAML configuration dictionary.
+            Dictionary containing the configuration parameters.
         priors_dir : str
             The directory to save the priors plots.
         signal_response : bool, optional

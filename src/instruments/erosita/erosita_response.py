@@ -359,9 +359,10 @@ def build_erosita_response_from_config(
     config: dict
 ) -> dict:
     """
-    Builds the eROSITA response using configuration settings from a YAML file.
+    Builds the eROSITA response using configuration settings from a config
+    dictionary.
 
-    This function loads a YAML configuration file and uses its entries to build
+    This function loads a configuration dictionary and uses its entries to build
     the eROSITA response model.
     The response is built based on the telescope modules' Point Spread Function
     (PSF), exposure files, grid information, and pointing coordinates for
@@ -370,7 +371,7 @@ def build_erosita_response_from_config(
     Parameters
     ----------
     config : dict
-        YAML configuration dictionary.
+        Dictionary containing the configuration parameters.
         For a description of the required fields in the configuration file,
         see demos/erosita_demo.py.
         The file should contain information about the telescope, PSF settings,
@@ -392,7 +393,7 @@ def build_erosita_response_from_config(
 
     Example
     -------
-    Assuming the YAML config file contains the required fields, you can build
+    Assuming the `config` dictionary contains the required fields, you can build
     the response like this:
 
     >>> response = build_erosita_response_from_config("/path/to/config.yaml")

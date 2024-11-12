@@ -28,7 +28,7 @@ def create_chandra_data_from_config(config, response_dict):
     Parameters
     ----------
     config : dict
-        YAML configuration dictionary.
+        Dictionary containing the configuration parameters.
     response_dict : dict
         A dictionary containing the response information, including:
         - 'mask_func': Function to apply a mask to the data.

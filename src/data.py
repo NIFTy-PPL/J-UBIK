@@ -36,7 +36,7 @@ def load_masked_data_from_config(config):
     Parameters
     ----------
     config : dict
-        YAML configuration dictionary.
+        Dictionary containing the configuration parameters.
 
     Returns
     ----------
@@ -60,7 +60,7 @@ def load_mock_position_from_config(config):
     Parameters
     ----------
     config : dict
-        YAML configuration dictionary.
+        Dictionary containing the configuration parameters.
 
     Returns
     ----------

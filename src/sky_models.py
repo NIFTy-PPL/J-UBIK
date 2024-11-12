@@ -37,7 +37,7 @@ class SkyModel:
         Parameters
         ----------
         config : dict
-            YAML configuration dictionary.
+            Dictionary containing the configuration parameters.
         """
         if config is not None:
             if not isinstance(config, dict):

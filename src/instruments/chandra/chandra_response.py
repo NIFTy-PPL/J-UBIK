@@ -24,7 +24,7 @@ def build_chandra_response_from_config(config):
     Parameters
     ----------
     config : dict
-        YAML configuration dictionary.
+        Dictionary containing the configuration parameters.
         
     Returns 
     -------
