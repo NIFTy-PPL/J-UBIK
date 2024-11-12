@@ -220,10 +220,15 @@ def plot_sample_and_stats(output_directory,
             if e_length == 3:
                 rgb_name = join(rgb_result_path_stats,
                                 f"_mean_it_{iteration}_rgb")
-                plot_rgb(mean, name=rgb_name, sat_min=rgb_min_sat,
-                         sat_max=rgb_max_sat)
-                plot_rgb(mean, name=rgb_name + "_log", sat_min=rgb_min_sat,
-                         sat_max=None, log=True)
+                plot_rgb(mean,
+                         sat_min=rgb_min_sat,
+                         sat_max=rgb_max_sat,
+                         name=rgb_name)
+                plot_rgb(mean,
+                         sat_min=rgb_min_sat,
+                         sat_max=None,
+                         name=rgb_name + "_log",
+                         log=True)
 
 
 def plot_erosita_priors(key,
