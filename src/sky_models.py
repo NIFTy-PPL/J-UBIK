@@ -20,19 +20,11 @@ class SkyModel:
     Basic spatial SkyModel consisting of a diffuse (correlated) component
     and a point-source like (not correlated) component. The latter can
     be switched off.
-
-    Parameters:
-    ----------
-    config : python-dictionary, containing information about the grid,
-    (the telescope (for the pixelization)), # TODO IMHO this should be part of the grid
-    the priors on the correlated field and the uncorrelated inverse gamma
-    component.
     """
 
     def __init__(self, config: dict = None):
 
-        """Gets the parameters needed for building the sky model from the
-        provided config dictionary.
+        """ Initializes the SkyModel with the provided config dictionary.
 
         Parameters
         ----------
