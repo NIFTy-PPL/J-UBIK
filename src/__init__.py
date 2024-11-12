@@ -33,7 +33,10 @@ from .instruments.erosita.erosita_response import (build_callable_from_exposure_
                                                    build_erosita_psf,
                                                    build_erosita_response_from_config,
                                                    load_erosita_response)
+from .instruments.erosita.erosita_likelihood import (generate_erosita_likelihood,
+                                                     generate_erosita_likelihood_from_config)
 from .instruments.erosita.erosita_data import (generate_erosita_data_from_config,
+                                               create_erosita_data_from_config,
                                                mask_erosita_data_from_disk)
 from .instruments.erosita.erosita_psf import eROSITA_PSF
 from .instruments.jwst.jwst_response import build_jwst_response
@@ -42,7 +45,6 @@ from .instruments.jwst.reconstruction_grid import Grid
 from .data import (create_mock_data, load_masked_data_from_config,
                    load_mock_position_from_config, Domain)
 from .likelihood import get_n_constrained_dof
-from .instruments.erosita.erosita_likelihood import generate_erosita_likelihood_from_config
 from .diagnostics import calculate_nwr, calculate_uwr
 from .convolve import linpatch_convolve, convolve, slice_patches
 from .minimization_parser import MinimizationParser

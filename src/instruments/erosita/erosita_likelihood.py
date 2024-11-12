@@ -42,7 +42,33 @@ def generate_erosita_likelihood_from_config(config_file_path,
 
     # Load data files
     masked_data = load_masked_data_from_config(config_file_path)
-    response_func = response_dict['R']
+
+    return generate_erosita_likelihood(response_dict,
+                                       masked_data,
+                                       prepend_operator)
+
+
+def generate_erosita_likelihood(response_dict,
+                                masked_data,
+                                prepend_operator):
+    """ Creates the eROSITA Poissonian log-likelihood given the path to the
+    config file.
+
+    Parameters
+    ----------
+    response_dict : python-dictionary
+        Dictionary containing the response function and the kernel
+    masked_data : jft.Vector
+        Vector of masked eROSITA (mock) data for each TM
+    prepend_operator : Union[Callable, jft.Model]
+        Operator to be prepended to the likelihood chain.
+
+    Returns
+    -------
+    poissonian: jft.Likelihood
+        Poissoninan likelihood for the eROSITA data and response, specified
+        in the config.
+    """
 
     class FullModel(jft.Model):
         kern: Any = dataclasses.field(metadata=dict(static=False))
@@ -57,8 +83,7 @@ def generate_erosita_likelihood_from_config(config_file_path,
             return self.instrument(x=self.pre_ops(x), k=self.kern)
 
     full_model = FullModel(kern=response_dict["kernel"],
-                           instrument=response_func,
+                           instrument=response_dict["R"],
                            pre_ops=prepend_operator)
+
     return jft.Poissonian(masked_data).amend(full_model)
-
-
