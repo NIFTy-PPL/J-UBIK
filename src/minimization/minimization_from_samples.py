@@ -61,6 +61,7 @@ def minimization_from_initial_samples(
     initial_position = _initial_position(
         init_key,
         likelihood.domain,
+        sample_multiply=kl_settings.sample_multiply,
         starting_samples=starting_samples,
     )
 
