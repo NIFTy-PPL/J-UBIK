@@ -70,7 +70,7 @@ def minimization_from_initial_samples(
     samples, state = jft.optimize_kl(
         likelihood,
         initial_position,
-        random_key=mini_key,
+        key=mini_key,
         callback=kl_settings.callback,
         odir=kl_settings.outputdir,
         n_total_iterations=minimization.n_total_iterations,
