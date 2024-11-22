@@ -31,8 +31,8 @@ def _initial_position(
         while isinstance(initial_position, jft.Vector):
             initial_position = initial_position.tree
 
-        for random_key in starting_pos.keys():
-            initial_position[random_key] = starting_pos[random_key]
+        for key in starting_pos.keys():
+            initial_position[key] = starting_pos[key]
 
     return jft.Vector(initial_position)
 
