@@ -25,8 +25,11 @@ def _initial_position(
     initial_position = jft.random_like(init_key, domain) * sample_multiply
 
     if starting_samples is not None:
-        for random_key in starting_samples.pos.tree.keys():
-            initial_position[random_key] = starting_samples.pos[random_key]
+        starting_pos = starting_samples.pos
+        while isinstance(starting_pos, jft.Vector):
+            starting_pos = starting_pos.tree
+        for random_key in starting_pos.keys():
+            initial_position[random_key] = starting_pos[random_key]
 
     return jft.Vector(initial_position)
 
