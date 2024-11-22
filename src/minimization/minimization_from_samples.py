@@ -81,3 +81,4 @@ def minimization_from_initial_samples(
         kl_kwargs=minimization.kl_kwargs,
         resume=minimization.resume,
     )
+    return samples, state
