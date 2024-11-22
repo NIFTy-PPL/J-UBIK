@@ -28,6 +28,9 @@ def _initial_position(
         starting_pos = starting_samples.pos
         while isinstance(starting_pos, jft.Vector):
             starting_pos = starting_pos.tree
+        while isinstance(initial_position, jft.Vector):
+            initial_position = initial_position.tree
+
         for random_key in starting_pos.keys():
             initial_position[random_key] = starting_pos[random_key]
 
