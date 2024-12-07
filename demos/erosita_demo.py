@@ -211,16 +211,16 @@ if __name__ == "__main__":
     #     verbose=False)
 
     # Load sky model
-    sky_model = ju.SkyModel(config_path)
+    sky_model = ju.SkyModel(cfg)
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
     # Generate eROSITA data (if it does not already exist)
-    ju.generate_erosita_data_from_config(config_path)
+    ju.generate_erosita_data_from_config(cfg)
 
     # TODO shift to ju.generate_erosita_likelihood.amend(sky)
     # Generate loglikelihood (Building masked (mock) data and response)
-    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path,
+    log_likelihood = ju.generate_erosita_likelihood_from_config(cfg,
                                                                 sky)
 
     # Set initial position

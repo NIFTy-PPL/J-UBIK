@@ -17,7 +17,6 @@ from .erosita_psf import eROSITA_PSF
 from ...convolve import linpatch_convolve
 from ...data import Domain
 from ...response import build_exposure_function, build_readout_function
-from ...utils import get_config
 
 
 def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
@@ -356,11 +355,14 @@ def build_erosita_response(
     return response_dict
 
 
-def build_erosita_response_from_config(config_file_path):
+def build_erosita_response_from_config(
+    config: dict
+) -> dict:
     """
-    Builds the eROSITA response using configuration settings from a YAML file.
+    Builds the eROSITA response using configuration settings from a config
+    dictionary.
 
-    This function loads a YAML configuration file and uses its entries to build
+    This function loads a configuration dictionary and uses its entries to build
     the eROSITA response model.
     The response is built based on the telescope modules' Point Spread Function
     (PSF), exposure files, grid information, and pointing coordinates for
@@ -368,8 +370,8 @@ def build_erosita_response_from_config(config_file_path):
 
     Parameters
     ----------
-    config_file_path : str
-        Path to the YAML configuration file.
+    config : dict
+        Dictionary containing the configuration parameters.
         For a description of the required fields in the configuration file,
         see demos/erosita_demo.py.
         The file should contain information about the telescope, PSF settings,
@@ -391,18 +393,17 @@ def build_erosita_response_from_config(config_file_path):
 
     Example
     -------
-    Assuming the YAML config file contains the required fields, you can build
+    Assuming the `config` dictionary contains the required fields, you can build
     the response like this:
 
     >>> response = build_erosita_response_from_config("/path/to/config.yaml")
 
     """
     # load config
-    cfg = get_config(config_file_path)
-    tel_info = cfg['telescope']
-    file_info = cfg['files']
-    psf_info = cfg['psf']
-    grid_info = cfg['grid']
+    tel_info = config['telescope']
+    file_info = config['files']
+    psf_info = config['psf']
+    grid_info = config['grid']
 
     # load calibration directory paths
     caldb_path = file_info['calibration_path']
@@ -448,7 +449,7 @@ def build_erosita_response_from_config(config_file_path):
     d_centers = center_stats - ref_center
 
     # Set the Image pointing to the center and associate with TM1 pointing
-    image_pointing_center = np.array(tuple([cfg['telescope']['fov'] / 2.] * 2))
+    image_pointing_center = np.array(tuple([config['telescope']['fov'] / 2.] * 2))
     pointing_center = d_centers + image_pointing_center
 
     if tel_info['effective_area_correction']:

@@ -12,27 +12,26 @@ from .chandra_data import create_chandra_data_from_config
 from ...data import load_masked_data_from_config
 
 
-def generate_chandra_likelihood_from_config(config_file_path):
-    """ Creates the Chandra Poissonian log-likelihood given the path to the
-    config file.
+def generate_chandra_likelihood_from_config(config):
+    """ Creates the Chandra Poissonian log-likelihood from a config dictionary.
 
     Parameters
     ----------
-    config_file_path : string
-        Path to config file
+    config : dict
+        Dictionary containing the configuration parameters.
     Returns
     -------
     Poissonian: jft.Likelihood
-        Poissoninan likelihood for the eROSITA data and response, specified
+        Poissonian likelihood for the eROSITA data and response, specified
         in the config.
     """
 
     # load config
-    response_dict = build_chandra_response_from_config(config_file_path)
+    response_dict = build_chandra_response_from_config(config)
 
     # Create data files
-    create_chandra_data_from_config(config_file_path, response_dict)
+    create_chandra_data_from_config(config, response_dict)
     # Load data files
-    masked_data = load_masked_data_from_config(config_file_path)
+    masked_data = load_masked_data_from_config(config)
     response_func = response_dict['R']
     return jft.Poissonian(masked_data).amend(response_func)

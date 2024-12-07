@@ -20,7 +20,7 @@ from ...utils import (save_to_pickle, get_config, create_output_directory,
 
 
 def create_erosita_data_from_config(
-        config_path,
+        config,
         response_dict
 ):
     """ Wrapper function to create masked data either from
@@ -30,19 +30,17 @@ def create_erosita_data_from_config(
 
     Parameters
     ----------
-    config_path : str
-        Path to inference config file
+    config : dict
+        Dictionary containing the configuration parameters.
     response_dict : dict
         Dictionary of all available response functionalities i.e. response,
         mask, psf
 
     """
-    cfg = get_config(config_path)
-
-    tel_info = cfg["telescope"]
-    file_info = cfg["files"]
-    grid_info = cfg['grid']
-    plot_info = cfg['plotting']
+    tel_info = config["telescope"]
+    file_info = config["files"]
+    grid_info = config['grid']
+    plot_info = config['plotting']
     data_path = join(file_info['res_dir'], file_info['data_dict'])
     if not exists(data_path):
         if bool(file_info.get("mock_gen_config")):
@@ -54,7 +52,7 @@ def create_erosita_data_from_config(
                                  grid_info,
                                  mock_prior_info,
                                  plot_info,
-                                 cfg['seed'],
+                                 config['seed'],
                                  response_dict)
             copy_config(file_info['mock_gen_config'],
                         output_dir=file_info['res_dir'])
@@ -131,17 +129,19 @@ def mask_erosita_data_from_disk(
 
 
 def generate_erosita_data_from_config(
-        config_path
+        config
 ):
     """
     Generates eROSITA data by invoking the eSASS interface based on the
-    configurations provided in a YAML file. The function processes event files,
-    generates exposure maps, and optionally plots the results as FITS images.
+    configurations provided in a configuration dictionary.
+    The function processes event files, generates exposure maps,
+    and optionally plots the results as FITS images.
 
     Parameters
     ----------
-    config_path : str
-        Path to the YAML configuration file that contains the necessary
+    config : dict
+        Dictionary containing the configuration parameters.
+        The configuration dictionary should contain the necessary
         information about the observation settings, telescope modules,
         energy bins, file paths, and plotting options.
         For a description of the required fields in the configuration file,
@@ -167,13 +167,11 @@ def generate_erosita_data_from_config(
     - Optional plots can be generated if enabled in the configuration.
     """
 
-    cfg = get_config(config_path)
-
-    tel_info = cfg["telescope"]
-    file_info = cfg["files"]
-    grid_info = cfg['grid']
-    plot_info = cfg['plotting']
-    esass_image =cfg['esass_image']
+    tel_info = config["telescope"]
+    file_info = config["files"]
+    grid_info = config['grid']
+    plot_info = config['plotting']
+    esass_image =config['esass_image']
     obs_path = file_info["obs_path"]
     sdim = grid_info['sdim']
     e_min = grid_info['energy_bin']['e_min']
