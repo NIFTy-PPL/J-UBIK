@@ -21,7 +21,7 @@ from .instruments.erosita.erosita_response import (
 from .plot import (plot_result, plot_sample_averaged_log_2d_histogram,
                    plot_histograms, plot_rgb)
 from .sky_models import SkyModel
-from .utils import get_stats, create_output_directory, get_config
+from .utils import get_stats, create_output_directory
 
 
 def plot_pspec(pspec, shape, distances,
@@ -91,8 +91,11 @@ def plot_sample_and_stats(output_directory,
                           colorbar=True,
                           dpi=300,
                           plotting_kwargs=None,
-                          rgb_min_sat=None, rgb_max_sat=None,
-                          plot_samples=True):
+                          rgb_min_sat=None,
+                          rgb_max_sat=None,
+                          plot_samples=True,
+                          plot_rgb_samples=True,
+                          ):
     """
     Plots operator samples and statistics from a sample list.
 
@@ -121,6 +124,8 @@ def plot_sample_and_stats(output_directory,
         For example, 0.5 clips the plot at half the intensity.
     plot_samples : bool, optional
         Whether to plot the samples. Defaults to True.
+    plot_rgb_samples : bool, optional
+        Whether to plot the RGB samples. Defaults to True.
 
     Returns:
     --------
@@ -136,6 +141,8 @@ def plot_sample_and_stats(output_directory,
 
     for key in operators_dict:
         op = operators_dict[key]
+        if op is None:
+            continue
         n_samples = len(sample_list)
         operator_samples = np.array([op(s) for s in sample_list])
         e_length = operator_samples[0].shape[0]
@@ -173,16 +180,19 @@ def plot_sample_and_stats(output_directory,
                             **plotting_kwargs)
 
                 # :TODO enable arbitrary multi-frequency rgb plotting
-                if e_length == 3:
+                if e_length == 3 and plot_rgb_samples:
                     # Plot RGB
                     rgb_filename = join(rgb_result_path_samples,
                                         f"sample_{i + 1}_{iteration}_rgb")
-                    plot_rgb(operator_samples[i], rgb_filename,
+                    plot_rgb(operator_samples[i],
                              sat_min=rgb_min_sat,
-                             sat_max=rgb_max_sat)
-                    plot_rgb(operator_samples[i], rgb_filename + "_log",
+                             sat_max=rgb_max_sat,
+                             name=rgb_filename,)
+                    plot_rgb(operator_samples[i],
                              sat_min=rgb_min_sat,
-                             sat_max=None, log=True)
+                             sat_max=None,
+                             name=rgb_filename + "_log",
+                             log=True)
 
         # Plot statistics
         if 'n_rows' in plotting_kwargs:
@@ -210,15 +220,20 @@ def plot_sample_and_stats(output_directory,
             if e_length == 3:
                 rgb_name = join(rgb_result_path_stats,
                                 f"_mean_it_{iteration}_rgb")
-                plot_rgb(mean, rgb_name, sat_min=rgb_min_sat,
-                         sat_max=rgb_max_sat)
-                plot_rgb(mean, rgb_name + "_log", sat_min=rgb_min_sat,
-                         sat_max=None, log=True)
+                plot_rgb(mean,
+                         sat_min=rgb_min_sat,
+                         sat_max=rgb_max_sat,
+                         name=rgb_name)
+                plot_rgb(mean,
+                         sat_min=rgb_min_sat,
+                         sat_max=None,
+                         name=rgb_name + "_log",
+                         log=True)
 
 
 def plot_erosita_priors(key,
                         n_samples,
-                        config_path,
+                        config,
                         priors_dir,
                         signal_response=False,
                         plotting_kwargs=None,
@@ -235,8 +250,8 @@ def plot_erosita_priors(key,
             The random key for reproducibility.
         n_samples : int
             The number of samples to generate.
-        config_path : str
-            The path to the config file.
+        config : dict
+            Dictionary containing the configuration parameters.
         priors_dir : str
             The directory to save the priors plots.
         signal_response : bool, optional
@@ -258,15 +273,14 @@ def plot_erosita_priors(key,
         None
     """
     priors_dir = create_output_directory(priors_dir)
-    cfg = get_config(config_path)  # load config
 
-    e_min = cfg['grid']['energy_bin']['e_min']
-    e_max = cfg['grid']['energy_bin']['e_max']
+    e_min = config['grid']['energy_bin']['e_min']
+    e_max = config['grid']['energy_bin']['e_max']
 
     if plotting_kwargs is None:
         plotting_kwargs = {}
 
-    sky_model = SkyModel(config_path)
+    sky_model = SkyModel(config)
     _ = sky_model.create_sky_model()
     plottable_ops = sky_model.sky_model_to_dict()
     positions = []
@@ -289,12 +303,12 @@ def plot_erosita_priors(key,
 
     # TODO: load from pickle, when response pickle is enabled
     if signal_response:
-        tm_ids = cfg['telescope']['tm_ids']
+        tm_ids = config['telescope']['tm_ids']
         n_modules = len(tm_ids)
 
-        spix = cfg['grid']['sdim']
-        epix = cfg['grid']['edim']
-        response_dict = build_erosita_response_from_config(config_path)
+        spix = config['grid']['sdim']
+        epix = config['grid']['edim']
+        response_dict = build_erosita_response_from_config(config)
 
         mask_adj = linear_transpose(response_dict['mask'],
                                     np.zeros(

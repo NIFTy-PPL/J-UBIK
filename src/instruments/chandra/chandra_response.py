@@ -11,21 +11,20 @@ import numpy as np
 
 from .chandra_observation import ChandraObservationInformation
 from .chandra_psf import get_psfpatches
-from ...utils import get_config, create_output_directory, load_from_pickle,\
-    save_to_pickle
+from ...utils import create_output_directory, load_from_pickle, save_to_pickle
 from ...response import build_readout_function, build_exposure_function
 from ...convolve import linpatch_convolve, integrate
 from ...data import Domain
 
 
-def build_chandra_response_from_config(config_file_path):
+def build_chandra_response_from_config(config):
     """
     Build the Chandra response from the configuration file.
     
     Parameters
     ----------
-    config_file_path : str
-        Path to the configuration file.
+    config : dict
+        Dictionary containing the configuration parameters.
         
     Returns 
     -------
@@ -37,15 +36,14 @@ def build_chandra_response_from_config(config_file_path):
         - 'mask': The mask function.
         - 'R': The response function.
     """
-    cfg = get_config(config_file_path)
-    obs_info = cfg['obs_info']
-    grid_info = cfg['grid']
-    file_info = cfg['files']
-    psf_info = cfg['psf']
+    obs_info = config['obs_info']
+    grid_info = config['grid']
+    file_info = config['files']
+    psf_info = config['psf']
     outroot = create_output_directory(join(file_info['res_dir'],
                                            file_info['processed_obs_folder']))
 
-    tel_info = cfg['telescope']
+    tel_info = config['telescope']
 
     obslist = list(obs_info.keys())
     psf_list = []

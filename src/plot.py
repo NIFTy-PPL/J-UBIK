@@ -31,6 +31,7 @@ def plot_result(array,
                 common_colorbar=False,
                 share_x=True,
                 share_y=True,
+                pause_time=None,
                 **kwargs):
     """
     Plot a 2D array using imshow() from the matplotlib library.
@@ -69,6 +70,9 @@ def plot_result(array,
         Whether to share the x axis.
     share_y : bool, optional
         Whether to share the y axis.
+    pause_time : float, optional
+        The time in seconds to pause between each plot.
+        If None, no pause is performed.
     kwargs : dict, optional
         Additional keyword arguments to pass to imshow().
 
@@ -170,7 +174,12 @@ def plot_result(array,
         plt.clf()
         plt.close()
     else:
-        plt.show()
+        if pause_time is not None:
+            plt.pause(pause_time)
+            plt.show()
+            plt.close()
+        else:
+            plt.show()
 
 
 def plot_histograms(hist,
@@ -342,11 +351,13 @@ def plot_sample_averaged_log_2d_histogram(x_array_list,
 
 
 def plot_rgb(array,
-             name,
              sat_min=[0, 0, 0],
              sat_max=[1, 1, 1],
+             name=None,
              sigma=None,
-             log=False):
+             log=False,
+             pause_time=None,
+             ):
     """
     Plots an RGB image and saves it to a file.
 
@@ -359,9 +370,6 @@ def plot_rgb(array,
         An array with shape (RGB, Space, Space) representing the RGB image data.
         The first dimension should correspond to the color channels
         (Red, Green, Blue).
-    name : str
-        The base name of the file where the plot will be saved.
-        The file extension '.png' will be added automatically.
     sat_min : list of float, optional
         Minimum values for saturation clipping in each color channel.
         Should be a list with three elements corresponding to the RGB channels.
@@ -370,12 +378,19 @@ def plot_rgb(array,
         Maximum values for saturation clipping in each color channel.
         Should be a list with three elements corresponding to the RGB channels.
         Default is [1, 1, 1].
+    name : str, optional
+        The base name of the file where the plot will be saved.
+        The file extension '.png' will be added automatically.
+        If None, no file will be saved.
     sigma : float or None, optional
         Standard deviation for Gaussian smoothing.
         If None, no smoothing is applied. Default is None.
     log : bool, optional
         If True, apply logarithmic scaling to the
         image data (non-zero values only). Default is False.
+    pause_time : float, optional
+        The time in seconds to pause between each plot.
+        If None, no pause is applied. Default is None.
 
     Returns
     -------
@@ -400,11 +415,20 @@ def plot_rgb(array,
     # to the last axis for plotting
     plot_data = _norm_rgb_plot(array)  # Normalize data for RGB plotting
     plt.imshow(plot_data, origin="lower")
-    plt.savefig(name + ".png", dpi=500)
-    plt.cla()
-    plt.clf()
-    plt.close()
-    print(f"RGB image saved as {name}.png")
+
+    if name is not None:
+        plt.savefig(name + ".png", dpi=500) # TODO: make dpi configurable
+        plt.cla()
+        plt.clf()
+        plt.close()
+        print(f"RGB image saved as {name}.png")
+    else:
+        if pause_time is not None:
+            plt.pause(pause_time)
+            plt.show()
+            plt.close()
+        else:
+            plt.show()
 
 
 def _get_n_rows_from_n_samples(n_samples):
