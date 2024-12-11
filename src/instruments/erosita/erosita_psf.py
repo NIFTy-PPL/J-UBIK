@@ -173,7 +173,7 @@ class eROSITA_PSF():
             axs.set_ylabel('[arcsec]')
             fig.colorbar(mappable=im)
             plt.savefig(f'{outroot}/psf_{j[0]}.png')
-            plt.clf
+            plt.clf()
             plt.close()
 
     def _get_psf_infos(self, energy, pointing_center, lower_cut=1E-6):

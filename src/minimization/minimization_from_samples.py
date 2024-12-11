@@ -19,10 +19,10 @@ class KLSettings:
 def _initial_position(
     init_key: random.PRNGKey,
     domain,
-    sample_multiply,
+    position_rescaling,
     starting_samples: Optional[jft.Samples] = None,
 ):
-    initial_position = jft.random_like(init_key, domain) * sample_multiply
+    initial_position = jft.random_like(init_key, domain) * position_rescaling
 
     if starting_samples is not None:
         starting_pos = starting_samples.pos
@@ -67,7 +67,7 @@ def minimization_from_initial_samples(
     initial_position = _initial_position(
         init_key,
         likelihood.domain,
-        sample_multiply=kl_settings.sample_multiply,
+        position_rescaling=kl_settings.sample_multiply,
         starting_samples=starting_samples,
     )
 
