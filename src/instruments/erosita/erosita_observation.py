@@ -8,6 +8,7 @@
 import os
 import subprocess
 from os.path import join
+from typing import Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -97,10 +98,12 @@ class ErositaObservation:
                              self._mounted_dir + \
                              self.image + "/bin/bash -c 'source ~/.bashrc && "
 
-    def get_data(self, **kwargs):
+    def get_data(self,
+                 pointing_center: Union[tuple, list],
+                 **kwargs):
         """
         Extracts and manipulates data from eROSITA event files using the eSASS
-        'evtool' command.
+        `evtool` and `radec2xy` commands.
 
         This method constructs and executes a command to process eROSITA event
         files and save the resulting dataset. The command is executed with
@@ -108,6 +111,9 @@ class ErositaObservation:
 
         Parameters
         ----------
+        pointing_center: tuple or list
+            The coordinates of the pointing center in the format
+            (ra, dec) or [ra, dec].
         **kwargs : keyword arguments
             Additional arguments passed to the `_get_evtool_flags` method to
             customize the behavior of the 'evtool' command.
@@ -130,6 +136,16 @@ class ErositaObservation:
         input_files = self._parse_stringlists(self.input,
                                               additional_path=self._mounted_dir)
         output_file = self._mounted_dir + self.output
+
+        if isinstance(pointing_center, list):
+            ra, dec = pointing_center
+        else:
+            ra, dec = pointing_center
+
+        center_events_task = (f"{self._base_command}radec2xy"
+                              f" {input_files} '{ra}' '{dec}' '")
+
+        self._run_task(center_events_task)
 
         flags = self._get_evtool_flags(**kwargs)
         command = (self._base_command + 'evtool ' + input_files + " " +

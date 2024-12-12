@@ -213,6 +213,7 @@ def generate_erosita_data_from_config(
                 esass_image=esass_image)
             if not exists(join(processed_obs_path, output_filename)):
                 _ = observation_instance.get_data(
+                        pointing_center=tel_info["pointing_center"],
                         emin=e_min[e],
                         emax=e_max[e],
                         image=True,
