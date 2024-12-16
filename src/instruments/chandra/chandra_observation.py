@@ -305,8 +305,12 @@ class ChandraObservationInformation():
             instmap_dic = {}
             expmap_dic = {}
 
-            src_e_min = np.round(np.exp( logemin + i*logstep ), decimals=10)
-            src_e_max = np.round(np.exp( logemin + (i+1.)*logstep ),   decimals=10)
+            if self.obsInfo['energy_ranges']:
+                src_e_min = self.obsInfo['energy_ranges'][:-1]
+                src_e_max = self.obsInfo['energy_ranges'][1:]
+            else:
+                src_e_min = np.round(np.exp( logemin + i*logstep ), decimals=10)
+                src_e_max = np.round(np.exp( logemin + (i+1.)*logstep ),   decimals=10)
 
             # if the number of energy sub-bins is one pick the center of the channel
             if self.obsInfo['exp_ebins_per_bin'] == 1:
