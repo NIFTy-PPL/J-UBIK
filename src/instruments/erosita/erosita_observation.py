@@ -136,11 +136,7 @@ class ErositaObservation:
         input_files = self._parse_stringlists(self.input,
                                               additional_path=self._mounted_dir)
         output_file = self._mounted_dir + self.output
-
-        if isinstance(pointing_center, list):
-            ra, dec = pointing_center
-        else:
-            ra, dec = pointing_center
+        ra, dec = pointing_center
 
         center_events_task = (f"{self._base_command}radec2xy"
                               f" {input_files} '{ra}' '{dec}' '")
