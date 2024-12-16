@@ -240,7 +240,7 @@ if __name__ == "__main__":
                 "the 'files' section of the config file.")
         ju.plot_erosita_priors(subkey,
                                plot_info['n_prior_samples'],
-                               config_path,
+                               cfg,
                                prior_plot_dir,
                                plot_info['priors_signal_response'],
                                adjust_figsize=True,

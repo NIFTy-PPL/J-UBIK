@@ -257,8 +257,10 @@ def build_erosita_response(
     psf_energy : Array
         Energy levels at which the PSF is defined.
     pointing_center : list of list, Array
-        List of lists containing RA and Dec coordinates (in degrees)
-        of the observations' pointing center.
+        List of lists containing RA and DEC coordinates (in arcseconds)
+        of the distances from the center of the observation for each module
+        plus the distance from the bottom left corner of the image to the
+        center in arcseconds. # FIXME
     n_patch : int
         Number of patches used in PSF interpolation.
     margfrac : float
@@ -444,12 +446,13 @@ def build_erosita_response_from_config(
         center_stats.append(tmp_center_stat)
     center_stats = np.array(center_stats)
 
-    # center with respect to TM1
-    ref_center = center_stats[0]
+    # center with respect to desired pointing center
+    ref_center = np.array(tel_info['pointing_center']) * 3600  # to arcsec
     d_centers = center_stats - ref_center
 
-    # Set the Image pointing to the center and associate with TM1 pointing
-    image_pointing_center = np.array(tuple([config['telescope']['fov'] / 2.] * 2))
+    # Set the image pointing to the center
+    image_pointing_center = np.array((tel_info['fov'] / 2.,) * 2)
+    # FIXME: image pointing center should be added somewhere else
     pointing_center = d_centers + image_pointing_center
 
     if tel_info['effective_area_correction']:
