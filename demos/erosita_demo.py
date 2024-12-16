@@ -60,6 +60,7 @@ Below is a breakdown of key settings:
 
 - **telescope**:
   - `tm_ids`: List of Telescope Module (TM) IDs to use (e.g., [1, 2, 3, 4]).
+  - `pointing_center`: List of coordinates of the pointing center in RA and DEC.
   - `rebin`: Rebin parameter for data processing (see eSASS evtool
   documentation).
   - `pattern`: Pattern parameter for data processing (see eSASS
