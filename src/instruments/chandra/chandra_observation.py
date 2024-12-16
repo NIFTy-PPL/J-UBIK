@@ -195,6 +195,8 @@ class ChandraObservationInformation():
         self.obsInfo['ntot_binned'] = np.sum(data)
 
         message_binning(self.obsInfo)
+        energy_ranges = np.log(self.obsInfo['energy_ranges'])
+        print(f'Generated data for log energy ranges {energy_ranges}')
         return data
 
     def get_exposure(self, outroot, res_xy=0.5, energy_subbins=10):
@@ -292,6 +294,8 @@ class ChandraObservationInformation():
                    self.obsInfo['y_min'], self.obsInfo['y_max'], self.obsInfo['npix_s'])
 
         dict_exposure_maps = {}
+        e_min = []
+        e_max = []
         for i in range(0, self.obsInfo['npix_e']):
 
             # calculate the instrument map
@@ -306,12 +310,13 @@ class ChandraObservationInformation():
             expmap_dic = {}
 
             if self.obsInfo['energy_ranges']:
-                src_e_min = self.obsInfo['energy_ranges'][:-1]
-                src_e_max = self.obsInfo['energy_ranges'][1:]
+                src_e_min = self.obsInfo['energy_ranges'][i]
+                src_e_max = self.obsInfo['energy_ranges'][i+1]
             else:
                 src_e_min = np.round(np.exp( logemin + i*logstep ), decimals=10)
                 src_e_max = np.round(np.exp( logemin + (i+1.)*logstep ),   decimals=10)
-
+            e_min.append(src_e_min)
+            e_max.append(src_e_max)
             # if the number of energy sub-bins is one pick the center of the channel
             if self.obsInfo['exp_ebins_per_bin'] == 1:
                 energy = 0.5*(src_e_max + src_e_min)
@@ -385,7 +390,7 @@ class ChandraObservationInformation():
         to_remove += [asphist_dic[kk] for kk in asphist_dic.keys()]
         for file in to_remove:
             os.remove(file)
-
+        print(f'Generated exposure for energy ranges {set(e_min + e_max)}')
         message_exposure(self.obsInfo)
         return expmap
 
