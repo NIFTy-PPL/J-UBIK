@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     masked_data = jax.tree_map(lambda x: np.array(x, dtype=np.float64),
                             masked_data)
-    plotting_kwargs = {'vmin': -2, 'vmax': 2, 'cmap': 'RdBu'}
+    plotting_kwargs = {'vmin': -5, 'vmax': 5, 'cmap': 'RdBu'}
     for key, op in sky_dict.items():
         uwrs, exp_mask = ju.calculate_uwr(samples.samples, op, gt_dict[key], response_dict,
                                         abs=False, exposure_mask=mask_func, log=True)

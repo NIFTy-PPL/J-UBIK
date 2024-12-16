@@ -259,7 +259,7 @@ def plot_sample_averaged_log_2d_histogram(x_array_list, x_label, y_array_list, y
     ax.set_xlabel(x_label, fontsize=fs)
     ax.set_ylabel(y_label, fontsize=fs)
     # ax.axhline(y=1, color='r', linestyle='-')
-    ax.axvline(x=2.5e-9, color='r', linestyle='-', label=r'$\theta=2.5e-9$')
+    ax.axvline(x=2.5e-9, color='r', linestyle='-', label=r'$\theta=2.5\times 10^{-9}$')
     ax.legend(frameon=False, fontsize=fs)
     plt.tight_layout()
     if x_lim is not None:

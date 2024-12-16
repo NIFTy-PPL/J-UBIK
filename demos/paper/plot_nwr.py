@@ -50,11 +50,11 @@ if __name__ == "__main__":
                                           response_dict)
         bbox_info = [(28, 16), 28, 160, 'black']
 
-        plotting_kwargs = {'vmin': -5, 'vmax': 5, 'cmap': 'RdBu'}
+        plotting_kwargs = {'vmin': -3, 'vmax': 3, 'cmap': 'RdBu'}
         plot(np.mean(np.mean(nwrs, axis=0),axis=0),
              pixel_factor=4,
              pixel_measure=112,
-             fs=12,
+             fs=8,
                         title=['0.2-1.0 keV',
                                '1.0-2.0 keV',
                                '2.0-4.5 keV'],
@@ -65,3 +65,10 @@ if __name__ == "__main__":
                         output_file=join(output_dir,
                         f'nwr_{key}.png'),
              **plotting_kwargs)
+
+    plot_noise_weighted_residuals(samples.samples,
+                                  sky_dict,
+                                  output_dir,
+                                  response_dict,
+                                  data,
+                                  base_filename='hist_nwr')

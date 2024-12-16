@@ -1,5 +1,9 @@
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
+from matplotlib import cbook
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from mpl_toolkits.axes_grid1.inset_locator import mark_inset, \
+    zoomed_inset_axes
 import numpy as np
 import pickle
 from jax import linear_transpose, vmap
@@ -19,8 +23,8 @@ from plot_eROSITA_image import plot, plot_rgb
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
-    results_path = "results/LMC-12092024-002M"
-    config_name = "eROSITA_config_02.yaml"
+    results_path = "results/LMC-22092024-001V"
+    config_name = "eROSITA_demo_ve_259.yaml"
     output_dir = ju.create_output_directory(join(results_path, 'paper'))
     config_path = join(results_path, config_name)
     config_dict = ju.get_config(config_path)
@@ -81,7 +85,7 @@ if __name__ == "__main__":
                "lin": [1e-10, 1e-10, 1e-10]}
     sat_max = {'sky': [1, 1, 1], 'diffuse': [1, 1, 1],
                'points': [1, 1, 1], 'masked_diffuse': [1, 1, 1],
-               "lin": [5e-8, 5e-8, 5e-8]}
+               "lin": [2.3e-8, 1.5e-8, 1.e-8]}
     for key, op in sky_dict.items():
         op = jax.vmap(op)
         real_samples = op(samples.samples)
@@ -91,16 +95,18 @@ if __name__ == "__main__":
             pixel_measure = 112
             pixel_factor = 4
             bbox_info = [(28, 16), 28, 160, 'black']
+            name = key
         else:
             pixel_measure = 20
-            pixel_factor = 1
-            bbox_info = [(3,2 ), 3, 16, 'black']
+            pixel_factor = 0.75
+            bbox_info = [(3, 2), 3, 16, 'black']
+            name = 'extended source'
         plot_rgb(real_mean,
                  sat_min=sat_min[key],
                  sat_max=sat_max[key],
                  pixel_factor=pixel_factor,
                  log=True,
-                 # title= f'reconstructed {key}',
+                 title= f'reconstructed {name}',
                  fs=18,
                  pixel_measure=pixel_measure,
                  output_file=join(output_dir, f'rec_{key}_rgb.png'),
@@ -113,7 +119,7 @@ if __name__ == "__main__":
                  sat_min=sat_min["lin"],
                  sat_max=sat_max["lin"],
                  pixel_factor=pixel_factor,
-                 # title= f'reconstructed {key}',
+                 title= f'reconstructed {name}',
                  fs=18,
                  pixel_measure=pixel_measure,
                  output_file=join(output_dir, f'rec_{key}_rgb_lin.png'),
@@ -128,7 +134,7 @@ if __name__ == "__main__":
                         sat_min=sat_min["lin"],
                         sat_max=sat_max["lin"],
                         pixel_factor=pixel_factor,
-                        # title= f'reconstructed {key}',
+                        title= f'reconstructed {key}',
                         fs=18,
                         pixel_measure=pixel_measure,
                         output_file=join(output_dir, f'rec_{key}_rgb_lin_sample_{k}.png'),
@@ -140,7 +146,7 @@ if __name__ == "__main__":
         plot(real_mean,
              pixel_factor=4,
              pixel_measure=112,
-             fs=12,
+             fs=8,
                         title=['0.2-1.0 keV',
                                '1.0-2.0 keV',
                                '2.0-4.5 keV'],
@@ -155,11 +161,11 @@ if __name__ == "__main__":
         real_std = jnp.std(real_samples, axis=0)
         if key != 'masked_diffuse':
             real_std = mask(real_std)
-        plotting_kwargs_unc = {'cmap': 'jet'}
+        plotting_kwargs_unc = {'cmap': 'jet', 'vmin': 1e-10, 'vmax':1e-6}
         plot(real_std,
              pixel_factor=4,
              pixel_measure=112,
-             fs=12,
+             fs=8,
                         title=['0.2-1.0 keV',
                                '1.0-2.0 keV',
                                '2.0-4.5 keV'],
@@ -212,6 +218,7 @@ if __name__ == "__main__":
              sat_max=sat_max['lin'],
              sigma=None,
              title=f'reconstructed sky', fs=18, pixel_measure=pixel_measure,
+             pixel_factor=pixel_factor,
              output_file=join(output_dir, f'cut_rec_sky_lin_rgb.png'),
              alpha=0.5,
              bbox_info=bbox_info
@@ -229,4 +236,51 @@ if __name__ == "__main__":
              alpha=0.5,
              bbox_info=bbox_info,
              )
+    plot_rgb(mask(real_points_cut),
+             sat_min=[2e-9, 2e-9, 2e-9],
+             sat_max=[1.5e-8, 1.5e-8, 1.5e-8],
+             sigma=0.5,
+             title=f'reconstructed points', fs=18, pixel_measure=pixel_measure,
+             output_file=join(output_dir, f'cut_rec_points_lin_rgb.png'),
+             alpha=0.5,
+             bbox_info=bbox_info,
+             pixel_factor=pixel_factor,
+             )
+    plot_rgb(mask(real_points_cut),
+             sat_min=sat_min['sky'],
+             sat_max=sat_max['sky'],
+             pixel_factor=pixel_factor,
+             log=True,
+             # title= f'reconstructed {key}',
+             fs=18,
+             title=f'reconstructed points',
+             output_file=join(output_dir, f'cut_rec_points_rgb.png'),
+             alpha=0.5,
+             bbox_info=bbox_info,
+             )
+
+    plot_rgb(real_diffuse[:, 570: 770,  150: 350],
+             sat_min=sat_min['lin'],
+             sat_max=sat_max['lin'],
+             sigma=None,
+             title=f'TM1', fs=32,
+             output_file=join(output_dir, f'zoom_cut_rec_sky_lin_rgb.png'),
+             alpha=0.5,
+             bbox_info=bbox_info
+             )
+    plot_rgb(real_diffuse[:, 570: 770,  150: 350],
+             sat_min=sat_min['sky'],
+             sat_max=sat_max['sky'],
+             pixel_factor=pixel_factor,
+             log=True,
+             # title= f'reconstructed {key}',
+             fs=18,
+             title=f'TM1',
+             pixel_measure=pixel_measure,
+             output_file=join(output_dir, f'zoom_cut_rec_sky_rgb.png'),
+             alpha=0.5,
+             bbox_info=bbox_info,
+             )
+
+
 

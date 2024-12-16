@@ -11,7 +11,7 @@ from .utils import (save_to_pickle, load_from_pickle, get_config, save_to_yaml,
                     coord_center, get_stats, add_masked_array)
 from .plot import (plot_result, plot_histograms,
                    plot_sample_averaged_log_2d_histogram, plot_rgb,
-                   _clip, _non_zero_log, _norm_rgb_plot)
+                   _clip, _non_zero_log, _norm_rgb_plot, _smooth)
 from .sugar_plot import (plot_pspec, plot_sample_and_stats,
                          plot_sample_and_stats, plot_erosita_priors,
                          plot_2d_gt_vs_rec_histogram,

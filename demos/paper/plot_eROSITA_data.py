@@ -85,7 +85,7 @@ if __name__ == "__main__":
     #### Lin Plot
     plot_rgb(exposure_corrected_data,
              sat_min=[1e-10, 1e-10, 1e-10],
-             sat_max=[5e-8, 5e-8, 5e-8],
+             sat_max=[2.3e-8, 1.5e-8, 1.e-8],
              # log=True,
              title='eROSITA LMC data', fs=18, pixel_measure=112,
              output_file=join(output_dir, 'lin_expcor_eRSOITA_data_rgb.png'),
@@ -93,3 +93,115 @@ if __name__ == "__main__":
              pixel_factor=4,
              bbox_info=bbox_info,
              )
+    plotting_kwargs_rec = {}
+    for i in range(data.shape[0]):
+        exposure_corrected_data_tm = data[i]/exposures[i]
+        exposure_corrected_data_tm = exposure_corrected_data_tm / pixel_area
+        mask_exp = exposures[i] == 0
+        mask_data = np.isnan(exposure_corrected_data_tm)
+
+        exposure_corrected_data_tm[mask_data] = 0
+        exposure_corrected_data_tm[mask_exp] = 0
+        plot(exposure_corrected_data_tm,
+             pixel_factor=4,
+             pixel_measure=112,
+             fs=12,
+             title=['0.2-1.0 keV',
+                    '1.0-2.0 keV',
+                    '2.0-4.5 keV'],
+             logscale=True,
+             colorbar=True,
+             common_colorbar=True,
+             n_rows=1,
+             bbox_info=bbox_info,
+             output_file=join(output_dir,
+                              f'data_tm{i}.png'),
+             **plotting_kwargs_rec
+             )
+        if i==0:
+            plot_rgb(exposure_corrected_data_tm[:, 570: 770,  150: 350],
+                     sat_min=[1e-10, 1e-10, 1e-10],
+                     sat_max=[2.3e-8, 1.5e-8, 1.e-8],
+                     # log=True,
+                     title='eROSITA LMC data TM1', fs=32,
+                     output_file=join(output_dir,
+                                      'zoom_expcor_eRSOITA_data_rgb_tm1.png'),
+                     alpha=0.0,
+                     pixel_factor=4,
+                     bbox_info=bbox_info,
+                     )
+    ### Zoom
+    zoomed_expcor_data = exposure_corrected_data[:, 570: 770,  150: 350]
+    plot_rgb(zoomed_expcor_data,
+             sat_min=[1e-10, 1e-10, 1e-10],
+             sat_max=[2.3e-8, 1.5e-8, 1.e-8],
+             # log=True,
+             title='eROSITA LMC data', fs=32,
+             output_file=join(output_dir, 'zoom_expcor_eRSOITA_data_rgb.png'),
+             alpha=0.0,
+             pixel_factor=4,
+             bbox_info=bbox_info,
+             )
+    sat_min = [1e-10, 1e-10, 1e-10]
+    sat_max = [2.3e-8, 1.5e-8, 1.e-8]
+    x = ju._clip(exposure_corrected_data, sat_min, sat_max)
+    x = np.moveaxis(x, 0, -1)
+    plot_data = ju._norm_rgb_plot(x, minmax=(min(sat_min), max(sat_max)))
+    fig, ax = plt.subplots(figsize=(8, 8), dpi=200)
+    ax.tick_params(
+        axis='both',
+        which='both',
+        bottom=False,
+        top=False,
+        left=False,
+        right=False,
+        labelbottom=False,
+        labelleft=False,
+    )
+    ax.imshow(plot_data, origin="lower")
+
+
+    ax.text(0.05, 0.95, 'eROSITA LMC data', fontsize=32,
+             #fontfamily='cm',
+             color='white',
+             verticalalignment='top', horizontalalignment='left', transform=ax.transAxes,
+             bbox=(dict(facecolor='black', alpha=0.5, edgecolor='none')))
+    rect = patches.Rectangle((150,570), 200, 200, facecolor='none', edgecolor='white')
+    ax.add_patch(rect)
+    plt.tight_layout()
+    fig.savefig(join(output_dir, 'marked_expcor_eROSITA_data_rgb.png'),
+                bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+    # 30 Doradus C marked
+
+    sat_min = [1e-10, 1e-10, 1e-10]
+    sat_max = [2.3e-8, 1.5e-8, 1.e-8]
+    x = ju._clip(exposure_corrected_data, sat_min, sat_max)
+    x = np.moveaxis(x, 0, -1)
+    plot_data = ju._norm_rgb_plot(x, minmax=(min(sat_min), max(sat_max)))
+    fig, ax = plt.subplots(figsize=(8, 8), dpi=200)
+    ax.tick_params(
+        axis='both',
+        which='both',
+        bottom=False,
+        top=False,
+        left=False,
+        right=False,
+        labelbottom=False,
+        labelleft=False,
+    )
+    ax.imshow(plot_data, origin="lower")
+
+
+    ax.text(0.05, 0.95, 'eROSITA LMC data', fontsize=18,
+             #fontfamily='cm',
+             color='white',
+             verticalalignment='top', horizontalalignment='left', transform=ax.transAxes,
+             bbox=(dict(facecolor='black', alpha=0.5, edgecolor='none')))
+    rect = patches.Rectangle((390,570), 120, 120, facecolor='none', edgecolor='white')
+    ax.add_patch(rect)
+    plt.tight_layout()
+    fig.savefig(join(output_dir, '30D_marked_expcor_eROSITA_data_rgb.png'),
+                bbox_inches='tight', pad_inches=0)
+    plt.close()
