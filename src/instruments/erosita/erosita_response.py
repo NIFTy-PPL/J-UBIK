@@ -257,7 +257,7 @@ def build_erosita_response(
     psf_energy : Array
         Energy levels at which the PSF is defined.
     pointing_center : list of list, Array
-        List of lists containing RA and DEC coordinates (in arcseconds)
+        List of lists containing coordinates (in arcseconds) in RA, DEC system.
         of the distances from the center of the observation for each module
         plus the distance from the bottom left corner of the image to the
         center in arcseconds. # FIXME
