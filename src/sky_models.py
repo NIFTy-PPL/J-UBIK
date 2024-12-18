@@ -20,33 +20,21 @@ class SkyModel:
     Basic spatial SkyModel consisting of a diffuse (correlated) component
     and a point-source like (not correlated) component. The latter can
     be switched off.
-
-    Parameters:
-    ----------
-    config_file : python-dictionary, containing information about the grid,
-                   (the telescope (for the pixelization)), # TODO IMHO this should be part of the grid
-                   the priors on the correlated field and the uncorrelated inverse gamma
-                    component.
     """
 
-    def __init__(self, config_file_path=None):
+    def __init__(self, config: dict = None):
 
-        """Gets the parameters needed for building the sky model from the config file
-        given the corresponding path.
+        """ Initializes the SkyModel with the provided config dictionary.
 
         Parameters
         ----------
-        config_file_path : string
-            Path to the config file
+        config : dict
+            Dictionary containing the configuration parameters.
         """
-        if config_file_path is not None:
-            if not isinstance(config_file_path, str):
-                raise TypeError("The path to the config file needs to be a string")
-            if not config_file_path.endswith('.yaml') and not config_file_path.endswith('.yml'):
-                raise ValueError("The sky model parameters need to be saved in a .yaml or .yml "
-                                 "file.")
-
-            self.config = get_config(config_file_path)
+        if config is not None:
+            if not isinstance(config, dict):
+                raise TypeError("The config must be a python-dictionary.")
+            self.config = config
         else:
             self.config = {}
 

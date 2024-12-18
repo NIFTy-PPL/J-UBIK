@@ -60,6 +60,7 @@ Below is a breakdown of key settings:
 
 - **telescope**:
   - `tm_ids`: List of Telescope Module (TM) IDs to use (e.g., [1, 2, 3, 4]).
+  - `pointing_center`: List of coordinates of the pointing center in RA and DEC.
   - `rebin`: Rebin parameter for data processing (see eSASS evtool
   documentation).
   - `pattern`: Pattern parameter for data processing (see eSASS
@@ -211,16 +212,16 @@ if __name__ == "__main__":
     #     verbose=False)
 
     # Load sky model
-    sky_model = ju.SkyModel(config_path)
+    sky_model = ju.SkyModel(cfg)
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
     # Generate eROSITA data (if it does not already exist)
-    ju.generate_erosita_data_from_config(config_path)
+    ju.generate_erosita_data_from_config(cfg)
 
     # TODO shift to ju.generate_erosita_likelihood.amend(sky)
     # Generate loglikelihood (Building masked (mock) data and response)
-    log_likelihood = ju.generate_erosita_likelihood_from_config(config_path,
+    log_likelihood = ju.generate_erosita_likelihood_from_config(cfg,
                                                                 sky)
 
     # Set initial position
@@ -239,7 +240,7 @@ if __name__ == "__main__":
                 "the 'files' section of the config file.")
         ju.plot_erosita_priors(subkey,
                                plot_info['n_prior_samples'],
-                               config_path,
+                               cfg,
                                prior_plot_dir,
                                plot_info['priors_signal_response'],
                                adjust_figsize=True,
