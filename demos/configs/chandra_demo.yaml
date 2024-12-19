@@ -46,6 +46,7 @@ telescope:
   fov: 2040
   exp_cut: 500
   center_obs_id:
+  # center: None
 
 files:
   data_dict: 'data.pkl'

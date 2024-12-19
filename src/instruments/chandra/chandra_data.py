@@ -94,12 +94,18 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
                                            file_info['processed_obs_folder']))
 
     obslist = list(obs_info.keys())
+
     center_obs_id = tel_info.get('center_obs_id', None)
+    center = tel_info.get('center', None)
+    if center and center_obs_id is not None:
+        raise ValueError("Only set center or center_obs_id")
+
     if center_obs_id is not None and center_obs_id in obslist:
         obslist.remove(center_obs_id)
         obslist.insert(0, center_obs_id)
+    # FIXME this breaks silently, if you set an obs id which is
+    # not in the list it takes default another obs center
 
-    center = None
     data_list = []
 
     energy_bins = grid_info['energy_bin']
@@ -112,16 +118,16 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
     else:
         for i, obsnr in enumerate(obslist):
             info = ChandraObservationInformation(obs_info[obsnr],
-                                                npix_s=grid_info['sdim'],
-                                                npix_e=grid_info['edim'],
-                                                fov=tel_info['fov'],
-                                                elim=elim,
-                                                energy_ranges=energy_ranges,
-                                                center=center)
+                                                 npix_s=grid_info['sdim'],
+                                                 npix_e=grid_info['edim'],
+                                                 fov=tel_info['fov'],
+                                                 elim=elim,
+                                                 energy_ranges=energy_ranges,
+                                                 center=center)
             # retrieve data from observation
             data = info.get_data(join(outroot, f"data_{obsnr}.fits"))
             data_list.append(jnp.transpose(data))
+            if center is None:
+                center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
         data_array = jnp.stack(jnp.array(data_list, dtype=int))
-        if i == 0:
-            center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
     return data_array
