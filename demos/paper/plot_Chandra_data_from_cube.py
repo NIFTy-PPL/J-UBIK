@@ -18,24 +18,19 @@ from plot_eROSITA_image import plot, plot_rgb
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
     output_dir = "paper/"
-    data_path = "./doradus/exp_correct_data.npy"
+    data_path = "./doradus/data.npy"
     exposure_path = "./doradus/exposures.npy"
 
     data = np.load(data_path)
     exposures = np.load(exposure_path)
 
-    exposure_corrected_data = np.sum(np.swapaxes(data, -1, -2), axis=0)
-    # exposures = np.array(exposures, dtype=float)
-    # exposures[exposures<=500] = 0 # FIXME FROM CONFIG Instroduce Exposure cut
-    # correct_exposures_for_effective_area = True
-    # if correct_exposures_for_effective_area:
-    # from src.library.response import calculate_erosita_effective_area
-    #    ea = ju.calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max)
-    #    exposures *= ea[:, :, np.newaxis, np.newaxis]
+    summed_data = np.sum(np.swapaxes(data, -1, -2), axis=0)
+    exposures = np.array(exposures, dtype=float)
+    exposures[exposures<=500] = 0
 
     summed_exposure = np.sum(np.swapaxes(exposures, -1, -2), axis=0)
-    # exposure_corrected_data = summed_data/summed_exposure
-    exposure_corrected_data = exposure_corrected_data
+    exposure_corrected_data = summed_data/summed_exposure
+    exposure_corrected_data = exposure_corrected_data/16.
     mask_exp = summed_exposure == 0
     mask_data = np.isnan(exposure_corrected_data)
 
