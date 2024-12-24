@@ -135,13 +135,13 @@ def get_range_index(
 
 
 def _delta_logic(
-        keyword: str,
-        delta: dict,
-        overwritten_value: Union[float, None],
-        iteration: int,
-        switches_index: int,
-        ndof: Optional[int] = None,
-        verbose: bool = True
+    keyword: str,
+    delta: dict,
+    overwritten_value: Union[float, None],
+    iteration: int,
+    delta_switches_index: int,
+    ndof: Optional[int] = None,
+    verbose: bool = True
 ) -> float:
     """
     Calculates minimization config value if `delta` is in config.
@@ -160,6 +160,8 @@ def _delta_logic(
         Current global iteration index.
     switches_index : int
         Index within the current `switches` range.
+    delta_switches_index : int
+        Index within the current `switches` range for the `delta` parameter.
     ndof : Optional[int]
         Number of constrained degrees of freedom, required for
         minimization parameter recalculation with `delta`.
@@ -205,7 +207,8 @@ def _delta_logic(
         raise ValueError(f'The {keyword} {param["variable"]} in iteration {iteration} '
                          f'is not set. A `delta` must be set in the config.')
 
-    delta_value = get_config_value(DELTA_VALUE, delta, switches_index, default=None)
+    delta_value = get_config_value(DELTA_VALUE, delta, delta_switches_index,
+                                   default=None)
 
     if delta_value is None:
         raise ValueError(f'{keyword}: delta value must be set.')
@@ -338,6 +341,9 @@ def linear_sample_kwargs_factory(
     def linear_kwargs(iteration: int) -> dict:
         range_index = get_range_index(
             mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
+        delta_range_index = get_range_index(
+            mini_cfg[DELTA], iteration, mini_cfg[N_TOTAL_ITERATIONS]
+        )
 
         absdelta_name = f'{LIN}_{ABSDELTA}'
         miniter_name = f'{LIN}_{MINITER}'
@@ -350,8 +356,8 @@ def linear_sample_kwargs_factory(
         absdelta = get_config_value(
             absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
 
-        absdelta = _delta_logic(
-            'linear', delta, absdelta, iteration, range_index, ndof, verbose)
+        absdelta = _delta_logic('linear', delta, absdelta, iteration,
+                                delta_range_index, ndof, verbose)
 
         return dict(
             cg_name=LIN_NAME,
@@ -397,6 +403,9 @@ def nonlinearly_update_kwargs_factory(
     def nonlinearly_update_kwargs(iteration: int) -> dict:
         range_index = get_range_index(
             mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
+        delta_range_index = get_range_index(
+            mini_cfg[DELTA], iteration, mini_cfg[N_TOTAL_ITERATIONS]
+        )
 
         absdelta_name = f'{NONLIN}_{XTOL}'
         miniter_name = f'{NONLIN}_{MINITER}'
@@ -409,7 +418,7 @@ def nonlinearly_update_kwargs_factory(
             absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
 
         xtol = _delta_logic('nonlinear', delta, xtol, iteration,
-                            range_index, None, verbose)
+                            delta_range_index, verbose)
 
         cg_delta_name = f'{NONLIN_CG}_{ABSDELTA}'
         cg_atol_name = f'{NONLIN_CG}_{ATOL}'
@@ -483,6 +492,9 @@ def kl_kwargs_factory(
     def kl_kwargs(iteration: int) -> dict:
         range_index = get_range_index(
             mini_cfg[KL_MINI], iteration, mini_cfg[N_TOTAL_ITERATIONS])
+        delta_range_index = get_range_index(
+            mini_cfg[DELTA], iteration, mini_cfg[N_TOTAL_ITERATIONS]
+        )
 
         absdelta_name = f'{KL}_{ABSDELTA}'
         miniter_name = f'{KL}_{MINITER}'
@@ -495,7 +507,7 @@ def kl_kwargs_factory(
             absdelta_name, mini_cfg[KL_MINI], range_index, default=None)
 
         absdelta = _delta_logic('kl', delta, absdelta, iteration,
-                                range_index, ndof, verbose)
+                                delta_range_index, ndof, verbose)
 
         return dict(
             minimize_kwargs=dict(
