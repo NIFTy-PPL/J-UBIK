@@ -9,7 +9,7 @@ from jubik0.minimization_parser import (
 # Sample configuration
 config = {
     'delta': {
-        'switches': [0, 10],
+        'switches': [0, 5],
         'values': [1.e-5, 1.e-6]
     },
     'samples': {
@@ -95,6 +95,6 @@ class TestMinimizationParser:
         assert parser.n_samples(0) == 4
         assert parser.sample_mode(0) == 'nonlinear_resample'
         assert parser.draw_linear_kwargs(0)['cg_kwargs']['maxiter'] == 60
-        assert parser.nonlinearly_update_kwargs(11)['minimize_kwargs'][
-                   'maxiter'] == 35
+        assert parser.nonlinearly_update_kwargs(7)['minimize_kwargs'][
+                   'xtol'] == 1.e-6
         assert parser.kl_kwargs(0)['minimize_kwargs']['maxiter'] == 10
