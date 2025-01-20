@@ -126,6 +126,8 @@ def get_range_index(
     2
     """
 
+    iteration += 1  # iteration index changes during OptVI update
+
     switches = mini_cfg.get(SWITCHES, [0])
     if switches is None:
         switches = [0]
@@ -165,8 +167,6 @@ def _delta_logic(
         Value to possibly be overwritten.
     iteration : int
         Current global iteration index.
-    switches_index : int
-        Index within the current `switches` range.
     delta_switches_index : int
         Index within the current `switches` range for the `delta` parameter.
     ndof : Optional[int]
@@ -199,9 +199,12 @@ def _delta_logic(
     if overwritten_value is not None:
         return overwritten_value
 
+    iteration += 1  # iteration index changes during OptVI update
+
     params = {
         'kl': {'variable': 'absdelta', 'factor': ndof},
-        'linear': {'variable': 'absdelta', 'factor': ndof / 10 if ndof is not None else ndof},
+        'linear': {'variable': 'absdelta', 'factor': ndof / 10
+        if ndof is not None else ndof},
         'nonlinear': {'variable': 'xtol', 'factor': 1.0}
     }
 
@@ -252,7 +255,8 @@ def n_samples_factory(
 
     Examples
     --------
-    >>> mini_cfg = {'samples': {'switches': [0, 5], 'n_samples': [10, 20]}, 'n_total_iterations': 7}
+    >>> mini_cfg = {'samples': {'switches': [0, 5], 'n_samples': [10, 20]},
+    ...             'n_total_iterations': 7}
     >>> n_samples = n_samples_factory(mini_cfg)
     >>> n_samples(0)
     10
@@ -267,7 +271,7 @@ def n_samples_factory(
                                 default=None)
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        n = n_samples(ii+1)
+        n = n_samples(ii)
         if n is None:
             raise ValueError(
                 f"Number of samples at iteration {ii+1} needs to be set.")
@@ -311,7 +315,7 @@ def sample_mode_factory(
         "nonlinear_update",
     ]
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        t = sample_mode(ii+1)
+        t = sample_mode(ii)
         if t not in sample_keywords:
             raise ValueError(f"Unknown sample type: {t} at iteration {ii+1}, "
                              "known types: {sample_keywords}")
@@ -379,7 +383,7 @@ def linear_sample_kwargs_factory(
             cg_kwargs=dict(absdelta=absdelta, miniter=minit, maxiter=maxit))
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        lin_config = linear_kwargs(ii+1)
+        lin_config = linear_kwargs(ii)
         absdelta = lin_config['cg_kwargs']['absdelta']
         if absdelta is None:
             raise ValueError(f'Linear `absdelta` at iteration {ii+1} '
@@ -467,7 +471,7 @@ def nonlinearly_update_kwargs_factory(
                 )))
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        non_linear_samples_dict = nonlinearly_update_kwargs(ii+1)
+        non_linear_samples_dict = nonlinearly_update_kwargs(ii)
         if non_linear_samples_dict['minimize_kwargs']['xtol'] is None:
             raise ValueError(
                 f"nonlinear `xtol` at iteration {ii+1} "
@@ -539,7 +543,7 @@ def kl_kwargs_factory(
             ))
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        kl_kwargs_dict = kl_kwargs(ii+1)
+        kl_kwargs_dict = kl_kwargs(ii)
         if kl_kwargs_dict['minimize_kwargs']['absdelta'] is None:
             raise ValueError(f"kl `absdelta` at iteration {ii+1} "
                              f"needs to be set.")
