@@ -187,7 +187,7 @@ class SkyModel:
             self.sky = sky
         else:
             masked_prior_dict = priors['masked_diffuse']
-            mask_dict = masked_prior_dict.pop('mask')
+            mask_dict = masked_prior_dict['mask']
             mask_sdim = (mask_dict['x'][1] - mask_dict['x'][0],
                          mask_dict['y'][1] - mask_dict['y'][0])
             self._create_masked_diffuse_component_model(mask_sdim,

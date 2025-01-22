@@ -8,6 +8,7 @@ import numpy as np
 import pickle
 from jax import linear_transpose, vmap
 import jax.numpy as jnp
+from jax import config
 import jax
 from pathlib import Path
 
@@ -20,6 +21,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from plot_eROSITA_image import plot, plot_rgb
 
+config.update('jax_enable_x64', True)
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
@@ -40,7 +42,7 @@ if __name__ == "__main__":
     with open(os.path.join(results_path, 'last.pkl'), "rb") as file:
         samples, _ = pickle.load(file)
 
-    sky_model = ju.SkyModel(config_path)
+    sky_model = ju.SkyModel(config_dict)
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
