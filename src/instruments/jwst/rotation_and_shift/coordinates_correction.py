@@ -13,13 +13,16 @@ from astropy import units as u
 from jax.numpy import array
 from numpy.typing import ArrayLike
 
-from ..parametric_model import build_parametric_prior
-from ..reconstruction_grid import Grid
+from ..parametric_model import build_parametric_prior_from_prior_config
+from ..grid import Grid
 from ..wcs.wcs_astropy import WcsAstropy
 from ..wcs.wcs_jwst_data import WcsJwstData
 
+from ..parse.rotation_and_shift.coordinates_correction import (
+    CoordiantesCorrectionPriorConfig)
 
-class CoordinatesCorrection(jft.Model):
+
+class CoordinatesWithCorrection(jft.Model):
     """
     Applies rotation and shift corrections to a set of coordinates.
 
@@ -32,6 +35,7 @@ class CoordinatesCorrection(jft.Model):
            = Rot(theta) * (si * pi - si * r),
     where `si * r` is the rotation center.
     """
+
     def __init__(
         self,
         shift_prior: jft.Model,
@@ -78,119 +82,42 @@ class CoordinatesCorrection(jft.Model):
         return jnp.array((x, y))
 
 
-def build_coordinates_correction_model(
-    domain_key: str,
-    priors: Optional[dict],
-    pix_distance: tuple[float],
-    rotation_center: tuple[float, float],
-    coords: ArrayLike,
-) -> Union[Callable[[dict, ArrayLike], ArrayLike], CoordinatesCorrection]:
-    """
-    Builds a model for applying coordinate corrections including shifts and
-    rotations.
+class Coordinates:
+    def __init__(self, coordiantes: ArrayLike):
+        self.coordinates = coordiantes
 
-    This function constructs a `CoordinatesCorrection` model.
-    If no priors are provided, it returns a lambda function that simply
+    def __call__(self, _):
+        return self.coordinates
+
+
+def build_coordinates_correction_from_grid(
+    domain_key: str,
+    priors: Optional[CoordiantesCorrectionPriorConfig],
+    data_wcs: Union[WcsJwstData, WcsAstropy],
+    reconstruction_grid: Grid,
+    coords: ArrayLike,
+) -> Union[Coordinates, CoordinatesWithCorrection]:
+    """Builds a `CoordinatesCorrection` model based on a grid and WCS data.
+    If priors are None, it returns a lambda function that simply
     returns the original coordinates.
 
-    The shift correction is modeled as a Gaussian distribution for
-    shifts (x, y):
+    Typically the shift correction is modeled as a Gaussian distribution:
         (x, y) ~ Gaussian(mean, sigma)
 
     The rotation correction is applied as:
-        ri = si * Rot(theta) * (pi - r)
-           = Rot(theta) * (si * pi - si * r),
-    where `si * r` represents the rotation center in the coordinate units
+        r_i = s_i * Rot(theta) * (p_i - r)
+           = Rot(theta) * (s_i * p_i - s_i * r),
+    where `s_i * r` represents the rotation center in the coordinate units
     (si * pi).
 
     Parameters
     ----------
     domain_key : str
         A key used to generate names for the shift and rotation priors.
-    priors : dict or None
+    priors : Optional[CoordiantesCorrectionPriorConfig]
         A dictionary containing the priors for shift and rotation.
-        Should include:
-            - 'shift': Dictionary with 'mean' and 'sigma' for the Gaussian
-            shift distribution.
-            - 'rotation': Dictionary with 'mean' and 'sigma' for the
-            Gaussian distribution of the rotation angle in radians.
-        If None, a lambda function returning the original coordinates
-        is returned.
-    pix_distance : tuple of float
-        The distances between pixels, used to scale the shift values
-        to the coordinate units.
-    rotation_center : tuple of float
-        The (x, y) coordinates around which the rotation is applied,
-        in the units of the provided coordinates.
-    coords : ArrayLike
-        The coordinates to be corrected by the model.
-
-    Returns
-    -------
-    Union[Callable[[dict, ArrayLike], ArrayLike], CoordinatesCorrection]
-        If `priors` is None, returns a lambda function that returns the
-        original coordinates.
-        Otherwise, returns an instance of `CoordinatesCorrection` with
-        the specified priors and parameters.
-
-    Raises
-    ------
-    ValueError
-        If `priors` is provided but does not contain both 'shift' and
-        'rotation' keys with the appropriate values.
-    """
-    if priors is None:
-        return lambda _: coords
-
-    # Build shift prior
-    shift_key = domain_key + '_shift'
-    shift_shape = (2,)
-    pix_distance = array(pix_distance).reshape(shift_shape)
-    shift_prior = build_parametric_prior(
-        shift_key, priors['shift'], shift_shape)
-    shift_prior_model = jft.Model(
-        shift_prior, domain={shift_key: jft.ShapeWithDtype(shift_shape)})
-
-    # Build rotation prior
-    rotation_key = domain_key + '_rotation'
-    rot_shape = (1,)
-    rotation_prior = build_parametric_prior(
-        rotation_key, priors['rotation'], rot_shape)
-    rotation_prior_model = jft.Model(
-        rotation_prior, domain={rotation_key: jft.ShapeWithDtype(rot_shape)})
-
-    return CoordinatesCorrection(
-        shift_prior_model,
-        rotation_prior_model,
-        pix_distance,
-        rotation_center,
-        coords,
-    )
-
-
-def build_coordinates_correction_model_from_grid(
-    domain_key: str,
-    priors: Optional[dict],
-    data_wcs: Union[WcsJwstData, WcsAstropy],
-    reconstruction_grid: Grid,
-    coords: ArrayLike,
-) -> Union[Callable[[dict, ArrayLike], ArrayLike], CoordinatesCorrection]:
-    """
-    Builds a coordinate correction model based on a grid and WCS data.
-
-    Parameters
-    ----------
-    domain_key : str
-        A key used to generate names for the shift and rotation priors.
-    priors : dict or None
-        A dictionary containing the priors for shift and rotation.
-        Should include:
-            - 'shift': Dictionary with 'mean' and 'sigma' for the Gaussian
-            shift distribution.
-            - 'rotation': Dictionary with 'mean' and 'sigma' for the Gaussian
-            distribution of the rotation angle in radians.
-        If None, a lambda function returning the original coordinates
-        is returned.
+        If None, no coordinate correction is applied and the return is a lambda
+        function which returns the original coordinates.
     data_wcs : Union[WcsJwstData, WcsAstropy]
         The WCS data used to determine the reference pixel coordinates
         for the correction model.
@@ -215,15 +142,15 @@ def build_coordinates_correction_model_from_grid(
     """
 
     if priors is None:
-        return lambda _: coords
+        return Coordinates(coords)
+
+    header = data_wcs.to_header()
 
     if isinstance(data_wcs, WcsJwstData):
-        header = data_wcs._wcs.to_fits()[0]
-        rpix = (header['CRPIX1'],),  (header['CRPIX2'],)
+        rpix = (header['CRPIX1'],), (header['CRPIX2'],)
         rpix = data_wcs.wl_from_index(rpix)
     elif isinstance(data_wcs, WcsAstropy):
         # FIXME: The following lines should be the same with the previous
-        header = data_wcs._wcs.to_header()
         rpix = (header['CRPIX1'],  header['CRPIX2'])
         rpix = data_wcs.wl_from_index(rpix)[0]
     else:
@@ -232,12 +159,33 @@ def build_coordinates_correction_model_from_grid(
             "supported. Supported types [WcsAstropy, WcsJwstData]."
         )
 
-    rpix = reconstruction_grid.wcs.index_from_wl(rpix)[0]
+    rpix = reconstruction_grid.spatial.index_from_wl(rpix)[0]
 
-    return build_coordinates_correction_model(
-        domain_key=domain_key,
-        priors=priors,
-        pix_distance=[
-            rd.to(u.arcsec).value for rd in reconstruction_grid.distances],
-        rotation_center=rpix,
-        coords=coords)
+    pix_distance = [
+        rd.to(u.arcsec).value for rd in reconstruction_grid.spatial.distances]
+    rotation_center = rpix
+
+    # Build shift prior
+    shift_key = domain_key + '_shift'
+    shift_shape = (2,)
+    pix_distance = array(pix_distance).reshape(shift_shape)
+    shift_prior = build_parametric_prior_from_prior_config(
+        shift_key, priors.shift, shift_shape)
+    shift_prior_model = jft.Model(
+        shift_prior, domain={shift_key: jft.ShapeWithDtype(shift_shape)})
+
+    # Build rotation prior
+    rotation_key = domain_key + '_rotation'
+    rot_shape = (1,)
+    rotation_prior = build_parametric_prior_from_prior_config(
+        rotation_key, priors.rotation, rot_shape)
+    rotation_prior_model = jft.Model(
+        rotation_prior, domain={rotation_key: jft.ShapeWithDtype(rot_shape)})
+
+    return CoordinatesWithCorrection(
+        shift_prior_model,
+        rotation_prior_model,
+        pix_distance,
+        rotation_center,
+        coords,
+    )

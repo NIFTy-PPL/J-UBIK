@@ -4,6 +4,7 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
+from ..parse.parametric_model.parametric_prior import ProbabilityConfig
 
 from typing import Callable, Tuple, Union
 
@@ -158,6 +159,80 @@ def build_parametric_prior(
                 f"{domain_key}: The distribution '{distribution}' requires the"
                 f" keys: {required_keys}"
             ) from e
+
+    prior = prior_function(*vals)
+
+    if transformation is not None:
+        trafo = getattr(jnp, transformation)
+        return jft.wrap(lambda x: trafo(prior(x)), domain_key)
+
+    return jft.wrap(prior, domain_key)
+
+
+def build_parametric_prior_from_prior_config(
+    domain_key: str,
+    prior_config: ProbabilityConfig,
+    shape: Tuple[int] = ()
+) -> Callable:
+    """
+    Builds a parametric prior based on the specified distribution and
+    transformation.
+
+    This function constructs a prior distribution for a given model domain by
+    interpreting the provided `prior_config` and selecting the appropriate
+    prior function based on the distribution specified therein.
+    The prior can be optionally transformed if a transformation
+    function is specified.
+
+    Parameters
+    ----------
+    domain_key : str
+        A string key identifying the domain of the model to which this prior
+        applies.
+    prior_config : Union[DefaultPriorConfig, UniformPriorConfig, DeltaPriorConfig],
+        A prior config containing the relevant parameters for the configuration
+        of the probability distribution.
+    shape : tuple of int, optional
+        A tuple representing the shape of the parameters.
+        This shape is applied to adjust the values of the prior to
+        match the specified shape. Default is an empty tuple.
+
+    Returns
+    -------
+    Callable
+        A wrapped callable function representing the prior distribution.
+        If a transformation is specified in `parameters`,
+        the prior is wrapped with the transformation; otherwise,
+        the raw prior function is returned.
+
+    Raises
+    ------
+    NotImplementedError
+        If the specified distribution is not found in the
+        `DISTRIBUTION_MAPPING`.
+
+    Example
+    -------
+    Given a Gaussian distribution with mean and standard deviation,
+    the function returns a Gaussian prior with an optional transformation
+    (e.g., `log`):
+
+    >>> params = {'distribution': 'Gaussian', 'mean': 0, 'std': 1, 'transformation': 'log'}
+    >>> prior = build_parametric_prior('my_domain', params)
+    >>> prior(x)  # returns the log of the Gaussian prior evaluated at x
+
+    Notes
+    -----
+    The available distributions and their required keys are stored in
+    `DISTRIBUTION_MAPPING`, which maps each distribution to its corresponding
+    prior function and required parameters.
+    """
+
+    distribution = prior_config.distribution
+    prior_function, required_keys = DISTRIBUTION_MAPPING[distribution]
+    vals = [_shape_adjust(getattr(prior_config, key), shape)
+            for key in required_keys]
+    transformation = prior_config.transformation
 
     prior = prior_function(*vals)
 

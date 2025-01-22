@@ -4,8 +4,16 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-
 import nifty8.re as jft
+
+import numpy as np
+from typing import Optional, Union
+
+
+def _sorted_keys_and_index(keys_and_colors: dict):
+    keys, colors = keys_and_colors.keys(), keys_and_colors.values()
+    sorted_indices = np.argsort([c.center.energy.value for c in colors])
+    return {key: index for key, index in zip(keys, sorted_indices)}
 
 
 class FilterProjector(jft.Model):
@@ -18,7 +26,14 @@ class FilterProjector(jft.Model):
     It supports querying keys based on colors and efficiently applies
     transformations for multi-channel inputs.
     """
-    def __init__(self, sky_domain: jft.ShapeWithDtype, keys_and_colors: dict):
+
+    def __init__(
+        self,
+        sky_domain: Union[jft.ShapeWithDtype, dict[str, jft.ShapeWithDtype]],
+        keys_and_colors: dict,
+        keys_and_index: Optional[dict],
+        sky_key: Optional[str] = None,
+    ):
         """
         Parameters
         ----------
@@ -29,12 +44,25 @@ class FilterProjector(jft.Model):
             A dictionary where the keys are filter names (or keys) and the
             values are lists of colors associated with each filter.
             This defines how inputs will be mapped to the respective filters.
+        keys_and_index : Optional[dict]
+            A dictionary holding the filter names as keys and the associated
+            index in the reconstruction grid.
+        sky_key : Optional[str]
+            If a sky_key is provided the sky-array gets unwrapped in the call.
         """
-        self.keys_and_colors = keys_and_colors
-        self.keys_and_index = {
-            key: index for index, key in enumerate(keys_and_colors.keys())}
+        if sky_key is None:
+            assert len(sky_domain.shape) == 3, (
+                'FilterProjector expects a sky with 3 dimensions.')
+        else:
+            assert len(sky_domain[sky_key].shape) == 3, (
+                'FilterProjector expects a sky with 3 dimensions.')
 
-        self.apply = self._get_apply()
+        self._sky_key = sky_key
+        self.keys_and_colors = keys_and_colors
+        self.keys_and_index = keys_and_index
+        if keys_and_index is None:
+            self.keys_and_index = _sorted_keys_and_index(keys_and_colors)
+
         super().__init__(domain=sky_domain)
 
     def get_key(self, color):
@@ -53,14 +81,7 @@ class FilterProjector(jft.Model):
 
         return out_key
 
-    def _get_apply(self):
-        """Returns a function that applies the projection to a given input."""
-        if len(self.keys_and_index) == 1:
-            key, _ = next(iter(self.keys_and_index.items()))
-            return lambda x: {key: x}
-        else:
-            return lambda x: {
-                key: x[index] for key, index in self.keys_and_index.items()}
-
     def __call__(self, x):
-        return self.apply(x)
+        if self._sky_key is not None:
+            x = x[self._sky_key]
+        return {key: x[index] for key, index in self.keys_and_index.items()}

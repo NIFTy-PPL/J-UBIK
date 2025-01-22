@@ -14,13 +14,10 @@ from numpy.typing import ArrayLike
 
 
 class WcsBase(ABC):
+    """An interface class for converting between world coordinates and pixel
+    coordinates. Inherited classes need to provide a `wl_from_index` and an
+    `index_from_wl` method.
     """
-    A base class for converting between world coordinates and pixel coordinates
-    in JWST data.
-    """
-    def __init__(self, wcs):
-        self._wcs = wcs
-
     @abstractmethod
     def wl_from_index(
         self, index: ArrayLike

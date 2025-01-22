@@ -5,6 +5,12 @@
 
 # %
 
+from .color import Color, ColorRange
+from .wcs.wcs_jwst_data import WcsJwstData
+from .grid import Grid
+from .masking import get_mask_from_index_centers
+from .wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
+
 from astropy import units
 from astropy.coordinates import SkyCoord
 try:
@@ -12,11 +18,9 @@ try:
 except ImportError:
     print("jwst not installed. Some JWST functions will not work.")
     pass
-from numpy import isnan
-from numpy.typing import ArrayLike
 
-from .color import Color, ColorRange
-from .wcs.wcs_jwst_data import WcsJwstData
+import numpy as np
+from numpy.typing import ArrayLike
 
 
 nircam_filters = dict(
@@ -173,7 +177,10 @@ class JwstData:
         """
         minx, maxx, miny, maxy = self.wcs.index_from_wl_extrema(
             extrema, self.shape)
-        return ~isnan(self.dm.data[miny:maxy, minx:maxx])
+        return (
+            (~np.isnan(self.dm.data[miny:maxy, minx:maxx])) *
+            (~np.isnan(self.dm.err[miny:maxy, minx:maxx]))
+        )
 
     @property
     def half_power_wavelength(self):
@@ -197,3 +204,46 @@ class JwstData:
         """
         pivot, bw, effective_response, blue, red = JWST_FILTERS[self.filter]
         return effective_response
+
+
+def load_jwst_data_mask_std(
+    filepath: str,
+    grid: Grid,
+    world_corners: list[SkyCoord],
+) -> [JwstData, ArrayLike, ArrayLike, ArrayLike]:
+    '''Load the data from filepath and return the data, mask, and std cutouts
+    according to the reconstruction grid and `world_corners`.
+
+    Parameters
+    ----------
+    filepath: str
+        Path to the jwst data.
+    grid: Grid
+        The physical grid underlying the reconstruction
+    world_corners: list[SkyCoord]
+        A list holding the four world corners of the reconstruction grid.
+
+    Returns
+    -------
+    - jwst_data: JwstData
+    - data cutout: ArrayLike
+    - mask cutout: ArrayLike
+    - std cutout: ArrayLike
+    '''
+
+    jwst_data = JwstData(filepath)
+
+    # TODO: Use a simpler algorithm. Check that its consistent with the
+    # subsampling of the rotation and shift model.
+    mask = get_mask_from_index_centers(
+        np.squeeze(subsample_grid_centers_in_index_grid(
+            world_corners,
+            jwst_data.wcs,
+            grid.spatial,
+            1)),
+        grid.spatial.shape)
+    mask *= jwst_data.nan_inside_extrema(world_corners)
+    data = jwst_data.data_inside_extrema(world_corners)
+    std = jwst_data.std_inside_extrema(world_corners)
+
+    return jwst_data, data, mask, std

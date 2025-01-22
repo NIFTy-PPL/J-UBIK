@@ -10,4 +10,4 @@ from . import wcs
 
 from .config_handler import *
 from .jwst_data import JwstData
-from .reconstruction_grid import Grid
+from .grid import Grid

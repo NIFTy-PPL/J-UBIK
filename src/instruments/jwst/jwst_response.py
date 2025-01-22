@@ -5,16 +5,23 @@
 
 # %
 
+from .integration_model import build_sum
+from .jwst_psf import build_psf_operator
+from .rotation_and_shift import (
+    build_rotation_and_shift_model, RotationAndShiftModel)
+from .rotation_and_shift.coordinates_correction import (
+    build_coordinates_correction_from_grid)
+from .zero_flux_model import build_zero_flux_model
+from .masking.build_mask import build_mask
+from .wcs import subsample_grid_centers_in_index_grid_non_vstack
+
+from .parse.parametric_model.parametric_prior import ProbabilityConfig
+from .parse.rotation_and_shift.coordinates_correction import CoordiantesCorrectionPriorConfig
+
 from typing import Callable, Optional
 
 import nifty8.re as jft
 from numpy.typing import ArrayLike
-
-from .integration_model import build_sum
-from .jwst_psf import instantiate_psf, load_psf_kernel
-from .rotation_and_shift import build_rotation_and_shift_model, \
-    RotationAndShiftModel
-from .zero_flux_model import build_zero_flux_model
 
 
 class JwstResponse(jft.Model):
@@ -99,12 +106,14 @@ class JwstResponse(jft.Model):
 
 def build_jwst_response(
     sky_domain: dict,
-    subsample: int,
+    data_identifier: str,
+    data_subsample: int,
     rotation_and_shift_kwargs: Optional[dict],
-    psf_kwargs: dict,
+    shift_and_rotation_correction_prior: Optional[CoordiantesCorrectionPriorConfig],
+    psf_kernel: Optional[ArrayLike],
     transmission: float,
+    zero_flux_prior_config: Optional[ProbabilityConfig],
     data_mask: Optional[ArrayLike],
-    zero_flux: Optional[dict],
 ) -> JwstResponse:
     """
     Builds the data model for a Jwst observation.
@@ -117,7 +126,7 @@ def build_jwst_response(
     sky_domain: dict
         Containing the sky_key and the shape_dtype of the reconstruction sky.
 
-    subsample: int
+    data_subsample: int
         The subsample factor for the data grid.
 
     rotation_and_shift_kwargs: dict
@@ -125,24 +134,18 @@ def build_jwst_response(
         data_dvol: Unit, the volume of a data pixel
         data_wcs: WcsBase,
         data_model_type: str,
-        kwargs_linear: dict, (order, sky_as_brightness, mode)
-        kwargs_nufft: dict, (sky_as_brightness)
-        kwargs_sparse: dict, (extend_factor, to_bottom_left)
         world_extrema: Tuple[SkyCoord]
-        coordinate_correction: Optional[dict]
-            domain_key: str
-            priors: dict
-                - shift: Mean and sigma for the Gaussian distribution
-                of shift model.
-                - rotation: Mean and sigma of the Gaussian distribution
-                for theta [rad]
 
-    psf_kwargs:
+    shift_and_rotation_correction: Optional[CoordiantesCorrectionPriorConfig]
+        The prior for the shift and rotation coordinates correction.
+
+    psf_kernel_model:
         camera: str, NIRCam or MIRI
         filter: str
         center_pix: tuple, pixel according to which to evaluate the psf model
         webbpsf_path: str
-        fov_pixels: int, how many pixles considered for the psf,
+        fov_pixels: Optional[int], how many pixles considered for the psf
+        fov_arcsec: Optional[float], the arcseconds for the psf evaluation
 
     data_mask: ArrayLike
         The mask on the data
@@ -152,57 +155,51 @@ def build_jwst_response(
                     'model.')
     assert isinstance(sky_domain, dict), need_sky_key
 
+    world_extrema = rotation_and_shift_kwargs['world_extrema']
+    reconstruction_grid = rotation_and_shift_kwargs['reconstruction_grid']
+    data_wcs = rotation_and_shift_kwargs['data_wcs']
+
+    coordinates = build_coordinates_correction_from_grid(
+        f'{data_identifier}_correction',
+        priors=shift_and_rotation_correction_prior,
+        data_wcs=data_wcs,
+        reconstruction_grid=reconstruction_grid,
+        coords=subsample_grid_centers_in_index_grid_non_vstack(
+            world_extrema=world_extrema,
+            to_be_subsampled_grid_wcs=data_wcs,
+            index_grid_wcs=reconstruction_grid.spatial,
+            subsample=data_subsample)
+    )
+
     rotation_and_shift = build_rotation_and_shift_model(
         sky_domain=sky_domain,
-        reconstruction_grid=rotation_and_shift_kwargs['reconstruction_grid'],
-        world_extrema=rotation_and_shift_kwargs['world_extrema'],
+        reconstruction_grid=reconstruction_grid,
+        world_extrema=world_extrema,
         data_grid_dvol=rotation_and_shift_kwargs['data_dvol'],
-        data_grid_wcs=rotation_and_shift_kwargs['data_wcs'],
-        model_type=rotation_and_shift_kwargs['data_model_type'],
-        subsample=subsample,
-        kwargs=dict(
-            linear=rotation_and_shift_kwargs.get(
-                'kwargs_linear', dict(order=1, sky_as_brightness=False)),
-            nufft=rotation_and_shift_kwargs.get(
-                'kwargs_nufft', dict(sky_as_brightness=False)),
-            sparse=rotation_and_shift_kwargs.get(
-                'kwargs_sparse', dict(extend_factor=1, to_bottom_left=True)),
-        ),
-        coordinate_correction=rotation_and_shift_kwargs.get(
-            'shift_and_rotation_correction', None)
+        data_grid_wcs=data_wcs,
+        algorithm_config=rotation_and_shift_kwargs['algorithm_config'],
+        subsample=data_subsample,
+        coordinates=coordinates,
     )
 
     integrate = build_sum(
         high_res_shape=rotation_and_shift.target.shape,
-        reduction_factor=subsample,
+        reduction_factor=data_subsample,
     )
 
-    psf_kernel = load_psf_kernel(
-        camera=psf_kwargs['camera'],
-        filter=psf_kwargs['filter'],
-        center_pixel=psf_kwargs['center_pixel'],
-        webbpsf_path=psf_kwargs['webbpsf_path'],
-        psf_library_path=psf_kwargs['psf_library_path'],
-        fov_pixels=psf_kwargs.get('fov_pixels'),
-        fov_arcsec=psf_kwargs.get('fov_arcsec'),
-        subsample=subsample,
-    ) if len(psf_kwargs) != 0 else None
-    psf = instantiate_psf(psf_kernel)
+    psf = build_psf_operator(psf_kernel)
 
-    if zero_flux is None:
-        zero_flux_model = None
-    else:
-        zero_flux_model = build_zero_flux_model(zero_flux['dkey'], zero_flux)
+    zero_flux_model = build_zero_flux_model(
+        data_identifier, zero_flux_prior_config)
 
-    if data_mask is None:
-        def mask(x): return x
-    else:
-        def mask(x): return x[data_mask]
+    mask = build_mask(data_mask)
 
-    return JwstResponse(sky_domain=sky_domain,
-                        rotation_and_shift=rotation_and_shift,
-                        psf=psf,
-                        integrate=integrate,
-                        transmission=transmission,
-                        zero_flux_model=zero_flux_model,
-                        mask=mask)
+    return JwstResponse(
+        sky_domain=sky_domain,
+        rotation_and_shift=rotation_and_shift,
+        psf=psf,
+        integrate=integrate,
+        transmission=transmission,
+        zero_flux_model=zero_flux_model,
+        mask=mask
+    )
