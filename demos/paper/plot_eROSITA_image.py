@@ -99,14 +99,18 @@ def plot_rgb(x, sat_min=[0, 0, 0], sat_max=[1, 1, 1],
              output_file=None, alpha=0.8,
              bbox_info= [(7, 4), 7,  30, 'black']):
 
+    minmin = min(sat_min)
+    maxmax = max(sat_max)
     if sigma is not None:
         x = ju._smooth(sigma, x)
     if sat_min and sat_max is not None:
         x = ju._clip(x, sat_min, sat_max)
     if log:
         x = ju._non_zero_log(x)
+        minmin = np.log(minmin)
+        maxmax = np.log(maxmax)
     x = np.moveaxis(x, 0, -1)
-    plot_data = ju._norm_rgb_plot(x, minmax=(min(sat_min), max(sat_max)))
+    plot_data = ju._norm_rgb_plot(x, minmax=(minmin, maxmax))
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     ax.tick_params(
         axis='both',
