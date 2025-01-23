@@ -453,6 +453,7 @@ def build_erosita_response_from_config(
     # Set the image pointing to the center
     image_pointing_center = np.array((tel_info['fov'] / 2.,) * 2)
     # FIXME: image pointing center should be added somewhere else
+    # FIXME IMHO this image poiting center is not needed?
     pointing_center = d_centers + image_pointing_center
 
     if tel_info['effective_area_correction']:

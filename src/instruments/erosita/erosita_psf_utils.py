@@ -21,11 +21,13 @@ def to_r_phi(cc):
     # FIXME: This assumes that ra is the x-coordinate and dec the y-coordinate
     # and furthermore assumes that the psfs are given in vertical distances
     # (off axis angle). Ensure that this is the correct orientation!
+    # VE: The "-jnp.pi/2" come from the fact that the psfset is changing
+    # as a function of theta and phi = 0 while phi=0 seems to be measured as the angle from the y axis
     r = jnp.sqrt(cc[..., 0]**2 + cc[..., 1]**2)
     phi = jnp.angle(cc[..., 0] + 1.j*cc[..., 1]) - jnp.pi/2.
     return jnp.stack((r, phi), axis = -1)
 
-
+# TODO ADD TEST check orthogonality
 def to_ra_dec(rp):
     """
     Transforms form r-phi coordinates to ra-dec (sky) coordinates.
@@ -130,6 +132,12 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
             raise ValueError
 
     def psf(ra, dec, dra, ddec):
+        """
+        ra: right ascession of the center a patch
+        dec: declination of the center of a patch
+        dra: relative coordinate grid from "the" center (IMHO should be the poiting center)
+        ddec: relative coordinate grid from "the" center (sie abaf)
+        """
         # Find r and phi corresponding to requested location
         cc = jnp.stack((ra, dec), axis = -1)
         cc -= pointing_center
@@ -159,7 +167,6 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
             res += ww*int_res
 
         return res
-
     return psf
 
 
@@ -206,15 +213,22 @@ def psf_interpolator(domain, npatch, psf_infos):
         # centers = (np.array([(i*ss + ss/2 + 0.5)*dd for i in range(npatch)])
         #            for ss, dd in zip(patch_shp, dist))
 
+        # relative coordinates of the PIXEL (CENTERS) corners for all image pixel
         c_p = ((np.arange(ss) - ss/2)*dd for ss, dd in zip(shp, dist))
+        # relative coordinates of the patch centers (relative to the upper left corner?)
         centers = (np.array([(i*ss + ss/2)*dd for i in range(npatch)]) for
                    ss, dd in zip(patch_shp, dist))
 
         c_p = np.meshgrid(*c_p, indexing='ij')
-        d_ra = c_p[0]
+        # FIXME IMHO there should be minus here
+        d_ra = -1. * c_p[0]
+        # This seems right
         d_dec = c_p[1]
         # Using 'xy' here instead of 'ij' ensures correct ordering as requested by
         # OAnew.
+        # FIXME this seems to have a different pointing center
+        # At least the sign is wrong, and the coordinate center is different to the c_ps
+        # The orientation to the edge makes sense when you look at erosita_psf_utils def psf 132
         centers = np.meshgrid(*centers, indexing='xy')
         c_ra = centers[0].flatten()
         c_dec = centers[1].flatten()
