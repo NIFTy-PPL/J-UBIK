@@ -1,17 +1,27 @@
-# from ...mosaicing.sky_wcs import build_astropy_wcs
-# from ...mosaicing.sky_beamer import (
-#     BeamPattern, _create_field_name, _filter_pointings_generator,
-#     _get_mean_frequency)
+from .sky_wcs import build_astropy_wcs
 
 from ...data.observation import Observation
+from ...data.direction import Direction
 
 import nifty8.re as jft
+
 import jax.numpy as jnp
 import numpy as np
+from numpy.typing import ArrayLike
+
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 
+from dataclasses import dataclass
 from typing import Callable
+
+
+@dataclass
+class BeamPattern:
+    center_x: float
+    center_y: float
+    beam: ArrayLike
+    direction: Direction
 
 
 class SkyBeamerJft(jft.Model):
@@ -146,3 +156,47 @@ def build_jft_sky_beamer(
         )
 
     return SkyBeamerJft(sky_shape_with_dtype, beam_directions)
+
+
+def _get_mean_frequency(ff, n_freq_bins, f_binbounds, observation):
+    '''Get the mean frequency.
+        1) If multi-frequency sky: mean of the sky bin
+        2) If single-frequency sky: mean of the observation
+    '''
+    if n_freq_bins == 1:
+        o, f_ind = observation.restrict_by_freq(
+            f_binbounds[ff], f_binbounds[ff+1], True)
+        return o.freq.mean()
+
+    return np.mean((f_binbounds[ff], f_binbounds[ff+1]))
+
+
+def _filter_pointings_generator(
+    observations: list[Observation],
+    direction_key: str
+):
+    '''Returns only observations with unique pointings.'''
+    field_pointings = list()
+
+    for obs in observations:
+        if obs.direction_from_key(direction_key) not in field_pointings:
+            field_pointings.append(obs.direction_from_key(direction_key))
+            yield obs
+
+
+def _create_field_name(
+    ii: int,
+    observation: Observation,
+    beam_directions: dict,
+    field_name_prefix: str,
+) -> str:
+    field_name = observation.direction.name
+    field_name = f'fld_{ii:04}' if field_name == '' else field_name
+
+    if field_name_prefix != '':
+        field_name = f'{field_name_prefix}_{field_name}'
+
+    if field_name in beam_directions:
+        field_name = f"{field_name}_{ii}"
+
+    return field_name

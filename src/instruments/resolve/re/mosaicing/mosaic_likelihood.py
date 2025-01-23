@@ -4,18 +4,14 @@ from ..config.response_model import (
     FinufftSettings,
     sky_domain_from_grid,
 )
-from ..response import (
-    JaxInterferometryResponse,
-    JaxInterferometryResponseNoPolarizationAndTime,
-)
+from ..response import InterferometryResponse
 from .sky_beamer import SkyBeamerJft
-from ...data import Observation
+from ...data.observation import Observation
 
 import nifty8.re as jft
 from jubik0.instruments.jwst.grid import Grid
 
-from typing import Union, Optional
-from functools import partial
+from typing import Union
 
 
 def build_likelihood_from_sky_beamer(
@@ -45,15 +41,7 @@ def build_likelihood_from_sky_beamer(
     the visibilities in the observation.
     '''
 
-    response_instantiate = JaxInterferometryResponse
-    if isinstance(backend_settings, FinufftSettings):
-        if backend_settings.no_polarization:
-            response_instantiate = partial(
-                JaxInterferometryResponseNoPolarizationAndTime,
-                domain=sky_beamer.domain,
-            )
-
-    sky2vis = response_instantiate(
+    sky2vis = InterferometryResponse(
         observation=observation,
         sky_domain=sky_domain,
         backend_settings=backend_settings,
