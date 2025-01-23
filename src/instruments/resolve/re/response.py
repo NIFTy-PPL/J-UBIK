@@ -5,7 +5,6 @@ from .config.response_model import SkyDomain, Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
 from jax.tree_util import Partial
 
-import nifty8.re as jft
 
 from typing import Union
 
@@ -51,16 +50,9 @@ def convert_polarization(inp, inp_pol, out_pol):
     raise NotImplementedError(err)
 
 
+
+
 def InterferometryResponse(
-    observation: Observation,
-    sky_domain: SkyDomain,
-    backend_settings: Union[Ducc0Settings, FinufftSettings],
-):
-    return JaxInterferometryResponse(
-        observation, sky_domain, backend_settings)
-
-
-def JaxInterferometryResponse(
     observation: Observation,
     sky_domain: SkyDomain,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
@@ -185,7 +177,7 @@ def InterferometryResponseDucc(
     do_wgridding,
     epsilon,
     nthreads=1,
-    verbosity=0,
+    verbosity=1,
     **kwargs,
 ):
     from jaxbind.contrib import jaxducc0
@@ -246,83 +238,3 @@ def InterferometryResponseFinuFFT(
     R = Partial(apply_finufft, u=u_finu, v=v_finu, eps=epsilon)
     return R
 
-
-# TODO: Test why this implementation is benefitial in speed
-class JaxInterferometryResponseNoPolarizationAndTime(jft.Model):
-    def __init__(
-        self,
-        domain: jft.ShapeWithDtype,
-        observation: Observation,
-        sky_domain: SkyDomain,
-        backend_settings: Union[Ducc0Settings, FinufftSettings],
-    ):
-        if domain.shape[0] != 1:
-            raise NotImplementedError("Need to implement Polarization.")
-        if domain.shape[1] != 1:
-            raise NotImplementedError("Need to implement time.")
-
-        frequency_binbounds = sky_domain.frequencies
-
-        sky_freq_bins = len(frequency_binbounds) - 1
-        sky_freq_sky2vis = []
-        sky_freq_vis_indices = []
-
-        for s_freq_i in range(sky_freq_bins):
-            obs_restricted_to_sfreqi, sfreq_indices = observation.restrict_by_freq(
-                frequency_binbounds[s_freq_i],
-                frequency_binbounds[s_freq_i+1],
-                with_index=True)
-
-            if len(obs_restricted_to_sfreqi.freq) == 0:
-                def rr(x): return jnp.array([])
-            else:
-                if isinstance(backend_settings, FinufftSettings):
-                    print('using finufft')
-                    rr = InterferometryResponseFinuFFT(
-                        obs_restricted_to_sfreqi,
-                        pixsize_x=sky_domain.pixsize_x,
-                        pixsize_y=sky_domain.pixsize_y,
-                        epsilon=backend_settings.epsilon,
-                        center_x=sky_domain.center_x,
-                        center_y=sky_domain.center_y,
-                    )
-                elif isinstance(backend_settings, Ducc0Settings):
-                    print('using ducc')
-                    rr = InterferometryResponseDucc(
-                        observation=obs_restricted_to_sfreqi,
-                        npix_x=sky_domain.npix_x,
-                        npix_y=sky_domain.npix_y,
-                        pixsize_x=sky_domain.pixsize_x,
-                        pixsize_y=sky_domain.pixsize_y,
-                        do_wgridding=backend_settings.do_wgridding,
-                        epsilon=backend_settings.epsilon,
-                        nthreads=backend_settings.nthreads,
-                        verbosity=backend_settings.verbosity,
-                        center_x=sky_domain.center_x,
-                        center_y=sky_domain.center_y,
-                    )
-
-            sky_freq_sky2vis.append(rr)
-            sky_freq_vis_indices.append(sfreq_indices)
-
-        self._sky_freq_bins = sky_freq_bins
-        self._sky_freq_vis_indices = sky_freq_vis_indices
-        self._sky_freq_sky2vis = sky_freq_sky2vis
-        self._out_shape = observation.vis.val.shape
-
-        super().__init__(domain=domain)
-
-    def __call__(self, x):
-
-        x = x[0, 0]  # TODO: Needs to be expanded to Polarization and time
-
-        # TODO: this has to be done more efficiently!
-        out = jnp.zeros(self._out_shape, dtype=jnp.complex128)
-
-        for s_freq_i, ind, s2v in zip(
-            range(self._sky_freq_bins),    # sky frequency bin index
-            self._sky_freq_vis_indices,  # sky frequency bin visibility indices
-            self._sky_freq_sky2vis       # sky frequency bin sky to vis
-        ):
-            out = out.at[0, :, ind].set(s2v(x[s_freq_i]))
-        return out

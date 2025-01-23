@@ -2,9 +2,11 @@ import jax
 from jax import numpy as jnp
 
 import nifty8.re as jft
-import resolve as rve
-import resolve.re as jrve
-from resolve.re.config.response_model import (
+import resolve as rve_old
+import jubik0.instruments.resolve as rve
+import jubik0.instruments.resolve.re as jrve
+
+from jubik0.instruments.resolve.re.config.response_model import (
     SkyDomain, Ducc0Settings, FinufftSettings)
 
 import matplotlib.pyplot as plt
@@ -19,7 +21,7 @@ config.update('jax_default_device', devices('cpu')[0])
 
 # choose between ducc0 and finufft backend
 response = 'ducc0'
-response = "finufft"
+# response = "finufft"
 backend_settings = dict(
     ducc0=Ducc0Settings(
         epsilon=1e-9, do_wgridding=False, nthreads=1, verbosity=False),
@@ -41,8 +43,8 @@ cfg.read("cygnusa_2ghz.cfg")
 sky, additional = jrve.sky_model(cfg["sky"])
 
 
-sky_sp = rve.sky_model._spatial_dom(cfg["sky"])
-sky_dom = rve.default_sky_domain(sdom=sky_sp)
+sky_sp = rve_old.sky_model._spatial_dom(cfg["sky"])
+sky_dom = rve_old.default_sky_domain(sdom=sky_sp)
 
 
 sky_domain = SkyDomain(npix_x=sky_sp.shape[0],
