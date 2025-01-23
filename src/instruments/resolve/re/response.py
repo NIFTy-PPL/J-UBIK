@@ -1,12 +1,13 @@
 import numpy as np
 from jax import numpy as jnp
 
-from .config.response_model import SkyDomain, Ducc0Settings, FinufftSettings
+from .parse.response import SkyDomain, Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
 from jax.tree_util import Partial
 
 
 from typing import Union
+
 
 def dtype_float2complex(dt):
     if dt == np.float64:
@@ -48,8 +49,6 @@ def convert_polarization(inp, inp_pol, out_pol):
             return inp
     err = f"conversion of polarization {inp_pol} to {out_pol} not implemented. Please implement!"
     raise NotImplementedError(err)
-
-
 
 
 def InterferometryResponse(
@@ -237,4 +236,3 @@ def InterferometryResponseFinuFFT(
 
     R = Partial(apply_finufft, u=u_finu, v=v_finu, eps=epsilon)
     return R
-

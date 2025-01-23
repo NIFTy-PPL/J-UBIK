@@ -1,4 +1,4 @@
-from ..config.response_model import (
+from ..parse.response import (
     SkyDomain,
     Ducc0Settings,
     FinufftSettings,

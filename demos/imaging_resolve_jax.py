@@ -6,7 +6,7 @@ import resolve as rve_old
 import jubik0.instruments.resolve as rve
 import jubik0.instruments.resolve.re as jrve
 
-from jubik0.instruments.resolve.re.config.response_model import (
+from jubik0.instruments.resolve.re.parse.response import (
     SkyDomain, Ducc0Settings, FinufftSettings)
 
 import matplotlib.pyplot as plt
