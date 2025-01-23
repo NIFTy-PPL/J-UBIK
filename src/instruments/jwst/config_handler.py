@@ -6,7 +6,7 @@
 # %
 from .grid import Grid
 from ...hashcollector import save_local_packages_hashes_to_txt
-# from ...utils import save_config_copy_easy #FIXME
+from ...utils import save_config_copy_easy
 
 import os
 import yaml
