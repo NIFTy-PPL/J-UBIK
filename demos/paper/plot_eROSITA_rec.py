@@ -84,9 +84,11 @@ if __name__ == "__main__":
     sat_min = {'sky': [2e-12, 2e-12, 2e-12], 'diffuse': [2e-12, 2e-12, 2e-12],
                'points': [2e-12, 2e-12, 2e-12],
                'masked_diffuse': [2e-12, 2e-12, 2e-12],
+               "log": [2e-12, 2e-12, 2e-12],
                "lin": [1e-10, 1e-10, 1e-10]}
     sat_max = {'sky': [1, 1, 1], 'diffuse': [1, 1, 1],
                'points': [1, 1, 1], 'masked_diffuse': [1, 1, 1],
+               "log": [1, 1, 1],
                "lin": [2.3e-8, 1.5e-8, 1.e-8]}
     for key, op in sky_dict.items():
         op = jax.vmap(op)
@@ -104,8 +106,8 @@ if __name__ == "__main__":
             bbox_info = [(3, 2), 3, 16, 'black']
             name = 'extended source'
         plot_rgb(real_mean,
-                 sat_min=sat_min[key],
-                 sat_max=sat_max[key],
+                 sat_min=sat_min["log"],
+                 sat_max=sat_max["log"],
                  pixel_factor=pixel_factor,
                  log=True,
                  title= f'reconstructed {name}',
@@ -226,8 +228,8 @@ if __name__ == "__main__":
              bbox_info=bbox_info
              )
     plot_rgb(cut_sky,
-             sat_min=sat_min['sky'],
-             sat_max=sat_max['sky'],
+             sat_min=sat_min['log'],
+             sat_max=sat_max['log'],
              pixel_factor=pixel_factor,
              log=True,
              # title= f'reconstructed {key}',
@@ -249,8 +251,8 @@ if __name__ == "__main__":
              pixel_factor=pixel_factor,
              )
     plot_rgb(mask(real_points_cut),
-             sat_min=sat_min['sky'],
-             sat_max=sat_max['sky'],
+             sat_min=sat_min['log'],
+             sat_max=sat_max['log'],
              pixel_factor=pixel_factor,
              log=True,
              # title= f'reconstructed {key}',
@@ -271,8 +273,8 @@ if __name__ == "__main__":
              bbox_info=bbox_info
              )
     plot_rgb(real_diffuse[:, 570: 770,  150: 350],
-             sat_min=sat_min['sky'],
-             sat_max=sat_max['sky'],
+             sat_min=sat_min['log'],
+             sat_max=sat_max['log'],
              pixel_factor=pixel_factor,
              log=True,
              # title= f'reconstructed {key}',
