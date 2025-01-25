@@ -55,7 +55,7 @@ def get_interpolation_weights(rs, r):
     def _get_wgt_back(i):
         res = jnp.zeros(rs.shape, dtype=float)
         res = res.at[rs.size-1].set(1.)
-        return res    
+        return res
     res += cond(r >= rs[rs.size-1], _get_wgt_back,
                 lambda _: jnp.zeros(rs.shape, dtype=float), 0)
 
@@ -150,7 +150,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
         wgts = jnp.moveaxis(wgts, -1, 0)
 
         # Rotate requested psf slice to align with patch
-        int_coords = jnp.stack((dra, ddec), axis = -1)
+        int_coords = jnp.stack((dra, ddec), axis=-1)
         int_coords = to_r_phi(int_coords)
         int_coords = jnp.moveaxis(int_coords, -1, 0)
         rp = jnp.moveaxis(rp, -1, 0)
