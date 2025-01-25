@@ -371,9 +371,9 @@ def build_psf_from_config(config):
     psf_file_suffix = file_info['psf_filename_suffix']
 
     psf_filenames = [get_erosita_psf_filenames(caldb_path,
-                                                key,
-                                                psf_filename_suffix=psf_file_suffix,
-                                                caldb_name=caldb_dir_name, )
+                                               key,
+                                               psf_filename_suffix=psf_file_suffix,
+                                               caldb_name=caldb_dir_name, )
                      for key in tel_info['tm_ids']]
 
     obs_instance = ErositaObservation(file_info['input'],
