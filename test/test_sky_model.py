@@ -1,8 +1,11 @@
 import nifty8.re as jft
 import pytest
-from jax import numpy as jnp, random
+from jax import numpy as jnp
+from jax import config, random
 
 import jubik0 as ju
+
+config.update('jax_enable_x64', True)
 
 
 @pytest.fixture
