@@ -221,17 +221,27 @@ def psf_interpolator(domain, npatch, psf_infos):
 
         c_p = np.meshgrid(*c_p, indexing='ij')
         # FIXME IMHO there should be minus here
-        d_ra = -1. * c_p[0]
+        # Flip ra and dec and change sign for ra
+        # OLD
+        # d_ra = c_p[0]
+        # d_ra= c_p[1]
+        # NEW
+        d_dec = c_p[0]  # NEW
+        d_ra = -1.*c_p[1]  # NEW
+        #
         # This seems right
-        d_dec = c_p[1]
         # Using 'xy' here instead of 'ij' ensures correct ordering as requested by
         # OAnew.
         # FIXME this seems to have a different pointing center
         # At least the sign is wrong, and the coordinate center is different to the c_ps
         # The orientation to the edge makes sense when you look at erosita_psf_utils def psf 132
         centers = np.meshgrid(*centers, indexing='xy')
-        c_ra = centers[0].flatten()
-        c_dec = centers[1].flatten()
+        # OLD
+        # c_ra = centers[0].flatten()
+        # c_dec = centers[1].flatten()
+        # NEW
+        c_dec = centers[0].flatten()
+        c_ra = jnp.flip(centers[1].flatten())
 
         patch_psfs = (func_psf(ra, dec, d_ra, d_dec) for ra, dec in
                       zip(c_ra, c_dec))
