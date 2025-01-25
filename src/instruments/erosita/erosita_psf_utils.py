@@ -27,7 +27,7 @@ def to_r_phi(cc):
     phi = jnp.angle(cc[..., 0] + 1.j*cc[..., 1]) - jnp.pi/2.
     return jnp.stack((r, phi), axis = -1)
 
-# TODO ADD TEST check orthogonality
+# TODO ADD TEST check orthogonality, works, but push the test!
 def to_ra_dec(rp):
     """
     Transforms form r-phi coordinates to ra-dec (sky) coordinates.
