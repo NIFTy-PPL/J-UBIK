@@ -80,7 +80,7 @@ if __name__ == "__main__":
         masked_x = x.at[summed_exposure<=500].set(0)
         return masked_x
 
-
+    # TODO remove other entries than log und lin
     sat_min = {'sky': [2e-12, 2e-12, 2e-12], 'diffuse': [2e-12, 2e-12, 2e-12],
                'points': [2e-12, 2e-12, 2e-12],
                'masked_diffuse': [2e-12, 2e-12, 2e-12],
