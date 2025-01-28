@@ -17,6 +17,7 @@ from jax import random
 
 from jax import config, devices
 config.update('jax_default_device', devices('cpu')[0])
+jax.config.update("jax_enable_x64", True)
 
 
 # choose between ducc0 and finufft backend
