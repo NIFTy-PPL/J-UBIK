@@ -18,7 +18,6 @@ import nifty8 as ift
 import numpy as np
 
 from ..constants import AS2RAD, DEG2RAD, SPEEDOFLIGHT
-from ..mpi import onlymaster
 from ..util import (compare_attributes, my_assert, my_assert_isinstance,
                     my_asserteq, is_single_precision)
 from .antenna_positions import AntennaPositions
@@ -162,7 +161,6 @@ class BaseObservation:
         """int: Number of effective (i.e. non-flagged) data points."""
         return self.mask.s_sum()
 
-    @onlymaster
     def save(self, file_name, compress):
         """Save observation object to disk
 
@@ -175,10 +173,6 @@ class BaseObservation:
         compress : bool
             Determine if output file shall be compressed or not. The compression
             algorithm built into numpy is used for this.
-
-        Note
-        ----
-        If MPI is enabled, this function is only executed on the master task.
         """
         return NotImplementedError
 
@@ -261,7 +255,6 @@ class SingleDishObservation(BaseObservation):
 
         self._eq_attributes = "_polarization", "_freq", "_pointings", "_vis", "_weight"
 
-    @onlymaster
     def save(self, file_name, compress):
         p = self._pointings.to_list()
         dct = dict(
@@ -358,7 +351,6 @@ class Observation(BaseObservation):
         self._eq_attributes = ("_polarization", "_freq", "_antpos", "_vis", "_weight",
                                "_auxiliary_tables")
 
-    @onlymaster
     def save(self, file_name, compress):
         dct = dict(
             vis=self._vis,
