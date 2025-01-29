@@ -14,9 +14,9 @@ from jax.numpy import array
 from numpy.typing import ArrayLike
 
 from ..parametric_model import build_parametric_prior_from_prior_config
-from ..grid import Grid
-from ..wcs.wcs_astropy import WcsAstropy
-from ..wcs.wcs_jwst_data import WcsJwstData
+from ....grid import Grid
+from ....wcs.wcs_astropy import WcsAstropy
+from ....wcs.wcs_jwst_data import WcsJwstData
 
 from ..parse.rotation_and_shift.coordinates_correction import (
     CoordiantesCorrectionPriorConfig)

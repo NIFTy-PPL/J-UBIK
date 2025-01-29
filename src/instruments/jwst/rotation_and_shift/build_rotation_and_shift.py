@@ -16,10 +16,11 @@ from .coordinates_correction import (
 from .linear_rotation_and_shift import build_linear_rotation_and_shift
 from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
 from .sparse_rotation_and_shift import build_sparse_rotation_and_shift
-from ..reconstruction_grid import Grid
-from ..wcs import (subsample_grid_centers_in_index_grid_non_vstack,
-                   subsample_grid_corners_in_index_grid_non_vstack)
-from ..wcs.wcs_base import WcsBase
+
+from ....grid import Grid
+from ....wcs import (subsample_grid_centers_in_index_grid_non_vstack,
+                     subsample_grid_corners_in_index_grid_non_vstack)
+from ....wcs.wcs_base import WcsBase
 
 
 class RotationAndShiftModel(jft.Model):
@@ -30,6 +31,7 @@ class RotationAndShiftModel(jft.Model):
     model and then using a callable function to transform the corrected
     coordinates.
     """
+
     def __init__(
         self,
         sky_domain: dict,
