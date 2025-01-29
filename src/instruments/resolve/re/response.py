@@ -1,7 +1,7 @@
 import numpy as np
 from jax import numpy as jnp
 
-from .parse.response import SkyDomain, Ducc0Settings, FinufftSettings
+from ....parse.instruments.resolve.response import SkyDomain, Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
 from jax.tree_util import Partial
 

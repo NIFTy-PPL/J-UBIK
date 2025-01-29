@@ -170,7 +170,7 @@ def _cfg_to_shape(grid_config: dict) -> tuple[int, int]:
     return int(grid_config[NPIX_X_KEY]), int(grid_config[NPIX_Y_KEY])
 
 
-def _resolve_str_to_unit(s):
+def resolve_str_to_quantity(s) -> u.Quantity:
     """Convert string of number and unit to radian.
 
     Support the following units: muas mas as amin deg rad.
@@ -200,7 +200,7 @@ def _resolve_str_to_unit(s):
         nn = -len(kk)
         unit = s[nn:]
         if unit == kk:
-            return float(s[:nn]), units[kk]
+            return float(s[:nn])*units[kk]
     raise RuntimeError("Unit not understood")
 
 
@@ -224,9 +224,8 @@ def _cfg_to_fov(grid_config: dict) -> tuple[u.Quantity, u.Quantity]:
         "deg": u.deg,
         "rad": u.rad,
     '''
-    fov_x, fov_x_unit = _resolve_str_to_unit(grid_config["space fov x"])
-    fov_y, fov_y_unit = _resolve_str_to_unit(grid_config["space fov y"])
-    return fov_x*fov_x_unit, fov_y*fov_y_unit
+    return (resolve_str_to_quantity(grid_config["space fov x"]),
+            resolve_str_to_quantity(grid_config["space fov y"]))
 
 
 def _cfg_to_rotation(grid_config: dict) -> u.Quantity:

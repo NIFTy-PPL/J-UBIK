@@ -1,4 +1,4 @@
-from jubik0.instruments.jwst.grid import Grid
+from jubik0.grid import Grid
 
 import astropy.units as u
 
@@ -70,7 +70,7 @@ class Ducc0Settings:
 @dataclass
 class FinufftSettings:
     epsilon: float
-    no_polarization: bool=False
+    no_polarization: bool = False
 
 
 def yaml_to_response_settings(

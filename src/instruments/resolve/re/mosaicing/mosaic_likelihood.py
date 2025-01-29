@@ -1,4 +1,4 @@
-from ..parse.response import (
+from .....parse.instruments.resolve.response import (
     SkyDomain,
     Ducc0Settings,
     FinufftSettings,
@@ -9,7 +9,7 @@ from .sky_beamer import SkyBeamerJft
 from ...data.observation import Observation
 
 import nifty8.re as jft
-from jubik0.instruments.jwst.grid import Grid
+from .....grid import Grid
 
 from typing import Union
 

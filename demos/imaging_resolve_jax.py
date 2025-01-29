@@ -6,7 +6,10 @@ import resolve as rve_old
 import jubik0.instruments.resolve as rve
 import jubik0.instruments.resolve.re as jrve
 
-from jubik0.instruments.resolve.re.parse.response import (
+from jubik0.parse.sky_model.resolve_sky import ResolvePointSourcesModel
+from jubik0.sky_model.resolve_sky import _spatial_dom, sky_model_points
+
+from jubik0.parse.instruments.resolve.response import (
     SkyDomain, Ducc0Settings, FinufftSettings)
 
 import matplotlib.pyplot as plt
@@ -15,6 +18,7 @@ from matplotlib.colors import LogNorm
 import configparser
 from jax import random
 
+from sys import exit
 from jax import config, devices
 config.update('jax_default_device', devices('cpu')[0])
 jax.config.update("jax_enable_x64", True)
@@ -40,6 +44,12 @@ obs = obs.average_stokesi()
 obs._weight = 0.1 * obs._weight
 cfg = configparser.ConfigParser()
 cfg.read("cygnusa_2ghz.cfg")
+
+
+sky_dom = _spatial_dom(cfg['sky'])
+rpsm = ResolvePointSourcesModel.cfg_to_resolve_point_sources(cfg["sky"])
+point_model, _ = sky_model_points(sky_dom, rpsm)
+exit()
 
 sky, additional = jrve.sky_model(cfg["sky"])
 
