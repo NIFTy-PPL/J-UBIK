@@ -4,7 +4,7 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-from .grid import Grid
+from ...grid import Grid
 from ...hashcollector import save_local_packages_hashes_to_txt
 from ...utils import save_config_copy_easy
 

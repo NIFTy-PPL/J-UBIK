@@ -40,7 +40,7 @@ from .instruments.erosita.erosita_data import (generate_erosita_data_from_config
                                                mask_erosita_data_from_disk)
 from .instruments.erosita.erosita_psf import eROSITA_PSF
 from .instruments.jwst.jwst_response import build_jwst_response
-from .instruments.jwst.grid import Grid
+from .grid import Grid
 
 from .data import (create_mock_data, load_masked_data_from_config,
                    load_mock_position_from_config, Domain)

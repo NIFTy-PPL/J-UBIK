@@ -13,7 +13,8 @@ from .rotation_and_shift.coordinates_correction import (
     build_coordinates_correction_from_grid)
 from .zero_flux_model import build_zero_flux_model
 from .masking.build_mask import build_mask
-from .wcs import subsample_grid_centers_in_index_grid_non_vstack
+
+from ...wcs import subsample_grid_centers_in_index_grid_non_vstack
 
 from .parse.parametric_model.parametric_prior import ProbabilityConfig
 from .parse.rotation_and_shift.coordinates_correction import CoordiantesCorrectionPriorConfig

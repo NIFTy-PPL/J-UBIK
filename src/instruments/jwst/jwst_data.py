@@ -5,11 +5,11 @@
 
 # %
 
-from .color import Color, ColorRange
-from .wcs.wcs_jwst_data import WcsJwstData
-from .grid import Grid
+from ...color import Color, ColorRange
+from ...grid import Grid
+from ...wcs.wcs_jwst_data import WcsJwstData
+from ...wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
 from .masking import get_mask_from_index_centers
-from .wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
 
 from astropy import units
 from astropy.coordinates import SkyCoord
