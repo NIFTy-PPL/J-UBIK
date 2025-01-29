@@ -48,9 +48,28 @@ class ResolvePointSourcesModel:
 
     @classmethod
     def cfg_to_resolve_point_sources(cls, cfg: ConfigParser):
-        freq_mode = cfg.get("freq mode", 'single')
-        polarization = cfg.get('polarization', 'I')
-        mode = cfg.get('point sources mode', 'single')
+        '''Parse cfg to ResolvePointSourcesModel.
+
+        Parameters
+        ----------
+        freq mode: str (`single` default) # TODO: Add more options
+        polarization: str (`I` default) # TODO: Add more options
+        point source mode: str (`single` default) # TODO: Add more options
+        point sources a: float
+            The `a` parameter of the InverseGamma model.
+        point sources scale: float
+            The `scale` parameter of the InverseGamma model.
+        '''
+        FREQ_MODE_KEY = "freq mode"
+        POLARIZATION_KEY = 'polarization'
+        MODE_KEY = 'point sources mode'
+        RELATIVE_LOCATIONS_KEY = "point sources relative locations"
+        A_KEY = "point sources a"
+        SCALE_KEY = "point sources scale"
+
+        freq_mode = cfg.get(FREQ_MODE_KEY, 'single')
+        polarization = cfg.get(POLARIZATION_KEY, 'I')
+        mode = cfg.get(MODE_KEY, 'single')
 
         if freq_mode != 'single':
             raise NotImplementedError
@@ -60,10 +79,10 @@ class ResolvePointSourcesModel:
             raise NotImplementedError
 
         locations = RelativePointLocations.cfg_to_relative_locations(
-            cfg["point sources relative locations"])
+            cfg[RELATIVE_LOCATIONS_KEY])
 
-        a = cfg.getfloat("point sources a")
-        scale = cfg.getfloat("point sources scale")
+        a = cfg.getfloat(A_KEY)
+        scale = cfg.getfloat(SCALE_KEY)
         if a is None:
             raise ValueError('Provide "a" parameter for point source prior')
         if scale is None:
