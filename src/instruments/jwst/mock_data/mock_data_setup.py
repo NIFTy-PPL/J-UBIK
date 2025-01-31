@@ -8,7 +8,7 @@ from astropy import units as u
 
 from ..rotation_and_shift import build_nufft_rotation_and_shift
 from ..rotation_and_shift import build_linear_rotation_and_shift
-from ..grid import Grid
+from ....grid import Grid
 
 
 from jax import random

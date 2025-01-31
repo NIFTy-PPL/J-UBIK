@@ -8,7 +8,7 @@ from .jwst_plotting import (
     ResidualPlottingConfig,
 )
 from ..filter_projector import FilterProjector
-from ..grid import Grid
+from ....grid import Grid
 
 import nifty8.re as jft
 

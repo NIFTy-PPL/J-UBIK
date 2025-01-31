@@ -4,10 +4,9 @@ from .config_handler import (get_grid_extension_from_config,)
 from .jwst_response import build_jwst_response
 from .jwst_data import (load_jwst_data_mask_std)
 from .jwst_data import JWST_FILTERS
-from .color import Color, ColorRange
-from .grid import Grid
-from .filter_projector import (
-    FilterProjector)
+from ...color import Color, ColorRange
+from ...grid import Grid
+from .filter_projector import FilterProjector
 
 # Parsing
 from .parse.jwst_psf import (yaml_to_psf_kernel_config)

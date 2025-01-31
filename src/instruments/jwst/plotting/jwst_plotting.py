@@ -15,11 +15,14 @@ from ..mock_data.mock_evaluation import redchi2
 from ..mock_data.mock_plotting import display_text
 from ..rotation_and_shift.coordinates_correction import CoordinatesWithCorrection
 from ..filter_projector import FilterProjector
-from ..grid import Grid
+from ....grid import Grid
 
-from charm_lensing.lens_system import LensSystem
-from charm_lensing.physical_models.multifrequency_models.colormix_model import (
-    ColorMix, NonSymmetricColorMatrix)
+try:
+    from charm_lensing.lens_system import LensSystem
+    from charm_lensing.physical_models.multifrequency_models.colormix_model import (
+        ColorMix)
+except:
+    pass
 
 
 def find_closest_factors(number):
