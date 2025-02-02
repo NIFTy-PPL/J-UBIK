@@ -20,10 +20,6 @@ def dtype_float2complex(dt):
 def get_binbounds(size, coordinates):
     if len(coordinates) == 1:
         return np.array([-np.inf, np.inf])
-    # FIXME : Encountered BUG when instantiating binbounds from grid.times !!!
-    elif tuple(coordinates) == (-np.inf, np.inf):
-        return np.array([-np.inf, np.inf])
-
     coords = np.array(coordinates)
     bounds = np.empty(size + 1)
     bounds[1:-1] = coords[:-1] + 0.5 * np.diff(coords)
