@@ -63,11 +63,13 @@ def plot_pspec(pspec, shape, distances,
     --------
     None
     """
+    if len(sample_list) == 0:
+        sample_list = [sample_list.pos]
     if iteration is None:
         iteration = 0
     results_path = create_output_directory(join(output_directory,
                                                 f"{directory_prefix}pspec"))
-    samples = jax.vmap(pspec)(sample_list.samples)
+    samples = np.array([pspec(s) for s in sample_list])
     filename_samples = join(results_path, f"samples_{iteration}.png")
     from nifty8.re.correlated_field import get_fourier_mode_distributor
     _, unique_modes, _ = get_fourier_mode_distributor(shape, distances)
