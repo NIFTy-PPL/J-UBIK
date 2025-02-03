@@ -84,18 +84,26 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     spatial_shape = [shape[-2], shape[-1]]
     slices = slice_patches(x, shape, n_patches_per_axis,
                            additional_margin=0)
+
+    # TODO remove from this scope
     slice_spatial_shape = (slices.shape[-2], slices.shape[-1])
     weights = _bilinear_weights(slice_spatial_shape)
+    # END
+
     weighted_slices = weights * slices
 
+    # TODO with less dependency? Helper func from domain /n patches per axis and margin
     padding_for_extradims_width = [[0, 0],]*(len(weighted_slices.shape) - 2)
     margins = [[margin, margin],]*2
     pad_width = padding_for_extradims_width + margins
+    #END
+
     padded = jnp.pad(weighted_slices,
                      pad_width=pad_width,
                      mode="constant", constant_values=0)
 
     # Do reshaping here
+    # TODO Put this into another scope -
     dx = int(shape[-2] / n_patches_per_axis)
     dy = int(shape[-1] / n_patches_per_axis)
 
@@ -114,6 +122,7 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
                       mode="constant",
                       constant_values=0)
     rollback_kernel = jnp.fft.ifftshift(pkernel, axes=(-2, -1))
+    # END
 
     # TODO discuss this kind of normalization. Kernels should be normalized
     # before and/or elsewhere.
@@ -123,6 +132,7 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     norm = norm[..., np.newaxis, np.newaxis]
 
     normed_kernel = rollback_kernel * norm**-1
+    # END
 
     ndom = Domain((1, *shape), (None, *domain.distances))
     convolved = convolve(normed_kernel,
@@ -140,6 +150,7 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     primal = np.empty(padded_shape)
     overlap_add = jax.linear_transpose(patch_w_margin, primal)
     padded_res = overlap_add(convolved)[0]
+    # TODO This slicing is not good
     res = padded_res[..., margin:-margin, margin:-margin]
     return res
 
