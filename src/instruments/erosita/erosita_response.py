@@ -5,16 +5,18 @@
 
 # %%
 
-from os.path import basename, join
+from os.path import basename, join, exists
 from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
 from jax import vmap
+import nifty8.re as jft
 
 from .erosita_observation import ErositaObservation
 from .erosita_psf import eROSITA_PSF
-from ...convolve import linpatch_convolve
+from ...utils import load_from_pickle, save_to_pickle
+from ...convolve import linpatch_convolve, _prep_psfs_for_linpatch_convolve
 from ...data import Domain
 from ...response import build_exposure_function, build_readout_function
 
@@ -197,13 +199,27 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
         A function that applies the PSF operator to an input sky array
         and convolution kernel.
     """
-    psfs = [_build_tm_erosita_psf_array(psf_file, energies, pcenter,
-                                        domain, npatch)
-            for psf_file, pcenter in zip(psf_filenames, pointing_center)]
-    psfs = np.array(psfs)
-
     shp = (domain.shape[-2], domain.shape[-1])
     margin = max((int(np.ceil(margfrac * ss)) for ss in shp))
+    # TODO CHECK if exist (in result directory) if not render and safe
+    # If exist load from file
+
+    rendered_psf_path = "dummy_psf_name"
+    if exists(rendered_psf_path):
+        jft.logger.info('...loading PSFs from file')
+        psfs = load_from_pickle(psf_path)
+    else:
+        psfs = [_build_tm_erosita_psf_array(psf_file, energies, pcenter,
+                                            domain, npatch)
+                for psf_file, pcenter in zip(psf_filenames, pointing_center)]
+        psfs = np.array(psfs)
+        psfs = _prep_psfs_for_linpatch_convolve(psfs,
+                                                domain,
+                                                npatch,
+                                                margin,
+                                                normalize=True)
+        save_to_pickle(psfs, psf_path)
+        psfs = load_from_pickle(psf_path)
 
     def psf_op(x, kernel):
         return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(
