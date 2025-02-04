@@ -80,15 +80,9 @@ if __name__ == "__main__":
         masked_x = x.at[summed_exposure<=500].set(0)
         return masked_x
 
-    # TODO remove other entries than log und lin
-    sat_min = {'sky': [2e-12, 2e-12, 2e-12], 'diffuse': [2e-12, 2e-12, 2e-12],
-               'points': [2e-12, 2e-12, 2e-12],
-               'masked_diffuse': [2e-12, 2e-12, 2e-12],
-               "log": [2e-12, 2e-12, 2e-12],
+    sat_min = {"log": [2e-12, 2e-12, 2e-12],
                "lin": [1e-10, 1e-10, 1e-10]}
-    sat_max = {'sky': [1, 1, 1], 'diffuse': [1, 1, 1],
-               'points': [1, 1, 1], 'masked_diffuse': [1, 1, 1],
-               "log": [1, 1, 1],
+    sat_max = {"log": [1, 1, 1],
                "lin": [2.3e-8, 1.5e-8, 1.e-8]}
     for key, op in sky_dict.items():
         op = jax.vmap(op)
@@ -116,7 +110,7 @@ if __name__ == "__main__":
                  output_file=join(output_dir, f'rec_{key}_rgb.png'),
                  alpha=0.5,
                  bbox_info=bbox_info,
-        )
+                 )
                  #LINEAR
                  #
         plot_rgb(real_mean,
