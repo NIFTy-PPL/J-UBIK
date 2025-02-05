@@ -42,7 +42,7 @@ if __name__ == "__main__":
     correct_exposures_for_effective_area = True
     if correct_exposures_for_effective_area:
         # from src.library.response import calculate_erosita_effective_area
-        ea = ju.calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max)
+        ea = ju.instruments.erosita.erosita_response.calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max)
         exposures *= ea[:, :, np.newaxis, np.newaxis]
 
     summed_data = np.sum(data, axis=0)

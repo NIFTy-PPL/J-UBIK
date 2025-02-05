@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 from jax import linear_transpose, vmap
+from matplotlib import patches
 import jax.numpy as jnp
 
 import jubik0 as ju
@@ -56,7 +57,7 @@ if __name__ == "__main__":
     correct_exposures_for_effective_area = True
     if correct_exposures_for_effective_area:
         # from src.library.response import calculate_erosita_effective_area
-        ea = ju.calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max)
+        ea = ju.instruments.erosita.erosita_response.calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max)
         exposures *= ea[:, :, np.newaxis, np.newaxis]
 
     summed_data = np.sum(data, axis=0)
@@ -70,10 +71,14 @@ if __name__ == "__main__":
     exposure_corrected_data[mask_exp] = 0
     bbox_info = [(28, 16), 28, 160, 'black']
 
+    sat_min = {'log': [1.2e-9, 1.0e-10, 2.0e-10],
+               "lin": [1e-10, 1e-10, 1e-10]}
+    sat_max = {'log': [2.1e-7, 1.5e-7, 1.5e-7],
+               "lin": [2.3e-8, 1.5e-8, 1.e-8]}
     #### LOG Plot
     plot_rgb(exposure_corrected_data,
-             sat_min=[2e-12, 2e-12, 2e-12],
-             sat_max=[1, 1, 1],
+             sat_min=sat_min['log'],
+             sat_max=sat_max['log'],
              log=True,
              title='eROSITA LMC data', fs=18, pixel_measure=112,
              output_file=join(output_dir, 'log_expcor_eRSOITA_data_rgb.png'),
@@ -84,8 +89,8 @@ if __name__ == "__main__":
 
     #### Lin Plot
     plot_rgb(exposure_corrected_data,
-             sat_min=[1e-10, 1e-10, 1e-10],
-             sat_max=[2.3e-8, 1.5e-8, 1.e-8],
+             sat_min=sat_min['lin'],
+             sat_max=sat_min['lin'],
              # log=True,
              title='eROSITA LMC data', fs=18, pixel_measure=112,
              output_file=join(output_dir, 'lin_expcor_eRSOITA_data_rgb.png'),
@@ -119,10 +124,10 @@ if __name__ == "__main__":
              **plotting_kwargs_rec
              )
         if i==0:
-            plot_rgb(exposure_corrected_data_tm[:, 570: 770,  150: 350],
-                     sat_min=[1e-10, 1e-10, 1e-10],
-                     sat_max=[2.3e-8, 1.5e-8, 1.e-8],
-                     # log=True,
+            plot_rgb(exposure_corrected_data_tm[:, 570: 770,  130: 330],
+                     sat_min=sat_min['log'],
+                     sat_max=sat_max['log'],
+                     log=True,
                      title='eROSITA LMC data TM1', fs=32,
                      output_file=join(output_dir,
                                       'zoom_expcor_eRSOITA_data_rgb_tm1.png'),
@@ -131,22 +136,22 @@ if __name__ == "__main__":
                      bbox_info=bbox_info,
                      )
     ### Zoom
-    zoomed_expcor_data = exposure_corrected_data[:, 570: 770,  150: 350]
+    zoomed_expcor_data = exposure_corrected_data[:, 570: 770,  130: 330]
     plot_rgb(zoomed_expcor_data,
-             sat_min=[1e-10, 1e-10, 1e-10],
-             sat_max=[2.3e-8, 1.5e-8, 1.e-8],
-             # log=True,
+             sat_min=sat_min['log'],
+             sat_max=sat_max['log'],
+             log=True,
              title='eROSITA LMC data', fs=32,
              output_file=join(output_dir, 'zoom_expcor_eRSOITA_data_rgb.png'),
              alpha=0.0,
              pixel_factor=4,
              bbox_info=bbox_info,
              )
-    sat_min = [1e-10, 1e-10, 1e-10]
-    sat_max = [2.3e-8, 1.5e-8, 1.e-8]
-    x = ju._clip(exposure_corrected_data, sat_min, sat_max)
+    x = np.log(exposure_corrected_data)
+    x = ju._clip(x, np.log(sat_min['log']), np.log(sat_max['log']))
     x = np.moveaxis(x, 0, -1)
-    plot_data = ju._norm_rgb_plot(x, minmax=(min(sat_min), max(sat_max)))
+    plot_data = ju._norm_rgb_plot(x, minmax=(np.log(sat_min['log']),
+                                             np.log(sat_max['log'])))
     fig, ax = plt.subplots(figsize=(8, 8), dpi=200)
     ax.tick_params(
         axis='both',
@@ -166,7 +171,7 @@ if __name__ == "__main__":
              color='white',
              verticalalignment='top', horizontalalignment='left', transform=ax.transAxes,
              bbox=(dict(facecolor='black', alpha=0.5, edgecolor='none')))
-    rect = patches.Rectangle((150,570), 200, 200, facecolor='none', edgecolor='white')
+    rect = patches.Rectangle((130,570), 200, 200, facecolor='none', edgecolor='white')
     ax.add_patch(rect)
     plt.tight_layout()
     fig.savefig(join(output_dir, 'marked_expcor_eROSITA_data_rgb.png'),
@@ -174,12 +179,11 @@ if __name__ == "__main__":
     plt.close()
 
     # 30 Doradus C marked
-
-    sat_min = [1e-10, 1e-10, 1e-10]
-    sat_max = [2.3e-8, 1.5e-8, 1.e-8]
-    x = ju._clip(exposure_corrected_data, sat_min, sat_max)
+    x = np.log(exposure_corrected_data)
+    x = ju._clip(x, np.log(sat_min['log']), np.log(sat_max['log']))
     x = np.moveaxis(x, 0, -1)
-    plot_data = ju._norm_rgb_plot(x, minmax=(min(sat_min), max(sat_max)))
+    plot_data = ju._norm_rgb_plot(x, minmax=(np.log(sat_min['log']),
+                                             np.log(sat_max['log'])))
     fig, ax = plt.subplots(figsize=(8, 8), dpi=200)
     ax.tick_params(
         axis='both',
@@ -199,7 +203,7 @@ if __name__ == "__main__":
              color='white',
              verticalalignment='top', horizontalalignment='left', transform=ax.transAxes,
              bbox=(dict(facecolor='black', alpha=0.5, edgecolor='none')))
-    rect = patches.Rectangle((390,570), 120, 120, facecolor='none', edgecolor='white')
+    rect = patches.Rectangle((370,565), 120, 120, facecolor='none', edgecolor='white')
     ax.add_patch(rect)
     plt.tight_layout()
     fig.savefig(join(output_dir, '30D_marked_expcor_eROSITA_data_rgb.png'),

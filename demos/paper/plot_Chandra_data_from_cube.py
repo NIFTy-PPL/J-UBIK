@@ -38,10 +38,14 @@ if __name__ == "__main__":
     exposure_corrected_data[mask_exp] = 0
     bbox_info = [(28, 16), 28, 160, 'black']
 
+    sat_min = {'log': [1.2e-9, 1.0e-10, 2.0e-10],
+               "lin": [1e-10, 1e-10, 1e-10]}
+    sat_max = {'log': [2.1e-7, 1.5e-7, 1.5e-7],
+               "lin": [2.3e-8, 1.5e-8, 1.e-8]}
     #### LOG Plot
     plot_rgb(exposure_corrected_data,
-             sat_min=[2e-12, 2e-12, 2e-12],
-             sat_max=[1, 1, 1],
+             sat_min=sat_min['log'],
+             sat_max=sat_max['log'],
              log=True,
              title='Chandra LMC data', fs=18, pixel_measure=112,
              output_file=join(output_dir, 'log_expcor_chandra_data_rgb.png'),
@@ -52,9 +56,8 @@ if __name__ == "__main__":
 
     #### Lin Plot
     plot_rgb(exposure_corrected_data,
-             sat_min=[1e-10, 1e-10, 1e-10],
-             #sat_max=[3.4e-7, 2.2e-7, 1.5e-7],
-             sat_max=[2.3e-8, 1.5e-8, 1.e-8],
+             sat_min=sat_min['lin'],
+             sat_max=sat_min['lin'],
              # log=True,
              title='Chandra LMC data', fs=18, pixel_measure=112,
              output_file=join(output_dir, 'lin_expcor_chandra_data_rgb.png'),
@@ -66,10 +69,9 @@ if __name__ == "__main__":
     ### Zoom
     zoomed_expcor_data = exposure_corrected_data[:, 570: 770, 150: 350]
     plot_rgb(zoomed_expcor_data,
-             sat_min=[1e-10, 1e-10, 1e-10],
-             sat_max=[2.3e-8, 1.5e-8, 1.e-8],
-             #sat_max=[3.4e-7, 2.2e-7, 1.5e-7],
-             # log=True,
+             sat_min=sat_min['log'],
+             sat_max=sat_max['log'],
+             log=True,
              title='Chandra LMC data', fs=32,
              output_file=join(output_dir, 'zoom_expcor_Chandra_data_rgb.png'),
              alpha=0.0,

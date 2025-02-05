@@ -25,8 +25,9 @@ config.update('jax_enable_x64', True)
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
-    results_path = "results/LMC-22092024-001V"
-    config_name = "eROSITA_demo_ve_259.yaml"
+    results_path = "results/LMC-03022025-001Mfull"
+    config_name = "eROSITA_demo_full.yaml"
+    path_to_caldb = '../data/'
     output_dir = ju.create_output_directory(join(results_path, 'paper'))
     config_path = join(results_path, config_name)
     config_dict = ju.get_config(config_path)
@@ -80,9 +81,9 @@ if __name__ == "__main__":
         masked_x = x.at[summed_exposure<=500].set(0)
         return masked_x
 
-    sat_min = {"log": [2e-12, 2e-12, 2e-12],
-               "lin": [1e-10, 1e-10, 1e-10]}
-    sat_max = {"log": [1, 1, 1],
+    sat_min = {'log': [1.2e-9, 2.0e-10, 2.0e-10],
+               "lin": [5e-11, 5e-11, 5e-11]}
+    sat_max = {'log': [2.1e-7, 1.5e-7, 1.5e-7],
                "lin": [2.3e-8, 1.5e-8, 1.e-8]}
     for key, op in sky_dict.items():
         op = jax.vmap(op)
@@ -193,8 +194,33 @@ if __name__ == "__main__":
                         **plotting_kwargs_unc)
     points_op = jax.vmap(sky_dict['points'])
     point_samples = points_op(samples.samples)
+
+    pixel_area = (tel_info['fov'] / grid_info['sdim']) **2 # density to flux
+    data_path = join(file_info['obs_path'], 'processed')
+    exposures = []
+    for it, tm_id in enumerate(tm_ids):
+        exposure_filenames = f'tm{tm_id}_' + file_info['exposure']
+        exposure_filenames = [join(data_path,
+                                   f"{exposure_filenames.split('.')[0]}_emin{e}_emax{E}.fits")
+                              for e, E in zip(e_min, e_max)]
+        exposures.append([])
+        for e, output_filename in enumerate(exposure_filenames):
+            with fits.open(exposure_filenames[e]) as hdul:
+                exposures[it].append(hdul[0].data)
+    exposures = np.array(exposures, dtype=float)
+    exposures[exposures<=500] = 0
+    correct_exposures_for_effective_area = True
+    if correct_exposures_for_effective_area:
+        # from src.library.response import calculate_erosita_effective_area
+        ea = ju.instruments.erosita.erosita_response.calculate_erosita_effective_area(path_to_caldb, tm_ids, e_min, e_max)
+        exposures *= ea[:, :, np.newaxis, np.newaxis]
+
+    summed_exposure = np.sum(exposures, axis=0)
+    detection_threshold = np.zeros(summed_exposure.shape)
+    detection_threshold[summed_exposure != 0]  = 4.6/(summed_exposure[summed_exposure != 0]* pixel_area)
+
     real_points_cut = np.mean(point_samples, axis=0).at[\
-        np.mean(point_samples, axis=0)<2.5e-9].set(0)
+        np.mean(point_samples, axis=0)<detection_threshold].set(0)
     diffuse_op = jax.vmap(sky_dict['diffuse'])
     diffuse_samples = diffuse_op(samples.samples)
     real_diffuse = np.mean(diffuse_samples, axis=0)
@@ -235,8 +261,8 @@ if __name__ == "__main__":
              bbox_info=bbox_info,
              )
     plot_rgb(mask(real_points_cut),
-             sat_min=[2e-9, 2e-9, 2e-9],
-             sat_max=[1.5e-8, 1.5e-8, 1.5e-8],
+             sat_min=sat_min['lin'],
+             sat_max=sat_max['lin'],
              sigma=0.5,
              title=f'reconstructed points', fs=18, pixel_measure=pixel_measure,
              output_file=join(output_dir, f'cut_rec_points_lin_rgb.png'),
@@ -262,19 +288,27 @@ if __name__ == "__main__":
              sat_max=sat_max['lin'],
              sigma=None,
              title=f'TM1', fs=32,
-             output_file=join(output_dir, f'zoom_cut_rec_sky_lin_rgb.png'),
+             output_file=join(output_dir, f'zoom_cut_rec_diffuse_lin_rgb.png'),
              alpha=0.5,
              bbox_info=bbox_info
              )
     plot_rgb(real_diffuse[:, 570: 770,  150: 350],
              sat_min=sat_min['log'],
              sat_max=sat_max['log'],
-             pixel_factor=pixel_factor,
              log=True,
              # title= f'reconstructed {key}',
-             fs=18,
-             title=f'TM1',
-             pixel_measure=pixel_measure,
+             title=f'TM1', fs=32,
+             output_file=join(output_dir, f'zoom_cut_rec_diffuse_rgb.png'),
+             alpha=0.5,
+             bbox_info=bbox_info,
+             )
+
+    plot_rgb(cut_sky[:, 570: 770,  150: 350],
+             sat_min=sat_min['log'],
+             sat_max=sat_max['log'],
+             log=True,
+             # title= f'reconstructed {key}',
+             title=f'TM1', fs=32,
              output_file=join(output_dir, f'zoom_cut_rec_sky_rgb.png'),
              alpha=0.5,
              bbox_info=bbox_info,
