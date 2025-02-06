@@ -79,11 +79,13 @@ def InterferometryResponse(
     n_pol = len(sky_domain.polarization_labels)
 
     # compute bins for time and freq
-    n_times = len(sky_domain.times)
-    bb_times = get_binbounds(n_times, sky_domain.times)
+    n_times = len(sky_domain.times) - 1  # FIXME : This needs to be checked
+    bb_times = np.array(sky_domain.times)
+    # bb_times = get_binbounds(n_times, sky_domain.times)
 
-    n_freqs = len(sky_domain.frequencies)
-    bb_freqs = get_binbounds(n_freqs, sky_domain.frequencies)
+    n_freqs = len(sky_domain.frequencies) - 1
+    bb_freqs = np.array(sky_domain.frequencies)
+    # bb_freqs = get_binbounds(n_freqs, sky_domain.frequencies)
 
     # build responses for: time binds, freq bins
     sr = []
