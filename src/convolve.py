@@ -28,8 +28,8 @@ def _bilinear_weights(shape):
 def _prep_psfs_for_linpatch_convolve(psfs, domain, n_patches_per_axis,
                                      margin, normalize=True):
     margins = [[margin, margin],]*2
-    kernelcut_x = (domain.shape[-2](1 - 2 / n_patches_per_axis))//2 - margin
-    kernelcut_y = (domain.shape[-1](1 - 2 / n_patches_per_axis))//2
+    kernelcut_x = int((domain.shape[-2]*(1 - 2 / n_patches_per_axis))//2) #- margin)
+    kernelcut_y = int((domain.shape[-1]*(1 - 2 / n_patches_per_axis))//2) #- margin)
 
     roll_kernel = jnp.fft.fftshift(psfs, axes=(-2, -1))
     cut_kernel = roll_kernel[..., kernelcut_x:-kernelcut_x, kernelcut_y:-kernelcut_y]

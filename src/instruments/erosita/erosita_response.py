@@ -204,11 +204,13 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
     # TODO CHECK if exist (in result directory) if not render and safe
     # If exist load from file
 
-    rendered_psf_path = "dummy_psf_name"
+    # FIXME load from yaml
+    rendered_psf_path = "dummy_psf_name.pkl"
     if exists(rendered_psf_path):
         jft.logger.info('...loading PSFs from file')
-        psfs = load_from_pickle(psf_path)
+        psfs = load_from_pickle(rendered_psf_path)
     else:
+        jft.logger.info('No interpolated PSF found..')
         psfs = [_build_tm_erosita_psf_array(psf_file, energies, pcenter,
                                             domain, npatch)
                 for psf_file, pcenter in zip(psf_filenames, pointing_center)]
@@ -218,8 +220,8 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
                                                 npatch,
                                                 margin,
                                                 normalize=True)
-        save_to_pickle(psfs, psf_path)
-        psfs = load_from_pickle(psf_path)
+        save_to_pickle(psfs, rendered_psf_path)
+        psfs = load_from_pickle(rendered_psf_path)
 
     def psf_op(x, kernel):
         return vmap(linpatch_convolve, in_axes=(None, None, 0, None, None))(
