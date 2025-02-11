@@ -12,5 +12,5 @@ FOLDER=docs/source/user
 # done
 
 EXCLUDE=""
-sphinx-apidoc -e -o  docs/source/mod jubik0 ${EXCLUDE}
+sphinx-apidoc -e -d 1 -o  docs/source/mod jubik0 ${EXCLUDE}
 sphinx-build -b html docs/source/ docs/build/
