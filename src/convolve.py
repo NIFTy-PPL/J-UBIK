@@ -116,10 +116,9 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
     slices = slice_patches(x, domain.shape, n_patches_per_axis,
                            additional_margin=0)
 
-    # TODO remove from this scope
-    slice_spatial_shape = (slices.shape[-2], slices.shape[-1])
-    weights = _bilinear_weights(slice_spatial_shape)
-    # END
+    weight_shp = (2*(domain.shape[-2] / n_patches_per_axis),
+                  2*(domain.shape[-1] / n_patches_per_axis))
+    weights = _bilinear_weights(weight_shp)
 
     weighted_slices = weights * slices
 
@@ -133,44 +132,13 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
                      pad_width=pad_width,
                      mode="constant", constant_values=0)
 
-    # Do reshaping here
-    # TODO Put this into another scope -
-    # dx = int(shape[-2] / n_patches_per_axis)
-    # dy = int(shape[-1] / n_patches_per_axis)
-
-    # kernelcut_x = (shape[-2] - 2*dx) // 2
-    # kernelcut_y = (shape[-1] - 2*dy) // 2
-
-    # roll_kernel = jnp.fft.fftshift(kernel, axes=(-2, -1))
-    # cut_kernel = roll_kernel[..., kernelcut_x:-kernelcut_x, kernelcut_y:-kernelcut_y]
-
-    # # FIXME Temp Fix for weird psfs/ We could / should leave it in.
-    # padding_for_extradims_width = [[0, 0],]*(len(cut_kernel.shape) - 2)
-    # pad_width_kernel = padding_for_extradims_width + margins
-
-    # pkernel = jnp.pad(cut_kernel,
-    #                   pad_width=pad_width_kernel,
-    #                   mode="constant",
-    #                   constant_values=0)
-    # rollback_kernel = jnp.fft.ifftshift(pkernel, axes=(-2, -1))
-    # END
-
-    # TODO discuss this kind of normalization. Kernels should be normalized
-    # before and/or elsewhere.
-    # summed = rollback_kernel.sum((-2, -1))
-    # dvol = domain.distances[-2]*domain.distances[-1]
-    # norm = summed * np.array(dvol)
-    # norm = norm[..., np.newaxis, np.newaxis]
-
-    # normed_kernel = rollback_kernel * norm**-1
-    # END
-
     ndom = Domain((1, *domain.shape), (None, *domain.distances))
     convolved = convolve(kernel,
                          padded,
                          ndom,
                          axes=(-2, -1))
-
+    # TODO Check these two also with speed!
+    # convolved = jax.scipy.signal.fftconvolve(kernel, padded, mode="same", axes=(-2,-1))
     remaining_shape = list(domain.shape[:-2])
     padded_shape = remaining_shape + [ii+2*margin for ii in spatial_shape]
 
@@ -217,8 +185,10 @@ def convolve(x, y, domain, axes):
     res = dvol*res
     return res.real
 
+
 def integrate(x, domain, axes):
     sumation = np.sum(x, axis=tuple(axes))
     dlist = [domain.distances[i] for i in axes]
     dvol = float(reduce(lambda a, b: a*b, dlist))
     return dvol*sumation
+
