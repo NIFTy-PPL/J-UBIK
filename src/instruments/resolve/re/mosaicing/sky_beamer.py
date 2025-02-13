@@ -66,7 +66,9 @@ def build_jft_sky_beamer(
     direction_key: str = 'REFERENCE_DIR',
     field_name_prefix: str = '',
 ) -> SkyBeamerJft:
-    '''Builds the SkyBeamer.
+    '''Builds the SkyBeamer. The SkyBeamer contains holds an array for each 
+    pointing containing the beam pattern for the mean of all
+    `sky_frequency_binbounds`.
 
     Parameters
     ----------
@@ -84,6 +86,8 @@ def build_jft_sky_beamer(
 
     observations:
         The observations containing the different pointings of the instrument.
+        Only the pointings direction is used to set up the beam pattern wrt.
+        the corresponding pointing.
 
     beam_func:
         A function which provides the beam pattern for the instrument.
