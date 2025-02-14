@@ -55,6 +55,15 @@ class SkyBeamerJft(jft.Model):
             out[key] = x*beam
         return out
 
+    @classmethod
+    def _create_object(cls, domain, beam_directions: dict):
+        return cls(domain, beam_directions)
+
+    def __add__(self, other):
+        assert self.domain == other.domain
+        bd = self.beam_directions | other.beam_directions
+        return self._create_object(self.domain, bd)
+
 
 def build_jft_sky_beamer(
     sky_shape_with_dtype: jft.ShapeWithDtype,
