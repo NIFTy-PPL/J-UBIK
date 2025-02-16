@@ -115,6 +115,10 @@ class ColorRange:
 
     def __init__(self, start: Color, end: Color):
         """Initialize the ColorRange object."""
+        if isinstance(start, u.Quantity):
+            start = Color(start)
+        if isinstance(end, u.Quantity):
+            end = Color(end)
         assert isinstance(start, Color) and isinstance(end, Color)
         self.start = start
         self.end = end
