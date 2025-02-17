@@ -34,7 +34,7 @@ def yaml_to_binned_colors(grid_config: dict) -> ColorRanges:
 
 
 def yaml_to_color_reference_bin(grid_config: dict) -> int:
-    return grid_config[ENERGY_BIN_KEY][REFERENCE_BIN_KEY]
+    return grid_config[ENERGY_BIN_KEY].get(REFERENCE_BIN_KEY)
 
 
 def cfg_to_binned_colors(grid_config: dict) -> ColorRanges:
