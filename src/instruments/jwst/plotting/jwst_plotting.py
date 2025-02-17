@@ -562,7 +562,7 @@ def build_get_values(
         lensed_light_model = lens_system.get_forward_model_full(
             only_source=True)
 
-    lens_light_model = lens_system.get_lens_light()
+    lens_light_model = lens_system.lens_plane_model.light_model
     if lens_light_model is None:
         def lens_light_model(_): return np.zeros((12, 12))
     else:
