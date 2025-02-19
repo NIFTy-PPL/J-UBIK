@@ -21,8 +21,8 @@ from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
 
 from jubik0.instruments.jwst.plotting.plotting import get_plot, plot_prior
 
-from jubik0.instruments.jwst.parse.grid import yaml_to_grid_model
-from jubik0.instruments.jwst.grid import Grid
+from jubik0.parse.grid import yaml_to_grid_model
+from jubik0.grid import Grid
 
 from sys import exit
 
