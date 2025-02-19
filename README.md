@@ -24,7 +24,7 @@ Next to many useful generic tools and building blocks, JUBIK comes with a series
 ## Installation
 This package can be installed via pip. 
 
-    git clone https://gitlab.mpcdf.mpg.de/ift/j-ubik
+    git clone https://github.com/NIFTy-PPL/J-UBIK
     cd j-ubik
     pip install --user .
 
