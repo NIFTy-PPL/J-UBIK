@@ -1,0 +1,425 @@
+cpu: False
+prior_samples: False
+plot_results: True
+nonparametric_lens: True
+max_residuals: 4 # 4 for big run
+no_interactive_plotting: True
+
+
+# Before long run:
+# 1) No prior samples
+# 2) No interactive plotting
+# 3) Frequencies & reference frequency
+# 4) No fixed positions
+# 5) Large Psf
+# 6) Output directory
+# 7) (Optional) Download latest webbpsf and delete stashed Psfs: https://webbpsf.readthedocs.io/en/stable/installation.html
+
+
+sky: 
+  grid:
+    sdim: 384
+    s_padding_ratio: 1.5  # Size of the convergence, i.e. (384*1.5, 6*1.5)
+    # NOTE: SHOULD THIS BE HERE?????
+
+    fov: 6
+    fov_unit: arcsec
+    rotation: 0
+    coordinate_frame: icrs
+    sky_center:
+      ra: 64.66543063107049
+      dec: -47.86462563973049
+      unit: deg
+
+    source_grid:
+      sdim: 384
+      fov: 3
+      s_padding_ratio: 1.0
+
+    energy_unit: eV
+    energy_bin:
+      e_min:
+        # - 0.054 # F2100W
+
+        - 0.068 # F1800W  # mistake here actually 0.064
+
+        # - 0.075 # F1500W
+        # - 0.093 # F1280W  # mistake here actually 0.088
+        # - 0.114 # F1000W
+        # - 0.143 # F770W
+        # - 0.201 # F560W
+
+        - 0.249 # F444W
+
+        # - 0.319 # F356W  # mistake here actually 0.311
+        # - 0.396 # F277W
+        # - 0.557 # F200W
+        # - 0.743 # F150W
+
+        - 0.967 # F115W
+      e_max:
+        # - 0.067 # F2100W
+
+        - 0.075 # F1800W
+
+        # - 0.092 # F1500W
+        # - 0.107 # F1280W
+        # - 0.137 # F1000W
+        # - 0.188 # F770W
+        # - 0.245 # F560W
+
+        - 0.319 # F444W
+
+        # - 0.395 # F356W
+        # - 0.512 # F277W
+        # - 0.707 # F200W
+        # - 0.932 # F150W
+
+        - 1.224 # F115W
+      reference_bin: 1 # F444W
+
+  model:
+    source:
+      light:
+        mean:
+          gaussian_01: # i0*Gauss
+            i0: ['delta', 1.0, 0.0]
+            # i0: ['log_normal', 1.0e-1, 2.0e-1]
+            center: ['normal', 0, 0.1]
+            covariance: ['log_normal', 0.08, 0.02]
+            off_diagonal: ['normal', 0.0, 10.0]
+          gaussian_02: # i0*Gauss
+            i0: ['delta', 1.0, 0.0]
+            # i0: ['log_normal', 2.0e-2, 4.0e-2]
+            center: ['normal', [-0.5, -0.5], 0.1]
+            covariance: ['log_normal', 0.08, 0.02]
+            off_diagonal: ['normal', 0.0, 10.0]
+
+        multifrequency:
+          nifty_mf:
+            zero_mode: [-4.0, 0.1] # normal
+            spatial_amplitude:
+              model: 'matern'
+              scale: [0.2, 0.03]        # lognormal
+              cutoff: [0.1, 0.01]       # lognormal
+              loglogslope: [-4.0, 0.1]  # normal
+            spectral_amplitude:
+              model: 'matern'
+              scale: [0.1, 0.03]        # lognormal
+              cutoff: [0.1, 0.01]       # lognormal
+              loglogslope: [-4.0, 0.1]  # normal
+            spectral_index:
+              mean: [-1.5, 0.5]         # normal
+              fluctuations: [0.05, 0.005]  # lognormal 
+            spectral_deviations:
+              process: 'wiener'
+              sigma: [0.1, 0.02]  # lognormal
+
+    lens:
+      light:
+
+        # mean:
+        #   constant: 
+        #     value: ['delta', 1.0, 0.0]
+        # multifrequency:
+        #   pcopy: 
+        #     sersicrenormalized_01: # i0*exp(-bn * (r/re)**1/n - 1)
+        #       # ie: ['log_normal', 600, 350.0]  # before error detection
+        #       ie: ['log_normal', 6000, 7000]
+        #       # ie: ['log_normal', 1.0e-5, 1.0e-9]
+        #       re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+        #       n: ['log_normal', 4.2, 1.2]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
+        #       center: ['normal', [0.0, 0.0], 0.1]
+        #       q: [ 'uniform', 0.8, 1.0]
+        #       theta: ['normal', 0.0, 10.0]
+
+        mean:
+          sersic_01: # i0*exp(-bn * (r/re)**1/n - 1)
+            ie: ['delta', 1.0, 0.0]
+            re: ['log_normal', 0.8, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+            n: ['log_normal', 4.2, 1.2]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
+            center: ['normal', [0.0, 0.0], 0.1]
+            q: [ 'uniform', 0.8, 1.0]
+            theta: ['normal', 0.0, 10.0]
+        multifrequency:
+          nifty_mf:
+            zero_mode: [-5.2, .1] # normal
+            spatial_amplitude:
+              model: 'matern'
+              scale: [0.01, 0.001]    # lognormal
+              cutoff: [0.1, 0.01]       # lognormal
+              loglogslope: [-7.0, 0.2]  # normal
+            # spectral_amplitude:
+            #   model: 'matern'
+            #   scale: [0.08, 0.01]        # lognormal
+            #   cutoff: [0.1, 0.01]       # lognormal
+            #   loglogslope: [-4.0, 0.1]  # normal
+            spectral_index:
+              mean: [1.8, 0.2]         # normal
+              fluctuations: [0.05, 0.01]  # lognormal 
+            spectral_deviations:
+              process: 'wiener'
+              sigma: [0.5, 0.2]  # lognormal
+
+
+      convergence:
+        mean:
+          piemd:
+            b:
+              distribution: 'log_normal'
+              mean: 1.3
+              sigma: 0.1
+            rs:
+              distribution: 'log_normal'
+              mean: 0.1
+              sigma: 0.05
+            center:
+              distribution: 'normal'
+              mean: 0.0
+              sigma: 0.1
+            q:
+              distribution: 'uniform'
+              min: 1.0
+              max: 1.25
+            theta:
+              distribution: 'normal'
+              mean: 0.0
+              sigma: 10
+
+        perturbations: 
+          cfm:
+            amplitude:
+              offset_mean: 0.0
+              offset_std:
+                - 1.e-1
+                - 1.e-6
+            fluctuations:
+              fluctuations:
+                - 0.5
+                - 5.e-2
+              loglogavgslope:
+                - -6.0
+                - 0.7
+              flexibility:
+                - 0.5
+                - 1.0
+              asperity: null
+                # - 0.1
+                # - 0.5
+
+      deflection:
+        poisson_padding: 2
+        shear:
+          shear:
+            strength:
+              distribution: 'normal'
+              mean: 0
+              sigma: 0.001
+            theta:
+              distribution: 'normal'
+              mean: 0.0
+              sigma: 10
+            center:
+              distribution: null
+              mean: 0.
+              sigma: 0.2
+
+
+telescope:
+  psf:
+    webbpsf_path: './data/JWST/WebbPsf/webbpsf-data-LATEST/'
+    psf_library: './data/JWST/psf_library'
+    psf_arcsec_extension: 3.5
+    # psf_arcsec_extension: 0.5
+
+  zero_flux:
+    default: ['lognormal', 0.9, 4]
+
+    f444w: ['lognormal', 0.5, 1.5]
+    f560w: ['lognormal', 1.5, 1.5]
+    f770w: ['lognormal', 4.0, 1.5]
+    f1000w: ['lognormal', 14.0, 1.5]
+    f1280w: ['lognormal', 25.0, 1.5]
+    f1500w: ['lognormal', 43.0, 1.5]
+    f1800w: ['lognormal', 92.0, 1.5]
+    f2100w: ['lognormal', 226.0, 1.0]
+
+
+  rotation_and_shift:
+    algorithm: 'linear' # 'sparse', 'linear', 'nufft'
+    algorithm_settings:
+      # order: 1
+      # sky_as_brightness: False
+      mode: 'constant'
+    subsample: 3
+
+    correction_priors: # will be ignored in case of sparse
+      rotation_unit: deg
+      shift_unit: arcsec
+      default:
+        rotation: ['normal', 0, 1.0e-3]  # With great power comes great responsibility !!
+        shift: ['normal', 0, 1.0e-1]  # pixel units
+
+      # f1800w:
+      #   0: 
+      #     shift: ['delta', [-0.07028457,  0.18328143], 0]  # pixel units
+      #     rotation: ['delta', -0.00035559, 0]
+      #   1: 
+      #     shift: ['delta', [-0.05657323,  0.1872492], 0] # pixel units
+      #     rotation: ['delta', -6.49715124e-06, 0]
+      #   2: 
+      #     shift: ['delta', [-0.06474998,  0.15730054], 0] # pixel units
+      #     rotation: ['delta', 0.00012915, 0]
+      #   3: 
+      #     shift: ['delta', [-0.11529116,  0.17701877], 0]  # pixel units
+      #     rotation: ['delta', -0.0002315, 0]
+
+      # f560w:
+      #   0: 
+      #     shift: ['delta', [-0.1008292 ,  0.17464179], 0]
+      #     rotation: ['delta', -0.000382430, 0]
+      #   1: 
+      #     shift: ['delta', [-0.10670843,  0.17844675], 0]  # pixel units
+      #     rotation: ['delta', 2.82699153e-06, 0]
+      #   2: 
+      #     shift: ['delta', [-0.10146453,  0.16931726], 0]  # pixel units
+      #     rotation: ['delta', -1.56966302e-05, 0]
+      #   3: 
+      #     shift: ['delta', [-0.08923382,  0.16512098], 0]  # pixel units
+      #     rotation: ['delta', -0.00151674, 0]
+
+      f444w:
+        0: 
+          shift: ['delta', 0, 0]  # pixel units
+          rotation: ['delta', 0, 0]
+        # 1: 
+        #   shift: ['delta', [-0.04078999, -0.01561007], 0]  # pixel units
+        #   rotation: ['delta', -0.00138025, 0]
+
+      # f115w:
+      #   0: 
+      #     shift: ['delta', [-0.0326516 , -0.02044561], 0]  # pixel units
+      #     rotation: ['delta', -0.00121091, 0]
+      #   1: 
+      #     shift: ['delta', [-0.02374914, -0.02818313], 0]  # pixel units
+      #     rotation: ['delta', -1.95823434e-05, 0]
+
+files:
+  res_dir: './results/jwst_lens/cluster/test_01_fourdata'
+  # res_dir: './results/jwst_lens/mfreworked/three_filters_01_test'
+
+  pretrain_path: './results/jwst_lens/mfreworked/all_data_13_HybridMassFromStart/config.yaml'
+
+  filter:
+
+    # f2100w:
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00001_mirimage/jw01355015001_15101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00002_mirimage/jw01355015001_15101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00003_mirimage/jw01355015001_15101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00004_mirimage/jw01355015001_15101_00004_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00005_mirimage/jw01355015001_15101_00005_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00006_mirimage/jw01355015001_15101_00006_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00007_mirimage/jw01355015001_15101_00007_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00008_mirimage/jw01355015001_15101_00008_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00009_mirimage/jw01355015001_15101_00009_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00010_mirimage/jw01355015001_15101_00010_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_cal.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_cal.fits'
+
+    f1800w:
+      - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_cal.fits'
+      - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_cal.fits'
+      - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_cal.fits'
+      - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_cal.fits'
+
+    # f1500w:
+    #   - './data/spt0418/f1500w/jw01355015001_11101_00001_mirimage/jw01355015001_11101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f1500w/jw01355015001_11101_00002_mirimage/jw01355015001_11101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f1500w/jw01355015001_11101_00003_mirimage/jw01355015001_11101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f1500w/jw01355015001_11101_00004_mirimage/jw01355015001_11101_00004_mirimage_cal.fits'
+
+    # f1280w:
+    #   - './data/spt0418/f1280w/jw01355015001_09101_00001_mirimage/jw01355015001_09101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f1280w/jw01355015001_09101_00002_mirimage/jw01355015001_09101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f1280w/jw01355015001_09101_00003_mirimage/jw01355015001_09101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f1280w/jw01355015001_09101_00004_mirimage/jw01355015001_09101_00004_mirimage_cal.fits'
+
+    # f1000w:
+    #   - './data/spt0418/f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_cal.fits'
+
+    # f770w:
+    #   - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f770w/jw01355015001_05101_00002_mirimage/jw01355015001_05101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_cal.fits'
+
+    # f560w: # MIRI
+    #   - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_cal.fits'
+    #   - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_cal.fits'
+
+    f444w: # NIRCam
+      - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_cal.fits'
+      - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_cal.fits'
+
+    # f356w:
+    #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_cal.fits'
+    #   - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_cal.fits'
+
+    # f277w:
+    #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_cal.fits'
+    #   - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_cal.fits'
+
+    # f200w:
+    #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_cal.fits'
+    #   - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_cal.fits'
+
+    # f150w:
+    #   - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_cal.fits'
+    #   - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_cal.fits'
+
+    f115w: # NIRCam
+      - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_cal.fits'
+      - './data/spt0418/f115w/jw01355016001_02101_00002_nrcb4/jw01355016001_02101_00002_nrcb4_cal.fits'
+
+
+minimization:
+    key: 20250103
+    resume: True
+    n_total_iterations: 25
+    pretraining_steps: Null
+
+    delta:
+      switches: [0, 10, 15]
+      values: [5.e-6, 1.e-6, 1.e-7]
+
+    samples:
+      switches: [0, 3, 15, 30]
+      # n_samples: [3]
+      n_samples: [5]
+      mode: [linear_resample, nonlinear_resample, nonlinear_resample, nonlinear_update]
+      # mode: [linear_resample]
+      # Possible modes:
+      # - "linear_sample",
+      # - "linear_resample",
+      # - "nonlinear_sample",
+      # - "nonlinear_resample",
+      # - "nonlinear_update",
+
+
+      # lin_absdelta: [Null, Null, 0.00001]
+      lin_maxiter: [80, 250, 350]
+
+      # nonlin_xtol: [Null, 0.1, 0.01]
+      nonlin_maxiter: [7, 13, 18]
+      # nonlin_cg_atol: [0.1, 0.01]
+      # nonlin_cg_maxiter: [20, 30]
+
+    kl_minimization:
+      switches: [0, 10, 15]
+      # kl_absdelta: [Null, 1.0e-2, 1.0e-4]
+      kl_maxiter: [15, 20, 25]
