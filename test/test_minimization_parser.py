@@ -1,6 +1,6 @@
 import pytest
 
-from jubik0.minimization_parser import (
+from jubik0.minimization.minimization_parser import (
     get_config_value, get_range_index, _delta_logic, n_samples_factory,
     sample_mode_factory, linear_sample_kwargs_factory,
     nonlinearly_update_kwargs_factory, kl_kwargs_factory, MinimizationParser
@@ -96,5 +96,7 @@ class TestMinimizationParser:
         assert parser.sample_mode(0) == 'nonlinear_resample'
         assert parser.draw_linear_kwargs(0)['cg_kwargs']['maxiter'] == 60
         assert parser.nonlinearly_update_kwargs(7)['minimize_kwargs'][
-                   'xtol'] == 1.e-6
+            'xtol'] == 1.e-6
+        # assert parser.nonlinearly_update_kwargs(11)['minimize_kwargs'][
+        #     'maxiter'] == 35
         assert parser.kl_kwargs(0)['minimize_kwargs']['maxiter'] == 10

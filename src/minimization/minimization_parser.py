@@ -204,7 +204,7 @@ def _delta_logic(
     params = {
         'kl': {'variable': 'absdelta', 'factor': ndof},
         'linear': {'variable': 'absdelta', 'factor': ndof / 10
-        if ndof is not None else ndof},
+                   if ndof is not None else ndof},
         'nonlinear': {'variable': 'xtol', 'factor': 1.0}
     }
 
@@ -218,8 +218,8 @@ def _delta_logic(
                          f'iteration {iteration} is not set. '
                          f'A `delta` must be set in the config.')
 
-    delta_value = get_config_value(DELTA_VALUE, delta, delta_switches_index,
-                                   default=None)
+    delta_value = get_config_value(
+        DELTA_VALUE, delta, delta_switches_index, default=None)
 
     if delta_value is None:
         raise ValueError(f'{keyword}: delta value must be set.')
@@ -386,8 +386,8 @@ def linear_sample_kwargs_factory(
         lin_config = linear_kwargs(ii)
         absdelta = lin_config['cg_kwargs']['absdelta']
         if absdelta is None:
-            raise ValueError(f'Linear `absdelta` at iteration {ii+1} '
-                             f'needs to be set.')
+            raise ValueError(
+                f'Linear absdelta at iteration {ii} needs to be set.')
 
     return linear_kwargs
 
@@ -551,6 +551,11 @@ def kl_kwargs_factory(
     return kl_kwargs
 
 
+# TODO: Restructure this into two separate steps:
+#   1. Parsing
+#   2. OptimizeKLStrategy
+
+# TODO: Rename this to OptimizeKLStrategy
 class MinimizationParser:
     """
     Parses a configuration to set up functions for generating minimization
@@ -582,6 +587,39 @@ class MinimizationParser:
         Function returning nonlinear update kwargs for each iteration.
     kl_kwargs : Callable[[int], dict]
         Function returning KL minimization kwargs for each iteration.
+
+    Example Config
+    --------------
+    resume: False
+    n_total_iterations: 15
+
+    delta:
+      switches: [0, 10]
+      values: [5.e-6, 1.e-6]
+
+    samples:
+      switches: [0, 3]
+      n_samples: [5, 7]
+      mode: [linear_resample, nonlinear_resample]
+      # Possible modes:
+      # - "linear_sample",
+      # - "linear_resample",
+      # - "nonlinear_sample",
+      # - "nonlinear_resample",
+      # - "nonlinear_update",
+
+      lin_maxiter: [80, 250]
+      # lin_absdelta: [Null, 0.00001]
+
+      nonlin_maxiter: [7, 13]
+      # nonlin_xtol: [Null, 0.1]
+      # nonlin_cg_atol: [0.1, 0.01]
+      # nonlin_cg_maxiter: [20, 30]
+
+    kl_minimization:
+      switches: [0, 10]
+      kl_maxiter: [7, 15]
+      # kl_absdelta: [Null, 1.0e-2]
     """
 
     def __init__(self, config, n_dof=None, verbose=True):
@@ -598,5 +636,7 @@ class MinimizationParser:
             config, delta, ndof=n_dof, verbose=verbose)
         self.nonlinearly_update_kwargs = nonlinearly_update_kwargs_factory(
             config, delta, verbose=verbose)
-        self.kl_kwargs = kl_kwargs_factory(config, delta,
-                                           ndof=n_dof, verbose=verbose)
+        self.kl_kwargs = kl_kwargs_factory(
+            config, delta, ndof=n_dof, verbose=verbose)
+        self.resume = config.get('resume', False)
+        self.n_total_iterations = config['n_total_iterations']

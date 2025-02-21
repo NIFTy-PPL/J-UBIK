@@ -47,5 +47,5 @@ from .data import (create_mock_data, load_masked_data_from_config,
 from .likelihood import get_n_constrained_dof
 from .diagnostics import calculate_nwr, calculate_uwr
 from .convolve import linpatch_convolve, convolve, slice_patches
-from .minimization_parser import MinimizationParser
+from .minimization.minimization_parser import MinimizationParser
 from .hashcollector import save_local_packages_hashes_to_txt
