@@ -22,6 +22,7 @@ ABSDELTA = 'absdelta'
 MINITER = 'miniter'
 MAXITER = 'maxiter'
 DELTA_VALUE = 'values'
+TOL = 'tol'
 ATOL = 'atol'
 XTOL = 'xtol'
 NONLIN = 'nonlin'
@@ -369,7 +370,7 @@ def linear_sample_kwargs_factory(
         absdelta_name = f'{LIN}_{ABSDELTA}'
         miniter_name = f'{LIN}_{MINITER}'
         maxiter_name = f'{LIN}_{MAXITER}'
-        xtol_name = f'{LIN}_{XTOL}'
+        tol_name = f'{LIN}_{TOL}'
         atol_name = f'{LIN}_{ATOL}'
 
         minit = get_config_value(
@@ -378,10 +379,10 @@ def linear_sample_kwargs_factory(
             maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
         absdelta = get_config_value(
             absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
+        tol = get_config_value(
+            tol_name, mini_cfg[SAMPLES], range_index, default=None)
         atol = get_config_value(
             atol_name, mini_cfg[SAMPLES], range_index, default=None)
-        xtol = get_config_value(
-            xtol_name, mini_cfg[SAMPLES], range_index, default=None)
 
         absdelta = _delta_logic(LIN, delta, absdelta, iteration,
                                 delta_range_index, ndof, verbose)
@@ -391,8 +392,8 @@ def linear_sample_kwargs_factory(
             cg_kwargs=dict(
                 name=None,
                 absdelta=absdelta,
+                tol=tol,
                 atol=atol,
-                xtol=xtol,
                 miniter=minit,
                 maxiter=maxit)
             )
@@ -459,11 +460,15 @@ def nonlinearly_update_kwargs_factory(
                             delta_range_index, verbose)
 
         cg_delta_name = f'{NONLIN_CG}_{ABSDELTA}'
+        cg_tol_name = f'{NONLIN_CG}_{TOL}'
         cg_atol_name = f'{NONLIN_CG}_{ATOL}'
         cg_miniter_name = f'{NONLIN_CG}_{MINITER}'
         cg_maxiter_name = f'{NONLIN_CG}_{MAXITER}'
+
         cg_delta = get_config_value(
             cg_delta_name, mini_cfg[SAMPLES], range_index, default=None)
+        cg_tol = get_config_value(
+            cg_tol_name, mini_cfg[SAMPLES], range_index, default=None)
         cg_atol = get_config_value(
             cg_atol_name, mini_cfg[SAMPLES], range_index, default=None)
         cg_minit = get_config_value(
@@ -480,6 +485,7 @@ def nonlinearly_update_kwargs_factory(
                 cg_kwargs=dict(
                     name=NONLIN_CG,
                     absdelta=cg_delta,
+                    tol=cg_tol,
                     atol=cg_atol,
                     miniter=cg_minit,
                     maxiter=cg_maxit
