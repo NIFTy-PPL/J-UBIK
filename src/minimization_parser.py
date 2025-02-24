@@ -22,6 +22,7 @@ ABSDELTA = 'absdelta'
 MINITER = 'miniter'
 MAXITER = 'maxiter'
 DELTA_VALUE = 'values'
+TOL = 'tol'
 ATOL = 'atol'
 XTOL = 'xtol'
 NONLIN = 'nonlin'
@@ -29,6 +30,8 @@ NONLIN_NAME = 'nonlin sampling'
 NONLIN_CG = 'nonlin_cg'
 KL_MINI = 'kl_minimization'
 KL = 'kl'
+KL_NAME = 'kl'
+KL_CG = 'kl_cg'
 
 
 def get_config_value(
@@ -202,10 +205,10 @@ def _delta_logic(
     iteration += 1  # iteration index changes during OptVI update
 
     params = {
-        'kl': {'variable': 'absdelta', 'factor': ndof},
-        'linear': {'variable': 'absdelta', 'factor': ndof / 10
+        KL: {'variable': ABSDELTA, 'factor': ndof},
+        LIN: {'variable': ABSDELTA, 'factor': ndof / 10
         if ndof is not None else ndof},
-        'nonlinear': {'variable': 'xtol', 'factor': 1.0}
+        NONLIN: {'variable': XTOL, 'factor': 1.0}
     }
 
     param = params.get(keyword)
@@ -367,6 +370,8 @@ def linear_sample_kwargs_factory(
         absdelta_name = f'{LIN}_{ABSDELTA}'
         miniter_name = f'{LIN}_{MINITER}'
         maxiter_name = f'{LIN}_{MAXITER}'
+        tol_name = f'{LIN}_{TOL}'
+        atol_name = f'{LIN}_{ATOL}'
 
         minit = get_config_value(
             miniter_name, mini_cfg[SAMPLES], range_index, default=None)
@@ -374,13 +379,24 @@ def linear_sample_kwargs_factory(
             maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
         absdelta = get_config_value(
             absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
+        tol = get_config_value(
+            tol_name, mini_cfg[SAMPLES], range_index, default=None)
+        atol = get_config_value(
+            atol_name, mini_cfg[SAMPLES], range_index, default=None)
 
-        absdelta = _delta_logic('linear', delta, absdelta, iteration,
+        absdelta = _delta_logic(LIN, delta, absdelta, iteration,
                                 delta_range_index, ndof, verbose)
 
         return dict(
             cg_name=LIN_NAME,
-            cg_kwargs=dict(absdelta=absdelta, miniter=minit, maxiter=maxit))
+            cg_kwargs=dict(
+                name=None,
+                absdelta=absdelta,
+                tol=tol,
+                atol=atol,
+                miniter=minit,
+                maxiter=maxit)
+            )
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         lin_config = linear_kwargs(ii)
@@ -440,15 +456,19 @@ def nonlinearly_update_kwargs_factory(
         xtol = get_config_value(
             absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
 
-        xtol = _delta_logic('nonlinear', delta, xtol, iteration,
+        xtol = _delta_logic(NONLIN, delta, xtol, iteration,
                             delta_range_index, verbose)
 
         cg_delta_name = f'{NONLIN_CG}_{ABSDELTA}'
+        cg_tol_name = f'{NONLIN_CG}_{TOL}'
         cg_atol_name = f'{NONLIN_CG}_{ATOL}'
         cg_miniter_name = f'{NONLIN_CG}_{MINITER}'
         cg_maxiter_name = f'{NONLIN_CG}_{MAXITER}'
+
         cg_delta = get_config_value(
             cg_delta_name, mini_cfg[SAMPLES], range_index, default=None)
+        cg_tol = get_config_value(
+            cg_tol_name, mini_cfg[SAMPLES], range_index, default=None)
         cg_atol = get_config_value(
             cg_atol_name, mini_cfg[SAMPLES], range_index, default=None)
         cg_minit = get_config_value(
@@ -465,6 +485,7 @@ def nonlinearly_update_kwargs_factory(
                 cg_kwargs=dict(
                     name=NONLIN_CG,
                     absdelta=cg_delta,
+                    tol=cg_tol,
                     atol=cg_atol,
                     miniter=cg_minit,
                     maxiter=cg_maxit
@@ -523,23 +544,47 @@ def kl_kwargs_factory(
         absdelta_name = f'{KL}_{ABSDELTA}'
         miniter_name = f'{KL}_{MINITER}'
         maxiter_name = f'{KL}_{MAXITER}'
+        xtol_name = f'{KL}_{XTOL}'
+
         minit = get_config_value(
             miniter_name, mini_cfg[KL_MINI], range_index, default=None)
         maxit = get_config_value(
             maxiter_name, mini_cfg[KL_MINI], range_index, default=None)
         absdelta = get_config_value(
             absdelta_name, mini_cfg[KL_MINI], range_index, default=None)
+        xtol = get_config_value(
+            xtol_name, mini_cfg[KL_MINI], range_index, default=None)
 
-        absdelta = _delta_logic('kl', delta, absdelta, iteration,
+        absdelta = _delta_logic(KL, delta, absdelta, iteration,
                                 delta_range_index, ndof, verbose)
+
+        cg_absdelta_name = f'{KL_CG}_{ABSDELTA}'
+        cg_atol_name = f'{KL_CG}_{ATOL}'
+        cg_miniter_name = f'{KL_CG}_{MINITER}'
+        cg_maxiter_name = f'{KL_CG}_{MAXITER}'
+        cg_atol = get_config_value(
+            cg_atol_name, mini_cfg[SAMPLES], range_index, default=None)
+        cg_absdelta = get_config_value(
+            cg_absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
+        cg_minit = get_config_value(
+            cg_miniter_name, mini_cfg[SAMPLES], range_index, default=None)
+        cg_maxit = get_config_value(
+            cg_maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
 
         return dict(
             minimize_kwargs=dict(
-                name=KL,
+                name=KL_NAME,
                 absdelta=absdelta,
                 miniter=minit,
                 maxiter=maxit,
-                cg_kwargs=dict(name=f'{KL}CG')
+                xtol=xtol,
+                cg_kwargs=dict(
+                    name=KL_CG,
+                    absdelta=cg_absdelta,
+                    atol=cg_atol,
+                    miniter=cg_minit,
+                    maxiter=cg_maxit
+                )
             ))
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
