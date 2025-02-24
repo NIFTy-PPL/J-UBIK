@@ -18,35 +18,35 @@ class CoordinateSystemModel:
 
     @classmethod
     def from_yaml_dict(cls, grid_config: dict):
-        frame = grid_config.get(FRAME_KEY, FRAME_DEFAULT)
-        equinox = grid_config.get(FRAME_KEY)
+        frame = grid_config.get(FRAME_KEY, FRAME_DEFAULT).lower()
+        equinox = grid_config.get(FRAME_EQUINOX_KEY)
 
+        _check_if_implemented(frame)
         coordinate_system = getattr(CoordinateSystems, frame)
-        _check_if_implemented(coordinate_system)
 
         if (
             (equinox is not None) and
             (coordinate_system in [
-             CoordinateSystems.fk4, CoordinateSystems.f55])
+             CoordinateSystems.fk4, CoordinateSystems.fk5])
         ):
-            coordinate_system.equinox = equinox
+            coordinate_system.value.equinox = equinox
 
         return coordinate_system.value
 
     @classmethod
     def from_config_parser(cls, grid_config: ConfigParser):
-        frame = grid_config.get(FRAME_KEY, FRAME_DEFAULT)
-        equinox = grid_config.get(FRAME_KEY)
+        frame = grid_config.get(FRAME_KEY, FRAME_DEFAULT).lower()
+        equinox = grid_config.get(FRAME_EQUINOX_KEY)
 
+        _check_if_implemented(frame)
         coordinate_system = getattr(CoordinateSystems, frame)
-        _check_if_implemented(coordinate_system)
 
         if (
             (equinox is not None) and
             (coordinate_system in [
-             CoordinateSystems.fk4, CoordinateSystems.f55])
+             CoordinateSystems.fk4, CoordinateSystems.fk5])
         ):
-            coordinate_system.equinox = equinox
+            coordinate_system.value.equinox = equinox
 
         return coordinate_system.value
 
@@ -68,7 +68,7 @@ class CoordinateSystems(Enum):
 
 
 def _check_if_implemented(coordinate_system: str):
-    if coordinate_system not in CoordinateSystems:
+    if coordinate_system not in {cs.name for cs in CoordinateSystems}:
         raise ValueError(f"Unsupported coordinate system: {coordinate_system}."
                          f"Supported systems {[c for c in CoordinateSystems]}")
 

@@ -48,4 +48,5 @@ def resolve_point_sources(
                 pts_model = jft.Model(pts_func, domain=dom)
                 additional = {}
                 return pts_model, additional
+
     raise NotImplementedError("FIXME: Not Implemented for selected mode.")
