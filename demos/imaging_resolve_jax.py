@@ -6,8 +6,9 @@ import resolve as rve_old
 import jubik0.instruments.resolve as rve
 import jubik0.instruments.resolve.re as jrve
 
-from jubik0.parse.sky_model.resolve_sky import ResolvePointSourcesModel
-from jubik0.sky_model.resolve_sky import _spatial_dom, sky_model_points
+from jubik0.parse.sky_model.resolve_point_sources import ResolvePointSourcesModel
+from jubik0.sky_model.resolve_sky import _spatial_dom
+from jubik0.sky_model.resolve_point_sources import resolve_point_sources
 
 from jubik0.parse.instruments.resolve.response import (
     SkyDomain, Ducc0Settings, FinufftSettings)
@@ -37,26 +38,22 @@ seed = 42
 key = random.PRNGKey(seed)
 
 
-obs = rve.Observation.load("CYG-ALL-2052-2MHZ_RESOLVE_float64.npz")
+cfg = configparser.ConfigParser()
+cfg.read("./demos/configs/cygnusa_2ghz.cfg")
+
+
+obs = rve.Observation.load(
+    "./data/resolve_test/CYG-ALL-2052-2MHZ_RESOLVE_float64.npz")
 obs = obs.restrict_to_stokesi()
 obs = obs.average_stokesi()
 # scale weights, as they are wrong for this specific dataset
 obs._weight = 0.1 * obs._weight
-cfg = configparser.ConfigParser()
-cfg.read("cygnusa_2ghz.cfg")
-
-
-sky_dom = _spatial_dom(cfg['sky'])
-rpsm = ResolvePointSourcesModel.cfg_to_resolve_point_sources(cfg["sky"])
-point_model, _ = sky_model_points(sky_dom, rpsm)
-exit()
 
 sky, additional = jrve.sky_model(cfg["sky"])
 
 
 sky_sp = rve_old.sky_model._spatial_dom(cfg["sky"])
 sky_dom = rve_old.default_sky_domain(sdom=sky_sp)
-
 
 sky_domain = SkyDomain(npix_x=sky_sp.shape[0],
                        npix_y=sky_sp.shape[1],

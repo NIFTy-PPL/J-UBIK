@@ -9,11 +9,6 @@ from ..wcs.wcs_astropy import resolve_str_to_quantity
 
 
 @dataclass
-class ResolveSkyModel:
-    pass
-
-
-@dataclass
 class RelativePointLocations:
     locations: list[tuple[u.Quantity, u.Quantity]]
 
@@ -23,7 +18,7 @@ class RelativePointLocations:
         for xy in locations.split(","):
             x, y = xy.split("$")
             ppos.append((resolve_str_to_quantity(x).to(u.rad),
-                        resolve_str_to_quantity(y).to(u.rad)))
+                         resolve_str_to_quantity(y).to(u.rad)))
         return RelativePointLocations(ppos)
 
     def to_indices(self, sky_dom: ift.RGSpace, unit: u.Unit = u.rad):
@@ -32,8 +27,7 @@ class RelativePointLocations:
                 for pos in self.locations]
         dx = np.array(sky_dom.distances)
         center = np.array(sky_dom.shape) // 2
-        return np.unique(
-            np.round(ppos / dx + center).astype(int).T, axis=1)
+        return np.unique(np.round(ppos / dx + center).astype(int).T, axis=1)
 
 
 @dataclass
@@ -44,7 +38,7 @@ class ResolvePointSourcesModel:
 
     freq_mode: str = 'single'
     polarization: str = 'I'
-    mode: str = 'single'
+    mode: str = 'fixed_locations'
 
     @classmethod
     def cfg_to_resolve_point_sources(cls, cfg: ConfigParser):
@@ -54,12 +48,15 @@ class ResolvePointSourcesModel:
         ----------
         freq mode: str (`single` default) # TODO: Add more options
         polarization: str (`I` default) # TODO: Add more options
-        point source mode: str (`single` default) # TODO: Add more options
+        point source mode: str (`fixed_locations` default) # TODO: Add more options
+            Note: The legacy `single` parameter has been renamed to 
+            `fixed_locations`.
         point sources a: float
             The `a` parameter of the InverseGamma model.
         point sources scale: float
             The `scale` parameter of the InverseGamma model.
         '''
+
         FREQ_MODE_KEY = "freq mode"
         POLARIZATION_KEY = 'polarization'
         MODE_KEY = 'point sources mode'
@@ -69,13 +66,15 @@ class ResolvePointSourcesModel:
 
         freq_mode = cfg.get(FREQ_MODE_KEY, 'single')
         polarization = cfg.get(POLARIZATION_KEY, 'I')
-        mode = cfg.get(MODE_KEY, 'single')
+        mode = cfg.get(MODE_KEY, 'fixed_locations')
+        if mode == 'single':
+            mode = 'fixed_locations'
 
         if freq_mode != 'single':
             raise NotImplementedError
         if polarization != 'I':
             raise NotImplementedError
-        if mode != 'single':
+        if mode != 'fixed_locations':
             raise NotImplementedError
 
         locations = RelativePointLocations.cfg_to_relative_locations(
