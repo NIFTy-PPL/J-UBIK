@@ -1,6 +1,4 @@
-from .coordinate_system import (
-    yaml_to_frame_name, CoordinateSystemModel, yaml_to_coordinate_system,
-    cfg_to_coordinate_system)
+from .coordinate_system import yaml_to_frame_name, CoordinateSystemModel
 
 from dataclasses import dataclass
 from typing import Union
@@ -59,7 +57,7 @@ def yaml_to_wcs_model(grid_config: dict) -> WcsModel:
     shape = _yaml_to_shape(grid_config)
     fov = _yaml_to_fov(grid_config)
     rotation = _yaml_to_rotation(grid_config)
-    coordinate_system = yaml_to_coordinate_system(grid_config)
+    coordinate_system = CoordinateSystemModel.from_yaml_dict(grid_config)
 
     return WcsModel(
         center=center,
@@ -84,7 +82,7 @@ def cfg_to_wcs_model(grid_config: dict) -> WcsModel:
     shape = _cfg_to_shape(grid_config)
     fov = _cfg_to_fov(grid_config)
     rotation = _cfg_to_rotation(grid_config)
-    coordinate_system = cfg_to_coordinate_system(grid_config)
+    coordinate_system = CoordinateSystemModel.from_config_parser(grid_config)
 
     return WcsModel(
         center=center,
