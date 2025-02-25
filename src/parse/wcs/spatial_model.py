@@ -26,10 +26,8 @@ class SpatialModel:
             The configuration dictionary containing the following keys:
             - `sky_center`: World coordinate of the spatial grid center.
             - `fov`: Field of view of the grid in appropriate units.
-            - `fov_unit`: (Optional) unit for the fov.
             - `sdim`: Shape of the grid, i.e. resolution, as (sdim, sdim).
             - `rotation`: Rotation of the grid.
-            - `rotation_unit`: (Optional) unit for the rotation.
             - `energy_bin`: Holding `e_min`, `e_max`, and `reference_bin`.
             - `energy_unit`: The units for `e_min` and `e_max`
 

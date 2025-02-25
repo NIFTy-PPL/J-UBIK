@@ -21,7 +21,9 @@ def _get_rotation(
     """Get the rotation from the grid_config."""
 
     rotation = u.Quantity(grid_config.get(rotation_key, ROTATION_DEFAULT))
-    assert rotation.unit != u.dimensionless_unscaled
+    assert rotation.unit != u.dimensionless_unscaled, (
+        f'`{rotation_key}` should carry a unit.'
+    )
 
     return rotation
 

@@ -20,7 +20,9 @@ class SkyCenter:
         default: u.Quantity
     ) -> u.Quantity:
         val = u.Quantity(sky_cfg.get(key,  default))
-        assert val.unit != u.dimensionless_unscaled
+        assert val.unit != u.dimensionless_unscaled, (
+            f'`{key}` should carry a unit.'
+        )
         return val
 
     @classmethod
