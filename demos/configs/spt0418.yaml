@@ -197,7 +197,7 @@ sky:
                 - 5.e-2
               loglogavgslope:
                 - -6.0
-                - 0.7
+                - 0.9
               flexibility:
                 - 0.5
                 - 1.0
@@ -303,8 +303,7 @@ telescope:
       #     rotation: ['delta', -1.95823434e-05, 0]
 
 files:
-  res_dir: './results/jwst_lens/cluster/test_02_threedata'
-  # res_dir: './results/jwst_lens/mfreworked/three_filters_01_test'
+  res_dir: './results/jwst_lens/cluster/test_04_threedata'
 
   pretrain_path: './results/jwst_lens/mfreworked/all_data_13_HybridMassFromStart/config.yaml'
 
