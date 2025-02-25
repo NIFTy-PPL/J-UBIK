@@ -7,7 +7,7 @@
 from .wcs_base import WcsBase
 from ..parse.wcs.coordinate_system import (
     CoordinateSystemModel, CoordinateSystems)
-from ..parse.wcs.wcs_astropy import WcsModel
+from ..parse.wcs.spatial_model import SpatialModel
 
 import numpy as np
 
@@ -54,8 +54,7 @@ class WcsAstropy(WCS, WcsBase):
 
         self.shape = shape
         self.fov = fov
-        self.distances = [
-            f.to(u.deg)/s for f, s in zip(fov, shape)]
+        self.distances = [f.to(u.deg)/s for f, s in zip(fov, shape)]
         self.center = center
 
         # Calculate rotation matrix
@@ -102,13 +101,13 @@ class WcsAstropy(WCS, WcsBase):
         super().__init__(header)
 
     @classmethod
-    def from_wcs_model(cls, wcs_model: WcsModel):
+    def from_spatial_model(cls, spatial_model: SpatialModel):
         return WcsAstropy(
-            wcs_model.center,
-            wcs_model.shape,
-            wcs_model.fov,
-            wcs_model.rotation,
-            wcs_model.coordinate_system,
+            spatial_model.wcs_model.center,
+            spatial_model.shape,
+            spatial_model.fov,
+            spatial_model.wcs_model.rotation,
+            spatial_model.wcs_model.coordinate_system,
         )
 
     # TODO: Check output axis, RENAME index_from_world_location

@@ -19,21 +19,19 @@ no_interactive_plotting: True
 sky: 
   grid:
     sdim: 384
-    s_padding_ratio: 1.5  # Size of the convergence, i.e. (384*1.5, 6*1.5)
     # NOTE: SHOULD THIS BE HERE?????
+    s_padding_ratio: 1.5  # Size of the convergence, i.e. (384*1.5, 6*1.5)
 
-    fov: 6
-    fov_unit: arcsec
-    rotation: 0
+    fov: 6.0arcsec
+    rotation: 0.0deg
     coordinate_frame: icrs
     sky_center:
-      ra: 64.66543063107049
-      dec: -47.86462563973049
-      unit: deg
+      ra: 64.66543063107049deg
+      dec: -47.86462563973049deg
 
     source_grid:
       sdim: 384
-      fov: 3
+      fov: 3arcsec
       s_padding_ratio: 1.0
 
     energy_unit: eV
@@ -305,7 +303,7 @@ telescope:
       #     rotation: ['delta', -1.95823434e-05, 0]
 
 files:
-  res_dir: './results/jwst_lens/cluster/test_01_fourdata'
+  res_dir: './results/jwst_lens/cluster/test_02_threedata'
   # res_dir: './results/jwst_lens/mfreworked/three_filters_01_test'
 
   pretrain_path: './results/jwst_lens/mfreworked/all_data_13_HybridMassFromStart/config.yaml'
@@ -388,8 +386,8 @@ files:
 
 
 minimization:
-    key: 20250103
-    resume: True
+    key: 20250225
+    resume: False
     n_total_iterations: 25
     pretraining_steps: Null
 

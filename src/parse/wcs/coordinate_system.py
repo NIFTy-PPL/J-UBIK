@@ -14,7 +14,7 @@ class CoordinateSystemModel:
     """Configuration for a coordinate system."""
     ctypes: tuple[str, str]
     radesys: str
-    equinox: Optional[float] = None
+    equinox: Optional[str] = None
 
     @classmethod
     def from_yaml_dict(cls, grid_config: dict):
@@ -58,11 +58,11 @@ class CoordinateSystems(Enum):
 
     fk5 = CoordinateSystemModel(ctypes=('RA---TAN', 'DEC--TAN'),
                                 radesys='FK5',
-                                equinox=2000.0)
+                                equinox='J2000.0')
 
     fk4 = CoordinateSystemModel(ctypes=('RA---TAN', 'DEC--TAN'),
                                 radesys='FK4',
-                                equinox=1950.0)
+                                equinox='B1950.0')
 
     galactic = CoordinateSystemModel(ctypes=('GLON-TAN', 'GLAT-TAN'),
                                      radesys='GALACTIC')

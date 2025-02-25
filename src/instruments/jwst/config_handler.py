@@ -5,6 +5,7 @@
 
 # %
 from ...grid import Grid
+from ...parse.wcs.spatial_model import yaml_dict_to_fov, yaml_dict_to_shape
 from ...hashcollector import save_local_packages_hashes_to_txt
 from ...utils import save_config_copy_easy
 
@@ -84,27 +85,26 @@ def get_grid_extension_from_config(
 
 
 def _parse_insert_spaces(cfg):
-    lens_fov = cfg['grid']['fov']
-    lens_npix = cfg['grid']['sdim']
+    lens_fov = yaml_dict_to_fov(cfg['grid'])
+    lens_npix = yaml_dict_to_shape(cfg['grid'])
     lens_padd = cfg['grid']['s_padding_ratio']
-    lens_npix = (lens_npix, lens_npix)
-    lens_dist = [lens_fov/p for p in lens_npix]
+    lens_distances = [fov.to(u.arcsec).value/pix
+                      for fov, pix in zip(lens_fov, lens_npix)]
     lens_energy_bin = cfg['grid']['energy_bin']
     lens_space = dict(padding_ratio=lens_padd,
                       Npix=lens_npix,
-                      distance=lens_dist,
-                      energy_bin=lens_energy_bin
-                      )
+                      distance=lens_distances,
+                      energy_bin=lens_energy_bin)
 
-    source_fov = cfg['grid']['source_grid']['fov']
-    source_npix = cfg['grid']['source_grid']['sdim']
+    source_fov = yaml_dict_to_fov(cfg['grid']['source_grid'])
+    source_npix = yaml_dict_to_shape(cfg['grid']['source_grid'])
     source_padd = cfg['grid']['source_grid']['s_padding_ratio']
-    source_npix = (source_npix, source_npix)
-    source_dist = [source_fov/p for p in source_npix]
+    source_distances = [fov.to(u.arcsec).value/pix
+                        for fov, pix in zip(source_fov, source_npix)]
     source_energy_bin = cfg['grid']['energy_bin']
     source_space = dict(padding_ratio=source_padd,
                         Npix=source_npix,
-                        distance=source_dist,
+                        distance=source_distances,
                         energy_bin=source_energy_bin,
                         )
 

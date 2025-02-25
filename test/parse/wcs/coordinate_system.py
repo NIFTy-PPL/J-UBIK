@@ -33,7 +33,7 @@ def test_not_implemented():
 
 
 def test_different_equinox():
-    equinox_value = 1990.0
+    equinox_value = 'J1990.0'
     different_equinoxes = dict(
         fk4={FRAME_KEY: 'fk4', FRAME_EQUINOX_KEY: equinox_value},
         fk5={FRAME_KEY: 'fk5', FRAME_EQUINOX_KEY: equinox_value}

@@ -21,7 +21,7 @@ from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
 
 from jubik0.instruments.jwst.plotting.plotting import get_plot, plot_prior
 
-from jubik0.parse.grid import yaml_to_grid_model
+from jubik0.parse.grid import GridModel
 from jubik0.grid import Grid
 
 from sys import exit
@@ -49,7 +49,7 @@ if cfg['no_interactive_plotting']:
     import matplotlib
     matplotlib.use('Agg')
 
-grid = Grid.from_grid_model(yaml_to_grid_model(cfg['sky']['grid']))
+grid = Grid.from_grid_model(GridModel.from_yaml_dict(cfg['sky']['grid']))
 
 # insert_ubik_energy_in_lensing(cfg, zsource=4.2)
 insert_spaces_in_lensing_new(cfg['sky'])
