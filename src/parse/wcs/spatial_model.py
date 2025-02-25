@@ -52,7 +52,7 @@ class SpatialModel:
         '''
 
         shape = _cfg_to_shape(grid_config)
-        fov = _cfg_to_fov(grid_config)
+        fov = _config_parser_to_fov(grid_config)
 
         return SpatialModel(
             shape=shape,
@@ -78,15 +78,17 @@ def yaml_dict_to_shape(grid_config: dict) -> tuple[int, int]:
 
 def yaml_dict_to_fov(grid_config: dict) -> tuple[u.Quantity, u.Quantity]:
     """Get the field of view `fov` from the grid_config."""
+    FOV_KEY = 'fov'
 
-    fov = grid_config['fov']
-    if len(fov) == 2:
+    fov = grid_config[FOV_KEY]
+    if not (isinstance(fov, int) or isinstance(fov, float)) and len(fov) == 2:
         fov = map(u.Quanitity, fov)
     else:
         fov = (u.Quantity(fov),)*2
 
     for f in fov:
-        assert f.unit != u.dimensionless_unscaled
+        assert f.unit != u.dimensionless_unscaled, (
+            f'`{FOV_KEY}` should carry a unit.')
 
     return fov
 
@@ -96,6 +98,30 @@ def _cfg_to_shape(grid_config: dict) -> tuple[int, int]:
     NPIX_X_KEY = 'space npix x'
     NPIX_Y_KEY = 'space npix y'
     return int(grid_config[NPIX_X_KEY]), int(grid_config[NPIX_Y_KEY])
+
+
+def _config_parser_to_fov(grid_config: dict) -> tuple[u.Quantity, u.Quantity]:
+    '''Convert grid config values from cfg to fov in astropy quantities,
+    following the resolve convention.
+
+    Parameters
+    ----------
+    grid_config: dict
+        - "space fov x" : str (Resolve convention)
+        - "space fov y" : str (Resolve convention)
+
+    '''
+    FOV_KEY_X = "space fov x"
+    FOV_KEY_Y = "space fov y"
+
+    fov = (u.Quantity(grid_config[FOV_KEY_X]),
+           u.Quantity(grid_config[FOV_KEY_Y]))
+
+    for f, fov_key in zip(fov, [FOV_KEY_X, FOV_KEY_Y]):
+        assert f.unit != u.dimensionless_unscaled, (
+            f'`{fov_key}` should carry a unit.')
+
+    return fov
 
 
 def resolve_str_to_quantity(s) -> u.Quantity:
@@ -133,27 +159,3 @@ def resolve_str_to_quantity(s) -> u.Quantity:
         if unit == kk:
             return float(s[:nn])*units[kk]
     raise RuntimeError("Unit not understood")
-
-
-def _cfg_to_fov(grid_config: dict) -> tuple[u.Quantity, u.Quantity]:
-    '''Convert grid config values from cfg to fov in astropy quantities,
-    following the resolve convention.
-
-    Parameters
-    ----------
-    grid_config: dict
-        - "space fov x" : str (Resolve convention)
-        - "space fov y" : str (Resolve convention)
-
-    Notes
-    -----
-    Resolve convention
-        "muas": u.microarcsecond,
-        "mas": u.milliarcsecond,
-        "as": u.arcsecond,
-        "amin": u.arcmin,
-        "deg": u.deg,
-        "rad": u.rad,
-    '''
-    return (resolve_str_to_quantity(grid_config["space fov x"]),
-            resolve_str_to_quantity(grid_config["space fov y"]))
