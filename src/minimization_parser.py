@@ -204,7 +204,7 @@ def _delta_logic(
     params = {
         'kl': {'variable': 'absdelta', 'factor': ndof},
         'linear': {'variable': 'absdelta', 'factor': ndof / 10
-        if ndof is not None else ndof},
+                   if ndof is not None else ndof},
         'nonlinear': {'variable': 'xtol', 'factor': 1.0}
     }
 
@@ -539,6 +539,7 @@ def kl_kwargs_factory(
                 absdelta=absdelta,
                 miniter=minit,
                 maxiter=maxit,
+                xtol=1e-12,
                 cg_kwargs=dict(name=f'{KL}CG')
             ))
 
