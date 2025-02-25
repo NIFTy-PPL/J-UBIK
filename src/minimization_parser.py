@@ -14,6 +14,8 @@ SWITCHES = 'switches'
 SAMPLES = 'samples'
 N_SAMPLES = 'n_samples'
 N_TOTAL_ITERATIONS = 'n_total_iterations'
+CONSTANTS = 'constants'
+CONST_KEYS = 'domain_keys'
 MODE = 'mode'
 DELTA = 'delta'
 LIN = 'lin'
@@ -32,7 +34,7 @@ KL_MINI = 'kl_minimization'
 KL = 'kl'
 KL_NAME = 'kl'
 KL_CG = 'kl_cg'
-
+NCG_XTOL_DEFAULT = 1.e-5
 
 def get_config_value(
     key: str,
@@ -454,7 +456,8 @@ def nonlinearly_update_kwargs_factory(
         maxit = get_config_value(
             maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
         xtol = get_config_value(
-            absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
+            absdelta_name, mini_cfg[SAMPLES], range_index,
+            default=NCG_XTOL_DEFAULT)
 
         xtol = _delta_logic(NONLIN, delta, xtol, iteration,
                             delta_range_index, verbose)
@@ -552,8 +555,8 @@ def kl_kwargs_factory(
             maxiter_name, mini_cfg[KL_MINI], range_index, default=None)
         absdelta = get_config_value(
             absdelta_name, mini_cfg[KL_MINI], range_index, default=None)
-        xtol = get_config_value(
-            xtol_name, mini_cfg[KL_MINI], range_index, default=None)
+        xtol = get_config_value(xtol_name, mini_cfg[KL_MINI], range_index,
+            default=NCG_XTOL_DEFAULT)
 
         absdelta = _delta_logic(KL, delta, absdelta, iteration,
                                 delta_range_index, ndof, verbose)
@@ -594,6 +597,49 @@ def kl_kwargs_factory(
                              f"needs to be set.")
 
     return kl_kwargs
+
+
+def constants_factory(
+    mini_cfg: dict,
+) -> Callable[[int], int]:
+    """
+    Creates a Callable that returns a list of domain keys which should be kept
+    constant during minimization at a given iteration.
+
+    Parameters
+    ----------
+    mini_cfg : dict
+        The configuration dictionary containing constant keys information.
+
+    Returns
+    -------
+    Callable[[int], list]
+        A function that takes an iteration number and returns a list of constant
+        domain keys.
+
+    Examples
+    --------
+    >>> mini_cfg = {'constants': {'switches': [0, 5],
+    ...             'domain_keys': [['a', 'b'], None]},
+    ...             'n_total_iterations': 7}
+    >>> constants = constants_factory(mini_cfg)
+    >>> constants(0)
+    ['a', 'b']
+    >>> constants(6)
+    None
+    """
+
+    def constants(iteration: int) -> int:
+        range_index = get_range_index(
+            mini_cfg[CONSTANTS], iteration, mini_cfg[N_TOTAL_ITERATIONS])
+        return get_config_value(CONST_KEYS, mini_cfg[CONSTANTS], range_index,
+                                default=None)
+
+    for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
+        constants(ii)
+    return constants
+
+
 
 
 class MinimizationParser:
