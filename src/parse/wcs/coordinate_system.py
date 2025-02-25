@@ -18,37 +18,38 @@ class CoordinateSystemModel:
 
     @classmethod
     def from_yaml_dict(cls, grid_config: dict):
+        f'''Parsing coordinate system from yaml dict.
+
+        Parameters
+        ----------
+        {FRAME_KEY}: str  (default {FRAME_DEFAULT})
+        {FRAME_EQUINOX_KEY}: float|None (default None)
+        '''
         frame = grid_config.get(FRAME_KEY, FRAME_DEFAULT).lower()
         equinox = grid_config.get(FRAME_EQUINOX_KEY)
 
         _check_if_implemented(frame)
         coordinate_system = getattr(CoordinateSystems, frame)
 
-        if (
-            (equinox is not None) and
-            (coordinate_system in [
-             CoordinateSystems.fk4, CoordinateSystems.fk5])
-        ):
+        if ((equinox is not None) and (coordinate_system in [
+                CoordinateSystems.fk4, CoordinateSystems.fk5])):
             coordinate_system.value.equinox = equinox
+        elif (equinox is not None):
+            raise ValueError('When setting an equinox, one must set either '
+                             '`fk4` or `fk5`.')
 
         return coordinate_system.value
 
     @classmethod
     def from_config_parser(cls, grid_config: ConfigParser):
-        frame = grid_config.get(FRAME_KEY, FRAME_DEFAULT).lower()
-        equinox = grid_config.get(FRAME_EQUINOX_KEY)
+        f'''Parsing coordinate system from ConfigParser.
 
-        _check_if_implemented(frame)
-        coordinate_system = getattr(CoordinateSystems, frame)
-
-        if (
-            (equinox is not None) and
-            (coordinate_system in [
-             CoordinateSystems.fk4, CoordinateSystems.fk5])
-        ):
-            coordinate_system.value.equinox = equinox
-
-        return coordinate_system.value
+        Parameters
+        ----------
+        {FRAME_KEY}: str  (default {FRAME_DEFAULT})
+        {FRAME_EQUINOX_KEY}: float|None (default None)
+        '''
+        return cls.from_yaml_dict(grid_config)
 
 
 class CoordinateSystems(Enum):

@@ -48,3 +48,9 @@ def test_different_equinox():
         cs = CoordinateSystemModel.from_yaml_dict(frame_dict)
         assert cs.equinox == equinox_value
         assert cs.radesys == name.upper()
+
+    failing_system = {FRAME_KEY: 'icrs', FRAME_EQUINOX_KEY: equinox_value}
+    with pytest.raises(ValueError):
+        CoordinateSystemModel.from_yaml_dict(failing_system)
+    with pytest.raises(ValueError):
+        CoordinateSystemModel.from_config_parser(failing_system)
