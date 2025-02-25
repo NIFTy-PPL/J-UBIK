@@ -6,10 +6,6 @@ import resolve as rve_old
 import jubik0.instruments.resolve as rve
 import jubik0.instruments.resolve.re as jrve
 
-from jubik0.parse.sky_model.resolve_point_sources import ResolvePointSourcesModel
-from jubik0.sky_model.resolve_sky import _spatial_dom
-from jubik0.sky_model.resolve_point_sources import resolve_point_sources
-
 from jubik0.parse.instruments.resolve.response import (
     SkyDomain, Ducc0Settings, FinufftSettings)
 

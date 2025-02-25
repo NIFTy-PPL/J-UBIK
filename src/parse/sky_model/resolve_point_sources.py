@@ -5,7 +5,7 @@ import numpy as np
 import astropy.units as u
 import nifty8 as ift
 
-from ..wcs.wcs_astropy import resolve_str_to_quantity
+from ..wcs.spatial_model import resolve_str_to_quantity
 
 
 @dataclass
