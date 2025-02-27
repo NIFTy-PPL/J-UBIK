@@ -17,8 +17,10 @@ from .parse.rotation_and_shift.rotation_and_shift import (
     yaml_to_rotation_and_shift_algorithm_config)
 from .jwst_psf import load_psf_kernel_from_config
 
+# Libraries
 import jax.numpy as jnp
 import nifty8.re as jft
+from nifty8.logger import logger
 
 # std
 from functools import reduce
@@ -87,7 +89,7 @@ def build_jwst_likelihoods(
     likelihoods = []
     for fltname, flt in cfg[files_key]['filter'].items():
         for ii, filepath in enumerate(flt):
-            print(fltname, ii, filepath)
+            logger.info(f'Loading: {fltname} {ii} {filepath}')
 
             # Loading data, std, and mask.
             grid_extension = get_grid_extension_from_config(

@@ -91,9 +91,6 @@ class Color(u.Quantity):
         """
         return Color((1+z)*self.wavelength)
 
-    def __repr__(self):
-        return f'Color({self.energy})'
-
 
 class ColorRange:
     """

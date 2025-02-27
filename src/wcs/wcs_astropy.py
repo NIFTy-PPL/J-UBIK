@@ -21,7 +21,7 @@ from astropy import units as u
 
 class WcsAstropy(WCS, WcsBase):
     """
-    A wrapper around the astropy wcs, in order to define a common interface
+    A wrapper around the astropy.wcs.WCS, in order to define a common interface
     with the gwcs.
     """
 
