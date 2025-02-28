@@ -54,3 +54,18 @@ def test_different_equinox():
         CoordinateSystemModel.from_yaml_dict(failing_system)
     with pytest.raises(ValueError):
         CoordinateSystemModel.from_config_parser(failing_system)
+
+
+def test_coordinate_system_consistency():
+    equinox_value = 'J1990.0'
+    different_equinoxes = dict(
+        icrs={FRAME_KEY: 'icrs'},
+        fk4={FRAME_KEY: 'fk4', FRAME_EQUINOX_KEY: equinox_value},
+        fk5={FRAME_KEY: 'fk5', FRAME_EQUINOX_KEY: equinox_value},
+        galactic={FRAME_KEY: 'galactic'},
+    )
+
+    for name, frame_dict in different_equinoxes.items():
+        created = CoordinateSystemModel.from_yaml_dict(frame_dict)
+        default = getattr(CoordinateSystems, name).value
+        assert default == created
