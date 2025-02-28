@@ -83,7 +83,7 @@ class ResolveSingleFrequencyStokesIDiffuseModel:
 @dataclass
 class ResolveDiffuseSkyModel:
     prefix: str
-    diffuse_config: ResolveSingleFrequencyStokesIDiffuseModel
+    diffuse_config: ResolveSingleFrequencyStokesIDiffuseModel  # TODO : More options
 
     @classmethod
     def from_config_parser(cls, sky_cfg: ConfigParser):

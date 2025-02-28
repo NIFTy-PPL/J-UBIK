@@ -19,7 +19,7 @@ from ....grid import Grid
 from ....wcs import subsample_grid_corners_in_index_grid_non_vstack
 from ....wcs.wcs_base import WcsBase
 
-from ..parse.rotation_and_shift.rotation_and_shift import(
+from ..parse.rotation_and_shift.rotation_and_shift import (
     LinearConfig, NufftConfig, SparseConfig, RotationAndShiftAlgorithm
 )
 

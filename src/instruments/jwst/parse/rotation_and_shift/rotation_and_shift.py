@@ -45,13 +45,13 @@ ALGORITHM_SETTINGS = 'algorithm_settings'
 def yaml_to_rotation_and_shift_algorithm_config(
     rotation_and_shift_config: dict
 ) -> Union[LinearConfig, NufftConfig, SparseConfig]:
-    """Convert a rotation_and_shift_config dictionary into a corresponding
+    f"""Convert a rotation_and_shift_config dictionary into a corresponding
     algorithm config object.
 
     Parameters
     ----------
     rotation_and_shift_config: dict
-        A dictionary containing `algorithm` and `algorithm_settings`.
+        A dictionary containing `{ALGORITHM_KEY}` and `{ALGORITHM_SETTINGS}`.
     """
     algorithm_name = rotation_and_shift_config.get(ALGORITHM_KEY)
     algorithm_settings = rotation_and_shift_config.get(ALGORITHM_SETTINGS, {})
