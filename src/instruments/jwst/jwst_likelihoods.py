@@ -3,10 +3,8 @@ from .config_handler import (get_grid_extension_from_config,)
 
 from .jwst_response import build_jwst_response
 from .jwst_data import (load_jwst_data_mask_std)
-from .jwst_data import JWST_FILTERS
-from ...color import Color, ColorRange
 from ...grid import Grid
-from .filter_projector import FilterProjector
+from .filter_projector import FilterProjector, build_filter_projector
 
 # Parsing
 from .parse.jwst_psf import (yaml_to_psf_kernel_config)
@@ -26,40 +24,6 @@ from nifty8.logger import logger
 from functools import reduce
 from astropy import units as u
 from typing import Union, Optional
-
-
-def build_filter_projector(
-    sky_model: jft.Model,
-    grid: Grid,
-    data_filter_names: list[str],
-    sky_key: str = 'sky',
-) -> FilterProjector:
-    named_color_ranges = {}
-    for name, values in JWST_FILTERS.items():
-        pivot, bw, er, blue, red = values
-        named_color_ranges[name] = ColorRange(
-            Color(red*u.um), Color(blue*u.um))
-
-    keys_and_colors = {}
-    keys_and_index = {}
-    for color_index, grid_color_range in enumerate(grid.spectral):
-        for name in data_filter_names:
-            jwst_filter = named_color_ranges[name.upper()]
-            if grid_color_range.center in jwst_filter:
-                keys_and_colors[name] = grid_color_range
-                keys_and_index[name] = color_index
-
-    filter_projector = FilterProjector(
-        sky_domain=sky_model.target,
-        keys_and_colors=keys_and_colors,
-        keys_and_index=keys_and_index,
-        sky_key=sky_key,
-    )
-
-    for fpt, fpc in filter_projector.target.items():
-        print(fpt, fpc)
-
-    return filter_projector
 
 
 def build_jwst_likelihoods(

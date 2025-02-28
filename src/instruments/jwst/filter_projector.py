@@ -4,10 +4,15 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
+from .jwst_data import JWST_FILTERS
+from ...color import Color, ColorRange
+from ...grid import Grid
+
 import nifty8.re as jft
 
 import numpy as np
 from typing import Optional, Union
+from astropy import units as u
 
 
 def _sorted_keys_and_index(keys_and_colors: dict):
@@ -22,8 +27,8 @@ class FilterProjector(jft.Model):
     defined by color keys.
 
     The FilterProjector class takes a sky domain and a mapping between keys
-    and colors, and applies a projection of input data according to the filters.
-    It supports querying keys based on colors and efficiently applies
+    and colors, and applies a projection of input data according to the
+    filters. It supports querying keys based on colors and efficiently applies
     transformations for multi-channel inputs.
     """
 
@@ -85,3 +90,37 @@ class FilterProjector(jft.Model):
         if self._sky_key is not None:
             x = x[self._sky_key]
         return {key: x[index] for key, index in self.keys_and_index.items()}
+
+
+def build_filter_projector(
+    sky_model: jft.Model,
+    grid: Grid,
+    data_filter_names: list[str],
+    sky_key: str = 'sky',
+) -> FilterProjector:
+    named_color_ranges = {}
+    for name, values in JWST_FILTERS.items():
+        pivot, bw, er, blue, red = values
+        named_color_ranges[name] = ColorRange(
+            Color(red*u.um), Color(blue*u.um))
+
+    keys_and_colors = {}
+    keys_and_index = {}
+    for color_index, grid_color_range in enumerate(grid.spectral):
+        for name in data_filter_names:
+            jwst_filter = named_color_ranges[name.upper()]
+            if grid_color_range.center in jwst_filter:
+                keys_and_colors[name] = grid_color_range
+                keys_and_index[name] = color_index
+
+    filter_projector = FilterProjector(
+        sky_domain=sky_model.target,
+        keys_and_colors=keys_and_colors,
+        keys_and_index=keys_and_index,
+        sky_key=sky_key,
+    )
+
+    for fpt, fpc in filter_projector.target.items():
+        print(fpt, fpc)
+
+    return filter_projector
