@@ -14,6 +14,8 @@ import numpy as np
 from astropy.io import fits
 try:
     import ciao_contrib.runtool as rt
+    import pycrates
+    from coords.chandra import cel_to_chandra
     from paramio import pset
 except ImportError:
     print("Ciao is not sourced or installed. Therefore some operations can't be performed")
@@ -74,27 +76,21 @@ class ChandraObservationInformation():
 
         # 2. get information about the telescope pointing and observation duration
         ###########################################################################
-        self.obsInfo['ra']       = float(rt.dmkeypar(infile=self.obsInfo['event_file'],keyword='RA_NOM',  echo=True))
-        self.obsInfo['dec']      = float(rt.dmkeypar(infile=self.obsInfo['event_file'],keyword='DEC_NOM', echo=True))
-        self.obsInfo['roll']     = float(rt.dmkeypar(infile=self.obsInfo['event_file'],keyword='ROLL_NOM',echo=True))
-        self.obsInfo['duration'] = float(rt.dmkeypar(infile=self.obsInfo['event_file'],keyword='EXPOSURE',echo=True))
+        cr = pycrates.read_file(self.obsInfo["event_file"])
+        self.obsInfo["ra"] = pycrates.get_keyval(cr, "RA_NOM")
+        self.obsInfo["dec"] = pycrates.get_keyval(cr, "DEC_NOM")
+        self.obsInfo["roll"] = pycrates.get_keyval(cr, "ROLL_NOM")
+        self.obsInfo["duration"] = pycrates.get_keyval(cr, "EXPOSURE")
 
         # 2.a) pointing direction in RA and DEC
         #      this should be identical to the nominal pointing direction calculated above
-        rt.dmcoords.punlearn()
-        rt.dmcoords(self.obsInfo['event_file'],
-                    op='msc',
-                    theta=0.0,
-                    phi=0.0,
-                    celfmt='deg',
-                    asol=self.obsInfo['aspect_sol'])
-        self.obsInfo['aim_ra']  = float(rt.dmcoords.ra)
-        self.obsInfo['aim_dec'] = float(rt.dmcoords.dec)
+        self.obsInfo["aim_ra"] = self.obsInfo["ra"]
+        self.obsInfo["aim_dec"] = self.obsInfo["ra"]
 
 
         # 3. define discretization
         ##########################
-        # externally we work with celecstial coordinates but internally with SKY coordinates
+        # externally we work with celestial coordinates but internally with SKY coordinates
         # this makes it easier to deal with the event files which only give sky coordinates
         # for Chandra coordinate system see https://cxc.harvard.edu/contrib/jcm/ncoords.ps
 
@@ -106,20 +102,36 @@ class ChandraObservationInformation():
             dec_center = center[1]
 
         # 3.b) convert the image center to sky coordinates
-        rt.dmcoords.punlearn()
-        rt.dmcoords(self.obsInfo['event_file'],
-                    op='cel',
-                    ra=ra_center,
-                    dec=dec_center,
-                    celfmt='deg',
-                    asol=self.obsInfo['aspect_sol'])
-        self.obsInfo['x_center'] = float(rt.dmcoords.x)
-        self.obsInfo['y_center'] = float(rt.dmcoords.y)
+        header = {
+            name: cr.get_key_value(name)
+            for name in [
+                "TELESCOP",
+                "INSTRUME",
+                "DETNAM",
+                "RA_NOM",
+                "DEC_NOM",
+                "RA_PNT",
+                "DEC_PNT",
+                "ROLL_PNT",
+                "SIM_X",
+                "SIM_Y",
+                "SIM_Z",
+                "DY_AVG",
+                "DZ_AVG",
+                "DTH_AVG",
+            ]
+        }
+
+        chan_coords = cel_to_chandra(header, ra_center, dec_center)
+        self.obsInfo["x_center"] = chan_coords["x"]
+        self.obsInfo["y_center"] = chan_coords["y"]
 
         # 3.c) define range in x and y coordinates
         # note: pixelsize = 0.492 arcsec
         # FIXME really?
-        self.obsInfo['xy_range'] = fov/2/0.492  # full fov / 2 (for half fov) / 0.492 (pixel size)
+        self.obsInfo["xy_range"] = (
+            fov / 2 / chan_coords["pixsize"]
+        )  # full fov / 2 (for half fov) / 0.492 (pixel size)
         self.obsInfo['x_min']    = self.obsInfo['x_center'] - self.obsInfo['xy_range'] 
         self.obsInfo['x_max']    = self.obsInfo['x_center'] + self.obsInfo['xy_range']
         self.obsInfo['y_min']    = self.obsInfo['y_center'] - self.obsInfo['xy_range']
