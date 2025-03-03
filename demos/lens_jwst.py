@@ -1,7 +1,7 @@
 import argparse
 
 import nifty8.re as jft
-from jax import random
+from jax import random, config
 import jax.numpy as jnp
 
 import numpy as np
@@ -27,6 +27,7 @@ from jubik0.grid import Grid
 from sys import exit
 
 SKY_KEY = 'sky'
+config.update('jax_enable_x64', True)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -42,7 +43,7 @@ config_path = args.config
 cfg, results_directory = load_yaml_and_save_info(config_path)
 
 if cfg['cpu']:
-    from jax import config, devices
+    from jax import devices
     config.update('jax_default_device', devices('cpu')[0])
 
 if cfg['no_interactive_plotting']:
