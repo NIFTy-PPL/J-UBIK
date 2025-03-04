@@ -172,8 +172,9 @@ def build_parametric_prior(
 def build_parametric_prior_from_prior_config(
     domain_key: str,
     prior_config: ProbabilityConfig,
-    shape: Tuple[int] = ()
-) -> Callable:
+    shape: Tuple[int] = (),
+    as_model: bool = False,
+) -> Union[Callable, jft.Model]:
     """
     Builds a parametric prior based on the specified distribution and
     transformation.
@@ -238,6 +239,11 @@ def build_parametric_prior_from_prior_config(
 
     if transformation is not None:
         trafo = getattr(jnp, transformation)
-        return jft.wrap(lambda x: trafo(prior(x)), domain_key)
+        func = jft.wrap(lambda x: trafo(prior(x)), domain_key)
+    else:
+        func = jft.wrap(prior, domain_key)
 
-    return jft.wrap(prior, domain_key)
+    if as_model:
+        return jft.Model(func, domain={domain_key: jft.ShapeWithDtype(shape)})
+
+    return func
