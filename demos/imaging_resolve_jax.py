@@ -1,23 +1,23 @@
-import jax
-from jax import numpy as jnp
-
-import nifty8.re as jft
-import resolve as rve_old
+from jubik0.parse.instruments.resolve.response import (
+    SkyDomain, Ducc0Settings, FinufftSettings)
 import jubik0.instruments.resolve as rve
 import jubik0.instruments.resolve.re as jrve
 
-from jubik0.parse.instruments.resolve.response import (
-    SkyDomain, Ducc0Settings, FinufftSettings)
+import nifty8.re as jft
+import resolve as rve_old
 
+import jax
+from jax import numpy as jnp
+from jax import random
+
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
 import configparser
-from jax import random
-
 from sys import exit
-from jax import config, devices
-config.update('jax_default_device', devices('cpu')[0])
+
+jax.config.update('jax_default_device', jax.devices('cpu')[0])
 jax.config.update("jax_enable_x64", True)
 
 
@@ -56,8 +56,8 @@ sky_domain = SkyDomain(npix_x=sky_sp.shape[0],
                        pixsize_x=sky_sp.distances[0],
                        pixsize_y=sky_sp.distances[1],
                        polarization_labels=['I'],
-                       times=[0.],
-                       frequencies=[0.])
+                       times=[-np.inf, np.inf],
+                       frequencies=[-np.inf, np.inf])
 R_new = jrve.InterferometryResponse(
     obs, sky_domain, backend_settings=backend_settings)
 
