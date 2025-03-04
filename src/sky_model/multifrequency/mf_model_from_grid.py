@@ -1,6 +1,6 @@
 from ...grid import Grid
 
-from nifty8.re.library.mf_model import (
+from nifty8.re.library import (
     CorrelatedMultiFrequencySky, build_default_mf_model)
 
 import numpy as np
