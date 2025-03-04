@@ -17,13 +17,6 @@ from ..rotation_and_shift.coordinates_correction import CoordinatesWithCorrectio
 from ..filter_projector import FilterProjector
 from ....grid import Grid
 
-try:
-    from charm_lensing.lens_system import LensSystem
-    from charm_lensing.physical_models.multifrequency_models.colormix_model import (
-        ColorMix)
-except:
-    pass
-
 
 def find_closest_factors(number):
     """
@@ -398,10 +391,12 @@ def build_plot_model_samples(
 
 
 def build_color_components_plotting(
-    sky_model: ColorMix,
+    sky_model,
     results_directory: Optional[str],
     substring='',
 ):
+    from charm_lensing.physical_models.multifrequency_models.colormix_model import (
+        ColorMix)
 
     if not isinstance(sky_model, ColorMix):
         return lambda pos, state=None: None
@@ -492,7 +487,10 @@ def _plot_data_data_model_residuals(
     return ims
 
 
-def get_alpha_nonpar(lens_system: LensSystem):
+def get_alpha_nonpar(lens_system):
+    from charm_lensing.physical_models.multifrequency_models.colormix_model import (
+        ColorMix)
+
     llm, slm = (lens_system.lens_plane_model.light_model.nonparametric,
                 lens_system.source_plane_model.light_model.nonparametric)
 
@@ -541,7 +539,7 @@ def get_alpha_nonpar(lens_system: LensSystem):
 
 
 def build_get_values(
-    lens_system: LensSystem,
+    lens_system,
     parametric: bool,
 ):
     source_model = lens_system.source_plane_model.light_model
@@ -706,7 +704,7 @@ def build_plot_source(
 def build_plot_lens_system(
     results_directory: str,
     plotting_config: dict,
-    lens_system,  # : LensSystem,
+    lens_system,
     grid: Grid,
     lens_light_alpha_nonparametric,
     source_light_alpha_nonparametric,
@@ -846,7 +844,7 @@ def build_plot_lens_system(
 
 
 def rgb_plotting(
-    lens_system: LensSystem,
+    lens_system,
     samples: jft.Samples,
     three_filter_names: tuple[str] = ('f1000w', 'f770w', 'f560w')
 ):

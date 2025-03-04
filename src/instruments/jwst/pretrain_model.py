@@ -11,10 +11,13 @@ import nifty8.re as jft
 import jubik0 as ju
 from .config_handler import insert_spaces_in_lensing_new
 from .plotting.jwst_plotting import FieldPlottingConfig
-from charm_lensing.lens_system import build_lens_system, LensSystem
 
 
-def get_pretrain_samples_and_lens_system(pretrain_path: str) -> tuple[jft.Samples, LensSystem]:
+def get_pretrain_samples_and_lens_system(
+    pretrain_path: str
+) -> tuple[jft.Samples]:
+
+    from charm_lensing.lens_system import build_lens_system
 
     cfg = yaml.load(open(pretrain_path, 'r'), Loader=yaml.SafeLoader)
 
@@ -38,6 +41,7 @@ def get_pretrain_data(pretrain_path: str, full_mass=False):
         - source_light (mean, std)
     for the last iteration and model of the pretrain_path.'''
 
+    from charm_lensing.lens_system import build_lens_system
     cfg = yaml.load(open(pretrain_path, 'r'), Loader=yaml.SafeLoader)
 
     insert_spaces_in_lensing_new(cfg['sky'])
@@ -50,7 +54,8 @@ def get_pretrain_data(pretrain_path: str, full_mass=False):
     with open(last_fn, "rb") as f:
         samples, opt_vi_st = pickle.load(f)
 
-    mass = lens_system.lens_plane_model.convergence_model if full_mass else lens_system.lens_plane_model.convergence_model.parametric
+    mass = (lens_system.lens_plane_model.convergence_model if full_mass
+            else lens_system.lens_plane_model.convergence_model.parametric)
     lens_mass = jft.mean_and_std([mass(s) for s in samples])
 
     lens_light = lens_system.lens_plane_model.light_model
@@ -167,7 +172,7 @@ def pretrain_model(
     return samples
 
 
-def pretrain_lens_system(cfg: dict, lens_system: LensSystem):
+def pretrain_lens_system(cfg: dict, lens_system):
     from matplotlib.colors import LogNorm
 
     if ((cfg['minimization']['pretraining_steps'] is None) or
