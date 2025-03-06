@@ -1,15 +1,16 @@
-from .....parse.instruments.resolve.response import (
+from ....parse.instruments.resolve.response import (
     SkyDomain,
     Ducc0Settings,
     FinufftSettings,
     sky_domain_from_grid,
 )
-from ..response import InterferometryResponse
+
+from ....grid import Grid
+from ..re.response import InterferometryResponse
+from ..data.observation import Observation
 from .sky_beamer import SkyBeamerJft
-from ...data.observation import Observation
 
 import nifty8.re as jft
-from .....grid import Grid
 
 from typing import Union
 
