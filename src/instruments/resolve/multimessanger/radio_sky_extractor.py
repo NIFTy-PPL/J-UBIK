@@ -29,6 +29,7 @@ from typing import Union
 
 
 def build_extract_sky(sky_key: str | None):
+    '''Extract the sky by key.'''
     if sky_key is None:
         return lambda x: x
     return lambda x: x[sky_key]
@@ -60,6 +61,7 @@ def build_radio_slicing(index_of_last_radio_bin: int | None):
 
 
 def build_unit_conversion(sky_unit: u.Unit | None):
+    '''Convert sky to `sky_unit`.'''
     if sky_unit is None:
         return lambda x: x
 
@@ -72,24 +74,36 @@ def build_unit_conversion(sky_unit: u.Unit | None):
 
 
 def resolve_transpose(tree):
+    '''Transpose the spatial axis.'''
+
     return jax.tree.map(lambda x: jnp.transpose(x, (0, 1, 2, 4, 3)), tree)
 
 
-def build_radiofy_sky(target_shape):
-    if len(target_shape) == 2:
+# TODO : This function shouldn't be here but part of the sky models.
+def build_radiofy_sky(sky_domain_shape: tuple[int]):
+    '''Make the output shape of the sky conform to the standard axis:
+    (polarization, time, frequencies, space, space)
+
+    Parameters
+    ----------
+    sky_domain_shape: tuple[int]
+        The shape of the sky domain, i.e. the SkyModel.target.shape.
+    '''
+
+    if len(sky_domain_shape) == 2:
         return lambda tree: jax.tree.map(lambda x: x[None, None, None], tree)
 
-    elif len(target_shape) == 3:
+    elif len(sky_domain_shape) == 3:
         return lambda tree: jax.tree.map(lambda x: x[None, None], tree)
 
-    elif len(target_shape) == 4:
+    elif len(sky_domain_shape) == 4:
         return lambda tree: jax.tree.map(lambda x: x[None], tree)
 
-    elif len(target_shape) == 5:
+    elif len(sky_domain_shape) == 5:
         return lambda tree: jax.tree.map(lambda x: x, tree)
 
     else:
-        raise ValueError(f'Shape: {target_shape} is not compatible with '
+        raise ValueError(f'Shape: {sky_domain_shape} is not compatible with '
                          'radio sky.')
 
 

@@ -17,8 +17,8 @@
 
 from .sky_wcs import build_astropy_wcs
 
-from ...data.observation import Observation
-from ...data.direction import Direction
+from ..data.observation import Observation
+from ..data.direction import Direction
 
 import nifty8.re as jft
 
@@ -31,6 +31,14 @@ from astropy import units as u
 
 from dataclasses import dataclass
 from typing import Callable
+
+
+@dataclass
+class BeamPattern:
+    center_x: float
+    center_y: float
+    beam: ArrayLike
+    direction: Direction
 
 
 class SkyBeamerJft(jft.Model):
@@ -72,14 +80,6 @@ class SkyBeamerJft(jft.Model):
         assert self.domain == other.domain
         bd = self.beam_directions | other.beam_directions
         return self._create_object(self.domain, bd)
-
-
-@dataclass
-class BeamPattern:
-    center_x: float
-    center_y: float
-    beam: ArrayLike
-    direction: Direction
 
 
 def build_jft_sky_beamer(
