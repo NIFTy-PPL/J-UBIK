@@ -21,7 +21,7 @@ from astropy import units as u
 RESOLVE_SKY_UNIT = u.Jy / u.sr
 # This spectral and spatial unit is required for the construction of the
 # sky2vis operator.
-SPECTRAL_UNIT = u.Hz
+RESOLVE_SPECTRAL_UNIT = u.Hz
 
 
 ARCMIN2RAD = np.pi / 60 / 180

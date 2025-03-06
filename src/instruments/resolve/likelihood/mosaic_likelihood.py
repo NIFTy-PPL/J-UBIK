@@ -8,7 +8,7 @@ from ....parse.instruments.resolve.response import (
 from ....grid import Grid
 from ..re.response import InterferometryResponse
 from ..data.observation import Observation
-from .sky_beamer import SkyBeamerJft
+from ..mosaicing.sky_beamer import SkyBeamerJft
 
 import nifty8.re as jft
 
@@ -56,7 +56,7 @@ def build_likelihood_from_sky_beamer(
     return likelihood.amend(response, domain=jft.Vector(sky_beamer.target))
 
 
-def jax_build_mosaic_likelihoods(
+def build_mosaic_likelihoods(
     sky_beamer: SkyBeamerJft,
     observations: list[Observation],
     sky_grid: Grid,

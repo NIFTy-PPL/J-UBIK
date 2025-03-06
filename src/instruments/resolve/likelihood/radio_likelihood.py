@@ -1,6 +1,40 @@
-from ...grid import Grid
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Copyright(C) 2025 Max-Planck-Society
+# Author: Julian Rüstig
+
+
+from ....parse.instruments.resolve.data.data_loading import DataLoading
+from ....parse.instruments.resolve.data.data_modify import ObservationModify
+from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
+from ....parse.instruments.resolve.response import yaml_to_response_settings
+
+from ....grid import Grid
+from ..data.data_loading import load_and_modify_data_from_objects
+from ..multimessanger import build_radio_sky_extractor, build_radio_grid
+from ..mosaicing.sky_beamer import build_jft_sky_beamer
+from ..telescopes.primary_beam import build_primary_beam_pattern_from_beam_pattern_config
+from .mosaic_likelihood import build_mosaic_likelihoods
+
+from ..constants import RESOLVE_SPECTRAL_UNIT
+
+import nifty8.re as jft
+from nifty8.logger import logger
 
 from astropy import units as u
+
+from functools import reduce
 
 
 def build_radio_likelihood(
@@ -11,13 +45,15 @@ def build_radio_likelihood(
     last_radio_bin: int | None,
     sky_key: str = 'sky',
     sky_unit: u.Unit | None = None,
+    direction_key: str = 'PHASE_DIR',
 ):
-    radio_sky_extractor_resolved, radio_grid = build_radio_sky_extractor(
+
+    radio_sky_extractor = build_radio_sky_extractor(
         last_radio_bin,
         sky_model,
-        sky_grid,
         sky_key=sky_key,
         sky_unit=sky_unit)
+    radio_grid = build_radio_grid(last_radio_bin, sky_grid)
 
     response_backend_settings = yaml_to_response_settings(
         cfg['radio_response'])
@@ -30,22 +66,42 @@ def build_radio_likelihood(
     sky_beamers = []
     for data_name in data_names:
         logger.info(f'Loading data: {data_name}')
+
+        dl = DataLoading.from_yaml_dict(cfg['alma_data'][data_name])
+        dm = ObservationModify.from_yaml_dict(cfg['alma_data'][data_name])
         observations = list(load_and_modify_data_from_objects(
             sky_frequencies=radio_grid.spectral.binbounds_in(u.Hz),
-            data_loading=yaml_to_data_loading(cfg['alma_data'][data_name]),
-            observation_modify=yaml_to_observation_modify(
-                cfg['alma_data'][data_name])
-        ))
+            data_loading=dl,
+            observation_modify=dm))
 
-        likelihood, _sky_beamer = build_jax_instrument_likelihood(
-            yaml_to_beam_pattern(cfg['alma_data'][data_name]),
-            data_kw=data_name,
-            sky_shape_with_dtype=radio_sky_extractor_resolved.target,
-            sky_grid=radio_grid,
+        # TODO: The following lines can be simplified.
+
+        beam_func = build_primary_beam_pattern_from_beam_pattern_config(
+            BeamPatternConfig.from_yaml_dict(
+                cfg['alma_data'][data_name]['dish']))
+
+        _sky_beamer = build_jft_sky_beamer(
+            sky_shape_with_dtype=radio_sky_extractor.target,
+            sky_fov=sky_grid.spatial.fov,
+            sky_center=sky_grid.spatial.center,
+            sky_frequency_binbounds=sky_grid.spectral.binbounds_in(
+                RESOLVE_SPECTRAL_UNIT),
             observations=observations,
-            backend_settings=response_backend_settings,
-            direction_key='PHASE_DIR',
+            beam_func=beam_func,
+            direction_key=direction_key,
+            field_name_prefix=data_name,
         )
+
+        _likelihoods = build_mosaic_likelihoods(
+            sky_beamer=_sky_beamer,
+            observations=observations,
+            sky_grid=sky_grid,
+            backend_settings=response_backend_settings,
+            direction_key=direction_key,
+        )
+
+        likelihood = reduce(lambda x, y: x+y, _likelihoods)
+
         likelihoods.append(likelihood)
         sky_beamers.append(_sky_beamer)
         logger.info('')
@@ -55,6 +111,6 @@ def build_radio_likelihood(
 
     # Wrapped call
     sky_beamer = jft.Model(
-        lambda x: _sky_beamer(radio_sky_extractor_resolved(x)),
-        domain=radio_sky_extractor_resolved.domain)
-    return likelihood, sky_beamer, radio_sky_extractor_resolved
+        lambda x: _sky_beamer(radio_sky_extractor(x)),
+        domain=radio_sky_extractor.domain)
+    return likelihood, sky_beamer, radio_sky_extractor

@@ -1,3 +1,20 @@
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Copyright(C) 2025 Max-Planck-Society
+# Author: Julian Rüstig
+
+
 from .sky_wcs import build_astropy_wcs
 
 from ...data.observation import Observation
@@ -14,14 +31,6 @@ from astropy import units as u
 
 from dataclasses import dataclass
 from typing import Callable
-
-
-@dataclass
-class BeamPattern:
-    center_x: float
-    center_y: float
-    beam: ArrayLike
-    direction: Direction
 
 
 class SkyBeamerJft(jft.Model):
@@ -63,6 +72,14 @@ class SkyBeamerJft(jft.Model):
         assert self.domain == other.domain
         bd = self.beam_directions | other.beam_directions
         return self._create_object(self.domain, bd)
+
+
+@dataclass
+class BeamPattern:
+    center_x: float
+    center_y: float
+    beam: ArrayLike
+    direction: Direction
 
 
 def build_jft_sky_beamer(
