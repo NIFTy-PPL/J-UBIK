@@ -5,6 +5,8 @@ import astropy.units as u
 from dataclasses import dataclass
 from typing import Optional, Union
 
+from configparser import ConfigParser
+
 
 @dataclass
 class SkyDomain:
@@ -66,11 +68,41 @@ class Ducc0Settings:
     nthreads: int
     verbosity: int
 
+    @classmethod
+    def from_yaml_dict(cls, yaml_dict: dict):
+        epsilon = yaml_dict[EPSILON_KEY]
+        do_wgridding = yaml_dict[DO_WGRIDDING_KEY]
+        nthreads = yaml_dict[NTHREADS_KEY]
+        verbosity = yaml_dict[VERBOSITY_KEY]
+        return Ducc0Settings(
+            epsilon=epsilon,
+            do_wgridding=do_wgridding,
+            nthreads=nthreads,
+            verbosity=verbosity,
+        )
+
+    @classmethod
+    def from_config_parser(cls, config: ConfigParser):
+        raise NotImplementedError
+
 
 @dataclass
 class FinufftSettings:
     epsilon: float
     no_polarization: bool = False
+
+    @classmethod
+    def from_yaml_dict(cls, yaml_dict: dict):
+        epsilon = yaml_dict[EPSILON_KEY]
+        no_polarization = yaml_dict[POLARIZATION_KEY]
+        return FinufftSettings(
+            epsilon=epsilon,
+            no_polarization=no_polarization
+        )
+
+    @classmethod
+    def from_config_parser(cls, config: ConfigParser):
+        raise NotImplementedError
 
 
 def yaml_to_response_settings(
@@ -82,21 +114,7 @@ def yaml_to_response_settings(
     backend = response_dict[BACKEND_KEY]
 
     if backend in FINUFFT_KEYS:
-        epsilon = response_dict[EPSILON_KEY]
-        no_polarization = response_dict[POLARIZATION_KEY]
-        return FinufftSettings(
-            epsilon=epsilon,
-            no_polarization=no_polarization
-        )
+        return FinufftSettings.from_yaml_dict(response_dict)
 
     elif backend in DUCC_KEYS:
-        epsilon = response_dict[EPSILON_KEY]
-        do_wgridding = response_dict[DO_WGRIDDING_KEY]
-        nthreads = response_dict[NTHREADS_KEY]
-        verbosity = response_dict[VERBOSITY_KEY]
-        return Ducc0Settings(
-            epsilon=epsilon,
-            do_wgridding=do_wgridding,
-            nthreads=nthreads,
-            verbosity=verbosity,
-        )
+        return Ducc0Settings.from_yaml_dict(response_dict)

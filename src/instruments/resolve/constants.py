@@ -12,9 +12,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright(C) 2019-2020 Max-Planck-Society
-# Author: Philipp Arras
+# Author: Philipp Arras, Julian Rüstig
 
 import numpy as np
+from astropy import units as u
+
+
+RESOLVE_SKY_UNIT = u.Jy / u.sr
+
 
 ARCMIN2RAD = np.pi / 60 / 180
 AS2RAD = ARCMIN2RAD / 60
