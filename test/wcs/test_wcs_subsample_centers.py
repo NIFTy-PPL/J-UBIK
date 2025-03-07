@@ -1,6 +1,7 @@
 from jubik0.wcs.wcs_subsample_centers import (
     subsample_grid_centers_in_index_grid_non_vstack
 )
+from functools import partial
 
 import numpy as np
 
@@ -27,6 +28,7 @@ def grid_setup():
 def test_simple():
     grid = grid_setup()
 
+    # Check subsample 1
     xx, yy = grid.spatial.index_grid_from_wl_extrema(
         grid.spatial.world_extrema())
     xxsub, yysub = subsample_grid_centers_in_index_grid_non_vstack(
@@ -35,7 +37,27 @@ def test_simple():
         index_grid_wcs=grid.spatial,
         subsample=1
     )
-    xxsub, yysub = map(np.round, [xxsub, yysub])
+    assert np.allclose(xx, xxsub, atol=1e-5)
+    assert np.allclose(yy, yysub, atol=1e-5)
 
-    assert np.allclose(xx, xxsub)
-    assert np.allclose(yy, yysub)
+    # Check subsample 2
+    xxsub, yysub = subsample_grid_centers_in_index_grid_non_vstack(
+        world_extrema=grid.spatial.world_extrema(),
+        to_be_subsampled_grid_wcs=grid.spatial,
+        index_grid_wcs=grid.spatial,
+        subsample=2)
+    xxsub, yysub = map(partial(np.round, decimals=3), [xxsub, yysub])
+    test_array = np.array(((-0.25, 0.25),)*2)
+    assert np.allclose(xxsub[:2, :2], test_array)
+    assert np.allclose(yysub[:2, :2], test_array.T)
+
+    # Check subsample 3
+    xxsub, yysub = subsample_grid_centers_in_index_grid_non_vstack(
+        world_extrema=grid.spatial.world_extrema(),
+        to_be_subsampled_grid_wcs=grid.spatial,
+        index_grid_wcs=grid.spatial,
+        subsample=3)
+    xxsub, yysub = map(partial(np.round, decimals=3), [xxsub, yysub])
+    test_array = np.array(((-0.333, 0, 0.333),)*3)
+    assert np.allclose(xxsub[:3, :3], test_array)
+    assert np.allclose(yysub[:3, :3], test_array.T)
