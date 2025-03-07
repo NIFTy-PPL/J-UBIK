@@ -3,7 +3,7 @@ prior_samples: False
 plot_results: True
 nonparametric_lens: True
 max_residuals: 4 # 4 for big run
-no_interactive_plotting: True
+no_interactive_plotting: False
 
 
 # Before long run:
