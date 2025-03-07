@@ -82,7 +82,7 @@ def yaml_dict_to_fov(grid_config: dict) -> tuple[u.Quantity, u.Quantity]:
 
     fov = grid_config[FOV_KEY]
     if not (isinstance(fov, int) or isinstance(fov, float)) and len(fov) == 2:
-        fov = map(u.Quanitity, fov)
+        fov = list(map(u.Quantity, fov))
     else:
         fov = (u.Quantity(fov),)*2
 
