@@ -159,7 +159,7 @@ if __name__ == "__main__":
                    output_dir=file_info['res_dir'])
 
     # Load sky model
-    sky_model = ju.SkyModel(config_path)
+    sky_model = ju.SkyModel(cfg)
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
