@@ -27,15 +27,17 @@ from ..multimessanger import build_radio_sky_extractor, build_radio_grid
 from ..mosaicing.sky_beamer import build_jft_sky_beamer
 from ..telescopes.primary_beam import build_primary_beam_pattern_from_beam_pattern_config
 from .mosaic_likelihood import build_likelihood_from_sky_beamer
+from .cast_to_dtype import cast_to_dtype
 
 from ..constants import RESOLVE_SPECTRAL_UNIT
 
 import nifty8.re as jft
 from nifty8.logger import logger
 
+import jax.numpy as jnp
 from astropy import units as u
 
-from functools import reduce
+from functools import reduce, partial
 
 
 def build_radio_likelihood(
@@ -106,6 +108,9 @@ def build_radio_likelihood(
                         sky_beamer=_sky_beamer,
                         sky_domain=sky_domain,
                         backend_settings=response_backend_settings,
+                        cast_to_dtype=partial(
+                            cast_to_dtype, dtype=jnp.float32
+                        ) if o.is_single_precision() else None,
                     ))
 
         likelihood = reduce(lambda x, y: x+y, _likelihoods)

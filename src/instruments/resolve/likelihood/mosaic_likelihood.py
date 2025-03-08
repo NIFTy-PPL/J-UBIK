@@ -10,13 +10,16 @@ from ..mosaicing.sky_beamer import SkyBeamerJft
 
 import nifty8.re as jft
 
+from typing import Callable, Union
+
 
 def build_likelihood_from_sky_beamer(
     observation: Observation,
     field_name: str,
     sky_beamer: SkyBeamerJft,
     sky_domain: SkyDomain,
-    backend_settings: [Ducc0Settings, FinufftSettings],
+    backend_settings: Union[Ducc0Settings, FinufftSettings],
+    cast_to_dtype: Callable | None = None,
 ):
     '''First, builds response operator, which takes the `field_name` from the
     sky_beamer operator and calculates the visibilities corresponding to the
@@ -44,6 +47,8 @@ def build_likelihood_from_sky_beamer(
         backend_settings=backend_settings,
     )
     response = jft.wrap(lambda x: sky2vis(x), field_name)
+    if cast_to_dtype:
+        response = jft.wrap(lambda x: sky2vis(cast_to_dtype(x), field_name))
 
     likelihood = jft.Gaussian(
         observation.vis.val,
