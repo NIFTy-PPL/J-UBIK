@@ -18,14 +18,15 @@
 from ....parse.instruments.resolve.data.data_loading import DataLoading
 from ....parse.instruments.resolve.data.data_modify import ObservationModify
 from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
-from ....parse.instruments.resolve.response import yaml_to_response_settings
+from ....parse.instruments.resolve.response import (yaml_to_response_settings,
+                                                    sky_domain_from_grid)
 
 from ....grid import Grid
 from ..data.data_loading import load_and_modify_data_from_objects
 from ..multimessanger import build_radio_sky_extractor, build_radio_grid
 from ..mosaicing.sky_beamer import build_jft_sky_beamer
 from ..telescopes.primary_beam import build_primary_beam_pattern_from_beam_pattern_config
-from .mosaic_likelihood import build_mosaic_likelihoods
+from .mosaic_likelihood import build_likelihood_from_sky_beamer
 
 from ..constants import RESOLVE_SPECTRAL_UNIT
 
@@ -74,11 +75,9 @@ def build_radio_likelihood(
             data_loading=dl,
             observation_modify=dm))
 
-        # TODO: The following lines can be simplified.
-
+        # TODO: The following lines have to be simplified.
         beam_func = build_primary_beam_pattern_from_beam_pattern_config(
-            BeamPatternConfig.from_yaml_dict(
-                cfg['alma_data'][data_name]['dish']))
+            BeamPatternConfig.from_yaml_dict(cfg['alma_data'][data_name]['dish']))
 
         _sky_beamer = build_jft_sky_beamer(
             sky_shape_with_dtype=radio_sky_extractor.target,
@@ -92,13 +91,22 @@ def build_radio_likelihood(
             field_name_prefix=data_name,
         )
 
-        _likelihoods = build_mosaic_likelihoods(
-            sky_beamer=_sky_beamer,
-            observations=observations,
-            sky_grid=sky_grid,
-            backend_settings=response_backend_settings,
-            direction_key=direction_key,
-        )
+        _likelihoods = []
+        for field_name, beam_direction in _sky_beamer.beam_directions.items():
+            for o in observations:
+                if o.direction_from_key(direction_key) == beam_direction.direction:
+                    sky_domain = sky_domain_from_grid(
+                        sky_grid,
+                        (beam_direction.center_x, beam_direction.center_y)
+                    )
+
+                    _likelihoods.append(build_likelihood_from_sky_beamer(
+                        observation=o,
+                        field_name=field_name,
+                        sky_beamer=_sky_beamer,
+                        sky_domain=sky_domain,
+                        backend_settings=response_backend_settings,
+                    ))
 
         likelihood = reduce(lambda x, y: x+y, _likelihoods)
 
