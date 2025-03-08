@@ -12,7 +12,6 @@ import jubik0 as ju
 from charm_lensing.lens_system import build_lens_system
 # from charm_lensing.physical_models.multifrequency_models.nifty_mf import build_nifty_mf_from_grid
 
-from jubik0.instruments.jwst.pretrain_model import pretrain_lens_system
 from jubik0.instruments.jwst.config_handler import load_yaml_and_save_info
 from jubik0.instruments.jwst.config_handler import (
     insert_spaces_in_lensing_new)
@@ -113,15 +112,6 @@ key = random.PRNGKey(cfg_mini.get('key', 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
-pretrain_position = pretrain_lens_system(cfg, lens_system)
-if pretrain_position is not None:
-    while isinstance(pos_init, jft.Vector):
-        pos_init = pos_init.tree
-
-    for key in pretrain_position.keys():
-        pos_init[key] = pretrain_position[key]
-
-    pos_init = jft.Vector(pos_init)
 
 print(f'Results: {results_directory}')
 samples, state = jft.optimize_kl(

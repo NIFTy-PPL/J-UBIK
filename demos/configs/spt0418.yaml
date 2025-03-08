@@ -305,8 +305,6 @@ telescope:
 files:
   res_dir: './results/jwst_lens/cluster/test_06_resolve'
 
-  pretrain_path: './results/jwst_lens/mfreworked/all_data_13_HybridMassFromStart/config.yaml'
-
   filter:
 
     # f2100w:
@@ -388,7 +386,6 @@ minimization:
     key: 20250225
     resume: False
     n_total_iterations: 25
-    pretraining_steps: Null
 
     delta:
       switches: [0, 10, 15]
@@ -419,4 +416,5 @@ minimization:
     kl_minimization:
       switches: [0, 10, 15]
       # kl_absdelta: [Null, 1.0e-2, 1.0e-4]
+      kl_xtol: 1e-12
       kl_maxiter: [15, 20, 25]
