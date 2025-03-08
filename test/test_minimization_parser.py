@@ -50,9 +50,9 @@ class TestMinimizationParser:
 
     @pytest.mark.parametrize("type, config, switches_index, expected", [
         ('kl', {'values': [0.1, 0.2, 0.3]}, 0, 1.0),
-        ('linear', {'values': [0.1, 0.2, 0.3]}, 0, 0.1),
-        ('linear', {'values': [0.1, 0.2, 0.3]}, 1, 0.2),
-        ('nonlinear', {'values': [0.1, 0.2, 0.3]}, 0, 0.1)
+        ('lin', {'values': [0.1, 0.2, 0.3]}, 0, 0.1),
+        ('lin', {'values': [0.1, 0.2, 0.3]}, 1, 0.2),
+        ('nonlin', {'values': [0.1, 0.2, 0.3]}, 0, 0.1)
     ])
     def test_delta_logic(self, type, config, switches_index, expected):
         assert _delta_logic(type, config, None,

@@ -5,6 +5,7 @@
 # %
 
 from .version import __version__
+from . import enforce_float64
 from .utils import (save_to_pickle, load_from_pickle, get_config, save_to_yaml,
                     copy_config, create_output_directory,
                     save_config_copy_easy,

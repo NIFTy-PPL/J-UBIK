@@ -24,7 +24,7 @@ Next to many useful generic tools and building blocks, JUBIK comes with a series
 ## Installation
 This package can be installed via pip. 
 
-    git clone https://gitlab.mpcdf.mpg.de/ift/j-ubik
+    git clone https://github.com/NIFTy-PPL/J-UBIK
     cd j-ubik
     pip install --user .
 
@@ -80,5 +80,7 @@ In order to make use of the JWST capabilities of the package, you will need to:
 - Install [gwcs](https://gwcs.readthedocs.io/en/latest/#installation).\\
 For more details see `jwst_demo.py` in the `demo/` repository.
 
-**NOTE**: WebbPSF has shown some compatibility issues with the `numexpr` package.
+**NOTE**:
+- Importing `jubik0` sets the floating point precision in jax to `float64`. 
+- WebbPSF has shown some compatibility issues with the `numexpr` package.  
 The current version of the code has been tested successfully on `numexpr version==2.8.4`.

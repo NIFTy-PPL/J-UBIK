@@ -139,6 +139,7 @@ def build_rotation_and_shift_model(
                 sky_dvol=reconstruction_grid.spatial.dvol.value,
                 sub_dvol=data_grid_dvol.value / subsample**2,
                 sky_shape=reconstruction_grid.spatial.shape,
+                sky_distances=reconstruction_grid.spatial.distances,
                 out_shape=out_shape,
                 **vars(algorithm_config),
             )

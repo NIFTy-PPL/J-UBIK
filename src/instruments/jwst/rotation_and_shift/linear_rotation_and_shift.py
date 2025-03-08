@@ -58,8 +58,13 @@ def build_linear_rotation_and_shift(
 
     rotation_and_shift = partial(map_coordinates, order=order, mode=mode)
 
+    # TODO: Check why we need the subsample centers swapped.
+    # 07-03-25: It seems that the linear & finufft interpolation needs the
+    # input points swapped.
+    # Maybe: this comes from the matrix style indexing?
     def rotation_shift_subsample(field, subsample_centers):
         out = rotation_and_shift(field, subsample_centers)
-        return out * flux_conversion
+        # TODO : Strange Transpose
+        return out.T * flux_conversion
 
     return rotation_shift_subsample

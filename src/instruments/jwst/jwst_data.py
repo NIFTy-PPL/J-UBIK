@@ -8,7 +8,8 @@
 from ...color import Color, ColorRange
 from ...grid import Grid
 from ...wcs.wcs_jwst_data import WcsJwstData
-from ...wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
+from ...wcs.wcs_subsample_centers import (
+    subsample_grid_centers_in_index_grid_non_vstack)
 from .masking import get_mask_from_index_centers
 
 from astropy import units
@@ -235,13 +236,10 @@ def load_jwst_data_mask_std(
 
     # TODO: Use a simpler algorithm. Check that its consistent with the
     # subsampling of the rotation and shift model.
-    mask = get_mask_from_index_centers(
-        np.squeeze(subsample_grid_centers_in_index_grid(
-            world_corners,
-            jwst_data.wcs,
-            grid.spatial,
-            1)),
-        grid.spatial.shape)
+
+    centers = subsample_grid_centers_in_index_grid_non_vstack(
+        world_corners, jwst_data.wcs, grid.spatial, 1)
+    mask = get_mask_from_index_centers(centers, grid.spatial.shape)
     mask *= jwst_data.nan_inside_extrema(world_corners)
     data = jwst_data.data_inside_extrema(world_corners)
     std = jwst_data.std_inside_extrema(world_corners)

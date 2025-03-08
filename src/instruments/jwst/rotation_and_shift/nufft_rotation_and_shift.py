@@ -5,19 +5,22 @@
 
 # %%
 
-from typing import Tuple, Callable
-
 from jax.numpy import reshape
 from jax.numpy.fft import ifftshift, ifft2
-from numpy import pi, array
+import numpy as np
 from numpy.typing import ArrayLike
+from astropy.units import Quantity
+
+from typing import Union, Callable
+from functools import reduce
 
 
 def build_nufft_rotation_and_shift(
     sky_dvol: ArrayLike,
     sub_dvol: ArrayLike,
-    sky_shape: Tuple[int, int],
-    out_shape: Tuple[int, int],
+    sky_shape: tuple[int, int],
+    sky_distances: Union[tuple[Quantity, Quantity], tuple[float, float]],
+    out_shape: tuple[int, int],
     sky_as_brightness: bool = False
 ) -> Callable[[ArrayLike], ArrayLike]:
     """
@@ -32,6 +35,9 @@ def build_nufft_rotation_and_shift(
         Typically, the data pixel is subsampled.
     sky_shape: Tuple[int, int]
         The shape of the reconstruction array (sky shape)
+    sky_distances: Tuple[Quantity, Quantity]
+        The sky_distances are needed to check for the consistency of the 
+        `xy_conversion`.
     out_shape: Tuple[int, int]
         The shape of the subsample array.
     sky_as_brightness: bool
@@ -49,8 +55,16 @@ def build_nufft_rotation_and_shift(
     between the sky brightness (flux density) and the flux:
         flux(x, y) = sky(x, y) * sky_dvol
     """
-
     from jax_finufft import nufft2
+
+    if isinstance(sky_distances[0], Quantity):
+        assert reduce(lambda x, y: x.value == y.value, sky_distances)
+    else:
+        assert reduce(lambda x, y: x == y, sky_distances)
+    assert len(sky_distances) == len(out_shape) == len(sky_shape) == 2
+
+    # assert sky_shape[0] == sky_shape[1], 'Not tested yet for other setups'
+    # assert out_shape[0] == out_shape[1], 'Not tested yet for other setups'
 
     # The conversion factor from sky to subpixel
     # (flux = sky_brightness * flux_conversion)
@@ -58,12 +72,17 @@ def build_nufft_rotation_and_shift(
         sky_dvol = 1
     flux_conversion = sub_dvol / sky_dvol
 
-    xy_conversion = 2 * pi / array(sky_shape)[:, None]
+    xy_conversion = 2 * np.pi / np.array(sky_shape)[:, None]
 
+    # TODO: Check why we need the subsample centers swapped.
+    # 07-03-25: It seems that the linear & finufft interpolation needs the
+    # input points swapped.
+    # Maybe: this comes from the matrix style indexing?
     def rotate_shift_subsample(field, subsample_centers):
         f_field = ifftshift(ifft2(field))
         xy_finufft = xy_conversion * subsample_centers.reshape(2, -1)
-        out = nufft2(f_field, xy_finufft[0], xy_finufft[1]).real
+        # TODO : Strange Transpose
+        out = nufft2(f_field, xy_finufft[1], xy_finufft[0]).real
         return reshape(out, out_shape) * flux_conversion
 
     return rotate_shift_subsample
