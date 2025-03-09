@@ -1,4 +1,5 @@
 from astropy import units as u
+from astropy.coordinates import Angle
 
 from dataclasses import dataclass
 from configparser import ConfigParser
@@ -13,18 +14,6 @@ class SkyCenter:
     ra: u.Quantity
     dec: u.Quantity
 
-    @staticmethod
-    def _get_quantity(
-        sky_cfg: dict | ConfigParser,
-        key: str,
-        default: u.Quantity
-    ) -> u.Quantity:
-        val = u.Quantity(sky_cfg.get(key,  default))
-        assert val.unit != u.dimensionless_unscaled, (
-            f'`{key}` should carry a unit.'
-        )
-        return val
-
     @classmethod
     def from_yaml_dict(
         cls,
@@ -34,8 +23,8 @@ class SkyCenter:
         CENTER_DEC_KEY = 'dec'
 
         return SkyCenter(
-            cls._get_quantity(sky_cfg, CENTER_RA_KEY, RA_DEFAULT),
-            cls._get_quantity(sky_cfg, CENTER_DEC_KEY, DEC_DEFAULT)
+            Angle(sky_cfg.get(CENTER_RA_KEY, RA_DEFAULT)),
+            Angle(sky_cfg.get(CENTER_DEC_KEY, DEC_DEFAULT))
         )
 
     @classmethod
@@ -44,6 +33,6 @@ class SkyCenter:
         CENTER_DEC_KEY = 'image center dec'
 
         return SkyCenter(
-            cls._get_quantity(sky_cfg, CENTER_RA_KEY, RA_DEFAULT),
-            cls._get_quantity(sky_cfg, CENTER_DEC_KEY, DEC_DEFAULT)
+            Angle(sky_cfg.get(CENTER_RA_KEY, RA_DEFAULT)),
+            Angle(sky_cfg.get(CENTER_DEC_KEY, DEC_DEFAULT))
         )

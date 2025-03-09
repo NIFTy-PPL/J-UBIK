@@ -37,17 +37,17 @@ def test_assert_unit():
     config_ra_fail = dict(ra='13', dec='13deg')
     config_dec_fail = dict(ra='13deg', dec='13')
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(u.UnitsError):
         SkyCenter.from_yaml_dict(config_ra_fail)
-    with pytest.raises(AssertionError):
+    with pytest.raises(u.UnitsError):
         SkyCenter.from_yaml_dict(config_dec_fail)
 
     config_ra_fail = {'image center ra': '13', 'image center dec': '13deg'}
     config_dec_fail = {'image center ra': '13deg', 'image center dec': '13'}
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(u.UnitsError):
         SkyCenter.from_config_parser(config_ra_fail)
-    with pytest.raises(AssertionError):
+    with pytest.raises(u.UnitsError):
         SkyCenter.from_config_parser(config_dec_fail)
 
 
