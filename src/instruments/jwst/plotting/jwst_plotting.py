@@ -11,11 +11,73 @@ from matplotlib.colors import Normalize, LogNorm
 
 import nifty8.re as jft
 
-from ..mock_data.mock_evaluation import redchi2
-from ..mock_data.mock_plotting import display_text
 from ..rotation_and_shift.coordinates_correction import CoordinatesWithCorrection
 from ..filter_projector import FilterProjector
 from ....grid import Grid
+
+
+def display_text(ax: plt.Axes, text: dict, **kwargs):
+    '''Display text on plot
+    ax: matplotlib axis
+    text: dict or str (default: {'s': str, 'color': 'white'})
+    kwargs:
+    - keyword: str
+        options: 'top_left' (default), 'top_right', 'bottom_left', 'bottom_right'
+    - x_offset_ticker: float (default: 0)
+    - y_offset_ticker: float (default: 0)
+    '''
+    keyword = kwargs.get('keyword', 'top_left')
+    x_offset_ticker = kwargs.get('x_offset_ticker', 0)
+    y_offset_ticker = kwargs.get('y_offset_ticker', 0)
+
+    if type(text) is str:
+        text = dict(
+            s=text,
+            color='white',
+            bbox=dict(facecolor='black', alpha=0.5, edgecolor='none'),
+        )
+
+    if keyword == 'top_left':
+        ax.text(x=0.05 + x_offset_ticker*0.05,
+                y=0.95 - y_offset_ticker*0.05,
+                ha='left',
+                va='top',
+                transform=ax.transAxes,
+                **text)
+    elif keyword == 'top_right':
+        ax.text(x=0.95 - x_offset_ticker*0.05,
+                y=0.95 - y_offset_ticker*0.05,
+                ha='right',
+                va='top',
+                transform=ax.transAxes,
+                **text)
+    elif keyword == 'bottom_left':
+        ax.text(x=0.05 + x_offset_ticker*0.05,
+                y=0.05 + y_offset_ticker*0.05,
+                ha='left',
+                va='bottom',
+                transform=ax.transAxes,
+                **text)
+    elif keyword == 'bottom_right':
+        ax.text(x=0.95 - x_offset_ticker*0.05,
+                y=0.05 + y_offset_ticker*0.05,
+                ha='right',
+                va='bottom',
+                transform=ax.transAxes,
+                **text)
+    else:
+        raise ValueError(
+            "Invalid keyword. Use 'top_left', 'top_right', 'bottom_left', or 'bottom_right'.")
+
+
+def chi2(data, model, std):
+    ''' Computes the chi2 of the model compared to the data.'''
+    return np.nansum(((data - model)/std)**2)
+
+
+def redchi2(data, model, std, dof):
+    ''' Computes the reduced chi2 of the model compared to the data.'''
+    return chi2(data, model, std) / dof
 
 
 def find_closest_factors(number):
