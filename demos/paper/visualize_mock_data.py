@@ -120,10 +120,15 @@ if __name__ == "__main__":
     exposure_corrected_data = exposure_corrected_data.at[mask_data].set(0)
     exposure_corrected_data = exposure_corrected_data.at[mask_exp].set(0)
 
+    sat_min = {'log': [1.2e-9, 1.0e-10, 2.0e-10],
+               "lin": [1e-10, 1e-10, 1e-10]}
+    sat_max = {'log': [2.1e-7, 1.5e-7, 1.5e-7],
+               "lin": [2.3e-8, 1.5e-8, 1.e-8]}
     #### LOG Plot
+
     plot_rgb(exposure_corrected_data,
-             sat_min=[8e-9, 8e-9, 8e-9],
-            sat_max = [8e-8, 5e-8, 3e-8],
+             sat_min=sat_min['log'],
+             sat_max=sat_max['log'],
              log=True,
              title='simulated data', fs=20, pixel_measure=28,
              pixel_factor=2,
@@ -134,8 +139,8 @@ if __name__ == "__main__":
 
     #### Lin Plot
     plot_rgb(exposure_corrected_data,
-             sat_min=[8e-9, 8e-9, 8e-9],
-             sat_max = [8e-8, 5e-8, 3e-8],
+             sat_min=sat_min['lin'],
+             sat_max=sat_min['lin'],
              # log=True,
              title='simulated data', fs=20, pixel_measure=28,
              pixel_factor=2,

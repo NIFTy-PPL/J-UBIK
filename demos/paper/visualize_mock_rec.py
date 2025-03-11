@@ -30,13 +30,17 @@ if __name__ == "__main__":
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
+    sat_min = {'log': [1.2e-9, 1.0e-10, 2.0e-10],
+               "lin": [1e-10, 1e-10, 1e-10]}
+    sat_max = {'log': [2.1e-7, 1.5e-7, 1.5e-7],
+               "lin": [2.3e-8, 1.5e-8, 1.e-8]}
     for key, op in sky_dict.items():
         op = jax.vmap(op)
         real_samples = op(samples.samples)
         real_mean = jnp.mean(real_samples, axis=0)
         bbox_info = [(7, 4), 7, 24, 'black']
         plot_rgb(real_mean,
-                 sat_min=[1e-10, 1e-10, 1e-10],
+                 sat_min=[1e-1,
                  sat_max=[5e-8, 5e-8, 5e-8],
                  sigma=None,
                  title= f'reconstructed {key}', fs=18, pixel_measure=28,
