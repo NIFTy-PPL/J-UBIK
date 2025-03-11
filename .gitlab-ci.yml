@@ -14,10 +14,10 @@ test:
     - pytest test/ --ignore=test/instruments/chandra/
 
 pages:
-  image: sphinxdoc/sphinx
+  image: python:latest
   stage: release
   script:
-    - pip install pydata-sphinx-theme myst-parser
+    - pip install "sphinx<8.2" sphinxcontrib-bibtex pydata-sphinx-theme myst-parser
     - sh docs/generate.sh
     - mv docs/build/ public/
   artifacts:
