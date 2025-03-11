@@ -20,6 +20,7 @@ files:
 
 telescope:
   tm_ids : [1] #, 3, 4, 6]
+  pointing_center: [83.77602098929445, -69.31087419594445]
   rebin: 80 # typical value used in analysis; equals 4 arcsec resolution
   fov: 4096
   pattern: 15

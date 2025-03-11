@@ -34,6 +34,7 @@ if __name__ == "__main__":
     pos = ju.load_from_pickle('paper/pos.pkl')
     factor = 100
     # eROSITA:
+    prior_config_dict = ju.get_config(prior_config_path)
     response_dict = ju.build_erosita_response_from_config(eROSITA_config_name)
     masked_mock_data = response_dict['R'](factor*sky(pos))
     key = random.PRNGKey(67)
@@ -89,13 +90,34 @@ if __name__ == "__main__":
     # Plotting the data
     unmasked_chandra_data2 = mask_adj_func(plottable_vector)
 
+    from astropy import coordinates as coords
+    center = np.array((49.9412, 41.5278))
+    shifted_pointing = np.array((49.8770, 41.6287))
+
+    pointing_stats = coords.SkyCoord(ra=shifted_pointing[0],
+                                   dec=shifted_pointing[1],
+                                   unit='deg',
+                                   frame='icrs')
+    # center with respect to desired pointing center
+    ref_center = coords.SkyCoord(ra=center[0],
+                                 dec=center[1],
+                                 unit='deg',
+                                 frame='icrs') # TODO Check Frame
+    d_centers_astropy = pointing_stats.transform_to(
+        coords.SkyOffsetFrame(origin=ref_center))
+    d_centers = np.array(
+        [d_centers_astropy.lon.arcsec, d_centers_astropy.lat.arcsec]
+    )
+    d_pix = d_centers/4
+    shifted_pointing_pix = (512+d_pix[1], 512-d_pix[0])
+    print(d_pix)
 
     plottabel_data_list = [unmasked_erosita_data[0], unmasked_chandra_data1[0],
                            unmasked_chandra_data2[0]]
     plottable_data = np.vstack(plottabel_data_list)
     title_list = ['eROSITA', 'Chandra', 'Chandra']
     bbox_info = [(7, 4), 28, 96,  'black']
-    pointing_center = [(512, 512), (512, 512), (512, 512)]
+    pointing_center = [(512, 512), (512, 512), shifted_pointing_pix]
     plot(plottable_data,
          pixel_measure=112,
          fs=8,
@@ -106,8 +128,30 @@ if __name__ == "__main__":
          n_rows=1,
          vmin=5e1,
          vmax=5e3,
+         dpi=1500,
          bbox_info=bbox_info,
          pointing_center = pointing_center,
          output_file=join(output_dir,
          f'simulated_data.png'))
+
+    plottabel_data_list = [unmasked_chandra_data1[0],
+                           unmasked_chandra_data2[0]]
+    plottable_chandra_data = np.vstack(plottabel_data_list)
+    title_list = ['Chandra', 'Chandra']
+    pointing_center = [(512, 512), shifted_pointing_pix]
+    plot(plottable_chandra_data,
+         pixel_measure=112,
+         fs=8,
+         title=title_list,
+         logscale=True,
+         colorbar=True,
+         common_colorbar=True,
+         n_rows=1,
+         vmin=5e1,
+         vmax=5e3,
+         dpi=1500,
+         bbox_info=bbox_info,
+         pointing_center = pointing_center,
+         output_file=join(output_dir,
+         f'simulated_data_zoom.png'))
 

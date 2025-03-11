@@ -75,13 +75,10 @@ def build_chandra_response_from_config(config_file_path):
     else:
         psf_list = []
 
-    if not exists(exposure_path) or not exists(psf_path):
-        center_obs_id = tel_info.get('center_obs_id', None)
-        if center_obs_id is not None and center_obs_id in obslist:
-            obslist.remove(center_obs_id)
-            obslist.insert(0, center_obs_id)
 
-        center = None
+    center = tel_info['center']
+
+    if not exists(exposure_path) or not exists(psf_path):
         for i, obsnr in enumerate(obslist):
             # Observation information for both exposure and PSF
             info = ChandraObservationInformation(
@@ -112,8 +109,6 @@ def build_chandra_response_from_config(config_file_path):
                                                Norm=False)
                     tmp_psfs.append(psf_array)
                 psf_list.append(np.moveaxis(np.array(tmp_psfs), 0, 1))
-            if i == 0:
-                center = (info.obsInfo["aim_ra"], info.obsInfo["aim_dec"])
         # Save exposures if they were computed
         if not exists(exposure_path):
             exposures = np.stack(np.array(exposure_list, dtype=int))

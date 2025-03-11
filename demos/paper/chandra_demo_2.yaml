@@ -1,7 +1,7 @@
 # should be structured as eROSITA
 seed: 67
 obs_info:
-  obs11713: # SN1006
+  obs11713:
     obsID: 11713
     data_location: ../data/11713/
     event_file: primary/acisf11713N003_evt2.fits
@@ -9,6 +9,7 @@ obs_info:
     bpix_file: primary/acisf11713_000N003_bpix1.fits
     mask_file: secondary/acisf11713_000N003_msk1.fits
     instrument: ACIS-I
+
 
 grid:
   sdim: 1024
@@ -24,9 +25,12 @@ grid:
       - 0.9
 
 telescope:
-  fov: 2040
+  fov: 4096
   exp_cut: 500
-  center_obs_id:
+  center:
+    - 49.9412
+    - 41.5278
+
 
 files:
   data_dict: 'data.pkl'

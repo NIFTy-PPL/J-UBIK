@@ -1,15 +1,14 @@
 # should be structured as eROSITA
 seed: 67
 obs_info:
-  obs4948: # SN1006
+  obs4948:
     obsID: 4948
-    data_location: ../data/4948/
-    event_file: primary/acisf04948N004_evt2.fits
+    data_location : ../data/4948/
+    event_file    : primary/acisf04948N004_evt2.fits
     aspect_sol: primary/pcadf04948_001N001_asol1.fits
     bpix_file: primary/acisf04948_001N004_bpix1.fits
     mask_file: secondary/acisf04948_001N004_msk1.fits
-    instrument: ACIS-I
-
+    instrument: ACIS-S
 grid:
   sdim: 1024
   edim: 1
@@ -24,9 +23,11 @@ grid:
       - 0.9
 
 telescope:
-  fov: 2040
+  fov: 4096
   exp_cut: 500
-  center_obs_id:
+  center:
+    - 49.9412
+    - 41.5278
 
 files:
   data_dict: 'data.pkl'

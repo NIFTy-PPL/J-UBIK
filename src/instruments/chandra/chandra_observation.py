@@ -428,7 +428,6 @@ class ChandraObservationInformation():
             det_short = 'AS1'
         else:
             print('Invalid detector choice: {:s}'.format(detector_type))
-            exit()
 
         # 2.b) aspect blur
         # https://cxc.cfa.harvard.edu/ciao/why/aspectblur.html (observational foundation)
