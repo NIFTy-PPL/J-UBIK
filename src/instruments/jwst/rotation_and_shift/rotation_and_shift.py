@@ -91,7 +91,7 @@ def build_rotation_and_shift_model(
     subsample: int,
     algorithm_config: Union[LinearConfig, NufftConfig, SparseConfig],
     coordinates: Union[ArrayLike, Callable, CoordinatesWithCorrection],
-) -> Callable[[Union[ArrayLike, Tuple[ArrayLike, ArrayLike]]], ArrayLike]:
+) -> RotationAndShiftModel:
     """Builds a RotationAndShiftModel according to the `algorithm_config`.
 
     Parameters

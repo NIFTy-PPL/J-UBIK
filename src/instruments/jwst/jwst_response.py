@@ -169,7 +169,9 @@ def build_jwst_response(
             world_extrema=world_extrema,
             to_be_subsampled_grid_wcs=data_wcs,
             index_grid_wcs=reconstruction_grid.spatial,
-            subsample=data_subsample)
+            subsample=data_subsample,
+            indexing='xy',
+        )
     )
 
     rotation_and_shift = build_rotation_and_shift_model(

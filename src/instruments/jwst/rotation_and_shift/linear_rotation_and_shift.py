@@ -62,9 +62,10 @@ def build_linear_rotation_and_shift(
     # 07-03-25: It seems that the linear & finufft interpolation needs the
     # input points swapped.
     # Maybe: this comes from the matrix style indexing?
+    # 16-03-25: Yes! always take 'ij' indexing for the subsample centers.
+    # See `test_linear.py`.
     def rotation_shift_subsample(field, subsample_centers):
         out = rotation_and_shift(field, subsample_centers)
-        # TODO : Strange Transpose
-        return out.T * flux_conversion
+        return out * flux_conversion
 
     return rotation_shift_subsample

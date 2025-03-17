@@ -77,6 +77,7 @@ sky_model = jft.Model(jft.wrap_left(sky_model, SKY_KEY),
 likelihood, filter_projector, data_dict = build_jwst_likelihoods(
     cfg, grid, sky_model, sky_key=SKY_KEY)
 
+
 sky_model_with_keys = jft.Model(
     lambda x: filter_projector(sky_model(x)),
     init=sky_model.init

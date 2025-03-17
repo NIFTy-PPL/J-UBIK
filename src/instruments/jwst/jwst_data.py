@@ -141,7 +141,8 @@ class JwstData:
         """
         minx, maxx, miny, maxy = self.wcs.index_from_wl_extrema(
             extrema, self.shape)
-        return self.dm.data[miny:maxy, minx:maxx]
+        # FIXME : Why is this miny on first axis ?
+        return self.dm.data[miny:maxy+1, minx:maxx+1]
 
     def std_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
         """Find the data values inside the extrema.
@@ -159,7 +160,8 @@ class JwstData:
         """
         minx, maxx, miny, maxy = self.wcs.index_from_wl_extrema(
             extrema, self.shape)
-        return self.dm.err[miny:maxy, minx:maxx]
+        # FIXME : Why is this miny on first axis ?
+        return self.dm.err[miny:maxy+1, minx:maxx+1]
 
     def nan_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
         """
@@ -178,9 +180,10 @@ class JwstData:
         """
         minx, maxx, miny, maxy = self.wcs.index_from_wl_extrema(
             extrema, self.shape)
+        # FIXME : Why is this miny on first axis ?
         return (
-            (~np.isnan(self.dm.data[miny:maxy, minx:maxx])) *
-            (~np.isnan(self.dm.err[miny:maxy, minx:maxx]))
+            (~np.isnan(self.dm.data[miny:maxy+1, minx:maxx+1])) *
+            (~np.isnan(self.dm.err[miny:maxy+1, minx:maxx+1]))
         )
 
     @property
@@ -238,10 +241,15 @@ def load_jwst_data_mask_std(
     # subsampling of the rotation and shift model.
 
     centers = subsample_grid_centers_in_index_grid_non_vstack(
-        world_corners, jwst_data.wcs, grid.spatial, 1)
+        world_extrema=world_corners,
+        to_be_subsampled_grid_wcs=jwst_data.wcs,
+        index_grid_wcs=grid.spatial,
+        subsample=1,
+        indexing='xy'
+    )
+    data = jwst_data.data_inside_extrema(world_corners)
     mask = get_mask_from_index_centers(centers, grid.spatial.shape)
     mask *= jwst_data.nan_inside_extrema(world_corners)
-    data = jwst_data.data_inside_extrema(world_corners)
     std = jwst_data.std_inside_extrema(world_corners)
 
     return jwst_data, data, mask, std

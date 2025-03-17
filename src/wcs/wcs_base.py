@@ -101,7 +101,8 @@ class WcsBase(ABC):
     def index_grid_from_wl_extrema(
         self,
         world_extrema: SkyCoord,
-        shape_check: Optional[Tuple[int, int]] = None
+        indexing: str,
+        shape_check: Tuple[int, int] | None = None
     ) -> np.typing.ArrayLike:
         """
         Find the pixel indices of the bounding box that contain the world
@@ -112,6 +113,8 @@ class WcsBase(ABC):
         world_extrema : List[SkyCoord]
             List of SkyCoord objects, representing the world location of the
             reconstruction grid corners.
+        indexing: str
+            Which indexing format for meshgrid, either 'ij' or 'xy'.
         shape_check : Optional[Tuple[int, int]]
             When provided the world_extrema are checked for consistency with
             the underlying data array.
@@ -126,5 +129,6 @@ class WcsBase(ABC):
         minx, maxx, miny, maxy = self.index_from_wl_extrema(
             world_extrema, shape_check)
 
-        return np.array(np.meshgrid(np.arange(minx, maxx, 1),
-                                    np.arange(miny, maxy, 1)))
+        return np.array(np.meshgrid(np.arange(minx, maxx+1, 1),
+                                    np.arange(miny, maxy+1, 1),
+                                    indexing=indexing))

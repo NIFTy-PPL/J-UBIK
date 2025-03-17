@@ -78,11 +78,11 @@ def build_nufft_rotation_and_shift(
     # 07-03-25: It seems that the linear & finufft interpolation needs the
     # input points swapped.
     # Maybe: this comes from the matrix style indexing?
+    # 16-03-25: Yes, always take matrix style indexing (meshgrid='ij')!
     def rotate_shift_subsample(field, subsample_centers):
         f_field = ifftshift(ifft2(field))
         xy_finufft = xy_conversion * subsample_centers.reshape(2, -1)
-        # TODO : Strange Transpose
-        out = nufft2(f_field, xy_finufft[1], xy_finufft[0]).real
+        out = nufft2(f_field, xy_finufft[0], xy_finufft[1]).real
         return reshape(out, out_shape) * flux_conversion
 
     return rotate_shift_subsample

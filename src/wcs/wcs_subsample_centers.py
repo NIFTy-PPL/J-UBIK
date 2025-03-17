@@ -18,7 +18,8 @@ def subsample_grid_centers_in_index_grid_non_vstack(
     world_extrema: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
     to_be_subsampled_grid_wcs: WcsBase,
     index_grid_wcs: WcsBase,
-    subsample: int
+    subsample: int,
+    indexing: str,
 ) -> ArrayLike:
     """
     This function finds the index positions for the centers of a subsampled
@@ -46,10 +47,10 @@ def subsample_grid_centers_in_index_grid_non_vstack(
         each axis.
     """
     tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
-        world_extrema)
+        world_extrema, indexing=indexing)
 
     ps = np.arange(0.5/subsample, 1, 1/subsample) - 0.5
-    ms = np.vstack(np.array(np.meshgrid(ps, ps)).T)
+    ms = np.vstack(np.array(np.meshgrid(ps, ps, indexing=indexing)).T)
 
     subsample_centers = np.zeros((
         tbsg_pixcenter_indices.shape[0],

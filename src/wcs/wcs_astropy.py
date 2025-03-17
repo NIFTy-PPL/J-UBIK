@@ -197,9 +197,10 @@ class WcsAstropy(WCS, WcsBase):
             ext0, ext1 = ext
 
         xmin = -ext0
-        xmax = self.shape[0] + ext1  # - 1 FIXME: Which of the two
+        xmax = self.shape[0] + ext0 - 1
         ymin = -ext1
-        ymax = self.shape[1] + ext1  # - 1
+        ymax = self.shape[1] + ext1 - 1
+
         return self.wl_from_index([
             (xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)])
 
