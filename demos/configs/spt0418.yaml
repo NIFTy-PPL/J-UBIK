@@ -1,7 +1,7 @@
 cpu: False
 prior_samples: False
 plot_results: True
-nonparametric_lens: False
+nonparametric_lens: True
 max_residuals: 4 # 4 for big run
 no_interactive_plotting: False
 
@@ -305,7 +305,7 @@ telescope:
       #     rotation: ['delta', -1.95823434e-05, 0]
 
 files:
-  res_dir: './results/jwst_lens/cluster/test_08_parametriclens'
+  res_dir: './results/jwst_lens/cluster/test_09_nonparametriclens'
 
   filter:
 
@@ -386,7 +386,7 @@ files:
 
 minimization:
     key: 20250225
-    resume: True
+    resume: False
     n_total_iterations: 25
 
     delta:
@@ -397,8 +397,8 @@ minimization:
       switches: [0, 15, 30]
       n_samples: [3]
       # n_samples: [5]
-      mode: [linear_resample, nonlinear_resample, nonlinear_resample, nonlinear_update]
-      # mode: [linear_resample]
+      # mode: [linear_resample, nonlinear_resample, nonlinear_resample, nonlinear_update]
+      mode: [linear_resample]
       # Possible modes:
       # - "linear_sample",
       # - "linear_resample",
