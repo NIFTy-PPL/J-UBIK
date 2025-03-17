@@ -204,41 +204,6 @@ class WcsAstropy(WCS, WcsBase):
         return self.wl_from_index([
             (xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)])
 
-    def index_grid(
-        self,
-        extend_factor=1,
-        to_bottom_left=True
-    ) -> tuple[ArrayLike, ArrayLike]:
-        """
-        Compute the grid of indices for the array.
-
-        Parameters
-        ----------
-        extend_factor : float, optional
-            A factor to increase the grid size. Default is 1 (no extension).
-        to_bottom_left : bool, optional
-            Whether to shift the indices of the extended array such that (0, 0)
-            is aligned with the upper left corner of the unextended array.
-            Default is True.
-
-        Returns
-        -------
-        tuple of ArrayLike
-            The meshgrid of index arrays for the extended grid.
-
-        Example
-        -------
-            un_extended = (0, 1, 2)
-            extended_centered = (-1, 0, 1, 2, 3)
-            extended_bottom_left = (0, 1, 2, 3, -1)
-        """
-        extent = [int(s * extend_factor) for s in self.shape]
-        extent = [(e - s) // 2 for s, e in zip(self.shape, extent)]
-        x, y = [np.arange(-e, s+e) for e, s in zip(extent, self.shape)]
-        if to_bottom_left:
-            x, y = np.roll(x, -extent[0]), np.roll(y, -extent[1])
-        return np.meshgrid(x, y, indexing='xy')
-
     def distances_in(self, unit: u.Unit) -> list[float]:
         return [d.to(unit).value for d in self.distances]
 
@@ -248,45 +213,6 @@ class WcsAstropy(WCS, WcsBase):
         distances = [d.to(unit).value for d in self.distances]
         halfside = np.array(self.shape)/2 * np.array(distances)
         return -halfside[0], halfside[0], -halfside[1], halfside[1]
-
-    def relative_coordinates(
-        self,
-        reference_point: Optional[SkyCoord] = None,
-        unit: u.Unit = u.arcsec,
-    ) -> ArrayLike:
-        """Calculate relative angular offsets from a reference point on the
-        sky.
-
-        Computes the spherical offsets between each pixel's world coordinates
-        and a reference position. The offsets are measured in the longitudinal
-        (x) and latitudinal (y) directions using proper spherical geometry.
-
-        Parameters
-        ----------
-        reference_point : astropy.coordinates.SkyCoord, optional
-            Reference position on the sky to measure offsets from.
-            If None, uses `self.center`.
-        unit : astropy.units.Unit, optional
-            Unit for the output coordinates. Default is arcseconds.
-            Must be an angular unit (e.g., degree, arcmin, radian).
-
-        Returns
-        -------
-        numpy.ndarray
-            Array of shape (2, ny, nx) containing the relative coordinates,
-            where axis 0 contains:
-                [0]: longitudinal (x) offsets
-                [1]: latitudinal (y) offsets
-            All offsets are in the specified unit.
-        """
-
-        coordinates_world = self.pixel_to_world(*self.index_grid())
-
-        if reference_point is None:
-            reference_point = self.center
-
-        dlon, dlat = coordinates_world.spherical_offsets_to(reference_point)
-        return np.stack([dlon.to(unit).value, dlat.to(unit).value])
 
 
 def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
