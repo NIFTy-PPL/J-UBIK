@@ -37,6 +37,7 @@ class RotationAndShiftModel(jft.Model):
         self,
         sky_domain: dict,
         call: Callable,
+        # FIXME: This should only take ArrayLike !
         coordinates: Union[ArrayLike, Callable, CoordinatesWithCorrection],
     ):
         """
