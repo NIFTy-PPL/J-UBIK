@@ -108,18 +108,23 @@ def _parse_insert_spaces(cfg):
                         energy_bin=source_energy_bin,
                         )
 
-    return lens_space, source_space
+    interpolation = cfg['grid']['source_grid'].get('interpolation', 'bilinear')
+
+    return lens_space, source_space, interpolation
 
 
-def insert_spaces_in_lensing(cfg):
-    lens_space, source_space = _parse_insert_spaces(cfg)
-
-    cfg['lensing']['spaces'] = dict(
-        lens_space=lens_space, source_space=source_space)
-
+# def insert_spaces_in_lensing(cfg):
+#     lens_space, source_space = _parse_insert_spaces(cfg)
+#
+#     cfg['lensing']['spaces'] = dict(
+#         lens_space=lens_space, source_space=source_space)
+#
 
 def insert_spaces_in_lensing_new(cfg):
-    lens_space, source_space = _parse_insert_spaces(cfg)
+    lens_space, source_space, interpolation = _parse_insert_spaces(cfg)
 
     cfg['spaces'] = dict(
-        lens_space=lens_space, source_space=source_space)
+        lens_space=lens_space,
+        source_space=source_space,
+        interpolation=interpolation
+    )

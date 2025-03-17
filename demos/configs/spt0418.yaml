@@ -34,6 +34,7 @@ sky:
       sdim: 384
       fov: 3arcsec
       s_padding_ratio: 1.0
+      interpolation: 'finufft' # finufft, bilinear
 
     energy_unit: eV
     energy_bin:
@@ -75,7 +76,7 @@ sky:
         - 0.932 # F150W
 
         - 1.224 # F115W
-      reference_bin: 1 # F444W
+      reference_bin: 7 # F444W
 
   model:
     source:
@@ -228,7 +229,7 @@ telescope:
   psf:
     webbpsf_path: './data/JWST/WebbPsf/webbpsf-data-LATEST/'
     psf_library: './data/JWST/psf_library'
-    psf_arcsec_extension: 3.5
+    psf_arcsec_extension: 3.0
     # psf_arcsec_extension: 0.5
 
   zero_flux:
@@ -304,7 +305,7 @@ telescope:
       #     rotation: ['delta', -1.95823434e-05, 0]
 
 files:
-  res_dir: './results/jwst_lens/cluster/test_06_resolve'
+  res_dir: './results/jwst_lens/cluster/test_07_resolve'
 
   filter:
 
