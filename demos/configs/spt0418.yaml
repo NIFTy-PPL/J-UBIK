@@ -308,8 +308,8 @@ files:
 
   filter:
 
-    # f2100w:
-    #   - './data/spt0418/f2100w/jw01355015001_15101_00001_mirimage/jw01355015001_15101_00001_mirimage_cal.fits'
+    f2100w:
+      - './data/spt0418/f2100w/jw01355015001_15101_00001_mirimage/jw01355015001_15101_00001_mirimage_cal.fits'
     #   - './data/spt0418/f2100w/jw01355015001_15101_00002_mirimage/jw01355015001_15101_00002_mirimage_cal.fits'
     #   - './data/spt0418/f2100w/jw01355015001_15101_00003_mirimage/jw01355015001_15101_00003_mirimage_cal.fits'
     #   - './data/spt0418/f2100w/jw01355015001_15101_00004_mirimage/jw01355015001_15101_00004_mirimage_cal.fits'
@@ -377,9 +377,9 @@ files:
     f150w:
       - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_cal.fits'
     #   - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_cal.fits'
-    #
-    # f115w: # NIRCam
-    #   - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_cal.fits'
+
+    f115w: # NIRCam
+      - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_cal.fits'
     #   - './data/spt0418/f115w/jw01355016001_02101_00002_nrcb4/jw01355016001_02101_00002_nrcb4_cal.fits'
 
 
