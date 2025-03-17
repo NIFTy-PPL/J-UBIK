@@ -30,12 +30,13 @@ def test_simple():
 
     # Check subsample 1
     xx, yy = grid.spatial.index_grid_from_wl_extrema(
-        grid.spatial.world_extrema())
+        grid.spatial.world_extrema(), indexing='xy')
     xxsub, yysub = subsample_grid_centers_in_index_grid_non_vstack(
         world_extrema=grid.spatial.world_extrema(),
         to_be_subsampled_grid_wcs=grid.spatial,
         index_grid_wcs=grid.spatial,
-        subsample=1
+        subsample=1,
+        indexing='xy'
     )
     assert np.allclose(xx, xxsub, atol=1e-5)
     assert np.allclose(yy, yysub, atol=1e-5)
@@ -45,7 +46,9 @@ def test_simple():
         world_extrema=grid.spatial.world_extrema(),
         to_be_subsampled_grid_wcs=grid.spatial,
         index_grid_wcs=grid.spatial,
-        subsample=2)
+        subsample=2,
+        indexing='xy',
+    )
     xxsub, yysub = map(partial(np.round, decimals=3), [xxsub, yysub])
     test_array = np.array(((-0.25, 0.25),)*2)
     assert np.allclose(xxsub[:2, :2], test_array)
@@ -56,7 +59,9 @@ def test_simple():
         world_extrema=grid.spatial.world_extrema(),
         to_be_subsampled_grid_wcs=grid.spatial,
         index_grid_wcs=grid.spatial,
-        subsample=3)
+        subsample=3,
+        indexing='xy',
+    )
     xxsub, yysub = map(partial(np.round, decimals=3), [xxsub, yysub])
     test_array = np.array(((-0.333, 0, 0.333),)*3)
     assert np.allclose(xxsub[:3, :3], test_array)
