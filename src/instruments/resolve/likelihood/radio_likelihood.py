@@ -18,8 +18,7 @@
 from ....parse.instruments.resolve.data.data_loading import DataLoading
 from ....parse.instruments.resolve.data.data_modify import ObservationModify
 from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
-from ....parse.instruments.resolve.response import (yaml_to_response_settings,
-                                                    sky_domain_from_grid)
+from ....parse.instruments.resolve.response import yaml_to_response_settings
 
 from ....grid import Grid
 from ..data.data_loading import load_and_modify_data_from_objects
@@ -97,16 +96,11 @@ def build_radio_likelihood(
         for field_name, beam_direction in _sky_beamer.beam_directions.items():
             for o in observations:
                 if o.direction_from_key(direction_key) == beam_direction.direction:
-                    sky_domain = sky_domain_from_grid(
-                        sky_grid,
-                        (beam_direction.center_x, beam_direction.center_y)
-                    )
-
                     _likelihoods.append(build_likelihood_from_sky_beamer(
                         observation=o,
                         field_name=field_name,
                         sky_beamer=_sky_beamer,
-                        sky_domain=sky_domain,
+                        sky_grid=sky_grid,
                         backend_settings=response_backend_settings,
                         cast_to_dtype=partial(
                             cast_to_dtype, dtype=jnp.float32

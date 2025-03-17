@@ -1,9 +1,7 @@
 from ....parse.instruments.resolve.response import (
-    SkyDomain,
-    Ducc0Settings,
-    FinufftSettings,
-)
+    Ducc0Settings, FinufftSettings)
 
+from ....grid import Grid
 from ..re.response import InterferometryResponse
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamerJft
@@ -17,7 +15,7 @@ def build_likelihood_from_sky_beamer(
     observation: Observation,
     field_name: str,
     sky_beamer: SkyBeamerJft,
-    sky_domain: SkyDomain,
+    sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     cast_to_dtype: Callable | None = None,
 ):
@@ -43,7 +41,7 @@ def build_likelihood_from_sky_beamer(
 
     sky2vis = InterferometryResponse(
         observation=observation,
-        sky_domain=sky_domain,
+        sky_grid=sky_grid,
         backend_settings=backend_settings,
     )
     response = jft.wrap(lambda x: sky2vis(x), field_name)

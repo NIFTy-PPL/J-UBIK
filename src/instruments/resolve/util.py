@@ -17,6 +17,9 @@
 import nifty8 as ift
 import numpy as np
 
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+
 
 def my_assert(*conds):
     if not all(conds):
@@ -108,3 +111,24 @@ def dtype_complex2float(dt, force=False):
             return dt
     raise ValueError
 
+
+def calculate_phase_offset_to_image_center(
+    sky_center: SkyCoord,
+    phase_center: SkyCoord,
+):
+    '''Calculate the relative shift of the phase center to the sky center
+    (reconstruction center) in radians.
+
+    Parameters
+    ----------
+    sky_center: astropy.SkyCoord
+        The world coordinate of the sky center.
+    phase_center: astropy.SkyCoord
+        The world coordinate of the phase center of the observation.
+    '''
+    r = sky_center.separation(phase_center)
+    phi = sky_center.position_angle(phase_center)
+    # FIXME: center (x, y) switch maybe because of the ducc0 fft?
+    center_y = r.to(u.rad).value * np.cos(phi.to(u.rad).value)
+    center_x = r.to(u.rad).value * np.sin(phi.to(u.rad).value)
+    return center_x, center_y

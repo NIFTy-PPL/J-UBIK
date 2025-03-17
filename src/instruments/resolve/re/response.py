@@ -15,15 +15,21 @@
 # Author: Jakob Roth, Julian Rüstig
 
 
-import numpy as np
-from jax import numpy as jnp
-
-from ....parse.instruments.resolve.response import SkyDomain, Ducc0Settings, FinufftSettings
+from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
-from jax.tree_util import Partial
+from ....grid import Grid
+from ..util import calculate_phase_offset_to_image_center
 
+import numpy as np
+from jax.tree_util import Partial
+from jax import numpy as jnp
+from astropy import units as u
 
 from typing import Union
+
+
+SPECTRAL_UNIT = u.Hz
+SPATIAL_UNIT = u.rad
 
 
 def dtype_float2complex(dt):
@@ -70,7 +76,7 @@ def convert_polarization(inp, inp_pol, out_pol):
 
 def InterferometryResponse(
     observation: Observation,
-    sky_domain: SkyDomain,
+    sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
 ):
     """Returns a function computing the radio interferometric response
@@ -93,16 +99,25 @@ def InterferometryResponse(
             - verbosity     (only ducc0)
             - backend       (only ducc0)
     """
-    n_pol = len(sky_domain.polarization_labels)
+    n_pol = len(sky_grid.polarization_labels)
 
     # compute bins for time and freq
-    n_times = len(sky_domain.times) - 1  # FIXME : This needs to be checked
-    bb_times = np.array(sky_domain.times)
+    n_times = len(sky_grid.times) - 1  # FIXME : This needs to be checked
+    bb_times = np.array(sky_grid.times)
     # bb_times = get_binbounds(n_times, sky_domain.times)
 
-    n_freqs = len(sky_domain.frequencies) - 1
-    bb_freqs = np.array(sky_domain.frequencies)
+    frequencies = sky_grid.spectral.binbounds_in(SPECTRAL_UNIT)
+    n_freqs = len(frequencies) - 1
+    bb_freqs = np.array(frequencies)
     # bb_freqs = get_binbounds(n_freqs, sky_domain.frequencies)
+
+    npix_x, npix_y = sky_grid.spatial.shape
+    pixsize_x, pixsize_y = sky_grid.spatial.distances_in(SPATIAL_UNIT)
+    center_y, center_x = calculate_phase_offset_to_image_center(
+        sky_grid.spatial.center,
+        sky_grid.spatial.center if observation.direction is None
+        else observation.direction.to_sky_coord()
+    )
 
     # build responses for: time binds, freq bins
     sr = []
@@ -123,26 +138,26 @@ def InterferometryResponse(
                 if isinstance(backend_settings, Ducc0Settings):
                     rrr = InterferometryResponseDucc(
                         observation=ooo,
-                        npix_x=sky_domain.npix_x,
-                        npix_y=sky_domain.npix_y,
-                        pixsize_x=sky_domain.pixsize_x,
-                        pixsize_y=sky_domain.pixsize_y,
+                        npix_x=npix_x,
+                        npix_y=npix_y,
+                        pixsize_x=pixsize_x,
+                        pixsize_y=pixsize_y,
                         do_wgridding=backend_settings.do_wgridding,
                         epsilon=backend_settings.epsilon,
                         nthreads=backend_settings.nthreads,
                         verbosity=backend_settings.verbosity,
-                        center_x=sky_domain.center_x,
-                        center_y=sky_domain.center_y,
+                        center_x=center_x,
+                        center_y=center_y,
                     )
                 elif isinstance(backend_settings, FinufftSettings):
                     print('Using Finufft')
                     rrr = InterferometryResponseFinuFFT(
                         observation=ooo,
-                        pixsize_x=sky_domain.pixsize_x,
-                        pixsize_y=sky_domain.pixsize_y,
+                        pixsize_x=pixsize_x,
+                        pixsize_y=pixsize_y,
                         epsilon=backend_settings.epsilon,
-                        center_x=sky_domain.center_x,
-                        center_y=sky_domain.center_y,
+                        center_x=center_x,
+                        center_y=center_y,
                     )
                 else:
                     err = ("backend_settings must be an instance of "
@@ -166,7 +181,7 @@ def InterferometryResponse(
     if np.any(foo == 0):
         raise RuntimeError("This should not happen. Please report.")
 
-    inp_pol = tuple(sky_domain.polarization_labels)
+    inp_pol = tuple(sky_grid.polarization_labels)
     out_pol = observation.vis.domain[0].labels
 
     def apply_R(sky):

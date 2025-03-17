@@ -16,6 +16,9 @@
 
 from ..util import compare_attributes, my_asserteq
 
+from astropy.coordinates import SkyCoord
+from astropy import units as u
+
 
 class Direction:
     """
@@ -50,6 +53,13 @@ class Direction:
 
     def to_list(self):
         return [*self._pc, self._e]
+
+    def to_sky_coord(self):
+        assert self._e in ['J2000', 2000., 2000], (
+            f"The equinox has to be `J2000`, provided equinox {self._e}.\n"
+            "The icrs and fk5 correspond at j2000. Here, we make the explicit "
+            "assumption that the observations are recorded in the icrs frame.")
+        return SkyCoord(*(self._pc*u.rad), frame='icrs')
 
     @staticmethod
     def from_list(lst):

@@ -16,9 +16,9 @@
 
 
 from .sky_wcs import build_astropy_wcs
-
 from ..data.observation import Observation
 from ..data.direction import Direction
+from ..util import calculate_phase_offset_to_image_center
 
 import nifty8.re as jft
 
@@ -184,28 +184,6 @@ def build_jft_sky_beamer(
         )
 
     return SkyBeamerJft(sky_shape_with_dtype, beam_directions)
-
-
-def calculate_phase_offset_to_image_center(
-    sky_center: SkyCoord,
-    phase_center: SkyCoord,
-):
-    '''Calculate the relative shift of the phase center to the sky center
-    (reconstruction center) in radians.
-
-    Parameters
-    ----------
-    sky_center: astropy.SkyCoord
-        The world coordinate of the sky center.
-    phase_center: astropy.SkyCoord
-        The world coordinate of the phase center of the observation.
-    '''
-    r = sky_center.separation(phase_center)
-    phi = sky_center.position_angle(phase_center)
-    # FIXME: center (x, y) switch maybe because of the ducc0 fft?
-    center_y = r.to(u.rad).value * np.cos(phi.to(u.rad).value)
-    center_x = r.to(u.rad).value * np.sin(phi.to(u.rad).value)
-    return center_x, center_y
 
 
 def _get_mean_frequency(ff, n_freq_bins, f_binbounds, observation):

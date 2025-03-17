@@ -1,7 +1,13 @@
-from jubik0.parse.instruments.resolve.response import (
-    SkyDomain, Ducc0Settings, FinufftSettings)
 import jubik0.instruments.resolve as rve
 import jubik0.instruments.resolve.re as jrve
+
+import jubik0 as ju
+from jubik0.parse.grid import GridModel
+from jubik0.instruments.resolve.data import DataLoading, ObservationModify, load_and_modify_data_from_objects
+from jubik0.instruments.resolve.data.data_modify.restrict_to_testing_percentage import restrict_to_testing_percentage
+from jubik0.parse.instruments.resolve.response import (
+    config_parser_to_response_settings, Ducc0Settings, FinufftSettings)
+
 
 import nifty8.re as jft
 import resolve as rve_old
@@ -14,12 +20,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
+from os.path import join
 import configparser
 from sys import exit
 
 jax.config.update('jax_default_device', jax.devices('cpu')[0])
 jax.config.update("jax_enable_x64", True)
 
+
+seed = 42
+key = random.PRNGKey(seed)
+
+
+cfg = configparser.ConfigParser()
+cfg.read("./demos/configs/cygnusa_2ghz.cfg")
 
 # choose between ducc0 and finufft backend
 response = 'ducc0'
@@ -30,13 +44,8 @@ backend_settings = dict(
     finufft=FinufftSettings(epsilon=1e-9),
 )[response]
 
-seed = 42
-key = random.PRNGKey(seed)
-
-
-cfg = configparser.ConfigParser()
-cfg.read("./demos/configs/cygnusa_2ghz.cfg")
-
+# # NOTE : The observation can also be loaded and modified via the config file.
+# backend_settings = config_parser_to_response_settings(cfg['data'])
 
 obs = rve.Observation.load(
     "./data/resolve_test/CYG-ALL-2052-2MHZ_RESOLVE_float64.npz")
@@ -44,22 +53,24 @@ obs = obs.restrict_to_stokesi()
 obs = obs.average_stokesi()
 # scale weights, as they are wrong for this specific dataset
 obs._weight = 0.1 * obs._weight
+obs = restrict_to_testing_percentage(obs, 0.01)
+
+# # NOTE : The observation can also be loaded and modified via the config file.
+# obs = list(
+#     load_and_modify_data_from_objects(
+#         [-np.inf, np.inf],
+#         DataLoading.from_config_parser(cfg['data']),
+#         ObservationModify.from_config_parser(cfg['data'])))[0]
 
 sky, additional = jrve.sky_model(cfg["sky"])
 
+gm = GridModel.from_config_parser(cfg['sky'])
+gm.spatial_model.wcs_model.center = obs.direction.to_sky_coord()
+grid = ju.Grid.from_grid_model(gm)
 
-sky_sp = rve_old.sky_model._spatial_dom(cfg["sky"])
-sky_dom = rve_old.default_sky_domain(sdom=sky_sp)
 
-sky_domain = SkyDomain(npix_x=sky_sp.shape[0],
-                       npix_y=sky_sp.shape[1],
-                       pixsize_x=sky_sp.distances[0],
-                       pixsize_y=sky_sp.distances[1],
-                       polarization_labels=['I'],
-                       times=[-np.inf, np.inf],
-                       frequencies=[-np.inf, np.inf])
 R_new = jrve.InterferometryResponse(
-    obs, sky_domain, backend_settings=backend_settings)
+    obs, grid, backend_settings=backend_settings)
 
 
 def signal_response(x): return R_new(sky(x))
@@ -67,18 +78,21 @@ def signal_response(x): return R_new(sky(x))
 
 nll = jft.Gaussian(obs.vis_val, obs.weight_val).amend(signal_response)
 
+output_dir = f"results_nifty_re_response_{response}"
+
 
 def callback(samples, opt_state):
     post_sr_mean = jft.mean(tuple(sky(s) for s in samples))
     plt.imshow(post_sr_mean[0, 0, 0, :, :].T, origin="lower", norm=LogNorm())
     plt.colorbar()
-    plt.savefig(f"niftyre_it_{opt_state.nit}_response_{response}.png")
+    plt.savefig(
+        join(output_dir, f"niftyre_it_{opt_state.nit}_response_{response}.png"))
     plt.close()
 
 
 n_vi_iterations = 20
 delta = 1e-8
-absdelta = delta * jnp.prod(jnp.array(sky_sp.shape))
+absdelta = delta * jnp.prod(jnp.array(grid.spatial.shape))
 n_samples = 2
 
 
@@ -117,7 +131,7 @@ samples, state = jft.optimize_kl(
     ),
     kl_kwargs=kl_kwargs,
     sample_mode=sample_mode_update,
-    odir=f"results_nifty_re_response_{response}",
+    odir=output_dir,
     resume=False,
     callback=callback,
 )
