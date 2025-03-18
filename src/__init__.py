@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: BSD-2-Clause
 # Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp
-
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
@@ -9,6 +8,7 @@ from .version import __version__
 from . import enforce_float64
 from .utils import (save_to_pickle, load_from_pickle, get_config, save_to_yaml,
                     copy_config, create_output_directory,
+                    save_config_copy_easy,
                     coord_center, get_stats)
 from .plot import (plot_result, plot_histograms,
                    plot_sample_averaged_log_2d_histogram, plot_rgb)
@@ -46,7 +46,7 @@ from .instruments.erosita.erosita_data import (generate_erosita_data_from_config
                                                mask_erosita_data_from_disk)
 from .instruments.erosita.erosita_psf import eROSITA_PSF
 from .instruments.jwst.jwst_response import build_jwst_response
-from .instruments.jwst.reconstruction_grid import Grid
+from .grid import Grid
 
 from .data import (create_mock_data, load_masked_data_from_config,
                    load_mock_position_from_config, Domain)
