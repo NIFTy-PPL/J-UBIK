@@ -1,33 +1,30 @@
-import jubik0.instruments.resolve as rve
-import jubik0.instruments.resolve.re as jrve
+from os.path import join
+import configparser
+
+import jax
+from jax import numpy as jnp
+from jax import random
+
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
+import nifty8.re as jft
 
 import jubik0 as ju
+import jubik0.instruments.resolve as rve
+import jubik0.instruments.resolve.re as jrve
 from jubik0.parse.grid import GridModel
 from jubik0.instruments.resolve.data.data_modify.restrict_to_testing_percentage import restrict_to_testing_percentage
 from jubik0.parse.instruments.resolve.response import (
     Ducc0Settings, FinufftSettings)
 
 
-import nifty8.re as jft
-
-import jax
-from jax import numpy as jnp
-from jax import random
-
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-
-from os.path import join
-import configparser
 
 jax.config.update('jax_default_device', jax.devices('cpu')[0])
 jax.config.update("jax_enable_x64", True)
 
-
 seed = 42
 key = random.PRNGKey(seed)
-
 
 cfg = configparser.ConfigParser()
 cfg.read("./demos/configs/cygnusa_2ghz.cfg")
