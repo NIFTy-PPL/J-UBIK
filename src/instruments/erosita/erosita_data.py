@@ -40,7 +40,7 @@ def create_erosita_data_from_config(config, response_dict):
     data_path = join(file_info["res_dir"], file_info["data_dict"])
     if not exists(data_path):
         if bool(file_info.get("mock_gen_config")):
-            jft.logger.info(f'Generating new mock data in {file_info["res_dir"]}...')
+            jft.logger.info(f"Generating new mock data in {file_info['res_dir']}...")
             mock_prior_info = get_config(file_info["mock_gen_config"])["priors"]
             _ = create_mock_data(
                 tel_info,
@@ -54,14 +54,14 @@ def create_erosita_data_from_config(config, response_dict):
             copy_config(file_info["mock_gen_config"], output_dir=file_info["res_dir"])
         else:
             jft.logger.info(
-                f'Generating masked eROSITA data in {file_info["res_dir"]}...'
+                f"Generating masked eROSITA data in {file_info['res_dir']}..."
             )
             mask_erosita_data_from_disk(
                 file_info, tel_info, grid_info, response_dict["mask"]
             )
     else:
         jft.logger.info(
-            f'Data in {file_info["res_dir"]} already exists. ' f"No data generation."
+            f"Data in {file_info['res_dir']} already exists. No data generation."
         )
 
 
@@ -183,7 +183,7 @@ def generate_erosita_data_from_config(config):
 
     if rebin != rebin_check:
         raise ValueError(
-            "rebin, which sets the angular resolution, and fov " "do not match"
+            "rebin, which sets the angular resolution, and fov do not match"
         )
 
     processed_obs_path = create_output_directory(

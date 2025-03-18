@@ -199,7 +199,7 @@ def load_psf_kernel(
 
     camera = camera.lower()
     filter = filter.lower()
-    center_pixel_str = f"{int(10*center_pixel[0])}p{int(10*center_pixel[1])}"
+    center_pixel_str = f"{int(10 * center_pixel[0])}p{int(10 * center_pixel[1])}"
     fov_pixel_str = f"{fov_pixels}" if fov_pixels is not None else f"{fov_arcsec}arcsec"
     file_name = "_".join((camera, filter, center_pixel_str, fov_pixel_str))
     path_to_file = join(psf_library_path, file_name)

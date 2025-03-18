@@ -51,9 +51,7 @@ def create_chandra_data_from_config(config, response_dict):
     tel_info["tm_ids"] = list(obs_info.keys())
     if not exists(data_path):
         if bool(file_info.get("mock_gen_config")):
-            jft.logger.info(
-                f"Generating new mock data in " f'{file_info["res_dir"]}...'
-            )
+            jft.logger.info(f"Generating new mock data in {file_info['res_dir']}...")
             mock_prior_info = get_config(file_info["mock_gen_config"])
             create_mock_data(
                 tel_info,
@@ -67,7 +65,7 @@ def create_chandra_data_from_config(config, response_dict):
             copy_config(file_info["mock_gen_config"], output_dir=file_info["res_dir"])
         else:
             jft.logger.info(
-                f"Generating masked Chandra" f'data in {file_info["res_dir"]}...'
+                f"Generating masked Chandradata in {file_info['res_dir']}..."
             )
             data_array = generate_chandra_data(file_info, tel_info, grid_info, obs_info)
             mask_func = response_dict["mask"]
@@ -75,7 +73,7 @@ def create_chandra_data_from_config(config, response_dict):
             save_to_pickle(masked_data_vector.tree, data_path)
     else:
         jft.logger.info(
-            f'Data in {file_info["res_dir"]} already ' f"exists. No data generation."
+            f"Data in {file_info['res_dir']} already exists. No data generation."
         )
 
 

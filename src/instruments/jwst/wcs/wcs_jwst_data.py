@@ -25,7 +25,7 @@ class WcsJwstData(WcsBase):
             from gwcs import WCS
         except ImportError:
             raise ImportError(
-                "gwcs not installed." "Please install via 'pip install gwcs'."
+                "gwcs not installed.Please install via 'pip install gwcs'."
             )
 
         if not isinstance(wcs, WCS):

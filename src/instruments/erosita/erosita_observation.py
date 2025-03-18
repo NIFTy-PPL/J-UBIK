@@ -144,7 +144,7 @@ class ErositaObservation:
         ra, dec = pointing_center
 
         center_events_task = (
-            f"{self._base_command}radec2xy" f" {input_files} '{ra}' '{dec}' '"
+            f"{self._base_command}radec2xy {input_files} '{ra}' '{dec}' '"
         )
 
         self._run_task(center_events_task)

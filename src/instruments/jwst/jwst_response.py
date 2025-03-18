@@ -68,9 +68,7 @@ class JwstResponse(jft.Model):
             If `sky_domain` is not a dictionary or if it contains
             more than one key.
         """
-        need_sky_key = (
-            "Need to provide an internal key to the target of the " "sky model"
-        )
+        need_sky_key = "Need to provide an internal key to the target of the sky model"
         assert isinstance(sky_domain, dict), need_sky_key
         assert len(sky_domain.keys()) == 1, need_sky_key
 
@@ -148,7 +146,7 @@ def build_jwst_response(
         The mask on the data
     """
 
-    need_sky_key = "Need to provide an internal key to the target of the sky " "model."
+    need_sky_key = "Need to provide an internal key to the target of the sky model."
     assert isinstance(sky_domain, dict), need_sky_key
 
     rotation_and_shift = build_rotation_and_shift_model(

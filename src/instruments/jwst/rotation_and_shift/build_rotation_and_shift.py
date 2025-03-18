@@ -57,9 +57,9 @@ class RotationAndShiftModel(jft.Model):
             A model or function used to compute the correction to be applied to
             the sky coordinates.
         """
-        assert isinstance(sky_domain, dict), (
-            "Need to provide an internal key" "to the target of the sky model"
-        )
+        assert isinstance(
+            sky_domain, dict
+        ), "Need to provide an internal keyto the target of the sky model"
 
         self.sky_key = next(iter(sky_domain.keys()))
         self.correction_model = correction_model

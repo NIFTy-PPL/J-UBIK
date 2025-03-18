@@ -322,8 +322,7 @@ def build_erosita_response(
     if effective_area_correction:
         if path_to_caldb is None:
             raise ValueError(
-                "`path_to_caldb` is required when `effective_area_correction` "
-                "is True."
+                "`path_to_caldb` is required when `effective_area_correction` is True."
             )
         effective_area = calculate_erosita_effective_area(
             path_to_caldb,

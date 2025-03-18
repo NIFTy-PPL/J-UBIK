@@ -99,7 +99,7 @@ def _get_dvol(filter: str):
 
     else:
         raise NotImplementedError(
-            "filter has to be in the supported filters" f"{JWST_FILTERS.keys()}"
+            f"filter has to be in the supported filters{JWST_FILTERS.keys()}"
         )
 
 

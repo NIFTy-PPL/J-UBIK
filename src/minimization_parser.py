@@ -210,7 +210,7 @@ def _delta_logic(
 
     if delta is None:
         raise ValueError(
-            f'The {keyword} {param["variable"]} in '
+            f"The {keyword} {param['variable']} in "
             f"iteration {iteration} is not set. "
             f"A `delta` must be set in the config."
         )
@@ -225,7 +225,7 @@ def _delta_logic(
     return_value = delta_value * param["factor"]
     if verbose:
         jft.logger.info(
-            f'it {iteration}: {keyword} {param["variable"]} ' f"set to {return_value}"
+            f"it {iteration}: {keyword} {param['variable']} set to {return_value}"
         )
     return return_value
 
@@ -272,7 +272,9 @@ def n_samples_factory(
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         n = n_samples(ii)
         if n is None:
-            raise ValueError(f"Number of samples at iteration {ii+1} needs to be set.")
+            raise ValueError(
+                f"Number of samples at iteration {ii + 1} needs to be set."
+            )
 
     return n_samples
 
@@ -316,7 +318,7 @@ def sample_mode_factory(mini_cfg: dict) -> Callable[[int], str]:
         t = sample_mode(ii)
         if t not in sample_keywords:
             raise ValueError(
-                f"Unknown sample type: {t} at iteration {ii+1}, "
+                f"Unknown sample type: {t} at iteration {ii + 1}, "
                 "known types: {sample_keywords}"
             )
 
@@ -404,7 +406,7 @@ def linear_sample_kwargs_factory(
         absdelta = lin_config["cg_kwargs"]["absdelta"]
         if absdelta is None:
             raise ValueError(
-                f"Linear `absdelta` at iteration {ii+1} " f"needs to be set."
+                f"Linear `absdelta` at iteration {ii + 1} needs to be set."
             )
 
     return linear_kwargs
@@ -504,9 +506,7 @@ def nonlinearly_update_kwargs_factory(
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         non_linear_samples_dict = nonlinearly_update_kwargs(ii)
         if non_linear_samples_dict["minimize_kwargs"]["xtol"] is None:
-            raise ValueError(
-                f"nonlinear `xtol` at iteration {ii+1} " f"needs to be set."
-            )
+            raise ValueError(f"nonlinear `xtol` at iteration {ii + 1} needs to be set.")
 
     return nonlinearly_update_kwargs
 
@@ -609,7 +609,7 @@ def kl_kwargs_factory(
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         kl_kwargs_dict = kl_kwargs(ii)
         if kl_kwargs_dict["minimize_kwargs"]["absdelta"] is None:
-            raise ValueError(f"kl `absdelta` at iteration {ii+1} " f"needs to be set.")
+            raise ValueError(f"kl `absdelta` at iteration {ii + 1} needs to be set.")
 
     return kl_kwargs
 

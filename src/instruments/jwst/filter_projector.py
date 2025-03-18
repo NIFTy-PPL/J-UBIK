@@ -46,7 +46,7 @@ class FilterProjector(jft.Model):
             if color in v:
                 if out_key != "":
                     raise IndexError(
-                        f"{color} fits into multiple keys of the " "FilterProjector"
+                        f"{color} fits into multiple keys of the FilterProjector"
                     )
                 out_key = k
         if out_key == "":
