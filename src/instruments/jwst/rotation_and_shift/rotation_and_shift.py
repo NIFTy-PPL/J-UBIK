@@ -92,6 +92,7 @@ def build_rotation_and_shift_model(
     subsample: int,
     algorithm_config: Union[LinearConfig, NufftConfig, SparseConfig],
     coordinates: Union[ArrayLike, Callable, CoordinatesWithCorrection],
+    indexing: str,
 ) -> RotationAndShiftModel:
     """Builds a RotationAndShiftModel according to the `algorithm_config`.
 
@@ -130,6 +131,7 @@ def build_rotation_and_shift_model(
             call = build_linear_rotation_and_shift(
                 sky_dvol=reconstruction_grid.spatial.dvol.value,
                 sub_dvol=data_grid_dvol.value / subsample**2,
+                indexing=indexing,
                 **vars(algorithm_config),
             )
 

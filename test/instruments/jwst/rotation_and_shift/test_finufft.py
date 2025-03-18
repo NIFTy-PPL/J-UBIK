@@ -7,33 +7,64 @@ from jax import config, devices
 config.update('jax_default_device', devices('cpu')[0])
 
 
-def test_field_sameaxis():
-    maxx, maxy = 256, 256
+def _field_setup(maxx, maxy):
     field = np.zeros((maxx, maxy))
     field[100:150, 100:150] = 1
     field[200:250, 100:150] = 1
+    return field
 
-    xx, yy = np.array(np.meshgrid(np.arange(0, maxx, 1),
-                                  np.arange(0, maxy, 1),
-                                  indexing='ij'))
+
+def test_field_sameaxis():
+    maxx, maxy = 256, 256
+    field = _field_setup(maxx, maxy)
+
+    xy = np.array(np.meshgrid(np.arange(0, maxx, 1),
+                              np.arange(0, maxy, 1),
+                              indexing='ij'))
     rs = build_nufft_rotation_and_shift(
         1, 1, field.shape, (1., 1.), field.shape)
-    field_mapped = rs(field, np.array((xx, yy)))
+    field_mapped = rs(field, xy)
+
+    assert np.allclose(field, field_mapped, atol=1e-4)
+
+
+def test_field_sameaxis_xy():
+    maxx, maxy = 256, 256
+    field = _field_setup(maxx, maxy)
+
+    xy = np.array(np.meshgrid(np.arange(0, maxx, 1),
+                              np.arange(0, maxy, 1),
+                              indexing='xy'))
+    rs = build_nufft_rotation_and_shift(
+        1, 1, field.shape, (1., 1.), field.shape, indexing='xy')
+    field_mapped = rs(field, xy)
 
     assert np.allclose(field, field_mapped, atol=1e-4)
 
 
 def test_field_differentaxis():
     maxx, maxy = 256, 356
-    field = np.zeros((maxx, maxy))
-    field[100:150, 100:150] = 1
-    field[200:250, 100:150] = 1
+    field = _field_setup(maxx, maxy)
 
-    xx, yy = np.array(np.meshgrid(np.arange(0, maxx, 1),
-                                  np.arange(0, maxy, 1),
-                                  indexing='ij'))
+    xy = np.array(np.meshgrid(np.arange(0, maxx, 1),
+                              np.arange(0, maxy, 1),
+                              indexing='ij'))
     rs = build_nufft_rotation_and_shift(
         1, 1, field.shape, (1., 1.), field.shape)
-    field_mapped = rs(field, np.array((xx, yy)))
+    field_mapped = rs(field, xy)
+
+    assert np.allclose(field, field_mapped, atol=1e-4)
+
+
+def test_field_differentaxis_xy():
+    maxx, maxy = 256, 356
+    field = _field_setup(maxx, maxy)
+
+    xy = np.array(np.meshgrid(np.arange(0, maxx, 1),
+                              np.arange(0, maxy, 1),
+                              indexing='xy'))
+    rs = build_nufft_rotation_and_shift(
+        1, 1, field.shape, (1., 1.), field.shape, indexing='xy')
+    field_mapped = rs(field, xy)
 
     assert np.allclose(field, field_mapped, atol=1e-4)

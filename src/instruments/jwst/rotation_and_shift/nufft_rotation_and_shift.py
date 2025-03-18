@@ -21,6 +21,7 @@ def build_nufft_rotation_and_shift(
     sky_shape: tuple[int, int],
     sky_distances: Union[tuple[Quantity, Quantity], tuple[float, float]],
     out_shape: tuple[int, int],
+    indexing: str = 'ij',
     sky_as_brightness: bool = False
 ) -> Callable[[ArrayLike], ArrayLike]:
     """
@@ -63,9 +64,6 @@ def build_nufft_rotation_and_shift(
         assert reduce(lambda x, y: x == y, sky_distances)
     assert len(sky_distances) == len(out_shape) == len(sky_shape) == 2
 
-    # assert sky_shape[0] == sky_shape[1], 'Not tested yet for other setups'
-    # assert out_shape[0] == out_shape[1], 'Not tested yet for other setups'
-
     # The conversion factor from sky to subpixel
     # (flux = sky_brightness * flux_conversion)
     if sky_as_brightness:
@@ -79,10 +77,22 @@ def build_nufft_rotation_and_shift(
     # input points swapped.
     # Maybe: this comes from the matrix style indexing?
     # 16-03-25: Yes, always take matrix style indexing (meshgrid='ij')!
-    def rotate_shift_subsample(field, subsample_centers):
-        f_field = ifftshift(ifft2(field))
-        xy_finufft = xy_conversion * subsample_centers.reshape(2, -1)
-        out = nufft2(f_field, xy_finufft[0], xy_finufft[1]).real
-        return reshape(out, out_shape) * flux_conversion
+
+    if indexing == 'ij':
+        def rotate_shift_subsample(field, subsample_centers):
+            f_field = ifftshift(ifft2(field))
+            xy_finufft = xy_conversion * subsample_centers.reshape(2, -1)
+            out = nufft2(f_field, xy_finufft[0], xy_finufft[1]).real
+            return reshape(out, out_shape) * flux_conversion
+    elif indexing == 'xy':
+        out_shape = out_shape[1], out_shape[0]
+
+        def rotate_shift_subsample(field, subsample_centers):
+            f_field = ifftshift(ifft2(field.T))
+            xy_finufft = xy_conversion * subsample_centers.reshape(2, -1)
+            out = nufft2(f_field, xy_finufft[1], xy_finufft[0]).real
+            return reshape(out, out_shape).T * flux_conversion
+    else:
+        raise ValueError('Need either provide `ij` or `xy` indexing.')
 
     return rotate_shift_subsample

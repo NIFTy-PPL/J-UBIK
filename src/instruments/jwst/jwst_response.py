@@ -183,6 +183,7 @@ def build_jwst_response(
         algorithm_config=rotation_and_shift_kwargs['algorithm_config'],
         subsample=data_subsample,
         coordinates=coordinates,
+        indexing='xy',
     )
 
     integrate = build_sum(

@@ -15,6 +15,7 @@ from numpy.typing import ArrayLike
 def build_linear_rotation_and_shift(
     sky_dvol: float,
     sub_dvol: float,
+    indexing: str = 'ij',
     order: int = 1,
     sky_as_brightness: bool = False,
     mode='wrap'
@@ -64,8 +65,17 @@ def build_linear_rotation_and_shift(
     # Maybe: this comes from the matrix style indexing?
     # 16-03-25: Yes! always take 'ij' indexing for the subsample centers.
     # See `test_linear.py`.
-    def rotation_shift_subsample(field, subsample_centers):
-        out = rotation_and_shift(field, subsample_centers)
-        return out * flux_conversion
+
+    if indexing == 'ij':
+        def rotation_shift_subsample(field, subsample_centers):
+            out = rotation_and_shift(field, subsample_centers)
+            return out * flux_conversion
+    elif indexing == 'xy':
+        def rotation_shift_subsample(field, subsample_centers):
+            out = rotation_and_shift(
+                field.T, (subsample_centers[1], subsample_centers[0]))
+            return out.T * flux_conversion
+    else:
+        raise ValueError('Need either provide `ij` or `xy` indexing.')
 
     return rotation_shift_subsample
