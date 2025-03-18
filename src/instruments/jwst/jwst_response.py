@@ -170,7 +170,7 @@ def build_jwst_response(
             to_be_subsampled_grid_wcs=data_wcs,
             index_grid_wcs=reconstruction_grid.spatial,
             subsample=data_subsample,
-            indexing='xy',
+            indexing='ij',
         )
     )
 

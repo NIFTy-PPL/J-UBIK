@@ -144,6 +144,7 @@ def build_rotation_and_shift_model(
                 sky_shape=reconstruction_grid.spatial.shape,
                 sky_distances=reconstruction_grid.spatial.distances,
                 out_shape=out_shape,
+                indexing=indexing,
                 **vars(algorithm_config),
             )
 
