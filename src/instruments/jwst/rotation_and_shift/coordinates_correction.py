@@ -32,6 +32,7 @@ class CoordinatesCorrection(jft.Model):
            = Rot(theta) * (si * pi - si * r),
     where `si * r` is the rotation center.
     """
+
     def __init__(
         self,
         shift_prior: jft.Model,
@@ -68,13 +69,23 @@ class CoordinatesCorrection(jft.Model):
     def __call__(self, params: dict) -> ArrayLike:
         shft = self.shift_prior(params) / self.pix_distance
         theta = self.rotation_prior(params)
-        x = (jnp.cos(theta) * (self._coords[0]-self.rotation_center[0]) -
-             jnp.sin(theta) * (self._coords[1]-self.rotation_center[1])
-             ) + self.rotation_center[0] + shft[0]
+        x = (
+            (
+                jnp.cos(theta) * (self._coords[0] - self.rotation_center[0])
+                - jnp.sin(theta) * (self._coords[1] - self.rotation_center[1])
+            )
+            + self.rotation_center[0]
+            + shft[0]
+        )
 
-        y = (jnp.sin(theta) * (self._coords[0]-self.rotation_center[0]) +
-             jnp.cos(theta) * (self._coords[1]-self.rotation_center[1])
-             ) + self.rotation_center[1] + shft[1]
+        y = (
+            (
+                jnp.sin(theta) * (self._coords[0] - self.rotation_center[0])
+                + jnp.cos(theta) * (self._coords[1] - self.rotation_center[1])
+            )
+            + self.rotation_center[1]
+            + shft[1]
+        )
         return jnp.array((x, y))
 
 
@@ -143,21 +154,21 @@ def build_coordinates_correction_model(
         return lambda _: coords
 
     # Build shift prior
-    shift_key = domain_key + '_shift'
+    shift_key = domain_key + "_shift"
     shift_shape = (2,)
     pix_distance = array(pix_distance).reshape(shift_shape)
-    shift_prior = build_parametric_prior(
-        shift_key, priors['shift'], shift_shape)
+    shift_prior = build_parametric_prior(shift_key, priors["shift"], shift_shape)
     shift_prior_model = jft.Model(
-        shift_prior, domain={shift_key: jft.ShapeWithDtype(shift_shape)})
+        shift_prior, domain={shift_key: jft.ShapeWithDtype(shift_shape)}
+    )
 
     # Build rotation prior
-    rotation_key = domain_key + '_rotation'
+    rotation_key = domain_key + "_rotation"
     rot_shape = (1,)
-    rotation_prior = build_parametric_prior(
-        rotation_key, priors['rotation'], rot_shape)
+    rotation_prior = build_parametric_prior(rotation_key, priors["rotation"], rot_shape)
     rotation_prior_model = jft.Model(
-        rotation_prior, domain={rotation_key: jft.ShapeWithDtype(rot_shape)})
+        rotation_prior, domain={rotation_key: jft.ShapeWithDtype(rot_shape)}
+    )
 
     return CoordinatesCorrection(
         shift_prior_model,
@@ -219,12 +230,12 @@ def build_coordinates_correction_model_from_grid(
 
     if isinstance(data_wcs, WcsJwstData):
         header = data_wcs._wcs.to_fits()[0]
-        rpix = (header['CRPIX1'],),  (header['CRPIX2'],)
+        rpix = (header["CRPIX1"],), (header["CRPIX2"],)
         rpix = data_wcs.wl_from_index(rpix)
     elif isinstance(data_wcs, WcsAstropy):
         # FIXME: The following lines should be the same with the previous
         header = data_wcs._wcs.to_header()
-        rpix = (header['CRPIX1'],  header['CRPIX2'])
+        rpix = (header["CRPIX1"], header["CRPIX2"])
         rpix = data_wcs.wl_from_index(rpix)[0]
     else:
         raise NotImplementedError(
@@ -237,7 +248,7 @@ def build_coordinates_correction_model_from_grid(
     return build_coordinates_correction_model(
         domain_key=domain_key,
         priors=priors,
-        pix_distance=[
-            rd.to(u.arcsec).value for rd in reconstruction_grid.distances],
+        pix_distance=[rd.to(u.arcsec).value for rd in reconstruction_grid.distances],
         rotation_center=rpix,
-        coords=coords)
+        coords=coords,
+    )

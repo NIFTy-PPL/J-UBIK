@@ -19,21 +19,21 @@ class WcsJwstData(WcsBase):
     A class for converting between world coordinates and pixel coordinates
     in JWST data.
     """
+
     def __init__(self, wcs):
         try:
             from gwcs import WCS
         except ImportError:
-            raise ImportError("gwcs not installed."
-                              "Please install via 'pip install gwcs'.")
+            raise ImportError(
+                "gwcs not installed." "Please install via 'pip install gwcs'."
+            )
 
         if not isinstance(wcs, WCS):
-            raise TypeError('wcs must be a gwcs.WCS')
+            raise TypeError("wcs must be a gwcs.WCS")
 
         super().__init__(wcs)
 
-    def wl_from_index(
-        self, index: ArrayLike
-    ) -> Union[SkyCoord, List[SkyCoord]]:
+    def wl_from_index(self, index: ArrayLike) -> Union[SkyCoord, List[SkyCoord]]:
         """
         Convert pixel coordinates to world coordinates.
 

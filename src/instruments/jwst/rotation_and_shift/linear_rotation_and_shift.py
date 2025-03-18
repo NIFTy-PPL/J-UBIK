@@ -17,7 +17,7 @@ def build_linear_rotation_and_shift(
     sub_dvol: float,
     order: int = 1,
     sky_as_brightness: bool = False,
-    mode='wrap'
+    mode="wrap",
 ) -> Callable[ArrayLike, ArrayLike]:
     """
     Builds linear (higher orders not yet supported) rotation_and_shift model.

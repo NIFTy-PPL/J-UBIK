@@ -28,6 +28,7 @@ class ShiftModel(jft.Model):
     The transformation applied is:
         corrected_coords = coords + (shift / pix_distance)
     """
+
     def __init__(self, prior_model: jft.Model, pix_distance: Tuple[float]):
         """
         Initialize the ShiftModel.
@@ -53,9 +54,7 @@ class ShiftModel(jft.Model):
 
 
 def build_shift_model(
-    domain_key: str,
-    mean_sigma: Tuple[float],
-    pix_distances: Tuple[float]
+    domain_key: str, mean_sigma: Tuple[float], pix_distances: Tuple[float]
 ) -> ShiftModel:
     """
     The shift model is a Gaussian distribution over the positions (x, y).
@@ -79,9 +78,9 @@ def build_shift_model(
     pix_distance = array(pix_distances).reshape(shape)
 
     # Build Prior
-    shift_prior = build_parametric_prior(
-        domain_key, ('normal', *mean_sigma), shape)
+    shift_prior = build_parametric_prior(domain_key, ("normal", *mean_sigma), shape)
     shift_prior_model = jft.Model(
-        shift_prior, domain={domain_key: jft.ShapeWithDtype(shape)})
+        shift_prior, domain={domain_key: jft.ShapeWithDtype(shape)}
+    )
 
     return ShiftModel(shift_prior_model, pix_distance)

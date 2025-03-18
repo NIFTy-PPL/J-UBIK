@@ -44,6 +44,7 @@ class _IGLikelihood(ift.EnergyOperator):
         This implementation is only designed for a point source component over
         a single-frequency sky.
     """
+
     # TODO: Build MF-version
 
     def __init__(self, data, alpha, q):
@@ -60,9 +61,9 @@ class _IGLikelihood(ift.EnergyOperator):
         shift = ift.Adder(data) @ ift.ScalingOperator(self._domain, -1)
         dummy = ift.ScalingOperator(self._domain, 1)
         self._q = ift.ScalingOperator(self._domain, float(q))
-        self._apw = ift.ScalingOperator(self._domain, float(alpha + 1.))
-        op = self._q @ dummy.ptw('reciprocal') + self._apw @ dummy.ptw('log')
-        self._op = (op @ shift.ptw('abs')).sum()
+        self._apw = ift.ScalingOperator(self._domain, float(alpha + 1.0))
+        op = self._q @ dummy.ptw("reciprocal") + self._apw @ dummy.ptw("log")
+        self._op = (op @ shift.ptw("abs")).sum()
 
     def apply(self, x):
         self._check_input(x)
@@ -71,12 +72,19 @@ class _IGLikelihood(ift.EnergyOperator):
             return res
         raise NotImplementedError
 
+
 # TODO to nifty.re
 
 
-def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
-                            point_key='point_sources', stiffness=1E6,
-                            red_factor=1E-3):
+def get_equal_lh_transition(
+    sky,
+    diffuse_sky,
+    point_dict,
+    transition_dict,
+    point_key="point_sources",
+    stiffness=1e6,
+    red_factor=1e-3,
+):
     """
     Performs a likelihood (i.E. input sky) invariant transition between the
     dofs of a diffuse component and point sources. Assumes `sky`to be composed
@@ -110,6 +118,7 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
             Scaling for the convergence criterion regarding the second
             optimization for the point source dofs.
     """
+
     # TODO: replace second optimization with proper inverse transformation!
     def _transition(position):
         diffuse_pos = position.to_dict()
@@ -118,61 +127,64 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
 
         my_sky = sky(position)
 
-        lh = _IGLikelihood(my_sky, point_dict['alpha'], point_dict['q'])
+        lh = _IGLikelihood(my_sky, point_dict["alpha"], point_dict["q"])
 
         ic_mini = ift.AbsDeltaEnergyController(
-            deltaE=float(transition_dict['deltaE']),
-            iteration_limit=transition_dict['iteration_limit'],
-            convergence_level=transition_dict['convergence_level'],
-            name=transition_dict['name'])
+            deltaE=float(transition_dict["deltaE"]),
+            iteration_limit=transition_dict["iteration_limit"],
+            convergence_level=transition_dict["convergence_level"],
+            name=transition_dict["name"],
+        )
         ham = ift.StandardHamiltonian(lh @ diffuse_sky)
         en, _ = ift.VL_BFGS(ic_mini)(ift.EnergyAdapter(diffuse_pos, ham))
         diffuse_pos = en.position
 
         new_pos = diffuse_pos.to_dict()
-        new_pos['point_sources'] = position['point_sources']
+        new_pos["point_sources"] = position["point_sources"]
         new_pos = ift.MultiField.from_dict(new_pos)
 
         icov = ift.ScalingOperator(my_sky.domain, stiffness)
         lh = ift.GaussianEnergy(data=my_sky, inverse_covariance=icov)
-        en = ift.EnergyAdapter(new_pos, lh @ sky,
-                               constants=list(diffuse_pos.keys()))
+        en = ift.EnergyAdapter(new_pos, lh @ sky, constants=list(diffuse_pos.keys()))
         ic_mini = ift.AbsDeltaEnergyController(
-            deltaE=red_factor * float(transition_dict['deltaE']),
-            iteration_limit=transition_dict['iteration_limit'],
-            convergence_level=transition_dict['convergence_level'],
-            name=transition_dict['name'])
+            deltaE=red_factor * float(transition_dict["deltaE"]),
+            iteration_limit=transition_dict["iteration_limit"],
+            convergence_level=transition_dict["convergence_level"],
+            name=transition_dict["name"],
+        )
 
-        new_point_source_position = ift.VL_BFGS(
-            ic_mini)(en)[0].position.to_dict()
+        new_point_source_position = ift.VL_BFGS(ic_mini)(en)[0].position.to_dict()
         new_pos = new_pos.to_dict()
-        new_pos['point_sources'] = new_point_source_position['point_sources']
+        new_pos["point_sources"] = new_point_source_position["point_sources"]
         return ift.MultiField.from_dict(new_pos)
 
-    _tr = (lambda samples: samples.average(_transition))
-    return lambda iiter: None if iiter < transition_dict['start'] else _tr
+    _tr = lambda samples: samples.average(_transition)
+    return lambda iiter: None if iiter < transition_dict["start"] else _tr
 
 
 def _model_wrap(model, target_domain=None):
-    """ Wraps a model to ensure output consistency with the input domain. """
+    """Wraps a model to ensure output consistency with the input domain."""
     if target_domain is None:
+
         def wrapper(x):
             out = model(x)
             for x, val in x.items():
                 out[x] = val
             return out
+
     else:
+
         def wrapper(x):
             out = model(x)
             for key in target_domain.keys():
                 out[key] = x[key]
             return out
+
     return wrapper
 
 
 def connect_likelihood_to_model(
-    likelihood: jft.Likelihood,
-    model: jft.Model
+    likelihood: jft.Likelihood, model: jft.Model
 ) -> jft.Likelihood:
     """
     Connects a likelihood function to a model, updating the model's domain.
@@ -203,18 +215,12 @@ def connect_likelihood_to_model(
     mdom = tdom | model.domain
 
     model_wrapper = _model_wrap(model, tdom)
-    model = jft.Model(
-        lambda x: jft.Vector(model_wrapper(x)),
-        domain=jft.Vector(mdom)
-    )
+    model = jft.Model(lambda x: jft.Vector(model_wrapper(x)), domain=jft.Vector(mdom))
 
     return likelihood.amend(model, domain=model.domain)
 
 
-def build_gaussian_likelihood(
-    data,
-    std
-):
+def build_gaussian_likelihood(data, std):
     """
     Build a Gaussian likelihood function based on the provided data and
     standard deviation.
@@ -248,11 +254,11 @@ def build_gaussian_likelihood(
     if not isinstance(std, float):
         assert data.shape == std.shape
 
-    var_inv = 1/(std**2)
-    std_inv = 1/std
+    var_inv = 1 / (std**2)
+    std_inv = 1 / std
 
     return jft.Gaussian(
         data=data,
-        noise_cov_inv=lambda x: x*var_inv,
-        noise_std_inv=lambda x: x*std_inv,
+        noise_cov_inv=lambda x: x * var_inv,
+        noise_std_inv=lambda x: x * std_inv,
     )

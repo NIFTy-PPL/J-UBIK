@@ -15,9 +15,8 @@ from .erosita_response import build_erosita_response_from_config
 from ...data import load_masked_data_from_config
 
 
-def generate_erosita_likelihood_from_config(config,
-                                            prepend_operator):
-    """ Creates the eROSITA Poissonian log-likelihood given the path to the
+def generate_erosita_likelihood_from_config(config, prepend_operator):
+    """Creates the eROSITA Poissonian log-likelihood given the path to the
     config file.
 
     Parameters
@@ -43,15 +42,11 @@ def generate_erosita_likelihood_from_config(config,
     # Load data files
     masked_data = load_masked_data_from_config(config)
 
-    return generate_erosita_likelihood(response_dict,
-                                       masked_data,
-                                       prepend_operator)
+    return generate_erosita_likelihood(response_dict, masked_data, prepend_operator)
 
 
-def generate_erosita_likelihood(response_dict,
-                                masked_data,
-                                prepend_operator):
-    """ Creates the eROSITA Poissonian log-likelihood given the path to the
+def generate_erosita_likelihood(response_dict, masked_data, prepend_operator):
+    """Creates the eROSITA Poissonian log-likelihood given the path to the
     config file.
 
     Parameters
@@ -82,8 +77,10 @@ def generate_erosita_likelihood(response_dict,
         def __call__(self, x):
             return self.instrument(x=self.pre_ops(x), k=self.kern)
 
-    full_model = FullModel(kern=response_dict["kernel"],
-                           instrument=response_dict["R"],
-                           pre_ops=prepend_operator)
+    full_model = FullModel(
+        kern=response_dict["kernel"],
+        instrument=response_dict["R"],
+        pre_ops=prepend_operator,
+    )
 
     return jft.Poissonian(masked_data).amend(full_model)

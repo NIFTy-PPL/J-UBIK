@@ -43,12 +43,16 @@ def _get_git_hash_from_local_package(package_name, git_path=None):
     KeyError
         If the package mapping variable is not found in the editable path file.
     """
+
     def get_git_hash(path):
         try:
-            return subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                           cwd=path).strip().decode('utf-8')
+            return (
+                subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=path)
+                .strip()
+                .decode("utf-8")
+            )
         except subprocess.CalledProcessError:
-            raise ValueError('Failed to get the latest commit hash')
+            raise ValueError("Failed to get the latest commit hash")
 
     # Get the distribution metadata for the package
     try:
@@ -66,11 +70,11 @@ def _get_git_hash_from_local_package(package_name, git_path=None):
 
     if editable_path is not None:
         # Read the path to the source directory from the .egg-link file
-        variable_name = 'MAPPING'
+        variable_name = "MAPPING"
         pattern = re.compile(rf"^\s*{variable_name}\s*=\s*(.+)")
 
         try:
-            with open(editable_path, 'r') as f:
+            with open(editable_path, "r") as f:
                 for line in f:
                     match = pattern.match(line)
                     if match:
@@ -78,7 +82,9 @@ def _get_git_hash_from_local_package(package_name, git_path=None):
                         try:
                             variable_value = ast.literal_eval(value_str)
                         except (SyntaxError, ValueError):
-                            raise ValueError(f"Could not evaluate the value of '{variable_name}'")
+                            raise ValueError(
+                                f"Could not evaluate the value of '{variable_name}'"
+                            )
                         break
         except FileNotFoundError:
             raise FileNotFoundError(f"File '{editable_path}' not found")
@@ -86,8 +92,10 @@ def _get_git_hash_from_local_package(package_name, git_path=None):
         if variable_value is not None and package_name in variable_value:
             source_path = variable_value[package_name]
         else:
-            raise KeyError(f"Variable '{variable_name}' not found or '{package_name}' "
-                           f"not in mapping.")
+            raise KeyError(
+                f"Variable '{variable_name}' not found or '{package_name}' "
+                f"not in mapping."
+            )
     else:
         # Use the distribution location for non-editable installations
         source_path = package_path
@@ -100,22 +108,23 @@ def _get_git_hash_from_local_package(package_name, git_path=None):
         source_path = join(source_path, package_name)
 
     # Construct the path to the .git directory
-    git_dir = join(source_path, '.git')
+    git_dir = join(source_path, ".git")
 
     if os.path.isdir(git_dir):
         return get_git_hash(source_path)
     elif git_path is not None:
         return get_git_hash(git_path)
     else:
-        raise FileNotFoundError('No .git directory found. \n'
-                                'Please provide the path to the git '
-                                'repository for the given package.')
+        raise FileNotFoundError(
+            "No .git directory found. \n"
+            "Please provide the path to the git "
+            "repository for the given package."
+        )
 
 
-def save_local_packages_hashes_to_txt(packages_names,
-                                      filename,
-                                      paths_to_git=None,
-                                      verbose=True):
+def save_local_packages_hashes_to_txt(
+    packages_names, filename, paths_to_git=None, verbose=True
+):
     """
     Save the latest Git hashes of local packages to a text file.
 
@@ -166,8 +175,9 @@ def save_local_packages_hashes_to_txt(packages_names,
             if verbose:
                 print(f"Processing package: {package_name}")
             if paths_to_git is not None and paths_to_git[it] is not None:
-                git_hash = _get_git_hash_from_local_package(package_name,
-                                                            git_path=paths_to_git[it])
+                git_hash = _get_git_hash_from_local_package(
+                    package_name, git_path=paths_to_git[it]
+                )
             else:
                 git_hash = _get_git_hash_from_local_package(package_name)
             hashes[package_name] = git_hash
@@ -178,7 +188,7 @@ def save_local_packages_hashes_to_txt(packages_names,
                 print(f"Error processing package {package_name}:\n")
             raise e
 
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         json.dump(hashes, f, indent=4)
 
     print(f"Hashes have been saved to {filename}.")

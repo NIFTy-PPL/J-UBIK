@@ -28,19 +28,19 @@ class Color(u.Quantity):
     ValueError
         If the input quantity has an unsupported physical type.
     """
+
     def __init__(self, quantity: u.Quantity):
         if not isinstance(quantity, u.Quantity):
-            raise IOError('Instantiate with a quantity that has units')
+            raise IOError("Instantiate with a quantity that has units")
 
-        if quantity.unit.physical_type == 'length':
+        if quantity.unit.physical_type == "length":
             self._init_length(quantity)
-        elif quantity.unit.physical_type == 'frequency':
+        elif quantity.unit.physical_type == "frequency":
             self._init_frequency(quantity)
-        elif quantity.unit.physical_type == 'energy':
+        elif quantity.unit.physical_type == "energy":
             self._init_energy(quantity)
         else:
-            raise ValueError(
-                f"Unsupported physical type: {quantity.physical_type}")
+            raise ValueError(f"Unsupported physical type: {quantity.physical_type}")
 
     def _init_length(self, wavelength: u.Quantity):
         # Initialization using wavelength
@@ -80,14 +80,14 @@ class Color(u.Quantity):
         ValueError
             If the redshift factor `z` is negative.
         """
-        return Color((1+z)*self.wavelength)
+        return Color((1 + z) * self.wavelength)
 
     def __repr__(self):
         """Returns a string representation of the Color object."""
-        return f'Color: {self.energy}'
+        return f"Color: {self.energy}"
 
 
-class ColorRange():
+class ColorRange:
     """
     A class representing a range of colors, defined by start and
     end Color objects.
@@ -104,6 +104,7 @@ class ColorRange():
     AssertionError
         If `start` or `end` are not instances of the Color class.
     """
+
     def __init__(self, start: Color, end: Color):
         """Initialize the ColorRange object."""
         assert isinstance(start, Color) and isinstance(end, Color)
@@ -113,11 +114,10 @@ class ColorRange():
     def __contains__(self, item: Color):
         """Check if a given Color is within the range of this ColorRange."""
         assert isinstance(item, Color)
-        return (
-            (self.start.energy <= item.energy <= self.end.energy) or
-            (self.start.energy >= item.energy >= self.end.energy)
+        return (self.start.energy <= item.energy <= self.end.energy) or (
+            self.start.energy >= item.energy >= self.end.energy
         )
 
     def __repr__(self):
         """Returns a string representation of the ColorRange object."""
-        return f'ColorRange: [{self.start.energy}, {self.end.energy}]'
+        return f"ColorRange: [{self.start.energy}, {self.end.energy}]"

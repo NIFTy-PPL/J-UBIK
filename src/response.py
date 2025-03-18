@@ -41,7 +41,9 @@ def build_exposure_function(exposures, exposure_cut=None):
     # FIXME short hack to remove additional axis. Also the Ifs should be
     #  restructed
 
-    def exposure(x): return exposures * x
+    def exposure(x):
+        return exposures * x
+
     return exposure
 
 
@@ -88,7 +90,7 @@ def build_readout_function(flags, threshold=None, keys=None):
     mask = flags == 0
 
     if keys is None:
-        keys = ['masked input']
+        keys = ["masked input"]
     elif len(keys) != flags.shape[0]:
         raise ValueError("length of keys should match the number of flag maps.")
 

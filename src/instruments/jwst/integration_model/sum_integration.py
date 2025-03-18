@@ -5,10 +5,8 @@
 
 # %%
 
-def build_sum(
-    high_res_shape: tuple,
-    reduction_factor: int
-):
+
+def build_sum(high_res_shape: tuple, reduction_factor: int):
     """
     Builds a function that sums over a high-resolution grid, reducing it by a
     specified factor. This can be understood as an integration over the field,
@@ -45,11 +43,16 @@ def build_sum(
     the resulting callable reshapes the input into blocks of shape (10, 10)
     and sums them, reducing the resolution to (10, 10).
     """
-    if (high_res_shape[0] % reduction_factor != 0) or (high_res_shape[1] % reduction_factor != 0):
-        raise ValueError(
-            "The reduction factor must evenly divide both dimensions")
+    if (high_res_shape[0] % reduction_factor != 0) or (
+        high_res_shape[1] % reduction_factor != 0
+    ):
+        raise ValueError("The reduction factor must evenly divide both dimensions")
 
-    new_shape = (high_res_shape[0] // reduction_factor, reduction_factor,
-                 high_res_shape[1] // reduction_factor, reduction_factor)
+    new_shape = (
+        high_res_shape[0] // reduction_factor,
+        reduction_factor,
+        high_res_shape[1] // reduction_factor,
+        reduction_factor,
+    )
 
     return lambda x: x.reshape(new_shape).sum(axis=(1, 3))

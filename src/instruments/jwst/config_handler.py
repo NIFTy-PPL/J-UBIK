@@ -15,31 +15,31 @@ from .reconstruction_grid import Grid
 
 def _get_world_location(config: dict) -> SkyCoord:
     """Get the world location from the config."""
-    ra = config['grid']['pointing']['ra']
-    dec = config['grid']['pointing']['dec']
-    frame = config['grid']['pointing'].get('frame', 'icrs')
-    unit = getattr(units, config['grid']['pointing'].get('unit', 'deg'))
-    return SkyCoord(ra=ra*unit, dec=dec*unit, frame=frame)
+    ra = config["grid"]["pointing"]["ra"]
+    dec = config["grid"]["pointing"]["dec"]
+    frame = config["grid"]["pointing"].get("frame", "icrs")
+    unit = getattr(units, config["grid"]["pointing"].get("unit", "deg"))
+    return SkyCoord(ra=ra * unit, dec=dec * unit, frame=frame)
 
 
 def _get_shape(config: dict) -> Tuple[int, int]:
     """Get the shape from the config."""
-    npix = config['grid']['sdim']
+    npix = config["grid"]["sdim"]
     return (npix, npix)
 
 
 def _get_fov(config: dict) -> Tuple[units.Quantity, units.Quantity]:
     """Get the fov from the config."""
-    fov = config['grid']['fov']
-    unit = getattr(units, config['grid'].get('fov_unit', 'arcsec'))
-    return fov*unit
+    fov = config["grid"]["fov"]
+    unit = getattr(units, config["grid"].get("fov_unit", "arcsec"))
+    return fov * unit
 
 
 def _get_rotation(config: dict) -> units.Quantity:
     """Get the rotation from the config."""
-    rotation = config['grid']['pointing']['rotation']
-    unit = getattr(units, config['grid']['pointing'].get('unit', 'deg'))
-    return rotation*unit
+    rotation = config["grid"]["pointing"]["rotation"]
+    unit = getattr(units, config["grid"]["pointing"].get("unit", "deg"))
+    return rotation * unit
 
 
 def build_reconstruction_grid_from_config(config: dict) -> Grid:
@@ -70,9 +70,7 @@ def build_reconstruction_grid_from_config(config: dict) -> Grid:
     fov = _get_fov(config)
     shape = _get_shape(config)
     rotation = _get_rotation(config)
-    return Grid(wl, shape,
-                (fov.to(units.deg), fov.to(units.deg)),
-                rotation=rotation)
+    return Grid(wl, shape, (fov.to(units.deg), fov.to(units.deg)), rotation=rotation)
 
 
 def build_filter_zero_flux(
@@ -102,19 +100,17 @@ def build_filter_zero_flux(
         A dictionary containing the zero flux prior for the specified filter.
         If the filter is not present, returns the default prior.
     """
-    prior_config = config['telescope']['zero_flux']
+    prior_config = config["telescope"]["zero_flux"]
     lower_filter = filter.lower()
 
     if lower_filter in prior_config:
         return dict(prior=prior_config[lower_filter])
 
-    return dict(prior=prior_config['prior'])
+    return dict(prior=prior_config["prior"])
 
 
 def build_coordinates_correction_prior_from_config(
-    config: dict,
-    filter: Optional[str] = '',
-    filter_data_set_id: Optional[int] = 0
+    config: dict, filter: Optional[str] = "", filter_data_set_id: Optional[int] = 0
 ) -> dict:
     """
     Builds the coordinate correction prior for the specified filter and dataset.
@@ -146,22 +142,25 @@ def build_coordinates_correction_prior_from_config(
         filter and dataset. If the filter or dataset is not found, returns the
         default priors.
     """
-    rs_priors = config['telescope']['rotation_and_shift']['priors']
+    rs_priors = config["telescope"]["rotation_and_shift"]["priors"]
 
     lower_filter = filter.lower()
-    if ((lower_filter in rs_priors) and
-        (filter_data_set_id in rs_priors.get(lower_filter, dict()))):
-        shift = rs_priors[lower_filter][filter_data_set_id]['shift']
-        rotation = rs_priors[lower_filter][filter_data_set_id]['rotation']
+    if (lower_filter in rs_priors) and (
+        filter_data_set_id in rs_priors.get(lower_filter, dict())
+    ):
+        shift = rs_priors[lower_filter][filter_data_set_id]["shift"]
+        rotation = rs_priors[lower_filter][filter_data_set_id]["rotation"]
 
     else:
-        shift = rs_priors['shift']
-        rotation = rs_priors['rotation']
+        shift = rs_priors["shift"]
+        rotation = rs_priors["rotation"]
 
-    rotation_unit = getattr(units, rs_priors.get('rotation_unit', 'deg'))
-    rotation = (rotation[0],
-                rotation[1],
-                (rotation[2] * rotation_unit).to(units.rad).value)
+    rotation_unit = getattr(units, rs_priors.get("rotation_unit", "deg"))
+    rotation = (
+        rotation[0],
+        rotation[1],
+        (rotation[2] * rotation_unit).to(units.rad).value,
+    )
     return dict(shift=shift, rotation=rotation)
 
 

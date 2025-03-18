@@ -21,51 +21,63 @@ def to_r_phi(cc):
     # FIXME: This assumes that ra is the x-coordinate and dec the y-coordinate
     # and furthermore assumes that the psfs are given in vertical distances
     # (off axis angle). Ensure that this is the correct orientation!
-    r = jnp.sqrt(cc[..., 0]**2 + cc[..., 1]**2)
-    phi = jnp.angle(cc[..., 0] + 1.j*cc[..., 1]) - jnp.pi/2.
-    return jnp.stack((r, phi), axis = -1)
+    r = jnp.sqrt(cc[..., 0] ** 2 + cc[..., 1] ** 2)
+    phi = jnp.angle(cc[..., 0] + 1.0j * cc[..., 1]) - jnp.pi / 2.0
+    return jnp.stack((r, phi), axis=-1)
 
 
 def to_ra_dec(rp):
     """
     Transforms form r-phi coordinates to ra-dec (sky) coordinates.
     """
-    x = rp[..., 0]*jnp.cos(rp[..., 1] + jnp.pi/2.)
-    y = rp[..., 0]*jnp.sin(rp[..., 1] + jnp.pi/2.)
-    return jnp.stack((x,y), axis = -1)
+    x = rp[..., 0] * jnp.cos(rp[..., 1] + jnp.pi / 2.0)
+    y = rp[..., 0] * jnp.sin(rp[..., 1] + jnp.pi / 2.0)
+    return jnp.stack((x, y), axis=-1)
 
 
 def get_interpolation_weights(rs, r):
     """
-    Get bilinear interpolation weights for the psfs along the r-axis. If the 
-    requested `r` is outside the given interval, the the psf corresponding to 
+    Get bilinear interpolation weights for the psfs along the r-axis. If the
+    requested `r` is outside the given interval, the the psf corresponding to
     the smallest/largest radius in `rs` is extrapolated.
     """
     dr = rs[1:] - rs[:-1]
 
     def _get_wgt_front(i):
         res = jnp.zeros(rs.shape, dtype=float)
-        res = res.at[0].set(1.)
+        res = res.at[0].set(1.0)
         return res
-    res = cond(r <= rs[0], _get_wgt_front, 
-               lambda _: jnp.zeros(rs.shape, dtype=float), 0)
+
+    res = cond(
+        r <= rs[0], _get_wgt_front, lambda _: jnp.zeros(rs.shape, dtype=float), 0
+    )
 
     def _get_wgt_back(i):
         res = jnp.zeros(rs.shape, dtype=float)
-        res = res.at[rs.size-1].set(1.)
-        return res    
-    res += cond(r >= rs[rs.size-1], _get_wgt_back,
-                lambda _: jnp.zeros(rs.shape, dtype=float), 0)
+        res = res.at[rs.size - 1].set(1.0)
+        return res
+
+    res += cond(
+        r >= rs[rs.size - 1],
+        _get_wgt_back,
+        lambda _: jnp.zeros(rs.shape, dtype=float),
+        0,
+    )
 
     def _get_wgt(i):
         res = jnp.zeros(rs.shape, dtype=float)
         wgt = (r - rs[i]) / dr[i]
-        res = res.at[i].set(1. - wgt)
-        res = res.at[i+1].set(wgt)
+        res = res.at[i].set(1.0 - wgt)
+        res = res.at[i + 1].set(wgt)
         return res
+
     for i in range(rs.size - 1):
-        res += cond((rs[i]<r)*(rs[i+1]>=r), _get_wgt,
-                    (lambda _: jnp.zeros(rs.shape, dtype=float)), i)
+        res += cond(
+            (rs[i] < r) * (rs[i + 1] >= r),
+            _get_wgt,
+            (lambda _: jnp.zeros(rs.shape, dtype=float)),
+            i,
+        )
     return res
 
 
@@ -131,7 +143,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
 
     def psf(ra, dec, dra, ddec):
         # Find r and phi corresponding to requested location
-        cc = jnp.stack((ra, dec), axis = -1)
+        cc = jnp.stack((ra, dec), axis=-1)
         cc -= pointing_center
         rp = to_r_phi(cc)
         # Find and select psfs required for given radius
@@ -142,7 +154,7 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
         wgts = jnp.moveaxis(wgts, -1, 0)
 
         # Rotate requested psf slice to align with patch
-        int_coords = jnp.stack((dra, ddec), axis = -1)
+        int_coords = jnp.stack((dra, ddec), axis=-1)
         int_coords = to_r_phi(int_coords)
         int_coords = jnp.moveaxis(int_coords, -1, 0)
         rp = jnp.moveaxis(rp, -1, 0)
@@ -155,8 +167,8 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
         res = jnp.zeros(int_coords.shape[:-1])
         for ids, pp, ww in zip(patch_center_ids, psfs, wgts):
             query_ids = to_patch_coordinates(int_coords, ids, patch_deltas)
-            int_res = map_coordinates(pp, query_ids, order=1, mode='nearest')
-            res += ww*int_res
+            int_res = map_coordinates(pp, query_ids, order=1, mode="nearest")
+            res += ww * int_res
 
         return res
 
@@ -175,11 +187,11 @@ def get_psf_func(domain, psf_infos):
 
     returns: psf-function
     """
-    psfs = psf_infos['psfs']
-    rs = psf_infos['rs']
-    patch_center_ids = psf_infos['patch_center_ids']
-    patch_deltas = psf_infos['patch_deltas']
-    pointing_center = psf_infos['pointing_center']
+    psfs = psf_infos["psfs"]
+    rs = psf_infos["rs"]
+    patch_center_ids = psf_infos["patch_center_ids"]
+    patch_deltas = psf_infos["patch_deltas"]
+    pointing_center = psf_infos["pointing_center"]
     return get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center)
 
 
@@ -198,7 +210,7 @@ def psf_interpolator(domain, npatch, psf_infos):
                 raise ValueError
             if ss % 2 != 0:
                 raise ValueError
-        patch_shp = tuple(ss//npatch for ss in shp)
+        patch_shp = tuple(ss // npatch for ss in shp)
 
         # NOTE This change would symmetrically evaluate the psf but puts
         # the center in between Pixels.
@@ -206,25 +218,28 @@ def psf_interpolator(domain, npatch, psf_infos):
         # centers = (np.array([(i*ss + ss/2 + 0.5)*dd for i in range(npatch)])
         #            for ss, dd in zip(patch_shp, dist))
 
-        c_p = ((np.arange(ss) - ss/2)*dd for ss, dd in zip(shp, dist))
-        centers = (np.array([(i*ss + ss/2)*dd for i in range(npatch)]) for
-                   ss, dd in zip(patch_shp, dist))
+        c_p = ((np.arange(ss) - ss / 2) * dd for ss, dd in zip(shp, dist))
+        centers = (
+            np.array([(i * ss + ss / 2) * dd for i in range(npatch)])
+            for ss, dd in zip(patch_shp, dist)
+        )
 
-        c_p = np.meshgrid(*c_p, indexing='ij')
+        c_p = np.meshgrid(*c_p, indexing="ij")
         d_ra = c_p[0]
         d_dec = c_p[1]
         # Using 'xy' here instead of 'ij' ensures correct ordering as requested by
         # OAnew.
-        centers = np.meshgrid(*centers, indexing='xy')
+        centers = np.meshgrid(*centers, indexing="xy")
         c_ra = centers[0].flatten()
         c_dec = centers[1].flatten()
 
-        patch_psfs = (func_psf(ra, dec, d_ra, d_dec) for ra, dec in
-                      zip(c_ra, c_dec))
-        patch_psfs = list([np.roll(np.roll(pp, -shp[0]//2, axis=0),
-                                   -shp[1]//2,
-                                   axis=1)
-                           for pp in patch_psfs])
+        patch_psfs = (func_psf(ra, dec, d_ra, d_dec) for ra, dec in zip(c_ra, c_dec))
+        patch_psfs = list(
+            [
+                np.roll(np.roll(pp, -shp[0] // 2, axis=0), -shp[1] // 2, axis=1)
+                for pp in patch_psfs
+            ]
+        )
         # patch_psfs = list([pp for pp in patch_psfs]) # FIXME
         # FIXME Patch_psfs should be of shape (n_patches, energies, x, y)
         patch_psfs = np.array(patch_psfs)

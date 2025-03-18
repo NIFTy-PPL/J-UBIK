@@ -48,8 +48,9 @@ class ErositaObservation:
 
     """
 
-    def __init__(self, input_filename, output_filename, working_directory,
-                 esass_image=None):
+    def __init__(
+        self, input_filename, output_filename, working_directory, esass_image=None
+    ):
         """
         Initializes the ErositaObservation class.
 
@@ -88,19 +89,22 @@ class ErositaObservation:
             self.image = " erosita/esass-x64:latest "
         else:
             raise ValueError(
-                f"esass_image must be either EDR or DR1, got {esass_image}.")
+                f"esass_image must be either EDR or DR1, got {esass_image}."
+            )
 
         # TODO: Add all fits file fields
 
         self._mounted_dir = "/home/idies/mnt_dir/"
-        self._base_command = "docker run --platform linux/amd64 --volume " + \
-                             self.working_directory + ":" + \
-                             self._mounted_dir + \
-                             self.image + "/bin/bash -c 'source ~/.bashrc && "
+        self._base_command = (
+            "docker run --platform linux/amd64 --volume "
+            + self.working_directory
+            + ":"
+            + self._mounted_dir
+            + self.image
+            + "/bin/bash -c 'source ~/.bashrc && "
+        )
 
-    def get_data(self,
-                 pointing_center: Union[tuple, list],
-                 **kwargs):
+    def get_data(self, pointing_center: Union[tuple, list], **kwargs):
         """
         Extracts and manipulates data from eROSITA event files using the eSASS
         `evtool` and `radec2xy` commands.
@@ -133,27 +137,39 @@ class ErositaObservation:
         and saving process.
         """
         print(f"Collecting data from {self.input}.")
-        input_files = self._parse_stringlists(self.input,
-                                              additional_path=self._mounted_dir)
+        input_files = self._parse_stringlists(
+            self.input, additional_path=self._mounted_dir
+        )
         output_file = self._mounted_dir + self.output
         ra, dec = pointing_center
 
-        center_events_task = (f"{self._base_command}radec2xy"
-                              f" {input_files} '{ra}' '{dec}' '")
+        center_events_task = (
+            f"{self._base_command}radec2xy" f" {input_files} '{ra}' '{dec}' '"
+        )
 
         self._run_task(center_events_task)
 
         flags = self._get_evtool_flags(**kwargs)
-        command = (self._base_command + 'evtool ' + input_files + " " +
-                   output_file + flags + "'")
+        command = (
+            self._base_command
+            + "evtool "
+            + input_files
+            + " "
+            + output_file
+            + flags
+            + "'"
+        )
 
         self._run_task(command)
-        print(f"The processed dataset has been saved "
-              f"as {join(self.working_directory, self.output)}.")
+        print(
+            f"The processed dataset has been saved "
+            f"as {join(self.working_directory, self.output)}."
+        )
         return fits.open(join(self.working_directory, self.output))
 
-    def get_exposure_maps(self, template_image, emin, emax,
-                          badpix_correction=True, **kwargs):
+    def get_exposure_maps(
+        self, template_image, emin, emax, badpix_correction=True, **kwargs
+    ):
         """
         Computes exposure maps for eROSITA event files using the eSASS
         'expmap' command.
@@ -198,26 +214,30 @@ class ErositaObservation:
         and configured.
         """
         # TODO: parameter checks
-        input_files = self._parse_stringlists(self.input,
-                                              additional_path=self._mounted_dir)
+        input_files = self._parse_stringlists(
+            self.input, additional_path=self._mounted_dir
+        )
         template_image = join(self._mounted_dir, template_image)
-        flags = self._get_exmap_flags(self._mounted_dir, template_image, emin,
-                                      emax, **kwargs)
-        command = self._base_command + 'expmap ' + input_files + flags + "'"
+        flags = self._get_exmap_flags(
+            self._mounted_dir, template_image, emin, emax, **kwargs
+        )
+        command = self._base_command + "expmap " + input_files + flags + "'"
 
-        caldb_loc_base = '/home/idies/caldb/data/erosita/tm{}/bcf/'
-        detmap_file_base = 'tm{}_detmap_100602v02.fits'
+        caldb_loc_base = "/home/idies/caldb/data/erosita/tm{}/bcf/"
+        detmap_file_base = "tm{}_detmap_100602v02.fits"
 
         if badpix_correction:
             command = self._base_command
             for i in range(7):
                 caldb_loc = caldb_loc_base.format(i + 1)
                 detmap_file = detmap_file_base.format(i + 1)
-                update_detmap_command = f' mv {caldb_loc}{detmap_file} {caldb_loc}' \
-                                        f'tm{i + 1}_detmap_100602v02_old.fits && ' \
-                                        f'cp {self._mounted_dir}new_detmaps/{detmap_file} {caldb_loc} &&'
+                update_detmap_command = (
+                    f" mv {caldb_loc}{detmap_file} {caldb_loc}"
+                    f"tm{i + 1}_detmap_100602v02_old.fits && "
+                    f"cp {self._mounted_dir}new_detmaps/{detmap_file} {caldb_loc} &&"
+                )
                 command += update_detmap_command
-            command += ' expmap ' + input_files + flags + "'"
+            command += " expmap " + input_files + flags + "'"
 
         self._run_task(command)
 
@@ -228,51 +248,63 @@ class ErositaObservation:
 
     def get_pointing_coordinates_stats(self, module, input_filename=None):
         if not isinstance(module, int):
-            raise TypeError('Telescope module must be of type int (1-7).')
-        module = 'CORRATT' + str(module)
+            raise TypeError("Telescope module must be of type int (1-7).")
+        module = "CORRATT" + str(module)
 
         if input_filename is None:
             input_filename = self.input
-        print(f'Loading pointing coordinates for TM{module[-1]} '
-              f'module from {input_filename}.')
+        print(
+            f"Loading pointing coordinates for TM{module[-1]} "
+            f"module from {input_filename}."
+        )
 
         try:
-            data = self.load_fits_data(input_filename,
-                                       verbose=False)[module].data
+            data = self.load_fits_data(input_filename, verbose=False)[module].data
 
         except ValueError as err:
             raise ValueError(
                 f"""
             Input filename does not contain pointing information.
-            
+
             {err}
             """
             )
 
         # Convert pointing information to arcseconds
         conv = 3600
-        ra = conv * data['RA']
-        dec = conv * data['DEC']
-        roll = conv * data['ROLL']
+        ra = conv * data["RA"]
+        dec = conv * data["DEC"]
+        roll = conv * data["ROLL"]
 
         # Return pointing statistics
-        stats = {'RA': (ra.mean(), ra.std()),
-                 'DEC': (dec.mean(), dec.std()),
-                 'ROLL': (roll.mean(), roll.std())}
+        stats = {
+            "RA": (ra.mean(), ra.std()),
+            "DEC": (dec.mean(), dec.std()),
+            "ROLL": (roll.mean(), roll.std()),
+        }
 
         return stats
 
-    def plot_fits_data(self, filename, image_name, slice=None, lognorm=True,
-                       linthresh=10e-1, show=False, dpi=None, **kwargs):
+    def plot_fits_data(
+        self,
+        filename,
+        image_name,
+        slice=None,
+        lognorm=True,
+        linthresh=10e-1,
+        show=False,
+        dpi=None,
+        **kwargs,
+    ):
         im = self.load_fits_data(filename)[0].data
         if slice is not None:
             slice = tuple(slice)
-            im = im[slice[2]:slice[3], slice[0]:slice[1]]
+            im = im[slice[2] : slice[3], slice[0] : slice[1]]
         output = join(self.working_directory, image_name)
         norm = None
         if lognorm:
             norm = colors.SymLogNorm(linthresh=linthresh)
-        plt.imshow(im, origin='lower', norm=norm, **kwargs)
+        plt.imshow(im, origin="lower", norm=norm, **kwargs)
         plt.colorbar()
         if show:
             plt.show()
@@ -291,12 +323,28 @@ class ErositaObservation:
             print("eSASS task COMPLETE.")
 
     @staticmethod
-    def _get_evtool_flags(clobber=True, events=True, image=False, size=None,
-                          rebin=None, center_position=None, region=None,
-                          gti=None, flag=None, flag_invert=None, pattern=None,
-                          telid=None, emin=None, emax=None, rawxy=None,
-                          rawxy_telid=None, rawxy_invert=False, memset=None,
-                          overlap=None, skyfield=None):
+    def _get_evtool_flags(
+        clobber=True,
+        events=True,
+        image=False,
+        size=None,
+        rebin=None,
+        center_position=None,
+        region=None,
+        gti=None,
+        flag=None,
+        flag_invert=None,
+        pattern=None,
+        telid=None,
+        emin=None,
+        emax=None,
+        rawxy=None,
+        rawxy_telid=None,
+        rawxy_invert=False,
+        memset=None,
+        overlap=None,
+        skyfield=None,
+    ):
         """
         Returns appropriate evtool command flags.
 
@@ -325,31 +373,32 @@ class ErositaObservation:
         skyfield: str
         """
 
-        input_params = {'clobber': bool,
-                        'events': bool,
-                        'image': bool,
-                        'size': int,
-                        'rebin': int,
-                        'center_position': tuple,
-                        'region': str,
-                        'gti': str,
-                        'flag': str,
-                        'flag_invert': bool,
-                        'pattern': int,
-                        'telid': int,
-                        'emin': float | str,
-                        'emax': float | str,
-                        'rawxy': str,
-                        'rawxy_telid': int,
-                        'rawxy_invert': bool,
-                        'memset': int,
-                        'overlap': float,
-                        'skyfield': str}
+        input_params = {
+            "clobber": bool,
+            "events": bool,
+            "image": bool,
+            "size": int,
+            "rebin": int,
+            "center_position": tuple,
+            "region": str,
+            "gti": str,
+            "flag": str,
+            "flag_invert": bool,
+            "pattern": int,
+            "telid": int,
+            "emin": float | str,
+            "emax": float | str,
+            "rawxy": str,
+            "rawxy_telid": int,
+            "rawxy_invert": bool,
+            "memset": int,
+            "overlap": float,
+            "skyfield": str,
+        }
 
         # Implements type checking
         for key, val in input_params.items():
             _check_type(eval(key), val, name=key)
-
 
         flags = ""
         flags += "" if clobber else " clobber=no"
@@ -357,8 +406,11 @@ class ErositaObservation:
         flags += " image=yes" if image else " image=no"
         flags += " size={}".format(size) if size is not None else ""
         flags += " rebin={}".format(rebin) if rebin is not None else ""
-        flags += " center_position={}".format(
-            center_position) if center_position is not None else ""
+        flags += (
+            " center_position={}".format(center_position)
+            if center_position is not None
+            else ""
+        )
         flags += " region={}".format(region) if region is not None else ""
         flags += " gti={}".format(gti) if gti is not None else ""
         flags += " flag={}".format(flag) if flag is not None else ""
@@ -368,8 +420,9 @@ class ErositaObservation:
         flags += " emin={}".format(emin) if emin is not None else ""
         flags += " emax={}".format(emax) if emax is not None else ""
         flags += " rawxy={}".format(rawxy) if rawxy is not None else ""
-        flags += " rawxy_telid={}".format(
-            rawxy_telid) if rawxy_telid is not None else ""
+        flags += (
+            " rawxy_telid={}".format(rawxy_telid) if rawxy_telid is not None else ""
+        )
         flags += " rawxy_invert=yes" if rawxy_invert else ""
         flags += " memset={}".format(memset) if memset is not None else ""
         flags += " overlap={}".format(overlap) if overlap is not None else ""
@@ -378,28 +431,40 @@ class ErositaObservation:
         return flags
 
     @staticmethod
-    def _get_exmap_flags(mounted_dir, templateimage, emin, emax,
-                         withsinglemaps=False, withmergedmaps=False,
-                         singlemaps=None, mergedmaps=None, gtitype='GTI',
-                         withvignetting=True, withdetmaps=True,
-                         withweights=True, withfilebadpix=True,
-                         withcalbadpix=True, withinputmaps=False):
-
-        input_params = {'mounted_dir': str,
-                        'templateimage': str,
-                        'emin': float | str,
-                        'emax': float | str,
-                        'withsinglemaps': bool,
-                        'withmergedmaps': bool,
-                        'singlemaps': list,
-                        'mergedmaps': str,
-                        'gtitype': str,
-                        'withvignetting': bool,
-                        'withdetmaps': bool,
-                        'withweights': bool,
-                        'withfilebadpix': bool,
-                        'withcalbadpix': bool,
-                        'withinputmaps': bool}
+    def _get_exmap_flags(
+        mounted_dir,
+        templateimage,
+        emin,
+        emax,
+        withsinglemaps=False,
+        withmergedmaps=False,
+        singlemaps=None,
+        mergedmaps=None,
+        gtitype="GTI",
+        withvignetting=True,
+        withdetmaps=True,
+        withweights=True,
+        withfilebadpix=True,
+        withcalbadpix=True,
+        withinputmaps=False,
+    ):
+        input_params = {
+            "mounted_dir": str,
+            "templateimage": str,
+            "emin": float | str,
+            "emax": float | str,
+            "withsinglemaps": bool,
+            "withmergedmaps": bool,
+            "singlemaps": list,
+            "mergedmaps": str,
+            "gtitype": str,
+            "withvignetting": bool,
+            "withdetmaps": bool,
+            "withweights": bool,
+            "withfilebadpix": bool,
+            "withcalbadpix": bool,
+            "withinputmaps": bool,
+        }
 
         # Implements type checking
         for key, val in input_params.items():
@@ -412,18 +477,29 @@ class ErositaObservation:
             singlemaps_string = " "
 
         flags = " "
-        flags += templateimage if templateimage is not None else print(
-            "template image cannot be None.")  # FIXME Add exit somehow
-        flags += " emin={}".format(emin) if emin is not None else print(
-            "emin cannot be None.")
-        flags += " emax={}".format(emax) if emax is not None else print(
-            "emax cannot be None.")
+        flags += (
+            templateimage
+            if templateimage is not None
+            else print("template image cannot be None.")
+        )  # FIXME Add exit somehow
+        flags += (
+            " emin={}".format(emin)
+            if emin is not None
+            else print("emin cannot be None.")
+        )
+        flags += (
+            " emax={}".format(emax)
+            if emax is not None
+            else print("emax cannot be None.")
+        )
         flags += " withsinglemaps=yes" if withsinglemaps else ""
         flags += "" if withmergedmaps else " withmergedmaps=no"
-        flags += f" singlemaps={singlemaps_string}" if singlemaps is not None \
+        flags += f" singlemaps={singlemaps_string}" if singlemaps is not None else ""
+        flags += (
+            " mergedmaps={}".format(join(mounted_dir, mergedmaps))
+            if mergedmaps is not None
             else ""
-        flags += " mergedmaps={}".format(
-            join(mounted_dir, mergedmaps)) if mergedmaps is not None else ""
+        )
         flags += " gtitype={}".format(gtitype) if gtitype != "GTI" else ""
         flags += "" if withvignetting else " withvignetting=no"
         flags += " withdetmaps=yes" if withdetmaps else ""
@@ -445,14 +521,14 @@ class ErositaObservation:
             res += '"'
             return res
         else:
-            raise TypeError(
-                "Type must be a list a string or a list of strings.")
+            raise TypeError("Type must be a list a string or a list of strings.")
 
 
 def create_erosita_badpix_to_detmap(
     badpix_filename="tm1_badpix_140602v01.fits",
     detmap_filename="tm1_detmap_100602v02.fits",
-    output_filename="new_tm1_detmap_140602v01.fits"):
+    output_filename="new_tm1_detmap_140602v01.fits",
+):
     """
     Creates a new detector map (detmap) for eROSITA by incorporating bad pixels
     into the existing detector map. This process should be performed for all
@@ -487,6 +563,7 @@ def create_erosita_badpix_to_detmap(
         mask = (slice(y_fix_start[i], y_fix_end[i]), x_fix[i])
         detmap[mask] = 0
     import matplotlib.pyplot as plt
+
     plt.imshow(detmap)
     plt.show()
     hdulist.writeto(output_filename)

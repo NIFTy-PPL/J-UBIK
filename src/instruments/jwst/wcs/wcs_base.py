@@ -18,13 +18,12 @@ class WcsBase(ABC):
     A base class for converting between world coordinates and pixel coordinates
     in JWST data.
     """
+
     def __init__(self, wcs):
         self._wcs = wcs
 
     @abstractmethod
-    def wl_from_index(
-        self, index: ArrayLike
-    ) -> Union[SkyCoord, List[SkyCoord]]:
+    def wl_from_index(self, index: ArrayLike) -> Union[SkyCoord, List[SkyCoord]]:
         """
         Convert pixel coordinates to world coordinates.
 
@@ -57,9 +56,7 @@ class WcsBase(ABC):
         pass
 
     def index_from_wl_extrema(
-        self,
-        world_extrema: SkyCoord,
-        shape_check: Optional[Tuple[int, int]] = None
+        self, world_extrema: SkyCoord, shape_check: Optional[Tuple[int, int]] = None
     ) -> Tuple[int, int, int, int]:
         """
         Find the minimum and maximum pixel indices of the bounding box that
@@ -85,9 +82,9 @@ class WcsBase(ABC):
 
         if shape_check is not None:
             check = (
-                np.any(edges_dgrid < 0) or
-                np.any(edges_dgrid >= shape_check[0]) or
-                np.any(edges_dgrid >= shape_check[1])
+                np.any(edges_dgrid < 0)
+                or np.any(edges_dgrid >= shape_check[0])
+                or np.any(edges_dgrid >= shape_check[1])
             )
             if check:
                 o = f"""One of the wcs world_extrema is outside the data grid
@@ -102,9 +99,7 @@ class WcsBase(ABC):
         return minx, maxx, miny, maxy
 
     def index_grid_from_wl_extrema(
-        self,
-        world_extrema: SkyCoord,
-        shape_check: Optional[Tuple[int, int]] = None
+        self, world_extrema: SkyCoord, shape_check: Optional[Tuple[int, int]] = None
     ) -> np.typing.ArrayLike:
         """
         Find the pixel indices of the bounding box that contain the world
@@ -126,8 +121,6 @@ class WcsBase(ABC):
             the edge points.
         """
 
-        minx, maxx, miny, maxy = self.index_from_wl_extrema(
-            world_extrema, shape_check)
+        minx, maxx, miny, maxy = self.index_from_wl_extrema(world_extrema, shape_check)
 
-        return np.array(np.meshgrid(np.arange(minx, maxx, 1),
-                                    np.arange(miny, maxy, 1)))
+        return np.array(np.meshgrid(np.arange(minx, maxx, 1), np.arange(miny, maxy, 1)))

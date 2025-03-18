@@ -57,6 +57,7 @@ def get_radec_from_xy(temp_x, temp_y, event_f):
     tuple
     """
     import ciao_contrib.runtool as rt
+
     rt.dmcoords.punlearn()
     rt.dmcoords(event_f, op="sky", celfmt="deg", x=temp_x, y=temp_y)
     x_p = float(rt.dmcoords.ra)
@@ -64,8 +65,9 @@ def get_radec_from_xy(temp_x, temp_y, event_f):
     return (x_p, y_p)
 
 
-def get_psfpatches(info, n, npix_s, ebin, num_rays=10e6,
-                   debug=False, Roll=True, Norm=True):
+def get_psfpatches(
+    info, n, npix_s, ebin, num_rays=10e6, debug=False, Roll=True, Norm=True
+):
     """
     Simulating the point spread function of chandra at n**2 positions.
     This is needed for the application of OverlappAdd algorithm at the
@@ -105,8 +107,9 @@ def get_psfpatches(info, n, npix_s, ebin, num_rays=10e6,
             x_p = x_i + i * dx
             y_p = y_i + l * dy
             radec_c = get_radec_from_xy(x_p, y_p, info.obsInfo["event_file"])
-            tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf",
-                                               num_rays=num_rays)
+            tmp_psf_sim = info.get_psf_fromsim(
+                radec_c, outroot="./psf", num_rays=num_rays
+            )
             tmp_psf_sim = tmp_psf_sim[:, :, ebin]
             if Roll:
                 tmp_coord = coords[u]
@@ -116,8 +119,9 @@ def get_psfpatches(info, n, npix_s, ebin, num_rays=10e6,
             psf_sim.append(tmp_psf_sim)
             if debug:
                 tmp_source = np.zeros(tmp_psf_sim.shape)
-                pos = np.unravel_index(np.argmax(tmp_psf_sim, axis=None),
-                                       tmp_psf_sim.shape)
+                pos = np.unravel_index(
+                    np.argmax(tmp_psf_sim, axis=None), tmp_psf_sim.shape
+                )
                 tmp_source[pos] = 1
                 source.append(tmp_source)
                 positions.append(pos)

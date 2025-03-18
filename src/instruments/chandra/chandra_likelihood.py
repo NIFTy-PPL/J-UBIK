@@ -13,7 +13,7 @@ from ...data import load_masked_data_from_config
 
 
 def generate_chandra_likelihood_from_config(config):
-    """ Creates the Chandra Poissonian log-likelihood from a config dictionary.
+    """Creates the Chandra Poissonian log-likelihood from a config dictionary.
 
     Parameters
     ----------
@@ -33,5 +33,5 @@ def generate_chandra_likelihood_from_config(config):
     create_chandra_data_from_config(config, response_dict)
     # Load data files
     masked_data = load_masked_data_from_config(config)
-    response_func = response_dict['R']
+    response_func = response_dict["R"]
     return jft.Poissonian(masked_data).amend(response_func)

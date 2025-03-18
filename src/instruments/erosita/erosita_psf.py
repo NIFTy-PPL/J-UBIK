@@ -13,21 +13,24 @@ from matplotlib.colors import LogNorm
 from .erosita_psf_utils import get_psf_func, psf_interpolator
 
 
-class eROSITA_PSF():
+class eROSITA_PSF:
     """
     fname: Filename / Path of the psf.fits file.
     """
+
     def __init__(self, fname):
         self._fname = fname
         # TODO: verify that this is the correct assignment!
-        self._myheader = {'ra': "1", 'dec': "2"}
+        self._myheader = {"ra": "1", "dec": "2"}
 
     def _check_energy(self, energy):
         e_list = list(set(self._load_energy()))
         if energy not in e_list:
-            raise ValueError("Please use one of the defined energies. \n",
-                             f"Energies for PSFs = {e_list}.\n",
-                             "This list is unordered")
+            raise ValueError(
+                "Please use one of the defined energies. \n",
+                f"Energies for PSFs = {e_list}.\n",
+                "This list is unordered",
+            )
 
     def _load_fits(self):
         return ast.open(self._fname)
@@ -66,46 +69,62 @@ class eROSITA_PSF():
         self._check_energy(energy)
         ind = self._ind_for_energy(energy)
         with ast.open(self._fname) as f:
-            p_center = [(f[i].header["CRPIX"+self._myheader['ra']], 
-                         f[i].header["CRPIX"+self._myheader['dec']]) 
-                         for i in ind]
+            p_center = [
+                (
+                    f[i].header["CRPIX" + self._myheader["ra"]],
+                    f[i].header["CRPIX" + self._myheader["dec"]],
+                )
+                for i in ind
+            ]
         return np.array(p_center)
 
     def _load_p_center_full(self):
         "Origin of PSF in Pixel Values"
         with ast.open(self._fname) as f:
-            p_center = [(f[i].header["CRPIX"+self._myheader['ra']], 
-                         f[i].header["CRPIX"+self._myheader['dec']]) 
-                         for i in range(len(f))]
+            p_center = [
+                (
+                    f[i].header["CRPIX" + self._myheader["ra"]],
+                    f[i].header["CRPIX" + self._myheader["dec"]],
+                )
+                for i in range(len(f))
+            ]
         return np.array(p_center)
 
     def _load_pix_size(self):
         """Pixel Size in arcsecs"""
         with ast.open(self._fname) as f:
-            p_size = [(f[0].header["CDELT"+self._myheader['ra']],
-                       f[0].header["CDELT"+self._myheader['dec']])]
+            p_size = [
+                (
+                    f[0].header["CDELT" + self._myheader["ra"]],
+                    f[0].header["CDELT" + self._myheader["dec"]],
+                )
+            ]
         return np.array(p_size)
 
     def _load_pix_size_full(self):
         with ast.open(self._fname) as f:
-            p_size = [(f[i].header["CDELT"+self._myheader['ra']],
-                       f[i].header["CDELT"+self._myheader['dec']])
-                      for i in range(len(f))]
+            p_size = [
+                (
+                    f[i].header["CDELT" + self._myheader["ra"]],
+                    f[i].header["CDELT" + self._myheader["dec"]],
+                )
+                for i in range(len(f))
+            ]
         return np.array(p_size)
 
     def _load_theta(self, energy):
         self._check_energy(energy)
         ind = self._ind_for_energy(energy)
         with ast.open(self._fname) as f:
-            theta_list = [int(f[i].name.split("a")[0].split("V")[1])
-                          for i in ind]
-        return np.array(theta_list)*60
+            theta_list = [int(f[i].name.split("a")[0].split("V")[1]) for i in ind]
+        return np.array(theta_list) * 60
 
     def _load_theta_full(self):
         with ast.open(self._fname) as f:
-            theta_list = [int(f[i].name.split("a")[0].split("V")[1])
-                          for i in range(len(f))]
-        return np.array(theta_list)*60
+            theta_list = [
+                int(f[i].name.split("a")[0].split("V")[1]) for i in range(len(f))
+            ]
+        return np.array(theta_list) * 60
 
     def _load_energy(self):
         with ast.open(self._fname) as f:
@@ -122,13 +141,13 @@ class eROSITA_PSF():
             theta_list = [f[i].header["CBD10001"] for i in range(len(f))]
         return theta_list
 
-    def _cutnorm(self, psf, lower_cut=1E-6, want_frac=False):
+    def _cutnorm(self, psf, lower_cut=1e-6, want_frac=False):
         if len(psf.shape) != 2:
             raise ValueError
         if want_frac:
             norm = np.sum(psf)
         if lower_cut is not None:
-            psf[psf <= lower_cut] = 0.
+            psf[psf <= lower_cut] = 0.0
         if want_frac:
             frac = np.sum(psf) / norm
         psf /= psf.sum()
@@ -142,10 +161,11 @@ class eROSITA_PSF():
             "psf": self._load_data(energy),
             "theta": self._load_theta(energy),
             "center": self._load_p_center(energy),
-            "dpix": self._load_pix_size()}
+            "dpix": self._load_pix_size(),
+        }
         return full_dct
 
-    def plot_psfs(self, outroot='', lower_cut=1E-6, **args):
+    def plot_psfs(self, outroot="", lower_cut=1e-6, **args):
         """Plot the psfs in the fits file."""
         name = self._load_names()
         psf = self._load_data_full()
@@ -161,34 +181,40 @@ class eROSITA_PSF():
             npix = np.array(j[1].shape)
             pix_size = self._load_pix_size()[0]
             hlf_fov = npix * pix_size / 60 / 2
-            pltargs.update({"extent": [-hlf_fov[0], hlf_fov[0],
-                                       -hlf_fov[1], hlf_fov[1]]})
+            pltargs.update(
+                {"extent": [-hlf_fov[0], hlf_fov[0], -hlf_fov[1], hlf_fov[1]]}
+            )
             tm, frac = self._cutnorm(j[1], lower_cut=lower_cut, want_frac=True)
             axs.text(10, 450, f"Norm. fraction: {frac}")
             im = axs.imshow(tm.T, **pltargs)
-            axs.scatter((j[3][0]*pix_size[0]/60)-hlf_fov[0],
-                        (j[3][1]*pix_size[1]/60)-hlf_fov[1],
-                        marker=".", color='r')
-            axs.set_xlabel('[arcsec]')
-            axs.set_ylabel('[arcsec]')
+            axs.scatter(
+                (j[3][0] * pix_size[0] / 60) - hlf_fov[0],
+                (j[3][1] * pix_size[1] / 60) - hlf_fov[1],
+                marker=".",
+                color="r",
+            )
+            axs.set_xlabel("[arcsec]")
+            axs.set_ylabel("[arcsec]")
             fig.colorbar(mappable=im)
-            plt.savefig(f'{outroot}/psf_{j[0]}.png')
+            plt.savefig(f"{outroot}/psf_{j[0]}.png")
             plt.clf
             plt.close()
 
-    def _get_psf_infos(self, energy, pointing_center, lower_cut=1E-6):
+    def _get_psf_infos(self, energy, pointing_center, lower_cut=1e-6):
         self._check_energy(energy)
-        newpsfs = np.array([self._cutnorm(pp, lower_cut=lower_cut) for pp in
-                            self._load_data(energy)])
-        psf_infos = {'psfs': newpsfs,
-                     'rs': self._load_theta(energy),
-                     'patch_center_ids': self._load_p_center(energy),
-                     'patch_deltas': self._load_pix_size(),
-                     'pointing_center': pointing_center}
+        newpsfs = np.array(
+            [self._cutnorm(pp, lower_cut=lower_cut) for pp in self._load_data(energy)]
+        )
+        psf_infos = {
+            "psfs": newpsfs,
+            "rs": self._load_theta(energy),
+            "patch_center_ids": self._load_p_center(energy),
+            "patch_deltas": self._load_pix_size(),
+            "pointing_center": pointing_center,
+        }
         return psf_infos
 
-    def make_interpolated_psf_array(self, energies, pointing_center,
-                                    domain, npatch):
+    def make_interpolated_psf_array(self, energies, pointing_center, domain, npatch):
         """
         Constructs an interpolated PSF (Point Spread Function) array for the given energies,
         pointing center, and domain.
@@ -225,9 +251,9 @@ class eROSITA_PSF():
             self._check_energy(energy)
             info = self._get_psf_infos(energy, pointing_center)
             psf_infos.append(info)
-        print('Interpolate PSF on Grid...')
+        print("Interpolate PSF on Grid...")
         array = psf_interpolator(domain, npatch, psf_infos)
-        print('...done build PSF-interpolation')
+        print("...done build PSF-interpolation")
         return array
 
     def _get_psf_func(self, energy, pointing_center, domain):
@@ -239,11 +265,16 @@ class eROSITA_PSF():
     def psf_func_on_domain(self, energy, pointing_center, domain):
         self._check_energy(energy)
         psf_func = self._get_psf_func(energy, pointing_center, domain)
-        distances = ((np.arange(ss) - ss//2)*dd for ss,dd in 
-                     zip(domain.shape, domain.distances))
-        distances = (np.roll(dd, (ss+1)//2) for dd,ss in 
-                     zip(distances, domain.shape))
-        distances = np.meshgrid(*distances, indexing='ij')
+        distances = (
+            (np.arange(ss) - ss // 2) * dd
+            for ss, dd in zip(domain.shape, domain.distances)
+        )
+        distances = (
+            np.roll(dd, (ss + 1) // 2) for dd, ss in zip(distances, domain.shape)
+        )
+        distances = np.meshgrid(*distances, indexing="ij")
+
         def func(ra, dec):
             return psf_func(ra, dec, *distances)
+
         return func

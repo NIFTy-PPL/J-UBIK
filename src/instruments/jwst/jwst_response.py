@@ -12,8 +12,7 @@ from numpy.typing import ArrayLike
 
 from .integration_model import build_sum
 from .jwst_psf import instantiate_psf, load_psf_kernel
-from .rotation_and_shift import build_rotation_and_shift_model, \
-    RotationAndShiftModel
+from .rotation_and_shift import build_rotation_and_shift_model, RotationAndShiftModel
 from .zero_flux_model import build_zero_flux_model
 
 
@@ -35,7 +34,7 @@ class JwstResponse(jft.Model):
         integrate: Callable[[ArrayLike], ArrayLike],
         transmission: float,
         zero_flux_model: Optional[jft.Model],
-        mask: Callable[[ArrayLike], ArrayLike]
+        mask: Callable[[ArrayLike], ArrayLike],
     ):
         """
         Initialize the DataModel with components for various data
@@ -69,8 +68,9 @@ class JwstResponse(jft.Model):
             If `sky_domain` is not a dictionary or if it contains
             more than one key.
         """
-        need_sky_key = ('Need to provide an internal key to the target of the '
-                        'sky model')
+        need_sky_key = (
+            "Need to provide an internal key to the target of the " "sky model"
+        )
         assert isinstance(sky_domain, dict), need_sky_key
         assert len(sky_domain.keys()) == 1, need_sky_key
 
@@ -148,28 +148,31 @@ def build_jwst_response(
         The mask on the data
     """
 
-    need_sky_key = ('Need to provide an internal key to the target of the sky '
-                    'model.')
+    need_sky_key = "Need to provide an internal key to the target of the sky " "model."
     assert isinstance(sky_domain, dict), need_sky_key
 
     rotation_and_shift = build_rotation_and_shift_model(
         sky_domain=sky_domain,
-        reconstruction_grid=rotation_and_shift_kwargs['reconstruction_grid'],
-        world_extrema=rotation_and_shift_kwargs['world_extrema'],
-        data_grid_dvol=rotation_and_shift_kwargs['data_dvol'],
-        data_grid_wcs=rotation_and_shift_kwargs['data_wcs'],
-        model_type=rotation_and_shift_kwargs['data_model_type'],
+        reconstruction_grid=rotation_and_shift_kwargs["reconstruction_grid"],
+        world_extrema=rotation_and_shift_kwargs["world_extrema"],
+        data_grid_dvol=rotation_and_shift_kwargs["data_dvol"],
+        data_grid_wcs=rotation_and_shift_kwargs["data_wcs"],
+        model_type=rotation_and_shift_kwargs["data_model_type"],
         subsample=subsample,
         kwargs=dict(
             linear=rotation_and_shift_kwargs.get(
-                'kwargs_linear', dict(order=1, sky_as_brightness=False)),
+                "kwargs_linear", dict(order=1, sky_as_brightness=False)
+            ),
             nufft=rotation_and_shift_kwargs.get(
-                'kwargs_nufft', dict(sky_as_brightness=False)),
+                "kwargs_nufft", dict(sky_as_brightness=False)
+            ),
             sparse=rotation_and_shift_kwargs.get(
-                'kwargs_sparse', dict(extend_factor=1, to_bottom_left=True)),
+                "kwargs_sparse", dict(extend_factor=1, to_bottom_left=True)
+            ),
         ),
         coordinate_correction=rotation_and_shift_kwargs.get(
-            'shift_and_rotation_correction', None)
+            "shift_and_rotation_correction", None
+        ),
     )
 
     integrate = build_sum(
@@ -177,32 +180,43 @@ def build_jwst_response(
         reduction_factor=subsample,
     )
 
-    psf_kernel = load_psf_kernel(
-        camera=psf_kwargs['camera'],
-        filter=psf_kwargs['filter'],
-        center_pixel=psf_kwargs['center_pixel'],
-        webbpsf_path=psf_kwargs['webbpsf_path'],
-        psf_library_path=psf_kwargs['psf_library_path'],
-        fov_pixels=psf_kwargs.get('fov_pixels'),
-        fov_arcsec=psf_kwargs.get('fov_arcsec'),
-        subsample=subsample,
-    ) if len(psf_kwargs) != 0 else None
+    psf_kernel = (
+        load_psf_kernel(
+            camera=psf_kwargs["camera"],
+            filter=psf_kwargs["filter"],
+            center_pixel=psf_kwargs["center_pixel"],
+            webbpsf_path=psf_kwargs["webbpsf_path"],
+            psf_library_path=psf_kwargs["psf_library_path"],
+            fov_pixels=psf_kwargs.get("fov_pixels"),
+            fov_arcsec=psf_kwargs.get("fov_arcsec"),
+            subsample=subsample,
+        )
+        if len(psf_kwargs) != 0
+        else None
+    )
     psf = instantiate_psf(psf_kernel)
 
     if zero_flux is None:
         zero_flux_model = None
     else:
-        zero_flux_model = build_zero_flux_model(zero_flux['dkey'], zero_flux)
+        zero_flux_model = build_zero_flux_model(zero_flux["dkey"], zero_flux)
 
     if data_mask is None:
-        def mask(x): return x
-    else:
-        def mask(x): return x[data_mask]
 
-    return JwstResponse(sky_domain=sky_domain,
-                        rotation_and_shift=rotation_and_shift,
-                        psf=psf,
-                        integrate=integrate,
-                        transmission=transmission,
-                        zero_flux_model=zero_flux_model,
-                        mask=mask)
+        def mask(x):
+            return x
+
+    else:
+
+        def mask(x):
+            return x[data_mask]
+
+    return JwstResponse(
+        sky_domain=sky_domain,
+        rotation_and_shift=rotation_and_shift,
+        psf=psf,
+        integrate=integrate,
+        transmission=transmission,
+        zero_flux_model=zero_flux_model,
+        mask=mask,
+    )

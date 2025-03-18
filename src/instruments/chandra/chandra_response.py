@@ -20,13 +20,13 @@ from ...data import Domain
 def build_chandra_response_from_config(config):
     """
     Build the Chandra response from the configuration file.
-    
+
     Parameters
     ----------
     config : dict
         Dictionary containing the configuration parameters.
-        
-    Returns 
+
+    Returns
     -------
     response_dict : dict
         A dictionary containing the response information, including:
@@ -36,28 +36,31 @@ def build_chandra_response_from_config(config):
         - 'mask': The mask function.
         - 'R': The response function.
     """
-    obs_info = config['obs_info']
-    grid_info = config['grid']
-    file_info = config['files']
-    psf_info = config['psf']
-    outroot = create_output_directory(join(file_info['res_dir'],
-                                           file_info['processed_obs_folder']))
+    obs_info = config["obs_info"]
+    grid_info = config["grid"]
+    file_info = config["files"]
+    psf_info = config["psf"]
+    outroot = create_output_directory(
+        join(file_info["res_dir"], file_info["processed_obs_folder"])
+    )
 
-    tel_info = config['telescope']
+    tel_info = config["telescope"]
 
     obslist = list(obs_info.keys())
     psf_list = []
     exposure_list = []
 
-    energy_bins = grid_info['energy_bin']
-    energy_ranges = tuple(set(energy_bins['e_min']+energy_bins['e_max']))
+    energy_bins = grid_info["energy_bin"]
+    energy_ranges = tuple(set(energy_bins["e_min"] + energy_bins["e_max"]))
     elim = (min(energy_ranges), max(energy_ranges))
 
-    exposure_path = join(outroot, 'exposure.pkl')
-    psf_path = join(outroot, 'psf.pkl')
+    exposure_path = join(outroot, "exposure.pkl")
+    psf_path = join(outroot, "psf.pkl")
 
-    domain = Domain(tuple([grid_info["edim"]] + [grid_info["sdim"]] * 2),
-                    tuple([1] + [tel_info["fov"] / grid_info["sdim"]] * 2))
+    domain = Domain(
+        tuple([grid_info["edim"]] + [grid_info["sdim"]] * 2),
+        tuple([1] + [tel_info["fov"] / grid_info["sdim"]] * 2),
+    )
     shp = (domain.shape[-2], domain.shape[-1])
     margin = max((int(np.ceil(psf_info["margfrac"] * ss)) for ss in shp))
 
@@ -74,7 +77,7 @@ def build_chandra_response_from_config(config):
         psf_list = []
 
     if not exists(exposure_path) or not exists(psf_path):
-        center_obs_id = tel_info.get('center_obs_id', None)
+        center_obs_id = tel_info.get("center_obs_id", None)
         if center_obs_id is not None and center_obs_id in obslist:
             obslist.remove(center_obs_id)
             obslist.insert(0, center_obs_id)
@@ -84,30 +87,31 @@ def build_chandra_response_from_config(config):
             # Observation information for both exposure and PSF
             info = ChandraObservationInformation(
                 obs_info[obsnr],
-                npix_s=grid_info['sdim'],
-                npix_e=grid_info['edim'],
-                fov=tel_info['fov'],
+                npix_s=grid_info["sdim"],
+                npix_e=grid_info["edim"],
+                fov=tel_info["fov"],
                 elim=elim,
                 energy_ranges=energy_ranges,
-                center=center
+                center=center,
             )
 
             # Compute exposure if it hasn't been loaded
             if not exists(exposure_path):
-                exposure = info.get_exposure(
-                    join(outroot, f"exposure_{obsnr}"))
+                exposure = info.get_exposure(join(outroot, f"exposure_{obsnr}"))
                 exposure_list.append(np.transpose(exposure))
 
             # Compute PSF if it hasn't been loaded
             if not exists(psf_path):
                 tmp_psfs = []
                 for ebin in range(grid_info["edim"]):
-                    psf_array = get_psfpatches(info,
-                                               psf_info["npatch"],
-                                               grid_info["sdim"],
-                                               ebin,
-                                               num_rays=psf_info["num_rays"],
-                                               Norm=False)
+                    psf_array = get_psfpatches(
+                        info,
+                        psf_info["npatch"],
+                        grid_info["sdim"],
+                        ebin,
+                        num_rays=psf_info["num_rays"],
+                        Norm=False,
+                    )
                     tmp_psfs.append(psf_array)
                 psf_list.append(np.moveaxis(np.array(tmp_psfs), 0, 1))
             if i == 0:
@@ -129,21 +133,24 @@ def build_chandra_response_from_config(config):
             x, domain, psfs, psf_info["npatch"], margin
         )
 
-    mask_func = build_readout_function(exposures, keys=obslist,
-                                       threshold=tel_info['exp_cut'])
+    mask_func = build_readout_function(
+        exposures, keys=obslist, threshold=tel_info["exp_cut"]
+    )
     exposure_func = build_exposure_function(exposures)
 
-    pixel_area = (tel_info['fov'] / grid_info['sdim']) ** 2
+    pixel_area = (tel_info["fov"] / grid_info["sdim"]) ** 2
 
     def response_func(x):
-        conv = psf_func(x*pixel_area)
+        conv = psf_func(x * pixel_area)
         exposed = exposure_func(conv)
         masked = mask_func(exposed)
         return masked
 
-    response_dict = {'pix_area': pixel_area,
-                     'psf': psf_func,
-                     'exposure': exposure_func,
-                     'mask': mask_func,
-                     'R': response_func}
+    response_dict = {
+        "pix_area": pixel_area,
+        "psf": psf_func,
+        "exposure": exposure_func,
+        "mask": mask_func,
+        "R": response_func,
+    }
     return response_dict

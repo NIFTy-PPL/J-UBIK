@@ -11,12 +11,12 @@ import jax.numpy as jnp
 import nifty8.re as jft
 
 DISTRIBUTION_MAPPING = {
-    'normal': (jft.normal_prior, ['mean', 'sigma']),
-    'log_normal': (jft.lognormal_prior, ['mean', 'sigma']),
-    'lognormal': (jft.lognormal_prior, ['mean', 'sigma']),
-    'uniform': (jft.uniform_prior, ['min', 'max']),
-    'delta': (lambda x: lambda _: x, ['mean']),
-    None: (lambda x: lambda _: x, ['mean'])
+    "normal": (jft.normal_prior, ["mean", "sigma"]),
+    "log_normal": (jft.lognormal_prior, ["mean", "sigma"]),
+    "lognormal": (jft.lognormal_prior, ["mean", "sigma"]),
+    "uniform": (jft.uniform_prior, ["min", "max"]),
+    "delta": (lambda x: lambda _: x, ["mean"]),
+    None: (lambda x: lambda _: x, ["mean"]),
 }
 
 
@@ -33,15 +33,15 @@ def _infer_shape(params: dict, shape: tuple):
     if shape != ():
         return shape
 
-    match params['distribution']:
-        case 'delta' | None:
-            return jnp.shape(params['mean'])
+    match params["distribution"]:
+        case "delta" | None:
+            return jnp.shape(params["mean"])
 
-        case 'uniform':
-            shp1, shp2 = map(jnp.shape, (params['min'], params['max']))
+        case "uniform":
+            shp1, shp2 = map(jnp.shape, (params["min"], params["max"]))
 
         case _:
-            shp1, shp2 = map(jnp.shape, (params['mean'], params['sigma']))
+            shp1, shp2 = map(jnp.shape, (params["mean"], params["sigma"]))
 
     # TODO: do some checks on compatibility of the two shapes
     return shp1
@@ -55,30 +55,20 @@ def _transform_setting(parameters: Union[dict, tuple]):
     distribution = parameters[0].lower()
 
     match distribution:
-        case 'uniform':
-            return dict(
-                distribution=distribution,
-                min=parameters[1],
-                max=parameters[2])
+        case "uniform":
+            return dict(distribution=distribution, min=parameters[1], max=parameters[2])
 
-        case 'delta' | None:
-            return dict(
-                distribution=distribution,
-                mean=parameters[1]
-            )
+        case "delta" | None:
+            return dict(distribution=distribution, mean=parameters[1])
 
         case _:
             return dict(
-                distribution=distribution,
-                mean=parameters[1],
-                sigma=parameters[2]
+                distribution=distribution, mean=parameters[1], sigma=parameters[2]
             )
 
 
 def build_parametric_prior(
-    domain_key: str,
-    parameters: Union[dict, tuple],
-    shape: Tuple[int] = ()
+    domain_key: str, parameters: Union[dict, tuple], shape: Tuple[int] = ()
 ) -> Callable:
     """
     Builds a parametric prior based on the specified distribution and
@@ -141,10 +131,10 @@ def build_parametric_prior(
     parameters = _transform_setting(parameters)
 
     try:
-        distribution = parameters.get('distribution')
+        distribution = parameters.get("distribution")
         prior_function, required_keys = DISTRIBUTION_MAPPING[distribution]
         vals = [_shape_adjust(parameters[key], shape) for key in required_keys]
-        transformation = parameters.get('transformation', None)
+        transformation = parameters.get("transformation", None)
 
     except KeyError as e:
         if distribution not in DISTRIBUTION_MAPPING:

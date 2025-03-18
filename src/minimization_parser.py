@@ -10,35 +10,32 @@ from typing import Callable, Union, Any, Optional, Dict
 import nifty8.re as jft
 
 # CONFIGURATION CONSTANTS
-SWITCHES = 'switches'
-SAMPLES = 'samples'
-N_SAMPLES = 'n_samples'
-N_TOTAL_ITERATIONS = 'n_total_iterations'
-MODE = 'mode'
-DELTA = 'delta'
-LIN = 'lin'
-LIN_NAME = 'lin sampling'
-ABSDELTA = 'absdelta'
-MINITER = 'miniter'
-MAXITER = 'maxiter'
-DELTA_VALUE = 'values'
-TOL = 'tol'
-ATOL = 'atol'
-XTOL = 'xtol'
-NONLIN = 'nonlin'
-NONLIN_NAME = 'nonlin sampling'
-NONLIN_CG = 'nonlin_cg'
-KL_MINI = 'kl_minimization'
-KL = 'kl'
-KL_NAME = 'kl'
-KL_CG = 'kl_cg'
+SWITCHES = "switches"
+SAMPLES = "samples"
+N_SAMPLES = "n_samples"
+N_TOTAL_ITERATIONS = "n_total_iterations"
+MODE = "mode"
+DELTA = "delta"
+LIN = "lin"
+LIN_NAME = "lin sampling"
+ABSDELTA = "absdelta"
+MINITER = "miniter"
+MAXITER = "maxiter"
+DELTA_VALUE = "values"
+TOL = "tol"
+ATOL = "atol"
+XTOL = "xtol"
+NONLIN = "nonlin"
+NONLIN_NAME = "nonlin sampling"
+NONLIN_CG = "nonlin_cg"
+KL_MINI = "kl_minimization"
+KL = "kl"
+KL_NAME = "kl"
+KL_CG = "kl_cg"
 
 
 def get_config_value(
-    key: str,
-    config: dict,
-    index: int, default: Any,
-    verbose: bool = False
+    key: str, config: dict, index: int, default: Any, verbose: bool = False
 ) -> Union[int, float]:
     """
     Returns a configuration value from a list or a default value.
@@ -83,7 +80,7 @@ def get_config_value(
     value_list = config.get(key, default)
     if verbose:
         if key not in config:
-            print(f'Key: {key} set to default={default}')
+            print(f"Key: {key} set to default={default}")
 
     if isinstance(value_list, list):
         try:
@@ -94,11 +91,7 @@ def get_config_value(
     return value_list
 
 
-def get_range_index(
-    mini_cfg: dict,
-    iteration: int,
-    total_iterations: int
-) -> int:
+def get_range_index(mini_cfg: dict, iteration: int, total_iterations: int) -> int:
     """
     Returns the index of the switches corresponding to the current iteration
     number.
@@ -136,14 +129,14 @@ def get_range_index(
         switches = [0]
     switches = switches + [total_iterations]
 
-    for i in range(len(switches)-1):
-        if switches[i] <= iteration < switches[i+1]:
+    for i in range(len(switches) - 1):
+        if switches[i] <= iteration < switches[i + 1]:
             return i
 
     if iteration == total_iterations:
         return len(switches) - 1
     else:
-        raise ValueError(f'Iteration {iteration} is out of range.')
+        raise ValueError(f"Iteration {iteration} is out of range.")
 
 
 def _delta_logic(
@@ -153,7 +146,7 @@ def _delta_logic(
     iteration: int,
     delta_switches_index: int,
     ndof: Optional[int] = None,
-    verbose: bool = True
+    verbose: bool = True,
 ) -> float:
     """
     Calculates minimization config value if `delta` is in config.
@@ -205,10 +198,9 @@ def _delta_logic(
     iteration += 1  # iteration index changes during OptVI update
 
     params = {
-        KL: {'variable': ABSDELTA, 'factor': ndof},
-        LIN: {'variable': ABSDELTA, 'factor': ndof / 10
-        if ndof is not None else ndof},
-        NONLIN: {'variable': XTOL, 'factor': 1.0}
+        KL: {"variable": ABSDELTA, "factor": ndof},
+        LIN: {"variable": ABSDELTA, "factor": ndof / 10 if ndof is not None else ndof},
+        NONLIN: {"variable": XTOL, "factor": 1.0},
     }
 
     param = params.get(keyword)
@@ -217,20 +209,24 @@ def _delta_logic(
         raise ValueError(f"Unknown keyword: {keyword}.")
 
     if delta is None:
-        raise ValueError(f'The {keyword} {param["variable"]} in '
-                         f'iteration {iteration} is not set. '
-                         f'A `delta` must be set in the config.')
+        raise ValueError(
+            f'The {keyword} {param["variable"]} in '
+            f"iteration {iteration} is not set. "
+            f"A `delta` must be set in the config."
+        )
 
-    delta_value = get_config_value(DELTA_VALUE, delta, delta_switches_index,
-                                   default=None)
+    delta_value = get_config_value(
+        DELTA_VALUE, delta, delta_switches_index, default=None
+    )
 
     if delta_value is None:
-        raise ValueError(f'{keyword}: delta value must be set.')
+        raise ValueError(f"{keyword}: delta value must be set.")
 
-    return_value = delta_value * param['factor']
+    return_value = delta_value * param["factor"]
     if verbose:
-        jft.logger.info(f'it {iteration}: {keyword} {param["variable"]} '
-                        f'set to {return_value}')
+        jft.logger.info(
+            f'it {iteration}: {keyword} {param["variable"]} ' f"set to {return_value}"
+        )
     return return_value
 
 
@@ -269,22 +265,19 @@ def n_samples_factory(
 
     def n_samples(iteration: int) -> int:
         range_index = get_range_index(
-            mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
-        return get_config_value(N_SAMPLES, mini_cfg[SAMPLES], range_index,
-                                default=None)
+            mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS]
+        )
+        return get_config_value(N_SAMPLES, mini_cfg[SAMPLES], range_index, default=None)
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         n = n_samples(ii)
         if n is None:
-            raise ValueError(
-                f"Number of samples at iteration {ii+1} needs to be set.")
+            raise ValueError(f"Number of samples at iteration {ii+1} needs to be set.")
 
     return n_samples
 
 
-def sample_mode_factory(
-    mini_cfg: dict
-) -> Callable[[int], str]:
+def sample_mode_factory(mini_cfg: dict) -> Callable[[int], str]:
     """
     Creates a Callable that returns the sample mode for a given iteration.
 
@@ -306,9 +299,11 @@ def sample_mode_factory(
 
     def sample_mode(iteration: int) -> str:
         range_index = get_range_index(
-            mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
-        return get_config_value(MODE, mini_cfg[SAMPLES], range_index,
-                                default='').lower()
+            mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS]
+        )
+        return get_config_value(
+            MODE, mini_cfg[SAMPLES], range_index, default=""
+        ).lower()
 
     sample_keywords = [
         "linear_sample",
@@ -320,8 +315,10 @@ def sample_mode_factory(
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         t = sample_mode(ii)
         if t not in sample_keywords:
-            raise ValueError(f"Unknown sample type: {t} at iteration {ii+1}, "
-                             "known types: {sample_keywords}")
+            raise ValueError(
+                f"Unknown sample type: {t} at iteration {ii+1}, "
+                "known types: {sample_keywords}"
+            )
 
     return sample_mode
 
@@ -330,7 +327,7 @@ def linear_sample_kwargs_factory(
     mini_cfg: dict,
     delta: Optional[dict] = None,
     ndof: Optional[int] = None,
-    verbose: bool = True
+    verbose: bool = True,
 ) -> Callable[[int], dict]:
     """
     Creates a callable that returns linear sample kwargs for `nifty8.re` based
@@ -362,30 +359,33 @@ def linear_sample_kwargs_factory(
 
     def linear_kwargs(iteration: int) -> dict:
         range_index = get_range_index(
-            mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
+            mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS]
+        )
         delta_range_index = get_range_index(
             mini_cfg[DELTA], iteration, mini_cfg[N_TOTAL_ITERATIONS]
         )
 
-        absdelta_name = f'{LIN}_{ABSDELTA}'
-        miniter_name = f'{LIN}_{MINITER}'
-        maxiter_name = f'{LIN}_{MAXITER}'
-        tol_name = f'{LIN}_{TOL}'
-        atol_name = f'{LIN}_{ATOL}'
+        absdelta_name = f"{LIN}_{ABSDELTA}"
+        miniter_name = f"{LIN}_{MINITER}"
+        maxiter_name = f"{LIN}_{MAXITER}"
+        tol_name = f"{LIN}_{TOL}"
+        atol_name = f"{LIN}_{ATOL}"
 
         minit = get_config_value(
-            miniter_name, mini_cfg[SAMPLES], range_index, default=None)
+            miniter_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         maxit = get_config_value(
-            maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
+            maxiter_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         absdelta = get_config_value(
-            absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
-        tol = get_config_value(
-            tol_name, mini_cfg[SAMPLES], range_index, default=None)
-        atol = get_config_value(
-            atol_name, mini_cfg[SAMPLES], range_index, default=None)
+            absdelta_name, mini_cfg[SAMPLES], range_index, default=None
+        )
+        tol = get_config_value(tol_name, mini_cfg[SAMPLES], range_index, default=None)
+        atol = get_config_value(atol_name, mini_cfg[SAMPLES], range_index, default=None)
 
-        absdelta = _delta_logic(LIN, delta, absdelta, iteration,
-                                delta_range_index, ndof, verbose)
+        absdelta = _delta_logic(
+            LIN, delta, absdelta, iteration, delta_range_index, ndof, verbose
+        )
 
         return dict(
             cg_name=LIN_NAME,
@@ -395,23 +395,23 @@ def linear_sample_kwargs_factory(
                 tol=tol,
                 atol=atol,
                 miniter=minit,
-                maxiter=maxit)
-            )
+                maxiter=maxit,
+            ),
+        )
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         lin_config = linear_kwargs(ii)
-        absdelta = lin_config['cg_kwargs']['absdelta']
+        absdelta = lin_config["cg_kwargs"]["absdelta"]
         if absdelta is None:
-            raise ValueError(f'Linear `absdelta` at iteration {ii+1} '
-                             f'needs to be set.')
+            raise ValueError(
+                f"Linear `absdelta` at iteration {ii+1} " f"needs to be set."
+            )
 
     return linear_kwargs
 
 
 def nonlinearly_update_kwargs_factory(
-    mini_cfg: dict,
-    delta: Optional[dict] = None,
-    verbose: bool = True
+    mini_cfg: dict, delta: Optional[dict] = None, verbose: bool = True
 ) -> Callable[[int], dict]:
     """
     Creates a callable that returns nonlinear sample kwargs for `nifty8.re`
@@ -441,40 +441,48 @@ def nonlinearly_update_kwargs_factory(
 
     def nonlinearly_update_kwargs(iteration: int) -> dict:
         range_index = get_range_index(
-            mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
+            mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS]
+        )
         delta_range_index = get_range_index(
             mini_cfg[DELTA], iteration, mini_cfg[N_TOTAL_ITERATIONS]
         )
 
-        absdelta_name = f'{NONLIN}_{XTOL}'
-        miniter_name = f'{NONLIN}_{MINITER}'
-        maxiter_name = f'{NONLIN}_{MAXITER}'
+        absdelta_name = f"{NONLIN}_{XTOL}"
+        miniter_name = f"{NONLIN}_{MINITER}"
+        maxiter_name = f"{NONLIN}_{MAXITER}"
         minit = get_config_value(
-            miniter_name, mini_cfg[SAMPLES], range_index, default=None)
+            miniter_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         maxit = get_config_value(
-            maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
+            maxiter_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         xtol = get_config_value(
-            absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
+            absdelta_name, mini_cfg[SAMPLES], range_index, default=None
+        )
 
-        xtol = _delta_logic(NONLIN, delta, xtol, iteration,
-                            delta_range_index, verbose)
+        xtol = _delta_logic(NONLIN, delta, xtol, iteration, delta_range_index, verbose)
 
-        cg_delta_name = f'{NONLIN_CG}_{ABSDELTA}'
-        cg_tol_name = f'{NONLIN_CG}_{TOL}'
-        cg_atol_name = f'{NONLIN_CG}_{ATOL}'
-        cg_miniter_name = f'{NONLIN_CG}_{MINITER}'
-        cg_maxiter_name = f'{NONLIN_CG}_{MAXITER}'
+        cg_delta_name = f"{NONLIN_CG}_{ABSDELTA}"
+        cg_tol_name = f"{NONLIN_CG}_{TOL}"
+        cg_atol_name = f"{NONLIN_CG}_{ATOL}"
+        cg_miniter_name = f"{NONLIN_CG}_{MINITER}"
+        cg_maxiter_name = f"{NONLIN_CG}_{MAXITER}"
 
         cg_delta = get_config_value(
-            cg_delta_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_delta_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         cg_tol = get_config_value(
-            cg_tol_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_tol_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         cg_atol = get_config_value(
-            cg_atol_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_atol_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         cg_minit = get_config_value(
-            cg_miniter_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_miniter_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         cg_maxit = get_config_value(
-            cg_maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_maxiter_name, mini_cfg[SAMPLES], range_index, default=None
+        )
 
         return dict(
             minimize_kwargs=dict(
@@ -488,15 +496,17 @@ def nonlinearly_update_kwargs_factory(
                     tol=cg_tol,
                     atol=cg_atol,
                     miniter=cg_minit,
-                    maxiter=cg_maxit
-                )))
+                    maxiter=cg_maxit,
+                ),
+            )
+        )
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         non_linear_samples_dict = nonlinearly_update_kwargs(ii)
-        if non_linear_samples_dict['minimize_kwargs']['xtol'] is None:
+        if non_linear_samples_dict["minimize_kwargs"]["xtol"] is None:
             raise ValueError(
-                f"nonlinear `xtol` at iteration {ii+1} "
-                f"needs to be set.")
+                f"nonlinear `xtol` at iteration {ii+1} " f"needs to be set."
+            )
 
     return nonlinearly_update_kwargs
 
@@ -536,40 +546,48 @@ def kl_kwargs_factory(
 
     def kl_kwargs(iteration: int) -> dict:
         range_index = get_range_index(
-            mini_cfg[KL_MINI], iteration, mini_cfg[N_TOTAL_ITERATIONS])
+            mini_cfg[KL_MINI], iteration, mini_cfg[N_TOTAL_ITERATIONS]
+        )
         delta_range_index = get_range_index(
             mini_cfg[DELTA], iteration, mini_cfg[N_TOTAL_ITERATIONS]
         )
 
-        absdelta_name = f'{KL}_{ABSDELTA}'
-        miniter_name = f'{KL}_{MINITER}'
-        maxiter_name = f'{KL}_{MAXITER}'
-        xtol_name = f'{KL}_{XTOL}'
+        absdelta_name = f"{KL}_{ABSDELTA}"
+        miniter_name = f"{KL}_{MINITER}"
+        maxiter_name = f"{KL}_{MAXITER}"
+        xtol_name = f"{KL}_{XTOL}"
 
         minit = get_config_value(
-            miniter_name, mini_cfg[KL_MINI], range_index, default=None)
+            miniter_name, mini_cfg[KL_MINI], range_index, default=None
+        )
         maxit = get_config_value(
-            maxiter_name, mini_cfg[KL_MINI], range_index, default=None)
+            maxiter_name, mini_cfg[KL_MINI], range_index, default=None
+        )
         absdelta = get_config_value(
-            absdelta_name, mini_cfg[KL_MINI], range_index, default=None)
-        xtol = get_config_value(
-            xtol_name, mini_cfg[KL_MINI], range_index, default=None)
+            absdelta_name, mini_cfg[KL_MINI], range_index, default=None
+        )
+        xtol = get_config_value(xtol_name, mini_cfg[KL_MINI], range_index, default=None)
 
-        absdelta = _delta_logic(KL, delta, absdelta, iteration,
-                                delta_range_index, ndof, verbose)
+        absdelta = _delta_logic(
+            KL, delta, absdelta, iteration, delta_range_index, ndof, verbose
+        )
 
-        cg_absdelta_name = f'{KL_CG}_{ABSDELTA}'
-        cg_atol_name = f'{KL_CG}_{ATOL}'
-        cg_miniter_name = f'{KL_CG}_{MINITER}'
-        cg_maxiter_name = f'{KL_CG}_{MAXITER}'
+        cg_absdelta_name = f"{KL_CG}_{ABSDELTA}"
+        cg_atol_name = f"{KL_CG}_{ATOL}"
+        cg_miniter_name = f"{KL_CG}_{MINITER}"
+        cg_maxiter_name = f"{KL_CG}_{MAXITER}"
         cg_atol = get_config_value(
-            cg_atol_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_atol_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         cg_absdelta = get_config_value(
-            cg_absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_absdelta_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         cg_minit = get_config_value(
-            cg_miniter_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_miniter_name, mini_cfg[SAMPLES], range_index, default=None
+        )
         cg_maxit = get_config_value(
-            cg_maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_maxiter_name, mini_cfg[SAMPLES], range_index, default=None
+        )
 
         return dict(
             minimize_kwargs=dict(
@@ -583,15 +601,15 @@ def kl_kwargs_factory(
                     absdelta=cg_absdelta,
                     atol=cg_atol,
                     miniter=cg_minit,
-                    maxiter=cg_maxit
-                )
-            ))
+                    maxiter=cg_maxit,
+                ),
+            )
+        )
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         kl_kwargs_dict = kl_kwargs(ii)
-        if kl_kwargs_dict['minimize_kwargs']['absdelta'] is None:
-            raise ValueError(f"kl `absdelta` at iteration {ii+1} "
-                             f"needs to be set.")
+        if kl_kwargs_dict["minimize_kwargs"]["absdelta"] is None:
+            raise ValueError(f"kl `absdelta` at iteration {ii+1} " f"needs to be set.")
 
     return kl_kwargs
 
@@ -633,15 +651,18 @@ class MinimizationParser:
         delta = config.get(DELTA)
 
         if (delta is not None) and n_dof is None:
-            raise ValueError('Number of relevant degrees of freedom must '
-                             'be set to allow recalculating minimization '
-                             'values with `delta`.')
+            raise ValueError(
+                "Number of relevant degrees of freedom must "
+                "be set to allow recalculating minimization "
+                "values with `delta`."
+            )
 
         self.n_samples = n_samples_factory(config)
         self.sample_mode = sample_mode_factory(config)
         self.draw_linear_kwargs = linear_sample_kwargs_factory(
-            config, delta, ndof=n_dof, verbose=verbose)
+            config, delta, ndof=n_dof, verbose=verbose
+        )
         self.nonlinearly_update_kwargs = nonlinearly_update_kwargs_factory(
-            config, delta, verbose=verbose)
-        self.kl_kwargs = kl_kwargs_factory(config, delta,
-                                           ndof=n_dof, verbose=verbose)
+            config, delta, verbose=verbose
+        )
+        self.kl_kwargs = kl_kwargs_factory(config, delta, ndof=n_dof, verbose=verbose)

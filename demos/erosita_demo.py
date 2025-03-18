@@ -181,28 +181,32 @@ from jax import config, random
 
 import jubik0 as ju
 
-config.update('jax_enable_x64', True)
+config.update("jax_enable_x64", True)
 
 # Parser Setup
 parser = argparse.ArgumentParser()
-parser.add_argument('config',
-                    type=str,
-                    help="Config file (.yaml) for eROSITA inference.",
-                    nargs='?',
-                    const=1,
-                    default="configs/eROSITA_demo.yaml")
+parser.add_argument(
+    "config",
+    type=str,
+    help="Config file (.yaml) for eROSITA inference.",
+    nargs="?",
+    const=1,
+    default="configs/eROSITA_demo.yaml",
+)
 args = parser.parse_args()
 if __name__ == "__main__":
     # Load config file
     config_path = args.config
     cfg = ju.get_config(config_path)
-    file_info = cfg['files']
-    plot_info = cfg['plotting']
+    file_info = cfg["files"]
+    plot_info = cfg["plotting"]
 
     # Save run configuration
-    ju.copy_config(os.path.basename(config_path),
-                   path_to_yaml_file=os.path.dirname(config_path),
-                   output_dir=file_info['res_dir'])
+    ju.copy_config(
+        os.path.basename(config_path),
+        path_to_yaml_file=os.path.dirname(config_path),
+        output_dir=file_info["res_dir"],
+    )
 
     # Uncomment to save local packages git hashes to file
     # ju.save_local_packages_hashes_to_txt(
@@ -221,82 +225,84 @@ if __name__ == "__main__":
 
     # TODO shift to ju.generate_erosita_likelihood.amend(sky)
     # Generate loglikelihood (Building masked (mock) data and response)
-    log_likelihood = ju.generate_erosita_likelihood_from_config(cfg,
-                                                                sky)
+    log_likelihood = ju.generate_erosita_likelihood_from_config(cfg, sky)
 
     # Set initial position
-    key = random.PRNGKey(cfg['seed'])
+    key = random.PRNGKey(cfg["seed"])
     key, subkey = random.split(key)
     pos_init = 0.1 * jft.Vector(jft.random_like(subkey, sky.domain))
 
     # Plot priors
-    if plot_info['priors']:
-        if 'prior_plot_dir' in file_info:
-            prior_plot_dir = join(file_info['res_dir'],
-                                  file_info['prior_plot_dir'])
+    if plot_info["priors"]:
+        if "prior_plot_dir" in file_info:
+            prior_plot_dir = join(file_info["res_dir"], file_info["prior_plot_dir"])
         else:
             raise ValueError(
                 "The 'prior_plot_dir' parameter must be specified in "
-                "the 'files' section of the config file.")
-        ju.plot_erosita_priors(subkey,
-                               plot_info['n_prior_samples'],
-                               cfg,
-                               prior_plot_dir,
-                               plot_info['priors_signal_response'],
-                               adjust_figsize=True,
-                               )
+                "the 'files' section of the config file."
+            )
+        ju.plot_erosita_priors(
+            subkey,
+            plot_info["n_prior_samples"],
+            cfg,
+            prior_plot_dir,
+            plot_info["priors_signal_response"],
+            adjust_figsize=True,
+        )
 
     # Minimization
-    minimization_config = cfg['minimization']
+    minimization_config = cfg["minimization"]
     n_dof = ju.get_n_constrained_dof(log_likelihood)
-    minimization_parser = ju.MinimizationParser(minimization_config,
-                                                n_dof=n_dof)
+    minimization_parser = ju.MinimizationParser(minimization_config, n_dof=n_dof)
 
     # Plot
     additional_plot_dict = {}
-    if hasattr(sky_model, 'alpha_cf'):
-        additional_plot_dict['diffuse_alfa'] = sky_model.alpha_cf
-    if hasattr(sky_model, 'points_alfa'):
-        additional_plot_dict['points_alfa'] = sky_model.points_alfa
-
+    if hasattr(sky_model, "alpha_cf"):
+        additional_plot_dict["diffuse_alfa"] = sky_model.alpha_cf
+    if hasattr(sky_model, "points_alfa"):
+        additional_plot_dict["points_alfa"] = sky_model.points_alfa
 
     def simple_eval_plots(s, x):
         """Call plot_sample_and_stat for every iteration."""
-        ju.plot_sample_and_stats(file_info["res_dir"],
-                                 sky_dict,
-                                 s,
-                                 dpi=cfg["plotting"]["dpi"],
-                                 iteration=x.nit,
-                                 rgb_min_sat=[3e-8, 3e-8, 3e-8],
-                                 rgb_max_sat=[2.0167e-6, 1.05618e-6, 1.5646e-6])
-        ju.plot_sample_and_stats(file_info["res_dir"],
-                                 additional_plot_dict,
-                                 s,
-                                 dpi=cfg["plotting"]["dpi"],
-                                 iteration=x.nit,
-                                 log_scale=False,
-                                 plot_samples=False,
-                                 )
-        ju.plot_pspec(sky_model.spatial_pspec,
-                      sky_model.spatial_cf.target.shape,
-                      sky_model.s_distances,
-                      s,
-                      file_info["res_dir"],
-                      iteration=x.nit,
-                      dpi=cfg["plotting"]["dpi"],
-                      )
-
+        ju.plot_sample_and_stats(
+            file_info["res_dir"],
+            sky_dict,
+            s,
+            dpi=cfg["plotting"]["dpi"],
+            iteration=x.nit,
+            rgb_min_sat=[3e-8, 3e-8, 3e-8],
+            rgb_max_sat=[2.0167e-6, 1.05618e-6, 1.5646e-6],
+        )
+        ju.plot_sample_and_stats(
+            file_info["res_dir"],
+            additional_plot_dict,
+            s,
+            dpi=cfg["plotting"]["dpi"],
+            iteration=x.nit,
+            log_scale=False,
+            plot_samples=False,
+        )
+        ju.plot_pspec(
+            sky_model.spatial_pspec,
+            sky_model.spatial_cf.target.shape,
+            sky_model.s_distances,
+            s,
+            file_info["res_dir"],
+            iteration=x.nit,
+            dpi=cfg["plotting"]["dpi"],
+        )
 
     samples, state = jft.optimize_kl(
         log_likelihood,
         pos_init,
         key=key,
-        n_total_iterations=minimization_config['n_total_iterations'],
-        resume=minimization_config['resume'],
+        n_total_iterations=minimization_config["n_total_iterations"],
+        resume=minimization_config["resume"],
         n_samples=minimization_parser.n_samples,
         draw_linear_kwargs=minimization_parser.draw_linear_kwargs,
         nonlinearly_update_kwargs=minimization_parser.nonlinearly_update_kwargs,
         kl_kwargs=minimization_parser.kl_kwargs,
         sample_mode=minimization_parser.sample_mode,
         callback=simple_eval_plots,
-        odir=file_info["res_dir"], )
+        odir=file_info["res_dir"],
+    )

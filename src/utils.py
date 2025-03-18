@@ -81,8 +81,10 @@ def add_functions(f1, f2):
     -------
     sum: callable
     """
+
     def function(x):
         return f1(x) + f2(x)
+
     return function
 
 
@@ -114,6 +116,7 @@ def get_config(path_to_yaml_file):
 
     """
     import yaml
+
     with open(path_to_yaml_file, "r") as cfg_file:
         cfg = yaml.safe_load(cfg_file)
     return cfg
@@ -134,6 +137,7 @@ def save_to_yaml(dict, filename, dir=None, verbose=True):
         If true, print a message when the config file is saved.
     """
     import yaml
+
     if dir is not None:
         create_output_directory(dir)
     with open(join(dir, filename), "w") as f:
@@ -142,8 +146,7 @@ def save_to_yaml(dict, filename, dir=None, verbose=True):
         print(f"Config file saved to: {join(dir, filename)}.")
 
 
-def copy_config(filename, path_to_yaml_file=None,
-                     output_dir=None, verbose=True):
+def copy_config(filename, path_to_yaml_file=None, output_dir=None, verbose=True):
     """Convenience function to copy yaml-config files.
 
     Parameters
@@ -162,7 +165,7 @@ def copy_config(filename, path_to_yaml_file=None,
     current_filename = filename
     if path_to_yaml_file is not None:
         current_filename = join(path_to_yaml_file, current_filename)
-    os.popen(f'cp {current_filename} {join(output_dir, filename)}')
+    os.popen(f"cp {current_filename} {join(output_dir, filename)}")
     if verbose:
         print(f"Config file saved to: {join(output_dir, filename)}.")
 
@@ -207,15 +210,18 @@ def coord_center(side_length, side_n):
     return res
 
 
-def _check_type(arg, type, name=''):
+def _check_type(arg, type, name=""):
     if arg is None:
         pass
     elif isinstance(arg, list):
         if not isinstance(arg[0], type):
             return TypeError(
-                "The arguments of the \"{}\" list must be of type {}.".format(name, str(type)))
+                'The arguments of the "{}" list must be of type {}.'.format(
+                    name, str(type)
+                )
+            )
         else:
             pass
     elif not isinstance(arg, type):
         print("arg:", arg)
-        raise TypeError("The \"{}\" argument must be of type {}.".format(name, str(type)))
+        raise TypeError('The "{}" argument must be of type {}.'.format(name, str(type)))

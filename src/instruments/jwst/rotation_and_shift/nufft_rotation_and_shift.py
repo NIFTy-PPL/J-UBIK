@@ -18,7 +18,7 @@ def build_nufft_rotation_and_shift(
     sub_dvol: ArrayLike,
     sky_shape: Tuple[int, int],
     out_shape: Tuple[int, int],
-    sky_as_brightness: bool = False
+    sky_as_brightness: bool = False,
 ) -> Callable[[ArrayLike], ArrayLike]:
     """
     Builds non-uniform FFT interpolation model.

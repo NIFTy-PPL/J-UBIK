@@ -18,6 +18,7 @@ class FilterProjector(jft.Model):
     It supports querying keys based on colors and efficiently applies
     transformations for multi-channel inputs.
     """
+
     def __init__(self, sky_domain: jft.ShapeWithDtype, keys_and_colors: dict):
         """
         Parameters
@@ -32,24 +33,26 @@ class FilterProjector(jft.Model):
         """
         self.keys_and_colors = keys_and_colors
         self.keys_and_index = {
-            key: index for index, key in enumerate(keys_and_colors.keys())}
+            key: index for index, key in enumerate(keys_and_colors.keys())
+        }
 
         self.apply = self._get_apply()
         super().__init__(domain=sky_domain)
 
     def get_key(self, color):
         """Returns the key that corresponds to the given color."""
-        out_key = ''
+        out_key = ""
         for k, v in self.keys_and_colors.items():
             if color in v:
-                if out_key != '':
+                if out_key != "":
                     raise IndexError(
-                        f'{color} fits into multiple keys of the '
-                        'FilterProjector')
+                        f"{color} fits into multiple keys of the " "FilterProjector"
+                    )
                 out_key = k
-        if out_key == '':
+        if out_key == "":
             raise IndexError(
-                f"{color} doesn't fit in the bounds of the FilterProjector.")
+                f"{color} doesn't fit in the bounds of the FilterProjector."
+            )
 
         return out_key
 
@@ -60,7 +63,8 @@ class FilterProjector(jft.Model):
             return lambda x: {key: x}
         else:
             return lambda x: {
-                key: x[index] for key, index in self.keys_and_index.items()}
+                key: x[index] for key, index in self.keys_and_index.items()
+            }
 
     def __call__(self, x):
         return self.apply(x)
