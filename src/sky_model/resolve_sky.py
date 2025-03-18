@@ -15,7 +15,7 @@ import numpy as np
 ARCMIN2RAD = np.pi / 60 / 180
 AS2RAD = ARCMIN2RAD / 60
 DEG2RAD = np.pi / 180
-SPEEDOFLIGHT = 299792458.
+SPEEDOFLIGHT = 299792458.0
 # TODO: replace with new astropy unit handling!
 
 
@@ -56,22 +56,19 @@ def _spatial_dom(sky_cfg):
     return ift.RGSpace([nx, ny], [dx, dy])
 
 
-# @dataclass
-# class ResolveSkyModel:
-#     pass
-
-
 def sky_model(sky_cfg):
     sky_dom = _spatial_dom(sky_cfg)
 
     bg_model, additional_diffuse = sky_model_diffuse(
         sky_dom.shape,
         sky_dom.distances,
-        ResolveDiffuseSkyModel.from_config_parser(sky_cfg))
+        ResolveDiffuseSkyModel.from_config_parser(sky_cfg),
+    )
     full_sky_model, additional_pts = resolve_point_sources(
         sky_dom,
         ResolvePointSourcesModel.cfg_to_resolve_point_sources(sky_cfg),
-        bg=bg_model)
+        bg=bg_model,
+    )
 
     additional = {**additional_diffuse, **additional_pts}
     return full_sky_model, additional
