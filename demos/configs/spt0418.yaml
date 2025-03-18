@@ -305,7 +305,7 @@ telescope:
       #     rotation: ['delta', -1.95823434e-05, 0]
 
 files:
-  res_dir: './results/jwst_lens/cluster/test_10_3data'
+  res_dir: './results/jwst_lens/cluster/test_10_3data_xyindexcoord'
 
   filter:
 

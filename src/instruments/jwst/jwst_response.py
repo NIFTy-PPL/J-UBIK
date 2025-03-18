@@ -170,7 +170,7 @@ def build_jwst_response(
             to_be_subsampled_grid_wcs=data_wcs,
             index_grid_wcs=reconstruction_grid.spatial,
             subsample=data_subsample,
-            indexing='ij',
+            indexing='xy',
         )
     )
 
@@ -183,7 +183,7 @@ def build_jwst_response(
         algorithm_config=rotation_and_shift_kwargs['algorithm_config'],
         subsample=data_subsample,
         coordinates=coordinates,
-        indexing='xy',
+        indexing='ij',
     )
 
     integrate = build_sum(
