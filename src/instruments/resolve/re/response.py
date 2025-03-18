@@ -14,18 +14,17 @@
 # Copyright(C) 2025 Max-Planck-Society
 # Author: Jakob Roth, Julian Rüstig
 
-
-from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
-from ..data.observation import Observation
-from ....grid import Grid
-from ..util import calculate_phase_offset_to_image_center
+from typing import Union
 
 import numpy as np
 from jax.tree_util import Partial
 from jax import numpy as jnp
 from astropy import units as u
 
-from typing import Union
+from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
+from ..data.observation import Observation
+from ....grid import Grid
+from ..util import calculate_phase_offset_to_image_center
 
 
 SPECTRAL_UNIT = u.Hz
@@ -152,7 +151,6 @@ def InterferometryResponse(
                         center_y=center_y,
                     )
                 elif isinstance(backend_settings, FinufftSettings):
-                    print("Using Finufft")
                     rrr = InterferometryResponseFinuFFT(
                         observation=ooo,
                         pixsize_x=pixsize_x,
