@@ -7,17 +7,19 @@
 
 from .integration_model import build_sum
 from .jwst_psf import build_psf_operator
-from .rotation_and_shift import (
-    build_rotation_and_shift_model, RotationAndShiftModel)
+from .rotation_and_shift import build_rotation_and_shift_model, RotationAndShiftModel
 from .rotation_and_shift.coordinates_correction import (
-    build_coordinates_correction_from_grid)
+    build_coordinates_correction_from_grid,
+)
 from .zero_flux_model import build_zero_flux_model
 from .masking.build_mask import build_mask
 
 from ...wcs import subsample_grid_centers_in_index_grid_non_vstack
 
 from .parse.parametric_model.parametric_prior import ProbabilityConfig
-from .parse.rotation_and_shift.coordinates_correction import CoordiantesCorrectionPriorConfig
+from .parse.rotation_and_shift.coordinates_correction import (
+    CoordiantesCorrectionPriorConfig,
+)
 
 from typing import Callable, Optional
 
@@ -43,7 +45,7 @@ class JwstResponse(jft.Model):
         integrate: Callable[[ArrayLike], ArrayLike],
         transmission: float,
         zero_flux_model: Optional[jft.Model],
-        mask: Callable[[ArrayLike], ArrayLike]
+        mask: Callable[[ArrayLike], ArrayLike],
     ):
         """
         Initialize the DataModel with components for various data
@@ -77,8 +79,7 @@ class JwstResponse(jft.Model):
             If `sky_domain` is not a dictionary or if it contains
             more than one key.
         """
-        need_sky_key = ('Need to provide an internal key to the target of the '
-                        'sky model')
+        need_sky_key = "Need to provide an internal key to the target of the sky model"
         assert isinstance(sky_domain, dict), need_sky_key
         assert len(sky_domain.keys()) == 1, need_sky_key
 
@@ -152,16 +153,15 @@ def build_jwst_response(
         The mask on the data
     """
 
-    need_sky_key = ('Need to provide an internal key to the target of the sky '
-                    'model.')
+    need_sky_key = "Need to provide an internal key to the target of the sky model."
     assert isinstance(sky_domain, dict), need_sky_key
 
-    world_extrema = rotation_and_shift_kwargs['world_extrema']
-    reconstruction_grid = rotation_and_shift_kwargs['reconstruction_grid']
-    data_wcs = rotation_and_shift_kwargs['data_wcs']
+    world_extrema = rotation_and_shift_kwargs["world_extrema"]
+    reconstruction_grid = rotation_and_shift_kwargs["reconstruction_grid"]
+    data_wcs = rotation_and_shift_kwargs["data_wcs"]
 
     coordinates = build_coordinates_correction_from_grid(
-        f'{data_identifier}_correction',
+        f"{data_identifier}_correction",
         priors=shift_and_rotation_correction_prior,
         data_wcs=data_wcs,
         reconstruction_grid=reconstruction_grid,
@@ -170,20 +170,20 @@ def build_jwst_response(
             to_be_subsampled_grid_wcs=data_wcs,
             index_grid_wcs=reconstruction_grid.spatial,
             subsample=data_subsample,
-            indexing='xy',
-        )
+            indexing="xy",
+        ),
     )
 
     rotation_and_shift = build_rotation_and_shift_model(
         sky_domain=sky_domain,
         reconstruction_grid=reconstruction_grid,
         world_extrema=world_extrema,
-        data_grid_dvol=rotation_and_shift_kwargs['data_dvol'],
+        data_grid_dvol=rotation_and_shift_kwargs["data_dvol"],
         data_grid_wcs=data_wcs,
-        algorithm_config=rotation_and_shift_kwargs['algorithm_config'],
+        algorithm_config=rotation_and_shift_kwargs["algorithm_config"],
         subsample=data_subsample,
         coordinates=coordinates,
-        indexing='ij',
+        indexing="ij",
     )
 
     integrate = build_sum(
@@ -193,8 +193,7 @@ def build_jwst_response(
 
     psf = build_psf_operator(psf_kernel)
 
-    zero_flux_model = build_zero_flux_model(
-        data_identifier, zero_flux_prior_config)
+    zero_flux_model = build_zero_flux_model(data_identifier, zero_flux_prior_config)
 
     mask = build_mask(data_mask)
 
@@ -205,5 +204,5 @@ def build_jwst_response(
         integrate=integrate,
         transmission=transmission,
         zero_flux_model=zero_flux_model,
-        mask=mask
+        mask=mask,
     )
