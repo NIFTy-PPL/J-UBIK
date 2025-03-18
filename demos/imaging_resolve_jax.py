@@ -3,14 +3,12 @@ import jubik0.instruments.resolve.re as jrve
 
 import jubik0 as ju
 from jubik0.parse.grid import GridModel
-from jubik0.instruments.resolve.data import DataLoading, ObservationModify, load_and_modify_data_from_objects
 from jubik0.instruments.resolve.data.data_modify.restrict_to_testing_percentage import restrict_to_testing_percentage
 from jubik0.parse.instruments.resolve.response import (
-    config_parser_to_response_settings, Ducc0Settings, FinufftSettings)
+    Ducc0Settings, FinufftSettings)
 
 
 import nifty8.re as jft
-import resolve as rve_old
 
 import jax
 from jax import numpy as jnp
@@ -22,7 +20,6 @@ from matplotlib.colors import LogNorm
 
 from os.path import join
 import configparser
-from sys import exit
 
 jax.config.update('jax_default_device', jax.devices('cpu')[0])
 jax.config.update("jax_enable_x64", True)
