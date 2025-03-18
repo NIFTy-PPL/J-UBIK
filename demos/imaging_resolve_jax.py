@@ -72,7 +72,7 @@ def signal_response(x): return R_new(sky(x))
 
 nll = jft.Gaussian(obs.vis_val, obs.weight_val).amend(signal_response)
 
-output_dir = f"results_nifty_re_response_{response}"
+output_dir = "imaging_resolve"
 
 
 def callback(samples, opt_state):
@@ -80,7 +80,7 @@ def callback(samples, opt_state):
     plt.imshow(post_sr_mean[0, 0, 0, :, :].T, origin="lower", norm=LogNorm())
     plt.colorbar()
     plt.savefig(
-        join(output_dir, f"niftyre_it_{opt_state.nit}_response_{response}.png"))
+        join(output_dir, f"iteration_{opt_state.nit}.png"))
     plt.close()
 
 
