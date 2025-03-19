@@ -33,19 +33,19 @@ def build_mfvstack_from_yaml_dict(
     prefix: str,
     **kwargs: dict,
 ):
-    VSTACK_ORDER = 'vstack_order'
+    VSTACK_ORDER = "vstack_order"
 
     stacking_keys = vstack_config[VSTACK_ORDER]
 
     models = {}
     for skey, spsl in zip(stacking_keys, spectral_slices):
         skey_grid = Grid(
-            spatial=grid.spatial,
-            spectral=ColorRanges(grid.spectral[spsl[0]:spsl[1]]))
+            spatial=grid.spatial, spectral=ColorRanges(grid.spectral[spsl[0] : spsl[1]])
+        )
 
         model = build_multifrequency_from_grid(
             skey_grid,
-            prefix=f'{prefix}_{skey}',
+            prefix=f"{prefix}_{skey}",
             model_cfg=vstack_config[skey],
             **kwargs,
         )
