@@ -8,7 +8,7 @@ def build_single_correlated_field(
     zero_mode_config: dict,
     fluctuations_config: dict,
 ):
-    cfm = jft.CorrelatedFieldMaker(f'{prefix} ')
+    cfm = jft.CorrelatedFieldMaker(f"{prefix} ")
     cfm.set_amplitude_total_offset(**zero_mode_config)
     cfm.add_fluctuations(shape, distances=distances, **fluctuations_config)
     amps = cfm.get_normalized_amplitudes()
