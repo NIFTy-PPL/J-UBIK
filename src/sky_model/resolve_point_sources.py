@@ -28,7 +28,7 @@ def resolve_point_sources(
 
                 inv_gamma = jft.InvGammaPrior(
                     a=resolve_point_souces_model.a,
-                    scale=resolve_point_souces_model.scale,
+                    scale=resolve_point_souces_model.scale / sky_dom.dvol,
                     name="points",
                     shape=jax.ShapeDtypeStruct((len(indsx),), float),
                 )
