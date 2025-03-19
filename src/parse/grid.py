@@ -1,6 +1,8 @@
 from .color import (
-    yaml_to_binned_colors, yaml_to_color_reference_bin,
-    cfg_to_binned_colors, cfg_to_color_reference_bin
+    yaml_to_binned_colors,
+    yaml_to_color_reference_bin,
+    cfg_to_binned_colors,
+    cfg_to_color_reference_bin,
 )
 from .wcs.spatial_model import SpatialModel
 from ..color import ColorRanges
@@ -18,7 +20,7 @@ class GridModel:
 
     @classmethod
     def from_yaml_dict(cls, grid_config: dict):
-        '''
+        """
         Builds the reconstruction grid from the given configuration.
 
         The reconstruction grid is defined by the world location, field of view
@@ -44,7 +46,7 @@ class GridModel:
                 - spatial_model: how to build the wcs for the spatial coordinates.
                 - color_ranges: The ColorRanges for the energies.
                 - color_reference_bin: The reference_bin for the energy model.
-        '''
+        """
         spatial_model = SpatialModel.from_yaml_dict(grid_config)
         color_ranges = yaml_to_binned_colors(grid_config)
         color_reference_bin = yaml_to_color_reference_bin(grid_config)
@@ -52,12 +54,12 @@ class GridModel:
         return GridModel(
             spatial_model=spatial_model,
             color_ranges=color_ranges,
-            color_reference_bin=color_reference_bin
+            color_reference_bin=color_reference_bin,
         )
 
     @classmethod
     def from_config_parser(cls, grid_config: ConfigParser):
-        '''
+        """
         Builds the reconstruction grid from the given configuration.
 
         The reconstruction grid is defined by the world location, field of view
@@ -85,7 +87,7 @@ class GridModel:
                 - spatial_model: how to build the wcs for the spatial coordinates.
                 - color_ranges: The ColorRanges for the energies.
                 - color_reference_bin: The reference_bin for the energy model.
-        '''
+        """
 
         spatial_model = SpatialModel.from_config_parser(grid_config)
         color_ranges = cfg_to_binned_colors(grid_config)
@@ -94,5 +96,5 @@ class GridModel:
         return GridModel(
             spatial_model=spatial_model,
             color_ranges=color_ranges,
-            color_reference_bin=color_reference_bin
+            color_reference_bin=color_reference_bin,
         )
