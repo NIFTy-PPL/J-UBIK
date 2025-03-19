@@ -5,8 +5,7 @@
 
 # %%
 from .wcs_base import WcsBase
-from ..parse.wcs.coordinate_system import (
-    CoordinateSystemModel, CoordinateSystems)
+from ..parse.wcs.coordinate_system import CoordinateSystemModel, CoordinateSystems
 from ..parse.wcs.spatial_model import SpatialModel
 
 import numpy as np
@@ -31,7 +30,9 @@ class WcsAstropy(WCS, WcsBase):
         shape: tuple[int, int],
         fov: tuple[u.Quantity, u.Quantity],
         rotation: u.Quantity = 0.0 * u.deg,
-        coordinate_system: Optional[CoordinateSystemModel] = CoordinateSystems.icrs.value
+        coordinate_system: Optional[
+            CoordinateSystemModel
+        ] = CoordinateSystems.icrs.value,
     ):
         """
         Create FITS header, use it to instantiate an WcsAstropy.
@@ -54,7 +55,7 @@ class WcsAstropy(WCS, WcsBase):
 
         self.shape = shape
         self.fov = fov
-        self.distances = [f.to(u.deg)/s for f, s in zip(fov, shape)]
+        self.distances = [f.to(u.deg) / s for f, s in zip(fov, shape)]
         self.center = center
 
         # Calculate rotation matrix
@@ -74,29 +75,30 @@ class WcsAstropy(WCS, WcsBase):
 
         # Build the header dictionary
         header = {
-            'WCSAXES': 2,
-            'CTYPE1': coordinate_system.ctypes[0],
-            'CTYPE2': coordinate_system.ctypes[1],
-            'CRPIX1': shape[0] / 2 + 0.5,
-            'CRPIX2': shape[1] / 2 + 0.5,
-            'CRVAL1': lon,
-            'CRVAL2': lat,
-            'CDELT1': -fov[0].to(u.deg).value / shape[0],
-            'CDELT2': fov[1].to(u.deg).value / shape[1],
-            'PC1_1': pc11,
-            'PC1_2': pc12,
-            'PC2_1': pc21,
-            'PC2_2': pc22,
-            'RADESYS': coordinate_system.radesys,
-            'CUNIT1': 'deg',
-            'CUNIT2': 'deg',
+            "WCSAXES": 2,
+            "CTYPE1": coordinate_system.ctypes[0],
+            "CTYPE2": coordinate_system.ctypes[1],
+            "CRPIX1": shape[0] / 2 + 0.5,
+            "CRPIX2": shape[1] / 2 + 0.5,
+            "CRVAL1": lon,
+            "CRVAL2": lat,
+            "CDELT1": -fov[0].to(u.deg).value / shape[0],
+            "CDELT2": fov[1].to(u.deg).value / shape[1],
+            "PC1_1": pc11,
+            "PC1_2": pc12,
+            "PC2_1": pc21,
+            "PC2_2": pc22,
+            "RADESYS": coordinate_system.radesys,
+            "CUNIT1": "deg",
+            "CUNIT2": "deg",
         }
 
         # Set equinox if needed for FK4/FK5
         if coordinate_system.radesys in [
-                CoordinateSystems.fk4.value.radesys,
-                CoordinateSystems.fk5.value.radesys]:
-            header['EQUINOX'] = coordinate_system.equinox
+            CoordinateSystems.fk4.value.radesys,
+            CoordinateSystems.fk5.value.radesys,
+        ]:
+            header["EQUINOX"] = coordinate_system.equinox
 
         super().__init__(header)
 
@@ -111,9 +113,7 @@ class WcsAstropy(WCS, WcsBase):
         )
 
     # TODO: Check output axis, RENAME index_from_world_location
-    def wl_from_index(
-        self, index: ArrayLike
-    ) -> Union[SkyCoord, List[SkyCoord]]:
+    def wl_from_index(self, index: ArrayLike) -> Union[SkyCoord, List[SkyCoord]]:
         """
         Convert pixel coordinates to world coordinates.
 
@@ -164,9 +164,7 @@ class WcsAstropy(WCS, WcsBase):
         return self.distances[0] * self.distances[1]
 
     def world_extrema(
-        self,
-        extend_factor: float = 1,
-        ext: Optional[tuple[int, int]] = None
+        self, extend_factor: float = 1, ext: Optional[tuple[int, int]] = None
     ) -> ArrayLike:
         """
         The world location of the center of the pixels with the index
@@ -191,8 +189,7 @@ class WcsAstropy(WCS, WcsBase):
         with the rows.
         """
         if ext is None:
-            ext0, ext1 = [int(shp*extend_factor-shp) //
-                          2 for shp in self.shape]
+            ext0, ext1 = [int(shp * extend_factor - shp) // 2 for shp in self.shape]
         else:
             ext0, ext1 = ext
 
@@ -201,8 +198,9 @@ class WcsAstropy(WCS, WcsBase):
         ymin = -ext1
         ymax = self.shape[1] + ext1 - 1
 
-        return self.wl_from_index([
-            (xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)])
+        return self.wl_from_index(
+            [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
+        )
 
     def distances_in(self, unit: u.Unit) -> list[float]:
         return [d.to(unit).value for d in self.distances]
@@ -211,7 +209,7 @@ class WcsAstropy(WCS, WcsBase):
         """Convenience method which gives the extent of the grid in
         physical units."""
         distances = [d.to(unit).value for d in self.distances]
-        halfside = np.array(self.shape)/2 * np.array(distances)
+        halfside = np.array(self.shape) / 2 * np.array(distances)
         return -halfside[0], halfside[0], -halfside[1], halfside[1]
 
 
@@ -238,21 +236,18 @@ def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
 
     # Get center coordinate
     center = SkyCoord(
-        wcs.wcs.crval[0], wcs.wcs.crval[1],
-        unit='deg', frame=wcs.wcs.radesys.lower())
+        wcs.wcs.crval[0], wcs.wcs.crval[1], unit="deg", frame=wcs.wcs.radesys.lower()
+    )
 
     # Calculate FOV
-    corners_pix = np.array([[0, 0], [nx-1, 0], [nx-1, ny-1], [0, ny-1]])
+    corners_pix = np.array([[0, 0], [nx - 1, 0], [nx - 1, ny - 1], [0, ny - 1]])
     corners_world = wcs.wcs_pix2world(corners_pix, 0)
-    corners = SkyCoord(corners_world, unit='deg',
-                       frame=wcs.wcs.radesys.lower())
+    corners = SkyCoord(corners_world, unit="deg", frame=wcs.wcs.radesys.lower())
 
     # Calculate width (average of top and bottom)
-    width = (corners[0].separation(corners[1]) +
-             corners[3].separation(corners[2])) / 2
+    width = (corners[0].separation(corners[1]) + corners[3].separation(corners[2])) / 2
 
     # Calculate height (average of left and right)
-    height = (corners[0].separation(corners[3]) +
-              corners[1].separation(corners[2])) / 2
+    height = (corners[0].separation(corners[3]) + corners[1].separation(corners[2])) / 2
 
     return WcsAstropy(center, [nx, ny], (width, height))
