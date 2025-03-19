@@ -1,8 +1,10 @@
 from ...grid import Grid
 from ...instruments.jwst.parse.parametric_model.parametric_prior import (
-    transform_setting_to_prior_config)
+    transform_setting_to_prior_config,
+)
 from ...instruments.jwst.parametric_model.parametric_prior import (
-    build_parametric_prior_from_prior_config)
+    build_parametric_prior_from_prior_config,
+)
 
 import nifty8.re as jft
 
@@ -24,14 +26,14 @@ def build_constant_mf_from_grid(
     prefix: str,
     constant_cfg: dict,
 ):
-    VALUE_KEY = 'value'
+    VALUE_KEY = "value"
 
-    domkey = f'{prefix}_constant'
+    domkey = f"{prefix}_constant"
     value_distribution = build_parametric_prior_from_prior_config(
         domain_key=domkey,
-        prior_config=transform_setting_to_prior_config(
-            constant_cfg[VALUE_KEY]),
-        as_model=True)
+        prior_config=transform_setting_to_prior_config(constant_cfg[VALUE_KEY]),
+        as_model=True,
+    )
 
     # More memory efficient & performant than saving a full array.
     shape = grid.shape[:-2] + (1, 1)
