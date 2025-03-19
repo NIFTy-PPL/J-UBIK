@@ -10,7 +10,7 @@ class WeightModify:
 
 @dataclass
 class ObservationModify:
-    '''Model class for modifying the observations
+    """Model class for modifying the observations
 
     Parameters
     ----------
@@ -22,7 +22,8 @@ class ObservationModify:
         Average the visibilities of the observation to the N spectral_bins.
     weight_modify:
         A multiplicative factor used for the
-    '''
+    """
+
     time_bins: int | None
     spectral_bins: int | None
     spectral_min: float | None
@@ -35,7 +36,7 @@ class ObservationModify:
 
     @classmethod
     def from_config_parser(cls, data_cfg: ConfigParser):
-        '''Create an `ObservationModify` object from a yaml file.
+        """Create an `ObservationModify` object from a yaml file.
 
         Parameters
         ----------
@@ -61,33 +62,30 @@ class ObservationModify:
             Taking a percantage of the data for testing the model.
         restrict to stokes I: bool | None
             The data will be restricted to stokes I.
-        '''
+        """
 
-        TIME_BINS_KEYS = 'time bins'
-        SPECTRAL_BINS_KEYS = 'spectral bins'
+        TIME_BINS_KEYS = "time bins"
+        SPECTRAL_BINS_KEYS = "spectral bins"
 
-        tb = eval(data_cfg.get(TIME_BINS_KEYS, 'None'))
-        sb = eval(data_cfg.get(SPECTRAL_BINS_KEYS, 'None'))
+        tb = eval(data_cfg.get(TIME_BINS_KEYS, "None"))
+        sb = eval(data_cfg.get(SPECTRAL_BINS_KEYS, "None"))
 
         # Restrict by frequencies
-        smin = eval(data_cfg.get('spectral min', 'None'))
-        smax = eval(data_cfg.get('spectral max', 'None'))
-        restrict = eval(data_cfg.get(
-            'spectral restrict_to_sky_frequencies', 'False'))
+        smin = eval(data_cfg.get("spectral min", "None"))
+        smax = eval(data_cfg.get("spectral max", "None"))
+        restrict = eval(data_cfg.get("spectral restrict_to_sky_frequencies", "False"))
         _check_spectral_min_max_consistency(smin, smax)
 
-        percentage = data_cfg.get('data weight modify percentage')
-        weight_modify = None if percentage is None else WeightModify(
-            percentage=float(percentage))
+        percentage = data_cfg.get("data weight modify percentage")
+        weight_modify = (
+            None if percentage is None else WeightModify(percentage=float(percentage))
+        )
 
-        to_double_precision = eval(data_cfg.get(
-            'data to_double_precision', 'True'))
+        to_double_precision = eval(data_cfg.get("data to_double_precision", "True"))
 
-        testing_percentage = eval(data_cfg.get(
-            'data testing percentage', 'None'))
+        testing_percentage = eval(data_cfg.get("data testing percentage", "None"))
 
-        restrict_to_stokes_I = eval(
-            data_cfg.get('restrict to stokes I',  'False'))
+        restrict_to_stokes_I = eval(data_cfg.get("restrict to stokes I", "False"))
 
         return ObservationModify(
             time_bins=tb,
@@ -103,7 +101,7 @@ class ObservationModify:
 
     @classmethod
     def from_yaml_dict(cls, data_cfg: dict):
-        '''Create an `ObservationModify` object from a yaml file.
+        """Create an `ObservationModify` object from a yaml file.
 
         Parameters
         ----------
@@ -131,24 +129,25 @@ class ObservationModify:
             Taking a percantage of the data for testing the model.
         restrict_to_stokes_I: bool | None
             The data will be restricted to stokes I.
-        '''
-        tb = data_cfg.get('time_bins')
+        """
+        tb = data_cfg.get("time_bins")
 
-        spectral = data_cfg.get('spectral', {})
-        sb = spectral.get('bins')
-        smin = spectral.get('min')
-        smax = spectral.get('max')
-        restrict = spectral.get('restrict_to_sky_frequencies', False)
+        spectral = data_cfg.get("spectral", {})
+        sb = spectral.get("bins")
+        smin = spectral.get("min")
+        smax = spectral.get("max")
+        restrict = spectral.get("restrict_to_sky_frequencies", False)
         _check_spectral_min_max_consistency(smin, smax)
 
-        wm = data_cfg.get('weight_modify', {})
-        percentage = wm.get('percentage')
-        weight_modify = None if percentage is None else WeightModify(
-            percentage=float(percentage))
+        wm = data_cfg.get("weight_modify", {})
+        percentage = wm.get("percentage")
+        weight_modify = (
+            None if percentage is None else WeightModify(percentage=float(percentage))
+        )
 
-        to_double_precision = data_cfg.get('to_double_precision', True)
-        testing_percentage = data_cfg.get('testing_percentage', None)
-        restrict_to_stokes_I = data_cfg.get('restrict_to_stokes_I', False)
+        to_double_precision = data_cfg.get("to_double_precision", True)
+        testing_percentage = data_cfg.get("testing_percentage", None)
+        restrict_to_stokes_I = data_cfg.get("restrict_to_stokes_I", False)
 
         return ObservationModify(
             time_bins=tb,
@@ -168,9 +167,12 @@ def _check_spectral_min_max_consistency(smin: float, smax: float):
         return
     elif (smin is not None) and (smax is not None):
         if smin >= smax:
-            raise ValueError("spectral minimum must be strictly lower than "
-                             "spectral maximum.")
+            raise ValueError(
+                "spectral minimum must be strictly lower than " "spectral maximum."
+            )
         return
     else:
-        raise ValueError("Both 'spectral minimum' and 'spectral maximum' needs"
-                         ' to be set, simultanously.')
+        raise ValueError(
+            "Both 'spectral minimum' and 'spectral maximum' needs"
+            " to be set, simultanously."
+        )

@@ -11,17 +11,17 @@ class LowerBoundCorrection(StronglyTyped):
 
     @classmethod
     def from_config_parser(cls, config: ConfigParser):
-        '''Build `LowerBoundCorrection` from `ConfigParser`.
+        """Build `LowerBoundCorrection` from `ConfigParser`.
 
         Parameters
         ----------
         config: ConfigParser
             `noise correction alpha`
             `noise correction sigma`
-        '''
+        """
         return LowerBoundCorrection(
-            alpha=float(config['noise correction alpha']),
-            sigma=float(config['noise correction sigma']),
+            alpha=float(config["noise correction alpha"]),
+            sigma=float(config["noise correction sigma"]),
         )
 
     @classmethod

@@ -12,7 +12,7 @@ class BaseLineCorrection(StronglyTyped):
     @classmethod
     def from_config_parser(cls, config: ConfigParser):
         return BaseLineCorrection(
-            alpha=float(config['noise correction alpha']),
+            alpha=float(config["noise correction alpha"]),
             sigma=False,  # float(data_cfg['noise correction sigma']),
         )
 

@@ -6,8 +6,10 @@ def strongly_typed(obj):
     for name, field_type in obj.__annotations__.items():
         if not isinstance(obj.__dict__[name], field_type):
             current_type = type(obj.__dict__[name])
-            raise TypeError(f'The field `{name}` was assigned by '
-                            f'`{current_type}` instead of `{field_type}`')
+            raise TypeError(
+                f"The field `{name}` was assigned by "
+                f"`{current_type}` instead of `{field_type}`"
+            )
 
 
 @dataclass
