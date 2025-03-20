@@ -64,22 +64,31 @@ def polarization_converter(domain, target):
     my_assert_isinstance(domain[0], PolarizationSpace)
     my_assert_isinstance(target[0], PolarizationSpace)
     if domain is target:
-        return ift.ScalingOperator(domain, 1.)
+        return ift.ScalingOperator(domain, 1.0)
 
     if domain[0].labels_eq("I"):
         if target[0].labels_eq(("LL", "RR")) or target[0].labels_eq(("XX", "YY")):
             # Convention: Stokes I 1Jy source leads to 1Jy in LL and 1Jy in RR
             op = ift.ContractionOperator(target, 0).adjoint
             return op.ducktape(domain)
-        if len(target[0].labels) == 1 and target[0].labels[0] in ["LL", "RR", "XX", "YY"]:
+        if len(target[0].labels) == 1 and target[0].labels[0] in [
+            "LL",
+            "RR",
+            "XX",
+            "YY",
+        ]:
             # Convention: Stokes I 1Jy source leads to 1Jy in LL and 1Jy in RR
             return ift.Operator.identity_operator(target).ducktape(domain)
-    if domain[0].labels_eq(["I", "Q", "U"]) or domain[0].labels_eq(["I", "Q", "U", "V"]):
+    if domain[0].labels_eq(["I", "Q", "U"]) or domain[0].labels_eq(
+        ["I", "Q", "U", "V"]
+    ):
         if target[0].labels_eq(["LL", "RR", "LR", "RL"]):
             op = _PolarizationConverter(domain, target, 0)
             # ift.extra.check_linear_operator(op, complex, complex)
             return op
-    raise NotImplementedError(f"Polarization converter\ndomain:\n{domain[0]}\ntarget\n{target[0]}\n")
+    raise NotImplementedError(
+        f"Polarization converter\ndomain:\n{domain[0]}\ntarget\n{target[0]}\n"
+    )
 
 
 class _PolarizationConverter(ift.LinearOperator):
@@ -110,12 +119,12 @@ class _PolarizationConverter(ift.LinearOperator):
             if self._with_v:
                 res[f("LL")] -= polx("V")
                 res[f("RR")] += polx("V")
-            res[f("RL")] = polx("Q")+1j*polx("U")
-            res[f("LR")] = polx("Q")-1j*polx("U")
+            res[f("RL")] = polx("Q") + 1j * polx("U")
+            res[f("LR")] = polx("Q") - 1j * polx("U")
         else:
             res[f("I")] = polx("LL") + polx("RR")
             if self._with_v:
                 res[f("V")] = -polx("LL") + polx("RR")
             res[f("Q")] = polx("LR") + polx("RL")
-            res[f("U")] = 1j*(polx("LR") - polx("RL"))
+            res[f("U")] = 1j * (polx("LR") - polx("RL"))
         return ift.makeField(self._tgt(mode), res)

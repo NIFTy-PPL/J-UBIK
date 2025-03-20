@@ -13,24 +13,23 @@ def build_antenna_based_noise_correction(
     alpha_antenna: float,
     scale_antenna: float,
     weight: ArrayLike,
-    prefix: str = 'antennabased_noise_correction',
+    prefix: str = "antennabased_noise_correction",
 ) -> LogInverseNoiseCovariance:
     pass
 
     sigma_antenna = jft.InvGammaPrior(
-        a=alpha_antenna,
-        scale=scale_antenna,
-        name=f'{prefix}_sigma',
-        shape=base_shape)
+        a=alpha_antenna, scale=scale_antenna, name=f"{prefix}_sigma", shape=base_shape
+    )
 
-    sigma_weight = np.sqrt(weight)**-1
+    sigma_weight = np.sqrt(weight) ** -1
 
     def log_inverse_covariance(x):
-        variance = (sigma_antenna(x)[antenna_to_baseline] + sigma_weight)**2
+        variance = (sigma_antenna(x)[antenna_to_baseline] + sigma_weight) ** 2
         return -jnp.log(variance)
 
     log_inverse_covariance_model = jft.Model(
-        log_inverse_covariance, domain=sigma_antenna.domain)
+        log_inverse_covariance, domain=sigma_antenna.domain
+    )
 
     return LogInverseNoiseCovariance(
         log_inverse_covariance_model=log_inverse_covariance_model,
@@ -39,7 +38,7 @@ def build_antenna_based_noise_correction(
 
 
 def get_baselines(obs):
-    '''Get the baselines corresponding to the antennas of the observation.'''
+    """Get the baselines corresponding to the antennas of the observation."""
     antenna_pairs = np.array((obs.ant1, obs.ant2)).T
     baselines = np.unique(antenna_pairs, axis=0)
 

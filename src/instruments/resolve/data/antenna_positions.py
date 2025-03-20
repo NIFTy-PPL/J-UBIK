@@ -17,8 +17,7 @@
 import nifty8 as ift
 import numpy as np
 
-from ..util import (compare_attributes, my_assert, my_assert_isinstance,
-                    my_asserteq)
+from ..util import compare_attributes, my_assert, my_assert_isinstance, my_asserteq
 
 
 class AntennaPositions:
@@ -140,8 +139,7 @@ class AntennaPositions:
         my_assert_isinstance(antenna1, antenna2, int)
 
         # Select by antenna labels
-        ind = np.logical_and(self.ant1 == antenna1,
-                             self.ant2 == antenna2)
+        ind = np.logical_and(self.ant1 == antenna1, self.ant2 == antenna2)
         data = field.val[:, ind]
         tt = self.time[ind]
 
