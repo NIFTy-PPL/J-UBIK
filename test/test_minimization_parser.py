@@ -23,7 +23,11 @@ config = {
         'switches': [0, 10],
         'kl_maxiter': [10, 13]
     },
-    'n_total_iterations': 15
+    'n_total_iterations': 15,
+    'constants': {
+        'switches': [0, 10],
+        'domain_keys': [['diffuse_offset_mean', 'diffuse_fluctuations'], None]
+    }
 }
 
 
