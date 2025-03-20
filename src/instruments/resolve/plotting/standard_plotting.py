@@ -1,5 +1,7 @@
 from ....parse.instruments.resolve.plotting.standard_plotting import (
-    PLOTTING_KWARGS_DEFAULT, PlottingKwargs)
+    PLOTTING_KWARGS_DEFAULT,
+    PlottingKwargs,
+)
 
 import nifty8.re as jft
 from nifty8.logger import logger
@@ -15,11 +17,11 @@ def build_standard_plot(
     output_directory: str,
     plotting_kwargs: PlottingKwargs = PLOTTING_KWARGS_DEFAULT,
 ):
-    logger.info(f'Output: {output_directory}')
+    logger.info(f"Output: {output_directory}")
     makedirs(output_directory, exist_ok=True)
 
     def callback(samples, state):
-        logger.info(f'Plotting iteration {state.nit} in: {output_directory}')
+        logger.info(f"Plotting iteration {state.nit} in: {output_directory}")
 
         try:
             sky_mean = jft.mean([sky(x) for x in samples])
@@ -28,11 +30,11 @@ def build_standard_plot(
             sky_mean = sky(samples.pos)
 
         pols, ts, freqs, *_ = sky_mean.shape
-        fig, axes = plt.subplots(pols, freqs, figsize=(freqs*4, pols*3))
+        fig, axes = plt.subplots(pols, freqs, figsize=(freqs * 4, pols * 3))
 
         vmin = max(plotting_kwargs.vmin, sky_mean.min())
         vmax = min(plotting_kwargs.vmax, sky_mean.max())
-        settings = dict(vmin=vmin, vmax=vmax, norm='log', origin='lower')
+        settings = dict(vmin=vmin, vmax=vmax, norm="log", origin="lower")
 
         if freqs == 1:
             if pols == 1:
@@ -51,8 +53,7 @@ def build_standard_plot(
                 axes = [axes]
 
             for freqi, ax in enumerate(axes):
-                im = ax.imshow(
-                    sky_mean[0, 0, freqi].T, **settings)
+                im = ax.imshow(sky_mean[0, 0, freqi].T, **settings)
                 plt.colorbar(im, ax=ax)
 
         else:

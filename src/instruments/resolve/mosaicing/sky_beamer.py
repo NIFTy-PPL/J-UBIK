@@ -42,7 +42,7 @@ class BeamPattern:
 
 
 class SkyBeamerJft(jft.Model):
-    '''The SkyBeamer transforms an input sky into a dictionary of skies with
+    """The SkyBeamer transforms an input sky into a dictionary of skies with
     applied beam pattern.
 
     The output of the SkyBeamer holds:
@@ -51,7 +51,7 @@ class SkyBeamerJft(jft.Model):
 
      - values hold the sky modulated by the beam pattern for that field
        (pointing).
-   '''
+    """
 
     def __init__(
         self,
@@ -69,7 +69,7 @@ class SkyBeamerJft(jft.Model):
     def __call__(self, x):
         out = {}
         for key, beam in self.target_and_beams.items():
-            out[key] = x*beam
+            out[key] = x * beam
         return out
 
     @classmethod
@@ -89,10 +89,10 @@ def build_jft_sky_beamer(
     sky_frequency_binbounds: list[float],
     observations: list[Observation],
     beam_func: Callable[float, float],
-    direction_key: str = 'REFERENCE_DIR',
-    field_name_prefix: str = '',
+    direction_key: str = "REFERENCE_DIR",
+    field_name_prefix: str = "",
 ) -> SkyBeamerJft:
-    '''Builds the SkyBeamer. The SkyBeamer contains holds an array for each 
+    """Builds the SkyBeamer. The SkyBeamer contains holds an array for each
     pointing containing the beam pattern for the mean of all
     `sky_frequency_binbounds`.
 
@@ -137,33 +137,31 @@ def build_jft_sky_beamer(
         list of observations.
          - values hold the sky modulated by the beam pattern for that field
            (pointing).
-    '''
+    """
 
     _, _, fshape, *sshape = sky_shape_with_dtype.shape
 
     wcs = build_astropy_wcs(sky_center, sshape, sky_fov)
-    sky_coords = wcs.pixel_to_world(
-        *np.meshgrid(*[np.arange(s) for s in sshape]))
+    sky_coords = wcs.pixel_to_world(*np.meshgrid(*[np.arange(s) for s in sshape]))
 
     beam_directions = {}
-    for ii, oo in enumerate(
-        _filter_pointings_generator(observations, direction_key)
-    ):
-
+    for ii, oo in enumerate(_filter_pointings_generator(observations, direction_key)):
         direction = oo.direction_from_key(direction_key)
 
-        o_phase_center = SkyCoord(direction.phase_center[0]*u.rad,
-                                  direction.phase_center[1]*u.rad,
-                                  frame=sky_center.frame)
+        o_phase_center = SkyCoord(
+            direction.phase_center[0] * u.rad,
+            direction.phase_center[1] * u.rad,
+            frame=sky_center.frame,
+        )
         center_x, center_y = calculate_phase_offset_to_image_center(
-            sky_center, o_phase_center)
+            sky_center, o_phase_center
+        )
 
         x = sky_coords.separation(o_phase_center)
         x = x.to(u.rad).value
         beam_pointing = []
         for ff in range(fshape):
-            freq_mean = _get_mean_frequency(
-                ff, fshape, sky_frequency_binbounds, oo)
+            freq_mean = _get_mean_frequency(ff, fshape, sky_frequency_binbounds, oo)
             beam = beam_func(freq=freq_mean, x=x)
 
             # TODO : Why do we need to tranpose?
@@ -174,36 +172,30 @@ def build_jft_sky_beamer(
         beam = jnp.array(beam_pointing)
         beam = jnp.broadcast_to(beam, sky_shape_with_dtype.shape)
 
-        field_name = _create_field_name(
-            ii, oo, beam_directions, field_name_prefix)
+        field_name = _create_field_name(ii, oo, beam_directions, field_name_prefix)
         beam_directions[field_name] = BeamPattern(
-            center_x=center_x,
-            center_y=center_y,
-            beam=beam,
-            direction=direction
+            center_x=center_x, center_y=center_y, beam=beam, direction=direction
         )
 
     return SkyBeamerJft(sky_shape_with_dtype, beam_directions)
 
 
 def _get_mean_frequency(ff, n_freq_bins, f_binbounds, observation):
-    '''Get the mean frequency.
-        1) If multi-frequency sky: mean of the sky bin
-        2) If single-frequency sky: mean of the observation
-    '''
+    """Get the mean frequency.
+    1) If multi-frequency sky: mean of the sky bin
+    2) If single-frequency sky: mean of the observation
+    """
     if n_freq_bins == 1:
         o, f_ind = observation.restrict_by_freq(
-            f_binbounds[ff], f_binbounds[ff+1], True)
+            f_binbounds[ff], f_binbounds[ff + 1], True
+        )
         return o.freq.mean()
 
-    return np.mean((f_binbounds[ff], f_binbounds[ff+1]))
+    return np.mean((f_binbounds[ff], f_binbounds[ff + 1]))
 
 
-def _filter_pointings_generator(
-    observations: list[Observation],
-    direction_key: str
-):
-    '''Returns only observations with unique pointings.'''
+def _filter_pointings_generator(observations: list[Observation], direction_key: str):
+    """Returns only observations with unique pointings."""
     field_pointings = list()
 
     for obs in observations:
@@ -219,10 +211,10 @@ def _create_field_name(
     field_name_prefix: str,
 ) -> str:
     field_name = observation.direction.name
-    field_name = f'fld_{ii:04}' if field_name == '' else field_name
+    field_name = f"fld_{ii:04}" if field_name == "" else field_name
 
-    if field_name_prefix != '':
-        field_name = f'{field_name_prefix}_{field_name}'
+    if field_name_prefix != "":
+        field_name = f"{field_name_prefix}_{field_name}"
 
     if field_name in beam_directions:
         field_name = f"{field_name}_{ii}"

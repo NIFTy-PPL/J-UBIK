@@ -29,14 +29,14 @@ from typing import Union
 
 
 def build_extract_sky(sky_key: str | None):
-    '''Extract the sky by key.'''
+    """Extract the sky by key."""
     if sky_key is None:
         return lambda x: x
     return lambda x: x[sky_key]
 
 
 def build_radio_slicing(index_of_last_radio_bin: int | None):
-    '''Build a Grid corresponding to the radio part of the sky.
+    """Build a Grid corresponding to the radio part of the sky.
 
     ***Warning: The radio part of  the sky is assumed to be in the first
     indices of the sky.***
@@ -46,7 +46,7 @@ def build_radio_slicing(index_of_last_radio_bin: int | None):
     index_of_last_radio_bin: int | None
         The index of the last radio bin. We assume that the radio sky is in the
         first part of sky frequencies.
-    '''
+    """
 
     # TODO: Make the radio sclicing independent from the assumption that the
     # first indices correspond to the radio part of the sky.
@@ -55,40 +55,40 @@ def build_radio_slicing(index_of_last_radio_bin: int | None):
         return lambda x: x
 
     def radio_sky_extractor(tree):
-        return jax.tree.map(lambda x: x[:index_of_last_radio_bin+1], tree)
+        return jax.tree.map(lambda x: x[: index_of_last_radio_bin + 1], tree)
 
     return radio_sky_extractor
 
 
 def build_unit_conversion(sky_unit: u.Unit | None):
-    '''Convert sky to `sky_unit`.'''
+    """Convert sky to `sky_unit`."""
     if sky_unit is None:
         return lambda x: x
 
     conversion_factor = sky_unit.to(RESOLVE_SKY_UNIT)
 
     def unit_conversion(tree):
-        return jax.tree.map(lambda x: x*conversion_factor, tree)
+        return jax.tree.map(lambda x: x * conversion_factor, tree)
 
     return unit_conversion
 
 
 def resolve_transpose(tree):
-    '''Transpose the spatial axis.'''
+    """Transpose the spatial axis."""
 
     return jax.tree.map(lambda x: jnp.transpose(x, (0, 1, 2, 4, 3)), tree)
 
 
 # TODO : This function shouldn't be here but part of the sky models.
 def build_radiofy_sky(sky_domain_shape: tuple[int]):
-    '''Make the output shape of the sky conform to the standard axis:
+    """Make the output shape of the sky conform to the standard axis:
     (polarization, time, frequencies, space, space)
 
     Parameters
     ----------
     sky_domain_shape: tuple[int]
         The shape of the sky domain, i.e. the SkyModel.target.shape.
-    '''
+    """
 
     if len(sky_domain_shape) == 2:
         return lambda tree: jax.tree.map(lambda x: x[None, None, None], tree)
@@ -103,8 +103,7 @@ def build_radiofy_sky(sky_domain_shape: tuple[int]):
         return lambda tree: jax.tree.map(lambda x: x, tree)
 
     else:
-        raise ValueError(f'Shape: {sky_domain_shape} is not compatible with '
-                         'radio sky.')
+        raise ValueError(f"Shape: {sky_domain_shape} is not compatible with radio sky.")
 
 
 class RadioSkyExtractor(jft.Model):
@@ -131,15 +130,15 @@ class RadioSkyExtractor(jft.Model):
 def build_radio_sky_extractor(
     index_of_last_radio_bin: int | None,
     sky_model: jft.Model,
-    sky_key: str | None = 'sky',
+    sky_key: str | None = "sky",
     sky_unit: u.Unit | None = None,
 ) -> RadioSkyExtractor:
-    '''Builds a jft.Model that extracts the bins from the sky_model, which
+    """Builds a jft.Model that extracts the bins from the sky_model, which
     correspond to the radio sky and converts the sky from its unit system to
     the resolve unit system [Jy/rad].
 
     If no index_of_last_radio_bin is provided the sky_model is just passed on,
-    but it's expected that the `sky_model` target has no keys. 
+    but it's expected that the `sky_model` target has no keys.
 
     ***Warning: The radio part of  the sky is assumed to be in the first
     indices of the sky.***
@@ -150,19 +149,19 @@ def build_radio_sky_extractor(
         The index of the last radio bin. We assume that the radio sky is in the
         first part of sky.
     sky_model: jft.Model
-        The model of the sky, it's target domain is the input domain of the 
+        The model of the sky, it's target domain is the input domain of the
         radio sky extractor.
     sky_key: str | None
         The potential key of the sky.
     sky_unit: u.Unit | None
         The unit of the sky.
-    '''
+    """
 
     extract, slicing, conv, trans = (
         build_extract_sky(sky_key),
         build_radio_slicing(index_of_last_radio_bin),
         build_unit_conversion(sky_unit),
-        resolve_transpose
+        resolve_transpose,
     )
     radiofy = build_radiofy_sky(extract(sky_model.target).shape)
 
@@ -173,7 +172,7 @@ def build_radio_grid(
     index_of_last_radio_bin: int | None,
     sky_grid: Grid,
 ):
-    '''Build a Grid corresponding to the radio part of the sky.
+    """Build a Grid corresponding to the radio part of the sky.
 
     ***Warning: The radio part of  the sky is assumed to be in the first
     indices of the sky.***
@@ -185,7 +184,7 @@ def build_radio_grid(
         first part of sky.
     sky_grid: Grid
         The Grid holding the sky information.
-    '''
+    """
 
     # TODO: Make the radio sclicing independent from the assumption that the
     # first indices correspond to the radio part of the sky.
@@ -195,5 +194,5 @@ def build_radio_grid(
 
     return Grid(
         spatial=sky_grid.spatial,
-        spectral=ColorRanges(sky_grid.spectral[:index_of_last_radio_bin + 1])
+        spectral=ColorRanges(sky_grid.spectral[: index_of_last_radio_bin + 1]),
     )

@@ -26,7 +26,7 @@ from .polarization import Polarization
 
 def xds2observations(xds):
     from daskms.experimental.zarr import xds_from_zarr
-    
+
     # Input checks
     xds = expanduser(xds)
     if xds[-1] == "/":
@@ -35,7 +35,7 @@ def xds2observations(xds):
         raise RuntimeError
     if xds == ".":
         xds = os.getcwd()
-    
+
     xds = xds_from_zarr(xds)
     observations = []
     for ii in range(len(xds)):
@@ -45,37 +45,37 @@ def xds2observations(xds):
         vis = np.expand_dims(vis, 0)
         wgt = xds[ii]["WEIGHT"].values
         wgt = np.expand_dims(wgt, 0)
-        freq = xds[ii]['FREQ'].values
+        freq = xds[ii]["FREQ"].values
         print(f"xds: {ii}")
         print(f"uvw: {uvw.shape}")
         print(f"vis: {vis.shape}")
         print(f"wgt: {wgt.shape}")
         print(f"freq: {freq.shape}")
-        dir = np.zeros((1,1,2))
-        dir[0,0,0] = xds[ii].ra
-        dir[0,0,1] = xds[ii].dec
-        field_table = AuxiliaryTable({'REFERENCE_DIR': dir})
-        auxtables = {'FIELD': field_table}
+        dir = np.zeros((1, 1, 2))
+        dir[0, 0, 0] = xds[ii].ra
+        dir[0, 0, 1] = xds[ii].dec
+        field_table = AuxiliaryTable({"REFERENCE_DIR": dir})
+        auxtables = {"FIELD": field_table}
         pol = xds[ii].product
-        if pol == 'I':
+        if pol == "I":
             polobj = Polarization([])
         else:
-            raise NotImplementedError('please implement!')
-        
+            raise NotImplementedError("please implement!")
+
         antpos = AntennaPositions(uvw, ant1, ant2, time)
-        obs = Observation(antpos, vis, wgt, polobj, freq,
-                          auxiliary_tables=auxtables)
+        obs = Observation(antpos, vis, wgt, polobj, freq, auxiliary_tables=auxtables)
         observations.append(obs)
     return observations
+
 
 def combine_observations(observations_list):
     freq = observations_list[0].freq
     polarization = observations_list[0].polarization
     for obs in observations_list:
         if not np.all(freq == obs.freq):
-            raise ValueError('all obs need to have the same freq')
+            raise ValueError("all obs need to have the same freq")
         if not polarization == obs.polarization:
-            raise ValueError('all obs need to have the same polarization')
+            raise ValueError("all obs need to have the same polarization")
     new_vis = np.concatenate([obs._vis for obs in observations_list], axis=1)
     new_uvw = np.concatenate([obs.uvw for obs in observations_list])
     new_weight = np.concatenate([obs._weight for obs in observations_list], axis=1)
@@ -89,4 +89,3 @@ def combine_observations(observations_list):
 
     new_antenna_positions = AntennaPositions(new_uvw, new_ant1, new_ant2, new_time)
     return Observation(new_antenna_positions, new_vis, new_weight, polarization, freq)
-

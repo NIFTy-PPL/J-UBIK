@@ -12,7 +12,7 @@ def load_and_modify_data_from_objects(
     data_loading: DataLoading,
     observation_modify: ObservationModify,
 ):
-    '''Load and modify the data, according to `data_loading`, and 
+    """Load and modify the data, according to `data_loading`, and
     `observation_modify`.
 
     Parameters
@@ -24,7 +24,7 @@ def load_and_modify_data_from_objects(
         Model for the loading of the data, see DataLoading.
     observation_modify: ObservationModify
         Model for modifying the observations, ObservationModify.
-    '''
+    """
 
     data_paths = [
         dt.format(field=fi, spw=spw)
@@ -34,7 +34,7 @@ def load_and_modify_data_from_objects(
     ]
 
     for file in data_paths:
-        logger.info(f'Loading data: {file}')
+        logger.info(f"Loading data: {file}")
         obs = Observation.load(file)
         obs = modify_observation(sky_frequencies, obs, observation_modify)
         yield obs

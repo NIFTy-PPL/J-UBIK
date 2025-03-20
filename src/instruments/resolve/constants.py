@@ -27,7 +27,7 @@ RESOLVE_SPECTRAL_UNIT = u.Hz
 ARCMIN2RAD = np.pi / 60 / 180
 AS2RAD = ARCMIN2RAD / 60
 DEG2RAD = np.pi / 180
-SPEEDOFLIGHT = 299792458.
+SPEEDOFLIGHT = 299792458.0
 
 
 def str2rad(s):
@@ -78,7 +78,7 @@ def str2val(s):
         "k": 1e3,
         "M": 1e6,
         "G": 1e9,
-        "T": 1e12
+        "T": 1e12,
     }
     keys = set(c.keys())
     if s[-1] in keys:
