@@ -151,11 +151,12 @@ def get_range_index(
 def _delta_logic(
     keyword: str,
     delta: dict,
-    overwritten_value: Union[float, None],
+    overwritten_value: float | None,
     iteration: int,
     delta_switches_index: int,
     ndof: Optional[int] = None,
-    verbose: bool = True
+    verbose: bool = True,
+    default: float | None = None,
 ) -> float:
     """
     Calculates minimization config value if `delta` is in config.
@@ -201,7 +202,7 @@ def _delta_logic(
     0.1
     """
 
-    if overwritten_value is not None:
+    if overwritten_value is not None and overwritten_value != default:
         return overwritten_value
 
     iteration += 1  # iteration index changes during OptVI update
@@ -460,7 +461,8 @@ def nonlinearly_update_kwargs_factory(
             default=NCG_XTOL_DEFAULT)
 
         xtol = _delta_logic(NONLIN, delta, xtol, iteration,
-                            delta_range_index, verbose)
+                            delta_range_index, verbose,
+                            default=NCG_XTOL_DEFAULT)
 
         cg_delta_name = f'{NONLIN_CG}_{ABSDELTA}'
         cg_tol_name = f'{NONLIN_CG}_{TOL}'
