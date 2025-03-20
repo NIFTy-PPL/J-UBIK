@@ -41,8 +41,7 @@ def my_assert_isinstance(*args):
 
 
 def compare_attributes(obj0, obj1, attribute_list):
-    return all(_fancy_equal(getattr(obj0, a), getattr(obj1, a))
-               for a in attribute_list)
+    return all(_fancy_equal(getattr(obj0, a), getattr(obj1, a)) for a in attribute_list)
 
 
 def _fancy_equal(o1, o2):
@@ -116,7 +115,7 @@ def calculate_phase_offset_to_image_center(
     sky_center: SkyCoord,
     phase_center: SkyCoord,
 ):
-    '''Calculate the relative shift of the phase center to the sky center
+    """Calculate the relative shift of the phase center to the sky center
     (reconstruction center) in radians.
 
     Parameters
@@ -125,7 +124,7 @@ def calculate_phase_offset_to_image_center(
         The world coordinate of the sky center.
     phase_center: astropy.SkyCoord
         The world coordinate of the phase center of the observation.
-    '''
+    """
     r = sky_center.separation(phase_center)
     phi = sky_center.position_angle(phase_center)
     # FIXME: center (x, y) switch maybe because of the ducc0 fft?

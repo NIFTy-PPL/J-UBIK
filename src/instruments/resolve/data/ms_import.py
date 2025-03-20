@@ -30,7 +30,9 @@ def ms_table(path):
     try:
         from casacore.tables import table
     except ImportError:
-        raise ImportError("You need to install python-casacore for working with measurement sets")
+        raise ImportError(
+            "You need to install python-casacore for working with measurement sets"
+        )
     return table(path, readonly=True, ack=False)
 
 
@@ -49,9 +51,16 @@ def ms2observations_all(ms, data_column):
                 yield oo
 
 
-def ms2observations(ms, data_column, with_calib_info, spectral_window,
-                    polarizations="all", channels=slice(None), ignore_flags=False,
-                    field=None):
+def ms2observations(
+    ms,
+    data_column,
+    with_calib_info,
+    spectral_window,
+    polarizations="all",
+    channels=slice(None),
+    ignore_flags=False,
+    field=None,
+):
     """Read and convert a given measurement set into an array of :class:`Observation`
 
     If WEIGHT_SPECTRUM is available this column is used for weighting.
@@ -137,27 +146,42 @@ def ms2observations(ms, data_column, with_calib_info, spectral_window,
         auxtables = {}
         auxtables["ANTENNA"] = _import_aux_table(ms, "ANTENNA")
         auxtables["STATE"] = _import_aux_table(ms, "STATE")
-        auxtables["SPECTRAL_WINDOW"] = _import_aux_table(ms, "SPECTRAL_WINDOW", row=spectral_window, skip=["ASSOC_NATURE", "ASSOC_SPW_ID"])
+        auxtables["SPECTRAL_WINDOW"] = _import_aux_table(
+            ms,
+            "SPECTRAL_WINDOW",
+            row=spectral_window,
+            skip=["ASSOC_NATURE", "ASSOC_SPW_ID"],
+        )
         sf = _source_and_field_table(ms, spectral_window, ifield)
         if sf is None:
             print(f"Field {ifield} cannot be found in SOURCE table")
             observations.append(None)
             continue
         auxtables = {**auxtables, **sf}
-        source_name = auxtables['SOURCE']['NAME'][0]
+        source_name = auxtables["SOURCE"]["NAME"][0]
         if field is not None and source_name != field:
             continue
         print(f"Work on Field {ifield}: {source_name}")
-        mm = read_ms_i(ms, data_column, ifield, spectral_window, pol_ind, pol_summation,
-                       with_calib_info, channels, ignore_flags)
+        mm = read_ms_i(
+            ms,
+            data_column,
+            ifield,
+            spectral_window,
+            pol_ind,
+            pol_summation,
+            with_calib_info,
+            channels,
+            ignore_flags,
+        )
         if mm is None:
             print(f"{ms}, field #{ifield} is empty or fully flagged")
             observations.append(None)
             continue
         # POINTING table is ignored for now
         antpos = AntennaPositions(mm["uvw"], mm["ant1"], mm["ant2"], mm["time"])
-        obs = Observation(antpos, mm["vis"], mm["wgt"], polobj, mm["freq"],
-                          auxiliary_tables=auxtables)
+        obs = Observation(
+            antpos, mm["vis"], mm["wgt"], polobj, mm["freq"], auxiliary_tables=auxtables
+        )
         observations.append(obs)
     return observations
 
@@ -185,8 +209,17 @@ def _determine_weighting(ms):
     return fullwgt, weightcol
 
 
-def read_ms_i(name, data_column, field, spectral_window, pol_indices, pol_summation,
-              with_calib_info, channels, ignore_flags):
+def read_ms_i(
+    name,
+    data_column,
+    field,
+    spectral_window,
+    pol_indices,
+    pol_summation,
+    with_calib_info,
+    channels,
+    ignore_flags,
+):
     assert pol_indices is None or isinstance(pol_indices, list)
     if pol_indices is None:
         pol_indices = slice(None)
@@ -200,8 +233,9 @@ def read_ms_i(name, data_column, field, spectral_window, pol_indices, pol_summat
     logger.info("Measurement set visibilities:")
     logger.info(f"  shape: ({nrow}, {_ms_nchannels(name, spectral_window)}, {nmspol})")
 
-    active_rows, active_channels = _first_pass(name, field, spectral_window, channels, pol_indices,
-                                               pol_summation, ignore_flags)
+    active_rows, active_channels = _first_pass(
+        name, field, spectral_window, channels, pol_indices, pol_summation, ignore_flags
+    )
     nrealrows, nrealchan = np.sum(active_rows), np.sum(active_channels)
     if nrealrows == 0 or nrealchan == 0:
         return None
@@ -227,14 +261,16 @@ def read_ms_i(name, data_column, field, spectral_window, pol_indices, pol_summat
         # Read in data
         start, realstart = 0, 0
         while start < nrow:
-            logger.debug(f"Second pass: {(start/nrow*100):.1f}%")
+            logger.debug(f"Second pass: {(start / nrow * 100):.1f}%")
             stop = _ms_stop(start, nrow)
             realstop = realstart + np.sum(active_rows[start:stop])
             if realstop > realstart:
                 allrows = stop - start == realstop - realstart
 
                 # Weights
-                twgt = t.getcol(weightcol, startrow=start, nrow=stop - start)[..., pol_indices]
+                twgt = t.getcol(weightcol, startrow=start, nrow=stop - start)[
+                    ..., pol_indices
+                ]
                 assert twgt.dtype == np.float32
                 if not fullwgt:
                     twgt = np.repeat(twgt[:, None], nchan, axis=1)
@@ -243,7 +279,9 @@ def read_ms_i(name, data_column, field, spectral_window, pol_indices, pol_summat
                 twgt = twgt[:, active_channels]
 
                 # Vis
-                tvis = t.getcol(data_column, startrow=start, nrow=stop - start)[..., pol_indices]
+                tvis = t.getcol(data_column, startrow=start, nrow=stop - start)[
+                    ..., pol_indices
+                ]
                 assert tvis.dtype == np.complex64
                 if not allrows:
                     tvis = tvis[active_rows[start:stop]]
@@ -273,7 +311,7 @@ def read_ms_i(name, data_column, field, spectral_window, pol_indices, pol_summat
             start, realstart = stop, realstop
     logger.info("Selected:" + 10 * " ")
     logger.info(f"  shape: {vis.shape}")
-    logger.info(f"  flagged: {(1.0-np.sum(wgt!=0)/wgt.size)*100:.1f} %")
+    logger.info(f"  flagged: {(1.0 - np.sum(wgt != 0) / wgt.size) * 100:.1f} %")
 
     # UVW
     with ms_table(name) as t:
@@ -297,7 +335,7 @@ def read_ms_i(name, data_column, field, spectral_window, pol_indices, pol_summat
                 ptg = np.empty((nrealrows, 1, 2), dtype=np.float64)
                 start, realstart = 0, 0
                 while start < nrow:
-                    logger.debug(f"Second pass: {(start/nrow*100):.1f}%")
+                    logger.debug(f"Second pass: {(start / nrow * 100):.1f}%")
                     stop = _ms_stop(start, nrow)
                     realstop = realstart + np.sum(active_rows[start:stop])
                     if realstop > realstart:
@@ -307,19 +345,31 @@ def read_ms_i(name, data_column, field, spectral_window, pol_indices, pol_summat
                         ptg[realstart:realstop] = tptg
                     start, realstart = stop, realstop
             else:
-                print(f"WARN: number of rows of POINTING table ({t.nrows()}) does not match number "
-                      f"of rows of main table ({active_rows.size}). Ignore POINTING table...")
+                print(
+                    f"WARN: number of rows of POINTING table ({t.nrows()}) does not match number "
+                    f"of rows of main table ({active_rows.size}). Ignore POINTING table..."
+                )
                 ptg = None
 
     my_asserteq(wgt.shape, vis.shape)
     vis = np.ascontiguousarray(_ms2resolve_transpose(vis))
     wgt = np.ascontiguousarray(_ms2resolve_transpose(wgt))
     vis[wgt == 0] = 0.0
-    return {"uvw": uvw, "ant1": ant1, "ant2": ant2, "time": time, "freq": freq, "vis": vis,
-            "wgt": wgt, "ptg": ptg}
+    return {
+        "uvw": uvw,
+        "ant1": ant1,
+        "ant2": ant2,
+        "time": time,
+        "freq": freq,
+        "vis": vis,
+        "wgt": wgt,
+        "ptg": ptg,
+    }
 
 
-def _first_pass(ms, field, spectral_window, channels, pol_indices, pol_summation, ignore_flags):
+def _first_pass(
+    ms, field, spectral_window, channels, pol_indices, pol_summation, ignore_flags
+):
     """Go through measurement set and determine which rows and which channels are active for a given
     field and a given spectral window.
     """
@@ -333,10 +383,12 @@ def _first_pass(ms, field, spectral_window, channels, pol_indices, pol_summation
         # Determine which subset of rows/channels we need to input
         start = 0
         while start < nrow:
-            logger.debug(f"First pass: {(start/nrow*100):.1f}%")
+            logger.debug(f"First pass: {(start / nrow * 100):.1f}%")
             stop = _ms_stop(start, nrow)
             tflags = _conditional_flags(t, start, stop, pol_indices, ignore_flags)
-            twgt = t.getcol(weightcol, startrow=start, nrow=stop - start)[..., pol_indices]
+            twgt = t.getcol(weightcol, startrow=start, nrow=stop - start)[
+                ..., pol_indices
+            ]
 
             tchslcflags = np.ones_like(tflags)
             tchslcflags[:, channels] = False
@@ -360,7 +412,9 @@ def _first_pass(ms, field, spectral_window, channels, pol_indices, pol_summation
             assert tflags.ndim == 3
             tflags = np.all(tflags, axis=2)
             active_rows[start:stop] = np.invert(np.all(tflags, axis=1))
-            active_channels = np.logical_or(active_channels, np.invert(np.all(tflags, axis=0)))
+            active_channels = np.logical_or(
+                active_channels, np.invert(np.all(tflags, axis=0))
+            )
             start = stop
     return active_rows, active_channels
 
@@ -374,14 +428,12 @@ def _ms_stop(start, nrow):
 
 
 def _ms_nchannels(ms, spectral_window):
-    """Return number of channels in a given spectral window of a measurement set.
-    """
+    """Return number of channels in a given spectral window of a measurement set."""
     return len(_ms_channels(ms, spectral_window))
 
 
 def _ms_channels(ms, spectral_window):
-    """Return frequencies of channels in a given spectral window of a measurement set.
-    """
+    """Return frequencies of channels in a given spectral window of a measurement set."""
     with ms_table(join(ms, "SPECTRAL_WINDOW")) as t:
         freq = t.getcol("CHAN_FREQ", startrow=spectral_window, nrow=1)[0]
     my_asserteq(freq.ndim, 1)
@@ -420,13 +472,29 @@ def _import_aux_table(ms, table_name, row=None, skip=[]):
 
 
 def _source_and_field_table(ms, spectral_window, ifield):
-    source_table = _import_aux_table(ms, "SOURCE", skip=["POSITION", "TRANSITION", "REST_FREQUENCY",
-                                                         "SYSVEL", "SOURCE_MODEL", "PULSAR_ID"])
+    source_table = _import_aux_table(
+        ms,
+        "SOURCE",
+        skip=[
+            "POSITION",
+            "TRANSITION",
+            "REST_FREQUENCY",
+            "SYSVEL",
+            "SOURCE_MODEL",
+            "PULSAR_ID",
+        ],
+    )
     field_table = _import_aux_table(ms, "FIELD", row=ifield)
     source_id = field_table["SOURCE_ID"][0]
-    ind = np.where(np.logical_and(source_table["SOURCE_ID"] == source_id,
-                                  np.logical_or(source_table["SPECTRAL_WINDOW_ID"] == spectral_window,
-                                                source_table["SPECTRAL_WINDOW_ID"] == -1)))[0]
+    ind = np.where(
+        np.logical_and(
+            source_table["SOURCE_ID"] == source_id,
+            np.logical_or(
+                source_table["SPECTRAL_WINDOW_ID"] == spectral_window,
+                source_table["SPECTRAL_WINDOW_ID"] == -1,
+            ),
+        )
+    )[0]
     if len(ind) == 0:
         return None
     elif len(ind) == 1:

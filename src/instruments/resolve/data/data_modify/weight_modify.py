@@ -29,7 +29,7 @@ def weight_modify(obs: Observation, weight_modify: WeightModify | None):
     perc = weight_modify.percentage
 
     # 1/ (sigma**2 + (sys_error_percentage*|A|)**2 )
-    new_weight = 1 / ((1/np.sqrt(weight_old))**2 + (perc*abs(obs.vis.val))**2)
+    new_weight = 1 / ((1 / np.sqrt(weight_old)) ** 2 + (perc * abs(obs.vis.val)) ** 2)
     obs._weight = new_weight
 
     return obs

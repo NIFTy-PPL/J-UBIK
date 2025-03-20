@@ -16,7 +16,8 @@
 
 def _logger_init():
     import logging
-    res = logging.getLogger('resolve')
+
+    res = logging.getLogger("resolve")
     res.setLevel(logging.WARNING)
     res.propagate = False
     ch = logging.StreamHandler()

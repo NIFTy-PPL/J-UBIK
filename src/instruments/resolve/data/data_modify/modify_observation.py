@@ -11,11 +11,9 @@ from ..observation import Observation
 
 
 def modify_observation(
-    sky_frequencies: list[float],
-    obs: Observation,
-    modify: ObservationModify
+    sky_frequencies: list[float], obs: Observation, modify: ObservationModify
 ) -> Observation:
-    '''Returns an observation according to ObservationModify. Furthermore,
+    """Returns an observation according to ObservationModify. Furthermore,
     if the frequencies are not ordered from smallest to biggest the frequencies
     get reverted. Additionally the visibilities get converted to double
     precission.
@@ -28,7 +26,7 @@ def modify_observation(
         The observation to be modified
     modify: ObservationModify
         The model for the modification, see `ObservationModify`.
-    '''
+    """
 
     # Revert the frequencies if they are the wrong way around
     if len(obs.freq) > 1:
@@ -46,7 +44,8 @@ def modify_observation(
         obs = obs.restrict_by_freq(sky_frequencies[0], sky_frequencies[-1])
 
     obs = freq_average_by_fdom_and_n_freq_chunks(
-        sky_frequencies, obs, modify.spectral_bins)
+        sky_frequencies, obs, modify.spectral_bins
+    )
     obs = weight_modify(obs, modify.weight_modify)
 
     if modify.restrict_to_stokes_I:
