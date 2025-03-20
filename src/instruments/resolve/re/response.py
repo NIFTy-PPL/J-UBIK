@@ -151,6 +151,7 @@ def InterferometryResponse(
                         center_y=center_y,
                     )
                 elif isinstance(backend_settings, FinufftSettings):
+                    print("Using Finufft")
                     rrr = InterferometryResponseFinuFFT(
                         observation=ooo,
                         pixsize_x=pixsize_x,
