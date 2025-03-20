@@ -41,20 +41,17 @@ def compute_primary_beam_pattern(D, d, freq, x):
     x = np.pi * a * D * x
     mask = x == 0.0
     x[mask] = 1
-    sol = 2 / (x * (1 - b ** 2)) * (sc.jn(1, x) - b * sc.jn(1, x * b))
+    sol = 2 / (x * (1 - b**2)) * (sc.jn(1, x) - b * sc.jn(1, x * b))
     sol[mask] = 1
     return sol * sol
 
 
 def build_primary_beam_pattern_from_beam_pattern_config(
-    bpc: BeamPatternConfig
+    bpc: BeamPatternConfig,
 ) -> Callable[[float, ArrayLike], ArrayLike]:
-    '''Returns a callable that evaluates the beam pattern for a frequency on
+    """Returns a callable that evaluates the beam pattern for a frequency on
     the sky, i.e. bp(freq, sky_position)
-    '''
+    """
     return lambda freq, x: compute_primary_beam_pattern(
-        D=bpc.dish_size,
-        d=bpc.dish_blockage_size,
-        freq=freq,
-        x=x
+        D=bpc.dish_size, d=bpc.dish_blockage_size, freq=freq, x=x
     )
