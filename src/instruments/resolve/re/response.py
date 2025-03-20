@@ -114,11 +114,9 @@ def InterferometryResponse(
     pixsize_x, pixsize_y = sky_grid.spatial.distances_in(SPATIAL_UNIT)
     center_y, center_x = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
-        (
-            sky_grid.spatial.center
-            if observation.direction is None
-            else observation.direction.to_sky_coord()
-        ),
+        sky_grid.spatial.center
+        if observation.direction is None
+        else observation.direction.to_sky_coord(),
     )
 
     # build responses for: time binds, freq bins
