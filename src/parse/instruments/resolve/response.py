@@ -38,7 +38,6 @@ class Ducc0Settings(StronglyTyped):
         {NTHREADS_KEY}: int
         {VERBOSITY_KEY}: bool
         """
-
         return Ducc0Settings(
             epsilon=yaml_dict[EPSILON_KEY],
             do_wgridding=yaml_dict[DO_WGRIDDING_KEY],

@@ -12,13 +12,13 @@ def time_average(obs: Observation, len_tbin: int | None):
     logger.info(f"Time average to {len_tbin} time bins.")
 
     tmin, tmax = tmin_tmax(obs)
-    n_tbins = int((tmax-tmin) // len_tbin + 2)
-    tbins_endpoints = np.arange(tmin, n_tbins*len_tbin+tmin, len_tbin)
+    n_tbins = int((tmax - tmin) // len_tbin + 2)
+    tbins_endpoints = np.arange(tmin, n_tbins * len_tbin + tmin, len_tbin)
     unique_times = np.unique(obs.time)
     t_intervals = []
-    for ii in range(n_tbins-1):
+    for ii in range(n_tbins - 1):
         start = tbins_endpoints[ii]
-        stop = tbins_endpoints[ii+1]
+        stop = tbins_endpoints[ii + 1]
         s = start <= unique_times
         b = stop > unique_times
         vis_in_inter = np.any(np.logical_and(s, b))

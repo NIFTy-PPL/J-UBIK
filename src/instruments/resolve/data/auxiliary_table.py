@@ -16,8 +16,7 @@
 
 import numpy as np
 
-from ..util import (compare_attributes, my_assert, my_assert_isinstance,
-                    my_asserteq)
+from ..util import compare_attributes, my_assert, my_assert_isinstance, my_asserteq
 
 
 class AuxiliaryTable:
@@ -33,7 +32,7 @@ class AuxiliaryTable:
             my_asserteq(nrow, len(lst))
             my_asserteq(type(elem) for elem in lst)
         self._dct = inp_dict
-        self._eq_attributes = "_dct",
+        self._eq_attributes = ("_dct",)
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
@@ -56,7 +55,7 @@ class AuxiliaryTable:
         return key in self._dct
 
     def row(self, i):
-        return AuxiliaryTable({kk: vv[i:i+1] for kk, vv in self._dct.items()})
+        return AuxiliaryTable({kk: vv[i : i + 1] for kk, vv in self._dct.items()})
 
     def to_list(self):
         return [list(self._dct.keys())] + [ss for ss in self._dct.values()]
@@ -64,5 +63,5 @@ class AuxiliaryTable:
     @staticmethod
     def from_list(lst):
         keys = lst[0]
-        dct = {kk: lst[ii+1] for ii, kk in enumerate(keys)}
+        dct = {kk: lst[ii + 1] for ii, kk in enumerate(keys)}
         return AuxiliaryTable(dct)

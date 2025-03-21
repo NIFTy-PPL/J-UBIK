@@ -83,6 +83,7 @@ class Polarization:
     @property
     def space(self):
         from ..polarization_space import PolarizationSpace
+
         if self == Polarization.trivial():
             x = "I"
         else:

@@ -14,18 +14,17 @@
 # Copyright(C) 2025 Max-Planck-Society
 # Author: Jakob Roth, Julian Rüstig
 
-
-from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
-from ..data.observation import Observation
-from ....grid import Grid
-from ..util import calculate_phase_offset_to_image_center
+from typing import Union
 
 import numpy as np
 from jax.tree_util import Partial
 from jax import numpy as jnp
 from astropy import units as u
 
-from typing import Union
+from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
+from ..data.observation import Observation
+from ....grid import Grid
+from ..util import calculate_phase_offset_to_image_center
 
 
 SPECTRAL_UNIT = u.Hz
@@ -115,8 +114,11 @@ def InterferometryResponse(
     pixsize_x, pixsize_y = sky_grid.spatial.distances_in(SPATIAL_UNIT)
     center_y, center_x = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
-        sky_grid.spatial.center if observation.direction is None
-        else observation.direction.to_sky_coord()
+        (
+            sky_grid.spatial.center
+            if observation.direction is None
+            else observation.direction.to_sky_coord()
+        ),
     )
 
     # build responses for: time binds, freq bins
@@ -124,12 +126,11 @@ def InterferometryResponse(
     row_indices, freq_indices = [], []
     for t in range(n_times):
         sr_tmp, t_tmp, f_tmp = [], [], []
-        if tuple(bb_times[t: t + 2]) == (-np.inf, np.inf):
+        if tuple(bb_times[t : t + 2]) == (-np.inf, np.inf):
             oo = observation
             tind = slice(None)
         else:
-            oo, tind = observation.restrict_by_time(
-                bb_times[t], bb_times[t + 1], True)
+            oo, tind = observation.restrict_by_time(bb_times[t], bb_times[t + 1], True)
         for f in range(n_freqs):
             ooo, find = oo.restrict_by_freq(bb_freqs[f], bb_freqs[f + 1], True)
             if any(np.array(ooo.vis.shape) == 0):
@@ -150,7 +151,7 @@ def InterferometryResponse(
                         center_y=center_y,
                     )
                 elif isinstance(backend_settings, FinufftSettings):
-                    print('Using Finufft')
+                    print("Using Finufft")
                     rrr = InterferometryResponseFinuFFT(
                         observation=ooo,
                         pixsize_x=pixsize_x,
@@ -160,9 +161,11 @@ def InterferometryResponse(
                         center_y=center_y,
                     )
                 else:
-                    err = ("backend_settings must be an instance of "
-                           "`Ducc0Settings` or `FinufftSettings`, not "
-                           f"{backend_settings}")
+                    err = (
+                        "backend_settings must be an instance of "
+                        "`Ducc0Settings` or `FinufftSettings`, not "
+                        f"{backend_settings}"
+                    )
                     raise ValueError(err)
 
             sr_tmp.append(rrr)
@@ -194,8 +197,7 @@ def InterferometryResponse(
                         continue
                     inp = sky[pp, tt, ff]
                     r = op(inp)
-                    res = res.at[pp, row_indices[tt][ff],
-                                 freq_indices[tt][ff]].set(r)
+                    res = res.at[pp, row_indices[tt][ff], freq_indices[tt][ff]].set(r)
         return convert_polarization(res, inp_pol, out_pol)
 
     return apply_R
@@ -235,12 +237,7 @@ def InterferometryResponseDucc(
 
 
 def InterferometryResponseFinuFFT(
-    observation,
-    pixsize_x,
-    pixsize_y,
-    epsilon,
-    center_x=None,
-    center_y=None
+    observation, pixsize_x, pixsize_y, epsilon, center_x=None, center_y=None
 ):
     from jax_finufft import nufft2
 
@@ -249,8 +246,7 @@ def InterferometryResponseFinuFFT(
     vol = pixsize_x * pixsize_y
     speedoflight = 299792458.0
 
-    uvw = np.transpose(
-        (uvw[..., None] * freq / speedoflight), (0, 2, 1)).reshape(-1, 3)
+    uvw = np.transpose((uvw[..., None] * freq / speedoflight), (0, 2, 1)).reshape(-1, 3)
     u, v, w = uvw.T
 
     u_finu = (2 * np.pi * u * pixsize_x) % (2 * np.pi)
@@ -258,7 +254,7 @@ def InterferometryResponseFinuFFT(
 
     if (center_x is not None) and (center_y is not None):
         n = np.sqrt(1 - center_x**2 - center_y**2)
-        phase_shift = np.exp(-2j*np.pi * (u*center_x + v*center_y + w*(n-1)))
+        phase_shift = np.exp(-2j * np.pi * (u * center_x + v * center_y + w * (n - 1)))
         phase_shift = jnp.array(phase_shift)
     else:
         phase_shift = 1
