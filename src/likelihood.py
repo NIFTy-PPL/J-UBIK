@@ -28,7 +28,7 @@ def get_n_constrained_dof(likelihood: jft.Likelihood) -> int:
         degrees of freedom.
     """
 
-    n_dof_data = jft.size(likelihood.left_sqrt_metric_tangents_shape)
+    n_dof_data = likelihood.left_sqrt_metric_tangents_shape.size
     n_dof_model = jft.size(likelihood.domain)
     return min(n_dof_model, n_dof_data)
 

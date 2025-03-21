@@ -391,9 +391,9 @@ def linear_sample_kwargs_factory(
                                 delta_range_index, ndof, verbose)
 
         return dict(
-            cg_name=LIN_NAME,
+            cg_name=None, # inside nifty cg_name is overwritten by cg_kwargs['name']
             cg_kwargs=dict(
-                name=None,
+                name=LIN_NAME,
                 absdelta=absdelta,
                 tol=tol,
                 atol=atol,
