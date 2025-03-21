@@ -12,11 +12,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright(C) 2025 Max-Planck-Society
-# Author: Jakob Roth, Julian Rüstig
+# Author: Vishal Johnson, Jakob Roth, Julian Rüstig
 
 
 import operator
-from functools import partial, reduce
+from functools import reduce
 import jax
 import jax.numpy as jnp
 
