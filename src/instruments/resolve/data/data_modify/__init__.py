@@ -1,2 +1,1 @@
 from .modify_observation import modify_observation
-from .restrict_and_average_to_stokesi import restrict_and_average_to_stokes_i
