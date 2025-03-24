@@ -11,8 +11,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .mf_model_utils import _check_demands, _build_distribution_or_default
+from .gauss_markov import NdGaussMarkovProcess, build_fixed_point_wiener_process
 from nifty8.re.num.stats_distributions import lognormal_prior
-from nifty8.re.gauss_markov import GaussMarkovProcess, build_fixed_point_wiener_process
 
 
 def build_frequency_deviations_model_with_degeneracies(
@@ -21,7 +21,7 @@ def build_frequency_deviations_model_with_degeneracies(
     reference_frequency_index: int,
     deviations_settings: Optional[dict],
     prefix: str = None,
-) -> GaussMarkovProcess | None:
+) -> NdGaussMarkovProcess | None:
     """
     Builds a frequency deviations model based on
     the specified settings.
