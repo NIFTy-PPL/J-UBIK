@@ -33,6 +33,7 @@ class ObservationModify:
     to_double_precision: bool
     testing_percentage: float | None
     restrict_to_stokes_I: bool
+    average_to_stokes_I: bool
 
     @classmethod
     def from_config_parser(cls, data_cfg: ConfigParser):
@@ -62,6 +63,8 @@ class ObservationModify:
             Taking a percantage of the data for testing the model.
         restrict to stokes I: bool | None
             The data will be restricted to stokes I.
+        average to stokes I: bool | None
+            The data will be averaged to stokes I.
         """
 
         TIME_BINS_KEYS = "time bins"
@@ -86,6 +89,7 @@ class ObservationModify:
         testing_percentage = eval(data_cfg.get("data testing percentage", "None"))
 
         restrict_to_stokes_I = eval(data_cfg.get("restrict to stokes I", "False"))
+        average_to_stokes_I = eval(data_cfg.get("average to stokes I", "False"))
 
         return ObservationModify(
             time_bins=tb,
@@ -97,6 +101,7 @@ class ObservationModify:
             to_double_precision=to_double_precision,
             testing_percentage=testing_percentage,
             restrict_to_stokes_I=restrict_to_stokes_I,
+            average_to_stokes_I=average_to_stokes_I,
         )
 
     @classmethod
@@ -129,6 +134,8 @@ class ObservationModify:
             Taking a percantage of the data for testing the model.
         restrict_to_stokes_I: bool | None
             The data will be restricted to stokes I.
+        average_to_stokes_I: bool | None
+            The data will be averaged to stokes I.
         """
         tb = data_cfg.get("time_bins")
 
@@ -148,6 +155,7 @@ class ObservationModify:
         to_double_precision = data_cfg.get("to_double_precision", True)
         testing_percentage = data_cfg.get("testing_percentage", None)
         restrict_to_stokes_I = data_cfg.get("restrict_to_stokes_I", False)
+        average_to_stokes_I = data_cfg.get("average_to_stokes_I", False)
 
         return ObservationModify(
             time_bins=tb,
@@ -159,6 +167,7 @@ class ObservationModify:
             to_double_precision=to_double_precision,
             testing_percentage=testing_percentage,
             restrict_to_stokes_I=restrict_to_stokes_I,
+            average_to_stokes_I=average_to_stokes_I,
         )
 
 
@@ -168,7 +177,7 @@ def _check_spectral_min_max_consistency(smin: float, smax: float):
     elif (smin is not None) and (smax is not None):
         if smin >= smax:
             raise ValueError(
-                "spectral minimum must be strictly lower than " "spectral maximum."
+                "spectral minimum must be strictly lower than spectral maximum."
             )
         return
     else:
