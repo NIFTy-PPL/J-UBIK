@@ -20,12 +20,12 @@ from .spectral_behavior import (
     SpectralIndex)
 from .scaled_excitations import ScaledExcitations, build_scaled_excitations
 
-from ..tree_math.vector import Vector
-from .. import logger
-from ..correlated_field import (
+from nifty8.re.tree_math.vector import Vector
+from nifty8.re import logger
+from nifty8.re.correlated_field import (
     make_grid, hartley, MaternAmplitude, NonParametricAmplitude)
-from ..model import Model
-from ..num.stats_distributions import lognormal_prior, normal_prior
+from nifty8.re.model import Model
+from nifty8.re.num.stats_distributions import lognormal_prior, normal_prior
 
 
 class CorrelatedMultiFrequencySky(Model):

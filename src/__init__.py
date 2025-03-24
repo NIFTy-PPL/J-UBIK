@@ -28,6 +28,7 @@ from .instruments.chandra.chandra_data import (generate_chandra_data,
                                                create_chandra_data_from_config)
 from .instruments.chandra.chandra_response import build_chandra_response_from_config
 from .instruments.chandra.chandra_likelihood import generate_chandra_likelihood_from_config
+from .mf_model import CorrelatedMultiFrequencySky, build_default_mf_model
 from .sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope
 from .response import build_exposure_function, build_readout_function
 from .instruments.erosita.erosita_response import (build_callable_from_exposure_file,
