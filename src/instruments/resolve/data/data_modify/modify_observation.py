@@ -9,6 +9,8 @@ from .restrict_and_average_to_stokesi import restrict_and_average_to_stokes_i
 
 from ..observation import Observation
 
+from nifty8.logger import logger
+
 
 def modify_observation(
     sky_frequencies: list[float], obs: Observation, modify: ObservationModify
@@ -49,7 +51,11 @@ def modify_observation(
     obs = weight_modify(obs, modify.weight_modify)
 
     if modify.restrict_to_stokes_I:
-        obs = restrict_and_average_to_stokes_i(obs)
+        logger.info("Restrict to Stokes I")
+        obs = obs.restrict_to_stokesi()
+    if modify.average_to_stokes_I:
+        logger.info("Average to Stokes I")
+        obs = obs.average_stokesi()
 
     if modify.to_double_precision:
         obs = obs.to_double_precision()

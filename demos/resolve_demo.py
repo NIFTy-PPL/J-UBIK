@@ -48,6 +48,7 @@ obs._weight = 0.1 * obs._weight
 obs = restrict_to_testing_percentage(obs, 0.01)
 
 # # NOTE : The observation can also be loaded and modified via the config file.
+# from jubik0.instruments.resolve.data import load_and_modify_data_from_objects
 # obs = list(
 #     load_and_modify_data_from_objects(
 #         [-np.inf, np.inf],
