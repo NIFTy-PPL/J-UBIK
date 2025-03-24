@@ -5,7 +5,6 @@ from .reverse_frequencies import reverse_frequencies
 from .time_average import time_average
 from .frequency_averaging import freq_average_by_fdom_and_n_freq_chunks
 from .weight_modify import weight_modify
-from .restrict_and_average_to_stokesi import restrict_and_average_to_stokes_i
 
 from ..observation import Observation
 
