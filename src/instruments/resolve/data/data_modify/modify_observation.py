@@ -1,7 +1,7 @@
 from .....parse.instruments.resolve.data.data_modify import ObservationModify
 
 from .restrict_to_testing_percentage import restrict_to_testing_percentage
-from .revert_frequencies import revert_frequencies
+from .reverse_frequencies import reverse_frequencies
 from .time_average import time_average
 from .frequency_averaging import freq_average_by_fdom_and_n_freq_chunks
 from .weight_modify import weight_modify
@@ -15,7 +15,7 @@ def modify_observation(
 ) -> Observation:
     """Returns an observation according to ObservationModify. Furthermore,
     if the frequencies are not ordered from smallest to biggest the frequencies
-    get reverted. Additionally the visibilities get converted to double
+    get reversed. Additionally the visibilities get converted to double
     precission.
 
     Parameters
@@ -28,10 +28,10 @@ def modify_observation(
         The model for the modification, see `ObservationModify`.
     """
 
-    # Revert the frequencies if they are the wrong way around
+    # Reverse the frequencies if they are ordered from high to low.
     if len(obs.freq) > 1:
         if obs.freq[1] - obs.freq[0] < 0:
-            obs = revert_frequencies(obs)
+            obs = reverse_frequencies(obs)
 
     if modify.testing_percentage is not None:
         obs = restrict_to_testing_percentage(obs, modify.testing_percentage)
