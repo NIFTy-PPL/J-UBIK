@@ -539,7 +539,7 @@ def build_default_mf_model(
     fluct = 'fluctuations' if 'fluctuations' in spatial_amplitude_settings else 'scale'
     spatial_fluctuations = build_scaled_excitations(
         f'{prefix}_spatial',
-        fluctuation_settings=spatial_amplitude_settings[fluct],
+        fluctuations_settings=spatial_amplitude_settings[fluct],
         shape=shape,
     )
     spatial_amplitude = build_normalized_amplitude_model(
@@ -562,7 +562,7 @@ def build_default_mf_model(
     if spectral_index_fluctuations is None:
         spectral_index_fluctuations = build_scaled_excitations(
             prefix=f'{prefix}_spectral_index',
-            fluctuation_settings=spectral_index_settings['fluctuations'],
+            fluctuations_settings=spectral_index_settings['fluctuations'],
             shape=shape,
         )
 

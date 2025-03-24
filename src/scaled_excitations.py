@@ -24,11 +24,11 @@ class ScaledExcitations(Model):
 
 def build_scaled_excitations(
     prefix: str,
-    fluctuation_settings: dict,
+    fluctuations_settings: dict,
     shape: tuple[int],
 ) -> ScaledExcitations:
     fluctuations = _build_distribution_or_default(
-        fluctuation_settings,
+        fluctuations_settings,
         f'{prefix}_fluctuations',
         lognormal_prior
     )
