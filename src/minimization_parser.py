@@ -9,7 +9,7 @@ from typing import Callable, Union, Any, Optional, Dict
 
 import nifty8.re as jft
 
-# CONFIGURATION CONSTANTS
+# CONFIGURATION DEFAULTS
 SWITCHES = 'switches'
 SAMPLES = 'samples'
 N_SAMPLES = 'n_samples'
