@@ -643,33 +643,6 @@ def build_default_mf_model(
     return add_prefix(sky, prefix)
 
 
-def add_xi_keys_properties(object: SpectralProductMFSky):
-    @property
-    def spatial_xi_key(self: SpectralProductMFSky):
-        sc_excitations: ScaledExcitations = self.spatial_scaled_excitations
-        return next(iter(sc_excitations.latent_space_xi.domain.keys()))
-
-    @property
-    def spectral_xi_key(self: SpectralProductMFSky):
-        spectral: HarmonicLogSpectralBehavior = self.log_spectral_behavior
-        sc_excitations: ScaledExcitations = spectral.spectral_scaled_excitations
-        return next(iter(sc_excitations.latent_space_xi.domain.keys()))
-
-    @property
-    def spectral_deviations_xi_key(self: SpectralProductMFSky):
-        deviations: Model = self.spectral_index_deviations
-        for k in deviations.domain.keys():
-            if "xi" in k:
-                return k
-        raise ValueError("No xi key found in deviations model.")
-
-    setattr(object, "spatial_xi_key", spatial_xi_key)
-    setattr(object, "spectral_xi_key", spectral_xi_key)
-    if object.spectral_index_deviations is not None:
-        setattr(object, "spectral_deviations_xi_key", spectral_deviations_xi_key)
-    return object
-
-
 def add_prefix(object: SpectralProductMFSky, prefix_key: str):
     setattr(object, "_prefix", prefix_key)
     return object
