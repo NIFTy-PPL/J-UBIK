@@ -25,48 +25,6 @@ from jubik0.sky_model.multifrequency.spectral_product_utils.scaled_excitations i
 
 pmp = pytest.mark.parametrize
 
-# TODO: reintroduce this test when amplitudes are implemented
-# @pmp("shape", [(10,), (10, 10)])
-# @pmp("settings, amplitude_model",
-#     [
-#         (dict(
-#             fluctuations=(1.0, 0.02),
-#             loglogavgslope=(-2.0, 0.1),
-#             flexibility=None,
-#             asperity=None,),
-#          "non_parametric",
-#         ),
-#         (dict(
-#             scale=(1.0, 0.02),
-#             cutoff=(0.1, 0.01),
-#             loglogslope=(-4, 0.1),),
-#         "matern")
-#     ]
-# )
-# @pmp("renormalize_amplitude", [True, False])
-# @pmp("prefix", ["test", "", None])
-# @pmp("kind", ["amplitude", "power"])
-# def test_build_amplitude_model(
-#     shape,
-#     settings,
-#     amplitude_model,
-#     renormalize_amplitude,
-#     prefix,
-#     kind,
-# ):
-#     dist = .1
-#     grid = _make_grid(shape, dist, "fourier")
-#     amplitude = build_amplitude_model(grid,
-#                                       settings,
-#                                       amplitude_model,
-#                                       renormalize_amplitude,
-#                                       prefix,
-#                                       kind,
-#                                       )
-#     assert amplitude
-#     assert amplitude.domain
-
-
 @pmp("shape", [(10,), (10, 10)])
 @pmp("distances", [0.1])
 @pmp("log_frequencies", [np.array((0.1,))])
