@@ -44,36 +44,6 @@ class CorrelatedMultiFrequencySky(Model):
               GaussMarkovProcess(k, \\mu-\\mu_\\mathrm{ref})
               - AvgSlope[GaussMarkovProcess]
               )] + zero_mode)
-
-    Parameters
-    ----------
-    relative_log_frequencies: Union[tuple[float], ArrayLike]
-        The log_frequencies relative to the reference frequency:
-        delta log(v) = log(v) - log(v_ref) = \\mu - \\mu_\\mathrm{ref}
-    zero_model: jft.Model
-        The model for the zero mode
-    spatial_scaled_excitations: jft.Model
-        Spatial excitations xi scaled by the fluctuations at reference frequency.
-    spatial_amplitude: Union[MaternAmplitude, NonParametricAmplitude]
-        Amplitude model for the spatial correlations.
-    log_spectral_behavior: HarmonicLogSpectralBehavior
-        The log spectral behavior of the model. See, e.g. `SpectralIndex`.
-    spectral_amplitude: Optional[Union[MaternAmplitude,
-        NonParametricAmplitude]]
-        An optional amplitude model for the spectral correlations of the
-        spectral_index field.
-        If `None` the `spatial_amplitude` is used for the spectral
-        correlations.
-    spectral_index_deviations: Optional[jft.Model]
-        A model capturing deviations from the spectral behavior of the
-        spectral index model.
-    log_ref_freq_mean_model: Optional[jft.Model]
-        Optional model applied to the spatial part of the model in
-        `nonlinearity` units. This can, for example, be used to tapper the
-        spatial reference model.
-    nonlinearity: Optional[jnp.callable]
-        The nonlinearity to be applied to the multifrequency correlated
-        field.
     """
 
     def __init__(
@@ -89,6 +59,37 @@ class CorrelatedMultiFrequencySky(Model):
         log_ref_freq_mean_model: Optional[Model] = None,
         nonlinearity: Optional[Callable] = jnp.exp,
     ):
+        """
+        Parameters
+        ----------
+        relative_log_frequencies: Union[tuple[float], ArrayLike]
+            The log_frequencies relative to the reference frequency:
+            delta log(v) = log(v) - log(v_ref) = \\mu - \\mu_\\mathrm{ref}
+        zero_model: jft.Model
+            The model for the zero mode
+        spatial_scaled_excitations: jft.Model
+            Spatial excitations xi scaled by the fluctuations at reference frequency.
+        spatial_amplitude: Union[MaternAmplitude, NonParametricAmplitude]
+            Amplitude model for the spatial correlations.
+        log_spectral_behavior: HarmonicLogSpectralBehavior
+            The log spectral behavior of the model. See, e.g. `SpectralIndex`.
+        spectral_amplitude: Optional[Union[MaternAmplitude,
+            NonParametricAmplitude]]
+            An optional amplitude model for the spectral correlations of the
+            spectral_index field.
+            If `None` the `spatial_amplitude` is used for the spectral
+            correlations.
+        spectral_index_deviations: Optional[jft.Model]
+            A model capturing deviations from the spectral behavior of the
+            spectral index model.
+        log_ref_freq_mean_model: Optional[jft.Model]
+            Optional model applied to the spatial part of the model in
+            `nonlinearity` units. This can, for example, be used to tapper the
+            spatial reference model.
+        nonlinearity: Optional[jnp.callable]
+            The nonlinearity to be applied to the multifrequency correlated
+            field.
+        """
         # The amplitudes supplied need to be normalized, as both the spatial
         # and the spectral fluctuations are applied directly in the call to
         # avoid degeneracies.
