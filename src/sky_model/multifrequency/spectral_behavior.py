@@ -18,10 +18,10 @@ class HarmonicLogSpectralBehavior(Model, ABC):
     @property
     @abstractmethod
     def relative_log_frequencies(self):
-        '''The spectral axis is fixed to be the first index of the output of
+        """The spectral axis is fixed to be the first index of the output of
         the model. The `relative_log_frequencies` cast the output arrays of the
         models to conform with this convention by following the numpy casting
-        conventions.'''
+        conventions."""
         pass
 
     @abstractmethod
@@ -42,21 +42,21 @@ class HarmonicLogSpectralBehavior(Model, ABC):
 
     @abstractmethod
     def remove_degeneracy_of_spectral_deviations(
-        self,
-        deviations: ArrayLike
+        self, deviations: ArrayLike
     ) -> ArrayLike:
         pass
 
 
 class SingleHarmonicLogSpectralBehavior(HarmonicLogSpectralBehavior, ABC):
-    '''Abstract base class for a model with single spectral behavior.
+    """Abstract base class for a model with single spectral behavior.
     Hence, mean is a single number and fluctations is an Array.
 
     Note
     ----
     This can be used to speed up some calculations in the
     `CorrelatedMultiFrequencySky` class.
-    '''
+    """
+
     pass
 
 
@@ -68,13 +68,13 @@ class SpectralIndex(SingleHarmonicLogSpectralBehavior):
         spectral_scaled_excitations: ScaledExcitations,
         reference_frequency_index: int,
     ):
-        '''Spectral Index spectral behavior. Special case of the
+        """Spectral Index spectral behavior. Special case of the
         `SpectralPolynomial`. However, since it has a single parameter, it can
         be used to speed up evaluations.
 
         .. math::
             \\log F(\\nu, A, ) = A^{spec.}
-            * \\left\\{ \\mathrm{fluc.}^A \\xi^A \\nu  \\right\\} 
+            * \\left\\{ \\mathrm{fluc.}^A \\xi^A \\nu  \\right\\}
             + \\mathrm{mean}^A \\nu
 
         Parameters
@@ -90,12 +90,13 @@ class SpectralIndex(SingleHarmonicLogSpectralBehavior):
         reference_frequency_index: int
             The index of the reference frequency. Used in order to calculate
             the relative frequencies.
-        '''
+        """
         # NOTE : The model assumes that spectral axis is fixed to be the first
         # index of the output model. The slicing tuple matches the shape of the
         # relative_log_frequencies using the numpy slicing convention.
-        slicing_tuple = (
-            (slice(None),) + (None,)*len(spectral_scaled_excitations.target.shape))
+        slicing_tuple = (slice(None),) + (None,) * len(
+            spectral_scaled_excitations.target.shape
+        )
         self._relative_log_frequencies = (
             log_frequencies - log_frequencies[reference_frequency_index]
         )[slicing_tuple]
@@ -105,7 +106,9 @@ class SpectralIndex(SingleHarmonicLogSpectralBehavior):
 
         self._denominator = 1 / jnp.sum(self.relative_log_frequencies**2)
 
-        super().__init__(domain=self._mean.domain | self.spectral_scaled_excitations.domain)
+        super().__init__(
+            domain=self._mean.domain | self.spectral_scaled_excitations.domain
+        )
 
     @property
     def relative_log_frequencies(self):
@@ -127,8 +130,9 @@ class SpectralIndex(SingleHarmonicLogSpectralBehavior):
         self, deviations: ArrayLike
     ) -> ArrayLike:
         dev_slope = (
-            jnp.sum(deviations * self.relative_log_frequencies, axis=0) *
-            self._denominator)
+            jnp.sum(deviations * self.relative_log_frequencies, axis=0)
+            * self._denominator
+        )
         return deviations - dev_slope * self.relative_log_frequencies
 
     def __call__(self, p):
@@ -146,12 +150,12 @@ class SpectralPolynomial(HarmonicLogSpectralBehavior):
         fluctuations: list[Model],
         reference_frequency_index: int,
     ):
-        '''Polynomial spectral behavior. The spectral index is a special case
+        """Polynomial spectral behavior. The spectral index is a special case
         of this model.
 
         .. math::
             \\log F(\\nu, A, B, ...) = A^{spec.}
-            * \\left\\{ \\mathrm{fluc.}^A \\xi^A \\nu + \\mathrm{fluc.}^B \\xi^B \\nu^2 + ... \\right\\} 
+            * \\left\\{ \\mathrm{fluc.}^A \\xi^A \\nu + \\mathrm{fluc.}^B \\xi^B \\nu^2 + ... \\right\\}
             + \\mathrm{mean}^A \\nu + \\mathrm{mean}^B \\nu^2 + ...
 
         Parameters
@@ -167,7 +171,7 @@ class SpectralPolynomial(HarmonicLogSpectralBehavior):
         reference_frequency_index: int
             The index of the reference frequency. Used in order to calculate
             the relative frequencies.
-        '''
+        """
 
         # NOTE : The sizes between the means and the fluctuations must match.
         assert isinstance(means, list)
@@ -180,8 +184,7 @@ class SpectralPolynomial(HarmonicLogSpectralBehavior):
         # NOTE : The model assumes that spectral axis is fixed to be the first
         # index of the output model. The slicing tuple matches the shape of the
         # relative_log_frequencies using the numpy slicing convention.
-        slicing_tuple = (
-            (slice(None),) + (None,)*len(fluctuations_target_shape))
+        slicing_tuple = (slice(None),) + (None,) * len(fluctuations_target_shape)
         self._relative_log_frequencies = (
             log_frequencies - log_frequencies[reference_frequency_index]
         )[slicing_tuple]
@@ -192,8 +195,10 @@ class SpectralPolynomial(HarmonicLogSpectralBehavior):
 
         domain = reduce(
             lambda a, b: a | b,
-            [(m.domain.tree if isinstance(m.domain, Vector) else m.domain)
-             for m in self._means+self._fluctuations]
+            [
+                (m.domain.tree if isinstance(m.domain, Vector) else m.domain)
+                for m in self._means + self._fluctuations
+            ],
         )
 
         super().__init__(domain=domain)
@@ -209,14 +214,18 @@ class SpectralPolynomial(HarmonicLogSpectralBehavior):
         return [f(p) for f in self._fluctuations]
 
     def fluctuations_with_frequencies(self, p) -> ArrayLike:
-        '''Implements the fluctuations part. See above.
+        """Implements the fluctuations part. See above.
 
         .. math::
             \\mathrm{fluc.}^A\\xi^A\\nu + \\mathrm{fluc.}^B\\xi^B\\nu^2 + ...
-        '''
+        """
 
-        values = jnp.array([f(p)*self.relative_log_frequencies**(i+1)
-                            for i, f in enumerate(self._fluctuations)])
+        values = jnp.array(
+            [
+                f(p) * self.relative_log_frequencies ** (i + 1)
+                for i, f in enumerate(self._fluctuations)
+            ]
+        )
 
         # NOTE: The 0th-axis contains the polynomial values, hence the sum
         # over 0th-axis returns the polynomial value at the different log-
@@ -224,14 +233,18 @@ class SpectralPolynomial(HarmonicLogSpectralBehavior):
         return jnp.sum(values, axis=0)
 
     def mean_with_frequencies(self, p) -> ArrayLike:
-        '''Implements the means part. See above.
+        """Implements the means part. See above.
 
         .. math::
             \\mathrm{mean}^A \\nu + \\mathrm{mean}^B \\nu^2 + ...
-        '''
+        """
 
-        values = jnp.array([f(p)*self.relative_log_frequencies**(i+1)
-                            for i, f in enumerate(self._means)])
+        values = jnp.array(
+            [
+                f(p) * self.relative_log_frequencies ** (i + 1)
+                for i, f in enumerate(self._means)
+            ]
+        )
 
         return jnp.sum(values, axis=0)
 
@@ -242,8 +255,9 @@ class SpectralPolynomial(HarmonicLogSpectralBehavior):
         raise NotImplementedError
 
         dev_slope = (
-            jnp.sum(deviations * self.relative_log_frequencies, axis=0) *
-            self._denominator)
+            jnp.sum(deviations * self.relative_log_frequencies, axis=0)
+            * self._denominator
+        )
         return deviations - dev_slope * self.relative_log_frequencies
 
     def __call__(self, p):

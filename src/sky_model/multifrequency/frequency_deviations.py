@@ -3,16 +3,15 @@
 # Authors: Matteo Guardiani & Julian Rüstig
 # Vincent Eberle, Philipp Frank, Vishal Johnson,
 # Jakob Roth, Margret Westerkamp
-
-from typing import Union, Optional
+from typing import Optional, Union
 
 import jax.numpy as jnp
 import numpy as np
+from nifty8.re.num.stats_distributions import lognormal_prior
 from numpy.typing import ArrayLike
 
-from .mf_model_utils import _check_demands, _build_distribution_or_default
 from .gauss_markov import NdGaussMarkovProcess, build_fixed_point_wiener_process
-from nifty8.re.num.stats_distributions import lognormal_prior
+from .mf_model_utils import build_distribution_or_default, check_demands
 
 
 def build_frequency_deviations_model_with_degeneracies(
@@ -62,17 +61,17 @@ def build_frequency_deviations_model_with_degeneracies(
     if isinstance(log_frequencies, tuple):
         log_frequencies = np.array(log_frequencies)
 
-    dev_name = f'{prefix}_deviations' if prefix is not None else 'deviations'
-    process_name = deviations_settings.get('process', 'wiener').lower()
+    dev_name = f"{prefix}_deviations" if prefix is not None else "deviations"
+    process_name = deviations_settings.get("process", "wiener").lower()
 
     # FIXME: Add more processes when they are vectorized
-    if process_name in {'wiener', 'wiener_process'}:
-        _check_demands(dev_name, deviations_settings, demands={'sigma'})
-        sigma = _build_distribution_or_default(deviations_settings.get('sigma'),
-                                               f"{dev_name}_sigma",
-                                               lognormal_prior)
+    if process_name in {"wiener", "wiener_process"}:
+        check_demands(dev_name, deviations_settings, demands={"sigma"})
+        sigma = build_distribution_or_default(
+            deviations_settings.get("sigma"), f"{dev_name}_sigma", lognormal_prior
+        )
 
-        domain_key = f'{dev_name}_xi'
+        domain_key = f"{dev_name}_xi"
         process = build_fixed_point_wiener_process(
             x0=jnp.zeros(shape),  # sets x0 to 0 to avoid degeneracies
             sigma=sigma,
@@ -81,6 +80,6 @@ def build_frequency_deviations_model_with_degeneracies(
             name=domain_key,
         )
     else:
-        raise NotImplementedError(f'{process_name} not implemented.')
+        raise NotImplementedError(f"{process_name} not implemented.")
 
     return process
