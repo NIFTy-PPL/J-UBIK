@@ -391,7 +391,10 @@ def linear_sample_kwargs_factory(
                                 delta_range_index, ndof, verbose)
 
         return dict(
-            cg_name=None, # inside nifty cg_name is overwritten by cg_kwargs['name']
+            # FIXME: inside nifty cg_name is overwritten by cg_kwargs['name'].
+            # When this is fixed in nifty, this redundancy should
+            # be removed here.
+            cg_name=None,
             cg_kwargs=dict(
                 name=LIN_NAME,
                 absdelta=absdelta,
