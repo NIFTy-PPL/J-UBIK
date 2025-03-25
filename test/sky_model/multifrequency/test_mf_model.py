@@ -111,7 +111,7 @@ def test_correlated_multi_frequency_sky_init(
         shape, log_frequencies, reference_frequency_index, deviations_settings
     )
 
-    mf_sky = ju.CorrelatedMultiFrequencySky(
+    mf_sky = ju.SpectralProductMFSky(
         zero_mode,
         spatial_fluctuations,
         spatial_amplitude,
@@ -164,7 +164,7 @@ def test_spatial_convolution(
         reference_frequency_index=0,
     )
 
-    mf_sky = jft.CorrelatedMultiFrequencySky(
+    mf_sky = ju.SpectralProductMFSky(
         zero_mode,
         spatial_fluctuations,
         spatial_amplitude,
@@ -240,7 +240,7 @@ def test_apply_with_and_without_frequency_deviations(
         reference_frequency_index=reference_freq_idx,
     )
 
-    mf_sky_wo_deviations = ju.CorrelatedMultiFrequencySky(
+    mf_sky_wo_deviations = ju.SpectralProductMFSky(
         zero_mode,
         spatial_fluctuations,
         spatial_amplitude,
@@ -256,7 +256,7 @@ def test_apply_with_and_without_frequency_deviations(
         shape, log_frequencies, 0, deviations_settings
     )
 
-    mf_sky = ju.CorrelatedMultiFrequencySky(
+    mf_sky = ju.SpectralProductMFSky(
         zero_mode,
         spatial_fluctuations,
         spatial_amplitude,

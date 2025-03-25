@@ -29,7 +29,7 @@ from .instruments.chandra.chandra_data import (generate_chandra_data,
 from .instruments.chandra.chandra_response import build_chandra_response_from_config
 from .instruments.chandra.chandra_likelihood import generate_chandra_likelihood_from_config
 from .sky_model.multifrequency.mf_model import (
-    CorrelatedMultiFrequencySky,
+    SpectralProductMFSky,
     build_default_mf_model,
 )
 from .sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope

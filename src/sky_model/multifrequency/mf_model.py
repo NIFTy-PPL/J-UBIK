@@ -33,7 +33,7 @@ from .spectral_behavior import (
 )
 
 
-class CorrelatedMultiFrequencySky(Model):
+class SpectralProductMFSky(Model):
     """A model for generating a correlated multi-frequency sky map based on
     spatial and spectral correlation models.
 
@@ -449,7 +449,7 @@ def build_default_mf_model(
     spectral_amplitude_model: str = "non_parametric",
     harmonic_type: str = "fourier",
     nonlinearity: callable = jnp.exp,
-) -> CorrelatedMultiFrequencySky:
+) -> SpectralProductMFSky:
     """
     Builds a multi-frequency sky model parametrized as
 
@@ -616,7 +616,7 @@ def build_default_mf_model(
         zero_mode_settings, f"{prefix}_zero_mode", normal_prior
     )
 
-    sky = CorrelatedMultiFrequencySky(
+    sky = SpectralProductMFSky(
         zero_mode=zero_mode,
         spatial_scaled_excitations=spatial_fluctuations,
         spatial_amplitude=spatial_amplitude,
@@ -630,20 +630,20 @@ def build_default_mf_model(
     return add_prefix(sky, prefix)
 
 
-def add_xi_keys_properties(object: CorrelatedMultiFrequencySky):
+def add_xi_keys_properties(object: SpectralProductMFSky):
     @property
-    def spatial_xi_key(self: CorrelatedMultiFrequencySky):
+    def spatial_xi_key(self: SpectralProductMFSky):
         sc_excitations: ScaledExcitations = self.spatial_scaled_excitations
         return next(iter(sc_excitations.latent_space_xi.domain.keys()))
 
     @property
-    def spectral_xi_key(self: CorrelatedMultiFrequencySky):
+    def spectral_xi_key(self: SpectralProductMFSky):
         spectral: HarmonicLogSpectralBehavior = self.log_spectral_behavior
         sc_excitations: ScaledExcitations = spectral.spectral_scaled_excitations
         return next(iter(sc_excitations.latent_space_xi.domain.keys()))
 
     @property
-    def spectral_deviations_xi_key(self: CorrelatedMultiFrequencySky):
+    def spectral_deviations_xi_key(self: SpectralProductMFSky):
         deviations: Model = self.spectral_index_deviations
         for k in deviations.domain.keys():
             if "xi" in k:
@@ -657,6 +657,6 @@ def add_xi_keys_properties(object: CorrelatedMultiFrequencySky):
     return object
 
 
-def add_prefix(object: CorrelatedMultiFrequencySky, prefix_key: str):
+def add_prefix(object: SpectralProductMFSky, prefix_key: str):
     setattr(object, "_prefix", prefix_key)
     return object
