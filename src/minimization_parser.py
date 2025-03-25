@@ -276,6 +276,8 @@ def n_samples_factory(
         return get_config_value(N_SAMPLES, mini_cfg[SAMPLES], range_index,
                                 default=None)
 
+    # Checks whether `n_samples` is well-defined before inference and prints its
+    # values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         n = n_samples(ii)
         if n is None:
@@ -320,6 +322,9 @@ def sample_mode_factory(
         "nonlinear_resample",
         "nonlinear_update",
     ]
+
+    # Checks whether the `sample_mode` is well-defined before inference and
+    # prints its values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         t = sample_mode(ii)
         if t not in sample_keywords:
@@ -404,6 +409,8 @@ def linear_sample_kwargs_factory(
                 maxiter=maxit)
             )
 
+    # Checks whether `linear_sample_kwargs` are well-defined before inference
+    # and prints their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         lin_config = linear_kwargs(ii)
         absdelta = lin_config['cg_kwargs']['absdelta']
@@ -500,6 +507,8 @@ def nonlinearly_update_kwargs_factory(
                     maxiter=cg_maxit
                 )))
 
+    # Checks whether `nonlinearly_update_kwargs` are well-defined before
+    # inference and prints their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         non_linear_samples_dict = nonlinearly_update_kwargs(ii)
         if non_linear_samples_dict['minimize_kwargs']['xtol'] is None:
@@ -596,6 +605,8 @@ def kl_kwargs_factory(
                 )
             ))
 
+    # Checks whether `kl_kwargs` are well-defined before inference and prints
+    # their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         kl_kwargs_dict = kl_kwargs(ii)
         if kl_kwargs_dict['minimize_kwargs']['absdelta'] is None:
@@ -641,6 +652,8 @@ def constants_factory(
         return get_config_value(CONST_KEYS, mini_cfg[CONSTANTS], range_index,
                                 default=None)
 
+    # Checks whether `constants` are well-defined before inference and prints
+    # their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         constants(ii)
 
