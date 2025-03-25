@@ -13,11 +13,15 @@ import jubik0 as ju
 
 from nifty8.re.correlated_field import make_grid, NonParametricAmplitude
 
-from jubik0.sky_model.multifrequency.frequency_deviations import (
+from jubik0.sky_model.multifrequency.spectral_product_utils.frequency_deviations import (
     build_frequency_deviations_model_with_degeneracies,
 )
-from jubik0.sky_model.multifrequency.spectral_behavior import SpectralIndex
-from jubik0.sky_model.multifrequency.scaled_excitations import build_scaled_excitations
+from jubik0.sky_model.multifrequency.spectral_product_utils.spectral_behavior import (
+    SpectralIndex,
+)
+from jubik0.sky_model.multifrequency.spectral_product_utils.scaled_excitations import (
+    build_scaled_excitations,
+)
 
 pmp = pytest.mark.parametrize
 

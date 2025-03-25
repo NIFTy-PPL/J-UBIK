@@ -22,11 +22,20 @@ from nifty8.re.num.stats_distributions import lognormal_prior, normal_prior
 from nifty8.re.tree_math.vector import Vector
 from numpy.typing import ArrayLike
 
-from .frequency_deviations import build_frequency_deviations_model_with_degeneracies
-from .multifrequency_utils import build_distribution_or_default
-from .normalized_amplitude_model import build_normalized_amplitude_model
-from .scaled_excitations import ScaledExcitations, build_scaled_excitations
-from .spectral_behavior import (
+from .spectral_product_utils.frequency_deviations import (
+    build_frequency_deviations_model_with_degeneracies,
+)
+from .spectral_product_utils.distribution_or_default import (
+    build_distribution_or_default,
+)
+from .spectral_product_utils.normalized_amplitude_model import (
+    build_normalized_amplitude_model,
+)
+from .spectral_product_utils.scaled_excitations import (
+    ScaledExcitations,
+    build_scaled_excitations,
+)
+from .spectral_product_utils.spectral_behavior import (
     HarmonicLogSpectralBehavior,
     SingleHarmonicLogSpectralBehavior,
     SpectralIndex,

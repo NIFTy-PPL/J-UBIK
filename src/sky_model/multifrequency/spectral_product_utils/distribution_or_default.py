@@ -7,12 +7,6 @@ from typing import Any, Union
 from nifty8.re.correlated_field import WrappedCall
 
 
-def check_demands(model_name, kwargs, demands):
-    """Check that all demands are provided in kwargs."""
-    for key in demands:
-        assert key in kwargs, f"{key} not in {model_name}.\nProvide settings for {key}"
-
-
 def build_distribution_or_default(
     arg: Union[callable, tuple, list],
     key: str,
