@@ -15,7 +15,7 @@ SAMPLES = 'samples'
 N_SAMPLES = 'n_samples'
 N_TOTAL_ITERATIONS = 'n_total_iterations'
 CONSTANTS = 'constants'
-CONST_KEYS = 'domain_keys'
+CONST_KEYS_CONFIG_NAME = 'domain_keys'
 MODE = 'mode'
 DELTA = 'delta'
 LIN = 'lin'
@@ -649,8 +649,8 @@ def constants_factory(
     def constants(iteration: int) -> int:
         range_index = get_range_index(
             mini_cfg[CONSTANTS], iteration, mini_cfg[N_TOTAL_ITERATIONS])
-        return get_config_value(CONST_KEYS, mini_cfg[CONSTANTS], range_index,
-                                default=None)
+        return get_config_value(CONST_KEYS_CONFIG_NAME, mini_cfg[CONSTANTS],
+                                range_index, default=None)
 
     # Checks whether `constants` are well-defined before inference and prints
     # their values at each iteration.
