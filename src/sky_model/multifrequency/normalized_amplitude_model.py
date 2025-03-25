@@ -11,7 +11,7 @@ from nifty8.re.correlated_field import (
 )
 from nifty8.re.num.stats_distributions import lognormal_prior, normal_prior
 
-from .mf_model_utils import check_demands
+from .multifrequency_utils import check_demands
 
 
 def _set_default_or_call(arg: Union[callable, tuple, list] | None, default: callable):

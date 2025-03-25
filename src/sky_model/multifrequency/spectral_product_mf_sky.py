@@ -23,7 +23,7 @@ from nifty8.re.tree_math.vector import Vector
 from numpy.typing import ArrayLike
 
 from .frequency_deviations import build_frequency_deviations_model_with_degeneracies
-from .mf_model_utils import build_distribution_or_default
+from .multifrequency_utils import build_distribution_or_default
 from .normalized_amplitude_model import build_normalized_amplitude_model
 from .scaled_excitations import ScaledExcitations, build_scaled_excitations
 from .spectral_behavior import (

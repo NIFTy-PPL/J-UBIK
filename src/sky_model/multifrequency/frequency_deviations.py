@@ -11,7 +11,7 @@ from nifty8.re.num.stats_distributions import lognormal_prior
 from numpy.typing import ArrayLike
 
 from .gauss_markov import NdGaussMarkovProcess, build_fixed_point_wiener_process
-from .mf_model_utils import build_distribution_or_default, check_demands
+from .multifrequency_utils import build_distribution_or_default, check_demands
 
 
 def build_frequency_deviations_model_with_degeneracies(

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause
 # Authors: Matteo Guardiani & Julian Rüstig
 
-from .mf_model_utils import build_distribution_or_default
+from .multifrequency_utils import build_distribution_or_default
 
 from nifty8.re.model import Model
 from nifty8.re.num.stats_distributions import lognormal_prior, normal_prior
