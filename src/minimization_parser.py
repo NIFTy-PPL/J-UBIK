@@ -5,7 +5,7 @@
 
 # %%
 
-from typing import Callable, Union, Any, Optional, Dict
+from typing import Callable, Any, Optional, Dict
 
 import nifty8.re as jft
 
@@ -39,9 +39,10 @@ NCG_XTOL_DEFAULT = 1.e-5
 def get_config_value(
     key: str,
     config: dict,
-    index: int, default: Any,
+    index: int,
+    default: Any,
     verbose: bool = False
-) -> Union[int, float]:
+) -> int | float:
     """
     Returns a configuration value from a list or a default value.
 
@@ -63,7 +64,7 @@ def get_config_value(
 
     Returns
     -------
-    Union[int, float]
+    int | float
         The configuration value at the specified index or the default value.
 
     Raises
@@ -639,6 +640,7 @@ def constants_factory(
 
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         constants(ii)
+
     return constants
 
 
