@@ -152,7 +152,7 @@ def get_range_index(
 def _delta_logic(
     keyword: str,
     delta: dict,
-    overwritten_value: float | None,
+    config_value: float | None,
     iteration: int,
     delta_switches_index: int,
     ndof: Optional[int] = None,
@@ -170,8 +170,8 @@ def _delta_logic(
         Type of the delta logic ('kl', 'linear', 'nonlinear').
     delta : dict
         Configuration dictionary for delta values.
-    overwritten_value : Union[float, None]
-        Value to possibly be overwritten.
+    config_value : float, None
+        Config value, possibly to be overwritten.
     iteration : int
         Current global iteration index.
     delta_switches_index : int
@@ -203,8 +203,8 @@ def _delta_logic(
     0.1
     """
 
-    if overwritten_value is not None and overwritten_value != default:
-        return overwritten_value
+    if config_value is not None and config_value != default:
+        return config_value
 
     iteration += 1  # iteration index changes during OptVI update
 
