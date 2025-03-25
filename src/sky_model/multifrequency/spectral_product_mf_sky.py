@@ -34,16 +34,27 @@ from .spectral_behavior import (
 
 
 class SpectralProductMFSky(Model):
-    """A model for generating a correlated multi-frequency sky map based on
-    spatial and spectral correlation models.
+    """A model for generating a correlated multi-frequency sky based on spatial and
+    spectral correlation models.
+    The model implements a product between a spatially correlated reference frequency
+    sky brightness distribution (i_ref) and a spatially correlated spectral behavior
+    which needs to be specified by the user.
 
     .. math ::
-        sky = \\exp(F[A_spatial *
-              i_\\mathrm{ref}(k, \\mu_\\mathrm{ref}) + A_spectral *
-              (slope(k) * (\\mu-\\mu_\\mathrm{ref}) +
-              GaussMarkovProcess(k, \\mu-\\mu_\\mathrm{ref})
-              - AvgSlope[GaussMarkovProcess]
-              )] + zero_mode)
+        sky = \\exp(F[
+            A_spatial * i_\\mathrm{ref}(k, \\mu_\\mathrm{ref}) +
+            A_spectral * (\\mathrm{SpectralBehavior}(k, \\mu) +
+                          \\mathrm{deviations})
+        ] + zero_mode),
+
+    where the deviations are typically modeled by a `GaussMarkovProcess`.
+    For instance, when the spectral behavior follows a spectral index model, we can
+    write,
+
+    .. math ::
+        \\mathrm{SpectralBehavior}(k, \\mu) + \\mathrm{deviations} =
+        slope(k) * (\\mu-\\mu_\\mathrm{ref}) +
+        GaussMarkovProcess(k, \\mu-\\mu_\\mathrm{ref}) - AvgSlope[GaussMarkovProcess]
     """
 
     def __init__(
@@ -627,6 +638,8 @@ def build_default_mf_model(
         nonlinearity=nonlinearity,
     )
 
+    # NOTE : In principle the SpectralProductMFSky doesn't need to have a prefix, as the
+    # different parts can be supplied separetly.
     return add_prefix(sky, prefix)
 
 
