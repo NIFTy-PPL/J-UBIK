@@ -157,7 +157,6 @@ def _delta_logic(
     delta_switches_index: int,
     ndof: Optional[int] = None,
     verbose: bool = True,
-    default: float | None = None,
 ) -> float:
     """
     Calculates minimization config value if `delta` is in config.
@@ -203,7 +202,7 @@ def _delta_logic(
     0.1
     """
 
-    if config_value is not None and config_value != default:
+    if config_value is not None:
         return config_value
 
     iteration += 1  # iteration index changes during OptVI update
@@ -458,12 +457,13 @@ def nonlinearly_update_kwargs_factory(
         maxit = get_config_value(
             maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
         xtol = get_config_value(
-            absdelta_name, mini_cfg[SAMPLES], range_index,
-            default=NCG_XTOL_DEFAULT)
+            absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
 
         xtol = _delta_logic(NONLIN, delta, xtol, iteration,
-                            delta_range_index, verbose,
-                            default=NCG_XTOL_DEFAULT)
+                            delta_range_index, verbose)
+
+        if xtol is None:
+            xtol = NCG_XTOL_DEFAULT
 
         cg_delta_name = f'{NONLIN_CG}_{ABSDELTA}'
         cg_tol_name = f'{NONLIN_CG}_{TOL}'
