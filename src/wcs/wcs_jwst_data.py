@@ -25,7 +25,7 @@ class WcsJwstData(WcsBase):
             from gwcs import WCS
         except ImportError:
             raise ImportError(
-                "gwcs not installed." "Please install via 'pip install gwcs'."
+                "gwcs not installed. Please install via 'pip install gwcs'."
             )
 
         if not isinstance(wcs, WCS):
@@ -45,6 +45,11 @@ class WcsJwstData(WcsBase):
         Returns
         -------
         wl : SkyCoord
+
+        Note
+        ----
+        Since wcs expects pixel indices, the wcs expects (x, y) ordering.
+        See https://gwcs.readthedocs.io/en/latest/index.html (last visited 25.03.25).
         """
         shp = np.shape(index)
         if (len(shp) == 2) or ((len(shp) == 3) and (shp[0] == 2)):

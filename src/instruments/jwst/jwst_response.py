@@ -160,18 +160,20 @@ def build_jwst_response(
     reconstruction_grid = rotation_and_shift_kwargs["reconstruction_grid"]
     data_wcs = rotation_and_shift_kwargs["data_wcs"]
 
+    coords = subsample_grid_centers_in_index_grid_non_vstack(
+        world_extrema=world_extrema,
+        to_be_subsampled_grid_wcs=data_wcs,
+        index_grid_wcs=reconstruction_grid.spatial,
+        subsample=data_subsample,
+        indexing="ij",
+    )
+
     coordinates = build_coordinates_correction_from_grid(
         f"{data_identifier}_correction",
         priors=shift_and_rotation_correction_prior,
         data_wcs=data_wcs,
         reconstruction_grid=reconstruction_grid,
-        coords=subsample_grid_centers_in_index_grid_non_vstack(
-            world_extrema=world_extrema,
-            to_be_subsampled_grid_wcs=data_wcs,
-            index_grid_wcs=reconstruction_grid.spatial,
-            subsample=data_subsample,
-            indexing="xy",
-        ),
+        coords=coords,
     )
 
     rotation_and_shift = build_rotation_and_shift_model(

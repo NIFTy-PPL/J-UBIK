@@ -5,19 +5,20 @@
 
 # %
 
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 from .wcs_base import WcsBase
+from .wcs_jwst_data import WcsJwstData
 
 
 def subsample_grid_centers_in_index_grid_non_vstack(
     world_extrema: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
     to_be_subsampled_grid_wcs: WcsBase,
-    index_grid_wcs: WcsBase,
+    index_grid_wcs: Union[WcsBase, WcsJwstData],
     subsample: int,
     indexing: str,
 ) -> ArrayLike:
@@ -32,26 +33,27 @@ def subsample_grid_centers_in_index_grid_non_vstack(
         The sky/world positions of the extrema inside which to find the
         subsampling centers.
         Works also if they are outside the grids.
-
     to_be_subsampled_grid_wcs: WcsBase
         The world coordinate system associated with the grid to be subsampled.
-
     index_grid_wcs: WcsBase
         The world coordinate system associated with the grid which will be
         indexed into. This will typically be the reconstruction_grid. The
         subsample centers will be in units/indices of this grid.
-
     subsample:
         The multiplicity of the subsampling along each axis. How many
         sub-pixels will a single pixel in the to_be_subsampled_grid have along
         each axis.
+    indexing:
+        The indexing convention, either `ij` for matrix style or `xy` for physics style.
     """
+
+    # NOTE : GWCS.wcs expects `xy` indexing. Other arrays are not tested.
     tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
-        world_extrema, indexing=indexing
+        world_extrema, indexing="xy"
     )
 
     ps = np.arange(0.5 / subsample, 1, 1 / subsample) - 0.5
-    ms = np.vstack(np.array(np.meshgrid(ps, ps, indexing=indexing)).T)
+    ms = np.vstack(np.array(np.meshgrid(ps, ps, indexing="xy")).T)
 
     subsample_centers = np.zeros(
         (
@@ -70,5 +72,11 @@ def subsample_grid_centers_in_index_grid_non_vstack(
     wl_subsample_centers = to_be_subsampled_grid_wcs.wl_from_index([subsample_centers])[
         0
     ]
+    indices_xy = index_grid_wcs.index_from_wl(wl_subsample_centers)[0]
 
-    return index_grid_wcs.index_from_wl(wl_subsample_centers)[0]
+    if indexing == "xy":
+        return indices_xy
+    elif indexing == "ij":
+        return indices_xy[::-1]
+
+    raise ValueError("Either `ij` or `xy` indexing.")

@@ -125,10 +125,17 @@ class WcsBase(ABC):
 
         minx, maxx, miny, maxy = self.index_from_wl_extrema(world_extrema, shape_check)
 
-        return np.array(
+        xy = np.array(
             np.meshgrid(
                 np.arange(minx, maxx + 1, 1),
                 np.arange(miny, maxy + 1, 1),
-                indexing=indexing,
+                indexing="xy",
             )
         )
+
+        if indexing == "xy":
+            return xy
+        elif indexing == "ij":
+            return xy[::-1]
+
+        raise ValueError("Either `ij` or `xy` indexing.")
