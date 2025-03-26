@@ -25,6 +25,7 @@ from jubik0.sky_model.multifrequency.spectral_product_utils.scaled_excitations i
 
 pmp = pytest.mark.parametrize
 
+
 @pmp("shape", [(10,), (10, 10)])
 @pmp("distances", [0.1])
 @pmp("log_frequencies", [np.array((0.1,))])
@@ -57,7 +58,9 @@ def test_correlated_multi_frequency_sky_init(
 ):
     grid = make_grid(shape, distances, "fourier")
     spatial_amplitude = NonParametricAmplitude(
-        grid, jft.lognormal_prior(0.1, 0.01), None
+        grid,
+        None,
+        jft.lognormal_prior(0.1, 0.01),
     )
 
     spatial_fluctuations = jft.LogNormalPrior(0.1, 10.0, name="spatial_fluctuations")
@@ -110,7 +113,7 @@ def test_spatial_convolution(
     avgsl = (-4.0, 0.1)
 
     spatial_amplitude = NonParametricAmplitude(
-        grid, jft.normal_prior(*avgsl), None, prefix=f"{prefix}_"
+        grid, None, jft.normal_prior(*avgsl), prefix=f"{prefix}_"
     )
 
     spatial_fluctuations = build_scaled_excitations(
@@ -177,8 +180,8 @@ def test_apply_with_and_without_frequency_deviations(
     avgsl = (-4.0, 0.1)
     spatial_amplitude = NonParametricAmplitude(
         grid,
-        jft.normal_prior(*avgsl),
         None,
+        jft.normal_prior(*avgsl),
         prefix=f"{prefix}_",
     )
 
