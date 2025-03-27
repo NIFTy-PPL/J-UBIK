@@ -249,6 +249,7 @@ def InterferometryResponseFinuFFT(
     uvw = np.transpose((uvw[..., None] * freq / speedoflight), (0, 2, 1)).reshape(-1, 3)
     u, v, w = uvw.T
 
+    # TODO : Is that true ?
     u_finu = (2 * np.pi * u * pixsize_x) % (2 * np.pi)
     v_finu = (-2 * np.pi * v * pixsize_y) % (2 * np.pi)
 

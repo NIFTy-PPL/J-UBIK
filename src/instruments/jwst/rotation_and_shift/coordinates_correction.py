@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 # Authors: Julian Rüstig and Matteo Guardiani
 
+
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
@@ -13,13 +14,15 @@ from astropy import units as u
 from jax.numpy import array
 from numpy.typing import ArrayLike
 
+from .shift_correction import build_shift_correction
 from ..parametric_model import build_parametric_prior_from_prior_config
 from ....grid import Grid
 from ....wcs.wcs_astropy import WcsAstropy
 from ....wcs.wcs_jwst_data import WcsJwstData
 
 from ..parse.rotation_and_shift.coordinates_correction import (
-    CoordiantesCorrectionPriorConfig)
+    CoordiantesCorrectionPriorConfig,
+)
 
 
 class CoordinatesWithCorrection(jft.Model):
@@ -38,9 +41,8 @@ class CoordinatesWithCorrection(jft.Model):
 
     def __init__(
         self,
-        shift_prior: jft.Model,
-        rotation_prior: jft.Model,
-        pix_distance: tuple[float],
+        shift: jft.Model,
+        rotation: jft.Model,
         rotation_center: tuple[int, int],
         coords: ArrayLike,
     ):
@@ -49,10 +51,10 @@ class CoordinatesWithCorrection(jft.Model):
 
         Parameters
         ----------
-        shift_prior : jft.Model
+        shift : jft.Model
             A model that provides the prior distribution for the
             shift parameters.
-        rotation_prior : jft.Model
+        rotation : jft.Model
             A model that provides the prior distribution for the rotation angle.
         pix_distance : tuple of float
             The distances between pixels used to scale the shift values.
@@ -62,23 +64,32 @@ class CoordinatesWithCorrection(jft.Model):
             The coordinates to which the corrections will be applied.
         """
         self.rotation_center = rotation_center
-        self.pix_distance = pix_distance
-        self.shift_prior = shift_prior
-        self.rotation_prior = rotation_prior
+        self.shift = shift
+        self.rotation = rotation
         self._coords = coords
 
-        super().__init__(domain=rotation_prior.domain | shift_prior.domain)
+        super().__init__(domain=rotation.domain | shift.domain)
 
     def __call__(self, params: dict) -> ArrayLike:
-        shft = self.shift_prior(params) / self.pix_distance
-        theta = self.rotation_prior(params)
-        x = (jnp.cos(theta) * (self._coords[0]-self.rotation_center[0]) -
-             jnp.sin(theta) * (self._coords[1]-self.rotation_center[1])
-             ) + self.rotation_center[0] + shft[0]
+        shft = self.shift(params)
+        theta = self.rotation(params)
+        x = (
+            (
+                jnp.cos(theta) * (self._coords[0] - self.rotation_center[0])
+                - jnp.sin(theta) * (self._coords[1] - self.rotation_center[1])
+            )
+            + self.rotation_center[0]
+            + shft[0]
+        )
 
-        y = (jnp.sin(theta) * (self._coords[0]-self.rotation_center[0]) +
-             jnp.cos(theta) * (self._coords[1]-self.rotation_center[1])
-             ) + self.rotation_center[1] + shft[1]
+        y = (
+            (
+                jnp.sin(theta) * (self._coords[0] - self.rotation_center[0])
+                + jnp.cos(theta) * (self._coords[1] - self.rotation_center[1])
+            )
+            + self.rotation_center[1]
+            + shft[1]
+        )
         return jnp.array((x, y))
 
 
@@ -147,11 +158,11 @@ def build_coordinates_correction_from_grid(
     header = data_wcs.to_header()
 
     if isinstance(data_wcs, WcsJwstData):
-        rpix = (header['CRPIX1'],), (header['CRPIX2'],)
+        rpix = (header["CRPIX1"],), (header["CRPIX2"],)
         rpix = data_wcs.wl_from_index(rpix)
     elif isinstance(data_wcs, WcsAstropy):
         # FIXME: The following lines should be the same with the previous
-        rpix = (header['CRPIX1'],  header['CRPIX2'])
+        rpix = (header["CRPIX1"], header["CRPIX2"])
         rpix = data_wcs.wl_from_index(rpix)[0]
     else:
         raise NotImplementedError(
@@ -159,33 +170,18 @@ def build_coordinates_correction_from_grid(
             "supported. Supported types [WcsAstropy, WcsJwstData]."
         )
 
-    rpix = reconstruction_grid.spatial.index_from_wl(rpix)[0]
+    rotation_center = reconstruction_grid.spatial.index_from_wl(rpix)[0]
 
-    pix_distance = [
-        rd.to(u.arcsec).value for rd in reconstruction_grid.spatial.distances]
-    rotation_center = rpix
+    shift = build_shift_correction(domain_key, priors)
+    pix_distance = array(
+        reconstruction_grid.spatial.distances_in(priors.shift_unit)
+    ).reshape(shift.target.shape)
 
-    # Build shift prior
-    shift_key = domain_key + '_shift'
-    shift_shape = (2,)
-    pix_distance = array(pix_distance).reshape(shift_shape)
-    shift_prior = build_parametric_prior_from_prior_config(
-        shift_key, priors.shift, shift_shape)
-    shift_prior_model = jft.Model(
-        shift_prior, domain={shift_key: jft.ShapeWithDtype(shift_shape)})
-
-    # Build rotation prior
-    rotation_key = domain_key + '_rotation'
-    rot_shape = (1,)
-    rotation_prior = build_parametric_prior_from_prior_config(
-        rotation_key, priors.rotation, rot_shape)
-    rotation_prior_model = jft.Model(
-        rotation_prior, domain={rotation_key: jft.ShapeWithDtype(rot_shape)})
-
-    return CoordinatesWithCorrection(
-        shift_prior_model,
-        rotation_prior_model,
-        pix_distance,
-        rotation_center,
-        coords,
+    rotation = build_parametric_prior_from_prior_config(
+        domain_key + "_rotation",
+        priors.rotation_in(u.rad),
+        shape=(1,),
+        as_model=True,
     )
+
+    return CoordinatesWithCorrection(shift, rotation, rotation_center, coords)

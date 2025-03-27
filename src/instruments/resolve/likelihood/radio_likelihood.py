@@ -15,30 +15,30 @@
 # Author: Julian Rüstig
 
 
+from functools import partial, reduce
+
+import jax.numpy as jnp
+import nifty8.re as jft
+from astropy import units as u
+from nifty8.logger import logger
+
+from ....grid import Grid
 from ....parse.instruments.resolve.data.data_loading import DataLoading
 from ....parse.instruments.resolve.data.data_modify import ObservationModify
 from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
 from ....parse.instruments.resolve.response import yaml_to_response_settings
-
-from ....grid import Grid
+from ...jwst.parse.rotation_and_shift.coordinates_correction import (
+    yaml_to_coordinates_correction_config,
+)
+from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
-from ..multimessanger import build_radio_sky_extractor, build_radio_grid
 from ..mosaicing.sky_beamer import build_jft_sky_beamer
+from ..multimessanger import build_radio_grid, build_radio_sky_extractor
 from ..telescopes.primary_beam import (
     build_primary_beam_pattern_from_beam_pattern_config,
 )
-from .mosaic_likelihood import build_likelihood_from_sky_beamer
 from .cast_to_dtype import cast_to_dtype
-
-from ..constants import RESOLVE_SPECTRAL_UNIT
-
-import nifty8.re as jft
-from nifty8.logger import logger
-
-import jax.numpy as jnp
-from astropy import units as u
-
-from functools import reduce, partial
+from .mosaic_likelihood import build_likelihood_from_sky_beamer
 
 
 def build_radio_likelihood(
@@ -65,6 +65,13 @@ def build_radio_likelihood(
     if not isinstance(data_names, list):
         assert isinstance(data_names, str)
         data_names = [data_names]
+
+    if "rotation_and_shift" in cfg["radio_response"]:
+        coordinate_correction_config = yaml_to_coordinates_correction_config(
+            cfg["radio_response"]["rotation_and_shift"]
+        )
+    else:
+        coordinate_correction_config = None
 
     likelihoods = []
     sky_beamers = []
@@ -112,6 +119,11 @@ def build_radio_likelihood(
                             backend_settings=response_settings.backend,
                             cast_to_dtype=partial(cast_to_dtype, dtype=jnp.float32)
                             if o.is_single_precision()
+                            else None,
+                            phase_shift_correction_config=coordinate_correction_config.get_name_setting_or_default(
+                                data_name
+                            )
+                            if coordinate_correction_config is not None
                             else None,
                         )
                     )
