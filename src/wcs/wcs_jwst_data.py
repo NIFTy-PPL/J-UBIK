@@ -33,7 +33,7 @@ class WcsJwstData(WcsBase):
 
         self.wcs = wcs
 
-    def wl_from_index(self, index: ArrayLike) -> Union[SkyCoord, List[SkyCoord]]:
+    def index_to_world_location(self, index: ArrayLike) -> SkyCoord:
         """
         Convert pixel coordinates to world coordinates.
 
@@ -51,14 +51,9 @@ class WcsJwstData(WcsBase):
         Since wcs expects pixel indices, the wcs expects (x, y) ordering.
         See https://gwcs.readthedocs.io/en/latest/index.html (last visited 25.03.25).
         """
-        shp = np.shape(index)
-        if (len(shp) == 2) or ((len(shp) == 3) and (shp[0] == 2)):
-            return self.wcs(*index, with_units=True)
-        return [self.wcs(*p, with_units=True) for p in index]
+        return self.wcs(*index, with_units=True)
 
-    def index_from_wl(
-        self, wl: Union[SkyCoord, List[SkyCoord]]
-    ) -> Union[ArrayLike, List[ArrayLike]]:
+    def world_location_to_index(self, world: SkyCoord) -> ArrayLike:
         """
         Convert world coordinates to pixel coordinates.
 
@@ -70,9 +65,7 @@ class WcsJwstData(WcsBase):
         -------
         index : ArrayLike
         """
-        if isinstance(wl, SkyCoord):
-            wl = [wl]
-        return np.array([self.wcs.world_to_pixel(w) for w in wl])
+        return self.wcs.world_to_pixel(world)
 
     def to_header(self):
         return self.wcs.to_fits()[0]

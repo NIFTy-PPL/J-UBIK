@@ -62,11 +62,14 @@ def subsample_grid_corners_in_index_grid(
     ]
 
     e00, e01, e10, e11 = [
-        to_be_subsampled_grid_wcs.wl_from_index(e) for e in [e00, e01, e10, e11]
+        to_be_subsampled_grid_wcs.index_to_world_location(e)
+        for e in [e00, e01, e10, e11]
     ]
 
     # rotation to make the corners circular for the sparse builder
-    return np.array([index_grid_wcs.index_from_wl(e) for e in [e00, e01, e11, e10]])
+    return np.array(
+        [index_grid_wcs.world_location_to_index(e) for e in [e00, e01, e11, e10]]
+    )
 
 
 def subsample_grid_corners_in_index_grid_non_vstack(
@@ -135,7 +138,12 @@ def subsample_grid_corners_in_index_grid_non_vstack(
         for i, j in zip([1, 1, -1, -1], [1, -1, 1, -1])
     ]
 
-    e00, e01, e10, e11 = to_be_subsampled_grid_wcs.wl_from_index([e00, e01, e10, e11])
+    e00, e01, e10, e11 = [
+        to_be_subsampled_grid_wcs.index_to_world_location(ee)
+        for ee in [e00, e01, e10, e11]
+    ]
 
     # rotation to make the corners circular for the sparse builder
-    return np.array(index_grid_wcs.index_from_wl([e00, e01, e11, e10]))[:, ::-1, :, :]
+    return np.array(
+        [index_grid_wcs.world_location_to_index(ee) for ee in [e00, e01, e11, e10]]
+    )[:, ::-1, :, :]

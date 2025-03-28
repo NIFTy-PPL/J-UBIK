@@ -112,8 +112,7 @@ class WcsAstropy(WCS, WcsBase):
             spatial_model.wcs_model.coordinate_system,
         )
 
-    # TODO: Check output axis, RENAME index_from_world_location
-    def wl_from_index(self, index: ArrayLike) -> Union[SkyCoord, List[SkyCoord]]:
+    def index_to_world_location(self, index: ArrayLike) -> SkyCoord:
         """
         Convert pixel coordinates to world coordinates.
 
@@ -131,13 +130,15 @@ class WcsAstropy(WCS, WcsBase):
         We use the convention of x aligning with the columns, second dimension,
         and y aligning with the rows, first dimension.
         """
-        if len(np.shape(index)) == 1:
-            index = [index]
-        return [self.pixel_to_world(*idx) for idx in index]
-        # return [self.array_index_to_world(*idx) for idx in index]
+        return self.pixel_to_world(*index)
 
-    # TODO: Check output axis, RENAME index_from_world_location
-    def index_from_wl(self, wl_array: List[SkyCoord]) -> ArrayLike:
+        # TODO : DELETE
+        # if len(np.shape(index)) == 1:
+        #     index = [index]
+        # return [self.pixel_to_world(*idx) for idx in index]
+        # # return [self.array_index_to_world(*idx) for idx in index]
+
+    def world_location_to_index(self, world: SkyCoord) -> np.ndarray:
         """
         Convert world coordinates to pixel coordinates.
 
@@ -154,9 +155,7 @@ class WcsAstropy(WCS, WcsBase):
         We use the convention of x aligning with the columns, second dimension,
         and y aligning with the rows, first dimension.
         """
-        if isinstance(wl_array, SkyCoord):
-            wl_array = [wl_array]
-        return np.array([self.world_to_pixel(wl) for wl in wl_array])
+        return self.world_to_pixel(world)
 
     @property
     def dvol(self) -> u.Quantity:
@@ -198,9 +197,10 @@ class WcsAstropy(WCS, WcsBase):
         ymin = -ext1
         ymax = self.shape[1] + ext1 - 1
 
-        return self.wl_from_index(
-            [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
-        )
+        return [
+            self.index_to_world_location(min_max)
+            for min_max in [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
+        ]
 
     def distances_in(self, unit: u.Unit) -> list[float]:
         return [d.to(unit).value for d in self.distances]

@@ -9,6 +9,7 @@
 from typing import Optional, Callable, Union
 
 import jax.numpy as jnp
+import numpy as np
 import nifty8.re as jft
 from astropy import units as u
 from jax.numpy import array
@@ -159,18 +160,20 @@ def build_coordinates_correction_from_grid(
 
     if isinstance(data_wcs, WcsJwstData):
         rpix = (header["CRPIX1"],), (header["CRPIX2"],)
-        rpix = data_wcs.wl_from_index(rpix)
+        rpix = data_wcs.index_to_world_location(rpix)
     elif isinstance(data_wcs, WcsAstropy):
         # FIXME: The following lines should be the same with the previous
         rpix = (header["CRPIX1"], header["CRPIX2"])
-        rpix = data_wcs.wl_from_index(rpix)[0]
+        rpix = data_wcs.index_to_world_location(rpix)[0]
     else:
         raise NotImplementedError(
             f"The type of world coordinate system {type(data_wcs)} is not "
             "supported. Supported types [WcsAstropy, WcsJwstData]."
         )
 
-    rotation_center = reconstruction_grid.spatial.index_from_wl(rpix)[0]
+    rotation_center = np.array(
+        reconstruction_grid.spatial.world_location_to_index(rpix)
+    )
 
     shift = build_shift_correction(domain_key, priors)
     pix_distance = array(

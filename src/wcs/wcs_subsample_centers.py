@@ -69,10 +69,10 @@ def subsample_grid_centers_in_index_grid_non_vstack(
             tbsg_pixcenter_indices + ps[:, None, None]
         )
 
-    wl_subsample_centers = to_be_subsampled_grid_wcs.wl_from_index([subsample_centers])[
-        0
-    ]
-    indices_xy = index_grid_wcs.index_from_wl(wl_subsample_centers)[0]
+    wl_subsample_centers = to_be_subsampled_grid_wcs.index_to_world_location(
+        subsample_centers
+    )
+    indices_xy = np.array(index_grid_wcs.world_location_to_index(wl_subsample_centers))
 
     if indexing == "xy":
         return indices_xy

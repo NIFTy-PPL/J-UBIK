@@ -15,12 +15,11 @@ from numpy.typing import ArrayLike
 
 class WcsBase(ABC):
     """An interface class for converting between world coordinates and pixel
-    coordinates. Inherited classes need to provide a `wl_from_index` and an
-    `index_from_wl` method.
-    """
+    coordinates. Child classes need to provide a `index_to_world_location` and a
+    `world_location_to_index` method."""
 
     @abstractmethod
-    def wl_from_index(self, index: ArrayLike) -> Union[SkyCoord, List[SkyCoord]]:
+    def index_to_world_location(self, index: ArrayLike) -> SkyCoord:
         """
         Convert pixel coordinates to world coordinates.
 
@@ -36,9 +35,7 @@ class WcsBase(ABC):
         pass
 
     @abstractmethod
-    def index_from_wl(
-        self, wl: Union[SkyCoord, List[SkyCoord]]
-    ) -> Union[ArrayLike, List[ArrayLike]]:
+    def world_location_to_index(self, world: SkyCoord) -> ArrayLike:
         """
         Convert world coordinates to pixel coordinates.
 
@@ -75,7 +72,9 @@ class WcsBase(ABC):
             the edge points.
         """
 
-        edges_dgrid = self.index_from_wl(world_extrema)
+        edges_dgrid = np.array(
+            [self.world_location_to_index(wex) for wex in world_extrema]
+        )
 
         if shape_check is not None:
             check = (

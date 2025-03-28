@@ -270,7 +270,7 @@ def load_psf_kernel_from_config(
         The PSF kernel.
     """
 
-    pointing_center = jwst_data.wcs.index_from_wl(pointing_center)[0]
+    pointing_center = jwst_data.wcs.world_location_to_index(pointing_center)
     camera = jwst_data.camera
     filter = jwst_data.filter
 
