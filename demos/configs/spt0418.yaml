@@ -258,7 +258,7 @@ telescope:
       shift_unit: arcsec
       default:
         rotation: ['normal', 0, 1.0e-3]  # With great power comes great responsibility !!
-        shift: ['normal', 0, 1.0e-1]  # pixel units
+        shift: ['normal', 0, 1.0e-1]
 
       # f1800w:
       #   0: 
