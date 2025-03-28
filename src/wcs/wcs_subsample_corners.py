@@ -45,7 +45,7 @@ def subsample_grid_corners_in_index_grid(
         sub-pixels will a single pixel in the to_be_subsampled_grid have along
         each axis.
     """
-    ssg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
+    ssg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_world_extrema(
         world_extrema
     )
 
@@ -62,14 +62,11 @@ def subsample_grid_corners_in_index_grid(
     ]
 
     e00, e01, e10, e11 = [
-        to_be_subsampled_grid_wcs.index_to_world_location(e)
-        for e in [e00, e01, e10, e11]
+        to_be_subsampled_grid_wcs.pixel_to_world(*ee) for ee in [e00, e01, e10, e11]
     ]
 
     # rotation to make the corners circular for the sparse builder
-    return np.array(
-        [index_grid_wcs.world_location_to_index(e) for e in [e00, e01, e11, e10]]
-    )
+    return np.array([index_grid_wcs.world_to_pixel(ee) for ee in [e00, e01, e11, e10]])
 
 
 def subsample_grid_corners_in_index_grid_non_vstack(
@@ -109,7 +106,7 @@ def subsample_grid_corners_in_index_grid_non_vstack(
         The index positions of the corners of the pixels of the data_grid
         inside the reconstruction_grid.
     """
-    tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
+    tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_world_extrema(
         world_extrema
     )
 
@@ -139,11 +136,10 @@ def subsample_grid_corners_in_index_grid_non_vstack(
     ]
 
     e00, e01, e10, e11 = [
-        to_be_subsampled_grid_wcs.index_to_world_location(ee)
-        for ee in [e00, e01, e10, e11]
+        to_be_subsampled_grid_wcs.pixel_to_world(*ee) for ee in [e00, e01, e10, e11]
     ]
 
     # rotation to make the corners circular for the sparse builder
-    return np.array(
-        [index_grid_wcs.world_location_to_index(ee) for ee in [e00, e01, e11, e10]]
-    )[:, ::-1, :, :]
+    return np.array([index_grid_wcs.world_to_pixel(ee) for ee in [e00, e01, e11, e10]])[
+        :, ::-1, :, :
+    ]

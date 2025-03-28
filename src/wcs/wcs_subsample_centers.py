@@ -11,14 +11,14 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
-from .wcs_base import WcsBase
 from .wcs_jwst_data import WcsJwstData
+from .wcs_astropy import WcsAstropy
 
 
 def subsample_grid_centers_in_index_grid_non_vstack(
     world_extrema: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
-    to_be_subsampled_grid_wcs: WcsBase,
-    index_grid_wcs: Union[WcsBase, WcsJwstData],
+    to_be_subsampled_grid_wcs: Union[WcsAstropy, WcsJwstData],
+    index_grid_wcs: Union[WcsAstropy, WcsJwstData],
     subsample: int,
     indexing: str,
 ) -> ArrayLike:
@@ -48,7 +48,7 @@ def subsample_grid_centers_in_index_grid_non_vstack(
     """
 
     # NOTE : GWCS.wcs expects `xy` indexing. Other arrays are not tested.
-    tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_wl_extrema(
+    tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_world_extrema(
         world_extrema, indexing="xy"
     )
 
@@ -69,10 +69,8 @@ def subsample_grid_centers_in_index_grid_non_vstack(
             tbsg_pixcenter_indices + ps[:, None, None]
         )
 
-    wl_subsample_centers = to_be_subsampled_grid_wcs.index_to_world_location(
-        subsample_centers
-    )
-    indices_xy = np.array(index_grid_wcs.world_location_to_index(wl_subsample_centers))
+    wl_subsample_centers = to_be_subsampled_grid_wcs.pixel_to_world(*subsample_centers)
+    indices_xy = np.array(index_grid_wcs.world_to_pixel(wl_subsample_centers))
 
     if indexing == "xy":
         return indices_xy

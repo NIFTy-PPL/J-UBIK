@@ -157,23 +157,10 @@ def build_coordinates_correction_from_grid(
         return Coordinates(coords)
 
     header = data_wcs.to_header()
+    rpix = (header["CRPIX1"],), (header["CRPIX2"],)
+    rpix = data_wcs.pixel_to_world(*rpix)
 
-    if isinstance(data_wcs, WcsJwstData):
-        rpix = (header["CRPIX1"],), (header["CRPIX2"],)
-        rpix = data_wcs.index_to_world_location(rpix)
-    elif isinstance(data_wcs, WcsAstropy):
-        # FIXME: The following lines should be the same with the previous
-        rpix = (header["CRPIX1"], header["CRPIX2"])
-        rpix = data_wcs.index_to_world_location(rpix)[0]
-    else:
-        raise NotImplementedError(
-            f"The type of world coordinate system {type(data_wcs)} is not "
-            "supported. Supported types [WcsAstropy, WcsJwstData]."
-        )
-
-    rotation_center = np.array(
-        reconstruction_grid.spatial.world_location_to_index(rpix)
-    )
+    rotation_center = np.array(reconstruction_grid.spatial.world_to_pixel(rpix))
 
     shift = build_shift_correction(domain_key, priors)
     pix_distance = array(

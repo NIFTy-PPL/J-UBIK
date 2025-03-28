@@ -5,25 +5,31 @@
 
 # %%
 
-from typing import List, Union
+from typing import Optional
 
 import numpy as np
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
-from .wcs_base import WcsBase
+from .wcs_base import WcsMixin
 
 
-class WcsJwstData(WcsBase):
+_HAS_GWCS = False
+try:
+    from gwcs import WCS
+
+    _HAS_GWCS = True
+except ImportError:
+    pass
+
+
+class WcsJwstData(WcsMixin):
     """
-    A wrapper around the gwcs, in order to define a common interface
-    with the astropy wcs.
+    A wrapper around gwcs that provides compatible interface through duck typing.
     """
 
     def __init__(self, wcs):
-        try:
-            from gwcs import WCS
-        except ImportError:
+        if not _HAS_GWCS:
             raise ImportError(
                 "gwcs not installed. Please install via 'pip install gwcs'."
             )
@@ -31,41 +37,11 @@ class WcsJwstData(WcsBase):
         if not isinstance(wcs, WCS):
             raise TypeError("wcs must be a gwcs.WCS")
 
-        self.wcs = wcs
+        self._wcs = wcs
 
-    def index_to_world_location(self, index: ArrayLike) -> SkyCoord:
-        """
-        Convert pixel coordinates to world coordinates.
-
-        Parameters
-        ----------
-        index : ArrayLike
-            Pixel coordinates in the data grid.
-
-        Returns
-        -------
-        wl : SkyCoord
-
-        Note
-        ----
-        Since wcs expects pixel indices, the wcs expects (x, y) ordering.
-        See https://gwcs.readthedocs.io/en/latest/index.html (last visited 25.03.25).
-        """
-        return self.wcs(*index, with_units=True)
-
-    def world_location_to_index(self, world: SkyCoord) -> ArrayLike:
-        """
-        Convert world coordinates to pixel coordinates.
-
-        Parameters
-        ----------
-        wl : SkyCoord
-
-        Returns
-        -------
-        index : ArrayLike
-        """
-        return self.wcs.world_to_pixel(world)
-
+    # Custom method
     def to_header(self):
-        return self.wcs.to_fits()[0]
+        return self._wcs.to_fits()[0]
+
+    def __getattr__(self, name):
+        return getattr(self._wcs, name)

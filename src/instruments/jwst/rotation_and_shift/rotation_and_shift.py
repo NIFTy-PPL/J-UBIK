@@ -20,7 +20,10 @@ from ....wcs import subsample_grid_corners_in_index_grid_non_vstack
 from ....wcs.wcs_base import WcsBase
 
 from ..parse.rotation_and_shift.rotation_and_shift import (
-    LinearConfig, NufftConfig, SparseConfig, RotationAndShiftAlgorithm
+    LinearConfig,
+    NufftConfig,
+    SparseConfig,
+    RotationAndShiftAlgorithm,
 )
 
 
@@ -55,8 +58,9 @@ class RotationAndShiftModel(jft.Model):
         coordinates : Union[ArrayLike, Callable, CoordinatesCorrection]
             The coordinates, which are possibly corrected by a model.
         """
-        assert isinstance(sky_domain, dict), ('Need to provide an internal key'
-                                              'to the target of the sky model')
+        assert isinstance(sky_domain, dict), (
+            "Need to provide an internal keyto the target of the sky model"
+        )
 
         self.sky_key = next(iter(sky_domain.keys()))
         self.coordinates = coordinates
@@ -64,8 +68,11 @@ class RotationAndShiftModel(jft.Model):
             self.coordinates = lambda _: coordinates
         self.call = call
 
-        correction_domain = coordinates.domain if isinstance(
-            coordinates, CoordinatesWithCorrection) else {}
+        correction_domain = (
+            coordinates.domain
+            if isinstance(coordinates, CoordinatesWithCorrection)
+            else {}
+        )
         super().__init__(domain=sky_domain | correction_domain)
 
     def __call__(self, x):
@@ -73,7 +80,7 @@ class RotationAndShiftModel(jft.Model):
 
 
 def _infere_output_shape_from_coordinates(
-    coordinates: Union[ArrayLike, callable, CoordinatesWithCorrection]
+    coordinates: Union[ArrayLike, callable, CoordinatesWithCorrection],
 ):
     if isinstance(coordinates, CoordinatesWithCorrection):
         return coordinates.target.shape[1:]
@@ -152,16 +159,13 @@ def build_rotation_and_shift_model(
             # TODO: Sparse cannot update the coordinates
             call = build_sparse_rotation_and_shift(
                 index_grid=reconstruction_grid.spatial.index_grid(
-                    **vars(algorithm_config)),
+                    **vars(algorithm_config)
+                ),
                 subsample_corners=subsample_grid_corners_in_index_grid_non_vstack(
-                    world_extrema,
-                    data_grid_wcs,
-                    reconstruction_grid.spatial,
-                    subsample),
+                    world_extrema, data_grid_wcs, reconstruction_grid.spatial, subsample
+                ),
             )
 
     return RotationAndShiftModel(
-        sky_domain=sky_domain,
-        call=call,
-        coordinates=coordinates
+        sky_domain=sky_domain, call=call, coordinates=coordinates
     )

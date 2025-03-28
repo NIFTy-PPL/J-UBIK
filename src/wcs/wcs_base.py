@@ -5,21 +5,18 @@
 
 # %%
 
-from abc import ABC, abstractmethod
-from typing import List, Union, Tuple, Optional
-
+from typing import Optional
 import numpy as np
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 
-class WcsBase(ABC):
+class WcsBase:
     """An interface class for converting between world coordinates and pixel
-    coordinates. Child classes need to provide a `index_to_world_location` and a
-    `world_location_to_index` method."""
+    coordinates. Child classes need to provide a `pixel_to_world` and a
+    `world_to_pixel` method."""
 
-    @abstractmethod
-    def index_to_world_location(self, index: ArrayLike) -> SkyCoord:
+    def pixel_to_world(self, *index: ArrayLike) -> SkyCoord:
         """
         Convert pixel coordinates to world coordinates.
 
@@ -34,8 +31,7 @@ class WcsBase(ABC):
         """
         pass
 
-    @abstractmethod
-    def world_location_to_index(self, world: SkyCoord) -> ArrayLike:
+    def world_to_pixel(self, world: SkyCoord) -> ArrayLike:
         """
         Convert world coordinates to pixel coordinates.
 
@@ -49,9 +45,14 @@ class WcsBase(ABC):
         """
         pass
 
-    def index_from_wl_extrema(
-        self, world_extrema: SkyCoord, shape_check: Optional[Tuple[int, int]] = None
-    ) -> Tuple[int, int, int, int]:
+
+class WcsMixin:
+    """A mixin class providing WCS functionality, assuming pixel_to_world and
+    world_to_pixel are implemented."""
+
+    def index_from_world_extrema(
+        self, world_extrema: SkyCoord, shape_check: Optional[tuple[int, int]] = None
+    ) -> tuple[int, int, int, int]:
         """
         Find the minimum and maximum pixel indices of the bounding box that
         contain the world location world_extrema (wl_extrema).
@@ -72,9 +73,7 @@ class WcsBase(ABC):
             the edge points.
         """
 
-        edges_dgrid = np.array(
-            [self.world_location_to_index(wex) for wex in world_extrema]
-        )
+        edges_dgrid = np.array([self.world_to_pixel(wex) for wex in world_extrema])
 
         if shape_check is not None:
             check = (
@@ -87,19 +86,19 @@ class WcsBase(ABC):
                 {edges_dgrid}"""
                 raise ValueError(o)
 
-        # FIXME: What to do here... round, ceil, or floor?
+        # TODO : Is round the best ?
         minx = int(np.round(edges_dgrid[:, 0].min()))
         maxx = int(np.round(edges_dgrid[:, 0].max()))
         miny = int(np.round(edges_dgrid[:, 1].min()))
         maxy = int(np.round(edges_dgrid[:, 1].max()))
         return minx, maxx, miny, maxy
 
-    def index_grid_from_wl_extrema(
+    def index_grid_from_world_extrema(
         self,
         world_extrema: SkyCoord,
         indexing: str,
-        shape_check: Tuple[int, int] | None = None,
-    ) -> np.typing.ArrayLike:
+        shape_check: tuple[int, int] | None = None,
+    ) -> ArrayLike:
         """
         Find the pixel indices of the bounding box that contain the world
         location world_extrema (wl_extrema).
@@ -111,18 +110,20 @@ class WcsBase(ABC):
             reconstruction grid corners.
         indexing: str
             Which indexing format for meshgrid, either 'ij' or 'xy'.
-        shape_check : Optional[Tuple[int, int]]
+        shape_check : Optional[tuple[int, int]]
             When provided the world_extrema are checked for consistency with
             the underlying data array.
 
         Returns
         -------
-        minx, max, miny, maxy : Tuple[int, int, int, int]
+        minx, max, miny, maxy : tuple[int, int, int, int]
             Minimum and maximum pixel coordinates of the data grid that contain
             the edge points.
         """
 
-        minx, maxx, miny, maxy = self.index_from_wl_extrema(world_extrema, shape_check)
+        minx, maxx, miny, maxy = self.index_from_world_extrema(
+            world_extrema, shape_check
+        )
 
         xy = np.array(
             np.meshgrid(

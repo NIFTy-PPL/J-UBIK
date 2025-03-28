@@ -4,21 +4,20 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
-from .wcs_base import WcsBase
-from ..parse.wcs.coordinate_system import CoordinateSystemModel, CoordinateSystems
-from ..parse.wcs.spatial_model import SpatialModel
+from typing import List, Optional, Union
 
 import numpy as np
-
-from numpy.typing import ArrayLike
-from typing import List, Union, Optional
-
+from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
-from astropy import units as u
+from numpy.typing import ArrayLike
+
+from ..parse.wcs.coordinate_system import CoordinateSystemModel, CoordinateSystems
+from ..parse.wcs.spatial_model import SpatialModel
+from .wcs_base import WcsMixin
 
 
-class WcsAstropy(WCS, WcsBase):
+class WcsAstropy(WCS, WcsMixin):
     """
     A wrapper around the astropy.wcs.WCS, in order to define a common interface
     with the gwcs.
@@ -112,51 +111,6 @@ class WcsAstropy(WCS, WcsBase):
             spatial_model.wcs_model.coordinate_system,
         )
 
-    def index_to_world_location(self, index: ArrayLike) -> SkyCoord:
-        """
-        Convert pixel coordinates to world coordinates.
-
-        Parameters
-        ----------
-        index : ArrayLike
-            Pixel coordinates in the data grid.
-
-        Returns
-        -------
-        wl : SkyCoord
-
-        Note
-        ----
-        We use the convention of x aligning with the columns, second dimension,
-        and y aligning with the rows, first dimension.
-        """
-        return self.pixel_to_world(*index)
-
-        # TODO : DELETE
-        # if len(np.shape(index)) == 1:
-        #     index = [index]
-        # return [self.pixel_to_world(*idx) for idx in index]
-        # # return [self.array_index_to_world(*idx) for idx in index]
-
-    def world_location_to_index(self, world: SkyCoord) -> np.ndarray:
-        """
-        Convert world coordinates to pixel coordinates.
-
-        Parameters
-        ----------
-        wl : SkyCoord
-
-        Returns
-        -------
-        index : ArrayLike
-
-        Note
-        ----
-        We use the convention of x aligning with the columns, second dimension,
-        and y aligning with the rows, first dimension.
-        """
-        return self.world_to_pixel(world)
-
     @property
     def dvol(self) -> u.Quantity:
         """Computes the area of a grid cell (pixel) in angular u."""
@@ -198,7 +152,7 @@ class WcsAstropy(WCS, WcsBase):
         ymax = self.shape[1] + ext1 - 1
 
         return [
-            self.index_to_world_location(min_max)
+            self.pixel_to_world(*min_max)
             for min_max in [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
         ]
 
