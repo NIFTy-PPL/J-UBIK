@@ -13,31 +13,20 @@ from numpy.typing import ArrayLike
 
 
 def build_linear_rotation_and_shift(
-    sky_dvol: float,
-    sub_dvol: float,
-    indexing: str = 'ij',
+    indexing: str = "ij",
     order: int = 1,
-    sky_as_brightness: bool = False,
-    mode='wrap'
+    mode="wrap",
 ) -> Callable[ArrayLike, ArrayLike]:
     """
     Builds linear (higher orders not yet supported) rotation_and_shift model.
 
     Parameters
     ----------
-    sky_dvol: float
-        The volume of the sky/reconstruction pixels
-    sub_dvol: float
-        The volume of the subsample pixels.
-        Typically, the data pixel is subsampled
     order: int
         The order of the rotation_and_shift scheme
         (only linear supported by JAX)
-    sky_as_brightness:
-        If True, the sky will be treated as a brightness distribution.
-        This is the same as setting sky_dvol = 1.
     mode: str
-        The mode of the interpolation.
+        The mode of the interpolation. ['wrap', 'constant']
 
     Returns
     -------
@@ -51,12 +40,6 @@ def build_linear_rotation_and_shift(
         flux(x, y) = sky(x, y) * sky_dvol
     """
 
-    # The conversion factor from sky to subpixel
-    # (flux = sky_brightness * flux_conversion)
-    if sky_as_brightness:
-        sky_dvol = 1
-    flux_conversion = sub_dvol / sky_dvol
-
     rotation_and_shift = partial(map_coordinates, order=order, mode=mode)
 
     # TODO: Check why we need the subsample centers swapped.
@@ -66,16 +49,21 @@ def build_linear_rotation_and_shift(
     # 16-03-25: Yes! always take 'ij' indexing for the subsample centers.
     # See `test_linear.py`.
 
-    if indexing == 'ij':
+    if indexing == "ij":
+
         def rotation_shift_subsample(field, subsample_centers):
             out = rotation_and_shift(field, subsample_centers)
-            return out * flux_conversion
-    elif indexing == 'xy':
+            return out
+
+    elif indexing == "xy":
+
         def rotation_shift_subsample(field, subsample_centers):
             out = rotation_and_shift(
-                field.T, (subsample_centers[1], subsample_centers[0]))
-            return out.T * flux_conversion
+                field.T, (subsample_centers[1], subsample_centers[0])
+            )
+            return out.T
+
     else:
-        raise ValueError('Need either provide `ij` or `xy` indexing.')
+        raise ValueError("Need either provide `ij` or `xy` indexing.")
 
     return rotation_shift_subsample
