@@ -1,5 +1,5 @@
 cpu: False
-prior_samples: 3
+prior_samples: False
 plot_results: True
 nonparametric_lens: False
 max_residuals: 4 # 4 for big run
@@ -312,7 +312,7 @@ telescope:
       #     rotation: ['delta', -1.95823434e-05, 0]
 
 files:
-  res_dir: './results/jwst_lens/cluster/test_10_3data_xyindexcoord'
+  res_dir: './results/jwst_lens/cluster/test_11_units'
 
   filter:
 
@@ -392,7 +392,7 @@ files:
 
 
 minimization:
-    key: 20250225
+    key: 20250331
     resume: False
     n_total_iterations: 25
 

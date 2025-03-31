@@ -665,6 +665,12 @@ def build_get_values(
     lens_system,
     parametric: bool,
 ):
+    from charm_lensing.lens_system import LensSystem
+    from charm_lensing.physical_models.hybrid_model import HybridModel
+    from charm_lensing.physical_models.parametric_model import ParametricModel
+
+    lens_system: LensSystem = lens_system
+
     source_model = lens_system.source_plane_model.light_model
 
     if parametric:
@@ -685,13 +691,14 @@ def build_get_values(
         sky_model = lens_system.get_forward_model_full()
         lensed_light_model = lens_system.get_forward_model_full(only_source=True)
 
-    lens_light_model = lens_system.lens_plane_model.light_model
-    if lens_light_model is None:
+    llm: Union[HybridModel, ParametricModel] = lens_system.lens_plane_model.light_model
 
-        def lens_light_model(_):
-            return np.zeros((12, 12))
+    if llm is None:
+        lens_light_model = lambda _: np.zeros((12, 12))
+    elif llm.nonparametric:
+        lens_light_model = llm.nonparametric
     else:
-        lens_light_model = lens_light_model
+        lens_light_model = llm
 
     def get_values(position):
         return (
