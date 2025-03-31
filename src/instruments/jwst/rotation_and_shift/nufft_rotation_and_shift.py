@@ -5,7 +5,7 @@
 
 # %%
 
-from jax.numpy import reshape
+import jax.numpy as jnp
 from jax.numpy.fft import ifftshift, ifft2
 import numpy as np
 from numpy.typing import ArrayLike
@@ -23,6 +23,7 @@ def build_nufft_rotation_and_shift(
     out_shape: tuple[int, int],
     indexing: str = 'ij',
     sky_as_brightness: bool = False
+    mode: str = "constant",
 ) -> Callable[[ArrayLike], ArrayLike]:
     """
     Builds non-uniform FFT interpolation model.
@@ -37,13 +38,15 @@ def build_nufft_rotation_and_shift(
     sky_shape: Tuple[int, int]
         The shape of the reconstruction array (sky shape)
     sky_distances: Tuple[Quantity, Quantity]
-        The sky_distances are needed to check for the consistency of the 
+        The sky_distances are needed to check for the consistency of the
         `xy_conversion`.
     out_shape: Tuple[int, int]
         The shape of the subsample array.
     sky_as_brightness: bool
         If True, the sky will be treated as a brightness distribution.
         This is the same as setting sky_dvol = 1.
+    mode: str
+        The mode of the interpolation. ['wrap', 'constant']
 
     Returns
     -------
@@ -78,21 +81,47 @@ def build_nufft_rotation_and_shift(
     # Maybe: this comes from the matrix style indexing?
     # 16-03-25: Yes, always take matrix style indexing (meshgrid='ij')!
 
-    if indexing == 'ij':
+    if indexing == "ij":
+
         def rotate_shift_subsample(field, subsample_centers):
             f_field = ifftshift(ifft2(field))
             xy_finufft = xy_conversion * subsample_centers.reshape(2, -1)
+
+            if mode == "constant":
+                mask = jnp.any((xy_finufft > 2 * np.pi) + (xy_finufft < 0), axis=0)
+                xy_finufft = jnp.where(mask, 0.0, xy_finufft)
+            elif mode != "wrap":
+                raise ValueError("mode must either be `wrap` or `constant`.")
+
             out = nufft2(f_field, xy_finufft[0], xy_finufft[1]).real
             return reshape(out, out_shape) * flux_conversion
     elif indexing == 'xy':
+
+            if mode == "constant":
+                out = jnp.where(mask, 0.0, out)
+
+
+    elif indexing == "xy":
         out_shape = out_shape[1], out_shape[0]
 
         def rotate_shift_subsample(field, subsample_centers):
             f_field = ifftshift(ifft2(field.T))
             xy_finufft = xy_conversion * subsample_centers.reshape(2, -1)
+
+            if mode == "constant":
+                mask = jnp.any((xy_finufft > 2 * np.pi) + (xy_finufft < 0), axis=0)
+                xy_finufft = jnp.where(mask, 0.0, xy_finufft)
+            elif mode != "wrap":
+                raise ValueError("mode must either be `wrap` or `constant`.")
+
             out = nufft2(f_field, xy_finufft[1], xy_finufft[0]).real
             return reshape(out, out_shape).T * flux_conversion
+
+            if mode == "constant":
+                out = jnp.where(mask, 0.0, out)
+
+            return jnp.reshape(out, out_shape)  # * flux_conversion
     else:
-        raise ValueError('Need either provide `ij` or `xy` indexing.')
+        raise ValueError("Need either provide `ij` or `xy` indexing.")
 
     return rotate_shift_subsample

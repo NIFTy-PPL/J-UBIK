@@ -142,7 +142,8 @@ class JwstData:
             Data values inside the extrema.
         """
         minx, maxx, miny, maxy = self.wcs.index_from_world_extrema(extrema, self.shape)
-        # TODO : Why is this miny on first axis ?
+
+        # NOTE : The data needs matrix indexing, hence y is on the first axis.
         return self.dm.data[miny : maxy + 1, minx : maxx + 1]
 
     def std_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
@@ -160,7 +161,7 @@ class JwstData:
             Data values inside the extrema.
         """
         minx, maxx, miny, maxy = self.wcs.index_from_world_extrema(extrema, self.shape)
-        # TODO : Why is this miny on first axis ?
+        # NOTE : The data needs matrix indexing, hence y is on the first axis.
         return self.dm.err[miny : maxy + 1, minx : maxx + 1]
 
     def nan_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
@@ -179,7 +180,7 @@ class JwstData:
             Mask corresponding to the nan values inside the extrema.
         """
         minx, maxx, miny, maxy = self.wcs.index_from_world_extrema(extrema, self.shape)
-        # TODO : Why is this miny on first axis ?
+        # NOTE : The data needs matrix indexing, hence y is on the first axis.
         return (~np.isnan(self.dm.data[miny : maxy + 1, minx : maxx + 1])) * (
             ~np.isnan(self.dm.err[miny : maxy + 1, minx : maxx + 1])
         )
