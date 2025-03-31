@@ -4,8 +4,5 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
-
-from . import integration_model
-
 from .config_handler import *
 from .jwst_data import JwstData
