@@ -9,6 +9,7 @@ from .jwst_plotting import (
 )
 from ..filter_projector import FilterProjector
 from ....grid import Grid
+from ....parse.grid import GridModel
 
 import nifty8.re as jft
 
@@ -132,10 +133,7 @@ def plot_prior(
         lambda x: filter_projector(sky_model(x)), init=sky_model.init
     )
 
-    from jubik0.instruments.jwst.parse.grid import yaml_to_grid_model
-    from jubik0.instruments.jwst.grid import Grid
-
-    grid = Grid.from_grid_model(yaml_to_grid_model(cfg["sky"]["grid"]))
+    grid = Grid.from_grid_model(GridModel.from_yaml_dict(cfg["sky"]["grid"]))
     results_directory = cfg["files"]["res_dir"]
     ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)
 

@@ -1,5 +1,5 @@
 cpu: False
-prior_samples: False
+prior_samples: 3
 plot_results: True
 nonparametric_lens: False
 max_residuals: 4 # 4 for big run
@@ -34,7 +34,8 @@ sky:
       sdim: 384
       fov: 3arcsec
       s_padding_ratio: 1.0
-      interpolation: 'finufft' # finufft, bilinear
+      # interpolation: 'finufft' # finufft, bilinear
+      interpolation: 'bilinear' # finufft, bilinear
 
     energy_unit: eV
     energy_bin:
@@ -97,7 +98,7 @@ sky:
 
         multifrequency:
           nifty_mf:
-            zero_mode: [-4.0, 0.1] # normal
+            zero_mode: [-0.5, 0.5] # normal
             spatial_amplitude:
               model: 'matern'
               scale: [0.2, 0.03]        # lognormal
@@ -113,7 +114,7 @@ sky:
               fluctuations: [0.05, 0.005]  # lognormal 
             spectral_deviations:
               process: 'wiener'
-              sigma: [0.1, 0.02]  # lognormal
+              sigma: [0.3, 0.1]  # lognormal
 
     lens:
       light:
@@ -143,7 +144,7 @@ sky:
             theta: ['normal', 0.0, 10.0]
         multifrequency:
           nifty_mf:
-            zero_mode: [-5.2, .1] # normal
+            zero_mode: [-2.0, 0.5] # normal
             spatial_amplitude:
               model: 'matern'
               scale: [0.01, 0.001]    # lognormal
@@ -159,7 +160,7 @@ sky:
               fluctuations: [0.05, 0.01]  # lognormal 
             spectral_deviations:
               process: 'wiener'
-              sigma: [0.5, 0.2]  # lognormal
+              sigma: [0.03, 0.01]  # lognormal
 
 
       convergence:
