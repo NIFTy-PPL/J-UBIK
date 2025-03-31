@@ -15,7 +15,7 @@ from .wcs_jwst_data import WcsJwstData
 from .wcs_astropy import WcsAstropy
 
 
-def subsample_grid_centers_in_index_grid_non_vstack(
+def subsample_grid_centers_in_index_grid(
     world_extrema: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
     to_be_subsampled_grid_wcs: Union[WcsAstropy, WcsJwstData],
     index_grid_wcs: Union[WcsAstropy, WcsJwstData],

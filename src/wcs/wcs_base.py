@@ -68,30 +68,30 @@ class WcsMixin:
 
         Returns
         -------
-        minx, maxx, miny, maxy : Tuple[int, int, int, int]
+        min_x, max_x, min_y, max_y : Tuple[int, int, int, int]
             Minimum and maximum pixel coordinates of the data grid that contain
             the edge points.
         """
 
-        edges_dgrid = np.array([self.world_to_pixel(wex) for wex in world_extrema])
+        edge_points = np.array([self.world_to_pixel(wex) for wex in world_extrema])
 
         if shape_check is not None:
             check = (
-                np.any(edges_dgrid < 0)
-                or np.any(edges_dgrid >= shape_check[0])
-                or np.any(edges_dgrid >= shape_check[1])
+                np.any(edge_points < 0)
+                or np.any(edge_points >= shape_check[0])
+                or np.any(edge_points >= shape_check[1])
             )
             if check:
                 o = f"""One of the wcs world_extrema is outside the data grid
-                {edges_dgrid}"""
+                {edge_points}"""
                 raise ValueError(o)
 
         # TODO : Is round the best ?
-        minx = int(np.round(edges_dgrid[:, 0].min()))
-        maxx = int(np.round(edges_dgrid[:, 0].max()))
-        miny = int(np.round(edges_dgrid[:, 1].min()))
-        maxy = int(np.round(edges_dgrid[:, 1].max()))
-        return minx, maxx, miny, maxy
+        min_x = int(np.floor(np.min(edge_points[:, 0])))
+        max_x = int(np.ceil(np.max(edge_points[:, 0])))
+        min_y = int(np.floor(np.min(edge_points[:, 1])))
+        max_y = int(np.ceil(np.max(edge_points[:, 1])))
+        return min_x, max_x, min_y, max_y
 
     def index_grid_from_world_extrema(
         self,
@@ -116,22 +116,18 @@ class WcsMixin:
 
         Returns
         -------
-        minx, max, miny, maxy : tuple[int, int, int, int]
+        min_x, max, min_y, max_y : tuple[int, int, int, int]
             Minimum and maximum pixel coordinates of the data grid that contain
             the edge points.
         """
 
-        minx, maxx, miny, maxy = self.index_from_world_extrema(
+        min_x, max_x, min_y, max_y = self.index_from_world_extrema(
             world_extrema, shape_check
         )
 
-        xy = np.array(
-            np.meshgrid(
-                np.arange(minx, maxx + 1, 1),
-                np.arange(miny, maxy + 1, 1),
-                indexing="xy",
-            )
-        )
+        x_indices = np.arange(min_x, max_x + 1)
+        y_indices = np.arange(min_y, max_y + 1)
+        xy = np.array(np.meshgrid(x_indices, y_indices, indexing="xy"))
 
         if indexing == "xy":
             return xy

@@ -14,7 +14,7 @@ from .rotation_and_shift.coordinates_correction import (
 from .zero_flux_model import build_zero_flux_model
 from .masking.build_mask import build_mask
 
-from ...wcs import subsample_grid_centers_in_index_grid_non_vstack
+from ...wcs import subsample_grid_centers_in_index_grid
 
 from .parse.parametric_model.parametric_prior import ProbabilityConfig
 from .parse.rotation_and_shift.coordinates_correction import (
@@ -160,7 +160,7 @@ def build_jwst_response(
     reconstruction_grid = rotation_and_shift_kwargs["reconstruction_grid"]
     data_wcs = rotation_and_shift_kwargs["data_wcs"]
 
-    coords = subsample_grid_centers_in_index_grid_non_vstack(
+    coords = subsample_grid_centers_in_index_grid(
         world_extrema=world_extrema,
         to_be_subsampled_grid_wcs=data_wcs,
         index_grid_wcs=reconstruction_grid.spatial,
