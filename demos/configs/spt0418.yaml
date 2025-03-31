@@ -246,11 +246,17 @@ telescope:
 
 
   rotation_and_shift:
-    algorithm: 'linear' # 'sparse', 'linear', 'nufft'
-    algorithm_settings:
-      # order: 1
-      # sky_as_brightness: False
+    # sparse:
+    #   extend_factor: 1
+    #   to_bottom_left: False
+
+    # nufft: 
+    #   mode: 'constant'
+
+    linear:
       mode: 'constant'
+      order: 1
+
     subsample: 3
 
     correction_priors: # will be ignored in case of sparse

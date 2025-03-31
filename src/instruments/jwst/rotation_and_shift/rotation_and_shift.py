@@ -23,7 +23,6 @@ from ..parse.rotation_and_shift.rotation_and_shift import (
     LinearConfig,
     NufftConfig,
     SparseConfig,
-    RotationAndShiftAlgorithm,
 )
 
 
@@ -94,7 +93,6 @@ def build_rotation_and_shift_model(
     sky_domain: dict,
     reconstruction_grid: Grid,
     world_extrema: Tuple[SkyCoord],
-    data_grid_dvol: float,  # TODO: should this be for each data pixel, i.e. an array?
     data_grid_wcs: WcsBase,
     subsample: int,
     algorithm_config: Union[LinearConfig, NufftConfig, SparseConfig],
@@ -111,8 +109,6 @@ def build_rotation_and_shift_model(
         The corners of the grid to be rotated and shifted into.
     reconstruction_grid: Grid
         The Grid underlying the reconstruction domain.
-    data_grid_dvol: float
-        The volume of the data pixel.
     data_grid_wcs: WcsBase
         The world coordinate system of the data grid.
     algorithm_config: Union[LinearConfig, NufftConfig, SparseConfig]
@@ -129,42 +125,30 @@ def build_rotation_and_shift_model(
     RotationAndShiftModel(dict(sky, correction)) -> rotated_and_shifted_sky
     """
 
-    assert reconstruction_grid.spatial.dvol.unit == data_grid_dvol.unit
+    if isinstance(algorithm_config, LinearConfig):
+        call = build_linear_rotation_and_shift(
+            indexing=indexing,
+            **vars(algorithm_config),
+        )
 
-    algorithm = RotationAndShiftAlgorithm.match_algorithm(algorithm_config)
+    elif isinstance(algorithm_config, NufftConfig):
+        # TODO: check output shape
+        out_shape = _infere_output_shape_from_coordinates(coordinates)
+        call = build_nufft_rotation_and_shift(
+            sky_shape=reconstruction_grid.spatial.shape,
+            out_shape=out_shape,
+            indexing=indexing,
+            **vars(algorithm_config),
+        )
 
-    match algorithm:
-        case RotationAndShiftAlgorithm.LINEAR:
-            call = build_linear_rotation_and_shift(
-                sky_dvol=reconstruction_grid.spatial.dvol.value,
-                sub_dvol=data_grid_dvol.value / subsample**2,
-                indexing=indexing,
-                **vars(algorithm_config),
-            )
-
-        case RotationAndShiftAlgorithm.NUFFT:
-            # TODO: check output shape
-            out_shape = _infere_output_shape_from_coordinates(coordinates)
-            call = build_nufft_rotation_and_shift(
-                sky_dvol=reconstruction_grid.spatial.dvol.value,
-                sub_dvol=data_grid_dvol.value / subsample**2,
-                sky_shape=reconstruction_grid.spatial.shape,
-                sky_distances=reconstruction_grid.spatial.distances,
-                out_shape=out_shape,
-                indexing=indexing,
-                **vars(algorithm_config),
-            )
-
-        case RotationAndShiftAlgorithm.SPARSE:
-            # TODO: Sparse cannot update the coordinates
-            call = build_sparse_rotation_and_shift(
-                index_grid=reconstruction_grid.spatial.index_grid(
-                    **vars(algorithm_config)
-                ),
-                subsample_corners=subsample_grid_corners_in_index_grid_non_vstack(
-                    world_extrema, data_grid_wcs, reconstruction_grid.spatial, subsample
-                ),
-            )
+    elif isinstance(algorithm_config, SparseConfig):
+        # TODO: Sparse cannot update the coordinates
+        call = build_sparse_rotation_and_shift(
+            index_grid=reconstruction_grid.spatial.index_grid(**vars(algorithm_config)),
+            subsample_corners=subsample_grid_corners_in_index_grid_non_vstack(
+                world_extrema, data_grid_wcs, reconstruction_grid.spatial, subsample
+            ),
+        )
 
     return RotationAndShiftModel(
         sky_domain=sky_domain, call=call, coordinates=coordinates

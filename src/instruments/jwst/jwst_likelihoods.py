@@ -15,7 +15,7 @@ from .parse.rotation_and_shift.coordinates_correction import (
     yaml_to_coordinates_correction_config,
 )
 from .parse.rotation_and_shift.rotation_and_shift import (
-    yaml_to_rotation_and_shift_algorithm_config,
+    rotation_and_shift_algorithm_config_factory,
 )
 from .jwst_psf import load_psf_kernel_from_config
 
@@ -53,7 +53,7 @@ def build_jwst_likelihoods(
     coordiantes_correction_config = yaml_to_coordinates_correction_config(
         cfg[telescope_key]["rotation_and_shift"]["correction_priors"]
     )
-    rotation_and_shift_algorithm_config = yaml_to_rotation_and_shift_algorithm_config(
+    rotation_and_shift_algorithm_config = rotation_and_shift_algorithm_config_factory(
         cfg[telescope_key]["rotation_and_shift"]
     )
 

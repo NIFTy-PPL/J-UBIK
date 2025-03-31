@@ -1,18 +1,27 @@
 from enum import Enum
 from dataclasses import dataclass
-from typing import Union
+from typing import Any, Union
 
 
 @dataclass
 class LinearConfig:
     order: int = 1
-    sky_as_brightness: bool = False
-    mode: str = 'constant'
+    mode: str = "constant"
+
+    @classmethod
+    def from_yaml_dict(cls, settings: dict):
+        return cls(
+            order=settings.get("order", 1), mode=settings.get("mode", "constant")
+        )
 
 
 @dataclass
 class NufftConfig:
-    sky_as_brightness: bool = False
+    mode: str = "constant"
+
+    @classmethod
+    def from_yaml_dict(cls, settings: dict):
+        return cls(mode=settings.get("mode", "constant"))
 
 
 @dataclass
@@ -20,58 +29,29 @@ class SparseConfig:
     extend_factor: int = 1
     to_bottom_left: bool = False
 
-
-class RotationAndShiftAlgorithm(Enum):
-    LINEAR = LinearConfig
-    NUFFT = NufftConfig
-    SPARSE = SparseConfig
-
-    @staticmethod
-    def match_algorithm(
-        config: Union[LinearConfig, NufftConfig, SparseConfig]
-    ) -> "RotationAndShiftAlgorithm":
-        """Find the matching Algorithm for the given configuration."""
-        for algorithm in RotationAndShiftAlgorithm:
-            if isinstance(config, algorithm.value):
-                return algorithm
-        raise ValueError(
-            f"No matching algorithm found for config: {type(config).__name__}")
+    @classmethod
+    def from_yaml_dict(cls, settings: dict):
+        return cls(
+            extend_factor=settings.get("extend_factor", 1),
+            to_bottom_left=settings.get("to_bottom_left", False),
+        )
 
 
-ALGORITHM_KEY = 'algorithm'
-ALGORITHM_SETTINGS = 'algorithm_settings'
-
-
-def yaml_to_rotation_and_shift_algorithm_config(
-    rotation_and_shift_config: dict
+# Factory function implementing the Strategy Pattern
+def rotation_and_shift_algorithm_config_factory(
+    config_dict: dict[str, Any],
 ) -> Union[LinearConfig, NufftConfig, SparseConfig]:
-    f"""Convert a rotation_and_shift_config dictionary into a corresponding
-    algorithm config object.
+    strategy_map = {
+        "linear": LinearConfig,
+        "nufft": NufftConfig,
+        "sparse": SparseConfig,
+    }
 
-    Parameters
-    ----------
-    rotation_and_shift_config: dict
-        A dictionary containing `{ALGORITHM_KEY}` and `{ALGORITHM_SETTINGS}`.
-    """
-    algorithm_name = rotation_and_shift_config.get(ALGORITHM_KEY)
-    algorithm_settings = rotation_and_shift_config.get(ALGORITHM_SETTINGS, {})
+    for key, config_class in strategy_map.items():
+        if key in config_dict and config_dict[key] is not None:
+            return config_class.from_yaml_dict(config_dict[key])
 
-    # Match the algorithm_name to the Enum
-    try:
-        algorithm = RotationAndShiftAlgorithm[algorithm_name.upper()]
-    except KeyError:
-        raise ValueError(
-            f"Invalid algorithm name '{algorithm_name}'. "
-            "Supported algorithms are: "
-            f"{[alg.name.lower() for alg in RotationAndShiftAlgorithm]}"
-        )
-
-    # Instantiate the appropriate config class with the provided settings
-    config_class = algorithm.value
-    try:
-        return config_class(**algorithm_settings)
-    except TypeError as e:
-        raise ValueError(
-            f"Invalid settings for {algorithm_name}: {e}. "
-            f"Expected settings: {list(config_class.__annotations__.keys())}"
-        )
+    raise ValueError(
+        "No matching `rotation_and_shift` algorithm found.\n"
+        f"Options: {strategy_map.keys()}"
+    )
