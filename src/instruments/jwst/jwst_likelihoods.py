@@ -70,8 +70,11 @@ def build_jwst_likelihoods(
             jwst_data, data, mask, std = load_jwst_data_mask_std(
                 filepath, grid, world_corners
             )
+
             if sky_unit is not None:
                 assert jwst_data.dm.meta.bunit_data == sky_unit
+            else:
+                sky_unit = jwst_data.dm.meta.bunit_data
 
             data_subsample = cfg[telescope_key]["rotation_and_shift"]["subsample"]
             psf_kernel = load_psf_kernel_from_config(
@@ -104,6 +107,8 @@ def build_jwst_likelihoods(
                     fltname
                 ),
                 data_mask=mask,
+                sky_unit=sky_unit,
+                data_unit=u.Unit(jwst_data.dm.meta.bunit_data),
             )
 
             data_dict[data_identifier] = dict(
