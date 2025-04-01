@@ -28,7 +28,7 @@ from nifty8.logger import logger
 # std
 from functools import reduce
 from astropy import units as u
-from typing import Union, Optional
+from typing import Union
 
 
 def build_jwst_likelihoods(
@@ -38,7 +38,7 @@ def build_jwst_likelihoods(
     sky_key: str = "sky",
     files_key: str = "files",
     telescope_key: str = "telescope",
-    sky_unit: Optional[u.Unit] = None,
+    sky_unit: u.Unit | None = None,
 ) -> Union[jft.Likelihood, FilterProjector, dict]:
     """Build the jwst likelihood according to the config and grid."""
 

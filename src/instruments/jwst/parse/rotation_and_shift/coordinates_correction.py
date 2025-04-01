@@ -11,7 +11,6 @@ from ..parametric_model.parametric_prior import (
 
 from astropy import units as u
 from dataclasses import dataclass
-from typing import Optional
 
 
 ROTATION_UNIT_KEY = "rotation_unit"
@@ -63,7 +62,7 @@ class CoordiantesCorrectionConfig:
     """
 
     default: CoordiantesCorrectionPriorConfig
-    name_settings: dict[str, list[Optional[CoordiantesCorrectionPriorConfig]]]
+    name_settings: dict[str, list[CoordiantesCorrectionPriorConfig | None]]
 
     def get_name_setting_or_default(
         self, filter_name: str, data_index: int | None = None

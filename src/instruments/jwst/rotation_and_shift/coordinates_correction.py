@@ -6,7 +6,7 @@
 
 # %%
 
-from typing import Optional, Callable, Union
+from typing import Callable, Union
 
 import jax.numpy as jnp
 import numpy as np
@@ -104,7 +104,7 @@ class Coordinates:
 
 def build_coordinates_correction_from_grid(
     domain_key: str,
-    priors: Optional[CoordiantesCorrectionPriorConfig],
+    priors: CoordiantesCorrectionPriorConfig | None,
     data_wcs: Union[WcsJwstData, WcsAstropy],
     reconstruction_grid: Grid,
     coords: ArrayLike,
@@ -126,7 +126,7 @@ def build_coordinates_correction_from_grid(
     ----------
     domain_key : str
         A key used to generate names for the shift and rotation priors.
-    priors : Optional[CoordiantesCorrectionPriorConfig]
+    priors : CoordiantesCorrectionPriorConfig | None
         A dictionary containing the priors for shift and rotation.
         If None, no coordinate correction is applied and the return is a lambda
         function which returns the original coordinates.

@@ -5,8 +5,6 @@
 
 # %%
 
-from typing import Optional
-
 import numpy as np
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike

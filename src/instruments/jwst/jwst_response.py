@@ -5,7 +5,7 @@
 
 # %
 
-from typing import Callable, Optional
+from typing import Callable
 
 import nifty8.re as jft
 from astropy import units as u
@@ -59,7 +59,7 @@ class JwstResponse(jft.Model):
             A dictionary defining the sky domain, with a single key
             corresponding to the internal target of the sky model.
             This defines the input space of the data.
-        rotation_and_shift : RotationAndShiftModel, optional
+        rotation_and_shift : RotationAndShiftModel | None
             A model that applies rotation and shift transformations
             to the input data.
         psf : callable
@@ -71,7 +71,7 @@ class JwstResponse(jft.Model):
             A function that performs integration on the input data.
         transmission : float
             A transmission factor by which the output data is multiplied.
-        zero_flux_model : jft.Model, optional
+        zero_flux_model : jft.Model | None
             A secondary model to account for zero flux.
             If provided, its output is added to the domain model's output.
         mask : callable
@@ -150,8 +150,8 @@ def build_jwst_response(
         filter: str
         center_pix: tuple, pixel according to which to evaluate the psf model
         webbpsf_path: str
-        fov_pixels: Optional[int], how many pixles considered for the psf
-        fov_arcsec: Optional[float], the arcseconds for the psf evaluation
+        fov_pixels: int | None, how many pixles considered for the psf
+        fov_arcsec: float | None, the arcseconds for the psf evaluation
     data_mask: ArrayLike
         The mask on the data
     sky_unit: astropy.units.Unit

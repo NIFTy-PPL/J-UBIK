@@ -11,7 +11,7 @@ from ...grid import Grid
 import nifty8.re as jft
 
 import numpy as np
-from typing import Optional, Union
+from typing import Union
 from astropy import units as u
 
 
@@ -36,8 +36,8 @@ class FilterProjector(jft.Model):
         self,
         sky_domain: Union[jft.ShapeWithDtype, dict[str, jft.ShapeWithDtype]],
         keys_and_colors: dict,
-        keys_and_index: Optional[dict],
-        sky_key: Optional[str] = None,
+        keys_and_index: dict | None,
+        sky_key: str | None = None,
     ):
         """
         Parameters
@@ -49,18 +49,20 @@ class FilterProjector(jft.Model):
             A dictionary where the keys are filter names (or keys) and the
             values are lists of colors associated with each filter.
             This defines how inputs will be mapped to the respective filters.
-        keys_and_index : Optional[dict]
+        keys_and_index : dict | None
             A dictionary holding the filter names as keys and the associated
             index in the reconstruction grid.
-        sky_key : Optional[str]
+        sky_key : str | None
             If a sky_key is provided the sky-array gets unwrapped in the call.
         """
         if sky_key is None:
             assert len(sky_domain.shape) == 3, (
-                'FilterProjector expects a sky with 3 dimensions.')
+                "FilterProjector expects a sky with 3 dimensions."
+            )
         else:
             assert len(sky_domain[sky_key].shape) == 3, (
-                'FilterProjector expects a sky with 3 dimensions.')
+                "FilterProjector expects a sky with 3 dimensions."
+            )
 
         self._sky_key = sky_key
         self.keys_and_colors = keys_and_colors
@@ -72,17 +74,18 @@ class FilterProjector(jft.Model):
 
     def get_key(self, color):
         """Returns the key that corresponds to the given color."""
-        out_key = ''
+        out_key = ""
         for k, v in self.keys_and_colors.items():
             if color in v:
-                if out_key != '':
+                if out_key != "":
                     raise IndexError(
-                        f'{color} fits into multiple keys of the '
-                        'FilterProjector')
+                        f"{color} fits into multiple keys of the FilterProjector"
+                    )
                 out_key = k
-        if out_key == '':
+        if out_key == "":
             raise IndexError(
-                f"{color} doesn't fit in the bounds of the FilterProjector.")
+                f"{color} doesn't fit in the bounds of the FilterProjector."
+            )
 
         return out_key
 
@@ -96,13 +99,12 @@ def build_filter_projector(
     sky_model: jft.Model,
     grid: Grid,
     data_filter_names: list[str],
-    sky_key: str = 'sky',
+    sky_key: str = "sky",
 ) -> FilterProjector:
     named_color_ranges = {}
     for name, values in JWST_FILTERS.items():
         pivot, bw, er, blue, red = values
-        named_color_ranges[name] = ColorRange(
-            Color(red*u.um), Color(blue*u.um))
+        named_color_ranges[name] = ColorRange(Color(red * u.um), Color(blue * u.um))
 
     keys_and_colors = {}
     keys_and_index = {}

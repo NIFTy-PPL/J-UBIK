@@ -1,6 +1,6 @@
 from os.path import join
 from os import makedirs
-from typing import Union, Optional
+from typing import Union
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -140,7 +140,7 @@ def get_position_or_samples_of_model(
 
 def get_shift_rotation_correction(
     position_or_samples: Union[dict, jft.Samples],
-    correction_model: Optional[CoordinatesWithCorrection],
+    correction_model: CoordinatesWithCorrection | None,
 ):
     if not isinstance(correction_model, CoordinatesWithCorrection):
         return (0, 0), (0, 0), 0, 0
@@ -273,7 +273,7 @@ def build_plot_sky_residuals(
     data_dict: dict,
     sky_model_with_key: jft.Model,
     small_sky_model: jft.Model,
-    overwrite_model: Optional[tuple[tuple[int], str, jft.Model]] = None,
+    overwrite_model: tuple[tuple[int], str, jft.Model] | None = None,
     plotting_config: ResidualPlottingConfig = ResidualPlottingConfig(),
 ):
     """
@@ -302,7 +302,7 @@ def build_plot_sky_residuals(
 
     def sky_residuals(
         position_or_samples: Union[dict, jft.Samples],
-        state_or_none: Optional[jft.OptimizeVIState] = None,
+        state_or_none: jft.OptimizeVIState | None = None,
     ):
         print(f"Results: {results_directory}")
         print("Plotting residuals")
@@ -438,7 +438,7 @@ def build_plot_model_samples(
     results_directory: str,
     model_name: str,
     model: jft.Model,
-    mapping_axis: Optional[int] = None,
+    mapping_axis: int | None = None,
     plotting_config: dict = {},
 ):
     sky_directory = join(results_directory, model_name)
@@ -483,7 +483,7 @@ def build_plot_model_samples(
 
 def build_color_components_plotting(
     sky_model,
-    results_directory: Optional[str],
+    results_directory: str | None,
     substring="",
 ):
     from charm_lensing.physical_models.multifrequency_models.colormix_model import (
@@ -502,7 +502,7 @@ def build_color_components_plotting(
 
     def color_plot(
         position_or_samples: Union[dict, jft.Samples],
-        state_or_none: Optional[jft.OptimizeVIState] = None,
+        state_or_none: jft.OptimizeVIState | None = None,
     ):
         mat_mean, mat_std = get_position_or_samples_of_model(
             position_or_samples, sky_model.color_matrix
@@ -759,7 +759,7 @@ def build_plot_source(
 
     def plot_source(
         position_or_samples: Union[jft.Samples, dict],
-        state_or_none: Optional[jft.OptimizeVIState] = None,
+        state_or_none: jft.OptimizeVIState | None = None,
     ):
         print("Plotting source light")
 
@@ -895,7 +895,7 @@ def build_plot_lens_system(
 
     def plot_lens_system(
         position_or_samples: Union[jft.Samples, dict],
-        state_or_none: Optional[jft.OptimizeVIState],
+        state_or_none: jft.OptimizeVIState | None,
         parametric: bool,
     ):
         print("Plotting lens system")

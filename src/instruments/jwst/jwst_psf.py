@@ -9,7 +9,7 @@ from .parse.jwst_psf import PsfKernelConfig
 
 from functools import partial
 from os.path import join, isfile
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable
 
 
 import numpy as np
@@ -24,9 +24,9 @@ def build_webb_psf(
     center_pixel: Tuple[float],
     webbpsf_path: str,
     subsample: int,
-    fov_pixels: Optional[int] = None,
-    fov_arcsec: Optional[float] = None,
-    normalize: str = 'last'
+    fov_pixels: int | None = None,
+    fov_arcsec: float | None = None,
+    normalize: str = "last",
 ):
     """
     Builds a Point Spread Function (PSF) model for the JWST using the specified
@@ -54,15 +54,15 @@ def build_webb_psf(
     subsample : int
         The oversampling factor for the PSF computation.
         This determines how finely the PSF is sampled.
-    fov_pixels : int, optional
+    fov_pixels : int | None
         The field of view (FOV) in pixels.
         If provided, it specifies the size of the PSF image in
         pixels. If not provided, `fov_arcsec` must be specified.
-    fov_arcsec : float, optional
+    fov_arcsec : float | None
         The field of view (FOV) in arcseconds.
         If provided, it specifies the size of the PSF image
         in arcseconds. If not provided, `fov_pixels` must be specified.
-    normalize : str, optional
+    normalize : str | None
         The normalization method for the PSF.
         Default is 'last', which normalizes based on the
         last computed value. Other options may be supported by `webbpsf`.
@@ -104,18 +104,19 @@ def build_webb_psf(
     >>> )
     """
     if fov_pixels is None and fov_arcsec is None:
-        raise ValueError('You need to provide either fov_pixels or fov_arcsec')
+        raise ValueError("You need to provide either fov_pixels or fov_arcsec")
 
     try:
         import webbpsf
     except ImportError:
         raise ImportError("webbpsf is not installed. Please install it first")
     from os import environ
+
     environ["WEBBPSF_PATH"] = webbpsf_path
 
     psf_model_supported = {
-        'nircam': webbpsf.NIRCam(),
-        'miri': webbpsf.MIRI(),
+        "nircam": webbpsf.NIRCam(),
+        "miri": webbpsf.MIRI(),
     }
 
     try:
@@ -133,7 +134,8 @@ def build_webb_psf(
         fov_pixels=fov_pixels,
         fov_arcsec=fov_arcsec,
         oversample=subsample,
-        normalize=normalize)
+        normalize=normalize,
+    )
 
     return psf[2].data
 
@@ -145,9 +147,9 @@ def load_psf_kernel(
     webbpsf_path: str,
     psf_library_path: str,
     subsample: int,
-    psf_pixels: Optional[int] = None,
-    psf_arcsec: Optional[float] = None,
-    normalize: str = 'last'
+    psf_pixels: int | None = None,
+    psf_arcsec: float | None = None,
+    normalize: str = "last",
 ) -> ArrayLike:
     """
     Loads or computes the Point Spread Function (PSF) kernel for a specified
@@ -176,13 +178,13 @@ def load_psf_kernel(
         The PSF kernel will be saved here if it is not already present.
     subsample : int
         The oversampling factor for the PSF computation.
-    psf_pixels : int, optional
+    psf_pixels : int | None
         The size of the PSF evaluation in pixels. If not provided, `psf_arcsec`
         must be specified.
-    psf_arcsec : float, optional
+    psf_arcsec : float | None
         The size of the PSF evaluation in arcsec. If not provided, `psf_pixels`
         must be specified.
-    normalize : str, optional
+    normalize : str | None
         The normalization method for the PSF. Default is 'last',
         but other methods may be supported by `webbpsf`.
 
@@ -197,25 +199,26 @@ def load_psf_kernel(
         If neither `psf_pixels` nor `psf_arcsec` is provided.
     """
     if psf_pixels is None and psf_arcsec is None:
-        raise ValueError('You need to provide either psf_pixels or psf_arcsec')
+        raise ValueError("You need to provide either psf_pixels or psf_arcsec")
     elif psf_pixels is not None and psf_arcsec is not None:
-        print('Both psf_pixels and psf_arcsec are provided.'
-              f'Using psf_arcsec: {psf_arcsec}.')
+        print(
+            "Both psf_pixels and psf_arcsec are provided."
+            f"Using psf_arcsec: {psf_arcsec}."
+        )
         psf_pixels = None
 
     camera = camera.lower()
     filter = filter.lower()
-    center_pixel_str = f'{int(10*center_pixel[0])}p{int(10*center_pixel[1])}'
-    fov_pixel_str = f'{psf_pixels}' if psf_pixels is not None else f'{psf_arcsec}arcsec'
-    file_name = '_'.join(
-        (camera, filter, center_pixel_str, fov_pixel_str))
+    center_pixel_str = f"{int(10 * center_pixel[0])}p{int(10 * center_pixel[1])}"
+    fov_pixel_str = f"{psf_pixels}" if psf_pixels is not None else f"{psf_arcsec}arcsec"
+    file_name = "_".join((camera, filter, center_pixel_str, fov_pixel_str))
     path_to_file = join(psf_library_path, file_name)
 
-    if isfile(path_to_file + '.npy'):
-        print('*'*80)
-        print(f'Loading {file_name} from {psf_library_path}')
-        print('*'*80)
-        return np.load(path_to_file + '.npy')
+    if isfile(path_to_file + ".npy"):
+        print("*" * 80)
+        print(f"Loading {file_name} from {psf_library_path}")
+        print("*" * 80)
+        return np.load(path_to_file + ".npy")
 
     psf = build_webb_psf(
         camera,
@@ -225,11 +228,12 @@ def load_psf_kernel(
         subsample,
         psf_pixels,
         psf_arcsec,
-        normalize)
+        normalize,
+    )
 
-    print('*'*80)
-    print(f'Saving {file_name} in {psf_library_path}')
-    print('*'*80)
+    print("*" * 80)
+    print(f"Saving {file_name} in {psf_library_path}")
+    print("*" * 80)
 
     np.save(path_to_file, psf)
     return psf
@@ -239,7 +243,7 @@ def load_psf_kernel_from_config(
     jwst_data: JwstData,
     pointing_center: SkyCoord,
     subsample: int,
-    config_parameters: PsfKernelConfig
+    config_parameters: PsfKernelConfig,
 ) -> ArrayLike:
     """
     Loads or computes the Point Spread Function (PSF) kernel for a specified
@@ -287,8 +291,8 @@ def load_psf_kernel_from_config(
 
 
 def build_psf_operator(
-    psf_kernel: Optional[ArrayLike]
-) -> Optional[Callable[[ArrayLike], ArrayLike]]:
+    psf_kernel: ArrayLike | None,
+) -> Callable[[ArrayLike], ArrayLike] | None:
     """Build psf convolution operator from psf kernel array.
     If None is provided the psf operator returns the field.
 
@@ -305,4 +309,4 @@ def build_psf_operator(
     if psf_kernel is None:
         return lambda x: x
 
-    return partial(fftconvolve, in2=psf_kernel, mode='same')
+    return partial(fftconvolve, in2=psf_kernel, mode="same")

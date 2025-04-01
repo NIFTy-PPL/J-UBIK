@@ -10,7 +10,6 @@ from .parametric_model.parametric_prior import (
 )
 
 from dataclasses import dataclass
-from typing import Optional
 
 DEFAULT_KEY = "default"
 
@@ -34,7 +33,7 @@ class ZeroFluxPriorConfigs:
         return self.default
 
 
-def yaml_to_zero_flux_prior_config(zero_flux_config: Optional[dict[str]]):
+def yaml_to_zero_flux_prior_config(zero_flux_config: dict | None):
     if zero_flux_config is None:
         return None
 
