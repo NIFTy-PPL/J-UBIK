@@ -65,10 +65,10 @@ def build_jwst_likelihoods(
 
             # Loading data, std, and mask.
             grid_extension = get_grid_extension_from_config(cfg[telescope_key], grid)
-            world_corners = grid.spatial.world_extrema(ext=grid_extension)
+            world_corners = grid.spatial.world_corners(extension_value=grid_extension)
 
             jwst_data, data, mask, std = load_jwst_data_mask_std(
-                filepath, grid, world_corners
+                filepath, grid, world_corners, None
             )
 
             if sky_unit is not None:
@@ -96,7 +96,7 @@ def build_jwst_likelihoods(
                     data_dvol=jwst_data.dvol,
                     data_wcs=jwst_data.wcs,
                     algorithm_config=rotation_and_shift_algorithm_config,
-                    world_extrema=world_corners,
+                    world_corners=world_corners,
                 ),
                 shift_and_rotation_correction_prior=coordiantes_correction_config.get_name_setting_or_default(
                     jwst_data.filter, ii

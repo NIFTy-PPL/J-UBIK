@@ -142,7 +142,7 @@ def build_jwst_response(
         data_dvol: Unit, the volume of a data pixel
         data_wcs: WcsBase,
         data_model_type: str,
-        world_extrema: Tuple[SkyCoord]
+        world_corners: Tuple[SkyCoord]
     shift_and_rotation_correction: CoordiantesCorrectionPriorConfig | None
         The prior for the shift and rotation coordinates correction.
     psf_kernel_model:
@@ -161,13 +161,13 @@ def build_jwst_response(
     need_sky_key = "Need to provide an internal key to the target of the sky model."
     assert isinstance(sky_domain, dict), need_sky_key
 
-    world_extrema = rotation_and_shift_kwargs["world_extrema"]
+    world_corners = rotation_and_shift_kwargs["world_corners"]
     reconstruction_grid: Grid = rotation_and_shift_kwargs["reconstruction_grid"]
     data_wcs = rotation_and_shift_kwargs["data_wcs"]
     data_grid_dvol = rotation_and_shift_kwargs["data_dvol"]
 
     coords = subsample_grid_centers_in_index_grid(
-        world_extrema=world_extrema,
+        world_corners=world_corners,
         to_be_subsampled_grid_wcs=data_wcs,
         index_grid_wcs=reconstruction_grid.spatial,
         subsample=data_subsample,
@@ -185,7 +185,7 @@ def build_jwst_response(
     rotation_and_shift = build_rotation_and_shift_model(
         sky_domain=sky_domain,
         reconstruction_grid=reconstruction_grid,
-        world_extrema=world_extrema,
+        world_corners=world_corners,
         data_grid_wcs=data_wcs,
         algorithm_config=rotation_and_shift_kwargs["algorithm_config"],
         subsample=data_subsample,

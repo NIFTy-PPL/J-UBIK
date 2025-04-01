@@ -116,8 +116,10 @@ class WcsAstropy(WCS, WcsMixin):
         """Computes the area of a grid cell (pixel) in angular u."""
         return self.distances[0] * self.distances[1]
 
-    def world_extrema(
-        self, extend_factor: float = 1, ext: Optional[tuple[int, int]] = None
+    def world_corners(
+        self,
+        extension_factor: float = 1,
+        extension_value: Optional[tuple[int, int]] = None,
     ) -> ArrayLike:
         """
         The world location of the center of the pixels with the index
@@ -125,9 +127,9 @@ class WcsAstropy(WCS, WcsMixin):
 
         Parameters
         ----------
-        extend_factor : float, optional
+        extension_factor : float, optional
             A factor by which to extend the grid. Default is 1.
-        ext : tuple of int, optional
+        extension_value : tuple of int, optional
             Specific extension values for the grid's rows and columns.
 
         Returns
@@ -141,15 +143,17 @@ class WcsAstropy(WCS, WcsMixin):
         index (x) aligning with the columns and the second index (y) aligning
         with the rows.
         """
-        if ext is None:
-            ext0, ext1 = [int(shp * extend_factor - shp) // 2 for shp in self.shape]
-        else:
-            ext0, ext1 = ext
+        # NOTE : renamed ext -> extension_value
 
-        xmin = -ext0
-        xmax = self.shape[0] + ext0 - 1
-        ymin = -ext1
-        ymax = self.shape[1] + ext1 - 1
+        if extension_value is None:
+            ext0, ext1 = [int(shp * extension_factor - shp) // 2 for shp in self.shape]
+        else:
+            ext0, ext1 = extension_value
+
+        xmin = -ext0 + 0.5
+        xmax = self.shape[0] + ext0 - 1 + 0.5
+        ymin = -ext1 + 0.5
+        ymax = self.shape[1] + ext1 - 1 + 0.5
 
         return [
             self.pixel_to_world(*min_max)

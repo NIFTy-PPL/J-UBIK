@@ -92,7 +92,7 @@ def _infere_output_shape_from_coordinates(
 def build_rotation_and_shift_model(
     sky_domain: dict,
     reconstruction_grid: Grid,
-    world_extrema: Tuple[SkyCoord],
+    world_corners: Tuple[SkyCoord],
     data_grid_wcs: WcsBase,
     subsample: int,
     algorithm_config: Union[LinearConfig, NufftConfig, SparseConfig],
@@ -105,7 +105,7 @@ def build_rotation_and_shift_model(
     ----------
     sky_domain: dict
         Containing the sky_key and the shape_dtype of the reconstruction sky.
-    world_extrema: Tuple[SkyCoord]
+    world_corners: Tuple[SkyCoord]
         The corners of the grid to be rotated and shifted into.
     reconstruction_grid: Grid
         The Grid underlying the reconstruction domain.
@@ -146,7 +146,7 @@ def build_rotation_and_shift_model(
         call = build_sparse_rotation_and_shift(
             index_grid=reconstruction_grid.spatial.index_grid(**vars(algorithm_config)),
             subsample_corners=subsample_grid_corners_in_index_grid_non_vstack(
-                world_extrema, data_grid_wcs, reconstruction_grid.spatial, subsample
+                world_corners, data_grid_wcs, reconstruction_grid.spatial, subsample
             ),
         )
 

@@ -15,7 +15,7 @@ from .wcs_base import WcsBase
 
 
 def subsample_grid_corners_in_index_grid(
-    world_extrema: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
+    world_corners: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
     to_be_subsampled_grid_wcs: WcsBase,
     index_grid_wcs: WcsBase,
     subsample: int,
@@ -27,7 +27,7 @@ def subsample_grid_corners_in_index_grid(
 
     Parameters
     ----------
-    world_extrema: SkyCoord
+    world_corners: SkyCoord
         The sky/world positions of the extrema inside which to find the pixel
         corners of the data_grid.
 
@@ -46,7 +46,7 @@ def subsample_grid_corners_in_index_grid(
         each axis.
     """
     ssg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_world_extrema(
-        world_extrema
+        world_corners
     )
 
     ps = np.arange(0.5 / subsample, 1, 1 / subsample) - 0.5
@@ -70,7 +70,7 @@ def subsample_grid_corners_in_index_grid(
 
 
 def subsample_grid_corners_in_index_grid_non_vstack(
-    world_extrema: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
+    world_corners: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
     to_be_subsampled_grid_wcs: WcsBase,
     index_grid_wcs: WcsBase,
     subsample: int,
@@ -82,7 +82,7 @@ def subsample_grid_corners_in_index_grid_non_vstack(
 
     Parameters
     ----------
-    world_extrema: SkyCoord
+    world_corners: SkyCoord
         The sky/world positions of the extrema inside which to find the pixel
         corners of the data_grid.
 
@@ -107,7 +107,7 @@ def subsample_grid_corners_in_index_grid_non_vstack(
         inside the reconstruction_grid.
     """
     tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_world_extrema(
-        world_extrema
+        world_corners
     )
 
     ps = np.arange(0.5 / subsample, 1, 1 / subsample) - 0.5

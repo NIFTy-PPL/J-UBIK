@@ -9,7 +9,7 @@ from ...color import Color, ColorRange
 from ...grid import Grid
 from ...wcs.wcs_jwst_data import WcsJwstData
 from ...wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
-from .masking import get_mask_from_index_centers
+from .masking import get_mask_from_index_centers_within_rgrid
 
 from astropy import units
 from astropy.coordinates import SkyCoord
@@ -212,6 +212,7 @@ def load_jwst_data_mask_std(
     filepath: str,
     grid: Grid,
     world_corners: list[SkyCoord],
+    mask_corners: list[SkyCoord],
 ) -> [JwstData, ArrayLike, ArrayLike, ArrayLike]:
     """Load the data from filepath and return the data, mask, and std cutouts
     according to the reconstruction grid and `world_corners`.
@@ -239,14 +240,14 @@ def load_jwst_data_mask_std(
     # subsampling of the rotation and shift model.
 
     centers = subsample_grid_centers_in_index_grid(
-        world_extrema=world_corners,
+        world_corners=world_corners,
         to_be_subsampled_grid_wcs=jwst_data.wcs,
         index_grid_wcs=grid.spatial,
         subsample=1,
         indexing="xy",
     )
     data = jwst_data.data_inside_extrema(world_corners)
-    mask = get_mask_from_index_centers(centers, grid.spatial.shape)
+    mask = get_mask_from_index_centers_within_rgrid(centers, grid.spatial.shape)
     mask *= jwst_data.nan_inside_extrema(world_corners)
     std = jwst_data.std_inside_extrema(world_corners)
 

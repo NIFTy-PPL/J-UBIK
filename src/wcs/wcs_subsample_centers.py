@@ -16,7 +16,7 @@ from .wcs_astropy import WcsAstropy
 
 
 def subsample_grid_centers_in_index_grid(
-    world_extrema: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
+    world_corners: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
     to_be_subsampled_grid_wcs: Union[WcsAstropy, WcsJwstData],
     index_grid_wcs: Union[WcsAstropy, WcsJwstData],
     subsample: int,
@@ -29,7 +29,7 @@ def subsample_grid_centers_in_index_grid(
 
     Parameters
     ----------
-    world_extrema: SkyCoord
+    world_corners: SkyCoord
         The sky/world positions of the extrema inside which to find the
         subsampling centers.
         Works also if they are outside the grids.
@@ -49,7 +49,7 @@ def subsample_grid_centers_in_index_grid(
 
     # NOTE : GWCS.wcs expects `xy` indexing. Other arrays are not tested.
     tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_world_extrema(
-        world_extrema, indexing="xy"
+        world_corners, indexing="xy"
     )
 
     ps = np.arange(0.5 / subsample, 1, 1 / subsample) - 0.5
