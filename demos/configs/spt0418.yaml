@@ -227,6 +227,10 @@ sky:
 
 
 telescope:
+  corner_mask_01:
+    ra: [4h18m39.42s, 4h18m39.46s, 4h18m39.46s, 4h18m39.41s]
+    dec: [-47d51m52.3s, -47d51m52.4s, -47d51m53.3s, -47d51m53.2s]
+
   psf:
     webbpsf_path: './data/JWST/WebbPsf/webbpsf-data-LATEST/'
     psf_library: './data/JWST/psf_library'

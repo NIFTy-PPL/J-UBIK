@@ -7,6 +7,7 @@ from .jwst_response import build_jwst_response
 from .jwst_data import load_jwst_data_mask_std
 from ...grid import Grid
 from .filter_projector import FilterProjector, build_filter_projector
+from .parse.masking.data_mask import yaml_to_corner_mask_configs
 
 # Parsing
 from .parse.jwst_psf import yaml_to_psf_kernel_config
@@ -66,9 +67,10 @@ def build_jwst_likelihoods(
             # Loading data, std, and mask.
             grid_extension = get_grid_extension_from_config(cfg[telescope_key], grid)
             world_corners = grid.spatial.world_corners(extension_value=grid_extension)
+            mask_corners = yaml_to_corner_mask_configs(cfg[telescope_key])
 
             jwst_data, data, mask, std = load_jwst_data_mask_std(
-                filepath, grid, world_corners, None
+                filepath, grid, world_corners, mask_corners=mask_corners
             )
 
             if sky_unit is not None:

@@ -1,2 +1,2 @@
-from .data_mask import get_mask_from_index_centers_within_rgrid
+from .data_mask import *
 from .build_mask import build_mask

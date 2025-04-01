@@ -9,7 +9,11 @@ from ...color import Color, ColorRange
 from ...grid import Grid
 from ...wcs.wcs_jwst_data import WcsJwstData
 from ...wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
-from .masking import get_mask_from_index_centers_within_rgrid
+from .masking import (
+    get_mask_from_index_centers_within_rgrid,
+    get_mask_from_mask_corners,
+)
+from .parse.masking.data_mask import CornerMaskConfig
 
 from astropy import units
 from astropy.coordinates import SkyCoord
@@ -212,7 +216,7 @@ def load_jwst_data_mask_std(
     filepath: str,
     grid: Grid,
     world_corners: list[SkyCoord],
-    mask_corners: list[SkyCoord],
+    mask_corners: list[CornerMaskConfig],
 ) -> [JwstData, ArrayLike, ArrayLike, ArrayLike]:
     """Load the data from filepath and return the data, mask, and std cutouts
     according to the reconstruction grid and `world_corners`.
@@ -249,6 +253,12 @@ def load_jwst_data_mask_std(
     data = jwst_data.data_inside_extrema(world_corners)
     mask = get_mask_from_index_centers_within_rgrid(centers, grid.spatial.shape)
     mask *= jwst_data.nan_inside_extrema(world_corners)
+
+    corner_masks = [
+        get_mask_from_mask_corners(data.shape, jwst_data.wcs, world_corners, mc.corners)
+        for mc in mask_corners
+    ]
+    mask *= ~np.sum(corner_masks, axis=0, dtype=bool)
     std = jwst_data.std_inside_extrema(world_corners)
 
     return jwst_data, data, mask, std
