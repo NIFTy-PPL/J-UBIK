@@ -59,11 +59,18 @@ lens_system = build_lens_system(cfg["sky"])
 
 if cfg["nonparametric_lens"]:
     sky_model = lens_system.get_forward_model_full()
+    sky_model_parametric = lens_system.get_forward_model_parametric_source()
     parametric_flag = False
 else:
     sky_model = lens_system.get_forward_model_parametric()
+    sky_model_parametric = lens_system.get_forward_model_parametric_source(
+        parametric_lens=True
+    )
     parametric_flag = True
 sky_model = jft.Model(jft.wrap_left(sky_model, SKY_KEY), domain=sky_model.domain)
+sky_model_parametric = jft.Model(
+    jft.wrap_left(sky_model_parametric, SKY_KEY), domain=sky_model_parametric.domain
+)
 
 # # For testing
 # sky_model = build_nifty_mf_from_grid(
@@ -81,8 +88,12 @@ likelihood, filter_projector, data_dict = build_jwst_likelihoods(
 sky_model_with_keys = jft.Model(
     lambda x: filter_projector(sky_model(x)), init=sky_model.init
 )
-
 likelihood = connect_likelihood_to_model(likelihood, sky_model_with_keys)
+
+smwk_parametric = jft.Model(
+    lambda x: filter_projector(sky_model_parametric(x)), init=sky_model_parametric.init
+)
+likelihood_parametric = connect_likelihood_to_model(likelihood, smwk_parametric)
 
 plot_source, plot_residual, plot_lens, plot_color = get_plot(
     results_directory,
@@ -128,10 +139,9 @@ key = random.PRNGKey(cfg_mini.get("key", 42))
 key, rec_key = random.split(key, 2)
 pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
 
-
 print(f"Results: {results_directory}")
 samples, state = jft.optimize_kl(
-    likelihood,
+    likelihood_parametric,
     pos_init,
     key=rec_key,
     callback=plot,
