@@ -316,7 +316,7 @@ telescope:
       #     rotation: ['delta', -1.95823434e-05, 0]
 
 files:
-  res_dir: './results/jwst_lens/cluster/01_newdata'
+  res_dir: './results/jwst_lens/cluster/03_parametric'
 
   filter:
 
