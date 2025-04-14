@@ -46,8 +46,8 @@ class LensSystemPlottingConfig:
 
 @dataclass
 class ResidualPlottingConfig:
-    sky: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
-    data: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
+    sky: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
+    data: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
 
     std_relative: bool = True
     display_pointing: bool = True
