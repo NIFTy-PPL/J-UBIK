@@ -88,12 +88,14 @@ likelihood, filter_projector, data_dict = build_jwst_likelihoods(
 sky_model_with_keys = jft.Model(
     lambda x: filter_projector(sky_model(x)), init=sky_model.init
 )
-likelihood = connect_likelihood_to_model(likelihood, sky_model_with_keys)
+# likelihood = connect_likelihood_to_model(likelihood, sky_model_with_keys)
 
 smwk_parametric = jft.Model(
     lambda x: filter_projector(sky_model_parametric(x)), init=sky_model_parametric.init
 )
-likelihood_parametric = connect_likelihood_to_model(likelihood, smwk_parametric)
+likelihood = likelihood_parametric = connect_likelihood_to_model(
+    likelihood, smwk_parametric
+)
 
 plot_source, plot_residual, plot_lens, plot_color = get_plot(
     results_directory,
