@@ -398,7 +398,7 @@ files:
 minimization:
     key: 20250412
     resume: False
-    n_total_iterations: 25
+    n_total_iterations: 10
 
     delta:
       switches: [0, 10, 15]

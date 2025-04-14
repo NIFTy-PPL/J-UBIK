@@ -12,7 +12,6 @@ from matplotlib.colors import LogNorm
 import jubik0 as ju
 from jubik0.grid import Grid
 
-# from charm_lensing.physical_models.multifrequency_models.nifty_mf import build_nifty_mf_from_grid
 from jubik0.instruments.jwst.config_handler import (
     insert_spaces_in_lensing_new,
     load_yaml_and_save_info,
@@ -60,13 +59,13 @@ lens_system = build_lens_system(cfg["sky"])
 if cfg["nonparametric_lens"]:
     sky_model = lens_system.get_forward_model_full()
     sky_model_parametric = lens_system.get_forward_model_parametric_source()
-    parametric_flag = False
+    parametric_lens_flag = False
 else:
     sky_model = lens_system.get_forward_model_parametric()
     sky_model_parametric = lens_system.get_forward_model_parametric_source(
         parametric_lens=True
     )
-    parametric_flag = True
+    parametric_lens_flag = True
 sky_model = jft.Model(jft.wrap_left(sky_model, SKY_KEY), domain=sky_model.domain)
 sky_model_parametric = jft.Model(
     jft.wrap_left(sky_model_parametric, SKY_KEY), domain=sky_model_parametric.domain
@@ -80,7 +79,7 @@ sky_model_parametric = jft.Model(
 #     reference_bin=grid_model.color_reference_bin,
 # )
 
-likelihood, filter_projector, data_dict = build_jwst_likelihoods(
+likelihood_raw, filter_projector, data_dict = build_jwst_likelihoods(
     cfg, grid, sky_model, sky_key=SKY_KEY, sky_unit=SKY_UNIT
 )
 
@@ -88,27 +87,36 @@ likelihood, filter_projector, data_dict = build_jwst_likelihoods(
 sky_model_with_keys = jft.Model(
     lambda x: filter_projector(sky_model(x)), init=sky_model.init
 )
-# likelihood = connect_likelihood_to_model(likelihood, sky_model_with_keys)
+likelihood = connect_likelihood_to_model(likelihood_raw, sky_model_with_keys)
 
 smwk_parametric = jft.Model(
     lambda x: filter_projector(sky_model_parametric(x)), init=sky_model_parametric.init
 )
-likelihood = likelihood_parametric = connect_likelihood_to_model(
-    likelihood, smwk_parametric
-)
+likelihood_parametric = connect_likelihood_to_model(likelihood_raw, smwk_parametric)
 
-plot_source, plot_residual, plot_lens, plot_color = get_plot(
+plot_source, plot_residual, plot_lens = get_plot(
     results_directory,
     grid,
     lens_system,
     filter_projector,
     data_dict,
-    sky_model,
     sky_model_with_keys,
-    cfg,
-    parametric_flag,
-    sky_key=SKY_KEY,
+    parametric_lens_flag,
 )
+
+from os.path import join
+
+_, plot_residual_parametric, plot_lens_parametric = get_plot(
+    join(results_directory, "parametric"),
+    grid,
+    lens_system,
+    filter_projector,
+    data_dict,
+    smwk_parametric,
+    parametric_lens_flag,
+    True,
+)
+
 
 if cfg.get("prior_samples"):
     plot_prior(
@@ -120,7 +128,7 @@ if cfg.get("prior_samples"):
         plot_source=False,
         plot_lens=False,
         data_dict=data_dict,
-        parametric_flag=parametric_flag,
+        parametric_flag=parametric_lens_flag,
         sky_key=SKY_KEY,
     )
 
@@ -128,10 +136,16 @@ if cfg.get("prior_samples"):
 def plot(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f"Plotting: {state.nit}")
     if cfg["plot_results"]:
-        plot_source(samples, state)
         plot_residual(samples, state)
-        # plot_color(samples, state)
-        plot_lens(samples, state, parametric=parametric_flag)
+        plot_lens(samples, state)
+        plot_source(samples, state)
+
+
+def plot_parametric(samples: jft.Samples, state: jft.OptimizeVIState):
+    print(f"Plotting: {state.nit}")
+    if cfg["plot_results"]:
+        plot_residual_parametric(samples, state)
+        plot_lens_parametric(samples, state)
 
 
 cfg_mini = ju.get_config(config_path)["minimization"]
@@ -154,5 +168,6 @@ samples, state = jft.optimize_kl(
     draw_linear_kwargs=minpars.draw_linear_kwargs,
     nonlinearly_update_kwargs=minpars.nonlinearly_update_kwargs,
     kl_kwargs=minpars.kl_kwargs,
+    constants=[p for p in likelihood_parametric.domain.tree if "nifty_mf" in p],
     resume=cfg_mini.get("resume", False),
 )
