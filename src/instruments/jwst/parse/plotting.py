@@ -27,23 +27,27 @@ class FieldPlottingConfig:
 
 @dataclass
 class MultiFrequencyPlottingConfig:
-    alpha: FieldPlottingConfig = FieldPlottingConfig()
-    reference: FieldPlottingConfig = FieldPlottingConfig()
-    combined: FieldPlottingConfig = FieldPlottingConfig()
+    alpha: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
+    reference: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
+    combined: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
 
 
 @dataclass
 class LensSystemPlottingConfig:
     share_source_vmin_vmax: bool = False  # Sharing vmin, vmax for the source brightness
-    source: MultiFrequencyPlottingConfig = MultiFrequencyPlottingConfig()
-    lens_light: MultiFrequencyPlottingConfig = MultiFrequencyPlottingConfig()
-    lens_mass: FieldPlottingConfig = FieldPlottingConfig()
+    source: MultiFrequencyPlottingConfig = field(
+        default_factory=MultiFrequencyPlottingConfig()
+    )
+    lens_light: MultiFrequencyPlottingConfig = field(
+        default_factory=MultiFrequencyPlottingConfig()
+    )
+    lens_mass: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
 
 
 @dataclass
 class ResidualPlottingConfig:
-    sky: FieldPlottingConfig = FieldPlottingConfig()
-    data: FieldPlottingConfig = FieldPlottingConfig()
+    sky: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
+    data: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
 
     std_relative: bool = True
     display_pointing: bool = True
