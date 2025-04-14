@@ -27,21 +27,21 @@ class FieldPlottingConfig:
 
 @dataclass
 class MultiFrequencyPlottingConfig:
-    alpha: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
-    reference: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
-    combined: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
+    alpha: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
+    reference: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
+    combined: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
 
 
 @dataclass
 class LensSystemPlottingConfig:
     share_source_vmin_vmax: bool = False  # Sharing vmin, vmax for the source brightness
     source: MultiFrequencyPlottingConfig = field(
-        default_factory=MultiFrequencyPlottingConfig()
+        default_factory=MultiFrequencyPlottingConfig
     )
     lens_light: MultiFrequencyPlottingConfig = field(
-        default_factory=MultiFrequencyPlottingConfig()
+        default_factory=MultiFrequencyPlottingConfig
     )
-    lens_mass: FieldPlottingConfig = field(default_factory=FieldPlottingConfig())
+    lens_mass: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
 
 
 @dataclass
