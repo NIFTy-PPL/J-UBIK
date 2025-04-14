@@ -1,69 +1,59 @@
-from .jwst_plotting import (
-    get_alpha_nonpar,
-    build_plot_lens_system,
-    build_color_components_plotting,
-    build_plot_sky_residuals,
-    build_plot_source,
-    FieldPlottingConfig,
-    ResidualPlottingConfig,
-)
-from ..filter_projector import FilterProjector
+from typing import Union
+from os.path import join
+
+import matplotlib.pyplot as plt
+import nifty8.re as jft
+import numpy as np
+from jax import random
+
 from ....grid import Grid
 from ....parse.grid import GridModel
-
-import nifty8.re as jft
-
-from charm_lensing.lens_system import LensSystem
-
-from jax import random
-from matplotlib.colors import LogNorm
-
-from typing import Union
+from ..filter_projector import FilterProjector
+from .plotting_base import find_closest_factors, get_position_or_samples_of_model
+from .residuals import build_plot_sky_residuals
+from ..parse.plotting import (
+    LensSystemPlottingConfig,
+    ResidualPlottingConfig,
+    FieldPlottingConfig,
+)
+from .plotting_lens_system import build_plot_lens_system
+from .plot_source import build_plot_source
 
 
 def get_plot(
     results_directory: str,
     grid: Grid,
-    lens_system: LensSystem,
+    lens_system,
     filter_projector: FilterProjector,
     data_dict: dict,
-    sky_model: jft.Model,
     sky_model_with_keys: jft.Model,
-    cfg: dict,
-    parametric_flag: bool,
-    sky_key: str = "sky",
+    parametric_lens: bool,
+    parametric_source: bool = False,
+    max_residuals: int = 4,
     residual_ylen_offset: int = 0,
 ):
-    if isinstance(filter_projector.domain, jft.ShapeWithDtype):
-        sky_model_new = sky_model
-    else:
-        sky_model_new = jft.Model(
-            lambda x: sky_model(x)[sky_key], domain=sky_model.domain
-        )
+    from charm_lensing.lens_system import LensSystem
 
-    ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)
+    lens_system: LensSystem = lens_system
 
+    plotting_config_lens = LensSystemPlottingConfig()
+    plotting_config_lens.source.combined.norm = "log"
+    plotting_config_lens.lens_light.combined.norm = "log"
+    plotting_config_lens.share_source_vmin_vmax = False
     plot_lens = build_plot_lens_system(
         results_directory,
-        plotting_config=dict(
-            norm_source=LogNorm,
-            norm_lens=LogNorm,
-            # norm_source_alpha=LogNorm,
-            # norm_source_nonparametric=LogNorm,
-            # norm_mass=LogNorm,
-            share_source=False,
-        ),
+        plotting_config=plotting_config_lens,
         lens_system=lens_system,
         grid=grid,
-        lens_light_alpha_nonparametric=(ll_alpha, ll_nonpar),
-        source_light_alpha_nonparametric=(sl_alpha, sl_nonpar),
+        parametric_lens=parametric_lens,
+        parametric_source=parametric_source,
     )
 
     residual_plotting_config = ResidualPlottingConfig(
-        sky=FieldPlottingConfig(norm=LogNorm),
-        data=FieldPlottingConfig(norm=LogNorm),
+        sky=FieldPlottingConfig(norm="log", vmin=1e-4, vmax=1e2),
+        data=FieldPlottingConfig(norm="log", vmin=1e-3),
         display_pointing=False,
-        xmax_residuals=cfg.get("max_residuals", 4),
+        xmax_residuals=max_residuals,
         ylen_offset=residual_ylen_offset,
     )
     plot_residual = build_plot_sky_residuals(
@@ -71,33 +61,17 @@ def get_plot(
         filter_projector=filter_projector,
         data_dict=data_dict,
         sky_model_with_key=sky_model_with_keys,
-        small_sky_model=sky_model_new,
         plotting_config=residual_plotting_config,
-    )
-
-    plot_color = build_color_components_plotting(
-        lens_system.source_plane_model.light_model.nonparametric,
-        results_directory,
-        substring="source",
     )
 
     plot_source = build_plot_source(
         results_directory,
-        plotting_config=dict(
-            norm_source=LogNorm,
-            norm_source_parametric=LogNorm,
-            norm_source_nonparametric=LogNorm,
-            extent=lens_system.source_plane_model.space.extend().extent,
-        ),
+        plotting_config=FieldPlottingConfig(vmin=1e-4, norm="log"),
+        lens_system=lens_system,
         grid=grid,
-        source_light_model=lens_system.source_plane_model.light_model,
-        source_light_alpha=sl_alpha,
-        source_light_parametric=lens_system.source_plane_model.light_model.parametric,
-        source_light_nonparametric=sl_nonpar,
-        attach_name="",
     )
 
-    return plot_source, plot_residual, plot_lens, plot_color
+    return plot_source, plot_residual, plot_lens
 
 
 def plot_prior(
@@ -112,9 +86,10 @@ def plot_prior(
     sky_key: str = "sky",
     residual_ylen_offset: int = 0,
 ):
-    from charm_lensing.lens_system import build_lens_system
-    from jubik0.instruments.jwst.config_handler import insert_spaces_in_lensing_new
     import yaml
+    from charm_lensing.lens_system import build_lens_system
+
+    from jubik0.instruments.jwst.config_handler import insert_spaces_in_lensing_new
 
     test_key, _ = random.split(random.PRNGKey(42), 2)
 
@@ -141,9 +116,9 @@ def plot_prior(
         plot_source = build_plot_source(
             results_directory,
             plotting_config=dict(
-                norm_source=LogNorm,
-                norm_source_parametric=LogNorm,
-                norm_source_nonparametric=LogNorm,
+                norm_source="log",
+                norm_source_parametric="log",
+                norm_source_nonparametric="log",
                 extent=lens_system.source_plane_model.space.extend().extent,
             ),
             grid=grid,
@@ -162,10 +137,10 @@ def plot_prior(
         plot_lens = build_plot_lens_system(
             results_directory,
             plotting_config=dict(
-                norm_source=LogNorm,
-                norm_lens=LogNorm,
+                norm_source="log",
+                norm_lens="log",
                 # norm_source_alpha=LogNorm,
-                norm_source_nonparametric=LogNorm,
+                norm_source_nonparametric="log",
                 # norm_mass=LogNorm,
             ),
             lens_system=lens_system,
@@ -198,8 +173,8 @@ def plot_prior(
 
         prior_dict = {kk: vv for kk, vv in filter_data(data_dict)}
         residual_plotting_config = ResidualPlottingConfig(
-            sky=FieldPlottingConfig(norm=LogNorm),
-            data=FieldPlottingConfig(norm=LogNorm),
+            sky=FieldPlottingConfig(norm="log"),
+            data=FieldPlottingConfig(norm="log"),
             display_pointing=False,
             xmax_residuals=cfg.get("max_residuals", 4),
             ylen_offset=residual_ylen_offset,
@@ -228,3 +203,112 @@ def plot_prior(
         plot_source(position)
         # plot_color(position)
         plot_lens(position, None, parametric=parametric_flag)
+
+
+def build_plot_model_samples(
+    results_directory: str,
+    model_name: str,
+    model: jft.Model,
+    mapping_axis: int | None = None,
+    plotting_config: dict = {},
+):
+    sky_directory = join(results_directory, model_name)
+    makedirs(sky_directory, exist_ok=True)
+
+    norm = plotting_config.get("norm", Normalize)
+    sky_min = plotting_config.get("min", 5e-4)
+    extent = plotting_config.get("extent")
+
+    def plot_sky_samples(samples: jft.Samples, x: jft.OptimizeVIState):
+        samps_big = [model(si) for si in samples]
+        mean, std = jft.mean_and_std(samps_big)
+        vmin = np.max((mean.min(), sky_min))
+        vmax = mean.max()
+
+        if mapping_axis is None:
+            ylen, xlen = find_closest_factors(len(samples) + 2)
+        else:
+            ylen, xlen = model.target[mapping_axis], len(samples) + 2
+        fig, axes = plt.subplots(ylen, xlen, figsize=(2 * xlen, 1.5 * ylen), dpi=300)
+
+        if mapping_axis is None:
+            axes = [axes]
+
+        for axi in axes:
+            for ax, fld in zip(axi.flatten(), samps_big):
+                im = ax.imshow(
+                    fld,
+                    origin="lower",
+                    extent=extent,
+                    norm=norm(vmin=vmin, vmax=vmax),
+                    interpolation="None",
+                )
+                fig.colorbar(im, ax=ax, shrink=0.7)
+
+        fig.tight_layout()
+        fig.savefig(join(sky_directory, f"{x.nit:02d}.png"), dpi=300)
+        plt.close()
+
+    return plot_sky_samples
+
+
+def rgb_plotting(
+    lens_system,
+    samples: jft.Samples,
+    three_filter_names: tuple[str] = ("f1000w", "f770w", "f560w"),
+):
+    sl = lens_system.source_plane_model.light_model
+    ms, mss = jft.mean_and_std([sl(si) for si in samples])
+
+    from astropy import cosmology, units
+
+    sextent = np.array(lens_system.source_plane_model.space.extend().extent)
+    extent_kpc = (
+        np.tan(sextent * units.arcsec)
+        * cosmology.Planck13.angular_diameter_distance(4.2).to(units.kpc)
+    ).value
+
+    # f0, f1, f2 = 'f560w', 'f444w', 'f356w'
+    # f0, f1, f2 = 'f1000w', 'f770w', 'f560w'
+    f0, f1, f2 = three_filter_names
+
+    rgb = np.zeros((384, 384, 3))
+    rgb[:, :, 0] = ms[0]
+    rgb[:, :, 1] = ms[1]
+    rgb[:, :, 2] = ms[2]
+
+    rgb = rgb / np.max(rgb)
+    rgb = np.sqrt(rgb)
+
+    import matplotlib.font_manager as fm
+    from charm_lensing.plotting import display_scalebar, display_text
+
+    fig, ax = plt.subplots(1, 1, figsize=(11.5, 10))
+    ax.imshow(rgb, origin="lower", extent=extent_kpc, interpolation="None")
+    display_scalebar(
+        ax, dict(size=5, unit="kpc", fontproperties=fm.FontProperties(size=24))
+    )
+    display_text(
+        ax,
+        text=dict(s=f0, color="red", fontproperties=fm.FontProperties(size=30)),
+        keyword="top_right",
+        y_offset_ticker=0,
+    )
+    display_text(
+        ax,
+        text=dict(s=f1, color="green", fontproperties=fm.FontProperties(size=30)),
+        keyword="top_right",
+        y_offset_ticker=1,
+    )
+    display_text(
+        ax,
+        text=dict(s=f2, color="blue", fontproperties=fm.FontProperties(size=30)),
+        keyword="top_right",
+        y_offset_ticker=2,
+    )
+    ax.set_xlim(-5.5, 6)
+    ax.set_ylim(-4, 6)
+    plt.axis("off")  # Turn off axis
+    plt.tight_layout()
+    plt.savefig(f"{f0}_{f1}_{f2}_source.png")
+    plt.close()
