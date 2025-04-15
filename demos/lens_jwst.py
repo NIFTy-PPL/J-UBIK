@@ -21,6 +21,7 @@ from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
 from jubik0.instruments.jwst.plotting.plotting import get_plot, plot_prior
 from jubik0.likelihood import connect_likelihood_to_model
 from jubik0.parse.grid import GridModel
+from jubik0.minimization import minimization_from_samples, KLSettings
 
 SKY_KEY = "sky"
 SKY_UNIT = u.MJy / u.sr
@@ -149,25 +150,32 @@ def plot_parametric(samples: jft.Samples, state: jft.OptimizeVIState):
 
 cfg_mini = ju.get_config(config_path)["minimization"]
 n_dof = ju.get_n_constrained_dof(likelihood)
-minpars = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
-key = random.PRNGKey(cfg_mini.get("key", 42))
-key, rec_key = random.split(key, 2)
-pos_init = 0.1 * jft.random_like(rec_key, likelihood.domain)
+mini_parser = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
 
-print(f"Results: {results_directory}")
-samples, state = jft.optimize_kl(
-    likelihood_parametric,
-    pos_init,
-    key=rec_key,
-    callback=plot,
-    odir=results_directory,
-    n_total_iterations=cfg_mini["n_total_iterations"],
-    n_samples=minpars.n_samples,
-    sample_mode=minpars.sample_mode,
-    draw_linear_kwargs=minpars.draw_linear_kwargs,
-    nonlinearly_update_kwargs=minpars.nonlinearly_update_kwargs,
-    kl_kwargs=minpars.kl_kwargs,
+kl_settings_parametric = KLSettings(
+    random_key=random.PRNGKey(cfg_mini.get("key", 42)),
+    outputdir=join(results_directory, "parametric"),
+    minimization=mini_parser,
+    n_total_iterations=3,
+    callback=plot_parametric,
     constants=[p for p in likelihood_parametric.domain.tree if "nifty_mf" in p],
-    # resume=True,
     resume=cfg_mini.get("resume", False),
+)
+
+kl_settings_full = KLSettings(
+    random_key=random.PRNGKey(cfg_mini.get("key", 42)),
+    outputdir=results_directory,
+    minimization=mini_parser,
+    n_total_iterations=cfg_mini["n_total_iterations"],
+    callback=plot,
+    resume=cfg_mini.get("resume", False),
+)
+
+
+samples_parametric, state_parametric = minimization_from_samples(
+    likelihood_parametric, kl_settings_parametric, None
+)
+
+samples, state = minimization_from_samples(
+    likelihood, kl_settings_parametric, samples_parametric
 )

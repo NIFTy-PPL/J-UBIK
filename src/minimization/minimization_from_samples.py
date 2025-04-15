@@ -1,4 +1,4 @@
-from .minimization_parser import MinimizationParser
+from ..minimization_parser import MinimizationParser
 
 import nifty8.re as jft
 from jax import random
@@ -12,8 +12,11 @@ class KLSettings:
     random_key: random.PRNGKey
     outputdir: str
     minimization: MinimizationParser
+    n_total_iterations: int
     callback: Optional[Callable[jft.Samples, jft.OptimizeVIState]] = None
     sample_multiply: Optional[float] = 0.1
+    constants: tuple[str] = ()
+    resume: bool = False
 
 
 def _initial_position(
@@ -64,6 +67,8 @@ def minimization_from_initial_samples(
         This can be a set of samples from a subdomain of likelihood. The mean
         will be taken in order to start the minimization.
     """
+    jft.logger.info(f"Results: {kl_settings.outputdir}")
+
     init_key, mini_key = random.split(kl_settings.random_key, 2)
 
     initial_position = _initial_position(
@@ -74,19 +79,20 @@ def minimization_from_initial_samples(
     )
 
     # Minimze only parametric
-    minimization = kl_settings.minimization
+    minimization: MinimizationParser = kl_settings.minimization
     samples, state = jft.optimize_kl(
         likelihood,
         initial_position,
         key=mini_key,
         callback=kl_settings.callback,
         odir=kl_settings.outputdir,
-        n_total_iterations=minimization.n_total_iterations,
+        n_total_iterations=kl_settings.n_total_iterations,
         n_samples=minimization.n_samples,
         sample_mode=minimization.sample_mode,
         draw_linear_kwargs=minimization.draw_linear_kwargs,
         nonlinearly_update_kwargs=minimization.nonlinearly_update_kwargs,
         kl_kwargs=minimization.kl_kwargs,
-        resume=minimization.resume,
+        constants=kl_settings.constants,
+        resume=kl_settings.resume,
     )
     return samples, state
