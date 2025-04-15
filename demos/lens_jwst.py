@@ -151,7 +151,7 @@ kl_settings_imaging = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=join(results_directory, "imaging"),
     minimization=mini_parser,
-    n_total_iterations=20,
+    n_total_iterations=13,
     callback=plot_imaging,
     # constants=[p for p in likelihood_imaging.domain.tree if "nifty_mf" in p],
     # point_estimates=[p for p in likelihood_imaging.domain.tree if "nifty_mf" in p],
@@ -167,24 +167,24 @@ kl_settings = KLSettings(
     callback=plot,
     resume=cfg_mini.get("resume", False),
 )
-
-
-jft.logger.info("Imaging reconstruction")
-samples_imaging, state_imaging = minimization_from_initial_samples(
-    likelihood_imaging, kl_settings_imaging, None
-)
-
-import jax
-
-jax.clear_caches()
-
-jft.logger.info("Full reconstruction")
-tmp_pos = samples_imaging.pos
-while isinstance(tmp_pos, jft.Vector):
-    tmp_pos = tmp_pos.tree
+#
+#
+# jft.logger.info("Imaging reconstruction")
+# samples_imaging, state_imaging = minimization_from_initial_samples(
+#     likelihood_imaging, kl_settings_imaging, None
+# )
+#
+# import jax
+#
+# jax.clear_caches()
+#
+# jft.logger.info("Full reconstruction")
+# tmp_pos = samples_imaging.pos
+# while isinstance(tmp_pos, jft.Vector):
+#     tmp_pos = tmp_pos.tree
 samples, state = minimization_from_initial_samples(
     likelihood,
     kl_settings,
-    samples_imaging,
-    not_take_starting_pos_keys=[k for k in tmp_pos.keys() if "nifty_mf" in k],
+    # samples_imaging,
+    # not_take_starting_pos_keys=[k for k in tmp_pos.keys() if "nifty_mf" in k],
 )
