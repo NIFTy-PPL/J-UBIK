@@ -398,7 +398,7 @@ files:
 minimization:
     key: 20250412
     resume: False
-    n_total_iterations: 15
+    n_total_iterations: 20
 
     delta:
       switches: [0, 10, 15]
@@ -409,7 +409,7 @@ minimization:
       n_samples: [3]
       # n_samples: [5]
       # mode: [linear_resample, nonlinear_resample, nonlinear_resample, nonlinear_update]
-      mode: [linear_resample]
+      mode: [linear_resample, nonlinear_resample]
       # Possible modes:
       # - "linear_sample",
       # - "linear_resample",
