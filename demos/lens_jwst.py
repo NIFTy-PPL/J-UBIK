@@ -72,32 +72,24 @@ else:
     )
     parametric_lens_flag = True
 sky_model = jft.Model(jft.wrap_left(sky_model, SKY_KEY), domain=sky_model.domain)
-sky_model_parametric = jft.Model(
-    jft.wrap_left(sky_model_parametric, SKY_KEY), domain=sky_model_parametric.domain
-)
-
-# # For testing
-# sky_model = build_nifty_mf_from_grid(
-#     grid,
-#     'test',
-#     cfg['sky']['model']['source']['light']['multifrequency']['nifty_mf'],
-#     reference_bin=grid_model.color_reference_bin,
-# )
-
 likelihood_raw, filter_projector, data_dict = build_jwst_likelihoods(
     cfg, grid, sky_model, sky_key=SKY_KEY, sky_unit=SKY_UNIT
 )
-
 
 sky_model_with_keys = jft.Model(
     lambda x: filter_projector(sky_model(x)), init=sky_model.init
 )
 likelihood = connect_likelihood_to_model(likelihood_raw, sky_model_with_keys)
 
-smwk_parametric = jft.Model(
-    lambda x: filter_projector(sky_model_parametric(x)), init=sky_model_parametric.init
+imaging_model = jft.Model(
+    lambda x: filter_projector(
+        jft.wrap_left(lens_system.lens_plane_model.light_model.nonparametric, SKY_KEY)(
+            x
+        )
+    ),
+    init=lens_system.lens_plane_model.light_model.nonparametric.init,
 )
-likelihood_parametric = connect_likelihood_to_model(likelihood_raw, smwk_parametric)
+likelihood_imaging = connect_likelihood_to_model(likelihood_raw, imaging_model)
 
 plot_source, plot_residual, plot_lens = get_plot(
     results_directory,
@@ -109,13 +101,13 @@ plot_source, plot_residual, plot_lens = get_plot(
     parametric_lens_flag,
 )
 
-_, plot_residual_parametric, plot_lens_parametric = get_plot(
+_, plot_residual_imaging, _ = get_plot(
     join(results_directory, "parametric"),
     grid,
     lens_system,
     filter_projector,
     data_dict,
-    smwk_parametric,
+    imaging_model,
     parametric_lens_flag,
     True,
 )
@@ -144,26 +136,26 @@ def plot(samples: jft.Samples, state: jft.OptimizeVIState):
         plot_source(samples, state)
 
 
-def plot_parametric(samples: jft.Samples, state: jft.OptimizeVIState):
+def plot_imaging(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f"Plotting: {state.nit}")
     if cfg["plot_results"]:
-        plot_residual_parametric(samples, state)
-        plot_lens_parametric(samples, state)
+        plot_residual_imaging(samples, state)
+        # plot_lens_parametric(samples, state)
 
 
 cfg_mini = ju.get_config(config_path)["minimization"]
 n_dof = ju.get_n_constrained_dof(likelihood)
 mini_parser = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
 
-kl_settings_parametric = KLSettings(
+kl_settings_imaging = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
-    outputdir=join(results_directory, "parametric"),
+    outputdir=join(results_directory, "imaging"),
     minimization=mini_parser,
     n_total_iterations=3,
-    callback=plot_parametric,
-    constants=[p for p in likelihood_parametric.domain.tree if "nifty_mf" in p],
-    point_estimates=[p for p in likelihood_parametric.domain.tree if "nifty_mf" in p],
-    resume=True,  # cfg_mini.get("resume", False),
+    callback=plot_imaging,
+    # constants=[p for p in likelihood_imaging.domain.tree if "nifty_mf" in p],
+    # point_estimates=[p for p in likelihood_imaging.domain.tree if "nifty_mf" in p],
+    resume=cfg_mini.get("resume", False),
 )
 
 kl_settings = KLSettings(
@@ -176,10 +168,18 @@ kl_settings = KLSettings(
 )
 
 
-samples_parametric, state_parametric = minimization_from_initial_samples(
-    likelihood_parametric, kl_settings_parametric, None
+jft.logger.info("Imaging reconstruction")
+samples_imaging, state_imaging = minimization_from_initial_samples(
+    likelihood_imaging, kl_settings_imaging, None
 )
 
+jft.logger.info("Full reconstruction")
+tmp_pos = samples_imaging.pos
+while isinstance(tmp_pos, jft.Vector):
+    tmp_pos = tmp_pos.tree
 samples, state = minimization_from_initial_samples(
-    likelihood, kl_settings, samples_parametric
+    likelihood,
+    kl_settings,
+    samples_imaging,
+    not_take_starting_pos_keys=[k for k in tmp_pos.keys() if "nifty_mf" in k],
 )

@@ -25,6 +25,7 @@ def _initial_position(
     domain,
     position_rescaling,
     starting_samples: Optional[jft.Samples] = None,
+    not_take_starting_pos_keys: tuple[str] = (),
 ):
     initial_position = jft.random_like(init_key, domain) * position_rescaling
     while isinstance(initial_position, jft.Vector):
@@ -34,11 +35,10 @@ def _initial_position(
         starting_pos = starting_samples.pos
         while isinstance(starting_pos, jft.Vector):
             starting_pos = starting_pos.tree
-        while isinstance(initial_position, jft.Vector):
-            initial_position = initial_position.tree
 
-        for key in starting_pos.keys():
-            initial_position[key] = starting_pos[key]
+        for key in initial_position.keys():
+            if key in starting_pos and not (key in not_take_starting_pos_keys):
+                initial_position[key] = starting_pos[key]
 
     return jft.Vector(initial_position)
 
@@ -47,6 +47,7 @@ def minimization_from_initial_samples(
     likelihood: jft.Likelihood,
     kl_settings: KLSettings,
     starting_samples: Optional[jft.Samples] = None,
+    not_take_starting_pos_keys: tuple[str] = (),
 ):
     """This function executes a KL minimization specified by the
     `KLSettings`. Optionally, one can start the reconstruction from
@@ -77,6 +78,7 @@ def minimization_from_initial_samples(
         likelihood.domain,
         position_rescaling=kl_settings.sample_multiply,
         starting_samples=starting_samples,
+        not_take_starting_pos_keys=not_take_starting_pos_keys,
     )
 
     # Minimze only parametric
