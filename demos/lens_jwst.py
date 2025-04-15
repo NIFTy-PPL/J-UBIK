@@ -21,7 +21,10 @@ from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
 from jubik0.instruments.jwst.plotting.plotting import get_plot, plot_prior
 from jubik0.likelihood import connect_likelihood_to_model
 from jubik0.parse.grid import GridModel
-from jubik0.minimization import minimization_from_samples, KLSettings
+from jubik0.minimization.minimization_from_samples import (
+    minimization_from_initial_samples,
+    KLSettings,
+)
 
 SKY_KEY = "sky"
 SKY_UNIT = u.MJy / u.sr
@@ -172,10 +175,10 @@ kl_settings_full = KLSettings(
 )
 
 
-samples_parametric, state_parametric = minimization_from_samples(
+samples_parametric, state_parametric = minimization_from_initial_samples(
     likelihood_parametric, kl_settings_parametric, None
 )
 
-samples, state = minimization_from_samples(
+samples, state = minimization_from_initial_samples(
     likelihood, kl_settings_parametric, samples_parametric
 )
