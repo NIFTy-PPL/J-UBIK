@@ -162,10 +162,11 @@ kl_settings_parametric = KLSettings(
     n_total_iterations=3,
     callback=plot_parametric,
     constants=[p for p in likelihood_parametric.domain.tree if "nifty_mf" in p],
-    resume=cfg_mini.get("resume", False),
+    point_estimates=[p for p in likelihood_parametric.domain.tree if "nifty_mf" in p],
+    resume=True,  # cfg_mini.get("resume", False),
 )
 
-kl_settings_full = KLSettings(
+kl_settings = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=results_directory,
     minimization=mini_parser,
@@ -180,5 +181,5 @@ samples_parametric, state_parametric = minimization_from_initial_samples(
 )
 
 samples, state = minimization_from_initial_samples(
-    likelihood, kl_settings_parametric, samples_parametric
+    likelihood, kl_settings, samples_parametric
 )

@@ -16,6 +16,7 @@ class KLSettings:
     callback: Optional[Callable[jft.Samples, jft.OptimizeVIState]] = None
     sample_multiply: Optional[float] = 0.1
     constants: tuple[str] = ()
+    point_estimates: tuple[str] = ()
     resume: bool = False
 
 
@@ -93,6 +94,7 @@ def minimization_from_initial_samples(
         nonlinearly_update_kwargs=minimization.nonlinearly_update_kwargs,
         kl_kwargs=minimization.kl_kwargs,
         constants=kl_settings.constants,
+        point_estimates=kl_settings.point_estimates,
         resume=kl_settings.resume,
     )
     return samples, state
