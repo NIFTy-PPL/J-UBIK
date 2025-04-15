@@ -1,5 +1,6 @@
 import argparse
 from sys import exit
+from os.path import join
 
 import jax.numpy as jnp
 import nifty8.re as jft
@@ -104,8 +105,6 @@ plot_source, plot_residual, plot_lens = get_plot(
     parametric_lens_flag,
 )
 
-from os.path import join
-
 _, plot_residual_parametric, plot_lens_parametric = get_plot(
     join(results_directory, "parametric"),
     grid,
@@ -153,7 +152,7 @@ n_dof = ju.get_n_constrained_dof(likelihood)
 minpars = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
 key = random.PRNGKey(cfg_mini.get("key", 42))
 key, rec_key = random.split(key, 2)
-pos_init = 0.1 * jft.Vector(jft.random_like(rec_key, likelihood.domain))
+pos_init = 0.1 * jft.random_like(rec_key, likelihood.domain)
 
 print(f"Results: {results_directory}")
 samples, state = jft.optimize_kl(
@@ -169,5 +168,6 @@ samples, state = jft.optimize_kl(
     nonlinearly_update_kwargs=minpars.nonlinearly_update_kwargs,
     kl_kwargs=minpars.kl_kwargs,
     constants=[p for p in likelihood_parametric.domain.tree if "nifty_mf" in p],
+    # resume=True,
     resume=cfg_mini.get("resume", False),
 )
