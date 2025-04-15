@@ -102,7 +102,7 @@ plot_source, plot_residual, plot_lens = get_plot(
 )
 
 _, plot_residual_imaging, _ = get_plot(
-    join(results_directory, "parametric"),
+    join(results_directory, "imaging"),
     grid,
     lens_system,
     filter_projector,
@@ -151,11 +151,12 @@ kl_settings_imaging = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=join(results_directory, "imaging"),
     minimization=mini_parser,
-    n_total_iterations=3,
+    n_total_iterations=10,
     callback=plot_imaging,
     # constants=[p for p in likelihood_imaging.domain.tree if "nifty_mf" in p],
     # point_estimates=[p for p in likelihood_imaging.domain.tree if "nifty_mf" in p],
-    resume=cfg_mini.get("resume", False),
+    resume=True,
+    # resume=cfg_mini.get("resume", False),
 )
 
 kl_settings = KLSettings(
