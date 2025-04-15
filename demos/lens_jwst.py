@@ -174,6 +174,10 @@ samples_imaging, state_imaging = minimization_from_initial_samples(
     likelihood_imaging, kl_settings_imaging, None
 )
 
+import jax
+
+jax.clear_caches()
+
 jft.logger.info("Full reconstruction")
 tmp_pos = samples_imaging.pos
 while isinstance(tmp_pos, jft.Vector):
