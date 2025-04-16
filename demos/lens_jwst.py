@@ -79,6 +79,8 @@ else:
         parametric_lens=True
     )
     parametric_lens_flag = True
+
+
 sky_model = jft.Model(jft.wrap_left(sky_model, SKY_KEY), domain=sky_model.domain)
 likelihood_raw, filter_projector, data_dict = build_jwst_likelihoods(
     cfg, grid, sky_model, sky_key=SKY_KEY, sky_unit=SKY_UNIT
@@ -89,15 +91,20 @@ sky_model_with_keys = jft.Model(
 )
 likelihood = connect_likelihood_to_model(likelihood_raw, sky_model_with_keys)
 
+# fixpointing_model = jft.Model(
+#     lambda x: filter_projector(
+#         jft.wrap_left(lens_system.lens_plane_model.light_model.nonparametric, SKY_KEY)(
+#             x
+#         )
+#     ),
+#     init=lens_system.lens_plane_model.light_model.nonparametric.init,
+# )
 fixpointing_model = jft.Model(
-    lambda x: filter_projector(
-        jft.wrap_left(lens_system.lens_plane_model.light_model.nonparametric, SKY_KEY)(
-            x
-        )
-    ),
-    init=lens_system.lens_plane_model.light_model.nonparametric.init,
+    lambda x: filter_projector(jft.wrap_left(sky_model_fixpointing, SKY_KEY)(x)),
+    init=sky_model_fixpointing.init,
 )
 likelihood_fixpointing = connect_likelihood_to_model(likelihood_raw, fixpointing_model)
+
 
 plot_source, plot_residual, plot_lens = get_plot(
     results_directory,
