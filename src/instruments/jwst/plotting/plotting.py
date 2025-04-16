@@ -38,7 +38,9 @@ def get_plot(
 
     plotting_config_lens = LensSystemPlottingConfig()
     plotting_config_lens.source.combined.norm = "log"
+    plotting_config_lens.source.combined.vmin = 1e-5
     plotting_config_lens.lens_light.combined.norm = "log"
+    plotting_config_lens.lens_light.combined.vmin = 1e-5
     plotting_config_lens.share_source_vmin_vmax = False
     plot_lens = build_plot_lens_system(
         results_directory,

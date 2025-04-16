@@ -170,8 +170,8 @@ kl_settings_fixpointing = KLSettings(
     callback=plot_imaging,
     # constants=[p for p in likelihood_fixpointing.domain.tree if "nifty_mf" in p],
     # point_estimates=[p for p in likelihood_fixpointing.domain.tree if "nifty_mf" in p],
-    resume=True,
-    # resume=cfg_mini.get("resume", False),
+    # resume=True,
+    resume=cfg_mini.get("resume", False),
 )
 
 kl_settings = KLSettings(
