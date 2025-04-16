@@ -83,7 +83,7 @@ def build_plot_source(
             energy, energy_unit = energy_range.center.value, energy_range.center.unit
             ii += 3
 
-            axes[ii].set_title(f"{energy} {energy_unit}")
+            axes[ii].set_title(f"{energy:.4f} {energy_unit}")
             ims[ii] = axes[ii].imshow(
                 fld, norm=plotting_config.norm, vmin=vmin, vmax=vmax, **rendering
             )

@@ -158,7 +158,7 @@ def build_plot_lens_system(
 
         for ii, energy_range in enumerate(grid.spectral.color_ranges):
             energy, energy_unit = energy_range.center.value, energy_range.center.unit
-            ename = f"{energy} {energy_unit}"
+            ename = f"{energy:.4f} {energy_unit}"
             axes[0, ii + light_offset].set_title(f"Lens light {ename}")
             ims[0, ii + light_offset] = axes[0, ii + light_offset].imshow(
                 ll[ii],
