@@ -149,9 +149,6 @@ def build_plot_lens_system(
             vmax_source = plotting_config.source.combined.get_max(sl)
             vmin_lensed_light = plotting_config.source.combined.get_min(sl)
             vmax_lensed_light = plotting_config.source.combined.get_max(sl)
-        else:
-            vmin_source = vmax_source = None
-            vmin_lensed_light = vmax_lensed_light = None
 
         vmin_lens = plotting_config.lens_light.combined.get_min(ll)
         vmax_lens = plotting_config.lens_light.combined.get_max(ll)
@@ -168,6 +165,12 @@ def build_plot_lens_system(
                 vmax=vmax_lens,
                 **rendering,
             )
+
+            if not plotting_config.share_source_vmin_vmax:
+                vmin_source = plotting_config.source.combined.get_min(sl[ii])
+                vmax_source = plotting_config.source.combined.get_max(sl[ii])
+                vmin_lensed_light = plotting_config.source.combined.get_min(sl[ii])
+                vmax_lensed_light = plotting_config.source.combined.get_max(sl[ii])
 
             axes[1, ii + light_offset].set_title(f"Source light {ename}")
             ims[1, ii + light_offset] = axes[1, ii + light_offset].imshow(
