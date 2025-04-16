@@ -16,14 +16,14 @@ from astropy import units as u
 
 
 def load_yaml_and_save_info(config_path):
-    cfg = yaml.load(open(config_path, 'r'), Loader=yaml.SafeLoader)
-    results_directory = cfg['files']['res_dir']
+    cfg = yaml.load(open(config_path, "r"), Loader=yaml.SafeLoader)
+    results_directory = cfg["files"]["res_dir"]
     os.makedirs(results_directory, exist_ok=True)
     save_local_packages_hashes_to_txt(
-        ['nifty8', 'charm_lensing', 'jubik0'],
-        os.path.join(results_directory, 'hashes.txt'))
-    save_config_copy_easy(config_path, os.path.join(
-        results_directory, 'config.yaml'))
+        ["nifty8", "charm_lensing", "jubik0"],
+        os.path.join(results_directory, "hashes.txt"),
+    )
+    save_config_copy_easy(config_path, os.path.join(results_directory, "config.yaml"))
     return cfg, results_directory
 
 
@@ -57,7 +57,7 @@ def get_grid_extension_from_config(
     telescope_config: dict,
     reconstruction_grid: Grid,
 ):
-    '''Load the grid extension for the reconstruction grid. The reconstruction
+    """Load the grid extension for the reconstruction grid. The reconstruction
     gets zero padded by this amount. This is needed to avoid wrapping flux due
     to fft convolution of the psf.
 
@@ -74,41 +74,48 @@ def get_grid_extension_from_config(
     grid_extension: tuple[int]
         A pixel number tuple, that specifies by how many pixels the
         reconstruction will be zero padded.
-    '''
+    """
 
-    psf_arcsec_extension = telescope_config['psf'].get('psf_arcsec_extension')
+    psf_arcsec_extension = telescope_config["psf"].get("psf_arcsec_extension")
     if psf_arcsec_extension is None:
-        raise ValueError('Need to provide either `psf_arcsec_extension`.')
+        raise ValueError("Need to provide either `psf_arcsec_extension`.")
 
-    return [int((psf_arcsec_extension*u.arcsec).to(u.deg) / 2 / dist)
-            for dist in reconstruction_grid.spatial.distances]
+    return [
+        int((psf_arcsec_extension * u.arcsec).to(u.deg) / 2 / dist)
+        for dist in reconstruction_grid.spatial.distances
+    ]
 
 
 def _parse_insert_spaces(cfg):
-    lens_fov = yaml_dict_to_fov(cfg['grid'])
-    lens_npix = yaml_dict_to_shape(cfg['grid'])
-    lens_padd = cfg['grid']['s_padding_ratio']
-    lens_distances = [fov.to(u.arcsec).value/pix
-                      for fov, pix in zip(lens_fov, lens_npix)]
-    lens_energy_bin = cfg['grid']['energy_bin']
-    lens_space = dict(padding_ratio=lens_padd,
-                      Npix=lens_npix,
-                      distance=lens_distances,
-                      energy_bin=lens_energy_bin)
+    lens_fov = yaml_dict_to_fov(cfg["grid"])
+    lens_npix = yaml_dict_to_shape(cfg["grid"])
+    lens_padd = cfg["grid"]["s_padding_ratio"]
+    lens_distances = [
+        fov.to(u.arcsec).value / pix for fov, pix in zip(lens_fov, lens_npix)
+    ]
+    lens_energy_bin = cfg["grid"]["energy_bin"]
+    lens_space = dict(
+        padding_ratio=lens_padd,
+        Npix=lens_npix,
+        distance=lens_distances,
+        energy_bin=lens_energy_bin,
+    )
 
-    source_fov = yaml_dict_to_fov(cfg['grid']['source_grid'])
-    source_npix = yaml_dict_to_shape(cfg['grid']['source_grid'])
-    source_padd = cfg['grid']['source_grid']['s_padding_ratio']
-    source_distances = [fov.to(u.arcsec).value/pix
-                        for fov, pix in zip(source_fov, source_npix)]
-    source_energy_bin = cfg['grid']['energy_bin']
-    source_space = dict(padding_ratio=source_padd,
-                        Npix=source_npix,
-                        distance=source_distances,
-                        energy_bin=source_energy_bin,
-                        )
+    source_fov = yaml_dict_to_fov(cfg["grid"]["source_grid"])
+    source_npix = yaml_dict_to_shape(cfg["grid"]["source_grid"])
+    source_padd = cfg["grid"]["source_grid"]["s_padding_ratio"]
+    source_distances = [
+        fov.to(u.arcsec).value / pix for fov, pix in zip(source_fov, source_npix)
+    ]
+    source_energy_bin = cfg["grid"]["energy_bin"]
+    source_space = dict(
+        padding_ratio=source_padd,
+        Npix=source_npix,
+        distance=source_distances,
+        energy_bin=source_energy_bin,
+    )
 
-    interpolation = cfg['grid']['source_grid'].get('interpolation', 'bilinear')
+    interpolation = cfg["grid"]["source_grid"].get("interpolation", "bilinear")
 
     return lens_space, source_space, interpolation
 
@@ -120,11 +127,25 @@ def _parse_insert_spaces(cfg):
 #         lens_space=lens_space, source_space=source_space)
 #
 
+
 def insert_spaces_in_lensing_new(cfg):
     lens_space, source_space, interpolation = _parse_insert_spaces(cfg)
 
-    cfg['spaces'] = dict(
-        lens_space=lens_space,
-        source_space=source_space,
-        interpolation=interpolation
+    cfg["spaces"] = dict(
+        lens_space=lens_space, source_space=source_space, interpolation=interpolation
     )
+
+
+def copy_and_replace_light_model(config: dict, model_name: str) -> dict:
+    from copy import deepcopy
+
+    cfg = deepcopy(config)
+    copyinto = cfg["model"]
+    copyfrom = config[model_name]
+
+    for source_or_lens, light_or_mass_config in copyinto.items():
+        for light_or_mass in light_or_mass_config.keys():
+            if light_or_mass.lower() == "light":
+                copyinto[source_or_lens]["light"] = copyfrom[source_or_lens]["light"]
+
+    return cfg

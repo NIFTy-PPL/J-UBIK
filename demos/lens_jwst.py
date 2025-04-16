@@ -16,6 +16,7 @@ from jubik0.grid import Grid
 from jubik0.instruments.jwst.config_handler import (
     insert_spaces_in_lensing_new,
     load_yaml_and_save_info,
+    copy_and_replace_light_model,
 )
 from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
 from jubik0.instruments.jwst.plotting.plotting import get_plot, plot_prior
@@ -58,16 +59,23 @@ grid = Grid.from_grid_model(GridModel.from_yaml_dict(cfg["sky"]["grid"]))
 
 # insert_ubik_energy_in_lensing(cfg, zsource=4.2)
 insert_spaces_in_lensing_new(cfg["sky"])
+parametric_lens_config = copy_and_replace_light_model(
+    cfg["sky"], model_name="model_fixing_pointing"
+)
+
+lens_system_fixpointing = build_lens_system(parametric_lens_config)
 lens_system = build_lens_system(cfg["sky"])
 
 
 if cfg["nonparametric_lens"]:
     sky_model = lens_system.get_forward_model_full()
-    sky_model_parametric = lens_system.get_forward_model_parametric_source()
+    sky_model_fixpointing = (
+        lens_system_fixpointing.get_forward_model_parametric_source()
+    )
     parametric_lens_flag = False
 else:
     sky_model = lens_system.get_forward_model_parametric()
-    sky_model_parametric = lens_system.get_forward_model_parametric_source(
+    sky_model_fixpointing = lens_system_fixpointing.get_forward_model_parametric_source(
         parametric_lens=True
     )
     parametric_lens_flag = True
@@ -81,7 +89,7 @@ sky_model_with_keys = jft.Model(
 )
 likelihood = connect_likelihood_to_model(likelihood_raw, sky_model_with_keys)
 
-imaging_model = jft.Model(
+fixpointing_model = jft.Model(
     lambda x: filter_projector(
         jft.wrap_left(lens_system.lens_plane_model.light_model.nonparametric, SKY_KEY)(
             x
@@ -89,7 +97,7 @@ imaging_model = jft.Model(
     ),
     init=lens_system.lens_plane_model.light_model.nonparametric.init,
 )
-likelihood_imaging = connect_likelihood_to_model(likelihood_raw, imaging_model)
+likelihood_fixpointing = connect_likelihood_to_model(likelihood_raw, fixpointing_model)
 
 plot_source, plot_residual, plot_lens = get_plot(
     results_directory,
@@ -101,13 +109,13 @@ plot_source, plot_residual, plot_lens = get_plot(
     parametric_lens_flag,
 )
 
-_, plot_residual_imaging, _ = get_plot(
-    join(results_directory, "imaging"),
+_, plot_residual_fixpointing, plot_lens_fixpointing = get_plot(
+    join(results_directory, "fixpointing"),
     grid,
-    lens_system,
+    lens_system_fixpointing,
     filter_projector,
     data_dict,
-    imaging_model,
+    fixpointing_model,
     parametric_lens_flag,
     True,
 )
@@ -139,22 +147,22 @@ def plot(samples: jft.Samples, state: jft.OptimizeVIState):
 def plot_imaging(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f"Plotting: {state.nit}")
     if cfg["plot_results"]:
-        plot_residual_imaging(samples, state)
-        # plot_lens_parametric(samples, state)
+        plot_residual_fixpointing(samples, state)
+        plot_lens_fixpointing(samples, state)
 
 
 cfg_mini = ju.get_config(config_path)["minimization"]
 n_dof = ju.get_n_constrained_dof(likelihood)
 mini_parser = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
 
-kl_settings_imaging = KLSettings(
+kl_settings_fixpointing = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
-    outputdir=join(results_directory, "imaging"),
+    outputdir=join(results_directory, "fixpointing"),
     minimization=mini_parser,
     n_total_iterations=13,
     callback=plot_imaging,
-    # constants=[p for p in likelihood_imaging.domain.tree if "nifty_mf" in p],
-    # point_estimates=[p for p in likelihood_imaging.domain.tree if "nifty_mf" in p],
+    # constants=[p for p in likelihood_fixpointing.domain.tree if "nifty_mf" in p],
+    # point_estimates=[p for p in likelihood_fixpointing.domain.tree if "nifty_mf" in p],
     resume=True,
     # resume=cfg_mini.get("resume", False),
 )
@@ -167,24 +175,25 @@ kl_settings = KLSettings(
     callback=plot,
     resume=cfg_mini.get("resume", False),
 )
-#
-#
-# jft.logger.info("Imaging reconstruction")
-# samples_imaging, state_imaging = minimization_from_initial_samples(
-#     likelihood_imaging, kl_settings_imaging, None
-# )
-#
-# import jax
-#
-# jax.clear_caches()
-#
-# jft.logger.info("Full reconstruction")
-# tmp_pos = samples_imaging.pos
-# while isinstance(tmp_pos, jft.Vector):
-#     tmp_pos = tmp_pos.tree
+
+
+jft.logger.info("Fix pointing reconstruction")
+samples_imaging, state_imaging = minimization_from_initial_samples(
+    likelihood_fixpointing, kl_settings_fixpointing, None
+)
+
+import jax
+
+jax.clear_caches()
+
+jft.logger.info("Full reconstruction")
+tmp_pos = samples_imaging.pos
+while isinstance(tmp_pos, jft.Vector):
+    tmp_pos = tmp_pos.tree
+
 samples, state = minimization_from_initial_samples(
     likelihood,
     kl_settings,
-    # samples_imaging,
+    samples_imaging,
     # not_take_starting_pos_keys=[k for k in tmp_pos.keys() if "nifty_mf" in k],
 )
