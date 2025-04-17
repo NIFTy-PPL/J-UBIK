@@ -44,7 +44,7 @@ def get_plot(
     )
     lens_light_plotting_config = MultiFrequencyPlottingConfig(
         combined=FieldPlottingConfig(vmin=1e-4, vmax=1e2, norm="log"),
-        reference=FieldPlottingConfig(vmin=1e-4, vmax=5, norm="log"),
+        reference=FieldPlottingConfig(vmax=5, norm=None),
         alpha=FieldPlottingConfig(norm=None),
     )
 
