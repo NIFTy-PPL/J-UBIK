@@ -346,7 +346,7 @@ telescope:
       #     rotation: ['delta', -1.95823434e-05, 0]
 
 files:
-  res_dir: './results/jwst_lens/cluster/05_fixpointing'
+  res_dir: './results/jwst_lens/cluster/06_fixpointing'
 
   filter:
 
