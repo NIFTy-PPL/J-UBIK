@@ -15,6 +15,7 @@ from ..parse.plotting import (
     LensSystemPlottingConfig,
     ResidualPlottingConfig,
     FieldPlottingConfig,
+    MultiFrequencyPlottingConfig,
 )
 from .plotting_lens_system import build_plot_lens_system
 from .plot_source import build_plot_source
@@ -36,23 +37,41 @@ def get_plot(
 
     lens_system: LensSystem = lens_system
 
-    plotting_config_lens = LensSystemPlottingConfig()
-    plotting_config_lens.source.combined.norm = "log"
-    plotting_config_lens.source.combined.vmin = 1e-5
-    plotting_config_lens.lens_light.combined.norm = "log"
-    plotting_config_lens.lens_light.combined.vmin = 1e-5
-    plotting_config_lens.share_source_vmin_vmax = False
+    source_plotting_config = MultiFrequencyPlottingConfig(
+        combined=FieldPlottingConfig(vmin=1e-4, norm="log"),
+        reference=FieldPlottingConfig(vmax=5, norm="log"),
+        alpha=FieldPlottingConfig(norm=None),
+    )
+    lens_light_plotting_config = MultiFrequencyPlottingConfig(
+        combined=FieldPlottingConfig(vmin=1e-4, vmax=1e2, norm="log"),
+        reference=FieldPlottingConfig(vmin=1e-4, vmax=5, norm="log"),
+        alpha=FieldPlottingConfig(norm=None),
+    )
+
+    plotting_config_lens_system = LensSystemPlottingConfig(
+        source=source_plotting_config,
+        lens_light=lens_light_plotting_config,
+        share_source_vmin_vmax=False,
+    )
+
     plot_lens = build_plot_lens_system(
         results_directory,
-        plotting_config=plotting_config_lens,
+        plotting_config=plotting_config_lens_system,
         lens_system=lens_system,
         grid=grid,
         parametric_lens=parametric_lens,
         parametric_source=parametric_source,
     )
 
+    plot_source = build_plot_source(
+        results_directory,
+        plotting_config=source_plotting_config,
+        lens_system=lens_system,
+        grid=grid,
+    )
+
     residual_plotting_config = ResidualPlottingConfig(
-        sky=FieldPlottingConfig(norm="log", vmin=1e-4, vmax=1e2),
+        sky=lens_light_plotting_config.combined,
         data=FieldPlottingConfig(norm="log", vmin=1e-3),
         display_pointing=False,
         xmax_residuals=max_residuals,
@@ -64,13 +83,6 @@ def get_plot(
         data_dict=data_dict,
         sky_model_with_key=sky_model_with_keys,
         plotting_config=residual_plotting_config,
-    )
-
-    plot_source = build_plot_source(
-        results_directory,
-        plotting_config=FieldPlottingConfig(vmin=1e-4, norm="log"),
-        lens_system=lens_system,
-        grid=grid,
     )
 
     return plot_source, plot_residual, plot_lens

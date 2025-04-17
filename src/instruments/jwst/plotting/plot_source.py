@@ -9,12 +9,12 @@ import numpy as np
 
 from ....grid import Grid
 from .plotting_base import get_alpha_and_reference, get_position_or_samples_of_model
-from ..parse.plotting import FieldPlottingConfig
+from ..parse.plotting import FieldPlottingConfig, MultiFrequencyPlottingConfig
 
 
 def build_plot_source(
     results_directory: str,
-    plotting_config: FieldPlottingConfig,
+    plotting_config: MultiFrequencyPlottingConfig,
     lens_system,
     grid: Grid,
 ):
@@ -50,7 +50,11 @@ def build_plot_source(
         source_light_reference,
     ]
 
-    rendering = plotting_config.rendering
+    filter_plotting_config = plotting_config.combined
+    reference_plotting_config: FieldPlottingConfig = plotting_config.reference
+    spectral_index_plotting_config: FieldPlottingConfig = plotting_config.alpha
+
+    rendering = filter_plotting_config.rendering
     rendering["extent"] = lens_system.source_plane_model.space.extend().extent
 
     def plot_source(
@@ -59,12 +63,12 @@ def build_plot_source(
     ):
         print("Plotting source light")
 
-        sl, slp, sla, sln = [
+        sl, sl_para, sl_alpha, sl_ref = [
             get_position_or_samples_of_model(position_or_samples, model, True)
             for model in models
         ]
 
-        vmin, vmax = plotting_config.get_min(sl), None
+        vmin, vmax = filter_plotting_config.get_min(sl), None
 
         fig, axes = plt.subplots(ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300)
         ims = np.zeros_like(axes)
@@ -73,9 +77,21 @@ def build_plot_source(
         axes[0, 0].set_title("Parametric model")
         axes[0, 1].set_title("Reference model at I0")
         axes[0, 2].set_title("Spectral index")
-        ims[0, 0] = axes[0, 0].imshow(slp, **rendering)
-        ims[0, 1] = axes[0, 1].imshow(sln, **rendering)
-        ims[0, 2] = axes[0, 2].imshow(sla, **rendering)
+        ims[0, 0] = axes[0, 0].imshow(sl_para, **rendering)
+        ims[0, 1] = axes[0, 1].imshow(
+            sl_ref,
+            vmin=reference_plotting_config.get_min(sl_ref),
+            vmax=reference_plotting_config.get_max(sl_ref),
+            norm=reference_plotting_config.norm,
+            **rendering,
+        )
+        ims[0, 2] = axes[0, 2].imshow(
+            sl_alpha,
+            vmin=spectral_index_plotting_config.get_min(sl_alpha),
+            vmax=spectral_index_plotting_config.get_max(sl_alpha),
+            norm=spectral_index_plotting_config.norm,
+            **rendering,
+        )
 
         axes = axes.flatten()
         ims = ims.flatten()
@@ -85,7 +101,7 @@ def build_plot_source(
 
             axes[ii].set_title(f"{energy:.4f} {energy_unit}")
             ims[ii] = axes[ii].imshow(
-                fld, norm=plotting_config.norm, vmin=vmin, vmax=vmax, **rendering
+                fld, norm=filter_plotting_config.norm, vmin=vmin, vmax=vmax, **rendering
             )
 
         for ax, im in zip(axes.flatten(), ims.flatten()):
