@@ -26,6 +26,8 @@ def build_plot_lens_system(
     parametric_source: bool = False,
 ):
     from charm_lensing.lens_system import LensSystem
+    from charm_lensing.physical_models.hybrid_model import HybridModel
+    from charm_lensing.physical_models.mean_model import MeanModel
 
     lens_system: LensSystem = lens_system
 
@@ -43,7 +45,10 @@ def build_plot_lens_system(
 
     if parametric_lens:
         lensed_light = lens_system.get_forward_model_parametric(only_source=True)
-        convergence = lens_system.lens_plane_model.convergence_model.parametric
+        if isinstance(lens_system.lens_plane_model.convergence_model, MeanModel):
+            convergence = lens_system.lens_plane_model.convergence_model
+        if isinstance(lens_system.lens_plane_model.convergence_model, HybridModel):
+            convergence = lens_system.lens_plane_model.convergence_model.parametric
         convergence_nonparametric = lambda _: np.zeros((12, 12))
     else:
         lensed_light = lens_system.get_forward_model_full(only_source=True)
@@ -56,7 +61,10 @@ def build_plot_lens_system(
         lensed_light = lens_system.get_forward_model_parametric_source(
             parametric_lens=parametric_lens, only_source=True
         )
-        source_light = lens_system.source_plane_model.light_model.parametric
+        if isinstance(lens_system.source_plane_model.light_model, MeanModel):
+            source_light = lens_system.source_plane_model.light_model
+        if isinstance(lens_system.source_plane_model.light_model, HybridModel):
+            source_light = lens_system.source_plane_model.light_model.parametric
         source_light_alpha = source_light_reference = lambda _: np.zeros((12, 12))
 
     else:
