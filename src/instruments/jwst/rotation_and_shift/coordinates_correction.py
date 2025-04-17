@@ -12,7 +12,6 @@ import jax.numpy as jnp
 import numpy as np
 import nifty8.re as jft
 from astropy import units as u
-from jax.numpy import array
 from numpy.typing import ArrayLike
 
 from .shift_correction import build_shift_correction
@@ -45,7 +44,8 @@ class CoordinatesWithCorrection(jft.Model):
         shift: jft.Model,
         rotation: jft.Model,
         rotation_center: tuple[int, int],
-        coords: ArrayLike,
+        coords: np.ndarray,
+        pixel_distance: np.ndarray,
     ):
         """
         Initialize the CoordinatesCorrection model.
@@ -57,17 +57,21 @@ class CoordinatesWithCorrection(jft.Model):
             shift parameters.
         rotation : jft.Model
             A model that provides the prior distribution for the rotation angle.
-        pix_distance : tuple of float
-            The distances between pixels used to scale the shift values.
         rotation_center : tuple of int
             The (x, y) coordinates around which the rotation is applied.
         coords : ArrayLike
-            The coordinates to which the corrections will be applied.
+            The coordinates to which the corrections will be applied. Assumed to be in
+            units of the pixel distance.
+        pixel_distance : np.ndarray
+            The distances between pixels used to scale the shift values.
         """
+        assert len(pixel_distance.shape) == 1
+
         self.rotation_center = rotation_center
         self.shift = shift
         self.rotation = rotation
-        self._coords = coords
+        self._coords = coords * pixel_distance[:, None, None]
+        self._1_over_pixel_distance = 1 / pixel_distance[:, None, None]
 
         super().__init__(domain=rotation.domain | shift.domain)
 
@@ -91,7 +95,7 @@ class CoordinatesWithCorrection(jft.Model):
             + self.rotation_center[1]
             + shft[1]
         )
-        return jnp.array((x, y))
+        return jnp.array((x, y)) * self._1_over_pixel_distance
 
 
 class Coordinates:
@@ -136,7 +140,8 @@ def build_coordinates_correction_from_grid(
     reconstruction_grid : Grid
         The grid used to define the coordinate system for the correction model.
     coords : ArrayLike
-        The coordinates to be corrected by the model.
+        The coordinates to be corrected by the model. Which are assumed to be given in
+        pixel units/positions of the reconstruction grid.
 
     Returns
     -------
@@ -162,8 +167,8 @@ def build_coordinates_correction_from_grid(
 
     rotation_center = np.array(reconstruction_grid.spatial.world_to_pixel(rpix))
 
-    shift = build_shift_correction(domain_key, priors)
-    pix_distance = array(
+    shift = build_shift_correction(domain_key, priors, priors.shift_unit)
+    pixel_distance = np.array(
         reconstruction_grid.spatial.distances_in(priors.shift_unit)
     ).reshape(shift.target.shape)
 
@@ -174,4 +179,6 @@ def build_coordinates_correction_from_grid(
         as_model=True,
     )
 
-    return CoordinatesWithCorrection(shift, rotation, rotation_center, coords)
+    return CoordinatesWithCorrection(
+        shift, rotation, rotation_center, coords, pixel_distance
+    )
