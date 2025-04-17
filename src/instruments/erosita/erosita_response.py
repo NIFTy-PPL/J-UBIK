@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
+from astropy import coordinates as coords
 from jax import vmap
 
 from .erosita_observation import ErositaObservation
@@ -357,6 +358,72 @@ def build_erosita_response(
     return response_dict
 
 
+def build_psf_from_config(config):
+
+    tel_info = config['telescope']
+    file_info = config['files']
+    psf_info = config['psf']
+    grid_info = config['grid']
+
+    # load calibration directory paths
+    caldb_path = file_info['calibration_path']
+    caldb_dir_name = file_info['caldb_folder_name']
+
+    psf_file_suffix = file_info['psf_filename_suffix']
+
+    psf_filenames = [get_erosita_psf_filenames(caldb_path,
+                                               key,
+                                               psf_filename_suffix=psf_file_suffix,
+                                               caldb_name=caldb_dir_name, )
+                     for key in tel_info['tm_ids']]
+
+    obs_instance = ErositaObservation(file_info['input'],
+                                      file_info['output'],
+                                      file_info['obs_path'])
+
+    center_stats = []
+    for tm_id in tel_info['tm_ids']:
+        tmp_center_stat = obs_instance.get_pointing_coordinates_stats(
+            tm_id,
+            file_info['input'])
+        tmp_center_stat = [tmp_center_stat['RA'][0], tmp_center_stat['DEC'][0]]
+        center_stats.append(tmp_center_stat)
+
+    center_stats = np.array(center_stats)
+    center_stats = coords.SkyCoord(ra=center_stats.T[0],
+                                   dec=center_stats.T[1],
+                                   unit='deg',
+                                   frame='icrs')
+    # center with respect to desired pointing center
+    ref_center = coords.SkyCoord(ra=tel_info['pointing_center'][0],
+                                 dec=tel_info['pointing_center'][1],
+                                 unit='deg',
+                                 frame='icrs') # TODO Check Frame
+    d_centers_astropy = center_stats.transform_to(
+        coords.SkyOffsetFrame(origin=ref_center))
+    d_centers = np.array(
+        [d_centers_astropy.lon.arcsec, d_centers_astropy.lat.arcsec]
+    ).T
+
+    # Set the image pointing to the center
+    image_pointing_center = np.array((tel_info['fov'] / 2.,) * 2)
+    # FIXME: image pointing center should be added somewhere else
+    # FIXME IMHO this image poiting center is not needed?
+    pointing_center = d_centers + image_pointing_center
+
+
+    domain = Domain(tuple([grid_info['edim']] + [grid_info['sdim']] * 2),
+                    tuple([1] + [tel_info['fov'] / grid_info['sdim']] * 2))
+    psf_func, kernel = build_erosita_psf(psf_filenames,
+                                         psf_info['energy'],
+                                         pointing_center,
+                                         domain,
+                                         psf_info['npatch'],
+                                         psf_info['margfrac'])
+
+    return psf_func, kernel
+
+
 def build_erosita_response_from_config(
     config: dict
 ) -> dict:
@@ -445,14 +512,24 @@ def build_erosita_response_from_config(
         tmp_center_stat = [tmp_center_stat['RA'][0], tmp_center_stat['DEC'][0]]
         center_stats.append(tmp_center_stat)
     center_stats = np.array(center_stats)
-
+    center_stats = coords.SkyCoord(ra=center_stats.T[0],
+                                   dec=center_stats.T[1],
+                                   unit='deg',
+                                   frame='icrs')
     # center with respect to desired pointing center
-    ref_center = np.array(tel_info['pointing_center']) * 3600  # to arcsec
-    d_centers = center_stats - ref_center
-
+    ref_center = coords.SkyCoord(ra=tel_info['pointing_center'][0],
+                                 dec=tel_info['pointing_center'][1],
+                                 unit='deg',
+                                 frame='icrs') # TODO Check Frame
+    d_centers_astropy = center_stats.transform_to(
+        coords.SkyOffsetFrame(origin=ref_center))
+    d_centers = np.array(
+        [d_centers_astropy.lon.arcsec, d_centers_astropy.lat.arcsec]
+    ).T
     # Set the image pointing to the center
     image_pointing_center = np.array((tel_info['fov'] / 2.,) * 2)
     # FIXME: image pointing center should be added somewhere else
+    # FIXME IMHO this image poiting center is not needed?
     pointing_center = d_centers + image_pointing_center
 
     if tel_info['effective_area_correction']:
