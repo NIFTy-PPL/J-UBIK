@@ -83,31 +83,41 @@ sky:
     source:
       light:
         mean:
-          pcopy: 
-            gaussian_01: # i0*Gauss
-              i0: ['log_normal', 1.0e-1, 2.0e-1]
-              center: ['normal', 0, 0.1]
-              covariance: ['log_normal', 0.08, 0.02]
-              off_diagonal: ['normal', 0.0, 10.0]
-            gaussian_02: # i0*Gauss
-              i0: ['log_normal', 2.0e-2, 4.0e-2]
-              center: ['normal', [-0.5, -0.5], 0.1]
-              covariance: ['log_normal', 0.08, 0.02]
-              off_diagonal: ['normal', 0.0, 10.0]
+          gaussian_01:
+            i0: ['log_normal', [1.0, 1.0, 1.0] , 2.0, [3, 1, 1]]
+            center: ['normal', 0, 0.1]
+            covariance: ['log_normal', 0.08, 0.02]
+            off_diagonal: ['normal', 0.0, 10.0]
+          gaussian_02: # i0*Gauss
+            i0: ['log_normal', [1.0, 1.0, 1.0] , 2.0, [3, 1, 1]]
+            center: ['normal', [-0.5, -0.5], 0.1]
+            covariance: ['log_normal', 0.08, 0.02]
+            off_diagonal: ['normal', 0.0, 10.0]
+
+          # pcopy: 
+          #   gaussian_01: # i0*Gauss
+          #     i0: ['log_normal', 1.0e-1, 2.0e-1]
+          #     center: ['normal', 0, 0.1]
+          #     covariance: ['log_normal', 0.08, 0.02]
+          #     off_diagonal: ['normal', 0.0, 10.0]
+          #   gaussian_02: # i0*Gauss
+          #     i0: ['log_normal', 2.0e-2, 4.0e-2]
+          #     center: ['normal', [-0.5, -0.5], 0.1]
+          #     covariance: ['log_normal', 0.08, 0.02]
+          #     off_diagonal: ['normal', 0.0, 10.0]
 
     lens:
       light:
         mean:
-          pcopy: 
-            sersicrenormalized_01: # i0*exp(-bn * (r/re)**1/n - 1)
-              # ie: ['log_normal', 600, 350.0]  # before error detection
-              ie: ['log_normal', 6000, 7000]
-              # ie: ['log_normal', 1.0e-5, 1.0e-9]
-              re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
-              n: ['log_normal', 4.2, 1.2]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
-              center: ['normal', [0.0, 0.0], 0.1]
-              q: [ 'uniform', 0.8, 1.0]
-              theta: ['normal', 0.0, 10.0]
+          sersicrenormalized_01: # i0*exp(-bn * (r/re)**1/n - 1)
+            # ie: ['log_normal', 600, 350.0]  # before error detection
+            ie: ['log_normal', 6000, 7000, [3, 1, 1]]
+            # ie: ['log_normal', 1.0e-5, 1.0e-9]
+            re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+            n: ['log_normal', 4.2, 1.2]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
+            center: ['normal', [0.0, 0.0], 0.1]
+            q: [ 'uniform', 0.8, 1.0]
+            theta: ['normal', 0.0, 10.0]
 
 
   model:
@@ -149,22 +159,6 @@ sky:
 
     lens:
       light:
-
-        # mean:
-        #   constant: 
-        #     value: ['delta', 1.0, 0.0]
-        # multifrequency:
-        #   pcopy: 
-        #     sersicrenormalized_01: # i0*exp(-bn * (r/re)**1/n - 1)
-        #       # ie: ['log_normal', 600, 350.0]  # before error detection
-        #       ie: ['log_normal', 6000, 7000]
-        #       # ie: ['log_normal', 1.0e-5, 1.0e-9]
-        #       re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
-        #       n: ['log_normal', 4.2, 1.2]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
-        #       center: ['normal', [0.0, 0.0], 0.1]
-        #       q: [ 'uniform', 0.8, 1.0]
-        #       theta: ['normal', 0.0, 10.0]
-
         mean:
           sersic_01: # i0*exp(-bn * (r/re)**1/n - 1)
             ie: ['delta', 1.0, 0.0]
