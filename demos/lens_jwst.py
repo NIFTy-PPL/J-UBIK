@@ -165,18 +165,22 @@ mini_parser = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
 
 def stop_optimizing_lens_at_iteration(
     iteration: int, iteration_stop: int = 6
-) -> list[str]:
+) -> tuple[str]:
     shift_or_rotation: set = {"shift", "rotation"}
 
     if iteration >= iteration_stop:
-        return [
-            p
-            for p in likelihood_fixpointing.domain.tree
-            if not (p.split("_")[-1] in shift_or_rotation)
-        ]
+        return tuple(
+            (
+                p
+                for p in likelihood_fixpointing.domain.tree
+                if not (p.split("_")[-1] in shift_or_rotation)
+            )
+        )
 
     return ()
 
+
+from functools import partial
 
 kl_settings_fixpointing = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
@@ -184,7 +188,7 @@ kl_settings_fixpointing = KLSettings(
     minimization=mini_parser,
     n_total_iterations=12,
     callback=plot_imaging,
-    constants=stop_optimizing_lens_at_iteration,
+    constants=partial(stop_optimizing_lens_at_iteration, iteration_stop=6),
     # point_estimates=[p for p in likelihood_fixpointing.domain.tree if "nifty_mf" in p],
     # resume=True,
     resume=cfg_mini.get("resume", False),
