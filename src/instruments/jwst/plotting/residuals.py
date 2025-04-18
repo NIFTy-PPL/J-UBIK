@@ -26,7 +26,7 @@ def build_plot_sky_residuals(
     results_directory: str,
     filter_projector: FilterProjector,
     data_dict: dict,
-    sky_model_with_key: jft.Model,
+    sky_model_with_filters: jft.Model,
     plotting_config: ResidualPlottingConfig = ResidualPlottingConfig(),
 ):
     residual_directory = join(results_directory, "residuals")
@@ -40,10 +40,10 @@ def build_plot_sky_residuals(
 
     residual_plotting_config = plotting_config.data
 
-    # if isinstance(sky_model_with_key.target, dict):
-    #     ylen = len(next(iter(sky_model_with_key.target)))
+    # if isinstance(sky_model_with_filters.target, dict):
+    #     ylen = len(next(iter(sky_model_with_filters.target)))
     # else:
-    ylen = len(sky_model_with_key.target)
+    ylen = len(sky_model_with_filters.target)
     xlen = 3 + determine_xlen_residuals(data_dict, xmax_residuals)
 
     rendering = plotting_config.sky.rendering
@@ -62,7 +62,7 @@ def build_plot_sky_residuals(
             axes = axes[None]
 
         sky_or_skies = _get_model_samples_or_position(
-            position_or_samples, sky_model_with_key
+            position_or_samples, sky_model_with_filters
         )
 
         if isinstance(position_or_samples, jft.Samples):
@@ -74,7 +74,8 @@ def build_plot_sky_residuals(
             plotting_config.sky.get_min(np.min(list(tree.map(np.min, sky).values()))),
         )
 
-        for skey, ypos in filter_projector.keys_and_index.items():
+        for skey, _ in filter_projector.keys_and_index.items():
+            ypos = _determine_ypos(skey, filter_projector, plotting_config.ylen_offset)
             axes[ypos, 0].set_title(f"Sky {skey}")
             ims[ypos, 0] = axes[ypos, 0].imshow(
                 sky[skey],
