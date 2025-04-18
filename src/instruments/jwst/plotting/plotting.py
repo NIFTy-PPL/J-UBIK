@@ -81,7 +81,7 @@ def get_plot(
         results_directory=results_directory,
         filter_projector=filter_projector,
         data_dict=data_dict,
-        sky_model_with_key=sky_model_with_keys,
+        sky_model_with_filters=sky_model_with_keys,
         plotting_config=residual_plotting_config,
     )
 
