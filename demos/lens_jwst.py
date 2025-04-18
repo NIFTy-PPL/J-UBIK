@@ -62,7 +62,6 @@ insert_spaces_in_lensing_new(cfg["sky"])
 parametric_lens_config = copy_and_replace_light_model(
     cfg["sky"], model_name="model_fixing_pointing"
 )
-
 lens_system_fixpointing = build_lens_system(parametric_lens_config)
 lens_system = build_lens_system(cfg["sky"])
 
@@ -151,7 +150,7 @@ def plot(samples: jft.Samples, state: jft.OptimizeVIState):
         plot_source(samples, state)
 
 
-def plot_imaging(samples: jft.Samples, state: jft.OptimizeVIState):
+def plot_fixpointing(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f"Plotting: {state.nit}")
     if cfg["plot_results"]:
         plot_residual_fixpointing(samples, state)
@@ -180,15 +179,13 @@ def stop_optimizing_lens_at_iteration(
     return ()
 
 
-from functools import partial
-
 kl_settings_fixpointing = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=join(results_directory, "fixpointing"),
     minimization=mini_parser,
     n_total_iterations=12,
-    callback=plot_imaging,
-    constants=partial(stop_optimizing_lens_at_iteration, iteration_stop=6),
+    callback=plot_fixpointing,
+    # constants=partial(stop_optimizing_lens_at_iteration, iteration_stop=6),
     # point_estimates=[p for p in likelihood_fixpointing.domain.tree if "nifty_mf" in p],
     # resume=True,
     resume=cfg_mini.get("resume", False),

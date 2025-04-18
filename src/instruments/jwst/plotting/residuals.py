@@ -40,7 +40,10 @@ def build_plot_sky_residuals(
 
     residual_plotting_config = plotting_config.data
 
-    ylen = len(sky_model_with_key.target)
+    if isinstance(sky_model_with_key.target, dict):
+        ylen = len(next(iter(sky_model_with_key.target)))
+    else:
+        ylen = len(sky_model_with_key.target)
     xlen = 3 + determine_xlen_residuals(data_dict, xmax_residuals)
 
     rendering = plotting_config.sky.rendering
