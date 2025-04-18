@@ -175,7 +175,7 @@ def stop_optimizing_lens_at_iteration(
             if not (p.split("_")[-1] in shift_or_rotation)
         ]
 
-    return None
+    return ()
 
 
 kl_settings_fixpointing = KLSettings(
