@@ -162,13 +162,29 @@ cfg_mini = ju.get_config(config_path)["minimization"]
 n_dof = ju.get_n_constrained_dof(likelihood)
 mini_parser = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
 
+
+def stop_optimizing_lens_at_iteration(
+    iteration: int, iteration_stop: int = 6
+) -> list[str]:
+    shift_or_rotation: set = {"shift", "rotation"}
+
+    if iteration >= iteration_stop:
+        return [
+            p
+            for p in likelihood_fixpointing.domain.tree
+            if not (p.split("_")[-1] in shift_or_rotation)
+        ]
+
+    return None
+
+
 kl_settings_fixpointing = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=join(results_directory, "fixpointing"),
     minimization=mini_parser,
-    n_total_iterations=9,
+    n_total_iterations=12,
     callback=plot_imaging,
-    # constants=[p for p in likelihood_fixpointing.domain.tree if "nifty_mf" in p],
+    constants=stop_optimizing_lens_at_iteration,
     # point_estimates=[p for p in likelihood_fixpointing.domain.tree if "nifty_mf" in p],
     # resume=True,
     resume=cfg_mini.get("resume", False),
