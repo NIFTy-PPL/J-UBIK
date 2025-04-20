@@ -1,5 +1,5 @@
 cpu: False
-prior_samples: 5
+prior_samples: False
 plot_results: True
 nonparametric_lens: False
 max_residuals: 4 # 4 for big run
@@ -184,7 +184,7 @@ sky:
             #   loglogslope: [-4.0, 0.1]  # normal
             spectral_index:
               mean: [1.4, 0.5]         # normal
-              fluctuations: [5.0e-3, 1.0e-8]  # lognormal 
+              fluctuations: [5.0e-2, 1.0e-2]  # lognormal 
             # spectral_deviations:
             #   process: 'wiener'
             #   sigma: [0.01e-7, 0.01e-8]  # lognormal
