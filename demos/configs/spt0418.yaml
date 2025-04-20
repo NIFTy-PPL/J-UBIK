@@ -171,7 +171,7 @@ sky:
             theta: ['normal', 0.0, 10.0]
         multifrequency:
           nifty_mf:
-            zero_mode: [-2.7, 0.5e-7] # normal
+            zero_mode: [-2.7, 0.8] # normal
             spatial_amplitude:
               model: 'matern'
               scale: [0.01, 0.001]    # lognormal
