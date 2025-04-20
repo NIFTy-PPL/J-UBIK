@@ -1,5 +1,5 @@
 cpu: False
-prior_samples: False
+prior_samples: 5
 plot_results: True
 nonparametric_lens: False
 max_residuals: 4 # 4 for big run
@@ -141,7 +141,7 @@ sky:
 
         multifrequency:
           nifty_mf:
-            zero_mode: [-0.5, 0.5] # normal
+            zero_mode: [0.2, 0.05] # normal
             spatial_amplitude:
               model: 'matern'
               scale: [0.2, 0.03]        # lognormal
@@ -149,15 +149,15 @@ sky:
               loglogslope: [-4.0, 0.1]  # normal
             spectral_amplitude:
               model: 'matern'
-              scale: [0.1, 0.03]        # lognormal
+              scale: [0.2, 0.03]        # lognormal
               cutoff: [0.1, 0.01]       # lognormal
               loglogslope: [-4.0, 0.1]  # normal
             spectral_index:
               mean: [-1.5, 0.5]         # normal
-              fluctuations: [0.5, 0.05]  # lognormal 
+              fluctuations: [0.1, 0.05]  # lognormal 
             spectral_deviations:
               process: 'wiener'
-              sigma: [0.3, 0.1]  # lognormal
+              sigma: [5.0e-2, 5.0e-3]  # lognormal
 
     lens:
       light:
@@ -171,7 +171,7 @@ sky:
             theta: ['normal', 0.0, 10.0]
         multifrequency:
           nifty_mf:
-            zero_mode: [-2.0, 0.5] # normal
+            zero_mode: [-2.7, 0.5e-7] # normal
             spatial_amplitude:
               model: 'matern'
               scale: [0.01, 0.001]    # lognormal
@@ -183,11 +183,11 @@ sky:
             #   cutoff: [0.1, 0.01]       # lognormal
             #   loglogslope: [-4.0, 0.1]  # normal
             spectral_index:
-              mean: [1.8, 0.2]         # normal
-              fluctuations: [0.05, 0.01]  # lognormal 
-            spectral_deviations:
-              process: 'wiener'
-              sigma: [0.03, 0.01]  # lognormal
+              mean: [1.4, 0.5]         # normal
+              fluctuations: [5.0e-3, 1.0e-8]  # lognormal 
+            # spectral_deviations:
+            #   process: 'wiener'
+            #   sigma: [0.01e-7, 0.01e-8]  # lognormal
 
 
       convergence:
@@ -348,7 +348,7 @@ telescope:
       #     rotation: ['delta', -1.95823434e-05, 0]
 
 files:
-  res_dir: './results/jwst_lens/cluster/10_01_fix_alldata'
+  res_dir: './results/jwst_lens/cluster/10_02_testing_priors'
 
   filter:
 
@@ -428,7 +428,7 @@ files:
 
 
 minimization:
-    key: 20250426
+    key: 20250425
     resume: False
     n_total_iterations: 20
 
@@ -438,7 +438,7 @@ minimization:
 
     samples:
       switches: [0, 4, 8, 30]
-      n_samples: [3]
+      n_samples: [3, 3, 3, 5]
       # n_samples: [5]
       # mode: [linear_resample, nonlinear_resample, nonlinear_resample, nonlinear_update]
       mode: [linear_resample, linear_resample, nonlinear_resample]

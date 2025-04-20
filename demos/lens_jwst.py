@@ -90,14 +90,6 @@ sky_model_with_keys = jft.Model(
 )
 likelihood = connect_likelihood_to_model(likelihood_raw, sky_model_with_keys)
 
-# fixpointing_model = jft.Model(
-#     lambda x: filter_projector(
-#         jft.wrap_left(lens_system.lens_plane_model.light_model.nonparametric, SKY_KEY)(
-#             x
-#         )
-#     ),
-#     init=lens_system.lens_plane_model.light_model.nonparametric.init,
-# )
 fixpointing_model = jft.Model(
     lambda x: filter_projector(jft.wrap_left(sky_model_fixpointing, SKY_KEY)(x)),
     init=sky_model_fixpointing.init,
@@ -137,7 +129,6 @@ if cfg.get("prior_samples"):
         plot_source=False,
         plot_lens=False,
         data_dict=data_dict,
-        parametric_flag=parametric_lens_flag,
         sky_key=SKY_KEY,
     )
 
@@ -160,37 +151,15 @@ def plot_fixpointing(samples: jft.Samples, state: jft.OptimizeVIState):
 cfg_mini = ju.get_config(config_path)["minimization"]
 n_dof = ju.get_n_constrained_dof(likelihood)
 mini_parser = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
-
-
-def stop_optimizing_lens_at_iteration(
-    iteration: int, iteration_stop: int = 6
-) -> tuple[str]:
-    shift_or_rotation: set = {"shift", "rotation"}
-
-    if iteration >= iteration_stop:
-        return tuple(
-            (
-                p
-                for p in likelihood_fixpointing.domain.tree
-                if not (p.split("_")[-1] in shift_or_rotation)
-            )
-        )
-
-    return ()
-
-
 kl_settings_fixpointing = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=join(results_directory, "fixpointing"),
     minimization=mini_parser,
     n_total_iterations=12,
     callback=plot_fixpointing,
-    # constants=partial(stop_optimizing_lens_at_iteration, iteration_stop=6),
-    # point_estimates=[p for p in likelihood_fixpointing.domain.tree if "nifty_mf" in p],
     # resume=True,
     resume=cfg_mini.get("resume", False),
 )
-
 kl_settings = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=results_directory,
