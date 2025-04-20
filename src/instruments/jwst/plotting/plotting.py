@@ -31,7 +31,6 @@ def get_plot(
     parametric_lens: bool,
     parametric_source: bool = False,
     max_residuals: int = 4,
-    residual_ylen_offset: int = 0,
 ):
     from charm_lensing.lens_system import LensSystem
 
@@ -47,11 +46,16 @@ def get_plot(
         reference=FieldPlottingConfig(vmax=5, norm=None),
         alpha=FieldPlottingConfig(norm=None),
     )
-
     plotting_config_lens_system = LensSystemPlottingConfig(
         source=source_plotting_config,
         lens_light=lens_light_plotting_config,
         share_source_vmin_vmax=False,
+    )
+    residual_plotting_config = ResidualPlottingConfig(
+        sky=lens_light_plotting_config.combined,
+        data=FieldPlottingConfig(norm="log", vmin=1e-3),
+        display_pointing=False,
+        xmax_residuals=max_residuals,
     )
 
     plot_lens = build_plot_lens_system(
@@ -70,13 +74,6 @@ def get_plot(
         grid=grid,
     )
 
-    residual_plotting_config = ResidualPlottingConfig(
-        sky=lens_light_plotting_config.combined,
-        data=FieldPlottingConfig(norm="log", vmin=1e-3),
-        display_pointing=False,
-        xmax_residuals=max_residuals,
-        ylen_offset=residual_ylen_offset,
-    )
     plot_residual = build_plot_sky_residuals(
         results_directory=results_directory,
         filter_projector=filter_projector,
@@ -96,27 +93,25 @@ def plot_prior(
     plot_source: Union[bool, callable],
     plot_lens: Union[bool, callable],
     data_dict: dict,
-    parametric_flag: bool,
     sky_key: str = "sky",
-    residual_ylen_offset: int = 0,
 ):
     import yaml
     from charm_lensing.lens_system import build_lens_system
-
     from jubik0.instruments.jwst.config_handler import insert_spaces_in_lensing_new
+    from charm_lensing.lens_system import LensSystem
 
     test_key, _ = random.split(random.PRNGKey(42), 2)
 
     cfg = yaml.load(open(config_path, "r"), Loader=yaml.SafeLoader)
     insert_spaces_in_lensing_new(cfg["sky"])
 
-    lens_system = build_lens_system(cfg["sky"])
+    lens_system: LensSystem = build_lens_system(cfg["sky"])
     if cfg["nonparametric_lens"]:
         sky_model = lens_system.get_forward_model_full()
-        parametric_flag = False
+        parametric_lens = False
     else:
         sky_model = lens_system.get_forward_model_parametric()
-        parametric_flag = True
+        parametric_lens = True
     sky_model = jft.Model(jft.wrap_left(sky_model, sky_key), domain=sky_model.domain)
     sky_model_with_keys = jft.Model(
         lambda x: filter_projector(sky_model(x)), init=sky_model.init
@@ -124,48 +119,52 @@ def plot_prior(
 
     grid = Grid.from_grid_model(GridModel.from_yaml_dict(cfg["sky"]["grid"]))
     results_directory = cfg["files"]["res_dir"]
-    ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)
+    # ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)
+
+    source_plotting_config = MultiFrequencyPlottingConfig(
+        combined=FieldPlottingConfig(vmin=1e-4, norm="log"),
+        reference=FieldPlottingConfig(vmax=5, norm=None),
+        alpha=FieldPlottingConfig(norm=None),
+    )
+    lens_light_plotting_config = MultiFrequencyPlottingConfig(
+        combined=FieldPlottingConfig(vmin=1e-4, vmax=1e2, norm="log"),
+        reference=FieldPlottingConfig(vmax=5, norm=None),
+        alpha=FieldPlottingConfig(norm=None),
+    )
+    plotting_config_lens_system = LensSystemPlottingConfig(
+        source=source_plotting_config,
+        lens_light=lens_light_plotting_config,
+        share_source_vmin_vmax=False,
+    )
+    residual_plotting_config = ResidualPlottingConfig(
+        sky=lens_light_plotting_config.combined,
+        data=FieldPlottingConfig(norm="log", vmin=1e-3),
+        display_pointing=False,
+        xmax_residuals=1,
+    )
 
     if plot_source and not callable(plot_source):
         plot_source = build_plot_source(
             results_directory,
-            plotting_config=dict(
-                norm_source="log",
-                norm_source_parametric="log",
-                norm_source_nonparametric="log",
-                extent=lens_system.source_plane_model.space.extend().extent,
-            ),
+            plotting_config=source_plotting_config,
+            lens_system=lens_system,
             grid=grid,
-            source_light_model=lens_system.source_plane_model.light_model,
-            source_light_alpha=sl_alpha,
-            source_light_parametric=lens_system.source_plane_model.light_model.parametric,
-            source_light_nonparametric=sl_nonpar,
-            attach_name="",
         )
     elif not callable(plot_source):
-
-        def plot_source(x):
-            return True
+        plot_source = lambda _: True
 
     if plot_lens and not callable(plot_lens):
         plot_lens = build_plot_lens_system(
             results_directory,
-            plotting_config=dict(
-                norm_source="log",
-                norm_lens="log",
-                # norm_source_alpha=LogNorm,
-                norm_source_nonparametric="log",
-                # norm_mass=LogNorm,
-            ),
+            plotting_config=plotting_config_lens_system,
             lens_system=lens_system,
             grid=grid,
-            lens_light_alpha_nonparametric=(ll_alpha, ll_nonpar),
-            source_light_alpha_nonparametric=(sl_alpha, sl_nonpar),
+            parametric_lens=parametric_lens,
+            parametric_source=False,
         )
-    elif not callable(plot_lens):
 
-        def plot_lens(x, v, parametric):
-            return True
+    elif not callable(plot_lens):
+        plot_lens = lambda x: True
 
     if not isinstance(filter_projector.domain, jft.ShapeWithDtype):
         sky_model_new = jft.Model(
@@ -186,24 +185,17 @@ def plot_prior(
                     yield kk, vv
 
         prior_dict = {kk: vv for kk, vv in filter_data(data_dict)}
-        residual_plotting_config = ResidualPlottingConfig(
-            sky=FieldPlottingConfig(norm="log"),
-            data=FieldPlottingConfig(norm="log"),
-            display_pointing=False,
-            xmax_residuals=cfg.get("max_residuals", 4),
-            ylen_offset=residual_ylen_offset,
-        )
-        plot_prior_residuals = build_plot_sky_residuals(
-            results_directory="",
-            data_dict=prior_dict,
+
+        plot_residual = build_plot_sky_residuals(
+            results_directory=results_directory,
             filter_projector=filter_projector,
-            sky_model_with_key=sky_model_with_keys,
-            small_sky_model=sky_model_new,
+            data_dict=data_dict,
+            sky_model_with_filters=sky_model_with_keys,
             plotting_config=residual_plotting_config,
         )
     else:
 
-        def plot_prior_residuals(x):
+        def plot_residual(x):
             return True
 
     nsamples = cfg.get("prior_samples") if cfg.get("prior_samples") else 3
@@ -213,10 +205,9 @@ def plot_prior(
         while isinstance(position, jft.Vector):
             position = position.tree
 
-        plot_prior_residuals(position)
+        plot_residual(position)
         plot_source(position)
-        # plot_color(position)
-        plot_lens(position, None, parametric=parametric_flag)
+        plot_lens(position)
 
 
 def build_plot_model_samples(

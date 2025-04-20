@@ -54,4 +54,3 @@ class ResidualPlottingConfig:
     display_chi2: bool = True
     fileformat: str = "png"
     xmax_residuals: int = np.inf
-    ylen_offset: int = 0

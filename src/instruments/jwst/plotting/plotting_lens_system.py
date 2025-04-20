@@ -93,7 +93,7 @@ def build_plot_lens_system(
 
     def plot_lens_system(
         position_or_samples: Union[jft.Samples, dict],
-        state_or_none: jft.OptimizeVIState | None,
+        state_or_none: jft.OptimizeVIState | None = None,
     ):
         print("Plotting lens system")
 

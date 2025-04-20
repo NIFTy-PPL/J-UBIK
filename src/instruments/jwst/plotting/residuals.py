@@ -75,7 +75,7 @@ def build_plot_sky_residuals(
         )
 
         for skey, _ in filter_projector.keys_and_index.items():
-            ypos = _determine_ypos(skey, filter_projector, plotting_config.ylen_offset)
+            ypos = _determine_ypos(skey, filter_projector)
             axes[ypos, 0].set_title(f"Sky {skey}")
             ims[ypos, 0] = axes[ypos, 0].imshow(
                 sky[skey],
@@ -87,7 +87,7 @@ def build_plot_sky_residuals(
 
         for dkey, data in data_dict.items():
             xpos_residual = _determine_xpos(dkey)
-            ypos = _determine_ypos(dkey, filter_projector, plotting_config.ylen_offset)
+            ypos = _determine_ypos(dkey, filter_projector)
             if xpos_residual > xlen - 1:
                 continue
 

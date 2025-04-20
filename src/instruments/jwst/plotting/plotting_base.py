@@ -193,7 +193,6 @@ def _determine_xpos(dkey: str):
 def _determine_ypos(
     dkey: str,
     filter_projector: FilterProjector,
-    ylen_offset: int,
 ) -> int:
     """Determine the y position of the panel in the residual plot.
 
@@ -214,8 +213,12 @@ def _determine_ypos(
     ypos: int
         The y-position on the panel grid.
     """
+    tmp_dict = {}
+    for ii, key in enumerate(filter_projector.keys_and_index):
+        tmp_dict[key] = ii
+
     ekey = dkey.split("_")[0]
-    return filter_projector.keys_and_index[ekey] - ylen_offset
+    return tmp_dict[ekey]
 
 
 def _get_data_model_and_chi2(
