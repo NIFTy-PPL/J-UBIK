@@ -2,6 +2,7 @@ import argparse
 from sys import exit
 from os.path import join
 
+import jax
 import jax.numpy as jnp
 import nifty8.re as jft
 import numpy as np
@@ -170,23 +171,16 @@ kl_settings = KLSettings(
 )
 
 
-jft.logger.info("Fix pointing reconstruction")
-samples_imaging, state_imaging = minimization_from_initial_samples(
-    likelihood_fixpointing, kl_settings_fixpointing, None
-)
+# jft.logger.info("Fix pointing reconstruction")
+# samples_fixpointing, state_imaging = minimization_from_initial_samples(
+#     likelihood_fixpointing, kl_settings_fixpointing, None
+# )
+# jax.clear_caches()
 
-import jax
-
-jax.clear_caches()
-
-jft.logger.info("Full reconstruction")
-tmp_pos = samples_imaging.pos
-while isinstance(tmp_pos, jft.Vector):
-    tmp_pos = tmp_pos.tree
-
+# jft.logger.info("Full reconstruction")
 samples, state = minimization_from_initial_samples(
     likelihood,
     kl_settings,
-    samples_imaging,
+    # samples_fixpointing,
     # not_take_starting_pos_keys=[k for k in tmp_pos.keys() if "nifty_mf" in k],
 )
