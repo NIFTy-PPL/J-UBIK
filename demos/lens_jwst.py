@@ -156,7 +156,7 @@ kl_settings_fixpointing = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=join(results_directory, "fixpointing"),
     minimization=mini_parser,
-    n_total_iterations=12,
+    n_total_iterations=8,
     callback=plot_fixpointing,
     # resume=True,
     resume=cfg_mini.get("resume", False),
@@ -171,16 +171,16 @@ kl_settings = KLSettings(
 )
 
 
-# jft.logger.info("Fix pointing reconstruction")
-# samples_fixpointing, state_imaging = minimization_from_initial_samples(
-#     likelihood_fixpointing, kl_settings_fixpointing, None
-# )
-# jax.clear_caches()
+jft.logger.info("Fix pointing reconstruction")
+samples_fixpointing, state_imaging = minimization_from_initial_samples(
+    likelihood_fixpointing, kl_settings_fixpointing, None
+)
+jax.clear_caches()
 
 # jft.logger.info("Full reconstruction")
 samples, state = minimization_from_initial_samples(
     likelihood,
     kl_settings,
-    # samples_fixpointing,
+    samples_fixpointing,
     # not_take_starting_pos_keys=[k for k in tmp_pos.keys() if "nifty_mf" in k],
 )

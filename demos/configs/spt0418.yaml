@@ -303,52 +303,9 @@ telescope:
         rotation: ['normal', 0, 1.0e-3]  # With great power comes great responsibility !!
         shift: ['normal', 0, 1.0e-1]
 
-      # f1800w:
-      #   0: 
-      #     shift: ['delta', [-0.07028457,  0.18328143], 0]  # pixel units
-      #     rotation: ['delta', -0.00035559, 0]
-      #   1: 
-      #     shift: ['delta', [-0.05657323,  0.1872492], 0] # pixel units
-      #     rotation: ['delta', -6.49715124e-06, 0]
-      #   2: 
-      #     shift: ['delta', [-0.06474998,  0.15730054], 0] # pixel units
-      #     rotation: ['delta', 0.00012915, 0]
-      #   3: 
-      #     shift: ['delta', [-0.11529116,  0.17701877], 0]  # pixel units
-      #     rotation: ['delta', -0.0002315, 0]
-
-      # f560w:
-      #   0: 
-      #     shift: ['delta', [-0.1008292 ,  0.17464179], 0]
-      #     rotation: ['delta', -0.000382430, 0]
-      #   1: 
-      #     shift: ['delta', [-0.10670843,  0.17844675], 0]  # pixel units
-      #     rotation: ['delta', 2.82699153e-06, 0]
-      #   2: 
-      #     shift: ['delta', [-0.10146453,  0.16931726], 0]  # pixel units
-      #     rotation: ['delta', -1.56966302e-05, 0]
-      #   3: 
-      #     shift: ['delta', [-0.08923382,  0.16512098], 0]  # pixel units
-      #     rotation: ['delta', -0.00151674, 0]
-
-      # f444w:
-      #   0: 
-      #     shift: ['delta', 0, 0]  # pixel units
-      #     rotation: ['delta', 0, 0]
-      #   1: 
-      #     shift: ['delta', [-0.04078999, -0.01561007], 0]  # pixel units
-      #     rotation: ['delta', -0.00138025, 0]
-
-      # f115w:
-      #   0: 
-      #     shift: ['delta', [-0.0326516 , -0.02044561], 0]  # pixel units
-      #     rotation: ['delta', -0.00121091, 0]
-      #   1: 
-      #     shift: ['delta', [-0.02374914, -0.02818313], 0]  # pixel units
-      #     rotation: ['delta', -1.95823434e-05, 0]
 
 files:
-  res_dir: './results/jwst_lens/cluster/10_02_testing_priors'
+  res_dir: './results/jwst_lens/cluster/10_03_testing_priors'
 
   filter:
 
@@ -428,7 +385,7 @@ files:
 
 
 minimization:
-    key: 20250425
+    key: 20250426
     resume: False
     n_total_iterations: 20
 
