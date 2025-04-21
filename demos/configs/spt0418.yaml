@@ -305,7 +305,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/11_03_easter_prior'
+  res_dir: './results/jwst_lens/cluster/11_04_easter_prior'
 
   filter:
 
@@ -385,7 +385,7 @@ files:
 
 
 minimization:
-    key: 20250422
+    key: 202504241
     resume: False
     n_total_iterations: 20
 
@@ -412,7 +412,7 @@ minimization:
 
 
       # lin_absdelta: [Null, Null, 0.00001]
-      lin_maxiter: [350, 550, 550, 850]
+      lin_maxiter: [120, 350, 550, 850]
 
       # nonlin_xtol: [Null, 0.1, 0.01]
       nonlin_maxiter: [7, 7, 13, 18]

@@ -150,13 +150,17 @@ def plot_fixpointing(samples: jft.Samples, state: jft.OptimizeVIState):
 
 
 cfg_mini = ju.get_config(config_path)["minimization"]
-n_dof = ju.get_n_constrained_dof(likelihood)
-mini_parser = ju.MinimizationParser(cfg_mini, n_dof, verbose=False)
+mini_parser_fixpointing = ju.MinimizationParser(
+    cfg_mini, ju.get_n_constrained_dof(likelihood_fixpointing), verbose=False
+)
+mini_parser_full = ju.MinimizationParser(
+    cfg_mini, ju.get_n_constrained_dof(likelihood), verbose=False
+)
 
 kl_settings_fixpointing = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=join(results_directory, "fixpointing"),
-    minimization=mini_parser,
+    minimization=mini_parser_fixpointing,
     callback=plot_fixpointing,
     kl_jit=False,
     residual_jit=True,
@@ -166,7 +170,7 @@ kl_settings_fixpointing = KLSettings(
 kl_settings = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=results_directory,
-    minimization=mini_parser,
+    minimization=mini_parser_full,
     n_total_iterations=cfg_mini["n_total_iterations"],
     callback=plot,
     resume=cfg_mini.get("resume", False),
