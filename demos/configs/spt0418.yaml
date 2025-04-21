@@ -390,7 +390,7 @@ minimization:
     n_total_iterations: 20
 
     fixpointing:
-      resume: True
+      resume: False
       n_total_iterations: 10
 
     delta:
