@@ -305,7 +305,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/11_02_priors_fewerdata'
+  res_dir: './results/jwst_lens/cluster/11_03_easter_prior'
 
   filter:
 
@@ -385,13 +385,13 @@ files:
 
 
 minimization:
-    key: 20250421
+    key: 20250422
     resume: False
     n_total_iterations: 20
 
     fixpointing:
       resume: False
-      n_total_iterations: 10
+      n_total_iterations: 20
 
     delta:
       switches: [0, 4, 8, 15]
