@@ -172,8 +172,6 @@ kl_settings = KLSettings(
     resume=cfg_mini.get("resume", False),
 )
 
-
-exit()
 jft.logger.info("Fix pointing reconstruction")
 samples_fixpointing, state_imaging = minimization_from_initial_samples(
     likelihood_fixpointing, kl_settings_fixpointing, None
