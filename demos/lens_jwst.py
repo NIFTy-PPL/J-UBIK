@@ -159,7 +159,7 @@ kl_settings_fixpointing = KLSettings(
     minimization=mini_parser,
     callback=plot_fixpointing,
     kl_jit=False,
-    residual_jit=False,
+    residual_jit=True,
     resume=cfg_mini["fixpointing"].get("resume", False),
     n_total_iterations=cfg_mini["fixpointing"]["n_total_iterations"],
 )
