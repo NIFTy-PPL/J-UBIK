@@ -17,6 +17,8 @@ class KLSettings:
     sample_multiply: Optional[float] = 0.1
     constants: tuple[str] = ()
     point_estimates: tuple[str] = ()
+    kl_jit: bool = True
+    residual_jit: bool = True
     resume: bool = False
 
 
@@ -98,5 +100,7 @@ def minimization_from_initial_samples(
         constants=kl_settings.constants,
         point_estimates=kl_settings.point_estimates,
         resume=kl_settings.resume,
+        kl_jit=kl_settings.kl_jit,
+        residual_jit=kl_settings.residual_jit,
     )
     return samples, state
