@@ -3,6 +3,7 @@ from ..minimization_parser import MinimizationParser
 import nifty8.re as jft
 from jax import random
 
+import pickle
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -20,6 +21,7 @@ class KLSettings:
     kl_jit: bool = True
     residual_jit: bool = True
     resume: bool = False
+    resume_from_pickle_path: str | None = None
 
 
 def _initial_position(
@@ -28,10 +30,19 @@ def _initial_position(
     position_rescaling,
     starting_samples: Optional[jft.Samples] = None,
     not_take_starting_pos_keys: tuple[str] = (),
+    resume_from_pickle_path: str | None = None,
 ):
     initial_position = jft.random_like(init_key, domain) * position_rescaling
     while isinstance(initial_position, jft.Vector):
         initial_position = initial_position.tree
+
+    if resume_from_pickle_path is not None:
+        if starting_samples is not None:
+            jft.logger.warning(
+                f"Warning: Overwriting starting position from path: {resume_from_pickle_path}."
+            )
+        with open(resume_from_pickle_path, "rb") as f:
+            samples, opt_vi_st = pickle.load(f)
 
     if starting_samples is not None:
         starting_pos = starting_samples.pos
@@ -81,6 +92,7 @@ def minimization_from_initial_samples(
         position_rescaling=kl_settings.sample_multiply,
         starting_samples=starting_samples,
         not_take_starting_pos_keys=not_take_starting_pos_keys,
+        resume_from_pickle_path=kl_settings.resume_from_pickle_path,
     )
 
     # Minimze only parametric
