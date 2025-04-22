@@ -118,8 +118,8 @@ sky:
             # ie: ['log_normal', 6000, 7000, [3, 1, 1]]
             ie: ['log_normal', 6000, 7000, [13, 1, 1]]
             # re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
-            re: ['log_normal', 5.0, 0.5, [13, 1, 1]]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
-            n: ['log_normal', 4.2, 1.2, [13, 1, 1]]  # 3.17+-0.02 (Jared Cathey et.al. 2023)
+            re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+            n: ['log_normal', 4.2, 0.6]  # 3.17+-0.02 (Jared Cathey et.al. 2023)
             center: ['normal', [0.0, 0.0], 0.1]
             q: [ 'uniform', 0.8, 1.0]
             theta: ['normal', 0.0, 10.0]
@@ -169,8 +169,8 @@ sky:
         mean:
           sersic_01: # i0*exp(-bn * (r/re)**1/n - 1)
             ie: ['delta', 1.0, 0.0]
-            re: ['log_normal', 0.8, 0.5, [13, 1, 1]]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
-            n: ['log_normal', 4.2, 1.2, [13, 1, 1]]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
+            re: ['log_normal', 0.8, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+            n: ['log_normal', 4.2, 0.6]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
             center: ['normal', [0.0, 0.0], 0.1]
             q: [ 'uniform', 0.8, 1.0]
             theta: ['normal', 0.0, 10.0]
@@ -310,7 +310,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/11_07_easter_variablesource_mean'
+  res_dir: './results/jwst_lens/cluster/11_06_easter_variablesource_mean'
 
   filter:
 
@@ -396,7 +396,7 @@ minimization:
 
     fixpointing:
       resume: False
-      n_total_iterations: 20
+      n_total_iterations: 8
 
     delta:
       switches: [0, 4, 8, 15]
