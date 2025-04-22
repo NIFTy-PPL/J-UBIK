@@ -87,13 +87,15 @@ sky:
             # i0: ['log_normal', 1.0 , 20.0, [3, 1, 1]]
             i0: ['log_normal', 1.0 , 20.0, [13, 1, 1]]
             center: ['normal', 0, 0.1]
-            covariance: ['log_normal', 0.08, 0.02]
+            # covariance: ['log_normal', 0.08, 0.02]
+            covariance: ['log_normal', 0.08, 0.02, [13, 1, 1]]
             off_diagonal: ['normal', 0.0, 10.0]
           gaussian_02: # i0*Gauss
             # i0: ['log_normal', 1.0 , 20.0, [3, 1, 1]]
             i0: ['log_normal', 1.0 , 20.0, [13, 1, 1]]
             center: ['normal', [-0.5, -0.5], 0.1]
-            covariance: ['log_normal', 0.08, 0.02]
+            # covariance: ['log_normal', 0.08, 0.02]
+            covariance: ['log_normal', 0.08, 0.02, [13, 1, 1]]
             off_diagonal: ['normal', 0.0, 10.0]
 
           # pcopy: 
@@ -115,7 +117,8 @@ sky:
           sersic_01: # i0*exp(-bn * (r/re)**1/n - 1)
             # ie: ['log_normal', 6000, 7000, [3, 1, 1]]
             ie: ['log_normal', 6000, 7000, [13, 1, 1]]
-            re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+            # re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+            re: ['log_normal', 5.0, 0.5, [13, 1, 1]]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
             n: ['log_normal', 4.2, 1.2]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
             center: ['normal', [0.0, 0.0], 0.1]
             q: [ 'uniform', 0.8, 1.0]
@@ -305,7 +308,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/11_04_easter_prior'
+  res_dir: './results/jwst_lens/cluster/11_05_easter_prior_with_variable_covariance'
 
   filter:
 
