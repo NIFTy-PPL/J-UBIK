@@ -108,7 +108,7 @@ plot_source, plot_residual, plot_lens = get_plot(
     parametric_lens_flag,
 )
 
-_, plot_residual_fixpointing, plot_lens_fixpointing = get_plot(
+_, plot_residual_fixpointing, _ = get_plot(
     join(results_directory, "fixpointing"),
     grid,
     lens_system_fixpointing,
@@ -146,7 +146,6 @@ def plot_fixpointing(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f"Plotting: {state.nit}")
     if cfg["plot_results"]:
         plot_residual_fixpointing(samples, state)
-        plot_lens_fixpointing(samples, state)
 
 
 cfg_mini = ju.get_config(config_path)["minimization"]
