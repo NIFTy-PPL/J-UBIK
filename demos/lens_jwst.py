@@ -165,6 +165,7 @@ kl_settings_fixpointing = KLSettings(
     residual_jit=True,
     resume=cfg_mini["fixpointing"].get("resume", False),
     n_total_iterations=cfg_mini["fixpointing"]["n_total_iterations"],
+    resume_from_pickle_path=cfg_mini["fixpointing"].get("resume_from_pickle_path"),
 )
 kl_settings = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),

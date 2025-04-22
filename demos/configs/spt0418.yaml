@@ -310,7 +310,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/12_01_easter_fulldata'
+  res_dir: './results/jwst_lens/cluster/12_02_easter_fulldata'
 
   filter:
 
@@ -391,23 +391,24 @@ files:
 
 minimization:
     key: 20250425
-    resume: False
+    resume: True
     n_total_iterations: 20
 
     fixpointing:
-      resume: False
+      resume: True
       n_total_iterations: 10
+      resume_from_pickle_path: './results/jwst_lens/cluster/11_05_easter_prior_with_variable_covariance/last.pkl'
 
     delta:
       switches: [0, 4, 8, 15]
       values: [5.e-6, 1.e-6, 5.e-7, 1.e-7]
 
     samples:
-      switches: [0, 4, 8, 15]
-      n_samples: [3, 3, 3, 5]
+      switches: [0, 4, 6, 8, 15]
+      n_samples: [3, 3, 3, 3, 5]
       # n_samples: [5]
       # mode: [linear_resample, nonlinear_resample, nonlinear_resample, nonlinear_update]
-      mode: [linear_resample, linear_resample, nonlinear_resample]
+      mode: [linear_resample, linear_resample, linear_resample, nonlinear_resample]
       # Possible modes:
       # - "linear_sample",
       # - "linear_resample",
@@ -417,7 +418,7 @@ minimization:
 
 
       # lin_absdelta: [Null, Null, 0.00001]
-      lin_maxiter: [120, 350, 550, 850]
+      lin_maxiter: [120, 350, 650, 1200, 2350]
 
       # nonlin_xtol: [Null, 0.1, 0.01]
       nonlin_maxiter: [7, 7, 13, 18]
