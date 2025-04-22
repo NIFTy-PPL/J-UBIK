@@ -39,10 +39,14 @@ def _initial_position(
     if resume_from_pickle_path is not None:
         if starting_samples is not None:
             jft.logger.warning(
-                f"Warning: Overwriting starting position from path: {resume_from_pickle_path}."
+                "Warning: Overwriting starting position from path: "
+                f"{resume_from_pickle_path}."
             )
+        else:
+            jft.logger.info(f"Loading result: {resume_from_pickle_path}")
+
         with open(resume_from_pickle_path, "rb") as f:
-            samples, opt_vi_st = pickle.load(f)
+            starting_samples, opt_vi_st = pickle.load(f)
 
     if starting_samples is not None:
         starting_pos = starting_samples.pos
@@ -51,6 +55,7 @@ def _initial_position(
 
         for key in initial_position.keys():
             if key in starting_pos and not (key in not_take_starting_pos_keys):
+                jft.logger(f"Taking {key}: starting_pos[key]")
                 initial_position[key] = starting_pos[key]
 
     return jft.Vector(initial_position)
