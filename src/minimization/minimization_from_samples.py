@@ -109,10 +109,9 @@ def minimization_from_initial_samples(
     initial_position, opt_vi_state = _initial_position(
         init_key,
         likelihood.domain,
-        position_rescaling=kl_settings.sample_multiply,
+        kl_settings=kl_settings,
         starting_samples=starting_samples,
         not_take_starting_pos_keys=not_take_starting_pos_keys,
-        resume_from_pickle_path=kl_settings.resume_from_pickle_path,
     )
 
     # Minimze only parametric
