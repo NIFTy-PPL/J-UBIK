@@ -119,7 +119,7 @@ sky:
             ie: ['log_normal', 6000, 7000, [13, 1, 1]]
             # re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
             re: ['log_normal', 5.0, 0.5, [13, 1, 1]]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
-            n: ['log_normal', 4.2, 1.2]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
+            n: ['log_normal', 4.2, 1.2, [13, 1, 1]]  # 3.17+-0.02 (Jared Cathey et.al. 2023)
             center: ['normal', [0.0, 0.0], 0.1]
             q: [ 'uniform', 0.8, 1.0]
             theta: ['normal', 0.0, 10.0]
@@ -133,13 +133,15 @@ sky:
             i0: ['delta', 1.0, 0.0]
             # i0: ['log_normal', 1.0e-1, 2.0e-1]
             center: ['normal', 0, 0.1]
-            covariance: ['log_normal', 0.08, 0.02]
+            # covariance: ['log_normal', 0.08, 0.02]
+            covariance: ['log_normal', 0.08, 0.02, [2, 13, 1, 1]]
             off_diagonal: ['normal', 0.0, 10.0]
           gaussian_02: # i0*Gauss
             i0: ['delta', 1.0, 0.0]
             # i0: ['log_normal', 2.0e-2, 4.0e-2]
             center: ['normal', [-0.5, -0.5], 0.1]
-            covariance: ['log_normal', 0.08, 0.02]
+            # covariance: ['log_normal', 0.08, 0.02]
+            covariance: ['log_normal', 0.08, 0.02, [2, 13, 1, 1]]
             off_diagonal: ['normal', 0.0, 10.0]
 
         multifrequency:
@@ -147,14 +149,14 @@ sky:
             zero_mode: [0.2, 0.05] # normal
             spatial_amplitude:
               model: 'matern'
-              scale: [0.2, 0.03]        # lognormal
-              cutoff: [0.1, 0.01]       # lognormal
-              loglogslope: [-4.0, 0.1]  # normal
+              scale: [0.1, 0.03]        # lognormal
+              cutoff: [0.08, 0.01]       # lognormal
+              loglogslope: [-4.0, 0.5]  # normal
             spectral_amplitude:
               model: 'matern'
-              scale: [0.2, 0.03]        # lognormal
-              cutoff: [0.1, 0.01]       # lognormal
-              loglogslope: [-4.0, 0.1]  # normal
+              scale: [0.1, 0.03]        # lognormal
+              cutoff: [0.08, 0.01]       # lognormal
+              loglogslope: [-4.0, 0.5]  # normal
             spectral_index:
               mean: [-1.5, 0.5]         # normal
               fluctuations: [0.1, 0.05]  # lognormal 
@@ -167,8 +169,8 @@ sky:
         mean:
           sersic_01: # i0*exp(-bn * (r/re)**1/n - 1)
             ie: ['delta', 1.0, 0.0]
-            re: ['log_normal', 0.8, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
-            n: ['log_normal', 4.2, 1.2]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
+            re: ['log_normal', 0.8, 0.5, [13, 1, 1]]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+            n: ['log_normal', 4.2, 1.2, [13, 1, 1]]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
             center: ['normal', [0.0, 0.0], 0.1]
             q: [ 'uniform', 0.8, 1.0]
             theta: ['normal', 0.0, 10.0]
@@ -308,7 +310,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/11_05_easter_prior_with_variable_covariance'
+  res_dir: './results/jwst_lens/cluster/11_07_easter_variablesource_mean'
 
   filter:
 
