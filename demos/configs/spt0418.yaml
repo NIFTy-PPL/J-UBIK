@@ -189,10 +189,10 @@ sky:
             #   loglogslope: [-4.0, 0.1]  # normal
             spectral_index:
               mean: [1.4, 0.5]         # normal
-              fluctuations: [5.0e-2, 1.0e-2]  # lognormal 
-            # spectral_deviations:
-            #   process: 'wiener'
-            #   sigma: [0.01e-7, 0.01e-8]  # lognormal
+              fluctuations: [1.0e-2, 1.0e-2]  # lognormal 
+            spectral_deviations:
+              process: 'wiener'
+              sigma: [0.01, 0.01]  # lognormal
 
 
       convergence:
