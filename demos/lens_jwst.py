@@ -187,5 +187,5 @@ samples, state = minimization_from_initial_samples(
     likelihood,
     kl_settings,
     samples_fixpointing,
-    # not_take_starting_pos_keys=[k for k in tmp_pos.keys() if "nifty_mf" in k],
+    not_take_starting_pos_keys=sky_model_with_keys.domain.keys(),
 )

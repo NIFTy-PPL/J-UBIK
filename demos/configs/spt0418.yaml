@@ -390,7 +390,7 @@ files:
 
 
 minimization:
-    key: 202504241
+    key: 20250425
     resume: False
     n_total_iterations: 20
 
