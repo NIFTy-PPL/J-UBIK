@@ -88,14 +88,14 @@ sky:
             i0: ['log_normal', 1.0 , 20.0, [13, 1, 1]]
             center: ['normal', 0, 0.1]
             # covariance: ['log_normal', 0.08, 0.02]
-            covariance: ['log_normal', 0.08, 0.02, [13, 1, 1]]
+            covariance: ['log_normal', 0.08, 0.02, [2, 13, 1, 1]]
             off_diagonal: ['normal', 0.0, 10.0]
           gaussian_02: # i0*Gauss
             # i0: ['log_normal', 1.0 , 20.0, [3, 1, 1]]
             i0: ['log_normal', 1.0 , 20.0, [13, 1, 1]]
             center: ['normal', [-0.5, -0.5], 0.1]
             # covariance: ['log_normal', 0.08, 0.02]
-            covariance: ['log_normal', 0.08, 0.02, [13, 1, 1]]
+            covariance: ['log_normal', 0.08, 0.02, [2, 13, 1, 1]]
             off_diagonal: ['normal', 0.0, 10.0]
 
           # pcopy: 
