@@ -67,6 +67,8 @@ def build_plot_source(
             get_position_or_samples_of_model(position_or_samples, model, True)
             for model in models
         ]
+        if len(sl_para.shape) > 2:
+            sl_para = sl_para.mean(axis=0)
 
         vmin, vmax = filter_plotting_config.get_min(sl), None
 
