@@ -178,7 +178,10 @@ kl_settings = KLSettings(
 
 jft.logger.info("Fix pointing reconstruction")
 samples_fixpointing, state_imaging = minimization_from_initial_samples(
-    likelihood_fixpointing, kl_settings_fixpointing, None
+    likelihood_fixpointing,
+    kl_settings_fixpointing,
+    None,
+    not_take_starting_pos_keys=fixpointing_model.domain.keys(),
 )
 jax.clear_caches()
 
