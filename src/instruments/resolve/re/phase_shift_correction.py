@@ -52,11 +52,14 @@ class PhaseShiftCorrection(jft.Model):
 
     def __call__(self, params: dict) -> jnp.array:
         center_x, center_y = self.shift(params)
-        n = jnp.sqrt(1 - center_x**2 - center_y**2)
+        # n = jnp.sqrt(1 - center_x**2 - center_y**2)
         return jnp.exp(
             -2j
             * np.pi
-            * (self.uvw[0] * center_x + self.uvw[1] * center_y + self.uvw[2] * (n - 1))
+            * (
+                self.uvw[0] * center_x + self.uvw[1] * center_y
+                # + self.uvw[2] * (n - 1))
+            )
         )
 
 
@@ -68,14 +71,15 @@ def build_phase_shift_correction_from_config(
     if phase_shift_correction_config is None:
         return None
 
-    shift_correction = build_shift_correction(
+    shift_correction_model = build_shift_correction(
         field_name,
         phase_shift_correction_config,
         unit=units.rad,
     )
+    jft.logger.warning("Shift correction is ignoring the w-term")
 
     return PhaseShiftCorrection(
-        shift_correction,
+        shift_correction_model,
         observation.uvw,
         observation.freq,
     )
