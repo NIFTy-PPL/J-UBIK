@@ -176,19 +176,19 @@ kl_settings = KLSettings(
     resume=cfg_mini.get("resume", False),
 )
 
-jft.logger.info("Fix pointing reconstruction")
-samples_fixpointing, state_imaging = minimization_from_initial_samples(
-    likelihood_fixpointing,
-    kl_settings_fixpointing,
-    None,
-    not_take_starting_pos_keys=fixpointing_model.domain.keys(),
-)
-jax.clear_caches()
+# jft.logger.info("Fix pointing reconstruction")
+# samples_fixpointing, state_imaging = minimization_from_initial_samples(
+#     likelihood_fixpointing,
+#     kl_settings_fixpointing,
+#     None,
+#     not_take_starting_pos_keys=fixpointing_model.domain.keys(),
+# )
+# jax.clear_caches()
 
 # jft.logger.info("Full reconstruction")
 samples, state = minimization_from_initial_samples(
     likelihood,
     kl_settings,
-    samples_fixpointing,
-    not_take_starting_pos_keys=sky_model_with_keys.domain.keys(),
+    # samples_fixpointing,
+    # not_take_starting_pos_keys=sky_model_with_keys.domain.keys(),
 )
