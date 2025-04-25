@@ -12,7 +12,7 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 from ...color import Color, ColorRange
-from ...grid import Grid
+from ...wcs.wcs_astropy import WcsAstropy
 from ...wcs.wcs_jwst_data import WcsJwstData
 
 from .jwst_information import get_dvol, JWST_FILTERS
@@ -160,9 +160,9 @@ class JwstData:
 
     def bounding_data_mask_std_by_world_corners(
         self,
-        reconstruction_grid: Grid,
+        reconstruction_grid_wcs: WcsAstropy,
         world_corners: list[SkyCoord],
-        additional_masks_corners: list[CornerMaskConfig],
+        additional_masks_corners: list[CornerMaskConfig] | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return a subpart of the data, mask, and std inside a bounding box surrounding
         the `world_corners`.
@@ -199,16 +199,19 @@ class JwstData:
 
         data = self.data_inside_extrema(world_corners)
         mask = get_mask_from_index_centers_within_rgrid(
-            world_corners, self.wcs, reconstruction_grid.spatial
+            world_corners, self.wcs, reconstruction_grid_wcs
         )
         mask *= self.nan_inside_extrema(world_corners)
-
-        extra_masks = [
-            get_mask_from_mask_corners(data.shape, self.wcs, world_corners, mc.corners)
-            for mc in additional_masks_corners
-        ]
-        mask *= ~np.sum(extra_masks, axis=0, dtype=bool)
         std = self.std_inside_extrema(world_corners)
+
+        if additional_masks_corners is not None:
+            extra_masks = [
+                get_mask_from_mask_corners(
+                    data.shape, self.wcs, world_corners, mc.corners
+                )
+                for mc in additional_masks_corners
+            ]
+            mask *= ~np.sum(extra_masks, axis=0, dtype=bool)
 
         return data, mask, std
 
