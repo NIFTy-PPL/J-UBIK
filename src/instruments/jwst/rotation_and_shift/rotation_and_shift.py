@@ -14,7 +14,6 @@ from numpy.typing import ArrayLike
 from .coordinates_correction import CoordinatesCorrected
 from .linear_rotation_and_shift import build_linear_rotation_and_shift
 from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
-from .sparse_rotation_and_shift import build_sparse_rotation_and_shift
 from ....grid import Grid
 from ....wcs import subsample_grid_corners_in_index_grid_non_vstack
 from ....wcs.wcs_base import WcsBase
@@ -22,7 +21,6 @@ from ....wcs.wcs_base import WcsBase
 from ..parse.rotation_and_shift.rotation_and_shift import (
     LinearConfig,
     NufftConfig,
-    SparseConfig,
 )
 
 
@@ -90,10 +88,7 @@ def _infere_output_shape_from_coordinates(
 def build_rotation_and_shift_model(
     sky_domain: dict,
     reconstruction_grid: Grid,
-    world_corners: Tuple[SkyCoord],
-    data_grid_wcs: WcsBase,
-    subsample: int,
-    algorithm_config: Union[LinearConfig, NufftConfig, SparseConfig],
+    algorithm_config: Union[LinearConfig, NufftConfig],
     coordinates: Union[ArrayLike, Callable, CoordinatesCorrected],
     indexing: str,
 ) -> RotationAndShiftModel:
@@ -103,17 +98,10 @@ def build_rotation_and_shift_model(
     ----------
     sky_domain: dict
         Containing the sky_key and the shape_dtype of the reconstruction sky.
-    world_corners: Tuple[SkyCoord]
-        The corners of the grid to be rotated and shifted into.
     reconstruction_grid: Grid
         The Grid underlying the reconstruction domain.
-    data_grid_wcs: WcsBase
-        The world coordinate system of the data grid.
-    algorithm_config: Union[LinearConfig, NufftConfig, SparseConfig]
-        The type of the rotation and shift model: (linear, nufft, sparse)
-    subsample: int
-        The subsample factor for the data grid. How many times a data pixel is
-        subsampled in each direction.
+    algorithm_config: Union[LinearConfig, NufftConfig]
+        The type of the rotation and shift model: (linear, nufft)
     coordinates: Union[ArrayLike, Callable, CoordinatesCorrected]
         The coordinates of the subsampled data. Precise: The coordinate center
         of the data pixel.
@@ -137,15 +125,6 @@ def build_rotation_and_shift_model(
             out_shape=out_shape,
             indexing=indexing,
             **vars(algorithm_config),
-        )
-
-    elif isinstance(algorithm_config, SparseConfig):
-        # TODO: Sparse cannot update the coordinates
-        call = build_sparse_rotation_and_shift(
-            index_grid=reconstruction_grid.spatial.index_grid(**vars(algorithm_config)),
-            subsample_corners=subsample_grid_corners_in_index_grid_non_vstack(
-                world_corners, data_grid_wcs, reconstruction_grid.spatial, subsample
-            ),
         )
 
     return RotationAndShiftModel(

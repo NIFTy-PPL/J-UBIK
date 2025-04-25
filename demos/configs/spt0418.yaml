@@ -288,10 +288,6 @@ telescope:
 
 
   rotation_and_shift:
-    # sparse:
-    #   extend_factor: 1
-    #   to_bottom_left: False
-
     # nufft: 
     #   mode: 'constant'
 
@@ -301,7 +297,7 @@ telescope:
 
     subsample: 3
 
-    correction_priors: # will be ignored in case of sparse
+    correction_priors:
       rotation_unit: deg
       shift_unit: arcsec
       default:
@@ -310,7 +306,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/13_01_testing_alignement'
+  res_dir: './results/jwst_lens/cluster/13_02_testing_alignement'
 
   filter:
 

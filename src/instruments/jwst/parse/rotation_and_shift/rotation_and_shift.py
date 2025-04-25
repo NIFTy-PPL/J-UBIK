@@ -24,27 +24,13 @@ class NufftConfig:
         return cls(mode=settings.get("mode", "constant"))
 
 
-@dataclass
-class SparseConfig:
-    extend_factor: int = 1
-    to_bottom_left: bool = False
-
-    @classmethod
-    def from_yaml_dict(cls, settings: dict):
-        return cls(
-            extend_factor=settings.get("extend_factor", 1),
-            to_bottom_left=settings.get("to_bottom_left", False),
-        )
-
-
 # Factory function implementing the Strategy Pattern
 def rotation_and_shift_algorithm_config_factory(
     config_dict: dict[str, Any],
-) -> Union[LinearConfig, NufftConfig, SparseConfig]:
+) -> Union[LinearConfig, NufftConfig]:
     strategy_map = {
         "linear": LinearConfig,
         "nufft": NufftConfig,
-        "sparse": SparseConfig,
     }
 
     for key, config_class in strategy_map.items():

@@ -181,10 +181,7 @@ def build_jwst_response(
     rotation_and_shift = build_rotation_and_shift_model(
         sky_domain=sky_domain,
         reconstruction_grid=reconstruction_grid,
-        world_corners=world_corners,
-        data_grid_wcs=data_wcs,
         algorithm_config=rotation_and_shift_kwargs["algorithm_config"],
-        subsample=data_subsample,
         coordinates=coordinates,
         indexing="ij",
     )
