@@ -118,8 +118,8 @@ class WcsAstropy(WCS, WcsMixin):
 
     def world_corners(
         self,
-        extension_factor: float = 1,
         extension_value: Optional[tuple[int, int]] = None,
+        extension_factor: float = 1,
     ) -> ArrayLike:
         """
         The world location of the center of the pixels with the index

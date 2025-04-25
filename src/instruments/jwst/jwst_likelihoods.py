@@ -7,7 +7,10 @@ from .jwst_response import build_jwst_response
 from .jwst_data import JwstData
 from ...grid import Grid
 from .filter_projector import FilterProjector, build_filter_projector
-from .parse.masking.data_mask import yaml_to_corner_mask_configs
+from .rotation_and_shift.coordinates_correction import (
+    ShiftAndRotationCorrection,
+)
+from .jwst_psf import load_psf_kernel
 
 # Parsing
 from .parse.jwst_psf import yaml_to_psf_kernel_config
@@ -18,10 +21,9 @@ from .parse.rotation_and_shift.coordinates_correction import (
 from .parse.rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
 )
-from .rotation_and_shift.coordinates_correction import (
-    ShiftAndRotationCorrection,
-)
-from .jwst_psf import load_psf_kernel_from_config
+from .parse.jwst_response import SkyMetaInformation
+from .parse.masking.data_mask import yaml_to_corner_mask_configs
+
 
 # Libraries
 import jax.numpy as jnp
@@ -57,8 +59,13 @@ def build_jwst_likelihoods(
     coordiantes_correction_config = yaml_to_coordinates_correction_config(
         cfg[telescope_key]["rotation_and_shift"]["correction_priors"]
     )
-    rotation_and_shift_algorithm_config = rotation_and_shift_algorithm_config_factory(
+    rotation_and_shift_algorithm = rotation_and_shift_algorithm_config_factory(
         cfg[telescope_key]["rotation_and_shift"]
+    )
+    data_subsample = cfg[telescope_key]["rotation_and_shift"]["subsample"]
+    sky_meta = SkyMetaInformation(
+        grid_extension=get_grid_extension_from_config(cfg[telescope_key], grid),
+        unit=sky_unit,
     )
 
     data_dict = {}
@@ -68,52 +75,38 @@ def build_jwst_likelihoods(
             logger.info(f"Loading: {fltname} {ii} {filepath}")
 
             # Loading data, std, and mask.
-            grid_corners_extended = grid.spatial.world_corners(
-                extension_value=get_grid_extension_from_config(cfg[telescope_key], grid)
+            jwst_data = JwstData(
+                filepath, identifier=f"{fltname}_{ii}", subsample=data_subsample
             )
-            additional_mask_corners = yaml_to_corner_mask_configs(cfg[telescope_key])
-
-            jwst_data = JwstData(filepath)
             data, mask, std = jwst_data.bounding_data_mask_std_by_world_corners(
-                grid, grid_corners_extended, additional_mask_corners
+                grid,
+                grid.spatial.world_corners(extension_value=sky_meta.grid_extension),
+                yaml_to_corner_mask_configs(cfg[telescope_key]),
             )
 
-            if sky_unit is not None:
-                assert jwst_data.dm.meta.bunit_data == sky_unit
-            else:
-                sky_unit = jwst_data.dm.meta.bunit_data
-
-            data_subsample = cfg[telescope_key]["rotation_and_shift"]["subsample"]
-            psf_kernel = load_psf_kernel_from_config(
+            psf_kernel = load_psf_kernel(
                 jwst_data=jwst_data,
-                pointing_center=grid.spatial.center,
-                subsample=data_subsample,
+                target_center=grid.spatial.center,
                 config_parameters=psf_kernel_configs,
             )
 
             energy_name = filter_projector.get_key(jwst_data.pivot_wavelength)
-            data_identifier = f"{fltname}_{ii}"
 
-            boresight = jwst_data.get_boresight_world_coords()
             shift_and_rotation_correction = ShiftAndRotationCorrection(
-                domain_key=f"{data_identifier}_correction",
+                domain_key=f"{jwst_data.meta.identifier}_correction",
                 correction_prior=coordiantes_correction_config.get_name_setting_or_default(
                     jwst_data.filter, ii
                 ),
-                rotation_center=boresight,
+                rotation_center=jwst_data.get_boresight_world_coords(),
             )
 
             jwst_target_response = build_jwst_response(
                 sky_domain={energy_name: filter_projector.target[energy_name]},
-                data_identifier=data_identifier,
-                data_subsample=data_subsample,
-                rotation_and_shift_kwargs=dict(
-                    reconstruction_grid=grid,
-                    data_dvol=jwst_data.dvol,
-                    data_wcs=jwst_data.wcs,
-                    algorithm_config=rotation_and_shift_algorithm_config,
-                    world_corners=grid_corners_extended,
-                ),
+                data_wcs=jwst_data.wcs,
+                data_meta=jwst_data.meta,
+                sky_wcs=grid.spatial,
+                sky_meta=sky_meta,
+                rotation_and_shift_algorithm=rotation_and_shift_algorithm,
                 shift_and_rotation_correction=shift_and_rotation_correction,
                 psf_kernel=psf_kernel,
                 transmission=jwst_data.transmission,
@@ -121,17 +114,15 @@ def build_jwst_likelihoods(
                     fltname
                 ),
                 data_mask=mask,
-                sky_unit=sky_unit,
-                data_unit=u.Unit(jwst_data.dm.meta.bunit_data),
             )
 
-            data_dict[data_identifier] = dict(
+            data_dict[jwst_data.meta.identifier] = dict(
                 index=filter_projector.keys_and_index[energy_name],
                 data=data,
                 std=std,
                 mask=mask,
                 data_model=jwst_target_response,
-                data_dvol=jwst_data.dvol,
+                data_dvol=jwst_data.meta.dvol,
                 data_transmission=jwst_data.transmission,
             )
 
@@ -145,11 +136,3 @@ def build_jwst_likelihoods(
 
     likelihood = reduce(lambda x, y: x + y, likelihoods)
     return likelihood, filter_projector, data_dict
-
-
-# fig, axes = plt.subplots(2, 4, sharex=True, sharey=True); axes = axes.flatten();
-# bla = dict(origin="lower", norm="log");
-# for ii, (k, dd) in enumerate(data_dict.items()):
-#     axes[ii].imshow(dd["data"], **bla);
-#     axes[ii + 4].imshow(dd["std"], **bla);
-# plt.show()

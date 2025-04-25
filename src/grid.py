@@ -49,26 +49,28 @@ class Grid:
         # Spectral
         self.spectral = spectral
         # Polarization, TODO: Implement more options.
-        self.polarization_labels = ['I']
+        self.polarization_labels = ["I"]
         # Time, TODO: Implement more options
         self.times = [-np.inf, np.inf]
 
     @classmethod
     def from_grid_model(cls, grid_model: GridModel):
-        '''Build Grid from GridModel.'''
+        """Build Grid from GridModel."""
         spatial = WcsAstropy.from_spatial_model(grid_model.spatial_model)
         spectral = grid_model.color_ranges
         return Grid(spatial, spectral)
 
     @property
     def shape(self):
-        '''Shape of the grid. (spectral, spatial)'''
+        """Shape of the grid. (spectral, spatial)"""
         return self.spectral.shape + self.spatial.shape
 
     def __repr__(self):
-        return ('Grid('
-                f'\npolarization_labels={self.polarization_labels}\n'
-                f'\ntimes={self.times}\n'
-                f'\nspectral={self.spectral}\n'
-                f'\nspatial={self.spatial}\n'
-                ')')
+        return (
+            "Grid("
+            f"\npolarization_labels={self.polarization_labels}\n"
+            f"\ntimes={self.times}\n"
+            f"\nspectral={self.spectral}\n"
+            f"\nspatial={self.spatial}\n"
+            ")"
+        )

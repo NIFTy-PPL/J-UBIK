@@ -5,18 +5,25 @@
 
 # %
 
-from typing import Callable
+from typing import Callable, Union
 
 import nifty8.re as jft
+import numpy as np
 from astropy import units as u
 from numpy.typing import ArrayLike
 
+from .parse.parametric_model.parametric_prior import ProbabilityConfig
+from .parse.rotation_and_shift.rotation_and_shift import LinearConfig, NufftConfig
+from .parse.jwst_response import SkyMetaInformation
+from .jwst_data import DataMetaInformation
+
 from ...wcs import subsample_grid_centers_in_index_grid
+from ...wcs.wcs_jwst_data import WcsJwstData
+from ...wcs.wcs_astropy import WcsAstropy
 from .integration.unit_conversion import build_unit_conversion
 from .integration.integration import integration_factory
 from .jwst_psf import build_psf_operator
 from .masking.build_mask import build_mask
-from .parse.parametric_model.parametric_prior import ProbabilityConfig
 from .rotation_and_shift import RotationAndShift, build_rotation_and_shift
 from .rotation_and_shift.coordinates_correction import (
     build_coordinates_corrected_from_grid,
@@ -24,6 +31,7 @@ from .rotation_and_shift.coordinates_correction import (
 )
 from .zero_flux_model import build_zero_flux_model
 from ...grid import Grid
+from .jwst_data import JwstData
 
 
 class JwstResponse(jft.Model):
@@ -112,16 +120,16 @@ class JwstResponse(jft.Model):
 
 def build_jwst_response(
     sky_domain: dict,
-    data_identifier: str,
-    data_subsample: int,
-    rotation_and_shift_kwargs: dict | None,
+    data_wcs: WcsJwstData,
+    data_meta: DataMetaInformation,
+    sky_wcs: WcsAstropy,
+    sky_meta: SkyMetaInformation,
+    rotation_and_shift_algorithm: Union[LinearConfig, NufftConfig],
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
-    psf_kernel: ArrayLike | None,
+    psf_kernel: np.ndarray | None,
     transmission: float,
     zero_flux_prior_config: ProbabilityConfig | None,
     data_mask: ArrayLike | None,
-    sky_unit: u.Unit,
-    data_unit: u.Unit,
 ) -> JwstResponse:
     """
     Builds the data model for a Jwst observation.
@@ -133,23 +141,14 @@ def build_jwst_response(
     ----------
     sky_domain: dict
         Containing the sky_key and the shape_dtype of the reconstruction sky.
-    data_subsample: int
-        The subsample factor for the data grid.
-    rotation_and_shift_kwargs: dict
-        reconstruction_grid: Grid
-        data_dvol: Unit, the volume of a data pixel
-        data_wcs: WcsBase,
-        data_model_type: str,
-        world_corners: Tuple[SkyCoord]
+    data: JwstData
+        The data with meta information.
+    rotation_and_shift_algorithm: Union[LinearConfig, NufftConfig],
+        The information for the rotation_and_shift algorithm.
     shift_and_rotation_correction: CoordiantesCorrectionPriorConfig | None
         The prior for the shift and rotation coordinates correction.
-    psf_kernel_model:
-        camera: str, NIRCam or MIRI
-        filter: str
-        center_pix: tuple, pixel according to which to evaluate the psf model
-        webbpsf_path: str
-        fov_pixels: int | None, how many pixles considered for the psf
-        fov_arcsec: float | None, the arcseconds for the psf evaluation
+    psf_kernel: np.ndarray
+        The
     data_mask: ArrayLike
         The mask on the data
     sky_unit: astropy.units.Unit
@@ -159,48 +158,45 @@ def build_jwst_response(
     need_sky_key = "Need to provide an internal key to the target of the sky model."
     assert isinstance(sky_domain, dict), need_sky_key
 
-    world_corners = rotation_and_shift_kwargs["world_corners"]
-    reconstruction_grid: Grid = rotation_and_shift_kwargs["reconstruction_grid"]
-    data_wcs = rotation_and_shift_kwargs["data_wcs"]
-    data_grid_dvol = rotation_and_shift_kwargs["data_dvol"]
-
     _coordinates = subsample_grid_centers_in_index_grid(
-        world_corners=world_corners,
+        world_corners=sky_wcs.world_corners(extension_value=sky_meta.grid_extension),
         to_be_subsampled_grid_wcs=data_wcs,
-        index_grid_wcs=reconstruction_grid.spatial,
-        subsample=data_subsample,
+        index_grid_wcs=sky_wcs,
+        subsample=data_meta.subsample,
         indexing="ij",
     )
 
     coordinates = build_coordinates_corrected_from_grid(
         shift_and_rotation_correction=shift_and_rotation_correction,
-        reconstruction_grid=reconstruction_grid,
+        reconstruction_grid_wcs=sky_wcs,
         coordinates=_coordinates,
     )
 
     rotation_and_shift = build_rotation_and_shift(
         sky_domain=sky_domain,
         coordinates=coordinates,
-        algorithm_config=rotation_and_shift_kwargs["algorithm_config"],
+        algorithm_config=rotation_and_shift_algorithm,
         indexing="ij",
     )
 
     unit_conversion = build_unit_conversion(
-        sky_unit=sky_unit,
-        sky_dvol=reconstruction_grid.spatial.dvol,
-        data_unit=data_unit,
-        data_dvol=data_grid_dvol / data_subsample**2,
+        sky_unit=sky_meta.unit,
+        sky_dvol=sky_wcs.dvol,
+        data_unit=data_meta.unit,
+        data_dvol=data_meta.dvol / data_meta.subsample**2,
     )
 
     integrate = integration_factory(
-        unit=data_unit,
+        unit=data_meta.unit,
         high_resolution_shape=rotation_and_shift.target.shape,
-        reduction_factor=data_subsample,
+        reduction_factor=data_meta.subsample,
     )
 
     psf = build_psf_operator(psf_kernel)
 
-    zero_flux_model = build_zero_flux_model(data_identifier, zero_flux_prior_config)
+    zero_flux_model = build_zero_flux_model(
+        data_meta.identifier, zero_flux_prior_config
+    )
 
     mask = build_mask(data_mask)
 

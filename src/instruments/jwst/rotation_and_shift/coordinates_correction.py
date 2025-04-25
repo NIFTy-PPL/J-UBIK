@@ -134,7 +134,7 @@ class CoordinatesCorrected(jft.Model):
 
 def build_coordinates_corrected_from_grid(
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
-    reconstruction_grid: Grid,
+    reconstruction_grid_wcs: WcsAstropy,
     coordinates: ArrayLike,
 ) -> Union[Coordinates, CoordinatesCorrected]:
     """Build `CorrectedCorrdinates` from the grid and coordinates.
@@ -157,7 +157,7 @@ def build_coordinates_corrected_from_grid(
         A dictionary containing the priors for shift and rotation.
         If None, no coordinate correction is applied and the return is a lambda
         function which returns the original coordinates.
-    reconstruction_grid : Grid
+    reconstruction_grid_wcs : WcsAstropy
         The grid used to define the coordinate system for the correction model.
     coordinates : ArrayLike
         The coordinates to be corrected by the model. Which are assumed to be given in
@@ -177,14 +177,12 @@ def build_coordinates_corrected_from_grid(
         return Coordinates(coordinates)
 
     rotation_center = np.array(
-        reconstruction_grid.spatial.world_to_pixel(
+        reconstruction_grid_wcs.world_to_pixel(
             shift_and_rotation_correction.rotation_center
         )
     )
     pixel_distance = np.array(
-        reconstruction_grid.spatial.distances_in(
-            shift_and_rotation_correction.shift_unit
-        )
+        reconstruction_grid_wcs.distances_in(shift_and_rotation_correction.shift_unit)
     ).reshape(shift_and_rotation_correction.shift.target.shape)
 
     return CoordinatesCorrected(
