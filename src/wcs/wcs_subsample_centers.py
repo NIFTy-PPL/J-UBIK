@@ -48,8 +48,10 @@ def subsample_grid_centers_in_index_grid(
     """
 
     # NOTE : GWCS.wcs expects `xy` indexing. Other arrays are not tested.
-    tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_world_extrema(
-        world_corners, indexing="xy"
+    tbsg_pixcenter_indices = (
+        to_be_subsampled_grid_wcs.bounding_box_index_grid_from_world_extrema(
+            world_corners, indexing="xy"
+        )
     )
 
     ps = np.arange(0.5 / subsample, 1, 1 / subsample) - 0.5

@@ -9,23 +9,33 @@ from ....wcs.wcs_subsample_centers import subsample_grid_centers_in_index_grid
 
 
 def get_mask_from_index_centers_within_rgrid(
-    dpixcenter_in_rgrid: np.ndarray, rgrid_shape: tuple[int, int]
+    world_corners: SkyCoord,
+    data_wcs: WcsJwstData,
+    index_grid_wcs: WcsAstropy,
 ) -> np.ndarray:
-    """Returns a mask that is true when the dpixcenter_in_rgrid is within the bounds of
-    rgrid.
+    """Get mask which is true where the index grid falls within the data grid.
 
     Parameters
     ----------
-    dpixcenter_in_rgrid: np.ndarray
+    data_pix_centers_in_index_grid: np.ndarray
         The data-pixel-centers in units of rgrid pixels.
     rgrid_shape: tuple[int, int]
         The shape of rgrid.
     """
+
+    data_pix_centers_in_index_grid: np.ndarray = subsample_grid_centers_in_index_grid(
+        world_corners=world_corners,
+        to_be_subsampled_grid_wcs=data_wcs,
+        index_grid_wcs=index_grid_wcs,
+        subsample=1,
+        indexing="xy",
+    )
+
     return (
-        (dpixcenter_in_rgrid[0] > 0)
-        * (dpixcenter_in_rgrid[1] > 0)
-        * (dpixcenter_in_rgrid[0] < rgrid_shape[0])
-        * (dpixcenter_in_rgrid[1] < rgrid_shape[1])
+        (data_pix_centers_in_index_grid[0] > 0)
+        * (data_pix_centers_in_index_grid[1] > 0)
+        * (data_pix_centers_in_index_grid[0] < index_grid_wcs.shape[0])
+        * (data_pix_centers_in_index_grid[1] < index_grid_wcs.shape[1])
     )
 
 
@@ -47,7 +57,7 @@ def get_mask_from_mask_corners(
     world_corners:
 
     """
-    min_x, _, min_y, _ = data_wcs.index_from_world_extrema(world_corners)
+    min_x, _, min_y, _ = data_wcs.bounding_box_indices_from_world_extrema(world_corners)
     centers = subsample_grid_centers_in_index_grid(
         world_corners=mask_corners,
         to_be_subsampled_grid_wcs=data_wcs,

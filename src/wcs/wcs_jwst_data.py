@@ -43,3 +43,12 @@ class WcsJwstData(WcsMixin):
 
     def __getattr__(self, name):
         return getattr(self._wcs, name)
+
+    def world_corners(
+        self,
+        extension_factor: float = 1,
+        extension_value: tuple[int, int] | None = None,
+    ) -> np.ndarray:
+        bounds = self.bounding_box.bounding_box()
+        bounds = np.reshape(np.meshgrid(*bounds), newshape=(2, -1))
+        return self.pixel_to_world(*bounds)

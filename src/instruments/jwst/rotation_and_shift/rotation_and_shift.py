@@ -11,7 +11,7 @@ import nifty8.re as jft
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
-from .coordinates_correction import CoordinatesWithCorrection
+from .coordinates_correction import CoordinatesCorrected
 from .linear_rotation_and_shift import build_linear_rotation_and_shift
 from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
 from .sparse_rotation_and_shift import build_sparse_rotation_and_shift
@@ -40,7 +40,7 @@ class RotationAndShiftModel(jft.Model):
         sky_domain: dict,
         call: Callable,
         # FIXME: This should only take ArrayLike !
-        coordinates: Union[ArrayLike, Callable, CoordinatesWithCorrection],
+        coordinates: Union[ArrayLike, Callable, CoordinatesCorrected],
     ):
         """
         Initialize the RotationAndShiftModel.
@@ -68,9 +68,7 @@ class RotationAndShiftModel(jft.Model):
         self.call = call
 
         correction_domain = (
-            coordinates.domain
-            if isinstance(coordinates, CoordinatesWithCorrection)
-            else {}
+            coordinates.domain if isinstance(coordinates, CoordinatesCorrected) else {}
         )
         super().__init__(domain=sky_domain | correction_domain)
 
@@ -79,9 +77,9 @@ class RotationAndShiftModel(jft.Model):
 
 
 def _infere_output_shape_from_coordinates(
-    coordinates: Union[ArrayLike, callable, CoordinatesWithCorrection],
+    coordinates: Union[ArrayLike, callable, CoordinatesCorrected],
 ):
-    if isinstance(coordinates, CoordinatesWithCorrection):
+    if isinstance(coordinates, CoordinatesCorrected):
         return coordinates.target.shape[1:]
     elif callable(coordinates):
         return coordinates(None).shape[1:]
@@ -96,7 +94,7 @@ def build_rotation_and_shift_model(
     data_grid_wcs: WcsBase,
     subsample: int,
     algorithm_config: Union[LinearConfig, NufftConfig, SparseConfig],
-    coordinates: Union[ArrayLike, Callable, CoordinatesWithCorrection],
+    coordinates: Union[ArrayLike, Callable, CoordinatesCorrected],
     indexing: str,
 ) -> RotationAndShiftModel:
     """Builds a RotationAndShiftModel according to the `algorithm_config`.
@@ -116,7 +114,7 @@ def build_rotation_and_shift_model(
     subsample: int
         The subsample factor for the data grid. How many times a data pixel is
         subsampled in each direction.
-    coordinates: Union[ArrayLike, Callable, CoordinatesWithCorrection]
+    coordinates: Union[ArrayLike, Callable, CoordinatesCorrected]
         The coordinates of the subsampled data. Precise: The coordinate center
         of the data pixel.
 

@@ -17,12 +17,10 @@ from .integration.integration import integration_factory
 from .jwst_psf import build_psf_operator
 from .masking.build_mask import build_mask
 from .parse.parametric_model.parametric_prior import ProbabilityConfig
-from .parse.rotation_and_shift.coordinates_correction import (
-    CoordiantesCorrectionPriorConfig,
-)
 from .rotation_and_shift import RotationAndShiftModel, build_rotation_and_shift_model
 from .rotation_and_shift.coordinates_correction import (
-    build_coordinates_correction_from_grid,
+    build_coordinates_corrected_from_grid,
+    ShiftAndRotationCorrection,
 )
 from .zero_flux_model import build_zero_flux_model
 from ...grid import Grid
@@ -117,7 +115,7 @@ def build_jwst_response(
     data_identifier: str,
     data_subsample: int,
     rotation_and_shift_kwargs: dict | None,
-    shift_and_rotation_correction_prior: CoordiantesCorrectionPriorConfig | None,
+    shift_and_rotation_correction: ShiftAndRotationCorrection | None,
     psf_kernel: ArrayLike | None,
     transmission: float,
     zero_flux_prior_config: ProbabilityConfig | None,
@@ -174,10 +172,8 @@ def build_jwst_response(
         indexing="ij",
     )
 
-    coordinates = build_coordinates_correction_from_grid(
-        f"{data_identifier}_correction",
-        priors=shift_and_rotation_correction_prior,
-        data_wcs=data_wcs,
+    coordinates = build_coordinates_corrected_from_grid(
+        shift_and_rotation_correction=shift_and_rotation_correction,
         reconstruction_grid=reconstruction_grid,
         coords=coords,
     )

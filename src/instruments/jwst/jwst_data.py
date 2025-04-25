@@ -145,7 +145,12 @@ class JwstData:
         data : ArrayLike
             Data values inside the extrema.
         """
-        minx, maxx, miny, maxy = self.wcs.index_from_world_extrema(extrema, self.shape)
+        # NOTE : Carefull replacing bounding_box_indices_from_world_extrema since this
+        # is coupled inside self.load_cutout_data_mask_std_by_world_corners.
+
+        minx, maxx, miny, maxy = self.wcs.bounding_box_indices_from_world_extrema(
+            extrema, self.shape
+        )
 
         # NOTE : The data needs matrix indexing, hence y is on the first axis.
         return self.dm.data[miny : maxy + 1, minx : maxx + 1]
@@ -164,7 +169,12 @@ class JwstData:
         data : ArrayLike
             Data values inside the extrema.
         """
-        minx, maxx, miny, maxy = self.wcs.index_from_world_extrema(extrema, self.shape)
+        # NOTE : Carefull replacing bounding_box_indices_from_world_extrema since this
+        # is coupled inside self.load_cutout_data_mask_std_by_world_corners.
+
+        minx, maxx, miny, maxy = self.wcs.bounding_box_indices_from_world_extrema(
+            extrema, self.shape
+        )
         # NOTE : The data needs matrix indexing, hence y is on the first axis.
         return self.dm.err[miny : maxy + 1, minx : maxx + 1]
 
@@ -183,7 +193,12 @@ class JwstData:
         nan-mask : ArrayLike
             Mask corresponding to the nan values inside the extrema.
         """
-        minx, maxx, miny, maxy = self.wcs.index_from_world_extrema(extrema, self.shape)
+        # NOTE : Carefull replacing bounding_box_indices_from_world_extrema since this
+        # is coupled inside self.load_cutout_data_mask_std_by_world_corners.
+
+        minx, maxx, miny, maxy = self.wcs.bounding_box_indices_from_world_extrema(
+            extrema, self.shape
+        )
         # NOTE : The data needs matrix indexing, hence y is on the first axis.
         return (~np.isnan(self.dm.data[miny : maxy + 1, minx : maxx + 1])) * (
             ~np.isnan(self.dm.err[miny : maxy + 1, minx : maxx + 1])
@@ -211,54 +226,79 @@ class JwstData:
         pivot, bw, effective_response, blue, red = JWST_FILTERS[self.filter]
         return effective_response
 
+    def bounding_data_mask_std_by_world_corners(
+        self,
+        reconstruction_grid: Grid,
+        world_corners: list[SkyCoord],
+        additional_masks_corners: list[CornerMaskConfig],
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return a subpart of the data, mask, and std inside a bounding box surrounding
+        the `world_corners`.
 
-def load_jwst_data_mask_std(
-    filepath: str,
-    grid: Grid,
-    world_corners: list[SkyCoord],
-    mask_corners: list[CornerMaskConfig],
-) -> [JwstData, ArrayLike, ArrayLike, ArrayLike]:
-    """Load the data from filepath and return the data, mask, and std cutouts
-    according to the reconstruction grid and `world_corners`.
+        Parameters
+        ----------
+        world_corners: list[SkyCoord]
+            The world corners of the cutout. I.e. the absolute positions in the world.
+        additional_masks_corners: list[CornerMaskConfig]
+            Holds the egde points of additional masks for the data.
 
-    Parameters
-    ----------
-    filepath: str
-        Path to the jwst data.
-    grid: Grid
-        The physical grid underlying the reconstruction
-    world_corners: list[SkyCoord]
-        A list holding the four world corners of the reconstruction grid.
+        Returns
+        -------
+        data: np.ndarray[float],
+        mask: np.ndarray[bool],
+        std: np.ndarray[float]
 
-    Returns
-    -------
-    - jwst_data: JwstData
-    - data cutout: ArrayLike
-    - mask cutout: ArrayLike
-    - std cutout: ArrayLike
-    """
+        Notes
+        -----
+        The mask is true where the data will be taken, i.e. supplied to the likelihood.
+        """
+        # bounding_world_corners: SkyCoord
+        #     The world coordinates of the pixel edges of the bounding box (i.e. the data)
 
-    jwst_data = JwstData(filepath)
+        # NOTE : Carefull replacing bounding_box_indices_from_world_extrema since this
+        # is coupled inside self.data_inside_extrema, self.nan_inside_extrema, and
+        # self.std_inside_extrema.
 
-    # TODO: Use a simpler algorithm. Check that its consistent with the
-    # subsampling of the rotation and shift model.
+        # xmin, xmax, ymin, ymax = np.array(
+        #     self.wcs.bounding_box_indices_from_world_extrema(world_corners)
+        # )
+        # points = np.array(((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)))
+        # cutout_world_corners = self.wcs.pixel_to_world(*np.array(points).T)
 
-    centers = subsample_grid_centers_in_index_grid(
-        world_corners=world_corners,
-        to_be_subsampled_grid_wcs=jwst_data.wcs,
-        index_grid_wcs=grid.spatial,
-        subsample=1,
-        indexing="xy",
-    )
-    data = jwst_data.data_inside_extrema(world_corners)
-    mask = get_mask_from_index_centers_within_rgrid(centers, grid.spatial.shape)
-    mask *= jwst_data.nan_inside_extrema(world_corners)
+        data = self.data_inside_extrema(world_corners)
+        mask = get_mask_from_index_centers_within_rgrid(
+            world_corners, self.wcs, reconstruction_grid.spatial
+        )
+        mask *= self.nan_inside_extrema(world_corners)
 
-    corner_masks = [
-        get_mask_from_mask_corners(data.shape, jwst_data.wcs, world_corners, mc.corners)
-        for mc in mask_corners
-    ]
-    mask *= ~np.sum(corner_masks, axis=0, dtype=bool)
-    std = jwst_data.std_inside_extrema(world_corners)
+        extra_masks = [
+            get_mask_from_mask_corners(data.shape, self.wcs, world_corners, mc.corners)
+            for mc in additional_masks_corners
+        ]
+        mask *= ~np.sum(extra_masks, axis=0, dtype=bool)
+        std = self.std_inside_extrema(world_corners)
 
-    return jwst_data, data, mask, std
+        return data, mask, std
+
+    def get_boresight_world_coords(self):
+        """
+        Returns the most accurate world coordinate system point of the boresight (v1) from a JWST datamodel.
+        This function considers possible corrections such as velocity aberration corrections if available.
+        """
+        # Check available WCS frames
+        available_frames = self.wcs.available_frames
+
+        # Use v2v3vacorr if available for the most accurate V2/V3 coordinates, else fallback to v2v3
+        if "v2v3vacorr" in available_frames:
+            v2v3_frame = "v2v3vacorr"
+        elif "v2v3" in available_frames:
+            v2v3_frame = "v2v3"
+        else:
+            raise ValueError("No V2V3 coordinate frame available in the model")
+
+        # The boresight in V2V3 coordinates is at (0, 0) by definition
+        v2, v3 = 0.0, 0.0
+
+        # Transform from V2V3 to world coordinates (RA, Dec)
+        ra, dec = self.wcs.transform(v2v3_frame, "world", v2, v3)
+        return SkyCoord(ra, dec, unit="deg")

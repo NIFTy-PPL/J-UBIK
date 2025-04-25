@@ -50,12 +50,11 @@ class WcsMixin:
     """A mixin class providing WCS functionality, assuming pixel_to_world and
     world_to_pixel are implemented."""
 
-    def index_from_world_extrema(
+    def bounding_box_indices_from_world_extrema(
         self, world_extrema: SkyCoord, shape_check: Optional[tuple[int, int]] = None
     ) -> tuple[int, int, int, int]:
-        """
-        Find the minimum and maximum pixel indices of the bounding box that
-        contain the world location world_extrema (wl_extrema).
+        """Find the pixels (edges of the pixels) of the bounding box that contains the
+        `world_extrema`.
 
         Parameters
         ----------
@@ -69,8 +68,8 @@ class WcsMixin:
         Returns
         -------
         min_x, max_x, min_y, max_y : Tuple[int, int, int, int]
-            Minimum and maximum pixel coordinates of the data grid that contain
-            the edge points.
+            The corners of the pixels of the (typically data) grid that contains the
+            `world_extrema`.
         """
 
         edge_points = np.array([self.world_to_pixel(wex) for wex in world_extrema])
@@ -93,7 +92,7 @@ class WcsMixin:
         max_y = int(np.ceil(np.max(edge_points[:, 1])))
         return min_x, max_x, min_y, max_y
 
-    def index_grid_from_world_extrema(
+    def bounding_box_index_grid_from_world_extrema(
         self,
         world_extrema: SkyCoord,
         indexing: str,
@@ -121,7 +120,7 @@ class WcsMixin:
             the edge points.
         """
 
-        min_x, max_x, min_y, max_y = self.index_from_world_extrema(
+        min_x, max_x, min_y, max_y = self.bounding_box_indices_from_world_extrema(
             world_extrema, shape_check
         )
 

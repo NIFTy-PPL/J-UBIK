@@ -57,9 +57,11 @@ def get_grid_extension_from_config(
     telescope_config: dict,
     reconstruction_grid: Grid,
 ):
-    """Load the grid extension for the reconstruction grid. The reconstruction
-    gets zero padded by this amount. This is needed to avoid wrapping flux due
-    to fft convolution of the psf.
+    """Load a pixelwise extension of the reconstruction grid. The reconstruction grid
+    will be extended by half the grid extension in both spatial dimensions.
+
+    This extension is needed in order to avoid flux being wrapped around the periodic
+    boundary of the grid by the fft-psf convolution.
 
     Parameters
     ----------

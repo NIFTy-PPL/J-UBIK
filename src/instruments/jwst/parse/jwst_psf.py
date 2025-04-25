@@ -37,13 +37,13 @@ def yaml_to_psf_kernel_config(
 ):
     """Read the PsfKernelConfig from the yaml config.
 
-        psf_config: dict
-            The dictionary holding:
-                - webbpsf_path
-                - psf_library_path
-                - psf_arcsec_extension
-                - normalize | None
-    j"""
+    psf_config: dict
+        The dictionary holding:
+            - webbpsf_path
+            - psf_library_path
+            - psf_arcsec_extension
+            - normalize | None
+    """
 
     return PsfKernelConfig(
         webbpsf_path=psf_config[WEBBPSF_PATH_KEY],

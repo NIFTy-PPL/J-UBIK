@@ -4,7 +4,7 @@ from .config_handler import (
 )
 
 from .jwst_response import build_jwst_response
-from .jwst_data import load_jwst_data_mask_std
+from .jwst_data import JwstData
 from ...grid import Grid
 from .filter_projector import FilterProjector, build_filter_projector
 from .parse.masking.data_mask import yaml_to_corner_mask_configs
@@ -17,6 +17,9 @@ from .parse.rotation_and_shift.coordinates_correction import (
 )
 from .parse.rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
+)
+from .rotation_and_shift.coordinates_correction import (
+    ShiftAndRotationCorrection,
 )
 from .jwst_psf import load_psf_kernel_from_config
 
@@ -65,12 +68,14 @@ def build_jwst_likelihoods(
             logger.info(f"Loading: {fltname} {ii} {filepath}")
 
             # Loading data, std, and mask.
-            grid_extension = get_grid_extension_from_config(cfg[telescope_key], grid)
-            world_corners = grid.spatial.world_corners(extension_value=grid_extension)
-            mask_corners = yaml_to_corner_mask_configs(cfg[telescope_key])
+            grid_corners_extended = grid.spatial.world_corners(
+                extension_value=get_grid_extension_from_config(cfg[telescope_key], grid)
+            )
+            additional_mask_corners = yaml_to_corner_mask_configs(cfg[telescope_key])
 
-            jwst_data, data, mask, std = load_jwst_data_mask_std(
-                filepath, grid, world_corners, mask_corners=mask_corners
+            jwst_data = JwstData(filepath)
+            data, mask, std = jwst_data.bounding_data_mask_std_by_world_corners(
+                grid, grid_corners_extended, additional_mask_corners
             )
 
             if sky_unit is not None:
@@ -89,7 +94,16 @@ def build_jwst_likelihoods(
             energy_name = filter_projector.get_key(jwst_data.pivot_wavelength)
             data_identifier = f"{fltname}_{ii}"
 
-            jwst_response = build_jwst_response(
+            boresight = jwst_data.get_boresight_world_coords()
+            shift_and_rotation_correction = ShiftAndRotationCorrection(
+                domain_key=f"{data_identifier}_correction",
+                correction_prior=coordiantes_correction_config.get_name_setting_or_default(
+                    jwst_data.filter, ii
+                ),
+                rotation_center=boresight,
+            )
+
+            jwst_target_response = build_jwst_response(
                 sky_domain={energy_name: filter_projector.target[energy_name]},
                 data_identifier=data_identifier,
                 data_subsample=data_subsample,
@@ -98,11 +112,9 @@ def build_jwst_likelihoods(
                     data_dvol=jwst_data.dvol,
                     data_wcs=jwst_data.wcs,
                     algorithm_config=rotation_and_shift_algorithm_config,
-                    world_corners=world_corners,
+                    world_corners=grid_corners_extended,
                 ),
-                shift_and_rotation_correction_prior=coordiantes_correction_config.get_name_setting_or_default(
-                    jwst_data.filter, ii
-                ),
+                shift_and_rotation_correction=shift_and_rotation_correction,
                 psf_kernel=psf_kernel,
                 transmission=jwst_data.transmission,
                 zero_flux_prior_config=zero_flux_prior_configs.get_name_setting_or_default(
@@ -118,7 +130,7 @@ def build_jwst_likelihoods(
                 data=data,
                 std=std,
                 mask=mask,
-                data_model=jwst_response,
+                data_model=jwst_target_response,
                 data_dvol=jwst_data.dvol,
                 data_transmission=jwst_data.transmission,
             )
@@ -127,9 +139,17 @@ def build_jwst_likelihoods(
                 jnp.array(data[mask], dtype=float), jnp.array(std[mask], dtype=float)
             )
             likelihood = likelihood.amend(
-                jwst_response, domain=jft.Vector(jwst_response.domain)
+                jwst_target_response, domain=jft.Vector(jwst_target_response.domain)
             )
             likelihoods.append(likelihood)
 
     likelihood = reduce(lambda x, y: x + y, likelihoods)
     return likelihood, filter_projector, data_dict
+
+
+# fig, axes = plt.subplots(2, 4, sharex=True, sharey=True); axes = axes.flatten();
+# bla = dict(origin="lower", norm="log");
+# for ii, (k, dd) in enumerate(data_dict.items()):
+#     axes[ii].imshow(dd["data"], **bla);
+#     axes[ii + 4].imshow(dd["std"], **bla);
+# plt.show()

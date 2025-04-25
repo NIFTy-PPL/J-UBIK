@@ -155,10 +155,8 @@ class WcsAstropy(WCS, WcsMixin):
         ymin = -ext1 + 0.5
         ymax = self.shape[1] + ext1 - 1 + 0.5
 
-        return [
-            self.pixel_to_world(*min_max)
-            for min_max in [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
-        ]
+        points = np.array(((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)))
+        return self.pixel_to_world(*points.T)
 
     def distances_in(self, unit: u.Unit) -> list[float]:
         return [d.to(unit).value for d in self.distances]

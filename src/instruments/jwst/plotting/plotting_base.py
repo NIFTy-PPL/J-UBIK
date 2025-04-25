@@ -8,7 +8,7 @@ from nifty8.re.library.mf_model import CorrelatedMultiFrequencySky
 
 from ..parse.plotting import FieldPlottingConfig
 from ..filter_projector import FilterProjector
-from ..rotation_and_shift.coordinates_correction import CoordinatesWithCorrection
+from ..rotation_and_shift.coordinates_correction import CoordinatesCorrected
 
 
 def plot_data_data_model_residuals(
@@ -299,16 +299,16 @@ def get_alpha_and_reference(light_model):
 
 def get_shift_rotation_correction(
     position_or_samples: Union[dict, jft.Samples],
-    correction_model: CoordinatesWithCorrection | None,
+    correction_model: CoordinatesCorrected | None,
 ):
-    if not isinstance(correction_model, CoordinatesWithCorrection):
+    if not isinstance(correction_model, CoordinatesCorrected):
         return (0, 0), (0, 0), 0, 0
 
     shift_mean, shift_std = get_position_or_samples_of_model(
-        position_or_samples, correction_model.shift_prior
+        position_or_samples, correction_model.shift_and_rotation.shift
     )
     rotation_mean, rotation_std = get_position_or_samples_of_model(
-        position_or_samples, correction_model.rotation_prior
+        position_or_samples, correction_model.shift_and_rotation.rotation_angle
     )
     shift_mean, shift_std = shift_mean.reshape(2), shift_std.reshape(2)
     rotation_mean, rotation_std = rotation_mean[0], rotation_std[0]
