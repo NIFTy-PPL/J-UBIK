@@ -27,11 +27,11 @@ def test_simple():
     grid = grid_setup()
 
     # Check subsample 1
-    xx, yy = grid.spatial.index_grid_from_wl_extrema(
-        grid.spatial.world_extrema(), indexing="xy"
+    xx, yy = grid.spatial.bounding_box_index_grid_from_world_extrema(
+        grid.spatial.world_corners(), indexing="xy"
     )
     xxsub, yysub = subsample_grid_centers_in_index_grid(
-        world_extrema=grid.spatial.world_extrema(),
+        world_corners=grid.spatial.world_corners(),
         to_be_subsampled_grid_wcs=grid.spatial,
         index_grid_wcs=grid.spatial,
         subsample=1,
@@ -42,7 +42,7 @@ def test_simple():
 
     # Check subsample 2
     xxsub, yysub = subsample_grid_centers_in_index_grid(
-        world_extrema=grid.spatial.world_extrema(),
+        world_corners=grid.spatial.world_corners(),
         to_be_subsampled_grid_wcs=grid.spatial,
         index_grid_wcs=grid.spatial,
         subsample=2,
@@ -55,7 +55,7 @@ def test_simple():
 
     # Check subsample 3
     xxsub, yysub = subsample_grid_centers_in_index_grid(
-        world_extrema=grid.spatial.world_extrema(),
+        world_corners=grid.spatial.world_corners(),
         to_be_subsampled_grid_wcs=grid.spatial,
         index_grid_wcs=grid.spatial,
         subsample=3,

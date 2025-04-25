@@ -83,14 +83,13 @@ def build_jwst_likelihoods(
                 grid.spatial.world_corners(extension_value=sky_meta.grid_extension),
                 yaml_to_corner_mask_configs(cfg[telescope_key]),
             )
+            energy_name = filter_projector.get_key(jwst_data.pivot_wavelength)
 
             psf_kernel = load_psf_kernel(
                 jwst_data=jwst_data,
                 target_center=grid.spatial.center,
                 config_parameters=psf_kernel_configs,
             )
-
-            energy_name = filter_projector.get_key(jwst_data.pivot_wavelength)
 
             shift_and_rotation_correction = ShiftAndRotationCorrection(
                 domain_key=f"{jwst_data.meta.identifier}_correction",
