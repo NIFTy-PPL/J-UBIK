@@ -20,6 +20,15 @@ from .plotting_base import (
     plot_data_data_model_residuals,
     get_shift_rotation_correction,
 )
+from ..jwst_response import JwstResponse
+
+
+@dataclass
+class ResidualPlottingInformation:
+    data: np.ndarray
+    mask: np.ndarray
+    std: np.ndarray
+    model: JwstResponse
 
 
 def build_plot_sky_residuals(
@@ -85,16 +94,16 @@ def build_plot_sky_residuals(
                 **rendering,
             )
 
-        for dkey, data in data_dict.items():
+        for dkey, plotting_data in data_dict.items():
             xpos_residual = _determine_xpos(dkey)
             ypos = _determine_ypos(dkey, filter_projector)
             if xpos_residual > xlen - 1:
                 continue
 
-            data_model = data["data_model"]
-            data_i = data["data"]
-            std = data["std"]
-            mask = data["mask"]
+            data_model = plotting_data.model
+            data_i = plotting_data.data
+            std = plotting_data.std
+            mask = plotting_data.mask
 
             model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples,

@@ -23,6 +23,7 @@ from .parse.rotation_and_shift.rotation_and_shift import (
 )
 from .parse.jwst_response import SkyMetaInformation
 from .parse.masking.data_mask import yaml_to_corner_mask_configs
+from .plotting.residuals import ResidualPlottingInformation
 
 
 # Libraries
@@ -68,7 +69,7 @@ def build_jwst_likelihoods(
         unit=sky_unit,
     )
 
-    data_dict = {}
+    target_plotting = {}
     likelihoods = []
     for fltname, flt in cfg[files_key]["filter"].items():
         for ii, filepath in enumerate(flt):
@@ -115,14 +116,11 @@ def build_jwst_likelihoods(
                 data_mask=mask,
             )
 
-            data_dict[jwst_data.meta.identifier] = dict(
-                index=filter_projector.keys_and_index[energy_name],
+            target_plotting[jwst_data.meta.identifier] = ResidualPlottingInformation(
                 data=data,
                 std=std,
                 mask=mask,
-                data_model=jwst_target_response,
-                data_dvol=jwst_data.meta.dvol,
-                data_transmission=jwst_data.transmission,
+                model=jwst_target_response,
             )
 
             likelihood = build_gaussian_likelihood(
@@ -134,4 +132,4 @@ def build_jwst_likelihoods(
             likelihoods.append(likelihood)
 
     likelihood = reduce(lambda x, y: x + y, likelihoods)
-    return likelihood, filter_projector, data_dict
+    return likelihood, filter_projector, target_plotting
