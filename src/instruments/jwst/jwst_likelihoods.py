@@ -80,7 +80,7 @@ def build_jwst_likelihoods(
                 filepath, identifier=f"{fltname}_{ii}", subsample=data_subsample
             )
             data, mask, std = jwst_data.bounding_data_mask_std_by_world_corners(
-                grid,
+                grid.spatial,
                 grid.spatial.world_corners(extension_value=sky_meta.grid_extension),
                 yaml_to_corner_mask_configs(cfg[telescope_key]),
             )
