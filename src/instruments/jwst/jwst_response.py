@@ -17,7 +17,7 @@ from .integration.integration import integration_factory
 from .jwst_psf import build_psf_operator
 from .masking.build_mask import build_mask
 from .parse.parametric_model.parametric_prior import ProbabilityConfig
-from .rotation_and_shift import RotationAndShiftModel, build_rotation_and_shift_model
+from .rotation_and_shift import RotationAndShift, build_rotation_and_shift
 from .rotation_and_shift.coordinates_correction import (
     build_coordinates_corrected_from_grid,
     ShiftAndRotationCorrection,
@@ -39,7 +39,7 @@ class JwstResponse(jft.Model):
     def __init__(
         self,
         sky_domain: dict,
-        rotation_and_shift: RotationAndShiftModel,
+        rotation_and_shift: RotationAndShift,
         psf: Callable[[ArrayLike], ArrayLike],
         unit_conversion: Callable[[ArrayLike], ArrayLike],
         integrate: Callable[[ArrayLike], ArrayLike],
@@ -57,7 +57,7 @@ class JwstResponse(jft.Model):
             A dictionary defining the sky domain, with a single key
             corresponding to the internal target of the sky model.
             This defines the input space of the data.
-        rotation_and_shift : RotationAndShiftModel | None
+        rotation_and_shift : RotationAndShift | None
             A model that applies rotation and shift transformations
             to the input data.
         psf : callable
@@ -164,7 +164,7 @@ def build_jwst_response(
     data_wcs = rotation_and_shift_kwargs["data_wcs"]
     data_grid_dvol = rotation_and_shift_kwargs["data_dvol"]
 
-    coords = subsample_grid_centers_in_index_grid(
+    _coordinates = subsample_grid_centers_in_index_grid(
         world_corners=world_corners,
         to_be_subsampled_grid_wcs=data_wcs,
         index_grid_wcs=reconstruction_grid.spatial,
@@ -175,14 +175,13 @@ def build_jwst_response(
     coordinates = build_coordinates_corrected_from_grid(
         shift_and_rotation_correction=shift_and_rotation_correction,
         reconstruction_grid=reconstruction_grid,
-        coords=coords,
+        coordinates=_coordinates,
     )
 
-    rotation_and_shift = build_rotation_and_shift_model(
+    rotation_and_shift = build_rotation_and_shift(
         sky_domain=sky_domain,
-        reconstruction_grid=reconstruction_grid,
-        algorithm_config=rotation_and_shift_kwargs["algorithm_config"],
         coordinates=coordinates,
+        algorithm_config=rotation_and_shift_kwargs["algorithm_config"],
         indexing="ij",
     )
 

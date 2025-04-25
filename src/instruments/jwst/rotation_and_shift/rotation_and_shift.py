@@ -11,12 +11,9 @@ import nifty8.re as jft
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
-from .coordinates_correction import CoordinatesCorrected
+from .coordinates_correction import CoordinatesCorrected, Coordinates
 from .linear_rotation_and_shift import build_linear_rotation_and_shift
 from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
-from ....grid import Grid
-from ....wcs import subsample_grid_corners_in_index_grid_non_vstack
-from ....wcs.wcs_base import WcsBase
 
 from ..parse.rotation_and_shift.rotation_and_shift import (
     LinearConfig,
@@ -24,7 +21,7 @@ from ..parse.rotation_and_shift.rotation_and_shift import (
 )
 
 
-class RotationAndShiftModel(jft.Model):
+class RotationAndShift(jft.Model):
     """
     A model for applying rotation and/or shift corrections to sky coordinates.
 
@@ -35,13 +32,13 @@ class RotationAndShiftModel(jft.Model):
 
     def __init__(
         self,
-        sky_domain: dict,
-        call: Callable,
+        sky_domain: dict[str, jft.ShapeWithDtype],
+        coordinates: Union[Coordinates, CoordinatesCorrected],
+        rotation_and_shift_algorithm: Callable,
         # FIXME: This should only take ArrayLike !
-        coordinates: Union[ArrayLike, Callable, CoordinatesCorrected],
     ):
         """
-        Initialize the RotationAndShiftModel.
+        Initialize the RotationAndShift.
 
         Parameters
         ----------
@@ -49,7 +46,7 @@ class RotationAndShiftModel(jft.Model):
             A dictionary specifying the domain for the sky coordinates.
             This should include the internal key for accessing the target
             of the sky model.
-        call : callable
+        rotation_and_shift_algorithm : callable
             A function that applies a callable transformation to the
             input data.
         coordinates : Union[ArrayLike, Callable, CoordinatesCorrection]
@@ -59,47 +56,47 @@ class RotationAndShiftModel(jft.Model):
             "Need to provide an internal keyto the target of the sky model"
         )
 
-        self.sky_key = next(iter(sky_domain.keys()))
+        self._sky_key = next(iter(sky_domain.keys()))
         self.coordinates = coordinates
-        if not callable(self.coordinates):
-            self.coordinates = lambda _: coordinates
-        self.call = call
+        self.rotation_and_shift_algorithm = rotation_and_shift_algorithm
 
-        correction_domain = (
-            coordinates.domain if isinstance(coordinates, CoordinatesCorrected) else {}
-        )
-        super().__init__(domain=sky_domain | correction_domain)
+        super().__init__(domain=sky_domain | coordinates.domain)
 
     def __call__(self, x):
-        return self.call(x[self.sky_key], self.coordinates(x))
+        return self.rotation_and_shift_algorithm(x[self._sky_key], self.coordinates(x))
 
 
-def _infere_output_shape_from_coordinates(
-    coordinates: Union[ArrayLike, callable, CoordinatesCorrected],
+def _infere_shape_from_domain(
+    domain: Union[jft.ShapeWithDtype, dict[str, jft.ShapeWithDtype]], typ: str
 ):
-    if isinstance(coordinates, CoordinatesCorrected):
-        return coordinates.target.shape[1:]
-    elif callable(coordinates):
-        return coordinates(None).shape[1:]
-    else:
-        return coordinates.shape[1:]
+    if isinstance(domain, dict):
+        assert typ == "sky"
+        assert len(domain) == 1
+        sky = next(iter(domain.values()))
+        assert len(sky.shape) == 2, f"Unexpected shape for {typ}: {sky.shape}."
+
+        return sky.shape
+
+    elif isinstance(domain, jft.ShapeWithDtype):
+        assert typ == "coordinates"
+        assert len(domain.shape) == 3, f"Unexpected shape for {typ}: {domain.shape}."
+        return domain.shape[1:]
+
+    raise ValueError
 
 
-def build_rotation_and_shift_model(
-    sky_domain: dict,
-    reconstruction_grid: Grid,
+def build_rotation_and_shift(
+    sky_domain: dict[str, jft.ShapeWithDtype],
+    coordinates: Union[Coordinates, CoordinatesCorrected],
     algorithm_config: Union[LinearConfig, NufftConfig],
-    coordinates: Union[ArrayLike, Callable, CoordinatesCorrected],
     indexing: str,
-) -> RotationAndShiftModel:
-    """Builds a RotationAndShiftModel according to the `algorithm_config`.
+) -> RotationAndShift:
+    """Builds a RotationAndShift according to the `algorithm_config`.
 
     Parameters
     ----------
     sky_domain: dict
         Containing the sky_key and the shape_dtype of the reconstruction sky.
-    reconstruction_grid: Grid
-        The Grid underlying the reconstruction domain.
     algorithm_config: Union[LinearConfig, NufftConfig]
         The type of the rotation and shift model: (linear, nufft)
     coordinates: Union[ArrayLike, Callable, CoordinatesCorrected]
@@ -108,25 +105,26 @@ def build_rotation_and_shift_model(
 
     Returns
     -------
-    RotationAndShiftModel(dict(sky, correction)) -> rotated_and_shifted_sky
+    RotationAndShift(dict(sky, correction)) -> rotated_and_shifted_sky
     """
 
     if isinstance(algorithm_config, LinearConfig):
-        call = build_linear_rotation_and_shift(
+        rotation_and_shift_algorithm = build_linear_rotation_and_shift(
             indexing=indexing,
             **vars(algorithm_config),
         )
 
     elif isinstance(algorithm_config, NufftConfig):
         # TODO: check output shape
-        out_shape = _infere_output_shape_from_coordinates(coordinates)
-        call = build_nufft_rotation_and_shift(
-            sky_shape=reconstruction_grid.spatial.shape,
-            out_shape=out_shape,
+        rotation_and_shift_algorithm = build_nufft_rotation_and_shift(
+            sky_shape=_infere_shape_from_domain(sky_domain, "sky"),
+            out_shape=_infere_shape_from_domain(coordinates.target, "coordinates"),
             indexing=indexing,
             **vars(algorithm_config),
         )
 
-    return RotationAndShiftModel(
-        sky_domain=sky_domain, call=call, coordinates=coordinates
+    return RotationAndShift(
+        sky_domain=sky_domain,
+        coordinates=coordinates,
+        rotation_and_shift_algorithm=rotation_and_shift_algorithm,
     )

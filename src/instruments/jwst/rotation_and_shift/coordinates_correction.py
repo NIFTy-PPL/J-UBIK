@@ -55,6 +55,7 @@ class ShiftAndRotationCorrection(jft.Model):
 class Coordinates:
     def __init__(self, coordiantes: ArrayLike):
         self.coordinates = coordiantes
+        self.domain = {}
 
     def __call__(self, _):
         return self.coordinates
@@ -78,7 +79,7 @@ class CoordinatesCorrected(jft.Model):
         self,
         shift_and_rotation: ShiftAndRotationCorrection,
         rotation_center: tuple[int, int],
-        coords: np.ndarray,
+        coordinates: np.ndarray,
         pixel_distance: np.ndarray,
     ):
         """
@@ -93,7 +94,7 @@ class CoordinatesCorrected(jft.Model):
             A model that provides the prior distribution for the rotation angle.
         rotation_center : tuple of int
             The (x, y) coordinates around which the rotation is applied.
-        coords : ArrayLike
+        coordinates : ArrayLike
             The coordinates to which the corrections will be applied. Assumed to be in
             units of the pixel distance.
         pixel_distance : np.ndarray
@@ -103,7 +104,7 @@ class CoordinatesCorrected(jft.Model):
 
         self.shift_and_rotation = shift_and_rotation
         self.rotation_center = rotation_center
-        self._coords = coords * pixel_distance[:, None, None]
+        self._coords = coordinates * pixel_distance[:, None, None]
         self._1_over_pixel_distance = 1 / pixel_distance[:, None, None]
 
         super().__init__(domain=self.shift_and_rotation.domain)
@@ -134,7 +135,7 @@ class CoordinatesCorrected(jft.Model):
 def build_coordinates_corrected_from_grid(
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
     reconstruction_grid: Grid,
-    coords: ArrayLike,
+    coordinates: ArrayLike,
 ) -> Union[Coordinates, CoordinatesCorrected]:
     """Build `CorrectedCorrdinates` from the grid and coordinates.
 
@@ -158,7 +159,7 @@ def build_coordinates_corrected_from_grid(
         function which returns the original coordinates.
     reconstruction_grid : Grid
         The grid used to define the coordinate system for the correction model.
-    coords : ArrayLike
+    coordinates : ArrayLike
         The coordinates to be corrected by the model. Which are assumed to be given in
         pixel units/positions of the reconstruction grid.
 
@@ -173,7 +174,8 @@ def build_coordinates_corrected_from_grid(
     """
 
     if shift_and_rotation_correction is None:
-        return Coordinates(coords)
+        return Coordinates(coordinates)
+
     rotation_center = np.array(
         reconstruction_grid.spatial.world_to_pixel(
             shift_and_rotation_correction.rotation_center
@@ -186,5 +188,5 @@ def build_coordinates_corrected_from_grid(
     ).reshape(shift_and_rotation_correction.shift.target.shape)
 
     return CoordinatesCorrected(
-        shift_and_rotation_correction, rotation_center, coords, pixel_distance
+        shift_and_rotation_correction, rotation_center, coordinates, pixel_distance
     )
