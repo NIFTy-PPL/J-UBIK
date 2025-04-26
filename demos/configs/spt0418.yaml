@@ -306,7 +306,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/13_03_testing_alignement'
+  res_dir: './results/jwst_lens/cluster/13_04_testing_alignement'
 
   filter:
 
