@@ -216,24 +216,7 @@ class JwstData:
         return data, mask, std
 
     def get_boresight_world_coords(self):
-        """
-        Returns the most accurate world coordinate system point of the boresight (v1) from a JWST datamodel.
-        This function considers possible corrections such as velocity aberration corrections if available.
-        """
-        # Check available WCS frames
-        available_frames = self.wcs.available_frames
-
-        # Use v2v3vacorr if available for the most accurate V2/V3 coordinates, else fallback to v2v3
-        if "v2v3vacorr" in available_frames:
-            v2v3_frame = "v2v3vacorr"
-        elif "v2v3" in available_frames:
-            v2v3_frame = "v2v3"
-        else:
-            raise ValueError("No V2V3 coordinate frame available in the model")
-
-        # The boresight in V2V3 coordinates is at (0, 0) by definition
-        v2, v3 = 0.0, 0.0
-
-        # Transform from V2V3 to world coordinates (RA, Dec)
-        ra, dec = self.wcs.transform(v2v3_frame, "world", v2, v3)
-        return SkyCoord(ra, dec, unit="deg")
+        """Returns the world coordinate of the boresight (v1) from a JWST datamodel."""
+        return SkyCoord(
+            self.dm.meta.pointing.ra_v1, self.dm.meta.pointing.dec_v1, unit="deg"
+        )
