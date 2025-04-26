@@ -2,14 +2,14 @@ import nifty8.re as jft
 import astropy.units as u
 
 from ..parse.rotation_and_shift.coordinates_correction import (
-    CoordiantesCorrectionPriorConfig,
+    CoordinatesCorrectionPriorConfig,
 )
 from ..parametric_model import build_parametric_prior_from_prior_config
 
 
 def build_shift_correction(
     domain_key: str,
-    correction_config: CoordiantesCorrectionPriorConfig,
+    correction_config: CoordinatesCorrectionPriorConfig,
     unit: u.Unit | None = None,
 ) -> jft.Model:
     # Build shift prior

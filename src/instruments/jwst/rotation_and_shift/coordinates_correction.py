@@ -22,7 +22,7 @@ from ....wcs.wcs_astropy import WcsAstropy
 from ....wcs.wcs_jwst_data import WcsJwstData
 
 from ..parse.rotation_and_shift.coordinates_correction import (
-    CoordiantesCorrectionPriorConfig,
+    CoordinatesCorrectionPriorConfig,
 )
 
 
@@ -30,7 +30,7 @@ class ShiftAndRotationCorrection(jft.Model):
     def __init__(
         self,
         domain_key: str,
-        correction_prior: CoordiantesCorrectionPriorConfig,
+        correction_prior: CoordinatesCorrectionPriorConfig,
         rotation_center: SkyCoord,
     ):
         self.shift = build_shift_correction(

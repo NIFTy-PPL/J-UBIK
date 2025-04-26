@@ -32,7 +32,7 @@ ROTATION_KEY = "rotation"
 
 
 @dataclass
-class CoordiantesCorrectionPriorConfig:
+class CoordinatesCorrectionPriorConfig:
     shift: ProbabilityConfig
     rotation: ProbabilityConfig
     shift_unit: u.Unit
@@ -54,15 +54,15 @@ class CoordiantesCorrectionPriorConfig:
 
 
 @dataclass
-class CoordiantesCorrectionConfig:
+class CoordinatesCorrectionConfig:
     """This class saves the `CoordiantesCorrectionPrior`s for the coordinate
     correction. Specifics can be provided for the different filters and their
     multiple datasets (dithers, etc.). If a specific filter gets a None, the
     coordinates from the data are fixed to the provided values.
     """
 
-    default: CoordiantesCorrectionPriorConfig
-    name_settings: dict[str, list[CoordiantesCorrectionPriorConfig | None]]
+    default: CoordinatesCorrectionPriorConfig
+    name_settings: dict[str, list[CoordinatesCorrectionPriorConfig | None]]
 
     def get_name_setting_or_default(
         self, filter_name: str, data_index: int | None = None
@@ -88,7 +88,7 @@ class CoordiantesCorrectionConfig:
 
 def yaml_to_coordinates_correction_config(
     corrections_config: dict,
-) -> CoordiantesCorrectionConfig:
+) -> CoordinatesCorrectionConfig:
     """Parses the coordinate correction prior configuration.
 
     Parameters
@@ -102,7 +102,7 @@ def yaml_to_coordinates_correction_config(
     )
     shift_unit = getattr(u, corrections_config.get(SHIFT_UNIT_KEY, SHIFT_UNIT_DEFAULT))
 
-    default = CoordiantesCorrectionPriorConfig(
+    default = CoordinatesCorrectionPriorConfig(
         shift=transform_setting_to_prior_config(
             corrections_config[DEFAULT_KEY][SHIFT_KEY]
         ),
@@ -122,7 +122,7 @@ def yaml_to_coordinates_correction_config(
         filter_prior_list = []
         for data_index, prior_settings in data_indices.items():
             filter_data_prior = (
-                CoordiantesCorrectionPriorConfig(
+                CoordinatesCorrectionPriorConfig(
                     shift=transform_setting_to_prior_config(prior_settings[SHIFT_KEY]),
                     shift_unit=shift_unit,
                     rotation=transform_setting_to_prior_config(
@@ -137,4 +137,4 @@ def yaml_to_coordinates_correction_config(
 
         name_settings[filter_name] = filter_prior_list
 
-    return CoordiantesCorrectionConfig(default=default, name_settings=name_settings)
+    return CoordinatesCorrectionConfig(default=default, name_settings=name_settings)
