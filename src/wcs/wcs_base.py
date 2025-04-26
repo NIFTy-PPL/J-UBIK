@@ -7,7 +7,8 @@
 
 from typing import Optional
 import numpy as np
-from astropy.coordinates import SkyCoord
+from astropy import units as u
+from astropy.coordinates import SkyCoord, Angle
 from numpy.typing import ArrayLike
 
 

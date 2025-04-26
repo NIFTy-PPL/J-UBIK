@@ -50,7 +50,7 @@ class FilterData:
     boresight: list[SkyCoord] = field(default_factory=list)
     transmission: list[float] = field(default_factory=list)
     meta: list[DataMetaInformation] = field(default_factory=list)
-    data_wcs: list[WcsJwstData] = field(default_factory=list)
+    subsample_centers: list[SkyCoord] = field(default_factory=list)
     correction_prior: list[CoordinatesCorrectionConfig] = field(default_factory=list)
 
     def __len__(self):
@@ -107,11 +107,14 @@ def build_jwst_likelihoods(
             else:
                 assert energy_name == previous_energy_name
 
-            data, mask, std = jwst_data.bounding_data_mask_std_by_world_corners(
-                grid.spatial,
-                grid.spatial.world_corners(extension_value=sky_meta.grid_extension),
-                yaml_to_corner_mask_configs(cfg[telescope_key]),
+            data, mask, std, data_subsampled_centers = (
+                jwst_data.bounding_data_mask_std_subpixel_by_world_corners(
+                    grid.spatial,
+                    grid.spatial.world_corners(extension_value=sky_meta.grid_extension),
+                    yaml_to_corner_mask_configs(cfg[telescope_key]),
+                )
             )
+            print(data.shape, data_subsampled_centers.shape)
 
             psf_kernel = load_psf_kernel(
                 jwst_data=jwst_data,
@@ -122,7 +125,7 @@ def build_jwst_likelihoods(
             filter_data.data.append(data)
             filter_data.mask.append(mask)
             filter_data.std.append(std)
-            filter_data.data_wcs.append(jwst_data.wcs)
+            filter_data.subsample_centers.append(data_subsampled_centers)
             filter_data.meta.append(jwst_data.meta)
             filter_data.psf_kernel.append(psf_kernel)
             filter_data.correction_prior.append(
@@ -134,8 +137,6 @@ def build_jwst_likelihoods(
             filter_data.transmission.append(jwst_data.transmission)
 
         for ii in range(len(filter_data)):
-            print(filter_data.data[ii].shape)
-
             shift_and_rotation_correction = ShiftAndRotationCorrection(
                 domain_key=f"{filter_data.meta[ii].identifier}_correction",
                 correction_prior=filter_data.correction_prior[ii],
@@ -144,7 +145,7 @@ def build_jwst_likelihoods(
 
             jwst_target_response = build_jwst_response(
                 sky_domain={energy_name: filter_projector.target[energy_name]},
-                data_wcs=filter_data.data_wcs[ii],
+                data_subsampled_centers=filter_data.subsample_centers[ii],
                 data_meta=filter_data.meta[ii],
                 sky_wcs=grid.spatial,
                 sky_meta=sky_meta,

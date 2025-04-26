@@ -12,10 +12,9 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 from ...color import Color, ColorRange
-from ...wcs.wcs_astropy import WcsAstropy
-from ...wcs.wcs_jwst_data import WcsJwstData
+from ...wcs import subsample_pixel_centers, WcsAstropy, WcsJwstData
 
-from .jwst_information import get_dvol, JWST_FILTERS
+from .jwst_information import get_dvol, JWST_FILTERS, get_pixel_distance
 from .masking import (
     get_mask_from_index_centers_within_rgrid,
     get_mask_from_mask_corners,
@@ -35,6 +34,7 @@ class DataMetaInformation:
     subsample: int
     unit: units.Unit
     dvol: units.Quantity
+    pixel_distance: units.Quantity
 
 
 class JwstData:
@@ -60,6 +60,7 @@ class JwstData:
             subsample=subsample,
             unit=units.Unit(self.dm.meta.bunit_data),
             dvol=get_dvol(self.filter),
+            pixel_distance=get_pixel_distance(self.filter),
         )
 
     def data_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
@@ -158,7 +159,7 @@ class JwstData:
         pivot, bw, effective_response, blue, red = JWST_FILTERS[self.filter]
         return effective_response
 
-    def bounding_data_mask_std_by_world_corners(
+    def bounding_data_mask_std_subpixel_by_world_corners(
         self,
         reconstruction_grid_wcs: WcsAstropy,
         world_corners: list[SkyCoord],
@@ -197,6 +198,12 @@ class JwstData:
         # points = np.array(((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)))
         # cutout_world_corners = self.wcs.pixel_to_world(*np.array(points).T)
 
+        data_subsampled_centers = subsample_pixel_centers(
+            world_corners=world_corners,
+            to_be_subsampled_grid_wcs=self.wcs,
+            subsample=self.meta.subsample,
+        )
+
         data = self.data_inside_extrema(world_corners)
         mask = get_mask_from_index_centers_within_rgrid(
             world_corners, self.wcs, reconstruction_grid_wcs
@@ -213,7 +220,7 @@ class JwstData:
             ]
             mask *= ~np.sum(extra_masks, axis=0, dtype=bool)
 
-        return data, mask, std
+        return data, mask, std, data_subsampled_centers
 
     def get_boresight_world_coords(self):
         """Returns the world coordinate of the boresight (v1) from a JWST datamodel."""

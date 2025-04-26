@@ -10,6 +10,7 @@ from typing import Callable, Union
 import nifty8.re as jft
 import numpy as np
 from astropy import units as u
+from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 from .parse.parametric_model.parametric_prior import ProbabilityConfig
@@ -17,7 +18,7 @@ from .parse.rotation_and_shift.rotation_and_shift import LinearConfig, NufftConf
 from .parse.jwst_response import SkyMetaInformation
 from .jwst_data import DataMetaInformation
 
-from ...wcs import subsample_grid_centers_in_index_grid
+from ...wcs import world_coordinates_to_index_grid
 from ...wcs.wcs_jwst_data import WcsJwstData
 from ...wcs.wcs_astropy import WcsAstropy
 from .integration.unit_conversion import build_unit_conversion
@@ -120,7 +121,7 @@ class JwstResponse(jft.Model):
 
 def build_jwst_response(
     sky_domain: dict,
-    data_wcs: WcsJwstData,
+    data_subsampled_centers: SkyCoord,
     data_meta: DataMetaInformation,
     sky_wcs: WcsAstropy,
     sky_meta: SkyMetaInformation,
@@ -141,14 +142,26 @@ def build_jwst_response(
     ----------
     sky_domain: dict
         Containing the sky_key and the shape_dtype of the reconstruction sky.
-    data: JwstData
-        The data with meta information.
+    data_subsampled_centers: SkyCoord
+        The world coordinates of the subsampled data. I.e. the world coordinates of the
+        subsample centers of the data.
+    data_meta: DataMetaInformation
+        Meta information on the data, needed here:
+            - unit
+            - dvol
+            - subsample
+            - identifier
+    sky_wcs: WcsAstropy
+        The wcs of the sky/reconstruction grid.
+    sky_meta: SkyMetaInformation
+        Meta information on the sky, needed here:
+            - unit
     rotation_and_shift_algorithm: Union[LinearConfig, NufftConfig],
         The information for the rotation_and_shift algorithm.
     shift_and_rotation_correction: CoordiantesCorrectionPriorConfig | None
         The prior for the shift and rotation coordinates correction.
     psf_kernel: np.ndarray
-        The
+        The kernel of the psf as a np.ndarray.
     data_mask: ArrayLike
         The mask on the data
     sky_unit: astropy.units.Unit
@@ -158,18 +171,16 @@ def build_jwst_response(
     need_sky_key = "Need to provide an internal key to the target of the sky model."
     assert isinstance(sky_domain, dict), need_sky_key
 
-    _coordinates = subsample_grid_centers_in_index_grid(
-        world_corners=sky_wcs.world_corners(extension_value=sky_meta.grid_extension),
-        to_be_subsampled_grid_wcs=data_wcs,
+    pixel_coordinates = world_coordinates_to_index_grid(
+        world_coordinates=data_subsampled_centers,
         index_grid_wcs=sky_wcs,
-        subsample=data_meta.subsample,
         indexing="ij",
     )
 
     coordinates = build_coordinates_corrected_from_grid(
         shift_and_rotation_correction=shift_and_rotation_correction,
         reconstruction_grid_wcs=sky_wcs,
-        coordinates=_coordinates,
+        coordinates=pixel_coordinates,
     )
 
     rotation_and_shift = build_rotation_and_shift(

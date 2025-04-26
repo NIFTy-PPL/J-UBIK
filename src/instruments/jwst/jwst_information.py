@@ -69,9 +69,9 @@ NIRCAM_PIXEL_DISTANCE_01 = 0.031 * units.arcsec  # 0.6–2.3 µm wavelength rang
 NIRCAM_PIXEL_DISTANCE_02 = 0.063 * units.arcsec  # 2.4–5.0 µm wavelength range
 
 
-def get_dvol(filter: str):
+def get_pixel_distance(filter: str):
     if filter in miri_filters:
-        return (MIRI_PIXEL_DISTANCE.to(units.deg)) ** 2
+        return MIRI_PIXEL_DISTANCE.to(units.deg)
 
     elif filter in nircam_filters:
         pivot = Color(nircam_filters[filter][0] * units.micrometer)
@@ -80,13 +80,17 @@ def get_dvol(filter: str):
             Color(0.6 * units.micrometer), Color(2.3 * units.micrometer)
         ):
             # 0.6–2.3 µm wavelength range
-            return NIRCAM_PIXEL_DISTANCE_01.to(units.deg) ** 2
+            return NIRCAM_PIXEL_DISTANCE_01.to(units.deg)
 
         else:
             # 2.4–5.0 µm wavelength range
-            return NIRCAM_PIXEL_DISTANCE_02.to(units.deg) ** 2
+            return NIRCAM_PIXEL_DISTANCE_02.to(units.deg)
 
     else:
         raise NotImplementedError(
             f"filter has to be in the supported filters{JWST_FILTERS.keys()}"
         )
+
+
+def get_dvol(filter: str):
+    return get_pixel_distance(filter) ** 2

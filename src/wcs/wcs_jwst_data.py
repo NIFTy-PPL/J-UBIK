@@ -7,6 +7,7 @@
 
 import numpy as np
 from .wcs_base import WcsMixin
+from astropy.coordinates import SkyCoord
 
 
 _HAS_GWCS = False
