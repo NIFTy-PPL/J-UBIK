@@ -63,75 +63,86 @@ class JwstData:
             pixel_distance=get_pixel_distance(self.filter),
         )
 
-    def data_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
+    def _handle_extrema(
+        self,
+        extrema: SkyCoord | tuple[int, int, int, int],
+    ) -> tuple[int, int, int, int]:
+        if isinstance(extrema, SkyCoord):
+            return self.wcs.bounding_box_indices_from_world_extrema(extrema, self.shape)
+        elif isinstance(extrema, tuple) or isinstance(extrema, np.ndarray):
+            assert len(extrema) == 4
+            return extrema
+
+        raise ValueError(
+            "The extrema have to be given as `astropy.coordinates.SkyCoord` or "
+            "tuple | ndarray holding `minx_maxx_miny_maxy`."
+        )
+
+    def data_inside_extrema(
+        self, extrema: SkyCoord | tuple[int, int, int, int]
+    ) -> ArrayLike:
         """
         Find the data values inside the extrema.
 
         Parameters
         ----------
-        extrema : List[SkyCoord]
-            List of SkyCoord objects, representing the world location of the
-            reconstruction grid edges.
+        extrema : SkyCoord | tuple[int, int, int, int]
+            If SkyCoord, the values represent the world location of the grid corners.
+            If tuple[int], the values are assumed to be (minx, maxx, miny, maxy) which
+            are the borders of the data.
 
         Returns
         -------
         data : ArrayLike
             Data values inside the extrema.
         """
-        # NOTE : Carefull replacing bounding_box_indices_from_world_extrema since this
-        # is coupled inside self.load_cutout_data_mask_std_by_world_corners.
-
-        minx, maxx, miny, maxy = self.wcs.bounding_box_indices_from_world_extrema(
-            extrema, self.shape
-        )
+        minx, maxx, miny, maxy = self._handle_extrema(extrema)
 
         # NOTE : The data needs matrix indexing, hence y is on the first axis.
         return self.dm.data[miny : maxy + 1, minx : maxx + 1]
 
-    def std_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
+    def std_inside_extrema(
+        self, extrema: SkyCoord | tuple[int, int, int, int]
+    ) -> ArrayLike:
         """Find the data values inside the extrema.
 
         Parameters
         ----------
-        extrema : List[SkyCoord]
-            List of SkyCoord objects, representing the world location of the
-            reconstruction grid edges.
+        extrema : SkyCoord | tuple[int, int, int, int]
+            If SkyCoord, the values represent the world location of the grid corners.
+            If tuple[int], the values are assumed to be (minx, maxx, miny, maxy) which
+            are the borders of the data.
 
         Returns
         -------
         data : ArrayLike
             Data values inside the extrema.
         """
-        # NOTE : Carefull replacing bounding_box_indices_from_world_extrema since this
-        # is coupled inside self.load_cutout_data_mask_std_by_world_corners.
 
-        minx, maxx, miny, maxy = self.wcs.bounding_box_indices_from_world_extrema(
-            extrema, self.shape
-        )
+        minx, maxx, miny, maxy = self._handle_extrema(extrema)
         # NOTE : The data needs matrix indexing, hence y is on the first axis.
         return self.dm.err[miny : maxy + 1, minx : maxx + 1]
 
-    def nan_inside_extrema(self, extrema: SkyCoord) -> ArrayLike:
+    def nan_inside_extrema(
+        self, extrema: SkyCoord | tuple[int, int, int, int]
+    ) -> ArrayLike:
         """
         Get a nan-mask of the data inside the extrema.
 
         Parameters
         ----------
-        extrema : List[SkyCoord]
-            List of SkyCoord objects, representing the world location of the
-            reconstruction grid edges.
+        extrema : SkyCoord | tuple[int, int, int, int]
+            If SkyCoord, the values represent the world location of the grid corners.
+            If tuple[int], the values are assumed to be (minx, maxx, miny, maxy) which
+            are the borders of the data.
 
         Returns
         -------
         nan-mask : ArrayLike
             Mask corresponding to the nan values inside the extrema.
         """
-        # NOTE : Carefull replacing bounding_box_indices_from_world_extrema since this
-        # is coupled inside self.load_cutout_data_mask_std_by_world_corners.
 
-        minx, maxx, miny, maxy = self.wcs.bounding_box_indices_from_world_extrema(
-            extrema, self.shape
-        )
+        minx, maxx, miny, maxy = self._handle_extrema(extrema)
         # NOTE : The data needs matrix indexing, hence y is on the first axis.
         return (~np.isnan(self.dm.data[miny : maxy + 1, minx : maxx + 1])) * (
             ~np.isnan(self.dm.err[miny : maxy + 1, minx : maxx + 1])
@@ -188,28 +199,21 @@ class JwstData:
         # bounding_world_corners: SkyCoord
         #     The world coordinates of the pixel edges of the bounding box (i.e. the data)
 
-        # NOTE : Carefull replacing bounding_box_indices_from_world_extrema since this
-        # is coupled inside self.data_inside_extrema, self.nan_inside_extrema, and
-        # self.std_inside_extrema.
-
-        # xmin, xmax, ymin, ymax = np.array(
-        #     self.wcs.bounding_box_indices_from_world_extrema(world_corners)
-        # )
-        # points = np.array(((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)))
-        # cutout_world_corners = self.wcs.pixel_to_world(*np.array(points).T)
-
+        xmin_xmax_ymin_ymax = np.array(
+            self.wcs.bounding_box_indices_from_world_extrema(world_corners)
+        )
         data_subsampled_centers = subsample_pixel_centers(
-            world_corners=world_corners,
+            index_bounds_minx_maxx_miny_maxy=xmin_xmax_ymin_ymax,
             to_be_subsampled_grid_wcs=self.wcs,
             subsample=self.meta.subsample,
         )
 
-        data = self.data_inside_extrema(world_corners)
+        data = self.data_inside_extrema(xmin_xmax_ymin_ymax)
         mask = get_mask_from_index_centers_within_rgrid(
             world_corners, self.wcs, reconstruction_grid_wcs
         )
-        mask *= self.nan_inside_extrema(world_corners)
-        std = self.std_inside_extrema(world_corners)
+        mask *= self.nan_inside_extrema(xmin_xmax_ymin_ymax)
+        std = self.std_inside_extrema(xmin_xmax_ymin_ymax)
 
         if additional_masks_corners is not None:
             extra_masks = [

@@ -98,7 +98,7 @@ class WcsMixin:
         world_extrema: SkyCoord,
         indexing: str,
         shape_check: tuple[int, int] | None = None,
-    ) -> ArrayLike:
+    ) -> np.ndarray:
         """
         Find the pixel indices of the bounding box that contain the world
         location world_extrema (wl_extrema).
@@ -124,6 +124,30 @@ class WcsMixin:
         min_x, max_x, min_y, max_y = self.bounding_box_indices_from_world_extrema(
             world_extrema, shape_check
         )
+
+        return self.index_grid_from_bounding_indices(
+            min_x, max_x, min_y, max_y, indexing
+        )
+
+    def index_grid_from_bounding_indices(
+        self,
+        min_x: int,
+        max_x: int,
+        min_y: int,
+        max_y: int,
+        indexing: str,
+    ) -> np.ndarray:
+        """Return index array from the bounding indices.
+
+        Paramaters
+        ----------
+        min_x: int
+        max_x: int
+        min_y: int
+        max_y: int
+        indexing: str
+            Either `xy` or `ij`.
+        """
 
         x_indices = np.arange(min_x, max_x + 1)
         y_indices = np.arange(min_y, max_y + 1)

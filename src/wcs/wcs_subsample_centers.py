@@ -16,7 +16,7 @@ from .wcs_astropy import WcsAstropy
 
 
 def subsample_pixel_centers(
-    world_corners: Tuple[SkyCoord, SkyCoord, SkyCoord, SkyCoord],
+    index_bounds_minx_maxx_miny_maxy: tuple[int, int, int, int],
     to_be_subsampled_grid_wcs: Union[WcsAstropy, WcsJwstData],
     subsample: int,
     as_pixel_values: bool = False,
@@ -43,10 +43,8 @@ def subsample_pixel_centers(
     """
 
     # NOTE : GWCS.wcs expects `xy` indexing. Other arrays are not tested.
-    tbsg_pixcenter_indices = (
-        to_be_subsampled_grid_wcs.bounding_box_index_grid_from_world_extrema(
-            world_corners, indexing="xy"
-        )
+    tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_bounding_indices(
+        *index_bounds_minx_maxx_miny_maxy, indexing="xy"
     )
 
     ps = np.arange(0.5 / subsample, 1, 1 / subsample) - 0.5

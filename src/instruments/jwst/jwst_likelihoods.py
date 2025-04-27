@@ -94,6 +94,11 @@ def build_jwst_likelihoods(
     for fltname, flt in cfg[files_key]["filter"].items():
         filter_data = FilterData()
 
+        # for ii, filepath in enumerate(flt):
+        #     jwst_data = JwstData(
+        #         filepath, identifier=f"{fltname}_{ii}", subsample=data_subsample
+        #     )
+
         for ii, filepath in enumerate(flt):
             logger.info(f"Loading: {fltname} {ii} {filepath}")
 
