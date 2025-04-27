@@ -59,17 +59,20 @@ def get_mask_from_mask_corners(
         The shape of the data.
     data_wcs: Union[WcsJwstData, WcsAstropy]
         The wcs of the data.
-    world_corners:
-
+    world_corners: SkyCoord
+        The world corners of the reconstruction grid.
+    mask_corners: SkyCoord
+        The world corners of the mask.
     """
+
     min_x, _, min_y, _ = data_wcs.bounding_box_indices_from_world_extrema(world_corners)
-    centers = subsample_grid_centers_in_index_grid(
-        world_corners=mask_corners,
-        to_be_subsampled_grid_wcs=data_wcs,
-        index_grid_wcs=data_wcs,
+    centers = subsample_pixel_centers(
+        data_wcs.bounding_box_indices_from_world_extrema(mask_corners),
+        data_wcs,
         subsample=1,
-        indexing="xy",
+        as_pixel_values=True,
     )
+
     centers = np.array(centers, dtype=int) - np.array((min_x, min_y))[:, None, None]
     min_x_mask, max_x_mask, min_y_mask, max_y_mask = (
         centers[0].min(),
