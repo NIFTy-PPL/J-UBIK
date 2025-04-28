@@ -47,6 +47,7 @@ class WcsJwstData(WcsMixin):
         extension_factor: float = 1,
         extension_value: tuple[int, int] | None = None,
     ) -> np.ndarray:
-        bounds = self.bounding_box.bounding_box()
-        bounds = np.reshape(np.meshgrid(*bounds), newshape=(2, -1))
-        return self.pixel_to_world(*bounds)
+        xx, yy = self.bounding_box.bounding_box()
+        bounds = np.array([[xx[0], xx[0], xx[1], xx[1]], [yy[0], yy[1], yy[1], yy[0]]])
+        ra, dec = self.transform("detector", "world", *bounds)
+        return SkyCoord(ra=ra, dec=dec, unit="deg")
