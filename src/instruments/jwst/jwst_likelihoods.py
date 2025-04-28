@@ -12,6 +12,9 @@ from .plotting.residuals import ResidualPlottingInformation
 from .config_handler import (
     get_grid_extension_from_config,
 )
+from ..gaia.star_finder import load_gaia_stars_in_fov, join_tables
+from .plotting.plotting_sky import plot_sky_coords, plot_jwst_panels
+from .alignment.gaia_alignment import FilterAlignemnt
 
 # Parsing
 from .parse.jwst_psf import yaml_to_psf_kernel_config
@@ -25,6 +28,7 @@ from .parse.rotation_and_shift.rotation_and_shift import (
 )
 from .parse.jwst_response import SkyMetaInformation
 from .parse.masking.data_mask import yaml_to_corner_mask_configs
+from .parse.alignment.star_alignment import StarAlignment
 
 
 # Libraries
@@ -89,6 +93,10 @@ def build_jwst_likelihoods(
         unit=sky_unit,
     )
 
+    gaia_alignment = StarAlignment.from_yaml_dict(
+        cfg[telescope_key].get("gaia_alignment", {})
+    )
+
     target_plotting = {}
     likelihoods = []
     for fltname, flt in cfg[files_key]["filter"].items():
@@ -102,6 +110,8 @@ def build_jwst_likelihoods(
             target=dict(shapes=[], bounding_indices=[]),
             alignment=dict(gaia_tables=[]),
         )
+        filter_alignment = FilterAlignemnt(alignment_meta=gaia_alignment)
+
         for ii, filepath in enumerate(flt):
             print(ii, filepath)
             jwst_data = JwstData(
@@ -117,6 +127,12 @@ def build_jwst_likelihoods(
             data_preloading["target"]["bounding_indices"].append(
                 jwst_data.wcs.bounding_box_indices_from_world_extrema(world_corners)
             )
+            world_corners = jwst_data.wcs.world_corners()
+            gaia_table = load_gaia_stars_in_fov(
+                world_corners, gaia_alignment.library_path
+            )
+            filter_alignment.append_table(gaia_table)
+
 
         for ii, filepath in enumerate(flt):
             logger.info(f"Loading: {fltname} {ii} {filepath}")

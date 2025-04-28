@@ -136,7 +136,7 @@ def build_jwst_response(
     Builds the data model for a Jwst observation.
 
     The data model pipline:
-    rotation_and_shift | psf | integrate | mask
+    rotation_and_shift | psf | integrate | transmission | zero flux | mask
 
     Parameters
     ----------
