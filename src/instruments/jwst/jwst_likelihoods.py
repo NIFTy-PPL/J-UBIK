@@ -98,6 +98,25 @@ def build_jwst_likelihoods(
         #     jwst_data = JwstData(
         #         filepath, identifier=f"{fltname}_{ii}", subsample=data_subsample
         #     )
+        data_preloading = dict(
+            target=dict(shapes=[], bounding_indices=[]),
+            alignment=dict(gaia_tables=[]),
+        )
+        for ii, filepath in enumerate(flt):
+            print(ii, filepath)
+            jwst_data = JwstData(
+                filepath, identifier=f"{fltname}_{ii}", subsample=data_subsample
+            )
+
+            world_corners = grid.spatial.world_corners(
+                extension_value=sky_meta.grid_extension
+            )
+            data_preloading["target"]["shapes"].append(
+                jwst_data.data_inside_extrema(world_corners).shape
+            )
+            data_preloading["target"]["bounding_indices"].append(
+                jwst_data.wcs.bounding_box_indices_from_world_extrema(world_corners)
+            )
 
         for ii, filepath in enumerate(flt):
             logger.info(f"Loading: {fltname} {ii} {filepath}")

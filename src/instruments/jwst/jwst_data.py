@@ -205,7 +205,9 @@ class JwstData:
             self.wcs.bounding_box_indices_from_world_extrema(world_corners)
         )
         return self.bounding_data_mask_std_subpixel_by_bounding_indices(
-            bounding_box_xmin_xmax_ymin_ymax=xmin_xmax_ymin_ymax
+            reconstruction_grid_wcs=reconstruction_grid_wcs,
+            bounding_box_xmin_xmax_ymin_ymax=xmin_xmax_ymin_ymax,
+            additional_masks_corners=additional_masks_corners,
         )
 
     def bounding_data_mask_std_subpixel_by_bounding_indices(
