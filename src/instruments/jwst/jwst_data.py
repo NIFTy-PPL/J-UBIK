@@ -181,8 +181,51 @@ class JwstData:
 
         Parameters
         ----------
+        reconstruction_grid_wcs: WcsAstropy,
+            The wcs of the reconstruction/index grid.
         world_corners: list[SkyCoord]
             The world corners of the cutout. I.e. the absolute positions in the world.
+        additional_masks_corners: list[CornerMaskConfig]
+            Holds the egde points of additional masks for the data.
+
+        Returns
+        -------
+        data: np.ndarray[float],
+        mask: np.ndarray[bool],
+        std: np.ndarray[float]
+        subsampled_pixel_centers: SkyCoord
+            The world coordinates of the subsampled data pixels.
+
+        Notes
+        -----
+        The mask is true where the data will be taken, i.e. supplied to the likelihood.
+        """
+
+        xmin_xmax_ymin_ymax = np.array(
+            self.wcs.bounding_box_indices_from_world_extrema(world_corners)
+        )
+        return self.bounding_data_mask_std_subpixel_by_bounding_indices(
+            bounding_box_xmin_xmax_ymin_ymax=xmin_xmax_ymin_ymax
+        )
+
+    def bounding_data_mask_std_subpixel_by_bounding_indices(
+        self,
+        reconstruction_grid_wcs: WcsAstropy,
+        bounding_box_xmin_xmax_ymin_ymax: tuple[int] | np.ndarray,
+        additional_masks_corners: list[CornerMaskConfig] | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return a subpart of the data, mask, and std inside a bounding box surrounding
+        the `world_corners`.
+
+        Parameters
+        ----------
+        reconstruction_grid_wcs: WcsAstropy,
+            The wcs of the reconstruction/index grid.
+        bounding_box_xmin_xmax_ymin_ymax: tuple[int] | np.ndarray
+            The pixel postions edges of the bounding box, inside the data (corresponding
+            from the data_wcs).
+            Previously cacuclated by,
+            data_wcs.bounding_box_indices_from_world_extrema(world_corners).
         additional_masks_corners: list[CornerMaskConfig]
             Holds the egde points of additional masks for the data.
 
@@ -196,29 +239,24 @@ class JwstData:
         -----
         The mask is true where the data will be taken, i.e. supplied to the likelihood.
         """
-        # bounding_world_corners: SkyCoord
-        #     The world coordinates of the pixel edges of the bounding box (i.e. the data)
 
-        xmin_xmax_ymin_ymax = np.array(
-            self.wcs.bounding_box_indices_from_world_extrema(world_corners)
-        )
         data_subsampled_centers = subsample_pixel_centers(
-            index_bounds_minx_maxx_miny_maxy=xmin_xmax_ymin_ymax,
+            bounding_box_xmin_xmax_ymin_ymax=bounding_box_xmin_xmax_ymin_ymax,
             to_be_subsampled_grid_wcs=self.wcs,
             subsample=self.meta.subsample,
         )
 
-        data = self.data_inside_extrema(xmin_xmax_ymin_ymax)
+        data = self.data_inside_extrema(bounding_box_xmin_xmax_ymin_ymax)
         mask = get_mask_from_index_centers_within_rgrid(
-            world_corners, self.wcs, reconstruction_grid_wcs
+            bounding_box_xmin_xmax_ymin_ymax, self.wcs, reconstruction_grid_wcs
         )
-        mask *= self.nan_inside_extrema(xmin_xmax_ymin_ymax)
-        std = self.std_inside_extrema(xmin_xmax_ymin_ymax)
+        mask *= self.nan_inside_extrema(bounding_box_xmin_xmax_ymin_ymax)
+        std = self.std_inside_extrema(bounding_box_xmin_xmax_ymin_ymax)
 
         if additional_masks_corners is not None:
             extra_masks = [
                 get_mask_from_mask_corners(
-                    data.shape, self.wcs, world_corners, mc.corners
+                    data.shape, self.wcs, bounding_box_xmin_xmax_ymin_ymax, mc.corners
                 )
                 for mc in additional_masks_corners
             ]
