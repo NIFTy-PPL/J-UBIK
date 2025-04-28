@@ -38,13 +38,11 @@ Additional calibration files might be needed for instrument-specific pipelines.
 J-UBIK allows to process observations from Chandra x-ray observatory.
 
 #### Requirements
-- [ciao](https://cxc.cfa.harvard.edu/ciao4.14/download/ciao_install.html) > 4.16
-- [marx](https://cxc.cfa.harvard.edu/ciao/ahelp/install_marx.html)
-- set an alias in your .bashrc to source ciao and marx easily 
+- ciao >= 4.16
+- marx
 
-NOTE: in case you install ciao via conda, make sure that all environmental are set
-conda env config vars set MARX_ROOT /soft/marx/marx-5.2.0 (or where your marx is installed)
-conda env config vars set MARX_DATA_DIR ${MARX_ROOT}/share/marx/data
+We recommend installation of both via conda / conda-forge
+[ciao & marx](https://cxc.cfa.harvard.edu/ciao/download/conda.html)
 
 ### eROSITA
 J-UBIK allows to process and image event files from the eROSITA x-ray observatory.
