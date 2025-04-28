@@ -132,9 +132,9 @@ def build_jwst_likelihoods(
                 assert energy_name == previous_energy_name
 
             data, mask, std, data_subsampled_centers = (
-                jwst_data.bounding_data_mask_std_subpixel_by_world_corners(
+                jwst_data.bounding_data_mask_std_subpixel_by_bounding_indices(
                     grid.spatial,
-                    grid.spatial.world_corners(extension_value=sky_meta.grid_extension),
+                    data_preloading["target"]["bounding_indices"][ii],
                     yaml_to_corner_mask_configs(cfg[telescope_key]),
                 )
             )
