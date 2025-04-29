@@ -39,8 +39,7 @@ class JwstResponse(jft.Model):
     instrument models.
 
     This class models a data pipeline that includes rotation, shifting,
-    PSF application, integration, transmission correction, and masking,
-    with an optional zero-flux model.
+    PSF application, integration, and masking, with an optional zero-flux model.
     """
 
     def __init__(
@@ -50,7 +49,6 @@ class JwstResponse(jft.Model):
         psf: Callable[[ArrayLike], ArrayLike],
         unit_conversion: Callable[[ArrayLike], ArrayLike],
         integrate: Callable[[ArrayLike], ArrayLike],
-        transmission: float,
         zero_flux_model: jft.Model | None,
         mask: Callable[[ArrayLike], ArrayLike],
     ):
@@ -74,8 +72,6 @@ class JwstResponse(jft.Model):
             A function that transforms the unit of the sky to the data unit.
         integrate : callable
             A function that performs integration on the input data.
-        transmission : float
-            A transmission factor by which the output data is multiplied.
         zero_flux_model : jft.Model | None
             A secondary model to account for zero flux.
             If provided, its output is added to the domain model's output.
@@ -96,7 +92,6 @@ class JwstResponse(jft.Model):
         self.psf = psf
         self.unit_conversion = unit_conversion
         self.integrate = integrate
-        self.transmission = transmission
         self.zero_flux_model = zero_flux_model
         self.mask = mask
 
@@ -110,7 +105,6 @@ class JwstResponse(jft.Model):
         out = self.psf(out)
         out = self.unit_conversion(out)
         out = self.integrate(out)
-        out = out * self.transmission
         if self.zero_flux_model is not None:
             out = out + self.zero_flux_model(x)
         out = self.mask(out)
@@ -126,7 +120,6 @@ def build_jwst_response(
     rotation_and_shift_algorithm: Union[LinearConfig, NufftConfig],
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
     psf_kernel: np.ndarray | None,
-    transmission: float,
     zero_flux_prior_config: ProbabilityConfig | None,
     data_mask: ArrayLike | None,
 ) -> JwstResponse:
@@ -134,7 +127,7 @@ def build_jwst_response(
     Builds the data model for a Jwst observation.
 
     The data model pipline:
-    rotation_and_shift | psf | integrate | transmission | zero flux | mask
+    rotation_and_shift | psf | integrate | zero flux | mask
 
     Parameters
     ----------
@@ -215,7 +208,6 @@ def build_jwst_response(
         psf=psf,
         unit_conversion=unit_conversion,
         integrate=integrate,
-        transmission=transmission,
         zero_flux_model=zero_flux_model,
         mask=mask,
     )

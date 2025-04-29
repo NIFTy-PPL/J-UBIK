@@ -53,7 +53,6 @@ class FilterData:
     std: list[np.ndarray] = field(default_factory=list)
     psf_kernel: list[np.ndarray] = field(default_factory=list)
     boresight: list[SkyCoord] = field(default_factory=list)
-    transmission: list[float] = field(default_factory=list)
     meta: list[DataMetaInformation] = field(default_factory=list)
     subsample_centers: list[SkyCoord] = field(default_factory=list)
     correction_prior: list[CoordinatesCorrectionConfig] = field(default_factory=list)
@@ -191,7 +190,6 @@ def build_jwst_likelihoods(
                 )
             )
             filter_data.boresight.append(jwst_data.get_boresight_world_coords())
-            filter_data.transmission.append(jwst_data.transmission)
 
         for ii in range(len(filter_data)):
             shift_and_rotation_correction = ShiftAndRotationCorrection(
@@ -209,7 +207,6 @@ def build_jwst_likelihoods(
                 rotation_and_shift_algorithm=rotation_and_shift_algorithm,
                 shift_and_rotation_correction=shift_and_rotation_correction,
                 psf_kernel=filter_data.psf_kernel[ii],
-                transmission=filter_data.transmission[ii],
                 zero_flux_prior_config=zero_flux_prior_configs.get_name_setting_or_default(
                     fltname
                 ),
