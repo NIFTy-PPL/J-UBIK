@@ -20,6 +20,7 @@ from ..parametric_model import build_parametric_prior_from_prior_config
 from ....grid import Grid
 from ....wcs.wcs_astropy import WcsAstropy
 from ....wcs.wcs_jwst_data import WcsJwstData
+from ....wcs import world_coordinates_to_index_grid
 
 from ..parse.rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectionPriorConfig,
@@ -29,9 +30,10 @@ from ..parse.rotation_and_shift.coordinates_correction import (
 class ShiftAndRotationCorrection(jft.Model):
     def __init__(
         self,
-        domain_key: str,
-        correction_prior: CoordinatesCorrectionPriorConfig,
-        rotation_center: SkyCoord,
+        domain_key: str | list[str],
+        correction_prior: CoordinatesCorrectionPriorConfig
+        | list[CoordinatesCorrectionPriorConfig],
+        rotation_center: SkyCoord | list[SkyCoord],
     ):
         self.shift = build_shift_correction(
             domain_key, correction_prior, correction_prior.shift_unit
@@ -44,6 +46,7 @@ class ShiftAndRotationCorrection(jft.Model):
             shape=(1,),
             as_model=True,
         )
+        self.rotation_unit = u.rad
         self.rotation_center = rotation_center
 
         super().__init__(domain=self.rotation_angle.domain | self.shift.domain)
@@ -78,9 +81,9 @@ class CoordinatesCorrected(jft.Model):
     def __init__(
         self,
         shift_and_rotation: ShiftAndRotationCorrection,
-        rotation_center: tuple[int, int],
-        coordinates: np.ndarray,
-        pixel_distance: np.ndarray,
+        rotation_center: tuple[u.Quantity, u.Quantity],
+        coordinates: tuple[u.Quantity, u.Quantity],
+        pixel_distance: tuple[float, float],
     ):
         """
         Initialize the ShiftAndRotationCorrection model.
@@ -103,8 +106,8 @@ class CoordinatesCorrected(jft.Model):
         assert len(pixel_distance.shape) == 1
 
         self.shift_and_rotation = shift_and_rotation
-        self.rotation_center = rotation_center
-        self._coords = coordinates * pixel_distance[:, None, None]
+        self.rotation_center = [rc.value for rc in rotation_center]
+        self._coords = [coords.value for coords in coordinates]
         self._1_over_pixel_distance = 1 / pixel_distance[:, None, None]
 
         super().__init__(domain=self.shift_and_rotation.domain)
@@ -113,29 +116,22 @@ class CoordinatesCorrected(jft.Model):
         shift = self.shift_and_rotation.shift(params)
         theta = self.shift_and_rotation.rotation_angle(params)
         x = (
-            (
-                jnp.cos(theta) * (self._coords[0] - self.rotation_center[0])
-                - jnp.sin(theta) * (self._coords[1] - self.rotation_center[1])
-            )
-            + self.rotation_center[0]
-            + shift[0]
-        )
+            jnp.cos(theta) * (self._coords[0] + shift[0])
+            - jnp.sin(theta) * (self._coords[1] + shift[1])
+        ) + self.rotation_center[0]
 
         y = (
-            (
-                jnp.sin(theta) * (self._coords[0] - self.rotation_center[0])
-                + jnp.cos(theta) * (self._coords[1] - self.rotation_center[1])
-            )
-            + self.rotation_center[1]
-            + shift[1]
-        )
+            jnp.sin(theta) * (self._coords[0] + shift[0])
+            + jnp.cos(theta) * (self._coords[1] + shift[1])
+        ) + self.rotation_center[1]
         return jnp.array((x, y)) * self._1_over_pixel_distance
 
 
 def build_coordinates_corrected_from_grid(
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
     reconstruction_grid_wcs: WcsAstropy,
-    coordinates: ArrayLike,
+    world_coordinates: SkyCoord,
+    indexing: str = "ij",
 ) -> Union[Coordinates, CoordinatesCorrected]:
     """Build `CorrectedCorrdinates` from the grid and coordinates.
 
@@ -159,9 +155,9 @@ def build_coordinates_corrected_from_grid(
         function which returns the original coordinates.
     reconstruction_grid_wcs : WcsAstropy
         The grid used to define the coordinate system for the correction model.
-    coordinates : ArrayLike
-        The coordinates to be corrected by the model. Which are assumed to be given in
-        pixel units/positions of the reconstruction grid.
+    coordinates : SkyCoord
+        The world coordinates of the (subsampled) data pixel, whose position can be
+        corrected.
 
     Returns
     -------
@@ -174,17 +170,31 @@ def build_coordinates_corrected_from_grid(
     """
 
     if shift_and_rotation_correction is None:
-        return Coordinates(coordinates)
-
-    rotation_center = np.array(
-        reconstruction_grid_wcs.world_to_pixel(
-            shift_and_rotation_correction.rotation_center
+        pixel_coordinates = world_coordinates_to_index_grid(
+            world_coordinates=world_coordinates,
+            index_grid_wcs=reconstruction_grid_wcs,
+            indexing=indexing,
         )
+        return Coordinates(pixel_coordinates)
+
+    shift_unit = shift_and_rotation_correction.shift_unit
+
+    rr = world_coordinates.separation(shift_and_rotation_correction.rotation_center)
+    phi = world_coordinates.position_angle(
+        shift_and_rotation_correction.rotation_center
     )
-    pixel_distance = np.array(
-        reconstruction_grid_wcs.distances_in(shift_and_rotation_correction.shift_unit)
-    ).reshape(shift_and_rotation_correction.shift.target.shape)
+    xx, yy = (rr * (np.cos(phi), np.sin(phi))).to(shift_unit)
+
+    rr = shift_and_rotation_correction.rotation_center.separation(
+        reconstruction_grid_wcs.center
+    )
+    phi = shift_and_rotation_correction.rotation_center.position_angle(
+        reconstruction_grid_wcs.center
+    )
+    xx_rot, yy_rot = (rr * (np.cos(phi), np.sin(phi))).to(shift_unit)
+
+    pixel_distance = np.array(reconstruction_grid_wcs.distances_in(shift_unit))
 
     return CoordinatesCorrected(
-        shift_and_rotation_correction, rotation_center, coordinates, pixel_distance
+        shift_and_rotation_correction, (xx_rot, yy_rot), (xx, yy), pixel_distance
     )

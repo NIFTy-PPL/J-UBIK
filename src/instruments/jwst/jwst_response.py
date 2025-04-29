@@ -18,7 +18,6 @@ from .parse.rotation_and_shift.rotation_and_shift import LinearConfig, NufftConf
 from .parse.jwst_response import SkyMetaInformation
 from .data.jwst_data import DataMetaInformation
 
-from ...wcs import world_coordinates_to_index_grid
 from ...wcs.wcs_jwst_data import WcsJwstData
 from ...wcs.wcs_astropy import WcsAstropy
 from .integration.unit_conversion import build_unit_conversion
@@ -119,7 +118,7 @@ def build_jwst_response(
     sky_meta: SkyMetaInformation,
     rotation_and_shift_algorithm: Union[LinearConfig, NufftConfig],
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
-    psf_kernel: np.ndarray | None,
+    psf: np.ndarray | None,
     zero_flux_prior_config: ProbabilityConfig | None,
     data_mask: ArrayLike | None,
 ) -> JwstResponse:
@@ -151,7 +150,7 @@ def build_jwst_response(
         The information for the rotation_and_shift algorithm.
     shift_and_rotation_correction: CoordiantesCorrectionPriorConfig | None
         The prior for the shift and rotation coordinates correction.
-    psf_kernel: np.ndarray
+    psf: np.ndarray
         The kernel of the psf as a np.ndarray.
     data_mask: ArrayLike
         The mask on the data
@@ -162,16 +161,11 @@ def build_jwst_response(
     need_sky_key = "Need to provide an internal key to the target of the sky model."
     assert isinstance(sky_domain, dict), need_sky_key
 
-    pixel_coordinates = world_coordinates_to_index_grid(
-        world_coordinates=data_subsampled_centers,
-        index_grid_wcs=sky_wcs,
-        indexing="ij",
-    )
-
     coordinates = build_coordinates_corrected_from_grid(
         shift_and_rotation_correction=shift_and_rotation_correction,
         reconstruction_grid_wcs=sky_wcs,
-        coordinates=pixel_coordinates,
+        world_coordinates=data_subsampled_centers,
+        indexing="ij",
     )
 
     rotation_and_shift = build_rotation_and_shift(
@@ -194,7 +188,7 @@ def build_jwst_response(
         reduction_factor=data_meta.subsample,
     )
 
-    psf = build_psf_operator(psf_kernel)
+    psf = build_psf_operator(psf)
 
     zero_flux_model = build_zero_flux_model(
         data_meta.identifier, zero_flux_prior_config

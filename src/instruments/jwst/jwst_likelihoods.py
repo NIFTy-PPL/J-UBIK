@@ -8,6 +8,7 @@ from .jwst_psf import load_psf_kernel
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import (
     ShiftAndRotationCorrection,
+    build_shift_and_rotation_correction,
 )
 from .plotting.residuals import ResidualPlottingInformation
 from .config_handler import (
@@ -42,23 +43,63 @@ import numpy as np
 from functools import reduce
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from typing import Union
+from typing import Union, Iterator
 from dataclasses import dataclass, field
 
 
 @dataclass
 class FilterData:
-    data: list[np.ndarray] = field(default_factory=list)
-    mask: list[np.ndarray] = field(default_factory=list)
-    std: list[np.ndarray] = field(default_factory=list)
-    psf_kernel: list[np.ndarray] = field(default_factory=list)
-    boresight: list[SkyCoord] = field(default_factory=list)
-    meta: list[DataMetaInformation] = field(default_factory=list)
-    subsample_centers: list[SkyCoord] = field(default_factory=list)
-    correction_prior: list[CoordinatesCorrectionConfig] = field(default_factory=list)
+    data: np.ndarray | list[np.ndarray] = field(default_factory=list)
+    mask: np.ndarray | list[np.ndarray] = field(default_factory=list)
+    std: np.ndarray | list[np.ndarray] = field(default_factory=list)
+    psf: np.ndarray | list[np.ndarray] = field(default_factory=list)
+    boresight: SkyCoord | list[SkyCoord] = field(default_factory=list)
+    meta: DataMetaInformation | list[DataMetaInformation] = field(default_factory=list)
+    subsample_centers: SkyCoord | list[SkyCoord] = field(default_factory=list)
+    correction_prior: (
+        CoordinatesCorrectionConfig | list[CoordinatesCorrectionConfig]
+    ) = field(default_factory=list)
 
     def __len__(self):
         return len(self.data)
+
+    def __getitem__(self, idx):
+        """
+        Return a *new* FilterData with the chosen index/indices.
+        Works for both integer indices and slices.
+        """
+        if isinstance(idx, slice):
+            rng = range(*idx.indices(len(self)))
+            return FilterData(
+                data=[self.data[i] for i in rng],
+                mask=[self.mask[i] for i in rng],
+                std=[self.std[i] for i in rng],
+                psf=[self.psf[i] for i in rng],
+                boresight=[self.boresight[i] for i in rng],
+                meta=[self.meta[i] for i in rng],
+                subsample_centers=[self.subsample_centers[i] for i in rng],
+                correction_prior=[self.correction_prior[i] for i in rng],
+            )
+
+        return FilterData(
+            data=self.data[idx],
+            mask=self.mask[idx],
+            std=self.std[idx],
+            psf=self.psf[idx],
+            boresight=self.boresight[idx],
+            meta=self.meta[idx],
+            subsample_centers=self.subsample_centers[idx],
+            correction_prior=self.correction_prior[idx],
+        )
+
+    def __iter__(self) -> Iterator["FilterData"]:
+        """
+        Iterate over the FilterData row-by-row, yielding a *new*
+        FilterData instance at each step that contains exactly one
+        element per field.
+        """
+        for i in range(len(self)):
+            yield self[i]
 
 
 def build_jwst_likelihoods(
@@ -172,7 +213,7 @@ def build_jwst_likelihoods(
             )
             print(data.shape, data_subsampled_centers.shape)
 
-            psf_kernel = load_psf_kernel(
+            psf = load_psf_kernel(
                 jwst_data=jwst_data,
                 target_center=grid.spatial.center,
                 config_parameters=psf_kernel_configs,
@@ -183,7 +224,7 @@ def build_jwst_likelihoods(
             filter_data.std.append(std)
             filter_data.subsample_centers.append(data_subsampled_centers)
             filter_data.meta.append(jwst_data.meta)
-            filter_data.psf_kernel.append(psf_kernel)
+            filter_data.psf.append(psf)
             filter_data.correction_prior.append(
                 coordiantes_correction_config.get_name_setting_or_default(
                     jwst_data.filter, ii
@@ -206,7 +247,7 @@ def build_jwst_likelihoods(
                 sky_meta=sky_meta,
                 rotation_and_shift_algorithm=rotation_and_shift_algorithm,
                 shift_and_rotation_correction=shift_and_rotation_correction,
-                psf_kernel=filter_data.psf_kernel[ii],
+                psf=filter_data.psf[ii],
                 zero_flux_prior_config=zero_flux_prior_configs.get_name_setting_or_default(
                     fltname
                 ),
