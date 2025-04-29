@@ -198,8 +198,10 @@ class ChandraObservationInformation():
         self.obsInfo['ntot_binned'] = np.sum(data)
 
         message_binning(self.obsInfo)
-        energy_ranges = np.log(self.obsInfo['energy_ranges'])
-        print(f'Generated data for log energy ranges {energy_ranges}')
+        if self.obsInfo["energy_ranges"] is not None:
+            energy_ranges = np.log(self.obsInfo['energy_ranges'])
+            print(f'Generated data for log energy ranges {energy_ranges}')
+            # TODO Print edges regardless of method
         return data
 
     def get_exposure(self, outroot, res_xy=0.5, energy_subbins=10):
