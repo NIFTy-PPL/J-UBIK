@@ -26,6 +26,6 @@ class Preloading:
 
         bounding_indices_new = np.array(self.bounding_indices)
         for ii in range(len(bounding_indices_new)):
-            bounding_indices_new[ii, [1, 3]] += shapes_new[ii] - shapes[ii]
+            bounding_indices_new[ii, [3, 1]] += shapes_new[ii] - shapes[ii]
 
         return Preloading(list(shapes_new), list(bounding_indices_new))
