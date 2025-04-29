@@ -103,7 +103,6 @@ def build_jwst_likelihoods(
     for fltname, flt in cfg[files_key]["filter"].items():
         filter_data = FilterData()
 
-
         target_preloading = Preloading()
         filter_alignment = FilterAlignemnt(alignment_meta=gaia_alignment)
 
@@ -129,6 +128,8 @@ def build_jwst_likelihoods(
             #     )
             # )
 
+            # from functools import partial
+            # import matplotlib.pyplot as plt
             # if filter_alignment.plot_data_loading:
             #     sources = filter_alignment.get_sources(ii)
             #     plot_position_stars = partial(
@@ -147,6 +148,8 @@ def build_jwst_likelihoods(
             #         coords_plotters=plot_position_stars,
             #     )
             #     plt.show()
+
+        target_preloading = target_preloading.align_data()
 
         for ii, filepath in enumerate(flt):
             logger.info(f"Loading: {fltname} {ii} {filepath}")
