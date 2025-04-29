@@ -188,12 +188,13 @@ class ChandraObservationInformation():
             bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], np.log(self.obsInfo['energy_ranges']))
         else:
             bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], self.obsInfo['npix_e'])
-        ranges = ((self.obsInfo['x_min'],self.obsInfo['x_max']),
-                  (self.obsInfo['y_min'],self.obsInfo['y_max']),
+
+        ranges = ((self.obsInfo['x_min'], self.obsInfo['x_max']),
+                  (self.obsInfo['y_min'], self.obsInfo['y_max']),
                   (np.log(self.obsInfo['energy_min']), np.log(self.obsInfo['energy_max'])))
 
         data, edges = np.histogramdd(evts, bins=bins, range=ranges, density=False, weights=None)
-        data = data.transpose((1,0,2)).astype(int)
+        data = data.transpose((1, 0, 2)).astype(int)
         self.obsInfo['ntot_binned'] = np.sum(data)
 
         message_binning(self.obsInfo)
