@@ -155,14 +155,16 @@ class CoordinatesCorrected(jft.Model):
         shift = self.shift_and_rotation.shift(params)
         theta = self.shift_and_rotation.rotation_angle(params)
         x = (
-            jnp.cos(theta) * (self._coords[0] + shift[0])
-            - jnp.sin(theta) * (self._coords[1] + shift[1])
-        ) + self.rotation_center[0]
+            (jnp.cos(theta) * (self._coords[0]) - jnp.sin(theta) * (self._coords[1]))
+            + self.rotation_center[0]
+            + shift[0]
+        )
 
         y = (
-            jnp.sin(theta) * (self._coords[0] + shift[0])
-            + jnp.cos(theta) * (self._coords[1] + shift[1])
-        ) + self.rotation_center[1]
+            (jnp.sin(theta) * (self._coords[0]) + jnp.cos(theta) * (self._coords[1]))
+            + self.rotation_center[1]
+            + shift[1]
+        )
         return jnp.array((x, y)) * self._1_over_pixel_distance
 
 
