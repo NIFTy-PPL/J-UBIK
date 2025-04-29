@@ -5,4 +5,4 @@
 
 # %%
 from .config_handler import *
-from .jwst_data import JwstData
+from .data.jwst_data import JwstData

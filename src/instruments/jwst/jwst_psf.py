@@ -4,7 +4,7 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-from .jwst_data import JwstData
+from .data.jwst_data import JwstData
 from .parse.jwst_psf import PsfKernelConfig
 
 from functools import partial

@@ -16,7 +16,7 @@ from numpy.typing import ArrayLike
 from .parse.parametric_model.parametric_prior import ProbabilityConfig
 from .parse.rotation_and_shift.rotation_and_shift import LinearConfig, NufftConfig
 from .parse.jwst_response import SkyMetaInformation
-from .jwst_data import DataMetaInformation
+from .data.jwst_data import DataMetaInformation
 
 from ...wcs import world_coordinates_to_index_grid
 from ...wcs.wcs_jwst_data import WcsJwstData
@@ -31,8 +31,6 @@ from .rotation_and_shift.coordinates_correction import (
     ShiftAndRotationCorrection,
 )
 from .zero_flux_model import build_zero_flux_model
-from ...grid import Grid
-from .jwst_data import JwstData
 
 
 class JwstResponse(jft.Model):

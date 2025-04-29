@@ -2,7 +2,8 @@ from ...likelihood import build_gaussian_likelihood
 from ...grid import Grid
 from ...wcs.wcs_jwst_data import WcsJwstData
 from .jwst_response import build_jwst_response
-from .jwst_data import JwstData, DataMetaInformation
+from .data.jwst_data import JwstData, DataMetaInformation
+from .data.data_loading import Preloading
 from .jwst_psf import load_psf_kernel
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import (
@@ -14,7 +15,7 @@ from .config_handler import (
 )
 from ..gaia.star_finder import load_gaia_stars_in_fov, join_tables
 from .plotting.plotting_sky import plot_sky_coords, plot_jwst_panels
-from .alignment.gaia_alignment import FilterAlignemnt
+from .alignment.star_alignment import FilterAlignemnt
 
 # Parsing
 from .parse.jwst_psf import yaml_to_psf_kernel_config
@@ -102,14 +103,8 @@ def build_jwst_likelihoods(
     for fltname, flt in cfg[files_key]["filter"].items():
         filter_data = FilterData()
 
-        # for ii, filepath in enumerate(flt):
-        #     jwst_data = JwstData(
-        #         filepath, identifier=f"{fltname}_{ii}", subsample=data_subsample
-        #     )
-        data_preloading = dict(
-            target=dict(shapes=[], bounding_indices=[]),
-            alignment=dict(gaia_tables=[]),
-        )
+
+        target_preloading = Preloading()
         filter_alignment = FilterAlignemnt(alignment_meta=gaia_alignment)
 
         for ii, filepath in enumerate(flt):
@@ -118,21 +113,40 @@ def build_jwst_likelihoods(
                 filepath, identifier=f"{fltname}_{ii}", subsample=data_subsample
             )
 
-            world_corners = grid.spatial.world_corners(
+            sky_corners = grid.spatial.world_corners(
                 extension_value=sky_meta.grid_extension
             )
-            data_preloading["target"]["shapes"].append(
-                jwst_data.data_inside_extrema(world_corners).shape
+            target_preloading.append_shape(
+                jwst_data.data_inside_extrema(sky_corners).shape
             )
-            data_preloading["target"]["bounding_indices"].append(
-                jwst_data.wcs.bounding_box_indices_from_world_extrema(world_corners)
+            target_preloading.append_bounding_indices(
+                jwst_data.wcs.bounding_box_indices_from_world_extrema(sky_corners)
             )
-            world_corners = jwst_data.wcs.world_corners()
-            gaia_table = load_gaia_stars_in_fov(
-                world_corners, gaia_alignment.library_path
-            )
-            filter_alignment.append_table(gaia_table)
 
+            # filter_alignment.append_table(
+            #     load_gaia_stars_in_fov(
+            #         jwst_data.wcs.world_corners(), gaia_alignment.library_path
+            #     )
+            # )
+
+            # if filter_alignment.plot_data_loading:
+            #     sources = filter_alignment.get_sources(ii)
+            #     plot_position_stars = partial(
+            #         plot_sky_coords,
+            #         sky_coords=sources.position,
+            #         labels=sources.id,
+            #     )
+            #     mean = np.nanmean(jwst_data.dm.data)
+            #     fig, axes = plot_jwst_panels(
+            #         [jwst_data.dm.data],
+            #         [jwst_data.wcs],
+            #         nrows=1,
+            #         ncols=1,
+            #         vmin=0.7 * mean,
+            #         vmax=1.3 * mean,
+            #         coords_plotters=plot_position_stars,
+            #     )
+            #     plt.show()
 
         for ii, filepath in enumerate(flt):
             logger.info(f"Loading: {fltname} {ii} {filepath}")
@@ -150,7 +164,7 @@ def build_jwst_likelihoods(
             data, mask, std, data_subsampled_centers = (
                 jwst_data.bounding_data_mask_std_subpixel_by_bounding_indices(
                     grid.spatial,
-                    data_preloading["target"]["bounding_indices"][ii],
+                    target_preloading.bounding_indices[ii],
                     yaml_to_corner_mask_configs(cfg[telescope_key]),
                 )
             )

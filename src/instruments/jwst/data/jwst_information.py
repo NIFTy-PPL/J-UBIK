@@ -6,7 +6,7 @@
 # %
 from astropy import units
 
-from ...color import Color, ColorRange
+from ....color import Color, ColorRange
 
 
 nircam_filters = dict(

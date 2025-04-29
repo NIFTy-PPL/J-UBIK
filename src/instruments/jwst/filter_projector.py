@@ -4,7 +4,7 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-from .jwst_data import JWST_FILTERS
+from .data.jwst_data import JWST_FILTERS
 from ...color import Color, ColorRange
 from ...grid import Grid
 
