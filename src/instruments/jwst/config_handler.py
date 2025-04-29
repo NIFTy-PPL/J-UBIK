@@ -27,32 +27,6 @@ def load_yaml_and_save_info(config_path):
     return cfg, results_directory
 
 
-def config_transform(config: dict):
-    """
-    Recursively transforms string values in a configuration dictionary.
-
-    This function processes a dictionary and attempts to evaluate any string
-    values that may represent valid Python expressions. If the string cannot
-    be evaluated, it is left unchanged. The function also applies the same
-    transformation recursively for any nested dictionaries.
-
-    Parameters
-    ----------
-    config : dict
-        The configuration dictionary where string values may be transformed.
-        If a value is a string that can be evaluated, it is replaced by the
-        result of `eval(val)`. Nested dictionaries are processed recursively.
-    """
-    for key, val in config.items():
-        if isinstance(val, str):
-            try:
-                config[key] = eval(val)
-            except:
-                continue
-        elif isinstance(val, dict):
-            config_transform(val)
-
-
 def get_grid_extension_from_config(
     telescope_config: dict,
     reconstruction_grid: Grid,
@@ -120,14 +94,6 @@ def _parse_insert_spaces(cfg):
     interpolation = cfg["grid"]["source_grid"].get("interpolation", "bilinear")
 
     return lens_space, source_space, interpolation
-
-
-# def insert_spaces_in_lensing(cfg):
-#     lens_space, source_space = _parse_insert_spaces(cfg)
-#
-#     cfg['lensing']['spaces'] = dict(
-#         lens_space=lens_space, source_space=source_space)
-#
 
 
 def insert_spaces_in_lensing_new(cfg):
