@@ -55,6 +55,45 @@ class ShiftAndRotationCorrection(jft.Model):
         return self.shift(x), self.rotation_angle(x)
 
 
+def build_shift_and_rotation_correction(
+    domain_key: str | list[str],
+    correction_prior: CoordinatesCorrectionPriorConfig
+    | list[CoordinatesCorrectionPriorConfig],
+    rotation_center: SkyCoord | list[SkyCoord],
+):
+    if not isinstance(domain_key, list):
+        domain_key = [domain_key]
+
+    if isinstance(correction_prior, list):
+        shift_unit = correction_prior[0].shift_unit
+        for cp in correction_prior:
+            assert shift_unit == cp.shift_unit
+    else:
+        correction_prior = [correction_prior]
+
+    assert len(domain_key) == len(rotation_center) == len(correction_prior)
+
+    # shift
+    shift_unit = correction_prior[0].shift_unit
+    rotation_center = SkyCoord(rotation_center)
+    shifts = []
+    rotations = []
+    exit()
+    for dk, cp in zip(domain_key, correction_prior):
+        shifts.append(build_shift_correction(dk + "_shift", cp, shift_unit))
+        rotations.append(
+            build_rotation_correction(
+                dk + "_rotation", cp.rotation_in(u.rad), shape=(1,), as_model=True
+            )
+        )
+
+    # rotation_angle
+    #
+    # return ShiftAndRotationCorrection(
+    #     shift, shift_unit, rotation_angle, rotation_center
+    # )
+
+
 class Coordinates:
     def __init__(self, coordiantes: ArrayLike):
         self.coordinates = coordiantes
