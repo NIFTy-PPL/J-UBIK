@@ -31,6 +31,7 @@ from .parse.rotation_and_shift.rotation_and_shift import (
 from .parse.jwst_response import SkyMetaInformation
 from .parse.masking.data_mask import yaml_to_corner_mask_configs
 from .parse.alignment.star_alignment import StarAlignment
+from .parse.data.data_loading import DataFilePaths
 
 
 # Libraries
@@ -138,18 +139,20 @@ def build_jwst_likelihoods(
         cfg[telescope_key].get("gaia_alignment", {})
     )
 
+    data_paths = DataFilePaths.from_yaml_dict(cfg[files_key])
+
     target_plotting = {}
     likelihoods = []
-    for fltname, flt in cfg[files_key]["filter"].items():
+    for fltr in data_paths.filters:
         filter_data = FilterData()
 
         target_preloading = Preloading()
         filter_alignment = FilterAlignemnt(alignment_meta=gaia_alignment)
 
-        for ii, filepath in enumerate(flt):
+        for ii, filepath in enumerate(fltr.filepaths):
             print(ii, filepath)
             jwst_data = JwstData(
-                filepath, identifier=f"{fltname}_{ii}", subsample=data_subsample
+                filepath, identifier=f"{fltr.name}_{ii}", subsample=data_subsample
             )
 
             sky_corners = grid.spatial.world_corners(
@@ -183,20 +186,20 @@ def build_jwst_likelihoods(
             #         [jwst_data.wcs],
             #         nrows=1,
             #         ncols=1,
-            #         vmin=0.7 * mean,
-            #         vmax=1.3 * mean,
+            #         vmin=0.9 * mean,
+            #         vmax=1.1 * mean,
             #         coords_plotters=plot_position_stars,
             #     )
             #     plt.show()
 
         target_preloading = target_preloading.align_data()
 
-        for ii, filepath in enumerate(flt):
-            logger.info(f"Loading: {fltname} {ii} {filepath}")
+        for ii, filepath in enumerate(fltr.filepaths):
+            logger.info(f"Loading: {fltr.name} {ii} {filepath}")
 
             # Loading data, std, and mask.
             jwst_data = JwstData(
-                filepath, identifier=f"{fltname}_{ii}", subsample=data_subsample
+                filepath, identifier=f"{fltr.name}_{ii}", subsample=data_subsample
             )
             energy_name = filter_projector.get_key(jwst_data.pivot_wavelength)
             if ii == 0:
@@ -249,7 +252,7 @@ def build_jwst_likelihoods(
                 shift_and_rotation_correction=shift_and_rotation_correction,
                 psf=filter_data.psf[ii],
                 zero_flux_prior_config=zero_flux_prior_configs.get_name_setting_or_default(
-                    fltname
+                    fltr.name
                 ),
                 data_mask=filter_data.mask[ii],
             )
