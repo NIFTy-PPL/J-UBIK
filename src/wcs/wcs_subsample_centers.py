@@ -71,7 +71,7 @@ def subsample_pixel_centers(
 
 
 def world_coordinates_to_index_grid(
-    world_coordinates: SkyCoord,
+    world_coordinates: Union[SkyCoord, list[SkyCoord]],
     index_grid_wcs: Union[WcsAstropy, WcsJwstData],
     indexing: str,
 ):
@@ -89,11 +89,22 @@ def world_coordinates_to_index_grid(
     indexing: str
         The index convention used. Either `ij` or `xy` indexing.
     """
-    indices_xy = np.array(index_grid_wcs.world_to_pixel(world_coordinates))
+
+    if isinstance(world_coordinates, SkyCoord):
+        indices_xy = np.array(index_grid_wcs.world_to_pixel(world_coordinates))
+    elif isinstance(world_coordinates, list):
+        indices_xy = np.array(
+            [index_grid_wcs.world_to_pixel(wc) for wc in world_coordinates]
+        )
+    else:
+        raise ValueError(
+            "`world_coordinates` should either be SkyCoord or list[SkyCoord]."
+            f"\ntype(world_coordinates)={type(world_coordinates)}"
+        )
 
     if indexing == "xy":
         return indices_xy
     elif indexing == "ij":
-        return indices_xy[::-1]
+        return indices_xy[..., ::-1, :, :]
 
     raise ValueError("Either `ij` or `xy` indexing.")

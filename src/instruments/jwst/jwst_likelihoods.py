@@ -8,7 +8,7 @@ from .jwst_psf import load_psf_kernel
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import (
     ShiftAndRotationCorrection,
-    build_shift_and_rotation_correction,
+    # build_shift_and_rotation_correction,
 )
 from .plotting.residuals import ResidualPlottingInformation
 from .config_handler import (

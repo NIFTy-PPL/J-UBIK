@@ -166,7 +166,17 @@ def build_jwst_response(
         reconstruction_grid_wcs=sky_wcs,
         world_coordinates=data_subsampled_centers,
         indexing="ij",
+        shift_only=True,
     )
+
+    # non = build_coordinates_corrected_from_grid(
+    #     shift_and_rotation_correction=None,
+    #     reconstruction_grid_wcs=sky_wcs,
+    #     world_coordinates=data_subsampled_centers,
+    #     indexing="ij",
+    # )
+    # k = {k: np.zeros(v.shape) for k, v in coordinates.domain.items()}
+    # exit()
 
     rotation_and_shift = build_rotation_and_shift(
         sky_domain=sky_domain,

@@ -11,7 +11,11 @@ import nifty8.re as jft
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
-from .coordinates_correction import CoordinatesCorrected, Coordinates
+from .coordinates_correction import (
+    CoordinatesCorrectedShiftOnly,
+    CoordinatesCorrectedShiftAndRotation,
+    Coordinates,
+)
 from .linear_rotation_and_shift import build_linear_rotation_and_shift
 from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
 
@@ -33,7 +37,11 @@ class RotationAndShift(jft.Model):
     def __init__(
         self,
         sky_domain: dict[str, jft.ShapeWithDtype],
-        coordinates: Union[Coordinates, CoordinatesCorrected],
+        coordinates: Union[
+            Coordinates,
+            CoordinatesCorrectedShiftOnly,
+            CoordinatesCorrectedShiftAndRotation,
+        ],
         rotation_and_shift_algorithm: Callable,
         # FIXME: This should only take ArrayLike !
     ):
@@ -87,7 +95,9 @@ def _infere_shape_from_domain(
 
 def build_rotation_and_shift(
     sky_domain: dict[str, jft.ShapeWithDtype],
-    coordinates: Union[Coordinates, CoordinatesCorrected],
+    coordinates: Union[
+        Coordinates, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation
+    ],
     algorithm_config: Union[LinearConfig, NufftConfig],
     indexing: str,
 ) -> RotationAndShift:
@@ -99,7 +109,7 @@ def build_rotation_and_shift(
         Containing the sky_key and the shape_dtype of the reconstruction sky.
     algorithm_config: Union[LinearConfig, NufftConfig]
         The type of the rotation and shift model: (linear, nufft)
-    coordinates: Union[ArrayLike, Callable, CoordinatesCorrected]
+    coordinates: Union[ArrayLike, Callable, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation]
         The coordinates of the subsampled data. Precise: The coordinate center
         of the data pixel.
 

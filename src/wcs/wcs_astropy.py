@@ -54,7 +54,7 @@ class WcsAstropy(WCS, WcsMixin):
 
         self.shape = shape
         self.fov = fov
-        self.distances = [f.to(u.deg) / s for f, s in zip(fov, shape)]
+        self.distances = u.Quantity([f.to(u.deg) / s for f, s in zip(fov, shape)])
         self.center = center
 
         # Calculate rotation matrix
@@ -157,9 +157,6 @@ class WcsAstropy(WCS, WcsMixin):
 
         points = np.array(((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)))
         return self.pixel_to_world(*points.T)
-
-    def distances_in(self, unit: u.Unit) -> list[float]:
-        return [d.to(unit).value for d in self.distances]
 
     def extent(self, unit=u.arcsec):
         """Convenience method which gives the extent of the grid in

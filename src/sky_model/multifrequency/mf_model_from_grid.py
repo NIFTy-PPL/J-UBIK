@@ -20,10 +20,9 @@ def build_mf_model_from_grid(
     spectral_unit: u.Unit | None = u.eV,
     nonlinearity: callable = jnp.exp,
 ) -> CorrelatedMultiFrequencySky:
-
     # spatial
     shape = grid.spatial.shape
-    distances = grid.spatial.distances_in(spatial_unit)
+    distances = grid.spatial.distances.to(spatial_unit).value
 
     log_energies = np.log(
         [c.to_unit(spectral_unit).value for c in grid.spectral.centers]

@@ -55,43 +55,45 @@ class ShiftAndRotationCorrection(jft.Model):
         return self.shift(x), self.rotation_angle(x)
 
 
-def build_shift_and_rotation_correction(
-    domain_key: str | list[str],
-    correction_prior: CoordinatesCorrectionPriorConfig
-    | list[CoordinatesCorrectionPriorConfig],
-    rotation_center: SkyCoord | list[SkyCoord],
-):
-    if not isinstance(domain_key, list):
-        domain_key = [domain_key]
-
-    if isinstance(correction_prior, list):
-        shift_unit = correction_prior[0].shift_unit
-        for cp in correction_prior:
-            assert shift_unit == cp.shift_unit
-    else:
-        correction_prior = [correction_prior]
-
-    assert len(domain_key) == len(rotation_center) == len(correction_prior)
-
-    # shift
-    shift_unit = correction_prior[0].shift_unit
-    rotation_center = SkyCoord(rotation_center)
-    shifts = []
-    rotations = []
-    exit()
-    for dk, cp in zip(domain_key, correction_prior):
-        shifts.append(build_shift_correction(dk + "_shift", cp, shift_unit))
-        rotations.append(
-            build_rotation_correction(
-                dk + "_rotation", cp.rotation_in(u.rad), shape=(1,), as_model=True
-            )
-        )
-
-    # rotation_angle
-    #
-    # return ShiftAndRotationCorrection(
-    #     shift, shift_unit, rotation_angle, rotation_center
-    # )
+# def build_shift_and_rotation_correction(
+#     domain_key: str | list[str],
+#     correction_prior: CoordinatesCorrectionPriorConfig
+#     | list[CoordinatesCorrectionPriorConfig],
+#     rotation_center: SkyCoord | list[SkyCoord],
+# ):
+#     pass
+#
+#     if not isinstance(domain_key, list):
+#         domain_key = [domain_key]
+#
+#     if isinstance(correction_prior, list):
+#         shift_unit = correction_prior[0].shift_unit
+#         for cp in correction_prior:
+#             assert shift_unit == cp.shift_unit
+#     else:
+#         correction_prior = [correction_prior]
+#
+#     assert len(domain_key) == len(rotation_center) == len(correction_prior)
+#
+#     # shift
+#     shift_unit = correction_prior[0].shift_unit
+#     rotation_center = SkyCoord(rotation_center)
+#     shifts = []
+#     rotations = []
+#     exit()
+#     for dk, cp in zip(domain_key, correction_prior):
+#         shifts.append(build_shift_correction(dk + "_shift", cp, shift_unit))
+#         rotations.append(
+#             build_rotation_correction(
+#                 dk + "_rotation", cp.rotation_in(u.rad), shape=(1,), as_model=True
+#             )
+#         )
+#
+#     rotation_angle
+#
+#     return ShiftAndRotationCorrection(
+#         shift, shift_unit, rotation_angle, rotation_center
+#     )
 
 
 class Coordinates:
@@ -103,7 +105,56 @@ class Coordinates:
         return self.coordinates
 
 
-class CoordinatesCorrected(jft.Model):
+class CoordinatesCorrectedShiftOnly(jft.Model):
+    """
+    Applies rotation and shift corrections to a set of coordinates.
+
+    This model applies a rotation and shift to the given coordinates based on
+    the provided priors for rotation and shift. The rotation is applied around
+    a specified center, and the shift is scaled by the pixel distance.
+
+    The transformation is defined as:
+        ri = si * Rot(theta) * (pi - r)
+           = Rot(theta) * (si * pi - si * r),
+    where `si * r` is the rotation center.
+    """
+
+    def __init__(
+        self,
+        shift_and_rotation: ShiftAndRotationCorrection,
+        pixel_coordinates: np.ndarray,
+        pixel_distance: u.Quantity,
+    ):
+        """
+        Initialize the ShiftAndRotationCorrection model.
+
+        Parameters
+        ----------
+        shift_and_rotation : ShiftAndRotationCorrection
+            A model that provides the prior distribution for the shift parameters.
+        pixel_coordinates : np.ndarray
+            The coordinates of the subsampled data pixels inside the pixel units of the
+            reconstruction array (into which we need to index).
+        pixel_distance : u.Quantity
+            The distances between pixels in units of the reconstructed shift, used to
+            transform the scale into pixel units.
+        """
+        assert len(pixel_distance) == 2
+
+        self.shift_and_rotation = shift_and_rotation
+        self._coordinates = pixel_coordinates
+        self._1_over_pixel_distance = (
+            1 / pixel_distance.to(shift_and_rotation.shift_unit).value
+        )
+
+        super().__init__(domain=self.shift_and_rotation.shift.domain)
+
+    def __call__(self, params: dict) -> ArrayLike:
+        shift = self.shift_and_rotation.shift(params) * self._1_over_pixel_distance
+        return self._coordinates + shift[:, None, None]
+
+
+class CoordinatesCorrectedShiftAndRotation(jft.Model):
     """
     Applies rotation and shift corrections to a set of coordinates.
 
@@ -155,13 +206,13 @@ class CoordinatesCorrected(jft.Model):
         shift = self.shift_and_rotation.shift(params)
         theta = self.shift_and_rotation.rotation_angle(params)
         x = (
-            (jnp.cos(theta) * (self._coords[0]) - jnp.sin(theta) * (self._coords[1]))
+            (jnp.cos(theta) * self._coords[0] - jnp.sin(theta) * self._coords[1])
             + self.rotation_center[0]
             + shift[0]
         )
 
         y = (
-            (jnp.sin(theta) * (self._coords[0]) + jnp.cos(theta) * (self._coords[1]))
+            (jnp.sin(theta) * self._coords[0] + jnp.cos(theta) * self._coords[1])
             + self.rotation_center[1]
             + shift[1]
         )
@@ -173,7 +224,10 @@ def build_coordinates_corrected_from_grid(
     reconstruction_grid_wcs: WcsAstropy,
     world_coordinates: SkyCoord,
     indexing: str = "ij",
-) -> Union[Coordinates, CoordinatesCorrected]:
+    shift_only: bool = True,
+) -> Union[
+    Coordinates, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation
+]:
     """Build `CorrectedCorrdinates` from the grid and coordinates.
 
     If  coordiantes_correction` are None, it returns a lambda function that simply
@@ -219,23 +273,105 @@ def build_coordinates_corrected_from_grid(
         return Coordinates(pixel_coordinates)
 
     shift_unit = shift_and_rotation_correction.shift_unit
+    pixel_distance = reconstruction_grid_wcs.distances.to(shift_unit)
 
-    rr = world_coordinates.separation(shift_and_rotation_correction.rotation_center)
-    phi = world_coordinates.position_angle(
-        shift_and_rotation_correction.rotation_center
-    )
-    xx, yy = (rr * (np.cos(phi), np.sin(phi))).to(shift_unit)
+    if shift_only:
+        pixel_coordinates = world_coordinates_to_index_grid(
+            world_coordinates=world_coordinates,
+            index_grid_wcs=reconstruction_grid_wcs,
+            indexing=indexing,
+        )
+        return CoordinatesCorrectedShiftOnly(
+            shift_and_rotation_correction, pixel_coordinates, pixel_distance
+        )
 
-    rr = shift_and_rotation_correction.rotation_center.separation(
-        reconstruction_grid_wcs.center
-    )
-    phi = shift_and_rotation_correction.rotation_center.position_angle(
-        reconstruction_grid_wcs.center
-    )
-    xx_rot, yy_rot = (rr * (np.cos(phi), np.sin(phi))).to(shift_unit)
+    raise NotImplementedError
 
-    pixel_distance = np.array(reconstruction_grid_wcs.distances_in(shift_unit))
+    # xxref, yyref = world_coordinates_to_index_grid(
+    #     world_coordinates=world_coordinates,
+    #     index_grid_wcs=reconstruction_grid_wcs,
+    #     indexing=indexing,
+    # )
+    #
+    # xx, yy = world_coordinates.spherical_offsets_to(
+    #     shift_and_rotation_correction.rotation_center
+    #     # reconstruction_grid_wcs.pixel_to_world(0, 0)
+    # )
+    #
+    # xx_rot, yy_rot = reconstruction_grid_wcs.pixel_to_world(
+    #     0.0, 0.0
+    # ).spherical_offsets_to(shift_and_rotation_correction.rotation_center)
+    #
+    # xx, yy, xx_rot, yy_rot = (
+    #     xx.to(shift_unit),
+    #     yy.to(shift_unit),
+    #     xx_rot.to(shift_unit),
+    #     yy_rot.to(shift_unit),
+    # )
+    #
+    # sep = haversine_sep(
+    #     (world_coordinates.ra.rad, world_coordinates.dec.rad),
+    #     (
+    #         reconstruction_grid_wcs.pixel_to_world(0, 0).ra.rad,
+    #         reconstruction_grid_wcs.pixel_to_world(0, 0).dec.rad,
+    #     ),
+    # )
+    # sep = ((sep * u.rad).to(u.arcsec) / pixel_distance[0]).value
+    # import matplotlib.pyplot as plt
+    #
+    # plt.imshow(sep - np.sqrt(xxref**2 + yyref**2))
+    # plt.show()
+    #
+    # exit()
+    #
+    # return CoordinatesCorrected(
+    #     shift_and_rotation_correction, (xx_rot, yy_rot), (xx, yy), pixel_distance
+    # )
 
-    return CoordinatesCorrected(
-        shift_and_rotation_correction, (xx_rot, yy_rot), (xx, yy), pixel_distance
-    )
+
+# def separation_small_angle(pos1: ArrayLike, pos2: ArrayLike):
+#     ddec = pos2[1] - pos1[1]
+#     dra = (pos2[0] - pos1[0]) * np.cos((pos1[1] + pos2[1]) / 2)
+#     return dra, ddec
+#
+#
+# def haversine_sep(coord1: ArrayLike, coord2: ArrayLike, *, radius: float = 1.0):
+#     """
+#     Great-circle separation using the haversine formula.
+#
+#     Parameters
+#     ----------
+#     coord1, coord2 : tuple or array-like, length 2
+#         (ra, dec) of the two points.  ra is the first element (index 0),
+#         dec the second (index 1).
+#     radius : float, optional
+#         Radius of the sphere whose surface distance is wanted.
+#         Use 1.0 to get the separation in *radians*; use something
+#         like `radius=206264.806` to get arc-seconds, or the
+#         actual Earth radius to get metres/kilometres.
+#     degrees : bool, optional
+#         If True (default) the inputs are in degrees; otherwise in radians.
+#
+#     Returns
+#     -------
+#     distance : float
+#         Surface distance = radius × central angle.
+#         For `radius = 1` this is the central angle in radians.
+#     """
+#
+#     lon1, lat1 = coord1  #  index 0  → ra / longitude
+#     lon2, lat2 = coord2  #  index 1  → dec / latitude
+#
+#     dlon = lon2 - lon1
+#     dlat = lat2 - lat1
+#
+#     # put Δλ into (−π, π] so that the shorter path is chosen
+#     dlon = (dlon + jnp.pi) % (2.0 * jnp.pi) - jnp.pi
+#
+#     sin_dlat2 = jnp.sin(dlat / 2.0)
+#     sin_dlon2 = jnp.sin(dlon / 2.0)
+#
+#     hav = sin_dlat2**2 + jnp.cos(lat1) * jnp.cos(lat2) * sin_dlon2**2  # haversine
+#     central_angle = 2.0 * jnp.arcsin(jnp.sqrt(hav))  # ρ  in rad
+#
+#     return radius * central_angle
