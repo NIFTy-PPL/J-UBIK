@@ -306,7 +306,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/13_04_testing_alignement'
+  res_dir: './results/jwst_lens/cluster/13_06_restructuring_data_loading_08'
 
   filter:
 
@@ -388,7 +388,7 @@ files:
 minimization:
     key: 20250425
     resume: True
-    n_total_iterations: 5
+    n_total_iterations: 10
 
     fixpointing:
       resume: False
