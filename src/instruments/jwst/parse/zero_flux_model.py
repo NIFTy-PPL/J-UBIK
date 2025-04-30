@@ -6,7 +6,7 @@
 # %
 from .parametric_model.parametric_prior import (
     ProbabilityConfig,
-    transform_setting_to_prior_config,
+    prior_config_factory,
 )
 
 from dataclasses import dataclass
@@ -37,7 +37,7 @@ def yaml_to_zero_flux_prior_config(zero_flux_config: dict | None):
     if zero_flux_config is None:
         return None
 
-    default = transform_setting_to_prior_config(zero_flux_config[DEFAULT_KEY])
+    default = prior_config_factory(zero_flux_config[DEFAULT_KEY])
 
     names = {}
     for filter_name, filter_prior in zero_flux_config.items():
@@ -45,6 +45,6 @@ def yaml_to_zero_flux_prior_config(zero_flux_config: dict | None):
         if filter_name == DEFAULT_KEY:
             continue
 
-        names[filter_name] = transform_setting_to_prior_config(filter_prior)
+        names[filter_name] = prior_config_factory(filter_prior)
 
     return ZeroFluxPriorConfigs(default=default, names=names)

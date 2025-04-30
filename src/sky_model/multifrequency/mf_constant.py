@@ -1,6 +1,6 @@
 from ...grid import Grid
 from ...instruments.jwst.parse.parametric_model.parametric_prior import (
-    transform_setting_to_prior_config,
+    prior_config_factory,
 )
 from ...instruments.jwst.parametric_model.parametric_prior import (
     build_parametric_prior_from_prior_config,
@@ -31,7 +31,7 @@ def build_constant_mf_from_grid(
     domkey = f"{prefix}_constant"
     value_distribution = build_parametric_prior_from_prior_config(
         domain_key=domkey,
-        prior_config=transform_setting_to_prior_config(constant_cfg[VALUE_KEY]),
+        prior_config=prior_config_factory(constant_cfg[VALUE_KEY]),
         as_model=True,
     )
 

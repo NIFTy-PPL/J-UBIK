@@ -6,7 +6,7 @@
 # %
 from ..parametric_model.parametric_prior import (
     ProbabilityConfig,
-    transform_setting_to_prior_config,
+    prior_config_factory,
 )
 
 from astropy import units as u
@@ -43,14 +43,14 @@ class CoordinatesCorrectionPriorConfig:
         priors[1] = (priors[1] * self.shift_unit).to(unit).value
         if priors[2] is not None:
             priors[2] = (priors[2] * self.shift_unit).to(unit).value
-        return transform_setting_to_prior_config(priors)
+        return prior_config_factory(priors)
 
     def rotation_in(self, unit: u.Unit):
         priors = self.rotation.to_list()
         priors[1] = (priors[1] * self.rotation_unit).to(unit).value
         if priors[2] is not None:
             priors[2] = (priors[2] * self.rotation_unit).to(unit).value
-        return transform_setting_to_prior_config(priors)
+        return prior_config_factory(priors)
 
 
 @dataclass
@@ -103,13 +103,9 @@ def yaml_to_coordinates_correction_config(
     shift_unit = getattr(u, corrections_config.get(SHIFT_UNIT_KEY, SHIFT_UNIT_DEFAULT))
 
     default = CoordinatesCorrectionPriorConfig(
-        shift=transform_setting_to_prior_config(
-            corrections_config[DEFAULT_KEY][SHIFT_KEY]
-        ),
+        shift=prior_config_factory(corrections_config[DEFAULT_KEY][SHIFT_KEY]),
         shift_unit=shift_unit,
-        rotation=transform_setting_to_prior_config(
-            corrections_config[DEFAULT_KEY][ROTATION_KEY]
-        ),
+        rotation=prior_config_factory(corrections_config[DEFAULT_KEY][ROTATION_KEY]),
         rotation_unit=rotation_unit,
     )
 
@@ -123,11 +119,9 @@ def yaml_to_coordinates_correction_config(
         for data_index, prior_settings in data_indices.items():
             filter_data_prior = (
                 CoordinatesCorrectionPriorConfig(
-                    shift=transform_setting_to_prior_config(prior_settings[SHIFT_KEY]),
+                    shift=prior_config_factory(prior_settings[SHIFT_KEY]),
                     shift_unit=shift_unit,
-                    rotation=transform_setting_to_prior_config(
-                        prior_settings[ROTATION_KEY]
-                    ),
+                    rotation=prior_config_factory(prior_settings[ROTATION_KEY]),
                     rotation_unit=rotation_unit,
                 )
                 if prior_settings is not None

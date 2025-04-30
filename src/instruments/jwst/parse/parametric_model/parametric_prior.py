@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import Union
 from dataclasses import dataclass
+from numpy.typing import ArrayLike
 
 DISTRIBUTION_KEY = "distribution"
 
@@ -19,29 +20,29 @@ class ProbabilityConfig(ABC):
 @dataclass
 class DefaultPriorConfig(ProbabilityConfig):
     distribution: str
-    mean: float
-    sigma: float
+    mean: float | ArrayLike
+    sigma: float | ArrayLike
     transformation: str | None = None
 
 
 @dataclass
 class UniformPriorConfig(ProbabilityConfig):
     distribution: str
-    min: float
-    max: float
+    min: float | ArrayLike
+    max: float | ArrayLike
     transformation: str | None = None
 
 
 @dataclass
 class DeltaPriorConfig(ProbabilityConfig):
     distribution: str
-    mean: float
+    mean: float | ArrayLike
     _: float | None = None  # This is not needed however it's convinient to
     # comply with the signature of the other Configs.
     transformation: str | None = None
 
 
-def transform_setting_to_prior_config(settings: Union[dict, tuple]):
+def prior_config_factory(settings: Union[dict, tuple]):
     """Transforms the parameter distribution `settings` into a ProbabilityConfig."""
 
     distribution = (
