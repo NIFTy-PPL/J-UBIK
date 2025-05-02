@@ -3,7 +3,7 @@ from ...grid import Grid
 from ...wcs.wcs_jwst_data import WcsJwstData
 from .jwst_response import build_jwst_response
 from .data.jwst_data import JwstData, DataMetaInformation
-from .data.data_loading import Preloading
+from .data.data_loading import DataBoundsPreloading
 from .jwst_psf import load_psf_kernel
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import (
@@ -136,7 +136,7 @@ def build_jwst_likelihoods(
     for fltr in data_paths.filters:
         filter_data = FilterData()
 
-        target_preloading = Preloading()
+        target_preloading = DataBoundsPreloading()
         filter_alignment = FilterAlignemnt(
             filter_name=fltr.name, alignment_meta=gaia_alignment
         )
@@ -154,10 +154,10 @@ def build_jwst_likelihoods(
             sky_corners = grid.spatial.world_corners(
                 extension_value=sky_meta.grid_extension
             )
-            target_preloading.append_shape(
+            target_preloading.shapes.append(
                 jwst_data.data_inside_extrema(sky_corners).shape
             )
-            target_preloading.append_bounding_indices(
+            target_preloading.bounding_indices.append(
                 jwst_data.wcs.bounding_box_indices_from_world_extrema(sky_corners)
             )
 
@@ -188,7 +188,7 @@ def build_jwst_likelihoods(
             #     )
             #     plt.show()
 
-        target_preloading = target_preloading.align_data()
+        target_preloading = target_preloading.align_shapes()
 
         for ii, filepath in enumerate(fltr.filepaths):
             logger.info(f"Loading: {fltr.name} {ii} {filepath}")
