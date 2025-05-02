@@ -10,23 +10,11 @@ from ..parametric_model.parametric_prior import (
 )
 
 from astropy import units as u
-from dataclasses import dataclass
+from dataclasses import dataclass, astuple
 
 
 ROTATION_UNIT_KEY = "rotation_unit"
-ROTATION_UNIT_DEFAULT = "rad"
 SHIFT_UNIT_KEY = "shift_unit"
-SHIFT_UNIT_DEFAULT = "arcsec"
-DEFAULT_KEY = "default"
-
-NOT_FILTER_KEYS = [
-    ROTATION_UNIT_KEY,
-    ROTATION_UNIT_DEFAULT,
-    SHIFT_UNIT_KEY,
-    SHIFT_UNIT_DEFAULT,
-    DEFAULT_KEY,
-]
-
 SHIFT_KEY = "shift"
 ROTATION_KEY = "rotation"
 
@@ -34,101 +22,27 @@ ROTATION_KEY = "rotation"
 @dataclass
 class CoordinatesCorrectionPriorConfig:
     shift: ProbabilityConfig
-    rotation: ProbabilityConfig
     shift_unit: u.Unit
+    rotation: ProbabilityConfig
     rotation_unit: u.Unit
 
     def shift_in(self, unit: u.Unit):
-        priors = self.shift.to_list()
-        priors[1] = (priors[1] * self.shift_unit).to(unit).value
-        if priors[2] is not None:
-            priors[2] = (priors[2] * self.shift_unit).to(unit).value
-        return prior_config_factory(priors)
+        distribution, val1, val2, transformation = astuple(self.shift)
+        val1 = (val1 * self.shift_unit).to(unit).value
+        val2 = (val2 * self.shift_unit).to(unit).value
+        return prior_config_factory([distribution, val1, val2, transformation])
 
     def rotation_in(self, unit: u.Unit):
-        priors = self.rotation.to_list()
-        priors[1] = (priors[1] * self.rotation_unit).to(unit).value
-        if priors[2] is not None:
-            priors[2] = (priors[2] * self.rotation_unit).to(unit).value
-        return prior_config_factory(priors)
+        distribution, val1, val2, transformation = astuple(self.rotation)
+        val1 = (val1 * self.rotation_unit).to(unit).value
+        val2 = (val2 * self.rotation_unit).to(unit).value
+        return prior_config_factory([distribution, val1, val2, transformation])
 
-
-@dataclass
-class CoordinatesCorrectionConfig:
-    """This class saves the `CoordiantesCorrectionPrior`s for the coordinate
-    correction. Specifics can be provided for the different filters and their
-    multiple datasets (dithers, etc.). If a specific filter gets a None, the
-    coordinates from the data are fixed to the provided values.
-    """
-
-    default: CoordinatesCorrectionPriorConfig
-    name_settings: dict[str, list[CoordinatesCorrectionPriorConfig | None]]
-
-    def get_name_setting_or_default(
-        self, filter_name: str, data_index: int | None = None
-    ) -> ProbabilityConfig:
-        """Returns the PriorConfig for the `filter_name` and `data_index` or the default.
-
-        Parameters
-        ----------
-        filter_name : str
-            The filter in question.
-        """
-        filter_name = filter_name.lower()
-        if filter_name in self.name_settings:
-            for ii, coordiantes_correction_prior in enumerate(
-                self.name_settings[filter_name]
-            ):
-                if ii is None:
-                    return coordiantes_correction_prior
-                elif ii == data_index:
-                    return coordiantes_correction_prior
-        return self.default
-
-
-def yaml_to_coordinates_correction_config(
-    corrections_config: dict,
-) -> CoordinatesCorrectionConfig:
-    """Parses the coordinate correction prior configuration.
-
-    Parameters
-    ----------
-    config : dict
-        The configuration dictionary containing the rotation and shift priors.
-    """
-
-    rotation_unit = getattr(
-        u, corrections_config.get(ROTATION_UNIT_KEY, ROTATION_UNIT_DEFAULT)
-    )
-    shift_unit = getattr(u, corrections_config.get(SHIFT_UNIT_KEY, SHIFT_UNIT_DEFAULT))
-
-    default = CoordinatesCorrectionPriorConfig(
-        shift=prior_config_factory(corrections_config[DEFAULT_KEY][SHIFT_KEY]),
-        shift_unit=shift_unit,
-        rotation=prior_config_factory(corrections_config[DEFAULT_KEY][ROTATION_KEY]),
-        rotation_unit=rotation_unit,
-    )
-
-    name_settings = {}
-    for filter_name, data_indices in corrections_config.items():
-        filter_name = filter_name.lower()
-        if filter_name in NOT_FILTER_KEYS:
-            continue
-
-        filter_prior_list = []
-        for data_index, prior_settings in data_indices.items():
-            filter_data_prior = (
-                CoordinatesCorrectionPriorConfig(
-                    shift=prior_config_factory(prior_settings[SHIFT_KEY]),
-                    shift_unit=shift_unit,
-                    rotation=prior_config_factory(prior_settings[ROTATION_KEY]),
-                    rotation_unit=rotation_unit,
-                )
-                if prior_settings is not None
-                else None
-            )
-            filter_prior_list.append(filter_data_prior)
-
-        name_settings[filter_name] = filter_prior_list
-
-    return CoordinatesCorrectionConfig(default=default, name_settings=name_settings)
+    @classmethod
+    def from_yaml_dict(cls, raw: dict):
+        return CoordinatesCorrectionPriorConfig(
+            shift=prior_config_factory(raw[SHIFT_KEY]),
+            rotation=prior_config_factory(raw[ROTATION_KEY]),
+            shift_unit=getattr(u, raw[SHIFT_UNIT_KEY]),
+            rotation_unit=getattr(u, raw[ROTATION_UNIT_KEY]),
+        )

@@ -21,10 +21,6 @@ from .alignment.star_alignment import FilterAlignemnt
 # Parsing
 from .parse.jwst_psf import yaml_to_psf_kernel_config
 from .parse.zero_flux_model import yaml_to_zero_flux_prior_config
-from .parse.rotation_and_shift.coordinates_correction import (
-    yaml_to_coordinates_correction_config,
-    CoordinatesCorrectionConfig,
-)
 from .parse.rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
 )
@@ -57,9 +53,6 @@ class FilterData:
     boresight: SkyCoord | list[SkyCoord] = field(default_factory=list)
     meta: DataMetaInformation | list[DataMetaInformation] = field(default_factory=list)
     subsample_centers: SkyCoord | list[SkyCoord] = field(default_factory=list)
-    correction_prior: (
-        CoordinatesCorrectionConfig | list[CoordinatesCorrectionConfig]
-    ) = field(default_factory=list)
 
     def __len__(self):
         return len(self.data)
@@ -123,9 +116,6 @@ def build_jwst_likelihoods(
         cfg[telescope_key]["zero_flux"]
     )
     psf_kernel_configs = yaml_to_psf_kernel_config(cfg[telescope_key]["psf"])
-    coordiantes_correction_config = yaml_to_coordinates_correction_config(
-        cfg[telescope_key]["rotation_and_shift"]["correction_priors"]
-    )
     rotation_and_shift_algorithm = rotation_and_shift_algorithm_config_factory(
         cfg[telescope_key]["rotation_and_shift"]
     )
@@ -147,7 +137,13 @@ def build_jwst_likelihoods(
         filter_data = FilterData()
 
         target_preloading = Preloading()
-        filter_alignment = FilterAlignemnt(alignment_meta=gaia_alignment)
+        filter_alignment = FilterAlignemnt(
+            filter_name=fltr.name, alignment_meta=gaia_alignment
+        )
+        filter_alignment.load_correction_prior(
+            cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
+            number_of_observations=len(fltr.filepaths),
+        )
 
         for ii, filepath in enumerate(fltr.filepaths):
             print(ii, filepath)
@@ -165,7 +161,7 @@ def build_jwst_likelihoods(
                 jwst_data.wcs.bounding_box_indices_from_world_extrema(sky_corners)
             )
 
-            # filter_alignment.append_table(
+            # filter_alignment.source_tables.append(
             #     load_gaia_stars_in_fov(
             #         jwst_data.wcs.world_corners(), gaia_alignment.library_path
             #     )
@@ -228,18 +224,13 @@ def build_jwst_likelihoods(
             filter_data.subsample_centers.append(data_subsampled_centers)
             filter_data.meta.append(jwst_data.meta)
             filter_data.psf.append(psf)
-            filter_data.correction_prior.append(
-                coordiantes_correction_config.get_name_setting_or_default(
-                    jwst_data.filter, ii
-                )
-            )
-            filter_data.boresight.append(jwst_data.get_boresight_world_coords())
+            filter_alignment.boresight.append(jwst_data.get_boresight_world_coords())
 
         for ii in range(len(filter_data)):
             shift_and_rotation_correction = ShiftAndRotationCorrection(
                 domain_key=f"{filter_data.meta[ii].identifier}_correction",
-                correction_prior=filter_data.correction_prior[ii],
-                rotation_center=filter_data.boresight[ii],
+                correction_prior=filter_alignment.correction_prior,
+                rotation_center=filter_alignment.boresight[ii],
             )
 
             jwst_target_response = build_jwst_response(

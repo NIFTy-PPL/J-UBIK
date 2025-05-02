@@ -1,8 +1,23 @@
 from ..parse.alignment.star_alignment import StarAlignment
+from ..parse.rotation_and_shift.coordinates_correction import (
+    CoordinatesCorrectionPriorConfig,
+    ROTATION_KEY,
+    ROTATION_UNIT_KEY,
+    SHIFT_KEY,
+    SHIFT_UNIT_KEY,
+)
+from ..parse.parametric_model.parametric_prior import (
+    ProbabilityConfig,
+    prior_config_factory,
+)
+
 from dataclasses import dataclass, field
 from astropy.table import Table
+from astropy import units as u
 from astropy.coordinates import SkyCoord
 from ...gaia.star_finder import join_tables
+
+DEFAULT_KEY = "default"
 
 
 @dataclass
@@ -16,11 +31,11 @@ class Source:
 
 @dataclass
 class FilterAlignemnt:
+    filter_name: str
     alignment_meta: StarAlignment
+    correction_prior: CoordinatesCorrectionPriorConfig | None = None
     source_tables: list[Table] = field(default_factory=list)
-
-    def append_table(self, table: Table):
-        self.source_tables.append(table)
+    boresight: list[SkyCoord] = field(default_factory=list)
 
     def get_sources(self, data_id: int | None = None):
         if data_id is not None:
@@ -42,4 +57,21 @@ class FilterAlignemnt:
                 for id, position in zip(source_id, positions)
                 if id not in self.alignment_meta.exclude_source_id
             ],
+        )
+
+    def load_correction_prior(self, raw: dict, number_of_observations: int):
+        if self.filter_name in raw:
+            config = raw[self.filter_name]
+        else:
+            config = raw[DEFAULT_KEY]
+
+        self.correction_prior = CoordinatesCorrectionPriorConfig(
+            shift=prior_config_factory(
+                config[SHIFT_KEY], shape=(number_of_observations, 2)
+            ),
+            rotation=prior_config_factory(
+                config[ROTATION_KEY], shape=(number_of_observations, 1)
+            ),
+            shift_unit=getattr(u, raw[SHIFT_UNIT_KEY]),
+            rotation_unit=getattr(u, raw[ROTATION_UNIT_KEY]),
         )

@@ -1,7 +1,8 @@
 from abc import ABC
 from typing import Union
-from dataclasses import dataclass
+from dataclasses import dataclass, astuple
 from numpy.typing import ArrayLike
+import numpy as np
 
 DISTRIBUTION_KEY = "distribution"
 
@@ -9,12 +10,6 @@ DISTRIBUTION_KEY = "distribution"
 class ProbabilityConfig(ABC):
     distribution: str
     transformation: str | None
-
-    def to_list(self) -> list:
-        """Return the ProbabilityConfig as a tuple."""
-        # NOTE: __annotations__ keeps the order of the fields of the
-        # make_dataclass used inside create_distribution_config_class
-        return list(getattr(self, field) for field in self.__annotations__.keys())
 
 
 @dataclass
@@ -37,13 +32,37 @@ class UniformPriorConfig(ProbabilityConfig):
 class DeltaPriorConfig(ProbabilityConfig):
     distribution: str
     mean: float | ArrayLike
-    _: float | None = None  # This is not needed however it's convinient to
-    # comply with the signature of the other Configs.
+    # NOTE: The next entry is not needed however it's convinient to comply with the
+    # signature of the other Configs.
+    _: float | ArrayLike = 0.0
     transformation: str | None = None
 
 
-def prior_config_factory(settings: Union[dict, tuple]):
-    """Transforms the parameter distribution `settings` into a ProbabilityConfig."""
+def prior_config_factory(settings: Union[dict, tuple], shape: tuple[int] | None = None):
+    """Transforms the parameter distribution `settings` into a ProbabilityConfig.
+    If shape is supplied, tries to put the values into the correct shape.
+
+    Parameters
+    ----------
+    settings: dict | tuple
+        - If dict, it needs to contain the `distribution` and the corresponding keys.
+        For example for a lognormal distribuion:
+        `mean`, `sigma`, Optional[`transformation`].
+        - If tuple, the first entry will be handled as the `distribution`, and the
+        following the corresponding keys. For example for a lognormal distribution:
+        [`lognormal`, `mean`, `sigma`, `transformation` | None].
+    shape: tuple[int] | None
+        Optional parameter, that will try to the supplied settings into the `shape`.
+        I.e. mean and sigma.
+    """
+
+    if shape is not None:
+        distribution, val1, val2, transformation = astuple(
+            prior_config_factory(settings)
+        )
+        val1 = _cast_to_shape(val1, shape)
+        val2 = _cast_to_shape(val2, shape)
+        return prior_config_factory((distribution, val1, val2, transformation))
 
     distribution = (
         settings[DISTRIBUTION_KEY] if isinstance(settings, dict) else settings[0]
@@ -71,3 +90,34 @@ def prior_config_factory(settings: Union[dict, tuple]):
                 if isinstance(settings, dict)
                 else DefaultPriorConfig(*settings)
             )
+
+
+def _cast_to_shape(value: ArrayLike, shape: tuple[int, ...]) -> np.ndarray:
+    """
+    Return `value` with the requested `shape`:
+
+    • broadcast where possible
+    • otherwise reshape when the element count matches
+    • otherwise raise ValueError.
+    """
+    arr = np.asarray(value)
+
+    # already the right shape
+    if arr.shape == shape:
+        return arr
+
+    # 1) try broadcasting
+    try:
+        return np.broadcast_to(arr, shape)
+    except ValueError:
+        pass  # will try reshape next
+
+    # 2) try reshape
+    if arr.size == np.prod(shape):
+        # reshape never copies unless needed
+        return arr.reshape(shape)
+
+    # 3) nothing worked
+    raise ValueError(
+        f"cannot cast array from shape {arr.shape} to requested shape {shape}"
+    )

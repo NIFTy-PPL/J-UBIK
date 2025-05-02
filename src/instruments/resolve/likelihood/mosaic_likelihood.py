@@ -5,7 +5,9 @@ from astropy import units as u
 
 from ....grid import Grid
 from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
-from ...jwst.parametric_model.parametric_prior import ProbabilityConfig
+from ...jwst.parse.rotation_and_shift.coordinates_correction import (
+    CoordinatesCorrectionPriorConfig,
+)
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamerJft
 from ..re.response import InterferometryResponse
@@ -39,7 +41,7 @@ def build_likelihood_from_sky_beamer(
     sky_beamer: SkyBeamerJft,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
-    phase_shift_correction_config: ProbabilityConfig | None,
+    phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None,
     cast_to_dtype: Callable | None = None,
 ):
     """First, builds response operator, which takes the `field_name` from the

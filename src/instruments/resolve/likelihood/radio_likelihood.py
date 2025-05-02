@@ -28,7 +28,7 @@ from ....parse.instruments.resolve.data.data_modify import ObservationModify
 from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
 from ....parse.instruments.resolve.response import yaml_to_response_settings
 from ...jwst.parse.rotation_and_shift.coordinates_correction import (
-    yaml_to_coordinates_correction_config,
+    CoordinatesCorrectionPriorConfig,
 )
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
@@ -67,7 +67,7 @@ def build_radio_likelihood(
         data_names = [data_names]
 
     if "rotation_and_shift" in cfg["radio_response"]:
-        coordinate_correction_config = yaml_to_coordinates_correction_config(
+        coordinate_correction_config = CoordinatesCorrectionPriorConfig.from_yaml_dict(
             cfg["radio_response"]["rotation_and_shift"]
         )
     else:
@@ -120,11 +120,7 @@ def build_radio_likelihood(
                             cast_to_dtype=partial(cast_to_dtype, dtype=jnp.float32)
                             if o.is_single_precision()
                             else None,
-                            phase_shift_correction_config=coordinate_correction_config.get_name_setting_or_default(
-                                data_name
-                            )
-                            if coordinate_correction_config is not None
-                            else None,
+                            phase_shift_correction_config=coordinate_correction_config,
                         )
                     )
 

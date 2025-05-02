@@ -6,13 +6,11 @@ import numpy as np
 from astropy.constants import c as speedoflight
 from astropy import units
 
-from ....parse.instruments.resolve.response import (
-    Ducc0Settings,
-    FinufftSettings,
+from ...jwst.parse.rotation_and_shift.coordinates_correction import (
+    CoordinatesCorrectionPriorConfig,
 )
 from ....grid import Grid
 from ...jwst.rotation_and_shift.shift_correction import build_shift_correction
-from ...jwst.parametric_model.parametric_prior import ProbabilityConfig
 from ..data.observation import Observation
 
 
@@ -64,7 +62,7 @@ class PhaseShiftCorrection(jft.Model):
 
 
 def build_phase_shift_correction_from_config(
-    phase_shift_correction_config: ProbabilityConfig | None,
+    phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None,
     observation: Observation,
     field_name: str,
 ):
