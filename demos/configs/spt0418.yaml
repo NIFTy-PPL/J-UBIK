@@ -286,6 +286,13 @@ telescope:
     f1800w: ['lognormal', 92.0, 1.5]
     f2100w: ['lognormal', 226.0, 1.0]
 
+  gaia_alignment:
+    fov: 4.0arcsec
+    shape: [129, 129]
+    star_light: ['lognormal', 10, 100]
+    subsample: 3
+    library_path: './data/GAIA/library_stars'
+    exclude_source_id: [4788834899488736128, 4788858367190047104]
 
   rotation_and_shift:
     # nufft: 

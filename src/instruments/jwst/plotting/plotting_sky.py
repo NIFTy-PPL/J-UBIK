@@ -5,6 +5,7 @@ import types
 
 
 def plot_sky_coords(
+    index,
     ax,
     sky_coords,
     marker="o",
@@ -12,12 +13,15 @@ def plot_sky_coords(
     marker_size=50,
     alpha=1.0,  # Added alpha parameter
     labels=None,
+    behavior_index: callable = lambda index, sky_coords: sky_coords,
 ):
     """
     Plot SkyCoord points on an existing axes.
 
     Parameters
     ----------
+    index : int
+        Behaviour according to the `behavior_index`.
     ax : matplotlib.axes.Axes
         The axes object to plot coordinates on
     sky_coords : SkyCoord or list of SkyCoord
@@ -44,7 +48,7 @@ def plot_sky_coords(
         else [marker_color] * len(coords_list)
     )
 
-    for j, coord in enumerate(coords_list):
+    for j, coord in enumerate(behavior_index(index, coords_list)):
         # Plot the coordinate directly with SkyCoord support
         ax.scatter(
             coord.ra.deg,
@@ -80,7 +84,7 @@ def plot_jwst_panels(
     figsize=(10, 10),
     vmin=0.4,
     vmax=1.0,
-    coords_plotters=None,  # Function to plot coordinates
+    coords_plotter: callable = lambda ii, ax: None,  # Function to plot coordinates
 ):
     """
     Plot JWST data panels with optional SkyCoord points overlaid.
@@ -97,8 +101,8 @@ def plot_jwst_panels(
         Figure size in inches (width, height)
     vmin, vmax : float, optional
         Minimum and maximum values for colormap scaling
-    coords_plotter : callable, optional
-        Function that accepts an axes object as input and plots coordinates
+    coords_plotter : callable
+        Function that accepts an index and axes object as input and plots coordinates
         Can be created using functools.partial(plot_sky_coords, sky_coords=some_coords)
     """
     fig = plt.figure(figsize=figsize)
@@ -116,15 +120,7 @@ def plot_jwst_panels(
         overlay[0].set_axislabel("Right Ascension (icrs)")
         overlay[1].set_axislabel("Declination (icrs)")
 
-        # Plot SkyCoord points if provided
-        if coords_plotters is not None:
-            # Handle both single plotter and list of plotters
-            if callable(coords_plotters):
-                coords_plotters(ax)
-            else:
-                # Apply each plotter in the list
-                for plotter in coords_plotters:
-                    plotter(ax)
+        coords_plotter(i, ax)
 
     plt.tight_layout()
     plt.show()

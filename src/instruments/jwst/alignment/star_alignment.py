@@ -1,63 +1,87 @@
-from ..parse.alignment.star_alignment import StarAlignment
+from dataclasses import dataclass, field
+from typing import Iterator
+
+import numpy as np
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+from astropy.table import Table
+
+from ...gaia.star_finder import join_tables
+
+from ..data.jwst_data import JwstData
+from ..parse.alignment.star_alignment import FilterAlignmentMeta
+from ..parse.parametric_model.parametric_prior import (
+    prior_config_factory,
+)
 from ..parse.rotation_and_shift.coordinates_correction import (
-    CoordinatesCorrectionPriorConfig,
     ROTATION_KEY,
     ROTATION_UNIT_KEY,
     SHIFT_KEY,
     SHIFT_UNIT_KEY,
+    CoordinatesCorrectionPriorConfig,
 )
-from ..parse.parametric_model.parametric_prior import (
-    ProbabilityConfig,
-    prior_config_factory,
-)
-
-from dataclasses import dataclass, field
-from astropy.table import Table
-from astropy import units as u
-from astropy.coordinates import SkyCoord
-from ...gaia.star_finder import join_tables
 
 DEFAULT_KEY = "default"
 
 
 @dataclass
-class Source:
-    id: int | list[int]
+class Star:
+    id: int
     position: SkyCoord
 
     def __getitem__(self, index: int):
-        return Source(self.id[index], self.position[index])
+        return Star(self.id[index], self.position[index])
+
+    def bounding_indices(
+        self, jwst_data: JwstData, shape: tuple[int, int]
+    ) -> tuple[int, int, int, int]:
+        pixel_position = jwst_data.wcs.world_to_pixel(self.position)
+        return self._get_bounding_indices(pixel_position, shape, jwst_data.shape)
+
+    @staticmethod
+    def _get_bounding_indices(
+        pixel_position: tuple[float, float],
+        shape: tuple[int, int],
+        jwst_data_shape: tuple[int, int],
+    ) -> tuple[int, int, int, int]:
+        for sh in shape:
+            assert sh % 2 != 0, (
+                "Provide uneven pixel shapes for the star alignment cutouts."
+            )
+
+        pp = [int(t) for t in np.floor(pixel_position)]
+        half = [(sh - 1) // 2 for sh in shape]
+
+        minx = max(pp[0] - half[0], 0)
+        miny = max(pp[1] - half[1], 0)
+        maxx = min(pp[0] + half[0], jwst_data_shape[0])
+        maxy = min(pp[1] + half[1], jwst_data_shape[0])
+
+        return (minx, maxx, miny, maxy)
 
 
 @dataclass
-class FilterAlignemnt:
+class FilterAlignment:
     filter_name: str
-    alignment_meta: StarAlignment
+    alignment_meta: FilterAlignmentMeta
     correction_prior: CoordinatesCorrectionPriorConfig | None = None
-    source_tables: list[Table] = field(default_factory=list)
+    star_tables: list[Table] = field(default_factory=list)
     boresight: list[SkyCoord] = field(default_factory=list)
 
-    def get_sources(self, data_id: int | None = None):
-        if data_id is not None:
-            table = self.source_tables[data_id]
+    def get_stars(self, observation_id: int | None = None) -> list[Star]:
+        if observation_id is not None:
+            table = self.star_tables[observation_id]
         else:
-            table = join_tables(self.source_tables)
+            table = join_tables(self.star_tables)
 
         source_id = table["SOURCE_ID"]
         positions = SkyCoord(ra=table["ra"], dec=table["dec"], unit="deg")
 
-        return Source(
-            id=[
-                id
-                for id in source_id
-                if id not in self.alignment_meta.exclude_source_id
-            ],
-            position=[
-                position
-                for id, position in zip(source_id, positions)
-                if id not in self.alignment_meta.exclude_source_id
-            ],
-        )
+        return [
+            Star(id, position)
+            for id, position in zip(source_id, positions)
+            if id not in self.alignment_meta.exclude_source_id
+        ]
 
     def load_correction_prior(self, raw: dict, number_of_observations: int):
         if self.filter_name in raw:

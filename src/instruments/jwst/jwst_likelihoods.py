@@ -16,7 +16,7 @@ from .config_handler import (
 )
 from ..gaia.star_finder import load_gaia_stars_in_fov, join_tables
 from .plotting.plotting_sky import plot_sky_coords, plot_jwst_panels
-from .alignment.star_alignment import FilterAlignemnt
+from .alignment.star_alignment import FilterAlignment
 
 # Parsing
 from .parse.jwst_psf import yaml_to_psf_kernel_config
@@ -26,7 +26,7 @@ from .parse.rotation_and_shift.rotation_and_shift import (
 )
 from .parse.jwst_response import SkyMetaInformation
 from .parse.masking.data_mask import yaml_to_corner_mask_configs
-from .parse.alignment.star_alignment import StarAlignment
+from .parse.alignment.star_alignment import FilterAlignmentMeta
 from .parse.data.data_loading import DataFilePaths
 
 
@@ -50,7 +50,6 @@ class FilterData:
     mask: np.ndarray | list[np.ndarray] = field(default_factory=list)
     std: np.ndarray | list[np.ndarray] = field(default_factory=list)
     psf: np.ndarray | list[np.ndarray] = field(default_factory=list)
-    boresight: SkyCoord | list[SkyCoord] = field(default_factory=list)
     meta: DataMetaInformation | list[DataMetaInformation] = field(default_factory=list)
     subsample_centers: SkyCoord | list[SkyCoord] = field(default_factory=list)
 
@@ -69,7 +68,6 @@ class FilterData:
                 mask=[self.mask[i] for i in rng],
                 std=[self.std[i] for i in rng],
                 psf=[self.psf[i] for i in rng],
-                boresight=[self.boresight[i] for i in rng],
                 meta=[self.meta[i] for i in rng],
                 subsample_centers=[self.subsample_centers[i] for i in rng],
                 correction_prior=[self.correction_prior[i] for i in rng],
@@ -80,7 +78,6 @@ class FilterData:
             mask=self.mask[idx],
             std=self.std[idx],
             psf=self.psf[idx],
-            boresight=self.boresight[idx],
             meta=self.meta[idx],
             subsample_centers=self.subsample_centers[idx],
             correction_prior=self.correction_prior[idx],
@@ -125,7 +122,7 @@ def build_jwst_likelihoods(
         unit=sky_unit,
     )
 
-    gaia_alignment = StarAlignment.from_yaml_dict(
+    gaia_alignment_meta_data = FilterAlignmentMeta.from_yaml_dict(
         cfg[telescope_key].get("gaia_alignment", {})
     )
 
@@ -137,8 +134,9 @@ def build_jwst_likelihoods(
         filter_data = FilterData()
 
         target_preloading = DataBoundsPreloading()
-        filter_alignment = FilterAlignemnt(
-            filter_name=fltr.name, alignment_meta=gaia_alignment
+
+        filter_alignment = FilterAlignment(
+            filter_name=fltr.name, alignment_meta=gaia_alignment_meta_data
         )
         filter_alignment.load_correction_prior(
             cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
@@ -150,45 +148,69 @@ def build_jwst_likelihoods(
             jwst_data = JwstData(
                 filepath, identifier=f"{fltr.name}_{ii}", subsample=data_subsample
             )
-
-            sky_corners = grid.spatial.world_corners(
-                extension_value=sky_meta.grid_extension
-            )
-            target_preloading.shapes.append(
-                jwst_data.data_inside_extrema(sky_corners).shape
-            )
-            target_preloading.bounding_indices.append(
-                jwst_data.wcs.bounding_box_indices_from_world_extrema(sky_corners)
+            filter_alignment.star_tables.append(
+                load_gaia_stars_in_fov(
+                    jwst_data.wcs.world_corners(),
+                    filter_alignment.alignment_meta.library_path,
+                )
             )
 
-            # filter_alignment.source_tables.append(
-            #     load_gaia_stars_in_fov(
-            #         jwst_data.wcs.world_corners(), gaia_alignment.library_path
-            #     )
-            # )
+            target_preloading.append_shapes_and_bounds(
+                jwst_data,
+                sky_corners=grid.spatial.world_corners(
+                    extension_value=sky_meta.grid_extension
+                ),
+            )
 
-            # from functools import partial
-            # import matplotlib.pyplot as plt
-            # if filter_alignment.plot_data_loading:
-            #     sources = filter_alignment.get_sources(ii)
-            #     plot_position_stars = partial(
-            #         plot_sky_coords,
-            #         sky_coords=sources.position,
-            #         labels=sources.id,
-            #     )
-            #     mean = np.nanmean(jwst_data.dm.data)
-            #     fig, axes = plot_jwst_panels(
-            #         [jwst_data.dm.data],
-            #         [jwst_data.wcs],
-            #         nrows=1,
-            #         ncols=1,
-            #         vmin=0.9 * mean,
-            #         vmax=1.1 * mean,
-            #         coords_plotters=plot_position_stars,
-            #     )
-            #     plt.show()
+            if True:
+                import astropy
+                from functools import partial
+                import matplotlib.pyplot as plt
+
+                stars = filter_alignment.get_stars(ii)
+                plot_position_stars = partial(
+                    plot_sky_coords,
+                    sky_coords=[star.position for star in stars],
+                    labels=[star.id for star in stars],
+                    behavior_index=lambda index, sky_coords: (
+                        sky_coords if index == 0 else [sky_coords[index - 1]]
+                    ),
+                )
+                jwst_wcs = astropy.wcs.WCS(jwst_data.wcs.to_header())
+
+                shape = (
+                    int(
+                        (
+                            filter_alignment.alignment_meta.fov
+                            / jwst_data.meta.pixel_distance.to(
+                                filter_alignment.alignment_meta.fov.unit
+                            )
+                        ).value
+                    ),
+                ) * 2
+
+                data = [jwst_data.dm.data]
+                wcs = [jwst_wcs]
+                for star in stars:
+                    minx, maxx, miny, maxy = star.bounding_indices(jwst_data, shape)
+                    print(star.id, minx, maxx, miny, maxy)
+                    wcs.append(jwst_wcs[miny : maxy + 1, minx : maxx + 1])
+                    data.append(jwst_data.data_inside_extrema((minx, maxx, miny, maxy)))
+
+                mean = np.nanmean(jwst_data.dm.data)
+                fig, axs = plot_jwst_panels(
+                    data,
+                    wcs,
+                    nrows=1,
+                    ncols=len(data),
+                    vmin=0.9 * mean,
+                    vmax=1.1 * mean,
+                    coords_plotter=plot_position_stars,
+                )
+                # plt.show()
 
         target_preloading = target_preloading.align_shapes()
+        exit()
 
         for ii, filepath in enumerate(fltr.filepaths):
             logger.info(f"Loading: {fltr.name} {ii} {filepath}")

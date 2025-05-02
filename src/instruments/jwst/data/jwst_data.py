@@ -69,7 +69,11 @@ class JwstData:
     ) -> tuple[int, int, int, int]:
         if isinstance(extrema, SkyCoord):
             return self.wcs.bounding_box_indices_from_world_extrema(extrema, self.shape)
-        elif isinstance(extrema, tuple) or isinstance(extrema, np.ndarray):
+        elif (
+            isinstance(extrema, tuple)
+            or isinstance(extrema, list)
+            or isinstance(extrema, np.ndarray)
+        ):
             assert len(extrema) == 4
             return extrema
 
