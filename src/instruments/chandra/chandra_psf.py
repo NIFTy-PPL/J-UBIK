@@ -43,25 +43,50 @@ def get_synth_pointsource(info, npix_s, idx_tuple, num_rays):
     return ps
 
 
-def get_radec_from_xy(temp_x, temp_y, event_f):
+def get_radec_from_xy(x, y, event_f):
     # TODO test precision
     """Calculates sky ra and dec from sky pixel coordinates.
 
     Parameters
     ----------
-    temp_x: int
-    temp_y: int
+    x: int
+        sky X coordinate in the Chandra coordinate system
+    y: int
+        sky Y coordinate in the Chandra coordinate system
+    event_f: str
+        path to the event file
 
     Returns
     -------
-    tuple
+    coords : tuple
+        (ra, dec) in degrees
     """
-    import ciao_contrib.runtool as rt
-    rt.dmcoords.punlearn()
-    rt.dmcoords(event_f, op="sky", celfmt="deg", x=temp_x, y=temp_y)
-    x_p = float(rt.dmcoords.ra)
-    y_p = float(rt.dmcoords.dec)
-    return (x_p, y_p)
+    from pycrates import read_file
+    from coords.chandra import sky_to_chandra
+
+    cr = read_file(event_f)
+    header = {
+        name: cr.get_key_value(name)
+        for name in [
+            "TELESCOP",
+            "INSTRUME",
+            "DETNAM",
+            "RA_NOM",
+            "DEC_NOM",
+            "RA_PNT",
+            "DEC_PNT",
+            "ROLL_PNT",
+            "SIM_X",
+            "SIM_Y",
+            "SIM_Z",
+            "DY_AVG",
+            "DZ_AVG",
+            "DTH_AVG",
+        ]
+    }
+    chan_coords = sky_to_chandra(header, x, y)
+
+    return (chan_coords["ra"], chan_coords["dec"])
 
 
 def get_psfpatches(info, n, npix_s, ebin, num_rays=10e6,
