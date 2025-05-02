@@ -56,7 +56,8 @@ class ChandraObservationInformation():
         center : tuple, optional
             RA and DEC of the image center. If None, the nominal pointing direction will be used. Default is None.
         energy_ranges : tuple, optional
-            Energy ranges for energy binning. Default is None, which means logscale equal-width bins will be used.
+            Energy ranges for energy binning. Default is None, which means
+            logscale equal-width bins will be used. If energy_ranges is set elim is ignored.
         chips_off : tuple, optional
             IDs of chips that are not considered. Default is an empty tuple. BI-Chips have IDs (5, 7).
 
@@ -182,21 +183,25 @@ class ChandraObservationInformation():
             evts = dat_filtered['EVENTS'].data
         evts = np.array([evts['x'], evts['y'], np.log(1.e-3*evts['energy'])])
         evts = evts.transpose()
-        if self.obsInfo['energy_ranges']:
+
+        if self.obsInfo['energy_ranges'] is not None:
             bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], np.log(self.obsInfo['energy_ranges']))
         else:
             bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], self.obsInfo['npix_e'])
-        ranges = ((self.obsInfo['x_min'],self.obsInfo['x_max']),
-                  (self.obsInfo['y_min'],self.obsInfo['y_max']),
+
+        ranges = ((self.obsInfo['x_min'], self.obsInfo['x_max']),
+                  (self.obsInfo['y_min'], self.obsInfo['y_max']),
                   (np.log(self.obsInfo['energy_min']), np.log(self.obsInfo['energy_max'])))
 
         data, edges = np.histogramdd(evts, bins=bins, range=ranges, density=False, weights=None)
-        data = data.transpose((1,0,2)).astype(int)
+        data = data.transpose((1, 0, 2)).astype(int)
         self.obsInfo['ntot_binned'] = np.sum(data)
 
         message_binning(self.obsInfo)
-        energy_ranges = np.log(self.obsInfo['energy_ranges'])
-        print(f'Generated data for log energy ranges {energy_ranges}')
+        if self.obsInfo["energy_ranges"] is not None:
+            energy_ranges = np.log(self.obsInfo['energy_ranges'])
+            print(f'Generated data for log energy ranges {energy_ranges}')
+            # TODO Print edges regardless of method
         return data
 
     def get_exposure(self, outroot, res_xy=0.5, energy_subbins=10):
