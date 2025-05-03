@@ -291,8 +291,12 @@ def build_jwst_likelihoods(
         )
 
         likelihood = build_gaussian_likelihood(
-            np.array(filter_data.data)[np.array(filter_data.mask)],
-            np.array(filter_data.std)[np.array(filter_data.mask)],
+            jnp.array(
+                np.array(filter_data.data)[np.array(filter_data.mask)], dtype=float
+            ),
+            jnp.array(
+                np.array(filter_data.std)[np.array(filter_data.mask)], dtype=float
+            ),
         )
         likelihood = likelihood.amend(
             jwst_target_response, domain=jft.Vector(jwst_target_response.domain)
