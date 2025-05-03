@@ -111,7 +111,7 @@ class JwstResponse(jft.Model):
 
 def build_jwst_response(
     sky_domain: dict,
-    data_subsampled_centers: SkyCoord,
+    data_subsampled_centers: SkyCoord | list[SkyCoord],
     data_meta: DataMetaInformation,
     sky_wcs: WcsAstropy,
     sky_meta: SkyMetaInformation,

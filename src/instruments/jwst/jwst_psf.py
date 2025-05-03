@@ -14,6 +14,7 @@ from typing import Tuple, Callable
 
 import numpy as np
 from jax import vmap
+from jax.tree_util import Partial
 from jax.scipy.signal import fftconvolve
 from numpy.typing import ArrayLike
 from astropy.coordinates import SkyCoord
@@ -202,6 +203,13 @@ def load_psf_kernel(
     return psf
 
 
+def multiple_psf_operator(
+    vmap_fftconvolve: Callable[ArrayLike, ArrayLike],
+    psf_kernel: ArrayLike,
+):
+    return lambda x: vmap_fftconvolve(x, psf_kernel)
+
+
 def build_psf_operator(
     psf_kernel: ArrayLike | None,
 ) -> Callable[[ArrayLike], ArrayLike] | None:
@@ -223,7 +231,10 @@ def build_psf_operator(
 
     if len(psf_kernel.shape) == 2:
         return partial(fftconvolve, in2=psf_kernel, mode="same")
+
     elif len(psf_kernel.shape) == 3:
-        return partial(vmap(partial(fftconvolve, mode="same"), (0, 0)), in2=psf_kernel)
+        vmap_fftconvolve = vmap(Partial(fftconvolve, mode="same"), in_axes=(0, 0))
+        return multiple_psf_operator(vmap_fftconvolve, psf_kernel)
+
     else:
         raise ValueError("Unknown psf_kernel shape")
