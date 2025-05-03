@@ -13,6 +13,7 @@ from typing import Tuple, Callable
 
 
 import numpy as np
+from jax import vmap
 from jax.scipy.signal import fftconvolve
 from numpy.typing import ArrayLike
 from astropy.coordinates import SkyCoord
@@ -220,4 +221,9 @@ def build_psf_operator(
     if psf_kernel is None:
         return lambda x: x
 
-    return partial(fftconvolve, in2=psf_kernel, mode="same")
+    if len(psf_kernel.shape) == 2:
+        return partial(fftconvolve, in2=psf_kernel, mode="same")
+    elif len(psf_kernel.shape) == 3:
+        return partial(vmap(partial(fftconvolve, mode="same"), (0, 0)), in2=psf_kernel)
+    else:
+        raise ValueError("Unknown psf_kernel shape")
