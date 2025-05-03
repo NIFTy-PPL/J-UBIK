@@ -199,12 +199,13 @@ def build_jwst_likelihoods(
         for ii, filepath in enumerate(filter_and_files.filepaths):
             print(ii, filepath)
             jwst_data = JwstData(filepath, subsample=data_subsample)
-            filter_alignment.star_tables.append(
-                load_gaia_stars_in_fov(
-                    jwst_data.wcs.world_corners(),
-                    filter_alignment.alignment_meta.library_path,
-                )
-            )
+
+            # filter_alignment.star_tables.append(
+            #     load_gaia_stars_in_fov(
+            #         jwst_data.wcs.world_corners(),
+            #         filter_alignment.alignment_meta.library_path,
+            #     )
+            # )
 
             target_preloading.append_shapes_and_bounds(
                 jwst_data,
