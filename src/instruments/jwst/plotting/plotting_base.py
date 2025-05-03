@@ -187,43 +187,6 @@ def get_position_or_samples_of_model(
     return mean, std
 
 
-def _determine_xpos(dkey: str):
-    """Determine the x position of the panel in the residual plot"""
-    index = int(dkey.split("_")[-1])
-    return 3 + index
-
-
-def _determine_ypos(
-    dkey: str,
-    filter_projector: FilterProjector,
-) -> int:
-    """Determine the y position of the panel in the residual plot.
-
-    Parameters
-    ----------
-    dkey: str
-        The data_key which will determine the energy bin and hence the position
-        on the panel grid.
-    filter_projector: FilterProjector
-        The filter_projector of the reconstruction.
-    ylen_offset: int
-        An offset which corresponds to the bins not considered in determining
-        the ypos of the panels. I.e. the sky can have more bins than the ones
-        plotted in the panels, the ylen_offset corrects for this.
-
-    Returns
-    -------
-    ypos: int
-        The y-position on the panel grid.
-    """
-    tmp_dict = {}
-    for ii, key in enumerate(filter_projector.keys_and_index):
-        tmp_dict[key] = ii
-
-    ekey = dkey.split("_")[0]
-    return tmp_dict[ekey]
-
-
 def _get_data_model_and_chi2(
     position_or_samples: Union[dict, jft.Samples, jft.Vector],
     sky_or_skies: np.ndarray,
@@ -239,28 +202,47 @@ def _get_data_model_and_chi2(
         position_or_samples = position_or_samples.tree
 
     if isinstance(position_or_samples, jft.Samples):
-        model_data = []
+        model_d = []
         for ii, si in enumerate(position_or_samples):
             tmp = np.zeros_like(data)
             while isinstance(si, jft.Vector):
                 si = si.tree
             tmp[mask] = data_model(sky_or_skies[ii] | si)
-            model_data.append(tmp)
-        model_mean = jft.mean(model_data)
-        redchi_mean, redchi_std = jft.mean_and_std(
-            [
-                redchi2(data[mask], m[mask], std[mask], data[mask].size)
-                for m in model_data
-            ]
-        )
+            model_d.append(tmp)
+        model_mean = jft.mean(model_d)
+
+        if len(mask.shape) == 2:
+            redchi_mean, redchi_std = jft.mean_and_std(
+                [
+                    redchi2(data[mask], model[mask], std[mask], data[mask].size)
+                    for model in model_d
+                ]
+            )
+        else:
+            redchi_mean, redchi_std = [], []
+            for ii, (dd, mm, ss) in enumerate(zip(data, mask, std)):
+                rchi_mean, rchi_std = jft.mean_and_std(
+                    [
+                        redchi2(dd[mm], model[ii][mm], ss[mm], dd[mm].size)
+                        for model in model_d
+                    ]
+                )
+                redchi_mean.append(rchi_mean)
+                redchi_std.append(rchi_std)
 
     else:
-        model_data = np.zeros_like(data)
+        model_d = np.zeros_like(data)
         position_or_samples = position_or_samples | sky_or_skies
-        model_data[mask] = data_model(position_or_samples)
-        redchi_mean = redchi2(data[mask], model_data[mask], std[mask], data[mask].size)
-        redchi_std = 0
-        model_mean = model_data
+        model_d[mask] = data_model(position_or_samples)
+        if len(mask.shape) == 2:
+            redchi_mean = redchi2(data[mask], model_d[mask], std[mask], data[mask].size)
+        else:
+            redchi_mean = []
+            for ii, (dd, mo, mm, ss) in enumerate(zip(data, model_d, mask, std)):
+                redchi_mean.append(redchi2(dd[mm], mo[mm], ss[mm], dd[mm].size))
+
+        redchi_std = np.full_like(redchi_mean, 0)
+        model_mean = model_d
 
     return model_mean, (redchi_mean, redchi_std)
 
@@ -269,18 +251,6 @@ def _get_model_samples_or_position(position_or_samples, sky_model):
     if isinstance(position_or_samples, jft.Samples):
         return [sky_model(si) for si in position_or_samples]
     return sky_model(position_or_samples)
-
-
-def determine_xlen_residuals(data_dict: dict, xmax_residuals):
-    maximum = 0
-    for dkey in data_dict.keys():
-        index = int(dkey.split("_")[-1])
-        if index > maximum:
-            maximum = index
-    maximum += 1
-    if maximum > xmax_residuals:
-        return xmax_residuals
-    return maximum  # because 0 is already there and will not be counted
 
 
 def get_alpha_and_reference(light_model):

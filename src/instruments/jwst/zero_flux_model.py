@@ -12,12 +12,10 @@ from .parse.parametric_model.parametric_prior import ProbabilityConfig
 
 ZERO_FLUX_KEY = "zero_flux"
 DEFAULT_KEY = "default"
-SHAPE = (1,)
 
 
 def build_zero_flux_model(
-    prefix: str,
-    prior_config: ProbabilityConfig | None,
+    prefix: str, prior_config: ProbabilityConfig | None, shape: tuple[int] = (1,)
 ) -> jft.Model | None:
     """
     Build a zero flux model based on the provided PriorConfig.
@@ -42,5 +40,5 @@ def build_zero_flux_model(
 
     prefix = "_".join([prefix, ZERO_FLUX_KEY])
 
-    prior = build_parametric_prior_from_prior_config(prefix, prior_config, SHAPE)
-    return jft.Model(prior, domain={prefix: jft.ShapeWithDtype(SHAPE)})
+    prior = build_parametric_prior_from_prior_config(prefix, prior_config, shape)
+    return jft.Model(prior, domain={prefix: jft.ShapeWithDtype(shape)})

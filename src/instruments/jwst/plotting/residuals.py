@@ -12,10 +12,7 @@ from ..filter_projector import FilterProjector
 from ..parse.plotting import ResidualPlottingConfig
 from .plotting_base import (
     display_text,
-    _determine_xpos,
-    _determine_ypos,
     _get_model_samples_or_position,
-    determine_xlen_residuals,
     _get_data_model_and_chi2,
     plot_data_data_model_residuals,
     get_shift_rotation_correction,
@@ -25,16 +22,71 @@ from ..jwst_response import JwstResponse
 
 @dataclass
 class ResidualPlottingInformation:
-    data: np.ndarray
-    mask: np.ndarray
-    std: np.ndarray
-    model: JwstResponse
+    filter: list[str] = field(default_factory=list)
+    data: list[np.ndarray] = field(default_factory=list)
+    mask: list[np.ndarray] = field(default_factory=list)
+    std: list[np.ndarray] = field(default_factory=list)
+    model: list[JwstResponse] = field(default_factory=list)
+
+    def append_information(
+        self,
+        filter: str,
+        data: np.ndarray,
+        mask: np.ndarray,
+        std: np.ndarray,
+        model: JwstResponse,
+    ):
+        self.filter.append(filter)
+        self.data.append(data)
+        self.std.append(std)
+        self.mask.append(mask)
+        self.model.append(model)
+
+    def get_filter(self, filter: str):
+        """Return (data, std, mask, model) of filter."""
+        index = self.filter.index(filter)
+        return self.data[index], self.std[index], self.mask[index], self.model[index]
+
+
+def _determine_xlen_residuals(
+    residual_plotting_info: ResidualPlottingInformation, xmax_residuals: int
+):
+    maximum = max([d.shape[0] for d in residual_plotting_info.data])
+    if maximum > xmax_residuals:
+        return xmax_residuals
+    return maximum  # because 0 is already there and will not be counted
+
+
+def _determine_ypos(
+    filter_key: str,
+    filter_projector: FilterProjector,
+) -> int:
+    """Determine the y position of the panel in the residual plot.
+
+    Parameters
+    ----------
+    dkey: str
+        The data_key which will determine the energy bin and hence the position
+        on the panel grid.
+    filter_projector: FilterProjector
+        The filter_projector of the reconstruction.
+    ylen_offset: int
+        An offset which corresponds to the bins not considered in determining
+        the ypos of the panels. I.e. the sky can have more bins than the ones
+        plotted in the panels, the ylen_offset corrects for this.
+
+    Returns
+    -------
+    ypos: int
+        The y-position on the panel grid.
+    """
+    return filter_projector.keys_and_index[filter_key]
 
 
 def build_plot_sky_residuals(
     results_directory: str,
     filter_projector: FilterProjector,
-    data_dict: dict,
+    residual_plotting_info: ResidualPlottingInformation,
     sky_model_with_filters: jft.Model,
     plotting_config: ResidualPlottingConfig = ResidualPlottingConfig(),
 ):
@@ -53,7 +105,7 @@ def build_plot_sky_residuals(
     #     ylen = len(next(iter(sky_model_with_filters.target)))
     # else:
     ylen = len(sky_model_with_filters.target)
-    xlen = 3 + determine_xlen_residuals(data_dict, xmax_residuals)
+    xlen = 3 + _determine_xlen_residuals(residual_plotting_info, xmax_residuals)
 
     rendering = plotting_config.sky.rendering
 
@@ -83,74 +135,77 @@ def build_plot_sky_residuals(
             plotting_config.sky.get_min(np.min(list(tree.map(np.min, sky).values()))),
         )
 
-        for skey, _ in filter_projector.keys_and_index.items():
-            ypos = _determine_ypos(skey, filter_projector)
-            axes[ypos, 0].set_title(f"Sky {skey}")
+        for filter_name, ypos in filter_projector.keys_and_index.items():
+            axes[ypos, 0].set_title(f"Sky {filter_name}")
             ims[ypos, 0] = axes[ypos, 0].imshow(
-                sky[skey],
+                sky[filter_name],
                 norm=plotting_config.sky.norm,
                 vmax=sky_max,
                 vmin=sky_min,
                 **rendering,
             )
 
-        for dkey, plotting_data in data_dict.items():
-            xpos_residual = _determine_xpos(dkey)
-            ypos = _determine_ypos(dkey, filter_projector)
-            if xpos_residual > xlen - 1:
-                continue
+        for filter_key in residual_plotting_info.filter:
+            ypos = filter_projector.keys_and_index[filter_key]
 
-            data_model = plotting_data.model
-            data_i = plotting_data.data
-            std = plotting_data.std
-            mask = plotting_data.mask
+            data, std, mask, model = residual_plotting_info.get_filter(filter_key)
 
             model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples,
                 sky_or_skies,
-                data_model=data_model,
-                data=data_i,
+                data_model=model,
+                data=data,
                 mask=mask,
                 std=std,
             )
+            chis = [
+                "\n".join((f"redChi2: {mean:.2f} +/- {std:.2f}",))
+                for mean, std in zip(redchi_mean, redchi_std)
+            ]
 
-            if xpos_residual == 3:
-                ims[ypos, 1:] = plot_data_data_model_residuals(
-                    ims[ypos, 1:],
-                    axes[ypos, 1:],
-                    data_key=dkey,
-                    data=data_i,
-                    data_model=model_mean,
-                    std=std if std_relative else 1.0,
-                    plotting_config=residual_plotting_config,
+            if len(data.shape) == 2:
+                data = [data]
+                std = [std]
+
+            ims[ypos, 1:] = plot_data_data_model_residuals(
+                ims[ypos, 1:],
+                axes[ypos, 1:],
+                data_key=filter_key,
+                data=data[0],
+                data_model=model_mean[0],
+                std=std[0] if std_relative else 1.0,
+                plotting_config=residual_plotting_config,
+            )
+            display_text(axes[ypos, 3], chis[0])
+
+            if display_pointing:
+                (sh_m, sh_s), (ro_m, ro_s) = get_shift_rotation_correction(
+                    position_or_samples,
+                    model.rotation_and_shift.correction_model,
                 )
-
-                if display_pointing:
-                    (sh_m, sh_s), (ro_m, ro_s) = get_shift_rotation_correction(
-                        position_or_samples,
-                        data_model.rotation_and_shift.correction_model,
+                data_model_text = "\n".join(
+                    (
+                        f"dx={sh_m[0]:.1e}+-{sh_s[0]:.1e}",
+                        f"dy={sh_m[1]:.1e}+-{sh_s[1]:.1e}",
+                        f"dth={ro_m:.1e}+-{ro_s:.1e}",
                     )
-                    data_model_text = "\n".join(
-                        (
-                            f"dx={sh_m[0]:.1e}+-{sh_s[0]:.1e}",
-                            f"dy={sh_m[1]:.1e}+-{sh_s[1]:.1e}",
-                            f"dth={ro_m:.1e}+-{ro_s:.1e}",
-                        )
-                    )
-                    display_text(axes[ypos, 2], data_model_text)
+                )
+                display_text(axes[ypos, 2], data_model_text)
 
-            else:
+            for xpos_residual, (data_i, model_i, std_i) in enumerate(
+                zip(data[1:], model_mean[1:], std[1:]), start=4
+            ):
+                if xpos_residual > xlen - 1:
+                    continue
+
                 ims[ypos, xpos_residual] = axes[ypos, xpos_residual].imshow(
-                    (data_i - model_mean) / std,
+                    (data_i - model_i) / std_i,
                     vmin=-3,
                     vmax=3,
                     cmap="RdBu_r",
                     **rendering,
                 )
-
-            if display_chi2:
-                chi = "\n".join((f"redChi2: {redchi_mean:.2f} +/- {redchi_std:.2f}",))
-                display_text(axes[ypos, xpos_residual], chi)
+                display_text(axes[ypos, xpos_residual], chis[xpos_residual - 3])
 
         for ax, im in zip(axes.flatten(), ims.flatten()):
             if not isinstance(im, int):

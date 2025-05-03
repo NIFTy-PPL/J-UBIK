@@ -1,5 +1,6 @@
 from astropy import units as u
 from .unit_conversion import FLUX, SURFACE_BRIGHTNESS
+from jax import vmap
 
 
 def integration_factory(
@@ -40,6 +41,12 @@ def integration_factory(
     the resulting callable reshapes the input into blocks of shape (10, 10)
     and sums/averages them, reducing the resolution to (10, 10).
     """
+
+    if len(high_resolution_shape) == 3:
+        vmap_shape, *high_resolution_shape = high_resolution_shape
+    else:
+        vmap_shape = None
+
     if (high_resolution_shape[0] % reduction_factor != 0) or (
         high_resolution_shape[1] % reduction_factor != 0
     ):
@@ -53,10 +60,19 @@ def integration_factory(
     )
 
     if unit.physical_type in FLUX:
-        return lambda x: x.reshape(new_shape).sum(axis=(1, 3))
+
+        def func(x):
+            return x.reshape(new_shape).sum(axis=(1, 3))
 
     elif unit.physical_type in SURFACE_BRIGHTNESS:
-        return lambda x: x.reshape(new_shape).mean(axis=(1, 3))
+
+        def func(x):
+            return x.reshape(new_shape).mean(axis=(1, 3))
 
     else:
         raise ValueError(f"Unit not implemented: {unit}")
+
+    if vmap_shape is None:
+        return func
+    else:
+        return vmap(func, 0)

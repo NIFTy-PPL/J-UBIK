@@ -10,7 +10,7 @@ from ....grid import Grid
 from ....parse.grid import GridModel
 from ..filter_projector import FilterProjector
 from .plotting_base import find_closest_factors, get_position_or_samples_of_model
-from .residuals import build_plot_sky_residuals
+from .residuals import build_plot_sky_residuals, ResidualPlottingInformation
 from ..parse.plotting import (
     LensSystemPlottingConfig,
     ResidualPlottingConfig,
@@ -26,7 +26,7 @@ def get_plot(
     grid: Grid,
     lens_system,
     filter_projector: FilterProjector,
-    data_dict: dict,
+    residual_info: ResidualPlottingInformation,
     sky_model_with_keys: jft.Model,
     parametric_lens: bool,
     parametric_source: bool = False,
@@ -77,7 +77,7 @@ def get_plot(
     plot_residual = build_plot_sky_residuals(
         results_directory=results_directory,
         filter_projector=filter_projector,
-        data_dict=data_dict,
+        residual_plotting_info=residual_info,
         sky_model_with_filters=sky_model_with_keys,
         plotting_config=residual_plotting_config,
     )

@@ -82,7 +82,7 @@ else:
 
 
 sky_model = jft.Model(jft.wrap_left(sky_model, SKY_KEY), domain=sky_model.domain)
-likelihood_raw, filter_projector, data_dict = build_jwst_likelihoods(
+likelihood_raw, filter_projector, data_plotting = build_jwst_likelihoods(
     cfg, grid, sky_model, sky_key=SKY_KEY, sky_unit=SKY_UNIT
 )
 
@@ -103,7 +103,7 @@ plot_source, plot_residual, plot_lens = get_plot(
     grid,
     lens_system,
     filter_projector,
-    data_dict,
+    data_plotting,
     sky_model_with_keys,
     parametric_lens_flag,
 )
@@ -113,7 +113,7 @@ _, plot_residual_fixpointing, _ = get_plot(
     grid,
     lens_system_fixpointing,
     filter_projector,
-    data_dict,
+    data_plotting,
     fixpointing_model,
     parametric_lens_flag,
     True,
@@ -129,7 +129,7 @@ if cfg.get("prior_samples"):
         plot_residuals=True,
         plot_source=False,
         plot_lens=False,
-        data_dict=data_dict,
+        data_dict=data_plotting,
         sky_key=SKY_KEY,
     )
 

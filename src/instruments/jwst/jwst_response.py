@@ -29,7 +29,6 @@ from .rotation_and_shift.coordinates_correction import (
     build_coordinates_corrected_from_grid,
     ShiftAndRotationCorrection,
 )
-from .zero_flux_model import build_zero_flux_model
 
 
 class JwstResponse(jft.Model):
@@ -119,7 +118,7 @@ def build_jwst_response(
     rotation_and_shift_algorithm: Union[LinearConfig, NufftConfig],
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
     psf: np.ndarray | None,
-    zero_flux_prior_config: ProbabilityConfig | None,
+    zero_flux_model: jft.Model | None,
     data_mask: ArrayLike | None,
 ) -> JwstResponse:
     """
@@ -199,10 +198,6 @@ def build_jwst_response(
     )
 
     psf = build_psf_operator(psf)
-
-    zero_flux_model = build_zero_flux_model(
-        data_meta.identifier, zero_flux_prior_config
-    )
 
     mask = build_mask(data_mask)
 

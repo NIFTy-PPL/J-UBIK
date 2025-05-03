@@ -30,7 +30,6 @@ except ImportError:
 
 @dataclass
 class DataMetaInformation:
-    identifier: str
     subsample: int
     unit: units.Unit
     dvol: units.Quantity
@@ -40,7 +39,7 @@ class DataMetaInformation:
 class JwstData:
     """Class to contain JWST data metadata."""
 
-    def __init__(self, filepath: str, identifier: str = "", subsample: int = 1):
+    def __init__(self, filepath: str, subsample: int = 1):
         """
         Initializes the JwstData class.
 
@@ -56,7 +55,6 @@ class JwstData:
         self.camera = self.dm.meta.instrument.name.upper()
 
         self.meta: DataMetaInformation = DataMetaInformation(
-            identifier=identifier,
             subsample=subsample,
             unit=units.Unit(self.dm.meta.bunit_data),
             dvol=get_dvol(self.filter),

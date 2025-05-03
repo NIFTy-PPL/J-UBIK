@@ -5,24 +5,22 @@
 
 # %%
 
-from typing import Callable, Union, Tuple
+from typing import Callable, Union
 
 import nifty8.re as jft
-from astropy.coordinates import SkyCoord
-from numpy.typing import ArrayLike
-
-from .coordinates_correction import (
-    CoordinatesCorrectedShiftOnly,
-    CoordinatesCorrectedShiftAndRotation,
-    Coordinates,
-)
-from .linear_rotation_and_shift import build_linear_rotation_and_shift
-from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
+from jax import vmap
 
 from ..parse.rotation_and_shift.rotation_and_shift import (
     LinearConfig,
     NufftConfig,
 )
+from .coordinates_correction import (
+    Coordinates,
+    CoordinatesCorrectedShiftAndRotation,
+    CoordinatesCorrectedShiftOnly,
+)
+from .linear_rotation_and_shift import build_linear_rotation_and_shift
+from .nufft_rotation_and_shift import build_nufft_rotation_and_shift
 
 
 class RotationAndShift(jft.Model):
@@ -132,6 +130,13 @@ def build_rotation_and_shift(
             indexing=indexing,
             **vars(algorithm_config),
         )
+
+    if len(coordinates.target.shape) == 3:
+        pass  # Everything is fine
+    elif len(coordinates.target.shape) == 4:
+        rotation_and_shift_algorithm = vmap(rotation_and_shift_algorithm, (None, 0))
+    else:
+        raise ValueError(f"Coordinates have unknown shape: {coordinates.target.shape}'")
 
     return RotationAndShift(
         sky_domain=sky_domain,

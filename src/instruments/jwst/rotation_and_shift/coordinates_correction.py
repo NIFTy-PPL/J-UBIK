@@ -30,70 +30,32 @@ from ..parse.rotation_and_shift.coordinates_correction import (
 class ShiftAndRotationCorrection(jft.Model):
     def __init__(
         self,
-        domain_key: str | list[str],
-        correction_prior: CoordinatesCorrectionPriorConfig
-        | list[CoordinatesCorrectionPriorConfig],
-        rotation_center: SkyCoord | list[SkyCoord],
+        domain_key: str,
+        correction_prior: CoordinatesCorrectionPriorConfig,
+        rotation_center: SkyCoord,
     ):
-        self.shift = build_shift_correction(
-            domain_key, correction_prior, correction_prior.shift_unit
+        self.shift = build_parametric_prior_from_prior_config(
+            domain_key + "_shift",
+            correction_prior.shift_in(correction_prior.shift_unit),
+            correction_prior.shift.mean.shape,
+            as_model=True,
         )
         self.shift_unit = correction_prior.shift_unit
 
         self.rotation_angle = build_parametric_prior_from_prior_config(
             domain_key + "_rotation",
             correction_prior.rotation_in(u.rad),
-            shape=(1,),
+            correction_prior.rotation.mean.shape,
             as_model=True,
         )
         self.rotation_unit = u.rad
+
         self.rotation_center = rotation_center
 
         super().__init__(domain=self.rotation_angle.domain | self.shift.domain)
 
     def __call__(self, x):
         return self.shift(x), self.rotation_angle(x)
-
-
-# def build_shift_and_rotation_correction(
-#     domain_key: str | list[str],
-#     correction_prior: CoordinatesCorrectionPriorConfig
-#     | list[CoordinatesCorrectionPriorConfig],
-#     rotation_center: SkyCoord | list[SkyCoord],
-# ):
-#     pass
-#
-#     if not isinstance(domain_key, list):
-#         domain_key = [domain_key]
-#
-#     if isinstance(correction_prior, list):
-#         shift_unit = correction_prior[0].shift_unit
-#         for cp in correction_prior:
-#             assert shift_unit == cp.shift_unit
-#     else:
-#         correction_prior = [correction_prior]
-#
-#     assert len(domain_key) == len(rotation_center) == len(correction_prior)
-#
-#     # shift
-#     shift_unit = correction_prior[0].shift_unit
-#     rotation_center = SkyCoord(rotation_center)
-#     shifts = []
-#     rotations = []
-#     exit()
-#     for dk, cp in zip(domain_key, correction_prior):
-#         shifts.append(build_shift_correction(dk + "_shift", cp, shift_unit))
-#         rotations.append(
-#             build_rotation_correction(
-#                 dk + "_rotation", cp.rotation_in(u.rad), shape=(1,), as_model=True
-#             )
-#         )
-#
-#     rotation_angle
-#
-#     return ShiftAndRotationCorrection(
-#         shift, shift_unit, rotation_angle, rotation_center
-#     )
 
 
 class Coordinates:
@@ -151,7 +113,7 @@ class CoordinatesCorrectedShiftOnly(jft.Model):
 
     def __call__(self, params: dict) -> ArrayLike:
         shift = self.shift_and_rotation.shift(params) * self._1_over_pixel_distance
-        return self._coordinates + shift[:, None, None]
+        return self._coordinates + shift[..., None, None]
 
 
 class CoordinatesCorrectedShiftAndRotation(jft.Model):
@@ -222,7 +184,7 @@ class CoordinatesCorrectedShiftAndRotation(jft.Model):
 def build_coordinates_corrected_from_grid(
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
     reconstruction_grid_wcs: WcsAstropy,
-    world_coordinates: SkyCoord,
+    world_coordinates: SkyCoord | list[SkyCoord],
     indexing: str = "ij",
     shift_only: bool = True,
 ) -> Union[
@@ -263,24 +225,27 @@ def build_coordinates_corrected_from_grid(
         the specified priors and parameters.
 
     """
+    if not isinstance(world_coordinates, list):
+        world_coordinates = [world_coordinates]
+
+    pixel_coordinates = np.array(
+        [
+            world_coordinates_to_index_grid(
+                world_coordinates=wc,
+                index_grid_wcs=reconstruction_grid_wcs,
+                indexing=indexing,
+            )
+            for wc in world_coordinates
+        ]
+    )
 
     if shift_and_rotation_correction is None:
-        pixel_coordinates = world_coordinates_to_index_grid(
-            world_coordinates=world_coordinates,
-            index_grid_wcs=reconstruction_grid_wcs,
-            indexing=indexing,
-        )
         return Coordinates(pixel_coordinates)
 
     shift_unit = shift_and_rotation_correction.shift_unit
     pixel_distance = reconstruction_grid_wcs.distances.to(shift_unit)
 
     if shift_only:
-        pixel_coordinates = world_coordinates_to_index_grid(
-            world_coordinates=world_coordinates,
-            index_grid_wcs=reconstruction_grid_wcs,
-            indexing=indexing,
-        )
         return CoordinatesCorrectedShiftOnly(
             shift_and_rotation_correction, pixel_coordinates, pixel_distance
         )
