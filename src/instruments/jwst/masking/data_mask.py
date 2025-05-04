@@ -14,7 +14,7 @@ from ....wcs.wcs_subsample_centers import (
 def get_mask_from_index_centers_within_rgrid(
     bounding_box_xmin_xmax_ymin_ymax: tuple[int] | np.ndarray,
     data_wcs: WcsJwstData,
-    index_grid_wcs: WcsAstropy,
+    index_grid_wcs: WcsAstropy | None,
 ) -> np.ndarray:
     """Get mask which is true where the index grid falls within the data grid.
 
@@ -26,7 +26,7 @@ def get_mask_from_index_centers_within_rgrid(
         Previously cacuclated by,
         data_wcs.bounding_box_indices_from_world_extrema(world_corners).
     data_wcs: WcsJwstData
-    index_grid_wcs: WcsAstropy
+    index_grid_wcs: WcsAstropy | None
     """
 
     data_pix_centers_world_coordinates = subsample_pixel_centers(
@@ -34,6 +34,9 @@ def get_mask_from_index_centers_within_rgrid(
         data_wcs,
         subsample=1,
     )
+    if index_grid_wcs is None:
+        return np.full(data_pix_centers_world_coordinates.shape, True)
+
     data_pix_centers_in_index_grid = world_coordinates_to_index_grid(
         data_pix_centers_world_coordinates, index_grid_wcs=index_grid_wcs, indexing="xy"
     )

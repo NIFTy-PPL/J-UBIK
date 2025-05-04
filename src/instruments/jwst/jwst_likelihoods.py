@@ -139,11 +139,27 @@ class FilterData:
         for i in range(len(self)):
             yield self[i]
 
-    def add_and_check_meta_data(self, filter_data_meta: DataMetaInformation):
+    def add_or_check_meta_data(self, filter_data_meta: DataMetaInformation):
         if self.meta is None:
             self.meta = filter_data_meta
         else:
             assert self.meta == filter_data_meta
+
+    def append_observation(
+        self,
+        meta: DataMetaInformation,
+        data: np.ndarray,
+        mask: np.ndarray,
+        std: np.ndarray,
+        subsample_centers: SkyCoord,
+        psf: np.ndarray,
+    ):
+        self.add_or_check_meta_data(meta)
+        self.data.append(data)
+        self.mask.append(mask)
+        self.std.append(std)
+        self.subsample_centers.append(subsample_centers)
+        self.psf.append(psf)
 
 
 def build_jwst_likelihoods(
@@ -184,8 +200,6 @@ def build_jwst_likelihoods(
     target_plotting = ResidualPlottingInformation()
     likelihoods = []
     for filter_and_files in data_paths.filters:
-        filter_data = FilterData()
-
         target_preloading = DataBoundsPreloading()
 
         filter_alignment = FilterAlignment(
@@ -196,16 +210,22 @@ def build_jwst_likelihoods(
             number_of_observations=len(filter_and_files.filepaths),
         )
 
+        # NOTE : Preloading Data
         for ii, filepath in enumerate(filter_and_files.filepaths):
             print(ii, filepath)
             jwst_data = JwstData(filepath, subsample=data_subsample)
+            energy_name = filter_projector.get_key(jwst_data.pivot_wavelength)
+            if ii == 0:
+                previous_energy_name = energy_name
+            else:
+                assert energy_name == previous_energy_name
 
-            # filter_alignment.star_tables.append(
-            #     load_gaia_stars_in_fov(
-            #         jwst_data.wcs.world_corners(),
-            #         filter_alignment.alignment_meta.library_path,
-            #     )
-            # )
+            filter_alignment.star_tables.append(
+                load_gaia_stars_in_fov(
+                    jwst_data.wcs.world_corners(),
+                    filter_alignment.alignment_meta.library_path,
+                )
+            )
 
             target_preloading.append_shapes_and_bounds(
                 jwst_data,
@@ -231,16 +251,17 @@ def build_jwst_likelihoods(
         # stars(stars.init(key))
         # list(stars._target_ids)
 
+        target_data = FilterData()
+
+        stars = filter_alignment.get_stars()
+        stars_data = {star.id: FilterData() for star in stars}
+
         for ii, filepath in enumerate(filter_and_files.filepaths):
             logger.info(f"Loading: {filter_and_files.name} {ii} {filepath}")
 
             # Loading data, std, and mask.
             jwst_data = JwstData(filepath, subsample=data_subsample)
-            energy_name = filter_projector.get_key(jwst_data.pivot_wavelength)
-            if ii == 0:
-                previous_energy_name = energy_name
-            else:
-                assert energy_name == previous_energy_name
+            filter_alignment.boresight.append(jwst_data.get_boresight_world_coords())
 
             data, mask, std, data_subsampled_centers = (
                 jwst_data.bounding_data_mask_std_subpixel_by_bounding_indices(
@@ -249,21 +270,59 @@ def build_jwst_likelihoods(
                     yaml_to_corner_mask_configs(cfg[telescope_key]),
                 )
             )
-            print(data.shape, data_subsampled_centers.shape)
-
             psf = load_psf_kernel(
                 jwst_data=jwst_data,
                 target_center=grid.spatial.center,
                 config_parameters=psf_kernel_configs,
             )
+            target_data.append_observation(
+                meta=jwst_data.meta,
+                data=data,
+                mask=mask,
+                std=std,
+                subsample_centers=data_subsampled_centers,
+                psf=psf,
+            )
 
-            filter_data.add_and_check_meta_data(jwst_data.meta)
-            filter_data.data.append(data)
-            filter_data.mask.append(mask)
-            filter_data.std.append(std)
-            filter_data.subsample_centers.append(data_subsampled_centers)
-            filter_data.psf.append(psf)
-            filter_alignment.boresight.append(jwst_data.get_boresight_world_coords())
+            for star in stars:
+                star_data = stars_data[star.id]
+
+                if jwst_data.position_outside_data(star.position):
+                    continue
+
+                fov_pixel = (
+                    filter_alignment.alignment_meta.fov.to(u.arcsec)
+                    / jwst_data.meta.pixel_distance.to(u.arcsec)
+                ).value
+                fov_pixel = (int(np.round(fov_pixel)),) * 2
+
+                data, mask, std, data_subsampled_centers = (
+                    jwst_data.bounding_data_mask_std_subpixel_by_bounding_indices(
+                        None,
+                        star.bounding_indices(jwst_data, fov_pixel),
+                        yaml_to_corner_mask_configs(cfg[telescope_key]),
+                    )
+                )
+                psf = load_psf_kernel(
+                    jwst_data=jwst_data,
+                    target_center=star.position,
+                    config_parameters=psf_kernel_configs,
+                )
+                star_data.append_observation(
+                    meta=jwst_data.meta,
+                    data=data,
+                    mask=mask,
+                    std=std,
+                    subsample_centers=data_subsampled_centers,
+                    psf=psf,
+                )
+
+                # import matplotlib.pyplot as plt
+                # fig, axes = plt.subplots(1, 3)
+                # axes[0].imshow(data)
+                # axes[1].imshow(std)
+                # axes[2].imshow(~mask)
+                # plt.show()
 
         shift_and_rotation_correction = ShiftAndRotationCorrection(
             domain_key=filter_and_files.name,
@@ -274,28 +333,28 @@ def build_jwst_likelihoods(
         zero_flux_model = build_zero_flux_model(
             filter_and_files.name,
             zero_flux_prior_configs.get_name_setting_or_default(filter_and_files.name),
-            shape=(len(filter_data), 1, 1),
+            shape=(len(target_data), 1, 1),
         )
 
         jwst_target_response = build_jwst_response(
             sky_domain={energy_name: filter_projector.target[energy_name]},
-            data_subsampled_centers=filter_data.subsample_centers,
-            data_meta=filter_data.meta,
+            data_subsampled_centers=target_data.subsample_centers,
+            data_meta=target_data.meta,
             sky_wcs=grid.spatial,
             sky_meta=sky_meta,
             rotation_and_shift_algorithm=rotation_and_shift_algorithm,
             shift_and_rotation_correction=shift_and_rotation_correction,
-            psf=np.array(filter_data.psf),
+            psf=np.array(target_data.psf),
             zero_flux_model=zero_flux_model,
-            data_mask=np.array(filter_data.mask),
+            data_mask=np.array(target_data.mask),
         )
 
         likelihood = build_gaussian_likelihood(
             jnp.array(
-                np.array(filter_data.data)[np.array(filter_data.mask)], dtype=float
+                np.array(target_data.data)[np.array(target_data.mask)], dtype=float
             ),
             jnp.array(
-                np.array(filter_data.std)[np.array(filter_data.mask)], dtype=float
+                np.array(target_data.std)[np.array(target_data.mask)], dtype=float
             ),
         )
         likelihood = likelihood.amend(
@@ -304,9 +363,9 @@ def build_jwst_likelihoods(
 
         target_plotting.append_information(
             filter=filter_and_files.name,
-            data=np.array(filter_data.data),
-            std=np.array(filter_data.std),
-            mask=np.array(filter_data.mask),
+            data=np.array(target_data.data),
+            std=np.array(target_data.std),
+            mask=np.array(target_data.mask),
             model=jwst_target_response,
         )
         likelihoods.append(likelihood)

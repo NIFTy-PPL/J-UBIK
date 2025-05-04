@@ -214,7 +214,7 @@ class JwstData:
 
     def bounding_data_mask_std_subpixel_by_bounding_indices(
         self,
-        reconstruction_grid_wcs: WcsAstropy,
+        reconstruction_grid_wcs: WcsAstropy | None,
         bounding_box_xmin_xmax_ymin_ymax: tuple[int] | np.ndarray,
         additional_masks_corners: list[CornerMaskConfig] | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -223,8 +223,10 @@ class JwstData:
 
         Parameters
         ----------
-        reconstruction_grid_wcs: WcsAstropy,
-            The wcs of the reconstruction/index grid.
+        reconstruction_grid_wcs: WcsAstropy | None
+            The wcs of the reconstruction/index grid. Used for getting the mask, where
+            the reconstruction grid has values. If None no value will be masked from the
+            grid.
         bounding_box_xmin_xmax_ymin_ymax: tuple[int] | np.ndarray
             The pixel postions edges of the bounding box, inside the data (corresponding
             from the data_wcs).
@@ -273,3 +275,10 @@ class JwstData:
         return SkyCoord(
             self.dm.meta.pointing.ra_v1, self.dm.meta.pointing.dec_v1, unit="deg"
         )
+
+    def position_outside_data(self, position: SkyCoord) -> bool:
+        pos = np.array(self.wcs.world_to_pixel(position))
+        cond1 = np.any(pos < 0)
+        cond2 = (pos[0] > self.shape[0]) * (pos[1] > self.shape[1])
+        print(pos, self.shape, cond1, cond2, cond1 + cond2)
+        return bool(cond1 + cond2)
