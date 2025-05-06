@@ -83,49 +83,54 @@ def build_star_in_data(
     return StarInData(skies, brightness, location_of_star_in_data_subpixels)
 
 
-def plot_test(filter_alignment, ii, jwst_data):
-    import astropy
+if __name__ == "__main__":
+    import numpy as np
+    import astropy.units as u
+    from astropy.coordinates import SkyCoord
+    from ..plotting.plotting_sky import plot_sky_coords, plot_jwst_panels
+    from functools import partial
+    from astropy.wcs import WCS
     import matplotlib.pyplot as plt
 
-    stars = filter_alignment.get_stars(ii)
-    plot_position_stars = partial(
-        plot_sky_coords,
-        sky_coords=[star.position for star in stars],
-        labels=[star.id for star in stars],
-        behavior_index=lambda index, sky_coords: (
-            sky_coords if index == 0 else [sky_coords[index - 1]]
-        ),
-    )
-    jwst_wcs = astropy.wcs.WCS(jwst_data.wcs.to_header())
+    position = np.array((0.0, 0.5))  # centre of pixel (1,0)
 
-    shape = (
-        int(
-            (
-                filter_alignment.alignment_meta.fov
-                / jwst_data.meta.pixel_distance.to(
-                    filter_alignment.alignment_meta.fov.unit
-                )
-            ).value
-        ),
-    ) * 2
+    pix_scale = 1.0 * u.arcsec  # desired pixel size
+    deg_per_pix = pix_scale.to(u.deg).value  # ≃ 2.777…×10⁻⁴ deg
 
-    data = [jwst_data.dm.data]
-    wcs = [jwst_wcs]
-    for star in stars:
-        minx, maxx, miny, maxy = star.bounding_indices(jwst_data, shape)
-        print(star.id, minx, maxx, miny, maxy)
-        wcs.append(jwst_wcs[miny : maxy + 1, minx : maxx + 1])
-        data.append(jwst_data.data_inside_extrema((minx, maxx, miny, maxy)))
+    # -- data already given -------------------------------------------------
+    pix_zero = SkyCoord(ra=11.0 * u.deg, dec=41.0 * u.deg, frame="icrs")
 
-    mean = np.nanmean(jwst_data.dm.data)
-    fig, axs = plot_jwst_panels(
-        data,
-        wcs,
+    # -- 4×4 WCS with 1″ pixels --------------------------------------------
+    N = 4
+    wcs = WCS(naxis=2)
+    wcs.wcs.crpix = [1, 1]  # centre pixel (0, 0)
+    wcs.wcs.cdelt = [-deg_per_pix, deg_per_pix]  # RA decreases to the right
+    wcs.wcs.crval = [pix_zero.ra.deg, pix_zero.dec.deg]
+    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]  # gnomonic projection
+
+    # convert that pixel to RA/Dec with the same WCS
+    star_sc = wcs.pixel_to_world(*position)
+    x_star, y_star = wcs.world_to_pixel(star_sc)  # [[2]]
+    print(x_star, y_star)  # → (2.5, 2.5)  (centre of image)
+
+    # pixel centres
+    yy, xx = np.mgrid[:N, :N] + 0.5
+    coords_small = wcs.pixel_to_world(xx, yy)  # 4×4 SkyCoord
+
+    data = np.arange(N * N).reshape(N, N) / 16
+    sky = np.zeros((N, N), dtype=float)
+    star_inter = square_point_source_in_sky_from_location(sky, position + 0.5, 1.0)
+
+    star_position_plot = partial(plot_sky_coords, sky_coords=[star_sc])
+    fig, axes = plot_jwst_panels(
+        [data, star_inter],
+        [wcs, wcs],
+        vmax=data.max(),
         nrows=1,
-        ncols=len(data),
-        vmin=0.9 * mean,
-        vmax=1.1 * mean,
-        coords_plotter=plot_position_stars,
+        ncols=2,
+        coords_plotter=star_position_plot,
     )
+    axes[0].scatter(*position)
+    plt.show()
 
-
+# flux = 1.0
