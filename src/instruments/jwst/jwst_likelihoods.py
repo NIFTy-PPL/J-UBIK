@@ -1,12 +1,14 @@
 from ...likelihood import build_gaussian_likelihood
 from ...grid import Grid
 from ...wcs.wcs_jwst_data import WcsJwstData
-from .jwst_response import build_jwst_response
-from .data.jwst_data import JwstData, DataMetaInformation
+from .jwst_response import build_jwst_response, build_jwst_response_stars
+from .data.jwst_data import JwstData
 from .data.data_loading import DataBoundsPreloading
 from .jwst_psf import load_psf_kernel
 from .filter_projector import FilterProjector, build_filter_projector
-from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
+from .rotation_and_shift.coordinates_correction import (
+    ShiftAndRotationCorrection,
+)
 from .plotting.residuals import ResidualPlottingInformation
 from .config_handler import (
     get_grid_extension_from_config,
@@ -14,8 +16,7 @@ from .config_handler import (
 from ..gaia.star_finder import load_gaia_stars_in_fov, join_tables
 from .plotting.plotting_sky import plot_sky_coords, plot_jwst_panels
 from .alignment.star_alignment import FilterAlignment
-from .alignment.star_fields import build_stars
-
+from .alignment.star_model import build_star_in_data
 from .zero_flux_model import build_zero_flux_model
 
 # Parsing
@@ -28,6 +29,7 @@ from .parse.jwst_response import SkyMetaInformation
 from .parse.masking.data_mask import yaml_to_corner_mask_configs
 from .parse.alignment.star_alignment import FilterAlignmentMeta
 from .parse.data.data_loading import DataFilePaths
+from .parse.jwst_likelihoods import TargetData, StarData
 
 
 # Libraries
@@ -40,126 +42,7 @@ import numpy as np
 from functools import reduce
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from typing import Union, Iterator
-from dataclasses import dataclass, field
-
-
-def plot_test(filter_alignment, ii, jwst_data):
-    import astropy
-    from functools import partial
-    import matplotlib.pyplot as plt
-
-    stars = filter_alignment.get_stars(ii)
-    plot_position_stars = partial(
-        plot_sky_coords,
-        sky_coords=[star.position for star in stars],
-        labels=[star.id for star in stars],
-        behavior_index=lambda index, sky_coords: (
-            sky_coords if index == 0 else [sky_coords[index - 1]]
-        ),
-    )
-    jwst_wcs = astropy.wcs.WCS(jwst_data.wcs.to_header())
-
-    shape = (
-        int(
-            (
-                filter_alignment.alignment_meta.fov
-                / jwst_data.meta.pixel_distance.to(
-                    filter_alignment.alignment_meta.fov.unit
-                )
-            ).value
-        ),
-    ) * 2
-
-    data = [jwst_data.dm.data]
-    wcs = [jwst_wcs]
-    for star in stars:
-        minx, maxx, miny, maxy = star.bounding_indices(jwst_data, shape)
-        print(star.id, minx, maxx, miny, maxy)
-        wcs.append(jwst_wcs[miny : maxy + 1, minx : maxx + 1])
-        data.append(jwst_data.data_inside_extrema((minx, maxx, miny, maxy)))
-
-    mean = np.nanmean(jwst_data.dm.data)
-    fig, axs = plot_jwst_panels(
-        data,
-        wcs,
-        nrows=1,
-        ncols=len(data),
-        vmin=0.9 * mean,
-        vmax=1.1 * mean,
-        coords_plotter=plot_position_stars,
-    )
-
-
-@dataclass
-class FilterData:
-    meta: DataMetaInformation | None = None
-    data: np.ndarray | list[np.ndarray] = field(default_factory=list)
-    mask: np.ndarray | list[np.ndarray] = field(default_factory=list)
-    std: np.ndarray | list[np.ndarray] = field(default_factory=list)
-    psf: np.ndarray | list[np.ndarray] = field(default_factory=list)
-    subsample_centers: SkyCoord | list[SkyCoord] = field(default_factory=list)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        """
-        Return a *new* FilterData with the chosen index/indices.
-        Works for both integer indices and slices.
-        """
-        if isinstance(idx, slice):
-            rng = range(*idx.indices(len(self)))
-            return FilterData(
-                data=[self.data[i] for i in rng],
-                mask=[self.mask[i] for i in rng],
-                std=[self.std[i] for i in rng],
-                psf=[self.psf[i] for i in rng],
-                meta=[self.meta[i] for i in rng],
-                subsample_centers=[self.subsample_centers[i] for i in rng],
-                correction_prior=[self.correction_prior[i] for i in rng],
-            )
-
-        return FilterData(
-            data=self.data[idx],
-            mask=self.mask[idx],
-            std=self.std[idx],
-            psf=self.psf[idx],
-            meta=self.meta[idx],
-            subsample_centers=self.subsample_centers[idx],
-            correction_prior=self.correction_prior[idx],
-        )
-
-    def __iter__(self) -> Iterator["FilterData"]:
-        """
-        Iterate over the FilterData row-by-row, yielding a *new*
-        FilterData instance at each step that contains exactly one
-        element per field.
-        """
-        for i in range(len(self)):
-            yield self[i]
-
-    def add_or_check_meta_data(self, filter_data_meta: DataMetaInformation):
-        if self.meta is None:
-            self.meta = filter_data_meta
-        else:
-            assert self.meta == filter_data_meta
-
-    def append_observation(
-        self,
-        meta: DataMetaInformation,
-        data: np.ndarray,
-        mask: np.ndarray,
-        std: np.ndarray,
-        subsample_centers: SkyCoord,
-        psf: np.ndarray,
-    ):
-        self.add_or_check_meta_data(meta)
-        self.data.append(data)
-        self.mask.append(mask)
-        self.std.append(std)
-        self.subsample_centers.append(subsample_centers)
-        self.psf.append(psf)
+from typing import Union
 
 
 def build_jwst_likelihoods(
@@ -234,30 +117,15 @@ def build_jwst_likelihoods(
                 ),
             )
 
-            if False:
-                plot_test(filter_alignment, ii, jwst_data)
-
         target_preloading = target_preloading.align_shapes()
 
-        # stars = build_stars(
-        #     filter_and_files.name,
-        #     shape=filter_alignment.alignment_meta.shape,
-        #     star_ids=[star.id for star in filter_alignment.get_stars()],
-        #     star_light_prior=filter_alignment.alignment_meta.star_light_prior,
-        # )
-        # from jax import random
-        #
-        # key = random.PRNGKey(42)
-        # stars(stars.init(key))
-        # list(stars._target_ids)
-
-        target_data = FilterData()
+        target_data = TargetData()
 
         stars = filter_alignment.get_stars()
-        stars_data = {star.id: FilterData() for star in stars}
+        stars_data = {star.id: StarData() for star in stars}
 
-        for ii, filepath in enumerate(filter_and_files.filepaths):
-            logger.info(f"Loading: {filter_and_files.name} {ii} {filepath}")
+        for observation_id, filepath in enumerate(filter_and_files.filepaths):
+            logger.info(f"Loading: {filter_and_files.name} {observation_id} {filepath}")
 
             # Loading data, std, and mask.
             jwst_data = JwstData(filepath, subsample=data_subsample)
@@ -266,7 +134,7 @@ def build_jwst_likelihoods(
             data, mask, std, data_subsampled_centers = (
                 jwst_data.bounding_data_mask_std_subpixel_by_bounding_indices(
                     grid.spatial,
-                    target_preloading.bounding_indices[ii],
+                    target_preloading.bounding_indices[observation_id],
                     yaml_to_corner_mask_configs(cfg[telescope_key]),
                 )
             )
@@ -284,7 +152,12 @@ def build_jwst_likelihoods(
                 psf=psf,
             )
 
-            for star in stars:
+            for ii, star in enumerate(stars):
+                # FIXME : DELETE THIS
+                print("Warning: delete me")
+                if ii > 1:
+                    continue
+
                 star_data = stars_data[star.id]
 
                 if jwst_data.position_outside_data(star.position):
@@ -308,21 +181,20 @@ def build_jwst_likelihoods(
                     target_center=star.position,
                     config_parameters=psf_kernel_configs,
                 )
+                star_in_subsampled_pixels = star.subpixel_position_in_world_coordinates(
+                    data_subsampled_centers
+                )
+
                 star_data.append_observation(
                     meta=jwst_data.meta,
                     data=data,
                     mask=mask,
                     std=std,
-                    subsample_centers=data_subsampled_centers,
+                    sky_array=np.zeros(data_subsampled_centers.shape),
                     psf=psf,
+                    star_in_subsampled_pixles=star_in_subsampled_pixels,
+                    observation_id=observation_id,
                 )
-
-                # import matplotlib.pyplot as plt
-                # fig, axes = plt.subplots(1, 3)
-                # axes[0].imshow(data)
-                # axes[1].imshow(std)
-                # axes[2].imshow(~mask)
-                # plt.show()
 
         shift_and_rotation_correction = ShiftAndRotationCorrection(
             domain_key=filter_and_files.name,
@@ -335,6 +207,27 @@ def build_jwst_likelihoods(
             zero_flux_prior_configs.get_name_setting_or_default(filter_and_files.name),
             shape=(len(target_data), 1, 1),
         )
+        for star in stars:
+            star_in_subsampled_data_field = build_star_in_data(
+                filter_key=filter_and_files.name,
+                star=star,
+                star_light_prior=filter_alignment.alignment_meta.star_light_prior,
+                shift_and_rotation_correction=shift_and_rotation_correction,
+            )
+            exit()
+
+            jwst_stars_response = build_jwst_response_stars(
+                star=star,
+                star_data=stars_data[star.id],
+                data_meta=target_data.meta,
+                sky_wcs=grid.spatial,
+                sky_meta=sky_meta,
+                shift_and_rotation_correction=shift_and_rotation_correction,
+                psf=np.array(target_data.psf),
+                zero_flux_model=zero_flux_model,
+                data_mask=np.array(target_data.mask),
+            )
+            exit()
 
         jwst_target_response = build_jwst_response(
             sky_domain={energy_name: filter_projector.target[energy_name]},

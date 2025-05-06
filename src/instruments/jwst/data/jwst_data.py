@@ -280,5 +280,4 @@ class JwstData:
         pos = np.array(self.wcs.world_to_pixel(position))
         cond1 = np.any(pos < 0)
         cond2 = (pos[0] > self.shape[0]) * (pos[1] > self.shape[1])
-        print(pos, self.shape, cond1, cond2, cond1 + cond2)
         return bool(cond1 + cond2)

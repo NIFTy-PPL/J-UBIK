@@ -67,6 +67,16 @@ class Coordinates:
         return self.coordinates
 
 
+def _get_reshape(coordinates: np.ndarray) -> tuple[Ellipsis]:
+    shape_nochange = (Ellipsis,)  # equivalent to shift[...]
+    shape_addaxes = (Ellipsis, None, None)  # equivalent to shift[..., None, None]
+
+    if len(coordinates.shape) == 4:
+        return shape_addaxes
+
+    return shape_nochange
+
+
 class CoordinatesCorrectedShiftOnly(jft.Model):
     """
     Applies rotation and shift corrections to a set of coordinates.
@@ -86,6 +96,7 @@ class CoordinatesCorrectedShiftOnly(jft.Model):
         shift_and_rotation: ShiftAndRotationCorrection,
         pixel_coordinates: np.ndarray,
         pixel_distance: u.Quantity,
+        shape: tuple[Ellipsis],
     ):
         """
         Initialize the ShiftAndRotationCorrection model.
@@ -105,6 +116,7 @@ class CoordinatesCorrectedShiftOnly(jft.Model):
 
         self.shift_and_rotation = shift_and_rotation
         self._coordinates = pixel_coordinates
+        self._shape = shape
         self._1_over_pixel_distance = (
             1 / pixel_distance.to(shift_and_rotation.shift_unit).value
         )
@@ -113,7 +125,7 @@ class CoordinatesCorrectedShiftOnly(jft.Model):
 
     def __call__(self, params: dict) -> ArrayLike:
         shift = self.shift_and_rotation.shift(params) * self._1_over_pixel_distance
-        return self._coordinates + shift[..., None, None]
+        return self._coordinates + shift[self._shape]
 
 
 class CoordinatesCorrectedShiftAndRotation(jft.Model):
@@ -181,7 +193,74 @@ class CoordinatesCorrectedShiftAndRotation(jft.Model):
         return jnp.array((x, y)) * self._1_over_pixel_distance
 
 
-def build_coordinates_corrected_from_grid(
+def build_coordinates_corrected_for_stars(
+    shift_and_rotation_correction: ShiftAndRotationCorrection | None,
+    pixel_coordinates: list[np.ndarray],
+    pixel_distance: u.Quantity,
+    observation_ids: tuple[int],
+    shift_only: bool = True,
+) -> Union[
+    Coordinates, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation
+]:
+    """Build `CorrectedCorrdinates` from the grid and coordinates.
+
+    If  coordiantes_correction` are None, it returns a lambda function that simply
+    returns the original coordinates.
+
+    Typically the shift correction is modeled as a Gaussian distribution:
+        (x, y) ~ Gaussian(mean, sigma)
+
+    The rotation correction is applied as:
+        r_i = s_i * Rot(theta) * (p_i - r)
+           = Rot(theta) * (s_i * p_i - s_i * r),
+    where `s_i * r` represents the rotation center in the coordinate units
+    (si * pi).
+
+    Parameters
+    ----------
+    priors : CoordiantesCorrectionPriorConfig | None
+        A dictionary containing the priors for shift and rotation.
+        If None, no coordinate correction is applied and the return is a lambda
+        function which returns the original coordinates.
+    reconstruction_grid_wcs : WcsAstropy
+        The grid used to define the coordinate system for the correction model.
+    coordinates : SkyCoord
+        The world coordinates of the (subsampled) data pixel, whose position can be
+        corrected.
+
+    Returns
+    -------
+    Union[Callable[[dict, ArrayLike], ArrayLike], ShiftAndRotationCorrection]
+        If `priors` is None, returns a lambda function that returns the
+        original coordinates.
+        Otherwise, returns an instance of `ShiftAndRotationCorrection` with
+        the specified priors and parameters.
+
+    """
+    if shift_and_rotation_correction is None:
+        return Coordinates(pixel_coordinates)
+
+    shift_unit = shift_and_rotation_correction.shift_unit
+    pixel_distance = u.Quantity(
+        (pixel_distance.to(shift_unit), pixel_distance.to(shift_unit))
+    )
+
+    if shift_only:
+        assert len(observation_ids) == pixel_coordinates.shape[0]
+
+        if pixel_coordinates.shape == shift_and_rotation_correction.shift.target.shape:
+            shape = (Ellipsis,)
+        else:
+            shape = (observation_ids, Ellipsis)
+
+        return CoordinatesCorrectedShiftOnly(
+            shift_and_rotation_correction, pixel_coordinates, pixel_distance, shape
+        )
+
+    raise NotImplementedError
+
+
+def build_coordinates_corrected_for_field(
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
     reconstruction_grid_wcs: WcsAstropy,
     world_coordinates: SkyCoord | list[SkyCoord],
@@ -246,8 +325,15 @@ def build_coordinates_corrected_from_grid(
     pixel_distance = reconstruction_grid_wcs.distances.to(shift_unit)
 
     if shift_only:
+        assert (  # Check that we have the same amount of observations (length of first/0th axis)
+            shift_and_rotation_correction.shift.target.shape
+            == pixel_coordinates.shape[:2]
+        )
+        assert len(pixel_coordinates.shape) == 4
+
+        shape = (Ellipsis, None, None)
         return CoordinatesCorrectedShiftOnly(
-            shift_and_rotation_correction, pixel_coordinates, pixel_distance
+            shift_and_rotation_correction, pixel_coordinates, pixel_distance, shape
         )
 
     raise NotImplementedError

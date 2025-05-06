@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Iterator
 
 import numpy as np
 from astropy import units as u
@@ -7,7 +6,6 @@ from astropy.coordinates import SkyCoord
 from astropy.table import Table
 
 from ...gaia.star_finder import join_tables
-
 from ..data.jwst_data import JwstData
 from ..parse.alignment.star_alignment import FilterAlignmentMeta
 from ..parse.parametric_model.parametric_prior import (
@@ -58,6 +56,53 @@ class Star:
         maxy = min(pp[1] + half[1], jwst_data_shape[0])
 
         return (minx, maxx, miny, maxy)
+
+    def subpixel_position_in_world_coordinates(self, world_coordinates: SkyCoord):
+        return self.skycoord_to_subpixel(self.position, world_coordinates)
+
+    @staticmethod
+    def skycoord_to_subpixel(position: SkyCoord, world_coordinates: SkyCoord):
+        """Calculate the (sub)pixel position of `position` in the `world_coordinates` grid.
+
+        Parameters
+        ----------
+        position : SkyCoord                         # the star
+        world_coordinates   : SkyCoord (ny, nx)     # pixel-centre grid
+
+        Returns
+        -------
+        y_pix, x_pix : float
+            0-based pixel coordinates whose fractional part gives the sub-pixel
+            offset (0.0 = lower edge, 0.5 = centre, 1.0 = upper edge).
+        """
+        # --- 1. which pixel centre is closest? -------------------------------
+        sep = position.separation(world_coordinates)  # great-circle distance [[2]]
+        i0, j0 = np.unravel_index(np.argmin(sep), world_coordinates.shape)
+        centre = world_coordinates[i0, j0]
+
+        # --- 2. build a tiny tangent plane around that pixel -----------------
+        off_frame = centre.skyoffset_frame()  # gnomonic projection
+        star_off = position.transform_to(off_frame)
+
+        # --- 3. estimate one-pixel steps along x and y -----------------------
+        # protect against edges of the array
+        j1 = j0 + 1 if j0 < world_coordinates.shape[1] - 1 else j0 - 1
+        i1 = i0 + 1 if i0 < world_coordinates.shape[0] - 1 else i0 - 1
+
+        dx = world_coordinates[i0, j1].transform_to(off_frame).lon.to(u.arcsec).value
+        dy = world_coordinates[i1, j0].transform_to(off_frame).lat.to(u.arcsec).value
+        scale_x = abs(dx)  # arcsec per pixel along x
+        scale_y = abs(dy)  # arcsec per pixel along y
+
+        # --- 4. fractional offset inside the host pixel ----------------------
+        frac_x = star_off.lon.to(u.arcsec).value / scale_x  # −0.5 … +0.5
+        frac_y = star_off.lat.to(u.arcsec).value / scale_y
+
+        # --- 5. full floating-point pixel coordinate -------------------------
+        x_pix = j0 + 0.5 + frac_x  # 0-based; centre sits at *.5
+        y_pix = i0 + 0.5 + frac_y
+
+        return y_pix, x_pix
 
 
 @dataclass
