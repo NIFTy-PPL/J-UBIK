@@ -13,7 +13,7 @@ def plot_sky_coords(
     marker_size=50,
     alpha=1.0,  # Added alpha parameter
     labels=None,
-    behavior_index: callable = lambda index, sky_coords: sky_coords,
+    sky_coords_behavior_by_index: callable = lambda index, sky_coords: sky_coords,
 ):
     """
     Plot SkyCoord points on an existing axes.
@@ -21,7 +21,7 @@ def plot_sky_coords(
     Parameters
     ----------
     index : int
-        Behaviour according to the `behavior_index`.
+        Behaviour according to the `sky_coords_behavior_by_index`.
     ax : matplotlib.axes.Axes
         The axes object to plot coordinates on
     sky_coords : SkyCoord or list of SkyCoord
@@ -36,6 +36,7 @@ def plot_sky_coords(
         Transparency level of the markers (0.0 to 1.0, where 0 is fully transparent)
     labels : list, optional
         Labels for the SkyCoord points
+    sky_coords_behavior_by_index: callable[index, sky_coords] -> sky_coords
     """
     if sky_coords is None:
         return
@@ -48,7 +49,7 @@ def plot_sky_coords(
         else [marker_color] * len(coords_list)
     )
 
-    for j, coord in enumerate(behavior_index(index, coords_list)):
+    for j, coord in enumerate(sky_coords_behavior_by_index(index, coords_list)):
         # Plot the coordinate directly with SkyCoord support
         ax.scatter(
             coord.ra.deg,
@@ -82,8 +83,8 @@ def plot_jwst_panels(
     nrows,
     ncols,
     figsize=(10, 10),
-    vmin=0.4,
-    vmax=1.0,
+    vmin=None,
+    vmax=None,
     coords_plotter: callable = lambda ii, ax: None,  # Function to plot coordinates
 ):
     """
@@ -122,6 +123,4 @@ def plot_jwst_panels(
 
         coords_plotter(i, ax)
 
-    plt.tight_layout()
-    plt.show()
     return fig, axes
