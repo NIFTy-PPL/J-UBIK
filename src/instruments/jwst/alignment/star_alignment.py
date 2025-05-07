@@ -5,6 +5,8 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 
+from ....wcs.wcs_jwst_data import WcsJwstData
+from ....wcs.wcs_astropy import WcsAstropy
 from ...gaia.star_finder import join_tables
 from ..data.jwst_data import JwstData
 from ..parse.alignment.star_alignment import FilterAlignmentMeta
@@ -57,52 +59,83 @@ class Star:
 
         return (minx, maxx, miny, maxy)
 
-    def subpixel_position_in_world_coordinates(self, world_coordinates: SkyCoord):
-        return self.skycoord_to_subpixel(self.position, world_coordinates)
-
-    @staticmethod
-    def skycoord_to_subpixel(position: SkyCoord, world_coordinates: SkyCoord):
-        """Calculate the (sub)pixel position of `position` in the `world_coordinates` grid.
+    def pixel_position_in_subsampled_data(
+        self,
+        data_wcs: WcsJwstData | WcsAstropy,
+        min_row: int = 0,
+        min_column: int = 0,
+        subsample_factor: int = 1,
+    ):
+        """Get the pixel position of the star position in the (subsampled) data grid.
 
         Parameters
         ----------
-        position : SkyCoord                         # the star
-        world_coordinates   : SkyCoord (ny, nx)     # pixel-centre grid
+        data_wcs : WcsJwstData | WcsAstropy
+            The wcs of the data.
+        min_row: int, optional
+            The row index of the first pixel for a subpart of the data.
+        min_column: int, optional
+            The column index of the first pixel for a subpart of the data.
+        subsample_factor: int
+            The factor by which the pixels will be subsampled.
 
         Returns
         -------
-        y_pix, x_pix : float
-            0-based pixel coordinates whose fractional part gives the sub-pixel
-            offset (0.0 = lower edge, 0.5 = centre, 1.0 = upper edge).
+        x_pix, y_pix : tuple[float]
+            The pixel position of the star in the subsampled data.
+            (0.0, 0.0)   = pixel center of the upper-left corner of the grid.
+            (-0.5, -0.5) = upper-left corner of the grid.
         """
-        # --- 1. which pixel centre is closest? -------------------------------
-        sep = position.separation(world_coordinates)  # great-circle distance [[2]]
-        i0, j0 = np.unravel_index(np.argmin(sep), world_coordinates.shape)
-        centre = world_coordinates[i0, j0]
+        return self.skycoord_to_subpixel(
+            self.position,
+            data_wcs,
+            min_row=min_row,
+            min_column=min_column,
+            subsample_factor=subsample_factor,
+        )
 
-        # --- 2. build a tiny tangent plane around that pixel -----------------
-        off_frame = centre.skyoffset_frame()  # gnomonic projection
-        star_off = position.transform_to(off_frame)
+    @staticmethod
+    def skycoord_to_subpixel(
+        position: SkyCoord,
+        data_wcs: WcsJwstData | WcsAstropy,
+        min_row: int = 0,
+        min_column: int = 0,
+        subsample_factor: int = 1,
+    ):
+        """Calculate the (sub)pixel position of `position` in the `data_wcs`.
+        If `subsample_factor` is provided, this will
 
-        # --- 3. estimate one-pixel steps along x and y -----------------------
-        # protect against edges of the array
-        j1 = j0 + 1 if j0 < world_coordinates.shape[1] - 1 else j0 - 1
-        i1 = i0 + 1 if i0 < world_coordinates.shape[0] - 1 else i0 - 1
+        Parameters
+        ----------
+        position : SkyCoord
+            The position of the star.
+        data_wcs : WcsJwstData | WcsAstropy
+            The wcs of the data.
+        min_row: int, optional
+            The row index of the first pixel for a subpart of the data.
+        min_column: int, optional
+            The column index of the first pixel for a subpart of the data.
+        subsample_factor : int, optional
+            Factor by which each detector pixel is divided. `1` (default) means native
+            pixels, `N` means every pixel is replaced with an `NxN` finer grid.
 
-        dx = world_coordinates[i0, j1].transform_to(off_frame).lon.to(u.arcsec).value
-        dy = world_coordinates[i1, j0].transform_to(off_frame).lat.to(u.arcsec).value
-        scale_x = abs(dx)  # arcsec per pixel along x
-        scale_y = abs(dy)  # arcsec per pixel along y
+        Returns
+        -------
+        x_pix, y_pix : tuple[float]
+            The pixel position of the star in the subsampled data.
+            (0.0, 0.0)   = pixel center of the upper-left corner of the grid.
+            (-0.5, -0.5) = upper-left corner of the grid.
+        """
 
-        # --- 4. fractional offset inside the host pixel ----------------------
-        frac_x = star_off.lon.to(u.arcsec).value / scale_x  # −0.5 … +0.5
-        frac_y = star_off.lat.to(u.arcsec).value / scale_y
+        x_detector, y_detector = data_wcs.world_to_pixel(position)
+        x_detector -= min_column
+        y_detector -= min_row
 
-        # --- 5. full floating-point pixel coordinate -------------------------
-        x_pix = j0 + 0.5 + frac_x  # 0-based; centre sits at *.5
-        y_pix = i0 + 0.5 + frac_y
+        if subsample_factor != 1:
+            x_detector *= subsample_factor
+            y_detector *= subsample_factor
 
-        return y_pix, x_pix
+        return float(x_detector), float(y_detector)
 
 
 @dataclass

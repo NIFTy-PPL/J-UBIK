@@ -120,7 +120,6 @@ def build_jwst_likelihoods(
         target_preloading = target_preloading.align_shapes()
 
         target_data = TargetData()
-
         stars = filter_alignment.get_stars()
         stars_data = {star.id: StarData() for star in stars}
 
@@ -140,6 +139,7 @@ def build_jwst_likelihoods(
             )
             psf = load_psf_kernel(
                 jwst_data=jwst_data,
+                subsample=jwst_data.meta.subsample,
                 target_center=grid.spatial.center,
                 config_parameters=psf_kernel_configs,
             )
@@ -169,20 +169,27 @@ def build_jwst_likelihoods(
                 ).value
                 fov_pixel = (int(np.round(fov_pixel)),) * 2
 
-                data, mask, std, data_subsampled_centers = (
+                bounding_indices = star.bounding_indices(jwst_data, fov_pixel)
+                data, mask, std, _ = (
                     jwst_data.bounding_data_mask_std_subpixel_by_bounding_indices(
-                        None,
-                        star.bounding_indices(jwst_data, fov_pixel),
-                        yaml_to_corner_mask_configs(cfg[telescope_key]),
+                        reconstruction_grid_wcs=None,
+                        bounding_box_xmin_xmax_ymin_ymax=bounding_indices,
+                        additional_masks_corners=yaml_to_corner_mask_configs(
+                            cfg[telescope_key]
+                        ),
                     )
                 )
                 psf = load_psf_kernel(
                     jwst_data=jwst_data,
+                    subsample=jwst_data.meta.subsample,
                     target_center=star.position,
                     config_parameters=psf_kernel_configs,
                 )
-                star_in_subsampled_pixels = star.subpixel_position_in_world_coordinates(
-                    data_subsampled_centers
+                star_in_subsampled_pixels = star.pixel_position_in_subsampled_data(
+                    jwst_data.wcs,
+                    min_row=bounding_indices[0],
+                    min_column=bounding_indices[2],
+                    subsample_factor=jwst_data.meta.subsample,
                 )
 
                 star_data.append_observation(

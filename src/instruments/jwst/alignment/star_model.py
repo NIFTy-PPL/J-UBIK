@@ -84,28 +84,40 @@ class StarInData(jft.Model):
         self._skies = skies
         self.brightness = brightness
         self.location = location
-        self._call = vmap(bilinear_point_source_evaluation, (0, 0, None))
+        self._vmap_call = vmap(bilinear_point_source_evaluation, (0, 0, None))
 
         super().__init__(domain=brightness.domain | location.domain)
 
     def __call__(self, x):
         brightness = self.brightness(x)
         locations = self.location(x)
-        return self._call(self._skies, locations, brightness)
+        return self._vmap_call(self._skies, locations, brightness)
 
 
 def build_star_in_data(
     filter_key: str,
-    star: Star,
+    star_id: int,
     star_light_prior: ProbabilityConfig,
     star_data: StarData,
-    shift_and_rotation_correction: ShiftAndRotationCorrection,
+    shift_and_rotation_correction: ShiftAndRotationCorrection | None,
 ):
+    """Build star in data field.
+
+    Parameters
+    ----------
+    filter_key: str
+        Name of the filter
+    star_id: int
+        The identifcation number of the star, used for the brightness prior.
+    star_light_prior: ProbabilityConfig
+        The prior for the star brightness
+    """
+
     skies = np.array(star_data.sky_array)
     data_meta = star_data.meta
 
     brightness = build_parametric_prior_from_prior_config(
-        f"{filter_key}_{star.id}_brightness",
+        f"{filter_key}_{star_id}_brightness",
         star_light_prior,
         shape=(),
         as_model=True,

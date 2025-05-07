@@ -134,6 +134,7 @@ def build_webb_psf(
 
 def load_psf_kernel(
     jwst_data: JwstData,
+    subsample: int,
     target_center: SkyCoord,
     config_parameters: PsfKernelConfig,
 ) -> ArrayLike:
@@ -169,7 +170,7 @@ def load_psf_kernel(
     camera = jwst_data.camera.lower()
     filter = jwst_data.filter.lower()
     center_pixel = jwst_data.wcs.world_to_pixel(target_center)
-    subsample = jwst_data.meta.subsample
+    # subsample = jwst_data.meta.subsample
     webbpsf_path = config_parameters.webbpsf_path
     psf_library_path = config_parameters.psf_library_path
     psf_arcsec = config_parameters.psf_arcsec
