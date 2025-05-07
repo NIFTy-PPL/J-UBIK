@@ -1,8 +1,8 @@
-import jax
 import jax.numpy as jnp
 import nifty8.re as jft
 import numpy as np
-from jax import lax, vmap
+from jax import lax, vmap, Array
+
 
 from ..parametric_model.parametric_prior import build_parametric_prior_from_prior_config
 from ..parse.jwst_likelihoods import StarData
@@ -15,11 +15,50 @@ from ..rotation_and_shift.coordinates_correction import (
 )
 
 
-def square_point_source_in_sky_from_location(sky, location, flux):
-    loc_in_pixel, pixel_pos = jnp.modf(location[::-1] - jnp.array([0.5, 0.5]))
-    pixel_pos = pixel_pos.astype(int)
+def bilinear_point_source_evaluation(
+    sky: np.ndarray | Array,
+    location_xy: np.ndarray | Array,
+    flux: float | np.ndarray | Array,
+):
+    """Calculate the point source in sky using bilinear interpolation weights.
 
-    y, x = loc_in_pixel
+    Parameters
+    ----------
+    sky: np.ndarray | jax.Array
+        The sky to which the point source is added.
+    location_xy: np.ndarray
+        The location of the point source. Note:
+        1) Assuming the astropy convention that the center of the reference pixel has
+           the index (0, 0). Hence the upper-left corner (in `ij` indexing) of the
+           reference pixel has the index (-0.5, -0.5).
+        2) Assuming `xy` indexing of the location, hence x-position of the location is
+           in the first index of the location array, and the y-position in the second
+           index of the location, i.e.: (x, y).
+           Note: The sky array is `ij` indexed, hence the first index tells the
+           y-position. Hence, we have to revert the pixel position, see `pixel_pos`.
+           Furthermore, the bilinear weights are evaluated accordingly:
+           w00           w01
+              +----|-x--+
+              |    |    |
+              |    |    |
+              +---------+
+              y    | .  |
+              |    |    |
+              +----|----+
+           w10           w11
+    flux: float | np.ndarray | Array
+        The flux value of the point source.
+
+    Warning
+    -------
+    The implementation breaks down for locations outside the grid spanned by the center
+    of the sky pixels. Hence, all negative locations, e.g. (-0.5, -0.5), and all
+    locations beyond (shape-1, shape-1), lead to erroneous evaluations of the flux.
+    """
+    loc_in_pixel, pixel_pos = jnp.modf(location_xy)
+    pixel_pos = pixel_pos.astype(int)[::-1]
+
+    x, y = loc_in_pixel
 
     # bilinear weights
     w00 = (1.0 - x) * (1.0 - y)
@@ -30,9 +69,9 @@ def square_point_source_in_sky_from_location(sky, location, flux):
     point_source = jnp.array(((w00, w01), (w10, w11)))
     point_source = flux * point_source
 
+    # Indexing into array
     sky_slice = lax.dynamic_slice(sky, pixel_pos, point_source.shape)
-    sky = lax.dynamic_update_slice(sky, sky_slice + point_source, pixel_pos)
-    return sky
+    return lax.dynamic_update_slice(sky, sky_slice + point_source, pixel_pos)
 
 
 class StarInData(jft.Model):
@@ -45,7 +84,7 @@ class StarInData(jft.Model):
         self._skies = skies
         self.brightness = brightness
         self.location = location
-        self._call = vmap(square_point_source_in_sky_from_location, (0, 0, None))
+        self._call = vmap(bilinear_point_source_evaluation, (0, 0, None))
 
         super().__init__(domain=brightness.domain | location.domain)
 
@@ -92,7 +131,7 @@ if __name__ == "__main__":
     from astropy.wcs import WCS
     import matplotlib.pyplot as plt
 
-    position = np.array((0.0, 0.5))  # centre of pixel (1,0)
+    position = np.array((0.5, 1.0))  # xy indexing
 
     pix_scale = 1.0 * u.arcsec  # desired pixel size
     deg_per_pix = pix_scale.to(u.deg).value  # ≃ 2.777…×10⁻⁴ deg
@@ -110,8 +149,9 @@ if __name__ == "__main__":
 
     # convert that pixel to RA/Dec with the same WCS
     star_sc = wcs.pixel_to_world(*position)
-    x_star, y_star = wcs.world_to_pixel(star_sc)  # [[2]]
-    print(x_star, y_star)  # → (2.5, 2.5)  (centre of image)
+
+    x_star, y_star = wcs.world_to_pixel(pix_zero)
+    print(x_star, y_star)
 
     # pixel centres
     yy, xx = np.mgrid[:N, :N] + 0.5
@@ -119,11 +159,11 @@ if __name__ == "__main__":
 
     data = np.arange(N * N).reshape(N, N) / 16
     sky = np.zeros((N, N), dtype=float)
-    star_inter = square_point_source_in_sky_from_location(sky, position + 0.5, 1.0)
+    star = bilinear_point_source_evaluation(jnp.array(sky), position, 1.0)
 
     star_position_plot = partial(plot_sky_coords, sky_coords=[star_sc])
     fig, axes = plot_jwst_panels(
-        [data, star_inter],
+        [data, star],
         [wcs, wcs],
         vmax=data.max(),
         nrows=1,
@@ -132,5 +172,3 @@ if __name__ == "__main__":
     )
     axes[0].scatter(*position)
     plt.show()
-
-# flux = 1.0
