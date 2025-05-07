@@ -46,12 +46,12 @@ class JwstResponse(jft.Model):
     def __init__(
         self,
         sky_domain: dict,
-        rotation_and_shift: RotationAndShift | None,
-        psf: Callable[[ArrayLike], ArrayLike],
-        unit_conversion: Callable[[ArrayLike], ArrayLike],
-        integrate: Callable[[ArrayLike], ArrayLike],
+        rotation_and_shift: RotationAndShift | Callable[ArrayLike, ArrayLike],
+        psf: Callable[ArrayLike, ArrayLike],
+        unit_conversion: Callable[ArrayLike, ArrayLike],
+        integrate: Callable[ArrayLike, ArrayLike],
         zero_flux_model: jft.Model | None,
-        mask: Callable[[ArrayLike], ArrayLike],
+        mask: Callable[ArrayLike, ArrayLike],
     ):
         """
         Initialize the DataModel with components for various data
@@ -271,7 +271,7 @@ def build_jwst_response_stars(
 
     return JwstResponse(
         sky_domain=sky_in_data.target,
-        rotation_and_shift=None,
+        rotation_and_shift=lambda x: x,
         psf=psf,
         unit_conversion=unit_conversion,
         integrate=integrate,

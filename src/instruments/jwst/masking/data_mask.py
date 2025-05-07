@@ -72,7 +72,7 @@ def get_mask_from_mask_corners(
 
     min_x, _, min_y, _ = bounding_box_xmin_xmax_ymin_ymax
     centers = subsample_pixel_centers(
-        data_wcs.bounding_box_indices_from_world_extrema(mask_corners),
+        data_wcs.bounding_indices_from_world_extrema(mask_corners),
         data_wcs,
         subsample=1,
         as_pixel_values=True,

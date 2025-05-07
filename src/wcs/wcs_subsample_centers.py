@@ -16,7 +16,7 @@ from .wcs_astropy import WcsAstropy
 
 
 def subsample_pixel_centers(
-    bounding_box_xmin_xmax_ymin_ymax: tuple[int, int, int, int],
+    bounding_indices: tuple[int, int, int, int],
     to_be_subsampled_grid_wcs: Union[WcsAstropy, WcsJwstData],
     subsample: int,
     as_pixel_values: bool = False,
@@ -26,25 +26,28 @@ def subsample_pixel_centers(
 
     Parameters
     ----------
-    world_corners: SkyCoord
-        The sky/world positions of the extrema inside which to find the
-        subsampling centers.
-        Works also if they are outside the grids.
+    bounding_indices: tuple[int]
+        The min_row, max_row, min_column, max_column indices of the bounding box.
     to_be_subsampled_grid_wcs: Union[WcsAstropy, WcsJwstData]
         The world coordinate system associated with the grid to be subsampled.
     subsample: int
         The multiplicity of the subsampling along each axis. How many
         sub-pixels will a single pixel in the to_be_subsampled_grid have along
         each axis.
+    as_pixel_values: bool, optional
+        If True, the pixel values of the subsample centers are returned.
+        If False, the world coordinates of the subsample centers are returned.
 
     Returns
     -------
-    The world coordinates of subsampled pixel centers of the `to_be_subsampled_grid`.
+    subsample_centers: SkyCoord | np.ndarray
+        The world coordinates or pixel values (if as_pixel_values=True) of subsampled
+        pixel centers of the `to_be_subsampled_grid`.
     """
 
     # NOTE : GWCS.wcs expects `xy` indexing. Other arrays are not tested.
     tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_bounding_indices(
-        *bounding_box_xmin_xmax_ymin_ymax, indexing="xy"
+        *bounding_indices, indexing="xy"
     )
 
     ps = np.arange(0.5 / subsample, 1, 1 / subsample) - 0.5

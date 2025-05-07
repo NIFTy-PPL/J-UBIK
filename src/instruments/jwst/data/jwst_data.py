@@ -61,94 +61,66 @@ class JwstData:
             pixel_distance=get_pixel_distance(self.filter),
         )
 
-    def _handle_extrema(
-        self,
-        extrema: SkyCoord | tuple[int, int, int, int],
-    ) -> tuple[int, int, int, int]:
-        if isinstance(extrema, SkyCoord):
-            return self.wcs.bounding_box_indices_from_world_extrema(extrema, self.shape)
-        elif (
-            isinstance(extrema, tuple)
-            or isinstance(extrema, list)
-            or isinstance(extrema, np.ndarray)
-        ):
-            assert len(extrema) == 4
-            return extrema
-
-        raise ValueError(
-            "The extrema have to be given as `astropy.coordinates.SkyCoord` or "
-            "tuple | ndarray holding `minx_maxx_miny_maxy`."
-        )
-
-    def data_inside_extrema(
-        self, extrema: SkyCoord | tuple[int, int, int, int]
+    def data_from_bounding_indices(
+        self, min_row: int, max_row: int, min_column: int, max_column: int
     ) -> ArrayLike:
         """
         Find the data values inside the extrema.
 
         Parameters
         ----------
-        extrema : SkyCoord | tuple[int, int, int, int]
-            If SkyCoord, the values represent the world location of the grid corners.
-            If tuple[int], the values are assumed to be (minx, maxx, miny, maxy) which
-            are the borders of the data.
+        min_row: int
+        max_row: int
+        min_column: int
+        max_column: int
 
         Returns
         -------
         data : ArrayLike
             Data values inside the extrema.
         """
-        minx, maxx, miny, maxy = self._handle_extrema(extrema)
+        return self.dm.data[min_row : max_row + 1, min_column : max_column + 1]
 
-        # NOTE : The data needs matrix indexing, hence y is on the first axis.
-        return self.dm.data[miny : maxy + 1, minx : maxx + 1]
-
-    def std_inside_extrema(
-        self, extrema: SkyCoord | tuple[int, int, int, int]
+    def std_from_bounding_indices(
+        self, min_row: int, max_row: int, min_column: int, max_column: int
     ) -> ArrayLike:
         """Find the data values inside the extrema.
 
         Parameters
         ----------
-        extrema : SkyCoord | tuple[int, int, int, int]
-            If SkyCoord, the values represent the world location of the grid corners.
-            If tuple[int], the values are assumed to be (minx, maxx, miny, maxy) which
-            are the borders of the data.
+        min_row: int
+        max_row: int
+        min_column: int
+        max_column: int
 
         Returns
         -------
-        data : ArrayLike
+        std : ArrayLike
             Data values inside the extrema.
         """
+        return self.dm.err[min_row : max_row + 1, min_column : max_column + 1]
 
-        minx, maxx, miny, maxy = self._handle_extrema(extrema)
-        # NOTE : The data needs matrix indexing, hence y is on the first axis.
-        return self.dm.err[miny : maxy + 1, minx : maxx + 1]
-
-    def nan_inside_extrema(
-        self, extrema: SkyCoord | tuple[int, int, int, int]
+    def nan_from_bounding_indices(
+        self, min_row: int, max_row: int, min_column: int, max_column: int
     ) -> ArrayLike:
         """
         Get a nan-mask of the data inside the extrema.
 
         Parameters
         ----------
-        extrema : SkyCoord | tuple[int, int, int, int]
-            If SkyCoord, the values represent the world location of the grid corners.
-            If tuple[int], the values are assumed to be (minx, maxx, miny, maxy) which
-            are the borders of the data.
+        min_row: int
+        max_row: int
+        min_column: int
+        max_column: int
 
         Returns
         -------
         nan-mask : ArrayLike
             Mask corresponding to the nan values inside the extrema.
         """
-
-        minx, maxx, miny, maxy = self._handle_extrema(extrema)
-        # NOTE : The data needs matrix indexing, hence y is on the first axis.
-        return (~np.isnan(self.dm.data[miny : maxy + 1, minx : maxx + 1])) * (
-            ~np.isnan(self.dm.err[miny : maxy + 1, minx : maxx + 1])
-        )
+        data = self.data_from_bounding_indices(min_row, max_row, min_column, max_column)
+        std = self.std_from_bounding_indices(min_row, max_row, min_column, max_column)
+        return (~np.isnan(data)) * (~np.isnan(std))
 
     @property
     def half_power_wavelength(self):
@@ -160,85 +132,29 @@ class JwstData:
         pivot, *_ = JWST_FILTERS[self.filter]
         return Color(pivot * units.micrometer)
 
-    @property
-    def transmission(self):
-        """
-        Effective response is the mean transmission value over the
-        wavelength range.
-
-        see:
-        https://jwst-docs.stsci.edu/jwst-mid-infrared-instrument/miri-instrumentation/miri-filters-and-dispersers#gsc.tab=0
-        """
-        pivot, bw, effective_response, blue, red = JWST_FILTERS[self.filter]
-        return effective_response
-
-    def bounding_data_mask_std_subpixel_by_world_corners(
+    def bounding_data_mask_std_by_bounding_indices(
         self,
-        reconstruction_grid_wcs: WcsAstropy,
-        world_corners: list[SkyCoord],
+        row_minmax_column_minmax: tuple[int] | np.ndarray,
+        reconstruction_grid_wcs: WcsAstropy | None = None,
         additional_masks_corners: list[CornerMaskConfig] | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Return a subpart of the data, mask, and std inside a bounding box surrounding
-        the `world_corners`.
+        """Data, mask, and std cutout corresponding to `row_minmax_column_minmax`.
 
         Parameters
         ----------
-        reconstruction_grid_wcs: WcsAstropy,
-            The wcs of the reconstruction/index grid.
-        world_corners: list[SkyCoord]
-            The world corners of the cutout. I.e. the absolute positions in the world.
-        additional_masks_corners: list[CornerMaskConfig]
-            Holds the egde points of additional masks for the data.
-
-        Returns
-        -------
-        data: np.ndarray[float],
-        mask: np.ndarray[bool],
-        std: np.ndarray[float]
-        subsampled_pixel_centers: SkyCoord
-            The world coordinates of the subsampled data pixels.
-
-        Notes
-        -----
-        The mask is true where the data will be taken, i.e. supplied to the likelihood.
-        """
-
-        xmin_xmax_ymin_ymax = np.array(
-            self.wcs.bounding_box_indices_from_world_extrema(world_corners)
-        )
-        return self.bounding_data_mask_std_subpixel_by_bounding_indices(
-            reconstruction_grid_wcs=reconstruction_grid_wcs,
-            bounding_box_xmin_xmax_ymin_ymax=xmin_xmax_ymin_ymax,
-            additional_masks_corners=additional_masks_corners,
-        )
-
-    def bounding_data_mask_std_subpixel_by_bounding_indices(
-        self,
-        reconstruction_grid_wcs: WcsAstropy | None,
-        bounding_box_xmin_xmax_ymin_ymax: tuple[int] | np.ndarray,
-        additional_masks_corners: list[CornerMaskConfig] | None = None,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Return a subpart of the data, mask, and std inside a bounding box surrounding
-        the `world_corners`.
-
-        Parameters
-        ----------
-        reconstruction_grid_wcs: WcsAstropy | None
+        row_minmax_column_minmax: tuple[int] | np.ndarray
+            The slice indices, corresponding to a bounding box for the data.
+        reconstruction_grid_wcs: WcsAstropy | None, optional
             The wcs of the reconstruction/index grid. Used for getting the mask, where
             the reconstruction grid has values. If None no value will be masked from the
             grid.
-        bounding_box_xmin_xmax_ymin_ymax: tuple[int] | np.ndarray
-            The pixel postions edges of the bounding box, inside the data (corresponding
-            from the data_wcs).
-            Previously cacuclated by,
-            data_wcs.bounding_box_indices_from_world_extrema(world_corners).
-        additional_masks_corners: list[CornerMaskConfig]
+        additional_masks_corners: list[CornerMaskConfig] | None, optional
             Holds the egde points of additional masks for the data.
 
         Returns
         -------
-        data: np.ndarray[float],
-        mask: np.ndarray[bool],
+        data: np.ndarray[float]
+        mask: np.ndarray[bool]
         std: np.ndarray[float]
 
         Notes
@@ -246,29 +162,46 @@ class JwstData:
         The mask is true where the data will be taken, i.e. supplied to the likelihood.
         """
 
-        data_subsampled_centers = subsample_pixel_centers(
-            bounding_box_xmin_xmax_ymin_ymax=bounding_box_xmin_xmax_ymin_ymax,
-            to_be_subsampled_grid_wcs=self.wcs,
-            subsample=self.meta.subsample,
-        )
-
-        data = self.data_inside_extrema(bounding_box_xmin_xmax_ymin_ymax)
+        data = self.data_from_bounding_indices(*row_minmax_column_minmax)
         mask = get_mask_from_index_centers_within_rgrid(
-            bounding_box_xmin_xmax_ymin_ymax, self.wcs, reconstruction_grid_wcs
+            row_minmax_column_minmax, self.wcs, reconstruction_grid_wcs
         )
-        mask *= self.nan_inside_extrema(bounding_box_xmin_xmax_ymin_ymax)
-        std = self.std_inside_extrema(bounding_box_xmin_xmax_ymin_ymax)
+        mask *= self.nan_from_bounding_indices(*row_minmax_column_minmax)
+        std = self.std_from_bounding_indices(*row_minmax_column_minmax)
 
         if additional_masks_corners is not None:
             extra_masks = [
                 get_mask_from_mask_corners(
-                    data.shape, self.wcs, bounding_box_xmin_xmax_ymin_ymax, mc.corners
+                    data.shape, self.wcs, row_minmax_column_minmax, mc.corners
                 )
                 for mc in additional_masks_corners
             ]
             mask *= ~np.sum(extra_masks, axis=0, dtype=bool)
 
-        return data, mask, std, data_subsampled_centers
+        return data, mask, std
+
+    def data_subpixel_centers(
+        self,
+        row_minmax_column_minmax: tuple[int] | np.ndarray,
+        subsample: int = 1,
+    ):
+        """Subsampled data pixel centers according to `row_minmax_column_minmax`.
+
+        Parameters
+        ----------
+        row_minmax_column_minmax: tuple[int] | np.ndarray
+            The slice indices, corresponding to a bounding box for the data.
+        subsample: int, optional
+            The multiplicity of the subsampling along each axis. How many sub-pixels
+            will a single pixel in the to_be_subsampled_grid have along each axis. `1`
+            will correspond to no subsampling, i.e. the world coordinates of the
+            data pixel centers.
+        """
+        return subsample_pixel_centers(
+            bounding_indices=row_minmax_column_minmax,
+            to_be_subsampled_grid_wcs=self.wcs,
+            subsample=subsample,
+        )
 
     def get_boresight_world_coords(self):
         """Returns the world coordinate of the boresight (v1) from a JWST datamodel."""
@@ -276,7 +209,7 @@ class JwstData:
             self.dm.meta.pointing.ra_v1, self.dm.meta.pointing.dec_v1, unit="deg"
         )
 
-    def position_outside_data(self, position: SkyCoord) -> bool:
+    def is_coordinate_outside_data(self, position: SkyCoord) -> bool:
         pos = np.array(self.wcs.world_to_pixel(position))
         cond1 = np.any(pos < 0)
         cond2 = (pos[0] > self.shape[0]) * (pos[1] > self.shape[1])

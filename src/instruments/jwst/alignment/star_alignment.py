@@ -35,6 +35,19 @@ class Star:
     def bounding_indices(
         self, jwst_data: JwstData, shape: tuple[int, int]
     ) -> tuple[int, int, int, int]:
+        """Get the bounding pixel slice for the star position.
+
+        Parameters
+        ----------
+        jwst_data: JwstData
+            The jwst observation containing the star.
+        shape: tuple
+            The shape of the cutout.
+
+        Returns
+        -------
+        (min_row, max_row, min_column, max_column) of the cutout.
+        """
         pixel_position = jwst_data.wcs.world_to_pixel(self.position)
         return self._get_bounding_indices(pixel_position, shape, jwst_data.shape)
 
@@ -44,20 +57,59 @@ class Star:
         shape: tuple[int, int],
         jwst_data_shape: tuple[int, int],
     ) -> tuple[int, int, int, int]:
-        for sh in shape:
-            assert sh % 2 != 0, (
-                "Provide uneven pixel shapes for the star alignment cutouts."
-            )
+        """
+        Return (y_min, y_max, x_min, x_max) so that
+        frame[y_min:y_max, x_min:x_max] has exactly `shape`
+        and is fully contained in the image.
+        """
+        # ---------------------------------------------------------------------
+        # 1. Sanity checks
+        # ---------------------------------------------------------------------
+        if len(shape) != 2:
+            raise ValueError("shape must be a length-2 tuple")
+        if any(s % 2 == 0 for s in shape):
+            raise ValueError("Provide *odd* dimensions so the star stays centred.")
 
-        pp = [int(t) for t in np.floor(pixel_position)]
-        half = [(sh - 1) // 2 for sh in shape]
+        ny_frame, nx_frame = jwst_data_shape
+        ny_win, nx_win = shape
 
-        minx = max(pp[0] - half[0], 0)
-        miny = max(pp[1] - half[1], 0)
-        maxx = min(pp[0] + half[0], jwst_data_shape[0])
-        maxy = min(pp[1] + half[1], jwst_data_shape[0])
+        # ---------------------------------------------------------------------
+        # 2. Integer centre pixel (row, col)
+        # ---------------------------------------------------------------------
+        cx, cy = (int(np.floor(pixel_position[0])), int(np.floor(pixel_position[1])))
 
-        return (minx, maxx, miny, maxy)
+        # pixels to each side of the centre
+        hy, hx = (ny_win - 1) // 2, (nx_win - 1) // 2
+
+        # initial bounds  (upper bound is *exclusive*)
+        y_min, y_max = cy - hy, cy + hy  # + 1
+        x_min, x_max = cx - hx, cx + hx  # + 1
+
+        # ---------------------------------------------------------------------
+        # 3. Shift window back inside the frame (keeps full size)
+        # ---------------------------------------------------------------------
+        if y_min < 0:  # too far up      → push down
+            y_max += -y_min
+            y_min = 0
+        if y_max > ny_frame:  # too far down    → pull up
+            y_min -= y_max - ny_frame
+            y_max = ny_frame
+
+        if x_min < 0:  # too far left    → push right
+            x_max += -x_min
+            x_min = 0
+        if x_max > nx_frame:  # too far right   → pull left
+            x_min -= x_max - nx_frame
+            x_max = nx_frame
+
+        # ---------------------------------------------------------------------
+        # 4. Final guarantees
+        # ---------------------------------------------------------------------
+        assert 0 <= y_min < y_max <= ny_frame
+        assert 0 <= x_min < x_max <= nx_frame
+        assert (y_max - y_min + 1, x_max - x_min + 1) == (ny_win, nx_win)
+
+        return y_min, y_max, x_min, x_max
 
     def pixel_position_in_subsampled_data(
         self,

@@ -130,12 +130,14 @@ def build_jwst_likelihoods(
             jwst_data = JwstData(filepath, subsample=data_subsample)
             filter_alignment.boresight.append(jwst_data.get_boresight_world_coords())
 
-            data, mask, std, data_subsampled_centers = (
-                jwst_data.bounding_data_mask_std_subpixel_by_bounding_indices(
-                    grid.spatial,
-                    target_preloading.bounding_indices[observation_id],
-                    yaml_to_corner_mask_configs(cfg[telescope_key]),
-                )
+            data, mask, std = jwst_data.bounding_data_mask_std_by_bounding_indices(
+                target_preloading.bounding_indices[observation_id],
+                grid.spatial,
+                yaml_to_corner_mask_configs(cfg[telescope_key]),
+            )
+            data_subsampled_centers = jwst_data.data_subpixel_centers(
+                target_preloading.bounding_indices[observation_id],
+                subsample=jwst_data.meta.subsample,
             )
             psf = load_psf_kernel(
                 jwst_data=jwst_data,
@@ -152,15 +154,8 @@ def build_jwst_likelihoods(
                 psf=psf,
             )
 
-            for ii, star in enumerate(stars):
-                # FIXME : DELETE THIS
-                print("Warning: delete me")
-                if ii > 1:
-                    continue
-
-                star_data = stars_data[star.id]
-
-                if jwst_data.position_outside_data(star.position):
+            for star in stars:
+                if jwst_data.is_coordinate_outside_data(star.position):
                     continue
 
                 fov_pixel = (
@@ -170,14 +165,11 @@ def build_jwst_likelihoods(
                 fov_pixel = (int(np.round(fov_pixel)),) * 2
 
                 bounding_indices = star.bounding_indices(jwst_data, fov_pixel)
-                data, mask, std, _ = (
-                    jwst_data.bounding_data_mask_std_subpixel_by_bounding_indices(
-                        reconstruction_grid_wcs=None,
-                        bounding_box_xmin_xmax_ymin_ymax=bounding_indices,
-                        additional_masks_corners=yaml_to_corner_mask_configs(
-                            cfg[telescope_key]
-                        ),
-                    )
+                data, mask, std = jwst_data.bounding_data_mask_std_by_bounding_indices(
+                    row_minmax_column_minmax=bounding_indices,
+                    additional_masks_corners=yaml_to_corner_mask_configs(
+                        cfg[telescope_key]
+                    ),
                 )
                 psf = load_psf_kernel(
                     jwst_data=jwst_data,
@@ -192,12 +184,14 @@ def build_jwst_likelihoods(
                     subsample_factor=jwst_data.meta.subsample,
                 )
 
-                star_data.append_observation(
+                stars_data[star.id].append_observation(
                     meta=jwst_data.meta,
                     data=data,
                     mask=mask,
                     std=std,
-                    sky_array=np.zeros(data_subsampled_centers.shape),
+                    sky_array=np.zeros(
+                        [s * jwst_data.meta.subsample for s in data.shape]
+                    ),
                     psf=psf,
                     star_in_subsampled_pixles=star_in_subsampled_pixels,
                     observation_id=observation_id,
@@ -217,24 +211,32 @@ def build_jwst_likelihoods(
         for star in stars:
             star_in_subsampled_data_field = build_star_in_data(
                 filter_key=filter_and_files.name,
-                star=star,
+                star_id=star.id,
                 star_light_prior=filter_alignment.alignment_meta.star_light_prior,
+                star_data=stars_data[star.id],
                 shift_and_rotation_correction=shift_and_rotation_correction,
             )
-            exit()
 
-            jwst_stars_response = build_jwst_response_stars(
-                star=star,
-                star_data=stars_data[star.id],
-                data_meta=target_data.meta,
+            zero_flux_model_star = build_zero_flux_model(
+                filter_and_files.name,
+                zero_flux_prior_configs.get_name_setting_or_default(
+                    filter_and_files.name
+                ),
+                shape=(len(stars_data[star.id].data), 1, 1),
+            )
+
+            jwst_star_response = build_jwst_response_stars(
+                sky_in_data=star_in_subsampled_data_field,
+                data_meta=stars_data[star.id].meta,
                 sky_wcs=grid.spatial,
                 sky_meta=sky_meta,
                 shift_and_rotation_correction=shift_and_rotation_correction,
-                psf=np.array(target_data.psf),
-                zero_flux_model=zero_flux_model,
-                data_mask=np.array(target_data.mask),
+                psf=np.array(stars_data[star.id].psf),
+                zero_flux_model=zero_flux_model_star,
+                data_mask=np.array(stars_data[star.id].mask),
             )
-            exit()
+
+        exit()
 
         jwst_target_response = build_jwst_response(
             sky_domain={energy_name: filter_projector.target[energy_name]},

@@ -51,7 +51,7 @@ class WcsMixin:
     """A mixin class providing WCS functionality, assuming pixel_to_world and
     world_to_pixel are implemented."""
 
-    def bounding_box_indices_from_world_extrema(
+    def bounding_indices_from_world_extrema(
         self, world_extrema: SkyCoord, shape_check: Optional[tuple[int, int]] = None
     ) -> tuple[int, int, int, int]:
         """Find the pixels (edges of the pixels) of the bounding box that contains the
@@ -68,9 +68,13 @@ class WcsMixin:
 
         Returns
         -------
-        min_x, max_x, min_y, max_y : Tuple[int, int, int, int]
-            The corners of the pixels of the (typically data) grid that contains the
-            `world_extrema`.
+        min_row, max_row, min_column, max_column: Tuple[int, int, int, int]
+            The array slice for the grid, corresponding to the corners of a grid,
+            typically the data grid, which contain the `world_extrema`.
+
+        Note
+        ----
+        row = y, column = x
         """
 
         edge_points = np.array([self.world_to_pixel(wex) for wex in world_extrema])
@@ -86,76 +90,40 @@ class WcsMixin:
                 {edge_points}"""
                 raise ValueError(o)
 
-        # TODO : Is round the best ?
-        min_x = int(np.floor(np.min(edge_points[:, 0])))
-        max_x = int(np.ceil(np.max(edge_points[:, 0])))
-        min_y = int(np.floor(np.min(edge_points[:, 1])))
-        max_y = int(np.ceil(np.max(edge_points[:, 1])))
-        return min_x, max_x, min_y, max_y
-
-    def bounding_box_index_grid_from_world_extrema(
-        self,
-        world_extrema: SkyCoord,
-        indexing: str,
-        shape_check: tuple[int, int] | None = None,
-    ) -> np.ndarray:
-        """
-        Find the pixel indices of the bounding box that contain the world
-        location world_extrema (wl_extrema).
-
-        Parameters
-        ----------
-        world_extrema : List[SkyCoord]
-            List of SkyCoord objects, representing the world location of the
-            reconstruction grid corners.
-        indexing: str
-            Which indexing format for meshgrid, either 'ij' or 'xy'.
-        shape_check : Optional[tuple[int, int]]
-            When provided the world_extrema are checked for consistency with
-            the underlying data array.
-
-        Returns
-        -------
-        min_x, max, min_y, max_y : tuple[int, int, int, int]
-            Minimum and maximum pixel coordinates of the data grid that contain
-            the edge points.
-        """
-
-        min_x, max_x, min_y, max_y = self.bounding_box_indices_from_world_extrema(
-            world_extrema, shape_check
-        )
-
-        return self.index_grid_from_bounding_indices(
-            min_x, max_x, min_y, max_y, indexing
-        )
+        min_column = int(np.floor(np.min(edge_points[:, 0])))
+        max_column = int(np.ceil(np.max(edge_points[:, 0])))
+        min_row = int(np.floor(np.min(edge_points[:, 1])))
+        max_row = int(np.ceil(np.max(edge_points[:, 1])))
+        return min_row, max_row, min_column, max_column
 
     def index_grid_from_bounding_indices(
         self,
-        min_x: int,
-        max_x: int,
-        min_y: int,
-        max_y: int,
+        min_row: int,
+        max_row: int,
+        min_column: int,
+        max_column: int,
         indexing: str,
     ) -> np.ndarray:
         """Return index array from the bounding indices.
 
         Paramaters
         ----------
-        min_x: int
-        max_x: int
-        min_y: int
-        max_y: int
+        min_column: int
+        max_column: int
+        min_row: int
+        max_row: int
         indexing: str
             Either `xy` or `ij`.
+            Note astropy.wcs uses always xy indexing, hence, the shapes have to be
+            according to this.
         """
 
-        x_indices = np.arange(min_x, max_x + 1)
-        y_indices = np.arange(min_y, max_y + 1)
-        xy = np.array(np.meshgrid(x_indices, y_indices, indexing="xy"))
+        x_indices = np.arange(min_column, max_column + 1)
+        y_indices = np.arange(min_row, max_row + 1)
 
         if indexing == "xy":
-            return xy
+            return np.array(np.meshgrid(x_indices, y_indices, indexing="xy"))
         elif indexing == "ij":
-            return xy[::-1]
+            return np.array(np.meshgrid(y_indices, x_indices, indexing="ij"))
 
         raise ValueError("Either `ij` or `xy` indexing.")

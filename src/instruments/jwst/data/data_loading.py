@@ -27,14 +27,13 @@ class DataBoundsPreloading:
 
         bounding_indices_new = np.array(self.bounding_indices)
         for ii in range(len(bounding_indices_new)):
-            bounding_indices_new[ii, [3, 1]] += shapes_new[ii] - shapes[ii]
+            bounding_indices_new[ii, [1, 3]] += shapes_new[ii] - shapes[ii]
 
         return DataBoundsPreloading(list(shapes_new), list(bounding_indices_new))
 
     def append_shapes_and_bounds(
         self, jwst_data: JwstData, sky_corners: SkyCoord
     ) -> None:
-        self.shapes.append(jwst_data.data_inside_extrema(sky_corners).shape)
-        self.bounding_indices.append(
-            jwst_data.wcs.bounding_box_indices_from_world_extrema(sky_corners)
-        )
+        bounds = jwst_data.wcs.bounding_indices_from_world_extrema(sky_corners)
+        self.shapes.append(jwst_data.data_from_bounding_indices(*bounds).shape)
+        self.bounding_indices.append(bounds)
