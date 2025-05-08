@@ -82,8 +82,8 @@ class Star:
         hy, hx = (ny_win - 1) // 2, (nx_win - 1) // 2
 
         # initial bounds  (upper bound is *exclusive*)
-        y_min, y_max = cy - hy, cy + hy  # + 1
-        x_min, x_max = cx - hx, cx + hx  # + 1
+        y_min, y_max = cy - hy, cy + hy + 1
+        x_min, x_max = cx - hx, cx + hx + 1
 
         # ---------------------------------------------------------------------
         # 3. Shift window back inside the frame (keeps full size)
@@ -107,7 +107,7 @@ class Star:
         # ---------------------------------------------------------------------
         assert 0 <= y_min < y_max <= ny_frame
         assert 0 <= x_min < x_max <= nx_frame
-        assert (y_max - y_min + 1, x_max - x_min + 1) == (ny_win, nx_win)
+        assert (y_max - y_min, x_max - x_min) == (ny_win, nx_win)
 
         return y_min, y_max, x_min, x_max
 

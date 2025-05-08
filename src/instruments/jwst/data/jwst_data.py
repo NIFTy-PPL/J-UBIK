@@ -79,7 +79,7 @@ class JwstData:
         data : ArrayLike
             Data values inside the extrema.
         """
-        return self.dm.data[min_row : max_row + 1, min_column : max_column + 1]
+        return self.dm.data[min_row:max_row, min_column:max_column]
 
     def std_from_bounding_indices(
         self, min_row: int, max_row: int, min_column: int, max_column: int
@@ -98,7 +98,7 @@ class JwstData:
         std : ArrayLike
             Data values inside the extrema.
         """
-        return self.dm.err[min_row : max_row + 1, min_column : max_column + 1]
+        return self.dm.err[min_row:max_row, min_column:max_column]
 
     def nan_from_bounding_indices(
         self, min_row: int, max_row: int, min_column: int, max_column: int

@@ -32,8 +32,9 @@ class DataBoundsPreloading:
         return DataBoundsPreloading(list(shapes_new), list(bounding_indices_new))
 
     def append_shapes_and_bounds(
-        self, jwst_data: JwstData, sky_corners: SkyCoord
+        self, jwst_data: JwstData, bounding_indices: tuple[int, int, int, int]
     ) -> None:
-        bounds = jwst_data.wcs.bounding_indices_from_world_extrema(sky_corners)
-        self.shapes.append(jwst_data.data_from_bounding_indices(*bounds).shape)
-        self.bounding_indices.append(bounds)
+        self.shapes.append(
+            jwst_data.data_from_bounding_indices(*bounding_indices).shape
+        )
+        self.bounding_indices.append(bounding_indices)

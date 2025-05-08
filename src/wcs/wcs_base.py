@@ -71,6 +71,8 @@ class WcsMixin:
         min_row, max_row, min_column, max_column: Tuple[int, int, int, int]
             The array slice for the grid, corresponding to the corners of a grid,
             typically the data grid, which contain the `world_extrema`.
+            The max_row is one pixel more than the pixel that is still considered inside
+            the grid, since slicing needs one pixel more.
 
         Note
         ----
@@ -94,7 +96,9 @@ class WcsMixin:
         max_column = int(np.ceil(np.max(edge_points[:, 0])))
         min_row = int(np.floor(np.min(edge_points[:, 1])))
         max_row = int(np.ceil(np.max(edge_points[:, 1])))
-        return min_row, max_row, min_column, max_column
+
+        # NOTE : The shape slicing needs one more than the maximum index
+        return min_row, max_row + 1, min_column, max_column + 1
 
     def index_grid_from_bounding_indices(
         self,
@@ -118,8 +122,8 @@ class WcsMixin:
             according to this.
         """
 
-        x_indices = np.arange(min_column, max_column + 1)
-        y_indices = np.arange(min_row, max_row + 1)
+        x_indices = np.arange(min_column, max_column)
+        y_indices = np.arange(min_row, max_row)
 
         if indexing == "xy":
             return np.array(np.meshgrid(x_indices, y_indices, indexing="xy"))
