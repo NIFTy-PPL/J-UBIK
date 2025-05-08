@@ -7,3 +7,4 @@ from astropy import units as u
 class SkyMetaInformation:
     grid_extension: tuple[int, int]
     unit: u.Unit
+    dvol: u.Quantity

@@ -1,20 +1,14 @@
 from ...likelihood import build_gaussian_likelihood
 from ...grid import Grid
-from ...wcs.wcs_jwst_data import WcsJwstData
-from .jwst_response import build_jwst_response, build_jwst_response_stars
+from ..gaia.star_finder import load_gaia_stars_in_fov
+from .jwst_response import build_jwst_response, build_sky_to_subsampled_data
 from .data.jwst_data import JwstData
 from .data.data_loading import DataBoundsPreloading
 from .jwst_psf import load_psf_kernel
 from .filter_projector import FilterProjector, build_filter_projector
-from .rotation_and_shift.coordinates_correction import (
-    ShiftAndRotationCorrection,
-)
+from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .plotting.residuals import ResidualPlottingInformation
-from .config_handler import (
-    get_grid_extension_from_config,
-)
-from ..gaia.star_finder import load_gaia_stars_in_fov, join_tables
-from .plotting.plotting_sky import plot_sky_coords, plot_jwst_panels
+from .config_handler import get_grid_extension_from_config
 from .alignment.star_alignment import FilterAlignment
 from .alignment.star_model import build_star_in_data
 from .zero_flux_model import build_zero_flux_model
@@ -54,7 +48,7 @@ def build_jwst_likelihoods(
     telescope_key: str = "telescope",
     sky_unit: u.Unit | None = None,
 ) -> Union[jft.Likelihood, FilterProjector, dict]:
-    """Build the jwst likelihood according to the config and grid."""
+    """Build the jwst likelihood_target according to the config and grid."""
 
     filter_projector = build_filter_projector(
         sky_model, grid, cfg[files_key]["filter"].keys()
@@ -72,6 +66,7 @@ def build_jwst_likelihoods(
     sky_meta = SkyMetaInformation(
         grid_extension=get_grid_extension_from_config(cfg[telescope_key], grid),
         unit=sky_unit,
+        dvol=grid.spatial.dvol,
     )
 
     gaia_alignment_meta_data = FilterAlignmentMeta.from_yaml_dict(
@@ -81,7 +76,8 @@ def build_jwst_likelihoods(
     data_paths = DataFilePaths.from_yaml_dict(cfg[files_key])
 
     target_plotting = ResidualPlottingInformation()
-    likelihoods = []
+    target_filter_likelihoods = []
+    stars_alignment_likelihoods = {}
     for filter_and_files in data_paths.filters:
         target_preloading = DataBoundsPreloading()
 
@@ -110,11 +106,12 @@ def build_jwst_likelihoods(
                 )
             )
 
+            bounding_indices = jwst_data.wcs.bounding_indices_from_world_extrema(
+                grid.spatial.world_corners(extension_value=sky_meta.grid_extension)
+            )
             target_preloading.append_shapes_and_bounds(
-                jwst_data,
-                sky_corners=grid.spatial.world_corners(
-                    extension_value=sky_meta.grid_extension
-                ),
+                jwst_data=jwst_data,
+                bounding_indices=bounding_indices,
             )
 
         target_preloading = target_preloading.align_shapes()
@@ -203,55 +200,28 @@ def build_jwst_likelihoods(
             rotation_center=SkyCoord(filter_alignment.boresight),
         )
 
+        target_in_subsampled_data = build_sky_to_subsampled_data(
+            sky_domain={energy_name: filter_projector.target[energy_name]},
+            data_subsampled_centers=target_data.subsample_centers,
+            sky_wcs=grid.spatial,
+            rotation_and_shift_algorithm=rotation_and_shift_algorithm,
+            shift_and_rotation_correction=shift_and_rotation_correction,
+        )
         zero_flux_model = build_zero_flux_model(
             filter_and_files.name,
             zero_flux_prior_configs.get_name_setting_or_default(filter_and_files.name),
             shape=(len(target_data), 1, 1),
         )
-        for star in stars:
-            star_in_subsampled_data_field = build_star_in_data(
-                filter_key=filter_and_files.name,
-                star_id=star.id,
-                star_light_prior=filter_alignment.alignment_meta.star_light_prior,
-                star_data=stars_data[star.id],
-                shift_and_rotation_correction=shift_and_rotation_correction,
-            )
-
-            zero_flux_model_star = build_zero_flux_model(
-                filter_and_files.name,
-                zero_flux_prior_configs.get_name_setting_or_default(
-                    filter_and_files.name
-                ),
-                shape=(len(stars_data[star.id].data), 1, 1),
-            )
-
-            jwst_star_response = build_jwst_response_stars(
-                sky_in_data=star_in_subsampled_data_field,
-                data_meta=stars_data[star.id].meta,
-                sky_wcs=grid.spatial,
-                sky_meta=sky_meta,
-                shift_and_rotation_correction=shift_and_rotation_correction,
-                psf=np.array(stars_data[star.id].psf),
-                zero_flux_model=zero_flux_model_star,
-                data_mask=np.array(stars_data[star.id].mask),
-            )
-
-        exit()
-
         jwst_target_response = build_jwst_response(
-            sky_domain={energy_name: filter_projector.target[energy_name]},
-            data_subsampled_centers=target_data.subsample_centers,
+            sky_in_subsampled_data=target_in_subsampled_data,
             data_meta=target_data.meta,
-            sky_wcs=grid.spatial,
             sky_meta=sky_meta,
-            rotation_and_shift_algorithm=rotation_and_shift_algorithm,
-            shift_and_rotation_correction=shift_and_rotation_correction,
             psf=np.array(target_data.psf),
             zero_flux_model=zero_flux_model,
             data_mask=np.array(target_data.mask),
         )
 
-        likelihood = build_gaussian_likelihood(
+        likelihood_target = build_gaussian_likelihood(
             jnp.array(
                 np.array(target_data.data)[np.array(target_data.mask)], dtype=float
             ),
@@ -259,7 +229,7 @@ def build_jwst_likelihoods(
                 np.array(target_data.std)[np.array(target_data.mask)], dtype=float
             ),
         )
-        likelihood = likelihood.amend(
+        likelihood_target = likelihood_target.amend(
             jwst_target_response, domain=jft.Vector(jwst_target_response.domain)
         )
 
@@ -270,8 +240,57 @@ def build_jwst_likelihoods(
             mask=np.array(target_data.mask),
             model=jwst_target_response,
         )
-        likelihoods.append(likelihood)
+        target_filter_likelihoods.append(likelihood_target)
 
-    likelihood = reduce(lambda x, y: x + y, likelihoods)
+        filter_alignment_likelihoods = []
+        for star in stars:
+            star_in_subsampled_data = build_star_in_data(
+                filter_key=filter_and_files.name,
+                star_id=star.id,
+                star_light_prior=filter_alignment.alignment_meta.star_light_prior,
+                star_data=stars_data[star.id],
+                shift_and_rotation_correction=shift_and_rotation_correction,
+            )
+            zero_flux_model_star = build_zero_flux_model(
+                filter_and_files.name,
+                zero_flux_prior_configs.get_name_setting_or_default(
+                    filter_and_files.name
+                ),
+                shape=(len(stars_data[star.id].data), 1, 1),
+            )
+            jwst_star_response = build_jwst_response(
+                sky_in_subsampled_data=star_in_subsampled_data,
+                data_meta=stars_data[star.id].meta,
+                sky_meta=sky_meta,
+                psf=np.array(stars_data[star.id].psf),
+                zero_flux_model=zero_flux_model_star,
+                data_mask=np.array(stars_data[star.id].mask),
+            )
+            star_data = stars_data[star.id]
 
-    return likelihood, filter_projector, target_plotting
+            likelihood_star = build_gaussian_likelihood(
+                jnp.array(
+                    np.array(star_data.data)[np.array(star_data.mask)], dtype=float
+                ),
+                jnp.array(
+                    np.array(star_data.std)[np.array(star_data.mask)], dtype=float
+                ),
+            )
+            likelihood_star = likelihood_star.amend(
+                jwst_star_response, domain=jft.Vector(jwst_star_response.domain)
+            )
+            filter_alignment_likelihoods.append(likelihood_star)
+
+        filter_alignment_likelihood = reduce(
+            lambda x, y: x + y, filter_alignment_likelihoods
+        )
+        stars_alignment_likelihoods[filter_and_files.name] = filter_alignment_likelihood
+
+    likelihood_target = reduce(lambda x, y: x + y, target_filter_likelihoods)
+
+    return (
+        likelihood_target,
+        filter_projector,
+        target_plotting,
+        stars_alignment_likelihoods,
+    )

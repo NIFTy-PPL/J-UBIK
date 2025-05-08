@@ -82,8 +82,8 @@ else:
 
 
 sky_model = jft.Model(jft.wrap_left(sky_model, SKY_KEY), domain=sky_model.domain)
-likelihood_raw, filter_projector, data_plotting = build_jwst_likelihoods(
-    cfg, grid, sky_model, sky_key=SKY_KEY, sky_unit=SKY_UNIT
+likelihood_raw, filter_projector, data_plotting, star_alignment_likelihoods = (
+    build_jwst_likelihoods(cfg, grid, sky_model, sky_key=SKY_KEY, sky_unit=SKY_UNIT)
 )
 
 sky_model_with_keys = jft.Model(

@@ -100,7 +100,7 @@ def build_star_in_data(
     star_light_prior: ProbabilityConfig,
     star_data: StarData,
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
-):
+) -> StarInData:
     """Build star in data field.
 
     Parameters
