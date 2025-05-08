@@ -1,3 +1,4 @@
+from collections import namedtuple
 from dataclasses import dataclass, field
 from os import makedirs
 from os.path import join
@@ -18,6 +19,10 @@ from .plotting_base import (
     get_shift_rotation_correction,
 )
 from ..jwst_response import JwstResponse
+
+
+# Define the namedtuple
+FilterData = namedtuple("FilterData", ["data", "std", "mask", "model"])
 
 
 @dataclass
@@ -42,10 +47,25 @@ class ResidualPlottingInformation:
         self.mask.append(mask)
         self.model.append(model)
 
-    def get_filter(self, filter: str):
-        """Return (data, std, mask, model) of filter."""
+    def get_filter(self, filter: str) -> FilterData:
+        """FilterData for `filter`.
+
+        Parameters
+        ----------
+        filter: str
+            The name of the filter
+
+        Returns
+        -------
+        FilterData = (data, std, mask, model)
+        """
         index = self.filter.index(filter)
-        return self.data[index], self.std[index], self.mask[index], self.model[index]
+        return FilterData(
+            data=self.data[index],
+            std=self.std[index],
+            mask=self.mask[index],
+            model=self.model[index],
+        )
 
 
 def _determine_xlen_residuals(
@@ -101,9 +121,6 @@ def build_plot_sky_residuals(
 
     residual_plotting_config = plotting_config.data
 
-    # if isinstance(sky_model_with_filters.target, dict):
-    #     ylen = len(next(iter(sky_model_with_filters.target)))
-    # else:
     ylen = len(sky_model_with_filters.target)
     xlen = 3 + _determine_xlen_residuals(residual_plotting_info, xmax_residuals)
 
@@ -113,8 +130,8 @@ def build_plot_sky_residuals(
         position_or_samples: Union[dict, jft.Samples],
         state_or_none: jft.OptimizeVIState | None = None,
     ):
-        print(f"Results: {results_directory}")
-        print("Plotting residuals")
+        jft.logger.info(f"Results: {results_directory}")
+        jft.logger.info("Plotting residuals")
 
         fig, axes = plt.subplots(ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300)
         ims = np.zeros_like(axes)

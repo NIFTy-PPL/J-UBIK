@@ -210,53 +210,6 @@ def plot_prior(
         plot_lens(position)
 
 
-def build_plot_model_samples(
-    results_directory: str,
-    model_name: str,
-    model: jft.Model,
-    mapping_axis: int | None = None,
-    plotting_config: dict = {},
-):
-    sky_directory = join(results_directory, model_name)
-    makedirs(sky_directory, exist_ok=True)
-
-    norm = plotting_config.get("norm", Normalize)
-    sky_min = plotting_config.get("min", 5e-4)
-    extent = plotting_config.get("extent")
-
-    def plot_sky_samples(samples: jft.Samples, x: jft.OptimizeVIState):
-        samps_big = [model(si) for si in samples]
-        mean, std = jft.mean_and_std(samps_big)
-        vmin = np.max((mean.min(), sky_min))
-        vmax = mean.max()
-
-        if mapping_axis is None:
-            ylen, xlen = find_closest_factors(len(samples) + 2)
-        else:
-            ylen, xlen = model.target[mapping_axis], len(samples) + 2
-        fig, axes = plt.subplots(ylen, xlen, figsize=(2 * xlen, 1.5 * ylen), dpi=300)
-
-        if mapping_axis is None:
-            axes = [axes]
-
-        for axi in axes:
-            for ax, fld in zip(axi.flatten(), samps_big):
-                im = ax.imshow(
-                    fld,
-                    origin="lower",
-                    extent=extent,
-                    norm=norm(vmin=vmin, vmax=vmax),
-                    interpolation="None",
-                )
-                fig.colorbar(im, ax=ax, shrink=0.7)
-
-        fig.tight_layout()
-        fig.savefig(join(sky_directory, f"{x.nit:02d}.png"), dpi=300)
-        plt.close()
-
-    return plot_sky_samples
-
-
 def rgb_plotting(
     lens_system,
     samples: jft.Samples,

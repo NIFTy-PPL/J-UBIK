@@ -60,6 +60,43 @@ def plot_data_data_model_residuals(
     return ims
 
 
+def plot_data_residuals(
+    ims: list,
+    axes: list,
+    data_key: str,
+    data: np.ndarray,
+    data_model: np.ndarray,
+    std: np.ndarray,
+    plotting_config: FieldPlottingConfig,
+):
+    """Plot three panels (data, model, data-model).
+
+    Parameters
+    ----------
+
+    """
+    max_d = plotting_config.get_max(data)
+    min_d = plotting_config.get_min(data)
+
+    axes[0].set_title(f"Data {data_key}")
+    axes[1].set_title("Data - model / std")
+    ims[0] = axes[0].imshow(
+        data,
+        norm=plotting_config.norm,
+        vmin=min_d,
+        vmax=max_d,
+        **plotting_config.rendering,
+    )
+    ims[1] = axes[1].imshow(
+        (data - data_model) / std,
+        vmin=-3,
+        vmax=3,
+        cmap="RdBu_r",
+        **plotting_config.rendering,
+    )
+    return ims
+
+
 def display_text(ax: plt.Axes, text: dict, **kwargs):
     """Display text on plot
     ax: matplotlib axis
@@ -187,9 +224,15 @@ def get_position_or_samples_of_model(
     return mean, std
 
 
+def _get_model_samples_or_position(position_or_samples, sky_model):
+    if isinstance(position_or_samples, jft.Samples):
+        return [sky_model(si) for si in position_or_samples]
+    return sky_model(position_or_samples)
+
+
 def _get_data_model_and_chi2(
     position_or_samples: Union[dict, jft.Samples, jft.Vector],
-    sky_or_skies: np.ndarray,
+    sky_or_skies: np.ndarray | None,
     data_model: jft.Model,
     data: np.ndarray,
     mask: np.ndarray,
@@ -207,7 +250,10 @@ def _get_data_model_and_chi2(
             tmp = np.zeros_like(data)
             while isinstance(si, jft.Vector):
                 si = si.tree
-            tmp[mask] = data_model(sky_or_skies[ii] | si)
+            if sky_or_skies is None:
+                tmp[mask] = data_model(si)
+            else:
+                tmp[mask] = data_model(sky_or_skies[ii] | si)
             model_d.append(tmp)
         model_mean = jft.mean(model_d)
 
@@ -232,7 +278,8 @@ def _get_data_model_and_chi2(
 
     else:
         model_d = np.zeros_like(data)
-        position_or_samples = position_or_samples | sky_or_skies
+        if sky_or_skies is not None:
+            position_or_samples = position_or_samples | sky_or_skies
         model_d[mask] = data_model(position_or_samples)
         if len(mask.shape) == 2:
             redchi_mean = redchi2(data[mask], model_d[mask], std[mask], data[mask].size)
@@ -245,12 +292,6 @@ def _get_data_model_and_chi2(
         model_mean = model_d
 
     return model_mean, (redchi_mean, redchi_std)
-
-
-def _get_model_samples_or_position(position_or_samples, sky_model):
-    if isinstance(position_or_samples, jft.Samples):
-        return [sky_model(si) for si in position_or_samples]
-    return sky_model(position_or_samples)
 
 
 def get_alpha_and_reference(light_model):

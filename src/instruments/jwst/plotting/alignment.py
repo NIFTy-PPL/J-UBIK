@@ -1,0 +1,162 @@
+import os
+from collections import namedtuple
+from dataclasses import dataclass, field
+from typing import Callable
+
+import numpy as np
+import nifty8.re as jft
+import matplotlib.pyplot as plt
+
+from ..jwst_response import JwstResponse
+from ..parse.plotting import FieldPlottingConfig
+from .plotting_base import (
+    display_text,
+    _get_data_model_and_chi2,
+    plot_data_data_model_residuals,
+)
+
+# Define the namedtuple
+StarData = namedtuple("StarData", ["data", "std", "mask", "model"])
+
+
+@dataclass
+class FilterAlignmentPlottingInformation:
+    filter: str
+    star_id: list[int] = field(default_factory=list)
+    data: list[np.ndarray] = field(default_factory=list)
+    mask: list[np.ndarray] = field(default_factory=list)
+    std: list[np.ndarray] = field(default_factory=list)
+    model: list[JwstResponse] = field(default_factory=list)
+
+    def append_information(
+        self,
+        star_id: int,
+        data: np.ndarray,
+        mask: np.ndarray,
+        std: np.ndarray,
+        model: JwstResponse,
+    ) -> None:
+        self.star_id.append(star_id)
+        self.data.append(data)
+        self.std.append(std)
+        self.mask.append(mask)
+        self.model.append(model)
+
+    def get_star(self, star_id: int) -> StarData:
+        """StarData for `filter`.
+
+        Parameters
+        ----------
+        filter: str
+            The name of the filter
+
+        Returns
+        -------
+        StarData = (data, std, mask, model)
+        """
+        index = self.star_id.index(star_id)
+        return StarData(
+            data=self.data[index],
+            std=self.std[index],
+            mask=self.mask[index],
+            model=self.model[index],
+        )
+
+
+def build_plot_alignment_residuals(
+    results_directory: str,
+    plotting_alignment: list[FilterAlignmentPlottingInformation],
+    plotting_config: FieldPlottingConfig = FieldPlottingConfig(),
+) -> Callable[dict | jft.Samples | jft.Vector, None]:
+    filters = [
+        build_plot_filter_alignment(
+            results_directory,
+            filter_alignment_data=plotting_alignment_filter,
+            plotting_config=plotting_config,
+        )
+        for plotting_alignment_filter in plotting_alignment
+    ]
+
+    def plot_alignment_residuals(
+        position_or_samples: dict | jft.Samples,
+        state_or_none: jft.OptimizeVIState | None = None,
+    ):
+        for filter_plot in filters:
+            filter_plot(position_or_samples, state_or_none)
+
+    return plot_alignment_residuals
+
+
+def build_plot_filter_alignment(
+    results_directory: str,
+    filter_alignment_data: FilterAlignmentPlottingInformation,
+    plotting_config: FieldPlottingConfig = FieldPlottingConfig(),
+) -> Callable[dict | jft.Samples | jft.Vector, None]:
+    alignment_directory = os.path.join(results_directory, "alignment")
+    os.makedirs(alignment_directory, exist_ok=True)
+
+    filter_name = filter_alignment_data.filter
+    ylen = len(filter_alignment_data.star_id)
+    xlen = 3 * max([dd.shape[0] for dd in filter_alignment_data.data])
+
+    def filter_alignment(
+        position_or_samples: dict | jft.Samples,
+        state_or_none: jft.OptimizeVIState | None = None,
+    ):
+        jft.logger.info("Plotting alignment")
+
+        fig, axes = plt.subplots(ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300)
+        ims = np.zeros_like(axes)
+        if ylen == 1:
+            ims = ims[None]
+            axes = axes[None]
+
+        for ypos, star_id in enumerate(filter_alignment_data.star_id):
+            data, std, mask, model = filter_alignment_data.get_star(star_id)
+
+            model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
+                position_or_samples=position_or_samples,
+                sky_or_skies=None,
+                data_model=model,
+                data=data,
+                mask=mask,
+                std=std,
+            )
+
+            chis = [
+                "\n".join((f"redChi2: {mean:.2f} +/- {std:.2f}",))
+                for mean, std in zip(redchi_mean, redchi_std)
+            ]
+
+            for ii in range(len(data)):
+                xpos = ii * 3
+
+                ims[ypos, xpos:] = plot_data_data_model_residuals(
+                    ims[ypos, xpos:],
+                    axes[ypos, xpos:],
+                    data_key=star_id,
+                    data=data[ii],
+                    data_model=model_mean[ii],
+                    std=std[ii],
+                    plotting_config=plotting_config,
+                )
+
+                display_text(axes[ypos, xpos + 1], chis[ii])
+
+        for ax, im in zip(axes.flatten(), ims.flatten()):
+            if not isinstance(im, int):
+                fig.colorbar(im, ax=ax, shrink=0.7)
+        fig.tight_layout()
+
+        if state_or_none is None:
+            plt.show()
+        else:
+            fig.savefig(
+                os.path.join(
+                    alignment_directory, f"{filter_name}_{state_or_none.nit:02d}.png"
+                ),
+                dpi=300,
+            )
+            plt.close()
+
+    return filter_alignment

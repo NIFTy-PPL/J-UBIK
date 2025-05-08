@@ -287,9 +287,9 @@ telescope:
     f2100w: ['lognormal', 226.0, 1.0]
 
   gaia_alignment:
-    fov: 4.0arcsec
+    fov: 3.5arcsec
     shape: [129, 129]
-    star_light: ['lognormal', 10, 100]
+    star_light: ['lognormal', 1000, 10000]
     subsample: 3
     library_path: './data/GAIA/library_stars'
     exclude_source_id: [4788834899488736128, 4788858367190047104]
@@ -313,7 +313,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/14_01_single_target'
+  res_dir: './results/jwst_lens/cluster/15_01_stars'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -333,11 +333,11 @@ files:
     #   - './data/spt0418/f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_{step_type}.fits'
     #   - './data/spt0418/f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_{step_type}.fits'
 
-    f1800w:
-      - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_{step_type}.fits'
-      - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_{step_type}.fits'
-      - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_{step_type}.fits'
-      - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_{step_type}.fits'
+    # f1800w:
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_{step_type}.fits'
 
     # f1500w:
     #   - './data/spt0418/f1500w/jw01355015001_11101_00001_mirimage/jw01355015001_11101_00001_mirimage_{step_type}.fits'
@@ -369,9 +369,9 @@ files:
     #   - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_{step_type}.fits'
 
-    f444w: # NIRCam
-      - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_{step_type}.fits'
-      - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_{step_type}.fits'
+    # f444w: # NIRCam
+    #   - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_{step_type}.fits'
+    #   - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_{step_type}.fits'
 
     # f356w:
     #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_{step_type}.fits'
@@ -394,15 +394,41 @@ files:
       - './data/spt0418/f115w/jw01355016001_02101_00002_nrcb4/jw01355016001_02101_00002_nrcb4_{step_type}.fits'
 
 
+minimization_fixpointing:
+    # resume_from_pickle_path: './results/jwst_lens/cluster/11_05_easter_prior_with_variable_covariance/last.pkl'
+    key: 20250425
+    resume: False
+    n_total_iterations: 20
+
+    delta:
+      switches: [0, 10]
+      values: [1.e-10]
+
+    samples:
+      switches: [0, 10]
+      n_samples: [3, 5]
+      mode: [linear_resample, nonlinear_resample]
+
+      # lin_absdelta: [Null, Null, 0.00001]
+      lin_maxiter: [120, 500]
+      lin_miniter: [50, 200]
+
+      # nonlin_xtol: [Null, 0.1, 0.01]
+      nonlin_maxiter: [7, 7, 13, 18]
+      # nonlin_cg_atol: [0.1, 0.01]
+      # nonlin_cg_maxiter: [20, 30]
+
+    kl_minimization:
+      switches: [0, 10, 15]
+      # kl_absdelta: [Null, 1.0e-2, 1.0e-4]
+      kl_xtol: 1.0e-12
+      kl_maxiter: [15, 20, 25]
+
+
 minimization:
     key: 20250425
-    resume: True
+    resume: False
     n_total_iterations: 10
-
-    fixpointing:
-      resume: False
-      n_total_iterations: 10
-      resume_from_pickle_path: './results/jwst_lens/cluster/11_05_easter_prior_with_variable_covariance/last.pkl'
 
     delta:
       switches: [0, 4, 8, 15]
