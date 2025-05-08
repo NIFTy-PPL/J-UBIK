@@ -212,5 +212,5 @@ class JwstData:
     def is_coordinate_outside_data(self, position: SkyCoord) -> bool:
         pos = np.array(self.wcs.world_to_pixel(position))
         cond1 = np.any(pos < 0)
-        cond2 = (pos[0] > self.shape[0]) * (pos[1] > self.shape[1])
+        cond2 = (pos[0] > self.shape[0]) + (pos[1] > self.shape[1])
         return bool(cond1 + cond2)
