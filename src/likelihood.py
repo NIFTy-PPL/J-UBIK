@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: BSD-2-Clause
-# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp
+# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp, Julian Rüstig
 
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
 
+import numpy as np
 import nifty8 as ift
 import nifty8.re as jft
 
@@ -212,8 +213,9 @@ def connect_likelihood_to_model(
 
 
 def build_gaussian_likelihood(
-    data,
-    std
+    data: np.ndarray,
+    std: np.ndarray,
+    model: jft.Model | None,
 ):
     """
     Build a Gaussian likelihood function based on the provided data and
@@ -248,11 +250,16 @@ def build_gaussian_likelihood(
     if not isinstance(std, float):
         assert data.shape == std.shape
 
-    var_inv = 1/(std**2)
-    std_inv = 1/std
+    var_inv = 1 / (std**2)
+    std_inv = 1 / std
 
-    return jft.Gaussian(
+    likelihood = jft.Gaussian(
         data=data,
-        noise_cov_inv=lambda x: x*var_inv,
-        noise_std_inv=lambda x: x*std_inv,
+        noise_cov_inv=lambda x: x * var_inv,
+        noise_std_inv=lambda x: x * std_inv,
     )
+
+    if model is None:
+        return likelihood
+
+    return likelihood.amend(model, domain=jft.Vector(model.domain))
