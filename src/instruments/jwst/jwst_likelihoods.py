@@ -4,7 +4,7 @@ from ..gaia.star_finder import load_gaia_stars_in_fov
 from .jwst_response import build_jwst_response, build_sky_to_subsampled_data
 from .data.jwst_data import JwstData
 from .data.data_loading import DataBoundsPreloading
-from .jwst_psf import load_psf_kernel, build_psf_model
+from .jwst_psf import load_psf_kernel, build_psf_modification_model_strategy, PsfModel
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .plotting.residuals import ResidualPlottingInformation
@@ -134,24 +134,22 @@ def build_jwst_likelihoods(
                 grid.spatial,
                 yaml_to_corner_mask_configs(cfg[telescope_key]),
             )
-            data_subsampled_centers = jwst_data.data_subpixel_centers(
-                target_preloading.bounding_indices[observation_id],
-                subsample=target_subsample,
-            )
-            psf = load_psf_kernel(
-                jwst_data=jwst_data,
-                subsample=target_subsample,
-                target_center=grid.spatial.center,
-                config_parameters=psf_kernel_configs,
-            )
             target_data.append_observation(
                 meta=jwst_data.meta,
                 subsample=target_subsample,
                 data=data,
                 mask=mask,
                 std=std,
-                subsample_centers=data_subsampled_centers,
-                psf=psf,
+                subsample_centers=jwst_data.data_subpixel_centers(
+                    target_preloading.bounding_indices[observation_id],
+                    subsample=target_subsample,
+                ),
+                psf=load_psf_kernel(
+                    jwst_data=jwst_data,
+                    subsample=target_subsample,
+                    target_center=grid.spatial.center,
+                    config_parameters=psf_kernel_configs,
+                ),
             )
 
             for star in filter_alignment.get_stars(observation_id):
@@ -159,7 +157,9 @@ def build_jwst_likelihoods(
                     filter_alignment.alignment_meta.fov.to(u.arcsec)
                     / jwst_data.meta.pixel_distance.to(u.arcsec)
                 ).value
-                fov_pixel = (int(np.round(fov_pixel)),) * 2
+                fov_pixel = np.array((int(np.round(fov_pixel)),) * 2)
+                if (fov_pixel % 2).sum() == 0:
+                    fov_pixel += 1
 
                 bounding_indices = star.bounding_indices(jwst_data, fov_pixel)
                 data, mask, std = jwst_data.bounding_data_mask_std_by_bounding_indices(
@@ -168,18 +168,6 @@ def build_jwst_likelihoods(
                         cfg[telescope_key]
                     ),
                 )
-                psf = load_psf_kernel(
-                    jwst_data=jwst_data,
-                    subsample=alignment_subsample,
-                    target_center=star.position,
-                    config_parameters=psf_kernel_configs,
-                )
-                star_in_subsampled_pixels = star.pixel_position_in_subsampled_data(
-                    jwst_data.wcs,
-                    min_row=bounding_indices[0],
-                    min_column=bounding_indices[2],
-                    subsample_factor=alignment_subsample,
-                )
 
                 stars_data[star.id].append_observation(
                     meta=jwst_data.meta,
@@ -187,9 +175,19 @@ def build_jwst_likelihoods(
                     data=data,
                     mask=mask,
                     std=std,
+                    psf=load_psf_kernel(
+                        jwst_data=jwst_data,
+                        subsample=alignment_subsample,
+                        target_center=star.position,
+                        config_parameters=psf_kernel_configs,
+                    ),
                     sky_array=np.zeros([s * alignment_subsample for s in data.shape]),
-                    psf=psf,
-                    star_in_subsampled_pixles=star_in_subsampled_pixels,
+                    star_in_subsampled_pixles=star.pixel_position_in_subsampled_data(
+                        jwst_data.wcs,
+                        min_row=bounding_indices[0],
+                        min_column=bounding_indices[2],
+                        subsample_factor=alignment_subsample,
+                    ),
                     observation_id=observation_id,
                 )
 
@@ -244,9 +242,31 @@ def build_jwst_likelihoods(
             filter_and_files.name
         )
         filter_alignment_likelihoods = []
+
+        psf_shape = np.array(stars_data[stars[0].id].psf).shape
+        for star in stars:
+            psf_shape_ii = np.array(stars_data[star.id].psf).shape
+            assert psf_shape[1:] == psf_shape_ii[1:]
+        psf_model = build_psf_modification_model_strategy(
+            f"{filter_and_files.name}", psf_shape, strategy="single"
+        )
+
         for star in stars:
             psf = np.array(stars_data[star.id].psf)
-            psf = build_psf_model(f"{filter_and_files.name}_{star.id}", psf)
+            # psf = build_psf_model_strategy(f"{filter_and_files.name}_{star.id}", psf_shape, strategy='full')
+            # psf = PsfModel(psf, psf_model)
+
+            # import scipy
+            #
+            # psf = np.array(
+            #     [
+            #         scipy.ndimage.gaussian_filter(psf, 2)
+            #         for psf in stars_data[star.id].psf
+            #     ]
+            # )
+
+            star_data = stars_data[star.id]
+            data, mask, std = star_data.data, star_data.mask, star_data.std
 
             jwst_star_response = build_jwst_response(
                 sky_in_subsampled_data=build_star_in_data(
@@ -269,24 +289,19 @@ def build_jwst_likelihoods(
                 ),
                 data_mask=np.array(stars_data[star.id].mask),
             )
-            star_data = stars_data[star.id]
 
             likelihood_star = build_gaussian_likelihood(
-                jnp.array(
-                    np.array(star_data.data)[np.array(star_data.mask)], dtype=float
-                ),
-                jnp.array(
-                    np.array(star_data.std)[np.array(star_data.mask)], dtype=float
-                ),
+                jnp.array(np.array(data)[np.array(mask)], dtype=float),
+                jnp.array(np.array(std)[np.array(mask)], dtype=float),
                 model=jwst_star_response,
             )
 
             filter_alignment_likelihoods.append(likelihood_star)
             filter_alignment_plotting.append_information(
                 star_id=star.id,
-                data=np.array(star_data.data),
-                mask=np.array(star_data.mask),
-                std=np.array(star_data.std),
+                data=np.array(data),
+                mask=np.array(mask),
+                std=np.array(std),
                 model=jwst_star_response,
             )
         alignment_plotting.append(filter_alignment_plotting)

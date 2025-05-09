@@ -244,7 +244,7 @@ def _get_data_model_and_chi2(
     while isinstance(position_or_samples, jft.Vector):
         position_or_samples = position_or_samples.tree
 
-    if isinstance(position_or_samples, jft.Samples):
+    if isinstance(position_or_samples, jft.Samples) and len(position_or_samples) > 0:
         model_d = []
         for ii, si in enumerate(position_or_samples):
             tmp = np.zeros_like(data)
@@ -277,6 +277,9 @@ def _get_data_model_and_chi2(
                 redchi_std.append(rchi_std)
 
     else:
+        if isinstance(position_or_samples, jft.Samples):
+            position_or_samples = position_or_samples.pos
+
         model_d = np.zeros_like(data)
         if sky_or_skies is not None:
             position_or_samples = position_or_samples | sky_or_skies

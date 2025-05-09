@@ -209,26 +209,66 @@ def load_psf_kernel(
     return psf
 
 
-def multiple_psf_operator(
-    vmap_fftconvolve: Callable[ArrayLike, ArrayLike],
-    psf_kernel: ArrayLike,
-):
-    return lambda x: vmap_fftconvolve(x, psf_kernel)
+class PsfStatic(jft.Model):
+    """Implements the convolution by a static psf kernel"""
+
+    def __init__(
+        self, psf_kernel: np.ndarray | None, sky_shape_with_dtype: jft.ShapeWithDtype
+    ):
+        """
+        Parameters
+        ----------
+        psf_kernel: np.ndarray | None
+            If None, the apply will just return the input field.
+            Else, the input field will by convolved by the `psf_kernel`.
+        sky_shape_with_dtype: jft.ShapeWithDtype
+            The `ShapeWithDtype` of the sky.
+        """
+
+        self._kernel = psf_kernel
+
+        if len(psf_kernel.shape) == 2:
+            self._convolve = partial(fftconvolve, mode="same")
+        elif len(psf_kernel.shape) == 3:
+            self._convolve = vmap(Partial(fftconvolve, mode="same"), in_axes=(0, 0))
+        else:
+            raise ValueError("Unknown psf_kernel shape")
+
+        super().__init__(domain=(sky_shape_with_dtype, {}))
+
+    def __call__(self, x):
+        field, _ = x
+        if self._kernel is None:
+            return field
+        return self._convolve(field, self._kernel)
 
 
-class PsfModel(jft.Model):
-    def __init__(self, psf_model: jft.Model, sky_shape_and_dtype: jft.ShapeWithDtype):
+class PsfDynamic(jft.Model):
+    """Implements the convolution by a dynamic psf kernel, i.e. a psf kernel that is
+    learned."""
+
+    def __init__(self, psf_model: jft.Model, sky_shape_with_dtype: jft.ShapeWithDtype):
+        """
+        Parameters
+        ----------
+        psf_kernel: np.ndarray | None
+            If None, the apply will just return the input field.
+            Else, the input field will by convolved by the `psf_kernel`.
+        sky_shape_with_dtype: jft.ShapeWithDtype
+            The `ShapeWithDtype` of the sky.
+        """
         assert isinstance(psf_model, jft.Model)
         self.model = psf_model
 
         if len(psf_model.target.shape) == 2:
             self._convolve = partial(fftconvolve, mode="same")
-
         elif len(psf_model.target.shape) == 3:
             self._convolve = vmap(Partial(fftconvolve, mode="same"), in_axes=(0, 0))
+        else:
+            raise ValueError("Unknown psf_kernel shape")
 
         super().__init__(
-            domain=(sky_shape_and_dtype, psf_model.domain),
+            domain=(sky_shape_with_dtype, psf_model.domain),
             white_init=True,
         )
 
@@ -238,55 +278,55 @@ class PsfModel(jft.Model):
         return self._convolve(field, psf_kernel / psf_kernel.sum())
 
 
-def build_psf_operator(
-    psf_kernel: np.ndarray | jft.Model | None,
-    sky_shape_and_dtype: jft.ShapeWithDtype | None = None,
-):
-    if isinstance(psf_kernel, np.ndarray) or psf_kernel is None:
-        return build_psf_operator_from_static_kernel(psf_kernel)
+class PsfModel(jft.Model):
+    def __init__(self, psf_kernel: np.ndarray, modification_model: jft.Model):
+        self.static = psf_kernel
+        self.modification = modification_model
 
-    assert sky_shape_and_dtype is not None
-    return PsfModel(psf_kernel, sky_shape_and_dtype)
+        super().__init__(
+            domain=(modification_model.domain),
+            white_init=True,
+        )
 
-
-def build_psf_operator_from_static_kernel(
-    psf_kernel: np.ndarray | None,
-) -> Callable[[ArrayLike], ArrayLike] | None:
-    """Build psf convolution operator from psf kernel array.
-    If None is provided the psf operator returns the field.
-
-    Parameters
-    ----------
-    psf_kernel : ArrayLike or None
-        The psf kernel.
-
-    Returns
-    -------
-    Callable which convolves its input by the psf kernel.
-    If psf kernel is None, the Callable is lambda x: x
-    """
-    if psf_kernel is None:
-        return lambda x: x
-
-    if len(psf_kernel.shape) == 2:
-        return partial(fftconvolve, in2=psf_kernel, mode="same")
-
-    elif len(psf_kernel.shape) == 3:
-        vmap_fftconvolve = vmap(Partial(fftconvolve, mode="same"), in_axes=(0, 0))
-        return multiple_psf_operator(vmap_fftconvolve, psf_kernel)
-
-    else:
-        raise ValueError("Unknown psf_kernel shape")
+    def __call__(self, x):
+        return self.static * self.modification(x)
 
 
-def build_psf_model(domain_key: str, psf: np.ndarray) -> jft.Model:
-    # self._skies = skies
-    skr = []
-    skr_domain = {}
-    for ii in range(psf.shape[0]):
-        ski, _ = build_single_correlated_field(
-            f"{domain_key}_{ii}",
-            psf.shape[1:],
+def build_psf_modification_model_strategy(
+    domain_key: str, psf_shape: tuple[int, int, int], strategy: str = "full"
+) -> jft.Model:
+    assert len(psf_shape) == 3
+
+    if strategy == "full":
+        skr = []
+        skr_domain = {}
+        for ii in range(psf_shape[0]):
+            ski, _ = build_single_correlated_field(
+                f"{domain_key}_{ii}",
+                psf_shape[1:],
+                distances=(1.0, 1.0),
+                zero_mode_config=dict(
+                    offset_mean=0.0,
+                    offset_std=(1.0, 2.0),
+                ),
+                fluctuations_config=dict(
+                    fluctuations=(1.0, 5e-1),
+                    loglogavgslope=(-5.0, 2e-1),
+                    flexibility=(1e0, 2e-1),
+                    asperity=(5e-1, 5e-2),
+                    non_parametric_kind="power",
+                ),
+            )
+            skr.append(ski)
+            skr_domain = skr_domain | ski.domain
+            return jft.Model(
+                lambda x: jnp.array([jnp.exp(sk(x)) for sk in skr]), domain=skr_domain
+            )
+
+    if strategy == "single":
+        skr, _ = build_single_correlated_field(
+            f"{domain_key}",
+            psf_shape[1:],
             distances=(1.0, 1.0),
             zero_mode_config=dict(
                 offset_mean=0.0,
@@ -300,8 +340,16 @@ def build_psf_model(domain_key: str, psf: np.ndarray) -> jft.Model:
                 non_parametric_kind="power",
             ),
         )
-        skr.append(ski)
-        skr_domain = skr_domain | ski.domain
-    return jft.Model(
-        lambda x: psf * jnp.array([jnp.exp(sk(x)) for sk in skr]), domain=skr_domain
-    )
+        return jft.Model(lambda x: jnp.exp(skr(x)), domain=skr.domain)
+
+
+def build_psf_operator(
+    psf_kernel: np.ndarray | PsfModel | None,
+    sky_shape_with_dtype: jft.ShapeWithDtype,
+):
+    assert sky_shape_with_dtype is not None
+
+    if isinstance(psf_kernel, np.ndarray) or psf_kernel is None:
+        return PsfStatic(psf_kernel, sky_shape_with_dtype)
+
+    return PsfDynamic(psf_kernel, sky_shape_with_dtype)

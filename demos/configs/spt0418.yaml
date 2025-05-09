@@ -396,9 +396,9 @@ files:
 
 minimization_fixpointing:
     # resume_from_pickle_path: './results/jwst_lens/cluster/11_05_easter_prior_with_variable_covariance/last.pkl'
-    key: 20250425
-    resume: False
-    n_total_iterations: 20
+    key: 20250429
+    resume: True
+    n_total_iterations: 8
 
     delta:
       switches: [0, 10]
@@ -406,7 +406,7 @@ minimization_fixpointing:
 
     samples:
       switches: [0, 10]
-      n_samples: [3, 5]
+      n_samples: [0, 0]
       mode: [linear_resample, nonlinear_resample]
 
       # lin_absdelta: [Null, Null, 0.00001]

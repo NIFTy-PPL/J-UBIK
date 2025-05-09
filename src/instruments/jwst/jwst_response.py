@@ -22,7 +22,7 @@ from .alignment.star_model import StarInData
 from ...wcs.wcs_astropy import WcsAstropy
 from .integration.unit_conversion import build_unit_conversion
 from .integration.integration import integration_factory
-from .jwst_psf import build_psf_operator, PsfModel
+from .jwst_psf import build_psf_operator, PsfDynamic, PsfStatic
 from .masking.build_mask import build_mask
 from .rotation_and_shift import RotationAndShift, build_rotation_and_shift
 from .rotation_and_shift.coordinates_correction import (
@@ -43,7 +43,7 @@ class JwstResponse(jft.Model):
     def __init__(
         self,
         sky_model: jft.Model | RotationAndShift | StarInData,
-        psf: Callable[ArrayLike, ArrayLike] | PsfModel,
+        psf: PsfStatic | PsfDynamic,
         unit_conversion: Callable[ArrayLike, ArrayLike],
         integrate: Callable[ArrayLike, ArrayLike],
         zero_flux_model: jft.Model | None,
@@ -77,19 +77,14 @@ class JwstResponse(jft.Model):
         self.zero_flux_model = zero_flux_model
         self.mask = mask
 
-        domain = sky_model.domain
-        if isinstance(psf, PsfModel):
-            domain = domain | psf.domain[1]
+        domain = sky_model.domain | psf.domain[1]
         if zero_flux_model is not None:
             domain = domain | zero_flux_model.domain
         super().__init__(domain=domain)
 
     def __call__(self, x):
         out = self.sky_model(x)
-        if isinstance(self.psf, PsfModel):
-            out = self.psf((out, x))
-        else:
-            out = self.psf(out)
+        out = self.psf((out, x))
         out = self.unit_conversion(out)
         out = self.integrate(out)
         if self.zero_flux_model is not None:
@@ -182,7 +177,7 @@ def build_jwst_response(
         The mask on the data
     """
 
-    psf = build_psf_operator(psf, sky_in_subsampled_data.target)
+    psf: PsfDynamic | PsfStatic = build_psf_operator(psf, sky_in_subsampled_data.target)
 
     unit_conversion = build_unit_conversion(
         sky_unit=sky_meta.unit,

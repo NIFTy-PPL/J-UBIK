@@ -24,6 +24,7 @@ from .alignment import (
     build_additional,
     build_plot_filter_alignment,
 )
+from ..jwst_psf import PsfDynamic
 
 
 def build_plot_alignment_residuals(
@@ -46,18 +47,20 @@ def build_plot_alignment_residuals(
             filter_alignment_data=plotting_alignment_filter,
             plotting_config=plotting_config,
             attribute=lambda model, x: model.sky_model(x),
+            name="sky_model",
         )
         for plotting_alignment_filter in plotting_alignment
     ]
+    additional_stuff = []
 
-    if isinstance(plotting_alignment[0].model[0].psf, jft.Model):
-        print("here")
+    if isinstance(plotting_alignment[0].model[0].psf, PsfDynamic):
         psf_model = [
             build_additional(
                 results_directory,
                 filter_alignment_data=plotting_alignment_filter,
                 plotting_config=plotting_config,
                 attribute=lambda model, x: model.psf.model(x),
+                name="psf_model",
             )
             for plotting_alignment_filter in plotting_alignment
         ]

@@ -68,6 +68,7 @@ def build_additional(
     filter_alignment_data: FilterAlignmentPlottingInformation,
     plotting_config: FieldPlottingConfig = FieldPlottingConfig(vmin=1e-4, norm="log"),
     attribute=lambda model, x: model.sky_model(x),
+    name="sky_model",
 ) -> Callable[dict | jft.Samples | jft.Vector, None]:
     extra_directory = os.path.join(results_directory, "alignment_extra")
     os.makedirs(extra_directory, exist_ok=True)
@@ -115,7 +116,7 @@ def build_additional(
             fig.savefig(
                 os.path.join(
                     extra_directory,
-                    f"{attribute}_{filter_name}_{state_or_none.nit:02d}.png",
+                    f"{name}_{filter_name}_{state_or_none.nit:02d}.png",
                 ),
                 dpi=300,
             )
