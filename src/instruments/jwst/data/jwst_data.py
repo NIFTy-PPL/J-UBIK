@@ -206,9 +206,3 @@ class JwstData:
         return SkyCoord(
             self.dm.meta.pointing.ra_v1, self.dm.meta.pointing.dec_v1, unit="deg"
         )
-
-    def is_coordinate_outside_data(self, position: SkyCoord) -> bool:
-        pos = np.array(self.wcs.world_to_pixel(position))
-        cond1 = np.any(pos < 0)
-        cond2 = (pos[0] > self.shape[0]) + (pos[1] > self.shape[1])
-        return bool(cond1 + cond2)
