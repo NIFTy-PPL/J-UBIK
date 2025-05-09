@@ -6,16 +6,19 @@
 # %
 from .data.jwst_data import JwstData
 from .parse.jwst_psf import PsfKernelConfig
+from ...sky_model.single_correlated_field import build_single_correlated_field
 
 from functools import partial
 from os.path import join, isfile
 from typing import Tuple, Callable
 
 
+import nifty8.re as jft
 import numpy as np
 from jax import vmap
 from jax.tree_util import Partial
 from jax.scipy.signal import fftconvolve
+import jax.numpy as jnp
 from numpy.typing import ArrayLike
 from astropy.coordinates import SkyCoord
 
@@ -177,7 +180,9 @@ def load_psf_kernel(
     normalize = config_parameters.normalize
 
     center_pixel_str = f"{int(10 * center_pixel[0])}p{int(10 * center_pixel[1])}"
-    file_name = "_".join((camera, filter, center_pixel_str, f"{psf_arcsec}arcsec"))
+    file_name = "_".join(
+        (camera, filter, center_pixel_str, f"{psf_arcsec}arcsec", f"sub{subsample}")
+    )
     path_to_file = join(psf_library_path, file_name)
 
     if isfile(path_to_file + ".npy"):
@@ -211,8 +216,41 @@ def multiple_psf_operator(
     return lambda x: vmap_fftconvolve(x, psf_kernel)
 
 
+class PsfModel(jft.Model):
+    def __init__(self, psf_model: jft.Model, sky_shape_and_dtype: jft.ShapeWithDtype):
+        assert isinstance(psf_model, jft.Model)
+        self.model = psf_model
+
+        if len(psf_model.target.shape) == 2:
+            self._convolve = partial(fftconvolve, mode="same")
+
+        elif len(psf_model.target.shape) == 3:
+            self._convolve = vmap(Partial(fftconvolve, mode="same"), in_axes=(0, 0))
+
+        super().__init__(
+            domain=(sky_shape_and_dtype, psf_model.domain),
+            white_init=True,
+        )
+
+    def __call__(self, x):
+        field, psf_kernel_x = x
+        psf_kernel = self.model(psf_kernel_x)
+        return self._convolve(field, psf_kernel / psf_kernel.sum())
+
+
 def build_psf_operator(
-    psf_kernel: ArrayLike | None,
+    psf_kernel: np.ndarray | jft.Model | None,
+    sky_shape_and_dtype: jft.ShapeWithDtype | None = None,
+):
+    if isinstance(psf_kernel, np.ndarray) or psf_kernel is None:
+        return build_psf_operator_from_static_kernel(psf_kernel)
+
+    assert sky_shape_and_dtype is not None
+    return PsfModel(psf_kernel, sky_shape_and_dtype)
+
+
+def build_psf_operator_from_static_kernel(
+    psf_kernel: np.ndarray | None,
 ) -> Callable[[ArrayLike], ArrayLike] | None:
     """Build psf convolution operator from psf kernel array.
     If None is provided the psf operator returns the field.
@@ -239,3 +277,31 @@ def build_psf_operator(
 
     else:
         raise ValueError("Unknown psf_kernel shape")
+
+
+def build_psf_model(domain_key: str, psf: np.ndarray) -> jft.Model:
+    # self._skies = skies
+    skr = []
+    skr_domain = {}
+    for ii in range(psf.shape[0]):
+        ski, _ = build_single_correlated_field(
+            f"{domain_key}_{ii}",
+            psf.shape[1:],
+            distances=(1.0, 1.0),
+            zero_mode_config=dict(
+                offset_mean=0.0,
+                offset_std=(1.0, 2.0),
+            ),
+            fluctuations_config=dict(
+                fluctuations=(1.0, 5e-1),
+                loglogavgslope=(-5.0, 2e-1),
+                flexibility=(1e0, 2e-1),
+                asperity=(5e-1, 5e-2),
+                non_parametric_kind="power",
+            ),
+        )
+        skr.append(ski)
+        skr_domain = skr_domain | ski.domain
+    return jft.Model(
+        lambda x: psf * jnp.array([jnp.exp(sk(x)) for sk in skr]), domain=skr_domain
+    )

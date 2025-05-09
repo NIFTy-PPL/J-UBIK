@@ -4,7 +4,7 @@ from ..gaia.star_finder import load_gaia_stars_in_fov
 from .jwst_response import build_jwst_response, build_sky_to_subsampled_data
 from .data.jwst_data import JwstData
 from .data.data_loading import DataBoundsPreloading
-from .jwst_psf import load_psf_kernel
+from .jwst_psf import load_psf_kernel, build_psf_model
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .plotting.residuals import ResidualPlottingInformation
@@ -245,6 +245,9 @@ def build_jwst_likelihoods(
         )
         filter_alignment_likelihoods = []
         for star in stars:
+            psf = np.array(stars_data[star.id].psf)
+            psf = build_psf_model(f"{filter_and_files.name}_{star.id}", psf)
+
             jwst_star_response = build_jwst_response(
                 sky_in_subsampled_data=build_star_in_data(
                     filter_key=filter_and_files.name,
@@ -256,7 +259,7 @@ def build_jwst_likelihoods(
                 data_meta=stars_data[star.id].meta,
                 data_subsample=stars_data[star.id].subsample,
                 sky_meta=sky_meta,
-                psf=np.array(stars_data[star.id].psf),
+                psf=psf,
                 zero_flux_model=build_zero_flux_model(
                     f"{filter_and_files.name}_{star.id}",
                     zero_flux_prior_configs.get_name_setting_or_default(

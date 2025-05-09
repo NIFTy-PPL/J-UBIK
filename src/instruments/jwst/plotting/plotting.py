@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Callable
 from os.path import join
 
 import matplotlib.pyplot as plt
@@ -19,6 +19,60 @@ from ..parse.plotting import (
 )
 from .plotting_lens_system import build_plot_lens_system
 from .plot_source import build_plot_source
+from .alignment import (
+    FilterAlignmentPlottingInformation,
+    build_additional,
+    build_plot_filter_alignment,
+)
+
+
+def build_plot_alignment_residuals(
+    results_directory: str,
+    plotting_alignment: list[FilterAlignmentPlottingInformation],
+    plotting_config: FieldPlottingConfig = FieldPlottingConfig(),
+) -> Callable[dict | jft.Samples | jft.Vector, None]:
+    filters = [
+        build_plot_filter_alignment(
+            results_directory,
+            filter_alignment_data=plotting_alignment_filter,
+            plotting_config=plotting_config,
+        )
+        for plotting_alignment_filter in plotting_alignment
+    ]
+
+    additional_stuff = [
+        build_additional(
+            results_directory,
+            filter_alignment_data=plotting_alignment_filter,
+            plotting_config=plotting_config,
+            attribute=lambda model, x: model.sky_model(x),
+        )
+        for plotting_alignment_filter in plotting_alignment
+    ]
+
+    if isinstance(plotting_alignment[0].model[0].psf, jft.Model):
+        print("here")
+        psf_model = [
+            build_additional(
+                results_directory,
+                filter_alignment_data=plotting_alignment_filter,
+                plotting_config=plotting_config,
+                attribute=lambda model, x: model.psf.model(x),
+            )
+            for plotting_alignment_filter in plotting_alignment
+        ]
+        additional_stuff = additional_stuff + psf_model
+
+    def plot_alignment_residuals(
+        position_or_samples: dict | jft.Samples,
+        state_or_none: jft.OptimizeVIState | None = None,
+    ):
+        for filter_plot in filters:
+            filter_plot(position_or_samples, state_or_none)
+        for additional in additional_stuff:
+            additional(position_or_samples, state_or_none)
+
+    return plot_alignment_residuals
 
 
 def get_plot(

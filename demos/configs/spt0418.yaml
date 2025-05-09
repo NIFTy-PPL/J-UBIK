@@ -290,7 +290,7 @@ telescope:
     fov: 3.5arcsec
     shape: [129, 129]
     star_light: ['lognormal', 1000, 10000]
-    subsample: 3
+    subsample: 1
     library_path: './data/GAIA/library_stars'
     exclude_source_id: [4788834899488736128, 4788858367190047104]
 
@@ -410,8 +410,8 @@ minimization_fixpointing:
       mode: [linear_resample, nonlinear_resample]
 
       # lin_absdelta: [Null, Null, 0.00001]
-      lin_maxiter: [120, 500]
-      lin_miniter: [50, 200]
+      lin_maxiter: [1000, 2500]
+      lin_miniter: [10, 200]
 
       # nonlin_xtol: [Null, 0.1, 0.01]
       nonlin_maxiter: [7, 7, 13, 18]

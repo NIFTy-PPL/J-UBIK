@@ -63,28 +63,65 @@ class FilterAlignmentPlottingInformation:
         )
 
 
-def build_plot_alignment_residuals(
+def build_additional(
     results_directory: str,
-    plotting_alignment: list[FilterAlignmentPlottingInformation],
-    plotting_config: FieldPlottingConfig = FieldPlottingConfig(),
+    filter_alignment_data: FilterAlignmentPlottingInformation,
+    plotting_config: FieldPlottingConfig = FieldPlottingConfig(vmin=1e-4, norm="log"),
+    attribute=lambda model, x: model.sky_model(x),
 ) -> Callable[dict | jft.Samples | jft.Vector, None]:
-    filters = [
-        build_plot_filter_alignment(
-            results_directory,
-            filter_alignment_data=plotting_alignment_filter,
-            plotting_config=plotting_config,
-        )
-        for plotting_alignment_filter in plotting_alignment
-    ]
+    extra_directory = os.path.join(results_directory, "alignment_extra")
+    os.makedirs(extra_directory, exist_ok=True)
 
-    def plot_alignment_residuals(
+    filter_name = filter_alignment_data.filter
+    ylen = len(filter_alignment_data.star_id)
+    xlen = max([dd.shape[0] for dd in filter_alignment_data.data])
+
+    def filter_alignment(
         position_or_samples: dict | jft.Samples,
         state_or_none: jft.OptimizeVIState | None = None,
     ):
-        for filter_plot in filters:
-            filter_plot(position_or_samples, state_or_none)
+        fig, axes = plt.subplots(ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300)
+        ims = np.zeros_like(axes)
+        if ylen == 1:
+            ims = ims[None]
+            axes = axes[None]
 
-    return plot_alignment_residuals
+        if not isinstance(position_or_samples, jft.Samples):
+            position_or_samples = [position_or_samples]
+
+        for ypos, star_id in enumerate(filter_alignment_data.star_id):
+            _, _, _, model = filter_alignment_data.get_star(star_id)
+            extra = jft.mean([attribute(model, si) for si in position_or_samples])
+
+            for xpos, ee in enumerate(extra):
+                max_d = plotting_config.get_max(ee)
+                min_d = plotting_config.get_min(ee)
+                ims[ypos, xpos] = axes[ypos, xpos].imshow(
+                    ee,
+                    vmin=min_d,
+                    vmax=max_d,
+                    norm=plotting_config.norm,
+                    **plotting_config.rendering,
+                )
+
+        for ax, im in zip(axes.flatten(), ims.flatten()):
+            if not isinstance(im, int):
+                fig.colorbar(im, ax=ax, shrink=0.7)
+        fig.tight_layout()
+
+        if state_or_none is None:
+            plt.show()
+        else:
+            fig.savefig(
+                os.path.join(
+                    extra_directory,
+                    f"{attribute}_{filter_name}_{state_or_none.nit:02d}.png",
+                ),
+                dpi=300,
+            )
+            plt.close()
+
+    return filter_alignment
 
 
 def build_plot_filter_alignment(
@@ -103,7 +140,8 @@ def build_plot_filter_alignment(
         position_or_samples: dict | jft.Samples,
         state_or_none: jft.OptimizeVIState | None = None,
     ):
-        jft.logger.info("Plotting alignment")
+        if state_or_none is not None:
+            jft.logger.info(f"Plotting alignment {state_or_none.nit}")
 
         fig, axes = plt.subplots(ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300)
         ims = np.zeros_like(axes)

@@ -16,8 +16,9 @@ from jubik0.instruments.jwst.config_handler import (
     copy_and_replace_light_model,
 )
 from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
-from jubik0.instruments.jwst.plotting.plotting import get_plot, plot_prior
-from jubik0.instruments.jwst.plotting.alignment import (
+from jubik0.instruments.jwst.plotting.plotting import (
+    get_plot,
+    plot_prior,
     build_plot_alignment_residuals,
 )
 from jubik0.instruments.jwst.parse.plotting import FieldPlottingConfig
