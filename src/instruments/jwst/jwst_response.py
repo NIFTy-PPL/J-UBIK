@@ -143,6 +143,7 @@ def build_sky_to_subsampled_data(
 def build_jwst_response(
     sky_in_subsampled_data: jft.Model | RotationAndShift | StarInData,
     data_meta: DataMetaInformation,
+    data_subsample: int,
     sky_meta: SkyMetaInformation,
     psf: np.ndarray | None,
     zero_flux_model: jft.Model | None,
@@ -160,10 +161,11 @@ def build_jwst_response(
     sky_in_subsampled_data_domain: ShapeWithDtype
         The shape and dtype of the sky in the subsampled data frame.
     data_meta: DataMetaInformation, needed here:
-        - subsample             # Subsample factor of the data
         - unit                  # Unit of the data
         - dvol                  # pixel volume of the data ~pixel_distance**2
         - pixel_distance        # 2-d distance between pixels
+    data_subsample: int
+        Subsample factor of the data
     sky_meta: SkyMetaInformation, needed here:
         - unit                  # Unit of the data
         - dvol                  # Pixel volume of the sky
@@ -181,13 +183,13 @@ def build_jwst_response(
         sky_unit=sky_meta.unit,
         sky_dvol=sky_meta.dvol,
         data_unit=data_meta.unit,
-        data_dvol=data_meta.dvol / data_meta.subsample**2,
+        data_dvol=data_meta.dvol / data_subsample**2,
     )
 
     integrate = integration_factory(
         unit=data_meta.unit,
         high_resolution_shape=sky_in_subsampled_data.target.shape,
-        reduction_factor=data_meta.subsample,
+        reduction_factor=data_subsample,
     )
 
     mask = build_mask(data_mask)

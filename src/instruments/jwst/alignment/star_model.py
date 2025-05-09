@@ -126,7 +126,7 @@ def build_star_in_data(
     location_of_star_in_data_subpixels = build_coordinates_corrected_for_stars(
         shift_and_rotation_correction=shift_and_rotation_correction,
         pixel_coordinates=np.array(star_data.star_in_subsampled_pixels),
-        pixel_distance=data_meta.pixel_distance / data_meta.subsample,
+        pixel_distance=data_meta.pixel_distance / star_data.subsample,
         observation_ids=star_data.observation_ids,
         shift_only=True,
     )

@@ -10,6 +10,7 @@ from ..data.jwst_data import DataMetaInformation
 @dataclass
 class TargetData:
     meta: DataMetaInformation | None = None
+    subsample: int | None = None
     data: np.ndarray | list[np.ndarray] = field(default_factory=list)
     mask: np.ndarray | list[np.ndarray] = field(default_factory=list)
     std: np.ndarray | list[np.ndarray] = field(default_factory=list)
@@ -34,6 +35,7 @@ class TargetData:
                 std=[self.std[i] for i in rng],
                 psf=[self.psf[i] for i in rng],
                 meta=[self.meta[i] for i in rng],
+                subsample=[self.subsample[i] for i in rng],
                 subsample_centers=[self.subsample_centers[i] for i in rng],
                 correction_prior=[self.correction_prior[i] for i in rng],
                 star_in_subsampled_pixels=[
@@ -48,6 +50,7 @@ class TargetData:
             std=self.std[idx],
             psf=self.psf[idx],
             meta=self.meta[idx],
+            subsample=self.subsample[idx],
             subsample_centers=self.subsample_centers[idx],
             correction_prior=self.correction_prior[idx],
             star_in_subsampled_pixels=self.star_in_subsampled_pixels[idx],
@@ -63,15 +66,23 @@ class TargetData:
         for i in range(len(self)):
             yield self[i]
 
-    def add_or_check_meta_data(self, filter_data_meta: DataMetaInformation):
+    def _add_or_check_meta_data(
+        self, filter_data_meta: DataMetaInformation, subsample: int
+    ):
         if self.meta is None:
             self.meta = filter_data_meta
         else:
             assert self.meta == filter_data_meta
 
+        if self.subsample is None:
+            self.subsample = subsample
+        else:
+            assert self.subsample == subsample
+
     def append_observation(
         self,
         meta: DataMetaInformation,
+        subsample: int,
         data: np.ndarray,
         mask: np.ndarray,
         std: np.ndarray,
@@ -80,7 +91,7 @@ class TargetData:
         star_in_subsampled_pixles: np.ndarray | None = None,
         observation_id: int | None = None,
     ):
-        self.add_or_check_meta_data(meta)
+        self._add_or_check_meta_data(meta, subsample)
         self.data.append(data)
         self.mask.append(mask)
         self.std.append(std)
@@ -93,6 +104,7 @@ class TargetData:
 @dataclass
 class StarData:
     meta: DataMetaInformation | None = None
+    subsample: int | None = None
     data: np.ndarray | list[np.ndarray] = field(default_factory=list)
     mask: np.ndarray | list[np.ndarray] = field(default_factory=list)
     std: np.ndarray | list[np.ndarray] = field(default_factory=list)
@@ -117,6 +129,7 @@ class StarData:
                 std=[self.std[i] for i in rng],
                 psf=[self.psf[i] for i in rng],
                 meta=[self.meta[i] for i in rng],
+                subsample=[self.subsample[i] for i in rng],
                 sky_array=[self.sky_array[i] for i in rng],
                 correction_prior=[self.correction_prior[i] for i in rng],
                 star_in_subsampled_pixels=[
@@ -131,6 +144,7 @@ class StarData:
             std=self.std[idx],
             psf=self.psf[idx],
             meta=self.meta[idx],
+            subsample=self.subsample[idx],
             sky_array=self.sky_array[idx],
             correction_prior=self.correction_prior[idx],
             star_in_subsampled_pixels=self.star_in_subsampled_pixels[idx],
@@ -146,15 +160,23 @@ class StarData:
         for i in range(len(self)):
             yield self[i]
 
-    def add_or_check_meta_data(self, filter_data_meta: DataMetaInformation):
+    def _add_or_check_meta_data(
+        self, filter_data_meta: DataMetaInformation, subsample: int
+    ):
         if self.meta is None:
             self.meta = filter_data_meta
         else:
             assert self.meta == filter_data_meta
 
+        if self.subsample is None:
+            self.subsample = subsample
+        else:
+            assert self.subsample == subsample
+
     def append_observation(
         self,
         meta: DataMetaInformation,
+        subsample: int,
         data: np.ndarray,
         mask: np.ndarray,
         std: np.ndarray,
@@ -163,7 +185,7 @@ class StarData:
         star_in_subsampled_pixles: np.ndarray | None = None,
         observation_id: int | None = None,
     ):
-        self.add_or_check_meta_data(meta)
+        self._add_or_check_meta_data(meta, subsample)
         self.data.append(data)
         self.mask.append(mask)
         self.std.append(std)
