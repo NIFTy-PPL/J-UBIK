@@ -1,32 +1,23 @@
 # SPDX-License-Identifier: BSD-2-Clause
-# Authors: Julian Rüstig and Matteo Guardiani
+# Authors: Julian Rüstig
 
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-from .data.jwst_data import JwstData
-from .parse.jwst_psf import PsfKernelConfig
-from ...sky_model.single_correlated_field import build_single_correlated_field
+from os.path import isfile, join
 
-from functools import partial
-from os.path import join, isfile
-from typing import Tuple, Callable
-
-
-import nifty8.re as jft
 import numpy as np
-from jax import vmap
-from jax.tree_util import Partial
-from jax.scipy.signal import fftconvolve
-import jax.numpy as jnp
-from numpy.typing import ArrayLike
 from astropy.coordinates import SkyCoord
+from numpy.typing import ArrayLike
+
+from ..data.jwst_data import JwstData
+from ..parse.jwst_psf import PsfKernelConfig
 
 
 def build_webb_psf(
     camera: str,
     filter: str,
-    center_pixel: Tuple[float],
+    center_pixel: tuple[float],
     webbpsf_path: str,
     subsample: int,
     fov_arcsec: float | None = None,
@@ -173,7 +164,6 @@ def load_psf_kernel(
     camera = jwst_data.camera.lower()
     filter = jwst_data.filter.lower()
     center_pixel = jwst_data.wcs.world_to_pixel(target_center)
-    # subsample = jwst_data.meta.subsample
     webbpsf_path = config_parameters.webbpsf_path
     psf_library_path = config_parameters.psf_library_path
     psf_arcsec = config_parameters.psf_arcsec
@@ -207,149 +197,3 @@ def load_psf_kernel(
 
     np.save(path_to_file, psf)
     return psf
-
-
-class PsfStatic(jft.Model):
-    """Implements the convolution by a static psf kernel"""
-
-    def __init__(
-        self, psf_kernel: np.ndarray | None, sky_shape_with_dtype: jft.ShapeWithDtype
-    ):
-        """
-        Parameters
-        ----------
-        psf_kernel: np.ndarray | None
-            If None, the apply will just return the input field.
-            Else, the input field will by convolved by the `psf_kernel`.
-        sky_shape_with_dtype: jft.ShapeWithDtype
-            The `ShapeWithDtype` of the sky.
-        """
-
-        self._kernel = psf_kernel
-
-        if len(psf_kernel.shape) == 2:
-            self._convolve = partial(fftconvolve, mode="same")
-        elif len(psf_kernel.shape) == 3:
-            self._convolve = vmap(Partial(fftconvolve, mode="same"), in_axes=(0, 0))
-        else:
-            raise ValueError("Unknown psf_kernel shape")
-
-        super().__init__(domain=(sky_shape_with_dtype, {}))
-
-    def __call__(self, x):
-        field, _ = x
-        if self._kernel is None:
-            return field
-        return self._convolve(field, self._kernel)
-
-
-class PsfDynamic(jft.Model):
-    """Implements the convolution by a dynamic psf kernel, i.e. a psf kernel that is
-    learned."""
-
-    def __init__(self, psf_model: jft.Model, sky_shape_with_dtype: jft.ShapeWithDtype):
-        """
-        Parameters
-        ----------
-        psf_kernel: np.ndarray | None
-            If None, the apply will just return the input field.
-            Else, the input field will by convolved by the `psf_kernel`.
-        sky_shape_with_dtype: jft.ShapeWithDtype
-            The `ShapeWithDtype` of the sky.
-        """
-        assert isinstance(psf_model, jft.Model)
-        self.model = psf_model
-
-        if len(psf_model.target.shape) == 2:
-            self._convolve = partial(fftconvolve, mode="same")
-        elif len(psf_model.target.shape) == 3:
-            self._convolve = vmap(Partial(fftconvolve, mode="same"), in_axes=(0, 0))
-        else:
-            raise ValueError("Unknown psf_kernel shape")
-
-        super().__init__(
-            domain=(sky_shape_with_dtype, psf_model.domain),
-            white_init=True,
-        )
-
-    def __call__(self, x):
-        field, psf_kernel_x = x
-        psf_kernel = self.model(psf_kernel_x)
-        return self._convolve(field, psf_kernel / psf_kernel.sum())
-
-
-class PsfModel(jft.Model):
-    def __init__(self, psf_kernel: np.ndarray, modification_model: jft.Model):
-        self.static = psf_kernel
-        self.modification = modification_model
-
-        super().__init__(
-            domain=(modification_model.domain),
-            white_init=True,
-        )
-
-    def __call__(self, x):
-        return self.static * self.modification(x)
-
-
-def build_psf_modification_model_strategy(
-    domain_key: str, psf_shape: tuple[int, int, int], strategy: str = "full"
-) -> jft.Model:
-    assert len(psf_shape) == 3
-
-    if strategy == "full":
-        skr = []
-        skr_domain = {}
-        for ii in range(psf_shape[0]):
-            ski, _ = build_single_correlated_field(
-                f"{domain_key}_{ii}",
-                psf_shape[1:],
-                distances=(1.0, 1.0),
-                zero_mode_config=dict(
-                    offset_mean=0.0,
-                    offset_std=(1.0, 2.0),
-                ),
-                fluctuations_config=dict(
-                    fluctuations=(1.0, 5e-1),
-                    loglogavgslope=(-5.0, 2e-1),
-                    flexibility=(1e0, 2e-1),
-                    asperity=(5e-1, 5e-2),
-                    non_parametric_kind="power",
-                ),
-            )
-            skr.append(ski)
-            skr_domain = skr_domain | ski.domain
-            return jft.Model(
-                lambda x: jnp.array([jnp.exp(sk(x)) for sk in skr]), domain=skr_domain
-            )
-
-    if strategy == "single":
-        skr, _ = build_single_correlated_field(
-            f"{domain_key}",
-            psf_shape[1:],
-            distances=(1.0, 1.0),
-            zero_mode_config=dict(
-                offset_mean=0.0,
-                offset_std=(1.0, 2.0),
-            ),
-            fluctuations_config=dict(
-                fluctuations=(1.0, 5e-1),
-                loglogavgslope=(-5.0, 2e-1),
-                flexibility=(1e0, 2e-1),
-                asperity=(5e-1, 5e-2),
-                non_parametric_kind="power",
-            ),
-        )
-        return jft.Model(lambda x: jnp.exp(skr(x)), domain=skr.domain)
-
-
-def build_psf_operator(
-    psf_kernel: np.ndarray | PsfModel | None,
-    sky_shape_with_dtype: jft.ShapeWithDtype,
-):
-    assert sky_shape_with_dtype is not None
-
-    if isinstance(psf_kernel, np.ndarray) or psf_kernel is None:
-        return PsfStatic(psf_kernel, sky_shape_with_dtype)
-
-    return PsfDynamic(psf_kernel, sky_shape_with_dtype)

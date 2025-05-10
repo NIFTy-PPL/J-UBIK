@@ -4,7 +4,8 @@ from ..gaia.star_finder import load_gaia_stars_in_fov
 from .jwst_response import build_jwst_response, build_sky_to_subsampled_data
 from .data.jwst_data import JwstData
 from .data.data_loading import DataBoundsPreloading
-from .jwst_psf import load_psf_kernel, build_psf_modification_model_strategy, PsfModel
+from .psf.jwst_kernel import load_psf_kernel
+from .psf.psf_learning import build_psf_modification_model_strategy, LearnablePsf
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .plotting.residuals import ResidualPlottingInformation
@@ -243,18 +244,18 @@ def build_jwst_likelihoods(
         )
         filter_alignment_likelihoods = []
 
-        psf_shape = np.array(stars_data[stars[0].id].psf).shape
-        for star in stars:
-            psf_shape_ii = np.array(stars_data[star.id].psf).shape
-            assert psf_shape[1:] == psf_shape_ii[1:]
-        psf_model = build_psf_modification_model_strategy(
-            f"{filter_and_files.name}", psf_shape, strategy="single"
-        )
+        # psf_shape = np.array(stars_data[stars[0].id].psf).shape
+        # for star in stars:
+        #     psf_shape_ii = np.array(stars_data[star.id].psf).shape
+        #     assert psf_shape[1:] == psf_shape_ii[1:]
+        # psf_model = build_psf_modification_model_strategy(
+        #     f"{filter_and_files.name}", psf_shape, strategy="single"
+        # )
 
         for star in stars:
             psf = np.array(stars_data[star.id].psf)
             # psf = build_psf_model_strategy(f"{filter_and_files.name}_{star.id}", psf_shape, strategy='full')
-            # psf = PsfModel(psf, psf_model)
+            # psf = LearnablePsf(psf, psf_model)
 
             # import scipy
             #

@@ -22,7 +22,8 @@ from .alignment.star_model import StarInData
 from ...wcs.wcs_astropy import WcsAstropy
 from .integration.unit_conversion import build_unit_conversion
 from .integration.integration import integration_factory
-from .jwst_psf import build_psf_operator, PsfDynamic, PsfStatic
+from .psf.psf_learning import LearnablePsf
+from .psf.psf_operator import build_psf_operator_strategy, PsfDynamic, PsfStatic
 from .masking.build_mask import build_mask
 from .rotation_and_shift import RotationAndShift, build_rotation_and_shift
 from .rotation_and_shift.coordinates_correction import (
@@ -145,7 +146,7 @@ def build_jwst_response(
     data_meta: DataMetaInformation,
     data_subsample: int,
     sky_meta: SkyMetaInformation,
-    psf: np.ndarray | jft.Model | None,
+    psf: np.ndarray | LearnablePsf | None,
     zero_flux_model: jft.Model | None,
     data_mask: ArrayLike | None,
 ) -> JwstResponse:
@@ -177,7 +178,7 @@ def build_jwst_response(
         The mask on the data
     """
 
-    psf: PsfDynamic | PsfStatic = build_psf_operator(psf, sky_in_subsampled_data.target)
+    psf = build_psf_operator_strategy(sky_in_subsampled_data.target, psf)
 
     unit_conversion = build_unit_conversion(
         sky_unit=sky_meta.unit,

@@ -24,7 +24,7 @@ from .alignment import (
     build_additional,
     build_plot_filter_alignment,
 )
-from ..jwst_psf import PsfDynamic
+from ..psf.psf_operator import PsfDynamic
 
 
 def build_plot_alignment_residuals(
