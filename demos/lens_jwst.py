@@ -91,11 +91,12 @@ sky_model = jft.Model(jft.wrap_left(sky_model, SKY_KEY), domain=sky_model.domain
     plotting_alignment,
 ) = build_jwst_likelihoods(cfg, grid, sky_model, sky_unit=SKY_UNIT)
 
-plot_alignment_residuals = build_plot_alignment_residuals(
-    join(results_directory, "fixpointing"),
-    plotting_alignment,
-    FieldPlottingConfig(vmin=1e-4, norm="log"),
-)
+if plotting_alignment is not None:
+    plot_alignment_residuals = build_plot_alignment_residuals(
+        join(results_directory, "fixpointing"),
+        plotting_alignment,
+        FieldPlottingConfig(vmin=1e-4, norm="log"),
+    )
 
 
 sky_model_with_keys = jft.Model(
@@ -138,33 +139,47 @@ def plot(samples: jft.Samples, state: jft.OptimizeVIState):
         plot_source(samples, state)
 
 
-cfg_mini_fixpointing = ju.get_config(config_path)["minimization_fixpointing"]
-mini_parser_fixpointing = ju.MinimizationParser(
-    cfg_mini_fixpointing, ju.get_n_constrained_dof(likelihood_alignment), verbose=False
-)
-kl_settings_fixpointing = KLSettings(
-    random_key=random.PRNGKey(cfg_mini_fixpointing.get("key", 42)),
-    outputdir=join(results_directory, "fixpointing"),
-    minimization=mini_parser_fixpointing,
-    callback=plot_alignment_residuals,
-    kl_jit=False,
-    residual_jit=True,
-    resume=cfg_mini_fixpointing.get("resume", False),
-    n_total_iterations=cfg_mini_fixpointing["n_total_iterations"],
-    resume_from_pickle_path=cfg_mini_fixpointing.get("resume_from_pickle_path"),
-)
+if likelihood_alignment is not None:
+    cfg_mini_fixpointing = ju.get_config(config_path)["minimization_fixpointing"]
+    mini_parser_fixpointing = ju.MinimizationParser(
+        cfg_mini_fixpointing,
+        ju.get_n_constrained_dof(likelihood_alignment),
+        verbose=False,
+    )
+    kl_settings_fixpointing = KLSettings(
+        random_key=random.PRNGKey(cfg_mini_fixpointing.get("key", 42)),
+        outputdir=join(results_directory, "fixpointing"),
+        minimization=mini_parser_fixpointing,
+        callback=plot_alignment_residuals,
+        kl_jit=False,
+        residual_jit=True,
+        resume=cfg_mini_fixpointing.get("resume", False),
+        n_total_iterations=cfg_mini_fixpointing["n_total_iterations"],
+        resume_from_pickle_path=cfg_mini_fixpointing.get("resume_from_pickle_path"),
+    )
 
-jft.logger.info("Fix pointing reconstruction")
-samples_fixpointing, state_imaging = minimization_from_initial_samples(
-    likelihood_alignment,
-    kl_settings_fixpointing,
-    None,
-)
-exit()
+    jft.logger.info("Fix pointing reconstruction")
+    samples_fixpointing, state_imaging = minimization_from_initial_samples(
+        likelihood_alignment,
+        kl_settings_fixpointing,
+        None,
+    )
 
-import jax
+    for pa in plotting_alignment:
+        m = pa.model[0]
+        mean, std = jft.mean_and_std(
+            [
+                m.sky_model.location.shift_and_rotation.shift(x)
+                for x in samples_fixpointing
+            ]
+        )
+        print(pa.filter, mean, std)
 
-jax.clear_caches()
+    exit()
+
+    import jax
+
+    jax.clear_caches()
 
 cfg_mini = ju.get_config(config_path)["minimization"]
 mini_parser_full = ju.MinimizationParser(
