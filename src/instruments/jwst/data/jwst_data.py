@@ -126,7 +126,7 @@ class JwstData:
         return ColorRange(Color(blue * units.micrometer), Color(red * units.micrometer))
 
     @property
-    def pivot_wavelength(self):
+    def pivot_wavelength(self) -> Color:
         pivot, *_ = JWST_FILTERS[self.filter]
         return Color(pivot * units.micrometer)
 

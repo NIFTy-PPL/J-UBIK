@@ -72,7 +72,7 @@ class FilterProjector(jft.Model):
 
         super().__init__(domain=sky_domain)
 
-    def get_key(self, color):
+    def get_key(self, color: Color):
         """Returns the key that corresponds to the given color."""
         out_key = ""
         for k, v in self.keys_and_colors.items():

@@ -9,7 +9,7 @@ from ...parse.parametric_model.parametric_prior import (
 
 
 @dataclass
-class FilterAlignmentMeta:
+class StarAlignmentMeta:
     shape: tuple[int, int]
     fov: u.Quantity
     subsample: int
@@ -18,7 +18,7 @@ class FilterAlignmentMeta:
     exclude_source_id: list[int] = field(default_factory=list)
 
     @classmethod
-    def from_yaml_dict(cls, raw: dict):
+    def from_yaml_dict(cls, raw: dict | None):
         """Load star alignment from raw.
 
         Parameters
@@ -33,6 +33,9 @@ class FilterAlignmentMeta:
             - star_light: tuple, the settings for the star light prior.
 
         """
+        if raw is None:
+            return None
+
         shape = raw["shape"]
         subsample = raw["subsample"]
         fov = u.Quantity(raw["fov"])
@@ -42,7 +45,7 @@ class FilterAlignmentMeta:
             assert sh % 2 != 0, "Need uneven cutouts shape"
         assert subsample % 2 != 0, "Need uneven subsample factor"
 
-        return FilterAlignmentMeta(
+        return StarAlignmentMeta(
             shape=shape,
             fov=fov,
             subsample=subsample,

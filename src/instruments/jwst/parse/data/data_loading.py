@@ -2,19 +2,19 @@ from dataclasses import dataclass
 
 
 @dataclass
-class FilterData:
-    name: str
+class FilterAndFilePaths:
+    filter: str
     filepaths: list[str]
 
 
 @dataclass
 class DataFilePaths:
-    filters: list[FilterData]
+    filters: list[FilterAndFilePaths]
     step_type: str
 
     @classmethod
     def from_yaml_dict(cls, yaml: dict):
-        step_type = yaml.get("step_type", "tweakregstep")
+        step_type = yaml.get("step_type", "cal")
         filter_files = yaml.get("filter")
 
         filters = []
@@ -22,6 +22,6 @@ class DataFilePaths:
             filter_file_paths = []
             for path in paths:
                 filter_file_paths.append(path.format(step_type=step_type))
-            filters.append(FilterData(fltname, filter_file_paths))
+            filters.append(FilterAndFilePaths(fltname, filter_file_paths))
 
         return DataFilePaths(filters=filters, step_type=step_type)
