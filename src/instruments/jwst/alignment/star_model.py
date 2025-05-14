@@ -94,6 +94,55 @@ class StarInData(jft.Model):
         return self._vmap_call(self._skies, locations, brightness)
 
 
+class StarAndSky(jft.Model):
+    def __init__(
+        self,
+        star_id: int,
+        skies: np.ndarray,
+        brightness: jft.Model,
+        location: Coordinates | ShiftAndRotationCorrection,
+    ):
+        from ....sky_model.single_correlated_field import build_single_correlated_field
+
+        # self._skies = skies
+        skr = []
+        skr_domain = {}
+        for ii in range(skies.shape[0]):
+            ski, _ = build_single_correlated_field(
+                f"{star_id}_{ii}",
+                skies.shape[1:],
+                distances=(1.0, 1.0),
+                zero_mode_config=dict(
+                    offset_mean=0.0,
+                    offset_std=(1.0, 2.0),
+                ),
+                fluctuations_config=dict(
+                    fluctuations=(1.0, 5e-1),
+                    loglogavgslope=(-5.0, 2e-1),
+                    flexibility=(1e0, 2e-1),
+                    asperity=(5e-1, 5e-2),
+                    non_parametric_kind="power",
+                ),
+            )
+            skr.append(ski)
+            skr_domain = skr_domain | ski.domain
+        self.skies = jft.Model(
+            lambda x: jnp.array([jnp.exp(sk(x)) for sk in skr]), domain=skr_domain
+        )
+
+        self.brightness = brightness
+        self.location = location
+        self._vmap_call = vmap(bilinear_point_source_evaluation, (0, 0, None))
+
+        super().__init__(domain=brightness.domain | location.domain | self.skies.domain)
+
+    def __call__(self, x):
+        brightness = self.brightness(x)
+        locations = self.location(x)
+        skies = self.skies(x)
+        return self._vmap_call(skies, locations, brightness)
+
+
 def build_star_in_data(
     filter_key: str,
     star_id: int,
@@ -131,4 +180,5 @@ def build_star_in_data(
         shift_only=True,
     )
 
+    # return StarAndSky(star_id, skies, brightness, location_of_star_in_data_subpixels)
     return StarInData(skies, brightness, location_of_star_in_data_subpixels)

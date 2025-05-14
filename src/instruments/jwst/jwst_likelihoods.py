@@ -65,7 +65,6 @@ def build_jwst_likelihoods(
         cfg[telescope_key]["rotation_and_shift"]
     )
     target_subsample = cfg[telescope_key]["rotation_and_shift"]["subsample"]
-    alignment_subsample = cfg[telescope_key]["gaia_alignment"]["subsample"]
     sky_meta = SkyMetaInformation(
         grid_extension=get_grid_extension_from_config(cfg[telescope_key], grid),
         unit=sky_unit,
@@ -155,24 +154,28 @@ def build_jwst_likelihoods(
 
                     stars_data[star.id].append_observation(
                         meta=jwst_data.meta,
-                        subsample=alignment_subsample,
+                        subsample=filter_alignment.star_alignment.alignment_meta.subsample,
                         data=data,
                         mask=mask,
                         std=std,
                         psf=load_psf_kernel(
                             jwst_data=jwst_data,
-                            subsample=alignment_subsample,
+                            subsample=filter_alignment.star_alignment.alignment_meta.subsample,
                             target_center=star.position,
                             config_parameters=psf_kernel_configs,
                         ),
                         sky_array=np.zeros(
-                            [s * alignment_subsample for s in data.shape]
+                            [
+                                s
+                                * filter_alignment.star_alignment.alignment_meta.subsample
+                                for s in data.shape
+                            ]
                         ),
                         star_in_subsampled_pixles=star.pixel_position_in_subsampled_data(
                             jwst_data.wcs,
                             min_row=bounding_indices[0],
                             min_column=bounding_indices[2],
-                            subsample_factor=alignment_subsample,
+                            subsample_factor=filter_alignment.star_alignment.alignment_meta.subsample,
                         ),
                         observation_id=observation_id,
                     )

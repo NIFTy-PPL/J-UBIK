@@ -286,13 +286,13 @@ telescope:
     f1800w: ['lognormal', 92.0, 1.5]
     f2100w: ['lognormal', 226.0, 1.0]
 
-  gaia_alignment:
-    fov: 3.5arcsec
-    shape: [129, 129]
-    star_light: ['lognormal', 1000, 10000]
-    subsample: 1
-    library_path: './data/GAIA/library_stars'
-    exclude_source_id: [4788834899488736128, 4788858367190047104]
+  # gaia_alignment:
+  #   fov: 3.5arcsec
+  #   shape: [129, 129]
+  #   star_light: ['lognormal', 1000, 10000]
+  #   subsample: 1
+  #   library_path: './data/GAIA/library_stars'
+  #   exclude_source_id: [4788834899488736128, 4788858367190047104]
 
   rotation_and_shift:
     # nufft: 
@@ -313,7 +313,7 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/15_02_testing_reconstruction'
+  res_dir: './results/jwst_lens/cluster/15_03_restructuring'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
