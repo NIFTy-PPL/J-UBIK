@@ -1,9 +1,10 @@
 from dataclasses import dataclass
+from collections import UserList
 from astropy.coordinates import SkyCoord
 
 
 @dataclass
-class CornerMaskConfig:
+class ExtraMaskFromCorners:
     corners: list[SkyCoord]
 
     @classmethod
@@ -22,22 +23,26 @@ class CornerMaskConfig:
         return cls(corners=[SkyCoord(ra=ra, dec=dec) for ra, dec in zip(ras, decs)])
 
 
-def yaml_to_corner_mask_configs(
-    telescope_yaml_dict: dict,
-) -> list[CornerMaskConfig]:
-    """Factory producing a list of `CornerMaskConfig`
+class ExtraMasks(UserList):
+    """A list of `ExtraMaskFromCorners`."""
 
-    Parameters
-    ----------
-    telescope_yaml_dict: dict
-        The telescope yaml dict which contains the masks for the corners.
-    """
+    @classmethod
+    def from_yaml_dict(cls, raw: dict | None):
+        """Factory producing a ExtraMasks object with multiple `ExtraMaskFromCorners`
 
-    CORNER_KEY = "corner_mask"
+        Parameters
+        ----------
+        raw: dict, parsed yaml file
+        - `corner_mask`, optional
+            If the string `corner_mask` is inside the yaml dict, the mask will be
+            appended to the list.
+        """
 
-    corner_masks = []
-    for key, val in telescope_yaml_dict.items():
-        if CORNER_KEY in key.lower():
-            corner_masks.append(CornerMaskConfig.from_yaml_dict(val))
+        CORNER_KEY = "corner_mask"
 
-    return corner_masks
+        corner_masks = []
+        for key, val in raw.items():
+            if CORNER_KEY in key.lower():
+                corner_masks.append(ExtraMaskFromCorners.from_yaml_dict(val))
+
+        return cls(corner_masks)

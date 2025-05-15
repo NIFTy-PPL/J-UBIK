@@ -35,6 +35,8 @@ class JwstPsfKernelConfig:
     def from_yaml_dict(cls, raw: dict):
         """Read the PsfKernelConfig from the yaml config.
 
+        Parameters
+        ----------
         raw: dict, Parsed dict from yaml file, containing:
             - webbpsf_path
             - psf_library_path

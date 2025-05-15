@@ -19,7 +19,7 @@ from ..masking import (
     get_mask_from_index_centers_within_rgrid,
     get_mask_from_mask_corners,
 )
-from ..parse.masking.data_mask import CornerMaskConfig
+from ..parse.masking.data_mask import ExtraMaskFromCorners
 
 try:
     from jwst import datamodels
@@ -134,7 +134,7 @@ class JwstData:
         self,
         row_minmax_column_minmax: tuple[int] | np.ndarray,
         reconstruction_grid_wcs: WcsAstropy | None = None,
-        additional_masks_corners: list[CornerMaskConfig] | None = None,
+        additional_masks_corners: list[ExtraMaskFromCorners] | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Data, mask, and std cutout corresponding to `row_minmax_column_minmax`.
 

@@ -1,3 +1,5 @@
+from nifty8.re import logger
+
 from .....grid import Grid
 from .....color import Color
 from ...alignment.filter_alignment import FilterAlignment
@@ -31,6 +33,8 @@ def data_preloading(
     (color_of_filter, target_bounds, filter_alignment)
 
     """
+    logger.info("Preloading JWST data")
+
     target_bounds = DataBounds()
     preloading_checks = PreloadingChecks()
 
@@ -39,14 +43,14 @@ def data_preloading(
         jwst_data = JwstData(filepath)
         preloading_checks.check_energy_consistency(jwst_data.pivot_wavelength, filepath)
 
-        target_bounds = target_preloading(
+        target_preloading(
             target_bounds,
             jwst_data,
             grid,
             sky_meta,
         )
         if filter_alignment.star_alignment is not None:
-            filter_alignment = star_alignment_preloading(filter_alignment, jwst_data)
+            star_alignment_preloading(filter_alignment.star_alignment, jwst_data)
 
     target_bounds = target_bounds.align_shapes_and_bounds()
 

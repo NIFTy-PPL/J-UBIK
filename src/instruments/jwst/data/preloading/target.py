@@ -63,5 +63,3 @@ def target_preloading(
         grid.spatial.world_corners(extension_value=sky_meta.grid_extension)
     )
     target_bounds.append_shapes_and_bounds(bounds=bounding_indices)
-
-    return target_bounds

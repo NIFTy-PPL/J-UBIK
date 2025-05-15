@@ -6,17 +6,18 @@ from astropy.coordinates import SkyCoord
 
 from ..data.jwst_data import DataMetaInformation
 
+# class TargetData(UserList):
+
 
 @dataclass
 class TargetData:
+    subsample: int
     meta: DataMetaInformation | None = None
-    subsample: int | None = None
     data: np.ndarray | list[np.ndarray] = field(default_factory=list)
     mask: np.ndarray | list[np.ndarray] = field(default_factory=list)
     std: np.ndarray | list[np.ndarray] = field(default_factory=list)
     psf: np.ndarray | list[np.ndarray] = field(default_factory=list)
     subsample_centers: SkyCoord | list[SkyCoord] = field(default_factory=list)
-    star_in_subsampled_pixels: list[np.ndarray | None] = field(default_factory=list)
     observation_ids: list[int | None] = field(default_factory=list)
 
     def __len__(self):
@@ -35,12 +36,8 @@ class TargetData:
                 std=[self.std[i] for i in rng],
                 psf=[self.psf[i] for i in rng],
                 meta=[self.meta[i] for i in rng],
-                subsample=[self.subsample[i] for i in rng],
                 subsample_centers=[self.subsample_centers[i] for i in rng],
                 correction_prior=[self.correction_prior[i] for i in rng],
-                star_in_subsampled_pixels=[
-                    self.star_in_subsampled_pixels[i] for i in rng
-                ],
                 observation_ids=[self.observation_ids[i] for i in rng],
             )
 
@@ -50,10 +47,8 @@ class TargetData:
             std=self.std[idx],
             psf=self.psf[idx],
             meta=self.meta[idx],
-            subsample=self.subsample[idx],
             subsample_centers=self.subsample_centers[idx],
             correction_prior=self.correction_prior[idx],
-            star_in_subsampled_pixels=self.star_in_subsampled_pixels[idx],
             observation_ids=self.observation_ids[idx],
         )
 
@@ -66,23 +61,15 @@ class TargetData:
         for i in range(len(self)):
             yield self[i]
 
-    def _add_or_check_meta_data(
-        self, filter_data_meta: DataMetaInformation, subsample: int
-    ):
+    def _add_or_check_meta_data(self, filter_data_meta: DataMetaInformation):
         if self.meta is None:
             self.meta = filter_data_meta
         else:
             assert self.meta == filter_data_meta
 
-        if self.subsample is None:
-            self.subsample = subsample
-        else:
-            assert self.subsample == subsample
-
     def append_observation(
         self,
         meta: DataMetaInformation,
-        subsample: int,
         data: np.ndarray,
         mask: np.ndarray,
         std: np.ndarray,
@@ -91,14 +78,17 @@ class TargetData:
         star_in_subsampled_pixles: np.ndarray | None = None,
         observation_id: int | None = None,
     ):
-        self._add_or_check_meta_data(meta, subsample)
+        self._add_or_check_meta_data(meta)
         self.data.append(data)
         self.mask.append(mask)
         self.std.append(std)
         self.subsample_centers.append(subsample_centers)
         self.psf.append(psf)
-        self.star_in_subsampled_pixels.append(star_in_subsampled_pixles)
         self.observation_ids.append(observation_id)
+
+    @classmethod
+    def from_yaml_dict(cls, raw: dict):
+        return cls(subsample=raw["subsample"])
 
 
 @dataclass
