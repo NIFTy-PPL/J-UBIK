@@ -17,7 +17,7 @@ from .zero_flux_model import build_zero_flux_model
 from .data.preloading.preloading import data_preloading
 
 # Parsing
-from .parse.zero_flux_model import yaml_to_zero_flux_prior_config
+from .parse.zero_flux_model import ZeroFluxPriorConfigs
 from .parse.rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
 )
@@ -57,8 +57,8 @@ def build_jwst_likelihoods(
     )
 
     # Parsing
-    zero_flux_prior_configs = yaml_to_zero_flux_prior_config(
-        cfg[telescope_key]["zero_flux"]
+    zero_flux_prior_configs = ZeroFluxPriorConfigs.from_yaml_dict(
+        cfg[telescope_key].get("zero_flux")
     )
     rotation_and_shift_algorithm = rotation_and_shift_algorithm_config_factory(
         cfg[telescope_key]["rotation_and_shift"]

@@ -32,19 +32,29 @@ class ZeroFluxPriorConfigs:
             return self.names[filter_name]
         return self.default
 
+    @classmethod
+    def from_yaml_dict(cls, raw: dict | None):
+        """Read the ZerofluxPriorConfigs from parsed yaml file
 
-def yaml_to_zero_flux_prior_config(zero_flux_config: dict | None):
-    if zero_flux_config is None:
-        return None
+        Parameters
+        ----------
+        raw: dict, Parsed dict from yaml file, containing:
+            - default, the default prior settings
+            - names, optional, other names corresponding to different filters where a
+                     zeroflux-model will be applied.
+        """
 
-    default = prior_config_factory(zero_flux_config[DEFAULT_KEY])
+        if raw is None:
+            return None
 
-    names = {}
-    for filter_name, filter_prior in zero_flux_config.items():
-        filter_name = filter_name.lower()
-        if filter_name == DEFAULT_KEY:
-            continue
+        default = prior_config_factory(raw[DEFAULT_KEY])
 
-        names[filter_name] = prior_config_factory(filter_prior)
+        names = {}
+        for filter_name, filter_prior in raw.items():
+            filter_name = filter_name.lower()
+            if filter_name == DEFAULT_KEY:
+                continue
 
-    return ZeroFluxPriorConfigs(default=default, names=names)
+            names[filter_name] = prior_config_factory(filter_prior)
+
+        return ZeroFluxPriorConfigs(default=default, names=names)
