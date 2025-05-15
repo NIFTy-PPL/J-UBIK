@@ -17,7 +17,6 @@ from .zero_flux_model import build_zero_flux_model
 from .data.preloading.preloading import data_preloading
 
 # Parsing
-from .parse.jwst_psf import yaml_to_psf_kernel_config
 from .parse.zero_flux_model import yaml_to_zero_flux_prior_config
 from .parse.rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
@@ -27,6 +26,7 @@ from .parse.masking.data_mask import yaml_to_corner_mask_configs
 from .parse.alignment.star_alignment import StarAlignmentMeta
 from .parse.data.data_loading import DataFilePaths
 from .parse.jwst_likelihoods import TargetData, StarData
+from .parse.jwst_psf import JwstPsfKernelConfig
 
 
 # Libraries
@@ -60,7 +60,6 @@ def build_jwst_likelihoods(
     zero_flux_prior_configs = yaml_to_zero_flux_prior_config(
         cfg[telescope_key]["zero_flux"]
     )
-    psf_kernel_configs = yaml_to_psf_kernel_config(cfg[telescope_key]["psf"])
     rotation_and_shift_algorithm = rotation_and_shift_algorithm_config_factory(
         cfg[telescope_key]["rotation_and_shift"]
     )
@@ -69,6 +68,10 @@ def build_jwst_likelihoods(
         grid_extension=get_grid_extension_from_config(cfg[telescope_key], grid),
         unit=sky_unit,
         dvol=grid.spatial.dvol,
+    )
+
+    psf_kernel_configs = JwstPsfKernelConfig.from_yaml_dict(
+        cfg[telescope_key].get("psf")
     )
 
     gaia_alignment_meta_data = StarAlignmentMeta.from_yaml_dict(

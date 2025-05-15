@@ -11,7 +11,7 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 from ..data.jwst_data import JwstData
-from ..parse.jwst_psf import PsfKernelConfig
+from ..parse.jwst_psf import JwstPsfKernelConfig
 
 
 def build_webb_psf(
@@ -130,7 +130,7 @@ def load_psf_kernel(
     jwst_data: JwstData,
     subsample: int,
     target_center: SkyCoord,
-    config_parameters: PsfKernelConfig,
+    config_parameters: JwstPsfKernelConfig,
 ) -> ArrayLike:
     """
     Loads or computes the Point Spread Function (PSF) kernel for a specified

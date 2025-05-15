@@ -9,7 +9,7 @@ NORMALIZE_DEFAULT = "last"
 
 
 @dataclass
-class PsfKernelConfig:
+class JwstPsfKernelConfig:
     """The PsfKernelConfig is a data model for holding metadata for
     the evaluation of the psf kernel.
 
@@ -31,23 +31,20 @@ class PsfKernelConfig:
     psf_arcsec: float
     normalize: str
 
+    @classmethod
+    def from_yaml_dict(cls, raw: dict):
+        """Read the PsfKernelConfig from the yaml config.
 
-def yaml_to_psf_kernel_config(
-    psf_config: dict,
-):
-    """Read the PsfKernelConfig from the yaml config.
-
-    psf_config: dict
-        The dictionary holding:
+        raw: dict, Parsed dict from yaml file, containing:
             - webbpsf_path
             - psf_library_path
             - psf_arcsec_extension
             - normalize | None
-    """
+        """
 
-    return PsfKernelConfig(
-        webbpsf_path=psf_config[WEBBPSF_PATH_KEY],
-        psf_library_path=psf_config[PSF_LIBRARY_PATH_KEY],
-        psf_arcsec=psf_config[PSF_ARCSEC_KEY],
-        normalize=psf_config.get(NORMALIZE_KEY, NORMALIZE_DEFAULT),
-    )
+        return JwstPsfKernelConfig(
+            webbpsf_path=raw[WEBBPSF_PATH_KEY],
+            psf_library_path=raw[PSF_LIBRARY_PATH_KEY],
+            psf_arcsec=raw[PSF_ARCSEC_KEY],
+            normalize=raw.get(NORMALIZE_KEY, NORMALIZE_DEFAULT),
+        )
