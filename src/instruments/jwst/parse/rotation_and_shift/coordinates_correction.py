@@ -13,6 +13,7 @@ from astropy import units as u
 from dataclasses import dataclass, astuple
 
 
+MODEL_KEY = "model"
 ROTATION_UNIT_KEY = "rotation_unit"
 SHIFT_UNIT_KEY = "shift_unit"
 SHIFT_KEY = "shift"
@@ -21,6 +22,24 @@ ROTATION_KEY = "rotation"
 
 @dataclass
 class CoordinatesCorrectionPriorConfig:
+    """Config class for the coordinates correction.
+
+    Parameters
+    ----------
+    model: str,
+        - shift, only apply a shift correction
+        - rshift, shift & rotation correction
+    shift:  ProbabilityConfig
+        The ProbabilityConfig for the shift model.
+    shift_unit: u.Unit
+        The unit of the shift model
+    rotation:  ProbabilityConfig
+        The ProbabilityConfig for the rotation model.
+    rotation_unit: u.Unit
+        The unit of the rotation model
+    """
+
+    model: str
     shift: ProbabilityConfig
     shift_unit: u.Unit
     rotation: ProbabilityConfig
@@ -40,7 +59,19 @@ class CoordinatesCorrectionPriorConfig:
 
     @classmethod
     def from_yaml_dict(cls, raw: dict):
+        f"""Parse CoordinatesCorrectionPriorConfig from yaml dictionary.
+
+        Parameters
+        ----------
+        raw, dict (parsed from yaml). It should contain
+            - {MODEL_KEY}
+            - {SHIFT_KEY}
+            - {SHIFT_UNIT_KEY}
+            - {ROTATION_KEY}
+            - {ROTATION_UNIT_KEY}
+        """
         return CoordinatesCorrectionPriorConfig(
+            model=raw[MODEL_KEY],
             shift=prior_config_factory(raw[SHIFT_KEY]),
             rotation=prior_config_factory(raw[ROTATION_KEY]),
             shift_unit=getattr(u, raw[SHIFT_UNIT_KEY]),

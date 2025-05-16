@@ -11,6 +11,7 @@ from ..parse.parametric_model.parametric_prior import (
     prior_config_factory,
 )
 from ..parse.rotation_and_shift.coordinates_correction import (
+    MODEL_KEY,
     ROTATION_KEY,
     ROTATION_UNIT_KEY,
     SHIFT_KEY,
@@ -36,6 +37,7 @@ class FilterAlignment:
             config = raw[DEFAULT_KEY]
 
         self.correction_prior = CoordinatesCorrectionPriorConfig(
+            model=raw[MODEL_KEY],
             shift=prior_config_factory(
                 config[SHIFT_KEY], shape=(number_of_observations, 2)
             ),

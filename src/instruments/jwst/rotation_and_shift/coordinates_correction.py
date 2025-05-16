@@ -34,6 +34,7 @@ class ShiftAndRotationCorrection(jft.Model):
         correction_prior: CoordinatesCorrectionPriorConfig,
         rotation_center: SkyCoord,
     ):
+        self.model: str = correction_prior.model  # shift, rshift
         self.shift = build_parametric_prior_from_prior_config(
             domain_key + "_shift",
             correction_prior.shift_in(correction_prior.shift_unit),
@@ -265,7 +266,6 @@ def build_coordinates_corrected_for_field(
     reconstruction_grid_wcs: WcsAstropy,
     world_coordinates: SkyCoord | list[SkyCoord],
     indexing: str = "ij",
-    shift_only: bool = True,
 ) -> Union[
     Coordinates, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation
 ]:
@@ -324,7 +324,7 @@ def build_coordinates_corrected_for_field(
     shift_unit = shift_and_rotation_correction.shift_unit
     pixel_distance = reconstruction_grid_wcs.distances.to(shift_unit)
 
-    if shift_only:
+    if shift_and_rotation_correction.model == "shift":
         assert (  # Check that we have the same amount of observations (length of first/0th axis)
             shift_and_rotation_correction.shift.target.shape
             == pixel_coordinates.shape[:2]

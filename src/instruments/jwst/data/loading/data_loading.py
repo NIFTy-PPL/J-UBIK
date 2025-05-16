@@ -16,6 +16,8 @@ from ...alignment.star_alignment import StarAlignment
 
 from ...psf.jwst_kernel import load_psf_kernel
 
+from ...plotting.plotting_sky import plot_jwst_panels, plot_sky_coords
+
 
 def target_loading(
     target_data: TargetData,
@@ -126,6 +128,25 @@ def data_loading(
         jwst_data = JwstData(filepath)
 
         filter_alignment.boresight.append(jwst_data.get_boresight_world_coords())
+
+        # import matplotlib.pyplot as plt
+        # from functools import partial
+        #
+        # fig, axes = plot_jwst_panels(
+        #     [jwst_data.dm.data],
+        #     [jwst_data.wcs],
+        #     nrows=1,
+        #     ncols=1,
+        #     vmin=0.05,
+        #     vmax=0.5,
+        #     coords_plotter=partial(
+        #         plot_sky_coords,
+        #         sky_coords=[s.position for s in stars],
+        #         marker_color="red",
+        #         marker="x",
+        #     ),
+        # )
+        # plt.show()
 
         target_loading(
             target_data,

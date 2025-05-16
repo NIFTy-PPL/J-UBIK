@@ -130,7 +130,6 @@ def build_sky_to_subsampled_data(
         reconstruction_grid_wcs=sky_wcs,
         world_coordinates=data_subsampled_centers,
         indexing="ij",
-        shift_only=True,
     )
 
     return build_rotation_and_shift(

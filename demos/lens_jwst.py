@@ -167,13 +167,18 @@ if likelihood_alignment is not None:
 
     for pa in plotting_alignment:
         m = pa.model[0]
-        mean, std = jft.mean_and_std(
-            [
-                m.sky_model.location.shift_and_rotation.shift(x)
-                for x in samples_fixpointing
-            ]
-        )
-        print(pa.filter, mean, std)
+        try:
+            mean, std = jft.mean_and_std(
+                [
+                    m.sky_model.location.shift_and_rotation.shift(x)
+                    for x in samples_fixpointing
+                ]
+            )
+            print(pa.filter, mean, std)
+        except IndexError:
+            x = samples_fixpointing.pos
+            mean = m.sky_model.location.shift_and_rotation.shift(x)
+            print(pa.filter, mean)
 
     exit()
 
