@@ -2,10 +2,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .....grid import Grid
-from ...parse.jwst_response import SkyMetaInformation
-from ..jwst_data import JwstData
-
 
 @dataclass
 class DataBounds:
@@ -38,28 +34,8 @@ class DataBounds:
 
         return DataBounds(list(shapes_new), list(bounding_indices_new))
 
-    def append_shapes_and_bounds(self, bounds: tuple[int, int, int, int]) -> None:
+    def add_cutout(self, bounds: tuple[int, int, int, int]) -> None:
         """Append the shape and bounding indices for a data cutout."""
         shape = bounds[1] - bounds[0], bounds[3] - bounds[2]
         self.shapes.append(shape)
         self.bounds.append(bounds)
-
-
-def target_preloading(
-    target_bounds: DataBounds,
-    jwst_data: JwstData,
-    grid: Grid,
-    sky_meta: SkyMetaInformation,
-):
-    """Preloading step on the data. This performs:
-    1. Appending the the bounds and shapes of the target grid in the data.
-
-    Parameters
-    ----------
-
-    """
-
-    bounding_indices = jwst_data.wcs.bounding_indices_from_world_extrema(
-        grid.spatial.world_corners(extension_value=sky_meta.grid_extension)
-    )
-    target_bounds.append_shapes_and_bounds(bounds=bounding_indices)

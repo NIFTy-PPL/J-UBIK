@@ -21,7 +21,7 @@ from .parse.rotation_and_shift.rotation_and_shift import (
 )
 from .parse.jwst_response import SkyMetaInformation
 from .parse.alignment.star_alignment import StarAlignmentMeta
-from .parse.data.data_loading import DataFilePaths
+from .parse.data.data_loading import DataLoadingConfig
 from .parse.jwst_psf import JwstPsfKernelConfig
 from .parse.masking.data_mask import ExtraMasks
 
@@ -75,37 +75,41 @@ def build_jwst_likelihoods(
         cfg[telescope_key].get("gaia_alignment")
     )
 
-    data_paths = DataFilePaths.from_yaml_dict(cfg[files_key])
+    load_config = DataLoadingConfig.from_yaml_dict(cfg[files_key])
 
     target_plotting = ResidualPlottingInformation()
     alignment_plotting = []
     target_filter_likelihoods = []
     stars_alignment_likelihoods = []
 
-    for filter_and_filepaths in data_paths.filters:
-        filter_alignment = FilterAlignment(filter_name=filter_and_filepaths.filter)
+    for filter, filepaths in load_config.paths.items():
+        filter_alignment = FilterAlignment(filter_name=filter)
         filter_alignment.load_star_alignment(gaia_alignment_meta_data)
         filter_alignment.load_correction_prior(
             cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
-            number_of_observations=len(filter_and_filepaths.filepaths),
+            number_of_observations=len(filepaths),
         )
 
         color, target_bounds, filter_alignment = data_preloading(
-            filter_and_filepaths, grid, sky_meta, filter_alignment
+            filepaths,
+            grid.spatial.world_corners(extension_value=sky_meta.grid_extension),
+            filter_alignment,
+            loading_mode=load_config.loading_mode,
+            workers=load_config.workers,
         )
 
         target_data, stars, stars_data = data_loading(
             telescope_cfg=cfg[telescope_key],
-            filter_and_filepaths=filter_and_filepaths,
+            filepaths=filepaths,
             target_grid=grid,
-            filter_alignment=filter_alignment,
+            star_alignment=filter_alignment.star_alignment,
             target_bounds=target_bounds,
             psf_kernel_configs=psf_kernel_configs,
             extra_masks=extra_masks,
         )
 
         shift_and_rotation_correction = ShiftAndRotationCorrection(
-            domain_key=filter_and_filepaths.filter,
+            domain_key=filter,
             correction_prior=filter_alignment.correction_prior,
             rotation_center=SkyCoord(filter_alignment.boresight),
         )
@@ -124,10 +128,8 @@ def build_jwst_likelihoods(
             sky_meta=sky_meta,
             psf=np.array(target_data.psf),
             zero_flux_model=build_zero_flux_model(
-                f"{filter_and_filepaths.filter}_target",
-                zero_flux_prior_configs.get_name_setting_or_default(
-                    filter_and_filepaths.filter
-                ),
+                f"{filter}_target",
+                zero_flux_prior_configs.get_name_setting_or_default(filter),
                 shape=(len(target_data), 1, 1),
             ),
             data_mask=np.array(target_data.mask),
@@ -144,7 +146,7 @@ def build_jwst_likelihoods(
         )
 
         target_plotting.append_information(
-            filter=filter_and_filepaths.filter,
+            filter=filter,
             data=np.array(target_data.data),
             std=np.array(target_data.std),
             mask=np.array(target_data.mask),
@@ -154,10 +156,11 @@ def build_jwst_likelihoods(
 
         star_alignment: StarAlignment | None = filter_alignment.star_alignment
         if star_alignment:
-            filter_alignment_plotting = FilterAlignmentPlottingInformation(
-                filter_and_filepaths.filter
+            filter_alignment_plotting = dict(
+                psf_convolved=FilterAlignmentPlottingInformation(filter),
+                psf=FilterAlignmentPlottingInformation(filter),
             )
-            filter_alignment_likelihoods = []
+            filter_alignment_likelihoods = dict(psf_convolved=[], psf=[])
 
             # psf_shape = np.array(stars_data[stars[0].id].psf).shape
             # for star in stars:
@@ -172,61 +175,68 @@ def build_jwst_likelihoods(
                 # psf = build_psf_model_strategy(f"{filter_and_filepaths.filter}_{star.id}", psf_shape, strategy='full')
                 # psf = LearnablePsf(psf, psf_model)
 
-                # import scipy
-                #
-                # psf = np.array(
-                #     [
-                #         scipy.ndimage.gaussian_filter(psf, 2)
-                #         for psf in stars_data[star.id].psf
-                #     ]
-                # )
+                import scipy
+
+                psf_convolved = np.array(
+                    [
+                        scipy.ndimage.gaussian_filter(psf, 2)
+                        for psf in stars_data[star.id].psf
+                    ]
+                )
 
                 star_data = stars_data[star.id]
                 data, mask, std = star_data.data, star_data.mask, star_data.std
 
-                jwst_star_response = build_jwst_response(
-                    sky_in_subsampled_data=build_star_in_data(
-                        filter_key=filter_and_filepaths.filter,
-                        star_id=star.id,
-                        star_light_prior=star_alignment.alignment_meta.star_light_prior,
-                        star_data=stars_data[star.id],
-                        shift_and_rotation_correction=shift_and_rotation_correction,
-                    ),
-                    data_meta=stars_data[star.id].meta,
-                    data_subsample=stars_data[star.id].subsample,
-                    sky_meta=sky_meta,
-                    psf=psf,
-                    zero_flux_model=build_zero_flux_model(
-                        f"{filter_and_filepaths.filter}_{star.id}",
-                        zero_flux_prior_configs.get_name_setting_or_default(
-                            filter_and_filepaths.filter
+                for p, name in zip([psf, psf_convolved], ["psf", "psf_convolved"]):
+                    jwst_star_response = build_jwst_response(
+                        sky_in_subsampled_data=build_star_in_data(
+                            filter_key=filter,
+                            star_id=star.id,
+                            star_light_prior=star_alignment.alignment_meta.star_light_prior,
+                            star_data=stars_data[star.id],
+                            shift_and_rotation_correction=shift_and_rotation_correction,
                         ),
-                        shape=(len(stars_data[star.id].data), 1, 1),
-                    ),
-                    data_mask=np.array(stars_data[star.id].mask),
-                )
+                        data_meta=stars_data[star.id].meta,
+                        data_subsample=stars_data[star.id].subsample,
+                        sky_meta=sky_meta,
+                        psf=p,
+                        zero_flux_model=build_zero_flux_model(
+                            f"{filter}_{star.id}",
+                            zero_flux_prior_configs.get_name_setting_or_default(filter),
+                            shape=(len(stars_data[star.id].data), 1, 1),
+                        ),
+                        data_mask=np.array(stars_data[star.id].mask),
+                    )
 
-                likelihood_star = build_gaussian_likelihood(
-                    jnp.array(np.array(data)[np.array(mask)], dtype=float),
-                    jnp.array(np.array(std)[np.array(mask)], dtype=float),
-                    model=jwst_star_response,
-                )
+                    likelihood_star = build_gaussian_likelihood(
+                        jnp.array(np.array(data)[np.array(mask)], dtype=float),
+                        jnp.array(np.array(std)[np.array(mask)], dtype=float),
+                        model=jwst_star_response,
+                    )
 
-                filter_alignment_likelihoods.append(likelihood_star)
-                filter_alignment_plotting.append_information(
-                    star_id=star.id,
-                    data=np.array(data),
-                    mask=np.array(mask),
-                    std=np.array(std),
-                    model=jwst_star_response,
-                )
-            alignment_plotting.append(filter_alignment_plotting)
+                    filter_alignment_likelihoods[name].append(likelihood_star)
 
-            filter_alignment_likelihood = reduce(
-                lambda x, y: x + y, filter_alignment_likelihoods
+                    if name == "psf":
+                        filter_alignment_plotting[name].append_information(
+                            star_id=star.id,
+                            data=np.array(data),
+                            mask=np.array(mask),
+                            std=np.array(std),
+                            model=jwst_star_response,
+                        )
+
+            alignment_plotting.append(filter_alignment_plotting["psf"])
+
+            filter_alignment_likelihood_psf = reduce(
+                lambda x, y: x + y, filter_alignment_likelihoods["psf"]
+            )
+            filter_alignment_likelihood_psf_convolved = reduce(
+                lambda x, y: x + y, filter_alignment_likelihoods["psf_convolved"]
             )
 
-            stars_alignment_likelihoods.append(filter_alignment_likelihood)
+            stars_alignment_likelihoods.append(
+                filter_alignment_likelihood_psf  # + filter_alignment_likelihood_psf_convolved
+            )
 
     likelihood_target = reduce(lambda x, y: x + y, target_filter_likelihoods)
 

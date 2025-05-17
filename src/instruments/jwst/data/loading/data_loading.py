@@ -1,22 +1,20 @@
-import numpy as np
-from nifty8.re import logger
-from astropy import units as u
+from pathlib import Path
 from typing import Any
 
-from ...parse.jwst_likelihoods import TargetData, StarData
-from ...parse.data.data_loading import FilterAndFilePaths
+import numpy as np
+from astropy import units as u
+from nifty8.re import logger
+
+# Parse
+from ...parse.jwst_likelihoods import StarData, TargetData
 from ...parse.jwst_psf import JwstPsfKernelConfig
 from ...parse.masking.data_mask import ExtraMasks
 
-from ...alignment.filter_alignment import FilterAlignment
-from ..preloading.target import DataBounds
-from ..jwst_data import JwstData
 from .....grid import Grid
 from ...alignment.star_alignment import StarAlignment
-
 from ...psf.jwst_kernel import load_psf_kernel
-
-from ...plotting.plotting_sky import plot_jwst_panels, plot_sky_coords
+from ..jwst_data import JwstData
+from ..preloading.data_bounds import DataBounds
 
 
 def target_loading(
@@ -101,9 +99,9 @@ def star_alignment_loading(
 
 def data_loading(
     telescope_cfg: dict[str, Any],
-    filter_and_filepaths: FilterAndFilePaths,
+    filepaths: list[Path],
     target_grid: Grid,
-    filter_alignment: FilterAlignment,
+    star_alignment: StarAlignment | None,
     target_bounds: DataBounds,
     psf_kernel_configs: JwstPsfKernelConfig,
     extra_masks: ExtraMasks,
@@ -112,25 +110,17 @@ def data_loading(
     # telescope_cfg = cfg[telescope_key]
     target_data = TargetData.from_yaml_dict(telescope_cfg["target"])
 
-    star_alignment = filter_alignment.star_alignment
-    if star_alignment:
-        stars = star_alignment.get_stars()
-        stars_data = {star.id: StarData() for star in stars}
-    else:
-        stars = None
-        stars_data = None
+    stars = star_alignment.get_stars() if star_alignment else None
+    stars_data = {star.id: StarData() for star in stars} if star_alignment else None
 
-    for observation_id, filepath in enumerate(filter_and_filepaths.filepaths):
-        logger.info(
-            f"Loading: {filter_and_filepaths.filter} {observation_id} {filepath}"
-        )
+    for observation_id, filepath in enumerate(filepaths):
+        logger.info(f"Loading: {observation_id} {filepath}")
 
         jwst_data = JwstData(filepath)
 
-        filter_alignment.boresight.append(jwst_data.get_boresight_world_coords())
-
         # import matplotlib.pyplot as plt
         # from functools import partial
+        # from ...plotting.plotting_sky import plot_jwst_panels, plot_sky_coords
         #
         # fig, axes = plot_jwst_panels(
         #     [jwst_data.dm.data],
