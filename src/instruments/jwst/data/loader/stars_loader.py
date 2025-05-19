@@ -10,12 +10,11 @@ from numpy.typing import NDArray
 from .....grid import Grid
 from ...alignment.star_alignment import Star, StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig
-from ...parse.data.data_loading import IndexAndPath, Subsample
+from ...parse.data.data_loader import IndexAndPath
 from ...parse.jwst_psf import JwstPsfKernelConfig
 from ...parse.masking.data_mask import ExtraMasks
 from ...psf.jwst_kernel import load_psf_kernel
-from ..jwst_data import DataMetaInformation, JwstData
-from ..preloading.data_bounds import DataBounds
+from ..jwst_data import JwstData
 from .cutout import DataCutout
 
 # ---------------------

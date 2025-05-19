@@ -1,7 +1,7 @@
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, List, Protocol, Sequence, Literal, Iterable
-from ..parse.data.data_loading import LoadingMode, IndexAndPath
+from ..parse.data.data_loader import LoadingMode, IndexAndPath
 
 
 class HasIndexBundle(Protocol):

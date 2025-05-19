@@ -6,19 +6,19 @@ from nifty8.re import logger
 from .....grid import Grid
 from ...alignment.star_alignment import StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig
-from ...parse.data.data_loading import IndexAndPath, LoadingModeConfig, Subsample
+from ...parse.data.data_loader import IndexAndPath, LoadingModeConfig, Subsample
 from ...parse.jwst_psf import JwstPsfKernelConfig
 from ...parse.masking.data_mask import ExtraMasks
-from ..concurrent_loading import load_bundles
+from ..concurrent_loader import load_bundles
 from ..jwst_data import JwstData
-from ..preloading.data_bounds import DataBounds
-from .stars_loading import (
+from ..preloader.data_bounds import DataBounds
+from .stars_loader import (
     StarData,
     StarsBundle,
     load_one_stars_bundle,
     load_one_stars_bundle_from_filepath,
 )
-from .target_loading import (
+from .target_loader import (
     TargetBundle,
     TargetData,
     load_one_target_bundle,

@@ -12,8 +12,8 @@ from ....gaia.star_finder import load_gaia_stars_in_fov
 from ...alignment.filter_alignment import FilterAlignment
 from ...alignment.star_alignment import StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig
-from ...parse.data.data_loading import IndexAndPath, LoadingModeConfig
-from ..concurrent_loading import load_bundles
+from ...parse.data.data_loader import IndexAndPath, LoadingModeConfig
+from ..concurrent_loader import load_bundles
 from ..jwst_data import DataMetaInformation, JwstData
 from .checks import FilterConsistency
 from .data_bounds import DataBounds
@@ -60,9 +60,9 @@ def load_one_preload(
     )
 
 
-def _preloading_data_products(
+def _preload_data_products(
     bundles: Iterable[PreloadBundle],
-    star_alignment_config: StarAlignmentConfig,
+    star_alignment_config: StarAlignmentConfig | None,
 ) -> tuple[DataMetaInformation, DataBounds, StarTables | None, list[SkyCoord]]:
     """Apply side effects from the preloaded data bundles.
 
@@ -105,7 +105,7 @@ def _preloading_data_products(
     return checks.meta, target_bounds, star_tables, boresights
 
 
-def _preloading_side_effects(
+def _preload_side_effects(
     filter_alignment: FilterAlignment,
     boresights: list[SkyCoord],
 ) -> None:
@@ -161,7 +161,7 @@ def preload_data(
     """
 
     t = time.perf_counter()
-    logger.info("Preloading JWST data")
+    logger.info("Preload JWST data")
 
     bundles: Iterable[PreloadBundle] = load_bundles(
         filepaths,
@@ -174,12 +174,12 @@ def preload_data(
         ),
     )
 
-    filter_meta, target_bounds, star_tables, boresights = _preloading_data_products(
+    filter_meta, target_bounds, star_tables, boresights = _preload_data_products(
         bundles,
         star_alignment_config,
     )
 
-    _preloading_side_effects(filter_alignment, boresights)
+    _preload_side_effects(filter_alignment, boresights)
 
     logger.info(f"{time.perf_counter() - t}")
 

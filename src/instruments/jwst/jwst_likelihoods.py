@@ -14,13 +14,13 @@ from .zero_flux_model import build_zero_flux_model
 from .likelihood.target_likelihood import build_target_likelihood_and_response
 
 
-from .parse.data.data_loading import LoadingModeConfig, Subsample
-from .data.loading.data_loading import (
+from .parse.data.data_loader import Subsample
+from .data.loader.data_loader import (
     load_data,
     DataLoaderTarget,
     DataLoaderStarAlignment,
 )
-from .data.preloading.preloading import preload_data
+from .data.preloader.preloader import preload_data
 
 # Parsing
 from .parse.zero_flux_model import ZeroFluxPriorConfigs
@@ -29,7 +29,7 @@ from .parse.rotation_and_shift.rotation_and_shift import (
 )
 from .parse.jwst_response import SkyMetaInformation
 from .parse.alignment.star_alignment import StarAlignmentConfig
-from .parse.data.data_loading import DataLoadingConfig
+from .parse.data.data_loader import DataLoadingConfig
 from .parse.jwst_psf import JwstPsfKernelConfig
 from .parse.masking.data_mask import ExtraMasks
 
@@ -90,7 +90,6 @@ def build_jwst_likelihoods(
     target_filter_likelihoods = []
     stars_alignment_likelihoods = []
 
-    allstars = []
     for filter, filepaths in data_loader.paths.items():
         filter_alignment = FilterAlignment(filter_name=filter)
         filter_alignment.load_correction_prior(
