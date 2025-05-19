@@ -146,9 +146,10 @@ class CoordinatesCorrectedShiftAndRotation(jft.Model):
     def __init__(
         self,
         shift_and_rotation: ShiftAndRotationCorrection,
-        rotation_center: tuple[u.Quantity, u.Quantity],
-        coordinates: tuple[u.Quantity, u.Quantity],
+        rotation_center: np.ndarray,
+        pixel_coordinates: np.ndarray,
         pixel_distance: tuple[float, float],
+        shape: tuple[Ellipsis],
     ):
         """
         Initialize the ShiftAndRotationCorrection model.
@@ -171,27 +172,30 @@ class CoordinatesCorrectedShiftAndRotation(jft.Model):
         assert len(pixel_distance.shape) == 1
 
         self.shift_and_rotation = shift_and_rotation
-        self.rotation_center = [rc.value for rc in rotation_center]
-        self._coords = [coords.value for coords in coordinates]
-        self._1_over_pixel_distance = 1 / pixel_distance[:, None, None]
+        self.rotation_center = rotation_center
+        self._shape = shape
+        self._coords = pixel_coordinates
+        self._1_over_pixel_distance = (
+            1 / pixel_distance.to(shift_and_rotation.shift_unit).value
+        )
 
         super().__init__(domain=self.shift_and_rotation.domain)
 
     def __call__(self, params: dict) -> ArrayLike:
         shift = self.shift_and_rotation.shift(params)
-        theta = self.shift_and_rotation.rotation_angle(params)
+        theta = self.shift_and_rotation.rotation_angle(params)[..., None]
         x = (
             (jnp.cos(theta) * self._coords[0] - jnp.sin(theta) * self._coords[1])
-            + self.rotation_center[0]
-            + shift[0]
+            + self.rotation_center[0][self._shape]
+            + shift[0][self._shape]
         )
 
         y = (
             (jnp.sin(theta) * self._coords[0] + jnp.cos(theta) * self._coords[1])
-            + self.rotation_center[1]
-            + shift[1]
+            + self.rotation_center[1][self._shape]
+            + shift[1][self._shape]
         )
-        return jnp.array((x, y)) * self._1_over_pixel_distance
+        return jnp.array((x, y)) * self._1_over_pixel_distance[self._shape]
 
 
 def build_coordinates_corrected_for_stars(
@@ -336,7 +340,23 @@ def build_coordinates_corrected_for_field(
             shift_and_rotation_correction, pixel_coordinates, pixel_distance, shape
         )
 
-    raise NotImplementedError
+    elif shift_and_rotation_correction.model == "rshift":
+        assert (  # Check that we have the same amount of observations (length of first/0th axis)
+            shift_and_rotation_correction.shift.target.shape
+            == pixel_coordinates.shape[:2]
+        )
+        assert len(pixel_coordinates.shape) == 4
+
+        shape = (Ellipsis, None, None)
+
+        jft.logger.info("WARNING: THIS SHOULDN't BE USED IN PRODUCTION")
+        return CoordinatesCorrectedShiftAndRotation(
+            shift_and_rotation_correction,
+            rotation_center=np.array([0, 0]),
+            pixel_coordinates=pixel_coordinates,
+            pixel_distance=pixel_distance,
+            shape=shape,
+        )
 
     # xxref, yyref = world_coordinates_to_index_grid(
     #     world_coordinates=world_coordinates,
