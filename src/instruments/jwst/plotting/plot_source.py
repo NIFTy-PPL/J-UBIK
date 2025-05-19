@@ -50,6 +50,10 @@ def build_plot_source(
         source_light_reference,
     ]
 
+    for ii, model in enumerate(models):
+        if model is None:
+            models[ii] = lambda _: np.zeros((2, 2))
+
     filter_plotting_config = plotting_config.combined
     reference_plotting_config: FieldPlottingConfig = plotting_config.reference
     spectral_index_plotting_config: FieldPlottingConfig = plotting_config.alpha

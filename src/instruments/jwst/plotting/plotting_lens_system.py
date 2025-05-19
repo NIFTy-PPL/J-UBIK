@@ -91,6 +91,10 @@ def build_plot_lens_system(
         source_light_reference,
     ]
 
+    for ii, model in enumerate(models):
+        if model is None:
+            models[ii] = lambda _: np.zeros((2, 2))
+
     def plot_lens_system(
         position_or_samples: Union[jft.Samples, dict],
         state_or_none: jft.OptimizeVIState | None = None,
