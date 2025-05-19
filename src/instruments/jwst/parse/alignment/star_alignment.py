@@ -9,7 +9,7 @@ from ...parse.parametric_model.parametric_prior import (
 
 
 @dataclass
-class StarAlignmentMeta:
+class StarAlignmentConfig:
     shape: tuple[int, int]
     fov: u.Quantity
     subsample: int
@@ -45,7 +45,7 @@ class StarAlignmentMeta:
             assert sh % 2 != 0, "Need uneven cutouts shape"
         assert subsample % 2 != 0, "Need uneven subsample factor"
 
-        return StarAlignmentMeta(
+        return StarAlignmentConfig(
             shape=shape,
             fov=fov,
             subsample=subsample,

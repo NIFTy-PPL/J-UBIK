@@ -5,9 +5,10 @@ from jax import lax, vmap, Array
 
 
 from ..parametric_model.parametric_prior import build_parametric_prior_from_prior_config
-from ..parse.jwst_likelihoods import StarData
+
+from ..data.jwst_data import DataMetaInformation
+from ..data.loading.stars_loading import StarData
 from ..parse.parametric_model.parametric_prior import ProbabilityConfig
-from .star_alignment import Star
 from ..rotation_and_shift.coordinates_correction import (
     Coordinates,
     ShiftAndRotationCorrection,
@@ -145,6 +146,7 @@ class StarAndSky(jft.Model):
 
 def build_star_in_data(
     filter_key: str,
+    filter_meta: DataMetaInformation,
     star_id: int,
     star_light_prior: ProbabilityConfig,
     star_data: StarData,
@@ -163,7 +165,6 @@ def build_star_in_data(
     """
 
     skies = np.array(star_data.sky_array)
-    data_meta = star_data.meta
 
     brightness = build_parametric_prior_from_prior_config(
         f"{filter_key}_{star_id}_brightness",
@@ -175,7 +176,7 @@ def build_star_in_data(
     location_of_star_in_data_subpixels = build_coordinates_corrected_for_stars(
         shift_and_rotation_correction=shift_and_rotation_correction,
         pixel_coordinates=np.array(star_data.star_in_subsampled_pixels),
-        pixel_distance=data_meta.pixel_distance / star_data.subsample,
+        pixel_distance=filter_meta.pixel_distance / star_data.subsample,
         observation_ids=star_data.observation_ids,
         shift_only=True,
     )
