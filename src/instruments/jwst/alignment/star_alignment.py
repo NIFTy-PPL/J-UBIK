@@ -1,15 +1,15 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from collections import UserList
+from functools import reduce
 
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from astropy.table import Table
+from astropy.table import Table, vstack
 
 from ....wcs.wcs_jwst_data import WcsJwstData
 from ....wcs.wcs_astropy import WcsAstropy
-from ...gaia.star_finder import join_tables
 from ..data.jwst_data import JwstData
-from ..parse.alignment.star_alignment import StarAlignmentMeta
 
 
 @dataclass
@@ -105,7 +105,7 @@ class Star:
         min_row: int = 0,
         min_column: int = 0,
         subsample_factor: int = 1,
-    ):
+    ) -> tuple[float, float]:
         """Get the pixel position of the star position in the (subsampled) data grid.
 
         Parameters
@@ -178,22 +178,42 @@ class Star:
         return float(x_detector), float(y_detector)
 
 
-@dataclass
-class StarAlignment:
-    alignment_meta: StarAlignmentMeta
-    star_tables: list[Table] = field(default_factory=list)
+class StarTables:
+    def __init__(self, data: list | None = None):
+        self.data = data if data else []
 
     def get_stars(self, observation_id: int | None = None) -> list[Star]:
         if observation_id is not None:
-            table = self.star_tables[observation_id]
+            table = self.data[observation_id]
         else:
-            table = join_tables(self.star_tables)
+            table = self.join_tables(self.data)
 
         source_id = table["SOURCE_ID"]
         positions = SkyCoord(ra=table["ra"], dec=table["dec"], unit="deg")
 
-        return [
-            Star(id, position)
-            for id, position in zip(source_id, positions)
-            if id not in self.alignment_meta.exclude_source_id
-        ]
+        return [Star(id, position) for id, position in zip(source_id, positions)]
+
+    def join_tables(self, tables: list[Table] | None = None) -> Table:
+        if tables is None:
+            tables = self.data
+
+        non_empty = [t for t in tables if len(t)]
+        if len(non_empty) == 0:
+            return Table()
+
+        combined = vstack(non_empty, join_type="exact")
+        _, unique_idx = np.unique(combined["SOURCE_ID"], return_index=True)
+        result = combined[np.sort(unique_idx)]  # restore original order
+        return result
+
+    def append(self, data: Table):
+        self.data.append(data)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index: int) -> Table:
+        return self.data[index]
+
+    def __repr__(self):
+        return f"StarTable: {len(self.data)}"

@@ -5,8 +5,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 
-from .star_alignment import StarAlignment
-from ..parse.alignment.star_alignment import StarAlignmentMeta
+from ..parse.alignment.star_alignment import StarAlignmentConfig
 from ..parse.parametric_model.parametric_prior import (
     prior_config_factory,
 )
@@ -28,7 +27,6 @@ class FilterAlignment:
     filter_name: str
     correction_prior: CoordinatesCorrectionPriorConfig | None = None
     boresight: list[SkyCoord] = field(default_factory=list)
-    star_alignment: StarAlignment | None = None
 
     def load_correction_prior(self, raw: dict, number_of_observations: int):
         if self.filter_name in raw:
@@ -47,9 +45,3 @@ class FilterAlignment:
             shift_unit=getattr(u, raw[SHIFT_UNIT_KEY]),
             rotation_unit=getattr(u, raw[ROTATION_UNIT_KEY]),
         )
-
-    def load_star_alignment(self, star_alignment_meta: StarAlignmentMeta | None):
-        if star_alignment_meta is None:
-            return None
-
-        self.star_alignment = StarAlignment(alignment_meta=star_alignment_meta)
