@@ -40,7 +40,7 @@ sky:
     energy_unit: eV
     energy_bin:
       e_min:
-        - 0.054 # F2100W
+        # - 0.054 # F2100W
 
         # - 0.068 # F1800W  # mistake here actually 0.064
 
@@ -59,7 +59,7 @@ sky:
 
         # - 0.967 # F115W
       e_max:
-        - 0.067 # F2100W
+        # - 0.067 # F2100W
 
         # - 0.075 # F1800W
 
@@ -292,7 +292,7 @@ telescope:
     star_light: ['lognormal', 1000, 10000]
     subsample: 1
     library_path: './data/GAIA/library_stars'
-    exclude_source_id: [4788834899488736128, 4788858367190047104]
+    exclude_source_id: [4788834899488736128]  # , 4788858367190047104]
 
   target: 
     subsample: 3
@@ -315,56 +315,59 @@ telescope:
 
 
 files:
-  res_dir: './results/jwst_lens/cluster/15_04_restructuring'
+  loading_mode: 'processes' # processes, threads, serial
+  # workers: 4
+
+  res_dir: './results/jwst_lens/cluster/15_05_restructuring'
 
   step_type: 'tweakregstep'  # tweakregstep, cleanflickernoisestep, cal
 
   filter:
 
-    f2100w:
-      - './data/spt0418/f2100w/jw01355015001_15101_00001_mirimage/jw01355015001_15101_00001_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00002_mirimage/jw01355015001_15101_00002_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00003_mirimage/jw01355015001_15101_00003_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00004_mirimage/jw01355015001_15101_00004_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00005_mirimage/jw01355015001_15101_00005_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00006_mirimage/jw01355015001_15101_00006_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00007_mirimage/jw01355015001_15101_00007_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00008_mirimage/jw01355015001_15101_00008_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00009_mirimage/jw01355015001_15101_00009_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00010_mirimage/jw01355015001_15101_00010_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_{step_type}.fits'
-      - './data/spt0418/f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_{step_type}.fits'
-
+    # f2100w:
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00001_mirimage/jw01355015001_15101_00001_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00002_mirimage/jw01355015001_15101_00002_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00003_mirimage/jw01355015001_15101_00003_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00004_mirimage/jw01355015001_15101_00004_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00005_mirimage/jw01355015001_15101_00005_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00006_mirimage/jw01355015001_15101_00006_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00007_mirimage/jw01355015001_15101_00007_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00008_mirimage/jw01355015001_15101_00008_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00009_mirimage/jw01355015001_15101_00009_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00010_mirimage/jw01355015001_15101_00010_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_{step_type}.fits'
+    #
     # f1800w:
     #   - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_{step_type}.fits'
-
+    #
     # f1500w:
     #   - './data/spt0418/f1500w/jw01355015001_11101_00001_mirimage/jw01355015001_11101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1500w/jw01355015001_11101_00002_mirimage/jw01355015001_11101_00002_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1500w/jw01355015001_11101_00003_mirimage/jw01355015001_11101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1500w/jw01355015001_11101_00004_mirimage/jw01355015001_11101_00004_mirimage_{step_type}.fits'
-
+    #
     # f1280w:
     #   - './data/spt0418/f1280w/jw01355015001_09101_00001_mirimage/jw01355015001_09101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1280w/jw01355015001_09101_00002_mirimage/jw01355015001_09101_00002_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1280w/jw01355015001_09101_00003_mirimage/jw01355015001_09101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1280w/jw01355015001_09101_00004_mirimage/jw01355015001_09101_00004_mirimage_{step_type}.fits'
-
+    #
     # f1000w:
     #   - './data/spt0418/f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_{step_type}.fits'
-
+    #
     # f770w:
     #   - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f770w/jw01355015001_05101_00002_mirimage/jw01355015001_05101_00002_mirimage_{step_type}.fits'
     #   - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_{step_type}.fits'
-
+    #
     # f560w: # MIRI
     #   - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_{step_type}.fits'
@@ -378,19 +381,19 @@ files:
     # f356w:
     #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_{step_type}.fits'
     #   - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_{step_type}.fits'
-
+    #
     # f277w:
     #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_{step_type}.fits'
     #   - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_{step_type}.fits'
-
+    #
     # f200w:
     #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_{step_type}.fits'
     #   - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_{step_type}.fits'
-
+    #
     # f150w:
     #   - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_{step_type}.fits'
     #   - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_{step_type}.fits'
-
+    #
     # f115w: # NIRCam
     #   - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_{step_type}.fits'
     #   - './data/spt0418/f115w/jw01355016001_02101_00002_nrcb4/jw01355016001_02101_00002_nrcb4_{step_type}.fits'
@@ -399,8 +402,8 @@ files:
 minimization_fixpointing:
     # resume_from_pickle_path: './results/jwst_lens/cluster/11_05_easter_prior_with_variable_covariance/last.pkl'
     key: 20250429
-    resume: True
-    n_total_iterations: 12
+    resume: False
+    n_total_iterations: 4
 
     delta:
       switches: [0, 10]

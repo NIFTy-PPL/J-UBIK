@@ -180,8 +180,6 @@ if likelihood_alignment is not None:
             mean = m.sky_model.location.shift_and_rotation.shift(x)
             print(pa.filter, mean)
 
-    exit()
-
     import jax
 
     jax.clear_caches()
@@ -197,11 +195,22 @@ kl_settings = KLSettings(
     n_total_iterations=cfg_mini["n_total_iterations"],
     callback=plot,
     resume=cfg_mini.get("resume", False),
+    point_estimates=[
+        k
+        for k in samples_fixpointing.pos.tree.keys()
+        if k in likelihood_target.domain.tree
+    ],
+    constants=[
+        k
+        for k in samples_fixpointing.pos.tree.keys()
+        if k in likelihood_target.domain.tree
+    ],
 )
 # jft.logger.info("Full reconstruction")
+
 samples, state = minimization_from_initial_samples(
     likelihood_target,
     kl_settings,
-    # samples_fixpointing,
+    samples_fixpointing,
     # not_take_starting_pos_keys=sky_model_with_keys.domain.keys(),
 )
