@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Optional
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -30,7 +30,7 @@ class PreloadBundle:
     star_table: Table | None
 
 
-def load_one_preload(
+def _load_one_preload_bundle(
     filepath: IndexAndPath,
     grid_corners: SkyCoord,
     star_alignment_config: StarAlignmentConfig | None,
@@ -113,11 +113,35 @@ def _preload_side_effects(
     filter_alignment.boresight = boresights
 
 
+@dataclass
+class PreloaderTarget:
+    grid_corners: list[SkyCoord]
+
+
+@dataclass
+class PreloaderOptionals:
+    star_alignment_config: StarAlignmentConfig | None
+
+    @classmethod
+    def from_optional(
+        cls,
+        star_alignment_config: StarAlignmentConfig | None,
+    ) -> Optional["PreloaderOptionals"]:
+        return cls(
+            star_alignment_config=star_alignment_config,
+        )
+
+
+@dataclass
+class PreloaderSideEffects:
+    filter_alignment: FilterAlignment
+
+
 def preload_data(
     filepaths: tuple[IndexAndPath],
-    grid_corners: list[SkyCoord],
-    filter_alignment: FilterAlignment,
-    star_alignment_config: StarAlignmentConfig | None,
+    target: PreloaderTarget,
+    optional: PreloaderOptionals,
+    side_effects: PreloaderSideEffects,
     loading_mode_config: LoadingModeConfig,
 ) -> tuple[DataMetaInformation, DataBounds, StarTables | None]:
     """Preload JWST data and perform validation checks.
@@ -138,26 +162,30 @@ def preload_data(
     ----------
     filepaths: tuple[IndexAndPath]
         The filepaths of JWST data files to be preloaded
-    grid_corners: list[SkyCoord]
-        The spatial corners defining the sky grid
-    filter_alignment: FilterAlignment
-        Container for alignment data, updated with:
-        - boresight coordinates
-        - star positions (when star_alignment is enabled)
-    loading_mode: Literal["processes", "threads", "serial"] = "serial"
-        Method for loading data:
-        - "serial": Sequential processing
-        - "threads": Multi-threaded for I/O-bound operations
-        - "processes": Multi-process for CPU-bound operations
-    workers: int | None
-        Number of threads/processes to use (None = executor default)
+    target: PreloaderTarget:
+        grid_corners: list[SkyCoord], The spatial corners defining the sky grid
+    optional: PreloaderOptionals,
+        star_alignment_config, triggers a star search in the gaia catalog
+            - library_path (where to save the tables)
+            - exclude_source_id (which sources to exclude from the table)
+    side_effects:
+        filter_alignment: FilterAlignment
+            Container for alignment data, updated with:
+            - boresight coordinates
+    loading_mode_config: LoadingModeConfig:
+        loading_mode: LoadingMode, algorithm for loading data:
+            - "serial": Sequential processing
+            - "threads": Multi-threaded for I/O-bound operations
+            - "processes": Multi-process for CPU-bound operations
+        workers: int | None
+            Number of threads/processes to use (None = executor default)
 
     Returns
     -------
-    Tuple[Color, DataBounds, FilterAlignment]
-        - Color: Detected color/filter information
+    Tuple[DataMetaInformation, DataBounds, StarTables | None]
+        - DataMetaInformation: Filter information, checked for consistency.
         - DataBounds: Aligned shapes and bounds for the target data
-        - FilterAlignment: Updated alignment information
+        - StarTables, optional: Star tables from the gaia catalog
     """
 
     t = time.perf_counter()
@@ -165,21 +193,21 @@ def preload_data(
 
     bundles: Iterable[PreloadBundle] = load_bundles(
         filepaths,
-        load_one_preload,
+        _load_one_preload_bundle,
         mode=loading_mode_config.loading_mode,
         workers=loading_mode_config.workers,
-        extra_pos_args=(
-            grid_corners,
-            star_alignment_config,
+        extra_kw_args=dict(
+            grid_corners=target.grid_corners,
+            star_alignment_config=optional.star_alignment_config,
         ),
     )
 
     filter_meta, target_bounds, star_tables, boresights = _preload_data_products(
         bundles,
-        star_alignment_config,
+        optional.star_alignment_config,
     )
 
-    _preload_side_effects(filter_alignment, boresights)
+    _preload_side_effects(side_effects.filter_alignment, boresights)
 
     logger.info(f"{time.perf_counter() - t}")
 

@@ -2,7 +2,7 @@ from ....likelihood import build_gaussian_likelihood
 from ....grid import Grid
 
 from ..filter_projector import FilterProjector
-from ..data.loading.target_loading import TargetData
+from ..data.loader.target_loader import TargetData
 from ..data.jwst_data import DataMetaInformation
 from ..parse.jwst_response import SkyMetaInformation
 from ..parse.rotation_and_shift.rotation_and_shift import LinearConfig, NufftConfig

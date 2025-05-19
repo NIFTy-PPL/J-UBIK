@@ -20,7 +20,12 @@ from .data.loader.data_loader import (
     DataLoaderTarget,
     DataLoaderStarAlignment,
 )
-from .data.preloader.preloader import preload_data
+from .data.preloader.preloader import (
+    preload_data,
+    PreloaderTarget,
+    PreloaderSideEffects,
+    PreloaderOptionals,
+)
 
 # Parsing
 from .parse.zero_flux_model import ZeroFluxPriorConfigs
@@ -99,11 +104,17 @@ def build_jwst_likelihoods(
 
         filter_meta, target_bounds, star_tables = preload_data(
             filepaths=filepaths,
-            grid_corners=grid.spatial.world_corners(
-                extension_value=sky_meta.grid_extension
+            target=PreloaderTarget(
+                grid_corners=grid.spatial.world_corners(
+                    extension_value=sky_meta.grid_extension
+                )
             ),
-            filter_alignment=filter_alignment,
-            star_alignment_config=star_alignment_config,
+            optional=PreloaderOptionals.from_optional(
+                star_alignment_config=star_alignment_config,
+            ),
+            side_effects=PreloaderSideEffects(
+                filter_alignment=filter_alignment,
+            ),
             loading_mode_config=data_loader.loading_mode_config,
         )
 
