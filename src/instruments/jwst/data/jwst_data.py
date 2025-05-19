@@ -33,6 +33,7 @@ class DataMetaInformation:
     unit: units.Unit
     dvol: units.Quantity
     pixel_distance: units.Quantity
+    color: Color
 
 
 class JwstData:
@@ -57,6 +58,7 @@ class JwstData:
             unit=units.Unit(self.dm.meta.bunit_data),
             dvol=get_dvol(self.filter),
             pixel_distance=get_pixel_distance(self.filter),
+            color=self.pivot_wavelength,
         )
 
     def data_from_bounding_indices(
