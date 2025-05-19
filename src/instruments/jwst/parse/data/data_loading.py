@@ -1,21 +1,32 @@
-from collections import UserDict
+from collections import UserDict, namedtuple
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum
 from pathlib import Path
-from typing import Literal
 
 
-class DataFilePaths(UserDict[str, tuple[Path]]):
+class Subsample(int):
+    @classmethod
+    def from_yaml_dict(cls, raw: dict):
+        return cls(raw["subsample"])
+
+
+IndexAndPath = namedtuple("IndexAndPath", ["index", "path"])
+
+
+class FilterFilePaths(UserDict[str, tuple[Path]]):
     """Dict-like mapping {filter → list[Path]}."""
 
     @classmethod
-    def from_yaml_dict(cls, yml: dict) -> "DataFilePaths":
+    def from_yaml_dict(cls, yml: dict) -> "FilterFilePaths":
         step_type = yml.get("step_type", "cal")
-        filter_spec = yml.get("filter", {})
+        filters_and_paths = yml.get("filter", {})
 
         mapping = {
-            flt: tuple(Path(p.format(step_type=step_type)) for p in raw_paths)
-            for flt, raw_paths in filter_spec.items()
+            flt: tuple(
+                IndexAndPath(index, Path(path.format(step_type=step_type)))
+                for index, path in enumerate(raw_paths)
+            )
+            for flt, raw_paths in filters_and_paths.items()
         }
         return cls(mapping)
 
@@ -41,17 +52,28 @@ class LoadingMode(Enum):
 
 
 @dataclass
-class DataLoadingConfig:
-    paths: DataFilePaths
+class LoadingModeConfig:
     loading_mode: LoadingMode = LoadingMode.SERIAL
     workers: int | None = None
 
     @classmethod
-    def from_yaml_dict(cls, yml: dict) -> "DataLoadingConfig":
+    def from_yaml_dict(cls, yml: dict) -> "LoadingModeConfig":
         loading_mode_str: str = yml.get("loading_mode", "serial")
         workers: int | None = yml.get("workers")
         return cls(
-            paths=DataFilePaths.from_yaml_dict(yml),
             loading_mode=LoadingMode.from_string(loading_mode_str),
             workers=workers,
+        )
+
+
+@dataclass
+class DataLoadingConfig:
+    paths: FilterFilePaths
+    loading_mode_config: LoadingModeConfig
+
+    @classmethod
+    def from_yaml_dict(cls, yml: dict) -> "DataLoadingConfig":
+        return cls(
+            paths=FilterFilePaths.from_yaml_dict(yml),
+            loading_mode_config=LoadingModeConfig.from_yaml_dict(yml),
         )
