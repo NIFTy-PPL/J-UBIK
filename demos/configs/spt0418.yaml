@@ -306,19 +306,19 @@ telescope:
       order: 1
 
     correction_priors:
-      model: 'rshift' # shift, rshift
+      model: 'shift' # shift, rshift
       rotation_unit: deg
       shift_unit: arcsec
       default:
         rotation: ['normal', 0, 10.0]  # With great power comes great responsibility !!
-        shift: ['normal', 0, 10.0]
+        shift: ['normal', 0, 0.2]
 
 
 files:
-  loading_mode: 'processes' # processes, threads, serial
+  loading_mode: 'threads' # processes, threads, serial
   # workers: 4
 
-  res_dir: './results/jwst_lens/cluster/15_05_restructuring'
+  res_dir: './results/jwst_lens/cluster/16_01_newstar'
 
   step_type: 'tweakregstep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -402,8 +402,8 @@ files:
 minimization_fixpointing:
     # resume_from_pickle_path: './results/jwst_lens/cluster/11_05_easter_prior_with_variable_covariance/last.pkl'
     key: 20250429
-    resume: False
-    n_total_iterations: 4
+    resume: True
+    n_total_iterations: 7
 
     delta:
       switches: [0, 10]
@@ -416,7 +416,7 @@ minimization_fixpointing:
 
       # lin_absdelta: [Null, Null, 0.00001]
       lin_maxiter: [1000, 2500]
-      lin_miniter: [10, 20]
+      lin_miniter: [10, 10]
 
       # nonlin_xtol: [Null, 0.1, 0.01]
       nonlin_maxiter: [7, 7, 13, 18]

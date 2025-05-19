@@ -248,8 +248,8 @@ def build_jwst_likelihoods(
             )
 
             stars_alignment_likelihoods.append(
-                # filter_alignment_likelihood_psf +
-                filter_alignment_likelihood_psf_convolved
+                filter_alignment_likelihood_psf  # +
+                # filter_alignment_likelihood_psf_convolved
             )
 
     likelihood_target = reduce(lambda x, y: x + y, target_filter_likelihoods)
