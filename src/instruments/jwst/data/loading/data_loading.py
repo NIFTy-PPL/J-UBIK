@@ -1,161 +1,86 @@
-from pathlib import Path
-from typing import Any
+from dataclasses import dataclass
+from typing import Optional
 
-import numpy as np
-from astropy import units as u
 from nifty8.re import logger
 
-# Parse
-from ...parse.jwst_likelihoods import StarData, TargetData
+from .....grid import Grid
+from ...alignment.star_alignment import StarTables
+from ...parse.alignment.star_alignment import StarAlignmentConfig
+from ...parse.data.data_loading import IndexAndPath, LoadingModeConfig, Subsample
 from ...parse.jwst_psf import JwstPsfKernelConfig
 from ...parse.masking.data_mask import ExtraMasks
-
-from .....grid import Grid
-from ...alignment.star_alignment import StarAlignment
-from ...psf.jwst_kernel import load_psf_kernel
+from ..concurrent_loading import load_bundles
 from ..jwst_data import JwstData
 from ..preloading.data_bounds import DataBounds
+from .stars_loading import (
+    StarData,
+    StarsBundle,
+    load_one_stars_bundle,
+    load_one_stars_bundle_from_filepath,
+)
+from .target_loading import (
+    TargetBundle,
+    TargetData,
+    load_one_target_bundle,
+    load_one_target_bundle_from_filepath,
+)
 
 
-def target_loading(
-    target_data: TargetData,
-    observation_id: int,
-    jwst_data: JwstData,
-    target_bounds: DataBounds,
-    target_grid: Grid,
-    extra_masks: ExtraMasks,
+@dataclass
+class DataLoaderTarget:
+    grid: Grid
+    data_bounds: DataBounds
+    subsample: Subsample | int
+
+
+@dataclass
+class DataLoaderStarAlignment:
+    config: StarAlignmentConfig
+    tables: StarTables
+
+    @classmethod
+    def from_optional(
+        cls, config: StarAlignmentConfig | None, tables: StarTables
+    ) -> Optional["DataLoaderStarAlignment"]:
+        return cls(config, tables) if config else None
+
+
+def load_data(
+    filepaths: tuple[IndexAndPath],
+    target: DataLoaderTarget,
+    star_alignment: DataLoaderStarAlignment | None,
     psf_kernel_configs: JwstPsfKernelConfig,
-):
-    data, mask, std = jwst_data.bounding_data_mask_std_by_bounding_indices(
-        target_bounds.bounds[observation_id],
-        target_grid.spatial,
-        extra_masks,
-    )
-    target_data.append_observation(
-        meta=jwst_data.meta,
-        data=data,
-        mask=mask,
-        std=std,
-        subsample_centers=jwst_data.data_subpixel_centers(
-            target_bounds.bounds[observation_id],
-            subsample=target_data.subsample,
+    extra_masks: ExtraMasks,
+    loading_mode_config: LoadingModeConfig,
+) -> tuple[TargetData, StarData]:
+    target_bundles: list[TargetBundle] = load_bundles(
+        filepaths=filepaths,
+        load_one=load_one_target_bundle_from_filepath,
+        extra_kw_args=dict(
+            subsample=target.subsample,
+            target_grid=target.grid,
+            target_data_bounds=target.data_bounds,
+            psf_kernel_configs=psf_kernel_configs,
+            extra_masks=extra_masks,
         ),
-        psf=load_psf_kernel(
-            jwst_data=jwst_data,
-            subsample=target_data.subsample,
-            target_center=target_grid.spatial.center,
-            config_parameters=psf_kernel_configs,
-        ),
+        mode=loading_mode_config.loading_mode,
+        workers=loading_mode_config.workers,
     )
 
+    stars_bundles: list[StarsBundle] = load_bundles(
+        filepaths=filepaths,
+        load_one=load_one_stars_bundle_from_filepath,
+        extra_kw_args=dict(
+            star_tables=star_alignment.tables,
+            star_alignment_config=star_alignment.config,
+            extra_masks=extra_masks,
+            psf_kernel_configs=psf_kernel_configs,
+        ),
+        mode=loading_mode_config.loading_mode,
+        workers=loading_mode_config.workers,
+    )
 
-def star_alignment_loading(
-    stars_data: dict[StarData],
-    star_alignment: StarAlignment,
-    observation_id: int,
-    jwst_data: JwstData,
-    extra_masks: ExtraMasks,
-    psf_kernel_configs: JwstPsfKernelConfig,
-):
-    for star in star_alignment.get_stars(observation_id):
-        fov_pixel = (
-            star_alignment.alignment_meta.fov.to(u.arcsec)
-            / jwst_data.meta.pixel_distance.to(u.arcsec)
-        ).value
-        fov_pixel = np.array((int(np.round(fov_pixel)),) * 2)
-        if (fov_pixel % 2).sum() == 0:
-            fov_pixel += 1
-
-        bounding_indices = star.bounding_indices(jwst_data, fov_pixel)
-        data, mask, std = jwst_data.bounding_data_mask_std_by_bounding_indices(
-            row_minmax_column_minmax=bounding_indices,
-            additional_masks_corners=extra_masks,
-        )
-
-        stars_data[star.id].append_observation(
-            meta=jwst_data.meta,
-            subsample=star_alignment.alignment_meta.subsample,
-            data=data,
-            mask=mask,
-            std=std,
-            psf=load_psf_kernel(
-                jwst_data=jwst_data,
-                subsample=star_alignment.alignment_meta.subsample,
-                target_center=star.position,
-                config_parameters=psf_kernel_configs,
-            ),
-            sky_array=np.zeros(
-                [s * star_alignment.alignment_meta.subsample for s in data.shape]
-            ),
-            star_in_subsampled_pixles=star.pixel_position_in_subsampled_data(
-                jwst_data.wcs,
-                min_row=bounding_indices[0],
-                min_column=bounding_indices[2],
-                subsample_factor=star_alignment.alignment_meta.subsample,
-            ),
-            observation_id=observation_id,
-        )
-
-
-def data_loading(
-    telescope_cfg: dict[str, Any],
-    filepaths: list[Path],
-    target_grid: Grid,
-    star_alignment: StarAlignment | None,
-    target_bounds: DataBounds,
-    psf_kernel_configs: JwstPsfKernelConfig,
-    extra_masks: ExtraMasks,
-):
-    # NOTE : Just for reference
-    # telescope_cfg = cfg[telescope_key]
-    target_data = TargetData.from_yaml_dict(telescope_cfg["target"])
-
-    stars = star_alignment.get_stars() if star_alignment else None
-    stars_data = {star.id: StarData() for star in stars} if star_alignment else None
-
-    for observation_id, filepath in enumerate(filepaths):
-        logger.info(f"Loading: {observation_id} {filepath}")
-
-        jwst_data = JwstData(filepath)
-
-        # import matplotlib.pyplot as plt
-        # from functools import partial
-        # from ...plotting.plotting_sky import plot_jwst_panels, plot_sky_coords
-        #
-        # fig, axes = plot_jwst_panels(
-        #     [jwst_data.dm.data],
-        #     [jwst_data.wcs],
-        #     nrows=1,
-        #     ncols=1,
-        #     vmin=0.05,
-        #     vmax=0.5,
-        #     coords_plotter=partial(
-        #         plot_sky_coords,
-        #         sky_coords=[s.position for s in stars],
-        #         marker_color="red",
-        #         marker="x",
-        #     ),
-        # )
-        # plt.show()
-
-        target_loading(
-            target_data,
-            observation_id,
-            jwst_data,
-            target_bounds,
-            target_grid,
-            extra_masks,
-            psf_kernel_configs,
-        )
-
-        if star_alignment:
-            star_alignment_loading(
-                stars_data=stars_data,
-                star_alignment=star_alignment,
-                observation_id=observation_id,
-                jwst_data=jwst_data,
-                extra_masks=extra_masks,
-                psf_kernel_configs=psf_kernel_configs,
-            )
-
-    return target_data, stars, stars_data
+    return (
+        TargetData.from_bundles(target.subsample, target_bundles),
+        StarData(star_alignment.config.subsample, stars_bundles),
+    )
