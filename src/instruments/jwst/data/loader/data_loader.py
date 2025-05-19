@@ -26,8 +26,15 @@ from .target_loader import (
 )
 
 
-@dataclass
+# --------------------------------------------------------------------------------------
+# Input Information
+# --------------------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
 class DataLoaderTarget:
+    """Holds the essential information for loading the data cutouts around the target"""
+
     grid: Grid
     data_bounds: DataBounds
     subsample: Subsample | int
@@ -35,6 +42,8 @@ class DataLoaderTarget:
 
 @dataclass
 class DataLoaderStarAlignment:
+    """Holds the essential information for loading the data cutouts around the stars"""
+
     config: StarAlignmentConfig
     tables: StarTables
 
@@ -59,6 +68,104 @@ class DataLoaderOptionals:
 
     star_alignment: DataLoaderStarAlignment | None
     extra_masks: ExtraMasks | None
+
+
+# --------------------------------------------------------------------------------------
+# Loading Interface
+# --------------------------------------------------------------------------------------
+
+
+@dataclass
+class TargetAndOrStarsBundle:
+    index: int
+    target_bundle: TargetBundle
+    stars_bundle: StarsBundle | None
+
+
+def _load_one_target_and_or_stars(
+    filepath: IndexAndPath,
+    essential: DataLoaderEssentials,
+    optional: DataLoaderOptionals,
+):
+    jwst_data = JwstData(filepath.path)
+    target_bundle: TargetBundle = load_one_target_bundle(
+        index=filepath.index,
+        jwst_data=jwst_data,
+        subsample=essential.target.subsample,
+        target_grid=essential.target.grid,
+        target_data_bounds=essential.target.data_bounds,
+        psf_kernel_configs=essential.psf_kernel_configs,
+        extra_masks=optional.extra_masks,
+    )
+
+    if optional.star_alignment:
+        stars_bundle: StarsBundle = load_one_stars_bundle(
+            index=filepath.index,
+            jwst_data=jwst_data,
+            star_tables=optional.star_alignment.tables,
+            star_alignment_config=optional.star_alignment.config,
+            extra_masks=optional.extra_masks,
+            psf_kernel_configs=essential.psf_kernel_configs,
+        )
+    else:
+        stars_bundle = None
+
+    return TargetAndOrStarsBundle(
+        index=filepath.index,
+        target_bundle=target_bundle,
+        stars_bundle=stars_bundle,
+    )
+
+
+def _load_data_products(
+    bundles: list[TargetAndOrStarsBundle],
+    essential: DataLoaderEssentials,
+    optional: DataLoaderOptionals,
+) -> tuple[TargetData, StarData | None]:
+    """Apply side effects from the preloaded data bundles.
+
+    This function processes each preload bundle to:
+    1. Log preload information
+    2. Perform energy consistency checks
+    3. Update target bounds with cutout data
+    4. Update filter alignment with boresight and optional star data
+
+    Parameters
+    ----------
+    bundles: Iterable[PreloadBundle]
+        The preloaded data bundles to process
+    star_alignment_config: StarAlignmentMeta
+        The Star alignment meta information, needed for instantiating the StarTables.
+
+    Returns
+    -------
+    DataMetaInformation
+    DataBounds
+    StarTables
+    boresights: list[SkyCoord]
+    """
+
+    target_bundles = []
+    stars_bundles = []
+    for b in bundles:
+        target_bundles.append(b.target_bundle)
+        if b.stars_bundle is not None:
+            stars_bundles.append(b.stars_bundle)
+
+    target_data = TargetData.from_bundles(essential.target.subsample, target_bundles)
+
+    stars_data = (
+        None
+        if stars_bundles == []
+        else StarData(optional.star_alignment.config.subsample, stars_bundles)
+    )
+
+    return target_data, stars_data
+
+
+# --------------------------------------------------------------------------------------
+# Loading Interface
+# --------------------------------------------------------------------------------------
 
 
 def load_data(
@@ -86,7 +193,6 @@ def load_data(
             - subsample
         psf_kernel_config: JwstPsfKernelConfig
             Config parameters for psf kernel loading see `load_psf_kernel`.
-
     optional: DataLoaderOptionals,
         star_alignment: DataLoaderStarAlignment, optional
             - config: StarAlignmentConfig
@@ -108,34 +214,23 @@ def load_data(
         - DataBounds: Aligned shapes and bounds for the target data
         - StarTables, optional: Star tables from the gaia catalog
     """
-    target_bundles: list[TargetBundle] = load_bundles(
+    logger.info("Loading JWST data")
+
+    target_andor_stars_bundles: list[TargetAndOrStarsBundle] = load_bundles(
         filepaths=filepaths,
-        load_one=load_one_target_bundle_from_filepath,
+        load_one=_load_one_target_and_or_stars,
         extra_kw_args=dict(
-            subsample=essential.target.subsample,
-            target_grid=essential.target.grid,
-            target_data_bounds=essential.target.data_bounds,
-            psf_kernel_configs=essential.psf_kernel_configs,
-            extra_masks=optional.extra_masks,
+            essential=essential,
+            optional=optional,
         ),
         mode=loading_mode_config.loading_mode,
         workers=loading_mode_config.workers,
     )
 
-    stars_bundles: list[StarsBundle] = load_bundles(
-        filepaths=filepaths,
-        load_one=load_one_stars_bundle_from_filepath,
-        extra_kw_args=dict(
-            star_tables=optional.star_alignment.tables,
-            star_alignment_config=optional.star_alignment.config,
-            extra_masks=optional.extra_masks,
-            psf_kernel_configs=essential.psf_kernel_configs,
-        ),
-        mode=loading_mode_config.loading_mode,
-        workers=loading_mode_config.workers,
+    target_data, stars_data = _load_data_products(
+        bundles=target_andor_stars_bundles,
+        essential=essential,
+        optional=optional,
     )
 
-    return (
-        TargetData.from_bundles(essential.target.subsample, target_bundles),
-        StarData(optional.star_alignment.config.subsample, stars_bundles),
-    )
+    return target_data, stars_data
