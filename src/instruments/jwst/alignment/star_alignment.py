@@ -4,8 +4,10 @@ from functools import reduce
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, Distance
 from astropy.table import Table, vstack
+from astropy.time import Time
+
 
 from ....wcs.wcs_jwst_data import WcsJwstData
 from ....wcs.wcs_astropy import WcsAstropy
@@ -179,19 +181,42 @@ class Star:
 
 
 class StarTables:
-    def __init__(self, data: list | None = None):
+    def __init__(
+        self,
+        data: list[Table] | None = None,
+        observation_times: list[str] | None = None,
+    ):
         self.data = data if data else []
+        self.observation_times = observation_times if observation_times else []
 
     def get_stars(self, observation_id: int | None = None) -> list[Star]:
         if observation_id is not None:
             table = self.data[observation_id]
+            observation_time = self.observation_times[observation_id]
         else:
             table = self.join_tables(self.data)
+            observation_time = self.observation_times[0]
+
+        g2016 = Time("J2016.0")
+        t_obs = Time(observation_time, scale="tdb")  # JWST visit
 
         source_id = table["SOURCE_ID"]
-        positions = SkyCoord(ra=table["ra"], dec=table["dec"], unit="deg")
+        positions = SkyCoord(
+            ra=table["ra"],
+            dec=table["dec"],
+            pm_ra_cosdec=table["pmra"],
+            pm_dec=table["pmdec"],
+            distance=Distance(parallax=table["parallax"]),
+            obstime=g2016,
+        )
 
-        return [Star(id, position) for id, position in zip(source_id, positions)]
+        new_stars = []
+        for id, position in zip(source_id, positions):
+            newpos = position.apply_space_motion(t_obs)
+            if not (np.isnan(newpos.ra.value) or np.isnan(newpos.dec.value)):
+                new_stars.append(Star(id, newpos))
+
+        return new_stars
 
     def join_tables(self, tables: list[Table] | None = None) -> Table:
         if tables is None:
@@ -206,8 +231,9 @@ class StarTables:
         result = combined[np.sort(unique_idx)]  # restore original order
         return result
 
-    def append(self, data: Table):
+    def append(self, data: Table, observation_time: str):
         self.data.append(data)
+        self.observation_times.append(observation_time)
 
     def __len__(self):
         return len(self.data)

@@ -28,6 +28,7 @@ class PreloadBundle:
     boresight: SkyCoord
     meta: DataMetaInformation
     star_table: Table | None
+    date: str
 
 
 def _load_one_preload_bundle(
@@ -57,6 +58,7 @@ def _load_one_preload_bundle(
         boresight=jwst_data.get_boresight_world_coords(),
         star_table=star_table,
         meta=jwst_data.meta,
+        date=jwst_data.dm.meta.date,
     )
 
 
@@ -99,7 +101,7 @@ def _preload_data_products(
 
         boresights.append(b.boresight)
         if star_tables is not None:
-            star_tables.append(b.star_table)
+            star_tables.append(b.star_table, b.date)
 
     target_bounds = target_bounds.align_shapes_and_bounds()
     return checks.meta, target_bounds, star_tables, boresights

@@ -139,7 +139,6 @@ def build_jwst_likelihoods(
             ),
             loading_mode_config=data_loader.loading_mode_config,
         )
-        exit()
 
         shift_and_rotation_correction = ShiftAndRotationCorrection(
             domain_key=filter,
