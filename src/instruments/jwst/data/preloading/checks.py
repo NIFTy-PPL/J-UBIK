@@ -1,13 +1,13 @@
 from dataclasses import dataclass
-from .....color import Color
+from ..jwst_data import DataMetaInformation
 
 
 @dataclass
-class PreloadingChecks:
-    color: float | None = None
+class FilterConsistency:
+    meta: DataMetaInformation | None = None
 
-    def check_energy_consistency(self, color: Color, filepath: str) -> None:
-        if self.color is None:
-            self.color = color
+    def check_meta_consistency(self, meta: DataMetaInformation, filepath: str) -> None:
+        if self.meta is None:
+            self.meta = meta
 
-        assert self.color == color, f"{filepath} is not consistent with previous file."
+        assert self.meta == meta, f"{filepath} is not consistent with previous file."

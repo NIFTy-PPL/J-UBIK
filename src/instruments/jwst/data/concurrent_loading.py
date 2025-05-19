@@ -1,7 +1,7 @@
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, List, Protocol, Sequence, Literal, Iterable
-from ..parse.data.data_loading import LoadingMode
+from ..parse.data.data_loading import LoadingMode, IndexAndPath
 
 
 class HasIndexBundle(Protocol):
@@ -13,8 +13,7 @@ class LoadOne(Protocol):
 
     Parameters
     ----------
-    index: int, index as its first positional argument
-    filepath: str, filepath as its second positional argument
+    filepath: IndexAndPath
     *args: Any, number of further positional arguments
     **kwargs: Any, number of further keyword arguments
 
@@ -25,12 +24,12 @@ class LoadOne(Protocol):
     """
 
     def __call__(
-        self, index: int, filepath: str, *args: Any, **kwargs: Any
+        self, filepath: IndexAndPath, *args: Any, **kwargs: Any
     ) -> HasIndexBundle: ...
 
 
 def run_concurrent_load(
-    filepaths: Sequence[str],
+    filepaths: Sequence[IndexAndPath],
     load_one: LoadOne,  # Return Boundle that has index
     *,
     extra_pos_args: tuple[Any, ...] = (),
@@ -60,11 +59,11 @@ def run_concurrent_load(
     # Pre-allocate slots; used to keep the order of filepaths
     results: list[HasIndexBundle | None] = [None] * len(filepaths)
 
-    def _submit(pool, idx: int, fp: str):
-        return pool.submit(load_one, idx, fp, *extra_pos_args, **extra_kw_args)
+    def _submit(pool, filepath: IndexAndPath):
+        return pool.submit(load_one, filepath, *extra_pos_args, **extra_kw_args)
 
     with Exec(max_workers=workers) as pool:
-        futures = [_submit(pool, i, fp) for i, fp in enumerate(filepaths)]
+        futures = [_submit(pool, fp) for fp in filepaths]
 
         for fut in as_completed(futures):
             boundle = fut.result()  # may raise if worker failed
@@ -78,7 +77,7 @@ def run_concurrent_load(
 # 4)  Thin wrapper that also supports “serial” mode
 # ----------------------------------------------------------------------
 def load_bundles(
-    filepaths: tuple[Path, ...] | list[Path],
+    filepaths: tuple[IndexAndPath],
     load_one: LoadOne,
     *,
     extra_pos_args: tuple[Any, ...] = (),
@@ -93,8 +92,7 @@ def load_bundles(
     """
     if mode == LoadingMode.SERIAL:
         return (
-            load_one(idx, fp, *extra_pos_args, **(extra_kw_args or {}))
-            for idx, fp in enumerate(filepaths)
+            load_one(fp, *extra_pos_args, **(extra_kw_args or {})) for fp in filepaths
         )
 
     return run_concurrent_load(
