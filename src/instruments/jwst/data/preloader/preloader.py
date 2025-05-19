@@ -114,7 +114,7 @@ def _preload_side_effects(
 
 
 @dataclass
-class PreloaderTarget:
+class PreloaderEssentials:
     grid_corners: list[SkyCoord]
 
 
@@ -139,7 +139,7 @@ class PreloaderSideEffects:
 
 def preload_data(
     filepaths: tuple[IndexAndPath],
-    target: PreloaderTarget,
+    essential: PreloaderEssentials,
     optional: PreloaderOptionals,
     side_effects: PreloaderSideEffects,
     loading_mode_config: LoadingModeConfig,
@@ -162,7 +162,7 @@ def preload_data(
     ----------
     filepaths: tuple[IndexAndPath]
         The filepaths of JWST data files to be preloaded
-    target: PreloaderTarget:
+    essential: PreloaderEssentials:
         grid_corners: list[SkyCoord], The spatial corners defining the sky grid
     optional: PreloaderOptionals,
         star_alignment_config, triggers a star search in the gaia catalog
@@ -197,7 +197,7 @@ def preload_data(
         mode=loading_mode_config.loading_mode,
         workers=loading_mode_config.workers,
         extra_kw_args=dict(
-            grid_corners=target.grid_corners,
+            grid_corners=essential.grid_corners,
             star_alignment_config=optional.star_alignment_config,
         ),
     )

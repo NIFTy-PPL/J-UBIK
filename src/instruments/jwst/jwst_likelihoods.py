@@ -17,12 +17,14 @@ from .likelihood.target_likelihood import build_target_likelihood_and_response
 from .parse.data.data_loader import Subsample
 from .data.loader.data_loader import (
     load_data,
+    DataLoaderEssentials,
+    DataLoaderOptionals,
     DataLoaderTarget,
     DataLoaderStarAlignment,
 )
 from .data.preloader.preloader import (
     preload_data,
-    PreloaderTarget,
+    PreloaderEssentials,
     PreloaderSideEffects,
     PreloaderOptionals,
 )
@@ -104,7 +106,7 @@ def build_jwst_likelihoods(
 
         filter_meta, target_bounds, star_tables = preload_data(
             filepaths=filepaths,
-            target=PreloaderTarget(
+            essential=PreloaderEssentials(
                 grid_corners=grid.spatial.world_corners(
                     extension_value=sky_meta.grid_extension
                 )
@@ -120,19 +122,24 @@ def build_jwst_likelihoods(
 
         target_data, stars_data = load_data(
             filepaths=filepaths,
-            target=DataLoaderTarget(
-                grid=grid,
-                data_bounds=target_bounds,
-                subsample=Subsample.from_yaml_dict(cfg[telescope_key]["target"]),
+            essential=DataLoaderEssentials(
+                target=DataLoaderTarget(
+                    grid=grid,
+                    data_bounds=target_bounds,
+                    subsample=Subsample.from_yaml_dict(cfg[telescope_key]["target"]),
+                ),
+                psf_kernel_configs=psf_kernel_configs,
             ),
-            star_alignment=DataLoaderStarAlignment.from_optional(
-                config=star_alignment_config,
-                tables=star_tables,
+            optional=DataLoaderOptionals(
+                star_alignment=DataLoaderStarAlignment.from_optional(
+                    config=star_alignment_config,
+                    tables=star_tables,
+                ),
+                extra_masks=extra_masks,
             ),
-            psf_kernel_configs=psf_kernel_configs,
-            extra_masks=extra_masks,
             loading_mode_config=data_loader.loading_mode_config,
         )
+        exit()
 
         shift_and_rotation_correction = ShiftAndRotationCorrection(
             domain_key=filter,
