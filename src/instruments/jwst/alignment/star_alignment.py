@@ -209,12 +209,12 @@ class StarTables:
             distance=Distance(parallax=table["parallax"]),
             obstime=g2016,
         )
+        current_positions = positions.apply_space_motion(t_obs)
 
         new_stars = []
-        for id, position in zip(source_id, positions):
-            newpos = position.apply_space_motion(t_obs)
-            if not (np.isnan(newpos.ra.value) or np.isnan(newpos.dec.value)):
-                new_stars.append(Star(id, newpos))
+        for id, position in zip(source_id, current_positions):
+            if not (np.isnan(position.ra.value) or np.isnan(position.dec.value)):
+                new_stars.append(Star(id, position))
 
         return new_stars
 

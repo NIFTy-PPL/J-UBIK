@@ -53,43 +53,10 @@ def load_one_stars_bundle(
 
     star_bundles = StarsBundle(index=index)
 
-    # if True:
-    #     import matplotlib.pyplot as plt
-    #     from functools import partial
-    #     from ...plotting.plotting_sky import plot_jwst_panels, plot_sky_coords
-    #
-    #     oldstars, newstars = star_tables.get_stars(index) if star_tables else None
-    #
-    #     def plot_multiple(ii, ax):
-    #         applies = [
-    #             partial(
-    #                 plot_sky_coords,
-    #                 sky_coords=[s.position for s in oldstars],
-    #                 marker_color="red",
-    #                 marker="x",
-    #             ),
-    #             partial(
-    #                 plot_sky_coords,
-    #                 sky_coords=[s.position for s in newstars],
-    #                 marker_color="orange",
-    #                 marker="x",
-    #             ),
-    #         ]
-    #         for apply in applies:
-    #             apply(ii, ax)
-    #
-    #     fig, axes = plot_jwst_panels(
-    #         [jwst_data.dm.data],
-    #         [jwst_data.wcs],
-    #         nrows=1,
-    #         ncols=1,
-    #         vmin=0.05,
-    #         vmax=0.5,
-    #         # vmin=220.05,
-    #         # vmax=230.5,
-    #         coords_plotter=plot_multiple,
-    #     )
-    #     plt.show()
+    if True:
+        from ...alignment.utils import some_evaluation
+
+        some_evaluation(index, jwst_data, star_tables)
 
     for star in star_tables.get_stars(index):
         bounding_indices = star.bounding_indices(jwst_data, fov_pixel)

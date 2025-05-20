@@ -208,3 +208,8 @@ class JwstData:
         return SkyCoord(
             self.dm.meta.pointing.ra_v1, self.dm.meta.pointing.dec_v1, unit="deg"
         )
+
+    def get_reference_pixel_world_coords(self):
+        """Returns the world coordinate of the boresight (v1) from a JWST datamodel."""
+        ra, dec = self.dm.meta.wcsinfo.ra_ref, self.dm.meta.wcsinfo.dec_ref
+        return SkyCoord(ra, dec, unit="deg")
