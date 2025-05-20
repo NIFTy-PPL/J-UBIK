@@ -92,8 +92,13 @@ sky_model = jft.Model(jft.wrap_left(sky_model, SKY_KEY), domain=sky_model.domain
 ) = build_jwst_likelihoods(cfg, grid, sky_model, sky_unit=SKY_UNIT)
 
 if plotting_alignment is not None:
-    plot_alignment_residuals = build_plot_alignment_residuals(
+    plot_alignment_residuals_fixpointing = build_plot_alignment_residuals(
         join(results_directory, "fixpointing"),
+        plotting_alignment,
+        FieldPlottingConfig(vmin=1e-4, norm="log"),
+    )
+    plot_alignment_residuals = build_plot_alignment_residuals(
+        results_directory,
         plotting_alignment,
         FieldPlottingConfig(vmin=1e-4, norm="log"),
     )
@@ -150,7 +155,7 @@ if likelihood_alignment is not None:
         random_key=random.PRNGKey(cfg_mini_fixpointing.get("key", 42)),
         outputdir=join(results_directory, "fixpointing"),
         minimization=mini_parser_fixpointing,
-        callback=plot_alignment_residuals,
+        callback=plot_alignment_residuals_fixpointing,
         kl_jit=False,
         residual_jit=True,
         resume=cfg_mini_fixpointing.get("resume", False),
@@ -188,29 +193,36 @@ cfg_mini = ju.get_config(config_path)["minimization"]
 mini_parser_full = ju.MinimizationParser(
     cfg_mini, ju.get_n_constrained_dof(likelihood_target), verbose=False
 )
+
+
+def callback(samples, state):
+    plot(samples, state)
+    plot_alignment_residuals(samples, state)
+
+
 kl_settings = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=results_directory,
     minimization=mini_parser_full,
     n_total_iterations=cfg_mini["n_total_iterations"],
-    callback=plot,
+    callback=callback,
     resume=cfg_mini.get("resume", False),
-    point_estimates=[
-        k
-        for k in samples_fixpointing.pos.tree.keys()
-        if k in likelihood_target.domain.tree
-    ],
-    constants=[
-        k
-        for k in samples_fixpointing.pos.tree.keys()
-        if k in likelihood_target.domain.tree
-    ],
+    # point_estimates=[
+    #     k
+    #     for k in samples_fixpointing.pos.tree.keys()
+    #     if k in likelihood_target.domain.tree
+    # ],
+    # constants=[
+    #     k
+    #     for k in samples_fixpointing.pos.tree.keys()
+    #     if k in likelihood_target.domain.tree
+    # ],
 )
 
 jft.logger.info("Full reconstruction")
 
 samples, state = minimization_from_initial_samples(
-    likelihood_target,
+    likelihood_target + likelihood_alignment,
     kl_settings,
     samples_fixpointing,
     # not_take_starting_pos_keys=sky_model_with_keys.domain.keys(),
