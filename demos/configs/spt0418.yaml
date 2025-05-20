@@ -18,7 +18,8 @@ no_interactive_plotting: False
 
 sky: 
   grid:
-    sdim: 512
+    # sdim: 512
+    sdim: 256
     # NOTE: SHOULD THIS BE HERE?????
     s_padding_ratio: 1.5  # Size of the convergence, i.e. (384*1.5, 6*1.5)
 
@@ -31,7 +32,8 @@ sky:
       dec: -47.86462563973049deg
 
     source_grid:
-      sdim: 384
+      # sdim: 384
+      sdim: 192
       fov: 3arcsec
       s_padding_ratio: 1.0
       # interpolation: 'finufft' # finufft, bilinear

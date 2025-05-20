@@ -5,31 +5,34 @@
 
 # %
 
-from typing import Callable, Union
+from dataclasses import dataclass
+from typing import Callable
 
 import nifty8.re as jft
 import numpy as np
-from astropy import units as u
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
-from .parse.parametric_model.parametric_prior import ProbabilityConfig
-from .parse.rotation_and_shift.rotation_and_shift import LinearConfig, NufftConfig
-from .parse.jwst_response import SkyMetaInformation
-from .data.jwst_data import DataMetaInformation
-
-from .alignment.star_model import StarInData
+from ...grid import Grid
 from ...wcs.wcs_astropy import WcsAstropy
-from .integration.unit_conversion import build_unit_conversion
+from .alignment.star_model import StarInData
+from .data.jwst_data import DataMetaInformation
+from .data.loader.target_loader import TargetData
+from .filter_projector import FilterProjector
 from .integration.integration import integration_factory
-from .psf.psf_learning import LearnablePsf
-from .psf.psf_operator import build_psf_operator_strategy, PsfDynamic, PsfStatic
+from .integration.unit_conversion import build_unit_conversion
 from .masking.build_mask import build_mask
+from .parse.jwst_response import SkyMetaInformation
+from .parse.rotation_and_shift.rotation_and_shift import LinearConfig, NufftConfig
+from .parse.zero_flux_model import ZeroFluxPriorConfigs
+from .psf.psf_learning import LearnablePsf
+from .psf.psf_operator import PsfDynamic, PsfStatic, build_psf_operator_strategy
 from .rotation_and_shift import RotationAndShift, build_rotation_and_shift
 from .rotation_and_shift.coordinates_correction import (
-    build_coordinates_corrected_for_field,
     ShiftAndRotationCorrection,
+    build_coordinates_corrected_for_field,
 )
+from .zero_flux_model import build_zero_flux_model
 
 
 class JwstResponse(jft.Model):
@@ -94,52 +97,6 @@ class JwstResponse(jft.Model):
         return out
 
 
-def build_sky_to_subsampled_data(
-    sky_domain: dict[str, jft.ShapeWithDtype],
-    data_subsampled_centers: SkyCoord | list[SkyCoord],
-    sky_wcs: WcsAstropy,
-    rotation_and_shift_algorithm: LinearConfig | NufftConfig,
-    shift_and_rotation_correction: ShiftAndRotationCorrection | None,
-) -> RotationAndShift:
-    """Build the sky to subsampled data. The sky will be rotated and shifted by
-    interpolation to the subsampled data center, whose central world coordinate is given
-    by `data_subsampled_centers`. Additionally we can correct for shift and rotation
-    errors.
-
-    Parameters
-    ----------
-    sky_domain: dict
-        The sky domain.
-    data_subsampled_centers: SkyCoord
-        The world coordinates of the subsampled data pixel centers.
-    sky_wcs: WcsAstropy
-        The wcs system of the sky (model target).
-    rotation_and_shift_algorithm: LinearConfig | NufftConfig
-        The interpolation algorithm, handling shift and rotation of data.
-    shift_and_rotation_correction: ShiftAndRotationCorrection
-        The probability distribution for the shift and rotation correction.
-        If None, we assume that the data_subsampled_centers are correct.
-
-    Return
-    ------
-    An operator that takes the output of sky model (saved in sky_domain) and projects
-    the sky onto the - potentially subsampled - data pixel.
-    """
-    coordinates = build_coordinates_corrected_for_field(
-        shift_and_rotation_correction=shift_and_rotation_correction,
-        reconstruction_grid_wcs=sky_wcs,
-        world_coordinates=data_subsampled_centers,
-        indexing="ij",
-    )
-
-    return build_rotation_and_shift(
-        sky_domain=sky_domain,
-        coordinates=coordinates,
-        algorithm_config=rotation_and_shift_algorithm,
-        indexing="ij",
-    )
-
-
 def build_jwst_response(
     sky_in_subsampled_data: jft.Model | RotationAndShift | StarInData,
     data_meta: DataMetaInformation,
@@ -201,4 +158,110 @@ def build_jwst_response(
         integrate=integrate,
         zero_flux_model=zero_flux_model,
         mask=mask,
+    )
+
+
+# --------------------------------------------------------------------------------------
+# Target Response Interface
+# --------------------------------------------------------------------------------------
+
+
+def build_sky_to_subsampled_data(
+    sky_domain: dict[str, jft.ShapeWithDtype],
+    data_subsampled_centers: SkyCoord | list[SkyCoord],
+    sky_wcs: WcsAstropy,
+    rotation_and_shift_algorithm: LinearConfig | NufftConfig,
+    shift_and_rotation_correction: ShiftAndRotationCorrection | None,
+) -> RotationAndShift:
+    """Build the sky to subsampled data. The sky will be rotated and shifted by
+    interpolation to the subsampled data center, whose central world coordinate is given
+    by `data_subsampled_centers`. Additionally we can correct for shift and rotation
+    errors.
+
+    Parameters
+    ----------
+    sky_domain: dict
+        The sky domain.
+    data_subsampled_centers: SkyCoord
+        The world coordinates of the subsampled data pixel centers.
+    sky_wcs: WcsAstropy
+        The wcs system of the sky (model target).
+    rotation_and_shift_algorithm: LinearConfig | NufftConfig
+        The interpolation algorithm, handling shift and rotation of data.
+    shift_and_rotation_correction: ShiftAndRotationCorrection
+        The probability distribution for the shift and rotation correction.
+        If None, we assume that the data_subsampled_centers are correct.
+
+    Return
+    ------
+    An operator that takes the output of sky model (saved in sky_domain) and projects
+    the sky onto the - potentially subsampled - data pixel.
+    """
+    coordinates = build_coordinates_corrected_for_field(
+        shift_and_rotation_correction=shift_and_rotation_correction,
+        reconstruction_grid_wcs=sky_wcs,
+        world_coordinates=data_subsampled_centers,
+        indexing="ij",
+    )
+
+    return build_rotation_and_shift(
+        sky_domain=sky_domain,
+        coordinates=coordinates,
+        algorithm_config=rotation_and_shift_algorithm,
+        indexing="ij",
+    )
+
+
+@dataclass
+class TargetResponseEssentials:
+    filter: str
+    grid: Grid
+    filter_projector: FilterProjector
+    target_data: TargetData
+    filter_meta: DataMetaInformation
+    sky_meta: SkyMetaInformation
+    rotation_and_shift_algorithm: LinearConfig | NufftConfig
+    zero_flux_prior_configs: ZeroFluxPriorConfigs
+
+
+@dataclass
+class TargetResponseOptionals:
+    shift_and_rotation_correction: ShiftAndRotationCorrection | None
+
+    @classmethod
+    def from_optional(
+        cls, shift_and_rotation_correction: ShiftAndRotationCorrection | None
+    ):
+        return cls(shift_and_rotation_correction)
+
+
+def build_target_response(
+    essentials: TargetResponseEssentials,
+    optionals: TargetResponseOptionals,
+):
+    energy_name = essentials.filter_projector.get_key(essentials.filter_meta.color)
+    sky_in_subsampled_data = build_sky_to_subsampled_data(
+        sky_domain={energy_name: essentials.filter_projector.target[energy_name]},
+        data_subsampled_centers=essentials.target_data.subsample_centers,
+        sky_wcs=essentials.grid.spatial,
+        rotation_and_shift_algorithm=essentials.rotation_and_shift_algorithm,
+        shift_and_rotation_correction=optionals.shift_and_rotation_correction,
+    )
+
+    zero_flux_model = build_zero_flux_model(
+        f"{essentials.filter}_target",
+        essentials.zero_flux_prior_configs.get_name_setting_or_default(
+            essentials.filter
+        ),
+        shape=(essentials.target_data.data.shape[0], 1, 1),
+    )
+
+    return build_jwst_response(
+        sky_in_subsampled_data=sky_in_subsampled_data,
+        data_meta=essentials.filter_meta,
+        data_subsample=essentials.target_data.subsample,
+        sky_meta=essentials.sky_meta,
+        psf=np.array(essentials.target_data.psf),
+        zero_flux_model=zero_flux_model,
+        data_mask=np.array(essentials.target_data.mask),
     )

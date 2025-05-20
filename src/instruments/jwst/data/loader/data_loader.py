@@ -16,18 +16,15 @@ from .stars_loader import (
     StarData,
     StarsBundle,
     load_one_stars_bundle,
-    load_one_stars_bundle_from_filepath,
 )
 from .target_loader import (
     TargetBundle,
     TargetData,
     load_one_target_bundle,
-    load_one_target_bundle_from_filepath,
 )
 
-
 # --------------------------------------------------------------------------------------
-# Input Information
+# Load Data Interface
 # --------------------------------------------------------------------------------------
 
 
@@ -70,8 +67,76 @@ class DataLoaderOptionals:
     extra_masks: ExtraMasks | None
 
 
+def load_data(
+    filepaths: tuple[IndexAndPath],
+    essential: DataLoaderEssentials,
+    optional: DataLoaderOptionals,
+    loading_mode_config: LoadingModeConfig,
+) -> tuple[TargetData, StarData | None]:
+    """Load the data
+    1. Target cutouts for filter observations.
+    2. Psf kernels for the cutouts for filter observations.
+
+    Optional:
+    1. Star cutouts.
+    2. Psf kernels for the cutouts.
+
+    Parameters
+    ----------
+    filepaths: tuple[IndexAndPath]
+        The filepaths of JWST data files to be preloaded
+    essential: DataLoaderEssentials
+        target: DataLoaderTarget
+            - grid
+            - data_bounds
+            - subsample
+        psf_kernel_config: JwstPsfKernelConfig
+            Config parameters for psf kernel loading see `load_psf_kernel`.
+    optional: DataLoaderOptionals,
+        star_alignment: DataLoaderStarAlignment, optional
+            - config: StarAlignmentConfig
+            - tables: StarTables
+        extra_masks: ExtraMasks, optional
+            some extra masks, either in the target or the star data cutouts.
+    loading_mode_config: LoadingModeConfig:
+        loading_mode: LoadingMode, algorithm for loading data:
+            - "serial": Sequential processing
+            - "threads": Multi-threaded for I/O-bound operations
+            - "processes": Multi-process for CPU-bound operations
+        workers: int | None
+            Number of threads/processes to use (None = executor default)
+
+    Returns
+    -------
+    Tuple[DataMetaInformation, DataBounds, StarTables | None]
+        - DataMetaInformation: Filter information, checked for consistency.
+        - DataBounds: Aligned shapes and bounds for the target data
+        - StarTables, optional: Star tables from the gaia catalog
+    """
+    logger.info("Loading JWST data")
+
+    target_andor_stars_bundles: list[TargetAndOrStarsBundle] = load_bundles(
+        filepaths=filepaths,
+        load_one=_load_one_target_and_or_stars,
+        extra_kw_args=dict(
+            essential=essential,
+            optional=optional,
+        ),
+        mode=loading_mode_config.loading_mode,
+        workers=loading_mode_config.workers,
+    )
+
+    target_data, stars_data = _load_data_products(
+        bundles=target_andor_stars_bundles,
+        essential=essential,
+        optional=optional,
+    )
+
+    return target_data, stars_data
+
+
 # --------------------------------------------------------------------------------------
-# Loading Interface
+# Load Data Internals
 # --------------------------------------------------------------------------------------
 
 
@@ -158,79 +223,6 @@ def _load_data_products(
         None
         if stars_bundles == []
         else StarData(optional.star_alignment.config.subsample, stars_bundles)
-    )
-
-    return target_data, stars_data
-
-
-# --------------------------------------------------------------------------------------
-# Loading Interface
-# --------------------------------------------------------------------------------------
-
-
-def load_data(
-    filepaths: tuple[IndexAndPath],
-    essential: DataLoaderEssentials,
-    optional: DataLoaderOptionals,
-    loading_mode_config: LoadingModeConfig,
-) -> tuple[TargetData, StarData | None]:
-    """Load the data
-    1. Target cutouts for filter observations.
-    2. Psf kernels for the cutouts for filter observations.
-
-    Optional:
-    1. Star cutouts.
-    2. Psf kernels for the cutouts.
-
-    Parameters
-    ----------
-    filepaths: tuple[IndexAndPath]
-        The filepaths of JWST data files to be preloaded
-    essential: DataLoaderEssentials
-        target: DataLoaderTarget
-            - grid
-            - data_bounds
-            - subsample
-        psf_kernel_config: JwstPsfKernelConfig
-            Config parameters for psf kernel loading see `load_psf_kernel`.
-    optional: DataLoaderOptionals,
-        star_alignment: DataLoaderStarAlignment, optional
-            - config: StarAlignmentConfig
-            - tables: StarTables
-        extra_masks: ExtraMasks, optional
-            some extra masks, either in the target or the star data cutouts.
-    loading_mode_config: LoadingModeConfig:
-        loading_mode: LoadingMode, algorithm for loading data:
-            - "serial": Sequential processing
-            - "threads": Multi-threaded for I/O-bound operations
-            - "processes": Multi-process for CPU-bound operations
-        workers: int | None
-            Number of threads/processes to use (None = executor default)
-
-    Returns
-    -------
-    Tuple[DataMetaInformation, DataBounds, StarTables | None]
-        - DataMetaInformation: Filter information, checked for consistency.
-        - DataBounds: Aligned shapes and bounds for the target data
-        - StarTables, optional: Star tables from the gaia catalog
-    """
-    logger.info("Loading JWST data")
-
-    target_andor_stars_bundles: list[TargetAndOrStarsBundle] = load_bundles(
-        filepaths=filepaths,
-        load_one=_load_one_target_and_or_stars,
-        extra_kw_args=dict(
-            essential=essential,
-            optional=optional,
-        ),
-        mode=loading_mode_config.loading_mode,
-        workers=loading_mode_config.workers,
-    )
-
-    target_data, stars_data = _load_data_products(
-        bundles=target_andor_stars_bundles,
-        essential=essential,
-        optional=optional,
     )
 
     return target_data, stars_data

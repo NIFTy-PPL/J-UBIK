@@ -206,7 +206,8 @@ kl_settings = KLSettings(
         if k in likelihood_target.domain.tree
     ],
 )
-# jft.logger.info("Full reconstruction")
+
+jft.logger.info("Full reconstruction")
 
 samples, state = minimization_from_initial_samples(
     likelihood_target,

@@ -1,6 +1,10 @@
 from ...likelihood import build_gaussian_likelihood
 from ...grid import Grid
-from .jwst_response import build_jwst_response, build_sky_to_subsampled_data
+from .jwst_response import (
+    build_jwst_response,
+    TargetResponseEssentials,
+    TargetResponseOptionals,
+)
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .plotting.residuals import ResidualPlottingInformation
@@ -11,7 +15,11 @@ from .alignment.star_alignment import StarTables
 from .alignment.star_model import build_star_in_data
 from .zero_flux_model import build_zero_flux_model
 
-from .likelihood.target_likelihood import build_target_likelihood_and_response
+from .likelihood.target_likelihood import (
+    TargetLikelihoodSideEffects,
+    build_target_likelihood,
+)
+from .likelihood.likelihood import build_likelihood
 
 
 from .parse.data.data_loader import Subsample
@@ -112,11 +120,9 @@ def build_jwst_likelihoods(
                 )
             ),
             optional=PreloaderOptionals.from_optional(
-                star_alignment_config=star_alignment_config,
+                star_alignment_config=star_alignment_config
             ),
-            side_effects=PreloaderSideEffects(
-                filter_alignment=filter_alignment,
-            ),
+            side_effects=PreloaderSideEffects(filter_alignment=filter_alignment),
             loading_mode_config=data_loader.loading_mode_config,
         )
 
@@ -146,24 +152,21 @@ def build_jwst_likelihoods(
             rotation_center=SkyCoord(filter_alignment.boresight),
         )
 
-        likelihood_target, jwst_target_response = build_target_likelihood_and_response(
-            filter,
-            grid,
-            filter_projector,
-            target_data,
-            filter_meta,
-            sky_meta,
-            rotation_and_shift_algorithm,
-            shift_and_rotation_correction,
-            zero_flux_prior_configs,
-        )
-
-        target_plotting.append_information(
-            filter=filter,
-            data=np.array(target_data.data),
-            std=np.array(target_data.std),
-            mask=np.array(target_data.mask),
-            model=jwst_target_response,
+        likelihood_target = build_target_likelihood(
+            essentials=TargetResponseEssentials(
+                filter=filter,
+                grid=grid,
+                filter_projector=filter_projector,
+                target_data=target_data,
+                filter_meta=filter_meta,
+                sky_meta=sky_meta,
+                rotation_and_shift_algorithm=rotation_and_shift_algorithm,
+                zero_flux_prior_configs=zero_flux_prior_configs,
+            ),
+            optionals=TargetResponseOptionals.from_optional(
+                shift_and_rotation_correction,
+            ),
+            side_effect=TargetLikelihoodSideEffects(plotting=target_plotting),
         )
         target_filter_likelihoods.append(likelihood_target)
 
