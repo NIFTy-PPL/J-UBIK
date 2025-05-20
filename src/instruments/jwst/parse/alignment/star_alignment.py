@@ -10,7 +10,22 @@ from ...parse.parametric_model.parametric_prior import (
 
 @dataclass
 class StarAlignmentConfig:
-    shape: tuple[int, int]
+    """Parser for the StarAlignment.
+
+    Parameters
+    ----------
+    fov: u.Quantity
+        Field of view for the star cutouts.
+    subsample: int
+        Subsample factor for the star cutouts.
+    star_light_prior: ProbabilityConfig
+        The prior probability for the Star light.
+    library_path: str
+        where to save the star tables
+    exclude_source_id: list[int]
+        which sources to exclude from the table query.
+    """
+
     fov: u.Quantity
     subsample: int
     star_light_prior: ProbabilityConfig
@@ -24,32 +39,21 @@ class StarAlignmentConfig:
         Parameters
         ----------
         raw:
+            - fov:
+            - subsample: int, the subsample factor for the star light cutouts.
+            - star_light: tuple, the settings for the star light prior.
             - library_path: str, the path to a library, where to save the found stars
             used for the alignment step.
             - exclude_source_id: list, a list of containing the ids not used in the
             alingment.
-            - shape: tuple[int, int], the shape of the star light cutouts.
-            - subsample: int, the subsample factor for the star light cutouts.
-            - star_light: tuple, the settings for the star light prior.
-
         """
         if raw is None:
             return None
 
-        shape = raw["shape"]
-        subsample = raw["subsample"]
-        fov = u.Quantity(raw["fov"])
-        starlight = prior_config_factory(raw["star_light"])
-
-        for sh in shape:
-            assert sh % 2 != 0, "Need uneven cutouts shape"
-        assert subsample % 2 != 0, "Need uneven subsample factor"
-
         return StarAlignmentConfig(
-            shape=shape,
-            fov=fov,
-            subsample=subsample,
-            star_light_prior=starlight,
+            fov=u.Quantity(raw["fov"]),
+            subsample=raw["subsample"],
+            star_light_prior=prior_config_factory(raw["star_light"]),
             library_path=raw.get("library_path", ""),
             exclude_source_id=raw.get("exclude_source_id", []),
         )

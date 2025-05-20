@@ -11,7 +11,6 @@ from .plotting.residuals import ResidualPlottingInformation
 from .plotting.alignment import FilterAlignmentPlottingInformation
 from .config_handler import get_grid_extension_from_config
 from .alignment.filter_alignment import FilterAlignment
-from .alignment.star_alignment import StarTables
 from .alignment.star_model import build_star_in_data
 from .zero_flux_model import build_zero_flux_model
 
@@ -25,16 +24,14 @@ from .likelihood.likelihood import build_likelihood
 from .parse.data.data_loader import Subsample
 from .data.loader.data_loader import (
     load_data,
-    DataLoaderEssentials,
-    DataLoaderOptionals,
+    DataLoader,
     DataLoaderTarget,
     DataLoaderStarAlignment,
 )
 from .data.preloader.preloader import (
     preload_data,
-    PreloaderEssentials,
+    Preloader,
     PreloaderSideEffects,
-    PreloaderOptionals,
 )
 
 # Parsing
@@ -114,13 +111,11 @@ def build_jwst_likelihoods(
 
         filter_meta, target_bounds, star_tables = preload_data(
             filepaths=filepaths,
-            essential=PreloaderEssentials(
+            preloader=Preloader(
                 grid_corners=grid.spatial.world_corners(
                     extension_value=sky_meta.grid_extension
-                )
-            ),
-            optional=PreloaderOptionals.from_optional(
-                star_alignment_config=star_alignment_config
+                ),
+                star_alignment_config=star_alignment_config,
             ),
             side_effects=PreloaderSideEffects(filter_alignment=filter_alignment),
             loading_mode_config=data_loader.loading_mode_config,
@@ -128,15 +123,13 @@ def build_jwst_likelihoods(
 
         target_data, stars_data = load_data(
             filepaths=filepaths,
-            essential=DataLoaderEssentials(
+            data_loader=DataLoader(
                 target=DataLoaderTarget(
                     grid=grid,
                     data_bounds=target_bounds,
                     subsample=Subsample.from_yaml_dict(cfg[telescope_key]["target"]),
                 ),
                 psf_kernel_configs=psf_kernel_configs,
-            ),
-            optional=DataLoaderOptionals(
                 star_alignment=DataLoaderStarAlignment.from_optional(
                     config=star_alignment_config,
                     tables=star_tables,

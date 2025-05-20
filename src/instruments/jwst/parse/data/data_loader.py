@@ -35,6 +35,8 @@ class FilterFilePaths(UserDict[str, tuple[Path]]):
 
 
 class LoadingMode(Enum):
+    """Enum for the different loading modes."""
+
     SERIAL = "serial"
     THREADS = "threads"
     PROCESSES = "processes"
@@ -51,8 +53,20 @@ class LoadingMode(Enum):
             )
 
 
-@dataclass
+@dataclass(slots=True, frozen=True)
 class LoadingModeConfig:
+    """How the data will be loaded, with meta information.
+
+    Parameters
+    ----------
+    loading_mode: LoadingMode, algorithm for loading data:
+        - "serial": Sequential processing
+        - "threads": Multi-threaded for I/O-bound operations
+        - "processes": Multi-process for CPU-bound operations
+    workers: int | None
+        Number of threads/processes to use (None = executor default)
+    """
+
     loading_mode: LoadingMode = LoadingMode.SERIAL
     workers: int | None = None
 

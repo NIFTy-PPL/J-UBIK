@@ -52,25 +52,22 @@ class DataLoaderStarAlignment:
 
 
 @dataclass
-class DataLoaderEssentials:
-    """Essential input data of `load_data`."""
+class DataLoader:
+    """Input data of `load_data`."""
 
+    # Essentials -----------------------------------------------------------------------
     target: DataLoaderTarget
     psf_kernel_configs: JwstPsfKernelConfig
 
-
-@dataclass
-class DataLoaderOptionals:
-    """Optional input data of `load_data`."""
-
-    star_alignment: DataLoaderStarAlignment | None
-    extra_masks: ExtraMasks | None
+    # Optioanls ------------------------------------------------------------------------
+    star_alignment: DataLoaderStarAlignment | None = None
+    extra_masks: ExtraMasks | None = None
 
 
 def load_data(
     filepaths: tuple[IndexAndPath],
-    essential: DataLoaderEssentials,
-    optional: DataLoaderOptionals,
+    *,
+    data_loader: DataLoader,
     loading_mode_config: LoadingModeConfig,
 ) -> tuple[TargetData, StarData | None]:
     """Load the data
@@ -85,19 +82,20 @@ def load_data(
     ----------
     filepaths: tuple[IndexAndPath]
         The filepaths of JWST data files to be preloaded
-    essential: DataLoaderEssentials
-        target: DataLoaderTarget
-            - grid
-            - data_bounds
-            - subsample
-        psf_kernel_config: JwstPsfKernelConfig
-            Config parameters for psf kernel loading see `load_psf_kernel`.
-    optional: DataLoaderOptionals,
-        star_alignment: DataLoaderStarAlignment, optional
-            - config: StarAlignmentConfig
-            - tables: StarTables
-        extra_masks: ExtraMasks, optional
-            some extra masks, either in the target or the star data cutouts.
+    data_loader: DataLoader
+        - essential:
+            target: DataLoaderTarget
+                - grid
+                - data_bounds
+                - subsample
+            psf_kernel_config: JwstPsfKernelConfig
+                Config parameters for psf kernel loading see `load_psf_kernel`.
+        - optional:
+            star_alignment: DataLoaderStarAlignment, optional
+                - config: StarAlignmentConfig
+                - tables: StarTables
+            extra_masks: ExtraMasks, optional
+                some extra masks, either in the target or the star data cutouts.
     loading_mode_config: LoadingModeConfig:
         loading_mode: LoadingMode, algorithm for loading data:
             - "serial": Sequential processing
@@ -118,18 +116,13 @@ def load_data(
     target_andor_stars_bundles: list[TargetAndOrStarsBundle] = load_bundles(
         filepaths=filepaths,
         load_one=_load_one_target_and_or_stars,
-        extra_kw_args=dict(
-            essential=essential,
-            optional=optional,
-        ),
+        extra_kw_args=dict(data_loader=data_loader),
         mode=loading_mode_config.loading_mode,
         workers=loading_mode_config.workers,
     )
 
     target_data, stars_data = _load_data_products(
-        bundles=target_andor_stars_bundles,
-        essential=essential,
-        optional=optional,
+        bundles=target_andor_stars_bundles, data_loader=data_loader
     )
 
     return target_data, stars_data
@@ -149,28 +142,27 @@ class TargetAndOrStarsBundle:
 
 def _load_one_target_and_or_stars(
     filepath: IndexAndPath,
-    essential: DataLoaderEssentials,
-    optional: DataLoaderOptionals,
+    data_loader: DataLoader,
 ):
     jwst_data = JwstData(filepath.path)
     target_bundle: TargetBundle = load_one_target_bundle(
         index=filepath.index,
         jwst_data=jwst_data,
-        subsample=essential.target.subsample,
-        target_grid=essential.target.grid,
-        target_data_bounds=essential.target.data_bounds,
-        psf_kernel_configs=essential.psf_kernel_configs,
-        extra_masks=optional.extra_masks,
+        subsample=data_loader.target.subsample,
+        target_grid=data_loader.target.grid,
+        target_data_bounds=data_loader.target.data_bounds,
+        psf_kernel_configs=data_loader.psf_kernel_configs,
+        extra_masks=data_loader.extra_masks,
     )
 
-    if optional.star_alignment:
+    if data_loader.star_alignment:
         stars_bundle: StarsBundle = load_one_stars_bundle(
             index=filepath.index,
             jwst_data=jwst_data,
-            star_tables=optional.star_alignment.tables,
-            star_alignment_config=optional.star_alignment.config,
-            extra_masks=optional.extra_masks,
-            psf_kernel_configs=essential.psf_kernel_configs,
+            star_tables=data_loader.star_alignment.tables,
+            star_alignment_config=data_loader.star_alignment.config,
+            extra_masks=data_loader.extra_masks,
+            psf_kernel_configs=data_loader.psf_kernel_configs,
         )
     else:
         stars_bundle = None
@@ -183,9 +175,7 @@ def _load_one_target_and_or_stars(
 
 
 def _load_data_products(
-    bundles: list[TargetAndOrStarsBundle],
-    essential: DataLoaderEssentials,
-    optional: DataLoaderOptionals,
+    bundles: list[TargetAndOrStarsBundle], data_loader: DataLoader
 ) -> tuple[TargetData, StarData | None]:
     """Apply side effects from the preloaded data bundles.
 
@@ -217,12 +207,12 @@ def _load_data_products(
         if b.stars_bundle is not None:
             stars_bundles.append(b.stars_bundle)
 
-    target_data = TargetData.from_bundles(essential.target.subsample, target_bundles)
+    target_data = TargetData.from_bundles(data_loader.target.subsample, target_bundles)
 
     stars_data = (
         None
         if stars_bundles == []
-        else StarData(optional.star_alignment.config.subsample, stars_bundles)
+        else StarData(data_loader.star_alignment.config.subsample, stars_bundles)
     )
 
     return target_data, stars_data

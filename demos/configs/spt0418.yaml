@@ -289,10 +289,9 @@ telescope:
     f2100w: ['lognormal', 226.0, 1.0]
 
   gaia_alignment:
-    fov: 3.5arcsec
-    shape: [129, 129]
-    star_light: ['lognormal', 1000, 10000]
     subsample: 1
+    fov: 3.5arcsec
+    star_light: ['lognormal', 1000, 10000]
     library_path: './data/GAIA/library_stars'
     exclude_source_id: [4788834899488736128]  # , 4788858367190047104]
 
