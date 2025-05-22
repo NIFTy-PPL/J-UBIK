@@ -130,7 +130,6 @@ class RadioSkyExtractor(jft.Model):
 def build_radio_sky_extractor(
     index_of_last_radio_bin: int | None,
     sky_model: jft.Model,
-    sky_key: str | None = "sky",
     sky_unit: u.Unit | None = None,
     transpose: bool = False,
 ) -> RadioSkyExtractor:
@@ -152,11 +151,14 @@ def build_radio_sky_extractor(
     sky_model: jft.Model
         The model of the sky, it's target domain is the input domain of the
         radio sky extractor.
-    sky_key: str | None
-        The potential key of the sky.
     sky_unit: u.Unit | None
         The unit of the sky.
     """
+    sky_key = (
+        next(iter(sky_model.target.keys()))
+        if isinstance(sky_model.target, dict)
+        else None
+    )
 
     extract, slicing, conv, trans = (
         build_extract_sky(sky_key),

@@ -69,6 +69,7 @@ def build_likelihood_from_sky_beamer(
         sky_grid=sky_grid,
         backend_settings=backend_settings,
     )
+
     shift = build_phase_shift_correction_from_config(
         phase_shift_correction_config,
         observation=observation,

@@ -47,7 +47,6 @@ def build_radio_likelihood(
     sky_grid: Grid,
     sky_model: jft.Model,
     last_radio_bin: int | None,
-    sky_key: str = "sky",
     sky_unit: u.Unit | None = None,
     direction_key: str = "PHASE_DIR",
 ):
@@ -56,7 +55,6 @@ def build_radio_likelihood(
     radio_sky_extractor = build_radio_sky_extractor(
         last_radio_bin,
         sky_model,
-        sky_key=sky_key,
         sky_unit=sky_unit,
         transpose=response_settings.transpose,
     )
