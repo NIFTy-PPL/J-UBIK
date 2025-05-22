@@ -2,14 +2,12 @@ from ...likelihood import build_gaussian_likelihood
 from ...grid import Grid
 from .jwst_response import (
     build_jwst_response,
-    TargetResponseEssentials,
-    TargetResponseOptionals,
+    TargetResponseInput,
 )
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .plotting.residuals import ResidualPlottingInformation
 from .plotting.alignment import FilterAlignmentPlottingInformation
-from .config_handler import get_grid_extension_from_config
 from .alignment.filter_alignment import FilterAlignment
 from .alignment.star_model import build_star_in_data
 from .zero_flux_model import build_zero_flux_model
@@ -20,8 +18,11 @@ from .likelihood.target_likelihood import (
 )
 from .likelihood.likelihood import build_likelihood
 
+# Parseing
+from .parse.jwst_response import SkyMetaInformation
+from .parse.parsing_step import ConfigParserJwst
+from .config_handler import get_grid_extension_from_config
 
-from .parse.data.data_loader import Subsample
 from .data.loader.data_loader import (
     load_data,
     DataLoader,
@@ -34,16 +35,6 @@ from .data.preloader.preloader import (
     PreloaderSideEffects,
 )
 
-# Parsing
-from .parse.zero_flux_model import ZeroFluxPriorConfigs
-from .parse.rotation_and_shift.rotation_and_shift import (
-    rotation_and_shift_algorithm_config_factory,
-)
-from .parse.jwst_response import SkyMetaInformation
-from .parse.alignment.star_alignment import StarAlignmentConfig
-from .parse.data.data_loader import DataLoadingConfig
-from .parse.jwst_psf import JwstPsfKernelConfig
-from .parse.masking.data_mask import ExtraMasks
 
 from .psf.psf_learning import build_psf_modification_model_strategy, LearnablePsf
 
@@ -74,35 +65,21 @@ def build_jwst_likelihoods(
     )
 
     # Parsing
-    zero_flux_prior_configs = ZeroFluxPriorConfigs.from_yaml_dict(
-        cfg[telescope_key].get("zero_flux")
-    )
-    rotation_and_shift_algorithm = rotation_and_shift_algorithm_config_factory(
-        cfg[telescope_key]["rotation_and_shift"]
-    )
     sky_meta = SkyMetaInformation(
         grid_extension=get_grid_extension_from_config(cfg[telescope_key], grid),
         unit=sky_unit,
         dvol=grid.spatial.dvol,
     )
-
-    psf_kernel_configs = JwstPsfKernelConfig.from_yaml_dict(
-        cfg[telescope_key].get("psf")
+    cfg_parser = ConfigParserJwst.from_yaml_dict(
+        cfg, telescope_key=telescope_key, files_key=files_key
     )
-    extra_masks = ExtraMasks.from_yaml_dict(cfg[telescope_key])
-
-    star_alignment_config: StarAlignmentConfig | None = (
-        StarAlignmentConfig.from_yaml_dict(cfg[telescope_key].get("gaia_alignment"))
-    )
-
-    data_loader = DataLoadingConfig.from_yaml_dict(cfg[files_key])
 
     target_plotting = ResidualPlottingInformation()
     alignment_plotting = []
     target_filter_likelihoods = []
     stars_alignment_likelihoods = []
 
-    for filter, filepaths in data_loader.paths.items():
+    for filter, filepaths in cfg_parser.data_loader.paths.items():
         filter_alignment = FilterAlignment(filter_name=filter)
         filter_alignment.load_correction_prior(
             cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
@@ -115,10 +92,10 @@ def build_jwst_likelihoods(
                 grid_corners=grid.spatial.world_corners(
                     extension_value=sky_meta.grid_extension
                 ),
-                star_alignment_config=star_alignment_config,
+                star_alignment_config=cfg_parser.star_alignment_config,
             ),
             side_effects=PreloaderSideEffects(filter_alignment=filter_alignment),
-            loading_mode_config=data_loader.loading_mode_config,
+            loading_mode_config=cfg_parser.data_loader.loading_mode_config,
         )
 
         target_data, stars_data = load_data(
@@ -127,16 +104,16 @@ def build_jwst_likelihoods(
                 target=DataLoaderTarget(
                     grid=grid,
                     data_bounds=target_bounds,
-                    subsample=Subsample.from_yaml_dict(cfg[telescope_key]["target"]),
+                    subsample=cfg_parser.subsample_target,
                 ),
-                psf_kernel_configs=psf_kernel_configs,
+                psf_kernel_configs=cfg_parser.psf_kernel_configs,
                 star_alignment=DataLoaderStarAlignment.from_optional(
-                    config=star_alignment_config,
+                    config=cfg_parser.star_alignment_config,
                     tables=star_tables,
                 ),
-                extra_masks=extra_masks,
+                extra_masks=cfg_parser.extra_masks,
             ),
-            loading_mode_config=data_loader.loading_mode_config,
+            loading_mode_config=cfg_parser.data_loader.loading_mode_config,
         )
 
         shift_and_rotation_correction = ShiftAndRotationCorrection(
@@ -146,24 +123,22 @@ def build_jwst_likelihoods(
         )
 
         likelihood_target = build_target_likelihood(
-            essentials=TargetResponseEssentials(
+            response=TargetResponseInput(
                 filter=filter,
                 grid=grid,
                 filter_projector=filter_projector,
                 target_data=target_data,
                 filter_meta=filter_meta,
                 sky_meta=sky_meta,
-                rotation_and_shift_algorithm=rotation_and_shift_algorithm,
-                zero_flux_prior_configs=zero_flux_prior_configs,
-            ),
-            optionals=TargetResponseOptionals.from_optional(
-                shift_and_rotation_correction,
+                rotation_and_shift_algorithm=cfg_parser.rotation_and_shift_algorithm,
+                zero_flux_prior_configs=cfg_parser.zero_flux_prior_configs,
+                shift_and_rotation_correction=shift_and_rotation_correction,
             ),
             side_effect=TargetLikelihoodSideEffects(plotting=target_plotting),
         )
         target_filter_likelihoods.append(likelihood_target)
 
-        if star_alignment_config is not None:
+        if cfg_parser.star_alignment_config is not None:
             filter_alignment_plotting = dict(
                 psf_convolved=FilterAlignmentPlottingInformation(filter),
                 psf=FilterAlignmentPlottingInformation(filter),
@@ -201,7 +176,7 @@ def build_jwst_likelihoods(
                             filter_key=filter,
                             filter_meta=filter_meta,
                             star_id=star.id,
-                            star_light_prior=star_alignment_config.star_light_prior,
+                            star_light_prior=cfg_parser.star_alignment_config.star_light_prior,
                             star_data=stars_data[star.id],
                             shift_and_rotation_correction=shift_and_rotation_correction,
                         ),
@@ -211,7 +186,9 @@ def build_jwst_likelihoods(
                         psf=p,
                         zero_flux_model=build_zero_flux_model(
                             f"{filter}_{star.id}",
-                            zero_flux_prior_configs.get_name_setting_or_default(filter),
+                            cfg_parser.zero_flux_prior_configs.get_name_setting_or_default(
+                                filter
+                            ),
                             shape=(len(stars_data[star.id].data), 1, 1),
                         ),
                         data_mask=np.array(stars_data[star.id].mask),

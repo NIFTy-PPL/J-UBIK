@@ -213,7 +213,33 @@ def build_sky_to_subsampled_data(
 
 
 @dataclass
-class TargetResponseEssentials:
+class TargetResponseInput:
+    """
+    Configuration container for building a target response model that connects the sky model
+    to observational data for a specific filter.
+
+    Attributes
+    ----------
+    filter : str
+        Name of the filter corresponding to the observational data.
+    grid : Grid
+        Spatial grid defining the coordinate system of the sky model.
+    filter_projector : FilterProjector
+        Object that projects the sky model into the filter's energy domain.
+    target_data : TargetData
+        Observational data and associated metadata (e.g., subsample centers, PSF, mask).
+    filter_meta : DataMetaInformation
+        Metadata about the data, including units and pixel volume.
+    sky_meta : SkyMetaInformation
+        Metadata about the sky model, including units and pixel volume.
+    rotation_and_shift_algorithm : LinearConfig | NufftConfig
+        Algorithm configuration to handle rotation and shifting during interpolation.
+    zero_flux_prior_configs : ZeroFluxPriorConfigs
+        Configuration for zero flux prior models.
+    shift_and_rotation_correction : ShiftAndRotationCorrection | None
+        Optional correction for misalignments in shift and rotation between sky and data.
+    """
+
     filter: str
     grid: Grid
     filter_projector: FilterProjector
@@ -222,46 +248,56 @@ class TargetResponseEssentials:
     sky_meta: SkyMetaInformation
     rotation_and_shift_algorithm: LinearConfig | NufftConfig
     zero_flux_prior_configs: ZeroFluxPriorConfigs
-
-
-@dataclass
-class TargetResponseOptionals:
     shift_and_rotation_correction: ShiftAndRotationCorrection | None
-
-    @classmethod
-    def from_optional(
-        cls, shift_and_rotation_correction: ShiftAndRotationCorrection | None
-    ):
-        return cls(shift_and_rotation_correction)
 
 
 def build_target_response(
-    essentials: TargetResponseEssentials,
-    optionals: TargetResponseOptionals,
+    input_config: TargetResponseInput,
 ):
-    energy_name = essentials.filter_projector.get_key(essentials.filter_meta.color)
+    """
+    Constructs a JWST linear response model for a field target using the
+    provided input configuration. This function orchestrates the building blocks that
+    map the sky model onto the data.
+
+    Schematic pipeline:
+    rotation&shift | subsampling | JwstResponse
+
+    Parameters
+    ----------
+    input_config : TargetResponseInput
+        A configuration object containing all necessary parameters and metadata for building
+        the target response.
+
+    Returns
+    -------
+    JwstResponse
+        A callable linear response model that transforms the sky model outputs to the data space,
+        incorporating all observational effects and corrections.
+    """
+
+    energy_name = input_config.filter_projector.get_key(input_config.filter_meta.color)
     sky_in_subsampled_data = build_sky_to_subsampled_data(
-        sky_domain={energy_name: essentials.filter_projector.target[energy_name]},
-        data_subsampled_centers=essentials.target_data.subsample_centers,
-        sky_wcs=essentials.grid.spatial,
-        rotation_and_shift_algorithm=essentials.rotation_and_shift_algorithm,
-        shift_and_rotation_correction=optionals.shift_and_rotation_correction,
+        sky_domain={energy_name: input_config.filter_projector.target[energy_name]},
+        data_subsampled_centers=input_config.target_data.subsample_centers,
+        sky_wcs=input_config.grid.spatial,
+        rotation_and_shift_algorithm=input_config.rotation_and_shift_algorithm,
+        shift_and_rotation_correction=input_config.shift_and_rotation_correction,
     )
 
     zero_flux_model = build_zero_flux_model(
-        f"{essentials.filter}_target",
-        essentials.zero_flux_prior_configs.get_name_setting_or_default(
-            essentials.filter
+        f"{input_config.filter}_target",
+        input_config.zero_flux_prior_configs.get_name_setting_or_default(
+            input_config.filter
         ),
-        shape=(essentials.target_data.data.shape[0], 1, 1),
+        shape=(input_config.target_data.data.shape[0], 1, 1),
     )
 
     return build_jwst_response(
         sky_in_subsampled_data=sky_in_subsampled_data,
-        data_meta=essentials.filter_meta,
-        data_subsample=essentials.target_data.subsample,
-        sky_meta=essentials.sky_meta,
-        psf=np.array(essentials.target_data.psf),
+        data_meta=input_config.filter_meta,
+        data_subsample=input_config.target_data.subsample,
+        sky_meta=input_config.sky_meta,
+        psf=np.array(input_config.target_data.psf),
         zero_flux_model=zero_flux_model,
-        data_mask=np.array(essentials.target_data.mask),
+        data_mask=np.array(input_config.target_data.mask),
     )

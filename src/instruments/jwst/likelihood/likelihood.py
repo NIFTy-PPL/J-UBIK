@@ -15,18 +15,18 @@ from ..jwst_response import JwstResponse
 
 
 @dataclass
-class GaussianLikelihoodEssentials:
+class GaussianLikelihoodInput:
     """Essential input data of `load_data`."""
 
     response: JwstResponse
     data: TargetData | StarData
 
 
-def build_likelihood(essential: GaussianLikelihoodEssentials):
-    data = essential.data
+def build_likelihood(input: GaussianLikelihoodInput):
+    data = input.data
 
     return build_gaussian_likelihood(
         jnp.array(np.array(data.data)[np.array(data.mask)], dtype=float),
         jnp.array(np.array(data.std)[np.array(data.mask)], dtype=float),
-        model=essential.response,
+        model=input.response,
     )
