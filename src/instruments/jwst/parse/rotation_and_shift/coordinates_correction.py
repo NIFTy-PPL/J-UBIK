@@ -4,13 +4,15 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
+from dataclasses import astuple, dataclass
+from enum import Enum
+
+from astropy import units as u
+
 from ..parametric_model.parametric_prior import (
     ProbabilityConfig,
     prior_config_factory,
 )
-
-from astropy import units as u
-from dataclasses import dataclass, astuple
 
 
 MODEL_KEY = "model"
@@ -18,6 +20,25 @@ ROTATION_UNIT_KEY = "rotation_unit"
 SHIFT_UNIT_KEY = "shift_unit"
 SHIFT_KEY = "shift"
 ROTATION_KEY = "rotation"
+
+
+class CorrectionModel(Enum):
+    """Enum for the different loading modes."""
+
+    SHIFT = "shift"
+    # RSHIFT = "rshift"
+    # GENERAL = "general"  # Not implemented
+
+    @classmethod
+    def from_string(cls, mode_str: str) -> "CorrectionModel":
+        """Convert a string to the corresponding CorrectionModel enum value."""
+        try:
+            return cls(mode_str.lower())
+        except ValueError:
+            raise ValueError(
+                f"Unknown loading mode: '{mode_str}'. "
+                f"Valid options are: {', '.join(m.value for m in cls)}"
+            )
 
 
 @dataclass
@@ -39,7 +60,7 @@ class CoordinatesCorrectionPriorConfig:
         The unit of the rotation model
     """
 
-    model: str
+    model: CorrectionModel.SHIFT  # | CorrectionModel.RSHIFT | CorrectionModel.GENERAL
     shift: ProbabilityConfig
     shift_unit: u.Unit
     rotation: ProbabilityConfig
@@ -58,7 +79,12 @@ class CoordinatesCorrectionPriorConfig:
         return prior_config_factory([distribution, val1, val2, transformation])
 
     @classmethod
-    def from_yaml_dict(cls, raw: dict):
+    def from_yaml_dict(
+        cls,
+        raw: dict,
+        shift_shape: tuple | None = None,
+        rotation_shape: tuple | None = None,
+    ):
         f"""Parse CoordinatesCorrectionPriorConfig from yaml dictionary.
 
         Parameters
@@ -71,9 +97,9 @@ class CoordinatesCorrectionPriorConfig:
             - {ROTATION_UNIT_KEY}
         """
         return CoordinatesCorrectionPriorConfig(
-            model=raw[MODEL_KEY],
-            shift=prior_config_factory(raw[SHIFT_KEY]),
-            rotation=prior_config_factory(raw[ROTATION_KEY]),
+            model=CorrectionModel.from_string(raw[MODEL_KEY]),
+            shift=prior_config_factory(raw[SHIFT_KEY], shape=shift_shape),
+            rotation=prior_config_factory(raw[ROTATION_KEY], shape=rotation_shape),
             shift_unit=getattr(u, raw[SHIFT_UNIT_KEY]),
             rotation_unit=getattr(u, raw[ROTATION_UNIT_KEY]),
         )

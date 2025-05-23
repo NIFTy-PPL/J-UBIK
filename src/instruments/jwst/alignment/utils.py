@@ -1,6 +1,8 @@
 import numpy as np
 import astropy.units as u
 from astropy.coordinates import SkyCoord
+from ..data.jwst_data import JwstData
+from ..alignment.star_alignment import StarTables
 
 
 # ------------------------------------------------------------------
@@ -122,7 +124,7 @@ def sky_offset_diagnostics(
     return out
 
 
-def some_evaluation(index, jwst_data, star_tables):
+def some_evaluation(index: int, jwst_data: JwstData, star_tables: StarTables):
     import matplotlib.pyplot as plt
     from functools import partial
     from ..plotting.plotting_sky import plot_jwst_panels, plot_sky_coords
@@ -141,7 +143,7 @@ def some_evaluation(index, jwst_data, star_tables):
         bor, pos, dra_shift=0.3 * u.arcsec, ddec_shift=0.3 * u.arcsec
     )
 
-    pixdist = jwst_data.meta.pixel_distance.to(u.mas)
+    pixdist = jwst_data.meta.pixel_scale.to(u.mas)
     for star in newstars:
         pos = SkyCoord(ra=star.position.ra, dec=star.position.dec)
         bor = jwst_data.get_boresight_world_coords()
@@ -162,7 +164,7 @@ def some_evaluation(index, jwst_data, star_tables):
 
     print()
 
-    pixdist = jwst_data.meta.pixel_distance.to(u.mas)
+    pixdist = jwst_data.meta.pixel_scale.to(u.mas)
     for star in newstars:
         pos = SkyCoord(ra=star.position.ra, dec=star.position.dec)
         bor = jwst_data.get_boresight_world_coords()

@@ -11,10 +11,8 @@ from ..parse.parametric_model.parametric_prior import (
 )
 from ..parse.rotation_and_shift.coordinates_correction import (
     MODEL_KEY,
-    ROTATION_KEY,
-    ROTATION_UNIT_KEY,
-    SHIFT_KEY,
     SHIFT_UNIT_KEY,
+    ROTATION_UNIT_KEY,
     CoordinatesCorrectionPriorConfig,
 )
 
@@ -34,14 +32,12 @@ class FilterAlignment:
         else:
             config = raw[DEFAULT_KEY]
 
-        self.correction_prior = CoordinatesCorrectionPriorConfig(
-            model=raw[MODEL_KEY],
-            shift=prior_config_factory(
-                config[SHIFT_KEY], shape=(number_of_observations, 2)
-            ),
-            rotation=prior_config_factory(
-                config[ROTATION_KEY], shape=(number_of_observations, 1)
-            ),
-            shift_unit=getattr(u, raw[SHIFT_UNIT_KEY]),
-            rotation_unit=getattr(u, raw[ROTATION_UNIT_KEY]),
+        config[MODEL_KEY] = raw[MODEL_KEY]
+        config[SHIFT_UNIT_KEY] = raw[SHIFT_UNIT_KEY]
+        config[ROTATION_UNIT_KEY] = raw[ROTATION_UNIT_KEY]
+
+        self.correction_prior = CoordinatesCorrectionPriorConfig.from_yaml_dict(
+            raw=config,
+            shift_shape=(number_of_observations, 2),
+            rotation_shape=(number_of_observations, 1),
         )

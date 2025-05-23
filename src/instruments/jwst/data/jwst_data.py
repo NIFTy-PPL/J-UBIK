@@ -32,7 +32,7 @@ except ImportError:
 class DataMetaInformation:
     unit: units.Unit
     dvol: units.Quantity
-    pixel_distance: units.Quantity
+    pixel_scale: units.Quantity
     color: Color
 
 
@@ -57,7 +57,7 @@ class JwstData:
         self.meta: DataMetaInformation = DataMetaInformation(
             unit=units.Unit(self.dm.meta.bunit_data),
             dvol=get_dvol(self.filter),
-            pixel_distance=get_pixel_distance(self.filter),
+            pixel_scale=get_pixel_distance(self.filter),
             color=self.pivot_wavelength,
         )
 

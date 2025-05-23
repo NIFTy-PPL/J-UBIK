@@ -44,8 +44,7 @@ def load_one_stars_bundle(
     psf_kernel_configs: JwstPsfKernelConfig,
 ) -> StarsBundle:
     fov_pixel = (
-        star_alignment_config.fov.to(u.arcsec)
-        / jwst_data.meta.pixel_distance.to(u.arcsec)
+        star_alignment_config.fov.to(u.arcsec) / jwst_data.meta.pixel_scale.to(u.arcsec)
     ).value
     fov_pixel = np.array((int(np.round(fov_pixel)),) * 2)
     if (fov_pixel % 2).sum() == 0:
@@ -53,7 +52,7 @@ def load_one_stars_bundle(
 
     star_bundles = StarsBundle(index=index)
 
-    if True:
+    if False:
         from ...alignment.utils import some_evaluation
 
         some_evaluation(index, jwst_data, star_tables)
