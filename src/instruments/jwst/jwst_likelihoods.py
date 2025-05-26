@@ -74,7 +74,9 @@ def build_jwst_likelihoods(
         cfg, telescope_key=telescope_key, files_key=files_key
     )
 
-    target_plotting = ResidualPlottingInformation()
+    target_plotting = ResidualPlottingInformation(
+        y_offset=min(filter_projector.keys_and_index.values())
+    )
     alignment_plotting = []
     target_filter_likelihoods = []
     stars_alignment_likelihoods = []

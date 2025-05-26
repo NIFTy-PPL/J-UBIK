@@ -32,6 +32,7 @@ class ResidualPlottingInformation:
     mask: list[np.ndarray] = field(default_factory=list)
     std: list[np.ndarray] = field(default_factory=list)
     model: list[JwstResponse] = field(default_factory=list)
+    y_offset: int = 0
 
     def append_information(
         self,
@@ -78,8 +79,7 @@ def _determine_xlen_residuals(
 
 
 def _determine_ypos(
-    filter_key: str,
-    filter_projector: FilterProjector,
+    filter_key: str, filter_projector: FilterProjector, y_offset: int = 0
 ) -> int:
     """Determine the y position of the panel in the residual plot.
 
@@ -100,7 +100,7 @@ def _determine_ypos(
     ypos: int
         The y-position on the panel grid.
     """
-    return filter_projector.keys_and_index[filter_key]
+    return filter_projector.keys_and_index[filter_key] - y_offset
 
 
 def build_plot_sky_residuals(
@@ -152,7 +152,10 @@ def build_plot_sky_residuals(
             plotting_config.sky.get_min(np.min(list(tree.map(np.min, sky).values()))),
         )
 
-        for filter_name, ypos in filter_projector.keys_and_index.items():
+        for filter_name in filter_projector.keys_and_index.keys():
+            ypos = _determine_ypos(
+                filter_name, filter_projector, y_offset=residual_plotting_info.y_offset
+            )
             axes[ypos, 0].set_title(f"Sky {filter_name}")
             ims[ypos, 0] = axes[ypos, 0].imshow(
                 sky[filter_name],
@@ -163,7 +166,9 @@ def build_plot_sky_residuals(
             )
 
         for filter_key in residual_plotting_info.filter:
-            ypos = filter_projector.keys_and_index[filter_key]
+            ypos = _determine_ypos(
+                filter_key, filter_projector, y_offset=residual_plotting_info.y_offset
+            )
 
             data, std, mask, model = residual_plotting_info.get_filter(filter_key)
 
