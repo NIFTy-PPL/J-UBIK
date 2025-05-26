@@ -5,7 +5,7 @@ import numpy as np
 
 from ....likelihood import build_gaussian_likelihood
 from ..data.loader.target_loader import TargetData
-from ..data.loader.stars_loader import StarData
+from ..data.loader.stars_loader import SingleStarDataStacked
 from ..jwst_response import JwstResponse
 
 
@@ -19,7 +19,7 @@ class GaussianLikelihoodInput:
     """Essential input data of `load_data`."""
 
     response: JwstResponse
-    data: TargetData | StarData
+    data: TargetData | SingleStarDataStacked
 
 
 def build_likelihood(input: GaussianLikelihoodInput):

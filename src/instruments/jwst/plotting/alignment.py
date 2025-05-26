@@ -16,7 +16,7 @@ from .plotting_base import (
 )
 
 # Define the namedtuple
-StarData = namedtuple("StarData", ["data", "std", "mask", "model"])
+StarDataPlotting = namedtuple("StarDataPlotting", ["data", "std", "mask", "model"])
 
 
 @dataclass
@@ -42,8 +42,8 @@ class FilterAlignmentPlottingInformation:
         self.mask.append(mask)
         self.model.append(model)
 
-    def get_star(self, star_id: int) -> StarData:
-        """StarData for `filter`.
+    def get_star(self, star_id: int) -> StarDataPlotting:
+        """StarDataPlotting for `filter`.
 
         Parameters
         ----------
@@ -52,15 +52,21 @@ class FilterAlignmentPlottingInformation:
 
         Returns
         -------
-        StarData = (data, std, mask, model)
+        StarDataPlotting = (data, std, mask, model)
         """
         index = self.star_id.index(star_id)
-        return StarData(
+        return StarDataPlotting(
             data=self.data[index],
             std=self.std[index],
             mask=self.mask[index],
             model=self.model[index],
         )
+
+
+@dataclass
+class MultiFilterAlignmentPlottingInformation:
+    psf: list[FilterAlignmentPlottingInformation] = field(default_factory=list)
+    convolved: list[FilterAlignmentPlottingInformation] = field(default_factory=list)
 
 
 def build_additional(
@@ -129,6 +135,7 @@ def build_plot_filter_alignment(
     results_directory: str,
     filter_alignment_data: FilterAlignmentPlottingInformation,
     plotting_config: FieldPlottingConfig = FieldPlottingConfig(),
+    name_append: str = "",
 ) -> Callable[dict | jft.Samples | jft.Vector, None]:
     alignment_directory = os.path.join(results_directory, "alignment")
     os.makedirs(alignment_directory, exist_ok=True)
@@ -192,7 +199,8 @@ def build_plot_filter_alignment(
         else:
             fig.savefig(
                 os.path.join(
-                    alignment_directory, f"{filter_name}_{state_or_none.nit:02d}.png"
+                    alignment_directory,
+                    f"{filter_name}{name_append}_{state_or_none.nit:02d}.png",
                 ),
                 dpi=300,
             )

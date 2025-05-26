@@ -220,8 +220,8 @@ class TargetResponseInput:
 
     Attributes
     ----------
-    filter : str
-        Name of the filter corresponding to the observational data.
+    filter_name : str
+        Name of the filter_name corresponding to the observational data.
     grid : Grid
         Spatial grid defining the coordinate system of the sky model.
     filter_projector : FilterProjector
@@ -240,7 +240,7 @@ class TargetResponseInput:
         Optional correction for misalignments in shift and rotation between sky and data.
     """
 
-    filter: str
+    filter_name: str
     grid: Grid
     filter_projector: FilterProjector
     target_data: TargetData
@@ -285,9 +285,9 @@ def build_target_response(
     )
 
     zero_flux_model = build_zero_flux_model(
-        f"{input_config.filter}_target",
+        f"{input_config.filter_name}_target",
         input_config.zero_flux_prior_configs.get_name_setting_or_default(
-            input_config.filter
+            input_config.filter_name
         ),
         shape=(input_config.target_data.data.shape[0], 1, 1),
     )

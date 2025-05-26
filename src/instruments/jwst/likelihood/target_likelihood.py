@@ -31,7 +31,7 @@ def build_target_likelihood(
     )
 
     side_effect.plotting.append_information(
-        filter=response.filter,
+        filter=response.filter_name,
         data=response.target_data.data,
         std=response.target_data.std,
         mask=response.target_data.mask,

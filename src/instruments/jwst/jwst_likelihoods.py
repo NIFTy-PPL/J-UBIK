@@ -1,20 +1,24 @@
+from dataclasses import dataclass
+
+
 from ...likelihood import build_gaussian_likelihood
 from ...grid import Grid
-from .jwst_response import (
-    build_jwst_response,
-    TargetResponseInput,
-)
+from .jwst_response import build_jwst_response, TargetResponseInput
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .plotting.residuals import ResidualPlottingInformation
-from .plotting.alignment import FilterAlignmentPlottingInformation
+from .plotting.alignment import MultiFilterAlignmentPlottingInformation
 from .alignment.filter_alignment import FilterAlignment
-from .alignment.star_model import build_star_in_data
-from .zero_flux_model import build_zero_flux_model
 
 from .likelihood.target_likelihood import (
     TargetLikelihoodSideEffects,
     build_target_likelihood,
+)
+from .likelihood.alignment_likelihood import (
+    build_star_alignment_likelihood,
+    StarAlignmentResponseInput,
+    AlignmentLikelihoodSideEffects,
+    MultiFilterAlignmentLikelihoods,
 )
 from .likelihood.likelihood import build_likelihood
 
@@ -50,6 +54,35 @@ from astropy.coordinates import SkyCoord
 from typing import Union
 
 
+@dataclass
+class TargetLikelihoodProducts:
+    likelihood: jft.Likelihood
+    plotting: ResidualPlottingInformation
+    filter_projector: FilterProjector | None = None
+
+
+@dataclass
+class AlignemntLikelihoodProducts:
+    likelihood: MultiFilterAlignmentLikelihoods
+    plotting: MultiFilterAlignmentPlottingInformation
+
+    @classmethod
+    def from_optional(
+        cls,
+        likelihood: MultiFilterAlignmentLikelihoods | None,
+        plotting: MultiFilterAlignmentPlottingInformation | None,
+    ):
+        if likelihood is None:
+            return None
+        return cls(likelihood=likelihood, plotting=plotting)
+
+
+@dataclass
+class JwstLikelihoodProducts:
+    target: TargetLikelihoodProducts
+    alignment: AlignemntLikelihoodProducts | None
+
+
 def build_jwst_likelihoods(
     cfg: dict,
     grid: Grid,
@@ -57,7 +90,7 @@ def build_jwst_likelihoods(
     files_key: str = "files",
     telescope_key: str = "telescope",
     sky_unit: u.Unit | None = None,
-) -> Union[jft.Likelihood, FilterProjector, dict]:
+) -> JwstLikelihoodProducts:
     """Build the jwst likelihood_target according to the config and grid."""
 
     filter_projector = build_filter_projector(
@@ -77,9 +110,17 @@ def build_jwst_likelihoods(
     target_plotting = ResidualPlottingInformation(
         y_offset=min(filter_projector.keys_and_index.values())
     )
-    alignment_plotting = []
     target_filter_likelihoods = []
-    stars_alignment_likelihoods = []
+    alignment_plotting = (
+        MultiFilterAlignmentPlottingInformation()
+        if cfg_parser.star_alignment_config is not None
+        else None
+    )
+    alignment_likelihoods = (
+        MultiFilterAlignmentLikelihoods()
+        if cfg_parser.star_alignment_config is not None
+        else None
+    )
 
     for filter, filepaths in cfg_parser.data_loader.paths.items():
         filter_alignment = FilterAlignment(filter_name=filter)
@@ -118,6 +159,7 @@ def build_jwst_likelihoods(
             loading_mode_config=cfg_parser.data_loader.loading_mode_config,
         )
 
+        # Constructing the Likelihood
         shift_and_rotation_correction = ShiftAndRotationCorrection(
             domain_key=filter,
             correction_prior=filter_alignment.correction_prior,
@@ -126,7 +168,7 @@ def build_jwst_likelihoods(
 
         likelihood_target = build_target_likelihood(
             response=TargetResponseInput(
-                filter=filter,
+                filter_name=filter,
                 grid=grid,
                 filter_projector=filter_projector,
                 target_data=target_data,
@@ -141,103 +183,29 @@ def build_jwst_likelihoods(
         target_filter_likelihoods.append(likelihood_target)
 
         if cfg_parser.star_alignment_config is not None:
-            filter_alignment_plotting = dict(
-                psf_convolved=FilterAlignmentPlottingInformation(filter),
-                psf=FilterAlignmentPlottingInformation(filter),
+            filter_alignment_likelihood = build_star_alignment_likelihood(
+                response=StarAlignmentResponseInput(
+                    filter_name=filter,
+                    filter_meta=filter_meta,
+                    sky_meta=sky_meta,
+                    star_tables=star_tables,
+                    stars_data=stars_data,
+                    star_light_prior=cfg_parser.star_alignment_config.star_light_prior,
+                    shift_and_rotation_correction=shift_and_rotation_correction,
+                    zero_flux_prior_configs=cfg_parser.zero_flux_prior_configs,
+                ),
+                side_effect=AlignmentLikelihoodSideEffects(plotting=alignment_plotting),
             )
-            filter_alignment_likelihoods = dict(psf_convolved=[], psf=[])
+            alignment_likelihoods.likelihoods.append(filter_alignment_likelihood)
 
-            # psf_shape = np.array(stars_data[stars[0].id].psf).shape
-            # for star in stars:
-            #     psf_shape_ii = np.array(stars_data[star.id].psf).shape
-            #     assert psf_shape[1:] == psf_shape_ii[1:]
-            # psf_model = build_psf_modification_model_strategy(
-            #     f"{filter_and_filepaths.filter}", psf_shape, strategy="single"
-            # )
-
-            for star in star_tables.get_stars():
-                psf = stars_data[star.id].psf
-                # psf = build_psf_model_strategy(f"{filter_and_filepaths.filter}_{star.id}", psf_shape, strategy='full')
-                # psf = LearnablePsf(psf, psf_model)
-
-                import scipy
-
-                psf_convolved = np.array(
-                    [
-                        scipy.ndimage.gaussian_filter(psf, 2)
-                        for psf in stars_data[star.id].psf
-                    ]
-                )
-
-                star_data = stars_data[star.id]
-                data, mask, std = star_data.data, star_data.mask, star_data.std
-
-                for p, name in zip([psf, psf_convolved], ["psf", "psf_convolved"]):
-                    jwst_star_response = build_jwst_response(
-                        sky_in_subsampled_data=build_star_in_data(
-                            filter_key=filter,
-                            filter_meta=filter_meta,
-                            star_id=star.id,
-                            star_light_prior=cfg_parser.star_alignment_config.star_light_prior,
-                            star_data=stars_data[star.id],
-                            shift_and_rotation_correction=shift_and_rotation_correction,
-                        ),
-                        data_meta=filter_meta,
-                        data_subsample=stars_data[star.id].subsample,
-                        sky_meta=sky_meta,
-                        psf=p,
-                        zero_flux_model=build_zero_flux_model(
-                            f"{filter}_{star.id}",
-                            cfg_parser.zero_flux_prior_configs.get_name_setting_or_default(
-                                filter
-                            ),
-                            shape=(len(stars_data[star.id].data), 1, 1),
-                        ),
-                        data_mask=np.array(stars_data[star.id].mask),
-                    )
-
-                    likelihood_star = build_gaussian_likelihood(
-                        jnp.array(np.array(data)[np.array(mask)], dtype=float),
-                        jnp.array(np.array(std)[np.array(mask)], dtype=float),
-                        model=jwst_star_response,
-                    )
-
-                    filter_alignment_likelihoods[name].append(likelihood_star)
-
-                    if name == "psf":
-                        filter_alignment_plotting[name].append_information(
-                            star_id=star.id,
-                            data=np.array(data),
-                            mask=np.array(mask),
-                            std=np.array(std),
-                            model=jwst_star_response,
-                        )
-
-            alignment_plotting.append(filter_alignment_plotting["psf"])
-
-            filter_alignment_likelihood_psf = reduce(
-                lambda x, y: x + y, filter_alignment_likelihoods["psf"]
-            )
-            filter_alignment_likelihood_psf_convolved = reduce(
-                lambda x, y: x + y, filter_alignment_likelihoods["psf_convolved"]
-            )
-
-            stars_alignment_likelihoods.append(
-                filter_alignment_likelihood_psf  # +
-                # filter_alignment_likelihood_psf_convolved
-            )
-
-    likelihood_target = reduce(lambda x, y: x + y, target_filter_likelihoods)
-
-    if stars_alignment_likelihoods != []:
-        likelihood_alignment = reduce(lambda x, y: x + y, stars_alignment_likelihoods)
-    else:
-        likelihood_alignment = None
-
-    return (
-        likelihood_target,
-        filter_projector,
-        target_plotting,
-        likelihood_alignment,
-        alignment_plotting if alignment_plotting != [] else None,
+    return JwstLikelihoodProducts(
+        target=TargetLikelihoodProducts(
+            likelihood=reduce(lambda x, y: x + y, target_filter_likelihoods),
+            plotting=target_plotting,
+            filter_projector=filter_projector,
+        ),
+        alignment=AlignemntLikelihoodProducts.from_optional(
+            likelihood=alignment_likelihoods,
+            plotting=alignment_plotting,
+        ),
     )

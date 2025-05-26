@@ -130,7 +130,7 @@ def minimization_from_initial_samples(
         kl_kwargs=minimization.kl_kwargs,
         constants=kl_settings.constants,
         point_estimates=kl_settings.point_estimates,
-        resume=False,
+        resume=kl_settings.resume,
         kl_jit=kl_settings.kl_jit,
         residual_jit=kl_settings.residual_jit,
         _optimize_vi_state=opt_vi_state,

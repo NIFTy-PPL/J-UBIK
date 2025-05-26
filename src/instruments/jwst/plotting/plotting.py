@@ -20,7 +20,7 @@ from ..parse.plotting import (
 from .plotting_lens_system import build_plot_lens_system
 from .plot_source import build_plot_source
 from .alignment import (
-    FilterAlignmentPlottingInformation,
+    MultiFilterAlignmentPlottingInformation,
     build_additional,
     build_plot_filter_alignment,
 )
@@ -29,14 +29,16 @@ from ..psf.psf_operator import PsfDynamic
 
 def build_plot_alignment_residuals(
     results_directory: str,
-    plotting_alignment: list[FilterAlignmentPlottingInformation],
+    plotting_alignment: MultiFilterAlignmentPlottingInformation,
     plotting_config: FieldPlottingConfig = FieldPlottingConfig(),
+    name_append: str = "",
 ) -> Callable[dict | jft.Samples | jft.Vector, None]:
     filters = [
         build_plot_filter_alignment(
             results_directory,
             filter_alignment_data=plotting_alignment_filter,
             plotting_config=plotting_config,
+            name_append=name_append,
         )
         for plotting_alignment_filter in plotting_alignment
     ]

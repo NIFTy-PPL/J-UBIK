@@ -319,9 +319,9 @@ files:
   loading_mode: 'serial' # processes, threads, serial
   # workers: 4
 
-  res_dir: './results/jwst_lens/cluster/16_01_newstar'
+  res_dir: './results/jwst_lens/cluster/16_02_newstar'
 
-  step_type: 'tweakregstep'  # tweakregstep, cleanflickernoisestep, cal
+  step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
   filter:
 
@@ -404,7 +404,7 @@ minimization_fixpointing:
     # resume_from_pickle_path: './results/jwst_lens/cluster/11_05_easter_prior_with_variable_covariance/last.pkl'
     key: 20250429
     resume: True
-    n_total_iterations: 7
+    n_total_iterations: 4
 
     delta:
       switches: [0, 10]
