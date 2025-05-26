@@ -316,10 +316,10 @@ telescope:
 
 
 files:
-  loading_mode: 'serial' # processes, threads, serial
+  loading_mode: 'threads' # processes, threads, serial
   # workers: 4
 
-  res_dir: './results/jwst_lens/cluster/16_02_newstar'
+  res_dir: './results/jwst_lens/cluster/16_03_newstar_bugfix'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -407,12 +407,12 @@ minimization_fixpointing:
     n_total_iterations: 4
 
     delta:
-      switches: [0, 10]
+      switches: [0, 2]
       values: [1.e-10]
 
     samples:
-      switches: [0, 10]
-      n_samples: [5, 5]
+      switches: [0, 2]
+      n_samples: [0, 5]
       mode: [linear_resample, nonlinear_resample]
 
       # lin_absdelta: [Null, Null, 0.00001]

@@ -30,9 +30,9 @@ class SingleStarBundle:
 
 
 class StarsBundle(UserDict[int, SingleStarBundle]):
-    def __init__(self, index: int, mapping: dict[int, SingleStarBundle] = {}):
+    def __init__(self, index: int, mapping: dict[int, SingleStarBundle] | None = None):
         self.index = index
-        self.data = mapping
+        self.data = mapping if mapping is not None else {}
 
 
 def load_one_stars_bundle(
@@ -57,7 +57,7 @@ def load_one_stars_bundle(
 
         some_evaluation(index, jwst_data, star_tables)
 
-    for star in star_tables.get_stars(index):
+    for ii, star in enumerate(star_tables.get_stars(index)):
         bounding_indices = star.bounding_indices(jwst_data, fov_pixel)
         data, mask, std = jwst_data.bounding_data_mask_std_by_bounding_indices(
             row_minmax_column_minmax=bounding_indices,
