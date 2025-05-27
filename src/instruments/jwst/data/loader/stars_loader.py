@@ -64,6 +64,10 @@ def load_one_stars_bundle(
             additional_masks_corners=extra_masks,
         )
 
+        # check that data is not completely empty
+        if np.all(np.isnan(data)):
+            continue
+
         psf = load_psf_kernel(
             jwst_data=jwst_data,
             subsample=star_alignment_config.subsample,

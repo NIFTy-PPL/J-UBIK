@@ -85,6 +85,13 @@ def build_star_alignment_likelihood(
     # )
 
     for star in response.star_tables.get_stars():
+        # Check if star.id in
+        if star.id not in response.stars_data.keys():
+            jft.logger.info(
+                f"Warning: {star.id} is not in filter {response.filter_name}"
+            )
+            continue
+
         psf = response.stars_data[star.id].psf
         # psf = build_psf_model_strategy(f"{filter_and_filepaths.response.filter_name}_{star.id}", psf_shape, strategy='full')
         # psf = LearnablePsf(psf, psf_model)
