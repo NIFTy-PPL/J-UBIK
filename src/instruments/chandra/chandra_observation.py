@@ -164,6 +164,11 @@ class ChandraObservationInformation():
 
         """
 
+        try:
+            import ciao_contrib.runtool as rt
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
         # filter w/ cxc: spatial and energy cuts
         # creates an event list w/ only those detections that make the cuts
         infile  = self.obsInfo['event_file']
