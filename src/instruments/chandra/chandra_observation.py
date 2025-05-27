@@ -12,12 +12,6 @@ import shutil
 
 import numpy as np
 from astropy.io import fits
-try:
-    import ciao_contrib.runtool as rt
-    from paramio import pset
-except ImportError:
-    print("Ciao is not sourced or installed. Therefore some operations can't be performed")
-    pass
 
 from ...messages import message_obs, message_binning, message_exposure
 
@@ -65,6 +59,12 @@ class ChandraObservationInformation():
         --------
         None
         """
+
+        try:
+            import ciao_contrib.runtool as rt
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
 
         self.obsInfo = obsInfo.copy()
 
@@ -428,6 +428,12 @@ class ChandraObservationInformation():
         np.array
             A 3D numpy array (npix_e x npix_s x npix_s) with the simulated PSF.
         """
+
+        try:
+            from paramio import pset
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
 
         self.psf_sim_coords.append(location)
 
