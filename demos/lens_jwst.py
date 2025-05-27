@@ -16,6 +16,9 @@ from jubik0.instruments.jwst.config_handler import (
     copy_and_replace_light_model,
 )
 from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
+from jubik0.instruments.jwst.minimization.alignment_process import (
+    alignemnt_minimization,
+)
 from jubik0.instruments.jwst.plotting.plotting import (
     get_plot,
     plot_prior,
@@ -27,9 +30,6 @@ from jubik0.parse.grid import GridModel
 from jubik0.minimization.minimization_from_samples import (
     minimization_from_initial_samples,
     KLSettings,
-)
-from jubik0.instruments.jwst.likelihood.alignment_likelihood import (
-    AlignmentLikelihoodProducts,
 )
 
 SKY_KEY = "sky"
@@ -119,74 +119,17 @@ if cfg.get("prior_samples"):
 
 
 if likelihood_products.alignment is not None:
-    alignment: AlignmentLikelihoodProducts = likelihood_products.alignment
-
-    cfg_mini_fixpointing = ju.get_config(config_path)["minimization_fixpointing"]
-
-    samples_fixpointing = None
-    for name, likelihood, plotting in zip(
-        ["convolved", "psf"],
-        [alignment.likelihood.likelihood_convolved, alignment.likelihood.likelihood],
-        [alignment.plotting.convolved, alignment.plotting.psf],
-    ):
-        jft.logger.info(f"Fixpointing: {name}")
-
-        plot_alignment_residuals = build_plot_alignment_residuals(
-            join(results_directory, "fixpointing"),
-            plotting,
-            FieldPlottingConfig(vmin=1e-4, norm="log"),
-            name_append=f"_{name}",
-        )
-
-        mini_parser_fixpointing = ju.MinimizationParser(
-            cfg_mini_fixpointing,
-            ju.get_n_constrained_dof(likelihood),
-            verbose=False,
-        )
-        kl_settings_fixpointing = KLSettings(
-            random_key=random.PRNGKey(cfg_mini_fixpointing.get("key", 42)),
-            outputdir=join(results_directory, "fixpointing", name),
-            minimization=mini_parser_fixpointing,
-            callback=plot_alignment_residuals,
-            kl_jit=False,
-            residual_jit=True,
-            resume=cfg_mini_fixpointing.get("resume", False),
-            n_total_iterations=cfg_mini_fixpointing["n_total_iterations"],
-            resume_from_pickle_path=cfg_mini_fixpointing.get("resume_from_pickle_path"),
-        )
-
-        jft.logger.info("Fix pointing reconstruction")
-        samples_fixpointing, state_imaging = minimization_from_initial_samples(
-            likelihood,
-            kl_settings_fixpointing,
-            starting_samples=samples_fixpointing,
-        )
-
-        for pa in plotting:
-            m = pa.model[0]
-            try:
-                mean, std = jft.mean_and_std(
-                    [
-                        m.sky_model.location.shift_and_rotation.shift(x)
-                        for x in samples_fixpointing
-                    ]
-                )
-                print(pa.filter, mean, std)
-            except IndexError:
-                x = samples_fixpointing.pos
-                mean = m.sky_model.location.shift_and_rotation.shift(x)
-                print(pa.filter, mean)
-
-        import jax
-
-        jax.clear_caches()
+    samples_fixpointing = alignemnt_minimization(
+        config_path=config_path,
+        results_directory=results_directory,
+        likelihood_products=likelihood_products.alignment,
+    )
 
     plot_alignment_residuals = build_plot_alignment_residuals(
         results_directory,
         likelihood_products.alignment.plotting.psf,
         FieldPlottingConfig(vmin=1e-4, norm="log"),
     )
-
 
 cfg_mini = ju.get_config(config_path)["minimization"]
 mini_parser_full = ju.MinimizationParser(
@@ -198,62 +141,6 @@ def callback(samples, state):
     plot_target(samples, state)
     # plot_alignment_residuals(samples, state)
 
-
-kl_settings = KLSettings(
-    random_key=random.PRNGKey(cfg_mini.get("key", 42)),
-    outputdir=results_directory,
-    minimization=mini_parser_full,
-    n_total_iterations=cfg_mini["n_total_iterations"],
-    callback=callback,
-    resume=cfg_mini.get("resume", False),
-    point_estimates=[
-        k
-        for k in samples_fixpointing.pos.tree.keys()
-        if k in likelihood_target.domain.tree
-    ],
-    constants=[
-        k
-        for k in samples_fixpointing.pos.tree.keys()
-        if k in likelihood_target.domain.tree
-    ],
-)
-
-jft.logger.info("Full reconstruction")
-
-samples, state = minimization_from_initial_samples(
-    likelihood_target,  # + likelihood_alignment,
-    kl_settings,
-    samples_fixpointing,
-    # not_take_starting_pos_keys=sky_model_with_keys.domain.keys(),
-)
-
-kl_settings = KLSettings(
-    random_key=random.PRNGKey(cfg_mini.get("key", 42)),
-    outputdir=results_directory,
-    minimization=mini_parser_full,
-    n_total_iterations=cfg_mini["n_total_iterations"],
-    callback=callback,
-    resume=cfg_mini.get("resume", False),
-    point_estimates=[
-        k
-        for k in samples_fixpointing.pos.tree.keys()
-        if k in likelihood_target.domain.tree
-    ],
-    constants=[
-        k
-        for k in samples_fixpointing.pos.tree.keys()
-        if k in likelihood_target.domain.tree
-    ],
-)
-
-jft.logger.info("Full reconstruction")
-
-samples, state = minimization_from_initial_samples(
-    likelihood_target,  # + likelihood_alignment,
-    kl_settings,
-    samples_fixpointing,
-    # not_take_starting_pos_keys=sky_model_with_keys.domain.keys(),
-)
 
 kl_settings = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
