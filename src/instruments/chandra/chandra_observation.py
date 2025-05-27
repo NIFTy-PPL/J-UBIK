@@ -66,7 +66,7 @@ class ChandraObservationInformation():
         None
         """
 
-        self.obsInfo = obsInfo
+        self.obsInfo = obsInfo.copy()
 
         # 1. construct full file pathes
         ###############################
@@ -149,7 +149,7 @@ class ChandraObservationInformation():
 
         # 5. print some information
         ###########################
-        message_obs(obsInfo)
+        message_obs(self.obsInfo)
 
     def get_data(self, outfile):
 
