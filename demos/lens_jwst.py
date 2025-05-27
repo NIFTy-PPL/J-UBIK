@@ -143,21 +143,21 @@ def callback(samples, state):
 
 kl_settings = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
-    outputdir=results_directory,
+    outputdir=join(results_directory, "with_alignment"),
     minimization=mini_parser_full,
     n_total_iterations=cfg_mini["n_total_iterations"],
     callback=callback,
     resume=cfg_mini.get("resume", False),
-    point_estimates=[
-        k
-        for k in samples_fixpointing.pos.tree.keys()
-        if k in likelihood_target.domain.tree
-    ],
-    constants=[
-        k
-        for k in samples_fixpointing.pos.tree.keys()
-        if k in likelihood_target.domain.tree
-    ],
+    # point_estimates=[
+    #     k
+    #     for k in samples_fixpointing.pos.tree.keys()
+    #     if k in likelihood_target.domain.tree
+    # ],
+    # constants=[
+    #     k
+    #     for k in samples_fixpointing.pos.tree.keys()
+    #     if k in likelihood_target.domain.tree
+    # ],
 )
 
 jft.logger.info("Full reconstruction")
