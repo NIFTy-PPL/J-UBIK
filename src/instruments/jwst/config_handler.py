@@ -102,18 +102,3 @@ def insert_spaces_in_lensing_new(cfg):
     cfg["spaces"] = dict(
         lens_space=lens_space, source_space=source_space, interpolation=interpolation
     )
-
-
-def copy_and_replace_light_model(config: dict, model_name: str) -> dict:
-    from copy import deepcopy
-
-    cfg = deepcopy(config)
-    copyinto = cfg["model"]
-    copyfrom = config[model_name]
-
-    for source_or_lens, light_or_mass_config in copyinto.items():
-        for light_or_mass in light_or_mass_config.keys():
-            if light_or_mass.lower() == "light":
-                copyinto[source_or_lens]["light"] = copyfrom[source_or_lens]["light"]
-
-    return cfg

@@ -13,7 +13,6 @@ from jubik0.grid import Grid
 from jubik0.instruments.jwst.config_handler import (
     insert_spaces_in_lensing_new,
     load_yaml_and_save_info,
-    copy_and_replace_light_model,
 )
 from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
 from jubik0.instruments.jwst.minimization.alignment_process import (
