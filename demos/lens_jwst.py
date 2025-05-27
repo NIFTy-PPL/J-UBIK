@@ -145,7 +145,7 @@ if likelihood_products.alignment is not None:
         )
         kl_settings_fixpointing = KLSettings(
             random_key=random.PRNGKey(cfg_mini_fixpointing.get("key", 42)),
-            outputdir=join(results_directory, f"fixpointing_{name}"),
+            outputdir=join(results_directory, "fixpointing", name),
             minimization=mini_parser_fixpointing,
             callback=plot_alignment_residuals,
             kl_jit=False,
