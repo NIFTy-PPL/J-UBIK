@@ -121,7 +121,7 @@ if likelihood_products.alignment is not None:
     samples_fixpointing = alignment_minimization_process(
         config_path=config_path,
         results_directory=results_directory,
-        likelihood_products=likelihood_products.alignment,
+        alignment=likelihood_products.alignment,
     )
 
     plot_alignment_residuals = build_plot_alignment_residuals(
@@ -138,7 +138,7 @@ mini_parser_full = ju.MinimizationParser(
 
 def callback(samples, state):
     plot_target(samples, state)
-    # plot_alignment_residuals(samples, state)
+    plot_alignment_residuals(samples, state)
 
 
 kl_settings = KLSettings(
@@ -163,7 +163,7 @@ kl_settings = KLSettings(
 jft.logger.info("Full reconstruction")
 
 samples, state = minimization_from_initial_samples(
-    likelihood_target,  # + likelihood_alignment,
+    likelihood_target + likelihood_products.alignment.likelihood.likelihood,
     kl_settings,
     samples_fixpointing,
     # not_take_starting_pos_keys=sky_model_with_keys.domain.keys(),
