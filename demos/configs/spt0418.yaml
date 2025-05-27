@@ -81,51 +81,6 @@ sky:
         # - 1.224 # F115W
       reference_bin: 0 # F444W
 
-  model_fixing_pointing:
-    source:
-      light:
-        mean:
-          gaussian_01:
-            i0: ['log_normal', 1.0 , 20.0, [3, 1, 1]]
-            # i0: ['log_normal', 1.0 , 20.0, [13, 1, 1]]
-            center: ['normal', 0, 0.1]
-            covariance: ['log_normal', 0.08, 0.02]
-            # covariance: ['log_normal', 0.08, 0.02, [2, 13, 1, 1]]
-            off_diagonal: ['normal', 0.0, 10.0]
-          gaussian_02: # i0*Gauss
-            i0: ['log_normal', 1.0 , 20.0, [3, 1, 1]]
-            # i0: ['log_normal', 1.0 , 20.0, [13, 1, 1]]
-            center: ['normal', [-0.5, -0.5], 0.1]
-            covariance: ['log_normal', 0.08, 0.02]
-            # covariance: ['log_normal', 0.08, 0.02, [2, 13, 1, 1]]
-            off_diagonal: ['normal', 0.0, 10.0]
-
-          # pcopy: 
-          #   gaussian_01: # i0*Gauss
-          #     i0: ['log_normal', 1.0e-1, 2.0e-1]
-          #     center: ['normal', 0, 0.1]
-          #     covariance: ['log_normal', 0.08, 0.02]
-          #     off_diagonal: ['normal', 0.0, 10.0]
-          #   gaussian_02: # i0*Gauss
-          #     i0: ['log_normal', 2.0e-2, 4.0e-2]
-          #     center: ['normal', [-0.5, -0.5], 0.1]
-          #     covariance: ['log_normal', 0.08, 0.02]
-          #     off_diagonal: ['normal', 0.0, 10.0]
-
-    lens:
-      light:
-        mean:
-          # sersicrenormalized_01: # i0*exp(-bn * (r/re)**1/n - 1)
-          sersic_01: # i0*exp(-bn * (r/re)**1/n - 1)
-            ie: ['log_normal', 6000, 7000, [3, 1, 1]]
-            # ie: ['log_normal', 6000, 7000, [13, 1, 1]]
-            # re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
-            re: ['log_normal', 5.0, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
-            n: ['log_normal', 4.2, 0.6]  # 3.17+-0.02 (Jared Cathey et.al. 2023)
-            center: ['normal', [0.0, 0.0], 0.1]
-            q: [ 'uniform', 0.8, 1.0]
-            theta: ['normal', 0.0, 10.0]
-
 
   model:
     source:

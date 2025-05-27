@@ -64,24 +64,14 @@ grid = Grid.from_grid_model(GridModel.from_yaml_dict(cfg["sky"]["grid"]))
 
 # insert_ubik_energy_in_lensing(cfg, zsource=4.2)
 insert_spaces_in_lensing_new(cfg["sky"])
-parametric_lens_config = copy_and_replace_light_model(
-    cfg["sky"], model_name="model_fixing_pointing"
-)
-lens_system_fixpointing = build_lens_system(parametric_lens_config)
 lens_system = build_lens_system(cfg["sky"])
 
 
 if cfg["nonparametric_lens"]:
     sky_model = lens_system.get_forward_model_full()
-    sky_model_fixpointing = (
-        lens_system_fixpointing.get_forward_model_parametric_source()
-    )
     parametric_lens_flag = False
 else:
     sky_model = lens_system.get_forward_model_parametric()
-    sky_model_fixpointing = lens_system_fixpointing.get_forward_model_parametric_source(
-        parametric_lens=True
-    )
     parametric_lens_flag = True
 
 
