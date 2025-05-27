@@ -224,6 +224,11 @@ class ChandraObservationInformation():
         expmap: (np.array) 
             npix_e x npix_s x npix_s array with the exposure in units of  [sec * cm**(2) counts/photon]
         """
+        try:
+            import ciao_contrib.runtool as rt
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
 
         self.obsInfo['asphist_res_xy']    = res_xy
         self.obsInfo['exp_ebins_per_bin'] = energy_subbins
