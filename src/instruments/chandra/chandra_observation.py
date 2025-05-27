@@ -434,8 +434,8 @@ class ChandraObservationInformation():
         np.array
             A 3D numpy array (npix_e x npix_s x npix_s) with the simulated PSF.
         """
-
         try:
+            import ciao_contrib.runtool as rt
             from paramio import pset
         except ImportError:
             print("Ciao is not sourced or installed. Therefore some operations can't be performed")
