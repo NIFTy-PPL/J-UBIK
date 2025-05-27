@@ -124,7 +124,12 @@ def sky_offset_diagnostics(
     return out
 
 
-def some_evaluation(index: int, jwst_data: JwstData, star_tables: StarTables):
+def some_evaluation(
+    index: int,
+    jwst_data: JwstData,
+    star_tables: StarTables,
+    image_kwargs: dict = dict(vmin=0.05, vmax=0.5),
+):
     import matplotlib.pyplot as plt
     from functools import partial
     from ..plotting.plotting_sky import plot_jwst_panels, plot_sky_coords
@@ -211,10 +216,7 @@ def some_evaluation(index: int, jwst_data: JwstData, star_tables: StarTables):
         [jwst_data.wcs],
         nrows=1,
         ncols=1,
-        vmin=0.05,
-        vmax=0.5,
-        # vmin=220.05,
-        # vmax=230.5,
+        **image_kwargs,
         coords_plotter=plot_multiple,
     )
     plt.show()

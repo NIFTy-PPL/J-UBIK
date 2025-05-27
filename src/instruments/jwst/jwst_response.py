@@ -215,8 +215,8 @@ def build_sky_to_subsampled_data(
 @dataclass
 class TargetResponseInput:
     """
-    Configuration container for building a target response model that connects the sky model
-    to observational data for a specific filter.
+    Configuration container for building a target response model that connects the sky
+    model to observational data for a specific filter.
 
     Attributes
     ----------
@@ -265,14 +265,14 @@ def build_target_response(
     Parameters
     ----------
     input_config : TargetResponseInput
-        A configuration object containing all necessary parameters and metadata for building
-        the target response.
+        A configuration object containing all necessary parameters and metadata for
+        building the target response.
 
     Returns
     -------
     JwstResponse
-        A callable linear response model that transforms the sky model outputs to the data space,
-        incorporating all observational effects and corrections.
+        A callable linear response model that transforms the sky model outputs to the
+        data space, incorporating all observational effects and corrections.
     """
 
     energy_name = input_config.filter_projector.get_key(input_config.filter_meta.color)

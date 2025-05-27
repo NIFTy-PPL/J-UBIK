@@ -3,12 +3,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord
 from nifty8.re import logger
-from numpy.typing import NDArray
 
-from .....grid import Grid
-from ...alignment.star_alignment import Star, StarTables
+from ...alignment.star_alignment import StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig
 from ...parse.data.data_loader import IndexAndPath
 from ...parse.jwst_psf import JwstPsfKernelConfig
@@ -52,10 +49,13 @@ def load_one_stars_bundle(
 
     star_bundles = StarsBundle(index=index)
 
-    if False:
-        from ...alignment.utils import some_evaluation
-
-        some_evaluation(index, jwst_data, star_tables)
+    # logger.info("THIS SHOULDN't APPEAR DELETE ME!")
+    # if False:
+    #     from ...alignment.utils import some_evaluation
+    #
+    #     some_evaluation(
+    #         index, jwst_data, star_tables, image_kwargs=dict(vmin=0.05, vmax=580)
+    #     )
 
     for ii, star in enumerate(star_tables.get_stars(index)):
         bounding_indices = star.bounding_indices(jwst_data, fov_pixel)
@@ -63,7 +63,6 @@ def load_one_stars_bundle(
             row_minmax_column_minmax=bounding_indices,
             additional_masks_corners=extra_masks,
         )
-
         # check that data is not completely empty
         if np.all(np.isnan(data)):
             continue
@@ -74,6 +73,7 @@ def load_one_stars_bundle(
             target_center=star.position,
             config_parameters=psf_kernel_configs,
         )
+
         star_in_subsampled_pixels = star.pixel_position_in_subsampled_data(
             jwst_data.wcs,
             min_row=bounding_indices[0],

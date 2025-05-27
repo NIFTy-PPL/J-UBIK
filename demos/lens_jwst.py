@@ -16,7 +16,7 @@ from jubik0.instruments.jwst.config_handler import (
 )
 from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
 from jubik0.instruments.jwst.minimization.alignment_process import (
-    alignemnt_minimization,
+    alignment_minimization_process,
 )
 from jubik0.instruments.jwst.plotting.plotting import (
     get_plot,
@@ -118,7 +118,7 @@ if cfg.get("prior_samples"):
 
 
 if likelihood_products.alignment is not None:
-    samples_fixpointing = alignemnt_minimization(
+    samples_fixpointing = alignment_minimization_process(
         config_path=config_path,
         results_directory=results_directory,
         likelihood_products=likelihood_products.alignment,

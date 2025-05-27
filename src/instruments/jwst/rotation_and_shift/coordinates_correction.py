@@ -311,7 +311,7 @@ def build_coordinates_corrected_for_field(
     if not isinstance(world_coordinates, list):
         world_coordinates = [world_coordinates]
 
-    pixel_coordinates = np.array(
+    fixed_coordinates = np.array(
         [
             world_coordinates_to_index_grid(
                 world_coordinates=wc,
@@ -323,7 +323,7 @@ def build_coordinates_corrected_for_field(
     )
 
     if shift_and_rotation_correction is None:
-        return Coordinates(pixel_coordinates)
+        return Coordinates(fixed_coordinates)
 
     shift_unit = shift_and_rotation_correction.shift_unit
     reconstruction_scale = reconstruction_grid_wcs.distances.to(shift_unit)
@@ -331,14 +331,14 @@ def build_coordinates_corrected_for_field(
     if shift_and_rotation_correction.model == CorrectionModel.SHIFT:
         assert (  # Check that we have the same amount of observations (length of first/0th axis)
             shift_and_rotation_correction.shift.target.shape
-            == pixel_coordinates.shape[:2]
+            == fixed_coordinates.shape[:2]
         )
-        assert len(pixel_coordinates.shape) == 4
+        assert len(fixed_coordinates.shape) == 4
 
         shape = (Ellipsis, None, None)
         return CoordinatesCorrectedShiftOnly(
             shift_and_rotation_correction,
-            pixel_coordinates,
+            fixed_coordinates,
             reconstruction_scale,
             shape,
         )
@@ -346,9 +346,9 @@ def build_coordinates_corrected_for_field(
     elif shift_and_rotation_correction.model == CorrectionModel.RSHIFT:
         assert (  # Check that we have the same amount of observations (length of first/0th axis)
             shift_and_rotation_correction.shift.target.shape
-            == pixel_coordinates.shape[:2]
+            == fixed_coordinates.shape[:2]
         )
-        assert len(pixel_coordinates.shape) == 4
+        assert len(fixed_coordinates.shape) == 4
 
         shape = (Ellipsis, None, None)
 
@@ -359,7 +359,7 @@ def build_coordinates_corrected_for_field(
         return CoordinatesCorrectedShiftAndRotation(
             shift_and_rotation_correction,
             rotation_center=np.array([0, 0]),
-            pixel_coordinates=pixel_coordinates,
+            pixel_coordinates=fixed_coordinates,
             pixel_distance=reconstruction_scale,
             shape=shape,
         )

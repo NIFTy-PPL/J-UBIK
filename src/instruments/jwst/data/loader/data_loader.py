@@ -121,7 +121,7 @@ def load_data(
         workers=loading_mode_config.workers,
     )
 
-    target_data, stars_data = _load_data_products(
+    target_data, stars_data = _create_data_products(
         bundles=target_andor_stars_bundles, data_loader=data_loader
     )
 
@@ -174,7 +174,7 @@ def _load_one_target_and_or_stars(
     )
 
 
-def _load_data_products(
+def _create_data_products(
     bundles: list[TargetAndOrStarsBundle], data_loader: DataLoader
 ) -> tuple[TargetData, StarData | None]:
     """Apply side effects from the preloaded data bundles.

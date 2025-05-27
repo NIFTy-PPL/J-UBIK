@@ -52,12 +52,12 @@ sky:
         # - 0.143 # F770W
         # - 0.201 # F560W
 
-        - 0.249 # F444W
+        # - 0.249 # F444W
 
         # - 0.319 # F356W  # mistake here actually 0.311
         # - 0.396 # F277W
         # - 0.557 # F200W
-        # - 0.743 # F150W
+        - 0.743 # F150W
 
         # - 0.967 # F115W
       e_max:
@@ -71,12 +71,12 @@ sky:
         # - 0.188 # F770W
         # - 0.245 # F560W
 
-        - 0.319 # F444W
+        # - 0.319 # F444W
 
         # - 0.395 # F356W
         # - 0.512 # F277W
         # - 0.707 # F200W
-        # - 0.932 # F150W
+        - 0.932 # F150W
 
         # - 1.224 # F115W
       reference_bin: 0 # F444W
@@ -90,15 +90,13 @@ sky:
             i0: ['delta', 1.0, 0.0]
             # i0: ['log_normal', 1.0e-1, 2.0e-1]
             center: ['normal', 0, 0.1]
-            covariance: ['log_normal', 0.08, 0.02]
-            # covariance: ['log_normal', 0.08, 0.02, [2, 13, 1, 1]]
+            covariance: ['log_normal', 0.08, 0.05]
             off_diagonal: ['normal', 0.0, 10.0]
           gaussian_02: # i0*Gauss
             i0: ['delta', 1.0, 0.0]
             # i0: ['log_normal', 2.0e-2, 4.0e-2]
             center: ['normal', [-0.5, -0.5], 0.1]
-            covariance: ['log_normal', 0.08, 0.02]
-            # covariance: ['log_normal', 0.08, 0.02, [2, 13, 1, 1]]
+            covariance: ['log_normal', 0.08, 0.05]
             off_diagonal: ['normal', 0.0, 10.0]
 
         multifrequency:
@@ -271,10 +269,10 @@ telescope:
 
 
 files:
-  loading_mode: 'threads' # processes, threads, serial
+  loading_mode: 'serial' # processes, threads, serial
   # workers: 4
 
-  res_dir: './results/jwst_lens/cluster/16_03_newstar_bugfix'
+  res_dir: './results/jwst_lens/cluster/17_02_f150w'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -330,9 +328,9 @@ files:
     #   - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_{step_type}.fits'
 
-    f444w: # NIRCam
-      - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_{step_type}.fits'
-      - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_{step_type}.fits'
+    # f444w: # NIRCam
+    #   - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_{step_type}.fits'
+    #   - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_{step_type}.fits'
 
     # f356w:
     #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_{step_type}.fits'
@@ -345,24 +343,24 @@ files:
     # f200w:
     #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_{step_type}.fits'
     #   - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_{step_type}.fits'
-    #
-    # f150w:
-    #   - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_{step_type}.fits'
-    #   - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_{step_type}.fits'
-    #
+
+    f150w:
+      - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_{step_type}.fits'
+      - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_{step_type}.fits'
+
     # f115w: # NIRCam
     #   - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_{step_type}.fits'
     #   - './data/spt0418/f115w/jw01355016001_02101_00002_nrcb4/jw01355016001_02101_00002_nrcb4_{step_type}.fits'
 
 
 minimization_fixpointing:
-    # resume_from_pickle_path: './results/jwst_lens/cluster/11_05_easter_prior_with_variable_covariance/last.pkl'
+    # resume_from_pickle_path: './results/jwst_lens/cluster/16_04_biggerSource/fixpointing/psf/last.pkl'
     key: 20250429
     resume: True
-    n_total_iterations: 4
+    n_total_iterations: 3
 
     delta:
-      switches: [0, 2]
+      switches: [0]
       values: [1.e-10]
 
     samples:
