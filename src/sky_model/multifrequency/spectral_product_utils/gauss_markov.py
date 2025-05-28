@@ -7,15 +7,11 @@ from typing import Callable, Optional, Union
 
 import jax.numpy as jnp
 import numpy as np
-from jax import Array, vmap
+from jax import Array
 from jax.tree_util import tree_map
 from nifty8.re.model import Initializer, LazyModel, Model
 from nifty8.re.prior import LogNormalPrior, NormalPrior
 from nifty8.re.tree_math import ShapeWithDtype, random_like
-
-
-def _isscalar(x):
-    return jnp.ndim(x) == 0
 
 
 def nd_wiener_process(
@@ -39,7 +35,7 @@ class NdGaussMarkovProcess(Model):
         N_steps: Optional[int] = None,
         **kwargs,
     ):
-        if _isscalar(dt):
+        if jnp.isscalar(dt):
             if N_steps is None:
                 msg = "`N_steps` is None and `dt` is not a sequence"
                 raise NotImplementedError(msg)
