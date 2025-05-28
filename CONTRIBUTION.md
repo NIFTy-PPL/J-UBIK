@@ -5,7 +5,7 @@ There are several ways to contribute to J-UBIK.
 - raising [issues](https://github.com/NIFTy-PPL/J-UBIK/issues) if you notice some possible bug.
 - contribute to the codebase by forking the repository and opening a [pull request](https://github.com/NIFTy-PPL/J-UBIK/pulls).
 
-You may consider, checking if there is an existing issue or discussion for your problem or need before opening a pull request.
+You may consider checking if there is an existing issue or discussion for your problem or need before opening a pull request.
 
 ## Contribution Guidelines
 
