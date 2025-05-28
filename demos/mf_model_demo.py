@@ -7,7 +7,7 @@ if __name__ == '__main__':
     # Model settings
     shape = (256, )*2 # shape of the spatial domain
     distances = 0.1
-    freqs, reference_frequency = jnp.array((0.1, 1.5, 2, 10)), 1
+    freqs, reference_frequency_index = jnp.array((0.1, 1.5, 2, 10)), 1
 
     # Random seed settings
     seed = 42
@@ -69,7 +69,7 @@ if __name__ == '__main__':
         shape=shape,
         distances=distances,
         log_frequencies=freqs,
-        reference_frequency_index=reference_frequency,
+        reference_frequency_index=reference_frequency_index,
         zero_mode_settings=zero_mode_settings,
         spatial_amplitude_settings=amplitude_settings,
         spectral_index_settings=spectral_idx_settings,
