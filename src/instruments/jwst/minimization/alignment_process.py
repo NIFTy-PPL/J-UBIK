@@ -3,6 +3,7 @@ from os.path import join
 import nifty8.re as jft
 from jax import clear_caches, random
 
+
 # General stuff
 from ....likelihood import get_n_constrained_dof
 from ....minimization.minimization_from_samples import (
@@ -84,4 +85,5 @@ def alignment_minimization_process(
 
         # Needed for the next runs, otherwise clocking up by jax...
         clear_caches()
-        return samples_fixpointing
+
+    return samples_fixpointing
