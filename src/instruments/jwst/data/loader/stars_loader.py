@@ -163,7 +163,7 @@ class SingleStarDataStacked:
 # ------------------------------------------------------------------
 # 2) Aggregator over many stars
 # ------------------------------------------------------------------
-class StarData(UserDict[int, SingleStarDataStacked]):
+class StarsData(UserDict[int, SingleStarDataStacked]):
     """
     Merge many StarsBundle instances (different exposures) into
     {star_id -> SingleStarData}.

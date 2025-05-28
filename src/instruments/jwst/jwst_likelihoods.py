@@ -124,12 +124,8 @@ def build_jwst_likelihoods(
 
     for filter, filepaths in cfg_parser.data_loader.paths.items():
         filter_alignment = FilterAlignment(filter_name=filter)
-        filter_alignment.load_correction_prior(
-            cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
-            number_of_observations=len(filepaths),
-        )
 
-        filter_meta, target_bounds, star_tables = preload_data(
+        preload_results = preload_data(
             filepaths=filepaths,
             preloader=Preloader(
                 grid_corners=grid.spatial.world_corners(
@@ -141,18 +137,18 @@ def build_jwst_likelihoods(
             loading_mode_config=cfg_parser.data_loader.loading_mode_config,
         )
 
-        target_data, stars_data = load_data(
+        dataload_results = load_data(
             filepaths=filepaths,
             data_loader=DataLoader(
-                target=DataLoaderTarget(
+                target=DataLoaderTarget.from_optional(
                     grid=grid,
-                    data_bounds=target_bounds,
+                    data_bounds=preload_results.target_bounds,
                     subsample=cfg_parser.subsample_target,
                 ),
                 psf_kernel_configs=cfg_parser.psf_kernel_configs,
                 star_alignment=DataLoaderStarAlignment.from_optional(
                     config=cfg_parser.star_alignment_config,
-                    tables=star_tables,
+                    tables=preload_results.star_tables,
                 ),
                 extra_masks=cfg_parser.extra_masks,
             ),
@@ -160,6 +156,10 @@ def build_jwst_likelihoods(
         )
 
         # Constructing the Likelihood
+        filter_alignment.load_correction_prior(
+            cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
+            number_of_observations=len(filepaths),
+        )
         shift_and_rotation_correction = ShiftAndRotationCorrection(
             domain_key=filter,
             correction_prior=filter_alignment.correction_prior,
@@ -171,8 +171,8 @@ def build_jwst_likelihoods(
                 filter_name=filter,
                 grid=grid,
                 filter_projector=filter_projector,
-                target_data=target_data,
-                filter_meta=filter_meta,
+                target_data=dataload_results.target_data,
+                filter_meta=preload_results.filter_meta,
                 sky_meta=sky_meta,
                 rotation_and_shift_algorithm=cfg_parser.rotation_and_shift_algorithm,
                 zero_flux_prior_configs=cfg_parser.zero_flux_prior_configs,
@@ -186,10 +186,10 @@ def build_jwst_likelihoods(
             filter_alignment_likelihood = build_star_alignment_likelihood(
                 response=StarAlignmentResponseInput(
                     filter_name=filter,
-                    filter_meta=filter_meta,
+                    filter_meta=preload_results.filter_meta,
                     sky_meta=sky_meta,
-                    star_tables=star_tables,
-                    stars_data=stars_data,
+                    star_tables=preload_results.star_tables,
+                    stars_data=dataload_results.stars_data,
                     star_light_prior=cfg_parser.star_alignment_config.star_light_prior,
                     shift_and_rotation_correction=shift_and_rotation_correction,
                     zero_flux_prior_configs=cfg_parser.zero_flux_prior_configs,

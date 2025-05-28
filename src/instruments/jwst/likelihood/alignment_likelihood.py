@@ -16,7 +16,7 @@ from .likelihood import build_likelihood, GaussianLikelihoodInput
 from ..alignment.star_alignment import StarTables
 from ..parse.alignment.star_alignment import StarAlignmentConfig
 from ..alignment.star_model import build_star_in_data
-from ..data.loader.stars_loader import StarData
+from ..data.loader.stars_loader import StarsData
 from ..zero_flux_model import build_zero_flux_model
 from ..parse.zero_flux_model import ZeroFluxPriorConfigs
 from ..rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
@@ -39,7 +39,7 @@ class StarAlignmentResponseInput:
     filter_meta: DataMetaInformation
     sky_meta: SkyMetaInformation
     star_tables: StarTables
-    stars_data: StarData
+    stars_data: StarsData
     star_light_prior: StarAlignmentConfig
     shift_and_rotation_correction: ShiftAndRotationCorrection | None
     zero_flux_prior_configs: ZeroFluxPriorConfigs

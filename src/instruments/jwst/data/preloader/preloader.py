@@ -57,7 +57,11 @@ class PreloaderSideEffects:
     filter_alignment: FilterAlignment
 
 
-PreloadResult = tuple[DataMetaInformation, DataBounds, StarTables | None]
+@dataclass(slots=True)
+class PreloadResult:
+    filter_meta: DataMetaInformation
+    target_bounds: DataBounds | None
+    star_tables: StarTables | None
 
 
 def preload_data(
@@ -128,7 +132,11 @@ def preload_data(
 
     logger.info(f"{time.perf_counter() - t}")
 
-    return filter_meta, target_bounds, star_tables
+    return PreloadResult(
+        filter_meta=filter_meta,
+        target_bounds=target_bounds,
+        star_tables=star_tables,
+    )
 
 
 # --------------------------------------------------------------------------------------

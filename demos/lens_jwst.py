@@ -143,7 +143,7 @@ def callback(samples, state):
 
 kl_settings = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
-    outputdir=join(results_directory, "with_alignment"),
+    outputdir=results_directory,
     minimization=mini_parser_full,
     n_total_iterations=cfg_mini["n_total_iterations"],
     callback=callback,

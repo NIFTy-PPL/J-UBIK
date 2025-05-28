@@ -13,7 +13,7 @@ from ..concurrent_loader import load_bundles
 from ..jwst_data import JwstData
 from ..preloader.data_bounds import DataBounds
 from .stars_loader import (
-    StarData,
+    StarsData,
     StarsBundle,
     load_one_stars_bundle,
 )
@@ -36,6 +36,18 @@ class DataLoaderTarget:
     data_bounds: DataBounds
     subsample: Subsample | int
 
+    @classmethod
+    def from_optional(
+        cls,
+        grid: Grid,
+        data_bounds: DataBounds | None,
+        subsample: Subsample | int,
+    ) -> Optional["DataLoaderTarget"]:
+        if data_bounds is None:
+            return None
+
+        return cls(grid=grid, data_bounds=data_bounds, subsample=subsample)
+
 
 @dataclass
 class DataLoaderStarAlignment:
@@ -56,12 +68,18 @@ class DataLoader:
     """Input data of `load_data`."""
 
     # Essentials -----------------------------------------------------------------------
-    target: DataLoaderTarget
     psf_kernel_configs: JwstPsfKernelConfig
 
     # Optioanls ------------------------------------------------------------------------
+    target: DataLoaderTarget | None = None
     star_alignment: DataLoaderStarAlignment | None = None
     extra_masks: ExtraMasks | None = None
+
+
+@dataclass
+class DataLoadResults:
+    target_data: TargetData
+    stars_data: StarsData
 
 
 def load_data(
@@ -69,7 +87,7 @@ def load_data(
     *,
     data_loader: DataLoader,
     loading_mode_config: LoadingModeConfig,
-) -> tuple[TargetData, StarData | None]:
+) -> tuple[TargetData, StarsData | None]:
     """Load the data
     1. Target cutouts for filter observations.
     2. Psf kernels for the cutouts for filter observations.
@@ -113,6 +131,10 @@ def load_data(
     """
     logger.info("Loading JWST data")
 
+    assert not (data_loader.target is None and data_loader.star_alignment is None), (
+        "Load either target or stars."
+    )
+
     target_andor_stars_bundles: list[TargetAndOrStarsBundle] = load_bundles(
         filepaths=filepaths,
         load_one=_load_one_target_and_or_stars,
@@ -125,7 +147,10 @@ def load_data(
         bundles=target_andor_stars_bundles, data_loader=data_loader
     )
 
-    return target_data, stars_data
+    return DataLoadResults(
+        target_data=target_data,
+        stars_data=stars_data,
+    )
 
 
 # --------------------------------------------------------------------------------------
@@ -176,7 +201,7 @@ def _load_one_target_and_or_stars(
 
 def _create_data_products(
     bundles: list[TargetAndOrStarsBundle], data_loader: DataLoader
-) -> tuple[TargetData, StarData | None]:
+) -> tuple[TargetData, StarsData | None]:
     """Apply side effects from the preloaded data bundles.
 
     This function processes each preload bundle to:
@@ -212,7 +237,7 @@ def _create_data_products(
     stars_data = (
         None
         if stars_bundles == []
-        else StarData(data_loader.star_alignment.config.subsample, stars_bundles)
+        else StarsData(data_loader.star_alignment.config.subsample, stars_bundles)
     )
 
     return target_data, stars_data

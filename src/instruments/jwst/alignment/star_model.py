@@ -7,7 +7,7 @@ from jax import lax, vmap, Array
 from ..parametric_model.parametric_prior import build_parametric_prior_from_prior_config
 
 from ..data.jwst_data import DataMetaInformation
-from ..data.loader.stars_loader import StarData
+from ..data.loader.stars_loader import StarsData
 from ..parse.parametric_model.parametric_prior import ProbabilityConfig
 from ..rotation_and_shift.coordinates_correction import (
     Coordinates,
@@ -149,7 +149,7 @@ def build_star_in_data(
     filter_meta: DataMetaInformation,
     star_id: int,
     star_light_prior: ProbabilityConfig,
-    star_data: StarData,
+    star_data: StarsData,
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
 ) -> StarInData:
     """Build star in data field.
