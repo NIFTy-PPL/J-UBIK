@@ -36,7 +36,7 @@ if __name__ == '__main__':
     amplitude_model = "non_parametric"
 
     # Spectral amplitude settings
-    # Option 1) orrelated field (could also be Matérn)
+    # Option 1) Correlated field (could also be Matérn)
     spectral_amplitude_settings = dict(
         fluctuations=(1.0, 0.02),
         loglogavgslope=(-2., 0.1),
