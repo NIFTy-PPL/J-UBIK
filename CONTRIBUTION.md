@@ -9,5 +9,8 @@ You may consider checking if there is an existing issue or discussion for your p
 
 ## Contribution Guidelines
 
-We are open for discussion and happy to help implementing new feautures and instruments.
-If you want to implement a new instrument, in order to use it in your inference pipeline within J-UBIK you need to take care of the most important instrument effects. (e.g. PSF, exposure, effective area). In the next step you need to able to build a function which maps the physical field to the measured quantity using a differentiable code library like [JAX](https://github.com/jax-ml/jax). This is needed, so that [NIFTy](https://github.com/NIFTy-PPL/NIFTy), the package for **N**umerical **I**nformation **F**ield **T**heor**y** and its inference algorithms, can use JAX aufodif.
+We welcome discussions and contributions for new features and instrument implementations!
+If you would like to implement a new instrument for use within the J-UBIK inference pipeline, please ensure that the most important instrument effects are properly modeled (this includes, e.g., the point spread function (PSF), exposure, and effective area).
+
+The next step is implement a function which maps the physical field (e.g. the photon flux field) to the measured quantity (e.g. photon-count data) using a differentiable code library such as [JAX](https://github.com/jax-ml/jax).
+This allows [NIFTy](https://github.com/NIFTy-PPL/NIFTy) (**N**umerical **I**nformation **F**ield **T**heor**y**) to use `JAX`-autodif for its inference algorithms.
