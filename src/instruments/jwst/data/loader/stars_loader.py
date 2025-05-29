@@ -58,6 +58,10 @@ def load_one_stars_bundle(
     #     )
 
     for ii, star in enumerate(star_tables.get_stars(index)):
+        # Mask out stars that lead to nan positions
+        if np.any(np.isnan(jwst_data.wcs.world_to_pixel(star.position))):
+            continue
+
         bounding_indices = star.bounding_indices(jwst_data, fov_pixel)
         data, mask, std = jwst_data.bounding_data_mask_std_by_bounding_indices(
             row_minmax_column_minmax=bounding_indices,
