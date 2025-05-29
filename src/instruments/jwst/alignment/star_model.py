@@ -180,5 +180,17 @@ def build_star_in_data(
         observation_ids=star_data.observation_ids,
     )
 
-    # return StarAndSky(star_id, skies, brightness, location_of_star_in_data_subpixels)
     return StarInData(skies, brightness, location_of_star_in_data_subpixels)
+
+    position_update = jft.NormalPrior(
+        0, 5, shape=tuple((1, 2)), name=f"{filter_key}_{star_id}_position"
+    )
+
+    tmp = jft.Model(
+        lambda x: location_of_star_in_data_subpixels(x) + position_update(x),
+        domain=location_of_star_in_data_subpixels.domain | position_update.domain,
+    )
+
+    return StarInData(skies, brightness, tmp)
+
+    # return StarAndSky(star_id, skies, brightness, location_of_star_in_data_subpixels)

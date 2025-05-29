@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import Union, Any
 
 import matplotlib.pyplot as plt
@@ -7,7 +8,6 @@ import numpy as np
 from nifty8.re.library.mf_model import CorrelatedMultiFrequencySky
 
 from ..parse.plotting import FieldPlottingConfig
-from ..filter_projector import FilterProjector
 from ..rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectedShiftOnly,
     CoordinatesCorrectedShiftAndRotation,
@@ -21,6 +21,8 @@ def plot_data_data_model_residuals(
     data: np.ndarray,
     data_model: np.ndarray,
     std: np.ndarray,
+    residual_over_std: bool,
+    residual_config: FieldPlottingConfig,
     plotting_config: FieldPlottingConfig,
 ):
     """Plot three panels (data, model, data-model).
@@ -34,7 +36,12 @@ def plot_data_data_model_residuals(
 
     axes[0].set_title(f"Data {data_key}")
     axes[1].set_title("Data model")
-    axes[2].set_title("(Data - Data model) / std")
+    if residual_over_std:
+        axes[2].set_title("(Data - Data model) / std")
+    else:
+        axes[2].set_title("Data - Data model")
+        std = 1.0
+
     ims[0] = axes[0].imshow(
         data,
         norm=plotting_config.norm,
@@ -51,10 +58,8 @@ def plot_data_data_model_residuals(
     )
     ims[2] = axes[2].imshow(
         (data - data_model) / std,
-        vmin=-3,
-        vmax=3,
-        cmap="RdBu_r",
-        **plotting_config.rendering,
+        **asdict(residual_config),
+        **residual_config.rendering,
     )
 
     return ims

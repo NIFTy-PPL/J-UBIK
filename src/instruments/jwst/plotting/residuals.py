@@ -1,5 +1,5 @@
 from collections import namedtuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from os import makedirs
 from os.path import join
 from typing import Union
@@ -108,22 +108,15 @@ def build_plot_sky_residuals(
     filter_projector: FilterProjector,
     residual_plotting_info: ResidualPlottingInformation,
     sky_model_with_filters: jft.Model,
-    plotting_config: ResidualPlottingConfig = ResidualPlottingConfig(),
+    residual_plotting_config: ResidualPlottingConfig = ResidualPlottingConfig(),
 ):
     residual_directory = join(results_directory, "residuals")
     makedirs(residual_directory, exist_ok=True)
 
-    display_pointing = plotting_config.display_pointing
-    std_relative = plotting_config.std_relative
-    fileformat = plotting_config.fileformat
-    xmax_residuals = plotting_config.xmax_residuals
-
-    residual_plotting_config = plotting_config.data
+    xmax_residuals = residual_plotting_config.xmax_residuals
 
     ylen = len(sky_model_with_filters.target)
     xlen = 3 + _determine_xlen_residuals(residual_plotting_info, xmax_residuals)
-
-    rendering = plotting_config.sky.rendering
 
     def sky_residuals(
         position_or_samples: Union[dict, jft.Samples],
@@ -147,8 +140,12 @@ def build_plot_sky_residuals(
         else:
             sky = sky_or_skies
         sky_max, sky_min = (
-            plotting_config.sky.get_max(np.max(list(tree.map(np.max, sky).values()))),
-            plotting_config.sky.get_min(np.min(list(tree.map(np.min, sky).values()))),
+            residual_plotting_config.sky.get_max(
+                np.max(list(tree.map(np.max, sky).values()))
+            ),
+            residual_plotting_config.sky.get_min(
+                np.min(list(tree.map(np.min, sky).values()))
+            ),
         )
 
         for filter_name in filter_projector.keys_and_index.keys():
@@ -158,10 +155,10 @@ def build_plot_sky_residuals(
             axes[ypos, 0].set_title(f"Sky {filter_name}")
             ims[ypos, 0] = axes[ypos, 0].imshow(
                 sky[filter_name],
-                norm=plotting_config.sky.norm,
+                norm=residual_plotting_config.sky.norm,
                 vmax=sky_max,
                 vmin=sky_min,
-                **rendering,
+                **residual_plotting_config.sky.rendering,
             )
 
         for filter_key in residual_plotting_info.filter:
@@ -195,24 +192,12 @@ def build_plot_sky_residuals(
                 data_key=filter_key,
                 data=data[0],
                 data_model=model_mean[0],
-                std=std[0] if std_relative else 1.0,
-                plotting_config=residual_plotting_config,
+                std=std[0],
+                residual_over_std=residual_plotting_config.residual_over_std,
+                residual_config=residual_plotting_config.residual,
+                plotting_config=residual_plotting_config.data,
             )
             display_text(axes[ypos, 3], chis[0])
-
-            if display_pointing:
-                (sh_m, sh_s), (ro_m, ro_s) = get_shift_rotation_correction(
-                    position_or_samples,
-                    model.rotation_and_shift.correction_model,
-                )
-                data_model_text = "\n".join(
-                    (
-                        f"dx={sh_m[0]:.1e}+-{sh_s[0]:.1e}",
-                        f"dy={sh_m[1]:.1e}+-{sh_s[1]:.1e}",
-                        f"dth={ro_m:.1e}+-{ro_s:.1e}",
-                    )
-                )
-                display_text(axes[ypos, 2], data_model_text)
 
             for xpos_residual, (data_i, model_i, std_i) in enumerate(
                 zip(data[1:], model_mean[1:], std[1:]), start=4
@@ -220,12 +205,16 @@ def build_plot_sky_residuals(
                 if xpos_residual > xlen - 1:
                     continue
 
+                if residual_plotting_config.residual_over_std:
+                    axes[ypos, xpos_residual].set_title("(Data - Data model) / std")
+                else:
+                    axes[ypos, xpos_residual].set_title("Data - Data model")
+                    std = 1.0
+
                 ims[ypos, xpos_residual] = axes[ypos, xpos_residual].imshow(
                     (data_i - model_i) / std_i,
-                    vmin=-3,
-                    vmax=3,
-                    cmap="RdBu_r",
-                    **rendering,
+                    **asdict(residual_plotting_config.residual),
+                    **residual_plotting_config.residual.rendering,
                 )
                 display_text(axes[ypos, xpos_residual], chis[xpos_residual - 3])
 
@@ -238,7 +227,7 @@ def build_plot_sky_residuals(
             plt.show()
         else:
             fig.savefig(
-                join(residual_directory, f"{state_or_none.nit:02d}.{fileformat}"),
+                join(residual_directory, f"{state_or_none.nit:02d}.png"),
                 dpi=300,
             )
             plt.close()

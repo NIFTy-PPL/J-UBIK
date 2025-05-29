@@ -8,7 +8,7 @@ import nifty8.re as jft
 import matplotlib.pyplot as plt
 
 from ..jwst_response import JwstResponse
-from ..parse.plotting import FieldPlottingConfig
+from ..parse.plotting import FieldPlottingConfig, ResidualPlottingConfig
 from .plotting_base import (
     display_text,
     _get_data_model_and_chi2,
@@ -142,6 +142,7 @@ def build_plot_filter_alignment(
     results_directory: str,
     filter_alignment_data: FilterAlignmentPlottingInformation,
     plotting_config: FieldPlottingConfig = FieldPlottingConfig(),
+    residual_config: ResidualPlottingConfig = ResidualPlottingConfig(),
     name_append: str = "",
     interactive: bool = False,
 ) -> Callable[dict | jft.Samples | jft.Vector, None]:
@@ -201,6 +202,8 @@ def build_plot_filter_alignment(
                     data=data[ii],
                     data_model=model_mean[ii],
                     std=std[ii],
+                    residual_over_std=residual_config.residual_over_std,
+                    residual_config=residual_config.residual,
                     plotting_config=plotting_config,
                 )
 

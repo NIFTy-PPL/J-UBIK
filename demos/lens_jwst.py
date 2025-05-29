@@ -93,19 +93,19 @@ plot_source, plot_residual, plot_lens = get_plot(
     likelihood_products.target.plotting,
     sky_model_with_keys,
     parametric_lens_flag,
-    max_residuals=cfg["max_residuals"],
+    plotting_cfg=cfg["jwst_lens_plotting"],
 )
 
 
 def plot_target(samples: jft.Samples, state: jft.OptimizeVIState):
     print(f"Plotting: {state.nit}")
-    if cfg["plot_results"]:
+    if cfg["jwst_lens_plotting"].get("plot_results", True):
         plot_residual(samples, state)
         plot_lens(samples, state)
         plot_source(samples, state)
 
 
-if cfg.get("prior_samples"):
+if cfg["jwst_lens_plotting"].get("prior_samples"):
     plot_prior(
         config_path,
         likelihood_target,

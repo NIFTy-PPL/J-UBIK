@@ -92,33 +92,26 @@ def get_plot(
     residual_info: ResidualPlottingInformation,
     sky_model_with_keys: jft.Model,
     parametric_lens: bool,
+    plotting_cfg: dict,
     parametric_source: bool = False,
-    max_residuals: int = 4,
 ):
     from charm_lensing.lens_system import LensSystem
 
     lens_system: LensSystem = lens_system
 
-    source_plotting_config = MultiFrequencyPlottingConfig(
-        combined=FieldPlottingConfig(vmin=1e-4, norm="log"),
-        reference=FieldPlottingConfig(vmax=5, norm=None),
-        alpha=FieldPlottingConfig(norm=None),
+    source_plotting_config = MultiFrequencyPlottingConfig.from_yaml_dict(
+        plotting_cfg.get("source")
     )
-    lens_light_plotting_config = MultiFrequencyPlottingConfig(
-        combined=FieldPlottingConfig(vmin=1e-4, vmax=1e2, norm="log"),
-        reference=FieldPlottingConfig(vmax=5, norm=None),
-        alpha=FieldPlottingConfig(norm=None),
+    lens_light_plotting_config = MultiFrequencyPlottingConfig.from_yaml_dict(
+        plotting_cfg.get("lens_light")
     )
     plotting_config_lens_system = LensSystemPlottingConfig(
         source=source_plotting_config,
         lens_light=lens_light_plotting_config,
-        share_source_vmin_vmax=False,
+        share_source_vmin_vmax=plotting_cfg.get("share_source_vmin_vmax", False),
     )
-    residual_plotting_config = ResidualPlottingConfig(
-        sky=lens_light_plotting_config.combined,
-        data=FieldPlottingConfig(norm="log", vmin=1e-3),
-        display_pointing=False,
-        xmax_residuals=max_residuals,
+    residual_plotting_config = ResidualPlottingConfig.from_yaml_dict(
+        plotting_cfg.get("residuals")
     )
 
     plot_lens = build_plot_lens_system(
@@ -142,7 +135,7 @@ def get_plot(
         filter_projector=filter_projector,
         residual_plotting_info=residual_info,
         sky_model_with_filters=sky_model_with_keys,
-        plotting_config=residual_plotting_config,
+        residual_plotting_config=residual_plotting_config,
     )
 
     return plot_source, plot_residual, plot_lens

@@ -1,10 +1,6 @@
 cpu: False
-prior_samples: False
-plot_results: True
 nonparametric_lens: False
-max_residuals: 4 # 4 for big run
 no_interactive_plotting: False
-
 
 # Before long run:
 # 1) No prior samples
@@ -14,6 +10,41 @@ no_interactive_plotting: False
 # 5) Large Psf
 # 6) Output directory,  res_dir
 # 7) (Optional) Download latest webbpsf and delete stashed Psfs: https://webbpsf.readthedocs.io/en/stable/installation.html
+
+jwst_lens_plotting:
+
+  prior_samples: False
+  plot_results: True
+
+  share_source_vmin_vmax: True
+  source:
+    combined:
+      vmin: 1.0e-4
+      norm: 'log'
+    reference:
+      vmax: 5
+  lens_light:
+    combined:
+      vmin: 1.0e-4
+      vmax: 1.0e+2
+      norm: 'log'
+    reference:
+      vmax: 5
+
+  residuals:
+    xmax_residuals: 20 # 4 for big run
+    residual_over_std: True
+    sky: 
+      vmin: 1.0e-4
+      norm: 'log'
+    data:
+      vmin: 1.0e-3
+      norm: 'log'
+    residual:
+      vmin: Null # -3, Null
+      vmax: Null # -3, Null
+      norm: Null
+      cmap: 'RdBu_r'
 
 
 sky: 
@@ -44,7 +75,7 @@ sky:
       e_min:
         # - 0.054 # F2100W
 
-        # - 0.068 # F1800W  # mistake here actually 0.064
+        - 0.068 # F1800W  # mistake here actually 0.064
 
         # - 0.075 # F1500W
         # - 0.093 # F1280W  # mistake here actually 0.088
@@ -57,13 +88,13 @@ sky:
         # - 0.319 # F356W  # mistake here actually 0.311
         # - 0.396 # F277W
         # - 0.557 # F200W
-        - 0.743 # F150W
+        # - 0.743 # F150W
 
         # - 0.967 # F115W
       e_max:
         # - 0.067 # F2100W
 
-        # - 0.075 # F1800W
+        - 0.075 # F1800W
 
         # - 0.092 # F1500W
         # - 0.107 # F1280W
@@ -76,7 +107,7 @@ sky:
         # - 0.395 # F356W
         # - 0.512 # F277W
         # - 0.707 # F200W
-        - 0.932 # F150W
+        # - 0.932 # F150W
 
         # - 1.224 # F115W
       reference_bin: 0 # F444W
@@ -269,10 +300,10 @@ telescope:
 
 
 files:
-  loading_mode: 'serial' # processes, threads, serial
+  loading_mode: 'processes' # processes, threads, serial
   # workers: 4
 
-  res_dir: './results/jwst_lens/cluster/17_03_f150w_with_alignment'
+  res_dir: './results/jwst_lens/cluster/18_03_f1800w_fixedStars'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -291,13 +322,13 @@ files:
     #   - './data/spt0418/f2100w/jw01355015001_15101_00010_mirimage/jw01355015001_15101_00010_mirimage_{step_type}.fits'
     #   - './data/spt0418/f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_{step_type}.fits'
     #   - './data/spt0418/f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_{step_type}.fits'
-    #
-    # f1800w:
-    #   - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_{step_type}.fits'
-    #   - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_{step_type}.fits'
-    #   - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_{step_type}.fits'
-    #   - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_{step_type}.fits'
-    #
+
+    f1800w:
+      - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_{step_type}.fits'
+      - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_{step_type}.fits'
+      - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_{step_type}.fits'
+      - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_{step_type}.fits'
+
     # f1500w:
     #   - './data/spt0418/f1500w/jw01355015001_11101_00001_mirimage/jw01355015001_11101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1500w/jw01355015001_11101_00002_mirimage/jw01355015001_11101_00002_mirimage_{step_type}.fits'
@@ -344,9 +375,9 @@ files:
     #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_{step_type}.fits'
     #   - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_{step_type}.fits'
 
-    f150w:
-      - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_{step_type}.fits'
-      - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_{step_type}.fits'
+    # f150w:
+    #   - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_{step_type}.fits'
+    #   - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_{step_type}.fits'
 
     # f115w: # NIRCam
     #   - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_{step_type}.fits'
@@ -357,7 +388,7 @@ minimization_fixpointing:
     # resume_from_pickle_path: './results/jwst_lens/cluster/16_04_biggerSource/fixpointing/psf/last.pkl'
     key: 20250429
     resume: True
-    n_total_iterations: 3
+    n_total_iterations: 2
 
     delta:
       switches: [0]
@@ -365,7 +396,7 @@ minimization_fixpointing:
 
     samples:
       switches: [0, 2]
-      n_samples: [0, 5]
+      n_samples: [4, 5]
       mode: [linear_resample, nonlinear_resample]
 
       # lin_absdelta: [Null, Null, 0.00001]
@@ -386,8 +417,8 @@ minimization_fixpointing:
 
 minimization:
     key: 20250425
-    resume: False
-    n_total_iterations: 10
+    resume: True
+    n_total_iterations: 7
 
     delta:
       switches: [0, 4, 8, 15]

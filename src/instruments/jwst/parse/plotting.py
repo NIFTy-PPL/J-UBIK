@@ -7,8 +7,7 @@ class FieldPlottingConfig:
     vmin: float | None = None
     vmax: float | None = None
     norm: str | None = None
-
-    # rendering: dict = field(default_factory=dict(origin="lower", interpolation="None"))
+    cmap: str = "viridis"
 
     def get_min(self, field: np.ndarray) -> float:
         f"""Returns maximum between field.max and {self.vmin}"""
@@ -24,12 +23,29 @@ class FieldPlottingConfig:
     def rendering(self):
         return dict(origin="lower", interpolation="None")
 
+    @classmethod
+    def from_yaml_dict(cls, raw: dict):
+        return cls(
+            vmin=raw.get("vmin"),
+            vmax=raw.get("vmax"),
+            norm=raw.get("norm"),
+            cmap=raw.get("cmap", "viridis"),
+        )
+
 
 @dataclass
 class MultiFrequencyPlottingConfig:
     alpha: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
     reference: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
     combined: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
+
+    @classmethod
+    def from_yaml_dict(cls, raw: dict):
+        return cls(
+            alpha=FieldPlottingConfig.from_yaml_dict(raw.get("alpha", {})),
+            reference=FieldPlottingConfig.from_yaml_dict(raw.get("reference", {})),
+            combined=FieldPlottingConfig.from_yaml_dict(raw.get("combined", {})),
+        )
 
 
 @dataclass
@@ -48,9 +64,25 @@ class LensSystemPlottingConfig:
 class ResidualPlottingConfig:
     sky: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
     data: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
+    residual: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
 
-    std_relative: bool = True
-    display_pointing: bool = True
-    display_chi2: bool = True
-    fileformat: str = "png"
-    xmax_residuals: int = np.inf
+    residual_over_std: bool = True
+    xmax_residuals: int = 4
+
+    @classmethod
+    def from_yaml_dict(cls, raw: dict):
+        return cls(
+            xmax_residuals=raw.get("xmax_residuals", 4),
+            residual_over_std=raw.get("residual_over_std", True),
+            sky=FieldPlottingConfig.from_yaml_dict(raw.get("sky", {})),
+            data=FieldPlottingConfig.from_yaml_dict(raw.get("data", {})),
+            residual=FieldPlottingConfig.from_yaml_dict(
+                raw.get("residual", dict(vmin=-3, vmax=3, norm=None, cmap="RdBu_r"))
+            ),
+        )
+
+    def __post_init__(self):
+        if self.residual == FieldPlottingConfig():
+            self.residual = FieldPlottingConfig(
+                vmin=-3, vmax=3, norm=None, cmap="RdBu_r"
+            )
