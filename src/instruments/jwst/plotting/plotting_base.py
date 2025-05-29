@@ -34,7 +34,7 @@ def plot_data_data_model_residuals(
 
     axes[0].set_title(f"Data {data_key}")
     axes[1].set_title("Data model")
-    axes[2].set_title("Data - Data model")
+    axes[2].set_title("(Data - Data model) / std")
     ims[0] = axes[0].imshow(
         data,
         norm=plotting_config.norm,
@@ -224,10 +224,12 @@ def get_position_or_samples_of_model(
     return mean, std
 
 
-def _get_model_samples_or_position(position_or_samples, sky_model):
+def _get_model_samples_or_position(position_or_samples, model):
     if isinstance(position_or_samples, jft.Samples):
-        return [sky_model(si) for si in position_or_samples]
-    return sky_model(position_or_samples)
+        if len(position_or_samples) == 0:
+            return np.array([model(position_or_samples.pos)])
+        return np.array([model(si) for si in position_or_samples])
+    return model(position_or_samples)
 
 
 def _get_data_model_and_chi2(

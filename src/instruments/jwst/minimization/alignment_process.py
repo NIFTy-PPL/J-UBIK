@@ -81,9 +81,21 @@ def alignment_minimization_process(
             starting_samples=samples_fixpointing,
         )
 
-        _print_some_results(plotting, samples_fixpointing)
+        try:
+            _print_some_results(plotting, samples_fixpointing)
+        except:
+            pass
 
         # Needed for the next runs, otherwise clocking up by jax...
         clear_caches()
+
+    # plot_alignment_residuals = build_plot_alignment_residuals(
+    #     join(results_directory, "fixpointing"),
+    #     plotting,
+    #     FieldPlottingConfig(vmin=1e-4, norm="log"),
+    #     name_append=f"_{name}",
+    #     interactive=True,
+    # )
+    # plot_alignment_residuals(samples_fixpointing, state_imaging)
 
     return samples_fixpointing

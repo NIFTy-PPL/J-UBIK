@@ -50,11 +50,11 @@ def load_one_stars_bundle(
     star_bundles = StarsBundle(index=index)
 
     # logger.info("THIS SHOULDN't APPEAR DELETE ME!")
-    # if False:
+    # if True:
     #     from ...alignment.utils import some_evaluation
     #
     #     some_evaluation(
-    #         index, jwst_data, star_tables, image_kwargs=dict(vmin=0.05, vmax=580)
+    #         index, jwst_data, star_tables, image_kwargs=dict(vmin=0.05, vmax=0.5)
     #     )
 
     for ii, star in enumerate(star_tables.get_stars(index)):

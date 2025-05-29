@@ -145,6 +145,7 @@ def build_star_alignment_likelihood(
                 mask=np.array(mask),
                 std=np.array(std),
                 model=jwst_star_response,
+                subsample=response.stars_data[star.id].subsample,
             )
 
     side_effect.plotting.psf.append(filter_alignment_plotting["psf"])

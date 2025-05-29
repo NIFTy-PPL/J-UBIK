@@ -12,16 +12,20 @@ from ..parse.plotting import FieldPlottingConfig
 from .plotting_base import (
     display_text,
     _get_data_model_and_chi2,
+    _get_model_samples_or_position,
     plot_data_data_model_residuals,
 )
 
 # Define the namedtuple
-StarDataPlotting = namedtuple("StarDataPlotting", ["data", "std", "mask", "model"])
+StarDataPlotting = namedtuple(
+    "StarDataPlotting", ["data", "std", "mask", "model", "subsample"]
+)
 
 
 @dataclass
 class FilterAlignmentPlottingInformation:
     filter: str
+    subsample: list[int] = field(default_factory=list)
     star_id: list[int] = field(default_factory=list)
     data: list[np.ndarray] = field(default_factory=list)
     mask: list[np.ndarray] = field(default_factory=list)
@@ -31,12 +35,14 @@ class FilterAlignmentPlottingInformation:
     def append_information(
         self,
         star_id: int,
+        subsample: int,
         data: np.ndarray,
         mask: np.ndarray,
         std: np.ndarray,
         model: JwstResponse,
     ) -> None:
         self.star_id.append(star_id)
+        self.subsample.append(subsample)
         self.data.append(data)
         self.std.append(std)
         self.mask.append(mask)
@@ -60,6 +66,7 @@ class FilterAlignmentPlottingInformation:
             std=self.std[index],
             mask=self.mask[index],
             model=self.model[index],
+            subsample=self.subsample[index],
         )
 
 
@@ -136,6 +143,7 @@ def build_plot_filter_alignment(
     filter_alignment_data: FilterAlignmentPlottingInformation,
     plotting_config: FieldPlottingConfig = FieldPlottingConfig(),
     name_append: str = "",
+    interactive: bool = False,
 ) -> Callable[dict | jft.Samples | jft.Vector, None]:
     alignment_directory = os.path.join(results_directory, "alignment")
     os.makedirs(alignment_directory, exist_ok=True)
@@ -158,7 +166,7 @@ def build_plot_filter_alignment(
             axes = axes[None]
 
         for ypos, star_id in enumerate(filter_alignment_data.star_id):
-            data, std, mask, model = filter_alignment_data.get_star(star_id)
+            data, std, mask, model, subsample = filter_alignment_data.get_star(star_id)
 
             model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples=position_or_samples,
@@ -169,13 +177,22 @@ def build_plot_filter_alignment(
                 std=std,
             )
 
+            if interactive:
+                exit()
+
             chis = [
                 "\n".join((f"redChi2: {mean:.2f} +/- {std:.2f}",))
                 for mean, std in zip(redchi_mean, redchi_std)
             ]
 
+            star_positions_in_data = _get_model_samples_or_position(
+                position_or_samples, model.sky_model.location
+            )
+            star_positions_in_data = star_positions_in_data / subsample
+
             for ii in range(len(data)):
-                xpos = ii * 3
+                length_xpos = 3
+                xpos = ii * length_xpos
 
                 ims[ypos, xpos:] = plot_data_data_model_residuals(
                     ims[ypos, xpos:],
@@ -186,6 +203,13 @@ def build_plot_filter_alignment(
                     std=std[ii],
                     plotting_config=plotting_config,
                 )
+
+                samples_star_position_in_data = star_positions_in_data[:, ii, :]
+                for position in samples_star_position_in_data:
+                    for jj in range(length_xpos):
+                        axes[ypos, xpos + jj].scatter(
+                            *position, marker="x", linewidths=0.1
+                        )
 
                 display_text(axes[ypos, xpos + 1], chis[ii])
 

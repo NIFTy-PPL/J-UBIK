@@ -32,6 +32,7 @@ def build_plot_alignment_residuals(
     plotting_alignment: MultiFilterAlignmentPlottingInformation,
     plotting_config: FieldPlottingConfig = FieldPlottingConfig(),
     name_append: str = "",
+    interactive: bool = False,
 ) -> Callable[dict | jft.Samples | jft.Vector, None]:
     filters = [
         build_plot_filter_alignment(
@@ -39,21 +40,24 @@ def build_plot_alignment_residuals(
             filter_alignment_data=plotting_alignment_filter,
             plotting_config=plotting_config,
             name_append=name_append,
+            interactive=interactive,
         )
         for plotting_alignment_filter in plotting_alignment
     ]
 
-    additional_stuff = [
-        build_additional(
-            results_directory,
-            filter_alignment_data=plotting_alignment_filter,
-            plotting_config=plotting_config,
-            attribute=lambda model, x: model.sky_model(x),
-            name="sky_model",
-        )
-        for plotting_alignment_filter in plotting_alignment
-    ]
     additional_stuff = []
+
+    if False:
+        additional_stuff = [
+            build_additional(
+                results_directory,
+                filter_alignment_data=plotting_alignment_filter,
+                plotting_config=plotting_config,
+                attribute=lambda model, x: model.sky_model(x),
+                name="sky_model",
+            )
+            for plotting_alignment_filter in plotting_alignment
+        ]
 
     if isinstance(plotting_alignment[0].model[0].psf, PsfDynamic):
         psf_model = [
