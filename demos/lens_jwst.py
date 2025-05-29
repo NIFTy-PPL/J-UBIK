@@ -93,6 +93,7 @@ plot_source, plot_residual, plot_lens = get_plot(
     likelihood_products.target.plotting,
     sky_model_with_keys,
     parametric_lens_flag,
+    max_residuals=cfg["max_residuals"],
 )
 
 
@@ -130,17 +131,16 @@ if likelihood_products.alignment is not None:
         FieldPlottingConfig(vmin=1e-4, norm="log"),
     )
 
+
+def callback(samples, state):
+    plot_target(samples, state)
+    # plot_alignment_residuals(samples, state)
+
+
 cfg_mini = ju.get_config(config_path)["minimization"]
 mini_parser_full = ju.MinimizationParser(
     cfg_mini, ju.get_n_constrained_dof(likelihood_target), verbose=False
 )
-
-
-def callback(samples, state):
-    plot_target(samples, state)
-    plot_alignment_residuals(samples, state)
-
-
 kl_settings = KLSettings(
     random_key=random.PRNGKey(cfg_mini.get("key", 42)),
     outputdir=results_directory,
@@ -163,7 +163,7 @@ kl_settings = KLSettings(
 jft.logger.info("Full reconstruction")
 
 samples, state = minimization_from_initial_samples(
-    likelihood_target + likelihood_products.alignment.likelihood.likelihood,
+    likelihood_target,  # + likelihood_products.alignment.likelihood.likelihood,
     kl_settings,
     samples_fixpointing,
     # not_take_starting_pos_keys=sky_model_with_keys.domain.keys(),
