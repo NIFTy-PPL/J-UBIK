@@ -239,7 +239,7 @@ def _get_data_model_and_chi2(
     data: np.ndarray,
     mask: np.ndarray,
     std: np.ndarray,
-):
+) -> tuple[np.ndarray, tuple[float, float]]:
     if isinstance(std, float):
         std = np.full_like(data, std)
 
@@ -296,7 +296,7 @@ def _get_data_model_and_chi2(
         redchi_std = np.full_like(redchi_mean, 0)
         model_mean = model_d
 
-    return model_mean, (redchi_mean, redchi_std)
+    return np.array(model_mean), (redchi_mean, redchi_std)
 
 
 def get_alpha_and_reference(light_model):

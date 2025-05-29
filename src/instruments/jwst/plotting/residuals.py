@@ -114,7 +114,6 @@ def build_plot_sky_residuals(
     makedirs(residual_directory, exist_ok=True)
 
     display_pointing = plotting_config.display_pointing
-    display_chi2 = plotting_config.display_chi2
     std_relative = plotting_config.std_relative
     fileformat = plotting_config.fileformat
     xmax_residuals = plotting_config.xmax_residuals
@@ -184,6 +183,7 @@ def build_plot_sky_residuals(
                 "\n".join((f"redChi2: {mean:.2f} +/- {std:.2f}",))
                 for mean, std in zip(redchi_mean, redchi_std)
             ]
+            model_mean[~mask] = np.nan
 
             if len(data.shape) == 2:
                 data = [data]
