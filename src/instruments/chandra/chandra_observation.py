@@ -12,22 +12,12 @@ import shutil
 
 import numpy as np
 from astropy.io import fits
-try:
-    import ciao_contrib.runtool as rt
-    from paramio import pset
-except ImportError:
-    print("Ciao is not sourced or installed. Therefore some operations can't be performed")
-    pass
 
 from ...messages import message_obs, message_binning, message_exposure
 
 
 class ChandraObservationInformation():
-
-    """
-    Base class to provide an interface with the CXC analysis and simulation tools.
-
-    """
+    """Base class to provide an interface with the CXC analysis and simulation tools."""
 
     def __init__(self, obsInfo, npix_s, npix_e, fov, elim, center=None, energy_ranges=None, chips_off=()):
         """
@@ -65,6 +55,12 @@ class ChandraObservationInformation():
         --------
         None
         """
+
+        try:
+            import ciao_contrib.runtool as rt
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
 
         self.obsInfo = obsInfo.copy()
 
@@ -168,6 +164,11 @@ class ChandraObservationInformation():
 
         """
 
+        try:
+            import ciao_contrib.runtool as rt
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
         # filter w/ cxc: spatial and energy cuts
         # creates an event list w/ only those detections that make the cuts
         infile  = self.obsInfo['event_file']
@@ -223,6 +224,11 @@ class ChandraObservationInformation():
         expmap: (np.array) 
             npix_e x npix_s x npix_s array with the exposure in units of  [sec * cm**(2) counts/photon]
         """
+        try:
+            import ciao_contrib.runtool as rt
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
 
         self.obsInfo['asphist_res_xy']    = res_xy
         self.obsInfo['exp_ebins_per_bin'] = energy_subbins
@@ -428,6 +434,12 @@ class ChandraObservationInformation():
         np.array
             A 3D numpy array (npix_e x npix_s x npix_s) with the simulated PSF.
         """
+        try:
+            import ciao_contrib.runtool as rt
+            from paramio import pset
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
 
         self.psf_sim_coords.append(location)
 
