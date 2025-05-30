@@ -49,8 +49,8 @@ jwst_lens_plotting:
 
 sky: 
   grid:
-    sdim: 512
-    # sdim: 256
+    # sdim: 512
+    sdim: 256
     # NOTE: SHOULD THIS BE HERE?????
     s_padding_ratio: 1.5  # Size of the convergence, i.e. (384*1.5, 6*1.5)
 
@@ -63,8 +63,8 @@ sky:
       dec: -47.86462563973049deg
 
     source_grid:
-      sdim: 384
-      # sdim: 192
+      # sdim: 384
+      sdim: 192
       fov: 3arcsec
       s_padding_ratio: 1.0
       # interpolation: 'finufft' # finufft, bilinear
@@ -154,31 +154,34 @@ sky:
       light:
         mean:
           sersic_01: # i0*exp(-bn * (r/re)**1/n - 1)
-            ie: ['delta', 1.0, 0.0]
+            ie: ['lognormal', 10.0, 1000.0]
+            # ie: ['delta', 1.0, 0.0]
             re: ['log_normal', 0.4, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
             n: ['log_normal', 6.2, 0.6]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
             center: ['normal', [0.0, 0.0], 0.1]
             q: [ 'uniform', 0.8, 1.0]
             theta: ['normal', 0.0, 10.0]
         multifrequency:
-          nifty_mf:
-            zero_mode: [-2.7, 0.8] # normal
-            spatial_amplitude:
-              model: 'matern'
-              scale: [0.01, 0.001]    # lognormal
-              cutoff: [0.1, 0.01]       # lognormal
-              loglogslope: [-7.0, 0.2]  # normal
-            # spectral_amplitude:
-            #   model: 'matern'
-            #   scale: [0.08, 0.01]        # lognormal
-            #   cutoff: [0.1, 0.01]       # lognormal
-            #   loglogslope: [-4.0, 0.1]  # normal
-            spectral_index:
-              mean: [1.4, 0.5]         # normal
-              fluctuations: [1.0e-2, 1.0e-2]  # lognormal 
-            spectral_deviations:
-              process: 'wiener'
-              sigma: [0.01, 0.01]  # lognormal
+          spectral_expand: Null
+
+          # nifty_mf:
+          #   zero_mode: [-2.7, 0.8] # normal
+          #   spatial_amplitude:
+          #     model: 'matern'
+          #     scale: [0.01, 0.001]    # lognormal
+          #     cutoff: [0.1, 0.01]       # lognormal
+          #     loglogslope: [-7.0, 0.2]  # normal
+          #   # spectral_amplitude:
+          #   #   model: 'matern'
+          #   #   scale: [0.08, 0.01]        # lognormal
+          #   #   cutoff: [0.1, 0.01]       # lognormal
+          #   #   loglogslope: [-4.0, 0.1]  # normal
+          #   spectral_index:
+          #     mean: [1.4, 0.5]         # normal
+          #     fluctuations: [1.0e-2, 1.0e-2]  # lognormal 
+          #   spectral_deviations:
+          #     process: 'wiener'
+          #     sigma: [0.01, 0.01]  # lognormal
 
 
       convergence:
@@ -253,6 +256,11 @@ telescope:
     ra : [4h18m39.59s, 4h18m39.61s, 4h18m39.59s, 4h18m39.58s]
     dec: [-47d51m54.6s, -47d51m54.9s, -47d51m54.9s, -47d51m54.7s]
 
+  # Center mask
+  corner_mask_03:
+    ra : [4h18m39.6854s, 4h18m39.6907s, 4h18m39.6801s, 4h18m39.6754s]
+    dec: [-47d51m52.643s, -47d51m52.757s, -47d51m52.811s, -47d51m52.699s]
+
 
   psf:
     webbpsf_path: './data/JWST/WebbPsf/webbpsf-data-LATEST/'
@@ -300,10 +308,10 @@ telescope:
 
 
 files:
-  loading_mode: 'threads' # processes, threads, serial
+  loading_mode: 'serial' # processes, threads, serial
   # workers: 4
 
-  res_dir: './results/jwst_lens/cluster/19_01_f150w_noll'
+  res_dir: './results/jwst_lens/cluster/19_03_f150w_maskcenter'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -385,8 +393,8 @@ files:
 
 
 minimization_fixpointing:
-    # resume_from_pickle_path: './results/jwst_lens/cluster/16_04_biggerSource/fixpointing/psf/last.pkl'
-    key: 20250429
+    # resume_from_pickle_path: './results/jwst_lens/cluster/19_03_f150w_maskcenter/fixpointing/psf/last.pkl'
+    key: 20250530
     resume: True
     n_total_iterations: 1
 
