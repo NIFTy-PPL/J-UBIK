@@ -49,8 +49,8 @@ jwst_lens_plotting:
 
 sky: 
   grid:
-    # sdim: 512
-    sdim: 256
+    sdim: 512
+    # sdim: 256
     # NOTE: SHOULD THIS BE HERE?????
     s_padding_ratio: 1.5  # Size of the convergence, i.e. (384*1.5, 6*1.5)
 
@@ -63,8 +63,8 @@ sky:
       dec: -47.86462563973049deg
 
     source_grid:
-      # sdim: 384
-      sdim: 192
+      sdim: 384
+      # sdim: 192
       fov: 3arcsec
       s_padding_ratio: 1.0
       # interpolation: 'finufft' # finufft, bilinear
@@ -87,8 +87,8 @@ sky:
 
         # - 0.319 # F356W  # mistake here actually 0.311
         # - 0.396 # F277W
-        # - 0.557 # F200W
-        - 0.743 # F150W
+        - 0.557 # F200W
+        # - 0.743 # F150W
 
         # - 0.967 # F115W
       e_max:
@@ -106,8 +106,8 @@ sky:
 
         # - 0.395 # F356W
         # - 0.512 # F277W
-        # - 0.707 # F200W
-        - 0.932 # F150W
+        - 0.707 # F200W
+        # - 0.932 # F150W
 
         # - 1.224 # F115W
       reference_bin: 0 # F444W
@@ -311,7 +311,7 @@ files:
   loading_mode: 'serial' # processes, threads, serial
   # workers: 4
 
-  res_dir: './results/jwst_lens/cluster/19_03_f150w_maskcenter'
+  res_dir: './results/jwst_lens/cluster/20_01_f200w_maskcenter'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -379,13 +379,13 @@ files:
     #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_{step_type}.fits'
     #   - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_{step_type}.fits'
 
-    # f200w:
-    #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_{step_type}.fits'
-    #   - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_{step_type}.fits'
+    f200w:
+      - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_{step_type}.fits'
+      - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_{step_type}.fits'
 
-    f150w:
-      - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_{step_type}.fits'
-      - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_{step_type}.fits'
+    # f150w:
+    #   - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_{step_type}.fits'
+    #   - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_{step_type}.fits'
 
     # f115w: # NIRCam
     #   - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_{step_type}.fits'
