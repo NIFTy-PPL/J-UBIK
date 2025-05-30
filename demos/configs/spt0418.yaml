@@ -49,8 +49,8 @@ jwst_lens_plotting:
 
 sky: 
   grid:
-    # sdim: 512
-    sdim: 256
+    sdim: 512
+    # sdim: 256
     # NOTE: SHOULD THIS BE HERE?????
     s_padding_ratio: 1.5  # Size of the convergence, i.e. (384*1.5, 6*1.5)
 
@@ -63,8 +63,8 @@ sky:
       dec: -47.86462563973049deg
 
     source_grid:
-      # sdim: 384
-      sdim: 192
+      sdim: 384
+      # sdim: 192
       fov: 3arcsec
       s_padding_ratio: 1.0
       # interpolation: 'finufft' # finufft, bilinear
@@ -75,7 +75,7 @@ sky:
       e_min:
         # - 0.054 # F2100W
 
-        - 0.068 # F1800W  # mistake here actually 0.064
+        # - 0.068 # F1800W  # mistake here actually 0.064
 
         # - 0.075 # F1500W
         # - 0.093 # F1280W  # mistake here actually 0.088
@@ -88,13 +88,13 @@ sky:
         # - 0.319 # F356W  # mistake here actually 0.311
         # - 0.396 # F277W
         # - 0.557 # F200W
-        # - 0.743 # F150W
+        - 0.743 # F150W
 
         # - 0.967 # F115W
       e_max:
         # - 0.067 # F2100W
 
-        - 0.075 # F1800W
+        # - 0.075 # F1800W
 
         # - 0.092 # F1500W
         # - 0.107 # F1280W
@@ -107,7 +107,7 @@ sky:
         # - 0.395 # F356W
         # - 0.512 # F277W
         # - 0.707 # F200W
-        # - 0.932 # F150W
+        - 0.932 # F150W
 
         # - 1.224 # F115W
       reference_bin: 0 # F444W
@@ -155,8 +155,8 @@ sky:
         mean:
           sersic_01: # i0*exp(-bn * (r/re)**1/n - 1)
             ie: ['delta', 1.0, 0.0]
-            re: ['log_normal', 0.8, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
-            n: ['log_normal', 4.2, 0.6]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
+            re: ['log_normal', 0.4, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
+            n: ['log_normal', 6.2, 0.6]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
             center: ['normal', [0.0, 0.0], 0.1]
             q: [ 'uniform', 0.8, 1.0]
             theta: ['normal', 0.0, 10.0]
@@ -300,10 +300,10 @@ telescope:
 
 
 files:
-  loading_mode: 'processes' # processes, threads, serial
+  loading_mode: 'threads' # processes, threads, serial
   # workers: 4
 
-  res_dir: './results/jwst_lens/cluster/18_03_f1800w_fixedStars'
+  res_dir: './results/jwst_lens/cluster/19_01_f150w_noll'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -323,36 +323,36 @@ files:
     #   - './data/spt0418/f2100w/jw01355015001_15101_00011_mirimage/jw01355015001_15101_00011_mirimage_{step_type}.fits'
     #   - './data/spt0418/f2100w/jw01355015001_15101_00012_mirimage/jw01355015001_15101_00012_mirimage_{step_type}.fits'
 
-    f1800w:
-      - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_{step_type}.fits'
-      - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_{step_type}.fits'
-      - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_{step_type}.fits'
-      - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_{step_type}.fits'
+    # f1800w:
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00001_mirimage/jw01355015001_13101_00001_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00002_mirimage/jw01355015001_13101_00002_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00003_mirimage/jw01355015001_13101_00003_mirimage_{step_type}.fits'
+    #   - './data/spt0418/f1800w/jw01355015001_13101_00004_mirimage/jw01355015001_13101_00004_mirimage_{step_type}.fits'
 
     # f1500w:
     #   - './data/spt0418/f1500w/jw01355015001_11101_00001_mirimage/jw01355015001_11101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1500w/jw01355015001_11101_00002_mirimage/jw01355015001_11101_00002_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1500w/jw01355015001_11101_00003_mirimage/jw01355015001_11101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1500w/jw01355015001_11101_00004_mirimage/jw01355015001_11101_00004_mirimage_{step_type}.fits'
-    #
+
     # f1280w:
     #   - './data/spt0418/f1280w/jw01355015001_09101_00001_mirimage/jw01355015001_09101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1280w/jw01355015001_09101_00002_mirimage/jw01355015001_09101_00002_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1280w/jw01355015001_09101_00003_mirimage/jw01355015001_09101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1280w/jw01355015001_09101_00004_mirimage/jw01355015001_09101_00004_mirimage_{step_type}.fits'
-    #
+
     # f1000w:
     #   - './data/spt0418/f1000w/jw01355015001_07101_00001_mirimage/jw01355015001_07101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1000w/jw01355015001_07101_00002_mirimage/jw01355015001_07101_00002_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1000w/jw01355015001_07101_00003_mirimage/jw01355015001_07101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f1000w/jw01355015001_07101_00004_mirimage/jw01355015001_07101_00004_mirimage_{step_type}.fits'
-    #
+
     # f770w:
     #   - './data/spt0418/f770w/jw01355015001_05101_00001_mirimage/jw01355015001_05101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f770w/jw01355015001_05101_00002_mirimage/jw01355015001_05101_00002_mirimage_{step_type}.fits'
     #   - './data/spt0418/f770w/jw01355015001_05101_00003_mirimage/jw01355015001_05101_00003_mirimage_{step_type}.fits'
     #   - './data/spt0418/f770w/jw01355015001_05101_00004_mirimage/jw01355015001_05101_00004_mirimage_{step_type}.fits'
-    #
+
     # f560w: # MIRI
     #   - './data/spt0418/f560w/jw01355015001_03101_00001_mirimage/jw01355015001_03101_00001_mirimage_{step_type}.fits'
     #   - './data/spt0418/f560w/jw01355015001_03101_00002_mirimage/jw01355015001_03101_00002_mirimage_{step_type}.fits'
@@ -366,18 +366,18 @@ files:
     # f356w:
     #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_{step_type}.fits'
     #   - './data/spt0418/f356w/jw01355016001_02103_00002_nrcblong/jw01355016001_02103_00002_nrcblong_{step_type}.fits'
-    #
+
     # f277w:
     #   - './data/spt0418/f277w/jw01355016001_02101_00001_nrcblong/jw01355016001_02101_00001_nrcblong_{step_type}.fits'
     #   - './data/spt0418/f277w/jw01355016001_02101_00002_nrcblong/jw01355016001_02101_00002_nrcblong_{step_type}.fits'
-    #
+
     # f200w:
     #   - './data/spt0418/f200w/jw01355016001_02105_00001_nrcb4/jw01355016001_02105_00001_nrcb4_{step_type}.fits'
     #   - './data/spt0418/f200w/jw01355016001_02105_00002_nrcb4/jw01355016001_02105_00002_nrcb4_{step_type}.fits'
 
-    # f150w:
-    #   - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_{step_type}.fits'
-    #   - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_{step_type}.fits'
+    f150w:
+      - './data/spt0418/f150w/jw01355016001_02103_00001_nrcb4/jw01355016001_02103_00001_nrcb4_{step_type}.fits'
+      - './data/spt0418/f150w/jw01355016001_02103_00002_nrcb4/jw01355016001_02103_00002_nrcb4_{step_type}.fits'
 
     # f115w: # NIRCam
     #   - './data/spt0418/f115w/jw01355016001_02101_00001_nrcb4/jw01355016001_02101_00001_nrcb4_{step_type}.fits'
@@ -388,7 +388,7 @@ minimization_fixpointing:
     # resume_from_pickle_path: './results/jwst_lens/cluster/16_04_biggerSource/fixpointing/psf/last.pkl'
     key: 20250429
     resume: True
-    n_total_iterations: 2
+    n_total_iterations: 1
 
     delta:
       switches: [0]
