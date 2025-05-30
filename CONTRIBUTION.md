@@ -14,3 +14,7 @@ If you would like to implement a new instrument for use within the J-UBIK infere
 
 The next step is implement a function which maps the physical field (e.g. the photon flux field) to the measured quantity (e.g. photon-count data) using a differentiable code library such as [JAX](https://github.com/jax-ml/jax).
 This allows [NIFTy](https://github.com/NIFTy-PPL/NIFTy) (**N**umerical **I**nformation **F**ield **T**heor**y**) to use `JAX` automatic differentiation for its inference algorithms.
+
+## How to format your Code?
+
+We agreed on using the [Black](https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html#labels-line-length) code formatter and its rules. 
