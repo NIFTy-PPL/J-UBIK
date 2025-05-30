@@ -52,7 +52,7 @@ def get_mask_from_index_centers_within_rgrid(
 def get_mask_from_mask_corners(
     data_shape: tuple[int],
     data_wcs: Union[WcsJwstData, WcsAstropy],
-    bounding_box_xmin_xmax_ymin_ymax: tuple[int] | np.ndarray,
+    bounding_box_minmax_row_column: tuple[int] | np.ndarray,
     mask_corners: tuple[SkyCoord],
 ):
     """Build a mask that masks the pixels inside the data which are bounded by the
@@ -70,7 +70,7 @@ def get_mask_from_mask_corners(
         The world corners of the mask.
     """
 
-    min_x, _, min_y, _ = bounding_box_xmin_xmax_ymin_ymax
+    min_y, _, min_x, _ = bounding_box_minmax_row_column
     centers = subsample_pixel_centers(
         data_wcs.bounding_indices_from_world_extrema(mask_corners),
         data_wcs,

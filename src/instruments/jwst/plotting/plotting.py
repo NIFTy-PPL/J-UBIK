@@ -195,7 +195,6 @@ def plot_prior(
     residual_plotting_config = ResidualPlottingConfig(
         sky=lens_light_plotting_config.combined,
         data=FieldPlottingConfig(norm="log", vmin=1e-3),
-        display_pointing=False,
         xmax_residuals=1,
     )
 
@@ -222,32 +221,13 @@ def plot_prior(
     elif not callable(plot_lens):
         plot_lens = lambda x: True
 
-    if not isinstance(filter_projector.domain, jft.ShapeWithDtype):
-        sky_model_new = jft.Model(
-            lambda x: sky_model(x)[sky_key], domain=sky_model.domain
-        )
-    else:
-        sky_model_new = sky_model
-
     if plot_residuals:
-
-        def filter_data(datas: dict):
-            filters = list()
-
-            for kk, vv in datas.items():
-                f = kk.split("_")[0]
-                if f not in filters:
-                    filters.append(f)
-                    yield kk, vv
-
-        prior_dict = {kk: vv for kk, vv in filter_data(data_dict)}
-
         plot_residual = build_plot_sky_residuals(
             results_directory=results_directory,
             filter_projector=filter_projector,
-            data_dict=data_dict,
+            residual_plotting_info=data_dict,
             sky_model_with_filters=sky_model_with_keys,
-            plotting_config=residual_plotting_config,
+            residual_plotting_config=residual_plotting_config,
         )
     else:
 
