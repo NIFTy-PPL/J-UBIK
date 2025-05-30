@@ -23,7 +23,7 @@ def weight_modify(obs: Observation, weight_modify: WeightModify | None):
     if weight_modify is None:
         return obs
 
-    logger.info(f"Weights modified by {weight_modify.percentage} percent")
+    logger.info(f"Weights modified by {weight_modify.percentage * 100} percent")
 
     weight_old = obs.weight.val
     perc = weight_modify.percentage
