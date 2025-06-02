@@ -15,6 +15,10 @@ from jubik0.instruments.jwst.config_handler import (
     load_yaml_and_save_info,
 )
 from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
+from jubik0.instruments.jwst.minimization.mask_hot_pixels import (
+    HotPixelMasking,
+    minimize_with_hot_pixel_masking,
+)
 from jubik0.instruments.jwst.minimization.alignment_process import (
     alignment_minimization_process,
 )
@@ -162,9 +166,13 @@ kl_settings = KLSettings(
 
 jft.logger.info("Full reconstruction")
 
-samples, state = minimization_from_initial_samples(
-    likelihood_target,  # + likelihood_products.alignment.likelihood.likelihood,
-    kl_settings,
-    samples_fixpointing,
-    # not_take_starting_pos_keys=sky_model_with_keys.domain.keys(),
+samples, state = minimize_with_hot_pixel_masking(
+    likelihood=likelihood_products.target,
+    kl_settings=kl_settings,
+    masking=HotPixelMasking(
+        mask_at_step=5,
+        sigma=5,
+        sky_with_filter=sky_model_with_keys,
+    ),
+    starting_samples=samples_fixpointing,
 )

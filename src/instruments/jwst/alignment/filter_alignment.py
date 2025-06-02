@@ -5,10 +5,6 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 
-from ..parse.alignment.star_alignment import StarAlignmentConfig
-from ..parse.parametric_model.parametric_prior import (
-    prior_config_factory,
-)
 from ..parse.rotation_and_shift.coordinates_correction import (
     MODEL_KEY,
     SHIFT_UNIT_KEY,

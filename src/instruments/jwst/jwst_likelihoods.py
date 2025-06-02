@@ -11,6 +11,7 @@ from .plotting.alignment import MultiFilterAlignmentPlottingInformation
 from .alignment.filter_alignment import FilterAlignment
 
 from .likelihood.target_likelihood import (
+    SingleTargetLikelihood,
     TargetLikelihoodSideEffects,
     build_target_likelihood,
 )
@@ -56,9 +57,14 @@ from typing import Union
 
 @dataclass
 class TargetLikelihoodProducts:
-    likelihood: jft.Likelihood
+    likelihoods: list[SingleTargetLikelihood]
     plotting: ResidualPlottingInformation
     filter_projector: FilterProjector | None = None
+
+    @property
+    def likelihood(self) -> jft.Likelihood | jft.Gaussian:
+        likelihoods = (t.likelihood for t in self.likelihoods)
+        return reduce(lambda x, y: x + y, likelihoods)
 
 
 @dataclass
@@ -166,7 +172,7 @@ def build_jwst_likelihoods(
             rotation_center=SkyCoord(filter_alignment.boresight),
         )
 
-        likelihood_target = build_target_likelihood(
+        likelihood_target: SingleTargetLikelihood = build_target_likelihood(
             response=TargetResponseInput(
                 filter_name=filter,
                 grid=grid,
@@ -200,7 +206,7 @@ def build_jwst_likelihoods(
 
     return JwstLikelihoodProducts(
         target=TargetLikelihoodProducts(
-            likelihood=reduce(lambda x, y: x + y, target_filter_likelihoods),
+            likelihoods=target_filter_likelihoods,
             plotting=target_plotting,
             filter_projector=filter_projector,
         ),

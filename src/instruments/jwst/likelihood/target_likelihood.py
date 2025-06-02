@@ -1,21 +1,39 @@
 from dataclasses import dataclass
 
+import nifty8.re as jft
+
 from ..jwst_response import (
     JwstResponse,
     TargetResponseInput,
     build_target_response,
 )
 from ..plotting.residuals import ResidualPlottingInformation
-from .likelihood import build_likelihood, GaussianLikelihoodInput
+from .likelihood import GaussianLikelihoodInput, LikelihoodData, build_likelihood
 
 # --------------------------------------------------------------------------------------
 # Jwst Likelihood
 # --------------------------------------------------------------------------------------
 
 
+# Input --------------------------------------------------------------------------------
+
+
 @dataclass
 class TargetLikelihoodSideEffects:
     plotting: ResidualPlottingInformation
+
+
+# Output -------------------------------------------------------------------------------
+
+
+@dataclass
+class SingleTargetLikelihood:
+    filter: str
+    builder: GaussianLikelihoodInput
+
+    @property
+    def likelihood(self) -> jft.Likelihood | jft.Gaussian:
+        return build_likelihood(self.builder)
 
 
 def build_target_likelihood(
@@ -24,10 +42,9 @@ def build_target_likelihood(
 ):
     jwst_target_response: JwstResponse = build_target_response(input_config=response)
 
-    likelihood_target = build_likelihood(
-        GaussianLikelihoodInput(
-            response=jwst_target_response, data=response.target_data
-        )
+    builder = GaussianLikelihoodInput(
+        response=jwst_target_response,
+        data=LikelihoodData.from_equivalent(response.target_data),
     )
 
     side_effect.plotting.append_information(
@@ -38,4 +55,4 @@ def build_target_likelihood(
         model=jwst_target_response,
     )
 
-    return likelihood_target
+    return SingleTargetLikelihood(filter=response.filter_name, builder=builder)
