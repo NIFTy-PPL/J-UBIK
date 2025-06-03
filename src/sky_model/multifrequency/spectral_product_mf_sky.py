@@ -407,10 +407,8 @@ class SpectralProductMFSky(Model):
             amplitude = self.spectral_amplitude(p)
         amplitude = amplitude.at[0].set(0.0)
 
-        spectral_index_mean = self.log_spectral_behavior.mean_with_frequencies(p)
-        spectral_index_fluc = self.log_spectral_behavior.fluctuations_with_frequencies(
-            p
-        )
+        spectral_index_mean = self.log_spectral_behavior.mean(p)
+        spectral_index_fluc = self.log_spectral_behavior.fluctuations(p)
 
         deviations = self._get_deviations_at_relative_log_freqency(
             p, relative_log_frequency
@@ -418,8 +416,10 @@ class SpectralProductMFSky(Model):
 
         return (
             self._hdvol
-            * self._ht(amplitude[self._pd] * (spectral_index_fluc + deviations))
-            + spectral_index_mean
+            * self._ht(amplitude[self._pd] * (spectral_index_fluc *
+                                              relative_log_frequency
+                                              + deviations))
+            + spectral_index_mean * relative_log_frequency
         )
 
     def get_distribution_at_relative_log_frequency(self, p, relative_log_frequency):
