@@ -169,9 +169,8 @@ jft.logger.info("Full reconstruction")
 samples, state = minimize_with_hot_pixel_masking(
     likelihood=likelihood_products.target,
     kl_settings=kl_settings,
-    masking=HotPixelMasking(
-        mask_at_step=5,
-        sigma=5,
+    masking=HotPixelMasking.from_yaml_dict(
+        cfg["telescope"],
         sky_with_filter=sky_model_with_keys,
     ),
     starting_samples=samples_fixpointing,

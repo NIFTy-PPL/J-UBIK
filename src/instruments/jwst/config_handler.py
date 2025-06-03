@@ -17,8 +17,30 @@ from astropy import units as u
 
 def load_yaml_and_save_info(config_path):
     cfg = yaml.load(open(config_path, "r"), Loader=yaml.SafeLoader)
+
     results_directory = cfg["files"]["res_dir"]
+    if cfg["files"].get("set_filter", False):
+        filter_mapping = dict(
+            f2100w="01",
+            f1800w="02",
+            f1500w="03",
+            f1280w="04",
+            f1000w="05",
+            f770w="06",
+            f560w="07",
+            f444w="08",
+            f356w="09",
+            f277w="10",
+            f200w="11",
+            f150w="12",
+            f115w="13",
+        )
+        filter_name = next(iter(cfg["files"]["filter"]))
+        filter = f"{filter_mapping[filter_name]}_{filter_name}"
+        results_directory = results_directory.format(filter=filter)
+
     os.makedirs(results_directory, exist_ok=True)
+
     save_local_packages_hashes_to_txt(
         ["nifty8", "charm_lensing", "jubik0"],
         os.path.join(results_directory, "hashes.txt"),

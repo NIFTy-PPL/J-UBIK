@@ -41,6 +41,14 @@ class HotPixelMasking:
 
         return KLSettings(**klset)
 
+    @classmethod
+    def from_yaml_dict(cls, raw: dict, sky_with_filter: jft.Model) -> "HotPixelMasking":
+        return cls(
+            mask_at_step=raw["hot_pixel"]["mask_at_step"],
+            sigma=raw["hot_pixel"]["sigma"],
+            sky_with_filter=sky_with_filter,
+        )
+
 
 def masking_hot_pixels(
     likelihood: TargetLikelihoodProducts,
