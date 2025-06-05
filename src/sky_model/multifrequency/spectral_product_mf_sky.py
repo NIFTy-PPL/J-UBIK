@@ -255,11 +255,10 @@ class SpectralProductMFSky(Model):
                 )
             else:
                 spectral_deviations = self.spectral_index_deviations(p)
-                spectral_terms = (
-                    self.log_spectral_behavior.fluctuations_with_frequencies(p)
-                    + self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
-                        spectral_deviations
-                    )
+                spectral_terms = self.log_spectral_behavior.fluctuations_with_frequencies(
+                    p
+                ) + self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
+                    spectral_deviations
                 )
 
             if self.spectral_amplitude is None:
@@ -416,9 +415,10 @@ class SpectralProductMFSky(Model):
 
         return (
             self._hdvol
-            * self._ht(amplitude[self._pd] * (spectral_index_fluc *
-                                              relative_log_frequency
-                                              + deviations))
+            * self._ht(
+                amplitude[self._pd]
+                * (spectral_index_fluc * relative_log_frequency + deviations)
+            )
             + spectral_index_mean * relative_log_frequency
         )
 
