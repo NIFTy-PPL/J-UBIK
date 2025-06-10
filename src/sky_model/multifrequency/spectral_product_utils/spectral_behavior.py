@@ -97,6 +97,7 @@ class SpectralIndex(SingleHarmonicLogSpectralBehavior):
         slicing_tuple = (slice(None),) + (None,) * len(
             spectral_scaled_excitations.target.shape
         )
+
         self._relative_log_frequencies = (
             log_frequencies - log_frequencies[reference_frequency_index]
         )[slicing_tuple]

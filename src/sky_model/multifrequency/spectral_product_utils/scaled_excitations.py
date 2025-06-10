@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause
 # Authors: Matteo Guardiani & Julian Rüstig
 
-from .distribution_or_default import build_distribution_or_default
+from typing import Union
 
 from nifty8.re.model import Model
 from nifty8.re.num.stats_distributions import lognormal_prior, normal_prior
+
+from .distribution_or_default import build_distribution_or_default
 
 
 class ScaledExcitations(Model):
@@ -20,7 +22,7 @@ class ScaledExcitations(Model):
 
 def build_scaled_excitations(
     prefix: str,
-    fluctuations_settings: dict,
+    fluctuations_settings: Union[callable, tuple, list],
     shape: tuple[int],
 ) -> ScaledExcitations:
     fluctuations = build_distribution_or_default(

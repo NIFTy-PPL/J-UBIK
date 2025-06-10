@@ -28,14 +28,12 @@ pmp = pytest.mark.parametrize
 
 @pmp("shape", [(10,), (10, 10)])
 @pmp("distances", [0.1])
-@pmp("log_frequencies", [np.array((0.1,))])
+@pmp("log_frequencies", [np.array((0.1,)),
+                         np.array((0.01, 0.1, 1., 14.)),])
 @pmp("reference_frequency_index", [0])
 @pmp("zero_mode", [jft.Model(lambda p: 0.0, domain={"zero_mode": None})])
 @pmp("spectral_index_mean", [jft.NormalPrior(0.0, 1.0, name="spectral_index_mean")])
-@pmp(
-    "spectral_index_fluctuations",
-    [jft.LogNormalPrior(0.1, 1.0, name="spectral_index_fluctuations")],
-)
+@pmp("spectral_index_fluctuations", [(.5, 5.e-1),])
 @pmp(
     "deviations_settings",
     [
@@ -60,15 +58,22 @@ def test_correlated_multi_frequency_sky_init(
     spatial_amplitude = NonParametricAmplitude(
         grid,
         None,
-        jft.lognormal_prior(0.1, 0.01),
+        jft.normal_prior(1., 1.),
     )
 
     spatial_fluctuations = jft.LogNormalPrior(0.1, 10.0, name="spatial_fluctuations")
 
+    scaled_excitations = build_scaled_excitations(
+        prefix="spectral_index_",
+        fluctuations_settings=spectral_index_fluctuations,
+        shape=shape,
+    )
+
+    zero_mode = zero_mode
     spectral_behavior = SpectralIndex(
         log_frequencies=log_frequencies,
         mean=spectral_index_mean,
-        spectral_scaled_excitations=spectral_index_fluctuations,
+        spectral_scaled_excitations=scaled_excitations,
         reference_frequency_index=reference_frequency_index,
     )
 
@@ -160,7 +165,6 @@ def test_spatial_convolution(
 @pmp("distances", [0.1])
 @pmp("log_frequencies", [(0.1, 0.2, 0.6)])
 @pmp("zero_mode", [jft.Model(lambda p: 0.1, domain={"zero_mode": None})])
-@pmp("zero_mode_offset", [0.0])
 @pmp("spectral_index_mean", [jft.NormalPrior(0.0, 1.0, name="spectral_index_mean")])
 @pmp("spectral_index_fluctuations", [(0.1, 1.0)])
 def test_apply_with_and_without_frequency_deviations(
@@ -169,7 +173,6 @@ def test_apply_with_and_without_frequency_deviations(
     distances,
     log_frequencies,
     zero_mode,
-    zero_mode_offset,
     spectral_index_mean,
     spectral_index_fluctuations,
 ):
