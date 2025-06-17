@@ -5,6 +5,12 @@ import numpy as np
 import nifty8.re as jft
 
 from ....likelihood import connect_likelihood_to_model
+from ..likelihood.likelihood import (
+    LikelihoodData,
+    GaussianLikelihoodInput,
+)
+from ..likelihood.target_likelihood import SingleTargetLikelihood
+
 from ....minimization_parser import MinimizationParser
 from ....minimization.minimization_from_samples import (
     KLSettings,
@@ -59,6 +65,9 @@ def masking_hot_pixels(
     def response(si, R):
         return R(mask_hot_pixel.sky_with_filter(si) | si.tree)
 
+    target_plotting = ResidualPlottingInformation(y_offset=plotting.y_offset)
+
+    new_likelihoods = []
     for ll in likelihood.likelihoods:
         d = ll.builder.data.data
         m = ll.builder.data.mask
@@ -72,12 +81,28 @@ def masking_hot_pixels(
 
         response_new = jft.Model(lambda x: R(x)[extra_m], domain=R.domain)
 
-        ll.builder.data.mask = m
-        ll.builder.response = response_new
-        plotting.mask[plotting.filter.index(ll.filter)] = m
-        plotting.model[plotting.filter.index(ll.filter)] = response_new
+        builder = GaussianLikelihoodInput(
+            response=response_new,
+            data=LikelihoodData(data=d, std=s, mask=m),
+        )
 
-    return likelihood
+        target_plotting.append_information(
+            filter=ll.filter,
+            data=d,
+            mask=m,
+            std=s,
+            model=response_new,
+        )
+
+        new_likelihoods.append(
+            SingleTargetLikelihood(filter=ll.filter, builder=builder)
+        )
+
+    return TargetLikelihoodProducts(
+        likelihoods=new_likelihoods,
+        plotting=target_plotting,
+        filter_projector=likelihood.filter_projector,
+    )
 
 
 @dataclass
