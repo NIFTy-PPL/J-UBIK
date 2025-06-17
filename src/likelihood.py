@@ -172,8 +172,7 @@ def _model_wrap(model, target_domain=None):
 
 
 def connect_likelihood_to_model(
-    likelihood: jft.Likelihood,
-    model: jft.Model
+    likelihood: jft.Likelihood, model: jft.Model
 ) -> jft.Likelihood:
     """
     Connects a likelihood function to a model, updating the model's domain.
@@ -204,10 +203,7 @@ def connect_likelihood_to_model(
     mdom = tdom | model.domain
 
     model_wrapper = _model_wrap(model, tdom)
-    model = jft.Model(
-        lambda x: jft.Vector(model_wrapper(x)),
-        domain=jft.Vector(mdom)
-    )
+    model = jft.Model(lambda x: jft.Vector(model_wrapper(x)), domain=jft.Vector(mdom))
 
     return likelihood.amend(model, domain=model.domain)
 
@@ -215,7 +211,7 @@ def connect_likelihood_to_model(
 def build_gaussian_likelihood(
     data: np.ndarray,
     std: np.ndarray,
-    model: jft.Model | None,
+    model: jft.Model | None = None,
 ):
     """
     Build a Gaussian likelihood function based on the provided data and
