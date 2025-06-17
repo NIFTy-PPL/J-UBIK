@@ -56,6 +56,14 @@ class HotPixelMasking:
         )
 
 
+def _under_the_hood(dm, d, m, s, R, mask_hot_pixel):
+    res = (d[m] - dm) / s[m]
+    extra_m = np.abs(res) < mask_hot_pixel.sigma
+    m[m] = extra_m
+
+    return jft.Model(lambda x: R(x)[extra_m], domain=R.domain)
+
+
 def masking_hot_pixels(
     likelihood: TargetLikelihoodProducts,
     plotting: ResidualPlottingInformation,
@@ -75,11 +83,7 @@ def masking_hot_pixels(
         R = ll.builder.response
 
         dm = jft.mean([response(si, R) for si in samples])
-        res = (d[m] - dm) / s[m]
-        extra_m = np.abs(res) < mask_hot_pixel.sigma
-        m[m] = extra_m
-
-        response_new = jft.Model(lambda x: R(x)[extra_m], domain=R.domain)
+        response_new = _under_the_hood(dm, d, m, s, R, mask_hot_pixel)
 
         builder = GaussianLikelihoodInput(
             response=response_new,
