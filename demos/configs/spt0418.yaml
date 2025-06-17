@@ -90,7 +90,7 @@ sky:
         - 0.143 # F770W
         - 0.201 # F560W
 
-        # - 0.249 # F444W
+        - 0.249 # F444W
 
         # - 0.319 # F356W  # mistake here actually 0.311
         # - 0.396 # F277W
@@ -109,7 +109,7 @@ sky:
         - 0.188 # F770W
         - 0.245 # F560W
 
-        # - 0.319 # F444W
+        - 0.319 # F444W
 
         # - 0.395 # F356W
         # - 0.512 # F277W
@@ -161,7 +161,7 @@ sky:
       light:
         mean:
           sersic_01: # i0*exp(-bn * (r/re)**1/n - 1)
-            ie: ['lognormal', 10.0, 1000.0, [2, 1, 1]]
+            ie: ['lognormal', 10.0, 1000.0, [3, 1, 1]]
             # ie: ['delta', 1.0, 0.0]
             re: ['log_normal', 0.4, 0.5]  # 0.88+-0.01 (Jared Cathey et.al. 2023)
             n: ['log_normal', 6.2, 0.6]    # 3.17+-0.02 (Jared Cathey et.al. 2023)
@@ -460,7 +460,7 @@ files:
 
   set_filter: False
   # res_dir: './results/jwst_lens/cluster/22_03_{filter}_positiveDelta_piemd'
-  res_dir: './results/jwst_lens/cluster/22_04_f560wf770w_compareResiduals'
+  res_dir: './results/jwst_lens/cluster/22_04_f444wf560wf770w_compareResiduals'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -516,9 +516,9 @@ files:
       - './data/spt0418/f560w/jw01355015001_03101_00003_mirimage/jw01355015001_03101_00003_mirimage_{step_type}.fits'
       - './data/spt0418/f560w/jw01355015001_03101_00004_mirimage/jw01355015001_03101_00004_mirimage_{step_type}.fits'
 
-    # f444w: # NIRCam
-    #   - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_{step_type}.fits'
-    #   - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_{step_type}.fits'
+    f444w: # NIRCam
+      - './data/spt0418/f444w/jw01355016001_02105_00001_nrcblong/jw01355016001_02105_00001_nrcblong_{step_type}.fits'
+      - './data/spt0418/f444w/jw01355016001_02105_00002_nrcblong/jw01355016001_02105_00002_nrcblong_{step_type}.fits'
 
     # f356w:
     #   - './data/spt0418/f356w/jw01355016001_02103_00001_nrcblong/jw01355016001_02103_00001_nrcblong_{step_type}.fits'
@@ -574,7 +574,7 @@ minimization_fixpointing:
 
 minimization:
     key: 20250602
-    resume: False
+    resume: True
     n_total_iterations: 12
 
     delta:
