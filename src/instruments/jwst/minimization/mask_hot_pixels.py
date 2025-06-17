@@ -102,6 +102,10 @@ def masking_hot_pixels(
             SingleTargetLikelihood(filter=ll.filter, builder=builder)
         )
 
+        # TODO: MAKE THIS NECESSERY SIDE EFFECT DISAPPEAR
+        plotting.mask[plotting.filter.index(ll.filter)] = m
+        plotting.model[plotting.filter.index(ll.filter)] = response_new
+
     return TargetLikelihoodProducts(
         likelihoods=new_likelihoods,
         plotting=target_plotting,
