@@ -1,6 +1,6 @@
 cpu: False
-nonparametric_lens: True
-no_interactive_plotting: False
+nonparametric_lens: False
+# no_interactive_plotting: False
 
 # Before long run:
 # 1) No prior samples
@@ -34,6 +34,13 @@ jwst_lens_plotting:
   residuals:
     xmax_residuals: 20 # 4 for big run
     residual_over_std: True
+    residual_overplot: 
+      max_percent_contours: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+      contour_settings: 
+        alpha: 0.5
+        colors: 'black'
+        linewidths: 0.5
+
     sky: 
       vmin: 1.0e-4
       norm: 'log'
@@ -187,37 +194,15 @@ sky:
       convergence:
         mean:
 
-          cpl:
-            b:
-              distribution: 'log_normal'
-              mean: 1.3
-              sigma: 0.1
-            t:
-              distribution: 'log_normal'
-              mean: 0.5
-              sigma: 0.05
-            rs:
-              distribution: 'log_normal'
-              mean: 0.1
-              sigma: 0.05
-            center:
-              distribution: 'delta'
-              mean: [0.03696488, -0.03839332] # 0.0
-              sigma: 0.1
-            q:
-              distribution: 'uniform'
-              min: 1.0
-              max: 1.25
-            theta:
-              distribution: 'normal'
-              mean: 0.0
-              sigma: 10
-
-          # piemd:
+          # cpl:
           #   b:
           #     distribution: 'log_normal'
           #     mean: 1.3
           #     sigma: 0.1
+          #   t:
+          #     distribution: 'log_normal'
+          #     mean: 0.5
+          #     sigma: 0.05
           #   rs:
           #     distribution: 'log_normal'
           #     mean: 0.1
@@ -234,6 +219,54 @@ sky:
           #     distribution: 'normal'
           #     mean: 0.0
           #     sigma: 10
+
+          # dpie:
+          #   b:
+          #     distribution: 'log_normal'
+          #     mean: 2.5
+          #     sigma: 0.5
+          #   rs:
+          #     distribution: 'log_normal'
+          #     mean: 0.1
+          #     sigma: 0.05
+          #   rc:
+          #     distribution: 'log_normal'
+          #     mean: 0.7
+          #     sigma: 0.1
+          #   center:
+          #     distribution: 'delta'
+          #     mean: [0.03696488, -0.03839332] # 0.0
+          #     sigma: 0.1
+          #   q:
+          #     distribution: 'uniform'
+          #     min: 1.0
+          #     max: 1.25
+          #   theta:
+          #     distribution: 'normal'
+          #     mean: 0.0
+          #     sigma: 10
+
+          piemd:
+            b:
+              distribution: 'log_normal'
+              mean: 1.3
+              sigma: 0.1
+            rs:
+              distribution: 'log_normal'
+              mean: 0.1
+              sigma: 0.05
+            center:
+              distribution: 'delta'
+              mean: [0.03696488, -0.03839332] # 0.0
+              sigma: 0.1
+            q:
+              distribution: 'uniform'
+              min: 1.0
+              max: 1.25
+            theta:
+              distribution: 'normal'
+              mean: 0.0
+              sigma: 10
 
         perturbations: 
           cfm:
@@ -426,7 +459,7 @@ files:
   # workers: 4
 
   set_filter: True
-  res_dir: './results/jwst_lens/cluster/22_03_{filter}_positiveDelta_cplNonlinear'
+  res_dir: './results/jwst_lens/cluster/22_03_{filter}_positiveDelta_piemd'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -541,7 +574,7 @@ minimization_fixpointing:
 minimization:
     key: 20250602
     resume: True
-    n_total_iterations: 8
+    n_total_iterations: 12
 
     delta:
       switches: [0, 4, 8, 15]

@@ -58,10 +58,10 @@ if cfg["cpu"]:
 
     config.update("jax_default_device", devices("cpu")[0])
 
-if cfg["no_interactive_plotting"]:
-    import matplotlib
-
-    matplotlib.use("Agg")
+# if cfg["no_interactive_plotting"]:
+#     import matplotlib
+#
+#     matplotlib.use("Agg")
 
 grid = Grid.from_grid_model(GridModel.from_yaml_dict(cfg["sky"]["grid"]))
 

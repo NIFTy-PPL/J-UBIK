@@ -162,6 +162,15 @@ def build_plot_sky_residuals(
                 **residual_plotting_config.sky.rendering,
             )
 
+        overplot_model_sky = (
+            None
+            if residual_plotting_config.residual_overplot.overplot_model is None
+            else _get_model_samples_or_position(
+                position_or_samples,
+                residual_plotting_config.residual_overplot.overplot_model,
+            )
+        )
+
         for filter_key in residual_plotting_info.filter:
             ypos = _determine_ypos(
                 filter_key, filter_projector, y_offset=residual_plotting_info.y_offset
@@ -218,6 +227,27 @@ def build_plot_sky_residuals(
                     **residual_plotting_config.residual.rendering,
                 )
                 display_text(axes[ypos, xpos_residual], chis[xpos_residual - 3])
+
+            if residual_plotting_config.residual_overplot is not None:
+                overplot_mean, *_ = (
+                    (model_mean, None)
+                    if overplot_model_sky is None
+                    else _get_data_model_and_chi2(
+                        position_or_samples,
+                        overplot_model_sky,
+                        data_model=model,
+                        data=data,
+                        mask=mask,
+                        std=std,
+                    )
+                )
+                overplot_mean[~mask] = np.nan
+                for ax, mm in zip(axes[ypos, 3:], overplot_mean):
+                    ax.contour(
+                        mm / np.nanmax(mm),
+                        levels=residual_plotting_config.residual_overplot.max_percent_contours,
+                        **residual_plotting_config.residual_overplot.contour_settings,
+                    )
 
         for ax, im in zip(axes.flatten(), ims.flatten()):
             if not isinstance(im, int):

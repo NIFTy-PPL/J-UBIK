@@ -1,4 +1,7 @@
 from dataclasses import dataclass, field
+from typing import Optional
+
+import nifty8.re as jft
 import numpy as np
 
 
@@ -24,7 +27,7 @@ class FieldPlottingConfig:
         return dict(origin="lower", interpolation="None")
 
     @classmethod
-    def from_yaml_dict(cls, raw: dict):
+    def from_yaml_dict(cls, raw: dict) -> "FieldPlottingConfig":
         return cls(
             vmin=raw.get("vmin"),
             vmax=raw.get("vmax"),
@@ -40,7 +43,7 @@ class MultiFrequencyPlottingConfig:
     combined: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
 
     @classmethod
-    def from_yaml_dict(cls, raw: dict):
+    def from_yaml_dict(cls, raw: dict) -> "MultiFrequencyPlottingConfig":
         return cls(
             alpha=FieldPlottingConfig.from_yaml_dict(raw.get("alpha", {})),
             reference=FieldPlottingConfig.from_yaml_dict(raw.get("reference", {})),
@@ -54,10 +57,38 @@ class LensSystemPlottingConfig:
     source: MultiFrequencyPlottingConfig = field(
         default_factory=MultiFrequencyPlottingConfig
     )
+    lens_mass: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
     lens_light: MultiFrequencyPlottingConfig = field(
         default_factory=MultiFrequencyPlottingConfig
     )
-    lens_mass: FieldPlottingConfig = field(default_factory=FieldPlottingConfig)
+
+    @classmethod
+    def from_yaml_dict(cls, raw: dict) -> "LensSystemPlottingConfig":
+        return cls(
+            share_source_vmin_vmax=raw.get("share_source_vmin_vmax", False),
+            source=MultiFrequencyPlottingConfig.from_yaml_dict(raw.get("source")),
+            lens_mass=FieldPlottingConfig.from_yaml_dict(raw.get("mass", {})),
+            lens_light=MultiFrequencyPlottingConfig.from_yaml_dict(
+                raw.get("lens_light")
+            ),
+        )
+
+
+@dataclass
+class ResidualOverplot:
+    max_percent_contours: list[float] | None
+    contour_settings: dict = field(default_factory=dict)
+    overplot_model: jft.Model | None = None
+
+    @classmethod
+    def from_optional(cls, raw: dict | None) -> Optional["ResidualOverplot"]:
+        if raw is None:
+            return None
+
+        return cls(
+            max_percent_contours=raw.get("max_percent_contours"),
+            contour_settings=raw.get("contour_settings", {}),
+        )
 
 
 @dataclass
@@ -68,12 +99,16 @@ class ResidualPlottingConfig:
 
     residual_over_std: bool = True
     xmax_residuals: int = 4
+    residual_overplot: ResidualOverplot | None = None
 
     @classmethod
-    def from_yaml_dict(cls, raw: dict):
+    def from_yaml_dict(cls, raw: dict) -> "ResidualPlottingConfig":
         return cls(
             xmax_residuals=raw.get("xmax_residuals", 4),
             residual_over_std=raw.get("residual_over_std", True),
+            residual_overplot=ResidualOverplot.from_optional(
+                raw.get("residual_overplot")
+            ),
             sky=FieldPlottingConfig.from_yaml_dict(raw.get("sky", {})),
             data=FieldPlottingConfig.from_yaml_dict(raw.get("data", {})),
             residual=FieldPlottingConfig.from_yaml_dict(

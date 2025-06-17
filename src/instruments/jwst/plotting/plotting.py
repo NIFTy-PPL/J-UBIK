@@ -99,24 +99,33 @@ def get_plot(
 
     lens_system: LensSystem = lens_system
 
-    source_plotting_config = MultiFrequencyPlottingConfig.from_yaml_dict(
-        plotting_cfg.get("source")
-    )
-    lens_light_plotting_config = MultiFrequencyPlottingConfig.from_yaml_dict(
-        plotting_cfg.get("lens_light")
-    )
-    plotting_config_lens_system = LensSystemPlottingConfig(
-        source=source_plotting_config,
-        lens_light=lens_light_plotting_config,
-        share_source_vmin_vmax=plotting_cfg.get("share_source_vmin_vmax", False),
-    )
-    residual_plotting_config = ResidualPlottingConfig.from_yaml_dict(
+    plot_cfg_lens_system = LensSystemPlottingConfig.from_yaml_dict(raw=plotting_cfg)
+    plot_cfg_residual = ResidualPlottingConfig.from_yaml_dict(
         plotting_cfg.get("residuals")
     )
+    if plot_cfg_residual.residual_overplot is not None:
+        if parametric_lens:
+            ll = lens_system.get_forward_model_parametric(only_source=True)
+        else:
+            ll = lens_system.get_forward_model_full(only_source=True)
+        if parametric_source:
+            ll = lens_system.get_forward_model_parametric_source(
+                parametric_lens=parametric_lens, only_source=True
+            )
+
+        if len(ll.target.shape) == 2:
+            lensed_light = jft.Model(lambda x: ll(x)[None], domain=ll.domain)
+        else:
+            lensed_light = ll
+
+        plot_cfg_residual.residual_overplot.overplot_model = jft.Model(
+            lambda x: filter_projector(dict(sky=lensed_light(x))),
+            domain=lensed_light.domain,
+        )
 
     plot_lens = build_plot_lens_system(
         results_directory,
-        plotting_config=plotting_config_lens_system,
+        plotting_config=plot_cfg_lens_system,
         lens_system=lens_system,
         grid=grid,
         parametric_lens=parametric_lens,
@@ -125,7 +134,7 @@ def get_plot(
 
     plot_source = build_plot_source(
         results_directory,
-        plotting_config=source_plotting_config,
+        plotting_config=plot_cfg_lens_system.source,
         lens_system=lens_system,
         grid=grid,
     )
@@ -135,7 +144,7 @@ def get_plot(
         filter_projector=filter_projector,
         residual_plotting_info=residual_info,
         sky_model_with_filters=sky_model_with_keys,
-        residual_plotting_config=residual_plotting_config,
+        residual_plotting_config=plot_cfg_residual,
     )
 
     return plot_source, plot_residual, plot_lens
