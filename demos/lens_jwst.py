@@ -135,6 +135,9 @@ if likelihood_products.alignment is not None:
         FieldPlottingConfig(vmin=1e-4, norm="log"),
     )
 
+else:
+    samples_fixpointing = None
+
 
 def callback(samples, state):
     plot_target(samples, state)

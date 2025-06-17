@@ -104,14 +104,15 @@ def _determine_ypos(
 
 
 def build_plot_sky_residuals(
-    results_directory: str,
+    results_directory: str | None,
     filter_projector: FilterProjector,
     residual_plotting_info: ResidualPlottingInformation,
     sky_model_with_filters: jft.Model,
     residual_plotting_config: ResidualPlottingConfig = ResidualPlottingConfig(),
 ):
-    residual_directory = join(results_directory, "residuals")
-    makedirs(residual_directory, exist_ok=True)
+    if results_directory is not None:
+        residual_directory = join(results_directory, "residuals")
+        makedirs(residual_directory, exist_ok=True)
 
     xmax_residuals = residual_plotting_config.xmax_residuals
 

@@ -18,7 +18,7 @@ from .plotting_base import (
 
 
 def build_plot_lens_system(
-    results_directory: str,
+    results_directory: str | None,
     plotting_config: LensSystemPlottingConfig,
     lens_system,
     grid: Grid,
@@ -31,8 +31,9 @@ def build_plot_lens_system(
 
     lens_system: LensSystem = lens_system
 
-    lens_dir = join(results_directory, "lens")
-    makedirs(lens_dir, exist_ok=True)
+    if results_directory is not None:
+        lens_dir = join(results_directory, "lens")
+        makedirs(lens_dir, exist_ok=True)
 
     tshape = lens_system.get_forward_model_parametric().target.shape
     # FIXME: This should be handled by a source with shape 3

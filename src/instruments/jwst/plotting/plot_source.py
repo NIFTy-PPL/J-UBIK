@@ -30,8 +30,9 @@ def build_plot_source(
 
     lens_system: LensSystem = lens_system
 
-    source_dir = join(results_directory, "source")
-    makedirs(source_dir, exist_ok=True)
+    if results_directory is not None:
+        source_dir = join(results_directory, "source")
+        makedirs(source_dir, exist_ok=True)
 
     freq_len = len(grid.spectral)
     xlen = 3

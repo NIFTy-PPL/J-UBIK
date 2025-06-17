@@ -174,7 +174,6 @@ def plot_prior(
     )
 
     grid = Grid.from_grid_model(GridModel.from_yaml_dict(cfg["sky"]["grid"]))
-    results_directory = cfg["files"]["res_dir"]
     # ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)
 
     source_plotting_config = MultiFrequencyPlottingConfig(
@@ -200,7 +199,7 @@ def plot_prior(
 
     if plot_source and not callable(plot_source):
         plot_source = build_plot_source(
-            results_directory,
+            results_directory=None,
             plotting_config=source_plotting_config,
             lens_system=lens_system,
             grid=grid,
@@ -210,7 +209,7 @@ def plot_prior(
 
     if plot_lens and not callable(plot_lens):
         plot_lens = build_plot_lens_system(
-            results_directory,
+            results_directory=None,
             plotting_config=plotting_config_lens_system,
             lens_system=lens_system,
             grid=grid,
@@ -223,7 +222,7 @@ def plot_prior(
 
     if plot_residuals:
         plot_residual = build_plot_sky_residuals(
-            results_directory=results_directory,
+            results_directory=None,
             filter_projector=filter_projector,
             residual_plotting_info=data_dict,
             sky_model_with_filters=sky_model_with_keys,
