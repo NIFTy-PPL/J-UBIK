@@ -12,7 +12,7 @@ from ..plotting.alignment import (
     FilterAlignmentPlottingInformation,
     MultiFilterAlignmentPlottingInformation,
 )
-from .likelihood import build_likelihood, GaussianLikelihoodInput
+from .likelihood import GaussianLikelihoodBuilder
 from ..alignment.star_alignment import StarTables
 from ..parse.alignment.star_alignment import StarAlignmentConfig
 from ..alignment.star_model import build_star_in_data
@@ -132,11 +132,12 @@ def build_star_alignment_likelihood(
                 data_mask=np.array(response.stars_data[star.id].mask),
             )
 
-            likelihood_star = build_likelihood(
-                GaussianLikelihoodInput(
-                    response=jwst_star_response, data=response.stars_data[star.id]
-                )
-            )
+            likelihood_star = GaussianLikelihoodBuilder(
+                response=jwst_star_response,
+                data=response.stars_data[star.id].data,
+                std=response.stars_data[star.id].std,
+                mask=response.stars_data[star.id].mask,
+            ).build()
 
             filter_alignment_likelihoods[name].append(likelihood_star)
             filter_alignment_plotting[name].append_information(

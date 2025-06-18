@@ -214,6 +214,8 @@ def build_sky_to_subsampled_data(
 
 @dataclass
 class TargetResponseInput:
+    # TODO : Rework as builder object
+
     """
     Configuration container for building a target response model that connects the sky
     model to observational data for a specific filter.

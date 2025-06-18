@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 
 
-from ...likelihood import build_gaussian_likelihood
 from ...grid import Grid
-from .jwst_response import build_jwst_response, TargetResponseInput
+from .jwst_response import build_target_response, TargetResponseInput
 from .filter_projector import FilterProjector, build_filter_projector
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .plotting.residuals import ResidualPlottingInformation
@@ -21,7 +20,6 @@ from .likelihood.alignment_likelihood import (
     AlignmentLikelihoodSideEffects,
     MultiFilterAlignmentLikelihoods,
 )
-from .likelihood.likelihood import build_likelihood
 
 # Parseing
 from .parse.jwst_response import SkyMetaInformation
@@ -173,17 +171,21 @@ def build_jwst_likelihoods(
         )
 
         likelihood_target: SingleTargetLikelihood = build_target_likelihood(
-            response=TargetResponseInput(
-                filter_name=filter,
-                grid=grid,
-                filter_projector=filter_projector,
-                target_data=dataload_results.target_data,
-                filter_meta=preload_results.filter_meta,
-                sky_meta=sky_meta,
-                rotation_and_shift_algorithm=cfg_parser.rotation_and_shift_algorithm,
-                zero_flux_prior_configs=cfg_parser.zero_flux_prior_configs,
-                shift_and_rotation_correction=shift_and_rotation_correction,
+            response=build_target_response(
+                input_config=TargetResponseInput(
+                    filter_name=filter,
+                    grid=grid,
+                    filter_projector=filter_projector,
+                    target_data=dataload_results.target_data,
+                    filter_meta=preload_results.filter_meta,
+                    sky_meta=sky_meta,
+                    rotation_and_shift_algorithm=cfg_parser.rotation_and_shift_algorithm,
+                    zero_flux_prior_configs=cfg_parser.zero_flux_prior_configs,
+                    shift_and_rotation_correction=shift_and_rotation_correction,
+                )
             ),
+            target_data=dataload_results.target_data,
+            filter_name=filter,
             side_effect=TargetLikelihoodSideEffects(plotting=target_plotting),
         )
         target_filter_likelihoods.append(likelihood_target)

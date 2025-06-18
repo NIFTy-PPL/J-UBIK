@@ -5,10 +5,12 @@ import numpy as np
 import nifty8.re as jft
 
 from ....likelihood import connect_likelihood_to_model
-from ..likelihood.likelihood import (
-    LikelihoodData,
-    GaussianLikelihoodInput,
+from ..likelihood.target_likelihood import (
+    build_target_likelihood,
+    TargetLikelihoodSideEffects,
 )
+from ..data.loader.target_loader import TargetDataCore
+
 from ..likelihood.target_likelihood import SingleTargetLikelihood
 
 from ....minimization_parser import MinimizationParser
@@ -56,12 +58,14 @@ class HotPixelMasking:
         )
 
 
-def _under_the_hood(dm, d, m, s, R, mask_hot_pixel):
+def _build_new_mask_and_response(dm, d, m, s, R, mask_hot_pixel):
     res = (d[m] - dm) / s[m]
     extra_m = np.abs(res) < mask_hot_pixel.sigma
-    m[m] = extra_m
 
-    return jft.Model(lambda x: R(x)[extra_m], domain=R.domain)
+    mask_new = m.copy()
+    mask_new[m] = extra_m
+
+    return jft.Model(lambda x: R(x)[extra_m], domain=R.domain), mask_new
 
 
 def masking_hot_pixels(
@@ -77,33 +81,31 @@ def masking_hot_pixels(
 
     new_likelihoods = []
     for ll in likelihood.likelihoods:
-        d = ll.builder.data.data
-        m = ll.builder.data.mask
-        s = ll.builder.data.std
-        R = ll.builder.response
-
-        dm = jft.mean([response(si, R) for si in samples])
-        response_new = _under_the_hood(dm, d, m, s, R, mask_hot_pixel)
-
-        builder = GaussianLikelihoodInput(
-            response=response_new,
-            data=LikelihoodData(data=d, std=s, mask=m),
-        )
-
-        target_plotting.append_information(
-            filter=ll.filter,
-            data=d,
-            mask=m,
-            std=s,
-            model=response_new,
+        dm = jft.mean([response(si, ll.builder.response) for si in samples])
+        response_new, mask_new = _build_new_mask_and_response(
+            dm,
+            ll.builder.data,
+            ll.builder.mask,
+            ll.builder.std,
+            ll.builder.response,
+            mask_hot_pixel,
         )
 
         new_likelihoods.append(
-            SingleTargetLikelihood(filter=ll.filter, builder=builder)
+            build_target_likelihood(
+                response=response_new,
+                target_data=TargetDataCore(
+                    data=ll.builder.data,
+                    std=ll.builder.std,
+                    mask=mask_new,
+                ),
+                filter_name=ll.filter,
+                side_effect=TargetLikelihoodSideEffects(plotting=target_plotting),
+            )
         )
 
         # TODO: MAKE THIS NECESSERY SIDE EFFECT DISAPPEAR
-        plotting.mask[plotting.filter.index(ll.filter)] = m
+        plotting.mask[plotting.filter.index(ll.filter)] = mask_new
         plotting.model[plotting.filter.index(ll.filter)] = response_new
 
     return TargetLikelihoodProducts(
@@ -151,10 +153,7 @@ def minimize_with_hot_pixel_masking(
     )
 
     likelihood = masking_hot_pixels(
-        likelihood,
-        likelihood.plotting,
-        samples,
-        mask_hot_pixel=masking,
+        likelihood, likelihood.plotting, samples, mask_hot_pixel=masking
     )
 
     return minimization_from_initial_samples(

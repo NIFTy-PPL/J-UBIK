@@ -4,11 +4,10 @@ import nifty8.re as jft
 
 from ..jwst_response import (
     JwstResponse,
-    TargetResponseInput,
-    build_target_response,
 )
+from ..data.loader.target_loader import TargetData
 from ..plotting.residuals import ResidualPlottingInformation
-from .likelihood import GaussianLikelihoodInput, LikelihoodData, build_likelihood
+from .likelihood import GaussianLikelihoodBuilder
 
 # --------------------------------------------------------------------------------------
 # Jwst Likelihood
@@ -29,30 +28,36 @@ class TargetLikelihoodSideEffects:
 @dataclass
 class SingleTargetLikelihood:
     filter: str
-    builder: GaussianLikelihoodInput
+    builder: GaussianLikelihoodBuilder
 
     @property
     def likelihood(self) -> jft.Likelihood | jft.Gaussian:
-        return build_likelihood(self.builder)
+        return self.builder.build()
+
+
+# Interface ----------------------------------------------------------------------------
 
 
 def build_target_likelihood(
-    response: TargetResponseInput,
-    side_effect: TargetLikelihoodSideEffects,
+    response: JwstResponse,
+    target_data: TargetData,
+    filter_name: str,
+    side_effect: TargetLikelihoodSideEffects | None = None,
 ):
-    jwst_target_response: JwstResponse = build_target_response(input_config=response)
-
-    builder = GaussianLikelihoodInput(
-        response=jwst_target_response,
-        data=LikelihoodData.from_equivalent(response.target_data),
+    builder = GaussianLikelihoodBuilder(
+        response=response,
+        data=target_data.data,
+        std=target_data.std,
+        mask=target_data.mask,
     )
 
-    side_effect.plotting.append_information(
-        filter=response.filter_name,
-        data=response.target_data.data,
-        std=response.target_data.std,
-        mask=response.target_data.mask,
-        model=jwst_target_response,
-    )
+    if side_effect is not None:
+        side_effect.plotting.append_information(
+            filter=filter_name,
+            data=target_data.data,
+            std=target_data.std,
+            mask=target_data.mask,
+            model=response,
+        )
 
-    return SingleTargetLikelihood(filter=response.filter_name, builder=builder)
+    return SingleTargetLikelihood(filter=filter_name, builder=builder)

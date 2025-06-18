@@ -121,3 +121,15 @@ class TargetData:
             psf=psf,
             subsample_centers=centers,
         )
+
+
+@dataclass(slots=True)
+class TargetDataCore:
+    data: np.ndarray
+    mask: np.ndarray
+    std: np.ndarray
+
+    def __post_init__(self):
+        self.data = np.array(self.data)
+        self.std = np.array(self.std)
+        self.mask = np.array(self.mask)

@@ -347,6 +347,11 @@ telescope:
   #   library_path: './data/GAIA/library_stars'
   #   exclude_source_id: [4788834899488736128]  # , 4788858367190047104]
 
+  # likelihood:
+  #   gaussian_variable: [0.0, 0.2]
+  #   gaussian: Null
+  #
+
   target: 
     subsample: 3
 
