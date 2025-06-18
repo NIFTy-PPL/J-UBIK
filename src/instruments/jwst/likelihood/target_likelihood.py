@@ -5,7 +5,7 @@ import nifty8.re as jft
 from ..jwst_response import (
     JwstResponse,
 )
-from ..data.loader.target_loader import TargetData
+from ..data.loader.target_loader import TargetDataCore
 from ..plotting.residuals import ResidualPlottingInformation
 from .likelihood import GaussianLikelihoodBuilder
 
@@ -40,7 +40,7 @@ class SingleTargetLikelihood:
 
 def build_target_likelihood(
     response: JwstResponse,
-    target_data: TargetData,
+    target_data: TargetDataCore,
     filter_name: str,
     side_effect: TargetLikelihoodSideEffects | None = None,
 ):
