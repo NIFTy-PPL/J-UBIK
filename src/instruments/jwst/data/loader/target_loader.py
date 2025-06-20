@@ -47,6 +47,7 @@ def load_one_target_bundle(
         target_grid.spatial,
         extra_masks,
     )
+    nan_mask = jwst_data.nan_from_bounding_indices(*target_data_bounds.bounds[index])
     psf = load_psf_kernel(
         jwst_data=jwst_data,
         subsample=subsample,
@@ -60,7 +61,7 @@ def load_one_target_bundle(
 
     return TargetBundle(
         index=index,
-        cutout=DataCutout(data=data, mask=mask, std=std, psf=psf),
+        cutout=DataCutout(data=data, mask=mask, std=std, psf=psf, nan_mask=nan_mask),
         subsample_centers=subsample_centers,
     )
 
@@ -95,6 +96,7 @@ class TargetData:
     subsample: int | Subsample
     data: np.ndarray
     mask: np.ndarray
+    nan_mask: np.ndarray
     std: np.ndarray
     psf: np.ndarray
     subsample_centers: list[SkyCoord]
@@ -109,6 +111,7 @@ class TargetData:
         # Collect and stack
         data = np.stack([tb.cutout.data for tb in ordered])
         mask = np.stack([tb.cutout.mask for tb in ordered])
+        nan_mask = np.stack([tb.cutout.nan_mask for tb in ordered])
         std = np.stack([tb.cutout.std for tb in ordered])
         psf = np.stack([tb.cutout.psf for tb in ordered])
         centers = [tb.subsample_centers for tb in ordered]
@@ -117,6 +120,7 @@ class TargetData:
             subsample=subsample,
             data=data,
             mask=mask,
+            nan_mask=nan_mask,
             std=std,
             psf=psf,
             subsample_centers=centers,

@@ -9,3 +9,4 @@ class DataCutout:
     mask: np.ndarray[bool]
     std: np.ndarray[float]
     psf: np.ndarray[float]
+    nan_mask: np.ndarray[float]

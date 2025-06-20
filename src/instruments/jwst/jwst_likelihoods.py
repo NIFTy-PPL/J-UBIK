@@ -21,7 +21,9 @@ from .likelihood.alignment_likelihood import (
     MultiFilterAlignmentLikelihoods,
 )
 
-# Parseing
+from .minimization.mask_hot_pixel_data import HotPixelMaskingData
+
+# Parsing
 from .parse.jwst_response import SkyMetaInformation
 from .parse.parsing_step import ConfigParserJwst
 from .config_handler import get_grid_extension_from_config
@@ -58,6 +60,7 @@ class TargetLikelihoodProducts:
     likelihoods: list[SingleTargetLikelihood]
     plotting: ResidualPlottingInformation
     filter_projector: FilterProjector | None = None
+    hot_pixel_masking_data: HotPixelMaskingData | None = None
 
     @property
     def likelihood(self) -> jft.Likelihood | jft.Gaussian:
@@ -126,6 +129,8 @@ def build_jwst_likelihoods(
         else None
     )
 
+    hot_pixel_masking_data = HotPixelMaskingData()
+
     for filter, filepaths in cfg_parser.data_loader.paths.items():
         filter_alignment = FilterAlignment(filter_name=filter)
 
@@ -158,6 +163,9 @@ def build_jwst_likelihoods(
             ),
             loading_mode_config=cfg_parser.data_loader.loading_mode_config,
         )
+
+        hot_pixel_masking_data.append_information(
+            filter=filter, nan_mask=dataload_results.target_data.nan_mask)
 
         # Constructing the Likelihood
         filter_alignment.load_correction_prior(
@@ -211,6 +219,7 @@ def build_jwst_likelihoods(
             likelihoods=target_filter_likelihoods,
             plotting=target_plotting,
             filter_projector=filter_projector,
+            hot_pixel_masking_data=hot_pixel_masking_data,
         ),
         alignment=AlignemntLikelihoodProducts.from_optional(
             likelihood=alignment_likelihoods,

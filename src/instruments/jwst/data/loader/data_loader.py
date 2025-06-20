@@ -87,7 +87,7 @@ def load_data(
     *,
     data_loader: DataLoader,
     loading_mode_config: LoadingModeConfig,
-) -> tuple[TargetData, StarsData | None]:
+) -> DataLoadResults:
     """Load the data
     1. Target cutouts for filter observations.
     2. Psf kernels for the cutouts for filter observations.
