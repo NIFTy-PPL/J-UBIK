@@ -1,6 +1,7 @@
 from typing import Optional
 from dataclasses import dataclass, asdict, field
 
+import scipy
 import numpy as np
 import nifty8.re as jft
 
@@ -27,9 +28,8 @@ class HotPixelMasking:
         yaml_dict: dict,
         sky_with_filter: jft.Model,
         hot_pixel_masking_data: HotPixelMaskingData,
-        star_hot_pixel: float
+        star_hot_pixel: float,
     ) -> None:
-
         self.mask_at_step = yaml_dict["hot_pixel"]["mask_at_step"]
         self.sigma = yaml_dict["hot_pixel"]["sigma"]
         self.sky_with_filter = sky_with_filter
@@ -62,8 +62,9 @@ def _hot_pixel_mask(res, mask_hot_pixel: HotPixelMasking):
     return np.abs(res) < mask_hot_pixel.sigma
 
 
-def _hot_star_mask(res, m, filter_name, mask_hot_pixel: HotPixelMasking):
+def _hot_star_mask_from_nanpixel(res, m, filter_name, mask_hot_pixel: HotPixelMasking):
     import matplotlib.pyplot as plt
+
     res_var = np.zeros(m.shape)
     res_var[m] = res
 
@@ -72,48 +73,79 @@ def _hot_star_mask(res, m, filter_name, mask_hot_pixel: HotPixelMasking):
 
     for kk, ii, jj in zip(*np.where(mnan)):
         try:
-            res00 = res_var[kk, ii-1, jj-1]
-            res01 = res_var[kk, ii-1, jj]
-            res02 = res_var[kk, ii-1, jj+1]
+            res00 = res_var[kk, ii - 1, jj - 1]
+            res01 = res_var[kk, ii - 1, jj]
+            res02 = res_var[kk, ii - 1, jj + 1]
 
-            res10 = res_var[kk, ii, jj-1]
+            res10 = res_var[kk, ii, jj - 1]
             res11 = res_var[kk, ii, jj]
-            res12 = res_var[kk, ii, jj+1]
+            res12 = res_var[kk, ii, jj + 1]
 
-            res20 = res_var[kk, ii+1, jj-1]
-            res21 = res_var[kk, ii+1, jj]
-            res22 = res_var[kk, ii+1, jj+1]
+            res20 = res_var[kk, ii + 1, jj - 1]
+            res21 = res_var[kk, ii + 1, jj]
+            res22 = res_var[kk, ii + 1, jj + 1]
 
-            arr = np.sqrt(np.array(
-                [[res00, res01, res02],
-                 [res10, res11, res12],
-                 [res20, res21, res22]],
-            ) ** 2)
+            arr = np.sqrt(
+                np.array(
+                    [
+                        [res00, res01, res02],
+                        [res10, res11, res12],
+                        [res20, res21, res22],
+                    ],
+                )
+                ** 2
+            )
 
             if arr.sum() == 0:
                 continue
 
-            evaluate = np.sqrt((res01**2+res10**2+res12**2+res21**2)/4)
+            evaluate = np.sqrt((res01**2 + res10**2 + res12**2 + res21**2) / 4)
             print(evaluate)
 
+            eval_field = np.sqrt(res_var**2)
             if evaluate > mask_hot_pixel.hot_star_sigma:
-                fig, (ax, ay) = plt.subplots(1, 2)
-                ax.imshow(arr, origin='lower',
-                          cmap='RdBu_r', vmin=-3, vmax=3)
-                ay.imshow(res_var[kk], origin='lower',
-                          cmap='RdBu_r', vmin=-3, vmax=3)
-                ay.scatter(jj, ii)
+                fig, (ax, ay, az) = plt.subplots(1, 3)
+                ax.imshow(arr, origin="lower", vmax=3)
+                ay.imshow(eval_field, origin="lower", cmap="RdBu_r", vmin=-3, vmax=3)
+                # az.imshow(test, origin="lower", vmin=8)
+                ay.scatter(jj, ii, color="cyan", marker="x")
+                # az.scatter(jj, ii, color="cyan", marker="x")
                 plt.show()
 
         except IndexError:
             pass
 
 
-def _build_new_mask_and_response(dm, d, m, s, R, mask_hot_pixel: HotPixelMasking, filter_name):
+def _hot_star_mask_convolution(res, m, filter_name, mask_hot_pixel: HotPixelMasking):
+    res_var = np.zeros(m.shape)
+    res_var[m] = res
+
+    star = np.array(
+        [
+            [0, 1, 0],
+            [1, 0, 1],
+            [0, 1, 0],
+        ]
+    )
+
+    eval_field = np.sqrt(res_var**2)
+
+    test = np.array([scipy.ndimage.convolve(ev, star) for ev in eval_field])
+
+    import matplotlib.pyplot as plt
+
+    for f in test:
+        plt.imshow(f, origin="lower", vmin=8)
+        plt.show()
+
+
+def _build_new_mask_and_response(
+    dm, d, m, s, R, mask_hot_pixel: HotPixelMasking, filter_name
+):
     res = (d[m] - dm) / s[m]
     hot_pixel_m = _hot_pixel_mask(res, mask_hot_pixel)
     exit()
-    star_pixel_m = _hot_star_mask(res, m, filter_name, mask_hot_pixel)
+    star_pixel_m = _hot_star_mask_from_nanpixel(res, m, filter_name, mask_hot_pixel)
 
     mask_new = m.copy()
     mask_new[m] = extra_m
@@ -199,9 +231,9 @@ def minimize_with_hot_pixel_masking(
 ):
     samples, state = minimization_from_initial_samples(
         likelihood=connect_likelihood_to_model(
-            likelihood.likelihood, masking.sky_with_filter),
-        kl_settings=masking.adjust_kl_settings(
-            kl_settings, before_masking=True),
+            likelihood.likelihood, masking.sky_with_filter
+        ),
+        kl_settings=masking.adjust_kl_settings(kl_settings, before_masking=True),
         starting_samples=starting_samples,
         not_take_starting_pos_keys=not_take_starting_pos_keys,
     )
