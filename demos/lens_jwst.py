@@ -177,6 +177,8 @@ samples, state = minimize_with_hot_pixel_masking(
         sky_with_filter=sky_model_with_keys,
         hot_pixel_masking_data=likelihood_products.target.hot_pixel_masking_data,
         star_hot_pixel=1.2,
+        star_sigma=9,
+        res_dir=results_directory,
     ),
     starting_samples=samples_fixpointing,
 )
