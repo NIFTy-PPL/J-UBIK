@@ -147,7 +147,7 @@ def _hot_star_mask_convolution(res, m, filter_name, mask_hot_pixel: HotPixelMask
         mask[kk, ii, jj + 1] = False
         mask[kk, ii + 1, jj] = False
 
-    return mask[m], convolved_res
+    return mask[m]
 
 
 @dataclass
@@ -212,12 +212,10 @@ def _build_new_mask_and_response(
     mm[m] = m_hot
 
     m_nan = _hot_star_mask_from_nanpixel(res[m_hot], mm, filter_name, mask_hot_pixel)
-    m_star, res_conv = _hot_star_mask_convolution(
-        res[m_hot], mm, filter_name, mask_hot_pixel
-    )
+    m_star = _hot_star_mask_convolution(res[m_hot], mm, filter_name, mask_hot_pixel)
 
     m_tot = m_hot.copy()
-    m_tot[m_hot] = m_star * m_nan
+    m_tot[m_hot] = m_nan  # * m_star
     mm_tot = m.copy()
     mm_tot[mm_tot] = m_tot
 
