@@ -6,6 +6,10 @@ from .rotation_and_shift.rotation_and_shift import (
     LinearConfig,
     NufftConfig,
 )
+from .variable_covariance import (
+    VariableCovarianceConfig,
+    variable_covariance_config_factory,
+)
 from .alignment.star_alignment import StarAlignmentConfig
 from .data.data_loader import DataLoadingConfig, Subsample
 from .jwst_psf import JwstPsfKernelConfig
@@ -21,6 +25,7 @@ class ConfigParserJwst:
     subsample_target: Subsample
     extra_masks: ExtraMasks
     star_alignment_config: StarAlignmentConfig | None
+    variable_covariance_config: VariableCovarianceConfig | None
 
     @classmethod
     def from_yaml_dict(
@@ -44,6 +49,9 @@ class ConfigParserJwst:
             StarAlignmentConfig.from_yaml_dict(cfg[telescope_key].get("gaia_alignment"))
         )
         subsample_target = Subsample.from_yaml_dict(cfg[telescope_key]["target"])
+        variable_covariance_config = variable_covariance_config_factory(
+            cfg[telescope_key].get("variable_covariance")
+        )
 
         return cls(
             zero_flux_prior_configs=zero_flux_prior_configs,
@@ -53,4 +61,5 @@ class ConfigParserJwst:
             subsample_target=subsample_target,
             extra_masks=extra_masks,
             star_alignment_config=star_alignment_config,
+            variable_covariance_config=variable_covariance_config,
         )

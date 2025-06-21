@@ -8,6 +8,9 @@ from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrectio
 from .plotting.residuals import ResidualPlottingInformation
 from .plotting.alignment import MultiFilterAlignmentPlottingInformation
 from .alignment.filter_alignment import FilterAlignment
+from .variable_covariance.inverse_standard_deviation import (
+    build_inverse_standard_deviation,
+)
 
 from .likelihood.target_likelihood import (
     SingleTargetLikelihood,
@@ -165,7 +168,8 @@ def build_jwst_likelihoods(
         )
 
         hot_pixel_masking_data.append_information(
-            filter=filter, nan_mask=dataload_results.target_data.nan_mask)
+            filter=filter, nan_mask=dataload_results.target_data.nan_mask
+        )
 
         # Constructing the Likelihood
         filter_alignment.load_correction_prior(
@@ -194,6 +198,11 @@ def build_jwst_likelihoods(
             ),
             target_data=dataload_results.target_data,
             filter_name=filter,
+            inverse_std=build_inverse_standard_deviation(
+                config=cfg_parser.variable_covariance_config,
+                filter_name=filter,
+                target_data=dataload_results.target_data,
+            ),
             side_effect=TargetLikelihoodSideEffects(plotting=target_plotting),
         )
         target_filter_likelihoods.append(likelihood_target)

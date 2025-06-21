@@ -184,12 +184,12 @@ def masking_plot(res, mm_orig, m_hot, m_nan, m_star, m_tot, plotting: MaskPlotti
         zip(axes, evfield, mm_orig, mm_hot, mm_nan, mm_star, mm_tot)
     ):
         a0, a1, a2, a3, a4, a5 = axi
-        a0.imshow(ev, origin="lower")
-        a1.imshow(orig, origin="lower", cmap="binary_r")
-        a2.imshow(hot, origin="lower", cmap="binary_r")
-        a3.imshow(nan, origin="lower", cmap="binary_r")
-        a4.imshow(star, origin="lower", cmap="binary_r")
-        a5.imshow(tot, origin="lower", cmap="binary_r")
+        a0.imshow(ev, origin="lower", interpolation="None")
+        a1.imshow(orig, origin="lower", cmap="binary_r", interpolation="None")
+        a2.imshow(hot, origin="lower", cmap="binary_r", interpolation="None")
+        a3.imshow(nan, origin="lower", cmap="binary_r", interpolation="None")
+        a4.imshow(star, origin="lower", cmap="binary_r", interpolation="None")
+        a5.imshow(tot, origin="lower", cmap="binary_r", interpolation="None")
         if i == 0:
             a0.set_title("residuals")
             a1.set_title("orig")

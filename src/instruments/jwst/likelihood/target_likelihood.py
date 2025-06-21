@@ -7,7 +7,10 @@ from ..jwst_response import (
 )
 from ..data.loader.target_loader import TargetDataCore
 from ..plotting.residuals import ResidualPlottingInformation
-from .likelihood import GaussianLikelihoodBuilder
+from .likelihood import (
+    GaussianLikelihoodBuilder,
+    VariableCovarianceGaussianLikelihoodBuilder,
+)
 
 # --------------------------------------------------------------------------------------
 # Jwst Likelihood
@@ -42,14 +45,25 @@ def build_target_likelihood(
     response: JwstResponse,
     target_data: TargetDataCore,
     filter_name: str,
+    inverse_std: jft.Model | None = None,
     side_effect: TargetLikelihoodSideEffects | None = None,
 ):
-    builder = GaussianLikelihoodBuilder(
-        response=response,
-        data=target_data.data,
-        std=target_data.std,
-        mask=target_data.mask,
-    )
+    if inverse_std is None:
+        builder = GaussianLikelihoodBuilder(
+            response=response,
+            data=target_data.data,
+            std=target_data.std,
+            mask=target_data.mask,
+        )
+
+    else:
+        builder = VariableCovarianceGaussianLikelihoodBuilder(
+            response=response,
+            inverse_std=inverse_std,
+            data=target_data.data,
+            std=target_data.std,
+            mask=target_data.mask,
+        )
 
     if side_effect is not None:
         side_effect.plotting.append_information(
