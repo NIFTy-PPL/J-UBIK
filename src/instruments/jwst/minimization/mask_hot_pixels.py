@@ -326,5 +326,5 @@ def minimize_with_hot_pixel_masking(
             likelihood.likelihood, masking.sky_with_filter
         ),
         kl_settings=masking.adjust_kl_settings(kl_settings, before_masking=False),
-        starting_samples=samples,
+        starting_samples=None,
     )
