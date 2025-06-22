@@ -256,6 +256,12 @@ def masking_hot_pixels(
             ll.filter,
         )
 
+        inverse_std_builder = (
+            ll.builder.inverse_std_builder
+            if hasattr(ll.builder, "inverse_std_builder")
+            else None
+        )
+
         new_likelihoods.append(
             build_target_likelihood(
                 response=response_new,
@@ -265,6 +271,7 @@ def masking_hot_pixels(
                     mask=mask_3d,
                 ),
                 filter_name=ll.filter,
+                inverse_std_builder=inverse_std_builder,
                 side_effect=TargetLikelihoodSideEffects(plotting=target_plotting),
             )
         )

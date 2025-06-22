@@ -198,7 +198,7 @@ def build_jwst_likelihoods(
             ),
             target_data=dataload_results.target_data,
             filter_name=filter,
-            inverse_std=build_inverse_standard_deviation(
+            inverse_std_builder=build_inverse_standard_deviation(
                 config=cfg_parser.variable_covariance_config,
                 filter_name=filter,
                 target_data=dataload_results.target_data,

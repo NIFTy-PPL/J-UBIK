@@ -11,6 +11,7 @@ from .likelihood import (
     GaussianLikelihoodBuilder,
     VariableCovarianceGaussianLikelihoodBuilder,
 )
+from ..variable_covariance.inverse_standard_deviation import InverseStdBuilder
 
 # --------------------------------------------------------------------------------------
 # Jwst Likelihood
@@ -31,7 +32,7 @@ class TargetLikelihoodSideEffects:
 @dataclass
 class SingleTargetLikelihood:
     filter: str
-    builder: GaussianLikelihoodBuilder
+    builder: GaussianLikelihoodBuilder | VariableCovarianceGaussianLikelihoodBuilder
 
     @property
     def likelihood(self) -> jft.Likelihood | jft.Gaussian:
@@ -45,10 +46,10 @@ def build_target_likelihood(
     response: JwstResponse,
     target_data: TargetDataCore,
     filter_name: str,
-    inverse_std: jft.Model | None = None,
+    inverse_std_builder: InverseStdBuilder | None = None,
     side_effect: TargetLikelihoodSideEffects | None = None,
 ):
-    if inverse_std is None:
+    if inverse_std_builder is None:
         builder = GaussianLikelihoodBuilder(
             response=response,
             data=target_data.data,
@@ -59,7 +60,7 @@ def build_target_likelihood(
     else:
         builder = VariableCovarianceGaussianLikelihoodBuilder(
             response=response,
-            inverse_std=inverse_std,
+            inverse_std_builder=inverse_std_builder,
             data=target_data.data,
             std=target_data.std,
             mask=target_data.mask,

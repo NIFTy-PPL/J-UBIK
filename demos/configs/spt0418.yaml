@@ -463,7 +463,7 @@ files:
 
   set_filter: False
   # res_dir: './results/jwst_lens/cluster/22_03_{filter}_positiveDelta_piemd'
-  res_dir: './results/jwst_lens/cluster/22_05_f444wf560wf770w_masking_03'
+  res_dir: './results/jwst_lens/cluster/22_05_f444wf560wf770w_variablecov_04'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 

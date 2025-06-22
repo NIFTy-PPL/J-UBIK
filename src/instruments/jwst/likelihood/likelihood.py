@@ -4,6 +4,7 @@ import jax.numpy as jnp
 import nifty8.re as jft
 import numpy as np
 
+from ..variable_covariance.inverse_standard_deviation import InverseStdBuilder
 from ....likelihood import build_gaussian_likelihood
 from ..jwst_response import JwstResponse
 
@@ -40,7 +41,7 @@ class VariableCovarianceGaussianLikelihoodBuilder:
     """Essential input data of `load_data`."""
 
     response: JwstResponse | jft.Model
-    std_inv: jft.Model
+    inverse_std_builder: InverseStdBuilder
     data: np.ndarray
     std: np.ndarray
     mask: np.ndarray
@@ -51,9 +52,10 @@ class VariableCovarianceGaussianLikelihoodBuilder:
         self.mask = np.array(self.mask)
 
     def build(self) -> jft.VariableCovarianceGaussian:
+        inv_std = self.inverse_std_builder.build()
         model = jft.Model(
-            lambda x: (self.response(x), self.std_inv),
-            domain=self.response.domain | self.std_inv.domain,
+            lambda x: (self.response(x), inv_std(x)),
+            domain=self.response.domain | inv_std.domain,
         )
         like = jft.VariableCovarianceGaussian(self.data[self.mask])
         return like.amend(model, domain=jft.Vector(model.domain))
