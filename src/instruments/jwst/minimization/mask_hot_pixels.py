@@ -1,46 +1,42 @@
-from typing import Optional
 import os
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass
+from typing import Optional
 
-import scipy
-import numpy as np
 import nifty8.re as jft
+import numpy as np
+import scipy
 
-from .mask_hot_pixel_data import HotPixelMaskingData
 from ....likelihood import connect_likelihood_to_model
-from ..likelihood.target_likelihood import (
-    build_target_likelihood,
-    TargetLikelihoodSideEffects,
-)
-from ..data.loader.target_loader import TargetDataCore
-
-from ....minimization_parser import MinimizationParser
 from ....minimization.minimization_from_samples import (
     KLSettings,
     minimization_from_initial_samples,
 )
+from ....minimization_parser import MinimizationParser
+from ..data.loader.target_loader import TargetDataCore
 from ..jwst_likelihoods import TargetLikelihoodProducts
+from ..likelihood.target_likelihood import (
+    TargetLikelihoodSideEffects,
+    build_target_likelihood,
+)
+from ..parse.minimization.mask_hot_pixels import MaskingStepSettings
+from ..variable_covariance.inverse_standard_deviation import InverseStdBuilder
 from ..plotting.residuals import ResidualPlottingInformation
+from .mask_hot_pixel_data import HotPixelMaskingData
 
 
-class HotPixelMasking:
+class MaskingStep:
     def __init__(
         self,
-        yaml_dict: dict,
+        settings: MaskingStepSettings,
         sky_with_filter: jft.Model,
         hot_pixel_masking_data: HotPixelMaskingData,
-        star_hot_pixel: float,
-        star_sigma: float,
         res_dir: str,
     ) -> None:
-        self.mask_at_step = yaml_dict["hot_pixel"]["mask_at_step"]
-        self.sigma = yaml_dict["hot_pixel"]["sigma"]
+        self.settings = settings
         self.sky_with_filter = sky_with_filter
         self.hot_pixel_masking_data = hot_pixel_masking_data
-        self.hot_star_sigma = star_hot_pixel
-        self.star_sigma = star_sigma
 
-        self.res_dir = os.path.join(res_dir, "masking")
+        self.res_dir = os.path.join(res_dir, "masking_step")
         os.makedirs(self.res_dir, exist_ok=True)
 
     def adjust_kl_settings(
@@ -48,10 +44,10 @@ class HotPixelMasking:
     ) -> KLSettings:
         if before_masking:
             start = 0
-            end = self.mask_at_step
+            end = self.settings.mask_at_iteration
             resume = kl_settings.resume
         else:
-            start = self.mask_at_step
+            start = self.settings.mask_at_iteration
             end = kl_settings.n_total_iterations
             resume = True
 
@@ -65,22 +61,53 @@ class HotPixelMasking:
         return KLSettings(**klset)
 
 
-def _hot_pixel_mask(res, mask_hot_pixel: HotPixelMasking):
-    return np.abs(res) < mask_hot_pixel.sigma
+def _hot_pixel_mask(residual: np.ndarray, threshold_hot_pixel: float):
+    """This process masks pixels if their absolute residual is above the
+    `threshold_hot_pixel` threshold.
+
+    Parameters
+    ----------
+    residual: np.ndarray
+        The residuals array.
+    threshold_hot_pixel: float
+        The threshold for masking the hot pixels.
+    """
+    if threshold_hot_pixel is None:
+        return True
+    return np.abs(residual) < threshold_hot_pixel
 
 
-def _hot_star_mask_from_nanpixel(res, m, filter_name, mask_hot_pixel: HotPixelMasking):
-    import matplotlib.pyplot as plt
+def _hot_star_mask_from_nanpixel(
+    residual: np.ndarray,
+    mask_3d_og: np.ndarray,
+    mask_3d_nan: np.ndarray,
+    threshold_star_nan: float | None,
+):
+    """This process masks neighbors of `nan`-pixel (masked by the JWST pipeline), if the
+    summed, squared residuals of the pixels are above the `threshold_star_nan` threshold.
 
-    res_var = np.zeros(m.shape)
-    res_var[m] = res
+    Parameters
+    ----------
+    residual: np.ndarray
+        The residuals array
+    mask_3d_og: np.ndarray
+        The original mask
+    mask_3d_nan: np.ndarray
+        The original mask that contains the `nan` values from the JWST pipeline.
+    threshold_star_nan: float
+        The threshold for masking the neighboring `star` pixels. If `None` the process
+        is switched off.
+    """
 
-    jj = mask_hot_pixel.hot_pixel_masking_data.filter.index(filter_name)
-    mnan = ~mask_hot_pixel.hot_pixel_masking_data.nan_mask[jj]
+    if threshold_star_nan is None:
+        return True
 
-    mask = m.copy()
+    res_var = np.zeros(mask_3d_og.shape)
+    res_var[mask_3d_og] = residual
 
-    for kk, ii, jj in zip(*np.where(mnan)):
+    mask_3d_tmp = mask_3d_og.copy()
+
+    for kk, ii, jj in zip(*np.where(~mask_3d_nan)):
         try:
             res00 = res_var[kk, ii - 1, jj - 1]
             res01 = res_var[kk, ii - 1, jj]
@@ -109,23 +136,44 @@ def _hot_star_mask_from_nanpixel(res, m, filter_name, mask_hot_pixel: HotPixelMa
                 continue
 
             evaluate = np.sqrt((res01**2 + res10**2 + res12**2 + res21**2) / 4)
-            if evaluate > mask_hot_pixel.hot_star_sigma:
-                mask[kk, ii - 1, jj] = False
-                mask[kk, ii, jj - 1] = False
-                mask[kk, ii, jj + 1] = False
-                mask[kk, ii + 1, jj] = False
+            if evaluate > threshold_star_nan:
+                mask_3d_tmp[kk, ii - 1, jj] = False
+                mask_3d_tmp[kk, ii, jj - 1] = False
+                mask_3d_tmp[kk, ii, jj + 1] = False
+                mask_3d_tmp[kk, ii + 1, jj] = False
 
         except IndexError:
+            # NOTE : This is handling the edges of the field, where the stars fall
+            # outside the grid. Typically these are masked, anyways.
             pass
 
-    return mask[m]
+    return mask_3d_tmp[mask_3d_og]
 
 
-def _hot_star_mask_convolution(res, m, filter_name, mask_hot_pixel: HotPixelMasking):
-    import matplotlib.pyplot as plt
+def _hot_star_mask_convolution(
+    residual: np.ndarray,
+    mask_3d_og: np.ndarray,
+    threshold_star_convolution: float | None,
+):
+    """This process masks pixels if by convolving the squared residuals with a star mask
+    falls above the `threshold_star_convolution` threshold.
 
-    res_var = np.zeros(m.shape)
-    res_var[m] = res
+    Parameters
+    ----------
+    residual: np.ndarray
+        The residuals array.
+    mask_3d_og: np.ndarray
+        The original mask to be updated.
+    threshold_star_convolution: float | None
+        The threshold for masking the hot star pixels. If `None` the process is switched
+        off.
+    """
+
+    if threshold_star_convolution is None:
+        return True
+
+    res_var = np.zeros(mask_3d_og.shape)
+    res_var[mask_3d_og] = residual
 
     star = np.array(
         [
@@ -138,16 +186,16 @@ def _hot_star_mask_convolution(res, m, filter_name, mask_hot_pixel: HotPixelMask
     eval_field = np.sqrt(res_var**2)
 
     convolved_res = np.array([scipy.ndimage.convolve(ev, star) for ev in eval_field])
-    mask = m.copy()
+    mask = mask_3d_og.copy()
 
-    for kk, ii, jj in zip(*np.where(convolved_res > mask_hot_pixel.star_sigma)):
+    for kk, ii, jj in zip(*np.where(convolved_res > threshold_star_convolution)):
         mask[kk, ii, jj] = False
         mask[kk, ii - 1, jj] = False
         mask[kk, ii, jj - 1] = False
         mask[kk, ii, jj + 1] = False
         mask[kk, ii + 1, jj] = False
 
-    return mask[m]
+    return mask[mask_3d_og]
 
 
 @dataclass
@@ -156,32 +204,40 @@ class MaskPlotting:
     filter: str
 
 
-def masking_plot(res, mm_orig, m_hot, m_nan, m_star, m_tot, plotting: MaskPlotting):
+def masking_plot(
+    residual,
+    mm_orig,
+    mask_flat_hot_pixel,
+    mask_flat_nanstar,
+    mask_flat_hotstar,
+    mask_flat_total,
+    plotting: MaskPlotting,
+):
     import matplotlib.pyplot as plt
 
     # PLOTTING
     res_var = np.zeros(mm_orig.shape)
-    res_var[mm_orig] = res
+    res_var[mm_orig] = residual
     evfield = np.sqrt(res_var**2)
 
     mm_hot = mm_orig.copy()
-    mm_hot[mm_hot] = m_hot
+    mm_hot[mm_hot] = mask_flat_hot_pixel
 
     mm_nan = mm_hot.copy()
-    mm_nan[mm_nan] = m_nan
+    mm_nan[mm_nan] = mask_flat_nanstar
 
     mm_star = mm_hot.copy()
-    mm_star[mm_star] = m_star
+    mm_star[mm_star] = mask_flat_hotstar
 
-    m_tot = m_hot.copy()
-    m_tot[m_hot] = m_star * m_nan
+    mask_flat_total = mask_flat_hot_pixel.copy()
+    mask_flat_total[mask_flat_hot_pixel] = mask_flat_hotstar * mask_flat_nanstar
 
-    mm_tot = mm_orig.copy()
-    mm_tot[mm_tot] = m_tot
+    mask_3d_total = mm_orig.copy()
+    mask_3d_total[mask_3d_total] = mask_flat_total
 
     fig, axes = plt.subplots(len(evfield), 6, sharex=True, sharey=True, dpi=300)
     for i, (axi, ev, orig, hot, nan, star, tot) in enumerate(
-        zip(axes, evfield, mm_orig, mm_hot, mm_nan, mm_star, mm_tot)
+        zip(axes, evfield, mm_orig, mm_hot, mm_nan, mm_star, mask_3d_total)
     ):
         a0, a1, a2, a3, a4, a5 = axi
         a0.imshow(ev, origin="lower", interpolation="None")
@@ -202,73 +258,120 @@ def masking_plot(res, mm_orig, m_hot, m_nan, m_star, m_tot, plotting: MaskPlotti
     plt.close()
 
 
-def _build_new_mask_and_response(
-    dm, d, m, s, R, mask_hot_pixel: HotPixelMasking, filter_name: str
+@dataclass
+class MaskingProducts:
+    mask_flat: np.ndarray
+    mask_3d: np.ndarray
+
+
+def _build_new_mask_strategy(
+    model_data_mean: np.ndarray,
+    data: np.ndarray,
+    mask_3d_og: np.ndarray,
+    std: np.ndarray,
+    masking_step: MaskingStep,
+    filter_name: str,
 ):
-    res = (d[m] - dm) / s[m]
-    m_hot = _hot_pixel_mask(res, mask_hot_pixel)
-
-    mm = m.copy()
-    mm[m] = m_hot
-
-    m_nan = _hot_star_mask_from_nanpixel(res[m_hot], mm, filter_name, mask_hot_pixel)
-    m_star = _hot_star_mask_convolution(res[m_hot], mm, filter_name, mask_hot_pixel)
-
-    m_tot = m_hot.copy()
-    m_tot[m_hot] = m_nan  # * m_star
-    mm_tot = m.copy()
-    mm_tot[mm_tot] = m_tot
-
-    masking_plot(
-        res,
-        m,
-        m_hot,
-        m_nan,
-        m_star,
-        m_tot,
-        MaskPlotting(mask_hot_pixel.res_dir, filter=filter_name),
+    residual = (data[mask_3d_og] - model_data_mean) / std[mask_3d_og]
+    mask_flat_hot_pixel = _hot_pixel_mask(
+        residual, masking_step.settings.threshold_hot_pixel
     )
 
-    return jft.Model(lambda x: R(x)[m_tot], domain=R.domain), mm_tot
+    mask_3d_tmp = mask_3d_og.copy()
+    mask_3d_tmp[mask_3d_og] = mask_flat_hot_pixel
+
+    mask_flat_nanstar = _hot_star_mask_from_nanpixel(
+        residual[mask_flat_hot_pixel],
+        mask_3d_tmp,
+        masking_step.hot_pixel_masking_data.get_filter_nanmask(filter_name),
+        masking_step.settings.threshold_star_nan,
+    )
+    mask_flat_hotstar = _hot_star_mask_convolution(
+        residual[mask_flat_hot_pixel],
+        mask_3d_tmp,
+        masking_step.settings.threshold_star_convolution,
+    )
+
+    mask_flat_total = mask_flat_hot_pixel.copy()
+    mask_flat_total[mask_flat_hot_pixel] = mask_flat_nanstar * mask_flat_hotstar
+    mask_3d_total = mask_3d_og.copy()
+    mask_3d_total[mask_3d_total] = mask_flat_total
+
+    masking_plot(
+        residual,
+        mask_3d_og,
+        mask_flat_hot_pixel,
+        mask_flat_nanstar,
+        mask_flat_hotstar,
+        mask_flat_total,
+        MaskPlotting(masking_step.res_dir, filter=filter_name),
+    )
+
+    return MaskingProducts(
+        mask_flat=mask_flat_total,
+        mask_3d=mask_3d_total,
+    )
+
+
+def _update_operators(
+    masking_products: MaskingProducts,
+    response: jft.Model,
+    inverse_std_builder: InverseStdBuilder | None,
+):
+    response = jft.Model(
+        lambda x: response(x)[masking_products.mask_flat], domain=response.domain
+    )
+
+    if inverse_std_builder is None:
+        return response, None
+
+    return response, inverse_std_builder.update_fields(
+        dict(mask=masking_products.mask_flat)
+    )
 
 
 def masking_hot_pixels(
     likelihood: TargetLikelihoodProducts,
     plotting: ResidualPlottingInformation,
     samples: jft.Samples,
-    mask_hot_pixel: HotPixelMasking,
+    masking_step: MaskingStep,
 ) -> TargetLikelihoodProducts:
     def response(si, R):
-        return R(mask_hot_pixel.sky_with_filter(si) | si.tree)
+        return R(masking_step.sky_with_filter(si) | si.tree)
 
     target_plotting = ResidualPlottingInformation(y_offset=plotting.y_offset)
 
     new_likelihoods = []
     for ll in likelihood.likelihoods:
-        dm = jft.mean([response(si, ll.builder.response) for si in samples])
-        response_new, mask_3d = _build_new_mask_and_response(
-            dm,
+        model_data_mean = jft.mean(
+            [response(si, ll.builder.response) for si in samples]
+        )
+        masking_products = _build_new_mask_strategy(
+            model_data_mean,
             ll.builder.data,
             ll.builder.mask,
             ll.builder.std,
-            ll.builder.response,
-            mask_hot_pixel,
+            masking_step,
             ll.filter,
         )
 
-        inverse_std_builder = (
-            ll.builder.inverse_std_builder
-            if hasattr(ll.builder, "inverse_std_builder")
-            else None
+        response, inverse_std_builder = _update_operators(
+            masking_products,
+            ll.builder.response,
+            inverse_std_builder=(
+                ll.builder.inverse_std_builder
+                if hasattr(ll.builder, "inverse_std_builder")
+                else None
+            ),
         )
 
         new_likelihoods.append(
             build_target_likelihood(
-                response=response_new,
+                response=response,
                 target_data=TargetDataCore(
                     data=ll.builder.data,
                     std=ll.builder.std,
-                    mask=mask_3d,
+                    mask=masking_products.mask_3d,
                 ),
                 filter_name=ll.filter,
                 inverse_std_builder=inverse_std_builder,
@@ -277,8 +380,8 @@ def masking_hot_pixels(
         )
 
         # TODO: MAKE THIS NECESSERY SIDE EFFECT DISAPPEAR
-        plotting.mask[plotting.filter.index(ll.filter)] = mask_3d
-        plotting.model[plotting.filter.index(ll.filter)] = response_new
+        plotting.mask[plotting.filter.index(ll.filter)] = masking_products.mask_3d
+        plotting.model[plotting.filter.index(ll.filter)] = response
 
     return TargetLikelihoodProducts(
         likelihoods=new_likelihoods,
@@ -311,27 +414,27 @@ class MinimizationParserUpdate:
 def minimize_with_hot_pixel_masking(
     likelihood: TargetLikelihoodProducts,
     kl_settings: KLSettings,
-    masking: HotPixelMasking,
+    masking_step: MaskingStep,
     starting_samples: Optional[jft.Samples] = None,
     not_take_starting_pos_keys: tuple[str] = (),
 ):
     samples, state = minimization_from_initial_samples(
         likelihood=connect_likelihood_to_model(
-            likelihood.likelihood, masking.sky_with_filter
+            likelihood.likelihood, masking_step.sky_with_filter
         ),
-        kl_settings=masking.adjust_kl_settings(kl_settings, before_masking=True),
+        kl_settings=masking_step.adjust_kl_settings(kl_settings, before_masking=True),
         starting_samples=starting_samples,
         not_take_starting_pos_keys=not_take_starting_pos_keys,
     )
 
     likelihood = masking_hot_pixels(
-        likelihood, likelihood.plotting, samples, mask_hot_pixel=masking
+        likelihood, likelihood.plotting, samples, masking_step=masking_step
     )
 
     return minimization_from_initial_samples(
         likelihood=connect_likelihood_to_model(
-            likelihood.likelihood, masking.sky_with_filter
+            likelihood.likelihood, masking_step.sky_with_filter
         ),
-        kl_settings=masking.adjust_kl_settings(kl_settings, before_masking=False),
+        kl_settings=masking_step.adjust_kl_settings(kl_settings, before_masking=False),
         starting_samples=None,
     )

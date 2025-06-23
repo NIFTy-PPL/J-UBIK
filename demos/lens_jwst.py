@@ -16,8 +16,11 @@ from jubik0.instruments.jwst.config_handler import (
 )
 from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
 from jubik0.instruments.jwst.minimization.mask_hot_pixels import (
-    HotPixelMasking,
+    MaskingStep,
     minimize_with_hot_pixel_masking,
+)
+from jubik0.instruments.jwst.parse.minimization.mask_hot_pixels import (
+    MaskingStepSettings,
 )
 from jubik0.instruments.jwst.minimization.alignment_process import (
     alignment_minimization_process,
@@ -172,12 +175,10 @@ jft.logger.info("Full reconstruction")
 samples, state = minimize_with_hot_pixel_masking(
     likelihood=likelihood_products.target,
     kl_settings=kl_settings,
-    masking=HotPixelMasking(
-        yaml_dict=cfg["telescope"],
+    masking_step=MaskingStep(
+        settings=MaskingStepSettings.from_yaml_dict(cfg["telescope"]),
         sky_with_filter=sky_model_with_keys,
         hot_pixel_masking_data=likelihood_products.target.hot_pixel_masking_data,
-        star_hot_pixel=1.2,
-        star_sigma=9,
         res_dir=results_directory,
     ),
     starting_samples=samples_fixpointing,

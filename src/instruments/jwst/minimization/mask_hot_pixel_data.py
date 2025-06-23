@@ -15,3 +15,6 @@ class HotPixelMaskingData:
     ):
         self.filter.append(filter)
         self.nan_mask.append(nan_mask)
+
+    def get_filter_nanmask(self, filter_name: str):
+        return self.nan_mask[self.filter.index(filter_name)]

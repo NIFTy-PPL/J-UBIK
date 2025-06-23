@@ -353,9 +353,11 @@ telescope:
   target: 
     subsample: 3
 
-  hot_pixel:
-    sigma: 5
-    mask_at_step: 4
+  masking_step:
+    mask_at_iteration: 4
+    threshold_hot_pixel: 5  # Residual value threshold
+    threshold_star_nan: 1.2
+    threshold_star_convolution: Null
 
   rotation_and_shift:
     # nufft: 
@@ -590,7 +592,7 @@ minimization:
       # n_samples: [5]
       # mode: [linear_resample, nonlinear_resample, nonlinear_resample, nonlinear_update]
       mode: [linear_resample, linear_resample, linear_resample, nonlinear_resample]
-      # Possible modes:
+      # Possible modes: 
       # - "linear_sample",
       # - "linear_resample",
       # - "nonlinear_sample",

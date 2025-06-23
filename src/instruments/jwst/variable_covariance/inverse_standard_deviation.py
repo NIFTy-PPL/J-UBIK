@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from functools import reduce
 from abc import ABC, abstractmethod
 
@@ -19,6 +19,11 @@ class InverseStdBuilder(ABC):
     def build(self) -> jft.Model:
         pass
 
+    @abstractmethod
+    def update_fields(self, fields: dict) -> "InverseStdBuilder":
+        """Build a new instance of the `InverseStdBuilder`, with updated fields."""
+        pass
+
 
 # Concrete Implementations -------------------------------------------------------------
 
@@ -31,6 +36,8 @@ class MultiplicativeStdValueBuilder(InverseStdBuilder):
     mask: np.ndarray
 
     def build(self) -> jft.Model:
+        """Build the InverseStandardDeviationModel from the fields."""
+
         value = build_parametric_prior_from_prior_config(
             f"multistd_{self.filter}",
             self.value,
@@ -43,11 +50,17 @@ class MultiplicativeStdValueBuilder(InverseStdBuilder):
         one_over_std = [one_over_std[sh[ii] : sh[ii + 1]] for ii in range(len(sh) - 1)]
 
         def apply(x):
-            val = value(x)
+            val = 1 / value(x)
             one_over = [one_over_std[ii] * val[ii] for ii in range(len(val))]
             return reduce(jnp.append, one_over)
 
         return jft.Model(apply, domain=value.domain)
+
+    def update_fields(self, fields: dict) -> "MultiplicativeStdValueBuilder":
+        """Build a new instance of the `MultiplicativeStdValueBuilder`, with updated fields."""
+        self_fields: dict = asdict(self)
+        self_fields.update(**fields)
+        return MultiplicativeStdValueBuilder(**self_fields)
 
 
 # API ----------------------------------------------------------------------------------
