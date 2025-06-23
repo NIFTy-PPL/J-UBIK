@@ -318,14 +318,14 @@ def _update_operators(
     response: jft.Model,
     inverse_std_builder: InverseStdBuilder | None,
 ):
-    response = jft.Model(
+    response_new = jft.Model(
         lambda x: response(x)[masking_products.mask_flat], domain=response.domain
     )
 
     if inverse_std_builder is None:
-        return response, None
+        return response_new, None
 
-    return response, inverse_std_builder.update_fields(
+    return response_new, inverse_std_builder.update_fields(
         dict(mask=masking_products.mask_3d)
     )
 
