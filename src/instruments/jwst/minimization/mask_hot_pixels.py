@@ -326,7 +326,7 @@ def _update_operators(
         return response, None
 
     return response, inverse_std_builder.update_fields(
-        dict(mask=masking_products.mask_flat)
+        dict(mask=masking_products.mask_3d)
     )
 
 
