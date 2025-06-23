@@ -486,23 +486,17 @@ def build_single_spectral_slope_mf_model(
     ----------
     prefix: str
         The prefix of the multi-frequency model.
-
     shape: tuple
         The shape of the spatial_amplitude domain.
-
     distances: tuple
         The distances of the spatial_amplitude domain.
-
     log_frequencies: tuple, list, ArrayLike
         Array of logarithmically spaced frequencies.
-
     reference_frequency_index: int
         Index of the reference frequency in `log_frequencies`.
-
     zero_mode_settings: tuple or callable
         Settings for the zero mode priors, by default a Gaussian.
             - Gaussian (default), (mean, std)
-
     spatial_amplitude_settings: dict
         Settings for the amplitude model priors.
         Should contain the following keys:
@@ -515,7 +509,6 @@ def build_single_spectral_slope_mf_model(
                      for default (lognormal prior)
             - asperity: callable or parameters or None
                      for default (lognormal prior)
-
             For Matérn amplitude:
             - scale: callable or parameters
                      for default (lognormal prior)
@@ -523,7 +516,6 @@ def build_single_spectral_slope_mf_model(
                      for default (lognormal prior)
             - loglogslope: callable or parameters
                      for default (lognormal prior)
-
     spectral_index_settings: dict
         Settings for the spectral index priors.
         Should contain the following keys:
@@ -531,12 +523,10 @@ def build_single_spectral_slope_mf_model(
                  for default (normal prior)
             - fluctuations: callable or parameters
                 for default (lognormal prior)
-
     spectral_amplitude_settings: dict, opt
         If `None` the spectral amplitude is the same as the spatial amplitude.
         If not `None` sets the spectral amplitude settings.
         Should be formatted as `spatial_amplitude_settings`.
-
     deviations_settings: dict, opt
         Settings for the spectral index priors.
         If none deviations are not build.
@@ -544,27 +534,21 @@ def build_single_spectral_slope_mf_model(
         - process: wiener (default)
         - sigma: callable or parameters
              for default (lognormal prior)
-
     log_reference_frequency_mean_model: Model
         Model for the distribution of the log mean of the
         reference frequency.
-
     spatial_amplitude_model: str
         Type of the spatial amplitude model to be used.
         By default, the correlated field model
         (`'non_parametric'`).
-
     spectral_amplitude_model: str
         Type of the spectral amplitude model to be used.
         By default, the correlated field model
         (`'non_parametric'`).
-
     harmonic_type: str
         The type of the harmonic domain for the amplitude model.
-
     dtype: type
         The type of the parameters.
-
     nonlinearity: callable
         The nonlinearity of the multifrequency model, exp (default).
 
