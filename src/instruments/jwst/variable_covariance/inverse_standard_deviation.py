@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, fields, is_dataclass
 from functools import reduce
 from abc import ABC, abstractmethod
 
@@ -58,7 +58,7 @@ class MultiplicativeStdValueBuilder(InverseStdBuilder):
 
     def update_fields(self, fields: dict) -> "MultiplicativeStdValueBuilder":
         """Build a new instance of the `MultiplicativeStdValueBuilder`, with updated fields."""
-        self_fields: dict = asdict(self)
+        self_fields: dict = shallow_asdict(self)
         self_fields.update(**fields)
         return MultiplicativeStdValueBuilder(**self_fields)
 
@@ -84,3 +84,18 @@ def build_inverse_standard_deviation(
 
     else:
         raise ValueError(f"Unknown config: {config}")
+
+
+# Helper function ----------------------------------------------------------------------
+
+
+def shallow_asdict(obj):
+    """
+    Returns a shallow dictionary representation of a dataclass instance,
+    without recursing into nested dataclasses.
+    """
+    if not is_dataclass(obj):
+        raise TypeError("shallow_asdict() should be called on dataclass instances")
+
+    # Create a new dictionary from the dataclass fields
+    return {f.name: getattr(obj, f.name) for f in fields(obj)}
