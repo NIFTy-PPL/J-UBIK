@@ -336,7 +336,7 @@ def masking_hot_pixels(
     samples: jft.Samples,
     masking_step: MaskingStep,
 ) -> TargetLikelihoodProducts:
-    def response(si, R):
+    def tmp_response(si, R):
         return R(masking_step.sky_with_filter(si) | si.tree)
 
     target_plotting = ResidualPlottingInformation(y_offset=plotting.y_offset)
@@ -344,7 +344,7 @@ def masking_hot_pixels(
     new_likelihoods = []
     for ll in likelihood.likelihoods:
         model_data_mean = jft.mean(
-            [response(si, ll.builder.response) for si in samples]
+            [tmp_response(si, ll.builder.response) for si in samples]
         )
         masking_products = _build_new_mask_strategy(
             model_data_mean,
