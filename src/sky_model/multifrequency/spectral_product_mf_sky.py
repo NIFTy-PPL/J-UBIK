@@ -451,7 +451,7 @@ class SpectralProductMFSky(Model):
         return self._nonlinearity(self.log_ref_freq_mean_model(p))
 
 
-def build_default_mf_model(
+def build_single_spectral_slope_mf_model(
     prefix: str,
     shape: tuple[int],
     distances: tuple[float],
