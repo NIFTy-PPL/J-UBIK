@@ -1,4 +1,4 @@
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass, fields
 from functools import reduce
 from abc import ABC, abstractmethod
 
@@ -30,13 +30,18 @@ class InverseStdBuilder(ABC):
 
 @dataclass
 class MultiplicativeStdValueBuilder(InverseStdBuilder):
+    """Builder for a model, where the standard deviation is multiplied by a value.
+
+    ...math : ``` inverse_std = 1/(std*value) ```
+    """
+
     filter: str
     value: ProbabilityConfig
     std: np.ndarray
     mask: np.ndarray
 
     def build(self) -> jft.Model:
-        """Build the InverseStandardDeviationModel from the fields."""
+        """Builds the model `1/(std*value)` from the fields."""
 
         value = build_parametric_prior_from_prior_config(
             f"multistd_{self.filter}",
@@ -56,10 +61,17 @@ class MultiplicativeStdValueBuilder(InverseStdBuilder):
 
         return jft.Model(apply, domain=value.domain)
 
-    def update_fields(self, fields: dict) -> "MultiplicativeStdValueBuilder":
-        """Build a new instance of the `MultiplicativeStdValueBuilder`, with updated fields."""
-        self_fields: dict = shallow_asdict(self)
-        self_fields.update(**fields)
+    def update_fields(self, new_fields: dict) -> "MultiplicativeStdValueBuilder":
+        """Build a new instance of the `MultiplicativeStdValueBuilder`, with updated
+        `new_fields`.
+
+        Parameters
+        ----------
+        new_fields: dict
+            A dictonary, where the key is the field to be udpated.
+        """
+        self_fields = {f.name: getattr(self, f.name) for f in fields(self)}
+        self_fields.update(**new_fields)
         return MultiplicativeStdValueBuilder(**self_fields)
 
 
@@ -84,18 +96,3 @@ def build_inverse_standard_deviation(
 
     else:
         raise ValueError(f"Unknown config: {config}")
-
-
-# Helper function ----------------------------------------------------------------------
-
-
-def shallow_asdict(obj):
-    """
-    Returns a shallow dictionary representation of a dataclass instance,
-    without recursing into nested dataclasses.
-    """
-    if not is_dataclass(obj):
-        raise TypeError("shallow_asdict() should be called on dataclass instances")
-
-    # Create a new dictionary from the dataclass fields
-    return {f.name: getattr(obj, f.name) for f in fields(obj)}

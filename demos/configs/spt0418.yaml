@@ -348,7 +348,7 @@ telescope:
   #   exclude_source_id: [4788834899488736128]  # , 4788858367190047104]
 
   variable_covariance: 
-    multiplicative_std_value: ['uniform', 1., 1.4]
+    multiplicative_std_value: ['uniform', 0.6, 1.4]
 
   target: 
     subsample: 3
