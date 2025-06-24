@@ -252,7 +252,8 @@ class SpectralPolynomial(HarmonicLogSpectralBehavior):
     def remove_degeneracy_of_spectral_deviations(
         self, deviations: ArrayLike
     ) -> ArrayLike:
-        # FIXME:: This needs to be implemented !!!
+        # TODO :: This needs to be implemented !!!
+
         raise NotImplementedError
 
         dev_slope = (
