@@ -561,7 +561,6 @@ def build_simple_spectral_sky(
 
     grid = make_grid(shape, distances, harmonic_type)
 
-    # FIXME: FIX WITH NORMAMP
     fluct = "fluctuations" if "fluctuations" in spatial_amplitude_settings else "scale"
     spatial_fluctuations = build_scaled_excitations(
         f"{prefix}_spatial",
