@@ -355,8 +355,8 @@ telescope:
 
   masking_step:
     mask_at_iteration: 4
-    threshold_hot_pixel: 5  # Residual value threshold
-    threshold_star_nan: 1.2
+    threshold_hot_pixel: 100 # 5  # Residual value threshold
+    threshold_star_nan: 20.0
     threshold_star_convolution: Null
 
   rotation_and_shift:
@@ -465,7 +465,7 @@ files:
 
   set_filter: False
   # res_dir: './results/jwst_lens/cluster/22_03_{filter}_positiveDelta_piemd'
-  res_dir: './results/jwst_lens/cluster/22_05_f444wf560wf770w_variablecov_04'
+  res_dir: './results/jwst_lens/cluster/22_05_f444wf560wf770w_variablecov_06'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
@@ -583,15 +583,13 @@ minimization:
     n_total_iterations: 12
 
     delta:
-      switches: [0, 4, 8, 15]
-      values: [5.e-6, 1.e-6, 5.e-7, 1.e-7]
+      switches: [0, 4, 8]
+      values: [5.e-6, 1.e-6, 5.e-7]
 
     samples:
-      switches: [0, 4, 6, 8, 15]
-      n_samples: [3, 3, 5, 5, 5]
-      # n_samples: [5]
-      # mode: [linear_resample, nonlinear_resample, nonlinear_resample, nonlinear_update]
-      mode: [linear_resample, linear_resample, linear_resample, nonlinear_resample]
+      switches: [0, 8, 10]
+      n_samples: [3, 3, 5]
+      mode: [linear_resample, linear_resample, nonlinear_resample]
       # Possible modes: 
       # - "linear_sample",
       # - "linear_resample",
@@ -601,10 +599,10 @@ minimization:
 
 
       # lin_absdelta: [Null, Null, 0.00001]
-      lin_maxiter: [120, 350, 650, 1200, 2350]
+      lin_maxiter: [120, 350, 650]
 
       # nonlin_xtol: [Null, 0.1, 0.01]
-      nonlin_maxiter: [7, 7, 13, 18]
+      nonlin_maxiter: [7, 7, 13]
       # nonlin_cg_atol: [0.1, 0.01]
       # nonlin_cg_maxiter: [20, 30]
 
