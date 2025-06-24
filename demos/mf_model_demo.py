@@ -64,7 +64,7 @@ if __name__ == "__main__":
     # deviations_settings = None
 
     ### BUILD MODEL
-    mf_model = ju.build_single_spectral_slope_mf_model(
+    mf_model = ju.build_simple_spectral_sky(
         prefix="test",
         shape=shape,
         distances=distances,

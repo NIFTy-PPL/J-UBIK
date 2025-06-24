@@ -29,8 +29,8 @@ from .instruments.chandra.chandra_data import (generate_chandra_data,
 from .instruments.chandra.chandra_response import build_chandra_response_from_config
 from .instruments.chandra.chandra_likelihood import generate_chandra_likelihood_from_config
 from .sky_model.multifrequency.spectral_product_mf_sky import (
-    SpectralProductMFSky,
-    build_single_spectral_slope_mf_model,
+    SpectralProductSky,
+    build_simple_spectral_sky,
 )
 from .sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope
 from .response import build_exposure_function, build_readout_function

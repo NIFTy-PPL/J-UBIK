@@ -42,7 +42,7 @@ from .spectral_product_utils.spectral_behavior import (
 )
 
 
-class SpectralProductMFSky(Model):
+class SpectralProductSky(Model):
     """A model for generating a correlated multi-frequency sky based on spatial and
     spectral correlation models.
     The model implements a product between a spatially correlated reference frequency
@@ -451,7 +451,7 @@ class SpectralProductMFSky(Model):
         return self._nonlinearity(self.log_ref_freq_mean_model(p))
 
 
-def build_single_spectral_slope_mf_model(
+def build_simple_spectral_sky(
     prefix: str,
     shape: tuple[int],
     distances: tuple[float],
@@ -469,7 +469,7 @@ def build_single_spectral_slope_mf_model(
     spectral_amplitude_model: str = "non_parametric",
     harmonic_type: str = "fourier",
     nonlinearity: callable = jnp.exp,
-) -> SpectralProductMFSky:
+) -> SpectralProductSky:
     """
     Builds a multi-frequency sky model parametrized as
 
@@ -620,7 +620,7 @@ def build_single_spectral_slope_mf_model(
         zero_mode_settings, f"{prefix}_zero_mode", normal_prior
     )
 
-    sky = SpectralProductMFSky(
+    sky = SpectralProductSky(
         zero_mode=zero_mode,
         spatial_scaled_excitations=spatial_fluctuations,
         spatial_amplitude=spatial_amplitude,
@@ -631,11 +631,11 @@ def build_single_spectral_slope_mf_model(
         nonlinearity=nonlinearity,
     )
 
-    # NOTE : In principle the SpectralProductMFSky doesn't need to have a prefix, as the
+    # NOTE : In principle the SpectralProductSky doesn't need to have a prefix, as the
     # different parts can be supplied separetly.
     return add_prefix(sky, prefix)
 
 
-def add_prefix(object: SpectralProductMFSky, prefix_key: str):
+def add_prefix(object: SpectralProductSky, prefix_key: str):
     setattr(object, "_prefix", prefix_key)
     return object
