@@ -64,6 +64,12 @@ class SpectralProductSky(Model):
         \\mathrm{SpectralBehavior}(k, \\mu) + \\mathrm{deviations} =
         slope(k) * (\\mu-\\mu_\\mathrm{ref}) +
         GaussMarkovProcess(k, \\mu-\\mu_\\mathrm{ref}) - AvgSlope[GaussMarkovProcess]
+
+    Note:
+        This class models a density, meaning that the conversion to measured
+        flux needs to be taken care of separately by the user.
+        This can be done, e.g., by integrating the density over the energy axis
+        and implementing the instrument-specific energy-to-flux conversion.
     """
 
     def __init__(
@@ -82,10 +88,7 @@ class SpectralProductSky(Model):
         """
         Parameters
         ----------
-        relative_log_frequencies: Union[tuple[float], ArrayLike]
-            The log_frequencies relative to the reference frequency:
-            delta log(v) = log(v) - log(v_ref) = \\mu - \\mu_\\mathrm{ref}
-        zero_model: jft.Model
+        zero_mode: jft.Model
             The model for the zero mode
         spatial_scaled_excitations: jft.Model
             Spatial excitations xi scaled by the fluctuations at reference frequency.
@@ -472,7 +475,6 @@ def build_simple_spectral_sky(
 ) -> SpectralProductSky:
     """
     Builds a multi-frequency sky model parametrized as
-
     .. math ::
         sky = \\exp(F[A_spatial *
               io(k, \\nu_0) + A_spectral *
@@ -480,7 +482,6 @@ def build_simple_spectral_sky(
               GaussMarkovProcess(k, \\nu-\\nu_0)
               - AvgSlope[GaussMarkovProcess]
               )] + zero_mode)
-
 
     Parameters
     ----------
