@@ -28,12 +28,22 @@ pmp = pytest.mark.parametrize
 
 @pmp("shape", [(10,), (10, 10)])
 @pmp("distances", [0.1])
-@pmp("log_frequencies", [np.array((0.1,)),
-                         np.array((0.01, 0.1, 1., 14.)),])
+@pmp(
+    "log_frequencies",
+    [
+        np.array((0.1,)),
+        np.array((0.01, 0.1, 1.0, 14.0)),
+    ],
+)
 @pmp("reference_frequency_index", [0])
 @pmp("zero_mode", [jft.Model(lambda p: 0.0, domain={"zero_mode": None})])
 @pmp("spectral_index_mean", [jft.NormalPrior(0.0, 1.0, name="spectral_index_mean")])
-@pmp("spectral_index_fluctuations", [(.5, 5.e-1),])
+@pmp(
+    "spectral_index_fluctuations",
+    [
+        (0.5, 5.0e-1),
+    ],
+)
 @pmp(
     "deviations_settings",
     [
@@ -58,7 +68,7 @@ def test_correlated_multi_frequency_sky_init(
     spatial_amplitude = NonParametricAmplitude(
         grid,
         None,
-        jft.normal_prior(1., 1.),
+        jft.normal_prior(1.0, 1.0),
     )
 
     spatial_fluctuations = jft.LogNormalPrior(0.1, 10.0, name="spatial_fluctuations")
