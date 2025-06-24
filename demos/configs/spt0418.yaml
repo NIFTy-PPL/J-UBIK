@@ -347,16 +347,16 @@ telescope:
   #   library_path: './data/GAIA/library_stars'
   #   exclude_source_id: [4788834899488736128]  # , 4788858367190047104]
 
-  variable_covariance: 
-    multiplicative_std_value: ['uniform', 0.6, 1.4]
+  # variable_covariance: 
+    # multiplicative_std_value: ['uniform', 0.6, 1.4]
 
   target: 
     subsample: 3
 
   masking_step:
     mask_at_iteration: 4
-    threshold_hot_pixel: 100 # 5  # Residual value threshold
-    threshold_star_nan: 20.0
+    threshold_hot_pixel: 5.0 # 5  # Residual value threshold
+    threshold_star_nan: 1.2
     threshold_star_convolution: Null
 
   rotation_and_shift:
@@ -465,7 +465,7 @@ files:
 
   set_filter: False
   # res_dir: './results/jwst_lens/cluster/22_03_{filter}_positiveDelta_piemd'
-  res_dir: './results/jwst_lens/cluster/22_05_f444wf560wf770w_variablecov_06'
+  res_dir: './results/jwst_lens/cluster/22_05_f444wf560wf770w_variablecov_05_no'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal
 
