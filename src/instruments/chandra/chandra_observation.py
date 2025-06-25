@@ -12,22 +12,12 @@ import shutil
 
 import numpy as np
 from astropy.io import fits
-try:
-    import ciao_contrib.runtool as rt
-    from paramio import pset
-except ImportError:
-    print("Ciao is not sourced or installed. Therefore some operations can't be performed")
-    pass
 
 from ...messages import message_obs, message_binning, message_exposure
 
 
 class ChandraObservationInformation():
-
-    """
-    Base class to provide an interface with the CXC analysis and simulation tools.
-
-    """
+    """Base class to provide an interface with the CXC analysis and simulation tools."""
 
     def __init__(self, obsInfo, npix_s, npix_e, fov, elim, center=None, energy_ranges=None, chips_off=()):
         """
@@ -56,7 +46,8 @@ class ChandraObservationInformation():
         center : tuple, optional
             RA and DEC of the image center. If None, the nominal pointing direction will be used. Default is None.
         energy_ranges : tuple, optional
-            Energy ranges for energy binning. Default is None, which means logscale equal-width bins will be used.
+            Energy ranges for energy binning. Default is None, which means
+            logscale equal-width bins will be used. If energy_ranges is set elim is ignored.
         chips_off : tuple, optional
             IDs of chips that are not considered. Default is an empty tuple. BI-Chips have IDs (5, 7).
 
@@ -65,7 +56,13 @@ class ChandraObservationInformation():
         None
         """
 
-        self.obsInfo = obsInfo
+        try:
+            import ciao_contrib.runtool as rt
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
+
+        self.obsInfo = obsInfo.copy()
 
         # 1. construct full file pathes
         ###############################
@@ -148,7 +145,7 @@ class ChandraObservationInformation():
 
         # 5. print some information
         ###########################
-        message_obs(obsInfo)
+        message_obs(self.obsInfo)
 
     def get_data(self, outfile):
 
@@ -167,6 +164,11 @@ class ChandraObservationInformation():
 
         """
 
+        try:
+            import ciao_contrib.runtool as rt
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
         # filter w/ cxc: spatial and energy cuts
         # creates an event list w/ only those detections that make the cuts
         infile  = self.obsInfo['event_file']
@@ -182,21 +184,25 @@ class ChandraObservationInformation():
             evts = dat_filtered['EVENTS'].data
         evts = np.array([evts['x'], evts['y'], np.log(1.e-3*evts['energy'])])
         evts = evts.transpose()
-        if self.obsInfo['energy_ranges']:
+
+        if self.obsInfo['energy_ranges'] is not None:
             bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], np.log(self.obsInfo['energy_ranges']))
         else:
             bins = (self.obsInfo['npix_s'],  self.obsInfo['npix_s'], self.obsInfo['npix_e'])
-        ranges = ((self.obsInfo['x_min'],self.obsInfo['x_max']),
-                  (self.obsInfo['y_min'],self.obsInfo['y_max']),
+
+        ranges = ((self.obsInfo['x_min'], self.obsInfo['x_max']),
+                  (self.obsInfo['y_min'], self.obsInfo['y_max']),
                   (np.log(self.obsInfo['energy_min']), np.log(self.obsInfo['energy_max'])))
 
         data, edges = np.histogramdd(evts, bins=bins, range=ranges, density=False, weights=None)
-        data = data.transpose((1,0,2)).astype(int)
+        data = data.transpose((1, 0, 2)).astype(int)
         self.obsInfo['ntot_binned'] = np.sum(data)
 
         message_binning(self.obsInfo)
-        energy_ranges = np.log(self.obsInfo['energy_ranges'])
-        print(f'Generated data for log energy ranges {energy_ranges}')
+        if self.obsInfo["energy_ranges"] is not None:
+            energy_ranges = np.log(self.obsInfo['energy_ranges'])
+            print(f'Generated data for log energy ranges {energy_ranges}')
+            # TODO Print edges regardless of method
         return data
 
     def get_exposure(self, outroot, res_xy=0.5, energy_subbins=10):
@@ -218,6 +224,11 @@ class ChandraObservationInformation():
         expmap: (np.array) 
             npix_e x npix_s x npix_s array with the exposure in units of  [sec * cm**(2) counts/photon]
         """
+        try:
+            import ciao_contrib.runtool as rt
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
 
         self.obsInfo['asphist_res_xy']    = res_xy
         self.obsInfo['exp_ebins_per_bin'] = energy_subbins
@@ -423,6 +434,12 @@ class ChandraObservationInformation():
         np.array
             A 3D numpy array (npix_e x npix_s x npix_s) with the simulated PSF.
         """
+        try:
+            import ciao_contrib.runtool as rt
+            from paramio import pset
+        except ImportError:
+            print("Ciao is not sourced or installed. Therefore some operations can't be performed")
+            pass
 
         self.psf_sim_coords.append(location)
 

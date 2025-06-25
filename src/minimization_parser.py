@@ -5,15 +5,17 @@
 
 # %%
 
-from typing import Callable, Union, Any, Optional, Dict
+from typing import Callable, Any, Optional, Dict
 
 import nifty8.re as jft
 
-# CONFIGURATION CONSTANTS
+# CONFIGURATION DEFAULTS
 SWITCHES = 'switches'
 SAMPLES = 'samples'
 N_SAMPLES = 'n_samples'
 N_TOTAL_ITERATIONS = 'n_total_iterations'
+CONSTANTS = 'constants'
+CONST_KEYS_CONFIG_NAME = 'domain_keys'
 MODE = 'mode'
 DELTA = 'delta'
 LIN = 'lin'
@@ -32,14 +34,15 @@ KL_MINI = 'kl_minimization'
 KL = 'kl'
 KL_NAME = 'kl'
 KL_CG = 'kl_cg'
-
+NCG_XTOL_DEFAULT = 1.e-5
 
 def get_config_value(
     key: str,
     config: dict,
-    index: int, default: Any,
+    index: int,
+    default: Any,
     verbose: bool = False
-) -> Union[int, float]:
+) -> int | float:
     """
     Returns a configuration value from a list or a default value.
 
@@ -61,7 +64,7 @@ def get_config_value(
 
     Returns
     -------
-    Union[int, float]
+    int | float
         The configuration value at the specified index or the default value.
 
     Raises
@@ -147,11 +150,11 @@ def get_range_index(
 def _delta_logic(
     keyword: str,
     delta: dict,
-    overwritten_value: Union[float, None],
+    config_value: float | None,
     iteration: int,
     delta_switches_index: int,
     ndof: Optional[int] = None,
-    verbose: bool = True
+    verbose: bool = True,
 ) -> float:
     """
     Calculates minimization config value if `delta` is in config.
@@ -164,8 +167,8 @@ def _delta_logic(
         Type of the delta logic ('kl', 'linear', 'nonlinear').
     delta : dict
         Configuration dictionary for delta values.
-    overwritten_value : Union[float, None]
-        Value to possibly be overwritten.
+    config_value : float, None
+        Config value, possibly to be overwritten.
     iteration : int
         Current global iteration index.
     delta_switches_index : int
@@ -197,8 +200,8 @@ def _delta_logic(
     0.1
     """
 
-    if overwritten_value is not None:
-        return overwritten_value
+    if config_value is not None:
+        return config_value
 
     iteration += 1  # iteration index changes during OptVI update
 
@@ -271,6 +274,8 @@ def n_samples_factory(
         return get_config_value(N_SAMPLES, mini_cfg[SAMPLES], range_index,
                                 default=None)
 
+    # Checks whether `n_samples` is well-defined before inference and prints its
+    # values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         n = n_samples(ii)
         if n is None:
@@ -315,6 +320,9 @@ def sample_mode_factory(
         "nonlinear_resample",
         "nonlinear_update",
     ]
+
+    # Checks whether the `sample_mode` is well-defined before inference and
+    # prints its values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         t = sample_mode(ii)
         if t not in sample_keywords:
@@ -386,7 +394,10 @@ def linear_sample_kwargs_factory(
                                 delta_range_index, ndof, verbose)
 
         return dict(
-            cg_name=LIN_NAME,
+            # FIXME: inside nifty cg_name is overwritten by cg_kwargs['name'].
+            # When this is fixed in nifty, this redundancy should
+            # be removed here.
+            cg_name=None,
             cg_kwargs=dict(
                 name=f'{LIN_NAME}_cg',
                 absdelta=absdelta,
@@ -396,6 +407,8 @@ def linear_sample_kwargs_factory(
                 maxiter=maxit)
         )
 
+    # Checks whether `linear_sample_kwargs` are well-defined before inference
+    # and prints their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         lin_config = linear_kwargs(ii)
         absdelta = lin_config['cg_kwargs']['absdelta']
@@ -457,6 +470,9 @@ def nonlinearly_update_kwargs_factory(
         xtol = _delta_logic(NONLIN, delta, xtol, iteration,
                             delta_range_index, verbose)
 
+        if xtol is None:
+            xtol = NCG_XTOL_DEFAULT
+
         cg_delta_name = f'{NONLIN_CG}_{ABSDELTA}'
         cg_tol_name = f'{NONLIN_CG}_{TOL}'
         cg_atol_name = f'{NONLIN_CG}_{ATOL}'
@@ -489,6 +505,8 @@ def nonlinearly_update_kwargs_factory(
                     maxiter=cg_maxit
                 )))
 
+    # Checks whether `nonlinearly_update_kwargs` are well-defined before
+    # inference and prints their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         non_linear_samples_dict = nonlinearly_update_kwargs(ii)
         if non_linear_samples_dict['minimize_kwargs']['xtol'] is None:
@@ -550,8 +568,8 @@ def kl_kwargs_factory(
             maxiter_name, mini_cfg[KL_MINI], range_index, default=None)
         absdelta = get_config_value(
             absdelta_name, mini_cfg[KL_MINI], range_index, default=None)
-        xtol = get_config_value(
-            xtol_name, mini_cfg[KL_MINI], range_index, default=None)
+        xtol = get_config_value(xtol_name, mini_cfg[KL_MINI], range_index,
+            default=NCG_XTOL_DEFAULT)
 
         absdelta = _delta_logic(KL, delta, absdelta, iteration,
                                 delta_range_index, ndof, verbose)
@@ -585,6 +603,8 @@ def kl_kwargs_factory(
                 )
             ))
 
+    # Checks whether `kl_kwargs` are well-defined before inference and prints
+    # their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
         kl_kwargs_dict = kl_kwargs(ii)
         if kl_kwargs_dict['minimize_kwargs']['absdelta'] is None:
@@ -592,6 +612,52 @@ def kl_kwargs_factory(
                              f"needs to be set.")
 
     return kl_kwargs
+
+
+def constants_factory(
+    mini_cfg: dict,
+) -> Callable[[int], int]:
+    """
+    Creates a Callable that returns a list of domain keys which should be kept
+    constant during minimization at a given iteration.
+
+    Parameters
+    ----------
+    mini_cfg : dict
+        The configuration dictionary containing constant keys information.
+
+    Returns
+    -------
+    Callable[[int], list]
+        A function that takes an iteration number and returns a list of constant
+        domain keys.
+
+    Examples
+    --------
+    >>> mini_cfg = {'constants': {'switches': [0, 5],
+    ...             'domain_keys': [['a', 'b'], None]},
+    ...             'n_total_iterations': 7}
+    >>> constants = constants_factory(mini_cfg)
+    >>> constants(0)
+    ['a', 'b']
+    >>> constants(6)
+    None
+    """
+
+    def constants(iteration: int) -> int:
+        range_index = get_range_index(
+            mini_cfg[CONSTANTS], iteration, mini_cfg[N_TOTAL_ITERATIONS])
+        return get_config_value(CONST_KEYS_CONFIG_NAME, mini_cfg[CONSTANTS],
+                                range_index, default=None)
+
+    # Checks whether `constants` are well-defined before inference and prints
+    # their values at each iteration.
+    for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
+        constants(ii)
+
+    return constants
+
+
 
 
 class MinimizationParser:

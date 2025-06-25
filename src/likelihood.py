@@ -8,11 +8,12 @@
 import numpy as np
 import nifty8 as ift
 import nifty8.re as jft
-
+from nifty8.re.model import NoValue
+from jax.tree_util import tree_leaves
 
 def get_n_constrained_dof(likelihood: jft.Likelihood) -> int:
     """
-    Extacts the number of constrained degrees of freedom (DOF)
+    Extracts the number of constrained degrees of freedom (DOF)
     based on the likelihood.
 
     Parameters
@@ -31,6 +32,11 @@ def get_n_constrained_dof(likelihood: jft.Likelihood) -> int:
 
     n_dof_data = jft.size(likelihood.left_sqrt_metric_tangents_shape)
     n_dof_model = jft.size(likelihood.domain)
+    leaves = tree_leaves(likelihood.domain)
+
+    if not leaves or all(leaf is NoValue for leaf in leaves):
+        raise ValueError("The likelihood must be connected to a model "
+                         "with a valid domain.")
     return min(n_dof_model, n_dof_data)
 
 

@@ -250,10 +250,9 @@ class ErositaObservation:
             )
 
         # Convert pointing information to arcseconds
-        conv = 3600
-        ra = conv * data['RA']
-        dec = conv * data['DEC']
-        roll = conv * data['ROLL']
+        ra = data['RA']
+        dec = data['DEC']
+        roll = data['ROLL']
 
         # Return pointing statistics
         stats = {'RA': (ra.mean(), ra.std()),
