@@ -25,6 +25,39 @@ def _set_default_or_call(arg: Union[callable, tuple, list] | None, default: call
     return default(*arg)
 
 
+def assert_normalized_amplitude_model(
+    model: MaternAmplitude | NonParametricAmplitude, name: str | None = None
+) -> None:
+    """This asserts that the model has no fluctuations or scale. Otherwise it will raise
+    a ValueError. Furthermore, it checks that the model is either a `MaternAmplitude` or
+    a `NonParametricAmplitude`.
+
+    Parameters
+    ----------
+    model: MaternAmplitude | NonParametricAmplitude
+        The model to be checked.
+    name: str | None
+        Additional string (model name) for the error message.
+    """
+    msg = (
+        "Amplitude must be normalized."
+        if name is None
+        else f"{name} amplitude must be normalized."
+    )
+    msg += " It is not allowed to have `fluctuations`."
+
+    if isinstance(model, MaternAmplitude):
+        if model.scale is not None:
+            raise ValueError(msg)
+    elif isinstance(model, NonParametricAmplitude):
+        if model.fluctuations is not None:
+            raise ValueError(msg)
+
+    raise ValueError(
+        "The model must either be a `MaternAmplitude` or a `NonParametricAmplitude`."
+    )
+
+
 def build_normalized_amplitude_model(
     grid: RegularCartesianGrid,
     settings: dict | None,
