@@ -112,6 +112,7 @@ def create_mock_data(tel_info,
     -------
     masked_mock_data: jft.Vector
         Dictionary of masked mock data arrays
+    # TODO Double check RNG
     """
     key = random.PRNGKey(seed)
 
