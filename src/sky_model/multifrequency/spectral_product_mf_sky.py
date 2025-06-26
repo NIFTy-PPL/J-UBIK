@@ -30,6 +30,7 @@ from .spectral_product_utils.distribution_or_default import (
 )
 from .spectral_product_utils.normalized_amplitude_model import (
     build_normalized_amplitude_model,
+    assert_normalized_amplitude_model,
 )
 from .spectral_product_utils.scaled_excitations import (
     ScaledExcitations,
@@ -116,18 +117,9 @@ class SpectralProductSky(Model):
         # The amplitudes supplied need to be normalized, as both the spatial
         # and the spectral fluctuations are applied directly in the call to
         # avoid degeneracies.
-        if spatial_amplitude.fluctuations is not None:
-            raise ValueError(
-                "Spatial amplitude must be normalized."
-                "It is not allowed to have `fluctuations`."
-            )
-
+        assert_normalized_amplitude_model(spatial_amplitude, name="Spatial")
         if spectral_amplitude is not None:
-            if spectral_amplitude.fluctuations is not None:
-                raise ValueError(
-                    "Spectral amplitude must be normalized."
-                    "It is not allowed to have `fluctuations`."
-                )
+            assert_normalized_amplitude_model(spectral_amplitude, name="Spectral")
 
         grid = spatial_amplitude.grid
         self._hdvol = 1.0 / grid.total_volume
@@ -258,10 +250,11 @@ class SpectralProductSky(Model):
                 )
             else:
                 spectral_deviations = self.spectral_index_deviations(p)
-                spectral_terms = self.log_spectral_behavior.fluctuations_with_frequencies(
-                    p
-                ) + self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
-                    spectral_deviations
+                spectral_terms = (
+                    self.log_spectral_behavior.fluctuations_with_frequencies(p)
+                    + self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
+                        spectral_deviations
+                    )
                 )
 
             if self.spectral_amplitude is None:
