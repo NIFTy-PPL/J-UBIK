@@ -1,16 +1,15 @@
 from dataclasses import asdict
-from typing import Union, Any
+from typing import Any, Union
 
 import matplotlib.pyplot as plt
 import nifty8.re as jft
 import numpy as np
 
-from nifty8.re.library.mf_model import CorrelatedMultiFrequencySky
-
+from ....sky_model.multifrequency.spectral_product_mf_sky import SpectralProductSky
 from ..parse.plotting import FieldPlottingConfig
 from ..rotation_and_shift.coordinates_correction import (
-    CoordinatesCorrectedShiftOnly,
     CoordinatesCorrectedShiftAndRotation,
+    CoordinatesCorrectedShiftOnly,
 )
 
 
@@ -308,9 +307,9 @@ def get_alpha_and_reference(light_model):
     from charm_lensing.physical_models.hybrid_model import HybridModel
 
     light_model: HybridModel = light_model
-    model: CorrelatedMultiFrequencySky | Any = light_model.nonparametric
+    model: SpectralProductSky | Any = light_model.nonparametric
 
-    if isinstance(model, CorrelatedMultiFrequencySky):
+    if isinstance(model, SpectralProductSky):
         alpha = model.spectral_index_distribution
         reference = model.reference_frequency_distribution
         return alpha, reference

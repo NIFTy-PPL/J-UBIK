@@ -6,7 +6,6 @@ from typing import Any, Union
 import matplotlib.pyplot as plt
 import nifty8.re as jft
 import numpy as np
-from nifty8.re.library.mf_model import CorrelatedMultiFrequencySky
 
 from ....grid import Grid
 from ..parse.plotting import LensSystemPlottingConfig
