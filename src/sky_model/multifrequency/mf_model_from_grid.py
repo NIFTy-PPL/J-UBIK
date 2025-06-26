@@ -1,6 +1,6 @@
 from ...grid import Grid
 
-from nifty8.re.library import CorrelatedMultiFrequencySky, build_default_mf_model
+from .spectral_product_mf_sky import SpectralProductSky, build_simple_spectral_sky
 
 import numpy as np
 import jax.numpy as jnp
@@ -19,7 +19,7 @@ def build_mf_model_from_grid(
     spatial_unit: u.Unit | None = u.arcsec,
     spectral_unit: u.Unit | None = u.eV,
     nonlinearity: callable = jnp.exp,
-) -> CorrelatedMultiFrequencySky:
+) -> SpectralProductSky:
     # spatial
     shape = grid.spatial.shape
     distances = grid.spatial.distances.to(spatial_unit).value
@@ -31,7 +31,7 @@ def build_mf_model_from_grid(
 
     spectral_amplitude_model = _get_spectral_amplitude_model(model_cfg)
 
-    return build_default_mf_model(
+    return build_simple_spectral_sky(
         prefix=prefix,
         shape=shape,
         distances=distances,
