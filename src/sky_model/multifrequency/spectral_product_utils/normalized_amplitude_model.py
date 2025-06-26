@@ -52,10 +52,10 @@ def assert_normalized_amplitude_model(
     elif isinstance(model, NonParametricAmplitude):
         if model.fluctuations is not None:
             raise ValueError(msg)
-
-    raise ValueError(
-        "The model must either be a `MaternAmplitude` or a `NonParametricAmplitude`."
-    )
+    else:
+        raise ValueError(
+            "The model must either be a `MaternAmplitude` or a `NonParametricAmplitude`."
+        )
 
 
 def build_normalized_amplitude_model(

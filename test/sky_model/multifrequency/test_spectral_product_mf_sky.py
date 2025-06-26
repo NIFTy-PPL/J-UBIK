@@ -11,7 +11,11 @@ import numpy as np
 import nifty8.re as jft
 import jubik0 as ju
 
-from nifty8.re.correlated_field import make_grid, NonParametricAmplitude
+from nifty8.re.correlated_field import (
+    make_grid,
+    NonParametricAmplitude,
+    MaternAmplitude,
+)
 
 from jubik0.sky_model.multifrequency.spectral_product_utils.frequency_deviations import (
     build_frequency_deviations_model_with_degeneracies,
@@ -54,6 +58,24 @@ pmp = pytest.mark.parametrize
         None,
     ],
 )
+@pmp(
+    "amplitude_kernel",
+    [
+        (
+            MaternAmplitude,
+            dict(
+                scale=None,
+                cutoff=jft.normal_prior(1.0, 1.0),
+                loglogslope=jft.normal_prior(1.0, 1.0),
+                renormalize_amplitude=True,
+            ),
+        ),
+        (
+            NonParametricAmplitude,
+            dict(fluctuations=None, loglogavgslope=jft.normal_prior(1.0, 1.0)),
+        ),
+    ],
+)
 def test_correlated_multi_frequency_sky_init(
     shape,
     distances,
@@ -63,13 +85,10 @@ def test_correlated_multi_frequency_sky_init(
     spectral_index_mean,
     spectral_index_fluctuations,
     deviations_settings,
+    amplitude_kernel,
 ):
     grid = make_grid(shape, distances, "fourier")
-    spatial_amplitude = NonParametricAmplitude(
-        grid,
-        None,
-        jft.normal_prior(1.0, 1.0),
-    )
+    spatial_amplitude = amplitude_kernel[0](grid=grid, **amplitude_kernel[1])
 
     spatial_fluctuations = jft.LogNormalPrior(0.1, 10.0, name="spatial_fluctuations")
 
