@@ -52,7 +52,7 @@ class VariableCovarianceGaussianLikelihoodBuilder:
         self.mask = np.array(self.mask)
 
     def build(self) -> jft.VariableCovarianceGaussian:
-        inv_std = self.inverse_std_builder.build()
+        inv_std = self.inverse_std_builder.build(std=self.std, mask=self.mask)
         model = jft.Model(
             lambda x: (self.response(x), inv_std(x)),
             domain=self.response.domain | inv_std.domain,

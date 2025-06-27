@@ -182,6 +182,8 @@ def build_jwst_likelihoods(
             rotation_center=SkyCoord(filter_alignment.boresight),
         )
 
+        print(dataload_results.target_data.mask.sum())
+
         likelihood_target: SingleTargetLikelihood = build_target_likelihood(
             response=build_target_response(
                 input_config=TargetResponseInput(
@@ -199,9 +201,8 @@ def build_jwst_likelihoods(
             target_data=dataload_results.target_data,
             filter_name=filter,
             inverse_std_builder=build_inverse_standard_deviation(
-                config=cfg_parser.variable_covariance_config,
                 filter_name=filter,
-                target_data=dataload_results.target_data,
+                config=cfg_parser.variable_covariance_config,
             ),
             side_effect=TargetLikelihoodSideEffects(plotting=target_plotting),
         )

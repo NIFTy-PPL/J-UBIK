@@ -158,6 +158,7 @@ kl_settings = KLSettings(
     n_total_iterations=cfg_mini["n_total_iterations"],
     callback=callback,
     resume=cfg_mini.get("resume", False),
+    # resume=False,
     # point_estimates=[
     #     k
     #     for k in samples_fixpointing.pos.tree.keys()
@@ -172,14 +173,22 @@ kl_settings = KLSettings(
 
 jft.logger.info("Full reconstruction")
 
-samples, state = minimize_with_hot_pixel_masking(
-    likelihood=likelihood_products.target,
-    kl_settings=kl_settings,
-    masking_step=MaskingStep(
-        settings=MaskingStepSettings.from_yaml_dict(cfg["telescope"]),
-        sky_with_filter=sky_model_with_keys,
-        hot_pixel_masking_data=likelihood_products.target.hot_pixel_masking_data,
-        res_dir=results_directory,
+samples, state = minimization_from_initial_samples(
+    likelihood=connect_likelihood_to_model(
+        likelihood_products.target.likelihood, sky_model_with_keys
     ),
+    kl_settings=kl_settings,
     starting_samples=samples_fixpointing,
 )
+
+# samples, state = minimize_with_hot_pixel_masking(
+#     likelihood=likelihood_products.target,
+#     kl_settings=kl_settings,
+#     masking_step=MaskingStep(
+#         settings=MaskingStepSettings.from_yaml_dict(cfg["telescope"]),
+#         sky_with_filter=sky_model_with_keys,
+#         hot_pixel_masking_data=likelihood_products.target.hot_pixel_masking_data,
+#         res_dir=results_directory,
+#     ),
+#     starting_samples=samples_fixpointing,
+# )

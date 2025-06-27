@@ -236,13 +236,25 @@ def _get_model_samples_or_position(position_or_samples, model):
     return model(position_or_samples)
 
 
+def _get_std_from_inversestdmodel(
+    position_or_samples: Union[dict, jft.Samples, jft.Vector],
+    inverse_std: jft.Model,
+):
+    if isinstance(position_or_samples, jft.Samples) and len(position_or_samples) > 0:
+        return jft.mean([1 / inverse_std(x) for x in position_or_samples])
+    elif isinstance(position_or_samples, jft.Samples):
+        position_or_samples = position_or_samples.pos
+
+    return 1 / inverse_std(position_or_samples)
+
+
 def _get_data_model_and_chi2(
     position_or_samples: Union[dict, jft.Samples, jft.Vector],
     sky_or_skies: np.ndarray | None,
     data_model: jft.Model,
     data: np.ndarray,
     mask: np.ndarray,
-    std: np.ndarray,
+    std: Union[np.ndarray, jft.Model],
 ) -> tuple[np.ndarray, tuple[float, float]]:
     if isinstance(std, float):
         std = np.full_like(data, std)
@@ -261,6 +273,7 @@ def _get_data_model_and_chi2(
             else:
                 tmp[mask] = data_model(sky_or_skies[ii] | si)
             model_d.append(tmp)
+
         model_mean = jft.mean(model_d)
 
         if len(mask.shape) == 2:

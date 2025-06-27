@@ -15,14 +15,18 @@ from .plotting_base import (
     display_text,
     _get_model_samples_or_position,
     _get_data_model_and_chi2,
+    _get_std_from_inversestdmodel,
     plot_data_data_model_residuals,
     get_shift_rotation_correction,
 )
-from ..jwst_response import JwstResponse
+from ..likelihood.likelihood import (
+    GaussianLikelihoodBuilder,
+    VariableCovarianceGaussianLikelihoodBuilder,
+)
 
 
 # Define the namedtuple
-FilterData = namedtuple("FilterData", ["data", "std", "mask", "model"])
+FilterData = namedtuple("FilterData", ["data", "std", "mask", "builder"])
 
 
 @dataclass
@@ -31,7 +35,9 @@ class ResidualPlottingInformation:
     data: list[np.ndarray] = field(default_factory=list)
     mask: list[np.ndarray] = field(default_factory=list)
     std: list[np.ndarray] = field(default_factory=list)
-    model: list[JwstResponse] = field(default_factory=list)
+    builder: list[
+        GaussianLikelihoodBuilder | VariableCovarianceGaussianLikelihoodBuilder
+    ] = field(default_factory=list)
     y_offset: int = 0
 
     def append_information(
@@ -40,13 +46,14 @@ class ResidualPlottingInformation:
         data: np.ndarray,
         mask: np.ndarray,
         std: np.ndarray,
-        model: JwstResponse,
+        builder: GaussianLikelihoodBuilder
+        | VariableCovarianceGaussianLikelihoodBuilder,
     ):
         self.filter.append(filter)
         self.data.append(data)
         self.std.append(std)
         self.mask.append(mask)
-        self.model.append(model)
+        self.builder.append(builder)
 
     def get_filter(self, filter: str) -> FilterData:
         """FilterData for `filter`.
@@ -58,14 +65,14 @@ class ResidualPlottingInformation:
 
         Returns
         -------
-        FilterData = (data, std, mask, model)
+        FilterData = (data, std, mask, builder)
         """
         index = self.filter.index(filter)
         return FilterData(
             data=self.data[index],
             std=self.std[index],
             mask=self.mask[index],
-            model=self.model[index],
+            builder=self.builder[index],
         )
 
 
@@ -176,12 +183,21 @@ def build_plot_sky_residuals(
                 filter_key, filter_projector, y_offset=residual_plotting_info.y_offset
             )
 
-            data, std, mask, model = residual_plotting_info.get_filter(filter_key)
+            data, std, mask, builder = residual_plotting_info.get_filter(filter_key)
+
+            # TODO : THIS is not quite correct since res**2/std**2 is not linear in std
+            if hasattr(builder, "inverse_std_builder"):
+                std = np.zeros_like(std)
+                std[mask] = _get_std_from_inversestdmodel(
+                    position_or_samples,
+                    builder.inverse_std_builder.build(std=std, mask=mask),
+                )
+                exit()
 
             model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples,
                 sky_or_skies,
-                data_model=model,
+                data_model=builder.response,
                 data=data,
                 mask=mask,
                 std=std,
@@ -235,7 +251,7 @@ def build_plot_sky_residuals(
                     else _get_data_model_and_chi2(
                         position_or_samples,
                         overplot_model_sky,
-                        data_model=model,
+                        data_model=builder.response,
                         data=data,
                         mask=mask,
                         std=std,

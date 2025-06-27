@@ -72,7 +72,7 @@ def build_target_likelihood(
             data=target_data.data,
             std=target_data.std,
             mask=target_data.mask,
-            model=response,
+            builder=builder,
         )
 
     return SingleTargetLikelihood(filter=filter_name, builder=builder)

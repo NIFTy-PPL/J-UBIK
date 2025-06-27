@@ -18,19 +18,14 @@ from ..parse.variable_covariance import MultiplicativeStdValueConfig, StdValueSh
 
 class InverseStdBuilder(ABC):
     @abstractmethod
-    def build(self) -> jft.Model:
-        pass
-
-    @abstractmethod
-    def update_fields(self, fields: dict) -> "InverseStdBuilder":
-        """Build a new instance of the `InverseStdBuilder`, with updated fields."""
+    def build(self, std: np.ndarray, mask: np.ndarray) -> jft.Model:
         pass
 
 
 # Concrete Implementations -------------------------------------------------------------
 
 
-@dataclass
+@dataclass(frozen=True)
 class MultiplicativeStdValueBuilder(InverseStdBuilder):
     """Builder for a model, where the standard deviation is multiplied by a value.
 
@@ -40,10 +35,8 @@ class MultiplicativeStdValueBuilder(InverseStdBuilder):
     filter: str
     distribution: ProbabilityConfig
     shape_type: StdValueShapeType
-    std: np.ndarray
-    mask: np.ndarray
 
-    def build(self) -> jft.Model:
+    def build(self, std: np.ndarray, mask: np.ndarray) -> jft.Model:
         """Builds the model `1/(std*value)` from the fields."""
         distribution_builder = partial(
             build_parametric_prior_from_prior_config,
@@ -51,7 +44,7 @@ class MultiplicativeStdValueBuilder(InverseStdBuilder):
             prior_config=self.distribution,
             as_model=True,
         )
-        one_over_std = 1 / self.std[self.mask]
+        one_over_std = 1 / std[mask]
 
         # Build concrete distribution & apply
         if self.shape_type == StdValueShapeType.filter:
@@ -62,14 +55,14 @@ class MultiplicativeStdValueBuilder(InverseStdBuilder):
                 return one_over_std * val
 
         elif self.shape_type == StdValueShapeType.pixel:
-            distribution = distribution_builder(shape=(self.mask.sum(),))
+            distribution = distribution_builder(shape=(mask.sum(),))
 
             def apply(x):
                 return one_over_std / distribution(x)
 
         elif self.shape_type == StdValueShapeType.integration:
-            distribution = distribution_builder(shape=(self.std.shape[0],))
-            sh = np.cumsum([0] + [m.sum() for m in self.mask])
+            distribution = distribution_builder(shape=(std.shape[0],))
+            sh = np.cumsum([0] + [m.sum() for m in mask])
             one_over_std = [
                 one_over_std[sh[ii] : sh[ii + 1]] for ii in range(len(sh) - 1)
             ]
@@ -84,27 +77,13 @@ class MultiplicativeStdValueBuilder(InverseStdBuilder):
 
         return jft.Model(apply, domain=distribution.domain)
 
-    def update_fields(self, new_fields: dict) -> "MultiplicativeStdValueBuilder":
-        """Build a new instance of the `MultiplicativeStdValueBuilder`, with updated
-        `new_fields`.
-
-        Parameters
-        ----------
-        new_fields: dict
-            A dictonary, where the key is the field to be udpated.
-        """
-        self_fields = {f.name: getattr(self, f.name) for f in fields(self)}
-        self_fields.update(**new_fields)
-        return MultiplicativeStdValueBuilder(**self_fields)
-
 
 # API ----------------------------------------------------------------------------------
 
 
 def build_inverse_standard_deviation(
-    config: MultiplicativeStdValueConfig | None,
     filter_name: str,
-    target_data: TargetData,
+    config: MultiplicativeStdValueConfig | None,
 ) -> MultiplicativeStdValueBuilder | None:
     if config is None:
         return None
@@ -114,8 +93,6 @@ def build_inverse_standard_deviation(
             filter=filter_name,
             distribution=config.distribution,
             shape_type=config.shape_type,
-            std=target_data.std,
-            mask=target_data.mask,
         )
 
     else:

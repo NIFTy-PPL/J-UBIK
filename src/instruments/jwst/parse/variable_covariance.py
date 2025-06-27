@@ -23,7 +23,7 @@ class StdValueShapeType(Enum):
     pixel: str = "pixel"
 
 
-@dataclass
+@dataclass(frozen=True)
 class MultiplicativeStdValueConfig(VariableCovarianceConfig):
     shape_type: StdValueShapeType
     distribution: ProbabilityConfig

@@ -313,23 +313,6 @@ def _build_new_mask_strategy(
     )
 
 
-def _update_operators(
-    masking_products: MaskingProducts,
-    response: jft.Model,
-    inverse_std_builder: InverseStdBuilder | None,
-):
-    response_new = jft.Model(
-        lambda x: response(x)[masking_products.mask_flat], domain=response.domain
-    )
-
-    if inverse_std_builder is None:
-        return response_new, None
-
-    return response_new, inverse_std_builder.update_fields(
-        dict(mask=masking_products.mask_3d)
-    )
-
-
 def masking_hot_pixels(
     likelihood: TargetLikelihoodProducts,
     plotting: ResidualPlottingInformation,
@@ -355,14 +338,13 @@ def masking_hot_pixels(
             ll.filter,
         )
 
-        response, inverse_std_builder = _update_operators(
-            masking_products,
-            ll.builder.response,
-            inverse_std_builder=(
-                ll.builder.inverse_std_builder
-                if hasattr(ll.builder, "inverse_std_builder")
-                else None
-            ),
+        inv_std = None
+        if hasattr(ll.builder, "inverse_std_builder"):
+            inv_std = ll.builder.inverse_std_builder
+
+        response = jft.Model(
+            lambda x: ll.builder.response(x)[masking_products.mask_flat],
+            domain=ll.builder.response.domain,
         )
 
         new_likelihoods.append(
@@ -374,7 +356,7 @@ def masking_hot_pixels(
                     mask=masking_products.mask_3d,
                 ),
                 filter_name=ll.filter,
-                inverse_std_builder=inverse_std_builder,
+                inverse_std_builder=inv_std,
                 side_effect=TargetLikelihoodSideEffects(plotting=target_plotting),
             )
         )
