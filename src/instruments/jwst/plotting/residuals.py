@@ -190,9 +190,8 @@ def build_plot_sky_residuals(
                 std = np.zeros_like(std)
                 std[mask] = _get_std_from_inversestdmodel(
                     position_or_samples,
-                    builder.inverse_std_builder.build(std=std, mask=mask),
+                    inverse_std=builder.inverse_std_builder.build(std=std, mask=mask),
                 )
-                exit()
 
             model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples,

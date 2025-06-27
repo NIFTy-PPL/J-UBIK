@@ -24,6 +24,19 @@ class StdValueShapeType(Enum):
 
 
 @dataclass(frozen=True)
+class AdditiveStdValueConfig(VariableCovarianceConfig):
+    shape_type: StdValueShapeType
+    distribution: ProbabilityConfig
+
+    @classmethod
+    def from_yaml_dict(cls, settings: dict | list) -> "AdditiveStdValueConfig":
+        return cls(
+            shape_type=StdValueShapeType(settings["shape_type"]),
+            distribution=prior_config_factory(settings["distribution"]),
+        )
+
+
+@dataclass(frozen=True)
 class MultiplicativeStdValueConfig(VariableCovarianceConfig):
     shape_type: StdValueShapeType
     distribution: ProbabilityConfig
@@ -53,7 +66,10 @@ def variable_covariance_config_factory(
     if raw is None:
         return None
 
-    mapping = {"multiplicative_std_value": MultiplicativeStdValueConfig}
+    mapping = {
+        "multiplicative_std_value": MultiplicativeStdValueConfig,
+        "additive_std_value": AdditiveStdValueConfig,
+    }
 
     # TODO : Implement more complicated versions, where one can get more than one Covarince estimator.
     assert len(raw.keys()) == 1
