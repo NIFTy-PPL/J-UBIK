@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Union
 from dataclasses import dataclass, astuple
 from numpy.typing import ArrayLike
@@ -11,6 +11,10 @@ class ProbabilityConfig(ABC):
     distribution: str
     transformation: str | None
 
+    @abstractmethod
+    def parameters_to_shape(self, shape: tuple):
+        pass
+
 
 @dataclass
 class DefaultPriorConfig(ProbabilityConfig):
@@ -19,6 +23,9 @@ class DefaultPriorConfig(ProbabilityConfig):
     sigma: float | ArrayLike
     transformation: str | None = None
 
+    def parameters_to_shape(self, shape: tuple):
+        return _shape_adjust(self.mean, shape), _shape_adjust(self.sigma, shape)
+
 
 @dataclass
 class UniformPriorConfig(ProbabilityConfig):
@@ -26,6 +33,21 @@ class UniformPriorConfig(ProbabilityConfig):
     min: float | ArrayLike
     max: float | ArrayLike
     transformation: str | None = None
+
+    def parameters_to_shape(self, shape: tuple):
+        return _shape_adjust(self.min, shape), _shape_adjust(self.max, shape)
+
+
+@dataclass
+class InverseGammaConfig(ProbabilityConfig):
+    distribution: str
+    a: float | ArrayLike
+    scale: float | ArrayLike
+    loc: float | ArrayLike
+    transformation: str | None = None
+
+    def parameters_to_shape(self, shape: tuple):
+        return self.a, self.scale, self.loc
 
 
 @dataclass
@@ -36,6 +58,9 @@ class DeltaPriorConfig(ProbabilityConfig):
     # signature of the other Configs.
     _: float | ArrayLike = 0.0
     transformation: str | None = None
+
+    def parameters_to_shape(self, shape: tuple):
+        return (_shape_adjust(self.mean, shape),)
 
 
 def prior_config_factory(settings: Union[dict, tuple], shape: tuple[int] | None = None):
@@ -77,6 +102,13 @@ def prior_config_factory(settings: Union[dict, tuple], shape: tuple[int] | None 
                 else UniformPriorConfig(*settings)
             )
 
+        case "invgamma":
+            return (
+                InverseGammaConfig(**settings)
+                if isinstance(settings, dict)
+                else InverseGammaConfig(*settings)
+            )
+
         case "delta" | None:
             return (
                 DeltaPriorConfig(**settings)
@@ -90,6 +122,9 @@ def prior_config_factory(settings: Union[dict, tuple], shape: tuple[int] | None 
                 if isinstance(settings, dict)
                 else DefaultPriorConfig(*settings)
             )
+
+
+# Utils --------------------------------------------------------------------------------
 
 
 def _cast_to_shape(value: ArrayLike, shape: tuple[int, ...]) -> np.ndarray:
@@ -121,3 +156,11 @@ def _cast_to_shape(value: ArrayLike, shape: tuple[int, ...]) -> np.ndarray:
     raise ValueError(
         f"cannot cast array from shape {arr.shape} to requested shape {shape}"
     )
+
+
+def _shape_adjust(val, shape):
+    """Adjusts the shape of the prior."""
+    if np.shape(val) == shape:
+        return np.array(val)
+    else:
+        return np.full(shape, val)

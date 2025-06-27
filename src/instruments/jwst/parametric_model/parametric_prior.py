@@ -8,25 +8,19 @@ from ..parse.parametric_model.parametric_prior import ProbabilityConfig
 
 from typing import Callable, Tuple, Union
 
+import numpy as np
 import jax.numpy as jnp
 import nifty8.re as jft
 
 DISTRIBUTION_MAPPING = {
-    "normal": (jft.normal_prior, ["mean", "sigma"]),
-    "log_normal": (jft.lognormal_prior, ["mean", "sigma"]),
-    "lognormal": (jft.lognormal_prior, ["mean", "sigma"]),
-    "uniform": (jft.uniform_prior, ["min", "max"]),
-    "delta": (lambda x: lambda _: x, ["mean"]),
-    None: (lambda x: lambda _: x, ["mean"]),
+    "normal": jft.normal_prior,
+    "log_normal": jft.lognormal_prior,
+    "lognormal": jft.lognormal_prior,
+    "uniform": jft.uniform_prior,
+    "invgamma": jft.invgamma_prior,
+    "delta": lambda x: lambda _: x,
+    None: lambda x: lambda _: x,
 }
-
-
-def _shape_adjust(val, shape):
-    """Adjusts the shape of the prior."""
-    if jnp.shape(val) == shape:
-        return jnp.array(val)
-    else:
-        return jnp.full(shape, val)
 
 
 def _infer_shape(params: dict, shape: tuple):
@@ -128,18 +122,14 @@ def build_parametric_prior_from_prior_config(
     prior function and required parameters.
     """
 
-    distribution = prior_config.distribution
-    prior_function, required_keys = DISTRIBUTION_MAPPING[distribution]
-    vals = [_shape_adjust(getattr(prior_config, key), shape) for key in required_keys]
-    transformation = prior_config.transformation
+    distribution_builder = DISTRIBUTION_MAPPING[prior_config.distribution]
+    distribution = distribution_builder(*prior_config.parameters_to_shape(shape=shape))
 
-    prior = prior_function(*vals)
-
-    if transformation is not None:
-        trafo = getattr(jnp, transformation)
-        func = jft.wrap(lambda x: trafo(prior(x)), domain_key)
+    if prior_config.transformation is not None:
+        trafo = getattr(jnp, prior_config.transformation)
+        func = jft.wrap(lambda x: trafo(distribution(x)), domain_key)
     else:
-        func = jft.wrap(prior, domain_key)
+        func = jft.wrap(distribution, domain_key)
 
     if as_model:
         return jft.Model(func, domain={domain_key: jft.ShapeWithDtype(shape)})

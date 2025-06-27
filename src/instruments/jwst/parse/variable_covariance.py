@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from abc import ABC, abstractclassmethod
+from enum import Enum
 
 from .parametric_model.parametric_prior import ProbabilityConfig, prior_config_factory
 
@@ -16,15 +17,23 @@ class VariableCovarianceConfig(ABC):
 # Concrete Implementations -------------------------------------------------------------
 
 
+class StdValueShapeType(Enum):
+    filter: str = "filter"
+    integration: str = "integration"
+    pixel: str = "pixel"
+
+
 @dataclass
 class MultiplicativeStdValueConfig(VariableCovarianceConfig):
-    value: ProbabilityConfig
+    shape_type: StdValueShapeType
+    distribution: ProbabilityConfig
 
     @classmethod
-    def from_yaml_dict(
-        cls, value_settings: dict | list
-    ) -> "MultiplicativeStdValueConfig":
-        return cls(value=prior_config_factory(value_settings))
+    def from_yaml_dict(cls, settings: dict | list) -> "MultiplicativeStdValueConfig":
+        return cls(
+            shape_type=StdValueShapeType(settings["shape_type"]),
+            distribution=prior_config_factory(settings["distribution"]),
+        )
 
 
 # API ----------------------------------------------------------------------------------
