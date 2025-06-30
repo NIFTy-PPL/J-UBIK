@@ -472,7 +472,7 @@ files:
   # workers: 4
 
   set_filter: True
-  res_dir: './results/jwst_lens/cluster/22_03_{filter}_positiveDelta_piemdnon_invgamma_additive'
+  res_dir: './results/jwst_lens/cluster/23_03_{filter}_varcov'
   # res_dir: './results/jwst_lens/cluster/22_05_f444wf560wf770w_variablecov_05_no'
 
   step_type: 'cleanflickernoisestep'  # tweakregstep, cleanflickernoisestep, cal

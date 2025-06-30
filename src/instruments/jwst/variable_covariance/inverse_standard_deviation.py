@@ -44,7 +44,7 @@ class AdditiveStdValueBuilder(InverseStdBuilder):
         """Builds the model `1/(std*value)` from the fields."""
         distribution_builder = partial(
             build_parametric_prior_from_prior_config,
-            domain_key=f"multistd_{self.filter}",
+            domain_key=f"{self.filter}_additive_std",
             prior_config=self.distribution,
             as_model=True,
         )
@@ -94,7 +94,7 @@ class MultiplicativeStdValueBuilder(InverseStdBuilder):
         """Builds the model `1/(std*value)` from the fields."""
         distribution_builder = partial(
             build_parametric_prior_from_prior_config,
-            domain_key=f"multistd_{self.filter}",
+            domain_key=f"{self.filter}_multiplicative_std",
             prior_config=self.distribution,
             as_model=True,
         )
