@@ -187,11 +187,12 @@ def build_plot_sky_residuals(
 
             # TODO : THIS is not quite correct since res**2/std**2 is not linear in std
             if hasattr(builder, "inverse_std_builder"):
-                std = np.zeros_like(std)
-                std[mask] = _get_std_from_inversestdmodel(
+                std_new = np.zeros(std.shape)
+                std_new[mask] = _get_std_from_inversestdmodel(
                     position_or_samples,
                     inverse_std=builder.inverse_std_builder.build(std=std, mask=mask),
                 )
+                std = std_new
 
             model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples,

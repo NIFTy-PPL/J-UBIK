@@ -468,7 +468,7 @@ telescope:
 
 
 files:
-  loading_mode: 'threads' # processes, threads, serial
+  loading_mode: 'serial' # processes, threads, serial
   # workers: 4
 
   set_filter: True
