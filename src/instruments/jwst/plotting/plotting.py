@@ -1,5 +1,5 @@
-from typing import Union, Callable
 from os.path import join
+from typing import Callable, Union
 
 import matplotlib.pyplot as plt
 import nifty8.re as jft
@@ -8,23 +8,25 @@ from jax import random
 
 from ....grid import Grid
 from ....parse.grid import GridModel
+from ....likelihood import connect_likelihood_to_model
 from ..filter_projector import FilterProjector
-from .plotting_base import find_closest_factors, get_position_or_samples_of_model
-from .residuals import build_plot_sky_residuals, ResidualPlottingInformation
+from ..jwst_likelihoods import TargetLikelihoodProducts
 from ..parse.plotting import (
-    LensSystemPlottingConfig,
-    ResidualPlottingConfig,
     FieldPlottingConfig,
+    LensSystemPlottingConfig,
     MultiFrequencyPlottingConfig,
+    ResidualPlottingConfig,
 )
-from .plotting_lens_system import build_plot_lens_system
-from .plot_source import build_plot_source
+from ..psf.psf_operator import PsfDynamic
 from .alignment import (
     MultiFilterAlignmentPlottingInformation,
     build_additional,
     build_plot_filter_alignment,
 )
-from ..psf.psf_operator import PsfDynamic
+from .plot_source import build_plot_source
+from .plotting_base import find_closest_factors, get_position_or_samples_of_model
+from .plotting_lens_system import build_plot_lens_system
+from .residuals import ResidualPlottingInformation, build_plot_sky_residuals
 
 
 def build_plot_alignment_residuals(
@@ -147,13 +149,18 @@ def get_plot(
         residual_plotting_config=plot_cfg_residual,
     )
 
-    return plot_source, plot_residual, plot_lens
+    def plot_target(samples: jft.Samples, state: jft.OptimizeVIState):
+        print(f"Plotting: {state.nit}")
+        plot_residual(samples, state)
+        plot_lens(samples, state)
+        plot_source(samples, state)
+
+    return plot_target
 
 
 def plot_prior(
     config_path: str,
-    likelihood: jft.Likelihood,
-    filter_projector: FilterProjector,
+    likelihood_target: TargetLikelihoodProducts,
     plot_residuals: bool,
     plot_source: Union[bool, callable],
     plot_lens: Union[bool, callable],
@@ -161,9 +168,9 @@ def plot_prior(
     sky_key: str = "sky",
 ):
     import yaml
-    from charm_lensing.lens_system import build_lens_system
+    from charm_lensing.lens_system import LensSystem, build_lens_system
+
     from jubik0.instruments.jwst.config_handler import insert_spaces_in_lensing_new
-    from charm_lensing.lens_system import LensSystem
 
     test_key, _ = random.split(random.PRNGKey(42), 2)
 
@@ -229,7 +236,7 @@ def plot_prior(
     if plot_residuals:
         plot_residual = build_plot_sky_residuals(
             results_directory=None,
-            filter_projector=filter_projector,
+            filter_projector=likelihood_target.filter_projector,
             residual_plotting_info=data_dict,
             sky_model=sky_model,
             residual_plotting_config=residual_plotting_config,
@@ -239,6 +246,7 @@ def plot_prior(
         def plot_residual(x):
             return True
 
+    likelihood = connect_likelihood_to_model(likelihood_target.likelihood, sky_model)
     nsamples = cfg.get("prior_samples") if cfg.get("prior_samples") else 3
     for ii in range(nsamples):
         test_key, _ = random.split(test_key, 2)
