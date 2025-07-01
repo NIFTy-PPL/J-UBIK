@@ -141,7 +141,7 @@ def build_plot_lens_system(
         )
 
         # Plot mass field
-        axes[2, 0].set_title("Mass parmetric")
+        axes[2, 0].set_title("Mass Full")
         axes[2, 1].set_title("Mass nonparametric")
         ims[2, 0] = axes[2, 0].imshow(
             cc,

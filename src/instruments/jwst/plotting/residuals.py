@@ -171,7 +171,7 @@ def build_plot_sky_residuals(
 
         overplot_model_sky = (
             None
-            if residual_plotting_config.residual_overplot.overplot_model is None
+            if residual_plotting_config.residual_overplot is None
             else _get_model_samples_or_position(
                 position_or_samples,
                 residual_plotting_config.residual_overplot.overplot_model,
