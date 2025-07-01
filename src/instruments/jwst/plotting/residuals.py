@@ -114,7 +114,7 @@ def build_plot_sky_residuals(
     results_directory: str | None,
     filter_projector: FilterProjector,
     residual_plotting_info: ResidualPlottingInformation,
-    sky_model_with_filters: jft.Model,
+    sky_model: jft.Model,
     residual_plotting_config: ResidualPlottingConfig = ResidualPlottingConfig(),
 ):
     if results_directory is not None:
@@ -123,7 +123,7 @@ def build_plot_sky_residuals(
 
     xmax_residuals = residual_plotting_config.xmax_residuals
 
-    ylen = len(sky_model_with_filters.target)
+    ylen = len(filter_projector.target)
     xlen = 3 + _determine_xlen_residuals(residual_plotting_info, xmax_residuals)
 
     def sky_residuals(
@@ -139,8 +139,8 @@ def build_plot_sky_residuals(
             ims = ims[None]
             axes = axes[None]
 
-        sky_or_skies = _get_model_samples_or_position(
-            position_or_samples, sky_model_with_filters
+        sky_or_skies = filter_projector(
+            _get_model_samples_or_position(position_or_samples, sky_model)
         )
 
         if isinstance(position_or_samples, jft.Samples):

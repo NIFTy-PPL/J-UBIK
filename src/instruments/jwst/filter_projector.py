@@ -96,7 +96,7 @@ class FilterProjector(jft.Model):
 
 
 def build_filter_projector(
-    sky_model: jft.Model,
+    sky_domain: dict | jft.ShapeWithDtype,
     grid: Grid,
     data_filter_names: list[str],
     sky_key: str = "sky",
@@ -116,7 +116,7 @@ def build_filter_projector(
                 keys_and_index[name] = color_index
 
     filter_projector = FilterProjector(
-        sky_domain=sky_model.target,
+        sky_domain=sky_domain,
         keys_and_colors=keys_and_colors,
         keys_and_index=keys_and_index,
         sky_key=sky_key,

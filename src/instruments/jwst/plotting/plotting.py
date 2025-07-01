@@ -90,7 +90,7 @@ def get_plot(
     lens_system,
     filter_projector: FilterProjector,
     residual_info: ResidualPlottingInformation,
-    sky_model_with_keys: jft.Model,
+    sky_model: jft.Model,
     parametric_lens: bool,
     plotting_cfg: dict,
     parametric_source: bool = False,
@@ -143,7 +143,7 @@ def get_plot(
         results_directory=results_directory,
         filter_projector=filter_projector,
         residual_plotting_info=residual_info,
-        sky_model_with_filters=sky_model_with_keys,
+        sky_model=sky_model,
         residual_plotting_config=plot_cfg_residual,
     )
 
@@ -178,9 +178,6 @@ def plot_prior(
         sky_model = lens_system.get_forward_model_parametric()
         parametric_lens = True
     sky_model = jft.Model(jft.wrap_left(sky_model, sky_key), domain=sky_model.domain)
-    sky_model_with_keys = jft.Model(
-        lambda x: filter_projector(sky_model(x)), init=sky_model.init
-    )
 
     grid = Grid.from_grid_model(GridModel.from_yaml_dict(cfg["sky"]["grid"]))
     # ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)
@@ -234,7 +231,7 @@ def plot_prior(
             results_directory=None,
             filter_projector=filter_projector,
             residual_plotting_info=data_dict,
-            sky_model_with_filters=sky_model_with_keys,
+            sky_model=sky_model,
             residual_plotting_config=residual_plotting_config,
         )
     else:

@@ -11,6 +11,7 @@ from .alignment.filter_alignment import FilterAlignment
 from .variable_covariance.inverse_standard_deviation import (
     build_inverse_standard_deviation,
 )
+from ...likelihood import connect_likelihood_to_model
 
 from .likelihood.target_likelihood import (
     SingleTargetLikelihood,
@@ -68,7 +69,8 @@ class TargetLikelihoodProducts:
     @property
     def likelihood(self) -> jft.Likelihood | jft.Gaussian:
         likelihoods = (t.likelihood for t in self.likelihoods)
-        return reduce(lambda x, y: x + y, likelihoods)
+        likelihood = reduce(lambda x, y: x + y, likelihoods)
+        return connect_likelihood_to_model(likelihood, self.filter_projector)
 
 
 @dataclass
@@ -96,7 +98,7 @@ class JwstLikelihoodProducts:
 def build_jwst_likelihoods(
     cfg: dict,
     grid: Grid,
-    sky_model: jft.Model,
+    sky_domain: dict | jft.ShapeWithDtype,
     files_key: str = "files",
     telescope_key: str = "telescope",
     sky_unit: u.Unit | None = None,
@@ -104,7 +106,7 @@ def build_jwst_likelihoods(
     """Build the jwst likelihood_target according to the config and grid."""
 
     filter_projector = build_filter_projector(
-        sky_model, grid, cfg[files_key]["filter"].keys()
+        sky_domain, grid, cfg[files_key]["filter"].keys()
     )
 
     # Parsing
