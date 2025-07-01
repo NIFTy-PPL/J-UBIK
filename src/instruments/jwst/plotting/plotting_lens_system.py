@@ -206,7 +206,10 @@ def build_plot_lens_system(
 
         for ax, im in zip(axes.flatten(), ims.flatten()):
             if not isinstance(im, int):
-                fig.colorbar(im, ax=ax, shrink=0.7)
+                try:
+                    fig.colorbar(im, ax=ax, shrink=0.7)
+                except:
+                    continue
 
         fig.tight_layout()
 
