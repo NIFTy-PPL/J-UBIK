@@ -112,6 +112,13 @@ instruments will be further expanded to include existing imaging pipelines from 
 and \texttt{NIFTy.re} such as those described in @Platz:2023, @Roth:2023, @Hutschenreuter:2022,
 as well as new ones.
 
+Several existing tools, such as \texttt{Jolideco} [@Donath:2024] and \texttt{LIRA} [@Connors:2011], also address Bayesian deconvolution of low-count astronomical images.
+\texttt{Jolideco} employs a patch-based Gaussian mixture prior trained on external data to jointly deconvolve multi-instrument observations, achieving high-resolution reconstructions in the X-ray and γ-ray regimes.
+\texttt{LIRA} (also known through its Python implementation \texttt{Pylira}) uses hierarchical Poisson-image priors and posterior sampling, particularly for Chandra and Fermi-LAT data, to quantify uncertainty.
+\texttt{J-UBIK} complements these efforts by providing a modular and extensible Bayesian imaging framework integrated with the \texttt{JAX}-accelerated \texttt{NIFTy.re} ecosystem.
+It supports composable priors, multiple inference schemes, and native implementations for Chandra, eROSITA, and JWST, and natively enables deconvolution with spatially varying PSFs — a key capability for realistic instrument modeling and uncertainty quantification.
+These features enable users to construct flexible, end-to-end inference pipelines applicable to a broad range of scientific imaging tasks.
+
 # Bayesian Imaging with \texttt{J-UBIK}
 At the core of the \texttt{J-UBIK} package is Bayes’ theorem:
 
