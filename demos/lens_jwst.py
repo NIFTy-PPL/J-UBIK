@@ -1,6 +1,6 @@
 import argparse
-from sys import exit
 from os.path import join
+from sys import exit
 
 import nifty8.re as jft
 from astropy import units as u
@@ -9,34 +9,26 @@ from jax import config, random
 
 import jubik0 as ju
 from jubik0.grid import Grid
-
 from jubik0.instruments.jwst.config_handler import (
     insert_spaces_in_lensing_new,
     load_yaml_and_save_info,
 )
 from jubik0.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
-from jubik0.instruments.jwst.minimization.mask_hot_pixels import (
-    MaskingStep,
-    minimize_with_hot_pixel_masking,
-)
-from jubik0.instruments.jwst.parse.minimization.mask_hot_pixels import (
-    MaskingStepSettings,
-)
 from jubik0.instruments.jwst.minimization.alignment_process import (
     alignment_minimization_process,
 )
+from jubik0.instruments.jwst.parse.plotting import FieldPlottingConfig
 from jubik0.instruments.jwst.plotting.plotting import (
+    build_plot_alignment_residuals,
     get_plot,
     plot_prior,
-    build_plot_alignment_residuals,
 )
-from jubik0.instruments.jwst.parse.plotting import FieldPlottingConfig
 from jubik0.likelihood import connect_likelihood_to_model
-from jubik0.parse.grid import GridModel
 from jubik0.minimization.minimization_from_samples import (
-    minimization_from_initial_samples,
     KLSettings,
+    minimization_from_initial_samples,
 )
+from jubik0.parse.grid import GridModel
 
 SKY_KEY = "sky"
 SKY_UNIT = u.MJy / u.sr

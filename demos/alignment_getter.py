@@ -39,21 +39,35 @@ class MassAndShift:
 
 
 positive = True
-base = "/home/jruestig/pro/python/j-ubik/results/jwst_lens/cluster"
+# base = "/home/jruestig/pro/python/j-ubik/results/jwst_lens/cluster"
+base = "/home/jruestig/pro/python/j-ubik/results/jwst_lens/shifts"
 filters = [
-    "21_01_01_f2100w_maskcenter_HotPixels",
-    "21_01_02_f1800w_maskcenter_HotPixels",
-    "21_01_03_f1500w_maskcenter_HotPixels",
-    "21_01_04_f1280w_maskcenter_HotPixels",
-    "21_01_05_f1000w_maskcenter_HotPixels",
-    "22_03_06_f770w_positiveNormal",
-    "22_03_07_f560w_positiveNormal",
-    "21_01_08_f444w_maskcenter_HotPixels",
-    "21_01_09_f356w_maskcenter_HotPixels",
-    "21_01_10_f277w_maskcenter_HotPixels",
-    "21_01_11_f200w_maskcenter_HotPixels",
-    "21_01_12_f150w_maskcenter_HotPixels",
-    "21_01_13_f115w_maskcenter_HotPixels",
+    # "21_01_01_f2100w_maskcenter_HotPixels",
+    # "21_01_02_f1800w_maskcenter_HotPixels",
+    # "21_01_03_f1500w_maskcenter_HotPixels",
+    # "21_01_04_f1280w_maskcenter_HotPixels",
+    # "21_01_05_f1000w_maskcenter_HotPixels",
+    # "22_03_06_f770w_positiveNormal",
+    # "22_03_07_f560w_positiveNormal",
+    # "21_01_08_f444w_maskcenter_HotPixels",
+    # "21_01_09_f356w_maskcenter_HotPixels",
+    # "21_01_10_f277w_maskcenter_HotPixels",
+    # "21_01_11_f200w_maskcenter_HotPixels",
+    # "21_01_12_f150w_maskcenter_HotPixels",
+    # "21_01_13_f115w_maskcenter_HotPixels",
+    "01_01_f2100w_invgamma_shiftNormal",
+    "01_02_f1800w_invgamma_shiftNormal",
+    "01_03_f1500w_invgamma_shiftNormal",
+    "01_04_f1280w_invgamma_shiftNormal",
+    "01_05_f1000w_invgamma_shiftNormal",
+    "01_06_f770w_invgamma_shiftNormal",
+    "01_07_f560w_invgamma_shiftNormal",
+    "01_08_f444w_invgamma_shiftNormal",
+    "01_09_f356w_invgamma_shiftNormal",
+    "01_10_f277w_invgamma_shiftNormal",
+    "01_11_f200w_invgamma_shiftNormal",
+    "01_12_f150w_invgamma_shiftNormal",
+    "01_13_f115w_invgamma_shiftNormal",
 ]
 
 
