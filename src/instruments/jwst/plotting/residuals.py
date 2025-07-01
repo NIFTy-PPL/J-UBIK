@@ -139,8 +139,11 @@ def build_plot_sky_residuals(
             ims = ims[None]
             axes = axes[None]
 
-        sky_or_skies = filter_projector(
-            _get_model_samples_or_position(position_or_samples, sky_model)
+        sky_or_skies = _get_model_samples_or_position(
+            position_or_samples,
+            jft.Model(
+                lambda x: filter_projector(sky_model(x)), domain=sky_model.domain
+            ),
         )
 
         if isinstance(position_or_samples, jft.Samples):
