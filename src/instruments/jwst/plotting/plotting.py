@@ -154,15 +154,15 @@ def get_plot(
         try:
             plot_residual(samples, state)
         except:
-            continue
+            pass
         try:
             plot_lens(samples, state)
         except:
-            continue
+            pass
         try:
             plot_source(samples, state)
         except:
-            continue
+            pass
 
     return plot_target
 
