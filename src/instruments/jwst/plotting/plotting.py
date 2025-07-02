@@ -151,9 +151,18 @@ def get_plot(
 
     def plot_target(samples: jft.Samples, state: jft.OptimizeVIState):
         print(f"Plotting: {state.nit}")
-        plot_residual(samples, state)
-        plot_lens(samples, state)
-        plot_source(samples, state)
+        try:
+            plot_residual(samples, state)
+        except:
+            continue
+        try:
+            plot_lens(samples, state)
+        except:
+            continue
+        try:
+            plot_source(samples, state)
+        except:
+            continue
 
     return plot_target
 
