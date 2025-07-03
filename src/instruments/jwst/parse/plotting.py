@@ -54,6 +54,7 @@ class MultiFrequencyPlottingConfig:
 @dataclass
 class LensSystemPlottingConfig:
     share_source_vmin_vmax: bool = False  # Sharing vmin, vmax for the source brightness
+    rgb_plotting: bool = False
     source: MultiFrequencyPlottingConfig = field(
         default_factory=MultiFrequencyPlottingConfig
     )
@@ -66,6 +67,7 @@ class LensSystemPlottingConfig:
     def from_yaml_dict(cls, raw: dict) -> "LensSystemPlottingConfig":
         return cls(
             share_source_vmin_vmax=raw.get("share_source_vmin_vmax", False),
+            rgb_plotting=raw.get("rgb_plotting", False),
             source=MultiFrequencyPlottingConfig.from_yaml_dict(raw.get("source")),
             lens_mass=FieldPlottingConfig.from_yaml_dict(raw.get("mass", {})),
             lens_light=MultiFrequencyPlottingConfig.from_yaml_dict(
