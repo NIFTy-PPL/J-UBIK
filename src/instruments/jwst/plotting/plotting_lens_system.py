@@ -377,14 +377,44 @@ def _build_rgb_skies(
     ):
         print("Plotting lens system")
 
-        sl, ll, ldl, cc, ccn, lla, lln, sla, sln = [
+        sl, lal, ldl, cc, ccn, lla, lln, sla, sln = [
             get_position_or_samples_of_model(position_or_samples, model, True)
             for model in models
         ]
 
+        bbb = sl.shape[0] // 3
+        sl = np.array(
+            [
+                sl[0:bbb].mean(axis=0),
+                sl[bbb : 2 * bbb].mean(axis=0),
+                sl[2 * bbb : -1].mean(axis=0),
+            ]
+        )
+        sl = np.log(sl + 1)
+        sl = sl / sl.max()
+
+        lal = np.array(
+            [
+                lal[0:bbb].mean(axis=0),
+                lal[bbb : 2 * bbb].mean(axis=0),
+                lal[2 * bbb : -1].mean(axis=0),
+            ]
+        )
+        lal = np.log(lal + 1)
+        lal = lal / lal.max()
+
+        ldl = np.array(
+            [
+                ldl[0:bbb].mean(axis=0),
+                ldl[bbb : 2 * bbb].mean(axis=0),
+                ldl[2 * bbb : -1].mean(axis=0),
+            ]
+        )
+        ldl = np.log(ldl + 1)
+        ldl = ldl / ldl.max()
+
         fig, axes = plt.subplots(3, xlen, figsize=(3 * xlen, 8), dpi=300)
         ims = np.zeros_like(axes)
-        light_offset = 2
 
         # Plot lens light
         axes[0, 0].set_title("Lens light alpha")
@@ -424,23 +454,11 @@ def _build_rgb_skies(
             **rendering,
         )
 
-        if plotting_config.share_source_vmin_vmax:
-            vmin_source = plotting_config.source.combined.get_min(sl)
-            vmax_source = plotting_config.source.combined.get_max(sl)
-            vmin_lensed_light = plotting_config.source.combined.get_min(sl)
-            vmax_lensed_light = plotting_config.source.combined.get_max(sl)
-
-        vmin_lens = plotting_config.lens_light.combined.get_min(ll)
-        vmax_lens = plotting_config.lens_light.combined.get_max(ll)
-
         axes[0, 2].set_title("Lens light")
         ims[0, 2] = axes[0, 2].imshow(
             # Move colour axis to the end: (H, W, 3) – format Matplotlib expects [[1]]
-            np.moveaxis(ll, 0, -1),
+            np.moveaxis(lal, 0, -1),
             extent=lens_light_extent,
-            norm=plotting_config.lens_light.combined.norm,
-            vmin=vmin_lens,
-            vmax=vmax_lens,
             **rendering,
         )
 
@@ -448,9 +466,6 @@ def _build_rgb_skies(
         ims[1, 2] = axes[1, 2].imshow(
             np.moveaxis(sl, 0, -1),
             extent=source_extent,
-            norm=plotting_config.source.combined.norm,
-            vmin=vmin_source,
-            vmax=vmax_source,
             **rendering,
         )
 
@@ -458,19 +473,15 @@ def _build_rgb_skies(
         ims[2, 2] = axes[2, 2].imshow(
             np.moveaxis(ldl, 0, -1),
             extent=lens_light_extent,
-            norm=plotting_config.source.combined.norm,
-            vmin=vmin_lensed_light,
-            vmax=vmax_lensed_light,
             **rendering,
         )
 
-        for ax, im in zip(axes.flatten(), ims.flatten()):
+        for ax, im in zip(axes[:, :2].flatten(), ims[:, :2].flatten()):
             if not isinstance(im, int):
                 try:
                     fig.colorbar(im, ax=ax, shrink=0.7)
                 except:
                     continue
-
         fig.tight_layout()
 
         if state_or_none is not None:
@@ -510,9 +521,14 @@ def build_plot_lens_system(
             lens_system=lens_system,
             lens_dir=lens_dir,
             grid=grid,
-            models=_build_models_for_rgb_plotting(
+            # models=_build_models_for_rgb_plotting(
+            #     lens_system=lens_system,
+            #     grid=grid,
+            #     parametric_lens=parametric_lens,
+            #     parametric_source=parametric_source,
+            # ),
+            models=_build_lens_plotting_models(
                 lens_system=lens_system,
-                grid=grid,
                 parametric_lens=parametric_lens,
                 parametric_source=parametric_source,
             ),

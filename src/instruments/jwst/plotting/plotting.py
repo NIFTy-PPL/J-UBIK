@@ -1,5 +1,6 @@
 from os.path import join
 from typing import Callable, Union
+from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import nifty8.re as jft
@@ -86,6 +87,28 @@ def build_plot_alignment_residuals(
     return plot_alignment_residuals
 
 
+@dataclass
+class PlotTarget:
+    plot_lens: callable
+    plot_source: callable
+    plot_residual: callable
+
+    def __call__(self, samples: jft.Samples, state: jft.OptimizeVIState):
+        print(f"Plotting: {state.nit}")
+        try:
+            self.plot_residual(samples, state)
+        except:
+            pass
+        try:
+            self.plot_lens(samples, state)
+        except:
+            pass
+        try:
+            self.plot_source(samples, state)
+        except:
+            pass
+
+
 def get_plot(
     results_directory: str,
     grid: Grid,
@@ -149,22 +172,9 @@ def get_plot(
         residual_plotting_config=plot_cfg_residual,
     )
 
-    def plot_target(samples: jft.Samples, state: jft.OptimizeVIState):
-        print(f"Plotting: {state.nit}")
-        try:
-            plot_residual(samples, state)
-        except:
-            pass
-        try:
-            plot_lens(samples, state)
-        except:
-            pass
-        try:
-            plot_source(samples, state)
-        except:
-            pass
-
-    return plot_target
+    return PlotTarget(
+        plot_lens=plot_lens, plot_source=plot_source, plot_residual=plot_residual
+    )
 
 
 def plot_prior(
