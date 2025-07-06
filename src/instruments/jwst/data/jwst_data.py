@@ -9,7 +9,6 @@ from dataclasses import dataclass
 import numpy as np
 from astropy import units
 from astropy.coordinates import SkyCoord
-from numpy.typing import ArrayLike
 
 from ....color import Color, ColorRange
 from ....wcs import subsample_pixel_centers, WcsAstropy, WcsJwstData
@@ -63,7 +62,7 @@ class JwstData:
 
     def data_from_bounding_indices(
         self, min_row: int, max_row: int, min_column: int, max_column: int
-    ) -> ArrayLike:
+    ) -> np.ndarray:
         """
         Find the data values inside the extrema.
 
@@ -76,14 +75,14 @@ class JwstData:
 
         Returns
         -------
-        data : ArrayLike
+        data : np.ndarray
             Data values inside the extrema.
         """
         return self.dm.data[min_row:max_row, min_column:max_column]
 
     def std_from_bounding_indices(
         self, min_row: int, max_row: int, min_column: int, max_column: int
-    ) -> ArrayLike:
+    ) -> np.ndarray:
         """Find the data values inside the extrema.
 
         Parameters
@@ -95,14 +94,14 @@ class JwstData:
 
         Returns
         -------
-        std : ArrayLike
+        std : np.ndarray
             Data values inside the extrema.
         """
         return self.dm.err[min_row:max_row, min_column:max_column]
 
     def nan_from_bounding_indices(
         self, min_row: int, max_row: int, min_column: int, max_column: int
-    ) -> ArrayLike:
+    ) -> np.ndarray:
         """
         Get a nan-mask of the data inside the extrema.
 
@@ -115,7 +114,7 @@ class JwstData:
 
         Returns
         -------
-        nan-mask : ArrayLike
+        nan-mask : np.ndarray
             Mask corresponding to the nan values inside the extrema.
         """
         data = self.data_from_bounding_indices(min_row, max_row, min_column, max_column)
@@ -125,12 +124,15 @@ class JwstData:
     @property
     def half_power_wavelength(self):
         pivot, bw, er, blue, red = JWST_FILTERS[self.filter]
-        return ColorRange(Color(blue * units.micrometer), Color(red * units.micrometer))
+        return ColorRange(
+            Color(blue * units.Unit("micrometer")),
+            Color(red * units.Unit("micrometer")),
+        )
 
     @property
     def pivot_wavelength(self) -> Color:
         pivot, *_ = JWST_FILTERS[self.filter]
-        return Color(pivot * units.micrometer)
+        return Color(pivot * units.Unit("micrometer"))
 
     def bounding_data_mask_std_by_bounding_indices(
         self,
@@ -182,7 +184,7 @@ class JwstData:
 
     def data_subpixel_centers(
         self,
-        row_minmax_column_minmax: tuple[int] | np.ndarray,
+        row_minmax_column_minmax: tuple[int, int, int, int] | np.ndarray,
         subsample: int = 1,
     ):
         """Subsampled data pixel centers according to `row_minmax_column_minmax`.

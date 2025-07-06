@@ -16,11 +16,11 @@ from .wcs_astropy import WcsAstropy
 
 
 def subsample_pixel_centers(
-    bounding_indices: tuple[int, int, int, int],
+    bounding_indices: tuple[int, int, int, int] | np.ndarray,
     to_be_subsampled_grid_wcs: Union[WcsAstropy, WcsJwstData],
     subsample: int,
     as_pixel_values: bool = False,
-) -> SkyCoord:
+) -> SkyCoord | np.ndarray:
     """This function finds the world coordinate centers of a subsampled grid, the
     `to_be_subsampled_grid`, which is typically the data grid.
 

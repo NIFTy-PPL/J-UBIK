@@ -120,7 +120,7 @@ class WcsAstropy(WCS, WcsMixin):
         self,
         extension_value: Optional[tuple[int, int]] = None,
         extension_factor: float = 1,
-    ) -> ArrayLike:
+    ) -> list[SkyCoord]:
         """
         The world location of the center of the pixels with the index
         locations = ((0, 0), (0, -1), (-1, 0), (-1, -1))
@@ -158,7 +158,7 @@ class WcsAstropy(WCS, WcsMixin):
         points = np.array(((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)))
         return self.pixel_to_world(*points.T)
 
-    def extent(self, unit=u.arcsec):
+    def extent(self, unit=u.Unit("arcsec")):
         """Convenience method which gives the extent of the grid in
         physical units."""
         distances = [d.to(unit).value for d in self.distances]

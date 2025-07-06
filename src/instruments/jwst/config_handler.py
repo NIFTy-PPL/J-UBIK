@@ -52,7 +52,7 @@ def load_yaml_and_save_info(config_path):
 def get_grid_extension_from_config(
     telescope_config: dict,
     reconstruction_grid: Grid,
-):
+) -> tuple[int, int]:
     """Load a pixelwise extension of the reconstruction grid. The reconstruction grid
     will be extended by half the grid extension in both spatial dimensions.
 

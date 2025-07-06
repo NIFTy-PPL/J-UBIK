@@ -66,9 +66,11 @@ class FilterProjector(jft.Model):
 
         self._sky_key = sky_key
         self.keys_and_colors = keys_and_colors
-        self.keys_and_index = keys_and_index
+
         if keys_and_index is None:
             self.keys_and_index = _sorted_keys_and_index(keys_and_colors)
+        else:
+            self.keys_and_index = keys_and_index
 
         super().__init__(domain=sky_domain)
 
@@ -103,7 +105,7 @@ def build_filter_projector(
 ) -> FilterProjector:
     named_color_ranges = {}
     for name, values in JWST_FILTERS.items():
-        pivot, bw, er, blue, red = values
+        _, _, _, blue, red = values
         named_color_ranges[name] = ColorRange(Color(red * u.um), Color(blue * u.um))
 
     keys_and_colors = {}

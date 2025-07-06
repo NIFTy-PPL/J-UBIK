@@ -50,7 +50,7 @@ def get_mask_from_index_centers_within_rgrid(
 
 
 def get_mask_from_mask_corners(
-    data_shape: tuple[int],
+    data_shape: tuple[int] | np.ndarray,
     data_wcs: Union[WcsJwstData, WcsAstropy],
     bounding_box_minmax_row_column: tuple[int] | np.ndarray,
     mask_corners: tuple[SkyCoord],

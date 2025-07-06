@@ -15,7 +15,6 @@ def build_unit_conversion(
     sky_unit: u.Unit,
     sky_dvol: u.Quantity,
     data_unit: u.Unit,
-    data_dvol: u.Quantity,
 ):
     """Builds a flux conversion between to grids.
 
@@ -33,7 +32,7 @@ def build_unit_conversion(
     if sky_unit.physical_type == sky_unit.physical_type:
         return _build_same_physical_type(sky_unit, data_unit)
 
-    return _build_different_physical_type(sky_unit, sky_dvol, data_unit, data_dvol)
+    return _build_different_physical_type(sky_unit, sky_dvol, data_unit)
 
 
 def _build_same_physical_type(
@@ -49,9 +48,8 @@ def _build_same_physical_type(
 
 def _build_different_physical_type(
     sky_unit: u.Unit,
-    sky_dvol: float,
+    sky_dvol: u.Quantity,
     data_unit: u.Unit,
-    data_dvol: float,
 ):
     if sky_unit.physical_type in SURFACE_BRIGHTNESS:
         tsky_unit = sky_unit * sky_dvol

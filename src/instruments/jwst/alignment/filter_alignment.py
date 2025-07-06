@@ -19,7 +19,6 @@ DEFAULT_KEY = "default"
 @dataclass
 class FilterAlignment:
     filter_name: str
-    correction_prior: CoordinatesCorrectionPriorConfig | None = None
     boresight: list[SkyCoord] = field(default_factory=list)
 
     def load_correction_prior(self, raw: dict, number_of_observations: int):
@@ -32,7 +31,7 @@ class FilterAlignment:
         config[SHIFT_UNIT_KEY] = raw[SHIFT_UNIT_KEY]
         config[ROTATION_UNIT_KEY] = raw[ROTATION_UNIT_KEY]
 
-        self.correction_prior = CoordinatesCorrectionPriorConfig.from_yaml_dict(
+        return CoordinatesCorrectionPriorConfig.from_yaml_dict(
             raw=config,
             shift_shape=(number_of_observations, 2),
             rotation_shape=(number_of_observations, 1),

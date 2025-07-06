@@ -46,9 +46,7 @@ from .data.preloader.preloader import (
 
 
 # Libraries
-import jax.numpy as jnp
 import nifty8.re as jft
-import numpy as np
 
 # std
 from functools import reduce
@@ -61,7 +59,7 @@ from typing import Union
 class TargetLikelihoodProducts:
     likelihoods: list[SingleTargetLikelihood]
     plotting: ResidualPlottingInformation
-    filter_projector: FilterProjector | None = None
+    filter_projector: FilterProjector
     hot_pixel_masking_data: HotPixelMaskingData | None = None
 
     @property
@@ -80,8 +78,8 @@ class AlignemntLikelihoodProducts:
     def from_optional(
         cls,
         likelihood: MultiFilterAlignmentLikelihoods | None,
-        plotting: MultiFilterAlignmentPlottingInformation | None,
-    ):
+        plotting: MultiFilterAlignmentPlottingInformation,
+    ) -> Union["AlignemntLikelihoodProducts", None]:
         if likelihood is None:
             return None
         return cls(likelihood=likelihood, plotting=plotting)
@@ -96,10 +94,10 @@ class JwstLikelihoodProducts:
 def build_jwst_likelihoods(
     cfg: dict,
     grid: Grid,
-    sky_domain: dict | jft.ShapeWithDtype,
+    sky_domain: dict[str, jft.ShapeWithDtype] | jft.ShapeWithDtype,
+    sky_unit: u.Unit = u.Unit("MJy") / u.Unit("sr"),
     files_key: str = "files",
     telescope_key: str = "telescope",
-    sky_unit: u.Unit | None = None,
 ) -> JwstLikelihoodProducts:
     """Build the jwst likelihood_target according to the config and grid."""
 
@@ -172,13 +170,12 @@ def build_jwst_likelihoods(
         )
 
         # Constructing the Likelihood
-        filter_alignment.load_correction_prior(
-            cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
-            number_of_observations=len(filepaths),
-        )
         shift_and_rotation_correction = ShiftAndRotationCorrection(
             domain_key=filter,
-            correction_prior=filter_alignment.correction_prior,
+            correction_prior=filter_alignment.load_correction_prior(
+                cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
+                number_of_observations=len(filepaths),
+            ),
             rotation_center=SkyCoord(filter_alignment.boresight),
         )
 

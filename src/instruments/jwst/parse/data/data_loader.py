@@ -13,7 +13,7 @@ class Subsample(int):
 IndexAndPath = namedtuple("IndexAndPath", ["index", "path"])
 
 
-class FilterFilePaths(UserDict[str, tuple[Path]]):
+class FilterFilePaths(UserDict[str, tuple[IndexAndPath]]):
     """Dict-like mapping {filter → list[Path]}."""
 
     @classmethod

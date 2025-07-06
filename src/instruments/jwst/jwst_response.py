@@ -48,10 +48,10 @@ class JwstResponse(jft.Model):
         self,
         sky_model: jft.Model | RotationAndShift | StarInData,
         psf: PsfStatic | PsfDynamic,
-        unit_conversion: Callable[ArrayLike, ArrayLike],
-        integrate: Callable[ArrayLike, ArrayLike],
+        unit_conversion: Callable[[ArrayLike], ArrayLike],
+        integrate: Callable[[ArrayLike], ArrayLike],
         zero_flux_model: jft.Model | None,
-        mask: Callable[ArrayLike, ArrayLike],
+        mask: Callable[[ArrayLike], ArrayLike],
     ):
         """Initialize the Jwst response with different components of linear
         transformations.
