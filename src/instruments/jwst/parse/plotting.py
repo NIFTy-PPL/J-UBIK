@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Any
 
 import nifty8.re as jft
 import numpy as np
@@ -104,7 +104,7 @@ class ResidualPlottingConfig:
     residual_overplot: ResidualOverplot | None = None
 
     @classmethod
-    def from_yaml_dict(cls, raw: dict) -> "ResidualPlottingConfig":
+    def from_yaml_dict(cls, raw: dict[str, Any]) -> "ResidualPlottingConfig":
         return cls(
             xmax_residuals=raw.get("xmax_residuals", 4),
             residual_over_std=raw.get("residual_over_std", True),

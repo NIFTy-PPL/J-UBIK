@@ -2,6 +2,7 @@ from os.path import join
 from typing import Callable, Union
 from dataclasses import dataclass
 
+# from charm_lensing.plotting import LensSystem
 import matplotlib.pyplot as plt
 import nifty8.re as jft
 import numpy as np
@@ -89,9 +90,9 @@ def build_plot_alignment_residuals(
 
 @dataclass
 class PlotTarget:
-    plot_lens: callable
-    plot_source: callable
-    plot_residual: callable
+    plot_lens: Callable[[jft.Samples, jft.OptimizeVIState], None]
+    plot_source: Callable[[jft.Samples, jft.OptimizeVIState], None]
+    plot_residual: Callable[[jft.Samples, jft.OptimizeVIState], None]
 
     def __call__(self, samples: jft.Samples, state: jft.OptimizeVIState):
         print(f"Plotting: {state.nit}")
@@ -117,17 +118,15 @@ def get_plot(
     residual_info: ResidualPlottingInformation,
     sky_model: jft.Model,
     parametric_lens: bool,
-    plotting_cfg: dict,
+    plotting_cfg: dict[str, dict],
     parametric_source: bool = False,
-):
+) -> PlotTarget:
     from charm_lensing.lens_system import LensSystem
 
     lens_system: LensSystem = lens_system
 
     plot_cfg_lens_system = LensSystemPlottingConfig.from_yaml_dict(raw=plotting_cfg)
-    plot_cfg_residual = ResidualPlottingConfig.from_yaml_dict(
-        plotting_cfg.get("residuals")
-    )
+    plot_cfg_residual = ResidualPlottingConfig.from_yaml_dict(plotting_cfg["residuals"])
     if plot_cfg_residual.residual_overplot is not None:
         if parametric_lens:
             ll = lens_system.get_forward_model_parametric(only_source=True)

@@ -1,7 +1,7 @@
 from dataclasses import asdict
 from os import makedirs
 from os.path import join
-from typing import Any, Union
+from typing import Any, Union, Callable
 from collections import namedtuple
 
 import matplotlib.pyplot as plt
@@ -105,7 +105,7 @@ def _build_all_skies(
     grid: Grid,
     models: LensSystemPlottingModels,
     plotting_config: LensSystemPlottingConfig,
-) -> None:
+) -> Callable[[jft.Samples, jft.OptimizeVIState | None], None]:
     tshape = models.lensed_light.target.shape
     # FIXME: This should be handled by a source with shape 3
     xlen = tshape[0] + 2 if len(tshape) == 3 else 3
@@ -363,7 +363,7 @@ def _build_rgb_skies(
     models: LensSystemPlottingModels,
     grid: Grid,
     plotting_config: LensSystemPlottingConfig,
-) -> None:
+) -> Callable[[jft.Samples, jft.OptimizeVIState | None], None]:
     lens_light_extent = lens_system.lens_plane_model.space.extent
     lens_mass_extent = lens_system.lens_plane_model.space.extend().extent
     source_extent = lens_system.source_plane_model.space.extend().extent
@@ -511,7 +511,7 @@ def build_plot_lens_system(
     lens_system,
     parametric_lens: bool = False,
     parametric_source: bool = False,
-):
+) -> Callable[[jft.Samples, jft.OptimizeVIState | None], None]:
     if results_directory is not None:
         lens_dir = join(results_directory, "lens")
         makedirs(lens_dir, exist_ok=True)

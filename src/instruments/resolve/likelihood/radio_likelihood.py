@@ -33,7 +33,11 @@ from ...jwst.parse.rotation_and_shift.coordinates_correction import (
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
 from ..mosaicing.sky_beamer import build_jft_sky_beamer
-from ..multimessanger import build_radio_grid, build_radio_sky_extractor
+from ..multimessanger import (
+    build_radio_grid,
+    build_radio_sky_extractor,
+    RadioSkyExtractor,
+)
 from ..telescopes.primary_beam import (
     build_primary_beam_pattern_from_beam_pattern_config,
 )
@@ -49,7 +53,7 @@ def build_radio_likelihood(
     last_radio_bin: int | None,
     sky_unit: u.Unit | None = None,
     direction_key: str = "PHASE_DIR",
-):
+) -> tuple[jft.Likelihood, jft.Model, RadioSkyExtractor]:
     response_settings = yaml_to_response_settings(cfg["radio_response"])
 
     radio_sky_extractor = build_radio_sky_extractor(
