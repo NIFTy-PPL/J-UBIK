@@ -41,6 +41,8 @@ class PhaseShiftCorrection(jft.Model):
         """
         self.shift = shift
 
+        # NOTE : FROM FINUFFT response see `InterferometryResponseFinuFFT` in
+        # re/response.py
         uvw = np.transpose((uvw[..., None] * freq / speedoflight.value), (0, 2, 1))
         # (pol, pos[m], freq[Hz])
         self.uvw = np.array([uvw[None, :, :, ii] for ii in range(3)])
