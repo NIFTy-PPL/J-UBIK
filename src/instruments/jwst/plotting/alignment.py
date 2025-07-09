@@ -72,6 +72,14 @@ class FilterAlignmentPlottingInformation:
 
 @dataclass
 class MultiFilterAlignmentPlottingInformation:
+    """This is
+
+    psf:
+        The FilterAlignmentPlottingInformation for the pipeline psf model.
+    convolved:
+        The FilterAlignmentPlottingInformation for a convolved psf model.
+    """
+
     psf: list[FilterAlignmentPlottingInformation] = field(default_factory=list)
     convolved: list[FilterAlignmentPlottingInformation] = field(default_factory=list)
 
