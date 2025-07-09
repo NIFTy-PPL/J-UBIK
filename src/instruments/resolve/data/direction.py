@@ -30,14 +30,16 @@ class Direction:
         reference year of the equinox
     """
 
-    def __init__(self, phase_center, equinox, name=""):
-        my_asserteq(len(phase_center), 2)
-        self._pc = phase_center
+    def __init__(
+        self, phase_center: list[float] | tuple[float, float], equinox: int, name=""
+    ):
+        assert len(phase_center) == 2
+        self._pc = tuple(phase_center)
         self._e = float(equinox)
         self._n = name
 
     @property
-    def phase_center(self):
+    def phase_center(self) -> tuple[float, float]:
         return self._pc
 
     @property

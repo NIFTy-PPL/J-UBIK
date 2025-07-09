@@ -48,7 +48,7 @@ def compute_primary_beam_pattern(D, d, freq, x):
 
 def build_primary_beam_pattern_from_beam_pattern_config(
     bpc: BeamPatternConfig,
-) -> Callable[[float, ArrayLike], ArrayLike]:
+) -> Callable[[float | np.ndarray, np.ndarray], ArrayLike]:
     """Returns a callable that evaluates the beam pattern for a frequency on
     the sky, i.e. bp(freq, sky_position)
     """

@@ -46,7 +46,7 @@ from .mosaic_likelihood import build_likelihood_from_sky_beamer
 
 
 def build_radio_likelihood(
-    data_names: list[str],
+    data_names: str | list[str],
     cfg: dict,
     sky_grid: Grid,
     sky_model: jft.Model,

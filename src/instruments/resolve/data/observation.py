@@ -816,7 +816,7 @@ class Observation(BaseObservation):
             return Direction(refdir[0], equinox, name)
         return None
 
-    def direction_from_key(self, key):
+    def direction_from_key(self, key) -> Direction | None:
         if self._auxiliary_tables is not None and "FIELD" in self._auxiliary_tables:
             equinox = (
                 2000  # FIXME Figure out how to extract this from a measurement set

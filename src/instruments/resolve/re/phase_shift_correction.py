@@ -1,4 +1,4 @@
-from typing import Union
+from jax import Array
 
 import jax.numpy as jnp
 import nifty8.re as jft
@@ -50,7 +50,7 @@ class PhaseShiftCorrection(jft.Model):
 
         super().__init__(domain=shift.domain)
 
-    def __call__(self, params: dict) -> jnp.array:
+    def __call__(self, params: dict) -> Array:
         center_x, center_y = self.shift(params)
         # n = jnp.sqrt(1 - center_x**2 - center_y**2)
         return jnp.exp(
