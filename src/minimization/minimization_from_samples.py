@@ -22,14 +22,13 @@ class KLSettings:
     kl_jit: bool = True
     residual_jit: bool = True
     resume: bool = False
-    resume_from_pickle_path: str | None = None
 
 
 def _initial_position(
     init_key: random.PRNGKey,
     domain,
     kl_settings: KLSettings,
-    starting_samples: Optional[jft.Samples] = None,
+    starting_samples_or_position: jft.Samples | jft.Vector | None = None,
     not_take_starting_pos_keys: tuple[str] = (),
 ):
     position_rescaling = kl_settings.sample_multiply
@@ -37,22 +36,14 @@ def _initial_position(
     while isinstance(initial_position, jft.Vector):
         initial_position = initial_position.tree
 
-    if kl_settings.resume_from_pickle_path is not None:
-        if starting_samples is not None:
-            jft.logger.warning(
-                "Warning: Overwriting starting position from path: "
-                f"{kl_settings.resume_from_pickle_path}."
-            )
+    if starting_samples_or_position is not None:
+        if isinstance(starting_samples_or_position, jft.Samples):
+            starting_pos = starting_samples_or_position.pos
         else:
-            jft.logger.info(f"Loading result: {kl_settings.resume_from_pickle_path}")
+            starting_pos = starting_samples_or_position
 
-        with open(kl_settings.resume_from_pickle_path, "rb") as f:
-            starting_samples, _ = pickle.load(f)
-
-    if starting_samples is not None:
-        starting_pos = starting_samples.pos
         while isinstance(starting_pos, jft.Vector):
-            starting_pos = starting_pos.tree
+            starting_pos: dict = starting_pos.tree
 
         for key in initial_position.keys():
             if key in starting_pos and not (key in not_take_starting_pos_keys):
@@ -62,7 +53,6 @@ def _initial_position(
     initial_position, opt_vi_state = jft.Vector(initial_position), None
 
     LAST_FILENAME = "last.pkl"
-    resume = False
     if kl_settings.resume:
         if isinstance(kl_settings.resume, str):
             last_pkl = kl_settings.resume
@@ -79,12 +69,12 @@ def _initial_position(
 def minimization_from_initial_samples(
     likelihood: jft.Likelihood,
     kl_settings: KLSettings,
-    starting_samples: Optional[jft.Samples] = None,
+    starting_samples_or_position: jft.Samples | jft.Vector | None = None,
     not_take_starting_pos_keys: tuple[str] = (),
 ):
     """This function executes a KL minimization specified by the
     `KLSettings`. Optionally, one can start the reconstruction from
-    a set of `starting_samples` of a subdomain of the likelihood.
+    a set of `starting_samples_or_position` of a subdomain of the likelihood.
 
     Parameters
     ----------
@@ -98,7 +88,7 @@ def minimization_from_initial_samples(
         - minimization: MinimizationParser
         - callback
         - sample_multiply
-    starting_samples: Optional
+    starting_samples_or_position: Optional
         This can be a set of samples from a subdomain of likelihood. The mean
         will be taken as the starting position of the minimization.
     not_take_starting_pos_keys: Optional
@@ -112,7 +102,7 @@ def minimization_from_initial_samples(
         init_key,
         likelihood.domain,
         kl_settings=kl_settings,
-        starting_samples=starting_samples,
+        starting_samples_or_position=starting_samples_or_position,
         not_take_starting_pos_keys=not_take_starting_pos_keys,
     )
 
