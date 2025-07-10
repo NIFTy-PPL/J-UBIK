@@ -100,7 +100,9 @@ def minimization_from_initial_samples(
         - sample_multiply
     starting_samples: Optional
         This can be a set of samples from a subdomain of likelihood. The mean
-        will be taken in order to start the minimization.
+        will be taken as the starting position of the minimization.
+    not_take_starting_pos_keys: Optional
+        This will hold the keys that should not be taken in the starting position.
     """
     jft.logger.info(f"Results: {kl_settings.outputdir}")
 

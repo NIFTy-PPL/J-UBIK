@@ -1,19 +1,20 @@
+from os import makedirs
+from typing import Callable, Any
+
+import matplotlib.pyplot as plt
+import nifty8.re as jft
+import numpy as np
+from nifty8.logger import logger
+from numpy.typing import ArrayLike
+
 from ....parse.instruments.resolve.plotting.standard_plotting import (
     PLOTTING_KWARGS_DEFAULT,
     PlottingKwargs,
 )
 
-import nifty8.re as jft
-from nifty8.logger import logger
-
-import matplotlib.pyplot as plt
-import numpy as np
-
-from os import makedirs
-
 
 def build_standard_plot(
-    sky: jft.Model,
+    sky: jft.Model | Callable[[Any], ArrayLike],
     output_directory: str,
     plotting_kwargs: PlottingKwargs = PLOTTING_KWARGS_DEFAULT,
 ):
