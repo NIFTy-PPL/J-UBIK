@@ -183,6 +183,7 @@ def plot_prior(
     plot_source: Union[bool, callable],
     plot_lens: Union[bool, callable],
     data_dict: dict,
+    parametric_lens: bool = True,
     sky_key: str = "sky",
 ):
     import yaml
@@ -196,13 +197,8 @@ def plot_prior(
     insert_spaces_in_lensing_new(cfg["sky"])
 
     lens_system: LensSystem = build_lens_system(cfg["sky"])
-    if cfg["nonparametric_lens"]:
-        sky_model = lens_system.get_forward_model_full()
-        parametric_lens = False
-    else:
-        sky_model = lens_system.get_forward_model_parametric()
-        parametric_lens = True
-    sky_model = jft.Model(jft.wrap_left(sky_model, sky_key), domain=sky_model.domain)
+    _sky_model = lens_system._get_forward_model(parametric_lens=parametric_lens)
+    sky_model = jft.Model(jft.wrap_left(_sky_model, sky_key), domain=_sky_model.domain)
 
     grid = Grid.from_grid_model(GridModel.from_yaml_dict(cfg["sky"]["grid"]))
     # ll_alpha, ll_nonpar, sl_alpha, sl_nonpar = get_alpha_nonpar(lens_system)

@@ -515,6 +515,8 @@ def build_plot_lens_system(
     if results_directory is not None:
         lens_dir = join(results_directory, "lens")
         makedirs(lens_dir, exist_ok=True)
+    else:
+        lens_dir = None
 
     if plotting_config.rgb_plotting:
         return _build_rgb_skies(

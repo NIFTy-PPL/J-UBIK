@@ -6,7 +6,7 @@ from jax import random
 import os
 import pickle
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable, Optional, Iterable
 
 
 @dataclass
@@ -70,7 +70,7 @@ def minimization_from_initial_samples(
     likelihood: jft.Likelihood,
     kl_settings: KLSettings,
     starting_samples_or_position: jft.Samples | jft.Vector | None = None,
-    not_take_starting_pos_keys: tuple[str] = (),
+    not_take_starting_pos_keys: Iterable[str] = (),
 ):
     """This function executes a KL minimization specified by the
     `KLSettings`. Optionally, one can start the reconstruction from
