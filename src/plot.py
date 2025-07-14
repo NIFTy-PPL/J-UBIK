@@ -119,6 +119,22 @@ def plot_result(array,
         axes = [axes]
     pltargs = {"origin": "lower", "cmap": "viridis"}
 
+    # Handle vmin and vmax
+    vmin = kwargs.get("vmin", None)
+    vmax = kwargs.get("vmax", None)
+
+    if colorbar and common_colorbar:
+        vmin = min(np.min(array[i]) for i in range(n_plots))
+        vmax = max(np.max(array[i]) for i in range(n_plots))
+
+    if logscale:
+        if vmin is not None and float(vmin) == 0.:
+            vmin = 1e-18  # to prevent LogNorm throwing errors
+
+        pltargs["norm"] = "log"
+
+    kwargs.update({'vmin': vmin, 'vmax': vmax})
+
     for i in range(n_plots):
         if array[i].ndim != 2:
             raise ValueError("All arrays to plot must be 2-dimensional!")
@@ -130,26 +146,6 @@ def plot_result(array,
             pltargs["extent"] = [-half_fov, half_fov] * 2
             axes[i].set_xlabel("FOV [arcmin]")
             axes[i].set_ylabel("FOV [arcmin]")
-
-        if "vmin" in kwargs:
-            vmin = kwargs["vmin"]
-        else:
-            vmin = None
-        if "vmax" in kwargs:
-            vmax = kwargs["vmax"]
-        else:
-            vmax = None
-
-        if colorbar and common_colorbar:
-            vmin = min(np.min(array[i]) for i in range(n_plots))
-            vmax = max(np.max(array[i]) for i in range(n_plots))
-
-        if logscale:
-            if vmin is not None and float(vmin) == 0.:
-                vmin = 1e-18  # to prevent LogNorm throwing errors
-            pltargs["norm"] = LogNorm(vmin, vmax)
-        else:
-            kwargs.update({'vmin': vmin, 'vmax': vmax})
 
         pltargs.update(**kwargs)
         im = axes[i].imshow(array[i], **pltargs)
