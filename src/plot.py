@@ -119,6 +119,7 @@ def plot_result(array,
         axes = [axes]
     pltargs = {"origin": "lower", "cmap": "viridis"}
 
+    # Handle vmin and vmax
     if "vmin" in kwargs:
         vmin = kwargs["vmin"]
     else:
@@ -136,13 +137,9 @@ def plot_result(array,
         if vmin is not None and float(vmin) == 0.:
             vmin = 1e-18  # to prevent LogNorm throwing errors
 
-        pltargs["norm"] = LogNorm(vmin, vmax)
-        if "vmin" in kwargs:
-            kwargs.pop("vmin")
-        if "vmax" in kwargs:
-            kwargs.pop("vmax")
-    else:
-        kwargs.update({'vmin': vmin, 'vmax': vmax})
+        pltargs["norm"] = "log"
+
+    kwargs.update({'vmin': vmin, 'vmax': vmax})
 
     for i in range(n_plots):
         if array[i].ndim != 2:
