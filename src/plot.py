@@ -120,14 +120,8 @@ def plot_result(array,
     pltargs = {"origin": "lower", "cmap": "viridis"}
 
     # Handle vmin and vmax
-    if "vmin" in kwargs:
-        vmin = kwargs["vmin"]
-    else:
-        vmin = None
-    if "vmax" in kwargs:
-        vmax = kwargs["vmax"]
-    else:
-        vmax = None
+    vmin = kwargs.get("vmin", None)
+    vmax = kwargs.get("vmax", None)
 
     if colorbar and common_colorbar:
         vmin = min(np.min(array[i]) for i in range(n_plots))
