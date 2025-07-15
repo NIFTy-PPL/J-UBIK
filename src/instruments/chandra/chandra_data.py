@@ -8,7 +8,7 @@
 from os.path import join, exists
 from jax import numpy as jnp
 
-import nifty8.re as jft
+import nifty.re as jft
 
 from ...utils import get_config, create_output_directory, save_to_pickle,\
     copy_config, load_from_pickle

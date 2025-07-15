@@ -8,7 +8,7 @@ from functools import partial, reduce
 
 import jax
 import jax.numpy as jnp
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from ducc0.fft import good_size as good_fft_size
 

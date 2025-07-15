@@ -8,7 +8,7 @@
 from os.path import join, exists
 from typing import NamedTuple
 
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from jax import random, linear_transpose
 

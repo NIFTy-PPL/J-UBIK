@@ -10,8 +10,8 @@ from jax.typing import ArrayLike
 
 from .scaled_excitations import ScaledExcitations
 
-from nifty8.re.model import Model
-from nifty8.re.tree_math.vector import Vector
+from nifty.re.model import Model
+from nifty.re.tree_math.vector import Vector
 
 
 class HarmonicLogSpectralBehavior(Model, ABC):

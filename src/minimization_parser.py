@@ -7,7 +7,7 @@
 
 from typing import Callable, Any, Optional, Dict
 
-import nifty8.re as jft
+import nifty.re as jft
 
 # CONFIGURATION DEFAULTS
 SWITCHES = 'switches'
@@ -341,7 +341,7 @@ def linear_sample_kwargs_factory(
     verbose: bool = True
 ) -> Callable[[int], dict]:
     """
-    Creates a callable that returns linear sample kwargs for `nifty8.re` based
+    Creates a callable that returns linear sample kwargs for `nifty.re` based
     on the current iteration.
 
     Parameters
@@ -427,7 +427,7 @@ def nonlinearly_update_kwargs_factory(
     verbose: bool = True
 ) -> Callable[[int], dict]:
     """
-    Creates a callable that returns nonlinear sample kwargs for `nifty8.re`
+    Creates a callable that returns nonlinear sample kwargs for `nifty.re`
     based on the current iteration.
 
     Parameters
@@ -526,7 +526,7 @@ def kl_kwargs_factory(
     verbose: bool = True,
 ) -> Callable[[int], dict]:
     """
-    Creates a callable that returns KL minimization kwargs for `nifty8.re`
+    Creates a callable that returns KL minimization kwargs for `nifty.re`
     based on the current iteration.
 
     Parameters
@@ -665,7 +665,7 @@ def constants_factory(
 class MinimizationParser:
     """
     Parses a configuration to set up functions for generating minimization
-    kwargs for the `nifty8.re` different minimization modes.
+    kwargs for the `nifty.re` different minimization modes.
 
     Parameters
     ----------

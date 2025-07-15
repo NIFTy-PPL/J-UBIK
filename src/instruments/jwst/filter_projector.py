@@ -5,12 +5,12 @@
 
 # %
 
-import nifty8.re as jft
+import nifty.re as jft
 
 
 class FilterProjector(jft.Model):
     """
-    A nifty8.re.Model that projects input data into specified filters
+    A nifty.re.Model that projects input data into specified filters
     defined by color keys.
 
     The FilterProjector class takes a sky domain and a mapping between keys
