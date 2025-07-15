@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 # from charm_lensing.plotting import LensSystem
 import matplotlib.pyplot as plt
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from jax import random
 

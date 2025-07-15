@@ -1,6 +1,6 @@
 from ..observation import Observation, tmin_tmax
 
-from nifty8.logger import logger
+from nifty.cl.logger import logger
 
 import numpy as np
 

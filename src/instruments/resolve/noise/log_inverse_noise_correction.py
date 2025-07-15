@@ -1,4 +1,4 @@
-import nifty8.re as jft
+import nifty.re as jft
 
 
 class LogInverseNoiseCovariance(jft.Model):

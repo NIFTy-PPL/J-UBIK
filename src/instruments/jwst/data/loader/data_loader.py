@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from nifty8.re import logger
+from nifty.re import logger
 
 from .....grid import Grid
 from ...alignment.star_alignment import StarTables

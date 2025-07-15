@@ -4,7 +4,7 @@ from os.path import join
 from typing import Union
 
 import matplotlib.pyplot as plt
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 
 from ....grid import Grid

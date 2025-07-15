@@ -1,6 +1,6 @@
 from ..minimization_parser import MinimizationParser
 
-import nifty8.re as jft
+import nifty.re as jft
 from jax import random
 
 import os

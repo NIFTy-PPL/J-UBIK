@@ -7,7 +7,7 @@
 from functools import partial
 from typing import Callable
 
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from numpy.typing import ArrayLike
 from jax import vmap

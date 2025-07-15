@@ -1,4 +1,4 @@
-import nifty8.re as jft
+import nifty.re as jft
 
 
 def build_single_correlated_field(

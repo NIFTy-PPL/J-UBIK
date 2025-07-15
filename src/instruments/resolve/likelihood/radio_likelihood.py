@@ -18,9 +18,9 @@
 from functools import partial, reduce
 
 import jax.numpy as jnp
-import nifty8.re as jft
+import nifty.re as jft
 from astropy import units as u
-from nifty8.logger import logger
+from nifty.cl.logger import logger
 
 from ....grid import Grid
 from ....parse.instruments.resolve.data.data_loading import DataLoading

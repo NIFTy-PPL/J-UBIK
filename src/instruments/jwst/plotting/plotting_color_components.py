@@ -3,7 +3,7 @@ from os.path import join
 from typing import Union
 
 import matplotlib.pyplot as plt
-import nifty8.re as jft
+import nifty.re as jft
 
 from .plotting_base import get_position_or_samples_of_model
 

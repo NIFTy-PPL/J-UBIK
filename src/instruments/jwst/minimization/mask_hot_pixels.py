@@ -2,7 +2,7 @@ import os
 from dataclasses import asdict, dataclass
 from typing import Optional
 
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 import scipy
 

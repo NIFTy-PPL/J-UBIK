@@ -1,7 +1,7 @@
 from jax import Array
 
 import jax.numpy as jnp
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from astropy.constants import c as speedoflight
 from astropy import units

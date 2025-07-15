@@ -4,7 +4,7 @@ from ..parse.sky_model.resolve_diffuse import (
 )
 from .single_correlated_field import build_single_correlated_field
 
-import nifty8.re as jft
+import nifty.re as jft
 from jax import numpy as jnp
 
 from dataclasses import asdict

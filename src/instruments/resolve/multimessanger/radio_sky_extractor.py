@@ -18,7 +18,7 @@ from ....grid import Grid
 from ....color import ColorRanges
 from ..constants import RESOLVE_SKY_UNIT
 
-import nifty8.re as jft
+import nifty.re as jft
 
 import jax
 import jax.numpy as jnp

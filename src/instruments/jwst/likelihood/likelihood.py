@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 import jax.numpy as jnp
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 
 from ..variable_covariance.inverse_standard_deviation import InverseStdBuilder

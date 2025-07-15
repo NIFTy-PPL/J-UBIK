@@ -7,7 +7,7 @@
 
 from typing import Callable, Union
 
-import nifty8.re as jft
+import nifty.re as jft
 from jax import vmap
 
 from ..parse.rotation_and_shift.rotation_and_shift import (

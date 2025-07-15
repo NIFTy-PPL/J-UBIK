@@ -4,7 +4,7 @@ from os import makedirs
 from os.path import join
 from typing import Union
 
-import nifty8.re as jft
+import nifty.re as jft
 import matplotlib.pyplot as plt
 import numpy as np
 from jax import tree

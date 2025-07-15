@@ -4,7 +4,7 @@ from typing import Any, Iterable, Mapping
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from nifty8.re import logger
+from nifty.re import logger
 from numpy.typing import NDArray
 
 

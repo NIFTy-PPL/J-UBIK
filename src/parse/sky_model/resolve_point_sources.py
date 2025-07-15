@@ -3,7 +3,7 @@ from configparser import ConfigParser
 
 import numpy as np
 import astropy.units as u
-import nifty8 as ift
+import nifty.cl as ift
 
 from ..wcs.spatial_model import resolve_str_to_quantity
 

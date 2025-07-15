@@ -10,6 +10,8 @@ import nifty.re as jft
 from nifty.re.model import NoValue
 from jax.tree_util import tree_leaves
 
+import numpy as np
+
 def get_n_constrained_dof(likelihood: jft.Likelihood) -> int:
     """
     Extracts the number of constrained degrees of freedom (DOF)

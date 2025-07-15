@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Callable, Protocol, Union
 
 import jax.numpy as jnp
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord

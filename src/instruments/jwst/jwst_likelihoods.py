@@ -46,7 +46,7 @@ from .data.preloader.preloader import (
 
 
 # Libraries
-import nifty8.re as jft
+import nifty.re as jft
 
 # std
 from functools import reduce

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, Any
 
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 
 

@@ -2,7 +2,7 @@ from dataclasses import asdict
 from typing import Any, Union
 
 import matplotlib.pyplot as plt
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 
 from ....sky_model.multifrequency.spectral_product_mf_sky import SpectralProductSky

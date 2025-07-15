@@ -4,7 +4,7 @@ from functools import reduce, partial
 from typing import Any
 
 import jax.numpy as jnp
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from numpy.typing import ArrayLike
 

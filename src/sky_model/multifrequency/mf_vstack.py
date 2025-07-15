@@ -2,7 +2,7 @@ from .multifrequency_model import build_multifrequency_from_grid
 
 from jubik0.grid import Grid
 from jubik0.color import ColorRanges
-import nifty8.re as jft
+import nifty.re as jft
 
 import jax.numpy as jnp
 

@@ -1,5 +1,5 @@
-import nifty8 as ift
-import nifty8.re as jft
+import nifty.cl as ift
+import nifty.re as jft
 
 import jax
 from jax import numpy as jnp

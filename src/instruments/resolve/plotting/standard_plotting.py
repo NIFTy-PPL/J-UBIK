@@ -2,9 +2,9 @@ from os import makedirs
 from typing import Callable, Any
 
 import matplotlib.pyplot as plt
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
-from nifty8.logger import logger
+from nifty.cl.logger import logger
 from numpy.typing import ArrayLike
 
 from ....parse.instruments.resolve.plotting.standard_plotting import (

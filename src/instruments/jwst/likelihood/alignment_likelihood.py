@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import reduce
 
 import numpy as np
-import nifty8.re as jft
+import nifty.re as jft
 
 from ..jwst_response import (
     JwstResponse,

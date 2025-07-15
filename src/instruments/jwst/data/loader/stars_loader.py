@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from astropy import units as u
-from nifty8.re import logger
+from nifty.re import logger
 
 from ...alignment.star_alignment import StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig

@@ -5,7 +5,7 @@ from typing import Iterable, Optional
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
-from nifty8.re import logger
+from nifty.re import logger
 
 from .....color import Color
 from ....gaia.star_finder import load_gaia_stars_in_fov

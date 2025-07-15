@@ -1,4 +1,4 @@
-import nifty8.re as jft
+import nifty.re as jft
 import astropy.units as u
 
 from ..parse.rotation_and_shift.coordinates_correction import (

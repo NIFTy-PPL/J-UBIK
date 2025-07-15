@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import nifty8.re as jft
+import nifty.re as jft
 
 from ..jwst_response import (
     JwstResponse,

@@ -1,6 +1,6 @@
 from os.path import join
 
-import nifty8.re as jft
+import nifty.re as jft
 from jax import clear_caches, random
 
 

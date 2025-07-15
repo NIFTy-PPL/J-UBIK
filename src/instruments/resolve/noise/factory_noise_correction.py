@@ -7,7 +7,7 @@ from .antenna_based_correction import (
 )
 from .lower_bound_noise_correction import build_lower_bound_noise_correction
 
-import nifty8 as ift
+import nifty.cl as ift
 
 from functools import partial
 from typing import Union

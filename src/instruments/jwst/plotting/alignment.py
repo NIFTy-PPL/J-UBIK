@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 import numpy as np
-import nifty8.re as jft
+import nifty.re as jft
 import matplotlib.pyplot as plt
 
 from ..jwst_response import JwstResponse

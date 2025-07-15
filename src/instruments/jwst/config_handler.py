@@ -42,7 +42,7 @@ def load_yaml_and_save_info(config_path):
     os.makedirs(results_directory, exist_ok=True)
 
     save_local_packages_hashes_to_txt(
-        ["nifty8", "charm_lensing", "jubik0"],
+        ["nifty.cl", "charm_lensing", "jubik0"],
         os.path.join(results_directory, "hashes.txt"),
     )
     save_config_copy_easy(config_path, os.path.join(results_directory, "config.yaml"))

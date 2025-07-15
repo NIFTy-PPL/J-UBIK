@@ -4,7 +4,7 @@ from .observation import Observation
 
 from .data_modify import modify_observation
 
-from nifty8.logger import logger
+from nifty.cl.logger import logger
 
 
 def load_and_modify_data_from_objects(

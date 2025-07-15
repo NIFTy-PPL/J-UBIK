@@ -14,7 +14,7 @@
 # Copyright(C) 2019-2021 Max-Planck-Society
 # Author: Philipp Arras
 
-import nifty8 as ift
+import nifty.cl as ift
 import numpy as np
 
 from ..constants import AS2RAD, DEG2RAD, SPEEDOFLIGHT
@@ -46,7 +46,7 @@ class BaseObservation:
 
     @property
     def vis(self):
-        """nifty8.Field : Field that contains all data points including
+        """nifty.cl.Field : Field that contains all data points including
         potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`."""
         return ift.makeField(self._dom, self._vis)
 
@@ -64,7 +64,7 @@ class BaseObservation:
 
     @property
     def weight(self):
-        """nifty8.Field : Field that contains all weights, i.e. the diagonal of
+        """nifty.cl.Field : Field that contains all weights, i.e. the diagonal of
         the inverse covariance. Shape: `(npol, nrow, nchan)`, dtype: `numpy.floating`.
 
         Note
@@ -112,14 +112,14 @@ class BaseObservation:
 
         Parameters
         ----------
-        field: nifty8.Field
+        field: nifty.cl.Field
             The field that is supposed to be flagged.
 
         Returns
         -------
-        nifty8.Field
+        nifty.cl.Field
             Flagged field defined on a one-dimensional
-            `nifty8.UnstructuredDomain`."""
+            `nifty.cl.UnstructuredDomain`."""
         return self.mask_operator(field)
 
     @property
@@ -129,7 +129,7 @@ class BaseObservation:
 
     @property
     def flags(self):
-        """nifty8.Field: True for bad visibilities. May be used together with
+        """nifty.cl.Field: True for bad visibilities. May be used together with
         `ift.MaskOperator`."""
         return ift.makeField(self._dom, self._weight == 0.0)
 
@@ -140,12 +140,12 @@ class BaseObservation:
 
     @property
     def mask(self):
-        """nifty8.Field: True for good visibilities."""
+        """nifty.cl.Field: True for good visibilities."""
         return ift.makeField(self._dom, self._weight > 0.0)
 
     @property
     def mask_operator(self):
-        """nifty8.MaskOperator: Nifty operator that can be used to extract all
+        """nifty.cl.MaskOperator: Nifty operator that can be used to extract all
         non-flagged data points from a field defined on `self.vis.domain`."""
         return ift.MaskOperator(self.flags)
 

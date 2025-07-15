@@ -10,7 +10,7 @@ from typing import Callable, Union
 
 import jax.numpy as jnp
 import numpy as np
-import nifty8.re as jft
+import nifty.re as jft
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike

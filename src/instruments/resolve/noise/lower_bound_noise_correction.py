@@ -1,6 +1,6 @@
 from .log_inverse_noise_correction import LogInverseNoiseCovariance
 
-import nifty8.re as jft
+import nifty.re as jft
 
 from jax import numpy as jnp
 from numpy.typing import ArrayLike
