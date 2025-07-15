@@ -4,12 +4,12 @@
 
 from typing import Union
 
-from nifty8.re.correlated_field import (
+from nifty.re.correlated_field import (
     MaternAmplitude,
     NonParametricAmplitude,
     RegularCartesianGrid,
 )
-from nifty8.re.num.stats_distributions import lognormal_prior, normal_prior
+from nifty.re.num.stats_distributions import lognormal_prior, normal_prior
 
 from .check_demands import check_demands
 

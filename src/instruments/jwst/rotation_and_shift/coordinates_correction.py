@@ -8,7 +8,7 @@
 from typing import Optional, Callable, Union
 
 import jax.numpy as jnp
-import nifty8.re as jft
+import nifty.re as jft
 from astropy import units as u
 from jax.numpy import array
 from numpy.typing import ArrayLike

@@ -5,7 +5,7 @@
 
 # %%
 
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 
 
@@ -73,7 +73,7 @@ def build_readout_function(flags, threshold=None, keys=None):
     -------
         function: A callable that applies a mask to an input array (e.g. an
         input sky) and returns
-        a `nifty8.re.Vector` containing a dictionary of read-out inputs.
+        a `nifty.re.Vector` containing a dictionary of read-out inputs.
     Raises:
     -------
         ValueError:
@@ -100,7 +100,7 @@ def build_readout_function(flags, threshold=None, keys=None):
             x: ndarray
 
         Returns:
-            readout = `nifty8.re.Vector` containing a dictionary of read-out
+            readout = `nifty.re.Vector` containing a dictionary of read-out
             inputs.
         """
         if len(mask.shape) != 4:

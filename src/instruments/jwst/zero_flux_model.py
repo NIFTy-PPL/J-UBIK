@@ -5,7 +5,7 @@
 
 # %
 
-import nifty8.re as jft
+import nifty.re as jft
 
 from .parametric_model import build_parametric_prior
 

@@ -8,7 +8,7 @@
 from typing import Callable, Tuple, Union
 
 import jax.numpy as jnp
-import nifty8.re as jft
+import nifty.re as jft
 
 DISTRIBUTION_MAPPING = {
     'normal': (jft.normal_prior, ['mean', 'sigma']),
