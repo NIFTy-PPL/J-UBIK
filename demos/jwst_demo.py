@@ -113,7 +113,7 @@ from functools import reduce
 from os.path import join
 
 import astropy.units as u
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from astropy.coordinates import SkyCoord
 from jax import config, random
@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
     # Uncomment to save local packages git hashes to file
     # ju.save_local_packages_hashes_to_txt(
-    #     ['jubik0', 'nifty8'],
+    #     ['jubik0', 'nifty'],
     #     os.path.join(file_info['res_dir'], "packages_hashes.txt"),
     #     paths_to_git=[os.path.dirname(os.getcwd()), None],
     #     verbose=False)
