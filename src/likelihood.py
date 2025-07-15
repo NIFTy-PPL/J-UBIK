@@ -5,7 +5,7 @@
 
 # %%
 
-import nifty as ift
+import nifty.cl as ift
 import nifty.re as jft
 from nifty.re.model import NoValue
 from jax.tree_util import tree_leaves
