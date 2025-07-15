@@ -75,8 +75,8 @@ def freq_average_by_fmin_fmax(
 
     obs_avg = []
     for obsi in splitted_obs:
-        new_vis = np.mean(obsi.vis.val, axis=2, keepdims=True)
-        cov = 1 / obsi.weight.val
+        new_vis = np.mean(obsi.vis.val.val, axis=2, keepdims=True)
+        cov = 1 / obsi.weight.val.val
         new_cov = np.sum(cov, axis=2, keepdims=True) / (obsi.vis.shape[2] ** 2)
         new_weight = 1 / new_cov
         new_freq = np.array([np.mean(obsi.freq)])
@@ -96,8 +96,8 @@ def freq_average_by_fmin_fmax(
     new_vis = np.zeros(new_vis_shape, obs.vis.dtype)
     new_weight = np.zeros(new_vis_shape, obs.weight.dtype)
     for ii, obs in enumerate(obs_avg):
-        new_vis[:, :, ii] = obs.vis.val[:, :, 0]
-        new_weight[:, :, ii] = obs.weight.val[:, :, 0]
+        new_vis[:, :, ii] = obs.vis.val.val[:, :, 0]
+        new_weight[:, :, ii] = obs.weight.val.val[:, :, 0]
 
     obs_averaged = Observation(
         obs.antenna_positions,

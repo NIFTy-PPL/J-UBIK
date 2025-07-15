@@ -50,7 +50,7 @@ def _fancy_equal(o1, o2):
 
     # Turn MultiField into dict
     if isinstance(o1, ift.MultiField):
-        o1, o2 = o1.val, o2.val
+        o1, o2 = o1.val.val, o2.val.val
 
     # Compare dicts
     if isinstance(o1, dict):

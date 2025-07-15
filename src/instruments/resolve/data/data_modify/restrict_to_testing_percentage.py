@@ -24,8 +24,8 @@ def restrict_to_testing_percentage(
             np.arange(0, length), size=int(length * percentage), replace=False
         )
     )
-    new_vis = obs.vis.val[:, mask, :]
-    new_weight = obs.weight.val[:, mask, :]
+    new_vis = obs.vis.val.val[:, mask, :]
+    new_weight = obs.weight.val.val[:, mask, :]
     antenna_position = [
         a[mask, ...] if a is not None else None for a in obs.antenna_positions.to_list()
     ]

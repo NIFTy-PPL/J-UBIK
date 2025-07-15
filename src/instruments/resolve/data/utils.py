@@ -11,8 +11,8 @@ def convert_to_classic_observation(obs: Observation) -> rve.Observation:
     }
     return rve.Observation(
         rve.AntennaPositions.from_list(obs.antenna_positions.to_list()),
-        obs.vis.val,
-        obs.weight.val,
+        obs.vis.val.val,
+        obs.weight.val.val,
         rve.Polarization.from_list(obs.polarization.to_list()),
         obs.freq,
         aux_table,

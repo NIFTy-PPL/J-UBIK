@@ -85,7 +85,7 @@ def build_likelihood_from_sky_beamer(
     )
 
     likelihood = jft.Gaussian(
-        observation.vis.val, noise_cov_inv=lambda x: x * observation.weight.val
+        observation.vis.val.val, noise_cov_inv=lambda x: x * observation.weight.val.val
     )
 
     return likelihood.amend(response, domain=jft.Vector(response.domain))

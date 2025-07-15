@@ -156,7 +156,7 @@ class BaseObservation:
         """float: Maximum signal-to-noise ratio."""
         snr = (self.vis * self.weight.sqrt()).abs()
         snr = self.apply_flags(snr)
-        return np.max(snr.val)
+        return np.max(snr.val.val)
 
     def fraction_useful(self):
         """float: Fraction of non-flagged data points."""
@@ -451,7 +451,7 @@ class Observation(BaseObservation):
         if self.fraction_useful == 1.0:
             return self
         vis = self._vis.copy()
-        vis[self.flags.val] = np.nan
+        vis[self.flags.val.val] = np.nan
         return Observation(
             self._antpos,
             vis,
@@ -674,7 +674,7 @@ class Observation(BaseObservation):
             [dct[(a1, a2, tt)] for a1, a2, tt in zip(ant1, ant2, row_to_bin_map)]
         )
 
-        vis, wgt = self.vis.val, self.weight.val
+        vis, wgt = self.vis.val.val, self.weight.val.val
         new_vis = np.empty((self.npol, len(atset), self.nfreq), dtype=self.vis.dtype)
         new_wgt = np.empty((self.npol, len(atset), self.nfreq), dtype=self.weight.dtype)
         for pol in range(self.npol):
