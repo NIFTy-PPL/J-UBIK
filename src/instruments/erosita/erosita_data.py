@@ -7,7 +7,7 @@
 
 from os.path import join, splitext, exists
 
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from astropy.io import fits
 from jax import numpy as jnp

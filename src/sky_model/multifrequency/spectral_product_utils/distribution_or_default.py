@@ -4,7 +4,7 @@
 
 from typing import Any, Union
 
-from nifty8.re.correlated_field import WrappedCall
+from nifty.re.correlated_field import WrappedCall
 
 
 def build_distribution_or_default(

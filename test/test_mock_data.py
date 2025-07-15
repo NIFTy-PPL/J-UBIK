@@ -1,4 +1,4 @@
-import nifty8.re as jft
+import nifty.re as jft
 import pytest
 
 import jubik0 as ju

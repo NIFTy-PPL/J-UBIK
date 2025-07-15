@@ -7,7 +7,7 @@
 
 from typing import Tuple
 
-import nifty8.re as jft
+import nifty.re as jft
 from jax.numpy import array
 from numpy.typing import ArrayLike
 

@@ -7,7 +7,7 @@ from typing import Optional, Union
 
 import jax.numpy as jnp
 import numpy as np
-from nifty8.re.num.stats_distributions import lognormal_prior
+from nifty.re.num.stats_distributions import lognormal_prior
 from numpy.typing import ArrayLike
 
 from .gauss_markov import NdGaussMarkovProcess, build_fixed_point_wiener_process

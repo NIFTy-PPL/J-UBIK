@@ -7,7 +7,7 @@
 
 from typing import Callable, Union, Tuple, Optional
 
-import nifty8.re as jft
+import nifty.re as jft
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 

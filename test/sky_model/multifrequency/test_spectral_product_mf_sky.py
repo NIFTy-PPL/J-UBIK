@@ -8,10 +8,10 @@ import pytest
 from numpy.testing import assert_allclose
 import numpy as np
 
-import nifty8.re as jft
+import nifty.re as jft
 import jubik0 as ju
 
-from nifty8.re.correlated_field import (
+from nifty.re.correlated_field import (
     make_grid,
     NonParametricAmplitude,
     MaternAmplitude,

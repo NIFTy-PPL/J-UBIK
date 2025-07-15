@@ -27,7 +27,7 @@ def get_synth_pointsource(info, npix_s, idx_tuple, num_rays):
 
     Returns
     -------
-    nifty8.Field
+    nifty.Field
         with a simulation pointsource at the position idx_tuple
     """
     xy_range = info.obsInfo["xy_range"]

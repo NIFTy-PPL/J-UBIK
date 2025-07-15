@@ -8,7 +8,7 @@
 import dataclasses
 from typing import Any
 
-import nifty8.re as jft
+import nifty.re as jft
 
 from .erosita_data import create_erosita_data_from_config
 from .erosita_response import build_erosita_response_from_config

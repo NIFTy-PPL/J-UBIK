@@ -10,7 +10,7 @@ from os.path import join
 import pickle
 
 import numpy as np
-import nifty8.re as jft
+import nifty.re as jft
 
 
 def load_from_pickle(file_path):

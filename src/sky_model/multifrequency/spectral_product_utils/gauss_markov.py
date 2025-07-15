@@ -9,9 +9,9 @@ import jax.numpy as jnp
 import numpy as np
 from jax import Array
 from jax.tree_util import tree_map
-from nifty8.re.model import Initializer, LazyModel, Model
-from nifty8.re.prior import LogNormalPrior, NormalPrior
-from nifty8.re.tree_math import ShapeWithDtype, random_like
+from nifty.re.model import Initializer, LazyModel, Model
+from nifty.re.prior import LogNormalPrior, NormalPrior
+from nifty.re.tree_math import ShapeWithDtype, random_like
 
 
 def nd_wiener_process(

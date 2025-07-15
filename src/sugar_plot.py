@@ -10,7 +10,7 @@ from os.path import join
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from jax import random, linear_transpose
 from jax.tree_util import tree_map
@@ -43,7 +43,7 @@ def plot_pspec(pspec, shape, distances,
     distances : Union[float, tuple[float]]
         The distances in the grid corresponding
         to each axis.
-    sample_list : nifty8.re.evi.Samples
+    sample_list : nifty.re.evi.Samples
         A list of samples to be used for generating the
         power spectrum.
     output_directory : str
@@ -71,7 +71,7 @@ def plot_pspec(pspec, shape, distances,
                                                 f"{directory_prefix}pspec"))
     samples = np.array([pspec(s) for s in sample_list])
     filename_samples = join(results_path, f"samples_{iteration}.png")
-    from nifty8.re.correlated_field import get_fourier_mode_distributor
+    from nifty.re.correlated_field import get_fourier_mode_distributor
     _, unique_modes, _ = get_fourier_mode_distributor(shape, distances)
 
     plt.plot(unique_modes, jft.mean(samples), label="mean")
@@ -107,7 +107,7 @@ def plot_sample_and_stats(output_directory,
         The directory where the plot files will be saved.
     operators_dict : dict[callable]
         A dictionary containing operators.
-    sample_list : nifty8.re.evi.Samples
+    sample_list : nifty.re.evi.Samples
         A list of samples.
     iteration : int, optional
         The global iteration number value. Defaults to None.
@@ -362,7 +362,7 @@ def plot_uncertainty_weighted_residuals(samples,
 
     Parameters
     ----------
-    samples: nifty8.re.evi.Samples
+    samples: nifty.re.evi.Samples
         Position-space samples.
     operator_dict: dict
         Dictionary of operators for which the UWRs should be calculated.
@@ -466,7 +466,7 @@ def plot_noise_weighted_residuals(samples,
 
     Parameters
     ----------
-    samples: nifty8.re.evi.Samples
+    samples: nifty.re.evi.Samples
         Position-space samples.
     operator_dict: dict
         Dictionary of operators for which the NWRs should be calculated.
@@ -591,8 +591,8 @@ def plot_2d_gt_vs_rec_histogram(samples,
 
     Parameters
     ----------
-    samples: nifty8.re.evi.Samples
-        nifty8.re.evi.Samples object containing the posterior samples of the
+    samples: nifty.re.evi.Samples
+        nifty.re.evi.Samples object containing the posterior samples of the
         reconstruction.
     operator_dict: dict
         Dictionary of operators for which the histogram should be plotted.

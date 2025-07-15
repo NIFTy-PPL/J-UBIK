@@ -7,7 +7,7 @@
 
 from typing import Callable, Optional
 
-import nifty8.re as jft
+import nifty.re as jft
 from numpy.typing import ArrayLike
 
 from .integration_model import build_sum
