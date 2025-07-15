@@ -88,6 +88,15 @@ def build_plot_alignment_residuals(
     return plot_alignment_residuals
 
 
+def clear_jax_compilation_cache(state, clear_every_n_iterations=5):
+    import jax
+
+    if state.nit % clear_every_n_iterations == 0:
+        print(jax.local_devices()[0].memory_stats())
+        print("Clearing JAX compilation cache...")
+        jax.clear_caches()
+
+
 @dataclass
 class PlotTarget:
     plot_lens: Callable[[jft.Samples, jft.OptimizeVIState], None]
@@ -96,6 +105,8 @@ class PlotTarget:
 
     def __call__(self, samples: jft.Samples, state: jft.OptimizeVIState):
         print(f"Plotting: {state.nit}")
+
+        clear_jax_compilation_cache(state, clear_every_n_iterations=3)
         try:
             self.plot_residual(samples, state)
         except:
