@@ -4,8 +4,8 @@
 
 from typing import Union
 
-from nifty8.re.model import Model
-from nifty8.re.num.stats_distributions import lognormal_prior, normal_prior
+from nifty.re.model import Model
+from nifty.re.num.stats_distributions import lognormal_prior, normal_prior
 
 from .distribution_or_default import build_distribution_or_default
 

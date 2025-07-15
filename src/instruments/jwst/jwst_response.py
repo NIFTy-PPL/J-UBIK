@@ -8,9 +8,10 @@
 from dataclasses import dataclass
 from typing import Callable
 
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
 from astropy.coordinates import SkyCoord
+
 from numpy.typing import ArrayLike
 
 from ...grid import Grid

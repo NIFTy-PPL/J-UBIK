@@ -5,10 +5,9 @@
 
 # %%
 
-import numpy as np
-import nifty8 as ift
-import nifty8.re as jft
-from nifty8.re.model import NoValue
+import nifty.cl as ift
+import nifty.re as jft
+from nifty.re.model import NoValue
 from jax.tree_util import tree_leaves
 
 def get_n_constrained_dof(likelihood: jft.Likelihood) -> int:
@@ -59,7 +58,7 @@ class _IGLikelihood(ift.EnergyOperator):
 
         Parameters
         ----------
-        data: nifty8.Field
+        data: nifty.Field
         alpha: float
         q: float
         """
@@ -97,10 +96,10 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
 
     Parameters:
     -----------
-        sky: nifty8.Operator
+        sky: nifty.Operator
             Generative model for the sky consisting of a point source component
             and another additive component `diffuse_sky`.
-        diffuse_sky: nifty8.Operator
+        diffuse_sky: nifty.Operator
             Generative model describing only the diffuse component.
         point_dict: dict of float
             Dictionary containing the Inverse-Gamma parameters `alpha` and `q`.

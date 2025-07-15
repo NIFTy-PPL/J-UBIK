@@ -5,7 +5,7 @@
 
 # %
 
-import nifty8.re as jft
+import nifty.re as jft
 
 from .parametric_model import build_parametric_prior_from_prior_config
 from .parse.parametric_model.parametric_prior import ProbabilityConfig

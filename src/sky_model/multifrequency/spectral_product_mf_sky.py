@@ -10,16 +10,16 @@ from typing import Callable, Optional, Union
 import jax.numpy as jnp
 import numpy as np
 from jax import vmap
-from nifty8.re import logger
-from nifty8.re.correlated_field import (
+from nifty.re import logger
+from nifty.re.correlated_field import (
     MaternAmplitude,
     NonParametricAmplitude,
     hartley,
     make_grid,
 )
-from nifty8.re.model import Model
-from nifty8.re.num.stats_distributions import lognormal_prior, normal_prior
-from nifty8.re.tree_math.vector import Vector
+from nifty.re.model import Model
+from nifty.re.num.stats_distributions import lognormal_prior, normal_prior
+from nifty.re.tree_math.vector import Vector
 from numpy.typing import ArrayLike
 
 from .spectral_product_utils.frequency_deviations import (

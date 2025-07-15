@@ -8,7 +8,7 @@ from .data.jwst_data import JWST_FILTERS
 from ...color import Color, ColorRange
 from ...grid import Grid
 
-import nifty8.re as jft
+import nifty.re as jft
 
 import numpy as np
 from typing import Union
@@ -23,7 +23,7 @@ def _sorted_keys_and_index(keys_and_colors: dict):
 
 class FilterProjector(jft.Model):
     """
-    A nifty8.re.Model that projects input data into specified filters
+    A nifty.re.Model that projects input data into specified filters
     defined by color keys.
 
     The FilterProjector class takes a sky domain and a mapping between keys

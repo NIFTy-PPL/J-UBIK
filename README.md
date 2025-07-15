@@ -11,7 +11,7 @@ Next to many useful generic tools and building blocks, JUBIK comes with a series
 ## Requirements
 - [JAX](https://jax.readthedocs.io/en/latest/installation.html)
 - [astropy](https://www.astropy.org)
-- [NIFTy8](https://gitlab.mpcdf.mpg.de/ift/nifty) 
+- [NIFTy](https://gitlab.mpcdf.mpg.de/ift/nifty) (follow installation for NIFTy.re, the JAX implementation of NIFTy)
 - [ducc0](https://pypi.org/project/ducc0/)
 - [matplotlib](https://matplotlib.org/stable/install/index.html)
 
