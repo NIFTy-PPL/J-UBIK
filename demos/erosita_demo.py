@@ -176,7 +176,7 @@ import argparse
 import os
 from os.path import join
 
-import nifty8.re as jft
+import nifty.re as jft
 from jax import config, random
 
 import jubik0 as ju
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
     # Uncomment to save local packages git hashes to file
     # ju.save_local_packages_hashes_to_txt(
-    #     ['jubik0', 'nifty8'],
+    #     ['jubik0', 'nifty'],
     #     join(file_info['res_dir'], "packages_hashes.txt"),
     #     paths_to_git=[os.path.dirname(os.getcwd()), None],
     #     verbose=False)
