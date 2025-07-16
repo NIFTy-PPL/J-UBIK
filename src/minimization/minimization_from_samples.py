@@ -106,6 +106,12 @@ def minimization_from_initial_samples(
         not_take_starting_pos_keys=not_take_starting_pos_keys,
     )
 
+    resume = (
+        os.path.join(os.getcwd(), kl_settings.outputdir, "last.pkl")
+        if kl_settings.resume
+        else False
+    )
+
     # Minimze only parametric
     minimization: MinimizationParser = kl_settings.minimization
     samples, state = jft.optimize_kl(
@@ -122,7 +128,7 @@ def minimization_from_initial_samples(
         kl_kwargs=minimization.kl_kwargs,
         constants=kl_settings.constants,
         point_estimates=kl_settings.point_estimates,
-        resume=kl_settings.resume,
+        resume=resume,
         kl_jit=kl_settings.kl_jit,
         residual_jit=kl_settings.residual_jit,
         _optimize_vi_state=opt_vi_state,
