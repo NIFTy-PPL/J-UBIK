@@ -11,14 +11,13 @@ from astropy import units
 from astropy.coordinates import SkyCoord
 
 from ....color import Color, ColorRange
-from ....wcs import subsample_pixel_centers, WcsAstropy, WcsJwstData
-
-from .jwst_information import get_dvol, JWST_FILTERS, get_pixel_distance
+from ....wcs import WcsAstropy, WcsJwstData, subsample_pixel_centers
 from ..masking import (
     get_mask_from_index_centers_within_rgrid,
     get_mask_from_mask_corners,
 )
 from ..parse.masking.data_mask import ExtraMaskFromCorners
+from .jwst_information import JWST_FILTERS, get_dvol, get_pixel_distance
 
 try:
     from jwst import datamodels

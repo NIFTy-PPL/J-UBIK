@@ -157,9 +157,9 @@ def plot_result(array,
                 fig.suptitle(title)
 
         if colorbar:
-            divider = make_axes_locatable(axes[i])
-            cax = divider.append_axes("right", size="5%", pad=0.1)
-            fig.colorbar(im, cax=cax, format=cbar_formatter)
+            # divider = make_axes_locatable(axes[i])
+            # cax = divider.append_axes("right", size="5%", pad=0.1)
+            fig.colorbar(im, ax=axes[i], format=cbar_formatter)
     for i in range(n_del):
         fig.delaxes(axes[n_plots + i])
     fig.tight_layout()

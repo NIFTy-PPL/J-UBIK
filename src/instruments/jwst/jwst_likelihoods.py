@@ -94,12 +94,16 @@ class JwstLikelihoodProducts:
 def build_jwst_likelihoods(
     cfg: dict,
     grid: Grid,
-    sky_domain: dict[str, jft.ShapeWithDtype] | jft.ShapeWithDtype,
+    sky_domain: dict[str, jft.ShapeWithDtype],
     sky_unit: u.Unit = u.Unit("MJy") / u.Unit("sr"),
     files_key: str = "files",
     telescope_key: str = "telescope",
 ) -> JwstLikelihoodProducts:
     """Build the jwst likelihood_target according to the config and grid."""
+
+    assert isinstance(sky_domain, dict), (
+        "Only works with a sky key since the likelihood has learnable parameters"
+    )
 
     filter_projector = build_filter_projector(
         sky_domain, grid, cfg[files_key]["filter"].keys()

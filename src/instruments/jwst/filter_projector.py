@@ -37,7 +37,6 @@ class FilterProjector(jft.Model):
         sky_domain: Union[jft.ShapeWithDtype, dict[str, jft.ShapeWithDtype]],
         keys_and_colors: dict,
         keys_and_index: dict | None,
-        sky_key: str | None = None,
     ):
         """
         Parameters
@@ -55,22 +54,27 @@ class FilterProjector(jft.Model):
         sky_key : str | None
             If a sky_key is provided the sky-array gets unwrapped in the call.
         """
-        if sky_key is None:
-            assert len(sky_domain.shape) == 3, (
+        assert hasattr(sky_domain, "shape") or isinstance(sky_domain, dict)
+
+        if isinstance(sky_domain, dict):
+            assert len(sky_domain.keys()) == 1
+            sky_key = next(iter(sky_domain.keys()))
+            assert len(sky_domain[sky_key].shape) == 3, (
                 "FilterProjector expects a sky with 3 dimensions."
             )
         else:
-            assert len(sky_domain[sky_key].shape) == 3, (
+            sky_key = None
+            assert len(sky_domain.shape) == 3, (
                 "FilterProjector expects a sky with 3 dimensions."
             )
 
         self._sky_key = sky_key
         self.keys_and_colors = keys_and_colors
-
-        if keys_and_index is None:
-            self.keys_and_index = _sorted_keys_and_index(keys_and_colors)
-        else:
-            self.keys_and_index = keys_and_index
+        self.keys_and_index = (
+            keys_and_index
+            if keys_and_index is not None
+            else _sorted_keys_and_index(keys_and_colors)
+        )
 
         super().__init__(domain=sky_domain)
 
@@ -101,7 +105,6 @@ def build_filter_projector(
     sky_domain: dict | jft.ShapeWithDtype,
     grid: Grid,
     data_filter_names: list[str],
-    sky_key: str = "sky",
 ) -> FilterProjector:
     named_color_ranges = {}
     for name, values in JWST_FILTERS.items():
@@ -121,7 +124,6 @@ def build_filter_projector(
         sky_domain=sky_domain,
         keys_and_colors=keys_and_colors,
         keys_and_index=keys_and_index,
-        sky_key=sky_key,
     )
 
     for fpt, fpc in filter_projector.target.items():

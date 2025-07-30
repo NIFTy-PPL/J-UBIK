@@ -208,7 +208,7 @@ def plot_prior(
     insert_spaces_in_lensing_new(cfg["sky"])
 
     lens_system: LensSystem = build_lens_system(cfg["sky"])
-    _sky_model = lens_system._get_forward_model(parametric_lens=parametric_lens)
+    _sky_model = lens_system.get_forward_model(parametric_lens=parametric_lens)
     sky_model = jft.Model(jft.wrap_left(_sky_model, sky_key), domain=_sky_model.domain)
 
     grid = Grid.from_grid_model(GridModel.from_yaml_dict(cfg["sky"]["grid"]))
