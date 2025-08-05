@@ -43,7 +43,7 @@ def build_likelihood_from_sky_beamer(
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None,
     cast_to_dtype: Callable | None = None,
-):
+) -> jft.Likelihood:
     """First, builds response operator, which takes the `field_name` from the
     sky_beamer operator and calculates the visibilities corresponding to the
     observation.
