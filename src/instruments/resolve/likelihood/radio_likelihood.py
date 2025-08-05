@@ -58,8 +58,8 @@ class LikelihoodProducts:
 
     @property
     def likelihood(self) -> jft.Likelihood:
-        likelihoods = (t.likelihood for t in self.likelihoods)
-        likelihood = reduce(lambda x, y: x + y, likelihoods)
+        # likelihoods = (t.likelihood for t in self.likelihoods)
+        likelihood = reduce(lambda x, y: x + y, self.likelihoods)
         return connect_likelihood_to_model(likelihood, self.sky_beamer)
 
 
