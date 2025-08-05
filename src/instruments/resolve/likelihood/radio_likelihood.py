@@ -15,30 +15,46 @@
 # Author: Julian Rüstig
 
 
+from dataclasses import dataclass
+from functools import partial, reduce
+
+import jax.numpy as jnp
+import nifty.re as jft
+from astropy import units as u
+from nifty.cl.logger import logger
+
+from ....grid import Grid
 from ....parse.instruments.resolve.data.data_loading import DataLoading
 from ....parse.instruments.resolve.data.data_modify import ObservationModify
 from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
 from ....parse.instruments.resolve.response import yaml_to_response_settings
-
-from ....grid import Grid
+from ....likelihood import connect_likelihood_to_model
+from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
-from ..multimessanger import build_radio_sky_extractor, build_radio_grid
-from ..mosaicing.sky_beamer import build_jft_sky_beamer
+from ..mosaicing.sky_beamer import SkyBeamerJft, build_jft_sky_beamer
+from ..multimessanger import (
+    RadioSkyExtractor,
+    build_radio_grid,
+    build_radio_sky_extractor,
+)
 from ..telescopes.primary_beam import (
     build_primary_beam_pattern_from_beam_pattern_config,
 )
 from .mosaic_likelihood import build_likelihood_from_sky_beamer
 from .cast_to_dtype import cast_to_dtype
 
-from ..constants import RESOLVE_SPECTRAL_UNIT
 
-import nifty8.re as jft
-from nifty8.logger import logger
+@dataclass
+class LikelihoodProducts:
+    likelihoods: list[jft.Likelihood | jft.Gaussian]
+    sky_beamer: SkyBeamerJft
+    radio_sky_extractor: RadioSkyExtractor  # NOTE : only for convenience
 
-import jax.numpy as jnp
-from astropy import units as u
-
-from functools import reduce, partial
+    @property
+    def likelihood(self) -> jft.Likelihood:
+        likelihoods = (t.likelihood for t in self.likelihoods)
+        likelihood = reduce(lambda x, y: x + y, likelihoods)
+        return connect_likelihood_to_model(likelihood, self.sky_beamer)
 
 
 def build_radio_likelihood(
@@ -50,7 +66,8 @@ def build_radio_likelihood(
     sky_key: str = "sky",
     sky_unit: u.Unit | None = None,
     direction_key: str = "PHASE_DIR",
-):
+) -> LikelihoodProducts:
+    response_settings = yaml_to_response_settings(cfg["radio_response"])
     radio_sky_extractor = build_radio_sky_extractor(
         last_radio_bin, sky_model, sky_key=sky_key, sky_unit=sky_unit
     )
@@ -118,11 +135,14 @@ def build_radio_likelihood(
         sky_beamers.append(_sky_beamer)
         logger.info("")
 
-    likelihood = reduce(lambda x, y: x + y, likelihoods)
+    # Create the final sky beamer
     _sky_beamer = reduce(lambda x, y: x + y, sky_beamers)
-
-    # Wrapped call
     sky_beamer = jft.Model(
         lambda x: _sky_beamer(radio_sky_extractor(x)), domain=radio_sky_extractor.domain
     )
-    return likelihood, sky_beamer, radio_sky_extractor
+
+    return LikelihoodProducts(
+        likelihoods=likelihoods,
+        sky_beamer=sky_beamer,
+        radio_sky_extractor=radio_sky_extractor,
+    )
