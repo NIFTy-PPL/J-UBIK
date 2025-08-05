@@ -1,58 +1,48 @@
 from dataclasses import dataclass
+from functools import reduce
+from typing import Union
 
+import nifty.re as jft
+from astropy import units as u
+from astropy.coordinates import SkyCoord
 
 from ...grid import Grid
-from .jwst_response import build_target_response, TargetResponseInput
-from .filter_projector import FilterProjector, build_filter_projector
-from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
-from .plotting.residuals import ResidualPlottingInformation
-from .plotting.alignment import MultiFilterAlignmentPlottingInformation
-from .alignment.filter_alignment import FilterAlignment
-from .variable_covariance.inverse_standard_deviation import (
-    build_inverse_standard_deviation,
-)
 from ...likelihood import connect_likelihood_to_model
-
+from .alignment.filter_alignment import FilterAlignment
+from .config_handler import get_grid_extension_from_config
+from .data.loader.data_loader import (
+    DataLoader,
+    DataLoaderStarAlignment,
+    DataLoaderTarget,
+    load_data,
+)
+from .data.preloader.preloader import (
+    Preloader,
+    PreloaderSideEffects,
+    preload_data,
+)
+from .filter_projector import FilterProjector, build_filter_projector
+from .jwst_response import TargetResponseInput, build_target_response
+from .likelihood.alignment_likelihood import (
+    AlignmentLikelihoodSideEffects,
+    MultiFilterAlignmentLikelihoods,
+    StarAlignmentResponseInput,
+    build_star_alignment_likelihood,
+)
 from .likelihood.target_likelihood import (
     SingleTargetLikelihood,
     TargetLikelihoodSideEffects,
     build_target_likelihood,
 )
-from .likelihood.alignment_likelihood import (
-    build_star_alignment_likelihood,
-    StarAlignmentResponseInput,
-    AlignmentLikelihoodSideEffects,
-    MultiFilterAlignmentLikelihoods,
-)
-
 from .minimization.mask_hot_pixel_data import HotPixelMaskingData
-
-# Parsing
 from .parse.jwst_response import SkyMetaInformation
 from .parse.parsing_step import ConfigParserJwst
-from .config_handler import get_grid_extension_from_config
-
-from .data.loader.data_loader import (
-    load_data,
-    DataLoader,
-    DataLoaderTarget,
-    DataLoaderStarAlignment,
+from .plotting.alignment import MultiFilterAlignmentPlottingInformation
+from .plotting.residuals import ResidualPlottingInformation
+from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
+from .variable_covariance.inverse_standard_deviation import (
+    build_inverse_standard_deviation,
 )
-from .data.preloader.preloader import (
-    preload_data,
-    Preloader,
-    PreloaderSideEffects,
-)
-
-
-# Libraries
-import nifty.re as jft
-
-# std
-from functools import reduce
-from astropy import units as u
-from astropy.coordinates import SkyCoord
-from typing import Union
 
 
 @dataclass
