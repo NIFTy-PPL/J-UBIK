@@ -26,8 +26,8 @@ class CorrectionModel(Enum):
     """Enum for the different loading modes."""
 
     SHIFT = "shift"
-    # RSHIFT = "rshift"
-    # GENERAL = "general"  # Not implemented
+    # RSHIFT = "rshift" # TODO : Not implemented, because of error in the formulas
+    # GENERAL = "general"  # TODO : Not implemented
 
     @classmethod
     def from_string(cls, mode_str: str) -> "CorrectionModel":
@@ -45,11 +45,13 @@ class CorrectionModel(Enum):
 class CoordinatesCorrectionPriorConfig:
     """Config class for the coordinates correction.
 
-    Parameters
+    Attributes
     ----------
-    model: str,
-        - shift, only apply a shift correction
-        - rshift, shift & rotation correction
+    model: CorrectionModel,
+        Coordinates correction model, possible choices:
+        - CorrectionModel.SHIFT, only apply a shift correction
+        - CorrectionModel.RSHIFT, shift & rotation correction (not implemented)
+        - CorrectionModel.GENERAL, general (not implemented)
     shift:  ProbabilityConfig
         The ProbabilityConfig for the shift model.
     shift_unit: u.Unit
@@ -60,7 +62,7 @@ class CoordinatesCorrectionPriorConfig:
         The unit of the rotation model
     """
 
-    model: CorrectionModel.SHIFT  # | CorrectionModel.RSHIFT | CorrectionModel.GENERAL
+    model: CorrectionModel
     shift: ProbabilityConfig
     shift_unit: u.Unit
     rotation: ProbabilityConfig
@@ -84,7 +86,7 @@ class CoordinatesCorrectionPriorConfig:
         raw: dict,
         shift_shape: tuple | None = None,
         rotation_shape: tuple | None = None,
-    ):
+    ) -> "CoordinatesCorrectionPriorConfig":
         f"""Parse CoordinatesCorrectionPriorConfig from yaml dictionary.
 
         Parameters
@@ -96,7 +98,7 @@ class CoordinatesCorrectionPriorConfig:
             - {ROTATION_KEY}
             - {ROTATION_UNIT_KEY}
         """
-        return CoordinatesCorrectionPriorConfig(
+        return cls(
             model=CorrectionModel.from_string(raw[MODEL_KEY]),
             shift=prior_config_factory(raw[SHIFT_KEY], shape=shift_shape),
             rotation=prior_config_factory(raw[ROTATION_KEY], shape=rotation_shape),
