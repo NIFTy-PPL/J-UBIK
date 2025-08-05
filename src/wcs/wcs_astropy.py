@@ -27,7 +27,7 @@ class WcsAstropy(WCS, WcsMixin):
         self,
         center: SkyCoord,
         shape: tuple[int, int],
-        fov: tuple[u.Quantity, u.Quantity],
+        fov: u.Quantity | tuple[u.Quantity, u.Quantity],
         rotation: u.Quantity = 0.0 * u.deg,
         coordinate_system: Optional[
             CoordinateSystemModel
@@ -51,6 +51,9 @@ class WcsAstropy(WCS, WcsMixin):
         equinox : float, optional
             Equinox for FK4/FK5 systems (e.g., 2000.0 for J2000)
         """
+
+        if isinstance(fov, u.Quantity):
+            assert fov.shape == 2
 
         self.shape = shape
         self.fov = fov

@@ -29,6 +29,7 @@ from ....parse.instruments.resolve.data.data_modify import ObservationModify
 from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
 from ....parse.instruments.resolve.response import yaml_to_response_settings
 from ....likelihood import connect_likelihood_to_model
+from ..likelihood.mosaic_likelihood import build_likelihood_from_sky_beamer
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
 from ..mosaicing.sky_beamer import SkyBeamerJft, build_jft_sky_beamer
@@ -41,6 +42,11 @@ from ..telescopes.primary_beam import (
     build_primary_beam_pattern_from_beam_pattern_config,
 )
 from .cast_to_dtype import cast_to_dtype
+
+# TODO : This shouldn't depend on jwst. Hence, move this to higher level.
+from ...jwst.parse.rotation_and_shift.coordinates_correction import (
+    CoordinatesCorrectionPriorConfig,
+)
 
 
 @dataclass
@@ -94,7 +100,7 @@ def build_radio_likelihood(
         dm = ObservationModify.from_yaml_dict(cfg["alma_data"][data_name])
         observations = list(
             load_and_modify_data_from_objects(
-                sky_frequencies=radio_grid.spectral.binbounds_in(u.Hz),
+                sky_frequencies=radio_grid.spectral.binbounds_in(u.Unit("Hz")),
                 data_loading=dl,
                 observation_modify=dm,
             )
