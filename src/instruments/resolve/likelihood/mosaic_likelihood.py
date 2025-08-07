@@ -1,13 +1,44 @@
-from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
+from dataclasses import dataclass
+from typing import Callable, Union
+
+import nifty.re as jft
+from astropy import units as u
+from numpy.typing import NDArray
 
 from ....grid import Grid
-from ..re.response import InterferometryResponse
+from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamerJft
+from ..re.response import InterferometryResponse
 
-import nifty8.re as jft
 
-from typing import Callable, Union
+@dataclass
+class LikelihoodBuilder:
+    """Builder for a radio likelihood
+
+    Attributes
+    ----------
+    visibilities: NDArray
+        The visibilities of the observation.
+    weight: NDArray
+        The weights of the visibilities of the observation.
+    response: jft.Model
+        The response operator.
+    name: str = "lh_{index}"
+        (Optional) string for display in the minimization.
+        This will only be displayed when having multiple likelihoods.
+    """
+
+    visibilities: NDArray
+    weight: NDArray
+    response: jft.Model
+
+    @property
+    def likelihood(self) -> jft.Likelihood:
+        likelihood = jft.Gaussian(
+            self.visibilities, noise_cov_inv=lambda x: x * self.weight
+        )
+        return likelihood.amend(self.response, domain=jft.Vector(self.response.domain))
 
 
 def build_likelihood_from_sky_beamer(
@@ -17,8 +48,15 @@ def build_likelihood_from_sky_beamer(
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     cast_to_dtype: Callable | None = None,
-) -> jft.Likelihood:
-    """First, builds response operator, which takes the `field_name` from the
+) -> LikelihoodBuilder:
+    """Create a likelihood builder corresponding to the `field_name`.
+
+    The building consists of two steps:
+    1. Build response operator
+
+    2. Build the
+
+    First, builds response operator, which takes the `field_name` from the
     sky_beamer operator and calculates the visibilities corresponding to the
     observation.
     Second, builds the likelihood operator corresponding to this observation.
@@ -27,15 +65,23 @@ def build_likelihood_from_sky_beamer(
     ----------
     observation: Observation
         The observation under question
-    field_name:
-        The name of the field (pointing)
-    sky_beamer:
+    field_name: str
+        The name of the field (pointing) corresponding to the `observation`.
+    sky_beamer: SkyBeamerJft
+        The operator that applies the beam pattern to the sky.
+        This can potentially hold multiple pointings, that are identified by different
+        field_name.
+    sky_grid: Grid
+        Used for building the InterferometryResponse
+    backend_settings: Union[Ducc0Settings, FinufftSettings]
+        The algorithm for gridding and fft.
+    cast_to_dtype: Callable | None = None,
+        (Optional) Casting the dtpye, for example float64 -> float32.
 
-    Result
+    Returns
     ------
-    The likelihood which takes the beam-corrected sky corresponding to the
-    `observation`, which gets transformed to visibility space and compared to
-    the visibilities in the observation.
+    LikelihoodBuilder
+        The likelihood corresponding to the `observation` and the `field_name`.
     """
 
     sky2vis = InterferometryResponse(
@@ -45,9 +91,10 @@ def build_likelihood_from_sky_beamer(
     )
     response = jft.wrap(lambda x: sky2vis(x), field_name)
     if cast_to_dtype:
-        response = jft.wrap(lambda x: sky2vis(cast_to_dtype(x), field_name))
+        response = jft.wrap(lambda x: sky2vis(cast_to_dtype(x)), field_name)
 
-    likelihood = jft.Gaussian(
-        observation.vis.val, noise_cov_inv=lambda x: x * observation.weight.val
+    return LikelihoodBuilder(
+        visibilities=observation.vis.val.val,
+        weight=observation.weight.val.val,
+        response=response,
     )
-    return likelihood.amend(response, domain=jft.Vector(sky_beamer.target))
