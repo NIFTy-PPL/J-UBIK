@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 from typing import Callable, Union
 
-from numpy.typing import NDArray
-
 import nifty.re as jft
 from astropy import units as u
+from numpy.typing import NDArray
 
 from ....grid import Grid
 from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
@@ -13,11 +12,11 @@ from ...jwst.parse.rotation_and_shift.coordinates_correction import (
 )
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamerJft
-from ..re.response import InterferometryResponse
 from ..re.phase_shift_correction import (
     PhaseShiftCorrection,
     build_phase_shift_correction_from_config,
 )
+from ..re.response import InterferometryResponse
 
 
 def create_response_operator(

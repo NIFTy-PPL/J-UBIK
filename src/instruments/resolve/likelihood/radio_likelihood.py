@@ -22,22 +22,22 @@ from operator import add
 
 import jax.numpy as jnp
 import nifty.re as jft
-from nifty.re.likelihood import LikelihoodSum
 from astropy import units as u
 from nifty.cl.logger import logger
+from nifty.re.likelihood import LikelihoodSum
 
 from ....grid import Grid
+from ....likelihood import connect_likelihood_to_model
 from ....parse.instruments.resolve.data.data_loading import DataLoading
 from ....parse.instruments.resolve.data.data_modify import ObservationModify
 from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
 from ....parse.instruments.resolve.response import yaml_to_response_settings
-from ....likelihood import connect_likelihood_to_model
+from ..constants import RESOLVE_SPECTRAL_UNIT
+from ..data.data_loading import load_and_modify_data_from_objects
 from ..likelihood.mosaic_likelihood import (
     LikelihoodBuilder,
     build_likelihood_from_sky_beamer,
 )
-from ..constants import RESOLVE_SPECTRAL_UNIT
-from ..data.data_loading import load_and_modify_data_from_objects
 from ..mosaicing.sky_beamer import SkyBeamerJft, build_jft_sky_beamer
 from ..multimessanger import (
     RadioSkyExtractor,
@@ -49,7 +49,8 @@ from ..telescopes.primary_beam import (
 )
 from .cast_to_dtype import cast_to_dtype
 
-# TODO : This shouldn't depend on jwst. Hence, move this to higher level.
+# NOTE : THIS should not have a direct dependency of jwst, but should be put on a higher
+# level
 from ...jwst.parse.rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectionPriorConfig,
 )
