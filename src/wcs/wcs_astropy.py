@@ -8,7 +8,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, distances
 from astropy.wcs import WCS
 from numpy.typing import ArrayLike
 
@@ -167,6 +167,34 @@ class WcsAstropy(WCS, WcsMixin):
         distances = [d.to(unit).value for d in self.distances]
         halfside = np.array(self.shape) / 2 * np.array(distances)
         return -halfside[0], halfside[0], -halfside[1], halfside[1]
+
+    def get_xycoords(self, centered: bool = True, unit: u.Unit = u.Unit("arcsec")):
+        shape = self.shape
+        distances = (u.Quantity(self.fov) / np.array(self.shape)).to(unit).value
+        x_direction = coords(shape[0], distances[0])
+        y_direction = coords(shape[1], distances[1])
+        fieldcentered = np.array(np.meshgrid(x_direction, y_direction, indexing="xy"))
+
+        if centered:
+            return fieldcentered
+        else:
+            npix = shape[0]
+            if not npix == shape[1]:
+                raise NotImplementedError("Not implemented for rectangular grids.")
+
+            if npix % 2 == 0:
+                return np.fft.fftshift(
+                    fieldcentered - np.array(distances)[:, None, None] / 2.0
+                )
+            else:
+                return np.fft.fftshift(fieldcentered)
+
+
+def coords(shape: int, distance: float) -> ArrayLike:
+    """Returns coordinates such that the edge of the array is
+    shape/2*distance"""
+    halfside = shape / 2 * distance
+    return np.linspace(-halfside + distance / 2, halfside - distance / 2, shape)
 
 
 def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
