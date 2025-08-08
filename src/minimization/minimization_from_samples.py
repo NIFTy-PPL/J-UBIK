@@ -47,7 +47,7 @@ def _initial_position(
 
         for key in initial_position.keys():
             if key in starting_pos and not (key in not_take_starting_pos_keys):
-                jft.logger.info(f"Taking {key}: {starting_pos[key]}")
+                jft.logger.info(f"Taking {key}")
                 initial_position[key] = starting_pos[key]
 
     initial_position, opt_vi_state = jft.Vector(initial_position), None
