@@ -249,6 +249,6 @@ class ColorRanges:
 
     def to_unit(self, unit: u.Unit) -> list[tuple[u.Quantity]]:
         crs = []
-        for ii, cr in enumerate(self.color_ranges):
+        for cr in self.color_ranges:
             crs.append(cr.to_unit(unit))
         return crs
