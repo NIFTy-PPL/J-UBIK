@@ -1,10 +1,10 @@
-from ...grid import Grid
+from typing import Callable
 
-from .spectral_product_mf_sky import SpectralProductSky, build_simple_spectral_sky
-
-import numpy as np
 import jax.numpy as jnp
+import numpy as np
 from astropy import units as u
+from ...grid import Grid
+from .spectral_product_mf_sky import SpectralProductSky, build_simple_spectral_sky
 
 
 def _get_spectral_amplitude_model(model_cfg):
@@ -12,13 +12,13 @@ def _get_spectral_amplitude_model(model_cfg):
     return spectral_amplitude.get("model", "non_parametric")
 
 
-def build_mf_model_from_grid(
+def build_simple_spectral_sky_from_grid(
     grid: Grid,
     prefix: str,
     model_cfg: dict,
     spatial_unit: u.Unit | None = u.arcsec,
     spectral_unit: u.Unit | None = u.eV,
-    nonlinearity: callable = jnp.exp,
+    nonlinearity: Callable = jnp.exp,
 ) -> SpectralProductSky:
     # spatial
     shape = grid.spatial.shape
