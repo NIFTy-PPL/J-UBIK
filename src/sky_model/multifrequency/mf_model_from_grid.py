@@ -1,39 +1,19 @@
-from typing import Callable
-
 import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from astropy import constants
 from astropy import units as u
 from jax import Array
-from nifty.re.correlated_field import (
-    MaternAmplitude,
-    NonParametricAmplitude,
-    hartley,
-    make_grid,
-)
-from nifty.re.num.stats_distributions import lognormal_prior, normal_prior
 
 from ...grid import Grid
 from ...parse.sky_model.multifrequency.mf_model_from_grid import (
     GreyBodyConfig,
     SimpleSpectralSkyConfig,
 )
-from ..single_correlated_field import build_single_correlated_field
+from ..single_correlated_field import build_single_correlated_field_from_config
 from .spectral_product_mf_sky import SpectralProductSky, build_simple_spectral_sky
-from .spectral_product_utils.distribution_or_default import (
-    build_distribution_or_default,
-)
-from .spectral_product_utils.frequency_deviations import (
-    build_frequency_deviations_model_with_degeneracies,
-)
-from .spectral_product_utils.normalized_amplitude_model import (
-    assert_normalized_amplitude_model,
-    build_normalized_amplitude_model,
-)
-from .spectral_product_utils.scaled_excitations import (
-    ScaledExcitations,
-    build_scaled_excitations,
+from ...instruments.jwst.parametric_model.parametric_prior import (
+    build_parametric_prior_from_prior_config,
 )
 
 
@@ -115,18 +95,24 @@ class BlackBody(jft.Model):
 
 class GreyBody(jft.Model):
     def __init__(
-        self, black_body: BlackBody, emissivity_tau: SpectralProductSky
+        self,
+        optical_depth: jft.Model,
+        black_body: BlackBody,
+        emissivity_tau: SpectralProductSky,
     ) -> None:
+        self.optical_depth = optical_depth
         self.black_body = black_body
         self.emissivity_tau = emissivity_tau
 
-        super().__init__(domain=black_body.domain | emissivity_tau.domain)
+        super().__init__(
+            domain=optical_depth.domain | black_body.domain | emissivity_tau.domain
+        )
 
     def emissivity(self, x):
         return 1 - jnp.exp(-self.emissivity_tau(x))
 
     def __call__(self, x) -> Array:
-        return self.emissivity(x) * self.black_body(x)
+        return self.optical_depth(x) * self.emissivity(x) * self.black_body(x)
 
 
 def build_grey_body_spectrum_from_grid(
@@ -134,19 +120,21 @@ def build_grey_body_spectrum_from_grid(
     prefix: str,
     config: GreyBodyConfig,
     sky_unit: u.Unit,
+    redshift: float = 0.0,
     spatial_unit: u.Unit = u.Unit("arcsec"),
     spectral_unit: u.Unit = u.Unit("eV"),
 ) -> jft.Model:
-    log_temperature, _ = build_single_correlated_field(
+    log_temperature = build_single_correlated_field_from_config(
         prefix=f"{prefix}_temperature",
         shape=grid.spatial.shape,
         distances=grid.spatial.distances.to(spatial_unit).value,
-        zero_mode_config=config.temperature_zero_mode,
-        fluctuations_config=config.temperature_fluctuations,
+        config=config.temperature,
     )
 
+    frequencies = u.Quantity(grid.spectral.centers).to(u.Hz, equivalencies=u.spectral())
+    frequencies = (1 + redshift) * frequencies
     black_body = BlackBody(
-        u.Quantity(grid.spectral.centers).to(u.Hz, equivalencies=u.spectral()),
+        frequencies=frequencies,
         log_temperature=log_temperature,
         sky_unit=sky_unit,
     )
@@ -158,4 +146,19 @@ def build_grey_body_spectrum_from_grid(
         spatial_unit=spatial_unit,
         spectral_unit=spectral_unit,
     )
-    return GreyBody(black_body=black_body, emissivity_tau=emissivity_tau)
+
+    log_optical_depth = build_single_correlated_field_from_config(
+        prefix=f"{prefix}_optical_depth",
+        shape=grid.spatial.shape,
+        distances=grid.spatial.distances.to(spatial_unit).value,
+        config=config.optical_depth,
+    )
+    optical_depth = jft.Model(
+        lambda x: jnp.exp(log_optical_depth(x)), domain=log_optical_depth.domain
+    )
+
+    return GreyBody(
+        optical_depth=optical_depth,
+        black_body=black_body,
+        emissivity_tau=emissivity_tau,
+    )

@@ -1,7 +1,13 @@
 from dataclasses import dataclass
 import jax.numpy as jnp
 from typing import Callable
+
 from ...parsing_base import StaticTyped, FromYamlDict
+from ..correlated_field import (
+    single_correlated_field_config_factory,
+    MaternFluctationsConfig,
+    CfmFluctuationsConfig,
+)
 
 
 @dataclass
@@ -48,14 +54,14 @@ class SimpleSpectralSkyConfig(StaticTyped, FromYamlDict):
 
 @dataclass
 class GreyBodyConfig(StaticTyped, FromYamlDict):
-    temperature_zero_mode: dict
-    temperature_fluctuations: dict
+    optical_depth: MaternFluctationsConfig | CfmFluctuationsConfig
+    temperature: MaternFluctationsConfig | CfmFluctuationsConfig
     emissivity: SimpleSpectralSkyConfig
 
     @classmethod
     def from_yaml_dict(cls, raw: dict) -> "GreyBodyConfig":
         return cls(
-            temperature_zero_mode=raw["temperature"]["zero_mode"],
-            temperature_fluctuations=raw["temperature"]["fluctuations"],
+            optical_depth=single_correlated_field_config_factory(raw["optical_depth"]),
+            temperature=single_correlated_field_config_factory(raw["temperature"]),
             emissivity=SimpleSpectralSkyConfig.from_yaml_dict(raw["emissivity"]),
         )
