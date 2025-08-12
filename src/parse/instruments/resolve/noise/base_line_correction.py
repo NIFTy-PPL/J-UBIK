@@ -1,11 +1,11 @@
-from ....parsing_base import StronglyTyped
-
-from dataclasses import dataclass
 from configparser import ConfigParser
+from dataclasses import dataclass
+
+from ....parsing_base import StaticTyped
 
 
 @dataclass
-class BaseLineCorrection(StronglyTyped):
+class BaseLineCorrection(StaticTyped):
     alpha: float | int
     sigma: float | int
 
