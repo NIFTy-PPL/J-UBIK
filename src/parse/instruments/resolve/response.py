@@ -1,12 +1,10 @@
-from ...parsing_base import StronglyTyped
-
-import astropy.units as u
-
+from configparser import ConfigParser
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from configparser import ConfigParser
+import astropy.units as u
 
+from ...parsing_base import StaticTyped
 
 FINUFFT_KEYS = ["finufft"]
 DUCC_KEYS = ["ducc", "ducc0"]
@@ -21,7 +19,7 @@ VERBOSITY_KEY = "verbosity"
 
 
 @dataclass
-class Ducc0Settings(StronglyTyped):
+class Ducc0Settings(StaticTyped):
     epsilon: float
     do_wgridding: bool
     nthreads: int
@@ -66,7 +64,7 @@ class Ducc0Settings(StronglyTyped):
 
 
 @dataclass
-class FinufftSettings(StronglyTyped):
+class FinufftSettings(StaticTyped):
     epsilon: float
 
     @classmethod
@@ -93,7 +91,7 @@ class FinufftSettings(StronglyTyped):
 
 
 @dataclass
-class ResponseSettings(StronglyTyped):
+class ResponseSettings(StaticTyped):
     backend: Union[FinufftSettings, Ducc0Settings]
     transpose: bool = False
 
