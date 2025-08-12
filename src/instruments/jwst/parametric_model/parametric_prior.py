@@ -65,7 +65,7 @@ def _transform_setting(parameters: Union[dict, tuple]):
 def build_parametric_prior_from_prior_config(
     domain_key: str,
     prior_config: ProbabilityConfig,
-    shape: Tuple[int] = (),
+    shape: tuple[int, ...] = (),
     as_model: bool = False,
 ) -> Union[Callable, jft.Model]:
     """
