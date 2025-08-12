@@ -1,12 +1,10 @@
-from jubik0.grid import Grid
-
-import astropy.units as u
-
+from configparser import ConfigParser
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from configparser import ConfigParser
+import astropy.units as u
 
+from ...parsing_base import StaticTyped
 
 FINUFFT_KEYS = ["finufft"]
 DUCC_KEYS = ["ducc", "ducc0"]
@@ -20,7 +18,7 @@ VERBOSITY_KEY = "verbosity"
 
 
 @dataclass
-class Ducc0Settings:
+class Ducc0Settings(StaticTyped):
     epsilon: float
     do_wgridding: bool
     nthreads: int
@@ -72,9 +70,8 @@ class Ducc0Settings:
 
 
 @dataclass
-class FinufftSettings:
+class FinufftSettings(StaticTyped):
     epsilon: float
-    no_polarization: bool = False
 
     @classmethod
     def from_yaml_dict(cls, yaml_dict: dict):

@@ -449,11 +449,11 @@ class SpectralProductSky(Model):
 
 def build_simple_spectral_sky(
     prefix: str,
-    shape: tuple[int],
-    distances: tuple[float],
+    shape: tuple[int, int],
+    distances: tuple[float, float],
     log_frequencies: Union[tuple[float], ArrayLike],
     reference_frequency_index: int,
-    zero_mode_settings: Union[tuple, Callable],
+    zero_mode_settings: Union[tuple, list, Callable],
     spatial_amplitude_settings: dict,
     spectral_index_settings: dict,
     spectral_index_mean: Optional[Model] = None,
@@ -554,6 +554,7 @@ def build_simple_spectral_sky(
 
     grid = make_grid(shape, distances, harmonic_type)
 
+    # NOTE : Spatial correlation structure at reference Frequency
     fluct = "fluctuations" if "fluctuations" in spatial_amplitude_settings else "scale"
     spatial_fluctuations = build_scaled_excitations(
         f"{prefix}_spatial",
@@ -567,12 +568,22 @@ def build_simple_spectral_sky(
         amplitude_model=spatial_amplitude_model,
     )
 
+    # NOTE : Spatial correlation structure of the spectral behavior (SpectralIndex)
     spectral_amplitude = build_normalized_amplitude_model(
         grid,
         spectral_amplitude_settings,
         prefix=f"{prefix}_spectral",
         amplitude_model=spectral_amplitude_model,
     )
+    if spectral_amplitude is not None:
+        logger.info(
+            "Both `spectral_amplitude` and `spectral_index` provided."
+            "\nThe fluctuations from `spectral_amplitude` model will "
+            "be ignored. The `spectral_index` fluctuations will be "
+            "used instead."
+        )
+
+    # NOTE : Spectral behavior (SpectralIndex)
     if spectral_index_mean is None:
         spectral_index_mean = build_distribution_or_default(
             spectral_index_settings["mean"],
@@ -585,7 +596,6 @@ def build_simple_spectral_sky(
             fluctuations_settings=spectral_index_settings["fluctuations"],
             shape=shape,
         )
-
     log_spectral_behavior = SpectralIndex(
         log_frequencies=log_frequencies,
         mean=spectral_index_mean,
@@ -593,14 +603,7 @@ def build_simple_spectral_sky(
         reference_frequency_index=reference_frequency_index,
     )
 
-    if spectral_amplitude is not None:
-        logger.info(
-            "Both `spectral_amplitude` and `spectral_index` provided."
-            "\nThe fluctuations from `spectral_amplitude` model will "
-            "be ignored. The `spectral_index` fluctuations will be "
-            "used instead."
-        )
-
+    # NOTE : Deviations from the SpectralBehavior (SpectralIndex)
     deviations_model = build_frequency_deviations_model_with_degeneracies(
         shape,
         log_frequencies,
@@ -609,6 +612,7 @@ def build_simple_spectral_sky(
         prefix=f"{prefix}_spectral",
     )
 
+    # NOTE : Zero mode of the Reference-Frequency model
     zero_mode = build_distribution_or_default(
         zero_mode_settings, f"{prefix}_zero_mode", normal_prior
     )
@@ -629,6 +633,17 @@ def build_simple_spectral_sky(
     return add_prefix(sky, prefix)
 
 
-def add_prefix(object: SpectralProductSky, prefix_key: str):
+def add_prefix(object: SpectralProductSky, prefix_key: str) -> SpectralProductSky:
+    """Add `prefix_key` to `object`.
+
+    The `prefix_key` will be added to the `object` under the `_prefix` attribute.
+
+    Parameters
+    ---------
+    object: SpectralBehavior
+        The object to add the `_prefix` attribute.
+    prefix_key: str
+        The str that will be saved in `_prefix` attribute.
+    """
     setattr(object, "_prefix", prefix_key)
     return object

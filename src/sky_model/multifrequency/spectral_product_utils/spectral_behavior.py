@@ -5,16 +5,16 @@
 from abc import ABC, abstractmethod
 from functools import reduce
 
+import numpy as np
 import jax.numpy as jnp
 from jax.typing import ArrayLike
-
-from .scaled_excitations import ScaledExcitations
-
 from nifty.re.model import Model
 from nifty.re.tree_math.vector import Vector
 
+from .scaled_excitations import ScaledExcitations
 
-class HarmonicLogSpectralBehavior(Model, ABC):
+
+class HarmonicLogSpectralBehavior(ABC):
     @property
     @abstractmethod
     def relative_log_frequencies(self):
@@ -60,7 +60,7 @@ class SingleHarmonicLogSpectralBehavior(HarmonicLogSpectralBehavior, ABC):
     pass
 
 
-class SpectralIndex(SingleHarmonicLogSpectralBehavior):
+class SpectralIndex(Model, SingleHarmonicLogSpectralBehavior):
     def __init__(
         self,
         log_frequencies: ArrayLike,
@@ -98,6 +98,7 @@ class SpectralIndex(SingleHarmonicLogSpectralBehavior):
             spectral_scaled_excitations.target.shape
         )
 
+        log_frequencies = np.array(log_frequencies)
         self._relative_log_frequencies = (
             log_frequencies - log_frequencies[reference_frequency_index]
         )[slicing_tuple]
@@ -143,7 +144,7 @@ class SpectralIndex(SingleHarmonicLogSpectralBehavior):
         return None
 
 
-class SpectralPolynomial(HarmonicLogSpectralBehavior):
+class SpectralPolynomial(Model, HarmonicLogSpectralBehavior):
     def __init__(
         self,
         log_frequencies: ArrayLike,
