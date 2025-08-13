@@ -129,7 +129,9 @@ def build_modified_black_body_spectrum_from_grid(
         config=config.temperature,
     )
 
-    frequencies = u.Quantity(grid.spectral.centers).to(u.Hz, equivalencies=u.spectral())
+    # frequencies = u.Quantity(grid.spectral.centers).to(u.Hz, equivalencies=u.spectral())
+    centers = [u.Quantity(cen.value * cen.unit) for cen in grid.spectral.centers]
+    frequencies = u.Quantity(centers).to(u.Hz, equivalencies=u.spectral())
     frequencies = (1 + redshift) * frequencies
     black_body = BlackBody(
         frequencies=frequencies,
