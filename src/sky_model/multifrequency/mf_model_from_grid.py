@@ -7,7 +7,7 @@ from jax import Array
 
 from ...grid import Grid
 from ...parse.sky_model.multifrequency.mf_model_from_grid import (
-    GreyBodyConfig,
+    ModifiedBlackBodyConfig,
     SimpleSpectralSkyConfig,
 )
 from ..single_correlated_field import build_single_correlated_field_from_config
@@ -93,37 +93,35 @@ class BlackBody(jft.Model):
         return self._2hvvv_cc / (jnp.exp(hv_kT) - 1.0)
 
 
-class GreyBody(jft.Model):
+class ModifiedBlackBody(jft.Model):
     def __init__(
         self,
-        optical_depth: jft.Model,
         black_body: BlackBody,
-        emissivity_tau: SpectralProductSky,
+        optical_depth: SpectralProductSky,
+        # emissivity_tau: jft.Model,
     ) -> None:
-        self.optical_depth = optical_depth
         self.black_body = black_body
-        self.emissivity_tau = emissivity_tau
+        self.optical_depth = optical_depth
+        # self.emissivity_tau = emissivity_tau
 
-        super().__init__(
-            domain=optical_depth.domain | black_body.domain | emissivity_tau.domain
-        )
+        super().__init__(domain=optical_depth.domain | black_body.domain)
 
     def emissivity(self, x):
-        return 1 - jnp.exp(-self.emissivity_tau(x))
+        return 1 - jnp.exp(-self.optical_depth(x))
 
     def __call__(self, x) -> Array:
-        return self.optical_depth(x) * self.emissivity(x) * self.black_body(x)
+        return self.emissivity(x) * self.black_body(x)
 
 
-def build_grey_body_spectrum_from_grid(
+def build_modified_black_body_spectrum_from_grid(
     grid: Grid,
     prefix: str,
-    config: GreyBodyConfig,
+    config: ModifiedBlackBodyConfig,
     sky_unit: u.Unit,
     redshift: float = 0.0,
     spatial_unit: u.Unit = u.Unit("arcsec"),
     spectral_unit: u.Unit = u.Unit("eV"),
-) -> jft.Model:
+) -> ModifiedBlackBody:
     log_temperature = build_single_correlated_field_from_config(
         prefix=f"{prefix}_temperature",
         shape=grid.spatial.shape,
@@ -139,26 +137,26 @@ def build_grey_body_spectrum_from_grid(
         sky_unit=sky_unit,
     )
 
-    emissivity_tau = build_simple_spectral_sky_from_grid(
+    optical_depth = build_simple_spectral_sky_from_grid(
         grid=grid,
-        prefix=f"{prefix}_emissivity",
-        config=config.emissivity,
+        prefix=f"{prefix}_optical_depth",
+        config=config.optical_depth,
         spatial_unit=spatial_unit,
         spectral_unit=spectral_unit,
     )
 
-    log_optical_depth = build_single_correlated_field_from_config(
-        prefix=f"{prefix}_optical_depth",
-        shape=grid.spatial.shape,
-        distances=grid.spatial.distances.to(spatial_unit).value,
-        config=config.optical_depth,
-    )
-    optical_depth = jft.Model(
-        lambda x: jnp.exp(log_optical_depth(x)), domain=log_optical_depth.domain
-    )
+    # log_emissivity = build_single_correlated_field_from_config(
+    #     prefix=f"{prefix}_optical_depth",
+    #     shape=grid.spatial.shape,
+    #     distances=grid.spatial.distances.to(spatial_unit).value,
+    #     config=config.emissivity,
+    # )
+    # emissivity = jft.Model(
+    #     lambda x: jnp.exp(log_emissivity(x)), domain=log_emissivity.domain
+    # )
 
-    return GreyBody(
+    return ModifiedBlackBody(
         optical_depth=optical_depth,
         black_body=black_body,
-        emissivity_tau=emissivity_tau,
+        # emissivity_tau=emissivity_tau,
     )

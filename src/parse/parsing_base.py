@@ -8,7 +8,7 @@ class FromYamlDict(ABC):
     def from_yaml_dict(cls, raw: dict) -> "FromYamlDict": ...
 
 
-@dataclass(frozen=True)
+# @dataclass(frozen=True)
 class StaticTyped:
     def __post_init__(self):
         """Validate that all fields match their annotated types."""

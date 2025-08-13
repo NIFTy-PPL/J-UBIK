@@ -11,7 +11,7 @@ from ..correlated_field import (
 
 
 @dataclass
-class ConstantMFConfig(StaticTyped, FromYamlDict):
+class ConstantMFConfig(FromYamlDict):
     value: dict | tuple
 
     @classmethod
@@ -20,7 +20,7 @@ class ConstantMFConfig(StaticTyped, FromYamlDict):
 
 
 @dataclass
-class SimpleSpectralSkyConfig(StaticTyped, FromYamlDict):
+class SimpleSpectralSkyConfig(FromYamlDict):
     reference_bin: int
     zero_mode: tuple | list | Callable
     spatial_amplitude: dict
@@ -53,15 +53,15 @@ class SimpleSpectralSkyConfig(StaticTyped, FromYamlDict):
 
 
 @dataclass
-class GreyBodyConfig(StaticTyped, FromYamlDict):
-    optical_depth: MaternFluctationsConfig | CfmFluctuationsConfig
+class ModifiedBlackBodyConfig(FromYamlDict):
+    # emissivity: MaternFluctationsConfig | CfmFluctuationsConfig
     temperature: MaternFluctationsConfig | CfmFluctuationsConfig
-    emissivity: SimpleSpectralSkyConfig
+    optical_depth: SimpleSpectralSkyConfig
 
     @classmethod
-    def from_yaml_dict(cls, raw: dict) -> "GreyBodyConfig":
+    def from_yaml_dict(cls, raw: dict) -> "ModifiedBlackBodyConfig":
         return cls(
-            optical_depth=single_correlated_field_config_factory(raw["optical_depth"]),
+            # emissivity=single_correlated_field_config_factory(raw["emissivity"]),
             temperature=single_correlated_field_config_factory(raw["temperature"]),
-            emissivity=SimpleSpectralSkyConfig.from_yaml_dict(raw["emissivity"]),
+            optical_depth=SimpleSpectralSkyConfig.from_yaml_dict(raw["optical_depth"]),
         )

@@ -14,7 +14,7 @@ class AmplitudeTotalOffsetConfig(FromYamlDict, StaticTyped):
     """
 
     offset_mean: float
-    offset_std: Union[tuple, Callable]
+    offset_std: Union[tuple, list, Callable]
 
     @classmethod
     def from_yaml_dict(cls, raw: dict) -> "AmplitudeTotalOffsetConfig":
@@ -41,25 +41,26 @@ class CfmFluctuationsConfig(FromYamlDict, StaticTyped):
     """
 
     amplitude: AmplitudeTotalOffsetConfig
-    fluctuations: Union[tuple, Callable]
-    loglogavgslope: Union[tuple, Callable]
-    flexibility: Union[tuple, Callable, None] = None
-    asperity: Union[tuple, Callable, None] = None
+    fluctuations: Union[tuple, list, Callable]
+    loglogavgslope: Union[tuple, list, Callable]
+    flexibility: Union[tuple, list, Callable, None] = None
+    asperity: Union[tuple, list, Callable, None] = None
     prefix: str = ""
     harmonic_type: str = "fourier"
     non_parametric_kind: str = "amplitude"
 
     @classmethod
     def from_yaml_dict(cls, raw: dict) -> "CfmFluctuationsConfig":
+        flucts = raw["fluctuations"]
         return cls(
             amplitude=AmplitudeTotalOffsetConfig.from_yaml_dict(raw["amplitude"]),
-            fluctuations=raw["fluctuations"],
-            loglogavgslope=raw["loglogavgslope"],
-            flexibility=raw.get("flexibility"),
-            asperity=raw.get("asperity"),
-            prefix=raw.get("prefix", ""),
-            harmonic_type=raw.get("harmonic_type", "fourier"),
-            non_parametric_kind=raw.get("non_parametric_kind", "amplitude"),
+            fluctuations=flucts["fluctuations"],
+            loglogavgslope=flucts["loglogavgslope"],
+            flexibility=flucts.get("flexibility"),
+            asperity=flucts.get("asperity"),
+            prefix=flucts.get("prefix", ""),
+            harmonic_type=flucts.get("harmonic_type", "fourier"),
+            non_parametric_kind=flucts.get("non_parametric_kind", "amplitude"),
         )
 
 
@@ -80,9 +81,9 @@ class MaternFluctationsConfig(FromYamlDict, StaticTyped):
     """
 
     amplitude: AmplitudeTotalOffsetConfig
-    scale: Union[tuple, Callable]
-    cutoff: Union[tuple, Callable]
-    loglogslope: Union[tuple, Callable]
+    scale: Union[tuple, list, Callable]
+    cutoff: Union[tuple, list, Callable]
+    loglogslope: Union[tuple, list, Callable]
     renormalize_amplitude: bool
     prefix: str = ""
     harmonic_type: str = "fourier"
@@ -90,15 +91,16 @@ class MaternFluctationsConfig(FromYamlDict, StaticTyped):
 
     @classmethod
     def from_yaml_dict(cls, raw: dict) -> "MaternFluctationsConfig":
+        flucts = raw["fluctuations"]
         return cls(
             amplitude=AmplitudeTotalOffsetConfig.from_yaml_dict(raw["amplitude"]),
-            scale=raw["scale"],
-            cutoff=raw["cutoff"],
-            loglogslope=raw["loglogslope"],
-            renormalize_amplitude=raw["renormalize_amplitude"],
-            prefix=raw.get("prefix", ""),
-            harmonic_type=raw.get("harmonic_type", "fourier"),
-            non_parametric_kind=raw.get("non_parametric_kind", "amplitude"),
+            scale=flucts["scale"],
+            cutoff=flucts["cutoff"],
+            loglogslope=flucts["loglogslope"],
+            renormalize_amplitude=flucts["renormalize_amplitude"],
+            prefix=flucts.get("prefix", ""),
+            harmonic_type=flucts.get("harmonic_type", "fourier"),
+            non_parametric_kind=flucts.get("non_parametric_kind", "amplitude"),
         )
 
 
