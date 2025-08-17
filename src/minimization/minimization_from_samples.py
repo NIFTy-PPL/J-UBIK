@@ -140,12 +140,14 @@ def get_full_position_from_partial(
     new_full_position: jft.Vector,
     discard_keys: tuple[str] = (),
 ) -> jft.Vector:
-    
-    if partial_samples_or_position is not None:
-        if isinstance(partial_samples_or_position, jft.Samples):
-            partial_position = partial_samples_or_position.pos
-        else:
-            partial_position = partial_samples_or_position
+
+    if partial_samples_or_position is None:
+        return new_full_position
+
+    if isinstance(partial_samples_or_position, jft.Samples):
+        partial_position = partial_samples_or_position.pos
+    else:
+        partial_position = partial_samples_or_position
 
     while isinstance(partial_position, jft.Vector):
         partial_position = partial_position.tree
@@ -156,8 +158,8 @@ def get_full_position_from_partial(
     updated_position = dict(new_full_position)
 
     for key in updated_position:
-        if key in partial_position.keys() and key not in discard_keys:
-            jft.logger.info(f"Re-using {key} position.")
+        if key in partial_position and key not in discard_keys:
+            jft.logger.info(f"Re-using '{key}' position.")
             updated_position[key] = partial_position[key]
 
     return jft.Vector(updated_position)
