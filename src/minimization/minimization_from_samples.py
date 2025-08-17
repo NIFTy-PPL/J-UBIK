@@ -112,7 +112,6 @@ def minimization_from_initial_samples(
         else False
     )
 
-    # Minimze only parametric
     minimization: MinimizationParser = kl_settings.minimization
     samples, state = jft.optimize_kl(
         likelihood,
@@ -134,3 +133,31 @@ def minimization_from_initial_samples(
         _optimize_vi_state=opt_vi_state,
     )
     return samples, state
+
+
+def get_full_position_from_partial(
+    partial_samples_or_position: jft.Samples | jft.Vector,
+    new_full_position: jft.Vector,
+    discard_keys: tuple[str] = (),
+) -> jft.Vector:
+    
+    if partial_samples_or_position is not None:
+        if isinstance(partial_samples_or_position, jft.Samples):
+            partial_position = partial_samples_or_position.pos
+        else:
+            partial_position = partial_samples_or_position
+
+    while isinstance(partial_position, jft.Vector):
+        partial_position = partial_position.tree
+
+    while isinstance(new_full_position, jft.Vector):
+        new_full_position = new_full_position.tree
+
+    updated_position = dict(new_full_position)
+
+    for key in updated_position:
+        if key in partial_position.keys() and key not in discard_keys:
+            jft.logger.info(f"Re-using {key} position.")
+            updated_position[key] = partial_position[key]
+
+    return jft.Vector(updated_position)
