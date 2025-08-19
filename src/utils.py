@@ -11,6 +11,7 @@ import pickle
 
 import numpy as np
 import nifty.re as jft
+import jax
 
 
 def load_from_pickle(file_path):
@@ -217,6 +218,26 @@ def coord_center(side_length, side_n):
 
 
 def _check_type(arg, type, name=''):
+    """Check whether an argument is of a given type.
+
+    This helper function verifies that the provided argument matches
+    an expected type (or is a list of that type). If the type does not
+    match, a TypeError is raised.
+
+    Parameters
+    ----------
+    arg : object
+        Argument to be checked.
+    type : type
+        Expected type of the argument.
+    name : str, optional
+        Name of the argument (used in error messages).
+
+    Raises
+    ------
+    TypeError
+        If `arg` is not of the expected type (or list of that type).
+    """
     if arg is None:
         pass
     elif isinstance(arg, list):
@@ -228,3 +249,28 @@ def _check_type(arg, type, name=''):
     elif not isinstance(arg, type):
         print("arg:", arg)
         raise TypeError("The \"{}\" argument must be of type {}.".format(name, str(type)))
+
+
+def clear_jax_compilation_cache(state, clear_every_n_iterations=5):
+    """Clear JAX compilation cache periodically.
+
+    Prints the memory statistics of the first local JAX device and clears
+    the compilation cache every `clear_every_n_iterations` steps. This is
+    useful to prevent excessive memory growth during long iterative runs.
+
+    Parameters
+    ----------
+    state : object
+        An object with attribute `nit` that counts the current iteration number.
+    clear_every_n_iterations : int, optional
+        Interval (in iterations) at which to clear the JAX compilation cache.
+        Default is 5.
+
+    Returns
+    -------
+    None
+    """
+    if state.nit % clear_every_n_iterations == 0:
+        jft.logger.info(jax.local_devices()[0].memory_stats())
+        jft.logger.info("Clearing JAX compilation cache...")
+        jax.clear_caches()
