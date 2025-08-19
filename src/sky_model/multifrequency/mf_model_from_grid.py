@@ -1,29 +1,33 @@
 import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
-from astropy import constants
+from astropy import constants, coordinates
 from astropy import units as u
 from jax import Array
 
 from ...grid import Grid
+from ...instruments.jwst.parametric_model.parametric_prior import (
+    build_parametric_prior_from_prior_config,
+)
 from ...parse.sky_model.multifrequency.mf_model_from_grid import (
     ModifiedBlackBodyConfig,
     SimpleSpectralSkyConfig,
 )
+from ..parametric_model.gaussian import Gaussian
 from ..single_correlated_field import build_single_correlated_field_from_config
 from .spectral_product_mf_sky import SpectralProductSky, build_simple_spectral_sky
-from ...instruments.jwst.parametric_model.parametric_prior import (
-    build_parametric_prior_from_prior_config,
-)
 
 
 def build_simple_spectral_sky_from_grid(
     grid: Grid,
     prefix: str,
-    config: SimpleSpectralSkyConfig,
+    config: SimpleSpectralSkyConfig | dict,
     spatial_unit: u.Unit = u.Unit("arcsec"),
     spectral_unit: u.Unit = u.Unit("eV"),
 ) -> SpectralProductSky:
+    if isinstance(config, dict):
+        config = SimpleSpectralSkyConfig.from_yaml_dict(config)
+
     # NOTE: Spatial settings
     shape = grid.spatial.shape
     distances = grid.spatial.distances.to(spatial_unit).value
@@ -98,11 +102,9 @@ class ModifiedBlackBody(jft.Model):
         self,
         black_body: BlackBody,
         optical_depth: SpectralProductSky,
-        # emissivity_tau: jft.Model,
     ) -> None:
         self.black_body = black_body
         self.optical_depth = optical_depth
-        # self.emissivity_tau = emissivity_tau
 
         super().__init__(domain=optical_depth.domain | black_body.domain)
 
@@ -122,17 +124,54 @@ def build_modified_black_body_spectrum_from_grid(
     spatial_unit: u.Unit = u.Unit("arcsec"),
     spectral_unit: u.Unit = u.Unit("eV"),
 ) -> ModifiedBlackBody:
-    log_temperature = build_single_correlated_field_from_config(
+    centers = [u.Quantity(cen.value * cen.unit) for cen in grid.spectral.centers]
+    frequencies = u.Quantity(centers).to(u.Hz, equivalencies=u.spectral())
+    frequencies = (1 + redshift) * frequencies
+
+    _log_temperature = build_single_correlated_field_from_config(
         prefix=f"{prefix}_temperature",
         shape=grid.spatial.shape,
         distances=grid.spatial.distances.to(spatial_unit).value,
         config=config.temperature,
     )
 
-    # frequencies = u.Quantity(grid.spectral.centers).to(u.Hz, equivalencies=u.spectral())
-    centers = [u.Quantity(cen.value * cen.unit) for cen in grid.spectral.centers]
-    frequencies = u.Quantity(centers).to(u.Hz, equivalencies=u.spectral())
-    frequencies = (1 + redshift) * frequencies
+    if not config.temperature_gaussian:
+        log_temperature = _log_temperature
+    else:
+        gpre = f"{prefix}_temperature_gaussian"
+        log_gaussian = Gaussian(
+            i0=build_parametric_prior_from_prior_config(
+                domain_key=f"{gpre}_i0",
+                prior_config=config.temperature_gaussian.i0,
+                shape=(),
+                as_model=True,
+            ),
+            center=build_parametric_prior_from_prior_config(
+                domain_key=f"{gpre}_center",
+                prior_config=config.temperature_gaussian.center,
+                shape=(2,),
+                as_model=True,
+            ),
+            covariance=build_parametric_prior_from_prior_config(
+                domain_key=f"{gpre}_covariance",
+                prior_config=config.temperature_gaussian.covariance,
+                shape=(2,),
+                as_model=True,
+            ),
+            off_diagonal=build_parametric_prior_from_prior_config(
+                domain_key=f"{gpre}_offdiagonal",
+                prior_config=config.temperature_gaussian.off_diagonal,
+                shape=(),
+                as_model=True,
+            ),
+            coordiantes=grid.spatial.get_xycoords(centered=True, unit=u.Unit("arcsec")),
+            log=True,
+        )
+        log_temperature = jft.Model(
+            lambda x: _log_temperature(x) + log_gaussian(x),
+            domain=_log_temperature.domain | log_gaussian.domain,
+        )
+
     black_body = BlackBody(
         frequencies=frequencies,
         log_temperature=log_temperature,
@@ -147,18 +186,7 @@ def build_modified_black_body_spectrum_from_grid(
         spectral_unit=spectral_unit,
     )
 
-    # log_emissivity = build_single_correlated_field_from_config(
-    #     prefix=f"{prefix}_optical_depth",
-    #     shape=grid.spatial.shape,
-    #     distances=grid.spatial.distances.to(spatial_unit).value,
-    #     config=config.emissivity,
-    # )
-    # emissivity = jft.Model(
-    #     lambda x: jnp.exp(log_emissivity(x)), domain=log_emissivity.domain
-    # )
-
     return ModifiedBlackBody(
         optical_depth=optical_depth,
         black_body=black_body,
-        # emissivity_tau=emissivity_tau,
     )

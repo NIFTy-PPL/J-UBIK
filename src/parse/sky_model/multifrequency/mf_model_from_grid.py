@@ -8,6 +8,7 @@ from ..correlated_field import (
     MaternFluctationsConfig,
     CfmFluctuationsConfig,
 )
+from ..parametric_model.gaussian import GaussianConfig
 
 
 @dataclass
@@ -54,14 +55,18 @@ class SimpleSpectralSkyConfig(FromYamlDict):
 
 @dataclass
 class ModifiedBlackBodyConfig(FromYamlDict):
-    # emissivity: MaternFluctationsConfig | CfmFluctuationsConfig
+    temperature_gaussian: GaussianConfig | None
     temperature: MaternFluctationsConfig | CfmFluctuationsConfig
     optical_depth: SimpleSpectralSkyConfig
 
     @classmethod
     def from_yaml_dict(cls, raw: dict) -> "ModifiedBlackBodyConfig":
         return cls(
-            # emissivity=single_correlated_field_config_factory(raw["emissivity"]),
+            temperature_gaussian=GaussianConfig.from_yaml_dict(
+                raw["temperature_gaussian"]
+            )
+            if "temperature_gaussian" in raw
+            else None,
             temperature=single_correlated_field_config_factory(raw["temperature"]),
             optical_depth=SimpleSpectralSkyConfig.from_yaml_dict(raw["optical_depth"]),
         )

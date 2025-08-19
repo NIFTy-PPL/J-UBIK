@@ -15,10 +15,10 @@ class KLSettings:
     outputdir: str
     minimization: MinimizationParser
     n_total_iterations: int
-    callback: Optional[Callable[jft.Samples, jft.OptimizeVIState]] = None
+    callback: Optional[Callable[[jft.Samples], jft.OptimizeVIState]] = None
     sample_multiply: Optional[float] = 0.1
-    constants: tuple[str] = ()
-    point_estimates: tuple[str] = ()
+    constants: Iterable[str] = ()
+    point_estimates: Iterable[str] = ()
     kl_jit: bool = True
     residual_jit: bool = True
     resume: bool = False
