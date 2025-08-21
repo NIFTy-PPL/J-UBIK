@@ -1,5 +1,5 @@
-from ....parse.instruments.resolve.data.data_loading import DataLoading
-from ....parse.instruments.resolve.data.data_modify import ObservationModify
+from ..parse.data.data_loading import DataLoading
+from ..parse.data.data_modify import ObservationModify
 from .observation import Observation
 
 from .data_modify import modify_observation

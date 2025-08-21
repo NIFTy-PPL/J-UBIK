@@ -17,7 +17,7 @@ from jubik0.parse.grid import GridModel
 from jubik0.instruments.resolve.data.data_modify.restrict_to_testing_percentage import (
     restrict_to_testing_percentage,
 )
-from jubik0.parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
+from jubik0.instruments.resolve.parse.response import Ducc0Settings, FinufftSettings
 
 
 jax.config.update("jax_default_device", jax.devices("cpu")[0])

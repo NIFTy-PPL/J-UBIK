@@ -1,14 +1,12 @@
-from .....parse.instruments.resolve.data.data_modify import ObservationModify
+from nifty.cl.logger import logger
 
+from ...parse.data.data_modify import ObservationModify
+from ..observation import Observation
+from .frequency_averaging import freq_average_by_fdom_and_n_freq_chunks
 from .restrict_to_testing_percentage import restrict_to_testing_percentage
 from .reverse_frequencies import reverse_frequencies
 from .time_average import time_average
-from .frequency_averaging import freq_average_by_fdom_and_n_freq_chunks
 from .weight_modify import weight_modify
-
-from ..observation import Observation
-
-from nifty.cl.logger import logger
 
 
 def modify_observation(
