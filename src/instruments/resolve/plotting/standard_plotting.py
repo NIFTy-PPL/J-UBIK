@@ -1,15 +1,14 @@
-from ....parse.instruments.resolve.plotting.standard_plotting import (
+from os import makedirs
+
+import matplotlib.pyplot as plt
+import nifty8.re as jft
+import numpy as np
+from nifty8.logger import logger
+
+from ..parse.plotting.standard_plotting import (
     PLOTTING_KWARGS_DEFAULT,
     PlottingKwargs,
 )
-
-import nifty8.re as jft
-from nifty8.logger import logger
-
-import matplotlib.pyplot as plt
-import numpy as np
-
-from os import makedirs
 
 
 def build_standard_plot(

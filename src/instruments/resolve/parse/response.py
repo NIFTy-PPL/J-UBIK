@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import astropy.units as u
 
-from ...parsing_base import StaticTyped
+from ....parse.parsing_base import StaticTyped
 
 FINUFFT_KEYS = ["finufft"]
 DUCC_KEYS = ["ducc", "ducc0"]

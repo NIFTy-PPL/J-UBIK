@@ -15,7 +15,7 @@
 # Author: Julian Rüstig
 
 
-from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
+from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
 
 from typing import Callable
 from numpy.typing import ArrayLike

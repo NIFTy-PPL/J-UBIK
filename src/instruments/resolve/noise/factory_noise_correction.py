@@ -1,4 +1,4 @@
-from ....parse.instruments.resolve.noise import BaseLineCorrection, LowerBoundCorrection
+from ..parse.noise import BaseLineCorrection, LowerBoundCorrection
 from ..data.observation import Observation
 from .log_inverse_noise_correction import LogInverseNoiseCovariance
 from .antenna_based_correction import (

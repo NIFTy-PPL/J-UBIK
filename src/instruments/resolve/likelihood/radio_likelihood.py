@@ -28,10 +28,10 @@ from nifty.re.likelihood import LikelihoodSum
 
 from ....grid import Grid
 from ....likelihood import connect_likelihood_to_model
-from ....parse.instruments.resolve.data.data_loading import DataLoading
-from ....parse.instruments.resolve.data.data_modify import ObservationModify
-from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
-from ....parse.instruments.resolve.response import yaml_to_response_settings
+from ..parse.data.data_loading import DataLoading
+from ..parse.data.data_modify import ObservationModify
+from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
+from ..parse.response import yaml_to_response_settings
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
 from ..likelihood.mosaic_likelihood import (

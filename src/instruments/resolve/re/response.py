@@ -21,7 +21,7 @@ from jax.tree_util import Partial
 from jax import numpy as jnp
 from astropy import units as u
 
-from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
+from ..parse.response import Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
 from ....grid import Grid
 from ..util import calculate_phase_offset_to_image_center

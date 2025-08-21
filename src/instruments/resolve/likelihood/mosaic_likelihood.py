@@ -6,7 +6,7 @@ from astropy import units as u
 from numpy.typing import NDArray
 
 from ....grid import Grid
-from ....parse.instruments.resolve.response import Ducc0Settings, FinufftSettings
+from ..parse.response import Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamerJft
 from ..re.response import InterferometryResponse

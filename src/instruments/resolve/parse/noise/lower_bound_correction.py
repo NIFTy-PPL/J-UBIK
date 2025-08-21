@@ -1,7 +1,7 @@
 from configparser import ConfigParser
 from dataclasses import dataclass
 
-from ....parsing_base import StaticTyped
+from .....parse.parsing_base import StaticTyped
 
 
 @dataclass
