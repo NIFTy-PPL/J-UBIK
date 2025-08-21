@@ -8,7 +8,7 @@ from .weight_modify import weight_modify
 
 from ..observation import Observation
 
-from nifty8.logger import logger
+from nifty.cl.logger import logger
 
 
 def modify_observation(

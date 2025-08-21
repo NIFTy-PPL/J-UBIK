@@ -6,7 +6,7 @@ from ...instruments.jwst.parametric_model.parametric_prior import (
     build_parametric_prior_from_prior_config,
 )
 
-import nifty8.re as jft
+import nifty.re as jft
 
 import jax.numpy as jnp
 

@@ -1,7 +1,7 @@
 from .....parse.instruments.resolve.data.data_modify import WeightModify
 
 from ..observation import Observation
-from nifty8.logger import logger
+from nifty.cl.logger import logger
 
 import numpy as np
 

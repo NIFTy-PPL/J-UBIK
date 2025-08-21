@@ -14,7 +14,7 @@
 # Copyright(C) 2019-2021 Max-Planck-Society
 # Author: Philipp Arras
 
-import nifty8 as ift
+import nifty.cl as ift
 import numpy as np
 
 from ..util import compare_attributes, my_assert, my_assert_isinstance, my_asserteq
@@ -119,13 +119,13 @@ class AntennaPositions:
             Antenna index of the first antenna that is selected.
         antenna2: int
             Antenna index of the second antenna that is selected.
-        field: nifty8.Field
+        field: nifty.cl.Field
             Data field. Shape `(n_pol, n_row, n_freq)`. `n_row` must equal
             `len(self)`.
 
         Returns
         -------
-        nifty8.Field
+        nifty.cl.Field
             Entries of `data` that correspond to the selected baseline. Shape
             `(n_pol, n_time, n_freq)`.
         """

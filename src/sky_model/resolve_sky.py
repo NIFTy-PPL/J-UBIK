@@ -6,7 +6,7 @@ from .resolve_diffuse import sky_model_diffuse
 from ..parse.sky_model.resolve_point_sources import ResolvePointSourcesModel
 from ..parse.sky_model.resolve_diffuse import ResolveDiffuseSkyModel
 
-import nifty8 as ift
+import nifty.cl as ift
 
 import numpy as np
 

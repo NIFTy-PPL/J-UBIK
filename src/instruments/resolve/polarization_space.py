@@ -14,7 +14,7 @@
 # Copyright(C) 2021 Max-Planck-Society
 # Author: Philipp Arras, Jakob Knollmüller
 
-import nifty8 as ift
+import nifty.cl as ift
 import numpy as np
 
 from .util import my_assert

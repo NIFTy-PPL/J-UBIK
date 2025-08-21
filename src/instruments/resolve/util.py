@@ -14,7 +14,7 @@
 # Copyright(C) 2020-2022 Max-Planck-Society, Philipp Arras
 # Author: Philipp Arras
 
-import nifty8 as ift
+import nifty.cl as ift
 import numpy as np
 
 from astropy import units as u

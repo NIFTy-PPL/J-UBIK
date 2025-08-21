@@ -20,7 +20,7 @@ from ..data.observation import Observation
 from ..data.direction import Direction
 from ..util import calculate_phase_offset_to_image_center
 
-import nifty8.re as jft
+import nifty.re as jft
 
 import jax.numpy as jnp
 import numpy as np

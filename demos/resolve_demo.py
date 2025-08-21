@@ -8,7 +8,7 @@ from jax import random
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
-import nifty8.re as jft
+import nifty.re as jft
 
 import jubik0 as ju
 import jubik0.instruments.resolve as rve

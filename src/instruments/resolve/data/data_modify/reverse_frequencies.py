@@ -1,5 +1,5 @@
 from ..observation import Observation
-from nifty8.logger import logger
+from nifty.cl.logger import logger
 
 
 def reverse_frequencies(obs: Observation) -> Observation:
