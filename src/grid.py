@@ -5,13 +5,37 @@
 
 # %
 
-import numpy as np
 from typing import Union
+from enum import Enum
 
-from .wcs.wcs_astropy import WcsAstropy
+import numpy as np
+
 from .color import ColorRange, ColorRanges
-
 from .parse.grid import GridModel
+from .wcs.wcs_astropy import WcsAstropy
+
+
+class PolarizationType(Enum):
+    # Total intensity
+    I = ("I",)
+    RR = ("RR",)
+    LL = ("LL",)
+    XX = ("XX",)
+    YY = ("YY",)
+    RR_LL = ("RR", "LL")
+    XX_YY = ("XX", "YY")
+
+    # Polarized
+    IQUV = ("I", "Q", "U", "V")
+    RR_RL_LR_LL = ("RR", "RL", "LR", "LL")
+    XX_XY_YX_YY = ("XX", "XY", "YX", "YY")
+
+    @property
+    def is_single_feed(self):
+        if self in (self.I, self.RR, self.LL, self.XX, self.YY):
+            return True
+        else:
+            return False
 
 
 class Grid:
@@ -32,6 +56,7 @@ class Grid:
         self,
         spatial: WcsAstropy,
         spectral: Union[ColorRange, ColorRanges],
+        polarization: Union[tuple, PolarizationType] = ("I",),
     ):
         """
         Initialize the Grid with a `spatial` and `spectral` coordinate system.
@@ -48,27 +73,35 @@ class Grid:
         self.spatial = spatial
         # Spectral
         self.spectral = spectral
-        # Polarization, TODO: Implement more options.
-        self.polarization_labels = ['I']
+
+        # Polarization
+        self.polarization_labels = (
+            polarization
+            if isinstance(polarization, PolarizationType)
+            else PolarizationType(polarization)
+        )
+
         # Time, TODO: Implement more options
         self.times = [-np.inf, np.inf]
 
     @classmethod
     def from_grid_model(cls, grid_model: GridModel):
-        '''Build Grid from GridModel.'''
+        """Build Grid from GridModel."""
         spatial = WcsAstropy.from_spatial_model(grid_model.spatial_model)
         spectral = grid_model.color_ranges
         return Grid(spatial, spectral)
 
     @property
     def shape(self):
-        '''Shape of the grid. (spectral, spatial)'''
+        """Shape of the grid. (spectral, spatial)"""
         return self.spectral.shape + self.spatial.shape
 
     def __repr__(self):
-        return ('Grid('
-                f'\npolarization_labels={self.polarization_labels}\n'
-                f'\ntimes={self.times}\n'
-                f'\nspectral={self.spectral}\n'
-                f'\nspatial={self.spatial}\n'
-                ')')
+        return (
+            "Grid("
+            f"\npolarization_labels={self.polarization_labels}\n"
+            f"\ntimes={self.times}\n"
+            f"\nspectral={self.spectral}\n"
+            f"\nspatial={self.spatial}\n"
+            ")"
+        )

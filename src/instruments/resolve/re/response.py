@@ -18,12 +18,12 @@ from typing import Union
 
 import numpy as np
 from jax.tree_util import Partial
-from jax import numpy as jnp
+from jax import Array, numpy as jnp
 from astropy import units as u
 
 from ..parse.response import Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
-from ....grid import Grid
+from ....grid import Grid, PolarizationType
 from ..util import calculate_phase_offset_to_image_center
 
 
@@ -50,24 +50,30 @@ def get_binbounds(size, coordinates):
     return bounds
 
 
-def convert_polarization(inp, inp_pol, out_pol):
-    if inp_pol == ("I", "Q", "U", "V"):
-        if out_pol == ("RR", "RL", "LR", "LL"):
+def convert_polarization(
+    inp: Array, inp_pol: PolarizationType, out_pol: PolarizationType
+):
+    if inp_pol == PolarizationType(("I", "Q", "U", "V")):
+        if out_pol == PolarizationType(("RR", "RL", "LR", "LL")):
             mat_stokes_to_circular = jnp.array(
                 [[1, 0, 0, 1], [0, 1, 1, 0], [0, 1j, -1j, 0], [1, 0, 0, -1]]
             )
             return jnp.tensordot(mat_stokes_to_circular, inp, axes=([0], [0]))
-        elif out_pol == ("XX", "XY", "YX", "YY"):
+
+        elif out_pol == PolarizationType(("XX", "XY", "YX", "YY")):
             mat_stokes_to_linear = jnp.array(
                 [[1, 1, 0, 0], [1, -1, 0, 0], [0, 0, 1, 1], [0, 0, 1j, -1j]]
             )
             return jnp.tensordot(mat_stokes_to_linear, inp, axes=([0], [0]))
-    elif inp_pol == ("I",):
-        if out_pol == ("LL", "RR") or out_pol == ("XX", "YY"):
+
+    elif inp_pol == PolarizationType(("I",)):
+        if out_pol == PolarizationType(("LL", "RR")) or out_pol == PolarizationType(
+            ("XX", "YY")
+        ):
             new_shp = list(inp.shape)
             new_shp[0] = 2
             return jnp.broadcast_to(inp, new_shp)
-        if len(out_pol) == 1 and out_pol[0] in ("I", "RR", "LL", "XX", "YY"):
+        if out_pol.is_single_feed:
             return inp
     err = f"conversion of polarization {inp_pol} to {out_pol} not implemented. Please implement!"
     raise NotImplementedError(err)
