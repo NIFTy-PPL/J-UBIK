@@ -14,6 +14,7 @@
 # Copyright(C) 2025 Max-Planck-Society
 # Author: Vishal Johnson, Jakob Roth, Julian Rüstig
 
+import nifty.re as jft
 
 import operator
 from functools import reduce

@@ -12,9 +12,9 @@ import nifty.re as jft
 
 import jubik0 as ju
 import jubik0.instruments.resolve as rve
-import jubik0.instruments.resolve.re as jrve
 from jubik0.parse.grid import GridModel
-from jubik0.instruments.resolve.parse.response import Ducc0Settings, FinufftSettings
+
+from jubik0.sky_model.resolve_sky import sky_model
 
 
 jax.config.update("jax_default_device", jax.devices("cpu")[0])
@@ -30,8 +30,10 @@ cfg.read("./demos/configs/cygnusa_2ghz.cfg")
 response = "ducc0"
 # response = "finufft"
 backend_settings = dict(
-    ducc0=Ducc0Settings(epsilon=1e-9, do_wgridding=False, nthreads=1, verbosity=False),
-    finufft=FinufftSettings(epsilon=1e-9),
+    ducc0=rve.parse.Ducc0Settings(
+        epsilon=1e-9, do_wgridding=False, nthreads=1, verbosity=False
+    ),
+    finufft=rve.parse.FinufftSettings(epsilon=1e-9),
 )[response]
 
 # # NOTE : The observation can also be loaded and modified via the config file.
@@ -53,14 +55,14 @@ obs = rve.data.restrict_to_testing_percentage(obs, 0.01)
 #         DataLoading.from_config_parser(cfg['data']),
 #         ObservationModify.from_config_parser(cfg['data'])))[0]
 
-sky, additional = jrve.sky_model(cfg["sky"])
+sky, additional = sky_model(cfg["sky"])
 
 gm = GridModel.from_config_parser(cfg["sky"])
 gm.spatial_model.wcs_model.center = obs.direction.to_sky_coord()
 grid = ju.Grid.from_grid_model(gm)
 
 
-R_new = jrve.InterferometryResponse(obs, grid, backend_settings=backend_settings)
+R_new = rve.InterferometryResponse(obs, grid, backend_settings=backend_settings)
 
 
 def signal_response(x):

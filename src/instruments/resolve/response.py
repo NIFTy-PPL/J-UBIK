@@ -21,12 +21,12 @@ from jax.tree_util import Partial
 from jax import Array, numpy as jnp
 from astropy import units as u
 
-from ..parse.response import Ducc0Settings, FinufftSettings
-from ..data.observation import Observation
-from ..data.data_modify.frequency_handling import restrict_by_freq
-from ..data.data_modify.time_modify import restrict_by_time
-from ....grid import Grid, PolarizationType
-from ..util import calculate_phase_offset_to_image_center
+from .parse.response import Ducc0Settings, FinufftSettings
+from .data.observation import Observation
+from .data.data_modify.frequency_handling import restrict_by_freq
+from .data.data_modify.time_modify import restrict_by_time
+from ...grid import Grid, PolarizationType
+from .util import calculate_phase_offset_to_image_center
 
 
 SPECTRAL_UNIT = u.Hz
