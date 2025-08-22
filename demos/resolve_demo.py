@@ -87,22 +87,15 @@ delta = 1e-8
 absdelta = delta * jnp.prod(jnp.array(grid.spatial.shape))
 n_samples = 2
 
-
-def sample_mode_update(i):
-    return "linear_resample"
-
-
-def draw_linear_kwargs(i):
-    return dict(cg_name="SL", cg_kwargs=dict(absdelta=absdelta / 10.0, maxiter=250))
-
-
-def kl_kwargs(i):
-    return dict(
-        minimize_kwargs=dict(
-            name="M", absdelta=absdelta, cg_kwargs=dict(name="MCG"), maxiter=20
-        )
+sample_mode_update = "linear_resample"
+draw_linear_kwargs = dict(
+    cg_name="SL", cg_kwargs=dict(absdelta=absdelta / 10.0, maxiter=250)
+)
+kl_kwargs = dict(
+    minimize_kwargs=dict(
+        name="M", absdelta=absdelta, cg_kwargs=dict(name="MCG"), maxiter=20
     )
-
+)
 
 key, subkey = random.split(key)
 pos_init = jft.Vector(jft.random_like(subkey, sky.domain))
