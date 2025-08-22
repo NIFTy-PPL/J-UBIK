@@ -7,7 +7,7 @@ from .frequency_handling import (
     reverse_frequencies,
     restrict_by_freq,
 )
-from .restrict_to_testing_percentage import restrict_to_testing_percentage
+from .select_random_visibility_subset import select_random_visibility_subset
 from .time_modify import time_average_to_length_of_timebins
 from .weight_modify import weight_modify
 from .precision import to_single_precision, to_double_precision
@@ -38,7 +38,7 @@ def modify_observation(
             obs = reverse_frequencies(obs)
 
     if modify.testing_percentage is not None:
-        obs = restrict_to_testing_percentage(obs, modify.testing_percentage)
+        obs = select_random_visibility_subset(obs, modify.testing_percentage)
 
     obs = time_average_to_length_of_timebins(obs, modify.time_bins)
 

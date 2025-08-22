@@ -4,7 +4,7 @@ from ..antenna_positions import AntennaPositions
 import numpy as np
 
 
-def restrict_to_testing_percentage(
+def select_random_visibility_subset(
     obs: Observation,
     percentage: float,
 ):

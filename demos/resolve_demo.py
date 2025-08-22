@@ -45,7 +45,7 @@ obs = rve.data.average_stokesi(obs)
 
 # scale weights, as they are wrong for this specific dataset
 obs._weight = 0.1 * obs._weight
-obs = rve.data.restrict_to_testing_percentage(obs, 0.01)
+obs = rve.data.select_random_visibility_subset(obs, 0.01)
 
 # # NOTE : The observation can also be loaded and modified via the config file.
 # from jubik0.instruments.resolve.data import load_and_modify_data_from_objects

@@ -4,7 +4,7 @@ from .autocorrelations import *
 from .flagging import *
 from .frequency_handling import *
 from .precision import *
-from .restrict_to_testing_percentage import *
+from .select_random_visibility_subset import *
 from .reverse_frequencies import *
 from .time_modify import *
 from .weight_modify import *
