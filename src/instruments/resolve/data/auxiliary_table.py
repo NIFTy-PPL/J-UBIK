@@ -20,6 +20,7 @@ from ..util import compare_attributes, my_assert, my_assert_isinstance, my_asser
 
 
 class AuxiliaryTable:
+    """ Auxiliary table from CASA measurement sets."""
     def __init__(self, inp_dict):
         my_assert_isinstance(inp_dict, dict)
         nrow = None
