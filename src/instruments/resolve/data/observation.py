@@ -222,85 +222,6 @@ class BaseObservation:
         return list(self.auxiliary_table("ANTENNA")["NAME"])
 
 
-class SingleDishObservation(BaseObservation):
-    """Provide an interface to single-dish observation.
-
-    Parameters
-    ----------
-    pointings: Directions
-        Contains all information on the observing directions.
-    data: numpy.ndarray
-        Contains the measured intensities. Shape (n_polarizations, n_rows,
-        n_channels).
-    weight : numpy.ndarray
-        Contains the information from the WEIGHT or SPECTRUM_WEIGHT column.
-        This is in many cases the inverse of the thermal noise covariance.
-        Shape same as `data`.
-    polarization : Polarization
-        Polarization information of the data set.
-    freq : numpy.ndarray
-        Contains the measured frequencies. Shape (n_channels)
-    """
-
-    def __init__(self, pointings, data, weight, polarization, freq):
-        my_assert_isinstance(pointings, Directions)
-        my_assert_isinstance(polarization, Polarization)
-        my_assert(data.dtype in [np.float32, np.float64])
-        nrows = len(pointings)
-        my_asserteq(weight.shape, data.shape)
-        my_asserteq(data.shape, (len(polarization), nrows, len(freq)))
-        my_asserteq(nrows, data.shape[1])
-
-        data.flags.writeable = False
-        weight.flags.writeable = False
-
-        my_assert(np.all(weight >= 0.0))
-        my_assert(np.all(np.isfinite(data)))
-        my_assert(np.all(np.isfinite(weight)))
-
-        self._pointings = pointings
-        self._vis = data
-        self._weight = weight
-        self._polarization = polarization
-        self._freq = freq
-
-        self._eq_attributes = "_polarization", "_freq", "_pointings", "_vis", "_weight"
-
-    def save(self, file_name, compress):
-        p = self._pointings.to_list()
-        dct = dict(
-            vis=self._vis,
-            weight=self._weight,
-            freq=self._freq,
-            polarization=self._polarization.to_list(),
-            pointings0=p[0],
-            pointings1=p[1],
-        )
-        f = np.savez_compressed if compress else np.savez
-        f(file_name, **dct)
-
-    @staticmethod
-    def load(file_name):
-        dct = dict(np.load(file_name))
-        pol = Polarization.from_list(dct["polarization"])
-        pointings = Directions.from_list([dct["pointings0"], dct["pointings1"]])
-        return SingleDishObservation(
-            pointings, dct["vis"], dct["weight"], pol, dct["freq"]
-        )
-
-    def __getitem__(self, slc):
-        return SingleDishObservation(
-            self._pointings[slc],
-            self._vis[:, slc],
-            self._weight[:, slc],
-            self._polarization,
-            self._freq,
-        )
-
-    @property
-    def pointings(self):
-        return self._pointings
-
 
 class Observation(BaseObservation):
     """Provide an interface to an interferometric observation.
@@ -435,29 +356,6 @@ class Observation(BaseObservation):
         antpos = AntennaPositions.from_list(antpos)
         return Observation(antpos, vis, wgt, pol, freq, auxtables)
 
-    @staticmethod
-    def legacy_load(file_name, lo_hi_index=None):
-        """Provide potentially incomplete interface for loading legacy npz files."""
-        dct = np.load(file_name)
-        antpos = []
-        for ii in range(4):
-            val = dct[f"antpos{ii}"]
-            if val.size == 0:
-                val = None
-            antpos.append(val)
-        antpos = AntennaPositions.from_list(antpos)
-        pol = Polarization.from_list(dct["polarization"])
-        vis = dct["vis"]
-        wgt = dct["weight"]
-        freq = dct["freq"]
-        if lo_hi_index is not None:
-            slc = slice(*lo_hi_index)
-            # Convert view into its own array
-            vis = vis[..., slc].copy()
-            wgt = wgt[..., slc].copy()
-            freq = freq[slc].copy()
-        del dct
-        return Observation(antpos, vis, wgt, pol, freq)
 
     def flags_to_nan(self):
         if self.fraction_useful == 1.0:
