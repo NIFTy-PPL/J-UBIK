@@ -23,6 +23,7 @@ from astropy import units as u
 
 from ..parse.response import Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
+from ..data.data_modify.frequency_handling import restrict_by_freq
 from ....grid import Grid, PolarizationType
 from ..util import calculate_phase_offset_to_image_center
 
@@ -136,7 +137,7 @@ def InterferometryResponse(
         else:
             oo, tind = observation.restrict_by_time(bb_times[t], bb_times[t + 1], True)
         for f in range(n_freqs):
-            ooo, find = oo.restrict_by_freq(bb_freqs[f], bb_freqs[f + 1], True)
+            ooo, find = restrict_by_freq(oo, bb_freqs[f], bb_freqs[f + 1], True)
             if any(np.array(ooo.vis.shape) == 0):
                 rrr = None
             else:

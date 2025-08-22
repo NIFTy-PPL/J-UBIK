@@ -1,3 +1,4 @@
+from numpy.typing import NDArray
 from ..observation import Observation
 
 from nifty.cl.logger import logger
@@ -42,7 +43,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
     ]
     splitted_obs_freq = []
     for ff in fmin_fmax_array:
-        obs_freq = obs.restrict_by_freq(ff[0], ff[-1]).freq
+        obs_freq = restrict_by_freq(obs, ff[0], ff[-1], with_index=False).freq
         if obs_freq.size == 0:
             continue
         splitted_obs_freq.append(obs_freq)
@@ -71,7 +72,7 @@ def freq_average_by_fmin_fmax(
 ):
     splitted_obs = []
     for ff in fmin_fmax_array:
-        splitted_obs.append(obs.restrict_by_freq(ff[0], ff[-1]))
+        splitted_obs.append(restrict_by_freq(obs, ff[0], ff[-1]))
 
     obs_avg = []
     for obsi in splitted_obs:
@@ -108,3 +109,93 @@ def freq_average_by_fmin_fmax(
         obs._auxiliary_tables,
     )
     return obs_averaged
+
+
+def get_freqs(
+    observation: Observation, frequency_list: list[int] | NDArray, copy=False
+):
+    """Return observation that contains a subset of the present frequencies.
+    Only those whose index is given in the frequency_list.
+
+    Parameters
+    ----------
+    observation : Observation
+    frequency_list : list
+        List of indices that shall be returned
+    copy: bool
+        Whether the underlying arrays are copied.
+    """
+    mask = np.zeros(observation.nfreq, dtype=bool)
+    mask[frequency_list] = 1
+    return get_freqs_by_slice(observation, mask, copy)
+
+
+def get_freqs_by_slice(observation: Observation, slc: slice | NDArray, copy=False):
+    """Return observation that contains a subset of the frequencies.
+    Only those that are specified by slc.
+
+    Parameters
+    ----------
+    observation : Observation
+    slc: slice | NDArray
+        The slice to be returned
+    copy: bool
+        Whether the underlying arrays are copied.
+    """
+    # TODO:  Do I need to change something in observation._auxiliary_tables?
+
+    vis = observation._vis[..., slc]
+    wgt = observation._weight[..., slc]
+    freq = observation._freq[slc]
+    if copy:
+        vis = vis.copy()
+        wgt = wgt.copy()
+        freq = freq.copy()
+
+    return Observation(
+        observation._antpos,
+        vis,
+        wgt,
+        observation._polarization,
+        freq,
+        observation._auxiliary_tables,
+    )
+
+
+def restrict_by_freq(
+    observation: Observation, fmin: float, fmax: float, with_index=False
+) -> Observation | tuple[Observation, slice]:
+    """Return observation that contains a subset of the frequencies.
+    Only those that are within fmin and fmax.
+
+    Parameters
+    ----------
+    observation : Observation
+    slc: slice | NDArray
+        The slice to be returned
+    copy: bool
+        Whether the underlying arrays are copied.
+    """
+    assert all(np.diff(observation.freq) > 0), (
+        "The frequencies of the observation need to be increasing"
+    )
+
+    start, stop = np.searchsorted(observation.freq, [fmin, fmax])
+    ind = slice(start, stop)
+    res = get_freqs_by_slice(observation, ind)
+    if with_index:
+        return res, ind
+    return res
+
+
+def reverse_frequencies(obs: Observation) -> Observation:
+    """This reverses the frequencies and returns an observation"""
+    logger.info("Reverse frequencies")
+    return Observation(
+        obs.antenna_positions,
+        obs.vis.asnumpy()[:, :, ::-1],
+        obs.weight.asnumpy()[:, :, ::-1],
+        obs.legacy_polarization,
+        obs.freq[::-1],
+        auxiliary_tables=obs._auxiliary_tables,
+    )

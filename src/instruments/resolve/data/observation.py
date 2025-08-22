@@ -398,26 +398,6 @@ class Observation(BaseObservation):
         nu0 = global_freqs.mean()
         return obs_list, nu0
 
-    def to_double_precision(self):
-        return Observation(
-            self._antpos,
-            self._vis.astype(np.complex128, casting="same_kind", copy=False),
-            self._weight.astype(np.float64, casting="same_kind", copy=False),
-            self._polarization,
-            self._freq,
-            self._auxiliary_tables,
-        )
-
-    def to_single_precision(self):
-        return Observation(
-            self._antpos,
-            self._vis.astype(np.complex64, casting="same_kind", copy=False),
-            self._weight.astype(np.float32, casting="same_kind", copy=False),
-            self._polarization,
-            self._freq,
-            self._auxiliary_tables,
-        )
-
     def is_single_precision(self):
         assert not (
             is_single_precision(self._weight.dtype)
@@ -432,10 +412,6 @@ class Observation(BaseObservation):
         )
         return not is_single_precision(self._weight.dtype)
 
-    @property
-    def double_precision(self):
-        return self._vis.dtype == np.complex128
-
     def __getitem__(self, slc, copy=False):
         # FIXME Do I need to change something in self._auxiliary_tables?
         ap = self._antpos[slc]
@@ -447,31 +423,6 @@ class Observation(BaseObservation):
             wgt = wgt.copy()
         return Observation(
             ap, vis, wgt, self._polarization, self._freq, self._auxiliary_tables
-        )
-
-    def get_freqs(self, frequency_list, copy=False):
-        """Return observation that contains a subset of the present frequencies
-
-        Parameters
-        ----------
-        frequency_list : list
-            List of indices that shall be returned
-        """
-        mask = np.zeros(self.nfreq, dtype=bool)
-        mask[frequency_list] = 1
-        return self.get_freqs_by_slice(mask, copy)
-
-    def get_freqs_by_slice(self, slc, copy=False):
-        # FIXME Do I need to change something in self._auxiliary_tables?
-        vis = self._vis[..., slc]
-        wgt = self._weight[..., slc]
-        freq = self._freq[slc]
-        if copy:
-            vis = vis.copy()
-            wgt = wgt.copy()
-            freq = freq.copy()
-        return Observation(
-            self._antpos, vis, wgt, self._polarization, freq, self._auxiliary_tables
         )
 
     def average_stokesi(self):
@@ -499,15 +450,6 @@ class Observation(BaseObservation):
         start, stop = np.searchsorted(self.time, [tmin, tmax])
         ind = slice(start, stop)
         res = self[ind]
-        if with_index:
-            return res, ind
-        return res
-
-    def restrict_by_freq(self, fmin, fmax, with_index=False):
-        my_assert(all(np.diff(self.freq) > 0))
-        start, stop = np.searchsorted(self.freq, [fmin, fmax])
-        ind = slice(start, stop)
-        res = self.get_freqs_by_slice(ind)
         if with_index:
             return res, ind
         return res

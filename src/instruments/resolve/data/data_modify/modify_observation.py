@@ -2,11 +2,15 @@ from nifty.cl.logger import logger
 
 from ...parse.data.data_modify import ObservationModify
 from ..observation import Observation
-from .frequency_averaging import freq_average_by_fdom_and_n_freq_chunks
+from .frequency_handling import (
+    freq_average_by_fdom_and_n_freq_chunks,
+    reverse_frequencies,
+    restrict_by_freq,
+)
 from .restrict_to_testing_percentage import restrict_to_testing_percentage
-from .reverse_frequencies import reverse_frequencies
 from .time_average import time_average
 from .weight_modify import weight_modify
+from .precision import to_single_precision, to_double_precision
 
 
 def modify_observation(
@@ -38,9 +42,9 @@ def modify_observation(
     obs = time_average(obs, modify.time_bins)
 
     if modify.spectral_min is not None:
-        obs = obs.restrict_by_freq(modify.spectral_min, modify.spectral_max)
+        obs = restrict_by_freq(obs, modify.spectral_min, modify.spectral_max)
     if modify.spectral_restrict_to_sky_frequencies:
-        obs = obs.restrict_by_freq(sky_frequencies[0], sky_frequencies[-1])
+        obs = restrict_by_freq(obs, sky_frequencies[0], sky_frequencies[-1])
 
     obs = freq_average_by_fdom_and_n_freq_chunks(
         sky_frequencies, obs, modify.spectral_bins
@@ -55,6 +59,6 @@ def modify_observation(
         obs = obs.average_stokesi()
 
     if modify.to_double_precision:
-        obs = obs.to_double_precision()
+        obs = to_double_precision(obs)
 
     return obs
