@@ -3,7 +3,7 @@ from .data.direction import *
 from .data.ms_import import *
 from .data.xds_import import *
 from .data.observation import *
-from .data.polarization import Polarization
+
 from .logger import logger
 
 # from .dtype_converter import DtypeConverter

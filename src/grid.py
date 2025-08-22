@@ -4,38 +4,14 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-
 from typing import Union
-from enum import Enum
 
 import numpy as np
 
 from .color import ColorRange, ColorRanges
 from .parse.grid import GridModel
 from .wcs.wcs_astropy import WcsAstropy
-
-
-class PolarizationType(Enum):
-    # Total intensity
-    I = ("I",)
-    RR = ("RR",)
-    LL = ("LL",)
-    XX = ("XX",)
-    YY = ("YY",)
-    RR_LL = ("RR", "LL")
-    XX_YY = ("XX", "YY")
-
-    # Polarized
-    IQUV = ("I", "Q", "U", "V")
-    RR_RL_LR_LL = ("RR", "RL", "LR", "LL")
-    XX_XY_YX_YY = ("XX", "XY", "YX", "YY")
-
-    @property
-    def is_single_feed(self):
-        if self in (self.I, self.RR, self.LL, self.XX, self.YY):
-            return True
-        else:
-            return False
+from .polarization import PolarizationType
 
 
 class Grid:
@@ -48,7 +24,7 @@ class Grid:
         - `spectral` coordinate system (ColorRanges), which provides a spectral
           coordinate range to the frequency/energy/wavelength bins of the sky
           brightness model.
-        - `polarization_labels`, for now fixed to Stokes I.
+        - `polarization`, for now fixed to Stokes I.
         - `times`, for now fixed to eternity.
     """
 
@@ -75,7 +51,7 @@ class Grid:
         self.spectral = spectral
 
         # Polarization
-        self.polarization_labels = (
+        self.polarization = (
             polarization
             if isinstance(polarization, PolarizationType)
             else PolarizationType(polarization)
@@ -99,7 +75,7 @@ class Grid:
     def __repr__(self):
         return (
             "Grid("
-            f"\npolarization_labels={self.polarization_labels}\n"
+            f"\npolarization={self.polarization}\n"
             f"\ntimes={self.times}\n"
             f"\nspectral={self.spectral}\n"
             f"\nspatial={self.spatial}\n"

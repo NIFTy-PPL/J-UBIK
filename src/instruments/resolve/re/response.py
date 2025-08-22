@@ -104,7 +104,7 @@ def InterferometryResponse(
             - verbosity     (only ducc0)
             - backend       (only ducc0)
     """
-    n_pol = len(sky_grid.polarization_labels)
+    n_pol = len(sky_grid.polarization)
 
     # compute bins for time and freq
     n_times = len(sky_grid.times) - 1  # FIXME : This needs to be checked
@@ -187,8 +187,8 @@ def InterferometryResponse(
     if np.any(foo == 0):
         raise RuntimeError("This should not happen. Please report.")
 
-    inp_pol = tuple(sky_grid.polarization_labels)
-    out_pol = observation.vis.domain[0].labels
+    inp_pol = sky_grid.polarization
+    out_pol = observation.polarization
 
     def apply_R(sky):
         res = jnp.empty(target_shape, dtype_float2complex(sky.dtype))

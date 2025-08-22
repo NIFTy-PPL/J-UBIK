@@ -28,13 +28,13 @@ from ..util import (
 from .antenna_positions import AntennaPositions
 from .auxiliary_table import AuxiliaryTable
 from .direction import Direction, Directions
-from .polarization import Polarization
+from ....polarization import Polarization, PolarizationType
 
 
 class BaseObservation:
     @property
     def _dom(self):
-        pol_dom = self.polarization.space
+        pol_dom = self.legacy_polarization.space
         dom = [pol_dom] + [ift.UnstructuredDomain(ss) for ss in self._vis.shape[1:]]
         return ift.makeDomain(dom)
 
@@ -81,7 +81,13 @@ class BaseObservation:
         return self._freq
 
     @property
-    def polarization(self):
+    def polarization(self) -> PolarizationType:
+        """Polarization: Object that contains polarization information on the
+        data set."""
+        return PolarizationType.from_polarization_object(self._polarization)
+
+    @property
+    def legacy_polarization(self):
         """Polarization: Object that contains polarization information on the
         data set."""
         return self._polarization
@@ -156,7 +162,7 @@ class BaseObservation:
         """float: Maximum signal-to-noise ratio."""
         snr = (self.vis * self.weight.sqrt()).abs()
         snr = self.apply_flags(snr)
-        return np.max(snr.val)
+        return np.max(snr.asnumpy())
 
     def fraction_useful(self):
         """float: Fraction of non-flagged data points."""
@@ -324,7 +330,13 @@ class Observation(BaseObservation):
     """
 
     def __init__(
-        self, antenna_positions, vis, weight, polarization, freq, auxiliary_tables=None
+        self,
+        antenna_positions,
+        vis,
+        weight,
+        polarization: Polarization,
+        freq,
+        auxiliary_tables=None,
     ):
         nrows = len(antenna_positions)
         my_assert_isinstance(polarization, Polarization)
@@ -451,7 +463,7 @@ class Observation(BaseObservation):
         if self.fraction_useful == 1.0:
             return self
         vis = self._vis.copy()
-        vis[self.flags.val] = np.nan
+        vis[self.flags.asnumpy()] = np.nan
         return Observation(
             self._antpos,
             vis,
@@ -674,7 +686,7 @@ class Observation(BaseObservation):
             [dct[(a1, a2, tt)] for a1, a2, tt in zip(ant1, ant2, row_to_bin_map)]
         )
 
-        vis, wgt = self.vis.val, self.weight.val
+        vis, wgt = self.vis.asnumpy(), self.weight.asnumpy()
         new_vis = np.empty((self.npol, len(atset), self.nfreq), dtype=self.vis.dtype)
         new_wgt = np.empty((self.npol, len(atset), self.nfreq), dtype=self.weight.dtype)
         for pol in range(self.npol):

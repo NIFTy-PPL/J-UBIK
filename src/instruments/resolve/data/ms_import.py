@@ -23,7 +23,7 @@ from ..logger import logger
 from .antenna_positions import AntennaPositions
 from .auxiliary_table import AuxiliaryTable
 from .observation import Observation
-from .polarization import Polarization
+from ....polarization import Polarization
 
 
 def ms_table(path):

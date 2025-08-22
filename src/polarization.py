@@ -12,14 +12,22 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Copyright(C) 2019-2020 Max-Planck-Society
-# Author: Philipp Arras
+# Author: Philipp Arras, Jokob Roth, Julian Rüstig
 
-import nifty.cl as ift
+from typing import Iterable, Union
+from enum import Enum
 
-from ..util import compare_attributes, my_assert
-
-TABLE = {5: "RR", 6: "RL", 7: "LR", 8: "LL", 9: "XX", 10: "XY", 11: "YX", 12: "YY"}
-INVTABLE = {val: key for key, val in TABLE.items()}
+POLARIZATION_TABLE = {
+    5: "RR",
+    6: "RL",
+    7: "LR",
+    8: "LL",
+    9: "XX",
+    10: "XY",
+    11: "YX",
+    12: "YY",
+}
+POLARIZATION_INVTABLE = {val: key for key, val in POLARIZATION_TABLE.items()}
 
 
 class Polarization:
@@ -35,7 +43,7 @@ class Polarization:
 
     def __init__(self, indices):
         self._ind = tuple(indices)
-        my_assert(len(self._ind) <= 4)
+        assert len(self._ind) <= 4
         self._trivial = len(indices) == 0
 
     @staticmethod
@@ -47,7 +55,7 @@ class Polarization:
         return Polarization(inds)
 
     def restrict_by_name(self, lst):
-        return Polarization([INVTABLE[ss] for ss in lst])
+        return Polarization([POLARIZATION_INVTABLE[ss] for ss in lst])
 
     def circular(self):
         if self._trivial:
@@ -67,7 +75,7 @@ class Polarization:
         if self._trivial:
             raise RuntimeError
         keys = ["LL", "RR"] if self.circular() else ["XX", "YY"]
-        return [self._ind.index(INVTABLE[kk]) for kk in keys]
+        return [self._ind.index(POLARIZATION_INVTABLE[kk]) for kk in keys]
 
     def __len__(self):
         if self._trivial:
@@ -78,16 +86,16 @@ class Polarization:
         return list(self._ind)
 
     def to_str_list(self):
-        return [TABLE[ii] for ii in self._ind]
+        return [POLARIZATION_TABLE[ii] for ii in self._ind]
 
     @property
     def space(self):
-        from ..polarization_space import PolarizationSpace
+        from .instruments.resolve.polarization_space import PolarizationSpace
 
         if self == Polarization.trivial():
             x = "I"
         else:
-            x = [TABLE[ii] for ii in self._ind]
+            x = [POLARIZATION_TABLE[ii] for ii in self._ind]
         return PolarizationSpace(x)
 
     @staticmethod
@@ -97,7 +105,45 @@ class Polarization:
     def __eq__(self, other):
         if not isinstance(other, Polarization):
             return False
-        return compare_attributes(self, other, ("_ind",))
+        return self._ind == other._ind
 
     def __repr__(self):
         return f"Polarization({self._ind})"
+
+
+class PolarizationType(Enum):
+    # Total intensity
+    I = ("I",)
+    RR = ("RR",)
+    LL = ("LL",)
+    XX = ("XX",)
+    YY = ("YY",)
+    RR_LL = ("RR", "LL")
+    LL_RR = ("LL", "RR")
+    XX_YY = ("XX", "YY")
+
+    # Polarized
+    IQUV = ("I", "Q", "U", "V")
+    RR_RL_LR_LL = ("RR", "RL", "LR", "LL")
+    XX_XY_YX_YY = ("XX", "XY", "YX", "YY")
+
+    @property
+    def is_single_feed(self):
+        if self in (self.I, self.RR, self.LL, self.XX, self.YY):
+            return True
+        else:
+            return False
+
+    @classmethod
+    def from_polarization_object(
+        cls, polarization_object: Polarization
+    ) -> "PolarizationType":
+        typ = tuple(polarization_object.to_str_list())
+
+        if typ == ():
+            typ = ("I",)
+
+        return cls(typ)
+
+    def __len__(self):
+        return len(self.value)
