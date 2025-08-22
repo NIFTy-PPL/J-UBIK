@@ -8,9 +8,10 @@ from .frequency_handling import (
     restrict_by_freq,
 )
 from .restrict_to_testing_percentage import restrict_to_testing_percentage
-from .time_average import time_average
+from .time_modify import time_average_to_length_of_timebins
 from .weight_modify import weight_modify
 from .precision import to_single_precision, to_double_precision
+from .polarization_modify import restrict_to_stokesi, average_stokesi
 
 
 def modify_observation(
@@ -39,7 +40,7 @@ def modify_observation(
     if modify.testing_percentage is not None:
         obs = restrict_to_testing_percentage(obs, modify.testing_percentage)
 
-    obs = time_average(obs, modify.time_bins)
+    obs = time_average_to_length_of_timebins(obs, modify.time_bins)
 
     if modify.spectral_min is not None:
         obs = restrict_by_freq(obs, modify.spectral_min, modify.spectral_max)
@@ -53,10 +54,11 @@ def modify_observation(
 
     if modify.restrict_to_stokes_I:
         logger.info("Restrict to Stokes I")
-        obs = obs.restrict_to_stokesi()
+        obs = restrict_to_stokesi(obs)
+
     if modify.average_to_stokes_I:
         logger.info("Average to Stokes I")
-        obs = obs.average_stokesi()
+        obs = average_stokesi(obs)
 
     if modify.to_double_precision:
         obs = to_double_precision(obs)

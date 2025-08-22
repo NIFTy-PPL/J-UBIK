@@ -14,9 +14,6 @@ import jubik0 as ju
 import jubik0.instruments.resolve as rve
 import jubik0.instruments.resolve.re as jrve
 from jubik0.parse.grid import GridModel
-from jubik0.instruments.resolve.data.data_modify.restrict_to_testing_percentage import (
-    restrict_to_testing_percentage,
-)
 from jubik0.instruments.resolve.parse.response import Ducc0Settings, FinufftSettings
 
 
@@ -41,11 +38,12 @@ backend_settings = dict(
 # backend_settings = config_parser_to_response_settings(cfg['data'])
 
 obs = rve.Observation.load("./data/resolve_test/CYG-ALL-2052-2MHZ_RESOLVE_float64.npz")
-obs = obs.restrict_to_stokesi()
-obs = obs.average_stokesi()
+obs = rve.data.restrict_to_stokesi(obs)
+obs = rve.data.average_stokesi(obs)
+
 # scale weights, as they are wrong for this specific dataset
 obs._weight = 0.1 * obs._weight
-obs = restrict_to_testing_percentage(obs, 0.01)
+obs = rve.data.restrict_to_testing_percentage(obs, 0.01)
 
 # # NOTE : The observation can also be loaded and modified via the config file.
 # from jubik0.instruments.resolve.data import load_and_modify_data_from_objects
