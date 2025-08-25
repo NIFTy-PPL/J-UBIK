@@ -55,9 +55,9 @@ from .mosaic_likelihood import build_likelihood_from_sky_beamer
 class RadioLikelihoodProducts:
     """Container for managing and combining multiple likelihood builders.
 
-    This class groups likelihood builders and provides functionality to combine them,
-    either as a flat list or grouped by names. The combined likelihoods are then
-    connected to a sky beam model.
+    This class groups likelihood builders and provides functionality to combine
+    them, either as a flat list or grouped by names. The combined likelihoods
+    are then connected to a sky beam model.
 
     Attributes
     ----------
@@ -137,7 +137,6 @@ def build_radio_likelihood(
     sky_unit: u.Unit | None = None,
     direction_key: str = "PHASE_DIR",
 ) -> RadioLikelihoodProducts:
-    response_settings = yaml_to_response_settings(cfg["radio_response"])
     radio_sky_extractor = build_radio_sky_extractor(
         last_radio_bin, sky_model, sky_key=sky_key, sky_unit=sky_unit
     )
@@ -184,7 +183,6 @@ def build_radio_likelihood(
         )
         sky_beamers.append(_sky_beamer)
 
-        _tmp_likelihoods = []
         for field_name, beam_direction in _sky_beamer.beam_directions.items():
             for o in observations:
                 if o.direction_from_key(direction_key) == beam_direction.direction:
