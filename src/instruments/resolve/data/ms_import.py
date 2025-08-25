@@ -44,6 +44,20 @@ def _pol_id(ms_path, spectral_window):
 
 
 def ms2observations_all(ms, data_column):
+    """Read and convert a given measurement set into an iterator of
+    :class:`Observation`, reading the data of all sources and spectral windows.
+
+    If WEIGHT_SPECTRUM is available this column is used for weighting.
+    Otherwise fall back to WEIGHT.
+
+    Parameters
+    ----------
+    ms : string
+        Folder name of measurement set
+    data_column : string
+        Column of measurement set from which the visibilities are read.
+        Typically either "DATA" or "CORRECTED_DATA".
+    """
     for spw in range(ms_n_spectral_windows(ms)):
         obs = ms2observations(ms, data_column, True, spw)
         for oo in obs:
