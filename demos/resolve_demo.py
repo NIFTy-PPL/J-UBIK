@@ -62,7 +62,7 @@ gm.spatial_model.wcs_model.center = obs.direction.to_sky_coord()
 grid = ju.Grid.from_grid_model(gm)
 
 
-R_new = rve.InterferometryResponse(obs, grid, backend_settings=backend_settings)
+R_new = rve.interferometry_response(obs, grid, backend_settings=backend_settings)
 
 
 def signal_response(x):

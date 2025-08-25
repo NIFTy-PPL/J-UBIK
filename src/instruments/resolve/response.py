@@ -81,7 +81,7 @@ def convert_polarization(
     raise NotImplementedError(err)
 
 
-def InterferometryResponse(
+def interferometry_response(
     observation: Observation,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
@@ -143,7 +143,7 @@ def InterferometryResponse(
                 rrr = None
             else:
                 if isinstance(backend_settings, Ducc0Settings):
-                    rrr = InterferometryResponseDucc(
+                    rrr = interferometry_response_ducc(
                         observation=ooo,
                         npix_x=npix_x,
                         npix_y=npix_y,
@@ -157,7 +157,7 @@ def InterferometryResponse(
                         center_y=center_y,
                     )
                 elif isinstance(backend_settings, FinufftSettings):
-                    rrr = InterferometryResponseFinuFFT(
+                    rrr = interferometry_response_finufft(
                         observation=ooo,
                         pixsize_x=pixsize_x,
                         pixsize_y=pixsize_y,
@@ -208,7 +208,7 @@ def InterferometryResponse(
     return apply_R
 
 
-def InterferometryResponseDucc(
+def interferometry_response_ducc(
     observation,
     npix_x,
     npix_y,
@@ -241,7 +241,7 @@ def InterferometryResponseDucc(
     return lambda x: vol * wgridder(x)[0]
 
 
-def InterferometryResponseFinuFFT(
+def interferometry_response_finufft(
     observation, pixsize_x, pixsize_y, epsilon, center_x=None, center_y=None
 ):
     from jax_finufft import nufft2

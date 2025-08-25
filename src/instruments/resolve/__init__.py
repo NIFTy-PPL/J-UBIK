@@ -8,7 +8,7 @@ from .data.observation import *
 from .logger import logger
 from .util import *
 
-from .response import InterferometryResponse
+from .response import interferometry_response
 from .stokes_adder import StokesAdder
 
 from . import parse
