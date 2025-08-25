@@ -16,9 +16,15 @@
 
 import nifty.cl as ift
 import numpy as np
+import jax
+import jax.numpy as jnp
 
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+
+
+def cast_to_dtype(tree, dtype=jnp.float32):
+    return jax.tree.map(lambda x: x.astype(dtype), tree)
 
 
 def my_assert(*conds):

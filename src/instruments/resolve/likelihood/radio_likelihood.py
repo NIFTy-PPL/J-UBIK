@@ -47,7 +47,7 @@ from ..multimessanger import (
 from ..telescopes.primary_beam import (
     build_primary_beam_pattern_from_beam_pattern_config,
 )
-from .cast_to_dtype import cast_to_dtype
+from ..util import cast_to_dtype
 from .mosaic_likelihood import build_likelihood_from_sky_beamer
 
 
@@ -194,9 +194,11 @@ def build_radio_likelihood(
                             sky_beamer=_sky_beamer,
                             sky_grid=sky_grid,
                             backend_settings=response_backend_settings,
-                            cast_to_dtype=partial(cast_to_dtype, dtype=jnp.float32)
-                            if o.is_single_precision()
-                            else None,
+                            cast_to_dtype=(
+                                partial(cast_to_dtype, dtype=jnp.float32)
+                                if o.is_single_precision()
+                                else None
+                            ),
                         )
                     )
 
