@@ -21,16 +21,16 @@ from astropy import units as u
 
 
 class Direction:
-    """
-    Parameters
-    ----------
-    phase_center : list of float
-        coordinate of phase center
-    equinox : int
-        reference year of the equinox
-    """
-
     def __init__(self, phase_center, equinox, name=""):
+        """Direction of the phase center of a observation.
+
+        Parameters
+        ----------
+        phase_center : list of float
+            coordinate of phase center
+        equinox : int
+            reference year of the equinox
+        """
         my_asserteq(len(phase_center), 2)
         self._pc = phase_center
         self._e = float(equinox)
