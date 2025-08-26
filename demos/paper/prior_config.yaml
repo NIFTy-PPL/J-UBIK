@@ -1,0 +1,52 @@
+seed: 67
+telescope:
+  fov: 4096
+
+plotting:
+  enabled: True
+  slice: Null
+  dpi: 800
+
+grid:
+  sdim: 1024
+  edim: 3 # FIXME: remove this parameter
+  s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
+  e_padding_ratio: 1.
+  energy_bin:
+    e_min:
+    - 0.2
+    - 1.0
+    - 2.0
+    e_max:
+    - 1.0
+    - 2.0
+    - 4.5
+    e_ref:
+    - 2
+
+priors:
+  point_sources:
+    spatial:
+      alpha: 1.9952748894654722
+      key: points
+      q: 1.6281324151282162e-09
+  diffuse:
+    spatial:
+      fluctuations:
+        asperity: null
+        flexibility:
+        - 0.3
+        - 0.01
+        fluctuations:
+        - 0.3
+        - 0.01
+        loglogavgslope:
+        - -5.0
+        - 0.1
+        non_parametric_kind: power
+      offset:
+        offset_mean: -19.5
+        offset_std:
+        - 0.3
+        - 0.05
+      prefix: diffuse_spatial_
