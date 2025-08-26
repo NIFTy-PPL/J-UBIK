@@ -32,10 +32,10 @@ if __name__ == "__main__":
     sky = sky_model.create_sky_model()
 
     pos = ju.load_from_pickle('paper/pos.pkl')
-
+    factor = 100
     # eROSITA:
     response_dict = ju.build_erosita_response_from_config(eROSITA_config_name)
-    masked_mock_data = response_dict['R'](sky(pos))
+    masked_mock_data = response_dict['R'](factor*sky(pos))
     key = random.PRNGKey(67)
     key, subkey = random.split(key)
     masked_mock_data = jft.Vector({
@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     # Chandra:
     response_dict = ju.build_chandra_response_from_config(chandra_config_name1)
-    masked_mock_data = response_dict['R'](sky(pos))
+    masked_mock_data = response_dict['R'](factor*sky(pos))
     key = random.PRNGKey(67)
     key, subkey = random.split(key)
     masked_mock_data = jft.Vector({
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     unmasked_chandra_data1 = mask_adj_func(plottable_vector)
 
     response_dict = ju.build_chandra_response_from_config(chandra_config_name2)
-    masked_mock_data = response_dict['R'](sky(pos))
+    masked_mock_data = response_dict['R'](factor*sky(pos))
     key = random.PRNGKey(67)
     key, subkey = random.split(key)
     masked_mock_data = jft.Vector({
@@ -104,8 +104,8 @@ if __name__ == "__main__":
          colorbar=True,
          common_colorbar=True,
          n_rows=1,
-         vmin=1e-0,
-         vmax=1e2,
+         vmin=5e1,
+         vmax=5e3,
          bbox_info=bbox_info,
          pointing_center = pointing_center,
          output_file=join(output_dir,

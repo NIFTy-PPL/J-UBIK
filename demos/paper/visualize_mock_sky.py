@@ -24,7 +24,7 @@ if __name__ == "__main__":
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
-    key = random.PRNGKey(67)
+    key = random.PRNGKey(81)
     key, subkey = random.split(key)
 
     pos = jft.Vector(jft.random_like(subkey, sky.domain))
@@ -32,10 +32,11 @@ if __name__ == "__main__":
     real_pos = []
     titles = []
     for key, op in sky_dict.items():
-        real_pos.append(op(pos))
+        real_pos.append(100*op(pos))
         titles.append(key)
     real_pos = np.vstack(real_pos)
 
+    ju.save_to_pickle(pos, 'paper/pos.pkl')
 
     bbox_info = [(7, 4), 28, 96,  'black']
     plot(real_pos,
@@ -46,8 +47,8 @@ if __name__ == "__main__":
          colorbar=True,
          common_colorbar=True,
          n_rows=1,
-         vmin=7e-9,
-         vmax=7e-7,
+         vmin=7e-7,
+         vmax=7e-6,
          bbox_info=bbox_info,
          output_file=join(output_dir,
          f'simulated_sky.png'))
