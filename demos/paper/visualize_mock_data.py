@@ -17,15 +17,16 @@ from joss_paper_plotting import plot, plot_rgb
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
+    output_dir = ju.create_output_directory("paper/")
+
     eROSITA_config_name = "paper/eROSITA_demo.yaml"
     chandra_config_name1 = "paper/chandra_demo_1.yaml"
     chandra_config_name2 = "paper/chandra_demo_2.yaml"
-    output_dir = ju.create_output_directory("paper/")
+    prior_config_path = "paper/prior_config.yaml"
+
     eROSITA_cfg_dict = ju.get_config(eROSITA_config_name)
     chandra_cfg_dict1 = ju.get_config(chandra_config_name1)
     chandra_cfg_dict2 = ju.get_config(chandra_config_name2)
-
-    prior_config_path = "paper/prior_config.yaml"
     prior_config_dict = ju.get_config(prior_config_path)
 
     sky_model = ju.SkyModel(prior_config_dict)
@@ -33,9 +34,8 @@ if __name__ == "__main__":
 
     pos = ju.load_from_pickle('paper/pos.pkl')
     factor = 100
+
     # eROSITA:
-    prior_config_dict = ju.get_config(prior_config_path)
-    masked_mock_data = response_dict['R'](factor*sky(pos))
     response_dict = ju.build_erosita_response_from_config(eROSITA_cfg_dict)
     key = random.PRNGKey(67)
     key, subkey = random.split(key)
