@@ -1,20 +1,20 @@
-import matplotlib.pyplot as plt
-import numpy as np
+import os
+import sys
 import pickle
-from jax import linear_transpose, vmap, random
+from os.path import join
+
+import numpy as np
 import jax.numpy as jnp
+from jax import linear_transpose, vmap, random
+import matplotlib.pyplot as plt
 from astropy import coordinates as coords
 import astropy.io.fits as fits
+import nifty.re as jft
 
 import jubik0 as ju
-from os.path import join
-import nifty.re as jft
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from joss_paper_plotting import plot, plot_rgb
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
@@ -120,8 +120,10 @@ if __name__ == "__main__":
     d_centers = np.array([d_centers_astropy.lon.arcsec, d_centers_astropy.lat.arcsec])
     d_pix = d_centers / 4
     shifted_pointing_pix = (512 + d_pix[1], 512 - d_pix[0])
-    print(d_pix)
 
+    print(d_pix) # FIXME remove?
+
+    # Full Plot
     plottabel_data_list = [
         unmasked_erosita_data[0],
         unmasked_chandra_data1[0],
@@ -148,6 +150,7 @@ if __name__ == "__main__":
         output_file=join(output_dir, f"simulated_data.png"),
     )
 
+    # Zoom Plot
     plottabel_data_list = [unmasked_chandra_data1[0], unmasked_chandra_data2[0]]
     plottable_chandra_data = np.vstack(plottabel_data_list)
     title_list = ["Chandra", "Chandra"]
