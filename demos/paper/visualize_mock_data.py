@@ -28,15 +28,15 @@ if __name__ == "__main__":
     prior_config_path = "paper/prior_config.yaml"
     prior_config_dict = ju.get_config(prior_config_path)
 
-    sky_model = ju.SkyModel(prior_config_path)
+    sky_model = ju.SkyModel(prior_config_dict)
     sky = sky_model.create_sky_model()
 
     pos = ju.load_from_pickle('paper/pos.pkl')
     factor = 100
     # eROSITA:
     prior_config_dict = ju.get_config(prior_config_path)
-    response_dict = ju.build_erosita_response_from_config(eROSITA_config_name)
     masked_mock_data = response_dict['R'](factor*sky(pos))
+    response_dict = ju.build_erosita_response_from_config(eROSITA_cfg_dict)
     key = random.PRNGKey(67)
     key, subkey = random.split(key)
     masked_mock_data = jft.Vector({
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     unmasked_erosita_data = mask_adj_func(plottable_vector)
 
     # Chandra:
-    response_dict = ju.build_chandra_response_from_config(chandra_config_name1)
+    response_dict = ju.build_chandra_response_from_config(chandra_cfg_dict1)
     masked_mock_data = response_dict['R'](factor*sky(pos))
     key = random.PRNGKey(67)
     key, subkey = random.split(key)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     # Plotting the data
     unmasked_chandra_data1 = mask_adj_func(plottable_vector)
 
-    response_dict = ju.build_chandra_response_from_config(chandra_config_name2)
+    response_dict = ju.build_chandra_response_from_config(chandra_cfg_dict2)
     masked_mock_data = response_dict['R'](factor*sky(pos))
     key = random.PRNGKey(67)
     key, subkey = random.split(key)
