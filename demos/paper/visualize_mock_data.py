@@ -37,6 +37,7 @@ if __name__ == "__main__":
 
     # eROSITA:
     response_dict = ju.build_erosita_response_from_config(eROSITA_cfg_dict)
+    masked_mock_data = response_dict['R'](factor*sky(pos), response_dict['kernel'])
     key = random.PRNGKey(67)
     key, subkey = random.split(key)
     masked_mock_data = jft.Vector({
