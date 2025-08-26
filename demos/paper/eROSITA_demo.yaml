@@ -2,7 +2,7 @@ seed: 86
 esass_image: DR1
 
 files:
-  obs_path: '../data/LMC_SN1987A/'
+  obs_path: '../data/LMC_SN1987A-1024full/'
   data_dict: 'data.pkl'
   processed_obs_folder: 'processed'  # only needed for actual data
   input: 'pm00_700161_020_EventList_c001.fits'
@@ -12,15 +12,15 @@ files:
   caldb_folder_name: 'caldb'
   psf_filename_suffix: '_2dpsf_190219v05.fits'
   effective_area_filename_suffix: '_arf_filter_000101v02.fits'
-  res_dir: 'results/Mock-17092024-001M'
+  res_dir: 'results/Default_run_mf'
   prior_plot_dir: 'prior_samples'
   # If mock:
   mock_gen_config: 'configs/eROSITA_demo.yaml' # only needed for mock
   pos_dict: 'pos.pkl' # only needed for mock
 
 telescope:
-  tm_ids : [1, 2, 3, 4, 6]
-  pointing_center: [83.77602098929445, -69.31087419596945]
+  tm_ids : [1] #, 3, 4, 6]
+  pointing_center: [83.77602098929445, -69.31087419594445]
   rebin: 80 # typical value used in analysis; equals 4 arcsec resolution
   fov: 4096
   pattern: 15
@@ -30,7 +30,7 @@ telescope:
   effective_area_correction: True
 
 psf:
- energy: ['0277', '1486', '3000']
+ energy: ['0277']
   # LIN config
  npatch: 8
  margfrac: 0.062
@@ -42,11 +42,11 @@ plotting:
   n_prior_samples: 5
   enabled: True
   slice: Null
-  dpi: 300
+  dpi: 800
 
 grid:
   sdim: 1024
-  edim: 3 # FIXME: remove this parameter
+  edim: 1 # FIXME: remove this parameter
   s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
   e_padding_ratio: 1.
   energy_bin:
@@ -60,90 +60,81 @@ grid:
 priors:
   point_sources:
     spatial:
-      alpha: 1.0052423392975538
+      alpha: 1.0001
+      q: 3.E-10
       key: points
-      q: 1.0899834483573917e-11
-    # dev_wp:
-    #  name: points_dev_wp
-    #  sigma:
-    #  - 0.01
-    #  - 0.02
-    #  x0: 0
     plaw:
-      mean: -0.3
+      mean: -2.
+      std: 1.5
       name: points_plaw_
-      std: 0.1
-
-#    dev_corr:
-#      fluctuations:
-#        fluctuations:
-#          - 1.0
-#          - 5.0e-3
-#        loglogavgslope:
-#          - -3
-#          - 1.0e-2
-#        flexibility:
-#          - 2.0
-#          - 5.0e-1
-#        asperity:
-#        non_parametric_kind: "power"
-#        # harmonic_type: "Fourier"
-#      prefix: points_dev
-#      offset:
-#        offset_mean: 0.0
-#        offset_std:
-#          - 1.0e-3
-#          - 1.0e-4
+    dev_wp:
+      x0: 0.
+      sigma:
+        - 0.01
+        - 0.02
+      name: 'points_dev_wp'
   diffuse:
     spatial:
-      fluctuations:
-        asperity: null
-        flexibility:
-        - 0.3
-        - 0.01
-        fluctuations:
-        - 0.3
-        - 0.01
-        loglogavgslope:
-        - -5.0
-        - 0.1
-        non_parametric_kind: power
       offset:
-        offset_mean: -19.0
+        offset_mean: -14.
         offset_std:
-        - 0.3
-        - 0.05
+          - 0.5
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.2
+        loglogavgslope:
+          - -4.0
+          - 0.3
+        flexibility:
+          - 0.4
+          - 0.1
+        asperity:
+          Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
       prefix: diffuse_spatial_
     plaw:
-      fluctuations:
-        asperity: null
-        flexibility:
-        - 0.01
-        - 0.001
-        fluctuations:
-        - 0.01
-        - 0.001
-        loglogavgslope:
-        - -6.0
-        - 0.01
-        non_parametric_kind: power
       offset:
-        offset_mean: -1.3
+        offset_mean: -2.0
         offset_std:
-        - 0.01
-        - 0.001
+          - 0.3
+          - 0.05
+      fluctuations:
+        fluctuations:
+          - 0.5
+          - 0.05
+        loglogavgslope:
+          - -5.
+          - 1.0e-2
+        flexibility:
+          - 0.5
+          - 0.05
+        asperity:
+          Null
+        non_parametric_kind: "power"
+        # harmonic_type: "Fourier"
       prefix: diffuse_plaw_
+    # dev_wp:
+    #   x0: 0.
+    #   sigma:
+    #     - 0.3
+    #     - 0.1
+    #   dt: 1
+    #   name: 'diffuse_dev_wp'
+
 minimization:
     resume: False
-    n_total_iterations: 30
+    n_total_iterations: 15
     delta:
-      switches:
-      values: 1.e-5
+      switches: [0, 10]
+      values: [1.e-5, 1.e-6]
 
     samples:
       switches: [0, 10]
-      n_samples: 4
-      mode: [nonlinear_resample, nonlinear_resample]
+      n_samples: [4, 5]
+      mode: [nonlinear_resample, nonlinear_update]
       # Possible modes:
       # - "linear_sample",
       # - "linear_resample",
@@ -153,15 +144,15 @@ minimization:
 
       # LIN SAMPLING
       # lin_absdelta: [Null, 1.e-4] # if set, delta is ignored
-      lin_maxiter: 100
+      lin_maxiter: [60, 70]
 
       # NONLIN SAMPLING
       # nonlin_xtol: [Null, 0.1] # if set, delta is ignored
-      nonlin_maxiter: 3
+      nonlin_maxiter: [25, 35]
       # nonlin_cg_atol: [0.1, 0.01]
       # nonlin_cg_maxiter: [20, 30]
 
     kl_minimization:
-      switches:
+      switches: [0, 10]
       # kl_absdelta: [Null, 1.e-6] # if set, delta is ignored
-      kl_maxiter: 20
+      kl_maxiter: [10, 13]
