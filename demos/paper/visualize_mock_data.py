@@ -3,10 +3,11 @@ import numpy as np
 import pickle
 from jax import linear_transpose, vmap, random
 import jax.numpy as jnp
+from astropy import coordinates as coords
+import astropy.io.fits as fits
 
 import jubik0 as ju
 from os.path import join
-import astropy.io.fits as fits
 import nifty.re as jft
 import sys
 import os
