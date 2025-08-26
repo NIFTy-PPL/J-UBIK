@@ -19,6 +19,7 @@ from joss_paper_plotting import plot, plot_rgb
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
     output_dir = ju.create_output_directory("paper/")
+    key = random.PRNGKey(67)
 
     eROSITA_config_name = "paper/eROSITA_demo.yaml"
     chandra_config_name1 = "paper/chandra_demo_1.yaml"
@@ -39,17 +40,19 @@ if __name__ == "__main__":
     # eROSITA:
     response_dict = ju.build_erosita_response_from_config(eROSITA_cfg_dict)
     masked_mock_data = response_dict['R'](factor*sky(pos), response_dict['kernel'])
-    key = random.PRNGKey(67)
-    key, subkey = random.split(key)
-    masked_mock_data = jft.Vector({
-        tm: random.poisson(subkey, data).astype(int)
-        for i, (tm, data) in enumerate(masked_mock_data.tree.items())
-    })
     plottable_vector = jft.Vector({key: val.astype(float) for key, val
                                    in masked_mock_data.tree.items()})
     mask = response_dict['mask']
     mask_adj = linear_transpose(mask,
                                 np.zeros((1, 1, 1024, 1024)))
+    # Poisson counts
+    poisson1, poisson2, poisson3 = random.split(key, 3)
+    masked_mock_data = jft.Vector(
+        {
+            tm: random.poisson(poisson1, data).astype(int)
+            for i, (tm, data) in enumerate(masked_mock_data.tree.items())
+        }
+    )
     mask_adj_func = lambda x: mask_adj(x)[0]
     tms = plottable_vector.tree.keys()
     # Plotting the data
@@ -58,17 +61,17 @@ if __name__ == "__main__":
     # Chandra:
     response_dict = ju.build_chandra_response_from_config(chandra_cfg_dict1)
     masked_mock_data = response_dict['R'](factor*sky(pos))
-    key = random.PRNGKey(67)
-    key, subkey = random.split(key)
-    masked_mock_data = jft.Vector({
-        tm: random.poisson(subkey, data).astype(int)
-        for i, (tm, data) in enumerate(masked_mock_data.tree.items())
-    })
     plottable_vector = jft.Vector({key: val.astype(float) for key, val
                                    in masked_mock_data.tree.items()})
     mask = response_dict['mask']
     mask_adj = linear_transpose(mask,
                                 np.zeros((1, 1, 1024, 1024)))
+    masked_mock_data = jft.Vector(
+        {
+            tm: random.poisson(poisson2, data).astype(int)
+            for i, (tm, data) in enumerate(masked_mock_data.tree.items())
+        }
+    )
     mask_adj_func = lambda x: mask_adj(x)[0]
     tms = plottable_vector.tree.keys()
     # Plotting the data
@@ -76,17 +79,16 @@ if __name__ == "__main__":
 
     response_dict = ju.build_chandra_response_from_config(chandra_cfg_dict2)
     masked_mock_data = response_dict['R'](factor*sky(pos))
-    key = random.PRNGKey(67)
-    key, subkey = random.split(key)
-    masked_mock_data = jft.Vector({
-        tm: random.poisson(subkey, data).astype(int)
-        for i, (tm, data) in enumerate(masked_mock_data.tree.items())
-    })
-    plottable_vector = jft.Vector({key: val.astype(float) for key, val
                                    in masked_mock_data.tree.items()})
     mask = response_dict['mask']
     mask_adj = linear_transpose(mask,
                                 np.zeros((1, 1, 1024, 1024)))
+    masked_mock_data = jft.Vector(
+        {
+            tm: random.poisson(poisson3, data).astype(int)
+            for i, (tm, data) in enumerate(masked_mock_data.tree.items())
+        }
+    )
     mask_adj_func = lambda x: mask_adj(x)[0]
     tms = plottable_vector.tree.keys()
     # Plotting the data
