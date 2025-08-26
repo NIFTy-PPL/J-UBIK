@@ -20,7 +20,7 @@ if __name__ == "__main__":
     output_dir = ju.create_output_directory('paper')
     config_dict = ju.get_config(config_path)
 
-    sky_model = ju.SkyModel(config_path)
+    sky_model = ju.SkyModel(config_dict)
     sky = sky_model.create_sky_model()
     sky_dict = sky_model.sky_model_to_dict()
 
