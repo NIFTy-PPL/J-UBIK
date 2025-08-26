@@ -12,7 +12,7 @@ import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from plot_eROSITA_image import plot, plot_rgb
+from joss_paper_plotting import plot, plot_rgb
 
 
 # Script for plotting the data, position and reconstruction images
