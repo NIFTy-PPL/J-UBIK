@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import jubik0 as ju
 from os.path import join
 import astropy.io.fits as fits
-import nifty8.re as jft
+import nifty.re as jft
 import sys
 import os
 
