@@ -47,8 +47,8 @@ if __name__ == "__main__":
          colorbar=True,
          common_colorbar=True,
          n_rows=1,
-         vmin=7e-7,
-         vmax=7e-6,
+         vmin=5e-7,
+         vmax=1e-5,
          bbox_info=bbox_info,
          output_file=join(output_dir,
          f'simulated_sky.png'))
