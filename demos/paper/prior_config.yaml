@@ -15,14 +15,10 @@ grid:
   energy_bin:
     e_min:
     - 0.2
-    - 1.0
-    - 2.0
     e_max:
     - 1.0
-    - 2.0
-    - 4.5
     e_ref:
-    - 2
+    - 0.6
 
 priors:
   point_sources:
@@ -35,17 +31,17 @@ priors:
       fluctuations:
         asperity: null
         flexibility:
-        - 0.3
+        - 0.4
         - 0.01
         fluctuations:
         - 0.3
         - 0.01
         loglogavgslope:
-        - -5.0
+        - -3.0
         - 0.1
         non_parametric_kind: power
       offset:
-        offset_mean: -19.5
+        offset_mean: -19.0
         offset_std:
         - 0.3
         - 0.05
