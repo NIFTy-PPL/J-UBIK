@@ -32,7 +32,7 @@ telescope:
 files:
   data_dict: 'data.pkl'
   processed_obs_folder: 'processed'
-  res_dir: '../results/chandra_demo_1/'
+  res_dir: 'paper/chandra_demo_1/'
 # If mock:
   mock_gen_config: 'configs/chandra_demo.yaml'
   pos_dict: 'pos.pkl'
