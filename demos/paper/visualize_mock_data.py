@@ -34,17 +34,13 @@ if __name__ == "__main__":
     sky_model = ju.SkyModel(prior_config_dict)
     sky = sky_model.create_sky_model()
 
-    pos = ju.load_from_pickle('paper/pos.pkl')
+    pos = ju.load_from_pickle("paper/pos.pkl")
     factor = 100
 
     # eROSITA:
     response_dict = ju.build_erosita_response_from_config(eROSITA_cfg_dict)
-    masked_mock_data = response_dict['R'](factor*sky(pos), response_dict['kernel'])
-    plottable_vector = jft.Vector({key: val.astype(float) for key, val
-                                   in masked_mock_data.tree.items()})
-    mask = response_dict['mask']
-    mask_adj = linear_transpose(mask,
-                                np.zeros((1, 1, 1024, 1024)))
+    masked_mock_data = response_dict["R"](factor * sky(pos), response_dict["kernel"])
+
     # Poisson counts
     poisson1, poisson2, poisson3 = random.split(key, 3)
     masked_mock_data = jft.Vector(
@@ -53,109 +49,122 @@ if __name__ == "__main__":
             for i, (tm, data) in enumerate(masked_mock_data.tree.items())
         }
     )
+    plottable_vector = jft.Vector(
+        {key: val.astype(float) for key, val in masked_mock_data.tree.items()}
+    )
+    mask = response_dict["mask"]
+    mask_adj = linear_transpose(mask, np.zeros((1, 1, 1024, 1024)))
     mask_adj_func = lambda x: mask_adj(x)[0]
-    tms = plottable_vector.tree.keys()
+
+    # tms = plottable_vector.tree.keys() # FIXME remove?
     # Plotting the data
     unmasked_erosita_data = mask_adj_func(plottable_vector)
 
     # Chandra:
     response_dict = ju.build_chandra_response_from_config(chandra_cfg_dict1)
-    masked_mock_data = response_dict['R'](factor*sky(pos))
-    plottable_vector = jft.Vector({key: val.astype(float) for key, val
-                                   in masked_mock_data.tree.items()})
-    mask = response_dict['mask']
-    mask_adj = linear_transpose(mask,
-                                np.zeros((1, 1, 1024, 1024)))
+    masked_mock_data = response_dict["R"](factor * sky(pos))
+
     masked_mock_data = jft.Vector(
         {
             tm: random.poisson(poisson2, data).astype(int)
             for i, (tm, data) in enumerate(masked_mock_data.tree.items())
         }
     )
+
+    plottable_vector = jft.Vector(
+        {key: val.astype(float) for key, val in masked_mock_data.tree.items()}
+    )
+
+    mask = response_dict["mask"]
+    mask_adj = linear_transpose(mask, np.zeros((1, 1, 1024, 1024)))
     mask_adj_func = lambda x: mask_adj(x)[0]
-    tms = plottable_vector.tree.keys()
+
+    # tms = plottable_vector.tree.keys() # FIXME remove?
     # Plotting the data
     unmasked_chandra_data1 = mask_adj_func(plottable_vector)
 
     response_dict = ju.build_chandra_response_from_config(chandra_cfg_dict2)
-    masked_mock_data = response_dict['R'](factor*sky(pos))
-                                   in masked_mock_data.tree.items()})
-    mask = response_dict['mask']
-    mask_adj = linear_transpose(mask,
-                                np.zeros((1, 1, 1024, 1024)))
+    masked_mock_data = response_dict["R"](factor * sky(pos))
+
     masked_mock_data = jft.Vector(
         {
             tm: random.poisson(poisson3, data).astype(int)
             for i, (tm, data) in enumerate(masked_mock_data.tree.items())
         }
     )
+    plottable_vector = jft.Vector(
+        {key: val.astype(float) for key, val in masked_mock_data.tree.items()}
+    )
+    mask = response_dict["mask"]
+    mask_adj = linear_transpose(mask, np.zeros((1, 1, 1024, 1024)))
     mask_adj_func = lambda x: mask_adj(x)[0]
-    tms = plottable_vector.tree.keys()
+
+    # tms = plottable_vector.tree.keys() # FIXME remove?
     # Plotting the data
     unmasked_chandra_data2 = mask_adj_func(plottable_vector)
 
-    from astropy import coordinates as coords
+    # TODO Document center correction
     center = np.array((49.9412, 41.5278))
     shifted_pointing = np.array((49.8770, 41.6287))
 
-    pointing_stats = coords.SkyCoord(ra=shifted_pointing[0],
-                                   dec=shifted_pointing[1],
-                                   unit='deg',
-                                   frame='icrs')
-    # center with respect to desired pointing center
-    ref_center = coords.SkyCoord(ra=center[0],
-                                 dec=center[1],
-                                 unit='deg',
-                                 frame='icrs') # TODO Check Frame
-    d_centers_astropy = pointing_stats.transform_to(
-        coords.SkyOffsetFrame(origin=ref_center))
-    d_centers = np.array(
-        [d_centers_astropy.lon.arcsec, d_centers_astropy.lat.arcsec]
+    pointing_stats = coords.SkyCoord(
+        ra=shifted_pointing[0], dec=shifted_pointing[1], unit="deg", frame="icrs"
     )
-    d_pix = d_centers/4
-    shifted_pointing_pix = (512+d_pix[1], 512-d_pix[0])
+    # center with respect to desired pointing center
+    ref_center = coords.SkyCoord(
+        ra=center[0], dec=center[1], unit="deg", frame="icrs"
+    )  # TODO Check Frame
+    d_centers_astropy = pointing_stats.transform_to(
+        coords.SkyOffsetFrame(origin=ref_center)
+    )
+    d_centers = np.array([d_centers_astropy.lon.arcsec, d_centers_astropy.lat.arcsec])
+    d_pix = d_centers / 4
+    shifted_pointing_pix = (512 + d_pix[1], 512 - d_pix[0])
     print(d_pix)
 
-    plottabel_data_list = [unmasked_erosita_data[0], unmasked_chandra_data1[0],
-                           unmasked_chandra_data2[0]]
+    plottabel_data_list = [
+        unmasked_erosita_data[0],
+        unmasked_chandra_data1[0],
+        unmasked_chandra_data2[0],
+    ]
     plottable_data = np.vstack(plottabel_data_list)
-    title_list = ['eROSITA', 'Chandra', 'Chandra']
-    bbox_info = [(7, 4), 28, 96,  'black']
+    title_list = ["eROSITA", "Chandra", "Chandra"]
+    bbox_info = [(7, 4), 28, 96, "black"]
     pointing_center = [(512, 512), (512, 512), shifted_pointing_pix]
-    plot(plottable_data,
-         pixel_measure=112,
-         fs=8,
-         title=title_list,
-         logscale=True,
-         colorbar=True,
-         common_colorbar=True,
-         n_rows=1,
-         vmin=5e1,
-         vmax=5e3,
-         dpi=1500,
-         bbox_info=bbox_info,
-         pointing_center = pointing_center,
-         output_file=join(output_dir,
-         f'simulated_data.png'))
+    plot(
+        plottable_data,
+        pixel_measure=112,
+        fs=8,
+        title=title_list,
+        logscale=True,
+        colorbar=True,
+        common_colorbar=True,
+        n_rows=1,
+        vmin=5e1,
+        vmax=5e3,
+        dpi=1500,
+        bbox_info=bbox_info,
+        pointing_center=pointing_center,
+        output_file=join(output_dir, f"simulated_data.png"),
+    )
 
-    plottabel_data_list = [unmasked_chandra_data1[0],
-                           unmasked_chandra_data2[0]]
+    plottabel_data_list = [unmasked_chandra_data1[0], unmasked_chandra_data2[0]]
     plottable_chandra_data = np.vstack(plottabel_data_list)
-    title_list = ['Chandra', 'Chandra']
+    title_list = ["Chandra", "Chandra"]
     pointing_center = [(512, 512), shifted_pointing_pix]
-    plot(plottable_chandra_data,
-         pixel_measure=112,
-         fs=8,
-         title=title_list,
-         logscale=True,
-         colorbar=True,
-         common_colorbar=True,
-         n_rows=1,
-         vmin=5e1,
-         vmax=5e3,
-         dpi=1500,
-         bbox_info=bbox_info,
-         pointing_center = pointing_center,
-         output_file=join(output_dir,
-         f'simulated_data_zoom.png'))
-
+    plot(
+        plottable_chandra_data,
+        pixel_measure=112,
+        fs=8,
+        title=title_list,
+        logscale=True,
+        colorbar=True,
+        common_colorbar=True,
+        n_rows=1,
+        vmin=5e1,
+        vmax=5e3,
+        dpi=1500,
+        bbox_info=bbox_info,
+        pointing_center=pointing_center,
+        output_file=join(output_dir, f"simulated_data_zoom.png"),
+    )
