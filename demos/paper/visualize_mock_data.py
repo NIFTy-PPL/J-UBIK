@@ -65,10 +65,11 @@ if __name__ == "__main__":
          vmin=7e-7,
          vmax=5e-5,
          bbox_info=bbox_info,
-         dpi=500,
+         dpi=300,
          output_file=join(output_dir,
                           f'simulated_sky.png'),
-         cbar_label=r"$\mathrm{s}^{-1}\mathrm{arcsec}^{-2}$")
+         cbar_label=r"$\mathrm{s}^{-1}\mathrm{arcsec}^{-2}$",
+         interpolation=None)
 
     # eROSITA:
     response_dict = ju.build_erosita_response_from_config(eROSITA_cfg_dict)
@@ -175,7 +176,7 @@ if __name__ == "__main__":
         n_rows=1,
         vmin=5e1,
         vmax=5e3,
-        dpi=500,
+        dpi=300,
         bbox_info=bbox_info,
         pointing_center=pointing_center,
         output_file=join(output_dir, f"simulated_data.png"),
@@ -198,7 +199,7 @@ if __name__ == "__main__":
         n_rows=1,
         vmin=5e1,
         vmax=5e3,
-        dpi=500,
+        dpi=300,
         bbox_info=bbox_info,
         pointing_center=pointing_center,
         output_file=join(output_dir, f"simulated_data_zoom.png"),
