@@ -9,6 +9,7 @@ from matplotlib.ticker import LogLocator
 
 import jubik0 as ju
 
+
 def plot(
     array,
     pixel_measure=None,
@@ -27,6 +28,7 @@ def plot(
     bbox_info=[(7, 4), 7, 30, "black"],
     pointing_center=None,
     cbar_label="",
+    interpolation="None",
     **kwargs,
 ):
     n_cols = int(np.ceil(array.shape[0] / n_rows))
@@ -44,9 +46,9 @@ def plot(
     else:
         ax = [ax]
     if "cmap" in kwargs.keys():
-        pltargs = {"origin": "lower", "cmap": kwargs["cmap"], "interpolation": "None"}
+        pltargs = {"origin": "lower", "cmap": kwargs["cmap"], "interpolation": interpolation}
     else:
-        pltargs = {"origin": "lower", "cmap": "viridis", "interpolation": "None"}
+        pltargs = {"origin": "lower", "cmap": "viridis", "interpolation": interpolation}
 
     for i in range(array.shape[0]):
         ax[i].tick_params(
@@ -131,8 +133,8 @@ def plot(
             )
 
     fig.subplots_adjust(right=0.84, wspace=0.04)
-    cbar_ax = fig.add_axes([0.88, 0.21, 0.05, 0.56])
-    cbar = fig.colorbar(im, cax=cbar_ax, label=cbar_label)
+    cbar_ax = fig.add_axes([0.13, 0.10, 0.70, 0.06])
+    cbar = fig.colorbar(im, cax=cbar_ax, label=cbar_label, orientation="horizontal")
     if output_file is not None:
         fig.savefig(output_file,
                     bbox_inches="tight",
