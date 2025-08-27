@@ -14,28 +14,61 @@ import nifty.re as jft
 import jubik0 as ju
 from joss_paper_plotting import plot, plot_rgb
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
     output_dir = ju.create_output_directory("paper/")
-    key = random.PRNGKey(67)
+    key = random.PRNGKey(81)
 
-    eROSITA_config_name = "paper/eROSITA_demo.yaml"
-    chandra_config_name1 = "paper/chandra_demo_1.yaml"
-    chandra_config_name2 = "paper/chandra_demo_2.yaml"
+    # Read config files
     prior_config_path = "paper/prior_config.yaml"
-
-    eROSITA_cfg_dict = ju.get_config(eROSITA_config_name)
-    chandra_cfg_dict1 = ju.get_config(chandra_config_name1)
-    chandra_cfg_dict2 = ju.get_config(chandra_config_name2)
     prior_config_dict = ju.get_config(prior_config_path)
 
+    eROSITA_config_name = "paper/eROSITA_demo.yaml"
+    eROSITA_cfg_dict = ju.get_config(eROSITA_config_name)
+
+    chandra_config_name1 = "paper/chandra_demo_1.yaml"
+    chandra_cfg_dict1 = ju.get_config(chandra_config_name1)
+
+    chandra_config_name2 = "paper/chandra_demo_2.yaml"
+    chandra_cfg_dict2 = ju.get_config(chandra_config_name2)
+
+    # build sky model
     sky_model = ju.SkyModel(prior_config_dict)
     sky = sky_model.create_sky_model()
+    sky_dict = sky_model.sky_model_to_dict()
 
-    pos = ju.load_from_pickle("paper/pos.pkl")
+    # random latent position for sky
+    key, subkey = random.split(key)
+    pos = jft.Vector(jft.random_like(subkey, sky.domain))
+
     factor = 100
+    real_pos = [] # TODO RENAME
+    titles = []
+    for dict_key, op in sky_dict.items():
+        real_pos.append(factor*op(pos))
+        titles.append(dict_key)
+    real_pos = np.vstack(real_pos)
+
+    np.testing.assert_allclose(real_pos[0], factor*sky(pos)[0])
+
+    bbox_info = [(7, 4), 28, 96,  'black']
+    plot(real_pos,
+         figsize=(7, 2.7),
+         pixel_measure=112,
+         fs=8,
+         title=titles,
+         logscale=True,
+         colorbar=True,
+         common_colorbar=True,
+         n_rows=1,
+         vmin=7e-7,
+         vmax=5e-5,
+         bbox_info=bbox_info,
+         dpi=500,
+         output_file=join(output_dir,
+                          f'simulated_sky.png'),
+         cbar_label=r"$\mathrm{s}^{-1}\mathrm{arcsec}^{-2}$")
 
     # eROSITA:
     response_dict = ju.build_erosita_response_from_config(eROSITA_cfg_dict)
@@ -135,6 +168,7 @@ if __name__ == "__main__":
     pointing_center = [(512, 512), (512, 512), shifted_pointing_pix]
     plot(
         plottable_data,
+        figsize=(7, 2.7),
         pixel_measure=112,
         fs=8,
         title=title_list,
@@ -144,10 +178,11 @@ if __name__ == "__main__":
         n_rows=1,
         vmin=5e1,
         vmax=5e3,
-        dpi=1500,
+        dpi=500,
         bbox_info=bbox_info,
         pointing_center=pointing_center,
         output_file=join(output_dir, f"simulated_data.png"),
+        cbar_label="counts",
     )
 
     # Zoom Plot
@@ -166,8 +201,9 @@ if __name__ == "__main__":
         n_rows=1,
         vmin=5e1,
         vmax=5e3,
-        dpi=1500,
+        dpi=500,
         bbox_info=bbox_info,
         pointing_center=pointing_center,
         output_file=join(output_dir, f"simulated_data_zoom.png"),
+        cbar_label="counts",
     )
