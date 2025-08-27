@@ -89,7 +89,6 @@ if __name__ == "__main__":
     mask_adj = linear_transpose(mask, np.zeros((1, 1, 1024, 1024)))
     mask_adj_func = lambda x: mask_adj(x)[0]
 
-    # tms = plottable_vector.tree.keys() # FIXME remove?
     # Plotting the data
     unmasked_erosita_data = mask_adj_func(plottable_vector)
 
@@ -112,7 +111,6 @@ if __name__ == "__main__":
     mask_adj = linear_transpose(mask, np.zeros((1, 1, 1024, 1024)))
     mask_adj_func = lambda x: mask_adj(x)[0]
 
-    # tms = plottable_vector.tree.keys() # FIXME remove?
     # Plotting the data
     unmasked_chandra_data1 = mask_adj_func(plottable_vector)
 
@@ -132,7 +130,6 @@ if __name__ == "__main__":
     mask_adj = linear_transpose(mask, np.zeros((1, 1, 1024, 1024)))
     mask_adj_func = lambda x: mask_adj(x)[0]
 
-    # tms = plottable_vector.tree.keys() # FIXME remove?
     # Plotting the data
     unmasked_chandra_data2 = mask_adj_func(plottable_vector)
 
