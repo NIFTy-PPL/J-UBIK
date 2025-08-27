@@ -1,7 +1,6 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-import jubik0 as ju
 from os.path import join
 import nifty.re as jft
 
@@ -18,6 +17,7 @@ def plot(array, pixel_measure=None, pixel_factor =1, output_file=None, logscale=
     n_cols= int(np.ceil(array.shape[0]/n_rows))
     fig, ax = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=figsize, dpi=dpi, sharex=share_x,
                              sharey=share_y)
+import jubik0 as ju
 
     if isinstance(ax, np.ndarray):
         ax = ax.flatten()
