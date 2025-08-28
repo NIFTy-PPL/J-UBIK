@@ -150,9 +150,9 @@ one representing spatially uncorrelated point sources and the other representing
 correlated extended structures. Figure \ref{fig:sky} shows from left to right the full sky and its
 components, the diffuse, extended structures and the point sources.
                                         
-| Figure 1: Simulated X-ray Sky\label{fig:sky}       |
-|----------------------------------------------------|
-| ![](simulated_sky.png)                             |
+<!-- | Figure 1: Simulated X-ray Sky\label{fig:sky}       | -->
+<!-- |----------------------------------------------------| -->
+![Simulated X-ray Sky\label{fig:sky}](simulated_sky.png) 
 
 ## Likelihood models
 \texttt{J-UBIK} implements several instrument models (Chandra, eROSITA, JWST) and their respective data-
@@ -167,9 +167,7 @@ instrument, it can also be used to generate simulated data by passing sky prior 
 the instrument’s
 response. This allows to test the consistency of the implemented models.
                                         
-| Figure 2: Simulated X-ray Data\label{fig:data} |
-|------------------------------------------------|
-| ![](simulated_data.png)                        |
+![Simulated X-ray Data\label{fig:data}](simulated_data.png)
 
 Figure \ref{fig:data} shows the same simulated sky from Figure \ref{fig:sky} seen by two different instruments, eROSITA and Chandra, 
 with Poisson noise on the photon count data. The pointing center for each observation is marked
