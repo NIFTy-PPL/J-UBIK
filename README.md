@@ -15,6 +15,14 @@ Next to many useful generic tools and building blocks, JUBIK comes with a series
 - [ducc0](https://pypi.org/project/ducc0/)
 - [matplotlib](https://matplotlib.org/stable/install/index.html)
 
+## Testing
+For testing you need pytest to be installed. To run the tests execute the following from the `j-ubik` directory:
+
+```bash 
+pytest-3 test/
+```
+
+Tests considering Chandra are skipped if `ciao` is not installed.
 
 ## Instrument specific Requirements 
 - [Chandra](#chandra)

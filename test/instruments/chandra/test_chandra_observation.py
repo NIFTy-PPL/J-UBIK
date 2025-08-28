@@ -5,6 +5,13 @@ import pytest
 
 import jubik0 as ju
 
+ciao_installed = True
+
+try:
+    import ciao_contrib
+except ImportError:
+    ciao_installed = False
+
 
 @pytest.fixture
 def sample_obs_info(request):
@@ -18,6 +25,7 @@ def sample_obs_info(request):
     }
 
 
+@pytest.mark.skipif(not ciao_installed, reason="CIAO is not installed")
 def test_initialization(sample_obs_info):
     npix_s = 1024
     npix_e = 100
@@ -56,6 +64,8 @@ def test_initialization(sample_obs_info):
     assert chandra_obs.obsInfo['energy_ranges'] == energy_ranges
     assert chandra_obs.obsInfo['chips_off'] == chips_off
 
+
+@pytest.mark.skipif(not ciao_installed, reason="CIAO is not installed")
 def test_get_data(sample_obs_info, request):
     npix_s = 1024
     npix_e = 100
@@ -79,4 +89,4 @@ def test_get_data(sample_obs_info, request):
     data_array = chandra_obs.get_data(
         f"{request.path.parent}/chandra_test_data/generated_data.fits"
     )
-    assert data_array.shape == (npix_s, npix_s, npix_e) 
+    assert data_array.shape == (npix_s, npix_s, npix_e)
