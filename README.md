@@ -16,7 +16,7 @@ Next to many useful generic tools and building blocks, JUBIK comes with a series
 - [matplotlib](https://matplotlib.org/stable/install/index.html)
 
 ## Testing
-For testing you need pytest to be installed. To run the tests execute the following from the `j-ubik` directory:
+For testing you need [pytest](https://docs.pytest.org/en/stable/) to be installed. To run the tests execute the following from the `j-ubik` directory:
 
 ```bash 
 pytest-3 test/
