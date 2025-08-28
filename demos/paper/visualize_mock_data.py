@@ -43,7 +43,7 @@ if __name__ == "__main__":
     pos = jft.Vector(jft.random_like(subkey, sky.domain))
 
     factor = 100
-    real_pos = [] # TODO RENAME
+    real_pos = []
     titles = []
     for dict_key, op in sky_dict.items():
         real_pos.append(factor*op(pos))
@@ -151,8 +151,6 @@ if __name__ == "__main__":
     d_centers = np.array([d_centers_astropy.lon.arcsec, d_centers_astropy.lat.arcsec])
     d_pix = d_centers / 4
     shifted_pointing_pix = (512 + d_pix[1], 512 - d_pix[0])
-
-    print(d_pix) # FIXME remove?
 
     # Full Plot
     plottabel_data_list = [
