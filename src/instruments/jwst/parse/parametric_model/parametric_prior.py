@@ -19,8 +19,8 @@ class ProbabilityConfig(ABC):
 @dataclass
 class DefaultPriorConfig(ProbabilityConfig):
     distribution: str
-    mean: float | NDArray
-    sigma: float | NDArray
+    mean: float | ArrayLike
+    sigma: float | ArrayLike
     transformation: str | None = None
 
     def parameters_to_shape(self, shape: tuple):
@@ -30,14 +30,14 @@ class DefaultPriorConfig(ProbabilityConfig):
     def shape(self) -> tuple[int, ...]:
         if isinstance(self.mean, float):
             return ()
-        return self.mean.shape
+        return np.shape(self.mean)
 
 
 @dataclass
 class UniformPriorConfig(ProbabilityConfig):
     distribution: str
-    min: float | NDArray
-    max: float | NDArray
+    min: float | ArrayLike
+    max: float | ArrayLike
     transformation: str | None = None
 
     def parameters_to_shape(self, shape: tuple):
@@ -47,15 +47,15 @@ class UniformPriorConfig(ProbabilityConfig):
     def shape(self) -> tuple[int, ...]:
         if isinstance(self.min, float):
             return ()
-        return self.min.shape
+        return np.shape(self.min)
 
 
 @dataclass
 class InverseGammaConfig(ProbabilityConfig):
     distribution: str
-    a: float | NDArray
-    scale: float | NDArray
-    loc: float | NDArray
+    a: float | ArrayLike
+    scale: float | ArrayLike
+    loc: float | ArrayLike
     transformation: str | None = None
 
     def parameters_to_shape(self, shape: tuple):
@@ -65,7 +65,7 @@ class InverseGammaConfig(ProbabilityConfig):
     def shape(self) -> tuple[int, ...]:
         if isinstance(self.a, float):
             return ()
-        return self.a.shape
+        return np.shape(self.a)
 
 
 @dataclass
@@ -84,7 +84,7 @@ class DeltaPriorConfig(ProbabilityConfig):
     def shape(self) -> tuple[int, ...]:
         if isinstance(self.mean, float):
             return ()
-        return self.mean.shape
+        return np.shape(self.mean)
 
 
 def prior_config_factory(
@@ -155,7 +155,7 @@ def prior_config_factory(
 # Utils --------------------------------------------------------------------------------
 
 
-def _cast_to_shape(value: ArrayLike, shape: tuple[int, ...]) -> np.ndarray:
+def _cast_to_shape(value: ArrayLike, shape: tuple[int, ...]) -> NDArray:
     """
     Return `value` with the requested `shape`:
 
