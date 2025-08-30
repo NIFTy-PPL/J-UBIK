@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Iterable, Union
 from dataclasses import dataclass, astuple
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 import numpy as np
 
 DISTRIBUTION_KEY = "distribution"
@@ -19,35 +19,53 @@ class ProbabilityConfig(ABC):
 @dataclass
 class DefaultPriorConfig(ProbabilityConfig):
     distribution: str
-    mean: float | ArrayLike
-    sigma: float | ArrayLike
+    mean: float | NDArray
+    sigma: float | NDArray
     transformation: str | None = None
 
     def parameters_to_shape(self, shape: tuple):
         return _shape_adjust(self.mean, shape), _shape_adjust(self.sigma, shape)
 
+    @property
+    def shape(self) -> tuple[int, ...]:
+        if isinstance(self.mean, float):
+            return ()
+        return self.mean.shape
+
 
 @dataclass
 class UniformPriorConfig(ProbabilityConfig):
     distribution: str
-    min: float | ArrayLike
-    max: float | ArrayLike
+    min: float | NDArray
+    max: float | NDArray
     transformation: str | None = None
 
     def parameters_to_shape(self, shape: tuple):
         return _shape_adjust(self.min, shape), _shape_adjust(self.max, shape)
 
+    @property
+    def shape(self) -> tuple[int, ...]:
+        if isinstance(self.min, float):
+            return ()
+        return self.min.shape
+
 
 @dataclass
 class InverseGammaConfig(ProbabilityConfig):
     distribution: str
-    a: float | ArrayLike
-    scale: float | ArrayLike
-    loc: float | ArrayLike
+    a: float | NDArray
+    scale: float | NDArray
+    loc: float | NDArray
     transformation: str | None = None
 
     def parameters_to_shape(self, shape: tuple):
         return self.a, self.scale, self.loc
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        if isinstance(self.a, float):
+            return ()
+        return self.a.shape
 
 
 @dataclass
@@ -62,8 +80,18 @@ class DeltaPriorConfig(ProbabilityConfig):
     def parameters_to_shape(self, shape: tuple):
         return (_shape_adjust(self.mean, shape),)
 
+    @property
+    def shape(self) -> tuple[int, ...]:
+        if isinstance(self.mean, float):
+            return ()
+        return self.mean.shape
 
-def prior_config_factory(settings: Union[dict, tuple], shape: tuple[int] | None = None):
+
+def prior_config_factory(
+    settings: Union[dict, tuple], shape: tuple[int] | None = None
+) -> Union[
+    UniformPriorConfig, InverseGammaConfig, DeltaPriorConfig, DefaultPriorConfig
+]:
     """Transforms the parameter distribution `settings` into a ProbabilityConfig.
     If shape is supplied, tries to put the values into the correct shape.
 

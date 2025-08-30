@@ -27,9 +27,11 @@ def build_constant_mf_from_grid(
     constant_cfg: ConstantMFConfig,
 ):
     domkey = f"{prefix}_constant"
+    prior_config = prior_config_factory(constant_cfg.value)
     value_distribution = build_parametric_prior_from_prior_config(
         domain_key=domkey,
-        prior_config=prior_config_factory(constant_cfg.value),
+        prior_config=prior_config,
+        shape=prior_config.shape,
         as_model=True,
     )
 
