@@ -85,7 +85,7 @@ def freq_average_by_fmin_fmax(
             obsi.antenna_positions,
             new_vis,
             new_weight,
-            obsi.polarization,
+            obsi.legacy_polarization,
             new_freq,
             obs._auxiliary_tables,
         )
@@ -156,7 +156,7 @@ def get_freqs_by_slice(observation: Observation, slc: slice | NDArray, copy=Fals
         observation._antpos,
         vis,
         wgt,
-        observation._polarization,
+        observation.legacy_polarization,
         freq,
         observation._auxiliary_tables,
     )
