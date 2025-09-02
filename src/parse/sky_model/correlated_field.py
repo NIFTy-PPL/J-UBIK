@@ -104,9 +104,9 @@ class MaternFluctationsConfig(FromYamlDict, StaticTyped):
         )
 
 
-FLUCTUATIONS_CONFIG_BUILDER = dict(
 # API ----------------------------------------------------------------------------------
 
+FLUCTUATIONS_CONFIG_BUILDER = dict(
     matern=MaternFluctationsConfig,
     matern_kernel=MaternFluctationsConfig,
     correlated_field=CfmFluctuationsConfig,
