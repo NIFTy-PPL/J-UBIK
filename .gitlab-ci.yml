@@ -4,14 +4,15 @@ stages:
   - release
 
 before_script:
-  - python3 -m pip install .
+  - python3 -m pip install -e .
 
 test:
   image: python:latest
   stage: test
   script:
-    - pip install pytest
-    - pytest test/ --ignore=test/instruments/chandra/
+    - pip install pytest pytest-cov
+    - pytest --cov=jubik0 test/
+  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
 
 pages:
   image: python:latest
