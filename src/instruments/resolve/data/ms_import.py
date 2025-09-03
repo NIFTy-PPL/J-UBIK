@@ -25,6 +25,15 @@ from .auxiliary_table import AuxiliaryTable
 from .observation import Observation
 from ....polarization import Polarization
 
+__all__ = [
+    "ms_table",
+    "ms2observations_all",
+    "ms2observations",
+    "read_ms_i",
+    "ms_n_spectral_windows",
+    "ms_n_fields",
+]
+
 
 def ms_table(path):
     try:
