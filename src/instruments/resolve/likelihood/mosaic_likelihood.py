@@ -4,12 +4,46 @@ from typing import Callable, Union
 import nifty.re as jft
 from astropy import units as u
 from numpy.typing import NDArray
+from jax import Array
 
 from ....grid import Grid
 from ..parse.response import Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamerJft
 from ..response import interferometry_response
+
+
+def create_response_operator(
+    domain: dict,
+    sky2vis: Callable[[Array], Array],
+    field_name: str,
+    cast_to_dtype: Callable | None = None,
+):
+    """Create the full response operator.
+
+    The response operator consists of the following pipeline
+    1. Field extraction
+    2. cast_to_dtype (optional)
+    3. sky2vis
+    4. shift (optional)
+
+    Parameters
+    ----------
+    domain: dict,
+        The domain has to contain the `field_name`.
+    sky2vis: InterferometryResponse,
+        FFT and Gridding
+    field_name: str,
+        The name of the field to be extracted from the (beam corrected) sky.
+    cast_to_dtype: Callable | None = None,
+        (Optional) Casting the dtpye, for example float64 -> float32.
+    """
+    response = jft.wrap(sky2vis, field_name)
+    if cast_to_dtype:
+        Warning("Casting dtype is not tested")
+        response = jft.wrap(lambda x: sky2vis(cast_to_dtype(x)), field_name)
+
+    return jft.Model(response, domain=domain)
 
 
 @dataclass
@@ -72,7 +106,7 @@ def build_likelihood_from_sky_beamer(
         This can potentially hold multiple pointings, that are identified by different
         field_name.
     sky_grid: Grid
-        Used for building the interferometry_response
+        Used for building the InterferometryResponse
     backend_settings: Union[Ducc0Settings, FinufftSettings]
         The algorithm for gridding and fft.
     cast_to_dtype: Callable | None = None,
@@ -89,9 +123,13 @@ def build_likelihood_from_sky_beamer(
         sky_grid=sky_grid,
         backend_settings=backend_settings,
     )
-    response = jft.wrap(lambda x: sky2vis(x), field_name)
-    if cast_to_dtype:
-        response = jft.wrap(lambda x: sky2vis(cast_to_dtype(x)), field_name)
+
+    response = create_response_operator(
+        domain=sky_beamer.target,
+        sky2vis=sky2vis,
+        field_name=field_name,
+        cast_to_dtype=cast_to_dtype,
+    )
 
     return LikelihoodBuilder(
         visibilities=observation.vis.val.val,
