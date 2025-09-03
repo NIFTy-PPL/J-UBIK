@@ -15,22 +15,21 @@
 # Author: Julian Rüstig
 
 
-from .sky_wcs import build_astropy_wcs
-from ..data.observation import Observation
-from ..data.direction import Direction
-from ..util import calculate_phase_offset_to_image_center
-
-import nifty.re as jft
-
-import jax.numpy as jnp
-import numpy as np
-from numpy.typing import ArrayLike
-
-from astropy.coordinates import SkyCoord
-from astropy import units as u
-
 from dataclasses import dataclass
 from typing import Callable
+
+import jax.numpy as jnp
+import nifty.re as jft
+import numpy as np
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+from numpy.typing import ArrayLike
+
+from ..data.data_modify.frequency_handling import restrict_by_freq
+from ..data.direction import Direction
+from ..data.observation import Observation
+from ..util import calculate_phase_offset_to_image_center
+from .sky_wcs import build_astropy_wcs
 
 
 @dataclass
@@ -186,8 +185,8 @@ def _get_mean_frequency(ff, n_freq_bins, f_binbounds, observation):
     2) If single-frequency sky: mean of the observation
     """
     if n_freq_bins == 1:
-        o, f_ind = observation.restrict_by_freq(
-            f_binbounds[ff], f_binbounds[ff + 1], True
+        o, f_ind = restrict_by_freq(
+            observation, f_binbounds[ff], f_binbounds[ff + 1], True
         )
         return o.freq.mean()
 

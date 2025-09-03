@@ -131,14 +131,15 @@ def build_radio_likelihood(
     data_names: list[str],
     cfg: dict,
     sky_grid: Grid,
-    sky_model: jft.Model,
+    sky_model_target: dict | jft.ShapeWithDtype,
     last_radio_bin: int | None,
-    sky_key: str = "sky",
+    sky_key: str | None = "sky",
     sky_unit: u.Unit | None = None,
     direction_key: str = "PHASE_DIR",
+    data_key: str = "alma_data",
 ) -> RadioLikelihoodProducts:
     radio_sky_extractor = build_radio_sky_extractor(
-        last_radio_bin, sky_model, sky_key=sky_key, sky_unit=sky_unit
+        last_radio_bin, sky_model_target, sky_key=sky_key, sky_unit=sky_unit
     )
     radio_grid = build_radio_grid(last_radio_bin, sky_grid)
 
@@ -154,8 +155,8 @@ def build_radio_likelihood(
     for data_name in data_names:
         logger.info(f"Loading data: {data_name}")
 
-        dl = DataLoading.from_yaml_dict(cfg["alma_data"][data_name])
-        dm = ObservationModify.from_yaml_dict(cfg["alma_data"][data_name])
+        dl = DataLoading.from_yaml_dict(cfg[data_key][data_name])
+        dm = ObservationModify.from_yaml_dict(cfg[data_key][data_name])
         observations = list(
             load_and_modify_data_from_objects(
                 sky_frequencies=radio_grid.spectral.binbounds_in(u.Unit("Hz")),
@@ -166,7 +167,7 @@ def build_radio_likelihood(
 
         # TODO: The following lines have to be simplified.
         beam_func = build_primary_beam_pattern_from_beam_pattern_config(
-            BeamPatternConfig.from_yaml_dict(cfg["alma_data"][data_name]["dish"])
+            BeamPatternConfig.from_yaml_dict(cfg[data_key][data_name]["dish"])
         )
 
         _sky_beamer = build_jft_sky_beamer(

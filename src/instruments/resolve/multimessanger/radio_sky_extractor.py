@@ -129,7 +129,7 @@ class RadioSkyExtractor(jft.Model):
 
 def build_radio_sky_extractor(
     index_of_last_radio_bin: int | None,
-    sky_model: jft.Model,
+    sky_model_target: dict | jft.ShapeWithDtype,
     sky_key: str | None = "sky",
     sky_unit: u.Unit | None = None,
 ) -> RadioSkyExtractor:
@@ -148,9 +148,8 @@ def build_radio_sky_extractor(
     index_of_last_radio_bin: int | None
         The index of the last radio bin. We assume that the radio sky is in the
         first part of sky.
-    sky_model: jft.Model
-        The model of the sky, it's target domain is the input domain of the
-        radio sky extractor.
+    sky_model_target: jft.Model
+        The target of the sky model is the input domain of the radio sky extractor.
     sky_key: str | None
         The potential key of the sky.
     sky_unit: u.Unit | None
@@ -163,9 +162,9 @@ def build_radio_sky_extractor(
         build_unit_conversion(sky_unit),
         resolve_transpose,
     )
-    radiofy = build_radiofy_sky(extract(sky_model.target).shape)
+    radiofy = build_radiofy_sky(extract(sky_model_target).shape)
 
-    return RadioSkyExtractor(sky_model.target, extract, slicing, conv, radiofy, trans)
+    return RadioSkyExtractor(sky_model_target, extract, slicing, conv, radiofy, trans)
 
 
 def build_radio_grid(

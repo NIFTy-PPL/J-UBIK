@@ -5,6 +5,8 @@ from .data.ms_import import ms2observations, ms2observations_all
 from .data.xds_import import *
 from .data.observation import *
 
+from .likelihood import *
+
 from .logger import logger
 from .util import *
 

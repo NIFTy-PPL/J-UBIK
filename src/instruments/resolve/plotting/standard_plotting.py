@@ -1,9 +1,9 @@
 from os import makedirs
 
 import matplotlib.pyplot as plt
-import nifty8.re as jft
+import nifty.re as jft
 import numpy as np
-from nifty8.logger import logger
+from nifty.cl.logger import logger
 
 from ..parse.plotting.standard_plotting import (
     PLOTTING_KWARGS_DEFAULT,

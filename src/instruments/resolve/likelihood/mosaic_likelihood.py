@@ -9,7 +9,7 @@ from ....grid import Grid
 from ..parse.response import Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamerJft
-from ..re.response import InterferometryResponse
+from ..response import interferometry_response
 
 
 @dataclass
@@ -72,7 +72,7 @@ def build_likelihood_from_sky_beamer(
         This can potentially hold multiple pointings, that are identified by different
         field_name.
     sky_grid: Grid
-        Used for building the InterferometryResponse
+        Used for building the interferometry_response
     backend_settings: Union[Ducc0Settings, FinufftSettings]
         The algorithm for gridding and fft.
     cast_to_dtype: Callable | None = None,
@@ -84,7 +84,7 @@ def build_likelihood_from_sky_beamer(
         The likelihood corresponding to the `observation` and the `field_name`.
     """
 
-    sky2vis = InterferometryResponse(
+    sky2vis = interferometry_response(
         observation=observation,
         sky_grid=sky_grid,
         backend_settings=backend_settings,

@@ -1,8 +1,8 @@
-from ....parsing_base import StaticTyped
+from dataclasses import dataclass
 
 import numpy as np
 
-from dataclasses import dataclass
+from .....parse.parsing_base import StaticTyped
 
 
 @dataclass
