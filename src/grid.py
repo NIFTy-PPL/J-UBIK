@@ -6,6 +6,7 @@
 # %
 from typing import Union
 
+from astropy.coordinates import SkyCoord
 import numpy as np
 
 from .color import ColorRange, ColorRanges
@@ -58,7 +59,13 @@ class Grid:
         )
 
         # Time, TODO: Implement more options
-        self.times = [-np.inf, np.inf]
+        from astropy import units as u
+
+        self.times: u.Quantity = u.Unit("s") * np.array([-np.inf, np.inf])
+
+    # @classmethod
+    # def from_shape_and_distances(cls, shape: tuple[int, int], distances: tuple[float, float], unit: u.Unit = u.rad) -> 'Grid':
+    #     return cls(WcsAstropy(center=SkyCoord(
 
     @classmethod
     def from_grid_model(cls, grid_model: GridModel):
