@@ -4,12 +4,13 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-from typing import Union
+from typing import Optional, Union
 
 from astropy.coordinates import SkyCoord
+from astropy import units as u
 import numpy as np
 
-from .color import ColorRange, ColorRanges
+from .color import Color, ColorRange, ColorRanges
 from .parse.grid import GridModel
 from .wcs.wcs_astropy import WcsAstropy
 from .polarization import PolarizationType
@@ -63,9 +64,28 @@ class Grid:
 
         self.times: u.Quantity = u.Unit("s") * np.array([-np.inf, np.inf])
 
-    # @classmethod
-    # def from_shape_and_distances(cls, shape: tuple[int, int], distances: tuple[float, float], unit: u.Unit = u.rad) -> 'Grid':
-    #     return cls(WcsAstropy(center=SkyCoord(
+    @classmethod
+    def from_shape_and_distances(
+        cls,
+        shape: tuple[int, int],
+        fov: u.Quantity,
+        frequencies: Optional[list[tuple[u.Quantity, u.Quantity]]] = None,
+    ) -> "Grid":
+        center = SkyCoord(ra=np.nan * u.Unit("rad"), dec=np.nan * u.Unit("rad"))
+
+        if frequencies is not None:
+            color_ranges = ColorRanges(
+                [ColorRange(Color(cr[0]), Color(cr[1])) for cr in frequencies]
+            )
+        else:
+            color_ranges = ColorRange(
+                Color(0 * u.Unit("Hz")), Color(np.inf * u.Unit("Hz"))
+            )
+
+        return cls(
+            spatial=WcsAstropy(center=center, shape=shape, fov=fov),
+            spectral=color_ranges,
+        )
 
     @classmethod
     def from_grid_model(cls, grid_model: GridModel):

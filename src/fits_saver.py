@@ -13,10 +13,13 @@ __all__ = ["FitsSaver"]
 
 
 def _process_frequency(
-    header: fits.Header, grid: Grid, fits_axis: int
-) -> Optional[fits.BinTableHDU]:
+    header: fits.Header, grid: Grid, field: NDArray, np_axis: int, fits_axis: int
+) -> tuple[Optional[fits.BinTableHDU], NDArray]:
     """Processes the frequency axis. This axis is never squeezed."""
     freqs = u.Quantity(grid.spectral.centers).to(u.Hz, equivalencies=u.spectral())
+
+    if field.shape[np_axis] == 1 and (np.isinf(freqs[0]) or np.isinf(freqs[1])):
+        return None, np.squeeze(field, axis=np_axis)
 
     # This is only approximate for backward compatibility
     header[f"CTYPE{fits_axis}"] = "FREQ"
@@ -34,7 +37,7 @@ def _process_frequency(
         unit=freqs.unit.to_string("fits"),
         array=freqs.value,
     )
-    return fits.BinTableHDU.from_columns([freq_col], name="FREQUENCIES")
+    return fits.BinTableHDU.from_columns([freq_col], name="FREQUENCIES"), field
 
 
 def _process_time(
@@ -123,20 +126,22 @@ def _process_dynamic_axes(
 
     # Fields shape: (sample, pol, time, freq, y, x)
     axes = dict(
-        frequency=(3,),
+        frequency=(3, 1),
         time=(2, 4),
         polarization=(1, 5),
         samples=(0, 6),
     )
 
-    hdu_freq = _process_frequency(header, grid, *axes["frequency"])
+    hdu_freq, processed_field = _process_frequency(
+        header, grid, processed_field, *axes["frequency"]
+    )
     hdu_time, processed_field = _process_time(
         header, grid, processed_field, *axes["time"]
     )
     hdu_pola, processed_field = _process_polarization(
         header, grid, processed_field, *axes["polarization"]
     )
-    processed_field = _process_sample(header, processed_field, np_axis=0, fits_axis=6)
+    processed_field = _process_sample(header, processed_field, *axes["samples"])
 
     return header, extension_hdus, processed_field
 

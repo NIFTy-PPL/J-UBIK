@@ -257,16 +257,19 @@ def interferometry_response_finufft(
     u_finu = (2 * np.pi * u * pixsize_x) % (2 * np.pi)
     v_finu = (-2 * np.pi * v * pixsize_y) % (2 * np.pi)
 
-    if (center_x is not None) and (center_y is not None):
+    if ((center_x is not None) and (center_y is not None)) or (
+        center_x != 0.0 and center_y != 0.0
+    ):
         n = np.sqrt(1 - center_x**2 - center_y**2)
         phase_shift = np.exp(-2j * np.pi * (u * center_x + v * center_y + w * (n - 1)))
         phase_shift = jnp.array(phase_shift)
     else:
-        phase_shift = 1
+        phase_shift = None
 
     def apply_finufft(inp, u, v, eps):
         res = vol * nufft2(inp.astype(np.complex128), u, v, eps=eps)
-        res = res * phase_shift
+        if phase_shift is not None:
+            res = res * phase_shift
         return res.reshape(-1, len(freq))
 
     R = Partial(apply_finufft, u=u_finu, v=v_finu, eps=epsilon)

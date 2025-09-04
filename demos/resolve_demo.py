@@ -1,21 +1,18 @@
-from os.path import join
 import configparser
+from os.path import join
 
 import jax
+import matplotlib.pyplot as plt
+import nifty.re as jft
 from jax import numpy as jnp
 from jax import random
-
-import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-
-import nifty.re as jft
+from astropy import units as u
 
 import jubik0 as ju
 import jubik0.instruments.resolve as rve
 from jubik0.parse.grid import GridModel
-
 from jubik0.sky_model.resolve_sky import sky_model
-
 
 jax.config.update("jax_default_device", jax.devices("cpu")[0])
 jax.config.update("jax_enable_x64", True)
@@ -57,9 +54,17 @@ obs = rve.data.select_random_visibility_subset(obs, 0.01)
 
 sky, additional = sky_model(cfg["sky"])
 
-gm = GridModel.from_config_parser(cfg["sky"])
-gm.spatial_model.wcs_model.center = obs.direction.to_sky_coord()
-grid = ju.Grid.from_grid_model(gm)
+
+# gm = GridModel.from_config_parser(cfg["sky"])
+# gm.spatial_model.wcs_model.center = obs.direction.to_sky_coord()
+# grid = ju.Grid.from_grid_model(gm)
+
+grid = ju.Grid.from_shape_and_distances(
+    shape=(int(cfg["sky"]["space npix x"]), int(cfg["sky"]["space npix y"])),
+    fov=u.Quantity(
+        (u.Quantity(cfg["sky"]["space fov x"]), u.Quantity(cfg["sky"]["space fov y"]))
+    ),
+)
 
 
 R_new = rve.interferometry_response(obs, grid, backend_settings=backend_settings)

@@ -54,7 +54,7 @@ class WcsAstropy(WCS, WcsBase):
         """
 
         if isinstance(fov, u.Quantity):
-            assert fov.shape == 2
+            assert fov.shape == 2 or fov.shape == (2,)
 
         self.shape = shape
         self.fov = fov
@@ -75,6 +75,9 @@ class WcsAstropy(WCS, WcsBase):
         else:
             lon = center.ra.deg
             lat = center.dec.deg
+
+        if np.isnan(lon) or np.isnan(lat):
+            lon = lat = None
 
         # Build the header dictionary
         header = {

@@ -120,7 +120,7 @@ def dtype_complex2float(dt, force=False):
 def calculate_phase_offset_to_image_center(
     sky_center: SkyCoord,
     phase_center: SkyCoord,
-):
+) -> tuple[float | None, float | None]:
     """Calculate the relative shift of the phase center to the sky center
     (reconstruction center) in radians.
 
@@ -136,4 +136,8 @@ def calculate_phase_offset_to_image_center(
     # FIXME: center (x, y) switch maybe because of the ducc0 fft?
     center_y = r.to(u.rad).value * np.cos(phi.to(u.rad).value)
     center_x = r.to(u.rad).value * np.sin(phi.to(u.rad).value)
+
+    if np.isnan(center_x) or np.isnan(center_y):
+        return 0.0, 0.0
+
     return center_x, center_y
