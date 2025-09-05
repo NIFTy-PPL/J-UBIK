@@ -1,0 +1,1 @@
+../../../demos/erosita_demo.py
