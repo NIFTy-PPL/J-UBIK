@@ -1,7 +1,7 @@
 What is J-UBIK?
 ===============
 
-**J-UBIK** is built on top of **NIFTy.re**, a software package designed for accelerated Bayesian inference of physical fields. J-UBIK’s main role is to model the prior in a generative fashion and to facilitate the creation and use of instrument models to develop the likelihood model.
+**J-UBIK** is built on top of **NIFTy.re**, a software package designed for the accelerated Bayesian inference of physical fields. Currently, the scope of application is limited to a few astrophysical instruments, but there are plans to expand the areas of application further. The main role of **J-UBIK** is to model the prior in a generative fashion and to facilitate the creation and use of instrument models to develop the likelihood model.
 
 
 Prior models
