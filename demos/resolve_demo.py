@@ -59,7 +59,7 @@ sky, additional = sky_model(cfg["sky"])
 # gm.spatial_model.wcs_model.center = obs.direction.to_sky_coord()
 # grid = ju.Grid.from_grid_model(gm)
 
-grid = ju.Grid.from_shape_and_distances(
+grid = ju.Grid.from_shape_and_fov(
     shape=(int(cfg["sky"]["space npix x"]), int(cfg["sky"]["space npix y"])),
     fov=u.Quantity(
         (u.Quantity(cfg["sky"]["space fov x"]), u.Quantity(cfg["sky"]["space fov y"]))
