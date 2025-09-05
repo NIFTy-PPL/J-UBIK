@@ -153,7 +153,7 @@ def build_radio_likelihood(
     names = []
     sky_beamers = []
     for data_name in data_names:
-        logger.info(f"Loading data: {data_name}")
+        logger.info(f"\nLoading data: {data_name}")
 
         dl = DataLoading.from_yaml_dict(cfg[data_key][data_name])
         dm = ObservationModify.from_yaml_dict(cfg[data_key][data_name])
