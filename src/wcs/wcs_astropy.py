@@ -27,7 +27,7 @@ class WcsAstropy(WCS, WcsBase):
     def __init__(
         self,
         center: SkyCoord,
-        shape: tuple[int, int],
+        shape: tuple[int, int] | list[int],
         fov: u.Quantity | tuple[u.Quantity, u.Quantity],
         rotation: u.Quantity = 0.0 * u.deg,
         coordinate_system: Optional[

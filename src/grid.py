@@ -65,25 +65,26 @@ class Grid:
         self.times: u.Quantity = u.Unit("s") * np.array([-np.inf, np.inf])
 
     @classmethod
-    def from_shape_and_distances(
+    def from_shape_and_fov(
         cls,
-        shape: tuple[int, int],
+        spatial_shape: tuple[int, int] | list[int, int],
         fov: u.Quantity,
         frequencies: Optional[list[tuple[u.Quantity, u.Quantity]]] = None,
+        sky_center: SkyCoord = SkyCoord(
+            ra=np.nan * u.Unit("rad"), dec=np.nan * u.Unit("rad")
+        ),
     ) -> "Grid":
-        center = SkyCoord(ra=np.nan * u.Unit("rad"), dec=np.nan * u.Unit("rad"))
-
         if frequencies is not None:
             color_ranges = ColorRanges(
                 [ColorRange(Color(cr[0]), Color(cr[1])) for cr in frequencies]
             )
         else:
-            color_ranges = ColorRange(
-                Color(0 * u.Unit("Hz")), Color(np.inf * u.Unit("Hz"))
+            color_ranges = ColorRanges(
+                [ColorRange(Color(0 * u.Unit("Hz")), Color(np.inf * u.Unit("Hz")))]
             )
 
         return cls(
-            spatial=WcsAstropy(center=center, shape=shape, fov=fov),
+            spatial=WcsAstropy(center=sky_center, shape=spatial_shape, fov=fov),
             spectral=color_ranges,
         )
 

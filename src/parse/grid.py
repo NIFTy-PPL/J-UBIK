@@ -31,13 +31,20 @@ class GridModel:
         Parameters
         ----------
         grid_config : dict
-            The configuration dictionary containing the following keys:
-            - `sky_center`: World coordinate of the spatial grid center.
-            - `fov`: Field of view of the grid in appropriate units.
-            - `sdim`: Shape of the grid, i.e. resolution, as (sdim, sdim).
-            - `rotation`: Rotation of the grid.
+            - `sky_center`: dict[str: str]
+                e.g.: {ra: '0deg', dec: '1deg'}
+            - `fov`: str | tuple[str]
+                e.g.: 0.5arcsec; [0.1arcmin, 2.0deg]
+            - `sdim`: tuple[int, int]
+                Shape of the grid, i.e. resolution, as (sdim, sdim).
+                e.g.: [128, 12]
+            - `rotation`: str,
+                Rotation of the grid.
+                e.g.: 0.1deg
             - `energy_bin`: Holding `e_min`, `e_max`, and `reference_bin`.
+                e.g.: [e_min: [0.1], e_max: [1.2]]
             - `energy_unit`: The units for `e_min` and `e_max`
+                e.g.: eV
 
         Returns:
         --------
