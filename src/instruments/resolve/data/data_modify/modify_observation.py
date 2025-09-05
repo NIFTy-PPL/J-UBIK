@@ -12,6 +12,7 @@ from .time_modify import time_average_to_length_of_timebins
 from .weight_modify import weight_modify
 from .precision import to_single_precision, to_double_precision
 from .polarization_modify import restrict_to_stokesi, average_stokesi
+from .masking import mask_corrupted_weights
 
 
 def modify_observation(
@@ -51,6 +52,8 @@ def modify_observation(
         sky_frequencies, obs, modify.spectral_bins
     )
     obs = weight_modify(obs, modify.weight_modify)
+
+    obs = mask_corrupted_weights(obs, modify.mask_corrupted_weights)
 
     if modify.restrict_to_stokes_I:
         logger.info("Restrict to Stokes I")
