@@ -36,7 +36,8 @@ version = {attr = "jubik0.__version__"}
 
 [project.optional-dependencies]
 doc = [
-    "sphinx",
+    "sphinx<8.2",
+    "sphinxcontrib-bibtex",
     "pydata-sphinx-theme",
     "myst-parser",
     "jupyter",

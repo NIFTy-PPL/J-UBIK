@@ -18,7 +18,7 @@ pages:
   image: python:latest
   stage: release
   script:
-    - pip install "sphinx<8.2" sphinxcontrib-bibtex pydata-sphinx-theme myst-parser
+    - pip install .[doc]
     - sh docs/generate.sh
     - mv docs/build/ public/
   artifacts:
