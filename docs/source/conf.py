@@ -52,12 +52,12 @@ add_module_names = False
 
 html_theme = "pydata_sphinx_theme"
 # html_context = {"default_mode": "light"}
-# html_logo = 'logo_black.png'
+html_logo = 'ubik-logo.jpg'
 
 html_theme_options = {
     "logo": {
-     #   "image_light": "logo_black.png",
-     #   "image_dark": "logo_black.png"
+        "image_light": "ubik-logo.jpg",
+        "image_dark": "ubik-logo.jpg"
     },
     "icon_links": [
         #{
