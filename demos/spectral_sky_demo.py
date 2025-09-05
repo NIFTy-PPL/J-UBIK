@@ -50,6 +50,7 @@ import jubik0 as ju
 # While the spatial grid has to be a regular grid, the spectral input can take any spacing.  
 # However we note that the model assumes that the frequencies are given as logarithmic frequencies, i.e. `freqs` should be $\log\nu$ from Eq. (1).
 
+# %%
 shape = (256,) * 2
 distances = 0.1
 freqs, reference_frequency_index = jnp.array((0.1, 1.5, 2, 10)), 1
@@ -72,6 +73,7 @@ key = random.PRNGKey(seed)
 # The zero mode prior specifies a prior on the overall brightness of the model at the reference frequency.
 # The prior is specified by a mean and standard deviation in log brightness units.
 
+# %%
 zero_mode_settings = (-3.0, 0.1)
 
 # %% [markdown]
