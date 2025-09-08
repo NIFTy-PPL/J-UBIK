@@ -34,7 +34,7 @@ def load_and_modify_data_from_objects(
     ]
 
     for file in data_paths:
-        logger.info(f"Loading data: {file}")
+        logger.info(f"\nLoading data: {file}")
         obs = Observation.load(file)
         obs = modify_observation(sky_frequencies, obs, observation_modify)
         yield obs

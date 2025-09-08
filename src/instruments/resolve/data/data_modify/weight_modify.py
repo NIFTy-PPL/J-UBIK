@@ -27,7 +27,10 @@ def systematic_error_budget(obs: Observation, systematic: SystematicErrorBudget 
     if systematic is None:
         return obs
 
-    logger.info(f"Weights modified by {systematic.percentage} percent")
+    logger.info(
+        "Applied systematic error budget by "
+        f"{systematic.percentage * 100} percent (sigma^2+(perc*|A|)^2)."
+    )
 
     weight_old = obs.weight.asnumpy()
     perc = systematic.percentage

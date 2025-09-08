@@ -33,16 +33,19 @@ def modify_observation(
         The model for the modification, see `ObservationModify`.
     """
 
+    # Masking
+    obs = mask_corrupted_weights(obs, modify.mask_corrupted_weights)
+
     # Reverse the frequencies if they are ordered from high to low.
     if len(obs.freq) > 1:
         if obs.freq[1] - obs.freq[0] < 0:
             obs = reverse_frequencies(obs)
 
-    if modify.testing_percentage is not None:
-        obs = select_random_visibility_subset(obs, modify.testing_percentage)
+    obs = select_random_visibility_subset(obs, modify.testing_percentage)
 
     obs = time_average_to_length_of_timebins(obs, modify.time_bins)
 
+    # TODO: Make the two cases into one and supply a None to the function!
     if modify.spectral_min is not None:
         obs = restrict_by_freq(obs, modify.spectral_min, modify.spectral_max)
     if modify.spectral_restrict_to_sky_frequencies:
@@ -53,16 +56,17 @@ def modify_observation(
     )
     obs = systematic_error_budget(obs, modify.weight_modify)
 
-    obs = mask_corrupted_weights(obs, modify.mask_corrupted_weights)
-
+    # TODO: None-fy
     if modify.restrict_to_stokes_I:
         logger.info("Restrict to Stokes I")
         obs = restrict_to_stokesi(obs)
 
+    # TODO: None-fy
     if modify.average_to_stokes_I:
         logger.info("Average to Stokes I")
         obs = average_stokesi(obs)
 
+    # TODO: None-fy
     if modify.to_double_precision:
         obs = to_double_precision(obs)
 

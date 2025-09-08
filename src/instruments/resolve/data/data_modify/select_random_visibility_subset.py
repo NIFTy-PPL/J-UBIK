@@ -6,7 +6,7 @@ import numpy as np
 
 def select_random_visibility_subset(
     obs: Observation,
-    percentage: float,
+    percentage: float | None,
 ):
     """Restrict observation to a fraction (percentage) of the data points for
     testing purposes.
@@ -18,6 +18,9 @@ def select_random_visibility_subset(
     percentage: float
         The percentage of data points to be taken.
     """
+    if percentage is None:
+        return obs
+
     length = obs.uvw.shape[0]
     mask = np.sort(
         np.random.choice(
