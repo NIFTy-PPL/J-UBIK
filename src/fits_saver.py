@@ -18,7 +18,7 @@ def _process_frequency(
     """Processes the frequency axis. This axis is never squeezed."""
     freqs = u.Quantity(grid.spectral.centers).to(u.Hz, equivalencies=u.spectral())
 
-    if field.shape[np_axis] == 1 and (np.isinf(freqs[0]) or np.isinf(freqs[1])):
+    if field.shape[np_axis] == 1 and np.isinf(freqs[0]):
         return None, np.squeeze(field, axis=np_axis)
 
     # This is only approximate for backward compatibility
