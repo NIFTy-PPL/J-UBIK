@@ -1,1 +1,1 @@
-from .modify_observation import ObservationModify, WeightModify
+from .modify_observation import ObservationModify, SystematicErrorBudget

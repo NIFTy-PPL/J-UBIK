@@ -2,6 +2,5 @@ from dataclasses import dataclass
 
 
 @dataclass
-class WeightModify:
-    # scheme: str
+class SystematicErrorBudget:
     percentage: float

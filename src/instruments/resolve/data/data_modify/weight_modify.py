@@ -1,35 +1,41 @@
 import numpy as np
 from nifty.cl.logger import logger
 
-from ...parse.data.data_modify import WeightModify
+from ...parse.data.data_modify.modify_weight import SystematicErrorBudget
 from ..observation import Observation
 
 
-def weight_modify(obs: Observation, weight_modify: WeightModify | None):
+def systematic_error_budget(obs: Observation, systematic: SystematicErrorBudget | None):
     """Modify the weights of the observation. The weights get an added standard
-    deviation of `weight_modify.percentage` of the amplitude of the
+    deviation of `systematic.percentage` of the amplitude of the
     visibilities.
+
+    Note
+    ----
+    weight = 1 / (sigma**2 + (systematic.percentage * |A|)**2 )
+
 
     Parameters
     ----------
     obs: Observation
         The observation to modifiy
-    weight_modify: WeightModify
+    systematic: SystematicErrorBudget
         The parameters of the weight modify class, holding the percentage of
         the amplitude fraction.
     """
 
-    if weight_modify is None:
+    if systematic is None:
         return obs
 
-    logger.info(f"Weights modified by {weight_modify.percentage} percent")
+    logger.info(f"Weights modified by {systematic.percentage} percent")
 
     weight_old = obs.weight.asnumpy()
-    perc = weight_modify.percentage
+    perc = systematic.percentage
 
     # 1/ (sigma**2 + (sys_error_percentage*|A|)**2 )
     new_weight = 1 / (
-        (1 / np.sqrt(weight_old)) ** 2 + (perc * abs(obs.vis.asnumpy())) ** 2
+        # (1 / np.sqrt(weight_old)) ** 2 + (perc * abs(obs.vis.asnumpy())) ** 2
+        (1 / weight_old) + (perc * abs(obs.vis.asnumpy())) ** 2
     )
     obs._weight = new_weight
 

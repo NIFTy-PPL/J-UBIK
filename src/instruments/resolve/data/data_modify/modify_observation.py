@@ -9,7 +9,7 @@ from .frequency_handling import (
 )
 from .select_random_visibility_subset import select_random_visibility_subset
 from .time_modify import time_average_to_length_of_timebins
-from .weight_modify import weight_modify
+from .weight_modify import systematic_error_budget
 from .precision import to_single_precision, to_double_precision
 from .polarization_modify import restrict_to_stokesi, average_stokesi
 from .masking import mask_corrupted_weights
@@ -51,7 +51,7 @@ def modify_observation(
     obs = freq_average_by_fdom_and_n_freq_chunks(
         sky_frequencies, obs, modify.spectral_bins
     )
-    obs = weight_modify(obs, modify.weight_modify)
+    obs = systematic_error_budget(obs, modify.weight_modify)
 
     obs = mask_corrupted_weights(obs, modify.mask_corrupted_weights)
 

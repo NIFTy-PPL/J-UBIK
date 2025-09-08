@@ -2,12 +2,7 @@ from dataclasses import dataclass
 from configparser import ConfigParser
 
 from .masking import CorruptedWeights
-
-
-@dataclass
-class WeightModify:
-    # scheme: str
-    percentage: float
+from .modify_weight import SystematicErrorBudget
 
 
 @dataclass
@@ -31,7 +26,7 @@ class ObservationModify:
     spectral_min: float | None
     spectral_max: float | None
     spectral_restrict_to_sky_frequencies: bool
-    weight_modify: WeightModify | None
+    weight_modify: SystematicErrorBudget | None
     to_double_precision: bool
     testing_percentage: float | None
     restrict_to_stokes_I: bool
@@ -84,7 +79,9 @@ class ObservationModify:
 
         percentage = data_cfg.get("data weight modify percentage")
         weight_modify = (
-            None if percentage is None else WeightModify(percentage=float(percentage))
+            None
+            if percentage is None
+            else SystematicErrorBudget(percentage=float(percentage))
         )
 
         to_double_precision = eval(data_cfg.get("data to_double_precision", "True"))
@@ -156,7 +153,9 @@ class ObservationModify:
         wm = data_cfg.get("weight_modify", {})
         percentage = wm.get("percentage")
         weight_modify = (
-            None if percentage is None else WeightModify(percentage=float(percentage))
+            None
+            if percentage is None
+            else SystematicErrorBudget(percentage=float(percentage))
         )
 
         to_double_precision = data_cfg.get("to_double_precision", True)
