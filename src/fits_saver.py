@@ -126,7 +126,7 @@ def _process_dynamic_axes(
 
     # Fields shape: (sample, pol, time, freq, y, x)
     axes = dict(
-        frequency=(3, 1),
+        frequency=(3, 3),
         time=(2, 4),
         polarization=(1, 5),
         samples=(0, 6),
@@ -162,26 +162,26 @@ class FitsSaver:
         self.grid = grid
         self.field = field_samples
 
-    def save_mean(self, filename: str):
+    def save_mean(self, filename: str, sky_unit: u.Unit | None = None):
         """Averages data and saves, dynamically removing single-entry axes."""
         print(f"\n--- Saving mean to '{filename}' ---")
         # Average over samples, but keep the dimension for consistent processing
         field_to_save = self.field.mean(axis=0, keepdims=True)
-        self._save(filename, field_to_save)
+        self._save(filename, field_to_save, sky_unit)
 
-    def save_std(self, filename: str):
+    def save_std(self, filename: str, sky_unit: u.Unit | None = None):
         """Averages data and saves, dynamically removing single-entry axes."""
         print(f"\n--- Saving mean to '{filename}' ---")
         # Average over samples, but keep the dimension for consistent processing
         field_to_save = self.field.std(axis=0, keepdims=True)
-        self._save(filename, field_to_save)
+        self._save(filename, field_to_save, sky_unit)
 
-    def save_samples(self, filename: str):
+    def save_samples(self, filename: str, sky_unit: u.Unit | None = None):
         """Saves sample data, dynamically removing any single-entry axes."""
         print(f"\n--- Saving samples to '{filename}' ---")
-        self._save(filename, self.field)
+        self._save(filename, self.field, sky_unit)
 
-    def _save(self, filename: str, field_data: NDArray):
+    def _save(self, filename: str, field_data: NDArray, sky_unit: u.Unit | None = None):
         """Generic save method using the dynamic helper functions."""
         spatial_header = _create_spatial_header(self.grid)
         other_header, extensions, final_field = _process_dynamic_axes(
@@ -190,6 +190,8 @@ class FitsSaver:
 
         final_header = spatial_header
         final_header.update(other_header)
+        if sky_unit is not None:
+            final_header["BUNIT"] = sky_unit.to_string("fits")
 
         primary_hdu = fits.PrimaryHDU(data=final_field, header=final_header)
         hdul = fits.HDUList([primary_hdu] + extensions)
