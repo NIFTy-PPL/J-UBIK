@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from abc import ABC, abstractclassmethod
+from abc import ABC, abstractmethod
 from enum import Enum
 
 from .parametric_model.parametric_prior import ProbabilityConfig, prior_config_factory
@@ -9,8 +9,9 @@ from .parametric_model.parametric_prior import ProbabilityConfig, prior_config_f
 
 
 class VariableCovarianceConfig(ABC):
-    @abstractclassmethod
-    def from_yaml_dict(cls, raw: dict | list):
+    @classmethod
+    @abstractmethod
+    def from_yaml_dict(cls, raw: dict | list) -> "VariableCovarianceConfig":
         pass
 
 
@@ -18,9 +19,9 @@ class VariableCovarianceConfig(ABC):
 
 
 class StdValueShapeType(Enum):
-    filter: str = "filter"
-    integration: str = "integration"
-    pixel: str = "pixel"
+    filter = "filter"
+    integration = "integration"
+    pixel = "pixel"
 
 
 @dataclass(frozen=True)
@@ -29,10 +30,10 @@ class AdditiveStdValueConfig(VariableCovarianceConfig):
     distribution: ProbabilityConfig
 
     @classmethod
-    def from_yaml_dict(cls, settings: dict | list) -> "AdditiveStdValueConfig":
+    def from_yaml_dict(cls, raw: dict | list) -> "AdditiveStdValueConfig":
         return cls(
-            shape_type=StdValueShapeType(settings["shape_type"]),
-            distribution=prior_config_factory(settings["distribution"]),
+            shape_type=StdValueShapeType(raw["shape_type"]),
+            distribution=prior_config_factory(raw["distribution"]),
         )
 
 
@@ -42,10 +43,10 @@ class MultiplicativeStdValueConfig(VariableCovarianceConfig):
     distribution: ProbabilityConfig
 
     @classmethod
-    def from_yaml_dict(cls, settings: dict | list) -> "MultiplicativeStdValueConfig":
+    def from_yaml_dict(cls, raw: dict | list) -> "MultiplicativeStdValueConfig":
         return cls(
-            shape_type=StdValueShapeType(settings["shape_type"]),
-            distribution=prior_config_factory(settings["distribution"]),
+            shape_type=StdValueShapeType(raw["shape_type"]),
+            distribution=prior_config_factory(raw["distribution"]),
         )
 
 
