@@ -21,6 +21,13 @@ myst_enable_extensions = [
     "tasklist",
 ]
 
+mathjax3_config = {
+    "tex": {
+        "inlineMath": [["$", "$"], ["\\(", "\\)"]],
+        "displayMath": [["$$", "$$"], ["\\[", "\\]"]],
+    }
+}
+
 intersphinx_mapping = {"numpy": ("https://numpy.org/doc/stable/", None),
                        #"matplotlib": ('https://matplotlib.org/stable/', None),
                        "ducc0": ("https://mtr.pages.mpcdf.de/ducc/", None),
