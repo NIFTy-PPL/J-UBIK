@@ -20,7 +20,6 @@ import jubik0 as ju
 # Specifically, this model implements the spatio-spectral diffuse model described in
 # [Guardiani et&nbsp;al., 2025](https://arxiv.org/abs/2506.20758).
 #
-# %% [markdown]
 # ```{math}
 # :label: eq-diffuse-mf
 # I^{\mathrm{diff}}(\mathbf{x}, \nu)
@@ -30,14 +29,13 @@ import jubik0 as ju
 # ```
 #
 # *Eq. (1): Spatio-spectral diffuse model used in this demo.*  
-# We will refer to this as {eq}`eq-diffuse-mf` below.
+# We will refer to this as {eq}`eq-diffuse-mf` below.  
 # The idea behind this model is that the reference frequency sky brightness distribution is set by
 #
 # $$I^{\mathrm{diff}}(\mathbf{x}, \nu_{\mathrm{ref}}).$$
 #
 # Spectral deviations are then modeled by a power law with spectral index $\alpha(\mathbf{x})$.  
-# Deviations from the power law are assumed to be spatially correlated and are modeled by the term
-# $I_{\delta}(\mathbf{x}, \nu)$ in Eq. (1).  
+# Deviations from the power law are assumed to be spatially correlated and are modeled by the term $I_{\delta}(\mathbf{x}, \nu)$ in Eq. (1).
 # The resulting model is a product between a spatially correlated reference frequency sky brightness distribution
 # and a spatially correlated spectral behavior which needs to be specified by the user.
 # In the following, we show how to specify the spatial and spectral priors for this model.
@@ -155,7 +153,7 @@ spectral_amplitude_model = "non_parametric"
 
 # %% [markdown]
 # #### Spectral Index
-# The spectral index $\alpha(\mathbf{x})$ sets the power-law scaling in Eq.~(\ref{eq-diffuse-mf}):  
+# The spectral index $\alpha(\mathbf{x})$ sets the power-law scaling in {eq}`eq-diffuse-mf`:  
 #
 # $$I^{\mathrm{diff}}(\mathbf{x}, \nu) \propto
 # \left(\frac{\nu}{\nu_{\mathrm{ref}}}\right)^{\alpha(\mathbf{x})}.$$
@@ -188,3 +186,117 @@ deviations_settings = dict(
     process="wiener",
     sigma=(0.2, 0.08),
 )
+
+# %% [markdown]
+# ### Build Model: What each argument does
+# We now assemble the model with `ju.build_simple_spectral_sky(...)`.  
+# The key arguments are:
+#
+# - `shape`, `distances`: spatial grid size and pixel scale.  
+# - `log_frequencies`: the **logarithms** of the observing frequencies; the model operates in $\log \nu$.  
+# - `reference_frequency_index`: which entry in `log_frequencies` is $\nu_{\mathrm{ref}}$.  
+# - `zero_mode_settings`: prior for the global brightness scale at $\nu_{\mathrm{ref}}$.  
+# - `spatial_amplitude_settings`, `spatial_amplitude_model`: spatial correlation prior (Matérn or non-parametric).  
+# - `spectral_amplitude_settings`, `spectral_amplitude_model`: correlation prior along $\log \nu$.  
+# - `spectral_index_settings`: prior for $\alpha(\mathbf{x})$.  
+# - `deviations_settings`: prior for $I_{\delta}(\mathbf{x}, \nu)$.
+#
+# Together, these specify the generative model in Eq. (1) and define a prior over spatio-spectral skies.
+
+# %%
+mf_model = ju.build_simple_spectral_sky(
+    prefix="test",
+    shape=shape,
+    distances=distances,
+    log_frequencies=freqs,
+    reference_frequency_index=reference_frequency_index,
+    zero_mode_settings=zero_mode_settings,
+    spatial_amplitude_settings=amplitude_settings,
+    spectral_index_settings=spectral_idx_settings,
+    deviations_settings=deviations_settings,
+    spatial_amplitude_model=amplitude_model,
+    spectral_amplitude_settings=spectral_amplitude_settings,
+    spectral_amplitude_model=spectral_amplitude_model,
+)
+
+# %% [markdown]
+# ### Draw Prior Sample Realization — Reproducibility note
+# Sampling is seeded via JAX PRNG keys.  
+# Using the same `seed` and the same model definition yields identical draws. 
+# This is handy for demos and tests.  
+# If you want multiple independent samples, split the key, e.g.:
+#
+# ```python
+# key, sample_key = random.split(key)
+# random_pos = mf_model.init(sample_key)
+# ```
+
+# %%
+random_pos = mf_model.init(key)
+
+# %% [markdown]
+# ### Plot Results —> What to look for
+# The helper `ju.plot_result(...)` renders maps from model components:
+#
+# - **Reference frequency distribution**: morphology at $\nu_{\mathrm{ref}}$.  
+# - **Spectral index distribution**: spatial variation of $\alpha(\mathbf{x})$.  
+# - **Spectral deviations distribution**: $I_{\delta}(\mathbf{x}, \nu)$ across channels (coherent, smooth variations).  
+# - **MF model realization**: full $I^{\mathrm{diff}}(\mathbf{x}, \nu)$ per channel.
+#
+# Tips:
+# - Try changing the random seed to see different samples.
+# - Compare the reference map to the multi-frequency panels to see how the same structures reweight with $\alpha(\mathbf{x})$ and $I_{\delta}$.  
+# - If small-scale speckle dominates, consider steepening `loglogavgslope` (more negative) in the spatial amplitude prior.  
+# - If spectra vary too erratically, reduce `sigma` in `deviations_settings` or steepen the spectral `loglogavgslope`.
+
+# %%
+ju.plot_result(
+    mf_model.reference_frequency_distribution(random_pos),
+    n_rows=1,
+    n_cols=1,
+    figsize=(15, 5),
+    title="Reference frequency distribution",
+)
+
+# %%
+ju.plot_result(
+    mf_model.spectral_index_distribution(random_pos),
+    n_rows=1,
+    n_cols=1,
+    figsize=(15, 5),
+    title="Spectral index distribution",
+)
+
+# %%
+ju.plot_result(
+    mf_model.spectral_deviations_distribution(random_pos),
+    n_rows=1,
+    n_cols=freqs.shape[0],
+    figsize=(15, 5),
+    title="Spectral deviations distribution",
+)
+
+# %%
+ju.plot_result(
+    mf_model(random_pos),
+    n_rows=1,
+    n_cols=freqs.shape[0],
+    figsize=(15, 5),
+    title="MF model realization",
+)
+
+# %% [markdown]
+# ## Interpretation and Next Steps
+# **Interpretation:**  
+# The prior defines a family of skies consistent with expected spatial coherence and smooth spectral behavior,
+# while allowing controlled deviations from a pure power law. The plots visualize a single draw from that prior.
+#
+# **Next steps:**  
+# - Try the Matérn spatial amplitude (commented block above) and compare morphologies.  
+# - Adjust `zero_mode_settings` to shift the overall brightness scale at $\nu_{\mathrm{ref}}`.  
+# - Modify `spectral_idx_settings["mean"]` to explore steeper or flatter global spectra.  
+# - Tune `deviations_settings["sigma"]` to suppress or enhance frequency-dependent wiggles.  
+# - Change the frequency grid (values in `freqs`) to test behavior across different bands.
+#
+# In inference workflows, these priors become **regularizers** that guide reconstructions when data are noisy or incomplete,
+# with posterior uncertainty quantifying how strongly the data constrain each component.
