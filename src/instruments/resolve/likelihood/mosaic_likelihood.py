@@ -63,9 +63,20 @@ class LikelihoodBuilder:
         This will only be displayed when having multiple likelihoods.
     """
 
-    visibilities: NDArray
-    weight: NDArray
     response: jft.Model
+    observation: Observation
+
+    @property
+    def visibilities(self) -> NDArray:
+        return self.observation.vis.val.val
+
+    @property
+    def weight(self) -> NDArray:
+        return self.observation.weight.val.val
+
+    @property
+    def uvw(self) -> NDArray:
+        return self.observation.uvw
 
     @property
     def likelihood(self) -> jft.Likelihood:
@@ -132,7 +143,6 @@ def build_likelihood_from_sky_beamer(
     )
 
     return LikelihoodBuilder(
-        visibilities=observation.vis.val.val,
-        weight=observation.weight.val.val,
+        observation=observation,
         response=response,
     )

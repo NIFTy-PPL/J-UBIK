@@ -17,7 +17,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
-from functools import partial, reduce
+from functools import partial, reduce, cached_property
 from operator import add
 
 import jax.numpy as jnp
@@ -109,7 +109,7 @@ class RadioLikelihoodProducts:
             for key, val in grouped.items()
         ]
 
-    @property
+    @cached_property
     def likelihood(self) -> jft.Likelihood:
         """Combine all likelihoods and connect them to the sky beam model.
 

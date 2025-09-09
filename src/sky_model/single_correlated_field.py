@@ -13,5 +13,10 @@ def build_single_correlated_field(
     cfm.add_fluctuations(shape, distances=distances, **fluctuations_config)
     amps = cfm.get_normalized_amplitudes()
     cfm = cfm.finalize()
-    additional = {f"amplitude of {prefix}": amps}
+
+    additional = {
+        f"amplitude of {prefix}": amps,
+        f"grids of {prefix}": cfm.target_grids,
+    }
+
     return cfm, additional
