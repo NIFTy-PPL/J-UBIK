@@ -293,7 +293,7 @@ ju.plot_result(
 #
 # **Next steps:**  
 # - Try the Matérn spatial amplitude (commented block above) and compare morphologies.  
-# - Adjust `zero_mode_settings` to shift the overall brightness scale at $\nu_{\mathrm{ref}}`.  
+# - Adjust `zero_mode_settings` to shift the overall brightness scale at $\nu_{\mathrm{ref}}$.  
 # - Modify `spectral_idx_settings["mean"]` to explore steeper or flatter global spectra.  
 # - Tune `deviations_settings["sigma"]` to suppress or enhance frequency-dependent wiggles.  
 # - Change the frequency grid (values in `freqs`) to test behavior across different bands.
