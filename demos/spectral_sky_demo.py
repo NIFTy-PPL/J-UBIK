@@ -20,19 +20,21 @@ import jubik0 as ju
 # Specifically, this model implements the spatio-spectral diffuse model described in
 # [Guardiani et&nbsp;al., 2025](https://arxiv.org/abs/2506.20758).
 #
-# <a id="eq-diffuse-mf"></a>
-# $$\begin{aligned}
+# (eq-diffuse-mf)=
+# \[
 # I^{\mathrm{diff}}(\mathbf{x}, \nu)
 # \;=\;
 # I^{\mathrm{diff}}(\mathbf{x}, \nu_{\mathrm{ref}})
 # \left(\frac{\nu}{\nu_{\mathrm{ref}}}\right)^{\alpha(\mathbf{x})}
 # \, I_{\delta}(\mathbf{x}, \nu)\, .
-# \end{aligned}$$
+# \]
 #
 # *Eq. (1): Spatio-spectral diffuse model used in this demo.*  
-# We will refer to this as [Eq. (1)](#eq-diffuse-mf) below.  
-# The idea behind this model is that the reference frequncy sky brightness distribution is set by
-# $$I^{\mathrm{diff}}(\mathbf{x}, \nu_{\mathrm{ref}}).$$
+# We will refer to this as {eq}`eq-diffuse-mf` below.  
+# The idea behind this model is that the reference frequency sky brightness distribution is set by
+# \[
+# I^{\mathrm{diff}}(\mathbf{x}, \nu_{\mathrm{ref}}).
+# \]
 # Spectral deviations are then modeled by a power law with spectral index $\alpha(\mathbf{x})$.  
 # Deviations from the power law are assumed to be spatially correlated and are modeled by the term $I_{\delta}(\mathbf{x}, \nu)$ in Eq. (1).
 # The resulting model is a product between a spatially correlated reference frequency sky brightness distribution
@@ -152,8 +154,11 @@ spectral_amplitude_model = "non_parametric"
 
 # %% [markdown]
 # #### Spectral Index
-# The spectral index $\alpha(\mathbf{x})$ sets the power-law scaling in [Eq. (1)](#eq-diffuse-mf):  
-# $$I^{\mathrm{diff}}(\mathbf{x}, \nu) \propto \left(\frac{\nu}{\nu_{\mathrm{ref}}}\right)^{\alpha(\mathbf{x})}.$$
+# The spectral index $\alpha(\mathbf{x})$ sets the power-law scaling in {eq}`eq-diffuse-mf`:  
+# \[
+# I^{\mathrm{diff}}(\mathbf{x}, \nu) \propto
+# \left(\frac{\nu}{\nu_{\mathrm{ref}}}\right)^{\alpha(\mathbf{x})}.
+# \]
 # We model $\alpha(\mathbf{x})$ as a correlated Gaussian field with:
 # - `mean`: global average spectral index (e.g., −1.0).  
 # - `fluctuations`: strength of spatial variability around the mean.
