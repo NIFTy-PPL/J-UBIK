@@ -118,7 +118,6 @@ def build_black_body_spectrum(
     config: BlackBodyConfig,
     sky_unit: u.Unit,
     redshift: float = 0.0,
-    spatial_unit: u.Unit = u.Unit("arcsec"),
 ) -> BlackBody:
     assert not config.is_field
 

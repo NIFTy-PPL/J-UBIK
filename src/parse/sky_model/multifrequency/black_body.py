@@ -6,11 +6,10 @@ from astropy.units import temperature
 from ....instruments.jwst.parse.parametric_model.parametric_prior import (
     DefaultPriorConfig,
     DeltaPriorConfig,
-    PriorConfigFactory,
+    prior_config_factory,
 )
 from ...parsing_base import FromYamlDict
 from ..correlated_field import (
-    FLUCTUATIONS_CONFIG_BUILDER,
     CfmFluctuationsConfig,
     MaternFluctationsConfig,
     single_correlated_field_config_factory,
@@ -21,6 +20,15 @@ from .spectral_product_mf_sky import SimpleSpectralSkyConfig
 
 @dataclass
 class BlackBodyConfig(FromYamlDict):
+    """
+    Parameters
+    ----------
+    temperature_gaussian: GaussianConfig | None
+        (Optional) Gaussian mean model of the temperature field.
+    temperature: Union[MaternFluctationsConfig, CfmFluctuationsConfig, DefaultPriorConfig, DeltaPriorConfig ]
+        The settings of the temperature or log-temperature field.
+    """
+
     temperature_gaussian: GaussianConfig | None
     temperature: Union[
         MaternFluctationsConfig,
@@ -31,51 +39,32 @@ class BlackBodyConfig(FromYamlDict):
 
     @property
     def is_field(self):
+        """Specifying if this corresponds to config for a field or a single value."""
         if self.temperature in [MaternFluctationsConfig, CfmFluctuationsConfig]:
             return True
         else:
             return False
 
-    @staticmethod
-    def _handle_single_config(raw: dict, model_builders: dict):
-        """Handle the construction of a single config builder.
+    @classmethod
+    def from_yaml_dict(cls, raw: dict) -> "BlackBodyConfig":
+        """Initialization from the raw dictionary.
 
         Parameters
         ----------
         raw: dict
-            The config dictionary, holding ONE
-             - key (model name)
-             - value (model config)
-        model_builders: dict
-            All available models for this process with
-             - key (model builder name)
-             - value (model builder)
+            - temperature: config
+                Single valued : ["lognormal", "invgamma", "delta"]
+                Field valued : ["matern", "cfm"]
+            - temperature_gaussian: config (optional)
         """
-        for ii, model_name_raw in enumerate(list(raw)):
-            model_name = model_name_raw.split("_")[0].lower()
-
-            # Catch not implemented errors
-            if ii != 0:
-                raise NotImplementedError("Only one temperature is implemented.")
-            elif model_name not in model_builders:
-                raise NotImplementedError(
-                    f"Invalid perturbation model '{model_name}'"
-                    f", supporting {list(model_builders)}"
-                )
-
-        return model_builders[model_name].from_yaml_dict(raw[model_name_raw])
-
-    @classmethod
-    def from_yaml_dict(cls, raw: dict) -> "BlackBodyConfig":
         # Handle optional parametric mean model for the temperature field.
         tg_setting = raw.get("temperature_gaussian")
         tg = None if tg_setting is None else GaussianConfig.from_yaml_dict(tg_setting)
 
-        temperature = cls._handle_single_config(
-            raw["temperature"],
-            FLUCTUATIONS_CONFIG_BUILDER
-            | {key: PriorConfigFactory for key in ["lognormal", "invgamma", "delta"]},
-        )
+        if isinstance(raw["temperature"], list):
+            temperature = prior_config_factory(tuple(raw["temperature"]))
+        else:
+            temperature = single_correlated_field_config_factory(raw["temperature"])
 
         return cls(
             temperature_gaussian=tg,
@@ -91,6 +80,17 @@ class ModifiedBlackBodyConfig(FromYamlDict):
 
     @classmethod
     def from_yaml_dict(cls, raw: dict) -> "ModifiedBlackBodyConfig":
+        """Initialization from the raw dictionary.
+
+        Parameters
+        ----------
+        raw: dict
+            - temperature: config
+                Field valued : ["matern", "cfm"]
+            - temperature_gaussian: config (optional)
+            - optical_depth: SimpleSpectralSkyConfig
+                See the parameters of `SimpleSpectralSkyConfig`
+        """
         # Optional parametric mean model for the temperature field.
         # Only Gaussian implemented.
         tg_setting = raw.get("temperature_gaussian")

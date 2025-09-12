@@ -152,17 +152,6 @@ def prior_config_factory(
             )
 
 
-# TODO : Simplify this with respect to the other prior_config_factory.
-class PriorConfigFactory:
-    @staticmethod
-    def from_yaml_dict(
-        raw: dict | tuple,
-    ) -> Union[
-        UniformPriorConfig, InverseGammaConfig, DeltaPriorConfig, DefaultPriorConfig
-    ]:
-        return prior_config_factory(raw)
-
-
 # Utils --------------------------------------------------------------------------------
 
 
