@@ -21,6 +21,11 @@ import nifty.re as jft
 from jax import Array
 from numpy.typing import NDArray
 
+from ...parse.sky_model.parametric_model.gaussian import GaussianConfig
+from ...instruments.jwst.parametric_model.parametric_prior import (
+    build_parametric_prior_from_prior_config,
+)
+
 
 class Gaussian(jft.Model):
     def __init__(
@@ -29,7 +34,7 @@ class Gaussian(jft.Model):
         center: jft.Model,
         covariance: jft.Model,
         off_diagonal: jft.Model,
-        coordiantes: NDArray,
+        coordinates: NDArray,
         log: bool = False,
     ) -> None:
         self.i0: jft.Model = i0
@@ -37,7 +42,7 @@ class Gaussian(jft.Model):
         self.covariance: jft.Model = covariance
         self.off_diagonal: jft.Model = off_diagonal
 
-        self._coordiantes = coordiantes
+        self._coordiantes = coordinates
         self._log = log
 
         super().__init__(
@@ -66,3 +71,40 @@ class Gaussian(jft.Model):
             return self._log_call(x)
         else:
             return self._exp_call(x)
+
+    @classmethod
+    def from_config(
+        cls,
+        domain_key: str,
+        config: GaussianConfig,
+        coordinates: NDArray,
+        log: bool = False,
+    ) -> "Gaussian":
+        return cls(
+            i0=build_parametric_prior_from_prior_config(
+                domain_key=f"{domain_key}_i0",
+                prior_config=config.i0,
+                shape=(),
+                as_model=True,
+            ),
+            center=build_parametric_prior_from_prior_config(
+                domain_key=f"{domain_key}_center",
+                prior_config=config.center,
+                shape=(2,),
+                as_model=True,
+            ),
+            covariance=build_parametric_prior_from_prior_config(
+                domain_key=f"{domain_key}_covariance",
+                prior_config=config.covariance,
+                shape=(2,),
+                as_model=True,
+            ),
+            off_diagonal=build_parametric_prior_from_prior_config(
+                domain_key=f"{domain_key}_offdiagonal",
+                prior_config=config.off_diagonal,
+                shape=(),
+                as_model=True,
+            ),
+            coordinates=coordinates,
+            log=log,
+        )

@@ -1,7 +1,7 @@
 import jax.numpy as jnp
 import nifty.re as jft
 
-from ...parse.sky_model.multifrequency.mf_model_from_grid import ConstantMFConfig
+from ...parse.sky_model.multifrequency.constant_mf import ConstantMFConfig
 from ...grid import Grid
 from ...instruments.jwst.parametric_model.parametric_prior import (
     build_parametric_prior_from_prior_config,

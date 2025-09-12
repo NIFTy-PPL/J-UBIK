@@ -1,23 +1,9 @@
 from dataclasses import dataclass
-import jax.numpy as jnp
 from typing import Callable
 
-from ...parsing_base import StaticTyped, FromYamlDict
-from ..correlated_field import (
-    single_correlated_field_config_factory,
-    MaternFluctationsConfig,
-    CfmFluctuationsConfig,
-)
-from ..parametric_model.gaussian import GaussianConfig
+import jax.numpy as jnp
 
-
-@dataclass
-class ConstantMFConfig(FromYamlDict):
-    value: dict | tuple
-
-    @classmethod
-    def from_yaml_dict(cls, raw: dict) -> "ConstantMFConfig":
-        return cls(value=raw["value"])
+from ...parsing_base import FromYamlDict
 
 
 @dataclass
@@ -50,23 +36,4 @@ class SimpleSpectralSkyConfig(FromYamlDict):
             ),
             harmonic_type=raw.get("harmonic_type", "fourier"),
             nonlinearity=getattr(jnp, raw.get("nonlinearity", "exp")),
-        )
-
-
-@dataclass
-class ModifiedBlackBodyConfig(FromYamlDict):
-    temperature_gaussian: GaussianConfig | None
-    temperature: MaternFluctationsConfig | CfmFluctuationsConfig
-    optical_depth: SimpleSpectralSkyConfig
-
-    @classmethod
-    def from_yaml_dict(cls, raw: dict) -> "ModifiedBlackBodyConfig":
-        return cls(
-            temperature_gaussian=GaussianConfig.from_yaml_dict(
-                raw["temperature_gaussian"]
-            )
-            if "temperature_gaussian" in raw
-            else None,
-            temperature=single_correlated_field_config_factory(raw["temperature"]),
-            optical_depth=SimpleSpectralSkyConfig.from_yaml_dict(raw["optical_depth"]),
         )

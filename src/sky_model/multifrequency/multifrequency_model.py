@@ -4,23 +4,30 @@ from astropy import units as u
 
 from ...grid import Grid
 from ...parse.parsing_base import FromYamlDict
-from ...parse.sky_model.multifrequency.mf_model_from_grid import (
-    ConstantMFConfig,
+from ...parse.sky_model.multifrequency.black_body import (
+    BlackBodyConfig,
     ModifiedBlackBodyConfig,
+)
+from ...parse.sky_model.multifrequency.constant_mf import ConstantMFConfig
+from ...parse.sky_model.multifrequency.spectral_product_mf_sky import (
     SimpleSpectralSkyConfig,
 )
-from .mf_constant import SingleValueMf, build_constant_mf_from_grid
-from .mf_model_from_grid import (
+from .black_body import (
+    build_black_body_spectrum_from_grid,
     build_modified_black_body_spectrum_from_grid,
+)
+from .mf_constant import SingleValueMf, build_constant_mf_from_grid
+from .spectral_product_mf_sky import (
+    SpectralProductSky,
     build_simple_spectral_sky_from_grid,
 )
-from .spectral_product_mf_sky import SpectralProductSky
 
 # Direct mapping to config classes
-MODEL_CONFIG_CLASSES: dict[str, FromYamlDict] = {
+MODEL_CONFIG_CLASSES: dict = {
     "nifty_mf": SimpleSpectralSkyConfig,
     "niftymf": SimpleSpectralSkyConfig,
     "constant_mf": ConstantMFConfig,
+    "black_body": BlackBodyConfig,
     "modified_black_body": ModifiedBlackBodyConfig,
 }
 
