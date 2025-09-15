@@ -6,14 +6,37 @@
 # %%
 
 from functools import reduce
+from typing import Optional, Sequence, List, Tuple
+import math
 
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
+import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from .data import Domain
 from .convolve import convolve
+from nifty.re import logger
+
+
+
+def display_plot_or_save(
+        fig: plt.Figure, 
+        filename: Optional[str], 
+        *,
+        dpi: int, 
+        bbox_inches=None, 
+):
+    """Save *this* figure if filename is given, else show it. Optionally log and close."""
+    if filename:
+        fig.savefig(filename, dpi=dpi, bbox_inches=bbox_inches)
+        plt.close(fig)
+        plt.cla()
+        plt.clf()
+        logger.info(f"Plot saved to {filename}.")
+    else:
+        plt.show()
 
 
 def plot_result(array,
@@ -349,82 +372,308 @@ def plot_sample_averaged_log_2d_histogram(x_array_list,
 def plot_rgb(array,
              sat_min=[0, 0, 0],
              sat_max=[1, 1, 1],
-             name=None,
              sigma=None,
              log=False,
-             pause_time=None,
+             *,
+             scale_mode: str = "global",      # "global" (preserve RGB proportions) or "per_channel"
+             show_flux_bars: bool = False,    # add tiny per-channel bars showing vmin/vmax (actual flux)
+             flux_bar_decimals: int = 3,      # tick formatting for flux bars
+             scalebar_px: int | None = None,  # length of scalebar in pixels (None → no scalebar)
+             px_scale: float | None = None,   # pixel scale (e.g. arcsec/pixel); used for label if provided
+             scalebar_label: str | None = None,
+             scalebar_loc: str = "lower right",
+             ax: Optional[plt.Axes] = None,
+             name=None, 
+             dpi=300,
+             bbox_inches=None,
              ):
     """
-    Plots an RGB image and saves it to a file.
+    Plot an RGB image with per-channel flux-fraction saturation.
 
-    This function processes an RGB image array, applies optional smoothing,
-    clipping, and logarithmic scaling, and then saves the image to a PNG file.
-
-    Parameters
-    ----------
-    array : ndarray
-        An array with shape (RGB, Space, Space) representing the RGB image data.
-        The first dimension should correspond to the color channels
-        (Red, Green, Blue).
-    sat_min : list of float, optional
-        Minimum values for saturation clipping in each color channel.
-        Should be a list with three elements corresponding to the RGB channels.
-        Default is [0, 0, 0].
-    sat_max : list of float, optional
-        Maximum values for saturation clipping in each color channel.
-        Should be a list with three elements corresponding to the RGB channels.
-        Default is [1, 1, 1].
-    name : str, optional
-        The base name of the file where the plot will be saved.
-        The file extension '.png' will be added automatically.
-        If None, no file will be saved.
-    sigma : float or None, optional
-        Standard deviation for Gaussian smoothing.
-        If None, no smoothing is applied. Default is None.
-    log : bool, optional
-        If True, apply logarithmic scaling to the
-        image data (non-zero values only). Default is False.
-    pause_time : float, optional
-        The time in seconds to pause between each plot.
-        If None, no pause is applied. Default is None.
+    New options:
+      - scale_mode="global" (default) or "per_channel"
+      - show_flux_bars=True adds three tiny color bars (R,G,B) with tick labels
+        at the per-channel flux thresholds (actual units).
+      - scalebar_px adds a scale bar in pixel units; if px_scale is given,
+        also shows physical length (e.g., arcsec).
 
     Returns
     -------
-    None
-        The function saves the RGB image to a PNG file and does not
-        return any value.
-
-    Notes
-    -----
-    - The image will be saved with the filename format '<name>.png'.
-    - Ensure that the input array is correctly formatted with the first
-    dimension as RGB channels.
+    fig, ax, info : matplotlib Figure/Axes, and a dict with thresholds/scale info
     """
+
+    # ---------------- helpers ----------------
+    def _as_triplet(x):
+        if isinstance(x, (int, float)):
+            return [x, x, x]
+        if len(x) != 3:
+            raise ValueError("sat_min/sat_max must be a float or a list of 3 floats (per RGB channel).")
+        return x
+
+    # ---------------- helpers ----------------
+    def _as_triplet(x):
+        if isinstance(x, (int, float)):
+            return [x, x, x]
+        if len(x) != 3:
+            raise ValueError("sat_min/sat_max must be a float or a list of 3 floats (per RGB channel).")
+        return x
+
+    def _flux_quantile_threshold(ch: np.ndarray, q: float) -> float:
+        x = np.asarray(ch, dtype=float).ravel()
+        if x.size == 0:
+            return 0.0
+        shift = x.min()
+        x_shift = x - shift if shift < 0 else x
+        tot = x_shift.sum()
+        if not np.isfinite(tot) or tot <= 0:
+            return float(np.nanmin(ch) if q <= 0 else np.nanmax(ch))
+        order = np.argsort(x)
+        vals = x[order]
+        weights = x_shift[order]
+        cflux = np.cumsum(weights) / tot
+        idx = np.searchsorted(cflux, np.clip(q, 0.0, 1.0), side="left")
+        idx = min(idx, vals.size - 1)
+        return float(vals[idx])
+
+    def _per_channel_flux_clip(rgb: np.ndarray, qmin, qmax) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        out = np.empty_like(rgb, dtype=float)
+        vmins = np.zeros(3, dtype=float)
+        vmaxs = np.zeros(3, dtype=float)
+        for c in range(3):
+            ch = rgb[c]
+            vmin = _flux_quantile_threshold(ch, qmin[c])
+            vmax = _flux_quantile_threshold(ch, qmax[c])
+            if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= vmin:
+                vmax = float(np.nanmax(ch))
+                vmin = float(np.nanmin(ch))
+                if not np.isfinite(vmax) or vmax <= vmin:
+                    out[c] = np.zeros_like(ch, dtype=float)
+                    vmins[c] = vmin
+                    vmaxs[c] = vmax
+                    continue
+            out[c] = np.clip(ch, vmin, vmax)
+            vmins[c], vmaxs[c] = vmin, vmax
+        return out, vmins, vmaxs
+
+    def _add_scalebar(ax, length_px: int, px_scale: float | None, label: str | None,
+                      loc: str = "lower right", color="white"):
+        if label is None:
+            if px_scale is not None and np.isfinite(px_scale):
+                phys = length_px * px_scale
+                label = f"{length_px}px ({phys:g})"
+            else:
+                label = f"{length_px}px"
+        bar = AnchoredSizeBar(ax.transData,
+                              length_px, label,
+                              loc=loc,
+                              pad=0.4,
+                              color=color,
+                              frameon=True,
+                              size_vertical=max(1, int(0.01 * length_px)),
+                              fontproperties=fm.FontProperties(size=8))
+        if bar.txt_label is not None:
+            bar.txt_label.set_color(color)
+        if bar.patch is not None:
+            bar.patch.set_alpha(0.5)
+        ax.add_artist(bar)
+
+    def _add_flux_bars(ax, vmins, vmaxs, decimals=3):
+        pad = 0.02
+        h = 0.08
+        w = 0.5
+        left = 0.5 - w / 2
+        bottom0 = pad
+        cmaps = ["Reds", "Greens", "Blues"]
+        for i, (cmap, vmin, vmax) in enumerate(zip(cmaps, vmins, vmaxs)):
+            ax_in = ax.inset_axes([left, bottom0 + i*(h+0.01), w, h])
+            grad = np.linspace(0, 1, 256)[None, :]
+            ax_in.imshow(grad, aspect="auto", cmap=cmap, origin="lower",
+                         extent=[0, 1, 0, 1])
+            ax_in.set_xticks([0, 1], [f"{vmin:.{decimals}f}", f"{vmax:.{decimals}f}"])
+            ax_in.set_yticks([])
+            for spine in ax_in.spines.values():
+                spine.set_visible(False)
+            ax_in.tick_params(axis='x', labelsize=7)
+        ax.text(left - 0.02, bottom0 + 3*(h+0.01) - 0.015, "Flux clip\n(vmin→vmax)",
+                transform=ax.transAxes, ha="right", va="top", fontsize=7, color="w",
+                bbox=dict(boxstyle="round,pad=0.2", fc=(0,0,0,0.4), ec="none"))
+
+    # ---------------- main ----------------
+    sat_min = _as_triplet(sat_min)
+    sat_max = _as_triplet(sat_max)
+    # clamp to [0,1]
+    sat_min = [float(np.clip(x, 0.0, 1.0)) for x in sat_min]
+    sat_max = [float(np.clip(x, 0.0, 1.0)) for x in sat_max]
+
+    arr = np.asarray(array)
     if sigma is not None:
-        array = _smooth(sigma, array)
-    if sat_min is not None and sat_max is not None:
-        array = _clip(array, sat_min, sat_max)
+        arr = _smooth(sigma, arr)
     if log:
-        array = _non_zero_log(array)
+        arr = _non_zero_log(arr)
 
-    array = np.moveaxis(array, 0, -1)  # Move the RGB dimension
-    # to the last axis for plotting
-    plot_data = _norm_rgb_plot(array)  # Normalize data for RGB plotting
-    plt.imshow(plot_data, origin="lower")
+    # 1) Per-channel clip by cumulative-flux thresholds
+    arr_clipped, vmins, vmaxs = _per_channel_flux_clip(arr, sat_min, sat_max)
 
-    if name is not None:
-        plt.savefig(name + ".png", dpi=500) # TODO: make dpi configurable
-        plt.cla()
-        plt.clf()
-        plt.close()
-        print(f"RGB image saved as {name}.png")
-    else:
-        if pause_time is not None:
-            plt.pause(pause_time)
-            plt.show()
-            plt.close()
+    # 2) Normalize for display
+    smode = str(scale_mode).lower()
+    if smode not in ("global", "per_channel"):
+        raise ValueError("scale_mode must be 'global' or 'per_channel'.")
+
+    if smode == "global":
+        global_max = np.nanmax(arr_clipped)
+        if not np.isfinite(global_max) or global_max <= 0:
+            img01 = np.zeros_like(arr_clipped, dtype=float)
         else:
-            plt.show()
+            img01 = arr_clipped / global_max
+    else:
+        img01 = np.empty_like(arr_clipped, dtype=float)
+        for c in range(3):
+            ch = arr_clipped[c]
+            ch_max = np.nanmax(ch)
+            if not np.isfinite(ch_max) or ch_max <= 0:
+                img01[c] = np.zeros_like(ch, dtype=float)
+            else:
+                img01[c] = ch / ch_max
+
+    created_fig = False
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 5))
+        created_fig = True
+    else:
+        fig = ax.figure
+
+    ax.imshow(np.moveaxis(img01, 0, -1), origin="lower")
+    ax.set_xticks([]); ax.set_yticks([])
+
+    if scalebar_px is not None:
+        _add_scalebar(ax, scalebar_px, px_scale, scalebar_label, scalebar_loc)
+    if show_flux_bars:
+        _add_flux_bars(ax, vmins, vmaxs, decimals=flux_bar_decimals)
+
+    # If we created the figure, either show or save it via the helper
+    if created_fig:
+        display_plot_or_save(fig, filename=name, dpi=dpi, bbox_inches=bbox_inches, logger=logger)
+
+    info = dict(
+        vmins=vmins,
+        vmaxs=vmaxs,
+        scale_mode=smode,
+        global_max=float(np.nanmax(arr_clipped)) if smode == "global" else None,
+    )
+    return fig, ax, info
+
+
+def plot_rgb_grid(images: np.ndarray,
+                  nrows: int | None = None,
+                  ncols: int | None = None,
+                  figsize: Tuple[float, float] | None = None,
+                  name: str | None = None,
+                  dpi: int | None = None,
+                  bbox_inches: str | None = None,
+                  *,
+                  titles: Sequence[str] | None = None,
+                  suptitle: str | None = None,
+                  wspace: float = 0.05,
+                  hspace: float = 0.05,
+                  share_axes: bool = True,
+                  # anything below is passed through to plot_rgb
+                  sat_min=[0, 0, 0],
+                  sat_max=[1, 1, 1],
+                  scale_mode: str = "global",
+                  sigma=None,
+                  log: bool = False,
+                  show_flux_bars: bool = False,
+                  scalebar_px: int | None = None,
+                  px_scale: float | None = None,
+                  scalebar_label: str | None = None,
+                  scalebar_loc: str = "lower right",
+                  flux_bar_decimals: int = 3,
+                  ) -> tuple[plt.Figure, np.ndarray, List[dict]]:
+    """
+    Plot a batch of RGB images (N, 3, H, W) in a single figure using plot_rgb for each cell.
+
+    Parameters
+    ----------
+    images : ndarray (N, 3, H, W)
+        Batch of RGB images.
+    nrows, ncols : int or None
+        Grid layout. If None, a near-square grid is chosen.
+    figsize : (w, h) inches, optional
+        Defaults to (ncols*3, nrows*3).
+    titles : list[str], optional
+        Per-image titles.
+    suptitle : str, optional
+        Figure-wide title.
+    wspace, hspace : float
+        Spacing between subplots.
+    share_axes : bool
+        If True, removes ticks on all subplots.
+
+    Other kwargs are forwarded to `plot_rgb` for each cell.
+    """
+    images = np.asarray(images)
+    if images.ndim != 4 or images.shape[1] != 3:
+        raise ValueError("images must have shape (N, 3, H, W)")
+
+    N = images.shape[0]
+
+    # Choose grid if not specified (near-square)
+    if nrows is None and ncols is None:
+        side = int(math.ceil(math.sqrt(N)))
+        nrows, ncols = int(math.ceil(N / side)), side
+        # Make it a bit wider than tall if that fits more naturally
+        if (nrows - 1) * side >= N:
+            nrows -= 1
+    elif nrows is None:
+        nrows = int(math.ceil(N / ncols))
+    elif ncols is None:
+        ncols = int(math.ceil(N / nrows))
+
+    if figsize is None:
+        figsize = (ncols * 3.0, nrows * 3.0)
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    axes = np.atleast_2d(axes)
+
+    infos: List[dict] = []
+    idx = 0
+    for r in range(nrows):
+        for c in range(ncols):
+            ax = axes[r, c]
+            if idx < N:
+                arr = images[idx]
+                _, _, info = plot_rgb(
+                    arr,
+                    sat_min=sat_min,
+                    sat_max=sat_max,
+                    sigma=sigma,
+                    log=log,
+                    scale_mode=scale_mode,
+                    show_flux_bars=show_flux_bars,
+                    flux_bar_decimals=flux_bar_decimals,
+                    scalebar_px=scalebar_px,
+                    px_scale=px_scale,
+                    scalebar_label=scalebar_label,
+                    scalebar_loc=scalebar_loc,
+                    ax=ax,
+                    name=None,          # do not save from inside
+                )
+                if titles is not None and idx < len(titles):
+                    ax.set_title(titles[idx], fontsize=10)
+                if share_axes:
+                    ax.set_xticks([]); ax.set_yticks([])
+                infos.append(info)
+            else:
+                # Hide unused cells
+                ax.axis("off")
+            idx += 1
+
+    plt.subplots_adjust(wspace=wspace, hspace=hspace)
+    if suptitle:
+        fig.suptitle(suptitle, fontsize=12)
+
+    display_plot_or_save(fig, filename=name, dpi=dpi, bbox_inches=bbox_inches)
+    return fig, axes, infos
 
 
 def _get_n_rows_from_n_samples(n_samples):
