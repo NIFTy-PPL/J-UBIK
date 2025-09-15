@@ -23,8 +23,8 @@ def build_single_correlated_field(
 
 def build_single_correlated_field_from_config(
     prefix: str,
-    shape: tuple[int, int],
-    distances: tuple[float, float],
+    shape: tuple[int, ...],
+    distances: float | tuple[float, ...],
     config: CfmFluctuationsConfig | MaternFluctationsConfig,
 ) -> jft.Model:
     cfm = jft.CorrelatedFieldMaker(f"{prefix} ")
