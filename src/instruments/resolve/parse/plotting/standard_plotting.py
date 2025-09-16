@@ -9,6 +9,7 @@ from .....parse.parsing_base import StaticTyped
 class PlottingKwargs(StaticTyped):
     vmin: float | int = -np.inf
     vmax: float | int = np.inf
+    transpose: bool = True
 
 
 PLOTTING_KWARGS_DEFAULT = PlottingKwargs()

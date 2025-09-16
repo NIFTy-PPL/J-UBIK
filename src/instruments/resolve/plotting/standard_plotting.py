@@ -15,6 +15,7 @@ def build_standard_plot(
     sky: jft.Model,
     output_directory: str,
     plotting_kwargs: PlottingKwargs = PLOTTING_KWARGS_DEFAULT,
+    name: str = "resolve_iteration",
 ):
     logger.info(f"Output: {output_directory}")
     makedirs(output_directory, exist_ok=True)
@@ -33,14 +34,17 @@ def build_standard_plot(
 
         vmin = max(plotting_kwargs.vmin, sky_mean.min())
         vmax = min(plotting_kwargs.vmax, sky_mean.max())
-        settings = dict(vmin=vmin, vmax=vmax, norm="log", origin="lower")
+        settings = dict(
+            vmin=vmin, vmax=vmax, norm="log", origin="lower", interpolation="none"
+        )
 
         if freqs == 1:
             if pols == 1:
                 axes = [axes]
 
             for poli, ax in enumerate(axes):
-                f = sky_mean[poli, 0, 0].T
+                f = sky_mean[poli, 0, 0]
+                f = f.T if plotting_kwargs.transpose else f
                 if poli > 0:
                     f = np.abs(f)
 
@@ -52,7 +56,9 @@ def build_standard_plot(
                 axes = [axes]
 
             for freqi, ax in enumerate(axes):
-                im = ax.imshow(sky_mean[0, 0, freqi].T, **settings)
+                f = sky_mean[0, 0, freqi]
+                f = f.T if plotting_kwargs.transpose else f
+                im = ax.imshow(f, **settings)
                 plt.colorbar(im, ax=ax)
 
         else:
@@ -60,12 +66,13 @@ def build_standard_plot(
                 for freqi, ax in enumerate(pol_axes):
                     if poli > 0:
                         f = np.abs(f)
-                    f = sky_mean[poli, 0, freqi].T
+                    f = sky_mean[poli, 0, freqi]
+                    f = f.T if plotting_kwargs.transpose else f
                     im = ax.imshow(f, **settings)
                     plt.colorbar(im, ax=ax)
 
         plt.tight_layout()
-        plt.savefig(f"{output_directory}/resolve_iteration_{state.nit}.png")
+        plt.savefig(f"{output_directory}/{name}_{state.nit}.png")
         plt.close()
 
     return callback

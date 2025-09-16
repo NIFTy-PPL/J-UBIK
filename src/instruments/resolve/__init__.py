@@ -5,6 +5,8 @@ from .data.ms_import import *
 from .data.xds_import import *
 from .data.observation import *
 
+from .plotting import standard_plotting as plotting
+
 from .likelihood import *
 
 from .logger import logger
