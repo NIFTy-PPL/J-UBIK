@@ -32,7 +32,8 @@ def freq_average_by_fdom_and_n_freq_chunks(
     obs: Observation
         The observation to be modified.
     n_freq_chuncks: int
-        The number of frequency chuncks.
+        The number of frequency chuncks, i.e. the number of averaging bins per
+        sky frequency.
     """
     if n_freq_chuncks is None:
         return obs
@@ -41,29 +42,47 @@ def freq_average_by_fdom_and_n_freq_chunks(
         (sky_frequencies[ii], sky_frequencies[ii + 1])
         for ii in range(len(sky_frequencies) - 1)
     ]
-    splitted_obs_freq = []
-    for ff in fmin_fmax_array:
-        obs_freq = restrict_by_freq(obs, ff[0], ff[-1], with_index=False).freq
-        if obs_freq.size == 0:
-            continue
-        splitted_obs_freq.append(obs_freq)
-
-    logger.info(
-        "Frequency averaging observation to (N_ObsInSky, N_Chunks) = "
-        f"({len(splitted_obs_freq)}, {n_freq_chuncks})"
-    )
 
     splitted_freqs = []
-    for ofreq in splitted_obs_freq:
-        # TODO : Make it robust against bad sky frequency choices.
-        tmp_splits = np.array_split(ofreq, n_freq_chuncks)
-        for tmp in tmp_splits:
-            assert tmp[0] != tmp[-1], (
-                "Frequency chunking not of data not compatible with sky frequencies."
-            )
-            splitted_freqs.append(np.array([tmp[0], tmp[-1]]))
+    n_obs_in_sky = 0
+    for ff in fmin_fmax_array:
+        ofreq = restrict_by_freq(obs, ff[0], ff[-1], with_index=False).freq
 
-    return freq_average_by_fmin_fmax(obs, splitted_freqs)
+        if ofreq.size == 0:
+            continue
+        else:
+            n_obs_in_sky += 1
+
+        if len(ofreq) > 2 * n_freq_chuncks:
+            tmp_splits = np.array_split(ofreq, n_freq_chuncks)
+            for tmp in tmp_splits:
+                assert tmp[0] != tmp[-1], (
+                    "Frequency chunking of data not compatible with sky frequencies."
+                )
+                splitted_freqs.append(np.array([tmp[0], tmp[-1]]))
+
+        else:
+            assert ofreq[0] != ofreq[-1], (
+                "Frequency chunking of data not compatible with sky frequencies."
+            )
+            splitted_freqs.append(np.array([ofreq[0], ofreq[-1]]))
+
+    obs_out = freq_average_by_fmin_fmax(obs, splitted_freqs)
+
+    freq_len = obs_out.freq.shape[0]
+    if freq_len % n_obs_in_sky == 0:
+        logger.info(
+            "Frequency averaging observation to (N_ObsInSky, N_Chunks) = "
+            f"({n_obs_in_sky}, {n_freq_chuncks})"
+        )
+    else:
+        logger.info(
+            f"Frequency averaging observation to N_ObsInSky = {n_obs_in_sky}:\n"
+            f"    {n_obs_in_sky} ObsInSky a {N_Chunks} N_Chunks"
+            f" and {freq_len % n_obs_in_sky} extra."
+        )
+
+    return obs_out
 
 
 def freq_average_by_fmin_fmax(
