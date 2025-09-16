@@ -552,7 +552,7 @@ def plot_rgb(array,
 
     # If we created the figure, either show or save it via the helper
     if created_fig:
-        display_plot_or_save(fig, filename=name, dpi=dpi, bbox_inches=bbox_inches, logger=logger)
+        display_plot_or_save(fig, filename=name, dpi=dpi, bbox_inches=bbox_inches)
 
     info = dict(
         vmins=vmins,
