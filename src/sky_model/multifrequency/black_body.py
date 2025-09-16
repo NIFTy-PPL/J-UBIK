@@ -114,14 +114,14 @@ def build_black_body_spectrum_from_grid(
 
 def build_black_body_spectrum(
     prefix: str,
-    frequencies: u.Quantity,
+    observed_frequencies: u.Quantity,  # observed frequencies
     config: BlackBodyConfig,
     sky_unit: u.Unit,
     redshift: float = 0.0,
 ) -> BlackBody:
     assert not config.is_field
 
-    frequencies = frequencies.to(u.Unit("Hz"), equivalencies=u.spectral())
+    frequencies = observed_frequencies.to(u.Unit("Hz"), equivalencies=u.spectral())
     frequencies = (1 + redshift) * frequencies
 
     log_temperature = build_parametric_prior_from_prior_config(
