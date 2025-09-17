@@ -136,14 +136,20 @@ def minimization_from_initial_samples(
 
 
 def get_full_position_from_partial(
-    partial_samples_or_position: jft.Samples | jft.Vector,
+    partial_samples_or_position: jft.Samples | jft.Vector | dict | None,
     new_full_position: jft.Vector,
-    discard_keys: tuple[str] = (),
+    discard_keys: tuple[str, ...] = (),
+    *,
+    verbose: bool | str = True, 
 ) -> jft.Vector:
-
+    """
+    Merge keys from a (possibly parametric) partial position into a fresh full position.
+    If `verbose` is True/'info'/'debug', log which keys were reused.
+    """
     if partial_samples_or_position is None:
         return new_full_position
 
+    # unwrap partial
     if isinstance(partial_samples_or_position, jft.Samples):
         partial_position = partial_samples_or_position.pos
     else:
@@ -152,14 +158,28 @@ def get_full_position_from_partial(
     while isinstance(partial_position, jft.Vector):
         partial_position = partial_position.tree
 
-    while isinstance(new_full_position, jft.Vector):
-        new_full_position = new_full_position.tree
+    # unwrap full
+    full = new_full_position
+    while isinstance(full, jft.Vector):
+        full = full.tree
 
-    updated_position = dict(new_full_position)
+    updated_position = dict(full)
 
-    for key in updated_position:
-        if key in partial_position and key not in discard_keys:
-            jft.logger.info(f"Re-using '{key}' position.")
-            updated_position[key] = partial_position[key]
+    # compute & apply reuse
+    reused = []
+    if isinstance(partial_position, dict):
+        for key in updated_position:
+            if key in partial_position and key not in discard_keys:
+                updated_position[key] = partial_position[key]
+                reused.append(key)
+
+    # optional logging
+    if verbose:
+        lvl = (str(verbose).lower() if isinstance(verbose, str) else "info")
+        msg = f"Conditioned merge: reused keys {sorted(reused) if reused else '[]'}"
+        if lvl == "debug":
+            jft.logger.debug(msg)
+        else:
+            jft.logger.info(msg)
 
     return jft.Vector(updated_position)
