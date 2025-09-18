@@ -60,7 +60,7 @@ sky, additional = sky_model(cfg["sky"])
 # grid = ju.Grid.from_grid_model(gm)
 
 grid = ju.Grid.from_shape_and_fov(
-    shape=(int(cfg["sky"]["space npix x"]), int(cfg["sky"]["space npix y"])),
+    spatial_shape=(int(cfg["sky"]["space npix x"]), int(cfg["sky"]["space npix y"])),
     fov=u.Quantity(
         (u.Quantity(cfg["sky"]["space fov x"]), u.Quantity(cfg["sky"]["space fov y"]))
     ),
