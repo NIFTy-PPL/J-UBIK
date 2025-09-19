@@ -6,10 +6,11 @@
 # %%
 
 from functools import reduce
-from typing import Optional, Sequence, List, Tuple
+from typing import Optional, Sequence, List, Tuple, Union
 import math
 
 import numpy as np
+import jax.numpy as jnp
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 import matplotlib.font_manager as fm
@@ -765,3 +766,120 @@ def _non_zero_log(x):
     log_x = np.zeros(x_arr.shape)
     log_x[x_arr > 0] = np.log(x_arr[x_arr > 0])
     return log_x
+
+ArrayLike = Union[np.ndarray, "jnp.ndarray"]
+
+
+def to_rgb_channels(
+    cube: ArrayLike,                               # (N, M, Q)
+    *,
+    energies: Optional[Sequence[float]] = None,    # existing log-frequencies (len N), optional
+    target_energies: Optional[Sequence[float]] = None,  # desired RGB log-frequencies (len 3), optional
+    log_spacing: bool = True,                      # assume channels are equally spaced in log-frequency
+    backend: Optional[str] = None,                 # "jax" | "numpy" | None (auto)
+    return_targets: bool = False,                  # also return the 3 target log-frequencies actually used
+) -> Union[ArrayLike, Tuple[ArrayLike, ArrayLike]]:
+    """
+    Convert a (N, M, Q) spectral cube to an RGB-stacked array (3, M, Q) by
+    linearly interpolating along the spectral (N) axis at 3 target log-frequencies.
+
+    Modes:
+      • energies & target_energies provided -> interpolate at given targets (in log space).
+      • energies provided, targets omitted  -> pick 3 equidistant targets across [min(energies), max(energies)].
+      • energies omitted                    -> assume channels are equally spaced in log-frequency
+                                               (if log_spacing=True) or linear frequency spacing otherwise,
+                                               and pick 3 equidistant targets.
+
+    Notes:
+      • Interpolation is linear along the spectral axis (in the domain of the provided energies,
+        which are expected to be log-frequencies).
+      • Implementation uses searchsorted + take + vectorized blend so it works with both NumPy and JAX;
+        it's fully JIT-friendly in JAX.
+    """
+    # ---- pick backend -------------------------------------------------------
+    if backend is None:
+        xnp = jnp if (_HAS_JAX and isinstance(cube, jnp.ndarray)) else np
+    else:
+        if backend.lower() == "jax":
+            if not _HAS_JAX:
+                raise RuntimeError("backend='jax' requested but JAX is not available.")
+            xnp = jnp
+        elif backend.lower() == "numpy":
+            xnp = np
+        else:
+            raise ValueError("backend must be one of: None | 'jax' | 'numpy'")
+
+    X = xnp.asarray(cube)
+    if X.ndim != 3:
+        raise ValueError(f"`cube` must have shape (N, M, Q); got {X.shape}")
+    N, M, Q = X.shape
+
+    # Work in float32/float64 consistently
+    if X.dtype.kind not in ("f", "c"):
+        X = X.astype(xnp.float32)
+    dtype = X.dtype
+
+    # ---- set/source energies (log-frequencies) ------------------------------
+    if energies is not None:
+        E = xnp.asarray(energies, dtype=dtype)
+        if E.shape != (N,):
+            raise ValueError(f"`energies` must have shape ({N},); got {E.shape}")
+        # sort if needed (keep cube aligned!)
+        if bool((E[1:] < E[:-1]).any()):
+            order = xnp.argsort(E)
+            X = X[order, ...]
+            E = E[order]
+    else:
+        # No energies provided:
+        # If log_spacing=True, assume channels are equally spaced in log-frequency.
+        # We can model that by an arbitrary linear grid in "log space":
+        # e.g., E = linspace(0, 1, N). Only relative positions matter for linear interpolation.
+        if log_spacing:
+            E = xnp.linspace(xnp.array(0.0, dtype=dtype), xnp.array(1.0, dtype=dtype), N, dtype=dtype)
+        else:
+            # assume linear spacing across an arbitrary [0, 1]
+            E = xnp.linspace(xnp.array(0.0, dtype=dtype), xnp.array(1.0, dtype=dtype), N, dtype=dtype)
+
+    # ---- choose targets -----------------------------------------------------
+    if target_energies is not None:
+        T = xnp.asarray(target_energies, dtype=dtype)
+        if T.shape != (3,):
+            raise ValueError(f"`target_energies` must have shape (3,); got {T.shape}")
+    else:
+        # pick 3 equidistant points across the available energy range
+        T = xnp.linspace(E[0], E[-1], 3, dtype=dtype)
+
+    # Optionally clip targets to the covered range to avoid extrapolation
+    T = xnp.clip(T, E[0], E[-1])
+
+    # ---- vectorized linear interpolation along axis 0 -----------------------
+    # Flatten spatial dims → (N, P)
+    P = M * Q
+    Xf = X.reshape(N, P)
+
+    # For each target, find the bracketing indices i (left) and i+1 (right)
+    # searchsorted returns insertion index; we want the left index
+    # idx in [0, N] → clamp to [0, N-2] for proper right neighbor access
+    idx_right = xnp.searchsorted(E, T, side="right")
+    idx_left = xnp.clip(idx_right - 1, 0, N - 2)
+
+    E0 = E[idx_left]            # (3,)
+    E1 = E[idx_left + 1]        # (3,)
+    # Avoid /0 for repeated energies
+    denom = xnp.where(E1 == E0, xnp.array(1.0, dtype=dtype), E1 - E0)
+    w = (T - E0) / denom        # (3,)
+
+    # Gather slices
+    # take along axis=0 broadcasts over columns (P).
+    V0 = xnp.take(Xf, idx_left, axis=0)       # (3, P)
+    V1 = xnp.take(Xf, idx_left + 1, axis=0)   # (3, P)
+
+    # Blend
+    W = w[:, None]                             # (3, 1)
+    out = (1 - W) * V0 + W * V1                # (3, P)
+
+    # Reshape back to (3, M, Q)
+    out = out.reshape(3, M, Q)
+
+    return (out, T) if return_targets else out
+# %%
