@@ -374,7 +374,13 @@ def plot_sample_averaged_log_2d_histogram(x_array_list,
 
 @dataclass
 class RGBScaleConfig:
-    """Encapsulate RGB normalization strategy and optional relative channel weights."""
+    """Encapsulate RGB normalization strategy and optional relative channel weights.
+
+    The configuration normalizes the clipped RGB cube either globally or per channel.
+    When `relative_scale` is provided, per-channel maxima are first scaled to one and
+    then reweighted so that each channel peak contributes the requested fraction of the
+    composite image (fractions are renormalized so the largest entry maps to 1.0).
+    """
 
     mode: str
     relative_scale: Optional[np.ndarray] = None
@@ -406,7 +412,11 @@ class RGBScaleConfig:
             return cls(mode="per_channel", relative_scale=np.asarray(value, dtype=float))
         raise TypeError("scale_mode must be a string, a 3-element sequence, or RGBScaleConfig.")
 
-    def normalize(self, rgb: np.ndarray) -> tuple[np.ndarray, dict]:
+    def normalize(self,
+                  rgb: np.ndarray,
+                  *,
+                  vmins: Optional[Sequence[float]] = None,
+                  vmaxs: Optional[Sequence[float]] = None) -> tuple[np.ndarray, dict]:
         """Normalize clipped RGB values according to the configured mode."""
 
         def _nanmax_safe(arr: np.ndarray) -> float:
@@ -415,16 +425,29 @@ class RGBScaleConfig:
             except ValueError:
                 return float("nan")
 
+        def _nanmin_safe(arr: np.ndarray) -> float:
+            try:
+                return float(np.nanmin(arr))
+            except ValueError:
+                return float("nan")
+
         if self.mode == "global":
             global_max = _nanmax_safe(rgb) if rgb.size else float("nan")
-            if (not np.isfinite(global_max)) or global_max <= 0:
+            global_min = _nanmin_safe(rgb) if rgb.size else float("nan")
+            denom = (global_max - global_min
+                     if np.isfinite(global_max) and np.isfinite(global_min)
+                     else float("nan"))
+            if not np.isfinite(denom) or denom <= 0:
                 img = np.zeros_like(rgb, dtype=float)
             else:
-                img = rgb / global_max
+                img = (rgb - global_min) / denom
+                img = np.clip(img, 0.0, 1.0, out=img)
             return img, {
                 "scale_mode": "global",
                 "global_max": global_max,
+                "global_min": global_min,
                 "per_channel_max": None,
+                "per_channel_min": None,
                 "relative_scale": None,
                 "relative_scale_normalized": None,
             }
@@ -432,19 +455,40 @@ class RGBScaleConfig:
         # per-channel scaling
         img = np.empty_like(rgb, dtype=float)
         channel_max = np.zeros(3, dtype=float)
+        channel_min = np.zeros(3, dtype=float)
+
+        if vmins is not None:
+            mins = np.asarray(vmins, dtype=float)
+        else:
+            mins = np.array([_nanmin_safe(rgb[c]) for c in range(3)], dtype=float)
+
+        if vmaxs is not None:
+            maxs = np.asarray(vmaxs, dtype=float)
+        else:
+            maxs = np.array([_nanmax_safe(rgb[c]) for c in range(3)], dtype=float)
+
         for c in range(3):
             ch = rgb[c]
             ch_max = _nanmax_safe(ch) if ch.size else float("nan")
             channel_max[c] = ch_max if np.isfinite(ch_max) else float("nan")
-            if not np.isfinite(ch_max) or ch_max <= 0:
+            ch_min = mins[c]
+            max_clip = maxs[c]
+            channel_min[c] = float(ch_min) if np.isfinite(ch_min) else float("nan")
+            denom = (max_clip - ch_min
+                     if np.isfinite(max_clip) and np.isfinite(ch_min)
+                     else float("nan"))
+            if not np.isfinite(denom) or denom <= 0:
                 img[c] = np.zeros_like(ch, dtype=float)
             else:
-                img[c] = ch / ch_max
+                img[c] = (ch - ch_min) / denom
+                img[c] = np.clip(img[c], 0.0, 1.0)
 
         info = {
             "scale_mode": "per_channel",
             "per_channel_max": channel_max.tolist(),
+            "per_channel_min": channel_min.tolist(),
             "global_max": None,
+            "global_min": None,
             "relative_scale": None,
             "relative_scale_normalized": None,
         }
@@ -657,10 +701,7 @@ def plot_rgb(array,
     elif arr.shape[-1] == 3:
         # move channels to axis 0
         if verbose:
-            try:
-                jft.logger.info("Input is (M,Q,3); moving channel axis to front → (3,M,Q).")
-            except Exception:
-                pass
+            logger.info("Input is (M,Q,3); moving channel axis to front → (3,M,Q).")
         rgb = np.moveaxis(arr, -1, 0)
     else:
         # Need conversion from spectral cube → RGB
@@ -688,7 +729,11 @@ def plot_rgb(array,
 
     # 2) Normalize for display
     scale_config = RGBScaleConfig.from_settings(scale_mode)
-    img01, scale_details = scale_config.normalize(arr_clipped)
+    img01, scale_details = scale_config.normalize(
+        arr_clipped,
+        vmins=vmins,
+        vmaxs=vmaxs,
+    )
 
     created_fig = False
     if ax is None:
