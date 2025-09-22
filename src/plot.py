@@ -7,6 +7,7 @@
 
 from functools import reduce
 from typing import Optional, Sequence, List, Tuple, Union
+from dataclasses import dataclass
 import math
 
 from jax import vmap
@@ -372,16 +373,94 @@ def plot_sample_averaged_log_2d_histogram(x_array_list,
 
 
 @dataclass
-class ScaleClass:
-    scale_mode: str
-    scale_list: list = [1/3, 1/3, 1/3]
+class RGBScaleConfig:
+    """Encapsulate RGB normalization strategy and optional relative channel weights."""
+
+    mode: str
+    relative_scale: Optional[np.ndarray] = None
+
+    def __post_init__(self):
+        self.mode = str(self.mode).lower()
+        if self.mode not in {"global", "per_channel"}:
+            raise ValueError("scale_mode must be 'global' or 'per_channel'.")
+
+        if self.relative_scale is not None:
+            rel = np.asarray(self.relative_scale, dtype=float)
+            if rel.shape != (3,):
+                raise ValueError("relative_scale must be a 3-element sequence.")
+            if np.any(~np.isfinite(rel)):
+                raise ValueError("relative_scale entries must be finite numbers.")
+            if np.any(rel < 0):
+                raise ValueError("relative_scale entries must be non-negative.")
+            if np.all(rel <= 0):
+                raise ValueError("relative_scale must contain at least one positive value.")
+            self.relative_scale = rel
 
     @classmethod
-    def from_settings(cls, mode: str | list) -> 'ScaleClass':
-        pass
-        return cls(
+    def from_settings(cls, value: Union[str, Sequence[float], 'RGBScaleConfig']) -> 'RGBScaleConfig':
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            return cls(mode=value)
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            return cls(mode="per_channel", relative_scale=np.asarray(value, dtype=float))
+        raise TypeError("scale_mode must be a string, a 3-element sequence, or RGBScaleConfig.")
 
-        )
+    def normalize(self, rgb: np.ndarray) -> tuple[np.ndarray, dict]:
+        """Normalize clipped RGB values according to the configured mode."""
+
+        def _nanmax_safe(arr: np.ndarray) -> float:
+            try:
+                return float(np.nanmax(arr))
+            except ValueError:
+                return float("nan")
+
+        if self.mode == "global":
+            global_max = _nanmax_safe(rgb) if rgb.size else float("nan")
+            if (not np.isfinite(global_max)) or global_max <= 0:
+                img = np.zeros_like(rgb, dtype=float)
+            else:
+                img = rgb / global_max
+            return img, {
+                "scale_mode": "global",
+                "global_max": global_max,
+                "per_channel_max": None,
+                "relative_scale": None,
+                "relative_scale_normalized": None,
+            }
+
+        # per-channel scaling
+        img = np.empty_like(rgb, dtype=float)
+        channel_max = np.zeros(3, dtype=float)
+        for c in range(3):
+            ch = rgb[c]
+            ch_max = _nanmax_safe(ch) if ch.size else float("nan")
+            channel_max[c] = ch_max if np.isfinite(ch_max) else float("nan")
+            if not np.isfinite(ch_max) or ch_max <= 0:
+                img[c] = np.zeros_like(ch, dtype=float)
+            else:
+                img[c] = ch / ch_max
+
+        info = {
+            "scale_mode": "per_channel",
+            "per_channel_max": channel_max.tolist(),
+            "global_max": None,
+            "relative_scale": None,
+            "relative_scale_normalized": None,
+        }
+
+        if self.relative_scale is not None:
+            weights = self.relative_scale
+            max_weight = float(np.max(weights))
+            if not np.isfinite(max_weight) or max_weight <= 0:
+                raise ValueError("relative_scale must contain at least one positive finite entry.")
+            normalized_weights = weights / max_weight
+            for c in range(3):
+                img[c] *= normalized_weights[c]
+            info["relative_scale"] = weights.tolist()
+            info["relative_scale_normalized"] = normalized_weights.tolist()
+
+        return img, info
 
 
 def plot_rgb(array,
@@ -396,7 +475,7 @@ def plot_rgb(array,
              rgb_log_spacing: bool = True,
              rgb_method: str = "linear",   # "linear" | "cubic"
              # plotting controls
-             scale_mode: str | list | ScaleClass = "global",      # "global" or "per_channel"
+             scale_mode: str | Sequence[float] | RGBScaleConfig = "global",
              show_flux_bars: bool = False,
              flux_bar_decimals: int = 3,
              scalebar_px: int | None = None,
@@ -436,8 +515,9 @@ def plot_rgb(array,
         Assume log-spaced channels when `rgb_energies_existing` is not provided.
     rgb_method : {"linear", "cubic"}, optional
         Interpolation method used by `to_rgb_bands` during spectral conversion.
-    scale_mode : {"global", "per_channel"}, optional
-        Normalization mode for the clipped RGB channels prior to display.
+    scale_mode : {"global", "per_channel"} or Sequence[float], optional
+        Normalization strategy. A 3-sequence triggers per-channel scaling with relative
+        weights applied after normalization (see `relative_scale_normalized` in the return info).
     show_flux_bars : bool, optional
         Draw inset color bars that visualize the clipping thresholds per channel.
     flux_bar_decimals : int, optional
@@ -607,22 +687,8 @@ def plot_rgb(array,
     arr_clipped, vmins, vmaxs = _per_channel_flux_clip(rgb, sat_min, sat_max)
 
     # 2) Normalize for display
-    smode = str(scale_mode).lower()
-    if smode not in ("global", "per_channel"):
-        raise ValueError("scale_mode must be 'global' or 'per_channel'.")
-
-    if smode == "global":
-        global_max = np.nanmax(arr_clipped)
-        if not np.isfinite(global_max) or global_max <= 0:
-            img01 = np.zeros_like(arr_clipped, dtype=float)
-        else:
-            img01 = arr_clipped / global_max
-    else:
-        img01 = np.empty_like(arr_clipped, dtype=float)
-        for c in range(3):
-            ch = arr_clipped[c]
-            ch_max = np.nanmax(ch)
-            img01[c] = np.zeros_like(ch, dtype=float) if (not np.isfinite(ch_max) or ch_max <= 0) else ch / ch_max
+    scale_config = RGBScaleConfig.from_settings(scale_mode)
+    img01, scale_details = scale_config.normalize(arr_clipped)
 
     created_fig = False
     if ax is None:
@@ -645,9 +711,8 @@ def plot_rgb(array,
     info = dict(
         vmins=vmins,
         vmaxs=vmaxs,
-        scale_mode=smode,
-        global_max=float(np.nanmax(arr_clipped)) if smode == "global" else None,
         rgb_energies=rgb_energies_used,
+        **scale_details,
     )
     return fig, ax, info
 
