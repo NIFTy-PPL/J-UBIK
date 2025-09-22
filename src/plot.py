@@ -397,17 +397,70 @@ def plot_rgb(array,
              verbose: bool = True,            # new: log when converting to RGB
              ):
     """
-    Plot an RGB image. If `array` is not already RGB, it will be converted via
-    `to_rgb_bands` using the provided rgb_* arguments.
+    Plot an RGB image with optional spectral conversion, clipping, and annotations.
 
-    Accepts:
-      - (3, M, Q) or (M, Q, 3) : interpreted as RGB
-      - (N, M, Q)              : interpreted as spectral cube; converted to RGB
+    The function accepts RGB images or spectral cubes and converts cubes to RGB via
+    `to_rgb_bands` before applying per-channel flux clipping, optional smoothing/log
+    scaling, and display overlays such as flux scales or scalebars.
+
+    Parameters
+    ----------
+    array : np.ndarray
+        Input image data with shape (3, M, Q), (M, Q, 3), or (N, M, Q) for spectral cubes.
+    sat_min : float or Sequence[float], optional
+        Lower cumulative-flux quantile(s) per channel used before normalization (value(s) in [0, 1]).
+    sat_max : float or Sequence[float], optional
+        Upper cumulative-flux quantile(s) per channel used before normalization (value(s) in [0, 1]).
+    sigma : float or None, optional
+        Standard deviation of the Gaussian smoothing applied after RGB conversion.
+    log : bool, optional
+        Apply a natural logarithm to positive pixels after smoothing.
+    rgb_energies_existing : array-like or None, optional
+        Energies/frequencies associated with the input spectral channels when converting.
+    rgb_energies_target : array-like of length 3 or None, optional
+        Target energies for the RGB bands when performing spectral conversion.
+    rgb_log_spacing : bool, optional
+        Assume log-spaced channels when `rgb_energies_existing` is not provided.
+    rgb_method : {"linear", "cubic"}, optional
+        Interpolation method used by `to_rgb_bands` during spectral conversion.
+    scale_mode : {"global", "per_channel"}, optional
+        Normalization mode for the clipped RGB channels prior to display.
+    show_flux_bars : bool, optional
+        Draw inset color bars that visualize the clipping thresholds per channel.
+    flux_bar_decimals : int, optional
+        Number of decimals shown on the flux-bar tick labels.
+    scalebar_px : int or None, optional
+        Width of the scalebar in pixels; omitted when None.
+    px_scale : float or None, optional
+        Physical scale per pixel used to annotate the scalebar label.
+    scalebar_label : str or None, optional
+        Custom text for the scalebar; defaults to a generated label when omitted.
+    scalebar_loc : str, optional
+        Location code passed to `AnchoredSizeBar` for the scalebar.
+    ax : matplotlib.axes.Axes or None, optional
+        Existing axes to draw on; a new figure/axes is created when None.
+    name : str or None, optional
+        Output path used to save the figure when a new figure is created.
+    dpi : int, optional
+        Resolution in dots per inch used when saving a newly created figure.
+    bbox_inches : str or None, optional
+        Bounding box passed to `display_plot_or_save` while saving.
+    verbose : bool, optional
+        Log diagnostic messages during axis reordering or spectral conversion.
 
     Returns
     -------
-    fig, ax, info : matplotlib Figure/Axes, and a dict with thresholds/scale info
-                    (includes 'rgb_energies' if conversion happened and available).
+    fig : matplotlib.figure.Figure
+        Figure that contains the rendered RGB image.
+    ax : matplotlib.axes.Axes
+        Axes used for plotting the RGB image.
+    info : dict
+        Metadata describing the applied scaling, including `rgb_energies` when available.
+
+    Raises
+    ------
+    ValueError
+        If `array` is not three-dimensional or if `scale_mode` is unsupported.
     """
 
     # ---------------- helpers ----------------
