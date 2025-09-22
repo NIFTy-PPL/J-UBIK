@@ -371,6 +371,19 @@ def plot_sample_averaged_log_2d_histogram(x_array_list,
         plt.show()
 
 
+@dataclass
+class ScaleClass:
+    scale_mode: str
+    scale_list: list = [1/3, 1/3, 1/3]
+
+    @classmethod
+    def from_settings(cls, mode: str | list) -> 'ScaleClass':
+        pass
+        return cls(
+
+        )
+
+
 def plot_rgb(array,
              sat_min=[0, 0, 0],
              sat_max=[1, 1, 1],
@@ -383,7 +396,7 @@ def plot_rgb(array,
              rgb_log_spacing: bool = True,
              rgb_method: str = "linear",   # "linear" | "cubic"
              # plotting controls
-             scale_mode: str = "global",      # "global" or "per_channel"
+             scale_mode: str | list | ScaleClass = "global",      # "global" or "per_channel"
              show_flux_bars: bool = False,
              flux_bar_decimals: int = 3,
              scalebar_px: int | None = None,
