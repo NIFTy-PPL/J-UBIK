@@ -665,6 +665,7 @@ def plot_rgb_grid(images: np.ndarray,
                   wspace: float = 0.05,
                   hspace: float = 0.05,
                   share_axes: bool = True,
+                  channel_axis: int = 1,
                   # anything below is passed through to plot_rgb
                   sat_min=[0, 0, 0],
                   sat_max=[1, 1, 1],
@@ -677,32 +678,97 @@ def plot_rgb_grid(images: np.ndarray,
                   scalebar_label: str | None = None,
                   scalebar_loc: str = "lower right",
                   flux_bar_decimals: int = 3,
+                  rgb_energies_existing=None,
+                  rgb_energies_target=None,
+                  rgb_log_spacing: bool = True,
+                  rgb_method: str = "linear",
+                  verbose: bool = True,
                   ) -> tuple[plt.Figure, np.ndarray, List[dict]]:
     """
-    Plot a batch of RGB images (N, 3, H, W) in a single figure using plot_rgb for each cell.
+    Render a grid of RGB images or spectral cubes by delegating each cell to `plot_rgb`.
 
     Parameters
     ----------
-    images : ndarray (N, 3, H, W)
-        Batch of RGB images.
+    images : np.ndarray
+        Stack of input images with shape (N, C, H, W) or (N, H, W, C); the channel axis is
+        chosen via `channel_axis` and must contain at least three bands (C ≥ 3).
     nrows, ncols : int or None
-        Grid layout. If None, a near-square grid is chosen.
-    figsize : (w, h) inches, optional
-        Defaults to (ncols*3, nrows*3).
-    titles : list[str], optional
-        Per-image titles.
-    suptitle : str, optional
-        Figure-wide title.
+        Grid layout. If omitted, a near-square arrangement is chosen automatically.
+    figsize : tuple[float, float] or None
+        Figure size in inches. Defaults to `(ncols*3, nrows*3)` when None.
+    name : str or None
+        Output path to save the composed grid via `display_plot_or_save`.
+    dpi : int or None
+        Resolution used when saving the figure (only applied if `name` is given).
+    bbox_inches : str or None
+        Bounding-box option forwarded to `display_plot_or_save` during saving.
+    titles : Sequence[str] or None
+        Optional per-panel titles.
+    suptitle : str or None
+        Figure-wide title drawn above the grid.
     wspace, hspace : float
-        Spacing between subplots.
-    share_axes : bool
-        If True, removes ticks on all subplots.
+        Horizontal/vertical spacing passed to `plt.subplots_adjust`.
+    share_axes : bool, optional
+        Remove ticks on individual panels when True.
+    channel_axis : int, optional
+        Axis index of the spectral/RGB dimension in `images` (excludes the batch axis).
+    sat_min, sat_max : float or Sequence[float], optional
+        Saturation quantiles forwarded to `plot_rgb`.
+    scale_mode : {"global", "per_channel"}, optional
+        Normalization mode passed to `plot_rgb`.
+    sigma : float or None, optional
+        Gaussian smoothing applied within `plot_rgb`.
+    log : bool, optional
+        Apply a logarithmic stretch after smoothing inside `plot_rgb`.
+    show_flux_bars : bool, optional
+        Draw per-channel flux bars inside each panel when True.
+    scalebar_px : int or None, optional
+        Width of the scalebar annotation; omitted when None.
+    px_scale : float or None, optional
+        Physical pixel scale for the scalebar label.
+    scalebar_label : str or None, optional
+        Custom scalebar text passed through to `plot_rgb`.
+    scalebar_loc : str, optional
+        Location keyword for the scalebar annotation.
+    flux_bar_decimals : int, optional
+        Number of decimals on the flux-bar ticks.
+    rgb_energies_existing : array-like or None, optional
+        Energies/frequencies tied to the existing spectral bins (forwarded to `plot_rgb`).
+    rgb_energies_target : array-like or None, optional
+        Target RGB energies used during spectral conversion.
+    rgb_log_spacing : bool, optional
+        Assume log-spacing for implicit energies when converting spectral cubes.
+    rgb_method : {"linear", "cubic"}, optional
+        Interpolation scheme applied by `plot_rgb` during spectral conversion.
+    verbose : bool, optional
+        Emit diagnostic messages from `plot_rgb`.
 
-    Other kwargs are forwarded to `plot_rgb` for each cell.
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure that hosts the grid of images.
+    axes : np.ndarray
+        Array of matplotlib axes laid out in the grid.
+    infos : list[dict]
+        Per-panel metadata returned from `plot_rgb` (e.g., scaling thresholds).
     """
     images = np.asarray(images)
-    if images.ndim != 4 or images.shape[1] != 3:
-        raise ValueError("images must have shape (N, 3, H, W)")
+    if images.ndim != 4:
+        raise ValueError("images must have shape (N, C, H, W) or (N, H, W, C)")
+
+    channel_axis = int(channel_axis)
+    if channel_axis < 0:
+        channel_axis += images.ndim
+    if not 0 <= channel_axis < images.ndim:
+        raise ValueError(f"channel_axis={channel_axis} is out of bounds for images with ndim={images.ndim}")
+    if channel_axis == 0:
+        raise ValueError("channel_axis refers to the batch dimension; choose a different axis.")
+
+    if channel_axis != 1:
+        images = np.moveaxis(images, channel_axis, 1)
+
+    if images.shape[1] < 3:
+        raise ValueError("images must provide at least three channels for RGB conversion")
 
     N = images.shape[0]
 
@@ -744,6 +810,11 @@ def plot_rgb_grid(images: np.ndarray,
                     px_scale=px_scale,
                     scalebar_label=scalebar_label,
                     scalebar_loc=scalebar_loc,
+                    rgb_energies_existing=rgb_energies_existing,
+                    rgb_energies_target=rgb_energies_target,
+                    rgb_log_spacing=rgb_log_spacing,
+                    rgb_method=rgb_method,
+                    verbose=verbose,
                     ax=ax,
                     name=None,          # do not save from inside
                 )
