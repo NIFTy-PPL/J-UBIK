@@ -9,6 +9,7 @@ from functools import reduce
 from typing import Optional, Sequence, List, Tuple, Union
 import math
 
+from jax import vmap
 import numpy as np
 import jax.numpy as jnp
 from matplotlib import pyplot as plt
@@ -376,40 +377,38 @@ def plot_rgb(array,
              sigma=None,
              log=False,
              *,
-             scale_mode: str = "global",      # "global" (preserve RGB proportions) or "per_channel"
-             show_flux_bars: bool = False,    # add tiny per-channel bars showing vmin/vmax (actual flux)
-             flux_bar_decimals: int = 3,      # tick formatting for flux bars
-             scalebar_px: int | None = None,  # length of scalebar in pixels (None → no scalebar)
-             px_scale: float | None = None,   # pixel scale (e.g. arcsec/pixel); used for label if provided
+             # new: pass-through args for spectral→RGB conversion
+             rgb_energies_existing=None,
+             rgb_energies_target=None,
+             rgb_log_spacing: bool = True,
+             rgb_method: str = "linear",   # "linear" | "cubic"
+             # plotting controls
+             scale_mode: str = "global",      # "global" or "per_channel"
+             show_flux_bars: bool = False,
+             flux_bar_decimals: int = 3,
+             scalebar_px: int | None = None,
+             px_scale: float | None = None,
              scalebar_label: str | None = None,
              scalebar_loc: str = "lower right",
-             ax: Optional[plt.Axes] = None,
-             name=None, 
+             ax: plt.Axes | None = None,
+             name=None,
              dpi=300,
              bbox_inches=None,
+             verbose: bool = True,            # new: log when converting to RGB
              ):
     """
-    Plot an RGB image with per-channel flux-fraction saturation.
+    Plot an RGB image. If `array` is not already RGB, it will be converted via
+    `to_rgb_bands` using the provided rgb_* arguments.
 
-    New options:
-      - scale_mode="global" (default) or "per_channel"
-      - show_flux_bars=True adds three tiny color bars (R,G,B) with tick labels
-        at the per-channel flux thresholds (actual units).
-      - scalebar_px adds a scale bar in pixel units; if px_scale is given,
-        also shows physical length (e.g., arcsec).
+    Accepts:
+      - (3, M, Q) or (M, Q, 3) : interpreted as RGB
+      - (N, M, Q)              : interpreted as spectral cube; converted to RGB
 
     Returns
     -------
     fig, ax, info : matplotlib Figure/Axes, and a dict with thresholds/scale info
+                    (includes 'rgb_energies' if conversion happened and available).
     """
-
-    # ---------------- helpers ----------------
-    def _as_triplet(x):
-        if isinstance(x, (int, float)):
-            return [x, x, x]
-        if len(x) != 3:
-            raise ValueError("sat_min/sat_max must be a float or a list of 3 floats (per RGB channel).")
-        return x
 
     # ---------------- helpers ----------------
     def _as_triplet(x):
@@ -499,21 +498,47 @@ def plot_rgb(array,
                 transform=ax.transAxes, ha="right", va="top", fontsize=7, color="w",
                 bbox=dict(boxstyle="round,pad=0.2", fc=(0,0,0,0.4), ec="none"))
 
-    # ---------------- main ----------------
-    sat_min = _as_triplet(sat_min)
-    sat_max = _as_triplet(sat_max)
-    # clamp to [0,1]
-    sat_min = [float(np.clip(x, 0.0, 1.0)) for x in sat_min]
-    sat_max = [float(np.clip(x, 0.0, 1.0)) for x in sat_max]
-
+    # --------- possibly convert to RGB first ---------
     arr = np.asarray(array)
+    rgb_energies_used = None
+
+    if arr.ndim != 3:
+        raise ValueError(f"`array` must be 3D (C/M/N axes); got shape {arr.shape}.")
+
+    # Cases: (3, M, Q), (M, Q, 3), or (N, M, Q) with N != 3
+    if arr.shape[0] == 3:
+        rgb = arr
+    elif arr.shape[-1] == 3:
+        # move channels to axis 0
+        if verbose:
+            try:
+                jft.logger.info("Input is (M,Q,3); moving channel axis to front → (3,M,Q).")
+            except Exception:
+                pass
+        rgb = np.moveaxis(arr, -1, 0)
+    else:
+        # Need conversion from spectral cube → RGB
+        if verbose:
+            logger.info(f"Input appears to be spectral cube {arr.shape}; converting to RGB via to_rgb_bands.")
+
+        rgb, rgb_energies_used = to_rgb_bands(
+            arr,
+            energies_existing=rgb_energies_existing,
+            energies_target=rgb_energies_target,
+            log_spacing=rgb_log_spacing,
+            method=rgb_method,
+        )
+
+    # --------- optional smoothing / log AFTER RGB conversion ---------
     if sigma is not None:
-        arr = _smooth(sigma, arr)
+        rgb = _smooth(sigma, rgb)
     if log:
-        arr = _non_zero_log(arr)
+        rgb = _non_zero_log(rgb)
 
     # 1) Per-channel clip by cumulative-flux thresholds
-    arr_clipped, vmins, vmaxs = _per_channel_flux_clip(arr, sat_min, sat_max)
+    sat_min = [float(np.clip(x, 0.0, 1.0)) for x in _as_triplet(sat_min)]
+    sat_max = [float(np.clip(x, 0.0, 1.0)) for x in _as_triplet(sat_max)]
+    arr_clipped, vmins, vmaxs = _per_channel_flux_clip(rgb, sat_min, sat_max)
 
     # 2) Normalize for display
     smode = str(scale_mode).lower()
@@ -531,10 +556,7 @@ def plot_rgb(array,
         for c in range(3):
             ch = arr_clipped[c]
             ch_max = np.nanmax(ch)
-            if not np.isfinite(ch_max) or ch_max <= 0:
-                img01[c] = np.zeros_like(ch, dtype=float)
-            else:
-                img01[c] = ch / ch_max
+            img01[c] = np.zeros_like(ch, dtype=float) if (not np.isfinite(ch_max) or ch_max <= 0) else ch / ch_max
 
     created_fig = False
     if ax is None:
@@ -551,7 +573,6 @@ def plot_rgb(array,
     if show_flux_bars:
         _add_flux_bars(ax, vmins, vmaxs, decimals=flux_bar_decimals)
 
-    # If we created the figure, either show or save it via the helper
     if created_fig:
         display_plot_or_save(fig, filename=name, dpi=dpi, bbox_inches=bbox_inches)
 
@@ -560,6 +581,7 @@ def plot_rgb(array,
         vmaxs=vmaxs,
         scale_mode=smode,
         global_max=float(np.nanmax(arr_clipped)) if smode == "global" else None,
+        rgb_energies=rgb_energies_used,
     )
     return fig, ax, info
 
@@ -767,119 +789,166 @@ def _non_zero_log(x):
     log_x[x_arr > 0] = np.log(x_arr[x_arr > 0])
     return log_x
 
-ArrayLike = Union[np.ndarray, "jnp.ndarray"]
 
-
-def to_rgb_channels(
-    cube: ArrayLike,                               # (N, M, Q)
+def to_rgb_bands(
+    cube,
+    energies_existing=None,
+    energies_target=None,
     *,
-    energies: Optional[Sequence[float]] = None,    # existing log-frequencies (len N), optional
-    target_energies: Optional[Sequence[float]] = None,  # desired RGB log-frequencies (len 3), optional
-    log_spacing: bool = True,                      # assume channels are equally spaced in log-frequency
-    backend: Optional[str] = None,                 # "jax" | "numpy" | None (auto)
-    return_targets: bool = False,                  # also return the 3 target log-frequencies actually used
-) -> Union[ArrayLike, Tuple[ArrayLike, ArrayLike]]:
+    log_spacing: bool = True,
+    method: str = "linear",  # "linear" | "cubic" (Catmull–Rom)
+):
     """
-    Convert a (N, M, Q) spectral cube to an RGB-stacked array (3, M, Q) by
-    linearly interpolating along the spectral (N) axis at 3 target log-frequencies.
+    Convert a spectral image cube (N, M, Q) into 3 RGB bands (3, M, Q) by
+    interpolating along the spectral (channel) axis.
 
-    Modes:
-      • energies & target_energies provided -> interpolate at given targets (in log space).
-      • energies provided, targets omitted  -> pick 3 equidistant targets across [min(energies), max(energies)].
-      • energies omitted                    -> assume channels are equally spaced in log-frequency
-                                               (if log_spacing=True) or linear frequency spacing otherwise,
-                                               and pick 3 equidistant targets.
+    Parameters
+    ----------
+    cube : np.ndarray or jnp.ndarray, shape (N, M, Q)
+        Spectral image cube. Backend is inferred from this array (NumPy vs JAX).
+    energies_existing : array-like or None
+        The *log-space* energies/frequencies for each of the N channels.
+        If None, they are assumed to be equally spaced in log space
+        (linspace over [0, 1] with N points) if `log_spacing=True`,
+        otherwise equally spaced in linear index space.
+    energies_target : array-like of length 3 or None
+        The *log-space* target energies to map to R, G, B. If None, three
+        equidistant points (in the same space as `energies_existing`) are selected.
+    log_spacing : bool, default True
+        If `energies_existing` is None, interpret the channels as equally spaced
+        in log space (True) or in linear index space (False).
+    method : {"linear","cubic"}, default "linear"
+        Interpolation method along the spectral axis.
+        "cubic" uses a Catmull–Rom cubic Hermite spline (pure NumPy/JAX).
 
-    Notes:
-      • Interpolation is linear along the spectral axis (in the domain of the provided energies,
-        which are expected to be log-frequencies).
-      • Implementation uses searchsorted + take + vectorized blend so it works with both NumPy and JAX;
-        it's fully JIT-friendly in JAX.
+    Returns
+    -------
+    rgb : np.ndarray or jnp.ndarray, shape (3, M, Q)
+        Interpolated RGB bands in the same backend as `cube`.
+
+    Notes
+    -----
+    - Inputs in `energies_existing` and `energies_target` are expected to be in
+      log-frequency units already (linear interpolation is performed in that space).
+    - Extrapolation at the ends is clamped to endpoints for "linear".
+      For "cubic", queries outside the range are computed via linear edge behavior.
     """
-    # ---- pick backend -------------------------------------------------------
-    if backend is None:
-        xnp = jnp if (_HAS_JAX and isinstance(cube, jnp.ndarray)) else np
-    else:
-        if backend.lower() == "jax":
-            if not _HAS_JAX:
-                raise RuntimeError("backend='jax' requested but JAX is not available.")
-            xnp = jnp
-        elif backend.lower() == "numpy":
-            xnp = np
-        else:
-            raise ValueError("backend must be one of: None | 'jax' | 'numpy'")
+    # ---- choose backend from input ----
+    is_jax = isinstance(cube, jnp.ndarray)
+    xnp = jnp if is_jax else np
 
-    X = xnp.asarray(cube)
-    if X.ndim != 3:
-        raise ValueError(f"`cube` must have shape (N, M, Q); got {X.shape}")
-    N, M, Q = X.shape
+    if cube.ndim != 3:
+        raise ValueError(f"`cube` must have shape (N, M, Q), got {cube.shape}.")
 
-    # Work in float32/float64 consistently
-    if X.dtype.kind not in ("f", "c"):
-        X = X.astype(xnp.float32)
-    dtype = X.dtype
+    N, M, Q = cube.shape
+    if N < 2:
+        raise ValueError("Need at least 2 spectral channels for interpolation.")
+    if method not in ("linear", "cubic"):
+        raise ValueError("method must be 'linear' or 'cubic'.")
 
-    # ---- set/source energies (log-frequencies) ------------------------------
-    if energies is not None:
-        E = xnp.asarray(energies, dtype=dtype)
-        if E.shape != (N,):
-            raise ValueError(f"`energies` must have shape ({N},); got {E.shape}")
-        # sort if needed (keep cube aligned!)
-        if bool((E[1:] < E[:-1]).any()):
-            order = xnp.argsort(E)
-            X = X[order, ...]
-            E = E[order]
-    else:
-        # No energies provided:
-        # If log_spacing=True, assume channels are equally spaced in log-frequency.
-        # We can model that by an arbitrary linear grid in "log space":
-        # e.g., E = linspace(0, 1, N). Only relative positions matter for linear interpolation.
+    # ---- build/validate energies_existing (log space expected if provided) ----
+    if energies_existing is None:
         if log_spacing:
-            E = xnp.linspace(xnp.array(0.0, dtype=dtype), xnp.array(1.0, dtype=dtype), N, dtype=dtype)
+            energies_existing = xnp.linspace(0.0, 1.0, N, dtype=xnp.float32)
         else:
-            # assume linear spacing across an arbitrary [0, 1]
-            E = xnp.linspace(xnp.array(0.0, dtype=dtype), xnp.array(1.0, dtype=dtype), N, dtype=dtype)
-
-    # ---- choose targets -----------------------------------------------------
-    if target_energies is not None:
-        T = xnp.asarray(target_energies, dtype=dtype)
-        if T.shape != (3,):
-            raise ValueError(f"`target_energies` must have shape (3,); got {T.shape}")
+            energies_existing = xnp.arange(N, dtype=xnp.float32)
     else:
-        # pick 3 equidistant points across the available energy range
-        T = xnp.linspace(E[0], E[-1], 3, dtype=dtype)
+        energies_existing = xnp.asarray(energies_existing, dtype=xnp.float32)
+        if energies_existing.shape[0] != N:
+            raise ValueError(
+                f"energies_existing length {energies_existing.shape[0]} != N ({N})."
+            )
 
-    # Optionally clip targets to the covered range to avoid extrapolation
-    T = xnp.clip(T, E[0], E[-1])
+    # Ensure ascending order for interp
+    sort_idx = xnp.argsort(energies_existing)
+    energies_existing = (
+        xnp.take(energies_existing, sort_idx, axis=0) if is_jax else energies_existing[sort_idx]
+    )
+    cube = xnp.take(cube, sort_idx, axis=0) if is_jax else cube[sort_idx]
 
-    # ---- vectorized linear interpolation along axis 0 -----------------------
-    # Flatten spatial dims → (N, P)
-    P = M * Q
-    Xf = X.reshape(N, P)
+    # ---- choose/validate target energies ----
+    if energies_target is None:
+        emin = float(energies_existing[0])
+        emax = float(energies_existing[-1])
+        energies_target = xnp.linspace(emin, emax, 3, dtype=xnp.float32)
+    else:
+        energies_target = xnp.asarray(energies_target, dtype=xnp.float32)
+        if energies_target.shape[0] != 3:
+            raise ValueError("energies_target must have length 3 (for R, G, B).")
 
-    # For each target, find the bracketing indices i (left) and i+1 (right)
-    # searchsorted returns insertion index; we want the left index
-    # idx in [0, N] → clamp to [0, N-2] for proper right neighbor access
-    idx_right = xnp.searchsorted(E, T, side="right")
-    idx_left = xnp.clip(idx_right - 1, 0, N - 2)
+    # ---- helpers: linear vs cubic 1D interpolation for a single pixel spectrum ----
+    def _interp_linear(vec_1d):
+        return xnp.interp(energies_target, energies_existing, vec_1d)
 
-    E0 = E[idx_left]            # (3,)
-    E1 = E[idx_left + 1]        # (3,)
-    # Avoid /0 for repeated energies
-    denom = xnp.where(E1 == E0, xnp.array(1.0, dtype=dtype), E1 - E0)
-    w = (T - E0) / denom        # (3,)
+    def _interp_cubic_catmull_rom(vec_1d):
+        # Catmull–Rom cubic Hermite spline on monotone x with simple edge handling
+        x = energies_existing
+        y = vec_1d
 
-    # Gather slices
-    # take along axis=0 broadcasts over columns (P).
-    V0 = xnp.take(Xf, idx_left, axis=0)       # (3, P)
-    V1 = xnp.take(Xf, idx_left + 1, axis=0)   # (3, P)
+        # Indices of the right bin edge for each query
+        # For exact x[-1], searchsorted returns N, clip to N-1 later.
+        j = xnp.searchsorted(x, energies_target, side="left")
 
-    # Blend
-    W = w[:, None]                             # (3, 1)
-    out = (1 - W) * V0 + W * V1                # (3, P)
+        # For interior cubic, we need i-1, i, i+1, i+2 with i=j-1.
+        # Clamp i to [1, N-3] so that (i-1) >= 0 and (i+2) <= N-1.
+        i = xnp.clip(j - 1, 1, N - 3)
 
-    # Reshape back to (3, M, Q)
-    out = out.reshape(3, M, Q)
+        # Gather supporting x/y
+        x_im1 = x[i - 1]
+        x_i   = x[i]
+        x_ip1 = x[i + 1]
+        x_ip2 = x[i + 2]
 
-    return (out, T) if return_targets else out
-# %%
+        y_im1 = y[i - 1]
+        y_i   = y[i]
+        y_ip1 = y[i + 1]
+        y_ip2 = y[i + 2]
+
+        # Local parameter t in [0,1]
+        dx = (x_ip1 - x_i)
+        # Avoid divide-by-zero for degenerate grids
+        dx = xnp.where(dx == 0, xnp.finfo(xnp.float32).eps, dx)
+        t = (energies_target - x_i) / dx
+
+        # Tangents (finite-difference Catmull–Rom)
+        m_i   = (y_ip1 - y_im1) / (x_ip1 - x_im1)
+        m_ip1 = (y_ip2 - y_i)   / (x_ip2 - x_i)
+
+        # Hermite basis
+        t2 = t * t
+        t3 = t2 * t
+        h00 =  2.0 * t3 - 3.0 * t2 + 1.0
+        h10 =        t3 - 2.0 * t2 + t
+        h01 = -2.0 * t3 + 3.0 * t2
+        h11 =        t3 -       t2
+
+        y_cubic = (
+            h00 * y_i +
+            h10 * dx * m_i +
+            h01 * y_ip1 +
+            h11 * dx * m_ip1
+        )
+
+        # Edge handling: for queries outside [x[0], x[-1]], fall back to linear clamp
+        below = energies_target <= x[0]
+        above = energies_target >= x[-1]
+        # Two-point linear at edges
+        y_lo = y[0] + (y[1] - y[0]) * (energies_target - x[0]) / (x[1] - x[0])
+        y_hi = y[-2] + (y[-1] - y[-2]) * (energies_target - x[-2]) / (x[-1] - x[-2])
+        y_out = xnp.where(below, y_lo, xnp.where(above, y_hi, y_cubic))
+        return y_out
+
+    interp_fn = _interp_linear if method == "linear" or N < 4 else _interp_cubic_catmull_rom
+
+    # ---- interpolate along spectral axis for every pixel ----
+    flat = cube.reshape(N, -1).T  # (P, N) where P = M*Q
+
+    if is_jax:
+        out_flat = vmap(interp_fn, in_axes=0)(flat)  # (P, 3)
+    else:
+        out_flat = xnp.stack([interp_fn(row) for row in flat], axis=0)
+
+    # Reshape back to (M, Q, 3) then to (3, M, Q)
+    out_spatial = out_flat.reshape(M, Q, 3)
+    rgb = xnp.moveaxis(out_spatial, -1, 0)  # (3, M, Q)
+    return rgb, energies_target
