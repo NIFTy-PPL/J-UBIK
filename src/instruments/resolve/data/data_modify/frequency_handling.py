@@ -78,7 +78,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
     else:
         logger.info(
             f"Frequency averaging observation to N_ObsInSky = {n_obs_in_sky}:\n"
-            f"    {n_obs_in_sky} ObsInSky a {N_Chunks} N_Chunks"
+            f"    {n_obs_in_sky} ObsInSky a {n_freq_chuncks} N_Chunks"
             f" and {freq_len % n_obs_in_sky} extra."
         )
 
