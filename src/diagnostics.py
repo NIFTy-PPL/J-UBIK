@@ -10,6 +10,8 @@ from jax.tree_util import tree_map
 from jax import numpy as jnp
 import numpy as np
 
+from jubik0.plot import _smooth
+
 
 def calculate_uwr(pos, op, ground_truth, response_dict,
                    abs=False, exposure_mask=True, log=True):
@@ -124,3 +126,87 @@ def calculate_nwr(pos, op, data, response_dict,
         tot_mask = vmap(tot_mask, out_axes=1)
     return res, tot_mask(pos)
 
+
+def calculate_convolved_nwr(
+    samples, 
+    op, 
+    data, 
+    response_dict,
+    sigma=1.,
+    abs=True, 
+    min_counts=None, 
+    exposure_mask=True, 
+    response=True
+):
+    """
+    Calculate the noise-weighted residuals.
+
+    The formula used is:
+        gauss * |response(op(pos)) - data| / sqrt(gauss * response(op(pos)))
+    
+    Parameters
+    ----------
+    samples : jft.Samples
+        List of samples in latent space.
+    op : jft.Model
+        Operator for which the NWRs should be calculated, e.g. sky, point source, etc.
+    data : jnp.ndarray
+        The data.
+    response_dict : dict
+        Dictionary containing the response information.
+    sigma : float, optional
+        The smoothing parameter. Default is 1.
+    abs : bool, optional
+        If True, the absolute value of the residuals is returned. Default is False.
+    min_counts : int, optional
+        Minimum number of counts. Default is None.
+    exposure_mask : bool, optional
+        If True, the exposure mask is applied. Default is True.
+    response : bool, optional
+        If True, the response is applied. Default is True.
+
+    Returns
+    ------- 
+    res : jnp.ndarray
+        The noise-weighted residuals.
+    tot_mask : jnp.ndarray
+        The total mask.
+    """
+    if response:
+        R = response_dict['R']
+        kernel = response_dict['kernel']
+    else:
+        R = lambda x, k: x
+
+    adj_mask = lambda x : response_dict['mask_adj'](x)[0]
+    absolute = lambda x: tree_map(jnp.abs, x)
+    conv = lambda x: _smooth(sigma, x)
+    convolution = vmap(conv, in_axes=1, out_axes=1)
+
+    # norm = 2. * np.sqrt(np.pi*sigma**2)
+    norm = 1.
+
+    if abs:
+        res = lambda x: norm * convolution(adj_mask(absolute((R(op(x), kernel) - data)))) / convolution(jnp.sqrt(adj_mask(R(op(x), kernel))))
+    else:
+        res = lambda x: norm * convolution(adj_mask((R(op(x), kernel) - data))) / convolution(jnp.sqrt(adj_mask(R(op(x), kernel))))
+    
+    conv_res = tuple(res(s) for s in samples)
+    conv_res = np.array(conv_res)
+
+    min_count_mask = None
+    if min_counts is not None:
+        masked_indices = lambda x: jnp.array(x < min_counts, dtype=float)
+        masked_indices = tree_map(masked_indices, data)
+        min_count_mask = lambda x: adj_mask(masked_indices)[0]
+    if exposure_mask:
+        exp_mask = lambda x: response_dict['exposure'](jnp.ones(op(x).shape)) == 0.
+        if min_count_mask is not None:
+            tot_mask = lambda x: np.logical_or(min_count_mask(x), exp_mask(x), dtype=bool)
+        else:
+            tot_mask = exp_mask
+    else:
+        tot_mask = min_count_mask if min_count_mask is not None else None
+    # if tot_mask is not None:
+        # tot_mask = vmap(tot_mask, out_axes=1)
+    return conv_res, tot_mask(samples.pos)
