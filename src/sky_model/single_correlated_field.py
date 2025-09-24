@@ -1,3 +1,4 @@
+from typing import Union
 import nifty.re as jft
 
 
@@ -7,7 +8,7 @@ def build_single_correlated_field(
     distances: tuple[float, float],
     zero_mode_config: dict,
     fluctuations_config: dict,
-):
+) -> Union[jft.Model, dict]:
     cfm = jft.CorrelatedFieldMaker(f"{prefix} ")
     cfm.set_amplitude_total_offset(**zero_mode_config)
     cfm.add_fluctuations(shape, distances=distances, **fluctuations_config)

@@ -115,7 +115,8 @@ class ObservationModify:
             How many time bins the data gets restricted to.
         spectral: dict | None
             - bins: int | None
-                If given the data gets restricted to N spectral bins.
+                If given the spectral dimension of the data gets averaged to N spectral
+                bins.
             - min: float | None
                 If given the data gets restricted to being above this minimum
                 frequency value.
@@ -141,6 +142,7 @@ class ObservationModify:
             Mask visibilities and weights according to specification
             mask_corrupted_weights = dict(min=1e-12, max=1e12)
         """
+
         tb = data_cfg.get("time_bins")
 
         spectral = data_cfg.get("spectral", {})
