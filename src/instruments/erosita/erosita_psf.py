@@ -194,7 +194,7 @@ class eROSITA_PSF():
         pointing center, and domain.
 
         Parameters:
-        ----------
+        -----------
         energies : list of int
             List of energies (in keV) for which the PSF will be interpolated.
             Each energy value must be an integer.

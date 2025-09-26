@@ -72,8 +72,7 @@ def get_interpolation_weights(rs, r):
 
 
 def to_patch_coordinates(dcoords, patch_center, patch_delta):
-    """
-    Transforms distances in sky coordinates to coordinates of the psf patch
+    """Transform distances in sky coordinates to coordinates of the PSF patch.
 
     Parameters:
     -----------
@@ -89,7 +88,8 @@ def to_patch_coordinates(dcoords, patch_center, patch_delta):
 
 
 def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
-    """
+    """Get PSF.
+
     Parameters:
     -----------
     psfs: numpy.ndarray (Shape: rs.shape + psf.shape)
@@ -132,7 +132,8 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
             raise ValueError
 
     def psf(ra, dec, dra, ddec):
-        """
+        """PSF function.
+
         ra: right ascession of the center a patch
         dec: declination of the center of a patch
         dra: relative coordinate grid from "the" center (IMHO should be the poiting center)
@@ -171,7 +172,8 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
 
 
 def get_psf_func(domain, psf_infos):
-    """
+    """Return PSF.
+
     # FIXME Remove domain, is not needed.
     Convenience function for get_psf. Takes a dictionary,
     build by eROSITA-PSF.psf_infos and returns a function.
@@ -191,6 +193,7 @@ def get_psf_func(domain, psf_infos):
 
 
 def psf_interpolator(domain, npatch, psf_infos):
+    """Interpolate PSF."""
     all_patches = []
     for info in psf_infos:
         # TODO enable this test

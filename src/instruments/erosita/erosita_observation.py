@@ -458,7 +458,7 @@ def create_erosita_badpix_to_detmap(
     modules in the event file before generating exposure maps with bad pixel
     correction.
 
-    Parameters:
+    Parameters
     ----------
     badpix_filename : str, optional
         The filename of the eROSITA bad pixel file. Default is
@@ -470,7 +470,7 @@ def create_erosita_badpix_to_detmap(
         The filename for the output detector map with the bad pixels included.
         Default is "new_tm1_detmap_140602v01.fits".
 
-    Returns:
+    Returns
     -------
     None
     """

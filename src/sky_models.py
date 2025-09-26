@@ -295,8 +295,11 @@ class SkyModel:
         self.diffuse = jft.Model(exp_padding, domain=log_diffuse.domain)
 
     def _create_point_source_model(self, sdim, edim, e_padding_ratio, edistances, prior_dict):
-        """ Returns a model for the point-source component given the information on its shape
-         and information on the shape and scaling parameters
+        """Return a model for the point-source component.
+
+        Given the information on its shape and information on the shape
+        and scaling parameters, this returns a model for the point source
+        comonent.
 
         Parameters
         ----------
@@ -305,9 +308,9 @@ class SkyModel:
         edim: int
             Number of pixels in spectral direction
         e_padding_ratio: float
-            Ratio between number of pixels in the actual enegery space and the padded energy space.
-            It needs to be taken such that the correlated fields in energy direction has more than 3
-            pixels.
+            Ratio between number of pixels in the actual enegery space and the
+            padded energy space. It needs to be taken such that the correlated
+            fields in energy direction has more than 3 pixels.
         edistances : tuple of float or float
             Energy-space distances
         prior_dict: dict
