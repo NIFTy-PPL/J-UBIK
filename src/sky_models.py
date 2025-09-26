@@ -17,13 +17,14 @@ from .utils import add_functions, add_models
 
 class SkyModel:
     """
-    Basic spatial SkyModel consisting of a diffuse (correlated) component
+    Basic spatial SkyModel.
+
+    This SkyModel consists of a diffuse (correlated) component
     and a point-source like (not correlated) component. The latter can
     be switched off.
     """
 
     def __init__(self, config: dict = None):
-
         """Initializes the SkyModel with the provided config dictionary.
 
         Parameters
@@ -68,10 +69,13 @@ class SkyModel:
         e_ref=None,
         priors=None,
     ):
-        """Returns the sky model composed out of components given the grid information
-        (# pixels and padding ration), the telescope information (FOV: field of view) as well as a
-        dictionary for the prior parameters. All these parameters can be set externally or taken
-        the SkyModels config file, if they are set to None.
+        """Returns the sky model composed out of components.
+
+        This returns the sky model given the grid information
+        (# pixels and padding ration), the telescope information (FOV: field of
+        view) as well as a dictionary for the prior parameters. All these
+        parameters can be set externally or take the SkyModels config file,
+        if they are set to None.
 
         Parameters
         ----------
