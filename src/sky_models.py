@@ -258,7 +258,6 @@ class SkyModel:
         distances and the prior dictionaries for the offset and the fluctuations
 
         Parameters
-
         ----------
         sdim: int or tuple of int
             Number of pixels in each spatial dimension
