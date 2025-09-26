@@ -26,8 +26,8 @@ class ChandraObservationInformation():
         This method sets up the interface to the CXC data and simulation tools by initializing
         the observation information and configuring the necessary parameters.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         obsInfo : dict
             A dictionary specifying the location of all required Chandra data products:
             - event_file: The L2 event file, usually found in primary and ending in _evt2.fits
@@ -51,8 +51,8 @@ class ChandraObservationInformation():
         chips_off : tuple, optional
             IDs of chips that are not considered. Default is an empty tuple. BI-Chips have IDs (5, 7).
 
-        Returns:
-        --------
+        Returns
+        -------
         None
         """
 
@@ -152,13 +152,13 @@ class ChandraObservationInformation():
         """
         Obtain the observed photon counts on a 3D grid over spatial and energy coordinates.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         outfile: string
             fits file to which CXC saves the filtered event list
 
-        Returns:
-        --------    
+        Returns
+        -------
         data: np.array
             event counts on a 3D grid
 
@@ -209,8 +209,8 @@ class ChandraObservationInformation():
         """
         Obtain the exposure of the observation over the full fov.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         outroot: string
             file path to which the temporary CXC products are saved
         res_xy: float
@@ -219,8 +219,8 @@ class ChandraObservationInformation():
         energy_subbins: int
             energy sub-binning to compute the instrumnt map (see below).
 
-        Returns:
-        --------
+        Returns
+        -------
         expmap: (np.array) 
             npix_e x npix_s x npix_s array with the exposure in units of  [sec * cm**(2) counts/photon]
         """
@@ -414,8 +414,8 @@ class ChandraObservationInformation():
         This method simulates the PSF at a given celestial location using MARX simulations. 
         The PSF is computed for the center of each energy channel.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         location : tuple
             Location at which to compute the PSF in celestial coordinates (RA, DEC) in units of degrees.
         outroot : str
@@ -429,8 +429,8 @@ class ChandraObservationInformation():
             Accounts for the observed widening of the PSF with respect to simulations. If None, values suggested by the
             CXC team will be used. Default is None.
 
-        Returns:
-        --------
+        Returns
+        -------
         np.array
             A 3D numpy array (npix_e x npix_s x npix_s) with the simulated PSF.
         """

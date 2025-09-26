@@ -32,8 +32,8 @@ def plot_pspec(pspec, shape, distances,
     """
     Plots the power spectrum from a list of samples.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     pspec : callable
         The power spectrum function to be applied
         to the samples.
@@ -59,8 +59,8 @@ def plot_pspec(pspec, shape, distances,
         plots are saved.
         Defaults to "spatial_".
 
-    Returns:
-    --------
+    Returns
+    -------
     None
     """
     if len(sample_list) == 0:
@@ -101,8 +101,8 @@ def plot_sample_and_stats(output_directory,
     """
     Plots operator samples and statistics from a sample list.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     output_directory : str
         The directory where the plot files will be saved.
     operators_dict : dict[callable]
@@ -129,8 +129,8 @@ def plot_sample_and_stats(output_directory,
     plot_rgb_samples : bool, optional
         Whether to plot the RGB samples. Defaults to True.
 
-    Returns:
-    --------
+    Returns
+    -------
     None
     """
 
@@ -246,7 +246,7 @@ def plot_erosita_priors(key,
     Plots prior samples for the signal components of the sky
     through the eROSITA signal response from the config file.
 
-    Parameters:
+    Parameters
     ----------
         key : np.ndarray
             The random key for reproducibility.
@@ -270,7 +270,7 @@ def plot_erosita_priors(key,
             Whether to automatically adjust the figure
             size aspect ratio for the plots.
 
-    Returns:
+    Returns
     -------
         None
     """
@@ -393,7 +393,7 @@ def plot_uncertainty_weighted_residuals(samples,
         Dictionary of plotting arguments for plot_results.
 
     Returns
-    ----------
+    -------
     res_dict: dict
         Dictionary of UWRs for each operator specified in the input
         operator_dict.

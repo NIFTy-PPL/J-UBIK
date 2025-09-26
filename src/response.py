@@ -74,12 +74,11 @@ def build_readout_function(flags, threshold=None, keys=None):
         function: A callable that applies a mask to an input array (e.g. an
         input sky) and returns
         a `nifty.re.Vector` containing a dictionary of read-out inputs.
-    Raises:
-    -------
+    Raises
+    ------
         ValueError:
-        If threshold is negative.
-        If keys does not have the right shape.
-        If the flags do not have the right shape.
+            If threshold is negative, if keys does not have the right shape or
+            if the flags do not have the right shape.
     """
     if threshold < 0:
         raise ValueError("threshold should be positive!")

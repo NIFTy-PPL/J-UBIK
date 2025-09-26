@@ -132,6 +132,8 @@ def generate_erosita_data_from_config(
         config
 ):
     """
+    Retrieve eROSITA data from event files.
+
     Generates eROSITA data by invoking the eSASS interface based on the
     configurations provided in a configuration dictionary.
     The function processes event files, generates exposure maps,
@@ -159,14 +161,17 @@ def generate_erosita_data_from_config(
     -----
     - The function checks for consistency between the field of view and the
     rebinning factor.
+
     - It handles multiple telescope modules (TMs) and processes each
     module separately.
+
     - If output files already exist, they are skipped, and a log message
     is printed.
+
     - Exposure maps are generated for each energy bin and telescope module.
+
     - Optional plots can be generated if enabled in the configuration.
     """
-
     tel_info = config["telescope"]
     file_info = config["files"]
     grid_info = config['grid']

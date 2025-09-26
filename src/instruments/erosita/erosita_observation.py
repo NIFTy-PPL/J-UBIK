@@ -129,6 +129,7 @@ class ErositaObservation:
         - Ensure that the eSASS software is correctly installed and configured.
         - The output file is saved in the directory specified by
         `self.working_directory` and named according to `self.output`.
+
         - This method prints messages about the status of the data collection
         and saving process.
         """
@@ -194,6 +195,7 @@ class ErositaObservation:
         -----
         - Ensure that the bad pixel correction files are available in the
         specified paths.
+
         - This method requires that the eSASS software is properly installed
         and configured.
         """

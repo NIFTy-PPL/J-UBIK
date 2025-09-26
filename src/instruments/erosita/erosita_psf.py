@@ -14,10 +14,15 @@ from .erosita_psf_utils import get_psf_func, psf_interpolator
 
 
 class eROSITA_PSF():
-    """
-    fname: Filename / Path of the psf.fits file.
-    """
+    """PSF Class for eROSITA."""
     def __init__(self, fname):
+        """Initialze eROSITA PSF class
+
+        Parameters
+        ----------
+        fname: str
+            filepath to PSF fits file.
+        """
         self._fname = fname
         # TODO: verify that this is the correct assignment!
         self._myheader = {'ra': "1", 'dec': "2"}
@@ -137,6 +142,18 @@ class eROSITA_PSF():
         return psf
 
     def info(self, energy):
+        """Return dictionary with PSFs and information about them.
+
+        Parameters
+        ----------
+        energy: str
+
+        Returns
+        -------
+        PSF infos: dict
+            PSFs as numpy arrays, list of off axis angles theta,
+            center of the pointing within the psf file, pixel size
+        """
         self._check_energy(energy)
         full_dct = {
             "psf": self._load_data(energy),
@@ -146,7 +163,22 @@ class eROSITA_PSF():
         return full_dct
 
     def plot_psfs(self, outroot='', lower_cut=1E-6, **args):
-        """Plot the psfs in the fits file."""
+        """Plot the psfs in the fits file.
+
+        Parameters
+        ----------
+        outroot: str
+            filepath
+        lower_cut: float
+            cut PSF below this value
+        args: kwargs
+            will be passed to matplotlib
+
+        Returns
+        -------
+        Plots: png
+            maplotlib plots of the PSFs
+        """
         name = self._load_names()
         psf = self._load_data_full()
         theta = self._load_theta_full()
@@ -193,8 +225,8 @@ class eROSITA_PSF():
         Constructs an interpolated PSF (Point Spread Function) array for the given energies,
         pointing center, and domain.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         energies : list of int
             List of energies (in keV) for which the PSF will be interpolated.
             Each energy value must be an integer.
@@ -207,14 +239,14 @@ class eROSITA_PSF():
         npatch : int
             Number of patches used to divide the domain for PSF interpolation.
 
-        Returns:
-        --------
+        Returns
+        -------
         array : np.ndarray
             A multidimensional array representing the interpolated PSF over the specified
             domain and energies.
 
-        Raises:
-        -------
+        Raises
+        ------
         TypeError
             If `energies` is not a list.
         """

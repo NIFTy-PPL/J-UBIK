@@ -37,4 +37,4 @@ Inference with J-UBIK and NIFTy.re:
 **J-UBIKs** prior and likelihood models can be user for inference using **NIFTy.re**. In the following demo we showcase how to construct an inference pipeline to obtain posterior estimates.
 
 
-.. [1] P. Arras, P. Frank, P. Haim, J. Knollmüller, R. Leike, M. Reinecke, and T. Enßlin (2022), “Variable structures in M87 from space, time and frequency resolved interferometry,”*** Nature Astronomy, 6(2), 259–269. [DOI:10.1038/s41550-021-01548-0] <https://doi.org/10.1038/s41550-021-01548-0>_
+.. [1] Arras P., Frank P., Haim P., Knollmüller J., Leike R., Reinecke M., and Enßlin T. (2022), “Variable structures in M87 from space, time and frequency resolved interferometry,” Nature Astronomy, 6(2), 259–269. `[DOI] <https://doi.org/10.1038/s41550-021-01548-0>`_

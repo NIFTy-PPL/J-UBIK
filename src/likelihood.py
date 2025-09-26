@@ -94,8 +94,8 @@ def get_equal_lh_transition(sky, diffuse_sky, point_dict, transition_dict,
     process for an Inverse-Gamma distribution matching the convention of
     `_IGLikelihood`.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
         sky: nifty.Operator
             Generative model for the sky consisting of a point source component
             and another additive component `diffuse_sky`.

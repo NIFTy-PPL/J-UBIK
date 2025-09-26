@@ -28,10 +28,12 @@ def _bilinear_weights(shape):
 def slice_patches(x, shape, n_patches_per_axis, additional_margin):
     """Slice object into equal sized patches.
 
-    Parameters:
-    -----------
-    x: input array
-    shape: shape of the input array
+    Parameters
+    ----------
+    x: numpy.array
+        input array
+    shape: tuple
+        shape of the input array
     n_patches_per_axis: int
         number of patches after the slicing
     overlap_margin: int
@@ -61,81 +63,80 @@ def slice_patches(x, shape, n_patches_per_axis, additional_margin):
     return f(*(nn.flatten() for nn in ndx))
 
 
-def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
-                      margin):
+def linpatch_convolve(x, domain, kernel, n_patches_per_axis, margin):
     """Functional version of linear patching convolution.
 
-    Parameters:
-    -----------
-    x : input array
-    domain: domain (shape, distances) of input array
+    Parameters
+    ----------
+    x : np.array
+        input array
+    domain: jubik.Domain
+        domain of the input array
     kernel: np.array
-        Array containing the different kernels for the inhomogeneos convolution
+        array containing the different kernels for the inhomogeneos convolution
     n_patches_per_axis: int
-        Number of patches
+        number of patches
     additional_margin: int
-        Size of the margin. Number of pixels on one boarder.
-
+        number of pixels of the margin. (on one boarder)
     """
     if not isinstance(domain, Domain):
         raise ValueError("domain has to be an instance of jubik.Domain")
 
     shape = domain.shape
     spatial_shape = [shape[-2], shape[-1]]
-    slices = slice_patches(x, shape, n_patches_per_axis,
-                           additional_margin=0)
+    slices = slice_patches(x, shape, n_patches_per_axis, additional_margin=0)
     slice_spatial_shape = (slices.shape[-2], slices.shape[-1])
     weights = _bilinear_weights(slice_spatial_shape)
     weighted_slices = weights * slices
 
-    padding_for_extradims_width = [[0, 0],]*(len(weighted_slices.shape) - 2)
-    margins = [[margin, margin],]*2
+    padding_for_extradims_width = [
+        [0, 0],
+    ] * (len(weighted_slices.shape) - 2)
+    margins = [
+        [margin, margin],
+    ] * 2
     pad_width = padding_for_extradims_width + margins
-    padded = jnp.pad(weighted_slices,
-                     pad_width=pad_width,
-                     mode="constant", constant_values=0)
+    padded = jnp.pad(
+        weighted_slices, pad_width=pad_width, mode="constant", constant_values=0
+    )
 
     # Do reshaping here
     dx = int(shape[-2] / n_patches_per_axis)
     dy = int(shape[-1] / n_patches_per_axis)
 
-    kernelcut_x = (shape[-2] - 2*dx) // 2
-    kernelcut_y = (shape[-1] - 2*dy) // 2
+    kernelcut_x = (shape[-2] - 2 * dx) // 2
+    kernelcut_y = (shape[-1] - 2 * dy) // 2
 
     roll_kernel = jnp.fft.fftshift(kernel, axes=(-2, -1))
     cut_kernel = roll_kernel[..., kernelcut_x:-kernelcut_x, kernelcut_y:-kernelcut_y]
 
     # FIXME Temp Fix for weird psfs/ We could / should leave it in.
-    padding_for_extradims_width = [[0, 0],]*(len(cut_kernel.shape) - 2)
+    padding_for_extradims_width = [
+        [0, 0],
+    ] * (len(cut_kernel.shape) - 2)
     pad_width_kernel = padding_for_extradims_width + margins
 
-    pkernel = jnp.pad(cut_kernel,
-                      pad_width=pad_width_kernel,
-                      mode="constant",
-                      constant_values=0)
+    pkernel = jnp.pad(
+        cut_kernel, pad_width=pad_width_kernel, mode="constant", constant_values=0
+    )
     rollback_kernel = jnp.fft.ifftshift(pkernel, axes=(-2, -1))
 
     # TODO discuss this kind of normalization. Kernels should be normalized
     # before and/or elsewhere.
     summed = rollback_kernel.sum((-2, -1))
-    dvol = domain.distances[-2]*domain.distances[-1]
+    dvol = domain.distances[-2] * domain.distances[-1]
     norm = summed * np.array(dvol)
     norm = norm[..., np.newaxis, np.newaxis]
 
-    normed_kernel = rollback_kernel * norm**-1
+    normed_kernel = rollback_kernel * norm ** -1
 
     ndom = Domain((1, *shape), (None, *domain.distances))
-    convolved = convolve(normed_kernel,
-                               padded,
-                               ndom,
-                               axes=(-2, -1))
-
+    convolved = convolve(normed_kernel, padded, ndom, axes=(-2, -1))
     remaining_shape = list(shape[:-2])
-    padded_shape = remaining_shape + [ii+2*margin for ii in spatial_shape]
+    padded_shape = remaining_shape + [ii + 2 * margin for ii in spatial_shape]
 
     def patch_w_margin(array):
-        return slice_patches(array, padded_shape,
-                             n_patches_per_axis, margin)
+        return slice_patches(array, padded_shape, n_patches_per_axis, margin)
 
     primal = np.empty(padded_shape)
     overlap_add = jax.linear_transpose(patch_w_margin, primal)
@@ -146,21 +147,20 @@ def linpatch_convolve(x, domain, kernel, n_patches_per_axis,
 
 def convolve(x, y, domain, axes):
     """Perform an FFT convolution.
-    #TODO implement jnp.convolve wrapper
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x: numpy.array
         input array
     y: numpy.array
         kernel array
-    domain: Domain(NamedTuple)
+    domain: Domain (NamedTuple)
         containing the information about distances and shape of the domain.
     axes: tuple
         axes for the convolution
     """
     dlist = [domain.distances[i] for i in axes]
-    dvol = float(reduce(lambda a, b: a*b, dlist))
+    dvol = float(reduce(lambda a, b: a * b, dlist))
 
     hx = jnp.fft.fftn(x, axes=axes)
     hy = jnp.fft.fftn(y, axes=axes)
@@ -168,15 +168,17 @@ def convolve(x, y, domain, axes):
         print("kernel_shape:", x.shape)
         print("signal_shape:", y.shape)
         print("Dimension Inconsistency. Broadcasting PSFs")
-        prod = hx[..., np.newaxis, :, :]*hy
+        prod = hx[..., np.newaxis, :, :] * hy
     else:
-        prod = hx*hy
+        prod = hx * hy
     res = jnp.fft.ifftn(prod, axes=axes)
-    res = dvol*res
+    res = dvol * res
     return res.real
 
+
 def integrate(x, domain, axes):
+    """Integrate on a domain."""
     sumation = np.sum(x, axis=tuple(axes))
     dlist = [domain.distances[i] for i in axes]
-    dvol = float(reduce(lambda a, b: a*b, dlist))
-    return dvol*sumation
+    dvol = float(reduce(lambda a, b: a * b, dlist))
+    return dvol * sumation

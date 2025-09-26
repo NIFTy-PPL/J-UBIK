@@ -476,7 +476,7 @@ class MappedModel(jft.Model):
     def __init__(self, model, mapped_key, shape, first_axis=True):
         """Intitializes the mapping class.
 
-        Parameters:
+        Parameters
         ----------
         model: nifty.re.Model most probable a Correlated Field Model or a
             Gauss-Markov Process
@@ -528,7 +528,7 @@ class GeneralModel(jft.Model):
     def __init__(self, dict_of_fields={}):
         """Initializes the general sky model.
 
-        keys for the dictionary:
+        keys for the dictionary
         -----------------------
         spatial: typically 2D Model for spatial log flux(x),
             where x is the spatial vector.
@@ -536,7 +536,7 @@ class GeneralModel(jft.Model):
         freq_dev: additional flux (frequency / energy) dependent process.
             often deviations from freq_plaw.
 
-        Parameters:
+        Parameters
         ----------
         dict of fields: dict
             keys: str, name of the field

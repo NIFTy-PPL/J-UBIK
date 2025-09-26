@@ -22,20 +22,20 @@ def _get_git_hash_from_local_package(package_name, git_path=None):
     This function fetches the latest Git commit hash for a specified local
     Python package. It handles both editable and non-editable installations.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     package_name : str
         The name of the package for which to retrieve the Git commit hash.
     git_path : str, optional
         The path to the git repository. If not provided, it will try to find it.
 
-    Returns:
-    --------
+    Returns
+    -------
     str
         The latest Git commit hash for the specified package.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the Git hash cannot be retrieved due to a command error or evaluation issue.
     FileNotFoundError
@@ -124,8 +124,8 @@ def save_local_packages_hashes_to_txt(packages_names,
     in JSON format. The output file will contain a dictionary where the
     keys are package names and the values are the corresponding Git hashes.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     packages_names : list of str
         A list of package names for which the Git hashes are to be retrieved.
     filename : str
@@ -139,14 +139,14 @@ def save_local_packages_hashes_to_txt(packages_names,
     verbose : bool, optional
         If True, print out the progress of the function.
 
-    Returns:
-    --------
+    Returns
+    -------
     None
         This function does not return a value.
         It writes the output to the specified file.
 
-    Example:
-    --------
+    Example
+    -------
     >>> save_local_packages_hashes_to_txt(['example_package1',
                                          'example_package2'],
                                          'hashes.txt')
