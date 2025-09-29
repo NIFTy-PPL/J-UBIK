@@ -38,6 +38,10 @@ class SingleTargetLikelihood:
     def likelihood(self) -> jft.Likelihood | jft.Gaussian:
         return self.builder.build()
 
+    @property
+    def response(self) -> JwstResponse:
+        return self.builder.response
+
 
 # Interface ----------------------------------------------------------------------------
 

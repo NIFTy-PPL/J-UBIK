@@ -29,6 +29,7 @@ MODEL_CONFIG_CLASSES: dict = {
     "constant_mf": ConstantMFConfig,
     "black_body": BlackBodyConfig,
     "modified_black_body": ModifiedBlackBodyConfig,
+    "spectral_expand": ConstantMFConfig,
 }
 
 
