@@ -4,15 +4,16 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-from ...grid import Grid
-from ...parse.wcs.spatial_model import yaml_dict_to_fov, yaml_dict_to_shape
-from ...hashcollector import save_local_packages_hashes_to_txt
-from ...utils import save_config_copy_easy
-
 import os
-import yaml
+from copy import deepcopy
 
+import yaml
 from astropy import units as u
+
+from ...grid import Grid
+from ...hashcollector import save_local_packages_hashes_to_txt
+from ...parse.wcs.spatial_model import yaml_dict_to_fov, yaml_dict_to_shape
+from ...utils import save_config_copy_easy
 
 
 def load_yaml_and_save_info(config_path):
@@ -91,7 +92,7 @@ def _parse_insert_spaces(cfg):
     lens_distances = [
         fov.to(u.arcsec).value / pix for fov, pix in zip(lens_fov, lens_npix)
     ]
-    lens_energy_bin = cfg["grid"]["energy_bin"]
+    lens_energy_bin = deepcopy(cfg["grid"]["energy_bin"])
     lens_space = dict(
         padding_ratio=lens_padd,
         Npix=lens_npix,
@@ -105,7 +106,7 @@ def _parse_insert_spaces(cfg):
     source_distances = [
         fov.to(u.arcsec).value / pix for fov, pix in zip(source_fov, source_npix)
     ]
-    source_energy_bin = cfg["grid"]["energy_bin"]
+    source_energy_bin = deepcopy(cfg["grid"]["energy_bin"])
     source_space = dict(
         padding_ratio=source_padd,
         Npix=source_npix,
@@ -118,9 +119,12 @@ def _parse_insert_spaces(cfg):
     return lens_space, source_space, interpolation
 
 
-def insert_spaces_in_lensing_new(cfg):
+def insert_spaces_in_lensing_new(cfg: dict) -> dict:
+    cfg = deepcopy(cfg)
     lens_space, source_space, interpolation = _parse_insert_spaces(cfg)
 
     cfg["spaces"] = dict(
         lens_space=lens_space, source_space=source_space, interpolation=interpolation
     )
+
+    return cfg
