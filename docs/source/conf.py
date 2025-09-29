@@ -7,8 +7,9 @@ extensions = [
     'sphinx.ext.mathjax',     # Render math as images
     'sphinx.ext.viewcode',    # Add links to highlighted source code
     'sphinx.ext.intersphinx', # Links to other sphinx docs (mostly numpy)
+    "sphinx.ext.autodoc",
     'myst_parser',            # Parse markdown
-    # 'sphinxcontrib.bibtex',
+    'sphinxcontrib.bibtex',
 ] 
 
 bibtex_bibfiles = ['user/paper.bib']
@@ -29,7 +30,6 @@ mathjax3_config = {
 }
 
 intersphinx_mapping = {"numpy": ("https://numpy.org/doc/stable/", None),
-                       #"matplotlib": ('https://matplotlib.org/stable/', None),
                        "ducc0": ("https://mtr.pages.mpcdf.de/ducc/", None),
                        "scipy": ('https://docs.scipy.org/doc/scipy/reference/', None),
                        }
@@ -44,10 +44,8 @@ napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_references = True
 napoleon_include_special_with_doc = True
 
-# imgmath_embed = True
-
 project = u'jubik0'
-copyright = u'2020-2024, Max-Planck-Society'
+copyright = u'2020-2025, Max-Planck-Society'
 author = u'Vincent Eberle, Matteo Guardiani, Margret Westerkamp'
 
 release = jubik0.version.__version__
@@ -58,7 +56,6 @@ exclude_patterns = []
 add_module_names = False
 
 html_theme = "pydata_sphinx_theme"
-# html_context = {"default_mode": "light"}
 html_logo = 'ubik-logo.jpg'
 
 html_theme_options = {
@@ -67,11 +64,6 @@ html_theme_options = {
         "image_dark": "ubik-logo.jpg"
     },
     "icon_links": [
-        #{
-        #    "name": "PyPI",
-        #    "url": "https://pypi.org/project/jubik0",
-        #    "icon": "fas fa-box",
-        #},
         {
             "name": "GitHub",
             "url": "https://github.com/NIFTy-PPL/J-UBIK",

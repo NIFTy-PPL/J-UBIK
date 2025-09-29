@@ -171,7 +171,7 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
     Constructs a PSF (Point Spread Function) operator for the eROSITA telescope
     using a set of PSF files and associated parameters.
 
-    Parameters:
+    Parameters
     ----------
     psf_filenames : list of str
         Paths to PSF files obtained from calibration, e.g., ['psf1.fits',
@@ -192,8 +192,8 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
         domain shape size. This margin is needed to break periodic boundary
         conditions in the patch convolution.
 
-    Returns:
-    --------
+    Returns
+    -------
     psf_op : callable
         A function that applies the PSF operator to an input sky array
         and convolution kernel.

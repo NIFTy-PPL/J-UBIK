@@ -129,6 +129,7 @@ class ErositaObservation:
         - Ensure that the eSASS software is correctly installed and configured.
         - The output file is saved in the directory specified by
         `self.working_directory` and named according to `self.output`.
+
         - This method prints messages about the status of the data collection
         and saving process.
         """
@@ -194,6 +195,7 @@ class ErositaObservation:
         -----
         - Ensure that the bad pixel correction files are available in the
         specified paths.
+
         - This method requires that the eSASS software is properly installed
         and configured.
         """
@@ -458,7 +460,7 @@ def create_erosita_badpix_to_detmap(
     modules in the event file before generating exposure maps with bad pixel
     correction.
 
-    Parameters:
+    Parameters
     ----------
     badpix_filename : str, optional
         The filename of the eROSITA bad pixel file. Default is
@@ -470,7 +472,7 @@ def create_erosita_badpix_to_detmap(
         The filename for the output detector map with the bad pixels included.
         Default is "new_tm1_detmap_140602v01.fits".
 
-    Returns:
+    Returns
     -------
     None
     """
