@@ -154,7 +154,7 @@ def convolve(x, y, domain, axes):
         input array
     y: numpy.array
         kernel array
-    domain: Domain (NamedTuple)
+    domain: jubik.Domain
         containing the information about distances and shape of the domain.
     axes: tuple
         axes for the convolution
