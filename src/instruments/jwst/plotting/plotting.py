@@ -139,14 +139,11 @@ def get_plot(
     plot_cfg_lens_system = LensSystemPlottingConfig.from_yaml_dict(raw=plotting_cfg)
     plot_cfg_residual = ResidualPlottingConfig.from_yaml_dict(plotting_cfg["residuals"])
     if plot_cfg_residual.residual_overplot is not None:
-        if parametric_lens:
-            ll = lens_system.get_forward_model_parametric(only_source=True)
-        else:
-            ll = lens_system.get_forward_model_full(only_source=True)
-        if parametric_source:
-            ll = lens_system.get_forward_model_parametric_source(
-                parametric_lens=parametric_lens, only_source=True
-            )
+        ll = lens_system.get_forward_model(
+            lens_parametric_poisson=parametric_lens,
+            source_parametric_interpolation=parametric_source,
+            only_source=True,
+        )
 
         if len(ll.target.shape) == 2:
             lensed_light = jft.Model(lambda x: ll(x)[None], domain=ll.domain)

@@ -50,23 +50,18 @@ def _build_lens_plotting_models(
     )
 
     if parametric_lens:
-        lensed_light = lens_system.get_forward_model_parametric(only_source=True)
         if isinstance(lens_system.lens_plane_model.convergence_model, MeanModel):
             convergence = lens_system.lens_plane_model.convergence_model
         if isinstance(lens_system.lens_plane_model.convergence_model, HybridModel):
             convergence = lens_system.lens_plane_model.convergence_model.parametric
         convergence_nonparametric = None
     else:
-        lensed_light = lens_system.get_forward_model_full(only_source=True)
         convergence = lens_system.lens_plane_model.convergence_model
         convergence_nonparametric = (
             lens_system.lens_plane_model.convergence_model.nonparametric
         )
 
     if parametric_source:
-        lensed_light = lens_system.get_forward_model_parametric_source(
-            parametric_lens=parametric_lens, only_source=True
-        )
         if isinstance(lens_system.source_plane_model.light_model, MeanModel):
             source_light = lens_system.source_plane_model.light_model
         if isinstance(lens_system.source_plane_model.light_model, HybridModel):
@@ -78,6 +73,12 @@ def _build_lens_plotting_models(
         source_light_alpha, source_light_reference = get_alpha_and_reference(
             lens_system.source_plane_model.light_model
         )
+
+    lensed_light = lens_system.get_forward_model(
+        lens_parametric_poisson=parametric_lens,
+        source_parametric_interpolation=parametric_source,
+        only_source=True,
+    )
 
     models_dict = {
         "source_light": source_light,
