@@ -5,69 +5,49 @@
 
 # %%
 
-from typing import List, Union
-
 import numpy as np
+from .wcs_base import WcsMixin
 from astropy.coordinates import SkyCoord
-from numpy.typing import ArrayLike
-
-from .wcs_base import WcsBase
 
 
-class WcsJwstData(WcsBase):
+_HAS_GWCS = False
+try:
+    from gwcs import WCS
+
+    _HAS_GWCS = True
+except ImportError:
+    pass
+
+
+class WcsJwstData(WcsMixin):
     """
-    A wrapper around the gwcs, in order to define a common interface
-    with the astropy wcs.
+    A wrapper around gwcs that provides compatible interface through duck typing.
     """
 
     def __init__(self, wcs):
-        try:
-            from gwcs import WCS
-        except ImportError:
+        if not _HAS_GWCS:
             raise ImportError(
-                "gwcs not installed." "Please install via 'pip install gwcs'."
+                "gwcs not installed. Please install via 'pip install gwcs'."
             )
 
         if not isinstance(wcs, WCS):
             raise TypeError("wcs must be a gwcs.WCS")
 
-        self.wcs = wcs
+        self._wcs = wcs
 
-    def wl_from_index(self, index: ArrayLike) -> Union[SkyCoord, List[SkyCoord]]:
-        """
-        Convert pixel coordinates to world coordinates.
-
-        Parameters
-        ----------
-        index : ArrayLike
-            Pixel coordinates in the data grid.
-
-        Returns
-        -------
-        wl : SkyCoord
-        """
-        shp = np.shape(index)
-        if (len(shp) == 2) or ((len(shp) == 3) and (shp[0] == 2)):
-            return self.wcs(*index, with_units=True)
-        return [self.wcs(*p, with_units=True) for p in index]
-
-    def index_from_wl(
-        self, wl: Union[SkyCoord, List[SkyCoord]]
-    ) -> Union[ArrayLike, List[ArrayLike]]:
-        """
-        Convert world coordinates to pixel coordinates.
-
-        Parameters
-        ----------
-        wl : SkyCoord
-
-        Returns
-        -------
-        index : ArrayLike
-        """
-        if isinstance(wl, SkyCoord):
-            wl = [wl]
-        return np.array([self.wcs.world_to_pixel(w) for w in wl])
-
+    # Custom method
     def to_header(self):
-        return self.wcs.to_fits()[0]
+        return self._wcs.to_fits()[0]
+
+    def __getattr__(self, name):
+        return getattr(self._wcs, name)
+
+    def world_corners(
+        self,
+        extension_factor: float = 1,
+        extension_value: tuple[int, int] | None = None,
+    ) -> np.ndarray:
+        xx, yy = self.bounding_box.bounding_box()
+        bounds = np.array([[xx[0], xx[0], xx[1], xx[1]], [yy[0], yy[1], yy[1], yy[0]]])
+        ra, dec = self.transform("detector", "world", *bounds)
+        return SkyCoord(ra=ra, dec=dec, unit="deg")

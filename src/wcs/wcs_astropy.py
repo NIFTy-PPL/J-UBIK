@@ -4,21 +4,20 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
-from .wcs_base import WcsBase
-from ..parse.wcs.coordinate_system import CoordinateSystemModel, CoordinateSystems
-from ..parse.wcs.spatial_model import SpatialModel
+from typing import List, Optional, Union
 
 import numpy as np
-
-from numpy.typing import ArrayLike
-from typing import List, Union, Optional
-
-from astropy.coordinates import SkyCoord
-from astropy.wcs import WCS
 from astropy import units as u
+from astropy.coordinates import SkyCoord, distances
+from astropy.wcs import WCS
+from numpy.typing import ArrayLike
+
+from ..parse.wcs.coordinate_system import CoordinateSystemModel, CoordinateSystems
+from ..parse.wcs.spatial_model import SpatialModel
+from .wcs_base import WcsMixin
 
 
-class WcsAstropy(WCS, WcsBase):
+class WcsAstropy(WCS, WcsMixin):
     """
     A wrapper around the astropy.wcs.WCS, in order to define a common interface
     with the gwcs.
@@ -118,70 +117,26 @@ class WcsAstropy(WCS, WcsBase):
             spatial_model.wcs_model.coordinate_system,
         )
 
-    # TODO: Check output axis, RENAME index_from_world_location
-    def wl_from_index(self, index: ArrayLike) -> Union[SkyCoord, List[SkyCoord]]:
-        """
-        Convert pixel coordinates to world coordinates.
-
-        Parameters
-        ----------
-        index : ArrayLike
-            Pixel coordinates in the data grid.
-
-        Returns
-        -------
-        wl : SkyCoord
-
-        Note
-        ----
-        We use the convention of x aligning with the columns, second dimension,
-        and y aligning with the rows, first dimension.
-        """
-        if len(np.shape(index)) == 1:
-            index = [index]
-        return [self.pixel_to_world(*idx) for idx in index]
-        # return [self.array_index_to_world(*idx) for idx in index]
-
-    # TODO: Check output axis, RENAME index_from_world_location
-    def index_from_wl(self, wl_array: List[SkyCoord]) -> ArrayLike:
-        """
-        Convert world coordinates to pixel coordinates.
-
-        Parameters
-        ----------
-        wl : SkyCoord
-
-        Returns
-        -------
-        index : ArrayLike
-
-        Note
-        ----
-        We use the convention of x aligning with the columns, second dimension,
-        and y aligning with the rows, first dimension.
-        """
-        if isinstance(wl_array, SkyCoord):
-            wl_array = [wl_array]
-        return np.array([self.world_to_pixel(wl) for wl in wl_array])
-
     @property
     def dvol(self) -> u.Quantity:
         """Computes the area of a grid cell (pixel) in angular u."""
         return self.distances[0] * self.distances[1]
 
-    def world_extrema(
-        self, extend_factor: float = 1, ext: Optional[tuple[int, int]] = None
-    ) -> ArrayLike:
+    def world_corners(
+        self,
+        extension_value: Optional[tuple[int, int]] = None,
+        extension_factor: float = 1,
+    ) -> list[SkyCoord]:
         """
         The world location of the center of the pixels with the index
         locations = ((0, 0), (0, -1), (-1, 0), (-1, -1))
 
         Parameters
         ----------
-        extend_factor : float, optional
-            A factor by which to extend the grid. Default is 1.
-        ext : tuple of int, optional
+        extension_value : tuple of int, optional
             Specific extension values for the grid's rows and columns.
+        extension_factor : float, optional
+            A factor by which to extend the grid. Default is 1.
 
         Returns
         -------
@@ -194,29 +149,55 @@ class WcsAstropy(WCS, WcsBase):
         index (x) aligning with the columns and the second index (y) aligning
         with the rows.
         """
-        if ext is None:
-            ext0, ext1 = [int(shp * extend_factor - shp) // 2 for shp in self.shape]
+        # NOTE : renamed ext -> extension_value
+
+        if extension_value is None:
+            ext0, ext1 = [int(shp * extension_factor - shp) // 2 for shp in self.shape]
         else:
-            ext0, ext1 = ext
+            ext0, ext1 = extension_value
 
-        xmin = -ext0
-        xmax = self.shape[0] + ext0 - 1
-        ymin = -ext1
-        ymax = self.shape[1] + ext1 - 1
+        xmin = -ext0 + 0.5
+        xmax = self.shape[0] + ext0 - 1 + 0.5
+        ymin = -ext1 + 0.5
+        ymax = self.shape[1] + ext1 - 1 + 0.5
 
-        return self.wl_from_index(
-            [(xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)]
-        )
+        points = np.array(((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)))
+        return self.pixel_to_world(*points.T)
 
-    def distances_in(self, unit: u.Unit) -> list[float]:
-        return [d.to(unit).value for d in self.distances]
-
-    def extent(self, unit=u.arcsec):
+    def extent(self, unit=u.Unit("arcsec")):
         """Convenience method which gives the extent of the grid in
         physical units."""
         distances = [d.to(unit).value for d in self.distances]
         halfside = np.array(self.shape) / 2 * np.array(distances)
         return -halfside[0], halfside[0], -halfside[1], halfside[1]
+
+    def get_xycoords(self, centered: bool = True, unit: u.Unit = u.Unit("arcsec")):
+        shape = self.shape
+        distances = (u.Quantity(self.fov) / np.array(self.shape)).to(unit).value
+        x_direction = coords(shape[0], distances[0])
+        y_direction = coords(shape[1], distances[1])
+        fieldcentered = np.array(np.meshgrid(x_direction, y_direction, indexing="xy"))
+
+        if centered:
+            return fieldcentered
+        else:
+            npix = shape[0]
+            if not npix == shape[1]:
+                raise NotImplementedError("Not implemented for rectangular grids.")
+
+            if npix % 2 == 0:
+                return np.fft.fftshift(
+                    fieldcentered - np.array(distances)[:, None, None] / 2.0
+                )
+            else:
+                return np.fft.fftshift(fieldcentered)
+
+
+def coords(shape: int, distance: float) -> ArrayLike:
+    """Returns coordinates such that the edge of the array is
+    shape/2*distance"""
+    halfside = shape / 2 * distance
+    return np.linspace(-halfside + distance / 2, halfside - distance / 2, shape)
 
 
 def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
