@@ -197,11 +197,6 @@ def build_radio_likelihood(
                             sky_beamer=_sky_beamer,
                             sky_grid=sky_grid,
                             backend_settings=response_backend_settings,
-                            cast_to_dtype=(
-                                partial(cast_to_dtype, dtype=jnp.float32)
-                                if o.is_single_precision()
-                                else None
-                            ),
                         )
                     )
 

@@ -57,7 +57,7 @@ class WcsAstropy(WCS, WcsMixin):
 
         self.shape = shape
         self.fov = fov
-        self.distances = [f.to(u.deg) / s for f, s in zip(fov, shape)]
+        self.distances = u.Quantity([f.to(u.deg) / s for f, s in zip(fov, shape)])
         self.center = center
 
         # Calculate rotation matrix

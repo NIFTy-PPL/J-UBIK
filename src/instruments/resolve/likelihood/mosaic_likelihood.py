@@ -39,10 +39,6 @@ def create_response_operator(
         (Optional) Casting the dtpye, for example float64 -> float32.
     """
     response = jft.wrap(sky2vis, field_name)
-    if cast_to_dtype:
-        Warning("Casting dtype is not tested")
-        response = jft.wrap(lambda x: sky2vis(cast_to_dtype(x)), field_name)
-
     return jft.Model(response, domain=domain)
 
 
@@ -92,7 +88,6 @@ def build_likelihood_from_sky_beamer(
     sky_beamer: SkyBeamerJft,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
-    cast_to_dtype: Callable | None = None,
 ) -> LikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
 
@@ -139,7 +134,6 @@ def build_likelihood_from_sky_beamer(
         domain=sky_beamer.target,
         sky2vis=sky2vis,
         field_name=field_name,
-        cast_to_dtype=cast_to_dtype,
     )
 
     return LikelihoodBuilder(
