@@ -9,6 +9,7 @@ from typing import Callable, Optional, Union
 
 import jax.numpy as jnp
 import numpy as np
+from astropy import units as u
 from jax import vmap
 from nifty.re import logger
 from nifty.re.correlated_field import (
@@ -22,15 +23,19 @@ from nifty.re.num.stats_distributions import lognormal_prior, normal_prior
 from nifty.re.tree_math.vector import Vector
 from numpy.typing import ArrayLike
 
-from .spectral_product_utils.frequency_deviations import (
-    build_frequency_deviations_model_with_degeneracies,
+from ...grid import Grid
+from ...parse.sky_model.multifrequency.spectral_product_mf_sky import (
+    SimpleSpectralSkyConfig,
 )
 from .spectral_product_utils.distribution_or_default import (
     build_distribution_or_default,
 )
+from .spectral_product_utils.frequency_deviations import (
+    build_frequency_deviations_model_with_degeneracies,
+)
 from .spectral_product_utils.normalized_amplitude_model import (
-    build_normalized_amplitude_model,
     assert_normalized_amplitude_model,
+    build_normalized_amplitude_model,
 )
 from .spectral_product_utils.scaled_excitations import (
     ScaledExcitations,
@@ -647,3 +652,60 @@ def add_prefix(object: SpectralProductSky, prefix_key: str) -> SpectralProductSk
     """
     setattr(object, "_prefix", prefix_key)
     return object
+
+
+def build_simple_spectral_sky_from_grid(
+    grid: Grid,
+    prefix: str,
+    config: SimpleSpectralSkyConfig | dict,
+    spatial_unit: u.Unit = u.Unit("arcsec"),
+    spectral_unit: u.Unit = u.Unit("eV"),
+) -> SpectralProductSky:
+    """Build a simple spectral product sky from a a grid and config.
+
+    Parameters
+    ----------
+    grid: Grid
+        The grid on which to build the SpectralProductSky.
+    prefix: str
+        The prefix key to the model.
+    config: dict | SimpleSpectralSkyConfig
+        The parameters of the `SpectralProductSky`, see `SimpleSpectralSkyConfig`
+        for settings.
+    spatial_unit: u.Unit (default `arcsec`)
+        Set the spatial units of the sky, these change the prior settings.
+    spectral_unit: u.Unit (default `eV`)
+        Set the spectral units of the sky, these change the prior settings.
+
+    Returns
+    -------
+    SpectralProductSky
+    """
+    if isinstance(config, dict):
+        config = SimpleSpectralSkyConfig.from_yaml_dict(config)
+
+    # NOTE: Spatial settings
+    shape = grid.spatial.shape
+    distances = grid.spatial.distances.to(spatial_unit).value
+
+    # NOTE: Spectral settings
+    ref_energy = config.reference_bin
+    log_energies = np.log(
+        [c.to_unit(spectral_unit).value for c in grid.spectral.centers]
+    )
+
+    return build_simple_spectral_sky(
+        prefix=prefix,
+        shape=shape,
+        distances=distances,
+        log_frequencies=log_energies,
+        reference_frequency_index=ref_energy,
+        zero_mode_settings=config.zero_mode,
+        spatial_amplitude_settings=config.spatial_amplitude,
+        spectral_index_settings=config.spectral_index,
+        spectral_amplitude_settings=config.spectral_amplitude,
+        deviations_settings=config.spectral_deviations,
+        spatial_amplitude_model=config.spatial_amplitude_model,
+        spectral_amplitude_model=config.spectral_amplitude_model,
+        nonlinearity=config.nonlinearity,
+    )

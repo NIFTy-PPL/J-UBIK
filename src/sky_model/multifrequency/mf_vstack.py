@@ -44,7 +44,7 @@ def build_mfvstack_from_yaml_dict(
         )
 
         model = build_multifrequency_from_grid(
-            skey_grid,
+            grid=skey_grid,
             prefix=f"{prefix}_{skey}",
             model_cfg=vstack_config[skey],
             **kwargs,

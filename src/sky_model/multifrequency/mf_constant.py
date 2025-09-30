@@ -1,14 +1,14 @@
+import jax.numpy as jnp
+import nifty.re as jft
+
+from ...parse.sky_model.multifrequency.constant_mf import ConstantMFConfig
 from ...grid import Grid
-from ...instruments.jwst.parse.parametric_model.parametric_prior import (
-    transform_setting_to_prior_config,
-)
 from ...instruments.jwst.parametric_model.parametric_prior import (
     build_parametric_prior_from_prior_config,
 )
-
-import nifty.re as jft
-
-import jax.numpy as jnp
+from ...instruments.jwst.parse.parametric_model.parametric_prior import (
+    prior_config_factory,
+)
 
 
 class SingleValueMf(jft.Model):
@@ -24,14 +24,14 @@ class SingleValueMf(jft.Model):
 def build_constant_mf_from_grid(
     grid: Grid,
     prefix: str,
-    constant_cfg: dict,
+    constant_cfg: ConstantMFConfig,
 ):
-    VALUE_KEY = "value"
-
     domkey = f"{prefix}_constant"
+    prior_config = prior_config_factory(constant_cfg.value)
     value_distribution = build_parametric_prior_from_prior_config(
         domain_key=domkey,
-        prior_config=transform_setting_to_prior_config(constant_cfg[VALUE_KEY]),
+        prior_config=prior_config,
+        shape=prior_config.shape,
         as_model=True,
     )
 
