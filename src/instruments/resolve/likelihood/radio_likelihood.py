@@ -17,7 +17,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
-from functools import partial, reduce
+from functools import partial, reduce, cached_property
 from operator import add
 
 import jax.numpy as jnp
@@ -28,10 +28,10 @@ from nifty.re.likelihood import LikelihoodSum
 
 from ....grid import Grid
 from ....likelihood import connect_likelihood_to_model
-from ....parse.instruments.resolve.data.data_loading import DataLoading
-from ....parse.instruments.resolve.data.data_modify import ObservationModify
-from ....parse.instruments.resolve.re.mosacing.beam_pattern import BeamPatternConfig
-from ....parse.instruments.resolve.response import yaml_to_response_settings
+from ..parse.data.data_loading import DataLoading
+from ..parse.data.data_modify import ObservationModify
+from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
+from ..parse.response import yaml_to_response_settings
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
 from ..likelihood.mosaic_likelihood import (
@@ -47,22 +47,17 @@ from ..multimessanger import (
 from ..telescopes.primary_beam import (
     build_primary_beam_pattern_from_beam_pattern_config,
 )
-from .cast_to_dtype import cast_to_dtype
-
-# NOTE : THIS should not have a direct dependency of jwst, but should be put on a higher
-# level
-from ...jwst.parse.rotation_and_shift.coordinates_correction import (
-    CoordinatesCorrectionPriorConfig,
-)
+from ..util import cast_to_dtype
+from .mosaic_likelihood import build_likelihood_from_sky_beamer
 
 
 @dataclass
 class RadioLikelihoodProducts:
     """Container for managing and combining multiple likelihood builders.
 
-    This class groups likelihood builders and provides functionality to combine them,
-    either as a flat list or grouped by names. The combined likelihoods are then
-    connected to a sky beam model.
+    This class groups likelihood builders and provides functionality to combine
+    them, either as a flat list or grouped by names. The combined likelihoods
+    are then connected to a sky beam model.
 
     Attributes
     ----------
@@ -114,7 +109,7 @@ class RadioLikelihoodProducts:
             for key, val in grouped.items()
         ]
 
-    @property
+    @cached_property
     def likelihood(self) -> jft.Likelihood:
         """Combine all likelihoods and connect them to the sky beam model.
 
@@ -133,42 +128,37 @@ class RadioLikelihoodProducts:
 
 
 def build_radio_likelihood(
-    data_names: str | list[str],
+    data_names: list[str],
     cfg: dict,
     sky_grid: Grid,
-    sky_model: jft.Model,
+    sky_domain: dict | jft.ShapeWithDtype,
     last_radio_bin: int | None,
     sky_unit: u.Unit | None = None,
     direction_key: str = "PHASE_DIR",
+    data_key: str = "alma_data",
 ) -> RadioLikelihoodProducts:
-    response_settings = yaml_to_response_settings(cfg["radio_response"])
     radio_sky_extractor = build_radio_sky_extractor(
         last_radio_bin,
-        sky_model,
+        sky_domain=sky_domain,
         sky_unit=sky_unit,
-        transpose=response_settings.transpose,
+        # transpose=response_settings.transpose,
     )
     radio_grid = build_radio_grid(last_radio_bin, sky_grid)
+
+    response_backend_settings = yaml_to_response_settings(cfg["radio_response"])
 
     if not isinstance(data_names, list):
         assert isinstance(data_names, str)
         data_names = [data_names]
 
-    if "rotation_and_shift" in cfg["radio_response"]:
-        coordinate_correction_config = CoordinatesCorrectionPriorConfig.from_yaml_dict(
-            cfg["radio_response"]["rotation_and_shift"]
-        )
-    else:
-        coordinate_correction_config = None
-
     likelihoods = []
     names = []
     sky_beamers = []
     for data_name in data_names:
-        logger.info(f"Loading data: {data_name}")
+        logger.info(f"\nLoading data: {data_name}")
 
-        dl = DataLoading.from_yaml_dict(cfg["alma_data"][data_name])
-        dm = ObservationModify.from_yaml_dict(cfg["alma_data"][data_name])
+        dl = DataLoading.from_yaml_dict(cfg[data_key][data_name])
+        dm = ObservationModify.from_yaml_dict(cfg[data_key][data_name])
         observations = list(
             load_and_modify_data_from_objects(
                 sky_frequencies=radio_grid.spectral.binbounds_in(u.Unit("Hz")),
@@ -179,7 +169,7 @@ def build_radio_likelihood(
 
         # TODO: The following lines have to be simplified.
         beam_func = build_primary_beam_pattern_from_beam_pattern_config(
-            BeamPatternConfig.from_yaml_dict(cfg["alma_data"][data_name]["dish"])
+            BeamPatternConfig.from_yaml_dict(cfg[data_key][data_name]["dish"])
         )
 
         _sky_beamer = build_jft_sky_beamer(
@@ -196,7 +186,6 @@ def build_radio_likelihood(
         )
         sky_beamers.append(_sky_beamer)
 
-        _tmp_likelihoods = []
         for field_name, beam_direction in _sky_beamer.beam_directions.items():
             for o in observations:
                 if o.direction_from_key(direction_key) == beam_direction.direction:
@@ -207,11 +196,12 @@ def build_radio_likelihood(
                             field_name=field_name,
                             sky_beamer=_sky_beamer,
                             sky_grid=sky_grid,
-                            backend_settings=response_settings.backend,
-                            cast_to_dtype=partial(cast_to_dtype, dtype=jnp.float32)
-                            if o.is_single_precision()
-                            else None,
-                            phase_shift_correction_config=coordinate_correction_config,
+                            backend_settings=response_backend_settings,
+                            cast_to_dtype=(
+                                partial(cast_to_dtype, dtype=jnp.float32)
+                                if o.is_single_precision()
+                                else None
+                            ),
                         )
                     )
 

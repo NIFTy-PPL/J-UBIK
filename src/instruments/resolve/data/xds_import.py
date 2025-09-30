@@ -21,7 +21,7 @@ import numpy as np
 from .antenna_positions import AntennaPositions
 from .auxiliary_table import AuxiliaryTable
 from .observation import Observation
-from .polarization import Polarization
+from ....polarization import Polarization
 
 
 def xds2observations(xds):

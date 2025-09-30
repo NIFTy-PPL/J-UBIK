@@ -110,7 +110,7 @@ class _PolarizationConverter(ift.LinearOperator):
 
     def apply(self, x, mode):
         self._check_input(x, mode)
-        polx = lambda lbl: x.val.val[x.domain[self._space].label2index(lbl)]
+        polx = lambda lbl: x.val[x.domain[self._space].label2index(lbl)]
         f = lambda s: self._tgt(mode)[self._space].label2index(s)
         res = np.empty(self._tgt(mode).shape, dtype=x.dtype)
         if mode == self.TIMES:

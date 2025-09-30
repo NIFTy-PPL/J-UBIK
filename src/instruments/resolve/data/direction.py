@@ -21,25 +21,23 @@ from astropy import units as u
 
 
 class Direction:
-    """
-    Parameters
-    ----------
-    phase_center : list of float
-        coordinate of phase center
-    equinox : int
-        reference year of the equinox
-    """
+    def __init__(self, phase_center, equinox, name=""):
+        """Direction of the phase center of a observation.
 
-    def __init__(
-        self, phase_center: list[float] | tuple[float, float], equinox: int, name=""
-    ):
-        assert len(phase_center) == 2
-        self._pc = tuple(phase_center)
+        Parameters
+        ----------
+        phase_center : list of float
+            coordinate of phase center
+        equinox : int
+            reference year of the equinox
+        """
+        my_asserteq(len(phase_center), 2)
+        self._pc = phase_center
         self._e = float(equinox)
         self._n = name
 
     @property
-    def phase_center(self) -> tuple[float, float]:
+    def phase_center(self):
         return self._pc
 
     @property

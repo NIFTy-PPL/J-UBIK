@@ -16,9 +16,15 @@
 
 import nifty.cl as ift
 import numpy as np
+import jax
+import jax.numpy as jnp
 
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+
+
+def cast_to_dtype(tree, dtype=jnp.float32):
+    return jax.tree.map(lambda x: x.astype(dtype), tree)
 
 
 def my_assert(*conds):
@@ -50,7 +56,7 @@ def _fancy_equal(o1, o2):
 
     # Turn MultiField into dict
     if isinstance(o1, ift.MultiField):
-        o1, o2 = o1.val.val, o2.val.val
+        o1, o2 = o1.val, o2.val
 
     # Compare dicts
     if isinstance(o1, dict):
@@ -114,7 +120,7 @@ def dtype_complex2float(dt, force=False):
 def calculate_phase_offset_to_image_center(
     sky_center: SkyCoord,
     phase_center: SkyCoord,
-):
+) -> tuple[float | None, float | None]:
     """Calculate the relative shift of the phase center to the sky center
     (reconstruction center) in radians.
 
@@ -130,4 +136,8 @@ def calculate_phase_offset_to_image_center(
     # FIXME: center (x, y) switch maybe because of the ducc0 fft?
     center_y = r.to(u.rad).value * np.cos(phi.to(u.rad).value)
     center_x = r.to(u.rad).value * np.sin(phi.to(u.rad).value)
+
+    if np.isnan(center_x) or np.isnan(center_y):
+        return 0.0, 0.0
+
     return center_x, center_y

@@ -140,7 +140,7 @@ class AntennaPositions:
 
         # Select by antenna labels
         ind = np.logical_and(self.ant1 == antenna1, self.ant2 == antenna2)
-        data = field.val.val[:, ind]
+        data = field.val[:, ind]
         tt = self.time[ind]
 
         # Sort by time

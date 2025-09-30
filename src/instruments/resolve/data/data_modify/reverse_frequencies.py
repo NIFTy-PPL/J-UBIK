@@ -7,9 +7,9 @@ def reverse_frequencies(obs: Observation) -> Observation:
     logger.info("Reverse frequencies")
     return Observation(
         obs.antenna_positions,
-        obs.vis.val.val[:, :, ::-1],
-        obs.weight.val.val[:, :, ::-1],
-        obs.polarization,
+        obs.vis.asnumpy()[:, :, ::-1],
+        obs.weight.asnumpy()[:, :, ::-1],
+        obs.legacy_polarization,
         obs.freq[::-1],
         auxiliary_tables=obs._auxiliary_tables,
     )

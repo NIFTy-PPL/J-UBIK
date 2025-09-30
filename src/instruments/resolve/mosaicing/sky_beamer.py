@@ -16,7 +16,7 @@
 
 
 from dataclasses import dataclass
-from typing import Callable, Protocol, Union
+from typing import Callable
 
 import jax.numpy as jnp
 import nifty.re as jft
@@ -25,6 +25,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
+from ..data.data_modify.frequency_handling import restrict_by_freq
 from ..data.direction import Direction
 from ..data.observation import Observation
 from ..util import calculate_phase_offset_to_image_center
@@ -37,19 +38,6 @@ class BeamPattern:
     center_y: float
     beam: ArrayLike
     direction: Direction
-
-
-class BeamFunction(Protocol):
-    def __call__(self, freq: float | np.ndarray, x: np.ndarray) -> np.ndarray:
-        """
-        Parameters
-        ----------
-        freq:
-            The frequencies to evaluate the Beam.
-        x: np.ndarray
-            The radial distance in units of rad.
-        """
-        ...
 
 
 class SkyBeamerJft(jft.Model):
@@ -67,7 +55,7 @@ class SkyBeamerJft(jft.Model):
     def __init__(
         self,
         domain_shape: jft.ShapeWithDtype,
-        beam_directions: dict[str, BeamPattern],
+        beam_directions: dict[BeamPattern],
     ):
         self.beam_directions = dict(beam_directions)
 
@@ -99,7 +87,7 @@ def build_jft_sky_beamer(
     sky_center: SkyCoord,
     sky_frequency_binbounds: list[float],
     observations: list[Observation],
-    beam_func: BeamFunction,
+    beam_func: Callable[float, float],
     direction_key: str = "REFERENCE_DIR",
     field_name_prefix: str = "",
 ) -> SkyBeamerJft:
@@ -109,25 +97,32 @@ def build_jft_sky_beamer(
 
     Parameters
     ----------
-    sky_shape_with_dtype: jft.ShapeWithDtype
+    sky_shape_with_dtype:
         Polarization, Time, Frequency, Sky
-    sky_fov: u.Quantity
+
+    sky_fov:
         Fov, preferably given in units of [rad]
-    sky_center: SkyCoord
+
+    sky_center:
         The world coordinate of the Sky reference center.
+
     sky_frequency_binbounds: list[float],
         The binbounds of the reconstruction sky required to be in Hz.
+
     observations:
         The observations containing the different pointings of the instrument.
         Only the pointings direction is used to set up the beam pattern wrt.
         the corresponding pointing.
+
     beam_func:
         A function which provides the beam pattern for the instrument.
         The function needs the keywords:
             - freq  (different frequencies)
             - x  (relative distances to the pointing center)
+
     direction_key:
         The key in the measurement set which specifies the pointing direction.
+
     field_name_prefix:
         Prefix for the `field_name`, prepended to the target of SkyBeamer.
         This is usefull when more than one instrument is used.
@@ -145,20 +140,16 @@ def build_jft_sky_beamer(
 
     _, _, fshape, *sshape = sky_shape_with_dtype.shape
 
-    # assert isinstance(sshape, tuple)
-    # assert len(sshape) == 2
-
     wcs = build_astropy_wcs(sky_center, sshape, sky_fov)
     sky_coords = wcs.pixel_to_world(*np.meshgrid(*[np.arange(s) for s in sshape]))
 
     beam_directions = {}
     for ii, oo in enumerate(_filter_pointings_generator(observations, direction_key)):
-        direction: Direction = oo.direction_from_key(direction_key)
-        assert isinstance(direction, Direction)
+        direction = oo.direction_from_key(direction_key)
 
         o_phase_center = SkyCoord(
-            direction.phase_center[0] * u.Unit("rad"),
-            direction.phase_center[1] * u.Unit("rad"),
+            direction.phase_center[0] * u.rad,
+            direction.phase_center[1] * u.rad,
             frame=sky_center.frame,
         )
         center_x, center_y = calculate_phase_offset_to_image_center(
@@ -166,7 +157,7 @@ def build_jft_sky_beamer(
         )
 
         x = sky_coords.separation(o_phase_center)
-        x = x.to(u.Unit("rad")).value
+        x = x.to(u.rad).value
         beam_pointing = []
         for ff in range(fshape):
             freq_mean = _get_mean_frequency(ff, fshape, sky_frequency_binbounds, oo)
@@ -188,14 +179,14 @@ def build_jft_sky_beamer(
     return SkyBeamerJft(sky_shape_with_dtype, beam_directions)
 
 
-def _get_mean_frequency(ff, n_freq_bins, f_binbounds, observation) -> float:
+def _get_mean_frequency(ff, n_freq_bins, f_binbounds, observation):
     """Get the mean frequency.
     1) If multi-frequency sky: mean of the sky bin
     2) If single-frequency sky: mean of the observation
     """
     if n_freq_bins == 1:
-        o, f_ind = observation.restrict_by_freq(
-            f_binbounds[ff], f_binbounds[ff + 1], True
+        o, f_ind = restrict_by_freq(
+            observation, f_binbounds[ff], f_binbounds[ff + 1], True
         )
         return o.freq.mean()
 
@@ -203,20 +194,12 @@ def _get_mean_frequency(ff, n_freq_bins, f_binbounds, observation) -> float:
 
 
 def _filter_pointings_generator(observations: list[Observation], direction_key: str):
-    """Returns only observations with unique pointings.
-
-    Parameters
-    ----------
-    observations: list[Observation]
-        The observations to filter.
-    direction_key: str
-        The key for the phase center of the observation.
-    """
-    directions = list()
+    """Returns only observations with unique pointings."""
+    field_pointings = list()
 
     for obs in observations:
-        if obs.direction_from_key(direction_key) not in directions:
-            directions.append(obs.direction_from_key(direction_key))
+        if obs.direction_from_key(direction_key) not in field_pointings:
+            field_pointings.append(obs.direction_from_key(direction_key))
             yield obs
 
 

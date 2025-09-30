@@ -23,7 +23,16 @@ from ..logger import logger
 from .antenna_positions import AntennaPositions
 from .auxiliary_table import AuxiliaryTable
 from .observation import Observation
-from .polarization import Polarization
+from ....polarization import Polarization
+
+__all__ = [
+    "ms_table",
+    "ms2observations_all",
+    "ms2observations",
+    "read_ms_i",
+    "ms_n_spectral_windows",
+    "ms_n_fields",
+]
 
 
 def ms_table(path):
@@ -44,6 +53,20 @@ def _pol_id(ms_path, spectral_window):
 
 
 def ms2observations_all(ms, data_column):
+    """Read and convert a given measurement set into an iterator of
+    :class:`Observation`, reading the data of all sources and spectral windows.
+
+    If WEIGHT_SPECTRUM is available this column is used for weighting.
+    Otherwise fall back to WEIGHT.
+
+    Parameters
+    ----------
+    ms : string
+        Folder name of measurement set
+    data_column : string
+        Column of measurement set from which the visibilities are read.
+        Typically either "DATA" or "CORRECTED_DATA".
+    """
     for spw in range(ms_n_spectral_windows(ms)):
         obs = ms2observations(ms, data_column, True, spw)
         for oo in obs:

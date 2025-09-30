@@ -19,7 +19,7 @@ from typing import Tuple
 
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
-from astropy.units import Quantity
+from astropy.units import Unit
 from astropy import units
 
 import numpy as np
@@ -28,8 +28,8 @@ import numpy as np
 def build_astropy_wcs(
     center: SkyCoord,
     shape: Tuple[int, int],
-    fov: Quantity | Tuple[Quantity, Quantity],
-    rotation: Quantity = 0.0 * units.Unit("deg"),
+    fov: Tuple[Unit, Unit],
+    rotation: Unit = 0.0 * units.deg,
 ) -> WCS:
     """
     Specify the Astropy wcs.
@@ -53,7 +53,7 @@ def build_astropy_wcs(
     w = WCS(naxis=2)
 
     # Rotation
-    rotation_value = rotation.to(units.Unit("rad")).value
+    rotation_value = rotation.to(units.rad).value
     pc11 = np.cos(rotation_value)
     pc12 = -np.sin(rotation_value)
     pc21 = np.sin(rotation_value)
@@ -62,8 +62,8 @@ def build_astropy_wcs(
     # Set up ICRS system
     w.wcs.crpix = [shape[0] / 2 + 0.5, shape[1] / 2 + 0.5]
     w.wcs.cdelt = [
-        -fov[0].to(units.Unit("deg")).value / shape[0],
-        fov[1].to(units.Unit("deg")).value / shape[1],
+        -fov[0].to(units.deg).value / shape[0],
+        fov[1].to(units.deg).value / shape[1],
     ]
     w.wcs.crval = [center.ra.deg, center.dec.deg]
     w.wcs.ctype = ["RA---TAN", "DEC--TAN"]

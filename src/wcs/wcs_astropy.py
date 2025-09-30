@@ -26,7 +26,7 @@ class WcsAstropy(WCS, WcsMixin):
     def __init__(
         self,
         center: SkyCoord,
-        shape: tuple[int, int],
+        shape: tuple[int, int] | list[int],
         fov: u.Quantity | tuple[u.Quantity, u.Quantity],
         rotation: u.Quantity = 0.0 * u.deg,
         coordinate_system: Optional[
@@ -53,11 +53,11 @@ class WcsAstropy(WCS, WcsMixin):
         """
 
         if isinstance(fov, u.Quantity):
-            assert fov.shape == 2
+            assert fov.shape == 2 or fov.shape == (2,)
 
         self.shape = shape
         self.fov = fov
-        self.distances = u.Quantity([f.to(u.deg) / s for f, s in zip(fov, shape)])
+        self.distances = [f.to(u.deg) / s for f, s in zip(fov, shape)]
         self.center = center
 
         # Calculate rotation matrix
@@ -74,6 +74,9 @@ class WcsAstropy(WCS, WcsMixin):
         else:
             lon = center.ra.deg
             lat = center.dec.deg
+
+        if np.isnan(lon) or np.isnan(lat):
+            lon = lat = None
 
         # Build the header dictionary
         header = {
@@ -130,10 +133,10 @@ class WcsAstropy(WCS, WcsMixin):
 
         Parameters
         ----------
-        extension_factor : float, optional
-            A factor by which to extend the grid. Default is 1.
         extension_value : tuple of int, optional
             Specific extension values for the grid's rows and columns.
+        extension_factor : float, optional
+            A factor by which to extend the grid. Default is 1.
 
         Returns
         -------

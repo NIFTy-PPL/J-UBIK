@@ -129,46 +129,42 @@ class RadioSkyExtractor(jft.Model):
 
 def build_radio_sky_extractor(
     index_of_last_radio_bin: int | None,
-    sky_model: jft.Model,
+    sky_domain: dict | jft.ShapeWithDtype,
     sky_unit: u.Unit | None = None,
-    transpose: bool = False,
 ) -> RadioSkyExtractor:
-    """Builds a jft.Model that extracts the bins from the sky_model, which
+    """Builds a jft.Model that extracts the bins from the sky (sky_domain), which
     correspond to the radio sky and converts the sky from its unit system to
     the resolve unit system [Jy/rad].
 
-    If no index_of_last_radio_bin is provided the sky_model is just passed on,
-    but it's expected that the `sky_model` target has no keys.
+    If no index_of_last_radio_bin is provided the sky is just passed forward,
+    but it's expected that the `sky_domain` has no keys, i.e. is a field.
 
-    ***Warning: The radio part of  the sky is assumed to be in the first
-    indices of the sky.***
+    ***Warning: The radio part of the sky is assumed to be in the first indices of the
+    sky.***
 
     Parameters
     ----------
     index_of_last_radio_bin: int | None
         The index of the last radio bin. We assume that the radio sky is in the
         first part of sky.
-    sky_model: jft.Model
-        The model of the sky, it's target domain is the input domain of the
-        radio sky extractor.
+    sky_model_target: jft.Model
+        The target of the sky model is the input domain of the radio sky extractor.
+    sky_key: str | None
+        The potential key of the sky.
     sky_unit: u.Unit | None
         The unit of the sky.
     """
-    sky_key = (
-        next(iter(sky_model.target.keys()))
-        if isinstance(sky_model.target, dict)
-        else None
-    )
+    sky_key = next(iter(sky_domain.keys())) if isinstance(sky_domain, dict) else None
 
     extract, slicing, conv, trans = (
         build_extract_sky(sky_key),
         build_radio_slicing(index_of_last_radio_bin),
         build_unit_conversion(sky_unit),
-        resolve_transpose if transpose else lambda x: x,
+        resolve_transpose,
     )
-    radiofy = build_radiofy_sky(extract(sky_model.target).shape)
+    radiofy = build_radiofy_sky(extract(sky_domain).shape)
 
-    return RadioSkyExtractor(sky_model.target, extract, slicing, conv, radiofy, trans)
+    return RadioSkyExtractor(sky_domain, extract, slicing, conv, radiofy, trans)
 
 
 def build_radio_grid(

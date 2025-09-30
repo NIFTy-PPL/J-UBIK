@@ -1,4 +1,4 @@
-from ....parse.instruments.resolve.noise import BaseLineCorrection, LowerBoundCorrection
+from ..parse.noise import BaseLineCorrection, LowerBoundCorrection
 from ..data.observation import Observation
 from .log_inverse_noise_correction import LogInverseNoiseCovariance
 from .antenna_based_correction import (
@@ -48,7 +48,7 @@ def factory_noise_correction_model(
             build_lower_bound_noise_correction(
                 alpha=correction_settings.alpha,
                 scale=correction_settings.sigma,
-                weight=observation.weight.val.val,
+                weight=observation.weight.val,
             )
         )
 
@@ -58,7 +58,7 @@ def factory_noise_correction_model(
                 *get_baselines(observation),
                 alpha=correction_settings.alpha,
                 scale=correction_settings.sigma,
-                weight=observation.weight.val.val,
+                weight=observation.weight.val,
             )
         )
 
