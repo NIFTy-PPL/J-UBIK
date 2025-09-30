@@ -3,7 +3,7 @@ from typing import Callable, Union
 from ..parsing_base import FromYamlDict, StaticTyped
 
 
-@dataclass(frozen=True)
+@dataclass
 class AmplitudeTotalOffsetConfig(FromYamlDict, StaticTyped):
     """Config for a single correlated field.
 
@@ -24,7 +24,7 @@ class AmplitudeTotalOffsetConfig(FromYamlDict, StaticTyped):
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class CfmFluctuationsConfig(FromYamlDict, StaticTyped):
     """Config for a single correlated field.
 
@@ -64,7 +64,7 @@ class CfmFluctuationsConfig(FromYamlDict, StaticTyped):
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class MaternFluctationsConfig(FromYamlDict, StaticTyped):
     """Config for a single correlated field.
 

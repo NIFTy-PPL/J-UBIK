@@ -119,7 +119,7 @@ def interferometry_response(
     # bb_freqs = get_binbounds(n_freqs, sky_domain.frequencies)
 
     npix_x, npix_y = sky_grid.spatial.shape
-    pixsize_x, pixsize_y = sky_grid.spatial.distances_in(SPATIAL_UNIT)
+    pixsize_x, pixsize_y = sky_grid.spatial.distances.to(SPATIAL_UNIT).value
     center_y, center_x = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
         sky_grid.spatial.center
