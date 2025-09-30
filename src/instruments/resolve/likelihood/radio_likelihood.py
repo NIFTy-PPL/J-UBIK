@@ -131,15 +131,17 @@ def build_radio_likelihood(
     data_names: list[str],
     cfg: dict,
     sky_grid: Grid,
-    sky_model_target: dict | jft.ShapeWithDtype,
+    sky_domain: dict | jft.ShapeWithDtype,
     last_radio_bin: int | None,
-    sky_key: str | None = "sky",
     sky_unit: u.Unit | None = None,
     direction_key: str = "PHASE_DIR",
     data_key: str = "alma_data",
 ) -> RadioLikelihoodProducts:
     radio_sky_extractor = build_radio_sky_extractor(
-        last_radio_bin, sky_model_target, sky_key=sky_key, sky_unit=sky_unit
+        last_radio_bin,
+        sky_domain=sky_domain,
+        sky_unit=sky_unit,
+        # transpose=response_settings.transpose,
     )
     radio_grid = build_radio_grid(last_radio_bin, sky_grid)
 
