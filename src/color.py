@@ -5,8 +5,8 @@
 
 # %%
 
+import numpy as np
 from astropy import units as u
-from numpy import argsort
 
 
 class Color(u.Quantity):
@@ -68,9 +68,9 @@ class Color(u.Quantity):
     @staticmethod
     def _in_range(item: u.Quantity, rng: u.Quantity) -> bool:
         """Helper function for contains."""
-        item = item.to(u.Unit("eV"), equivalencies=u.spectral())
-        start: u.Quantity = rng[0].to(u.Unit("eV"), equivalencies=u.spectral())
-        end: u.Quantity = rng[-1].to(u.Unit("eV"), equivalencies=u.spectral())
+        item = item.to(u.Unit("eV"), equivalencies=u.spectral()).value
+        start = rng[0].to(u.Unit("eV"), equivalencies=u.spectral()).value
+        end = rng[-1].to(u.Unit("eV"), equivalencies=u.spectral()).value
 
         return (start <= item) and (item <= end)
 
@@ -88,7 +88,16 @@ class Color(u.Quantity):
         else:
             raise ValueError("Shouldn't end up here'")
 
-    def binbounds(self, unit: u.Unit):
+    @property
+    def is_continuous(self):
+        if len(self.shape) == 1:
+            return True
+
+        end_points = self[:-1, 1]  # End of all bins except the last
+        start_points = self[1:, 0]  # Start of all bins except the first
+        return np.all(end_points == start_points)
+
+    def binbounds(self, unit: u.Unit) -> "Color":
         """The binbounds of the binned color ranges in the requested unit.
 
         Note

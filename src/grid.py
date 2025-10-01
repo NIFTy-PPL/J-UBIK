@@ -10,7 +10,7 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 import numpy as np
 
-from .color import Color, ColorRange, ColorRanges
+from .color import Color
 from .parse.grid import GridModel
 from .wcs.wcs_astropy import WcsAstropy
 from .polarization import PolarizationType
@@ -23,7 +23,7 @@ class Grid:
     The class holds a spatial coordiante system, which includes
         - `spatial` world coordinate system (WcsAstropy), which locates the
           spatial grid in astrophysical coordinates.
-        - `spectral` coordinate system (ColorRanges), which provides a spectral
+        - `spectral` coordinate system (Color), which provides a spectral
           coordinate range to the frequency/energy/wavelength bins of the sky
           brightness model.
         - `polarization`, for now fixed to Stokes I.
@@ -33,7 +33,7 @@ class Grid:
     def __init__(
         self,
         spatial: WcsAstropy,
-        spectral: Union[ColorRange, ColorRanges],
+        spectral: Color,
         polarization: Union[tuple, PolarizationType] = ("I",),
     ):
         """
@@ -43,14 +43,17 @@ class Grid:
         ----------
         spatial : WcsAstropy
             The spatial coordinate system.
-        spectral: ColorRanges
+        spectral: Color
             The spectral coordinate system.
         """
+
+        assert isinstance(spatial, WcsAstropy)
+        assert isinstance(spectral, Color)
 
         # Spatial
         self.spatial = spatial
         # Spectral
-        self.spectral = spectral
+        self.spectral: Color = spectral
 
         # Polarization
         self.polarization = (
@@ -60,8 +63,6 @@ class Grid:
         )
 
         # Time, TODO: Implement more options
-        from astropy import units as u
-
         self.times: u.Quantity = u.Unit("s") * np.array([-np.inf, np.inf])
 
     @classmethod
@@ -69,31 +70,27 @@ class Grid:
         cls,
         spatial_shape: tuple[int, int] | list[int, int],
         fov: u.Quantity,
-        frequencies: Optional[list[tuple[u.Quantity, u.Quantity]]] = None,
+        frequencies: Optional[u.Quantity] = None,
         sky_center: SkyCoord = SkyCoord(
             ra=np.nan * u.Unit("rad"), dec=np.nan * u.Unit("rad")
         ),
     ) -> "Grid":
-        if frequencies is not None:
-            color_ranges = ColorRanges(
-                [ColorRange(Color(cr[0]), Color(cr[1])) for cr in frequencies]
-            )
-        else:
-            color_ranges = ColorRanges(
-                [ColorRange(Color(0 * u.Unit("Hz")), Color(np.inf * u.Unit("Hz")))]
-            )
-
+        spectral = (
+            Color((0.0, np.inf) * u.Unit("Hz"))
+            if frequencies is None
+            else Color(frequencies)
+        )
         return cls(
             spatial=WcsAstropy(center=sky_center, shape=spatial_shape, fov=fov),
-            spectral=color_ranges,
+            spectral=spectral,
         )
 
     @classmethod
-    def from_grid_model(cls, grid_model: GridModel):
+    def from_grid_model(cls, grid_model: GridModel) -> "Grid":
         """Build Grid from GridModel."""
         spatial = WcsAstropy.from_spatial_model(grid_model.spatial_model)
         spectral = grid_model.color_ranges
-        return Grid(spatial, spectral)
+        return cls(spatial, spectral)
 
     @property
     def shape(self):

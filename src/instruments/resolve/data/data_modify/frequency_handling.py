@@ -1,9 +1,11 @@
-from numpy.typing import NDArray
-from ..observation import Observation
-
-from nifty.cl.logger import logger
-
+import astropy.units as u
 import numpy as np
+from nifty.cl.logger import logger
+from numpy.typing import NDArray
+
+from .....color import Color
+from ...constants import RESOLVE_SPECTRAL_UNIT
+from ..observation import Observation
 
 
 def freq_average_by_bins(obs: Observation, n_freq_chuncks: int | None):
@@ -17,7 +19,7 @@ def freq_average_by_bins(obs: Observation, n_freq_chuncks: int | None):
 
 
 def freq_average_by_fdom_and_n_freq_chunks(
-    sky_frequencies: list[float],
+    sky_frequencies: Color,
     obs: Observation,
     n_freq_chuncks: int | None,
 ):
@@ -27,7 +29,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
 
     Parameters
     ----------
-    sky_frequencies: list[float]
+    sky_frequencies: Color
         The frequency bounds of the sky.
     obs: Observation
         The observation to be modified.
@@ -38,10 +40,16 @@ def freq_average_by_fdom_and_n_freq_chunks(
     if n_freq_chuncks is None:
         return obs
 
-    fmin_fmax_array = [
-        (sky_frequencies[ii], sky_frequencies[ii + 1])
-        for ii in range(len(sky_frequencies) - 1)
-    ]
+    freqs_in_unit = sky_frequencies.to(
+        RESOLVE_SPECTRAL_UNIT, equivalencies=u.spectral()
+    ).value
+    if len(sky_frequencies.shape) == 1:
+        fmin_fmax_array = [
+            (freqs_in_unit[ii], freqs_in_unit[ii + 1])
+            for ii in range(len(freqs_in_unit) - 1)
+        ]
+    else:
+        fmin_fmax_array = [(freqs[0], freqs[-1]) for freqs in freqs_in_unit]
 
     splitted_freqs = []
     n_obs_in_sky = 0

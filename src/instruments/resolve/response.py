@@ -27,10 +27,7 @@ from .data.data_modify.frequency_handling import restrict_by_freq
 from .data.data_modify.time_modify import restrict_by_time
 from ...grid import Grid, PolarizationType
 from .util import calculate_phase_offset_to_image_center
-
-
-SPECTRAL_UNIT = u.Hz
-SPATIAL_UNIT = u.rad
+from .constants import RESOLVE_SPATIAL_UNIT, RESOLVE_SPECTRAL_UNIT
 
 
 def dtype_float2complex(dt):
@@ -113,13 +110,14 @@ def interferometry_response(
     bb_times = np.array(sky_grid.times)
     # bb_times = get_binbounds(n_times, sky_domain.times)
 
-    frequencies = sky_grid.spectral.binbounds_in(SPECTRAL_UNIT)
+    # TODO: Expand logic to discontinuous frequency spacing.
+    frequencies = sky_grid.spectral.binbounds(RESOLVE_SPECTRAL_UNIT).value
     n_freqs = len(frequencies) - 1
     bb_freqs = np.array(frequencies)
     # bb_freqs = get_binbounds(n_freqs, sky_domain.frequencies)
 
     npix_x, npix_y = sky_grid.spatial.shape
-    pixsize_x, pixsize_y = sky_grid.spatial.distances.to(SPATIAL_UNIT).value
+    pixsize_x, pixsize_y = sky_grid.spatial.distances.to(RESOLVE_SPATIAL_UNIT).value
     center_y, center_x = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
         sky_grid.spatial.center
@@ -138,6 +136,7 @@ def interferometry_response(
         else:
             oo, tind = restrict_by_time(observation, bb_times[t], bb_times[t + 1], True)
         for f in range(n_freqs):
+            # TODO: Expand logic to discontinuous frequency spacing.
             ooo, find = restrict_by_freq(oo, bb_freqs[f], bb_freqs[f + 1], True)
             if any(np.array(ooo.vis.shape) == 0):
                 rrr = None
@@ -187,6 +186,13 @@ def interferometry_response(
             for ff in range(n_freqs):
                 foo[pp, row_indices[tt][ff], freq_indices[tt][ff]] = 1.0
     if np.any(foo == 0):
+        if not sky_grid.spectral.is_continuous:
+            raise RuntimeError(
+                "During response instantiation, the frequency shape of the visibilities"
+                "didn't match the sky.\n"
+                "Consider using : ..."
+            )
+
         raise RuntimeError("This should not happen. Please report.")
 
     inp_pol = sky_grid.polarization

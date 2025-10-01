@@ -23,7 +23,7 @@ import nifty.re as jft
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 from ..data.data_modify.frequency_handling import restrict_by_freq
 from ..data.direction import Direction
@@ -85,7 +85,7 @@ def build_jft_sky_beamer(
     sky_shape_with_dtype: jft.ShapeWithDtype,
     sky_fov: u.Quantity,
     sky_center: SkyCoord,
-    sky_frequency_binbounds: list[float],
+    sky_frequency_binbounds: list[float] | NDArray,
     observations: list[Observation],
     beam_func: Callable[float, float],
     direction_key: str = "REFERENCE_DIR",
