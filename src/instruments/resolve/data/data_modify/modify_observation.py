@@ -12,7 +12,7 @@ from .time_modify import time_average_to_length_of_timebins
 from .weight_modify import systematic_error_budget
 from .precision import to_single_precision, to_double_precision
 from .polarization_modify import restrict_to_stokesi, average_stokesi
-from .masking import mask_corrupted_weights
+from .flagging import flag_weights
 
 
 def modify_observation(
@@ -34,7 +34,7 @@ def modify_observation(
     """
 
     # Masking
-    obs = mask_corrupted_weights(obs, modify.mask_corrupted_weights)
+    obs = flag_weights(obs, modify.flag_weights)
 
     # Reverse the frequencies if they are ordered from high to low.
     if len(obs.freq) > 1:
