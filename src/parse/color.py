@@ -27,7 +27,6 @@ def yaml_to_binned_colors(grid_config: dict) -> Color:
         emaxs = ebins[1:]
 
     for emin, emax in zip(emins, emaxs):
-        emin, emax = emin * eunit, emax * eunit
         color_ranges.append([emin, emax])
 
     return Color(color_ranges * eunit)

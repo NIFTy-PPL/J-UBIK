@@ -176,9 +176,7 @@ def build_radio_likelihood(
             sky_shape_with_dtype=radio_sky_extractor.target,
             sky_fov=sky_grid.spatial.fov,
             sky_center=sky_grid.spatial.center,
-            sky_frequency_binbounds=sky_grid.spectral.binbounds(
-                RESOLVE_SPECTRAL_UNIT
-            ).value,
+            sky_frequency_means=sky_grid.spectral.center,
             observations=observations,
             beam_func=beam_func,
             direction_key=direction_key,

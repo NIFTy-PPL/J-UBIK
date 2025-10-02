@@ -31,7 +31,8 @@ class Color(u.Quantity):
         assert len(quantity.shape) <= 2, "Only discontinuous ranges are supported"
 
         value = quantity.copy()
-        value.sort(axis=0)  # For a 2D array, this sorts the rows.
+        if len(value.shape) > 0:
+            value.sort(axis=0)  # For a 2D array, this sorts the rows.
         if len(value.shape) == 2:
             value.sort(axis=1)
 
@@ -50,6 +51,7 @@ class Color(u.Quantity):
         """
         return (1 + z) * self.to(u.Unit("Hz"), equivalencies=u.spectral())
 
+    @property
     def center(self) -> u.Quantity:
         """Get the center of the colors."""
         if self.isscalar:
@@ -61,7 +63,9 @@ class Color(u.Quantity):
             )
 
         elif len(self.shape) == 2:
-            return u.Quantity([((val[-1] + val[0]) / 2) for val in self])
+            # TODO : Maybe always transform color ranges to two-d arrays.
+            bounds = get_2d_binbounds(self, self.unit) * self.unit
+            return u.Quantity([((val[-1] + val[0]) / 2) for val in bounds])
 
         else:
             raise ValueError("Shouldn't end up here'")
@@ -98,6 +102,7 @@ class Color(u.Quantity):
         start_points = self[1:, 0]  # Start of all bins except the first
         return np.all(end_points == start_points)
 
+    # TODO : Maybe merge with get_2d_binbounds?
     def binbounds(self, unit: u.Unit) -> "Color":
         """The binbounds of the binned color ranges in the requested unit.
 
@@ -154,3 +159,27 @@ def get_2d_binbounds(color: Color, unit: u.Unit) -> NDArray:
         # This case is prevented by the assertion in Color.__new__
         # but is included for completeness.
         raise ValueError(f"Unsupported shape for Color object: {color.shape}")
+
+
+def get_spectral_range_index(color_range: Color, quantity: u.Quantity | Color):
+    """Get the index of the `quantity` inside the `color_range`.
+
+    Parameters
+    ----------
+    color_range: Color
+        The range of colors to be indexed.
+    quantity: u.Quantity | Color
+        The spectral quantity to find the index inside the color_range.
+    """
+
+    if color_range.isscalar:
+        raise ValueError("color_range must be a range")
+
+    range_2d = get_2d_binbounds(color_range, quantity.unit)
+
+    indices = []
+    for ii, rng in enumerate(range_2d):
+        if Color(rng * quantity.unit).contains(quantity):
+            indices.append(ii)
+
+    return np.array(indices)

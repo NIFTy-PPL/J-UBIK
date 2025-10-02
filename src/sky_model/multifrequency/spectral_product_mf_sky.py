@@ -691,7 +691,10 @@ def build_simple_spectral_sky_from_grid(
     # NOTE: Spectral settings
     ref_energy = config.reference_bin
     log_energies = np.log(
-        [c.to_unit(spectral_unit).value for c in grid.spectral.centers]
+        [
+            c.to(spectral_unit, equivalencies=u.spectral()).value
+            for c in grid.spectral.center
+        ]
     )
 
     return build_simple_spectral_sky(

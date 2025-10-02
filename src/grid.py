@@ -95,7 +95,7 @@ class Grid:
     @property
     def shape(self):
         """Shape of the grid. (spectral, spatial)"""
-        return self.spectral.shape + self.spatial.shape
+        return (self.spectral.shape[0],) + self.spatial.shape
 
     def __repr__(self):
         return (

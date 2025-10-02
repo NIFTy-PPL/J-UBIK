@@ -25,6 +25,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike, NDArray
 
+from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_modify.frequency_handling import restrict_by_freq
 from ..data.direction import Direction
 from ..data.observation import Observation
@@ -85,7 +86,7 @@ def build_jft_sky_beamer(
     sky_shape_with_dtype: jft.ShapeWithDtype,
     sky_fov: u.Quantity,
     sky_center: SkyCoord,
-    sky_frequency_binbounds: list[float] | NDArray,
+    sky_frequency_means: u.Quantity,
     observations: list[Observation],
     beam_func: Callable[float, float],
     direction_key: str = "REFERENCE_DIR",
@@ -93,7 +94,7 @@ def build_jft_sky_beamer(
 ) -> SkyBeamerJft:
     """Builds the SkyBeamer. The SkyBeamer contains holds an array for each
     pointing containing the beam pattern for the mean of all
-    `sky_frequency_binbounds`.
+    `sky_frequency_means`.
 
     Parameters
     ----------
@@ -106,7 +107,7 @@ def build_jft_sky_beamer(
     sky_center:
         The world coordinate of the Sky reference center.
 
-    sky_frequency_binbounds: list[float],
+    sky_frequency_means: u.Quantity
         The binbounds of the reconstruction sky required to be in Hz.
 
     observations:
@@ -160,7 +161,11 @@ def build_jft_sky_beamer(
         x = x.to(u.rad).value
         beam_pointing = []
         for ff in range(fshape):
-            freq_mean = _get_mean_frequency(ff, fshape, sky_frequency_binbounds, oo)
+            freq_mean = (
+                sky_frequency_means[ff]
+                .to(RESOLVE_SPECTRAL_UNIT, equivalencies=u.spectral())
+                .value
+            )
             beam = beam_func(freq=freq_mean, x=x)
 
             # TODO : Why do we need to tranpose?
@@ -177,20 +182,6 @@ def build_jft_sky_beamer(
         )
 
     return SkyBeamerJft(sky_shape_with_dtype, beam_directions)
-
-
-def _get_mean_frequency(ff, n_freq_bins, f_binbounds, observation):
-    """Get the mean frequency.
-    1) If multi-frequency sky: mean of the sky bin
-    2) If single-frequency sky: mean of the observation
-    """
-    if n_freq_bins == 1:
-        o, f_ind = restrict_by_freq(
-            observation, f_binbounds[ff], f_binbounds[ff + 1], True
-        )
-        return o.freq.mean()
-
-    return np.mean((f_binbounds[ff], f_binbounds[ff + 1]))
 
 
 def _filter_pointings_generator(observations: list[Observation], direction_key: str):
