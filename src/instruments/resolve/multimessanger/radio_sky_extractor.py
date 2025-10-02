@@ -15,7 +15,6 @@
 # Author: Julian Rüstig
 
 from ....grid import Grid
-from ....color import ColorRanges
 from ..constants import RESOLVE_SKY_UNIT
 
 import nifty.re as jft
@@ -193,5 +192,5 @@ def build_radio_grid(
 
     return Grid(
         spatial=sky_grid.spatial,
-        spectral=ColorRanges(sky_grid.spectral[: index_of_last_radio_bin + 1]),
+        spectral=sky_grid.spectral[: index_of_last_radio_bin + 1],
     )

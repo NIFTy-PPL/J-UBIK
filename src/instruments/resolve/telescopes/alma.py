@@ -16,21 +16,21 @@
 
 
 import astropy.units as u
-from ....color import ColorRange
+from ....color import Color
 
 # Source: https://www.eso.org/public/teles-instr/alma/receiver-bands/
 # Last updated: 2025-02-16
 
 
-BAND1 = ColorRange(start=35 * u.GHz, end=50 * u.GHz)
-BAND2 = ColorRange(start=67 * u.GHz, end=116 * u.GHz)
-BAND3 = ColorRange(start=84 * u.GHz, end=116 * u.GHz)
-BAND4 = ColorRange(start=125 * u.GHz, end=163 * u.GHz)
-BAND5 = ColorRange(start=163 * u.GHz, end=211 * u.GHz)
-BAND6 = ColorRange(start=211 * u.GHz, end=275 * u.GHz)
-BAND7 = ColorRange(start=275 * u.GHz, end=373 * u.GHz)
-BAND8 = ColorRange(start=385 * u.GHz, end=500 * u.GHz)
-BAND9 = ColorRange(start=602 * u.GHz, end=720 * u.GHz)
-BAND10 = ColorRange(start=787 * u.GHz, end=950 * u.GHz)
+BAND1 = Color([35, 50] * u.Unit("GHz"))
+BAND2 = Color([67, 116] * u.Unit("GHz"))
+BAND3 = Color([84, 116] * u.Unit("GHz"))
+BAND4 = Color([125, 163] * u.Unit("GHz"))
+BAND5 = Color([163, 211] * u.Unit("GHz"))
+BAND6 = Color([211, 275] * u.Unit("GHz"))
+BAND7 = Color([275, 373] * u.Unit("GHz"))
+BAND8 = Color([385, 500] * u.Unit("GHz"))
+BAND9 = Color([602, 720] * u.Unit("GHz"))
+BAND10 = Color([787, 950] * u.Unit("GHz"))
 
-ALMA_RANGE = ColorRange(BAND1.start, BAND10.end)
+ALMA_RANGE = Color(u.Quantity([BAND1[0], BAND10[-1]]))

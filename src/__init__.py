@@ -31,6 +31,7 @@ from .instruments.chandra.chandra_likelihood import generate_chandra_likelihood_
 from .sky_model.multifrequency.spectral_product_mf_sky import (
     SpectralProductSky,
     build_simple_spectral_sky,
+    build_simple_spectral_sky_from_grid,
 )
 from .sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope
 from .response import build_exposure_function, build_readout_function

@@ -1,9 +1,11 @@
-from numpy.typing import NDArray
-from ..observation import Observation
-
-from nifty.cl.logger import logger
-
+import astropy.units as u
 import numpy as np
+from nifty.cl.logger import logger
+from numpy.typing import NDArray
+
+from .....color import Color, get_2d_binbounds
+from ...constants import RESOLVE_SPECTRAL_UNIT
+from ..observation import Observation
 
 
 def freq_average_by_bins(obs: Observation, n_freq_chuncks: int | None):
@@ -17,7 +19,7 @@ def freq_average_by_bins(obs: Observation, n_freq_chuncks: int | None):
 
 
 def freq_average_by_fdom_and_n_freq_chunks(
-    sky_frequencies: list[float],
+    sky_frequencies: Color,
     obs: Observation,
     n_freq_chuncks: int | None,
 ):
@@ -27,7 +29,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
 
     Parameters
     ----------
-    sky_frequencies: list[float]
+    sky_frequencies: Color
         The frequency bounds of the sky.
     obs: Observation
         The observation to be modified.
@@ -38,10 +40,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
     if n_freq_chuncks is None:
         return obs
 
-    fmin_fmax_array = [
-        (sky_frequencies[ii], sky_frequencies[ii + 1])
-        for ii in range(len(sky_frequencies) - 1)
-    ]
+    fmin_fmax_array = get_2d_binbounds(sky_frequencies, RESOLVE_SPECTRAL_UNIT)
 
     splitted_freqs = []
     n_obs_in_sky = 0
@@ -216,5 +215,45 @@ def reverse_frequencies(obs: Observation) -> Observation:
         obs.weight.asnumpy()[:, :, ::-1],
         obs.legacy_polarization,
         obs.freq[::-1],
+        auxiliary_tables=obs._auxiliary_tables,
+    )
+
+
+def restrict_to_discontinuous_frequencies(
+    obs: Observation, sky_frequencies: Color
+) -> Observation:
+    """Slicing the observation to conform to discontinuous frequencies.
+
+    Parameters
+    ----------
+    obs: Observation
+        The observation to slice.
+    sky_frequencies: Color
+        The discontinuous frequency ranges for the sky.
+    """
+
+    if sky_frequencies.is_continuous:
+        raise ValueError("Only use discontinuous frequencies!")
+
+    freq_indices = []
+    for freq in sky_frequencies:
+        freq = freq.to(u.Unit(RESOLVE_SPECTRAL_UNIT), equivalencies=u.spectral()).value
+        _, find = restrict_by_freq(obs, freq[0], freq[-1], True)
+        freq_indices.append(find)
+
+    vis = np.concatenate(
+        [obs.vis.asnumpy()[:, :, find] for find in freq_indices], axis=2
+    )
+    weight = np.concatenate(
+        [obs.weight.asnumpy()[:, :, find] for find in freq_indices], axis=2
+    )
+    freq = np.concatenate([obs.freq[find] for find in freq_indices])
+
+    return Observation(
+        antenna_positions=obs.antenna_positions,
+        vis=vis,
+        weight=weight,
+        polarization=obs.legacy_polarization,
+        freq=freq,
         auxiliary_tables=obs._auxiliary_tables,
     )

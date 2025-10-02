@@ -1,22 +1,26 @@
+import astropy.units as u
 from nifty.cl.logger import logger
 
+from .....color import Color
+from ...constants import RESOLVE_SPECTRAL_UNIT
 from ...parse.data.data_modify import ObservationModify
 from ..observation import Observation
+from .flagging import flag_weights
 from .frequency_handling import (
     freq_average_by_fdom_and_n_freq_chunks,
-    reverse_frequencies,
     restrict_by_freq,
+    restrict_to_discontinuous_frequencies,
+    reverse_frequencies,
 )
+from .polarization_modify import average_stokesi, restrict_to_stokesi
+from .precision import to_double_precision, to_single_precision
 from .select_random_visibility_subset import select_random_visibility_subset
 from .time_modify import time_average_to_length_of_timebins
 from .weight_modify import systematic_error_budget
-from .precision import to_single_precision, to_double_precision
-from .polarization_modify import restrict_to_stokesi, average_stokesi
-from .masking import mask_corrupted_weights
 
 
 def modify_observation(
-    sky_frequencies: list[float], obs: Observation, modify: ObservationModify
+    sky_frequencies: Color, obs: Observation, modify: ObservationModify
 ) -> Observation:
     """Returns an observation according to ObservationModify. Furthermore,
     if the frequencies are not ordered from smallest to biggest the frequencies
@@ -34,7 +38,7 @@ def modify_observation(
     """
 
     # Masking
-    obs = mask_corrupted_weights(obs, modify.mask_corrupted_weights)
+    obs = flag_weights(obs, modify.flag_weights)
 
     # Reverse the frequencies if they are ordered from high to low.
     if len(obs.freq) > 1:
@@ -49,7 +53,14 @@ def modify_observation(
     if modify.spectral_min is not None:
         obs = restrict_by_freq(obs, modify.spectral_min, modify.spectral_max)
     if modify.spectral_restrict_to_sky_frequencies:
-        obs = restrict_by_freq(obs, sky_frequencies[0], sky_frequencies[-1])
+        freqs_in_unit = sky_frequencies.to(
+            RESOLVE_SPECTRAL_UNIT, equivalencies=u.spectral()
+        ).value
+        obs = restrict_by_freq(obs, freqs_in_unit[0], freqs_in_unit[-1])
+
+    if not sky_frequencies.is_continuous:
+        logger.info("Restrict to discontinuous Sky frequencies.")
+        obs = restrict_to_discontinuous_frequencies(obs, sky_frequencies)
 
     obs = freq_average_by_fdom_and_n_freq_chunks(
         sky_frequencies, obs, modify.spectral_bins

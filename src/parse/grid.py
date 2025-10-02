@@ -5,7 +5,7 @@ from .color import (
     cfg_to_color_reference_bin,
 )
 from .wcs.spatial_model import SpatialModel
-from ..color import ColorRanges
+from ..color import Color
 
 
 from configparser import ConfigParser
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 @dataclass
 class GridModel:
     spatial_model: SpatialModel
-    color_ranges: ColorRanges
+    color_ranges: Color
     color_reference_bin: int = 0
 
     @classmethod
@@ -51,7 +51,7 @@ class GridModel:
         GridModel
             The GridModel which holds
                 - spatial_model: how to build the wcs for the spatial coordinates.
-                - color_ranges: The ColorRanges for the energies.
+                - color_ranges: The Color for the energies.
                 - color_reference_bin: The reference_bin for the energy model.
         """
         spatial_model = SpatialModel.from_yaml_dict(grid_config)
@@ -92,7 +92,7 @@ class GridModel:
         GridModel
             The GridModel which holds
                 - spatial_model: how to build the wcs for the spatial coordinates.
-                - color_ranges: The ColorRanges for the energies.
+                - color_ranges: The Color for the energies.
                 - color_reference_bin: The reference_bin for the energy model.
         """
 

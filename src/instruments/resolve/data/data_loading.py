@@ -1,14 +1,15 @@
+from astropy.units import Quantity
+from nifty.cl.logger import logger
+
+from ....color import Color
 from ..parse.data.data_loading import DataLoading
 from ..parse.data.data_modify import ObservationModify
-from .observation import Observation
-
 from .data_modify import modify_observation
-
-from nifty.cl.logger import logger
+from .observation import Observation
 
 
 def load_and_modify_data_from_objects(
-    sky_frequencies: list[float],
+    sky_frequencies: Quantity | Color,
     data_loading: DataLoading,
     observation_modify: ObservationModify,
 ):
@@ -25,6 +26,9 @@ def load_and_modify_data_from_objects(
     observation_modify: ObservationModify
         Model for modifying the observations, ObservationModify.
     """
+
+    if not isinstance(sky_frequencies, Color):
+        sky_frequencies = Color(sky_frequencies)
 
     data_paths = [
         dt.format(field=fi, spw=spw)

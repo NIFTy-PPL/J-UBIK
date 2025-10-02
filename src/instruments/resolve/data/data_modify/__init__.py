@@ -5,6 +5,5 @@ from .flagging import *
 from .frequency_handling import *
 from .precision import *
 from .select_random_visibility_subset import *
-from .reverse_frequencies import *
 from .time_modify import *
 from .weight_modify import *

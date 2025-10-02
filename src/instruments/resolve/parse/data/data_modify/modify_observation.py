@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from configparser import ConfigParser
 
-from .masking import CorruptedWeights
+from .flagging import FlagWeights
 from .modify_weight import SystematicErrorBudget
 
 
@@ -31,7 +31,7 @@ class ObservationModify:
     testing_percentage: float | None
     restrict_to_stokes_I: bool
     average_to_stokes_I: bool
-    mask_corrupted_weights: CorruptedWeights | None
+    flag_weights: FlagWeights | None
 
     @classmethod
     def from_config_parser(cls, data_cfg: ConfigParser):
@@ -102,7 +102,7 @@ class ObservationModify:
             testing_percentage=testing_percentage,
             restrict_to_stokes_I=restrict_to_stokes_I,
             average_to_stokes_I=average_to_stokes_I,
-            mask_corrupted_weights=None,  # NOTE : Needs to be implemented
+            flag_weights=None,  # NOTE : Needs to be implemented
         )
 
     @classmethod
@@ -138,9 +138,9 @@ class ObservationModify:
             The data will be restricted to stokes I.
         average_to_stokes_I: bool | None
             The data will be averaged to stokes I.
-        mask_corrupted_weights: dict | None
+        flag_weights: dict | None
             Mask visibilities and weights according to specification
-            mask_corrupted_weights = dict(min=1e-12, max=1e12)
+            flag_weights = dict(min=1e-12, max=1e12)
         """
 
         tb = data_cfg.get("time_bins")
@@ -165,12 +165,9 @@ class ObservationModify:
         restrict_to_stokes_I = data_cfg.get("restrict_to_stokes_I", False)
         average_to_stokes_I = data_cfg.get("average_to_stokes_I", False)
 
-        if "mask_corrupted_weights" in data_cfg:
-            mask_corrupted_weights = CorruptedWeights.from_yaml_dict(
-                data_cfg["mask_corrupted_weights"]
-            )
-        else:
-            mask_corrupted_weights = None
+        flag_weights = None
+        if "flag_weights" in data_cfg:
+            flag_weights = FlagWeights.from_yaml_dict(data_cfg["flag_weights"])
 
         return ObservationModify(
             time_bins=tb,
@@ -183,7 +180,7 @@ class ObservationModify:
             testing_percentage=testing_percentage,
             restrict_to_stokes_I=restrict_to_stokes_I,
             average_to_stokes_I=average_to_stokes_I,
-            mask_corrupted_weights=mask_corrupted_weights,
+            flag_weights=flag_weights,
         )
 
 
