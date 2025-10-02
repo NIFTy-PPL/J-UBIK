@@ -9,6 +9,7 @@ from .flagging import flag_weights
 from .frequency_handling import (
     freq_average_by_fdom_and_n_freq_chunks,
     restrict_by_freq,
+    restrict_to_discontinuous_frequencies,
     reverse_frequencies,
 )
 from .polarization_modify import average_stokesi, restrict_to_stokesi
@@ -56,6 +57,10 @@ def modify_observation(
             RESOLVE_SPECTRAL_UNIT, equivalencies=u.spectral()
         ).value
         obs = restrict_by_freq(obs, freqs_in_unit[0], freqs_in_unit[-1])
+
+    if not sky_frequencies.is_continuous:
+        logger.info("Restrict to discontinuous Sky frequencies.")
+        obs = restrict_to_discontinuous_frequencies(obs, sky_frequencies)
 
     obs = freq_average_by_fdom_and_n_freq_chunks(
         sky_frequencies, obs, modify.spectral_bins

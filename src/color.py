@@ -7,6 +7,7 @@
 
 import numpy as np
 from astropy import units as u
+from numpy.typing import NDArray
 
 
 class Color(u.Quantity):
@@ -112,3 +113,44 @@ class Color(u.Quantity):
                 f"color-range, but we have {self.value}"
             )
         return self.to(unit, equivalencies=u.spectral())
+
+
+def get_2d_binbounds(color: Color, unit: u.Unit) -> NDArray:
+    """Transform the color range into a two dimensional array.
+
+    Parameters
+    ----------
+    color: Color
+    unit: astropy.units.Unit
+
+    NOTE
+    ----
+    [1.2, 2.4, 5]      -> [[1.2, 2.4],
+                           [2.4, 5.0]]
+
+    [[10., 15., 18.],  -> [[10., 15.],
+     [50., 56., 58.]]      [15., 18.],
+                           [50., 56.],
+                           [56., 58.]]
+    """
+
+    if color.isscalar:
+        raise ValueError("Only spectral ranges can be considered")
+
+    values_in_unit = color.to(unit, equivalencies=u.spectral()).value
+    if len(color.shape) == 1:
+        return np.stack((values_in_unit[:-1], values_in_unit[1:]), axis=1)
+
+    elif len(color.shape) == 2:
+        left_bounds = values_in_unit[:, :-1]
+        right_bounds = values_in_unit[:, 1:]
+
+        # NOTE: Stack them along a new third dimension to create pairs.
+        # The result is a 3D array of shape (N, M-1, 2).
+        stacked_bins = np.stack([left_bounds, right_bounds], axis=2)
+        return stacked_bins.reshape(-1, 2)
+
+    else:
+        # This case is prevented by the assertion in Color.__new__
+        # but is included for completeness.
+        raise ValueError(f"Unsupported shape for Color object: {color.shape}")

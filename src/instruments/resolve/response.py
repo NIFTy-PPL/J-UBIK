@@ -17,17 +17,19 @@
 from typing import Union
 
 import numpy as np
-from jax.tree_util import Partial
-from jax import Array, numpy as jnp
 from astropy import units as u
+from jax import Array
+from jax import numpy as jnp
+from jax.tree_util import Partial
 
-from .parse.response import Ducc0Settings, FinufftSettings
-from .data.observation import Observation
+from ...color import get_2d_binbounds
+from ...grid import Grid, PolarizationType
+from .constants import RESOLVE_SPATIAL_UNIT, RESOLVE_SPECTRAL_UNIT
 from .data.data_modify.frequency_handling import restrict_by_freq
 from .data.data_modify.time_modify import restrict_by_time
-from ...grid import Grid, PolarizationType
+from .data.observation import Observation
+from .parse.response import Ducc0Settings, FinufftSettings
 from .util import calculate_phase_offset_to_image_center
-from .constants import RESOLVE_SPATIAL_UNIT, RESOLVE_SPECTRAL_UNIT
 
 
 def dtype_float2complex(dt):
@@ -111,10 +113,10 @@ def interferometry_response(
     # bb_times = get_binbounds(n_times, sky_domain.times)
 
     # TODO: Expand logic to discontinuous frequency spacing.
-    frequencies = sky_grid.spectral.binbounds(RESOLVE_SPECTRAL_UNIT).value
-    n_freqs = len(frequencies) - 1
-    bb_freqs = np.array(frequencies)
-    # bb_freqs = get_binbounds(n_freqs, sky_domain.frequencies)
+    # frequencies = sky_grid.spectral.binbounds(RESOLVE_SPECTRAL_UNIT).value
+    frequencies = get_2d_binbounds(sky_grid.spectral, RESOLVE_SPECTRAL_UNIT)
+    n_freqs = len(frequencies)
+    # bb_freqs = np.array(frequencies)
 
     npix_x, npix_y = sky_grid.spatial.shape
     pixsize_x, pixsize_y = sky_grid.spatial.distances.to(RESOLVE_SPATIAL_UNIT).value
@@ -135,9 +137,9 @@ def interferometry_response(
             tind = slice(None)
         else:
             oo, tind = restrict_by_time(observation, bb_times[t], bb_times[t + 1], True)
-        for f in range(n_freqs):
+        for freqs in frequencies:
             # TODO: Expand logic to discontinuous frequency spacing.
-            ooo, find = restrict_by_freq(oo, bb_freqs[f], bb_freqs[f + 1], True)
+            ooo, find = restrict_by_freq(oo, freqs[0], freqs[-1], True)
             if any(np.array(ooo.vis.shape) == 0):
                 rrr = None
             else:
@@ -190,7 +192,7 @@ def interferometry_response(
             raise RuntimeError(
                 "During response instantiation, the frequency shape of the visibilities"
                 "didn't match the sky.\n"
-                "Consider using : ..."
+                "Consider using : rve.restrict_to_discontinuous_frequencies"
             )
 
         raise RuntimeError("This should not happen. Please report.")
