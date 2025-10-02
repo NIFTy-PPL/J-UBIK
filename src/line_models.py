@@ -41,11 +41,17 @@ def gaussian_profile(c,w,h,grid):
     profile /= jnp.max(profile)
     return h*profile
 
+def lorentzian_profile(c,w,h,grid):
+    inv_profile = 1 + ((grid-c)/w)**2
+    profile = 1/inv_profile
+    profile /= jnp.max(profile)
+    return h*profile
+
 class GaussianPeaks(jft.Model):
     def __init__(
             self,
             grid: jnp.ndarray,
-            means_param: LineParameters,
+            centers_param: LineParameters,
             widths_param: LineParameters,
             heights_param: LineParameters,
             prefix=""
@@ -54,7 +60,7 @@ class GaussianPeaks(jft.Model):
         if widths_param.prior_type != "lognormal":
             raise ValueError("Peak widths have to be strictly positive. Select 'lognormal' as prior_type.")
 
-        self._c = prepare_line_prior(means_param, name=f"{prefix}_gaussian_peak_means")
+        self._c = prepare_line_prior(centers_param, name=f"{prefix}_gaussian_peak_centers")
         self._w = prepare_line_prior(widths_param, name=f"{prefix}_gaussian_peak_widths")
         self._h = prepare_line_prior(heights_param, name=f"{prefix}_gaussian_peak_heights")
 
@@ -83,3 +89,45 @@ class GaussianPeaks(jft.Model):
         _w = self.widths(x)
         _h = self.heights(x)
         return vmap(self._gaussian_profile, in_axes=(0,0,0))(_c,_w,_h)
+    
+class LorentzianPeaks(jft.Model):
+    def __init__(
+            self,
+            grid: jnp.ndarray,
+            centers_param: LineParameters,
+            widths_param: LineParameters,
+            heights_param: LineParameters,
+            prefix=""
+            ):
+        self._c = prepare_line_prior(centers_param,name=f"{prefix}_lorentzian_centers")
+        self._w = prepare_line_prior(widths_param,name=f"{prefix}_lorentzian_widths")
+        self._h = prepare_line_prior(heights_param,name=f"{prefix}_lorentzian_heights")
+
+        self._grid = grid
+    
+        self._lorentzian_profile = Partial(lorentzian_profile,grid=self._grid)
+
+        if widths_param.prior_type != "lognormal":
+            raise ValueError("Peak widths have to be strictly positive. Select 'lognormal' as prior_type.")
+
+        super().__init__(init=self._c.init | self._w.init | self._h.init)
+
+    def __call__(self,x):
+        # Gets array of single peaks and sums them up
+        return(jnp.sum(self.single_peaks(x),axis=0))
+    
+    def centers(self,x):
+        return self._c(x)
+    
+    def widths(self,x):
+        return self._w(x)
+    
+    def heights(self,x):
+        return self._h(x)
+    
+    def single_peaks(self,x):
+        # Calculate array of single peaks
+        _c = self.centers(x)
+        _w = self.widths(x)
+        _h = self.heights(x)
+        return vmap(self._lorentzian_profile, in_axes=(0,0,0))(_c,_w,_h)
