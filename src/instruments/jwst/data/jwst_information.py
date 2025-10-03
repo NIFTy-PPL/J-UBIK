@@ -6,7 +6,7 @@
 # %
 from astropy import units
 
-from ....color import Color, ColorRange
+from ....color import Color
 
 
 nircam_filters = dict(
@@ -76,9 +76,7 @@ def get_pixel_distance(filter: str):
     elif filter in nircam_filters:
         pivot = Color(nircam_filters[filter][0] * units.micrometer)
 
-        if pivot in ColorRange(
-            Color(0.6 * units.micrometer), Color(2.3 * units.micrometer)
-        ):
+        if Color([0.6, 2.3] * units.micrometer).contains(pivot):
             # 0.6–2.3 µm wavelength range
             return NIRCAM_PIXEL_DISTANCE_01.to(units.deg)
 

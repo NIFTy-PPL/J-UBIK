@@ -10,7 +10,7 @@ import numpy as np
 from astropy import units
 from astropy.coordinates import SkyCoord
 
-from ....color import Color, ColorRange
+from ....color import Color
 from ....wcs import WcsAstropy, WcsJwstData, subsample_pixel_centers
 from ..masking import (
     get_mask_from_index_centers_within_rgrid,
@@ -122,11 +122,8 @@ class JwstData:
 
     @property
     def half_power_wavelength(self):
-        pivot, bw, er, blue, red = JWST_FILTERS[self.filter]
-        return ColorRange(
-            Color(blue * units.Unit("micrometer")),
-            Color(red * units.Unit("micrometer")),
-        )
+        _, _, _, blue, red = JWST_FILTERS[self.filter]
+        return Color([blue, red] * units.Unit("micrometer"))
 
     @property
     def pivot_wavelength(self) -> Color:

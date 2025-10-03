@@ -5,7 +5,7 @@
 
 # %
 from .data.jwst_data import JWST_FILTERS
-from ...color import Color, ColorRange
+from ...color import Color
 from ...grid import Grid
 
 import nifty.re as jft
@@ -82,7 +82,7 @@ class FilterProjector(jft.Model):
         """Returns the key that corresponds to the given color."""
         out_key = ""
         for k, v in self.keys_and_colors.items():
-            if color in v:
+            if v.contains(color):
                 if out_key != "":
                     raise IndexError(
                         f"{color} fits into multiple keys of the FilterProjector"
@@ -109,14 +109,15 @@ def build_filter_projector(
     named_color_ranges = {}
     for name, values in JWST_FILTERS.items():
         _, _, _, blue, red = values
-        named_color_ranges[name] = ColorRange(Color(red * u.um), Color(blue * u.um))
+        named_color_ranges[name] = Color([red, blue] * u.Unit("um"))
 
     keys_and_colors = {}
     keys_and_index = {}
     for color_index, grid_color_range in enumerate(grid.spectral):
+        print(color_index, grid_color_range)
         for name in data_filter_names:
-            jwst_filter = named_color_ranges[name.upper()]
-            if grid_color_range.center in jwst_filter:
+            jwst_filter: Color = named_color_ranges[name.upper()]
+            if jwst_filter.contains(grid_color_range.center):
                 keys_and_colors[name] = grid_color_range
                 keys_and_index[name] = color_index
 
