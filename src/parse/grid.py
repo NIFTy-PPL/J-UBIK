@@ -1,8 +1,6 @@
 from .color import (
     yaml_to_binned_colors,
-    yaml_to_color_reference_bin,
     cfg_to_binned_colors,
-    cfg_to_color_reference_bin,
 )
 from .wcs.spatial_model import SpatialModel
 from ..color import Color
@@ -16,7 +14,6 @@ from dataclasses import dataclass
 class GridModel:
     spatial_model: SpatialModel
     color_ranges: Color
-    color_reference_bin: int = 0
 
     @classmethod
     def from_yaml_dict(cls, grid_config: dict):
@@ -56,12 +53,10 @@ class GridModel:
         """
         spatial_model = SpatialModel.from_yaml_dict(grid_config)
         color_ranges = yaml_to_binned_colors(grid_config)
-        color_reference_bin = yaml_to_color_reference_bin(grid_config)
 
         return GridModel(
             spatial_model=spatial_model,
             color_ranges=color_ranges,
-            color_reference_bin=color_reference_bin,
         )
 
     @classmethod
@@ -98,10 +93,8 @@ class GridModel:
 
         spatial_model = SpatialModel.from_config_parser(grid_config)
         color_ranges = cfg_to_binned_colors(grid_config)
-        color_reference_bin = cfg_to_color_reference_bin(grid_config)
 
         return GridModel(
             spatial_model=spatial_model,
             color_ranges=color_ranges,
-            color_reference_bin=color_reference_bin,
         )

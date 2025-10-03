@@ -11,8 +11,8 @@ from numpy.typing import NDArray
 
 
 class Color(u.Quantity):
-    """A class representing color based on wavelength, frequency, or energy. When
-    iterable the vals are sorted by energy (frequency).
+    """A class representing color based on wavelength, frequency, or energy. A color
+    range gets sorted.
 
     Parameters
     ----------
@@ -21,24 +21,28 @@ class Color(u.Quantity):
 
     Note
     ----
-    One can set color ranges:
-    - Consecutive: Color([1.0, 1.2, 1.5, 7.0] * u.keV)
-    - Discontinuous: Color([[1.0, 1.2], [1.5, 7.0]] * u.keV)
+    1. One can set color ranges:
+       - Consecutive: Color([1.0, 1.2, 1.5, 7.0] * u.keV)
+       - Discontinuous: Color([[1.0, 1.2], [1.5, 7.0]] * u.keV)
+
+    2. Ranges are internally always represented by two dimensional arrays. See
+       `get_2d_binbounds`.
     """
 
-    def __new__(cls, quantity: u.Quantity):
+    def __new__(cls, quantity: u.Quantity) -> "Color":
         assert isinstance(quantity, u.Quantity), "Instantiate with units"
         assert len(quantity.shape) <= 2, "Only discontinuous ranges are supported"
 
         value = quantity.copy()
-        if len(value.shape) > 0:
-            value.sort(axis=0)  # For a 2D array, this sorts the rows.
-        if len(value.shape) == 2:
-            value.sort(axis=1)
+        if not value.isscalar:
+            value.sort(axis=0)  # Sort the ranges
+            if len(value.shape) == 2:
+                value.sort(axis=1)  # Sort in ranges
+            value = value.unit * get_2d_binbounds(value, value.unit)
 
         return super().__new__(cls, value=value)
 
-    def redshift(self, z: float):
+    def redshift(self, z: float) -> "Color":
         """Corresponding color at redshift z.
 
         Parameters
@@ -47,9 +51,14 @@ class Color(u.Quantity):
 
         Returns
         -------
+        Redshifted Color: nu(z) = nu / (1 + z).
         Redshifted Color: lambda(z) = lambda (1 + z).
         """
-        return (1 + z) * self.to(u.Unit("Hz"), equivalencies=u.spectral())
+        return self.to(u.Unit("Hz"), equivalencies=u.spectral()) / (1 + z)
+
+    def __contains__(self, key) -> bool:
+        raise NotImplementedError("Temporary to check for old dependencies")
+        # return self.contains(key)
 
     @property
     def center(self) -> u.Quantity:
@@ -57,27 +66,22 @@ class Color(u.Quantity):
         if self.isscalar:
             return self
 
-        if len(self.shape) == 1:
-            return u.Quantity(
-                [(self[ii + 1] + self[ii]) / 2 for ii in range(len(self) - 1)]
-            )
-
         elif len(self.shape) == 2:
-            # TODO : Maybe always transform color ranges to two-d arrays.
-            bounds = get_2d_binbounds(self, self.unit) * self.unit
-            return u.Quantity([((val[-1] + val[0]) / 2) for val in bounds])
+            if not self.shape[1] == 2:
+                raise ValueError("Ranges should always be represented by (N, 2) shapes")
+
+            return u.Quantity([((val[-1] + val[0]) / 2) for val in self])
 
         else:
             raise ValueError("Shouldn't end up here'")
 
-    @staticmethod
-    def _in_range(item: u.Quantity, rng: u.Quantity) -> bool:
+    def _in_range(self, rng: u.Quantity, quantity: u.Quantity) -> bool:
         """Helper function for contains."""
-        item = item.to(u.Unit("eV"), equivalencies=u.spectral()).value
-        start = rng[0].to(u.Unit("eV"), equivalencies=u.spectral()).value
-        end = rng[-1].to(u.Unit("eV"), equivalencies=u.spectral()).value
+        assert len(rng.shape) == 1
+        assert rng.shape[0] == 2
 
-        return (start <= item) and (item <= end)
+        quantity = quantity.to(self.unit, equivalencies=u.spectral()).value
+        return (rng[0].value <= quantity) and (quantity <= rng[-1].value)
 
     def contains(self, quantity: u.Quantity) -> bool:
         """Check if the quantity is contained by the color-ranges."""
@@ -85,42 +89,33 @@ class Color(u.Quantity):
             raise ValueError(f"{self} is not a range")
 
         if len(self.shape) == 1:
-            return self._in_range(quantity, self)
+            if not self.shape[0] == 2:
+                raise ValueError("Ranges should always be represented by shape 2")
+            return self._in_range(self, quantity)
 
         elif len(self.shape) == 2:
-            return any(self._in_range(quantity, rng) for rng in self)
+            if not self.shape[1] == 2:
+                raise ValueError("Ranges should always be represented by (N, 2) shapes")
+
+            return any(self._in_range(rng, quantity) for rng in self)
 
         else:
-            raise ValueError("Shouldn't end up here'")
+            raise ValueError("Shouldn't end up here")
 
     @property
-    def is_continuous(self):
+    def is_continuous(self) -> bool:
+        if self.isscalar:
+            raise ValueError("Scalar Value can't be continuous")
+
         if len(self.shape) == 1:
             return True
 
-        end_points = self[:-1, 1]  # End of all bins except the last
         start_points = self[1:, 0]  # Start of all bins except the first
+        end_points = self[:-1, 1]  # End of all bins except the last
         return np.all(end_points == start_points)
 
-    # TODO : Maybe merge with get_2d_binbounds?
-    def binbounds(self, unit: u.Unit) -> "Color":
-        """The binbounds of the binned color ranges in the requested unit.
 
-        Note
-        ----
-        The color bins are assumed to be consecutive in energy. Hence, the
-        minimum of each color range gets returned, the maximum of the binbounds
-        is the and the maximum of the color range with the largest mean energy.
-        """
-        if self.isscalar:
-            raise TypeError(
-                "binbounds property requires an iterable "
-                f"color-range, but we have {self.value}"
-            )
-        return self.to(unit, equivalencies=u.spectral())
-
-
-def get_2d_binbounds(color: Color, unit: u.Unit) -> NDArray:
+def get_2d_binbounds(color: u.Quantity, unit: u.Unit) -> NDArray:
     """Transform the color range into a two dimensional array.
 
     Parameters
@@ -175,11 +170,6 @@ def get_spectral_range_index(color_range: Color, quantity: u.Quantity | Color):
     if color_range.isscalar:
         raise ValueError("color_range must be a range")
 
-    range_2d = get_2d_binbounds(color_range, quantity.unit)
-
-    indices = []
-    for ii, rng in enumerate(range_2d):
-        if Color(rng * quantity.unit).contains(quantity):
-            indices.append(ii)
-
-    return np.array(indices)
+    return np.array(
+        [ii for ii, rng in enumerate(color_range) if rng.contains(quantity)]
+    )

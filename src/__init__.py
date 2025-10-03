@@ -49,6 +49,8 @@ from .instruments.erosita.erosita_psf import eROSITA_PSF
 from .instruments.jwst.jwst_response import build_jwst_response
 from .grid import Grid
 
+from .color import Color
+
 from .data import (create_mock_data, load_masked_data_from_config,
                    load_mock_position_from_config, Domain)
 from .likelihood import get_n_constrained_dof
