@@ -37,15 +37,35 @@ def prepare_line_prior(line_parameter: LineParameters, name):
     return prior
 
 def gaussian_profile(c,w,h,grid):
-    profile = jnp.exp(-(1/2)*((grid-c)/w)**2)
-    profile /= jnp.max(profile)
+    dg = grid[1] - grid[0]
+    profile = jnp.exp(-(1/2)*((grid-c)/w)**2)/(jnp.sqrt(2*jnp.pi)*w)
+    profile /= jnp.sum(profile*dg)
     return h*profile
 
 def lorentzian_profile(c,w,h,grid):
-    inv_profile = 1 + ((grid-c)/w)**2
+    dg = grid[1] - grid[0]
+    inv_profile = jnp.pi*w*(1 + ((grid-c)/w)**2)
     profile = 1/inv_profile
-    profile /= jnp.max(profile)
+    profile /= jnp.sum(profile*dg)
     return h*profile
+
+def voigt_profile(c, w_gauss, w_lorentz, h, grid):
+    N = len(grid)
+    dg = grid[1] - grid[0]
+
+    df = 2 * jnp.pi / (N * dg)
+    f = (jnp.arange(N) - N//2) * df
+
+    h_profile = jnp.exp(1j*c*f - (w_gauss*f)**2/2 - w_lorentz*jnp.abs(f))
+    h_profile = jnp.fft.ifftshift(h_profile)
+
+    profile = jnp.fft.fft(h_profile)
+    profile = jnp.fft.fftshift(profile)/(N*dg)
+    profile = jnp.real(profile)
+    profile /= jnp.sum(profile*dg)
+
+    return h*profile
+
 
 class GaussianPeaks(jft.Model):
     def __init__(
