@@ -151,3 +151,51 @@ class LorentzianPeaks(jft.Model):
         _w = self.widths(x)
         _h = self.heights(x)
         return vmap(self._lorentzian_profile, in_axes=(0,0,0))(_c,_w,_h)
+    
+class VoigtPeaks(jft.Model):
+    def __init__(
+            self,
+            grid: jnp.ndarray,
+            centers_param: LineParameters,
+            gaussian_widths_param: LineParameters,
+            lorentzian_widths_param: LineParameters,
+            heights_param: LineParameters,
+            prefix=""
+    ):
+        self._c = prepare_line_prior(centers_param,name=f"{prefix}_voigt_centers")
+        self._wl = prepare_line_prior(lorentzian_widths_param,name=f"{prefix}_voigt_widths_lorentian")
+        self._wg = prepare_line_prior(gaussian_widths_param,name=f"{prefix}_voigt_widths_gaussian")
+        self._h = prepare_line_prior(heights_param,name=f"{prefix}_voigt_heights")
+
+        self._grid = grid  
+
+        self._voigt_profile = Partial(voigt_profile,grid=self._grid)
+
+        if (gaussian_widths_param.prior_type != "lognormal") or (lorentzian_widths_param.prior_type != "lognormal"):
+            raise ValueError("Peak widths have to be strictly positive. Select 'lognormal' as prior_type for both the lorentzian and gassian widths.")
+
+        super().__init__(init=self._c.init | self._wl.init | self._wg.init | self._h.init)
+
+    def __call__(self,x):
+        # Gets array of single peaks and sums them up
+        return(jnp.sum(self.single_peaks(x),axis=0))
+    
+    def centers(self,x):
+        return self._c(x)
+    
+    def lorentzian_widths(self,x):
+        return self._wl(x)
+
+    def gaussian_widths(self,x):
+        return self._wg(x)
+    
+    def heights(self,x):
+        return self._h(x)
+    
+    def single_peaks(self,x):
+        # Calculate array of single peaks
+        _c = self.centers(x)
+        _wg = self.gaussian_widths(x)
+        _wl = self.lorentzian_widths(x)
+        _h = self.heights(x)
+        return vmap(self._voigt_profile, in_axes=(0,0,0))(_c,_wg,_wl,_h)
