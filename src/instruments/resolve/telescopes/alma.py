@@ -33,4 +33,4 @@ BAND8 = Color([385, 500] * u.Unit("GHz"))
 BAND9 = Color([602, 720] * u.Unit("GHz"))
 BAND10 = Color([787, 950] * u.Unit("GHz"))
 
-ALMA_RANGE = Color(u.Quantity([BAND1[0], BAND10[-1]]))
+ALMA_RANGE = Color(u.Quantity([BAND1[0, 0], BAND10[0, -1]]))
