@@ -66,6 +66,11 @@ class Color(u.Quantity):
         if self.isscalar:
             return self
 
+        if len(self.shape) == 1:
+            if not self.shape[0] == 2:
+                raise ValueError("Ranges should always be represented by shape 2")
+            return u.Quantity((self[-1] + self[0]) / 2)
+
         elif len(self.shape) == 2:
             if not self.shape[1] == 2:
                 raise ValueError("Ranges should always be represented by (N, 2) shapes")
