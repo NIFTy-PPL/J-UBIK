@@ -6,6 +6,41 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class LineParameters:
+    """
+    Container for specifying line parameter priors.
+
+    Each parameter is described by a mean, a standard deviation, 
+    and a prior distribution type. This class ensures that means 
+    and standard deviations are aligned in shape.
+
+    Parameters
+    ----------
+    means : jnp.ndarray
+        Array of prior means for the parameters.
+    stds : jnp.ndarray
+        Array of prior standard deviations for the parameters.
+        Must have the same shape as `means`.
+    prior_type : str
+        Type of prior distribution to assume 
+        (e.g., ``"normal"`` or ``"lognormal"``).
+
+    Examples
+    --------
+    Create a prior specification for three parameters:
+
+    >>> params = LineParameters(
+    ...     means=jnp.array([1.0, 2.0, 3.0]),
+    ...     stds=jnp.array([0.1, 0.2, 0.3]),
+    ...     prior_type="normal"
+    ... )
+    >>> len(params)
+    3
+    >>> print(params)
+    Line 1: 1.0 ± 0.1
+    Line 2: 2.0 ± 0.2
+    Line 3: 3.0 ± 0.3
+    """
+    
     means: jnp.ndarray
     stds: jnp.ndarray
     prior_type: str
@@ -16,6 +51,9 @@ class LineParameters:
         
     def __str__(self):
         return "\n".join(f"Line {i+1}: {mean} ± {std}" for i, (mean,std) in enumerate(zip(self.means,self.stds)))
+    
+    def __len__(self):
+        return len(self.means)
         
 
 def prepare_line_prior(line_parameter: LineParameters, name):
@@ -37,17 +75,11 @@ def prepare_line_prior(line_parameter: LineParameters, name):
     return prior
 
 def gaussian_profile(c,w,h,grid):
-    dg = grid[1] - grid[0]
-    profile = jnp.exp(-(1/2)*((grid-c)/w)**2)/(jnp.sqrt(2*jnp.pi)*w)
-    profile /= jnp.sum(profile*dg)
-    return h*profile
+    return h*jnp.exp(-(1/2)*((grid-c)/w)**2)/(jnp.sqrt(2*jnp.pi)*w)
 
 def lorentzian_profile(c,w,h,grid):
-    dg = grid[1] - grid[0]
     inv_profile = jnp.pi*w*(1 + ((grid-c)/w)**2)
-    profile = 1/inv_profile
-    profile /= jnp.sum(profile*dg)
-    return h*profile
+    return h/inv_profile
 
 def voigt_profile(c, w_gauss, w_lorentz, h, grid):
     N = len(grid)
@@ -62,27 +94,53 @@ def voigt_profile(c, w_gauss, w_lorentz, h, grid):
     profile = jnp.fft.fft(h_profile)
     profile = jnp.fft.fftshift(profile)/(N*dg)
     profile = jnp.real(profile)
-    profile /= jnp.sum(profile*dg)
 
     return h*profile
 
 
 class GaussianPeaks(jft.Model):
+    """
+    Model for fitting a sum of Gaussian peaks on a fixed grid. 
+    Each peak is represented as:
+
+    .. math::
+
+        f(x | c, w, h) = h \cdot \exp\!\left(-\frac{(x - c)^2}{2w^2}\right)
+
+    where :math:`c` is the center, :math:`w` the width, and :math:`h` the height.
+
+    Parameters
+    ----------
+    grid : jnp.ndarray
+        1D grid over which peaks are evaluated.
+    centers_param : LineParameters
+        Prior specification for peak centers.
+    widths_param : LineParameters
+        Prior specification for peak widths (must be strictly positive).
+        Must have the same length as centers_param.
+    heights_param : LineParameters
+        Prior specification for peak heights.
+        Must have the same length as centers_param.
+    prefix : str, optional
+        Prefix for peak model instance.
+    """
     def __init__(
             self,
             grid: jnp.ndarray,
             centers_param: LineParameters,
             widths_param: LineParameters,
             heights_param: LineParameters,
-            prefix=""
+            prefix: str = None,
             ):
         
         if widths_param.prior_type != "lognormal":
             raise ValueError("Peak widths have to be strictly positive. Select 'lognormal' as prior_type.")
+        
+        prefix = "" if prefix is None else f"{prefix}_"
 
-        self._c = prepare_line_prior(centers_param, name=f"{prefix}_gaussian_peak_centers")
-        self._w = prepare_line_prior(widths_param, name=f"{prefix}_gaussian_peak_widths")
-        self._h = prepare_line_prior(heights_param, name=f"{prefix}_gaussian_peak_heights")
+        self._c = prepare_line_prior(centers_param, name=f"{prefix}gaussian_peak_centers")
+        self._w = prepare_line_prior(widths_param, name=f"{prefix}gaussian_peak_widths")
+        self._h = prepare_line_prior(heights_param, name=f"{prefix}gaussian_peak_heights")
 
         self._grid = grid
     
@@ -111,24 +169,53 @@ class GaussianPeaks(jft.Model):
         return vmap(self._gaussian_profile, in_axes=(0,0,0))(_c,_w,_h)
     
 class LorentzianPeaks(jft.Model):
+    """
+    Model for fitting a sum of Lorentzian peaks on a fixed grid.
+    Each peak is represented as:
+
+    .. math::
+
+        f(x | c, w, h) = \frac{h}{1 + (\frac{x - c}{w})^2}
+
+    where :math:`c` is the center, :math:`w` the width (half-width at half-maximum),
+    and :math:`h` the height.
+
+    Parameters
+    ----------
+    grid : jnp.ndarray
+        1D grid over which peaks are evaluated.
+    centers_param : LineParameters
+        Prior specification for peak centers.
+    widths_param : LineParameters
+        Prior specification for peak widths (must be strictly positive).
+        Must have the same length as centers_param.
+    heights_param : LineParameters
+        Prior specification for peak heights.
+        Must have the same length as centers_param.
+    prefix : str, optional
+        Prefix for peak model instance.
+    """
     def __init__(
             self,
             grid: jnp.ndarray,
             centers_param: LineParameters,
             widths_param: LineParameters,
             heights_param: LineParameters,
-            prefix=""
+            prefix: str = None,
             ):
-        self._c = prepare_line_prior(centers_param,name=f"{prefix}_lorentzian_centers")
-        self._w = prepare_line_prior(widths_param,name=f"{prefix}_lorentzian_widths")
-        self._h = prepare_line_prior(heights_param,name=f"{prefix}_lorentzian_heights")
+        
+        if widths_param.prior_type != "lognormal":
+            raise ValueError("Peak widths have to be strictly positive. Select 'lognormal' as prior_type.")
+        
+        prefix = "" if prefix is None else f"{prefix}_"
+
+        self._c = prepare_line_prior(centers_param,name=f"{prefix}lorentzian_centers")
+        self._w = prepare_line_prior(widths_param,name=f"{prefix}lorentzian_widths")
+        self._h = prepare_line_prior(heights_param,name=f"{prefix}lorentzian_heights")
 
         self._grid = grid
     
         self._lorentzian_profile = Partial(lorentzian_profile,grid=self._grid)
-
-        if widths_param.prior_type != "lognormal":
-            raise ValueError("Peak widths have to be strictly positive. Select 'lognormal' as prior_type.")
 
         super().__init__(init=self._c.init | self._w.init | self._h.init)
 
@@ -153,6 +240,38 @@ class LorentzianPeaks(jft.Model):
         return vmap(self._lorentzian_profile, in_axes=(0,0,0))(_c,_w,_h)
     
 class VoigtPeaks(jft.Model):
+    """
+    Model for fitting a sum of Voigt peaks on a fixed grid.
+    Each Voigt peak is represented as the convolution of a Gaussian and
+    Lorentzian profile:
+
+    .. math::
+
+        f(x \mid c, \sigma, \gamma, h) = h \cdot V(x - c; \sigma, \gamma)
+
+    where :math:`c` is the center, :math:`\sigma` is the Gaussian width
+    (standard deviation), :math:`\gamma` is the Lorentzian width
+    (half-width at half-maximum), and :math:`h` the height. The Voigt
+    profile :math:`V` is normalized such that its maximum value is 1.
+
+    Parameters
+    ----------
+    grid : jnp.ndarray
+        1D grid over which peaks are evaluated.
+    centers_param : LineParameters
+        Prior specification for peak centers.
+    gaussian_widths_param : LineParameters
+        Prior specification for Gaussian widths (must be strictly positive).
+        Must have the same length as centers_param.
+    lorentzian_widths_param : LineParameters
+        Prior specification for Lorentzian widths (must be strictly positive).
+        Must have the same length as centers_param.
+    heights_param : LineParameters
+        Prior specification for peak heights.
+        Must have the same length as centers_param.
+    prefix : str, optional
+        Prefix for peak model instance.
+    """
     def __init__(
             self,
             grid: jnp.ndarray,
@@ -160,19 +279,23 @@ class VoigtPeaks(jft.Model):
             gaussian_widths_param: LineParameters,
             lorentzian_widths_param: LineParameters,
             heights_param: LineParameters,
-            prefix=""
+            prefix: str = None,
     ):
-        self._c = prepare_line_prior(centers_param,name=f"{prefix}_voigt_centers")
-        self._wl = prepare_line_prior(lorentzian_widths_param,name=f"{prefix}_voigt_widths_lorentian")
-        self._wg = prepare_line_prior(gaussian_widths_param,name=f"{prefix}_voigt_widths_gaussian")
-        self._h = prepare_line_prior(heights_param,name=f"{prefix}_voigt_heights")
+       
+        if (gaussian_widths_param.prior_type != "lognormal") or (lorentzian_widths_param.prior_type != "lognormal"):
+            raise ValueError("Peak widths have to be strictly positive. Select 'lognormal' as prior_type for both the lorentzian and gassian widths.")
+        
+        prefix = "" if prefix is None else f"{prefix}_"
+
+
+        self._c = prepare_line_prior(centers_param,name=f"{prefix}voigt_centers")
+        self._wl = prepare_line_prior(lorentzian_widths_param,name=f"{prefix}voigt_widths_lorentian")
+        self._wg = prepare_line_prior(gaussian_widths_param,name=f"{prefix}voigt_widths_gaussian")
+        self._h = prepare_line_prior(heights_param,name=f"{prefix}voigt_heights")
 
         self._grid = grid  
 
         self._voigt_profile = Partial(voigt_profile,grid=self._grid)
-
-        if (gaussian_widths_param.prior_type != "lognormal") or (lorentzian_widths_param.prior_type != "lognormal"):
-            raise ValueError("Peak widths have to be strictly positive. Select 'lognormal' as prior_type for both the lorentzian and gassian widths.")
 
         super().__init__(init=self._c.init | self._wl.init | self._wg.init | self._h.init)
 
