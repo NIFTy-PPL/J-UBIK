@@ -16,7 +16,7 @@ def _process_frequency(
     header: fits.Header, grid: Grid, field: NDArray, np_axis: int, fits_axis: int
 ) -> tuple[Optional[fits.BinTableHDU], NDArray]:
     """Processes the frequency axis. This axis is never squeezed."""
-    freqs = u.Quantity(grid.spectral.centers).to(u.Hz, equivalencies=u.spectral())
+    freqs = u.Quantity(grid.spectral.center).to(u.Hz, equivalencies=u.spectral())
 
     if field.shape[np_axis] == 1 and np.isinf(freqs[0]):
         return None, np.squeeze(field, axis=np_axis)
