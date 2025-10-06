@@ -185,7 +185,7 @@ def _build_all_skies(
         vmin_lens = plotting_config.lens_light.combined.get_min(ll)
         vmax_lens = plotting_config.lens_light.combined.get_max(ll)
 
-        for ii, energy_range in enumerate(grid.spectral.color_ranges):
+        for ii, energy_range in enumerate(grid.spectral):
             energy, energy_unit = energy_range.center.value, energy_range.center.unit
             ename = f"{energy:.4f} {energy_unit}"
             axes[0, ii + light_offset].set_title(f"Lens light {ename}")

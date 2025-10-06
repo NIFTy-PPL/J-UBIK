@@ -107,18 +107,24 @@ class PlotTarget:
         print(f"Plotting: {state.nit}")
 
         clear_jax_compilation_cache(state, clear_every_n_iterations=3)
-        try:
-            self.plot_residual(samples, state)
-        except:
-            pass
-        try:
-            self.plot_lens(samples, state)
-        except:
-            pass
-        try:
-            self.plot_source(samples, state)
-        except:
-            pass
+
+        for plot in [
+            self.plot_residual,
+            self.plot_source,
+            self.plot_lens,
+        ]:
+            try:
+                plot(samples, state)
+            except:
+                pass
+
+        # self.plot_source(samples, state)
+        # self.plot_lens(samples, state)
+
+    # def test_call(self, model: jft.Model):
+    #     from jax import random
+    #
+    #     key = random.PRNGKey(kk)
 
 
 def get_plot(

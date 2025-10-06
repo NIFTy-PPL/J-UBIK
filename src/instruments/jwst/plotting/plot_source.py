@@ -102,7 +102,7 @@ def build_plot_source(
 
         axes = axes.flatten()
         ims = ims.flatten()
-        for ii, (energy_range, fld) in enumerate(zip(grid.spectral.color_ranges, sl)):
+        for ii, (energy_range, fld) in enumerate(zip(grid.spectral, sl)):
             energy, energy_unit = energy_range.center.value, energy_range.center.unit
             ii += 3
 
