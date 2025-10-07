@@ -169,11 +169,15 @@ class FitsSaver:
         field_to_save = self.field.mean(axis=0, keepdims=True)
         self._save(filename, field_to_save, sky_unit)
 
-    def save_std(self, filename: str, sky_unit: u.Unit | None = None):
+    def save_std(self, filename: str, sky_unit: u.Unit | None = None, correct_bias: bool = False):
         """Averages data and saves, dynamically removing single-entry axes."""
         print(f"\n--- Saving mean to '{filename}' ---")
         # Average over samples, but keep the dimension for consistent processing
         field_to_save = self.field.std(axis=0, keepdims=True)
+        # Apply Bessel correction if correct_bias is True
+        correction = np.sqrt(N/(N-1)) if correct_bias else 1.0
+        field_to_save *= correction
+
         self._save(filename, field_to_save, sky_unit)
 
     def save_samples(self, filename: str, sky_unit: u.Unit | None = None):
