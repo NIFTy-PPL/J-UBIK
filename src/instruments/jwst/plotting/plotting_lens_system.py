@@ -95,7 +95,7 @@ def _build_lens_plotting_models(
     # Adjusting the loop to work with the dictionary
     for key, model in models_dict.items():
         if model is None:
-            models_dict[key] = lambda _: np.zeros((2, 2))
+            models_dict[key] = lambda _: np.ones((2, 2))
 
     return LensSystemPlottingModels(**models_dict)
 
