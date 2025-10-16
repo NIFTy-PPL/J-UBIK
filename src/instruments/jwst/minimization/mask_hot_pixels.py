@@ -2,6 +2,8 @@ import os
 from dataclasses import asdict, dataclass
 from typing import Optional
 
+from numpy.typing import NDArray
+
 import nifty.re as jft
 import numpy as np
 import scipy
@@ -82,7 +84,7 @@ def _hot_star_mask_from_nanpixel(
     mask_3d_og: np.ndarray,
     mask_3d_nan: np.ndarray,
     threshold_star_nan: float | None,
-):
+) -> NDArray:
     """This process masks neighbors of `nan`-pixel (masked by the JWST pipeline), if the
     summed, squared residuals of the pixels are above the `threshold_star_nan` threshold.
 
@@ -97,6 +99,10 @@ def _hot_star_mask_from_nanpixel(
     threshold_star_nan: float
         The threshold for masking the neighboring `star` pixels. If `None` the process
         is switched off.
+
+    Returns
+    -------
+    NDArray: New mask
     """
 
     if threshold_star_nan is None:

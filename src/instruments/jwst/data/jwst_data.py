@@ -5,10 +5,12 @@
 
 # %
 from dataclasses import dataclass
+from typing import Iterable
 
 import numpy as np
 from astropy import units
 from astropy.coordinates import SkyCoord
+from numpy.typing import NDArray
 
 from ....color import Color
 from ....wcs import WcsAstropy, WcsJwstData, subsample_pixel_centers
@@ -16,7 +18,7 @@ from ..masking import (
     get_mask_from_index_centers_within_rgrid,
     get_mask_from_mask_corners,
 )
-from ..parse.masking.data_mask import ExtraMaskFromCorners
+from ..parse.masking.data_mask import ExtraMaskFromCorners, NanMaskLoader
 from .jwst_information import JWST_FILTERS, get_dvol, get_pixel_distance
 
 try:
@@ -134,7 +136,8 @@ class JwstData:
         self,
         row_minmax_column_minmax: tuple[int] | np.ndarray,
         reconstruction_grid_wcs: WcsAstropy | None = None,
-        additional_masks_corners: list[ExtraMaskFromCorners] | None = None,
+        additional_masks_by_corners: Iterable[ExtraMaskFromCorners] | None = None,
+        additional_nan_mask: NDArray | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Data, mask, and std cutout corresponding to `row_minmax_column_minmax`.
 
@@ -146,7 +149,7 @@ class JwstData:
             The wcs of the reconstruction/index grid. Used for getting the mask, where
             the reconstruction grid has values. If None no value will be masked from the
             grid.
-        additional_masks_corners: list[CornerMaskConfig] | None, optional
+        additional_masks_by_corners: list[CornerMaskConfig] | None, optional
             Holds the egde points of additional masks for the data.
 
         Returns
@@ -165,14 +168,17 @@ class JwstData:
             row_minmax_column_minmax, self.wcs, reconstruction_grid_wcs
         )
         mask *= self.nan_from_bounding_indices(*row_minmax_column_minmax)
+        if additional_nan_mask is not None:
+            mask *= additional_nan_mask
+
         std = self.std_from_bounding_indices(*row_minmax_column_minmax)
 
-        if additional_masks_corners is not None:
+        if additional_masks_by_corners is not None:
             extra_masks = [
                 get_mask_from_mask_corners(
                     data.shape, self.wcs, row_minmax_column_minmax, mc.corners
                 )
-                for mc in additional_masks_corners
+                for mc in additional_masks_by_corners
             ]
             mask *= ~np.sum(extra_masks, axis=0, dtype=bool)
 

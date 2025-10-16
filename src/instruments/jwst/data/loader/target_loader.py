@@ -13,7 +13,7 @@ from ...alignment.star_alignment import StarTables
 from ...parse.data.data_loader import IndexAndPath, Subsample
 from ...parse.alignment.star_alignment import StarAlignmentConfig
 from ...parse.jwst_psf import JwstPsfKernelConfig
-from ...parse.masking.data_mask import ExtraMasks
+from ...parse.masking.data_mask import CornerMasks, NanMaskLoader
 from ...alignment.star_alignment import Star
 from ...psf.jwst_kernel import load_psf_kernel
 from ..jwst_data import DataMetaInformation, JwstData
@@ -40,12 +40,16 @@ def load_one_target_bundle(
     target_grid: Grid,
     target_data_bounds: DataBounds,
     psf_kernel_configs: JwstPsfKernelConfig,
-    extra_masks: ExtraMasks,
+    corner_masks: CornerMasks | None,
+    nan_mask: NanMaskLoader | None,
 ) -> TargetBundle:
     data, mask, std = jwst_data.bounding_data_mask_std_by_bounding_indices(
         target_data_bounds.bounds[index],
         target_grid.spatial,
-        extra_masks,
+        additional_masks_by_corners=corner_masks,
+        additional_nan_mask=nan_mask.load_mask()[index]
+        if nan_mask is not None
+        else None,
     )
     nan_mask = jwst_data.nan_from_bounding_indices(*target_data_bounds.bounds[index])
     psf = load_psf_kernel(
@@ -72,7 +76,7 @@ def load_one_target_bundle_from_filepath(
     target_grid: Grid,
     target_data_bounds: DataBounds,
     psf_kernel_configs: JwstPsfKernelConfig,
-    extra_masks: ExtraMasks,
+    corner_masks: CornerMasks,
 ) -> TargetBundle:
     jwst_data = JwstData(filepath.path)
     return load_one_target_bundle(
@@ -82,7 +86,7 @@ def load_one_target_bundle_from_filepath(
         target_grid,
         target_data_bounds,
         psf_kernel_configs,
-        extra_masks,
+        corner_masks,
     )
 
 

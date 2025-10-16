@@ -148,13 +148,14 @@ def build_jwst_likelihoods(
                     grid=grid,
                     data_bounds=preload_results.target_bounds,
                     subsample=cfg_parser.subsample_target,
+                    nan_mask_loader=cfg_parser.nan_masks.get(filter),
                 ),
                 psf_kernel_configs=cfg_parser.psf_kernel_configs,
                 star_alignment=DataLoaderStarAlignment.from_optional(
                     config=cfg_parser.star_alignment_config,
                     tables=preload_results.star_tables,
                 ),
-                extra_masks=cfg_parser.extra_masks,
+                corner_masks=cfg_parser.corner_masks,
             ),
             loading_mode_config=cfg_parser.data_loader.loading_mode_config,
         )

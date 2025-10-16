@@ -13,7 +13,7 @@ from .variable_covariance import (
 from .alignment.star_alignment import StarAlignmentConfig
 from .data.data_loader import DataLoadingConfig, Subsample
 from .jwst_psf import JwstPsfKernelConfig
-from .masking.data_mask import ExtraMasks
+from .masking.data_mask import CornerMasks, NanMasks
 
 
 @dataclass
@@ -23,7 +23,8 @@ class ConfigParserJwst:
     psf_kernel_configs: JwstPsfKernelConfig
     data_loader: DataLoadingConfig
     subsample_target: Subsample
-    extra_masks: ExtraMasks
+    corner_masks: CornerMasks
+    nan_masks: NanMasks
     star_alignment_config: StarAlignmentConfig | None
     variable_covariance_config: VariableCovarianceConfig | None
 
@@ -43,7 +44,7 @@ class ConfigParserJwst:
             cfg[telescope_key].get("psf")
         )
         data_loader = DataLoadingConfig.from_yaml_dict(cfg[files_key])
-        extra_masks = ExtraMasks.from_yaml_dict(cfg[telescope_key])
+        corner_masks = CornerMasks.from_yaml_dict(cfg[telescope_key])
 
         star_alignment_config: StarAlignmentConfig | None = (
             StarAlignmentConfig.from_yaml_dict(cfg[telescope_key].get("gaia_alignment"))
@@ -53,13 +54,16 @@ class ConfigParserJwst:
             cfg[telescope_key].get("variable_covariance")
         )
 
+        nan_masks = NanMasks.from_yaml_dict(cfg[telescope_key])
+
         return cls(
             zero_flux_prior_configs=zero_flux_prior_configs,
             rotation_and_shift_algorithm=rotation_and_shift_algorithm,
             psf_kernel_configs=psf_kernel_configs,
             data_loader=data_loader,
             subsample_target=subsample_target,
-            extra_masks=extra_masks,
+            corner_masks=corner_masks,
+            nan_masks=nan_masks,
             star_alignment_config=star_alignment_config,
             variable_covariance_config=variable_covariance_config,
         )

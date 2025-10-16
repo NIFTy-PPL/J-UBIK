@@ -1,5 +1,8 @@
+from collections import UserDict, UserList
 from dataclasses import dataclass
-from collections import UserList
+from os.path import isfile
+
+import numpy as np
 from astropy.coordinates import SkyCoord
 
 
@@ -23,7 +26,7 @@ class ExtraMaskFromCorners:
         return cls(corners=[SkyCoord(ra=ra, dec=dec) for ra, dec in zip(ras, decs)])
 
 
-class ExtraMasks(UserList):
+class CornerMasks(UserList):
     """A list of `ExtraMaskFromCorners`."""
 
     @classmethod
@@ -46,3 +49,37 @@ class ExtraMasks(UserList):
                 corner_masks.append(ExtraMaskFromCorners.from_yaml_dict(val))
 
         return cls(corner_masks)
+
+
+@dataclass
+class NanMaskLoader:
+    path: str
+
+    def load_mask(self):
+        return np.load(self.path)
+
+    def __post_init__(self):
+        if not isfile(self.path):
+            raise IOError(f"Loading nan mask: {self.path} doesn't exist")
+
+
+class NanMasks(UserDict):
+    """A wrapper for multiple NanMaskLoader with the the filter-name as a key."""
+
+    @classmethod
+    def from_yaml_dict(cls, raw: dict):
+        """Factory producing a ExtraMasks object with multiple `ExtraMaskFromCorners`
+
+        Parameters
+        ----------
+        raw: dict, parsed yaml file
+        - `nan_mask`, optional
+            If the string `nan_mask` is inside the yaml dict, we get the filter and path
+        """
+        nan_mask_dict = raw.get("nan_mask", {})
+        mapping = {
+            filter_name: NanMaskLoader(path)
+            for filter_name, path in nan_mask_dict.items()
+        }
+
+        return cls(mapping)

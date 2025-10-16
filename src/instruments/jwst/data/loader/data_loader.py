@@ -8,7 +8,7 @@ from ...alignment.star_alignment import StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig
 from ...parse.data.data_loader import IndexAndPath, LoadingModeConfig, Subsample
 from ...parse.jwst_psf import JwstPsfKernelConfig
-from ...parse.masking.data_mask import ExtraMasks
+from ...parse.masking.data_mask import CornerMasks, NanMaskLoader
 from ..concurrent_loader import load_bundles
 from ..jwst_data import JwstData
 from ..preloader.data_bounds import DataBounds
@@ -35,6 +35,7 @@ class DataLoaderTarget:
     grid: Grid
     data_bounds: DataBounds
     subsample: Subsample | int
+    nan_mask_loader: NanMaskLoader | None
 
     @classmethod
     def from_optional(
@@ -42,11 +43,17 @@ class DataLoaderTarget:
         grid: Grid,
         data_bounds: DataBounds | None,
         subsample: Subsample | int,
+        nan_mask_loader: NanMaskLoader | None,
     ) -> Optional["DataLoaderTarget"]:
         if data_bounds is None:
             return None
 
-        return cls(grid=grid, data_bounds=data_bounds, subsample=subsample)
+        return cls(
+            grid=grid,
+            data_bounds=data_bounds,
+            subsample=subsample,
+            nan_mask_loader=nan_mask_loader,
+        )
 
 
 @dataclass
@@ -70,10 +77,10 @@ class DataLoader:
     # Essentials -----------------------------------------------------------------------
     psf_kernel_configs: JwstPsfKernelConfig
 
-    # Optioanls ------------------------------------------------------------------------
+    # Optionals ------------------------------------------------------------------------
     target: DataLoaderTarget | None = None
     star_alignment: DataLoaderStarAlignment | None = None
-    extra_masks: ExtraMasks | None = None
+    corner_masks: CornerMasks | None = None
 
 
 @dataclass
@@ -177,7 +184,8 @@ def _load_one_target_and_or_stars(
         target_grid=data_loader.target.grid,
         target_data_bounds=data_loader.target.data_bounds,
         psf_kernel_configs=data_loader.psf_kernel_configs,
-        extra_masks=data_loader.extra_masks,
+        corner_masks=data_loader.corner_masks,
+        nan_mask=data_loader.target.nan_mask_loader,
     )
 
     if data_loader.star_alignment:
@@ -186,7 +194,7 @@ def _load_one_target_and_or_stars(
             jwst_data=jwst_data,
             star_tables=data_loader.star_alignment.tables,
             star_alignment_config=data_loader.star_alignment.config,
-            extra_masks=data_loader.extra_masks,
+            extra_masks=data_loader.corner_masks,
             psf_kernel_configs=data_loader.psf_kernel_configs,
         )
     else:
