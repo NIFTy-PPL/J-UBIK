@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 from .zero_flux_model import ZeroFluxPriorConfigs
 from .rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
@@ -14,6 +15,7 @@ from .alignment.star_alignment import StarAlignmentConfig
 from .data.data_loader import DataLoadingConfig, Subsample
 from .jwst_psf import JwstPsfKernelConfig
 from .masking.data_mask import CornerMasks, NanMasks
+from .data.preloader.data_bounds import DataBoundsAdjust
 
 
 @dataclass
@@ -27,6 +29,7 @@ class ConfigParserJwst:
     nan_masks: NanMasks
     star_alignment_config: StarAlignmentConfig | None
     variable_covariance_config: VariableCovarianceConfig | None
+    data_bounds_adjust: DataBoundsAdjust
 
     @classmethod
     def from_yaml_dict(
@@ -55,6 +58,9 @@ class ConfigParserJwst:
         )
 
         nan_masks = NanMasks.from_yaml_dict(cfg[telescope_key])
+        data_bounds_adjust = DataBoundsAdjust.from_yaml_dict(
+            cfg[telescope_key].get("adjust_data_bounds", {})
+        )
 
         return cls(
             zero_flux_prior_configs=zero_flux_prior_configs,
@@ -66,4 +72,5 @@ class ConfigParserJwst:
             nan_masks=nan_masks,
             star_alignment_config=star_alignment_config,
             variable_covariance_config=variable_covariance_config,
+            data_bounds_adjust=data_bounds_adjust,
         )

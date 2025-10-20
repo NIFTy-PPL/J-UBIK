@@ -4,6 +4,7 @@ from os.path import isfile
 
 import numpy as np
 from astropy.coordinates import SkyCoord
+from numpy.typing import NDArray
 
 
 @dataclass
@@ -63,8 +64,11 @@ class NanMaskLoader:
             raise IOError(f"Loading nan mask: {self.path} doesn't exist")
 
 
-class NanMasks(UserDict):
+class NanMasks:
     """A wrapper for multiple NanMaskLoader with the the filter-name as a key."""
+
+    def __init__(self, map: dict) -> None:
+        self.map: dict = map
 
     @classmethod
     def from_yaml_dict(cls, raw: dict):
@@ -77,9 +81,35 @@ class NanMasks(UserDict):
             If the string `nan_mask` is inside the yaml dict, we get the filter and path
         """
         nan_mask_dict = raw.get("nan_mask", {})
-        mapping = {
+        map = {
             filter_name: NanMaskLoader(path)
             for filter_name, path in nan_mask_dict.items()
         }
 
-        return cls(mapping)
+        return cls(map)
+
+    @staticmethod
+    def get_bounds_name(bounds: NDArray):
+        return "__".join(["_".join([str(b) for b in bound]) for bound in bounds])
+
+    def get(
+        self,
+        key: str,
+        bounds: list[tuple[int, int, int, int]] | list[NDArray],
+    ) -> None | NanMaskLoader:
+        val = self.map.get(key)
+
+        if val is None:
+            return None
+
+        name = self.get_bounds_name(bounds)
+        bound_name = val.path.split("/")[-1].split("b")[-1].split(".")[0]
+
+        if name != bound_name:
+            raise ValueError(
+                f"{key} bounds and extra nan-mask do not match:\n"
+                f"load='{name}'\n"
+                f"mask='{bound_name}'\n"
+            )
+
+        return val

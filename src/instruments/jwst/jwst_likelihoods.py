@@ -141,6 +141,13 @@ def build_jwst_likelihoods(
             loading_mode_config=cfg_parser.data_loader.loading_mode_config,
         )
 
+        if filter in cfg_parser.data_bounds_adjust:
+            preload_results.target_bounds.cast_to_numpy()
+            preload_results.target_bounds.adjust_bounds(
+                cfg_parser.data_bounds_adjust.get(filter)
+            )
+            preload_results.target_bounds.align_bounds()
+
         dataload_results = load_data(
             filepaths=filepaths,
             data_loader=DataLoader(
@@ -148,7 +155,9 @@ def build_jwst_likelihoods(
                     grid=grid,
                     data_bounds=preload_results.target_bounds,
                     subsample=cfg_parser.subsample_target,
-                    nan_mask_loader=cfg_parser.nan_masks.get(filter),
+                    nan_mask_loader=cfg_parser.nan_masks.get(
+                        filter, preload_results.target_bounds.bounds
+                    ),
                 ),
                 psf_kernel_configs=cfg_parser.psf_kernel_configs,
                 star_alignment=DataLoaderStarAlignment.from_optional(
@@ -161,7 +170,9 @@ def build_jwst_likelihoods(
         )
 
         hot_pixel_masking_data.append_information(
-            filter=filter, nan_mask=dataload_results.target_data.nan_mask
+            filter=filter,
+            nan_mask=dataload_results.target_data.nan_mask,
+            bounds=preload_results.target_bounds.bounds,
         )
 
         # Constructing the Likelihood

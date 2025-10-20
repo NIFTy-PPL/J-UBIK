@@ -60,7 +60,7 @@ class PreloaderSideEffects:
 @dataclass(slots=True)
 class PreloadResult:
     filter_meta: DataMetaInformation
-    target_bounds: DataBounds | None
+    target_bounds: DataBounds
     star_tables: StarTables | None
 
 
@@ -228,7 +228,7 @@ def _preload_data_products(
         if star_tables is not None:
             star_tables.append(b.star_table, b.date)
 
-    target_bounds = target_bounds.align_shapes_and_bounds()
+    target_bounds = target_bounds.align_bounds()
     return checks.meta, target_bounds, star_tables, boresights
 
 
