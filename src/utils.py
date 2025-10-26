@@ -7,6 +7,7 @@
 
 import os
 from os.path import join
+from pathlib import Path
 import pickle
 
 import numpy as np
@@ -168,7 +169,7 @@ def copy_config(filename, path_to_yaml_file=None,
         print(f"Config file saved to: {join(output_dir, filename)}.")
 
 
-def save_config_copy_easy(path_to_file: str, path_to_save_file: str):
+def save_config_copy_easy(path_to_file: str | Path, path_to_save_file: str):
     from shutil import copy, SameFileError
     try:
         copy(path_to_file, path_to_save_file)

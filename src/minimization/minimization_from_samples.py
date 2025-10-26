@@ -140,7 +140,7 @@ def get_full_position_from_partial(
     new_full_position: jft.Vector,
     discard_keys: tuple[str, ...] = (),
     *,
-    verbose: bool | str = True, 
+    verbose: bool | str = True,
 ) -> jft.Vector:
     """
     Merge keys from a (possibly parametric) partial position into a fresh full position.
@@ -175,7 +175,7 @@ def get_full_position_from_partial(
 
     # optional logging
     if verbose:
-        lvl = (str(verbose).lower() if isinstance(verbose, str) else "info")
+        lvl = str(verbose).lower() if isinstance(verbose, str) else "info"
         msg = f"Conditioned merge: reused keys {sorted(reused) if reused else '[]'}"
         if lvl == "debug":
             jft.logger.debug(msg)

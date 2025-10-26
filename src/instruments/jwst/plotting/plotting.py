@@ -1,4 +1,5 @@
 from os.path import join
+from pathlib import Path
 from typing import Callable, Union
 from dataclasses import dataclass
 
@@ -128,7 +129,7 @@ class PlotTarget:
 
 
 def get_plot(
-    results_directory: str,
+    results_directory: str | Path,
     grid: Grid,
     lens_system,
     filter_projector: FilterProjector,
