@@ -11,6 +11,13 @@ from ..parse.response import Ducc0Settings, FinufftSettings
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamerJft
 from ..response import interferometry_response
+from ..phase_shift_correction import (
+    PhaseShiftCorrection,
+    build_phase_shift_correction_from_config,
+)
+from ...jwst.parse.rotation_and_shift.coordinates_correction import (
+    CoordinatesCorrectionPriorConfig,
+)
 
 
 def create_response_operator(
