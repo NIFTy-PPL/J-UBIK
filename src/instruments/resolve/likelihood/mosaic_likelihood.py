@@ -17,15 +17,14 @@ def create_response_operator(
     domain: dict,
     sky2vis: Callable[[Array], Array],
     field_name: str,
-    cast_to_dtype: Callable | None = None,
+    shift: PhaseShiftCorrection | None = None,
 ):
     """Create the full response operator.
 
     The response operator consists of the following pipeline
     1. Field extraction
-    2. cast_to_dtype (optional)
-    3. sky2vis
-    4. shift (optional)
+    2. sky2vis
+    3. shift (optional)
 
     Parameters
     ----------
@@ -35,10 +34,16 @@ def create_response_operator(
         FFT and Gridding
     field_name: str,
         The name of the field to be extracted from the (beam corrected) sky.
-    cast_to_dtype: Callable | None = None,
-        (Optional) Casting the dtpye, for example float64 -> float32.
+    shift: PhaseShiftCorrection | None = None,
+        (Optional) Phase-shift-correction
     """
+
     response = jft.wrap(sky2vis, field_name)
+
+    if shift is not None:
+        domain = domain | shift.domain
+        return jft.Model(lambda x: shift(x) * response(x), domain=domain)
+
     return jft.Model(response, domain=domain)
 
 
@@ -88,6 +93,7 @@ def build_likelihood_from_sky_beamer(
     sky_beamer: SkyBeamerJft,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
+    phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None,
 ) -> LikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
 
@@ -115,8 +121,8 @@ def build_likelihood_from_sky_beamer(
         Used for building the InterferometryResponse
     backend_settings: Union[Ducc0Settings, FinufftSettings]
         The algorithm for gridding and fft.
-    cast_to_dtype: Callable | None = None,
-        (Optional) Casting the dtpye, for example float64 -> float32.
+    phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None,
+        (Optional) config object containg the priors for a shift correction.
 
     Returns
     ------
@@ -130,10 +136,17 @@ def build_likelihood_from_sky_beamer(
         backend_settings=backend_settings,
     )
 
+    shift = build_phase_shift_correction_from_config(
+        phase_shift_correction_config,
+        observation=observation,
+        field_name=field_name,
+    )
+
     response = create_response_operator(
         domain=sky_beamer.target,
         sky2vis=sky2vis,
         field_name=field_name,
+        shift=shift,
     )
 
     return LikelihoodBuilder(

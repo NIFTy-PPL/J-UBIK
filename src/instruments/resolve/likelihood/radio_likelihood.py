@@ -50,6 +50,12 @@ from ..telescopes.primary_beam import (
 from ..util import cast_to_dtype
 from .mosaic_likelihood import build_likelihood_from_sky_beamer
 
+# NOTE : THIS should not have a direct dependency of jwst, but should be put on a higher
+# level
+from ...jwst.parse.rotation_and_shift.coordinates_correction import (
+    CoordinatesCorrectionPriorConfig,
+)
+
 
 @dataclass
 class RadioLikelihoodProducts:
@@ -151,6 +157,12 @@ def build_radio_likelihood(
         assert isinstance(data_names, str)
         data_names = [data_names]
 
+    coordinate_correction_config = None
+    if shift_config := cfg["radio_response"].get("rotation_and_shift", None):
+        coordinate_correction_config = CoordinatesCorrectionPriorConfig.from_yaml_dict(
+            shift_config
+        )
+
     likelihoods = []
     names = []
     sky_beamers = []
@@ -195,6 +207,7 @@ def build_radio_likelihood(
                             sky_beamer=_sky_beamer,
                             sky_grid=sky_grid,
                             backend_settings=response_backend_settings,
+                            phase_shift_correction_config=coordinate_correction_config,
                         )
                     )
 
