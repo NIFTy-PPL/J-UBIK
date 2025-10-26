@@ -119,14 +119,6 @@ class PlotTarget:
             except:
                 pass
 
-        # self.plot_source(samples, state)
-        # self.plot_lens(samples, state)
-
-    # def test_call(self, model: jft.Model):
-    #     from jax import random
-    #
-    #     key = random.PRNGKey(kk)
-
 
 def get_plot(
     results_directory: str | Path,

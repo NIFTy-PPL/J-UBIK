@@ -16,6 +16,7 @@ def build_standard_plot(
     output_directory: str,
     plotting_kwargs: PlottingKwargs = PLOTTING_KWARGS_DEFAULT,
     name: str = "resolve_iteration",
+    **kwargs,
 ):
     logger.info(f"Output: {output_directory}")
     makedirs(output_directory, exist_ok=True)
@@ -34,8 +35,12 @@ def build_standard_plot(
 
         vmin = max(plotting_kwargs.vmin, sky_mean.min())
         vmax = min(plotting_kwargs.vmax, sky_mean.max())
+
+        if "norm" not in kwargs:
+            kwargs["norm"] = "log"
+
         settings = dict(
-            vmin=vmin, vmax=vmax, norm="log", origin="lower", interpolation="none"
+            vmin=vmin, vmax=vmax, origin="lower", interpolation="none", **kwargs
         )
 
         if freqs == 1:
