@@ -22,10 +22,9 @@ def select_random_visibility_subset(
         return obs
 
     length = obs.uvw.shape[0]
+    rng = np.random.Generator(np.random.PCG64(seed=42))
     mask = np.sort(
-        np.random.choice(
-            np.arange(0, length), size=int(length * percentage), replace=False
-        )
+        rng.choice(np.arange(0, length), size=int(length * percentage), replace=False)
     )
     new_vis = obs.vis.asnumpy()[:, mask, :]
     new_weight = obs.weight.asnumpy()[:, mask, :]
