@@ -1,5 +1,6 @@
 from configparser import ConfigParser
 from dataclasses import dataclass
+from typing import Union
 
 from ......parse.parsing_base import StaticTyped
 
@@ -10,15 +11,23 @@ class FlagWeights(StaticTyped):
     max: float = 1e12
 
     @classmethod
-    def from_yaml_dict(cls, raw: dict) -> "FlagWeights":
-        return cls(
-            min=raw.get("min", 1e-12),
-            max=raw.get("max", 1e12),
+    def from_yaml_dict(cls, raw: dict | None) -> Union["FlagWeights", None]:
+        return (
+            cls(
+                min=raw.get("min", 1e-12),
+                max=raw.get("max", 1e12),
+            )
+            if raw
+            else None
         )
 
     @classmethod
-    def from_config_parser(cls, raw: ConfigParser | dict) -> "FlagWeights":
-        return cls(
-            min=eval(raw.get("min", "1e-12")),
-            max=eval(raw.get("max", "1e+12")),
+    def from_config_parser(cls, raw: ConfigParser | dict) -> Union["FlagWeights", None]:
+        return (
+            cls(
+                min=eval(raw.get("min", "1e-12")),
+                max=eval(raw.get("max", "1e+12")),
+            )
+            if raw
+            else None
         )

@@ -17,10 +17,13 @@ from .precision import to_double_precision, to_single_precision
 from .select_random_visibility_subset import select_random_visibility_subset
 from .time_modify import time_average_to_length_of_timebins
 from .weight_modify import systematic_error_budget
+from .shift_observation import shift_phase_center
 
 
 def modify_observation(
-    sky_frequencies: Color, obs: Observation, modify: ObservationModify
+    sky_frequencies: Color,
+    obs: Observation,
+    modify: ObservationModify,
 ) -> Observation:
     """Returns an observation according to ObservationModify. Furthermore,
     if the frequencies are not ordered from smallest to biggest the frequencies
@@ -50,9 +53,11 @@ def modify_observation(
     obs = time_average_to_length_of_timebins(obs, modify.time_bins)
 
     # TODO: Make the two cases into one and supply a None to the function!
-    if modify.spectral_min is not None:
-        obs = restrict_by_freq(obs, modify.spectral_min, modify.spectral_max)
-    if modify.spectral_restrict_to_sky_frequencies:
+    if modify.spectral.spectral_min is not None:
+        obs = restrict_by_freq(
+            obs, modify.spectral.spectral_min, modify.spectral.spectral_max
+        )
+    if modify.spectral.spectral_restrict_to_sky_frequencies:
         freqs_in_unit = sky_frequencies.to(
             RESOLVE_SPECTRAL_UNIT, equivalencies=u.spectral()
         ).value
@@ -63,7 +68,7 @@ def modify_observation(
         obs = restrict_to_discontinuous_frequencies(obs, sky_frequencies)
 
     obs = freq_average_by_fdom_and_n_freq_chunks(
-        sky_frequencies, obs, modify.spectral_bins
+        sky_frequencies, obs, modify.spectral.spectral_bins
     )
     obs = systematic_error_budget(obs, modify.weight_modify)
 
@@ -80,5 +85,7 @@ def modify_observation(
     # TODO: None-fy
     if modify.to_double_precision:
         obs = to_double_precision(obs)
+
+    obs = shift_phase_center(obs, modify.shift)
 
     return obs

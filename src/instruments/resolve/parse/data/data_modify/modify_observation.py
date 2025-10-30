@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from configparser import ConfigParser
 
+from .shift_observation import ShiftObservation
+from .frequency_handling import SpectralModify
 from .flagging import FlagWeights
 from .modify_weight import SystematicErrorBudget
 
@@ -13,20 +15,20 @@ class ObservationModify:
     ----------
     time_bins: int | None
         Average the visibilities in time to N `time_bins`
-    spectral_min and `spectral_max`:
-        Restrict the frequency range to lie in between this range.
+    spectral:
+        Settings for limiting the spectral range of the observation.
     spectral_bins:
         Average the visibilities of the observation to the N spectral_bins.
     weight_modify:
-        A multiplicative factor used for the
+        Modification for the weight column (e.g. systematic error budget)
     """
 
     time_bins: int | None
-    spectral_bins: int | None
-    spectral_min: float | None
-    spectral_max: float | None
-    spectral_restrict_to_sky_frequencies: bool
+
+    spectral: SpectralModify
     weight_modify: SystematicErrorBudget | None
+    shift: ShiftObservation | None
+
     to_double_precision: bool
     testing_percentage: float | None
     restrict_to_stokes_I: bool
@@ -52,7 +54,7 @@ class ObservationModify:
         spectral restrict_to_sky_frequencies: bool | None
             Boolian to restrict the spectral channels of the data to the sky
             model frequencies.
-        data weight modify precentage:
+        systematic error budget:
             The percentage of the absolute value of the visibilities to be
             added to the sigma (weight) of the visibilities (1-5)% is adviced.
         data to_double_precision: boolian | None
@@ -66,23 +68,11 @@ class ObservationModify:
         """
 
         TIME_BINS_KEYS = "time bins"
-        SPECTRAL_BINS_KEYS = "spectral bins"
 
         tb = eval(data_cfg.get(TIME_BINS_KEYS, "None"))
-        sb = eval(data_cfg.get(SPECTRAL_BINS_KEYS, "None"))
 
-        # Restrict by frequencies
-        smin = eval(data_cfg.get("spectral min", "None"))
-        smax = eval(data_cfg.get("spectral max", "None"))
-        restrict = eval(data_cfg.get("spectral restrict_to_sky_frequencies", "False"))
-        _check_spectral_min_max_consistency(smin, smax)
-
-        percentage = data_cfg.get("data weight modify percentage")
-        weight_modify = (
-            None
-            if percentage is None
-            else SystematicErrorBudget(percentage=float(percentage))
-        )
+        spectral_modify = SpectralModify.from_config_parser(data_cfg)
+        weight_modify = SystematicErrorBudget.from_config_parser(data_cfg)
 
         to_double_precision = eval(data_cfg.get("data to_double_precision", "True"))
 
@@ -93,11 +83,9 @@ class ObservationModify:
 
         return ObservationModify(
             time_bins=tb,
-            spectral_bins=sb,
-            spectral_min=smin,
-            spectral_max=smax,
-            spectral_restrict_to_sky_frequencies=restrict,
+            spectral=spectral_modify,
             weight_modify=weight_modify,
+            shift=None,  # NOTE: Needs ot be implemented
             to_double_precision=to_double_precision,
             testing_percentage=testing_percentage,
             restrict_to_stokes_I=restrict_to_stokes_I,
@@ -126,6 +114,9 @@ class ObservationModify:
             - restrict_to_sky_frequencies: bool | None
                 Boolian to restrict the spectral channels of the data to the sky
                 model frequencies.
+        shift: dict | None
+            - data_template: list[tuple[float, float]]
+                The shift for each data_template.
         weight_modify: dict | None
             - percentage: float | None
                 The percentage of the absolute value of the visibilities to be
@@ -145,37 +136,26 @@ class ObservationModify:
 
         tb = data_cfg.get("time_bins")
 
-        spectral = data_cfg.get("spectral", {})
-        sb = spectral.get("bins")
-        smin = spectral.get("min")
-        smax = spectral.get("max")
-        restrict = spectral.get("restrict_to_sky_frequencies", False)
-        _check_spectral_min_max_consistency(smin, smax)
+        spectral_modify = SpectralModify.from_yaml_dict(data_cfg.get("spectral", {}))
 
-        wm = data_cfg.get("weight_modify", {})
-        percentage = wm.get("percentage")
-        weight_modify = (
-            None
-            if percentage is None
-            else SystematicErrorBudget(percentage=float(percentage))
+        # TODO: Build more versions by extending modify_weight.py
+        weight_modify = SystematicErrorBudget.from_yaml_dict(
+            data_cfg.get("weight_modify", {})
         )
+        shift = ShiftObservation.from_yaml_dict(data_cfg.get("shift"))
 
         to_double_precision = data_cfg.get("to_double_precision", True)
         testing_percentage = data_cfg.get("testing_percentage", None)
         restrict_to_stokes_I = data_cfg.get("restrict_to_stokes_I", False)
         average_to_stokes_I = data_cfg.get("average_to_stokes_I", False)
 
-        flag_weights = None
-        if "flag_weights" in data_cfg:
-            flag_weights = FlagWeights.from_yaml_dict(data_cfg["flag_weights"])
+        flag_weights = FlagWeights.from_yaml_dict(data_cfg.get("flag_weights"))
 
         return ObservationModify(
             time_bins=tb,
-            spectral_bins=sb,
-            spectral_min=smin,
-            spectral_max=smax,
-            spectral_restrict_to_sky_frequencies=restrict,
+            spectral=spectral_modify,
             weight_modify=weight_modify,
+            shift=shift,
             to_double_precision=to_double_precision,
             testing_percentage=testing_percentage,
             restrict_to_stokes_I=restrict_to_stokes_I,
@@ -183,18 +163,15 @@ class ObservationModify:
             flag_weights=flag_weights,
         )
 
-
-def _check_spectral_min_max_consistency(smin: float, smax: float):
-    if (smin is None) and (smax is None):
-        return
-    elif (smin is not None) and (smax is not None):
-        if smin >= smax:
-            raise ValueError(
-                "spectral minimum must be strictly lower than spectral maximum."
-            )
-        return
-    else:
-        raise ValueError(
-            "Both 'spectral minimum' and 'spectral maximum' needs"
-            " to be set, simultanously."
+    def __call__(self, iteration: int) -> "ObservationModify":
+        return ObservationModify(
+            time_bins=self.time_bins,
+            spectral=self.spectral,
+            weight_modify=self.weight_modify,
+            shift=ShiftObservation(self.shift(iteration)) if self.shift else None,
+            to_double_precision=self.to_double_precision,
+            testing_percentage=self.testing_percentage,
+            restrict_to_stokes_I=self.restrict_to_stokes_I,
+            average_to_stokes_I=self.average_to_stokes_I,
+            flag_weights=self.flag_weights,
         )
