@@ -318,9 +318,15 @@ def _get_data_model_and_chi2(
 
 def get_alpha_and_reference(light_model):
     from charm_lensing.physical_models.hybrid_model import HybridModel
+    from charm_lensing.physical_models.multifrequency_models.vstack_model import (
+        VstackModel,
+    )
 
     light_model: HybridModel = light_model
-    model: SpectralProductSky | Any = light_model.nonparametric
+    if isinstance(light_model, HybridModel):
+        model: SpectralProductSky | Any = light_model.nonparametric
+    elif isinstance(light_model, VstackModel):
+        model = light_model.infrared.nonparametric
 
     if isinstance(model, SpectralProductSky):
         alpha = model.spectral_index_distribution
