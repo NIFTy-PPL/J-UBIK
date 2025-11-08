@@ -3,6 +3,8 @@ from os import makedirs
 from os.path import join
 from typing import Union
 
+from charm_lensing.physical_models import HybridModel
+from charm_lensing.physical_models.multifrequency_models.vstack_model import VstackModel
 import matplotlib.pyplot as plt
 import nifty.re as jft
 import numpy as np
@@ -10,6 +12,78 @@ import numpy as np
 from ....grid import Grid
 from .plotting_base import get_alpha_and_reference, get_position_or_samples_of_model
 from ..parse.plotting import FieldPlottingConfig, MultiFrequencyPlottingConfig
+
+
+def _get_light(light: HybridModel | VstackModel):
+    if isinstance(light, HybridModel):
+        return light.parametric, *get_alpha_and_reference(light)
+    elif isinstance(light, VstackModel):
+        return (
+            light.infrared.parametric,
+            *get_alpha_and_reference(light.infrared),
+            light.microwave.parametric,
+            *get_alpha_and_reference(light.microwave),
+        )
+    else:
+        ValueError("Only HybridModel or VstackModel")
+
+
+def _plot_meta_parameters(ims, axes, samples, models, plotting_config):
+    reference_plotting_config: FieldPlottingConfig = plotting_config.reference
+    spectral_index_plotting_config: FieldPlottingConfig = plotting_config.alpha
+    filter_plotting_config = plotting_config.combined
+    rendering = filter_plotting_config.rendering
+
+    para, alpha, ref = get_position_or_samples_of_model(samples, models[:3], True)
+
+    if len(para.shape) > 2:
+        para = para.mean(axis=0)
+
+    # Plot lens light
+    axes[0].set_title("Parametric model")
+    axes[1].set_title("Reference model at I0")
+    axes[2].set_title("Spectral index")
+    ims[0] = axes[0].imshow(para, **rendering)
+    ims[1] = axes[1].imshow(
+        ref,
+        vmin=reference_plotting_config.get_min(ref),
+        vmax=reference_plotting_config.get_max(ref),
+        norm=reference_plotting_config.norm,
+        **rendering,
+    )
+    ims[2] = axes[2].imshow(
+        alpha,
+        vmin=spectral_index_plotting_config.get_min(alpha),
+        vmax=spectral_index_plotting_config.get_max(alpha),
+        norm=spectral_index_plotting_config.norm,
+        **rendering,
+    )
+
+    if len(models) > 3:
+        para, alpha, ref = get_position_or_samples_of_model(samples, models[3:], True)
+
+        if len(para.shape) > 2:
+            para = para.mean(axis=0)
+
+        # Plot lens light
+        axes[3].set_title("Parametric model")
+        axes[4].set_title("Reference model at I0")
+        axes[5].set_title("Spectral index")
+        ims[3] = axes[3].imshow(para, **rendering)
+        ims[4] = axes[4].imshow(
+            ref,
+            vmin=reference_plotting_config.get_min(ref),
+            vmax=reference_plotting_config.get_max(ref),
+            norm=reference_plotting_config.norm,
+            **rendering,
+        )
+        ims[5] = axes[5].imshow(
+            alpha,
+            vmin=spectral_index_plotting_config.get_min(alpha),
+            vmax=spectral_index_plotting_config.get_max(alpha),
+            norm=spectral_index_plotting_config.norm,
+            **rendering,
+        )
 
 
 def build_plot_source(
@@ -34,31 +108,18 @@ def build_plot_source(
         source_dir = join(results_directory, "source")
         makedirs(source_dir, exist_ok=True)
 
+    source_light = lens_system.source_plane_model.light_model
+    meta_models = list(_get_light(source_light))
+
     freq_len = len(grid.spectral)
-    xlen = 3
+    xlen = 3 if (freq_len < 4 or isinstance(source_light, VstackModel)) else 6
     ylen = 1 + int(np.ceil(freq_len / xlen))
 
-    source_light = lens_system.source_plane_model.light_model
-    source_light_parametric = lens_system.source_plane_model.light_model.parametric
-    source_light_alpha, source_light_reference = get_alpha_and_reference(
-        lens_system.source_plane_model.light_model
-    )
-
-    models = [
-        source_light,
-        source_light_parametric,
-        source_light_alpha,
-        source_light_reference,
-    ]
-
-    for ii, model in enumerate(models):
+    for ii, model in enumerate(meta_models):
         if model is None:
-            models[ii] = lambda _: np.zeros((2, 2))
+            meta_models[ii] = lambda _: np.zeros((2, 2))
 
     filter_plotting_config = plotting_config.combined
-    reference_plotting_config: FieldPlottingConfig = plotting_config.reference
-    spectral_index_plotting_config: FieldPlottingConfig = plotting_config.alpha
-
     rendering = filter_plotting_config.rendering
     rendering["extent"] = lens_system.source_plane_model.space.extend().extent
 
@@ -68,36 +129,14 @@ def build_plot_source(
     ):
         print("Plotting source light")
 
-        sl, sl_para, sl_alpha, sl_ref = [
-            get_position_or_samples_of_model(position_or_samples, model, True)
-            for model in models
-        ]
-        if len(sl_para.shape) > 2:
-            sl_para = sl_para.mean(axis=0)
-
+        sl = get_position_or_samples_of_model(position_or_samples, source_light, True)
         vmin, vmax = filter_plotting_config.get_min(sl), None
 
         fig, axes = plt.subplots(ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300)
         ims = np.zeros_like(axes)
 
-        # Plot lens light
-        axes[0, 0].set_title("Parametric model")
-        axes[0, 1].set_title("Reference model at I0")
-        axes[0, 2].set_title("Spectral index")
-        ims[0, 0] = axes[0, 0].imshow(sl_para, **rendering)
-        ims[0, 1] = axes[0, 1].imshow(
-            sl_ref,
-            vmin=reference_plotting_config.get_min(sl_ref),
-            vmax=reference_plotting_config.get_max(sl_ref),
-            norm=reference_plotting_config.norm,
-            **rendering,
-        )
-        ims[0, 2] = axes[0, 2].imshow(
-            sl_alpha,
-            vmin=spectral_index_plotting_config.get_min(sl_alpha),
-            vmax=spectral_index_plotting_config.get_max(sl_alpha),
-            norm=spectral_index_plotting_config.norm,
-            **rendering,
+        _plot_meta_parameters(
+            ims[0], axes[1], position_or_samples, meta_models, plotting_config
         )
 
         axes = axes.flatten()
