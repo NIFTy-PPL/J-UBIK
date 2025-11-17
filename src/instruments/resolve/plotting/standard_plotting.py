@@ -16,6 +16,7 @@ def build_standard_plot(
     output_directory: str,
     plotting_kwargs: PlottingKwargs = PLOTTING_KWARGS_DEFAULT,
     name: str = "resolve_iteration",
+    dpi=300,
     **kwargs,
 ):
     logger.info(f"Output: {output_directory}")
@@ -77,7 +78,7 @@ def build_standard_plot(
                     plt.colorbar(im, ax=ax)
 
         plt.tight_layout()
-        plt.savefig(f"{output_directory}/{name}_{state.nit}.png")
+        plt.savefig(f"{output_directory}/{name}_{state.nit}.png", dpi=dpi)
         plt.close()
 
     return callback
