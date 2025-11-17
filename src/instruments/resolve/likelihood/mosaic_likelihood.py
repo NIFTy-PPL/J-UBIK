@@ -3,21 +3,21 @@ from typing import Callable, Union
 
 import nifty.re as jft
 from astropy import units as u
+from jax import Array, linear_transpose
 from numpy.typing import NDArray
-from jax import Array
 
 from ....grid import Grid
-from ..parse.response import Ducc0Settings, FinufftSettings
+from ...jwst.parse.rotation_and_shift.coordinates_correction import (
+    CoordinatesCorrectionPriorConfig,
+)
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamerJft
-from ..response import interferometry_response
+from ..parse.response import Ducc0Settings, FinufftSettings
 from ..phase_shift_correction import (
     PhaseShiftCorrection,
     build_phase_shift_correction_from_config,
 )
-from ...jwst.parse.rotation_and_shift.coordinates_correction import (
-    CoordinatesCorrectionPriorConfig,
-)
+from ..response import interferometry_response
 
 
 def create_response_operator(
@@ -73,6 +73,18 @@ class LikelihoodBuilder:
 
     response: jft.Model
     observation: Observation
+
+    def response_adjoint(
+        self, domain: jft.ShapeWithDtype
+    ) -> Callable[[NDArray], NDArray]:
+        """Get the response_adjoint for the data.
+
+        Parameters
+        ----------
+        domain: jft.ShapeWithDtype
+            The domain of the response.
+        """
+        return linear_transpose(self.response, domain)
 
     @property
     def visibilities(self) -> NDArray:
