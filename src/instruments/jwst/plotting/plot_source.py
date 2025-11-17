@@ -17,13 +17,50 @@ from ..parse.plotting import FieldPlottingConfig, MultiFrequencyPlottingConfig
 def _get_light(light: HybridModel | VstackModel):
     if isinstance(light, HybridModel):
         return light.parametric, *get_alpha_and_reference(light)
+
     elif isinstance(light, VstackModel):
+        _jwst_alpha, _jwst_reference = get_alpha_and_reference(light.infrared)
+        _alma_alpha, _alma_reference = get_alpha_and_reference(light.microwave)
+
+        def jwst_parametric(x):
+            return light.infrared.parametric(light.outer_2_inner(x, "infrared"))
+
+        def jwst_alpha(x):
+            if _jwst_alpha is None:
+                return np.zeros((2, 2))
+            else:
+                return _jwst_alpha(light.outer_2_inner(x, "infrared"))
+
+        def jwst_reference(x):
+            if _jwst_reference is None:
+                return np.zeros((2, 2))
+            else:
+                return _jwst_reference(light.outer_2_inner(x, "infrared"))
+
+        def alma_parametric(x):
+            return light.microwave.parametric(light.outer_2_inner(x, "microwave"))
+
+        def alma_alpha(x):
+            if _alma_alpha is None:
+                return np.zeros((2, 2))
+            else:
+                return _alma_alpha(light.outer_2_inner(x, "infrared"))
+
+        def alma_reference(x):
+            if _alma_reference is None:
+                return np.zeros((2, 2))
+            else:
+                return _alma_reference(light.outer_2_inner(x, "infrared"))
+
         return (
-            light.infrared.parametric,
-            *get_alpha_and_reference(light.infrared),
-            light.microwave.parametric,
-            *get_alpha_and_reference(light.microwave),
+            jwst_parametric,
+            jwst_alpha,
+            jwst_reference,
+            alma_parametric,
+            alma_alpha,
+            alma_reference,
         )
+
     else:
         ValueError("Only HybridModel or VstackModel")
 
@@ -34,7 +71,9 @@ def _plot_meta_parameters(ims, axes, samples, models, plotting_config):
     filter_plotting_config = plotting_config.combined
     rendering = filter_plotting_config.rendering
 
-    para, alpha, ref = get_position_or_samples_of_model(samples, models[:3], True)
+    para, alpha, ref = [
+        get_position_or_samples_of_model(samples, m, True) for m in models[:3]
+    ]
 
     if len(para.shape) > 2:
         para = para.mean(axis=0)
@@ -60,7 +99,9 @@ def _plot_meta_parameters(ims, axes, samples, models, plotting_config):
     )
 
     if len(models) > 3:
-        para, alpha, ref = get_position_or_samples_of_model(samples, models[3:], True)
+        para, alpha, ref = [
+            get_position_or_samples_of_model(samples, m, True) for m in models[3:]
+        ]
 
         if len(para.shape) > 2:
             para = para.mean(axis=0)
@@ -112,7 +153,7 @@ def build_plot_source(
     meta_models = list(_get_light(source_light))
 
     freq_len = len(grid.spectral)
-    xlen = 3 if (freq_len < 4 or isinstance(source_light, VstackModel)) else 6
+    xlen = 3 if (freq_len < 4 or not isinstance(source_light, VstackModel)) else 6
     ylen = 1 + int(np.ceil(freq_len / xlen))
 
     for ii, model in enumerate(meta_models):
@@ -136,14 +177,14 @@ def build_plot_source(
         ims = np.zeros_like(axes)
 
         _plot_meta_parameters(
-            ims[0], axes[1], position_or_samples, meta_models, plotting_config
+            ims[0], axes[0], position_or_samples, meta_models, plotting_config
         )
 
         axes = axes.flatten()
         ims = ims.flatten()
         for ii, (energy_range, fld) in enumerate(zip(grid.spectral, sl)):
             energy, energy_unit = energy_range.center.value, energy_range.center.unit
-            ii += 3
+            ii += xlen
 
             axes[ii].set_title(f"{energy:.4f} {energy_unit}")
             ims[ii] = axes[ii].imshow(
