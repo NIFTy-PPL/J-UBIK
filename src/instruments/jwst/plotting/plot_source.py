@@ -8,6 +8,7 @@ from charm_lensing.physical_models.multifrequency_models.vstack_model import Vst
 import matplotlib.pyplot as plt
 import nifty.re as jft
 import numpy as np
+from astropy import units as u
 
 from ....grid import Grid
 from .plotting_base import get_alpha_and_reference, get_position_or_samples_of_model
@@ -53,12 +54,12 @@ def _get_light(light: HybridModel | VstackModel):
                 return _alma_reference(light.outer_2_inner(x, "infrared"))
 
         return (
-            jwst_parametric,
-            jwst_alpha,
-            jwst_reference,
             alma_parametric,
             alma_alpha,
             alma_reference,
+            jwst_parametric,
+            jwst_alpha,
+            jwst_reference,
         )
 
     else:
@@ -107,9 +108,9 @@ def _plot_meta_parameters(ims, axes, samples, models, plotting_config):
             para = para.mean(axis=0)
 
         # Plot lens light
-        axes[3].set_title("Parametric model")
-        axes[4].set_title("Reference model at I0")
-        axes[5].set_title("Spectral index")
+        axes[3].set_title("(jwst) Parametric model")
+        axes[4].set_title("(jwst) Reference model at I0")
+        axes[5].set_title("(jwst) Spectral index")
         ims[3] = axes[3].imshow(para, **rendering)
         ims[4] = axes[4].imshow(
             ref,
@@ -183,10 +184,10 @@ def build_plot_source(
         axes = axes.flatten()
         ims = ims.flatten()
         for ii, (energy_range, fld) in enumerate(zip(grid.spectral, sl)):
-            energy, energy_unit = energy_range.center.value, energy_range.center.unit
+            energy = energy_range.center.to(u.um, equivalencies=u.spectral())
             ii += xlen
 
-            axes[ii].set_title(f"{energy:.4f} {energy_unit}")
+            axes[ii].set_title(f"{energy.value:.4f} {energy.unit}")
             ims[ii] = axes[ii].imshow(
                 fld, norm=filter_plotting_config.norm, vmin=vmin, vmax=vmax, **rendering
             )
