@@ -84,7 +84,11 @@ class LikelihoodBuilder:
         domain: jft.ShapeWithDtype
             The domain of the response.
         """
-        return linear_transpose(self.response, domain)[0]
+        adjoint = linear_transpose(self.response, domain)
+        
+        def response_adjoint_fn(primals):
+            return adjoint(primals)[0]
+        return response_adjoint_fn
 
     @property
     def visibilities(self) -> NDArray:
