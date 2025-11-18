@@ -186,9 +186,9 @@ def build_radio_likelihood(
 
         _sky_beamer = build_jft_sky_beamer(
             sky_shape_with_dtype=radio_sky_extractor.target,
-            sky_fov=sky_grid.spatial.fov,
-            sky_center=sky_grid.spatial.center,
-            sky_frequency_means=sky_grid.spectral.center,
+            sky_fov=radio_grid.spatial.fov,
+            sky_center=radio_grid.spatial.center,
+            sky_frequency_means=radio_grid.spectral.center,
             observations=observations,
             beam_func=beam_func,
             direction_key=direction_key,
@@ -205,7 +205,7 @@ def build_radio_likelihood(
                             observation=o,
                             field_name=field_name,
                             sky_beamer=_sky_beamer,
-                            sky_grid=sky_grid,
+                            sky_grid=radio_grid,
                             backend_settings=response_backend_settings,
                             phase_shift_correction_config=coordinate_correction_config,
                         )
