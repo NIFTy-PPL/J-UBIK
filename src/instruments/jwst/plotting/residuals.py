@@ -2,7 +2,10 @@ from collections import namedtuple
 from dataclasses import dataclass, field, asdict
 from os import makedirs
 from os.path import join
+import re
 from typing import Union
+
+from numpy.typing import NDArray
 
 import nifty.re as jft
 import matplotlib.pyplot as plt
@@ -110,28 +113,58 @@ def _determine_ypos(
     return filter_projector.keys_and_index[filter_key] - y_offset
 
 
-def build_plot_sky_residuals(
-    results_directory: str | None,
-    filter_projector: FilterProjector,
-    residual_plotting_info: ResidualPlottingInformation,
-    sky_model: jft.Model,
-    residual_plotting_config: ResidualPlottingConfig = ResidualPlottingConfig(),
-):
-    if results_directory is not None:
-        residual_directory = join(results_directory, "residuals")
-        makedirs(residual_directory, exist_ok=True)
+@dataclass
+class SkyResiduals:
+    residual_directory: str
+    sky_model: jft.Model
+    filter_projector: FilterProjector
+    residual_plotting_info: ResidualPlottingInformation
+    residual_plotting_config: ResidualPlottingConfig = ResidualPlottingConfig()
 
-    xmax_residuals = residual_plotting_config.xmax_residuals
+    def residuals(
+        self, position_or_samples: Union[dict, jft.Samples]
+    ) -> dict[str, NDArray]:
+        sky_or_skies = _get_model_samples_or_position(
+            position_or_samples,
+            jft.Model(
+                lambda x: self.filter_projector(self.sky_model(x)),
+                domain=self.sky_model.domain,
+            ),
+        )
 
-    ylen = len(filter_projector.target)
-    xlen = 3 + _determine_xlen_residuals(residual_plotting_info, xmax_residuals)
+        residuals = dict()
+        for filter_key in self.residual_plotting_info.filter:
+            data, std, mask, builder = self.residual_plotting_info.get_filter(
+                filter_key
+            )
+            model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
+                position_or_samples,
+                sky_or_skies,
+                data_model=builder.response,
+                data=data,
+                mask=mask,
+                std=std,
+            )
+            model_mean[~mask] = np.nan
 
-    def sky_residuals(
+            residuals[filter_key] = (data - model_mean) / std
+
+        return residuals
+
+    def __call__(
+        self,
         position_or_samples: Union[dict, jft.Samples],
         state_or_none: jft.OptimizeVIState | None = None,
-    ):
-        jft.logger.info(f"Results: {results_directory}")
+    ) -> None:
+        jft.logger.info(f"Results: {self.residual_directory}")
         jft.logger.info("Plotting residuals")
+
+        xmax_residuals = self.residual_plotting_config.xmax_residuals
+
+        ylen = len(self.filter_projector.target)
+        xlen = 3 + _determine_xlen_residuals(
+            self.residual_plotting_info, xmax_residuals
+        )
 
         fig, axes = plt.subplots(ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300)
         ims = np.zeros_like(axes)
@@ -142,7 +175,8 @@ def build_plot_sky_residuals(
         sky_or_skies = _get_model_samples_or_position(
             position_or_samples,
             jft.Model(
-                lambda x: filter_projector(sky_model(x)), domain=sky_model.domain
+                lambda x: self.filter_projector(self.sky_model(x)),
+                domain=self.sky_model.domain,
             ),
         )
 
@@ -150,43 +184,50 @@ def build_plot_sky_residuals(
             sky = jft.mean(sky_or_skies)
         else:
             sky = sky_or_skies
+
         sky_max, sky_min = (
-            residual_plotting_config.sky.get_max(
+            self.residual_plotting_config.sky.get_max(
                 np.max(list(tree.map(np.max, sky).values()))
             ),
-            residual_plotting_config.sky.get_min(
+            self.residual_plotting_config.sky.get_min(
                 np.min(list(tree.map(np.min, sky).values()))
             ),
         )
 
-        for filter_name in filter_projector.keys_and_index.keys():
+        for filter_name in self.filter_projector.keys_and_index.keys():
             ypos = _determine_ypos(
-                filter_name, filter_projector, y_offset=residual_plotting_info.y_offset
+                filter_name,
+                self.filter_projector,
+                y_offset=self.residual_plotting_info.y_offset,
             )
             axes[ypos, 0].set_title(f"Sky {filter_name}")
             ims[ypos, 0] = axes[ypos, 0].imshow(
                 sky[filter_name],
-                norm=residual_plotting_config.sky.norm,
+                norm=self.residual_plotting_config.sky.norm,
                 vmax=sky_max,
                 vmin=sky_min,
-                **residual_plotting_config.sky.rendering,
+                **self.residual_plotting_config.sky.rendering,
             )
 
         overplot_model_sky = (
             None
-            if residual_plotting_config.residual_overplot is None
+            if self.residual_plotting_config.residual_overplot is None
             else _get_model_samples_or_position(
                 position_or_samples,
-                residual_plotting_config.residual_overplot.overplot_model,
+                self.residual_plotting_config.residual_overplot.overplot_model,
             )
         )
 
-        for filter_key in residual_plotting_info.filter:
+        for filter_key in self.residual_plotting_info.filter:
             ypos = _determine_ypos(
-                filter_key, filter_projector, y_offset=residual_plotting_info.y_offset
+                filter_key,
+                self.filter_projector,
+                y_offset=self.residual_plotting_info.y_offset,
             )
 
-            data, std, mask, builder = residual_plotting_info.get_filter(filter_key)
+            data, std, mask, builder = self.residual_plotting_info.get_filter(
+                filter_key
+            )
 
             # TODO : THIS is not quite correct since res**2/std**2 is not linear in std
             if hasattr(builder, "inverse_std_builder"):
@@ -205,7 +246,7 @@ def build_plot_sky_residuals(
                 mask=mask,
                 std=std,
             )
-            chis = [
+            chis: list[str] = [
                 "\n".join((f"redChi2: {mean:.2f} +/- {std:.2f}",))
                 for mean, std in zip(redchi_mean, redchi_std)
             ]
@@ -222,9 +263,9 @@ def build_plot_sky_residuals(
                 data=data[0],
                 data_model=model_mean[0],
                 std=std[0],
-                residual_over_std=residual_plotting_config.residual_over_std,
-                residual_config=residual_plotting_config.residual,
-                plotting_config=residual_plotting_config.data,
+                residual_over_std=self.residual_plotting_config.residual_over_std,
+                residual_config=self.residual_plotting_config.residual,
+                plotting_config=self.residual_plotting_config.data,
             )
             display_text(axes[ypos, 3], chis[0])
 
@@ -234,7 +275,7 @@ def build_plot_sky_residuals(
                 if xpos_residual > xlen - 1:
                     continue
 
-                if residual_plotting_config.residual_over_std:
+                if self.residual_plotting_config.residual_over_std:
                     axes[ypos, xpos_residual].set_title("(Data - Data model) / std")
                 else:
                     axes[ypos, xpos_residual].set_title("Data - Data model")
@@ -242,12 +283,12 @@ def build_plot_sky_residuals(
 
                 ims[ypos, xpos_residual] = axes[ypos, xpos_residual].imshow(
                     (data_i - model_i) / std_i,
-                    **asdict(residual_plotting_config.residual),
-                    **residual_plotting_config.residual.rendering,
+                    **asdict(self.residual_plotting_config.residual),
+                    **self.residual_plotting_config.residual.rendering,
                 )
                 display_text(axes[ypos, xpos_residual], chis[xpos_residual - 3])
 
-            if residual_plotting_config.residual_overplot is not None:
+            if self.residual_plotting_config.residual_overplot is not None:
                 overplot_mean, *_ = (
                     (model_mean, None)
                     if overplot_model_sky is None
@@ -264,8 +305,8 @@ def build_plot_sky_residuals(
                 for ax, mm in zip(axes[ypos, 3:], overplot_mean):
                     ax.contour(
                         mm / np.nanmax(mm),
-                        levels=residual_plotting_config.residual_overplot.max_percent_contours,
-                        **residual_plotting_config.residual_overplot.contour_settings,
+                        levels=self.residual_plotting_config.residual_overplot.max_percent_contours,
+                        **self.residual_plotting_config.residual_overplot.contour_settings,
                     )
 
         for ax, im in zip(axes.flatten(), ims.flatten()):
@@ -277,9 +318,26 @@ def build_plot_sky_residuals(
             plt.show()
         else:
             fig.savefig(
-                join(residual_directory, f"{state_or_none.nit:02d}.png"),
+                join(self.residual_directory, f"{state_or_none.nit:02d}.png"),
                 dpi=300,
             )
             plt.close()
 
-    return sky_residuals
+
+def build_plot_sky_residuals(
+    results_directory: str,
+    filter_projector: FilterProjector,
+    residual_plotting_info: ResidualPlottingInformation,
+    sky_model: jft.Model,
+    residual_plotting_config: ResidualPlottingConfig = ResidualPlottingConfig(),
+):
+    residual_directory = join(results_directory, "residuals")
+    makedirs(residual_directory, exist_ok=True)
+
+    return SkyResiduals(
+        residual_directory=residual_directory,
+        filter_projector=filter_projector,
+        residual_plotting_info=residual_plotting_info,
+        sky_model=sky_model,
+        residual_plotting_config=residual_plotting_config,
+    )

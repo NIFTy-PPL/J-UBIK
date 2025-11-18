@@ -101,7 +101,7 @@ def plot_data_residuals(
     return ims
 
 
-def display_text(ax: plt.Axes, text: dict, **kwargs):
+def display_text(ax: plt.Axes, text: dict | str, **kwargs):
     """Display text on plot
     ax: matplotlib axis
     text: dict or str (default: {'s': str, 'color': 'white'})
@@ -255,7 +255,7 @@ def _get_data_model_and_chi2(
     data: np.ndarray,
     mask: np.ndarray,
     std: Union[np.ndarray, jft.Model],
-) -> tuple[np.ndarray, tuple[float, float]]:
+) -> tuple[np.ndarray, tuple[tuple[float, float], ...]]:
     if isinstance(std, float):
         std = np.full_like(data, std)
 
