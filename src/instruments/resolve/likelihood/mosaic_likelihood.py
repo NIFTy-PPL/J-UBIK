@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 from typing import Callable, Union
 
+from jax.tree_util import tree_map
+
 import nifty.re as jft
 from astropy import units as u
 from jax import Array, linear_transpose
 from numpy.typing import NDArray
+from jax import numpy as jnp
 
 from ....grid import Grid
 from ...jwst.parse.rotation_and_shift.coordinates_correction import (
@@ -74,21 +77,11 @@ class LikelihoodBuilder:
     response: jft.Model
     observation: Observation
 
-    def response_adjoint(
-        self, domain: jft.ShapeWithDtype
-    ) -> Callable[[NDArray], NDArray]:
-        """Get the response_adjoint for the data.
+    def response_adjoint(self, primals: NDArray | Array) -> dict[str, Array]:
+        """Get the response_adjoint for the data."""
 
-        Parameters
-        ----------
-        domain: jft.ShapeWithDtype
-            The domain of the response.
-        """
-        adjoint = linear_transpose(self.response, domain)
-        
-        def response_adjoint_fn(primals):
-            return adjoint(primals)[0]
-        return response_adjoint_fn
+        adjoint = linear_transpose(self.response, self.response.domain)
+        return tree_map(jnp.conj, adjoint(jnp.conj(primals))[0])
 
     @property
     def visibilities(self) -> NDArray:
