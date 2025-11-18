@@ -76,13 +76,14 @@ class LikelihoodBuilder:
 
     response: jft.Model
     observation: Observation
+    field_name: str
 
     def response_adjoint(self, primals: NDArray | Array) -> dict[str, Array]:
         """Get the response_adjoint for the data."""
 
         adjoint = linear_transpose(self.response, self.response.domain)
         conj = lambda x: tree_map(jnp.conj, x)
-        
+
         return conj(adjoint(conj(primals))[0])
 
     @property
@@ -170,4 +171,5 @@ def build_likelihood_from_sky_beamer(
     return LikelihoodBuilder(
         observation=observation,
         response=response,
+        field_name=field_name,
     )
