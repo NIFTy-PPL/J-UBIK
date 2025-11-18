@@ -81,7 +81,7 @@ class LikelihoodBuilder:
         """Get the response_adjoint for the data."""
 
         adjoint = linear_transpose(self.response, self.response.domain)
-        return tree_map(jnp.conj, adjoint(jnp.conj(primals))[0])
+        return tree_map(jnp.conj, adjoint(tree_map(jnp.conj, primals))[0])
 
     @property
     def visibilities(self) -> NDArray:
