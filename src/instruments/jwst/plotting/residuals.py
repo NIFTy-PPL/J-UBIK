@@ -119,7 +119,9 @@ class SkyResiduals:
     sky_model: jft.Model
     filter_projector: FilterProjector
     residual_plotting_info: ResidualPlottingInformation
-    residual_plotting_config: ResidualPlottingConfig = ResidualPlottingConfig()
+    residual_plotting_config: ResidualPlottingConfig = field(
+        default_factory=ResidualPlottingConfig
+    )
 
     def residuals(
         self, position_or_samples: Union[dict, jft.Samples]
