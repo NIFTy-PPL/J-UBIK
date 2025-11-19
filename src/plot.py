@@ -65,10 +65,14 @@ def plot_result(array,
     Parameters:
     -----------
     array : numpy.ndarray
-        Array of images. The first index indices through the different images
-        (e.g., shape = (5, 128, 128)).
+        Array of images. Supported shapes:
+            (npix_x, npix_y) - single image
+            (N_images, npix_x, npix_y) - stack of images
+            (N_samples, N_channels, npix_x, npix_y) - rows per sample, columns per
+                channel.
     domains : list[dict], optional
         List of domains. Each domain should correspond to each image array.
+        For arrays with N_samples and N_channels, provide entries in row-major order.
     output_file : str, optional
         The name of the file to save the plot to.
     logscale : bool, optional
@@ -107,22 +111,36 @@ def plot_result(array,
     None
     """
 
+    array = np.asarray(array)
     shape_len = array.shape
-    if len(shape_len) < 2 or len(shape_len) > 3:
+    if len(shape_len) < 2 or len(shape_len) > 4:
         raise ValueError("Wrong input shape for array plot!")
+
+    n_samples = None
+    n_channels = None
+    treating_multi_channel = False
+
     if len(shape_len) == 2:
         array = array[np.newaxis, :, :]
+    elif len(shape_len) == 4:
+        treating_multi_channel = True
+        n_samples, n_channels = shape_len[:2]
+        array = array.reshape(n_samples * n_channels, *shape_len[-2:])
 
     n_plots = array.shape[0]
 
-    if n_rows is None:
-        n_rows = _get_n_rows_from_n_samples(n_plots)
+    if treating_multi_channel:
+        n_rows = n_samples
+        n_cols = n_channels
+    else:
+        if n_rows is None:
+            n_rows = _get_n_rows_from_n_samples(n_plots)
 
-    if n_cols is None:
-        if n_plots % n_rows == 0:
-            n_cols = n_plots // n_rows
-        else:
-            n_cols = n_plots // n_rows + 1
+        if n_cols is None:
+            if n_plots % n_rows == 0:
+                n_cols = n_plots // n_rows
+            else:
+                n_cols = n_plots // n_rows + 1
 
     if adjust_figsize:
         x = int(n_cols / n_rows)
@@ -140,7 +158,7 @@ def plot_result(array,
                              sharey=share_y)
 
     if isinstance(axes, np.ndarray):
-        axes = axes.flatten()
+        axes = axes.reshape(-1)
     else:
         axes = [axes]
     pltargs = {"origin": "lower", "cmap": "viridis"}
@@ -991,20 +1009,20 @@ def _norm_rgb_plot(x):
 
 def _gauss(x, y, sig):
     """2D Normal distribution"""
-    const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
-    r = np.sqrt(x ** 2 + y ** 2)
-    f = const * np.exp(-r ** 2 / (2 * sig ** 2))
+    const = 1 / (jnp.sqrt(2 * np.pi * sig ** 2))
+    r = jnp.sqrt(x ** 2 + y ** 2)
+    f = const * jnp.exp(-r ** 2 / (2 * sig ** 2))
     return f
 
 
 def get_gaussian_kernel(domain, sigma):
     """"2D Gaussian kernel for fft convolution."""
     border = (domain.shape * domain.distances // 2)
-    x = np.linspace(-border[0], border[0], domain.shape[0])
-    y = np.linspace(-border[1], border[1], domain.shape[1])
-    xv, yv = np.meshgrid(x, y)
+    x = jnp.linspace(-border[0], border[0], domain.shape[0])
+    y = jnp.linspace(-border[1], border[1], domain.shape[1])
+    xv, yv = jnp.meshgrid(x, y)
     kern = _gauss(xv, yv, sigma)
-    kern = np.fft.fftshift(kern)
+    kern = jnp.fft.fftshift(kern)
     dvol = reduce(lambda a, b: a * b, domain.distances)
     normalization = kern.sum() * dvol
     kern = kern * normalization ** -1
@@ -1012,13 +1030,13 @@ def get_gaussian_kernel(domain, sigma):
 
 
 def _smooth(sig, x):
-    domain = Domain(x.shape, np.ones([3]))
+    domain = Domain(x.shape, jnp.ones([3]))
     gauss_domain = Domain(x.shape[1:], np.ones([2]))
 
     smoothing_kernel = get_gaussian_kernel(gauss_domain, sig)
-    smoothing_kernel = smoothing_kernel[np.newaxis, ...]
+    smoothing_kernel = smoothing_kernel[jnp.newaxis, ...]
     smooth_data = convolve(x, smoothing_kernel, domain, [1, 2])
-    return np.array(smooth_data)
+    return jnp.array(smooth_data)
 
 
 def _clip(x, sat_min, sat_max):
