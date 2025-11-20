@@ -45,7 +45,7 @@ def display_plot_or_save(
 def plot_result(array,
                 domains=None,
                 output_file=None,
-                logscale=False,
+                log=False,
                 title=None,
                 colorbar=True,
                 figsize=(8, 8),
@@ -75,7 +75,7 @@ def plot_result(array,
         For arrays with N_samples and N_channels, provide entries in row-major order.
     output_file : str, optional
         The name of the file to save the plot to.
-    logscale : bool, optional
+    log : bool, optional
         Whether to use a logarithmic scale for the color map.
     title : list[str], optional
         The title of each individual plot in the array.
@@ -171,7 +171,7 @@ def plot_result(array,
         vmin = min(np.min(array[i]) for i in range(n_plots))
         vmax = max(np.max(array[i]) for i in range(n_plots))
 
-    if logscale:
+    if log:
         if vmin is not None and float(vmin) == 0.:
             vmin = 1e-18  # to prevent LogNorm throwing errors
 
