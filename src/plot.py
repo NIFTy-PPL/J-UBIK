@@ -48,7 +48,7 @@ def plot_result(array,
                 log=False,
                 title=None,
                 colorbar=True,
-                figsize=(8, 8),
+                figsize=None,
                 dpi=100,
                 cbar_formatter=None,
                 n_rows=None,
@@ -81,8 +81,9 @@ def plot_result(array,
         The title of each individual plot in the array.
     colorbar : bool, optional
         Whether to show the color bar.
-    figsize : tuple, optional
-        The size of the figure in inches.
+    figsize : tuple or None, optional
+        Figure size in inches. When None, a per-panel default of roughly
+        3.5" × 3.5" is used (scaled by the inferred grid dimensions).
     dpi : int, optional
         The resolution of the figure in dots per inch.
     cbar_formatter : matplotlib.ticker.Formatter, optional
@@ -142,7 +143,11 @@ def plot_result(array,
             else:
                 n_cols = n_plots // n_rows + 1
 
-    if adjust_figsize:
+    if figsize is None:
+        base = 3.5
+        figsize = (max(1, n_cols) * base, max(1, n_rows) * base)
+
+    if adjust_figsize and figsize is not None:
         x = int(n_cols / n_rows)
         y = int(n_rows / n_cols)
         if x == 0:
@@ -201,9 +206,9 @@ def plot_result(array,
                 fig.suptitle(title)
 
         if colorbar:
-            # divider = make_axes_locatable(axes[i])
-            # cax = divider.append_axes("right", size="5%", pad=0.1)
-            fig.colorbar(im, ax=axes[i], format=cbar_formatter)
+            divider = make_axes_locatable(axes[i])
+            cax = divider.append_axes("right", size="5%", pad=0.1)
+            fig.colorbar(im, cax=cax, format=cbar_formatter)
     for i in range(n_del):
         fig.delaxes(axes[n_plots + i])
     fig.tight_layout()
@@ -530,13 +535,14 @@ def plot_rgb(array,
              sat_max=[1, 1, 1],
              sigma=None,
              log=False,
+             clipped_log=True,
+             vmin=None,
+             vmax=None,
              *,
-             # new: pass-through args for spectral→RGB conversion
              rgb_energies_existing=None,
              rgb_energies_target=None,
              rgb_log_spacing: bool = True,
              rgb_method: str = "linear",   # "linear" | "cubic"
-             # plotting controls
              scale_mode: str | Sequence[float] | RGBScaleConfig = "global",
              show_flux_bars: bool = False,
              flux_bar_decimals: int = 3,
@@ -548,7 +554,8 @@ def plot_rgb(array,
              name=None,
              dpi=300,
              bbox_inches=None,
-             verbose: bool = True,            # new: log when converting to RGB
+             verbose: bool = True,           
+             imshow_kwargs: dict | None = None,
              ):
     """
     Plot an RGB image with optional spectral conversion, clipping, and annotations.
@@ -569,6 +576,14 @@ def plot_rgb(array,
         Standard deviation of the Gaussian smoothing applied after RGB conversion.
     log : bool, optional
         Apply a natural logarithm to positive pixels after smoothing.
+    clipped_log : bool, optional
+        When True, clip the RGB data to ≥1e-18 before taking the logarithm,
+        ensuring a finite baseline. Defaults to True.
+    vmin, vmax : float | Sequence[float | None] | None, optional
+        Absolute clipping thresholds per channel (after optional log). When provided,
+        they override the quantile-based `sat_min`/`sat_max` for the respective channels.
+        Scalars apply to all channels; sequences must have length three and may contain
+        `None` entries to fall back to the quantile defaults.
     rgb_energies_existing : array-like or None, optional
         Energies/frequencies associated with the input spectral channels when converting.
     rgb_energies_target : array-like of length 3 or None, optional
@@ -602,6 +617,8 @@ def plot_rgb(array,
         Bounding box passed to `display_plot_or_save` while saving.
     verbose : bool, optional
         Log diagnostic messages during axis reordering or spectral conversion.
+    imshow_kwargs : dict or None, optional
+        Extra keyword arguments forwarded to ``ax.imshow`` (e.g. ``interpolation``).
 
     Returns
     -------
@@ -626,6 +643,21 @@ def plot_rgb(array,
             raise ValueError("sat_min/sat_max must be a float or a list of 3 floats (per RGB channel).")
         return x
 
+    def _as_triplet_optional(x, *, name: str):
+        if x is None:
+            return [None, None, None]
+        if isinstance(x, (int, float)):
+            return [float(x)] * 3
+        if len(x) != 3:
+            raise ValueError(f"{name} must be scalar or a 3-element sequence.")
+        out = []
+        for idx, val in enumerate(x):
+            if val is None:
+                out.append(None)
+            else:
+                out.append(float(val))
+        return out
+
     def _flux_quantile_threshold(ch: np.ndarray, q: float) -> float:
         x = np.asarray(ch, dtype=float).ravel()
         if x.size == 0:
@@ -643,14 +675,24 @@ def plot_rgb(array,
         idx = min(idx, vals.size - 1)
         return float(vals[idx])
 
-    def _per_channel_flux_clip(rgb: np.ndarray, qmin, qmax) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _per_channel_flux_clip(
+        rgb: np.ndarray,
+        qmin,
+        qmax,
+        manual_vmins,
+        manual_vmaxs,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         out = np.empty_like(rgb, dtype=float)
         vmins = np.zeros(3, dtype=float)
         vmaxs = np.zeros(3, dtype=float)
         for c in range(3):
             ch = rgb[c]
-            vmin = _flux_quantile_threshold(ch, qmin[c])
-            vmax = _flux_quantile_threshold(ch, qmax[c])
+            vmin = manual_vmins[c]
+            vmax = manual_vmaxs[c]
+            if vmin is None:
+                vmin = _flux_quantile_threshold(ch, qmin[c])
+            if vmax is None:
+                vmax = _flux_quantile_threshold(ch, qmax[c])
             if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= vmin:
                 vmax = float(np.nanmax(ch))
                 vmin = float(np.nanmin(ch))
@@ -738,12 +780,17 @@ def plot_rgb(array,
     if sigma is not None:
         rgb = _smooth(sigma, rgb)
     if log:
+        if clipped_log:
+            log_floor = 1e-18
+            rgb = np.maximum(rgb, log_floor)
         rgb = _non_zero_log(rgb)
 
     # 1) Per-channel clip by cumulative-flux thresholds
     sat_min = [float(np.clip(x, 0.0, 1.0)) for x in _as_triplet(sat_min)]
     sat_max = [float(np.clip(x, 0.0, 1.0)) for x in _as_triplet(sat_max)]
-    arr_clipped, vmins, vmaxs = _per_channel_flux_clip(rgb, sat_min, sat_max)
+    user_vmins = _as_triplet_optional(vmin, name="vmin")
+    user_vmaxs = _as_triplet_optional(vmax, name="vmax")
+    arr_clipped, vmins, vmaxs = _per_channel_flux_clip(rgb, sat_min, sat_max, user_vmins, user_vmaxs)
 
     # 2) Normalize for display
     scale_config = RGBScaleConfig.from_settings(scale_mode)
@@ -760,7 +807,9 @@ def plot_rgb(array,
     else:
         fig = ax.figure
 
-    ax.imshow(np.moveaxis(img01, 0, -1), origin="lower")
+    im_kwargs = dict(imshow_kwargs) if imshow_kwargs is not None else {}
+    im_kwargs.setdefault("origin", "lower")
+    ax.imshow(np.moveaxis(img01, 0, -1), **im_kwargs)
     ax.set_xticks([]); ax.set_yticks([])
 
     if scalebar_px is not None:
@@ -800,6 +849,8 @@ def plot_rgb_grid(images: np.ndarray,
                   scale_mode: str = "global",
                   sigma=None,
                   log: bool = False,
+                  vmin=None,
+                  vmax=None,
                   show_flux_bars: bool = False,
                   scalebar_px: int | None = None,
                   px_scale: float | None = None,
@@ -811,6 +862,7 @@ def plot_rgb_grid(images: np.ndarray,
                   rgb_log_spacing: bool = True,
                   rgb_method: str = "linear",
                   verbose: bool = True,
+                  imshow_kwargs: dict | None = None,
                   ) -> tuple[plt.Figure, np.ndarray, List[dict]]:
     """
     Render a grid of RGB images or spectral cubes by delegating each cell to `plot_rgb`.
@@ -848,6 +900,8 @@ def plot_rgb_grid(images: np.ndarray,
         Gaussian smoothing applied within `plot_rgb`.
     log : bool, optional
         Apply a logarithmic stretch after smoothing inside `plot_rgb`.
+    vmin, vmax : float | Sequence[float | None] | None, optional
+        Override clipping thresholds forwarded to each `plot_rgb` call.
     show_flux_bars : bool, optional
         Draw per-channel flux bars inside each panel when True.
     scalebar_px : int or None, optional
@@ -870,6 +924,8 @@ def plot_rgb_grid(images: np.ndarray,
         Interpolation scheme applied by `plot_rgb` during spectral conversion.
     verbose : bool, optional
         Emit diagnostic messages from `plot_rgb`.
+    imshow_kwargs : dict or None, optional
+        Extra keyword arguments shared across the per-panel ``imshow`` calls.
 
     Returns
     -------
@@ -931,6 +987,8 @@ def plot_rgb_grid(images: np.ndarray,
                     sat_max=sat_max,
                     sigma=sigma,
                     log=log,
+                    vmin=vmin,
+                    vmax=vmax,
                     scale_mode=scale_mode,
                     show_flux_bars=show_flux_bars,
                     flux_bar_decimals=flux_bar_decimals,
@@ -943,6 +1001,7 @@ def plot_rgb_grid(images: np.ndarray,
                     rgb_log_spacing=rgb_log_spacing,
                     rgb_method=rgb_method,
                     verbose=verbose,
+                    imshow_kwargs=imshow_kwargs,
                     ax=ax,
                     name=None,          # do not save from inside
                 )
@@ -977,17 +1036,22 @@ def _get_n_rows_from_n_samples(n_samples):
     -------
     `int`: The number of rows.
     """
-    threshold = 2
-    n_rows = 1
-    if n_samples == 2:
-        return n_rows
+    if n_samples <= 0:
+        return 1
+    if n_samples <= 3:
+        return 1
+    if n_samples == 4:
+        return 2
+    if n_samples == 5:
+        return 1
+    if n_samples == 6:
+        return 2
 
-    while True:
-        if n_samples < threshold:
-            return n_rows
-
-        threshold = 4 * threshold + 1
-        n_rows += 1
+    rows = int(math.floor(math.sqrt(n_samples)))
+    rows = max(rows, 1)
+    if rows * (rows + 1) < n_samples:
+        rows += 1
+    return rows
 
 
 def _norm_rgb_plot(x):
