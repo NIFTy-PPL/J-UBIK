@@ -201,7 +201,15 @@ def plot_result(array,
 
         if title is not None:
             if isinstance(title, list):
-                axes[i].set_title(title[i])
+                if len(title) == n_plots:
+                    axes[i].set_title(title[i])
+                elif len(title) == n_cols and share_x and share_y:
+                    row_idx = i // n_cols
+                    col_idx = i % n_cols
+                    if row_idx == 0:
+                        axes[i].set_title(title[col_idx])
+                else:
+                    axes[i].set_title(title[min(i, len(title) - 1)])
             else:
                 fig.suptitle(title)
 
