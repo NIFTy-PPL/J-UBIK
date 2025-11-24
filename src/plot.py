@@ -144,8 +144,11 @@ def plot_result(array,
                 n_cols = n_plots // n_rows + 1
 
     if figsize is None:
-        base = 3.5
-        figsize = (max(1, n_cols) * base, max(1, n_rows) * base)
+        if n_plots == 1:
+            figsize = (4.8, 4.5)
+        else:
+            base = 3.5
+            figsize = (max(1, n_cols) * base, max(1, n_rows) * base)
 
     if adjust_figsize and figsize is not None:
         x = int(n_cols / n_rows)
@@ -219,7 +222,11 @@ def plot_result(array,
             fig.colorbar(im, cax=cax, format=cbar_formatter)
     for i in range(n_del):
         fig.delaxes(axes[n_plots + i])
-    fig.tight_layout()
+    if n_plots == 1:
+        fig.tight_layout()
+        fig.subplots_adjust(top=0.8)
+    else:
+        fig.tight_layout()
     if output_file is not None:
         fig.savefig(output_file, bbox_inches='tight', pad_inches=0)
         print(f"Plot saved as {output_file}.")
