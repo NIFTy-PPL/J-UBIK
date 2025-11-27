@@ -41,6 +41,7 @@ Inference with J-UBIK and NIFTy.re:
 
         chandra_demo
         erosita_demo
+        jwst_demo
 
 
 .. [1] Arras P., Frank P., Haim P., Knollmüller J., Leike R., Reinecke M., and Enßlin T. (2022), “Variable structures in M87 from space, time and frequency resolved interferometry,” Nature Astronomy, 6(2), 259–269. `[DOI] <https://doi.org/10.1038/s41550-021-01548-0>`_
