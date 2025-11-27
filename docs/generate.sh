@@ -12,11 +12,12 @@ for FILE in ${FOLDER}/spectral_sky_demo; do
     fi
 done
 
+
 # don't execute these
-for FILE in ${FOLDER}/chandra_likelihood_demo; do
+for FILE in chandra_likelihood_demo chandra_demo erosita_demo jwst_demo; do
     if [ ! -f "${FILE}.md" ] || [ "${FILE}.ipynb" -nt "${FILE}.md" ]; then
-		jupytext --to ipynb "${FILE}.py"
-        jupyter-nbconvert --to markdown "${FILE}.ipynb"
+		jupytext --to ipynb "${FOLDER}/${FILE}.py"
+        jupyter-nbconvert --to markdown "${FOLDER}/${FILE}.ipynb"
     fi
 done
 
