@@ -3,6 +3,7 @@
 #
 # This demo showcases the application of j-ubik to Chandra data. Most parameters are set in `chandra_demo.yaml`, which is located in `demos/configs`.
 #
+# ## Requirements
 # Before running this demo `J-UBIK` needs to be installed properly, see README for help. After that 
 # - Install [ciao & marx](https://cxc.cfa.harvard.edu/ciao/download/conda.html). We recommend installation of both via conda / conda-forge
 # - Download Chandra data with the terminal command "download_chandra_obsid" or use [Chaser](https://cda.harvard.edu/chaser/). Don't forget to unpack the data.

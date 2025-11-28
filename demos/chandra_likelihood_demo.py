@@ -20,7 +20,7 @@ import numpy as np
 import jubik0 as ju
 from os import makedirs
 
-makedirs("chandra_demo_files")
+makedirs("chandra_demo_files", exist_ok=True)
 
 # %% [markdown]
 # To use the `ChandraOberservationInformation`-Interface `J-UBIK` needs the file paths to the most important files,
@@ -47,10 +47,10 @@ obsInfo = {"obsID": 4952,
 
 npix_s = 512
 npix_e = 1
-fov = 2024
-half_fov_arcmin = fov/2/60
-energy_ranges = (3, 7.0)
-elim =  (3, 7.0)
+fov = 2048 # in arcsecs, equals about 34 arcmin
+half_fov_arcmin = fov/2/60 # for plotting
+energy_ranges = (3, 7.0) # in keV
+elim =  (3, 7.0) # in keV
 
 # %% [markdown]
 # With these, we can get an instance of ChandraObservationInformation.
@@ -71,7 +71,7 @@ chandra_obs = ju.ChandraObservationInformation(obsInfo=obsInfo,
 # To get the binned data for the observation, we use the method `get_data`.
 
 # %%
-data = chandra_obs.get_data("test")
+data = chandra_obs.get_data("data_4952")
 
 # %%
 plt.imshow(data[:, :, 0], origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])
@@ -87,7 +87,7 @@ plt.savefig("chandra_demo_files/ChandraData.png")
 # The same can be done for the exposure. Here we use `get_exposure`. This gives us the exposure in units of seconds and cm squared.
 
 # %%
-exposure = chandra_obs.get_exposure("exp-test")
+exposure = chandra_obs.get_exposure("exposure_4952")
 
 # %%
 plt.imshow(exposure[:, :, 0], origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])

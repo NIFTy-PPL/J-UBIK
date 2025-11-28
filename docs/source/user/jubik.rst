@@ -39,6 +39,7 @@ Inference with J-UBIK and NIFTy.re:
 .. toctree::
         :maxdepth: 1
 
+        x-ray-imaging
         chandra_demo
         erosita_demo
         jwst_demo

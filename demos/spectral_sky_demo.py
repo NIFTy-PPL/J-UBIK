@@ -1,19 +1,3 @@
-#!/usr/bin/env python3
-
-# ---
-# jupyter:
-#   jupytext_format_version: '1.3'
-#   kernelspec:
-#     display_name: Python 3
-#     language: python
-#     name: python3
-# ---
-
-# %%
-import jax.numpy as jnp
-from jax import random
-import jubik0 as ju
-
 # %% [markdown]
 # # Multi-Frequency Spectral Sky Model Demo
 # This script sets up and visualizes a spectral sky model using `jubik0`.<br>
@@ -52,6 +36,11 @@ import jubik0 as ju
 # However we note that the model assumes that the frequencies are given as logarithmic frequencies, i.e. `freqs` should be $\log\nu$ from Eq. (1).
 
 # %%
+import jax.numpy as jnp
+from jax import random
+import jubik0 as ju
+
+
 shape = (256,) * 2
 distances = 0.1
 freqs, reference_frequency_index = jnp.array((0.1, 1.5, 2, 10)), 1
