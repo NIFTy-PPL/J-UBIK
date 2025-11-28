@@ -8,6 +8,9 @@
 #  - psf(s)
 # for a certain **observation**, **binning** in space and energy.
 #
+# ## Requirements
+# Before running this demo `J-UBIK` needs to be installed properly, see README for help. After that 
+# - Install [ciao & marx](https://cxc.cfa.harvard.edu/ciao/download/conda.html). We recommend installation of both via conda / conda-forge
 
 
 # %%
@@ -17,10 +20,10 @@ import numpy as np
 import jubik0 as ju
 from os import makedirs
 
-makedirs("chandra_demo_files")
+makedirs("chandra_demo_files", exist_ok=True)
 
 # %% [markdown]
-# For this, `J-UBIK` needs the file paths to the most important files,
+# To use the `ChandraOberservationInformation`-Interface `J-UBIK` needs the file paths to the most important files,
 # from one observation. The files can be retrieved via the CIAO terminal
 # interface [`download_chandra_obsid`](https://cxc.cfa.harvard.edu/ciao/ahelp/download_chandra_obsid.html)
 # or via the web interface [`chaser`](https://cda.harvard.edu/chaser/).
@@ -44,10 +47,10 @@ obsInfo = {"obsID": 4952,
 
 npix_s = 512
 npix_e = 1
-fov = 2024
-half_fov_arcmin = fov/2/60
-energy_ranges = (3, 7.0)
-elim =  (3, 7.0)
+fov = 2048 # in arcsecs, equals about 34 arcmin
+half_fov_arcmin = fov/2/60 # for plotting
+energy_ranges = (3, 7.0) # in keV
+elim =  (3, 7.0) # in keV
 
 # %% [markdown]
 # With these, we can get an instance of ChandraObservationInformation.
@@ -65,10 +68,10 @@ chandra_obs = ju.ChandraObservationInformation(obsInfo=obsInfo,
 # %% [markdown]
 #
 # ## Data and Exposure
-# To get the binned data for the observation, we to use the methods `get_data`.
+# To get the binned data for the observation, we use the method `get_data`.
 
 # %%
-data = chandra_obs.get_data("test")
+data = chandra_obs.get_data("data_4952")
 
 # %%
 plt.imshow(data[:, :, 0], origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])
@@ -84,7 +87,7 @@ plt.savefig("chandra_demo_files/ChandraData.png")
 # The same can be done for the exposure. Here we use `get_exposure`. This gives us the exposure in units of seconds and cm squared.
 
 # %%
-exposure = chandra_obs.get_exposure("exp-test")
+exposure = chandra_obs.get_exposure("exposure_4952")
 
 # %%
 plt.imshow(exposure[:, :, 0], origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])
@@ -114,7 +117,7 @@ plt.savefig("chandra_demo_files/ChandraPSFCenter.png")
 # ![](chandra_demo_files/ChandraPSFCenter.png)
 
 # %% [markdown]
-# For wide field reconstructions we need more than one PSF. In order to get the information on how the PSF changes over the field of view, we can simulate it for equidistant positions on the detector. Here we already do a normalization of the PSFs. For the plotting we add 1e-5 to remove the extrem contrast between 1 count and no count in the log plotting routine.
+# For wide field reconstructions we need more than one PSF. In order to get the information on how the PSF changes over the field of view, we can simulate it for equidistant positions on the detector. Here we already do a normalization of the PSFs. For the plotting we add 1e-5 to remove the extreme contrast between "one count" and "no count" in the log plotting routine.
 
 # %%
 psfs = ju.get_psfpatches(info=chandra_obs,
