@@ -164,7 +164,7 @@ def build_jwst_likelihoods(
                     config=cfg_parser.star_alignment_config,
                     tables=preload_results.star_tables,
                 ),
-                corner_masks=cfg_parser.corner_masks,
+                corner_masks=cfg_parser.corner_masks(filter),
             ),
             loading_mode_config=cfg_parser.data_loader.loading_mode_config,
         )

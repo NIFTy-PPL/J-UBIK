@@ -10,25 +10,44 @@ from numpy.typing import NDArray
 @dataclass
 class ExtraMaskFromCorners:
     corners: list[SkyCoord]
+    filters: list[str] | None = None
 
+    def __call__(self, filter_name):
+        if isinstance(self.filters, list):
+            if filter_name not in self.filters:
+                return None
+        return self
+    
     @classmethod
     def from_yaml_dict(cls, config: dict):
         RA_KEY = "ra"
         DEC_KEY = "dec"
+        FILTER_KEY = "filters"
 
         ras: list[str] = config.get(RA_KEY)
         decs: list[str] = config.get(DEC_KEY)
+        filters: list[str] = config.get(FILTER_KEY, None)
 
         # Check consistency
         for name, val in zip([RA_KEY, DEC_KEY], [ras, decs]):
             if not isinstance(val, list) or len(val) != 4:
                 raise ValueError(f"{name} should be 4 corners, got: {val}")
 
-        return cls(corners=[SkyCoord(ra=ra, dec=dec) for ra, dec in zip(ras, decs)])
+        return cls(corners=[SkyCoord(ra=ra, dec=dec) for ra, dec in zip(ras, decs)], filters=filters)
 
 
 class CornerMasks(UserList):
     """A list of `ExtraMaskFromCorners`."""
+
+    def __call__(
+        self, 
+        filter_name: str
+    ) -> "CornerMasks":
+        res = []
+        for mask in self:
+            if mask(filter_name) is not None:
+                res.append(mask)
+        return CornerMasks(res)
 
     @classmethod
     def from_yaml_dict(cls, raw: dict | None):
