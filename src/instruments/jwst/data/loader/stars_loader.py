@@ -37,7 +37,7 @@ def load_one_stars_bundle(
     jwst_data: JwstData,
     star_tables: StarTables,
     star_alignment_config: StarAlignmentConfig,
-    extra_masks: CornerMasks,
+    extra_masks: CornerMasks | None,
     psf_kernel_configs: JwstPsfKernelConfig,
 ) -> StarsBundle:
     fov_pixel = (
@@ -63,9 +63,12 @@ def load_one_stars_bundle(
             continue
 
         bounding_indices = star.bounding_indices(jwst_data, fov_pixel)
+        masks_for_filter = (
+            None if extra_masks is None else extra_masks(jwst_data.filter)
+        )
         data, mask, std = jwst_data.bounding_data_mask_std_by_bounding_indices(
             row_minmax_column_minmax=bounding_indices,
-            additional_masks_corners=extra_masks.corner_masks,
+            additional_masks_by_corners=masks_for_filter,
         )
         # check that data is not completely empty
         if np.all(np.isnan(data)):
@@ -98,7 +101,7 @@ def load_one_stars_bundle_from_filepath(
     filepath: IndexAndPath,
     star_tables: StarTables,
     star_alignment_config: StarAlignmentConfig,
-    extra_masks: CornerMasks,
+    extra_masks: CornerMasks | None,
     psf_kernel_configs: JwstPsfKernelConfig,
 ) -> StarsBundle:
     jwst_data = JwstData(filepath.path)

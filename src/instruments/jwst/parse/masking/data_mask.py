@@ -12,7 +12,10 @@ class ExtraMaskFromCorners:
     corners: list[SkyCoord]
     filters: list[str] | None = None
 
-    def __call__(self, filter_name):
+    def __call__(
+            self, 
+            filter_name
+        ) -> "ExtraMaskFromCorners | None":
         if isinstance(self.filters, list):
             if filter_name not in self.filters:
                 return None
@@ -33,7 +36,10 @@ class ExtraMaskFromCorners:
             if not isinstance(val, list) or len(val) != 4:
                 raise ValueError(f"{name} should be 4 corners, got: {val}")
 
-        return cls(corners=[SkyCoord(ra=ra, dec=dec) for ra, dec in zip(ras, decs)], filters=filters)
+        return cls(
+            corners=[SkyCoord(ra=ra, dec=dec) for ra, dec in zip(ras, decs)], 
+            filters=filters
+        )
 
 
 class CornerMasks(UserList):
@@ -42,12 +48,12 @@ class CornerMasks(UserList):
     def __call__(
         self, 
         filter_name: str
-    ) -> "CornerMasks":
+    ) -> "CornerMasks | None":
         res = []
         for mask in self:
             if mask(filter_name) is not None:
                 res.append(mask)
-        return CornerMasks(res)
+        return CornerMasks(res) if res else None
 
     @classmethod
     def from_yaml_dict(cls, raw: dict | None):
