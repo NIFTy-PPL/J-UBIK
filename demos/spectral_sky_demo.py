@@ -1,6 +1,6 @@
 # %% [markdown]
 # # Multi-Frequency Spectral Sky Model Demo
-# This script sets up and visualizes a spectral sky model using `jubik0`.<br>
+# This script sets up and visualizes a spectral sky model using `jubik`.<br>
 # Specifically, this model implements the spatio-spectral diffuse model described in
 # [Guardiani et&nbsp;al., 2025](https://arxiv.org/abs/2506.20758).
 #
@@ -38,7 +38,7 @@
 # %%
 import jax.numpy as jnp
 from jax import random
-import jubik0 as ju
+import jubik as ju
 
 
 shape = (256,) * 2

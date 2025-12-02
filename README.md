@@ -88,6 +88,6 @@ In order to make use of the JWST capabilities of the package, you will need to:
 For more details see `jwst_demo.py` in the `demo/` repository.
 
 **NOTE**:
-- Importing `jubik0` sets the floating point precision in jax to `float64`. 
+- Importing `jubik` sets the floating point precision in jax to `float64`. 
 - WebbPSF has shown some compatibility issues with the `numexpr` package.  
 The current version of the code has been tested successfully on `numexpr version==2.8.4`.

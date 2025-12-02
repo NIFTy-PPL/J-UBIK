@@ -7,4 +7,4 @@ Welcome to the J-UBIK - "The JAX-accelerated Universal Bayesian Imaging Kit" - d
    :maxdepth: 1
 
    User Guide <user/index>
-   API reference <mod/jubik0>
+   API reference <mod/jubik>

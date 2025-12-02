@@ -1,5 +1,5 @@
 [project]
-name = "jubik0"
+name = "jubik"
 description = "X-Ubik"
 readme = "README.md"
 authors = [
@@ -31,7 +31,7 @@ classifiers = [
 dynamic = ["version"]
 
 [tool.setuptools.dynamic]
-version = {attr = "jubik0.__version__"}
+version = {attr = "jubik.__version__"}
 
 
 [project.optional-dependencies]
@@ -64,4 +64,4 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["jubik0", "jubik0*"]
+include = ["jubik", "jubik*"]

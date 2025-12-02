@@ -15,7 +15,7 @@ import os
 from jax import random
 
 import nifty.re as jft
-import jubik0 as ju
+import jubik as ju
 
 # %% [markdown]
 # ## Config

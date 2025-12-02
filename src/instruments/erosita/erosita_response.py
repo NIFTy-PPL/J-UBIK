@@ -181,7 +181,7 @@ def build_erosita_psf(psf_filenames, energies, pointing_center,
     pointing_center : list of list, Array
         List of lists containing RA and Dec coordinates (in degrees)
         of the observations' pointing center.
-    domain : jubik0.library.data Domain
+    domain : jubik.library.data Domain
         The domain over which the PSF will be defined.
         This contains information about the grid on which the PSF is defined.
     npatch : int

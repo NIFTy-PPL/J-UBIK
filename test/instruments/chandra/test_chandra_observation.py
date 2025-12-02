@@ -3,7 +3,7 @@ from os.path import join
 
 import pytest
 
-import jubik0 as ju
+import jubik as ju
 
 ciao_installed = True
 

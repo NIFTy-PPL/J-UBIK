@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 import nifty.re as jft
 from jax.tree_util import Partial
 
-import jubik0 as ju
+import jubik as ju
 
 # RNG configuration
 seed = 42

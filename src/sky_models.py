@@ -532,7 +532,7 @@ class GeneralModel(jft.Model):
         -----------------------
         spatial: typically 2D Model for spatial log flux(x),
             where x is the spatial vector.
-        freq_plaw: jubik0.build_power_law or other 3D model.
+        freq_plaw: jubik.build_power_law or other 3D model.
         freq_dev: additional flux (frequency / energy) dependent process.
             often deviations from freq_plaw.
 

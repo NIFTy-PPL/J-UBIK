@@ -22,5 +22,5 @@ for FILE in chandra_likelihood_demo chandra_demo erosita_demo jwst_demo x-ray-im
 done
 
 EXCLUDE=""
-sphinx-apidoc -e -d 1 -o  docs/source/mod jubik0 ${EXCLUDE}
+sphinx-apidoc -e -d 1 -o  docs/source/mod jubik ${EXCLUDE}
 sphinx-build -b html docs/source/ docs/build/
