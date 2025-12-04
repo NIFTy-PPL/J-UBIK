@@ -1,35 +1,35 @@
+import re
 from collections import namedtuple
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from os import makedirs
 from os.path import join
-import re
 from typing import Union
 
-from numpy.typing import NDArray
-
-import nifty.re as jft
 import matplotlib.pyplot as plt
+import nifty.re as jft
 import numpy as np
 from jax import tree
+from numpy.typing import NDArray
+import astropy.units as u
 
+from ..data.jwst_data import DataMetaInformation
 from ..filter_projector import FilterProjector
-from ..parse.plotting import ResidualPlottingConfig
-from .plotting_base import (
-    display_text,
-    _get_model_samples_or_position,
-    _get_data_model_and_chi2,
-    _get_std_from_inversestdmodel,
-    plot_data_data_model_residuals,
-    get_shift_rotation_correction,
-)
 from ..likelihood.likelihood import (
     GaussianLikelihoodBuilder,
     VariableCovarianceGaussianLikelihoodBuilder,
 )
-
+from ..parse.plotting import ResidualPlottingConfig
+from .plotting_base import (
+    _get_data_model_and_chi2,
+    _get_model_samples_or_position,
+    _get_std_from_inversestdmodel,
+    display_text,
+    get_shift_rotation_correction,
+    plot_data_data_model_residuals,
+)
 
 # Define the namedtuple
-FilterData = namedtuple("FilterData", ["data", "std", "mask", "builder"])
+FilterData = namedtuple("FilterData", ["data", "std", "mask", "builder", "meta"])
 
 
 @dataclass
@@ -42,6 +42,7 @@ class ResidualPlottingInformation:
         GaussianLikelihoodBuilder | VariableCovarianceGaussianLikelihoodBuilder
     ] = field(default_factory=list)
     y_offset: int = 0
+    meta: list[DataMetaInformation] = field(default_factory=list)
 
     def append_information(
         self,
@@ -51,12 +52,14 @@ class ResidualPlottingInformation:
         std: np.ndarray,
         builder: GaussianLikelihoodBuilder
         | VariableCovarianceGaussianLikelihoodBuilder,
+        meta: DataMetaInformation,
     ):
         self.filter.append(filter)
         self.data.append(data)
         self.std.append(std)
         self.mask.append(mask)
         self.builder.append(builder)
+        self.meta.append(meta)
 
     def get_filter(self, filter: str) -> FilterData:
         """FilterData for `filter`.
@@ -68,7 +71,7 @@ class ResidualPlottingInformation:
 
         Returns
         -------
-        FilterData = (data, std, mask, builder)
+        FilterData = (data, std, mask, builder, meta)
         """
         index = self.filter.index(filter)
         return FilterData(
@@ -76,6 +79,7 @@ class ResidualPlottingInformation:
             std=self.std[index],
             mask=self.mask[index],
             builder=self.builder[index],
+            meta=self.meta[index],
         )
 
 
@@ -111,6 +115,12 @@ def _determine_ypos(
         The y-position on the panel grid.
     """
     return filter_projector.keys_and_index[filter_key] - y_offset
+
+
+def get_extent(shape: NDArray, meta: DataMetaInformation) -> NDArray:
+    ps = meta.pixel_scale.to(u.Unit("arcsec")).value
+    sh = (shape[1:] / 2).repeat(2) * (-1, 1, -1, 1)
+    return ps * sh
 
 
 @dataclass

@@ -16,12 +16,8 @@ from ....minimization.minimization_from_samples import (
 from ....minimization_parser import MinimizationParser
 from ..data.loader.target_loader import TargetDataCore
 from ..jwst_likelihoods import TargetLikelihoodProducts
-from ..likelihood.target_likelihood import (
-    TargetLikelihoodSideEffects,
-    build_target_likelihood,
-)
+from ..likelihood.target_likelihood import build_target_likelihood
 from ..parse.minimization.mask_hot_pixels import MaskingStepSettings
-from ..variable_covariance.inverse_standard_deviation import InverseStdBuilder
 from ..plotting.residuals import ResidualPlottingInformation
 from .mask_hot_pixel_data import HotPixelMaskingData
 
@@ -363,7 +359,6 @@ def masking_hot_pixels(
                 ),
                 filter_name=ll.filter,
                 inverse_std_builder=inv_std,
-                side_effect=TargetLikelihoodSideEffects(plotting=target_plotting),
             )
         )
 

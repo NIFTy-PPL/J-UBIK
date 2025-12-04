@@ -31,7 +31,6 @@ from .likelihood.alignment_likelihood import (
 )
 from .likelihood.target_likelihood import (
     SingleTargetLikelihood,
-    TargetLikelihoodSideEffects,
     build_target_likelihood,
 )
 from .minimization.mask_hot_pixel_data import HotPixelMaskingData
@@ -188,6 +187,7 @@ def build_jwst_likelihoods(
         print(dataload_results.target_data.mask.sum())
 
         likelihood_target: SingleTargetLikelihood = build_target_likelihood(
+            filter_name=filter,
             response=build_target_response(
                 input_config=TargetResponseInput(
                     filter_name=filter,
@@ -202,13 +202,21 @@ def build_jwst_likelihoods(
                 )
             ),
             target_data=dataload_results.target_data,
-            filter_name=filter,
             inverse_std_builder=build_inverse_standard_deviation(
                 filter_name=filter,
                 config=cfg_parser.variable_covariance_config,
             ),
-            side_effect=TargetLikelihoodSideEffects(plotting=target_plotting),
         )
+
+        target_plotting.append_information(
+            filter=filter,
+            data=dataload_results.target_data.data,
+            std=dataload_results.target_data.std,
+            mask=dataload_results.target_data.mask,
+            builder=likelihood_target.builder,
+            meta=preload_results.filter_meta,
+        )
+
         target_filter_likelihoods.append(likelihood_target)
 
         if cfg_parser.star_alignment_config is not None:

@@ -94,6 +94,8 @@ def load_one_target_bundle_from_filepath(
 # Products
 # ---------------------
 
+# TODO : These need to be inhereted from a base-class
+
 
 @dataclass(slots=True)
 class TargetData:
