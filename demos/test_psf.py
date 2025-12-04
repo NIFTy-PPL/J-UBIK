@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LogNorm
 
-import jubik0 as ju
+import jubik as ju
 from jax import config, random, linear_transpose
 config.update('jax_enable_x64', True)
 
