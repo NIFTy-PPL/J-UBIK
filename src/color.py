@@ -5,6 +5,7 @@
 
 # %%
 
+import numpy as np
 from astropy import units as u, constants as const
 from numpy import argsort
 
@@ -186,6 +187,27 @@ class ColorRanges:
 
         sortid = argsort([cr.center.value for cr in color_ranges])
         self.color_ranges = [color_ranges[ii] for ii in sortid]
+
+    @classmethod
+    def from_freqs(cls, freqs, unit=u.Unit("Hz")):
+        if len(freqs) == 1:
+            bounds = np.array([-np.inf, np.inf])
+        else:
+            c = np.array(freqs)
+            bounds = np.empty(len(freqs) + 1)
+            bounds[1:-1] = c[:-1] + 0.5 * np.diff(c)
+            bounds[0] = c[0] - 0.5 * (c[1] - c[0])
+            bounds[-1] = c[-1] + 0.5 * (c[-1] - c[-2])
+
+        color_list = []
+        for i in range(len(bounds)-1):
+            cl_start = Color(bounds[i] * unit)
+            cl_end = Color(bounds[i+1] * unit)
+            cl_range = ColorRange(
+                cl_start, cl_end
+            )
+            color_list.append(cl_range)
+        return ColorRanges(color_list)
 
     @property
     def binbounds(self):
