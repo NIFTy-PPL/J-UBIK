@@ -1,4 +1,4 @@
-import jubik0
+import jubik
 
 needs_sphinx = '3.2.0'
 
@@ -44,11 +44,11 @@ napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_references = True
 napoleon_include_special_with_doc = True
 
-project = u'jubik0'
+project = u'jubik'
 copyright = u'2020-2025, Max-Planck-Society'
 author = u'Vincent Eberle, Matteo Guardiani, Margret Westerkamp'
 
-release = jubik0.version.__version__
+release = jubik.version.__version__
 version = release[:-2]
 
 language = "en"

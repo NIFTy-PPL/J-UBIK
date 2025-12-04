@@ -11,7 +11,7 @@ test:
   stage: test
   script:
     - pip install pytest pytest-cov
-    - pytest --cov=jubik0 test/
+    - pytest --cov=jubik test/
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
 
 pages:

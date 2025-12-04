@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import pytest
 from jax import random
 
-import jubik0 as ju
+import jubik as ju
 
 
 @pytest.fixture

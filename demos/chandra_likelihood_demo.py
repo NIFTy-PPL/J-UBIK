@@ -17,7 +17,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-import jubik0 as ju
+import jubik as ju
 from os import makedirs
 
 makedirs("chandra_demo_files", exist_ok=True)

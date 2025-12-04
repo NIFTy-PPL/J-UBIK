@@ -47,9 +47,9 @@ from astropy.coordinates import SkyCoord
 from jax import random
 
 # %%
-import jubik0 as ju
-from jubik0.instruments.jwst.filter_projector import FilterProjector
-from jubik0.likelihood import (build_gaussian_likelihood,
+import jubik as ju
+from jubik.instruments.jwst.filter_projector import FilterProjector
+from jubik.likelihood import (build_gaussian_likelihood,
                                connect_likelihood_to_model)
 
 # %% [markdown]

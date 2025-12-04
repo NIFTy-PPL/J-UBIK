@@ -2,7 +2,7 @@ import nifty.re as jft
 import numpy as np
 import pytest
 
-import jubik0 as ju
+import jubik as ju
 
 
 @pytest.mark.parametrize("keys", [

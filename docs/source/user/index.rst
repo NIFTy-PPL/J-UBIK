@@ -17,7 +17,7 @@ Further information on these topics, as well as on the role of prior and likelih
         jubik
 
 
-More details on the API and the demos for the different instruments can be found at the `API reference <../mod/jubik0.html>`_.
+More details on the API and the demos for the different instruments can be found at the `API reference <../mod/jubik.html>`_.
 
 Details on how to cite the J-UBIK package can be found at
 

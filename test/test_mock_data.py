@@ -1,7 +1,7 @@
 import nifty.re as jft
 import pytest
 
-import jubik0 as ju
+import jubik as ju
 
 
 @pytest.fixture

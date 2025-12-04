@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from jax import numpy as jnp
 
-import jubik0 as ju
+import jubik as ju
 
 
 @pytest.fixture

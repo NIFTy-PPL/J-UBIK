@@ -1,6 +1,6 @@
 import pytest
 
-from jubik0.minimization_parser import (
+from jubik.minimization_parser import (
     get_config_value, get_range_index, _delta_logic, n_samples_factory,
     sample_mode_factory, linear_sample_kwargs_factory,
     nonlinearly_update_kwargs_factory, kl_kwargs_factory, MinimizationParser
