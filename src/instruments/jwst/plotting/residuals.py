@@ -146,12 +146,8 @@ class SkyResiduals:
 
         residuals = dict()
         for filter_key in self.residual_plotting_info.filter:
-            filter_data = self.residual_plotting_info.get_filter(filter_key)
-            data, std, mask, builder = (
-                filter_data.data,
-                filter_data.std,
-                filter_data.mask,
-                filter_data.builder,
+            data, std, mask, builder = self.residual_plotting_info.get_filter(
+                filter_key
             )
             model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples,
@@ -241,12 +237,8 @@ class SkyResiduals:
                 y_offset=self.residual_plotting_info.y_offset,
             )
 
-            filter_data = self.residual_plotting_info.get_filter(filter_key)
-            data, std, mask, builder = (
-                filter_data.data,
-                filter_data.std,
-                filter_data.mask,
-                filter_data.builder,
+            data, std, mask, builder = self.residual_plotting_info.get_filter(
+                filter_key
             )
 
             # TODO : THIS is not quite correct since res**2/std**2 is not linear in std

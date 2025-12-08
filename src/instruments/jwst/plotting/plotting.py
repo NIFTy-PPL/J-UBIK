@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Callable, Union
 from dataclasses import dataclass
 
-# from charm_lensing.plotting import LensSystem
 import matplotlib.pyplot as plt
 import nifty.re as jft
 import numpy as np
