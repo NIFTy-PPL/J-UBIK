@@ -1,13 +1,11 @@
 from dataclasses import dataclass
 from typing import Callable, Union
 
-from jax.tree_util import tree_map
-
 import nifty.re as jft
-from astropy import units as u
 from jax import Array, linear_transpose
-from numpy.typing import NDArray
 from jax import numpy as jnp
+from jax.tree_util import tree_map
+from numpy.typing import NDArray
 
 from ....grid import Grid
 from ...jwst.parse.rotation_and_shift.coordinates_correction import (
@@ -15,6 +13,9 @@ from ...jwst.parse.rotation_and_shift.coordinates_correction import (
 )
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamerJft
+from ..noise.factory_noise_correction import factory_noise_correction_model
+from ..parse.noise.base_line_correction import BaseLineCorrection
+from ..parse.noise.lower_bound_correction import LowerBoundCorrection
 from ..parse.response import Ducc0Settings, FinufftSettings
 from ..phase_shift_correction import (
     PhaseShiftCorrection,
@@ -58,7 +59,7 @@ def create_response_operator(
 
 
 @dataclass
-class LikelihoodBuilder:
+class LikelihoodBuilderBase:
     """Builder for a radio likelihood
 
     Attributes
@@ -98,12 +99,29 @@ class LikelihoodBuilder:
     def uvw(self) -> NDArray:
         return self.observation.uvw
 
+
+@dataclass
+class LikelihoodBuilder(LikelihoodBuilderBase):
     @property
     def likelihood(self) -> jft.Likelihood:
         likelihood = jft.Gaussian(
             self.visibilities, noise_cov_inv=lambda x: x * self.weight
         )
         return likelihood.amend(self.response, domain=jft.Vector(self.response.domain))
+
+
+@dataclass
+class VariableLikelihoodBuilder(LikelihoodBuilderBase):
+    inverse_standard_deviation: jft.Model
+
+    @property
+    def likelihood(self) -> jft.Likelihood:
+        model = jft.Model(
+            lambda x: (self.response(x), self.inverse_standard_deviation(x)),
+            domain=self.response.domain | self.inverse_standard_deviation.domain,
+        )
+        likelihood = jft.VariableCovarianceGaussian(self.visibilities)
+        return likelihood.amend(model, domain=jft.Vector(model.domain))
 
 
 def build_likelihood_from_sky_beamer(
@@ -113,7 +131,8 @@ def build_likelihood_from_sky_beamer(
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None,
-) -> LikelihoodBuilder:
+    noise_std_correction: LowerBoundCorrection | BaseLineCorrection | None = None,
+) -> LikelihoodBuilder | VariableLikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
 
     The building consists of two steps:
@@ -168,8 +187,21 @@ def build_likelihood_from_sky_beamer(
         shift=shift,
     )
 
-    return LikelihoodBuilder(
-        observation=observation,
-        response=response,
-        field_name=field_name,
-    )
+    if noise_std_correction is None:
+        return LikelihoodBuilder(
+            observation=observation,
+            response=response,
+            field_name=field_name,
+        )
+    else:
+        inverse_std_model = factory_noise_correction_model(
+            correction_settings=noise_std_correction,
+            observation=observation,
+            prefix=f"{field_name}_noise_std",
+        )
+        return VariableLikelihoodBuilder(
+            observation=observation,
+            response=response,
+            field_name=field_name,
+            inverse_standard_deviation=inverse_std_model,
+        )

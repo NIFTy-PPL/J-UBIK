@@ -31,6 +31,7 @@ from ....likelihood import connect_likelihood_to_model
 from ..parse.data.data_loading import DataLoading
 from ..parse.data.data_modify import ObservationModify
 from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
+from ..parse.noise.factory_noise_correction import factory_noise_correction_parser
 from ..parse.response import yaml_to_response_settings
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
@@ -208,6 +209,9 @@ def build_radio_likelihood(
                             sky_grid=radio_grid,
                             backend_settings=response_backend_settings,
                             phase_shift_correction_config=coordinate_correction_config,
+                            noise_std_correction=factory_noise_correction_parser(
+                                cfg[data_key][data_name]
+                            ),
                         )
                     )
 

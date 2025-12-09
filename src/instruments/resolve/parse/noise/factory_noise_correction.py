@@ -5,38 +5,26 @@ import configparser
 from typing import Union
 
 
-def _return_object_from_config(
-    obj: LowerBoundCorrection | BaseLineCorrection,
-    data_cfg: configparser.ConfigParser | configparser.SectionProxy | dict,
-):
-    """Builds object from config parser or yaml_dict."""
-    if isinstance(data_cfg, configparser.ConfigParser) or isinstance(
-        data_cfg, configparser.SectionProxy
-    ):
-        return obj.from_config_parser(data_cfg)
-
-    elif isinstance(data_cfg, dict):
-        return obj.from_yaml_dict(data_cfg)
-
-
 def factory_noise_correction_parser(
-    data_cfg: configparser.ConfigParser | configparser.SectionProxy | dict,
+    data_cfg: dict,
 ) -> Union[LowerBoundCorrection, BaseLineCorrection] | None:
+    """Parse the noise correction model.
 
-    if isinstance(data_cfg, configparser.ConfigParser) or isinstance(
-        data_cfg, configparser.SectionProxy
-    ):
-        if "noise correction model" not in data_cfg:
-            return None
-        model_name = data_cfg["noise correction model"].lower()
+    Parameters
+    ----------
+    data_cfg: dict
+        - `weight_correction` w
+    """
 
-    elif isinstance(data_cfg, dict):
-        raise NotImplementedError
+    model = data_cfg.get("weight_correction", None)
 
-    match model_name:
+    if model is None:
+        return None
+
+    match model_name := next(iter(model.keys())):
         case "lowerbound":
-            return _return_object_from_config(LowerBoundCorrection, data_cfg)
-        case "antennabased":
-            return _return_object_from_config(BaseLineCorrection, data_cfg)
+            return LowerBoundCorrection.from_yaml_dict(model[model_name])
+        case "baseline":
+            return BaseLineCorrection.from_yaml_dict(model[model_name])
 
-    raise ValueError('Supported models: ["lowerbound", "antennabased"]')
+    raise ValueError('Supported models: ["lowerbound", "baseline"]')
