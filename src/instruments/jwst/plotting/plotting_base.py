@@ -317,17 +317,23 @@ def _get_data_model_and_chi2(
 
 
 def get_alpha_and_reference(light_model): #TODO: move to lenscharm/sptLensing
-    from charm_lensing.physical_models.hybrid_model import HybridModel, LogHybridModel
+    try:
+        from charm_lensing.physical_models.hybrid_model import LogHybridModel as LHM
+    except:
+        from charm_lensing.physical_models.hybrid_model import HybridModel as LHM
     from charm_lensing.physical_models.multifrequency_models.vstack_model import VstackModel
-    from charm_lensing.physical_models.multifrequency_models.nifty_mf import _LoggableSpectralProductSky
+    try:
+        from charm_lensing.physical_models.multifrequency_models.nifty_mf import _LoggableSpectralProductSky as _SSKy
+    except:
+        from charm_lensing.physical_models.multifrequency_models.nifty_mf import SpectralProductSky as _SSKy
 
-    light_model: HybridModel = light_model
-    if isinstance(light_model, (HybridModel, LogHybridModel)):
-        model: SpectralProductSky | _LoggableSpectralProductSky | Any = light_model.nonparametric
+    light_model: LHM = light_model
+    if isinstance(light_model, LHM):
+        model: _SSKy | Any = light_model.nonparametric
     elif isinstance(light_model, VstackModel):
         model = light_model.infrared.nonparametric
 
-    if isinstance(model, (SpectralProductSky, _LoggableSpectralProductSky)):
+    if isinstance(model, _SSKy):
         alpha = model.spectral_index_distribution
         reference = model.reference_frequency_distribution
         return alpha, reference
