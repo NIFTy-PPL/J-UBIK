@@ -1,7 +1,6 @@
 from .base_line_correction import BaseLineCorrection
 from .lower_bound_correction import LowerBoundCorrection
 
-import configparser
 from typing import Union
 
 
