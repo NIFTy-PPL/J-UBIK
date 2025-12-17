@@ -1,7 +1,5 @@
 import nifty.re as jft
 import jax.numpy as jnp
-from jax.tree_util import Partial
-from jax import vmap
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
@@ -74,29 +72,6 @@ def prepare_line_prior(line_parameter: LineParameters, name):
 
     return prior
 
-def gaussian_profile(c,w,h,grid):
-    return h*jnp.exp(-(1/2)*((grid-c)/w)**2)/(jnp.sqrt(2*jnp.pi)*w)
-
-def lorentzian_profile(c,w,h,grid):
-    inv_profile = jnp.pi*w*(1 + ((grid-c)/w)**2)
-    return h/inv_profile
-
-def voigt_profile(c, w_gauss, w_lorentz, h, grid):
-    N = len(grid)
-    dg = grid[1] - grid[0]
-
-    df = 2 * jnp.pi / (N * dg)
-    f = (jnp.arange(N) - N//2) * df
-
-    h_profile = jnp.exp(1j*c*f - (w_gauss*f)**2/2 - w_lorentz*jnp.abs(f))
-    h_profile = jnp.fft.ifftshift(h_profile)
-
-    profile = jnp.fft.fft(h_profile)
-    profile = jnp.fft.fftshift(profile)/(N*dg)
-    profile = jnp.real(profile)
-
-    return h*profile
-
 
 class GaussianPeaks(jft.Model):
     """
@@ -108,6 +83,7 @@ class GaussianPeaks(jft.Model):
         f(x | c, w, h) = h \cdot \exp\!\left(-\frac{(x - c)^2}{2w^2}\right)
 
     where :math:`c` is the center, :math:`w` the width, and :math:`h` the height.
+    
 
     Parameters
     ----------
@@ -123,6 +99,13 @@ class GaussianPeaks(jft.Model):
         Must have the same length as centers_param.
     prefix : str, optional
         Prefix for peak model instance.
+    normalized_single_peaks: boolean, optional
+        Sets if all peaks should be numerically normalized by the composite trapezoid rule
+
+    Notes
+    -----
+    If peaks are normalized, the heights are equal to the maxima of the correspoonding peak.
+    If peaks are normalized the true height parameter can be regained by integrating over a single peak.
     """
     def __init__(
             self,
@@ -131,6 +114,7 @@ class GaussianPeaks(jft.Model):
             widths_param: LineParameters,
             heights_param: LineParameters,
             prefix: str = None,
+            normalized_single_peaks: bool = True,
             ):
         
         if widths_param.prior_type != "lognormal":
@@ -143,14 +127,22 @@ class GaussianPeaks(jft.Model):
         self._h = prepare_line_prior(heights_param, name=f"{prefix}gaussian_peak_heights")
 
         self._grid = grid
-    
-        self._gaussian_profile = Partial(gaussian_profile,grid=self._grid)
 
+        if normalized_single_peaks:
+            self._peak = self._normalized_gaussian_profile
+        else:
+            self._peak = self._gaussian_profile
+            
         super().__init__(init=self._c.init | self._w.init | self._h.init)
 
-    def __call__(self,x):
-        # Gets array of single peaks and sums them up
-        return jnp.sum(self.single_peaks(x),axis=0)
+    def _gaussian_profile(self,center,width):
+        return jnp.exp(-(1/2)*((self._grid[None,:]-center)/width)**2)
+    
+    def _normalized_gaussian_profile(self,center,width):
+        gaussian_profile = self._gaussian_profile(center,width)
+        norm = jnp.trapezoid(gaussian_profile,self._grid,axis=1)
+        norm = jnp.maximum(norm, jnp.finfo(gaussian_profile.dtype).tiny)
+        return gaussian_profile/norm[:,None]
     
     def centers(self,x):
         return self._c(x)
@@ -163,11 +155,17 @@ class GaussianPeaks(jft.Model):
     
     def single_peaks(self,x):
         # Calculate array of single peaks
-        _c = self.centers(x)
-        _w = self.widths(x)
-        _h = self.heights(x)
-        return vmap(self._gaussian_profile, in_axes=(0,0,0))(_c,_w,_h)
-    
+        _c = self.centers(x)[:,None]
+        _w = self.widths(x)[:,None]
+        _h = self.heights(x)[:,None]
+        _peaks = self._peak(_c,_w)
+        return _h*_peaks
+
+    def __call__(self,x):
+        # Gets array of single peaks and sums them up
+        return jnp.sum(self.single_peaks(x),axis=0)
+
+
 class LorentzianPeaks(jft.Model):
     """
     Model for fitting a sum of Lorentzian peaks on a fixed grid.
@@ -194,6 +192,13 @@ class LorentzianPeaks(jft.Model):
         Must have the same length as centers_param.
     prefix : str, optional
         Prefix for peak model instance.
+    normalized_single_peaks: boolean, optional
+        Sets if all peaks should be numerically normalized by the composite trapezoid rule
+
+    Notes
+    -----
+    If peaks are normalized, the heights are equal to the maxima of the correspoonding peak.
+    If peaks are normalized the true height parameter can be regained by integrating over a single peak.
     """
     def __init__(
             self,
@@ -202,6 +207,7 @@ class LorentzianPeaks(jft.Model):
             widths_param: LineParameters,
             heights_param: LineParameters,
             prefix: str = None,
+            normalized_single_peaks: bool = True,
             ):
         
         if widths_param.prior_type != "lognormal":
@@ -214,14 +220,23 @@ class LorentzianPeaks(jft.Model):
         self._h = prepare_line_prior(heights_param,name=f"{prefix}lorentzian_heights")
 
         self._grid = grid
-    
-        self._lorentzian_profile = Partial(lorentzian_profile,grid=self._grid)
+
+        if normalized_single_peaks:
+            self._peak = self._normalized_lorentzian_profile
+        else:
+            self._peak = self._lorentzian_profile
 
         super().__init__(init=self._c.init | self._w.init | self._h.init)
 
-    def __call__(self,x):
-        # Gets array of single peaks and sums them up
-        return(jnp.sum(self.single_peaks(x),axis=0))
+    def _lorentzian_profile(self,center,width):
+        inv_profile = (1 + ((self._grid[None,:]-center)/width)**2)
+        return 1/inv_profile
+    
+    def _normalized_lorentzian_profile(self,center,width):
+        lorentzian_profile = self._lorentzian_profile(center,width)
+        norm = jnp.trapezoid(lorentzian_profile,self._grid,axis=1)
+        norm = jnp.maximum(norm, jnp.finfo(lorentzian_profile.dtype).tiny)
+        return lorentzian_profile/norm[:,None]
     
     def centers(self,x):
         return self._c(x)
@@ -234,14 +249,20 @@ class LorentzianPeaks(jft.Model):
     
     def single_peaks(self,x):
         # Calculate array of single peaks
-        _c = self.centers(x)
-        _w = self.widths(x)
-        _h = self.heights(x)
-        return vmap(self._lorentzian_profile, in_axes=(0,0,0))(_c,_w,_h)
+        _c = self.centers(x)[:,None]
+        _w = self.widths(x)[:,None]
+        _h = self.heights(x)[:,None]
+        _peaks = self._peak(_c,_w)
+        return _h*_peaks
+
+    def __call__(self,x):
+        # Gets array of single peaks and sums them up
+        return(jnp.sum(self.single_peaks(x),axis=0))
+     
     
 class VoigtPeaks(jft.Model):
     """
-    Model for fitting a sum of Voigt peaks on a fixed grid.
+    Model for fitting a sum of Voigt peaks on a fixed uniform grid.
     Each Voigt peak is represented as the convolution of a Gaussian and
     Lorentzian profile:
 
@@ -271,6 +292,13 @@ class VoigtPeaks(jft.Model):
         Must have the same length as centers_param.
     prefix : str, optional
         Prefix for peak model instance.
+    normalized_single_peaks: boolean, optional
+        Sets if all peaks should be numerically normalized by the composite trapezoid rule
+
+    Notes
+    -----
+    If peaks are normalized, the heights are equal to the maxima of the correspoonding peak.
+    If peaks are normalized the true height parameter can be regained by integrating over a single peak.
     """
     def __init__(
             self,
@@ -280,6 +308,7 @@ class VoigtPeaks(jft.Model):
             lorentzian_widths_param: LineParameters,
             heights_param: LineParameters,
             prefix: str = None,
+            normalized_single_peaks: bool = True,
     ):
        
         if (gaussian_widths_param.prior_type != "lognormal") or (lorentzian_widths_param.prior_type != "lognormal"):
@@ -295,14 +324,36 @@ class VoigtPeaks(jft.Model):
 
         self._grid = grid  
 
-        self._voigt_profile = Partial(voigt_profile,grid=self._grid)
+        if normalized_single_peaks:
+            self._peak = self._normalized_voigt_profile
+        else:
+            self._peak = self._voigt_profile
 
         super().__init__(init=self._c.init | self._wl.init | self._wg.init | self._h.init)
 
-    def __call__(self,x):
-        # Gets array of single peaks and sums them up
-        return(jnp.sum(self.single_peaks(x),axis=0))
+    def _voigt_profile(self, center, width_gauss, width_lorentz):
+        N = len(self._grid)
+        dg = self._grid[1] - self._grid[0]
+
+        df = 2 * jnp.pi / (N * dg)
+        f = (jnp.arange(N) - N//2) * df
+        f = f[None,:]
+
+        h_profile = jnp.exp(1j*center*f - (width_gauss*f)**2/2 - width_lorentz*jnp.abs(f))
+        h_profile = jnp.fft.ifftshift(h_profile,axis=1)
+
+        profile = jnp.fft.fft(h_profile,axis=1)
+        profile = jnp.fft.fftshift(profile,axis=1)/(N*dg)
+        profile = jnp.real(profile)
+
+        return profile
     
+    def _normalized_voigt_profile(self, center, width_gauss, width_lorentz):
+        voigt_profile = self._voigt_profile( center, width_gauss, width_lorentz)
+        norm = jnp.trapezoid(voigt_profile,self._grid,axis=1)
+        norm = jnp.maximum(norm, jnp.finfo(voigt_profile.dtype).tiny)
+        return voigt_profile/norm[:,None]
+
     def centers(self,x):
         return self._c(x)
     
@@ -317,8 +368,14 @@ class VoigtPeaks(jft.Model):
     
     def single_peaks(self,x):
         # Calculate array of single peaks
-        _c = self.centers(x)
-        _wg = self.gaussian_widths(x)
-        _wl = self.lorentzian_widths(x)
-        _h = self.heights(x)
-        return vmap(self._voigt_profile, in_axes=(0,0,0))(_c,_wg,_wl,_h)
+        _c = self.centers(x)[:,None]
+        _wg = self.gaussian_widths(x)[:,None]
+        _wl = self.lorentzian_widths(x)[:,None]
+        _h = self.heights(x)[:,None]
+        _peaks = self._peak(_c,_wg,_wl)
+
+        return _h*_peaks
+       
+    def __call__(self,x):
+        # Gets array of single peaks and sums them up
+        return(jnp.sum(self.single_peaks(x),axis=0))  
