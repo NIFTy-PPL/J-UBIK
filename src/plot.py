@@ -104,6 +104,10 @@ def plot_result(array,
     pause_time : float, optional
         The time in seconds to pause between each plot.
         If None, no pause is performed.
+    vmin, vmax : float or sequence of float, optional
+        Color scale bounds passed to imshow(). Scalars apply to all images.
+        Sequences must match the number of plots, or (for 4D inputs) the
+        number of channels to apply the same bounds to each sample.
     kwargs : dict, optional
         Additional keyword arguments to pass to imshow().
 
@@ -172,20 +176,39 @@ def plot_result(array,
     pltargs = {"origin": "lower", "cmap": "viridis"}
 
     # Handle vmin and vmax
-    vmin = kwargs.get("vmin", None)
-    vmax = kwargs.get("vmax", None)
+    raw_vmin = kwargs.pop("vmin", None)
+    raw_vmax = kwargs.pop("vmax", None)
 
     if colorbar and common_colorbar:
-        vmin = min(np.min(array[i]) for i in range(n_plots))
-        vmax = max(np.max(array[i]) for i in range(n_plots))
+        raw_vmin = min(np.min(array[i]) for i in range(n_plots))
+        raw_vmax = max(np.max(array[i]) for i in range(n_plots))
+
+    def _expand_bounds(value, name):
+        if value is None:
+            return [None] * n_plots
+        if np.isscalar(value):
+            return [value] * n_plots
+        if isinstance(value, (list, tuple, np.ndarray)):
+            seq = list(value)
+            if treating_multi_channel and len(seq) == n_channels:
+                return [seq[c] for _ in range(n_samples) for c in range(n_channels)]
+            if len(seq) == n_plots:
+                return seq
+            msg = f"{name} must be a scalar or a sequence of length {n_plots}"
+            if treating_multi_channel:
+                msg += f" or {n_channels} (per-channel)"
+            raise ValueError(msg + ".")
+        raise TypeError(f"{name} must be a scalar or a sequence.")
+
+    vmins = _expand_bounds(raw_vmin, "vmin")
+    vmaxs = _expand_bounds(raw_vmax, "vmax")
 
     if log:
-        if vmin is not None and float(vmin) == 0.:
-            vmin = 1e-18  # to prevent LogNorm throwing errors
-
+        vmins = [
+            1e-18 if vmin is not None and float(vmin) == 0. else vmin
+            for vmin in vmins
+        ]  # prevent LogNorm errors
         pltargs["norm"] = "log"
-
-    kwargs.update({'vmin': vmin, 'vmax': vmax})
 
     for i in range(n_plots):
         if array[i].ndim != 2:
@@ -199,7 +222,9 @@ def plot_result(array,
             axes[i].set_xlabel("FOV [arcmin]")
             axes[i].set_ylabel("FOV [arcmin]")
 
-        pltargs.update(**kwargs)
+        local_kwargs = dict(kwargs)
+        local_kwargs.update({"vmin": vmins[i], "vmax": vmaxs[i]})
+        pltargs.update(**local_kwargs)
         im = axes[i].imshow(array[i], **pltargs)
 
         if title is not None:
