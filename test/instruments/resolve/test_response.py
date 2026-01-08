@@ -15,7 +15,7 @@ jax.config.update("jax_enable_x64", True)
 pmp = pytest.mark.parametrize
 
 
-def prepare_grid_obs_response(pol_sky, pol_channels, freqs):
+def setup_grid_obs_response(pol_sky, pol_channels, freqs):
     pol_type_sky = ju.polarization.PolarizationType(pol_sky)
     pol_type_data = ju.polarization.PolarizationType(pol_channels)
     obs = generate_random_obs(
@@ -46,9 +46,7 @@ def test_response_ducc_finufft_consistency(pol_sky, pol_channels, freqs):
         pytest.skip("Only stokes I data.")
     if pol_sky == ("I",) and not pol_channels == ("LL", "RR"):
         pytest.skip("Only stokes I sky.")
-    grid, obs, r_ducc, r_finufft = prepare_grid_obs_response(
-        pol_sky, pol_channels, freqs
-    )
+    grid, obs, r_ducc, r_finufft = setup_grid_obs_response(pol_sky, pol_channels, freqs)
 
     sky = np.random.normal(size=grid.shape)
     res_ducc = r_ducc(sky)
@@ -61,18 +59,57 @@ def test_response_ducc_finufft_consistency(pol_sky, pol_channels, freqs):
 def test_response_StokesI(freqs):
     pol_sky = ("I",)
     pol_channels = ("LL", "RR")
-    grid, obs, r_ducc, r_finufft = prepare_grid_obs_response(
-        pol_sky, pol_channels, freqs
-    )
+    grid, obs, r_ducc, r_finufft = setup_grid_obs_response(pol_sky, pol_channels, freqs)
 
     sky = jnp.zeros(grid.shape)
     cx = grid.shape[3] // 2
     cy = grid.shape[4] // 2
     dvol = grid.spatial.dvol.to(u.rad**2).value
     sky[:, :, :, cx, cy] = 1 / dvol
-    vis = r_ducc(sky)
-    vis_expected = np.ones_like(obs.vis, dtype=jnp.float64)
-    assert_allclose(vis, vis_expected)
+    vis_ducc = r_ducc(sky)
+    vis_finufft = r_finufft(sky)
+    vis_expected = np.ones(obs.vis.shape, dtype=jnp.complex128)
+    assert_allclose(vis_ducc, vis_expected)
+    assert_allclose(vis_finufft, vis_expected)
+
+
+def stokes_to_circular(iquv):
+    i, q, u, v = iquv
+    return jnp.array([i + v, q + 1j * u, q - 1j * u, i - v])
+
+
+def stokes_to_linear(iquv):
+    i, q, u, v = iquv
+    return jnp.array([i + q, u + 1j * v, u - 1j * v, i - q])
+
+
+@pmp("freqs", (np.array([1e9]), np.array([1e9, 1.3e9, 2e9])))
+@pmp("circular", (True, False))
+def test_response_StokesIQUV(freqs, circular):
+    pol_sky = ("I", "Q", "U", "V")
+    source = np.random.normal(size=4)  # this might not fullfil the pol constraint
+    if circular:
+        pol_channels = ("RR", "RL", "LR", "LL")
+    else:
+        pol_channels = ("XX", "XY", "YX", "YY")
+    grid, obs, r_ducc, r_finufft = setup_grid_obs_response(pol_sky, pol_channels, freqs)
+
+    sky = jnp.zeros(grid.shape)
+    cx = grid.shape[3] // 2
+    cy = grid.shape[4] // 2
+    dvol = grid.spatial.dvol.to(u.rad**2).value
+    sky[:, 0, :, cx, cy] = source[np.newaxis].T / dvol
+    vis_ducc = r_ducc(sky)
+    vis_finufft = r_finufft(sky)
+    if circular:
+        res = stokes_to_circular(source)
+    else:
+        res = stokes_to_linear(source)
+    res = res[:, np.newaxis, np.newaxis]
+    vis_expected = np.empty(obs.vis.shape, dtype=np.complex128)
+    vis_expected[:, :, :] = res
+    assert_allclose(vis_ducc, vis_expected)
+    assert_allclose(vis_finufft, vis_expected)
 
 
 if __name__ == "__main__":
@@ -82,4 +119,5 @@ if __name__ == "__main__":
     # test_response_ducc_finufft_consistency(
     #     ("I", "Q", "U", "V"), ("XX", "XY", "YX", "YY"), np.array([1e9, 1.3e9, 2e9])
     # )
-    test_response_StokesI(np.array([1e9, 1.3e9, 2e9]))
+    # test_response_StokesI(np.array([1e9, 1.3e9, 2e9]))
+    test_response_StokesIQUV(np.array([1e9, 1.3e9, 2e9]), False)
