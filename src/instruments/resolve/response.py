@@ -64,7 +64,7 @@ def convert_polarization(
 
         elif out_pol == PolarizationType(("XX", "XY", "YX", "YY")):
             mat_stokes_to_linear = jnp.array(
-                [[1, 1, 0, 0], [1, -1, 0, 0], [0, 0, 1, 1], [0, 0, 1j, -1j]]
+                [[1, 0, 0, 1], [1, 0, 0, -1], [0, 1, 1, 0], [0, 1j, -1j, 0]]
             )
             return jnp.tensordot(mat_stokes_to_linear, inp, axes=([0], [0]))
 
