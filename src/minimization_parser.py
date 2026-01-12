@@ -691,6 +691,8 @@ class MinimizationParser:
         Function returning nonlinear update kwargs for each iteration.
     kl_kwargs : Callable[[int], dict]
         Function returning KL minimization kwargs for each iteration.
+    constants : Callable[[int], list | None]
+        Function returning a list of constant domain keys for each iteration.
     """
 
     def __init__(self, config, n_dof=None, verbose=True):
@@ -709,3 +711,7 @@ class MinimizationParser:
             config, delta, verbose=verbose)
         self.kl_kwargs = kl_kwargs_factory(config, delta,
                                            ndof=n_dof, verbose=verbose)
+        if config.get(CONSTANTS) is not None:
+            self.constants = constants_factory(config)
+        else:
+            self.constants = lambda iteration: None

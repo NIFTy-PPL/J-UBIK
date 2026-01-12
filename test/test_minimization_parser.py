@@ -102,3 +102,7 @@ class TestMinimizationParser:
         assert parser.nonlinearly_update_kwargs(7)['minimize_kwargs'][
                    'xtol'] == 1.e-6
         assert parser.kl_kwargs(0)['minimize_kwargs']['maxiter'] == 10
+        assert parser.constants(0) == [
+            'diffuse_offset_mean', 'diffuse_fluctuations'
+        ]
+        assert parser.constants(11) is None
