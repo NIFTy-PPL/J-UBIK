@@ -616,7 +616,8 @@ def kl_kwargs_factory(
 
 def constants_factory(
     mini_cfg: dict,
-) -> Callable[[int], int]:
+    verbose: bool = True
+) -> Callable[[int], list | None]:
     """
     Creates a Callable that returns a list of domain keys which should be kept
     constant during minimization at a given iteration.
@@ -625,6 +626,9 @@ def constants_factory(
     ----------
     mini_cfg : dict
         The configuration dictionary containing constant keys information.
+
+    verbose : bool, optional
+        If True, prints the constants for each iteration.
 
     Returns
     -------
@@ -644,11 +648,20 @@ def constants_factory(
     None
     """
 
-    def constants(iteration: int) -> int:
+    def constants(iteration: int) -> list | None:
         range_index = get_range_index(
             mini_cfg[CONSTANTS], iteration, mini_cfg[N_TOTAL_ITERATIONS])
-        return get_config_value(CONST_KEYS_CONFIG_NAME, mini_cfg[CONSTANTS],
-                                range_index, default=None)
+        constant_keys = get_config_value(
+            CONST_KEYS_CONFIG_NAME,
+            mini_cfg[CONSTANTS],
+            range_index,
+            default=None
+        )
+        if verbose:
+            jft.logger.info(
+                f'it {iteration + 1}: constants set to {constant_keys}'
+            )
+        return constant_keys
 
     # Checks whether `constants` are well-defined before inference and prints
     # their values at each iteration.
@@ -712,6 +725,6 @@ class MinimizationParser:
         self.kl_kwargs = kl_kwargs_factory(config, delta,
                                            ndof=n_dof, verbose=verbose)
         if config.get(CONSTANTS) is not None:
-            self.constants = constants_factory(config)
+            self.constants = constants_factory(config, verbose=verbose)
         else:
             self.constants = lambda iteration: None
