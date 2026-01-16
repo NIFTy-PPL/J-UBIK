@@ -88,11 +88,17 @@ def get_config_value(
         if key not in config:
             print(f'Key: {key} set to default={default}')
 
+    if value_list is None and default is not None:
+        return default
+
     if isinstance(value_list, list):
         try:
-            return value_list[index]
+            value = value_list[index]
         except IndexError:
-            return value_list[-1]
+            value = value_list[-1]
+        if value is None and default is not None:
+            return default
+        return value
 
     return value_list
 
