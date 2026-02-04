@@ -283,7 +283,7 @@ def simple_eval_plots(s, x):
                   )
 
 # %% [markdown]
-# # Minimization
+# ## Minimization
 #
 # - **minimization**: Settings for the minimization algorithm used for likelihood
 # estimation.
