@@ -19,17 +19,18 @@
 # The prior factorizes as
 #
 # ```{math}
-# p\big(I^{\mathrm{ps}}(\cdot, \nu_{\mathrm{ref}})\big)
+# \mathrm{IG}\big(I^{\mathrm{ps}}(\cdot, \nu_{\mathrm{ref}})\,|\,\alpha, q\big)
 # = \prod_{\mathbf{x}} \mathrm{IG}\big(I^{\mathrm{ps}}(\mathbf{x}, \nu_{\mathrm{ref}})\,|\,\alpha, q\big).
 # ```
 #
 # So there is **one IG distribution per pixel** (not per dimension), and all
 # pixels share the same parameters when `alpha` and `q` are scalars.
 #
-# In the NIFTy.re parameterization used by `jubik`, the inverse-gamma density is
+# We denote the inverse-gamma density by $\mathrm{IG}(x\,|\,\alpha,q)$.
+# In the NIFTy.re parameterization used by `jubik`, this density is
 #
 # ```{math}
-# p(x) = \frac{q^{\alpha}}{\Gamma(\alpha)}\,x^{-(\alpha+1)}\,\exp(-q/x),\quad x>0.
+# \mathrm{IG}(x\,|\,\alpha,q) = \frac{q^{\alpha}}{\Gamma(\alpha)}\,x^{-(\alpha+1)}\,\exp(-q/x),\quad x>0.
 # ```
 #
 # This is heavy-tailed and strictly positive, which makes it a natural prior for
@@ -141,6 +142,22 @@ ju.plot_result(
 )
 
 # %% [markdown]
+# Additionally, we can clip the color scale to mimic a minimum brightness
+# detection threshold (visualization only). Here we clip at `1e-1` for display.
+
+# %%
+threshold = 1e-1
+ju.plot_result(
+    reference_map,
+    n_rows=1,
+    n_cols=1,
+    figsize=(7, 5),
+    title="Point-source reference map (clipped for display)",
+    logscale=True,
+    vmin=threshold,
+)
+
+# %% [markdown]
 # ### Pixel Histogram (all pixels)
 # Since pixels are IID, the histogram of all pixels approximates the IG prior.
 
@@ -188,7 +205,9 @@ if spectral_deviations is not None:
     )
 
 # %% [markdown]
-# ### Multi-Frequency Realization
+# ### Multifrequency Realization
+# A final multifrequency sky realization can be visualized by plotting the
+# point-source model at a random latent position
 
 # %%
 ju.plot_result(
