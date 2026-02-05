@@ -45,6 +45,8 @@ Guidelines for contribuation can be found in [CONTRIBUTING.md](CONTRIBUTING.md)
 # Additional Files
 Additional calibration files might be needed for instrument-specific pipelines.
 
+---
+
 # Chandra
 J-UBIK allows to process observations from Chandra x-ray observatory.
 
@@ -54,6 +56,8 @@ J-UBIK allows to process observations from Chandra x-ray observatory.
 
 We recommend installation of both via conda / conda-forge
 [ciao & marx](https://cxc.cfa.harvard.edu/ciao/download/conda.html)
+
+---
 
 # eROSITA
 J-UBIK allows to process and image event files from the eROSITA x-ray observatory.
@@ -79,6 +83,8 @@ folder as specified in the Requirements section and an actual observation,
 in order to build realistic exposure maps.
 A good example is [LMC_dataset](https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/LMC_SN1987A.tar.gz).
 For more information on how to run `erosita_demo.py` see the corresponding docstring.
+
+---
 
 # James Webb Space Telescope
 J-UBIK allows to process and image event files from the James Webb Space Telescope.
