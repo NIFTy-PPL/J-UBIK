@@ -34,8 +34,7 @@ pytest-3 test/
 Tests considering Chandra are skipped if `ciao` is not installed.
 
 # Contributing
-Guidelines for contribuation can be found here:
-[CONTIRBUTING.md](CONTRIBUTING.md)
+Guidelines for contribuation can be found in [CONTRIBUTING.md](CONTRIBUTING.md)
 
 
 # Instrument specific Requirements 
