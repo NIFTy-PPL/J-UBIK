@@ -437,7 +437,8 @@ samples, state = jft.optimize_kl(
 # Since we modeled diffuse and point source emission individually, we can also plot them individually. THerefore, we calculate the posterior mean, or a sample mean, using the inferred samples.
 #
 # $$\langle f(\xi)\rangle = \frac{1}{N} \Sigma f(\xi)$$
-# where $f(\xi)$ is the application of the point source or the diffuse model to the latent variables $\xi$. We apply the Mask and its Adjoint to remove the regions, which are uninformed by data.
+#
+#  where $f(\xi)$ is the application of the point source or the diffuse model to the latent variables $\xi$. We apply the Mask and its Adjoint to remove the regions, which are uninformed by data.
 
 # %%
 post_diff_sky = jnp.array([M_adj(M(diffuse(s))) for s in samples])
