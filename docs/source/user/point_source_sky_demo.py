@@ -1,1 +1,1 @@
-../../demos/point_source_sky_demo.py
+../../../demos/point_source_sky_demo.py
