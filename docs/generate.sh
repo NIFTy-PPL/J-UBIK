@@ -5,7 +5,7 @@ set -e
 FOLDER=docs/source/user
 
 # execute these
-for FILE in ${FOLDER}/spectral_sky_demo; do
+for FILE in ${FOLDER}/spectral_sky_demo ${FOLDER}/point_source_sky_demo; do
     if [ ! -f "${FILE}.md" ] || [ "${FILE}.ipynb" -nt "${FILE}.md" ]; then
 		jupytext --to ipynb "${FILE}.py"
         jupyter-nbconvert --to markdown --execute --ExecutePreprocessor.timeout=None "${FILE}.ipynb"
