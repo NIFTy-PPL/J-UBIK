@@ -49,7 +49,10 @@ from ..telescopes.primary_beam import (
     build_primary_beam_pattern_from_beam_pattern_config,
 )
 from ..util import cast_to_dtype
-from .mosaic_likelihood import build_likelihood_from_sky_beamer
+from .mosaic_likelihood import (
+    VariableLikelihoodBuilder,
+    build_likelihood_from_sky_beamer,
+)
 
 # NOTE : THIS should not have a direct dependency of jwst, but should be put on a higher
 # level
@@ -81,7 +84,7 @@ class RadioLikelihoodProducts:
         the likelihoods list.
     """
 
-    likelihoods: list[LikelihoodBuilder]
+    likelihoods: list[LikelihoodBuilder] | list[VariableLikelihoodBuilder]
     sky_beamer: SkyBeamerJft
     radio_sky_extractor: RadioSkyExtractor  # NOTE : only for convenience
     _names: list[str] | None = None
