@@ -67,8 +67,17 @@ ju.copy_config(
 #     resolution
 # - adjust the priors according (priors) according to the object looked at.
 #
-# A description of the prior search can be found at (https://doi.org/10.1051/0004-6361/202347750) <br> For all the information about the minimization part of the config
-# please look at (https://doi.org/10.21105/joss.06593) or the intoduction notebooks of NIFTy: (https://ift.pages.mpcdf.de/nifty/user/notebooks_re/notebooks.html)
+# A description of the prior search can be found in <br>
+#
+# [The first spatio-spectral Bayesian imaging of SN1006 in X-rays](https://doi.org/10.1051/0004-6361/202347750) <br> 
+#
+# For all the information about the minimization part of the config please look into <br>
+#
+# [Re-Envisioning Numerical Information Field Theory (NIFTy.re)](https://doi.org/10.21105/joss.06593) <br> 
+#
+# or the <br>
+#
+# [Intoduction notebooks of NIFTy](https://ift.pages.mpcdf.de/nifty/user/notebooks_re/notebooks.html)
 
 # %%
 # Load sky model
