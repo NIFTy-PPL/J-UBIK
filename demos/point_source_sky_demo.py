@@ -1,5 +1,15 @@
 # %% [markdown]
 # # Multi-Frequency Point Source Sky Model Demo
+
+# %%
+import jax.numpy as jnp
+from jax import random
+import matplotlib.pyplot as plt
+import jubik as ju
+from jubik.sky_model.multifrequency.spectral_product_mf_point_sources import (
+    build_mf_invgamma_sky,
+)
+
 # This script sets up and visualizes the point-source sky model in `jubik`.
 # It is the uncorrelated (pixel-wise) counterpart to the diffuse correlated model
 # in `spectral_sky_demo.py`.
@@ -44,14 +54,6 @@
 # expects **log-frequencies**.
 
 # %%
-import jax.numpy as jnp
-from jax import random
-import matplotlib.pyplot as plt
-import jubik as ju
-from jubik.sky_model.multifrequency.spectral_product_mf_point_sources import (
-    build_mf_invgamma_sky,
-)
-
 
 shape = (128,) * 2
 log_frequencies = jnp.array((0.1, 1.5, 2.0, 10.0))
