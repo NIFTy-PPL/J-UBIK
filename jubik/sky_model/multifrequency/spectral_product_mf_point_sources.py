@@ -25,9 +25,9 @@ from .spectral_product_utils.spectral_behavior import (
 class PointSourceSpectralIndex(SingleHarmonicLogSpectralBehavior):
     """Spectral index model for point sources.
 
-    This is a reduced version of `SpectralIndex` without spectral fluctuations.
-    It only contains a mean spectral index field and optional deviations in
-    frequency.
+    This is a reduced version of `SpectralIndex` without spatially correlated
+    spectral fluctuations. It only contains a mean spectral index field; any
+    frequency deviations are handled separately in `MultiFrequencyInvGammaSky`.
     """
 
     def __init__(
@@ -165,14 +165,16 @@ class MultiFrequencyInvGammaSky(jft.Model):
 
     def log_spectral_distribution(self, p):
         """Convenience method to retrieve the log spectral distribution."""
-        if self.spectral_index_deviations is None:
-            return self.log_spectral_behavior.mean_with_frequencies(p)
+        deviations = 0.0
+        if self.spectral_index_deviations is not None:
+            deviations = self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
+                self.spectral_index_deviations(p)
+            )
 
         return (
             self.log_spectral_behavior.mean_with_frequencies(p)
-            + self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
-                self.spectral_index_deviations(p)
-            )
+            + self.log_spectral_behavior.fluctuations_with_frequencies(p)
+            + deviations
         )
 
     def spectral_index_distribution(self, p):
