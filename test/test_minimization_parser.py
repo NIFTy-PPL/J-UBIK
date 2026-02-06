@@ -27,6 +27,10 @@ config = {
     'constants': {
         'switches': [0, 10],
         'domain_keys': [['diffuse_offset_mean', 'diffuse_fluctuations'], None]
+    },
+    'point_estimates': {
+        'switches': [0, 10],
+        'domain_keys': [['point_estimate_a'], None]
     }
 }
 
@@ -106,3 +110,5 @@ class TestMinimizationParser:
             'diffuse_offset_mean', 'diffuse_fluctuations'
         ]
         assert parser.constants(11) is None
+        assert parser.point_estimates(0) == ['point_estimate_a']
+        assert parser.point_estimates(11) is None

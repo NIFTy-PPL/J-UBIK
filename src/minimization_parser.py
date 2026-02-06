@@ -15,6 +15,7 @@ SAMPLES = 'samples'
 N_SAMPLES = 'n_samples'
 N_TOTAL_ITERATIONS = 'n_total_iterations'
 CONSTANTS = 'constants'
+POINT_ESTIMATES = 'point_estimates'
 CONST_KEYS_CONFIG_NAME = 'domain_keys'
 MODE = 'mode'
 DELTA = 'delta'
@@ -677,6 +678,52 @@ def constants_factory(
     return constants
 
 
+def point_estimates_factory(
+    mini_cfg: dict,
+    verbose: bool = True
+) -> Callable[[int], list | None]:
+    """
+    Creates a Callable that returns a list of domain keys which should be
+    treated as point estimates during minimization at a given iteration.
+
+    Parameters
+    ----------
+    mini_cfg : dict
+        The configuration dictionary containing point estimate keys information.
+
+    verbose : bool, optional
+        If True, prints the point estimates for each iteration.
+
+    Returns
+    -------
+    Callable[[int], list]
+        A function that takes an iteration number and returns a list of point
+        estimate domain keys.
+    """
+
+    def point_estimates(iteration: int) -> list | None:
+        range_index = get_range_index(
+            mini_cfg[POINT_ESTIMATES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
+        pe_keys = get_config_value(
+            CONST_KEYS_CONFIG_NAME,
+            mini_cfg[POINT_ESTIMATES],
+            range_index,
+            default=None
+        )
+        if verbose:
+            jft.logger.info(
+                f'it {iteration + 1}: point_estimates set to {pe_keys}'
+            )
+        return pe_keys
+
+    # Checks whether `point_estimates` are well-defined before inference and
+    # prints their values at each iteration.
+    for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
+        point_estimates(ii)
+
+    return point_estimates
+
+
 
 
 class MinimizationParser:
@@ -712,6 +759,9 @@ class MinimizationParser:
         Function returning KL minimization kwargs for each iteration.
     constants : Callable[[int], list | None]
         Function returning a list of constant domain keys for each iteration.
+    point_estimates : Callable[[int], list | None]
+        Function returning a list of point estimate domain keys for each
+        iteration.
     """
 
     def __init__(self, config, n_dof=None, verbose=True):
@@ -734,3 +784,8 @@ class MinimizationParser:
             self.constants = constants_factory(config, verbose=verbose)
         else:
             self.constants = lambda iteration: None
+        if config.get(POINT_ESTIMATES) is not None:
+            self.point_estimates = point_estimates_factory(
+                config, verbose=verbose)
+        else:
+            self.point_estimates = lambda iteration: None
