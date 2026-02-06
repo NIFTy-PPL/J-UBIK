@@ -624,9 +624,9 @@ def kl_kwargs_factory(
 def constants_factory(
     mini_cfg: dict,
     verbose: bool = True
-) -> Callable[[int], list | None]:
+) -> Callable[[int], tuple | None]:
     """
-    Creates a Callable that returns a list of domain keys which should be kept
+    Creates a Callable that returns a tuple of domain keys which should be kept
     constant during minimization at a given iteration.
 
     Parameters
@@ -639,9 +639,9 @@ def constants_factory(
 
     Returns
     -------
-    Callable[[int], list]
-        A function that takes an iteration number and returns a list of constant
-        domain keys.
+    Callable[[int], tuple]
+        A function that takes an iteration number and returns a tuple of constant
+        domain keys (or None).
 
     Examples
     --------
@@ -650,12 +650,12 @@ def constants_factory(
     ...             'n_total_iterations': 7}
     >>> constants = constants_factory(mini_cfg)
     >>> constants(0)
-    ['a', 'b']
+    ('a', 'b')
     >>> constants(6)
     None
     """
 
-    def constants(iteration: int) -> list | None:
+    def constants(iteration: int) -> tuple | None:
         range_index = get_range_index(
             mini_cfg[CONSTANTS], iteration, mini_cfg[N_TOTAL_ITERATIONS])
         constant_keys = get_config_value(
@@ -664,6 +664,8 @@ def constants_factory(
             range_index,
             default=None
         )
+        if isinstance(constant_keys, list):
+            constant_keys = tuple(constant_keys)
         if verbose:
             jft.logger.info(
                 f'it {iteration + 1}: constants set to {constant_keys}'
@@ -681,9 +683,9 @@ def constants_factory(
 def point_estimates_factory(
     mini_cfg: dict,
     verbose: bool = True
-) -> Callable[[int], list | None]:
+) -> Callable[[int], tuple | None]:
     """
-    Creates a Callable that returns a list of domain keys which should be
+    Creates a Callable that returns a tuple of domain keys which should be
     treated as point estimates during minimization at a given iteration.
 
     Parameters
@@ -696,12 +698,12 @@ def point_estimates_factory(
 
     Returns
     -------
-    Callable[[int], list]
-        A function that takes an iteration number and returns a list of point
-        estimate domain keys.
+    Callable[[int], tuple]
+        A function that takes an iteration number and returns a tuple of point
+        estimate domain keys (or None).
     """
 
-    def point_estimates(iteration: int) -> list | None:
+    def point_estimates(iteration: int) -> tuple | None:
         range_index = get_range_index(
             mini_cfg[POINT_ESTIMATES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
         pe_keys = get_config_value(
@@ -710,6 +712,8 @@ def point_estimates_factory(
             range_index,
             default=None
         )
+        if isinstance(pe_keys, list):
+            pe_keys = tuple(pe_keys)
         if verbose:
             jft.logger.info(
                 f'it {iteration + 1}: point_estimates set to {pe_keys}'
@@ -757,10 +761,10 @@ class MinimizationParser:
         Function returning nonlinear update kwargs for each iteration.
     kl_kwargs : Callable[[int], dict]
         Function returning KL minimization kwargs for each iteration.
-    constants : Callable[[int], list | None]
-        Function returning a list of constant domain keys for each iteration.
-    point_estimates : Callable[[int], list | None]
-        Function returning a list of point estimate domain keys for each
+    constants : Callable[[int], tuple | None]
+        Function returning a tuple of constant domain keys for each iteration.
+    point_estimates : Callable[[int], tuple | None]
+        Function returning a tuple of point estimate domain keys for each
         iteration.
     """
 
