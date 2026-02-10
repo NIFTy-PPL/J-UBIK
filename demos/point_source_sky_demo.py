@@ -48,7 +48,6 @@ import jax.numpy as jnp
 from jax import random
 import matplotlib.pyplot as plt
 import jubik as ju
-from jubik import build_mf_invgamma_sky
 
 shape = (128,) * 2
 log_frequencies = jnp.array((0.1, 1.5, 2.0, 10.0))
@@ -103,7 +102,7 @@ spectral_settings = dict(
 # ## Build the Model
 
 # %%
-ps_model = build_mf_invgamma_sky(
+ps_model = ju.build_mf_invgamma_sky(
     prefix="ps",
     alpha=alpha,
     q=q,
