@@ -16,6 +16,7 @@ In the spectral dimension, the model can be a power law, describe the correlatio
         :maxdepth: 1
 
         spectral_sky_demo
+        point_source_sky_demo
 
 Likelihood models
 -----------------
