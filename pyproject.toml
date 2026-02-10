@@ -48,6 +48,11 @@ test = [
     "pytest",
     "pytest-cov",
 ]
+jwst = [
+    "gwcs>=0.24.0",
+    "jwst>=1.9.1",
+    "stpsf>=2.1.0",
+]
 
 [build-system]
 requires = [
