@@ -42,7 +42,8 @@ def build_interferometric_noise_correction(
     sqrt_weight = np.sqrt(weight)
 
     def inverse_std(x):
-        return sqrt_weight * (1 / sigma_baseline(x))[correction_to_weight_mask]
+        correction = 1 / sigma_baseline(x)
+        return sqrt_weight * jnp.take(correction, correction_to_weight_mask)
 
     return InverseStandardDeviation(
         inverse_std_model=jft.Model(inverse_std, domain=sigma_baseline.domain),
