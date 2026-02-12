@@ -18,12 +18,9 @@ import nifty.re as jft
 import jubik as ju
 
 # %% [markdown]
-# ## Config
-#
-# In the config you should then specify according to the observation:
-#
-
-#
+# ## YAML Configuration File Structure
+# In the chandra_demo.yaml config file, you need to define several parameters based on your observation data and settings. 
+# 
 # Below is a breakdown of key settings:
 #
 # - **seed**: Random seed for generating reproducible results.
