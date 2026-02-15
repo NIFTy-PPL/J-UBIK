@@ -5,6 +5,7 @@
 # using the provided configuration file.
 # The `jwst_demo.yaml` config file, located in `demos/configs/`,
 # can be modified by the user to suit their specific observation setup.
+# Here a [link to the file](https://github.com/NIFTy-PPL/J-UBIK/blob/main/demos/configs/jwst_demo.yaml).
 #
 # Requirements
 # ------------
@@ -53,6 +54,7 @@ from jubik.likelihood import build_gaussian_likelihood, connect_likelihood_to_mo
 # ## YAML Configuration File Structure
 #
 # In the `JWST_demo.yaml` config file, you can define several parameters.
+#  
 # Below is a breakdown of key settings:
 #
 # - **seed**: Random seed for generating reproducible results.

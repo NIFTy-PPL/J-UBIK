@@ -5,6 +5,7 @@
 # Analysis Software System) and the provided configuration file.
 # The `eROSITA_demo.yaml` config file, located in `demos/configs/`,
 # can be modified by the user to suit their specific observation setup.
+# Here a [link to the file](https://github.com/NIFTy-PPL/J-UBIK/blob/main/demos/configs/eROSITA_demo.yaml)
 #
 # ## Requirements
 #
@@ -63,9 +64,9 @@ import nifty.re as jft
 import jubik as ju
 
 # %% [markdown]
-# ## Config (YAML) File Structure
+# ## YAML Configuration File Structure
 # In the `eROSITA_demo.yaml` config file, you need to define several parameters
-# based on your observation data and settings.
+# based on your observation data and settings. 
 # Below is a breakdown of key settings:
 #
 # - **seed**: Random seed for generating reproducible results.
