@@ -355,7 +355,11 @@ class SpectralProductSky(Model):
 
         deviations = 0.0
         if self.spectral_index_deviations is not None:
-            deviations = self.spectral_index_deviations(p)
+            deviations = (
+                self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
+                    self.spectral_index_deviations(p)
+                )
+            )
 
         spectral_fluc = self.log_spectral_behavior.fluctuations_with_frequencies(p)
         spectral_mean = self.log_spectral_behavior.mean_with_frequencies(p)
