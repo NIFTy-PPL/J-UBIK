@@ -18,22 +18,35 @@ def exposure_cut():
 
 @pytest.fixture
 def exposures(size):
-    return np.random.uniform(0., 3e3, size=3 * size ** 2).reshape((3,
-                                                                   size,
-                                                                   size))
+    rng = np.random.default_rng(0)
+    return rng.uniform(0.0, 3e3, size=3 * size**2).reshape((3, size, size))
 
 @pytest.fixture
 def x(shape):
-    return np.ones(shape)
+    return np.linspace(0.25, 1.75, num=shape[0] * shape[1]).reshape(shape)
 
-@pytest.fixture
-def build_exposure(exposures, exposure_cut):
-    return ju.build_exposure_function(exposures, exposure_cut)
 
-def test_build_exposure(build_exposure, exposures, x, exposure_cut):
-    result = build_exposure(x)
+def test_build_exposure_applies_threshold_and_multiplies_input(exposures, x, exposure_cut):
+    result = ju.build_exposure_function(exposures.copy(), exposure_cut)(x)
+
     expected_result = exposures.copy()
-    expected_result[exposures < exposure_cut] = 0
+    expected_result[expected_result < exposure_cut] = 0
+    expected_result = expected_result * x
 
-    np.testing.assert_array_equal(result, expected_result)
+    assert result.shape == exposures.shape
+    assert np.isfinite(result).all()
+    assert (result >= 0).all()
+    np.testing.assert_allclose(result, expected_result)
 
+
+def test_build_exposure_without_cut_only_multiplies(exposures, x):
+    result = ju.build_exposure_function(exposures.copy(), None)(x)
+    expected_result = exposures * x
+
+    assert result.shape == exposures.shape
+    np.testing.assert_allclose(result, expected_result)
+
+
+def test_build_exposure_negative_cut_raises(exposures):
+    with pytest.raises(ValueError):
+        ju.build_exposure_function(exposures.copy(), -1)
