@@ -77,3 +77,50 @@ def test_calculate_nwr(sample_data):
     assert np.issubdtype(np.asarray(tot_mask).dtype, np.bool_)
     assert bool(jnp.any(tot_mask))
     assert bool(jnp.any(jnp.logical_not(tot_mask)))
+
+
+def test_calculate_uwr_without_log_has_standardization_invariants(sample_data):
+    pos, op, ground_truth, _, response_dict = sample_data
+    res, exposure_mask = ju.calculate_uwr(pos, op, ground_truth, response_dict,
+                                          abs=False, exposure_mask=True,
+                                          log=False)
+
+    column_means = jnp.mean(res, axis=0)
+    column_stds = jnp.std(res, axis=0, ddof=1)
+
+    assert bool(jnp.all(exposure_mask))
+    assert bool(jnp.all(jnp.isfinite(res)))
+    assert np.asarray(column_means) == pytest.approx(np.zeros_like(column_means), abs=1e-6)
+    assert np.asarray(column_stds) == pytest.approx(np.ones_like(column_stds), abs=1e-5)
+
+
+def test_calculate_nwr_response_false_matches_identity_response(sample_data):
+    pos, op, _, data, response_dict = sample_data
+
+    res_with_response, mask_with_response = ju.calculate_nwr(
+        pos, op, data, response_dict, abs=True,
+        min_counts=1, exposure_mask=True, response=True
+    )
+    res_without_response, mask_without_response = ju.calculate_nwr(
+        pos, op, data, response_dict, abs=True,
+        min_counts=1, exposure_mask=True, response=False
+    )
+
+    np.testing.assert_allclose(np.asarray(res_without_response),
+                               np.asarray(res_with_response))
+    np.testing.assert_array_equal(np.asarray(mask_without_response),
+                                  np.asarray(mask_with_response))
+
+
+def test_calculate_nwr_without_min_counts_returns_boolean_exposure_mask(sample_data):
+    pos, op, _, data, response_dict = sample_data
+    res, tot_mask = ju.calculate_nwr(pos, op, data, response_dict, abs=False,
+                                     min_counts=None, exposure_mask=True,
+                                     response=True)
+
+    assert res.shape == data.shape
+    assert tot_mask.shape == data.shape
+    assert bool(jnp.all(jnp.isfinite(res)))
+    assert np.issubdtype(np.asarray(tot_mask).dtype, np.bool_)
+    # With identity exposure in the fixture, the exposure-only mask is all False.
+    assert not bool(jnp.any(tot_mask))
