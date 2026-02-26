@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 import jubik as ju
-from jubik.convolve import _bilinear_weights
+from jubik.convolve import _bilinear_weights, integrate
 
 
 def test_bilinear_weights_even_shape_properties():
@@ -24,7 +24,7 @@ def test_integrate_constant_field_exact():
     x = np.ones((3, 4))
     domain = ju.Domain(shape=(3, 4), distances=(0.5, 0.25))
 
-    res = ju.integrate(x, domain, axes=(0, 1))
+    res = integrate(x, domain, axes=(0, 1))
 
     assert res == pytest.approx(3 * 4 * 0.5 * 0.25)
 
