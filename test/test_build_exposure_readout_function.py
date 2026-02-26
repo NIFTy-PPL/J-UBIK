@@ -87,7 +87,7 @@ class TestBuildReadoutFunction:
             np.testing.assert_array_equal(np.asarray(result.tree[key]), x[i].ravel())
 
     def test_build_readout_function_with_none_keys(self, single_exposure, exposure_cut,
-                                                   single_exposured_sky):
+                                                   single_exposured_sky, keys):
         flags = single_exposure.copy()
         mask = flags < exposure_cut
         build_exposure_readout = ju.build_readout_function(flags, exposure_cut, None)
