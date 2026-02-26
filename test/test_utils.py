@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 
 import jubik as ju
+from jubik.utils import add_functions
 
 
 def test_pickle_roundtrip(tmp_path):
@@ -30,7 +31,7 @@ def test_create_output_directory_is_idempotent(tmp_path):
 def test_add_functions_returns_sum():
     f = lambda x: x + 1
     g = lambda x: 2 * x
-    h = ju.add_functions(f, g)
+    h = add_functions(f, g)
 
     assert h(3) == 10
     assert h(-2) == -5
