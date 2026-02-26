@@ -75,7 +75,7 @@ class TestBuildReadoutFunction:
         with pytest.raises(ValueError):
             ju.build_readout_function(exposures.copy(), -1, keys)
 
-    def test_build_readout_function_keys_length_mismatch(self, exposures, exposure_cut):
+    def test_build_readout_function_keys_length_mismatch(self, exposures, exposure_cut, keys):
         with pytest.raises(ValueError):
             ju.build_readout_function(exposures.copy(), exposure_cut, ("tm_1",))
 
