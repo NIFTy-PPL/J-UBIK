@@ -1,4 +1,5 @@
 import nifty.re as jft
+import numpy as np
 import pytest
 from jax import numpy as jnp
 from jax import config, random
@@ -72,6 +73,9 @@ def test_sky_model_creation(sky_model, config):
     assert isinstance(sky, jft.Model)
     sky_dict = sky_model.sky_model_to_dict()
     assert 'sky' in sky_dict
+    assert 'diffuse' in sky_dict
+    assert sky_dict['sky'] is sky
+    assert all(model is not None for model in sky_dict.values())
 
 def test_sky_application(sky_model, config):
     sky = sky_model.create_sky_model(**config)
@@ -82,4 +86,10 @@ def test_sky_application(sky_model, config):
 
     sky_real = sky(pos)
     assert isinstance(sky_real, jnp.ndarray)
+    assert sky_real.shape == sky.target.shape
+    assert bool(jnp.all(jnp.isfinite(sky_real)))
+    assert bool(jnp.all(sky_real >= 0))
+    assert float(jnp.var(sky_real)) > 0
 
+    sky_real_repeat = sky(pos)
+    np.testing.assert_allclose(np.asarray(sky_real), np.asarray(sky_real_repeat))
