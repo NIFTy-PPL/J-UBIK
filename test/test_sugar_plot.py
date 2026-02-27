@@ -189,6 +189,7 @@ def test_plot_uncertainty_weighted_residuals_defaults_and_hist(monkeypatch):
     assert plot_calls[0][2]["vmax"] == 5
     assert len(hist_calls) == 1
     assert hist_calls[0][0].shape == (5,)
+    assert hist_calls[0][3]["title"] is None
 
 
 def test_plot_noise_weighted_residuals_creates_tm_plots_and_hist(monkeypatch):
