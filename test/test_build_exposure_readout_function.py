@@ -97,3 +97,12 @@ class TestBuildReadoutFunction:
         assert tuple(result.tree.keys()) == ("masked input",)
         assert np.asarray(result.tree["masked input"]).size == np.count_nonzero(~mask[0])
         np.testing.assert_array_equal(np.asarray(result.tree["masked input"]), expected)
+
+    def test_build_readout_function_wrong_flags_shape_raises(self, keys):
+        # `flags` must be 4D; this covers the dedicated shape check branch.
+        flags = np.ones((1, 4, 4))
+        x = np.ones((1, 2, 4, 4))
+        readout = ju.build_readout_function(flags, threshold=None, keys=keys[:1])
+
+        with pytest.raises(ValueError, match="flags should have shape"):
+            readout(x)
