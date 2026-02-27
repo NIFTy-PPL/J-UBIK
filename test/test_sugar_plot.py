@@ -82,7 +82,11 @@ def test_plot_sample_and_stats_plots_samples_and_stats(monkeypatch):
     assert any("sample_2_it_0.png" in c[1] for c in plot_calls)
     assert any("mean_it_0.png" in c[1] for c in plot_calls)
     assert any("std_it_0.png" in c[1] for c in plot_calls)
-    assert rgb_calls == []
+    # `plot_rgb_samples=False` only disables RGB sample plots; RGB stats are
+    # still produced for three-channel outputs.
+    assert len(rgb_calls) == 2
+    assert any(name.endswith("_mean_it_0_rgb") for name in rgb_calls)
+    assert any(name.endswith("_mean_it_0_rgb_log") for name in rgb_calls)
     # The function strips layout keys before the statistics plots.
     assert "n_rows" not in plotting_kwargs
     assert "n_cols" not in plotting_kwargs
@@ -94,6 +98,14 @@ def test_plot_erosita_priors_without_signal_response(monkeypatch):
     calls = []
 
     class FakeSkyModel:
+        class _Op:
+            def __init__(self, offset):
+                self.domain = {"dummy": None}
+                self._offset = offset
+
+            def __call__(self, pos):
+                return np.ones((2, 2, 2)) * (float(pos) + self._offset)
+
         def __init__(self, config):
             self.config = config
 
@@ -102,8 +114,8 @@ def test_plot_erosita_priors_without_signal_response(monkeypatch):
 
         def sky_model_to_dict(self):
             return {
-                "sky": lambda pos: np.ones((2, 2, 2)) * float(pos),
-                "diffuse": lambda pos: np.ones((2, 2, 2)) * (float(pos) + 1.0),
+                "sky": self._Op(0.0),
+                "diffuse": self._Op(1.0),
             }
 
     monkeypatch.setattr(sp, "SkyModel", FakeSkyModel)
@@ -135,7 +147,7 @@ def test_plot_uncertainty_weighted_residuals_defaults_and_hist(monkeypatch):
         "calculate_uwr",
         lambda *args, **kwargs: (
             np.array([[1.0, -2.0, 3.0], [4.0, 5.0, -6.0]]),
-            np.array([True, False, True]),
+            np.array([[True, False, True], [True, False, True]]),
         ),
     )
     plot_calls = []
