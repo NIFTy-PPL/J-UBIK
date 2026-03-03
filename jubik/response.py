@@ -80,7 +80,7 @@ def build_readout_function(flags, threshold=None, keys=None):
             If threshold is negative, if keys does not have the right shape or
             if the flags do not have the right shape.
     """
-    if threshold < 0:
+    if threshold is not None and threshold < 0:
         raise ValueError("threshold should be positive!")
     if threshold is not None:
         flags[flags < threshold] = 0

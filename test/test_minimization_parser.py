@@ -52,6 +52,13 @@ class TestMinimizationParser:
         assert get_range_index(mini_cfg, iteration,
                                total_iterations) == expected
 
+    def test_get_range_index_missing_switches_defaults_to_zero(self):
+        assert get_range_index({}, 0, 5) == 0
+
+    def test_get_range_index_out_of_range_raises(self):
+        with pytest.raises(ValueError, match="out of range"):
+            get_range_index({'switches': [0, 5]}, 10, 8)
+
     @pytest.mark.parametrize("type, config, switches_index, expected", [
         ('kl', {'values': [0.1, 0.2, 0.3]}, 0, 1.0),
         ('lin', {'values': [0.1, 0.2, 0.3]}, 0, 0.1),
@@ -62,15 +69,46 @@ class TestMinimizationParser:
         assert _delta_logic(type, config, None,
                             0, switches_index, 10) == expected
 
+    def test_delta_logic_passthrough_when_config_value_given(self):
+        assert _delta_logic('lin', {'values': [0.1]}, 7.5, 0, 0, 10) == 7.5
+
+    def test_delta_logic_unknown_keyword_raises(self):
+        with pytest.raises(ValueError, match="Unknown keyword"):
+            _delta_logic('invalid', {'values': [0.1]}, None, 0, 0, 10)
+
+    def test_delta_logic_missing_delta_raises(self):
+        with pytest.raises(ValueError, match="delta"):
+            _delta_logic('lin', None, None, 0, 0, 10)
+
+    def test_delta_logic_missing_delta_value_raises(self):
+        with pytest.raises(ValueError, match="delta value"):
+            _delta_logic('lin', {'values': [None]}, None, 0, 0, 10)
+
     def test_n_samples_factory(self):
         n_samples = n_samples_factory(config)
         assert n_samples(0) == 4
         assert n_samples(11) == 5
 
+    def test_n_samples_factory_raises_if_not_defined(self):
+        bad_cfg = {
+            'samples': {'switches': [0], 'mode': ['linear_sample']},
+            'n_total_iterations': 2
+        }
+        with pytest.raises(ValueError, match="Number of samples"):
+            n_samples_factory(bad_cfg)
+
     def test_sample_mode_factory(self):
         sample_mode = sample_mode_factory(config)
         assert sample_mode(0) == 'nonlinear_resample'
         assert sample_mode(11) == 'nonlinear_update'
+
+    def test_sample_mode_factory_invalid_mode_raises(self):
+        bad_cfg = {
+            'samples': {'switches': [0], 'mode': ['not_a_mode']},
+            'n_total_iterations': 1
+        }
+        with pytest.raises(ValueError, match="Unknown sample type"):
+            sample_mode_factory(bad_cfg)
 
     def test_linear_sample_kwargs_factory(self):
         lin_kwargs = linear_sample_kwargs_factory(config, config['delta'],
@@ -102,3 +140,7 @@ class TestMinimizationParser:
         assert parser.nonlinearly_update_kwargs(7)['minimize_kwargs'][
                    'xtol'] == 1.e-6
         assert parser.kl_kwargs(0)['minimize_kwargs']['maxiter'] == 10
+
+    def test_minimization_parser_requires_n_dof_when_delta_is_present(self):
+        with pytest.raises(ValueError, match="degrees of freedom"):
+            MinimizationParser(config, n_dof=None)

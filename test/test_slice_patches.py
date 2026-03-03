@@ -20,7 +20,7 @@ def overlap():
 
 @pytest.fixture
 def x(shape):
-    return np.ones(shape)
+    return np.arange(shape[0] * shape[1], dtype=float).reshape(shape)
 
 @pytest.fixture
 def sliced_patches(x, shape, n_patches, overlap):
@@ -36,14 +36,27 @@ def f(shape, n_patches, overlap):
 def fadj(f, x):
     return jax.linear_transpose(f, x)
 
-def test_slice_patches(sliced_patches):
+def test_slice_patches(sliced_patches, shape, n_patches, overlap):
     assert sliced_patches is not None
     assert isinstance(sliced_patches, jnp.ndarray)
+    dx = int((shape[-2] - 2 * overlap) / n_patches)
+    dy = int((shape[-1] - 2 * overlap) / n_patches)
+    assert sliced_patches.shape == (n_patches ** 2, 2 * dx + 2 * overlap, 2 * dy + 2 * overlap)
+    assert np.isfinite(np.asarray(sliced_patches)).all()
+
+
+def test_slice_patches_linearity(f, shape):
+    rng = np.random.default_rng(0)
+    a = rng.normal(size=shape)
+    b = rng.normal(size=shape)
+
+    np.testing.assert_allclose(f(a + b), f(a) + f(b))
 
 def test_adjointness(f, fadj, shape):
-    a = np.random.rand(shape[0], shape[1])
+    rng = np.random.default_rng(1)
+    a = rng.random((shape[0], shape[1]))
     res = f(a)
-    b = np.random.rand(res.shape[0], res.shape[1], res.shape[2])
+    b = rng.random((res.shape[0], res.shape[1], res.shape[2]))
 
     # forward
     res1 = np.vdot(b, f(a))

@@ -437,7 +437,7 @@ def plot_uncertainty_weighted_residuals(samples,
                 range = (-5, 5)
             hist, edges = np.histogram(masked_uwrs.reshape(-1), bins=n_bins,
                                        range=range)
-            title = plot_kwargs['title'] if plot_kwargs is not None else None
+            title = plot_kwargs.get('title') if plot_kwargs is not None else None
             plot_histograms(hist, edges, join(diagnostics_path,
                                               f'{base_filename}{key}_hist.png'),
                             title=title)
