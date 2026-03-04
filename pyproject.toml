@@ -17,6 +17,7 @@ dependencies = [
     "matplotlib",
     "astropy",
     "ducc0",
+    "astroquery",
 ]
 license = {file = "LICENSE"}
 classifiers = [
@@ -59,6 +60,7 @@ requires = [
     "matplotlib",
     "astropy",
     "ducc0",
+    "astroquery",
 ]
 build-backend = "setuptools.build_meta"
 
