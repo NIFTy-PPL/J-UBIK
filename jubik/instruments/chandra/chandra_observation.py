@@ -195,7 +195,7 @@ class ChandraObservationInformation():
                   (np.log(self.obsInfo['energy_min']), np.log(self.obsInfo['energy_max'])))
 
         data, edges = np.histogramdd(evts, bins=bins, range=ranges, density=False, weights=None)
-        data = data.transpose((1, 0, 2)).astype(int)
+        data = data.transpose((2, 1, 0)).astype(int)
         self.obsInfo['ntot_binned'] = np.sum(data)
 
         message_binning(self.obsInfo)
@@ -390,11 +390,11 @@ class ChandraObservationInformation():
 
         # read in the maps and initialize the exposure-filed
         ####################################################
-        expmap = np.zeros([self.obsInfo['npix_s'], self.obsInfo['npix_s'], self.obsInfo['npix_e']])
+        expmap = np.zeros([ self.obsInfo['npix_e'], self.obsInfo['npix_s'], self.obsInfo['npix_s']])
 
         for i in range(0, self.obsInfo['npix_e']):
             with fits.open(dict_exposure_maps[i]) as mapfile:
-                expmap[:,:,i] = mapfile['PRIMARY'].data
+                expmap[i,:,:] = mapfile['PRIMARY'].data
 
         # remove all energy-independent files
         to_remove  = [dict_exposure_maps[kk] for kk in dict_exposure_maps.keys()]
@@ -589,11 +589,11 @@ class ChandraObservationInformation():
             os.remove(outfits)
 
         # 5.b) write events to an array
-        psf = np.zeros([self.obsInfo['npix_s'], self.obsInfo['npix_s'], self.obsInfo['npix_e']])
+        psf = np.zeros([self.obsInfo['npix_e'], self.obsInfo['npix_s'], self.obsInfo['npix_s']])
         for i in range(0, self.obsInfo['npix_e']):
             with fits.open(sim_dic[i]) as psffile:
                 dat = psffile['PRIMARY'].data
-                psf[:,:,i] = dat
+                psf[i,:,:] = dat
         psf = psf.astype(int)
 
         # clean psf fits images
