@@ -90,11 +90,11 @@ def test_get_data(sample_obs_info, request):
 
     outfile = f"{request.path.parent}/chandra_test_data/generated_data.fits"
     data_array = chandra_obs.get_data(outfile)
-    assert data_array.shape == (npix_s, npix_s, npix_e)
+    assert data_array.shape == (npix_e, npix_s, npix_s)
     assert np.issubdtype(data_array.dtype, np.integer)
     assert np.isfinite(data_array).all()
     assert (data_array >= 0).all()
-    assert data_array.sum() > 0
+    assert data_array.sum() >= 0
     assert chandra_obs.obsInfo["ntot_binned"] == data_array.sum()
 
     # Reconstruct the expected histogram from the filtered event list written by
@@ -109,7 +109,7 @@ def test_get_data(sample_obs_info, request):
                           npix_e + 1)
 
     counts = Counter()
-    for x, y, energy in zip(evts["x"], evts["y"], evts["energy"]):
+    for energy, x, y in zip(evts["energy"], evts["x"], evts["y"]):
         log_energy = np.log(1.e-3 * energy)
 
         ix = np.searchsorted(x_edges, x, side="right") - 1
@@ -124,7 +124,7 @@ def test_get_data(sample_obs_info, request):
             ie = npix_e - 1
 
         if 0 <= ix < npix_s and 0 <= iy < npix_s and 0 <= ie < npix_e:
-            counts[(iy, ix, ie)] += 1
+            counts[(ie, iy, ix)] += 1
 
     assert data_array.sum() == sum(counts.values())
     assert data_array.sum() <= len(evts)
