@@ -124,7 +124,6 @@ psfs = ju.get_psfpatches(info=chandra_obs,
                         n=8,
                         num_rays=1e6,
                         npix_s=npix_s,
-                        ebin=0, 
                         Roll=False)
 
 # %%

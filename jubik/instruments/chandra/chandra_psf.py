@@ -64,7 +64,7 @@ def get_radec_from_xy(temp_x, temp_y, event_f):
     return (x_p, y_p)
 
 
-def get_psfpatches(info, n, npix_s, ebin, num_rays=10e6,
+def get_psfpatches(info, n, npix_s, num_rays=10e6,
                    debug=False, Roll=True, Norm=True):
     """
     Simulating the point spread function of chandra at n**2 positions.
@@ -107,11 +107,10 @@ def get_psfpatches(info, n, npix_s, ebin, num_rays=10e6,
             radec_c = get_radec_from_xy(x_p, y_p, info.obsInfo["event_file"])
             tmp_psf_sim = info.get_psf_fromsim(radec_c, outroot="./psf",
                                                num_rays=num_rays)
-            tmp_psf_sim = tmp_psf_sim[:, :, ebin]
             if Roll:
                 tmp_coord = coords[u]
                 co_x, co_y = np.unravel_index(tmp_coord, [npix_s, npix_s])
-                tmp_psf_sim = np.roll(tmp_psf_sim, (-co_x, -co_y), axis=(0, 1))
+                tmp_psf_sim = np.roll(tmp_psf_sim, (-co_x, -co_y), axis=(-2, -1))
                 u += 1
             psf_sim.append(tmp_psf_sim)
             if debug:
