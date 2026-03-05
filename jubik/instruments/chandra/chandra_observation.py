@@ -545,8 +545,13 @@ class ChandraObservationInformation():
 
         for i in range(0, self.obsInfo['npix_e']):
 
-            src_e_min = np.exp( logemin + i*logstep )
-            src_e_max = np.exp( logemin + (i+1.)*logstep )
+            if self.obsInfo['energy_ranges']:
+                src_e_min = self.obsInfo['energy_ranges'][i]
+                src_e_max = self.obsInfo['energy_ranges'][i+1]
+            else:
+                src_e_min = np.exp(logemin + i*logstep)
+                src_e_max = np.exp(logemin + (i+1.)*logstep)
+
             outdir  = outroot + "_e{:d}.dir".format(i)
             outfits = outroot + "_e{:d}.fits".format(i)
 
