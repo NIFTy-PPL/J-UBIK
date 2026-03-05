@@ -43,7 +43,7 @@ obsInfo = {"obsID": 4952,
            "aspect_sol": "primary/pcadf04952_000N001_asol1.fits",
            "bpix_file": "primary/acisf04952_000N004_bpix1.fits",
            "mask_file": "secondary/acisf04952_000N004_msk1.fits",
-           "instrument": "ACIS-I"}
+           "instrument": "ACIS-S"}
 
 npix_s = 512
 npix_e = 1
@@ -74,7 +74,7 @@ chandra_obs = ju.ChandraObservationInformation(obsInfo=obsInfo,
 data = chandra_obs.get_data("data_4952")
 
 # %%
-plt.imshow(data[:, :, 0], origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])
+plt.imshow(data[0], origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])
 plt.xlabel("x in [arcmin]")
 plt.ylabel("y in [arcmin]")
 plt.colorbar(label="photon counts")
@@ -90,7 +90,7 @@ plt.savefig("chandra_demo_files/ChandraData.png")
 exposure = chandra_obs.get_exposure("exposure_4952")
 
 # %%
-plt.imshow(exposure[:, :, 0], origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])
+plt.imshow(exposure[0], origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])
 plt.xlabel("x in [arcmin]")
 plt.ylabel("y in [arcmin]")
 plt.colorbar(label=r"$\mathrm{s} \times \mathrm{cm}^2$")
@@ -105,9 +105,9 @@ plt.savefig("chandra_demo_files/ChandraExposure.png")
 # To get the PSF we use MARX. Since we also want to use `J-UBIK` for far
 # off-axis signal reconstructions, the morphology of the psf is of importance. We can also specify the number of simulated photons.
 # %%
-psf = chandra_obs.get_psf_fromsim((chandra_obs.obsInfo["ra"], chandra_obs.obsInfo["dec"]), detector_type="ACIS-I", outroot="psf", num_rays=1e7)
+psf = chandra_obs.get_psf_fromsim((chandra_obs.obsInfo["ra"], chandra_obs.obsInfo["dec"]), outroot="psf", num_rays=1e7)
 # %%
-plt.imshow(psf[:, :, 0], origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])
+plt.imshow(psf[0], origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])
 plt.xlabel("x in [arcmin]")
 plt.ylabel("y in [arcmin]")
 plt.colorbar(label=r"photon counts")
@@ -121,13 +121,13 @@ plt.savefig("chandra_demo_files/ChandraPSFCenter.png")
 
 # %%
 psfs = ju.get_psfpatches(info=chandra_obs,
-                        n=8,
-                        num_rays=1e6,
-                        npix_s=npix_s,
-                        Roll=False)
+                         n=8,
+                         num_rays=1e6,
+                         npix_s=npix_s,
+                         Roll=False)
 
 # %%
-psfs_full = psfs.sum(axis=0)
+psfs_full = psfs.sum(axis=0)[0]
 plt.imshow(psfs_full+1e-5, origin="lower", norm="log", interpolation="none", extent=[-half_fov_arcmin, half_fov_arcmin, -half_fov_arcmin, half_fov_arcmin])
 plt.xlabel("x in [arcmin]")
 plt.ylabel("y in [arcmin]")
