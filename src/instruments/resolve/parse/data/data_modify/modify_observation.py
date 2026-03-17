@@ -61,7 +61,9 @@ class ObservationModify:
         data to_double_precision: boolian | None
             Boolian that controlls if the data is cast to double precision.
         data testing percentage: float | None
-            Taking a percantage of the data for testing the model.
+            Taking a percentage of the data for testing the model.
+        data testing mask_path: str | None
+            Path to save/load the subset mask (.npy file).
         restrict to stokes I: bool | None
             The data will be restricted to stokes I.
         average to stokes I: bool | None
@@ -127,7 +129,10 @@ class ObservationModify:
         to_double_precision: boolian | None
             Boolian that controlls if the data is cast to double precision.
         select_subset: dict | float | None
-            Subset selection config (percentage and optional mask_path).
+            Subset selection config. Either a dict with keys `percentage`
+            and `mask_path`, or a bare float (deprecated, treated as
+            percentage). If `mask_path` is given, the mask is saved/loaded
+            from that path.
         restrict_to_stokes_I: bool | None
             The data will be restricted to stokes I.
         average_to_stokes_I: bool | None
