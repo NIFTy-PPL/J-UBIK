@@ -48,7 +48,7 @@ def modify_observation(
         if obs.freq[1] - obs.freq[0] < 0:
             obs = reverse_frequencies(obs)
 
-    obs = select_random_visibility_subset(obs, modify.testing_percentage)
+    obs = select_random_visibility_subset(obs, modify.select_subset)
 
     obs = time_average_to_length_of_timebins(obs, modify.time_bins)
 

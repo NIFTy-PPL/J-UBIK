@@ -5,6 +5,7 @@ from .shift_observation import ShiftObservation
 from .frequency_handling import SpectralModify
 from .flagging import FlagWeights
 from .modify_weight import SystematicErrorBudget
+from .select_subset import SelectSubset
 
 
 @dataclass
@@ -30,7 +31,7 @@ class ObservationModify:
     shift: ShiftObservation | None
 
     to_double_precision: bool
-    testing_percentage: float | None
+    select_subset: SelectSubset | None
     restrict_to_stokes_I: bool
     average_to_stokes_I: bool
     flag_weights: FlagWeights | None
@@ -77,6 +78,8 @@ class ObservationModify:
         to_double_precision = eval(data_cfg.get("data to_double_precision", "True"))
 
         testing_percentage = eval(data_cfg.get("data testing percentage", "None"))
+        mask_path = eval(data_cfg.get("data testing mask_path", "None"))
+        select_subset = SelectSubset.from_config_parser(testing_percentage, mask_path)
 
         restrict_to_stokes_I = eval(data_cfg.get("restrict to stokes I", "False"))
         average_to_stokes_I = eval(data_cfg.get("average to stokes I", "False"))
@@ -87,7 +90,7 @@ class ObservationModify:
             weight_modify=weight_modify,
             shift=None,  # NOTE: Needs ot be implemented
             to_double_precision=to_double_precision,
-            testing_percentage=testing_percentage,
+            select_subset=select_subset,
             restrict_to_stokes_I=restrict_to_stokes_I,
             average_to_stokes_I=average_to_stokes_I,
             flag_weights=None,  # NOTE : Needs to be implemented
@@ -123,8 +126,8 @@ class ObservationModify:
                 added to the sigma (weight) of the visibilities (1-5)% is adviced.
         to_double_precision: boolian | None
             Boolian that controlls if the data is cast to double precision.
-        testing_percentage: float | None
-            Taking a percantage of the data for testing the model.
+        select_subset: dict | float | None
+            Subset selection config (percentage and optional mask_path).
         restrict_to_stokes_I: bool | None
             The data will be restricted to stokes I.
         average_to_stokes_I: bool | None
@@ -145,7 +148,8 @@ class ObservationModify:
         shift = ShiftObservation.from_yaml_dict(data_cfg.get("shift"))
 
         to_double_precision = data_cfg.get("to_double_precision", True)
-        testing_percentage = data_cfg.get("testing_percentage", None)
+        raw_subset = data_cfg.get("select_subset", data_cfg.get("testing_percentage"))
+        select_subset = SelectSubset.from_yaml_dict(raw_subset)
         restrict_to_stokes_I = data_cfg.get("restrict_to_stokes_I", False)
         average_to_stokes_I = data_cfg.get("average_to_stokes_I", False)
 
@@ -157,7 +161,7 @@ class ObservationModify:
             weight_modify=weight_modify,
             shift=shift,
             to_double_precision=to_double_precision,
-            testing_percentage=testing_percentage,
+            select_subset=select_subset,
             restrict_to_stokes_I=restrict_to_stokes_I,
             average_to_stokes_I=average_to_stokes_I,
             flag_weights=flag_weights,
@@ -170,7 +174,7 @@ class ObservationModify:
             weight_modify=self.weight_modify,
             shift=ShiftObservation(self.shift(iteration)) if self.shift else None,
             to_double_precision=self.to_double_precision,
-            testing_percentage=self.testing_percentage,
+            select_subset=self.select_subset,
             restrict_to_stokes_I=self.restrict_to_stokes_I,
             average_to_stokes_I=self.average_to_stokes_I,
             flag_weights=self.flag_weights,
