@@ -34,6 +34,7 @@ def select_random_visibility_subset(
             mask = np.load(mask_file)
         else:
             mask = _generate_mask(length, select_subset.percentage)
+            mask_file.parent.mkdir(parents=True, exist_ok=True)
             np.save(mask_file, mask)
     else:
         mask = _generate_mask(length, select_subset.percentage)
