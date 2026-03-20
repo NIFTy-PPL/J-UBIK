@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from configparser import ConfigParser
+import warnings
 
 from .shift_observation import ShiftObservation
 from .frequency_handling import SpectralModify
@@ -129,10 +130,10 @@ class ObservationModify:
         to_double_precision: boolian | None
             Boolian that controlls if the data is cast to double precision.
         select_subset: dict | float | None
-            Subset selection config. Either a dict with keys `percentage`
-            and `mask_path`, or a bare float (deprecated, treated as
-            percentage). If `mask_path` is given, the mask is saved/loaded
-            from that path.
+            Subset selection config (YAML key: ``select_subset``). Either a
+            dict with keys `percentage` and `mask_path`, or a bare float. If `mask_path`
+            is given (not None), the mask is saved/loaded from that path.
+            Replaces the deprecated ``testing_percentage`` key.
         restrict_to_stokes_I: bool | None
             The data will be restricted to stokes I.
         average_to_stokes_I: bool | None
@@ -153,8 +154,16 @@ class ObservationModify:
         shift = ShiftObservation.from_yaml_dict(data_cfg.get("shift"))
 
         to_double_precision = data_cfg.get("to_double_precision", True)
-        raw_subset = data_cfg.get("select_subset", data_cfg.get("testing_percentage"))
-        select_subset = SelectSubset.from_yaml_dict(raw_subset)
+        if select_subset := data_cfg.get("testing_percentage"):
+            warnings.warn(
+                "Using a bare float for 'testing_percentage' is deprecated. "
+                "Use 'select_subset: {percentage: ..., mask_path: ...}' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        select_subset = SelectSubset.from_yaml_dict(
+            data_cfg.get("select_subset", select_subset)
+        )
         restrict_to_stokes_I = data_cfg.get("restrict_to_stokes_I", False)
         average_to_stokes_I = data_cfg.get("average_to_stokes_I", False)
 

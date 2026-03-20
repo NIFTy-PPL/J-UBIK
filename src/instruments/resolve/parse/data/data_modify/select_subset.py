@@ -1,6 +1,5 @@
 import warnings
 from dataclasses import dataclass
-from configparser import ConfigParser
 
 
 @dataclass
@@ -38,12 +37,6 @@ class SelectSubset:
         if raw is None:
             return None
         if isinstance(raw, (float, int)):
-            warnings.warn(
-                "Using a bare float for 'testing_percentage' is deprecated. "
-                "Use 'select_subset: {percentage: ..., mask_path: ...}' instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
             return cls(percentage=float(raw))
         if isinstance(raw, dict):
             return cls(
