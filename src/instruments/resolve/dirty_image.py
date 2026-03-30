@@ -73,12 +73,12 @@ def uniform_weights(
         sky_grid: Grid
         ) -> NDArray:
 
-    weights = jnp.empty_like(observation.weight_val)
+    weights = np.empty_like(observation.weight_val)
     u, v = observation.effective_uvw()[0:2]
 
     for ipol in range(observation.npol):
         Hnorm, xedges0, yedges0 = uvw_density(u, v, sky_grid, None)
-        H    , xedges , yedges  = uvw_density(u, v, sky_grid, observation.weight.val[ipol])
+        H    , xedges , yedges  = uvw_density(u, v, sky_grid, observation.weight_val[ipol])
         assert np.all(xedges == xedges0)
         assert np.all(yedges == yedges0)
         xindices = np.searchsorted(xedges, u.ravel())
@@ -87,7 +87,7 @@ def uniform_weights(
         norm *= norm  # FIXME Why
         weights[ipol] = H[xindices-1, yindices-1].reshape(weights.shape[1:]) / norm
 
-        return weights
+        return jnp.array(weights)
 
 
 
