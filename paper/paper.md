@@ -53,16 +53,16 @@ bibliography: paper.bib
 # Summary
 Many advances in astronomy and astrophysics originate from accurate images of the sky emission across multiple wavelengths.
 This often requires reconstructing spatially and spectrally correlated signals detected from multiple
-instruments. To facilitate the high-fidelity imaging of these signals, we introduce the universal Bayesian 
+instruments. To facilitate the high-fidelity reconstruction of these signals, we introduce the universal Bayesian 
 imaging kit (UBIK). Specifically, we present \texttt{J-UBIK}, a flexible and modular implementation leveraging the \texttt{JAX}-accelerated 
 \texttt{NIFTy.re} [@Edenhofer:2024] software as its backend.
 \texttt{J-UBIK} streamlines the implementation of the key Bayesian inference components, providing for all the necessary steps of Bayesian imaging pipelines. 
 First, it provides adaptable prior models for different sky realizations.
-Second, it includes likelihood models tailored to specific instruments. So far, the package includes three instruments: Chandra and eROSITA for X-ray observations,
-and the James Webb Space Telescope (JWST) for the near- and mid-infrared. The aim is to expand this set in the future.
+Second, it includes likelihood models tailored to specific instruments: Chandra and eROSITA for X-ray observations,
+and the James Webb Space Telescope (JWST) for the near- and mid-infrared.
 Third, these models can be integrated with various inference and optimization schemes, such as maximum a posteriori estimation and variational inference.
 Explicit demos show how to integrate the individual modules into a full analysis pipeline.
-Overall, \texttt{J-UBIK} enables efficient generation of high-fidelity images via Bayesian pipelines that can be tailored to specific research objectives.
+Overall, \texttt{J-UBIK} enables efficient high-fidelity reconstructions via Bayesian pipelines that can be tailored to specific research objectives.
 
 # Statement of Need
 In astrophysical imaging, we often encounter high-dimensional signals that vary across space, time, and energy. 
@@ -76,7 +76,7 @@ Bayesian statistics to reconstruct complex signals. In particular, we envision i
 multi-instrument data in astronomy and also other fields such as medical imaging. 
 \texttt{J-UBIK} is built on information field theory (IFT, [@Ensslin:2013]) and the \texttt{NIFTy.re} software package
 [@Edenhofer:2024], 
-a \texttt{JAX}-accelerated version of \texttt{NIFTy} [Selig:2013; Steininger:2019; @Arras:2019]. 
+a \texttt{JAX}-accelerated version of \texttt{NIFTy} [@Selig:2013; @Steininger:2019; @Arras:2019]. 
 
 Following the \texttt{NIFTy} paradigm, \texttt{J-UBIK} employs a generative prior model that encodes assumptions 
 about the signal before incorporating any data, and a likelihood model that describes the measurements, 
@@ -92,25 +92,19 @@ As \texttt{NIFTy.re} is fully implemented in \texttt{JAX}, \texttt{J-UBIK} benef
 parallel computing on clusters or GPUs.
 
 Building generative models with \texttt{NIFTy.re} for specific instruments and applications can be very
-tedious and labor-intensive. Here, \texttt{J-UBIK} comes into play which addresses this challenge from two 
-angles. First, it provides tools to simplify the creation of new likelihood and 
+tedious and labor-intensive. \texttt{J-UBIK} addresses this challenge from two 
+directions. First, it provides tools to simplify the creation of new likelihood and 
 prior models and acts as a flexible toolbox. It implements a variety of generic
 response functions, such as spatially-varying point-spread functions (PSFs) [@Eberle:2023] and 
-enables the user to define diverse correlation structures for various sky components. Second, 
-\texttt{J-UBIK} includes implementations for several instruments. 
+enables the user to define diverse correlation structures for various sky components.
 
-Currently, it supports Chandra, eROSITA pointings, and JWST observations, with plans to expand this list as the user base grows. 
-This expansion will provide users with a diverse set of accessible inference algorithms for various
-instruments. Ultimately \texttt{J-UBIK} enables the user, through Bayesian
-statistics, not only to obtain posterior samples and hence measures of interest such as the
-posterior mean and uncertainty of the signal for a several data sets, but also to
-perform multi-instrument reconstructions.
+Second, \texttt{J-UBIK} includes instrument-specific implementations for Chandra, eROSITA, and JWST.
 
-The software has already been applied by @Westerkamp:2023, and publications
-on eROSITA pointings and JWST are currently in preparation. In the future, the set of 
-instruments will be further expanded to include existing imaging pipelines from \texttt{NIFTy}  
-and \texttt{NIFTy.re} such as those described in @Platz:2023, @Roth:2023, @Hutschenreuter:2022,
-as well as new ones.
+Ultimately, through Bayesian statistics, \texttt{J-UBIK} enables users to obtain posterior samples and derived
+measurements, including posterior means and signal uncertainty, and to perform
+multi-instrument reconstructions.
+
+The software has already been applied by @Westerkamp:2023.
 
 Several existing tools, such as \texttt{Jolideco} [@Donath:2024] and \texttt{LIRA} [@Connors:2011], also address Bayesian deconvolution of low-count astronomical images.
 \texttt{Jolideco} employs a patch-based Gaussian mixture prior trained on external data to jointly deconvolve multi-instrument observations, achieving high-resolution reconstructions in the X-ray and γ-ray regimes.
@@ -130,7 +124,7 @@ The posterior $\mathcal{P}(s|d)$ is the primary measure
 of interest in the inference process.
 \texttt{J-UBIK}’s main role is to model the prior in a generative fashion and to facilitate 
 the creation and use of instrument models to develop the likelihood model. 
-The package includes demos for Chandra, eROSITA pointings, and JWST, which illustrate 
+The package includes demos for Chandra, eROSITA, and JWST, which illustrate 
 how to use or build these models and how to construct an inference pipeline to obtain 
 posterior estimates.
 
@@ -140,7 +134,7 @@ which can be customized to meet user needs in both spatial and spectral dimensio
 This model allows for the generation of spatially 
 uncorrelated point sources or spatially correlated extended sources, as described 
 by the correlated field model in [@Arras:2022]. 
-In the spectral dimension, the model can be a power law, describe the correlation structure of the logarithmic flux using a Wiener process along the spectral axis or combine both of these models.
+In the spectral dimension, the model can take several forms: a power law, a Wiener process describing the correlation structure of the logarithmic flux along the spectral axis, or a combination of both.
 The prior model’s structure is designed to be flexible, allowing for modifications to accommodate 
 additional dimensions and correlation structures. Figure \ref{fig:sky} illustrates an example of 
 a simulated X-ray sky in \texttt{J-UBIK}, 
@@ -155,11 +149,10 @@ components, the diffuse, extended structures and the point sources.
 ![Simulated X-ray Sky\label{fig:sky}](simulated_sky.png) 
 
 ## Likelihood models
-\texttt{J-UBIK} implements several instrument models (Chandra, eROSITA, JWST) and their respective data-
+\texttt{J-UBIK} implements instrument models for Chandra, eROSITA, and JWST and their respective data-
 and response-loading
-functionalities, enabling their seamless integration into the inference pipeline. Due to its fully
-modular structure,
-we anticipate the inclusion of more instruments into the \texttt{J-UBIK} platform in the future. \texttt{J-UBIK}
+functionalities, enabling their seamless integration into the inference pipeline. Its modular structure
+makes it straightforward for users to contribute additional instrument interfaces. \texttt{J-UBIK}
 is not only capable of 
 reconstructing signals from real data; since each instrument model acts as a digital twin of 
 the corresponding 
@@ -185,4 +178,3 @@ J. Stadler acknowledges support by the Deutsche Forschungsgemeinschaft (DFG, Ger
 under Germany’s Excellence Strategy – EXC-2094 – 390783311.
 
 # References
-
