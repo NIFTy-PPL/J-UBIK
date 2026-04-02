@@ -176,5 +176,8 @@ and Research for the project “ErUM-IFT: Informationsfeldtheorie für Experi-
 mente an Großforschungsanlagen” (Förderkennzeichen: 05D23EO1).
 J. Stadler acknowledges support by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) 
 under Germany’s Excellence Strategy – EXC-2094 – 390783311.
+We acknowledge the developers of \texttt{JAX} [@jax2018github], \texttt{NumPy} [@Harris:2020],
+\texttt{SciPy} [@Virtanen:2020], and \texttt{Astropy} [@AstropyCollaboration:2022], which provide
+core functionality used throughout \texttt{J-UBIK}.
 
 # References
