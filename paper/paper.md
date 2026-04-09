@@ -134,7 +134,7 @@ which can be customized to meet user needs in both spatial and spectral dimensio
 This model allows for the generation of spatially 
 uncorrelated point sources or spatially correlated extended sources, as described 
 by the correlated field model in [@Arras:2022]. 
-In the spectral dimension, the model can take several forms: a power law, a Wiener process describing the correlation structure of the logarithmic flux along the spectral axis, or a combination of both.
+In the spectral dimension, the model can take several forms: e.g., a power law, a Wiener process describing the correlation structure of the logarithmic flux along the spectral axis, or a combination of both.
 The prior model’s structure is designed to be flexible, allowing for modifications to accommodate 
 additional dimensions and correlation structures. Figure \ref{fig:sky} illustrates an example of 
 a simulated X-ray sky in \texttt{J-UBIK}, 
