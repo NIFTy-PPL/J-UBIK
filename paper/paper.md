@@ -104,7 +104,7 @@ Ultimately, through Bayesian statistics, \texttt{J-UBIK} enables users to obtain
 measurements, including posterior means and signal uncertainty, and to perform
 multi-instrument reconstructions.
 
-The software has already been applied by @Westerkamp:2023.
+The software has already been applied in [@Westerkamp:2023; @Guardiani:2025; @Eberle:2026].
 
 Several existing tools, such as \texttt{Jolideco} [@Donath:2024] and \texttt{LIRA} [@Connors:2011], also address Bayesian deconvolution of low-count astronomical images.
 \texttt{Jolideco} employs a patch-based Gaussian mixture prior trained on external data to jointly deconvolve multi-instrument observations, achieving high-resolution reconstructions in the X-ray and γ-ray regimes.
