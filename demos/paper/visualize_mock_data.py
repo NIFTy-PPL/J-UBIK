@@ -123,7 +123,7 @@ if __name__ == "__main__":
     for i in range(3):
         im = ax[i].imshow(real_pos[i], norm="log",vmin=1e-7, vmax=1e-5, cmap=aa_cmap())
         aa_scalebar(ax[i], 8*60/4,"8 arcmin", "lower right")
-    aa_colorbar(fig, im, ax=ax, fraction=0.5, pad=0.03, label=r"$\mathrm{s}^{-1}\mathrm{arcsec}^{2}$", orientation="horizontal", labelpad=3)
+    aa_colorbar(fig, im, ax=ax, fraction=0.5, pad=0.03, label=r"$\mathrm{s}^{-1}\mathrm{arcsec}^{-2}$", orientation="horizontal", labelpad=3)
     fig.savefig("paper/simulated_sky.pdf")
 
 
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     ax1.imshow(real_pos[1], norm="log",vmin=1e-7, vmax=1e-5, cmap=aa_cmap())
     ax2.imshow(real_pos[2], norm="log",vmin=1e-7, vmax=1e-5, cmap=aa_cmap())
     cbar = fig.colorbar(im, cax=cax, orientation="horizontal")
-    cbar.set_label(r"$\mathrm{s}^{-1}\mathrm{arcsec}^{2}$")
+    cbar.set_label(r"$\mathrm{s}^{-1}\mathrm{arcsec}^{-2}$")
     # aa_colorbar(fig, im, ax=gs, fraction=0.5, pad=0.03, label=r"$\mathrm{s}^{-1}\mathrm{cm}^{2}$", orientation="horizontal", labelpad=3)
 
     fig.savefig("paper/simulated_sky_test.pdf")
