@@ -102,14 +102,14 @@ priors:
         - 0.3
         - 0.01
         fluctuations:
-        - 0.3
+        - 0.8
         - 0.01
         loglogavgslope:
-        - -5.0
+        - -4.0
         - 0.1
         non_parametric_kind: power
       offset:
-        offset_mean: -19.0
+        offset_mean: -19.5
         offset_std:
         - 0.3
         - 0.05

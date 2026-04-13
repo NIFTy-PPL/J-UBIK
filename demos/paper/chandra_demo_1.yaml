@@ -38,7 +38,7 @@ files:
   pos_dict: 'pos.pkl'
 
 psf:
-  num_rays: 10000
+  num_rays: 1.E+6
   npatch: 8
   margfrac: 0.062
 
