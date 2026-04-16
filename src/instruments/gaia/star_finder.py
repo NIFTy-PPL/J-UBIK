@@ -11,7 +11,6 @@ import numpy as np
 from astropy import units as u
 from astropy.coordinates import Angle, SkyCoord
 from astropy.table import Table
-from astroquery.gaia import Gaia
 
 
 def load_gaia_stars_in_fov(
@@ -74,6 +73,8 @@ def load_gaia_stars_in_fov(
     #     POLYGON('ICRS', {polygon_str})
     # )
     # """
+
+    from astroquery.gaia import Gaia
 
     job = Gaia.launch_job_async(query)
     table: Table = job.get_results()
