@@ -27,20 +27,22 @@ authors:
     affiliation: "1"
   - name: Julian Rüstig
     orcid: 0009-0003-6405-8332
-    affiliation: "2"
+    affiliation: "2, 3"
   - name: Julia Stadler
     orcid: 0000-0001-5888-023X
-    affiliation: "1, 3"
+    affiliation: "1, 4"
   - name: Torsten A. Enßlin
     orcid: 0000-0001-5246-1624
-    affiliation: "1, 2, 3"
+    affiliation: "1, 2, 3, 4"
 affiliations:
   - name: Max Planck Institute for Astrophysics, Karl-Schwarzschild-Straße 1, 85748 Garching bei München, Germany
     index: 1
   - name: Ludwig Maximilian University of Munich, Geschwister-Scholl-Platz 1, 80539 München, Germany
     index: 2
-  - name: ORIGINS Excellence Cluster, Boltzmannstr. 2, D-85748 Garching, Germany
+  - name: Deutsches Zentrum für Astrophysik, Postplatz 1, 02826 Görlitz, Germany
     index: 3
+  - name: ORIGINS Excellence Cluster, Boltzmannstr. 2, D-85748 Garching, Germany
+    index: 4
 date: 16 September 2024
 bibliography: paper.bib
 
