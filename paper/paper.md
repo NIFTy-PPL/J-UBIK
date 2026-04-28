@@ -1,11 +1,11 @@
 ---
-title: '\texttt{J-UBIK}: The \texttt{JAX}-accelerated Universal Bayesian Imaging Kit'
+title: 'J-UBIK: The JAX-accelerated Universal Bayesian Imaging Kit'
 tags:
   - Python
-  - Astronomy
-  - Imaging
-  - Gaussian Processes
-  - Variational Inference
+  - astronomy
+  - imaging
+  - Gaussian processes
+  - variational inference
 authors:
   - name: Vincent Eberle
     orcid: 0000-0002-5713-3475
@@ -45,76 +45,71 @@ affiliations:
     index: 4
 date: 16 September 2024
 bibliography: paper.bib
-
-# Optional fields if submitting to a AAS journal too, see this blog post:
-# https://blog.joss.theoj.org/2018/12/a-new-collaboration-with-aas-publishing
-# aas-doi: 10.3847/xxxxx <- update this with the DOI from AAS once you know it.
-# aas-journal: Astrophysical Journal <- The name of the AAS journal.
 ---
 
 # Summary
 Many advances in astronomy and astrophysics originate from accurate images of the sky emission across multiple wavelengths.
 This often requires reconstructing spatially and spectrally correlated signals detected from multiple
-instruments. To facilitate the high-fidelity reconstruction of these signals, we introduce the universal Bayesian 
-imaging kit (UBIK). Specifically, we present \texttt{J-UBIK}, a flexible and modular implementation leveraging the \texttt{JAX}-accelerated 
-\texttt{NIFTy.re} [@Edenhofer:2024] software as its backend.
-\texttt{J-UBIK} streamlines the implementation of the key Bayesian inference components, providing for all the necessary steps of Bayesian imaging pipelines. 
+instruments. To facilitate the high-fidelity reconstruction of these signals, we introduce the Universal Bayesian 
+Imaging Kit (UBIK). Specifically, we present `J-UBIK`, a flexible and modular implementation leveraging the JAX-accelerated 
+`NIFTy.re` [@Edenhofer:2024] software as its backend.
+`J-UBIK` streamlines the implementation of the key Bayesian inference components, providing for all the necessary steps of Bayesian imaging pipelines. 
 First, it provides adaptable prior models for different sky realizations.
 Second, it includes likelihood models tailored to specific instruments: Chandra and eROSITA for X-ray observations,
 and the James Webb Space Telescope (JWST) for the near- and mid-infrared.
 Third, these models can be integrated with various inference and optimization schemes, such as maximum a posteriori estimation and variational inference.
 Explicit demos show how to integrate the individual modules into a full analysis pipeline.
-Overall, \texttt{J-UBIK} enables efficient high-fidelity reconstructions via Bayesian pipelines that can be tailored to specific research objectives.
+Overall, `J-UBIK` enables efficient high-fidelity reconstructions via Bayesian pipelines that can be tailored to specific research objectives.
 
-# Statement of Need
+# Statement of need
 In astrophysical imaging, we often encounter high-dimensional signals that vary across space, time, and energy. 
 The new generation of telescopes in astronomy offers exciting opportunities to capture these signals
 but also presents significant challenges in extracting the most information from the resulting data. 
 These challenges include accurately modeling the instrument’s response to the signal, 
 accounting for complex noise structures, and separating overlapping signals of distinct physical origin.
 
-Here, we introduce \texttt{J-UBIK}, the \texttt{JAX}-accelerated Universal Bayesian Imaging Kit, which leverages 
+Here, we introduce `J-UBIK`, the JAX-accelerated Universal Bayesian Imaging Kit, which leverages 
 Bayesian statistics to reconstruct complex signals. In particular, we envision its application in the context of
 multi-instrument data in astronomy and also other fields such as medical imaging. 
-\texttt{J-UBIK} is built on information field theory (IFT, [@Ensslin:2013]) and the \texttt{NIFTy.re} software package
+`J-UBIK` is built on information field theory [IFT, @Ensslin:2013] and the `NIFTy.re` software package
 [@Edenhofer:2024], 
-a \texttt{JAX}-accelerated version of \texttt{NIFTy} [@Selig:2013; @Steininger:2019; @Arras:2019]. 
+a JAX-accelerated version of `NIFTy` [@Selig:2013; @Steininger:2019; @Arras:2019]. 
 
-Following the \texttt{NIFTy} paradigm, \texttt{J-UBIK} employs a generative prior model that encodes assumptions 
+Following the `NIFTy` paradigm, `J-UBIK` employs a generative prior model that encodes assumptions 
 about the signal before incorporating any data, and a likelihood model that describes the measurements, 
 including the responses of multiple instruments and noise statistics.
-Built on \texttt{NIFTy.re}, \texttt{J-UBIK} supports adaptive and distributed representations of high-dimensional
+Built on `NIFTy.re`, `J-UBIK` supports adaptive and distributed representations of high-dimensional
 physical signal fields and 
 accelerates their inference from observational data using advanced Bayesian algorithms. 
 These include maximum a posteriori (MAP), Hamiltonian Monte Carlo (HMC), and two variational
 inference techniques: 
-metric Gaussian variational inference (MGVI, [@Knollmueller:2020]) and geometric variational
-inference (geoVI, [@Frank:2021]). 
-As \texttt{NIFTy.re} is fully implemented in \texttt{JAX}, \texttt{J-UBIK} benefits from accelerated inference through
+metric Gaussian variational inference [MGVI,@Knollmueller:2020] and geometric variational
+inference [geoVI, @Frank:2021]. 
+As `NIFTy.re` is fully implemented in JAX, `J-UBIK` benefits from accelerated inference through
 parallel computing on clusters or GPUs.
 
-Building generative models with \texttt{NIFTy.re} for specific instruments and applications can be very
-tedious and labor-intensive. \texttt{J-UBIK} addresses this challenge from two 
+Building generative models with `NIFTy.re` for specific instruments and applications can be very
+tedious and labor-intensive. `J-UBIK` addresses this challenge from two 
 directions. First, it provides tools to simplify the creation of new likelihood and 
 prior models and acts as a flexible toolbox. It implements a variety of generic
-response functions, such as spatially-varying point-spread functions (PSFs) [@Eberle:2023] and 
+response functions, such as spatially-varying point spread functions [PSFs, @Eberle:2023] and 
 enables the user to define diverse correlation structures for various sky components.
 
-Second, \texttt{J-UBIK} includes instrument-specific implementations for Chandra, eROSITA, and JWST.
-Ultimately, through Bayesian statistics, \texttt{J-UBIK} enables users to obtain posterior samples and derived
+Second, `J-UBIK` includes instrument-specific implementations for Chandra, eROSITA, and JWST.
+Ultimately, through Bayesian statistics, `J-UBIK` enables users to obtain posterior samples and derived
 measurements, including posterior means and signal uncertainty, and to perform
 multi-instrument reconstructions.
 The software has already been applied in [@Westerkamp:2023; @Guardiani:2025; @Eberle:2026].
 
-Several existing tools, such as \texttt{Jolideco} [@Donath:2024] and \texttt{LIRA} [@Connors:2011], also address Bayesian deconvolution of low-count astronomical images.
-\texttt{Jolideco} employs a patch-based Gaussian mixture prior trained on external data to jointly deconvolve multi-instrument observations, achieving high-resolution reconstructions in the X-ray and γ-ray regimes.
-\texttt{LIRA} (also known through its Python implementation \texttt{Pylira}) uses hierarchical Poisson-image priors and posterior sampling, particularly for Chandra and Fermi-LAT data, to quantify uncertainty.
-\texttt{J-UBIK} complements these efforts by providing a modular and extensible Bayesian imaging framework integrated with the \texttt{JAX}-accelerated \texttt{NIFTy.re} ecosystem.
+Several existing tools, such as `Jolideco` [@Donath:2024] and `LIRA` [@Connors:2011], also address Bayesian deconvolution of low-count astronomical images.
+`Jolideco` employs a patch-based Gaussian mixture prior trained on external data to jointly deconvolve multi-instrument observations, achieving high-resolution reconstructions in the X-ray and γ-ray regimes.
+`LIRA` (also known through its Python implementation `Pylira`) uses hierarchical Poisson-image priors and posterior sampling, particularly for Chandra and Fermi-LAT data, to quantify uncertainty.
+`J-UBIK` complements these efforts by providing a modular and extensible Bayesian imaging framework integrated with the JAX-accelerated `NIFTy.re` ecosystem.
 It supports composable priors, multiple inference schemes, and native implementations for Chandra, eROSITA, and JWST, and natively enables deconvolution with spatially varying PSFs—a key capability for realistic instrument modeling and uncertainty quantification.
 These features enable users to construct flexible, end-to-end inference pipelines applicable to a broad range of scientific imaging tasks.
 
-# Bayesian Imaging with \texttt{J-UBIK}
-At the core of the \texttt{J-UBIK} package is Bayes’ theorem:
+# Bayesian imaging with `J-UBIK`
+At the core of the `J-UBIK` package is Bayes’ theorem:
 
 $$ \mathcal{P}(s|d) \propto \mathcal{P}(d|s) \, \mathcal{P}(s) \ , $$
 
@@ -122,7 +117,7 @@ where the prior $\mathcal{P}(s)$ represents our knowledge about the signal $s$ b
 observing the data $d$, and the likelihood $\mathcal{P}(d|s)$ describes the measurement process. 
 The posterior $\mathcal{P}(s|d)$ is the primary measure 
 of interest in the inference process.
-\texttt{J-UBIK}’s main role is to model the prior in a generative fashion and to facilitate 
+`J-UBIK`’s main role is to model the prior in a generative fashion and to facilitate 
 the creation and use of instrument models to develop the likelihood model. 
 The package includes demos for Chandra, eROSITA, and JWST, which illustrate 
 how to use or build these models and how to construct an inference pipeline to obtain 
@@ -136,12 +131,12 @@ uncorrelated point sources or spatially correlated extended sources, as describe
 by the correlated field model in [@Arras:2022]. 
 In the spectral dimension, the model can take several forms: e.g., a power law, a Wiener process describing the correlation structure of the logarithmic flux along the spectral axis, or a combination of both.
 The prior model’s structure is designed to be flexible, allowing for modifications to accommodate 
-additional dimensions and correlation structures. Figure \ref{fig:sky} illustrates an example of 
-a simulated X-ray sky in \texttt{J-UBIK}, 
+additional dimensions and correlation structures. \autoref{fig:sky} illustrates an example of 
+a simulated X-ray sky in `J-UBIK`, 
 sampled from a corresponding generative prior model with one energy bin.
 This example features two components: 
 one representing spatially uncorrelated point sources and the other representing spatially 
-correlated extended structures. Figure \ref{fig:sky} shows from left to right the full sky and its
+correlated extended structures. \autoref{fig:sky} shows from left to right the full sky and its
 components, the diffuse, extended structures and the point sources.
                                         
 <!-- | Figure 1: Simulated X-ray Sky\label{fig:sky}       | -->
@@ -149,35 +144,34 @@ components, the diffuse, extended structures and the point sources.
 ![Simulated X-ray sky. From left to right: full-sky map, diffuse component, and point sources.\label{fig:sky}](simulated_sky.pdf) 
 
 ## Likelihood models
-\texttt{J-UBIK} implements instrument models for Chandra, eROSITA, and JWST and their respective data-
+`J-UBIK` implements instrument models for Chandra, eROSITA, and JWST and their respective data-
 and response-loading
 functionalities, enabling their seamless integration into the inference pipeline. Its modular structure
-makes it straightforward for users to contribute additional instrument interfaces. \texttt{J-UBIK}
+makes it straightforward for users to contribute additional instrument interfaces. `J-UBIK`
 is not only capable of 
 reconstructing signals from real data; since each instrument model acts as a digital twin of 
 the corresponding 
 instrument, it can also be used to generate simulated data by passing sky prior models through
 the instrument’s
 response. This allows to test the consistency of the implemented models.
-                                        
-![Simulated X-ray data. Top panels: eROSITA (left) and Chandra (right). Bottom panels: Chandra (left) and a full-sky view (right) showing exposure contour lines for eROSITA (orange) and the two Chandra pointings (white and blue). Flux values in the bottom-right panel have been rescaled by the exposure to improve visualization.\label{fig:data}](simulated_data.pdf)
 
-Figure \ref{fig:data} shows the same simulated sky from Figure \ref{fig:sky} seen by two different instruments, eROSITA and Chandra, 
+\autoref{fig:data} shows the same simulated sky from \autoref{fig:sky} seen by two different instruments, eROSITA and Chandra, 
 with Poisson noise on the photon count data. The pointing center for each observation is marked
 in red. The two Chandra panels illustrate the same simulated sky, but with
 different pointing centers, showing the impact of spatially varying PSFs [@Eberle:2023]. 
+
+![Simulated X-ray data. Top panels: eROSITA (left) and Chandra (right). Bottom panels: Chandra (left) and a full-sky view (right) showing exposure contour lines for eROSITA (orange) and the two Chandra pointings (white and blue). Flux values in the bottom right panel have been rescaled by the exposure to improve visualization.\label{fig:data}](simulated_data.pdf)
 
 # Acknowledgements
 V. Eberle, M. Guardiani, and M. Westerkamp acknowledge support for this research through
 the project Universal Bayesian Imaging Kit (UBIK, Förderkennzeichen 50OO2103) funded
 by the Deutsches Zentrum für Luft- und Raumfahrt e.V. (DLR). 
 P. Frank acknowledges funding through the German Federal Ministry of Education
-and Research for the project “ErUM-IFT: Informationsfeldtheorie für Experi-
-mente an Großforschungsanlagen” (Förderkennzeichen: 05D23EO1).
+and Research for the project “ErUM-IFT: Informationsfeldtheorie für Experimente an Großforschungsanlagen” (Förderkennzeichen: 05D23EO1).
 J. Stadler acknowledges support by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) 
 under Germany’s Excellence Strategy – EXC-2094 – 390783311.
-We acknowledge the developers of \texttt{JAX} [@jax2018github], \texttt{NumPy} [@Harris:2020],
-\texttt{SciPy} [@Virtanen:2020], and \texttt{Astropy} [@AstropyCollaboration:2022], which provide
-core functionality used throughout \texttt{J-UBIK}.
+We acknowledge the developers of JAX [@jax2018github], NumPy [@Harris:2020],
+SciPy [@Virtanen:2020], and Astropy [@AstropyCollaboration:2022], which provide
+core functionality used throughout `J-UBIK`.
 
 # References
