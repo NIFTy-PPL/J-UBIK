@@ -1,0 +1,218 @@
+# What should be included into the mapping operations:
+# - Spatially integrated -> moment 0 map in casa
+# - Velcoity map -> moment 1 map in casa
+# - Dispersion map -> moment 2 map in casa
+# - masking or slicing operation so that only a subset can be created
+# - fits saving as well as npz saving
+# - to obey right statistics one should do everything sample input and intensity model/line input is needed
+# - skewness map which is statistically a moment 3 map
+
+# Shape of cubes should follow the convention (spectral, spatial, spatial)
+
+import nifty.re as jft
+import numpy as np
+import astropy.units as u
+
+from astropy.coordinates import SkyCoord
+from dataclasses import dataclass
+from typing import List
+from os import makedirs
+
+from .slice_cube import slice_cube_spatial, slice_cube_spectral
+from .axes import IntegrationX, IntegrationY, IntegrationSpectral, IntegrationTime
+from ..grid import Grid
+
+from .cube_operations import (
+    CubeOperator, CubeIntegrate, CubeAverage, SpectralMomentMap, 
+    LinearPolarization, FractionalLinearPolarization, PolarizationAngle, CircularPolarizationFraction, TotalPolarizedIntensity
+    )
+
+def setup_integrator_averager(averaging, integration_axes, cube_unit, grid, doppler_convention=None, reference=None, prefix=""):
+    axs = []
+    for iax in integration_axes:
+        match iax["name"]:
+            case "spatial_x":
+                ax = IntegrationX()
+            case "spatial_y":
+                ax = IntegrationY()
+            case "spectral":
+                ax = IntegrationSpectral(
+                    frame_key = iax["frame"],
+                    doppler_convention = doppler_convention,
+                    reference = reference,
+                )
+            case "temporal":
+                ax = IntegrationTime()
+        axs.append(ax)
+
+    if averaging:
+        return CubeAverage(
+            integration_axes = axs,
+            cube_unit=cube_unit, 
+            grid=grid,
+            prefix=prefix,
+            )
+    else:
+        return CubeIntegrate(
+            integration_axes = axs,
+            cube_unit=cube_unit, 
+            grid=grid,
+            prefix=prefix,
+            )
+
+
+@dataclass
+class FullSkyCube:
+    cube_samples: np.ndarray
+    grid: Grid
+    flux_density_unit: u.Quantity
+    reference: u.Quantity | None = None
+    doppler_convention: str | None = None
+    prefix: str = ""
+
+
+    def spatial_slice(self, upper_left_corners: SkyCoord, lower_right_corners: SkyCoord):
+        subcubes = []
+
+        for ulc,lrc in zip(upper_left_corners, lower_right_corners):
+            subgrid, subcube_samples = slice_cube_spatial(
+                cube_samples = self.cube_samples,
+                grid = self.grid,
+                upper_left_corner = ulc,
+                lower_right_corner = lrc,
+            )
+
+            subcubes.append(FullSkyCube(
+                cube_samples = subcube_samples,
+                grid = subgrid,
+                flux_density_unit = self.flux_density_unit,
+                reference = self.reference,
+                doppler_convention = self.doppler_convention,
+                prefix = f"{self.prefix}_{ulc}_{lrc}"
+            ))
+
+        return subcubes
+
+    def slice_cube_spectral(self,spectral_ranges):
+        subcubes = []
+        for sr in spectral_ranges:
+            subgrid, subcube_samples = slice_cube_spectral(
+                cube_samples = self.cube_samples,
+                grid = self.grid,
+                spectral_range = sr
+            )
+
+            subcubes.append(FullSkyCube(
+                cube_samples = subcube_samples,
+                grid = subgrid,
+                flux_density_unit = self.flux_density_unit,
+                reference = self.reference,
+                doppler_convention = self.doppler_convention,
+                prefix = f"{self.prefix}_{sr[0]}_{sr[1]}"
+            ))
+
+        return subcubes
+    
+    def create_maps(self, map_configs: List[dict], output_directory: str):
+        makedirs(output_directory, exist_ok=True)
+        for cfg in map_configs:
+            
+            match cfg["operation"]:
+                case "cube":
+                    op = CubeOperator(
+                        cube_unit = self.flux_density_unit,
+                        prefix = self.prefix
+                    )
+                case "integrate":
+                    op = setup_integrator_averager(
+                        averaging = False,
+                        integration_axes= cfg["axes"],
+                        cube_unit = self.flux_density_unit,
+                        grid = self.grid,
+                        doppler_convention= self.doppler_convention,
+                        reference = self.reference,
+                        prefix = self.prefix,
+                    )
+                case "average":
+                    op = setup_integrator_averager(
+                        averaging = True,
+                        integration_axes= cfg["axes"],
+                        cube_unit = self.flux_density_unit,
+                        grid = self.grid,
+                        doppler_convention= self.doppler_convention,
+                        reference = self.reference,
+                        prefix = self.prefix,
+                    )
+                case "spectral_moment":
+                    op = SpectralMomentMap(
+                        type = cfg["type"],
+                        frame = cfg["frame"],
+                        grid = self.grid,
+                        doppler_convention= self.doppler_convention,
+                        reference = self.reference,
+                        prefix = self.prefix,
+                    )
+                case _:
+                    raise NotImplementedError
+
+            op.to_fits(
+                output_directory = output_directory,
+                cube_samples = self.cube_samples,
+                output_unit = cfg["output_unit"],
+                grid = self.grid,
+                save_std = cfg.get("save_std", True),
+                save_samples = cfg.get("save_samples", False),
+            )
+
+    # def create_maps(self, mode_list: list, output_directory: str, map_units: dict, save_std: bool = True, save_samples: bool = False):
+    #     # Creates all velocity moment maps requested and outputs them as a dictionary.
+    #     # flux_unit hast to be somethink like Jy/(Hz*as**2)
+    #     prefix = "" if self.prefix == "" else f"{self.prefix}_"
+    #     print_prefix = "" if self.prefix == "" else f"{self.prefix} - "
+
+    #     
+
+    #     if any(mode not in SUPPORTED_MAP_MODES for mode in mode_list):
+    #         raise ValueError("List contains unsupported mode. Please check with supported modes by calling the 'method supported_maps'.")
+
+    #     for mode in mode_list:
+    #         if mode in SUPPORTED_MAP_MODES:
+    #             print(f"{print_prefix}{mode}")
+    #             func = SUPPORTED_MAP_MODES[mode]
+    #             field, current_unit, file_name = func(self)
+
+    #             conversion_factor = current_unit.to(map_units[mode])
+    #             field = field*conversion_factor
+
+    #             fits = FitsSaver(self.grid,field)
+    #             fits.save_mean(filename=f"{output_directory}/{prefix}{file_name}_mean.fits", sky_unit=map_units[mode])
+    #             if save_std:
+    #                 fits.save_std(filename=f"{output_directory}/{prefix}{file_name}_std.fits", sky_unit=map_units[mode], correct_bias=True)
+    #             if save_samples:
+    #                 fits.save_samples(filename=f"{output_directory}/{prefix}{file_name}_samples.fits", sky_unit=map_units[mode])
+
+    @classmethod
+    def build_from_fullskymodel_and_latent_samples(
+        cls, 
+        full_sky_model: jft.Model, 
+        latent_samples_path: str,
+        grid: Grid, 
+        flux_density_unit: u.Unit,
+        reference: u.Quantity,
+        doppler_convention: str,
+        prefix: str,
+        ):
+        import pickle
+        with open(latent_samples_path, "rb") as f:
+            samples, _ = pickle.load(f)
+
+        sky_samples = np.array(list(full_sky_model(s) for s in samples))
+
+        return cls(
+            cube_samples = sky_samples,
+            grid = grid,
+            flux_density_unit = flux_density_unit,
+            reference = reference,
+            doppler_convention = doppler_convention,
+            prefix = prefix,
+        )
