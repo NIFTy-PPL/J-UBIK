@@ -17,6 +17,7 @@ dependencies = [
     "matplotlib",
     "astropy",
     "ducc0",
+    "jaxbind",
 ]
 license = {file = "LICENSE"}
 classifiers = [
@@ -59,7 +60,6 @@ requires = [
     "matplotlib",
     "astropy",
     "ducc0",
-    "jaxbind",
 ]
 build-backend = "setuptools.build_meta"
 
