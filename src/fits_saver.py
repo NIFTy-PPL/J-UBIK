@@ -16,7 +16,7 @@ def _process_frequency(
     header: fits.Header, grid: Grid, field: NDArray, np_axis: int, fits_axis: int
 ) -> tuple[Optional[fits.BinTableHDU], NDArray]:
     """Processes the frequency axis. This axis is never squeezed."""
-    freqs = u.Quantity(grid.spectral.centers).to(u.Hz, equivalencies=u.spectral())
+    freqs = u.Quantity(grid.spectral.center).to(u.Hz, equivalencies=u.spectral())
 
     if field.shape[np_axis] == 1 and np.isinf(freqs[0]):
         return None, np.squeeze(field, axis=np_axis)
@@ -169,11 +169,16 @@ class FitsSaver:
         field_to_save = self.field.mean(axis=0, keepdims=True)
         self._save(filename, field_to_save, sky_unit)
 
-    def save_std(self, filename: str, sky_unit: u.Unit | None = None):
+    def save_std(self, filename: str, sky_unit: u.Unit | None = None, correct_bias: bool = False):
         """Averages data and saves, dynamically removing single-entry axes."""
         print(f"\n--- Saving mean to '{filename}' ---")
         # Average over samples, but keep the dimension for consistent processing
         field_to_save = self.field.std(axis=0, keepdims=True)
+        # Apply Bessel correction if correct_bias is True
+        N = self.field.shape[0]
+        correction = np.sqrt(N/(N-1)) if correct_bias else 1.0
+        field_to_save *= correction
+
         self._save(filename, field_to_save, sky_unit)
 
     def save_samples(self, filename: str, sky_unit: u.Unit | None = None):

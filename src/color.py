@@ -1,82 +1,103 @@
 # SPDX-License-Identifier: BSD-2-Clause
-# Authors: Julian Rüstig and Matteo Guardiani
+# Authors: Julian Rüstig
 
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
 
+import warnings
+from typing import Iterable, Union
+
 import numpy as np
-from astropy import units as u, constants as const
-from numpy import argsort
+from astropy import units as u
+from numpy.typing import NDArray
 
 
 class Color(u.Quantity):
-    """A class representing color based on wavelength, frequency, or energy.
-
-    The Color class allows conversion between wavelength, frequency, and energy
-    representations using physical constants from astropy.
+    """A class representing color based on wavelength, frequency, or energy. A color
+    range gets sorted.
 
     Parameters
     ----------
-    quantity : u.Quantity
+    quantity : u.Quantity | Iterable[u.Quantity]
         A quantity with units of wavelength, frequency, or energy.
-        The input must have a physical type of 'length', 'frequency',
-        or 'energy'.
 
-    Raises
-    ------
-    IOError
-        If the input quantity does not have units (is not a u.Quantity).
-    ValueError
-        If the input quantity has an unsupported physical type.
+    Note
+    ----
+    1. One can set color ranges:
+       - Consecutive: Color([1.0, 1.2, 1.5, 7.0] * u.keV)
+       - Discontinuous: Color([[1.0, 1.2], [1.5, 7.0]] * u.keV)
+
+    2. Ranges are internally always represented by two dimensional arrays. See
+       `get_2d_binbounds`.
     """
 
-    def __init__(
-        self,
-        quantity: u.Quantity,
-    ):
-        if not isinstance(quantity, u.Quantity):
-            raise IOError("Instantiate with a quantity that has units")
+    def __new__(cls, quantity: u.Quantity) -> "Color":
+        assert isinstance(quantity, u.Quantity), "Instantiate with units"
+        assert len(quantity.shape) <= 2, "Only discontinuous ranges are supported"
 
-        if quantity.unit.physical_type == "length":
-            self._init_length(quantity)
-        elif quantity.unit.physical_type == "frequency":
-            self._init_frequency(quantity)
-        elif quantity.unit.physical_type == "energy":
-            self._init_energy(quantity)
-        else:
-            raise ValueError(f"Unsupported physical type: {quantity.physical_type}")
+        value = quantity.copy()
+        if not value.isscalar:
+            value.sort(axis=0)  # Sort the ranges
+            if len(value.shape) == 2:
+                value.sort(axis=1)  # Sort in ranges
+            value = value.unit * get_2d_binbounds(value, value.unit)
 
-    def _init_length(self, wavelength: u.Quantity):
-        # Initialization using wavelength
-        self.wavelength = wavelength.to(u.m)
-        self.frequency = (const.c / wavelength).to(u.Hz)
-        self.energy = (const.h * self.frequency).to(u.eV)
+        return super().__new__(cls, value=value)
 
-    def _init_frequency(self, frequency: u.Quantity):
-        # Initialization using frequency
-        self.frequency = frequency.to(u.Hz)
-        self.wavelength = (const.c / frequency).to(u.m)
-        self.energy = (const.h * frequency).to(u.eV)
+    @classmethod
+    def from_central_frequencies(
+        cls, central_frequencies: Union[Iterable[float], u.Quantity], unit=u.Unit("Hz")
+    ) -> "Color":
+        """Construct a color from frequency bin centers (central frequencies).
 
-    def _init_energy(self, energy: u.Quantity):
-        # Initialization using energy
-        self.energy = energy.to(u.eV)
-        self.frequency = (energy / const.h).to(u.Hz)
-        self.wavelength = (const.c / self.frequency).to(u.m)
+        Bin bounds are midpoints between consecutive frequencies; the outer
+        edges are extrapolated by half the neighbouring spacing.
 
-    def to_unit(self, unit: u.Unit):
-        if unit.physical_type == "length":
-            value = self.wavelength
-        elif unit.physical_type == "frequency":
-            value = self.frequency
-        elif unit.physical_type == "energy":
-            value = self.energy
-        return value.to(unit)
+        Parameters
+        ----------
+        central_frequencies : Iterable[float] | u.Quantity
+            The bin-center frequencies, one per spectral channel. If one frequency is
+            given the binbounds are infinite.
+        unit : u.Unit, optional
+            Output unit of the frequency binbounds, (default: Hz).
 
-    def redshift(self, z: float):
+        Returns
+        -------
+        Color
+            A color holding the N consecutive (N+1 bound) ranges derived
+            from the N input centers.
         """
-        Corresponding color at redshift z.
+        if isinstance(central_frequencies, u.Quantity):
+            central_frequencies = central_frequencies.to(u.Hz).value
+
+        central_frequencies = np.asarray(central_frequencies, dtype=float)
+        if len(central_frequencies) == 1:
+            bounds = np.array([-np.inf, np.inf])
+        else:
+            bounds = np.empty(len(central_frequencies) + 1)
+            distances = 0.5 * np.diff(central_frequencies)
+            bounds[1:-1] = central_frequencies[:-1] + distances
+            bounds[0] = central_frequencies[0] - distances[0]
+            bounds[-1] = central_frequencies[-1] + distances[-1]
+
+        return cls(bounds * unit)
+
+    @classmethod
+    def from_freqs(
+        cls, central_frequencies: Union[Iterable[float], u.Quantity], unit=u.Unit("Hz")
+    ) -> "Color":
+        """Deprecated alias for :meth:`from_central_frequencies`."""
+        warnings.warn(
+            "Color.from_freqs is deprecated and will be removed in a future "
+            "release (01.12.26); use Color.from_central_frequencies instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.from_central_frequencies(central_frequencies, unit=unit)
+
+    def redshift(self, z: float) -> "Color":
+        """Corresponding color at redshift z.
 
         Parameters
         ----------
@@ -84,193 +105,130 @@ class Color(u.Quantity):
 
         Returns
         -------
+        Redshifted Color: nu(z) = nu / (1 + z).
         Redshifted Color: lambda(z) = lambda (1 + z).
-
         """
-        return Color((1 + z) * self.wavelength)
+        return self.to(u.Unit("Hz"), equivalencies=u.spectral()) / (1 + z)
 
-
-class ColorRange:
-    """
-    A class representing a range of colors, defined by start and
-    end Color objects.
-
-    Parameters
-    ----------
-    start : Color
-        The starting Color object of the range.
-    end : Color
-        The ending Color object of the range.
-
-    Raises
-    ------
-    AssertionError
-        If `start` or `end` are not instances of the Color class.
-    """
-
-    def __init__(self, start: Color, end: Color):
-        """Initialize the ColorRange object."""
-        if isinstance(start, u.Quantity):
-            start = Color(start)
-        if isinstance(end, u.Quantity):
-            end = Color(end)
-        assert isinstance(start, Color) and isinstance(end, Color)
-        self.start = start
-        self.end = end
+    def __contains__(self, key) -> bool:
+        raise NotImplementedError("Temporary to check for old dependencies")
+        # return self.contains(key)
 
     @property
-    def center(self):
-        """Returns the center/mean of each color range."""
-        return Color((self.end.energy - self.start.energy) / 2 + self.start.energy)
+    def center(self) -> u.Quantity:
+        """Get the center of the colors."""
+        if self.isscalar:
+            return self
 
-    def __contains__(self, item: Color):
-        """Check if a given Color is within the range of this ColorRange."""
-        assert isinstance(item, Color)
-        return (self.start.energy <= item.energy <= self.end.energy) or (
-            self.start.energy >= item.energy >= self.end.energy
-        )
+        if len(self.shape) == 1:
+            if not self.shape[0] == 2:
+                raise ValueError("Ranges should always be represented by shape 2")
+            return u.Quantity((self[-1] + self[0]) / 2)
 
-    def __repr__(self):
-        """Returns a string representation of the ColorRange object."""
-        return f"ColorRange([{self.start.energy}, {self.end.energy}])"
+        elif len(self.shape) == 2:
+            if not self.shape[1] == 2:
+                raise ValueError("Ranges should always be represented by (N, 2) shapes")
 
-    def to_unit(self, unit: u.Unit) -> tuple[u.Quantity]:
-        return self.start.to_unit(unit), self.end.to_unit(unit)
+            return u.Quantity([((val[-1] + val[0]) / 2) for val in self])
 
-    @property
-    def binbounds(self):
-        """The binbounds of the binned color range.
-
-        Note
-        ----
-        The bins are assumed to be consecutive. Hence, the minimum of each
-        color range gets returned, the maximum of the binbounds is the and the
-        maximum of the color range with the largest mean energy."""
-        return [self.start, self.end]
-
-    def binbounds_in(self, unit: u.Unit):
-        """The binbounds of the binned color ranges in the requested unit.
-
-        Note
-        ----
-        The color bins are assumed to be consecutive in energy. Hence, the
-        minimum of each color range gets returned, the maximum of the binbounds
-        is the and the maximum of the color range with the largest mean energy.
-        """
-        unit_type = {
-            u.physical.length: "wavelength",
-            u.physical.frequency: "frequency",
-            u.physical.energy: "energy",
-        }[unit.physical_type]
-
-        return [getattr(bb, unit_type).to(unit).value for bb in self.binbounds]
-
-
-class ColorRanges:
-    """
-    A class representing multiple bins of colors, i.e. a set of color ranges.
-
-    Parameters
-    ----------
-    color_ranges:
-        The color ranges that the BinnedColorRanges should hold.
-
-    Raises
-    ------
-    AssertionError
-        If any of the colorr are not instances of the ColorRange class.
-    """
-
-    def __init__(self, color_ranges: list[ColorRange]):
-        for cr in color_ranges:
-            assert isinstance(cr, ColorRange)
-
-        sortid = argsort([cr.center.value for cr in color_ranges])
-        self.color_ranges = [color_ranges[ii] for ii in sortid]
-
-    @classmethod
-    def from_freqs(cls, freqs, unit=u.Unit("Hz")):
-        if len(freqs) == 1:
-            bounds = np.array([-np.inf, np.inf])
         else:
-            c = np.array(freqs)
-            bounds = np.empty(len(freqs) + 1)
-            bounds[1:-1] = c[:-1] + 0.5 * np.diff(c)
-            bounds[0] = c[0] - 0.5 * (c[1] - c[0])
-            bounds[-1] = c[-1] + 0.5 * (c[-1] - c[-2])
+            raise ValueError("Shouldn't end up here'")
 
-        color_list = []
-        for i in range(len(bounds)-1):
-            cl_start = Color(bounds[i] * unit)
-            cl_end = Color(bounds[i+1] * unit)
-            cl_range = ColorRange(
-                cl_start, cl_end
-            )
-            color_list.append(cl_range)
-        return ColorRanges(color_list)
+    def _in_range(self, rng: u.Quantity, quantity: u.Quantity) -> bool:
+        """Helper function for contains."""
+        assert len(rng.shape) == 1
+        assert rng.shape[0] == 2
 
-    @property
-    def binbounds(self):
-        """The binbounds (color) of the binned color ranges.
+        quantity = quantity.to(self.unit, equivalencies=u.spectral()).value
+        return (rng[0].value <= quantity) and (quantity <= rng[-1].value)
 
-        Note
-        ----
-        The bins are assumed to be consecutive. Hence, the minimum of each
-        color range gets returned, the maximum of the binbounds is the and the
-        maximum of the color range with the largest mean energy."""
-        return [cr.start for cr in self.color_ranges] + [self.color_ranges[-1].end]
+    def contains(self, quantity: u.Quantity) -> bool:
+        """Check if the quantity is contained by the color-ranges."""
+        if self.isscalar:
+            raise ValueError(f"{self} is not a range")
 
-    def binbounds_in(self, unit: u.Unit):
-        """The binbounds of the binned color ranges in the requested unit.
+        if len(self.shape) == 1:
+            if not self.shape[0] == 2:
+                raise ValueError("Ranges should always be represented by shape 2")
+            return self._in_range(self, quantity)
 
-        Note
-        ----
-        The color bins are assumed to be consecutive in energy. Hence, the
-        minimum of each color range gets returned, the maximum of the binbounds
-        is the and the maximum of the color range with the largest mean energy.
-        """
-        unit_type = {
-            u.physical.length: "wavelength",
-            u.physical.frequency: "frequency",
-            u.physical.energy: "energy",
-        }[unit.physical_type]
+        elif len(self.shape) == 2:
+            if not self.shape[1] == 2:
+                raise ValueError("Ranges should always be represented by (N, 2) shapes")
 
-        return [getattr(bb, unit_type).to(unit).value for bb in self.binbounds]
+            return any(self._in_range(rng, quantity) for rng in self)
+
+        else:
+            raise ValueError("Shouldn't end up here")
 
     @property
-    def centers(self):
-        """Returns the centers/mean of each color range."""
-        return [cr.center for cr in self.color_ranges]
+    def is_continuous(self) -> bool:
+        if self.isscalar:
+            raise ValueError("Scalar Value can't be continuous")
 
-    @property
-    def shape(self):
-        return (len(self.color_ranges),)
+        if len(self.shape) == 1:
+            return True
 
-    def get_color_range_from_color(self, color: Color):
-        """Returns all color ranges which contain the color. Note: These could
-        be more then one if the color ranges are not disjoint."""
-        assert isinstance(color, Color), f"{color} must be a Color"
-        assert color in self, f"{color} is not in {self}"
-        return [ii for ii, cr in enumerate(self.color_ranges) if color in cr]
+        start_points = self[1:, 0]  # Start of all bins except the first
+        end_points = self[:-1, 1]  # End of all bins except the last
+        return np.all(end_points == start_points)
 
-    def __repr__(self):
-        crs = ""
-        for ii, cr in enumerate(self.color_ranges):
-            crs += f"\n{ii}: {cr.__repr__()}"
-        return f"ColorRanges({crs})"
 
-    def __contains__(self, item: Color):
-        return any([item in cr for cr in self.color_ranges])
+def get_2d_binbounds(color: u.Quantity, unit: u.Unit) -> NDArray:
+    """Transform the color range into a two dimensional array.
 
-    def __len__(self):
-        return len(self.color_ranges)
+    Parameters
+    ----------
+    color: Color
+    unit: astropy.units.Unit
 
-    def __getitem__(self, index: int):
-        """Get color range from bin index."""
-        return self.color_ranges[index]
+    NOTE
+    ----
+    [1.2, 2.4, 5]      -> [[1.2, 2.4],
+                           [2.4, 5.0]]
 
-    def to_unit(self, unit: u.Unit) -> list[tuple[u.Quantity]]:
-        crs = []
-        for cr in self.color_ranges:
-            crs.append(cr.to_unit(unit))
-        return crs
+    [[10., 15., 18.],  -> [[10., 15.],
+     [50., 56., 58.]]      [15., 18.],
+                           [50., 56.],
+                           [56., 58.]]
+    """
+
+    if color.isscalar:
+        raise ValueError("Only spectral ranges can be considered")
+
+    values_in_unit = color.to(unit, equivalencies=u.spectral()).value
+    if len(color.shape) == 1:
+        return np.stack((values_in_unit[:-1], values_in_unit[1:]), axis=1)
+
+    elif len(color.shape) == 2:
+        left_bounds = values_in_unit[:, :-1]
+        right_bounds = values_in_unit[:, 1:]
+
+        # NOTE: Stack them along a new third dimension to create pairs.
+        # The result is a 3D array of shape (N, M-1, 2).
+        stacked_bins = np.stack([left_bounds, right_bounds], axis=2)
+        return stacked_bins.reshape(-1, 2)
+
+    else:
+        # This case is prevented by the assertion in Color.__new__
+        # but is included for completeness.
+        raise ValueError(f"Unsupported shape for Color object: {color.shape}")
+
+
+def get_spectral_range_index(color_range: Color, quantity: u.Quantity | Color):
+    """Get the index of the `quantity` inside the `color_range`.
+
+    Parameters
+    ----------
+    color_range: Color
+        The range of colors to be indexed.
+    quantity: u.Quantity | Color
+        The spectral quantity to find the index inside the color_range.
+    """
+
+    if color_range.isscalar:
+        raise ValueError("color_range must be a range")
+
+    return np.array(
+        [ii for ii, rng in enumerate(color_range) if rng.contains(quantity)]
+    )

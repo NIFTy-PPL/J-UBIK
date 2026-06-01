@@ -31,6 +31,7 @@ from .instruments.chandra.chandra_likelihood import generate_chandra_likelihood_
 from .sky_model.multifrequency.spectral_product_mf_sky import (
     SpectralProductSky,
     build_simple_spectral_sky,
+    build_simple_spectral_sky_from_grid,
 )
 from .sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope
 from .response import build_exposure_function, build_readout_function
@@ -48,6 +49,8 @@ from .instruments.erosita.erosita_psf import eROSITA_PSF
 from .instruments.jwst.jwst_response import build_jwst_response
 from .grid import Grid
 
+from .color import Color
+
 from .data import (create_mock_data, load_masked_data_from_config,
                    load_mock_position_from_config, Domain)
 from .likelihood import get_n_constrained_dof
@@ -56,3 +59,4 @@ from .convolve import linpatch_convolve, convolve, slice_patches
 from .minimization_parser import MinimizationParser
 from .hashcollector import save_local_packages_hashes_to_txt
 from .fits_saver import *
+from .spectral_cube.fullsky_cube import FullSkyCube

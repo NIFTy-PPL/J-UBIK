@@ -1,13 +1,11 @@
-from .multifrequency_model import build_multifrequency_from_grid
-
-from jubik0.grid import Grid
-from jubik0.color import ColorRanges
-import nifty.re as jft
-
-import jax.numpy as jnp
-
 import operator
 from functools import reduce
+
+import jax.numpy as jnp
+import nifty.re as jft
+
+from ...grid import Grid
+from .multifrequency_model import build_multifrequency_from_grid
 
 
 class MfVstack(jft.Model):
@@ -40,7 +38,7 @@ def build_mfvstack_from_yaml_dict(
     models = {}
     for skey, spsl in zip(stacking_keys, spectral_slices):
         skey_grid = Grid(
-            spatial=grid.spatial, spectral=ColorRanges(grid.spectral[spsl[0] : spsl[1]])
+            spatial=grid.spatial, spectral=grid.spectral[spsl[0] : spsl[1]]
         )
 
         model = build_multifrequency_from_grid(

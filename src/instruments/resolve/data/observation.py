@@ -395,6 +395,7 @@ class Observation(BaseObservation):
         return Observation(
             ap, vis, wgt, self._polarization, self._freq, self._auxiliary_tables
         )
+    # # TODO: Delete this functionality
 
     @property
     def nbaselines(self):

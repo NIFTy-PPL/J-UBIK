@@ -161,7 +161,7 @@ def build_radio_likelihood(
         dm = ObservationModify.from_yaml_dict(cfg[data_key][data_name])
         observations = list(
             load_and_modify_data_from_objects(
-                sky_frequencies=radio_grid.spectral.binbounds_in(u.Unit("Hz")),
+                sky_frequencies=radio_grid.spectral,
                 data_loading=dl,
                 observation_modify=dm,
             )
@@ -176,9 +176,7 @@ def build_radio_likelihood(
             sky_shape_with_dtype=radio_sky_extractor.target,
             sky_fov=sky_grid.spatial.fov,
             sky_center=sky_grid.spatial.center,
-            sky_frequency_binbounds=sky_grid.spectral.binbounds_in(
-                RESOLVE_SPECTRAL_UNIT
-            ),
+            sky_frequency_means=sky_grid.spectral.center,
             observations=observations,
             beam_func=beam_func,
             direction_key=direction_key,

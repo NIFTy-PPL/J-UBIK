@@ -1,11 +1,9 @@
 from .color import (
     yaml_to_binned_colors,
-    yaml_to_color_reference_bin,
     cfg_to_binned_colors,
-    cfg_to_color_reference_bin,
 )
 from .wcs.spatial_model import SpatialModel
-from ..color import ColorRanges
+from ..color import Color
 
 
 from configparser import ConfigParser
@@ -15,8 +13,7 @@ from dataclasses import dataclass
 @dataclass
 class GridModel:
     spatial_model: SpatialModel
-    color_ranges: ColorRanges
-    color_reference_bin: int = 0
+    color_ranges: Color
 
     @classmethod
     def from_yaml_dict(cls, grid_config: dict):
@@ -51,17 +48,15 @@ class GridModel:
         GridModel
             The GridModel which holds
                 - spatial_model: how to build the wcs for the spatial coordinates.
-                - color_ranges: The ColorRanges for the energies.
+                - color_ranges: The Color for the energies.
                 - color_reference_bin: The reference_bin for the energy model.
         """
         spatial_model = SpatialModel.from_yaml_dict(grid_config)
         color_ranges = yaml_to_binned_colors(grid_config)
-        color_reference_bin = yaml_to_color_reference_bin(grid_config)
 
         return GridModel(
             spatial_model=spatial_model,
             color_ranges=color_ranges,
-            color_reference_bin=color_reference_bin,
         )
 
     @classmethod
@@ -92,16 +87,14 @@ class GridModel:
         GridModel
             The GridModel which holds
                 - spatial_model: how to build the wcs for the spatial coordinates.
-                - color_ranges: The ColorRanges for the energies.
+                - color_ranges: The Color for the energies.
                 - color_reference_bin: The reference_bin for the energy model.
         """
 
         spatial_model = SpatialModel.from_config_parser(grid_config)
         color_ranges = cfg_to_binned_colors(grid_config)
-        color_reference_bin = cfg_to_color_reference_bin(grid_config)
 
         return GridModel(
             spatial_model=spatial_model,
             color_ranges=color_ranges,
-            color_reference_bin=color_reference_bin,
         )
