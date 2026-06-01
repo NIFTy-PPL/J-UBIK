@@ -71,7 +71,7 @@ class FullSkyCube:
     prefix: str = ""
 
 
-    def spatial_slice(self, upper_left_corners: SkyCoord, lower_right_corners: SkyCoord):
+    def slice_cube_spatial(self, upper_left_corners: SkyCoord, lower_right_corners: SkyCoord):
         subcubes = []
 
         for ulc,lrc in zip(upper_left_corners, lower_right_corners):
@@ -163,33 +163,6 @@ class FullSkyCube:
                 save_std = cfg.get("save_std", True),
                 save_samples = cfg.get("save_samples", False),
             )
-
-    # def create_maps(self, mode_list: list, output_directory: str, map_units: dict, save_std: bool = True, save_samples: bool = False):
-    #     # Creates all velocity moment maps requested and outputs them as a dictionary.
-    #     # flux_unit hast to be somethink like Jy/(Hz*as**2)
-    #     prefix = "" if self.prefix == "" else f"{self.prefix}_"
-    #     print_prefix = "" if self.prefix == "" else f"{self.prefix} - "
-
-    #     
-
-    #     if any(mode not in SUPPORTED_MAP_MODES for mode in mode_list):
-    #         raise ValueError("List contains unsupported mode. Please check with supported modes by calling the 'method supported_maps'.")
-
-    #     for mode in mode_list:
-    #         if mode in SUPPORTED_MAP_MODES:
-    #             print(f"{print_prefix}{mode}")
-    #             func = SUPPORTED_MAP_MODES[mode]
-    #             field, current_unit, file_name = func(self)
-
-    #             conversion_factor = current_unit.to(map_units[mode])
-    #             field = field*conversion_factor
-
-    #             fits = FitsSaver(self.grid,field)
-    #             fits.save_mean(filename=f"{output_directory}/{prefix}{file_name}_mean.fits", sky_unit=map_units[mode])
-    #             if save_std:
-    #                 fits.save_std(filename=f"{output_directory}/{prefix}{file_name}_std.fits", sky_unit=map_units[mode], correct_bias=True)
-    #             if save_samples:
-    #                 fits.save_samples(filename=f"{output_directory}/{prefix}{file_name}_samples.fits", sky_unit=map_units[mode])
 
     @classmethod
     def build_from_fullskymodel_and_latent_samples(

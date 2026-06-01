@@ -86,7 +86,7 @@ def convert_spectral_grid(bounds, frame, doppler_convention=None, reference=None
 
     new_bounds = bounds.to(internal_units[frame], equivalencies=eq)
 
-    widths = np.diff(new_bounds, axis=1)[:,0]
+    widths = np.abs(np.diff(new_bounds, axis=1)[:,0])
     centers = 0.5 * np.sum(new_bounds, axis=1)
 
     return widths, centers
