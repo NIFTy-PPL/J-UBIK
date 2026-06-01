@@ -24,7 +24,7 @@ def setup_grid_obs_response(pol_sky, pol_channels, freqs):
     sky_center = SkyCoord(ra=np.nan * u.Unit("rad"), dec=np.nan * u.Unit("rad"))
     fov = u.Quantity((u.Quantity("1deg"), u.Quantity("1.5deg")))
     spacial = ju.wcs.WcsAstropy(center=sky_center, shape=(100, 100), fov=fov)
-    spectral = ju.color.ColorRanges.from_freqs(freqs)
+    spectral = ju.color.Color.from_central_frequencies(freqs)
     grid = ju.Grid(spatial=spacial, spectral=spectral, polarization=pol_type_sky)
 
     ducc0_settings = rve.parse.Ducc0Settings(
