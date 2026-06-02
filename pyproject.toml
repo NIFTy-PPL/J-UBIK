@@ -17,8 +17,6 @@ dependencies = [
     "matplotlib",
     "astropy",
     "ducc0",
-    "jaxbind",
-    "jax-finufft"
 ]
 license = {file = "LICENSE"}
 classifiers = [
@@ -48,6 +46,10 @@ doc = [
 test = [
     "pytest",
     "pytest-cov",
+]
+resolve = [
+    "jaxbind",
+    "jax-finufft",
 ]
 
 [build-system]

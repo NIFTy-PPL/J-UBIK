@@ -23,11 +23,27 @@ from .axes import IntegrationX, IntegrationY, IntegrationSpectral, IntegrationTi
 from ..grid import Grid
 
 from .cube_operations import (
-    CubeOperator, CubeIntegrate, CubeAverage, SpectralMomentMap, 
-    LinearPolarization, FractionalLinearPolarization, PolarizationAngle, CircularPolarizationFraction, TotalPolarizedIntensity
-    )
+    CubeOperator,
+    CubeIntegrate,
+    CubeAverage,
+    SpectralMomentMap,
+    LinearPolarization,
+    FractionalLinearPolarization,
+    PolarizationAngle,
+    CircularPolarizationFraction,
+    TotalPolarizedIntensity,
+)
 
-def setup_integrator_averager(averaging, integration_axes, cube_unit, grid, doppler_convention=None, reference=None, prefix=""):
+
+def setup_integrator_averager(
+    averaging,
+    integration_axes,
+    cube_unit,
+    grid,
+    doppler_convention=None,
+    reference=None,
+    prefix="",
+):
     axs = []
     for iax in integration_axes:
         match iax["name"]:
@@ -37,9 +53,9 @@ def setup_integrator_averager(averaging, integration_axes, cube_unit, grid, dopp
                 ax = IntegrationY()
             case "spectral":
                 ax = IntegrationSpectral(
-                    frame_key = iax["frame"],
-                    doppler_convention = doppler_convention,
-                    reference = reference,
+                    frame_key=iax["frame"],
+                    doppler_convention=doppler_convention,
+                    reference=reference,
                 )
             case "temporal":
                 ax = IntegrationTime()
@@ -47,18 +63,18 @@ def setup_integrator_averager(averaging, integration_axes, cube_unit, grid, dopp
 
     if averaging:
         return CubeAverage(
-            integration_axes = axs,
-            cube_unit=cube_unit, 
+            integration_axes=axs,
+            cube_unit=cube_unit,
             grid=grid,
             prefix=prefix,
-            )
+        )
     else:
         return CubeIntegrate(
-            integration_axes = axs,
-            cube_unit=cube_unit, 
+            integration_axes=axs,
+            cube_unit=cube_unit,
             grid=grid,
             prefix=prefix,
-            )
+        )
 
 
 @dataclass
@@ -70,122 +86,125 @@ class FullSkyCube:
     doppler_convention: str | None = None
     prefix: str = ""
 
-
-    def slice_cube_spatial(self, upper_left_corners: SkyCoord, lower_right_corners: SkyCoord):
+    def slice_cube_spatial(
+        self, upper_left_corners: SkyCoord, lower_right_corners: SkyCoord
+    ):
         subcubes = []
 
-        for ulc,lrc in zip(upper_left_corners, lower_right_corners):
+        for ulc, lrc in zip(upper_left_corners, lower_right_corners):
             subgrid, subcube_samples = slice_cube_spatial(
-                cube_samples = self.cube_samples,
-                grid = self.grid,
-                upper_left_corner = ulc,
-                lower_right_corner = lrc,
+                cube_samples=self.cube_samples,
+                grid=self.grid,
+                upper_left_corner=ulc,
+                lower_right_corner=lrc,
             )
 
-            subcubes.append(FullSkyCube(
-                cube_samples = subcube_samples,
-                grid = subgrid,
-                flux_density_unit = self.flux_density_unit,
-                reference = self.reference,
-                doppler_convention = self.doppler_convention,
-                prefix = f"{self.prefix}_{ulc}_{lrc}"
-            ))
+            subcubes.append(
+                FullSkyCube(
+                    cube_samples=subcube_samples,
+                    grid=subgrid,
+                    flux_density_unit=self.flux_density_unit,
+                    reference=self.reference,
+                    doppler_convention=self.doppler_convention,
+                    prefix=f"{self.prefix}_{ulc}_{lrc}",
+                )
+            )
 
         return subcubes
 
-    def slice_cube_spectral(self,spectral_ranges):
+    def slice_cube_spectral(self, spectral_ranges):
         subcubes = []
         for sr in spectral_ranges:
             subgrid, subcube_samples = slice_cube_spectral(
-                cube_samples = self.cube_samples,
-                grid = self.grid,
-                spectral_range = sr
+                cube_samples=self.cube_samples, grid=self.grid, spectral_range=sr
             )
 
-            subcubes.append(FullSkyCube(
-                cube_samples = subcube_samples,
-                grid = subgrid,
-                flux_density_unit = self.flux_density_unit,
-                reference = self.reference,
-                doppler_convention = self.doppler_convention,
-                prefix = f"{self.prefix}_{sr[0]}_{sr[1]}"
-            ))
+            subcubes.append(
+                FullSkyCube(
+                    cube_samples=subcube_samples,
+                    grid=subgrid,
+                    flux_density_unit=self.flux_density_unit,
+                    reference=self.reference,
+                    doppler_convention=self.doppler_convention,
+                    prefix=f"{self.prefix}_{sr[0]}_{sr[1]}",
+                )
+            )
 
         return subcubes
-    
+
     def create_maps(self, map_configs: List[dict], output_directory: str):
         makedirs(output_directory, exist_ok=True)
         for cfg in map_configs:
-            
+
             match cfg["operation"]:
                 case "cube":
                     op = CubeOperator(
-                        cube_unit = self.flux_density_unit,
-                        prefix = self.prefix
+                        cube_unit=self.flux_density_unit, prefix=self.prefix
                     )
                 case "integrate":
                     op = setup_integrator_averager(
-                        averaging = False,
-                        integration_axes= cfg["axes"],
-                        cube_unit = self.flux_density_unit,
-                        grid = self.grid,
-                        doppler_convention= self.doppler_convention,
-                        reference = self.reference,
-                        prefix = self.prefix,
+                        averaging=False,
+                        integration_axes=cfg["axes"],
+                        cube_unit=self.flux_density_unit,
+                        grid=self.grid,
+                        doppler_convention=self.doppler_convention,
+                        reference=self.reference,
+                        prefix=self.prefix,
                     )
                 case "average":
                     op = setup_integrator_averager(
-                        averaging = True,
-                        integration_axes= cfg["axes"],
-                        cube_unit = self.flux_density_unit,
-                        grid = self.grid,
-                        doppler_convention= self.doppler_convention,
-                        reference = self.reference,
-                        prefix = self.prefix,
+                        averaging=True,
+                        integration_axes=cfg["axes"],
+                        cube_unit=self.flux_density_unit,
+                        grid=self.grid,
+                        doppler_convention=self.doppler_convention,
+                        reference=self.reference,
+                        prefix=self.prefix,
                     )
                 case "spectral_moment":
                     op = SpectralMomentMap(
-                        type = cfg["type"],
-                        frame = cfg["frame"],
-                        grid = self.grid,
-                        doppler_convention= self.doppler_convention,
-                        reference = self.reference,
-                        prefix = self.prefix,
+                        type=cfg["type"],
+                        frame=cfg["frame"],
+                        grid=self.grid,
+                        doppler_convention=self.doppler_convention,
+                        reference=self.reference,
+                        prefix=self.prefix,
                     )
                 case _:
                     raise NotImplementedError
 
             op.to_fits(
-                output_directory = output_directory,
-                cube_samples = self.cube_samples,
-                output_unit = cfg["output_unit"],
-                grid = self.grid,
-                save_std = cfg.get("save_std", True),
-                save_samples = cfg.get("save_samples", False),
+                output_directory=output_directory,
+                cube_samples=self.cube_samples,
+                output_unit=cfg["output_unit"],
+                grid=self.grid,
+                save_std=cfg.get("save_std", True),
+                save_samples=cfg.get("save_samples", False),
             )
 
     @classmethod
     def build_from_fullskymodel_and_latent_samples(
-        cls, 
-        full_sky_model: jft.Model, 
+        cls,
+        full_sky_model: jft.Model,
         latent_samples_path: str,
-        grid: Grid, 
+        grid: Grid,
         flux_density_unit: u.Unit,
         reference: u.Quantity,
         doppler_convention: str,
         prefix: str,
-        ):
+    ):
         import pickle
+
         with open(latent_samples_path, "rb") as f:
             samples, _ = pickle.load(f)
 
         sky_samples = np.array(list(full_sky_model(s) for s in samples))
 
         return cls(
-            cube_samples = sky_samples,
-            grid = grid,
-            flux_density_unit = flux_density_unit,
-            reference = reference,
-            doppler_convention = doppler_convention,
-            prefix = prefix,
+            cube_samples=sky_samples,
+            grid=grid,
+            flux_density_unit=flux_density_unit,
+            reference=reference,
+            doppler_convention=doppler_convention,
+            prefix=prefix,
         )

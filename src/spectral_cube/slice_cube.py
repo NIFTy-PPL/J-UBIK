@@ -13,6 +13,7 @@ import numpy as np
 import astropy.units as u
 from astropy.wcs import WCS
 
+
 def slice_cube_spatial(grid, cube_samples, upper_left_corner, lower_right_corner):
     """
     Fully exact FITS WCS cropper.
@@ -70,6 +71,7 @@ def slice_cube_spatial(grid, cube_samples, upper_left_corner, lower_right_corner
 
     return subgrid, subcube_samples
 
+
 # def slice_cube_spatial(cube_samples, grid: Grid, upper_left_corner: SkyCoord, lower_right_corner: SkyCoord, frame="icrs"):
 #     x_ul, y_ul = grid.spatial.world_to_pixel(upper_left_corner)
 #     x_lr, y_lr = grid.spatial.world_to_pixel(lower_right_corner)
@@ -122,7 +124,7 @@ def slice_cube_spatial(grid, cube_samples, upper_left_corner, lower_right_corner
 #         rotation = grid.spatial.rotation,
 #         coordinate_system = grid.spatial.coordinate_system,
 #     )
-    
+
 #     x_indices = np.arange(x_min, x_max)
 #     y_indices = np.arange(y_min, y_max)
 
@@ -137,19 +139,22 @@ def slice_cube_spatial(grid, cube_samples, upper_left_corner, lower_right_corner
 
 #     return subgrid, subcube_samples
 
+
 def slice_cube_spectral(cube_samples, grid, spectral_range):
     spec_min = Color(u.Quantity(spectral_range[0]))
     spec_max = Color(u.Quantity(spectral_range[1]))
     spec_min_index = get_spectral_range_index(grid.spectral, spec_min)[0]
     spec_max_index = get_spectral_range_index(grid.spectral, spec_max)[0]
-    indices_spec = np.arange(spec_min_index,spec_max_index + 1)
+    indices_spec = np.arange(spec_min_index, spec_max_index + 1)
 
     subgrid = Grid(
-        spatial = grid.spatial,
-        spectral = grid.spectral[spec_min_index : spec_max_index + 1],
-        polarization = grid.polarization,
+        spatial=grid.spatial,
+        spectral=grid.spectral[spec_min_index : spec_max_index + 1],
+        polarization=grid.polarization,
     )
 
-    subcube_samples = np.take(cube_samples, indices=indices_spec, axis=CubeAxes.SPECTRAL)
+    subcube_samples = np.take(
+        cube_samples, indices=indices_spec, axis=CubeAxes.SPECTRAL
+    )
 
     return subgrid, subcube_samples
