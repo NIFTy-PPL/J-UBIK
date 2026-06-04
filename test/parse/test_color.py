@@ -3,8 +3,8 @@ import numpy as np
 from astropy import units as u
 from numpy.testing import assert_allclose
 
-from jubik0.color import Color
-from jubik0.parse.color import yaml_to_binned_colors
+from jubik.color import Color
+from jubik.parse.color import yaml_to_binned_colors
 
 
 class TestYamlToBinnedColors:
@@ -180,9 +180,7 @@ class TestYamlToBinnedColors:
         """Test missing e_min key in dictionary format."""
         config = {
             "energy_unit": "keV",
-            "energy_bin": {
-                "e_max": [2.0, 5.0]  # Missing e_min
-            },
+            "energy_bin": {"e_max": [2.0, 5.0]},  # Missing e_min
         }
 
         with pytest.raises(KeyError):
@@ -192,9 +190,7 @@ class TestYamlToBinnedColors:
         """Test missing e_max key in dictionary format."""
         config = {
             "energy_unit": "keV",
-            "energy_bin": {
-                "e_min": [1.0, 3.0]  # Missing e_max
-            },
+            "energy_bin": {"e_min": [1.0, 3.0]},  # Missing e_max
         }
 
         with pytest.raises(KeyError):

@@ -2,7 +2,7 @@ from typing import Optional
 import numpy as np
 from astropy.io import fits
 from astropy import units as u
-from jubik0.grid import Grid
+from jubik.grid import Grid
 from numpy.typing import NDArray
 
 __all__ = ["FitsSaver"]
@@ -169,14 +169,16 @@ class FitsSaver:
         field_to_save = self.field.mean(axis=0, keepdims=True)
         self._save(filename, field_to_save, sky_unit)
 
-    def save_std(self, filename: str, sky_unit: u.Unit | None = None, correct_bias: bool = False):
+    def save_std(
+        self, filename: str, sky_unit: u.Unit | None = None, correct_bias: bool = False
+    ):
         """Averages data and saves, dynamically removing single-entry axes."""
         print(f"\n--- Saving mean to '{filename}' ---")
         # Average over samples, but keep the dimension for consistent processing
         field_to_save = self.field.std(axis=0, keepdims=True)
         # Apply Bessel correction if correct_bias is True
         N = self.field.shape[0]
-        correction = np.sqrt(N/(N-1)) if correct_bias else 1.0
+        correction = np.sqrt(N / (N - 1)) if correct_bias else 1.0
         field_to_save *= correction
 
         self._save(filename, field_to_save, sky_unit)

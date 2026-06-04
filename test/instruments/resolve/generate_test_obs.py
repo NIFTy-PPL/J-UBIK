@@ -1,5 +1,5 @@
 import numpy as np
-import jubik0.instruments.resolve as rve
+import jubik.instruments.resolve as rve
 
 
 def generate_random_obs(

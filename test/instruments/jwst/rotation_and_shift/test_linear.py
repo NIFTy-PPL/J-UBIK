@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from jubik0.instruments.jwst.rotation_and_shift.linear_rotation_and_shift import (
+from jubik.instruments.jwst.rotation_and_shift.linear_rotation_and_shift import (
     build_linear_rotation_and_shift,
 )
 

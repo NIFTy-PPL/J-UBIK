@@ -5,8 +5,8 @@ import pytest
 from numpy.testing import assert_allclose
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-import jubik0 as ju
-import jubik0.instruments.resolve as rve
+import jubik as ju
+import jubik.instruments.resolve as rve
 
 from generate_test_obs import generate_random_obs
 

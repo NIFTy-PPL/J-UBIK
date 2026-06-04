@@ -3,7 +3,7 @@ import pytest
 from astropy import units as u
 from numpy.testing import assert_allclose
 
-from jubik0.color import Color, get_2d_binbounds, get_spectral_range_index
+from jubik.color import Color, get_2d_binbounds, get_spectral_range_index
 
 
 class TestColorClass:
