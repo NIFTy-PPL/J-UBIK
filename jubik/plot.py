@@ -36,8 +36,8 @@ def plot_result(array,
     """
     Plot a 2D array using imshow() from the matplotlib library.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     array : numpy.ndarray
         Array of images. The first index indices through the different images
         (e.g., shape = (5, 128, 128)).
@@ -76,8 +76,8 @@ def plot_result(array,
     kwargs : dict, optional
         Additional keyword arguments to pass to imshow().
 
-    Returns:
-    --------
+    Returns
+    -------
     None
     """
 
@@ -259,8 +259,8 @@ def plot_sample_averaged_log_2d_histogram(x_array_list,
     """ Plot a 2d histogram for the arrays given for x_array and y_array.
 
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x_array_list : list of numpy.ndarray
         list of samples of x_axis array of 2d-histogram
     x_label : string
@@ -288,8 +288,8 @@ def plot_sample_averaged_log_2d_histogram(x_array_list,
     figsize : tuple, optional
         Size of the figure
 
-    Returns:
-    --------
+    Returns
+    -------
     None
     """
     if len(x_array_list) != len(y_array_list):
@@ -431,14 +431,14 @@ def _get_n_rows_from_n_samples(n_samples):
     """
     A function to get the number of rows from the given number of samples.
 
-    Parameters:
+    Parameters
     ----------
-    n_samples: `int`.
-    The number of samples.
+    n_samples: int
+        number of samples
 
-    Returns:
+    Returns
     -------
-    `int`: The number of rows.
+    number of rows: int
     """
     threshold = 2
     n_rows = 1
@@ -471,7 +471,7 @@ def _norm_rgb_plot(x):
 
 
 def _gauss(x, y, sig):
-    """2D Normal distribution"""
+    """Evaluate 2D Normal distribution."""
     const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
     r = np.sqrt(x ** 2 + y ** 2)
     f = const * np.exp(-r ** 2 / (2 * sig ** 2))
@@ -479,7 +479,19 @@ def _gauss(x, y, sig):
 
 
 def get_gaussian_kernel(domain, sigma):
-    """"2D Gaussian kernel for fft convolution."""
+    """Get 2D Gaussian kernel for fft convolution.
+
+    Parameters
+    ----------
+    domain: jubik.Domain
+        domain of the Gaussian kernel
+    sigma: float
+        standard deviation of the Gaussian
+
+    Returns
+    -------
+    Gauss kernel: 2D array
+    """
     border = (domain.shape * domain.distances // 2)
     x = np.linspace(-border[0], border[0], domain.shape[0])
     y = np.linspace(-border[1], border[1], domain.shape[1])

@@ -33,6 +33,10 @@ from .sky_model.multifrequency.spectral_product_mf_sky import (
     build_simple_spectral_sky,
     build_simple_spectral_sky_from_grid,
 )
+from .sky_model.multifrequency.spectral_product_mf_point_sources import (
+    MultiFrequencyInvGammaSky,
+    build_mf_invgamma_sky,
+)
 from .sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope
 from .response import build_exposure_function, build_readout_function
 from .instruments.erosita.erosita_response import (build_callable_from_exposure_file,
