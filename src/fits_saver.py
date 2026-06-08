@@ -12,32 +12,63 @@ __all__ = ["FitsSaver"]
 # --------------------------------------------------------------------------------------
 
 
+def _is_uniform(values: NDArray, rtol: float = 1e-4) -> bool:
+    """True if `values` are equally spaced (so a linear FITS axis is exact)."""
+    if len(values) < 3:
+        return True
+    steps = np.diff(np.asarray(values, dtype=float))
+    return bool(np.allclose(steps, steps[0], rtol=rtol, atol=0.0))
+
+
+def _freq_tab_hdu(freqs_hz: NDArray, extname: str, colname: str) -> fits.BinTableHDU:
+    """Coordinate-array HDU for a FITS -TAB spectral axis (WCS Paper III).
+
+    The lookup table holds the true per-channel frequencies. Per the standard the
+    coordinate array has the WCS-axis count (=1) as its last (fastest) dimension and
+    the K sample points as the slower one -> numpy cell shape (K, 1), written with
+    TDIM '(1,K)' (FITS axis order is reversed w.r.t. numpy).
+    """
+    k = len(freqs_hz)
+    cell = np.asarray(freqs_hz, dtype=np.float64).reshape(1, k, 1)  # (nrows=1, K, 1)
+    col = fits.Column(name=colname, format=f"{k}D", dim=f"(1,{k})", array=cell)
+    return fits.BinTableHDU.from_columns([col], name=extname)
+
+
 def _process_frequency(
     header: fits.Header, grid: Grid, field: NDArray, np_axis: int, fits_axis: int
 ) -> tuple[Optional[fits.BinTableHDU], NDArray]:
-    """Processes the frequency axis. This axis is never squeezed."""
+    """Processes the frequency axis. This axis is never squeezed.
+
+    Uniform channels get a plain linear axis (exact, read by every tool). Non-uniform
+    channels (e.g. two disjoint spectral windows with a gap) cannot be described by a
+    single CRVAL/CDELT, so a FITS -TAB lookup-table axis is written instead and the
+    accompanying coordinate-array HDU is returned for attachment to the HDUList.
+    """
     freqs = u.Quantity(grid.spectral.center).to(u.Hz, equivalencies=u.spectral())
 
     if field.shape[np_axis] == 1 and np.isinf(freqs[0]):
         return None, np.squeeze(field, axis=np_axis)
 
-    # This is only approximate for backward compatibility
-    header[f"CTYPE{fits_axis}"] = "FREQ"
-    header[f"CUNIT{fits_axis}"] = freqs.unit.to_string("fits")
-    header[f"CRPIX{fits_axis}"] = 1  # Fits reference 0-th axis is indexed by 1
-    header[f"CRVAL{fits_axis}"] = freqs[0].value
-    header[f"CDELT{fits_axis}"] = (
-        (freqs[1].value - freqs[0].value) if len(freqs) > 1 else 0.0
-    )
+    fval = freqs.value
+    header[f"CUNIT{fits_axis}"] = "Hz"
 
-    # This is the most exact description only available in newer programs.
-    freq_col = fits.Column(
-        name="FREQUENCY",
-        format="E",
-        unit=freqs.unit.to_string("fits"),
-        array=freqs.value,
-    )
-    return fits.BinTableHDU.from_columns([freq_col], name="FREQUENCIES"), field
+    if _is_uniform(fval):
+        header[f"CTYPE{fits_axis}"] = "FREQ"
+        header[f"CRPIX{fits_axis}"] = 1  # Fits reference 0-th axis is indexed by 1
+        header[f"CRVAL{fits_axis}"] = float(fval[0])
+        header[f"CDELT{fits_axis}"] = float(fval[1] - fval[0]) if len(fval) > 1 else 0.0
+        return None, field
+
+    # Non-uniform -> tabulated (-TAB) axis. CRPIX/CRVAL/CDELT = 1 makes the intermediate
+    # coordinate equal the 1-based channel number, which directly indexes the table.
+    extname, colname = "WCS-FREQ", "FREQ"
+    header[f"CTYPE{fits_axis}"] = "FREQ-TAB"
+    header[f"CRPIX{fits_axis}"] = 1
+    header[f"CRVAL{fits_axis}"] = 1
+    header[f"CDELT{fits_axis}"] = 1
+    header[f"PS{fits_axis}_0"] = extname   # coordinate-array extension (EXTNAME)
+    header[f"PS{fits_axis}_1"] = colname   # coordinate-array column
+    return _freq_tab_hdu(fval, extname, colname), field
 
 
 def _process_time(
@@ -121,7 +152,6 @@ def _process_dynamic_axes(
     Processes axes from highest index to lowest to prevent index shifting.
     """
     header = fits.Header()
-    extension_hdus = []
     processed_field = field.copy()
 
     # Fields shape: (sample, pol, time, freq, y, x)
@@ -142,6 +172,10 @@ def _process_dynamic_axes(
         header, grid, processed_field, *axes["polarization"]
     )
     processed_field = _process_sample(header, processed_field, *axes["samples"])
+
+    # Attach any coordinate-array extensions the axis processors produced (e.g. the
+    # -TAB frequency lookup table). Previously these were built and silently dropped.
+    extension_hdus = [h for h in (hdu_freq, hdu_time, hdu_pola) if h is not None]
 
     return header, extension_hdus, processed_field
 
