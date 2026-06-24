@@ -10,7 +10,7 @@ from . import enforce_float64
 from .utils import (save_to_pickle, load_from_pickle, get_config, save_to_yaml,
                     copy_config, create_output_directory,
                     coord_center, get_stats)
-from .plot import (plot_result, plot_histograms,
+from .plot import (plot_result, plot_healpix_result, plot_histograms,
                    plot_sample_averaged_log_2d_histogram, plot_rgb)
 from .sugar_plot import (plot_pspec, plot_sample_and_stats,
                          plot_sample_and_stats, plot_erosita_priors,

@@ -178,6 +178,136 @@ def plot_result(array,
             plt.show()
 
 
+def plot_healpix_result(array,
+                        output_file=None,
+                        title=None,
+                        colorbar=True,
+                        figsize=(12, 6),
+                        dpi=100,
+                        n_rows=None,
+                        n_cols=None,
+                        common_colorbar=False,
+                        cmap="viridis",
+                        nest=False,
+                        unit="",
+                        min=None,
+                        max=None,
+                        **kwargs):
+    """
+    Plot one or more HEALPix maps using healpy.mollview().
+
+    Parameters
+    ----------
+    array : numpy.ndarray
+        HEALPix map or stack of HEALPix maps. Accepted shapes are
+        (npix,) or (n_maps, npix), where npix = 12 * nside**2.
+    output_file : str, optional
+        The name of the file to save the plot to.
+    title : str or list[str], optional
+        Figure title or per-panel titles.
+    colorbar : bool, optional
+        Whether to show color bars.
+    figsize : tuple, optional
+        Figure size in inches.
+    dpi : int, optional
+        Figure resolution.
+    n_rows : int, optional
+        Number of rows.
+    n_cols : int, optional
+        Number of columns.
+    common_colorbar : bool, optional
+        Whether to use common min/max values for all panels.
+    cmap : str, optional
+        Matplotlib colormap.
+    nest : bool, optional
+        Whether the HEALPix map uses NESTED ordering.
+    unit : str, optional
+        Colorbar label.
+    min, max : float, optional
+        Color scale limits.
+    kwargs : dict, optional
+        Additional keyword arguments passed to healpy.mollview().
+
+    Returns
+    -------
+    None
+    """
+    try:
+        import healpy as hp
+    except ImportError as exc:
+        raise ImportError(
+            "plot_healpix_result requires healpy. "
+            "Install it with `pip install healpy` or `conda install -c conda-forge healpy`."
+        ) from exc
+
+    array = np.asarray(array)
+
+    if array.ndim == 1:
+        array = array[np.newaxis, :]
+    elif array.ndim != 2:
+        raise ValueError(
+            "Wrong input shape for HEALPix plot. Expected shape (npix,) "
+            "or (n_maps, npix)."
+        )
+
+    n_plots, npix = array.shape
+    nside = hp.npix2nside(npix)
+    if hp.nside2npix(nside) != npix:
+        raise ValueError(
+            f"Invalid HEALPix map length {npix}. Expected npix = 12 * nside**2."
+        )
+
+    if n_rows is None:
+        n_rows = _get_n_rows_from_n_samples(n_plots)
+
+    if n_cols is None:
+        if n_plots % n_rows == 0:
+            n_cols = n_plots // n_rows
+        else:
+            n_cols = n_plots // n_rows + 1
+
+    vmin = min
+    vmax = max
+    if common_colorbar:
+        if vmin is None:
+            vmin = float(np.nanmin(array))
+        if vmax is None:
+            vmax = float(np.nanmax(array))
+
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+
+    for i in range(n_plots):
+        if isinstance(title, list):
+            panel_title = title[i]
+        elif title is not None and n_plots == 1:
+            panel_title = title
+        elif title is not None:
+            panel_title = f"{title} [{i}]"
+        else:
+            panel_title = ""
+
+        hp.mollview(
+            array[i],
+            fig=fig.number,
+            sub=(n_rows, n_cols, i + 1),
+            title=panel_title,
+            cbar=colorbar,
+            cmap=cmap,
+            nest=nest,
+            unit=unit,
+            min=vmin,
+            max=vmax,
+            **kwargs,
+        )
+
+    if output_file is not None:
+        fig.savefig(output_file, bbox_inches="tight", pad_inches=0)
+        print(f"Plot saved as {output_file}.")
+        plt.close(fig)
+    else:
+        plt.show()
+
+
 def plot_histograms(hist,
                     edges,
                     filename,
