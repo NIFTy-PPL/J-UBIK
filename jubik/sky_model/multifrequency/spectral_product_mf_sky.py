@@ -12,8 +12,11 @@ import numpy as np
 from jax import vmap
 from nifty.re import logger
 from nifty.re.correlated_field import (
+    HEALPixGrid,
     MaternAmplitude,
     NonParametricAmplitude,
+    RegularCartesianGrid,
+    get_sht,
     hartley,
     make_grid,
 )
@@ -41,6 +44,21 @@ from .spectral_product_utils.spectral_behavior import (
     SingleHarmonicLogSpectralBehavior,
     SpectralIndex,
 )
+
+def _get_harmonic_transform(grid, *, sht_nthreads: int = 1):
+    if isinstance(grid, RegularCartesianGrid):
+        return partial(hartley, axes=tuple(range(len(grid.harmonic_grid.shape))))
+
+    if isinstance(grid, HEALPixGrid):
+        return get_sht(
+            nside=grid.nside,
+            axis=0,
+            lmax=grid.harmonic_grid.lmax,
+            mmax=grid.harmonic_grid.mmax,
+            nthreads=sht_nthreads,
+        )
+
+    raise TypeError(f"Unsupported grid type: {type(grid)!r}")
 
 
 class SpectralProductSky(Model):
@@ -85,6 +103,7 @@ class SpectralProductSky(Model):
         spectral_index_deviations: Optional[Model] = None,
         log_ref_freq_mean_model: Optional[Model] = None,
         nonlinearity: Optional[Callable] = jnp.exp,
+        sht_nthreads: int = 1,
     ):
         """
         Parameters
@@ -124,7 +143,7 @@ class SpectralProductSky(Model):
         grid = spatial_amplitude.grid
         self._hdvol = 1.0 / grid.total_volume
         self._pd = grid.harmonic_grid.power_distributor
-        self._ht = partial(hartley, axes=tuple(range(len(grid.shape))))
+        self._ht = _get_harmonic_transform(grid, sht_nthreads=sht_nthreads)
         self._nonlinearity = nonlinearity
 
         self.zero_mode = zero_mode
@@ -465,6 +484,7 @@ def build_simple_spectral_sky(
     spectral_amplitude_model: str = "non_parametric",
     harmonic_type: str = "fourier",
     nonlinearity: callable = jnp.exp,
+    sht_nthreads: int = 1,
 ) -> SpectralProductSky:
     """
     Builds a multi-frequency sky model parametrized as
@@ -553,12 +573,13 @@ def build_simple_spectral_sky(
     """
 
     grid = make_grid(shape, distances, harmonic_type)
+    harmonic_shape = grid.harmonic_grid.shape
 
     fluct = "fluctuations" if "fluctuations" in spatial_amplitude_settings else "scale"
     spatial_fluctuations = build_scaled_excitations(
         f"{prefix}_spatial",
         fluctuations_settings=spatial_amplitude_settings[fluct],
-        shape=shape,
+        shape=harmonic_shape,
     )
     spatial_amplitude = build_normalized_amplitude_model(
         grid,
@@ -583,7 +604,7 @@ def build_simple_spectral_sky(
         spectral_index_fluctuations = build_scaled_excitations(
             prefix=f"{prefix}_spectral_index",
             fluctuations_settings=spectral_index_settings["fluctuations"],
-            shape=shape,
+            shape=harmonic_shape,
         )
 
     log_spectral_behavior = SpectralIndex(
@@ -602,7 +623,7 @@ def build_simple_spectral_sky(
         )
 
     deviations_model = build_frequency_deviations_model_with_degeneracies(
-        shape,
+        harmonic_shape,
         log_frequencies,
         reference_frequency_index,
         deviations_settings,
@@ -622,6 +643,7 @@ def build_simple_spectral_sky(
         spectral_index_deviations=deviations_model,
         log_ref_freq_mean_model=log_reference_frequency_mean_model,
         nonlinearity=nonlinearity,
+        sht_nthreads=sht_nthreads,
     )
 
     # NOTE : In principle the SpectralProductSky doesn't need to have a prefix, as the
