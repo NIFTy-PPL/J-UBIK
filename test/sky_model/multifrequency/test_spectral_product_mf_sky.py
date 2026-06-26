@@ -416,3 +416,76 @@ def test_simple_vs_complex_evaluation():
     key = random.PRNGKey(52)
     ini = mf_sky_single.init(key)
     assert_allclose(mf_sky_single(ini), mf_sky_nonsingle(ini))
+
+
+@pmp("seed", [12, 42])
+@pmp("deviations_settings", [None, dict(process="wiener", sigma=(1.0, 0.1))])
+def test_healpix_spectral_product_sky_forward(seed, deviations_settings):
+    nside = 8
+    shape = (nside,)
+    distances = (1.0,)  # Dummy value for HEALPix; nside fixes the grid.
+    log_frequencies = np.array((0.1, 0.2, 0.6))
+    reference_freq_idx = 0
+
+    grid = make_grid(shape, distances, "spherical")
+    harmonic_shape = grid.harmonic_grid.shape
+
+    prefix = "healpix_test"
+    fluct = (0.1, 0.01)
+    avgsl = (-4.0, 0.1)
+
+    spatial_amplitude = NonParametricAmplitude(
+        grid,
+        None,
+        jft.normal_prior(*avgsl),
+        prefix=f"{prefix}_",
+    )
+
+    spatial_fluctuations = build_scaled_excitations(
+        prefix=f"{prefix}_spatial",
+        fluctuations_settings=fluct,
+        shape=harmonic_shape,
+    )
+
+    spectral_index_mean = jft.NormalPrior(
+        0.0,
+        1.0,
+        name=f"{prefix}_spectral_index_mean",
+    )
+
+    spectral_fluctuations = build_scaled_excitations(
+        prefix=f"{prefix}_spectral",
+        fluctuations_settings=fluct,
+        shape=harmonic_shape,
+    )
+
+    spectral_behavior = SpectralIndex(
+        log_frequencies=log_frequencies,
+        mean=spectral_index_mean,
+        spectral_scaled_excitations=spectral_fluctuations,
+        reference_frequency_index=reference_freq_idx,
+    )
+
+    deviations_model = build_frequency_deviations_model_with_degeneracies(
+        harmonic_shape,
+        log_frequencies,
+        reference_freq_idx,
+        deviations_settings,
+    )
+
+    zero_mode = jft.Model(lambda p: 0.1, domain={f"{prefix}_zero_mode": None})
+
+    mf_sky = ju.SpectralProductSky(
+        zero_mode,
+        spatial_fluctuations,
+        spatial_amplitude,
+        spectral_behavior,
+        spectral_index_deviations=deviations_model,
+        sht_nthreads=1,
+    )
+
+    rp = mf_sky.init(random.PRNGKey(seed))
+    sky = mf_sky(rp)
+
+    assert sky.shape == (log_frequencies.size, 12 * nside**2)
+    assert np.all(np.isfinite(np.asarray(sky)))
