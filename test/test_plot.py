@@ -96,7 +96,7 @@ def test_plot_result_common_colorbar_writes_file(tmp_path):
     _assert_written_image(out)
 
 
-@pytest.mark.parametrize("shape", [(64,), (2, 3, 4, 5)])
+@pytest.mark.parametrize("shape", [(64,), (2, 3, 4, 5, 6)])
 def test_plot_result_invalid_shape_raises(shape):
     arr = np.zeros(shape, dtype=float)
 
@@ -117,7 +117,10 @@ def test_plot_histograms_writes_file(tmp_path):
 def test_get_n_rows_from_n_samples_helper():
     assert _get_n_rows_from_n_samples(1) == 1
     assert _get_n_rows_from_n_samples(2) == 1
-    assert _get_n_rows_from_n_samples(3) == 2
-    assert _get_n_rows_from_n_samples(8) == 2
+    assert _get_n_rows_from_n_samples(3) == 1
+    assert _get_n_rows_from_n_samples(4) == 2
+    assert _get_n_rows_from_n_samples(5) == 1
+    assert _get_n_rows_from_n_samples(6) == 2
+    assert _get_n_rows_from_n_samples(8) == 3
     assert _get_n_rows_from_n_samples(10) == 3
     assert _get_n_rows_from_n_samples(11) == 3

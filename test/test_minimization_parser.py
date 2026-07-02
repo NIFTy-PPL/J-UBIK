@@ -59,9 +59,10 @@ class TestMinimizationParser:
     def test_get_range_index_missing_switches_defaults_to_zero(self):
         assert get_range_index({}, 0, 5) == 0
 
-    def test_get_range_index_out_of_range_raises(self):
-        with pytest.raises(ValueError, match="out of range"):
-            get_range_index({'switches': [0, 5]}, 10, 8)
+    def test_get_range_index_out_of_range_clamps_to_last(self):
+        # Iterations beyond n_total_iterations clamp to the last switch
+        # range instead of raising (c3eefbe5).
+        assert get_range_index({'switches': [0, 5]}, 10, 8) == 2
 
     @pytest.mark.parametrize("type, config, switches_index, expected", [
         ('kl', {'values': [0.1, 0.2, 0.3]}, 0, 1.0),
