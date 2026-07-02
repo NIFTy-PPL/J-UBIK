@@ -4,20 +4,20 @@ stages:
   - release
 
 before_script:
-  - python3 -m pip install .
-
+  - python3 -m pip install -e .[resolve]
 test:
   image: python:latest
   stage: test
   script:
-    - pip install pytest
-    - pytest test/ --ignore=test/instruments/chandra/
+    - pip install pytest pytest-cov
+    - pytest --cov=jubik test/
+  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
 
 pages:
   image: python:latest
   stage: release
   script:
-    - pip install "sphinx<8.2" sphinxcontrib-bibtex pydata-sphinx-theme myst-parser
+    - pip install .[doc]
     - sh docs/generate.sh
     - mv docs/build/ public/
   artifacts:

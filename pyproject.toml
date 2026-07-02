@@ -37,7 +37,8 @@ version = {attr = "jubik.__version__"}
 
 [project.optional-dependencies]
 doc = [
-    "sphinx",
+    "sphinx<8.2",
+    "sphinxcontrib-bibtex",
     "pydata-sphinx-theme",
     "myst-parser",
     "jupyter",
@@ -47,6 +48,17 @@ doc = [
 test = [
     "pytest",
     "pytest-cov",
+]
+
+resolve = [
+    "jaxbind",
+    "jax-finufft",
+]
+
+jwst = [
+    "gwcs>=0.24.0",
+    "jwst>=1.9.1",
+    "stpsf>=2.1.0",
 ]
 
 [build-system]

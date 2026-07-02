@@ -4,6 +4,7 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
+from os import makedirs
 from os.path import isfile, join
 
 import numpy as np
@@ -93,7 +94,7 @@ def build_webb_psf(
     >>> )
     """
     try:
-        import webbpsf
+        import stpsf as webbpsf
     except ImportError:
         raise ImportError("webbpsf is not installed. Please install it first")
     from os import environ
@@ -174,6 +175,7 @@ def load_psf_kernel(
         (camera, filter, center_pixel_str, f"{psf_arcsec}arcsec", f"sub{subsample}")
     )
     path_to_file = join(psf_library_path, file_name)
+    makedirs(psf_library_path, exist_ok=True)
 
     if isfile(path_to_file + ".npy"):
         print("*" * 80)

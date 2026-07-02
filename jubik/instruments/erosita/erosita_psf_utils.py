@@ -72,11 +72,10 @@ def get_interpolation_weights(rs, r):
 
 
 def to_patch_coordinates(dcoords, patch_center, patch_delta):
-    """
-    Transforms distances in sky coordinates to coordinates of the psf patch
+    """Transform distances in sky coordinates to coordinates of the PSF patch.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     dcoords: numpy.ndarray
         Distances in sky coordinates which shall be transformed
     patch_center: numpy.ndarray
@@ -89,9 +88,10 @@ def to_patch_coordinates(dcoords, patch_center, patch_delta):
 
 
 def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
-    """
-    Parameters:
-    -----------
+    """Get PSF.
+
+    Parameters
+    ----------
     psfs: numpy.ndarray (Shape: rs.shape + psf.shape)
         Psf grids for each off axis radius.
     rs: numpy.ndarray
@@ -104,8 +104,9 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
         Pixelsize of the gridded psfs.
     pointing_center: tuple of float (Shape: (2,))
         Center of the pointing of the module on the sky.
-    Returns:
-    --------
+
+    Returns
+    -------
     func:
         Function that evaluates the psf at ra-dec (sky) coordinates and as a
         function of distance `dra` and `ddec`.
@@ -132,7 +133,8 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
             raise ValueError
 
     def psf(ra, dec, dra, ddec):
-        """
+        """PSF function.
+
         ra: right ascession of the center a patch
         dec: declination of the center of a patch
         dra: relative coordinate grid from "the" center (IMHO should be the poiting center)
@@ -171,16 +173,19 @@ def get_psf(psfs, rs, patch_center_ids, patch_deltas, pointing_center):
 
 
 def get_psf_func(domain, psf_infos):
-    """
+    """Return PSF.
+
     # FIXME Remove domain, is not needed.
     Convenience function for get_psf. Takes a dictionary,
     build by eROSITA-PSF.psf_infos and returns a function.
 
-    Parameters:
-    -----------
-    psf_infos: dictionary built by #FIXME enter the right name
+    Parameters
+    ----------
+    psf_infos: dictionary built by eROSITA_PSF class.
 
-    returns: psf-function
+    Returns
+    -------
+    callable: psf-function
     """
     psfs = psf_infos['psfs']
     rs = psf_infos['rs']
@@ -191,6 +196,7 @@ def get_psf_func(domain, psf_infos):
 
 
 def psf_interpolator(domain, npatch, psf_infos):
+    """Interpolate PSF."""
     all_patches = []
     for info in psf_infos:
         # TODO enable this test

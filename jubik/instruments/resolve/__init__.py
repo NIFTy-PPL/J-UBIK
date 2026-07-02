@@ -16,6 +16,7 @@ from .response import interferometry_response
 from .stokes_adder import StokesAdder
 
 from . import parse
+from .dirty_image import dirty_image
 
 try:
     from . import re

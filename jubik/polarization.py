@@ -145,5 +145,17 @@ class PolarizationType(Enum):
 
         return cls(typ)
 
+    def get_legacy_polarization(self):
+        if self == self.I:
+            indices = []
+        else:
+            indices = [POLARIZATION_INVTABLE[p] for p in self.value]
+        return Polarization(indices)
+
+    @property
+    def shape(self):
+        """Shape of the grid. (spectral, spatial)"""
+        return (len(self),)
+
     def __len__(self):
         return len(self.value)

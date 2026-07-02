@@ -1,9 +1,18 @@
 # test_chandra_observation.py
-from os.path import join
+from collections import Counter
 
+import numpy as np
 import pytest
+from astropy.io import fits
 
 import jubik as ju
+
+ciao_installed = True
+
+try:
+    import ciao_contrib
+except ImportError:
+    ciao_installed = False
 
 
 @pytest.fixture
@@ -18,6 +27,7 @@ def sample_obs_info(request):
     }
 
 
+@pytest.mark.skipif(not ciao_installed, reason="CIAO is not installed")
 def test_initialization(sample_obs_info):
     npix_s = 1024
     npix_e = 100
@@ -56,6 +66,8 @@ def test_initialization(sample_obs_info):
     assert chandra_obs.obsInfo['energy_ranges'] == energy_ranges
     assert chandra_obs.obsInfo['chips_off'] == chips_off
 
+
+@pytest.mark.skipif(not ciao_installed, reason="CIAO is not installed")
 def test_get_data(sample_obs_info, request):
     npix_s = 1024
     npix_e = 100
@@ -76,7 +88,45 @@ def test_get_data(sample_obs_info, request):
         chips_off=chips_off
     )
 
-    data_array = chandra_obs.get_data(
-        f"{request.path.parent}/chandra_test_data/generated_data.fits"
-    )
-    assert data_array.shape == (npix_s, npix_s, npix_e) 
+    outfile = f"{request.path.parent}/chandra_test_data/generated_data.fits"
+    data_array = chandra_obs.get_data(outfile)
+    assert data_array.shape == (npix_s, npix_s, npix_e)
+    assert np.issubdtype(data_array.dtype, np.integer)
+    assert np.isfinite(data_array).all()
+    assert (data_array >= 0).all()
+    assert data_array.sum() > 0
+    assert chandra_obs.obsInfo["ntot_binned"] == data_array.sum()
+
+    # Reconstruct the expected histogram from the filtered event list written by
+    # CIAO
+    with fits.open(outfile) as dat_filtered:
+        evts = dat_filtered["EVENTS"].data
+
+    x_edges = np.linspace(chandra_obs.obsInfo["x_min"], chandra_obs.obsInfo["x_max"], npix_s + 1)
+    y_edges = np.linspace(chandra_obs.obsInfo["y_min"], chandra_obs.obsInfo["y_max"], npix_s + 1)
+    e_edges = np.linspace(np.log(chandra_obs.obsInfo["energy_min"]),
+                          np.log(chandra_obs.obsInfo["energy_max"]),
+                          npix_e + 1)
+
+    counts = Counter()
+    for x, y, energy in zip(evts["x"], evts["y"], evts["energy"]):
+        log_energy = np.log(1.e-3 * energy)
+
+        ix = np.searchsorted(x_edges, x, side="right") - 1
+        iy = np.searchsorted(y_edges, y, side="right") - 1
+        ie = np.searchsorted(e_edges, log_energy, side="right") - 1
+
+        if ix == npix_s and x == x_edges[-1]:
+            ix = npix_s - 1
+        if iy == npix_s and y == y_edges[-1]:
+            iy = npix_s - 1
+        if ie == npix_e and log_energy == e_edges[-1]:
+            ie = npix_e - 1
+
+        if 0 <= ix < npix_s and 0 <= iy < npix_s and 0 <= ie < npix_e:
+            counts[(iy, ix, ie)] += 1
+
+    assert data_array.sum() == sum(counts.values())
+    assert data_array.sum() <= len(evts)
+    for bin_idx, count in counts.items():
+        assert data_array[bin_idx] == count

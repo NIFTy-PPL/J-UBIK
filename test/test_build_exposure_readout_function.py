@@ -6,17 +6,16 @@ import jubik as ju
 
 
 @pytest.mark.parametrize("keys", [
-    ('tm_1', 'tm_2')])  # TODO: test more cases (e.g. the single tm case which would now fail.)
+    ('tm_1', 'tm_2')])
 class TestBuildReadoutFunction:
     @pytest.fixture
     def exposures(self):
-        s_size = 100
+        rng = np.random.default_rng(0)
+        s_size = 24
         e_size = 3
-        return np.random.uniform(0., 3e3, size=2 * s_size ** 2*
-                                 e_size).reshape((2,
-                                                  e_size,
-                                                  s_size,
-                                                  s_size))
+        return rng.uniform(0.0, 3e3, size=2 * s_size**2 * e_size).reshape(
+            (2, e_size, s_size, s_size)
+        )
 
     @pytest.fixture
     def exposure_cut(self):
@@ -28,51 +27,82 @@ class TestBuildReadoutFunction:
 
     @pytest.fixture
     def x(self):
-        s_size = 100
+        s_size = 24
         e_size = 3
-        exposed_sky_1 = np.ones((e_size, s_size, s_size)) * 100
-        exposed_sky_2 = np.ones_like(exposed_sky_1) * 40
-        return np.stack((exposed_sky_1, exposed_sky_2))
+        return (
+            np.arange(2 * e_size * s_size * s_size, dtype=float)
+            .reshape((2, e_size, s_size, s_size))
+            + 0.5
+        )
 
     @pytest.fixture
     def single_exposured_sky(self):
-        s_size = 100
+        s_size = 24
         e_size = 3
-        return np.expand_dims(np.ones((e_size, s_size, s_size)) * 100, axis=0)
-
-    @pytest.fixture
-    def expected_result(self, exposures, exposure_cut, x, keys):
-        mask = exposures < exposure_cut
-        return jft.Vector({key: x[i][~mask[i]] for i, key in enumerate(keys)})
+        return (
+            np.arange(e_size * s_size * s_size, dtype=float)
+            .reshape((1, e_size, s_size, s_size))
+            + 1.0
+        )
 
     def test_build_readout_function(self, exposures, exposure_cut,
-                                    keys, x, expected_result):
-        build_exposure_readout = ju.build_readout_function(exposures,
+                                    keys, x):
+        flags = exposures.copy()
+        mask = flags < exposure_cut
+        expected_result = jft.Vector({key: x[i][~mask[i]] for i, key in enumerate(keys)})
+
+        build_exposure_readout = ju.build_readout_function(flags,
                                                            exposure_cut, keys)
         result = build_exposure_readout(x)
-        assert result.tree.keys() == expected_result.tree.keys()
-        np.testing.assert_array_equal(list(result.tree.values())[0],
-                                      list(expected_result.tree.values())[0])
+
+        assert tuple(result.tree.keys()) == keys
+        for i, key in enumerate(keys):
+            res = np.asarray(result.tree[key])
+            exp = np.asarray(expected_result.tree[key])
+            assert res.ndim == 1
+            assert res.size == np.count_nonzero(~mask[i])
+            assert np.isfinite(res).all()
+            np.testing.assert_array_equal(res, exp)
 
     def test_build_readout_function_wrong_input_shape(self, exposures,
                                                       exposure_cut, keys, x):
-        build_exposure_readout = ju.build_readout_function(exposures,
+        build_exposure_readout = ju.build_readout_function(exposures.copy(),
                                                            exposure_cut, keys)
         with pytest.raises(ValueError):
             build_exposure_readout(x[0])
 
     def test_build_readout_function_negative_exposure_cut(self, exposures, keys):
         with pytest.raises(ValueError):
-            ju.build_readout_function(exposures, -1, keys)
+            ju.build_readout_function(exposures.copy(), -1, keys)
 
-    def test_build_readout_function_with_none_keys(self, single_exposure, exposure_cut, x,
-                                                   single_exposured_sky, keys):
-        build_exposure_readout = ju.build_readout_function(single_exposure, exposure_cut, None)
+    def test_build_readout_function_keys_length_mismatch(self, exposures, exposure_cut, keys):
+        with pytest.raises(ValueError):
+            ju.build_readout_function(exposures.copy(), exposure_cut, ("tm_1",))
+
+    def test_build_readout_function_with_none_threshold_reads_all_elements(self, exposures, keys, x):
+        build_exposure_readout = ju.build_readout_function(exposures.copy(), None, keys)
         result = build_exposure_readout(x)
-        exposure = single_exposure.copy()
-        exposure[exposure < exposure_cut] = 0
-        mask = exposure != 0
-        expected_result = jft.Vector({'masked input': single_exposured_sky[mask]})
-        assert result.tree.keys() == expected_result.tree.keys()
-        np.testing.assert_array_equal(list(result.tree.values())[0],
-                                      list(expected_result.tree.values())[0])
+
+        for i, key in enumerate(keys):
+            np.testing.assert_array_equal(np.asarray(result.tree[key]), x[i].ravel())
+
+    def test_build_readout_function_with_none_keys(self, single_exposure, exposure_cut,
+                                                   single_exposured_sky, keys):
+        flags = single_exposure.copy()
+        mask = flags < exposure_cut
+        build_exposure_readout = ju.build_readout_function(flags, exposure_cut, None)
+        result = build_exposure_readout(single_exposured_sky)
+
+        expected = single_exposured_sky[0][~mask[0]]
+        assert tuple(result.tree.keys()) == ("masked input",)
+        assert np.asarray(result.tree["masked input"]).size == np.count_nonzero(~mask[0])
+        np.testing.assert_array_equal(np.asarray(result.tree["masked input"]), expected)
+
+    def test_build_readout_function_wrong_flags_shape_raises(self, keys):
+        # `flags` must be 4D; this covers the dedicated shape check branch.
+        flags = np.ones((1, 4, 4))
+        x = np.ones((1, 2, 4, 4))
+        readout = ju.build_readout_function(flags, threshold=None, keys=keys[:1])
+
+        with pytest.raises(ValueError, match="flags should have shape"):
+            readout(x)

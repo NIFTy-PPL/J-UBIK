@@ -5,6 +5,9 @@
 
 # %%
 
+import warnings
+from typing import Iterable, Union
+
 import numpy as np
 from astropy import units as u
 from numpy.typing import NDArray
@@ -41,6 +44,57 @@ class Color(u.Quantity):
             value = value.unit * get_2d_binbounds(value, value.unit)
 
         return super().__new__(cls, value=value)
+
+    @classmethod
+    def from_central_frequencies(
+        cls, central_frequencies: Union[Iterable[float], u.Quantity], unit=u.Unit("Hz")
+    ) -> "Color":
+        """Construct a color from frequency bin centers (central frequencies).
+
+        Bin bounds are midpoints between consecutive frequencies; the outer
+        edges are extrapolated by half the neighbouring spacing.
+
+        Parameters
+        ----------
+        central_frequencies : Iterable[float] | u.Quantity
+            The bin-center frequencies, one per spectral channel. If one frequency is
+            given the binbounds are infinite.
+        unit : u.Unit, optional
+            Output unit of the frequency binbounds, (default: Hz).
+
+        Returns
+        -------
+        Color
+            A color holding the N consecutive (N+1 bound) ranges derived
+            from the N input centers.
+        """
+        if isinstance(central_frequencies, u.Quantity):
+            central_frequencies = central_frequencies.to(u.Hz).value
+
+        central_frequencies = np.asarray(central_frequencies, dtype=float)
+        if len(central_frequencies) == 1:
+            bounds = np.array([-np.inf, np.inf])
+        else:
+            bounds = np.empty(len(central_frequencies) + 1)
+            distances = 0.5 * np.diff(central_frequencies)
+            bounds[1:-1] = central_frequencies[:-1] + distances
+            bounds[0] = central_frequencies[0] - distances[0]
+            bounds[-1] = central_frequencies[-1] + distances[-1]
+
+        return cls(bounds * unit)
+
+    @classmethod
+    def from_freqs(
+        cls, central_frequencies: Union[Iterable[float], u.Quantity], unit=u.Unit("Hz")
+    ) -> "Color":
+        """Deprecated alias for :meth:`from_central_frequencies`."""
+        warnings.warn(
+            "Color.from_freqs is deprecated and will be removed in a future "
+            "release (01.12.26); use Color.from_central_frequencies instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return cls.from_central_frequencies(central_frequencies, unit=unit)
 
     def redshift(self, z: float) -> "Color":
         """Corresponding color at redshift z.
