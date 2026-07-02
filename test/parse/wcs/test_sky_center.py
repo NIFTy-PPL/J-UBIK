@@ -1,4 +1,4 @@
-from jubik0.parse.wcs.sky_center import SkyCenter
+from jubik.parse.wcs.sky_center import SkyCenter
 
 import pytest
 from astropy import units as u

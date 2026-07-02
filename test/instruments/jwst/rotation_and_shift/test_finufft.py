@@ -1,5 +1,5 @@
 # import numpy as np
-# from jubik0.instruments.jwst.rotation_and_shift.nufft_rotation_and_shift import (
+# from jubik.instruments.jwst.rotation_and_shift.nufft_rotation_and_shift import (
 #     build_nufft_rotation_and_shift,
 # )
 # from jax import config, devices

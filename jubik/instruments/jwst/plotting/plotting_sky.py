@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from jubik0.wcs.wcs_base import WcsMixin
+from jubik.wcs.wcs_base import WcsMixin
 import types
 
 

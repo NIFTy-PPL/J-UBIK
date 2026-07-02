@@ -9,10 +9,10 @@ from jax import random
 from matplotlib.colors import LogNorm
 from astropy import units as u
 
-import jubik0 as ju
-import jubik0.instruments.resolve as rve
-from jubik0.parse.grid import GridModel
-from jubik0.sky_model.resolve_sky import sky_model
+import jubik as ju
+import jubik.instruments.resolve as rve
+from jubik.parse.grid import GridModel
+from jubik.sky_model.resolve_sky import sky_model
 
 jax.config.update("jax_default_device", jax.devices("cpu")[0])
 jax.config.update("jax_enable_x64", True)
@@ -45,7 +45,7 @@ obs._weight = 0.1 * obs._weight
 obs = rve.data.select_random_visibility_subset(obs, 0.01)
 
 # # NOTE : The observation can also be loaded and modified via the config file.
-# from jubik0.instruments.resolve.data import load_and_modify_data_from_objects
+# from jubik.instruments.resolve.data import load_and_modify_data_from_objects
 # obs = list(
 #     load_and_modify_data_from_objects(
 #         [-np.inf, np.inf],

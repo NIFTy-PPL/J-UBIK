@@ -3,7 +3,7 @@ import pytest
 from jax import numpy as jnp
 from jax import config, random
 
-import jubik0 as ju
+import jubik as ju
 
 config.update('jax_enable_x64', True)
 

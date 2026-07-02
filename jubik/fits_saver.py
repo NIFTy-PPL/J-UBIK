@@ -2,7 +2,7 @@ from typing import Optional
 import numpy as np
 from astropy.io import fits
 from astropy import units as u
-from jubik0.grid import Grid
+from jubik.grid import Grid
 from numpy.typing import NDArray
 
 __all__ = ["FitsSaver"]

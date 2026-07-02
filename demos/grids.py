@@ -1,4 +1,4 @@
-import jubik0 as ju
+import jubik as ju
 
 import astropy.units as u
 
@@ -61,7 +61,7 @@ print(grid.shape)
 
 # 1.4. From GridModel
 # NOTE: This version meant to interface with the yaml config file
-from jubik0.parse.grid import GridModel
+from jubik.parse.grid import GridModel
 
 gm = GridModel.from_yaml_dict(
     {

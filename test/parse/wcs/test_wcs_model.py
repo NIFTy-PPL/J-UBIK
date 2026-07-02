@@ -1,7 +1,7 @@
-from jubik0.parse.wcs.wcs_model import (
+from jubik.parse.wcs.wcs_model import (
     _get_rotation, WcsModel, YAML_ROTATION_KEY, CONFIGPARSER_ROTATION_KEY)
 
-from jubik0.parse.wcs.coordinate_system import CoordinateSystems
+from jubik.parse.wcs.coordinate_system import CoordinateSystems
 
 import pytest
 from astropy import units as u

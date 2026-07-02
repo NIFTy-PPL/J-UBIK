@@ -179,7 +179,7 @@ from os.path import join
 import nifty.re as jft
 from jax import config, random
 
-import jubik0 as ju
+import jubik as ju
 
 config.update('jax_enable_x64', True)
 
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
     # Uncomment to save local packages git hashes to file
     # ju.save_local_packages_hashes_to_txt(
-    #     ['jubik0', 'nifty'],
+    #     ['jubik', 'nifty'],
     #     join(file_info['res_dir'], "packages_hashes.txt"),
     #     paths_to_git=[os.path.dirname(os.getcwd()), None],
     #     verbose=False)

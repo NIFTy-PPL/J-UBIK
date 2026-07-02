@@ -1,4 +1,4 @@
-import jubik0
+import jubik
 
 needs_sphinx = '3.2.0'
 
@@ -39,11 +39,11 @@ napoleon_include_special_with_doc = True
 
 # imgmath_embed = True
 
-project = u'jubik0'
+project = u'jubik'
 copyright = u'2020-2024, Max-Planck-Society'
 author = u'Vincent Eberle, Matteo Guardiani, Margret Westerkamp'
 
-release = jubik0.version.__version__
+release = jubik.version.__version__
 version = release[:-2]
 
 language = "en"
@@ -62,7 +62,7 @@ html_theme_options = {
     "icon_links": [
         #{
         #    "name": "PyPI",
-        #    "url": "https://pypi.org/project/jubik0",
+        #    "url": "https://pypi.org/project/jubik",
         #    "icon": "fas fa-box",
         #},
         {

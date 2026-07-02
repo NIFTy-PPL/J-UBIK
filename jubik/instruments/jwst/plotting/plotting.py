@@ -195,7 +195,7 @@ def plot_prior(
     import yaml
     from charm_lensing.lens_system import LensSystem, build_lens_system
 
-    from jubik0.instruments.jwst.config_handler import insert_spaces_in_lensing_new
+    from jubik.instruments.jwst.config_handler import insert_spaces_in_lensing_new
 
     test_key, _ = random.split(random.PRNGKey(42), 2)
 

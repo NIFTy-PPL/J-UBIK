@@ -11,12 +11,12 @@
 
 # %% [markdown]
 # ## Multi-Frequency Spectral Sky Model Demo
-# This script sets up and visualizes a spectral sky model using `jubik0`.
+# This script sets up and visualizes a spectral sky model using `jubik`.
 
 # %%
 import jax.numpy as jnp
 from jax import random
-import jubik0 as ju
+import jubik as ju
 
 # %% [markdown]
 # ### Model Settings

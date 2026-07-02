@@ -3,8 +3,8 @@ import numpy as np
 from astropy import units as u
 from numpy.testing import assert_allclose
 
-from jubik0.color import Color
-from jubik0.parse.color import yaml_to_binned_colors
+from jubik.color import Color
+from jubik.parse.color import yaml_to_binned_colors
 
 
 class TestYamlToBinnedColors:

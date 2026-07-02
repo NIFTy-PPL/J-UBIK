@@ -1,5 +1,5 @@
-from jubik0.parse.wcs.spatial_model import SpatialModel, resolve_str_to_quantity
-from jubik0.parse.wcs.coordinate_system import CoordinateSystems
+from jubik.parse.wcs.spatial_model import SpatialModel, resolve_str_to_quantity
+from jubik.parse.wcs.coordinate_system import CoordinateSystems
 
 from astropy.coordinates import SkyCoord
 import astropy.units as u

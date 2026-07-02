@@ -9,7 +9,7 @@ from numpy.testing import assert_allclose
 import numpy as np
 
 import nifty.re as jft
-import jubik0 as ju
+import jubik as ju
 
 from nifty.re.correlated_field import (
     make_grid,
@@ -17,13 +17,13 @@ from nifty.re.correlated_field import (
     MaternAmplitude,
 )
 
-from jubik0.sky_model.multifrequency.spectral_product_utils.frequency_deviations import (
+from jubik.sky_model.multifrequency.spectral_product_utils.frequency_deviations import (
     build_frequency_deviations_model_with_degeneracies,
 )
-from jubik0.sky_model.multifrequency.spectral_product_utils.spectral_behavior import (
+from jubik.sky_model.multifrequency.spectral_product_utils.spectral_behavior import (
     SpectralIndex,
 )
-from jubik0.sky_model.multifrequency.spectral_product_utils.scaled_excitations import (
+from jubik.sky_model.multifrequency.spectral_product_utils.scaled_excitations import (
     build_scaled_excitations,
 )
 
@@ -266,7 +266,7 @@ def test_apply_with_and_without_frequency_deviations(
 
 
 def test_simple_vs_complex_evaluation():
-    from jubik0.sky_model.multifrequency.spectral_product_utils.spectral_behavior import (
+    from jubik.sky_model.multifrequency.spectral_product_utils.spectral_behavior import (
         HarmonicLogSpectralBehavior,
     )
     import jax.numpy as jnp

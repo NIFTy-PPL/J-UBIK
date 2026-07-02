@@ -1,12 +1,12 @@
-from jubik0.wcs.wcs_subsample_centers import subsample_pixel_centers
+from jubik.wcs.wcs_subsample_centers import subsample_pixel_centers
 from functools import partial
 
 import numpy as np
 
 
 def grid_setup():
-    from jubik0.parse.grid import GridModel
-    from jubik0.grid import Grid
+    from jubik.parse.grid import GridModel
+    from jubik.grid import Grid
 
     grid_config = dict(
         sdim=384,

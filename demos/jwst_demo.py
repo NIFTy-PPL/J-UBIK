@@ -118,9 +118,9 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from jax import config, random
 
-import jubik0 as ju
-from jubik0.instruments.jwst.filter_projector import FilterProjector
-from jubik0.likelihood import (build_gaussian_likelihood,
+import jubik as ju
+from jubik.instruments.jwst.filter_projector import FilterProjector
+from jubik.likelihood import (build_gaussian_likelihood,
                                connect_likelihood_to_model)
 
 config.update('jax_enable_x64', True)
@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
     # Uncomment to save local packages git hashes to file
     # ju.save_local_packages_hashes_to_txt(
-    #     ['jubik0', 'nifty'],
+    #     ['jubik', 'nifty'],
     #     os.path.join(file_info['res_dir'], "packages_hashes.txt"),
     #     paths_to_git=[os.path.dirname(os.getcwd()), None],
     #     verbose=False)
