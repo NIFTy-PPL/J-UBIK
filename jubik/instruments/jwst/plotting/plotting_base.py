@@ -316,34 +316,6 @@ def _get_data_model_and_chi2(
     return np.array(model_mean), (redchi_mean, redchi_std)
 
 
-def get_alpha_and_reference(light_model): #TODO: move to lenscharm/sptLensing
-    try:
-        from charm_lensing.physical_models.hybrid_model import LogHybridModel as LHM
-    except:
-        from charm_lensing.physical_models.hybrid_model import HybridModel as LHM
-    from charm_lensing.physical_models.multifrequency_models.vstack_model import VstackModel
-    try:
-        from charm_lensing.physical_models.multifrequency_models.nifty_mf import _LoggableSpectralProductSky as _SSKy
-    except:
-        from charm_lensing.physical_models.multifrequency_models.nifty_mf import SpectralProductSky as _SSKy
-
-    light_model: LHM = light_model
-    if isinstance(light_model, LHM):
-        model: _SSKy | Any = light_model.nonparametric
-    elif isinstance(light_model, VstackModel):
-        model = light_model.infrared.nonparametric
-
-    if isinstance(model, _SSKy):
-        alpha = model.spectral_index_distribution
-        reference = model.reference_frequency_distribution
-        return alpha, reference
-
-    def nothing(_):
-        return np.zeros((12, 12))
-
-    return nothing, nothing
-
-
 def get_shift_rotation_correction(
     position_or_samples: Union[dict, jft.Samples],
     correction_model: Union[
