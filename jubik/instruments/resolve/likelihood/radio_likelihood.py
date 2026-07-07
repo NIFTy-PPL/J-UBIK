@@ -151,7 +151,6 @@ def build_radio_likelihood(
         last_radio_bin,
         sky_domain=sky_domain,
         sky_unit=sky_unit,
-        # transpose=response_settings.transpose,
     )
     radio_grid = build_radio_grid(last_radio_bin, sky_grid)
 

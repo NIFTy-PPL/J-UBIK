@@ -78,10 +78,10 @@ def build_radiofy_sky(sky_domain_shape: tuple[int]):
     `(polarization, time, frequencies, npix_x, npix_y)` expected by the
     interferometry response.
 
-    The two trailing spatial axes are taken to be `(npix_x, npix_y)` in the
-    same order as `Grid.spatial.shape` — i.e. axis 0 corresponds to the WCS
-    CDELT1 direction (the RA / `l` axis used by the ducc wgridder), axis 1 to
-    CDELT2 (the Dec / `m` axis).
+    The two trailing spatial axes carry the sky in the CANONICAL frame
+    (`dim0 = +Dec`/North, `dim1 = -RA`/West; see `probes/README.md`). The
+    radio response owns the conversion to the wgridder-native `(l, m)` layout;
+    no transpose is applied here.
 
     Parameters
     ----------
@@ -110,11 +110,11 @@ class RadioSkyExtractor(jft.Model):
     resolve internal unit (Jy/sr), and broadcast it to the 5-D layout the
     response operator expects.
 
-    Spatial-axis convention: the last two axes of the output are
-    `(npix_x, npix_y)`, in the same order as `Grid.spatial.shape` — matching
-    the ducc wgridder's `(npix_x = l-axis, npix_y = m-axis)` convention. No
-    transpose is applied; downstream operators (sky_beamer, response) assume
-    the same convention.
+    Spatial-axis convention: the output sky is in the CANONICAL frame
+    (`dim0 = +Dec`/North, `dim1 = -RA`/West; see `probes/README.md`). The
+    radio response owns the single explicit conversion to the wgridder-native
+    `(l-axis, m-axis)` layout (via `canonical_sky_to_visibilities`); this
+    extractor does not transpose.
     """
 
     def __init__(
