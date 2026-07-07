@@ -1,42 +1,50 @@
 """p4 — the radio adapter contract: canonical sky in, physical visibilities out.
 
 WHAT THIS PROBES
-    The owner-approved fix (2026-07-06): all skies at the jubik boundary
-    are authored in the CANONICAL frame (dim0 = +Dec/North, dim1 =
-    -RA/West; see probes/README.md), and the radio response owns ONE
-    explicit conversion to whatever the wgridder needs.  This probe pins
-    that contract at the adapter seam:
+    All skies at the jubik boundary are authored in the CANONICAL frame
+    (dim0 = +Dec/North, dim1 = -RA/West; probes/README.md), and the radio
+    response owns ONE explicit conversion to the wgridder layout:
 
         from jubik.instruments.resolve.response import canonical_sky_to_visibilities
 
-    canonical_sky_to_visibilities(backend_apply, sky_canonical) -> vis
-    must produce, for a unit point source di pixels North and dj pixels
-    West of center (canonical sky[c+di, c+dj] = 1):
+    The conversion is a PURE AXIS TRANSPOSE — no conjugation, no sign
+    flips — restoring exact parity with the upstream `resolve` package
+    (vol * dirty2vis(sky, flip_v=True); local copy ~/pro/python/resolve).
+    For a unit point source di pixels North and dj pixels West of center
+    (canonical sky[c+di, c+dj] = 1) the visibilities must satisfy the
+    EFFECTIVE measurement equation of the CASA/MS + flip_v pipeline,
+    written with uvw exactly as ms2observations loads them:
 
-        V(u, v) = d_ra * d_dec * exp(-2*pi*i * (u*l + v*m))
+        V(u, v) = d_ra * d_dec * exp(+2*pi*i * (u*l + v*m))
         with  m = +di * d_dec   (North offset)
               l = -dj * d_ra    (dj increases West => negative East offset)
 
-    — the standard measurement equation, same anchor as p3.  A control
-    asserts the RAW backends do NOT satisfy this (the adapter is doing
-    real work, not a no-op).
+    Controls pinned alongside:
+    - the RAW backends do NOT satisfy the contract (the transpose does
+      real work);
+    - the CONJUGATED adapter output does NOT satisfy it either (no
+      spurious conjugation can re-enter: a conjugated forward makes a
+      likelihood fit converge to the rot180 sky — the Batch-A defect).
+    - the raw builders interferometry_response_ducc / _finufft keep
+      their p3-measured behavior byte-identically (p3 golden).
 
-    CONSTRAINT pinned alongside: the raw builders
-    interferometry_response_ducc / _finufft keep their p3-measured
-    behavior byte-identically (p3 golden) — the adapter wraps them, it
-    does not change them.
+    CONVENTION NOTE (2026-07-07 correction): this contract was first
+    written with the textbook exponent exp(-2*pi*i*(ul+vm)) taken at
+    face value of the loaded uvw, which is the CONJUGATE of what the
+    CASA + flip_v pipeline actually realizes in these variables.  That
+    anchor error put a spurious jnp.conj into the adapter; the external
+    witnesses (p7's CASA fixture, the M51 dataset, upstream resolve)
+    fixed the sign.  The golden below was re-frozen 2026-07-07 for this
+    reason — the old golden pinned the wrong physics (documented
+    exception to the never-regenerate rule).
 
 GOLDEN
     probes/golden/p4_adapter_vis.npy — adapter-path visibilities of a
-    fixed random canonical sky.  First run writes, later runs assert
-    byte-stable reproduction.
+    fixed random canonical sky.  Re-frozen 2026-07-07 (see above).
+    First run writes, later runs assert byte-stable reproduction.
 
 RUN
     uv run python probes/p4_radio_adapter.py
-
-STATUS
-    Written as the acceptance spec BEFORE the adapter exists; it fails
-    with ImportError until the implementation lands.
 """
 
 import os
@@ -93,7 +101,7 @@ def canonical_point_sky(di: int, dj: int) -> np.ndarray:
 def predicted(di: int, dj: int) -> np.ndarray:
     l, m = -dj * D_RA, +di * D_DEC
     u, v = UVW[:, 0], UVW[:, 1]
-    return D_RA * D_DEC * np.exp(-2j * np.pi * (u * l + v * m))
+    return D_RA * D_DEC * np.exp(+2j * np.pi * (u * l + v * m))
 
 
 def main() -> None:
@@ -109,11 +117,19 @@ def main() -> None:
             )
         print(f"{name:8s} canonical contract holds at offsets {offsets}")
 
-    # control: the raw backend alone must NOT satisfy the contract
+    # control 1: the raw backend alone must NOT satisfy the contract
     raw = R["ducc"](canonical_point_sky(6, 4))
     assert not np.allclose(raw, predicted(6, 4), rtol=1e-4, atol=1e-13), \
         "raw backend satisfies the canonical contract — adapter is a no-op?"
-    print("control: raw backend diverges from the contract (adapter does real work)")
+    print("control 1: raw backend diverges from the contract "
+          "(the transpose does real work)")
+
+    # control 2: the CONJUGATED adapter output must NOT satisfy it either
+    vis = canonical_sky_to_visibilities(R["ducc"], canonical_point_sky(6, 4))
+    assert not np.allclose(np.conj(vis), predicted(6, 4), rtol=1e-4, atol=1e-13), \
+        "conjugated adapter output ALSO satisfies the contract — degenerate?"
+    print("control 2: conjugated adapter output violates the contract "
+          "(no spurious conjugation present)")
 
     rng = np.random.default_rng(11)
     sky = rng.normal(size=(NPIX, NPIX)) ** 2
@@ -127,7 +143,8 @@ def main() -> None:
         print(f"golden REPRODUCED byte-identically: {GOLDEN.name}")
 
     print("\nVERDICT: radio adapter COMPLIES with the canonical frame "
-          "(dim0=+Dec, dim1=-RA).")
+          "(dim0=+Dec, dim1=-RA) and the CASA-effective measurement "
+          "equation — conjugation-free.")
 
 
 if __name__ == "__main__":

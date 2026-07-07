@@ -21,6 +21,13 @@ class WcsAstropy(WCS, WcsMixin):
     """
     A wrapper around the astropy.wcs.WCS, in order to define a common interface
     with the gwcs.
+
+    ``shape`` and ``fov`` are given in NUMPY/CANONICAL order — ``shape =
+    (nDec, nRA)`` and ``fov = (fov_dec, fov_ra)`` — matching the layout of the
+    sky array they describe (``sky[i, j]``: dim 0 = +Dec/North, dim 1 = -RA/West;
+    see ``probes/README.md``).  The FITS header accordingly has axis 1 = RA
+    (``CDELT1 < 0``, sized by ``shape[1]``/``fov[1]``) and axis 2 = Dec (sized by
+    ``shape[0]``/``fov[0]``), and ``distances[k]`` describes array dim ``k``.
     """
 
     def __init__(
@@ -41,9 +48,10 @@ class WcsAstropy(WCS, WcsMixin):
         center : SkyCoord
             The value of the center of the coordinate system (crval).
         shape : tuple
-            The shape of the grid.
+            The shape of the grid in numpy/canonical order ``(nDec, nRA)``.
         fov : tuple
-            The field of view of the grid. Typically given in degrees.
+            The field of view of the grid in numpy/canonical order
+            ``(fov_dec, fov_ra)``. Typically given in degrees.
         rotation : u.Quantity
             The rotation of the grid WCS, in degrees.
         coordinate_system : CoordinateSystemConfig
@@ -57,6 +65,8 @@ class WcsAstropy(WCS, WcsMixin):
 
         self.shape = shape
         self.fov = fov
+        # distances[k] = fov[k] / shape[k] is index-matched to array dim k
+        # (dim 0 = Dec, dim 1 = RA); this is what charm's space_from_grid consumes.
         self.distances = u.Quantity([f.to(u.deg) / s for f, s in zip(fov, shape)])
         self.center = center
 
@@ -83,12 +93,12 @@ class WcsAstropy(WCS, WcsMixin):
             "WCSAXES": 2,
             "CTYPE1": coordinate_system.ctypes[0],
             "CTYPE2": coordinate_system.ctypes[1],
-            "CRPIX1": shape[0] / 2 + 0.5,
-            "CRPIX2": shape[1] / 2 + 0.5,
+            "CRPIX1": shape[1] / 2 + 0.5,
+            "CRPIX2": shape[0] / 2 + 0.5,
             "CRVAL1": lon,
             "CRVAL2": lat,
-            "CDELT1": -fov[0].to(u.deg).value / shape[0],
-            "CDELT2": fov[1].to(u.deg).value / shape[1],
+            "CDELT1": -fov[1].to(u.deg).value / shape[1],
+            "CDELT2": fov[0].to(u.deg).value / shape[0],
             "PC1_1": pc11,
             "PC1_2": pc12,
             "PC2_1": pc21,
@@ -145,37 +155,54 @@ class WcsAstropy(WCS, WcsMixin):
 
         Note
         ----
-        The indices are assumed to coincide with the convention of the first
-        index (x) aligning with the columns and the second index (y) aligning
-        with the rows.
+        ``shape``/``extension_value`` are numpy/canonical-ordered
+        ``(dim0 = Dec, dim1 = RA)``.  ``pixel_to_world`` takes astropy pixel
+        order ``(x, y)`` where the first pixel coordinate ``x`` is FITS axis 1
+        (RA, columns of the sky array, ``shape[1]``) and the second ``y`` is
+        axis 2 (Dec, rows, ``shape[0]``).
         """
         # NOTE : renamed ext -> extension_value
-
+        # ext0 extends array dim 0 (Dec/y); ext1 extends array dim 1 (RA/x).
         if extension_value is None:
             ext0, ext1 = [int(shp * extension_factor - shp) // 2 for shp in self.shape]
         else:
             ext0, ext1 = extension_value
 
-        xmin = -ext0 + 0.5
-        xmax = self.shape[0] + ext0 - 1 + 0.5
-        ymin = -ext1 + 0.5
-        ymax = self.shape[1] + ext1 - 1 + 0.5
+        # x = FITS axis 1 (RA) spans array dim 1 (shape[1]);
+        # y = FITS axis 2 (Dec) spans array dim 0 (shape[0]).
+        xmin = -ext1 + 0.5
+        xmax = self.shape[1] + ext1 - 1 + 0.5
+        ymin = -ext0 + 0.5
+        ymax = self.shape[0] + ext0 - 1 + 0.5
 
         points = np.array(((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)))
         return self.pixel_to_world(*points.T)
 
     def extent(self, unit=u.Unit("arcsec")):
-        """Convenience method which gives the extent of the grid in
-        physical units."""
+        """The imshow extent 4-tuple ``(left, right, bottom, top)``.
+
+        For a canonical sky ``sky[i, j]`` (dim 0 = Dec/rows, dim 1 = RA/columns)
+        the imshow horizontal axis is dim 1 and the vertical axis is dim 0, so
+        this returns ``(-h1, +h1, -h0, +h0)`` with
+        ``h_k = shape[k] / 2 * distances[k]``.
+        """
         distances = [d.to(unit).value for d in self.distances]
         halfside = np.array(self.shape) / 2 * np.array(distances)
-        return -halfside[0], halfside[0], -halfside[1], halfside[1]
+        return -halfside[1], halfside[1], -halfside[0], halfside[0]
 
     def get_xycoords(self, centered: bool = True, unit: u.Unit = u.Unit("arcsec")):
+        """Cartesian ``(x, y)`` coordinate meshgrid over the canonical grid.
+
+        The x direction is FITS axis 1 (RA, array dim 1 -> ``shape[1]``/
+        ``fov[1]``) and the y direction is axis 2 (Dec, array dim 0 ->
+        ``shape[0]``/``fov[0]``); with ``indexing="xy"`` the returned arrays
+        have the canonical sky layout ``(shape[0], shape[1])``.  Consumed by the
+        black-body sky model to place Gaussians on the sky plane.
+        """
         shape = self.shape
         distances = (u.Quantity(self.fov) / np.array(self.shape)).to(unit).value
-        x_direction = coords(shape[0], distances[0])
-        y_direction = coords(shape[1], distances[1])
+        x_direction = coords(shape[1], distances[1])
+        y_direction = coords(shape[0], distances[0])
         fieldcentered = np.array(np.meshgrid(x_direction, y_direction, indexing="xy"))
 
         if centered:
@@ -201,40 +228,51 @@ def coords(shape: int, distance: float) -> ArrayLike:
 
 
 def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
-    """
-    Get basic WCS information: center coordinates, field of view, and array shape.
+    """Rebuild a :class:`WcsAstropy` from a plain astropy WCS.
 
-    Parameters:
-    -----------
+    For an RA/Dec WCS astropy's ``wcs.array_shape`` is ``(ny, nx) = (nDec, nRA)``
+    — numpy/canonical order — so it maps DIRECTLY onto the canonical
+    ``shape = (nDec, nRA)``.  The field of view is returned index-matched as
+    ``fov = (height_dec, width_ra)`` (dim 0 = Dec, dim 1 = RA), so the rebuilt
+    object round-trips shape and fov on rectangular grids.
+
+    Parameters
+    ----------
     wcs : astropy.wcs.WCS
-        The WCS object to analyze
+        The WCS object to analyze.
 
-    Returns:
-    --------
-    center : SkyCoord
-        Center/reference pixel coordinates
-    fov : tuple[Quantity, Quantity]
-        Field of view in (width, height)
-    shape : list[int]
-        Shape of the array (nx, ny)
+    Returns
+    -------
+    WcsAstropy
+        A WcsAstropy with canonical ``shape = (nDec, nRA)`` and
+        ``fov = (fov_dec, fov_ra)``.
     """
-    # Get array shape
-    nx, ny = wcs.array_shape
+    # astropy array_shape is (ny, nx) = (nDec, nRA) for an RA/Dec WCS.
+    n_dec, n_ra = wcs.array_shape
 
     # Get center coordinate
     center = SkyCoord(
         wcs.wcs.crval[0], wcs.wcs.crval[1], unit="deg", frame=wcs.wcs.radesys.lower()
     )
 
-    # Calculate FOV
-    corners_pix = np.array([[0, 0], [nx - 1, 0], [nx - 1, ny - 1], [0, ny - 1]])
+    # Full-extent corners in astropy pixel order (x = axis 1 = RA over n_ra,
+    # y = axis 2 = Dec over n_dec), sampled at the pixel edges (-0.5 .. n-0.5)
+    # so the recovered separations span the full field of view n * CDELT.
+    corners_pix = np.array(
+        [
+            [-0.5, -0.5],
+            [n_ra - 0.5, -0.5],
+            [n_ra - 0.5, n_dec - 0.5],
+            [-0.5, n_dec - 0.5],
+        ]
+    )
     corners_world = wcs.wcs_pix2world(corners_pix, 0)
     corners = SkyCoord(corners_world, unit="deg", frame=wcs.wcs.radesys.lower())
 
-    # Calculate width (average of top and bottom)
+    # width_ra: x (RA) varies along corner0->corner1 and corner3->corner2
     width = (corners[0].separation(corners[1]) + corners[3].separation(corners[2])) / 2
 
-    # Calculate height (average of left and right)
+    # height_dec: y (Dec) varies along corner0->corner3 and corner1->corner2
     height = (corners[0].separation(corners[3]) + corners[1].separation(corners[2])) / 2
 
-    return WcsAstropy(center, [nx, ny], (width, height))
+    return WcsAstropy(center, [n_dec, n_ra], (height, width))

@@ -94,7 +94,11 @@ class Grid:
 
     @property
     def shape(self):
-        """Shape of the grid. (polarization, time, spectral, spatial)"""
+        """Shape of the grid: ``(polarization, time, spectral, *spatial)``.
+
+        The trailing spatial dims are numpy/canonical-ordered
+        ``(nDec, nRA)`` (dim 0 = +Dec/North, dim 1 = -RA/West; see
+        ``probes/README.md``)."""
         return (
             self.polarization.shape
             + (len(self.times) - 1,)

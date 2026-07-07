@@ -22,14 +22,19 @@ WHAT THIS PROBES
         transpose family-> an AXIS swap (l<->m / dim0<->dim1)
         flip-dim0/1     -> a single-axis sign flip
 
-    KNOWN RISK (checked, did NOT fire): dirty_image builds its adjoint with
-    jax.linear_transpose over the response, and since Batch A the response
-    contains jnp.conj (R-linear, not holomorphic).  If linear_transpose
-    mishandled that, the dirty image would be garbage or wrongly oriented.
-    Measured here: it is oriented correctly (identity), so the conj-adjoint
-    is self-consistent for the dirty-image orientation.  If a future change
-    breaks it, this probe flips off "identity" — do NOT patch production
-    code from here; report the finding.
+    HISTORY — why the VIS-DOMAIN stage below exists (2026-07-07): the
+    dihedral verdict alone once hid a real defect.  Batch A's adapter
+    carried a spurious jnp.conj (a wrong-signed analytic anchor in p3/p4),
+    and dirty_image's jax.linear_transpose is the BILINEAR transpose whose
+    implicit conjugation cancelled it — two wrongs made the dirty image
+    come out "identity" while the FORWARD model was the complex conjugate
+    of the data (measured: corr(V_model, d) = 0.064, corr(conj(V_model),
+    d) = 0.996; confirmed independently on the M51 dataset).  A likelihood
+    fit against that seam converges to the rot180 sky.  The fix (Batch E)
+    dropped the conj — restoring parity with the upstream `resolve`
+    package (vol * dirty2vis(sky, flip_v=True), no conj) — and made
+    dirty_image Hermitian.  The vis-domain stage pins the seam DIRECTLY
+    so no adjoint-side cancellation can ever mask it again.
 
     ENVIRONMENT: forces the JAX CPU platform (the jaxbind ducc kernels have
     no GPU FFI handler in this env) and uses gridder epsilon 1e-5 because
@@ -54,20 +59,28 @@ from pathlib import Path
 # pin the CPU platform before jax is imported (transitively, via jubik).
 os.environ.setdefault("JAX_PLATFORMS", "cpu")
 
+from types import SimpleNamespace
+
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
+from astropy.io import fits
 
 from jubik.grid import Grid
 from jubik.instruments.resolve.data import Observation
 from jubik.instruments.resolve.dirty_image import dirty_image
 from jubik.instruments.resolve.parse.response import Ducc0Settings
+from jubik.instruments.resolve.response import (
+    canonical_sky_to_visibilities,
+    interferometry_response_ducc,
+)
 
 sys.path.insert(0, str(Path(__file__).parent / "roundtrip"))
 from glyph import dihedral_verdict, rasterize_canonical  # noqa: E402
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
 OBS_NPZ = GOLDEN_DIR / "roundtrip_radio_obs.npz"
+TRUTH_FITS = GOLDEN_DIR / "roundtrip_radio_truth.fits"
 DIRTY_GOLDEN = GOLDEN_DIR / "p7_dirty.npy"
 DEFAULT_IMAGE = (
     Path(__file__).parent / "roundtrip" / "_images" / "p7_roundtrip.png"
@@ -181,8 +194,42 @@ def main(image_path: str | None = None) -> None:
         np.testing.assert_array_equal(img, np.load(DIRTY_GOLDEN))
         print(f"\ngolden REPRODUCED byte-identically: {DIRTY_GOLDEN.name}")
 
+    # --- VIS-DOMAIN seam stage (the test the dirty image cannot do) ----
+    # Forward-model the CASA truth sky through the shipped adapter and
+    # correlate with the CASA visibilities DIRECTLY.  A model/data
+    # conjugation cannot hide here behind any adjoint-side cancellation.
+    with fits.open(TRUTH_FITS) as hdul:
+        truth_native = np.squeeze(hdul[0].data).astype(np.float64)
+        dpix_rad = abs(hdul[0].header["CDELT1"]) * np.pi / 180.0
+    stub = SimpleNamespace(uvw=np.asarray(obs.uvw), freq=np.asarray(obs.freq))
+    backend = interferometry_response_ducc(
+        stub, npix_x=truth_native.shape[1], npix_y=truth_native.shape[0],
+        pixsize_x=dpix_rad, pixsize_y=dpix_rad,
+        do_wgridding=False, epsilon=1e-5, nthreads=1, verbosity=0,
+    )
+    v_model = np.asarray(
+        canonical_sky_to_visibilities(lambda s: backend(s), truth_native)
+    ).ravel()
+    d = np.asarray(obs.vis_val[0]).ravel()
+
+    def _corr(a: np.ndarray, b: np.ndarray) -> float:
+        return float(np.abs(np.vdot(a, b))
+                     / (np.linalg.norm(a) * np.linalg.norm(b)))
+
+    direct, conjugated = _corr(v_model, d), _corr(np.conj(v_model), d)
+    print(f"\nvis-domain seam: corr(V_model, data) = {direct:.4f}, "
+          f"corr(conj(V_model), data) = {conjugated:.4f}")
+    assert direct > 0.99, (
+        f"forward model does not match the CASA visibilities directly "
+        f"(corr {direct:.3f}); if the CONJUGATED correlation is high "
+        f"({conjugated:.3f}) the response carries a spurious conjugation "
+        f"— a likelihood fit would converge to the rot180 sky."
+    )
+    assert conjugated < 0.5, "conjugated model also correlates — degenerate?"
+
     print("\nVERDICT: RADIO roundtrip COMPLIES — CASA sky -> jubik dirty "
-          "image is orientation-identity (sign anchor holds).")
+          "image is orientation-identity AND the forward model matches "
+          "the CASA visibilities directly (seam conjugation-free).")
 
     if image_path is not None:
         _render_image(truth, img, "p7 — RADIO roundtrip",

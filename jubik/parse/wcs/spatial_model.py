@@ -25,8 +25,11 @@ class SpatialModel:
         grid_config : dict
             The configuration dictionary containing the following keys:
             - `sky_center`: World coordinate of the spatial grid center.
-            - `fov`: Field of view of the grid in appropriate units.
-            - `sdim`: Shape of the grid, i.e. resolution, as (sdim, sdim).
+            - `fov`: Field of view of the grid in appropriate units, in
+              numpy/canonical order `(fov_dec, fov_ra)` (a scalar is
+              broadcast to both axes).
+            - `sdim`: Shape of the grid, i.e. resolution, in numpy/canonical
+              order `(nDec, nRA)` (a single int is broadcast to `(n, n)`).
             - `rotation`: Rotation of the grid.
             - `energy_bin`: Holding `e_min`, `e_max`, and `reference_bin`.
             - `energy_unit`: The units for `e_min` and `e_max`
