@@ -96,13 +96,21 @@ def build_sky_beamer(
     pointing containing the beam pattern for the mean of all
     `sky_frequency_means`.
 
+    The sky trailing shape and ``sky_fov`` are NUMPY/CANONICAL-ordered —
+    trailing shape ``(nDec, nRA)`` and ``sky_fov = (fov_dec, fov_ra)`` —
+    matching the sky array they describe.  The beams pair index-for-index
+    with the canonical sky (dim 0 = +Dec, dim 1 = -RA; see
+    ``probes/README.md``), pinned by ``probes/p5_sky_beamer_frame.py``.
+
     Parameters
     ----------
     sky_shape_with_dtype:
-        Polarization, Time, Frequency, Sky
+        Polarization, Time, Frequency, Sky. The trailing (Sky) axes are in
+        numpy/canonical order ``(nDec, nRA)``.
 
     sky_fov:
-        Fov, preferably given in units of [rad]
+        Fov in numpy/canonical order ``(fov_dec, fov_ra)``, preferably given
+        in units of [rad].
 
     sky_center:
         The world coordinate of the Sky reference center.
@@ -142,7 +150,12 @@ def build_sky_beamer(
     _, _, fshape, *sshape = sky_shape_with_dtype.shape
 
     wcs = build_astropy_wcs(sky_center, sshape, sky_fov)
-    sky_coords = wcs.pixel_to_world(*np.meshgrid(*[np.arange(s) for s in sshape]))
+    # Canonical-order mesh: x = RA-pixel index (dim 1), y = Dec-pixel index
+    # (dim 0).  meshgrid(x, y) with the default indexing="xy" gives both mesh
+    # arrays the sky trailing shape (sshape[0], sshape[1]), so
+    # sky_coords[i, j] is the world position of canonical sky pixel [i, j].
+    x_mesh, y_mesh = np.meshgrid(np.arange(sshape[1]), np.arange(sshape[0]))
+    sky_coords = wcs.pixel_to_world(x_mesh, y_mesh)
 
     beam_directions = {}
     for ii, oo in enumerate(_filter_pointings_generator(observations, direction_key)):
@@ -167,10 +180,6 @@ def build_sky_beamer(
                 .value
             )
             beam = beam_func(freq=freq_mean, x=x)
-
-            # TODO : Why do we need to tranpose?
-            # Does this come from the Fourier convention of the radio response?
-            beam = np.transpose(beam)
             beam_pointing.append(beam)
 
         beam = jnp.array(beam_pointing)

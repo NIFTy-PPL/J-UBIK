@@ -80,12 +80,56 @@ def convert_polarization(
     raise NotImplementedError(err)
 
 
+def canonical_sky_to_visibilities(backend_apply, sky_canonical):
+    """Apply a raw gridder backend to a canonical-frame sky.
+
+    The raw ``interferometry_response_ducc`` / ``interferometry_response_finufft``
+    backends read their input array in the wgridder-native layout
+    (``dim0 = l/RA-axis``, ``dim1 = m/Dec-axis``; see ``probes/p3``).  All
+    skies at the jubik boundary are instead authored in the CANONICAL frame
+
+        ``sky[i, j]``:  ``i`` (dim 0) increases -> +Dec (North),
+                        ``j`` (dim 1) increases -> -RA  (West).
+
+    This adapter owns the single explicit conversion between the two: it
+    transposes the canonical sky onto the gridder axes and conjugates the
+    resulting visibilities.  For a real sky the conjugation realises the
+    double sign flip through the Hermitian symmetry ``V(-u, -v) = V*(u, v)``,
+    so that the returned visibilities satisfy the standard measurement
+    equation anchored on the canonical directions (``m = +dDec`` North,
+    ``l = -dRA`` i.e. West is negative East); see ``probes/p4``.
+
+    Parameters
+    ----------
+    backend_apply : callable
+        A raw gridder apply-function as returned by
+        ``interferometry_response_ducc`` or ``interferometry_response_finufft``.
+        It maps a 2-D sky slice in the wgridder-native layout to visibilities.
+    sky_canonical : array_like
+        A 2-D REAL sky slice (Stokes-I brightness) in the canonical frame
+        (``dim0 = +Dec``, ``dim1 = -RA``).  Must be real; the Hermitian trick
+        is only exact for real brightness distributions.
+
+    Returns
+    -------
+    array_like
+        Visibilities consistent with the canonical input frame.
+    """
+    return jnp.conj(backend_apply(jnp.transpose(sky_canonical)))
+
+
 def interferometry_response(
     observation: Observation,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
 ):
     """Returns a function computing the radio interferometric response
+
+    Input sky frame is CANONICAL (``dim0 = +Dec``/North, ``dim1 = -RA``/West;
+    see ``probes/README.md``).  The response owns the conversion to the
+    wgridder-native layout: each spatial slice is routed through
+    ``canonical_sky_to_visibilities`` before the per-bin backend op, so callers
+    author sky cubes in the canonical frame and never transpose themselves.
 
     Parameters
     ----------
@@ -209,7 +253,7 @@ def interferometry_response(
                     if op is None:
                         continue
                     inp = sky[pp, tt, ff]
-                    r = op(inp)
+                    r = canonical_sky_to_visibilities(op, inp)
                     res = res.at[pp, row_indices[tt][ff], freq_indices[tt][ff]].set(r)
         return convert_polarization(res, inp_pol, out_pol)
 

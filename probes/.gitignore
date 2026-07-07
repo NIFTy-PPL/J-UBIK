@@ -1,0 +1,10 @@
+roundtrip/_casa_work/
+roundtrip/_images/
+__pycache__/
+roundtrip/__pycache__/
+
+# The frozen goldens are committed fixtures (see README.md) — re-include
+# them against the repo-root *.fits / *.npy / *npz ignore patterns.
+!golden/*.npy
+!golden/*.npz
+!golden/*.fits
