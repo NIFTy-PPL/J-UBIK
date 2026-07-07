@@ -59,6 +59,9 @@ from .data import (create_mock_data, load_masked_data_from_config,
                    load_mock_position_from_config, Domain)
 from .likelihood import get_n_constrained_dof
 from .diagnostics import calculate_nwr, calculate_uwr
+from .profiling import (profile_model, profile_tree, ProfileRow,
+                        ProfileReport, ProfilingCallback,
+                        named_models_from_lens_system)
 from .convolve import linpatch_convolve, convolve, slice_patches
 from .minimization_parser import MinimizationParser
 from .hashcollector import save_local_packages_hashes_to_txt
