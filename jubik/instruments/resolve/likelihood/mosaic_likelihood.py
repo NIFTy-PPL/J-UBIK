@@ -79,7 +79,13 @@ class LikelihoodBuilderBase:
     field_name: str
 
     def response_adjoint(self, primals: NDArray | Array) -> dict[str, Array]:
-        """Get the response_adjoint for the data."""
+        """Get the response_adjoint for the data.
+
+        The response is C-linear (holomorphic); ``jax.linear_transpose``
+        returns the bilinear transpose ``R^T``.  The Hermitian adjoint we
+        need for imaging is ``R^H(v) = conj(R^T(conj(v)))``, which is exactly
+        the ``conj(adjoint(conj(...)))`` sandwich below.
+        """
 
         adjoint = linear_transpose(self.response, self.response.domain)
         conj = lambda x: tree_map(jnp.conj, x)

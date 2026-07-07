@@ -75,13 +75,13 @@ def build_unit_conversion(sky_unit: u.Unit | None):
 # TODO : This function shouldn't be here but part of the sky models.
 def build_radiofy_sky(sky_domain_shape: tuple[int]):
     """Make the output shape of the sky conform to the standard axis layout
-    `(polarization, time, frequencies, npix_x, npix_y)` expected by the
+    `(polarization, time, frequencies, nDec, nRA)` expected by the
     interferometry response.
 
     The two trailing spatial axes carry the sky in the CANONICAL frame
-    (`dim0 = +Dec`/North, `dim1 = -RA`/West; see `probes/README.md`). The
-    radio response owns the conversion to the wgridder-native `(l, m)` layout;
-    no transpose is applied here.
+    (`dim0 = +Dec`/North -> `nDec`, `dim1 = -RA`/West -> `nRA`; see
+    `probes/README.md`). The radio response owns the conversion to the
+    wgridder-native `(l, m)` layout; no transpose is applied here.
 
     Parameters
     ----------

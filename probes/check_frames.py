@@ -44,6 +44,14 @@ HISTORY (why this got confusing — do not repeat it)
       beams pair index-for-index with the canonical sky (pinned by p5).
       What remains pending is re-authoring the mosaic_imaging PROJECT repo
       to canonical (its sky model + its own compensations).
+    - Batch D (jubik side, 2026-07-07) aligned the WcsAstropy metadata to
+      the canonical frame: shape/fov/distances are now numpy-ordered
+      (shape = (nDec, nRA), fov = (fov_dec, fov_ra), distances[k] describes
+      array dim k), world_corners / extent / get_xycoords follow the x=RA(dim1)
+      / y=Dec(dim0) pairing, and WcsAstropy_from_wcs reads array_shape as
+      (ny, nx).  The resolve response reads its wgridder x-axis (l/RA) from
+      shape[1]/distances[1].  The p1 quirk pair is healed: metadata and
+      response now agree on rectangles, not only square grids (pinned by p1).
     - Roundtrip probes (2026-07-07) landed: p6/p7 close the loop with
       externally-minted observations.  p6 paints the orientation glyph into
       a synthetic JWST datamodel world-anchored through its own gwcs and
@@ -51,6 +59,17 @@ HISTORY (why this got confusing — do not repeat it)
       p7 does the same for a CASA-minted radio observation via a dirty
       image.  Their frozen inputs live in probes/golden/ and are re-minted
       only by probes/roundtrip/mint_*.py, never silently (see README).
+    - Batch E (2026-07-07): the Batch-A adapter conj was SPURIOUS — a
+      wrong-signed analytic anchor (the exponent read as exp(-2πi(ul+vm))
+      w.r.t. the loaded uvw, which is the conjugate of what CASA + flip_v
+      realises).  Found by the sweep's rot180 xfail plus a vis-domain
+      discriminator, and confirmed on the M51 dataset and against the
+      upstream resolve package (vol*dirty2vis(sky, flip_v=True), no conj).
+      The conj was dropped (the adapter is now a pure transpose, C-linear),
+      dirty_image was made Hermitian (it conjugates the visibility cotangent
+      to form R^H), the p4 golden was re-frozen (documented exception to the
+      never-regenerate rule), and a vis-domain stage was added to p7 that
+      pins the seam directly (corr(V_model, data) = 0.996).
 """
 
 import subprocess
@@ -65,9 +84,13 @@ GOLDEN_DIR = PROBES_DIR / "golden"
 DOCUMENTED = {
     "p1_metadata_vs_response.py": {
         "expect_pass": True,
-        "meaning": "WcsAstropy metadata still pairs shape[0] with the RA "
-                   "header axis while the JWST response reads dim0=Dec "
-                   "(square-grid-only cancellation; non-square unsupported).",
+        "meaning": "WcsAstropy metadata is ALIGNED with the canonical frame: "
+                   "shape/fov/distances are numpy-ordered (shape[1]/fov[1] size "
+                   "the RA header axis, shape[0]/fov[0] the Dec axis; "
+                   "distances[k] describes array dim k), extent() is the imshow "
+                   "(-h1,h1,-h0,h0) tuple, rectangles are coherent end to end, "
+                   "and WcsAstropy_from_wcs reads array_shape as (ny, nx). The "
+                   "old two-quirk square-only cancellation is healed.",
     },
     "p2_jwst_orientation.py": {
         "expect_pass": True,
@@ -87,7 +110,10 @@ DOCUMENTED = {
         "meaning": "Radio response COMPLIES with the canonical frame "
                    "(dim0=+Dec, dim1=-RA) via the explicit "
                    "canonical_sky_to_visibilities adapter wrapping the raw "
-                   "gridder backends.",
+                   "gridder backends. The adapter is a PURE AXIS TRANSPOSE — "
+                   "conjugation-free — emitting V = vol*exp(+2πi(u l + v m)) "
+                   "for uvw as ms2observations loads them, in exact parity "
+                   "with upstream resolve (vol*dirty2vis(sky, flip_v=True)).",
     },
     "p5_sky_beamer_frame.py": {
         "expect_pass": True,
@@ -109,7 +135,11 @@ DOCUMENTED = {
         "meaning": "CASA-minted observation roundtrips to a dirty image "
                    "matching the canonical truth (external sign-anchor pin): "
                    "the glyph survives the resolve response + gridder path with "
-                   "a dihedral 'identity' verdict.",
+                   "a dihedral 'identity' verdict. Additionally pins the "
+                   "VIS-DOMAIN seam directly: the forward model matches the "
+                   "CASA visibilities with corr(V_model, data) > 0.99 (and the "
+                   "conjugated model does not) — no adjoint-side cancellation "
+                   "can mask a spurious conjugation.",
         "requires": ["roundtrip_radio_obs.npz", "roundtrip_radio_truth.fits"],
     },
 }
