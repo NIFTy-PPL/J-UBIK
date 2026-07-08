@@ -1,0 +1,11 @@
+{
+  "phase_center": "J2000 13h37m00s -29d52m00s",
+  "phase_center_ra_hms": "13h37m00s",
+  "phase_center_dec_dms": "-29d52m00s",
+  "east_arcsec": 3.0,
+  "north_arcsec": 5.0,
+  "flux_jy": 1.0,
+  "freq_ghz": 333.0,
+  "mint_npix": 256,
+  "mint_pix_arcsec": 0.25
+}
