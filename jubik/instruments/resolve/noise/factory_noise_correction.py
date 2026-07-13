@@ -21,7 +21,7 @@ def factory_noise_correction_model(
     if isinstance(correction_settings, LowerBoundCorrection):
         return build_lower_bound_noise_correction(
             alpha=correction_settings.alpha,
-            scale=correction_settings.scale,
+            scale=correction_settings.sigma,
             weight=observation.weight.asnumpy(),
         )
 
