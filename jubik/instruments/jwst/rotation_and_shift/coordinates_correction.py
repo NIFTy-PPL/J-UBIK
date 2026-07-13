@@ -6,22 +6,18 @@
 
 # %%
 
-from typing import Callable, Union
+from typing import Union
 
 import jax.numpy as jnp
-import numpy as np
 import nifty.re as jft
+import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
-from .shift_correction import build_shift_correction
-from ..parametric_model import build_parametric_prior_from_prior_config
-from ....grid import Grid
-from ....wcs.wcs_astropy import WcsAstropy
-from ....wcs.wcs_jwst_data import WcsJwstData
 from ....wcs import world_coordinates_to_index_grid
-
+from ....wcs.wcs_astropy import WcsAstropy
+from ..parametric_model import build_parametric_prior_from_prior_config
 from ..parse.rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectionPriorConfig,
     CorrectionModel,
@@ -60,15 +56,6 @@ class ShiftAndRotationCorrection(jft.Model):
         return self.shift(x), self.rotation_angle(x)
 
 
-class Coordinates:
-    def __init__(self, coordiantes: ArrayLike):
-        self.coordinates = coordiantes
-        self.domain = {}
-
-    def __call__(self, _):
-        return self.coordinates
-
-
 def _get_reshape(coordinates: np.ndarray) -> tuple[Ellipsis]:
     shape_nochange = (Ellipsis,)  # equivalent to shift[...]
     shape_addaxes = (Ellipsis, None, None)  # equivalent to shift[..., None, None]
@@ -77,6 +64,18 @@ def _get_reshape(coordinates: np.ndarray) -> tuple[Ellipsis]:
         return shape_addaxes
 
     return shape_nochange
+
+
+class Coordinates(jft.Model):
+    def __init__(self, coordiantes: ArrayLike):
+        self.coordinates = coordiantes
+        super().__init__(
+            domain={},
+            target=jft.ShapeWithDtype(coordiantes.shape, coordiantes.dtype),
+        )
+
+    def __call__(self, _):
+        return self.coordinates
 
 
 class CoordinatesCorrectedShiftOnly(jft.Model):
