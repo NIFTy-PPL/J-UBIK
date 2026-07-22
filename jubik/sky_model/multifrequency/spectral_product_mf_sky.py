@@ -504,6 +504,7 @@ def build_simple_spectral_sky(
         The shape of the spatial_amplitude domain.
     distances: tuple
         The distances of the spatial_amplitude domain.
+        This parameter is ignored when using HEALPix grid.
     log_frequencies: tuple, list, ArrayLike
         Array of logarithmically spaced frequencies.
     reference_frequency_index: int
