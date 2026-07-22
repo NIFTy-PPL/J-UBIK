@@ -21,6 +21,27 @@ from .spectral_product_utils.spectral_behavior import (
     SingleHarmonicLogSpectralBehavior,
 )
 
+def _point_source_spatial_shape(
+    shape: tuple[int, ...],
+    harmonic_type: str,
+) -> tuple[int, ...]:
+    if harmonic_type == "cartesian":
+        return tuple(shape)
+
+    if harmonic_type == "spherical":
+        if len(shape) != 1:
+            raise ValueError(
+                "For harmonic_type='spherical', expected shape=(nside,). "
+                f"Got shape={shape}."
+            )
+
+        nside = int(shape[0])
+        return (12 * nside**2,)
+
+    raise ValueError(
+        "Unsupported harmonic_type. Expected 'cartesian' or 'spherical'. "
+        f"Got {harmonic_type!r}."
+    )
 
 class PointSourceSpectralIndex(SingleHarmonicLogSpectralBehavior):
     """Spectral index model for point sources.
@@ -199,6 +220,7 @@ def build_mf_invgamma_sky(
     reference_frequency_index: int,
     spectral_settings: dict,
     dtype: type = jnp.float64,
+    harmonic_type: str = "cartesian",
 ) -> MultiFrequencyInvGammaSky:
     """
     Builds a multi-frequency point-source sky model parametrized as
@@ -229,6 +251,10 @@ def build_mf_invgamma_sky(
             - shared or mean_shared: bool, optional (default False)
     dtype: type
         Data type of the parameters.
+    harmonic_type: str
+        Spatial geometry type. Supported values are ``'cartesian'`` and
+        ``'spherical'``. For this uncorrelated point-source model, spherical
+        support only changes the pixel-domain shape.    
 
     Returns
     -------
@@ -238,14 +264,21 @@ def build_mf_invgamma_sky(
     shared_mean = spectral_settings.get(
         "mean_shared", spectral_settings.get("shared", False)
     )
-    mean_shape = () if shared_mean else shape
+
     log_frequencies = jnp.array(log_frequencies)
+
+    spatial_shape = _point_source_spatial_shape(
+        shape=shape,
+        harmonic_type=harmonic_type,
+    )
+
+    mean_shape = () if shared_mean else spatial_shape
 
     reference_freq_model = build_distribution_or_default(
         (alpha, q),
         f"{prefix}_inv_gamma",
         jft.invgamma_prior,
-        shape=shape,
+        shape=spatial_shape,
         dtype=dtype,
     )
 
@@ -266,7 +299,7 @@ def build_mf_invgamma_sky(
             )
     else:
         deviations_model = build_frequency_deviations_model_with_degeneracies(
-            shape,
+            spatial_shape,
             log_frequencies,
             reference_frequency_index,
             deviations_settings,
@@ -277,7 +310,7 @@ def build_mf_invgamma_sky(
         log_frequencies=log_frequencies,
         mean=spectral_index_mean,
         reference_frequency_index=reference_frequency_index,
-        spatial_shape=shape,
+        spatial_shape=spatial_shape,
     )
 
     return MultiFrequencyInvGammaSky(
