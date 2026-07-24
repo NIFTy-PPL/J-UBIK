@@ -523,7 +523,7 @@ class ChandraObservationInformation():
             "HRMAVig" : "1.0",
             "DitherModel" : "INTERNAL", #TODO without and later for whole image?
             "TStart" : tstart,
-            "Verbose" : "no",
+            "Verbose" : "0",
             "ACIS_Frame_Transfer_Time" : "0.000",
             "HRMA_Use_Struts" : "yes", # FIXME Find out of if "yes" or "no"
             "DetExtendFlag" : "yes"
