@@ -143,7 +143,7 @@ def get_range_index(
         if switches[i] <= iteration < switches[i+1]:
             return i
 
-    if iteration == total_iterations:
+    if iteration >= total_iterations:
         return len(switches) - 1
     else:
         raise ValueError(f'Iteration {iteration} is out of range.')
