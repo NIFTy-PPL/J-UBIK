@@ -56,7 +56,7 @@ class CalibrationInterpolator:
         return res(jnp.arange(self._n_corr), jnp.arange(self._n_freq))
 
 
-class CalibrationDistribution(jft.Model):
+class CalibrationDistributor(jft.Model):
     """
     Computes the calibration operator from given observation data.
 
@@ -66,9 +66,9 @@ class CalibrationDistribution(jft.Model):
         Observation object from which are the antenna and temporal information corresponding to
         the visibilites are extracted.
     phase_fields: jft.Model
-        Model for phases of calibration solutions. Shape: (n_correlations, n_time, n_antennas, n_freq)
+        Model for phases of calibration solutions. Shape: (n_correlations, n_antennas, n_time, n_freq)
     log_amplitude_fields: jft.Model
-        Model for log amplitude of calibration solutions. Shape: (n_correlations, n_time, n_antennas, n_freq)
+        Model for log amplitude of calibration solutions. Shape: (n_correlations, n_antennas, n_time, n_freq)
     dt: float
         Distances between time points on time axis. Has to be the same distance of time points,
         which is used for phase_fields and log_amplitude fields.
