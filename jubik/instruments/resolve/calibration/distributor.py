@@ -79,23 +79,53 @@ def interpolate_time_frequency(li_t, li_f, x, n_corr, n_ant, n_freq_in):
 
 class CalibrationInterpolator:
     """
-    Interpolates visibilites for a specific sequence of antenna-time pairs given the visibilities
-    on an evenly spaced antenna-time grid.
+    Interpolates calibration fields from a regular time or time-frequency grid
+    onto the observation grid.
+
+    The input calibration field is assumed to have shape
+
+        (n_corr, n_ant, n_time, n_freq)
+
+    where `n_freq` may either denote the observation frequency channels (time-only
+    interpolation) or a separate calibration frequency grid (time and frequency
+    interpolation).
+
+    If only `time_col` is provided, interpolation is performed along the time axis,
+    resulting in
+
+        (n_corr, n_ant, n_time_obs, n_freq).
+
+    If `freq_col` is additionally provided, interpolation is subsequently performed
+    along the frequency axis, resulting in
+
+        (n_corr, n_ant, n_time_obs, n_freq_obs).
 
     Parameters
     ----------
-    ant_col: jnp.ndarray
-        Antenna points to which one wants to interpolate
-    time_col: jnp.ndarry
-        Time points to which one wants to interpolate
-    dt: float
-        Distances between time points on time axis.
-    target_shape: tuple
-        Shape of data in visibility space. Should in principle follow (n_correlation, n_baseline, n_freq).
+    time_col : jnp.ndarray
+        Observation times for which calibration solutions are required.
+    dt : float
+        Spacing of the calibration time grid.
+    n_corr : int
+        Number of correlation products.
+    n_ant : int
+        Number of antennas.
+    n_freq : int
+        Number of frequency channels of the input calibration field. Required for
+        time-only interpolation and as the input frequency dimension for
+        time-frequency interpolation.
+    freq_col : jnp.ndarray, optional
+        Observation frequencies. If provided, interpolation is additionally
+        performed along the frequency axis.
+    df : float, optional
+        Spacing of the calibration frequency grid. Required when `freq_col` is
+        given.
 
-    Note
-    ----
-    Currently, only uniformly spaced time axis is supported.
+    Notes
+    -----
+    Both time and frequency grids are assumed to be uniformly spaced. Time and
+    frequency interpolation are performed sequentially using first-order linear
+    interpolation.
     """
 
     def __init__(
@@ -104,7 +134,7 @@ class CalibrationInterpolator:
         dt: float,
         n_corr: int,
         n_ant: int,
-        n_freq: int | None = None,
+        n_freq: int,
         freq_col: jnp.ndarray | None = None,
         df: float | None = None,
     ):
@@ -149,24 +179,49 @@ class CalibrationInterpolator:
 
 class CalibrationDistributor(jft.Model):
     """
-    Computes the calibration operator from given observation data.
+    Constructs the complex antenna-based calibration factors evaluated at the
+    visibility sampling points of an observation.
+
+    The supplied phase and log-amplitude models are assumed to produce calibration
+    fields of shape
+
+        (n_corr, n_ant, n_time, n_freq).
+
+    These fields are first interpolated onto the observation time grid and,
+    optionally, onto the observation frequency grid. Afterwards, the antenna gains
+    corresponding to the two antennas of each visibility are gathered and combined
+    to form the baseline calibration factors.
+
+    For each visibility, the calibration is computed as
+
+        exp(logamp_a1 + logamp_a2
+            + 1j * (phase_a1 - phase_a2))
+
+    yielding an output of shape
+
+        (n_corr, n_vis, n_freq_obs)
+
+    or
+
+        (n_corr, n_vis, n_freq)
+
+    if only time interpolation is performed.
 
     Parameters
     ----------
-    observation: Observation
-        Observation object from which are the antenna and temporal information corresponding to
-        the visibilites are extracted.
-    phase_fields: jft.Model
-        Model for phases of calibration solutions. Shape: (n_correlations, n_antennas, n_time, n_freq)
-    log_amplitude_fields: jft.Model
-        Model for log amplitude of calibration solutions. Shape: (n_correlations, n_antennas, n_time, n_freq)
-    dt: float
-        Distances between time points on time axis. Has to be the same distance of time points,
-        which is used for phase_fields and log_amplitude fields.
-
-    Note
-    ----
-    Currently, only uniformly spaced time axis are supported.
+    observation : Observation
+        Observation providing visibility sampling times, antenna indices and,
+        optionally, observing frequencies.
+    phase_fields : jft.Model
+        Model returning the antenna-based phase calibration field.
+    log_amplitude_fields : jft.Model
+        Model returning the antenna-based log-amplitude calibration field.
+    dt : float
+        Spacing of the calibration time grid.
+    frequency_grid : jnp.ndarray, optional
+        Frequency grid on which the calibration fields are defined. If omitted,
+        calibration fields are assumed to already be defined on the observation
+        frequency channels and only time interpolation is performed.
     """
 
     def __init__(
