@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import List
 from os import makedirs
 
-from .slice_cube import slice_cube_spatial, slice_cube_spectral
+# from .slice_cube import slice_cube_spatial, slice_cube_spectral
 from .axes import IntegrationX, IntegrationY, IntegrationSpectral, IntegrationTime
 from ..grid import Grid
 
@@ -85,52 +85,6 @@ class FullSkyCube:
     reference: u.Quantity | None = None
     doppler_convention: str | None = None
     prefix: str = ""
-
-    def slice_cube_spatial(
-        self, upper_left_corners: SkyCoord, lower_right_corners: SkyCoord
-    ):
-        subcubes = []
-
-        for ulc, lrc in zip(upper_left_corners, lower_right_corners):
-            subgrid, subcube_samples = slice_cube_spatial(
-                cube_samples=self.cube_samples,
-                grid=self.grid,
-                upper_left_corner=ulc,
-                lower_right_corner=lrc,
-            )
-
-            subcubes.append(
-                FullSkyCube(
-                    cube_samples=subcube_samples,
-                    grid=subgrid,
-                    flux_density_unit=self.flux_density_unit,
-                    reference=self.reference,
-                    doppler_convention=self.doppler_convention,
-                    prefix=f"{self.prefix}_{ulc}_{lrc}",
-                )
-            )
-
-        return subcubes
-
-    def slice_cube_spectral(self, spectral_ranges):
-        subcubes = []
-        for sr in spectral_ranges:
-            subgrid, subcube_samples = slice_cube_spectral(
-                cube_samples=self.cube_samples, grid=self.grid, spectral_range=sr
-            )
-
-            subcubes.append(
-                FullSkyCube(
-                    cube_samples=subcube_samples,
-                    grid=subgrid,
-                    flux_density_unit=self.flux_density_unit,
-                    reference=self.reference,
-                    doppler_convention=self.doppler_convention,
-                    prefix=f"{self.prefix}_{sr[0]}_{sr[1]}",
-                )
-            )
-
-        return subcubes
 
     def create_maps(self, map_configs: List[dict], output_directory: str):
         makedirs(output_directory, exist_ok=True)

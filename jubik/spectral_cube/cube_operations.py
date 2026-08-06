@@ -1,3 +1,4 @@
+from ..grid import Grid
 from ..fits_saver import FitsSaver
 from .axes import IntegrationAxis, get_stokes_component, convert_spectral_grid
 from .utils import (
@@ -10,6 +11,7 @@ from .utils import (
 import numpy as np
 import astropy.units as u
 from typing import List
+from numpy.typing import NDArray
 
 
 class CubeOperator:
@@ -63,8 +65,16 @@ class CubeOperator:
 
 class CubeIntegrate(CubeOperator):
     def __init__(
-        self, integration_axes: List[IntegrationAxis], cube_unit, grid, prefix=""
+        self,
+        integration_axes: List[IntegrationAxis],
+        cube_unit: u.Quantity,
+        grid: Grid,
+        prefix: str = "",
+        mask: NDArray | None = None,
     ):
+        if (mask is not None) and (mask.shape != grid.shape):
+            raise ValueError("mask must have the same shape as grid.")
+
         differentials = []
         axs = []
         prefix_adds = []
@@ -90,7 +100,7 @@ class CubeIntegrate(CubeOperator):
             else:
                 de = broadcast_to_full(sw, k, len(differentials_sorted))
 
-        self._bin_widths = de.value
+        self._bin_widths = de.value if mask is None else de.value * mask[None, :]
         self._axs = tuple(axs_sorted)
 
         prf = "integrated_" if prefix == "" else f"{prefix}_integrated_"
@@ -107,19 +117,27 @@ class CubeIntegrate(CubeOperator):
 
 
 class CubeAverage(CubeOperator):
-    def __init__(self, integration_axes, cube_flux_unit, grid, prefix=""):
+    def __init__(
+        self,
+        integration_axes: List[IntegrationAxis],
+        cube_unit: u.Quantity,
+        grid: Grid,
+        prefix: str = "",
+        mask: NDArray | None = None,
+    ):
         self._integrator = CubeIntegrate(
             integration_axes=integration_axes,
-            cube_flux_unit=cube_flux_unit,
+            cube_flux_unit=cube_unit,
             grid=grid,
             prefix=prefix,
+            mask=mask,
         )
 
         bin_widths = self._integrator._bin_widths
         self._vol = np.sum(bin_widths)
 
         super().__init__(
-            cube_unit=cube_flux_unit,
+            cube_unit=cube_unit,
             prefix=self._integrator.prefix.replace("integrated", "averaged"),
         )
 

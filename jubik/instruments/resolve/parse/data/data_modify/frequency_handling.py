@@ -8,6 +8,7 @@ class SpectralModify:
     spectral_min: float | None = None
     spectral_max: float | None = None
     spectral_restrict_to_sky_frequencies: bool = False
+    exclude_ranges: list | None = None
 
     @classmethod
     def from_config_parser(cls, data_cfg: ConfigParser) -> "SpectralModify":
@@ -62,19 +63,44 @@ class SpectralModify:
             - restrict_to_sky_frequencies: bool | None
                 Boolian to restrict the spectral channels of the data to the sky
                 model frequencies.
+            - exclude_frequency_ranges: list | None
+                If given, a list of [fmin, fmax] pairs, in [Hz]. Every data
+                channel which falls inside one of these ranges gets dropped.
+                The bounds are inclusive.
         """
         sb = spectral.get("bins")
         smin = spectral.get("min")
         smax = spectral.get("max")
         restrict = spectral.get("restrict_to_sky_frequencies", False)
+        exclude = spectral.get("exclude_frequency_ranges", None)
         cls._check_spectral_min_max_consistency(smin, smax)
+        cls._check_exclude_ranges(exclude)
 
         return cls(
             spectral_bins=sb,
             spectral_min=smin,
             spectral_max=smax,
             spectral_restrict_to_sky_frequencies=restrict,
+            exclude_ranges=exclude,
         )
+
+    @staticmethod
+    def _check_exclude_ranges(exclude: list | None):
+        if exclude is None:
+            return
+
+        for entry in exclude:
+            if not hasattr(entry, "__len__") or len(entry) != 2:
+                raise ValueError(
+                    "Every entry of 'exclude_frequency_ranges' must be a pair"
+                    f" of [fmin, fmax], got {entry}."
+                )
+            fmin, fmax = entry
+            if fmin >= fmax:
+                raise ValueError(
+                    "In every entry of 'exclude_frequency_ranges' fmin must be"
+                    f" strictly lower than fmax, got {entry}."
+                )
 
     @staticmethod
     def _check_spectral_min_max_consistency(smin: float | None, smax: float | None):

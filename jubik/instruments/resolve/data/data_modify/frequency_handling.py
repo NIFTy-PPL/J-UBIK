@@ -148,6 +148,47 @@ def get_freqs(
     return get_freqs_by_slice(observation, mask, copy)
 
 
+def exclude_frequency_ranges(obs: Observation, ranges: list | None) -> Observation:
+    """Return an observation from which all channels inside the given frequency
+    ranges are dropped. The bounds of the ranges are inclusive, i.e. a channel
+    which sits exactly on fmin or fmax gets dropped as well.
+
+    Parameters
+    ----------
+    obs: Observation
+        The observation to be modified.
+    ranges: list | None
+        A list of [fmin, fmax] pairs, in [Hz]. A channel gets dropped if it
+        falls inside any of these ranges. If None or empty the observation is
+        returned unchanged.
+    """
+    if ranges is None or len(ranges) == 0:
+        return obs
+
+    freq = np.asarray(obs.freq)
+    drop = np.zeros(freq.shape, dtype=bool)
+    for fmin, fmax in ranges:
+        drop |= (freq >= fmin) & (freq <= fmax)
+
+    n_excluded = int(np.sum(drop))
+    if n_excluded == 0:
+        logger.info(
+            f"Frequency exclusion: no channel of {freq.size} inside the "
+            "excluded ranges."
+        )
+        return obs
+
+    if n_excluded == freq.size:
+        raise ValueError(
+            "Frequency exclusion would drop all "
+            f"{freq.size} channels of the observation. Excluded ranges: {ranges}."
+        )
+
+    logger.info(f"Frequency exclusion: dropping {n_excluded} of {freq.size} channels.")
+
+    return get_freqs(obs, np.where(~drop)[0])
+
+
 def get_freqs_by_slice(observation: Observation, slc: slice | NDArray, copy=False):
     """Return observation that contains a subset of the frequencies.
     Only those that are specified by slc.

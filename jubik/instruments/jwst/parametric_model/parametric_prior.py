@@ -4,23 +4,30 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
-from ..parse.parametric_model.parametric_prior import ProbabilityConfig
 
 from typing import Callable, Tuple, Union
 
-import numpy as np
 import jax.numpy as jnp
 import nifty.re as jft
 
+from ..parse.parametric_model.parametric_prior import ProbabilityConfig
+
 DISTRIBUTION_MAPPING = {
-    "normal": jft.normal_prior,
-    "log_normal": jft.lognormal_prior,
-    "lognormal": jft.lognormal_prior,
-    "uniform": jft.uniform_prior,
-    "invgamma": jft.invgamma_prior,
-    "delta": lambda x: lambda _: x,
-    None: lambda x: lambda _: x,
+    'normal': (jft.normal_prior, ['mean', 'sigma']),
+    'log_normal': (jft.lognormal_prior, ['mean', 'sigma']),
+    'lognormal': (jft.lognormal_prior, ['mean', 'sigma']),
+    'uniform': (jft.uniform_prior, ['min', 'max']),
+    'delta': (lambda x: lambda _: x, ['mean']),
+    None: (lambda x: lambda _: x, ['mean'])
 }
+
+
+def _shape_adjust(val, shape):
+    """Adjusts the shape of the prior."""
+    if jnp.shape(val) == shape:
+        return jnp.array(val)
+    else:
+        return jnp.full(shape, val)
 
 
 def _infer_shape(params: dict, shape: tuple):
@@ -28,15 +35,15 @@ def _infer_shape(params: dict, shape: tuple):
     if shape != ():
         return shape
 
-    match params["distribution"]:
-        case "delta" | None:
-            return jnp.shape(params["mean"])
+    match params['distribution']:
+        case 'delta' | None:
+            return jnp.shape(params['mean'])
 
-        case "uniform":
-            shp1, shp2 = map(jnp.shape, (params["min"], params["max"]))
+        case 'uniform':
+            shp1, shp2 = map(jnp.shape, (params['min'], params['max']))
 
         case _:
-            shp1, shp2 = map(jnp.shape, (params["mean"], params["sigma"]))
+            shp1, shp2 = map(jnp.shape, (params['mean'], params['sigma']))
 
     # TODO: do some checks on compatibility of the two shapes
     return shp1
@@ -50,30 +57,37 @@ def _transform_setting(parameters: Union[dict, tuple]):
     distribution = parameters[0].lower()
 
     match distribution:
-        case "uniform":
-            return dict(distribution=distribution, min=parameters[1], max=parameters[2])
+        case 'uniform':
+            return dict(
+                distribution=distribution,
+                min=parameters[1],
+                max=parameters[2])
 
-        case "delta" | None:
-            return dict(distribution=distribution, mean=parameters[1])
+        case 'delta' | None:
+            return dict(
+                distribution=distribution,
+                mean=parameters[1]
+            )
 
         case _:
             return dict(
-                distribution=distribution, mean=parameters[1], sigma=parameters[2]
+                distribution=distribution,
+                mean=parameters[1],
+                sigma=parameters[2]
             )
 
 
-def build_parametric_prior_from_prior_config(
+def build_parametric_prior(
     domain_key: str,
-    prior_config: ProbabilityConfig,
-    shape: tuple[int, ...] = (),
-    as_model: bool = False,
-) -> Union[Callable, jft.Model]:
+    parameters: Union[dict, tuple],
+    shape: Tuple[int] = ()
+) -> Callable:
     """
     Builds a parametric prior based on the specified distribution and
     transformation.
 
     This function constructs a prior distribution for a given model domain by
-    interpreting the provided `prior_config` and selecting the appropriate
+    interpreting the provided `parameters` and selecting the appropriate
     prior function based on the distribution specified therein.
     The prior can be optionally transformed if a transformation
     function is specified.
@@ -83,12 +97,15 @@ def build_parametric_prior_from_prior_config(
     domain_key : str
         A string key identifying the domain of the model to which this prior
         applies.
-    prior_config : Union[DefaultPriorConfig, UniformPriorConfig, DeltaPriorConfig],
-        A prior config containing the relevant parameters for the configuration
-        of the probability distribution.
+    parameters : dict or tuple
+        A dictionary or tuple containing the prior configuration.
+        The dictionary should have a 'distribution' key, which specifies the
+        distribution type, and additional keys
+        required for the distribution (e.g., 'mean', 'std' for a Gaussian).
+        The required keys depend on the distribution.
     shape : tuple of int, optional
         A tuple representing the shape of the parameters.
-        This shape is applied to adjust the values of the prior to
+        This shape is applied to adjust the values of the prior parameters to
         match the specified shape. Default is an empty tuple.
 
     Returns
@@ -104,6 +121,8 @@ def build_parametric_prior_from_prior_config(
     NotImplementedError
         If the specified distribution is not found in the
         `DISTRIBUTION_MAPPING`.
+    KeyError
+        If the required keys for the distribution are missing in `parameters`.
 
     Example
     -------
@@ -121,8 +140,77 @@ def build_parametric_prior_from_prior_config(
     `DISTRIBUTION_MAPPING`, which maps each distribution to its corresponding
     prior function and required parameters.
     """
+    parameters = _transform_setting(parameters)
 
-    distribution_builder = DISTRIBUTION_MAPPING[prior_config.distribution]
+    try:
+        distribution = parameters.get('distribution')
+        prior_function, required_keys = DISTRIBUTION_MAPPING[distribution]
+        vals = [_shape_adjust(parameters[key], shape) for key in required_keys]
+        transformation = parameters.get('transformation', None)
+
+    except KeyError as e:
+        if distribution not in DISTRIBUTION_MAPPING:
+            raise NotImplementedError(
+                f"{domain_key}: Prior distribution '{distribution}' is not "
+                "implemented. Available distributions: \n"
+                f"{list(DISTRIBUTION_MAPPING.keys())}"
+            ) from e
+        else:
+            raise KeyError(
+                f"{domain_key}: The distribution '{distribution}' requires the"
+                f" keys: {required_keys}"
+            ) from e
+
+    prior = prior_function(*vals)
+
+    if transformation is not None:
+        trafo = getattr(jnp, transformation)
+        return jft.wrap(lambda x: trafo(prior(x)), domain_key)
+
+    return jft.wrap(prior, domain_key)
+
+
+PRIOR_CONFIG_DISTRIBUTION_MAPPING = {
+    "normal": jft.normal_prior,
+    "log_normal": jft.lognormal_prior,
+    "lognormal": jft.lognormal_prior,
+    "uniform": jft.uniform_prior,
+    "invgamma": jft.invgamma_prior,
+    "delta": lambda x: lambda _: x,
+    None: lambda x: lambda _: x,
+}
+
+
+def build_parametric_prior_from_prior_config(
+    domain_key: str,
+    prior_config: ProbabilityConfig,
+    shape: tuple[int, ...] = (),
+    as_model: bool = False,
+) -> Union[Callable, jft.Model]:
+    """Build a parametric prior from a `ProbabilityConfig`.
+
+    This is the `ProbabilityConfig`-based counterpart of
+    `build_parametric_prior`, which takes the raw dict/tuple instead.
+
+    Parameters
+    ----------
+    domain_key : str
+        A string key identifying the domain of the model to which this prior
+        applies.
+    prior_config : ProbabilityConfig
+        A prior config holding the parameters of the probability distribution.
+    shape : tuple of int, optional
+        The shape the prior parameters are adjusted to. Default is `()`.
+    as_model : bool, optional
+        If True, return a `jft.Model` instead of a plain callable.
+
+    Returns
+    -------
+    Callable | jft.Model
+        The prior, wrapped on `domain_key`.
+    """
+
+    distribution_builder = PRIOR_CONFIG_DISTRIBUTION_MAPPING[prior_config.distribution]
     distribution = distribution_builder(*prior_config.parameters_to_shape(shape=shape))
 
     if prior_config.transformation is not None:
