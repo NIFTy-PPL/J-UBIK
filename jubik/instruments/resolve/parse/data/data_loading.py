@@ -1,10 +1,23 @@
-from dataclasses import dataclass
-from os.path import join
 from configparser import ConfigParser
+from dataclasses import dataclass
+from itertools import product
+from os.path import join
+from typing import Generator
 
 
 def _prepand_path(input_path: str, files: list[str]):
     return [join(input_path, fname) for fname in files]
+
+
+@dataclass
+class LoaderTemplate:
+    data_template: str
+    field_id: int | str | None
+    spectral_window: int | str | None
+
+    @property
+    def file_path(self):
+        return self.data_template.format(field=self.field_id, spw=self.spectral_window)
 
 
 @dataclass
@@ -56,11 +69,18 @@ class DataLoading:
 
         field_ids = data_cfg.get("field_ids", [None])
 
-        spectral = data_cfg.get("spectral")
-        spectral_windows = spectral.get("window")
+        spectral = data_cfg.get("spectral", {})
+        spectral_windows = spectral.get("window", [None])
 
         return DataLoading(
             data_templates=data_templates,
             field_ids=field_ids,
             spectral_windows=spectral_windows,
         )
+
+    @property
+    def loader_templates(self) -> Generator[LoaderTemplate, None, None]:
+        for fi, dt, spw in product(
+            self.field_ids, self.data_templates, self.spectral_windows
+        ):
+            yield LoaderTemplate(field_id=fi, data_template=dt, spectral_window=spw)

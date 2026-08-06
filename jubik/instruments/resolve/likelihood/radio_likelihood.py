@@ -31,6 +31,7 @@ from ....likelihood import connect_likelihood_to_model
 from ..parse.data.data_loading import DataLoading
 from ..parse.data.data_modify import ObservationModify
 from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
+from ..parse.noise.factory_noise_correction import factory_noise_correction_parser
 from ..parse.response import yaml_to_response_settings
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
@@ -48,7 +49,10 @@ from ..telescopes.primary_beam import (
     build_primary_beam_pattern_from_beam_pattern_config,
 )
 from ..util import cast_to_dtype
-from .mosaic_likelihood import build_likelihood_from_sky_beamer
+from .mosaic_likelihood import (
+    VariableLikelihoodBuilder,
+    build_likelihood_from_sky_beamer,
+)
 
 
 @dataclass
@@ -74,7 +78,7 @@ class RadioLikelihoodProducts:
         the likelihoods list.
     """
 
-    likelihoods: list[LikelihoodBuilder]
+    likelihoods: list[LikelihoodBuilder] | list[VariableLikelihoodBuilder]
     sky_beamer: SkyBeamerJft
     radio_sky_extractor: RadioSkyExtractor  # NOTE : only for convenience
     _names: list[str] | None = None
@@ -174,9 +178,9 @@ def build_radio_likelihood(
 
         _sky_beamer = build_jft_sky_beamer(
             sky_shape_with_dtype=radio_sky_extractor.target,
-            sky_fov=sky_grid.spatial.fov,
-            sky_center=sky_grid.spatial.center,
-            sky_frequency_means=sky_grid.spectral.center,
+            sky_fov=radio_grid.spatial.fov,
+            sky_center=radio_grid.spatial.center,
+            sky_frequency_means=radio_grid.spectral.center,
             observations=observations,
             beam_func=beam_func,
             direction_key=direction_key,
@@ -193,8 +197,11 @@ def build_radio_likelihood(
                             observation=o,
                             field_name=field_name,
                             sky_beamer=_sky_beamer,
-                            sky_grid=sky_grid,
+                            sky_grid=radio_grid,
                             backend_settings=response_backend_settings,
+                            noise_std_correction=factory_noise_correction_parser(
+                                cfg[data_key][data_name]
+                            ),
                         )
                     )
 

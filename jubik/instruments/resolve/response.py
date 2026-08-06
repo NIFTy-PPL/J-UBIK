@@ -120,7 +120,7 @@ def interferometry_response(
 
     npix_x, npix_y = sky_grid.spatial.shape
     pixsize_x, pixsize_y = sky_grid.spatial.distances.to(RESOLVE_SPATIAL_UNIT).value
-    center_y, center_x = calculate_phase_offset_to_image_center(
+    center_x, center_y = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
         sky_grid.spatial.center
         if observation.direction is None

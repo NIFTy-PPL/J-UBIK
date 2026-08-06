@@ -1,8 +1,10 @@
+from typing import Generator
+
 from astropy.units import Quantity
 from nifty.cl.logger import logger
 
 from ....color import Color
-from ..parse.data.data_loading import DataLoading
+from ..parse.data.data_loading import DataLoading, LoaderTemplate
 from ..parse.data.data_modify import ObservationModify
 from .data_modify import modify_observation
 from .observation import Observation
@@ -12,7 +14,7 @@ def load_and_modify_data_from_objects(
     sky_frequencies: Quantity | Color,
     data_loading: DataLoading,
     observation_modify: ObservationModify,
-):
+) -> Generator[Observation, None, None]:
     """Load and modify the data, according to `data_loading`, and
     `observation_modify`.
 
@@ -30,15 +32,7 @@ def load_and_modify_data_from_objects(
     if not isinstance(sky_frequencies, Color):
         sky_frequencies = Color(sky_frequencies)
 
-    data_paths = [
-        dt.format(field=fi, spw=spw)
-        for fi in data_loading.field_ids
-        for dt in data_loading.data_templates
-        for spw in data_loading.spectral_windows
-    ]
-
-    for file in data_paths:
-        logger.info(f"\nLoading data: {file}")
-        obs = Observation.load(file)
-        obs = modify_observation(sky_frequencies, obs, observation_modify)
-        yield obs
+    for ii, data_template in enumerate(data_loading.loader_templates):
+        logger.info(f"\nLoading data: {data_template.file_path}")
+        obs = Observation.load(data_template.file_path)
+        yield modify_observation(sky_frequencies, obs, observation_modify(ii))

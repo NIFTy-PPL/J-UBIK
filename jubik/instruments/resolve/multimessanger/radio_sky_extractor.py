@@ -72,21 +72,21 @@ def build_unit_conversion(sky_unit: u.Unit | None):
     return unit_conversion
 
 
-def resolve_transpose(tree):
-    """Transpose the spatial axis."""
-
-    return jax.tree.map(lambda x: jnp.transpose(x, (0, 1, 2, 4, 3)), tree)
-
-
 # TODO : This function shouldn't be here but part of the sky models.
 def build_radiofy_sky(sky_domain_shape: tuple[int]):
-    """Make the output shape of the sky conform to the standard axis:
-    (polarization, time, frequencies, space, space)
+    """Make the output shape of the sky conform to the standard axis layout
+    `(polarization, time, frequencies, npix_x, npix_y)` expected by the
+    interferometry response.
+
+    The two trailing spatial axes are taken to be `(npix_x, npix_y)` in the
+    same order as `Grid.spatial.shape` — i.e. axis 0 corresponds to the WCS
+    CDELT1 direction (the RA / `l` axis used by the ducc wgridder), axis 1 to
+    CDELT2 (the Dec / `m` axis).
 
     Parameters
     ----------
     sky_domain_shape: tuple[int]
-        The shape of the sky domain, i.e. the SkyModel.target.shape.
+        The shape of the sky domain, i.e. the `SkyModel.target.shape`.
     """
 
     if len(sky_domain_shape) == 2:
@@ -106,6 +106,17 @@ def build_radiofy_sky(sky_domain_shape: tuple[int]):
 
 
 class RadioSkyExtractor(jft.Model):
+    """Extract the radio part of a multi-instrument sky, convert it to the
+    resolve internal unit (Jy/sr), and broadcast it to the 5-D layout the
+    response operator expects.
+
+    Spatial-axis convention: the last two axes of the output are
+    `(npix_x, npix_y)`, in the same order as `Grid.spatial.shape` — matching
+    the ducc wgridder's `(npix_x = l-axis, npix_y = m-axis)` convention. No
+    transpose is applied; downstream operators (sky_beamer, response) assume
+    the same convention.
+    """
+
     def __init__(
         self,
         domain: Union[jft.ShapeWithDtype, dict],
@@ -113,17 +124,15 @@ class RadioSkyExtractor(jft.Model):
         slice_radio_sky: callable,
         unit_conversion: callable,
         radiofy: callable,
-        transpose: callable,
     ):
         self.extract = extract_sky
         self.slicing = slice_radio_sky
         self.conv = unit_conversion
         self.radiofy = radiofy
-        self.trans = transpose
         super().__init__(domain=domain)
 
     def __call__(self, x):
-        return self.trans(self.radiofy(self.conv(self.slicing(self.extract(x)))))
+        return self.radiofy(self.conv(self.slicing(self.extract(x))))
 
 
 def build_radio_sky_extractor(
@@ -155,15 +164,12 @@ def build_radio_sky_extractor(
     """
     sky_key = next(iter(sky_domain.keys())) if isinstance(sky_domain, dict) else None
 
-    extract, slicing, conv, trans = (
-        build_extract_sky(sky_key),
-        build_radio_slicing(index_of_last_radio_bin),
-        build_unit_conversion(sky_unit),
-        resolve_transpose,
-    )
+    extract = build_extract_sky(sky_key)
+    slicing = build_radio_slicing(index_of_last_radio_bin)
+    conv = build_unit_conversion(sky_unit)
     radiofy = build_radiofy_sky(extract(sky_domain).shape)
 
-    return RadioSkyExtractor(sky_domain, extract, slicing, conv, radiofy, trans)
+    return RadioSkyExtractor(sky_domain, extract, slicing, conv, radiofy)
 
 
 def build_radio_grid(
