@@ -7,6 +7,7 @@ from ...parse.data.data_modify import ObservationModify
 from ..observation import Observation
 from .flagging import flag_weights
 from .frequency_handling import (
+    exclude_frequency_ranges,
     freq_average_by_fdom_and_n_freq_chunks,
     restrict_by_freq,
     restrict_to_discontinuous_frequencies,
@@ -66,6 +67,10 @@ def modify_observation(
     if not sky_frequencies.is_continuous:
         logger.info("Restrict to discontinuous Sky frequencies.")
         obs = restrict_to_discontinuous_frequencies(obs, sky_frequencies)
+
+    # Exclusion has to happen before the frequency averaging, such that the
+    # excluded channels do not enter any average.
+    obs = exclude_frequency_ranges(obs, modify.spectral.exclude_ranges)
 
     obs = freq_average_by_fdom_and_n_freq_chunks(
         sky_frequencies, obs, modify.spectral.spectral_bins
