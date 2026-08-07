@@ -15,7 +15,36 @@ __all__ = ["FitsSaver"]
 def _process_frequency(
     header: fits.Header, grid: Grid, field: NDArray, np_axis: int, fits_axis: int
 ) -> tuple[Optional[fits.BinTableHDU], NDArray]:
-    """Processes the frequency axis. This axis is never squeezed."""
+    """Describe the spectral axis in the header and, if possible, in a table.
+
+    The frequency axis is only squeezed out of the field if it holds a single
+    channel whose center is infinite, i.e. if the grid carries no spectral
+    information at all.
+
+    The header keywords (``CTYPEn``, ``CRVALn``, ``CDELTn``) can only encode a
+    linear frequency axis and are therefore approximate; they are written for
+    backwards compatibility. The exact bin centers are additionally returned as
+    a ``FREQUENCIES`` binary table.
+
+    Parameters
+    ----------
+    header : fits.Header
+        Header to which the spectral WCS keywords are added, in place.
+    grid : Grid
+        Grid providing the spectral bin centers via ``grid.spectral.center``.
+    field : NDArray
+        Field of shape (sample, polarization, time, frequency, y, x).
+    np_axis : int
+        Index of the frequency axis inside `field`.
+    fits_axis : int
+        One-based FITS axis number used for the header keyword suffix.
+
+    Returns
+    -------
+    tuple[Optional[fits.BinTableHDU], NDArray]
+        The ``FREQUENCIES`` table (`None` if the axis was squeezed) and the
+        possibly squeezed field.
+    """
     freqs = u.Quantity(grid.spectral.center).to(u.Hz, equivalencies=u.spectral())
 
     if field.shape[np_axis] == 1 and np.isinf(freqs[0]):
@@ -43,7 +72,33 @@ def _process_frequency(
 def _process_time(
     header: fits.Header, grid: Grid, field: NDArray, np_axis: int, fits_axis: int
 ) -> tuple[Optional[fits.BinTableHDU], NDArray]:
-    """Processes the time axis, squeezing if its length is 1."""
+    """Describe the time axis in the header, squeezing it if it has length 1.
+
+    Parameters
+    ----------
+    header : fits.Header
+        Header to which the time WCS keywords are added, in place.
+    grid : Grid
+        Grid providing the time bin bounds via ``grid.times``.
+    field : NDArray
+        Field of shape (sample, polarization, time, frequency, y, x).
+    np_axis : int
+        Index of the time axis inside `field`.
+    fits_axis : int
+        One-based FITS axis number used for the header keyword suffix.
+
+    Returns
+    -------
+    tuple[Optional[fits.BinTableHDU], NDArray]
+        The ``TIMES`` table (`None` if the axis was squeezed) and the possibly
+        squeezed field.
+
+    Raises
+    ------
+    NotImplementedError
+        If the time axis is longer than one bin. Multiple time bins are
+        untested and hence rejected.
+    """
     if field.shape[np_axis] == 1:
         return None, np.squeeze(field, axis=np_axis)
     else:
@@ -71,7 +126,33 @@ def _process_time(
 def _process_polarization(
     header: fits.Header, grid: Grid, field: NDArray, np_axis: int, fits_axis: int
 ) -> tuple[Optional[fits.BinTableHDU], NDArray]:
-    """Processes the polarization axis, squeezing if its length is 1."""
+    """Describe the polarization axis, squeezing it if it has length 1.
+
+    Parameters
+    ----------
+    header : fits.Header
+        Header to which the Stokes WCS keywords are added, in place.
+    grid : Grid
+        Grid providing the polarization labels via ``grid.polarization``.
+    field : NDArray
+        Field of shape (sample, polarization, time, frequency, y, x).
+    np_axis : int
+        Index of the polarization axis inside `field`.
+    fits_axis : int
+        One-based FITS axis number used for the header keyword suffix.
+
+    Returns
+    -------
+    tuple[Optional[fits.BinTableHDU], NDArray]
+        The ``POLARIZATIONS`` table (`None` if the axis was squeezed) and the
+        possibly squeezed field.
+
+    Raises
+    ------
+    NotImplementedError
+        If more than one polarization is present. This case is untested and
+        hence rejected.
+    """
     if field.shape[np_axis] == 1:
         return None, np.squeeze(field, axis=np_axis)
     else:
@@ -91,7 +172,27 @@ def _process_polarization(
 def _process_sample(
     header: fits.Header, field: NDArray, np_axis: int, fits_axis: int
 ) -> NDArray:
-    """Processes the sample axis, squeezing if its length is 1."""
+    """Describe the sample axis, squeezing it if it has length 1.
+
+    The sample axis enumerates posterior samples and carries no physical
+    coordinate, hence it is described by a unit-increment index axis.
+
+    Parameters
+    ----------
+    header : fits.Header
+        Header to which the sample WCS keywords are added, in place.
+    field : NDArray
+        Field of shape (sample, polarization, time, frequency, y, x).
+    np_axis : int
+        Index of the sample axis inside `field`.
+    fits_axis : int
+        One-based FITS axis number used for the header keyword suffix.
+
+    Returns
+    -------
+    NDArray
+        The field, with the sample axis squeezed out if it had length 1.
+    """
     if field.shape[np_axis] == 1:
         return np.squeeze(field, axis=np_axis)
     else:
@@ -106,7 +207,21 @@ def _process_sample(
 
 
 def _create_spatial_header(grid: Grid) -> fits.Header:
-    """Creates a FITS header with spatial WCS, removing the WCSAXES keyword."""
+    """Create a FITS header holding the spatial WCS of the grid.
+
+    ``WCSAXES`` is removed because the number of axes of the written file is
+    only known after the non-spatial axes have been squeezed.
+
+    Parameters
+    ----------
+    grid : Grid
+        Grid providing the spatial world coordinate system.
+
+    Returns
+    -------
+    fits.Header
+        Header with the spatial WCS keywords for axes 1 (x) and 2 (y).
+    """
     header = grid.spatial.to_header()
     if "WCSAXES" in header:
         del header["WCSAXES"]
@@ -116,9 +231,25 @@ def _create_spatial_header(grid: Grid) -> fits.Header:
 def _process_dynamic_axes(
     grid: Grid, field: NDArray
 ) -> tuple[fits.Header, list[fits.BinTableHDU], NDArray]:
-    """
-    Orchestrates the dynamic processing of non-spatial axes by calling subroutines.
-    Processes axes from highest index to lowest to prevent index shifting.
+    """Describe the non-spatial axes and drop the ones of length one.
+
+    The axes are processed from the highest numpy index to the lowest, such
+    that squeezing an axis does not shift the index of an axis not yet
+    processed.
+
+    Parameters
+    ----------
+    grid : Grid
+        Grid providing the spectral, temporal and polarization coordinates.
+    field : NDArray
+        Field of shape (sample, polarization, time, frequency, y, x).
+
+    Returns
+    -------
+    tuple[fits.Header, list[fits.BinTableHDU], NDArray]
+        The header holding the non-spatial WCS keywords, the extension HDUs to
+        append to the file, and the field with all length-one axes (except the
+        spatial ones) removed.
     """
     header = fits.Header()
     extension_hdus = []
@@ -152,7 +283,31 @@ def _process_dynamic_axes(
 
 
 class FitsSaver:
-    """Orchestrates FITS file creation with dynamic axis handling."""
+    """Write posterior sky samples, or their statistics, to FITS files.
+
+    The saver takes the full sample stack together with the `Grid` describing
+    its coordinates and writes the mean, the standard deviation or all samples.
+    Axes of length one are dropped from the written data, so that a single
+    Stokes-I, single-time, single-frequency mean ends up as a plain 2D image,
+    while the corresponding WCS is taken from the grid.
+
+    Parameters
+    ----------
+    grid : Grid
+        The coordinate system of `field_samples`.
+    field_samples : NDArray
+        Sky samples of shape (sample, polarization, time, frequency, y, x).
+
+    Raises
+    ------
+    ValueError
+        If `field_samples` is not 6-dimensional.
+
+    Examples
+    --------
+    >>> saver = FitsSaver(grid, samples)  # samples.shape == (10, 1, 1, 3, 64, 64)
+    >>> saver.save_mean("mean.fits", sky_unit=u.Unit("Jy"))
+    """
 
     def __init__(self, grid: Grid, field_samples: NDArray):
         if field_samples.ndim != 6:
@@ -163,7 +318,16 @@ class FitsSaver:
         self.field = field_samples
 
     def save_mean(self, filename: str, sky_unit: u.Unit | None = None):
-        """Averages data and saves, dynamically removing single-entry axes."""
+        """Save the sample mean, dropping all single-entry axes.
+
+        Parameters
+        ----------
+        filename : str
+            Path of the FITS file to write. An existing file is overwritten.
+        sky_unit : u.Unit, optional
+            Unit of the sky brightness, written to ``BUNIT``. If `None`, no
+            ``BUNIT`` keyword is written.
+        """
         print(f"\n--- Saving mean to '{filename}' ---")
         # Average over samples, but keep the dimension for consistent processing
         field_to_save = self.field.mean(axis=0, keepdims=True)
@@ -172,7 +336,20 @@ class FitsSaver:
     def save_std(
         self, filename: str, sky_unit: u.Unit | None = None, correct_bias: bool = False
     ):
-        """Averages data and saves, dynamically removing single-entry axes."""
+        """Save the sample standard deviation, dropping all single-entry axes.
+
+        Parameters
+        ----------
+        filename : str
+            Path of the FITS file to write. An existing file is overwritten.
+        sky_unit : u.Unit, optional
+            Unit of the sky brightness, written to ``BUNIT``. If `None`, no
+            ``BUNIT`` keyword is written.
+        correct_bias : bool, optional
+            If True, apply the Bessel correction ``sqrt(N / (N - 1))`` to turn
+            the biased standard deviation into the unbiased one (default:
+            False).
+        """
         print(f"\n--- Saving mean to '{filename}' ---")
         # Average over samples, but keep the dimension for consistent processing
         field_to_save = self.field.std(axis=0, keepdims=True)
@@ -184,12 +361,32 @@ class FitsSaver:
         self._save(filename, field_to_save, sky_unit)
 
     def save_samples(self, filename: str, sky_unit: u.Unit | None = None):
-        """Saves sample data, dynamically removing any single-entry axes."""
+        """Save all samples, dropping any single-entry axes.
+
+        Parameters
+        ----------
+        filename : str
+            Path of the FITS file to write. An existing file is overwritten.
+        sky_unit : u.Unit, optional
+            Unit of the sky brightness, written to ``BUNIT``. If `None`, no
+            ``BUNIT`` keyword is written.
+        """
         print(f"\n--- Saving samples to '{filename}' ---")
         self._save(filename, self.field, sky_unit)
 
     def _save(self, filename: str, field_data: NDArray, sky_unit: u.Unit | None = None):
-        """Generic save method using the dynamic helper functions."""
+        """Write `field_data` and the grid coordinates to a FITS file.
+
+        Parameters
+        ----------
+        filename : str
+            Path of the FITS file to write. An existing file is overwritten.
+        field_data : NDArray
+            Field of shape (sample, polarization, time, frequency, y, x).
+        sky_unit : u.Unit, optional
+            Unit of the sky brightness, written to ``BUNIT``. If `None`, no
+            ``BUNIT`` keyword is written.
+        """
         spatial_header = _create_spatial_header(self.grid)
         other_header, extensions, final_field = _process_dynamic_axes(
             self.grid, field_data
