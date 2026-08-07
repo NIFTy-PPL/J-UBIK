@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 from ....grid import Grid
 from ..data.observation import Observation
-from ..mosaicing.sky_beamer import SkyBeamerJft
+from ..mosaicing.sky_beamer import SkyBeamer
 from ..noise.factory_noise_correction import factory_noise_correction_model
 from ..parse.noise.base_line_correction import BaseLineCorrection
 from ..parse.response import Ducc0Settings, FinufftSettings
@@ -120,7 +120,7 @@ class VariableLikelihoodBuilder(LikelihoodBuilderBase):
 def build_likelihood_from_sky_beamer(
     observation: Observation,
     field_name: str,
-    sky_beamer: SkyBeamerJft,
+    sky_beamer: SkyBeamer,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     noise_std_correction: BaseLineCorrection | None = None,
@@ -143,7 +143,7 @@ def build_likelihood_from_sky_beamer(
         The observation under question
     field_name: str
         The name of the field (pointing) corresponding to the `observation`.
-    sky_beamer: SkyBeamerJft
+    sky_beamer: SkyBeamer
         The operator that applies the beam pattern to the sky.
         This can potentially hold multiple pointings, that are identified by different
         field_name.

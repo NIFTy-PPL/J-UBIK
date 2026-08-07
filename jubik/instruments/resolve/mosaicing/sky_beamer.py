@@ -41,7 +41,7 @@ class BeamPattern:
     direction: Direction
 
 
-class SkyBeamerJft(jft.Model):
+class SkyBeamer(jft.Model):
     """The SkyBeamer transforms an input sky into a dictionary of skies with
     applied beam pattern.
 
@@ -82,7 +82,7 @@ class SkyBeamerJft(jft.Model):
         return self._create_object(self.domain, bd)
 
 
-def build_jft_sky_beamer(
+def build_sky_beamer(
     sky_shape_with_dtype: jft.ShapeWithDtype,
     sky_fov: u.Quantity,
     sky_center: SkyCoord,
@@ -91,7 +91,7 @@ def build_jft_sky_beamer(
     beam_func: Callable[float, float],
     direction_key: str = "REFERENCE_DIR",
     field_name_prefix: str = "",
-) -> SkyBeamerJft:
+) -> SkyBeamer:
     """Builds the SkyBeamer. The SkyBeamer contains holds an array for each
     pointing containing the beam pattern for the mean of all
     `sky_frequency_means`.
@@ -181,7 +181,7 @@ def build_jft_sky_beamer(
             center_x=center_x, center_y=center_y, beam=beam, direction=direction
         )
 
-    return SkyBeamerJft(sky_shape_with_dtype, beam_directions)
+    return SkyBeamer(sky_shape_with_dtype, beam_directions)
 
 
 def _filter_pointings_generator(observations: list[Observation], direction_key: str):

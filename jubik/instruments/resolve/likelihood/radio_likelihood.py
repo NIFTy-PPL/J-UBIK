@@ -39,7 +39,7 @@ from ..likelihood.mosaic_likelihood import (
     LikelihoodBuilder,
     build_likelihood_from_sky_beamer,
 )
-from ..mosaicing.sky_beamer import SkyBeamerJft, build_jft_sky_beamer
+from ..mosaicing.sky_beamer import SkyBeamer, build_sky_beamer
 from ..multimessanger import (
     RadioSkyExtractor,
     build_radio_grid,
@@ -79,7 +79,7 @@ class RadioLikelihoodProducts:
     """
 
     likelihoods: list[LikelihoodBuilder] | list[VariableLikelihoodBuilder]
-    sky_beamer: SkyBeamerJft
+    sky_beamer: SkyBeamer
     radio_sky_extractor: RadioSkyExtractor  # NOTE : only for convenience
     _names: list[str] | None = None
 
@@ -176,7 +176,7 @@ def build_radio_likelihood(
             BeamPatternConfig.from_yaml_dict(cfg[data_key][data_name]["dish"])
         )
 
-        _sky_beamer = build_jft_sky_beamer(
+        _sky_beamer = build_sky_beamer(
             sky_shape_with_dtype=radio_sky_extractor.target,
             sky_fov=radio_grid.spatial.fov,
             sky_center=radio_grid.spatial.center,
