@@ -597,7 +597,7 @@ def kl_kwargs_factory(
                 maxiter=maxit,
                 xtol=xtol,
                 cg_kwargs=dict(
-                    name=None, # KL_CG,
+                    name=KL_CG,
                     absdelta=cg_absdelta,
                     atol=cg_atol,
                     miniter=cg_minit,
