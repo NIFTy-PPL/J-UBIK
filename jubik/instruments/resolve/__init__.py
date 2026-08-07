@@ -11,7 +11,6 @@ from .plotting import standard_plotting as plotting
 
 from .likelihood import *
 
-from .logger import logger
 from .util import *
 
 from .response import interferometry_response
