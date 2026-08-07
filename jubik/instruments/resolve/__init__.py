@@ -7,8 +7,6 @@ from .data.observation import *
 
 from .calibration import *
 
-from .plotting import standard_plotting as plotting
-
 from .likelihood import *
 
 from .util import *
