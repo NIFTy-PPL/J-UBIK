@@ -13,7 +13,6 @@ from .utils import (
     save_to_yaml,
     copy_config,
     create_output_directory,
-    save_config_copy_easy,
     coord_center,
     get_stats,
 )
