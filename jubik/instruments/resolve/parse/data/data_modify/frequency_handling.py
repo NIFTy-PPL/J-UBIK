@@ -1,4 +1,3 @@
-from configparser import ConfigParser
 from dataclasses import dataclass
 
 
@@ -11,42 +10,9 @@ class SpectralModify:
     exclude_ranges: list | None = None
 
     @classmethod
-    def from_config_parser(cls, data_cfg: ConfigParser) -> "SpectralModify":
-        """
-        Build from ConfigParser.
-
-        Parameters
-        ----------
-        spectral bins: int | None
-            If given the data gets restricted to N spectral bins.
-        spectral min: float | None
-            If given the data gets restricted to being above this minimum
-            frequency value.
-        spectral max: float | None
-            If given the data gets restricted to being below this maximum
-            frequency value.
-        spectral restrict_to_sky_frequencies: bool | None
-            Boolian to restrict the spectral channels of the data to the sky
-            model frequencies.
-        """
-
-        sb = eval(data_cfg.get("spectral bins", "None"))
-        smin = eval(data_cfg.get("spectral min", "None"))
-        smax = eval(data_cfg.get("spectral max", "None"))
-        restrict = eval(data_cfg.get("spectral restrict_to_sky_frequencies", "False"))
-        cls._check_spectral_min_max_consistency(smin, smax)
-
-        return cls(
-            spectral_bins=sb,
-            spectral_min=smin,
-            spectral_max=smax,
-            spectral_restrict_to_sky_frequencies=restrict,
-        )
-
-    @classmethod
     def from_yaml_dict(cls, spectral: dict) -> "SpectralModify":
         """
-        Build from ConfigParser.
+        Build from yaml dictionary.
 
         Parameters
         ----------

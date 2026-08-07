@@ -1,4 +1,3 @@
-from configparser import ConfigParser
 from dataclasses import dataclass
 
 from .....parse.parsing_base import StaticTyped

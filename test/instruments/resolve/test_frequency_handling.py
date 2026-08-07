@@ -99,13 +99,3 @@ def test_spectral_modify_exclude_ranges_default_is_none():
 def test_spectral_modify_invalid_exclude_range_raises(entry):
     with pytest.raises(ValueError):
         SpectralModify.from_yaml_dict({"exclude_frequency_ranges": [entry]})
-
-
-def test_spectral_modify_from_config_parser_leaves_exclude_ranges_none():
-    from configparser import ConfigParser
-
-    cfg = ConfigParser()
-    cfg.add_section("data")
-    modify = SpectralModify.from_config_parser(cfg["data"])
-
-    assert modify.exclude_ranges is None

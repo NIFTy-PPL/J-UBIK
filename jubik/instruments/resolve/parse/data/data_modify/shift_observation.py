@@ -1,4 +1,3 @@
-from configparser import ConfigParser
 from dataclasses import dataclass
 from typing import Union
 
@@ -8,19 +7,6 @@ from astropy import units as u
 @dataclass
 class ShiftObservation:
     shift: u.Quantity
-
-    @classmethod
-    def from_config_parser(
-        cls, shift_cfg: ConfigParser | None
-    ) -> Union[None, "ShiftObservation"]:
-        """
-        Build from ConfigParser.
-
-        Parameters
-        ----------
-        shift_cfg: ConfigParser
-        """
-        raise NotImplementedError("Sorry not implemented. Think about it")
 
     @classmethod
     def from_yaml_dict(cls, shift_cfg: dict | None) -> Union[None, "ShiftObservation"]:

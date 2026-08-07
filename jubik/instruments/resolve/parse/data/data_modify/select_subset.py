@@ -44,25 +44,3 @@ class SelectSubset:
                 mask_path=raw.get("mask_path"),
             )
         raise ValueError(f"Cannot parse select_subset from {type(raw)}: {raw}")
-
-    @classmethod
-    def from_config_parser(
-        cls, percentage: float | None, mask_path: str | None = None
-    ) -> "SelectSubset | None":
-        """Create a `SelectSubset` from ConfigParser values.
-
-        Parameters
-        ----------
-        percentage: float | None
-            Fraction of visibilities to keep.
-        mask_path: str | None
-            Path to a .npy file for saving/loading the subset mask.
-
-        Returns
-        -------
-        SelectSubset | None
-            None if both arguments are None, otherwise a `SelectSubset` instance.
-        """
-        if percentage is None and mask_path is None:
-            return None
-        return cls(percentage=percentage, mask_path=mask_path)

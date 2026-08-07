@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from configparser import ConfigParser
 import warnings
 
 from .shift_observation import ShiftObservation
@@ -36,68 +35,6 @@ class ObservationModify:
     restrict_to_stokes_I: bool
     average_to_stokes_I: bool
     flag_weights: FlagWeights | None
-
-    @classmethod
-    def from_config_parser(cls, data_cfg: ConfigParser):
-        """Create an `ObservationModify` object from a yaml file.
-
-        Parameters
-        ----------
-        time bins: int | None
-            How many time bins the data gets restricted to.
-        spectral bins: int | None
-            If given the data gets restricted to N spectral bins.
-        spectral min: float | None
-            If given the data gets restricted to being above this minimum
-            frequency value.
-        spectral max: float | None
-            If given the data gets restricted to being below this maximum
-            frequency value.
-        spectral restrict_to_sky_frequencies: bool | None
-            Boolian to restrict the spectral channels of the data to the sky
-            model frequencies.
-        systematic error budget:
-            The percentage of the absolute value of the visibilities to be
-            added to the sigma (weight) of the visibilities (1-5)% is adviced.
-        data to_double_precision: boolian | None
-            Boolian that controlls if the data is cast to double precision.
-        data testing percentage: float | None
-            Taking a percentage of the data for testing the model.
-        data testing mask_path: str | None
-            Path to save/load the subset mask (.npy file).
-        restrict to stokes I: bool | None
-            The data will be restricted to stokes I.
-        average to stokes I: bool | None
-            The data will be averaged to stokes I.
-        """
-
-        TIME_BINS_KEYS = "time bins"
-
-        tb = eval(data_cfg.get(TIME_BINS_KEYS, "None"))
-
-        spectral_modify = SpectralModify.from_config_parser(data_cfg)
-        weight_modify = SystematicErrorBudget.from_config_parser(data_cfg)
-
-        to_double_precision = eval(data_cfg.get("data to_double_precision", "True"))
-
-        testing_percentage = eval(data_cfg.get("data testing percentage", "None"))
-        mask_path = eval(data_cfg.get("data testing mask_path", "None"))
-        select_subset = SelectSubset.from_config_parser(testing_percentage, mask_path)
-
-        restrict_to_stokes_I = eval(data_cfg.get("restrict to stokes I", "False"))
-        average_to_stokes_I = eval(data_cfg.get("average to stokes I", "False"))
-
-        return ObservationModify(
-            time_bins=tb,
-            spectral=spectral_modify,
-            weight_modify=weight_modify,
-            shift=None,  # NOTE: Needs ot be implemented
-            to_double_precision=to_double_precision,
-            select_subset=select_subset,
-            restrict_to_stokes_I=restrict_to_stokes_I,
-            average_to_stokes_I=average_to_stokes_I,
-            flag_weights=None,  # NOTE : Needs to be implemented
-        )
 
     @classmethod
     def from_yaml_dict(cls, data_cfg: dict):
