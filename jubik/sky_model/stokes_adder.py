@@ -80,6 +80,7 @@ class StokesAdder(jft.Model):
         self,
         pre_stokes_fields: Iterable[jft.Model],
     ):
+        pre_stokes_fields = tuple(pre_stokes_fields)
         if len(pre_stokes_fields) != 4:
             raise ValueError(
                 f"Expected four pre-Stokes field models, got {len(pre_stokes_fields)}."
@@ -91,12 +92,35 @@ class StokesAdder(jft.Model):
 
     def __call__(self, x):
         def get_stokes(pre_stokes):
-            pol_int = jnp.sqrt(sum(pre_stokes[i] ** 2 for i in range(1, 4)))
+            pol_int_squared = jnp.sum(pre_stokes[1:] ** 2)
+
+            # Both cosh(sqrt(x)) and sinh(sqrt(x))/sqrt(x) are analytic in x,
+            # but evaluating them through sqrt(x) is singular at x == 0. Use
+            # their Taylor expansions around zero to keep values and JAX
+            # derivatives finite for an unpolarized field.
+            use_taylor = pol_int_squared < 1e-4
+            safe_pol_int_squared = jnp.where(
+                use_taylor, jnp.ones_like(pol_int_squared), pol_int_squared
+            )
+            safe_pol_int = jnp.sqrt(safe_pol_int_squared)
+            pol_int_fourth = pol_int_squared**2
+
+            cosh_pol_int = jnp.where(
+                use_taylor,
+                1 + pol_int_squared / 2 + pol_int_fourth / 24,
+                jnp.cosh(safe_pol_int),
+            )
+            sinhc_pol_int = jnp.where(
+                use_taylor,
+                1 + pol_int_squared / 6 + pol_int_fourth / 120,
+                jnp.sinh(safe_pol_int) / safe_pol_int,
+            )
+            intensity_scale = jnp.exp(pre_stokes[:1])
+
             return jnp.concatenate(
                 [
-                    jnp.exp(pre_stokes[:1]) * jnp.cosh(pol_int),
-                    (jnp.exp(pre_stokes[:1]) * jnp.sinh(pol_int) / pol_int)
-                    * pre_stokes[1:],
+                    intensity_scale * cosh_pol_int,
+                    intensity_scale * sinhc_pol_int * pre_stokes[1:],
                 ]
             )
 
