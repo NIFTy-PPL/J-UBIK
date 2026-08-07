@@ -5,24 +5,19 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord
 
 from dataclasses import dataclass
-from configparser import ConfigParser
 
 
 SKY_CENTER_KEY = 'sky_center'
 ROTATION_DEFAULT = 0.*u.deg
 YAML_ROTATION_KEY = 'rotation'
-CONFIGPARSER_ROTATION_KEY = 'space rotation'
 
 
-def _get_rotation(
-    grid_config: dict | ConfigParser,
-    rotation_key: str
-) -> u.Quantity:
+def _get_rotation(grid_config: dict) -> u.Quantity:
     """Get the rotation from the grid_config."""
 
-    rotation = u.Quantity(grid_config.get(rotation_key, ROTATION_DEFAULT))
+    rotation = u.Quantity(grid_config.get(YAML_ROTATION_KEY, ROTATION_DEFAULT))
     assert rotation.unit != u.dimensionless_unscaled, (
-        f'`{rotation_key}` should carry a unit.'
+        f'`{YAML_ROTATION_KEY}` should carry a unit.'
     )
 
     return rotation
@@ -53,45 +48,10 @@ class WcsModel:
             See also `CoordinatesSystemModel`. (default `icrs`)
         '''
 
-        rotation = _get_rotation(grid_config, YAML_ROTATION_KEY)
+        rotation = _get_rotation(grid_config)
         coordinate_system = CoordinateSystemModel.from_yaml_dict(grid_config)
 
         center = SkyCenter.from_yaml_dict(grid_config.get(SKY_CENTER_KEY, {}))
-
-        return WcsModel(
-            center=SkyCoord(ra=center.ra,
-                            dec=center.dec,
-                            frame=coordinate_system.radesys.lower(),
-                            equinox=coordinate_system.equinox),
-            rotation=rotation,
-            coordinate_system=coordinate_system
-        )
-
-    @classmethod
-    def from_config_parser(cls, grid_config: ConfigParser):
-        '''Builds the reconstruction grid from the given configuration.
-
-        The reconstruction grid is defined by the world location, field of view
-        (FOV), shape (resolution), and rotation, all specified in the input
-        configuration. These parameters are extracted from the grid_config
-        ConfigParser using helper functions.
-
-        Parameters
-        ----------
-        image center ra
-        image center dec
-
-        space rotation
-
-        frame (default `icrs`)
-            See also `CoordinatesSystemModel`.
-        '''
-
-        rotation = _get_rotation(grid_config, CONFIGPARSER_ROTATION_KEY)
-        coordinate_system = CoordinateSystemModel.from_config_parser(
-            grid_config)
-
-        center = SkyCenter.from_config_parser(grid_config)
 
         return WcsModel(
             center=SkyCoord(ra=center.ra,

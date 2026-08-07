@@ -41,25 +41,6 @@ class SpatialModel:
             wcs_model=WcsModel.from_yaml_dict(grid_config)
         )
 
-    @classmethod
-    def from_config_parser(cls, grid_config: dict):
-        '''Builds the reconstruction grid from the given configuration.
-
-        The reconstruction grid is defined by the world location, field of view
-        (FOV), shape (resolution), and rotation, all specified in the input
-        configuration. These parameters are extracted from the grid_config dictionary
-        using helper functions.
-        '''
-
-        shape = _cfg_to_shape(grid_config)
-        fov = _config_parser_to_fov(grid_config)
-
-        return SpatialModel(
-            shape=shape,
-            fov=fov,
-            wcs_model=WcsModel.from_config_parser(grid_config)
-        )
-
 
 def yaml_dict_to_shape(grid_config: dict) -> tuple[int, int]:
     """Get the spatial shape `sdim` from the grid_config."""
@@ -89,37 +70,6 @@ def yaml_dict_to_fov(grid_config: dict) -> tuple[u.Quantity, u.Quantity]:
     for f in fov:
         assert f.unit != u.dimensionless_unscaled, (
             f'`{FOV_KEY}` should carry a unit.')
-
-    return fov
-
-
-def _cfg_to_shape(grid_config: dict) -> tuple[int, int]:
-    """Get the shape from the grid_config."""
-    NPIX_X_KEY = 'space npix x'
-    NPIX_Y_KEY = 'space npix y'
-    return int(grid_config[NPIX_X_KEY]), int(grid_config[NPIX_Y_KEY])
-
-
-def _config_parser_to_fov(grid_config: dict) -> tuple[u.Quantity, u.Quantity]:
-    '''Convert grid config values from cfg to fov in astropy quantities,
-    following the resolve convention.
-
-    Parameters
-    ----------
-    grid_config: dict
-        - "space fov x" : str (Resolve convention)
-        - "space fov y" : str (Resolve convention)
-
-    '''
-    FOV_KEY_X = "space fov x"
-    FOV_KEY_Y = "space fov y"
-
-    fov = (u.Quantity(grid_config[FOV_KEY_X]),
-           u.Quantity(grid_config[FOV_KEY_Y]))
-
-    for f, fov_key in zip(fov, [FOV_KEY_X, FOV_KEY_Y]):
-        assert f.unit != u.dimensionless_unscaled, (
-            f'`{fov_key}` should carry a unit.')
 
     return fov
 

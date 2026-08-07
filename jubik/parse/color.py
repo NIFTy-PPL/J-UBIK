@@ -87,19 +87,3 @@ def yaml_to_binned_colors(grid_config: dict) -> Color:
         energy_bin = [(emin, emax) for emin, emax in zip(emins, emaxs)]
 
     return Color(energy_bin * eunit)
-
-
-def cfg_to_binned_colors(grid_config: dict) -> Color:
-    if not grid_config.get("frequencies"):
-        return Color([0, np.inf] * DEFAULT_UNIT)
-
-    frequencies = map(float, grid_config["frequencies"].split(","))
-    frequencies = np.sort(np.array(list(frequencies)))
-
-    color_ranges = []
-    for ii in range(len(frequencies) - 1):
-        emin = frequencies[ii]
-        emax = frequencies[ii + 1]
-        color_ranges.append([emin, emax])
-
-    return Color(color_ranges * DEFAULT_UNIT)
