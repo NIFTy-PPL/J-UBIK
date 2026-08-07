@@ -4,17 +4,9 @@ from astropy import units as u
 
 from ...grid import Grid
 from ...parse.parsing_base import FromYamlDict
-from ...parse.sky_model.multifrequency.black_body import (
-    BlackBodyConfig,
-    ModifiedBlackBodyConfig,
-)
 from ...parse.sky_model.multifrequency.constant_mf import ConstantMFConfig
 from ...parse.sky_model.multifrequency.spectral_product_mf_sky import (
     SimpleSpectralSkyConfig,
-)
-from .black_body import (
-    build_black_body_spectrum_from_grid,
-    build_modified_black_body_spectrum_from_grid,
 )
 from .mf_constant import SingleValueMf, build_constant_mf_from_grid
 from .spectral_product_mf_sky import (
@@ -27,8 +19,6 @@ MODEL_CONFIG_CLASSES: dict = {
     "nifty_mf": SimpleSpectralSkyConfig,
     "niftymf": SimpleSpectralSkyConfig,
     "constant_mf": ConstantMFConfig,
-    "black_body": BlackBodyConfig,
-    "modified_black_body": ModifiedBlackBodyConfig,
     "spectral_expand": ConstantMFConfig,
 }
 
@@ -37,7 +27,7 @@ def parsing_mf_model(
     model_cfg: dict,
     model_key: str,
 ) -> Union[
-    FromYamlDict, SimpleSpectralSkyConfig, ModifiedBlackBodyConfig, ConstantMFConfig
+    FromYamlDict, SimpleSpectralSkyConfig, ConstantMFConfig
 ]:
     """Parse multifrequency model using simple class mapping."""
 
@@ -58,8 +48,6 @@ def build_multifrequency_from_grid(
     model_cfg: dict,
     spatial_unit: u.Unit = u.Unit("arcsec"),
     spectral_unit: u.Unit = u.Unit("eV"),
-    redshift: float = 0.0,
-    sky_unit: u.Unit = u.Unit("mJy") / u.Unit("arcsec"),
 ) -> SpectralProductSky | SingleValueMf:
     assert len(model_cfg) == 1
     model_key = next(iter(model_cfg.keys()))
@@ -74,17 +62,6 @@ def build_multifrequency_from_grid(
     elif isinstance(config, SimpleSpectralSkyConfig):
         return build_simple_spectral_sky_from_grid(
             grid, prefix, config, spatial_unit=spatial_unit, spectral_unit=spectral_unit
-        )
-
-    elif isinstance(config, ModifiedBlackBodyConfig):
-        return build_modified_black_body_spectrum_from_grid(
-            grid,
-            prefix,
-            config,
-            sky_unit,
-            redshift=redshift,
-            spatial_unit=spatial_unit,
-            spectral_unit=spectral_unit,
         )
 
     else:
