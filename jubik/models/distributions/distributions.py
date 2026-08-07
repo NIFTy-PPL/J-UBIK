@@ -10,7 +10,7 @@ from typing import Callable, Tuple, Union
 import jax.numpy as jnp
 import nifty.re as jft
 
-from ..parse.parametric_model.parametric_prior import ProbabilityConfig
+from ...parse.models.distributions.distributions import ProbabilityConfig
 
 DISTRIBUTION_MAPPING = {
     'normal': (jft.normal_prior, ['mean', 'sigma']),
