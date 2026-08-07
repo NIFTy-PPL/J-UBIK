@@ -63,4 +63,3 @@ from .convolve import linpatch_convolve, convolve, slice_patches
 from .minimization_parser import MinimizationParser
 from .hashcollector import save_local_packages_hashes_to_txt
 from .fits_saver import *
-from .spectral_cube.fullsky_cube import FullSkyCube
