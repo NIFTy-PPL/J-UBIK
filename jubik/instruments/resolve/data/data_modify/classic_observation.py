@@ -1,5 +1,5 @@
-from .observation import Observation
-from ....polarization import PolarizationType
+from ..observation import Observation
+from .....polarization import PolarizationType
 
 import resolve as rve
 
