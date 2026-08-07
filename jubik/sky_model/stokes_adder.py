@@ -80,7 +80,7 @@ class StokesAdder(jft.Model):
         self,
         pre_stokes_fields: Iterable[jft.Model],
     ):
-        if len(self.psf) != 4:
+        if len(pre_stokes_fields) != 4:
             raise ValueError(
                 f"Expected four pre-Stokes field models, got {len(pre_stokes_fields)}."
             )
