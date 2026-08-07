@@ -14,10 +14,18 @@ def freq_average_by_bins(obs: Observation, n_freq_chuncks: int | None):
     if n_freq_chuncks is None:
         return obs
 
+    if n_freq_chuncks < 1:
+        raise ValueError("The number of frequency chunks must be positive.")
+    if n_freq_chuncks > obs.nfreq:
+        raise ValueError(
+            "The number of frequency chunks cannot exceed the number of channels."
+        )
+
     logger.info(f"Frequency averaging observation to {n_freq_chuncks}")
 
-    splitted_freqs = np.array_split(obs.freq, n_freq_chuncks)
-    return freq_average_by_fmin_fmax(obs, splitted_freqs)
+    frequency_indices = np.array_split(np.arange(obs.nfreq), n_freq_chuncks)
+    splitted_obs = [get_freqs_by_slice(obs, ind) for ind in frequency_indices]
+    return _average_frequency_groups(obs, splitted_obs)
 
 
 def freq_average_by_fdom_and_n_freq_chunks(
@@ -44,31 +52,27 @@ def freq_average_by_fdom_and_n_freq_chunks(
 
     fmin_fmax_array = get_2d_binbounds(sky_frequencies, RESOLVE_SPECTRAL_UNIT)
 
-    splitted_freqs = []
+    splitted_obs = []
     n_obs_in_sky = 0
     for ff in fmin_fmax_array:
-        ofreq = restrict_by_freq(obs, ff[0], ff[-1], with_index=False).freq
+        obs_in_sky = restrict_by_freq(obs, ff[0], ff[-1], with_index=False)
 
-        if ofreq.size == 0:
+        if obs_in_sky.nfreq == 0:
             continue
         else:
             n_obs_in_sky += 1
 
-        if len(ofreq) > 2 * n_freq_chuncks:
-            tmp_splits = np.array_split(ofreq, n_freq_chuncks)
-            for tmp in tmp_splits:
-                assert tmp[0] != tmp[-1], (
-                    "Frequency chunking of data not compatible with sky frequencies."
-                )
-                splitted_freqs.append(np.array([tmp[0], tmp[-1]]))
-
-        else:
-            assert ofreq[0] != ofreq[-1], (
-                "Frequency chunking of data not compatible with sky frequencies."
+        if obs_in_sky.nfreq > 2 * n_freq_chuncks:
+            frequency_indices = np.array_split(
+                np.arange(obs_in_sky.nfreq), n_freq_chuncks
             )
-            splitted_freqs.append(np.array([ofreq[0], ofreq[-1]]))
+            splitted_obs.extend(
+                get_freqs_by_slice(obs_in_sky, ind) for ind in frequency_indices
+            )
+        else:
+            splitted_obs.append(obs_in_sky)
 
-    obs_out = freq_average_by_fmin_fmax(obs, splitted_freqs)
+    obs_out = _average_frequency_groups(obs, splitted_obs)
 
     freq_len = obs_out.freq.shape[0]
     if freq_len % n_obs_in_sky == 0:
@@ -94,6 +98,15 @@ def freq_average_by_fmin_fmax(
     for ff in fmin_fmax_array:
         splitted_obs.append(restrict_by_freq(obs, ff[0], ff[-1]))
 
+    return _average_frequency_groups(obs, splitted_obs)
+
+
+def _average_frequency_groups(
+    obs: Observation, splitted_obs: list[Observation]
+) -> Observation:
+    if len(splitted_obs) == 0:
+        raise ValueError("Cannot average an observation without frequency channels.")
+
     obs_avg = []
     for obsi in splitted_obs:
         new_vis = np.mean(obsi.vis.asnumpy(), axis=2, keepdims=True)
@@ -116,9 +129,9 @@ def freq_average_by_fmin_fmax(
     new_vis_shape = (obs.vis.shape[0], obs.vis.shape[1], len(new_freq))
     new_vis = np.zeros(new_vis_shape, obs.vis.dtype)
     new_weight = np.zeros(new_vis_shape, obs.weight.dtype)
-    for ii, obs in enumerate(obs_avg):
-        new_vis[:, :, ii] = obs.vis.asnumpy()[:, :, 0]
-        new_weight[:, :, ii] = obs.weight.asnumpy()[:, :, 0]
+    for ii, averaged_obs in enumerate(obs_avg):
+        new_vis[:, :, ii] = averaged_obs.vis.asnumpy()[:, :, 0]
+        new_weight[:, :, ii] = averaged_obs.weight.asnumpy()[:, :, 0]
 
     obs_averaged = Observation(
         obs.antenna_positions,

@@ -9,10 +9,9 @@ from jax import random
 from matplotlib.colors import LogNorm
 from astropy import units as u
 
-import jubik0 as ju
-import jubik0.instruments.resolve as rve
-from jubik0.parse.grid import GridModel
-from jubik0.sky_model.resolve_sky import sky_model
+import jubik as ju
+import jubik.instruments.resolve as rve
+from jubik.sky_model.resolve_sky import sky_model
 
 jax.config.update("jax_default_device", jax.devices("cpu")[0])
 jax.config.update("jax_enable_x64", True)

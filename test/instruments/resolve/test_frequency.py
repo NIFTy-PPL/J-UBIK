@@ -1,10 +1,13 @@
 import numpy as np
 import pytest
-from numpy.testing import assert_array_equal
+from astropy import units as u
+from numpy.testing import assert_allclose, assert_array_equal
 
 import jubik as ju
 from jubik.instruments.resolve.data.data_modify.frequency import (
     exclude_frequency_ranges,
+    freq_average_by_bins,
+    freq_average_by_fdom_and_n_freq_chunks,
 )
 from jubik.instruments.resolve.parse.data.data_modify.frequency import (
     SpectralModify,
@@ -20,6 +23,60 @@ FREQS = np.array([1.0e9, 1.1e9, 1.2e9, 1.3e9, 1.4e9, 1.5e9])
 def build_obs(freqs=FREQS):
     pol_type = ju.polarization.PolarizationType(("LL", "RR"))
     return generate_random_obs(freqs, 20, [-1e2, 1e2], [-5, 5], pol_type)
+
+
+def assert_frequency_groups_are_averaged(obs, averaged, groups):
+    expected_freq = np.array([np.mean(obs.freq[ind]) for ind in groups])
+    expected_vis = np.stack(
+        [np.mean(obs.vis_val[..., ind], axis=2) for ind in groups], axis=2
+    )
+    expected_weight = np.stack(
+        [
+            len(ind) ** 2 / np.sum(1 / obs.weight_val[..., ind], axis=2)
+            for ind in groups
+        ],
+        axis=2,
+    )
+
+    assert_allclose(averaged.freq, expected_freq)
+    assert_allclose(averaged.vis_val, expected_vis)
+    assert_allclose(averaged.weight_val, expected_weight)
+
+
+@pmp("n_freq,n_bins", ((4, 2), (5, 2), (6, 2), (4, 1), (4, 4)))
+def test_freq_average_by_bins_uses_every_channel(n_freq, n_bins):
+    np.random.seed(40 + n_freq + n_bins)
+    freqs = 1.0e9 + np.arange(n_freq) * 0.1e9
+    obs = build_obs(freqs)
+
+    averaged = freq_average_by_bins(obs, n_bins)
+    groups = np.array_split(np.arange(n_freq), n_bins)
+
+    assert_frequency_groups_are_averaged(obs, averaged, groups)
+
+
+def test_freq_average_by_bins_none_is_noop():
+    obs = build_obs()
+    assert freq_average_by_bins(obs, None) is obs
+
+
+@pmp("n_bins", (0, -1, len(FREQS) + 1))
+def test_freq_average_by_bins_rejects_invalid_number_of_bins(n_bins):
+    obs = build_obs()
+    with pytest.raises(ValueError):
+        freq_average_by_bins(obs, n_bins)
+
+
+def test_frequency_domain_averaging_uses_every_channel_in_each_chunk():
+    np.random.seed(48)
+    freqs = 1.0e9 + np.arange(6) * 0.1e9
+    obs = build_obs(freqs)
+    sky_frequencies = ju.Color([0.95e9, 1.55e9] * u.Hz)
+
+    averaged = freq_average_by_fdom_and_n_freq_chunks(sky_frequencies, obs, 2)
+    groups = np.array_split(np.arange(obs.nfreq), 2)
+
+    assert_frequency_groups_are_averaged(obs, averaged, groups)
 
 
 def test_exclude_range_drops_channels_and_keeps_rest_bitwise():
