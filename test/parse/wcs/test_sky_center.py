@@ -32,7 +32,7 @@ def test_assert_unit():
     config_ra_fail = dict(ra="13", dec="13deg")
     config_dec_fail = dict(ra="13deg", dec="13")
 
-    with pytest.raises(u.UnitsError):
+    with pytest.raises(ValueError):
         SkyCenter.from_yaml_dict(config_ra_fail)
-    with pytest.raises(u.UnitsError):
+    with pytest.raises(ValueError):
         SkyCenter.from_yaml_dict(config_dec_fail)

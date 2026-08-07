@@ -1,3 +1,4 @@
+from .angle import parse_angle
 from .coordinate_system import CoordinateSystemModel
 from .sky_center import SkyCenter
 
@@ -13,14 +14,32 @@ YAML_ROTATION_KEY = 'rotation'
 
 
 def _get_rotation(grid_config: dict) -> u.Quantity:
-    """Get the rotation from the grid_config."""
+    """Get the rotation of the reconstruction grid against the sky.
 
-    rotation = u.Quantity(grid_config.get(YAML_ROTATION_KEY, ROTATION_DEFAULT))
-    assert rotation.unit != u.dimensionless_unscaled, (
-        f'`{YAML_ROTATION_KEY}` should carry a unit.'
-    )
+    The rotation is the angle between the pixel axes of the reconstruction
+    grid and the axes of the celestial coordinate system. It ends up as the
+    `PC` matrix, `[[cos, -sin], [sin, cos]]`, of the resulting WCS, see
+    `WcsAstropy`.
 
-    return rotation
+    With the default of `0deg` the grid is aligned with the coordinate system,
+    i.e. the columns follow decreasing right ascension (longitude) and the rows
+    increasing declination (latitude). A non-zero rotation turns the grid
+    against the sky, which is useful to align the grid with, e.g., an
+    elongated source or the scan direction of an instrument.
+
+    Parameters
+    ----------
+    grid_config : dict
+        Configuration which may hold `rotation` as an angle carrying an
+        angular unit, e.g. `12deg`. (default `0deg`)
+
+    Returns
+    -------
+    u.Quantity
+        The rotation angle of the grid.
+    """
+
+    return parse_angle(grid_config, YAML_ROTATION_KEY, ROTATION_DEFAULT)
 
 
 @dataclass
@@ -43,7 +62,9 @@ class WcsModel:
         sky_center: dict
             World coordinate of the reference pixel (grid center).
         rotation: str
-            Rotation of the wcs. (default `0.0deg`)
+            Rotation of the grid against the sky, i.e. the angle between the
+            pixel axes of the grid and the axes of the coordinate system.
+            See also `_get_rotation`. (default `0.0deg`)
         frame: str
             See also `CoordinatesSystemModel`. (default `icrs`)
         '''

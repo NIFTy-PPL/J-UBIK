@@ -17,9 +17,13 @@ def test_get_rotation():
     assert ry == 12 * u.uas
 
     # Check rotation loading
-    yaml_dict_assertion_error = {"rotation": "12"}
-    with pytest.raises(AssertionError):
-        _get_rotation(yaml_dict_assertion_error)
+    yaml_dict_no_unit = {"rotation": "12"}
+    with pytest.raises(ValueError):
+        _get_rotation(yaml_dict_no_unit)
+
+    yaml_dict_wrong_unit = {"rotation": 12 * u.m}
+    with pytest.raises(ValueError):
+        _get_rotation(yaml_dict_wrong_unit)
 
     # Check defaults
     ry = _get_rotation({})

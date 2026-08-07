@@ -1,5 +1,6 @@
+from .angle import parse_angle
+
 from astropy import units as u
-from astropy.coordinates import Angle
 
 from dataclasses import dataclass
 
@@ -22,6 +23,6 @@ class SkyCenter:
         CENTER_DEC_KEY = 'dec'
 
         return SkyCenter(
-            Angle(sky_cfg.get(CENTER_RA_KEY, RA_DEFAULT)),
-            Angle(sky_cfg.get(CENTER_DEC_KEY, DEC_DEFAULT))
+            parse_angle(sky_cfg, CENTER_RA_KEY, RA_DEFAULT),
+            parse_angle(sky_cfg, CENTER_DEC_KEY, DEC_DEFAULT)
         )
