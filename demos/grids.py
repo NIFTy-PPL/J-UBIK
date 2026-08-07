@@ -1,4 +1,4 @@
-import jubik0 as ju
+import jubik as ju
 
 import astropy.units as u
 
