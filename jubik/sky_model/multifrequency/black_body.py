@@ -12,7 +12,6 @@ from ...parse.sky_model.multifrequency.black_body import (
     BlackBodyConfig,
     ModifiedBlackBodyConfig,
 )
-from ..parametric_model.gaussian import Gaussian
 from ..single_correlated_field import build_single_correlated_field_from_config
 from .spectral_product_mf_sky import (
     SpectralProductSky,
@@ -84,26 +83,12 @@ def build_black_body_spectrum_from_grid(
     frequencies = u.Quantity(centers).to(u.Unit("Hz"), equivalencies=u.spectral())
     frequencies = (1 + redshift) * frequencies
 
-    _log_temperature = build_single_correlated_field_from_config(
+    log_temperature = build_single_correlated_field_from_config(
         prefix=f"{prefix}_temperature",
         shape=grid.spatial.shape,
         distances=grid.spatial.distances.to(spatial_unit).value,
         config=config.temperature,
     )
-
-    if not config.temperature_gaussian:
-        log_temperature = _log_temperature
-    else:
-        log_gaussian = Gaussian.from_config(
-            domain_key=f"{prefix}_temperature_gaussian",
-            config=config.temperature_gaussian,
-            coordinates=grid.spatial.get_xycoords(centered=True, unit=u.Unit("arcsec")),
-            log=True,
-        )
-        log_temperature = jft.Model(
-            lambda x: _log_temperature(x) + log_gaussian(x),
-            domain=_log_temperature.domain | log_gaussian.domain,
-        )
 
     return BlackBody(
         frequencies=frequencies,
@@ -188,26 +173,12 @@ def build_modified_black_body_spectrum_from_grid(
     frequencies = u.Quantity(centers).to(u.Hz, equivalencies=u.spectral())
     frequencies = (1 + redshift) * frequencies
 
-    _log_temperature = build_single_correlated_field_from_config(
+    log_temperature = build_single_correlated_field_from_config(
         prefix=f"{prefix}_temperature",
         shape=grid.spatial.shape,
         distances=grid.spatial.distances.to(spatial_unit).value,
         config=config.temperature,
     )
-
-    if not config.temperature_gaussian:
-        log_temperature = _log_temperature
-    else:
-        log_gaussian = Gaussian.from_config(
-            domain_key=f"{prefix}_temperature_gaussian",
-            config=config.temperature_gaussian,
-            coordinates=grid.spatial.get_xycoords(centered=True, unit=u.Unit("arcsec")),
-            log=True,
-        )
-        log_temperature = jft.Model(
-            lambda x: _log_temperature(x) + log_gaussian(x),
-            domain=_log_temperature.domain | log_gaussian.domain,
-        )
 
     black_body = BlackBody(
         frequencies=frequencies,
