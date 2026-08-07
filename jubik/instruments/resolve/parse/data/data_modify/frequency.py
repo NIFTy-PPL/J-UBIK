@@ -1,3 +1,5 @@
+"""Configuration for frequency-domain observation transformations."""
+
 from dataclasses import dataclass
 
 

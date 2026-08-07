@@ -1,3 +1,5 @@
+"""Configuration for visibility-subset selection."""
+
 import warnings
 from dataclasses import dataclass
 

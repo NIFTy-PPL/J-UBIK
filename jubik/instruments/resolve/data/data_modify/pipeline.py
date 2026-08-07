@@ -1,3 +1,5 @@
+"""Pipeline for applying configured transformations to an observation."""
+
 import astropy.units as u
 from nifty.cl.logger import logger
 
@@ -6,19 +8,19 @@ from ...constants import RESOLVE_SPECTRAL_UNIT
 from ...parse.data.data_modify import ObservationModify
 from ..observation import Observation
 from .flagging import flag_weights
-from .frequency_handling import (
+from .frequency import (
     exclude_frequency_ranges,
     freq_average_by_fdom_and_n_freq_chunks,
     restrict_by_freq,
     restrict_to_discontinuous_frequencies,
     reverse_frequencies,
 )
-from .polarization_modify import average_stokesi, restrict_to_stokesi
+from .polarization import average_stokesi, restrict_to_stokesi
 from .precision import to_double_precision, to_single_precision
-from .select_random_visibility_subset import select_random_visibility_subset
-from .time_modify import time_average_to_length_of_timebins
-from .weight_modify import systematic_error_budget
-from .shift_observation import shift_phase_center
+from .visibility_subset import select_random_visibility_subset
+from .time import time_average_to_length_of_timebins
+from .weights import systematic_error_budget
+from .phase_center import shift_phase_center
 
 
 def modify_observation(

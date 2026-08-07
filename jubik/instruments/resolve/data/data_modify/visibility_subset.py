@@ -1,10 +1,12 @@
+"""Visibility-subset selection for resolve observations."""
+
 from __future__ import annotations
 
 from pathlib import Path
 
 from ..observation import Observation
 from ..antenna_positions import AntennaPositions
-from ...parse.data.data_modify.select_subset import SelectSubset
+from ...parse.data.data_modify.visibility_subset import SelectSubset
 
 import numpy as np
 

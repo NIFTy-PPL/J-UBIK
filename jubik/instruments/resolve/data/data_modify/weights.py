@@ -1,7 +1,9 @@
+"""Weight transformations for resolve observations."""
+
 import numpy as np
 from nifty.cl.logger import logger
 
-from ...parse.data.data_modify.modify_weight import SystematicErrorBudget
+from ...parse.data.data_modify.weights import SystematicErrorBudget
 from ..observation import Observation
 
 

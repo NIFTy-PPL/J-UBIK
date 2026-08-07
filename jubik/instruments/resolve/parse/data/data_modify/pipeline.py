@@ -1,11 +1,13 @@
+"""Configuration for the observation-modification pipeline."""
+
 from dataclasses import dataclass
 import warnings
 
-from .shift_observation import ShiftObservation
-from .frequency_handling import SpectralModify
+from .phase_center import ShiftObservation
+from .frequency import SpectralModify
 from .flagging import FlagWeights
-from .modify_weight import SystematicErrorBudget
-from .select_subset import SelectSubset
+from .weights import SystematicErrorBudget
+from .visibility_subset import SelectSubset
 
 
 @dataclass
@@ -84,7 +86,7 @@ class ObservationModify:
 
         spectral_modify = SpectralModify.from_yaml_dict(data_cfg.get("spectral", {}))
 
-        # TODO: Build more versions by extending modify_weight.py
+        # TODO: Build more versions by extending weights.py
         weight_modify = SystematicErrorBudget.from_yaml_dict(
             data_cfg.get("weight_modify", {})
         )

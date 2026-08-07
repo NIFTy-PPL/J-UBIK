@@ -1,3 +1,5 @@
+"""Configuration for observation-weight transformations."""
+
 from dataclasses import dataclass
 from typing import Union
 

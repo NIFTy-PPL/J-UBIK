@@ -1,3 +1,5 @@
+"""Configuration for phase-center shifts."""
+
 from dataclasses import dataclass
 from typing import Union
 

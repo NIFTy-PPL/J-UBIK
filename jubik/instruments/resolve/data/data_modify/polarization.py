@@ -1,3 +1,5 @@
+"""Polarization transformations for resolve observations."""
+
 import numpy as np
 
 from .....polarization import Polarization

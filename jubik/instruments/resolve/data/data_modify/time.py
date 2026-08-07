@@ -1,3 +1,5 @@
+"""Time-domain transformations for resolve observations."""
+
 import numpy as np
 
 from ...data.antenna_positions import AntennaPositions

@@ -1,9 +1,11 @@
+"""Phase-center transformations for resolve observations."""
+
 import numpy as np
 from astropy import units as u
 from astropy.constants import c as speedoflight
 from nifty.re import logger
 
-from ...parse.data.data_modify.shift_observation import ShiftObservation
+from ...parse.data.data_modify.phase_center import ShiftObservation
 from ..observation import Observation
 
 

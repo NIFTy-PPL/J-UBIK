@@ -1,3 +1,5 @@
+"""Frequency-domain transformations for resolve observations."""
+
 import astropy.units as u
 import numpy as np
 from nifty.cl.logger import logger

@@ -26,7 +26,7 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike, NDArray
 
 from ..constants import RESOLVE_SPECTRAL_UNIT
-from ..data.data_modify.frequency_handling import restrict_by_freq
+from ..data.data_modify.frequency import restrict_by_freq
 from ..data.direction import Direction
 from ..data.observation import Observation
 from ..util import calculate_phase_offset_to_image_center

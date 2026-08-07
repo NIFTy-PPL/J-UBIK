@@ -3,10 +3,10 @@ import pytest
 from numpy.testing import assert_array_equal
 
 import jubik as ju
-from jubik.instruments.resolve.data.data_modify.frequency_handling import (
+from jubik.instruments.resolve.data.data_modify.frequency import (
     exclude_frequency_ranges,
 )
-from jubik.instruments.resolve.parse.data.data_modify.frequency_handling import (
+from jubik.instruments.resolve.parse.data.data_modify.frequency import (
     SpectralModify,
 )
 
