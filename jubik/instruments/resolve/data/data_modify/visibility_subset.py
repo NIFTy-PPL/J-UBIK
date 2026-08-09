@@ -32,8 +32,12 @@ def select_random_visibility_subset(
 
     if select_subset.mask_path is not None:
         mask_file = Path(select_subset.mask_path)
+        # `np.save` appends the suffix, hence the existence check has to look
+        # for the suffixed file as well.
+        if mask_file.suffix != ".npy":
+            mask_file = mask_file.with_name(mask_file.name + ".npy")
         if mask_file.exists():
-            mask = np.load(mask_file)
+            mask = _validate_mask(np.load(mask_file), length, select_subset)
         else:
             mask = _generate_mask(length, select_subset.percentage)
             mask_file.parent.mkdir(parents=True, exist_ok=True)
@@ -58,8 +62,57 @@ def select_random_visibility_subset(
     )
 
 
-def _generate_mask(length: int, percentage: float) -> np.ndarray:
+def _n_selected(length: int, percentage: float | None) -> int:
+    """Number of rows that correspond to `percentage` of `length` rows."""
+    if percentage is None:
+        raise ValueError(
+            "`SelectSubset.percentage` is None: cannot generate a visibility "
+            "subset mask. Either set a percentage or point `mask_path` to an "
+            "existing mask file."
+        )
+    if not 0.0 < percentage <= 1.0:
+        raise ValueError(
+            f"`SelectSubset.percentage` must be a fraction in (0, 1], got "
+            f"{percentage}. (Percent values such as 25 instead of 0.25 are "
+            "not supported.)"
+        )
+    n_selected = int(length * percentage)
+    if n_selected == 0:
+        raise ValueError(
+            f"`SelectSubset.percentage`={percentage} selects 0 of {length} "
+            "rows. Increase the percentage."
+        )
+    return n_selected
+
+
+def _validate_mask(
+    mask: np.ndarray, length: int, select_subset: SelectSubset
+) -> np.ndarray:
+    """Check that a mask loaded from disk fits the given observation."""
+    if mask.size > 0 and (mask.min() < 0 or mask.max() >= length):
+        raise ValueError(
+            f"The mask stored in {select_subset.mask_path} indexes rows "
+            f"[{mask.min()}, {mask.max()}], which does not fit an observation "
+            f"with {length} rows. It was probably generated for a different "
+            "data set."
+        )
+    if select_subset.percentage is not None:
+        expected = _n_selected(length, select_subset.percentage)
+        if mask.size != expected:
+            raise ValueError(
+                f"The mask stored in {select_subset.mask_path} selects "
+                f"{mask.size} rows, but percentage="
+                f"{select_subset.percentage} of {length} rows corresponds to "
+                f"{expected} rows. It was probably generated for a different "
+                "data set."
+            )
+    return mask
+
+
+def _generate_mask(length: int, percentage: float | None) -> np.ndarray:
     rng = np.random.Generator(np.random.PCG64(seed=42))
     return np.sort(
-        rng.choice(np.arange(0, length), size=int(length * percentage), replace=False)
+        rng.choice(
+            np.arange(0, length), size=_n_selected(length, percentage), replace=False
+        )
     )

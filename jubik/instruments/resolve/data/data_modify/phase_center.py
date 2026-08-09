@@ -10,7 +10,23 @@ from ..observation import Observation
 
 
 def shift_phase_center(obs: Observation, shift: ShiftObservation | None) -> Observation:
-    """Shift the visibilities by the shift factor.
+    """Shift the phase center of the visibilities.
+
+    A source which sits at the sky offset `shift = (sx, sy)` relative to the
+    center of the sky grid ends up at the center after this operation, i.e. its
+    visibilities become constant in phase.
+
+    Note
+    ----
+    The prefactor is `exp(+2j pi (u * sx - v * sy))`. The relative minus
+    between the u and the v term follows the convention of jubik's own imaging
+    kernel: a point source at the sky offset `(l, m)` produces the model
+    visibilities `exp(-2j pi (u * l - v * m))`, the minus on the v term coming
+    from `flip_v=True` in `interferometry_response_ducc`.
+
+    This is a per-visibility phase rotation in the narrow-field limit: the
+    `w * (n - 1)` term is neglected and neither uvw nor the auxiliary tables
+    (and hence `Observation.direction`) are updated.
 
     Parameters
     ----------
@@ -29,11 +45,16 @@ def shift_phase_center(obs: Observation, shift: ShiftObservation | None) -> Obse
 
     center_x, center_y = shift.shift.to(u.rad).value
 
-    prefactor = np.exp(-2j * np.pi * (uvw[0] * center_x + uvw[1] * center_y))
+    prefactor = np.exp(2j * np.pi * (uvw[0] * center_x - uvw[1] * center_y))
+
+    # `prefactor` is always double precision, so the product has to be cast
+    # back: `Observation` requires vis and weight to be of the same precision.
+    vis = obs.vis.asnumpy()
+    vis = (vis * prefactor).astype(vis.dtype, copy=False)
 
     return Observation(
         antenna_positions=obs.antenna_positions,
-        vis=obs.vis.asnumpy() * prefactor,
+        vis=vis,
         weight=obs.weight.asnumpy(),
         polarization=obs.legacy_polarization,
         freq=obs.freq,

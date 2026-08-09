@@ -10,8 +10,9 @@ def generate_random_obs(
     polarization_type,
     weight_range=[1, 10],
     fraction_flagged=0.0,
-    # time_range=None,
-    # n_antennas=None,
+    ant1=None,
+    ant2=None,
+    times=None,
 ):
     n_pol = len(polarization_type)
     vis_shape = (n_pol, n_rows, len(freqs))
@@ -26,12 +27,6 @@ def generate_random_obs(
     )
     weight[flagged] = 0
     pol = polarization_type.get_legacy_polarization()
-
-    times = None
-    ant1 = None
-    ant2 = None
-    # if not time_range is None:
-    #     times = np.random.uniform(*time_range, size=n_rows)
 
     ant_pos = rve.AntennaPositions(uvw, ant1, ant2, times)
     return rve.Observation(ant_pos, vis, weight, pol, freqs, None)

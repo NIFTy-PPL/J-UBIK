@@ -37,11 +37,27 @@ def systematic_error_budget(obs: Observation, systematic: SystematicErrorBudget 
     weight_old = obs.weight.asnumpy()
     perc = systematic.percentage
 
-    # 1/ (sigma**2 + (sys_error_percentage*|A|)**2 )
-    new_weight = 1 / (
-        # (1 / np.sqrt(weight_old)) ** 2 + (perc * abs(obs.vis.asnumpy())) ** 2
-        (1 / weight_old) + (perc * abs(obs.vis.asnumpy())) ** 2
-    )
-    obs._weight = new_weight
+    # Entries with weight == 0 are flagged and stay flagged. They are excluded
+    # from the division to avoid inf/nan showing up in the new weights.
+    valid = weight_old > 0.0
 
-    return obs
+    # sigma**2 = 1/weight
+    sigma_squared = np.divide(
+        1.0, weight_old, out=np.zeros_like(weight_old), where=valid
+    )
+    # 1/ (sigma**2 + (sys_error_percentage*|A|)**2 )
+    new_weight = np.divide(
+        1.0,
+        sigma_squared + (perc * abs(obs.vis.asnumpy())) ** 2,
+        out=np.zeros_like(weight_old),
+        where=valid,
+    )
+
+    return Observation(
+        obs._antpos,
+        obs._vis,
+        new_weight,
+        obs._polarization,
+        obs._freq,
+        obs._auxiliary_tables,
+    )
