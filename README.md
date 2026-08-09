@@ -17,6 +17,26 @@ This package can be installed via pip.
 
 for a regular installation. For editable installation add the `-e` flag. 
 
+## Instrument extras
+
+The instrument-specific dependencies are optional extras, so a plain install
+stays lightweight. Install only what the instrument you work on needs:
+
+    pip install --user .[jwst]      # gwcs, jwst, stpsf
+    pip install --user .[resolve]   # jaxbind, jax-finufft
+
+With [uv](https://docs.astral.sh/uv/), the same via the project environment:
+
+```bash
+uv sync --extra jwst              # JWST only
+uv sync --extra resolve           # RESOLVE only
+uv sync --extra jwst --extra resolve --extra test   # everything, plus pytest
+```
+
+Note that `uv sync` makes the environment match exactly the extras you list, so
+passing a single `--extra` removes the packages belonging to the others. Pass
+every extra you want in one command, or use `uv sync --all-extras`.
+
 # Requirements
 - [JAX](https://jax.readthedocs.io/en/latest/installation.html)
 - [astropy](https://www.astropy.org)
