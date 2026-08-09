@@ -7,8 +7,8 @@
 
 import nifty.re as jft
 
-from .parametric_model import build_parametric_prior_from_prior_config
-from .parse.parametric_model.parametric_prior import ProbabilityConfig
+from ...models.distributions import build_parametric_prior_from_prior_config
+from ...parse.models.distributions import ProbabilityConfig
 
 ZERO_FLUX_KEY = "zero_flux"
 DEFAULT_KEY = "default"

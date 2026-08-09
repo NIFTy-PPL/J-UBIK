@@ -1,4 +1,3 @@
-from configparser import ConfigParser
 from dataclasses import dataclass
 from itertools import product
 from os.path import join
@@ -40,26 +39,6 @@ class DataLoading:
     data_templates: list[str]
     field_ids: list[int | None]
     spectral_windows: list[int | None]
-
-    @classmethod
-    def from_config_parser(cls, data_cfg: ConfigParser):
-        data_templates = _prepand_path(
-            data_cfg["data path"], data_cfg["data templates"].split(", ")
-        )
-        field_ids = data_cfg.get("field ids", None)
-        field_ids = eval(field_ids) if field_ids is not None else [None]
-        spectral_windows = data_cfg.get("spectral window")
-        spectral_windows = (
-            [eval(spw) for spw in spectral_windows.split(", ")]
-            if spectral_windows is not None
-            else [None]
-        )
-
-        return DataLoading(
-            data_templates=data_templates,
-            field_ids=field_ids,
-            spectral_windows=spectral_windows,
-        )
 
     @classmethod
     def from_yaml_dict(cls, data_cfg: dict):

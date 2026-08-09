@@ -9,8 +9,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from ..data.loader.target_loader import TargetData
-from ..parametric_model.parametric_prior import build_parametric_prior_from_prior_config
-from ..parse.parametric_model.parametric_prior import ProbabilityConfig
+from ....models.distributions import build_parametric_prior_from_prior_config
+from ....parse.models.distributions import ProbabilityConfig
 from ..parse.variable_covariance import (
     MultiplicativeStdValueConfig,
     StdValueShapeType,

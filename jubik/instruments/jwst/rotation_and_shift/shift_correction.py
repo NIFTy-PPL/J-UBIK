@@ -4,7 +4,7 @@ import astropy.units as u
 from ..parse.rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectionPriorConfig,
 )
-from ..parametric_model import build_parametric_prior_from_prior_config
+from ....models.distributions import build_parametric_prior_from_prior_config
 
 
 def build_shift_correction(

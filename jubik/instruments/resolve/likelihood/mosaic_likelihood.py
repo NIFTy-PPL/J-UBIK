@@ -12,10 +12,9 @@ from ...jwst.parse.rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectionPriorConfig,
 )
 from ..data.observation import Observation
-from ..mosaicing.sky_beamer import SkyBeamerJft
+from ..mosaicing.sky_beamer import SkyBeamer
 from ..noise.factory_noise_correction import factory_noise_correction_model
 from ..parse.noise.base_line_correction import BaseLineCorrection
-from ..parse.noise.lower_bound_correction import LowerBoundCorrection
 from ..parse.response import Ducc0Settings, FinufftSettings
 from ..phase_shift_correction import (
     PhaseShiftCorrection,
@@ -127,11 +126,11 @@ class VariableLikelihoodBuilder(LikelihoodBuilderBase):
 def build_likelihood_from_sky_beamer(
     observation: Observation,
     field_name: str,
-    sky_beamer: SkyBeamerJft,
+    sky_beamer: SkyBeamer,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None,
-    noise_std_correction: LowerBoundCorrection | BaseLineCorrection | None = None,
+    noise_std_correction: BaseLineCorrection | None = None,
 ) -> LikelihoodBuilder | VariableLikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
 
@@ -151,7 +150,7 @@ def build_likelihood_from_sky_beamer(
         The observation under question
     field_name: str
         The name of the field (pointing) corresponding to the `observation`.
-    sky_beamer: SkyBeamerJft
+    sky_beamer: SkyBeamer
         The operator that applies the beam pattern to the sky.
         This can potentially hold multiple pointings, that are identified by different
         field_name.
@@ -159,8 +158,12 @@ def build_likelihood_from_sky_beamer(
         Used for building the InterferometryResponse
     backend_settings: Union[Ducc0Settings, FinufftSettings]
         The algorithm for gridding and fft.
-    phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None,
-        (Optional) config object containg the priors for a shift correction.
+    phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None
+        (Optional) config object containing the priors for a shift correction.
+    noise_std_correction: BaseLineCorrection | None
+        (Optional) settings for an inferred noise standard deviation. If given,
+        a `VariableLikelihoodBuilder` is returned instead of a
+        `LikelihoodBuilder`.
 
     Returns
     ------

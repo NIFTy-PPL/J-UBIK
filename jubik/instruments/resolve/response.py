@@ -25,8 +25,8 @@ from jax.tree_util import Partial
 from ...color import get_2d_binbounds
 from ...grid import Grid, PolarizationType
 from .constants import RESOLVE_SPATIAL_UNIT, RESOLVE_SPECTRAL_UNIT
-from .data.data_modify.frequency_handling import restrict_by_freq
-from .data.data_modify.time_modify import restrict_by_time
+from .data.data_modify.frequency import restrict_by_freq
+from .data.data_modify.time import restrict_by_time
 from .data.observation import Observation
 from .parse.response import Ducc0Settings, FinufftSettings
 from .util import calculate_phase_offset_to_image_center

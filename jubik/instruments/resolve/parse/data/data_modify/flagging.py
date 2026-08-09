@@ -1,4 +1,3 @@
-from configparser import ConfigParser
 from dataclasses import dataclass
 from typing import Union
 
@@ -16,17 +15,6 @@ class FlagWeights(StaticTyped):
             cls(
                 min=raw.get("min", 1e-12),
                 max=raw.get("max", 1e12),
-            )
-            if raw
-            else None
-        )
-
-    @classmethod
-    def from_config_parser(cls, raw: ConfigParser | dict) -> Union["FlagWeights", None]:
-        return (
-            cls(
-                min=eval(raw.get("min", "1e-12")),
-                max=eval(raw.get("max", "1e+12")),
             )
             if raw
             else None

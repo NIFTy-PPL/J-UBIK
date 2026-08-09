@@ -15,9 +15,9 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
+from ....models.distributions import build_parametric_prior_from_prior_config
 from ....wcs import world_coordinates_to_index_grid
 from ....wcs.wcs_astropy import WcsAstropy
-from ..parametric_model import build_parametric_prior_from_prior_config
 from ..parse.rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectionPriorConfig,
     CorrectionModel,

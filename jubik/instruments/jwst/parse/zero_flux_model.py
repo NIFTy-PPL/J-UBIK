@@ -4,7 +4,7 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-from .parametric_model.parametric_prior import (
+from ....parse.models.distributions import (
     ProbabilityConfig,
     prior_config_factory,
 )

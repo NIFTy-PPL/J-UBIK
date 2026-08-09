@@ -7,15 +7,11 @@ from .data.observation import *
 
 from .calibration import *
 
-from .plotting import standard_plotting as plotting
-
 from .likelihood import *
 
-from .logger import logger
 from .util import *
 
 from .response import interferometry_response
-from .stokes_adder import StokesAdder
 
 from . import parse
 from .dirty_image import dirty_image

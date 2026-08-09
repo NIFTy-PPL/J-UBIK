@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 import astropy.units as u
 
-from ...parse.parametric_model.parametric_prior import (
+from .....parse.models.distributions import (
     ProbabilityConfig,
     prior_config_factory,
 )

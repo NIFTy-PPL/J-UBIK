@@ -9,7 +9,7 @@ from enum import Enum
 
 from astropy import units as u
 
-from ..parametric_model.parametric_prior import (
+from .....parse.models.distributions import (
     ProbabilityConfig,
     prior_config_factory,
 )

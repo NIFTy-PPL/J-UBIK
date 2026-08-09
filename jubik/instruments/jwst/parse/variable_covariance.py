@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from enum import Enum
 
-from .parametric_model.parametric_prior import ProbabilityConfig, prior_config_factory
+from ....parse.models.distributions import ProbabilityConfig, prior_config_factory
 
 
 # ABC for Configs ----------------------------------------------------------------------

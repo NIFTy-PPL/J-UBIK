@@ -27,42 +27,6 @@ def test_spatial_model_from_yaml_dict():
     assert spatial_model.wcs_model.coordinate_system == CoordinateSystems.icrs.value
 
 
-def test_spatial_model_from_config_parser():
-    grid_config = {
-        "image center ra": "64.66543063107049deg",
-        "image center dec": "-47.86462563973049deg",
-        "frame": "icrs",
-        "space npix x": 384,
-        "space npix y": 256,
-        "space fov x": "12arcsec",
-        "space fov y": "8arcsec",
-        "space rotation": "8arcsec",
-    }
-
-    spatial_model = SpatialModel.from_config_parser(grid_config)
-
-    # Test center
-    center = SkyCoord(
-        ra=u.Quantity(grid_config["image center ra"]),
-        dec=u.Quantity(grid_config["image center dec"]),
-        frame=grid_config["frame"],
-    )
-    assert spatial_model.wcs_model.center == center
-
-    # Test shape
-    assert spatial_model.shape == (
-        grid_config["space npix x"],
-        grid_config["space npix y"],
-    )
-
-    # Test rotation
-    rotation = u.Quantity(grid_config["space rotation"])
-    assert spatial_model.wcs_model.rotation == rotation
-
-    # Test CoordinateSystem
-    assert spatial_model.wcs_model.coordinate_system == CoordinateSystems.icrs.value
-
-
 def test_resolve_str_to_quantity():
     quantities = {
         "12.3muas": 12.3 * u.microarcsecond,

@@ -2,8 +2,6 @@ from dataclasses import dataclass
 from typing import Optional
 from enum import Enum
 
-from configparser import ConfigParser
-
 FRAME_KEY = 'frame'
 FRAME_DEFAULT = 'icrs'
 FRAME_EQUINOX_KEY = 'equinox'
@@ -39,17 +37,6 @@ class CoordinateSystemModel:
                              '`fk4` or `fk5`.')
 
         return coordinate_system.value
-
-    @classmethod
-    def from_config_parser(cls, grid_config: ConfigParser):
-        f'''Parsing coordinate system from ConfigParser.
-
-        Parameters
-        ----------
-        {FRAME_KEY}: str  (default {FRAME_DEFAULT})
-        {FRAME_EQUINOX_KEY}: float|None (default None)
-        '''
-        return cls.from_yaml_dict(grid_config)
 
 
 class CoordinateSystems(Enum):

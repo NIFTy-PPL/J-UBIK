@@ -19,7 +19,6 @@ from os.path import expanduser, isdir, join
 import numpy as np
 
 from ..util import my_assert, my_assert_isinstance, my_asserteq
-from ..logger import logger
 from .antenna_positions import AntennaPositions
 from .auxiliary_table import AuxiliaryTable
 from .observation import Observation
@@ -253,8 +252,6 @@ def read_ms_i(
     with ms_table(name) as t:
         nmspol = t.getcol(data_column, startrow=0, nrow=3).shape[2]
         nrow = t.nrows()
-    logger.info("Measurement set visibilities:")
-    logger.info(f"  shape: ({nrow}, {_ms_nchannels(name, spectral_window)}, {nmspol})")
 
     active_rows, active_channels = _first_pass(
         name, field, spectral_window, channels, pol_indices, pol_summation, ignore_flags
@@ -284,7 +281,6 @@ def read_ms_i(
         # Read in data
         start, realstart = 0, 0
         while start < nrow:
-            logger.debug(f"Second pass: {(start / nrow * 100):.1f}%")
             stop = _ms_stop(start, nrow)
             realstop = realstart + np.sum(active_rows[start:stop])
             if realstop > realstart:
@@ -332,9 +328,6 @@ def read_ms_i(
                 wgt[realstart:realstop] = twgt
 
             start, realstart = stop, realstop
-    logger.info("Selected:" + 10 * " ")
-    logger.info(f"  shape: {vis.shape}")
-    logger.info(f"  flagged: {(1.0 - np.sum(wgt != 0) / wgt.size) * 100:.1f} %")
 
     # UVW
     with ms_table(name) as t:
@@ -358,7 +351,6 @@ def read_ms_i(
                 ptg = np.empty((nrealrows, 1, 2), dtype=np.float64)
                 start, realstart = 0, 0
                 while start < nrow:
-                    logger.debug(f"Second pass: {(start / nrow * 100):.1f}%")
                     stop = _ms_stop(start, nrow)
                     realstop = realstart + np.sum(active_rows[start:stop])
                     if realstop > realstart:
@@ -406,7 +398,6 @@ def _first_pass(
         # Determine which subset of rows/channels we need to input
         start = 0
         while start < nrow:
-            logger.debug(f"First pass: {(start / nrow * 100):.1f}%")
             stop = _ms_stop(start, nrow)
             tflags = _conditional_flags(t, start, stop, pol_indices, ignore_flags)
             twgt = t.getcol(weightcol, startrow=start, nrow=stop - start)[

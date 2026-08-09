@@ -11,7 +11,6 @@ from astropy import units as u
 
 import jubik as ju
 import jubik.instruments.resolve as rve
-from jubik.parse.grid import GridModel
 from jubik.sky_model.resolve_sky import sky_model
 
 jax.config.update("jax_default_device", jax.devices("cpu")[0])

@@ -4,11 +4,11 @@ import numpy as np
 from jax import lax, vmap, Array
 
 
-from ..parametric_model.parametric_prior import build_parametric_prior_from_prior_config
+from ....models.distributions import build_parametric_prior_from_prior_config
 
 from ..data.jwst_data import DataMetaInformation
 from ..data.loader.stars_loader import StarsData
-from ..parse.parametric_model.parametric_prior import ProbabilityConfig
+from ....parse.models.distributions import ProbabilityConfig
 from ..rotation_and_shift.coordinates_correction import (
     Coordinates,
     ShiftAndRotationCorrection,

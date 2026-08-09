@@ -1,4 +1,3 @@
-from configparser import ConfigParser
 from dataclasses import dataclass
 from typing import Optional, Union
 
@@ -46,28 +45,6 @@ class Ducc0Settings(StaticTyped):
             verbosity=verbosity,
         )
 
-    @classmethod
-    def from_config_parser(cls, config: ConfigParser):
-        f"""Read ducc0 settings from yaml_dict.
-
-        Parameters
-        ----------
-        {EPSILON_KEY}: float
-        {DO_WGRIDDING_KEY}: bool | None
-        {NTHREADS_KEY}: int | None
-        {VERBOSITY_KEY}: bool | None
-        """
-        epsilon = eval(config[EPSILON_KEY])
-        do_wgridding = eval(config.get(DO_WGRIDDING_KEY, False))
-        nthreads = eval(config.get(NTHREADS_KEY, 1))
-        verbosity = eval(config.get(VERBOSITY_KEY, False))
-        return Ducc0Settings(
-            epsilon=epsilon,
-            do_wgridding=do_wgridding,
-            nthreads=nthreads,
-            verbosity=verbosity,
-        )
-
 
 @dataclass
 class FinufftSettings(StaticTyped):
@@ -82,17 +59,6 @@ class FinufftSettings(StaticTyped):
         {EPSILON_KEY}: float
         """
         epsilon = yaml_dict[EPSILON_KEY]
-        return FinufftSettings(epsilon=epsilon)
-
-    @classmethod
-    def from_config_parser(cls, config: ConfigParser):
-        f"""Read finufft settings from yaml_dict.
-
-        Parameters
-        ----------
-        {EPSILON_KEY}: float
-        """
-        epsilon = eval(config[EPSILON_KEY])
         return FinufftSettings(epsilon=epsilon)
 
 
@@ -118,31 +84,5 @@ def yaml_to_response_settings(
 
     elif backend in DUCC_KEYS:
         return Ducc0Settings.from_yaml_dict(response_dict)
-
-    raise ValueError(f"Supplied {backend}. Supply either {FINUFFT_KEYS} or {DUCC_KEYS}")
-
-
-def config_parser_to_response_settings(
-    data_settings: ConfigParser,
-) -> Union[Ducc0Settings, FinufftSettings]:
-    f"""Read the config parser to parse to Backend settings.
-    These can either be `Ducc0Settings` or `FinufftSettings`.
-
-    Parameters
-    ----------
-    {BACKEND_KEY}: str (either {FINUFFT_KEYS} or {DUCC_KEYS}.
-
-    Note
-    ----
-    All other parameters can be seen in `FinufftSettings` or `Ducc0Settings`.
-    """
-
-    backend = data_settings[BACKEND_KEY]
-
-    if backend in FINUFFT_KEYS:
-        return FinufftSettings.from_config_parser(data_settings)
-
-    elif backend in DUCC_KEYS:
-        return Ducc0Settings.from_config_parser(data_settings)
 
     raise ValueError(f"Supplied {backend}. Supply either {FINUFFT_KEYS} or {DUCC_KEYS}")
