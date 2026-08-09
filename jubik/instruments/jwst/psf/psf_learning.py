@@ -8,7 +8,7 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 
-from ....sky_model.single_correlated_field import build_single_correlated_field
+from ..correlated_field import build_single_correlated_field
 
 
 class LearnablePsf(jft.Model):

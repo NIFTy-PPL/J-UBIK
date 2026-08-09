@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Callable, Union
-from ..parsing_base import FromYamlDict, StaticTyped
+from ....parse.parsing_base import FromYamlDict, StaticTyped
 
 
 @dataclass
@@ -65,7 +65,7 @@ class CfmFluctuationsConfig(FromYamlDict, StaticTyped):
 
 
 @dataclass
-class MaternFluctationsConfig(FromYamlDict, StaticTyped):
+class MaternFluctuationsConfig(FromYamlDict, StaticTyped):
     """Config for a single correlated field.
 
     Parameters
@@ -90,7 +90,7 @@ class MaternFluctationsConfig(FromYamlDict, StaticTyped):
     non_parametric_kind: str = "amplitude"
 
     @classmethod
-    def from_yaml_dict(cls, raw: dict) -> "MaternFluctationsConfig":
+    def from_yaml_dict(cls, raw: dict) -> "MaternFluctuationsConfig":
         flucts = raw["fluctuations"]
         return cls(
             amplitude=AmplitudeTotalOffsetConfig.from_yaml_dict(raw["amplitude"]),
@@ -107,8 +107,8 @@ class MaternFluctationsConfig(FromYamlDict, StaticTyped):
 # API ----------------------------------------------------------------------------------
 
 FLUCTUATIONS_CONFIG_BUILDER = dict(
-    matern=MaternFluctationsConfig,
-    matern_kernel=MaternFluctationsConfig,
+    matern=MaternFluctuationsConfig,
+    matern_kernel=MaternFluctuationsConfig,
     correlated_field=CfmFluctuationsConfig,
     cfm=CfmFluctuationsConfig,
 )
@@ -116,8 +116,8 @@ FLUCTUATIONS_CONFIG_BUILDER = dict(
 
 def single_correlated_field_config_factory(
     raw: dict,
-) -> Union[CfmFluctuationsConfig, MaternFluctationsConfig]:
-    """Create either a `MaternFluctationsConfig` or a `CfmFluctuationsConfig`.
+) -> Union[CfmFluctuationsConfig, MaternFluctuationsConfig]:
+    """Create either a `MaternFluctuationsConfig` or a `CfmFluctuationsConfig`.
 
     Parameters
     ----------

@@ -6,6 +6,7 @@ from jax import lax, vmap, Array
 
 from ....models.distributions import build_parametric_prior_from_prior_config
 
+from ..correlated_field import build_single_correlated_field
 from ..data.jwst_data import DataMetaInformation
 from ..data.loader.stars_loader import StarsData
 from ....parse.models.distributions import ProbabilityConfig
@@ -103,8 +104,6 @@ class StarAndSky(jft.Model):
         brightness: jft.Model,
         location: Coordinates | ShiftAndRotationCorrection,
     ):
-        from ....sky_model.single_correlated_field import build_single_correlated_field
-
         # self._skies = skies
         skr = []
         skr_domain = {}
