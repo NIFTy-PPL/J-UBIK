@@ -1,7 +1,7 @@
 """p5 — the sky-beamer contract: beams pair index-for-index with canonical skies.
 
 WHAT THIS PROBES
-    build_jft_sky_beamer builds one beam array per pointing and SkyBeamerJft
+    build_sky_beamer builds one beam array per pointing and SkyBeamer
     multiplies it elementwise onto the sky before the radio response.  Under
     the canonical frame (probes/README.md: sky dim0 = +Dec/North, dim1 =
     -RA/West) the beam must satisfy
@@ -47,7 +47,7 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord
 import nifty.re as jft
 
-from jubik.instruments.resolve.mosaicing.sky_beamer import build_jft_sky_beamer
+from jubik.instruments.resolve.mosaicing.sky_beamer import build_sky_beamer
 
 GOLDEN = Path(__file__).parent / "golden" / "p5_beam.npy"
 
@@ -64,7 +64,7 @@ def pointing_observation(name: str, direction: SkyCoord) -> SimpleNamespace:
 
 
 def build_beams(observations: list) -> dict:
-    beamer = build_jft_sky_beamer(
+    beamer = build_sky_beamer(
         sky_shape_with_dtype=jft.ShapeWithDtype((1, 1, 1, N, N), np.float64),
         sky_fov=FOV,
         sky_center=CENTER,
