@@ -235,7 +235,7 @@ class CalibrationDistributor(jft.Model):
         time = jnp.asarray(observation.time)
 
         n_corr, _, n_freq = observation.vis_val.shape
-        n_ant = unique_antennas(observation)
+        n_ant = len(unique_antennas(observation))
 
         if frequency_grid is None:
             freq_col = None
