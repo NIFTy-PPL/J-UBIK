@@ -77,7 +77,7 @@ def interpolate_time_frequency(li_t, li_f, x, n_corr, n_ant, n_freq_in):
     )
 
 
-class CalibrationInterpolator:
+class CalibrationInterpolator(jft.Model):
     """
     Interpolates calibration fields from a regular time or time-frequency grid
     onto the observation grid.
@@ -130,6 +130,7 @@ class CalibrationInterpolator:
 
     def __init__(
         self,
+        model: jft.Model,
         time_col: jnp.ndarray,
         dt: float,
         n_corr: int,
@@ -149,7 +150,7 @@ class CalibrationInterpolator:
         # self._n_ant = n_ant
 
         if freq_col is None:
-            self._call = lambda x: interpolate_time(
+            self._interpolator = lambda x: interpolate_time(
                 li=li_time,
                 n_corr=n_corr,
                 x=x,
@@ -164,7 +165,7 @@ class CalibrationInterpolator:
 
             li_freq = Partial(map_coordinates, coordinates=[freq_col / df], order=1)
 
-            self._call = lambda x: interpolate_time_frequency(
+            self._interpolator = lambda x: interpolate_time_frequency(
                 li_t=li_time,
                 li_f=li_freq,
                 x=x,
@@ -173,8 +174,12 @@ class CalibrationInterpolator:
                 n_freq_in=n_freq,
             )
 
-    def __call__(self, x):
-        return self._call(x)
+        self._model = model
+
+        super().__init__(init=model.init)
+
+    def __call__(self, primals):
+        return self._interpolator(self._model(primals))
 
 
 class CalibrationDistributor(jft.Model):
@@ -185,12 +190,9 @@ class CalibrationDistributor(jft.Model):
     The supplied phase and log-amplitude models are assumed to produce calibration
     fields of shape
 
-        (n_corr, n_ant, n_time, n_freq).
+        (n_corr, n_ant, n_time_obs, n_freq_obs),
 
-    These fields are first interpolated onto the observation time grid and,
-    optionally, onto the observation frequency grid. Afterwards, the antenna gains
-    corresponding to the two antennas of each visibility are gathered and combined
-    to form the baseline calibration factors.
+    where they are already interpolated onto the time and frequency points of the observation.
 
     For each visibility, the calibration is computed as
 
@@ -229,35 +231,11 @@ class CalibrationDistributor(jft.Model):
         observation: Observation,
         phase_fields: jft.Model,
         log_amplitude_fields: jft.Model,
-        dt: float,
-        frequency_grid: jnp.ndarray | None = None,
     ):
-        time = jnp.asarray(observation.time)
-
-        n_corr, _, n_freq = observation.vis_val.shape
-        n_ant = len(unique_antennas(observation))
-
-        if frequency_grid is None:
-            freq_col = None
-            df = None
-        else:
-            freq_col = observation.freq
-            df = jnp.diff(frequency_grid)[0]
-            n_freq = frequency_grid.size
-
-        self._interpolator = CalibrationInterpolator(
-            time_col=observation.time,
-            dt=dt,
-            n_corr=n_corr,
-            n_ant=n_ant,
-            n_freq=n_freq,
-            freq_col=freq_col,
-            df=df,
-        )
 
         self._gather_op = Partial(
             func=antenna_time_grid_to_data_point,
-            time_col=time,
+            time_col=jnp.asarray(observation.time),
             ant1_col=jnp.asarray(observation.ant1),
             ant2_col=jnp.asarray(observation.ant2),
         )
@@ -268,10 +246,7 @@ class CalibrationDistributor(jft.Model):
         super().__init__(init=self._phases.init | self._logamps.init)
 
     def __call__(self, primals):
-        logamps_interp = self._interpolator(self._logamps(primals))
-        phases_interp = self._interpolator(self._phases(primals))
-
-        res_logamp = self._gather_op(logamps_interp, jnp.add)
-        res_phase = self._gather_op(phases_interp, jnp.subtract)
+        res_logamp = self._gather_op(cube=self._logamps(primals), operation=jnp.add)
+        res_phase = self._gather_op(cube=self._phases(primals), operation=jnp.subtract)
 
         return jnp.exp(res_logamp + 1j * res_phase)
