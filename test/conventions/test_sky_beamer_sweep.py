@@ -27,7 +27,7 @@ import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 
-from jubik.instruments.resolve.mosaicing.sky_beamer import build_jft_sky_beamer
+from jubik.instruments.resolve.mosaicing.sky_beamer import build_sky_beamer
 
 CENTER = SkyCoord(ra=10.0 * u.deg, dec=20.0 * u.deg)
 
@@ -39,7 +39,7 @@ def _pointing_observation(name, direction):
 
 
 def _build_beams(observations, shape, fov):
-    beamer = build_jft_sky_beamer(
+    beamer = build_sky_beamer(
         sky_shape_with_dtype=jft.ShapeWithDtype(
             (1, 1, 1, shape[0], shape[1]), np.float64
         ),

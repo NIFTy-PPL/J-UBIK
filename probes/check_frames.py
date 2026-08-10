@@ -39,7 +39,7 @@ HISTORY (why this got confusing — do not repeat it)
       converts the canonical sky to the wgridder layout at its own boundary.
       The mosaic / sky_beamer path is still pending (Batch B).
     - Batch B (jubik side, 2026-07-07) landed the sky_beamer canonical
-      frame: build_astropy_wcs / build_jft_sky_beamer now take numpy/
+      frame: build_astropy_wcs / build_sky_beamer now take numpy/
       canonical-ordered shape+fov and the sky_beamer transpose is gone, so
       beams pair index-for-index with the canonical sky (pinned by p5).
       What remains pending is re-authoring the mosaic_imaging PROJECT repo
