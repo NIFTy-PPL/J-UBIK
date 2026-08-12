@@ -14,30 +14,33 @@ from matplotlib.ticker import LogLocator
 import jubik0 as ju
 
 
-def aa_figsize(columns=1, aspect_ratio=0.7):
+def joss_figsize(aspect_ratio=0.7):
     """
-    Liefert (width, height) in inches für A&A Plots.
+    Figsize helper
+
+    Parameters
+    ----------
+
     columns: 1 oder 2
     aspect_ratio: height/width
     """
     width_cm = 16.51        
     width_in = width_cm / 2.54
-    print(width_in)
     height_in = width_in * aspect_ratio
     return (width_in, height_in)
 
-def aa_cmap(cmap_name="magma", nan_color="black"):
+def joss_cmap(cmap_name="magma", nan_color="black"):
     """
-    Gibt eine Kopie der Colormap zurück und setzt NaN-Farbe
+    Colormap helper
     """
     cmap = cm.get_cmap(cmap_name).copy()
     cmap.set_bad(color=nan_color)
     return cmap
 
 # --- Colorbar Helper ---
-def aa_colorbar(fig, im, label, ax=None, orientation='vertical', pad=0.05, fraction=0.05, labelpad=3):
+def joss_colorbar(fig, im, label, ax=None, orientation='vertical', pad=0.05, fraction=0.05, labelpad=3):
     """
-    Einfacher Colorbar Helper
+    Colorbar helper
     """
     if ax is None:
         ax = fig.gca()
@@ -45,7 +48,10 @@ def aa_colorbar(fig, im, label, ax=None, orientation='vertical', pad=0.05, fract
     cbar.set_label(label, labelpad=labelpad)
     return cbar
 
-def aa_scalebar(ax, length, label, loc="lower right", remove_ticks=True, **kwargs):
+def joss_scalebar(ax, length, label, loc="lower right", remove_ticks=True, **kwargs):
+    """
+    scalebar helper
+    """
     if remove_ticks:
         ax.set_xticks([])
         ax.set_yticks([])

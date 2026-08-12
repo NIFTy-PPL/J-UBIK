@@ -1,9 +1,6 @@
 """
 TODO
 - [ ] relocate to paper? or where it makes more sense
-- [x] better plotting?
-- [x] more tweaking?
-- [ ] blurr ps with gaussian
 - [ ] check .T in dorados and paper plotting for future datafusion
 - [ ] cleanup
 - [ ] to main branch (quasi)
@@ -26,7 +23,7 @@ import astropy.io.fits as fits
 import nifty.re as jft
 
 import jubik0 as ju
-from joss_paper_plotting import aa_figsize, aa_scalebar, aa_cmap, aa_colorbar
+from joss_paper_plotting import joss_figsize, joss_scalebar, joss_cmap, joss_colorbar
 
 mplstyle.use("paper/joss.mplstyle")
 
@@ -119,11 +116,11 @@ if __name__ == "__main__":
     real_pos[2] = blurred_ps
     real_pos[0] = real_pos[1] + real_pos[2]
     # Plotting
-    fig, ax = plt.subplots(1,3,figsize=aa_figsize(columns=2, aspect_ratio=0.5), constrained_layout=True)
+    fig, ax = plt.subplots(1,3,figsize=joss_figsize(aspect_ratio=0.5), constrained_layout=True)
     for i in range(3):
-        im = ax[i].imshow(real_pos[i], norm="log",vmin=1e-7, vmax=1e-5, cmap=aa_cmap())
-        aa_scalebar(ax[i], 8*60/4,"8 arcmin", "lower right")
-    aa_colorbar(fig, im, ax=ax, fraction=0.5, pad=0.03, label=r"$\mathrm{s}^{-1}\mathrm{arcsec}^{-2}$", orientation="horizontal", labelpad=3)
+        im = ax[i].imshow(real_pos[i], norm="log",vmin=1e-7, vmax=1e-5, cmap=joss_cmap())
+        joss_scalebar(ax[i], 8*60/4,"8 arcmin", "lower right")
+    joss_colorbar(fig, im, ax=ax, fraction=0.5, pad=0.03, label=r"$\mathrm{s}^{-1}\mathrm{arcsec}^{-2}$", orientation="horizontal", labelpad=3)
     fig.savefig("paper/simulated_sky.pdf")
 
 
@@ -140,11 +137,11 @@ if __name__ == "__main__":
         ax.set_aspect("equal")
         ax.set_xticks([])
         ax.set_yticks([])
-        aa_scalebar(ax, 8*60/4,"8 arcmin", "lower right")
+        joss_scalebar(ax, 8*60/4,"8 arcmin", "lower right")
 
-    im=ax_top.imshow(real_pos[0], norm="log",vmin=1e-7, vmax=1e-5, cmap=aa_cmap())
-    ax1.imshow(real_pos[1], norm="log",vmin=1e-7, vmax=1e-5, cmap=aa_cmap())
-    ax2.imshow(real_pos[2], norm="log",vmin=1e-7, vmax=1e-5, cmap=aa_cmap())
+    im=ax_top.imshow(real_pos[0], norm="log",vmin=1e-7, vmax=1e-5, cmap=joss_cmap())
+    ax1.imshow(real_pos[1], norm="log",vmin=1e-7, vmax=1e-5, cmap=joss_cmap())
+    ax2.imshow(real_pos[2], norm="log",vmin=1e-7, vmax=1e-5, cmap=joss_cmap())
     cbar = fig.colorbar(im, cax=cax, orientation="horizontal")
     cbar.set_label(r"$\mathrm{s}^{-1}\mathrm{arcsec}^{-2}$")
     # aa_colorbar(fig, im, ax=gs, fraction=0.5, pad=0.03, label=r"$\mathrm{s}^{-1}\mathrm{cm}^{2}$", orientation="horizontal", labelpad=3)
@@ -272,37 +269,37 @@ if __name__ == "__main__":
     ]
     plottable_data = np.vstack(plottabel_data_list)
 
-    fig, ax = plt.subplots(2,2,figsize=aa_figsize(columns=2, aspect_ratio=1.1), constrained_layout=True)
-    im = ax[0,0].imshow(plottable_data[0], norm="log",vmin=1, vmax=1e3, cmap=aa_cmap())    
+    fig, ax = plt.subplots(2,2,figsize=joss_figsize(aspect_ratio=1.1), constrained_layout=True)
+    im = ax[0,0].imshow(plottable_data[0], norm="log",vmin=1, vmax=1e3, cmap=joss_cmap())    
     ax[0,0].plot(512,512,
                 marker="+",
                 color="red",
                 markersize=5,
                 markeredgewidth=0.5,
             )
-    ax[0,1].imshow(plottable_data[1, ch1_x_start:ch1_x_end, ch1_y_start:ch1_y_end], norm="log",vmin=1, vmax=1e3, cmap=aa_cmap())
+    ax[0,1].imshow(plottable_data[1, ch1_x_start:ch1_x_end, ch1_y_start:ch1_y_end], norm="log",vmin=1, vmax=1e3, cmap=joss_cmap())
     ax[0,1].plot(p_ch1[1],p_ch1[0],
                 marker="+",
                 color="red",
                 markersize=5,
                 markeredgewidth=0.5,
             )
-    ax[1,0].imshow(plottable_data[2, ch2_x_start:ch2_x_end, ch2_y_start:ch2_y_end], norm="log",vmin=1, vmax=1e3, cmap=aa_cmap())
+    ax[1,0].imshow(plottable_data[2, ch2_x_start:ch2_x_end, ch2_y_start:ch2_y_end], norm="log",vmin=1, vmax=1e3, cmap=joss_cmap())
     ax[1,0].plot(p_ch2[1],p_ch2[0],
                 marker="+",
                 color="red",
                 markersize=5,
                 markeredgewidth=0.5,
             )
-    ax[1,1].imshow(real_pos[0]*1e8, norm="log",vmin=1, vmax=1e3, cmap=aa_cmap())
+    ax[1,1].imshow(real_pos[0]*1e8, norm="log",vmin=1, vmax=1e3, cmap=joss_cmap())
     ax[1,1].contour(erosita_mask_contour, linewidths=.2, colors="orange")
     ax[1,1].contour(chandra1_mask_contour,linewidths=.2, colors="blue")
     ax[1,1].contour(chandra2_mask_contour,linewidths=.2, colors="white")
 
     for i in range(4):
         ax = ax.flatten()
-        aa_scalebar(ax[i], 8*60/4,"8 arcmin", "lower right")
-    aa_colorbar(fig, im, ax=ax, fraction=0.5, pad=0.03, label="counts", orientation="horizontal", labelpad=3)
+        joss_scalebar(ax[i], 8*60/4,"8 arcmin", "lower right")
+    joss_colorbar(fig, im, ax=ax, fraction=0.5, pad=0.03, label="counts", orientation="horizontal", labelpad=3)
     fig.savefig("paper/simulated_data.pdf")
 
 
