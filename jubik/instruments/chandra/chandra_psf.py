@@ -63,6 +63,25 @@ def get_radec_from_xy(temp_x, temp_y, event_f):
     y_p = float(rt.dmcoords.dec)
     return (x_p, y_p)
 
+def get_xy_from_radec(ra, dec, event_f):
+    """Calculates sky ra and dec from sky pixel coordinates.
+
+    Parameters
+    ----------
+    temp_x: int
+    temp_y: int
+
+    Returns
+    -------
+    tuple
+    """
+    import ciao_contrib.runtool as rt
+    rt.dmcoords.punlearn()
+    rt.dmcoords(event_f, op="cel", celfmt="deg", ra=ra, dec=dec)
+    x = float(rt.dmcoords.x)
+    y = float(rt.dmcoords.y)
+    return (x, y)
+
 
 def get_psfpatches(info, n, npix_s, num_rays=10e6,
                    debug=False, Roll=True, Norm=True):

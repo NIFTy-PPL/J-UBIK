@@ -99,8 +99,8 @@ class ChandraObservationInformation():
         ra_center  = self.obsInfo['aim_ra']
         dec_center = self.obsInfo['aim_dec']
         if center!=None:
-            ra_center  = center[0]
-            dec_center = center[1]
+            ra_center  = self.obsInfo["center_ra"] = center[0]
+            dec_center = self.obsInfo["center_dec"] = center[1]
 
         # 3.b) convert the image center to sky coordinates
         rt.dmcoords.punlearn()
@@ -115,8 +115,7 @@ class ChandraObservationInformation():
 
         # 3.c) define range in x and y coordinates
         # note: pixelsize = 0.492 arcsec
-        # FIXME really?
-        self.obsInfo['xy_range'] = fov/2/0.492  # full fov / 2 (for half fov) / 0.492 (pixel size)
+        self.obsInfo['xy_range'] = fov/2/0.492
         self.obsInfo['x_min']    = self.obsInfo['x_center'] - self.obsInfo['xy_range'] 
         self.obsInfo['x_max']    = self.obsInfo['x_center'] + self.obsInfo['xy_range']
         self.obsInfo['y_min']    = self.obsInfo['y_center'] - self.obsInfo['xy_range']
@@ -440,6 +439,10 @@ class ChandraObservationInformation():
         except ImportError:
             print("Ciao is not sourced or installed. Therefore some operations can't be performed")
             pass
+
+        rt.dmkeypar.punlearn()
+        rt.dmlist.punlearn()
+        rt.dmcopy.punlearn()
 
         self.psf_sim_coords.append(location)
 

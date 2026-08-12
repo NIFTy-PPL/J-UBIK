@@ -21,6 +21,7 @@ from .sugar_plot import (plot_pspec, plot_sample_and_stats,
 from .instruments.erosita.erosita_observation import ErositaObservation
 from .instruments.chandra.chandra_observation import ChandraObservationInformation
 from .instruments.chandra.chandra_psf import (get_radec_from_xy,
+                                              get_xy_from_radec,
                                               get_psfpatches,
                                               get_synth_pointsource)
 from .instruments.erosita.erosita_psf import eROSITA_PSF
