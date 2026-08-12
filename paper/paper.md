@@ -143,7 +143,6 @@ components, the diffuse, extended structures and the point sources.
 <!-- |----------------------------------------------------| -->
 ![Simulated X-ray sky. From left to right: full-sky map, diffuse component, and point sources.\label{fig:sky}](simulated_sky.pdf) 
 
-
 ## Likelihood models
 `J-UBIK` implements instrument models for Chandra, eROSITA, and JWST and their respective data-
 and response-loading
@@ -155,7 +154,6 @@ the corresponding
 instrument, it can also be used to generate simulated data by passing sky prior models through
 the instrument’s
 response. This allows to test the consistency of the implemented models.
-
 
 \autoref{fig:data} shows the same simulated sky from \autoref{fig:sky} seen by two different instruments, eROSITA and Chandra, 
 with Poisson noise on the photon count data. The pointing center for each observation is marked
