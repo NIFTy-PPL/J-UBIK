@@ -146,7 +146,8 @@ if __name__ == "__main__":
     cbar.set_label(r"$\mathrm{s}^{-1}\mathrm{arcsec}^{-2}$")
     # aa_colorbar(fig, im, ax=gs, fraction=0.5, pad=0.03, label=r"$\mathrm{s}^{-1}\mathrm{cm}^{2}$", orientation="horizontal", labelpad=3)
 
-    fig.savefig("paper/simulated_sky_test.pdf")
+    # fig.savefig("paper/simulated_sky_test.pdf") # uncomment for big version
+
     #bbox_info = [(7, 4), 28, 96,  'black']
     # plot(real_pos,
     #      figsize=(7, 2.7),
