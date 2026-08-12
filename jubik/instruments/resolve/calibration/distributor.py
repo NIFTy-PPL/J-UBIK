@@ -120,6 +120,13 @@ class CalibrationInterpolator(jft.Model):
     df : float, optional
         Spacing of the calibration frequency grid. Required when `freq_col` is
         given.
+    time_origin : float, optional
+        Time represented by index zero of the calibration grid. Defaults to the
+        first observation time, which makes absolute measurement-set timestamps
+        safe to use.
+    frequency_origin : float, optional
+        Frequency represented by index zero of the calibration grid. Defaults to
+        the first observation frequency.
 
     Notes
     -----
@@ -138,13 +145,27 @@ class CalibrationInterpolator(jft.Model):
         n_freq: int,
         freq_col: jnp.ndarray | None = None,
         df: float | None = None,
+        time_origin: float | None = None,
+        frequency_origin: float | None = None,
     ):
 
         if (n_freq is None) and (freq_col is None):
             raise ValueError(
                 "Either set n_freq (for time only interpolation) or freq_col (for time and frequency interpolation)."
             )
-        li_time = Partial(map_coordinates, coordinates=[time_col / dt], order=1)
+        if dt <= 0:
+            raise ValueError("The calibration time-grid spacing `dt` must be positive.")
+
+        time_col = jnp.asarray(time_col)
+        if time_col.size == 0:
+            raise ValueError("Cannot interpolate calibration fields without times.")
+        if time_origin is None:
+            time_origin = time_col[0]
+        li_time = Partial(
+            map_coordinates,
+            coordinates=[(time_col - time_origin) / dt],
+            order=1,
+        )
 
         # self._n_corr = n_corr
         # self._n_ant = n_ant
@@ -162,8 +183,23 @@ class CalibrationInterpolator(jft.Model):
                 raise ValueError(
                     "Set frequency bin width of time and frequency interpolation."
                 )
+            if df <= 0:
+                raise ValueError(
+                    "The calibration frequency-grid spacing `df` must be positive."
+                )
 
-            li_freq = Partial(map_coordinates, coordinates=[freq_col / df], order=1)
+            freq_col = jnp.asarray(freq_col)
+            if freq_col.size == 0:
+                raise ValueError(
+                    "Cannot interpolate calibration fields without frequencies."
+                )
+            if frequency_origin is None:
+                frequency_origin = freq_col[0]
+            li_freq = Partial(
+                map_coordinates,
+                coordinates=[(freq_col - frequency_origin) / df],
+                order=1,
+            )
 
             self._interpolator = lambda x: interpolate_time_frequency(
                 li_t=li_time,

@@ -9,6 +9,7 @@ from jubik.instruments.resolve.data.data_modify.frequency import (
     freq_average_by_bins,
     freq_average_by_fdom_and_n_freq_chunks,
 )
+from jubik.instruments.resolve.data.observation import Observation
 from jubik.instruments.resolve.parse.data.data_modify.frequency import (
     SpectralModify,
 )
@@ -58,6 +59,36 @@ def test_freq_average_by_bins_uses_every_channel(n_freq, n_bins):
 def test_freq_average_by_bins_none_is_noop():
     obs = build_obs()
     assert freq_average_by_bins(obs, None) is obs
+
+
+def test_freq_average_by_bins_excludes_flagged_channels():
+    obs = build_obs()
+    vis = obs.vis_val.copy()
+    weight = obs.weight_val.copy()
+
+    # A flagged visibility may contain an arbitrary placeholder and must not
+    # affect either the average or its propagated weight.
+    vis[0, 0, 1] = 1.0e30
+    weight[0, 0, 1] = 0.0
+    weight[1, 0, :] = 0.0
+    flagged_obs = Observation(
+        obs.antenna_positions,
+        vis,
+        weight,
+        obs.legacy_polarization,
+        obs.freq,
+        obs._auxiliary_tables,
+    )
+
+    averaged = freq_average_by_bins(flagged_obs, 1)
+    valid = weight[0, 0] > 0.0
+    expected_vis = np.mean(vis[0, 0, valid])
+    expected_weight = valid.sum() ** 2 / np.sum(1.0 / weight[0, 0, valid])
+
+    assert_allclose(averaged.vis_val[0, 0, 0], expected_vis)
+    assert_allclose(averaged.weight_val[0, 0, 0], expected_weight)
+    assert averaged.vis_val[1, 0, 0] == 0.0
+    assert averaged.weight_val[1, 0, 0] == 0.0
 
 
 @pmp("n_bins", (0, -1, len(FREQS) + 1))

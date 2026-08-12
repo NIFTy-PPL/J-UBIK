@@ -109,10 +109,31 @@ def _average_frequency_groups(
 
     obs_avg = []
     for obsi in splitted_obs:
-        new_vis = np.mean(obsi.vis.asnumpy(), axis=2, keepdims=True)
-        cov = 1 / obsi.weight.asnumpy()
-        new_cov = np.sum(cov, axis=2, keepdims=True) / (obsi.vis.shape[2] ** 2)
-        new_weight = 1 / new_cov
+        vis = obsi.vis.asnumpy()
+        weight = obsi.weight.asnumpy()
+        valid = weight > 0.0
+        n_valid = np.sum(valid, axis=2, keepdims=True)
+
+        # Keep the existing unweighted channel-average convention, but exclude
+        # flagged samples. A zero weight means that no datum is available; it
+        # must not contribute a placeholder visibility or an infinite variance
+        # to an otherwise valid average.
+        vis_sum = np.sum(np.where(valid, vis, 0.0), axis=2, keepdims=True)
+        new_vis = np.zeros(vis_sum.shape, dtype=vis.dtype)
+        np.divide(vis_sum, n_valid, out=new_vis, where=n_valid > 0)
+
+        inverse_weight_sum = np.sum(
+            np.divide(1.0, weight, out=np.zeros_like(weight), where=valid),
+            axis=2,
+            keepdims=True,
+        )
+        new_weight = np.zeros(inverse_weight_sum.shape, dtype=weight.dtype)
+        np.divide(
+            n_valid**2,
+            inverse_weight_sum,
+            out=new_weight,
+            where=n_valid > 0,
+        )
         new_freq = np.array([np.mean(obsi.freq)])
         new_obs = Observation(
             obsi.antenna_positions,
@@ -250,9 +271,9 @@ def restrict_by_freq(
     copy: bool
         Whether the underlying arrays are copied.
     """
-    assert all(np.diff(observation.freq) > 0), (
-        "The frequencies of the observation need to be increasing"
-    )
+    assert all(
+        np.diff(observation.freq) > 0
+    ), "The frequencies of the observation need to be increasing"
 
     start, stop = np.searchsorted(observation.freq, [fmin, fmax])
     ind = slice(start, stop)
