@@ -10,6 +10,7 @@ import os
 import sys
 import pickle
 from os.path import join
+from pathlib import Path
 
 import numpy as np
 import jax.numpy as jnp
@@ -22,10 +23,14 @@ from astropy import coordinates as coords
 import astropy.io.fits as fits
 import nifty.re as jft
 
-import jubik0 as ju
+import jubik as ju
 from joss_paper_plotting import joss_figsize, joss_scalebar, joss_cmap, joss_colorbar
 
-mplstyle.use("paper/joss.mplstyle")
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEMO_DIR = SCRIPT_DIR.parent
+PAPER_DIR = DEMO_DIR.parent / "paper"
+
+mplstyle.use(SCRIPT_DIR / "joss.mplstyle")
 
 # --- figsize Helper ---
 
@@ -74,20 +79,22 @@ def to_slice_coords(x, y, x_start, y_start):
 
 # Script for plotting the data, position and reconstruction images
 if __name__ == "__main__":
-    output_dir = ju.create_output_directory("paper/")
+    # Relative paths inside the demo configs are anchored at the demos folder.
+    os.chdir(DEMO_DIR)
+    output_dir = ju.create_output_directory(PAPER_DIR)
     key = random.PRNGKey(81)
 
     # Read config files
-    prior_config_path = "paper/prior_config.yaml"
+    prior_config_path = SCRIPT_DIR / "prior_config.yaml"
     prior_config_dict = ju.get_config(prior_config_path)
 
-    eROSITA_config_name = "paper/eROSITA_demo.yaml"
+    eROSITA_config_name = SCRIPT_DIR / "eROSITA_demo.yaml"
     eROSITA_cfg_dict = ju.get_config(eROSITA_config_name)
 
-    chandra_config_name1 = "paper/chandra_demo_1.yaml"
+    chandra_config_name1 = SCRIPT_DIR / "chandra_demo_1.yaml"
     chandra_cfg_dict1 = ju.get_config(chandra_config_name1)
 
-    chandra_config_name2 = "paper/chandra_demo_2.yaml"
+    chandra_config_name2 = SCRIPT_DIR / "chandra_demo_2.yaml"
     chandra_cfg_dict2 = ju.get_config(chandra_config_name2)
 
     # build sky model
@@ -121,7 +128,7 @@ if __name__ == "__main__":
         im = ax[i].imshow(real_pos[i], norm="log",vmin=1e-7, vmax=1e-5, cmap=joss_cmap())
         joss_scalebar(ax[i], 8*60/4,"8 arcmin", "lower right")
     joss_colorbar(fig, im, ax=ax, fraction=0.5, pad=0.03, label=r"$\mathrm{s}^{-1}\mathrm{arcsec}^{-2}$", orientation="horizontal", labelpad=3)
-    fig.savefig("paper/simulated_sky.pdf")
+    fig.savefig(PAPER_DIR / "simulated_sky.pdf")
 
 
     fig = plt.figure(figsize=(6.5, 10.5), constrained_layout=True)
@@ -301,7 +308,7 @@ if __name__ == "__main__":
         ax = ax.flatten()
         joss_scalebar(ax[i], 8*60/4,"8 arcmin", "lower right")
     joss_colorbar(fig, im, ax=ax, fraction=0.5, pad=0.03, label="counts", orientation="horizontal", labelpad=3)
-    fig.savefig("paper/simulated_data.pdf")
+    fig.savefig(PAPER_DIR / "simulated_data.pdf")
 
 
 

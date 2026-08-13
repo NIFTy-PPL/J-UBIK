@@ -11,9 +11,6 @@ from matplotlib import cm
 from matplotlib import patches
 from matplotlib.ticker import LogLocator
 
-import jubik0 as ju
-
-
 DEFAULT_SIZEBAR = dict(
     size_vertical=2,
     sep=4,
