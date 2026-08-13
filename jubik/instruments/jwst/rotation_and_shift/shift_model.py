@@ -11,7 +11,7 @@ import nifty.re as jft
 from jax.numpy import array
 from numpy.typing import ArrayLike
 
-from ..parametric_model import build_parametric_prior
+from ....models.distributions import build_parametric_prior
 
 
 class ShiftModel(jft.Model):

@@ -4,8 +4,7 @@ stages:
   - release
 
 before_script:
-  - python3 -m pip install -e .
-
+  - python3 -m pip install -e .[resolve]
 test:
   image: python:latest
   stage: test
