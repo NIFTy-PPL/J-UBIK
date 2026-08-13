@@ -22,7 +22,7 @@ from .spectral_product_utils.spectral_behavior import (
 )
 
 
-class PointSourceSpectralIndex(SingleHarmonicLogSpectralBehavior):
+class PointSourceSpectralIndex(jft.Model, SingleHarmonicLogSpectralBehavior):
     """Spectral index model for point sources.
 
     This is a reduced version of `SpectralIndex` without spatially correlated
