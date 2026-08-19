@@ -502,6 +502,7 @@ def build_simple_spectral_sky(
         The prefix of the multi-frequency model.
     shape: tuple
         The shape of the spatial_amplitude domain.
+        For `harmonic_type="spherical"` (HEALPix), this is `(nside,)`.
     distances: tuple
         The distances of the spatial_amplitude domain.
         This parameter is ignored when using HEALPix grid.
@@ -562,10 +563,17 @@ def build_simple_spectral_sky(
         (`'non_parametric'`).
     harmonic_type: str
         The type of the harmonic domain for the amplitude model.
+        `"fourier"` (default) for a regular Cartesian grid, or
+        `"spherical"` for a HEALPix grid.
     dtype: type
         The type of the parameters.
     nonlinearity: callable
         The nonlinearity of the multifrequency model, exp (default).
+    sht_nthreads: int
+        Number of threads used by the underlying ducc0 spherical harmonic
+        transform (`harmonic_type="spherical"` only). 1 (default) is
+        single-threaded, 0 uses all available hardware threads. Only
+        affects computation speed, not the result.
 
     Returns
     -------
