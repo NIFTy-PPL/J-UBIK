@@ -11,6 +11,7 @@ test:
   stage: test
   script:
     - pip install pytest pytest-cov
+    - pip install .[healpix]
     - pytest --cov=jubik test/
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
 
