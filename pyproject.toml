@@ -17,7 +17,6 @@ dependencies = [
     "matplotlib",
     "astropy",
     "ducc0",
-    "jaxbind",
 ]
 license = {file = "LICENSE"}
 classifiers = [
@@ -54,6 +53,9 @@ jwst = [
     "jwst>=1.9.1",
     "stpsf>=2.1.0",
 ]
+healpix = [
+    "jaxbind",
+]
 
 [build-system]
 requires = [
@@ -66,7 +68,6 @@ requires = [
     "matplotlib",
     "astropy",
     "ducc0",
-    "jaxbind",
 ]
 build-backend = "setuptools.build_meta"
 
