@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-2-Clause
-# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp
+# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp, Hanieh Zandinejad
 
 # Copyright(C) 2024 Max-Planck-Society
 
@@ -188,275 +188,6 @@ def plot_result(array,
 
 
 def _infer_healpix_nside(npix: int) -> int:
-    """Infer HEALPix NSIDE from the number of pixels."""
-    nside = int(round(math.sqrt(npix / 12)))
-
-    if 12 * nside**2 != npix:
-        raise ValueError(
-            "Input does not look like a HEALPix map. "
-            f"Got npix={npix}, but 12*nside**2 does not match."
-        )
-
-    return nside
-
-
-def _ducc_ang2pix(base, theta, phi):
-    """Call ducc0 HEALPix ang2pix robustly for different ducc0 versions."""
-    theta_flat = np.ravel(theta)
-    phi_flat = np.ravel(phi)
-
-    try:
-        pix = base.ang2pix(theta_flat, phi_flat)
-    except TypeError:
-        pix = base.ang2pix(np.column_stack([theta_flat, phi_flat]))
-
-    return np.asarray(pix).reshape(theta.shape)
-
-
-def _mollweide_imgdata_from_healpix(
-    hp_data,
-    *,
-    xsize: int = 1000,
-    flip: str = "astro",
-):
-    """Project a RING-ordered HEALPix map to a Mollweide image array.
-
-    This follows the PLD-style plotting approach: convert the HEALPix map to a
-    regular 2D image and display it with ``imshow``. This gives better control
-    over colorbars, logarithmic scaling, clipping, and multi-panel layouts than
-    ``healpy.mollview``.
-
-    Parameters
-    ----------
-    hp_data : array_like
-        One HEALPix map with shape ``(12*nside**2,)`` in RING ordering.
-    xsize : int
-        Horizontal image size in pixels.
-    flip : str
-        Longitude convention. ``"astro"`` flips longitude so the display follows
-        the usual astronomical left-right convention. ``"geo"`` leaves longitude
-        unflipped.
-
-    Returns
-    -------
-    img : np.ndarray
-        Projected 2D image array.
-    """
-    if ducc_hp is None:
-        raise ImportError(
-            "ducc0 is required for PLD-style HEALPix plotting."
-        ) from _DUCC_IMPORT_ERROR
-
-    hp_data = np.asarray(hp_data)
-    hp_data = np.ravel(hp_data)
-
-    nside = _infer_healpix_nside(hp_data.size)
-    base = ducc_hp.Healpix_Base(nside, "RING")
-
-    ysize = xsize // 2
-
-    xlim = 2.0 * np.sqrt(2.0)
-    ylim = np.sqrt(2.0)
-
-    x = np.linspace(-xlim, xlim, xsize)
-    y = np.linspace(-ylim, ylim, ysize)
-    xx, yy = np.meshgrid(x, y)
-
-    img = np.full((ysize, xsize), np.nan, dtype=float)
-
-    inside = (xx / xlim) ** 2 + (yy / ylim) ** 2 <= 1.0
-
-    with np.errstate(invalid="ignore", divide="ignore"):
-        aux = np.arcsin(np.clip(yy / np.sqrt(2.0), -1.0, 1.0))
-        cos_aux = np.cos(aux)
-
-        lat = np.arcsin(
-            np.clip((2.0 * aux + np.sin(2.0 * aux)) / np.pi, -1.0, 1.0)
-        )
-        lon = np.pi * xx / (2.0 * np.sqrt(2.0) * cos_aux)
-
-    valid = inside & np.isfinite(lat) & np.isfinite(lon)
-
-    if flip == "astro":
-        lon = -lon
-    elif flip != "geo":
-        raise ValueError(f"Unsupported flip={flip!r}. Use 'astro' or 'geo'.")
-
-    theta = 0.5 * np.pi - lat
-    phi = np.mod(lon, 2.0 * np.pi)
-
-    pix = _ducc_ang2pix(base, theta[valid], phi[valid])
-    img[valid] = hp_data[pix]
-
-    return img
-
-
-def _as_healpix_stack(data):
-    """Normalize input to shape ``(n_maps, npix)``."""
-    arr = np.asarray(data)
-
-    if arr.ndim == 1:
-        return arr[None, :]
-
-    if arr.ndim == 2:
-        return arr
-
-    return arr.reshape((-1, arr.shape[-1]))
-
-
-def _normalize_titles(title, n_maps):
-    if title is None:
-        return [None] * n_maps
-
-    if isinstance(title, str):
-        if n_maps == 1:
-            return [title]
-        return [f"{title} [{i}]" for i in range(n_maps)]
-
-    titles = list(title)
-    if len(titles) != n_maps:
-        raise ValueError(
-            f"Expected {n_maps} titles, got {len(titles)}."
-        )
-
-    return titles
-
-
-def _finite_values_for_limits(values, *, logscale: bool):
-    values = np.asarray(values)
-    values = values[np.isfinite(values)]
-
-    if logscale:
-        values = values[values > 0.0]
-
-    return values
-
-
-def _get_limits(values, *, logscale: bool, vmin=None, vmax=None, percentile=None):
-    finite = _finite_values_for_limits(values, logscale=logscale)
-
-    if finite.size == 0:
-        if logscale:
-            return 1.0e-30, 1.0
-        return 0.0, 1.0
-
-    if percentile is not None:
-        pmin, pmax = percentile
-        auto_vmin, auto_vmax = np.nanpercentile(finite, [pmin, pmax])
-    else:
-        auto_vmin = np.nanmin(finite)
-        auto_vmax = np.nanmax(finite)
-
-    if vmin is None:
-        vmin = auto_vmin
-    if vmax is None:
-        vmax = auto_vmax
-
-    if logscale:
-        vmin = max(float(vmin), np.nanmin(finite[finite > 0.0]))
-        vmax = max(float(vmax), vmin * (1.0 + 1.0e-12))
-
-    if not logscale and vmax <= vmin:
-        vmax = vmin + 1.0
-
-    return float(vmin), float(vmax)
-
-
-def _plot_projected_healpix_panel(
-    fig,
-    ax,
-    hp_map,
-    *,
-    title=None,
-    unit=None,
-    logscale=False,
-    vmin=None,
-    vmax=None,
-    percentile=None,
-    cmap="viridis",
-    xsize=1000,
-    flip="astro",
-    show_colorbar=True,
-):
-    img = _mollweide_imgdata_from_healpix(
-        hp_map,
-        xsize=xsize,
-        flip=flip,
-    )
-
-    if logscale:
-        img = img.copy()
-        img[img <= 0.0] = np.nan
-        vmin, vmax = _get_limits(
-            img,
-            logscale=True,
-            vmin=vmin,
-            vmax=vmax,
-            percentile=percentile,
-        )
-        norm = LogNorm(vmin=vmin, vmax=vmax)
-    else:
-        vmin, vmax = _get_limits(
-            img,
-            logscale=False,
-            vmin=vmin,
-            vmax=vmax,
-            percentile=percentile,
-        )
-        norm = Normalize(vmin=vmin, vmax=vmax)
-
-    im = ax.imshow(
-        img,
-        origin="lower",
-        interpolation="nearest",
-        cmap=cmap,
-        norm=norm,
-    )
-
-    ax.set_axis_off()
-
-    if title is not None:
-        ax.set_title(title)
-
-    if show_colorbar:
-        cbar = fig.colorbar(
-            im,
-            ax=ax,
-            orientation="horizontal",
-            fraction=0.046,
-            pad=0.04,
-        )
-        if unit is not None:
-            cbar.set_label(unit)
-
-        if logscale:
-            cbar.formatter = LogFormatterMathtext()
-            cbar.update_ticks()
-
-    return im
-
-
-# -------------------------------------------------------------------
-# PLD-style HEALPix plotting
-# -------------------------------------------------------------------
-
-import math
-
-import matplotlib.pyplot as plt
-import numpy as np
-from matplotlib.colors import LogNorm, Normalize
-from matplotlib.ticker import LogFormatterMathtext
-
-try:
-    import ducc0.healpix as ducc_hp
-except ImportError as err:
-    ducc_hp = None
-    _DUCC_IMPORT_ERROR = err
-else:
-    _DUCC_IMPORT_ERROR = None
-
-
-def _infer_healpix_nside(npix: int) -> int:
     """Infer HEALPix NSIDE from a RING HEALPix map length."""
     nside = int(round(math.sqrt(npix / 12)))
 
@@ -492,16 +223,11 @@ def _mollweide_imgdata_from_healpix(
     xsize: int = 1000,
     flip: str = "astro",
 ):
-    """Project one RING HEALPix map to a regular Mollweide image.
-
-    This follows the PLD/reconstruction plotting style: first sample the
-    HEALPix map on a regular projected image grid, then display the result with
-    ``imshow``. This gives stable multi-panel layouts and full matplotlib
-    control over logarithmic colorbars.
-    """
+    """Project one RING HEALPix map to a regular Mollweide image, ready for
+    imshow."""
     if ducc_hp is None:
         raise ImportError(
-            "ducc0 is required for PLD-style HEALPix plotting."
+            "ducc0 is required for HEALPix plotting."
         ) from _DUCC_IMPORT_ERROR
 
     hp_data = np.asarray(hp_data, dtype=float).ravel()
@@ -663,9 +389,9 @@ def _plot_single_healpix_panel(
     cmap="inferno",
     xsize=1000,
     flip="astro",
-    dark_background=True,
+    dark_background=False,
 ):
-    """Plot one HEALPix panel with the exact PLD-style colorbar layout."""
+    """Plot one HEALPix panel, with its own colorbar row below it."""
     img = _mollweide_imgdata_from_healpix(
         hp_map,
         xsize=xsize,
@@ -716,14 +442,13 @@ def _plot_single_healpix_panel(
     ax.set_anchor("S")
     ax.set_axis_off()
     
-    if title is not None:
-        title_kwargs = dict(
-            fontsize=9,
-            pad=4,
-        )
+    title_kwargs = dict(
+        fontsize=9,
+        pad=4,
+    )
 
-        if dark_background:
-            title_kwargs["color"] = "white"
+    if dark_background:
+        title_kwargs["color"] = "white"
 
     ax.set_title(title, **title_kwargs)
 
@@ -761,15 +486,10 @@ def plot_healpix_result(
     cmap="viridis",
     xsize=1000,
     flip="astro",
-    dark_background=True,
+    dark_background=False,
 ):
-    """Plot HEALPix maps using the PLD/reconstruction plotting style.
-
-    This routine intentionally follows the style used in the Fermi-LAT PLD
-    response-inspection plots: a projected HEALPix image is shown with
-    ``imshow`` and every panel has a dedicated horizontal colorbar row directly
-    below it. This avoids the ``healpy.mollview`` layout and gives stable,
-    publication/debugging-style multi-panel figures.
+    """Plot HEALPix maps: projected to a Mollweide image via imshow, with a
+    horizontal colorbar row under each panel.
 
     Parameters
     ----------
@@ -788,22 +508,20 @@ def plot_healpix_result(
     logscale : bool
         If true, use logarithmic color normalization.
     common_colorbar : bool
-        If true, use common color limits across panels. The layout still keeps
-        one colorbar per panel, matching the PLD-style response plots.
+        If true, use common color limits across panels. Still one colorbar
+        per panel.
     vmin, vmax : float, optional
         Explicit color limits.
     percentile : tuple[float, float], optional
         Percentile limits for automatic color scaling, e.g. ``(1, 99.9)``.
-        Useful for heavy-tailed inverse-gamma point-source samples.
     cmap : str
-        Matplotlib colormap. Default is ``"inferno"``, matching the response
-        diagnostic style.
+        Matplotlib colormap.
     xsize : int
         Horizontal resolution of the projected Mollweide image.
     flip : str
         Longitude convention, either ``"astro"`` or ``"geo"``.
     dark_background : bool
-        If true, use the black-background PLD diagnostic style.
+        If true, use a black background instead of white.
 
     Returns
     -------
