@@ -254,7 +254,7 @@ def build_mf_invgamma_sky(
     harmonic_type: str
         Spatial geometry type. Supported values are ``'cartesian'`` and
         ``'spherical'``. For this uncorrelated point-source model, spherical
-        support only changes the pixel-domain shape.    
+        support only changes the pixel-domain shape.
 
     Returns
     -------
