@@ -187,7 +187,7 @@ def plot_result(array,
             plt.show()
 
 
-def _infer_healpix_nside(npix: int) -> int:
+def _get_nside_from_npix(npix: int) -> int:
     """Infer HEALPix NSIDE from a RING HEALPix map length."""
     nside = int(round(math.sqrt(npix / 12)))
 
@@ -202,17 +202,13 @@ def _infer_healpix_nside(npix: int) -> int:
 
 
 def _ducc_ang2pix(base, theta, phi):
-    """Call ducc0 HEALPix ang2pix robustly across ducc0 versions."""
     theta = np.asarray(theta)
     phi = np.asarray(phi)
 
     theta_flat = theta.ravel()
     phi_flat = phi.ravel()
 
-    try:
-        pix = base.ang2pix(theta_flat, phi_flat)
-    except TypeError:
-        pix = base.ang2pix(np.column_stack([theta_flat, phi_flat]))
+    pix = base.ang2pix(np.column_stack([theta_flat, phi_flat]))
 
     return np.asarray(pix).reshape(theta.shape)
 
@@ -232,7 +228,7 @@ def _mollweide_imgdata_from_healpix(
 
     hp_data = np.asarray(hp_data, dtype=float).ravel()
 
-    nside = _infer_healpix_nside(hp_data.size)
+    nside = _get_nside_from_npix(hp_data.size)
     base = ducc_hp.Healpix_Base(nside, "RING")
 
     ysize = xsize // 2
