@@ -43,7 +43,7 @@ def _point_source_spatial_shape(
         f"Got {harmonic_type!r}."
     )
 
-class PointSourceSpectralIndex(SingleHarmonicLogSpectralBehavior):
+class PointSourceSpectralIndex(jft.Model, SingleHarmonicLogSpectralBehavior):
     """Spectral index model for point sources.
 
     This is a reduced version of `SpectralIndex` without spatially correlated

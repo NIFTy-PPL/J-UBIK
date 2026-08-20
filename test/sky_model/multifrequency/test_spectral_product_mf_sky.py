@@ -311,7 +311,7 @@ def test_simple_vs_complex_evaluation():
     )
     zero_mode = jft.Model(lambda p: 0.1, domain={"zero_mode": None})
 
-    class SpectralIndexWithoutSingleBehavior(HarmonicLogSpectralBehavior):
+    class SpectralIndexWithoutSingleBehavior(jft.Model, HarmonicLogSpectralBehavior):
         def __init__(
             self,
             log_frequencies: np.ndarray,

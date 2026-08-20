@@ -10,6 +10,8 @@ from typing import Callable, Tuple, Union
 import jax.numpy as jnp
 import nifty.re as jft
 
+from ...parse.models.distributions.distributions import ProbabilityConfig
+
 DISTRIBUTION_MAPPING = {
     'normal': (jft.normal_prior, ['mean', 'sigma']),
     'log_normal': (jft.lognormal_prior, ['mean', 'sigma']),
@@ -166,3 +168,58 @@ def build_parametric_prior(
         return jft.wrap(lambda x: trafo(prior(x)), domain_key)
 
     return jft.wrap(prior, domain_key)
+
+
+PRIOR_CONFIG_DISTRIBUTION_MAPPING = {
+    "normal": jft.normal_prior,
+    "log_normal": jft.lognormal_prior,
+    "lognormal": jft.lognormal_prior,
+    "uniform": jft.uniform_prior,
+    "invgamma": jft.invgamma_prior,
+    "delta": lambda x: lambda _: x,
+    None: lambda x: lambda _: x,
+}
+
+
+def build_parametric_prior_from_prior_config(
+    domain_key: str,
+    prior_config: ProbabilityConfig,
+    shape: tuple[int, ...] = (),
+    as_model: bool = False,
+) -> Union[Callable, jft.Model]:
+    """Build a parametric prior from a `ProbabilityConfig`.
+
+    This is the `ProbabilityConfig`-based counterpart of
+    `build_parametric_prior`, which takes the raw dict/tuple instead.
+
+    Parameters
+    ----------
+    domain_key : str
+        A string key identifying the domain of the model to which this prior
+        applies.
+    prior_config : ProbabilityConfig
+        A prior config holding the parameters of the probability distribution.
+    shape : tuple of int, optional
+        The shape the prior parameters are adjusted to. Default is `()`.
+    as_model : bool, optional
+        If True, return a `jft.Model` instead of a plain callable.
+
+    Returns
+    -------
+    Callable | jft.Model
+        The prior, wrapped on `domain_key`.
+    """
+
+    distribution_builder = PRIOR_CONFIG_DISTRIBUTION_MAPPING[prior_config.distribution]
+    distribution = distribution_builder(*prior_config.parameters_to_shape(shape=shape))
+
+    if prior_config.transformation is not None:
+        trafo = getattr(jnp, prior_config.transformation)
+        func = jft.wrap(lambda x: trafo(distribution(x)), domain_key)
+    else:
+        func = jft.wrap(distribution, domain_key)
+
+    if as_model:
+        return jft.Model(func, domain={domain_key: jft.ShapeWithDtype(shape)})
+
+    return func

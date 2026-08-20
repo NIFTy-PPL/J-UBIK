@@ -4,8 +4,7 @@ stages:
   - release
 
 before_script:
-  - python3 -m pip install -e .
-
+  - python3 -m pip install -e .[resolve]
 test:
   image: python:latest
   stage: test
@@ -14,6 +13,20 @@ test:
     - pip install .[healpix]
     - pytest --cov=jubik test/
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
+
+demos:
+  image: python:latest
+  stage: test
+  variables:
+    # Headless matplotlib: the demos call `plt.show()`.
+    MPLBACKEND: Agg
+  script:
+    # Only the demos which are self-contained are executed here.
+    - cd demos
+    - for demo in grids spectral_sky_demo point_source_sky_demo resolve_synthetic_demo; do
+        echo "Running ${demo}.py";
+        python3 "${demo}.py" || exit 1;
+      done
 
 pages:
   image: python:latest
