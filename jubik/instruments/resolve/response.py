@@ -24,7 +24,6 @@ from jax.tree_util import Partial, tree_map
 
 from ...color import get_2d_binbounds
 from ...grid import Grid, PolarizationType
-from .constants import RESOLVE_SPATIAL_UNIT, RESOLVE_SPECTRAL_UNIT
 from .data.data_modify.frequency import restrict_by_freq
 from .data.data_modify.time import restrict_by_time
 from .data.observation import Observation
@@ -148,8 +147,7 @@ def interferometry_response(
     # bb_times = get_binbounds(n_times, sky_domain.times)
 
     # TODO: Expand logic to discontinuous frequency spacing.
-    # frequencies = sky_grid.spectral.binbounds(RESOLVE_SPECTRAL_UNIT).value
-    frequencies = get_2d_binbounds(sky_grid.spectral, RESOLVE_SPECTRAL_UNIT)
+    frequencies = get_2d_binbounds(sky_grid.spectral, observation.freq_unit)
     n_freqs = len(frequencies)
     # bb_freqs = np.array(frequencies)
 
@@ -157,13 +155,15 @@ def interferometry_response(
     # is l/RA, so read the RA quantities from index 1 and Dec from index 0.
     npix_x, npix_y = sky_grid.spatial.shape_xy
     pixsize_x, pixsize_y = sky_grid.spatial.pixel_scales_xy.to(
-        RESOLVE_SPATIAL_UNIT
+        u.rad
     ).value
     center_x, center_y = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
-        sky_grid.spatial.center
-        if observation.direction is None
-        else observation.direction.to_sky_coord(),
+        (
+            sky_grid.spatial.center
+            if observation.direction is None
+            else observation.direction.to_sky_coord()
+        ),
     )
 
     # build responses for: time binds, freq bins
