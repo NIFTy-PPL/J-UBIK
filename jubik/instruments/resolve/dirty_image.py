@@ -24,7 +24,6 @@ from jax import linear_transpose
 from numpy.typing import NDArray
 
 from ...grid import Grid
-from .constants import RESOLVE_SKY_UNIT, RESOLVE_SPATIAL_UNIT
 from .data import Observation
 from .parse import Ducc0Settings, FinufftSettings
 from .response import interferometry_response
@@ -35,7 +34,7 @@ def dirty_image(
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     weighting: str = "natural",
-    flux_unit: Unit = RESOLVE_SKY_UNIT,
+    flux_unit: Unit = u.Jy / u.sr,
 ) -> u.Quantity:
 
     # TODO: Extract shape fully from grid
@@ -69,8 +68,10 @@ def dirty_image(
     # Conjugating the visibilities turns this into the Hermitian adjoint needed
     # for radio imaging; without it, the dirty image is mirrored about its
     # phase center.
+    # The radio response expects a sky in Jy/sr, so its adjoint output uses the
+    # same unit.
     primals = jnp.conj(d) * w / jnp.sum(w)
-    res = R_adjoint(jnp.array(primals))[0] / vol**2 * RESOLVE_SKY_UNIT
+    res = R_adjoint(jnp.array(primals))[0] / vol**2 * (u.Jy / u.sr)
     return res.to(flux_unit)
 
 
@@ -107,7 +108,9 @@ def uvw_density(
     u, v = eff_u.ravel(), eff_v.ravel()
 
     nx, ny = sky_grid.spatial.shape
-    dx, dy = sky_grid.spatial.distances.to(RESOLVE_SPATIAL_UNIT).value
+    # Convert angular pixel spacing to radians so FFT frequencies
+    # match u-v coordinates in wavelengths.
+    dx, dy = sky_grid.spatial.distances.to(u.rad).value
 
     ku = np.sort(np.fft.fftfreq(nx, dx))
     kv = np.sort(np.fft.fftfreq(ny, dy))

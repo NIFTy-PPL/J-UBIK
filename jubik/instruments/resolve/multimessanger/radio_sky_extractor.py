@@ -15,7 +15,6 @@
 # Author: Julian Rüstig
 
 from ....grid import Grid
-from ..constants import RESOLVE_SKY_UNIT
 
 import nifty.re as jft
 
@@ -60,11 +59,11 @@ def build_radio_slicing(index_of_last_radio_bin: int | None):
 
 
 def build_unit_conversion(sky_unit: u.Unit | None):
-    """Convert sky to `sky_unit`."""
+    """Convert a sky expressed in ``sky_unit`` to the response unit Jy/sr."""
     if sky_unit is None:
         return lambda x: x
 
-    conversion_factor = sky_unit.to(RESOLVE_SKY_UNIT)
+    conversion_factor = sky_unit.to(u.Jy / u.sr)
 
     def unit_conversion(tree):
         return jax.tree.map(lambda x: x * conversion_factor, tree)

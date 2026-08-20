@@ -16,8 +16,8 @@
 
 import nifty.cl as ift
 import numpy as np
+import astropy.units as u
 
-from ..constants import AS2RAD, DEG2RAD, SPEEDOFLIGHT
 from ..util import (
     compare_attributes,
     my_assert,
@@ -41,13 +41,15 @@ class BaseObservation:
     @property
     def vis_val(self):
         """numpy.ndarray : Array that contains all data points including
-        potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`."""
+        potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`.
+        """
         return self._vis
 
     @property
     def vis(self):
         """nifty.cl.Field : Field that contains all data points including
-        potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`."""
+        potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`.
+        """
         return ift.makeField(self._dom, self._vis)
 
     @property
@@ -79,6 +81,13 @@ class BaseObservation:
         """numpy.ndarray: One-dimensional array that contains the observing
         frequencies. Shape: `(nchan,), dtype: `np.float64`."""
         return self._freq
+
+    @property
+    def freq_unit(self):
+        """Unit in which the numerical values in :attr:`freq` are stored."""
+        # TODO: Set this during construction when Observation supports arbitrary
+        # frequency units. Until then, preserve the existing Hz convention.
+        return u.Hz
 
     @property
     def polarization(self) -> PolarizationType:
@@ -395,6 +404,7 @@ class Observation(BaseObservation):
         return Observation(
             ap, vis, wgt, self._polarization, self._freq, self._auxiliary_tables
         )
+
     # # TODO: Delete this functionality
 
     @property
@@ -407,6 +417,11 @@ class Observation(BaseObservation):
     @property
     def uvw(self):
         return self._antpos.uvw
+
+    @property
+    def uvw_unit(self):
+        # TODO: Should be set by creation; refactor when refactoring observation class
+        return u.m
 
     @property
     def antenna_positions(self):
@@ -490,12 +505,16 @@ class Observation(BaseObservation):
         return self._auxiliary_tables["ANTENNA"]["POSITION"]
 
     def effective_uvw(self):
-        out = np.einsum("ij,k->jik", self.uvw, self._freq / SPEEDOFLIGHT)
+        frequencies = self.freq * self.freq_unit
+        wavelengths = frequencies.to(self.uvw_unit, equivalencies=u.spectral())
+        out = np.einsum("ij,k->jik", self.uvw, 1 / wavelengths.value)
         my_asserteq(out.shape, (3, self.nrow, self.nfreq))
         return out
 
     def effective_uvwlen(self):
-        arr = np.outer(self.uvwlen(), self._freq / SPEEDOFLIGHT)
+        frequencies = self.freq * self.freq_unit
+        wavelengths = frequencies.to(self.uvw_unit, equivalencies=u.spectral())
+        arr = np.outer(self.uvwlen(), 1 / wavelengths.value)
         arr = np.broadcast_to(arr[None], self._dom.shape)
         return ift.makeField(self._dom, arr)
 
@@ -503,20 +522,30 @@ class Observation(BaseObservation):
         return np.linalg.norm(self.uvw, axis=1)
 
     def __str__(self):
-        short0 = self.uvwlen().min()
-        long0 = self.uvwlen().max()
+        baseline_min = self.uvwlen().min() * self.uvw_unit
+        baseline_max = self.uvwlen().max() * self.uvw_unit
 
-        short1 = 1 / (short0 * self.freq.min() / SPEEDOFLIGHT)
-        long1 = 1 / (long0 * self.freq.max() / SPEEDOFLIGHT)
+        freq_min = self.freq.min() * self.freq_unit
+        freq_max = self.freq.max() * self.freq_unit
+
+        angular_scale_min = (
+            freq_max.to(self.uvw_unit, equivalencies=u.spectral()) / baseline_max
+        ).to_value(u.dimensionless_unscaled) * u.rad
+        angular_scale_max = (
+            freq_min.to(self.uvw_unit, equivalencies=u.spectral()) / baseline_min
+        ).to_value(u.dimensionless_unscaled) * u.rad
 
         s = [
             f"Source name:\t\t{self.source_name}",
             f"Visibilities shape:\t{self.vis.shape}",
             f"# visibilities:\t{self.vis.size}",
-            f"Frequency range:\t{self.freq.min() * 1e-6:.3f} -- {self.freq.max() * 1e-6:.3f} MHz",
+            f"Frequency range:\t{freq_min.to_value(u.MHz):.3f} -- "
+            f"{freq_max.to_value(u.MHz):.3f} MHz",
             "Polarizations:\t" + ", ".join(self.vis.domain[0].labels),
-            f"Shortest baseline:\t{short0:.1f} m -> {short1 / DEG2RAD:.3f} deg",
-            f"Longest baseline:\t{long0:.1f} m -> {long1 / AS2RAD:.3f} arcsec",
+            f"Shortest baseline:\t{baseline_min.to_value(u.m):.1f} m -> "
+            f"{angular_scale_max.to_value(u.deg):.3f} deg",
+            f"Longest baseline:\t{baseline_max.to_value(u.m):.1f} m -> "
+            f"{angular_scale_min.to_value(u.arcsec):.3f} arcsec",
         ]
         flagged = 1 - self.fraction_useful()
         if flagged == 0.0:

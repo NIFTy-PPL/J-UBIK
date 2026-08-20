@@ -33,7 +33,6 @@ from ..parse.data.data_modify import ObservationModify
 from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
 from ..parse.noise.factory_noise_correction import factory_noise_correction_parser
 from ..parse.response import yaml_to_response_settings
-from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
 from ..likelihood.mosaic_likelihood import (
     LikelihoodBuilder,
