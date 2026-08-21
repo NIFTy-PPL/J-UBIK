@@ -14,6 +14,7 @@
 # Copyright(C) 2019-2020 Max-Planck-Society
 # Author: Julian Rüstig
 
+from ..conventions import RESPONSE_SKY_UNIT
 from ....grid import Grid
 
 import nifty.re as jft
@@ -63,7 +64,7 @@ def build_unit_conversion(sky_unit: u.Unit | None):
     if sky_unit is None:
         return lambda x: x
 
-    conversion_factor = sky_unit.to(u.Jy / u.sr)
+    conversion_factor = sky_unit.to(RESPONSE_SKY_UNIT)
 
     def unit_conversion(tree):
         return jax.tree.map(lambda x: x * conversion_factor, tree)
