@@ -256,12 +256,11 @@ def interferometry_response_finufft(
     from jax_finufft import nufft2
 
     freq = observation.freq
-    uvw = observation.uvw
     vol = pixsize_x * pixsize_y
-    speedoflight = 299792458.0
-
-    uvw = np.transpose((uvw[..., None] * freq / speedoflight), (0, 2, 1)).reshape(-1, 3)
-    u, v, w = uvw.T
+    # Extracts effective uvw and then flattens row and frequency axis by
+    # having per frequency blocks where each block (fixed freqency) has the
+    # respective rows
+    u, v, w = observation.effective_uvw().reshape(3, -1)
 
     u_finu = (2 * np.pi * u * pixsize_x) % (2 * np.pi)
     v_finu = (-2 * np.pi * v * pixsize_y) % (2 * np.pi)
