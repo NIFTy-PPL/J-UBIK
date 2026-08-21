@@ -23,10 +23,11 @@ from astropy.units import Unit
 from jax import linear_transpose
 from numpy.typing import NDArray
 
-from ...grid import Grid
 from .data import Observation
 from .parse import Ducc0Settings, FinufftSettings
 from .response import interferometry_response
+from .conventions import RESPONSE_SKY_UNIT
+from ...grid import Grid
 
 
 def dirty_image(
@@ -68,10 +69,8 @@ def dirty_image(
     # Conjugating the visibilities turns this into the Hermitian adjoint needed
     # for radio imaging; without it, the dirty image is mirrored about its
     # phase center.
-    # The radio response expects a sky in Jy/sr, so its adjoint output uses the
-    # same unit.
     primals = jnp.conj(d) * w / jnp.sum(w)
-    res = R_adjoint(jnp.array(primals))[0] / vol**2 * (u.Jy / u.sr)
+    res = R_adjoint(jnp.array(primals))[0] / vol**2 * RESPONSE_SKY_UNIT
     return res.to(flux_unit)
 
 
@@ -105,7 +104,7 @@ def uvw_density(
         assert weights.shape == eff_u.shape
         weights = weights.ravel()
 
-    u, v = eff_u.ravel(), eff_v.ravel()
+    uu, vv = eff_u.ravel(), eff_v.ravel()
 
     nx, ny = sky_grid.spatial.shape
     # Convert angular pixel spacing to radians so FFT frequencies
@@ -116,11 +115,11 @@ def uvw_density(
     kv = np.sort(np.fft.fftfreq(ny, dy))
 
     if (
-        np.min(u) < ku[0]
-        or np.max(u) >= ku[-1]
-        or np.min(v) < kv[0]
-        or np.max(v) >= kv[-1]
+        np.min(uu) < ku[0]
+        or np.max(uu) >= ku[-1]
+        or np.min(vv) < kv[0]
+        or np.max(vv) >= kv[-1]
     ):
         raise ValueError
-    H, xedges, yedges = np.histogram2d(u, v, bins=[ku, kv], weights=weights)
+    H, xedges, yedges = np.histogram2d(uu, vv, bins=[ku, kv], weights=weights)
     return H, xedges, yedges
