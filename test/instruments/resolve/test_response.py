@@ -38,6 +38,72 @@ def setup_grid_obs_response(pol_sky, pol_channels, freqs):
     return grid, obs, r_ducc, r_finufft
 
 
+from jubik.instruments.resolve.response import (
+    interferometry_response_ducc,
+    interferometry_response_finufft,
+)
+
+
+@pmp("freqs", (np.array([1e9]), np.array([1e9, 1.3e9, 2e9])))
+def test_ducc_finufft_backend_consistency(freqs):
+    rng = np.random.default_rng(42)
+
+    fov = (u.Quantity("1deg"), u.Quantity("1.5deg"))
+
+    npix_x, npix_y = 32, 40
+    pixsize_x = fov[0].to_value(u.radian) / npix_x
+    pixsize_y = fov[1].to_value(u.radian) / npix_y
+
+    pol = ju.polarization.PolarizationType(("I",))
+    obs = generate_random_obs(
+        freqs=freqs,
+        n_rows=20,
+        uv_range=[-1e2, 1e2],
+        # FINUFFT requires coplanar arrays thus w=0
+        w_range=[0.0, 0.0],
+        polarization_type=pol,
+    )
+
+    epsilon = 1e-10
+    center_x = 0.0
+    center_y = 0.0
+
+    response_ducc = interferometry_response_ducc(
+        observation=obs,
+        npix_x=npix_x,
+        npix_y=npix_y,
+        pixsize_x=pixsize_x,
+        pixsize_y=pixsize_y,
+        # No wgridding as a coplanar array is assumed
+        do_wgridding=False,
+        epsilon=epsilon,
+        nthreads=1,
+        verbosity=False,
+        center_x=center_x,
+        center_y=center_y,
+    )
+    response_finufft = interferometry_response_finufft(
+        observation=obs,
+        pixsize_x=pixsize_x,
+        pixsize_y=pixsize_y,
+        epsilon=epsilon,
+        center_x=center_x,
+        center_y=center_y,
+    )
+
+    image = jnp.asarray(
+        rng.normal(size=(npix_x, npix_y)),
+        dtype=jnp.float64,
+    )
+
+    vis_ducc = response_ducc(image)
+    vis_finufft = response_finufft(image)
+
+    assert vis_ducc.shape == (20, len(freqs))
+    assert vis_finufft.shape == vis_ducc.shape
+    assert_allclose(vis_ducc, vis_finufft, rtol=1e-9, atol=1e-9)
+
+
 @pmp("pol_sky", (("I",), ("I", "Q", "U", "V")))
 @pmp("pol_channels", (("LL", "RR"), ("RR", "RL", "LR", "LL"), ("XX", "XY", "YX", "YY")))
 @pmp("freqs", (np.array([1e9]), np.array([1e9, 1.3e9, 2e9])))
@@ -116,14 +182,3 @@ def test_response_StokesIQUV(freqs, circular):
     vis_expected[:, :, :] = res
     assert_allclose(vis_ducc, vis_expected)
     assert_allclose(vis_finufft, vis_expected)
-
-
-if __name__ == "__main__":
-    # test_response_ducc_finufft_consistency(
-    #     ("I", "Q", "U", "V"), ("RR", "RL", "LR", "LL"), np.array([1e9, 1.3e9, 2e9])
-    # )
-    # test_response_ducc_finufft_consistency(
-    #     ("I", "Q", "U", "V"), ("XX", "XY", "YX", "YY"), np.array([1e9, 1.3e9, 2e9])
-    # )
-    # test_response_StokesI(np.array([1e9, 1.3e9, 2e9]))
-    test_response_StokesIQUV(np.array([1e9, 1.3e9, 2e9]), False)
