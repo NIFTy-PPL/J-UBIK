@@ -87,7 +87,13 @@ def stokes_to_linear(iquv):
 @pmp("circular", (True, False))
 def test_response_StokesIQUV(freqs, circular):
     pol_sky = ("I", "Q", "U", "V")
-    source = np.random.normal(size=4)  # this might not fullfil the pol constraint
+    # TODO: Remove this construction once stokes_adder is tested
+    pre_stokes_source = np.random.normal(size=4)
+    p = np.sqrt(np.sum(pre_stokes_source[1:] ** 2))
+    pre_i = np.cosh(p)
+    pre_quv = pre_stokes_source[1:] * np.sinh(p) / p
+    source = jnp.exp(pre_stokes_source[0]) * jnp.concatenate(([pre_i], pre_quv))
+
     if circular:
         pol_channels = ("RR", "RL", "LR", "LL")
     else:
