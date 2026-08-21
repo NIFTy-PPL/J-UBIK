@@ -23,6 +23,7 @@ from astropy.units import Unit
 from numpy.typing import NDArray
 
 from ...grid import Grid
+from .conventions import RESPONSE_SKY_UNIT
 from .data import Observation
 from .parse import Ducc0Settings, FinufftSettings
 from .response import _hermitian_adjoint, interferometry_response
@@ -65,7 +66,7 @@ def dirty_image(
     res = (
         _hermitian_adjoint(R, response_primal, primals)
         / vol**2
-        * (u.Jy / u.sr)
+        * RESPONSE_SKY_UNIT
     )
     return res.to(flux_unit)
 
