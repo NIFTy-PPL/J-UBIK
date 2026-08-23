@@ -1,11 +1,17 @@
 import matplotlib
 import matplotlib.image as mpimg
+from matplotlib import pyplot as plt
+from matplotlib.colors import LogNorm
 import numpy as np
 import jax.numpy as jnp
 import pytest
 
 import jubik as ju
-from jubik.plot import _get_n_rows_from_n_samples
+from jubik.plot import (
+    _get_color_limits,
+    _get_n_rows_from_n_samples,
+    _get_nside_from_npix,
+)
 
 
 matplotlib.use("Agg")
@@ -94,6 +100,71 @@ def test_plot_result_common_colorbar_writes_file(tmp_path):
     )
 
     _assert_written_image(out)
+
+
+def test_color_limits_are_shared_with_plot_result(monkeypatch, tmp_path):
+    values = np.array([np.nan, -1.0, 0.0, 2.0, 8.0])
+    assert _get_color_limits(values, logscale=True) == (2.0, 8.0)
+
+    captured = []
+    original = _get_color_limits
+
+    def record_limits(*args, **kwargs):
+        captured.append((args, kwargs))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr("jubik.plot._get_color_limits", record_limits)
+    ju.plot_result(
+        values[1:].reshape(2, 2),
+        output_file=str(tmp_path / "logscale.png"),
+        colorbar=False,
+        logscale=True,
+    )
+    assert captured
+
+
+@pytest.mark.parametrize("nside", [1, 2, 8])
+def test_get_nside_from_npix(nside):
+    assert _get_nside_from_npix(12 * nside**2) == nside
+
+
+def test_get_nside_from_invalid_npix_raises():
+    with pytest.raises(ValueError, match="does not look like a HEALPix map"):
+        _get_nside_from_npix(13)
+
+
+def test_plot_healpix_result_uses_shared_limits_and_dark_style():
+    first = np.arange(1, 49, dtype=float)
+    maps = np.stack((first, 10.0 * first))
+
+    fig, axes = ju.plot_healpix_result(
+        maps,
+        n_cols=2,
+        common_colorbar=True,
+        logscale=True,
+        dark_background=True,
+        xsize=64,
+    )
+
+    try:
+        assert axes.shape == (1, 2)
+        assert len(fig.axes) == 4
+        assert all(isinstance(ax.images[0].norm, LogNorm) for ax in axes.flat)
+        limits = [(ax.images[0].norm.vmin, ax.images[0].norm.vmax) for ax in axes.flat]
+        assert limits[0] == limits[1]
+        assert np.allclose(fig.get_facecolor()[:3], 0.0)
+    finally:
+        plt.close(fig)
+
+
+def test_plot_healpix_result_validates_layout_and_flip():
+    maps = np.ones((2, 12))
+
+    with pytest.raises(ValueError, match="Layout has 1 panels"):
+        ju.plot_healpix_result(maps, xsize=32)
+
+    with pytest.raises(ValueError, match="Unsupported flip"):
+        ju.plot_healpix_result(maps[0], flip="sideways", xsize=32)
 
 
 @pytest.mark.parametrize("shape", [(64,), (2, 3, 4, 5)])

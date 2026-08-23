@@ -489,3 +489,38 @@ def test_healpix_spectral_product_sky_forward(seed, deviations_settings):
 
     assert sky.shape == (log_frequencies.size, 12 * nside**2)
     assert np.all(np.isfinite(np.asarray(sky)))
+
+
+def test_build_simple_healpix_spectral_product_sky_forward():
+    nside = 4
+    log_frequencies = np.array((0.1, 0.2, 0.6))
+    amplitude_settings = dict(
+        fluctuations=(0.1, 0.01),
+        loglogavgslope=(-4.0, 0.1),
+        flexibility=None,
+        asperity=None,
+    )
+
+    model = ju.build_simple_spectral_sky(
+        prefix="healpix_builder_test",
+        shape=(nside,),
+        distances=(1.0,),
+        log_frequencies=log_frequencies,
+        reference_frequency_index=0,
+        zero_mode_settings=(0.0, 0.1),
+        spatial_amplitude_settings=amplitude_settings,
+        spectral_index_settings=dict(
+            mean=(0.0, 1.0),
+            fluctuations=(0.1, 0.01),
+        ),
+        spectral_amplitude_settings=amplitude_settings,
+        deviations_settings=None,
+        harmonic_type="spherical",
+        sht_nthreads=1,
+    )
+
+    position = model.init(random.PRNGKey(0))
+    sky = model(position)
+
+    assert sky.shape == (log_frequencies.size, 12 * nside**2)
+    assert np.all(np.isfinite(np.asarray(sky)))
