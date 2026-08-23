@@ -5,10 +5,11 @@
 
 # %%
 
+import math
+from contextlib import nullcontext
 from functools import reduce
 
 import numpy as np
-import math
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm, Normalize
 from matplotlib.ticker import LogFormatterMathtext
@@ -24,6 +25,7 @@ except ImportError as err:
     _DUCC_IMPORT_ERROR = err
 else:
     _DUCC_IMPORT_ERROR = None
+
 
 def plot_result(array,
                 domains=None,
@@ -133,12 +135,15 @@ def plot_result(array,
     vmax = kwargs.get("vmax", None)
 
     if colorbar and common_colorbar:
-        vmin = min(np.min(array[i]) for i in range(n_plots))
-        vmax = max(np.max(array[i]) for i in range(n_plots))
+        vmin, vmax = _get_color_limits(array, logscale=logscale)
 
     if logscale:
-        if vmin is not None and float(vmin) == 0.:
-            vmin = 1e-18  # to prevent LogNorm throwing errors
+        vmin, vmax = _get_color_limits(
+            array,
+            logscale=True,
+            vmin=vmin,
+            vmax=vmax,
+        )
 
         pltargs["norm"] = "log"
 
@@ -346,7 +351,8 @@ def _get_color_limits(
 
     if logscale:
         min_positive = float(np.nanmin(finite[finite > 0.0]))
-        vmin = max(vmin, min_positive)
+        if vmin <= 0.0:
+            vmin = min_positive
 
         if vmax <= vmin:
             vmax = vmin * (1.0 + 1.0e-12)
@@ -356,18 +362,6 @@ def _get_color_limits(
             vmax = vmin + 1.0
 
     return vmin, vmax
-
-
-def _style_colorbar(cbar, *, dark_background: bool):
-    if not dark_background:
-        return
-
-    cbar.ax.xaxis.label.set_color("white")
-    cbar.ax.tick_params(colors="white")
-    cbar.outline.set_edgecolor("white")
-
-    for spine in cbar.ax.spines.values():
-        spine.set_edgecolor("white")
 
 
 def _plot_single_healpix_panel(
@@ -396,12 +390,7 @@ def _plot_single_healpix_panel(
 
     cmap_obj = plt.get_cmap(cmap).copy()
 
-    if dark_background:
-        cmap_obj.set_bad("black")
-        ax.set_facecolor("black")
-        cax.set_facecolor("black")
-    else:
-        cmap_obj.set_bad("white")
+    cmap_obj.set_bad("black" if dark_background else "white")
 
     if logscale:
         img = img.copy()
@@ -437,16 +426,7 @@ def _plot_single_healpix_panel(
 
     ax.set_anchor("S")
     ax.set_axis_off()
-    
-    title_kwargs = dict(
-        fontsize=9,
-        pad=4,
-    )
-
-    if dark_background:
-        title_kwargs["color"] = "white"
-
-    ax.set_title(title, **title_kwargs)
+    ax.set_title(title, fontsize=9, pad=4)
 
     cbar = fig.colorbar(
         im,
@@ -460,8 +440,6 @@ def _plot_single_healpix_panel(
     if logscale:
         cbar.formatter = LogFormatterMathtext()
         cbar.update_ticks()
-
-    _style_colorbar(cbar, dark_background=dark_background)
 
     return im, cbar
 
@@ -524,6 +502,47 @@ def plot_healpix_result(
     fig, axes
         Matplotlib figure and map axes array.
     """
+    style_context = (
+        plt.style.context("dark_background") if dark_background else nullcontext()
+    )
+    with style_context:
+        return _plot_healpix_result(
+            data,
+            n_rows=n_rows,
+            n_cols=n_cols,
+            figsize=figsize,
+            title=title,
+            unit=unit,
+            logscale=logscale,
+            common_colorbar=common_colorbar,
+            vmin=vmin,
+            vmax=vmax,
+            percentile=percentile,
+            cmap=cmap,
+            xsize=xsize,
+            flip=flip,
+            dark_background=dark_background,
+        )
+
+
+def _plot_healpix_result(
+    data,
+    *,
+    n_rows,
+    n_cols,
+    figsize,
+    title,
+    unit,
+    logscale,
+    common_colorbar,
+    vmin,
+    vmax,
+    percentile,
+    cmap,
+    xsize,
+    flip,
+    dark_background,
+):
     maps = _as_healpix_stack(data)
     n_maps = maps.shape[0]
 
@@ -544,9 +563,6 @@ def plot_healpix_result(
         height_ratios.extend([1.0, 0.055])
 
     fig = plt.figure(figsize=figsize)
-
-    if dark_background:
-        fig.patch.set_facecolor("black")
 
     gs = fig.add_gridspec(
         2 * n_rows,

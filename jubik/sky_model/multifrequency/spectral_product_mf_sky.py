@@ -473,8 +473,8 @@ class SpectralProductSky(Model):
 
 def build_simple_spectral_sky(
     prefix: str,
-    shape: tuple[int, int],
-    distances: tuple[float, float],
+    shape: tuple[int, ...],
+    distances: tuple[float, ...],
     log_frequencies: Union[tuple[float], ArrayLike],
     reference_frequency_index: int,
     zero_mode_settings: Union[tuple, list, Callable],
