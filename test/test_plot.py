@@ -95,7 +95,7 @@ def test_plot_result_common_colorbar_writes_file(tmp_path):
         output_file=str(out),
         colorbar=True,
         common_colorbar=True,
-        vmin=0.0,  # ignored by common_colorbar branch
+        vmin=0.0,
         vmax=1.0,
     )
 
@@ -115,12 +115,17 @@ def test_color_limits_are_shared_with_plot_result(monkeypatch, tmp_path):
 
     monkeypatch.setattr("jubik.plot._get_color_limits", record_limits)
     ju.plot_result(
-        values[1:].reshape(2, 2),
+        np.stack((values[1:].reshape(2, 2), values[1:].reshape(2, 2) + 10.0)),
         output_file=str(tmp_path / "logscale.png"),
-        colorbar=False,
+        colorbar=True,
+        common_colorbar=True,
         logscale=True,
+        vmin=1.0,
+        vmax=20.0,
     )
-    assert captured
+    assert len(captured) == 1
+    assert captured[0][1]["vmin"] == 1.0
+    assert captured[0][1]["vmax"] == 20.0
 
 
 @pytest.mark.parametrize("nside", [1, 2, 8])

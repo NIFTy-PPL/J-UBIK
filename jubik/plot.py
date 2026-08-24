@@ -75,8 +75,8 @@ def plot_result(array,
     adjust_figsize : bool, optional
         Whether to automatically adjust the size of the figure.
     common_colorbar : bool, optional
-        Whether to use the same color bar for all images. Overrides vmin and
-        vmax.
+        Whether to use the same color limits for all images. Explicit vmin and
+        vmax values are preserved.
     share_x : bool, optional
         Whether to share the x axis.
     share_y : bool, optional
@@ -134,17 +134,15 @@ def plot_result(array,
     vmin = kwargs.get("vmin", None)
     vmax = kwargs.get("vmax", None)
 
-    if colorbar and common_colorbar:
-        vmin, vmax = _get_color_limits(array, logscale=logscale)
-
-    if logscale:
+    if logscale or (colorbar and common_colorbar):
         vmin, vmax = _get_color_limits(
             array,
-            logscale=True,
+            logscale=logscale,
             vmin=vmin,
             vmax=vmax,
         )
 
+    if logscale:
         pltargs["norm"] = "log"
 
     kwargs.update({'vmin': vmin, 'vmax': vmax})
