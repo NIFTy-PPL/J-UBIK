@@ -354,7 +354,8 @@ def build_erosita_response(
                      'exposure': exposure_func,
                      'mask': mask_func,
                      'kernel': kernel,
-                     'R': response_func}
+                     'R': response_func,
+                     'pointing': pointing_center}
     return response_dict
 
 
