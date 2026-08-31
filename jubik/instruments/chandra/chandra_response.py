@@ -77,7 +77,7 @@ def build_chandra_response_from_config(config):
 
     if not exists(exposure_path) or not exists(psf_path):
         if center is None:
-            center_obs_id = tel_info.get('center_obs_id')
+            center_obs_id = tel_info.get('center_obs_id', None)
             if center_obs_id is not None and center_obs_id in obslist:
                 obslist.remove(center_obs_id)
                 obslist.insert(0, center_obs_id)
