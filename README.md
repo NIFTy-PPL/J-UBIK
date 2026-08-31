@@ -103,6 +103,22 @@ pip install --user .[jwst]
  
 ---
 
+# RESOLVE
+J-UBIK allows to process and image radio interferometic data.
+
+## Requirements
+In order to make use of the RESOLVE capabilities of the package, you will need to:
+- Install the [jaxbind](https://pypi.org/project/jaxbind/) to work with the wgridder radio response
+- Install the [jax-finufft](https://pypi.org/project/jax-finufft/) to work with the FinuFFT radio response
+- Install the [python-casacore](https://pypi.org/project/python-casacore/) to work with CASA measurement sets.
+
+Alternatively, you can install these requirements for the radio response via 
+```bash
+pip install --user .[resolve]
+```
+
+---
+
 
 **NOTE**:
 - Importing `jubik` sets the floating point precision in jax to `float64`. 

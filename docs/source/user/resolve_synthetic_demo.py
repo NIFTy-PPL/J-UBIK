@@ -1,0 +1,1 @@
+../../../demos/resolve_synthetic_demo.py

@@ -7,7 +7,7 @@
 
 import nifty.re as jft
 
-from .parametric_model import build_parametric_prior
+from ...models.distributions import build_parametric_prior
 
 ZERO_FLUX_KEY = 'zero_flux'
 

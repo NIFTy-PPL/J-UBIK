@@ -1,0 +1,82 @@
+# Configuration for `ms_readout_demo.py`: export measurement sets to
+# resolve `Observation` npz files, one file per (measurement set, spectral
+# window).
+#
+# Every path may contain `~` and `${ENV_VAR}` references; both are expanded.
+
+files:
+  # Root prepended to every relative `measurement_sets` entry below.
+  data_root: '../data/ALMA'
+
+  # Where the npz files are written. Relative paths are resolved against
+  # `data_root`.
+  output_root: 'resolve'
+
+  # Output file name, formatted with the placeholders
+  #   {dataset}  name of the dataset block
+  #   {ms}       stem of the measurement set (file name without extension)
+  #   {field}    selected field (empty string if no field selection, so a
+  #              template with `{field}` is only useful together with a field)
+  #   {spw}      spectral window id of the parent measurement set
+  output_template: '{dataset}/{ms}/{ms}_{field}_spw{spw}.npz'
+
+  # Directory for the temporary single-spw splits and the CASA log. One
+  # split exists at a time, so the peak usage is a single spectral window
+  # of a single measurement set. Point this at a disk-backed directory if
+  # /tmp is a tmpfs and memory gets tight.
+  scratch: '/tmp'
+
+readout:
+  # Reread and overwrite npz files that already exist. Default: skip them.
+  overwrite: False
+  # Passed to `ms2observations`. `with_calib_info` keeps antenna indices and
+  # time stamps (needed for calibration and closure diagnostics).
+  with_calib_info: True
+  # "all", "stokesi", "stokesiavg" or an explicit list such as ["XX", "YY"].
+  # "stokesi" keeps XX and YY unaveraged; averaging can be done later with
+  # `rve.data.average_stokesi`.
+  polarizations: 'stokesi'
+  # Import flagged visibilities as well. Default: drop them.
+  ignore_flags: False
+  # Store the npz compressed (smaller files, slower to write and to load).
+  compress: False
+
+# One block per group of measurement sets that share field, spectral window
+# selection and visibility column.
+datasets:
+  - name: 'example_band7'
+    # Measurement sets of this dataset. Relative to `files.data_root`.
+    measurement_sets:
+      - 'band7/uid___A002_Xc1b25a_X71a6_targets.ms'
+    # Field selection handed to `mstransform` and `ms2observations`. Set to
+    # Null to keep all fields (then exactly one observation per spectral
+    # window must remain, otherwise the readout aborts).
+    field: 'SPT0418-47'
+    # Spectral window ids as numbered in the parent measurement set.
+    spws: [25, 27, 29, 31]
+    # Visibility column to export: 'data' or 'corrected'. Which one is
+    # correct depends on the pipeline that produced the measurement set,
+    # see the demo's docstring.
+    datacolumn: 'corrected'
+    # Recompute WEIGHT/SIGMA from the visibility scatter with CASA `statwt`
+    # before the readout.
+    statwt:
+      enabled: True
+      # Spectral windows containing a line: the line window is excluded from
+      # the scatter estimate, while the resulting weights are still applied
+      # to all channels. Keys are spectral window ids of the parent
+      # measurement set, values are channel selections in the syntax of
+      # `statwt`'s `fitspw` (frequency ranges or channel ranges).
+      exclude:
+        25: '363.0~364.5GHz'
+        27: '363.0~364.5GHz'
+
+  - name: 'example_band4'
+    measurement_sets:
+      - 'band4/uid___A002_Xf3bcf1_X9a6f_target.ms'
+      - 'band4/uid___A002_Xf3d42e_X133f_target.ms'
+    field: 'SPT0418-47'
+    spws: [5, 7, 17, 19]
+    datacolumn: 'data'
+    statwt:
+      enabled: True

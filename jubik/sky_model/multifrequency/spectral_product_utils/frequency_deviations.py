@@ -16,11 +16,11 @@ from .distribution_or_default import build_distribution_or_default
 
 
 def build_frequency_deviations_model_with_degeneracies(
-    shape: tuple[int],
-    log_frequencies: Union[tuple[float], ArrayLike],
+    shape: tuple[int, int],
+    log_frequencies: Union[list[float], ArrayLike],
     reference_frequency_index: int,
     deviations_settings: Optional[dict],
-    prefix: str = None,
+    prefix: str | None = None,
 ) -> NdGaussMarkovProcess | None:
     """
     Builds a frequency deviations model based on
