@@ -42,17 +42,13 @@ grid = ju.Grid.from_shape_and_fov(
     spatial_shape=(128, 128),
     fov=(1.0, 1.0) * u.arcmin,
     frequencies=[  # Three energy bins can be irregular and with gaps.
-        [12, 13],  # start, end
-        [13, 14],
-        [15, 18],
+        (12, 13),  # start, end
+        (13, 14),
+        (15, 18),
     ]
     * u.eV,
     # NOTE: Also different unit system works.
-    # frequencies=[
-    #     [12, 13],
-    #     [13, 14],
-    #     [15, 18],
-    # ] * u.Hz,
+    # frequencies=[(12, 13), (13, 14), (15, 18)] * u.Hz,
 )
 
 print(grid.shape)

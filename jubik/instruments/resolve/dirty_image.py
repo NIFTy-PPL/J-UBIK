@@ -65,7 +65,11 @@ def dirty_image(
     else:
         raise ValueError("Either 'natural' or 'uniform' weighting can be chosen.")
 
-    primals = d * w / jnp.sum(w)
+    # `linear_transpose` applies the bilinear transpose to complex cotangents.
+    # Conjugating the visibilities turns this into the Hermitian adjoint needed
+    # for radio imaging; without it, the dirty image is mirrored about its
+    # phase center.
+    primals = jnp.conj(d) * w / jnp.sum(w)
     res = R_adjoint(jnp.array(primals))[0] / vol**2 * RESOLVE_SKY_UNIT
     return res.to(flux_unit)
 
@@ -86,7 +90,7 @@ def uniform_weights(observation: Observation, sky_grid: Grid) -> NDArray:
         norm *= norm  # FIXME Why
         weights[ipol] = H[xindices - 1, yindices - 1].reshape(weights.shape[1:]) / norm
 
-        return jnp.array(weights)
+    return jnp.array(weights)
 
 
 def uvw_density(

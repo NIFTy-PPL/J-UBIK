@@ -4,6 +4,7 @@ from os.path import join
 import jax
 import matplotlib.pyplot as plt
 import nifty.re as jft
+import numpy as np
 from jax import numpy as jnp
 from jax import random
 from matplotlib.colors import LogNorm
@@ -11,7 +12,6 @@ from astropy import units as u
 
 import jubik as ju
 import jubik.instruments.resolve as rve
-from jubik.sky_model.resolve_sky import sky_model
 
 jax.config.update("jax_default_device", jax.devices("cpu")[0])
 jax.config.update("jax_enable_x64", True)
@@ -41,7 +41,9 @@ obs = rve.data.average_stokesi(obs)
 
 # scale weights, as they are wrong for this specific dataset
 obs._weight = 0.1 * obs._weight
-obs = rve.data.select_random_visibility_subset(obs, 0.01)
+obs = rve.data.select_random_visibility_subset(
+    obs, rve.parse.SelectSubset(percentage=0.01)
+)
 
 # # NOTE : The observation can also be loaded and modified via the config file.
 # from jubik.instruments.resolve.data import load_and_modify_data_from_objects
@@ -51,19 +53,41 @@ obs = rve.data.select_random_visibility_subset(obs, 0.01)
 #         DataLoading.from_config_parser(cfg['data']),
 #         ObservationModify.from_config_parser(cfg['data'])))[0]
 
-sky, additional = sky_model(cfg["sky"])
-
-
-# gm = GridModel.from_config_parser(cfg["sky"])
-# gm.spatial_model.wcs_model.center = obs.direction.to_sky_coord()
-# grid = ju.Grid.from_grid_model(gm)
-
 grid = ju.Grid.from_shape_and_fov(
     spatial_shape=(int(cfg["sky"]["space npix x"]), int(cfg["sky"]["space npix y"])),
     fov=u.Quantity(
         (u.Quantity(cfg["sky"]["space fov x"]), u.Quantity(cfg["sky"]["space fov y"]))
     ),
 )
+
+prefix = "stokesI_diffuse"
+old_prefix = "stokesI diffuse space i0"
+spatial_amplitude_settings = {
+    key: (
+        cfg["sky"].getfloat(f"{old_prefix} {key} mean"),
+        cfg["sky"].getfloat(f"{old_prefix} {key} stddev"),
+    )
+    for key in ("fluctuations", "loglogavgslope", "flexibility", "asperity")
+}
+# The current builder takes a fixed Gaussian width for the zero mode. Use the
+# mean of the old demo's log-normal width prior as that fixed value.
+zero_mode_settings = (
+    cfg["sky"].getfloat(f"{old_prefix} zero mode offset"),
+    cfg["sky"].getfloat(f"{old_prefix} zero mode mean"),
+)
+diffuse_sky = ju.build_simple_spectral_sky(
+    prefix=prefix,
+    shape=grid.spatial.shape,
+    distances=grid.spatial.distances.to(u.rad).value,
+    log_frequencies=np.log([np.mean(obs.freq)]),
+    reference_frequency_index=0,
+    zero_mode_settings=zero_mode_settings,
+    spatial_amplitude_settings=spatial_amplitude_settings,
+    spectral_index_settings={"mean": (-1.0, 0.1), "fluctuations": (0.1, 0.01)},
+    spectral_amplitude_settings=None,
+    deviations_settings=None,
+)
+sky = jft.Model(lambda x: diffuse_sky(x)[None, None, ...], domain=diffuse_sky.domain)
 
 
 R_new = rve.interferometry_response(obs, grid, backend_settings=backend_settings)

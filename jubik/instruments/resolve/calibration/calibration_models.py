@@ -64,22 +64,22 @@ class DirectionIndependentCalibrationModel(jft.Model):
     ):
 
         if log_inverse_covariance_model is None:
-            self._call = lambda primals: call_fixed_covariance(
-                model_vis=model_visibilities,
-                cop=cop(primals),
-                mask=mask,
+            super().__init__(
+                init=cop.init,
+                call=lambda primals: call_fixed_covariance(
+                    model_vis=model_visibilities,
+                    cop=cop(primals),
+                    mask=mask,
+                ),
             )
-
-            super().__init__(init=cop.init)
         else:
-            self._call = lambda primals: call_variable_covariance(
-                model_vis=model_visibilities,
-                cop=cop(primals),
-                mask=mask,
-                log_inv_cov=log_inverse_covariance_model(primals),
+
+            super().__init__(
+                init=cop.init | log_inverse_covariance_model.init,
+                call=lambda primals: call_variable_covariance(
+                    model_vis=model_visibilities,
+                    cop=cop(primals),
+                    mask=mask,
+                    log_inv_cov=log_inverse_covariance_model(primals),
+                ),
             )
-
-            super().__init__(init=self._cop.init | self._log_inv_cov.init)
-
-    def __call__(self, primals):
-        return self._call(primals)

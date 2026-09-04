@@ -47,8 +47,36 @@ def ms_table(path):
 def _pol_id(ms_path, spectral_window):
     """Return id for indexing polarization table for a given spectral window."""
     with ms_table(join(ms_path, "DATA_DESCRIPTION")) as t:
-        polid = t.getcol("POLARIZATION_ID")[spectral_window]
-    return polid
+        spectral_window_ids = t.getcol("SPECTRAL_WINDOW_ID")
+        polarization_ids = t.getcol("POLARIZATION_ID")
+
+    selected = np.flatnonzero(spectral_window_ids == spectral_window)
+    if selected.size == 0:
+        raise ValueError(
+            f"No DATA_DESCRIPTION row references spectral window {spectral_window}."
+        )
+
+    polarization_ids = np.unique(polarization_ids[selected])
+    if polarization_ids.size != 1:
+        raise ValueError(
+            f"Spectral window {spectral_window} has multiple polarization "
+            f"setups ({polarization_ids.tolist()}); importing those into one "
+            "Observation is not supported."
+        )
+    return int(polarization_ids[0])
+
+
+def _data_description_ids(ms_path, spectral_window):
+    """Return DATA_DESCRIPTION row ids which reference a spectral window."""
+    with ms_table(join(ms_path, "DATA_DESCRIPTION")) as t:
+        spectral_window_ids = t.getcol("SPECTRAL_WINDOW_ID")
+
+    data_description_ids = np.flatnonzero(spectral_window_ids == spectral_window)
+    if data_description_ids.size == 0:
+        raise ValueError(
+            f"No DATA_DESCRIPTION row references spectral window {spectral_window}."
+        )
+    return data_description_ids
 
 
 def ms2observations_all(ms, data_column):
@@ -390,6 +418,7 @@ def _first_pass(
     """
     fullwgt, weightcol = _determine_weighting(ms)
     nchan = _ms_nchannels(ms, spectral_window)
+    data_description_ids = _data_description_ids(ms, spectral_window)
     with ms_table(ms) as t:
         nrow = t.nrows()
         active_rows = np.ones(nrow, dtype=bool)
@@ -419,8 +448,10 @@ def _first_pass(
             # Select field and spectral window
             tfieldid = t.getcol("FIELD_ID", startrow=start, nrow=stop - start)
             tflags[tfieldid != field] = True
-            tspw = t.getcol("DATA_DESC_ID", startrow=start, nrow=stop - start)
-            tflags[tspw != spectral_window] = True
+            data_description_id = t.getcol(
+                "DATA_DESC_ID", startrow=start, nrow=stop - start
+            )
+            tflags[~np.isin(data_description_id, data_description_ids)] = True
 
             # Inactive if all polarizations are flagged
             assert tflags.ndim == 3

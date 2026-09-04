@@ -77,7 +77,7 @@ def interpolate_time_frequency(li_t, li_f, x, n_corr, n_ant, n_freq_in):
     )
 
 
-class CalibrationInterpolator:
+class CalibrationInterpolator(jft.Model):
     """
     Interpolates calibration fields from a regular time or time-frequency grid
     onto the observation grid.
@@ -120,6 +120,13 @@ class CalibrationInterpolator:
     df : float, optional
         Spacing of the calibration frequency grid. Required when `freq_col` is
         given.
+    time_origin : float, optional
+        Time represented by index zero of the calibration grid. Defaults to the
+        first observation time, which makes absolute measurement-set timestamps
+        safe to use.
+    frequency_origin : float, optional
+        Frequency represented by index zero of the calibration grid. Defaults to
+        the first observation frequency.
 
     Notes
     -----
@@ -130,6 +137,7 @@ class CalibrationInterpolator:
 
     def __init__(
         self,
+        model: jft.Model,
         time_col: jnp.ndarray,
         dt: float,
         n_corr: int,
@@ -137,19 +145,33 @@ class CalibrationInterpolator:
         n_freq: int,
         freq_col: jnp.ndarray | None = None,
         df: float | None = None,
+        time_origin: float | None = None,
+        frequency_origin: float | None = None,
     ):
 
         if (n_freq is None) and (freq_col is None):
             raise ValueError(
                 "Either set n_freq (for time only interpolation) or freq_col (for time and frequency interpolation)."
             )
-        li_time = Partial(map_coordinates, coordinates=[time_col / dt], order=1)
+        if dt <= 0:
+            raise ValueError("The calibration time-grid spacing `dt` must be positive.")
+
+        time_col = jnp.asarray(time_col)
+        if time_col.size == 0:
+            raise ValueError("Cannot interpolate calibration fields without times.")
+        if time_origin is None:
+            time_origin = time_col[0]
+        li_time = Partial(
+            map_coordinates,
+            coordinates=[(time_col - time_origin) / dt],
+            order=1,
+        )
 
         # self._n_corr = n_corr
         # self._n_ant = n_ant
 
         if freq_col is None:
-            self._call = lambda x: interpolate_time(
+            self._interpolator = lambda x: interpolate_time(
                 li=li_time,
                 n_corr=n_corr,
                 x=x,
@@ -161,10 +183,25 @@ class CalibrationInterpolator:
                 raise ValueError(
                     "Set frequency bin width of time and frequency interpolation."
                 )
+            if df <= 0:
+                raise ValueError(
+                    "The calibration frequency-grid spacing `df` must be positive."
+                )
 
-            li_freq = Partial(map_coordinates, coordinates=[freq_col / df], order=1)
+            freq_col = jnp.asarray(freq_col)
+            if freq_col.size == 0:
+                raise ValueError(
+                    "Cannot interpolate calibration fields without frequencies."
+                )
+            if frequency_origin is None:
+                frequency_origin = freq_col[0]
+            li_freq = Partial(
+                map_coordinates,
+                coordinates=[(freq_col - frequency_origin) / df],
+                order=1,
+            )
 
-            self._call = lambda x: interpolate_time_frequency(
+            self._interpolator = lambda x: interpolate_time_frequency(
                 li_t=li_time,
                 li_f=li_freq,
                 x=x,
@@ -173,8 +210,12 @@ class CalibrationInterpolator:
                 n_freq_in=n_freq,
             )
 
-    def __call__(self, x):
-        return self._call(x)
+        self._model = model
+
+        super().__init__(init=model.init)
+
+    def __call__(self, primals):
+        return self._interpolator(self._model(primals))
 
 
 class CalibrationDistributor(jft.Model):
@@ -185,12 +226,9 @@ class CalibrationDistributor(jft.Model):
     The supplied phase and log-amplitude models are assumed to produce calibration
     fields of shape
 
-        (n_corr, n_ant, n_time, n_freq).
+        (n_corr, n_ant, n_time_obs, n_freq_obs),
 
-    These fields are first interpolated onto the observation time grid and,
-    optionally, onto the observation frequency grid. Afterwards, the antenna gains
-    corresponding to the two antennas of each visibility are gathered and combined
-    to form the baseline calibration factors.
+    where they are already interpolated onto the time and frequency points of the observation.
 
     For each visibility, the calibration is computed as
 
@@ -229,35 +267,11 @@ class CalibrationDistributor(jft.Model):
         observation: Observation,
         phase_fields: jft.Model,
         log_amplitude_fields: jft.Model,
-        dt: float,
-        frequency_grid: jnp.ndarray | None = None,
     ):
-        time = jnp.asarray(observation.time)
-
-        n_corr, _, n_freq = observation.vis_val.shape
-        n_ant = unique_antennas(observation)
-
-        if frequency_grid is None:
-            freq_col = None
-            df = None
-        else:
-            freq_col = observation.freq
-            df = jnp.diff(frequency_grid)[0]
-            n_freq = frequency_grid.size
-
-        self._interpolator = CalibrationInterpolator(
-            time_col=observation.time,
-            dt=dt,
-            n_corr=n_corr,
-            n_ant=n_ant,
-            n_freq=n_freq,
-            freq_col=freq_col,
-            df=df,
-        )
 
         self._gather_op = Partial(
             func=antenna_time_grid_to_data_point,
-            time_col=time,
+            time_col=jnp.asarray(observation.time),
             ant1_col=jnp.asarray(observation.ant1),
             ant2_col=jnp.asarray(observation.ant2),
         )
@@ -268,10 +282,7 @@ class CalibrationDistributor(jft.Model):
         super().__init__(init=self._phases.init | self._logamps.init)
 
     def __call__(self, primals):
-        logamps_interp = self._interpolator(self._logamps(primals))
-        phases_interp = self._interpolator(self._phases(primals))
-
-        res_logamp = self._gather_op(logamps_interp, jnp.add)
-        res_phase = self._gather_op(phases_interp, jnp.subtract)
+        res_logamp = self._gather_op(cube=self._logamps(primals), operation=jnp.add)
+        res_phase = self._gather_op(cube=self._phases(primals), operation=jnp.subtract)
 
         return jnp.exp(res_logamp + 1j * res_phase)
