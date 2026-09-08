@@ -18,6 +18,7 @@ from .utils import (
 )
 from .plot import (
     plot_result,
+    plot_healpix_result,
     plot_histograms,
     plot_sample_averaged_log_2d_histogram,
     plot_rgb,
