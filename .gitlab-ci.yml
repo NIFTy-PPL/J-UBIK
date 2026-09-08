@@ -23,7 +23,7 @@ demos:
   script:
     # Only the demos which are self-contained are executed here.
     - cd demos
-    - for demo in grids spectral_sky_demo point_source_sky_demo resolve_synthetic_demo; do
+    - for demo in grids spectral_sky_demo spectral_sky_healpix_demo point_source_sky_demo resolve_synthetic_demo; do
         echo "Running ${demo}.py";
         python3 "${demo}.py" || exit 1;
       done
