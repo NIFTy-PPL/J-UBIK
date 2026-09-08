@@ -9,6 +9,7 @@ from os.path import isfile, join
 
 import numpy as np
 from astropy.coordinates import SkyCoord
+from nifty.re import logger
 from numpy.typing import ArrayLike
 
 from ..data.jwst_data import JwstData
@@ -178,9 +179,7 @@ def load_psf_kernel(
     makedirs(psf_library_path, exist_ok=True)
 
     if isfile(path_to_file + ".npy"):
-        print("*" * 80)
-        print(f"Loading {file_name} from {psf_library_path}")
-        print("*" * 80)
+        logger.info(f"Loading PSF {file_name} from {psf_library_path}")
         return np.load(path_to_file + ".npy")
 
     psf = build_webb_psf(
@@ -193,9 +192,7 @@ def load_psf_kernel(
         normalize,
     )
 
-    print("*" * 80)
-    print(f"Saving {file_name} in {psf_library_path}")
-    print("*" * 80)
+    logger.info(f"Saving PSF {file_name} in {psf_library_path}")
 
     np.save(path_to_file, psf)
     return psf

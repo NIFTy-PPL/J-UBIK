@@ -9,6 +9,7 @@ from ...color import Color
 from ...grid import Grid
 
 import nifty.re as jft
+from nifty.re import logger
 
 import numpy as np
 from typing import Union
@@ -114,7 +115,7 @@ def build_filter_projector(
     keys_and_colors = {}
     keys_and_index = {}
     for color_index, grid_color_range in enumerate(grid.spectral):
-        print(color_index, grid_color_range)
+        logger.debug(f"Grid color {color_index}: {grid_color_range}")
         for name in data_filter_names:
             jwst_filter: Color = named_color_ranges[name.upper()]
             if jwst_filter.contains(grid_color_range.center):
@@ -128,6 +129,6 @@ def build_filter_projector(
     )
 
     for fpt, fpc in filter_projector.target.items():
-        print(fpt, fpc)
+        logger.debug(f"Filter projector target {fpt}: {fpc}")
 
     return filter_projector

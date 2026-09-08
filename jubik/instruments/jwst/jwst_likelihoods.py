@@ -184,7 +184,9 @@ def build_jwst_likelihoods(
             rotation_center=SkyCoord(filter_alignment.boresight),
         )
 
-        print(dataload_results.target_data.mask.sum())
+        logger.debug(
+            f"{filter}: {int(dataload_results.target_data.mask.sum())} unmasked data pixels"
+        )
 
         likelihood_target: SingleTargetLikelihood = build_target_likelihood(
             filter_name=filter,

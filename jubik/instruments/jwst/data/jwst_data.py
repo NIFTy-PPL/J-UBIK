@@ -12,6 +12,8 @@ from astropy import units
 from astropy.coordinates import SkyCoord
 from numpy.typing import NDArray
 
+from nifty.re import logger
+
 from ....color import Color
 from ....wcs import WcsAstropy, WcsJwstData, subsample_pixel_centers
 from ..masking import (
@@ -24,8 +26,7 @@ from .jwst_information import JWST_FILTERS, get_dvol, get_pixel_distance
 try:
     from jwst import datamodels
 except ImportError:
-    print("jwst not installed. Some JWST functions will not work.")
-    pass
+    logger.warning("jwst not installed. Some JWST functions will not work.")
 
 
 @dataclass

@@ -17,7 +17,6 @@ dependencies = [
     "matplotlib",
     "astropy",
     "ducc0",
-    "astroquery",
 ]
 license = {file = "LICENSE"}
 classifiers = [
@@ -56,6 +55,7 @@ resolve = [
 ]
 
 jwst = [
+    "astroquery",
     "gwcs>=0.24.0",
     "jwst>=1.9.1",
     "stpsf>=2.1.0",
@@ -75,7 +75,6 @@ requires = [
     "matplotlib",
     "astropy",
     "ducc0",
-    "astroquery",
 ]
 build-backend = "setuptools.build_meta"
 

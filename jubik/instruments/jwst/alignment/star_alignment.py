@@ -4,7 +4,7 @@ from functools import reduce
 
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord, Distance
+from astropy.coordinates import SkyCoord
 from astropy.table import Table, vstack
 from astropy.time import Time
 
@@ -197,16 +197,23 @@ class StarTables:
             table = self.join_tables(self.data)
             observation_time = self.observation_times[0]
 
+        if len(table) == 0:
+            return []
+
         g2016 = Time("J2016.0")
         t_obs = Time(observation_time, scale="tdb")  # JWST visit
 
         source_id = table["SOURCE_ID"]
+        # No distance on purpose. Gaia DR3 contains negative and missing
+        # parallaxes; `Distance(parallax=...)` turns those into NaN distances,
+        # which propagate into NaN positions and silently drop the star. The
+        # distance only enters proper-motion propagation through perspective
+        # acceleration, which is below 1e-8 mas over the Gaia to JWST baseline.
         positions = SkyCoord(
             ra=table["ra"],
             dec=table["dec"],
             pm_ra_cosdec=table["pmra"],
             pm_dec=table["pmdec"],
-            distance=Distance(parallax=table["parallax"], allow_negative=True),
             obstime=g2016,
         )
         current_positions = positions.apply_space_motion(t_obs)

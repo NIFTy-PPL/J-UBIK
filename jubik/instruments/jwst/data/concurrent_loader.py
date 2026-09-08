@@ -1,5 +1,7 @@
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
+
+from nifty.re import logger
 from typing import Any, List, Protocol, Sequence, Literal, Iterable
 from ..parse.data.data_loader import LoadingMode, IndexAndPath
 
@@ -54,7 +56,7 @@ def run_concurrent_load(
     """
     extra_kw_args = extra_kw_args or {}
     Exec = ProcessPoolExecutor if mode == LoadingMode.PROCESSES else ThreadPoolExecutor
-    print(Exec)
+    logger.debug(f"Concurrent loading with {Exec.__name__}")
 
     # Pre-allocate slots; used to keep the order of filepaths
     results: list[HasIndexBundle | None] = [None] * len(filepaths)

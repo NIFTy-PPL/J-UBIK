@@ -20,7 +20,7 @@ def load_gaia_stars_in_fov(
 ) -> Table:
     # ----- (A)  filename used for on-disk caching  ---------------------------
     saving_string = "_".join([f"{c.ra.deg:.6f}{c.dec.deg:.6f}" for c in fov_corners])
-    if exclude_source_ids is not None or exclude_source_ids != []:
+    if exclude_source_ids:
         saving_string = (
             f"{saving_string}_ex{'_'.join([str(id) for id in exclude_source_ids])}"
         )
