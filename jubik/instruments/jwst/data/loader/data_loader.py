@@ -6,10 +6,9 @@ from nifty.re import logger
 from .....grid import Grid
 from ...alignment.star_alignment import StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig
-from ...parse.data.data_loader import IndexAndPath, LoadingModeConfig, Subsample
+from ...parse.data.data_loader import IndexAndPath, Subsample
 from ...parse.jwst_psf import JwstPsfKernelConfig
 from ...parse.masking.data_mask import CornerMasks, NanMaskLoader
-from ..concurrent_loader import load_bundles
 from ..jwst_data import JwstData
 from ..preloader.data_bounds import DataBounds
 from .stars_loader import (
@@ -93,7 +92,6 @@ def load_data(
     filepaths: tuple[IndexAndPath],
     *,
     data_loader: DataLoader,
-    loading_mode_config: LoadingModeConfig,
 ) -> DataLoadResults:
     """Load the data
     1. Target cutouts for filter observations.
@@ -121,13 +119,6 @@ def load_data(
                 - tables: StarTables
             extra_masks: ExtraMasks, optional
                 some extra masks, either in the target or the star data cutouts.
-    loading_mode_config: LoadingModeConfig:
-        loading_mode: LoadingMode, algorithm for loading data:
-            - "serial": Sequential processing
-            - "threads": Multi-threaded for I/O-bound operations
-            - "processes": Multi-process for CPU-bound operations
-        workers: int | None
-            Number of threads/processes to use (None = executor default)
 
     Returns
     -------
@@ -142,13 +133,9 @@ def load_data(
         "Load either target or stars."
     )
 
-    target_andor_stars_bundles: list[TargetAndOrStarsBundle] = load_bundles(
-        filepaths=filepaths,
-        load_one=_load_one_target_and_or_stars,
-        extra_kw_args=dict(data_loader=data_loader),
-        mode=loading_mode_config.loading_mode,
-        workers=loading_mode_config.workers,
-    )
+    target_andor_stars_bundles: list[TargetAndOrStarsBundle] = [
+        _load_one_target_and_or_stars(fp, data_loader=data_loader) for fp in filepaths
+    ]
 
     target_data, stars_data = _create_data_products(
         bundles=target_andor_stars_bundles, data_loader=data_loader

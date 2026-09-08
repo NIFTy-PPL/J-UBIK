@@ -12,8 +12,7 @@ from ....gaia.star_finder import load_gaia_stars_in_fov
 from ...alignment.filter_alignment import FilterAlignment
 from ...alignment.star_alignment import StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig
-from ...parse.data.data_loader import IndexAndPath, LoadingModeConfig
-from ..concurrent_loader import load_bundles
+from ...parse.data.data_loader import IndexAndPath
 from ..jwst_data import DataMetaInformation, JwstData
 from .checks import FilterConsistency
 from .data_bounds import DataBounds
@@ -69,7 +68,6 @@ def preload_data(
     *,
     preloader: Preloader,
     side_effects: PreloaderSideEffects,
-    loading_mode_config: LoadingModeConfig,
 ) -> PreloadResult:
     """Preload JWST data and perform validation checks.
 
@@ -93,13 +91,6 @@ def preload_data(
         Input information. See `Preloader` for field definition.
     side_effects: PreloaderSideEffects
         Side-affected data. See `PreloaderSideEffects` for field definition.
-    loading_mode_config: LoadingModeConfig:
-        loading_mode: LoadingMode, algorithm for loading data:
-            - "serial": Sequential processing
-            - "threads": Multi-threaded for I/O-bound operations
-            - "processes": Multi-process for CPU-bound operations
-        workers: int | None
-            Number of threads/processes to use (None = executor default)
 
     Returns
     -------
@@ -112,16 +103,14 @@ def preload_data(
     t = time.perf_counter()
     logger.info("Preload JWST data")
 
-    bundles: Iterable[PreloadBundle] = load_bundles(
-        filepaths,
-        _load_one_preload_bundle,
-        mode=loading_mode_config.loading_mode,
-        workers=loading_mode_config.workers,
-        extra_kw_args=dict(
+    bundles: Iterable[PreloadBundle] = [
+        _load_one_preload_bundle(
+            fp,
             grid_corners=preloader.grid_corners,
             star_alignment_config=preloader.star_alignment_config,
-        ),
-    )
+        )
+        for fp in filepaths
+    ]
 
     filter_meta, target_bounds, star_tables, boresights = _preload_data_products(
         bundles,

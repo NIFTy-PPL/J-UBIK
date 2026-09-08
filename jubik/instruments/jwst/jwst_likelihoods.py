@@ -137,7 +137,6 @@ def build_jwst_likelihoods(
                 star_alignment_config=cfg_parser.star_alignment_config,
             ),
             side_effects=PreloaderSideEffects(filter_alignment=filter_alignment),
-            loading_mode_config=cfg_parser.data_loader.loading_mode_config,
         )
 
         if filter in cfg_parser.data_bounds_adjust:
@@ -165,7 +164,6 @@ def build_jwst_likelihoods(
                 ),
                 corner_masks=cfg_parser.corner_masks(filter),
             ),
-            loading_mode_config=cfg_parser.data_loader.loading_mode_config,
         )
 
         hot_pixel_masking_data.append_information(
