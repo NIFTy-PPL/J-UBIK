@@ -1,0 +1,1 @@
+../../../demos/spectral_sky_healpix_demo.py

@@ -10,6 +10,7 @@ In the spectral dimension, the model can be a power law, describe the correlatio
         :maxdepth: 1
 
         spectral_sky_demo
+        spectral_sky_healpix_demo
         point_source_sky_demo
 
 However, you can include your own prior models using NIFTy. For more information read the previous page
