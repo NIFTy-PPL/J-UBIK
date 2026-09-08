@@ -60,6 +60,9 @@ jwst = [
     "jwst>=1.9.1",
     "stpsf>=2.1.0",
 ]
+healpix = [
+    "jaxbind",
+]
 
 [build-system]
 requires = [

@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: BSD-2-Clause
-# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp
+# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp, Hanieh Zandinejad
 
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
 
+import math
+from contextlib import nullcontext
 from functools import reduce
 from typing import Optional, Sequence, List, Tuple, Union
 from dataclasses import dataclass
@@ -14,7 +16,8 @@ from jax import vmap
 import numpy as np
 import jax.numpy as jnp
 from matplotlib import pyplot as plt
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LogNorm, Normalize
+from matplotlib.ticker import LogFormatterMathtext
 import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
@@ -40,6 +43,14 @@ def display_plot_or_save(
         logger.info(f"Plot saved to {filename}.")
     else:
         plt.show()
+
+try:
+    import ducc0.healpix as ducc_hp
+except ImportError as err:
+    ducc_hp = None
+    _DUCC_IMPORT_ERROR = err
+else:
+    _DUCC_IMPORT_ERROR = None
 
 
 def plot_result(array,
@@ -95,8 +106,8 @@ def plot_result(array,
     adjust_figsize : bool, optional
         Whether to automatically adjust the size of the figure.
     common_colorbar : bool, optional
-        Whether to use the same color bar for all images. Overrides vmin and
-        vmax.
+        Whether to use the same color limits for all images. Explicit vmin and
+        vmax values are preserved.
     share_x : bool, optional
         Whether to share the x axis.
     share_y : bool, optional
@@ -179,17 +190,13 @@ def plot_result(array,
     raw_vmin = kwargs.pop("vmin", None)
     raw_vmax = kwargs.pop("vmax", None)
 
-    if colorbar and common_colorbar:
-        raw_vmin = min(np.min(array[i]) for i in range(n_plots))
-        raw_vmax = max(np.max(array[i]) for i in range(n_plots))
-
     def _expand_bounds(value, name):
         if value is None:
             return [None] * n_plots
-        if np.isscalar(value):
+        if np.ndim(value) == 0:
             return [value] * n_plots
-        if isinstance(value, (list, tuple, np.ndarray)):
-            seq = list(value)
+        if np.ndim(value) == 1:
+            seq = [float(v) for v in np.asarray(value)]
             if treating_multi_channel and len(seq) == n_channels:
                 return [seq[c] for _ in range(n_samples) for c in range(n_channels)]
             if len(seq) == n_plots:
@@ -200,14 +207,36 @@ def plot_result(array,
             raise ValueError(msg + ".")
         raise TypeError(f"{name} must be a scalar or a sequence.")
 
+    # A single scale for every panel is only well defined for scalar bounds.
+    shared_bounds = (
+        colorbar
+        and common_colorbar
+        and all(b is None or np.ndim(b) == 0 for b in (raw_vmin, raw_vmax))
+    )
+
+    if shared_bounds:
+        raw_vmin, raw_vmax = _get_color_limits(
+            array,
+            logscale=log,
+            vmin=raw_vmin,
+            vmax=raw_vmax,
+        )
+
     vmins = _expand_bounds(raw_vmin, "vmin")
     vmaxs = _expand_bounds(raw_vmax, "vmax")
 
     if log:
-        vmins = [
-            1e-18 if vmin is not None and float(vmin) == 0. else vmin
-            for vmin in vmins
-        ]  # prevent LogNorm errors
+        if not shared_bounds:
+            # LogNorm rejects non-positive limits, so clamp each panel to its
+            # own positive range.
+            limits = [
+                _get_color_limits(
+                    array[i], logscale=True, vmin=vmins[i], vmax=vmaxs[i]
+                )
+                for i in range(n_plots)
+            ]
+            vmins = [lo for lo, _ in limits]
+            vmaxs = [hi for _, hi in limits]
         pltargs["norm"] = "log"
 
     for i in range(n_plots):
@@ -265,6 +294,441 @@ def plot_result(array,
             plt.close()
         else:
             plt.show()
+
+
+def _get_nside_from_npix(npix: int) -> int:
+    """Infer HEALPix NSIDE from a RING HEALPix map length."""
+    nside = int(round(math.sqrt(npix / 12)))
+
+    if 12 * nside**2 != npix:
+        raise ValueError(
+            "Input does not look like a HEALPix map. "
+            f"Got npix={npix}, but no integer nside satisfies "
+            "npix = 12*nside**2."
+        )
+
+    return nside
+
+
+def _ducc_ang2pix(base, theta, phi):
+    theta = np.asarray(theta)
+    phi = np.asarray(phi)
+
+    theta_flat = theta.ravel()
+    phi_flat = phi.ravel()
+
+    pix = base.ang2pix(np.column_stack([theta_flat, phi_flat]))
+
+    return np.asarray(pix).reshape(theta.shape)
+
+
+def _mollweide_imgdata_from_healpix(
+    hp_data,
+    *,
+    xsize: int = 1000,
+    flip: str = "astro",
+):
+    """Project one RING HEALPix map to a regular Mollweide image, ready for
+    imshow."""
+    if ducc_hp is None:
+        raise ImportError(
+            "ducc0 is required for HEALPix plotting."
+        ) from _DUCC_IMPORT_ERROR
+
+    hp_data = np.asarray(hp_data, dtype=float).ravel()
+
+    nside = _get_nside_from_npix(hp_data.size)
+    base = ducc_hp.Healpix_Base(nside, "RING")
+
+    ysize = xsize // 2
+
+    xlim = 2.0 * np.sqrt(2.0)
+    ylim = np.sqrt(2.0)
+
+    x = np.linspace(-xlim, xlim, xsize)
+    y = np.linspace(-ylim, ylim, ysize)
+    xx, yy = np.meshgrid(x, y)
+
+    img = np.full((ysize, xsize), np.nan, dtype=float)
+
+    inside = (xx / xlim) ** 2 + (yy / ylim) ** 2 <= 1.0
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        aux = np.arcsin(np.clip(yy / np.sqrt(2.0), -1.0, 1.0))
+        cos_aux = np.cos(aux)
+
+        lat = np.arcsin(
+            np.clip(
+                (2.0 * aux + np.sin(2.0 * aux)) / np.pi,
+                -1.0,
+                1.0,
+            )
+        )
+
+        lon = np.pi * xx / (2.0 * np.sqrt(2.0) * cos_aux)
+
+    valid = inside & np.isfinite(lat) & np.isfinite(lon)
+
+    if flip == "astro":
+        lon = -lon
+    elif flip != "geo":
+        raise ValueError(f"Unsupported flip={flip!r}. Use 'astro' or 'geo'.")
+
+    theta = 0.5 * np.pi - lat
+    phi = np.mod(lon, 2.0 * np.pi)
+
+    pix = _ducc_ang2pix(base, theta[valid], phi[valid])
+    img[valid] = hp_data[pix]
+
+    return img
+
+
+def _as_healpix_stack(data):
+    """Normalize HEALPix input to shape ``(n_maps, npix)``."""
+    arr = np.asarray(data)
+
+    if arr.ndim == 1:
+        return arr[None, :]
+
+    if arr.ndim == 2:
+        return arr
+
+    return arr.reshape((-1, arr.shape[-1]))
+
+
+def _normalize_titles(title, n_maps):
+    if title is None:
+        return [None] * n_maps
+
+    if isinstance(title, str):
+        if n_maps == 1:
+            return [title]
+        return [f"{title} [{i}]" for i in range(n_maps)]
+
+    titles = list(title)
+
+    if len(titles) != n_maps:
+        raise ValueError(f"Expected {n_maps} titles, got {len(titles)}.")
+
+    return titles
+
+
+def _valid_values_for_limits(values, *, logscale: bool):
+    values = np.asarray(values)
+    values = values[np.isfinite(values)]
+
+    if logscale:
+        values = values[values > 0.0]
+
+    return values
+
+
+def _get_color_limits(
+    values,
+    *,
+    logscale: bool,
+    vmin=None,
+    vmax=None,
+    percentile=None,
+):
+    finite = _valid_values_for_limits(values, logscale=logscale)
+
+    if finite.size == 0:
+        if logscale:
+            return 1.0e-30, 1.0
+        return 0.0, 1.0
+
+    if percentile is not None:
+        auto_vmin, auto_vmax = np.nanpercentile(finite, percentile)
+    else:
+        auto_vmin = np.nanmin(finite)
+        auto_vmax = np.nanmax(finite)
+
+    if vmin is None:
+        vmin = auto_vmin
+
+    if vmax is None:
+        vmax = auto_vmax
+
+    vmin = float(vmin)
+    vmax = float(vmax)
+
+    if logscale:
+        min_positive = float(np.nanmin(finite[finite > 0.0]))
+        if vmin <= 0.0:
+            vmin = min_positive
+
+        if vmax <= vmin:
+            vmax = vmin * (1.0 + 1.0e-12)
+
+    else:
+        if vmax <= vmin:
+            vmax = vmin + 1.0
+
+    return vmin, vmax
+
+
+def _plot_single_healpix_panel(
+    fig,
+    ax,
+    cax,
+    hp_map,
+    *,
+    title=None,
+    unit=None,
+    logscale=False,
+    vmin=None,
+    vmax=None,
+    percentile=None,
+    cmap="inferno",
+    xsize=1000,
+    flip="astro",
+    dark_background=False,
+):
+    """Plot one HEALPix panel, with its own colorbar row below it."""
+    img = _mollweide_imgdata_from_healpix(
+        hp_map,
+        xsize=xsize,
+        flip=flip,
+    )
+
+    cmap_obj = plt.get_cmap(cmap).copy()
+
+    cmap_obj.set_bad("black" if dark_background else "white")
+
+    if logscale:
+        img = img.copy()
+        img[img <= 0.0] = np.nan
+
+        vmin, vmax = _get_color_limits(
+            img,
+            logscale=True,
+            vmin=vmin,
+            vmax=vmax,
+            percentile=percentile,
+        )
+
+        norm = LogNorm(vmin=vmin, vmax=vmax)
+    else:
+        vmin, vmax = _get_color_limits(
+            img,
+            logscale=False,
+            vmin=vmin,
+            vmax=vmax,
+            percentile=percentile,
+        )
+
+        norm = Normalize(vmin=vmin, vmax=vmax)
+
+    im = ax.imshow(
+        img,
+        origin="lower",
+        interpolation="nearest",
+        cmap=cmap_obj,
+        norm=norm,
+    )
+
+    ax.set_anchor("S")
+    ax.set_axis_off()
+    ax.set_title(title, fontsize=9, pad=4)
+
+    cbar = fig.colorbar(
+        im,
+        cax=cax,
+        orientation="horizontal",
+    )
+
+    if unit is not None:
+        cbar.set_label(unit)
+
+    if logscale:
+        cbar.formatter = LogFormatterMathtext()
+        cbar.update_ticks()
+
+    return im, cbar
+
+
+def plot_healpix_result(
+    data,
+    *,
+    n_rows=1,
+    n_cols=1,
+    figsize=None,
+    title=None,
+    unit=None,
+    logscale=False,
+    common_colorbar=False,
+    vmin=None,
+    vmax=None,
+    percentile=None,
+    cmap="viridis",
+    xsize=1000,
+    flip="astro",
+    dark_background=False,
+):
+    """Plot HEALPix maps: projected to a Mollweide image via imshow, with a
+    horizontal colorbar row under each panel.
+
+    Parameters
+    ----------
+    data : array_like
+        HEALPix map or stack of maps. Accepted shapes are ``(npix,)``,
+        ``(n_maps, npix)``, or any higher-dimensional array whose last axis is
+        the HEALPix pixel axis.
+    n_rows, n_cols : int
+        Map panel layout.
+    figsize : tuple, optional
+        Matplotlib figure size.
+    title : str or sequence of str, optional
+        Panel title or list of panel titles.
+    unit : str, optional
+        Colorbar label.
+    logscale : bool
+        If true, use logarithmic color normalization.
+    common_colorbar : bool
+        If true, use common color limits across panels. Still one colorbar
+        per panel.
+    vmin, vmax : float, optional
+        Explicit color limits.
+    percentile : tuple[float, float], optional
+        Percentile limits for automatic color scaling, e.g. ``(1, 99.9)``.
+    cmap : str
+        Matplotlib colormap.
+    xsize : int
+        Horizontal resolution of the projected Mollweide image.
+    flip : str
+        Longitude convention, either ``"astro"`` or ``"geo"``.
+    dark_background : bool
+        If true, use a black background instead of white.
+
+    Returns
+    -------
+    fig, axes
+        Matplotlib figure and map axes array.
+    """
+    style_context = (
+        plt.style.context("dark_background") if dark_background else nullcontext()
+    )
+    with style_context:
+        return _plot_healpix_result(
+            data,
+            n_rows=n_rows,
+            n_cols=n_cols,
+            figsize=figsize,
+            title=title,
+            unit=unit,
+            logscale=logscale,
+            common_colorbar=common_colorbar,
+            vmin=vmin,
+            vmax=vmax,
+            percentile=percentile,
+            cmap=cmap,
+            xsize=xsize,
+            flip=flip,
+            dark_background=dark_background,
+        )
+
+
+def _plot_healpix_result(
+    data,
+    *,
+    n_rows,
+    n_cols,
+    figsize,
+    title,
+    unit,
+    logscale,
+    common_colorbar,
+    vmin,
+    vmax,
+    percentile,
+    cmap,
+    xsize,
+    flip,
+    dark_background,
+):
+    maps = _as_healpix_stack(data)
+    n_maps = maps.shape[0]
+
+    if n_rows * n_cols < n_maps:
+        raise ValueError(
+            f"Layout has {n_rows * n_cols} panels, but data has {n_maps} maps."
+        )
+
+    titles = _normalize_titles(title, n_maps)
+
+    if figsize is None:
+        figsize = (4.8 * n_cols, 3.2 * n_rows)
+
+    # Every map row gets a colorbar row below it. This is the same visual logic
+    # as the response-inspection plots.
+    height_ratios = []
+    for _ in range(n_rows):
+        height_ratios.extend([1.0, 0.055])
+
+    fig = plt.figure(figsize=figsize)
+
+    gs = fig.add_gridspec(
+        2 * n_rows,
+        n_cols,
+        height_ratios=height_ratios,
+        hspace=0.04,
+        wspace=0.08,
+    )
+
+    axes = np.empty((n_rows, n_cols), dtype=object)
+    cbar_axes = np.empty((n_rows, n_cols), dtype=object)
+
+    shared_vmin = vmin
+    shared_vmax = vmax
+
+    if common_colorbar:
+        shared_vmin, shared_vmax = _get_color_limits(
+            maps,
+            logscale=logscale,
+            vmin=vmin,
+            vmax=vmax,
+            percentile=percentile,
+        )
+
+    for i in range(n_rows * n_cols):
+        row = i // n_cols
+        col = i % n_cols
+
+        ax = fig.add_subplot(gs[2 * row, col])
+        cax = fig.add_subplot(gs[2 * row + 1, col])
+        ax.set_anchor("S")
+        cax.set_anchor("N")
+
+        axes[row, col] = ax
+        cbar_axes[row, col] = cax
+
+        if i >= n_maps:
+            ax.set_axis_off()
+            cax.set_axis_off()
+            continue
+
+        panel_vmin = shared_vmin if common_colorbar else vmin
+        panel_vmax = shared_vmax if common_colorbar else vmax
+
+        _plot_single_healpix_panel(
+            fig,
+            ax,
+            cax,
+            maps[i],
+            title=titles[i],
+            unit=unit,
+            logscale=logscale,
+            vmin=panel_vmin,
+            vmax=panel_vmax,
+            percentile=None if common_colorbar else percentile,
+            cmap=cmap,
+            xsize=xsize,
+            flip=flip,
+            dark_background=dark_background,
+        )
+
+    return fig, axes
 
 
 def plot_histograms(hist,

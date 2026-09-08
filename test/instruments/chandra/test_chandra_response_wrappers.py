@@ -57,6 +57,38 @@ def test_build_chandra_response_from_config_uses_cached_exposure_and_psf(tmp_pat
         assert np.asarray(v).size == 2 * 3 * 3
 
 
+def test_build_chandra_response_from_config_uses_default_center_observation(
+    tmp_path, monkeypatch
+):
+    config = _response_config(tmp_path)
+    config["telescope"]["center_obs_id"] = "obs_b"
+    observed_centers = []
+
+    class FakeObservationInformation:
+        def __init__(self, observation, *, center, **kwargs):
+            observed_centers.append((observation["id"], center))
+            self.obsInfo = {"aim_ra": 3.0, "aim_dec": 4.0}
+
+        def get_exposure(self, output_path):
+            return np.ones((3, 3, 2))
+
+    monkeypatch.setattr(chrsp, "exists", lambda _: False)
+    monkeypatch.setattr(
+        chrsp, "ChandraObservationInformation", FakeObservationInformation
+    )
+    monkeypatch.setattr(
+        chrsp, "get_psfpatches", lambda *args, **kwargs: np.ones((2, 3, 3))
+    )
+    monkeypatch.setattr(
+        chrsp, "integrate", lambda psfs, domain, axes: np.ones(psfs.shape[:-2])
+    )
+    monkeypatch.setattr(chrsp, "save_to_pickle", lambda *args: None)
+
+    chrsp.build_chandra_response_from_config(config)
+
+    assert observed_centers == [("b", None), ("a", (3.0, 4.0))]
+
+
 def test_generate_chandra_likelihood_from_config_wires_build_create_load(monkeypatch):
     calls = {"build": 0, "create": 0, "load": 0, "amend": 0}
     response_func = lambda x: x

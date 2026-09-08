@@ -134,7 +134,7 @@ ju.plot_result(
     n_cols=1,
     figsize=(7, 5),
     title="Point-source reference map",
-    logscale=True,
+    log=True,
 )
 
 # %% [markdown]
@@ -149,7 +149,7 @@ ju.plot_result(
     n_cols=1,
     figsize=(7, 5),
     title="Point-source reference map (clipped for display)",
-    logscale=True,
+    log=True,
     vmin=threshold,
 )
 
@@ -186,7 +186,7 @@ ju.plot_result(
 # %% [markdown]
 # ### Spectral Deviations (log-space)
 # These are additive deviations in log-space, so they can be positive or
-# negative. We therefore keep `logscale=False` for visualization.
+# negative. We therefore keep `log=False` for visualization.
 
 # %%
 spectral_deviations = ps_model.spectral_deviations_distribution(random_pos)
@@ -197,7 +197,7 @@ if spectral_deviations is not None:
         n_cols=log_frequencies.shape[0],
         figsize=(15, 4),
         title="Spectral deviations",
-        logscale=False,
+        log=False,
     )
 
 # %% [markdown]
@@ -212,7 +212,7 @@ ju.plot_result(
     n_cols=log_frequencies.shape[0],
     figsize=(15, 4),
     title="Point-source multi-frequency realization",
-    logscale=True,
+    log=True,
 )
 
 # %% [markdown]

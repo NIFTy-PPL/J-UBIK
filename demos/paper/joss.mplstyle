@@ -1,0 +1,41 @@
+# A&A journal style for matplotlib
+
+# Fonts
+text.usetex: False
+font.family: serif
+font.size: 9
+axes.labelsize: 9
+axes.titlesize: 9
+legend.fontsize: 8
+xtick.labelsize: 8
+ytick.labelsize: 8
+
+# Figure
+figure.dpi: 300
+savefig.dpi: 300
+savefig.bbox: tight
+savefig.pad_inches: 0.02
+
+# Axes
+axes.linewidth: 0.8
+axes.grid: False
+
+# Ticks
+xtick.direction: in
+ytick.direction: in
+xtick.top: True
+ytick.right: True
+xtick.minor.visible: True
+ytick.minor.visible: True
+
+# Lines
+lines.linewidth: 1.2
+lines.markersize: 4
+
+# Images (imshow)
+image.interpolation: nearest
+image.origin: lower
+image.cmap: magma
+
+# Legend
+legend.frameon: False
