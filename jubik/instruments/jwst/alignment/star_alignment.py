@@ -206,7 +206,7 @@ class StarTables:
             dec=table["dec"],
             pm_ra_cosdec=table["pmra"],
             pm_dec=table["pmdec"],
-            distance=Distance(parallax=table["parallax"]),
+            distance=Distance(parallax=table["parallax"], allow_negative=True),
             obstime=g2016,
         )
         current_positions = positions.apply_space_motion(t_obs)

@@ -251,7 +251,7 @@ def build_gaussian_likelihood(
         If `std` is an array and its shape does not match the shape of `data`.
     """
     if not isinstance(std, float):
-        if data.shape == std.shape and data.shape[0] != std.shape[0]:
+        if data.shape != std.shape:
             raise AssertionError(
                 f"Shape mismatch between data and std: {data.shape} vs {std.shape}"
             )

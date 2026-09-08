@@ -49,14 +49,6 @@ def load_one_stars_bundle(
 
     star_bundles = StarsBundle(index=index)
 
-    # logger.info("THIS SHOULDN't APPEAR DELETE ME!")
-    # if True:
-    #     from ...alignment.utils import some_evaluation
-    #
-    #     some_evaluation(
-    #         index, jwst_data, star_tables, image_kwargs=dict(vmin=0.05, vmax=0.5)
-    #     )
-
     for ii, star in enumerate(star_tables.get_stars(index)):
         # Mask out stars that lead to nan positions
         if np.any(np.isnan(jwst_data.wcs.world_to_pixel(star.position))):

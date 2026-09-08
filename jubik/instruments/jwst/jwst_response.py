@@ -287,11 +287,16 @@ def build_target_response(
         shift_and_rotation_correction=input_config.shift_and_rotation_correction,
     )
 
+    zero_flux_prior_config = (
+        None
+        if input_config.zero_flux_prior_configs is None
+        else input_config.zero_flux_prior_configs.get_name_setting_or_default(
+            input_config.filter_name
+        )
+    )
     zero_flux_model = build_zero_flux_model(
         f"{input_config.filter_name}_target",
-        input_config.zero_flux_prior_configs.get_name_setting_or_default(
-            input_config.filter_name
-        ),
+        zero_flux_prior_config,
         shape=(input_config.target_data.data.shape[0], 1, 1),
     )
 

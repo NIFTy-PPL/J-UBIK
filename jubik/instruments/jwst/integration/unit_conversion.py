@@ -30,7 +30,7 @@ def build_unit_conversion(
 
     _check_physical_types([sky_unit, data_unit])
 
-    if sky_unit.physical_type == sky_unit.physical_type:
+    if sky_unit.physical_type == data_unit.physical_type:
         return _build_same_physical_type(sky_unit, data_unit)
 
     return _build_different_physical_type(sky_unit, sky_dvol, data_unit, data_dvol)
@@ -53,19 +53,14 @@ def _build_different_physical_type(
     data_unit: u.Unit,
     data_dvol: u.Quantity,
 ):
-    if sky_unit.physical_type in SURFACE_BRIGHTNESS:
-        tsky_unit = sky_unit * sky_dvol
-        conversion = tsky_unit.to(data_unit) * sky_dvol.value
-        assert isinstance(conversion, float)
-        return lambda x: x * conversion
+    """Conversion between surface brightness and flux is not implemented yet.
 
-    elif sky_unit.physical_type in FLUX:
-        tsky_unit = sky_unit / sky_dvol
-        conversion = tsky_unit.to(data_unit) / sky_dvol.value
-        assert isinstance(conversion, float)
-        return lambda x: x * conversion
-
-    else:
-        raise ValueError(
-            f"Sky unit's physical type not implemented: sky_unit={sky_unit}."
-        )
+    The conversion has to account for the pixel volume of the grid the response
+    acts on, which is the subsampled data grid, and for the direction of the
+    conversion. Tracked in issue #131.
+    """
+    raise NotImplementedError(
+        "Conversion between different physical types is not implemented: "
+        f"sky_unit={sky_unit} ({sky_unit.physical_type}), "
+        f"data_unit={data_unit} ({data_unit.physical_type})."
+    )

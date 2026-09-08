@@ -1,6 +1,5 @@
 import os
-from dataclasses import asdict, dataclass
-from typing import Optional
+from dataclasses import dataclass
 
 from numpy.typing import NDArray
 
@@ -8,12 +7,6 @@ import nifty.re as jft
 import numpy as np
 import scipy
 
-from ....likelihood import connect_likelihood_to_model
-from ....minimization.minimization_from_samples import (
-    KLSettings,
-    minimization_from_initial_samples,
-)
-from ....minimization_parser import MinimizationParser
 from ..data.loader.target_loader import TargetDataCore
 from ..jwst_likelihoods import TargetLikelihoodProducts
 from ..likelihood.target_likelihood import build_target_likelihood
@@ -37,27 +30,6 @@ class MaskingStep:
         self.res_dir = os.path.join(res_dir, "masking_step")
         os.makedirs(self.res_dir, exist_ok=True)
 
-    def adjust_kl_settings(
-        self, kl_settings: KLSettings, before_masking: bool = False
-    ) -> KLSettings:
-        if before_masking:
-            start = 0
-            end = self.settings.mask_at_iteration
-            resume = kl_settings.resume
-        else:
-            start = self.settings.mask_at_iteration
-            end = kl_settings.n_total_iterations
-            resume = True
-
-        klset = asdict(kl_settings)
-        klset["minimization"] = MinimizationParserUpdate.minimization_at_iteration(
-            kl_settings.minimization, start
-        )
-        klset["n_total_iterations"] = end
-        klset["resume"] = resume
-
-        return KLSettings(**klset)
-
 
 def _hot_pixel_mask(residual: np.ndarray, threshold_hot_pixel: float):
     """This process masks pixels if their absolute residual is above the
@@ -71,8 +43,27 @@ def _hot_pixel_mask(residual: np.ndarray, threshold_hot_pixel: float):
         The threshold for masking the hot pixels.
     """
     if threshold_hot_pixel is None:
-        return True
+        return np.ones_like(residual, dtype=bool)
     return np.abs(residual) < threshold_hot_pixel
+
+
+def _mask_cross(
+    mask: np.ndarray, kk: int, ii: int, jj: int, include_center: bool
+) -> None:
+    """Set the 4-neighbourhood (and optionally the center) of `(kk, ii, jj)` to
+    `False` in `mask`, in place. Neighbours outside the field are skipped, so
+    detections at the border neither wrap around nor raise."""
+    _, n_row, n_col = mask.shape
+    if include_center:
+        mask[kk, ii, jj] = False
+    if ii > 0:
+        mask[kk, ii - 1, jj] = False
+    if ii + 1 < n_row:
+        mask[kk, ii + 1, jj] = False
+    if jj > 0:
+        mask[kk, ii, jj - 1] = False
+    if jj + 1 < n_col:
+        mask[kk, ii, jj + 1] = False
 
 
 def _hot_star_mask_from_nanpixel(
@@ -102,52 +93,30 @@ def _hot_star_mask_from_nanpixel(
     """
 
     if threshold_star_nan is None:
-        return True
+        return np.ones(int(mask_3d_og.sum()), dtype=bool)
 
     res_var = np.zeros(mask_3d_og.shape)
     res_var[mask_3d_og] = residual
+    # Zero-pad the spatial axes so neighbours outside the field read as zero
+    # residual (identical to a masked pixel) instead of wrapping or raising.
+    res_pad = np.pad(res_var, ((0, 0), (1, 1), (1, 1)))
 
     mask_3d_tmp = mask_3d_og.copy()
 
     for kk, ii, jj in zip(*np.where(~mask_3d_nan)):
-        try:
-            res00 = res_var[kk, ii - 1, jj - 1]
-            res01 = res_var[kk, ii - 1, jj]
-            res02 = res_var[kk, ii - 1, jj + 1]
+        # indices into the padded array
+        pi, pj = ii + 1, jj + 1
+        window = res_pad[kk, pi - 1 : pi + 2, pj - 1 : pj + 2]
+        if np.all(window == 0):
+            continue
 
-            res10 = res_var[kk, ii, jj - 1]
-            res11 = res_var[kk, ii, jj]
-            res12 = res_var[kk, ii, jj + 1]
-
-            res20 = res_var[kk, ii + 1, jj - 1]
-            res21 = res_var[kk, ii + 1, jj]
-            res22 = res_var[kk, ii + 1, jj + 1]
-
-            arr = np.sqrt(
-                np.array(
-                    [
-                        [res00, res01, res02],
-                        [res10, res11, res12],
-                        [res20, res21, res22],
-                    ],
-                )
-                ** 2
-            )
-
-            if arr.sum() == 0:
-                continue
-
-            evaluate = np.sqrt((res01**2 + res10**2 + res12**2 + res21**2) / 4)
-            if evaluate > threshold_star_nan:
-                mask_3d_tmp[kk, ii - 1, jj] = False
-                mask_3d_tmp[kk, ii, jj - 1] = False
-                mask_3d_tmp[kk, ii, jj + 1] = False
-                mask_3d_tmp[kk, ii + 1, jj] = False
-
-        except IndexError:
-            # NOTE : This is handling the edges of the field, where the stars fall
-            # outside the grid. Typically these are masked, anyways.
-            pass
+        res01 = res_pad[kk, pi - 1, pj]
+        res10 = res_pad[kk, pi, pj - 1]
+        res12 = res_pad[kk, pi, pj + 1]
+        res21 = res_pad[kk, pi + 1, pj]
+        evaluate = np.sqrt((res01**2 + res10**2 + res12**2 + res21**2) / 4)
+        if evaluate > threshold_star_nan:
+            _mask_cross(mask_3d_tmp, kk, ii, jj, include_center=False)
 
     return mask_3d_tmp[mask_3d_og]
 
@@ -172,7 +141,7 @@ def _hot_star_mask_convolution(
     """
 
     if threshold_star_convolution is None:
-        return True
+        return np.ones(int(mask_3d_og.sum()), dtype=bool)
 
     res_var = np.zeros(mask_3d_og.shape)
     res_var[mask_3d_og] = residual
@@ -191,11 +160,7 @@ def _hot_star_mask_convolution(
     mask = mask_3d_og.copy()
 
     for kk, ii, jj in zip(*np.where(convolved_res > threshold_star_convolution)):
-        mask[kk, ii, jj] = False
-        mask[kk, ii - 1, jj] = False
-        mask[kk, ii, jj - 1] = False
-        mask[kk, ii, jj + 1] = False
-        mask[kk, ii + 1, jj] = False
+        _mask_cross(mask, kk, ii, jj, include_center=True)
 
     return mask[mask_3d_og]
 
@@ -370,54 +335,4 @@ def masking_hot_pixels(
         likelihoods=new_likelihoods,
         plotting=target_plotting,
         filter_projector=likelihood.filter_projector,
-    )
-
-
-@dataclass
-class MinimizationParserUpdate:
-    n_samples: callable
-    sample_mode: callable
-    draw_linear_kwargs: callable
-    nonlinearly_update_kwargs: callable
-    kl_kwargs: callable
-
-    @classmethod
-    def minimization_at_iteration(cls, parser: MinimizationParser, iteration: int):
-        return cls(
-            n_samples=lambda ii: parser.n_samples(ii + iteration),
-            sample_mode=lambda ii: parser.sample_mode(ii + iteration),
-            draw_linear_kwargs=lambda ii: parser.draw_linear_kwargs(ii + iteration),
-            nonlinearly_update_kwargs=lambda ii: parser.nonlinearly_update_kwargs(
-                ii + iteration
-            ),
-            kl_kwargs=lambda ii: parser.kl_kwargs(ii + iteration),
-        )
-
-
-def minimize_with_hot_pixel_masking(
-    likelihood: TargetLikelihoodProducts,
-    kl_settings: KLSettings,
-    masking_step: MaskingStep,
-    starting_samples: Optional[jft.Samples] = None,
-    not_take_starting_pos_keys: tuple[str] = (),
-):
-    samples, state = minimization_from_initial_samples(
-        likelihood=connect_likelihood_to_model(
-            likelihood.likelihood, masking_step.sky_with_filter
-        ),
-        kl_settings=masking_step.adjust_kl_settings(kl_settings, before_masking=True),
-        starting_samples=starting_samples,
-        not_take_starting_pos_keys=not_take_starting_pos_keys,
-    )
-
-    likelihood = masking_hot_pixels(
-        likelihood, likelihood.plotting, samples, masking_step=masking_step
-    )
-
-    return minimization_from_initial_samples(
-        likelihood=connect_likelihood_to_model(
-            likelihood.likelihood, masking_step.sky_with_filter
-        ),
-        kl_settings=masking_step.adjust_kl_settings(kl_settings, before_masking=False),
-        starting_samples=None,
     )
