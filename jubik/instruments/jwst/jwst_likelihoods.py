@@ -60,7 +60,10 @@ class TargetLikelihoodProducts:
 
 
 @dataclass
-class AlignemntLikelihoodProducts:
+class MultiFilterAlignmentProducts:
+    """Bundles the alignment likelihoods and plotting information over all
+    filters; None-able via `from_optional`."""
+
     likelihood: MultiFilterAlignmentLikelihoods
     plotting: MultiFilterAlignmentPlottingInformation
 
@@ -69,7 +72,7 @@ class AlignemntLikelihoodProducts:
         cls,
         likelihood: MultiFilterAlignmentLikelihoods | None,
         plotting: MultiFilterAlignmentPlottingInformation,
-    ) -> Union["AlignemntLikelihoodProducts", None]:
+    ) -> Union["MultiFilterAlignmentProducts", None]:
         if likelihood is None:
             return None
         return cls(likelihood=likelihood, plotting=plotting)
@@ -78,7 +81,7 @@ class AlignemntLikelihoodProducts:
 @dataclass
 class JwstLikelihoodProducts:
     target: TargetLikelihoodProducts
-    alignment: AlignemntLikelihoodProducts | None
+    alignment: MultiFilterAlignmentProducts | None
 
 
 def build_jwst_likelihoods(
@@ -243,7 +246,7 @@ def build_jwst_likelihoods(
             filter_projector=filter_projector,
             hot_pixel_masking_data=hot_pixel_masking_data,
         ),
-        alignment=AlignemntLikelihoodProducts.from_optional(
+        alignment=MultiFilterAlignmentProducts.from_optional(
             likelihood=alignment_likelihoods,
             plotting=alignment_plotting,
         ),

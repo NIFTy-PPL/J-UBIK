@@ -32,4 +32,3 @@ BAND7 = Color([275, 373] * u.Unit("GHz"))
 BAND8 = Color([385, 500] * u.Unit("GHz"))
 BAND9 = Color([602, 720] * u.Unit("GHz"))
 BAND10 = Color([787, 950] * u.Unit("GHz"))
-

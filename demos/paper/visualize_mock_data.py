@@ -278,7 +278,7 @@ if __name__ == "__main__":
     plottable_data = np.vstack(plottabel_data_list)
 
     fig, ax = plt.subplots(2,2,figsize=joss_figsize(aspect_ratio=1.1), constrained_layout=True)
-    im = ax[0,0].imshow(plottable_data[0], norm="log",vmin=1, vmax=1e3, cmap=joss_cmap())    
+    im = ax[0,0].imshow(plottable_data[0], norm="log",vmin=1, vmax=1e3, cmap=joss_cmap())
     ax[0,0].plot(512,512,
                 marker="+",
                 color="red",

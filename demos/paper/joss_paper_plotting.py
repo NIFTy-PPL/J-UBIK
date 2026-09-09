@@ -31,7 +31,7 @@ def joss_figsize(aspect_ratio=0.7):
     columns: 1 oder 2
     aspect_ratio: height/width
     """
-    width_cm = 16.51        
+    width_cm = 16.51
     width_in = width_cm / 2.54
     height_in = width_in * aspect_ratio
     return (width_in, height_in)

@@ -28,11 +28,11 @@ from nifty.re import logger
 
 
 def display_plot_or_save(
-        fig: plt.Figure, 
-        filename: Optional[str], 
+        fig: plt.Figure,
+        filename: Optional[str],
         *,
-        dpi: int, 
-        bbox_inches=None, 
+        dpi: int,
+        bbox_inches=None,
 ):
     """Save *this* figure if filename is given, else show it. Optionally log and close."""
     if filename:
@@ -1058,7 +1058,7 @@ def plot_rgb(array,
              name=None,
              dpi=300,
              bbox_inches=None,
-             verbose: bool = True,           
+             verbose: bool = True,
              imshow_kwargs: dict | None = None,
              ):
     """
