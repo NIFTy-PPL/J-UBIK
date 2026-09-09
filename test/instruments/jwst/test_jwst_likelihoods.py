@@ -98,7 +98,9 @@ def make_grid():
     return Grid(spatial=spatial, spectral=Color([3.9, 5.0] * u.um))
 
 
-def make_config(tmp_path, n_files=1, gaia=False, variable_covariance=False):
+def make_config(
+    tmp_path, n_files=1, gaia=False, variable_covariance=False, zero_flux=False
+):
     files = [str(tmp_path / f"fake_{ii}.fits") for ii in range(n_files)]
     telescope = {
         "psf": {
@@ -128,6 +130,7 @@ def make_config(tmp_path, n_files=1, gaia=False, variable_covariance=False):
             "star_light": ["lognormal", 1.0, 1.0],
             "library_path": str(tmp_path / "gaia"),
         }
+    if zero_flux:
         telescope["zero_flux"] = {"default": ["lognormal", 0.9, 4]}
     if variable_covariance:
         telescope["variable_covariance"] = {
@@ -178,9 +181,12 @@ def test_two_files_share_bounds(patched_seams, tmp_path):
     assert np.isfinite(evaluate(products.target.likelihood))
 
 
-def test_gaia_and_variable_covariance(patched_seams, fake_gaia, tmp_path):
+@pytest.mark.parametrize("zero_flux", [True, False])
+def test_gaia_and_variable_covariance(patched_seams, fake_gaia, tmp_path, zero_flux):
     calls, table = fake_gaia
-    cfg = make_config(tmp_path, gaia=True, variable_covariance=True)
+    cfg = make_config(
+        tmp_path, gaia=True, variable_covariance=True, zero_flux=zero_flux
+    )
     products = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
     assert len(calls) == 1
@@ -189,9 +195,14 @@ def test_gaia_and_variable_covariance(patched_seams, fake_gaia, tmp_path):
 
     target = products.target.likelihood
     minimal = build_jwst_likelihoods(make_config(tmp_path), make_grid(), SKY_DOMAIN)
-    extra_keys = set(target.domain) - set(minimal.target.likelihood.domain)
-    assert extra_keys, "variable covariance and zero flux should add parameters"
+    extra_keys = set(target.domain.tree) - set(minimal.target.likelihood.domain.tree)
+    assert extra_keys, "variable covariance should add parameters"
+    assert any("zero_flux" in k for k in extra_keys) == zero_flux
     assert np.isfinite(evaluate(target))
 
     alignment = products.alignment.likelihood.likelihood
+    keys = set(alignment.domain.tree)
+    for star_id in table["SOURCE_ID"]:
+        assert f"{FILTER.lower()}_{star_id}_brightness" in keys
+    assert any("zero_flux" in k for k in keys) == zero_flux
     assert np.isfinite(evaluate(alignment))

@@ -76,6 +76,14 @@ def build_star_alignment_likelihood(
     )
     filter_alignment_likelihoods = dict(psf_convolved=[], psf=[])
 
+    zero_flux_prior_config = (
+        None
+        if response.zero_flux_prior_configs is None
+        else response.zero_flux_prior_configs.get_name_setting_or_default(
+            response.filter_name
+        )
+    )
+
     for star in response.star_tables.get_stars():
         # Check if star.id in
         if star.id not in response.stars_data.keys():
@@ -114,9 +122,7 @@ def build_star_alignment_likelihood(
                 psf=p,
                 zero_flux_model=build_zero_flux_model(
                     f"{response.filter_name}_{star.id}",
-                    response.zero_flux_prior_configs.get_name_setting_or_default(
-                        response.filter_name
-                    ),
+                    zero_flux_prior_config,
                     shape=(len(response.stars_data[star.id].data), 1, 1),
                 ),
                 data_mask=np.array(response.stars_data[star.id].mask),
