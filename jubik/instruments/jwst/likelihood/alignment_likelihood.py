@@ -145,6 +145,16 @@ def build_star_alignment_likelihood(
                 subsample=response.stars_data[star.id].subsample,
             )
 
+    if not filter_alignment_likelihoods["psf"]:
+        raise ValueError(
+            f"Star alignment for filter {response.filter_name!r} has no usable "
+            f"star: {len(response.star_tables.get_stars())} catalog stars, "
+            f"{len(response.stars_data)} with a valid cutout. Either the Gaia "
+            "query returned nothing for this field or every candidate was "
+            "rejected during loading (position off the detector or an all-NaN "
+            "cutout). Remove the `gaia_alignment` block or check the field."
+        )
+
     side_effect.plotting.psf.append(filter_alignment_plotting["psf"])
     side_effect.plotting.convolved.append(filter_alignment_plotting["psf_convolved"])
 

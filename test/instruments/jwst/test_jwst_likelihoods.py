@@ -79,6 +79,19 @@ class FakeJwstData(JwstData):
         )
 
 
+class NanStarsJwstData(FakeJwstData):
+    """`FakeJwstData` with NaN pixels under every `fake_gaia` star cutout.
+
+    Both stars land inside rows and columns 8 to 40 with a 9 pixel window, so
+    `load_one_stars_bundle` rejects each of them as an all-NaN cutout while the
+    target still has unmasked pixels.
+    """
+
+    def __init__(self, filepath: str):
+        super().__init__(filepath)
+        self.dm.data[8:40, 8:40] = np.nan
+
+
 def fake_build_webb_psf(camera, filter, center_pixel, webbpsf_path, subsample, *a, **k):
     size = 5 * subsample
     psf = np.zeros((size, size))
@@ -206,3 +219,19 @@ def test_gaia_and_variable_covariance(patched_seams, fake_gaia, tmp_path, zero_f
         assert f"{FILTER.lower()}_{star_id}_brightness" in keys
     assert any("zero_flux" in k for k in keys) == zero_flux
     assert np.isfinite(evaluate(alignment))
+
+
+def test_empty_gaia_catalog_raises(patched_seams, fake_gaia, tmp_path):
+    _, table = fake_gaia
+    table.remove_rows(slice(None))
+    cfg = make_config(tmp_path, gaia=True)
+    with pytest.raises(ValueError, match="no usable star.*0 catalog stars"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+def test_all_gaia_stars_rejected_raises(monkeypatch, patched_seams, fake_gaia, tmp_path):
+    for site in JWST_DATA_SITES:
+        monkeypatch.setattr(site, NanStarsJwstData)
+    cfg = make_config(tmp_path, gaia=True)
+    with pytest.raises(ValueError, match="2 catalog stars, 0 with a valid cutout"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
