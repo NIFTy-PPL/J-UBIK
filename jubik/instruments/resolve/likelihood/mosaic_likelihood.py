@@ -8,11 +8,18 @@ from jax.tree_util import tree_map
 from numpy.typing import NDArray
 
 from ....grid import Grid
+from ...jwst.parse.rotation_and_shift.coordinates_correction import (
+    CoordinatesCorrectionPriorConfig,
+)
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamer
 from ..noise.factory_noise_correction import factory_noise_correction_model
 from ..parse.noise.base_line_correction import BaseLineCorrection
 from ..parse.response import Ducc0Settings, FinufftSettings
+from ..phase_shift_correction import (
+    PhaseShiftCorrection,
+    build_phase_shift_correction_from_config,
+)
 from ..response import interferometry_response
 
 
@@ -20,7 +27,7 @@ def create_response_operator(
     domain: dict,
     sky2vis: Callable[[Array], Array],
     field_name: str,
-    shift: jft.Model | None = None,
+    shift: PhaseShiftCorrection | None = None,
 ):
     """Create the full response operator.
 
@@ -37,9 +44,8 @@ def create_response_operator(
         FFT and Gridding
     field_name: str,
         The name of the field to be extracted from the (beam corrected) sky.
-    shift: jft.Model | None = None,
-        (Optional) multiplicative correction applied to the visibilities, e.g. a
-        phase-shift correction.
+    shift: PhaseShiftCorrection | None = None,
+        (Optional) Phase-shift-correction
     """
 
     response = jft.wrap(sky2vis, field_name)
@@ -123,6 +129,7 @@ def build_likelihood_from_sky_beamer(
     sky_beamer: SkyBeamer,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
+    phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None,
     noise_std_correction: BaseLineCorrection | None = None,
 ) -> LikelihoodBuilder | VariableLikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
@@ -151,6 +158,8 @@ def build_likelihood_from_sky_beamer(
         Used for building the InterferometryResponse
     backend_settings: Union[Ducc0Settings, FinufftSettings]
         The algorithm for gridding and fft.
+    phase_shift_correction_config: CoordinatesCorrectionPriorConfig | None
+        (Optional) config object containing the priors for a shift correction.
     noise_std_correction: BaseLineCorrection | None
         (Optional) settings for an inferred noise standard deviation. If given,
         a `VariableLikelihoodBuilder` is returned instead of a
@@ -168,10 +177,17 @@ def build_likelihood_from_sky_beamer(
         backend_settings=backend_settings,
     )
 
+    shift = build_phase_shift_correction_from_config(
+        phase_shift_correction_config,
+        observation=observation,
+        field_name=field_name,
+    )
+
     response = create_response_operator(
         domain=sky_beamer.target,
         sky2vis=sky2vis,
         field_name=field_name,
+        shift=shift,
     )
 
     if noise_std_correction is None:
