@@ -12,6 +12,7 @@ the shipped probe record still passes.  The parametrized sweeps in the sibling
 modules add the breadth (rectangles, anisotropy, both backends, quadrants).
 """
 
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +35,13 @@ PROBES = {
     ],
 }
 
+# Optional runtime dependencies used by individual probes.  The normal CI
+# test environment deliberately does not install every instrument extra, so a
+# frozen input alone is not enough to make such a probe runnable.
+PROBE_MODULES = {
+    "p6_jwst_roundtrip.py": ["jwst"],
+}
+
 
 def _run(script: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
@@ -49,6 +57,16 @@ def test_probe_passes(name: str, requires: list[str]) -> None:
     missing = [g for g in requires if not (GOLDEN_DIR / g).exists()]
     if missing:
         pytest.skip(f"golden input(s) not minted: {', '.join(missing)}")
+
+    missing_modules = [
+        module
+        for module in PROBE_MODULES.get(name, [])
+        if importlib.util.find_spec(module) is None
+    ]
+    if missing_modules:
+        pytest.skip(
+            "optional dependency not installed: " + ", ".join(missing_modules)
+        )
 
     result = _run(PROBES_DIR / name)
     assert result.returncode == 0, (

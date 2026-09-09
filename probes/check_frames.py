@@ -71,6 +71,7 @@ HISTORY (why this got confusing — do not repeat it)
       pins the seam directly (corr(V_model, data) = 0.996).
 """
 
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -126,6 +127,7 @@ DOCUMENTED = {
                    "'identity' verdict. A transposed data<->world pairing in "
                    "the loader chain would show as a transpose-family verdict.",
         "requires": ["roundtrip_jwst_cal.fits"],
+        "requires_modules": ["jwst"],
     },
     "p7_radio_roundtrip.py": {
         "expect_pass": True,
@@ -149,12 +151,23 @@ def main() -> int:
     for name, doc in DOCUMENTED.items():
         missing = [g for g in doc.get("requires", [])
                    if not (GOLDEN_DIR / g).exists()]
+        missing_modules = [
+            module
+            for module in doc.get("requires_modules", [])
+            if importlib.util.find_spec(module) is None
+        ]
         if not (PROBES_DIR / name).exists():
             missing.append(name)
-        if missing:
-            print(f"\n{name}:  PENDING (golden not minted)")
+        if missing or missing_modules:
+            print(f"\n{name}:  PENDING (prerequisite unavailable)")
             print(f"    {doc['meaning']}")
-            print(f"    not yet present: {', '.join(missing)}")
+            if missing:
+                print(f"    not yet present: {', '.join(missing)}")
+            if missing_modules:
+                print(
+                    "    optional dependency not installed: "
+                    + ", ".join(missing_modules)
+                )
             continue
         result = subprocess.run(
             [sys.executable, str(PROBES_DIR / name)],
