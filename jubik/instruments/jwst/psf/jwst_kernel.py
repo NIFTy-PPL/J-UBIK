@@ -16,6 +16,12 @@ from ..data.jwst_data import JwstData
 from ..parse.jwst_psf import JwstPsfKernelConfig
 
 
+# --------------------------------
+# Testing seam
+# --------------------------------
+# `test/instruments/jwst/test_jwst_likelihoods.py` monkeypatches `build_webb_psf` so the
+# likelihood smoke test never imports stpsf. Keep the stpsf call confined to this
+# function so that one patch is enough.
 def build_webb_psf(
     camera: str,
     filter: str,

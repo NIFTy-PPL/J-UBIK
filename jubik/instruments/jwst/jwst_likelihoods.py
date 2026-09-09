@@ -3,6 +3,7 @@ from functools import reduce
 from typing import Union
 
 import nifty.re as jft
+from nifty.re import logger
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 

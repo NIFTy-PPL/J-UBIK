@@ -1,45 +1,12 @@
-import sys
-import types
-
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
-from astropy.table import Table
 
 from jubik.instruments.gaia.star_finder import load_gaia_stars_in_fov
 
 CORNERS = SkyCoord(
     ra=[10.0, 10.1, 10.1, 10.0], dec=[-5.0, -5.0, -4.9, -4.9], unit="deg"
 )
-
-
-class _FakeJob:
-    def __init__(self, table):
-        self._table = table
-
-    def get_results(self):
-        return self._table
-
-
-@pytest.fixture
-def fake_gaia(monkeypatch):
-    """Replace `astroquery.gaia.Gaia` with a stub that records the query."""
-    calls = []
-    table = Table({"SOURCE_ID": [1, 2], "ra": [10.05, 10.06], "dec": [-4.95, -4.96]})
-
-    class Gaia:
-        @staticmethod
-        def launch_job_async(query):
-            calls.append(query)
-            return _FakeJob(table)
-
-    gaia_mod = types.ModuleType("astroquery.gaia")
-    gaia_mod.Gaia = Gaia
-    pkg = types.ModuleType("astroquery")
-    pkg.gaia = gaia_mod
-    monkeypatch.setitem(sys.modules, "astroquery", pkg)
-    monkeypatch.setitem(sys.modules, "astroquery.gaia", gaia_mod)
-    return calls, table
 
 
 def _cache_files(path):
