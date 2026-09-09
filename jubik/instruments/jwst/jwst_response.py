@@ -26,8 +26,7 @@ from .masking.build_mask import build_mask
 from .parse.jwst_response import SkyMetaInformation
 from .parse.rotation_and_shift.rotation_and_shift import LinearConfig, NufftConfig
 from .parse.zero_flux_model import ZeroFluxPriorConfigs
-from .psf.psf_learning import LearnablePsf
-from .psf.psf_operator import PsfDynamic, PsfStatic, build_psf_operator_strategy
+from .psf.psf_operator import PsfStatic
 from .rotation_and_shift import RotationAndShift, build_rotation_and_shift
 from .rotation_and_shift.coordinates_correction import (
     ShiftAndRotationCorrection,
@@ -48,7 +47,7 @@ class JwstResponse(jft.Model):
     def __init__(
         self,
         sky_model: jft.Model | RotationAndShift | StarInData,
-        psf: PsfStatic | PsfDynamic,
+        psf: PsfStatic,
         unit_conversion: Callable[[ArrayLike], ArrayLike],
         integrate: Callable[[ArrayLike], ArrayLike],
         zero_flux_model: jft.Model | None,
@@ -61,9 +60,8 @@ class JwstResponse(jft.Model):
         ----------
         sky_model : jft.Model | RotationAndShift | StarInData,
             A model has as output the sky in the frame of the data.
-        psf : callable
-            A function that applies a point spread function (PSF) to the
-            input data.
+        psf : PsfStatic
+            Convolution of the sky with the static PSF kernel.
         unit_conversion : callable
             A function that transforms the unit of the sky to the data unit.
         integrate : callable
@@ -103,7 +101,7 @@ def build_jwst_response(
     data_meta: DataMetaInformation,
     data_subsample: int,
     sky_meta: SkyMetaInformation,
-    psf: np.ndarray | LearnablePsf | None,
+    psf: np.ndarray | None,
     zero_flux_model: jft.Model | None,
     data_mask: ArrayLike | None,
 ) -> JwstResponse:
@@ -127,15 +125,15 @@ def build_jwst_response(
     sky_meta: SkyMetaInformation, needed here:
         - unit                  # Unit of the data
         - dvol                  # Pixel volume of the sky
-    psf: np.ndarray
-        The kernel of the psf as a np.ndarray.
+    psf: np.ndarray | None
+        The kernel of the psf as a np.ndarray. None skips the convolution.
     zero_flux_model : jft.Model
         The model for the a constant (zero) flux in the data.
     data_mask: ArrayLike
         The mask on the data
     """
 
-    psf = build_psf_operator_strategy(sky_in_subsampled_data.target, psf)
+    psf = PsfStatic(sky_in_subsampled_data.target, psf)
 
     unit_conversion = build_unit_conversion(
         sky_unit=sky_meta.unit,

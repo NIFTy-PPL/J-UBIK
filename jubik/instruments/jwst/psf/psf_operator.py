@@ -14,10 +14,8 @@ from jax import vmap
 from jax.scipy.signal import fftconvolve
 from jax.tree_util import Partial
 
-from .psf_learning import LearnablePsf
 
-
-def _build_vmap_apply(psf_kernel_shape: tuple[int]) -> Callable[ArrayLike, ArrayLike]:
+def _build_vmap_apply(psf_kernel_shape: tuple[int]) -> Callable[[ArrayLike], ArrayLike]:
     if len(psf_kernel_shape) == 2:
         return partial(fftconvolve, mode="same")
     elif len(psf_kernel_shape) == 3:
@@ -55,59 +53,3 @@ class PsfStatic(jft.Model):
         if self.kernel is None:
             return field
         return self._convolve(field, self.kernel)
-
-
-class PsfDynamic(jft.Model):
-    """Implements the convolution by a dynamic psf kernel, i.e. a psf kernel that is
-    learned."""
-
-    def __init__(
-        self,
-        sky_shape_with_dtype: jft.ShapeWithDtype,
-        psf_kernel: LearnablePsf | np.ndarray | None,
-    ):
-        """
-        Parameters
-        ----------
-        sky_shape_with_dtype: jft.ShapeWithDtype
-            The `ShapeWithDtype` of the sky.
-        psf_kernel: LearnablePsf | np.ndarray | None
-            If None, the apply will just return the input field.
-            Elif np.ndarray, the input field will by convolved by the `psf_kernel`.
-        """
-
-        assert isinstance(psf_kernel, LearnablePsf)
-
-        self.kernel = psf_kernel
-        self._convolve = _build_vmap_apply(self.kernel.shape)
-
-        super().__init__(
-            domain=(sky_shape_with_dtype, self.kernel.domain), white_init=True
-        )
-
-    def __call__(self, x):
-        field, psf_kernel_x = x
-        psf_kernel = self.model(psf_kernel_x)
-        return self._convolve(field, psf_kernel)
-
-
-def build_psf_operator_strategy(
-    sky_shape_with_dtype: jft.ShapeWithDtype,
-    psf_kernel: np.ndarray | LearnablePsf | None,
-) -> PsfDynamic | PsfStatic:
-    """Build either a static or a dynamic (with learned kernel) PsfDynamic.
-
-    Parameters
-    ----------
-    sky_shape_with_dtype: jft.ShapeWithDtype
-        The shape and dtype of the sky.
-    psf_kernel:  np.ndarray | LearnablePsf | None
-        The psf kernel to by applied to the sky.
-    """
-    assert hasattr(sky_shape_with_dtype, "shape")
-    assert hasattr(sky_shape_with_dtype, "dtype")
-
-    if isinstance(psf_kernel, np.ndarray) or psf_kernel is None:
-        return PsfStatic(sky_shape_with_dtype, psf_kernel)
-
-    return PsfDynamic(sky_shape_with_dtype, psf_kernel)
