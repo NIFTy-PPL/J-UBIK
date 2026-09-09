@@ -178,7 +178,7 @@ def create_mock_data(tel_info,
                                     axis=(1, 2))).tolist())
             plot_result(
                 plottable_data_array[tm_id],
-                logscale=True,
+                log=True,
                 output_file=join(mock_output, f'mock_data_tm{tm_id+1}.png'))
         for key, sky_comp in sky_comps.items():
             plot_rgb(sky_comp(mock_sky_position),
@@ -195,14 +195,13 @@ def create_mock_data(tel_info,
                                       axis=(1, 2))).tolist())
             plot_result(
                 sky_comp(mock_sky_position),
-                logscale=True,
+                log=True,
                 output_file=join(mock_output, f'mock_{key}.png'))
         if hasattr(sky_model, 'alpha_cf'):
             diffuse_alpha = sky_model.alpha_cf
             plot_result(
                 diffuse_alpha(mock_sky_position),
-                logscale=False,
+                log=False,
                 output_file=join(mock_output, f'mock_diffuse_alpha.png'))
     return masked_mock_data
-
 

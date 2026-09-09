@@ -15,6 +15,7 @@ SAMPLES = 'samples'
 N_SAMPLES = 'n_samples'
 N_TOTAL_ITERATIONS = 'n_total_iterations'
 CONSTANTS = 'constants'
+POINT_ESTIMATES = 'point_estimates'
 CONST_KEYS_CONFIG_NAME = 'domain_keys'
 MODE = 'mode'
 DELTA = 'delta'
@@ -88,11 +89,17 @@ def get_config_value(
         if key not in config:
             print(f'Key: {key} set to default={default}')
 
+    if value_list is None and default is not None:
+        return default
+
     if isinstance(value_list, list):
         try:
-            return value_list[index]
+            value = value_list[index]
         except IndexError:
-            return value_list[-1]
+            value = value_list[-1]
+        if value is None and default is not None:
+            return default
+        return value
 
     return value_list
 
@@ -145,8 +152,6 @@ def get_range_index(
 
     if iteration >= total_iterations:
         return len(switches) - 1
-    else:
-        raise ValueError(f'Iteration {iteration} is out of range.')
 
 
 def _delta_logic(
@@ -210,7 +215,7 @@ def _delta_logic(
     params = {
         KL: {'variable': ABSDELTA, 'factor': ndof},
         LIN: {'variable': ABSDELTA, 'factor': ndof / 10
-        if ndof is not None else ndof},
+              if ndof is not None else ndof},
         NONLIN: {'variable': XTOL, 'factor': 1.0}
     }
 
@@ -401,13 +406,13 @@ def linear_sample_kwargs_factory(
             # be removed here.
             cg_name=None,
             cg_kwargs=dict(
-                name=LIN_NAME,
+                name=f'{LIN_NAME}_cg',
                 absdelta=absdelta,
                 tol=tol,
                 atol=atol,
                 miniter=minit,
                 maxiter=maxit)
-            )
+        )
 
     # Checks whether `linear_sample_kwargs` are well-defined before inference
     # and prints their values at each iteration.
@@ -618,9 +623,10 @@ def kl_kwargs_factory(
 
 def constants_factory(
     mini_cfg: dict,
-) -> Callable[[int], int]:
+    verbose: bool = True
+) -> Callable[[int], tuple | None]:
     """
-    Creates a Callable that returns a list of domain keys which should be kept
+    Creates a Callable that returns a tuple of domain keys which should be kept
     constant during minimization at a given iteration.
 
     Parameters
@@ -628,11 +634,14 @@ def constants_factory(
     mini_cfg : dict
         The configuration dictionary containing constant keys information.
 
+    verbose : bool, optional
+        If True, prints the constants for each iteration.
+
     Returns
     -------
-    Callable[[int], list]
-        A function that takes an iteration number and returns a list of constant
-        domain keys.
+    Callable[[int], tuple]
+        A function that takes an iteration number and returns a tuple of constant
+        domain keys (or None).
 
     Examples
     --------
@@ -641,16 +650,27 @@ def constants_factory(
     ...             'n_total_iterations': 7}
     >>> constants = constants_factory(mini_cfg)
     >>> constants(0)
-    ['a', 'b']
+    ('a', 'b')
     >>> constants(6)
     None
     """
 
-    def constants(iteration: int) -> int:
+    def constants(iteration: int) -> tuple | None:
         range_index = get_range_index(
             mini_cfg[CONSTANTS], iteration, mini_cfg[N_TOTAL_ITERATIONS])
-        return get_config_value(CONST_KEYS_CONFIG_NAME, mini_cfg[CONSTANTS],
-                                range_index, default=None)
+        constant_keys = get_config_value(
+            CONST_KEYS_CONFIG_NAME,
+            mini_cfg[CONSTANTS],
+            range_index,
+            default=None
+        )
+        if isinstance(constant_keys, list):
+            constant_keys = tuple(constant_keys)
+        if verbose:
+            jft.logger.info(
+                f'it {iteration + 1}: constants set to {constant_keys}'
+            )
+        return constant_keys
 
     # Checks whether `constants` are well-defined before inference and prints
     # their values at each iteration.
@@ -658,6 +678,54 @@ def constants_factory(
         constants(ii)
 
     return constants
+
+
+def point_estimates_factory(
+    mini_cfg: dict,
+    verbose: bool = True
+) -> Callable[[int], tuple | None]:
+    """
+    Creates a Callable that returns a tuple of domain keys which should be
+    treated as point estimates during minimization at a given iteration.
+
+    Parameters
+    ----------
+    mini_cfg : dict
+        The configuration dictionary containing point estimate keys information.
+
+    verbose : bool, optional
+        If True, prints the point estimates for each iteration.
+
+    Returns
+    -------
+    Callable[[int], tuple]
+        A function that takes an iteration number and returns a tuple of point
+        estimate domain keys (or None).
+    """
+
+    def point_estimates(iteration: int) -> tuple | None:
+        range_index = get_range_index(
+            mini_cfg[POINT_ESTIMATES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
+        pe_keys = get_config_value(
+            CONST_KEYS_CONFIG_NAME,
+            mini_cfg[POINT_ESTIMATES],
+            range_index,
+            default=None
+        )
+        if isinstance(pe_keys, list):
+            pe_keys = tuple(pe_keys)
+        if verbose:
+            jft.logger.info(
+                f'it {iteration + 1}: point_estimates set to {pe_keys}'
+            )
+        return pe_keys
+
+    # Checks whether `point_estimates` are well-defined before inference and
+    # prints their values at each iteration.
+    for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
+        point_estimates(ii)
+
+    return point_estimates
 
 
 
@@ -693,6 +761,11 @@ class MinimizationParser:
         Function returning nonlinear update kwargs for each iteration.
     kl_kwargs : Callable[[int], dict]
         Function returning KL minimization kwargs for each iteration.
+    constants : Callable[[int], tuple | None]
+        Function returning a tuple of constant domain keys for each iteration.
+    point_estimates : Callable[[int], tuple | None]
+        Function returning a tuple of point estimate domain keys for each
+        iteration.
     """
 
     def __init__(self, config, n_dof=None, verbose=True):
@@ -711,3 +784,12 @@ class MinimizationParser:
             config, delta, verbose=verbose)
         self.kl_kwargs = kl_kwargs_factory(config, delta,
                                            ndof=n_dof, verbose=verbose)
+        if config.get(CONSTANTS) is not None:
+            self.constants = constants_factory(config, verbose=verbose)
+        else:
+            self.constants = lambda iteration: None
+        if config.get(POINT_ESTIMATES) is not None:
+            self.point_estimates = point_estimates_factory(
+                config, verbose=verbose)
+        else:
+            self.point_estimates = lambda iteration: None

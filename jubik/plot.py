@@ -8,15 +8,41 @@
 import math
 from contextlib import nullcontext
 from functools import reduce
+from typing import Optional, Sequence, List, Tuple, Union
+from dataclasses import dataclass
+import math
 
+from jax import vmap
 import numpy as np
+import jax.numpy as jnp
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm, Normalize
 from matplotlib.ticker import LogFormatterMathtext
+import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from .data import Domain
 from .convolve import convolve
+from nifty.re import logger
+
+
+
+def display_plot_or_save(
+        fig: plt.Figure,
+        filename: Optional[str],
+        *,
+        dpi: int,
+        bbox_inches=None,
+):
+    """Save *this* figure if filename is given, else show it. Optionally log and close."""
+    if filename:
+        fig.savefig(filename, dpi=dpi, bbox_inches=bbox_inches)
+        plt.close(fig)
+        plt.cla()
+        plt.clf()
+        logger.info(f"Plot saved to {filename}.")
+    else:
+        plt.show()
 
 try:
     import ducc0.healpix as ducc_hp
@@ -30,10 +56,10 @@ else:
 def plot_result(array,
                 domains=None,
                 output_file=None,
-                logscale=False,
+                log=False,
                 title=None,
                 colorbar=True,
-                figsize=(8, 8),
+                figsize=None,
                 dpi=100,
                 cbar_formatter=None,
                 n_rows=None,
@@ -50,20 +76,25 @@ def plot_result(array,
     Parameters
     ----------
     array : numpy.ndarray
-        Array of images. The first index indices through the different images
-        (e.g., shape = (5, 128, 128)).
+        Array of images. Supported shapes:
+            (npix_x, npix_y) - single image
+            (N_images, npix_x, npix_y) - stack of images
+            (N_samples, N_channels, npix_x, npix_y) - rows per sample, columns per
+                channel.
     domains : list[dict], optional
         List of domains. Each domain should correspond to each image array.
+        For arrays with N_samples and N_channels, provide entries in row-major order.
     output_file : str, optional
         The name of the file to save the plot to.
-    logscale : bool, optional
+    log : bool, optional
         Whether to use a logarithmic scale for the color map.
     title : list[str], optional
         The title of each individual plot in the array.
     colorbar : bool, optional
         Whether to show the color bar.
-    figsize : tuple, optional
-        The size of the figure in inches.
+    figsize : tuple or None, optional
+        Figure size in inches. When None, a per-panel default of roughly
+        3.5" × 3.5" is used (scaled by the inferred grid dimensions).
     dpi : int, optional
         The resolution of the figure in dots per inch.
     cbar_formatter : matplotlib.ticker.Formatter, optional
@@ -84,6 +115,10 @@ def plot_result(array,
     pause_time : float, optional
         The time in seconds to pause between each plot.
         If None, no pause is performed.
+    vmin, vmax : float or sequence of float, optional
+        Color scale bounds passed to imshow(). Scalars apply to all images.
+        Sequences must match the number of plots, or (for 4D inputs) the
+        number of channels to apply the same bounds to each sample.
     kwargs : dict, optional
         Additional keyword arguments to pass to imshow().
 
@@ -92,24 +127,45 @@ def plot_result(array,
     None
     """
 
+    array = np.asarray(array)
     shape_len = array.shape
-    if len(shape_len) < 2 or len(shape_len) > 3:
+    if len(shape_len) < 2 or len(shape_len) > 4:
         raise ValueError("Wrong input shape for array plot!")
+
+    n_samples = None
+    n_channels = None
+    treating_multi_channel = False
+
     if len(shape_len) == 2:
         array = array[np.newaxis, :, :]
+    elif len(shape_len) == 4:
+        treating_multi_channel = True
+        n_samples, n_channels = shape_len[:2]
+        array = array.reshape(n_samples * n_channels, *shape_len[-2:])
 
     n_plots = array.shape[0]
 
-    if n_rows is None:
-        n_rows = _get_n_rows_from_n_samples(n_plots)
+    if treating_multi_channel:
+        n_rows = n_samples
+        n_cols = n_channels
+    else:
+        if n_rows is None:
+            n_rows = _get_n_rows_from_n_samples(n_plots)
 
-    if n_cols is None:
-        if n_plots % n_rows == 0:
-            n_cols = n_plots // n_rows
+        if n_cols is None:
+            if n_plots % n_rows == 0:
+                n_cols = n_plots // n_rows
+            else:
+                n_cols = n_plots // n_rows + 1
+
+    if figsize is None:
+        if n_plots == 1:
+            figsize = (4.8, 4.5)
         else:
-            n_cols = n_plots // n_rows + 1
+            base = 3.5
+            figsize = (max(1, n_cols) * base, max(1, n_rows) * base)
 
-    if adjust_figsize:
+    if adjust_figsize and figsize is not None:
         x = int(n_cols / n_rows)
         y = int(n_rows / n_cols)
         if x == 0:
@@ -125,27 +181,63 @@ def plot_result(array,
                              sharey=share_y)
 
     if isinstance(axes, np.ndarray):
-        axes = axes.flatten()
+        axes = axes.reshape(-1)
     else:
         axes = [axes]
     pltargs = {"origin": "lower", "cmap": "viridis"}
 
     # Handle vmin and vmax
-    vmin = kwargs.get("vmin", None)
-    vmax = kwargs.get("vmax", None)
+    raw_vmin = kwargs.pop("vmin", None)
+    raw_vmax = kwargs.pop("vmax", None)
 
-    if logscale or (colorbar and common_colorbar):
-        vmin, vmax = _get_color_limits(
+    def _expand_bounds(value, name):
+        if value is None:
+            return [None] * n_plots
+        if np.ndim(value) == 0:
+            return [value] * n_plots
+        if np.ndim(value) == 1:
+            seq = [float(v) for v in np.asarray(value)]
+            if treating_multi_channel and len(seq) == n_channels:
+                return [seq[c] for _ in range(n_samples) for c in range(n_channels)]
+            if len(seq) == n_plots:
+                return seq
+            msg = f"{name} must be a scalar or a sequence of length {n_plots}"
+            if treating_multi_channel:
+                msg += f" or {n_channels} (per-channel)"
+            raise ValueError(msg + ".")
+        raise TypeError(f"{name} must be a scalar or a sequence.")
+
+    # A single scale for every panel is only well defined for scalar bounds.
+    shared_bounds = (
+        colorbar
+        and common_colorbar
+        and all(b is None or np.ndim(b) == 0 for b in (raw_vmin, raw_vmax))
+    )
+
+    if shared_bounds:
+        raw_vmin, raw_vmax = _get_color_limits(
             array,
-            logscale=logscale,
-            vmin=vmin,
-            vmax=vmax,
+            logscale=log,
+            vmin=raw_vmin,
+            vmax=raw_vmax,
         )
 
-    if logscale:
-        pltargs["norm"] = "log"
+    vmins = _expand_bounds(raw_vmin, "vmin")
+    vmaxs = _expand_bounds(raw_vmax, "vmax")
 
-    kwargs.update({'vmin': vmin, 'vmax': vmax})
+    if log:
+        if not shared_bounds:
+            # LogNorm rejects non-positive limits, so clamp each panel to its
+            # own positive range.
+            limits = [
+                _get_color_limits(
+                    array[i], logscale=True, vmin=vmins[i], vmax=vmaxs[i]
+                )
+                for i in range(n_plots)
+            ]
+            vmins = [lo for lo, _ in limits]
+            vmaxs = [hi for _, hi in limits]
+        pltargs["norm"] = "log"
 
     for i in range(n_plots):
         if array[i].ndim != 2:
@@ -159,12 +251,22 @@ def plot_result(array,
             axes[i].set_xlabel("FOV [arcmin]")
             axes[i].set_ylabel("FOV [arcmin]")
 
-        pltargs.update(**kwargs)
+        local_kwargs = dict(kwargs)
+        local_kwargs.update({"vmin": vmins[i], "vmax": vmaxs[i]})
+        pltargs.update(**local_kwargs)
         im = axes[i].imshow(array[i], **pltargs)
 
         if title is not None:
             if isinstance(title, list):
-                axes[i].set_title(title[i])
+                if len(title) == n_plots:
+                    axes[i].set_title(title[i])
+                elif len(title) == n_cols and share_x and share_y:
+                    row_idx = i // n_cols
+                    col_idx = i % n_cols
+                    if row_idx == 0:
+                        axes[i].set_title(title[col_idx])
+                else:
+                    axes[i].set_title(title[min(i, len(title) - 1)])
             else:
                 fig.suptitle(title)
 
@@ -174,7 +276,11 @@ def plot_result(array,
             fig.colorbar(im, cax=cax, format=cbar_formatter)
     for i in range(n_del):
         fig.delaxes(axes[n_plots + i])
-    fig.tight_layout()
+    if n_plots == 1:
+        fig.tight_layout()
+        fig.subplots_adjust(top=0.8)
+    else:
+        fig.tight_layout()
     if output_file is not None:
         fig.savefig(output_file, bbox_inches='tight', pad_inches=0)
         print(f"Plot saved as {output_file}.")
@@ -793,85 +899,632 @@ def plot_sample_averaged_log_2d_histogram(x_array_list,
         plt.show()
 
 
+@dataclass
+class RGBScaleConfig:
+    """Encapsulate RGB normalization strategy and optional relative channel weights.
+
+    The configuration normalizes the clipped RGB cube either globally or per channel.
+    When `relative_scale` is provided, per-channel maxima are first scaled to one and
+    then reweighted so that each channel peak contributes the requested fraction of the
+    composite image (fractions are renormalized so the largest entry maps to 1.0).
+    """
+
+    mode: str
+    relative_scale: Optional[np.ndarray] = None
+
+    def __post_init__(self):
+        self.mode = str(self.mode).lower()
+        if self.mode not in {"global", "per_channel"}:
+            raise ValueError("scale_mode must be 'global' or 'per_channel'.")
+
+        if self.relative_scale is not None:
+            rel = np.asarray(self.relative_scale, dtype=float)
+            if rel.shape != (3,):
+                raise ValueError("relative_scale must be a 3-element sequence.")
+            if np.any(~np.isfinite(rel)):
+                raise ValueError("relative_scale entries must be finite numbers.")
+            if np.any(rel < 0):
+                raise ValueError("relative_scale entries must be non-negative.")
+            if np.all(rel <= 0):
+                raise ValueError("relative_scale must contain at least one positive value.")
+            self.relative_scale = rel
+
+    @classmethod
+    def from_settings(cls, value: Union[str, Sequence[float], 'RGBScaleConfig']) -> 'RGBScaleConfig':
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            return cls(mode=value)
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            return cls(mode="per_channel", relative_scale=np.asarray(value, dtype=float))
+        raise TypeError("scale_mode must be a string, a 3-element sequence, or RGBScaleConfig.")
+
+    def normalize(self,
+                  rgb: np.ndarray,
+                  *,
+                  vmins: Optional[Sequence[float]] = None,
+                  vmaxs: Optional[Sequence[float]] = None) -> tuple[np.ndarray, dict]:
+        """Normalize clipped RGB values according to the configured mode."""
+
+        def _nanmax_safe(arr: np.ndarray) -> float:
+            try:
+                return float(np.nanmax(arr))
+            except ValueError:
+                return float("nan")
+
+        def _nanmin_safe(arr: np.ndarray) -> float:
+            try:
+                return float(np.nanmin(arr))
+            except ValueError:
+                return float("nan")
+
+        if self.mode == "global":
+            global_max = _nanmax_safe(rgb) if rgb.size else float("nan")
+            global_min = _nanmin_safe(rgb) if rgb.size else float("nan")
+            denom = (global_max - global_min
+                     if np.isfinite(global_max) and np.isfinite(global_min)
+                     else float("nan"))
+            if not np.isfinite(denom) or denom <= 0:
+                img = np.zeros_like(rgb, dtype=float)
+            else:
+                img = (rgb - global_min) / denom
+                img = np.clip(img, 0.0, 1.0, out=img)
+            return img, {
+                "scale_mode": "global",
+                "global_max": global_max,
+                "global_min": global_min,
+                "per_channel_max": None,
+                "per_channel_min": None,
+                "relative_scale": None,
+                "relative_scale_normalized": None,
+            }
+
+        # per-channel scaling
+        img = np.empty_like(rgb, dtype=float)
+        channel_max = np.zeros(3, dtype=float)
+        channel_min = np.zeros(3, dtype=float)
+
+        if vmins is not None:
+            mins = np.asarray(vmins, dtype=float)
+        else:
+            mins = np.array([_nanmin_safe(rgb[c]) for c in range(3)], dtype=float)
+
+        if vmaxs is not None:
+            maxs = np.asarray(vmaxs, dtype=float)
+        else:
+            maxs = np.array([_nanmax_safe(rgb[c]) for c in range(3)], dtype=float)
+
+        for c in range(3):
+            ch = rgb[c]
+            ch_max = _nanmax_safe(ch) if ch.size else float("nan")
+            channel_max[c] = ch_max if np.isfinite(ch_max) else float("nan")
+            ch_min = mins[c]
+            max_clip = maxs[c]
+            channel_min[c] = float(ch_min) if np.isfinite(ch_min) else float("nan")
+            denom = (max_clip - ch_min
+                     if np.isfinite(max_clip) and np.isfinite(ch_min)
+                     else float("nan"))
+            if not np.isfinite(denom) or denom <= 0:
+                img[c] = np.zeros_like(ch, dtype=float)
+            else:
+                img[c] = (ch - ch_min) / denom
+                img[c] = np.clip(img[c], 0.0, 1.0)
+
+        info = {
+            "scale_mode": "per_channel",
+            "per_channel_max": channel_max.tolist(),
+            "per_channel_min": channel_min.tolist(),
+            "global_max": None,
+            "global_min": None,
+            "relative_scale": None,
+            "relative_scale_normalized": None,
+        }
+
+        if self.relative_scale is not None:
+            weights = self.relative_scale
+            max_weight = float(np.max(weights))
+            if not np.isfinite(max_weight) or max_weight <= 0:
+                raise ValueError("relative_scale must contain at least one positive finite entry.")
+            normalized_weights = weights / max_weight
+            for c in range(3):
+                img[c] *= normalized_weights[c]
+            info["relative_scale"] = weights.tolist()
+            info["relative_scale_normalized"] = normalized_weights.tolist()
+
+        return img, info
+
+
 def plot_rgb(array,
              sat_min=[0, 0, 0],
              sat_max=[1, 1, 1],
-             name=None,
              sigma=None,
              log=False,
-             pause_time=None,
+             clipped_log=True,
+             vmin=None,
+             vmax=None,
+             *,
+             rgb_energies_existing=None,
+             rgb_energies_target=None,
+             rgb_log_spacing: bool = True,
+             rgb_method: str = "linear",   # "linear" | "cubic"
+             scale_mode: str | Sequence[float] | RGBScaleConfig = "global",
+             show_flux_bars: bool = False,
+             flux_bar_decimals: int = 3,
+             scalebar_px: int | None = None,
+             px_scale: float | None = None,
+             scalebar_label: str | None = None,
+             scalebar_loc: str = "lower right",
+             ax: plt.Axes | None = None,
+             name=None,
+             dpi=300,
+             bbox_inches=None,
+             verbose: bool = True,
+             imshow_kwargs: dict | None = None,
              ):
     """
-    Plots an RGB image and saves it to a file.
+    Plot an RGB image with optional spectral conversion, clipping, and annotations.
 
-    This function processes an RGB image array, applies optional smoothing,
-    clipping, and logarithmic scaling, and then saves the image to a PNG file.
+    The function accepts RGB images or spectral cubes and converts cubes to RGB via
+    `to_rgb_bands` before applying per-channel flux clipping, optional smoothing/log
+    scaling, and display overlays such as flux scales or scalebars.
 
     Parameters
     ----------
-    array : ndarray
-        An array with shape (RGB, Space, Space) representing the RGB image data.
-        The first dimension should correspond to the color channels
-        (Red, Green, Blue).
-    sat_min : list of float, optional
-        Minimum values for saturation clipping in each color channel.
-        Should be a list with three elements corresponding to the RGB channels.
-        Default is [0, 0, 0].
-    sat_max : list of float, optional
-        Maximum values for saturation clipping in each color channel.
-        Should be a list with three elements corresponding to the RGB channels.
-        Default is [1, 1, 1].
-    name : str, optional
-        The base name of the file where the plot will be saved.
-        The file extension '.png' will be added automatically.
-        If None, no file will be saved.
+    array : np.ndarray
+        Input image data with shape (3, M, Q), (M, Q, 3), or (N, M, Q) for spectral cubes.
+    sat_min : float or Sequence[float], optional
+        Lower cumulative-flux quantile(s) per channel used before normalization (value(s) in [0, 1]).
+    sat_max : float or Sequence[float], optional
+        Upper cumulative-flux quantile(s) per channel used before normalization (value(s) in [0, 1]).
     sigma : float or None, optional
-        Standard deviation for Gaussian smoothing.
-        If None, no smoothing is applied. Default is None.
+        Standard deviation of the Gaussian smoothing applied after RGB conversion.
     log : bool, optional
-        If True, apply logarithmic scaling to the
-        image data (non-zero values only). Default is False.
-    pause_time : float, optional
-        The time in seconds to pause between each plot.
-        If None, no pause is applied. Default is None.
+        Apply a natural logarithm to positive pixels after smoothing.
+    clipped_log : bool, optional
+        When True, clip the RGB data to ≥1e-18 before taking the logarithm,
+        ensuring a finite baseline. Defaults to True.
+    vmin, vmax : float | Sequence[float | None] | None, optional
+        Absolute clipping thresholds per channel (after optional log). When provided,
+        they override the quantile-based `sat_min`/`sat_max` for the respective channels.
+        Scalars apply to all channels; sequences must have length three and may contain
+        `None` entries to fall back to the quantile defaults.
+    rgb_energies_existing : array-like or None, optional
+        Energies/frequencies associated with the input spectral channels when converting.
+    rgb_energies_target : array-like of length 3 or None, optional
+        Target energies for the RGB bands when performing spectral conversion.
+    rgb_log_spacing : bool, optional
+        Assume log-spaced channels when `rgb_energies_existing` is not provided.
+    rgb_method : {"linear", "cubic"}, optional
+        Interpolation method used by `to_rgb_bands` during spectral conversion.
+    scale_mode : {"global", "per_channel"} or Sequence[float], optional
+        Normalization strategy. A 3-sequence triggers per-channel scaling with relative
+        weights applied after normalization (see `relative_scale_normalized` in the return info).
+    show_flux_bars : bool, optional
+        Draw inset color bars that visualize the clipping thresholds per channel.
+    flux_bar_decimals : int, optional
+        Number of decimals shown on the flux-bar tick labels.
+    scalebar_px : int or None, optional
+        Width of the scalebar in pixels; omitted when None.
+    px_scale : float or None, optional
+        Physical scale per pixel used to annotate the scalebar label.
+    scalebar_label : str or None, optional
+        Custom text for the scalebar; defaults to a generated label when omitted.
+    scalebar_loc : str, optional
+        Location code passed to `AnchoredSizeBar` for the scalebar.
+    ax : matplotlib.axes.Axes or None, optional
+        Existing axes to draw on; a new figure/axes is created when None.
+    name : str or None, optional
+        Output path used to save the figure when a new figure is created.
+    dpi : int, optional
+        Resolution in dots per inch used when saving a newly created figure.
+    bbox_inches : str or None, optional
+        Bounding box passed to `display_plot_or_save` while saving.
+    verbose : bool, optional
+        Log diagnostic messages during axis reordering or spectral conversion.
+    imshow_kwargs : dict or None, optional
+        Extra keyword arguments forwarded to ``ax.imshow`` (e.g. ``interpolation``).
 
     Returns
     -------
-    None
-        The function saves the RGB image to a PNG file and does not
-        return any value.
+    fig : matplotlib.figure.Figure
+        Figure that contains the rendered RGB image.
+    ax : matplotlib.axes.Axes
+        Axes used for plotting the RGB image.
+    info : dict
+        Metadata describing the applied scaling, including `rgb_energies` when available.
 
-    Notes
-    -----
-    - The image will be saved with the filename format '<name>.png'.
-    - Ensure that the input array is correctly formatted with the first
-    dimension as RGB channels.
+    Raises
+    ------
+    ValueError
+        If `array` is not three-dimensional or if `scale_mode` is unsupported.
     """
-    if sigma is not None:
-        array = _smooth(sigma, array)
-    if sat_min is not None and sat_max is not None:
-        array = _clip(array, sat_min, sat_max)
-    if log:
-        array = _non_zero_log(array)
 
-    array = np.moveaxis(array, 0, -1)  # Move the RGB dimension
-    # to the last axis for plotting
-    plot_data = _norm_rgb_plot(array)  # Normalize data for RGB plotting
-    plt.imshow(plot_data, origin="lower")
+    # ---------------- helpers ----------------
+    def _as_triplet(x):
+        if isinstance(x, (int, float)):
+            return [x, x, x]
+        if len(x) != 3:
+            raise ValueError("sat_min/sat_max must be a float or a list of 3 floats (per RGB channel).")
+        return x
 
-    if name is not None:
-        plt.savefig(name + ".png", dpi=500) # TODO: make dpi configurable
-        plt.cla()
-        plt.clf()
-        plt.close()
-        print(f"RGB image saved as {name}.png")
+    def _as_triplet_optional(x, *, name: str):
+        if x is None:
+            return [None, None, None]
+        if isinstance(x, (int, float)):
+            return [float(x)] * 3
+        if len(x) != 3:
+            raise ValueError(f"{name} must be scalar or a 3-element sequence.")
+        out = []
+        for idx, val in enumerate(x):
+            if val is None:
+                out.append(None)
+            else:
+                out.append(float(val))
+        return out
+
+    def _flux_quantile_threshold(ch: np.ndarray, q: float) -> float:
+        x = np.asarray(ch, dtype=float).ravel()
+        if x.size == 0:
+            return 0.0
+        shift = x.min()
+        x_shift = x - shift if shift < 0 else x
+        tot = x_shift.sum()
+        if not np.isfinite(tot) or tot <= 0:
+            return float(np.nanmin(ch) if q <= 0 else np.nanmax(ch))
+        order = np.argsort(x)
+        vals = x[order]
+        weights = x_shift[order]
+        cflux = np.cumsum(weights) / tot
+        idx = np.searchsorted(cflux, np.clip(q, 0.0, 1.0), side="left")
+        idx = min(idx, vals.size - 1)
+        return float(vals[idx])
+
+    def _per_channel_flux_clip(
+        rgb: np.ndarray,
+        qmin,
+        qmax,
+        manual_vmins,
+        manual_vmaxs,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        out = np.empty_like(rgb, dtype=float)
+        vmins = np.zeros(3, dtype=float)
+        vmaxs = np.zeros(3, dtype=float)
+        for c in range(3):
+            ch = rgb[c]
+            vmin = manual_vmins[c]
+            vmax = manual_vmaxs[c]
+            if vmin is None:
+                vmin = _flux_quantile_threshold(ch, qmin[c])
+            if vmax is None:
+                vmax = _flux_quantile_threshold(ch, qmax[c])
+            if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= vmin:
+                vmax = float(np.nanmax(ch))
+                vmin = float(np.nanmin(ch))
+                if not np.isfinite(vmax) or vmax <= vmin:
+                    out[c] = np.zeros_like(ch, dtype=float)
+                    vmins[c] = vmin
+                    vmaxs[c] = vmax
+                    continue
+            out[c] = np.clip(ch, vmin, vmax)
+            vmins[c], vmaxs[c] = vmin, vmax
+        return out, vmins, vmaxs
+
+    def _add_scalebar(ax, length_px: int, px_scale: float | None, label: str | None,
+                      loc: str = "lower right", color="white"):
+        if label is None:
+            if px_scale is not None and np.isfinite(px_scale):
+                phys = length_px * px_scale
+                label = f"{length_px}px ({phys:g})"
+            else:
+                label = f"{length_px}px"
+        bar = AnchoredSizeBar(ax.transData,
+                              length_px, label,
+                              loc=loc,
+                              pad=0.4,
+                              color=color,
+                              frameon=True,
+                              size_vertical=max(1, int(0.01 * length_px)),
+                              fontproperties=fm.FontProperties(size=8))
+        if bar.txt_label is not None:
+            bar.txt_label.set_color(color)
+        if bar.patch is not None:
+            bar.patch.set_alpha(0.5)
+        ax.add_artist(bar)
+
+    def _add_flux_bars(ax, vmins, vmaxs, decimals=3):
+        pad = 0.02
+        h = 0.08
+        w = 0.5
+        left = 0.5 - w / 2
+        bottom0 = pad
+        cmaps = ["Reds", "Greens", "Blues"]
+        for i, (cmap, vmin, vmax) in enumerate(zip(cmaps, vmins, vmaxs)):
+            ax_in = ax.inset_axes([left, bottom0 + i*(h+0.01), w, h])
+            grad = np.linspace(0, 1, 256)[None, :]
+            ax_in.imshow(grad, aspect="auto", cmap=cmap, origin="lower",
+                         extent=[0, 1, 0, 1])
+            ax_in.set_xticks([0, 1], [f"{vmin:.{decimals}f}", f"{vmax:.{decimals}f}"])
+            ax_in.set_yticks([])
+            for spine in ax_in.spines.values():
+                spine.set_visible(False)
+            ax_in.tick_params(axis='x', labelsize=7)
+        ax.text(left - 0.02, bottom0 + 3*(h+0.01) - 0.015, "Flux clip\n(vmin→vmax)",
+                transform=ax.transAxes, ha="right", va="top", fontsize=7, color="w",
+                bbox=dict(boxstyle="round,pad=0.2", fc=(0,0,0,0.4), ec="none"))
+
+    # --------- possibly convert to RGB first ---------
+    arr = np.asarray(array)
+    rgb_energies_used = None
+
+    if arr.ndim != 3:
+        raise ValueError(f"`array` must be 3D (C/M/N axes); got shape {arr.shape}.")
+
+    # Cases: (3, M, Q), (M, Q, 3), or (N, M, Q) with N != 3
+    if arr.shape[0] == 3:
+        rgb = arr
+    elif arr.shape[-1] == 3:
+        # move channels to axis 0
+        if verbose:
+            logger.info("Input is (M,Q,3); moving channel axis to front → (3,M,Q).")
+        rgb = np.moveaxis(arr, -1, 0)
     else:
-        if pause_time is not None:
-            plt.pause(pause_time)
-            plt.show()
-            plt.close()
-        else:
-            plt.show()
+        # Need conversion from spectral cube → RGB
+        if verbose:
+            logger.info(f"Input appears to be spectral cube {arr.shape}; converting to RGB via to_rgb_bands.")
+
+        rgb, rgb_energies_used = to_rgb_bands(
+            arr,
+            energies_existing=rgb_energies_existing,
+            energies_target=rgb_energies_target,
+            log_spacing=rgb_log_spacing,
+            method=rgb_method,
+        )
+
+    # --------- optional smoothing / log AFTER RGB conversion ---------
+    if sigma is not None:
+        rgb = _smooth(sigma, rgb)
+    if log:
+        if clipped_log:
+            log_floor = 1e-18
+            rgb = np.maximum(rgb, log_floor)
+        rgb = _non_zero_log(rgb)
+
+    # 1) Per-channel clip by cumulative-flux thresholds
+    sat_min = [float(np.clip(x, 0.0, 1.0)) for x in _as_triplet(sat_min)]
+    sat_max = [float(np.clip(x, 0.0, 1.0)) for x in _as_triplet(sat_max)]
+    user_vmins = _as_triplet_optional(vmin, name="vmin")
+    user_vmaxs = _as_triplet_optional(vmax, name="vmax")
+    arr_clipped, vmins, vmaxs = _per_channel_flux_clip(rgb, sat_min, sat_max, user_vmins, user_vmaxs)
+
+    # 2) Normalize for display
+    scale_config = RGBScaleConfig.from_settings(scale_mode)
+    img01, scale_details = scale_config.normalize(
+        arr_clipped,
+        vmins=vmins,
+        vmaxs=vmaxs,
+    )
+
+    created_fig = False
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 5))
+        created_fig = True
+    else:
+        fig = ax.figure
+
+    im_kwargs = dict(imshow_kwargs) if imshow_kwargs is not None else {}
+    im_kwargs.setdefault("origin", "lower")
+    ax.imshow(np.moveaxis(img01, 0, -1), **im_kwargs)
+    ax.set_xticks([]); ax.set_yticks([])
+
+    if scalebar_px is not None:
+        _add_scalebar(ax, scalebar_px, px_scale, scalebar_label, scalebar_loc)
+    if show_flux_bars:
+        _add_flux_bars(ax, vmins, vmaxs, decimals=flux_bar_decimals)
+
+    if created_fig:
+        display_plot_or_save(fig, filename=name, dpi=dpi, bbox_inches=bbox_inches)
+
+    info = dict(
+        vmins=vmins,
+        vmaxs=vmaxs,
+        rgb_energies=rgb_energies_used,
+        **scale_details,
+    )
+    return fig, ax, info
+
+
+def plot_rgb_grid(images: np.ndarray,
+                  nrows: int | None = None,
+                  ncols: int | None = None,
+                  figsize: Tuple[float, float] | None = None,
+                  name: str | None = None,
+                  dpi: int | None = None,
+                  bbox_inches: str | None = None,
+                  *,
+                  titles: Sequence[str] | None = None,
+                  suptitle: str | None = None,
+                  wspace: float = 0.05,
+                  hspace: float = 0.05,
+                  share_axes: bool = True,
+                  channel_axis: int = 1,
+                  # anything below is passed through to plot_rgb
+                  sat_min=[0, 0, 0],
+                  sat_max=[1, 1, 1],
+                  scale_mode: str = "global",
+                  sigma=None,
+                  log: bool = False,
+                  vmin=None,
+                  vmax=None,
+                  show_flux_bars: bool = False,
+                  scalebar_px: int | None = None,
+                  px_scale: float | None = None,
+                  scalebar_label: str | None = None,
+                  scalebar_loc: str = "lower right",
+                  flux_bar_decimals: int = 3,
+                  rgb_energies_existing=None,
+                  rgb_energies_target=None,
+                  rgb_log_spacing: bool = True,
+                  rgb_method: str = "linear",
+                  verbose: bool = True,
+                  imshow_kwargs: dict | None = None,
+                  ) -> tuple[plt.Figure, np.ndarray, List[dict]]:
+    """
+    Render a grid of RGB images or spectral cubes by delegating each cell to `plot_rgb`.
+
+    Parameters
+    ----------
+    images : np.ndarray
+        Stack of input images with shape (N, C, H, W) or (N, H, W, C); the channel axis is
+        chosen via `channel_axis` and must contain at least three bands (C ≥ 3).
+    nrows, ncols : int or None
+        Grid layout. If omitted, a near-square arrangement is chosen automatically.
+    figsize : tuple[float, float] or None
+        Figure size in inches. Defaults to `(ncols*3, nrows*3)` when None.
+    name : str or None
+        Output path to save the composed grid via `display_plot_or_save`.
+    dpi : int or None
+        Resolution used when saving the figure (only applied if `name` is given).
+    bbox_inches : str or None
+        Bounding-box option forwarded to `display_plot_or_save` during saving.
+    titles : Sequence[str] or None
+        Optional per-panel titles.
+    suptitle : str or None
+        Figure-wide title drawn above the grid.
+    wspace, hspace : float
+        Horizontal/vertical spacing passed to `plt.subplots_adjust`.
+    share_axes : bool, optional
+        Remove ticks on individual panels when True.
+    channel_axis : int, optional
+        Axis index of the spectral/RGB dimension in `images` (excludes the batch axis).
+    sat_min, sat_max : float or Sequence[float], optional
+        Saturation quantiles forwarded to `plot_rgb`.
+    scale_mode : {"global", "per_channel"}, optional
+        Normalization mode passed to `plot_rgb`.
+    sigma : float or None, optional
+        Gaussian smoothing applied within `plot_rgb`.
+    log : bool, optional
+        Apply a logarithmic stretch after smoothing inside `plot_rgb`.
+    vmin, vmax : float | Sequence[float | None] | None, optional
+        Override clipping thresholds forwarded to each `plot_rgb` call.
+    show_flux_bars : bool, optional
+        Draw per-channel flux bars inside each panel when True.
+    scalebar_px : int or None, optional
+        Width of the scalebar annotation; omitted when None.
+    px_scale : float or None, optional
+        Physical pixel scale for the scalebar label.
+    scalebar_label : str or None, optional
+        Custom scalebar text passed through to `plot_rgb`.
+    scalebar_loc : str, optional
+        Location keyword for the scalebar annotation.
+    flux_bar_decimals : int, optional
+        Number of decimals on the flux-bar ticks.
+    rgb_energies_existing : array-like or None, optional
+        Energies/frequencies tied to the existing spectral bins (forwarded to `plot_rgb`).
+    rgb_energies_target : array-like or None, optional
+        Target RGB energies used during spectral conversion.
+    rgb_log_spacing : bool, optional
+        Assume log-spacing for implicit energies when converting spectral cubes.
+    rgb_method : {"linear", "cubic"}, optional
+        Interpolation scheme applied by `plot_rgb` during spectral conversion.
+    verbose : bool, optional
+        Emit diagnostic messages from `plot_rgb`.
+    imshow_kwargs : dict or None, optional
+        Extra keyword arguments shared across the per-panel ``imshow`` calls.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure that hosts the grid of images.
+    axes : np.ndarray
+        Array of matplotlib axes laid out in the grid.
+    infos : list[dict]
+        Per-panel metadata returned from `plot_rgb` (e.g., scaling thresholds).
+    """
+    images = np.asarray(images)
+    if images.ndim != 4:
+        raise ValueError("images must have shape (N, C, H, W) or (N, H, W, C)")
+
+    channel_axis = int(channel_axis)
+    if channel_axis < 0:
+        channel_axis += images.ndim
+    if not 0 <= channel_axis < images.ndim:
+        raise ValueError(f"channel_axis={channel_axis} is out of bounds for images with ndim={images.ndim}")
+    if channel_axis == 0:
+        raise ValueError("channel_axis refers to the batch dimension; choose a different axis.")
+
+    if channel_axis != 1:
+        images = np.moveaxis(images, channel_axis, 1)
+
+    if images.shape[1] < 3:
+        raise ValueError("images must provide at least three channels for RGB conversion")
+
+    N = images.shape[0]
+
+    # Choose grid if not specified (near-square)
+    if nrows is None and ncols is None:
+        side = int(math.ceil(math.sqrt(N)))
+        nrows, ncols = int(math.ceil(N / side)), side
+        # Make it a bit wider than tall if that fits more naturally
+        if (nrows - 1) * side >= N:
+            nrows -= 1
+    elif nrows is None:
+        nrows = int(math.ceil(N / ncols))
+    elif ncols is None:
+        ncols = int(math.ceil(N / nrows))
+
+    if figsize is None:
+        figsize = (ncols * 3.0, nrows * 3.0)
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+    axes = np.atleast_2d(axes)
+
+    infos: List[dict] = []
+    idx = 0
+    for r in range(nrows):
+        for c in range(ncols):
+            ax = axes[r, c]
+            if idx < N:
+                arr = images[idx]
+                _, _, info = plot_rgb(
+                    arr,
+                    sat_min=sat_min,
+                    sat_max=sat_max,
+                    sigma=sigma,
+                    log=log,
+                    vmin=vmin,
+                    vmax=vmax,
+                    scale_mode=scale_mode,
+                    show_flux_bars=show_flux_bars,
+                    flux_bar_decimals=flux_bar_decimals,
+                    scalebar_px=scalebar_px,
+                    px_scale=px_scale,
+                    scalebar_label=scalebar_label,
+                    scalebar_loc=scalebar_loc,
+                    rgb_energies_existing=rgb_energies_existing,
+                    rgb_energies_target=rgb_energies_target,
+                    rgb_log_spacing=rgb_log_spacing,
+                    rgb_method=rgb_method,
+                    verbose=verbose,
+                    imshow_kwargs=imshow_kwargs,
+                    ax=ax,
+                    name=None,          # do not save from inside
+                )
+                if titles is not None and idx < len(titles):
+                    ax.set_title(titles[idx], fontsize=10)
+                if share_axes:
+                    ax.set_xticks([]); ax.set_yticks([])
+                infos.append(info)
+            else:
+                # Hide unused cells
+                ax.axis("off")
+            idx += 1
+
+    plt.subplots_adjust(wspace=wspace, hspace=hspace)
+    if suptitle:
+        fig.suptitle(suptitle, fontsize=12)
+
+    display_plot_or_save(fig, filename=name, dpi=dpi, bbox_inches=bbox_inches)
+    return fig, axes, infos
 
 
 def _get_n_rows_from_n_samples(n_samples):
@@ -887,17 +1540,22 @@ def _get_n_rows_from_n_samples(n_samples):
     -------
     number of rows: int
     """
-    threshold = 2
-    n_rows = 1
-    if n_samples == 2:
-        return n_rows
+    if n_samples <= 0:
+        return 1
+    if n_samples <= 3:
+        return 1
+    if n_samples == 4:
+        return 2
+    if n_samples == 5:
+        return 1
+    if n_samples == 6:
+        return 2
 
-    while True:
-        if n_samples < threshold:
-            return n_rows
-
-        threshold = 4 * threshold + 1
-        n_rows += 1
+    rows = int(math.floor(math.sqrt(n_samples)))
+    rows = max(rows, 1)
+    if rows * (rows + 1) < n_samples:
+        rows += 1
+    return rows
 
 
 def _norm_rgb_plot(x):
@@ -919,9 +1577,9 @@ def _norm_rgb_plot(x):
 
 def _gauss(x, y, sig):
     """Evaluate 2D Normal distribution."""
-    const = 1 / (np.sqrt(2 * np.pi * sig ** 2))
-    r = np.sqrt(x ** 2 + y ** 2)
-    f = const * np.exp(-r ** 2 / (2 * sig ** 2))
+    const = 1 / (jnp.sqrt(2 * np.pi * sig ** 2))
+    r = jnp.sqrt(x ** 2 + y ** 2)
+    f = const * jnp.exp(-r ** 2 / (2 * sig ** 2))
     return f
 
 
@@ -940,11 +1598,11 @@ def get_gaussian_kernel(domain, sigma):
     Gauss kernel: 2D array
     """
     border = (domain.shape * domain.distances // 2)
-    x = np.linspace(-border[0], border[0], domain.shape[0])
-    y = np.linspace(-border[1], border[1], domain.shape[1])
-    xv, yv = np.meshgrid(x, y)
+    x = jnp.linspace(-border[0], border[0], domain.shape[0])
+    y = jnp.linspace(-border[1], border[1], domain.shape[1])
+    xv, yv = jnp.meshgrid(x, y)
     kern = _gauss(xv, yv, sigma)
-    kern = np.fft.fftshift(kern)
+    kern = jnp.fft.fftshift(kern)
     dvol = reduce(lambda a, b: a * b, domain.distances)
     normalization = kern.sum() * dvol
     kern = kern * normalization ** -1
@@ -952,13 +1610,13 @@ def get_gaussian_kernel(domain, sigma):
 
 
 def _smooth(sig, x):
-    domain = Domain(x.shape, np.ones([3]))
+    domain = Domain(x.shape, jnp.ones([3]))
     gauss_domain = Domain(x.shape[1:], np.ones([2]))
 
     smoothing_kernel = get_gaussian_kernel(gauss_domain, sig)
-    smoothing_kernel = smoothing_kernel[np.newaxis, ...]
+    smoothing_kernel = smoothing_kernel[jnp.newaxis, ...]
     smooth_data = convolve(x, smoothing_kernel, domain, [1, 2])
-    return np.array(smooth_data)
+    return jnp.array(smooth_data)
 
 
 def _clip(x, sat_min, sat_max):
@@ -975,3 +1633,167 @@ def _non_zero_log(x):
     log_x = np.zeros(x_arr.shape)
     log_x[x_arr > 0] = np.log(x_arr[x_arr > 0])
     return log_x
+
+
+def to_rgb_bands(
+    cube,
+    energies_existing=None,
+    energies_target=None,
+    *,
+    log_spacing: bool = True,
+    method: str = "linear",  # "linear" | "cubic" (Catmull–Rom)
+):
+    """
+    Convert a spectral image cube (N, M, Q) into 3 RGB bands (3, M, Q) by
+    interpolating along the spectral (channel) axis.
+
+    Parameters
+    ----------
+    cube : np.ndarray or jnp.ndarray, shape (N, M, Q)
+        Spectral image cube. Backend is inferred from this array (NumPy vs JAX).
+    energies_existing : array-like or None
+        The *log-space* energies/frequencies for each of the N channels.
+        If None, they are assumed to be equally spaced in log space
+        (linspace over [0, 1] with N points) if `log_spacing=True`,
+        otherwise equally spaced in linear index space.
+    energies_target : array-like of length 3 or None
+        The *log-space* target energies to map to R, G, B. If None, three
+        equidistant points (in the same space as `energies_existing`) are selected.
+    log_spacing : bool, default True
+        If `energies_existing` is None, interpret the channels as equally spaced
+        in log space (True) or in linear index space (False).
+    method : {"linear","cubic"}, default "linear"
+        Interpolation method along the spectral axis.
+        "cubic" uses a Catmull–Rom cubic Hermite spline (pure NumPy/JAX).
+
+    Returns
+    -------
+    rgb : np.ndarray or jnp.ndarray, shape (3, M, Q)
+        Interpolated RGB bands in the same backend as `cube`.
+
+    Notes
+    -----
+    - Inputs in `energies_existing` and `energies_target` are expected to be in
+      log-frequency units already (linear interpolation is performed in that space).
+    - Extrapolation at the ends is clamped to endpoints for "linear".
+      For "cubic", queries outside the range are computed via linear edge behavior.
+    """
+    # ---- choose backend from input ----
+    is_jax = isinstance(cube, jnp.ndarray)
+    xnp = jnp if is_jax else np
+
+    if cube.ndim != 3:
+        raise ValueError(f"`cube` must have shape (N, M, Q), got {cube.shape}.")
+
+    N, M, Q = cube.shape
+    if N < 2:
+        raise ValueError("Need at least 2 spectral channels for interpolation.")
+    if method not in ("linear", "cubic"):
+        raise ValueError("method must be 'linear' or 'cubic'.")
+
+    # ---- build/validate energies_existing (log space expected if provided) ----
+    if energies_existing is None:
+        if log_spacing:
+            energies_existing = xnp.linspace(0.0, 1.0, N, dtype=xnp.float32)
+        else:
+            energies_existing = xnp.arange(N, dtype=xnp.float32)
+    else:
+        energies_existing = xnp.asarray(energies_existing, dtype=xnp.float32)
+        if energies_existing.shape[0] != N:
+            raise ValueError(
+                f"energies_existing length {energies_existing.shape[0]} != N ({N})."
+            )
+
+    # Ensure ascending order for interp
+    sort_idx = xnp.argsort(energies_existing)
+    energies_existing = (
+        xnp.take(energies_existing, sort_idx, axis=0) if is_jax else energies_existing[sort_idx]
+    )
+    cube = xnp.take(cube, sort_idx, axis=0) if is_jax else cube[sort_idx]
+
+    # ---- choose/validate target energies ----
+    if energies_target is None:
+        emin = float(energies_existing[0])
+        emax = float(energies_existing[-1])
+        energies_target = xnp.linspace(emin, emax, 3, dtype=xnp.float32)
+    else:
+        energies_target = xnp.asarray(energies_target, dtype=xnp.float32)
+        if energies_target.shape[0] != 3:
+            raise ValueError("energies_target must have length 3 (for R, G, B).")
+
+    # ---- helpers: linear vs cubic 1D interpolation for a single pixel spectrum ----
+    def _interp_linear(vec_1d):
+        return xnp.interp(energies_target, energies_existing, vec_1d)
+
+    def _interp_cubic_catmull_rom(vec_1d):
+        # Catmull–Rom cubic Hermite spline on monotone x with simple edge handling
+        x = energies_existing
+        y = vec_1d
+
+        # Indices of the right bin edge for each query
+        # For exact x[-1], searchsorted returns N, clip to N-1 later.
+        j = xnp.searchsorted(x, energies_target, side="left")
+
+        # For interior cubic, we need i-1, i, i+1, i+2 with i=j-1.
+        # Clamp i to [1, N-3] so that (i-1) >= 0 and (i+2) <= N-1.
+        i = xnp.clip(j - 1, 1, N - 3)
+
+        # Gather supporting x/y
+        x_im1 = x[i - 1]
+        x_i   = x[i]
+        x_ip1 = x[i + 1]
+        x_ip2 = x[i + 2]
+
+        y_im1 = y[i - 1]
+        y_i   = y[i]
+        y_ip1 = y[i + 1]
+        y_ip2 = y[i + 2]
+
+        # Local parameter t in [0,1]
+        dx = (x_ip1 - x_i)
+        # Avoid divide-by-zero for degenerate grids
+        dx = xnp.where(dx == 0, xnp.finfo(xnp.float32).eps, dx)
+        t = (energies_target - x_i) / dx
+
+        # Tangents (finite-difference Catmull–Rom)
+        m_i   = (y_ip1 - y_im1) / (x_ip1 - x_im1)
+        m_ip1 = (y_ip2 - y_i)   / (x_ip2 - x_i)
+
+        # Hermite basis
+        t2 = t * t
+        t3 = t2 * t
+        h00 =  2.0 * t3 - 3.0 * t2 + 1.0
+        h10 =        t3 - 2.0 * t2 + t
+        h01 = -2.0 * t3 + 3.0 * t2
+        h11 =        t3 -       t2
+
+        y_cubic = (
+            h00 * y_i +
+            h10 * dx * m_i +
+            h01 * y_ip1 +
+            h11 * dx * m_ip1
+        )
+
+        # Edge handling: for queries outside [x[0], x[-1]], fall back to linear clamp
+        below = energies_target <= x[0]
+        above = energies_target >= x[-1]
+        # Two-point linear at edges
+        y_lo = y[0] + (y[1] - y[0]) * (energies_target - x[0]) / (x[1] - x[0])
+        y_hi = y[-2] + (y[-1] - y[-2]) * (energies_target - x[-2]) / (x[-1] - x[-2])
+        y_out = xnp.where(below, y_lo, xnp.where(above, y_hi, y_cubic))
+        return y_out
+
+    interp_fn = _interp_linear if method == "linear" or N < 4 else _interp_cubic_catmull_rom
+
+    # ---- interpolate along spectral axis for every pixel ----
+    flat = cube.reshape(N, -1).T  # (P, N) where P = M*Q
+
+    if is_jax:
+        out_flat = vmap(interp_fn, in_axes=0)(flat)  # (P, 3)
+    else:
+        out_flat = xnp.stack([interp_fn(row) for row in flat], axis=0)
+
+    # Reshape back to (M, Q, 3) then to (3, M, Q)
+    out_spatial = out_flat.reshape(M, Q, 3)
+    rgb = xnp.moveaxis(out_spatial, -1, 0)  # (3, M, Q)
+    return rgb, energies_target

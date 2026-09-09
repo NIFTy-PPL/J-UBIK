@@ -175,7 +175,7 @@ def plot_sample_and_stats(output_directory,
                 plotting_kwargs.update({'title': title})
                 plot_result(operator_samples[i],
                             output_file=filename_samples,
-                            logscale=log_scale,
+                            log=log_scale,
                             colorbar=colorbar,
                             dpi=dpi,
                             adjust_figsize=True,
@@ -210,12 +210,12 @@ def plot_sample_and_stats(output_directory,
             mean, std = get_stats(sample_list, op)
             title = [f"Posterior mean (energy {ii + 1})" for ii in
                      range(e_length)]
-            plot_result(mean, output_file=filename_mean, logscale=log_scale,
+            plot_result(mean, output_file=filename_mean, log=log_scale,
                         colorbar=colorbar, title=title, dpi=dpi,
                         **plotting_kwargs)
             title = [f"Posterior std (energy {ii + 1})" for ii in
                      range(e_length)]
-            plot_result(std, output_file=filename_std, logscale=log_scale,
+            plot_result(std, output_file=filename_std, log=log_scale,
                         colorbar=colorbar, title=title, dpi=dpi,
                         **plotting_kwargs)
 
@@ -298,7 +298,7 @@ def plot_erosita_priors(key,
         filename_base = sample_dir + 'priors_{}.png'
         for key, val in plottable_samples.items():
             plot_result(val(pos), output_file=filename_base.format(key),
-                        logscale=log_scale, adjust_figsize=adjust_figsize,
+                        log=log_scale, adjust_figsize=adjust_figsize,
                         title=[f'E_min={emin}, E_max={emax}' for emin, emax in
                                zip(e_min, e_max)],
                         common_colorbar=common_colorbar, **plotting_kwargs)
@@ -332,7 +332,7 @@ def plot_erosita_priors(key,
                     filename = join(res_path, f'sr_priors')
                     filename += '_{}.png'
                     plot_result(samps, output_file=filename.format(key),
-                                logscale=log_scale,
+                                log=log_scale,
                                 title=[f'E_min={emin}, E_max={emax}' for
                                        emin, emax in
                                        zip(e_min, e_max)],

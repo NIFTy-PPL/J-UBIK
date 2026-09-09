@@ -32,7 +32,7 @@
 # ### Spatial and spectral grids
 # By setting the `shape`, `distances`, and `freqs` parameters, we can specify the spatial and spectral grids for the model.
 # The reference frequency is given by `freqs[reference_frequency_index]`.
-# While the spatial grid has to be a regular grid, the spectral input can take any spacing.  
+# While the spatial grid has to be a regular grid, the spectral input can take any spacing.
 # However we note that the model assumes that the frequencies are given as logarithmic frequencies, i.e. `freqs` should be $\log\nu$ from Eq. (1).
 
 # %%

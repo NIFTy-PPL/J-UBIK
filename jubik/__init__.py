@@ -15,13 +15,16 @@ from .utils import (
     create_output_directory,
     coord_center,
     get_stats,
+    clear_jax_compilation_cache,
 )
 from .plot import (
     plot_result,
     plot_healpix_result,
     plot_histograms,
+    to_rgb_bands,
     plot_sample_averaged_log_2d_histogram,
     plot_rgb,
+    plot_rgb_grid,
 )
 from .sugar_plot import (
     plot_pspec,

@@ -1,6 +1,7 @@
 import pytest
 
-from jubik.parse.wcs.coordinate_system import CoordinateSystemModel, CoordinateSystems
+from jubik.parse.wcs.coordinate_system import (
+    CoordinateSystemModel, CoordinateSystems)
 
 FRAME_KEY = "frame"
 FRAME_DEFAULT = "icrs"

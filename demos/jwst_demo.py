@@ -43,12 +43,15 @@ import astropy.units as u
 import nifty.re as jft
 import numpy as np
 from astropy.coordinates import SkyCoord
-from jax import random
+from jax import config, random
 
 # %%
 import jubik as ju
 from jubik.instruments.jwst.filter_projector import FilterProjector
-from jubik.likelihood import build_gaussian_likelihood, connect_likelihood_to_model
+from jubik.likelihood import (build_gaussian_likelihood,
+                              connect_likelihood_to_model)
+
+config.update('jax_enable_x64', True)
 
 # %% [markdown]
 # ## YAML Configuration File Structure

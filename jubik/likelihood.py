@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-2-Clause
-# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp
+# Authors: Vincent Eberle, Matteo Guardiani, Margret Westerkamp, Julian Rüstig
 
 # Copyright(C) 2024 Max-Planck-Society
 
@@ -9,6 +9,8 @@ import nifty.cl as ift
 import nifty.re as jft
 from nifty.re.model import NoValue
 from jax.tree_util import tree_leaves
+
+import numpy as np
 
 def get_n_constrained_dof(likelihood: jft.Likelihood) -> int:
     """
@@ -177,8 +179,7 @@ def _model_wrap(model, target_domain=None):
 
 
 def connect_likelihood_to_model(
-    likelihood: jft.Likelihood,
-    model: jft.Model
+    likelihood: jft.Likelihood, model: jft.Model
 ) -> jft.Likelihood:
     """
     Connects a likelihood function to a model, updating the model's domain.
@@ -209,17 +210,15 @@ def connect_likelihood_to_model(
     mdom = tdom | model.domain
 
     model_wrapper = _model_wrap(model, tdom)
-    model = jft.Model(
-        lambda x: jft.Vector(model_wrapper(x)),
-        domain=jft.Vector(mdom)
-    )
+    model = jft.Model(lambda x: jft.Vector(model_wrapper(x)), domain=jft.Vector(mdom))
 
     return likelihood.amend(model, domain=model.domain)
 
 
 def build_gaussian_likelihood(
-    data,
-    std
+    data: np.ndarray,
+    std: np.ndarray,
+    model: jft.Model | None = None,
 ):
     """
     Build a Gaussian likelihood function based on the provided data and
@@ -252,13 +251,21 @@ def build_gaussian_likelihood(
         If `std` is an array and its shape does not match the shape of `data`.
     """
     if not isinstance(std, float):
-        assert data.shape == std.shape
+        if data.shape != std.shape:
+            raise AssertionError(
+                f"Shape mismatch between data and std: {data.shape} vs {std.shape}"
+            )
 
-    var_inv = 1/(std**2)
-    std_inv = 1/std
+    var_inv = 1 / (std**2)
+    std_inv = 1 / std
 
-    return jft.Gaussian(
+    likelihood = jft.Gaussian(
         data=data,
-        noise_cov_inv=lambda x: x*var_inv,
-        noise_std_inv=lambda x: x*std_inv,
+        noise_cov_inv=lambda x: x * var_inv,
+        noise_std_inv=lambda x: x * std_inv,
     )
+
+    if model is None:
+        return likelihood
+
+    return likelihood.amend(model, domain=jft.Vector(model.domain))

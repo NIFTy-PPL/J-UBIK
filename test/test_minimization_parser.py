@@ -27,6 +27,10 @@ config = {
     'constants': {
         'switches': [0, 10],
         'domain_keys': [['diffuse_offset_mean', 'diffuse_fluctuations'], None]
+    },
+    'point_estimates': {
+        'switches': [0, 10],
+        'domain_keys': [['point_estimate_a'], None]
     }
 }
 
@@ -139,6 +143,12 @@ class TestMinimizationParser:
         assert parser.nonlinearly_update_kwargs(7)['minimize_kwargs'][
                    'xtol'] == 1.e-6
         assert parser.kl_kwargs(0)['minimize_kwargs']['maxiter'] == 10
+        assert parser.constants(0) == (
+            'diffuse_offset_mean', 'diffuse_fluctuations'
+        )
+        assert parser.constants(11) is None
+        assert parser.point_estimates(0) == ('point_estimate_a',)
+        assert parser.point_estimates(11) is None
 
     def test_minimization_parser_requires_n_dof_when_delta_is_present(self):
         with pytest.raises(ValueError, match="degrees of freedom"):

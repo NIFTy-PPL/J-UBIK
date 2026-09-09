@@ -46,7 +46,7 @@ obs = rve.data.select_random_visibility_subset(
 )
 
 # # NOTE : The observation can also be loaded and modified via the config file.
-# from jubik0.instruments.resolve.data import load_and_modify_data_from_objects
+# from jubik.instruments.resolve.data import load_and_modify_data_from_objects
 # obs = list(
 #     load_and_modify_data_from_objects(
 #         [-np.inf, np.inf],

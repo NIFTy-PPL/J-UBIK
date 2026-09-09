@@ -25,7 +25,6 @@ def _assert_written_image(path):
     assert np.isfinite(img).all()
 
 
-@pytest.mark.skip(reason="Per-panel array vmin/vmax support lives on a different branch")
 def test_plot_result_accepts_numpy_array_bounds(tmp_path):
     arr = np.arange(2 * 8 * 8, dtype=float).reshape(2, 8, 8) + 1.0
     out = tmp_path / "numpy_bounds.png"
@@ -41,7 +40,6 @@ def test_plot_result_accepts_numpy_array_bounds(tmp_path):
     _assert_written_image(out)
 
 
-@pytest.mark.skip(reason="Per-panel array vmin/vmax support lives on a different branch")
 def test_plot_result_accepts_jax_array_bounds(tmp_path):
     arr = np.arange(2 * 8 * 8, dtype=float).reshape(2, 8, 8) + 1.0
     out = tmp_path / "jax_bounds.png"
@@ -119,7 +117,7 @@ def test_color_limits_are_shared_with_plot_result(monkeypatch, tmp_path):
         output_file=str(tmp_path / "logscale.png"),
         colorbar=True,
         common_colorbar=True,
-        logscale=True,
+        log=True,
         vmin=1.0,
         vmax=20.0,
     )
@@ -172,7 +170,7 @@ def test_plot_healpix_result_validates_layout_and_flip():
         ju.plot_healpix_result(maps[0], flip="sideways", xsize=32)
 
 
-@pytest.mark.parametrize("shape", [(64,), (2, 3, 4, 5)])
+@pytest.mark.parametrize("shape", [(64,), (2, 3, 4, 5, 6)])
 def test_plot_result_invalid_shape_raises(shape):
     arr = np.zeros(shape, dtype=float)
 
@@ -193,7 +191,10 @@ def test_plot_histograms_writes_file(tmp_path):
 def test_get_n_rows_from_n_samples_helper():
     assert _get_n_rows_from_n_samples(1) == 1
     assert _get_n_rows_from_n_samples(2) == 1
-    assert _get_n_rows_from_n_samples(3) == 2
-    assert _get_n_rows_from_n_samples(8) == 2
+    assert _get_n_rows_from_n_samples(3) == 1
+    assert _get_n_rows_from_n_samples(4) == 2
+    assert _get_n_rows_from_n_samples(5) == 1
+    assert _get_n_rows_from_n_samples(6) == 2
+    assert _get_n_rows_from_n_samples(8) == 3
     assert _get_n_rows_from_n_samples(10) == 3
     assert _get_n_rows_from_n_samples(11) == 3

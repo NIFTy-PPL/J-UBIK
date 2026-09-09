@@ -11,7 +11,7 @@ Further information on these topics, as well as on the role of prior and likelih
 
 .. toctree::
         :maxdepth: 1
-        
+
         ift
         nifty
         jubik

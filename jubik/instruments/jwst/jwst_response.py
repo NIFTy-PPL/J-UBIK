@@ -5,92 +5,91 @@
 
 # %
 
-from typing import Callable, Optional
+from dataclasses import dataclass
+from typing import Callable
 
 import nifty.re as jft
+import numpy as np
+from astropy.coordinates import SkyCoord
+
 from numpy.typing import ArrayLike
 
-from .integration_model import build_sum
-from .jwst_psf import instantiate_psf, load_psf_kernel
-from .rotation_and_shift import build_rotation_and_shift_model, \
-    RotationAndShiftModel
+from ...grid import Grid
+from ...wcs.wcs_astropy import WcsAstropy
+from .alignment.star_model import StarInData
+from .data.jwst_data import DataMetaInformation
+from .data.loader.target_loader import TargetData
+from .filter_projector import FilterProjector
+from .integration.integration import integration_factory
+from .integration.unit_conversion import build_unit_conversion
+from .masking.build_mask import build_mask
+from .parse.jwst_response import SkyMetaInformation
+from .parse.rotation_and_shift.rotation_and_shift import LinearConfig, NufftConfig
+from .parse.zero_flux_model import ZeroFluxPriorConfigs
+from .psf.psf_operator import PsfStatic
+from .rotation_and_shift import RotationAndShift, build_rotation_and_shift
+from .rotation_and_shift.coordinates_correction import (
+    ShiftAndRotationCorrection,
+    build_coordinates_corrected_for_field,
+)
 from .zero_flux_model import build_zero_flux_model
 
 
 class JwstResponse(jft.Model):
     """
-    A that connects observational data to the corresponding sky and
-    instrument models.
+    Linear response model that connects jwst observational data to the corresponding a
+    sky model.
 
-    This class models a data pipeline that includes rotation, shifting,
-    PSF application, integration, transmission correction, and masking,
-    with an optional zero-flux model.
+    Schematic pipeline:
+    psf | unit_conversion | integrate | zero flux | mask
     """
 
     def __init__(
         self,
-        sky_domain: dict,
-        rotation_and_shift: Optional[RotationAndShiftModel],
-        psf: Callable[[ArrayLike], ArrayLike],
+        sky_model: jft.Model | RotationAndShift | StarInData,
+        psf: PsfStatic,
+        unit_conversion: Callable[[ArrayLike], ArrayLike],
         integrate: Callable[[ArrayLike], ArrayLike],
-        transmission: float,
-        zero_flux_model: Optional[jft.Model],
-        mask: Callable[[ArrayLike], ArrayLike]
+        zero_flux_model: jft.Model | None,
+        mask: Callable[[ArrayLike], ArrayLike],
     ):
-        """
-        Initialize the DataModel with components for various data
+        """Initialize the Jwst response with different components of linear
         transformations.
 
         Parameters
         ----------
-        sky_domain : dict
-            A dictionary defining the sky domain, with a single key
-            corresponding to the internal target of the sky model.
-            This defines the input space of the data.
-        rotation_and_shift : RotationAndShiftModel, optional
-            A model that applies rotation and shift transformations
-            to the input data.
-        psf : callable
-            A function that applies a point spread function (PSF) to the
-            input data.
+        sky_model : jft.Model | RotationAndShift | StarInData,
+            A model has as output the sky in the frame of the data.
+        psf : PsfStatic
+            Convolution of the sky with the static PSF kernel.
+        unit_conversion : callable
+            A function that transforms the unit of the sky to the data unit.
         integrate : callable
             A function that performs integration on the input data.
-        transmission : float
-            A transmission factor by which the output data is multiplied.
-        zero_flux_model : jft.Model, optional
+        zero_flux_model : jft.Model | None
             A secondary model to account for zero flux.
             If provided, its output is added to the domain model's output.
         mask : callable
             A function that applies a mask to the final output.
-
-        Raises
-        ------
-        AssertionError
-            If `sky_domain` is not a dictionary or if it contains
-            more than one key.
         """
-        need_sky_key = ('Need to provide an internal key to the target of the '
-                        'sky model')
-        assert isinstance(sky_domain, dict), need_sky_key
-        assert len(sky_domain.keys()) == 1, need_sky_key
 
-        self.rotation_and_shift = rotation_and_shift
+        self.sky_model = sky_model
         self.psf = psf
+        self.unit_conversion = unit_conversion
         self.integrate = integrate
-        self.transmission = transmission
         self.zero_flux_model = zero_flux_model
         self.mask = mask
 
-        domain = sky_domain | rotation_and_shift.domain
+        domain = sky_model.domain | psf.domain[1]
         if zero_flux_model is not None:
             domain = domain | zero_flux_model.domain
         super().__init__(domain=domain)
 
     def __call__(self, x):
-        out = self.rotation_and_shift(x)
-        out = self.psf(out)
+        out = self.sky_model(x)
+        out = self.psf((out, x))
+        out = self.unit_conversion(out)
         out = self.integrate(out)
-        out = out * self.transmission
         if self.zero_flux_model is not None:
             out = out + self.zero_flux_model(x)
         out = self.mask(out)
@@ -98,111 +97,213 @@ class JwstResponse(jft.Model):
 
 
 def build_jwst_response(
-    sky_domain: dict,
-    subsample: int,
-    rotation_and_shift_kwargs: Optional[dict],
-    psf_kwargs: dict,
-    transmission: float,
-    data_mask: Optional[ArrayLike],
-    zero_flux: Optional[dict],
+    sky_in_subsampled_data: jft.Model | RotationAndShift | StarInData,
+    data_meta: DataMetaInformation,
+    data_subsample: int,
+    sky_meta: SkyMetaInformation,
+    psf: np.ndarray | None,
+    zero_flux_model: jft.Model | None,
+    data_mask: ArrayLike | None,
 ) -> JwstResponse:
     """
-    Builds the data model for a Jwst observation.
+    Builds the linear response of the Jwst to the sky. The sky must be in in the same
+    coordinate frame as the - potentially subsampled - data.
 
-    The data model pipline:
-    rotation_and_shift | psf | integrate | mask
+    Schematic pipline:
+    psf | unit_conversion | integrate | zero flux | mask
 
     Parameters
     ----------
-    sky_domain: dict
-        Containing the sky_key and the shape_dtype of the reconstruction sky.
-
-    subsample: int
-        The subsample factor for the data grid.
-
-    rotation_and_shift_kwargs: dict
-        reconstruction_grid: Grid
-        data_dvol: Unit, the volume of a data pixel
-        data_wcs: WcsBase,
-        data_model_type: str,
-        kwargs_linear: dict, (order, sky_as_brightness, mode)
-        kwargs_nufft: dict, (sky_as_brightness)
-        kwargs_sparse: dict, (extend_factor, to_bottom_left)
-        world_extrema: Tuple[SkyCoord]
-        coordinate_correction: Optional[dict]
-            domain_key: str
-            priors: dict
-                - shift: Mean and sigma for the Gaussian distribution
-                of shift model.
-                - rotation: Mean and sigma of the Gaussian distribution
-                for theta [rad]
-
-    psf_kwargs:
-        camera: str, NIRCam or MIRI
-        filter: str
-        center_pix: tuple, pixel according to which to evaluate the psf model
-        webbpsf_path: str
-        fov_pixels: int, how many pixles considered for the psf,
-
+    sky_in_subsampled_data_domain: ShapeWithDtype
+        The shape and dtype of the sky in the subsampled data frame.
+    data_meta: DataMetaInformation, needed here:
+        - unit                  # Unit of the data
+        - dvol                  # pixel volume of the data ~pixel_distance**2
+        - pixel_distance        # 2-d distance between pixels
+    data_subsample: int
+        Subsample factor of the data
+    sky_meta: SkyMetaInformation, needed here:
+        - unit                  # Unit of the data
+        - dvol                  # Pixel volume of the sky
+    psf: np.ndarray | None
+        The kernel of the psf as a np.ndarray. None skips the convolution.
+    zero_flux_model : jft.Model
+        The model for the a constant (zero) flux in the data.
     data_mask: ArrayLike
         The mask on the data
     """
 
-    need_sky_key = ('Need to provide an internal key to the target of the sky '
-                    'model.')
-    assert isinstance(sky_domain, dict), need_sky_key
+    psf = PsfStatic(sky_in_subsampled_data.target, psf)
 
-    rotation_and_shift = build_rotation_and_shift_model(
+    unit_conversion = build_unit_conversion(
+        sky_unit=sky_meta.unit,
+        sky_dvol=sky_meta.dvol,
+        data_unit=data_meta.unit,
+        data_dvol=data_meta.dvol / data_subsample**2,
+    )
+
+    integrate = integration_factory(
+        unit=data_meta.unit,
+        high_resolution_shape=sky_in_subsampled_data.target.shape,
+        reduction_factor=data_subsample,
+    )
+
+    mask = build_mask(data_mask)
+
+    return JwstResponse(
+        sky_model=sky_in_subsampled_data,
+        psf=psf,
+        unit_conversion=unit_conversion,
+        integrate=integrate,
+        zero_flux_model=zero_flux_model,
+        mask=mask,
+    )
+
+
+# --------------------------------------------------------------------------------------
+# Target Response Interface
+# --------------------------------------------------------------------------------------
+
+
+def build_sky_to_subsampled_data(
+    sky_domain: dict[str, jft.ShapeWithDtype],
+    data_subsampled_centers: SkyCoord | list[SkyCoord],
+    sky_wcs: WcsAstropy,
+    rotation_and_shift_algorithm: LinearConfig | NufftConfig,
+    shift_and_rotation_correction: ShiftAndRotationCorrection | None,
+) -> RotationAndShift:
+    """Build the sky to subsampled data. The sky will be rotated and shifted by
+    interpolation to the subsampled data center, whose central world coordinate is given
+    by `data_subsampled_centers`. Additionally we can correct for shift and rotation
+    errors.
+
+    Parameters
+    ----------
+    sky_domain: dict
+        The sky domain.
+    data_subsampled_centers: SkyCoord
+        The world coordinates of the subsampled data pixel centers.
+    sky_wcs: WcsAstropy
+        The wcs system of the sky (model target).
+    rotation_and_shift_algorithm: LinearConfig | NufftConfig
+        The interpolation algorithm, handling shift and rotation of data.
+    shift_and_rotation_correction: ShiftAndRotationCorrection
+        The probability distribution for the shift and rotation correction.
+        If None, we assume that the data_subsampled_centers are correct.
+
+    Return
+    ------
+    An operator that takes the output of sky model (saved in sky_domain) and projects
+    the sky onto the - potentially subsampled - data pixel.
+    """
+    coordinates = build_coordinates_corrected_for_field(
+        shift_and_rotation_correction=shift_and_rotation_correction,
+        reconstruction_grid_wcs=sky_wcs,
+        world_coordinates=data_subsampled_centers,
+        indexing="ij",
+    )
+
+    return build_rotation_and_shift(
         sky_domain=sky_domain,
-        reconstruction_grid=rotation_and_shift_kwargs['reconstruction_grid'],
-        world_extrema=rotation_and_shift_kwargs['world_extrema'],
-        data_grid_dvol=rotation_and_shift_kwargs['data_dvol'],
-        data_grid_wcs=rotation_and_shift_kwargs['data_wcs'],
-        model_type=rotation_and_shift_kwargs['data_model_type'],
-        subsample=subsample,
-        kwargs=dict(
-            linear=rotation_and_shift_kwargs.get(
-                'kwargs_linear', dict(order=1, sky_as_brightness=False)),
-            nufft=rotation_and_shift_kwargs.get(
-                'kwargs_nufft', dict(sky_as_brightness=False)),
-            sparse=rotation_and_shift_kwargs.get(
-                'kwargs_sparse', dict(extend_factor=1, to_bottom_left=True)),
-        ),
-        coordinate_correction=rotation_and_shift_kwargs.get(
-            'shift_and_rotation_correction', None)
+        coordinates=coordinates,
+        algorithm_config=rotation_and_shift_algorithm,
+        indexing="ij",
     )
 
-    integrate = build_sum(
-        high_res_shape=rotation_and_shift.target.shape,
-        reduction_factor=subsample,
+
+@dataclass
+class TargetResponseInput:
+    # TODO : Rework as builder object
+
+    """
+    Configuration container for building a target response model that connects the sky
+    model to observational data for a specific filter.
+
+    Attributes
+    ----------
+    filter_name : str
+        Name of the filter_name corresponding to the observational data.
+    grid : Grid
+        Spatial grid defining the coordinate system of the sky model.
+    filter_projector : FilterProjector
+        Object that projects the sky model into the filter's energy domain.
+    target_data : TargetData
+        Observational data and associated metadata (e.g., subsample centers, PSF, mask).
+    filter_meta : DataMetaInformation
+        Metadata about the data, including units and pixel volume.
+    sky_meta : SkyMetaInformation
+        Metadata about the sky model, including units and pixel volume.
+    rotation_and_shift_algorithm : LinearConfig | NufftConfig
+        Algorithm configuration to handle rotation and shifting during interpolation.
+    zero_flux_prior_configs : ZeroFluxPriorConfigs
+        Configuration for zero flux prior models.
+    shift_and_rotation_correction : ShiftAndRotationCorrection | None
+        Optional correction for misalignments in shift and rotation between sky and data.
+    """
+
+    filter_name: str
+    grid: Grid
+    filter_projector: FilterProjector
+    target_data: TargetData
+    filter_meta: DataMetaInformation
+    sky_meta: SkyMetaInformation
+    rotation_and_shift_algorithm: LinearConfig | NufftConfig
+    zero_flux_prior_configs: ZeroFluxPriorConfigs
+    shift_and_rotation_correction: ShiftAndRotationCorrection | None
+
+
+def build_target_response(
+    input_config: TargetResponseInput,
+):
+    """
+    Constructs a JWST linear response model for a field target using the
+    provided input configuration. This function orchestrates the building blocks that
+    map the sky model onto the data.
+
+    Schematic pipeline:
+    rotation&shift | subsampling | JwstResponse
+
+    Parameters
+    ----------
+    input_config : TargetResponseInput
+        A configuration object containing all necessary parameters and metadata for
+        building the target response.
+
+    Returns
+    -------
+    JwstResponse
+        A callable linear response model that transforms the sky model outputs to the
+        data space, incorporating all observational effects and corrections.
+    """
+
+    energy_name = input_config.filter_projector.get_key(input_config.filter_meta.color)
+    sky_in_subsampled_data = build_sky_to_subsampled_data(
+        sky_domain={energy_name: input_config.filter_projector.target[energy_name]},
+        data_subsampled_centers=input_config.target_data.subsample_centers,
+        sky_wcs=input_config.grid.spatial,
+        rotation_and_shift_algorithm=input_config.rotation_and_shift_algorithm,
+        shift_and_rotation_correction=input_config.shift_and_rotation_correction,
     )
 
-    psf_kernel = load_psf_kernel(
-        camera=psf_kwargs['camera'],
-        filter=psf_kwargs['filter'],
-        center_pixel=psf_kwargs['center_pixel'],
-        webbpsf_path=psf_kwargs['webbpsf_path'],
-        psf_library_path=psf_kwargs['psf_library_path'],
-        fov_pixels=psf_kwargs.get('fov_pixels'),
-        fov_arcsec=psf_kwargs.get('fov_arcsec'),
-        subsample=subsample,
-    ) if len(psf_kwargs) != 0 else None
-    psf = instantiate_psf(psf_kernel)
+    zero_flux_prior_config = (
+        None
+        if input_config.zero_flux_prior_configs is None
+        else input_config.zero_flux_prior_configs.get_name_setting_or_default(
+            input_config.filter_name
+        )
+    )
+    zero_flux_model = build_zero_flux_model(
+        f"{input_config.filter_name}_target",
+        zero_flux_prior_config,
+        shape=(input_config.target_data.data.shape[0], 1, 1),
+    )
 
-    if zero_flux is None:
-        zero_flux_model = None
-    else:
-        zero_flux_model = build_zero_flux_model(zero_flux['dkey'], zero_flux)
-
-    if data_mask is None:
-        def mask(x): return x
-    else:
-        def mask(x): return x[data_mask]
-
-    return JwstResponse(sky_domain=sky_domain,
-                        rotation_and_shift=rotation_and_shift,
-                        psf=psf,
-                        integrate=integrate,
-                        transmission=transmission,
-                        zero_flux_model=zero_flux_model,
-                        mask=mask)
+    return build_jwst_response(
+        sky_in_subsampled_data=sky_in_subsampled_data,
+        data_meta=input_config.filter_meta,
+        data_subsample=input_config.target_data.subsample,
+        sky_meta=input_config.sky_meta,
+        psf=np.array(input_config.target_data.psf),
+        zero_flux_model=zero_flux_model,
+        data_mask=np.array(input_config.target_data.mask),
+    )
