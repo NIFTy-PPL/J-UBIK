@@ -13,7 +13,7 @@ def test_field_sameaxis_yx():
     yx = np.array(
         np.meshgrid(np.arange(0, maxy, 1), np.arange(0, maxx, 1), indexing="ij")
     )
-    rs = build_linear_rotation_and_shift(order=1)
+    rs = build_linear_rotation_and_shift(out_shape=field.shape, order=1)
     field_mapped = rs(field, yx)
 
     assert np.allclose(field, field_mapped, atol=1e-5)
@@ -28,6 +28,6 @@ def test_field_differentaxis_yx():
     yx = np.array(
         np.meshgrid(np.arange(0, maxy, 1), np.arange(0, maxx, 1), indexing="ij")
     )
-    rs = build_linear_rotation_and_shift(order=1)
+    rs = build_linear_rotation_and_shift(out_shape=field.shape, order=1)
     field_mapped = rs(field, yx)
     assert np.allclose(field, field_mapped, atol=1e-4)

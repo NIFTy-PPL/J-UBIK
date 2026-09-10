@@ -50,8 +50,6 @@ def main() -> None:
     n = 9
     wcs = WcsAstropy(center=center, shape=(n, n), fov=(n * u.arcsec, n * u.arcsec))
     c = n // 2
-    interp = build_linear_rotation_and_shift(mode="constant")
-
     north = center.spherical_offsets_by(0 * u.arcsec, 2 * u.arcsec)
     east = center.spherical_offsets_by(2 * u.arcsec, 0 * u.arcsec)
     pts = SkyCoord(
@@ -59,6 +57,9 @@ def main() -> None:
         dec=np.array([[center.dec.deg, north.dec.deg, east.dec.deg]]) * u.deg,
     )
     idx = index_coords(pts, wcs)
+    interp = build_linear_rotation_and_shift(
+        out_shape=idx.shape[-2:], mode="constant"
+    )
 
     sky = np.zeros((n, n))
     sky[c + 2, c] = 1.0
@@ -79,7 +80,11 @@ def main() -> None:
     sky = rng.normal(size=(n, n))
     sky[c + 3, c - 1] += 5.0
     window = subsample_pixel_centers((2, 7, 1, 8), wcs, subsample=2)
-    out = np.asarray(interp(sky, index_coords(window, wcs)))
+    window_indices_yx = index_coords(window, wcs)
+    window_interp = build_linear_rotation_and_shift(
+        out_shape=window_indices_yx.shape[-2:], mode="constant"
+    )
+    out = np.asarray(window_interp(sky, window_indices_yx))
 
     GOLDEN.parent.mkdir(exist_ok=True)
     if not GOLDEN.exists():
