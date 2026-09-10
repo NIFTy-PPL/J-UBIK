@@ -78,6 +78,27 @@ def fits_header(
     return header
 
 
+def _apply_header(wcs: WCS, header: dict) -> None:
+    """Set the cards of :func:`fits_header` on ``wcs`` as exact floats.
+
+    Going through a FITS header string would round every float to 14
+    significant digits and move ``pixel_to_world`` by ~1e-11. Attributes keep
+    the values the geometry computed.
+    """
+    w = wcs.wcs
+    w.ctype = [header["CTYPE1"], header["CTYPE2"]]
+    w.cunit = [header["CUNIT1"], header["CUNIT2"]]
+    w.crpix = [header["CRPIX1"], header["CRPIX2"]]
+    w.cdelt = [header["CDELT1"], header["CDELT2"]]
+    lon, lat = header["CRVAL1"], header["CRVAL2"]
+    w.crval = [0.0 if lon is None else lon, 0.0 if lat is None else lat]
+    w.pc = np.array([[header["PC1_1"], header["PC1_2"]], [header["PC2_1"], header["PC2_2"]]])
+    w.radesys = header["RADESYS"]
+    if "EQUINOX" in header:
+        equinox = header["EQUINOX"]
+        w.equinox = float(str(equinox).lstrip("JB")) if isinstance(equinox, str) else float(equinox)
+
+
 def geometry_from_wcs(wcs: WCS) -> SpatialGeometry:
     """Recover the pixel grid of a celestial two-axis astropy WCS.
 
@@ -151,8 +172,8 @@ class WcsAstropy(WCS, WcsMixin):
             raise u.UnitConversionError("position_angle must carry angular units")
         self.coordinate_system = coordinate_system
 
-        header = fits_header(self.geometry, center, self.position_angle, coordinate_system)
-        super().__init__(header)
+        super().__init__(naxis=2)
+        _apply_header(self, fits_header(self.geometry, center, self.position_angle, coordinate_system))
         self.pixel_shape = self.geometry.shape_xy
 
     @classmethod

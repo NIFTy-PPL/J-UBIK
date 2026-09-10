@@ -52,4 +52,12 @@ def test_coordinate_system_consistency():
     for name, frame_dict in different_equinoxes.items():
         created = CoordinateSystemModel.from_yaml_dict(frame_dict)
         default = getattr(CoordinateSystems, name).value
-        assert default == created
+        assert created.ctypes == default.ctypes
+        assert created.radesys == default.radesys
+        if FRAME_EQUINOX_KEY in frame_dict:
+            # a custom equinox comes back on a copy; the shared enum member
+            # keeps its default so one config cannot change another
+            assert created.equinox == equinox_value
+            assert default.equinox != equinox_value
+        else:
+            assert created == default

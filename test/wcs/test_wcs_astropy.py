@@ -8,7 +8,7 @@ from astropy.wcs import WCS
 
 from jubik.wcs.frame import SpatialGeometry
 from jubik.parse.wcs.coordinate_system import CoordinateSystems
-from jubik.wcs.wcs_astropy import WcsAstropy, WcsAstropy_from_wcs, fits_header, geometry_from_wcs
+from jubik.wcs.wcs_astropy import WcsAstropy, WcsAstropy_from_wcs, _apply_header, fits_header, geometry_from_wcs
 
 SHAPE_XY = (32, 24)
 FOV_XY = (32.0, 12.0) * u.arcsec
@@ -95,12 +95,14 @@ def geometry():
 @pytest.mark.parametrize("pa", [0.0, 30.0, -117.5] * u.deg)
 @pytest.mark.parametrize("cs", [CoordinateSystems.icrs, CoordinateSystems.fk5, CoordinateSystems.galactic])
 def test_fits_header_is_what_wcs_astropy_writes(geometry, pa, cs):
-    """Compared after astropy's own normalisation (identity PC cards dropped,
-    EQUINOX coerced to float)."""
+    """The header rule applied to a plain WCS matches what WcsAstropy writes,
+    compared after astropy's own normalisation (identity PC cards dropped)."""
     reference = WcsAstropy(
         center=CENTER, shape=SHAPE_XY, fov=FOV_XY, position_angle=pa, coordinate_system=cs.value
     ).to_header()
-    header = WCS(fits_header(geometry, CENTER, pa, cs)).to_header()
+    plain = WCS(naxis=2)
+    _apply_header(plain, fits_header(geometry, CENTER, pa, cs))
+    header = plain.to_header()
     assert set(header.keys()) == set(reference.keys())
     for key in reference:
         if isinstance(reference[key], float):
@@ -145,3 +147,11 @@ def test_geometry_from_wcs_handles_cd_matrix(geometry):
 def test_geometry_from_wcs_requires_shape(geometry):
     with pytest.raises(ValueError):
         geometry_from_wcs(WCS(fits_header(geometry, CENTER)))
+
+
+def test_equinox_is_honoured_as_float():
+    fk4 = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY, coordinate_system=CoordinateSystems.fk4.value)
+    assert fk4.wcs.equinox == 1950.0
+    fk5 = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY, coordinate_system=CoordinateSystems.fk5.value)
+    assert fk5.wcs.equinox == 2000.0
+    assert fk5.to_header()["EQUINOX"] == 2000.0
