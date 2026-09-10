@@ -25,7 +25,8 @@ WHAT THIS PROBES
 
 GOLDEN
     probes/golden/p5_beam.npy — the offset-pointing beam.  First run
-    writes, later runs assert byte-stable reproduction.
+    writes, later runs assert reproduction within a tight, absolute
+    cross-platform floating-point drift ceiling.
 
 RUN
     uv run python probes/p5_sky_beamer_frame.py
@@ -104,8 +105,11 @@ def main() -> None:
         np.save(GOLDEN, b)
         print(f"golden WRITTEN: {GOLDEN.name}")
     else:
-        np.testing.assert_array_equal(b, np.load(GOLDEN))
-        print(f"golden REPRODUCED byte-identically: {GOLDEN.name}")
+        golden = np.load(GOLDEN)
+        max_abs_drift = float(np.max(np.abs(b - golden)))
+        np.testing.assert_allclose(b, golden, rtol=0.0, atol=3e-12)
+        print(f"golden REPRODUCED: {GOLDEN.name} "
+              f"(max absolute drift {max_abs_drift:.3g})")
 
     print("\nVERDICT: sky-beamer beams COMPLY with the canonical frame "
           "(dim0=+Dec, dim1=-RA).")
