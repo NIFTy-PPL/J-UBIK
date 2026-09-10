@@ -10,9 +10,9 @@ WHAT THIS MINTS
     `data[round(y), round(x)] = 1.0`.  Because the glyph is anchored in
     ABSOLUTE sky coordinates through the real WCS, any later transpose or
     flip introduced by the production loader chain (gwcs -> WcsJwstData ->
-    subsample_pixel_centers -> world_coordinates_to_index_grid) shows up as
-    a non-identity dihedral verdict when p6_jwst_roundtrip.py scatters the
-    data back onto the canonical reconstruction grid.
+    subsample_pixel_centers -> WcsAstropy.world_to_indices_yx) shows up as a
+    non-identity dihedral verdict when p6_jwst_roundtrip.py scatters the data
+    back onto the canonical reconstruction grid.
 
     The gwcs is a standard FITS-TAN pipeline (Shift | Scale | Pix2Sky_TAN |
     RotateNative2Celestial), NIRCam long-wave pixel scale 0.0630 arcsec,

@@ -26,7 +26,7 @@ WHAT THIS PROBES
       spurious conjugation can re-enter: a conjugated forward makes a
       likelihood fit converge to the rot180 sky — the Batch-A defect).
     - the raw builders interferometry_response_ducc / _finufft keep
-      their p3-measured behavior byte-identically (p3 golden).
+      their p3-measured behavior within its tight numerical tolerance.
 
     CONVENTION NOTE (2026-07-07 correction): this contract was first
     written with the textbook exponent exp(-2*pi*i*(ul+vm)) taken at
@@ -41,7 +41,8 @@ WHAT THIS PROBES
 GOLDEN
     probes/golden/p4_adapter_vis.npy — adapter-path visibilities of a
     fixed random canonical sky.  Re-frozen 2026-07-07 (see above).
-    First run writes, later runs assert byte-stable reproduction.
+    First run writes; later runs use a tight backend-sensitive numerical
+    tolerance.
 
 RUN
     uv run python probes/p4_radio_adapter.py

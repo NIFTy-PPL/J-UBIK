@@ -49,8 +49,8 @@ HISTORY (why this got confusing — do not repeat it)
       to canonical (its sky model + its own compensations).
     - The public-XY migration makes the API boundary match ordinary geometry:
       shape/fov are (x,y), unit-bearing offsets are (East,North), and explicit
-      *_yx properties describe NumPy storage. The conversion happens once in
-      WcsAstropy. extent() is East-left and rotated plots use WCSAxes.
+      *_yx properties describe NumPy storage. SpatialGeometry owns the order
+      conversion. extent() is East-left and rotated plots use WCSAxes.
     - Roundtrip probes (2026-07-07) landed: p6/p7 close the loop with
       externally-minted observations.  p6 paints the orientation glyph into
       a synthetic JWST datamodel world-anchored through its own gwcs and
@@ -101,7 +101,8 @@ DOCUMENTED = {
                    "ducc/finufft backends read dim0=l/RA-axis, dim1=m/Dec-axis. "
                    "This is the low-level layout the response-level adapter "
                    "converts FROM — it is not the jubik boundary frame (see p4). "
-                   "The golden pins this raw behaviour byte-identically.",
+                   "The golden pins this raw behaviour within a tight numerical "
+                   "tolerance.",
     },
     "p4_radio_adapter.py": {
         "expect_pass": True,

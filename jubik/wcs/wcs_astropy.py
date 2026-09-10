@@ -29,7 +29,7 @@ def _fits_header(
     geometry: SpatialGeometry,
     center: SkyCoord,
     position_angle: u.Quantity = 0.0 * u.deg,
-    coordinate_system: CoordinateSystemModel | CoordinateSystems = CoordinateSystems.icrs,
+    coordinate_system: CoordinateSystemModel = CoordinateSystems.icrs.value,
 ) -> dict:
     """The one CRPIX/CRVAL/CDELT/PC rule for a jubik sky grid.
 
@@ -43,14 +43,6 @@ def _fits_header(
     intermediate axes, not the edge lengths of a rotated pixel. Square pixels
     are unaffected.
     """
-    if isinstance(coordinate_system, CoordinateSystems):
-        coordinate_system = coordinate_system.value
-
-    position_angle = u.Quantity(position_angle)
-    if not position_angle.isscalar:
-        raise ValueError("position_angle must be a scalar angle")
-    if not position_angle.unit.is_equivalent(u.rad):
-        raise u.UnitConversionError("position_angle must carry angular units")
     pa = position_angle.to_value(u.rad)
 
     if coordinate_system.radesys == CoordinateSystems.galactic.value.radesys:

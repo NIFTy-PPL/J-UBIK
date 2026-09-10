@@ -20,10 +20,9 @@ from typing import Callable
 
 import jax.numpy as jnp
 import nifty.re as jft
-import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import ArrayLike
 
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_modify.frequency import restrict_by_freq
@@ -59,27 +58,18 @@ class SkyBeamer(jft.Model):
         beam_directions: dict[BeamPattern],
     ):
         self.beam_directions = dict(beam_directions)
-
-        self.target_and_beams = {}
-        for target_keys, vv in self.beam_directions.items():
-            self.target_and_beams[target_keys] = vv.beam
-
         super().__init__(domain=domain_shape)
 
     def __call__(self, x):
-        out = {}
-        for key, beam in self.target_and_beams.items():
-            out[key] = x * beam
-        return out
-
-    @classmethod
-    def _create_object(cls, domain, beam_directions: dict):
-        return cls(domain, beam_directions)
+        return {
+            key: x * pattern.beam
+            for key, pattern in self.beam_directions.items()
+        }
 
     def __add__(self, other):
         assert self.domain == other.domain
         bd = self.beam_directions | other.beam_directions
-        return self._create_object(self.domain, bd)
+        return type(self)(self.domain, bd)
 
 
 def build_sky_beamer(
@@ -191,8 +181,9 @@ def _filter_pointings_generator(observations: list[Observation], direction_key: 
     field_pointings = list()
 
     for obs in observations:
-        if obs.direction_from_key(direction_key) not in field_pointings:
-            field_pointings.append(obs.direction_from_key(direction_key))
+        direction = obs.direction_from_key(direction_key)
+        if direction not in field_pointings:
+            field_pointings.append(direction)
             yield obs
 
 
