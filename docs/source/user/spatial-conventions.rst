@@ -46,8 +46,10 @@ Coordinate conversion and plotting
 
 Use ``world_to_offsets_xy`` and ``offsets_xy_to_world`` for unit-bearing East,
 North offsets. Use ``world_to_indices_yx`` and ``indices_yx_to_world`` at NumPy
-array boundaries. ``coordinate_grid_yx`` returns North and East grids shaped
-like the internal array.
+array boundaries. The pixel grid itself lives on ``grid.spatial.geometry``, a
+``SpatialGeometry``: read ``n_ra``, ``n_dec``, ``d_ra``, ``d_dec`` there instead
+of indexing a shape tuple, and use ``index_grid_yx()`` for the canonical
+``(row, column)`` index grid.
 
 An unrotated field is plotted directly, without a transpose::
 

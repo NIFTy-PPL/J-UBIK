@@ -122,15 +122,6 @@ class WcsMixin:
 
         return np.array(np.meshgrid(x_indices, y_indices, indexing="xy"))
 
-    def index_grid_yx_from_bounding_indices(
-        self, min_row: int, max_row: int, min_column: int, max_column: int
-    ) -> np.ndarray:
-        """Return a NumPy ``(row, column)`` index grid."""
-        column, row = self.pixel_grid_xy_from_bounding_indices(
-            min_row, max_row, min_column, max_column
-        )
-        return np.array((row, column))
-
     def world_to_indices_yx(self, world_coordinates):
         """Return floating NumPy ``(row, column)`` indices."""
         column, row = self.world_to_pixel(world_coordinates)

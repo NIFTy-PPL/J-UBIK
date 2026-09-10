@@ -13,6 +13,7 @@ from astropy.wcs import WCS
 
 from ..parse.wcs.coordinate_system import CoordinateSystemModel, CoordinateSystems
 from ..parse.wcs.spatial_model import SpatialModel
+from .frame import SpatialGeometry
 from .wcs_base import WcsMixin
 
 
@@ -21,10 +22,14 @@ class WcsAstropy(WCS, WcsMixin):
     A wrapper around the astropy.wcs.WCS, in order to define a common interface
     with the gwcs.
 
-    Public geometry is Cartesian ``(x, y)``: ``shape = (nx, ny)`` and
-    ``fov = (fov_x, fov_y)``.  Celestial offsets use ``x = East`` and
-    ``y = North``.  Numerical arrays remain NumPy-native ``(..., y, x)``;
-    increasing columns therefore move West on a zero-position-angle sky.
+    The pixel grid is owned by :attr:`geometry`, a :class:`SpatialGeometry`.
+    This class adds astrometry to it: the sky center, the position angle and
+    the coordinate system, and the projection astropy builds from them.
+
+    Public constructor arguments are Cartesian ``(x, y)``: ``shape = (nx, ny)``
+    and ``fov = (fov_x, fov_y)``. Celestial offsets use ``x = East`` and
+    ``y = North``. Sky arrays are canonical ``(..., y, x)``; increasing columns
+    move West on a zero-position-angle sky.
     """
 
     def __init__(
@@ -52,85 +57,33 @@ class WcsAstropy(WCS, WcsMixin):
             Astronomical position angle, measured from North toward East.
         coordinate_system : CoordinateSystemConfig
             Coordinate system to use ('icrs', 'fk5', 'fk4', 'galactic')
-        equinox : float, optional
-            Equinox for FK4/FK5 systems (e.g., 2000.0 for J2000)
         """
+        if isinstance(coordinate_system, CoordinateSystems):
+            coordinate_system = coordinate_system.value
 
-        if isinstance(shape, (int, np.integer)):
-            shape = (int(shape), int(shape))
-        if (
-            len(shape) != 2
-            or any(not isinstance(v, (int, np.integer)) for v in shape)
-            or any(int(v) <= 0 for v in shape)
-        ):
-            raise ValueError(f"shape must contain two positive dimensions, got {shape}")
-        self.shape_xy = tuple(int(v) for v in shape)
-        self.shape_yx = self.shape_xy[::-1]
-
-        fov = u.Quantity(fov)
-        if fov.isscalar:
-            fov = u.Quantity((fov, fov))
-        if fov.shape != (2,) or np.any(fov <= 0 * fov.unit):
-            raise ValueError(f"fov must contain two positive angular sizes, got {fov}")
-        if not fov.unit.is_equivalent(u.rad):
-            raise u.UnitConversionError("fov must carry angular units")
-        self.fov_xy = fov
-        self.fov_yx = fov[::-1]
-        self.pixel_scales_xy = self.fov_xy / np.asarray(self.shape_xy)
-        self.pixel_scales_yx = self.pixel_scales_xy[::-1]
+        self.geometry = SpatialGeometry.from_xy(shape, fov)
         self.center = center
         self.position_angle = u.Quantity(position_angle)
         if not self.position_angle.isscalar:
             raise ValueError("position_angle must be a scalar angle")
         if not self.position_angle.unit.is_equivalent(u.rad):
             raise u.UnitConversionError("position_angle must carry angular units")
+        self.coordinate_system = coordinate_system
 
-        # Calculate rotation matrix
-        rotation_value = self.position_angle.to(u.rad).value
-        pc11 = np.cos(rotation_value)
-        pc12 = -np.sin(rotation_value)
-        pc21 = np.sin(rotation_value)
-        pc22 = np.cos(rotation_value)
-
-        # Transform center coordinates if necessary
-        if coordinate_system.radesys == CoordinateSystems.galactic.value.radesys:
-            lon = center.galactic.l.deg
-            lat = center.galactic.b.deg
-        else:
-            lon = center.ra.deg
-            lat = center.dec.deg
-
-        if np.isnan(lon) or np.isnan(lat):
-            lon = lat = None
-
-        # Build the header dictionary
-        header = {
-            "WCSAXES": 2,
-            "CTYPE1": coordinate_system.ctypes[0],
-            "CTYPE2": coordinate_system.ctypes[1],
-            "CRPIX1": self.shape_xy[0] / 2 + 0.5,
-            "CRPIX2": self.shape_xy[1] / 2 + 0.5,
-            "CRVAL1": lon,
-            "CRVAL2": lat,
-            "CDELT1": -self.pixel_scales_xy[0].to_value(u.deg),
-            "CDELT2": self.pixel_scales_xy[1].to_value(u.deg),
-            "PC1_1": pc11,
-            "PC1_2": pc12,
-            "PC2_1": pc21,
-            "PC2_2": pc22,
-            "RADESYS": coordinate_system.radesys,
-            "CUNIT1": "deg",
-            "CUNIT2": "deg",
-        }
-
-        # Set equinox if needed for FK4/FK5
-        if coordinate_system.radesys in [
-            CoordinateSystems.fk4.value.radesys,
-            CoordinateSystems.fk5.value.radesys,
-        ]:
-            header["EQUINOX"] = coordinate_system.equinox
-
+        header = self.geometry.fits_header(center, self.position_angle, coordinate_system)
         super().__init__(header)
+        self.pixel_shape = self.geometry.shape_xy
+
+    @classmethod
+    def from_geometry(
+        cls,
+        geometry: SpatialGeometry,
+        center: SkyCoord,
+        position_angle: u.Quantity = 0.0 * u.deg,
+        coordinate_system: Optional[CoordinateSystemModel] = CoordinateSystems.icrs.value,
+    ) -> "WcsAstropy":
+        """Attach astrometry to an existing pixel grid."""
+        return cls(center, geometry.shape_xy, geometry.fov_xy, position_angle, coordinate_system)
 
     @classmethod
     def from_spatial_model(cls, spatial_model: SpatialModel):
@@ -142,12 +95,38 @@ class WcsAstropy(WCS, WcsMixin):
             spatial_model.wcs_model.coordinate_system,
         )
 
+    # ------------------------------------------------------------------ geometry forwards
+    @property
+    def shape_xy(self) -> tuple[int, int]:
+        return self.geometry.shape_xy
+
+    @property
+    def shape_yx(self) -> tuple[int, int]:
+        return self.geometry.shape_yx
+
+    @property
+    def fov_xy(self) -> u.Quantity:
+        return self.geometry.fov_xy
+
+    @property
+    def fov_yx(self) -> u.Quantity:
+        return self.geometry.fov_yx
+
+    @property
+    def pixel_scales_xy(self) -> u.Quantity:
+        return self.geometry.pixel_scales_xy
+
+    @property
+    def pixel_scales_yx(self) -> u.Quantity:
+        return self.geometry.pixel_scales_yx
+
     @property
     def dvol(self) -> u.Quantity:
         """Pixel area in square degrees, preserving the historical unit contract."""
-        scales_deg = self.pixel_scales_xy.to(u.deg)
+        scales_deg = self.geometry.pixel_scales_xy.to(u.deg)
         return scales_deg[0] * scales_deg[1]
 
+    # ------------------------------------------------------------------ astrometry
     def world_corners(
         self,
         extension_value: Optional[tuple[int, int]] = None,
@@ -174,21 +153,17 @@ class WcsAstropy(WCS, WcsMixin):
         ``extension_value`` is NumPy ``(row, column)`` order. Astropy pixel
         coordinates are ``(column, row)`` / ``(x, y)``.
         """
-        # NOTE : renamed ext -> extension_value
-        # ext0 extends array dim 0 (Dec/y); ext1 extends array dim 1 (RA/x).
+        g = self.geometry
         if extension_value is None:
-            ext0, ext1 = [
-                int(shp * extension_factor - shp) // 2 for shp in self.shape_yx
-            ]
+            ext_dec = int(g.n_dec * extension_factor - g.n_dec) // 2
+            ext_ra = int(g.n_ra * extension_factor - g.n_ra) // 2
         else:
-            ext0, ext1 = extension_value
+            ext_dec, ext_ra = extension_value
 
-        # x = FITS axis 1 (RA) spans array dim 1 (shape[1]);
-        # y = FITS axis 2 (Dec) spans array dim 0 (shape[0]).
-        xmin = -ext1 + 0.5
-        xmax = self.shape_yx[1] + ext1 - 1 + 0.5
-        ymin = -ext0 + 0.5
-        ymax = self.shape_yx[0] + ext0 - 1 + 0.5
+        xmin = -ext_ra + 0.5
+        xmax = g.n_ra + ext_ra - 1 + 0.5
+        ymin = -ext_dec + 0.5
+        ymax = g.n_dec + ext_dec - 1 + 0.5
 
         points = np.array(((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax)))
         return self.pixel_to_world(*points.T)
@@ -198,8 +173,7 @@ class WcsAstropy(WCS, WcsMixin):
         pa = self.position_angle.to_value(u.deg) % 360.0
         if not np.isclose(pa, 0.0):
             raise ValueError("extent() is only valid at position_angle=0; use WCSAxes")
-        half_x, half_y = (self.fov_xy / 2).to_value(unit)
-        return half_x, -half_x, -half_y, half_y
+        return self.geometry.imshow_extent(unit)
 
     def world_to_offsets_xy(self, world: SkyCoord):
         """Return unit-bearing ``(East, North)`` offsets from the grid center."""
@@ -209,79 +183,34 @@ class WcsAstropy(WCS, WcsMixin):
         """Convert unit-bearing ``(East, North)`` offsets to world coordinates."""
         return self.center.spherical_offsets_by(x_east, y_north)
 
-    def world_to_indices_yx(self, world: SkyCoord):
-        """Return floating NumPy ``(row, column)`` indices for world coordinates."""
-        column, row = self.world_to_pixel(world)
-        return row, column
-
-    def indices_yx_to_world(self, row, column):
-        """Convert NumPy ``(row, column)`` indices to world coordinates."""
-        return self.pixel_to_world(column, row)
-
-    def coordinate_grid_yx(self):
-        """Internal ``(North, East)`` offset grids, each shaped ``shape_yx``."""
-        column, row = np.meshgrid(
-            np.arange(self.shape_xy[0]),
-            np.arange(self.shape_xy[1]),
-            indexing="xy",
-        )
-        east, north = self.world_to_offsets_xy(self.pixel_to_world(column, row))
-        return north, east
-
 
 def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
     """Rebuild a :class:`WcsAstropy` from a plain astropy WCS.
 
-    Astropy's ``array_shape`` is NumPy ``(ny, nx)``. It is reversed once into
-    the public ``shape_xy = (nx, ny)``; the reconstructed field of view is
-    likewise public ``(width_x, height_y)``.
+    The pixel grid comes from :meth:`SpatialGeometry.from_astropy_wcs`, which
+    reads astropy's numpy-ordered ``array_shape`` and the row norms of the
+    pixel scale matrix, so rectangles, anisotropic pixels, and CD-matrix
+    headers are all handled. The position angle is read from the Dec row of
+    the pixel scale matrix, whose ``CDELT2`` is positive.
 
     Parameters
     ----------
     wcs : astropy.wcs.WCS
-        The WCS object to analyze.
+        The WCS object to analyze. Must know its array shape.
 
     Returns
     -------
     WcsAstropy
-        A WcsAstropy with public ``shape_xy`` and ``fov_xy`` metadata.
     """
-    # astropy array_shape is (ny, nx) = (nDec, nRA) for an RA/Dec WCS.
-    n_dec, n_ra = wcs.array_shape
+    geometry = SpatialGeometry.from_astropy_wcs(wcs)
 
     is_galactic = wcs.wcs.ctype[0].upper().startswith("GLON")
     frame_name = "galactic" if is_galactic else (wcs.wcs.radesys or "ICRS").lower()
     coordinate_system = getattr(CoordinateSystems, frame_name).value
 
-    # Get center coordinate
     center = SkyCoord(wcs.wcs.crval[0], wcs.wcs.crval[1], unit="deg", frame=frame_name)
 
-    # Full-extent corners in astropy pixel order (x = axis 1 = RA over n_ra,
-    # y = axis 2 = Dec over n_dec), sampled at the pixel edges (-0.5 .. n-0.5)
-    # so the recovered separations span the full field of view n * CDELT.
-    corners_pix = np.array(
-        [
-            [-0.5, -0.5],
-            [n_ra - 0.5, -0.5],
-            [n_ra - 0.5, n_dec - 0.5],
-            [-0.5, n_dec - 0.5],
-        ]
-    )
-    corners_world = wcs.wcs_pix2world(corners_pix, 0)
-    corners = SkyCoord(corners_world, unit="deg", frame=frame_name)
+    cd = wcs.pixel_scale_matrix
+    position_angle = np.arctan2(cd[1, 0], cd[1, 1]) * u.rad
 
-    # width_ra: x (RA) varies along corner0->corner1 and corner3->corner2
-    width = (corners[0].separation(corners[1]) + corners[3].separation(corners[2])) / 2
-
-    # height_dec: y (Dec) varies along corner0->corner3 and corner1->corner2
-    height = (corners[0].separation(corners[3]) + corners[1].separation(corners[2])) / 2
-
-    pc = wcs.wcs.get_pc()
-    position_angle = np.arctan2(pc[1, 0], pc[0, 0]) * u.rad
-    return WcsAstropy(
-        center,
-        (n_ra, n_dec),
-        (width, height),
-        position_angle,
-        coordinate_system,
-    )
+    return WcsAstropy.from_geometry(geometry, center, position_angle, coordinate_system)
