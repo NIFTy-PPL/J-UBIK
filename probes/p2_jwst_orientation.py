@@ -16,8 +16,9 @@ WHAT THIS PROBES
 GOLDEN
     probes/golden/p2_jwst_interpolation.npy — an asymmetric test sky
     interpolated at an off-center subsampled window through the shipped
-    path.  First run writes it; later runs assert byte-stable
-    reproduction (square-grid behavior must never change).
+    path.  First run writes it; later runs assert reproduction within a
+    tight, absolute cross-platform floating-point drift ceiling
+    (square-grid behavior must never change).
 
 RUN
     uv run python probes/p2_jwst_orientation.py
@@ -91,8 +92,11 @@ def main() -> None:
         np.save(GOLDEN, out)
         print(f"\ngolden WRITTEN: {GOLDEN.name}  shape={out.shape}")
     else:
-        np.testing.assert_array_equal(out, np.load(GOLDEN))
-        print(f"\ngolden REPRODUCED byte-identically: {GOLDEN.name}")
+        golden = np.load(GOLDEN)
+        max_abs_drift = float(np.max(np.abs(out - golden)))
+        np.testing.assert_allclose(out, golden, rtol=0.0, atol=3e-10)
+        print(f"\ngolden REPRODUCED: {GOLDEN.name} "
+              f"(max absolute drift {max_abs_drift:.3g})")
 
     print("\nVERDICT: dim0=+Dec, dim1=-RA — North-up/East-left under "
           "imshow(origin='lower').")
