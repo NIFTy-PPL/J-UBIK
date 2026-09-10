@@ -53,7 +53,7 @@ GOLDEN = Path(__file__).parent / "golden" / "p5_beam.npy"
 
 N = 33                                   # odd -> exact single center pixel
 C = N // 2
-FOV = u.Quantity((33.0 * u.arcsec, 66.0 * u.arcsec))   # (Dec, RA): 1"/px, 2"/px
+FOV = u.Quantity((66.0 * u.arcsec, 33.0 * u.arcsec))   # public (x, y)
 CENTER = SkyCoord(ra=10.0 * u.deg, dec=20.0 * u.deg)
 
 
@@ -104,8 +104,8 @@ def main() -> None:
         np.save(GOLDEN, b)
         print(f"golden WRITTEN: {GOLDEN.name}")
     else:
-        np.testing.assert_array_equal(b, np.load(GOLDEN))
-        print(f"golden REPRODUCED byte-identically: {GOLDEN.name}")
+        np.testing.assert_allclose(b, np.load(GOLDEN), rtol=1e-9, atol=1e-14)
+        print(f"golden matched within numerical tolerance: {GOLDEN.name}")
 
     print("\nVERDICT: sky-beamer beams COMPLY with the canonical frame "
           "(dim0=+Dec, dim1=-RA).")

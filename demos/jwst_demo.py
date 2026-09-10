@@ -79,7 +79,7 @@ config.update('jax_enable_x64', True)
 #   - `dpi`: DPI setting for plot resolution.
 #
 # - **grid**: Parameters defining the data grid for processing.
-#   - `sdim`: Spatial dimensions for the image grid.
+#   - `shape`: Public spatial dimensions for the image grid.
 #   - `energy_bin`: Energy binning with `e_min`, `e_max`, and `e_ref` values
 #   for each bin.
 
@@ -188,7 +188,7 @@ sky_model_with_filters = jft.Model(
 mock_sky = sky_model_with_filters(sky_model_with_filters.init(subkey))
 reconstruction_grid = ju.Grid(
     center=SkyCoord(pointing_center[0] * u.rad, pointing_center[1] * u.rad),
-    shape=(cfg["grid"]["sdim"],) * 2,
+    shape=cfg["grid"]["shape"],
     fov=(cfg["grid"]["fov"] * u.arcsec,) * 2,
 )
 

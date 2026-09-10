@@ -10,7 +10,7 @@ WHAT THIS PROBES
         JwstData(path)                                   # gwcs -> WcsJwstData
         -> bounding_indices_from_world_extrema(...)      # recon corners
         -> subsample_pixel_centers(bounds, jd.wcs, 1)    # data pixel centers
-        -> world_coordinates_to_index_grid(..., "ij")    # -> recon (i, j)
+        -> world_to_indices_yx(...)                       # -> recon (row, col)
 
     and scatters the data cutout onto a canonical reconstruction grid
     (dim0 = +Dec/North, dim1 = -RA/West; probes/README.md).  A correct
@@ -39,7 +39,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 
 from jubik.instruments.jwst.data.jwst_data import JwstData
-from jubik.wcs import subsample_pixel_centers, world_coordinates_to_index_grid
+from jubik.wcs import subsample_pixel_centers
 from jubik.wcs.wcs_astropy import WcsAstropy
 
 sys.path.insert(0, str(Path(__file__).parent / "roundtrip"))
@@ -117,7 +117,7 @@ def main(image_path: str | None = None) -> None:
     cutout = jd.dm.data[min_row:max_row, min_col:max_col]
 
     centers = subsample_pixel_centers(bounds, jd.wcs, subsample=1)
-    idx = world_coordinates_to_index_grid([centers], recon, "ij")[0]
+    idx = np.array(recon.world_to_indices_yx(centers))
 
     # --- scatter the data onto the canonical grid -------------------------
     scattered = np.zeros(RECON_SHAPE)

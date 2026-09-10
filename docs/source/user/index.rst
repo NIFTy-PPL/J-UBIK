@@ -15,6 +15,7 @@ Further information on these topics, as well as on the role of prior and likelih
         ift
         nifty
         jubik
+        spatial-conventions
 
 
 More details on the API and the demos for the different instruments can be found at the `API reference <../mod/jubik.html>`_.

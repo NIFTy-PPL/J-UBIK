@@ -10,7 +10,7 @@ obs_info:
     instrument: ACIS-I
 
 grid:
-  sdim: 512
+  shape: 512
   edim: 3
   s_padding_ratio: 1.1075
   e_padding_ratio: 1.

@@ -187,9 +187,10 @@ def interferometry_response(
 
     # The sky array is canonical (dim0 = Dec, dim1 = RA); the wgridder x-axis
     # is l/RA, so read the RA quantities from index 1 and Dec from index 0.
-    npix_x, npix_y = sky_grid.spatial.shape[1], sky_grid.spatial.shape[0]
-    _dist = sky_grid.spatial.distances.to(RESOLVE_SPATIAL_UNIT).value
-    pixsize_x, pixsize_y = _dist[1], _dist[0]
+    npix_x, npix_y = sky_grid.spatial.shape_xy
+    pixsize_x, pixsize_y = sky_grid.spatial.pixel_scales_xy.to(
+        RESOLVE_SPATIAL_UNIT
+    ).value
     center_x, center_y = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
         sky_grid.spatial.center

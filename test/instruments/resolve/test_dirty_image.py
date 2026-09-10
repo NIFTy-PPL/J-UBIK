@@ -58,7 +58,7 @@ def test_dirty_image_preserves_off_center_source_position():
     )
 
     source_position = (7, 15)
-    sky = np.zeros(grid.shape)
+    sky = np.zeros(grid.array_shape)
     sky[0, 0, 0, *source_position] = 1.0 / grid.spatial.dvol.to(u.rad**2).value
     visibilities = np.asarray(sky_to_vis(jnp.asarray(sky)))
     observation = Observation(

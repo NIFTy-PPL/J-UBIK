@@ -17,7 +17,7 @@ class GridModel:
         Builds the reconstruction grid from the given configuration.
 
         The reconstruction grid is defined by the world location, field of view
-        (FOV), shape (resolution), and rotation, all specified in the input
+        (FOV), shape (resolution), and position angle, all specified in the input
         configuration. These parameters are extracted from the grid_config dictionary
         using helper functions.
 
@@ -28,11 +28,12 @@ class GridModel:
                 e.g.: {ra: '0deg', dec: '1deg'}
             - `fov`: str | tuple[str]
                 e.g.: 0.5arcsec; [0.1arcmin, 2.0deg]
-            - `sdim`: tuple[int, int]
-                Shape of the grid, i.e. resolution, as (sdim, sdim).
+            - `shape`: int or tuple[int, int]
+                Public spatial resolution as ``(nx, ny)``. A scalar is
+                broadcast to a square grid.
                 e.g.: [128, 12]
-            - `rotation`: str,
-                Rotation of the grid.
+            - `position_angle`: str,
+                Astronomical position angle measured from North through East.
                 e.g.: 0.1deg
             - `energy_bin`: Holding `e_min`, `e_max`, and `reference_bin`.
                 e.g.: [e_min: [0.1], e_max: [1.2]]

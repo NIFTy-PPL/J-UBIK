@@ -96,11 +96,8 @@ def build_sky_beamer(
     pointing containing the beam pattern for the mean of all
     `sky_frequency_means`.
 
-    The sky trailing shape and ``sky_fov`` are NUMPY/CANONICAL-ordered —
-    trailing shape ``(nDec, nRA)`` and ``sky_fov = (fov_dec, fov_ra)`` —
-    matching the sky array they describe.  The beams pair index-for-index
-    with the canonical sky (dim 0 = +Dec, dim 1 = -RA; see
-    ``probes/README.md``), pinned by ``probes/p5_sky_beamer_frame.py``.
+    The sky trailing array shape is ``(ny, nx)`` while public ``sky_fov`` is
+    ``(fov_x, fov_y)``. Beams pair index-for-index with that NumPy sky.
 
     Parameters
     ----------
@@ -149,7 +146,8 @@ def build_sky_beamer(
 
     _, _, fshape, *sshape = sky_shape_with_dtype.shape
 
-    wcs = build_astropy_wcs(sky_center, sshape, sky_fov)
+    shape_xy = (sshape[1], sshape[0])
+    wcs = build_astropy_wcs(sky_center, shape_xy, sky_fov)
     # Canonical-order mesh: x = RA-pixel index (dim 1), y = Dec-pixel index
     # (dim 0).  meshgrid(x, y) with the default indexing="xy" gives both mesh
     # arrays the sky trailing shape (sshape[0], sshape[1]), so

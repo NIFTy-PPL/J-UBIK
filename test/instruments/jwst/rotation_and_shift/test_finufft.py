@@ -22,7 +22,7 @@
 #     xy = np.array(
 #         np.meshgrid(np.arange(0, maxx, 1), np.arange(0, maxy, 1), indexing="ij")
 #     )
-#     rs = build_nufft_rotation_and_shift(field.shape, field.shape, indexing="ij")
+#     rs = build_nufft_rotation_and_shift(field.shape, field.shape)
 #     field_mapped = rs(field, xy)
 #
 #     assert np.allclose(field, field_mapped, atol=1e-4)
@@ -35,7 +35,7 @@
 # #     xy = np.array(
 # #         np.meshgrid(np.arange(0, maxx, 1), np.arange(0, maxy, 1), indexing="xy")
 # #     )
-# #     rs = build_nufft_rotation_and_shift(field.shape, field.shape, indexing="ij")
+# #     rs = build_nufft_rotation_and_shift(field.shape, field.shape)
 # #     field_mapped = rs(field, xy)
 # #
 # #     assert np.allclose(field, field_mapped, atol=1e-4)
@@ -48,7 +48,7 @@
 #     xy = np.array(
 #         np.meshgrid(np.arange(0, maxx, 1), np.arange(0, maxy, 1), indexing="ij")
 #     )
-#     rs = build_nufft_rotation_and_shift(field.shape, field.shape, indexing="ij")
+#     rs = build_nufft_rotation_and_shift(field.shape, field.shape)
 #     field_mapped = rs(field, xy)
 #
 #     assert np.allclose(field, field_mapped, atol=1e-4)
@@ -62,7 +62,7 @@
 # #     xy = np.array(
 # #         np.meshgrid(np.arange(0, maxx, 1), np.arange(0, maxy, 1), indexing="xy")
 # #     )
-# #     rs = build_nufft_rotation_and_shift(field.shape, field.shape, indexing="xy")
+# #     rs = build_nufft_rotation_and_shift(field.shape, field.shape)
 # #     field_mapped = rs(field, xy)
 # #
 # #     assert np.allclose(field, field_mapped, atol=1e-4)

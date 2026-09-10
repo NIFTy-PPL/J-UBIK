@@ -22,7 +22,8 @@ if __name__ == "__main__":
     tm_ids = cfg['telescope']['tm_ids']
     n_modules = len(tm_ids)
 
-    spix = cfg['grid']['sdim']
+    shape = cfg['grid']['shape']
+    spix = shape if isinstance(shape, int) else shape[0]
     epix = cfg['grid']['edim']
 
     # Load response
