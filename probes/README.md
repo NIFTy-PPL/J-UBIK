@@ -48,10 +48,11 @@ convention quirks that cancel on square grids (see `p1`).
 
 ## Golden freeze
 
-Probes write small witness arrays to `probes/golden/` on first run and compare
-against them thereafter with tight, probe-specific numerical tolerances. The
-golden files themselves are immutable: convention changes must keep their
-checked-in bytes unchanged unless a separately reviewed re-mint is intended.
+Probes write small witness arrays to `probes/golden/` on first run. The p2, p5,
+p6, and p7 boundary goldens must reproduce byte-exactly; backend-sensitive p3
+and p4 use tight, probe-specific numerical tolerances. The golden files
+themselves are immutable: convention changes must keep their checked-in bytes
+unchanged unless a separately reviewed re-mint is intended.
 
 ## Running
 
