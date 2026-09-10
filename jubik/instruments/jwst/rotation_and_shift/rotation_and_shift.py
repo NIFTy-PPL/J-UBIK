@@ -117,6 +117,7 @@ def build_rotation_and_shift(
 
     if isinstance(algorithm_config, LinearConfig):
         rotation_and_shift_algorithm = build_linear_rotation_and_shift(
+            out_shape=_infere_shape_from_domain(coordinates.target, "coordinates"),
             **vars(algorithm_config),
         )
 

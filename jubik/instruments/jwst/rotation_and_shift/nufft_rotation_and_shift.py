@@ -45,8 +45,15 @@ def build_nufft_rotation_and_shift(
     from jax_finufft import nufft2
 
     xy_conversion = 2 * np.pi / np.array(sky_shape)[:, None]
+    out_shape = tuple(out_shape)
 
     def rotate_shift_subsample(field, subsample_centers_yx):
+        actual_shape = tuple(subsample_centers_yx.shape[-2:])
+        if actual_shape != out_shape:
+            raise ValueError(
+                f"subsample_centers_yx trailing shape {actual_shape} "
+                f"does not match out_shape {out_shape}"
+            )
         f_field = ifftshift(ifft2(field))
         coords = xy_conversion * subsample_centers_yx.reshape(2, -1)
 
