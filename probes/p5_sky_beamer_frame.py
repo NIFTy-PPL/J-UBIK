@@ -104,8 +104,8 @@ def main() -> None:
         np.save(GOLDEN, b)
         print(f"golden WRITTEN: {GOLDEN.name}")
     else:
-        np.testing.assert_allclose(b, np.load(GOLDEN), rtol=1e-9, atol=1e-14)
-        print(f"golden matched within numerical tolerance: {GOLDEN.name}")
+        np.testing.assert_array_equal(b, np.load(GOLDEN))
+        print(f"golden REPRODUCED byte-identically: {GOLDEN.name}")
 
     print("\nVERDICT: sky-beamer beams COMPLY with the canonical frame "
           "(dim0=+Dec, dim1=-RA).")

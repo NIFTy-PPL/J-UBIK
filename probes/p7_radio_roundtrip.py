@@ -191,10 +191,8 @@ def main(image_path: str | None = None) -> None:
         np.save(DIRTY_GOLDEN, img)
         print(f"\ngolden WRITTEN: {DIRTY_GOLDEN.name}")
     else:
-        np.testing.assert_allclose(
-            img, np.load(DIRTY_GOLDEN), rtol=1e-5, atol=2e-4
-        )
-        print(f"\ngolden matched within numerical tolerance: {DIRTY_GOLDEN.name}")
+        np.testing.assert_array_equal(img, np.load(DIRTY_GOLDEN))
+        print(f"\ngolden REPRODUCED byte-identically: {DIRTY_GOLDEN.name}")
 
     # --- VIS-DOMAIN seam stage (the test the dirty image cannot do) ----
     # Forward-model the CASA truth sky through the shipped adapter and
