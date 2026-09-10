@@ -8,7 +8,7 @@ from astropy.wcs import WCS
 
 from jubik.wcs.frame import SpatialGeometry
 from jubik.parse.wcs.coordinate_system import CoordinateSystems
-from jubik.wcs.wcs_astropy import WcsAstropy, WcsAstropy_from_wcs, _apply_header, fits_header, geometry_from_wcs
+from jubik.wcs.wcs_astropy import WcsAstropy, WcsAstropy_from_wcs
 
 SHAPE_XY = (32, 24)
 FOV_XY = (32.0, 12.0) * u.arcsec
@@ -94,31 +94,33 @@ def geometry():
     return SpatialGeometry.from_xy(SHAPE_XY, FOV_XY)
 
 
-@pytest.mark.parametrize("pa", [0.0, 30.0, -117.5] * u.deg)
+def test_header_cards_follow_the_geometry(geometry):
+    wcs = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY, position_angle=30 * u.deg)
+    header = wcs.to_header()
+    assert header["CRPIX1"] == geometry.n_ra / 2 + 0.5
+    assert header["CRPIX2"] == geometry.n_dec / 2 + 0.5
+    assert header["CDELT1"] == pytest.approx(-geometry.d_ra.to_value(u.deg), rel=1e-13)
+    assert header["CDELT2"] == pytest.approx(geometry.d_dec.to_value(u.deg), rel=1e-13)
+    assert header["PC2_1"] == pytest.approx(np.sin(np.deg2rad(30)))
+    assert header["PC1_2"] == pytest.approx(-np.sin(np.deg2rad(30)))
+
+
 @pytest.mark.parametrize("cs", [CoordinateSystems.icrs, CoordinateSystems.fk5, CoordinateSystems.galactic])
-def test_fits_header_is_what_wcs_astropy_writes(geometry, pa, cs):
-    """The header rule applied to a plain WCS matches what WcsAstropy writes,
-    compared after astropy's own normalisation (identity PC cards dropped)."""
-    reference = WcsAstropy(
-        center=CENTER, shape=SHAPE_XY, fov=FOV_XY, position_angle=pa, coordinate_system=cs.value
-    ).to_header()
-    plain = WCS(naxis=2)
-    _apply_header(plain, fits_header(geometry, CENTER, pa, cs))
-    header = plain.to_header()
-    assert set(header.keys()) == set(reference.keys())
-    for key in reference:
-        if isinstance(reference[key], float):
-            assert header[key] == pytest.approx(reference[key], abs=0, rel=1e-13), key
-        else:
-            assert header[key] == reference[key], key
+def test_header_names_the_frame(cs):
+    header = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY, coordinate_system=cs.value).to_header()
+    assert (header["CTYPE1"], header["CTYPE2"]) == cs.value.ctypes
+    if cs is CoordinateSystems.galactic:
+        assert header["CRVAL1"] == pytest.approx(CENTER.galactic.l.deg)
+    else:
+        assert header["RADESYS"] == cs.value.radesys
+        assert header["CRVAL1"] == pytest.approx(CENTER.ra.deg)
 
 
 def test_header_orients_east_left_north_up(geometry):
-    """External anchor: astropy resolves the header, not our own arithmetic."""
-    header = fits_header(geometry, CENTER)
-    assert header["CDELT1"] < 0
-    assert header["CDELT2"] > 0
-    wcs = WCS(header)
+    """External anchor: astropy resolves the projection, not our own arithmetic."""
+    wcs = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY)
+    assert wcs.wcs.cdelt[0] < 0
+    assert wcs.wcs.cdelt[1] > 0
     column, row = geometry.n_ra // 2, geometry.n_dec // 2
     here = wcs.pixel_to_world(column, row)
     west = wcs.pixel_to_world(column + 1, row)
@@ -130,28 +132,10 @@ def test_header_orients_east_left_north_up(geometry):
     assert u.isclose(here.separation(west), geometry.d_ra, rtol=1e-6)
 
 
-def test_geometry_from_wcs_round_trips_rectangle(geometry):
-    wcs = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY, position_angle=30 * u.deg)
-    recovered = geometry_from_wcs(wcs)
-    assert recovered.shape_yx == geometry.shape_yx
-    assert u.allclose(recovered.fov_yx, geometry.fov_yx, rtol=1e-12)
-
-
-def test_geometry_from_wcs_handles_cd_matrix(geometry):
-    header = fits_header(geometry, CENTER, 30 * u.deg)
-    wcs = WCS(header)
-    cd = wcs.wcs.cdelt[:, None] * wcs.wcs.get_pc()
-    header_cd = {k: v for k, v in header.items() if not k.startswith(("PC", "CDELT"))}
-    header_cd.update(CD1_1=cd[0, 0], CD1_2=cd[0, 1], CD2_1=cd[1, 0], CD2_2=cd[1, 1])
-    header_cd.update(NAXIS=2, NAXIS1=geometry.n_ra, NAXIS2=geometry.n_dec)
-    recovered = geometry_from_wcs(WCS(header_cd))
-    assert recovered.shape_yx == geometry.shape_yx
-    assert u.allclose(recovered.fov_yx, geometry.fov_yx, rtol=1e-12)
-
-
-def test_geometry_from_wcs_requires_shape(geometry):
-    with pytest.raises(ValueError):
-        geometry_from_wcs(WCS(fits_header(geometry, CENTER)))
+def test_from_wcs_requires_shape():
+    shapeless = WCS(WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY).to_header())
+    with pytest.raises(ValueError, match="array shape"):
+        WcsAstropy_from_wcs(shapeless)
 
 
 def test_equinox_is_honoured_as_float():

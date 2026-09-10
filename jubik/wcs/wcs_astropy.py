@@ -16,8 +16,16 @@ from ..parse.wcs.spatial_model import SpatialModel
 from .frame import SpatialGeometry
 from .wcs_base import WcsMixin
 
+__all__ = ["WcsAstropy", "WcsAstropy_from_wcs"]
 
-def fits_header(
+
+# --------------------------------------------------------------------------- #
+# Private helpers: the header rule and its inverse. Reached only through the
+# public API below.
+# --------------------------------------------------------------------------- #
+
+
+def _fits_header(
     geometry: SpatialGeometry,
     center: SkyCoord,
     position_angle: u.Quantity = 0.0 * u.deg,
@@ -79,7 +87,7 @@ def fits_header(
 
 
 def _apply_header(wcs: WCS, header: dict) -> None:
-    """Set the cards of :func:`fits_header` on ``wcs`` as exact floats.
+    """Set the cards of :func:`_fits_header` on ``wcs`` as exact floats.
 
     Going through a FITS header string would round every float to 14
     significant digits and move ``pixel_to_world`` by ~1e-11. Attributes keep
@@ -99,7 +107,7 @@ def _apply_header(wcs: WCS, header: dict) -> None:
         w.equinox = float(str(equinox).lstrip("JB")) if isinstance(equinox, str) else float(equinox)
 
 
-def geometry_from_wcs(wcs: WCS) -> SpatialGeometry:
+def _geometry_from_wcs(wcs: WCS) -> SpatialGeometry:
     """Recover the pixel grid of a celestial two-axis astropy WCS.
 
     Uses ``array_shape`` (already numpy ordered) and the row norms of the
@@ -117,6 +125,11 @@ def geometry_from_wcs(wcs: WCS) -> SpatialGeometry:
     n_dec, n_ra = wcs.array_shape
     scale_ra, scale_dec = np.sqrt((wcs.pixel_scale_matrix**2).sum(axis=1)) * u.Unit(wcs.wcs.cunit[0])
     return SpatialGeometry.from_yx((n_dec, n_ra), u.Quantity((scale_dec * n_dec, scale_ra * n_ra)))
+
+
+# --------------------------------------------------------------------------- #
+# Public API
+# --------------------------------------------------------------------------- #
 
 
 class WcsAstropy(WCS, WcsMixin):
@@ -173,7 +186,7 @@ class WcsAstropy(WCS, WcsMixin):
         self.coordinate_system = coordinate_system
 
         super().__init__(naxis=2)
-        _apply_header(self, fits_header(self.geometry, center, self.position_angle, coordinate_system))
+        _apply_header(self, _fits_header(self.geometry, center, self.position_angle, coordinate_system))
         self.pixel_shape = self.geometry.shape_xy
 
     @classmethod
@@ -289,7 +302,7 @@ class WcsAstropy(WCS, WcsMixin):
 def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
     """Rebuild a :class:`WcsAstropy` from a plain astropy WCS.
 
-    The pixel grid comes from :func:`geometry_from_wcs`, which
+    The pixel grid comes from :func:`_geometry_from_wcs`, which
     reads astropy's numpy-ordered ``array_shape`` and the row norms of the
     pixel scale matrix, so rectangles, anisotropic pixels, and CD-matrix
     headers are all handled. The position angle is read from the Dec row of
@@ -304,7 +317,7 @@ def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
     -------
     WcsAstropy
     """
-    geometry = geometry_from_wcs(wcs)
+    geometry = _geometry_from_wcs(wcs)
 
     is_galactic = wcs.wcs.ctype[0].upper().startswith("GLON")
     frame_name = "galactic" if is_galactic else (wcs.wcs.radesys or "ICRS").lower()
