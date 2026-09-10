@@ -27,6 +27,7 @@ def geometry():
 def test_from_xy_and_from_yx_agree(geometry):
     other = SpatialGeometry.from_yx((24, 32), (12.0, 32.0) * u.arcsec)
     assert geometry == other
+    assert geometry != SpatialGeometry.from_yx((24, 32), (12.0, 32.0 + 1e-9) * u.arcsec), "equality is exact"
     assert geometry != SpatialGeometry.from_xy(SHAPE_XY, (32.0, 12.5) * u.arcsec)
 
 
@@ -46,7 +47,6 @@ def test_named_accessors(geometry):
     assert u.allclose(geometry.pixel_scales_yx, (0.5, 1.0) * u.arcsec)
     assert u.allclose(geometry.pixel_scales_xy, (1.0, 0.5) * u.arcsec)
     assert u.allclose(geometry.fov_xy, FOV_XY)
-    assert u.isclose(geometry.dvol, 0.5 * u.arcsec**2)
 
 
 def test_scalar_inputs_broadcast():
@@ -124,16 +124,6 @@ def test_padded_default_is_fft_friendly(geometry):
 def test_padded_rejects_shrinking(geometry):
     with pytest.raises(ValueError):
         geometry.padded(0.9)
-
-
-def test_crop_to_recovers_shape(geometry):
-    padded = geometry.padded(2.0, fft_friendly=lambda n: n)
-    field = np.arange(np.prod((5,) + padded.shape_yx)).reshape((5,) + padded.shape_yx)
-    cropped = geometry.crop_to(field)
-    assert cropped.shape == (5, 24, 32)
-    np.testing.assert_array_equal(cropped, field[:, :24, :32])
-    with pytest.raises(ValueError):
-        geometry.crop_to(np.zeros((10, 10)))
 
 
 def test_index_grids(geometry):

@@ -66,8 +66,8 @@ class SpatialGeometry:
     """A rectangular pixel grid on the sky, stored in array ``(y, x)`` order.
 
     Construct through :meth:`from_xy` or :meth:`from_yx`. Read through the
-    named accessors. Instances compare equal when shapes match and fields of
-    view agree to 1e-12 relative; they are deliberately unhashable.
+    named accessors. Equality is exact on shape and field of view; instances
+    are deliberately unhashable.
     """
 
     shape_yx: tuple[int, int]
@@ -114,10 +114,6 @@ class SpatialGeometry:
         """Pixel size along RA."""
         return self.fov_yx[1] / self.n_ra
 
-    @property
-    def dvol(self) -> u.Quantity:
-        return self.d_ra * self.d_dec
-
     # ------------------------------------------------------------------ ordered views
     @property
     def shape_xy(self) -> tuple[int, int]:
@@ -150,13 +146,6 @@ class SpatialGeometry:
         scale = np.asarray(new_shape) / np.asarray(self.shape_yx)
         return SpatialGeometry(shape_yx=new_shape, fov_yx=self.fov_yx * scale)
 
-    def crop_to(self, arr):
-        """Cut a padded array back to this geometry's trailing shape."""
-        trailing = tuple(arr.shape[-2:])
-        if trailing[0] < self.n_dec or trailing[1] < self.n_ra:
-            raise ValueError(f"array trailing shape {trailing} is smaller than {self.shape_yx}")
-        return arr[..., : self.n_dec, : self.n_ra]
-
     def index_grid_yx(self) -> np.ndarray:
         """Integer ``(row, column)`` index grid, shape ``(2, n_dec, n_ra)``."""
         return np.indices(self.shape_yx)
@@ -186,7 +175,7 @@ class SpatialGeometry:
         if not isinstance(other, SpatialGeometry):
             return NotImplemented
         return self.shape_yx == other.shape_yx and bool(
-            u.allclose(self.fov_yx, other.fov_yx, rtol=1e-12, atol=0 * u.arcsec)
+            self.fov_yx.unit == other.fov_yx.unit and np.array_equal(self.fov_yx.value, other.fov_yx.value)
         )
 
     __hash__ = None

@@ -68,7 +68,8 @@ def test_world_corners_span_the_rectangle():
 def test_from_wcs_round_trips_pc_header(pa):
     original = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY, position_angle=pa)
     rebuilt = WcsAstropy_from_wcs(original)
-    assert rebuilt.geometry == original.geometry
+    assert rebuilt.geometry.shape_yx == original.geometry.shape_yx
+    assert u.allclose(rebuilt.geometry.fov_yx, original.geometry.fov_yx, rtol=1e-12)
     assert u.isclose(rebuilt.position_angle, pa, atol=1e-9 * u.deg)
     assert rebuilt.to_header() == original.to_header()
 
@@ -82,7 +83,8 @@ def test_from_wcs_round_trips_cd_header():
     header.update(CD1_1=cd[0, 0], CD1_2=cd[0, 1], CD2_1=cd[1, 0], CD2_2=cd[1, 1])
     header.update(NAXIS=2, NAXIS1=SHAPE_XY[0], NAXIS2=SHAPE_XY[1])
     rebuilt = WcsAstropy_from_wcs(WCS(header))
-    assert rebuilt.geometry == original.geometry
+    assert rebuilt.geometry.shape_yx == original.geometry.shape_yx
+    assert u.allclose(rebuilt.geometry.fov_yx, original.geometry.fov_yx, rtol=1e-12)
     assert u.isclose(rebuilt.position_angle, 30 * u.deg, atol=1e-9 * u.deg)
 
 
@@ -131,7 +133,8 @@ def test_header_orients_east_left_north_up(geometry):
 def test_geometry_from_wcs_round_trips_rectangle(geometry):
     wcs = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY, position_angle=30 * u.deg)
     recovered = geometry_from_wcs(wcs)
-    assert recovered == geometry
+    assert recovered.shape_yx == geometry.shape_yx
+    assert u.allclose(recovered.fov_yx, geometry.fov_yx, rtol=1e-12)
 
 
 def test_geometry_from_wcs_handles_cd_matrix(geometry):
@@ -141,7 +144,9 @@ def test_geometry_from_wcs_handles_cd_matrix(geometry):
     header_cd = {k: v for k, v in header.items() if not k.startswith(("PC", "CDELT"))}
     header_cd.update(CD1_1=cd[0, 0], CD1_2=cd[0, 1], CD2_1=cd[1, 0], CD2_2=cd[1, 1])
     header_cd.update(NAXIS=2, NAXIS1=geometry.n_ra, NAXIS2=geometry.n_dec)
-    assert geometry_from_wcs(WCS(header_cd)) == geometry
+    recovered = geometry_from_wcs(WCS(header_cd))
+    assert recovered.shape_yx == geometry.shape_yx
+    assert u.allclose(recovered.fov_yx, geometry.fov_yx, rtol=1e-12)
 
 
 def test_geometry_from_wcs_requires_shape(geometry):

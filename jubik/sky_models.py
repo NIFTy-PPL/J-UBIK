@@ -351,7 +351,9 @@ class SkyModel:
                 "freq_dev": self.dev_cf,
             }
         ).build_model()
-        exp_padding = lambda x: jnp.exp(geometry.crop_to(log_diffuse(x)[:edim]))
+        exp_padding = lambda x: jnp.exp(
+            log_diffuse(x)[:edim, : geometry.n_dec, : geometry.n_ra]
+        )
         self.diffuse = jft.Model(exp_padding, domain=log_diffuse.domain)
 
     def _create_point_source_model(
