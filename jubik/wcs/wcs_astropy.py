@@ -17,6 +17,87 @@ from .frame import SpatialGeometry
 from .wcs_base import WcsMixin
 
 
+def fits_header(
+    geometry: SpatialGeometry,
+    center: SkyCoord,
+    position_angle: u.Quantity = 0.0 * u.deg,
+    coordinate_system: CoordinateSystemModel | CoordinateSystems = CoordinateSystems.icrs,
+) -> dict:
+    """The one CRPIX/CRVAL/CDELT/PC rule for a jubik sky grid.
+
+    FITS axis 1 is RA with ``CDELT1 < 0`` (East to the left), axis 2 is Dec.
+    ``position_angle`` is measured from North through East. Byte-compatible
+    with the header ``WcsAstropy`` has always written.
+
+    FITS applies ``CDELT`` after the ``PC`` rotation. For anisotropic pixels
+    and a non-zero position angle the pixel grid on the sky is therefore
+    sheared, not rigidly rotated; ``d_ra`` and ``d_dec`` are the scales of the
+    intermediate axes, not the edge lengths of a rotated pixel. Square pixels
+    are unaffected.
+    """
+    if isinstance(coordinate_system, CoordinateSystems):
+        coordinate_system = coordinate_system.value
+
+    position_angle = u.Quantity(position_angle)
+    if not position_angle.isscalar:
+        raise ValueError("position_angle must be a scalar angle")
+    if not position_angle.unit.is_equivalent(u.rad):
+        raise u.UnitConversionError("position_angle must carry angular units")
+    pa = position_angle.to_value(u.rad)
+
+    if coordinate_system.radesys == CoordinateSystems.galactic.value.radesys:
+        lon, lat = center.galactic.l.deg, center.galactic.b.deg
+    else:
+        lon, lat = center.ra.deg, center.dec.deg
+    if np.isnan(lon) or np.isnan(lat):
+        lon = lat = None
+
+    header = {
+        "WCSAXES": 2,
+        "CTYPE1": coordinate_system.ctypes[0],
+        "CTYPE2": coordinate_system.ctypes[1],
+        "CRPIX1": geometry.n_ra / 2 + 0.5,
+        "CRPIX2": geometry.n_dec / 2 + 0.5,
+        "CRVAL1": lon,
+        "CRVAL2": lat,
+        "CDELT1": -geometry.d_ra.to_value(u.deg),
+        "CDELT2": geometry.d_dec.to_value(u.deg),
+        "PC1_1": np.cos(pa),
+        "PC1_2": -np.sin(pa),
+        "PC2_1": np.sin(pa),
+        "PC2_2": np.cos(pa),
+        "RADESYS": coordinate_system.radesys,
+        "CUNIT1": "deg",
+        "CUNIT2": "deg",
+    }
+    if coordinate_system.radesys in (
+        CoordinateSystems.fk4.value.radesys,
+        CoordinateSystems.fk5.value.radesys,
+    ):
+        header["EQUINOX"] = coordinate_system.equinox
+    return header
+
+
+def geometry_from_wcs(wcs: WCS) -> SpatialGeometry:
+    """Recover the pixel grid of a celestial two-axis astropy WCS.
+
+    Uses ``array_shape`` (already numpy ordered) and the row norms of the
+    pixel scale matrix. FITS defines ``CDi_j = CDELTi * PCi_j`` with ``PC`` a
+    rotation, so the norm of row ``i`` is ``|CDELTi|`` for any position angle
+    and any anisotropy. (``astropy.wcs.utils.proj_plane_pixel_scales`` takes
+    column norms and mixes the two scales once the grid is rotated.) PC and CD
+    headers are both handled. The WCS must know its array shape (``NAXISn``
+    present or ``pixel_shape`` set).
+    """
+    if wcs.array_shape is None:
+        raise ValueError("wcs has no array shape; set NAXIS1/NAXIS2 or pixel_shape")
+    if wcs.naxis != 2:
+        raise ValueError(f"expected a two-axis celestial WCS, got naxis={wcs.naxis}")
+    n_dec, n_ra = wcs.array_shape
+    scale_ra, scale_dec = np.sqrt((wcs.pixel_scale_matrix**2).sum(axis=1)) * u.Unit(wcs.wcs.cunit[0])
+    return SpatialGeometry.from_yx((n_dec, n_ra), u.Quantity((scale_dec * n_dec, scale_ra * n_ra)))
+
+
 class WcsAstropy(WCS, WcsMixin):
     """
     A wrapper around the astropy.wcs.WCS, in order to define a common interface
@@ -70,7 +151,7 @@ class WcsAstropy(WCS, WcsMixin):
             raise u.UnitConversionError("position_angle must carry angular units")
         self.coordinate_system = coordinate_system
 
-        header = self.geometry.fits_header(center, self.position_angle, coordinate_system)
+        header = fits_header(self.geometry, center, self.position_angle, coordinate_system)
         super().__init__(header)
         self.pixel_shape = self.geometry.shape_xy
 
@@ -187,7 +268,7 @@ class WcsAstropy(WCS, WcsMixin):
 def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
     """Rebuild a :class:`WcsAstropy` from a plain astropy WCS.
 
-    The pixel grid comes from :meth:`SpatialGeometry.from_astropy_wcs`, which
+    The pixel grid comes from :func:`geometry_from_wcs`, which
     reads astropy's numpy-ordered ``array_shape`` and the row norms of the
     pixel scale matrix, so rectangles, anisotropic pixels, and CD-matrix
     headers are all handled. The position angle is read from the Dec row of
@@ -202,7 +283,7 @@ def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
     -------
     WcsAstropy
     """
-    geometry = SpatialGeometry.from_astropy_wcs(wcs)
+    geometry = geometry_from_wcs(wcs)
 
     is_galactic = wcs.wcs.ctype[0].upper().startswith("GLON")
     frame_name = "galactic" if is_galactic else (wcs.wcs.radesys or "ICRS").lower()

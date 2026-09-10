@@ -169,11 +169,9 @@ class SkyModel:
         else:
             self.config["priors"] = priors
 
-        # The pixel grid is owned by one SpatialGeometry. Config ``fov`` is in
-        # arcsec; ``s_distances`` stays a plain (dec, ra) tuple of arcsec floats
-        # for the unit-free correlated-field builders below.
+        # Config ``fov`` is in arcsec. ``s_distances`` stays a plain (dec, ra)
+        # tuple of arcsec floats for the unit-free correlated-field builders.
         self.geometry = SpatialGeometry.from_xy(shape, u.Quantity(fov, u.arcsec))
-        sdim = self.geometry.shape_yx
         self.s_distances = tuple(
             float(d) for d in self.geometry.pixel_scales_yx.to_value(u.arcsec)
         )
@@ -192,7 +190,7 @@ class SkyModel:
             )
 
         self._create_diffuse_component_model(
-            sdim,
+            self.geometry,
             edim,
             s_padding_ratio,
             e_padding_ratio,
@@ -209,7 +207,11 @@ class SkyModel:
                     "one float of a corrlated field in energy direction is taken."
                 )
             self._create_point_source_model(
-                sdim, edim, e_padding_ratio, self.e_distances, priors["point_sources"]
+                self.geometry.shape_yx,
+                edim,
+                e_padding_ratio,
+                self.e_distances,
+                priors["point_sources"],
             )
             self.sky = add_models(self.diffuse, self.point_sources)
         return self.sky
@@ -258,7 +260,7 @@ class SkyModel:
 
     def _create_diffuse_component_model(
         self,
-        sdim,
+        geometry,
         edim,
         s_padding_ratio,
         e_padding_ratio,
@@ -271,8 +273,8 @@ class SkyModel:
 
         Parameters
         ----------
-        sdim: int or tuple of int
-            Number of pixels in each spatial dimension
+        geometry: SpatialGeometry
+            The spatial pixel grid. Padding and cropping go through it.
         edim: int
             Number of pixels in spectral direction
         s_padding_ratio: float
@@ -315,7 +317,7 @@ class SkyModel:
                 "You can only inlude Wiener process or correlated field"
                 "for the deviations around the plaw."
             )
-        ext_s_shp = tuple(good_fft_size(int(entry * s_padding_ratio)) for entry in sdim)
+        ext_s_shp = geometry.padded(s_padding_ratio, good_fft_size).shape_yx
         ext_e_shp = good_fft_size(int(edim * e_padding_ratio))
         self.spatial_cf, self.spatial_pspec = self._create_correlated_field(
             ext_s_shp, sdistances, prior_dict["spatial"]
@@ -349,7 +351,7 @@ class SkyModel:
                 "freq_dev": self.dev_cf,
             }
         ).build_model()
-        exp_padding = lambda x: jnp.exp(log_diffuse(x)[:edim, : sdim[0], : sdim[1]])
+        exp_padding = lambda x: jnp.exp(geometry.crop_to(log_diffuse(x)[:edim]))
         self.diffuse = jft.Model(exp_padding, domain=log_diffuse.domain)
 
     def _create_point_source_model(

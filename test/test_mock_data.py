@@ -17,8 +17,8 @@ def sample_grid_info():
         },
         'shape': 64,
         'edim': 4,
-        's_padding_ratio': 0.1,
-        'e_padding_ratio': 0.1
+        's_padding_ratio': 1.1,
+        'e_padding_ratio': 1.0
     }
 
 @pytest.fixture

@@ -5,7 +5,7 @@
 
 # %%
 
-from .frame import Layout, SpatialGeometry
+from .frame import SpatialGeometry
 from .wcs_astropy import WcsAstropy
 from .wcs_jwst_data import WcsJwstData
 from .wcs_subsample_corners import *

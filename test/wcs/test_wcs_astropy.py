@@ -7,7 +7,8 @@ from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 
 from jubik.wcs.frame import SpatialGeometry
-from jubik.wcs.wcs_astropy import WcsAstropy, WcsAstropy_from_wcs
+from jubik.parse.wcs.coordinate_system import CoordinateSystems
+from jubik.wcs.wcs_astropy import WcsAstropy, WcsAstropy_from_wcs, fits_header, geometry_from_wcs
 
 SHAPE_XY = (32, 24)
 FOV_XY = (32.0, 12.0) * u.arcsec
@@ -83,3 +84,64 @@ def test_from_wcs_round_trips_cd_header():
     rebuilt = WcsAstropy_from_wcs(WCS(header))
     assert rebuilt.geometry == original.geometry
     assert u.isclose(rebuilt.position_angle, 30 * u.deg, atol=1e-9 * u.deg)
+
+
+# ---------------------------------------------------------------- the header rule
+@pytest.fixture
+def geometry():
+    return SpatialGeometry.from_xy(SHAPE_XY, FOV_XY)
+
+
+@pytest.mark.parametrize("pa", [0.0, 30.0, -117.5] * u.deg)
+@pytest.mark.parametrize("cs", [CoordinateSystems.icrs, CoordinateSystems.fk5, CoordinateSystems.galactic])
+def test_fits_header_is_what_wcs_astropy_writes(geometry, pa, cs):
+    """Compared after astropy's own normalisation (identity PC cards dropped,
+    EQUINOX coerced to float)."""
+    reference = WcsAstropy(
+        center=CENTER, shape=SHAPE_XY, fov=FOV_XY, position_angle=pa, coordinate_system=cs.value
+    ).to_header()
+    header = WCS(fits_header(geometry, CENTER, pa, cs)).to_header()
+    assert set(header.keys()) == set(reference.keys())
+    for key in reference:
+        if isinstance(reference[key], float):
+            assert header[key] == pytest.approx(reference[key], abs=0, rel=1e-13), key
+        else:
+            assert header[key] == reference[key], key
+
+
+def test_header_orients_east_left_north_up(geometry):
+    """External anchor: astropy resolves the header, not our own arithmetic."""
+    header = fits_header(geometry, CENTER)
+    assert header["CDELT1"] < 0
+    assert header["CDELT2"] > 0
+    wcs = WCS(header)
+    column, row = geometry.n_ra // 2, geometry.n_dec // 2
+    here = wcs.pixel_to_world(column, row)
+    west = wcs.pixel_to_world(column + 1, row)
+    north = wcs.pixel_to_world(column, row + 1)
+    assert west.ra < here.ra
+    assert north.dec > here.dec
+    # CDELT is a projection-plane size: one pixel step is one pixel scale on the sky
+    assert u.isclose(here.separation(north), geometry.d_dec, rtol=1e-6)
+    assert u.isclose(here.separation(west), geometry.d_ra, rtol=1e-6)
+
+
+def test_geometry_from_wcs_round_trips_rectangle(geometry):
+    wcs = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY, position_angle=30 * u.deg)
+    recovered = geometry_from_wcs(wcs)
+    assert recovered == geometry
+
+
+def test_geometry_from_wcs_handles_cd_matrix(geometry):
+    header = fits_header(geometry, CENTER, 30 * u.deg)
+    wcs = WCS(header)
+    cd = wcs.wcs.cdelt[:, None] * wcs.wcs.get_pc()
+    header_cd = {k: v for k, v in header.items() if not k.startswith(("PC", "CDELT"))}
+    header_cd.update(CD1_1=cd[0, 0], CD1_2=cd[0, 1], CD2_1=cd[1, 0], CD2_2=cd[1, 1])
+    header_cd.update(NAXIS=2, NAXIS1=geometry.n_ra, NAXIS2=geometry.n_dec)
+    assert geometry_from_wcs(WCS(header_cd)) == geometry
+
+
+def test_geometry_from_wcs_requires_shape(geometry):
+    with pytest.raises(ValueError):
+        geometry_from_wcs(WCS(fits_header(geometry, CENTER)))
