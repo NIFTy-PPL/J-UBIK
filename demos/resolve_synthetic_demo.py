@@ -51,13 +51,13 @@ rng = np.random.default_rng(seed)
 # become necessary when calibration effects are inferred as well.
 
 # %%
-shape = (24, 24)
+shape_xy = (32, 24)
 frequency = np.array([1.4e9])
 fov = u.Quantity((1.0, 1.0), u.deg)
 
 spatial_grid = WcsAstropy(
     center=SkyCoord(ra=0.0 * u.deg, dec=0.0 * u.deg),
-    shape=shape,
+    shape=shape_xy,
     fov=fov,
 )
 spectral_grid = ju.Color.from_central_frequencies(frequency)
@@ -115,15 +115,19 @@ plt.show()
 # its inverse variance in the observation weights.
 
 # %%
-y, x = np.meshgrid(
-    np.linspace(-1.0, 1.0, shape[1]),
-    np.linspace(1.0, -1.0, shape[0]),
+y_north, x_east = np.meshgrid(
+    np.linspace(-1.0, 1.0, spatial_grid.shape_yx[0]),
+    np.linspace(1.0, -1.0, spatial_grid.shape_yx[1]),
     indexing="ij",
 )
 truth_image = (
     3.0e3
-    + 5.0e4 * np.exp(-((x + 0.28) ** 2 + (y - 0.12) ** 2) / 0.07)
-    + 3.5e4 * np.exp(-((x - 0.30) ** 2 + (y + 0.25) ** 2) / 0.025)
+    + 5.0e4 * np.exp(
+        -((x_east + 0.28) ** 2 + (y_north - 0.12) ** 2) / 0.07
+    )
+    + 3.5e4 * np.exp(
+        -((x_east - 0.30) ** 2 + (y_north + 0.25) ** 2) / 0.025
+    )
 )
 truth_sky = truth_image[None, None, None, :, :]
 noiseless_visibilities = np.asarray(sky_to_vis(jnp.asarray(truth_sky)))
@@ -182,7 +186,7 @@ plt.show()
 # %%
 diffuse_sky = ju.build_simple_spectral_sky(
     prefix="resolve_demo",
-    shape=shape,
+    shape=spatial_grid.shape_yx,
     distances=grid.spatial.pixel_scales_yx.to(u.rad).value,
     log_frequencies=np.log(frequency),
     reference_frequency_index=0,
@@ -256,7 +260,7 @@ fig, axes = plt.subplots(1, 3, figsize=(14, 4), constrained_layout=True)
 panels = (truth_image, dirty, reconstruction)
 titles = ("Ground truth", "Dirty image", "MAP reconstruction")
 for ax, panel, title in zip(axes, panels, titles):
-    image = ax.imshow(panel.T, origin="lower")
+    image = ax.imshow(panel, origin="lower")
     ax.set_title(title)
     ax.set_xlabel("pixel")
     ax.set_ylabel("pixel")
