@@ -39,7 +39,7 @@ def test_scalar_geometry_broadcasts_and_legacy_properties_are_absent():
     wcs = WcsAstropy(center=CENTER, shape=12, fov=6 * u.arcsec)
     assert wcs.shape_xy == (12, 12)
     assert wcs.shape_yx == (12, 12)
-    assert np.all(wcs.fov_xy == [6, 6] * u.arcsec)
+    assert np.all(wcs.geometry.fov_yx == [6, 6] * u.arcsec)
     assert np.all(wcs.pixel_scales_xy == [0.5, 0.5] * u.arcsec)
     for legacy_name in ("shape", "fov", "distances"):
         assert not hasattr(wcs, legacy_name)
@@ -76,7 +76,9 @@ def test_pixel_scales_index_matched(shape, aniso_name, ratio):
 def test_extent_house_recipe(shape, aniso_name, ratio):
     """(c) extent() is plot-ready East-left without a transpose."""
     wcs, _ = _wcs(shape, ratio)
-    half_x, half_y = (wcs.fov_xy / 2).to_value(u.arcsec)
+    g = wcs.geometry
+    half_x = (g.n_ra * g.d_ra / 2).to_value(u.arcsec)
+    half_y = (g.n_dec * g.d_dec / 2).to_value(u.arcsec)
     assert np.allclose(wcs.extent(u.arcsec), (half_x, -half_x, -half_y, half_y))
 
 
@@ -108,9 +110,9 @@ def test_from_wcs_roundtrip(shape, aniso_name, ratio):
     rebuilt = WcsAstropy_from_wcs(plain)
     assert rebuilt.shape_xy == (n_x, n_y)
     assert rebuilt.shape_yx == (n_y, n_x)
-    fov_rb = rebuilt.fov_xy.to(u.arcsec).value
+    fov_rb = rebuilt.geometry.fov_yx.to(u.arcsec).value
     assert np.allclose(
-        fov_rb, [fov[0].to(u.arcsec).value, fov[1].to(u.arcsec).value], rtol=1e-3
+        fov_rb, [fov[1].to(u.arcsec).value, fov[0].to(u.arcsec).value], rtol=1e-3
     ), fov_rb
 
 

@@ -120,10 +120,6 @@ class SpatialGeometry:
         return (self.n_ra, self.n_dec)
 
     @property
-    def fov_xy(self) -> u.Quantity:
-        return u.Quantity((self.fov_yx[1], self.fov_yx[0]))
-
-    @property
     def pixel_scales_yx(self) -> u.Quantity:
         return u.Quantity((self.d_dec, self.d_ra))
 

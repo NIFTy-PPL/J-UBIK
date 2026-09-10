@@ -103,8 +103,8 @@ def main() -> None:
     rebuilt = WcsAstropy_from_wcs(plain)
     assert rebuilt.shape_xy == (n_ra, n_dec), rebuilt.shape_xy
     assert rebuilt.shape_yx == (n_dec, n_ra), rebuilt.shape_yx
-    fov = rebuilt.fov_xy.to(u.arcsec).value
-    assert np.allclose(fov, [10.0, 6.0], rtol=1e-3), fov
+    fov = rebuilt.geometry.fov_yx.to(u.arcsec).value  # array order (dec, ra)
+    assert np.allclose(fov, [6.0, 10.0], rtol=1e-3), fov
     print("E  WcsAstropy_from_wcs: (ny, nx) read correctly, rectangle-safe")
 
     print("\nVERDICT: WcsAstropy metadata ALIGNED with the canonical frame; "

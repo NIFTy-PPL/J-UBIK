@@ -165,10 +165,15 @@ class WcsAstropy(WCS, WcsMixin):
         coordinate_system : CoordinateSystemConfig
             Coordinate system to use ('icrs', 'fk5', 'fk4', 'galactic')
         """
+        self._init_from_geometry(
+            SpatialGeometry.from_xy(shape, fov), center, position_angle, coordinate_system
+        )
+
+    def _init_from_geometry(self, geometry, center, position_angle, coordinate_system):
         if isinstance(coordinate_system, CoordinateSystems):
             coordinate_system = coordinate_system.value
 
-        self.geometry = SpatialGeometry.from_xy(shape, fov)
+        self.geometry = geometry
         self.center = center
         self.position_angle = u.Quantity(position_angle)
         if not self.position_angle.isscalar:
@@ -190,7 +195,9 @@ class WcsAstropy(WCS, WcsMixin):
         coordinate_system: Optional[CoordinateSystemModel] = CoordinateSystems.icrs.value,
     ) -> "WcsAstropy":
         """Attach astrometry to an existing pixel grid."""
-        return cls(center, geometry.shape_xy, geometry.fov_xy, position_angle, coordinate_system)
+        self = cls.__new__(cls)
+        self._init_from_geometry(geometry, center, position_angle, coordinate_system)
+        return self
 
     @classmethod
     def from_spatial_model(cls, spatial_model: SpatialModel):
@@ -210,14 +217,6 @@ class WcsAstropy(WCS, WcsMixin):
     @property
     def shape_yx(self) -> tuple[int, int]:
         return self.geometry.shape_yx
-
-    @property
-    def fov_xy(self) -> u.Quantity:
-        return self.geometry.fov_xy
-
-    @property
-    def fov_yx(self) -> u.Quantity:
-        return self.geometry.fov_yx
 
     @property
     def pixel_scales_xy(self) -> u.Quantity:

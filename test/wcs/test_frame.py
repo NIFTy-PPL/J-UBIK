@@ -46,7 +46,6 @@ def test_named_accessors(geometry):
     assert u.isclose(geometry.d_dec, 0.5 * u.arcsec)
     assert u.allclose(geometry.pixel_scales_yx, (0.5, 1.0) * u.arcsec)
     assert u.allclose(geometry.pixel_scales_xy, (1.0, 0.5) * u.arcsec)
-    assert u.allclose(geometry.fov_xy, FOV_XY)
 
 
 def test_scalar_inputs_broadcast():
