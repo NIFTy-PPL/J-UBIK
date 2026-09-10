@@ -11,6 +11,9 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from ducc0.fft import good_size as good_fft_size
+from astropy import units as u
+
+from .wcs.frame import SpatialGeometry
 
 from .utils import add_functions, add_models
 
@@ -39,6 +42,7 @@ class SkyModel:
         else:
             self.config = {}
         self.s_distances = None
+        self.geometry = None
         self.e_distances = None
         self.diffuse = None
         self.point_sources = None
@@ -165,15 +169,13 @@ class SkyModel:
         else:
             self.config["priors"] = priors
 
-        shape_xy = (shape, shape) if isinstance(shape, int) else tuple(shape)
-        if len(shape_xy) != 2:
-            raise ValueError(f"shape must contain (nx, ny); got {shape!r}")
-        fov_xy = (fov, fov) if np.ndim(fov) == 0 else tuple(fov)
-        if len(fov_xy) != 2:
-            raise ValueError(f"fov must contain (fov_x, fov_y); got {fov!r}")
-        sdim = shape_xy[::-1]
+        # The pixel grid is owned by one SpatialGeometry. Config ``fov`` is in
+        # arcsec; ``s_distances`` stays a plain (dec, ra) tuple of arcsec floats
+        # for the unit-free correlated-field builders below.
+        self.geometry = SpatialGeometry.from_xy(shape, u.Quantity(fov, u.arcsec))
+        sdim = self.geometry.shape_yx
         self.s_distances = tuple(
-            f / n for f, n in zip(fov_xy[::-1], sdim)
+            float(d) for d in self.geometry.pixel_scales_yx.to_value(u.arcsec)
         )
         energy_range = np.array(e_max) - np.array(e_min)
         self.e_distances = (

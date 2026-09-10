@@ -177,8 +177,7 @@ def build_radio_likelihood(
 
         _sky_beamer = build_sky_beamer(
             sky_shape_with_dtype=radio_sky_extractor.target,
-            sky_fov=radio_grid.spatial.fov_xy,
-            sky_center=radio_grid.spatial.center,
+            sky_wcs=radio_grid.spatial,
             sky_frequency_means=radio_grid.spectral.center,
             observations=observations,
             beam_func=beam_func,

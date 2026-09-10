@@ -49,6 +49,7 @@ from astropy.coordinates import SkyCoord
 import nifty.re as jft
 
 from jubik.instruments.resolve.mosaicing.sky_beamer import build_sky_beamer
+from jubik.wcs.wcs_astropy import WcsAstropy
 
 GOLDEN = Path(__file__).parent / "golden" / "p5_beam.npy"
 
@@ -67,8 +68,7 @@ def pointing_observation(name: str, direction: SkyCoord) -> SimpleNamespace:
 def build_beams(observations: list) -> dict:
     beamer = build_sky_beamer(
         sky_shape_with_dtype=jft.ShapeWithDtype((1, 1, 1, N, N), np.float64),
-        sky_fov=FOV,
-        sky_center=CENTER,
+        sky_wcs=WcsAstropy(center=CENTER, shape=(N, N), fov=FOV),
         sky_frequency_means=u.Quantity([100.0e9] * u.Hz),
         observations=observations,
         beam_func=lambda freq, x: np.exp(-((x / 3.0e-5) ** 2)),
