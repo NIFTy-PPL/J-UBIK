@@ -13,7 +13,6 @@ from numpy.typing import ArrayLike
 
 
 def build_linear_rotation_and_shift(
-    indexing: str = "ij",
     order: int = 1,
     mode="wrap",
 ) -> Callable[ArrayLike, ArrayLike]:
@@ -42,28 +41,7 @@ def build_linear_rotation_and_shift(
 
     rotation_and_shift = partial(map_coordinates, order=order, mode=mode)
 
-    # TODO: Check why we need the subsample centers swapped.
-    # 07-03-25: It seems that the linear & finufft interpolation needs the
-    # input points swapped.
-    # Maybe: this comes from the matrix style indexing?
-    # 16-03-25: Yes! always take 'ij' indexing for the subsample centers.
-    # See `test_linear.py`.
-
-    if indexing == "ij":
-
-        def rotation_shift_subsample(field, subsample_centers):
-            out = rotation_and_shift(field, subsample_centers)
-            return out
-
-    elif indexing == "xy":
-
-        def rotation_shift_subsample(field, subsample_centers):
-            out = rotation_and_shift(
-                field.T, (subsample_centers[1], subsample_centers[0])
-            )
-            return out.T
-
-    else:
-        raise ValueError("Need either provide `ij` or `xy` indexing.")
+    def rotation_shift_subsample(field, subsample_centers_yx):
+        return rotation_and_shift(field, subsample_centers_yx)
 
     return rotation_shift_subsample

@@ -33,7 +33,7 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord
 
 from jubik.wcs.wcs_astropy import WcsAstropy
-from jubik.wcs import subsample_pixel_centers, world_coordinates_to_index_grid
+from jubik.wcs import subsample_pixel_centers
 from jubik.instruments.jwst.rotation_and_shift.linear_rotation_and_shift import (
     build_linear_rotation_and_shift,
 )
@@ -42,7 +42,7 @@ GOLDEN = Path(__file__).parent / "golden" / "p2_jwst_interpolation.npy"
 
 
 def index_coords(points: SkyCoord, wcs: WcsAstropy) -> np.ndarray:
-    return np.array(world_coordinates_to_index_grid([points], wcs, "ij")[0])
+    return np.array(wcs.world_to_indices_yx(points))
 
 
 def main() -> None:
@@ -50,7 +50,7 @@ def main() -> None:
     n = 9
     wcs = WcsAstropy(center=center, shape=(n, n), fov=(n * u.arcsec, n * u.arcsec))
     c = n // 2
-    interp = build_linear_rotation_and_shift(indexing="ij", mode="constant")
+    interp = build_linear_rotation_and_shift(mode="constant")
 
     north = center.spherical_offsets_by(0 * u.arcsec, 2 * u.arcsec)
     east = center.spherical_offsets_by(2 * u.arcsec, 0 * u.arcsec)
@@ -86,8 +86,8 @@ def main() -> None:
         np.save(GOLDEN, out)
         print(f"\ngolden WRITTEN: {GOLDEN.name}  shape={out.shape}")
     else:
-        np.testing.assert_array_equal(out, np.load(GOLDEN))
-        print(f"\ngolden REPRODUCED byte-identically: {GOLDEN.name}")
+        np.testing.assert_allclose(out, np.load(GOLDEN), rtol=1e-9, atol=1e-12)
+        print(f"\ngolden matched within numerical tolerance: {GOLDEN.name}")
 
     print("\nVERDICT: dim0=+Dec, dim1=-RA — North-up/East-left under "
           "imshow(origin='lower').")

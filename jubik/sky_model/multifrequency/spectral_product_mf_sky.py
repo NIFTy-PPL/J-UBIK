@@ -720,8 +720,8 @@ def build_simple_spectral_sky_from_grid(
         config = SimpleSpectralSkyConfig.from_yaml_dict(config)
 
     # NOTE: Spatial settings
-    shape = grid.spatial.shape
-    distances = grid.spatial.distances.to(spatial_unit).value
+    shape = grid.spatial.shape_yx
+    distances = grid.spatial.pixel_scales_yx.to(spatial_unit).value
 
     # NOTE: Spectral settings
     ref_energy = config.reference_bin

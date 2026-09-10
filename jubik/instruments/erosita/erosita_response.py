@@ -18,6 +18,7 @@ from .erosita_psf import eROSITA_PSF
 from ...convolve import linpatch_convolve
 from ...data import Domain
 from ...response import build_exposure_function, build_readout_function
+from ...parse.wcs.spatial_model import yaml_dict_to_square_size
 
 
 def build_callable_from_exposure_file(builder, exposure_filenames, **kwargs):
@@ -413,8 +414,9 @@ def build_psf_from_config(config):
     pointing_center = d_centers + image_pointing_center
 
 
-    domain = Domain(tuple([grid_info['edim']] + [grid_info['sdim']] * 2),
-                    tuple([1] + [tel_info['fov'] / grid_info['sdim']] * 2))
+    spatial_size = yaml_dict_to_square_size(grid_info, consumer="eROSITA")
+    domain = Domain(tuple([grid_info['edim']] + [spatial_size] * 2),
+                    tuple([1] + [tel_info['fov'] / spatial_size] * 2))
     psf_func, kernel = build_erosita_psf(psf_filenames,
                                          psf_info['energy'],
                                          pointing_center,
@@ -543,7 +545,7 @@ def build_erosita_response_from_config(
 
     return build_erosita_response(
         e_dim=grid_info['edim'],
-        s_dim=grid_info['sdim'],
+        s_dim=yaml_dict_to_square_size(grid_info, consumer="eROSITA"),
         e_min=e_min,
         e_max=e_max,
         exposure_filenames=exposure_filenames,
@@ -611,4 +613,3 @@ def get_erosita_psf_filenames(
     path_to_psf_file = join(path_to_caldb, caldb_name, path_to_psf_file)
     filename = f"tm{tm_id}{psf_filename_suffix}"
     return join(path_to_psf_file, filename)
-

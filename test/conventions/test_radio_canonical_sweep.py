@@ -139,13 +139,14 @@ def test_adapter_does_real_work():
 CENTER = SkyCoord(ra=10.0 * u.deg, dec=20.0 * u.deg)
 # RECTANGLE, anisotropic: nDec=24 rows of 1", nRA=32 cols of 1.5"
 RECT_SHAPE = (24, 32)
-RECT_FOV = (RECT_SHAPE[0] * 1.0 * u.arcsec, RECT_SHAPE[1] * 1.5 * u.arcsec)
+RECT_SHAPE_XY = RECT_SHAPE[::-1]
+RECT_FOV = (RECT_SHAPE[1] * 1.5 * u.arcsec, RECT_SHAPE[0] * 1.0 * u.arcsec)
 DUCC = Ducc0Settings(epsilon=1e-9, do_wgridding=False, nthreads=1, verbosity=0)
 
 
 def _rect_grid():
     return Grid.from_shape_and_fov(
-        RECT_SHAPE, RECT_FOV, frequencies=None, sky_center=CENTER
+        RECT_SHAPE_XY, RECT_FOV, frequencies=None, sky_center=CENTER
     )
 
 
@@ -212,7 +213,7 @@ def test_response_rectangle_measurement_equation(di, dj):
     grid = _rect_grid()
     n_dec, n_ra = RECT_SHAPE
     c0, c1 = n_dec // 2, n_ra // 2
-    d_dec, d_ra = grid.spatial.distances.to(u.rad).value  # index-matched [dim0, dim1]
+    d_dec, d_ra = grid.spatial.pixel_scales_yx.to(u.rad).value
 
     nrow = 6
     uvw = np.array(
@@ -313,7 +314,7 @@ def _pad_square(a):
 
 
 def _rect_glyph(grid, scale=1.5):
-    d_dec, d_ra = grid.spatial.distances.to(u.arcsec).value
+    d_dec, d_ra = grid.spatial.pixel_scales_yx.to(u.arcsec).value
     n_dec, n_ra = RECT_SHAPE
     return rasterize_canonical(
         RECT_SHAPE, (n_dec // 2, n_ra // 2), (d_dec, d_ra), scale=scale
@@ -333,7 +334,7 @@ def _analytic_glyph_vis(grid, glyph, uvw):
     """
     n_dec, n_ra = RECT_SHAPE
     c0, c1 = n_dec // 2, n_ra // 2
-    d_dec, d_ra = grid.spatial.distances.to(u.rad).value
+    d_dec, d_ra = grid.spatial.pixel_scales_yx.to(u.rad).value
     uu, vv = uvw[:, 0], uvw[:, 1]
     V = np.zeros(uvw.shape[0], np.complex128)
     for i, j in np.argwhere(glyph > 0):

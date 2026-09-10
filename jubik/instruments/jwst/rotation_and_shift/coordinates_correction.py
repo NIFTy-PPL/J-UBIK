@@ -16,7 +16,6 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 from ....models.distributions import build_parametric_prior_from_prior_config
-from ....wcs import world_coordinates_to_index_grid
 from ....wcs.wcs_astropy import WcsAstropy
 from ..parse.rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectionPriorConfig,
@@ -268,7 +267,6 @@ def build_coordinates_corrected_for_field(
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
     reconstruction_grid_wcs: WcsAstropy,
     world_coordinates: SkyCoord | list[SkyCoord],
-    indexing: str = "ij",
 ) -> Union[
     Coordinates, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation
 ]:
@@ -312,11 +310,7 @@ def build_coordinates_corrected_for_field(
 
     fixed_coordinates = np.array(
         [
-            world_coordinates_to_index_grid(
-                world_coordinates=wc,
-                index_grid_wcs=reconstruction_grid_wcs,
-                indexing=indexing,
-            )
+            reconstruction_grid_wcs.world_to_indices_yx(wc)
             for wc in world_coordinates
         ]
     )
@@ -325,7 +319,7 @@ def build_coordinates_corrected_for_field(
         return Coordinates(fixed_coordinates)
 
     shift_unit = shift_and_rotation_correction.shift_unit
-    reconstruction_scale = reconstruction_grid_wcs.distances.to(shift_unit)
+    reconstruction_scale = reconstruction_grid_wcs.pixel_scales_yx.to(shift_unit)
 
     if shift_and_rotation_correction.model == CorrectionModel.SHIFT:
         assert (  # Check that we have the same amount of observations (length of first/0th axis)

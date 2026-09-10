@@ -84,8 +84,8 @@ class WcsMixin:
         if shape_check is not None:
             check = (
                 np.any(edge_points < 0)
-                or np.any(edge_points >= shape_check[0])
-                or np.any(edge_points >= shape_check[1])
+                or np.any(edge_points[:, 0] >= shape_check[1])
+                or np.any(edge_points[:, 1] >= shape_check[0])
             )
             if check:
                 o = f"""One of the wcs world_extrema is outside the data grid
@@ -100,15 +100,14 @@ class WcsMixin:
         # NOTE : The shape slicing needs one more than the maximum index
         return min_row, max_row + 1, min_column, max_column + 1
 
-    def index_grid_from_bounding_indices(
+    def pixel_grid_xy_from_bounding_indices(
         self,
         min_row: int,
         max_row: int,
         min_column: int,
         max_column: int,
-        indexing: str,
     ) -> np.ndarray:
-        """Return index array from the bounding indices.
+        """Return an Astropy/GWCS ``(column, row)`` pixel-coordinate grid.
 
         Paramaters
         ----------
@@ -116,18 +115,27 @@ class WcsMixin:
         max_column: int
         min_row: int
         max_row: int
-        indexing: str
-            Either `xy` or `ij`.
-            Note astropy.wcs uses always xy indexing, hence, the shapes have to be
-            according to this.
         """
 
         x_indices = np.arange(min_column, max_column)
         y_indices = np.arange(min_row, max_row)
 
-        if indexing == "xy":
-            return np.array(np.meshgrid(x_indices, y_indices, indexing="xy"))
-        elif indexing == "ij":
-            return np.array(np.meshgrid(y_indices, x_indices, indexing="ij"))
+        return np.array(np.meshgrid(x_indices, y_indices, indexing="xy"))
 
-        raise ValueError("Either `ij` or `xy` indexing.")
+    def index_grid_yx_from_bounding_indices(
+        self, min_row: int, max_row: int, min_column: int, max_column: int
+    ) -> np.ndarray:
+        """Return a NumPy ``(row, column)`` index grid."""
+        column, row = self.pixel_grid_xy_from_bounding_indices(
+            min_row, max_row, min_column, max_column
+        )
+        return np.array((row, column))
+
+    def world_to_indices_yx(self, world_coordinates):
+        """Return floating NumPy ``(row, column)`` indices."""
+        column, row = self.world_to_pixel(world_coordinates)
+        return row, column
+
+    def indices_yx_to_world(self, row, column):
+        """Convert NumPy ``(row, column)`` indices to world coordinates."""
+        return self.pixel_to_world(column, row)

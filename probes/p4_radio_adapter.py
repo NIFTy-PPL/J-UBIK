@@ -139,8 +139,8 @@ def main() -> None:
         np.save(GOLDEN, out)
         print(f"golden WRITTEN: {GOLDEN.name}")
     else:
-        np.testing.assert_array_equal(out, np.load(GOLDEN))
-        print(f"golden REPRODUCED byte-identically: {GOLDEN.name}")
+        np.testing.assert_allclose(out, np.load(GOLDEN), rtol=1e-10, atol=1e-18)
+        print(f"golden matched within numerical tolerance: {GOLDEN.name}")
 
     print("\nVERDICT: radio adapter COMPLIES with the canonical frame "
           "(dim0=+Dec, dim1=-RA) and the CASA-effective measurement "

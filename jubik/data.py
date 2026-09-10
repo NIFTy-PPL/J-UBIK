@@ -119,7 +119,7 @@ def create_mock_data(tel_info,
     key, subkey = random.split(key)
     sky_model = SkyModel()
     sky = sky_model.create_sky_model(
-        sdim=grid_info['sdim'],
+        shape=grid_info['shape'],
         edim=grid_info['edim'],
         s_padding_ratio=grid_info['s_padding_ratio'],
         e_padding_ratio=grid_info['e_padding_ratio'],
@@ -204,4 +204,3 @@ def create_mock_data(tel_info,
                 log=False,
                 output_file=join(mock_output, f'mock_diffuse_alpha.png'))
     return masked_mock_data
-

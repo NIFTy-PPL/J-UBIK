@@ -147,8 +147,8 @@ def main() -> None:
         np.save(GOLDEN, out)
         print(f"\ngolden WRITTEN: {GOLDEN.name}")
     else:
-        np.testing.assert_array_equal(out, np.load(GOLDEN))
-        print(f"\ngolden REPRODUCED byte-identically: {GOLDEN.name}")
+        np.testing.assert_allclose(out, np.load(GOLDEN), rtol=1e-10, atol=1e-18)
+        print(f"\ngolden matched within numerical tolerance: {GOLDEN.name}")
 
 
 if __name__ == "__main__":

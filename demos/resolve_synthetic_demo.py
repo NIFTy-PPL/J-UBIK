@@ -115,15 +115,15 @@ plt.show()
 # its inverse variance in the observation weights.
 
 # %%
-xx, yy = np.meshgrid(
-    np.linspace(-1.0, 1.0, shape[0]),
+y, x = np.meshgrid(
     np.linspace(-1.0, 1.0, shape[1]),
+    np.linspace(1.0, -1.0, shape[0]),
     indexing="ij",
 )
 truth_image = (
     3.0e3
-    + 5.0e4 * np.exp(-((xx + 0.28) ** 2 + (yy - 0.12) ** 2) / 0.07)
-    + 3.5e4 * np.exp(-((xx - 0.30) ** 2 + (yy + 0.25) ** 2) / 0.025)
+    + 5.0e4 * np.exp(-((x + 0.28) ** 2 + (y - 0.12) ** 2) / 0.07)
+    + 3.5e4 * np.exp(-((x - 0.30) ** 2 + (y + 0.25) ** 2) / 0.025)
 )
 truth_sky = truth_image[None, None, None, :, :]
 noiseless_visibilities = np.asarray(sky_to_vis(jnp.asarray(truth_sky)))
@@ -161,8 +161,8 @@ dirty = rve.dirty_image(
 
 fig, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
 images = (
-    axes[0].imshow(truth_image.T, origin="lower"),
-    axes[1].imshow(dirty.T, origin="lower"),
+    axes[0].imshow(truth_image, origin="lower"),
+    axes[1].imshow(dirty, origin="lower"),
 )
 axes[0].set_title("Ground truth")
 axes[1].set_title("Dirty image")
@@ -183,7 +183,7 @@ plt.show()
 diffuse_sky = ju.build_simple_spectral_sky(
     prefix="resolve_demo",
     shape=shape,
-    distances=grid.spatial.distances.to(u.rad).value,
+    distances=grid.spatial.pixel_scales_yx.to(u.rad).value,
     log_frequencies=np.log(frequency),
     reference_frequency_index=0,
     zero_mode_settings=(np.log(2.0e4), 1.0),

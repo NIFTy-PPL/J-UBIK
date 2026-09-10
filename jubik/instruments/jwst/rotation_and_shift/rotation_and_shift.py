@@ -97,7 +97,6 @@ def build_rotation_and_shift(
         Coordinates, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation
     ],
     algorithm_config: Union[LinearConfig, NufftConfig],
-    indexing: str,
 ) -> RotationAndShift:
     """Builds a RotationAndShift according to the `algorithm_config`.
 
@@ -118,7 +117,6 @@ def build_rotation_and_shift(
 
     if isinstance(algorithm_config, LinearConfig):
         rotation_and_shift_algorithm = build_linear_rotation_and_shift(
-            indexing=indexing,
             **vars(algorithm_config),
         )
 
@@ -127,7 +125,6 @@ def build_rotation_and_shift(
         rotation_and_shift_algorithm = build_nufft_rotation_and_shift(
             sky_shape=_infere_shape_from_domain(sky_domain, "sky"),
             out_shape=_infere_shape_from_domain(coordinates.target, "coordinates"),
-            indexing=indexing,
             **vars(algorithm_config),
         )
 

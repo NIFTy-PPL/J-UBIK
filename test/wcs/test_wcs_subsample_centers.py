@@ -9,7 +9,7 @@ def grid_setup():
     from jubik.grid import Grid
 
     grid_config = dict(
-        sdim=384,
+        shape=384,
         fov=("2.0arcsec",) * 2,
         coordinate_frame="icrs",
         sky_center=dict(ra="0.deg", dec="0.deg"),
@@ -27,9 +27,8 @@ def test_simple():
     grid = grid_setup()
 
     # Check subsample 1
-    xx, yy = grid.spatial.index_grid_from_bounding_indices(
-        *grid.spatial.bounding_indices_from_world_extrema(grid.spatial.world_corners()),
-        indexing="xy",
+    xx, yy = grid.spatial.pixel_grid_xy_from_bounding_indices(
+        *grid.spatial.bounding_indices_from_world_extrema(grid.spatial.world_corners())
     )
     xxsub, yysub = subsample_pixel_centers(
         bounding_indices=grid.spatial.bounding_indices_from_world_extrema(

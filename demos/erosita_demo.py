@@ -130,7 +130,7 @@ import jubik as ju
 #   - `dpi`: DPI setting for plot resolution.
 #
 # - **grid**: Parameters defining the data grid for processing.
-#   - `sdim`: Spatial dimensions for the image grid.
+#   - `shape`: Public spatial dimensions for the image grid.
 #   - `energy_bin`: Energy binning with `e_min`, `e_max`, and `e_ref` values
 #   for each bin.
 #

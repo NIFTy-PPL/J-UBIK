@@ -1,0 +1,70 @@
+Spatial coordinate conventions
+==============================
+
+J-UBIK exposes spatial geometry in Cartesian ``(x, y)`` order and stores
+numerical fields in NumPy ``(..., y, x)`` order.  The conversion happens once
+when a :class:`jubik.Grid` or :class:`jubik.WcsAstropy` is constructed.
+
+Public geometry
+---------------
+
+``shape=(nx, ny)``, ``fov=(fov_x, fov_y)``, and public celestial offsets
+``(x_east, y_north)`` all use XY order. Scalar ``shape`` and ``fov`` values are
+broadcast to two equal components. Celestial offsets must carry Astropy units.
+The astronomical ``position_angle`` is measured from North toward East.
+
+YAML uses the same convention::
+
+   grid:
+     shape: [320, 192]
+     fov: [48arcsec, 24arcsec]
+     position_angle: 0deg
+
+The former ``sdim`` and grid ``rotation`` keys are rejected with migration
+errors; there are no compatibility aliases.
+
+Internal arrays and explicit metadata
+-------------------------------------
+
+A field has trailing shape ``(..., ny, nx)``. At zero position angle, rows
+increase North and columns increase West, so East is toward decreasing column
+indices. Metadata names state their order explicitly:
+
+===================  ===================
+Public XY            Internal NumPy YX
+===================  ===================
+``shape_xy``         ``shape_yx``
+``fov_xy``           ``fov_yx``
+``pixel_scales_xy``  ``pixel_scales_yx``
+===================  ===================
+
+``Grid.array_shape`` is the full numerical field shape. The ambiguous former
+``Grid.shape`` and spatial tuple properties are intentionally absent.
+
+Coordinate conversion and plotting
+----------------------------------
+
+Use ``world_to_offsets_xy`` and ``offsets_xy_to_world`` for unit-bearing East,
+North offsets. Use ``world_to_indices_yx`` and ``indices_yx_to_world`` at NumPy
+array boundaries. ``coordinate_grid_yx`` returns North and East grids shaped
+like the internal array.
+
+An unrotated field is plotted directly, without a transpose::
+
+   field = np.asarray(model(position))
+   plt.imshow(field, origin="lower", extent=grid.spatial.extent())
+   plt.xlabel("East offset")
+   plt.ylabel("North offset")
+
+``extent()`` returns East-left bounds ``(+half_x, -half_x, -half_y, +half_y)``.
+It rejects rotated grids because a rectangular Matplotlib extent cannot encode
+a rotated celestial transform; use WCSAxes for those images.
+
+Instrument boundaries
+---------------------
+
+FITS arrays remain in YX order. The Resolve radio adapter converts the J-UBIK
+YX field to its backend-native layout with a pure transpose and never
+conjugates it. JWST conversions use explicit YX index methods. Chandra and
+eROSITA consume the new ``shape`` key but currently require square spatial
+grids and reject rectangular values explicitly.
