@@ -40,11 +40,11 @@ def get_grid_extension_from_config(
     if psf_arcsec_extension is None:
         raise ValueError("Need to provide either `psf_arcsec_extension`.")
 
-    assert len(reconstruction_grid.spatial.distances) == 2
+    assert len(reconstruction_grid.spatial.pixel_scales_yx) == 2
 
     return tuple(
         [
             int((psf_arcsec_extension * u.Unit("arcsec")).to(u.Unit("deg")) / 2 / dist)
-            for dist in reconstruction_grid.spatial.distances
+            for dist in reconstruction_grid.spatial.pixel_scales_yx
         ]
     )

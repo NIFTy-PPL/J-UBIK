@@ -54,7 +54,7 @@ def _build_beams(observations, shape, fov):
 
 # 33x33 odd square, anisotropic pixels: 1"/px Dec, 2"/px RA (p5 geometry)
 SQUARE_N = 33
-SQUARE_FOV = (33.0 * u.arcsec, 66.0 * u.arcsec)
+SQUARE_FOV = (66.0 * u.arcsec, 33.0 * u.arcsec)
 # four (East, North) arcsec quadrants; magnitudes divide the pixel sizes cleanly
 QUADRANTS = [(4, 4), (4, -4), (-4, 4), (-4, -4)]
 
@@ -86,8 +86,8 @@ def test_square_centered_control():
 
 
 # RECTANGLE, odd dims, anisotropic pixels: nDec=25 (1"/px), nRA=41 (2"/px)
-RECT_SHAPE = (25, 41)
-RECT_FOV = (25.0 * u.arcsec, 82.0 * u.arcsec)
+RECT_SHAPE = (25, 41)  # internal (ny, nx)
+RECT_FOV = (82.0 * u.arcsec, 25.0 * u.arcsec)  # public (x, y)
 
 
 @pytest.mark.parametrize("dE,dN", [(4, 4), (-4, -4)])

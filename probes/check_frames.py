@@ -13,9 +13,12 @@ update this file IN THE SAME COMMIT as any convention change — this
 file is the convention record.
 
 THE CANONICAL FRAME (decided 2026-07-06, owner-approved)
+    Public: shape=(nx, ny), fov=(fov_x, fov_y), offsets=(East, North).
+    Internal numerical fields: (..., y, x).
     sky[i, j]:  i = dim 0  ->  +Dec (North)     [row]
                 j = dim 1  ->  -RA  (West)      [column]
-    imshow(sky, origin="lower") renders North-up / East-left.
+    imshow(sky, origin="lower", extent=wcs.extent()) renders
+    North-up / East-left without a transpose.
     All sky cubes and models at the jubik boundary are authored in this
     frame.  Instrument responses that need another layout must convert
     EXPLICITLY at their own boundary and be pinned by a probe here.
@@ -44,14 +47,10 @@ HISTORY (why this got confusing — do not repeat it)
       beams pair index-for-index with the canonical sky (pinned by p5).
       What remains pending is re-authoring the mosaic_imaging PROJECT repo
       to canonical (its sky model + its own compensations).
-    - Batch D (jubik side, 2026-07-07) aligned the WcsAstropy metadata to
-      the canonical frame: shape/fov/distances are now numpy-ordered
-      (shape = (nDec, nRA), fov = (fov_dec, fov_ra), distances[k] describes
-      array dim k), world_corners / extent / get_xycoords follow the x=RA(dim1)
-      / y=Dec(dim0) pairing, and WcsAstropy_from_wcs reads array_shape as
-      (ny, nx).  The resolve response reads its wgridder x-axis (l/RA) from
-      shape[1]/distances[1].  The p1 quirk pair is healed: metadata and
-      response now agree on rectangles, not only square grids (pinned by p1).
+    - The public-XY migration makes the API boundary match ordinary geometry:
+      shape/fov are (x,y), unit-bearing offsets are (East,North), and explicit
+      *_yx properties describe NumPy storage. The conversion happens once in
+      WcsAstropy. extent() is East-left and rotated plots use WCSAxes.
     - Roundtrip probes (2026-07-07) landed: p6/p7 close the loop with
       externally-minted observations.  p6 paints the orientation glyph into
       a synthetic JWST datamodel world-anchored through its own gwcs and
@@ -72,6 +71,7 @@ HISTORY (why this got confusing — do not repeat it)
       pins the seam directly (corr(V_model, data) = 0.996).
 """
 
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -84,13 +84,11 @@ GOLDEN_DIR = PROBES_DIR / "golden"
 DOCUMENTED = {
     "p1_metadata_vs_response.py": {
         "expect_pass": True,
-        "meaning": "WcsAstropy metadata is ALIGNED with the canonical frame: "
-                   "shape/fov/distances are numpy-ordered (shape[1]/fov[1] size "
-                   "the RA header axis, shape[0]/fov[0] the Dec axis; "
-                   "distances[k] describes array dim k), extent() is the imshow "
-                   "(-h1,h1,-h0,h0) tuple, rectangles are coherent end to end, "
-                   "and WcsAstropy_from_wcs reads array_shape as (ny, nx). The "
-                   "old two-quirk square-only cancellation is healed.",
+        "meaning": "WcsAstropy accepts public shape/fov in (x,y), exposes "
+                   "explicit *_xy and *_yx metadata, stores fields as (y,x), "
+                   "maps East to decreasing columns and North to increasing "
+                   "rows, returns an East-left extent, and keeps rectangular "
+                   "Resolve/FITS metadata coherent end to end.",
     },
     "p2_jwst_orientation.py": {
         "expect_pass": True,
@@ -129,6 +127,7 @@ DOCUMENTED = {
                    "'identity' verdict. A transposed data<->world pairing in "
                    "the loader chain would show as a transpose-family verdict.",
         "requires": ["roundtrip_jwst_cal.fits"],
+        "requires_modules": ["jwst"],
     },
     "p7_radio_roundtrip.py": {
         "expect_pass": True,
@@ -152,12 +151,23 @@ def main() -> int:
     for name, doc in DOCUMENTED.items():
         missing = [g for g in doc.get("requires", [])
                    if not (GOLDEN_DIR / g).exists()]
+        missing_modules = [
+            module
+            for module in doc.get("requires_modules", [])
+            if importlib.util.find_spec(module) is None
+        ]
         if not (PROBES_DIR / name).exists():
             missing.append(name)
-        if missing:
-            print(f"\n{name}:  PENDING (golden not minted)")
+        if missing or missing_modules:
+            print(f"\n{name}:  PENDING (prerequisite unavailable)")
             print(f"    {doc['meaning']}")
-            print(f"    not yet present: {', '.join(missing)}")
+            if missing:
+                print(f"    not yet present: {', '.join(missing)}")
+            if missing_modules:
+                print(
+                    "    optional dependency not installed: "
+                    + ", ".join(missing_modules)
+                )
             continue
         result = subprocess.run(
             [sys.executable, str(PROBES_DIR / name)],

@@ -48,7 +48,7 @@ def test_response_ducc_finufft_consistency(pol_sky, pol_channels, freqs):
         pytest.skip("Only stokes I sky.")
     grid, obs, r_ducc, r_finufft = setup_grid_obs_response(pol_sky, pol_channels, freqs)
 
-    sky = np.random.normal(size=grid.shape)
+    sky = np.random.normal(size=grid.array_shape)
     res_ducc = r_ducc(sky)
     res_finufft = r_finufft(sky)
 
@@ -61,9 +61,9 @@ def test_response_StokesI(freqs):
     pol_channels = ("LL", "RR")
     grid, obs, r_ducc, r_finufft = setup_grid_obs_response(pol_sky, pol_channels, freqs)
 
-    sky = jnp.zeros(grid.shape)
-    cx = grid.shape[3] // 2
-    cy = grid.shape[4] // 2
+    sky = jnp.zeros(grid.array_shape)
+    cx = grid.array_shape[3] // 2
+    cy = grid.array_shape[4] // 2
     dvol = grid.spatial.dvol.to(u.rad**2).value
     sky[:, :, :, cx, cy] = 1 / dvol
     vis_ducc = r_ducc(sky)
@@ -94,9 +94,9 @@ def test_response_StokesIQUV(freqs, circular):
         pol_channels = ("XX", "XY", "YX", "YY")
     grid, obs, r_ducc, r_finufft = setup_grid_obs_response(pol_sky, pol_channels, freqs)
 
-    sky = jnp.zeros(grid.shape)
-    cx = grid.shape[3] // 2
-    cy = grid.shape[4] // 2
+    sky = jnp.zeros(grid.array_shape)
+    cx = grid.array_shape[3] // 2
+    cy = grid.array_shape[4] // 2
     dvol = grid.spatial.dvol.to(u.rad**2).value
     sky[:, 0, :, cx, cy] = source[np.newaxis].T / dvol
     vis_ducc = r_ducc(sky)

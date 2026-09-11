@@ -59,7 +59,7 @@ class SkyModel:
 
     def create_sky_model(
         self,
-        sdim=None,
+        shape=None,
         edim=None,
         s_padding_ratio=None,
         e_padding_ratio=None,
@@ -79,8 +79,8 @@ class SkyModel:
 
         Parameters
         ----------
-        sdim: int or tuple of int
-            Number of pixels in each spatial dimension
+        shape: int or tuple of int
+            Public spatial shape ``(nx, ny)``. A scalar creates a square grid.
         edim: int
             Number of pixels in spectral direction
         s_padding_ratio: float
@@ -126,10 +126,12 @@ class SkyModel:
             self.config["grid"] = {}
         if "telescope" not in self.config.keys():
             self.config["telescope"] = {}
-        if sdim is None:
-            sdim = self.config["grid"]["sdim"]
+        if "sdim" in self.config["grid"]:
+            raise ValueError("`sdim` was removed; use `shape` in public (x, y) order")
+        if shape is None:
+            shape = self.config["grid"]["shape"]
         else:
-            self.config["grid"]["sdim"] = sdim
+            self.config["grid"]["shape"] = shape
         if edim is None:
             edim = self.config["grid"]["edim"]
         else:
@@ -163,8 +165,16 @@ class SkyModel:
         else:
             self.config["priors"] = priors
 
-        sdim = 2 * (sdim,)
-        self.s_distances = fov / sdim[0]
+        shape_xy = (shape, shape) if isinstance(shape, int) else tuple(shape)
+        if len(shape_xy) != 2:
+            raise ValueError(f"shape must contain (nx, ny); got {shape!r}")
+        fov_xy = (fov, fov) if np.ndim(fov) == 0 else tuple(fov)
+        if len(fov_xy) != 2:
+            raise ValueError(f"fov must contain (fov_x, fov_y); got {fov!r}")
+        sdim = shape_xy[::-1]
+        self.s_distances = tuple(
+            f / n for f, n in zip(fov_xy[::-1], sdim)
+        )
         energy_range = np.array(e_max) - np.array(e_min)
         self.e_distances = (
             energy_range / edim

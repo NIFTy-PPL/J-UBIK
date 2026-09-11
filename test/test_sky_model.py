@@ -52,7 +52,7 @@ def priors():
 @pytest.fixture
 def config(priors):
     cfg_dict = {}
-    cfg_dict['sdim'] = 128
+    cfg_dict['shape'] = 128
     cfg_dict['edim'] = 3
     cfg_dict['s_padding_ratio'] = 1.1
     cfg_dict['e_padding_ratio'] = 1.0
@@ -93,3 +93,10 @@ def test_sky_application(sky_model, config):
 
     sky_real_repeat = sky(pos)
     np.testing.assert_allclose(np.asarray(sky_real), np.asarray(sky_real_repeat))
+
+
+def test_rectangular_public_geometry_becomes_internal_yx(sky_model, config):
+    config = dict(config, shape=(16, 8), fov=(4096, 2048))
+    sky = sky_model.create_sky_model(**config)
+    assert sky.target.shape[-2:] == (8, 16)
+    assert sky_model.s_distances == (256.0, 256.0)

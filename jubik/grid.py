@@ -68,8 +68,8 @@ class Grid:
     @classmethod
     def from_shape_and_fov(
         cls,
-        spatial_shape: tuple[int, int] | list[int, int],
-        fov: u.Quantity,
+        shape: int | tuple[int, int] | list[int],
+        fov: u.Quantity | tuple[u.Quantity, u.Quantity],
         frequencies: Optional[u.Quantity] = None,
         sky_center: SkyCoord = SkyCoord(
             ra=np.nan * u.Unit("rad"), dec=np.nan * u.Unit("rad")
@@ -81,7 +81,7 @@ class Grid:
             else Color(frequencies)
         )
         return cls(
-            spatial=WcsAstropy(center=sky_center, shape=spatial_shape, fov=fov),
+            spatial=WcsAstropy(center=sky_center, shape=shape, fov=fov),
             spectral=spectral,
         )
 
@@ -93,17 +93,13 @@ class Grid:
         return cls(spatial, spectral)
 
     @property
-    def shape(self):
-        """Shape of the grid: ``(polarization, time, spectral, *spatial)``.
-
-        The trailing spatial dims are numpy/canonical-ordered
-        ``(nDec, nRA)`` (dim 0 = +Dec/North, dim 1 = -RA/West; see
-        ``probes/README.md``)."""
+    def array_shape(self):
+        """Numerical field shape ``(polarization, time, spectral, y, x)``."""
         return (
             self.polarization.shape
             + (len(self.times) - 1,)
             + self.spectral.center.shape
-            + self.spatial.shape
+            + self.spatial.shape_yx
         )
 
     def __repr__(self):

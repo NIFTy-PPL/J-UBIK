@@ -54,7 +54,7 @@ obs = rve.data.select_random_visibility_subset(
 #         ObservationModify.from_config_parser(cfg['data'])))[0]
 
 grid = ju.Grid.from_shape_and_fov(
-    spatial_shape=(int(cfg["sky"]["space npix x"]), int(cfg["sky"]["space npix y"])),
+    shape=(int(cfg["sky"]["space npix x"]), int(cfg["sky"]["space npix y"])),
     fov=u.Quantity(
         (u.Quantity(cfg["sky"]["space fov x"]), u.Quantity(cfg["sky"]["space fov y"]))
     ),
@@ -77,8 +77,8 @@ zero_mode_settings = (
 )
 diffuse_sky = ju.build_simple_spectral_sky(
     prefix=prefix,
-    shape=grid.spatial.shape,
-    distances=grid.spatial.distances.to(u.rad).value,
+    shape=grid.spatial.shape_yx,
+    distances=grid.spatial.pixel_scales_yx.to(u.rad).value,
     log_frequencies=np.log([np.mean(obs.freq)]),
     reference_frequency_index=0,
     zero_mode_settings=zero_mode_settings,
@@ -104,7 +104,7 @@ output_dir = "imaging_resolve"
 
 def callback(samples, opt_state):
     post_sr_mean = jft.mean(tuple(sky(s) for s in samples))
-    plt.imshow(post_sr_mean[0, 0, 0, :, :].T, origin="lower", norm=LogNorm())
+    plt.imshow(post_sr_mean[0, 0, 0], origin="lower", norm=LogNorm())
     plt.colorbar()
     plt.savefig(join(output_dir, f"iteration_{opt_state.nit}.png"))
     plt.close()
@@ -112,7 +112,7 @@ def callback(samples, opt_state):
 
 n_vi_iterations = 20
 delta = 1e-8
-absdelta = delta * jnp.prod(jnp.array(grid.spatial.shape))
+absdelta = delta * jnp.prod(jnp.array(grid.spatial.shape_yx))
 n_samples = 2
 
 sample_mode_update = "linear_resample"

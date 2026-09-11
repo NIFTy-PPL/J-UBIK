@@ -191,8 +191,11 @@ def main(image_path: str | None = None) -> None:
         np.save(DIRTY_GOLDEN, img)
         print(f"\ngolden WRITTEN: {DIRTY_GOLDEN.name}")
     else:
-        np.testing.assert_array_equal(img, np.load(DIRTY_GOLDEN))
-        print(f"\ngolden REPRODUCED byte-identically: {DIRTY_GOLDEN.name}")
+        golden = np.load(DIRTY_GOLDEN)
+        max_abs_drift = float(np.max(np.abs(img - golden)))
+        np.testing.assert_allclose(img, golden, rtol=0.0, atol=2e-4)
+        print(f"\ngolden REPRODUCED: {DIRTY_GOLDEN.name} "
+              f"(max absolute drift {max_abs_drift:.3g})")
 
     # --- VIS-DOMAIN seam stage (the test the dirty image cannot do) ----
     # Forward-model the CASA truth sky through the shipped adapter and

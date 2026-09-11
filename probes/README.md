@@ -13,15 +13,22 @@ any orientation code.
 
 ## The normative convention (what everything is judged against)
 
-For a model/reconstruction sky array `sky[i, j]` (square grid,
-rotation 0):
+Public geometry and coordinates use `(x, y)`:
+
+    shape = (nx, ny)
+    fov = (fov_x, fov_y)
+    offsets = (x_east, y_north)  # Astropy quantities
+
+Numerical fields use `sky[..., row, column] == sky[..., y, x]`. At
+`position_angle=0`:
 
     i = dim 0 (row):    i increases  ->  Dec increases (North)
     j = dim 1 (column): j increases  ->  RA  decreases (West)
 
-Plotted with `imshow(sky, origin="lower")` this renders **North up,
-East left** — the standard astronomical orientation.  Relative
-coordinates: `coords[0] = dDec`, `coords[1] = -dRA`.
+Plot the field itself—never `sky.T`—with
+`imshow(sky, origin="lower", extent=wcs.extent())`. The extent is
+`(+half_x, -half_x, -half_y, +half_y)`, so the result is **North up,
+East left**. Rotated grids require WCSAxes; `extent()` rejects them.
 
 This statement was measured on the shipped JWST response path
 (2026-07-06); it is the *effective* behavior, produced by two
@@ -31,20 +38,23 @@ convention quirks that cancel on square grids (see `p1`).
 
 | probe | pins |
 | --- | --- |
-| `p1_metadata_vs_response.py` | metadata alignment (Batch D): `WcsAstropy` takes numpy/canonical shape `(nDec, nRA)` and fov `(fov_dec, fov_ra)` — `shape[1]`/`fov[1]` size the FITS RA axis, `shape[0]`/`fov[0]` the Dec axis, `distances[k]` describes array dim `k`, `extent()` is the imshow `(-h1,h1,-h0,h0)` tuple, and `WcsAstropy_from_wcs` reads `array_shape` as `(ny, nx)` — so rectangles are coherent, not just square grids |
+| `p1_metadata_vs_response.py` | public `shape_xy`/`fov_xy` are converted once to internal `shape_yx`/`fov_yx`; FITS, offsets, indices, East-left extent, rectangles, anisotropy, and Resolve metadata agree |
 | `p2_jwst_orientation.py` | the normative convention above, on the shipped JWST interpolation path (point-source light-up from known sky directions) + golden freeze |
 | `p3_radio_orientation.py` | which (axis, sign) mapping the resolve wgridder/finufft backends actually use for l/m, judged against analytic point-source visibilities; the raw wgridder-native layout the adapter converts from |
 | `p4_radio_adapter.py` | the radio response COMPLIES with the canonical frame via the explicit `canonical_sky_to_visibilities` adapter (canonical sky in, physical visibilities out) wrapping the raw backends — a **pure axis transpose, conjugation-free**, emitting `V = vol·exp(+2πi(u·l + v·m))` in exact parity with upstream `resolve` |
 | `p5_sky_beamer_frame.py` | the sky-beamer beams pair index-for-index with the canonical sky (dim0=+Dec, dim1=-RA): an off-center pointing on an anisotropic grid lands its beam peak at the canonical sky pixel of the pointing direction |
-| `p6_jwst_roundtrip.py` | a synthetic JWST datamodel (glyph painted world-anchored through its own gwcs) roundtrips through the REAL production loader chain (`JwstData` → `subsample_pixel_centers` → `world_coordinates_to_index_grid`) onto the canonical grid with a dihedral `identity` verdict — the data-side pairing of the gwcs/datamodel path |
+| `p6_jwst_roundtrip.py` | a synthetic JWST datamodel (glyph painted world-anchored through its own gwcs) roundtrips through the production loader chain and `world_to_indices_yx()` onto the canonical grid with a dihedral `identity` verdict |
 | `p7_radio_roundtrip.py` | a CASA-minted radio observation roundtrips to a dirty image matching the canonical truth (external sign-anchor pin): the glyph survives the resolve response + gridder path with a dihedral `identity` verdict, **and** the forward model matches the CASA visibilities directly in the vis domain (`corr(V_model, data) > 0.99`) so no adjoint-side cancellation can mask a spurious conjugation |
 
 ## Golden freeze
 
-Probes write small witness arrays to `probes/golden/` on first run and
-assert byte-stable reproduction afterwards.  Any future fix must keep
-these goldens byte-identical on square grids — that is the mechanical
-proof that existing calibrations survive.
+Probes write small witness arrays to `probes/golden/` on first run. The p6
+boundary golden must reproduce byte-exactly. The numerically evaluated p2, p3,
+p4, p5, and p7 goldens use tight, probe-specific tolerances; p2, p5, and p7 use
+absolute-only ceilings so large values cannot weaken the checks through a
+relative tolerance. The golden files themselves are immutable: convention
+changes must keep their checked-in bytes
+unchanged unless a separately reviewed re-mint is intended.
 
 ## Running
 
@@ -91,9 +101,9 @@ The probes remain the human-facing consult record; `test/conventions/` is
 their pytest twin.  It runs the probe record (every probe p1..p7 as a
 subprocess plus `check_frames.py`, exit-code asserted; p6/p7 skip when their
 goldens are not minted) *and* a parametrized breadth sweep the single-witness
-probes do not cover: rectangular and both-orientation grids, isotropic vs 2:1
+probes do not cover: public-XY rectangular and both-orientation grids, isotropic vs 2:1
 anisotropic pixels, both radio backends (ducc + finufft), all four pointing
-quadrants, a response-level rectangle pin (`npix_x = shape[1]` /
-`pixsize_x = distances[1]`), and the dirty-image adjoint identity.  It is
+quadrants, a response-level rectangle pin (`npix_x = shape_xy[0]` /
+`pixsize_x = pixel_scales_xy[0]`), and the dirty-image adjoint identity. It is
 golden-free except where the probe-record tests reuse the existing frozen
 goldens read-only.

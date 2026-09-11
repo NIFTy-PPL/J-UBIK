@@ -39,7 +39,7 @@ def dirty_image(
 ) -> u.Quantity:
 
     # TODO: Extract shape fully from grid
-    full_sky_shape = (1, 1, 1) + tuple(sky_grid.spatial.shape)
+    full_sky_shape = (1, 1, 1) + tuple(sky_grid.spatial.shape_yx)
 
     R = interferometry_response(
         observation=observation,
@@ -110,9 +110,8 @@ def uvw_density(
 
     # Canonical sky (dim0 = Dec, dim1 = RA); u conjugates the l/RA axis (dim1),
     # v conjugates the m/Dec axis (dim0).
-    nx, ny = sky_grid.spatial.shape[1], sky_grid.spatial.shape[0]
-    _dist = sky_grid.spatial.distances.to(RESOLVE_SPATIAL_UNIT).value
-    dx, dy = _dist[1], _dist[0]
+    nx, ny = sky_grid.spatial.shape_xy
+    dx, dy = sky_grid.spatial.pixel_scales_xy.to(RESOLVE_SPATIAL_UNIT).value
 
     ku = np.sort(np.fft.fftfreq(nx, dx))
     kv = np.sort(np.fft.fftfreq(ny, dy))

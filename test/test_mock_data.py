@@ -15,7 +15,7 @@ def sample_grid_info():
             'e_max': [1.0, 2.0],
             'e_ref': [0.75, 1.5]
         },
-        'sdim': 64,
+        'shape': 64,
         'edim': 4,
         's_padding_ratio': 0.1,
         'e_padding_ratio': 0.1

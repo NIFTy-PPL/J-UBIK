@@ -29,15 +29,13 @@ def build_astropy_wcs(
     center: SkyCoord,
     shape: Tuple[int, int],
     fov: Tuple[Unit, Unit],
-    rotation: Unit = 0.0 * units.deg,
+    position_angle: Unit = 0.0 * units.deg,
 ) -> WCS:
     """
     Specify the Astropy wcs.
 
-    ``shape`` and ``fov`` are given in NUMPY/CANONICAL order — ``shape =
-    (nDec, nRA)`` and ``fov = (fov_dec, fov_ra)`` — matching the layout of
-    the sky array they describe (dim 0 = Dec, dim 1 = RA).  The returned WCS
-    accordingly has axis 1 = RA (``CDELT1 < 0``) and axis 2 = Dec.
+    Public ``shape`` and ``fov`` use ``(x, y)`` order. The returned WCS has
+    FITS axis 1 = RA/x with negative CDELT and axis 2 = Dec/y.
 
     Parameters
     ----------
@@ -45,31 +43,30 @@ def build_astropy_wcs(
         The value of the center of the coordinate system (crval).
 
     shape : tuple
-        The shape of the grid in numpy/canonical order ``(nDec, nRA)``.
+        Public shape ``(nx, ny)``.
 
     fov : tuple
-        The field of view of the grid in numpy/canonical order
-        ``(fov_dec, fov_ra)``. Typically given in degrees.
+        Public field of view ``(fov_x, fov_y)``.
 
-    rotation : units.Quantity
-        The rotation of the grid WCS with respect to the ICRS system, in degrees.
+    position_angle : units.Quantity
+        Astronomical position angle measured from North through East.
     """
 
     # Create a WCS object
     w = WCS(naxis=2)
 
     # Rotation
-    rotation_value = rotation.to(units.rad).value
+    rotation_value = position_angle.to(units.rad).value
     pc11 = np.cos(rotation_value)
     pc12 = -np.sin(rotation_value)
     pc21 = np.sin(rotation_value)
     pc22 = np.cos(rotation_value)
 
     # Set up ICRS system
-    w.wcs.crpix = [shape[1] / 2 + 0.5, shape[0] / 2 + 0.5]
+    w.wcs.crpix = [shape[0] / 2 + 0.5, shape[1] / 2 + 0.5]
     w.wcs.cdelt = [
-        -fov[1].to(units.deg).value / shape[1],
-        fov[0].to(units.deg).value / shape[0],
+        -fov[0].to(units.deg).value / shape[0],
+        fov[1].to(units.deg).value / shape[1],
     ]
     w.wcs.crval = [center.ra.deg, center.dec.deg]
     w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
