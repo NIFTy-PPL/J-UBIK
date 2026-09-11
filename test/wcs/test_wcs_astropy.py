@@ -1,5 +1,7 @@
 """WcsAstropy owns one SpatialGeometry and adds astrometry to it."""
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 from astropy import units as u
@@ -144,6 +146,19 @@ def test_from_wcs_requires_shape():
     shapeless = WCS(WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY).to_header())
     with pytest.raises(ValueError, match="array shape"):
         WcsAstropy_from_wcs(shapeless)
+
+
+@pytest.mark.parametrize("name, equinox", [("fk5", "J1990.0"), ("fk4", "B1975.0")])
+def test_from_wcs_keeps_a_custom_equinox(name, equinox):
+    cs = replace(getattr(CoordinateSystems, name).value, equinox=equinox)
+    center = SkyCoord(ra=10.0 * u.deg, dec=-30.0 * u.deg, frame=name, equinox=equinox)
+    original = WcsAstropy(center=center, shape=SHAPE_XY, fov=FOV_XY, coordinate_system=cs)
+    rebuilt = WcsAstropy_from_wcs(original)
+    assert rebuilt.coordinate_system.equinox == equinox
+    assert rebuilt.wcs.equinox == float(equinox[1:])
+    assert rebuilt.center.equinox == center.equinox
+    assert rebuilt.to_header() == original.to_header()
+    assert getattr(CoordinateSystems, name).value.equinox != equinox, "enum default untouched"
 
 
 def test_equinox_is_honoured_as_float():

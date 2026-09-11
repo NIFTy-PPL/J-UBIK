@@ -65,8 +65,9 @@ class SpatialGeometry:
     """A rectangular pixel grid on the sky, stored in array ``(y, x)`` order.
 
     Construct through :meth:`from_xy` or :meth:`from_yx`. Read through the
-    named accessors. Equality is exact on shape and field of view; instances
-    are deliberately unhashable.
+    named accessors. Equality is exact on shape and on the field of view
+    expressed in arcsec, whatever unit it was given in; instances are
+    deliberately unhashable.
     """
 
     shape_yx: tuple[int, int]
@@ -160,8 +161,10 @@ class SpatialGeometry:
     def __eq__(self, other) -> bool:
         if not isinstance(other, SpatialGeometry):
             return NotImplemented
+        # compared in arcsec: deg and arcmin scale to it by exact integers,
+        # so the same angle written in either unit compares equal
         return self.shape_yx == other.shape_yx and bool(
-            self.fov_yx.unit == other.fov_yx.unit and np.array_equal(self.fov_yx.value, other.fov_yx.value)
+            np.array_equal(self.fov_yx.to_value(u.arcsec), other.fov_yx.to_value(u.arcsec))
         )
 
     __hash__ = None

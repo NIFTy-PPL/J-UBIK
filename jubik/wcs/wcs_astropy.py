@@ -4,6 +4,7 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %%
+from dataclasses import replace
 from typing import Optional
 
 import numpy as np
@@ -278,7 +279,16 @@ def WcsAstropy_from_wcs(wcs: WCS) -> WcsAstropy:
     frame_name = "galactic" if is_galactic else (wcs.wcs.radesys or "ICRS").lower()
     coordinate_system = getattr(CoordinateSystems, frame_name).value
 
-    center = SkyCoord(wcs.wcs.crval[0], wcs.wcs.crval[1], unit="deg", frame=frame_name)
+    frame_kwargs = {}
+    if frame_name in ("fk4", "fk5") and not np.isnan(wcs.wcs.equinox):
+        # keep a custom EQUINOX instead of the enum default
+        prefix = "B" if frame_name == "fk4" else "J"
+        coordinate_system = replace(coordinate_system, equinox=f"{prefix}{wcs.wcs.equinox}")
+        frame_kwargs["equinox"] = coordinate_system.equinox
+
+    center = SkyCoord(
+        wcs.wcs.crval[0], wcs.wcs.crval[1], unit="deg", frame=frame_name, **frame_kwargs
+    )
 
     cd = wcs.pixel_scale_matrix
     position_angle = np.arctan2(cd[1, 0], cd[1, 1]) * u.rad

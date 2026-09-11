@@ -27,6 +27,13 @@ def test_from_xy_and_from_yx_agree(geometry):
     assert geometry != SpatialGeometry.from_xy(SHAPE_XY, (32.0, 12.5) * u.arcsec)
 
 
+def test_equality_is_unit_aware(geometry):
+    assert geometry == SpatialGeometry.from_xy(SHAPE_XY, (32.0 / 3600, 12.0 / 3600) * u.deg)
+    assert SpatialGeometry.from_xy(4, 1 * u.deg) == SpatialGeometry.from_xy(4, 3600 * u.arcsec)
+    assert SpatialGeometry.from_xy(4, 0.5 * u.deg) == SpatialGeometry.from_xy(4, 30 * u.arcmin)
+    assert SpatialGeometry.from_xy(4, 1 * u.deg) != SpatialGeometry.from_xy(4, 3601 * u.arcsec)
+
+
 def test_is_unhashable(geometry):
     # fov_yx is an array; there is no hash to keep in step with __eq__
     with pytest.raises(TypeError):
