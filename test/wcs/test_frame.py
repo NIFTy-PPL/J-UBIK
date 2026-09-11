@@ -23,7 +23,7 @@ def geometry():
 def test_from_xy_and_from_yx_agree(geometry):
     other = SpatialGeometry.from_yx((24, 32), (12.0, 32.0) * u.arcsec)
     assert geometry == other
-    assert geometry != SpatialGeometry.from_yx((24, 32), (12.0, 32.0 + 1e-9) * u.arcsec), "equality is exact"
+    assert geometry != SpatialGeometry.from_yx((24, 32), (12.0, 32.0 + 1e-6) * u.arcsec)
     assert geometry != SpatialGeometry.from_xy(SHAPE_XY, (32.0, 12.5) * u.arcsec)
 
 
@@ -32,6 +32,11 @@ def test_equality_is_unit_aware(geometry):
     assert SpatialGeometry.from_xy(4, 1 * u.deg) == SpatialGeometry.from_xy(4, 3600 * u.arcsec)
     assert SpatialGeometry.from_xy(4, 0.5 * u.deg) == SpatialGeometry.from_xy(4, 30 * u.arcmin)
     assert SpatialGeometry.from_xy(4, 1 * u.deg) != SpatialGeometry.from_xy(4, 3601 * u.arcsec)
+    # non-integer conversions leave float noise; still the same geometry
+    fov_rad = FOV_XY.to(u.rad)
+    fov_mas = fov_rad.to(u.mas)
+    assert SpatialGeometry.from_xy(SHAPE_XY, fov_rad) == geometry
+    assert SpatialGeometry.from_xy(SHAPE_XY, fov_rad) == SpatialGeometry.from_xy(SHAPE_XY, fov_mas)
 
 
 def test_is_unhashable(geometry):

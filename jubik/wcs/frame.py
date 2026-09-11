@@ -27,6 +27,11 @@ import numpy as np
 from astropy import units as u
 
 
+#: Relative tolerance of :meth:`SpatialGeometry.__eq__` on the field of view.
+#: Far below any physical distinction, far above unit-conversion round-off.
+FOV_RTOL = 1e-10
+
+
 def _pair_int(value, name: str) -> tuple[int, int]:
     if isinstance(value, numbers.Integral) and not isinstance(value, bool):
         values = (value, value)
@@ -65,8 +70,8 @@ class SpatialGeometry:
     """A rectangular pixel grid on the sky, stored in array ``(y, x)`` order.
 
     Construct through :meth:`from_xy` or :meth:`from_yx`. Read through the
-    named accessors. Equality is exact on shape and on the field of view
-    expressed in arcsec, whatever unit it was given in; instances are
+    named accessors. Equality is exact on shape and within ``FOV_RTOL`` on
+    the field of view, whatever unit it was given in; instances are
     deliberately unhashable.
     """
 
@@ -161,10 +166,10 @@ class SpatialGeometry:
     def __eq__(self, other) -> bool:
         if not isinstance(other, SpatialGeometry):
             return NotImplemented
-        # compared in arcsec: deg and arcmin scale to it by exact integers,
-        # so the same angle written in either unit compares equal
+        # tolerant on the field of view: unit conversion (rad, mas, ...) leaves
+        # float noise well below FOV_RTOL; no hash has to agree with this
         return self.shape_yx == other.shape_yx and bool(
-            np.array_equal(self.fov_yx.to_value(u.arcsec), other.fov_yx.to_value(u.arcsec))
+            u.allclose(self.fov_yx, other.fov_yx, rtol=FOV_RTOL)
         )
 
     __hash__ = None
