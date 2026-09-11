@@ -83,10 +83,15 @@ def _infere_shape_from_domain(
 
         return sky.shape
 
-    elif isinstance(domain, jft.ShapeWithDtype):
-        assert typ == "coordinates"
-        assert len(domain.shape) == 3, f"Unexpected shape for {typ}: {domain.shape}."
-        return domain.shape[1:]
+    elif typ == "coordinates" and hasattr(domain, "shape"):
+        shape = domain.shape
+        assert len(shape) in (3, 4), (
+            f"Unexpected shape for {typ}: {shape}."
+        )
+        assert shape[-3] == 2, (
+            f"Unexpected coordinate axis for {typ}: {shape}."
+        )
+        return shape[-2:]
 
     raise ValueError
 
