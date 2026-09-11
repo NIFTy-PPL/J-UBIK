@@ -25,17 +25,21 @@ __all__ = ["WcsAstropy", "WcsAstropy_from_wcs"]
 # --------------------------------------------------------------------------- #
 
 
-def _fits_header(
+def _set_wcs_cards(
+    wcs: WCS,
     geometry: SpatialGeometry,
     center: SkyCoord,
-    position_angle: u.Quantity = 0.0 * u.deg,
-    coordinate_system: CoordinateSystemModel = CoordinateSystems.icrs.value,
-) -> dict:
+    position_angle: u.Quantity,
+    coordinate_system: CoordinateSystemModel,
+) -> None:
     """The one CRPIX/CRVAL/CDELT/PC rule for a jubik sky grid.
 
     FITS axis 1 is RA with ``CDELT1 < 0`` (East to the left), axis 2 is Dec.
-    ``position_angle`` is measured from North through East. Byte-compatible
-    with the header ``WcsAstropy`` has always written.
+    ``position_angle`` is measured from North through East.
+
+    The cards are set as attributes, not parsed from a header string: a header
+    rounds every float to 14 significant digits and moves ``pixel_to_world``
+    by ~1e-11. ``to_header()`` still emits the same cards.
 
     FITS applies ``CDELT`` after the ``PC`` rotation. For anisotropic pixels
     and a non-zero position angle the pixel grid on the sky is therefore
@@ -43,60 +47,27 @@ def _fits_header(
     intermediate axes, not the edge lengths of a rotated pixel. Square pixels
     are unaffected.
     """
-    pa = position_angle.to_value(u.rad)
-
     if coordinate_system.radesys == CoordinateSystems.galactic.value.radesys:
         lon, lat = center.galactic.l.deg, center.galactic.b.deg
     else:
         lon, lat = center.ra.deg, center.dec.deg
     if np.isnan(lon) or np.isnan(lat):
-        lon = lat = None
+        lon = lat = 0.0
+    pa = position_angle.to_value(u.rad)
 
-    header = {
-        "WCSAXES": 2,
-        "CTYPE1": coordinate_system.ctypes[0],
-        "CTYPE2": coordinate_system.ctypes[1],
-        "CRPIX1": geometry.n_ra / 2 + 0.5,
-        "CRPIX2": geometry.n_dec / 2 + 0.5,
-        "CRVAL1": lon,
-        "CRVAL2": lat,
-        "CDELT1": -geometry.d_ra.to_value(u.deg),
-        "CDELT2": geometry.d_dec.to_value(u.deg),
-        "PC1_1": np.cos(pa),
-        "PC1_2": -np.sin(pa),
-        "PC2_1": np.sin(pa),
-        "PC2_2": np.cos(pa),
-        "RADESYS": coordinate_system.radesys,
-        "CUNIT1": "deg",
-        "CUNIT2": "deg",
-    }
+    w = wcs.wcs
+    w.ctype = list(coordinate_system.ctypes)
+    w.cunit = ["deg", "deg"]
+    w.crpix = [geometry.n_ra / 2 + 0.5, geometry.n_dec / 2 + 0.5]
+    w.crval = [lon, lat]
+    w.cdelt = [-geometry.d_ra.to_value(u.deg), geometry.d_dec.to_value(u.deg)]
+    w.pc = np.array([[np.cos(pa), -np.sin(pa)], [np.sin(pa), np.cos(pa)]])
+    w.radesys = coordinate_system.radesys
     if coordinate_system.radesys in (
         CoordinateSystems.fk4.value.radesys,
         CoordinateSystems.fk5.value.radesys,
     ):
-        header["EQUINOX"] = coordinate_system.equinox
-    return header
-
-
-def _apply_header(wcs: WCS, header: dict) -> None:
-    """Set the cards of :func:`_fits_header` on ``wcs`` as exact floats.
-
-    Going through a FITS header string would round every float to 14
-    significant digits and move ``pixel_to_world`` by ~1e-11. Attributes keep
-    the values the geometry computed.
-    """
-    w = wcs.wcs
-    w.ctype = [header["CTYPE1"], header["CTYPE2"]]
-    w.cunit = [header["CUNIT1"], header["CUNIT2"]]
-    w.crpix = [header["CRPIX1"], header["CRPIX2"]]
-    w.cdelt = [header["CDELT1"], header["CDELT2"]]
-    lon, lat = header["CRVAL1"], header["CRVAL2"]
-    w.crval = [0.0 if lon is None else lon, 0.0 if lat is None else lat]
-    w.pc = np.array([[header["PC1_1"], header["PC1_2"]], [header["PC2_1"], header["PC2_2"]]])
-    w.radesys = header["RADESYS"]
-    if "EQUINOX" in header:
-        equinox = header["EQUINOX"]
-        w.equinox = float(str(equinox).lstrip("JB")) if isinstance(equinox, str) else float(equinox)
+        w.equinox = float(str(coordinate_system.equinox).lstrip("JB"))
 
 
 def _geometry_from_wcs(wcs: WCS) -> SpatialGeometry:
@@ -150,7 +121,7 @@ class WcsAstropy(WCS, WcsMixin):
         ] = CoordinateSystems.icrs.value,
     ):
         """
-        Create FITS header, use it to instantiate an WcsAstropy.
+        Build the WCS of a jubik sky grid from its geometry and astrometry.
 
         Parameters
         ----------
@@ -178,7 +149,7 @@ class WcsAstropy(WCS, WcsMixin):
         self.coordinate_system = coordinate_system
 
         super().__init__(naxis=2)
-        _apply_header(self, _fits_header(self.geometry, center, self.position_angle, coordinate_system))
+        _set_wcs_cards(self, self.geometry, center, self.position_angle, coordinate_system)
         self.pixel_shape = self.geometry.shape_xy
 
     @classmethod
