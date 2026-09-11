@@ -1,9 +1,9 @@
 """p2 — JWST orientation truth: which sky direction each array dim carries.
 
 WHAT THIS PROBES
-    The shipped JWST interpolation path (world_coordinates_to_index_grid
-    with indexing="ij" + build_linear_rotation_and_shift), fed sky points
-    at known offsets from the grid center:
+    The shipped JWST interpolation path (WcsAstropy.world_to_indices_yx
+    + build_linear_rotation_and_shift), fed sky points at known offsets from
+    the grid center:
 
     - a bump written at sky[i0+d, j0] must be read back by the point d
       pixels NORTH of center      -> array dim 0 = +Dec

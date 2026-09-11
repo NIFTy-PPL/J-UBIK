@@ -2,8 +2,9 @@ Spatial coordinate conventions
 ==============================
 
 J-UBIK exposes spatial geometry in Cartesian ``(x, y)`` order and stores
-numerical fields in NumPy ``(..., y, x)`` order.  The conversion happens once
-when a :class:`jubik.Grid` or :class:`jubik.WcsAstropy` is constructed.
+numerical fields in NumPy ``(..., y, x)`` order. The conversion is owned by
+:class:`jubik.wcs.SpatialGeometry`; callers use named XY or YX views instead of
+reversing tuples themselves.
 
 Public geometry
 ---------------
@@ -22,6 +23,19 @@ YAML uses the same convention::
 
 The former ``sdim`` and grid ``rotation`` keys are rejected with migration
 errors; there are no compatibility aliases.
+
+Python callers must make the same clean break. In particular::
+
+   # Before
+   Grid.from_shape_and_fov(spatial_shape=(320, 192), fov=fov)
+   SkyModel(config).create_sky_model(sdim=(320, 192))
+
+   # After: all public shapes are (nx, ny)
+   Grid.from_shape_and_fov(shape=(320, 192), fov=fov)
+   SkyModel(config).create_sky_model(shape=(320, 192))
+
+Likewise, ``WcsAstropy(..., rotation=angle)`` becomes
+``WcsAstropy(..., position_angle=angle)``.
 
 Internal arrays and explicit metadata
 -------------------------------------
@@ -46,8 +60,11 @@ Coordinate conversion and plotting
 
 Use ``world_to_offsets_xy`` and ``offsets_xy_to_world`` for unit-bearing East,
 North offsets. Use ``world_to_indices_yx`` and ``indices_yx_to_world`` at NumPy
-array boundaries. ``coordinate_grid_yx`` returns North and East grids shaped
-like the internal array.
+array boundaries. The pixel grid itself lives on ``grid.spatial.geometry``, a
+``SpatialGeometry``: read ``n_ra``, ``n_dec``, ``d_ra``, ``d_dec`` there instead
+of indexing a shape tuple. To map every pixel to the sky, feed
+``np.indices(grid.spatial.shape_yx)`` to ``indices_yx_to_world``; the method
+name says which order it expects.
 
 An unrotated field is plotted directly, without a transpose::
 

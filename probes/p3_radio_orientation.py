@@ -24,7 +24,8 @@ WHAT THIS PROBES
 
 GOLDEN
     probes/golden/p3_radio_vis.npy — ducc visibilities of a fixed random
-    sky.  First run writes, later runs assert byte-stable reproduction.
+    sky. First run writes; later runs use a tight backend-sensitive numerical
+    tolerance.
 
 RUN
     uv run python probes/p3_radio_orientation.py

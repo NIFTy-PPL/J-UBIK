@@ -28,6 +28,7 @@ import pytest
 from astropy.coordinates import SkyCoord
 
 from jubik.instruments.resolve.mosaicing.sky_beamer import build_sky_beamer
+from jubik.wcs.wcs_astropy import WcsAstropy
 
 CENTER = SkyCoord(ra=10.0 * u.deg, dec=20.0 * u.deg)
 
@@ -43,8 +44,8 @@ def _build_beams(observations, shape, fov):
         sky_shape_with_dtype=jft.ShapeWithDtype(
             (1, 1, 1, shape[0], shape[1]), np.float64
         ),
-        sky_fov=fov,
-        sky_center=CENTER,
+        # shape arrives (rows, cols); WcsAstropy takes public (nx, ny)
+        sky_wcs=WcsAstropy(center=CENTER, shape=(shape[1], shape[0]), fov=fov),
         sky_frequency_means=u.Quantity([100.0e9] * u.Hz),
         observations=observations,
         beam_func=lambda freq, x: np.exp(-((x / 3.0e-5) ** 2)),
