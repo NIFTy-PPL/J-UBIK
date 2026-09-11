@@ -38,8 +38,7 @@ def _pair_int(value, name: str) -> tuple[int, int]:
     if len(values) != 2:
         raise ValueError(f"{name} must contain two entries, got {value!r}")
     for v in values:
-        integral = isinstance(v, numbers.Integral) and not isinstance(v, bool)
-        if not integral and not (isinstance(v, numbers.Real) and float(v).is_integer()):
+        if not isinstance(v, numbers.Integral) or isinstance(v, bool):
             raise ValueError(f"{name} must contain integers, got {value!r}")
         if v <= 0:
             raise ValueError(f"{name} must contain two positive integers, got {value!r}")

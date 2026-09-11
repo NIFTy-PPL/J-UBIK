@@ -91,7 +91,9 @@ def test_validates_before_coercing():
         SpatialGeometry.from_xy((2.5, 3), 1 * u.arcsec)
     with pytest.raises(ValueError):
         SpatialGeometry.from_xy(True, 1 * u.arcsec)
-    assert SpatialGeometry.from_xy((2.0, np.int64(3)), 1 * u.arcsec).shape_yx == (3, 2)
+    with pytest.raises(ValueError, match="integers"):
+        SpatialGeometry.from_xy((2.0, 3), 1 * u.arcsec)
+    assert SpatialGeometry.from_xy((2, np.int64(3)), 1 * u.arcsec).shape_yx == (3, 2)
     assert SpatialGeometry.from_xy(iter((4, 6)), 1 * u.arcsec).shape_yx == (6, 4)
 
 
