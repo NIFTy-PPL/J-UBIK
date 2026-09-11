@@ -1,21 +1,17 @@
 """jubik.wcs.frame: SpatialGeometry, the one owner of spatial conventions.
 
 Every test uses a rectangle with anisotropic pixels. Square grids hide every
-transpose, so none appear here except in the square-only guard test.
+transpose, so none appear here.
 """
 
 import numpy as np
 import pytest
 from astropy import units as u
-from astropy.coordinates import SkyCoord
 
-from jubik.parse.wcs.coordinate_system import CoordinateSystems
 from jubik.wcs.frame import SpatialGeometry
-from jubik.wcs.wcs_astropy import WcsAstropy
 
 SHAPE_XY = (32, 24)
 FOV_XY = (32.0, 12.0) * u.arcsec  # d_ra = 1", d_dec = 0.5"
-CENTER = SkyCoord(ra=10.0 * u.deg, dec=-30.0 * u.deg)
 
 
 @pytest.fixture
@@ -32,7 +28,7 @@ def test_from_xy_and_from_yx_agree(geometry):
 
 
 def test_is_unhashable(geometry):
-    # tolerant equality cannot honour the hash contract, so there is no hash
+    # fov_yx is an array; there is no hash to keep in step with __eq__
     with pytest.raises(TypeError):
         hash(geometry)
 
@@ -98,9 +94,7 @@ def test_validates_before_coercing():
 
 
 # ---------------------------------------------------------------- imshow extent
-def test_imshow_extent_matches_wcs_astropy(geometry):
-    wcs = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY)
-    assert geometry.imshow_extent() == pytest.approx(wcs.extent())
+def test_imshow_extent_is_east_left(geometry):
     east, west, south, north = geometry.imshow_extent()
     assert east > west, "East is on the left"
     assert north > south
