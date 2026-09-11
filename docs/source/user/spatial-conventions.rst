@@ -62,8 +62,9 @@ Use ``world_to_offsets_xy`` and ``offsets_xy_to_world`` for unit-bearing East,
 North offsets. Use ``world_to_indices_yx`` and ``indices_yx_to_world`` at NumPy
 array boundaries. The pixel grid itself lives on ``grid.spatial.geometry``, a
 ``SpatialGeometry``: read ``n_ra``, ``n_dec``, ``d_ra``, ``d_dec`` there instead
-of indexing a shape tuple, and use ``index_grid_yx()`` for the canonical
-``(row, column)`` index grid.
+of indexing a shape tuple. To map every pixel to the sky, feed
+``np.indices(grid.spatial.shape_yx)`` to ``indices_yx_to_world``; the method
+name says which order it expects.
 
 An unrotated field is plotted directly, without a transpose::
 

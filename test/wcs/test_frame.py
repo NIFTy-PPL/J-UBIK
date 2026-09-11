@@ -126,24 +126,3 @@ def test_padded_default_is_fft_friendly(geometry):
 def test_padded_rejects_shrinking(geometry):
     with pytest.raises(ValueError):
         geometry.padded(0.9)
-
-
-def test_index_grids(geometry):
-    grid = geometry.index_grid_yx()
-    assert grid.shape == (2, 24, 32)
-    assert grid[0, 5, 0] == 5 and grid[0, 5, 31] == 5, "grid[0] is the row index"
-    assert grid[1, 0, 7] == 7 and grid[1, 23, 7] == 7, "grid[1] is the column index"
-    column, row = geometry.index_grid_xy()
-    assert column.shape == row.shape == (24, 32)
-    np.testing.assert_array_equal(column, grid[1])
-    np.testing.assert_array_equal(row, grid[0])
-
-
-def test_index_grid_xy_feeds_pixel_to_world(geometry):
-    wcs = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY)
-    world = wcs.pixel_to_world(*geometry.index_grid_xy())
-    assert world.shape == geometry.shape_yx
-    # column increases West: RA decreases along axis 1
-    assert np.all(np.diff(world.ra.deg, axis=1) < 0)
-    # row increases North: Dec increases along axis 0
-    assert np.all(np.diff(world.dec.deg, axis=0) > 0)

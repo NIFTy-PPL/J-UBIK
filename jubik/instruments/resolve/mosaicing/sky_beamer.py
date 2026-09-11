@@ -20,6 +20,7 @@ from typing import Callable
 
 import jax.numpy as jnp
 import nifty.re as jft
+import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
@@ -138,7 +139,8 @@ def build_sky_beamer(
             f"{sky_wcs.shape_yx}"
         )
     sky_center = sky_wcs.center
-    sky_coords = sky_wcs.pixel_to_world(*sky_wcs.geometry.index_grid_xy())
+    # sky_coords[i, j] is the world position of sky pixel [i, j]
+    sky_coords = sky_wcs.indices_yx_to_world(*np.indices(sky_wcs.shape_yx))
 
     beam_directions = {}
     for ii, oo in enumerate(_filter_pointings_generator(observations, direction_key)):

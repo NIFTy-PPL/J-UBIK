@@ -145,19 +145,6 @@ class SpatialGeometry:
         scale = np.asarray(new_shape) / np.asarray(self.shape_yx)
         return SpatialGeometry(shape_yx=new_shape, fov_yx=self.fov_yx * scale)
 
-    def index_grid_yx(self) -> np.ndarray:
-        """Integer ``(row, column)`` index grid, shape ``(2, n_dec, n_ra)``."""
-        return np.indices(self.shape_yx)
-
-    def index_grid_xy(self) -> tuple[np.ndarray, np.ndarray]:
-        """``(column, row)`` index arrays, each shaped ``(n_dec, n_ra)``.
-
-        For APIs that take separate x and y arguments (astropy ``pixel_to_world``,
-        gwcs). The arrays keep array shape; only the argument order is xy.
-        """
-        row, column = self.index_grid_yx()
-        return column, row
-
     # ------------------------------------------------------------------ orientation
     def imshow_extent(self, unit=u.arcsec) -> tuple[float, float, float, float]:
         """Matplotlib ``extent`` for a sky array at position angle zero.

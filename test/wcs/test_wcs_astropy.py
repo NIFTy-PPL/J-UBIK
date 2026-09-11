@@ -88,6 +88,14 @@ def test_from_wcs_round_trips_cd_header():
     assert u.isclose(rebuilt.position_angle, 30 * u.deg, atol=1e-9 * u.deg)
 
 
+def test_indices_yx_to_world_over_the_full_grid():
+    wcs = WcsAstropy(center=CENTER, shape=SHAPE_XY, fov=FOV_XY)
+    world = wcs.indices_yx_to_world(*np.indices(wcs.shape_yx))
+    assert world.shape == wcs.shape_yx
+    assert np.all(np.diff(world.ra.deg, axis=1) < 0), "columns run West"
+    assert np.all(np.diff(world.dec.deg, axis=0) > 0), "rows run North"
+
+
 # ---------------------------------------------------------------- the header rule
 @pytest.fixture
 def geometry():
