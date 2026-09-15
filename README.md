@@ -19,23 +19,51 @@ for a regular installation. For editable installation add the `-e` flag.
 
 ## Instrument extras
 
-The instrument-specific dependencies are optional extras, so a plain install
-stays lightweight. Install only what the instrument you work on needs:
+There is one extra per instrument backend, so a plain install stays lightweight.
+Install only what the instrument you work on needs:
 
-    pip install --user .[jwst]      # gwcs, jwst, stpsf
+    pip install --user .[jwst]      # gwcs, jwst, stpsf, jax-finufft
+    pip install --user .[gaia]      # astroquery, for the alignment star search
     pip install --user .[resolve]   # jaxbind, jax-finufft
+    pip install --user .[erosita]   # no pip dependencies, see the eROSITA section
+    pip install --user .[all]       # all of the above
+
+Reading CASA measurement sets and uvfits files needs `python-casacore` and
+`ehtim`, which sit in a separate `resolve-data` extra and are not part of
+`resolve` or `all`. `python-casacore` builds against the casacore C++ libraries
+and ships no wheel for every supported Python, so install it deliberately:
+
+    pip install --user .[resolve-data]
+
+Chandra has no extra. CIAO and marx are conda-only, see the Chandra section.
 
 With [uv](https://docs.astral.sh/uv/), the same via the project environment:
 
 ```bash
 uv sync --extra jwst              # JWST only
 uv sync --extra resolve           # RESOLVE only
-uv sync --extra jwst --extra resolve --extra test   # everything, plus pytest
+uv sync --all-extras              # every instrument backend
 ```
 
 Note that `uv sync` makes the environment match exactly the extras you list, so
 passing a single `--extra` removes the packages belonging to the others. Pass
 every extra you want in one command, or use `uv sync --all-extras`.
+
+## Development
+
+Test and documentation tooling lives in [PEP 735](https://peps.python.org/pep-0735/)
+dependency groups, so neither is installed by default:
+
+```bash
+uv sync --group dev               # pytest, sphinx, ipython
+uv sync --only-group test         # what CI runs
+```
+
+With pip (25.1 or newer):
+
+```bash
+pip install -e . --group dev
+```
 
 # Requirements
 - [JAX](https://jax.readthedocs.io/en/latest/installation.html)
@@ -45,10 +73,13 @@ every extra you want in one command, or use `uv sync --all-extras`.
 - [matplotlib](https://matplotlib.org/stable/install/index.html)
 
 # Testing
-For testing you need [pytest](https://docs.pytest.org/en/stable/) to be installed. To run the tests execute the following from the `j-ubik` directory:
+Testing needs [pytest](https://docs.pytest.org/en/stable/), which the `test`
+dependency group provides. To run the tests execute the following from the
+`j-ubik` directory:
 
-```bash 
-pytest-3 test/
+```bash
+uv sync --only-group test   # or: pip install -e . --group test
+pytest test/
 ```
 
 Tests considering Chandra are skipped if `ciao` is not installed.
@@ -131,10 +162,12 @@ In order to make use of the RESOLVE capabilities of the package, you will need t
 - Install the [jaxbind](https://pypi.org/project/jaxbind/) to work with the wgridder radio response
 - Install the [jax-finufft](https://pypi.org/project/jax-finufft/) to work with the FinuFFT radio response
 - Install the [python-casacore](https://pypi.org/project/python-casacore/) to work with CASA measurement sets.
+- Install [ehtim](https://pypi.org/project/ehtim/) to read uvfits files.
 
 Alternatively, you can install these requirements for the radio response via 
 ```bash
-pip install --user .[resolve]
+pip install --user .[resolve]         # jaxbind, jax-finufft
+pip install --user .[resolve-data]    # python-casacore, ehtim
 ```
 
 ---

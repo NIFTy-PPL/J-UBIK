@@ -4,13 +4,14 @@ stages:
   - release
 
 before_script:
+  # `pip install --group` needs pip >= 25.1 (PEP 735).
+  - python3 -m pip install --upgrade pip
   - python3 -m pip install -e .[resolve]
 test:
   image: python:latest
   stage: test
   script:
-    - pip install pytest pytest-cov
-    - pip install .[healpix]
+    - python3 -m pip install --group test
     - pytest --cov=jubik test/
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
 
@@ -32,7 +33,7 @@ pages:
   image: python:latest
   stage: release
   script:
-    - pip install .[doc]
+    - python3 -m pip install . --group doc
     - sh docs/generate.sh
     - mv docs/build/ public/
   artifacts:
