@@ -15,7 +15,8 @@ from numpy.typing import NDArray
 from nifty.re import logger
 
 from ....color import Color
-from ....wcs import WcsAstropy, WcsJwstData, subsample_pixel_centers
+from ....wcs import WcsAstropy, subsample_pixel_centers
+from ..wcs_jwst_data import WcsJwstData
 from ..masking import (
     get_mask_from_index_centers_within_rgrid,
     get_mask_from_mask_corners,

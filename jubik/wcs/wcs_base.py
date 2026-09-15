@@ -47,7 +47,7 @@ class WcsBase:
         pass
 
 
-class WcsMixin:
+class WcsMixin(WcsBase):
     """A mixin class providing WCS functionality, assuming pixel_to_world and
     world_to_pixel are implemented."""
 

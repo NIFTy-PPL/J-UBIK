@@ -11,13 +11,12 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
-from .wcs_jwst_data import WcsJwstData
-from .wcs_astropy import WcsAstropy
+from .wcs_base import WcsBase
 
 
 def subsample_pixel_centers(
     bounding_indices: tuple[int, int, int, int] | np.ndarray,
-    to_be_subsampled_grid_wcs: Union[WcsAstropy, WcsJwstData],
+    to_be_subsampled_grid_wcs: WcsBase,
     subsample: int,
     as_pixel_values: bool = False,
 ) -> SkyCoord | np.ndarray:
@@ -28,7 +27,7 @@ def subsample_pixel_centers(
     ----------
     bounding_indices: tuple[int]
         The min_row, max_row, min_column, max_column indices of the bounding box.
-    to_be_subsampled_grid_wcs: Union[WcsAstropy, WcsJwstData]
+    to_be_subsampled_grid_wcs: WcsBase
         The world coordinate system associated with the grid to be subsampled.
     subsample: int
         The multiplicity of the subsampling along each axis. How many
@@ -75,7 +74,7 @@ def subsample_pixel_centers(
 
 def world_coordinates_to_index_grid(
     world_coordinates: Union[SkyCoord, list[SkyCoord]],
-    index_grid_wcs: Union[WcsAstropy, WcsJwstData],
+    index_grid_wcs: WcsBase,
     indexing: str,
 ):
     """Transform world coordinates into pixels coordinates in the index grid.
@@ -86,7 +85,7 @@ def world_coordinates_to_index_grid(
     ----------
     world_coordinates: SkyCoord
         The world coordinates of pixels or subpixels.
-    index_grid_wcs: Union[WcsAstropy, WcsJwstData],
+    index_grid_wcs: WcsBase
         The wcs of the index grid. This is needed in order to find out where the world
         coordinates fall into in the index grid.
     indexing: str

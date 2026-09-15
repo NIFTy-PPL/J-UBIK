@@ -6,7 +6,7 @@
 # %%
 
 import numpy as np
-from .wcs_base import WcsMixin
+from ...wcs.wcs_base import WcsMixin
 from astropy.coordinates import SkyCoord
 
 

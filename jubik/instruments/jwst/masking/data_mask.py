@@ -4,7 +4,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 
 from ....wcs.wcs_astropy import WcsAstropy
-from ....wcs.wcs_jwst_data import WcsJwstData
+from ..wcs_jwst_data import WcsJwstData
 from ....wcs.wcs_subsample_centers import (
     subsample_pixel_centers,
     world_coordinates_to_index_grid,
