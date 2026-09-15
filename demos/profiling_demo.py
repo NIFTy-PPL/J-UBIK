@@ -8,8 +8,9 @@
 # - gradient (VJP) compile time and runtime — inference is
 #   gradient-dominated, so this often matters more than the forward pass,
 # - XLA compiler estimates: flops, bytes accessed, temp/argument/output
-#   buffer sizes and their sum `est_peak_bytes`, the memory the compiled
-#   program needs while it runs. An oversized intermediate shows up here.
+#   buffer sizes and their total `est_total_bytes` (minus aliased
+#   input/output buffers), the buffer footprint of the compiled program.
+#   An oversized intermediate shows up here.
 #
 # The one thing to keep in mind: `jax.jit` fuses the whole model into a
 # single XLA executable, so there is no exact per-sub-model breakdown of

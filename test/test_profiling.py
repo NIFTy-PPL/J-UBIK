@@ -29,7 +29,7 @@ def test_profile_model_jft_model(sub_models):
     assert row.compile_s > 0
     assert row.runtime_s > 0
     assert row.grad_runtime_s is None
-    assert row.est_peak_bytes > 0
+    assert row.est_total_bytes > 0
 
 
 def test_profile_model_grad(sub_models):

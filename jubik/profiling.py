@@ -71,21 +71,22 @@ def _best_of(compiled, x, n):
     return best
 
 
-def _est_peak_bytes(mem):
-    """XLA's estimate of the executable's peak footprint, or None.
+def _est_total_bytes(mem):
+    """XLA's total buffer footprint for the executable, or None.
 
-    Sum of the argument, output and temporary buffer sizes reported by
-    `compiled.memory_analysis()`. This is the memory the program needs
-    while it runs, so an oversized intermediate shows up here.
+    `argument + output + temp - alias` from `compiled.memory_analysis()`,
+    the total JAX documents; aliased input/output buffers would otherwise
+    count twice. This is a static breakdown of the executable's buffers,
+    not a temporal runtime peak. An oversized intermediate shows up in it.
     """
     if mem is None:
         return None
-    parts = [getattr(mem, a, None) for a in
-             ('argument_size_in_bytes', 'output_size_in_bytes',
-              'temp_size_in_bytes')]
-    if any(v is None for v in parts):
+    sizes = {a: getattr(mem, f'{a}_size_in_bytes', None)
+             for a in ('argument', 'output', 'temp', 'alias')}
+    if any(v is None for v in sizes.values()):
         return None
-    return int(sum(parts))
+    return int(sizes['argument'] + sizes['output'] + sizes['temp']
+               - sizes['alias'])
 
 
 @dataclass
@@ -95,7 +96,8 @@ class ProfileRow:
     Timings are measured. The memory and flop numbers are XLA compiler
     estimates for this model's own executable: `temp_bytes`,
     `argument_bytes` and `output_bytes` from `memory_analysis()`,
-    `est_peak_bytes` their sum, `flops` and `bytes_accessed` from
+    `est_total_bytes` their total minus aliased buffers, `flops` and
+    `bytes_accessed` from
     `cost_analysis()`. `flops`/`bytes_accessed` are typically None on
     the CPU backend.
     """
@@ -110,7 +112,7 @@ class ProfileRow:
     temp_bytes: int = None
     argument_bytes: int = None
     output_bytes: int = None
-    est_peak_bytes: int = None
+    est_total_bytes: int = None
 
 
 def profile_model(model, x=None, *, name=None, grad=False, n=50,
@@ -188,7 +190,7 @@ def profile_model(model, x=None, *, name=None, grad=False, n=50,
         temp_bytes=getattr(mem, 'temp_size_in_bytes', None),
         argument_bytes=getattr(mem, 'argument_size_in_bytes', None),
         output_bytes=getattr(mem, 'output_size_in_bytes', None),
-        est_peak_bytes=_est_peak_bytes(mem),
+        est_total_bytes=_est_total_bytes(mem),
     )
 
 
@@ -237,7 +239,7 @@ class ProfileReport:
         ('flops', _fmt_count, '>'),
         ('temp_bytes', _fmt_bytes, '>'),
         ('output_bytes', _fmt_bytes, '>'),
-        ('est_peak_bytes', _fmt_bytes, '>'),
+        ('est_total_bytes', _fmt_bytes, '>'),
     )
 
     def __init__(self, rows, root=None):
