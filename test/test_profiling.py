@@ -5,8 +5,7 @@ import jax.numpy as jnp
 import nifty.re as jft
 import pytest
 
-from jubik.profiling import (ProfilingCallback, named_models_from_lens_system,
-                             profile_model, profile_tree)
+from jubik.profiling import ProfilingCallback, profile_model, profile_tree
 
 jax.config.update('jax_platform_name', 'cpu')
 
@@ -30,6 +29,7 @@ def test_profile_model_jft_model(sub_models):
     assert row.compile_s > 0
     assert row.runtime_s > 0
     assert row.grad_runtime_s is None
+    assert row.est_peak_bytes > 0
 
 
 def test_profile_model_grad(sub_models):
@@ -37,6 +37,22 @@ def test_profile_model_grad(sub_models):
     row = profile_model(diffuse, grad=True, n=3)
     assert row.grad_compile_s > 0
     assert row.grad_runtime_s > 0
+
+
+def test_profile_model_broken_init_propagates(sub_models):
+    diffuse, _ = sub_models
+
+    class Broken:
+        domain = diffuse.domain
+
+        def init(self, key):
+            raise RuntimeError('custom initializer failed')
+
+        def __call__(self, x):
+            return diffuse(x)
+
+    with pytest.raises(RuntimeError, match='custom initializer'):
+        profile_model(Broken(), n=3)
 
 
 def test_profile_model_plain_callable_needs_input():
@@ -55,7 +71,6 @@ def test_profile_tree_with_root_and_json(sub_models, tmp_path):
                           n=3, verbose=False)
     assert [r.name for r in report.rows] == ['diffuse', 'points']
     assert report.root.name == 'TOTAL (fused)'
-    assert report.fusion_gap() > 0
 
     table = str(report)
     assert 'diffuse' in table and 'TOTAL (fused)' in table
@@ -65,28 +80,6 @@ def test_profile_tree_with_root_and_json(sub_models, tmp_path):
     payload = json.loads(out.read_text())
     assert len(payload['rows']) == 2
     assert payload['root']['name'] == 'TOTAL (fused)'
-
-
-def test_named_models_from_lens_system_duck_typing(sub_models):
-    diffuse, points = sub_models
-
-    class FakeSub:
-        def __init__(self, model):
-            self.model = model
-
-    class FakeSystem:
-        _slots = {'lens.light': FakeSub(diffuse),
-                  'source.light': FakeSub(points),
-                  'lens.deflection': FakeSub(None)}
-
-        def paths(self):
-            return list(self._slots)
-
-        def __getitem__(self, path):
-            return self._slots[path]
-
-    named = named_models_from_lens_system(FakeSystem())
-    assert set(named) == {'lens.light', 'source.light'}
 
 
 def test_profiling_callback_writes_jsonl(sub_models, tmp_path):

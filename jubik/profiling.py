@@ -15,8 +15,11 @@ import nifty.re as jft
 def _synthesize_input(model, key):
     """Draw a random input for `model` from its `.domain`.
 
-    Prefers `model.init(key)` (respects the model's own initializer);
-    falls back to `jft.random_like` on the `.domain` pytree.
+    Uses `model.init(key)` when the model provides an initializer, so the
+    benchmark input matches what the model expects; otherwise draws
+    `jft.random_like` on the `.domain` pytree. Errors raised by an existing
+    initializer propagate, a broken `init` must not silently change the
+    profiled workload.
     """
     domain = getattr(model, 'domain', None)
     if domain is None:
@@ -24,10 +27,10 @@ def _synthesize_input(model, key):
             "Model has no `.domain`; pass an explicit example input `x`. "
             "(Plain callables, e.g. the eROSITA response dict entries, "
             "carry no shape metadata.)")
-    try:
-        return model.init(key)
-    except Exception:
-        return jft.random_like(key, domain)
+    init = getattr(model, 'init', None)
+    if callable(init):
+        return init(key)
+    return jft.random_like(key, domain)
 
 
 def _scalarize(out):
@@ -68,24 +71,33 @@ def _best_of(compiled, x, n):
     return best
 
 
-def _peak_bytes(device):
-    """Measured peak device memory, or None where unsupported (CPU)."""
-    try:
-        stats = device.memory_stats()
-        return stats.get('peak_bytes_in_use') if stats else None
-    except Exception:
+def _est_peak_bytes(mem):
+    """XLA's estimate of the executable's peak footprint, or None.
+
+    Sum of the argument, output and temporary buffer sizes reported by
+    `compiled.memory_analysis()`. This is the memory the program needs
+    while it runs, so an oversized intermediate shows up here.
+    """
+    if mem is None:
         return None
+    parts = [getattr(mem, a, None) for a in
+             ('argument_size_in_bytes', 'output_size_in_bytes',
+              'temp_size_in_bytes')]
+    if any(v is None for v in parts):
+        return None
+    return int(sum(parts))
 
 
 @dataclass
 class ProfileRow:
     """Compile/runtime/memory numbers for one (sub-)model.
 
-    Static numbers (`flops`, `bytes_accessed`, `*_bytes` from
-    `memory_analysis`) are XLA compiler estimates on the fused executable;
-    `flops`/`bytes_accessed` are typically None on the CPU backend.
-    `peak_bytes` is the device allocator's high-water mark and is only
-    meaningful relative to other rows measured in the same process.
+    Timings are measured. The memory and flop numbers are XLA compiler
+    estimates for this model's own executable: `temp_bytes`,
+    `argument_bytes` and `output_bytes` from `memory_analysis()`,
+    `est_peak_bytes` their sum, `flops` and `bytes_accessed` from
+    `cost_analysis()`. `flops`/`bytes_accessed` are typically None on
+    the CPU backend.
     """
     name: str
     n_params: int = None
@@ -98,19 +110,18 @@ class ProfileRow:
     temp_bytes: int = None
     argument_bytes: int = None
     output_bytes: int = None
-    peak_bytes: int = None
+    est_peak_bytes: int = None
 
 
 def profile_model(model, x=None, *, name=None, grad=False, n=50,
-                  key=None, device=None, clear_caches=True):
+                  key=None, clear_caches=True):
     """Profile one jax-compiled model: compile time, runtime, flops, memory.
 
     The model is jit-compiled in isolation via the AOT path
     (`jax.jit(model).lower(x).compile()`), so the numbers are clean
-    per-model figures. Note they will overcount relative to this model
-    running fused inside a larger jit — XLA fuses and eliminates work
-    across sub-model boundaries. Compare with a `profile_tree` root row
-    to see the fusion gap.
+    per-model figures. They overcount relative to this model running
+    fused inside a larger jit, because XLA fuses and eliminates work
+    across sub-model boundaries.
 
     Parameters
     ----------
@@ -129,9 +140,6 @@ def profile_model(model, x=None, *, name=None, grad=False, n=50,
         Runtime is the minimum over `n` blocking calls. Default 50.
     key : jax PRNG key, optional
         Key for input synthesis. Default `PRNGKey(42)`.
-    device : jax.Device, optional
-        Device whose `memory_stats` provide `peak_bytes`.
-        Default `jax.devices()[0]`.
     clear_caches : bool, optional
         Clear jax caches first so `compile_s` measures a real compile,
         not a cache hit. Default True.
@@ -142,8 +150,6 @@ def profile_model(model, x=None, *, name=None, grad=False, n=50,
     """
     if key is None:
         key = jax.random.PRNGKey(42)
-    if device is None:
-        device = jax.devices()[0]
     if x is None:
         x = _synthesize_input(model, key)
     if name is None:
@@ -182,7 +188,7 @@ def profile_model(model, x=None, *, name=None, grad=False, n=50,
         temp_bytes=getattr(mem, 'temp_size_in_bytes', None),
         argument_bytes=getattr(mem, 'argument_size_in_bytes', None),
         output_bytes=getattr(mem, 'output_size_in_bytes', None),
-        peak_bytes=_peak_bytes(device),
+        est_peak_bytes=_est_peak_bytes(mem),
     )
 
 
@@ -231,7 +237,7 @@ class ProfileReport:
         ('flops', _fmt_count, '>'),
         ('temp_bytes', _fmt_bytes, '>'),
         ('output_bytes', _fmt_bytes, '>'),
-        ('peak_bytes', _fmt_bytes, '>'),
+        ('est_peak_bytes', _fmt_bytes, '>'),
     )
 
     def __init__(self, rows, root=None):
@@ -253,19 +259,7 @@ class ProfileReport:
                 lines.append('  '.join('-' * w for w in widths))
             lines.append('  '.join(f'{v:{a}{w}}' for v, (_, _, a), w
                                    in zip(t, self._COLUMNS, widths)))
-        gap = self.fusion_gap()
-        if gap is not None:
-            lines.append(
-                f'sum(parts)/root runtime: {gap:.2f}x '
-                '(>1 means XLA fused work across sub-model boundaries)')
         return '\n'.join(lines)
-
-    def fusion_gap(self):
-        """sum-of-parts runtime over root runtime; None without a root row."""
-        if self.root is None or not self.root.runtime_s:
-            return None
-        parts = sum(r.runtime_s for r in self.rows if r.runtime_s)
-        return parts / self.root.runtime_s
 
     def to_json(self, path):
         rows = [asdict(r) for r in self.rows]
@@ -275,14 +269,14 @@ class ProfileReport:
 
 
 def profile_tree(named_models, root=None, *, inputs=None, grad=False,
-                 n=50, key=None, device=None, verbose=True):
+                 n=50, key=None, verbose=True):
     """Profile a tree of named sub-models plus, optionally, the fused root.
 
-    Each sub-model is jit-compiled and measured in isolation
-    (see `profile_model` for the fusion caveat); the root — the full
-    composed model, as `optimize_kl` would jit it — is measured the same
-    way and appended as the last row, so the report shows sum-of-parts
-    against the fused whole.
+    Each sub-model is jit-compiled and measured in isolation (see
+    `profile_model` for the fusion caveat). The root, i.e. the full
+    composed model as `optimize_kl` would jit it, is measured the same
+    way and appended as the last row. Sub-models may nest, so do not add
+    up rows; compare each row against the root instead.
 
     Parameters
     ----------
@@ -293,7 +287,7 @@ def profile_tree(named_models, root=None, *, inputs=None, grad=False,
     inputs : dict[str, pytree], optional
         Explicit example inputs per name (required for entries without
         `.domain`). Use key 'root' for the root model.
-    grad, n, key, device
+    grad, n, key
         Forwarded to `profile_model`.
     verbose : bool, optional
         Log each row as it is measured. Default True.
@@ -306,7 +300,7 @@ def profile_tree(named_models, root=None, *, inputs=None, grad=False,
     rows = []
     for name, model in named_models.items():
         row = profile_model(model, inputs.get(name), name=name, grad=grad,
-                            n=n, key=key, device=device)
+                            n=n, key=key)
         if verbose:
             jft.logger.info(
                 f'profiled {name}: compile {_fmt_seconds(row.compile_s)}, '
@@ -315,35 +309,8 @@ def profile_tree(named_models, root=None, *, inputs=None, grad=False,
     root_row = None
     if root is not None:
         root_row = profile_model(root, inputs.get('root'), name='TOTAL (fused)',
-                                 grad=grad, n=n, key=key, device=device)
+                                 grad=grad, n=n, key=key)
     return ProfileReport(rows, root_row)
-
-
-def named_models_from_lens_system(system, skip_errors=True):
-    """Enumerate a charm_lensing `CompiledSystem` into {address: jft.Model}.
-
-    Duck-typed against the algebra access API (`system.paths()`,
-    `system[address].model`), so jubik needs no charm_lensing import.
-    Feed the result to `profile_tree`.
-
-    Parameters
-    ----------
-    system : charm_lensing CompiledSystem
-    skip_errors : bool, optional
-        Skip addresses whose model cannot be built (e.g. empty slots)
-        instead of raising. Default True.
-    """
-    named = {}
-    for path in system.paths():
-        try:
-            model = system[path].model
-        except Exception:
-            if skip_errors:
-                continue
-            raise
-        if model is not None:
-            named[path] = model
-    return named
 
 
 class ProfilingCallback:
@@ -355,7 +322,9 @@ class ProfilingCallback:
     from recompiles on sample-mode switches) are visible over the run.
 
     Wall time is measured between successive invocations, so the first
-    call records only a baseline.
+    call records only a baseline. The memory fields come from
+    `device.memory_stats()`, which the CPU backend does not provide; there
+    they are None and print as `-`.
     """
 
     def __init__(self, path=None, device=None):
