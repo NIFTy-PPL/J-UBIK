@@ -51,11 +51,6 @@ erosita = []
 resolve = [
     "jaxbind",
     "jax-finufft",
-]
-# Measurement-set and uvfits readout. Kept out of `resolve` and `all` because
-# python-casacore needs the casacore C++ libraries and has no wheel for every
-# supported Python.
-resolve-data = [
     "python-casacore",
     "ehtim",
 ]

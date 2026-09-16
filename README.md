@@ -24,16 +24,9 @@ Install only what the instrument you work on needs:
 
     pip install --user .[jwst]      # gwcs, jwst, stpsf, jax-finufft
     pip install --user .[gaia]      # astroquery, for the alignment star search
-    pip install --user .[resolve]   # jaxbind, jax-finufft
+    pip install --user .[resolve]   # jaxbind, jax-finufft, python-casacore, ehtim
     pip install --user .[erosita]   # no pip dependencies, see the eROSITA section
     pip install --user .[all]       # all of the above
-
-Reading CASA measurement sets and uvfits files needs `python-casacore` and
-`ehtim`, which sit in a separate `resolve-data` extra and are not part of
-`resolve` or `all`. `python-casacore` builds against the casacore C++ libraries
-and ships no wheel for every supported Python, so install it deliberately:
-
-    pip install --user .[resolve-data]
 
 Chandra has no extra. CIAO and marx are conda-only, see the Chandra section.
 
@@ -164,10 +157,9 @@ In order to make use of the RESOLVE capabilities of the package, you will need t
 - Install the [python-casacore](https://pypi.org/project/python-casacore/) to work with CASA measurement sets.
 - Install [ehtim](https://pypi.org/project/ehtim/) to read uvfits files.
 
-Alternatively, you can install these requirements for the radio response via 
+Alternatively, you can install all of these requirements via
 ```bash
-pip install --user .[resolve]         # jaxbind, jax-finufft
-pip install --user .[resolve-data]    # python-casacore, ehtim
+pip install --user .[resolve]
 ```
 
 ---
