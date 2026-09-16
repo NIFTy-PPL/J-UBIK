@@ -42,6 +42,63 @@ Note that `uv sync` makes the environment match exactly the extras you list, so
 passing a single `--extra` removes the packages belonging to the others. Pass
 every extra you want in one command, or use `uv sync --all-extras`.
 
+## GPU
+
+J-UBIK runs on the GPU as soon as the CUDA build of jax is installed. There is
+no `gpu` extra: an extra is easy to forget, and the next plain `uv sync` or
+`uv run` without it silently drops back to CPU jax. Declare the GPU stack in the
+project that uses J-UBIK instead, so it is the default of that project's
+environment.
+
+Two packages matter:
+
+- `jax[cuda12]` (or `jax[cuda13]`, depending on the driver). The wheel ships the
+  CUDA runtime, only the NVIDIA driver has to exist on the machine.
+- `jax-finufft`, used by the RESOLVE finufft response and the JWST nufft
+  rotation. Its PyPI wheel is CPU only. On the GPU the model fails at JIT time
+  with "no lowering for cuda platform" until the package is rebuilt from source
+  with CUDA enabled, which needs `nvcc` on the `PATH`.
+
+With uv both go into the downstream `pyproject.toml`:
+
+```toml
+dependencies = [
+    "jubik[resolve]",
+    "jax[cuda12]",
+    "jax-finufft",
+]
+
+[tool.uv]
+# The PyPI wheel is CPU only. Build from the sdist with CUDA on. uv caches the
+# built wheel, so only the first sync per machine pays the 10 to 20 minutes.
+no-binary-package = ["jax-finufft"]
+
+[tool.uv.extra-build-variables]
+# One binary for every GPU the project runs on, here sm 86 (RTX 30xx) and
+# sm 90 (H100). Table: https://developer.nvidia.com/cuda-gpus
+jax-finufft = { CMAKE_ARGS = "-DJAX_FINUFFT_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86;90" }
+```
+
+Verify with:
+
+```bash
+python -c "import jax; print(jax.devices())"                     # [CudaDevice(id=0)]
+python -c "from jax_finufft import jax_finufft_gpu; print('ok')"
+```
+
+With pip, rebuild jax-finufft once after installing `jax[cuda12]`:
+
+```bash
+CMAKE_ARGS="-DJAX_FINUFFT_USE_CUDA=ON" pip install --force-reinstall --no-deps --no-binary jax-finufft jax-finufft
+```
+
+Without `CMAKE_CUDA_ARCHITECTURES` the build targets the GPU of the machine it
+runs on.
+
+The ducc0 wgridder response (`backend: ducc0`) stays on the CPU. jaxbind calls
+it as a host callback, so on the GPU every application of the response copies
+the sky to the host and back. Use the finufft backend for GPU runs.
+
 ## Development
 
 Test and documentation tooling lives in [PEP 735](https://peps.python.org/pep-0735/)
