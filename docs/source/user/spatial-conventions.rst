@@ -21,14 +21,21 @@ YAML uses the same convention::
      fov: [48arcsec, 24arcsec]
      position_angle: 0deg
 
-The former ``sdim`` and grid ``rotation`` keys are rejected with migration
-errors; there are no compatibility aliases.
+The grid ``rotation`` key is rejected with a migration error; there is no
+compatibility alias.
+
+``sdim`` is deprecated rather than rejected. A square ``sdim`` is still read as
+``shape``, with a ``FutureWarning`` naming its removal date, 2026-12-17. A
+rectangular ``sdim`` raises: the key never declared its axis order, so it
+cannot be mapped to public ``(nx, ny)`` without guessing. Setting both ``sdim``
+and ``shape`` raises as well. The same window applies to the deprecated
+``create_sky_model(sdim=...)`` keyword.
 
 Python callers must make the same clean break. In particular::
 
    # Before
    Grid.from_shape_and_fov(spatial_shape=(320, 192), fov=fov)
-   SkyModel(config).create_sky_model(sdim=(320, 192))
+   SkyModel(config).create_sky_model(sdim=320)
 
    # After: all public shapes are (nx, ny)
    Grid.from_shape_and_fov(shape=(320, 192), fov=fov)

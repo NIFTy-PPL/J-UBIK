@@ -4,6 +4,7 @@ import astropy.units as u
 
 from dataclasses import dataclass
 
+from ..._deprecation import legacy_sdim_shape
 from ..._spatial_validation import normalize_fov, normalize_shape
 
 
@@ -51,8 +52,9 @@ class SpatialModel:
 def yaml_dict_to_shape(grid_config: dict) -> tuple[int, int]:
     """Get public spatial ``(nx, ny)`` from the ``shape`` config key."""
 
-    if "sdim" in grid_config:
-        raise ValueError("`sdim` was removed; use `shape` in public (x, y) order")
+    legacy_shape = legacy_sdim_shape(grid_config)
+    if legacy_shape is not None:
+        return legacy_shape
     return normalize_shape(grid_config["shape"], "shape")
 
 
