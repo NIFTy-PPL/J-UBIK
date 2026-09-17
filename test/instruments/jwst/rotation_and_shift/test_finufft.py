@@ -11,47 +11,53 @@ from jubik.instruments.jwst.rotation_and_shift.nufft_rotation_and_shift import (
 )
 
 
-def _box_field(maxx, maxy):
-    field = np.zeros((maxx, maxy))
+def _box_field(maxy, maxx):
+    field = np.zeros((maxy, maxx))
     field[40:60, 40:60] = 1.0
     return field
 
 
-def _gaussian_field(maxx, maxy, sigma=16.0):
-    i, j = np.mgrid[:maxx, :maxy]
-    return np.exp(-(((i - maxx / 2) ** 2 + (j - maxy / 2) ** 2) / (2 * sigma**2)))
-
-
-def _grid(maxx, maxy, indexing):
-    return np.array(
-        np.meshgrid(np.arange(maxx), np.arange(maxy), indexing=indexing), dtype=float
+def _gaussian_field(maxy, maxx, sigma=16.0):
+    yy, xx = np.mgrid[:maxy, :maxx]
+    return np.exp(
+        -(((yy - maxy / 2) ** 2 + (xx - maxx / 2) ** 2) / (2 * sigma**2))
     )
 
 
-def test_identity_square_ij():
+def _grid_yx(maxy, maxx):
+    return np.array(
+        np.meshgrid(np.arange(maxy), np.arange(maxx), indexing="ij"),
+        dtype=float,
+    )
+
+
+def test_identity_square():
     field = _box_field(128, 128)
-    xy = _grid(128, 128, "ij")
-    rs = build_nufft_rotation_and_shift(field.shape, field.shape, indexing="ij")
-    assert np.allclose(rs(field, xy), field, atol=1e-5)
+    centers_yx = _grid_yx(*field.shape)
+    rs = build_nufft_rotation_and_shift(field.shape, field.shape)
+    assert np.allclose(rs(field, centers_yx), field, atol=1e-5)
 
 
-def test_identity_nonsquare_ij():
+def test_identity_nonsquare():
     field = _box_field(128, 160)
-    xy = _grid(128, 160, "ij")
-    rs = build_nufft_rotation_and_shift(field.shape, field.shape, indexing="ij")
-    assert np.allclose(rs(field, xy), field, atol=1e-5)
+    centers_yx = _grid_yx(*field.shape)
+    rs = build_nufft_rotation_and_shift(field.shape, field.shape)
+    assert np.allclose(rs(field, centers_yx), field, atol=1e-5)
 
 
-@pytest.mark.parametrize("indexing", ["ij", "xy"])
-def test_agreement_with_linear_on_smooth_field(indexing):
+def test_agreement_with_linear_on_smooth_field():
     # Cross-validates the two independent interpolation implementations on a
     # sub-pixel shift. The tolerance is set by the bilinear interpolation
-    # error (~1/sigma^2); the nufft is spectrally accurate.
-    field = _gaussian_field(128, 128)
-    xy = _grid(128, 128, indexing) + 3.3
+    # error (~1/sigma^2); the NUFFT is spectrally accurate.
+    field = _gaussian_field(128, 160)
+    centers_yx = _grid_yx(*field.shape) + 3.3
 
-    lin = build_linear_rotation_and_shift(indexing=indexing, order=1)(field, xy)
-    nft = build_nufft_rotation_and_shift(field.shape, field.shape, indexing)(field, xy)
+    lin = build_linear_rotation_and_shift(
+        out_shape=field.shape, order=1
+    )(field, centers_yx)
+    nft = build_nufft_rotation_and_shift(
+        field.shape, field.shape
+    )(field, centers_yx)
 
     interior = np.s_[8:-8, 8:-8]
     assert np.allclose(lin[interior], nft[interior], atol=2e-3)
@@ -60,40 +66,43 @@ def test_agreement_with_linear_on_smooth_field(indexing):
 def test_constant_mode_zeroes_out_of_range():
     # The mask in mode="constant" is strict (> 2pi), so shift by a non-integer
     # to keep coordinates off the exact grid boundary, where they would wrap.
-    field = _gaussian_field(128, 128)
-    xy = _grid(128, 128, "ij")
-    xy[0] += 100.5
+    field = _gaussian_field(128, 160)
+    centers_yx = _grid_yx(*field.shape)
+    centers_yx[0] += 100.5
 
     rs = build_nufft_rotation_and_shift(
-        field.shape, field.shape, indexing="ij", mode="constant"
+        field.shape, field.shape, mode="constant"
     )
-    out = np.array(rs(field, xy))
+    out = np.array(rs(field, centers_yx))
 
-    out_of_range = xy[0] > 128
+    out_of_range = centers_yx[0] > field.shape[0]
     assert np.all(out[out_of_range] == 0.0)
 
 
 def test_invalid_mode_raises():
-    field = _gaussian_field(128, 128)
-    xy = _grid(128, 128, "ij")
+    field = _gaussian_field(128, 160)
+    centers_yx = _grid_yx(*field.shape)
     rs = build_nufft_rotation_and_shift(
-        field.shape, field.shape, indexing="ij", mode="mirror"
+        field.shape, field.shape, mode="mirror"
     )
     with pytest.raises(ValueError, match="wrap.*constant"):
-        rs(field, xy)
+        rs(field, centers_yx)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="nufft with indexing='xy' returns the transposed shape on non-square "
-    "grids, inconsistent with the linear implementation "
-    "(nufft_rotation_and_shift.py:76 swaps out_shape).",
+@pytest.mark.parametrize(
+    "builder",
+    [
+        lambda shape: build_linear_rotation_and_shift(out_shape=shape),
+        lambda shape: build_nufft_rotation_and_shift(shape, shape),
+    ],
+    ids=["linear", "nufft"],
 )
-def test_nonsquare_xy_shape_matches_linear():
-    field = _box_field(128, 160)
-    xy = _grid(128, 160, "xy")
+def test_mismatched_coordinate_shape_raises(builder):
+    field = _gaussian_field(32, 48)
+    transposed_centers_yx = _grid_yx(48, 32)
 
-    lin = build_linear_rotation_and_shift(indexing="xy", order=1)(field, xy)
-    nft = build_nufft_rotation_and_shift(field.shape, field.shape, "xy")(field, xy)
-
-    assert nft.shape == lin.shape
+    with pytest.raises(
+        ValueError,
+        match=r"trailing shape \(48, 32\) does not match out_shape \(32, 48\)",
+    ):
+        builder(field.shape)(field, transposed_centers_yx)

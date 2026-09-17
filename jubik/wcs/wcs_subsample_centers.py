@@ -1,16 +1,13 @@
 # SPDX-License-Identifier: BSD-2-Clause
 # Authors: Julian Rüstig and Matteo Guardiani
-
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
 
-from typing import Tuple, Union
+from typing import Union
 
 import numpy as np
 from astropy.coordinates import SkyCoord
-from numpy.typing import ArrayLike
-
 from .wcs_jwst_data import WcsJwstData
 from .wcs_astropy import WcsAstropy
 
@@ -46,8 +43,10 @@ def subsample_pixel_centers(
     """
 
     # NOTE : GWCS.wcs expects `xy` indexing. Other arrays are not tested.
-    tbsg_pixcenter_indices = to_be_subsampled_grid_wcs.index_grid_from_bounding_indices(
-        *bounding_indices, indexing="xy"
+    tbsg_pixcenter_indices = (
+        to_be_subsampled_grid_wcs.pixel_grid_xy_from_bounding_indices(
+            *bounding_indices
+        )
     )
 
     ps = np.arange(0.5 / subsample, 1, 1 / subsample) - 0.5
@@ -71,43 +70,3 @@ def subsample_pixel_centers(
         return subsample_centers
 
     return to_be_subsampled_grid_wcs.pixel_to_world(*subsample_centers)
-
-
-def world_coordinates_to_index_grid(
-    world_coordinates: Union[SkyCoord, list[SkyCoord]],
-    index_grid_wcs: Union[WcsAstropy, WcsJwstData],
-    indexing: str,
-):
-    """Transform world coordinates into pixels coordinates in the index grid.
-    Subsequently, these pixel coordinates can be used to interpolate the values that
-    live on the index grid onto the world coordinates.
-
-    Parameters
-    ----------
-    world_coordinates: SkyCoord
-        The world coordinates of pixels or subpixels.
-    index_grid_wcs: Union[WcsAstropy, WcsJwstData],
-        The wcs of the index grid. This is needed in order to find out where the world
-        coordinates fall into in the index grid.
-    indexing: str
-        The index convention used. Either `ij` or `xy` indexing.
-    """
-
-    if isinstance(world_coordinates, SkyCoord):
-        indices_xy = np.array(index_grid_wcs.world_to_pixel(world_coordinates))
-    elif isinstance(world_coordinates, list):
-        indices_xy = np.array(
-            [index_grid_wcs.world_to_pixel(wc) for wc in world_coordinates]
-        )
-    else:
-        raise ValueError(
-            "`world_coordinates` should either be SkyCoord or list[SkyCoord]."
-            f"\ntype(world_coordinates)={type(world_coordinates)}"
-        )
-
-    if indexing == "xy":
-        return indices_xy
-    elif indexing == "ij":
-        return indices_xy[..., ::-1, :, :]
-
-    raise ValueError("Either `ij` or `xy` indexing.")

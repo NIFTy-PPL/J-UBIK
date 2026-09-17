@@ -2,6 +2,7 @@ from os.path import join
 
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 import jubik.instruments.chandra.chandra_likelihood as chl
 import jubik.instruments.chandra.chandra_response as chrsp
@@ -11,7 +12,7 @@ def _response_config(tmp_path):
     return {
         "obs_info": {"obs_a": {"id": "a"}, "obs_b": {"id": "b"}},
         "grid": {
-            "sdim": 3,
+            "shape": 3,
             "edim": 2,
             "energy_bin": {"e_min": [0.5, 1.0], "e_max": [1.0, 2.0]},
         },
@@ -55,6 +56,13 @@ def test_build_chandra_response_from_config_uses_cached_exposure_and_psf(tmp_pat
     assert set(masked.tree.keys()) == {"obs_a", "obs_b"}
     for v in masked.tree.values():
         assert np.asarray(v).size == 2 * 3 * 3
+
+
+def test_chandra_rejects_rectangular_grid_explicitly(tmp_path):
+    config = _response_config(tmp_path)
+    config["grid"]["shape"] = (3, 4)
+    with pytest.raises(ValueError, match="Chandra currently requires a square grid"):
+        chrsp.build_chandra_response_from_config(config)
 
 
 def test_build_chandra_response_from_config_uses_default_center_observation(

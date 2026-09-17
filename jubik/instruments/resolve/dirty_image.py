@@ -39,7 +39,7 @@ def dirty_image(
 ) -> u.Quantity:
 
     # TODO: Extract shape fully from grid
-    full_sky_shape = (1, 1, 1) + tuple(sky_grid.spatial.shape)
+    full_sky_shape = (1, 1, 1) + tuple(sky_grid.spatial.shape_yx)
 
     R = interferometry_response(
         observation=observation,
@@ -65,12 +65,14 @@ def dirty_image(
     else:
         raise ValueError("Either 'natural' or 'uniform' weighting can be chosen.")
 
-    # `linear_transpose` applies the bilinear transpose to complex cotangents.
-    # Conjugating the visibilities turns this into the Hermitian adjoint needed
-    # for radio imaging; without it, the dirty image is mirrored about its
-    # phase center.
-    primals = jnp.conj(d) * w / jnp.sum(w)
-    res = R_adjoint(jnp.array(primals))[0] / vol**2 * RESOLVE_SKY_UNIT
+    # `interferometry_response` is now C-linear (holomorphic): the adapter's
+    # spurious conj was dropped in Batch E.  `jax.linear_transpose` gives the
+    # BILINEAR transpose R^T; the imaging adjoint we want is the HERMITIAN
+    # adjoint R^H(v) = conj(R^T(conj(v))).  The example primal fed to
+    # `linear_transpose` above is real, so R^T returns a real array and the
+    # outer conj is a no-op — only the visibility cotangent must be conjugated.
+    primals = d * w / jnp.sum(w)
+    res = R_adjoint(jnp.conj(jnp.array(primals)))[0] / vol**2 * RESOLVE_SKY_UNIT
     return res.to(flux_unit)
 
 
@@ -106,8 +108,10 @@ def uvw_density(
 
     u, v = eff_u.ravel(), eff_v.ravel()
 
-    nx, ny = sky_grid.spatial.shape
-    dx, dy = sky_grid.spatial.distances.to(RESOLVE_SPATIAL_UNIT).value
+    # Canonical sky (dim0 = Dec, dim1 = RA); u conjugates the l/RA axis (dim1),
+    # v conjugates the m/Dec axis (dim0).
+    nx, ny = sky_grid.spatial.shape_xy
+    dx, dy = sky_grid.spatial.pixel_scales_xy.to(RESOLVE_SPATIAL_UNIT).value
 
     ku = np.sort(np.fft.fftfreq(nx, dx))
     kv = np.sort(np.fft.fftfreq(ny, dy))

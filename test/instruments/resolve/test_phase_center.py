@@ -158,15 +158,15 @@ def build_response_setup(npix=64, fov_deg=1.0, freqs=(1.0e9, 1.5e9), n_rows=6):
 
 def point_source_sky(grid, di, dj):
     """Unit flux delta `di`/`dj` pixels off the image center."""
-    sky = np.zeros(grid.shape)
-    cx, cy = grid.shape[3] // 2, grid.shape[4] // 2
+    sky = np.zeros(grid.array_shape)
+    cx, cy = grid.array_shape[3] // 2, grid.array_shape[4] // 2
     dvol = grid.spatial.dvol.to(u.rad**2).value
     sky[:, :, :, cx + di, cy + dj] = 1.0 / dvol
     return sky
 
 
 @pmp("di,dj", ((3, 5), (-4, 2)))
-def test_response_phase_convention_is_exp_minus_2jpi_ul_minus_vm(di, dj):
+def test_response_phase_convention_uses_east_north_offsets(di, dj):
     """Pin down the convention of jubik's own instrument response."""
     np.random.seed(105 + di + dj)
     grid, obs, r_ducc, r_finufft = build_response_setup()
@@ -174,18 +174,18 @@ def test_response_phase_convention_is_exp_minus_2jpi_ul_minus_vm(di, dj):
     vis_ducc = np.asarray(r_ducc(point_source_sky(grid, di, dj)))
     vis_finufft = np.asarray(r_finufft(point_source_sky(grid, di, dj)))
 
-    dx, dy = grid.spatial.distances.to(u.rad).value
-    ll, mm = di * dx, dj * dy
+    dx, dy = grid.spatial.pixel_scales_xy.to(u.rad).value
+    x_east, y_north = -dj * dx, di * dy
     uu, vv = uv_in_wavelengths(obs)
     expected = np.broadcast_to(
-        np.exp(-2j * np.pi * (uu * ll - vv * mm))[None], vis_ducc.shape
+        np.exp(2j * np.pi * (uu * x_east + vv * y_north))[None], vis_ducc.shape
     )
 
     assert_allclose(vis_ducc, expected, rtol=0, atol=1e-9)
     assert_allclose(vis_finufft, expected, rtol=0, atol=1e-9)
     # The wrong relative sign between u and v is a completely different data
     # set, i.e. this test really constrains the convention.
-    wrong = np.exp(-2j * np.pi * (uu * ll + vv * mm))[None]
+    wrong = np.exp(2j * np.pi * (uu * x_east - vv * y_north))[None]
     assert np.max(np.abs(vis_ducc - wrong)) > 1.0
 
 
@@ -199,11 +199,13 @@ def test_shift_centers_point_source_of_the_jubik_response(di, dj):
     np.random.seed(106 + di + dj)
     grid, obs, r_ducc, _ = build_response_setup()
 
-    dx, dy = grid.spatial.distances.to(u.rad).value
-    ll, mm = di * dx, dj * dy
+    dx, dy = grid.spatial.pixel_scales_xy.to(u.rad).value
+    x_east, y_north = -dj * dx, di * dy
 
     data = replace_data(obs, np.asarray(r_ducc(point_source_sky(grid, di, dj))))
-    centered = shift_phase_center(data, ShiftObservation([ll, mm] * u.rad))
+    centered = shift_phase_center(
+        data, ShiftObservation([-x_east, y_north] * u.rad)
+    )
 
     vis_center = np.asarray(r_ducc(point_source_sky(grid, 0, 0)))
     assert_allclose(vis_center, np.ones(vis_center.shape), rtol=0, atol=1e-9)
@@ -216,11 +218,13 @@ def test_shift_moves_center_source_to_the_given_offset():
     di, dj = 2, -6
     grid, obs, r_ducc, _ = build_response_setup()
 
-    dx, dy = grid.spatial.distances.to(u.rad).value
-    ll, mm = di * dx, dj * dy
+    dx, dy = grid.spatial.pixel_scales_xy.to(u.rad).value
+    x_east, y_north = -dj * dx, di * dy
 
     data = replace_data(obs, np.asarray(r_ducc(point_source_sky(grid, 0, 0))))
-    moved = shift_phase_center(data, ShiftObservation([-ll, -mm] * u.rad))
+    moved = shift_phase_center(
+        data, ShiftObservation([x_east, -y_north] * u.rad)
+    )
 
     expected = np.asarray(r_ducc(point_source_sky(grid, di, dj)))
     assert_allclose(moved.vis_val, expected, rtol=0, atol=1e-8)

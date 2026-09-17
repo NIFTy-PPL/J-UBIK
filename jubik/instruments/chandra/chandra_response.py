@@ -15,6 +15,7 @@ from ...utils import create_output_directory, load_from_pickle, save_to_pickle
 from ...response import build_readout_function, build_exposure_function
 from ...convolve import linpatch_convolve, integrate
 from ...data import Domain
+from ...parse.wcs.spatial_model import yaml_dict_to_square_size
 
 
 def build_chandra_response_from_config(config):
@@ -44,6 +45,7 @@ def build_chandra_response_from_config(config):
                                            file_info['processed_obs_folder']))
 
     tel_info = config['telescope']
+    spatial_size = yaml_dict_to_square_size(grid_info, consumer="Chandra")
 
     obslist = list(obs_info.keys())
     psf_list = []
@@ -56,8 +58,8 @@ def build_chandra_response_from_config(config):
     exposure_path = join(outroot, 'exposure.pkl')
     psf_path = join(outroot, 'psf.pkl')
 
-    domain = Domain(tuple([grid_info["edim"]] + [grid_info["sdim"]] * 2),
-                    tuple([1] + [tel_info["fov"] / grid_info["sdim"]] * 2))
+    domain = Domain(tuple([grid_info["edim"]] + [spatial_size] * 2),
+                    tuple([1] + [tel_info["fov"] / spatial_size] * 2))
     shp = (domain.shape[-2], domain.shape[-1])
     margin = max((int(np.ceil(psf_info["margfrac"] * ss)) for ss in shp))
 
@@ -86,7 +88,7 @@ def build_chandra_response_from_config(config):
             # Observation information for both exposure and PSF
             info = ChandraObservationInformation(
                 obs_info[obsnr],
-                npix_s=grid_info['sdim'],
+                npix_s=spatial_size,
                 npix_e=grid_info['edim'],
                 fov=tel_info['fov'],
                 elim=elim,
@@ -106,7 +108,7 @@ def build_chandra_response_from_config(config):
                 for ebin in range(grid_info["edim"]):
                     psf_array = get_psfpatches(info,
                                                psf_info["npatch"],
-                                               grid_info["sdim"],
+                                               spatial_size,
                                                ebin,
                                                num_rays=psf_info["num_rays"],
                                                Norm=False)
@@ -135,7 +137,7 @@ def build_chandra_response_from_config(config):
                                        threshold=tel_info['exp_cut'])
     exposure_func = build_exposure_function(exposures)
 
-    pixel_area = (tel_info['fov'] / grid_info['sdim']) ** 2
+    pixel_area = (tel_info['fov'] / spatial_size) ** 2
 
     def response_func(x):
         conv = psf_func(x*pixel_area)

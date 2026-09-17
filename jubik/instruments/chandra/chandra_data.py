@@ -14,6 +14,7 @@ from ...utils import get_config, create_output_directory, save_to_pickle,\
     copy_config, load_from_pickle
 from .chandra_observation import ChandraObservationInformation
 from ...data import create_mock_data
+from ...parse.wcs.spatial_model import yaml_dict_to_square_size
 
 
 def create_chandra_data_from_config(config, response_dict):
@@ -108,6 +109,7 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
         obslist.insert(0, center_obs_id)
 
     data_list = []
+    spatial_size = yaml_dict_to_square_size(grid_info, consumer="Chandra")
 
     energy_bins = grid_info['energy_bin']
     energy_ranges = tuple(set(energy_bins['e_min']+energy_bins['e_max']))
@@ -119,7 +121,7 @@ def generate_chandra_data(file_info, tel_info, grid_info, obs_info):
     else:
         for i, obsnr in enumerate(obslist):
             info = ChandraObservationInformation(obs_info[obsnr],
-                                                 npix_s=grid_info['sdim'],
+                                                 npix_s=spatial_size,
                                                  npix_e=grid_info['edim'],
                                                  fov=tel_info['fov'],
                                                  elim=elim,

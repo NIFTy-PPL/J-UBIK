@@ -80,12 +80,82 @@ def convert_polarization(
     raise NotImplementedError(err)
 
 
+def canonical_sky_to_visibilities(backend_apply, sky_canonical):
+    """Route a canonical-frame sky through a raw gridder backend.
+
+    Pure axis glue, no numerics.  The raw
+    ``interferometry_response_ducc`` / ``interferometry_response_finufft``
+    backends read their input array in the wgridder-native layout
+    (``dim0 = l/RA-axis``, ``dim1 = m/Dec-axis``; pinned by
+    ``test/conventions/test_seam_radio_adapter.py``).  All
+    skies at the jubik boundary are instead authored in the CANONICAL frame
+
+        ``sky[i, j]``:  ``i`` (dim 0) increases -> +Dec (North),
+                        ``j`` (dim 1) increases -> -RA  (West).
+
+    The conversion canonical (``dim0 = +Dec``, ``dim1 = -RA``) ->
+    wgridder-native (``dim0 = l/RA``, ``dim1 = m/Dec``) is a PURE AXIS
+    TRANSPOSE — no conjugation, no sign flips.  With ``uvw`` exactly as
+    ``ms2observations`` loads them the shipped backends realise the
+    effective measurement equation
+
+        ``V(u, v) = vol * exp(+2*pi*i * (u * l_E + v * m_N))``
+
+    (``vol = pixsize_x * pixsize_y``, ``l_E`` the eastward and ``m_N`` the
+    northward direction cosines).  For a unit point source ``di`` pixels
+    North and ``dj`` pixels West of centre this gives ``m = +di*dDec``,
+    ``l = -dj*dRA``; see ``test/conventions/radio_anchor.py``.  The
+    transpose is the only glue
+    needed for exact parity with upstream ``resolve``'s ``SingleResponse``
+    (``vol * dirty2vis(sky, flip_v=True)``, no conj, no transpose of its
+    own — ``resolve`` authors its sky already in the gridder layout).
+
+    Because the transpose is C-linear, this function is C-linear
+    (holomorphic) in ``sky_canonical``.
+
+    CONVENTION NOTE
+        The 2026-07-06 version of this adapter (Batch A) carried a
+        spurious ``jnp.conj`` on the visibilities.  It came from a
+        wrong-signed analytic anchor: the exponent had been read at face
+        value as ``exp(-2*pi*i*(ul+vm))`` w.r.t. the loaded ``uvw``, which
+        is the CONJUGATE of what the CASA + ``flip_v`` pipeline actually
+        realises.  The conjugation was removed 2026-07-07 after
+        external-witness measurement — ``corr(conj(V), d) = 0.996`` on both
+        the CASA fixture (``test/conventions/test_claims_radio.py``) and
+        the M51 dataset, i.e. the
+        conjugated model matched the data and the un-conjugated one did
+        not.  Dropping the conj restores parity with upstream ``resolve``.
+
+    Parameters
+    ----------
+    backend_apply : callable
+        A raw gridder apply-function as returned by
+        ``interferometry_response_ducc`` or ``interferometry_response_finufft``.
+        It maps a 2-D sky slice in the wgridder-native layout to visibilities.
+    sky_canonical : array_like
+        A 2-D sky slice (Stokes-I brightness) in the canonical frame
+        (``dim0 = +Dec``, ``dim1 = -RA``).
+
+    Returns
+    -------
+    array_like
+        Visibilities consistent with the canonical input frame.
+    """
+    return backend_apply(jnp.transpose(sky_canonical))
+
+
 def interferometry_response(
     observation: Observation,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
 ):
     """Returns a function computing the radio interferometric response
+
+    Input sky frame is CANONICAL (``dim0 = +Dec``/North, ``dim1 = -RA``/West;
+    see ``docs/source/user/canonical-sky-design.md``).  The response owns the conversion to the
+    wgridder-native layout: each spatial slice is routed through
+    ``canonical_sky_to_visibilities`` before the per-bin backend op, so callers
+    author sky cubes in the canonical frame and never transpose themselves.
 
     Parameters
     ----------
@@ -118,8 +188,12 @@ def interferometry_response(
     n_freqs = len(frequencies)
     # bb_freqs = np.array(frequencies)
 
-    npix_x, npix_y = sky_grid.spatial.shape
-    pixsize_x, pixsize_y = sky_grid.spatial.distances.to(RESOLVE_SPATIAL_UNIT).value
+    # The sky array is canonical (dim0 = Dec, dim1 = RA); the wgridder x-axis
+    # is l/RA, so read the RA quantities from index 1 and Dec from index 0.
+    npix_x, npix_y = sky_grid.spatial.shape_xy
+    pixsize_x, pixsize_y = sky_grid.spatial.pixel_scales_xy.to(
+        RESOLVE_SPATIAL_UNIT
+    ).value
     center_x, center_y = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
         sky_grid.spatial.center
@@ -209,7 +283,7 @@ def interferometry_response(
                     if op is None:
                         continue
                     inp = sky[pp, tt, ff]
-                    r = op(inp)
+                    r = canonical_sky_to_visibilities(op, inp)
                     res = res.at[pp, row_indices[tt][ff], freq_indices[tt][ff]].set(r)
         return convert_polarization(res, inp_pol, out_pol)
 

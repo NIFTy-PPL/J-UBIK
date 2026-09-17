@@ -7,7 +7,6 @@ from ....wcs.wcs_astropy import WcsAstropy
 from ....wcs.wcs_jwst_data import WcsJwstData
 from ....wcs.wcs_subsample_centers import (
     subsample_pixel_centers,
-    world_coordinates_to_index_grid,
 )
 
 
@@ -37,15 +36,15 @@ def get_mask_from_index_centers_within_rgrid(
     if index_grid_wcs is None:
         return np.full(data_pix_centers_world_coordinates.shape, True)
 
-    data_pix_centers_in_index_grid = world_coordinates_to_index_grid(
-        data_pix_centers_world_coordinates, index_grid_wcs=index_grid_wcs, indexing="xy"
+    row, column = index_grid_wcs.world_to_indices_yx(
+        data_pix_centers_world_coordinates
     )
 
     return (
-        (data_pix_centers_in_index_grid[0] > 0)
-        * (data_pix_centers_in_index_grid[1] > 0)
-        * (data_pix_centers_in_index_grid[0] < index_grid_wcs.shape[0])
-        * (data_pix_centers_in_index_grid[1] < index_grid_wcs.shape[1])
+        (row > 0)
+        * (column > 0)
+        * (row < index_grid_wcs.shape_yx[0])
+        * (column < index_grid_wcs.shape_yx[1])
     )
 
 
