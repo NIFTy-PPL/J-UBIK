@@ -119,6 +119,12 @@ fit converged to the rotated sky. The radio roundtrip now also correlates
 the forward model with the CASA visibilities directly, where no adjoint can
 cancel anything.
 
+The conjugation was removed on 2026-07-07. The current adapter is only an
+axis transpose; the forward model itself, not its complex conjugate, matches
+the CASA data. On 2026-09-17 the original frozen CASA observation was thinned
+to a 121 kB fixture without re-simulation; provenance is recorded alongside
+the fixture, and the tests enforce a 150 kB budget.
+
 ## Rules when you touch this
 
 1. Read `n_ra`, `n_dec`, `d_ra`, `d_dec` or `shape_yx`. Do not index a

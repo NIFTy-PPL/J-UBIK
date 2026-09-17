@@ -19,50 +19,18 @@ owns one geometry.
 
 from __future__ import annotations
 
-import numbers
 from dataclasses import dataclass
 from typing import Callable, Optional
 
 import numpy as np
 from astropy import units as u
 
+from .._spatial_validation import normalize_fov, normalize_shape
+
 
 #: Relative tolerance of :meth:`SpatialGeometry.__eq__` on the field of view.
 #: Far below any physical distinction, far above unit-conversion round-off.
 FOV_RTOL = 1e-10
-
-
-def _pair_int(value, name: str) -> tuple[int, int]:
-    if isinstance(value, numbers.Integral) and not isinstance(value, bool):
-        values = (value, value)
-    else:
-        try:
-            values = tuple(value)
-        except TypeError:
-            raise ValueError(f"{name} must be an int or a pair of ints, got {value!r}")
-    if len(values) != 2:
-        raise ValueError(f"{name} must contain two entries, got {value!r}")
-    for v in values:
-        if not isinstance(v, numbers.Integral) or isinstance(v, bool):
-            raise ValueError(f"{name} must contain integers, got {value!r}")
-        if v <= 0:
-            raise ValueError(f"{name} must contain two positive integers, got {value!r}")
-    return tuple(int(v) for v in values)
-
-
-def _pair_angle(value, name: str) -> u.Quantity:
-    quantity = u.Quantity(value)
-    if quantity.isscalar:
-        quantity = u.Quantity((quantity, quantity))
-    if quantity.shape != (2,):
-        raise ValueError(f"{name} must contain two angular sizes, got {value!r}")
-    if not quantity.unit.is_equivalent(u.rad):
-        raise u.UnitConversionError(f"{name} must carry angular units, got {value!r}")
-    if np.any(quantity <= 0 * quantity.unit):
-        raise ValueError(f"{name} must contain two positive angular sizes, got {value!r}")
-    quantity = quantity.copy()
-    quantity.flags.writeable = False
-    return quantity
 
 
 @dataclass(frozen=True, eq=False)
@@ -79,8 +47,8 @@ class SpatialGeometry:
     fov_yx: u.Quantity
 
     def __post_init__(self):
-        object.__setattr__(self, "shape_yx", _pair_int(self.shape_yx, "shape_yx"))
-        object.__setattr__(self, "fov_yx", _pair_angle(self.fov_yx, "fov_yx"))
+        object.__setattr__(self, "shape_yx", normalize_shape(self.shape_yx, "shape_yx"))
+        object.__setattr__(self, "fov_yx", normalize_fov(self.fov_yx, "fov_yx"))
 
     # ------------------------------------------------------------------ constructors
     @classmethod
@@ -89,8 +57,8 @@ class SpatialGeometry:
 
         This is the only reversal of a spatial tuple in jubik.
         """
-        shape_xy = _pair_int(shape_xy, "shape_xy")
-        fov_xy = _pair_angle(fov_xy, "fov_xy")
+        shape_xy = normalize_shape(shape_xy, "shape_xy")
+        fov_xy = normalize_fov(fov_xy, "fov_xy")
         return cls(shape_yx=shape_xy[::-1], fov_yx=fov_xy[::-1])
 
     @classmethod

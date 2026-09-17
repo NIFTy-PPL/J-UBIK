@@ -81,65 +81,17 @@ def convert_polarization(
 
 
 def canonical_sky_to_visibilities(backend_apply, sky_canonical):
-    """Route a canonical-frame sky through a raw gridder backend.
+    """Apply a raw gridder to a canonical two-dimensional sky slice.
 
-    Pure axis glue, no numerics.  The raw
-    ``interferometry_response_ducc`` / ``interferometry_response_finufft``
-    backends read their input array in the wgridder-native layout
-    (``dim0 = l/RA-axis``, ``dim1 = m/Dec-axis``; pinned by
-    ``test/conventions/test_seam_radio_adapter.py``).  All
-    skies at the jubik boundary are instead authored in the CANONICAL frame
+    Canonical arrays have rows increasing North and columns increasing West.
+    The raw ducc/FINUFFT backends instead read axes as (l/RA, m/Dec), so this
+    boundary adapter transposes once, without conjugation or sign flips.
+    With uvw as loaded by ``ms2observations``, a point source obeys
+    ``V = vol * exp(+2*pi*i*(u*l_E + v*m_N))``.
 
-        ``sky[i, j]``:  ``i`` (dim 0) increases -> +Dec (North),
-                        ``j`` (dim 1) increases -> -RA  (West).
-
-    The conversion canonical (``dim0 = +Dec``, ``dim1 = -RA``) ->
-    wgridder-native (``dim0 = l/RA``, ``dim1 = m/Dec``) is a PURE AXIS
-    TRANSPOSE — no conjugation, no sign flips.  With ``uvw`` exactly as
-    ``ms2observations`` loads them the shipped backends realise the
-    effective measurement equation
-
-        ``V(u, v) = vol * exp(+2*pi*i * (u * l_E + v * m_N))``
-
-    (``vol = pixsize_x * pixsize_y``, ``l_E`` the eastward and ``m_N`` the
-    northward direction cosines).  For a unit point source ``di`` pixels
-    North and ``dj`` pixels West of centre this gives ``m = +di*dDec``,
-    ``l = -dj*dRA``; see ``test/conventions/radio_anchor.py``.  The
-    transpose is the only glue
-    needed for exact parity with upstream ``resolve``'s ``SingleResponse``
-    (``vol * dirty2vis(sky, flip_v=True)``, no conj, no transpose of its
-    own — ``resolve`` authors its sky already in the gridder layout).
-
-    Because the transpose is C-linear, this function is C-linear
-    (holomorphic) in ``sky_canonical``.
-
-    CONVENTION NOTE
-        The 2026-07-06 version of this adapter (Batch A) carried a
-        spurious ``jnp.conj`` on the visibilities.  It came from a
-        wrong-signed analytic anchor: the exponent had been read at face
-        value as ``exp(-2*pi*i*(ul+vm))`` w.r.t. the loaded ``uvw``, which
-        is the CONJUGATE of what the CASA + ``flip_v`` pipeline actually
-        realises.  The conjugation was removed 2026-07-07 after
-        external-witness measurement — ``corr(conj(V), d) = 0.996`` on both
-        the CASA fixture (``test/conventions/test_claims_radio.py``) and
-        the M51 dataset, i.e. the
-        conjugated model matched the data and the un-conjugated one did
-        not.  Dropping the conj restores parity with upstream ``resolve``.
-
-    Parameters
-    ----------
-    backend_apply : callable
-        A raw gridder apply-function as returned by
-        ``interferometry_response_ducc`` or ``interferometry_response_finufft``.
-        It maps a 2-D sky slice in the wgridder-native layout to visibilities.
-    sky_canonical : array_like
-        A 2-D sky slice (Stokes-I brightness) in the canonical frame
-        (``dim0 = +Dec``, ``dim1 = -RA``).
-
-    Returns
-    -------
-    array_like
-        Visibilities consistent with the canonical input frame.
+    The transpose is C-linear. Its contract is pinned by the radio claim
+    and seam tests; the sign-convention history is in
+    ``docs/source/user/canonical-sky-design.md``.
     """
     return backend_apply(jnp.transpose(sky_canonical))
 

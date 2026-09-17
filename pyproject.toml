@@ -31,7 +31,7 @@ classifiers = [
 dynamic = ["version"]
 
 [tool.setuptools.dynamic]
-version = {attr = "jubik.__version__"}
+version = {attr = "jubik.version.__version__"}
 
 
 [project.optional-dependencies]
@@ -65,17 +65,7 @@ healpix = [
 ]
 
 [build-system]
-requires = [
-    "setuptools >= 65.7.0",
-    "numpy >= 1.23.0",
-    "scipy >= 1.9.0",
-    "nifty >= 9.0.0",
-    "jax",
-    "jaxlib",
-    "matplotlib",
-    "astropy",
-    "ducc0",
-]
+requires = ["setuptools >= 65.7.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

@@ -32,7 +32,7 @@ if str(HERE) not in sys.path:
 # ``radio_fixture.truth_hdu`` repaints; nothing in jubik can regenerate it.
 # The hash pins the bytes: re-minting (``mint/mint_radio_ms.py``) must update
 # it in the same commit, so a fixture can never change silently.
-CASA_OBS_SHA256 = "68da2af0425c4e25fc89ac5ee99c18beadba06c1e2b60f0c23c2466fdc7f5193"
+CASA_OBS_SHA256 = "f2a7bf3a150c643647189783a8f7274c7a16097ec7568607d2332bd75fab108c"
 
 
 @pytest.fixture(scope="session")
@@ -48,6 +48,8 @@ def casa_observation():
 
     if not OBS_NPZ.exists():
         pytest.fail(f"CASA fixture missing: {OBS_NPZ}")
+    if OBS_NPZ.stat().st_size > 150_000:
+        pytest.fail("CASA fixture exceeds the 150 kB budget; thin it before committing")
     digest = hashlib.sha256(OBS_NPZ.read_bytes()).hexdigest()
     if digest != CASA_OBS_SHA256:
         pytest.fail(

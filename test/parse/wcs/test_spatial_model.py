@@ -1,9 +1,13 @@
-from jubik.parse.wcs.spatial_model import SpatialModel, resolve_str_to_quantity
+from jubik.parse.wcs.spatial_model import (
+    SpatialModel, yaml_dict_to_shape, yaml_dict_to_fov,
+)
 from jubik.parse.wcs.coordinate_system import CoordinateSystems
+from jubik.wcs.frame import SpatialGeometry
 
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 import pytest
+import numpy as np
 
 
 def test_spatial_model_from_yaml_dict():
@@ -40,15 +44,36 @@ def test_legacy_spatial_keys_are_rejected():
         )
 
 
-def test_resolve_str_to_quantity():
-    quantities = {
-        "12.3muas": 12.3 * u.microarcsecond,
-        "12.3mas": 12.3 * u.milliarcsecond,
-        "12.3as": 12.3 * u.arcsecond,
-        "12.3amin": 12.3 * u.arcmin,
-        "12.3deg": 12.3 * u.deg,
-        "12.3rad": 12.3 * u.rad,
-    }
+@pytest.mark.parametrize("shape", [4, np.int64(4), (4, np.int64(6))])
+def test_config_and_geometry_normalize_shape_identically(shape):
+    parsed = yaml_dict_to_shape({"shape": shape})
+    assert parsed == SpatialGeometry.from_xy(shape, 1 * u.arcsec).shape_xy
 
-    for key, val in quantities.items():
-        assert resolve_str_to_quantity(key) == val
+
+@pytest.mark.parametrize("shape", [True, (True, 4), (4.0, 6), (0, 4), (4, 6, 8)])
+def test_config_and_geometry_reject_shape_identically(shape):
+    with pytest.raises(ValueError):
+        yaml_dict_to_shape({"shape": shape})
+    with pytest.raises(ValueError):
+        SpatialGeometry.from_xy(shape, 1 * u.arcsec)
+
+
+@pytest.mark.parametrize("fov", ["1arcsec", ["1arcsec", "2arcsec"], [1, 2] * u.arcmin])
+def test_config_and_geometry_normalize_fov_identically(fov):
+    parsed = yaml_dict_to_fov({"fov": fov})
+    assert u.allclose(parsed, SpatialGeometry.from_xy((4, 6), fov).fov_xy)
+
+
+@pytest.mark.parametrize("fov", ["0arcsec", ["1arcsec", "-2arcsec"], [1, 2, 3] * u.arcsec])
+def test_config_and_geometry_reject_fov_identically(fov):
+    with pytest.raises(ValueError):
+        yaml_dict_to_fov({"fov": fov})
+    with pytest.raises(ValueError):
+        SpatialGeometry.from_xy((4, 6), fov)
+
+
+def test_config_and_geometry_reject_unitless_fov():
+    with pytest.raises(u.UnitConversionError):
+        yaml_dict_to_fov({"fov": [1, 2]})
+    with pytest.raises(u.UnitConversionError):
+        SpatialGeometry.from_xy((4, 6), [1, 2])
