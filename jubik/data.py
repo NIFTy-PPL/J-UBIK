@@ -12,6 +12,7 @@ import nifty.re as jft
 import numpy as np
 from jax import random, linear_transpose
 
+from ._deprecation import legacy_sdim_shape
 from .sky_models import SkyModel
 from .utils import create_output_directory, save_to_pickle, load_from_pickle
 
@@ -117,9 +118,11 @@ def create_mock_data(tel_info,
     key = random.PRNGKey(seed)
 
     key, subkey = random.split(key)
+    legacy_shape = legacy_sdim_shape(grid_info)
+    shape = grid_info['shape'] if legacy_shape is None else legacy_shape
     sky_model = SkyModel()
     sky = sky_model.create_sky_model(
-        shape=grid_info['shape'],
+        shape=shape,
         edim=grid_info['edim'],
         s_padding_ratio=grid_info['s_padding_ratio'],
         e_padding_ratio=grid_info['e_padding_ratio'],

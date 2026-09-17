@@ -34,14 +34,27 @@ def test_spatial_model_from_yaml_dict():
     assert spatial_model.wcs_model.coordinate_system == CoordinateSystems.icrs.value
 
 
-def test_legacy_spatial_keys_are_rejected():
-    with pytest.raises(ValueError, match="use `shape`"):
-        SpatialModel.from_yaml_dict({"sdim": 8, "fov": "1arcsec"})
-
+def test_legacy_rotation_key_is_rejected():
     with pytest.raises(ValueError, match="use astronomical `position_angle`"):
         SpatialModel.from_yaml_dict(
             {"shape": 8, "fov": "1arcsec", "rotation": "1deg"}
         )
+
+
+def test_square_sdim_warns_and_maps_to_shape():
+    with pytest.warns(FutureWarning, match="2026-12-17"):
+        parsed = yaml_dict_to_shape({"sdim": 8})
+    assert parsed == (8, 8)
+
+
+def test_rectangular_sdim_is_rejected():
+    with pytest.raises(ValueError, match="axis order is undefined"):
+        yaml_dict_to_shape({"sdim": (8, 4)})
+
+
+def test_sdim_together_with_shape_is_rejected():
+    with pytest.raises(ValueError, match="drop `sdim`"):
+        yaml_dict_to_shape({"sdim": 8, "shape": 8})
 
 
 @pytest.mark.parametrize("shape", [4, np.int64(4), (4, np.int64(6))])

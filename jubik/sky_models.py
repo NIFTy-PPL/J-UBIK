@@ -13,6 +13,7 @@ import numpy as np
 from ducc0.fft import good_size as good_fft_size
 from astropy import units as u
 
+from ._deprecation import legacy_sdim_argument, legacy_sdim_shape
 from .wcs.frame import SpatialGeometry
 
 from .utils import add_functions, add_models
@@ -72,6 +73,7 @@ class SkyModel:
         e_max=None,
         e_ref=None,
         priors=None,
+        sdim=None,
     ):
         """Returns the sky model composed out of components.
 
@@ -97,6 +99,9 @@ class SkyModel:
             FOV of the telescope
         energy_range:
             Total range of energies (i.e. max. - min. energy)
+        sdim: int
+            Deprecated alias of `shape`, square grids only. Removed after
+            2026-12-17.
         priors: dict
             Dictionary of prior parameters for the correlated field
             in the format:
@@ -130,8 +135,15 @@ class SkyModel:
             self.config["grid"] = {}
         if "telescope" not in self.config.keys():
             self.config["telescope"] = {}
-        if "sdim" in self.config["grid"]:
-            raise ValueError("`sdim` was removed; use `shape` in public (x, y) order")
+        legacy_shape = legacy_sdim_argument(
+            sdim, shape, caller="create_sky_model"
+        )
+        if legacy_shape is None:
+            legacy_shape = legacy_sdim_shape(self.config["grid"])
+            if legacy_shape is not None:
+                del self.config["grid"]["sdim"]
+        if legacy_shape is not None:
+            shape = legacy_shape
         if shape is None:
             shape = self.config["grid"]["shape"]
         else:

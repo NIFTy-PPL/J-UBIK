@@ -100,3 +100,20 @@ def test_rectangular_public_geometry_becomes_internal_yx(sky_model, config):
     sky = sky_model.create_sky_model(**config)
     assert sky.target.shape[-2:] == (8, 16)
     assert sky_model.s_distances == (256.0, 256.0)
+
+
+def test_deprecated_sdim_argument_warns_and_builds(sky_model, config):
+    config = dict(config, shape=None, sdim=16)
+    with pytest.warns(FutureWarning, match="2026-12-17"):
+        sky = sky_model.create_sky_model(**config)
+    assert sky.target.shape[-2:] == (16, 16)
+
+
+def test_deprecated_sdim_argument_clashes_with_shape(sky_model, config):
+    with pytest.raises(ValueError, match="drop `sdim`"):
+        sky_model.create_sky_model(**dict(config, shape=16, sdim=16))
+
+
+def test_rectangular_sdim_argument_is_rejected(sky_model, config):
+    with pytest.raises(ValueError, match="axis order is undefined"):
+        sky_model.create_sky_model(**dict(config, shape=None, sdim=(16, 8)))
