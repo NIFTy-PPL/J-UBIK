@@ -8,7 +8,7 @@ before_script:
   - python3 -m pip install --upgrade pip
   - python3 -m pip install -e .[all]
 test:
-  image: python:latest
+  image: python:3.12
   stage: test
   script:
     - python3 -m pip install --group test
@@ -18,7 +18,7 @@ test:
 # The JWST roundtrip and the JWST instrument tests need the heavy `jwst`
 # extra, which the main test job does not install.
 test-jwst:
-  image: python:latest
+  image: python:3.12
   stage: test
   script:
     - pip install pytest
@@ -26,7 +26,7 @@ test-jwst:
     - pytest test/conventions/test_claims_jwst.py test/instruments/jwst
 
 demos:
-  image: python:latest
+  image: python:3.12
   stage: test
   variables:
     # Headless matplotlib: the demos call `plt.show()`.
@@ -40,7 +40,7 @@ demos:
       done
 
 pages:
-  image: python:latest
+  image: python:3.12
   stage: release
   script:
     - python3 -m pip install . --group doc

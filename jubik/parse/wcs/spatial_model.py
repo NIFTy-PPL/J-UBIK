@@ -4,6 +4,8 @@ import astropy.units as u
 
 from dataclasses import dataclass
 
+from ..._spatial_validation import normalize_fov, normalize_shape
+
 
 @dataclass
 class SpatialModel:
@@ -51,15 +53,7 @@ def yaml_dict_to_shape(grid_config: dict) -> tuple[int, int]:
 
     if "sdim" in grid_config:
         raise ValueError("`sdim` was removed; use `shape` in public (x, y) order")
-    SHAPE_KEY = 'shape'
-
-    npix = grid_config[SHAPE_KEY]
-    shape = (npix, npix) if isinstance(npix, int) else tuple(npix)
-    if len(shape) != 2:
-        raise ValueError(f"shape must contain (nx, ny); got {npix!r}")
-    if any(not isinstance(value, int) or value <= 0 for value in shape):
-        raise ValueError(f"shape must contain two positive integers; got {npix!r}")
-    return shape
+    return normalize_shape(grid_config["shape"], "shape")
 
 
 def yaml_dict_to_square_size(grid_config: dict, *, consumer: str) -> int:
@@ -75,56 +69,4 @@ def yaml_dict_to_square_size(grid_config: dict, *, consumer: str) -> int:
 
 def yaml_dict_to_fov(grid_config: dict) -> tuple[u.Quantity, u.Quantity]:
     """Get the field of view `fov` from the grid_config."""
-    FOV_KEY = 'fov'
-
-    raw_fov = grid_config[FOV_KEY]
-    if isinstance(raw_fov, (list, tuple)):
-        fov = u.Quantity([u.Quantity(value) for value in raw_fov])
-    else:
-        fov = u.Quantity(raw_fov)
-    if fov.isscalar:
-        fov = u.Quantity((fov, fov))
-    if fov.shape != (2,):
-        raise ValueError(f"fov must contain (fov_x, fov_y); got {fov!r}")
-    if not fov.unit.is_equivalent(u.rad):
-        raise u.UnitConversionError(f"`{FOV_KEY}` must carry angular units")
-    if any(value <= 0 * fov.unit for value in fov):
-        raise ValueError(f"fov must contain two positive angular sizes; got {fov!r}")
-    return tuple(fov)
-
-
-def resolve_str_to_quantity(s) -> u.Quantity:
-    """Convert string of number and unit to radian.
-
-    Support the following units: muas mas as amin deg rad.
-
-    Parameters
-    ----------
-    s : str
-        "muas": u.microarcsecond,  # TODO: Change to uas
-        "mas": u.milliarcsecond,
-        "as": u.arcsecond,  # TODO: Change to arcsec
-        "amin": u.arcmin,
-        "deg": u.deg,
-        "rad": u.rad,
-
-    """
-    # TODO: Change as->arcsec, and muas->uas. Then one this function is simply:
-    # return u.Quantity(s)
-
-    units = {
-        "muas": u.microarcsecond,
-        "mas": u.milliarcsecond,
-        "as": u.arcsecond,
-        "amin": u.arcmin,
-        "deg": u.deg,
-        "rad": u.rad,
-    }
-    keys = list(units.keys())
-    keys.sort(key=len)
-    for kk in reversed(keys):
-        nn = -len(kk)
-        unit = s[nn:]
-        if unit == kk:
-            return float(s[:nn])*units[kk]
-    raise RuntimeError("Unit not understood")
+    return tuple(normalize_fov(grid_config["fov"], "fov"))
