@@ -15,11 +15,11 @@ import astropy.units as u
 # 1. Initialization
 
 # 1.1. Most simplest, no center information
-grid = ju.Grid.from_shape_and_fov(spatial_shape=(128, 128), fov=(1.0, 1.0) * u.arcmin)
+grid = ju.Grid.from_shape_and_fov(shape=(128, 128), fov=(1.0, 1.0) * u.arcmin)
 
 # Inspect the grid:
-print(grid.shape)
-print(grid.spatial.shape)
+print(grid.array_shape)
+print(grid.spatial.shape_xy)
 print(grid.spectral.shape)
 
 
@@ -29,7 +29,7 @@ from astropy.coordinates import SkyCoord
 
 center = SkyCoord(ra=12 * u.rad, dec=77 * u.deg)
 grid = ju.Grid.from_shape_and_fov(
-    spatial_shape=(128, 128),
+    shape=(128, 128),
     fov=(1.0, 1.0) * u.arcmin,
     sky_center=center,
 )
@@ -39,7 +39,7 @@ print(grid.spatial.center)
 
 # 1.3 Simple with spectral information
 grid = ju.Grid.from_shape_and_fov(
-    spatial_shape=(128, 128),
+    shape=(128, 128),
     fov=(1.0, 1.0) * u.arcmin,
     frequencies=[  # Three energy bins can be irregular and with gaps.
         (12, 13),  # start, end
@@ -51,7 +51,7 @@ grid = ju.Grid.from_shape_and_fov(
     # frequencies=[(12, 13), (13, 14), (15, 18)] * u.Hz,
 )
 
-print(grid.shape)
+print(grid.array_shape)
 
 
 # 1.4. From GridModel
@@ -60,10 +60,10 @@ from jubik.parse.grid import GridModel
 
 gm = GridModel.from_yaml_dict(
     {
-        "sdim": 256,
+        "shape": 256,
         "s_padding_ratio": 1.5,
         "fov": "0.5arcmin",
-        "rotation": "0deg",
+        "position_angle": "0deg",
         "coordinate_frame": "icrs",
         "sky_center": {"ra": "175.20125deg", "dec": "-26.48583333deg"},
         "energy_unit": "eV",

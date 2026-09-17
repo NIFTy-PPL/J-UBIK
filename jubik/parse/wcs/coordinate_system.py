@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 from enum import Enum
 
@@ -31,7 +31,8 @@ class CoordinateSystemModel:
 
         if ((equinox is not None) and (coordinate_system in [
                 CoordinateSystems.fk4, CoordinateSystems.fk5])):
-            coordinate_system.value.equinox = equinox
+            # a copy: the enum member is shared by the whole process
+            return replace(coordinate_system.value, equinox=equinox)
         elif (equinox is not None):
             raise ValueError('When setting an equinox, one must set either '
                              '`fk4` or `fk5`.')

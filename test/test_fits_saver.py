@@ -24,7 +24,7 @@ def make_grid(frequencies=None) -> Grid:
     """Grid with a well defined center, optionally with spectral bins."""
     spectral = None if frequencies is None else Color(frequencies)
     return Grid.from_shape_and_fov(
-        spatial_shape=SPATIAL_SHAPE,
+        shape=SPATIAL_SHAPE,
         fov=FOV,
         frequencies=spectral,
         sky_center=CENTER,

@@ -200,14 +200,12 @@ def build_sky_to_subsampled_data(
         shift_and_rotation_correction=shift_and_rotation_correction,
         reconstruction_grid_wcs=sky_wcs,
         world_coordinates=data_subsampled_centers,
-        indexing="ij",
     )
 
     return build_rotation_and_shift(
         sky_domain=sky_domain,
         coordinates=coordinates,
         algorithm_config=rotation_and_shift_algorithm,
-        indexing="ij",
     )
 
 

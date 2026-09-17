@@ -3,13 +3,14 @@ from jubik.parse.wcs.coordinate_system import CoordinateSystems
 
 from astropy.coordinates import SkyCoord
 import astropy.units as u
+import pytest
 
 
 def test_spatial_model_from_yaml_dict():
     grid_config = dict(
-        sdim=384,
+        shape=(384, 192),
         fov="6arcsec",
-        rotation="12.0deg",
+        position_angle="12.0deg",
         coordinate_frame="icrs",
         sky_center=dict(
             ra="64.66543063107049deg",
@@ -21,10 +22,22 @@ def test_spatial_model_from_yaml_dict():
 
     scc = grid_config["sky_center"]
     assert spatial_model.wcs_model.center == SkyCoord(ra=scc["ra"], dec=scc["dec"])
-    assert spatial_model.shape == (grid_config["sdim"],) * 2
-    assert spatial_model.fov == (u.Quantity(grid_config["fov"]),) * 2
-    assert spatial_model.wcs_model.rotation == u.Quantity(grid_config["rotation"])
+    assert spatial_model.shape_xy == grid_config["shape"]
+    assert spatial_model.fov_xy == (u.Quantity(grid_config["fov"]),) * 2
+    assert spatial_model.wcs_model.position_angle == u.Quantity(
+        grid_config["position_angle"]
+    )
     assert spatial_model.wcs_model.coordinate_system == CoordinateSystems.icrs.value
+
+
+def test_legacy_spatial_keys_are_rejected():
+    with pytest.raises(ValueError, match="use `shape`"):
+        SpatialModel.from_yaml_dict({"sdim": 8, "fov": "1arcsec"})
+
+    with pytest.raises(ValueError, match="use astronomical `position_angle`"):
+        SpatialModel.from_yaml_dict(
+            {"shape": 8, "fov": "1arcsec", "rotation": "1deg"}
+        )
 
 
 def test_resolve_str_to_quantity():

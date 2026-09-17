@@ -33,7 +33,7 @@ import jubik as ju
 #   - `mask_file`: path to mask file
 #   - `instrument`: specify if ACIS-S or ACIS-I, also used for PSF simulation
 # - **grid**: Parameters defining the data grid for processing.
-#   - `sdim`: Spatial dimensions for the image grid.
+#   - `shape`: Public spatial dimensions for the image grid.
 #   - `e_dim`: number of energy bins
 #   - `energy_bin`: Energy binning with `e_min`, `e_max`, and `e_ref` values
 #   for each bin.
@@ -100,7 +100,7 @@ ju.copy_config(
 # %% [markdown]
 # ## Sky Model
 # For the sake of a suitable reconstruction do the following:
-# - adjust the energy_ranges (energy_bin:) and <br> the number of pixels according (sdim, edim) according to the desired
+# - adjust the energy ranges and the number of pixels (`shape`, `edim`) as desired
 #     resolution
 # - adjust the priors according (priors) according to the object looked at.
 #

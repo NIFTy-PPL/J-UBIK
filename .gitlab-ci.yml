@@ -15,6 +15,16 @@ test:
     - pytest --cov=jubik test/
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
 
+# The JWST roundtrip and the JWST instrument tests need the heavy `jwst`
+# extra, which the main test job does not install.
+test-jwst:
+  image: python:latest
+  stage: test
+  script:
+    - pip install pytest
+    - pip install .[jwst]
+    - pytest test/conventions/test_claims_jwst.py test/instruments/jwst
+
 demos:
   image: python:latest
   stage: test

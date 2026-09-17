@@ -21,6 +21,7 @@ from .instruments.erosita.erosita_response import (
 from .plot import (plot_result, plot_sample_averaged_log_2d_histogram,
                    plot_histograms, plot_rgb)
 from .sky_models import SkyModel
+from .parse.wcs.spatial_model import yaml_dict_to_square_size
 from .utils import get_stats, create_output_directory
 
 
@@ -308,7 +309,7 @@ def plot_erosita_priors(key,
         tm_ids = config['telescope']['tm_ids']
         n_modules = len(tm_ids)
 
-        spix = config['grid']['sdim']
+        spix = yaml_dict_to_square_size(config['grid'], consumer="eROSITA")
         epix = config['grid']['edim']
         response_dict = build_erosita_response_from_config(config)
 

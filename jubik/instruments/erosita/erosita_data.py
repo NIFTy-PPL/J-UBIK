@@ -15,6 +15,7 @@ from jax import numpy as jnp
 from .erosita_observation import ErositaObservation
 from ...data import create_mock_data
 from ...messages import log_file_exists
+from ...parse.wcs.spatial_model import yaml_dict_to_square_size
 from ...utils import (save_to_pickle, get_config, create_output_directory,
                       copy_config)
 
@@ -178,7 +179,7 @@ def generate_erosita_data_from_config(
     plot_info = config['plotting']
     esass_image =config['esass_image']
     obs_path = file_info["obs_path"]
-    sdim = grid_info['sdim']
+    spatial_size = yaml_dict_to_square_size(grid_info, consumer="eROSITA")
     e_min = grid_info['energy_bin']['e_min']
     e_max = grid_info['energy_bin']['e_max']
 
@@ -192,7 +193,7 @@ def generate_erosita_data_from_config(
         raise ValueError("e_min and e_max must have the same length!")
 
     rebin = tel_info["rebin"]
-    rebin_check = int(np.floor(20 * tel_info['fov'] // sdim))
+    rebin_check = int(np.floor(20 * tel_info['fov'] // spatial_size))
 
     if rebin != rebin_check:
         raise ValueError("rebin, which sets the angular resolution, and fov "
@@ -223,7 +224,7 @@ def generate_erosita_data_from_config(
                         emax=e_max[e],
                         image=True,
                         rebin=rebin, #TODO: exchange rebin by fov - 80 = 4arcsec
-                        size=sdim,
+                        size=spatial_size,
                         pattern=tel_info['pattern'],
                         telid=tm_id)
             else:

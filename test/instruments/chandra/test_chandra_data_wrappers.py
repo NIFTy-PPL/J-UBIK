@@ -20,7 +20,7 @@ def _config(tmp_path, mock_gen_config=None):
             "mock_gen_config": mock_gen_config,
         },
         "grid": {
-            "sdim": 3,
+            "shape": 3,
             "edim": 2,
             "energy_bin": {
                 "e_min": [0.5, 1.0],
@@ -42,7 +42,7 @@ def test_generate_chandra_data_loads_cached_data(tmp_path, monkeypatch):
         "processed_obs_folder": "processed",
     }
     tel_info = {"fov": 30.0}
-    grid_info = {"sdim": 3, "edim": 2, "energy_bin": {"e_min": [0.5], "e_max": [1.0]}}
+    grid_info = {"shape": 3, "edim": 2, "energy_bin": {"e_min": [0.5], "e_max": [1.0]}}
     obs_info = {"obs": {"tag": "obs"}}
 
     outroot = str(tmp_path / "processed")
@@ -68,7 +68,7 @@ def test_generate_chandra_data_reorders_center_obs_and_passes_center(tmp_path, m
         "processed_obs_folder": "processed",
     }
     tel_info = {"fov": 30.0, "center_obs_id": "center"}
-    grid_info = {"sdim": 3, "edim": 2, "energy_bin": {"e_min": [0.5], "e_max": [1.0]}}
+    grid_info = {"shape": 3, "edim": 2, "energy_bin": {"e_min": [0.5], "e_max": [1.0]}}
     obs_info = {
         "other": {"tag": "other"},
         "center": {"tag": "center"},
