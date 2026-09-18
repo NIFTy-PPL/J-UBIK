@@ -7,6 +7,12 @@
 # can be modified by the user to suit their specific observation setup.
 # Here a [link to the file](https://github.com/NIFTy-PPL/J-UBIK/blob/main/demos/configs/jwst_demo.yaml).
 #
+# **Legacy pipeline:** the grid construction is regression-tested, but the
+# response/PSF setup below still uses an older `build_jwst_response` API and
+# needs a separate migration before this full reconstruction can run with the
+# current package. For a current, self-contained response example, see
+# `test/instruments/jwst/test_jwst_response.py`.
+#
 # Requirements
 # ------------
 # Before running this demo, ensure the following installations and downloads
@@ -186,8 +192,8 @@ sky_model_with_filters = jft.Model(
 
 # %%
 mock_sky = sky_model_with_filters(sky_model_with_filters.init(subkey))
-reconstruction_grid = ju.Grid(
-    center=SkyCoord(pointing_center[0] * u.rad, pointing_center[1] * u.rad),
+reconstruction_grid = ju.Grid.from_shape_and_fov(
+    sky_center=SkyCoord(pointing_center[0] * u.rad, pointing_center[1] * u.rad),
     shape=cfg["grid"]["shape"],
     fov=(cfg["grid"]["fov"] * u.arcsec,) * 2,
 )
@@ -207,8 +213,8 @@ for fltname in filters.keys():
 
     data_fov = cfg["telescope"]["fov"]
     data_shape = int(data_fov / filters[fltname]["distance"])
-    data_grid = ju.Grid(
-        center=SkyCoord(pointing_center[0] * u.rad, pointing_center[1] * u.rad),
+    data_grid = ju.Grid.from_shape_and_fov(
+        sky_center=SkyCoord(pointing_center[0] * u.rad, pointing_center[1] * u.rad),
         shape=(data_shape,) * 2,
         fov=(data_fov * u.arcsec,) * 2,
     )

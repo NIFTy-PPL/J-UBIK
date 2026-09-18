@@ -20,29 +20,41 @@ YAML uses the same convention::
      shape: [320, 192]
      fov: [48arcsec, 24arcsec]
      position_angle: 0deg
+     frame: icrs
+     sky_center: {ra: 10deg, dec: -5deg}
 
-The grid ``rotation`` key is rejected with a migration error; there is no
-compatibility alias.
+For deprecated keys and migration examples, see :doc:`changelog`.
 
-``sdim`` is deprecated rather than rejected. A square ``sdim`` is still read as
-``shape``, with a ``FutureWarning`` naming its removal date, 2026-12-17. A
-rectangular ``sdim`` raises: the key never declared its axis order, so it
-cannot be mapped to public ``(nx, ny)`` without guessing. Setting both ``sdim``
-and ``shape`` raises as well. The same window applies to the deprecated
-``create_sky_model(sdim=...)`` keyword.
+Which RA/Dec frame?
+----------------------------------------
 
-Python callers must make the same clean break. In particular::
+``frame`` selects the celestial reference system, independently of XY/YX
+array order. The default is ``icrs``. For equatorial configurations, the
+other choices are ``fk5`` (default equinox ``J2000.0``) and ``fk4`` (default
+equinox ``B1950.0``). An explicit ``equinox`` is accepted only for FK4/FK5;
+do not set it for ICRS. For example::
 
-   # Before
-   Grid.from_shape_and_fov(spatial_shape=(320, 192), fov=fov)
-   SkyModel(config).create_sky_model(sdim=320)
+   grid:
+     shape: [320, 192]
+     fov: [48arcsec, 24arcsec]
+     frame: fk5
+     equinox: J1990.0
+     sky_center: {ra: 10deg, dec: -5deg}
+     position_angle: 30deg
 
-   # After: all public shapes are (nx, ny)
-   Grid.from_shape_and_fov(shape=(320, 192), fov=fov)
-   SkyModel(config).create_sky_model(shape=(320, 192))
+The ``sky_center`` values are interpreted in the selected frame/equinox.
+``Grid.from_grid_model(GridModel.from_yaml_dict(config["grid"]))`` carries
+these settings into ``grid.spatial.coordinate_system`` and the WCS/FITS
+``RADESYS`` and ``EQUINOX`` metadata. Read ``grid.spatial.center`` for the
+reference sky position. ``position_angle`` changes the grid orientation,
+not its celestial reference system. The key is ``frame``, not
+``coordinate_frame``.
 
-Likewise, ``WcsAstropy(..., rotation=angle)`` becomes
-``WcsAstropy(..., position_angle=angle)``.
+The direct ``Grid.from_shape_and_fov`` convenience constructor builds an
+ICRS WCS; use the config/``GridModel`` path to select FK4/FK5 and an equinox.
+The coordinate-system enum also includes Galactic coordinates, but the
+current YAML center parser takes equatorial ``ra``/``dec`` fields: a Galactic
+``l``/``b`` YAML center is not supported by that path.
 
 Internal arrays and explicit metadata
 -------------------------------------
@@ -51,16 +63,30 @@ A field has trailing shape ``(..., ny, nx)``. At zero position angle, rows
 increase North and columns increase West, so East is toward decreasing column
 indices. Metadata names state their order explicitly:
 
-===================  ===================
-Public XY            Internal NumPy YX
-===================  ===================
-``shape_xy``         ``shape_yx``
-``fov_xy``           ``fov_yx``
-``pixel_scales_xy``  ``pixel_scales_yx``
-===================  ===================
+.. list-table:: Physical coordinates versus array indices
+   :header-rows: 1
 
-``Grid.array_shape`` is the full numerical field shape. The ambiguous former
-``Grid.shape`` and spatial tuple properties are intentionally absent.
+   * - View
+     - Order / meaning
+     - Example
+   * - Public geometry (pixel counts and angular sizes)
+     - XY, ``(nx, ny)`` / ``(fov_x, fov_y)``
+     - ``shape_xy``, ``fov_xy``, ``pixel_scales_xy``
+   * - Public physical offsets (unit-bearing sky angles)
+     - XY, ``(East, North)``; not pixel indices
+     - ``world_to_offsets_xy``
+   * - Internal arrays and pixel indices
+     - YX, ``(row, column)``; at zero PA, row grows North,
+       column grows West (opposite the positive East offset)
+     - ``shape_yx``, ``pixel_scales_yx``, ``world_to_indices_yx``
+   * - Full numerical field
+     - ``(polarization, time, spectral, y, x)``
+     - ``Grid.array_shape``
+
+At non-zero position angle, use the WCS transform to determine the world
+direction of a pixel step; the storage order is still YX. With unequal pixel
+scales, the current FITS ``CDELT * PC`` convention can shear the sky grid
+rather than rigidly rotate it. The example below uses square pixels.
 
 Coordinate conversion and plotting
 ----------------------------------
@@ -84,11 +110,58 @@ An unrotated field is plotted directly, without a transpose::
 It rejects rotated grids because a rectangular Matplotlib extent cannot encode
 a rotated celestial transform; use WCSAxes for those images.
 
-Instrument boundaries
----------------------
+The self-contained ``demos/grids.py`` example draws an actual random sky with
+ICRS coordinate labels at position angles 0 and 30 degrees. Both panels
+display exactly the same YX array: the celestial grid changes, not the
+storage order. Run ``MPLBACKEND=Agg python demos/grids.py`` headlessly, or
+omit the backend setting to open the figure interactively.
 
-FITS arrays remain in YX order. The Resolve radio adapter converts the J-UBIK
-YX field to its backend-native layout with a pure transpose and never
-conjugates it. JWST conversions use explicit YX index methods. Chandra and
-eROSITA consume the new ``shape`` key but currently require square spatial
-grids and reject rectangular values explicitly.
+.. plot:: user/grids.py
+   :include-source: false
+
+   Random sky on unrotated and rotated celestial axes. No transpose or
+   rectangular ``extent`` is applied; WCSAxes uses the full WCS.
+
+See Astropy's `WCSAxes introduction
+<https://docs.astropy.org/en/stable/visualization/wcsaxes/initializing_axes.html>`_
+for the plotting interface.
+
+Where does the instrument point?
+----------------------------------------
+
+An instrument pointing is a physical sky location (``SkyCoord``), not a
+row/column pair. The reconstruction center defines its own WCS reference
+position; an instrument may point elsewhere. Convert a pointing through that
+WCS before placing it on a sky array. All instruments read the same YX sky:
+
+.. list-table:: Pointing and layout at instrument boundaries
+   :header-rows: 1
+
+   * - Instrument
+     - Physical pointing / coverage
+     - Array boundary
+   * - JWST
+     - The data's gwcs maps detector pixels to sky coordinates;
+       reconstruction WCS maps those to YX sky indices.
+     - Interpolation samples the canonical YX sky; detector orientation
+       need not align with reconstruction rows and columns.
+   * - Resolve (radio)
+     - The observation's phase center and beam pointing are sky coordinates;
+       the beamer places the beam on the reconstruction WCS.
+     - ``canonical_sky_to_visibilities`` transposes YX once to the raw
+       gridder's layout; no conjugation or extra sign flip.
+   * - Chandra
+     - Observation astrometry defines sky coverage relative to the
+       reconstruction center.
+     - Square-grid response consumes the sky in YX order; rectangles
+       are rejected by the config adapter.
+   * - eROSITA
+     - Observation astrometry and per-module coverage locate the field
+       relative to the reconstruction center.
+     - Square-grid response consumes the sky in YX order; rectangles
+       are rejected by the config adapter.
+
+FITS arrays remain YX; FITS header axis 1 is the column axis and axis 2 is the
+row axis. A backend conversion does not redefine the physical pointing or
+the shared sky convention. The :doc:`canonical-sky-design` page records
+the named seams and the independent tests that pin them.
