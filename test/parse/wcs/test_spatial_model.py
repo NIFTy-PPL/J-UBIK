@@ -35,10 +35,12 @@ def test_spatial_model_from_yaml_dict():
 
 
 def test_legacy_rotation_key_is_rejected():
-    with pytest.raises(ValueError, match="use astronomical `position_angle`"):
+    with pytest.raises(ValueError, match="use astronomical `position_angle`") as error:
         SpatialModel.from_yaml_dict(
             {"shape": 8, "fov": "1arcsec", "rotation": "1deg"}
         )
+    assert "MR !238 (commit e995bc54)" in str(error.value)
+    assert "spatial-conventions.rst" in str(error.value)
 
 
 def test_square_sdim_warns_and_maps_to_shape():

@@ -1,6 +1,7 @@
 from .angle import parse_angle
 from .coordinate_system import CoordinateSystemModel
 from .sky_center import SkyCenter
+from ..._spatial_validation import SPATIAL_CONVENTIONS_URL
 
 import astropy.units as u
 from astropy.coordinates import SkyCoord
@@ -42,7 +43,8 @@ def _get_position_angle(grid_config: dict) -> u.Quantity:
     if "rotation" in grid_config:
         raise ValueError(
             "grid `rotation` was removed; use astronomical `position_angle` "
-            "(North through East)"
+            "(North through East). Changed in MR !238 (commit e995bc54). "
+            f"See {SPATIAL_CONVENTIONS_URL}"
         )
     return parse_angle(
         grid_config, YAML_POSITION_ANGLE_KEY, POSITION_ANGLE_DEFAULT

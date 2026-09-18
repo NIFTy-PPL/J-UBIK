@@ -8,6 +8,11 @@ import numbers
 import numpy as np
 from astropy import units as u
 
+SPATIAL_CONVENTIONS_URL = (
+    "https://gitlab.mpcdf.mpg.de/ift/j-ubik/-/blob/main/docs/source/user/"
+    "spatial-conventions.rst"
+)
+
 
 def normalize_shape(value, name: str) -> tuple[int, int]:
     if isinstance(value, numbers.Integral) and not isinstance(value, bool):

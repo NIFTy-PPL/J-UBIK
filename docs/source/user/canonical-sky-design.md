@@ -7,14 +7,17 @@ migration notes, is [Spatial coordinate conventions](spatial-conventions.rst).
 ## The decision
 
 One frame for every sky array at the jubik boundary. A field is stored as
-`sky[..., dec, ra]`:
+`sky[..., y, x]`; at zero position angle these are the Dec and RA axes:
 
 - dim 0 (rows) grows toward North, that is +Dec.
 - dim 1 (columns) grows toward West, that is -RA.
 
-Plotting it with `imshow(sky, origin="lower", extent=wcs.extent())` gives
-North up and East left with no transpose. If you find yourself writing
-`sky.T` before a plot, something upstream is wrong.
+At zero position angle, plotting it with
+`imshow(sky, origin="lower", extent=wcs.extent())` gives North up and East
+left with no transpose. For a non-zero angle, use WCSAxes and the full WCS:
+the storage order stays YX, while pixel directions on the sky change.
+If you find yourself writing `sky.T` before a plot, something upstream is
+wrong.
 
 The public API speaks Cartesian order. `shape=(nx, ny)`,
 `fov=(fov_x, fov_y)`, offsets as `(east, north)`. The same order appears in

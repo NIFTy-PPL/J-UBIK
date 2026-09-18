@@ -6,12 +6,7 @@
 import warnings
 from collections.abc import Mapping
 
-from ._spatial_validation import normalize_shape
-
-SPATIAL_CONVENTIONS_URL = (
-    "https://gitlab.mpcdf.mpg.de/ift/j-ubik/-/blob/main/docs/source/user/"
-    "spatial-conventions.rst"
-)
+from ._spatial_validation import SPATIAL_CONVENTIONS_URL, normalize_shape
 
 # `sdim` was replaced by `shape` in J-UBIK 0.4 (MR !238, commit b2dbb061).
 # TODO Remove this module after 2026-12-17; `sdim` then raises again.

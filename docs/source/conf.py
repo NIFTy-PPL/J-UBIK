@@ -10,7 +10,13 @@ extensions = [
     "sphinx.ext.autodoc",
     'myst_parser',            # Parse markdown
     'sphinxcontrib.bibtex',
+    'matplotlib.sphinxext.plot_directive',
 ] 
+
+# Generated in the documentation build, never checked into git.
+plot_formats = [('png', 120)]
+plot_html_show_source_link = False
+plot_html_show_formats = False
 
 bibtex_bibfiles = ['user/paper.bib']
 master_doc = 'index'
