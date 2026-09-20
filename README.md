@@ -18,6 +18,18 @@ This package can be installed via pip.
 
 for a regular installation. For editable installation add the `-e` flag. 
 
+## Basic requirements
+
+pip installs these with the package:
+
+- [JAX](https://jax.readthedocs.io/en/latest/installation.html)
+- [NIFTy](https://gitlab.mpcdf.mpg.de/ift/nifty) (NIFTy.re, the JAX implementation)
+- [numpy](https://numpy.org) and [scipy](https://scipy.org)
+- [astropy](https://www.astropy.org)
+- [ducc0](https://pypi.org/project/ducc0/)
+- [matplotlib](https://matplotlib.org)
+- [pyyaml](https://pyyaml.org)
+
 ## Instrument extras
 
 There is one extra per instrument backend, so a plain install stays lightweight.
@@ -132,20 +144,23 @@ Tests considering Chandra are skipped if `ciao` is not installed.
 Guidelines for contributing can be found in [CONTRIBUTING.md](CONTRIBUTING.md)
 
 # Instrument requirements
-Some instruments need software or calibration files that pip cannot install.
-The sections below list them.
+Every instrument section lists what it needs beyond the basic requirements.
+Python packages come with the named extra, the rest has to be installed by hand.
 
 ---
 
 # Chandra
-J-UBIK allows to process observations from Chandra x-ray observatory.
+J-UBIK allows to process observations from the Chandra x-ray observatory.
 
 ## Requirements
-- ciao >= 4.16
-- marx
+- [ciao](https://cxc.cfa.harvard.edu/ciao/) >= 4.16
+- [marx](https://space.mit.edu/cxc/marx/)
 
-We recommend installation of both via conda / conda-forge
-[ciao & marx](https://cxc.cfa.harvard.edu/ciao/download/conda.html)
+Both are conda-only, so there is no `chandra` extra. Install them via
+conda-forge, see [ciao & marx](https://cxc.cfa.harvard.edu/ciao/download/conda.html).
+
+## Demo
+`demos/chandra_demo.py` and `demos/chandra_likelihood_demo.py`.
 
 ---
 
@@ -153,48 +168,73 @@ We recommend installation of both via conda / conda-forge
 J-UBIK allows to process and image event files from the eROSITA x-ray observatory.
 
 ## Requirements
-To process eROSITA observations or produce realistic synthetic data,
-you will need:
-- [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/), the eROSITA
-Science Analysis Software System. 
-In particular, the current version of J-UBIK only supports using eSASS through the 
-official docker container to ensure cross-compatibility.
-- [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/) folder, this allows to compute the eROSITA response accurately. 
-Either the caldb from data release 1 (DR1) or from the early data release (EDR) should be present 
-inside the `data/` directory. 
-This folder can be downloaded at [caldb download](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/caldb4DR1.tgz).
-- Download the data if you want to work with public eROSITA data, see [edr](https://erosita.mpe.mpg.de/edr/index.php) and [dr1](https://erosita.mpe.mpg.de/dr1/index.html).  
+- [eSASS](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/), the
+  eROSITA Science Analysis Software System. J-UBIK drives eSASS only through the
+  official docker container.
+- [caldb](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_CALDB/), the
+  calibration folder from data release 1 (DR1) or the early data release (EDR),
+  placed inside the `data/` directory. Download:
+  [caldb4DR1.tgz](https://erosita.mpe.mpg.de/dr1/eSASS4DR1/eSASS4DR1_installation/caldb4DR1.tgz).
+- Public eROSITA data, see [edr](https://erosita.mpe.mpg.de/edr/index.php) and
+  [dr1](https://erosita.mpe.mpg.de/dr1/index.html).
+
+Nothing to pip install, the `erosita` extra is empty.
 
 ## Demo
 `demos/erosita_demo.py` runs a generic image reconstruction with real and
-synthetic (mock) eROSITA data.
-In order to run a mock demo, you will need to download both the calibration
-folder as specified in the Requirements section and an actual observation,
-in order to build realistic exposure maps.
-A good example is [LMC_dataset](https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/LMC_SN1987A.tar.gz).
-For more information on how to run `erosita_demo.py` see the corresponding docstring.
+synthetic (mock) eROSITA data. A mock run needs the calibration folder and an
+actual observation to build realistic exposure maps, for example the
+[LMC dataset](https://erosita.mpe.mpg.de/edr/eROSITAObservations/CalPvObs/LMC_SN1987A.tar.gz).
+See the docstring of the demo for details.
 
 ---
 
 # James Webb Space Telescope
-J-UBIK allows to process and image event files from the James Webb Space Telescope.
+J-UBIK allows to process and image observations from the James Webb Space Telescope.
 
 ## Requirements
-The Python packages come with the `jwst` extra. [stpsf](https://stpsf.readthedocs.io/en/latest/installation.html)
-also needs its data files, downloaded separately and pointed to by `webbpsf_path`
-in the config. See `demos/jwst_demo.py`.
+- [jwst](https://jwst-pipeline.readthedocs.io/en/latest/getting_started/install.html),
+  the JWST calibration pipeline
+- [stpsf](https://stpsf.readthedocs.io/en/latest/installation.html), the PSF
+  model. Its data files are downloaded separately and pointed to by
+  `webbpsf_path` in the config.
+- [gwcs](https://gwcs.readthedocs.io/en/latest/#installation)
+- [jax-finufft](https://pypi.org/project/jax-finufft/) for the nufft rotation
+- [astroquery](https://astroquery.readthedocs.io) for the Gaia alignment star
+  search, in the separate `gaia` extra
+
+```bash
+pip install --user .[jwst,gaia]
+```
+
+## Demo
+`demos/jwst_demo.py`.
 
 ---
 
 # RESOLVE
-J-UBIK allows to process and image radio interferometic data.
+J-UBIK allows to process and image radio interferometric data.
 
 ## Requirements
-Everything comes with the `resolve` extra: jaxbind for the ducc0 wgridder
-response, jax-finufft for the finufft response, python-casacore for CASA
-measurement sets, ehtim for uvfits files. See `demos/resolve_demo.py`.
+- [jaxbind](https://pypi.org/project/jaxbind/) for the ducc0 wgridder response
+- [jax-finufft](https://pypi.org/project/jax-finufft/) for the finufft response
+- [python-casacore](https://pypi.org/project/python-casacore/) to read CASA
+  measurement sets
+- [ehtim](https://pypi.org/project/ehtim/) to read uvfits files
+- [dask-ms](https://pypi.org/project/dask-ms/) to read zarr datasets, not part
+  of the extra
+- [casatools and casatasks](https://pypi.org/project/casatasks/) for
+  `mstransform` and `statwt` in the measurement-set readout demo, not part of
+  the extra
+
+```bash
+pip install --user .[resolve]
+```
+
+## Demo
+`demos/resolve_demo.py`, `demos/resolve_synthetic_demo.py` and
+`demos/ms_readout_demo.py`.
 
 ---
-
 
 **NOTE**: Importing `jubik` sets the floating point precision in jax to `float64`.
