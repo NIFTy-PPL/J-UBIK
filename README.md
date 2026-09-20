@@ -7,6 +7,7 @@ Next to many useful generic tools and building blocks, JUBIK comes with a series
  - Chandra
  - eROSITA
  - James Webb Space Telescope
+ - RESOLVE (radio interferometry)
 
 # Installation
 This package can be installed via pip. 
@@ -115,13 +116,6 @@ With pip (25.1 or newer):
 pip install -e . --group dev
 ```
 
-# Requirements
-- [JAX](https://jax.readthedocs.io/en/latest/installation.html)
-- [astropy](https://www.astropy.org)
-- [NIFTy](https://gitlab.mpcdf.mpg.de/ift/nifty) (follow installation for NIFTy.re, the JAX implementation of NIFTy)
-- [ducc0](https://pypi.org/project/ducc0/)
-- [matplotlib](https://matplotlib.org/stable/install/index.html)
-
 # Testing
 Testing needs [pytest](https://docs.pytest.org/en/stable/), which the `test`
 dependency group provides. To run the tests execute the following from the
@@ -135,16 +129,11 @@ pytest test/
 Tests considering Chandra are skipped if `ciao` is not installed.
 
 # Contributing
-Guidelines for contribuation can be found in [CONTRIBUTING.md](CONTRIBUTING.md)
+Guidelines for contributing can be found in [CONTRIBUTING.md](CONTRIBUTING.md)
 
-
-# Instrument specific Requirements 
-- [Chandra](#chandra)
-- [eROSITA](#erosita)
-- [James Webb Space Telescope](#james-webb-space-telescope)
-
-# Additional Files
-Additional calibration files might be needed for instrument-specific pipelines.
+# Instrument requirements
+Some instruments need software or calibration files that pip cannot install.
+The sections below list them.
 
 ---
 
@@ -177,8 +166,8 @@ This folder can be downloaded at [caldb download](https://erosita.mpe.mpg.de/dr1
 - Download the data if you want to work with public eROSITA data, see [edr](https://erosita.mpe.mpg.de/edr/index.php) and [dr1](https://erosita.mpe.mpg.de/dr1/index.html).  
 
 ## Demo
-In the `demo/` repository, `erosita_inference.py` allows to run a generic 
-image reconstruction with real and synthetic (mock) eROSITA data.
+`demos/erosita_demo.py` runs a generic image reconstruction with real and
+synthetic (mock) eROSITA data.
 In order to run a mock demo, you will need to download both the calibration
 folder as specified in the Requirements section and an actual observation,
 in order to build realistic exposure maps.
@@ -191,38 +180,21 @@ For more information on how to run `erosita_demo.py` see the corresponding docst
 J-UBIK allows to process and image event files from the James Webb Space Telescope.
 
 ## Requirements
-In order to make use of the JWST capabilities of the package, you will need to:
-- Install the [jwst](https://jwst-pipeline.readthedocs.io/en/latest/getting_started/install.html) package.
-- Install [stpsf](https://stpsf.readthedocs.io/en/latest/installation.html).
-- Install [gwcs](https://gwcs.readthedocs.io/en/latest/#installation).
+The Python packages come with the `jwst` extra. [stpsf](https://stpsf.readthedocs.io/en/latest/installation.html)
+also needs its data files, downloaded separately and pointed to by `webbpsf_path`
+in the config. See `demos/jwst_demo.py`.
 
-For more details see `jwst_demo.py` in the `demo/` repository.
-Alternatively, you can install these requirements via 
-```bash
-pip install --user .[jwst]
-```
- 
 ---
 
 # RESOLVE
 J-UBIK allows to process and image radio interferometic data.
 
 ## Requirements
-In order to make use of the RESOLVE capabilities of the package, you will need to:
-- Install the [jaxbind](https://pypi.org/project/jaxbind/) to work with the wgridder radio response
-- Install the [jax-finufft](https://pypi.org/project/jax-finufft/) to work with the FinuFFT radio response
-- Install the [python-casacore](https://pypi.org/project/python-casacore/) to work with CASA measurement sets.
-- Install [ehtim](https://pypi.org/project/ehtim/) to read uvfits files.
-
-Alternatively, you can install all of these requirements via
-```bash
-pip install --user .[resolve]
-```
+Everything comes with the `resolve` extra: jaxbind for the ducc0 wgridder
+response, jax-finufft for the finufft response, python-casacore for CASA
+measurement sets, ehtim for uvfits files. See `demos/resolve_demo.py`.
 
 ---
 
 
-**NOTE**:
-- Importing `jubik` sets the floating point precision in jax to `float64`. 
-- WebbPSF has shown some compatibility issues with the `numexpr` package.  
-The current version of the code has been tested successfully on `numexpr version==2.8.4`.
+**NOTE**: Importing `jubik` sets the floating point precision in jax to `float64`.
