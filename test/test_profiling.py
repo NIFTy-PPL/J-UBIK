@@ -96,3 +96,40 @@ def test_profiling_callback_writes_jsonl(sub_models, tmp_path):
     assert [r['nit'] for r in records] == [1, 2]
     assert records[0]['wall_s'] is None
     assert records[1]['wall_s'] > 0
+
+
+def test_profile_model_jvp_and_meta(sub_models):
+    diffuse, _ = sub_models
+    row = profile_model(diffuse, jvp=True, n=3, meta={'n_vis': 7})
+    assert row.jvp_compile_s > 0
+    assert row.jvp_runtime_s > 0
+    assert row.grad_runtime_s is None
+    assert row.meta == {'n_vis': 7}
+    # CPU backend: no memory statistics, no flops estimate.
+    assert row.peak_bytes is None
+    assert row.intensity is None or row.intensity > 0
+
+
+def test_report_meta_columns_and_markdown(sub_models, tmp_path):
+    diffuse, points = sub_models
+    report = profile_tree({'diffuse': diffuse, 'points': points}, n=3,
+                          jvp=True, verbose=False,
+                          meta={'diffuse': {'n_vis': 7}})
+    table = str(report)
+    header = table.splitlines()[0]
+    assert 'n_vis' in header
+    assert 'jvp_runtime_s' in header
+    # never measured on this backend, so the column is dropped
+    assert 'peak_bytes' not in header
+    assert 'grad_runtime_s' not in header
+
+    md = report.to_markdown()
+    assert md.startswith('| name | n_vis |')
+    assert '| :-- | --: |' in md
+
+    out = tmp_path / 'profile.json'
+    report.to_json(out)
+    payload = json.loads(out.read_text())
+    assert payload['rows'][0]['meta'] == {'n_vis': 7}
+    assert payload['rows'][1]['meta'] == {}
+    assert 'intensity' in payload['rows'][0]

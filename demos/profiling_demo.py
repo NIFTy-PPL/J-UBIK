@@ -71,6 +71,23 @@ print(f'{row.name}: {row.n_params} params, '
       f'grad runtime {row.grad_runtime_s * 1e3:.2f}ms')
 
 # %% [markdown]
+# `jvp=True` times the forward-mode derivative as well. A response and
+# its transpose are different programs, so the two derivative modes can
+# diverge in cost. `meta` attaches free-form labels (say the number of
+# visibilities a response maps to) that end up as extra table columns and
+# in the JSON, handy for normalising runtime per data point. On GPU the
+# row also carries `peak_bytes`, the allocator's high-water mark during
+# this row minus what was in use before it (an upper bound if an earlier
+# row peaked higher); `row.intensity` is flops per byte accessed, low
+# values mark memory-bound executables.
+
+# %%
+row = ju.profile_model(response, name='response', jvp=True, n=20,
+                       meta={'n_pix': int(mask.sum())})
+print(f'{row.name}: jvp runtime {row.jvp_runtime_s * 1e3:.2f}ms, '
+      f'meta {row.meta}, intensity {row.intensity}')
+
+# %% [markdown]
 # ## Profile a tree of named sub-models against the fused whole
 #
 # Pass the sub-models under display names plus the full composition as
@@ -90,6 +107,7 @@ print(report)
 
 # %%
 report.to_json('profile.json')
+print(report.to_markdown())  # same table for a note or README
 
 # %% [markdown]
 # ## Plain callables (no `.domain`)
