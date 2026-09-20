@@ -3,9 +3,10 @@
 
 # %%
 
+import gc
 import json
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 
 import jax
 import numpy as np
@@ -61,6 +62,14 @@ def _timed_compile(fun, x):
     return compiled, time.perf_counter() - t0
 
 
+def _device_stats(device):
+    """`device.memory_stats()` or {} where the backend has none (CPU)."""
+    try:
+        return device.memory_stats() or {}
+    except Exception:
+        return {}
+
+
 def _best_of(compiled, x, n):
     """Min-of-n wall-clock runtime, blocking on every call."""
     best = np.inf
@@ -113,10 +122,25 @@ class ProfileRow:
     argument_bytes: int = None
     output_bytes: int = None
     est_total_bytes: int = None
+    jvp_compile_s: float = None
+    jvp_runtime_s: float = None
+    peak_bytes: int = None
+    meta: dict = field(default_factory=dict)
+
+    @property
+    def intensity(self):
+        """Arithmetic intensity, flops per byte accessed (XLA estimates).
+
+        Low values mark memory-bound executables. None where either
+        estimate is missing (CPU backend).
+        """
+        if not self.flops or not self.bytes_accessed:
+            return None
+        return self.flops / self.bytes_accessed
 
 
-def profile_model(model, x=None, *, name=None, grad=False, n=50,
-                  key=None, clear_caches=True):
+def profile_model(model, x=None, *, name=None, grad=False, jvp=False, n=50,
+                  key=None, clear_caches=True, meta=None, device=None):
     """Profile one jax-compiled model: compile time, runtime, flops, memory.
 
     The model is jit-compiled in isolation via the AOT path
@@ -138,6 +162,11 @@ def profile_model(model, x=None, *, name=None, grad=False, n=50,
         Also compile and time `jax.grad` of the sum-of-squares of the
         output — inference is gradient-dominated, so the VJP cost often
         matters more than the forward. Default False.
+    jvp : bool, optional
+        Also compile and time the forward-mode derivative
+        (`jax.jvp` along a random tangent). Linear-response transposes
+        differ from their forward pass, so the two derivative modes can
+        cost differently. Default False.
     n : int, optional
         Runtime is the minimum over `n` blocking calls. Default 50.
     key : jax PRNG key, optional
@@ -145,10 +174,26 @@ def profile_model(model, x=None, *, name=None, grad=False, n=50,
     clear_caches : bool, optional
         Clear jax caches first so `compile_s` measures a real compile,
         not a cache hit. Default True.
+    meta : dict, optional
+        Free-form labels stored on the row (`ProfileRow.meta`), e.g. the
+        number of visibilities a response maps to. Rendered as extra
+        table columns and kept in the JSON.
+    device : jax Device, optional
+        Device whose `memory_stats()` feed `peak_bytes`. Default
+        `jax.devices()[0]`.
 
     Returns
     -------
     row : ProfileRow
+
+    Notes
+    -----
+    `peak_bytes` is `peak_bytes_in_use` after this row's calls minus
+    `bytes_in_use` before them. The allocator's peak counter is
+    process-wide and never resets, so a row that never exceeds an
+    earlier row's high-water mark inherits that mark: the value is an
+    upper bound unless rows run in growing order. None on backends
+    without memory statistics (CPU).
     """
     if key is None:
         key = jax.random.PRNGKey(42)
@@ -159,6 +204,9 @@ def profile_model(model, x=None, *, name=None, grad=False, n=50,
 
     if clear_caches:
         jax.clear_caches()
+    if device is None:
+        device = jax.devices()[0]
+    bytes_before = _device_stats(device).get('bytes_in_use')
 
     compiled, compile_s = _timed_compile(model, x)
     cost = _cost_dict(compiled)
@@ -170,12 +218,31 @@ def profile_model(model, x=None, *, name=None, grad=False, n=50,
     jax.block_until_ready(compiled(x))  # warmup, first call may still pay setup
     runtime_s = _best_of(compiled, x, n)
 
+    grad_compiled = jvp_compiled = None
     grad_compile_s = grad_runtime_s = None
     if grad:
         grad_fun = jax.grad(lambda p: _scalarize(model(p)))
         grad_compiled, grad_compile_s = _timed_compile(grad_fun, x)
         jax.block_until_ready(grad_compiled(x))
         grad_runtime_s = _best_of(grad_compiled, x, n)
+
+    jvp_compile_s = jvp_runtime_s = None
+    if jvp:
+        tangent = jft.random_like(jax.random.split(key)[1], x)
+        jvp_fun = lambda p: jax.jvp(model, (p,), (tangent,))[1]
+        jvp_compiled, jvp_compile_s = _timed_compile(jvp_fun, x)
+        jax.block_until_ready(jvp_compiled(x))
+        jvp_runtime_s = _best_of(jvp_compiled, x, n)
+
+    peak_after = _device_stats(device).get('peak_bytes_in_use')
+    peak_bytes = None
+    if peak_after is not None and bytes_before is not None:
+        peak_bytes = int(peak_after - bytes_before)
+
+    # Drop this row's executables and their device buffers before the next
+    # row compiles, so rows do not pile up on a small card.
+    compiled = grad_compiled = jvp_compiled = None
+    gc.collect()
 
     domain = getattr(model, 'domain', None)
     return ProfileRow(
@@ -191,6 +258,10 @@ def profile_model(model, x=None, *, name=None, grad=False, n=50,
         argument_bytes=getattr(mem, 'argument_size_in_bytes', None),
         output_bytes=getattr(mem, 'output_size_in_bytes', None),
         est_total_bytes=_est_total_bytes(mem),
+        jvp_compile_s=jvp_compile_s,
+        jvp_runtime_s=jvp_runtime_s,
+        peak_bytes=peak_bytes,
+        meta=dict(meta or {}),
     )
 
 
@@ -214,6 +285,18 @@ def _fmt_bytes(b):
     return f'{b / 2**30:.2f}GB'
 
 
+def _fmt_meta(v):
+    if v is None:
+        return '-'
+    if isinstance(v, float):
+        return f'{v:.3g}'
+    return str(v)
+
+
+def _fmt_intensity(i):
+    return '-' if i is None else f'{i:.2f}'
+
+
 def _fmt_count(c):
     if c is None:
         return '-'
@@ -228,6 +311,9 @@ class ProfileReport:
     """Result of `profile_tree`: per-sub-model rows plus optional root row.
 
     `str(report)` renders a table; `report.to_json(path)` persists it.
+    Columns whose value is None on every row are dropped from the table
+    (jvp and peak memory where not measured), and every key found in any
+    row's `meta` becomes a column right after the name.
     """
 
     _COLUMNS = (
@@ -236,42 +322,91 @@ class ProfileReport:
         ('compile_s', _fmt_seconds, '>'),
         ('runtime_s', _fmt_seconds, '>'),
         ('grad_runtime_s', _fmt_seconds, '>'),
+        ('jvp_runtime_s', _fmt_seconds, '>'),
         ('flops', _fmt_count, '>'),
+        ('intensity', _fmt_intensity, '>'),
         ('temp_bytes', _fmt_bytes, '>'),
         ('output_bytes', _fmt_bytes, '>'),
         ('est_total_bytes', _fmt_bytes, '>'),
+        ('peak_bytes', _fmt_bytes, '>'),
     )
+    _ALWAYS = ('name',)
 
     def __init__(self, rows, root=None):
         self.rows = list(rows)
         self.root = root
 
+    def _all_rows(self):
+        return self.rows + ([self.root] if self.root else [])
+
+    def _columns(self):
+        """(header, getter, formatter, align) per rendered column."""
+        all_rows = self._all_rows()
+        meta_keys = []
+        for r in all_rows:
+            for k in r.meta:
+                if k not in meta_keys:
+                    meta_keys.append(k)
+        cols = []
+        for key, fmt, align in self._COLUMNS:
+            if key not in self._ALWAYS and all(
+                    getattr(r, key) is None for r in all_rows):
+                continue
+            cols.append((key, (lambda r, k=key: getattr(r, k)), fmt, align))
+            if key == 'name':
+                for mk in meta_keys:
+                    cols.append((mk, (lambda r, k=mk: r.meta.get(k)),
+                                 _fmt_meta, '>'))
+        return cols
+
     def __str__(self):
-        all_rows = self.rows + ([self.root] if self.root else [])
-        header = [c[0] for c in self._COLUMNS]
-        table = [[fmt(getattr(r, key)) for key, fmt, _ in self._COLUMNS]
-                 for r in all_rows]
+        all_rows = self._all_rows()
+        cols = self._columns()
+        header = [c[0] for c in cols]
+        table = [[fmt(get(r)) for _, get, fmt, _ in cols] for r in all_rows]
         widths = [max(len(h), *(len(t[i]) for t in table))
                   for i, h in enumerate(header)]
-        lines = ['  '.join(f'{h:{a}{w}}' for h, (_, _, a), w
-                           in zip(header, self._COLUMNS, widths))]
+        aligns = [c[3] for c in cols]
+        lines = ['  '.join(f'{h:{a}{w}}' for h, a, w
+                           in zip(header, aligns, widths))]
         lines.append('  '.join('-' * w for w in widths))
         for r, t in zip(all_rows, table):
             if r is self.root:
                 lines.append('  '.join('-' * w for w in widths))
-            lines.append('  '.join(f'{v:{a}{w}}' for v, (_, _, a), w
-                                   in zip(t, self._COLUMNS, widths)))
+            lines.append('  '.join(f'{v:{a}{w}}' for v, a, w
+                                   in zip(t, aligns, widths)))
         return '\n'.join(lines)
 
+    def to_markdown(self):
+        """The same table as a GitHub-flavoured markdown table."""
+        all_rows = self._all_rows()
+        cols = self._columns()
+        header = [c[0] for c in cols]
+        sep = [':--' if a == '<' else '--:' for *_, a in cols]
+        lines = ['| ' + ' | '.join(header) + ' |',
+                 '| ' + ' | '.join(sep) + ' |']
+        for r in all_rows:
+            cells = [fmt(get(r)) for _, get, fmt, _ in cols]
+            if r is self.root:
+                cells = [f'**{c}**' for c in cells]
+            lines.append('| ' + ' | '.join(cells) + ' |')
+        return '\n'.join(lines)
+
+    @staticmethod
+    def _row_dict(row):
+        d = asdict(row)
+        d['intensity'] = row.intensity
+        return d
+
     def to_json(self, path):
-        rows = [asdict(r) for r in self.rows]
-        root = asdict(self.root) if self.root else None
+        rows = [self._row_dict(r) for r in self.rows]
+        root = self._row_dict(self.root) if self.root else None
         with open(path, 'w') as f:
             json.dump({'rows': rows, 'root': root}, f, indent=2)
 
 
 def profile_tree(named_models, root=None, *, inputs=None, grad=False,
-                 n=50, key=None, verbose=True):
+                 jvp=False, n=50, key=None, verbose=True, meta=None):
     """Profile a tree of named sub-models plus, optionally, the fused root.
 
     Each sub-model is jit-compiled and measured in isolation (see
@@ -289,20 +424,24 @@ def profile_tree(named_models, root=None, *, inputs=None, grad=False,
     inputs : dict[str, pytree], optional
         Explicit example inputs per name (required for entries without
         `.domain`). Use key 'root' for the root model.
-    grad, n, key
+    grad, jvp, n, key
         Forwarded to `profile_model`.
     verbose : bool, optional
         Log each row as it is measured. Default True.
+    meta : dict[str, dict], optional
+        Per-name free-form labels, forwarded as `profile_model(meta=...)`.
+        Use key 'root' for the root model.
 
     Returns
     -------
     report : ProfileReport
     """
     inputs = inputs or {}
+    meta = meta or {}
     rows = []
     for name, model in named_models.items():
         row = profile_model(model, inputs.get(name), name=name, grad=grad,
-                            n=n, key=key)
+                            jvp=jvp, n=n, key=key, meta=meta.get(name))
         if verbose:
             jft.logger.info(
                 f'profiled {name}: compile {_fmt_seconds(row.compile_s)}, '
@@ -311,7 +450,8 @@ def profile_tree(named_models, root=None, *, inputs=None, grad=False,
     root_row = None
     if root is not None:
         root_row = profile_model(root, inputs.get('root'), name='TOTAL (fused)',
-                                 grad=grad, n=n, key=key)
+                                 grad=grad, jvp=jvp, n=n, key=key,
+                                 meta=meta.get('root'))
     return ProfileReport(rows, root_row)
 
 
