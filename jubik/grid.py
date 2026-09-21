@@ -93,7 +93,7 @@ class Grid:
         return cls(spatial, spectral)
 
     @property
-    def array_shape(self):
+    def shape(self):
         """Numerical field shape ``(polarization, time, spectral, y, x)``."""
         return (
             self.polarization.shape
@@ -101,6 +101,11 @@ class Grid:
             + self.spectral.center.shape
             + self.spatial.shape_yx
         )
+
+    @property
+    def array_shape(self):
+        """Explicit alias for :attr:`shape`, the full numerical field shape."""
+        return self.shape
 
     def __repr__(self):
         return (

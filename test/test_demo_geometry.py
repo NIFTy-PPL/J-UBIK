@@ -49,6 +49,14 @@ def test_jwst_demo_constructs_reconstruction_and_data_grids(relative):
     assert data.spatial.center.separation(expected) < 1e-10 * u.arcsec
 
 
+def test_grid_shape_remains_the_full_numerical_shape():
+    grid = ju.Grid.from_shape_and_fov(
+        shape=(16, 8), fov=(16, 8) * u.arcsec
+    )
+    assert grid.shape == (1, 1, 1, 8, 16)
+    assert grid.array_shape == grid.shape
+
+
 @pytest.mark.parametrize("shape", [16, (16, 16), (16, 8)])
 def test_psf_demo_checks_square_shape_before_building_sky(shape):
     path = ROOT / "demos/test_psf.py"

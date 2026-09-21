@@ -24,10 +24,29 @@ Use public ``shape=(nx, ny)`` integer pixel counts and unit-bearing
    WcsAstropy(center, shape, fov, position_angle=angle)
 
 The YAML ``rotation`` key becomes ``position_angle`` (astronomical North
-through East); the old key raises. ``Grid.array_shape`` names the full
-numerical field shape, while ``grid.spatial.shape_xy`` and ``shape_yx`` name
-the two spatial views. Plot unrotated sky arrays without ``.T``; use WCSAxes
-for rotated grids.
+through East); the old key raises. ``Grid.shape`` remains the familiar full
+numerical field shape, with ``Grid.array_shape`` as an explicit alias.
+``grid.spatial.shape_xy`` and ``shape_yx`` name the two spatial views. Plot
+unrotated sky arrays without ``.T``; use WCSAxes for rotated grids.
+
+Other spatial interfaces become explicit about their order:
+
+* Replace ambiguous ``grid.spatial.shape`` with ``shape_xy`` for public
+  geometry or ``shape_yx`` for NumPy arrays.
+* Replace ``grid.spatial.fov`` with ``grid.spatial.geometry.fov_xy`` or
+  ``fov_yx``; replace ``distances`` with ``pixel_scales_xy`` or
+  ``pixel_scales_yx``.
+* Replace ``WcsAstropy.get_xycoords`` with the named
+  ``world_to_offsets_xy`` / ``offsets_xy_to_world`` or
+  ``world_to_indices_yx`` / ``indices_yx_to_world`` conversions.
+* ``index_grid_from_bounding_indices(..., indexing="xy")`` is now
+  ``pixel_grid_xy_from_bounding_indices(...)``. The root-exported
+  ``world_coordinates_to_index_grid`` helper is replaced by
+  ``world_to_indices_yx`` for array indices, or Astropy's
+  ``world_to_pixel`` when XY pixel coordinates are required.
+* JWST interpolation builders no longer accept a selectable ``indexing``
+  convention: coordinate grids are always YX. The linear builder now takes
+  the expected ``out_shape`` explicitly.
 
 2026-09-17 — temporary ``sdim`` compatibility, commit e670b109
 -------------------------------------------------------------------------------

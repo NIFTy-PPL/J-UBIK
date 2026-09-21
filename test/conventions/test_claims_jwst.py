@@ -119,4 +119,3 @@ def test_datamodel_comes_back_as_an_f(jwst_datamodel_path):
         f"scores={ {k: round(v, 3) for k, v in scores.items()} }"
     )
     assert scores[verdict] - runner_up > 0.05, f"weak margin: {scores}"
-
