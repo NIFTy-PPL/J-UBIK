@@ -7,6 +7,7 @@ Next to many useful generic tools and building blocks, JUBIK comes with a series
  - Chandra
  - eROSITA
  - James Webb Space Telescope
+ - Gaia (alignment stars for JWST)
  - RESOLVE (radio interferometry)
 
 # Installation
@@ -39,6 +40,7 @@ Install only what the instrument you work on needs:
     pip install --user .[gaia]      # astroquery, for the alignment star search
     pip install --user .[resolve]   # jaxbind, jax-finufft, python-casacore, ehtim
     pip install --user .[erosita]   # no pip dependencies, see the eROSITA section
+    pip install --user .[healpix]   # jaxbind, for the HEALPix sky model
     pip install --user .[all]       # all of the above
 
 Chandra has no extra. CIAO and marx are conda-only, see the Chandra section.
@@ -57,39 +59,30 @@ every extra you want in one command, or use `uv sync --all-extras`.
 
 ## GPU
 
-J-UBIK runs on the GPU as soon as the CUDA build of jax is installed. There is
-no `gpu` extra: an extra is easy to forget, and the next plain `uv sync` or
-`uv run` without it silently drops back to CPU jax. Declare the GPU stack in the
-project that uses J-UBIK instead, so it is the default of that project's
-environment.
+Install the CUDA build of jax and J-UBIK runs on the GPU:
 
-Two packages matter:
+```bash
+pip install --user "jax[cuda12]"   # or jax[cuda13], depending on the driver
+```
 
-- `jax[cuda12]` (or `jax[cuda13]`, depending on the driver). The wheel ships the
-  CUDA runtime, only the NVIDIA driver has to exist on the machine.
-- `jax-finufft`, used by the RESOLVE finufft response and the JWST nufft
-  rotation. Its PyPI wheel is CPU only. On the GPU the model fails at JIT time
-  with "no lowering for cuda platform" until the package is rebuilt from source
-  with CUDA enabled, which needs `nvcc` on the `PATH`.
+One exception: the PyPI wheel of `jax-finufft` is CPU only. The RESOLVE finufft
+response and the JWST nufft rotation fail at JIT time with "no lowering for
+cuda platform" until the package is rebuilt with CUDA. That needs `nvcc` on the
+`PATH`, then:
 
-With uv both go into the downstream `pyproject.toml`:
+```bash
+CMAKE_ARGS="-DJAX_FINUFFT_USE_CUDA=ON" pip install --force-reinstall --no-deps --no-binary jax-finufft jax-finufft
+```
+
+A project that uses J-UBIK with uv can make this the default of every
+`uv sync` in its own `pyproject.toml`:
 
 ```toml
-dependencies = [
-    "jubik[resolve]",
-    "jax[cuda12]",
-    "jax-finufft",
-]
-
 [tool.uv]
-# The PyPI wheel is CPU only. Build from the sdist with CUDA on. uv caches the
-# built wheel, so only the first sync per machine pays the 10 to 20 minutes.
 no-binary-package = ["jax-finufft"]
 
 [tool.uv.extra-build-variables]
-# One binary for every GPU the project runs on, here sm 86 (RTX 30xx) and
-# sm 90 (H100). Table: https://developer.nvidia.com/cuda-gpus
-jax-finufft = { CMAKE_ARGS = "-DJAX_FINUFFT_USE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=86;90" }
+jax-finufft = { CMAKE_ARGS = "-DJAX_FINUFFT_USE_CUDA=ON" }
 ```
 
 Verify with:
@@ -99,18 +92,8 @@ python -c "import jax; print(jax.devices())"                     # [CudaDevice(i
 python -c "from jax_finufft import jax_finufft_gpu; print('ok')"
 ```
 
-With pip, rebuild jax-finufft once after installing `jax[cuda12]`:
-
-```bash
-CMAKE_ARGS="-DJAX_FINUFFT_USE_CUDA=ON" pip install --force-reinstall --no-deps --no-binary jax-finufft jax-finufft
-```
-
-Without `CMAKE_CUDA_ARCHITECTURES` the build targets the GPU of the machine it
-runs on.
-
-The ducc0 wgridder response (`backend: ducc0`) stays on the CPU. jaxbind calls
-it as a host callback, so on the GPU every application of the response copies
-the sky to the host and back. Use the finufft backend for GPU runs.
+The ducc0 wgridder response stays on the CPU, use the finufft backend for GPU
+runs.
 
 ## Development
 
@@ -217,7 +200,8 @@ J-UBIK allows to process and image radio interferometric data.
 
 ## Requirements
 - [jaxbind](https://pypi.org/project/jaxbind/) for the ducc0 wgridder response
-- [jax-finufft](https://pypi.org/project/jax-finufft/) for the finufft response
+- [jax-finufft](https://pypi.org/project/jax-finufft/) for the finufft
+  response, on the GPU see [GPU](#gpu)
 - [python-casacore](https://pypi.org/project/python-casacore/) to read CASA
   measurement sets
 - [ehtim](https://pypi.org/project/ehtim/) to read uvfits files

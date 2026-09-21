@@ -6,7 +6,7 @@ stages:
 before_script:
   # `pip install --group` needs pip >= 25.1 (PEP 735).
   - python3 -m pip install --upgrade pip
-  - python3 -m pip install -e .[resolve]
+  - python3 -m pip install -e .[all]
 test:
   image: python:latest
   stage: test

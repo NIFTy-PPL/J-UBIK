@@ -48,13 +48,18 @@ gaia = [
     "astroquery",
 ]
 erosita = []
+# The HEALPix sky model calls ducc0's spherical harmonic transform through
+# nifty, which imports jaxbind for it.
+healpix = [
+    "jaxbind",
+]
 resolve = [
     "jaxbind",
     "jax-finufft",
     "python-casacore",
     "ehtim",
 ]
-all = ["jubik[jwst,gaia,erosita,resolve]"]
+all = ["jubik[jwst,gaia,erosita,healpix,resolve]"]
 
 [dependency-groups]
 test = [
