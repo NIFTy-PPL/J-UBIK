@@ -158,8 +158,8 @@ def build_response_setup(npix=64, fov_deg=1.0, freqs=(1.0e9, 1.5e9), n_rows=6):
 
 def point_source_sky(grid, di, dj):
     """Unit flux delta `di`/`dj` pixels off the image center."""
-    sky = np.zeros(grid.array_shape)
-    cx, cy = grid.array_shape[3] // 2, grid.array_shape[4] // 2
+    sky = np.zeros(grid.shape)
+    cx, cy = grid.shape[3] // 2, grid.shape[4] // 2
     dvol = grid.spatial.dvol.to(u.rad**2).value
     sky[:, :, :, cx + di, cy + dj] = 1.0 / dvol
     return sky

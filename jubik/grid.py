@@ -102,11 +102,6 @@ class Grid:
             + self.spatial.shape_yx
         )
 
-    @property
-    def array_shape(self):
-        """Explicit alias for :attr:`shape`, the full numerical field shape."""
-        return self.shape
-
     def __repr__(self):
         return (
             "Grid("

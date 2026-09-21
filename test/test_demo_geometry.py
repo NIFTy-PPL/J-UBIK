@@ -54,7 +54,6 @@ def test_grid_shape_remains_the_full_numerical_shape():
         shape=(16, 8), fov=(16, 8) * u.arcsec
     )
     assert grid.shape == (1, 1, 1, 8, 16)
-    assert grid.array_shape == grid.shape
 
 
 @pytest.mark.parametrize("shape", [16, (16, 16), (16, 8)])

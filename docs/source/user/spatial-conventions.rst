@@ -81,7 +81,7 @@ indices. Metadata names state their order explicitly:
      - ``shape_yx``, ``pixel_scales_yx``, ``world_to_indices_yx``
    * - Full numerical field
      - ``(polarization, time, spectral, y, x)``
-     - ``Grid.shape`` (``Grid.array_shape`` is an explicit alias)
+     - ``Grid.shape``
 
 At non-zero position angle, use the WCS transform to determine the world
 direction of a pixel step; the storage order is still YX. With unequal pixel

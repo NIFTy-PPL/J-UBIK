@@ -24,8 +24,8 @@ Use public ``shape=(nx, ny)`` integer pixel counts and unit-bearing
    WcsAstropy(center, shape, fov, position_angle=angle)
 
 The YAML ``rotation`` key becomes ``position_angle`` (astronomical North
-through East); the old key raises. ``Grid.shape`` remains the familiar full
-numerical field shape, with ``Grid.array_shape`` as an explicit alias.
+through East); the old key raises. ``Grid.shape`` remains the full numerical
+field shape.
 ``grid.spatial.shape_xy`` and ``shape_yx`` name the two spatial views. Plot
 unrotated sky arrays without ``.T``; use WCSAxes for rotated grids.
 

@@ -18,7 +18,7 @@ import astropy.units as u
 grid = ju.Grid.from_shape_and_fov(shape=(128, 128), fov=(1.0, 1.0) * u.arcmin)
 
 # Inspect the grid:
-print(grid.array_shape)
+print(grid.shape)
 print(grid.spatial.shape_xy)
 print(grid.spectral.shape)
 
@@ -51,7 +51,7 @@ grid = ju.Grid.from_shape_and_fov(
     # frequencies=[(12, 13), (13, 14), (15, 18)] * u.Hz,
 )
 
-print(grid.array_shape)
+print(grid.shape)
 
 
 # 1.4. From GridModel
