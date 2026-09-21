@@ -5,6 +5,7 @@
 
 import gc
 import json
+import subprocess
 import time
 from dataclasses import dataclass, asdict, field
 
@@ -70,6 +71,40 @@ def _device_stats(device):
         return {}
 
 
+_NVIDIA_SMI_OK = None
+
+
+def _device_used_bytes(device):
+    """Device-wide used memory from `nvidia-smi`, or None.
+
+    `device.memory_stats()` only sees XLA's own allocator. Workspace a
+    custom call grabs with `cudaMalloc` (cufinufft plans and sort buffers,
+    cuFFT plans) never enters those counters, but it does show up in the
+    card's used memory. Device-wide, so on a shared card other processes
+    leak in; with XLA preallocation on, the pool itself is constant and the
+    growth between two readings is dominated by exactly those foreign
+    allocations. Costs one `nvidia-smi` call (tens of ms); disabled after
+    the first failure.
+    """
+    global _NVIDIA_SMI_OK
+    if _NVIDIA_SMI_OK is False or getattr(device, 'platform', None) != 'gpu':
+        return None
+    index = getattr(device, 'local_hardware_id', None)
+    if index is None:
+        index = getattr(device, 'id', 0)
+    try:
+        out = subprocess.run(
+            ['nvidia-smi', '-i', str(index), '--query-gpu=memory.used',
+             '--format=csv,noheader,nounits'],
+            capture_output=True, text=True, timeout=5, check=True).stdout
+        used = int(float(out.strip().splitlines()[0])) * 2 ** 20
+    except Exception:
+        _NVIDIA_SMI_OK = False
+        return None
+    _NVIDIA_SMI_OK = True
+    return used
+
+
 def _best_of(compiled, x, n):
     """Min-of-n wall-clock runtime, blocking on every call."""
     best = np.inf
@@ -98,6 +133,47 @@ def _est_total_bytes(mem):
                - sizes['alias'])
 
 
+def _memory_analysis(compiled):
+    """`compiled.memory_analysis()` or None where the backend lacks it."""
+    try:
+        return compiled.memory_analysis()
+    except Exception:
+        return None
+
+
+def _peak_from_trace(trace, bytes_before, peak_before):
+    """(`peak_bytes`, `peak_phase`) from the per-step allocator trace.
+
+    The process peak only carries information about this row when the row
+    raised it. Then `peak_bytes` is the final peak minus the row's baseline
+    `bytes_in_use`, i.e. the row's high-water mark above what was already
+    resident, and `peak_phase` is the last step whose checkpoint moved the
+    peak. Otherwise both are None.
+    """
+    if bytes_before is None or peak_before is None or not trace:
+        return None, None
+    running = peak_before
+    phase = None
+    for step, counters in trace.items():
+        peak = counters.get('peak_bytes_in_use')
+        if peak is not None and peak > running:
+            running, phase = peak, step
+    if phase is None:
+        return None, None
+    return int(running - bytes_before), phase
+
+
+def _device_growth(trace, used_before):
+    """Max device-wide used memory over the trace minus the row's baseline."""
+    if used_before is None:
+        return None
+    readings = [c.get('device_used_bytes') for c in trace.values()]
+    readings = [r for r in readings if r is not None]
+    if not readings:
+        return None
+    return int(max(readings) - used_before)
+
+
 @dataclass
 class ProfileRow:
     """Compile/runtime/memory numbers for one (sub-)model.
@@ -124,7 +200,44 @@ class ProfileRow:
     est_total_bytes: int = None
     jvp_compile_s: float = None
     jvp_runtime_s: float = None
+    #: XLA's static estimates for the derivative executables, same
+    #: meaning as the forward columns above.
+    grad_flops: float = None
+    grad_bytes_accessed: float = None
+    grad_temp_bytes: int = None
+    grad_est_total_bytes: int = None
+    jvp_flops: float = None
+    jvp_bytes_accessed: float = None
+    jvp_temp_bytes: int = None
+    jvp_est_total_bytes: int = None
+    #: Allocator counters around the row (`device.memory_stats()`).
+    #: `bytes_before`/`bytes_after`: `bytes_in_use` before the first compile
+    #: and after this row's executables are dropped; their difference is
+    #: what the row left resident. `peak_before`/`peak_after`: the
+    #: process-wide `peak_bytes_in_use` at the same two points.
+    bytes_before: int = None
+    bytes_after: int = None
+    peak_before: int = None
+    peak_after: int = None
+    #: `peak_after - bytes_before` when this row raised the process peak
+    #: (then it is the row's exact high-water mark above its baseline);
+    #: None when the peak is inherited from an earlier row or from model
+    #: construction, because then nothing about this row is known.
     peak_bytes: int = None
+    #: The step that last raised the process peak, one of
+    #: `forward_compile`, `forward_run`, `grad_compile`, `grad_run`,
+    #: `jvp_compile`, `jvp_run`; None when `peak_bytes` is None.
+    peak_phase: str = None
+    #: Device-wide used memory (`nvidia-smi`, outside XLA's counters) before
+    #: the row, its maximum over the step checkpoints minus that baseline,
+    #: and after the row. `device_growth_bytes` catches what a custom call
+    #: allocates itself (cufinufft, cuFFT plans); None without nvidia-smi.
+    device_used_before: int = None
+    device_growth_bytes: int = None
+    device_used_after: int = None
+    #: `{step: {'bytes_in_use', 'peak_bytes_in_use', 'device_used_bytes'}}`
+    #: after every step above, the raw trace the derived columns come from.
+    peak_trace: dict = field(default_factory=dict)
     meta: dict = field(default_factory=dict)
 
     @property
@@ -188,12 +301,21 @@ def profile_model(model, x=None, *, name=None, grad=False, jvp=False, n=50,
 
     Notes
     -----
-    `peak_bytes` is `peak_bytes_in_use` after this row's calls minus
-    `bytes_in_use` before them. The allocator's peak counter is
-    process-wide and never resets, so a row that never exceeds an
-    earlier row's high-water mark inherits that mark: the value is an
-    upper bound unless rows run in growing order. None on backends
-    without memory statistics (CPU).
+    Memory comes in two flavours. The static columns (`temp_bytes`,
+    `est_total_bytes` and their `grad_`/`jvp_` twins) are XLA's buffer
+    assignment for each executable: per row, deterministic, no allocator
+    involved, but blind to workspace a custom call (cufinufft, cuDNN
+    autotuning) allocates itself.
+
+    The dynamic columns come from `device.memory_stats()`. Its
+    `peak_bytes_in_use` is process-wide and never resets, so a row whose
+    true peak stays below an earlier high-water mark (an earlier row, or
+    model construction) learns nothing from it. `peak_bytes` is therefore
+    `peak_after - bytes_before` only when `peak_after > peak_before`, and
+    None otherwise; `peak_phase` names the step that set it and
+    `peak_trace` keeps the counters after every step. Run rows in growing
+    size order, in a fresh process, to get a value on most rows. All of
+    them are None on backends without memory statistics (CPU).
     """
     if key is None:
         key = jax.random.PRNGKey(42)
@@ -206,43 +328,64 @@ def profile_model(model, x=None, *, name=None, grad=False, jvp=False, n=50,
         jax.clear_caches()
     if device is None:
         device = jax.devices()[0]
-    bytes_before = _device_stats(device).get('bytes_in_use')
+    stats_before = _device_stats(device)
+    bytes_before = stats_before.get('bytes_in_use')
+    peak_before = stats_before.get('peak_bytes_in_use')
+    device_used_before = _device_used_bytes(device)
+    trace = {}
+
+    def checkpoint(step):
+        st = _device_stats(device)
+        used = _device_used_bytes(device)
+        if st or used is not None:
+            trace[step] = {'bytes_in_use': st.get('bytes_in_use'),
+                           'peak_bytes_in_use': st.get('peak_bytes_in_use'),
+                           'device_used_bytes': used}
 
     compiled, compile_s = _timed_compile(model, x)
     cost = _cost_dict(compiled)
-    try:
-        mem = compiled.memory_analysis()
-    except Exception:
-        mem = None
+    mem = _memory_analysis(compiled)
+    checkpoint('forward_compile')
 
     jax.block_until_ready(compiled(x))  # warmup, first call may still pay setup
     runtime_s = _best_of(compiled, x, n)
+    checkpoint('forward_run')
 
     grad_compiled = jvp_compiled = None
     grad_compile_s = grad_runtime_s = None
+    grad_cost, grad_mem = {}, None
     if grad:
         grad_fun = jax.grad(lambda p: _scalarize(model(p)))
         grad_compiled, grad_compile_s = _timed_compile(grad_fun, x)
+        grad_cost = _cost_dict(grad_compiled)
+        grad_mem = _memory_analysis(grad_compiled)
+        checkpoint('grad_compile')
         jax.block_until_ready(grad_compiled(x))
         grad_runtime_s = _best_of(grad_compiled, x, n)
+        checkpoint('grad_run')
 
     jvp_compile_s = jvp_runtime_s = None
+    jvp_cost, jvp_mem = {}, None
     if jvp:
         tangent = jft.random_like(jax.random.split(key)[1], x)
         jvp_fun = lambda p: jax.jvp(model, (p,), (tangent,))[1]
         jvp_compiled, jvp_compile_s = _timed_compile(jvp_fun, x)
+        jvp_cost = _cost_dict(jvp_compiled)
+        jvp_mem = _memory_analysis(jvp_compiled)
+        checkpoint('jvp_compile')
         jax.block_until_ready(jvp_compiled(x))
         jvp_runtime_s = _best_of(jvp_compiled, x, n)
+        checkpoint('jvp_run')
 
-    peak_after = _device_stats(device).get('peak_bytes_in_use')
-    peak_bytes = None
-    if peak_after is not None and bytes_before is not None:
-        peak_bytes = int(peak_after - bytes_before)
+    peak_bytes, peak_phase = _peak_from_trace(trace, bytes_before, peak_before)
+    device_growth = _device_growth(trace, device_used_before)
 
     # Drop this row's executables and their device buffers before the next
     # row compiles, so rows do not pile up on a small card.
     compiled = grad_compiled = jvp_compiled = None
     gc.collect()
+    stats_after = _device_stats(device)
+    device_used_after = _device_used_bytes(device)
 
     domain = getattr(model, 'domain', None)
     return ProfileRow(
@@ -260,7 +403,24 @@ def profile_model(model, x=None, *, name=None, grad=False, jvp=False, n=50,
         est_total_bytes=_est_total_bytes(mem),
         jvp_compile_s=jvp_compile_s,
         jvp_runtime_s=jvp_runtime_s,
+        grad_flops=grad_cost.get('flops'),
+        grad_bytes_accessed=grad_cost.get('bytes accessed'),
+        grad_temp_bytes=getattr(grad_mem, 'temp_size_in_bytes', None),
+        grad_est_total_bytes=_est_total_bytes(grad_mem),
+        jvp_flops=jvp_cost.get('flops'),
+        jvp_bytes_accessed=jvp_cost.get('bytes accessed'),
+        jvp_temp_bytes=getattr(jvp_mem, 'temp_size_in_bytes', None),
+        jvp_est_total_bytes=_est_total_bytes(jvp_mem),
+        bytes_before=bytes_before,
+        bytes_after=stats_after.get('bytes_in_use'),
+        peak_before=peak_before,
+        peak_after=stats_after.get('peak_bytes_in_use'),
         peak_bytes=peak_bytes,
+        peak_phase=peak_phase,
+        device_used_before=device_used_before,
+        device_growth_bytes=device_growth,
+        device_used_after=device_used_after,
+        peak_trace=trace,
         meta=dict(meta or {}),
     )
 
@@ -278,6 +438,8 @@ def _fmt_seconds(s):
 def _fmt_bytes(b):
     if b is None:
         return '-'
+    if b < 0:
+        return '-' + _fmt_bytes(-b)
     if b < 2 ** 20:
         return f'{b / 2**10:.1f}KB'
     if b < 2 ** 30:
@@ -328,7 +490,11 @@ class ProfileReport:
         ('temp_bytes', _fmt_bytes, '>'),
         ('output_bytes', _fmt_bytes, '>'),
         ('est_total_bytes', _fmt_bytes, '>'),
+        ('grad_est_total_bytes', _fmt_bytes, '>'),
+        ('jvp_est_total_bytes', _fmt_bytes, '>'),
         ('peak_bytes', _fmt_bytes, '>'),
+        ('peak_phase', _fmt_meta, '>'),
+        ('device_growth_bytes', _fmt_bytes, '>'),
     )
     _ALWAYS = ('name',)
 
@@ -364,7 +530,7 @@ class ProfileReport:
         cols = self._columns()
         header = [c[0] for c in cols]
         table = [[fmt(get(r)) for _, get, fmt, _ in cols] for r in all_rows]
-        widths = [max(len(h), *(len(t[i]) for t in table))
+        widths = [max([len(h), *(len(t[i]) for t in table)])
                   for i, h in enumerate(header)]
         aligns = [c[3] for c in cols]
         lines = ['  '.join(f'{h:{a}{w}}' for h, a, w

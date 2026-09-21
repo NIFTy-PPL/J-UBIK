@@ -5,7 +5,8 @@ import jax.numpy as jnp
 import nifty.re as jft
 import pytest
 
-from jubik.profiling import ProfilingCallback, profile_model, profile_tree
+from jubik.profiling import (ProfileReport, ProfilingCallback, profile_model,
+                             profile_tree)
 
 jax.config.update('jax_platform_name', 'cpu')
 
@@ -133,3 +134,57 @@ def test_report_meta_columns_and_markdown(sub_models, tmp_path):
     assert payload['rows'][0]['meta'] == {'n_vis': 7}
     assert payload['rows'][1]['meta'] == {}
     assert 'intensity' in payload['rows'][0]
+
+
+def test_peak_from_trace_only_when_the_row_raised_the_peak():
+    from jubik.profiling import _peak_from_trace
+
+    # inherited: no checkpoint moves above the pre-row process peak
+    trace = {'forward_compile': {'bytes_in_use': 110, 'peak_bytes_in_use': 1000},
+             'forward_run': {'bytes_in_use': 110, 'peak_bytes_in_use': 1000}}
+    assert _peak_from_trace(trace, bytes_before=100, peak_before=1000) == (None, None)
+
+    # raised during the grad run: exact increment above the row's baseline
+    trace['grad_compile'] = {'bytes_in_use': 120, 'peak_bytes_in_use': 1000}
+    trace['grad_run'] = {'bytes_in_use': 120, 'peak_bytes_in_use': 1500}
+    trace['jvp_run'] = {'bytes_in_use': 120, 'peak_bytes_in_use': 1500}
+    assert _peak_from_trace(trace, 100, 1000) == (1400, 'grad_run')
+
+    # no statistics at all (CPU)
+    assert _peak_from_trace({}, None, None) == (None, None)
+
+
+def test_profile_model_derivative_static_memory(sub_models):
+    diffuse, _ = sub_models
+    row = profile_model(diffuse, grad=True, jvp=True, n=3)
+    # static XLA estimates exist per executable on every backend
+    assert row.grad_est_total_bytes > 0 and row.jvp_est_total_bytes > 0
+    assert row.grad_temp_bytes is not None and row.jvp_temp_bytes is not None
+    # CPU: no allocator statistics, so the dynamic columns stay None
+    assert (row.bytes_before, row.peak_after, row.peak_bytes, row.peak_phase) == (None,) * 4
+    assert row.peak_trace == {}
+    d = ProfileReport._row_dict(row) if hasattr(ProfileReport, '_row_dict') else None
+    assert d is None or 'peak_trace' in d
+
+
+def test_empty_report_renders():
+    report = ProfileReport([], None)
+    assert str(report).splitlines()[0].strip() == 'name'
+    assert report.to_markdown().startswith('| name |')
+
+
+def test_device_growth_and_negative_bytes_format():
+    from jubik.profiling import _device_growth, _fmt_bytes
+
+    trace = {'a': {'device_used_bytes': 100}, 'b': {'device_used_bytes': 300},
+             'c': {'device_used_bytes': None}}
+    assert _device_growth(trace, 50) == 250
+    assert _device_growth(trace, None) is None
+    assert _device_growth({}, 50) is None
+    assert _fmt_bytes(-3 * 2**20) == '-3.0MB'
+
+
+def test_device_used_bytes_is_none_off_gpu():
+    from jubik.profiling import _device_used_bytes
+
+    assert _device_used_bytes(jax.devices('cpu')[0]) is None
