@@ -20,14 +20,13 @@ import astropy.units as u
 import jax.numpy as jnp
 import numpy as np
 from astropy.units import Unit
-from jax import linear_transpose
 from numpy.typing import NDArray
 
 from ...grid import Grid
 from .constants import RESOLVE_SKY_UNIT, RESOLVE_SPATIAL_UNIT
 from .data import Observation
 from .parse import Ducc0Settings, FinufftSettings
-from .response import interferometry_response
+from .response import _hermitian_adjoint, interferometry_response
 
 
 def dirty_image(
@@ -47,9 +46,7 @@ def dirty_image(
         backend_settings=backend_settings,
     )
 
-    R_adjoint = linear_transpose(
-        R, jnp.ones(full_sky_shape, observation.weight_val.dtype)
-    )
+    response_primal = jnp.ones(full_sky_shape, observation.weight_val.dtype)
 
     d = observation.vis_val
     vol = sky_grid.spatial.dvol.value
@@ -65,14 +62,12 @@ def dirty_image(
     else:
         raise ValueError("Either 'natural' or 'uniform' weighting can be chosen.")
 
-    # `interferometry_response` is now C-linear (holomorphic): the adapter's
-    # spurious conj was dropped in Batch E.  `jax.linear_transpose` gives the
-    # BILINEAR transpose R^T; the imaging adjoint we want is the HERMITIAN
-    # adjoint R^H(v) = conj(R^T(conj(v))).  The example primal fed to
-    # `linear_transpose` above is real, so R^T returns a real array and the
-    # outer conj is a no-op — only the visibility cotangent must be conjugated.
     primals = d * w / jnp.sum(w)
-    res = R_adjoint(jnp.conj(jnp.array(primals)))[0] / vol**2 * RESOLVE_SKY_UNIT
+    res = (
+        _hermitian_adjoint(R, response_primal, primals)
+        / vol**2
+        * RESOLVE_SKY_UNIT
+    )
     return res.to(flux_unit)
 
 

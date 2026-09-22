@@ -18,9 +18,9 @@ from typing import Union
 
 import numpy as np
 from astropy import units as u
-from jax import Array
+from jax import Array, linear_transpose
 from jax import numpy as jnp
-from jax.tree_util import Partial
+from jax.tree_util import Partial, tree_map
 
 from ...color import get_2d_binbounds
 from ...grid import Grid, PolarizationType
@@ -94,6 +94,13 @@ def canonical_sky_to_visibilities(backend_apply, sky_canonical):
     ``docs/source/user/canonical-sky-design.md``.
     """
     return backend_apply(jnp.transpose(sky_canonical))
+
+
+def _hermitian_adjoint(response, primals, cotangent):
+    """Return ``conj(R^T(conj(cotangent)))`` for a linear response ``R``."""
+    transpose = linear_transpose(response, primals)
+    conjugate = lambda x: tree_map(jnp.conj, x)
+    return conjugate(transpose(conjugate(cotangent))[0])
 
 
 def interferometry_response(

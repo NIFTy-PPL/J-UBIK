@@ -5,32 +5,15 @@ Spatial API migration changelog
 ------------------------------------------------------------
 
 MR !238 introduces the public XY / internal YX spatial convention.
-Its implementation was consolidated in commit ``e995bc54``; commit
-``b2dbb061`` adds the compact independent CASA witness and shared validation.
 See :doc:`spatial-conventions` for the current API contract and
 :doc:`canonical-sky-design` for the design rationale.
 
 Use public ``shape=(nx, ny)`` integer pixel counts and unit-bearing
-``fov=(fov_x, fov_y)`` angular sizes. Migration examples::
+``fov=(fov_x, fov_y)`` angular sizes. Key migrations:
 
-   # Before
-   Grid.from_shape_and_fov(spatial_shape=(320, 192), fov=fov)
-   SkyModel(config).create_sky_model(sdim=320)
-   WcsAstropy(center, shape, fov, rotation=angle)
-
-   # After
-   Grid.from_shape_and_fov(shape=(320, 192), fov=fov)
-   SkyModel(config).create_sky_model(shape=320)
-   WcsAstropy(center, shape, fov, position_angle=angle)
-
-The YAML ``rotation`` key becomes ``position_angle`` (astronomical North
-through East); the old key raises. ``Grid.shape`` remains the full numerical
-field shape.
-``grid.spatial.shape_xy`` and ``shape_yx`` name the two spatial views. Plot
-unrotated sky arrays without ``.T``; use WCSAxes for rotated grids.
-
-Other spatial interfaces become explicit about their order:
-
+* Replace ``spatial_shape`` with ``shape`` and ``rotation`` with
+  ``position_angle`` (astronomical North through East).
+* ``Grid.shape`` remains the full numerical field shape.
 * Replace ambiguous ``grid.spatial.shape`` with ``shape_xy`` for public
   geometry or ``shape_yx`` for NumPy arrays.
 * Replace ``grid.spatial.fov`` with ``grid.spatial.geometry.fov_xy`` or
@@ -47,17 +30,11 @@ Other spatial interfaces become explicit about their order:
 * JWST interpolation builders no longer accept a selectable ``indexing``
   convention: coordinate grids are always YX. The linear builder now takes
   the expected ``out_shape`` explicitly.
+* Plot unrotated sky arrays without ``.T``; use WCSAxes for rotated grids.
 
 2026-09-17 — temporary ``sdim`` compatibility, commit e670b109
 -------------------------------------------------------------------------------
 
-Square ``sdim`` configurations and ``create_sky_model(sdim=...)`` arguments
-are temporarily accepted as ``shape``, with a ``FutureWarning`` naming MR
-!238, the migration reference and the removal date, 2026-12-17. Rectangular
-``sdim`` values remain errors because the old key did not state an axis
-order; supplying both ``sdim`` and ``shape`` is also an error.
-
-``SDIM_REMOVAL_DATE`` and a dated removal TODO live in
-``jubik/_deprecation.py``. The date documents the planned removal; it is not
-an automatic calendar-triggered runtime switch. Removing the shim needs a
-follow-up code change after the compatibility window.
+Square ``sdim`` inputs are accepted temporarily as ``shape`` with a
+``FutureWarning`` and removal date of 2026-12-17. Rectangular ``sdim`` values
+and supplying both keys raise. Removal still requires a follow-up code change.

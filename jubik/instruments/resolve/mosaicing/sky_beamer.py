@@ -86,8 +86,8 @@ def build_sky_beamer(
     pointing containing the beam pattern for the mean of all
     `sky_frequency_means`.
 
-    Beams pair index-for-index with the canonical sky: ``beam[..., i, j]`` is
-    the beam at the world position of sky pixel ``[i, j]`` as given by
+    Beams pair index-for-index with the canonical sky: ``beam[..., y, x]`` is
+    the beam at the world position of sky pixel ``[y, x]`` as given by
     ``sky_wcs``.
 
     Parameters
@@ -139,7 +139,7 @@ def build_sky_beamer(
             f"{sky_wcs.shape_yx}"
         )
     sky_center = sky_wcs.center
-    # sky_coords[i, j] is the world position of sky pixel [i, j]
+    # sky_coords[y, x] is the world position of sky pixel [y, x]
     sky_coords = sky_wcs.indices_yx_to_world(*np.indices(sky_wcs.shape_yx))
 
     beam_directions = {}
