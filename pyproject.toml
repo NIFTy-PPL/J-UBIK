@@ -35,8 +35,10 @@ dynamic = ["version"]
 version = {attr = "jubik.version.__version__"}
 
 
-# One extra per instrument backend. Chandra is absent on purpose: CIAO and marx
-# are conda-only, so an extra could not deliver a working install. See README.
+# One extra per instrument backend that has pip dependencies. Chandra and
+# eROSITA have none: their instrument software (CIAO and marx, eSASS) is
+# conda-only or runs in a docker container, so an extra could not deliver a
+# working install. See README.
 [project.optional-dependencies]
 jwst = [
     "gwcs>=0.24.0",
@@ -47,7 +49,6 @@ jwst = [
 gaia = [
     "astroquery",
 ]
-erosita = []
 # The HEALPix sky model calls ducc0's spherical harmonic transform through
 # nifty, which imports jaxbind for it.
 healpix = [
@@ -59,7 +60,7 @@ resolve = [
     "python-casacore",
     "ehtim",
 ]
-all = ["jubik[jwst,gaia,erosita,healpix,resolve]"]
+all = ["jubik[jwst,gaia,healpix,resolve]"]
 
 [dependency-groups]
 test = [

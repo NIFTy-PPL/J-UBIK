@@ -39,11 +39,11 @@ Install only what the instrument you work on needs:
     pip install --user .[jwst]      # gwcs, jwst, stpsf, jax-finufft
     pip install --user .[gaia]      # astroquery, for the alignment star search
     pip install --user .[resolve]   # jaxbind, jax-finufft, python-casacore, ehtim
-    pip install --user .[erosita]   # no pip dependencies, see the eROSITA section
     pip install --user .[healpix]   # jaxbind, for the HEALPix sky model
     pip install --user .[all]       # all of the above
 
-Chandra has no extra. CIAO and marx are conda-only, see the Chandra section.
+Chandra and eROSITA have no extra. Their instrument software is not on PyPI,
+see the sections below.
 
 With [uv](https://docs.astral.sh/uv/), the same via the project environment:
 
@@ -161,7 +161,7 @@ J-UBIK allows to process and image event files from the eROSITA x-ray observator
 - Public eROSITA data, see [edr](https://erosita.mpe.mpg.de/edr/index.php) and
   [dr1](https://erosita.mpe.mpg.de/dr1/index.html).
 
-Nothing to pip install, the `erosita` extra is empty.
+There is no `erosita` extra, none of this comes from PyPI.
 
 ## Demo
 `demos/erosita_demo.py` runs a generic image reconstruction with real and
