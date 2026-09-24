@@ -18,7 +18,7 @@ import jubik.instruments.resolve as rve
 from jubik.instruments.resolve.data.auxiliary_table import AuxiliaryTable
 from jubik.instruments.resolve.parse.response import CufinufftSettings
 from jubik.instruments.resolve.response import (
-    CufinufftResponse,
+    interferometry_response_cufinufft,
     interferometry_response_ducc,
     interferometry_response_finufft,
 )
@@ -89,14 +89,14 @@ def build_responses(pol_sky, pol_channels, freqs, phase_center_offset=None):
     return grid, obs, r_finufft, r_cufinufft
 
 
-def assert_transform(actual, expected):
+def assert_transform(actual, expected, tolerance=TOLERANCE):
     actual, expected = np.asarray(actual), np.asarray(expected)
     assert actual.shape == expected.shape
     assert_allclose(
         actual,
         expected,
-        rtol=TOLERANCE,
-        atol=TOLERANCE * np.max(np.abs(expected)),
+        rtol=tolerance,
+        atol=tolerance * np.max(np.abs(expected)),
     )
 
 
@@ -138,8 +138,16 @@ def test_forward_and_vjp_match_finufft(
 
 @pmp("freqs", (np.array([1e9]), np.array([1e9, 1.3e9, 2e9])))
 @pmp("center", ((0.0, 0.0), (1e-3, -2e-3)))
-def test_backend_consistency_smallest_unit(freqs, center):
+@pmp("dtype", ("complex128", "complex64"))
+def test_backend_consistency_smallest_unit(freqs, center, dtype):
     """Single operator unit, as in MR 232's ducc/finufft test, plus cufinufft."""
+    if dtype == "complex64":
+        epsilon, tolerance = 1e-5, 1e-3
+    else:
+        epsilon, tolerance = EPSILON, TOLERANCE
+    settings = CufinufftSettings(
+        epsilon=epsilon, gpu_maxbatchsize=0, upsampfac=2.0, dtype=dtype
+    )
     np.random.seed(42)
     npix_x, npix_y = 32, 40
     pixsize_x = np.deg2rad(1.0) / npix_x
@@ -162,15 +170,15 @@ def test_backend_consistency_smallest_unit(freqs, center):
     with jax.default_device(jax.devices("cpu")[0]):
         r_finufft = interferometry_response_finufft(epsilon=EPSILON, **geometry)
     with jax.default_device(jax.devices("cuda")[0]):
-        r_cufinufft = CufinufftResponse(
-            npix_x=npix_x, npix_y=npix_y, settings=CUFINUFFT_SETTINGS, **geometry
+        r_cufinufft = interferometry_response_cufinufft(
+            npix_x=npix_x, npix_y=npix_y, settings=settings, **geometry
         )
     image = np.random.normal(size=(npix_x, npix_y))
 
     vis_finufft = jax.jit(r_finufft)(on_device(image, "cpu"))
     vis_cufinufft = jax.jit(r_cufinufft)(on_device(image, "cuda"))
     assert vis_cufinufft.shape == (20, len(freqs))
-    assert_transform(vis_cufinufft, vis_finufft)
+    assert_transform(vis_cufinufft, vis_finufft, tolerance)
 
     if importlib.util.find_spec("jaxbind") is None:
         pytest.skip("jaxbind is required for the ducc0 comparison")
@@ -186,7 +194,7 @@ def test_backend_consistency_smallest_unit(freqs, center):
             **geometry,
         )
         vis_ducc = r_ducc(on_device(image, "cpu"))
-    assert_transform(vis_cufinufft, vis_ducc)
+    assert_transform(vis_cufinufft, vis_ducc, tolerance)
 
 
 def stokes_to_circular(iquv):

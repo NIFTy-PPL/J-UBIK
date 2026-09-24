@@ -17,6 +17,7 @@ NTHREADS_KEY = "nthreads"
 VERBOSITY_KEY = "verbosity"
 GPU_MAXBATCHSIZE_KEY = "gpu_maxbatchsize"
 UPSAMPFAC_KEY = "upsampfac"
+DTYPE_KEY = "dtype"
 
 
 @dataclass
@@ -77,6 +78,7 @@ class CufinufftSettings(StaticTyped):
     epsilon: float
     gpu_maxbatchsize: int
     upsampfac: float
+    dtype: str = "complex128"
 
     @classmethod
     def from_yaml_dict(cls, yaml_dict: dict):
@@ -90,11 +92,22 @@ class CufinufftSettings(StaticTyped):
             ``min(n_trans, 8)``, 1 keeps every plan at one grid of memory.
         {UPSAMPFAC_KEY}: float, optional
             Oversampling factor of the fine grid, default 2.0.
+        {DTYPE_KEY}: str, optional
+            Complex precision of the transform, "complex64" or "complex128".
+            complex64 halves GPU memory and traffic of the transform;
+            complex128 is the default and matches the finufft backend.
         """
+        allowed_dtypes = ("complex64", "complex128")
+        dtype = yaml_dict.get(DTYPE_KEY, "complex128")
+        if dtype not in allowed_dtypes:
+            raise ValueError(
+                f"{DTYPE_KEY} must be one of {allowed_dtypes}, not {dtype!r}"
+            )
         return CufinufftSettings(
             epsilon=float(yaml_dict[EPSILON_KEY]),
             gpu_maxbatchsize=int(yaml_dict.get(GPU_MAXBATCHSIZE_KEY, 0)),
             upsampfac=float(yaml_dict.get(UPSAMPFAC_KEY, 2.0)),
+            dtype=dtype,
         )
 
 

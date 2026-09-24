@@ -126,13 +126,26 @@ def test_executable_retains_and_releases_plans():
     # Check ownership before executing: the old implementation leaves dangling
     # pointers here and can crash the process if we call the executable.
     assert owner() is not None
-    assert not hasattr(owner(), "close")
     expected = fourier_matrix((12, 18), np.array([.1, .2]), np.array([.3, .4])) @ np.ones(216)
     assert_transform(compiled(np.ones((12, 18), np.complex128)), expected, 1e-6)
     del compiled
     jax.clear_caches()
     gc.collect()
     assert owner() is None
+
+
+def test_close_releases_and_blocks_new_plans():
+    plans = PlanSet((12, 18), [.1, .2], [.3, .4], eps=1e-8)
+    expected = fourier_matrix((12, 18), np.array([.1, .2]), np.array([.3, .4])) @ np.ones(216)
+    sky = jnp.ones((12, 18), dtype=np.complex128)
+    assert_transform(jax.jit(lambda sky: nufft2(sky, plans))(sky), expected, 1e-6)
+    assert plans.n_plans == 1
+    plans.close()
+    plans.close()
+    assert plans.stream is None
+    assert plans.n_plans == 0
+    with pytest.raises(RuntimeError):
+        plans.plan(2, -1, 1)
 
 
 @pytest.mark.parametrize("center", [(0., 0.), (1e-4, -3e-4)])
@@ -180,7 +193,7 @@ def test_callable_response_matches_finufft(center):
     # Compiled code needs only the plans and captured constants, not the
     # response instance that supplied __call__ during tracing.
     owner = weakref.ref(response)
-    plans = weakref.ref(response._plans)
+    plans = weakref.ref(response.plans)
     del response
     jax.clear_caches()
     gc.collect()

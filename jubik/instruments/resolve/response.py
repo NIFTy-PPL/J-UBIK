@@ -135,6 +135,7 @@ def interferometry_response(
             - backend           (only ducc0)
             - gpu_maxbatchsize  (only cufinufft)
             - upsampfac         (only cufinufft)
+            - dtype             (only cufinufft)
     """
     n_pol = len(sky_grid.polarization)
 
@@ -202,7 +203,7 @@ def interferometry_response(
                         center_y=center_y,
                     )
                 elif isinstance(backend_settings, CufinufftSettings):
-                    rrr = CufinufftResponse(
+                    rrr = interferometry_response_cufinufft(
                         observation=ooo,
                         npix_x=npix_x,
                         npix_y=npix_y,
@@ -295,11 +296,11 @@ def interferometry_response_ducc(
     return lambda x: vol * wgridder(x)[0]
 
 
-def _finufft_points_and_phase(observation, pixsize_x, pixsize_y, center_x, center_y):
-    """uv in finufft radians plus the phase shift to the image center.
+def _uv_radians_and_phase_shift(observation, pixsize_x, pixsize_y, center_x, center_y):
+    """uv in radians for a 2D NUFFT plus the phase shift to the image center.
 
-    Shared by the finufft and the cufinufft backends so both see exactly the
-    same points and the same convention (``u`` along axis 0 of the sky).
+    Shared by the finufft and cufinufft backends; ``u`` runs along axis 0 of
+    the sky.
     """
     freq = observation.freq
     uvw = observation.uvw
@@ -323,12 +324,11 @@ def _finufft_points_and_phase(observation, pixsize_x, pixsize_y, center_x, cente
 
 
 class CufinufftResponse:
-    """Callable radio response owning persistent cuFINUFFT plans.
+    """Callable radio response that holds its cufinufft ``PlanSet`` explicitly.
 
-    Construction uploads points and computes the pixel volume and phase
-    correction. Each transform type, sign and batch size gets a plan and
-    point sort on first lowering. Compiled likelihoods retain the internal
-    ``PlanSet`` even after this response instance is released.
+    Compiled likelihoods retain the ``PlanSet`` on their own, so dropping
+    this instance does not free the plans. Call ``plans.close()`` to release
+    the GPU resources early if wanted.
     """
 
     def __init__(
@@ -346,15 +346,15 @@ class CufinufftResponse:
 
         self._n_freqs = len(observation.freq)
         self._vol = pixsize_x * pixsize_y
-        u_finu, v_finu, self._phase_shift = _finufft_points_and_phase(
+        u_finu, v_finu, self._phase_shift = _uv_radians_and_phase_shift(
             observation, pixsize_x, pixsize_y, center_x, center_y
         )
-        self._plans = PlanSet(
+        self.plans = PlanSet(
             (npix_x, npix_y),
             u_finu,
             v_finu,
             eps=settings.epsilon,
-            dtype=np.complex128,
+            dtype=np.dtype(settings.dtype),
             gpu_maxbatchsize=settings.gpu_maxbatchsize,
             upsampfac=settings.upsampfac,
         )
@@ -363,10 +363,32 @@ class CufinufftResponse:
         """Map a sky image to visibilities with shape ``(n_rows, n_freqs)``."""
         from .cufinufft import nufft2
 
-        res = self._vol * nufft2(inp, self._plans)
+        res = self._vol * nufft2(inp, self.plans)
         if self._phase_shift is not None:
             res = res * self._phase_shift
         return res.reshape(-1, self._n_freqs)
+
+
+def interferometry_response_cufinufft(
+    observation,
+    npix_x,
+    npix_y,
+    pixsize_x,
+    pixsize_y,
+    settings: CufinufftSettings,
+    center_x=None,
+    center_y=None,
+):
+    return CufinufftResponse(
+        observation=observation,
+        npix_x=npix_x,
+        npix_y=npix_y,
+        pixsize_x=pixsize_x,
+        pixsize_y=pixsize_y,
+        settings=settings,
+        center_x=center_x,
+        center_y=center_y,
+    )
 
 
 def interferometry_response_finufft(
@@ -376,7 +398,7 @@ def interferometry_response_finufft(
 
     freq = observation.freq
     vol = pixsize_x * pixsize_y
-    u_finu, v_finu, phase_shift = _finufft_points_and_phase(
+    u_finu, v_finu, phase_shift = _uv_radians_and_phase_shift(
         observation, pixsize_x, pixsize_y, center_x, center_y
     )
 

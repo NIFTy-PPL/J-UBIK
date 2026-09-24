@@ -16,6 +16,10 @@
 
 """JAX primitive around ``cufinufft_execute`` on a :class:`PlanSet`.
 
+This is the only module that touches JAX internals (``jax._src``): the
+primitive needs a transpose rule for the adjoint, which ``jax.ffi.ffi_call``
+does not offer. When a JAX bump breaks the backend, the breakage is here.
+
 One primitive, ``cufinufft_exec_p``, covers both transform types.  It always
 works on a stack of ``n_trans`` transforms:
 
@@ -42,7 +46,7 @@ from jax._src import dispatch
 from jax._src.interpreters import ad, batching, mlir
 from jax.extend.core import Primitive
 
-from ._handles import PlanSet
+from ._plan import PlanSet
 
 cufinufft_exec_p = Primitive("cufinufft_exec")
 
@@ -75,19 +79,12 @@ cufinufft_exec_p.def_impl(partial(dispatch.apply_primitive, cufinufft_exec_p))
 
 
 def _lowering(ctx, source, *, plan_set: PlanSet, nufft_type: int, iflag: int):
-    handle_ptr = plan_set._handle(nufft_type, iflag, ctx.avals_in[0].shape[0])
-    # Raw addresses in the HLO do not keep Python owners alive. Retain the
-    # points, plans, stream and native mutex even if the tracing closure dies.
+    plan = plan_set.plan(nufft_type, iflag, ctx.avals_in[0].shape[0])
+    # The HLO carries a raw address, which keeps no Python owner alive. Retain
+    # the PlanSet (points, plans, stream) even if the tracing closure dies.
     ctx.module_context.add_keepalive(plan_set)
-    is_double = ctx.avals_in[0].dtype == np.complex128
-    rule = jax.ffi.ffi_lowering("cufinufft_exec")
-    return rule(
-        ctx,
-        source,
-        handle_ptr=np.int64(handle_ptr),
-        nufft_type=np.int64(nufft_type),
-        is_double=np.int64(is_double),
-    )
+    rule = jax.ffi.ffi_lowering(plan_set._backend.exec.HANDLER_NAME)
+    return rule(ctx, source, handle_ptr=np.int64(plan.address))
 
 
 mlir.register_lowering(cufinufft_exec_p, _lowering, platform="cuda")
