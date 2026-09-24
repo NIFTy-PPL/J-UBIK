@@ -188,3 +188,53 @@ def test_device_used_bytes_is_none_off_gpu():
     from jubik.profiling import _device_used_bytes
 
     assert _device_used_bytes(jax.devices('cpu')[0]) is None
+
+
+def test_jvp_tangent_is_a_runtime_argument():
+    # A closed-over tangent lets XLA fold a linear model's derivative into a
+    # constant: the executable then has no flops at all.
+    A = jax.random.normal(jax.random.PRNGKey(0), (64, 64))
+    linear = jft.Model(lambda x: A @ x,
+                       domain=jft.ShapeWithDtype((64,), jnp.float64))
+    row = profile_model(linear, jvp=True, n=2)
+    assert row.jvp_flops == row.flops == 2 * 64 * 64
+
+
+def test_profile_model_runs_on_the_given_device(monkeypatch):
+    import jubik.profiling as profiling
+
+    device = jax.devices('cpu')[-1]
+    seen = []
+    timed_compile = profiling._timed_compile
+
+    def spy(fun, *args):
+        seen.extend(leaf.devices() for leaf in jax.tree_util.tree_leaves(args))
+        return timed_compile(fun, *args)
+
+    monkeypatch.setattr(profiling, '_timed_compile', spy)
+    profile_model(lambda x: x ** 2, x=jnp.ones((8, 8)), jvp=True, n=2,
+                  device=device)
+    assert seen and all(devs == {device} for devs in seen)
+
+
+def test_device_used_bytes_skips_multi_gpu(monkeypatch):
+    import subprocess
+
+    import jubik.profiling as profiling
+
+    class FakeGpu:
+        platform = 'gpu'
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(args, 0, stdout='100\n200\n')
+
+    monkeypatch.setattr(profiling, '_NVIDIA_SMI_OK', None)
+    monkeypatch.setattr(profiling.subprocess, 'run', fake_run)
+    assert profiling._device_used_bytes(FakeGpu()) is None
+    assert profiling._NVIDIA_SMI_OK is False
+
+    monkeypatch.setattr(profiling, '_NVIDIA_SMI_OK', None)
+    monkeypatch.setattr(
+        profiling.subprocess, 'run',
+        lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout='100\n'))
+    assert profiling._device_used_bytes(FakeGpu()) == 100 * 2 ** 20

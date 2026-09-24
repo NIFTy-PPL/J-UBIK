@@ -56,10 +56,10 @@ def _cost_dict(compiled):
     return dict(cost) if cost else {}
 
 
-def _timed_compile(fun, x):
-    """AOT-compile `fun` for input `x`, returning (compiled, seconds)."""
+def _timed_compile(fun, *args):
+    """AOT-compile `fun` for inputs `args`, returning (compiled, seconds)."""
     t0 = time.perf_counter()
-    compiled = jax.jit(fun).lower(x).compile()
+    compiled = jax.jit(fun).lower(*args).compile()
     return compiled, time.perf_counter() - t0
 
 
@@ -83,34 +83,49 @@ def _device_used_bytes(device):
     card's used memory. Device-wide, so on a shared card other processes
     leak in; with XLA preallocation on, the pool itself is constant and the
     growth between two readings is dominated by exactly those foreign
-    allocations. Costs one `nvidia-smi` call (tens of ms); disabled after
+    allocations. It is a point reading: a workspace allocated and freed
+    within one call is gone by the time we look. Costs one `nvidia-smi` call (tens of ms); disabled after
     the first failure.
+
+    Only works when `nvidia-smi` sees a single GPU. A JAX device ordinal
+    is not an `nvidia-smi` index: `CUDA_VISIBLE_DEVICES`,
+    `JAX_CUDA_VISIBLE_DEVICES` and CUDA's default fastest-first order all
+    remap it, so with more than one card the reading could silently
+    describe another GPU. There it warns once and returns None. To support
+    multi-GPU nodes, map the device to its PCI bus id (e.g.
+    `cudaDeviceGetPCIBusId`) and query `nvidia-smi -i <bus id>`.
     """
     global _NVIDIA_SMI_OK
     if _NVIDIA_SMI_OK is False or getattr(device, 'platform', None) != 'gpu':
         return None
-    index = getattr(device, 'local_hardware_id', None)
-    if index is None:
-        index = getattr(device, 'id', 0)
     try:
         out = subprocess.run(
-            ['nvidia-smi', '-i', str(index), '--query-gpu=memory.used',
+            ['nvidia-smi', '--query-gpu=memory.used',
              '--format=csv,noheader,nounits'],
             capture_output=True, text=True, timeout=5, check=True).stdout
-        used = int(float(out.strip().splitlines()[0])) * 2 ** 20
+        lines = out.strip().splitlines()
+        used = [int(float(line)) * 2 ** 20 for line in lines]
     except Exception:
         _NVIDIA_SMI_OK = False
         return None
+    if len(used) != 1:
+        _NVIDIA_SMI_OK = False
+        jft.logger.warning(
+            f'nvidia-smi reports {len(used)} GPUs; device-wide memory is '
+            'only supported on single-GPU nodes, `device_growth_bytes` stays '
+            'empty. See `jubik.profiling._device_used_bytes`.')
+        return None
     _NVIDIA_SMI_OK = True
-    return used
+    return used[0]
 
 
-def _best_of(compiled, x, n):
-    """Min-of-n wall-clock runtime, blocking on every call."""
+def _best_of(compiled, args, n):
+    """Min-of-n wall-clock runtime of `compiled(*args)`, blocking on every
+    call."""
     best = np.inf
     for _ in range(n):
         t0 = time.perf_counter()
-        jax.block_until_ready(compiled(x))
+        jax.block_until_ready(compiled(*args))
         best = min(best, time.perf_counter() - t0)
     return best
 
@@ -212,9 +227,10 @@ class ProfileRow:
     jvp_est_total_bytes: int = None
     #: Allocator counters around the row (`device.memory_stats()`).
     #: `bytes_before`/`bytes_after`: `bytes_in_use` before the first compile
-    #: and after this row's executables are dropped; their difference is
-    #: what the row left resident. `peak_before`/`peak_after`: the
-    #: process-wide `peak_bytes_in_use` at the same two points.
+    #: and after this row's executables and tangent are dropped; their
+    #: difference is what the row left resident. The input `x` is resident
+    #: at both points. `peak_before`/`peak_after`: the process-wide
+    #: `peak_bytes_in_use` at the same two points.
     bytes_before: int = None
     bytes_after: int = None
     peak_before: int = None
@@ -230,8 +246,11 @@ class ProfileRow:
     peak_phase: str = None
     #: Device-wide used memory (`nvidia-smi`, outside XLA's counters) before
     #: the row, its maximum over the step checkpoints minus that baseline,
-    #: and after the row. `device_growth_bytes` catches what a custom call
-    #: allocates itself (cufinufft, cuFFT plans); None without nvidia-smi.
+    #: and after the row. Read only at the checkpoints, between calls, so
+    #: `device_growth_bytes` sees what a custom call allocates itself and
+    #: keeps (cached cufinufft/cuFFT plans), not a workspace it frees again
+    #: before returning. None without nvidia-smi or when it sees more than
+    #: one GPU.
     device_used_before: int = None
     device_growth_bytes: int = None
     device_used_after: int = None
@@ -292,8 +311,9 @@ def profile_model(model, x=None, *, name=None, grad=False, jvp=False, n=50,
         number of visibilities a response maps to. Rendered as extra
         table columns and kept in the JSON.
     device : jax Device, optional
-        Device whose `memory_stats()` feed `peak_bytes`. Default
-        `jax.devices()[0]`.
+        Device the model runs on and whose `memory_stats()` feed
+        `peak_bytes`. The input is synthesized on, or moved to, this
+        device. Default `jax.devices()[0]`.
 
     Returns
     -------
@@ -316,18 +336,26 @@ def profile_model(model, x=None, *, name=None, grad=False, jvp=False, n=50,
     `peak_trace` keeps the counters after every step. Run rows in growing
     size order, in a fresh process, to get a value on most rows. All of
     them are None on backends without memory statistics (CPU).
+
+    `device_growth_bytes` is checkpointed too: `nvidia-smi` after every
+    step, not a peak during execution. It adds the foreign allocations
+    still held at a checkpoint and misses transient ones.
     """
     if key is None:
         key = jax.random.PRNGKey(42)
-    if x is None:
-        x = _synthesize_input(model, key)
     if name is None:
         name = type(model).__name__
+    if device is None:
+        device = jax.devices()[0]
+    # Execute where we monitor: `_timed_compile` follows the input's
+    # placement, so synthesize on `device` and move a caller's `x` there.
+    with jax.default_device(device):
+        if x is None:
+            x = _synthesize_input(model, key)
+        x = jax.device_put(x, device)
 
     if clear_caches:
         jax.clear_caches()
-    if device is None:
-        device = jax.devices()[0]
     stats_before = _device_stats(device)
     bytes_before = stats_before.get('bytes_in_use')
     peak_before = stats_before.get('peak_bytes_in_use')
@@ -348,7 +376,7 @@ def profile_model(model, x=None, *, name=None, grad=False, jvp=False, n=50,
     checkpoint('forward_compile')
 
     jax.block_until_ready(compiled(x))  # warmup, first call may still pay setup
-    runtime_s = _best_of(compiled, x, n)
+    runtime_s = _best_of(compiled, (x,), n)
     checkpoint('forward_run')
 
     grad_compiled = jvp_compiled = None
@@ -361,28 +389,35 @@ def profile_model(model, x=None, *, name=None, grad=False, jvp=False, n=50,
         grad_mem = _memory_analysis(grad_compiled)
         checkpoint('grad_compile')
         jax.block_until_ready(grad_compiled(x))
-        grad_runtime_s = _best_of(grad_compiled, x, n)
+        grad_runtime_s = _best_of(grad_compiled, (x,), n)
         checkpoint('grad_run')
 
     jvp_compile_s = jvp_runtime_s = None
     jvp_cost, jvp_mem = {}, None
+    tangent = None
     if jvp:
-        tangent = jft.random_like(jax.random.split(key)[1], x)
-        jvp_fun = lambda p: jax.jvp(model, (p,), (tangent,))[1]
-        jvp_compiled, jvp_compile_s = _timed_compile(jvp_fun, x)
+        with jax.default_device(device):
+            tangent = jft.random_like(jax.random.split(key)[1], x)
+        # The tangent is a runtime argument. Closed over, it would be a
+        # compile-time constant and XLA could fold a linear model's whole
+        # derivative into it.
+        jvp_fun = lambda p, t: jax.jvp(model, (p,), (t,))[1]
+        jvp_compiled, jvp_compile_s = _timed_compile(jvp_fun, x, tangent)
         jvp_cost = _cost_dict(jvp_compiled)
         jvp_mem = _memory_analysis(jvp_compiled)
         checkpoint('jvp_compile')
-        jax.block_until_ready(jvp_compiled(x))
-        jvp_runtime_s = _best_of(jvp_compiled, x, n)
+        jax.block_until_ready(jvp_compiled(x, tangent))
+        jvp_runtime_s = _best_of(jvp_compiled, (x, tangent), n)
         checkpoint('jvp_run')
 
     peak_bytes, peak_phase = _peak_from_trace(trace, bytes_before, peak_before)
     device_growth = _device_growth(trace, device_used_before)
 
-    # Drop this row's executables and their device buffers before the next
-    # row compiles, so rows do not pile up on a small card.
+    # Drop this row's executables and buffers before the next row compiles,
+    # so rows do not pile up on a small card and `bytes_after` only shows
+    # what outlives the call. `x` already sits in `bytes_before`.
     compiled = grad_compiled = jvp_compiled = None
+    tangent = None
     gc.collect()
     stats_after = _device_stats(device)
     device_used_after = _device_used_bytes(device)
