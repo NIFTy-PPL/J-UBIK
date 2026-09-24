@@ -42,6 +42,14 @@ class WcsJwstData(WcsMixin):
     def __getattr__(self, name):
         return getattr(self._wcs, name)
 
+    def pixel_to_world(self, *index):
+        """Forward pixel coordinates to the wrapped GWCS."""
+        return self._wcs.pixel_to_world(*index)
+
+    def world_to_pixel(self, world):
+        """Forward world coordinates to the wrapped GWCS."""
+        return self._wcs.world_to_pixel(world)
+
     def world_corners(
         self,
         extension_factor: float = 1,
