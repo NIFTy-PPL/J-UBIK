@@ -57,6 +57,7 @@ healpix = [
 resolve = [
     "jaxbind",
     "jax-finufft",
+    "cufinufft>=2.3",
     "python-casacore",
     "ehtim",
 ]
