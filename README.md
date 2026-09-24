@@ -65,35 +65,9 @@ Install the CUDA build of jax and J-UBIK runs on the GPU:
 pip install --user "jax[cuda12]"   # or jax[cuda13], depending on the driver
 ```
 
-One exception: the PyPI wheel of `jax-finufft` is CPU only. The RESOLVE finufft
-response and the JWST nufft rotation fail at JIT time with "no lowering for
-cuda platform" until the package is rebuilt with CUDA. That needs `nvcc` on the
-`PATH`, then:
+One exception: the PyPI wheel of `jax-finufft` is CPU only. If you want to run
+RESOLVE on GPU please read the instructions below.
 
-```bash
-CMAKE_ARGS="-DJAX_FINUFFT_USE_CUDA=ON" pip install --force-reinstall --no-deps --no-binary jax-finufft jax-finufft
-```
-
-A project that uses J-UBIK with uv can make this the default of every
-`uv sync` in its own `pyproject.toml`:
-
-```toml
-[tool.uv]
-no-binary-package = ["jax-finufft"]
-
-[tool.uv.extra-build-variables]
-jax-finufft = { CMAKE_ARGS = "-DJAX_FINUFFT_USE_CUDA=ON" }
-```
-
-Verify with:
-
-```bash
-python -c "import jax; print(jax.devices())"                     # [CudaDevice(id=0)]
-python -c "from jax_finufft import jax_finufft_gpu; print('ok')"
-```
-
-The ducc0 wgridder response stays on the CPU, use the finufft backend for GPU
-runs.
 
 ## Development
 
@@ -218,6 +192,37 @@ pip install --user .[resolve]
 ## Demo
 `demos/resolve_demo.py`, `demos/resolve_synthetic_demo.py` and
 `demos/ms_readout_demo.py`.
+
+## GPU 
+
+The RESOLVE finufft response and the JWST nufft rotation fail at JIT time with
+"no lowering for cuda platform" until the package is rebuilt with CUDA. That 
+needs `nvcc` on the `PATH`, then:
+
+```bash
+CMAKE_ARGS="-DJAX_FINUFFT_USE_CUDA=ON" pip install --force-reinstall --no-deps --no-binary jax-finufft jax-finufft
+```
+
+A project that uses J-UBIK with uv can make this the default of every
+`uv sync` in its own `pyproject.toml`:
+
+```toml
+[tool.uv]
+no-binary-package = ["jax-finufft"]
+
+[tool.uv.extra-build-variables]
+jax-finufft = { CMAKE_ARGS = "-DJAX_FINUFFT_USE_CUDA=ON" }
+```
+
+Verify with:
+
+```bash
+python -c "import jax; print(jax.devices())"                     # [CudaDevice(id=0)]
+python -c "from jax_finufft import jax_finufft_gpu; print('ok')"
+```
+
+The ducc0 wgridder response stays on the CPU, use the finufft backend for GPU
+runs.
 
 ---
 
