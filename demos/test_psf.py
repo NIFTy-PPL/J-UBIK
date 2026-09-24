@@ -3,6 +3,7 @@ import numpy as np
 from matplotlib.colors import LogNorm
 
 import jubik as ju
+from jubik.parse.wcs.spatial_model import yaml_dict_to_square_size
 from jax import config, random, linear_transpose
 config.update('jax_enable_x64', True)
 
@@ -10,6 +11,7 @@ config.update('jax_enable_x64', True)
 if __name__ == "__main__":
     config_filename = "configs/eROSITA_demo_full_test.yaml"
     cfg = ju.get_config(config_filename)
+    spix = yaml_dict_to_square_size(cfg['grid'], consumer="eROSITA PSF demo")
     seed = 88
     key = random.PRNGKey(seed)
 
@@ -22,7 +24,6 @@ if __name__ == "__main__":
     tm_ids = cfg['telescope']['tm_ids']
     n_modules = len(tm_ids)
 
-    spix = cfg['grid']['sdim']
     epix = cfg['grid']['edim']
 
     # Load response
@@ -40,7 +41,7 @@ if __name__ == "__main__":
     key, subkey = random.split(key)
     random_sky = sky(sky.init(subkey))
 
-    random_sky = np.zeros((1024, 1024), dtype=int)
+    random_sky = np.zeros((spix, spix), dtype=int)
 
 
     spacing = 100

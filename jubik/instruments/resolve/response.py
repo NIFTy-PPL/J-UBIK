@@ -18,9 +18,9 @@ from typing import Union
 
 import numpy as np
 from astropy import units as u
-from jax import Array
+from jax import Array, linear_transpose
 from jax import numpy as jnp
-from jax.tree_util import Partial
+from jax.tree_util import Partial, tree_map
 
 from ...color import get_2d_binbounds
 from ...grid import Grid, PolarizationType
@@ -80,12 +80,41 @@ def convert_polarization(
     raise NotImplementedError(err)
 
 
+def canonical_sky_to_visibilities(backend_apply, sky_canonical):
+    """Apply a raw gridder to a canonical two-dimensional sky slice.
+
+    Canonical arrays have rows increasing North and columns increasing West.
+    The raw ducc/FINUFFT backends instead read axes as (l/RA, m/Dec), so this
+    boundary adapter transposes once, without conjugation or sign flips.
+    With uvw as loaded by ``ms2observations``, a point source obeys
+    ``V = vol * exp(+2*pi*i*(u*l_E + v*m_N))``.
+
+    The transpose is C-linear. Its contract is pinned by the radio claim
+    and seam tests; the sign-convention history is in
+    ``docs/source/user/canonical-sky-design.md``.
+    """
+    return backend_apply(jnp.transpose(sky_canonical))
+
+
+def _hermitian_adjoint(response, primals, cotangent):
+    """Return ``conj(R^T(conj(cotangent)))`` for a linear response ``R``."""
+    transpose = linear_transpose(response, primals)
+    conjugate = lambda x: tree_map(jnp.conj, x)
+    return conjugate(transpose(conjugate(cotangent))[0])
+
+
 def interferometry_response(
     observation: Observation,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
 ):
     """Returns a function computing the radio interferometric response
+
+    Input sky frame is CANONICAL (``dim0 = +Dec``/North, ``dim1 = -RA``/West;
+    see ``docs/source/user/canonical-sky-design.md``).  The response owns the conversion to the
+    wgridder-native layout: each spatial slice is routed through
+    ``canonical_sky_to_visibilities`` before the per-bin backend op, so callers
+    author sky cubes in the canonical frame and never transpose themselves.
 
     Parameters
     ----------
@@ -118,8 +147,12 @@ def interferometry_response(
     n_freqs = len(frequencies)
     # bb_freqs = np.array(frequencies)
 
-    npix_x, npix_y = sky_grid.spatial.shape
-    pixsize_x, pixsize_y = sky_grid.spatial.distances.to(RESOLVE_SPATIAL_UNIT).value
+    # The sky array is canonical (dim0 = Dec, dim1 = RA); the wgridder x-axis
+    # is l/RA, so read the RA quantities from index 1 and Dec from index 0.
+    npix_x, npix_y = sky_grid.spatial.shape_xy
+    pixsize_x, pixsize_y = sky_grid.spatial.pixel_scales_xy.to(
+        RESOLVE_SPATIAL_UNIT
+    ).value
     center_x, center_y = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
         sky_grid.spatial.center
@@ -209,7 +242,7 @@ def interferometry_response(
                     if op is None:
                         continue
                     inp = sky[pp, tt, ff]
-                    r = op(inp)
+                    r = canonical_sky_to_visibilities(op, inp)
                     res = res.at[pp, row_indices[tt][ff], freq_indices[tt][ff]].set(r)
         return convert_polarization(res, inp_pol, out_pol)
 

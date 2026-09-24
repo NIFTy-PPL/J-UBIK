@@ -2,9 +2,7 @@ from dataclasses import dataclass
 from typing import Callable, Union
 
 import nifty.re as jft
-from jax import Array, linear_transpose
-from jax import numpy as jnp
-from jax.tree_util import tree_map
+from jax import Array
 from numpy.typing import NDArray
 
 from ....grid import Grid
@@ -13,7 +11,7 @@ from ..mosaicing.sky_beamer import SkyBeamer
 from ..noise.factory_noise_correction import factory_noise_correction_model
 from ..parse.noise.base_line_correction import BaseLineCorrection
 from ..parse.response import Ducc0Settings, FinufftSettings
-from ..response import interferometry_response
+from ..response import _hermitian_adjoint, interferometry_response
 
 
 def create_response_operator(
@@ -73,12 +71,8 @@ class LikelihoodBuilderBase:
     field_name: str
 
     def response_adjoint(self, primals: NDArray | Array) -> dict[str, Array]:
-        """Get the response_adjoint for the data."""
-
-        adjoint = linear_transpose(self.response, self.response.domain)
-        conj = lambda x: tree_map(jnp.conj, x)
-
-        return conj(adjoint(conj(primals))[0])
+        """Apply the Hermitian adjoint of the response."""
+        return _hermitian_adjoint(self.response, self.response.domain, primals)
 
     @property
     def visibilities(self) -> NDArray:

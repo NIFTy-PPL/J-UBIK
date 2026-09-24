@@ -10,7 +10,7 @@ obs_info:
     mask_file: secondary/acisf04948_001N004_msk1.fits
     instrument: ACIS-S
 grid:
-  sdim: 1024
+  shape: 1024
   edim: 1
   s_padding_ratio: 1.1075
   e_padding_ratio: 1.

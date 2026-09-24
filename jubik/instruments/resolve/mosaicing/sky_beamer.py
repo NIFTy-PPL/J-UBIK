@@ -23,14 +23,14 @@ import nifty.re as jft
 import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import ArrayLike
 
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_modify.frequency import restrict_by_freq
 from ..data.direction import Direction
 from ..data.observation import Observation
 from ..util import calculate_phase_offset_to_image_center
-from .sky_wcs import build_astropy_wcs
+from ....wcs.wcs_astropy import WcsAstropy
 
 
 @dataclass
@@ -59,33 +59,23 @@ class SkyBeamer(jft.Model):
         beam_directions: dict[BeamPattern],
     ):
         self.beam_directions = dict(beam_directions)
-
-        self.target_and_beams = {}
-        for target_keys, vv in self.beam_directions.items():
-            self.target_and_beams[target_keys] = vv.beam
-
         super().__init__(domain=domain_shape)
 
     def __call__(self, x):
-        out = {}
-        for key, beam in self.target_and_beams.items():
-            out[key] = x * beam
-        return out
-
-    @classmethod
-    def _create_object(cls, domain, beam_directions: dict):
-        return cls(domain, beam_directions)
+        return {
+            key: x * pattern.beam
+            for key, pattern in self.beam_directions.items()
+        }
 
     def __add__(self, other):
         assert self.domain == other.domain
         bd = self.beam_directions | other.beam_directions
-        return self._create_object(self.domain, bd)
+        return type(self)(self.domain, bd)
 
 
 def build_sky_beamer(
     sky_shape_with_dtype: jft.ShapeWithDtype,
-    sky_fov: u.Quantity,
-    sky_center: SkyCoord,
+    sky_wcs: WcsAstropy,
     sky_frequency_means: u.Quantity,
     observations: list[Observation],
     beam_func: Callable[float, float],
@@ -96,16 +86,19 @@ def build_sky_beamer(
     pointing containing the beam pattern for the mean of all
     `sky_frequency_means`.
 
+    Beams pair index-for-index with the canonical sky: ``beam[..., y, x]`` is
+    the beam at the world position of sky pixel ``[y, x]`` as given by
+    ``sky_wcs``.
+
     Parameters
     ----------
     sky_shape_with_dtype:
-        Polarization, Time, Frequency, Sky
+        Polarization, Time, Frequency, Sky. The trailing (Sky) axes must equal
+        ``sky_wcs.shape_yx``.
 
-    sky_fov:
-        Fov, preferably given in units of [rad]
-
-    sky_center:
-        The world coordinate of the Sky reference center.
+    sky_wcs:
+        The reconstruction grid's spatial WCS. Provides the pixel grid, the sky
+        center and the pixel-to-world mapping.
 
     sky_frequency_means: u.Quantity
         The binbounds of the reconstruction sky required to be in Hz.
@@ -140,9 +133,14 @@ def build_sky_beamer(
     """
 
     _, _, fshape, *sshape = sky_shape_with_dtype.shape
-
-    wcs = build_astropy_wcs(sky_center, sshape, sky_fov)
-    sky_coords = wcs.pixel_to_world(*np.meshgrid(*[np.arange(s) for s in sshape]))
+    if tuple(sshape) != sky_wcs.shape_yx:
+        raise ValueError(
+            f"sky trailing shape {tuple(sshape)} does not match sky_wcs.shape_yx "
+            f"{sky_wcs.shape_yx}"
+        )
+    sky_center = sky_wcs.center
+    # sky_coords[y, x] is the world position of sky pixel [y, x]
+    sky_coords = sky_wcs.indices_yx_to_world(*np.indices(sky_wcs.shape_yx))
 
     beam_directions = {}
     for ii, oo in enumerate(_filter_pointings_generator(observations, direction_key)):
@@ -167,10 +165,6 @@ def build_sky_beamer(
                 .value
             )
             beam = beam_func(freq=freq_mean, x=x)
-
-            # TODO : Why do we need to tranpose?
-            # Does this come from the Fourier convention of the radio response?
-            beam = np.transpose(beam)
             beam_pointing.append(beam)
 
         beam = jnp.array(beam_pointing)
@@ -189,8 +183,9 @@ def _filter_pointings_generator(observations: list[Observation], direction_key: 
     field_pointings = list()
 
     for obs in observations:
-        if obs.direction_from_key(direction_key) not in field_pointings:
-            field_pointings.append(obs.direction_from_key(direction_key))
+        direction = obs.direction_from_key(direction_key)
+        if direction not in field_pointings:
+            field_pointings.append(direction)
             yield obs
 
 

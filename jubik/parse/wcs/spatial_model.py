@@ -4,11 +4,14 @@ import astropy.units as u
 
 from dataclasses import dataclass
 
+from ..._deprecation import legacy_sdim_shape
+from ..._spatial_validation import normalize_fov, normalize_shape
+
 
 @dataclass
 class SpatialModel:
-    shape: tuple[int, int]
-    fov: tuple[u.Quantity, u.Quantity]
+    shape_xy: tuple[int, int]
+    fov_xy: tuple[u.Quantity, u.Quantity]
     wcs_model: WcsModel
 
     @classmethod
@@ -16,7 +19,7 @@ class SpatialModel:
         ''' Builds the reconstruction grid from the given configuration.
 
         The reconstruction grid is defined by the world location, field of view
-        (FOV), shape (resolution), and rotation, all specified in the input
+        (FOV), shape (resolution), and position angle, all specified in the input
         configuration. These parameters are extracted from the grid_config
         dictionary using helper functions.
 
@@ -25,9 +28,13 @@ class SpatialModel:
         grid_config : dict
             The configuration dictionary containing the following keys:
             - `sky_center`: World coordinate of the spatial grid center.
-            - `fov`: Field of view of the grid in appropriate units.
-            - `sdim`: Shape of the grid, i.e. resolution, as (sdim, sdim).
-            - `rotation`: Rotation of the grid.
+            - `fov`: Field of view of the grid in appropriate units, in
+              public coordinate order `(fov_x, fov_y)` (a scalar is
+              broadcast to both axes).
+            - `shape`: Shape of the grid in public `(nx, ny)` order (a single
+              int is broadcast to `(n, n)`).
+            - `position_angle`: Astronomical position angle from North through
+              East.
             - `energy_bin`: Holding `e_min`, `e_max`, and `reference_bin`.
             - `energy_unit`: The units for `e_min` and `e_max`
 
@@ -36,76 +43,32 @@ class SpatialModel:
         fov = yaml_dict_to_fov(grid_config)
 
         return SpatialModel(
-            shape=shape,
-            fov=fov,
+            shape_xy=shape,
+            fov_xy=fov,
             wcs_model=WcsModel.from_yaml_dict(grid_config)
         )
 
 
 def yaml_dict_to_shape(grid_config: dict) -> tuple[int, int]:
-    """Get the spatial shape `sdim` from the grid_config."""
+    """Get public spatial ``(nx, ny)`` from the ``shape`` config key."""
 
-    SHAPE_KEY = 'sdim'
+    legacy_shape = legacy_sdim_shape(grid_config)
+    if legacy_shape is not None:
+        return legacy_shape
+    return normalize_shape(grid_config["shape"], "shape")
 
-    npix = grid_config[SHAPE_KEY]
-    if isinstance(npix, int):
-        return (npix, npix)
 
-    if len(npix) == 2:
-        return npix
+def yaml_dict_to_square_size(grid_config: dict, *, consumer: str) -> int:
+    """Return the pixel count for a square-only legacy instrument adapter."""
 
-    raise ValueError(f'Only two spatial dimensions. Provided {npix}.')
+    nx, ny = yaml_dict_to_shape(grid_config)
+    if nx != ny:
+        raise ValueError(
+            f"{consumer} currently requires a square grid; got shape={(nx, ny)}"
+        )
+    return nx
 
 
 def yaml_dict_to_fov(grid_config: dict) -> tuple[u.Quantity, u.Quantity]:
     """Get the field of view `fov` from the grid_config."""
-    FOV_KEY = 'fov'
-
-    fov = grid_config[FOV_KEY]
-    if not (isinstance(fov, int) or isinstance(fov, float)) and len(fov) == 2:
-        fov = list(map(u.Quantity, fov))
-    else:
-        fov = (u.Quantity(fov),)*2
-
-    for f in fov:
-        assert f.unit != u.dimensionless_unscaled, (
-            f'`{FOV_KEY}` should carry a unit.')
-
-    return fov
-
-
-def resolve_str_to_quantity(s) -> u.Quantity:
-    """Convert string of number and unit to radian.
-
-    Support the following units: muas mas as amin deg rad.
-
-    Parameters
-    ----------
-    s : str
-        "muas": u.microarcsecond,  # TODO: Change to uas
-        "mas": u.milliarcsecond,
-        "as": u.arcsecond,  # TODO: Change to arcsec
-        "amin": u.arcmin,
-        "deg": u.deg,
-        "rad": u.rad,
-
-    """
-    # TODO: Change as->arcsec, and muas->uas. Then one this function is simply:
-    # return u.Quantity(s)
-
-    units = {
-        "muas": u.microarcsecond,
-        "mas": u.milliarcsecond,
-        "as": u.arcsecond,
-        "amin": u.arcmin,
-        "deg": u.deg,
-        "rad": u.rad,
-    }
-    keys = list(units.keys())
-    keys.sort(key=len)
-    for kk in reversed(keys):
-        nn = -len(kk)
-        unit = s[nn:]
-        if unit == kk:
-            return float(s[:nn])*units[kk]
-    raise RuntimeError("Unit not understood")
+    return tuple(normalize_fov(grid_config["fov"], "fov"))

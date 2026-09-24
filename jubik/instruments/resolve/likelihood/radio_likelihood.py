@@ -145,7 +145,6 @@ def build_radio_likelihood(
         last_radio_bin,
         sky_domain=sky_domain,
         sky_unit=sky_unit,
-        # transpose=response_settings.transpose,
     )
     radio_grid = build_radio_grid(last_radio_bin, sky_grid)
 
@@ -178,8 +177,7 @@ def build_radio_likelihood(
 
         _sky_beamer = build_sky_beamer(
             sky_shape_with_dtype=radio_sky_extractor.target,
-            sky_fov=radio_grid.spatial.fov,
-            sky_center=radio_grid.spatial.center,
+            sky_wcs=radio_grid.spatial,
             sky_frequency_means=radio_grid.spectral.center,
             observations=observations,
             beam_func=beam_func,

@@ -45,7 +45,7 @@ plotting:
   dpi: 300
 
 grid:
-  sdim: 512
+  shape: 512
   edim: 3 # FIXME: remove this parameter
   s_padding_ratio: 1.1075 # leads to a 1134, which is a "good size" padded space
   e_padding_ratio: 1.

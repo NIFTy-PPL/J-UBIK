@@ -12,7 +12,7 @@ obs_info:
 
 
 grid:
-  sdim: 1024
+  shape: 1024
   edim: 1
   s_padding_ratio: 1.1075
   e_padding_ratio: 1.
