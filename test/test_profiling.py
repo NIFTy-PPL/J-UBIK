@@ -5,7 +5,8 @@ import jax.numpy as jnp
 import nifty.re as jft
 import pytest
 
-from jubik.profiling import ProfilingCallback, profile_model, profile_tree
+from jubik.profiling import (ProfileReport, ProfilingCallback, profile_model,
+                             profile_tree)
 
 jax.config.update('jax_platform_name', 'cpu')
 
@@ -96,3 +97,144 @@ def test_profiling_callback_writes_jsonl(sub_models, tmp_path):
     assert [r['nit'] for r in records] == [1, 2]
     assert records[0]['wall_s'] is None
     assert records[1]['wall_s'] > 0
+
+
+def test_profile_model_jvp_and_meta(sub_models):
+    diffuse, _ = sub_models
+    row = profile_model(diffuse, jvp=True, n=3, meta={'n_vis': 7})
+    assert row.jvp_compile_s > 0
+    assert row.jvp_runtime_s > 0
+    assert row.grad_runtime_s is None
+    assert row.meta == {'n_vis': 7}
+    # CPU backend: no memory statistics, no flops estimate.
+    assert row.peak_bytes is None
+    assert row.intensity is None or row.intensity > 0
+
+
+def test_report_meta_columns_and_markdown(sub_models, tmp_path):
+    diffuse, points = sub_models
+    report = profile_tree({'diffuse': diffuse, 'points': points}, n=3,
+                          jvp=True, verbose=False,
+                          meta={'diffuse': {'n_vis': 7}})
+    table = str(report)
+    header = table.splitlines()[0]
+    assert 'n_vis' in header
+    assert 'jvp_runtime_s' in header
+    # never measured on this backend, so the column is dropped
+    assert 'peak_bytes' not in header
+    assert 'grad_runtime_s' not in header
+
+    md = report.to_markdown()
+    assert md.startswith('| name | n_vis |')
+    assert '| :-- | --: |' in md
+
+    out = tmp_path / 'profile.json'
+    report.to_json(out)
+    payload = json.loads(out.read_text())
+    assert payload['rows'][0]['meta'] == {'n_vis': 7}
+    assert payload['rows'][1]['meta'] == {}
+    assert 'intensity' in payload['rows'][0]
+
+
+def test_peak_from_trace_only_when_the_row_raised_the_peak():
+    from jubik.profiling import _peak_from_trace
+
+    # inherited: no checkpoint moves above the pre-row process peak
+    trace = {'forward_compile': {'bytes_in_use': 110, 'peak_bytes_in_use': 1000},
+             'forward_run': {'bytes_in_use': 110, 'peak_bytes_in_use': 1000}}
+    assert _peak_from_trace(trace, bytes_before=100, peak_before=1000) == (None, None)
+
+    # raised during the grad run: exact increment above the row's baseline
+    trace['grad_compile'] = {'bytes_in_use': 120, 'peak_bytes_in_use': 1000}
+    trace['grad_run'] = {'bytes_in_use': 120, 'peak_bytes_in_use': 1500}
+    trace['jvp_run'] = {'bytes_in_use': 120, 'peak_bytes_in_use': 1500}
+    assert _peak_from_trace(trace, 100, 1000) == (1400, 'grad_run')
+
+    # no statistics at all (CPU)
+    assert _peak_from_trace({}, None, None) == (None, None)
+
+
+def test_profile_model_derivative_static_memory(sub_models):
+    diffuse, _ = sub_models
+    row = profile_model(diffuse, grad=True, jvp=True, n=3)
+    # static XLA estimates exist per executable on every backend
+    assert row.grad_est_total_bytes > 0 and row.jvp_est_total_bytes > 0
+    assert row.grad_temp_bytes is not None and row.jvp_temp_bytes is not None
+    # CPU: no allocator statistics, so the dynamic columns stay None
+    assert (row.bytes_before, row.peak_after, row.peak_bytes, row.peak_phase) == (None,) * 4
+    assert row.peak_trace == {}
+    d = ProfileReport._row_dict(row) if hasattr(ProfileReport, '_row_dict') else None
+    assert d is None or 'peak_trace' in d
+
+
+def test_empty_report_renders():
+    report = ProfileReport([], None)
+    assert str(report).splitlines()[0].strip() == 'name'
+    assert report.to_markdown().startswith('| name |')
+
+
+def test_device_growth_and_negative_bytes_format():
+    from jubik.profiling import _device_growth, _fmt_bytes
+
+    trace = {'a': {'device_used_bytes': 100}, 'b': {'device_used_bytes': 300},
+             'c': {'device_used_bytes': None}}
+    assert _device_growth(trace, 50) == 250
+    assert _device_growth(trace, None) is None
+    assert _device_growth({}, 50) is None
+    assert _fmt_bytes(-3 * 2**20) == '-3.0MB'
+
+
+def test_device_used_bytes_is_none_off_gpu():
+    from jubik.profiling import _device_used_bytes
+
+    assert _device_used_bytes(jax.devices('cpu')[0]) is None
+
+
+def test_jvp_tangent_is_a_runtime_argument():
+    # A closed-over tangent lets XLA fold a linear model's derivative into a
+    # constant: the executable then has no flops at all.
+    A = jax.random.normal(jax.random.PRNGKey(0), (64, 64))
+    linear = jft.Model(lambda x: A @ x,
+                       domain=jft.ShapeWithDtype((64,), jnp.float64))
+    row = profile_model(linear, jvp=True, n=2)
+    assert row.jvp_flops == row.flops == 2 * 64 * 64
+
+
+def test_profile_model_runs_on_the_given_device(monkeypatch):
+    import jubik.profiling as profiling
+
+    device = jax.devices('cpu')[-1]
+    seen = []
+    timed_compile = profiling._timed_compile
+
+    def spy(fun, *args):
+        seen.extend(leaf.devices() for leaf in jax.tree_util.tree_leaves(args))
+        return timed_compile(fun, *args)
+
+    monkeypatch.setattr(profiling, '_timed_compile', spy)
+    profile_model(lambda x: x ** 2, x=jnp.ones((8, 8)), jvp=True, n=2,
+                  device=device)
+    assert seen and all(devs == {device} for devs in seen)
+
+
+def test_device_used_bytes_skips_multi_gpu(monkeypatch):
+    import subprocess
+
+    import jubik.profiling as profiling
+
+    class FakeGpu:
+        platform = 'gpu'
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(args, 0, stdout='100\n200\n')
+
+    monkeypatch.setattr(profiling, '_NVIDIA_SMI_OK', None)
+    monkeypatch.setattr(profiling.subprocess, 'run', fake_run)
+    assert profiling._device_used_bytes(FakeGpu()) is None
+    assert profiling._NVIDIA_SMI_OK is False
+
+    monkeypatch.setattr(profiling, '_NVIDIA_SMI_OK', None)
+    monkeypatch.setattr(
+        profiling.subprocess, 'run',
+        lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout='100\n'))
+    assert profiling._device_used_bytes(FakeGpu()) == 100 * 2 ** 20
