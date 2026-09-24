@@ -46,17 +46,58 @@ _REAL = {np.dtype(np.complex128): np.float64, np.dtype(np.complex64): np.float32
 
 
 def _device_pointer(arr) -> int:
+    """GPU memory address of a JAX array's buffer.
+
+    libcufinufft takes the non-uniform points as raw device pointers. The
+    caller must keep ``arr`` alive for as long as the pointer is used; here
+    :class:`PlanSet` holds the point arrays for the lifetime of its plans.
+    """
     return arr.__cuda_array_interface__["data"][0]
 
 
 class Plan:
     """One native cufinufft plan with its points set and sorted.
 
-    ``address`` is what the compiled program carries: the C++ handle that
-    bundles the plan, its stream, the execute function and the transform type.
+    A cufinufft plan is a prepared transform: it fixes the grid shape, the
+    transform type (1 is points to grid, 2 is grid to points), the sign of the
+    exponent, the precision, the requested accuracy and the number ``n_trans``
+    of transforms run together. Making it builds the cuFFT plan, the kernel's
+    Fourier coefficients and the work arrays; setting the points then sorts
+    them into bins. After that the plan can execute repeatedly with new data
+    at the same points, which is the only step a compiled program performs.
+
+    Instances are made by :meth:`PlanSet.plan`, never directly.
+
+    Parameters
+    ----------
+    backend : Backend
+        Loaded native libraries, used to destroy the plan.
+    plan_ptr : int
+        Pointer to the native cufinufft plan, owned by this object.
+    handle : PyCapsule
+        The C++ ``PlanHandle`` that the FFI handler receives. It bundles the
+        plan pointer, the stream, the precision-specific execute function and
+        the transform type. A PyCapsule is a Python object wrapping a raw C
+        pointer together with a destructor, so the handle is freed by Python
+        reference counting once this object drops it.
+    nufft_type : int
+        1 (points to grid) or 2 (grid to points).
+    iflag : int
+        Sign of the exponent, -1 or +1.
+    n_trans : int
+        Number of transforms executed together on the same points.
+    dtype : numpy dtype
+        ``complex64`` or ``complex128``.
+
+    Attributes
+    ----------
+    address : int
+        Address of the C++ handle. This integer is what the compiled program
+        carries as an attribute of the FFI call.
     """
 
     def __init__(self, backend: Backend, plan_ptr: int, handle, *, nufft_type: int, iflag: int, n_trans: int, dtype):
+        """Wrap an already built native plan and its handle, see :class:`Plan`."""
         self._backend = backend
         self._plan = plan_ptr
         self._handle = handle
@@ -67,6 +108,11 @@ class Plan:
         self.address = backend.exec.plan_handle_address(handle)
 
     def close(self) -> None:
+        """Destroy the native plan and drop the handle. Idempotent.
+
+        The caller must make sure no queued GPU work still uses the plan;
+        :meth:`PlanSet.close` synchronizes the stream before calling this.
+        """
         if self._plan is None:
             return
         destroy = self._backend.cuf._destroy_plan if self.dtype == np.complex128 else self._backend.cuf._destroy_planf
@@ -81,6 +127,13 @@ class Plan:
 class PlanSet:
     """The cufinufft plans of one set of non-uniform points.
 
+    A plan's key ``(nufft_type, iflag, n_trans)`` is fixed when it is made, and
+    one response needs several: the forward sky to visibility call uses
+    ``(2, -1, 1)``, its gradient ``(1, -1, 1)``, and a ``vmap`` over 8 skies
+    ``(2, -1, 8)``. These share points, grid, precision and stream, so one
+    PlanSet groups them and builds each on first request. It also owns the
+    CUDA stream all its plans run on (see :class:`CudaRuntime`).
+
     Parameters
     ----------
     n_modes : tuple of int
@@ -89,15 +142,44 @@ class PlanSet:
     x, y : array-like
         Non-uniform coordinates in radians, ``[-pi, pi)`` or ``[0, 2 pi)``.
     eps : float
-        Requested precision, as in jax-finufft.
+        Requested relative accuracy of the transform, as in jax-finufft.
     dtype : complex dtype
-        ``complex128`` (points ``float64``) or ``complex64``.
+        ``complex128`` (points ``float64``, needs ``jax_enable_x64``) or
+        ``complex64`` (points ``float32``).
     gpu_maxbatchsize : int
-        cufinufft's ``gpu_maxbatchsize``; 0 leaves its heuristic
-        (``min(n_trans, 8)`` grids per plan). 1 keeps a plan at one grid of
-        memory for any ``n_trans``.
+        How many of the ``n_trans`` transforms cufinufft processes together in
+        one pass over the fine grid. 0 lets the library choose
+        (``min(n_trans, 8)``); 1 keeps the workspace at one fine grid for any
+        ``n_trans``, which saves memory at some cost in speed. Not part of the
+        plan key.
     upsampfac : float
-        Oversampling factor sigma of the fine grid.
+        Ratio of the internal fine FFT grid to the requested grid, per
+        dimension. 2.0 is the default; 1.25 uses a smaller FFT grid, which
+        saves plan time (about 2.5 ms) and memory but needs a wider kernel;
+        on the ALMA data it does not change execute time.
+
+    Raises
+    ------
+    TypeError
+        If ``dtype`` is not ``complex64`` or ``complex128``.
+    RuntimeError
+        If ``complex128`` is asked for without ``jax_enable_x64``, or the
+        points do not live on a CUDA device.
+    NotImplementedError
+        If ``n_modes`` is not two dimensional.
+    ValueError
+        If ``x`` and ``y`` are not 1D arrays of equal length.
+
+    Notes
+    -----
+    Lifetime: when a program using this PlanSet is compiled, the lowering
+    registers the PlanSet as a keepalive of the executable, so every compiled
+    executable keeps its plans, points and stream alive. :meth:`close` is
+    therefore optional; ``__del__`` calls it once the last owner is gone.
+
+    Threading: ``_lock`` guards lazy plan construction from Python. Concurrent
+    executions of the same plan are serialized in C++ by a per-plan mutex,
+    which does not need the Python GIL.
     """
 
     def __init__(
@@ -141,7 +223,30 @@ class PlanSet:
         self.stream = self._backend.cuda.stream_create()
 
     def plan(self, nufft_type: int, iflag: int, n_trans: int) -> Plan:
-        """The plan for this transform, built on first request."""
+        """The plan for this transform, built on first request.
+
+        Called during lowering, so the plan is made and its points sorted once
+        per compiled program shape, not once per evaluation.
+
+        Parameters
+        ----------
+        nufft_type : int
+            1 (points to grid) or 2 (grid to points).
+        iflag : int
+            Sign of the exponent, -1 or +1.
+        n_trans : int
+            Number of transforms executed together.
+
+        Returns
+        -------
+        Plan
+            The cached plan for ``(nufft_type, iflag, n_trans)``.
+
+        Raises
+        ------
+        RuntimeError
+            If the PlanSet is closed or cufinufft fails to make the plan.
+        """
         key = (int(nufft_type), int(iflag), int(n_trans))
         # This lock protects lazy construction. Execution is protected by the
         # native mutex in each handle, without the Python GIL.
@@ -151,6 +256,13 @@ class PlanSet:
             return self._plans[key]
 
     def _build(self, nufft_type: int, iflag: int, n_trans: int) -> Plan:
+        """Make a native plan on this set's stream, set its points, wrap it.
+
+        This pays the plan cost and the point sort once. The stream is
+        synchronized after setting the points so that a failure surfaces here
+        rather than in the first execute, and a failed plan is destroyed before
+        the error propagates.
+        """
         if self.stream is None:
             raise RuntimeError("PlanSet is closed")
         cuf = self._backend.cuf
@@ -196,14 +308,17 @@ class PlanSet:
 
     @property
     def n_plans(self) -> int:
+        """Number of plans built so far."""
         return len(self._plans)
 
     def close(self) -> None:
         """Release plans and stream. Idempotent.
 
-        Order matters: queued work on the stream must finish before the plans
-        it uses are destroyed, and the plans before the stream they were
-        created on.
+        Order matters: first synchronize the stream, because queued work
+        references the plans; then destroy the plans, because they reference
+        the stream; then destroy the stream. After closing, requesting a new
+        plan raises. Calling this is optional, see the Notes of
+        :class:`PlanSet`.
         """
         with self._lock:
             if self.stream is None:
@@ -216,6 +331,7 @@ class PlanSet:
             self.stream = None
 
     def __del__(self):
+        """Close on garbage collection, ignoring errors during shutdown."""
         if getattr(self, "stream", None) is None:
             return
         try:

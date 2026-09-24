@@ -68,11 +68,27 @@ class FinufftSettings(StaticTyped):
 
 @dataclass
 class CufinufftSettings(StaticTyped):
-    """Radio response through persistent cufinufft plans.
+    """Settings of the radio response through persistent cufinufft plans.
 
     Plans and point sorts are built lazily during lowering, once per transform
     type, sign and batch size, then reused inside the likelihood. GPU only
     (see ``instruments.resolve.cufinufft``).
+
+    Parameters
+    ----------
+    epsilon : float
+        Requested relative accuracy of the transform. Required.
+    gpu_maxbatchsize : int
+        How many transforms cufinufft processes together in one pass over the
+        fine grid. 0 lets the library choose (``min(n_trans, 8)``); 1 keeps the
+        workspace at one fine grid, saving memory at some cost in speed.
+    upsampfac : float
+        Ratio of the internal fine FFT grid to the image grid, per dimension.
+        2.0 is the default; 1.25 needs less plan time and memory but a wider
+        kernel.
+    dtype : str, optional
+        "complex128" (default) matches the finufft backend; "complex64"
+        halves GPU memory and traffic of the transform.
     """
 
     epsilon: float

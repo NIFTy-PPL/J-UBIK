@@ -52,6 +52,12 @@ cufinufft_exec_p = Primitive("cufinufft_exec")
 
 
 def _abstract_eval(source, *, plan_set: PlanSet, nufft_type: int, iflag: int):
+    """Output shape and dtype of one execute, with the input checked.
+
+    JAX calls this while tracing, before any GPU work. Mismatched dtype or
+    shape is caught here with a readable message, since the C++ handler
+    trusts the buffers it receives to fit the plan.
+    """
     if source.dtype != plan_set.dtype:
         raise TypeError(
             f"cufinufft_exec: source dtype {source.dtype} does not match the plan's {plan_set.dtype}"
@@ -79,6 +85,13 @@ cufinufft_exec_p.def_impl(partial(dispatch.apply_primitive, cufinufft_exec_p))
 
 
 def _lowering(ctx, source, *, plan_set: PlanSet, nufft_type: int, iflag: int):
+    """Emit the FFI call for one execute into the compiled program.
+
+    This is where the plan for ``(nufft_type, iflag, n_trans)`` is built, once
+    per compiled shape, and where the executable is made to keep the PlanSet
+    alive. The program itself carries only the address of the plan's C++
+    handle, see :class:`Plan`.
+    """
     plan = plan_set.plan(nufft_type, iflag, ctx.avals_in[0].shape[0])
     # The HLO carries a raw address, which keeps no Python owner alive. Retain
     # the PlanSet (points, plans, stream) even if the tracing closure dies.
@@ -91,6 +104,13 @@ mlir.register_lowering(cufinufft_exec_p, _lowering, platform="cuda")
 
 
 def _transpose(ct, source, *, plan_set, nufft_type, iflag):
+    """Transpose rule: swap type 1 and type 2, keep ``iflag`` and PlanSet.
+
+    JAX's transpose of a complex linear map is bilinear, not the conjugate
+    adjoint, so the exponent sign stays the same (as in jax-finufft). Reverse
+    mode gradients of :func:`nufft2` therefore run a type 1 plan on the same
+    points, built on first use.
+    """
     assert ad.is_undefined_primal(source)
     if type(ct) is ad.Zero:
         return (ad.Zero(source.aval),)
@@ -106,6 +126,12 @@ ad.deflinear2(cufinufft_exec_p, _transpose)
 
 
 def _batch(args, dims, *, plan_set, nufft_type, iflag):
+    """Batching rule: fold the ``vmap`` axis into ``n_trans``.
+
+    A ``vmap`` over ``B`` sources becomes one execute with ``B * n_trans``
+    transforms, which cufinufft runs on the same sorted points in one call.
+    This needs its own plan, since ``n_trans`` is fixed when a plan is made.
+    """
     (source,), (bdim,) = args, dims
     source = batching.moveaxis(source, bdim, 0)
     batch, n_trans = source.shape[:2]
@@ -120,10 +146,29 @@ batching.primitive_batchers[cufinufft_exec_p] = _batch
 
 
 def nufft2(source, plan_set: PlanSet, *, iflag: int = -1):
-    """Grid ``(n_x, n_y)`` to the plan's points ``(M,)``.
+    """Type 2 NUFFT from the uniform grid ``(n_x, n_y)`` to the ``M`` points.
 
-    Same convention as ``jax_finufft.nufft2(source, x, y)``: ``x`` runs along
-    axis 0 of ``source``, ``iflag=-1`` puts a minus sign in the exponent.
+    Evaluates the Fourier series with coefficients ``source`` at the
+    non-uniform points of ``plan_set``; for the radio response this maps a sky
+    image to visibilities. Same convention as
+    ``jax_finufft.nufft2(source, x, y)``: ``x`` runs along axis 0 of
+    ``source`` and ``iflag=-1`` puts a minus sign in the exponent. Works under
+    ``jit``, ``grad`` and ``vmap``.
+
+    Parameters
+    ----------
+    source : array, shape ``plan_set.n_modes``
+        Values on the uniform grid, cast to ``plan_set.dtype``.
+    plan_set : PlanSet
+        Holds the points and the plans. Its plans are built when the calling
+        program is compiled.
+    iflag : int, optional
+        Sign of the exponent, -1 (default) or +1.
+
+    Returns
+    -------
+    array, shape ``(M,)``
+        Values at the points, ``M = plan_set.n_points``.
     """
     source = source.astype(plan_set.dtype)
     out = cufinufft_exec_p.bind(
@@ -133,7 +178,27 @@ def nufft2(source, plan_set: PlanSet, *, iflag: int = -1):
 
 
 def nufft1(strengths, plan_set: PlanSet, *, iflag: int = 1):
-    """Plan's points ``(M,)`` to the grid ``(n_x, n_y)``, the adjoint direction."""
+    """Type 1 NUFFT from the ``M`` points to the uniform grid ``(n_x, n_y)``.
+
+    Spreads the values at the non-uniform points of ``plan_set`` onto the
+    Fourier grid; for the radio response this maps visibilities to a dirty
+    image. With ``iflag`` opposite to that of :func:`nufft2` it is the adjoint
+    of :func:`nufft2`. Works under ``jit``, ``grad`` and ``vmap``.
+
+    Parameters
+    ----------
+    strengths : array, shape ``(M,)``
+        Values at the points, cast to ``plan_set.dtype``.
+    plan_set : PlanSet
+        Holds the points and the plans.
+    iflag : int, optional
+        Sign of the exponent, +1 (default) or -1.
+
+    Returns
+    -------
+    array, shape ``plan_set.n_modes``
+        Values on the uniform grid.
+    """
     strengths = strengths.astype(plan_set.dtype)
     out = cufinufft_exec_p.bind(
         strengths[None], plan_set=plan_set, nufft_type=1, iflag=iflag
