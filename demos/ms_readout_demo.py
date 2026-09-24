@@ -22,13 +22,14 @@
 #
 # ## Requirements
 #
-# Besides J-UBIK itself the readout needs the CASA Python packages
-# `casatasks` and `casatools` (for `mstransform`/`statwt`) and
-# `python-casacore` (used by `ms2observations`). They are not J-UBIK
-# dependencies; the cheapest way to get them is an ephemeral environment:
+# Besides J-UBIK with its `resolve` extra (which brings `python-casacore`
+# for `ms2observations`) the readout needs the CASA Python packages
+# `casatasks` and `casatools` (for `mstransform`/`statwt`). Those two are
+# not J-UBIK dependencies; the cheapest way to get them is an ephemeral
+# environment:
 #
 # ```
-# uv run --with casatools --with casatasks --with python-casacore \
+# uv run --extra resolve --with casatools --with casatasks \
 #     python demos/ms_readout_demo.py demos/configs/ms_readout_demo.yaml
 # ```
 #

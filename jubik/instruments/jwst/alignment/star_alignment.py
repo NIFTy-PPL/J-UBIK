@@ -9,7 +9,7 @@ from astropy.table import Table, vstack
 from astropy.time import Time
 
 
-from ....wcs.wcs_jwst_data import WcsJwstData
+from ..wcs_jwst_data import WcsJwstData
 from ....wcs.wcs_astropy import WcsAstropy
 from ..data.jwst_data import JwstData
 
