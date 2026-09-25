@@ -7,6 +7,7 @@ authors = [
     {name = "Matteo Guardiani", email = "matteani@mpa-garching.mpg.de"},
     {name = "Margret Westerkamp", email = "margret@mpa-garching.mpg.de"},
 ]
+version = "0.4"
 requires-python = ">=3.10"
 dependencies = [
     "numpy >= 1.17.0",
@@ -29,10 +30,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
 ]
-dynamic = ["version"]
-
-[tool.setuptools.dynamic]
-version = {attr = "jubik.version.__version__"}
 
 
 # One extra per instrument backend that has pip dependencies. Chandra and

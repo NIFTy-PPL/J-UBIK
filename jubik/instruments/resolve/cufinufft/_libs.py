@@ -255,7 +255,7 @@ def _import_exec_handler(cuda: CudaRuntime) -> ModuleType:
         raise ImportError(
             f"cufinufft FFI handler was compiled against jaxlib {built_against} but jaxlib "
             f"{jaxlib.__version__} is installed; XLA drops handlers with a mismatched FFI "
-            "API version at registration. Rebuild jubik without build isolation (see setup.py)."
+            "API version at registration. Rebuild jubik against the runtime jaxlib (see setup.py)."
         )
     _exec.init(
         cuda.address("cudaEventCreateWithFlags"),

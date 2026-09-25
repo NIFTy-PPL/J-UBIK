@@ -9,10 +9,12 @@ at construction.
 The headers must come from the jaxlib the handler will run against: a handler
 compiled against a newer XLA FFI API than the installed CUDA plugin is
 silently dropped at registration and every call fails with ``NOT_FOUND``.
-Build without isolation (``uv sync`` with ``no-build-isolation-package =
-["jubik"]``, or ``pip install --no-build-isolation``) so ``import jax`` here
-resolves to the runtime environment, or point ``XLA_FFI_INCLUDE_DIR`` at the
-right ``jaxlib/include``. The jaxlib version seen at build time is embedded
+With uv, declare jax and jaxlib as extra build dependencies with
+``match-runtime = true`` so the isolated build env gets the locked runtime
+version. Otherwise build without isolation (``pip install
+--no-build-isolation``) so ``import jax`` here resolves to the runtime
+environment, or point ``XLA_FFI_INCLUDE_DIR`` at the right
+``jaxlib/include``. The jaxlib version seen at build time is embedded
 in the extension and checked at import.
 """
 
