@@ -41,6 +41,7 @@ from types import ModuleType
 from typing import Union
 
 import jax
+import numpy as np
 
 _NVIDIA_LIBS = (
     "cuda_runtime/lib/libcudart.so.12",
@@ -270,7 +271,41 @@ def _import_exec_handler(cuda: CudaRuntime) -> ModuleType:
         cuda.address("cudaEventDestroy"),
     )
     jax.ffi.register_ffi_target(_exec.HANDLER_NAME, _exec.handler(), platform="CUDA")
+    _check_registered(_exec.HANDLER_NAME)
     return _exec
+
+
+def _check_registered(name: str) -> None:
+    """Compile, without running, one call to the handler to see XLA accepted it.
+
+    XLA drops a handler whose FFI API version it does not support without
+    raising; the only trace is an INFO log line, and every compiled program
+    using it later fails with ``NOT_FOUND``. The handler's version is that of
+    the vendored headers in ``include/``, so this happens once a new jaxlib
+    stops supporting them. Compiling a probe here turns that into an error at
+    load that says what to do.
+
+    Raises
+    ------
+    ImportError
+        If XLA does not find the handler at compile time.
+    """
+    probe = jax.ffi.ffi_call(name, jax.ShapeDtypeStruct((1,), np.float32))
+    source = jax.device_put(np.zeros(1, np.float32), jax.devices("cuda")[0])
+    try:
+        jax.jit(lambda x: probe(x, handle_ptr=np.int64(0))).lower(source).compile()
+    except jax.errors.JaxRuntimeError as err:
+        if "NOT_FOUND" not in str(err):
+            raise
+        import jaxlib
+
+        raise ImportError(
+            f"XLA rejected the cufinufft FFI handler: jaxlib {jaxlib.__version__} no longer "
+            "supports the XLA FFI API version of the headers vendored in "
+            "jubik/instruments/resolve/cufinufft/include. Replace them with the headers of "
+            "a newer jaxlib and raise the jaxlib pin of the resolve-cuda extra, see "
+            "include/README.md. Run with TF_CPP_MIN_LOG_LEVEL=0 to see XLA's message."
+        ) from err
 
 
 @dataclass(frozen=True)
