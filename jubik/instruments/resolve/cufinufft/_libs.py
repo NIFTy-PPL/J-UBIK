@@ -49,17 +49,25 @@ _NVIDIA_LIBS = (
 )
 
 
-def _nvidia_wheel_root():
-    """Directory of the ``nvidia`` namespace package, or None if absent.
+def _nvidia_wheel_roots() -> list[Path]:
+    """Directories of the ``nvidia`` package, empty if it is not installed.
 
     In a ``jax[cuda12]`` environment the CUDA libraries come as ``nvidia-*``
-    wheels below this directory rather than from a system CUDA install.
+    wheels below these directories rather than from a system CUDA install.
+    Most of those wheels ship no ``nvidia/__init__.py``, so ``nvidia`` is
+    usually a namespace package: ``__file__`` is None and ``__path__`` may
+    span several site-packages directories.
     """
     try:
         import nvidia
     except ImportError:
-        return None
-    return Path(nvidia.__file__).parent
+        return []
+    return [Path(p) for p in nvidia.__path__]
+
+
+def _nvidia_wheel_libs(pattern: str) -> list[str]:
+    """Paths matching ``pattern`` below every ``nvidia`` package directory."""
+    return [hit for root in _nvidia_wheel_roots() for hit in sorted(glob.glob(str(root / pattern)))]
 
 
 def _preload_cuda_runtime():
@@ -72,15 +80,12 @@ def _preload_cuda_runtime():
     finds them when cufinufft is imported. Missing wheels or libraries are
     skipped silently; the cufinufft import then reports the real failure.
     """
-    root = _nvidia_wheel_root()
-    if root is None:
-        return
     for pattern in _NVIDIA_LIBS:
-        for hit in glob.glob(str(root / pattern)):
+        for hit in _nvidia_wheel_libs(pattern):
             try:
                 ctypes.CDLL(hit, mode=ctypes.RTLD_GLOBAL)
             except OSError:
-                pass
+                continue
             break
 
 
@@ -153,10 +158,7 @@ class CudaRuntime:
         and cufinufft already use; then whatever ``find_library`` reports,
         then the bare SONAME.
         """
-        root = _nvidia_wheel_root()
-        candidates = []
-        if root is not None:
-            candidates += glob.glob(str(root / _NVIDIA_LIBS[0]))
+        candidates = _nvidia_wheel_libs(_NVIDIA_LIBS[0])
         found = find_library("cudart")
         if found:
             candidates.append(found)
