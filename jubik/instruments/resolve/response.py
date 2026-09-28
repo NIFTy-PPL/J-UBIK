@@ -375,7 +375,7 @@ class CufinufftResponse:
     plans : PlanSet
         The plans of this response. Compiled likelihoods keep the PlanSet
         alive on their own, so dropping this instance does not free the plans.
-        Call ``plans.close()`` to release the GPU resources early if wanted.
+        The GPU resources are freed once no response or executable uses them.
     """
 
     def __init__(

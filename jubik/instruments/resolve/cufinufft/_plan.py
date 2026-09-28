@@ -26,8 +26,10 @@ asked for. Compiled programs then only execute (see ``_exec.cpp``).
 
 Ownership, top down: PlanSet owns stream and plans; each Plan owns its
 native cufinufft plan and the C++ handle the compiled program addresses;
-the handle borrows the stream. Executables retain their PlanSet, so
-``close()`` is optional; ``__del__`` calls it when the last owner is gone.
+the handle borrows the stream. Executables retain their PlanSet, and the
+native resources are released only in ``__del__``, once the last owner is
+gone. There is no public ``close()``: compiled programs carry raw handle
+addresses, so freeing earlier would leave them pointing at freed memory.
 """
 
 from __future__ import annotations
@@ -107,11 +109,11 @@ class Plan:
         self.dtype = dtype
         self.address = backend.exec.plan_handle_address(handle)
 
-    def close(self) -> None:
+    def _destroy(self) -> None:
         """Destroy the native plan and drop the handle. Idempotent.
 
         The caller must make sure no queued GPU work still uses the plan;
-        :meth:`PlanSet.close` synchronizes the stream before calling this.
+        :meth:`PlanSet._release` synchronizes the stream before calling this.
         """
         if self._plan is None:
             return
@@ -174,8 +176,11 @@ class PlanSet:
     -----
     Lifetime: when a program using this PlanSet is compiled, the lowering
     registers the PlanSet as a keepalive of the executable, so every compiled
-    executable keeps its plans, points and stream alive. :meth:`close` is
-    therefore optional; ``__del__`` calls it once the last owner is gone.
+    executable keeps its plans, points and stream alive. ``__del__``
+    releases them once the last owner is gone. There is deliberately no
+    public ``close()``: an executable holds the raw address of each plan's
+    C++ handle, so releasing while one is alive would leave it pointing at
+    freed memory.
 
     Threading: ``_lock`` guards lazy plan construction from Python. Concurrent
     executions of the same plan are serialized in C++ by a per-plan mutex,
@@ -245,7 +250,7 @@ class PlanSet:
         Raises
         ------
         RuntimeError
-            If the PlanSet is closed or cufinufft fails to make the plan.
+            If cufinufft fails to make the plan.
         """
         key = (int(nufft_type), int(iflag), int(n_trans))
         # This lock protects lazy construction. Execution is protected by the
@@ -263,8 +268,6 @@ class PlanSet:
         rather than in the first execute, and a failed plan is destroyed before
         the error propagates.
         """
-        if self.stream is None:
-            raise RuntimeError("PlanSet is closed")
         cuf = self._backend.cuf
         double = self.dtype == np.complex128
         make_plan = cuf._make_plan if double else cuf._make_planf
@@ -311,31 +314,29 @@ class PlanSet:
         """Number of plans built so far."""
         return len(self._plans)
 
-    def close(self) -> None:
-        """Release plans and stream. Idempotent.
+    def _release(self) -> None:
+        """Release plans and stream. Idempotent. Only ``__del__`` calls this.
 
         Order matters: first synchronize the stream, because queued work
         references the plans; then destroy the plans, because they reference
-        the stream; then destroy the stream. After closing, requesting a new
-        plan raises. Calling this is optional, see the Notes of
-        :class:`PlanSet`.
+        the stream; then destroy the stream.
         """
         with self._lock:
             if self.stream is None:
                 return
             self._backend.cuda.stream_synchronize(self.stream)
             for plan in self._plans.values():
-                plan.close()
+                plan._destroy()
             self._plans.clear()
             self._backend.cuda.stream_destroy(self.stream)
             self.stream = None
 
     def __del__(self):
-        """Close on garbage collection, ignoring errors during shutdown."""
+        """Release on garbage collection, ignoring errors during shutdown."""
         if getattr(self, "stream", None) is None:
             return
         try:
-            self.close()
+            self._release()
         except Exception:
             pass
 

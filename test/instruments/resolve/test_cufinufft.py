@@ -134,18 +134,24 @@ def test_executable_retains_and_releases_plans():
     assert owner() is None
 
 
-def test_close_releases_and_blocks_new_plans():
+def test_plan_set_has_no_public_close():
+    # Executables embed raw plan-handle addresses, so an explicit close would
+    # leave every compiled user with a dangling pointer. Release is GC only.
+    assert not hasattr(PlanSet, "close")
+
+
+def test_release_on_gc_frees_stream(monkeypatch):
     plans = PlanSet((12, 18), [.1, .2], [.3, .4], eps=1e-8)
-    expected = fourier_matrix((12, 18), np.array([.1, .2]), np.array([.3, .4])) @ np.ones(216)
     sky = jnp.ones((12, 18), dtype=np.complex128)
-    assert_transform(jax.jit(lambda sky: nufft2(sky, plans))(sky), expected, 1e-6)
-    assert plans.n_plans == 1
-    plans.close()
-    plans.close()
-    assert plans.stream is None
-    assert plans.n_plans == 0
-    with pytest.raises(RuntimeError):
-        plans.plan(2, -1, 1)
+    jax.jit(lambda sky: nufft2(sky, plans))(sky).block_until_ready()
+    destroyed = []
+    cuda = plans._backend.cuda
+    monkeypatch.setattr(cuda, "stream_destroy", lambda s, f=cuda.stream_destroy: (destroyed.append(s), f(s)))
+    stream = plans.stream
+    del plans
+    jax.clear_caches()
+    gc.collect()
+    assert destroyed == [stream]
 
 
 @pytest.mark.parametrize("center", [(0., 0.), (1e-4, -3e-4)])
