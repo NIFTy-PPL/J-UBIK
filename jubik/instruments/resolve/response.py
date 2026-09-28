@@ -28,7 +28,7 @@ from .constants import RESOLVE_SPATIAL_UNIT, RESOLVE_SPECTRAL_UNIT
 from .data.data_modify.frequency import restrict_by_freq
 from .data.data_modify.time import restrict_by_time
 from .data.observation import Observation
-from .parse.response import Ducc0Settings, FinufftSettings
+from .parse.response import CufinufftSettings, Ducc0Settings, FinufftSettings
 from .util import calculate_phase_offset_to_image_center
 
 
@@ -106,7 +106,7 @@ def _hermitian_adjoint(response, primals, cotangent):
 def interferometry_response(
     observation: Observation,
     sky_grid: Grid,
-    backend_settings: Union[Ducc0Settings, FinufftSettings],
+    backend_settings: Union[Ducc0Settings, FinufftSettings, CufinufftSettings],
 ):
     """Returns a function computing the radio interferometric response
 
@@ -125,14 +125,17 @@ def interferometry_response(
     sky_domain: SkyDomain
         Providing the information about the discretization of the sky.
 
-    backend_settings: Union[Ducc0Settings, FinufftSettings]
-        The backend_settings sets the type of backend, either ducc0 or finufft,
-        which need the following settings:
+    backend_settings: Union[Ducc0Settings, FinufftSettings, CufinufftSettings]
+        The backend_settings sets the type of backend, ducc0, finufft or
+        cufinufft, which need the following settings:
             - epsilon
-            - do_wgridding  (only ducc0)
-            - nthreads      (only ducc0)
-            - verbosity     (only ducc0)
-            - backend       (only ducc0)
+            - do_wgridding      (only ducc0)
+            - nthreads          (only ducc0)
+            - verbosity         (only ducc0)
+            - backend           (only ducc0)
+            - gpu_maxbatchsize  (only cufinufft)
+            - upsampfac         (only cufinufft)
+            - dtype             (only cufinufft)
     """
     n_pol = len(sky_grid.polarization)
 
@@ -199,11 +202,22 @@ def interferometry_response(
                         center_x=center_x,
                         center_y=center_y,
                     )
+                elif isinstance(backend_settings, CufinufftSettings):
+                    rrr = interferometry_response_cufinufft(
+                        observation=ooo,
+                        npix_x=npix_x,
+                        npix_y=npix_y,
+                        pixsize_x=pixsize_x,
+                        pixsize_y=pixsize_y,
+                        settings=backend_settings,
+                        center_x=center_x,
+                        center_y=center_y,
+                    )
                 else:
                     err = (
                         "backend_settings must be an instance of "
-                        "`Ducc0Settings` or `FinufftSettings`, not "
-                        f"{backend_settings}"
+                        "`Ducc0Settings`, `FinufftSettings` or "
+                        f"`CufinufftSettings`, not {backend_settings}"
                     )
                     raise ValueError(err)
 
@@ -282,14 +296,38 @@ def interferometry_response_ducc(
     return lambda x: vol * wgridder(x)[0]
 
 
-def interferometry_response_finufft(
-    observation, pixsize_x, pixsize_y, epsilon, center_x=None, center_y=None
-):
-    from jax_finufft import nufft2
+def _uv_radians_and_phase_shift(observation, pixsize_x, pixsize_y, center_x, center_y):
+    """NUFFT coordinates of the visibilities and the phase shift to the image centre.
 
+    Baseline coordinates in metres times frequency over c give the baseline
+    in wavelengths; times 2 pi and the pixel size this becomes the NUFFT
+    coordinate in radians, wrapped to ``[0, 2 pi)``. ``u`` runs along axis 0
+    of the sky and ``v`` enters with a minus sign. When the image centre and
+    the phase centre differ, each visibility picks up a complex phase factor,
+    returned here so the caller can multiply it onto the NUFFT output. Shared
+    by the finufft and cufinufft backends.
+
+    Parameters
+    ----------
+    observation : Observation
+        Provides ``uvw`` in metres, shape ``(n_rows, 3)``, and ``freq`` in Hz.
+    pixsize_x, pixsize_y : float
+        Pixel size of the sky along axes 0 and 1, in radians.
+    center_x, center_y : float
+        Offset between the image centre and the phase centre in radians, as
+        returned by ``calculate_phase_offset_to_image_center``. It enters the
+        phase as direction cosines ``l, m``, which is exact for small offsets.
+
+    Returns
+    -------
+    u_finu, v_finu : numpy.ndarray, shape ``(n_rows * n_freqs,)``
+        NUFFT coordinates, ordered row major over ``(row, frequency)``.
+    phase_shift : jax.Array or None
+        Complex factor per visibility, same shape and order, or None when no
+        shift is applied.
+    """
     freq = observation.freq
     uvw = observation.uvw
-    vol = pixsize_x * pixsize_y
     speedoflight = 299792458.0
 
     uvw = np.transpose((uvw[..., None] * freq / speedoflight), (0, 2, 1)).reshape(-1, 3)
@@ -306,6 +344,142 @@ def interferometry_response_finufft(
         phase_shift = jnp.array(phase_shift)
     else:
         phase_shift = None
+    return u_finu, v_finu, phase_shift
+
+
+class CufinufftResponse:
+    """Radio response on the GPU through persistent cufinufft plans.
+
+    Maps a sky image to model visibilities, like the finufft backend, but
+    holds a :class:`~jubik.instruments.resolve.cufinufft.PlanSet` for the
+    visibility coordinates so that plan setup and point sorting are paid once
+    per geometry instead of on every call. The instance is a plain callable
+    and can be used inside ``jit``, ``grad`` and ``vmap``.
+
+    Parameters
+    ----------
+    observation : Observation
+        Provides ``uvw`` and ``freq`` of the visibilities.
+    npix_x, npix_y : int
+        Sky shape along axes 0 and 1.
+    pixsize_x, pixsize_y : float
+        Pixel size along axes 0 and 1, in radians.
+    settings : CufinufftSettings
+        Accuracy, precision and memory options of the transform.
+    center_x, center_y : float
+        Offset between the image centre and the phase centre in radians, see
+        :func:`_uv_radians_and_phase_shift`.
+
+    Attributes
+    ----------
+    plans : PlanSet
+        The plans of this response. Compiled likelihoods keep the PlanSet
+        alive on their own, so dropping this instance does not free the plans.
+        The GPU resources are freed once no response or executable uses them.
+    """
+
+    def __init__(
+        self,
+        observation,
+        npix_x,
+        npix_y,
+        pixsize_x,
+        pixsize_y,
+        settings: CufinufftSettings,
+        center_x=None,
+        center_y=None,
+    ):
+        """Compute the NUFFT coordinates and upload them into a PlanSet.
+
+        No plan is built yet; that happens when a program calling this
+        response is compiled.
+        """
+        from .cufinufft import PlanSet
+
+        self._n_freqs = len(observation.freq)
+        self._vol = pixsize_x * pixsize_y
+        u_finu, v_finu, self._phase_shift = _uv_radians_and_phase_shift(
+            observation, pixsize_x, pixsize_y, center_x, center_y
+        )
+        self.plans = PlanSet(
+            (npix_x, npix_y),
+            u_finu,
+            v_finu,
+            eps=settings.epsilon,
+            dtype=np.dtype(settings.dtype),
+            gpu_maxbatchsize=settings.gpu_maxbatchsize,
+            upsampfac=settings.upsampfac,
+        )
+
+    def __call__(self, inp):
+        """Map a sky image to model visibilities.
+
+        Computes ``vol * nufft2(sky) * phase``, where ``vol`` is the pixel area
+        and ``phase`` the per visibility phase shift, then reshapes the flat
+        result to one column per frequency.
+
+        Parameters
+        ----------
+        inp : array, shape ``(npix_x, npix_y)``
+            Sky brightness per pixel, cast to the precision of the settings.
+
+        Returns
+        -------
+        array, shape ``(n_rows, n_freqs)``
+            Complex model visibilities.
+        """
+        from .cufinufft import nufft2
+
+        res = self._vol * nufft2(inp, self.plans)
+        if self._phase_shift is not None:
+            res = res * self._phase_shift
+        return res.reshape(-1, self._n_freqs)
+
+
+def interferometry_response_cufinufft(
+    observation,
+    npix_x,
+    npix_y,
+    pixsize_x,
+    pixsize_y,
+    settings: CufinufftSettings,
+    center_x=None,
+    center_y=None,
+):
+    """Build the cufinufft radio response, see :class:`CufinufftResponse`.
+
+    Functional entry point matching the other backends, used by
+    :func:`interferometry_response` when given :class:`CufinufftSettings`.
+    Parameters are those of :class:`CufinufftResponse`.
+
+    Returns
+    -------
+    CufinufftResponse
+        Callable mapping a sky of shape ``(npix_x, npix_y)`` to visibilities
+        of shape ``(n_rows, n_freqs)``.
+    """
+    return CufinufftResponse(
+        observation=observation,
+        npix_x=npix_x,
+        npix_y=npix_y,
+        pixsize_x=pixsize_x,
+        pixsize_y=pixsize_y,
+        settings=settings,
+        center_x=center_x,
+        center_y=center_y,
+    )
+
+
+def interferometry_response_finufft(
+    observation, pixsize_x, pixsize_y, epsilon, center_x=None, center_y=None
+):
+    from jax_finufft import nufft2
+
+    freq = observation.freq
+    vol = pixsize_x * pixsize_y
+    u_finu, v_finu, phase_shift = _uv_radians_and_phase_shift(
+        observation, pixsize_x, pixsize_y, center_x, center_y
+    )
 
     def apply_finufft(inp, u, v, eps):
         res = vol * nufft2(inp.astype(np.complex128), u, v, eps=eps)

@@ -5,4 +5,8 @@
 
 # %%
 
-__version__ = '0.4'
+from importlib.metadata import version
+
+# Single source: `version` in pyproject.toml. Kept static there (not read from
+# this file) so installers see the metadata without building jubik.
+__version__ = version("jubik")

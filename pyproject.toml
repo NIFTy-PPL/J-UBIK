@@ -7,6 +7,7 @@ authors = [
     {name = "Matteo Guardiani", email = "matteani@mpa-garching.mpg.de"},
     {name = "Margret Westerkamp", email = "margret@mpa-garching.mpg.de"},
 ]
+version = "0.4"
 requires-python = ">=3.10"
 dependencies = [
     "numpy >= 1.17.0",
@@ -29,10 +30,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
 ]
-dynamic = ["version"]
-
-[tool.setuptools.dynamic]
-version = {attr = "jubik.version.__version__"}
 
 
 # One extra per instrument backend that has pip dependencies. Chandra and
@@ -59,6 +56,15 @@ resolve = [
     "jax-finufft",
     "python-casacore",
     "ehtim",
+]
+# The cufinufft radio response backend. Kept out of `resolve` and `all`
+# because cufinufft pulls in CUDA libraries and has no macOS wheels. jaxlib
+# must be at least the version the vendored XLA FFI headers come from, see
+# jubik/instruments/resolve/cufinufft/include/README.md.
+resolve-cuda = [
+    "jubik[resolve]",
+    "cufinufft>=2.3",
+    "jaxlib>=0.6.2",
 ]
 all = ["jubik[jwst,gaia,healpix,resolve]"]
 

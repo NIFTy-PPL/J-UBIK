@@ -39,8 +39,9 @@ Install only what the instrument you work on needs:
     pip install --user .[jwst]      # gwcs, jwst, stpsf, jax-finufft
     pip install --user .[gaia]      # astroquery, for the alignment star search
     pip install --user .[resolve]   # jaxbind, jax-finufft, python-casacore, ehtim
+    pip install --user .[resolve-cuda]  # resolve plus cufinufft, see RESOLVE on the GPU
     pip install --user .[healpix]   # jaxbind, for the HEALPix sky model
-    pip install --user .[all]       # all of the above
+    pip install --user .[all]       # all of the above except resolve-cuda
 
 Chandra and eROSITA have no extra. Their instrument software is not on PyPI,
 see the sections below.
@@ -50,7 +51,7 @@ With [uv](https://docs.astral.sh/uv/), the same via the project environment:
 ```bash
 uv sync --extra jwst              # JWST only
 uv sync --extra resolve           # RESOLVE only
-uv sync --all-extras              # every instrument backend
+uv sync --all-extras              # every instrument backend, including resolve-cuda
 ```
 
 Note that `uv sync` makes the environment match exactly the extras you list, so
@@ -193,7 +194,30 @@ pip install --user .[resolve]
 `demos/resolve_demo.py`, `demos/resolve_synthetic_demo.py` and
 `demos/ms_readout_demo.py`.
 
-## GPU 
+## GPU
+
+There are two GPU backends for the RESOLVE response. Both need the CUDA build
+of jax, see [GPU](#gpu).
+
+### cufinufft
+
+The `cufinufft` backend keeps its NUFFT plans on the GPU across likelihood
+evaluations. Install it with the `resolve-cuda` extra:
+
+```bash
+pip install --user .[resolve-cuda]
+uv sync --extra resolve-cuda
+```
+
+Installing jubik compiles a small C++ handler that runs cufinufft inside
+compiled JAX programs. This needs a C++17 compiler (e.g. `g++`), but no CUDA
+toolkit. Without a compiler the install still succeeds, and the backend
+raises at construction with the command to reinstall. After installing a
+compiler, rebuild jubik with
+`uv sync --extra resolve-cuda --reinstall-package jubik` or
+`pip install --force-reinstall --no-deps .[resolve-cuda]`.
+
+### finufft
 
 The RESOLVE finufft response and the JWST nufft rotation fail at JIT time with
 "no lowering for cuda platform" until the package is rebuilt with CUDA. That 
