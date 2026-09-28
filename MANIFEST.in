@@ -1,0 +1,2 @@
+# The vendored XLA FFI headers the cufinufft handler compiles against.
+recursive-include jubik/instruments/resolve/cufinufft/include *.h *.md

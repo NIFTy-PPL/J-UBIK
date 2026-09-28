@@ -54,9 +54,17 @@ healpix = [
 resolve = [
     "jaxbind",
     "jax-finufft",
-    "cufinufft>=2.3",
     "python-casacore",
     "ehtim",
+]
+# The cufinufft radio response backend. Kept out of `resolve` and `all`
+# because cufinufft pulls in CUDA libraries and has no macOS wheels. jaxlib
+# must be at least the version the vendored XLA FFI headers come from, see
+# jubik/instruments/resolve/cufinufft/include/README.md.
+resolve-cuda = [
+    "jubik[resolve]",
+    "cufinufft>=2.3",
+    "jaxlib>=0.6.2",
 ]
 all = ["jubik[jwst,gaia,healpix,resolve]"]
 

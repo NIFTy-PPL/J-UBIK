@@ -14,8 +14,8 @@
 // No CUDA or cufinufft headers are needed: the CUDA runtime functions and the
 // cufinufft_execute variant are handed in as function pointers, resolved in
 // Python through ctypes from the libraries already loaded in the process.
-// This keeps the build down to a plain C++ compiler and the XLA FFI headers
-// that ship with jaxlib.
+// This keeps the build down to a plain C++ compiler and the XLA FFI headers,
+// which are vendored in include/.
 //
 // Stream discipline: the plan is bound to its own CUDA stream at makeplan
 // time (cufinufft cannot change it afterwards) while XLA hands us the stream
@@ -195,8 +195,7 @@ PyModuleDef kModule = {PyModuleDef_HEAD_INIT, "_exec", nullptr, -1, kMethods,
 PyMODINIT_FUNC PyInit__exec(void) {
   PyObject* module = PyModule_Create(&kModule);
   if (module == nullptr) return nullptr;
-  if (PyModule_AddStringConstant(module, "JAXLIB_VERSION", JUBIK_JAXLIB_VERSION) != 0 ||
-      PyModule_AddStringConstant(module, "HANDLER_NAME", kHandlerName) != 0) {
+  if (PyModule_AddStringConstant(module, "HANDLER_NAME", kHandlerName) != 0) {
     Py_DECREF(module);
     return nullptr;
   }

@@ -92,7 +92,18 @@ def _import_cufinufft_bindings() -> ModuleType:
     The CUDA libraries are preloaded first, see :func:`_preload_cuda_runtime`.
     """
     _preload_cuda_runtime()
-    import cufinufft._cufinufft as bindings
+    try:
+        import cufinufft._cufinufft as bindings
+    except ModuleNotFoundError as err:
+        if err.name != "cufinufft":
+            raise
+        raise ImportError(
+            "The cufinufft radio response backend needs the cufinufft package. Install "
+            "jubik with the resolve-cuda extra:\n"
+            "    uv sync --extra resolve-cuda\n"
+            "or\n"
+            "    pip install '.[resolve-cuda]'"
+        ) from err
 
     return bindings
 
@@ -238,25 +249,20 @@ def _import_exec_handler(cuda: CudaRuntime) -> ModuleType:
     Raises
     ------
     ImportError
-        If ``_exec`` was not built, or was built against a different jaxlib.
-        XLA would otherwise drop the handler at registration without an error.
+        If ``_exec`` was not built, which happens when no C++17 compiler was
+        found while jubik was installed.
     """
     try:
         from . import _exec
     except ImportError as err:
         raise ImportError(
-            "cufinufft FFI handler not built (jubik.instruments.resolve.cufinufft._exec); "
-            "reinstall jubik with a C++ compiler available."
+            "The cufinufft FFI handler (jubik.instruments.resolve.cufinufft._exec) was not "
+            "compiled when jubik was installed, most likely because no C++17 compiler was "
+            "found. Install one (e.g. g++) and reinstall jubik:\n"
+            "    uv sync --extra resolve-cuda --reinstall-package jubik\n"
+            "or\n"
+            "    pip install --force-reinstall --no-deps '.[resolve-cuda]'"
         ) from err
-    import jaxlib
-
-    built_against = getattr(_exec, "JAXLIB_VERSION", "unknown")
-    if built_against != jaxlib.__version__:
-        raise ImportError(
-            f"cufinufft FFI handler was compiled against jaxlib {built_against} but jaxlib "
-            f"{jaxlib.__version__} is installed; XLA drops handlers with a mismatched FFI "
-            "API version at registration. Rebuild jubik against the runtime jaxlib (see setup.py)."
-        )
     _exec.init(
         cuda.address("cudaEventCreateWithFlags"),
         cuda.address("cudaEventRecord"),
