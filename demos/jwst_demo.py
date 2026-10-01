@@ -53,7 +53,7 @@ from jax import config, random
 
 # %%
 import jubik as ju
-from jubik.instruments.jwst.filter_projector import FilterProjector
+from jubik.instruments.jwst.data.jwst_information import JWST_FILTERS
 from jubik.likelihood import (build_gaussian_likelihood,
                               connect_likelihood_to_model)
 
@@ -179,15 +179,22 @@ key = random.PRNGKey(cfg["seed"])
 # %%
 energy_cfg = cfg["grid"]["energy_bin"]
 e_unit = getattr(u, energy_cfg.get("unit", "eV"))
-filter_projector = FilterProjector(
-    sky_domain=sky.target,
-    keys_and_colors={key: val["key"] for key, val in filters.items()},
+# One sky channel per filter, spanning its half-power tophat.
+filter_bounds = [JWST_FILTERS[name.upper()][3:5] for name in filters]
+sky_projection = ju.SkyProjection(
+    ju.Grid.from_shape_and_fov(
+        shape=cfg["grid"]["shape"],
+        fov=(cfg["grid"]["fov"] * u.arcsec,) * 2,
+        frequencies=np.array(filter_bounds) * u.um,
+    ),
+    [ju.FilterBand(n, ju.Transmission.tophat(*filter_bounds[i]))
+     for i, n in enumerate(filters)],
 )
 
 # %%
 key, subkey = random.split(key)
 sky_model_with_filters = jft.Model(
-    lambda x: filter_projector(sky(x)), domain=sky.domain
+    lambda x: sky_projection({"sky": sky(x)}), domain=sky.domain
 )
 
 # %%
@@ -227,7 +234,7 @@ for fltname in filters.keys():
     )
 
     response = ju.build_jwst_response(
-        sky_domain={fltname: filter_projector.target[fltname]},
+        sky_domain={fltname: sky_projection.target[fltname]},
         subsample=cfg["telescope"]["subsample"],
         rotation_and_shift_kwargs=rotation_and_shift_kwargs,
         psf_kwargs=psf_kwargs,

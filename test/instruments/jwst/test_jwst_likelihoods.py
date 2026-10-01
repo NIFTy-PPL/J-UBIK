@@ -108,7 +108,8 @@ def patched_seams(monkeypatch):
 
 def make_grid():
     spatial = WcsAstropy(center=CENTER, shape=GRID_SHAPE, fov=GRID_FOV)
-    return Grid(spatial=spatial, spectral=Color([3.9, 5.0] * u.um))
+    # one channel covering the whole packaged F444W curve
+    return Grid(spatial=spatial, spectral=Color([3.6, 5.2] * u.um))
 
 
 def make_config(
@@ -175,6 +176,11 @@ def test_minimal_config_builds_and_evaluates(patched_seams, tmp_path):
     assert builder.mask.sum() > 0
     assert not np.isnan(builder.data[builder.mask]).any()
 
+    projection = products.target.sky_projection
+    np.testing.assert_allclose(projection.selections[FILTER.lower()].W, [[1.0]])
+    assert projection.target[FILTER.lower()].shape == GRID_SHAPE
+    assert products.target.plotting.y_offset == 0
+
     likelihood = products.target.likelihood
     assert "sky" in likelihood.domain
     assert np.isfinite(evaluate(likelihood))
@@ -235,3 +241,9 @@ def test_all_gaia_stars_rejected_raises(monkeypatch, patched_seams, fake_gaia, t
     cfg = make_config(tmp_path, gaia=True)
     with pytest.raises(ValueError, match="2 catalog stars, 0 with a valid cutout"):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+def test_sky_domain_must_match_grid(patched_seams, tmp_path):
+    sky_domain = {"sky": jft.ShapeWithDtype((2,) + GRID_SHAPE, float)}
+    with pytest.raises(ValueError, match="does not match the grid"):
+        build_jwst_likelihoods(make_config(tmp_path), make_grid(), sky_domain)
