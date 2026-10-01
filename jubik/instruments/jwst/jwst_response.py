@@ -15,11 +15,11 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 from ...grid import Grid
+from ...sky_projection import SkyProjection
 from ...wcs.wcs_astropy import WcsAstropy
 from .alignment.star_model import StarInData
 from .data.jwst_data import DataMetaInformation
 from .data.loader.target_loader import TargetData
-from .filter_projector import FilterProjector
 from .integration.integration import integration_factory
 from .integration.unit_conversion import build_unit_conversion
 from .masking.build_mask import build_mask
@@ -223,8 +223,8 @@ class TargetResponseInput:
         Name of the filter_name corresponding to the observational data.
     grid : Grid
         Spatial grid defining the coordinate system of the sky model.
-    filter_projector : FilterProjector
-        Object that projects the sky model into the filter's energy domain.
+    sky_projection : SkyProjection
+        Projects the sky cube onto the filter bands, keyed by `filter_name`.
     target_data : TargetData
         Observational data and associated metadata (e.g., subsample centers, PSF, mask).
     filter_meta : DataMetaInformation
@@ -241,7 +241,7 @@ class TargetResponseInput:
 
     filter_name: str
     grid: Grid
-    filter_projector: FilterProjector
+    sky_projection: SkyProjection
     target_data: TargetData
     filter_meta: DataMetaInformation
     sky_meta: SkyMetaInformation
@@ -274,9 +274,9 @@ def build_target_response(
         data space, incorporating all observational effects and corrections.
     """
 
-    energy_name = input_config.filter_projector.get_key(input_config.filter_meta.color)
+    energy_name = input_config.filter_name
     sky_in_subsampled_data = build_sky_to_subsampled_data(
-        sky_domain={energy_name: input_config.filter_projector.target[energy_name]},
+        sky_domain={energy_name: input_config.sky_projection.target[energy_name]},
         data_subsampled_centers=input_config.target_data.subsample_centers,
         sky_wcs=input_config.grid.spatial,
         rotation_and_shift_algorithm=input_config.rotation_and_shift_algorithm,
