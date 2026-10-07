@@ -586,13 +586,13 @@ def kl_kwargs_factory(
         cg_miniter_name = f'{KL_CG}_{MINITER}'
         cg_maxiter_name = f'{KL_CG}_{MAXITER}'
         cg_atol = get_config_value(
-            cg_atol_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_atol_name, mini_cfg[KL_MINI], range_index, default=None)
         cg_absdelta = get_config_value(
-            cg_absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_absdelta_name, mini_cfg[KL_MINI], range_index, default=None)
         cg_minit = get_config_value(
-            cg_miniter_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_miniter_name, mini_cfg[KL_MINI], range_index, default=None)
         cg_maxit = get_config_value(
-            cg_maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
+            cg_maxiter_name, mini_cfg[KL_MINI], range_index, default=None)
 
         return dict(
             minimize_kwargs=dict(

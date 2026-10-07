@@ -135,6 +135,26 @@ class TestMinimizationParser:
         assert kwargs['minimize_kwargs']['absdelta'] == 1.e-4
         assert kwargs['minimize_kwargs']['maxiter'] == 10
 
+    def test_kl_cg_kwargs_are_read_from_kl_minimization(self):
+        cfg = {
+            **config,
+            'samples': {**config['samples'], 'kl_cg_maxiter': [99, 99]},
+            'kl_minimization': {**config['kl_minimization'],
+                                'kl_cg_maxiter': [7, 8],
+                                'kl_cg_miniter': [2, 3],
+                                'kl_cg_absdelta': [0.2, 0.02],
+                                'kl_cg_atol': [0.1, 0.01]},
+        }
+        kl_kwargs = kl_kwargs_factory(cfg, cfg['delta'], 10)
+        assert kl_kwargs(0)['minimize_kwargs']['cg_kwargs'] == {
+            'name': 'kl_cg', 'absdelta': 0.2, 'atol': 0.1,
+            'miniter': 2, 'maxiter': 7,
+        }
+        assert kl_kwargs(11)['minimize_kwargs']['cg_kwargs'] == {
+            'name': 'kl_cg', 'absdelta': 0.02, 'atol': 0.01,
+            'miniter': 3, 'maxiter': 8,
+        }
+
     def test_minimization_parser(self):
         parser = MinimizationParser(config, n_dof=10)
         assert parser.n_samples(0) == 4
