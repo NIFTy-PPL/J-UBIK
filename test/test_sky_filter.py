@@ -1,6 +1,7 @@
-"""SkyFilter: partial channel weights, coverage policy, one-hot limit."""
+"""SkyFilter: partial channel weights, coverage policy, one-hot limit, cubes."""
 
 import logging
+from itertools import pairwise
 
 import jax.numpy as jnp
 import nifty.re as jft
@@ -18,6 +19,15 @@ from jubik.wcs.wcs_astropy import WcsAstropy
 NY = 8
 # rising edge 3.9 to 4.1 um, flat to 5.0 um
 RAMP = Transmission(np.array([3.9, 4.1, 5.0]), np.array([0.0, 1.0, 1.0]))
+
+
+def _tophat(lo: float, hi: float) -> Transmission:
+    return Transmission(np.array([lo, hi]), np.ones(2))
+
+
+def _bins(edges) -> list[Transmission]:
+    """One tophat per data bin, the spectral binning of a spectrograph."""
+    return [_tophat(lo, hi) for lo, hi in pairwise(edges)]
 
 
 def _grid(spectral: Color) -> Grid:
@@ -55,6 +65,17 @@ def _ramp_integral(lo, hi):
     return ramp + flat
 
 
+def _log_ratio_weights(edges, lo, hi):
+    """Normalised tophat weights ln(hi_i / lo_i) over the channels inside [lo, hi]."""
+    w = np.array(
+        [
+            np.log(min(b, hi) / max(a, lo)) if min(b, hi) > max(a, lo) else 0.0
+            for a, b in pairwise(edges)
+        ]
+    )
+    return w / w.sum()
+
+
 @pytest.mark.parametrize(
     "bounds",
     [
@@ -66,31 +87,89 @@ def test_soft_edge_gives_partial_weights(bounds):
     bw = band_weights(_spectral(bounds), RAMP)
     expected = np.array([_ramp_integral(lo, hi) for lo, hi in bounds])
     expected /= expected.sum()
-    assert bw.sl == slice(0, len(bounds))
-    np.testing.assert_allclose(bw.w, expected, rtol=1e-5)
-    np.testing.assert_allclose(bw.w.sum(), 1.0, rtol=1e-12)
+    assert bw.sl == slice(0, len(bounds)) and bw.W.shape == (1, len(bounds))
+    np.testing.assert_allclose(bw.W[0], expected, rtol=1e-5)
+    np.testing.assert_allclose(bw.W.sum(), 1.0, rtol=1e-12)
 
 
 def test_flat_sky_is_preserved():
     grid = _edges_grid(np.linspace(1.0, 2.0, 11))
     bands = {
-        "box": Transmission.tophat(1.23, 1.71),
+        "box": _tophat(1.23, 1.71),
         "ramp": Transmission(np.array([1.1, 1.5, 1.9]), np.array([0.2, 1.0, 0.5])),
+        "ifu": _bins(np.linspace(1.2, 1.8, 4)),
     }
     sky_filter = SkyFilter(grid, bands)
     for c in (7.5, -2.0):
         out = sky_filter({SKY_KEY: jnp.full((10, NY, NY), c, jnp.float32)})
+        assert out["box"].shape == out["ramp"].shape == (NY, NY)
+        assert out["ifu"].shape == (3, NY, NY)
         for key, y in out.items():
-            assert y.shape == (NY, NY)
             np.testing.assert_allclose(np.asarray(y), c, rtol=1e-6, err_msg=key)
 
 
 def test_tophat_weights_are_log_ratios():
-    bw = band_weights(
-        _spectral([[1.0, 1.5], [1.5, 2.0], [2.0, 3.0]]), Transmission.tophat(1.2, 2.4)
+    edges = np.array([1.0, 1.5, 2.0, 3.0])
+    bw = band_weights(_spectral(np.c_[edges[:-1], edges[1:]]), _tophat(1.2, 2.4))
+    np.testing.assert_allclose(bw.W[0], _log_ratio_weights(edges, 1.2, 2.4), rtol=1e-6)
+
+
+def test_data_bins_finer_than_sky_channels_are_one_hot():
+    grid = _edges_grid([1.0, 1.5, 2.0])
+    sky_filter = SkyFilter(grid, {"ifu": _bins(np.linspace(1.0, 2.0, 11))})
+    W = sky_filter.weights["ifu"].W
+    assert sky_filter.weights["ifu"].sl == slice(0, 2) and W.shape == (10, 2)
+    expected = np.zeros((10, 2))
+    expected[:5, 0] = expected[5:, 1] = 1.0
+    np.testing.assert_allclose(W, expected, atol=1e-12)
+    sky = _sky(2)
+    out = np.asarray(sky_filter({SKY_KEY: jnp.asarray(sky)})["ifu"])
+    assert out.shape == (10, NY, NY)
+    np.testing.assert_allclose(out[:5], np.broadcast_to(sky[0], (5, NY, NY)))
+    np.testing.assert_allclose(out[5:], np.broadcast_to(sky[1], (5, NY, NY)))
+
+
+def test_data_bins_coarser_than_sky_channels_average():
+    edges = np.linspace(1.0, 2.0, 11)
+    grid = _edges_grid(edges)
+    sky_filter = SkyFilter(grid, {"ifu": _bins([1.0, 1.5, 2.0])}, dtype=jnp.float64)
+    W = sky_filter.weights["ifu"].W
+    assert sky_filter.weights["ifu"].sl == slice(0, 10) and W.shape == (2, 10)
+    np.testing.assert_allclose(W[0], _log_ratio_weights(edges, 1.0, 1.5), rtol=1e-6)
+    np.testing.assert_allclose(W[1], _log_ratio_weights(edges, 1.5, 2.0), rtol=1e-6)
+    sky = _sky(10).astype(np.float64)
+    out = np.asarray(sky_filter({SKY_KEY: jnp.asarray(sky)})["ifu"])
+    np.testing.assert_allclose(out, np.tensordot(W, sky, axes=(1, 0)), rtol=1e-12)
+
+
+def test_data_bins_equal_to_sky_channels_are_the_identity():
+    edges = np.linspace(1.0, 2.0, 11)
+    grid = _edges_grid(edges)
+    sky_filter = SkyFilter(grid, {"ifu": _bins(edges[2:7])})
+    bw = sky_filter.weights["ifu"]
+    assert bw.sl == slice(2, 6)
+    np.testing.assert_allclose(bw.W, np.eye(4), atol=1e-12)
+    sky = _sky(10)
+    out = np.asarray(sky_filter({SKY_KEY: jnp.asarray(sky)})["ifu"])
+    np.testing.assert_allclose(out, sky[2:6], atol=1e-7)
+
+
+def test_sequence_of_one_is_a_cube():
+    grid = _edges_grid(np.linspace(1.0, 2.0, 11))
+    sky_filter = SkyFilter(
+        grid, {"plane": _tophat(1.2, 1.8), "cube": [_tophat(1.2, 1.8)]}
     )
-    expected = np.log([1.5 / 1.2, 2.0 / 1.5, 2.4 / 2.0])
-    np.testing.assert_allclose(bw.w, expected / expected.sum(), rtol=1e-6)
+    out = sky_filter({SKY_KEY: jnp.asarray(_sky(10))})
+    assert out["plane"].shape == (NY, NY) and out["cube"].shape == (1, NY, NY)
+    np.testing.assert_allclose(np.asarray(out["cube"][0]), np.asarray(out["plane"]))
+
+
+def test_bad_bands_raise():
+    spectral = _spectral([[1.0, 1.5], [1.5, 2.0]])
+    with pytest.raises(ValueError, match=r"ifu\[2\]"):
+        band_weights(spectral, _bins([1.0, 1.4, 1.8, 2.5]), name="ifu")
+    with pytest.raises(ValueError, match="no transmission"):
+        band_weights(spectral, [], name="ifu")
 
 
 def _warnings(fn, caplog):
@@ -115,23 +194,19 @@ def test_small_missing_passband_warns(caplog):
     hi = 2.0 * (1 + 0.5 * MAX_MISSING * np.log(2.0 / 1.5))
     spectral = _spectral([[1.0, 1.5], [1.5, 2.0]])
     bw = _warnings(
-        lambda: band_weights(spectral, Transmission.tophat(1.5, hi), name="wing"),
-        caplog,
+        lambda: band_weights(spectral, _tophat(1.5, hi), name="wing"), caplog
     )
     assert bw.sl == slice(1, 2)
-    np.testing.assert_allclose(bw.w, [1.0])
+    np.testing.assert_allclose(bw.W, [[1.0]])
     assert "wing" in caplog.text and "renormalised" in caplog.text
     with pytest.raises(ValueError, match="wing"):
-        band_weights(
-            spectral, Transmission.tophat(1.5, hi), max_missing=0.0, name="wing"
-        )
+        band_weights(spectral, _tophat(1.5, hi), max_missing=0.0, name="wing")
 
 
 def test_full_coverage_does_not_warn(caplog):
     spectral = _spectral([[1.0, 1.5], [1.5, 2.0]])
     _warnings(
-        lambda: band_weights(spectral, Transmission.tophat(1.5, 2.0), max_missing=0.0),
-        caplog,
+        lambda: band_weights(spectral, _tophat(1.5, 2.0), max_missing=0.0), caplog
     )
     inside = Transmission(np.array([1.2, 1.4, 1.9]), np.array([0.0, 1.0, 1.0]))
     _warnings(lambda: band_weights(spectral, inside, max_missing=0.0), caplog)
@@ -142,26 +217,27 @@ def test_one_channel_per_filter_is_one_hot():
     names = ["F150W", "F277W", "F444W"]
     bounds = np.array([JWST_FILTERS[n][3:5] for n in names])
     grid = _grid(_spectral(bounds))
-    sky_filter = SkyFilter(
-        grid, {n: Transmission.tophat(*JWST_FILTERS[n][3:5]) for n in names}
-    )
+    sky_filter = SkyFilter(grid, {n: _tophat(*JWST_FILTERS[n][3:5]) for n in names})
     sky = _sky(len(names), seed=1)
     out = sky_filter({SKY_KEY: jnp.asarray(sky)})
     assert list(out) == names
     for index, n in enumerate(names):
         assert sky_filter.weights[n].sl == slice(index, index + 1)
-        np.testing.assert_allclose(sky_filter.weights[n].w, [1.0])
+        np.testing.assert_allclose(sky_filter.weights[n].W, [[1.0]])
         np.testing.assert_allclose(np.asarray(out[n]), sky[index], atol=1e-6)
 
 
 @pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
 def test_domain_and_dtype(dtype):
     grid = _edges_grid(np.linspace(1.0, 2.0, 11))
-    sky_filter = SkyFilter(grid, {"f": Transmission.tophat(1.2, 1.8)}, dtype=dtype)
+    sky_filter = SkyFilter(
+        grid, {"f": _tophat(1.2, 1.8), "i": _bins([1.0, 1.3, 1.6])}, dtype=dtype
+    )
     assert sky_filter.domain[SKY_KEY].shape == (10, NY, NY)
     assert sky_filter.domain[SKY_KEY].dtype == dtype
     out = sky_filter({SKY_KEY: jnp.asarray(_sky(10), dtype=dtype)})
     assert out["f"].shape == (NY, NY) and out["f"].dtype == dtype
+    assert out["i"].shape == (2, NY, NY) and out["i"].dtype == dtype
 
 
 def test_transmission_validation():

@@ -32,8 +32,8 @@ def test_f444w_weights_on_four_channels():
     with pytest.raises(ValueError, match="F444W"):
         band_weights(Color(np.linspace(3.8, 5.0, 5) * u.um), t, name="F444W")
     bw = band_weights(Color(np.linspace(3.7, 5.1, 5) * u.um), t)
-    w = bw.w
-    assert bw.sl == slice(0, 4)
+    w = bw.W[0]
+    assert bw.sl == slice(0, 4) and bw.W.shape == (1, 4)
     np.testing.assert_allclose(w.sum(), 1.0, rtol=1e-12)
     assert min(w[1], w[2]) > max(w[0], w[3])
 
