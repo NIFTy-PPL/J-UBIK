@@ -32,7 +32,7 @@ from nifty.re import logger
 from .color import Color
 from .grid import Grid
 
-__all__ = ["SKY_KEY", "MAX_MISSING", "Transmission", "Band", "BandWeights", "SkyFilter"]
+__all__ = ["MAX_MISSING", "SKY_KEY", "Band", "BandWeights", "SkyFilter", "Transmission"]
 
 SKY_KEY = "sky"
 MAX_MISSING = 0.01  # passband fraction allowed outside sky coverage
