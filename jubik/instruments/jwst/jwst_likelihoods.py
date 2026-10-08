@@ -23,7 +23,7 @@ from .data.preloader.preloader import (
     PreloaderSideEffects,
     preload_data,
 )
-from .data.throughput import jwst_transmission, throughput_weights
+from .data.throughput import jwst_filter_weights
 from .jwst_response import TargetResponseInput, build_target_response
 from .likelihood.alignment_likelihood import (
     AlignmentLikelihoodSideEffects,
@@ -103,7 +103,7 @@ def build_jwst_likelihoods(
     sky_filter = SkyFilter(
         grid,
         {
-            name: throughput_weights(grid.spectral, jwst_transmission(name), name=name)
+            name: jwst_filter_weights(grid.spectral, name)
             for name in cfg[files_key]["filter"]
         },
         sky_key=sky_key,

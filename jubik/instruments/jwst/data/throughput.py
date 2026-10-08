@@ -5,29 +5,24 @@
 
 # %
 
-"""JWST filter throughput curves and the sky-channel weights they give.
+"""JWST filter weights on a sky grid.
 
-``jwst_transmission`` returns a filter's sampled system throughput curve as a
-``Transmission``. ``throughput_weights`` turns one curve, or a sequence of them
-(one per output bin of a spectrograph), into the ``FilterWeights`` that
+``jwst_filter_weights(spectral, filter_name)`` is what ``build_jwst_likelihoods``
+calls for every filter in the config: the ``FilterWeights`` that
 ``jubik.sky_filter.SkyFilter`` takes, for photon-counted data calibrated in
-F_nu. ``build_jwst_likelihoods`` calls both for every filter in the config and
-hands the weights to the ``SkyFilter`` its likelihoods read their sky from.
+F_nu. NIRCam filters use the packaged STScI mean system throughput curves. MIRI
+filters, for which no curves are packaged, use a half-power tophat from
+``JWST_FILTERS`` and log a warning. ``throughput_weights`` is the integral
+behind both, usable for any sampled curve.
 
-The NIRCam mean system throughputs of release ``nircam_throughputs_4Nov2022_v5``
-ship with the package as ``nircam_throughputs_v5.npz``. MIRI and any other
-filter without a packaged curve fall back, with a warning, to a half-power
-tophat from ``JWST_FILTERS``. ``THROUGHPUT_VERSION`` reports the packaged
-release.
-
-Repack a new STScI release with
+The NIRCam curves of release ``nircam_throughputs_4Nov2022_v5`` ship with the
+package as ``nircam_throughputs_v5.npz``; ``THROUGHPUT_VERSION`` reports the
+release. Repack a new STScI release with
 
     python -m jubik.instruments.jwst.data.throughput --update <mean_throughputs_dir> --version <tag>
 """
 
 import argparse
-from collections.abc import Sequence
-from dataclasses import dataclass
 from functools import cache
 from importlib.resources import files
 from pathlib import Path
@@ -38,116 +33,83 @@ from nifty.re import logger
 
 from ....color import Color
 from ....sky_filter import FilterWeights
-from .jwst_information import JWST_FILTERS
+from .jwst_information import miri_filters, nircam_filters
 
 __all__ = [
     "MAX_MISSING",
-    "Transmission",
-    "jwst_transmission",
+    "jwst_filter_weights",
     "pack_throughputs",
     "throughput_weights",
 ]
 
 # --------------------------------------------------------------------------- #
-# Public: the curves, the weights they give on a sky grid, and the release
+# Public: a JWST filter's weights, the integral behind them, and the release
 # --------------------------------------------------------------------------- #
 
 MAX_MISSING = 0.01  # passband fraction allowed outside sky coverage
 
 
-@dataclass(frozen=True)
-class Transmission:
-    """Sampled throughput curve of one output bin.
-
-    The curve is interpolated linearly between consecutive samples and is zero
-    outside the first and last one. The samples are points along the curve,
-    not bin edges; a tophat over [lo, hi] is the two samples ``[lo, hi]`` with
-    throughput ``[1, 1]``, a measured filter is a few hundred samples. The
-    curve must be the full system throughput (optics, filter, detector), since
-    a wavelength-dependent factor changes the weights; a constant factor does
-    not.
+def jwst_filter_weights(
+    spectral: Color, filter_name: str, max_missing: float = MAX_MISSING
+) -> FilterWeights:
+    """Weights of a JWST filter on the sky channels.
 
     Parameters
     ----------
-    wavelength_um : np.ndarray
-        Wavelengths of the samples, microns, strictly ascending, at least two.
-    throughput : np.ndarray
-        Throughput at each sample, dimensionless, non-negative, not all zero.
-
-    Raises
-    ------
-    ValueError
-        The arrays are not 1-D of the same length, the wavelengths are not
-        strictly ascending, or the throughput is negative or all zero.
-    """
-
-    wavelength_um: np.ndarray
-    throughput: np.ndarray
-
-    def __post_init__(self) -> None:
-        wavelength_um = np.asarray(self.wavelength_um, float)
-        throughput = np.asarray(self.throughput, float)
-        if (
-            wavelength_um.ndim != 1
-            or wavelength_um.shape != throughput.shape
-            or wavelength_um.size < 2
-        ):
-            raise ValueError(
-                f"wavelength_um {wavelength_um.shape} and throughput "
-                f"{throughput.shape} must be 1-D, same length"
-            )
-        if np.any(np.diff(wavelength_um) <= 0):
-            raise ValueError("wavelength_um must be strictly ascending")
-        if np.any(throughput < 0) or not np.any(throughput > 0):
-            raise ValueError("throughput must be non-negative and not all zero")
-        object.__setattr__(self, "wavelength_um", wavelength_um)
-        object.__setattr__(self, "throughput", throughput)
-
-
-Band = Transmission | Sequence[Transmission]
-
-
-def jwst_transmission(filter_name: str) -> Transmission:
-    """Transmission curve of a JWST filter.
-
-    Parameters
-    ----------
+    spectral : Color
+        Sky channel bounds.
     filter_name : str
-        JWST filter name, case-insensitive, e.g. "F444W".
+        NIRCam or MIRI filter name, case-insensitive, e.g. "F444W".
+    max_missing : float
+        See `throughput_weights`.
 
     Returns
     -------
-    Transmission
-        The packaged throughput curve, or a half-power tophat from
-        JWST_FILTERS when no curve is packaged.
+    FilterWeights
+        From the packaged system throughput curve for a NIRCam filter; from a
+        unit tophat over the half-power range in ``JWST_FILTERS`` for a MIRI
+        filter, logged as a warning.
 
     Raises
     ------
     KeyError
-        The filter has neither a packaged curve nor a JWST_FILTERS entry.
+        The name is neither a NIRCam nor a MIRI filter, or a NIRCam filter
+        without a packaged curve.
     """
     name = filter_name.upper()
-    packaged = _packaged_curves()
-    if f"{name}_lam_um" in packaged:
-        return Transmission(packaged[f"{name}_lam_um"], packaged[f"{name}_T"])
-    if name not in JWST_FILTERS:
-        raise KeyError(f"{name}: no throughput curve packaged and not in JWST_FILTERS")
-    _, _, _, blue, red = JWST_FILTERS[name]
-    logger.warning(f"{name}: no throughput curve packaged, half-power tophat")
-    return Transmission(np.array([blue, red]), np.ones(2))
+    if name in nircam_filters:
+        packaged = _packaged_curves()
+        if f"{name}_lam_um" not in packaged:
+            raise KeyError(f"{name}: NIRCam filter without a packaged throughput curve")
+        wavelength_um, throughput = packaged[f"{name}_lam_um"], packaged[f"{name}_T"]
+    elif name in miri_filters:
+        _, _, _, blue, red = miri_filters[name]
+        logger.warning(f"{name}: no throughput curve packaged, half-power tophat")
+        wavelength_um, throughput = np.array([blue, red]), np.ones(2)
+    else:
+        raise KeyError(f"{name}: not a NIRCam or MIRI filter")
+    return throughput_weights(spectral, wavelength_um, throughput, max_missing, name)
 
 
 def throughput_weights(
     spectral: Color,
-    band: Band,
+    wavelength_um: np.ndarray,
+    throughput: np.ndarray,
     max_missing: float = MAX_MISSING,
     name: str = "band",
 ) -> FilterWeights:
-    """Weights of a band on the sky channels, from its throughput curve(s).
+    """Weights of one sampled throughput curve on the sky channels.
 
-    The weight of sky channel i for output bin b is the integral of
-    ``T_b(lam) / lam`` over channel i, normalised so every output bin's weights
-    sum to one. This encodes three assumptions about the instrument:
+    The curve is interpolated linearly between its samples and is zero outside
+    the first and last one; the samples are points along the curve, not bin
+    edges (a tophat over [lo, hi] is ``[lo, hi]`` with throughput ``[1, 1]``).
+    It must be the full system throughput (optics, filter, detector), since a
+    wavelength-dependent factor changes the weights; a constant factor does
+    not.
+
+    The weight of sky channel i is the integral of ``T(lam) / lam`` over the
+    channel, normalised so the weights sum to one. This encodes three
+    assumptions about the instrument:
 
     1. A photon-counting detector: the rate is ``int F_nu T / (h nu) dnu``.
     2. A sky cube in F_nu, constant within each sky channel. With
@@ -162,48 +124,51 @@ def throughput_weights(
     ----------
     spectral : Color
         Sky channel bounds.
-    band : Transmission | Sequence[Transmission]
-        One curve (an imaging filter, one output plane) or one per output bin
-        (a spectrograph's data bins, one output cube in this order).
+    wavelength_um : np.ndarray
+        Wavelengths of the curve samples, microns, strictly ascending, at
+        least two.
+    throughput : np.ndarray
+        Throughput at each sample, dimensionless, non-negative, not all zero.
     max_missing : float
-        Largest fraction of an output bin's passband allowed outside the sky
-        channels before raising. Smaller non-zero fractions log a warning.
+        Largest fraction of the passband allowed outside the sky channels
+        before raising. Smaller non-zero fractions log a warning.
     name : str
         Band name for messages.
 
     Returns
     -------
     FilterWeights
-        1-D weights for one curve, (n_out, n_channels) for a sequence, over the
-        contiguous channel range the curves touch.
+        1-D weights over the contiguous channel range the curve touches.
 
     Raises
     ------
     ValueError
-        A curve exceeds ``max_missing``, or the band has no curves.
+        The curve is malformed, or more than ``max_missing`` of it lies
+        outside the sky channels, including gaps between them.
     """
+    wavelength_um = np.asarray(wavelength_um, float)
+    throughput = np.asarray(throughput, float)
+    if (
+        wavelength_um.ndim != 1
+        or wavelength_um.shape != throughput.shape
+        or wavelength_um.size < 2
+    ):
+        raise ValueError(
+            f"{name}: wavelength_um {wavelength_um.shape} and throughput "
+            f"{throughput.shape} must be 1-D, same length, at least two samples"
+        )
+    if np.any(np.diff(wavelength_um) <= 0):
+        raise ValueError(f"{name}: wavelength_um must be strictly ascending")
+    if np.any(throughput < 0) or not np.any(throughput > 0):
+        raise ValueError(f"{name}: throughput must be non-negative and not all zero")
     channel_bounds_um = spectral.to(u.um, equivalencies=u.spectral()).value
     channel_bounds_um = np.sort(np.atleast_2d(channel_bounds_um), axis=1)
-    curves = [band] if isinstance(band, Transmission) else list(band)
-    if not curves:
-        raise ValueError(f"{name}: band has no transmission curves")
-    rows = np.stack(
-        [
-            _channel_integrals(
-                channel_bounds_um,
-                transmission,
-                max_missing,
-                name if len(curves) == 1 else f"{name}[{bin_index}]",
-            )
-            for bin_index, transmission in enumerate(curves)
-        ]
+    per_channel = _channel_integrals(
+        channel_bounds_um, wavelength_um, throughput, max_missing, name
     )
-    nonzero = np.flatnonzero(rows.any(axis=0))
+    nonzero = np.flatnonzero(per_channel)
     channels = slice(int(nonzero[0]), int(nonzero[-1]) + 1)
-    weights = rows[:, channels]
-    return FilterWeights(
-        channels, weights[0] if isinstance(band, Transmission) else weights
-    )
+    return FilterWeights(channels, per_channel[channels])
 
 
 def pack_throughputs(source_dir: Path, version: str, out_path: Path) -> int:
@@ -270,8 +235,7 @@ def _packaged_curves() -> dict[str, np.ndarray]:
     Returns
     -------
     dict[str, np.ndarray]
-        Npz key -> array: ``version``, and ``{name}_lam_um`` and ``{name}_T``
-        for every packaged filter.
+        ``version`` plus ``<FILTER>_lam_um`` and ``<FILTER>_T`` per curve.
     """
     with (
         (files("jubik.instruments.jwst.data") / _PACKAGED_NPZ).open("rb") as f,
@@ -282,7 +246,8 @@ def _packaged_curves() -> dict[str, np.ndarray]:
 
 def _channel_integrals(
     channel_bounds_um: np.ndarray,
-    transmission: Transmission,
+    wavelength_um: np.ndarray,
+    throughput: np.ndarray,
     max_missing: float,
     name: str,
 ) -> np.ndarray:
@@ -292,8 +257,10 @@ def _channel_integrals(
     ----------
     channel_bounds_um : np.ndarray
         (n_ch, 2) sky channel bounds, microns, low edge first.
-    transmission : Transmission
-        Curve of one output bin.
+    wavelength_um : np.ndarray
+        Curve samples, microns, ascending.
+    throughput : np.ndarray
+        Throughput at each sample.
     max_missing : float
         See `throughput_weights`.
     name : str
@@ -302,7 +269,7 @@ def _channel_integrals(
     Returns
     -------
     np.ndarray
-        (n_ch,) integrals.
+        (n_ch,) integrals, summing to one.
 
     Raises
     ------
@@ -310,8 +277,6 @@ def _channel_integrals(
         More than ``max_missing`` of the weighted passband lies outside the
         sky channels, including gaps between them.
     """
-    wavelength_um = transmission.wavelength_um
-    throughput = transmission.throughput
     # channel edges inside the support join the fine grid, so the per-channel
     # integrals partition the total exactly
     inner = channel_bounds_um.ravel()
