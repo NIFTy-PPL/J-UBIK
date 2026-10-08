@@ -114,7 +114,7 @@ def _determine_ypos(
     ypos: int
         The y-position on the panel grid.
     """
-    return sky_filter.weights[filter_key].sl.start - y_offset
+    return sky_filter.weights[filter_key].channels.start - y_offset
 
 
 def get_extent(shape: NDArray, meta: DataMetaInformation) -> NDArray:

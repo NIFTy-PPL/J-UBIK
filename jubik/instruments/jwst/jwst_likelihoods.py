@@ -123,7 +123,7 @@ def build_jwst_likelihoods(
     )
 
     target_plotting = ResidualPlottingInformation(
-        y_offset=min(w.sl.start for w in sky_filter.weights.values())
+        y_offset=min(w.channels.start for w in sky_filter.weights.values())
     )
     target_filter_likelihoods = []
     alignment_plotting = (

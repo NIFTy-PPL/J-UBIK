@@ -177,7 +177,7 @@ def test_minimal_config_builds_and_evaluates(patched_seams, tmp_path):
     assert not np.isnan(builder.data[builder.mask]).any()
 
     sky_filter = products.target.sky_filter
-    np.testing.assert_allclose(sky_filter.weights[FILTER.lower()].W, [[1.0]])
+    np.testing.assert_allclose(sky_filter.weights[FILTER.lower()].weights, [[1.0]])
     assert sky_filter.target[FILTER.lower()].shape == GRID_SHAPE
     assert products.target.plotting.y_offset == 0
 

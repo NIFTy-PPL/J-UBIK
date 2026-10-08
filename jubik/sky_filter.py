@@ -44,27 +44,34 @@ class Transmission:
 
     Parameters
     ----------
-    lam_um : wavelength samples, microns, strictly ascending, at least two.
-    T : throughput at lam_um, dimensionless, non-negative, not all zero.
+    wavelength_um : np.ndarray
+        Wavelength samples, microns, strictly ascending, at least two.
+    throughput : np.ndarray
+        Throughput at `wavelength_um`, dimensionless, non-negative, not all zero.
         Overall scale is irrelevant, the weights are normalised.
     """
 
-    lam_um: np.ndarray
-    T: np.ndarray
+    wavelength_um: np.ndarray
+    throughput: np.ndarray
 
     def __post_init__(self) -> None:
-        lam = np.asarray(self.lam_um, float)
-        T = np.asarray(self.T, float)
-        if lam.ndim != 1 or lam.shape != T.shape or lam.size < 2:
+        wavelength_um = np.asarray(self.wavelength_um, float)
+        throughput = np.asarray(self.throughput, float)
+        if (
+            wavelength_um.ndim != 1
+            or wavelength_um.shape != throughput.shape
+            or wavelength_um.size < 2
+        ):
             raise ValueError(
-                f"lam_um {lam.shape} and T {T.shape} must be 1-D, same length"
+                f"wavelength_um {wavelength_um.shape} and throughput "
+                f"{throughput.shape} must be 1-D, same length"
             )
-        if np.any(np.diff(lam) <= 0):
-            raise ValueError("lam_um must be strictly ascending")
-        if np.any(T < 0) or not np.any(T > 0):
-            raise ValueError("T must be non-negative and not all zero")
-        object.__setattr__(self, "lam_um", lam)
-        object.__setattr__(self, "T", T)
+        if np.any(np.diff(wavelength_um) <= 0):
+            raise ValueError("wavelength_um must be strictly ascending")
+        if np.any(throughput < 0) or not np.any(throughput > 0):
+            raise ValueError("throughput must be non-negative and not all zero")
+        object.__setattr__(self, "wavelength_um", wavelength_um)
+        object.__setattr__(self, "throughput", throughput)
 
 
 Band = Transmission | Sequence[Transmission]
@@ -73,19 +80,42 @@ Band = Transmission | Sequence[Transmission]
 class BandWeights(NamedTuple):
     """Weights of one band on the sky channels.
 
-    sl : contiguous sky channel slice the band draws from.
-    W : (n_out, n_sl) weights of every output bin on those channels, rows
+    Parameters
+    ----------
+    channels : slice
+        Contiguous sky channel slice the band draws from.
+    weights : np.ndarray
+        (n_out, n_channels) weights of every output bin on those channels, rows
         sum to 1.
     """
 
-    sl: slice
-    W: np.ndarray
+    channels: slice
+    weights: np.ndarray
 
     @staticmethod
     def _channel_integrals(
-        bounds: np.ndarray, t: Transmission, max_missing: float, name: str
+        channel_bounds_um: np.ndarray,
+        transmission: Transmission,
+        max_missing: float,
+        name: str,
     ) -> np.ndarray:
-        """(n_ch,) integrals of T(lam) / lam over every channel, normalised to 1.
+        """Integrals of T(lam) / lam over every channel, normalised to 1.
+
+        Parameters
+        ----------
+        channel_bounds_um : np.ndarray
+            (n_ch, 2) sky channel bounds, microns, low edge first.
+        transmission : Transmission
+            Curve of one output bin.
+        max_missing : float
+            See `BandWeights.from_band`.
+        name : str
+            Band name for messages.
+
+        Returns
+        -------
+        np.ndarray
+            (n_ch,) integrals.
 
         Raises
         ------
@@ -93,20 +123,23 @@ class BandWeights(NamedTuple):
             More than ``max_missing`` of the weighted passband lies outside the
             sky channels, including gaps between them.
         """
-        lam, T_curve = t.lam_um, t.T
+        wavelength_um = transmission.wavelength_um
+        throughput = transmission.throughput
         # channel edges inside the support join the fine grid, so the per-channel
         # integrals partition the total exactly
-        inner = bounds.ravel()
-        inner = inner[(inner > lam[0]) & (inner < lam[-1])]
-        fine = np.union1d(np.linspace(lam[0], lam[-1], N_FINE), inner)
-        g = np.interp(fine, lam, T_curve) / fine
-        total = np.trapezoid(g, fine)
-        per_ch = np.zeros(len(bounds))
-        for i, (lo, hi) in enumerate(bounds):
-            m = (lo <= fine) & (fine <= hi)
-            if m.sum() > 1:
-                per_ch[i] = np.trapezoid(g[m], fine[m])
-        missing = 1.0 - per_ch.sum() / total
+        inner = channel_bounds_um.ravel()
+        inner = inner[(inner > wavelength_um[0]) & (inner < wavelength_um[-1])]
+        fine_um = np.union1d(
+            np.linspace(wavelength_um[0], wavelength_um[-1], N_FINE), inner
+        )
+        integrand = np.interp(fine_um, wavelength_um, throughput) / fine_um
+        total = np.trapezoid(integrand, fine_um)
+        per_channel = np.zeros(len(channel_bounds_um))
+        for i, (lo, hi) in enumerate(channel_bounds_um):
+            inside = (lo <= fine_um) & (fine_um <= hi)
+            if inside.sum() > 1:
+                per_channel[i] = np.trapezoid(integrand[inside], fine_um[inside])
+        missing = 1.0 - per_channel.sum() / total
         missing = 0.0 if missing < _TOL else missing
         if missing > max_missing:
             raise ValueError(
@@ -118,7 +151,7 @@ class BandWeights(NamedTuple):
                 f"{name}: {100 * missing:.3f}% of the passband lies outside the sky "
                 "channels, the output is renormalised onto the covered part"
             )
-        return per_ch / per_ch.sum()
+        return per_channel / per_channel.sum()
 
     @classmethod
     def from_band(
@@ -132,38 +165,45 @@ class BandWeights(NamedTuple):
 
         Parameters
         ----------
-        spectral : sky channel bounds.
-        band : one Transmission, or one per output bin of the band.
-        max_missing : largest fraction of an output bin's passband allowed
-            outside the sky channels before raising. Smaller non-zero
-            fractions log a warning.
-        name : band name for messages.
+        spectral : Color
+            Sky channel bounds.
+        band : Transmission | Sequence[Transmission]
+            One Transmission, or one per output bin of the band.
+        max_missing : float
+            Largest fraction of an output bin's passband allowed outside the sky
+            channels before raising. Smaller non-zero fractions log a warning.
+        name : str
+            Band name for messages.
 
         Returns
         -------
-        BandWeights over the contiguous channel range the band's curves touch.
+        BandWeights
+            Weights over the contiguous channel range the band's curves touch.
 
         Raises
         ------
         ValueError
             A curve exceeds ``max_missing``, or the band has no curves.
         """
-        bounds = spectral.to(u.um, equivalencies=u.spectral()).value
-        bounds = np.sort(np.atleast_2d(bounds), axis=1)
+        channel_bounds_um = spectral.to(u.um, equivalencies=u.spectral()).value
+        channel_bounds_um = np.sort(np.atleast_2d(channel_bounds_um), axis=1)
         curves = [band] if isinstance(band, Transmission) else list(band)
         if not curves:
             raise ValueError(f"{name}: band has no transmission curves")
         rows = np.stack(
             [
                 cls._channel_integrals(
-                    bounds, t, max_missing, name if len(curves) == 1 else f"{name}[{b}]"
+                    channel_bounds_um,
+                    transmission,
+                    max_missing,
+                    name if len(curves) == 1 else f"{name}[{bin_index}]",
                 )
-                for b, t in enumerate(curves)
+                for bin_index, transmission in enumerate(curves)
             ]
         )
-        nz = np.flatnonzero(rows.any(axis=0))
-        sl = slice(int(nz[0]), int(nz[-1]) + 1)
-        return cls(sl, rows[:, sl])
+        nonzero = np.flatnonzero(rows.any(axis=0))
+        channels = slice(int(nonzero[0]), int(nonzero[-1]) + 1)
+        return cls(channels, rows[:, channels])
 
 
 class SkyFilter(jft.Model):
@@ -175,11 +215,16 @@ class SkyFilter(jft.Model):
 
     Parameters
     ----------
-    grid : sky grid; its spectral axis defines the channels.
-    bands : band name -> one Transmission, or one per output bin.
-    sky_key : key of the sky cube in the input.
-    dtype : dtype of the sky cube.
-    max_missing : see `BandWeights.from_band`.
+    grid : Grid
+        Sky grid; its spectral axis defines the channels.
+    bands : dict[str, Band]
+        Band name -> one Transmission, or one per output bin.
+    sky_key : str
+        Key of the sky cube in the input.
+    dtype : DTypeLike
+        Dtype of the sky cube.
+    max_missing : float
+        See `BandWeights.from_band`.
     """
 
     def __init__(
@@ -193,10 +238,12 @@ class SkyFilter(jft.Model):
         self.grid = grid
         self.sky_key = sky_key
         self.weights = {
-            k: BandWeights.from_band(grid.spectral, b, max_missing, name=k)
-            for k, b in bands.items()
+            key: BandWeights.from_band(grid.spectral, band, max_missing, name=key)
+            for key, band in bands.items()
         }
-        self._plane = {k: isinstance(b, Transmission) for k, b in bands.items()}
+        self._is_plane = {
+            key: isinstance(band, Transmission) for key, band in bands.items()
+        }
         n_ch = np.atleast_1d(grid.spectral.center).size
         shape = (n_ch, *grid.spatial.shape_yx)
         super().__init__(domain={sky_key: jft.ShapeWithDtype(shape, dtype)})
@@ -206,16 +253,18 @@ class SkyFilter(jft.Model):
 
         Parameters
         ----------
-        x : input dict holding the sky cube under ``sky_key``.
+        x : jft.Vector | dict[str, Array]
+            Input dict holding the sky cube under ``sky_key``.
 
         Returns
         -------
-        dict band name -> (ny, nx) plane or (n_out, ny, nx) cube.
+        dict[str, Array]
+            Band name -> (ny, nx) plane or (n_out, ny, nx) cube.
         """
         sky = x[self.sky_key]
         out = {}
-        for k, bw in self.weights.items():
-            W = jnp.asarray(bw.W, dtype=sky.dtype)
-            y = jnp.tensordot(W, sky[bw.sl], axes=(1, 0))
-            out[k] = y[0] if self._plane[k] else y
+        for key, band_weights in self.weights.items():
+            weights = jnp.asarray(band_weights.weights, dtype=sky.dtype)
+            y = jnp.tensordot(weights, sky[band_weights.channels], axes=(1, 0))
+            out[key] = y[0] if self._is_plane[key] else y
         return out
