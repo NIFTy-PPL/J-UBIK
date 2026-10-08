@@ -103,7 +103,9 @@ def build_jwst_likelihoods(
     sky_filter = SkyFilter(
         grid,
         {
-            name: jwst_filter_weights(grid.spectral, name)
+            name: jwst_filter_weights(
+                grid.spectral, name, cfg[files_key].get("throughputs")
+            )
             for name in cfg[files_key]["filter"]
         },
         sky_key=sky_key,

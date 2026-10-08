@@ -108,8 +108,23 @@ def patched_seams(monkeypatch):
 
 def make_grid():
     spatial = WcsAstropy(center=CENTER, shape=GRID_SHAPE, fov=GRID_FOV)
-    # one channel covering the whole packaged F444W curve
+    # one channel covering the whole fake F444W curve
     return Grid(spatial=spatial, spectral=Color([3.6, 5.2] * u.um))
+
+
+def write_fake_throughput(tmp_path):
+    """A smooth F444W-like curve, 3.7 to 5.1 um, in the STScI file format."""
+    throughput_dir = tmp_path / "throughputs"
+    throughput_dir.mkdir(exist_ok=True)
+    wavelength_um = np.linspace(3.7, 5.1, 141)
+    throughput = 0.5 * np.sin(np.pi * (wavelength_um - 3.7) / 1.4) ** 2
+    np.savetxt(
+        throughput_dir / f"{FILTER}_mean_system_throughput.txt",
+        np.c_[wavelength_um, throughput],
+        header="Microns Throughput",
+        comments="",
+    )
+    return throughput_dir
 
 
 def make_config(
@@ -153,7 +168,11 @@ def make_config(
                 "distribution": ["invgamma", 4, 0.01, 0.0],
             }
         }
-    return {"files": {"filter": {FILTER.lower(): files}}, "telescope": telescope}
+    files_block = {
+        "filter": {FILTER.lower(): files},
+        "throughputs": str(write_fake_throughput(tmp_path)),
+    }
+    return {"files": files_block, "telescope": telescope}
 
 
 def evaluate(likelihood):
@@ -235,7 +254,9 @@ def test_empty_gaia_catalog_raises(patched_seams, fake_gaia, tmp_path):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
-def test_all_gaia_stars_rejected_raises(monkeypatch, patched_seams, fake_gaia, tmp_path):
+def test_all_gaia_stars_rejected_raises(
+    monkeypatch, patched_seams, fake_gaia, tmp_path
+):
     for site in JWST_DATA_SITES:
         monkeypatch.setattr(site, NanStarsJwstData)
     cfg = make_config(tmp_path, gaia=True)
