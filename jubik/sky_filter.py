@@ -34,10 +34,12 @@ from .grid import Grid
 
 __all__ = ["MAX_MISSING", "SKY_KEY", "Band", "SkyFilter", "Transmission"]
 
+# --------------------------------------------------------------------------- #
+# Public: the contract an instrument fills and the model that consumes it
+# --------------------------------------------------------------------------- #
+
 SKY_KEY = "sky"
 MAX_MISSING = 0.01  # passband fraction allowed outside sky coverage
-_N_FINE = 20001  # integration grid over the curve support
-_TOL = 1e-9  # missing fraction treated as zero (integration round-off)
 
 
 @dataclass(frozen=True)
@@ -77,6 +79,78 @@ class Transmission:
 
 
 Band = Transmission | Sequence[Transmission]
+
+
+class SkyFilter(jft.Model):
+    """{sky_key: (n_ch, ny, nx)} -> {band: (ny, nx) plane or (n_out, ny, nx) cube}.
+
+    A band given as one Transmission outputs a plane, a band given as a
+    sequence outputs one cube bin per curve, in order. Every likelihood that
+    lives on a band's spectral binning reads its sky under the band's key.
+
+    Parameters
+    ----------
+    grid : Grid
+        Sky grid; its spectral axis defines the channels.
+    bands : dict[str, Band]
+        Band name -> one Transmission, or one per output bin.
+    sky_key : str
+        Key of the sky cube in the input.
+    dtype : DTypeLike
+        Dtype of the sky cube.
+    max_missing : float
+        See `_BandWeights.from_band`.
+    """
+
+    def __init__(
+        self,
+        grid: Grid,
+        bands: dict[str, Band],
+        sky_key: str = SKY_KEY,
+        dtype: DTypeLike = jnp.float32,
+        max_missing: float = MAX_MISSING,
+    ) -> None:
+        self.grid = grid
+        self.sky_key = sky_key
+        self.weights = {
+            key: _BandWeights.from_band(grid.spectral, band, max_missing, name=key)
+            for key, band in bands.items()
+        }
+        self._is_plane = {
+            key: isinstance(band, Transmission) for key, band in bands.items()
+        }
+        n_ch = np.atleast_1d(grid.spectral.center).size
+        shape = (n_ch, *grid.spatial.shape_yx)
+        super().__init__(domain={sky_key: jft.ShapeWithDtype(shape, dtype)})
+
+    def __call__(self, x: jft.Vector | dict[str, Array]) -> dict[str, Array]:
+        """Re-bin the sky cube onto every band.
+
+        Parameters
+        ----------
+        x : jft.Vector | dict[str, Array]
+            Input dict holding the sky cube under ``sky_key``.
+
+        Returns
+        -------
+        dict[str, Array]
+            Band name -> (ny, nx) plane or (n_out, ny, nx) cube.
+        """
+        sky = x[self.sky_key]
+        out = {}
+        for key, band_weights in self.weights.items():
+            weights = jnp.asarray(band_weights.weights, dtype=sky.dtype)
+            y = jnp.tensordot(weights, sky[band_weights.channels], axes=(1, 0))
+            out[key] = y[0] if self._is_plane[key] else y
+        return out
+
+
+# --------------------------------------------------------------------------- #
+# Internals: integration of a curve over the sky channels
+# --------------------------------------------------------------------------- #
+
+_N_FINE = 20001  # integration grid over the curve support
+_TOL = 1e-9  # missing fraction treated as zero (integration round-off)
 
 
 class _BandWeights(NamedTuple):
@@ -206,67 +280,3 @@ class _BandWeights(NamedTuple):
         nonzero = np.flatnonzero(rows.any(axis=0))
         channels = slice(int(nonzero[0]), int(nonzero[-1]) + 1)
         return cls(channels, rows[:, channels])
-
-
-class SkyFilter(jft.Model):
-    """{sky_key: (n_ch, ny, nx)} -> {band: (ny, nx) plane or (n_out, ny, nx) cube}.
-
-    A band given as one Transmission outputs a plane, a band given as a
-    sequence outputs one cube bin per curve, in order. Every likelihood that
-    lives on a band's spectral binning reads its sky under the band's key.
-
-    Parameters
-    ----------
-    grid : Grid
-        Sky grid; its spectral axis defines the channels.
-    bands : dict[str, Band]
-        Band name -> one Transmission, or one per output bin.
-    sky_key : str
-        Key of the sky cube in the input.
-    dtype : DTypeLike
-        Dtype of the sky cube.
-    max_missing : float
-        See `_BandWeights.from_band`.
-    """
-
-    def __init__(
-        self,
-        grid: Grid,
-        bands: dict[str, Band],
-        sky_key: str = SKY_KEY,
-        dtype: DTypeLike = jnp.float32,
-        max_missing: float = MAX_MISSING,
-    ) -> None:
-        self.grid = grid
-        self.sky_key = sky_key
-        self.weights = {
-            key: _BandWeights.from_band(grid.spectral, band, max_missing, name=key)
-            for key, band in bands.items()
-        }
-        self._is_plane = {
-            key: isinstance(band, Transmission) for key, band in bands.items()
-        }
-        n_ch = np.atleast_1d(grid.spectral.center).size
-        shape = (n_ch, *grid.spatial.shape_yx)
-        super().__init__(domain={sky_key: jft.ShapeWithDtype(shape, dtype)})
-
-    def __call__(self, x: jft.Vector | dict[str, Array]) -> dict[str, Array]:
-        """Re-bin the sky cube onto every band.
-
-        Parameters
-        ----------
-        x : jft.Vector | dict[str, Array]
-            Input dict holding the sky cube under ``sky_key``.
-
-        Returns
-        -------
-        dict[str, Array]
-            Band name -> (ny, nx) plane or (n_out, ny, nx) cube.
-        """
-        sky = x[self.sky_key]
-        out = {}
-        for key, band_weights in self.weights.items():
-            weights = jnp.asarray(band_weights.weights, dtype=sky.dtype)
-            y = jnp.tensordot(weights, sky[band_weights.channels], axes=(1, 0))
-            out[key] = y[0] if self._is_plane[key] else y
-        return out
