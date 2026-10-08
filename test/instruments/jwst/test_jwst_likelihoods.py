@@ -235,9 +235,7 @@ def test_empty_gaia_catalog_raises(patched_seams, fake_gaia, tmp_path):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
-def test_all_gaia_stars_rejected_raises(
-    monkeypatch, patched_seams, fake_gaia, tmp_path
-):
+def test_all_gaia_stars_rejected_raises(monkeypatch, patched_seams, fake_gaia, tmp_path):
     for site in JWST_DATA_SITES:
         monkeypatch.setattr(site, NanStarsJwstData)
     cfg = make_config(tmp_path, gaia=True)
