@@ -21,7 +21,7 @@ Two public objects:
     plane (an imaging filter), a 2-D ``(n_out, n_channels)`` one output bin per
     row (a spectrograph). How the weights follow from a throughput curve is the
     instrument's business, since detector type, sky units and calibration
-    convention all enter there; ``jubik.instruments.jwst.data.throughput`` does
+    convention all enter there; ``jubik.instruments.jwst.throughput`` does
     it for photon-counted F_nu data.
 
 ``SkyFilter(grid, bands)``

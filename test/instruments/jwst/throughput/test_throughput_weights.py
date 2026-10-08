@@ -1,5 +1,4 @@
-"""JWST filter weights: packaged NIRCam curves, the MIRI tophat fallback, the
-photon-weighted channel integrals, and the repacking helper."""
+"""throughput_weights: the photon-weighted channel integrals and the coverage policy."""
 
 import logging
 from itertools import pairwise
@@ -10,15 +9,8 @@ import pytest
 from astropy import units as u
 
 from jubik.color import Color
-from jubik.instruments.jwst.data import throughput
 from jubik.instruments.jwst.data.jwst_information import JWST_FILTERS
-from jubik.instruments.jwst.data.throughput import (
-    MAX_MISSING,
-    THROUGHPUT_VERSION,
-    jwst_filter_weights,
-    pack_throughputs,
-    throughput_weights,
-)
+from jubik.instruments.jwst.throughput.weights import MAX_MISSING, throughput_weights
 
 # rising edge 3.9 to 4.1 um, flat to 5.0 um
 RAMP = (np.array([3.9, 4.1, 5.0]), np.array([0.0, 1.0, 1.0]))
@@ -72,56 +64,6 @@ def _warnings(fn, caplog):
         jft.logger.removeHandler(caplog.handler)
 
 
-# --------------------------------------------------------------------------- #
-# jwst_filter_weights: NIRCam curves and the MIRI fallback
-# --------------------------------------------------------------------------- #
-
-
-def test_packaged_release():
-    assert THROUGHPUT_VERSION == "nircam_throughputs_4Nov2022_v5"
-
-
-def test_f444w_weights_on_four_channels():
-    # the red wing past 5.0 um holds 1.5% of the passband, above MAX_MISSING
-    with pytest.raises(ValueError, match="F444W"):
-        jwst_filter_weights(_edges(np.linspace(3.8, 5.0, 5)), "f444w")
-    band = jwst_filter_weights(_edges(np.linspace(3.7, 5.1, 5)), "F444W")
-    w = band.weights
-    assert band.channels == slice(0, 4) and w.shape == (4,)
-    np.testing.assert_allclose(w.sum(), 1.0, rtol=1e-12)
-    assert min(w[1], w[2]) > max(w[0], w[3])
-
-
-def test_miri_falls_back_to_tophat(caplog):
-    _, _, _, blue, red = JWST_FILTERS["F560W"]
-    edges = np.linspace(blue, red, 4)
-    band = _warnings(lambda: jwst_filter_weights(_edges(edges), "f560w"), caplog)
-    assert "F560W" in caplog.text and "half-power tophat" in caplog.text
-    assert band.channels == slice(0, 3)
-    np.testing.assert_allclose(
-        band.weights, _log_ratio_weights(edges, blue, red), rtol=1e-6
-    )
-
-
-def test_unknown_filter_raises():
-    with pytest.raises(KeyError, match="F999W"):
-        jwst_filter_weights(_edges([1.0, 2.0]), "F999W")
-
-
-def test_one_channel_per_filter_is_one_hot():
-    names = ["F150W", "F277W", "F444W"]
-    spectral = _spectral([JWST_FILTERS[n][3:5] for n in names])
-    for index, n in enumerate(names):
-        band = throughput_weights(spectral, *_tophat(*JWST_FILTERS[n][3:5]), name=n)
-        assert band.channels == slice(index, index + 1)
-        np.testing.assert_allclose(band.weights, [1.0])
-
-
-# --------------------------------------------------------------------------- #
-# throughput_weights: the photon-weighted integrals
-# --------------------------------------------------------------------------- #
-
-
 @pytest.mark.parametrize(
     "bounds",
     [
@@ -152,6 +94,15 @@ def test_curve_inside_one_channel_is_one_hot():
     band = throughput_weights(_edges(np.linspace(1.0, 2.0, 11)), *_tophat(1.32, 1.38))
     assert band.channels == slice(3, 4)
     np.testing.assert_allclose(band.weights, [1.0])
+
+
+def test_one_channel_per_filter_is_one_hot():
+    names = ["F150W", "F277W", "F444W"]
+    spectral = _spectral([JWST_FILTERS[n][3:5] for n in names])
+    for index, n in enumerate(names):
+        band = throughput_weights(spectral, *_tophat(*JWST_FILTERS[n][3:5]), name=n)
+        assert band.channels == slice(index, index + 1)
+        np.testing.assert_allclose(band.weights, [1.0])
 
 
 def test_missing_passband_raises_above_max_missing():
@@ -194,32 +145,3 @@ def test_malformed_curves_raise():
         throughput_weights(spectral, [1.0, 2.0], [1.0])
     with pytest.raises(ValueError, match="non-negative"):
         throughput_weights(spectral, [1.0, 2.0], [0.0, 0.0])
-
-
-# --------------------------------------------------------------------------- #
-# pack_throughputs and the module attributes
-# --------------------------------------------------------------------------- #
-
-
-def test_pack_throughputs_round_trip(tmp_path):
-    lam = np.linspace(1.0, 2.0, 5)
-    T = np.linspace(0.1, 0.5, 5)
-    np.savetxt(
-        tmp_path / "f150w_mean_system_throughput.txt",
-        np.c_[lam, T],
-        header="Microns Throughput",
-        comments="",
-    )
-    out = tmp_path / "curves.npz"
-    assert pack_throughputs(tmp_path, "test_tag", out) == 1
-    with np.load(out) as npz:
-        assert str(npz["version"]) == "test_tag"
-        np.testing.assert_allclose(npz["F150W_lam_um"], lam)
-        np.testing.assert_allclose(npz["F150W_T"], T, rtol=1e-6)
-    with pytest.raises(FileNotFoundError):
-        pack_throughputs(tmp_path / "empty", "test_tag", out)
-
-
-def test_unknown_module_attribute_raises():
-    with pytest.raises(AttributeError):
-        _ = throughput.NOT_A_NAME
