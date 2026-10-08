@@ -23,7 +23,7 @@ from .data.preloader.preloader import (
     PreloaderSideEffects,
     preload_data,
 )
-from .data.throughput import jwst_filter_weights
+from .throughput import jwst_filter_weights
 from .jwst_response import TargetResponseInput, build_target_response
 from .likelihood.alignment_likelihood import (
     AlignmentLikelihoodSideEffects,
