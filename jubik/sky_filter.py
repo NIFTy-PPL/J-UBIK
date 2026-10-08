@@ -32,7 +32,7 @@ from nifty.re import logger
 from .color import Color
 from .grid import Grid
 
-__all__ = ["MAX_MISSING", "SKY_KEY", "Band", "BandWeights", "SkyFilter", "Transmission"]
+__all__ = ["MAX_MISSING", "SKY_KEY", "Band", "SkyFilter", "Transmission"]
 
 SKY_KEY = "sky"
 MAX_MISSING = 0.01  # passband fraction allowed outside sky coverage
@@ -79,7 +79,7 @@ class Transmission:
 Band = Transmission | Sequence[Transmission]
 
 
-class BandWeights(NamedTuple):
+class _BandWeights(NamedTuple):
     """Weights of one band on the sky channels.
 
     Parameters
@@ -110,7 +110,7 @@ class BandWeights(NamedTuple):
         transmission : Transmission
             Curve of one output bin.
         max_missing : float
-            See `BandWeights.from_band`.
+            See `_BandWeights.from_band`.
         name : str
             Band name for messages.
 
@@ -162,7 +162,7 @@ class BandWeights(NamedTuple):
         band: Band,
         max_missing: float = MAX_MISSING,
         name: str = "band",
-    ) -> "BandWeights":
+    ) -> "_BandWeights":
         """Integrate every curve of a band over the sky channels.
 
         Parameters
@@ -179,7 +179,7 @@ class BandWeights(NamedTuple):
 
         Returns
         -------
-        BandWeights
+        _BandWeights
             Weights over the contiguous channel range the band's curves touch.
 
         Raises
@@ -226,7 +226,7 @@ class SkyFilter(jft.Model):
     dtype : DTypeLike
         Dtype of the sky cube.
     max_missing : float
-        See `BandWeights.from_band`.
+        See `_BandWeights.from_band`.
     """
 
     def __init__(
@@ -240,7 +240,7 @@ class SkyFilter(jft.Model):
         self.grid = grid
         self.sky_key = sky_key
         self.weights = {
-            key: BandWeights.from_band(grid.spectral, band, max_missing, name=key)
+            key: _BandWeights.from_band(grid.spectral, band, max_missing, name=key)
             for key, band in bands.items()
         }
         self._is_plane = {

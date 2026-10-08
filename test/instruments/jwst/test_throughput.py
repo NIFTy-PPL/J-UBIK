@@ -6,8 +6,10 @@ import nifty.re as jft
 import numpy as np
 import pytest
 from astropy import units as u
+from astropy.coordinates import SkyCoord
 
 from jubik.color import Color
+from jubik.grid import Grid
 from jubik.instruments.jwst.data import throughput
 from jubik.instruments.jwst.data.jwst_information import JWST_FILTERS
 from jubik.instruments.jwst.data.throughput import (
@@ -15,7 +17,19 @@ from jubik.instruments.jwst.data.throughput import (
     jwst_transmission,
     pack_throughputs,
 )
-from jubik.sky_filter import BandWeights
+from jubik.sky_filter import SkyFilter
+from jubik.wcs.wcs_astropy import WcsAstropy
+
+
+def _weights(spectral: Color, transmission, name: str = "band"):
+    """Weights of one band, through the public SkyFilter path."""
+    spatial = WcsAstropy(
+        center=SkyCoord(ra=64.665 * u.deg, dec=-47.865 * u.deg),
+        shape=(4, 4),
+        fov=(1 * u.arcsec, 1 * u.arcsec),
+    )
+    grid = Grid(spatial=spatial, spectral=spectral)
+    return SkyFilter(grid, {name: transmission}).weights[name]
 
 
 def test_f444w_curve_is_packaged():
@@ -30,8 +44,8 @@ def test_f444w_weights_on_four_channels():
     t = jwst_transmission("F444W")
     # the red wing past 5.0 um holds 1.5% of the passband, above MAX_MISSING
     with pytest.raises(ValueError, match="F444W"):
-        BandWeights.from_band(Color(np.linspace(3.8, 5.0, 5) * u.um), t, name="F444W")
-    band_weights = BandWeights.from_band(Color(np.linspace(3.7, 5.1, 5) * u.um), t)
+        _weights(Color(np.linspace(3.8, 5.0, 5) * u.um), t, name="F444W")
+    band_weights = _weights(Color(np.linspace(3.7, 5.1, 5) * u.um), t)
     w = band_weights.weights[0]
     assert band_weights.channels == slice(0, 4) and band_weights.weights.shape == (1, 4)
     np.testing.assert_allclose(w.sum(), 1.0, rtol=1e-12)
