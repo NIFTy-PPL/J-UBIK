@@ -70,45 +70,6 @@ class Transmission:
 Band = Transmission | Sequence[Transmission]
 
 
-def _channel_integrals(
-    bounds: np.ndarray, t: Transmission, max_missing: float, name: str
-) -> np.ndarray:
-    """(n_ch,) integrals of T(lam) / lam over every channel, normalised to 1.
-
-    Raises
-    ------
-    ValueError
-        More than ``max_missing`` of the weighted passband lies outside the
-        sky channels, including gaps between them.
-    """
-    lam, T_curve = t.lam_um, t.T
-    # channel edges inside the support join the fine grid, so the per-channel
-    # integrals partition the total exactly
-    inner = bounds.ravel()
-    inner = inner[(inner > lam[0]) & (inner < lam[-1])]
-    fine = np.union1d(np.linspace(lam[0], lam[-1], N_FINE), inner)
-    g = np.interp(fine, lam, T_curve) / fine
-    total = np.trapezoid(g, fine)
-    per_ch = np.zeros(len(bounds))
-    for i, (lo, hi) in enumerate(bounds):
-        m = (lo <= fine) & (fine <= hi)
-        if m.sum() > 1:
-            per_ch[i] = np.trapezoid(g[m], fine[m])
-    missing = 1.0 - per_ch.sum() / total
-    missing = 0.0 if missing < _TOL else missing
-    if missing > max_missing:
-        raise ValueError(
-            f"{name}: {100 * missing:.2f}% of the passband lies outside the sky "
-            f"channels (allowed {100 * max_missing:.2f}%)"
-        )
-    if missing > 0:
-        logger.warning(
-            f"{name}: {100 * missing:.3f}% of the passband lies outside the sky "
-            "channels, the output is renormalised onto the covered part"
-        )
-    return per_ch / per_ch.sum()
-
-
 class BandWeights(NamedTuple):
     """Weights of one band on the sky channels.
 
@@ -119,6 +80,45 @@ class BandWeights(NamedTuple):
 
     sl: slice
     W: np.ndarray
+
+    @staticmethod
+    def _channel_integrals(
+        bounds: np.ndarray, t: Transmission, max_missing: float, name: str
+    ) -> np.ndarray:
+        """(n_ch,) integrals of T(lam) / lam over every channel, normalised to 1.
+
+        Raises
+        ------
+        ValueError
+            More than ``max_missing`` of the weighted passband lies outside the
+            sky channels, including gaps between them.
+        """
+        lam, T_curve = t.lam_um, t.T
+        # channel edges inside the support join the fine grid, so the per-channel
+        # integrals partition the total exactly
+        inner = bounds.ravel()
+        inner = inner[(inner > lam[0]) & (inner < lam[-1])]
+        fine = np.union1d(np.linspace(lam[0], lam[-1], N_FINE), inner)
+        g = np.interp(fine, lam, T_curve) / fine
+        total = np.trapezoid(g, fine)
+        per_ch = np.zeros(len(bounds))
+        for i, (lo, hi) in enumerate(bounds):
+            m = (lo <= fine) & (fine <= hi)
+            if m.sum() > 1:
+                per_ch[i] = np.trapezoid(g[m], fine[m])
+        missing = 1.0 - per_ch.sum() / total
+        missing = 0.0 if missing < _TOL else missing
+        if missing > max_missing:
+            raise ValueError(
+                f"{name}: {100 * missing:.2f}% of the passband lies outside the sky "
+                f"channels (allowed {100 * max_missing:.2f}%)"
+            )
+        if missing > 0:
+            logger.warning(
+                f"{name}: {100 * missing:.3f}% of the passband lies outside the sky "
+                "channels, the output is renormalised onto the covered part"
+            )
+        return per_ch / per_ch.sum()
 
     @classmethod
     def from_band(
@@ -155,7 +155,7 @@ class BandWeights(NamedTuple):
             raise ValueError(f"{name}: band has no transmission curves")
         rows = np.stack(
             [
-                _channel_integrals(
+                cls._channel_integrals(
                     bounds, t, max_missing, name if len(curves) == 1 else f"{name}[{b}]"
                 )
                 for b, t in enumerate(curves)
