@@ -70,24 +70,6 @@ class Transmission:
 Band = Transmission | Sequence[Transmission]
 
 
-class BandWeights(NamedTuple):
-    """Weights of one band on the sky channels, the result of `band_weights`.
-
-    sl : contiguous sky channel slice the band draws from.
-    W : (n_out, n_sl) weights of every output bin on those channels, rows
-        sum to 1.
-    """
-
-    sl: slice
-    W: np.ndarray
-
-
-def _bounds_um(spectral: Color) -> np.ndarray:
-    """(n_ch, 2) channel bounds in microns, each row ascending."""
-    b = spectral.to(u.um, equivalencies=u.spectral()).value
-    return np.sort(np.atleast_2d(b), axis=1)
-
-
 def _channel_integrals(
     bounds: np.ndarray, t: Transmission, max_missing: float, name: str
 ) -> np.ndarray:
@@ -127,47 +109,61 @@ def _channel_integrals(
     return per_ch / per_ch.sum()
 
 
-def band_weights(
-    spectral: Color,
-    band: Band,
-    max_missing: float = MAX_MISSING,
-    name: str = "band",
-) -> BandWeights:
-    """Weights of every output bin of a band on the sky channels.
+class BandWeights(NamedTuple):
+    """Weights of one band on the sky channels.
 
-    Parameters
-    ----------
-    spectral : sky channel bounds.
-    band : one Transmission, or one per output bin of the band.
-    max_missing : largest fraction of an output bin's passband allowed outside
-        the sky channels before raising. Smaller non-zero fractions log a
-        warning.
-    name : band name for messages.
-
-    Returns
-    -------
-    BandWeights over the contiguous channel range the band's curves touch.
-
-    Raises
-    ------
-    ValueError
-        A curve exceeds ``max_missing``, or the band has no curves.
+    sl : contiguous sky channel slice the band draws from.
+    W : (n_out, n_sl) weights of every output bin on those channels, rows
+        sum to 1.
     """
-    bounds = _bounds_um(spectral)
-    curves = [band] if isinstance(band, Transmission) else list(band)
-    if not curves:
-        raise ValueError(f"{name}: band has no transmission curves")
-    rows = np.stack(
-        [
-            _channel_integrals(
-                bounds, t, max_missing, name if len(curves) == 1 else f"{name}[{b}]"
-            )
-            for b, t in enumerate(curves)
-        ]
-    )
-    nz = np.flatnonzero(rows.any(axis=0))
-    sl = slice(int(nz[0]), int(nz[-1]) + 1)
-    return BandWeights(sl, rows[:, sl])
+
+    sl: slice
+    W: np.ndarray
+
+    @classmethod
+    def from_band(
+        cls,
+        spectral: Color,
+        band: Band,
+        max_missing: float = MAX_MISSING,
+        name: str = "band",
+    ) -> "BandWeights":
+        """Integrate every curve of a band over the sky channels.
+
+        Parameters
+        ----------
+        spectral : sky channel bounds.
+        band : one Transmission, or one per output bin of the band.
+        max_missing : largest fraction of an output bin's passband allowed
+            outside the sky channels before raising. Smaller non-zero
+            fractions log a warning.
+        name : band name for messages.
+
+        Returns
+        -------
+        BandWeights over the contiguous channel range the band's curves touch.
+
+        Raises
+        ------
+        ValueError
+            A curve exceeds ``max_missing``, or the band has no curves.
+        """
+        bounds = spectral.to(u.um, equivalencies=u.spectral()).value
+        bounds = np.sort(np.atleast_2d(bounds), axis=1)
+        curves = [band] if isinstance(band, Transmission) else list(band)
+        if not curves:
+            raise ValueError(f"{name}: band has no transmission curves")
+        rows = np.stack(
+            [
+                _channel_integrals(
+                    bounds, t, max_missing, name if len(curves) == 1 else f"{name}[{b}]"
+                )
+                for b, t in enumerate(curves)
+            ]
+        )
+        nz = np.flatnonzero(rows.any(axis=0))
+        sl = slice(int(nz[0]), int(nz[-1]) + 1)
+        return cls(sl, rows[:, sl])
 
 
 class SkyFilter(jft.Model):
@@ -183,7 +179,7 @@ class SkyFilter(jft.Model):
     bands : band name -> one Transmission, or one per output bin.
     sky_key : key of the sky cube in the input.
     dtype : dtype of the sky cube and the weights.
-    max_missing : see `band_weights`.
+    max_missing : see `BandWeights.from_band`.
     """
 
     def __init__(
@@ -197,12 +193,12 @@ class SkyFilter(jft.Model):
         self.grid = grid
         self.sky_key = sky_key
         self.weights = {
-            k: band_weights(grid.spectral, b, max_missing, name=k)
+            k: BandWeights.from_band(grid.spectral, b, max_missing, name=k)
             for k, b in bands.items()
         }
         self._plane = {k: isinstance(b, Transmission) for k, b in bands.items()}
         self._W = {k: jnp.asarray(bw.W, dtype=dtype) for k, bw in self.weights.items()}
-        n_ch = _bounds_um(grid.spectral).shape[0]
+        n_ch = np.atleast_1d(grid.spectral.center).size
         shape = (n_ch, *grid.spatial.shape_yx)
         super().__init__(domain={sky_key: jft.ShapeWithDtype(shape, dtype)})
 
