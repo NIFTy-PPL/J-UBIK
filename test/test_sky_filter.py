@@ -84,12 +84,14 @@ def _log_ratio_weights(edges, lo, hi):
     ],
 )
 def test_soft_edge_gives_partial_weights(bounds):
-    bw = BandWeights.from_band(_spectral(bounds), RAMP)
+    band_weights = BandWeights.from_band(_spectral(bounds), RAMP)
     expected = np.array([_ramp_integral(lo, hi) for lo, hi in bounds])
     expected /= expected.sum()
-    assert bw.sl == slice(0, len(bounds)) and bw.W.shape == (1, len(bounds))
-    np.testing.assert_allclose(bw.W[0], expected, rtol=1e-5)
-    np.testing.assert_allclose(bw.W.sum(), 1.0, rtol=1e-12)
+    assert band_weights.channels == slice(
+        0, len(bounds)
+    ) and band_weights.weights.shape == (1, len(bounds))
+    np.testing.assert_allclose(band_weights.weights[0], expected, rtol=1e-5)
+    np.testing.assert_allclose(band_weights.weights.sum(), 1.0, rtol=1e-12)
 
 
 def test_flat_sky_is_preserved():
@@ -110,17 +112,19 @@ def test_flat_sky_is_preserved():
 
 def test_tophat_weights_are_log_ratios():
     edges = np.array([1.0, 1.5, 2.0, 3.0])
-    bw = BandWeights.from_band(
+    band_weights = BandWeights.from_band(
         _spectral(np.c_[edges[:-1], edges[1:]]), _tophat(1.2, 2.4)
     )
-    np.testing.assert_allclose(bw.W[0], _log_ratio_weights(edges, 1.2, 2.4), rtol=1e-6)
+    np.testing.assert_allclose(
+        band_weights.weights[0], _log_ratio_weights(edges, 1.2, 2.4), rtol=1e-6
+    )
 
 
 def test_data_bins_finer_than_sky_channels_are_one_hot():
     grid = _edges_grid([1.0, 1.5, 2.0])
     sky_filter = SkyFilter(grid, {"ifu": _bins(np.linspace(1.0, 2.0, 11))})
-    W = sky_filter.weights["ifu"].W
-    assert sky_filter.weights["ifu"].sl == slice(0, 2) and W.shape == (10, 2)
+    W = sky_filter.weights["ifu"].weights
+    assert sky_filter.weights["ifu"].channels == slice(0, 2) and W.shape == (10, 2)
     expected = np.zeros((10, 2))
     expected[:5, 0] = expected[5:, 1] = 1.0
     np.testing.assert_allclose(W, expected, atol=1e-12)
@@ -135,8 +139,8 @@ def test_data_bins_coarser_than_sky_channels_average():
     edges = np.linspace(1.0, 2.0, 11)
     grid = _edges_grid(edges)
     sky_filter = SkyFilter(grid, {"ifu": _bins([1.0, 1.5, 2.0])}, dtype=jnp.float64)
-    W = sky_filter.weights["ifu"].W
-    assert sky_filter.weights["ifu"].sl == slice(0, 10) and W.shape == (2, 10)
+    W = sky_filter.weights["ifu"].weights
+    assert sky_filter.weights["ifu"].channels == slice(0, 10) and W.shape == (2, 10)
     np.testing.assert_allclose(W[0], _log_ratio_weights(edges, 1.0, 1.5), rtol=1e-6)
     np.testing.assert_allclose(W[1], _log_ratio_weights(edges, 1.5, 2.0), rtol=1e-6)
     sky = _sky(10).astype(np.float64)
@@ -148,9 +152,9 @@ def test_data_bins_equal_to_sky_channels_are_the_identity():
     edges = np.linspace(1.0, 2.0, 11)
     grid = _edges_grid(edges)
     sky_filter = SkyFilter(grid, {"ifu": _bins(edges[2:7])})
-    bw = sky_filter.weights["ifu"]
-    assert bw.sl == slice(2, 6)
-    np.testing.assert_allclose(bw.W, np.eye(4), atol=1e-12)
+    band_weights = sky_filter.weights["ifu"]
+    assert band_weights.channels == slice(2, 6)
+    np.testing.assert_allclose(band_weights.weights, np.eye(4), atol=1e-12)
     sky = _sky(10)
     out = np.asarray(sky_filter({SKY_KEY: jnp.asarray(sky)})["ifu"])
     np.testing.assert_allclose(out, sky[2:6], atol=1e-7)
@@ -195,11 +199,11 @@ def test_small_missing_passband_warns(caplog):
     # overhang holding about half of MAX_MISSING
     hi = 2.0 * (1 + 0.5 * MAX_MISSING * np.log(2.0 / 1.5))
     spectral = _spectral([[1.0, 1.5], [1.5, 2.0]])
-    bw = _warnings(
+    band_weights = _warnings(
         lambda: BandWeights.from_band(spectral, _tophat(1.5, hi), name="wing"), caplog
     )
-    assert bw.sl == slice(1, 2)
-    np.testing.assert_allclose(bw.W, [[1.0]])
+    assert band_weights.channels == slice(1, 2)
+    np.testing.assert_allclose(band_weights.weights, [[1.0]])
     assert "wing" in caplog.text and "renormalised" in caplog.text
     with pytest.raises(ValueError, match="wing"):
         BandWeights.from_band(spectral, _tophat(1.5, hi), max_missing=0.0, name="wing")
@@ -225,8 +229,8 @@ def test_one_channel_per_filter_is_one_hot():
     out = sky_filter({SKY_KEY: jnp.asarray(sky)})
     assert list(out) == names
     for index, n in enumerate(names):
-        assert sky_filter.weights[n].sl == slice(index, index + 1)
-        np.testing.assert_allclose(sky_filter.weights[n].W, [[1.0]])
+        assert sky_filter.weights[n].channels == slice(index, index + 1)
+        np.testing.assert_allclose(sky_filter.weights[n].weights, [[1.0]])
         np.testing.assert_allclose(np.asarray(out[n]), sky[index], atol=1e-6)
 
 

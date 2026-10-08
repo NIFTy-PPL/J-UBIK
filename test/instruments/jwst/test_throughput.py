@@ -21,8 +21,8 @@ from jubik.sky_filter import BandWeights
 def test_f444w_curve_is_packaged():
     t = jwst_transmission("f444w")
     assert THROUGHPUT_VERSION == "nircam_throughputs_4Nov2022_v5"
-    assert t.T.max() > 0.3
-    support = t.lam_um[t.T > 0]
+    assert t.throughput.max() > 0.3
+    support = t.wavelength_um[t.throughput > 0]
     assert 3.6 <= support.min() and support.max() <= 5.2
 
 
@@ -31,9 +31,9 @@ def test_f444w_weights_on_four_channels():
     # the red wing past 5.0 um holds 1.5% of the passband, above MAX_MISSING
     with pytest.raises(ValueError, match="F444W"):
         BandWeights.from_band(Color(np.linspace(3.8, 5.0, 5) * u.um), t, name="F444W")
-    bw = BandWeights.from_band(Color(np.linspace(3.7, 5.1, 5) * u.um), t)
-    w = bw.W[0]
-    assert bw.sl == slice(0, 4) and bw.W.shape == (1, 4)
+    band_weights = BandWeights.from_band(Color(np.linspace(3.7, 5.1, 5) * u.um), t)
+    w = band_weights.weights[0]
+    assert band_weights.channels == slice(0, 4) and band_weights.weights.shape == (1, 4)
     np.testing.assert_allclose(w.sum(), 1.0, rtol=1e-12)
     assert min(w[1], w[2]) > max(w[0], w[3])
 
@@ -47,8 +47,8 @@ def test_miri_falls_back_to_tophat(caplog):
     finally:
         jft.logger.removeHandler(caplog.handler)
     _, _, _, blue, red = JWST_FILTERS["F560W"]
-    np.testing.assert_array_equal(t.lam_um, [blue, red])
-    np.testing.assert_array_equal(t.T, [1.0, 1.0])
+    np.testing.assert_array_equal(t.wavelength_um, [blue, red])
+    np.testing.assert_array_equal(t.throughput, [1.0, 1.0])
     assert "F560W" in caplog.text and "half-power tophat" in caplog.text
 
 
