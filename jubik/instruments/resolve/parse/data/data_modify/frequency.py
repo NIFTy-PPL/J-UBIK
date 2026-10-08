@@ -10,6 +10,7 @@ class SpectralModify:
     spectral_max: float | None = None
     spectral_restrict_to_sky_frequencies: bool = False
     exclude_ranges: list | None = None
+    averaging_mode: str = "inverse_variance"
 
     @classmethod
     def from_yaml_dict(cls, spectral: dict) -> "SpectralModify":
@@ -22,6 +23,8 @@ class SpectralModify:
             - bins: int | None
                 If given the spectral dimension of the data gets averaged to N spectral
                 bins.
+            - averaging_mode: str
+                "inverse_variance" (default) or "uniform".
             - min: float | None
                 If given the data gets restricted to being above this minimum
                 frequency value.
@@ -36,6 +39,9 @@ class SpectralModify:
                 channel which falls inside one of these ranges gets dropped.
                 The bounds are inclusive.
         """
+        averaging_mode = spectral.get("averaging_mode", "inverse_variance")
+        if averaging_mode not in ("inverse_variance", "uniform"):
+            raise ValueError("averaging_mode must be inverse_variance or uniform.")
         sb = spectral.get("bins")
         smin = spectral.get("min")
         smax = spectral.get("max")
@@ -50,6 +56,7 @@ class SpectralModify:
             spectral_max=smax,
             spectral_restrict_to_sky_frequencies=restrict,
             exclude_ranges=exclude,
+            averaging_mode=averaging_mode,
         )
 
     @staticmethod

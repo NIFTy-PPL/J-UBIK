@@ -143,16 +143,19 @@ def test_flag_weights_runs_before_frequency_averaging():
     sky = continuous_sky(0.95e9, 1.55e9)
     setting = FlagWeights(min=1e-12, max=1e12)
     modify = ObservationModify.from_yaml_dict(
-        {"flag_weights": {"min": 1e-12, "max": 1e12}, "spectral": {"bins": 2}}
+        {
+            "flag_weights": {"min": 1e-12, "max": 1e12},
+            "spectral": {"bins": 2, "averaging_mode": "uniform"},
+        }
     )(0)
 
     new = modify_observation(sky, obs, modify)
 
     flag_first = freq_average_by_fdom_and_n_freq_chunks(
-        sky, flag_weights(obs, setting), 2
+        sky, flag_weights(obs, setting), 2, averaging_mode="uniform"
     )
     average_first = flag_weights(
-        freq_average_by_fdom_and_n_freq_chunks(sky, obs, 2), setting
+        freq_average_by_fdom_and_n_freq_chunks(sky, obs, 2, "uniform"), setting
     )
 
     # The two orders really differ: averaging dilutes the outlier.
@@ -209,14 +212,36 @@ def test_flag_weights_runs_before_time_averaging():
 # ---------------------------------------------------------------------------
 
 
-def test_exclude_frequency_ranges_runs_before_frequency_averaging():
+@pmp("mode", ("inverse_variance", "uniform"))
+def test_exclude_frequency_ranges_runs_before_frequency_averaging(mode):
     np.random.seed(205)
     freqs = 1.0e9 + np.arange(6) * 0.1e9
     obs = build_obs(freqs)
+    # These unequal weights keep the all-channel inverse-variance frequency
+    # inside the exclusion range (approximately 1.294 GHz). This constraint is only needed
+    # for inverse_variance: uniform averaging gives 1.25 GHz regardless of weights.
+    channel_weights = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 2.0])
+    weights = np.broadcast_to(
+        channel_weights[None, None, :], obs.weight_val.shape
+    ).copy()
+    obs = rve.Observation(
+        obs.antenna_positions,
+        obs.vis_val,
+        weights,
+        obs.legacy_polarization,
+        obs.freq,
+        obs._auxiliary_tables,
+    )
     sky = continuous_sky(0.95e9, 1.55e9)
     ranges = [[1.15e9, 1.35e9]]
     modify = ObservationModify.from_yaml_dict(
-        {"spectral": {"bins": 1, "exclude_frequency_ranges": ranges}}
+        {
+            "spectral": {
+                "bins": 1,
+                "exclude_frequency_ranges": ranges,
+                "averaging_mode": mode,
+            }
+        }
     )(0)
 
     new = modify_observation(sky, obs, modify)
@@ -224,18 +249,30 @@ def test_exclude_frequency_ranges_runs_before_frequency_averaging():
     keep = np.array([0, 1, 4, 5])
     # One output channel, the average of the four surviving channels only.
     assert new.nfreq == 1
-    assert_allclose(new.freq, [np.mean(freqs[keep])])
-    assert_allclose(new.vis_val[:, :, 0], np.mean(obs.vis_val[:, :, keep], axis=2))
-    assert_allclose(
-        new.weight_val[:, :, 0],
-        len(keep) ** 2 / np.sum(1 / obs.weight_val[:, :, keep], axis=2),
-    )
-    # The excluded channels never enter the average.
-    assert not np.allclose(new.vis_val[:, :, 0], np.mean(obs.vis_val, axis=2))
+    weights = obs.weight_val[:, :, keep]
+    vis = obs.vis_val[:, :, keep]
+    if mode == "inverse_variance":
+        expected_freq = np.sum(weights * freqs[keep][None, None, :]) / weights.sum()
+        expected_vis = np.sum(weights * vis, axis=2) / weights.sum(axis=2)
+        expected_weight = weights.sum(axis=2)
+    else:
+        expected_freq = np.mean(freqs[keep])
+        expected_vis = np.mean(vis, axis=2)
+        expected_weight = len(keep) ** 2 / np.sum(1 / weights, axis=2)
 
-    # The other order is not even well defined here: the average of all six
-    # channels sits at 1.25e9, i.e. inside the excluded range.
-    averaged = freq_average_by_fdom_and_n_freq_chunks(sky, obs, 1)
+    assert_allclose(new.freq, [expected_freq])
+    assert_allclose(new.vis_val[:, :, 0], expected_vis)
+    assert_allclose(new.weight_val[:, :, 0], expected_weight)
+
+    # Compare with the same averaging mode including all six input channels.
+    averaged = freq_average_by_fdom_and_n_freq_chunks(
+        sky, obs, 1, averaging_mode=mode
+    )
+    assert not np.allclose(new.vis_val, averaged.vis_val)
+
+    # Averaging first places the sole output frequency inside the excluded
+    # range in both modes, so subsequent exclusion would remove all channels.
+    assert ranges[0][0] <= averaged.freq[0] <= ranges[0][1]
     with pytest.raises(ValueError):
         exclude_frequency_ranges(averaged, ranges)
 

@@ -75,7 +75,10 @@ def modify_observation(
     obs = exclude_frequency_ranges(obs, modify.spectral.exclude_ranges)
 
     obs = freq_average_by_fdom_and_n_freq_chunks(
-        sky_frequencies, obs, modify.spectral.spectral_bins
+        sky_frequencies,
+        obs,
+        modify.spectral.spectral_bins,
+        averaging_mode=modify.spectral.averaging_mode,
     )
     obs = systematic_error_budget(obs, modify.weight_modify)
 

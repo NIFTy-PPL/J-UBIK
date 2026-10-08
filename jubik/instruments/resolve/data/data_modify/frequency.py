@@ -10,7 +10,12 @@ from ...constants import RESOLVE_SPECTRAL_UNIT
 from ..observation import Observation
 
 
-def freq_average_by_bins(obs: Observation, n_freq_chuncks: int | None):
+def freq_average_by_bins(
+    obs: Observation,
+    n_freq_chuncks: int | None,
+    averaging_mode: str = "inverse_variance",
+):
+    """Average frequency bins using inverse-variance or uniform weights."""
     if n_freq_chuncks is None:
         return obs
 
@@ -25,13 +30,14 @@ def freq_average_by_bins(obs: Observation, n_freq_chuncks: int | None):
 
     frequency_indices = np.array_split(np.arange(obs.nfreq), n_freq_chuncks)
     splitted_obs = [get_freqs_by_slice(obs, ind) for ind in frequency_indices]
-    return _average_frequency_groups(obs, splitted_obs)
+    return _average_frequency_groups(obs, splitted_obs, averaging_mode)
 
 
 def freq_average_by_fdom_and_n_freq_chunks(
     sky_frequencies: Color,
     obs: Observation,
     n_freq_chuncks: int | None,
+    averaging_mode: str = "inverse_variance",
 ):
     """Create a new observation with frequencies averaged. The frequencies of
     the new observation will be averaged into `n_freq_chuncks` according to the
@@ -46,6 +52,9 @@ def freq_average_by_fdom_and_n_freq_chunks(
     n_freq_chuncks: int
         The number of frequency chuncks, i.e. the number of averaging bins per
         sky frequency.
+    averaging_mode: str
+        "inverse_variance" (default) uses measurement weights; "uniform"
+        uses 1 for each unflagged sample.
     """
     if n_freq_chuncks is None:
         return obs
@@ -72,7 +81,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
         else:
             splitted_obs.append(obs_in_sky)
 
-    obs_out = _average_frequency_groups(obs, splitted_obs)
+    obs_out = _average_frequency_groups(obs, splitted_obs, averaging_mode)
 
     freq_len = obs_out.freq.shape[0]
     if freq_len % n_obs_in_sky == 0:
@@ -93,48 +102,79 @@ def freq_average_by_fdom_and_n_freq_chunks(
 def freq_average_by_fmin_fmax(
     obs: Observation,
     fmin_fmax_array: list[float],
+    averaging_mode: str = "inverse_variance",
 ):
     splitted_obs = []
     for ff in fmin_fmax_array:
         splitted_obs.append(restrict_by_freq(obs, ff[0], ff[-1]))
 
-    return _average_frequency_groups(obs, splitted_obs)
+    return _average_frequency_groups(obs, splitted_obs, averaging_mode)
 
 
 def _average_frequency_groups(
-    obs: Observation, splitted_obs: list[Observation]
+    obs: Observation,
+    splitted_obs: list[Observation],
+    averaging_mode: str = "inverse_variance",
 ) -> Observation:
     if len(splitted_obs) == 0:
         raise ValueError("Cannot average an observation without frequency channels.")
 
     obs_avg = []
     for obsi in splitted_obs:
-        vis = obsi.vis.asnumpy()
         weight = obsi.weight.asnumpy()
         valid = weight > 0.0
-        n_valid = np.sum(valid, axis=2, keepdims=True)
 
-        # Keep the existing unweighted channel-average convention, but exclude
-        # flagged samples. A zero weight means that no datum is available; it
-        # must not contribute a placeholder visibility or an infinite variance
-        # to an otherwise valid average.
-        vis_sum = np.sum(np.where(valid, vis, 0.0), axis=2, keepdims=True)
+        # If all entries are flagged, skip that group
+        if not np.any(valid):
+            logger.info("Discarding frequency bin with no usable measurements.")
+            continue
+
+        vis = obsi.vis.asnumpy()
+
+        match averaging_mode:
+            case "inverse_variance":
+                # Flagged entries do not contribute to the averaging sums.
+                averaging_weight = np.where(valid, weight, 0.0)
+            case "uniform":
+                # Flagged entries do not contribute to the averaging sums.
+                averaging_weight = valid.astype(weight.dtype)
+            case _:
+                raise ValueError(
+                    f"Unknown frequency averaging mode: {averaging_mode!r}. "
+                    "Expected 'inverse_variance' or 'uniform'."
+                )
+
+        # Flagged entries contribute neither a visibility nor a variance.
+        weight_sum = np.sum(averaging_weight, axis=2, keepdims=True)
+        vis_sum = np.sum(
+            averaging_weight * np.where(valid, vis, 0.0), axis=2, keepdims=True
+        )
         new_vis = np.zeros(vis_sum.shape, dtype=vis.dtype)
-        np.divide(vis_sum, n_valid, out=new_vis, where=n_valid > 0)
+        np.divide(vis_sum, weight_sum, out=new_vis, where=weight_sum > 0)
 
-        inverse_weight_sum = np.sum(
-            np.divide(1.0, weight, out=np.zeros_like(weight), where=valid),
+        variance_sum = np.sum(
+            np.divide(
+                averaging_weight**2,
+                weight,
+                out=np.zeros_like(weight),
+                where=valid,
+            ),
             axis=2,
             keepdims=True,
         )
-        new_weight = np.zeros(inverse_weight_sum.shape, dtype=weight.dtype)
+        new_weight = np.zeros(variance_sum.shape, dtype=weight.dtype)
         np.divide(
-            n_valid**2,
-            inverse_weight_sum,
+            weight_sum**2,
+            variance_sum,
             out=new_weight,
-            where=n_valid > 0,
+            where=variance_sum > 0,
         )
-        new_freq = np.array([np.mean(obsi.freq)])
+
+        total_weight = np.sum(averaging_weight)
+
+        new_freq = np.array(
+            [np.sum(averaging_weight * obsi.freq[None, None, :]) / total_weight]
+        )
         new_obs = Observation(
             obsi.antenna_positions,
             new_vis,
@@ -144,6 +184,12 @@ def _average_frequency_groups(
             obs._auxiliary_tables,
         )
         obs_avg.append(new_obs)
+
+    if not obs_avg:
+        raise ValueError(
+            "Frequency averaging would discard all frequency bins: "
+            "no usable measurements remain."
+        )
 
     new_freq = [obs.freq[0] for obs in obs_avg]
     new_freq = np.array(new_freq)

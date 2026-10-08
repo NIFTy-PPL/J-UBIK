@@ -26,34 +26,40 @@ def build_obs(freqs=FREQS):
     return generate_random_obs(freqs, 20, [-1e2, 1e2], [-5, 5], pol_type)
 
 
-def assert_frequency_groups_are_averaged(obs, averaged, groups):
-    expected_freq = np.array([np.mean(obs.freq[ind]) for ind in groups])
-    expected_vis = np.stack(
-        [np.mean(obs.vis_val[..., ind], axis=2) for ind in groups], axis=2
-    )
-    expected_weight = np.stack(
-        [
-            len(ind) ** 2 / np.sum(1 / obs.weight_val[..., ind], axis=2)
-            for ind in groups
-        ],
-        axis=2,
-    )
+def assert_frequency_groups_are_averaged(obs, averaged, groups, mode):
+    expected_freq, expected_vis, expected_weight = [], [], []
+    for ind in groups:
+        vis = obs.vis_val[..., ind]
+        weight = obs.weight_val[..., ind]
+        if mode == "inverse_variance":
+            expected_freq.append(
+                np.sum(weight * obs.freq[ind][None, None, :]) / weight.sum()
+            )
+            expected_vis.append(np.sum(weight * vis, axis=2) / weight.sum(axis=2))
+            expected_weight.append(weight.sum(axis=2))
+        else:
+            expected_freq.append(np.mean(obs.freq[ind]))
+            expected_vis.append(np.mean(vis, axis=2))
+            expected_weight.append(len(ind) ** 2 / np.sum(1 / weight, axis=2))
+    expected_vis = np.stack(expected_vis, axis=2)
+    expected_weight = np.stack(expected_weight, axis=2)
 
     assert_allclose(averaged.freq, expected_freq)
     assert_allclose(averaged.vis_val, expected_vis)
     assert_allclose(averaged.weight_val, expected_weight)
 
 
+@pmp("mode", ("inverse_variance", "uniform"))
 @pmp("n_freq,n_bins", ((4, 2), (5, 2), (6, 2), (4, 1), (4, 4)))
-def test_freq_average_by_bins_uses_every_channel(n_freq, n_bins):
+def test_freq_average_by_bins_uses_every_channel(n_freq, n_bins, mode):
     np.random.seed(40 + n_freq + n_bins)
     freqs = 1.0e9 + np.arange(n_freq) * 0.1e9
     obs = build_obs(freqs)
 
-    averaged = freq_average_by_bins(obs, n_bins)
+    averaged = freq_average_by_bins(obs, n_bins, averaging_mode=mode)
     groups = np.array_split(np.arange(n_freq), n_bins)
 
-    assert_frequency_groups_are_averaged(obs, averaged, groups)
+    assert_frequency_groups_are_averaged(obs, averaged, groups, mode)
 
 
 def test_freq_average_by_bins_none_is_noop():
@@ -61,7 +67,8 @@ def test_freq_average_by_bins_none_is_noop():
     assert freq_average_by_bins(obs, None) is obs
 
 
-def test_freq_average_by_bins_excludes_flagged_channels():
+@pmp("mode", ("inverse_variance", "uniform"))
+def test_freq_average_by_bins_excludes_flagged_channels(mode):
     obs = build_obs()
     vis = obs.vis_val.copy()
     weight = obs.weight_val.copy()
@@ -80,10 +87,16 @@ def test_freq_average_by_bins_excludes_flagged_channels():
         obs._auxiliary_tables,
     )
 
-    averaged = freq_average_by_bins(flagged_obs, 1)
+    averaged = freq_average_by_bins(flagged_obs, 1, averaging_mode=mode)
     valid = weight[0, 0] > 0.0
-    expected_vis = np.mean(vis[0, 0, valid])
-    expected_weight = valid.sum() ** 2 / np.sum(1.0 / weight[0, 0, valid])
+    if mode == "inverse_variance":
+        expected_vis = np.average(vis[0, 0, valid], weights=weight[0, 0, valid])
+        expected_weight = weight[0, 0, valid].sum()
+    else:
+        expected_vis = np.mean(vis[0, 0, valid])
+        expected_weight = valid.sum() ** 2 / np.sum(1.0 / weight[0, 0, valid])
+    a = np.where(weight > 0, weight if mode == "inverse_variance" else 1, 0)
+    assert_allclose(averaged.freq, [np.sum(a * obs.freq[None, None, :]) / a.sum()])
 
     assert_allclose(averaged.vis_val[0, 0, 0], expected_vis)
     assert_allclose(averaged.weight_val[0, 0, 0], expected_weight)
@@ -98,16 +111,17 @@ def test_freq_average_by_bins_rejects_invalid_number_of_bins(n_bins):
         freq_average_by_bins(obs, n_bins)
 
 
-def test_frequency_domain_averaging_uses_every_channel_in_each_chunk():
+@pmp("mode", ("inverse_variance", "uniform"))
+def test_frequency_domain_averaging_uses_every_channel_in_each_chunk(mode):
     np.random.seed(48)
     freqs = 1.0e9 + np.arange(6) * 0.1e9
     obs = build_obs(freqs)
     sky_frequencies = ju.Color([0.95e9, 1.55e9] * u.Hz)
 
-    averaged = freq_average_by_fdom_and_n_freq_chunks(sky_frequencies, obs, 2)
+    averaged = freq_average_by_fdom_and_n_freq_chunks(sky_frequencies, obs, 2, mode)
     groups = np.array_split(np.arange(obs.nfreq), 2)
 
-    assert_frequency_groups_are_averaged(obs, averaged, groups)
+    assert_frequency_groups_are_averaged(obs, averaged, groups, mode)
 
 
 def test_exclude_range_drops_channels_and_keeps_rest_bitwise():
@@ -187,3 +201,62 @@ def test_spectral_modify_exclude_ranges_default_is_none():
 def test_spectral_modify_invalid_exclude_range_raises(entry):
     with pytest.raises(ValueError):
         SpectralModify.from_yaml_dict({"exclude_frequency_ranges": [entry]})
+
+
+def test_frequency_averaging_defaults_to_inverse_variance():
+    obs = build_obs()
+    averaged = freq_average_by_bins(obs, 1)
+    assert_frequency_groups_are_averaged(
+        obs, averaged, [np.arange(obs.nfreq)], "inverse_variance"
+    )
+
+
+@pmp("mode", ("inverse_variance", "uniform"))
+def test_frequency_averaging_all_flagged(mode):
+    obs = build_obs()
+    obs = Observation(
+        obs.antenna_positions,
+        obs.vis_val,
+        np.zeros_like(obs.weight_val),
+        obs.legacy_polarization,
+        obs.freq,
+        obs._auxiliary_tables,
+    )
+    with pytest.raises(ValueError, match="discard all frequency bins"):
+        freq_average_by_bins(obs, 1, mode)
+
+
+@pmp("mode", ("inverse_variance", "uniform"))
+def test_spectral_modify_parses_averaging_mode(mode):
+    assert (
+        SpectralModify.from_yaml_dict({"averaging_mode": mode}).averaging_mode == mode
+    )
+
+
+def test_spectral_modify_default_averaging_mode():
+    assert SpectralModify.from_yaml_dict({}).averaging_mode == "inverse_variance"
+
+
+def test_invalid_averaging_mode():
+    with pytest.raises(ValueError, match="averaging_mode"):
+        SpectralModify.from_yaml_dict({"averaging_mode": "invalid"})
+    with pytest.raises(ValueError, match="averaging mode"):
+        freq_average_by_bins(build_obs(), 1, "invalid")
+
+
+@pmp("mode", ("inverse_variance", "uniform"))
+def test_frequency_averaging_discards_fully_flagged_bin(mode):
+    obs = build_obs()
+    weight = obs.weight_val.copy()
+    weight[..., :3] = 0
+    flagged_obs = Observation(
+        obs.antenna_positions,
+        obs.vis_val,
+        weight,
+        obs.legacy_polarization,
+        obs.freq,
+        obs._auxiliary_tables,
+    )
+    averaged = freq_average_by_bins(flagged_obs, 2, mode)
+    assert averaged.nfreq == 1
+    assert_frequency_groups_are_averaged(obs, averaged, [np.arange(3, 6)], mode)
