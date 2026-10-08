@@ -5,13 +5,22 @@
 
 # %
 
-"""JWST throughput curves and the sky-channel weights they give.
+"""JWST filter throughput curves and the sky-channel weights they give.
 
-`jwst_transmission` loads a filter's curve: NIRCam mean system throughputs ship
-with the package (nircam_throughputs_v5.npz); filters without a packaged curve
-fall back to a half-power tophat from JWST_FILTERS. `throughput_weights` turns
-a curve into the `FilterWeights` a `jubik.sky_filter.SkyFilter` consumes, for
-photon-counted data calibrated in F_nu. Repack a new STScI release with
+``jwst_transmission`` returns a filter's sampled system throughput curve as a
+``Transmission``. ``throughput_weights`` turns one curve, or a sequence of them
+(one per output bin of a spectrograph), into the ``FilterWeights`` that
+``jubik.sky_filter.SkyFilter`` takes, for photon-counted data calibrated in
+F_nu. ``build_jwst_likelihoods`` calls both for every filter in the config and
+hands the weights to the ``SkyFilter`` its likelihoods read their sky from.
+
+The NIRCam mean system throughputs of release ``nircam_throughputs_4Nov2022_v5``
+ship with the package as ``nircam_throughputs_v5.npz``. MIRI and any other
+filter without a packaged curve fall back, with a warning, to a half-power
+tophat from ``JWST_FILTERS``. ``THROUGHPUT_VERSION`` reports the packaged
+release.
+
+Repack a new STScI release with
 
     python -m jubik.instruments.jwst.data.throughput --update <mean_throughputs_dir> --version <tag>
 """
@@ -39,13 +48,11 @@ __all__ = [
     "throughput_weights",
 ]
 
-MAX_MISSING = 0.01  # passband fraction allowed outside sky coverage
-_N_FINE = 20001  # integration grid over the curve support
-_TOL = 1e-9  # missing fraction treated as zero (integration round-off)
+# --------------------------------------------------------------------------- #
+# Public: the curves, the weights they give on a sky grid, and the release
+# --------------------------------------------------------------------------- #
 
-# Rename together with a new throughput release.
-_NPZ = "nircam_throughputs_v5.npz"
-_SUFFIX = "_mean_system_throughput.txt"
+MAX_MISSING = 0.01  # passband fraction allowed outside sky coverage
 
 
 @dataclass(frozen=True)
@@ -66,6 +73,12 @@ class Transmission:
         Wavelengths of the samples, microns, strictly ascending, at least two.
     throughput : np.ndarray
         Throughput at each sample, dimensionless, non-negative, not all zero.
+
+    Raises
+    ------
+    ValueError
+        The arrays are not 1-D of the same length, the wavelengths are not
+        strictly ascending, or the throughput is negative or all zero.
     """
 
     wavelength_um: np.ndarray
@@ -92,6 +105,36 @@ class Transmission:
 
 
 Band = Transmission | Sequence[Transmission]
+
+
+def jwst_transmission(filter_name: str) -> Transmission:
+    """Transmission curve of a JWST filter.
+
+    Parameters
+    ----------
+    filter_name : str
+        JWST filter name, case-insensitive, e.g. "F444W".
+
+    Returns
+    -------
+    Transmission
+        The packaged throughput curve, or a half-power tophat from
+        JWST_FILTERS when no curve is packaged.
+
+    Raises
+    ------
+    KeyError
+        The filter has neither a packaged curve nor a JWST_FILTERS entry.
+    """
+    name = filter_name.upper()
+    packaged = _packaged_curves()
+    if f"{name}_lam_um" in packaged:
+        return Transmission(packaged[f"{name}_lam_um"], packaged[f"{name}_T"])
+    if name not in JWST_FILTERS:
+        raise KeyError(f"{name}: no throughput curve packaged and not in JWST_FILTERS")
+    _, _, _, blue, red = JWST_FILTERS[name]
+    logger.warning(f"{name}: no throughput curve packaged, half-power tophat")
+    return Transmission(np.array([blue, red]), np.ones(2))
 
 
 def throughput_weights(
@@ -163,6 +206,80 @@ def throughput_weights(
     )
 
 
+def pack_throughputs(source_dir: Path, version: str, out_path: Path) -> int:
+    """Pack STScI mean system throughput files into one npz.
+
+    Parameters
+    ----------
+    source_dir : Path
+        Directory of ``<filter>_mean_system_throughput.txt`` files with the
+        header line "Microns Throughput".
+    version : str
+        Release tag stored under the key "version".
+    out_path : Path
+        The npz to write.
+
+    Returns
+    -------
+    int
+        Number of packed curves.
+
+    Raises
+    ------
+    FileNotFoundError
+        ``source_dir`` holds no ``<filter>_mean_system_throughput.txt`` files.
+    """
+    arrays = {"version": np.array(version)}
+    for path in sorted(Path(source_dir).glob(f"*{_STSCI_FILE_SUFFIX}")):
+        name = path.name.removesuffix(_STSCI_FILE_SUFFIX).upper()
+        wavelength_um, throughput = np.loadtxt(path, skiprows=1, unpack=True)
+        arrays[f"{name}_lam_um"] = wavelength_um.astype(np.float64)
+        arrays[f"{name}_T"] = throughput.astype(np.float32)
+    n_curves = (len(arrays) - 1) // 2
+    if n_curves == 0:
+        raise FileNotFoundError(f"no *{_STSCI_FILE_SUFFIX} files in {source_dir}")
+    np.savez_compressed(out_path, **arrays)
+    return n_curves
+
+
+# Module-level __getattr__ (PEP 562): serves THROUGHPUT_VERSION lazily, so
+# importing never touches the npz.
+def __getattr__(name: str) -> str:
+    """Release tag of the packaged curves, read on first access."""
+    if name == "THROUGHPUT_VERSION":
+        return str(_packaged_curves()["version"])
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+# --------------------------------------------------------------------------- #
+# Internals: the packaged npz and the channel integrals
+# --------------------------------------------------------------------------- #
+
+_N_FINE = 20001  # integration grid over the curve support
+_TOL = 1e-9  # missing fraction treated as zero (integration round-off)
+
+# Rename together with a new throughput release.
+_PACKAGED_NPZ = "nircam_throughputs_v5.npz"
+_STSCI_FILE_SUFFIX = "_mean_system_throughput.txt"
+
+
+@cache
+def _packaged_curves() -> dict[str, np.ndarray]:
+    """All arrays of the packaged npz, loaded once.
+
+    Returns
+    -------
+    dict[str, np.ndarray]
+        Npz key -> array: ``version``, and ``{name}_lam_um`` and ``{name}_T``
+        for every packaged filter.
+    """
+    with (
+        (files("jubik.instruments.jwst.data") / _PACKAGED_NPZ).open("rb") as f,
+        np.load(f) as npz,
+    ):
+        return {k: npz[k] for k in npz.files}
+
+
 def _channel_integrals(
     channel_bounds_um: np.ndarray,
     transmission: Transmission,
@@ -224,83 +341,9 @@ def _channel_integrals(
     return per_channel / per_channel.sum()
 
 
-@cache
-def _curves() -> dict[str, np.ndarray]:
-    """All arrays of the packaged npz, loaded once."""
-    with (
-        (files("jubik.instruments.jwst.data") / _NPZ).open("rb") as f,
-        np.load(f) as npz,
-    ):
-        return {k: npz[k] for k in npz.files}
-
-
-def __getattr__(name: str) -> str:
-    # THROUGHPUT_VERSION is read lazily so importing never touches the npz.
-    if name == "THROUGHPUT_VERSION":
-        return str(_curves()["version"])
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-def jwst_transmission(filter_name: str) -> Transmission:
-    """Transmission curve of a JWST filter.
-
-    Parameters
-    ----------
-    filter_name : str
-        JWST filter name, case-insensitive, e.g. "F444W".
-
-    Returns
-    -------
-    Transmission
-        The packaged throughput curve, or a half-power tophat from
-        JWST_FILTERS when no curve is packaged.
-
-    Raises
-    ------
-    KeyError
-        The filter has neither a packaged curve nor a JWST_FILTERS entry.
-    """
-    name = filter_name.upper()
-    curves = _curves()
-    if f"{name}_lam_um" in curves:
-        return Transmission(curves[f"{name}_lam_um"], curves[f"{name}_T"])
-    if name not in JWST_FILTERS:
-        raise KeyError(f"{name}: no throughput curve packaged and not in JWST_FILTERS")
-    _, _, _, blue, red = JWST_FILTERS[name]
-    logger.warning(f"{name}: no throughput curve packaged, half-power tophat")
-    return Transmission(np.array([blue, red]), np.ones(2))
-
-
-def pack_throughputs(source: Path, version: str, out: Path) -> int:
-    """Pack STScI mean system throughput files into one npz.
-
-    Parameters
-    ----------
-    source : Path
-        Directory of ``<filter>_mean_system_throughput.txt`` files with the
-        header line "Microns Throughput".
-    version : str
-        Release tag stored under the key "version".
-    out : Path
-        The npz to write.
-
-    Returns
-    -------
-    int
-        Number of packed curves.
-    """
-    arrays = {"version": np.array(version)}
-    for path in sorted(Path(source).glob(f"*{_SUFFIX}")):
-        name = path.name.removesuffix(_SUFFIX).upper()
-        lam, T = np.loadtxt(path, skiprows=1, unpack=True)
-        arrays[f"{name}_lam_um"] = lam.astype(np.float64)
-        arrays[f"{name}_T"] = T.astype(np.float32)
-    n_curves = (len(arrays) - 1) // 2
-    if n_curves == 0:
-        raise FileNotFoundError(f"no *{_SUFFIX} files in {source}")
-    np.savez_compressed(out, **arrays)
-    return n_curves
-
+# --------------------------------------------------------------------------- #
+# Command line: repack a new STScI release
+# --------------------------------------------------------------------------- #
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -319,6 +362,6 @@ if __name__ == "__main__":
         help="release tag, e.g. nircam_throughputs_4Nov2022_v5",
     )
     args = parser.parse_args()
-    out = Path(__file__).with_name(_NPZ)
-    n = pack_throughputs(args.update, args.version, out)
-    print(f"wrote {n} curves ({args.version}) to {out}")
+    out_path = Path(__file__).with_name(_PACKAGED_NPZ)
+    n = pack_throughputs(args.update, args.version, out_path)
+    print(f"wrote {n} curves ({args.version}) to {out_path}")
