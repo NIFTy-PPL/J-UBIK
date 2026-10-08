@@ -13,7 +13,7 @@ from astropy.coordinates import SkyCoord
 from jubik.color import Color
 from jubik.grid import Grid
 from jubik.instruments.jwst.data.jwst_information import JWST_FILTERS
-from jubik.sky_filter import MAX_MISSING, SKY_KEY, BandWeights, SkyFilter, Transmission
+from jubik.sky_filter import MAX_MISSING, SKY_KEY, SkyFilter, Transmission
 from jubik.wcs.wcs_astropy import WcsAstropy
 
 NY = 8
@@ -51,6 +51,14 @@ def _sky(n_ch: int, seed: int = 0) -> np.ndarray:
     return np.random.default_rng(seed).normal(size=(n_ch, NY, NY)).astype(np.float32)
 
 
+def _weights(
+    spectral: Color, band, max_missing: float = MAX_MISSING, name: str = "band"
+):
+    """Weights of one band, through the public SkyFilter path."""
+    sky_filter = SkyFilter(_grid(spectral), {name: band}, max_missing=max_missing)
+    return sky_filter.weights[name]
+
+
 def _ramp_integral(lo, hi):
     """Analytic integral of RAMP(lam) / lam over [lo, hi]."""
     lo, hi = max(lo, 3.9), min(hi, 5.0)
@@ -84,7 +92,7 @@ def _log_ratio_weights(edges, lo, hi):
     ],
 )
 def test_soft_edge_gives_partial_weights(bounds):
-    band_weights = BandWeights.from_band(_spectral(bounds), RAMP)
+    band_weights = _weights(_spectral(bounds), RAMP)
     expected = np.array([_ramp_integral(lo, hi) for lo, hi in bounds])
     expected /= expected.sum()
     assert band_weights.channels == slice(
@@ -112,9 +120,7 @@ def test_flat_sky_is_preserved():
 
 def test_tophat_weights_are_log_ratios():
     edges = np.array([1.0, 1.5, 2.0, 3.0])
-    band_weights = BandWeights.from_band(
-        _spectral(np.c_[edges[:-1], edges[1:]]), _tophat(1.2, 2.4)
-    )
+    band_weights = _weights(_spectral(np.c_[edges[:-1], edges[1:]]), _tophat(1.2, 2.4))
     np.testing.assert_allclose(
         band_weights.weights[0], _log_ratio_weights(edges, 1.2, 2.4), rtol=1e-6
     )
@@ -173,9 +179,9 @@ def test_sequence_of_one_is_a_cube():
 def test_bad_bands_raise():
     spectral = _spectral([[1.0, 1.5], [1.5, 2.0]])
     with pytest.raises(ValueError, match=r"ifu\[2\]"):
-        BandWeights.from_band(spectral, _bins([1.0, 1.4, 1.8, 2.5]), name="ifu")
+        _weights(spectral, _bins([1.0, 1.4, 1.8, 2.5]), name="ifu")
     with pytest.raises(ValueError, match="no transmission"):
-        BandWeights.from_band(spectral, [], name="ifu")
+        _weights(spectral, [], name="ifu")
 
 
 def _warnings(fn, caplog):
@@ -190,9 +196,9 @@ def _warnings(fn, caplog):
 
 def test_missing_passband_raises_above_max_missing():
     with pytest.raises(ValueError, match="biased.*outside the sky"):
-        BandWeights.from_band(_spectral([[4.0, 5.2]]), RAMP, name="biased")
+        _weights(_spectral([[4.0, 5.2]]), RAMP, name="biased")
     with pytest.raises(ValueError, match="gap"):
-        BandWeights.from_band(_spectral([[3.5, 4.0], [4.3, 5.2]]), RAMP, name="gap")
+        _weights(_spectral([[3.5, 4.0], [4.3, 5.2]]), RAMP, name="gap")
 
 
 def test_small_missing_passband_warns(caplog):
@@ -200,23 +206,23 @@ def test_small_missing_passband_warns(caplog):
     hi = 2.0 * (1 + 0.5 * MAX_MISSING * np.log(2.0 / 1.5))
     spectral = _spectral([[1.0, 1.5], [1.5, 2.0]])
     band_weights = _warnings(
-        lambda: BandWeights.from_band(spectral, _tophat(1.5, hi), name="wing"), caplog
+        lambda: _weights(spectral, _tophat(1.5, hi), name="wing"), caplog
     )
     assert band_weights.channels == slice(1, 2)
     np.testing.assert_allclose(band_weights.weights, [[1.0]])
     assert "wing" in caplog.text and "renormalised" in caplog.text
     with pytest.raises(ValueError, match="wing"):
-        BandWeights.from_band(spectral, _tophat(1.5, hi), max_missing=0.0, name="wing")
+        _weights(spectral, _tophat(1.5, hi), max_missing=0.0, name="wing")
 
 
 def test_full_coverage_does_not_warn(caplog):
     spectral = _spectral([[1.0, 1.5], [1.5, 2.0]])
     _warnings(
-        lambda: BandWeights.from_band(spectral, _tophat(1.5, 2.0), max_missing=0.0),
+        lambda: _weights(spectral, _tophat(1.5, 2.0), max_missing=0.0),
         caplog,
     )
     inside = Transmission(np.array([1.2, 1.4, 1.9]), np.array([0.0, 1.0, 1.0]))
-    _warnings(lambda: BandWeights.from_band(spectral, inside, max_missing=0.0), caplog)
+    _warnings(lambda: _weights(spectral, inside, max_missing=0.0), caplog)
     assert caplog.text == ""
 
 
