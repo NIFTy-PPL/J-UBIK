@@ -5,16 +5,19 @@
 
 # %
 
-"""SkyFilter: the sky owns the spectral channels, every band selects from them.
+"""SkyFilter: the sky owns the spectral channels, every band re-bins from them.
 
 The sky is one F_nu cube on the channels of ``grid.spectral``. An instrument
-provides one Transmission curve T(lam) per band and nothing else. The weight
-of a band on channel i is the integral of T(lam) / lam over that channel
-(photon-counted F_nu data), normalised so the weights sum to one. The band
-image is the weighted sum of the sky channels, in the units of the sky.
-Instrument-agnostic: curves are passed in, never loaded here.
+provides one Transmission curve T(lam) per output bin and nothing else. The
+weight of an output bin on sky channel i is the integral of T(lam) / lam over
+that channel (photon-counted F_nu data), normalised so the weights sum to one.
+A band is one output bin (an imaging filter, one plane) or a sequence of them
+(the spectral bins of a spectrograph, one cube); the band image is the
+weighted sum of the sky channels, in the units of the sky. Instrument-agnostic:
+curves are passed in, never built here.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import jax.numpy as jnp
@@ -36,13 +39,13 @@ _TOL = 1e-9  # missing fraction treated as zero (integration round-off)
 
 @dataclass(frozen=True)
 class Transmission:
-    """Throughput curve T(lam) of one band, zero outside its samples.
+    """Throughput curve T(lam) of one output bin, zero outside its samples.
 
     Parameters
     ----------
-    lam_um : wavelength samples, microns, ascending.
-    T : throughput at lam_um, dimensionless, non-negative. Overall scale is
-        irrelevant, the weights are normalised.
+    lam_um : wavelength samples, microns, strictly ascending, at least two.
+    T : throughput at lam_um, dimensionless, non-negative, not all zero.
+        Overall scale is irrelevant, the weights are normalised.
     """
 
     lam_um: np.ndarray
@@ -62,10 +65,8 @@ class Transmission:
         object.__setattr__(self, "lam_um", lam)
         object.__setattr__(self, "T", T)
 
-    @classmethod
-    def tophat(cls, lo_um: float, hi_um: float) -> "Transmission":
-        """Unit box over [lo_um, hi_um]. Fallback for a band without a measured curve."""
-        return cls(np.array([lo_um, hi_um], float), np.array([1.0, 1.0]))
+
+Band = Transmission | Sequence[Transmission]
 
 
 @dataclass(frozen=True)
@@ -75,11 +76,12 @@ class BandWeights:
     Parameters
     ----------
     sl : contiguous sky channel slice the band draws from.
-    w : (n_sl,) weights on those channels, sum to 1.
+    W : (n_out, n_sl) weights of every output bin on those channels, rows
+        sum to 1.
     """
 
     sl: slice
-    w: np.ndarray
+    W: np.ndarray
 
 
 def _bounds_um(spectral: Color) -> np.ndarray:
@@ -88,25 +90,10 @@ def _bounds_um(spectral: Color) -> np.ndarray:
     return np.sort(np.atleast_2d(b), axis=1)
 
 
-def band_weights(
-    spectral: Color,
-    transmission: Transmission,
-    max_missing: float = MAX_MISSING,
-    name: str = "band",
-) -> BandWeights:
-    """Integrate T(lam) / lam over every sky channel.
-
-    Parameters
-    ----------
-    spectral : sky channel bounds.
-    transmission : the band's curve.
-    max_missing : largest fraction of the passband allowed outside the sky
-        channels before raising. Smaller non-zero fractions log a warning.
-    name : band name for messages.
-
-    Returns
-    -------
-    BandWeights with normalised weights over the channels the curve touches.
+def _channel_integrals(
+    bounds: np.ndarray, t: Transmission, max_missing: float, name: str
+) -> np.ndarray:
+    """(n_ch,) integrals of T(lam) / lam over every channel, normalised to 1.
 
     Raises
     ------
@@ -114,8 +101,7 @@ def band_weights(
         More than ``max_missing`` of the weighted passband lies outside the
         sky channels, including gaps between them.
     """
-    bounds = _bounds_um(spectral)
-    lam, T_curve = transmission.lam_um, transmission.T
+    lam, T_curve = t.lam_um, t.T
     # channel edges inside the support join the fine grid, so the per-channel
     # integrals partition the total exactly
     inner = bounds.ravel()
@@ -138,20 +124,65 @@ def band_weights(
     if missing > 0:
         logger.warning(
             f"{name}: {100 * missing:.3f}% of the passband lies outside the sky "
-            "channels, the band image is renormalised onto the covered part"
+            "channels, the output is renormalised onto the covered part"
         )
-    nz = np.flatnonzero(per_ch)
+    return per_ch / per_ch.sum()
+
+
+def band_weights(
+    spectral: Color,
+    band: Band,
+    max_missing: float = MAX_MISSING,
+    name: str = "band",
+) -> BandWeights:
+    """Weights of every output bin of a band on the sky channels.
+
+    Parameters
+    ----------
+    spectral : sky channel bounds.
+    band : one Transmission, or one per output bin of the band.
+    max_missing : largest fraction of an output bin's passband allowed outside
+        the sky channels before raising. Smaller non-zero fractions log a
+        warning.
+    name : band name for messages.
+
+    Returns
+    -------
+    BandWeights over the contiguous channel range the band's curves touch.
+
+    Raises
+    ------
+    ValueError
+        A curve exceeds ``max_missing``, or the band has no curves.
+    """
+    bounds = _bounds_um(spectral)
+    curves = [band] if isinstance(band, Transmission) else list(band)
+    if not curves:
+        raise ValueError(f"{name}: band has no transmission curves")
+    rows = np.stack(
+        [
+            _channel_integrals(
+                bounds, t, max_missing, name if len(curves) == 1 else f"{name}[{b}]"
+            )
+            for b, t in enumerate(curves)
+        ]
+    )
+    nz = np.flatnonzero(rows.any(axis=0))
     sl = slice(int(nz[0]), int(nz[-1]) + 1)
-    return BandWeights(sl, per_ch[sl] / per_ch[sl].sum())
+    return BandWeights(sl, rows[:, sl])
 
 
 class SkyFilter(jft.Model):
-    """{sky_key: (n_ch, ny, nx)} -> {band: (ny, nx)}, one band-averaged plane per band.
+    """{sky_key: (n_ch, ny, nx)} -> {band: (ny, nx) plane or (n_out, ny, nx) cube}.
+
+    A band given as one Transmission outputs a plane, a band given as a
+    sequence outputs one cube bin per curve, in order. Every likelihood that
+    lives on a band's spectral binning reads its sky under the band's key.
 
     Parameters
     ----------
     grid : sky grid; its spectral axis defines the channels.
-    bands : band name -> transmission curve.
+    bands : band name -> one Transmission, or one per output bin.
     sky_key : key of the sky cube in the input.
     dtype : dtype of the sky cube and the weights.
     max_missing : see `band_weights`.
@@ -160,7 +191,7 @@ class SkyFilter(jft.Model):
     def __init__(
         self,
         grid: Grid,
-        bands: dict[str, Transmission],
+        bands: dict[str, Band],
         sky_key: str = SKY_KEY,
         dtype: DTypeLike = jnp.float32,
         max_missing: float = MAX_MISSING,
@@ -168,16 +199,17 @@ class SkyFilter(jft.Model):
         self.grid = grid
         self.sky_key = sky_key
         self.weights = {
-            k: band_weights(grid.spectral, t, max_missing, name=k)
-            for k, t in bands.items()
+            k: band_weights(grid.spectral, b, max_missing, name=k)
+            for k, b in bands.items()
         }
-        self._w = {k: jnp.asarray(bw.w, dtype=dtype) for k, bw in self.weights.items()}
+        self._plane = {k: isinstance(b, Transmission) for k, b in bands.items()}
+        self._W = {k: jnp.asarray(bw.W, dtype=dtype) for k, bw in self.weights.items()}
         n_ch = _bounds_um(grid.spectral).shape[0]
         shape = (n_ch, *grid.spatial.shape_yx)
         super().__init__(domain={sky_key: jft.ShapeWithDtype(shape, dtype)})
 
     def __call__(self, x: jft.Vector | dict[str, Array]) -> dict[str, Array]:
-        """Weighted sum of the sky channels for every band.
+        """Re-bin the sky cube onto every band.
 
         Parameters
         ----------
@@ -185,10 +217,11 @@ class SkyFilter(jft.Model):
 
         Returns
         -------
-        dict band name -> (ny, nx) plane.
+        dict band name -> (ny, nx) plane or (n_out, ny, nx) cube.
         """
         sky = x[self.sky_key]
-        return {
-            k: jnp.tensordot(self._w[k], sky[bw.sl], axes=1)
-            for k, bw in self.weights.items()
-        }
+        out = {}
+        for k, bw in self.weights.items():
+            y = jnp.tensordot(self._W[k], sky[bw.sl], axes=(1, 0))
+            out[k] = y[0] if self._plane[k] else y
+        return out

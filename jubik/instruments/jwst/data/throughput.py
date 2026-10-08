@@ -74,7 +74,7 @@ def jwst_transmission(filter_name: str) -> Transmission:
         raise KeyError(f"{name}: no throughput curve packaged and not in JWST_FILTERS")
     _, _, _, blue, red = JWST_FILTERS[name]
     logger.warning(f"{name}: no throughput curve packaged, half-power tophat")
-    return Transmission.tophat(blue, red)
+    return Transmission(np.array([blue, red]), np.ones(2))
 
 
 def pack_throughputs(source: Path, version: str, out: Path) -> int:

@@ -54,16 +54,15 @@ from jax import config, random
 # %%
 import jubik as ju
 from jubik.instruments.jwst.data.jwst_information import JWST_FILTERS
-from jubik.likelihood import (build_gaussian_likelihood,
-                              connect_likelihood_to_model)
+from jubik.likelihood import build_gaussian_likelihood, connect_likelihood_to_model
 
-config.update('jax_enable_x64', True)
+config.update("jax_enable_x64", True)
 
 # %% [markdown]
 # ## YAML Configuration File Structure
 #
 # In the `JWST_demo.yaml` config file, you can define several parameters.
-#  
+#
 # Below is a breakdown of key settings:
 #
 # - **seed**: Random seed for generating reproducible results.
@@ -187,7 +186,10 @@ sky_filter = ju.SkyFilter(
         fov=(cfg["grid"]["fov"] * u.arcsec,) * 2,
         frequencies=np.array(filter_bounds) * u.um,
     ),
-    {n: ju.Transmission.tophat(*filter_bounds[i]) for i, n in enumerate(filters)},
+    {
+        n: ju.Transmission(np.array(filter_bounds[i]), np.ones(2))
+        for i, n in enumerate(filters)
+    },
 )
 
 # %%
