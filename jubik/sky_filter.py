@@ -74,14 +74,19 @@ MAX_MISSING = 0.01  # passband fraction allowed outside sky coverage
 
 @dataclass(frozen=True)
 class Transmission:
-    """Throughput curve T(lam) of one output bin, zero outside its samples.
+    """Sampled throughput curve of one output bin.
+
+    The curve is interpolated linearly between consecutive samples and is zero
+    outside the first and last one. The samples are points along the curve,
+    not bin edges; a tophat over [lo, hi] is the two samples ``[lo, hi]`` with
+    throughput ``[1, 1]``, a measured filter is a few hundred samples.
 
     Parameters
     ----------
     wavelength_um : np.ndarray
-        Wavelength samples, microns, strictly ascending, at least two.
+        Wavelengths of the samples, microns, strictly ascending, at least two.
     throughput : np.ndarray
-        Throughput at `wavelength_um`, dimensionless, non-negative, not all zero.
+        Throughput at each sample, dimensionless, non-negative, not all zero.
         Overall scale is irrelevant, the weights are normalised.
     """
 
