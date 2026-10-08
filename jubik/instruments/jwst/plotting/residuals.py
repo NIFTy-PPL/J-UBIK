@@ -1,19 +1,17 @@
-import re
 from collections import namedtuple
 from dataclasses import asdict, dataclass, field
 from os import makedirs
 from os.path import join
-from typing import Union
 
+import astropy.units as u
 import matplotlib.pyplot as plt
 import nifty.re as jft
 import numpy as np
 from jax import tree
 from numpy.typing import NDArray
-import astropy.units as u
 
-from ..data.jwst_data import DataMetaInformation
 from ....sky_filter import SkyFilter
+from ..data.jwst_data import DataMetaInformation
 from ..likelihood.likelihood import (
     GaussianLikelihoodBuilder,
     VariableCovarianceGaussianLikelihoodBuilder,
@@ -24,7 +22,6 @@ from .plotting_base import (
     _get_model_samples_or_position,
     _get_std_from_inversestdmodel,
     display_text,
-    get_shift_rotation_correction,
     plot_data_data_model_residuals,
 )
 
@@ -92,9 +89,7 @@ def _determine_xlen_residuals(
     return maximum  # because 0 is already there and will not be counted
 
 
-def _determine_ypos(
-    filter_key: str, sky_filter: SkyFilter, y_offset: int = 0
-) -> int:
+def _determine_ypos(filter_key: str, sky_filter: SkyFilter, y_offset: int = 0) -> int:
     """Determine the y position of the panel in the residual plot.
 
     Parameters
@@ -114,7 +109,7 @@ def _determine_ypos(
     ypos: int
         The y-position on the panel grid.
     """
-    return sky_filter.weights[filter_key].channels.start - y_offset
+    return sky_filter.bands[filter_key].channels.start - y_offset
 
 
 def get_extent(shape: NDArray, meta: DataMetaInformation) -> NDArray:
@@ -134,7 +129,7 @@ class SkyResiduals:
     )
 
     def residuals(
-        self, position_or_samples: Union[dict, jft.Samples]
+        self, position_or_samples: dict | jft.Samples
     ) -> dict[str, NDArray]:
         sky_or_skies = _get_model_samples_or_position(
             position_or_samples,
@@ -169,7 +164,7 @@ class SkyResiduals:
 
     def __call__(
         self,
-        position_or_samples: Union[dict, jft.Samples],
+        position_or_samples: dict | jft.Samples,
         state_or_none: jft.OptimizeVIState | None = None,
     ) -> None:
         jft.logger.info(f"Results: {self.residual_directory}")
@@ -210,7 +205,7 @@ class SkyResiduals:
             ),
         )
 
-        for filter_name in self.sky_filter.weights:
+        for filter_name in self.sky_filter.bands:
             ypos = _determine_ypos(
                 filter_name,
                 self.sky_filter,

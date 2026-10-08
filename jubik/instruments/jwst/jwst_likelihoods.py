@@ -3,9 +3,9 @@ from functools import reduce
 from typing import Union
 
 import nifty.re as jft
-from nifty.re import logger
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from nifty.re import logger
 
 from ...grid import Grid
 from ...likelihood import connect_likelihood_to_model
@@ -23,7 +23,7 @@ from .data.preloader.preloader import (
     PreloaderSideEffects,
     preload_data,
 )
-from .data.throughput import jwst_transmission
+from .data.throughput import jwst_transmission, throughput_weights
 from .jwst_response import TargetResponseInput, build_target_response
 from .likelihood.alignment_likelihood import (
     AlignmentLikelihoodSideEffects,
@@ -102,7 +102,10 @@ def build_jwst_likelihoods(
     ((sky_key, sky_leaf),) = sky_domain.items()
     sky_filter = SkyFilter(
         grid,
-        {name: jwst_transmission(name) for name in cfg[files_key]["filter"]},
+        {
+            name: throughput_weights(grid.spectral, jwst_transmission(name), name=name)
+            for name in cfg[files_key]["filter"]
+        },
         sky_key=sky_key,
         dtype=sky_leaf.dtype,
     )
@@ -123,7 +126,7 @@ def build_jwst_likelihoods(
     )
 
     target_plotting = ResidualPlottingInformation(
-        y_offset=min(w.channels.start for w in sky_filter.weights.values())
+        y_offset=min(b.channels.start for b in sky_filter.bands.values())
     )
     target_filter_likelihoods = []
     alignment_plotting = (
