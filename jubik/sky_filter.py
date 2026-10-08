@@ -32,9 +32,11 @@ from nifty.re import logger
 from .color import Color
 from .grid import Grid
 
+__all__ = ["SKY_KEY", "MAX_MISSING", "Transmission", "Band", "BandWeights", "SkyFilter"]
+
 SKY_KEY = "sky"
 MAX_MISSING = 0.01  # passband fraction allowed outside sky coverage
-N_FINE = 20001  # integration grid over the curve support
+_N_FINE = 20001  # integration grid over the curve support
 _TOL = 1e-9  # missing fraction treated as zero (integration round-off)
 
 
@@ -130,7 +132,7 @@ class BandWeights(NamedTuple):
         inner = channel_bounds_um.ravel()
         inner = inner[(inner > wavelength_um[0]) & (inner < wavelength_um[-1])]
         fine_um = np.union1d(
-            np.linspace(wavelength_um[0], wavelength_um[-1], N_FINE), inner
+            np.linspace(wavelength_um[0], wavelength_um[-1], _N_FINE), inner
         )
         integrand = np.interp(fine_um, wavelength_um, throughput) / fine_um
         total = np.trapezoid(integrand, fine_um)
