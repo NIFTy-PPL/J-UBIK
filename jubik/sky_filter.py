@@ -178,7 +178,7 @@ class SkyFilter(jft.Model):
     grid : sky grid; its spectral axis defines the channels.
     bands : band name -> one Transmission, or one per output bin.
     sky_key : key of the sky cube in the input.
-    dtype : dtype of the sky cube and the weights.
+    dtype : dtype of the sky cube.
     max_missing : see `BandWeights.from_band`.
     """
 
@@ -197,7 +197,6 @@ class SkyFilter(jft.Model):
             for k, b in bands.items()
         }
         self._plane = {k: isinstance(b, Transmission) for k, b in bands.items()}
-        self._W = {k: jnp.asarray(bw.W, dtype=dtype) for k, bw in self.weights.items()}
         n_ch = np.atleast_1d(grid.spectral.center).size
         shape = (n_ch, *grid.spatial.shape_yx)
         super().__init__(domain={sky_key: jft.ShapeWithDtype(shape, dtype)})
@@ -216,6 +215,7 @@ class SkyFilter(jft.Model):
         sky = x[self.sky_key]
         out = {}
         for k, bw in self.weights.items():
-            y = jnp.tensordot(self._W[k], sky[bw.sl], axes=(1, 0))
+            W = jnp.asarray(bw.W, dtype=sky.dtype)
+            y = jnp.tensordot(W, sky[bw.sl], axes=(1, 0))
             out[k] = y[0] if self._plane[k] else y
         return out
