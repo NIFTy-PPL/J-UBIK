@@ -85,7 +85,7 @@ from .instruments.jwst.jwst_response import build_jwst_response
 from .grid import Grid
 
 from .color import Color
-from .sky_filter import SkyFilter, Transmission
+from .sky_filter import FilterWeights, SkyFilter
 
 from .data import (
     create_mock_data,

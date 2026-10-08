@@ -186,10 +186,7 @@ sky_filter = ju.SkyFilter(
         fov=(cfg["grid"]["fov"] * u.arcsec,) * 2,
         frequencies=np.array(filter_bounds) * u.um,
     ),
-    {
-        n: ju.Transmission(np.array(filter_bounds[i]), np.ones(2))
-        for i, n in enumerate(filters)
-    },
+    {n: ju.FilterWeights(slice(i, i + 1), np.ones(1)) for i, n in enumerate(filters)},
 )
 
 # %%
