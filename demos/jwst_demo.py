@@ -181,20 +181,19 @@ energy_cfg = cfg["grid"]["energy_bin"]
 e_unit = getattr(u, energy_cfg.get("unit", "eV"))
 # One sky channel per filter, spanning its half-power tophat.
 filter_bounds = [JWST_FILTERS[name.upper()][3:5] for name in filters]
-sky_projection = ju.SkyProjection(
+sky_filter = ju.SkyFilter(
     ju.Grid.from_shape_and_fov(
         shape=cfg["grid"]["shape"],
         fov=(cfg["grid"]["fov"] * u.arcsec,) * 2,
         frequencies=np.array(filter_bounds) * u.um,
     ),
-    [ju.FilterBand(n, ju.Transmission.tophat(*filter_bounds[i]))
-     for i, n in enumerate(filters)],
+    {n: ju.Transmission.tophat(*filter_bounds[i]) for i, n in enumerate(filters)},
 )
 
 # %%
 key, subkey = random.split(key)
 sky_model_with_filters = jft.Model(
-    lambda x: sky_projection({"sky": sky(x)}), domain=sky.domain
+    lambda x: sky_filter({"sky": sky(x)}), domain=sky.domain
 )
 
 # %%
@@ -234,7 +233,7 @@ for fltname in filters.keys():
     )
 
     response = ju.build_jwst_response(
-        sky_domain={fltname: sky_projection.target[fltname]},
+        sky_domain={fltname: sky_filter.target[fltname]},
         subsample=cfg["telescope"]["subsample"],
         rotation_and_shift_kwargs=rotation_and_shift_kwargs,
         psf_kwargs=psf_kwargs,
