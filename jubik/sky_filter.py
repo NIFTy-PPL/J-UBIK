@@ -19,6 +19,7 @@ curves are passed in, never built here.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import NamedTuple
 
 import jax.numpy as jnp
 import nifty.re as jft
@@ -69,12 +70,9 @@ class Transmission:
 Band = Transmission | Sequence[Transmission]
 
 
-@dataclass(frozen=True)
-class BandWeights:
-    """Weights of one band on the sky channels.
+class BandWeights(NamedTuple):
+    """Weights of one band on the sky channels, the result of `band_weights`.
 
-    Parameters
-    ----------
     sl : contiguous sky channel slice the band draws from.
     W : (n_out, n_sl) weights of every output bin on those channels, rows
         sum to 1.
