@@ -5,16 +5,46 @@
 
 # %
 
-"""SkyFilter: the sky owns the spectral channels, every band re-bins from them.
+"""Re-bin the sky cube onto the spectral bins an instrument measures.
 
-The sky is one F_nu cube on the channels of ``grid.spectral``. An instrument
-provides one Transmission curve T(lam) per output bin and nothing else. The
-weight of an output bin on sky channel i is the integral of T(lam) / lam over
-that channel (photon-counted F_nu data), normalised so the weights sum to one.
-A band is one output bin (an imaging filter, one plane) or a sequence of them
-(the spectral bins of a spectrograph, one cube); the band image is the
-weighted sum of the sky channels, in the units of the sky. Instrument-agnostic:
-curves are passed in, never built here.
+The sky model produces one cube with the spectral channels of ``grid.spectral``.
+Instruments do not see those channels. An imaging filter sees one broad band,
+weighted by its throughput curve; a spectrograph sees its own bins. SkyFilter
+turns the sky cube into those instrument bins, so a likelihood can be built on
+the data's own spectral binning.
+
+Two public objects:
+
+``Transmission(wavelength_um, throughput)``
+    The throughput curve of one instrument bin: wavelength samples in microns
+    and the dimensionless throughput at each sample, down to zero at both ends.
+    This is all the instrument has to provide.
+
+``SkyFilter(grid, bands)``
+    A ``jft.Model`` from ``{sky_key: (n_ch, ny, nx)}`` to one array per band.
+    ``bands`` maps a band name to one Transmission (an imaging filter, output
+    ``(ny, nx)``) or to a sequence of them, one per data bin (a spectrograph,
+    output ``(n_out, ny, nx)`` in the order given). Each output is the weighted
+    sum of the sky channels, with the weight of channel i being the integral of
+    ``throughput / wavelength`` over that channel (photon-counted F_nu data),
+    normalised to one. The output is therefore the band-averaged sky in the
+    units of the sky.
+
+What a consumer on the data side does:
+
+1. Build a Transmission per band from its own calibration data, for example
+   ``jwst_transmission("F444W")`` in ``jubik.instruments.jwst.data.throughput``.
+2. Hand them to ``SkyFilter(grid, {"F444W": curve, ...})``. Construction checks
+   that the sky channels cover every passband; a gap above ``max_missing``
+   raises, a smaller one warns.
+3. Build the likelihood on ``sky_filter.target["F444W"]``, i.e. read the sky
+   under the band name, and connect it with
+   ``connect_likelihood_to_model(likelihood, sky_filter)``. Everything spatial
+   (PSF, pointing, pixel integration, unit conversion) stays in the instrument
+   response that follows.
+
+``sky_filter.weights[name]`` exposes which sky channels feed a band and with
+which weights, for plotting and bookkeeping.
 """
 
 from collections.abc import Sequence
