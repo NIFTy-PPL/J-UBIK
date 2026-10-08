@@ -5,7 +5,7 @@
 
 # %
 
-"""JWST filter transmission curves for `jubik.sky_projection`.
+"""JWST filter transmission curves for `jubik.sky_filter`.
 
 NIRCam mean system throughputs ship with the package (nircam_throughputs_v5.npz);
 filters without a packaged curve fall back to a half-power tophat from
@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np
 from nifty.re import logger
 
-from ....sky_projection import Transmission
+from ....sky_filter import Transmission
 from .jwst_information import JWST_FILTERS
 
 # Rename together with a new throughput release.

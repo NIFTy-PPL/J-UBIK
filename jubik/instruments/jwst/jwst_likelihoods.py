@@ -9,7 +9,7 @@ from astropy.coordinates import SkyCoord
 
 from ...grid import Grid
 from ...likelihood import connect_likelihood_to_model
-from ...sky_projection import FilterBand, SkyProjection
+from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
 from .config_handler import get_grid_extension_from_config
 from .data.loader.data_loader import (
@@ -50,14 +50,14 @@ from .variable_covariance.inverse_standard_deviation import (
 class TargetLikelihoodProducts:
     likelihoods: list[SingleTargetLikelihood]
     plotting: ResidualPlottingInformation
-    sky_projection: SkyProjection
+    sky_filter: SkyFilter
     hot_pixel_masking_data: HotPixelMaskingData | None = None
 
     @property
     def likelihood(self) -> jft.Likelihood | jft.Gaussian:
         likelihoods = (t.likelihood for t in self.likelihoods)
         likelihood = reduce(lambda x, y: x + y, likelihoods)
-        return connect_likelihood_to_model(likelihood, self.sky_projection)
+        return connect_likelihood_to_model(likelihood, self.sky_filter)
 
 
 @dataclass
@@ -100,16 +100,16 @@ def build_jwst_likelihoods(
     )
 
     ((sky_key, sky_leaf),) = sky_domain.items()
-    sky_projection = SkyProjection(
+    sky_filter = SkyFilter(
         grid,
-        [FilterBand(name, jwst_transmission(name)) for name in cfg[files_key]["filter"]],
+        {name: jwst_transmission(name) for name in cfg[files_key]["filter"]},
         sky_key=sky_key,
         dtype=sky_leaf.dtype,
     )
-    if sky_projection.domain[sky_key].shape != sky_leaf.shape:
+    if sky_filter.domain[sky_key].shape != sky_leaf.shape:
         raise ValueError(
             f"sky_domain shape {sky_leaf.shape} does not match the grid "
-            f"shape {sky_projection.domain[sky_key].shape}"
+            f"shape {sky_filter.domain[sky_key].shape}"
         )
 
     # Parsing
@@ -123,7 +123,7 @@ def build_jwst_likelihoods(
     )
 
     target_plotting = ResidualPlottingInformation(
-        y_offset=min(s.sl.start for s in sky_projection.selections.values())
+        y_offset=min(w.sl.start for w in sky_filter.weights.values())
     )
     target_filter_likelihoods = []
     alignment_plotting = (
@@ -206,7 +206,7 @@ def build_jwst_likelihoods(
                 input_config=TargetResponseInput(
                     filter_name=filter,
                     grid=grid,
-                    sky_projection=sky_projection,
+                    sky_filter=sky_filter,
                     target_data=dataload_results.target_data,
                     filter_meta=preload_results.filter_meta,
                     sky_meta=sky_meta,
@@ -253,7 +253,7 @@ def build_jwst_likelihoods(
         target=TargetLikelihoodProducts(
             likelihoods=target_filter_likelihoods,
             plotting=target_plotting,
-            sky_projection=sky_projection,
+            sky_filter=sky_filter,
             hot_pixel_masking_data=hot_pixel_masking_data,
         ),
         alignment=MultiFilterAlignmentProducts.from_optional(

@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 import astropy.units as u
 
 from ..data.jwst_data import DataMetaInformation
-from ....sky_projection import SkyProjection
+from ....sky_filter import SkyFilter
 from ..likelihood.likelihood import (
     GaussianLikelihoodBuilder,
     VariableCovarianceGaussianLikelihoodBuilder,
@@ -93,7 +93,7 @@ def _determine_xlen_residuals(
 
 
 def _determine_ypos(
-    filter_key: str, sky_projection: SkyProjection, y_offset: int = 0
+    filter_key: str, sky_filter: SkyFilter, y_offset: int = 0
 ) -> int:
     """Determine the y position of the panel in the residual plot.
 
@@ -102,8 +102,8 @@ def _determine_ypos(
     dkey: str
         The data_key which will determine the energy bin and hence the position
         on the panel grid.
-    sky_projection: SkyProjection
-        The sky projection of the reconstruction.
+    sky_filter: SkyFilter
+        The sky filter of the reconstruction.
     ylen_offset: int
         An offset which corresponds to the bins not considered in determining
         the ypos of the panels. I.e. the sky can have more bins than the ones
@@ -114,7 +114,7 @@ def _determine_ypos(
     ypos: int
         The y-position on the panel grid.
     """
-    return sky_projection.selections[filter_key].sl.start - y_offset
+    return sky_filter.weights[filter_key].sl.start - y_offset
 
 
 def get_extent(shape: NDArray, meta: DataMetaInformation) -> NDArray:
@@ -127,7 +127,7 @@ def get_extent(shape: NDArray, meta: DataMetaInformation) -> NDArray:
 class SkyResiduals:
     residual_directory: str
     sky_model: jft.Model
-    sky_projection: SkyProjection
+    sky_filter: SkyFilter
     residual_plotting_info: ResidualPlottingInformation
     residual_plotting_config: ResidualPlottingConfig = field(
         default_factory=ResidualPlottingConfig
@@ -139,7 +139,7 @@ class SkyResiduals:
         sky_or_skies = _get_model_samples_or_position(
             position_or_samples,
             jft.Model(
-                lambda x: self.sky_projection(self.sky_model(x)),
+                lambda x: self.sky_filter(self.sky_model(x)),
                 domain=self.sky_model.domain,
             ),
         )
@@ -177,7 +177,7 @@ class SkyResiduals:
 
         xmax_residuals = self.residual_plotting_config.xmax_residuals
 
-        ylen = len(self.sky_projection.target)
+        ylen = len(self.sky_filter.target)
         xlen = 3 + _determine_xlen_residuals(
             self.residual_plotting_info, xmax_residuals
         )
@@ -191,7 +191,7 @@ class SkyResiduals:
         sky_or_skies = _get_model_samples_or_position(
             position_or_samples,
             jft.Model(
-                lambda x: self.sky_projection(self.sky_model(x)),
+                lambda x: self.sky_filter(self.sky_model(x)),
                 domain=self.sky_model.domain,
             ),
         )
@@ -210,10 +210,10 @@ class SkyResiduals:
             ),
         )
 
-        for filter_name in self.sky_projection.selections:
+        for filter_name in self.sky_filter.weights:
             ypos = _determine_ypos(
                 filter_name,
-                self.sky_projection,
+                self.sky_filter,
                 y_offset=self.residual_plotting_info.y_offset,
             )
             axes[ypos, 0].set_title(f"Sky {filter_name}")
@@ -237,7 +237,7 @@ class SkyResiduals:
         for filter_key in self.residual_plotting_info.filter:
             ypos = _determine_ypos(
                 filter_key,
-                self.sky_projection,
+                self.sky_filter,
                 y_offset=self.residual_plotting_info.y_offset,
             )
 
@@ -346,7 +346,7 @@ class SkyResiduals:
 
 def build_plot_sky_residuals(
     results_directory: str,
-    sky_projection: SkyProjection,
+    sky_filter: SkyFilter,
     residual_plotting_info: ResidualPlottingInformation,
     sky_model: jft.Model,
     residual_plotting_config: ResidualPlottingConfig = ResidualPlottingConfig(),
@@ -356,7 +356,7 @@ def build_plot_sky_residuals(
 
     return SkyResiduals(
         residual_directory=residual_directory,
-        sky_projection=sky_projection,
+        sky_filter=sky_filter,
         residual_plotting_info=residual_plotting_info,
         sky_model=sky_model,
         residual_plotting_config=residual_plotting_config,

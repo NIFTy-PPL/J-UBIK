@@ -15,7 +15,7 @@ from jubik.instruments.jwst.data.throughput import (
     jwst_transmission,
     pack_throughputs,
 )
-from jubik.sky_projection import FilterBand, filter_selection
+from jubik.sky_filter import band_weights
 
 
 def test_f444w_curve_is_packaged():
@@ -27,13 +27,13 @@ def test_f444w_curve_is_packaged():
 
 
 def test_f444w_weights_on_four_channels():
-    band = FilterBand("F444W", jwst_transmission("F444W"))
+    t = jwst_transmission("F444W")
     # the red wing past 5.0 um holds 1.5% of the passband, above MAX_MISSING
     with pytest.raises(ValueError, match="F444W"):
-        filter_selection(Color(np.linspace(3.8, 5.0, 5) * u.um), band)
-    sel = filter_selection(Color(np.linspace(3.7, 5.1, 5) * u.um), band)
-    w = sel.W[0]
-    assert sel.sl == slice(0, 4)
+        band_weights(Color(np.linspace(3.8, 5.0, 5) * u.um), t, name="F444W")
+    bw = band_weights(Color(np.linspace(3.7, 5.1, 5) * u.um), t)
+    w = bw.w
+    assert bw.sl == slice(0, 4)
     np.testing.assert_allclose(w.sum(), 1.0, rtol=1e-12)
     assert min(w[1], w[2]) > max(w[0], w[3])
 

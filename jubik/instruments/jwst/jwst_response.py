@@ -15,7 +15,7 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 from ...grid import Grid
-from ...sky_projection import SkyProjection
+from ...sky_filter import SkyFilter
 from ...wcs.wcs_astropy import WcsAstropy
 from .alignment.star_model import StarInData
 from .data.jwst_data import DataMetaInformation
@@ -223,8 +223,8 @@ class TargetResponseInput:
         Name of the filter_name corresponding to the observational data.
     grid : Grid
         Spatial grid defining the coordinate system of the sky model.
-    sky_projection : SkyProjection
-        Projects the sky cube onto the filter bands, keyed by `filter_name`.
+    sky_filter : SkyFilter
+        Band-averages the sky cube; its target is keyed by `filter_name`.
     target_data : TargetData
         Observational data and associated metadata (e.g., subsample centers, PSF, mask).
     filter_meta : DataMetaInformation
@@ -241,7 +241,7 @@ class TargetResponseInput:
 
     filter_name: str
     grid: Grid
-    sky_projection: SkyProjection
+    sky_filter: SkyFilter
     target_data: TargetData
     filter_meta: DataMetaInformation
     sky_meta: SkyMetaInformation
@@ -276,7 +276,7 @@ def build_target_response(
 
     energy_name = input_config.filter_name
     sky_in_subsampled_data = build_sky_to_subsampled_data(
-        sky_domain={energy_name: input_config.sky_projection.target[energy_name]},
+        sky_domain={energy_name: input_config.sky_filter.target[energy_name]},
         data_subsampled_centers=input_config.target_data.subsample_centers,
         sky_wcs=input_config.grid.spatial,
         rotation_and_shift_algorithm=input_config.rotation_and_shift_algorithm,

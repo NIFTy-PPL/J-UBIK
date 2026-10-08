@@ -176,9 +176,9 @@ def test_minimal_config_builds_and_evaluates(patched_seams, tmp_path):
     assert builder.mask.sum() > 0
     assert not np.isnan(builder.data[builder.mask]).any()
 
-    projection = products.target.sky_projection
-    np.testing.assert_allclose(projection.selections[FILTER.lower()].W, [[1.0]])
-    assert projection.target[FILTER.lower()].shape == GRID_SHAPE
+    sky_filter = products.target.sky_filter
+    np.testing.assert_allclose(sky_filter.weights[FILTER.lower()].w, [1.0])
+    assert sky_filter.target[FILTER.lower()].shape == GRID_SHAPE
     assert products.target.plotting.y_offset == 0
 
     likelihood = products.target.likelihood
