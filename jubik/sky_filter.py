@@ -32,7 +32,7 @@ Two public objects:
 What a consumer on the data side does:
 
 1. Compute a FilterWeights per band on ``grid.spectral``, for example
-   ``throughput_weights(grid.spectral, jwst_transmission("F444W"))``.
+   ``jwst_filter_weights(grid.spectral, "F444W")``.
 2. Hand them to ``SkyFilter(grid, {"F444W": weights, ...})``.
 3. Build the likelihood on ``sky_filter.target["F444W"]``, i.e. read the sky
    under the band name, and connect it with
