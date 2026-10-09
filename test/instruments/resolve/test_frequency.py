@@ -31,7 +31,7 @@ def assert_frequency_groups_are_averaged(obs, averaged, groups, mode):
     for ind in groups:
         vis = obs.vis_val[..., ind]
         weight = obs.weight_val[..., ind]
-        if mode == "inverse_variance":
+        if mode == "noise_weighted":
             expected_freq.append(
                 np.sum(weight * obs.freq[ind][None, None, :]) / weight.sum()
             )
@@ -49,7 +49,7 @@ def assert_frequency_groups_are_averaged(obs, averaged, groups, mode):
     assert_allclose(averaged.weight_val, expected_weight)
 
 
-@pmp("mode", ("inverse_variance", "uniform"))
+@pmp("mode", ("noise_weighted", "arithmetic"))
 @pmp("n_freq,n_bins", ((4, 2), (5, 2), (6, 2), (4, 1), (4, 4)))
 def test_freq_average_by_bins_uses_every_channel(n_freq, n_bins, mode):
     np.random.seed(40 + n_freq + n_bins)
@@ -67,7 +67,7 @@ def test_freq_average_by_bins_none_is_noop():
     assert freq_average_by_bins(obs, None) is obs
 
 
-@pmp("mode", ("inverse_variance", "uniform"))
+@pmp("mode", ("noise_weighted", "arithmetic"))
 def test_freq_average_by_bins_excludes_flagged_channels(mode):
     obs = build_obs()
     vis = obs.vis_val.copy()
@@ -89,13 +89,13 @@ def test_freq_average_by_bins_excludes_flagged_channels(mode):
 
     averaged = freq_average_by_bins(flagged_obs, 1, averaging_mode=mode)
     valid = weight[0, 0] > 0.0
-    if mode == "inverse_variance":
+    if mode == "noise_weighted":
         expected_vis = np.average(vis[0, 0, valid], weights=weight[0, 0, valid])
         expected_weight = weight[0, 0, valid].sum()
     else:
         expected_vis = np.mean(vis[0, 0, valid])
         expected_weight = valid.sum() ** 2 / np.sum(1.0 / weight[0, 0, valid])
-    a = np.where(weight > 0, weight if mode == "inverse_variance" else 1, 0)
+    a = np.where(weight > 0, weight if mode == "noise_weighted" else 1, 0)
     assert_allclose(averaged.freq, [np.sum(a * obs.freq[None, None, :]) / a.sum()])
 
     assert_allclose(averaged.vis_val[0, 0, 0], expected_vis)
@@ -111,7 +111,7 @@ def test_freq_average_by_bins_rejects_invalid_number_of_bins(n_bins):
         freq_average_by_bins(obs, n_bins)
 
 
-@pmp("mode", ("inverse_variance", "uniform"))
+@pmp("mode", ("noise_weighted", "arithmetic"))
 def test_frequency_domain_averaging_uses_every_channel_in_each_chunk(mode):
     np.random.seed(48)
     freqs = 1.0e9 + np.arange(6) * 0.1e9
@@ -203,15 +203,15 @@ def test_spectral_modify_invalid_exclude_range_raises(entry):
         SpectralModify.from_yaml_dict({"exclude_frequency_ranges": [entry]})
 
 
-def test_frequency_averaging_defaults_to_inverse_variance():
+def test_frequency_averaging_defaults_to_arithmetic():
     obs = build_obs()
     averaged = freq_average_by_bins(obs, 1)
     assert_frequency_groups_are_averaged(
-        obs, averaged, [np.arange(obs.nfreq)], "inverse_variance"
+        obs, averaged, [np.arange(obs.nfreq)], "arithmetic"
     )
 
 
-@pmp("mode", ("inverse_variance", "uniform"))
+@pmp("mode", ("noise_weighted", "arithmetic"))
 def test_frequency_averaging_all_flagged(mode):
     obs = build_obs()
     obs = Observation(
@@ -226,7 +226,7 @@ def test_frequency_averaging_all_flagged(mode):
         freq_average_by_bins(obs, 1, mode)
 
 
-@pmp("mode", ("inverse_variance", "uniform"))
+@pmp("mode", ("noise_weighted", "arithmetic"))
 def test_spectral_modify_parses_averaging_mode(mode):
     assert (
         SpectralModify.from_yaml_dict({"averaging_mode": mode}).averaging_mode == mode
@@ -234,7 +234,7 @@ def test_spectral_modify_parses_averaging_mode(mode):
 
 
 def test_spectral_modify_default_averaging_mode():
-    assert SpectralModify.from_yaml_dict({}).averaging_mode == "inverse_variance"
+    assert SpectralModify.from_yaml_dict({}).averaging_mode == "arithmetic"
 
 
 def test_invalid_averaging_mode():
@@ -244,7 +244,7 @@ def test_invalid_averaging_mode():
         freq_average_by_bins(build_obs(), 1, "invalid")
 
 
-@pmp("mode", ("inverse_variance", "uniform"))
+@pmp("mode", ("noise_weighted", "arithmetic"))
 def test_frequency_averaging_discards_fully_flagged_bin(mode):
     obs = build_obs()
     weight = obs.weight_val.copy()

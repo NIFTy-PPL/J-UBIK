@@ -145,17 +145,17 @@ def test_flag_weights_runs_before_frequency_averaging():
     modify = ObservationModify.from_yaml_dict(
         {
             "flag_weights": {"min": 1e-12, "max": 1e12},
-            "spectral": {"bins": 2, "averaging_mode": "uniform"},
+            "spectral": {"bins": 2, "averaging_mode": "arithmetic"},
         }
     )(0)
 
     new = modify_observation(sky, obs, modify)
 
     flag_first = freq_average_by_fdom_and_n_freq_chunks(
-        sky, flag_weights(obs, setting), 2, averaging_mode="uniform"
+        sky, flag_weights(obs, setting), 2, averaging_mode="arithmetic"
     )
     average_first = flag_weights(
-        freq_average_by_fdom_and_n_freq_chunks(sky, obs, 2, "uniform"), setting
+        freq_average_by_fdom_and_n_freq_chunks(sky, obs, 2, "arithmetic"), setting
     )
 
     # The two orders really differ: averaging dilutes the outlier.
@@ -212,14 +212,14 @@ def test_flag_weights_runs_before_time_averaging():
 # ---------------------------------------------------------------------------
 
 
-@pmp("mode", ("inverse_variance", "uniform"))
+@pmp("mode", ("noise_weighted", "arithmetic"))
 def test_exclude_frequency_ranges_runs_before_frequency_averaging(mode):
     np.random.seed(205)
     freqs = 1.0e9 + np.arange(6) * 0.1e9
     obs = build_obs(freqs)
     # These unequal weights keep the all-channel inverse-variance frequency
     # inside the exclusion range (approximately 1.294 GHz). This constraint is only needed
-    # for inverse_variance: uniform averaging gives 1.25 GHz regardless of weights.
+    # for noise_weighted: arithmetic averaging gives 1.25 GHz regardless of weights.
     channel_weights = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 2.0])
     weights = np.broadcast_to(
         channel_weights[None, None, :], obs.weight_val.shape
@@ -251,7 +251,7 @@ def test_exclude_frequency_ranges_runs_before_frequency_averaging(mode):
     assert new.nfreq == 1
     weights = obs.weight_val[:, :, keep]
     vis = obs.vis_val[:, :, keep]
-    if mode == "inverse_variance":
+    if mode == "noise_weighted":
         expected_freq = np.sum(weights * freqs[keep][None, None, :]) / weights.sum()
         expected_vis = np.sum(weights * vis, axis=2) / weights.sum(axis=2)
         expected_weight = weights.sum(axis=2)

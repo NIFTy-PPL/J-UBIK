@@ -13,9 +13,10 @@ from ..observation import Observation
 def freq_average_by_bins(
     obs: Observation,
     n_freq_chuncks: int | None,
-    averaging_mode: str = "inverse_variance",
+    averaging_mode: str = "arithmetic",
 ):
-    """Average frequency bins using inverse-variance or uniform weights."""
+    """Splits an `Observation` instance into `n_freq_chunks` and creates a new 
+    `Observation` instance with frequencies averaged per chunk."""
     if n_freq_chuncks is None:
         return obs
 
@@ -37,9 +38,9 @@ def freq_average_by_fdom_and_n_freq_chunks(
     sky_frequencies: Color,
     obs: Observation,
     n_freq_chuncks: int | None,
-    averaging_mode: str = "inverse_variance",
+    averaging_mode: str = "arithmetic",
 ):
-    """Create a new observation with frequencies averaged. The frequencies of
+    """Create a new `Observation` with frequencies averaged. The frequencies of
     the new observation will be averaged into `n_freq_chuncks` according to the
     ranges of the sky_frequencies.
 
@@ -53,8 +54,8 @@ def freq_average_by_fdom_and_n_freq_chunks(
         The number of frequency chuncks, i.e. the number of averaging bins per
         sky frequency.
     averaging_mode: str
-        "inverse_variance" (default) uses measurement weights; "uniform"
-        uses 1 for each unflagged sample.
+        Sets averaging mode. Either perform "arithmetic" averaging or
+        "noise_weighted" averaging with measurement weights.
     """
     if n_freq_chuncks is None:
         return obs
@@ -102,7 +103,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
 def freq_average_by_fmin_fmax(
     obs: Observation,
     fmin_fmax_array: list[float],
-    averaging_mode: str = "inverse_variance",
+    averaging_mode: str = "arithmetic",
 ):
     splitted_obs = []
     for ff in fmin_fmax_array:
@@ -114,7 +115,7 @@ def freq_average_by_fmin_fmax(
 def _average_frequency_groups(
     obs: Observation,
     splitted_obs: list[Observation],
-    averaging_mode: str = "inverse_variance",
+    averaging_mode: str = "arithmetic",
 ) -> Observation:
     if len(splitted_obs) == 0:
         raise ValueError("Cannot average an observation without frequency channels.")
@@ -132,16 +133,16 @@ def _average_frequency_groups(
         vis = obsi.vis.asnumpy()
 
         match averaging_mode:
-            case "inverse_variance":
+            case "noise_weighted":
                 # Flagged entries do not contribute to the averaging sums.
                 averaging_weight = np.where(valid, weight, 0.0)
-            case "uniform":
+            case "arithmetic":
                 # Flagged entries do not contribute to the averaging sums.
                 averaging_weight = valid.astype(weight.dtype)
             case _:
                 raise ValueError(
                     f"Unknown frequency averaging mode: {averaging_mode!r}. "
-                    "Expected 'inverse_variance' or 'uniform'."
+                    "Expected 'noise_weighted' or 'arithmetic'."
                 )
 
         # Flagged entries contribute neither a visibility nor a variance.
