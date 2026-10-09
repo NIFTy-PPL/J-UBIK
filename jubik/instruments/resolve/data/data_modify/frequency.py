@@ -13,7 +13,7 @@ from ..observation import Observation
 def freq_average_by_bins(
     obs: Observation,
     n_freq_chuncks: int | None,
-    averaging_mode: str = "arithmetic",
+    averaging_mode: str = "noise_weighted",
 ):
     """Splits an `Observation` instance into `n_freq_chunks` and creates a new 
     `Observation` instance with frequencies averaged per chunk."""
@@ -38,7 +38,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
     sky_frequencies: Color,
     obs: Observation,
     n_freq_chuncks: int | None,
-    averaging_mode: str = "arithmetic",
+    averaging_mode: str = "noise_weighted",
 ):
     """Create a new `Observation` with frequencies averaged. The frequencies of
     the new observation will be averaged into `n_freq_chuncks` according to the
@@ -55,7 +55,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
         sky frequency.
     averaging_mode: str
         Sets averaging mode. Either perform "arithmetic" averaging or
-        "noise_weighted" averaging with measurement weights.
+        "noise_weighted" averaging (default) with measurement weights.
     """
     if n_freq_chuncks is None:
         return obs
@@ -103,7 +103,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
 def freq_average_by_fmin_fmax(
     obs: Observation,
     fmin_fmax_array: list[float],
-    averaging_mode: str = "arithmetic",
+    averaging_mode: str = "noise_weighted",
 ):
     splitted_obs = []
     for ff in fmin_fmax_array:
@@ -115,7 +115,7 @@ def freq_average_by_fmin_fmax(
 def _average_frequency_groups(
     obs: Observation,
     splitted_obs: list[Observation],
-    averaging_mode: str = "arithmetic",
+    averaging_mode: str = "noise_weighted",
 ) -> Observation:
     if len(splitted_obs) == 0:
         raise ValueError("Cannot average an observation without frequency channels.")

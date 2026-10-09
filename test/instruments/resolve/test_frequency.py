@@ -203,11 +203,11 @@ def test_spectral_modify_invalid_exclude_range_raises(entry):
         SpectralModify.from_yaml_dict({"exclude_frequency_ranges": [entry]})
 
 
-def test_frequency_averaging_defaults_to_arithmetic():
+def test_frequency_averaging_defaults_to_noise_weighted():
     obs = build_obs()
     averaged = freq_average_by_bins(obs, 1)
     assert_frequency_groups_are_averaged(
-        obs, averaged, [np.arange(obs.nfreq)], "arithmetic"
+        obs, averaged, [np.arange(obs.nfreq)], "noise_weighted"
     )
 
 
@@ -234,7 +234,7 @@ def test_spectral_modify_parses_averaging_mode(mode):
 
 
 def test_spectral_modify_default_averaging_mode():
-    assert SpectralModify.from_yaml_dict({}).averaging_mode == "arithmetic"
+    assert SpectralModify.from_yaml_dict({}).averaging_mode == "noise_weighted"
 
 
 def test_invalid_averaging_mode():

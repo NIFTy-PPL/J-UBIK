@@ -51,8 +51,8 @@ class ObservationModify:
                 If given the spectral dimension of the data gets averaged to N spectral
                 bins.
             - averaging_mode: str
-                "arithmetic" (default) performs arithmetic frequency average;
-                "noise_weighted" uses measurement weights and performs a weighted 
+                "arithmetic" performs arithmetic frequency average;
+                "noise_weighted" (default) uses measurement weights and performs a weighted
                 frequency average.
             - min: float | None
                 If given the data gets restricted to being above this minimum
