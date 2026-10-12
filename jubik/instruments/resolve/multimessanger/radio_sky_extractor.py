@@ -35,7 +35,7 @@ def build_extract_sky(sky_key: str | None):
 
 
 def build_radio_slicing(index_of_last_radio_bin: int | None):
-    """Build a Grid corresponding to the radio part of the sky.
+    """Builds a function that selects all bins belonging to the radio sky.
 
     ***Warning: The radio part of  the sky is assumed to be in the first
     indices of the sky.***
@@ -54,7 +54,9 @@ def build_radio_slicing(index_of_last_radio_bin: int | None):
         return lambda x: x
 
     def radio_sky_extractor(tree):
-        return jax.tree.map(lambda x: x[: index_of_last_radio_bin + 1], tree)
+        return jax.tree.map(
+            lambda x: x[:, :, : index_of_last_radio_bin + 1, :, :], tree
+        )
 
     return radio_sky_extractor
 
@@ -132,7 +134,7 @@ class RadioSkyExtractor(jft.Model):
         super().__init__(domain=domain)
 
     def __call__(self, x):
-        return self.radiofy(self.conv(self.slicing(self.extract(x))))
+        return self.conv(self.slicing(self.radiofy(self.extract(x))))
 
 
 def build_radio_sky_extractor(
@@ -199,4 +201,5 @@ def build_radio_grid(
     return Grid(
         spatial=sky_grid.spatial,
         spectral=sky_grid.spectral[: index_of_last_radio_bin + 1],
+        polarization=sky_grid.polarization,
     )
