@@ -107,6 +107,7 @@ def interferometry_response(
     observation: Observation,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings, CufinufftSettings],
+    channel_frequencies=None,
 ):
     """Returns a function computing the radio interferometric response
 
@@ -124,6 +125,15 @@ def interferometry_response(
 
     sky_domain: SkyDomain
         Providing the information about the discretization of the sky.
+
+    channel_frequencies : array-like, optional
+        Data channel frequencies in Hz, matching ``observation.freq`` in value
+        and order. Supply this when the input sky has one image per data channel.
+        This maps one sky prediction to one data channel at the same frequency.
+        Interpolation and any primary beam application must happen before calling
+        the response.
+        If omitted, the input instead has one image per sky spectral bin. This
+        image is then used to predict several data channels within that spectral bin.
 
     backend_settings: Union[Ducc0Settings, FinufftSettings, CufinufftSettings]
         The backend_settings sets the type of backend, ducc0, finufft or
@@ -147,6 +157,14 @@ def interferometry_response(
     # TODO: Expand logic to discontinuous frequency spacing.
     # frequencies = sky_grid.spectral.binbounds(RESOLVE_SPECTRAL_UNIT).value
     frequencies = get_2d_binbounds(sky_grid.spectral, RESOLVE_SPECTRAL_UNIT)
+    if channel_frequencies is not None:
+        channel_frequencies = np.asarray(channel_frequencies)
+        if not np.array_equal(channel_frequencies, observation.freq):
+            raise ValueError(
+                "Response channel frequencies must equal observation.freq."
+            )
+        # Channel slices below replace frequency-bin selection in this mode.
+        frequencies = [(freq, freq) for freq in channel_frequencies]
     n_freqs = len(frequencies)
     # bb_freqs = np.array(frequencies)
 
@@ -158,9 +176,11 @@ def interferometry_response(
     ).value
     center_x, center_y = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
-        sky_grid.spatial.center
-        if observation.direction is None
-        else observation.direction.to_sky_coord(),
+        (
+            sky_grid.spatial.center
+            if observation.direction is None
+            else observation.direction.to_sky_coord()
+        ),
     )
 
     # build responses for: time binds, freq bins
@@ -173,9 +193,15 @@ def interferometry_response(
             tind = slice(None)
         else:
             oo, tind = restrict_by_time(observation, bb_times[t], bb_times[t + 1], True)
-        for freqs in frequencies:
+        for channel, freqs in enumerate(frequencies):
             # TODO: Expand logic to discontinuous frequency spacing.
-            ooo, find = restrict_by_freq(oo, freqs[0], freqs[-1], True)
+            if channel_frequencies is None:
+                ooo, find = restrict_by_freq(oo, freqs[0], freqs[-1], True)
+            else:
+                from .data.data_modify.frequency import get_freqs_by_slice
+
+                find = slice(channel, channel + 1)
+                ooo = get_freqs_by_slice(oo, find)
             if any(np.array(ooo.vis.shape) == 0):
                 rrr = None
             else:
@@ -248,6 +274,8 @@ def interferometry_response(
     out_pol = observation.polarization
 
     def apply_R(sky):
+        if channel_frequencies is not None and sky.shape[2] != n_freqs:
+            raise ValueError("Sky spectral axis must match the response channels.")
         res = jnp.empty(target_shape, dtype_float2complex(sky.dtype))
         for pp in range(sky.shape[0]):
             for tt in range(sky.shape[1]):
