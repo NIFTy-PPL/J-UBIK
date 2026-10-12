@@ -140,6 +140,7 @@ def build_likelihood_from_sky_beamer(
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     noise_std_correction: BaseLineCorrection | None = None,
     shift: jft.Model | None = None,
+    channel_frequencies=None,
 ) -> LikelihoodBuilder | VariableLikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
 
@@ -185,6 +186,7 @@ def build_likelihood_from_sky_beamer(
         observation=observation,
         sky_grid=sky_grid,
         backend_settings=backend_settings,
+        channel_frequencies=channel_frequencies,
     )
 
     response = create_response_operator(
