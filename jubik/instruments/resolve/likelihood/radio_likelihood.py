@@ -40,6 +40,7 @@ from ..likelihood.mosaic_likelihood import (
     build_likelihood_from_sky_beamer,
 )
 from ..mosaicing.sky_beamer import SkyBeamer, build_sky_beamer
+from ..mosaicing.spectral_interpolation import SpectralInterpolator
 from ..multimessanger import (
     RadioSkyExtractor,
     build_radio_grid,
@@ -79,7 +80,7 @@ class RadioLikelihoodProducts:
     """
 
     likelihoods: list[LikelihoodBuilder] | list[VariableLikelihoodBuilder]
-    sky_beamer: SkyBeamer
+    sky_beamer: jft.Model
     radio_sky_extractor: RadioSkyExtractor  # NOTE : only for convenience
     _names: list[str] | None = None
 
@@ -148,6 +149,11 @@ def build_radio_likelihood(
     )
     radio_grid = build_radio_grid(last_radio_bin, sky_grid)
 
+    interpolation_settings = cfg.get("radio_spectral_interpolation", {})
+    interpolation_enabled = interpolation_settings.get("enabled", False)
+    if not isinstance(interpolation_enabled, bool):
+        raise ValueError("radio_spectral_interpolation.enabled must be a boolean.")
+
     response_backend_settings = yaml_to_response_settings(cfg["radio_response"])
 
     if not isinstance(data_names, list):
@@ -175,41 +181,101 @@ def build_radio_likelihood(
             BeamPatternConfig.from_yaml_dict(cfg[data_key][data_name]["dish"])
         )
 
-        _sky_beamer = build_sky_beamer(
-            sky_shape_with_dtype=radio_sky_extractor.target,
-            sky_wcs=radio_grid.spatial,
-            sky_frequency_means=radio_grid.spectral.center,
-            observations=observations,
-            beam_func=beam_func,
-            direction_key=direction_key,
-            field_name_prefix=data_name,
-        )
-        sky_beamers.append(_sky_beamer)
-
-        for field_name, beam_direction in _sky_beamer.beam_directions.items():
-            for o in observations:
-                if o.direction_from_key(direction_key) == beam_direction.direction:
-                    names.append(data_name)
-                    likelihoods.append(
-                        build_likelihood_from_sky_beamer(
-                            observation=o,
-                            field_name=field_name,
-                            sky_beamer=_sky_beamer,
-                            sky_grid=radio_grid,
-                            backend_settings=response_backend_settings,
-                            noise_std_correction=factory_noise_correction_parser(
-                                cfg[data_key][data_name]
-                            ),
+        # TODO: Unify beamer construction for interpolation and non-interpolation case
+        # Would probably need rework of SkyBeamer object or grouping of data when loading
+        if not interpolation_enabled:
+            # Prepares one beam pattern per unique pointing evaluate at the bin centers
+            # of the spectral sky gird; Observations sharing a pointing use the same beam
+            # pattern; mapping to response maps the data channels to the observations data
+            # frequency channels to the corresponding sky bin.
+            _sky_beamer = build_sky_beamer(
+                sky_shape_with_dtype=radio_sky_extractor.target,
+                sky_wcs=radio_grid.spatial,
+                sky_frequency_means=radio_grid.spectral.center,
+                observations=observations,
+                beam_func=beam_func,
+                direction_key=direction_key,
+                field_name_prefix=data_name,
+            )
+            sky_beamers.append(_sky_beamer)
+            for field_name, beam_direction in _sky_beamer.beam_directions.items():
+                for o in observations:
+                    if o.direction_from_key(direction_key) == beam_direction.direction:
+                        names.append(data_name)
+                        likelihoods.append(
+                            build_likelihood_from_sky_beamer(
+                                observation=o,
+                                field_name=field_name,
+                                sky_beamer=_sky_beamer,
+                                sky_grid=radio_grid,
+                                backend_settings=response_backend_settings,
+                                noise_std_correction=factory_noise_correction_parser(
+                                    cfg[data_key][data_name]
+                                ),
+                            )
                         )
+        else:
+            # Prepare a beam pattern per observation at its data frequencies.
+            # Observations sharing a pointing may have different data frequencies,
+            # so their evaluated beam patterns can differ.
+            # Apply the beam after interpolating the sky onto those frequencies.
+            for observation_index, o in enumerate(observations):
+                interpolation = SpectralInterpolator(
+                    radio_grid,
+                    o.freq * u.Hz,
+                    radio_sky_extractor.target.dtype,
+                    gap_mode=interpolation_settings.get("gap_mode", "nearest"),
+                )
+                if interpolation.domain.shape != radio_sky_extractor.target.shape:
+                    raise ValueError(
+                        "Radio sky extractor shape does not match the radio grid."
                     )
+                _sky_beamer = build_sky_beamer(
+                    sky_shape_with_dtype=interpolation.target,
+                    sky_wcs=radio_grid.spatial,
+                    sky_frequency_means=interpolation.target_frequencies,
+                    observations=[o],
+                    beam_func=beam_func,
+                    direction_key=direction_key,
+                    field_name_prefix=f"{data_name}_obs_{observation_index}",
+                )
+                sky_beamers.append((interpolation, _sky_beamer))
+                # Constructing beamer per Observation only has one pointing thus the beam
+                # pattern can be queried directly
+                (field_name,) = _sky_beamer.beam_directions.keys()
+                names.append(data_name)
+                likelihoods.append(
+                    build_likelihood_from_sky_beamer(
+                        observation=o,
+                        field_name=field_name,
+                        sky_beamer=_sky_beamer,
+                        sky_grid=radio_grid,
+                        backend_settings=response_backend_settings,
+                        channel_frequencies=o.freq,
+                        noise_std_correction=factory_noise_correction_parser(
+                            cfg[data_key][data_name]
+                        ),
+                    )
+                )
 
         logger.info("")
 
-    # Create the final sky beamer
-    _sky_beamer = reduce(lambda x, y: x + y, sky_beamers)
-    sky_beamer = jft.Model(
-        lambda x: _sky_beamer(radio_sky_extractor(x)), domain=radio_sky_extractor.domain
-    )
+    if not interpolation_enabled:
+        combined_beamer = reduce(lambda x, y: x + y, sky_beamers)
+        sky_beamer = jft.Model(
+            lambda x: combined_beamer(radio_sky_extractor(x)),
+            domain=radio_sky_extractor.domain,
+        )
+    else:
+
+        def beam_interpolated_sky(x):
+            sky = radio_sky_extractor(x)
+            result = {}
+            for interpolation, beamer in sky_beamers:
+                result.update(beamer(interpolation(sky)))
+            return result
+
+        sky_beamer = jft.Model(beam_interpolated_sky, domain=radio_sky_extractor.domain)
 
     return RadioLikelihoodProducts(
         likelihoods=likelihoods,
