@@ -143,3 +143,37 @@ the fixture, and the tests enforce a 150 kB budget.
    claim here has a direct assertion.
 5. When the tests and this page disagree, trust the tests, then fix this
    page in the same commit.
+
+## Resolve spectral mapping
+
+When enabled, `build_radio_likelihood` interpolates the extracted canonical sky along axis 2
+onto each observation's exact frequencies after data modification and averaging.
+The primary beam uses those same frequencies, and the response assigns input
+slice `k` directly to observation channel `k`. Spatial axes remain YX.
+
+`SpectralInterpolator` reads source bin centers and bounds from the radio `Grid`.
+Brightness entries interpolate linearly in frequency within connected ranges.
+Outside the center span, endpoint brightness is repeated. By default, disconnected ranges
+are not interpolated across: targets in a gap take the nearest sky center,
+with ties selecting the lower frequency. A single sky bin broadcasts to all
+target channels, including an unbounded single-bin grid. Interpolation supports
+signed and complex entries and JAX differentiation. It evaluates at channel
+representative frequencies rather than integrating across channel bandwidths.
+
+Direct calls to `interferometry_response` retain the original bin-assignment
+behavior unless `channel_frequencies=observation.freq` is supplied.
+
+Interpolation is opt-in to preserve existing configurations. When `enabled` is
+omitted or false, the original shared sky-bin beamers and bin-based response
+mapping are used. Enable interpolation and configure gap handling in YAML:
+
+```yaml
+radio_spectral_interpolation:
+  enabled: true  # false by default
+  gap_mode: linear  # nearest (default) or linear
+```
+
+`linear` interpolates between neighboring centers even across gaps; both modes
+retain nearest endpoint extension outside the sky center span. Direct users
+can pass `gap_mode="linear"` to `SpectralInterpolator`. Data modification still
+determines which channels reach the interpolator.
