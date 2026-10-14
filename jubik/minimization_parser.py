@@ -35,7 +35,10 @@ KL_MINI = 'kl_minimization'
 KL = 'kl'
 KL_NAME = 'kl'
 KL_CG = 'kl_cg'
-NCG_XTOL_DEFAULT = 1.e-5
+CG_OPTIONS = (ABSDELTA, TOL, ATOL, MINITER, MAXITER, 'resnorm', 'norm_ord')
+NEWTON_OPTIONS = (ABSDELTA, XTOL, MINITER, MAXITER, 'norm_ord',
+                  'energy_reduction_factor')
+
 
 def get_config_value(
     key: str,
@@ -70,8 +73,8 @@ def get_config_value(
 
     Raises
     ------
-    IndexError
-        If the index is out of range for the value list.
+    ValueError
+        If the value list is empty.
 
     Examples
     --------
@@ -93,6 +96,8 @@ def get_config_value(
         return default
 
     if isinstance(value_list, list):
+        if not value_list:
+            raise ValueError(f'{key}: value schedule must not be empty.')
         try:
             value = value_list[index]
         except IndexError:
@@ -144,6 +149,13 @@ def get_range_index(
     switches = mini_cfg.get(SWITCHES, [0])
     if switches is None:
         switches = [0]
+    if (not isinstance(switches, list) or not switches
+            or any(type(value) is not int for value in switches)
+            or switches[0] != 0
+            or any(a >= b for a, b in zip(switches, switches[1:]))
+            or switches[-1] > total_iterations):
+        raise ValueError('switches must be increasing integers starting at 0 '
+                         'and within n_total_iterations.')
     switches = switches + [total_iterations]
 
     for i in range(len(switches)-1):
@@ -156,13 +168,13 @@ def get_range_index(
 
 def _delta_logic(
     keyword: str,
-    delta: dict,
+    delta: dict | None,
     config_value: float | None,
     iteration: int,
     delta_switches_index: int,
     ndof: Optional[int] = None,
     verbose: bool = True,
-) -> float:
+) -> float | None:
     """
     Calculates minimization config value if `delta` is in config.
     If the minimization value is already set at the given iteration,
@@ -189,7 +201,7 @@ def _delta_logic(
     Returns
     -------
     float
-        Possibly recalculated minimization parameter value.
+        Possibly recalculated minimization parameter value, or None to inherit.
 
     Raises
     ------
@@ -225,9 +237,7 @@ def _delta_logic(
         raise ValueError(f"Unknown keyword: {keyword}.")
 
     if delta is None:
-        raise ValueError(f'The {keyword} {param["variable"]} in '
-                         f'iteration {iteration} is not set. '
-                         f'A `delta` must be set in the config.')
+        return None
 
     delta_value = get_config_value(DELTA_VALUE, delta, delta_switches_index,
                                    default=None)
@@ -235,11 +245,23 @@ def _delta_logic(
     if delta_value is None:
         raise ValueError(f'{keyword}: delta value must be set.')
 
+    if param['factor'] is None:
+        raise ValueError(f'{keyword}: n_dof must be set to derive a tolerance.')
     return_value = delta_value * param['factor']
     if verbose:
         jft.logger.info(f'it {iteration}: {keyword} {param["variable"]} '
                         f'set to {return_value}')
     return return_value
+
+
+def _solver_kwargs(config, prefix, options, index):
+    """Read scheduled options; omit None so NIFTy supplies its defaults."""
+    kwargs = {}
+    for option in options:
+        value = get_config_value(f'{prefix}_{option}', config, index, None)
+        if value is not None:
+            kwargs[option] = value
+    return kwargs
 
 
 def n_samples_factory(
@@ -370,59 +392,27 @@ def linear_sample_kwargs_factory(
     Raises
     ------
     ValueError
-        If the `absdelta` for any iteration is not set.
+        If a delta-derived tolerance cannot be resolved.
     """
 
     def linear_kwargs(iteration: int) -> dict:
         range_index = get_range_index(
             mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
         delta_range_index = get_range_index(
-            mini_cfg[DELTA], iteration, mini_cfg[N_TOTAL_ITERATIONS]
-        )
-
-        absdelta_name = f'{LIN}_{ABSDELTA}'
-        miniter_name = f'{LIN}_{MINITER}'
-        maxiter_name = f'{LIN}_{MAXITER}'
-        tol_name = f'{LIN}_{TOL}'
-        atol_name = f'{LIN}_{ATOL}'
-
-        minit = get_config_value(
-            miniter_name, mini_cfg[SAMPLES], range_index, default=None)
-        maxit = get_config_value(
-            maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
-        absdelta = get_config_value(
-            absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
-        tol = get_config_value(
-            tol_name, mini_cfg[SAMPLES], range_index, default=None)
-        atol = get_config_value(
-            atol_name, mini_cfg[SAMPLES], range_index, default=None)
-
-        absdelta = _delta_logic(LIN, delta, absdelta, iteration,
+            delta or {}, iteration, mini_cfg[N_TOTAL_ITERATIONS])
+        cg_kwargs = _solver_kwargs(mini_cfg[SAMPLES], LIN, CG_OPTIONS,
+                                   range_index)
+        absdelta = _delta_logic(LIN, delta, cg_kwargs.get(ABSDELTA), iteration,
                                 delta_range_index, ndof, verbose)
-
+        if absdelta is not None:
+            cg_kwargs[ABSDELTA] = absdelta
         return dict(
-            # FIXME: inside nifty cg_name is overwritten by cg_kwargs['name'].
-            # When this is fixed in nifty, this redundancy should
-            # be removed here.
+            # NIFTy currently takes the name from cg_kwargs.
             cg_name=None,
-            cg_kwargs=dict(
-                name=f'{LIN_NAME}_cg',
-                absdelta=absdelta,
-                tol=tol,
-                atol=atol,
-                miniter=minit,
-                maxiter=maxit)
-        )
+            cg_kwargs=dict(name=f'{LIN_NAME}_cg', **cg_kwargs))
 
-    # Checks whether `linear_sample_kwargs` are well-defined before inference
-    # and prints their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        lin_config = linear_kwargs(ii)
-        absdelta = lin_config['cg_kwargs']['absdelta']
-        if absdelta is None:
-            raise ValueError(f'Linear `absdelta` at iteration {ii+1} '
-                             f'needs to be set.')
-
+        linear_kwargs(ii)
     return linear_kwargs
 
 
@@ -454,73 +444,28 @@ def nonlinearly_update_kwargs_factory(
     Raises
     ------
     ValueError
-        If the `xtol` for any iteration is not set.
+        If a delta-derived tolerance cannot be resolved.
     """
 
     def nonlinearly_update_kwargs(iteration: int) -> dict:
         range_index = get_range_index(
             mini_cfg[SAMPLES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
         delta_range_index = get_range_index(
-            mini_cfg[DELTA], iteration, mini_cfg[N_TOTAL_ITERATIONS]
-        )
+            delta or {}, iteration, mini_cfg[N_TOTAL_ITERATIONS])
+        kwargs = _solver_kwargs(mini_cfg[SAMPLES], NONLIN, NEWTON_OPTIONS,
+                                range_index)
+        xtol = _delta_logic(NONLIN, delta, kwargs.get(XTOL), iteration,
+                            delta_range_index, verbose=verbose)
+        if xtol is not None:
+            kwargs[XTOL] = xtol
+        cg_kwargs = _solver_kwargs(mini_cfg[SAMPLES], NONLIN_CG, CG_OPTIONS,
+                                   range_index)
+        return dict(minimize_kwargs=dict(
+            name=NONLIN_NAME, **kwargs,
+            cg_kwargs=dict(name=NONLIN_CG, **cg_kwargs)))
 
-        absdelta_name = f'{NONLIN}_{XTOL}'
-        miniter_name = f'{NONLIN}_{MINITER}'
-        maxiter_name = f'{NONLIN}_{MAXITER}'
-        minit = get_config_value(
-            miniter_name, mini_cfg[SAMPLES], range_index, default=None)
-        maxit = get_config_value(
-            maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
-        xtol = get_config_value(
-            absdelta_name, mini_cfg[SAMPLES], range_index, default=None)
-
-        xtol = _delta_logic(NONLIN, delta, xtol, iteration,
-                            delta_range_index, verbose)
-
-        if xtol is None:
-            xtol = NCG_XTOL_DEFAULT
-
-        cg_delta_name = f'{NONLIN_CG}_{ABSDELTA}'
-        cg_tol_name = f'{NONLIN_CG}_{TOL}'
-        cg_atol_name = f'{NONLIN_CG}_{ATOL}'
-        cg_miniter_name = f'{NONLIN_CG}_{MINITER}'
-        cg_maxiter_name = f'{NONLIN_CG}_{MAXITER}'
-
-        cg_delta = get_config_value(
-            cg_delta_name, mini_cfg[SAMPLES], range_index, default=None)
-        cg_tol = get_config_value(
-            cg_tol_name, mini_cfg[SAMPLES], range_index, default=None)
-        cg_atol = get_config_value(
-            cg_atol_name, mini_cfg[SAMPLES], range_index, default=None)
-        cg_minit = get_config_value(
-            cg_miniter_name, mini_cfg[SAMPLES], range_index, default=None)
-        cg_maxit = get_config_value(
-            cg_maxiter_name, mini_cfg[SAMPLES], range_index, default=None)
-
-        return dict(
-            minimize_kwargs=dict(
-                name=NONLIN_NAME,
-                xtol=xtol,
-                miniter=minit,
-                maxiter=maxit,
-                cg_kwargs=dict(
-                    name=NONLIN_CG,
-                    absdelta=cg_delta,
-                    tol=cg_tol,
-                    atol=cg_atol,
-                    miniter=cg_minit,
-                    maxiter=cg_maxit
-                )))
-
-    # Checks whether `nonlinearly_update_kwargs` are well-defined before
-    # inference and prints their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        non_linear_samples_dict = nonlinearly_update_kwargs(ii)
-        if non_linear_samples_dict['minimize_kwargs']['xtol'] is None:
-            raise ValueError(
-                f"nonlinear `xtol` at iteration {ii+1} "
-                f"needs to be set.")
-
+        nonlinearly_update_kwargs(ii)
     return nonlinearly_update_kwargs
 
 
@@ -554,70 +499,28 @@ def kl_kwargs_factory(
     Raises
     ------
     ValueError
-        If the `absdelta` for any iteration is not set.
+        If a delta-derived tolerance cannot be resolved.
     """
 
     def kl_kwargs(iteration: int) -> dict:
         range_index = get_range_index(
             mini_cfg[KL_MINI], iteration, mini_cfg[N_TOTAL_ITERATIONS])
         delta_range_index = get_range_index(
-            mini_cfg[DELTA], iteration, mini_cfg[N_TOTAL_ITERATIONS]
-        )
-
-        absdelta_name = f'{KL}_{ABSDELTA}'
-        miniter_name = f'{KL}_{MINITER}'
-        maxiter_name = f'{KL}_{MAXITER}'
-        xtol_name = f'{KL}_{XTOL}'
-
-        minit = get_config_value(
-            miniter_name, mini_cfg[KL_MINI], range_index, default=None)
-        maxit = get_config_value(
-            maxiter_name, mini_cfg[KL_MINI], range_index, default=None)
-        absdelta = get_config_value(
-            absdelta_name, mini_cfg[KL_MINI], range_index, default=None)
-        xtol = get_config_value(xtol_name, mini_cfg[KL_MINI], range_index,
-            default=NCG_XTOL_DEFAULT)
-
-        absdelta = _delta_logic(KL, delta, absdelta, iteration,
+            delta or {}, iteration, mini_cfg[N_TOTAL_ITERATIONS])
+        kwargs = _solver_kwargs(mini_cfg[KL_MINI], KL, NEWTON_OPTIONS,
+                                range_index)
+        absdelta = _delta_logic(KL, delta, kwargs.get(ABSDELTA), iteration,
                                 delta_range_index, ndof, verbose)
+        if absdelta is not None:
+            kwargs[ABSDELTA] = absdelta
+        cg_kwargs = _solver_kwargs(mini_cfg[KL_MINI], KL_CG, CG_OPTIONS,
+                                   range_index)
+        return dict(minimize_kwargs=dict(
+            name=KL_NAME, **kwargs,
+            cg_kwargs=dict(name=KL_CG, **cg_kwargs)))
 
-        cg_absdelta_name = f'{KL_CG}_{ABSDELTA}'
-        cg_atol_name = f'{KL_CG}_{ATOL}'
-        cg_miniter_name = f'{KL_CG}_{MINITER}'
-        cg_maxiter_name = f'{KL_CG}_{MAXITER}'
-        cg_atol = get_config_value(
-            cg_atol_name, mini_cfg[KL_MINI], range_index, default=None)
-        cg_absdelta = get_config_value(
-            cg_absdelta_name, mini_cfg[KL_MINI], range_index, default=None)
-        cg_minit = get_config_value(
-            cg_miniter_name, mini_cfg[KL_MINI], range_index, default=None)
-        cg_maxit = get_config_value(
-            cg_maxiter_name, mini_cfg[KL_MINI], range_index, default=None)
-
-        return dict(
-            minimize_kwargs=dict(
-                name=KL_NAME,
-                absdelta=absdelta,
-                miniter=minit,
-                maxiter=maxit,
-                xtol=xtol,
-                cg_kwargs=dict(
-                    name=KL_CG,
-                    absdelta=cg_absdelta,
-                    atol=cg_atol,
-                    miniter=cg_minit,
-                    maxiter=cg_maxit
-                )
-            ))
-
-    # Checks whether `kl_kwargs` are well-defined before inference and prints
-    # their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        kl_kwargs_dict = kl_kwargs(ii)
-        if kl_kwargs_dict['minimize_kwargs']['absdelta'] is None:
-            raise ValueError(f"kl `absdelta` at iteration {ii+1} "
-                             f"needs to be set.")
-
+        kl_kwargs(ii)
     return kl_kwargs
 
 
@@ -655,29 +558,7 @@ def constants_factory(
     None
     """
 
-    def constants(iteration: int) -> tuple | None:
-        range_index = get_range_index(
-            mini_cfg[CONSTANTS], iteration, mini_cfg[N_TOTAL_ITERATIONS])
-        constant_keys = get_config_value(
-            CONST_KEYS_CONFIG_NAME,
-            mini_cfg[CONSTANTS],
-            range_index,
-            default=None
-        )
-        if isinstance(constant_keys, list):
-            constant_keys = tuple(constant_keys)
-        if verbose:
-            jft.logger.info(
-                f'it {iteration + 1}: constants set to {constant_keys}'
-            )
-        return constant_keys
-
-    # Checks whether `constants` are well-defined before inference and prints
-    # their values at each iteration.
-    for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        constants(ii)
-
-    return constants
+    return _domain_keys_factory(mini_cfg, CONSTANTS, verbose)
 
 
 def point_estimates_factory(
@@ -703,31 +584,31 @@ def point_estimates_factory(
         estimate domain keys (or None).
     """
 
-    def point_estimates(iteration: int) -> tuple | None:
-        range_index = get_range_index(
-            mini_cfg[POINT_ESTIMATES], iteration, mini_cfg[N_TOTAL_ITERATIONS])
-        pe_keys = get_config_value(
-            CONST_KEYS_CONFIG_NAME,
-            mini_cfg[POINT_ESTIMATES],
-            range_index,
-            default=None
-        )
-        if isinstance(pe_keys, list):
-            pe_keys = tuple(pe_keys)
+    return _domain_keys_factory(mini_cfg, POINT_ESTIMATES, verbose)
+
+
+def _domain_keys_factory(mini_cfg, section, verbose):
+    section_cfg = mini_cfg.get(section)
+
+    def domain_keys(iteration):
+        if section_cfg is None:
+            return None
+        index = get_range_index(section_cfg, iteration,
+                                mini_cfg[N_TOTAL_ITERATIONS])
+        keys = get_config_value(CONST_KEYS_CONFIG_NAME, section_cfg, index, None)
+        if keys is not None:
+            if (not isinstance(keys, (list, tuple))
+                    or any(not isinstance(key, str) for key in keys)):
+                raise ValueError(f"{section}.domain_keys: expected a schedule "
+                                 "of key lists, e.g. [['a', 'b'], None].")
+            keys = tuple(keys)
         if verbose:
-            jft.logger.info(
-                f'it {iteration + 1}: point_estimates set to {pe_keys}'
-            )
-        return pe_keys
+            jft.logger.info(f'it {iteration + 1}: {section} set to {keys}')
+        return keys
 
-    # Checks whether `point_estimates` are well-defined before inference and
-    # prints their values at each iteration.
     for ii in range(mini_cfg[N_TOTAL_ITERATIONS]):
-        point_estimates(ii)
-
-    return point_estimates
-
-
+        domain_keys(ii)
+    return domain_keys
 
 
 class MinimizationParser:
@@ -784,12 +665,5 @@ class MinimizationParser:
             config, delta, verbose=verbose)
         self.kl_kwargs = kl_kwargs_factory(config, delta,
                                            ndof=n_dof, verbose=verbose)
-        if config.get(CONSTANTS) is not None:
-            self.constants = constants_factory(config, verbose=verbose)
-        else:
-            self.constants = lambda iteration: None
-        if config.get(POINT_ESTIMATES) is not None:
-            self.point_estimates = point_estimates_factory(
-                config, verbose=verbose)
-        else:
-            self.point_estimates = lambda iteration: None
+        self.constants = constants_factory(config, verbose=verbose)
+        self.point_estimates = point_estimates_factory(config, verbose=verbose)

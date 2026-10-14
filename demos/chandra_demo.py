@@ -235,6 +235,8 @@ samples, state = jft.optimize_kl(
     nonlinearly_update_kwargs=minimization_parser.nonlinearly_update_kwargs,
     kl_kwargs=minimization_parser.kl_kwargs,
     sample_mode=minimization_parser.sample_mode,
+    constants=minimization_parser.constants,
+    point_estimates=minimization_parser.point_estimates,
     callback=simple_eval_plots,
     odir=file_info["res_dir"],
 )
