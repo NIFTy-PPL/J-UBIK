@@ -1,7 +1,11 @@
+from types import SimpleNamespace
+
 import numpy as np
+import pytest
 from astropy.table import Table
 
 from jubik.instruments.jwst.alignment.star_alignment import StarTables
+from jubik.instruments.jwst.data.preloader.preloader import _exposure_start_time
 
 T_OBS = "2023-01-01T00:00:00"
 
@@ -61,3 +65,47 @@ def test_missing_proper_motion_drops_the_star():
     table["pmra"][1] = np.nan
     tables = StarTables([table], [T_OBS])
     assert [int(s.id) for s in tables.get_stars(0)] == [1]
+
+
+def _fake_dm(created, date_beg=None, expstart_mjd=None):
+    # Mimics stdatamodels: unset metadata reads as None.
+    return SimpleNamespace(
+        meta=SimpleNamespace(
+            date=created,
+            observation=SimpleNamespace(date_beg=date_beg),
+            exposure=SimpleNamespace(start_time=expstart_mjd),
+        )
+    )
+
+
+def _moving_star_position(epoch):
+    table = _table([1])
+    table["dec"][0] = 0.0
+    table["pmdec"][0] = 100.0  # mas / yr
+    return StarTables([table], [epoch]).get_stars(0)[0].position
+
+
+def test_epoch_ignores_file_creation_date():
+    a = _exposure_start_time(_fake_dm("2020-01-01T00:00:00", "2022-07-01T12:00:00"))
+    b = _exposure_start_time(_fake_dm("2026-01-01T00:00:00", "2022-07-01T12:00:00"))
+    assert a.scale == "utc"
+    assert _moving_star_position(a).separation(_moving_star_position(b)) == 0
+
+
+def test_epoch_falls_back_to_expstart_mjd():
+    t = _exposure_start_time(_fake_dm("2026-01-01T00:00:00", expstart_mjd=59761.5))
+    assert t.scale == "utc"
+    assert t.isot == "2022-07-01T12:00:00.000"
+
+
+def test_two_exposure_epochs_differ_by_pm_times_dt():
+    t1 = _exposure_start_time(_fake_dm("2026-01-01", "2022-01-01T00:00:00"))
+    t2 = _exposure_start_time(_fake_dm("2026-01-01", "2024-01-01T00:00:00"))
+    dt_yr = (t2 - t1).to_value("day") / 365.25  # 730 days
+    sep = _moving_star_position(t1).separation(_moving_star_position(t2))
+    np.testing.assert_allclose(sep.to_value("mas"), 100.0 * dt_yr, rtol=1e-6)
+
+
+def test_missing_exposure_time_raises():
+    with pytest.raises(ValueError, match="No exposure start time"):
+        _exposure_start_time(_fake_dm("2026-01-01T00:00:00"))

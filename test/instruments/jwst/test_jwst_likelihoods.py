@@ -59,6 +59,7 @@ class FakeJwstData(JwstData):
             err=np.ones(DATA_SHAPE),
             meta=SimpleNamespace(
                 date="2023-01-01T00:00:00.000",
+                observation=SimpleNamespace(date_beg="2023-01-01T00:00:00.000"),
                 pointing=SimpleNamespace(ra_v1=CENTER.ra.deg, dec_v1=CENTER.dec.deg),
                 wcsinfo=SimpleNamespace(ra_ref=CENTER.ra.deg, dec_ref=CENTER.dec.deg),
             ),

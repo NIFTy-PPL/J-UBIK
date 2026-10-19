@@ -5,6 +5,7 @@ from typing import Iterable, Optional
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
+from astropy.time import Time
 from nifty.re import logger
 
 from .....color import Color
@@ -142,7 +143,22 @@ class PreloadBundle:
     boresight: SkyCoord
     meta: DataMetaInformation
     star_table: Table | None
-    date: str
+    date: Time
+
+
+def _exposure_start_time(dm) -> Time:
+    """UTC exposure start: DATE-BEG, falling back to EXPSTART (MJD).
+
+    `meta.date` is the file creation date and must not be used as the epoch.
+    """
+    if dm.meta.observation.date_beg:
+        return Time(dm.meta.observation.date_beg, scale="utc")
+    if dm.meta.exposure.start_time is not None:
+        return Time(dm.meta.exposure.start_time, format="mjd", scale="utc")
+    raise ValueError(
+        "No exposure start time found: neither meta.observation.date_beg "
+        "(DATE-BEG) nor meta.exposure.start_time (EXPSTART) is set."
+    )
 
 
 def _load_one_preload_bundle(
@@ -172,7 +188,7 @@ def _load_one_preload_bundle(
         boresight=jwst_data.get_boresight_world_coords(),
         star_table=star_table,
         meta=jwst_data.meta,
-        date=jwst_data.dm.meta.date,
+        date=_exposure_start_time(jwst_data.dm),
     )
 
 
