@@ -35,7 +35,7 @@ def build_webb_psf(
     Builds a Point Spread Function (PSF) model for the JWST using the specified
     camera and filter.
 
-    This function computes the PSF using the `webbpsf` library.
+    This function computes the PSF using the `stpsf` library.
     It requires specifying the camera, filter, and center pixel position.
     You must also provide either the field of view (FOV) in pixels or
     in arcseconds.
@@ -51,9 +51,8 @@ def build_webb_psf(
     center_pixel : tuple of float
         The position of the center pixel (x, y) for the PSF calculation.
     webbpsf_path : str
-        The file path to the directory where the `webbpsf` data is stored.
-        This directory is
-        used to load the PSF models.
+        The directory holding the STPSF calibration data. It is passed to
+        STPSF via the `STPSF_PATH` environment variable.
     subsample : int
         The oversampling factor for the PSF computation.
         This determines how finely the PSF is sampled.
@@ -64,7 +63,7 @@ def build_webb_psf(
     normalize : str | None
         The normalization method for the PSF.
         Default is 'last', which normalizes based on the
-        last computed value. Other options may be supported by `webbpsf`.
+        last computed value. Other options may be supported by `stpsf`.
 
     Returns
     -------
@@ -74,15 +73,14 @@ def build_webb_psf(
     Raises
     ------
     ImportError
-        If `webbpsf` is not installed.
+        If `stpsf` is not installed.
     KeyError
-        If the specified `camera` is not supported by the `webbpsf` library.
+        If the specified `camera` is not supported.
 
     Notes
     -----
-    - Ensure that the `webbpsf` library is properly installed and that `
-      webbpsf_path` is correctly set to point to the location of the JWST
-      PSF data files.
+    - Ensure that the `stpsf` library is properly installed and that
+      `webbpsf_path` points to the STPSF calibration data directory.
     - The PSF data is returned as a 2D numpy array.
 
     Example
@@ -101,25 +99,28 @@ def build_webb_psf(
     >>> )
     """
     try:
-        import stpsf as webbpsf
-    except ImportError:
-        raise ImportError("webbpsf is not installed. Please install it first")
+        import stpsf
+    except ImportError as ie:
+        raise ImportError("stpsf is not installed. Please install it first") from ie
     from os import environ
 
-    environ["WEBBPSF_PATH"] = webbpsf_path
+    # STPSF reads its calibration directory from `STPSF_PATH` when an
+    # instrument is initialized, so it has to be set before that.
+    environ["STPSF_PATH"] = webbpsf_path
 
     psf_model_supported = {
-        "nircam": webbpsf.NIRCam(),
-        "miri": webbpsf.MIRI(),
+        "nircam": stpsf.NIRCam,
+        "miri": stpsf.MIRI,
     }
 
     try:
-        psf_model = psf_model_supported[camera.lower()]
+        psf_model_class = psf_model_supported[camera.lower()]
     except KeyError as ke:
         raise KeyError(
-            f"You requested {camera.lower()} psf model."
-            f"Supported psf models: {psf_model_supported.keys()}"
+            f"You requested the {camera.lower()} STPSF model. "
+            f"Supported STPSF models: {list(psf_model_supported)}"
         ) from ke
+    psf_model = psf_model_class()
 
     psf_model.filter = filter.upper()
     psf_model.detector_position = center_pixel
