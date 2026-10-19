@@ -24,3 +24,19 @@ def test_subpixel_with_cutout_origin(s, expected):
         (7.0, 5.0), _IdentityWcs(), min_row=1, min_column=3, subsample_factor=s
     )
     assert (x, y) == (expected, expected)
+
+
+FRAME = (64, 64)
+EDGES_CORNERS_INTERIOR = [
+    (x, y) for x in (0.2, 31.6, 63.3) for y in (-0.4, 30.7, 63.4)
+]
+
+
+@pytest.mark.parametrize("xy", EDGES_CORNERS_INTERIOR)
+@pytest.mark.parametrize("window", [(9, 9), (5, 7)])
+def test_bounding_indices_inside_frame_and_contain_star(xy, window):
+    y_min, y_max, x_min, x_max = Star._get_bounding_indices(xy, window, FRAME)
+    assert (y_max - y_min, x_max - x_min) == window
+    assert 0 <= y_min and y_max <= FRAME[0] and 0 <= x_min and x_max <= FRAME[1]
+    row, column = round(xy[1]), round(xy[0])  # pixel n covers [n - 0.5, n + 0.5)
+    assert y_min <= row < y_max and x_min <= column < x_max
