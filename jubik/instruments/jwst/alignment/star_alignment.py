@@ -173,9 +173,10 @@ class Star:
         x_detector -= min_column
         y_detector -= min_row
 
-        if subsample_factor != 1:
-            x_detector *= subsample_factor
-            y_detector *= subsample_factor
+        # Subpixel m of native pixel n is centered at n + (m + 0.5) / s - 0.5
+        # (`subsample_pixel_centers`), so fine index k = n * s + m inverts as below.
+        x_detector = (x_detector + 0.5) * subsample_factor - 0.5
+        y_detector = (y_detector + 0.5) * subsample_factor - 0.5
 
         return float(x_detector), float(y_detector)
 
