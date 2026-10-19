@@ -138,3 +138,24 @@ def test_noninteger_shift_matches_fourier_reference(shape):
     np.testing.assert_allclose(
         rs(field, centers_yx), _fourier_reference(field, centers_yx), atol=1e-4
     )
+
+
+def test_nonsquare_out_shape_matches_linear_and_reference():
+    # sky_shape != out_shape, both non-square: output is out_shape in yx
+    # order (like the linear path) and values follow the yx coordinates.
+    sky_shape, out_shape = (12, 9), (5, 7)
+    field = np.random.default_rng(1).normal(size=sky_shape)
+    centers_yx = 0.5 + np.stack(
+        [
+            np.broadcast_to(1.3 * np.arange(5)[:, None], out_shape),
+            np.broadcast_to(0.9 * np.arange(7)[None, :], out_shape),
+        ]
+    )
+    nft = np.asarray(
+        build_nufft_rotation_and_shift(sky_shape, out_shape)(field, centers_yx)
+    )
+    lin = build_linear_rotation_and_shift(out_shape)(field, centers_yx)
+    assert nft.shape == lin.shape == out_shape
+    np.testing.assert_allclose(
+        nft, _fourier_reference(field, centers_yx), atol=1e-4
+    )
