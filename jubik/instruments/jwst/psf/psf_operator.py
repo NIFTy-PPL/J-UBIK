@@ -24,6 +24,28 @@ def _build_vmap_apply(psf_kernel_shape: tuple[int]) -> Callable[[ArrayLike], Arr
         raise ValueError("Unknown psf_kernel shape")
 
 
+def _center_even_axes(kernel: np.ndarray) -> np.ndarray:
+    """Recenter even kernel axes onto the middle pixel of an odd grid.
+
+    PSF kernels are centered at `(K - 1) / 2`. For even `K` that falls between two
+    pixels, and `fftconvolve(mode="same")` then shifts the image by half a pixel.
+    Each even axis is zero-padded in front to `K + 1` (center at `K / 2 + 0.5`) and
+    Fourier-shifted by -0.5 pixel onto the middle pixel `K / 2`. An odd grid has no
+    Nyquist bin, so the result is real, and the sum (DC term) is unchanged.
+    """
+    for axis in (-2, -1):
+        size = kernel.shape[axis]
+        if size % 2:
+            continue
+        pad = [(0, 0)] * kernel.ndim
+        pad[axis] = (1, 0)
+        kernel = np.pad(kernel, pad)
+        phase = np.exp(1j * np.pi * np.fft.fftfreq(size + 1))
+        phase = np.expand_dims(phase, tuple(range(axis + 1, 0)))
+        kernel = np.fft.ifft(np.fft.fft(kernel, axis=axis) * phase, axis=axis).real
+    return kernel
+
+
 class PsfStatic(jft.Model):
     """Implements the convolution by a static psf kernel"""
 
@@ -44,6 +66,7 @@ class PsfStatic(jft.Model):
 
         self.kernel = psf_kernel
         if psf_kernel is not None:
+            self.kernel = _center_even_axes(np.asarray(psf_kernel))
             self._convolve = _build_vmap_apply(psf_kernel.shape)
 
         super().__init__(domain=(sky_shape_with_dtype, {}))
