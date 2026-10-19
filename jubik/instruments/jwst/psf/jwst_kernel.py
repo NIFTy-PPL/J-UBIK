@@ -4,6 +4,8 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
+from hashlib import sha256
+from importlib.metadata import PackageNotFoundError, version
 from os import makedirs
 from os.path import isfile, join
 
@@ -160,7 +162,9 @@ def load_psf_kernel(
     camera and filter.
 
     This function attempts to load a precomputed PSF kernel from a specified
-    library path.
+    library path. The file name contains a hash of every input to the PSF
+    computation, including normalization, detector, full-detector position,
+    and the STPSF package and calibration data versions.
     If the PSF kernel file does not exist, it computes the PSF using the
     `build_webb_psf` function, saves the result to the specified library path,
     and then returns the PSF data.
@@ -198,16 +202,35 @@ def load_psf_kernel(
     psf_arcsec = config_parameters.psf_arcsec
     normalize = config_parameters.normalize
 
+    # Calibration identity: STPSF package version and the version of the
+    # calibration data in `webbpsf_path`.
+    try:
+        stpsf_version = version("stpsf")
+    except PackageNotFoundError:
+        stpsf_version = None
+    try:
+        with open(join(webbpsf_path, "version.txt")) as f:
+            data_version = f.read().strip()
+    except OSError:
+        data_version = None
+
+    # The file name hashes every input of the PSF computation. Entries written
+    # under older, incomplete names are never matched.
     center_pixel_str = f"{int(10 * center_pixel[0])}p{int(10 * center_pixel[1])}"
+    cache_key = (
+        camera,
+        filter,
+        detector,
+        center_pixel_str,
+        psf_arcsec,
+        subsample,
+        normalize,
+        stpsf_version,
+        data_version,
+    )
+    cache_hash = sha256(repr(cache_key).encode()).hexdigest()[:16]
     file_name = "_".join(
-        (
-            camera,
-            filter,
-            detector.lower(),
-            center_pixel_str,
-            f"{psf_arcsec}arcsec",
-            f"sub{subsample}",
-        )
+        (camera, filter, detector.lower(), center_pixel_str, cache_hash)
     )
     path_to_file = join(psf_library_path, file_name)
     makedirs(psf_library_path, exist_ok=True)

@@ -129,3 +129,34 @@ def test_load_psf_kernel_uses_full_detector_position(stpsf_stub, tmp_path):
     jwst_kernel.load_psf_kernel(data, 2, None, make_psf_config(tmp_path))
 
     assert detector_settings(stpsf_stub)[-1] == ("detector_position", (1034.5, 532.5))
+
+
+def test_load_psf_kernel_cache_identity(monkeypatch, tmp_path):
+    calls = []
+
+    def recording_build(*args, **kwargs):
+        calls.append((args, kwargs))
+        return np.full((3, 3), float(len(calls)))
+
+    monkeypatch.setattr(jwst_kernel, "build_webb_psf", recording_build)
+    calibration_dir = tmp_path / "stpsf-data"
+    calibration_dir.mkdir()
+    (calibration_dir / "version.txt").write_text("2.0.0")
+    nrca = make_jwst_data("NIRCAM", "NRCALONG", (100.0, 200.0))
+    nrcb = make_jwst_data("NIRCAM", "NRCBLONG", (100.0, 200.0))
+
+    def load(data, normalize="last"):
+        config = make_psf_config(tmp_path, normalize)
+        return jwst_kernel.load_psf_kernel(data, 2, None, config)[0, 0]
+
+    library = tmp_path / "psf_library"
+    library.mkdir()
+    np.save(library / "nircam_f444w_1000p2000_0.4arcsec_sub2.npy", np.zeros((3, 3)))
+
+    assert load(nrca) == 1  # the old, incomplete cache entry is not used
+    assert load(nrca) == 1  # identical request reuses the cached kernel
+    assert load(nrca, normalize="first") == 2
+    assert load(nrcb) == 3
+    (calibration_dir / "version.txt").write_text("2.1.0")
+    assert load(nrca) == 4
+    assert len(calls) == 4
