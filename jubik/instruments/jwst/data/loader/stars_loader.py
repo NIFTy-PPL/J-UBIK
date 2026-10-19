@@ -5,7 +5,8 @@ import numpy as np
 from astropy import units as u
 from nifty.re import logger
 
-from ...alignment.star_alignment import StarTables
+from .....wcs.wcs_astropy import WcsAstropy
+from ...alignment.star_alignment import Star, StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig
 from ...parse.data.data_loader import IndexAndPath
 from ...parse.jwst_psf import JwstPsfKernelConfig
@@ -23,6 +24,7 @@ from .cutout import DataCutout
 class SingleStarBundle:
     cutout: DataCutout
     star_in_subsampled_pixels: tuple[float, float]
+    shift_jacobian: np.ndarray
     observation_id: int
 
 
@@ -32,9 +34,45 @@ class StarsBundle(UserDict[int, SingleStarBundle]):
         self.data = mapping if mapping is not None else {}
 
 
+def _shift_jacobian(
+    star: Star,
+    data_wcs,
+    grid_wcs: WcsAstropy,
+    min_row: int,
+    min_column: int,
+    subsample: int,
+) -> np.ndarray:
+    """Change of the star's subsampled (x, y) data pixel position per arcsec of
+    shift of the data sampling positions along the grid (row, column) axes.
+
+    The shared shift moves the sampling positions by `shift / pixel_scales_yx` grid
+    indices (`build_coordinates_corrected_for_field`); see
+    `build_coordinates_corrected_for_stars` for the sign.
+    """
+    row, column = grid_wcs.world_to_indices_yx(star.position)
+    p0 = star.skycoord_to_subpixel(
+        star.position, data_wcs, min_row, min_column, subsample
+    )
+    columns = [
+        np.subtract(
+            star.skycoord_to_subpixel(
+                grid_wcs.indices_yx_to_world(row + dr, column + dc),
+                data_wcs,
+                min_row,
+                min_column,
+                subsample,
+            ),
+            p0,
+        )
+        for dr, dc in ((1, 0), (0, 1))
+    ]
+    return np.stack(columns, axis=1) / grid_wcs.pixel_scales_yx.to_value(u.arcsec)
+
+
 def load_one_stars_bundle(
     index: int,
     jwst_data: JwstData,
+    grid_wcs: WcsAstropy,
     star_tables: StarTables,
     star_alignment_config: StarAlignmentConfig,
     extra_masks: CornerMasks | None,
@@ -83,6 +121,14 @@ def load_one_stars_bundle(
         star_bundles[star.id] = SingleStarBundle(
             cutout=DataCutout(data=data, mask=mask, std=std, psf=psf),
             star_in_subsampled_pixels=star_in_subsampled_pixels,
+            shift_jacobian=_shift_jacobian(
+                star,
+                jwst_data.wcs,
+                grid_wcs,
+                min_row=bounding_indices[0],
+                min_column=bounding_indices[2],
+                subsample=star_alignment_config.subsample,
+            ),
             observation_id=index,
         )
 
@@ -91,6 +137,7 @@ def load_one_stars_bundle(
 
 def load_one_stars_bundle_from_filepath(
     filepath: IndexAndPath,
+    grid_wcs: WcsAstropy,
     star_tables: StarTables,
     star_alignment_config: StarAlignmentConfig,
     extra_masks: CornerMasks | None,
@@ -100,6 +147,7 @@ def load_one_stars_bundle_from_filepath(
     return load_one_stars_bundle(
         index=filepath.index,
         jwst_data=jwst_data,
+        grid_wcs=grid_wcs,
         star_tables=star_tables,
         star_alignment_config=star_alignment_config,
         extra_masks=extra_masks,
@@ -123,6 +171,7 @@ class SingleStarData:
     std: list[np.ndarray] = field(default_factory=list)
     psf: list[np.ndarray] = field(default_factory=list)
     star_in_subsampled_pixels: list[tuple[float, float]] = field(default_factory=list)
+    shift_jacobian: list[np.ndarray] = field(default_factory=list)
     observation_ids: list[int] = field(default_factory=list)
 
     # -- optional: freeze to ndarray stacks -------------------------
@@ -135,6 +184,7 @@ class SingleStarData:
             std=np.stack(self.std),
             psf=np.stack(self.psf),
             star_in_subsampled_pixels=np.asarray(self.star_in_subsampled_pixels),
+            shift_jacobian=np.stack(self.shift_jacobian),
             observation_ids=np.asarray(self.observation_ids),
         )
 
@@ -149,6 +199,7 @@ class SingleStarDataStacked:
     std: np.ndarray
     psf: np.ndarray
     star_in_subsampled_pixels: np.ndarray
+    shift_jacobian: np.ndarray  # (n_exposures, 2, 2), subsampled pixels per arcsec
     observation_ids: np.ndarray
 
     # -- convenience -------------------------------------------------
@@ -190,4 +241,5 @@ class StarsData(UserDict[int, SingleStarDataStacked]):
         entry.std.append(sb.cutout.std)
         entry.psf.append(sb.cutout.psf)
         entry.star_in_subsampled_pixels.append(sb.star_in_subsampled_pixels)
+        entry.shift_jacobian.append(sb.shift_jacobian)
         entry.observation_ids.append(sb.observation_id)
