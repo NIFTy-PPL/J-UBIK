@@ -15,6 +15,10 @@ from numpy.typing import ArrayLike
 from ..data.jwst_data import JwstData
 from ..parse.jwst_psf import JwstPsfKernelConfig
 
+# JWST datamodel detector names which STPSF spells differently. STPSF accepts
+# the NIRCam names (including NRCALONG/NRCBLONG) as they are.
+STPSF_DETECTOR_NAMES = {"MIRIMAGE": "MIRIM"}
+
 
 # --------------------------------
 # Testing seam
@@ -30,6 +34,8 @@ def build_webb_psf(
     subsample: int,
     fov_arcsec: float | None = None,
     normalize: str = "last",
+    *,
+    detector: str,
 ):
     """
     Builds a Point Spread Function (PSF) model for the JWST using the specified
@@ -49,7 +55,8 @@ def build_webb_psf(
     filter : str
         The filter for which to compute the PSF.
     center_pixel : tuple of float
-        The position of the center pixel (x, y) for the PSF calculation.
+        The 0-based full-detector pixel position (x, y) for the PSF
+        calculation.
     webbpsf_path : str
         The directory holding the STPSF calibration data. It is passed to
         STPSF via the `STPSF_PATH` environment variable.
@@ -60,6 +67,8 @@ def build_webb_psf(
         The field of view (FOV) in arcseconds.
         If provided, it specifies the size of the PSF image
         in arcseconds.
+    detector : str
+        The JWST detector name (`meta.instrument.detector`), e.g. 'NRCBLONG'.
     normalize : str | None
         The normalization method for the PSF.
         Default is 'last', which normalizes based on the
@@ -95,7 +104,8 @@ def build_webb_psf(
     >>>     center_pixel=(100, 100),
     >>>     webbpsf_path='/path/to/webbpsf/data',
     >>>     subsample=3,
-    >>>     fov_pixels=256
+    >>>     fov_pixels=256,
+    >>>     detector='NRCA1',
     >>> )
     """
     try:
@@ -123,6 +133,10 @@ def build_webb_psf(
     psf_model = psf_model_class()
 
     psf_model.filter = filter.upper()
+    # Select the detector before its position, which STPSF interprets on the
+    # selected detector.
+    detector = detector.upper()
+    psf_model.detector = STPSF_DETECTOR_NAMES.get(detector, detector)
     psf_model.detector_position = center_pixel
 
     psf = psf_model.calc_psf(
@@ -172,7 +186,13 @@ def load_psf_kernel(
 
     camera = jwst_data.camera.lower()
     filter = jwst_data.filter.lower()
-    center_pixel = jwst_data.wcs.world_to_pixel(target_center)
+    detector = jwst_data.dm.meta.instrument.detector.upper()
+    # The WCS gives 0-based subarray pixels, STPSF expects 0-based full-detector
+    # pixels, and `xstart`/`ystart` are the 1-based subarray origin (as in
+    # `jwst.assign_wcs.util.subarray_transform`).
+    x, y = jwst_data.wcs.world_to_pixel(target_center)
+    subarray = jwst_data.dm.meta.subarray
+    center_pixel = (x + subarray.xstart - 1, y + subarray.ystart - 1)
     webbpsf_path = config_parameters.webbpsf_path
     psf_library_path = config_parameters.psf_library_path
     psf_arcsec = config_parameters.psf_arcsec
@@ -180,7 +200,14 @@ def load_psf_kernel(
 
     center_pixel_str = f"{int(10 * center_pixel[0])}p{int(10 * center_pixel[1])}"
     file_name = "_".join(
-        (camera, filter, center_pixel_str, f"{psf_arcsec}arcsec", f"sub{subsample}")
+        (
+            camera,
+            filter,
+            detector.lower(),
+            center_pixel_str,
+            f"{psf_arcsec}arcsec",
+            f"sub{subsample}",
+        )
     )
     path_to_file = join(psf_library_path, file_name)
     makedirs(psf_library_path, exist_ok=True)
@@ -197,6 +224,7 @@ def load_psf_kernel(
         subsample,
         psf_arcsec,
         normalize,
+        detector=detector,
     )
 
     logger.info(f"Saving PSF {file_name} in {psf_library_path}")

@@ -61,6 +61,8 @@ class FakeJwstData(JwstData):
                 date="2023-01-01T00:00:00.000",
                 pointing=SimpleNamespace(ra_v1=CENTER.ra.deg, dec_v1=CENTER.dec.deg),
                 wcsinfo=SimpleNamespace(ra_ref=CENTER.ra.deg, dec_ref=CENTER.dec.deg),
+                instrument=SimpleNamespace(detector="NRCALONG"),
+                subarray=SimpleNamespace(xstart=1, ystart=1),
             ),
         )
         self.wcs = WcsAstropy(
