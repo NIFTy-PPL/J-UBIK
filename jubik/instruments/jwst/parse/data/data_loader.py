@@ -42,3 +42,29 @@ class DataLoadingConfig:
         return cls(
             paths=FilterFilePaths.from_yaml_dict(yml),
         )
+
+
+class ErrScale(UserDict[str, float]):
+    """Fixed per-filter factor on the ERR arrays, `std = err * factor`.
+
+    Filters not listed keep a factor of 1.0.
+    """
+
+    @classmethod
+    def from_yaml_dict(cls, raw: dict | None, filters: list[str]) -> "ErrScale":
+        if raw is None:
+            return cls({})
+
+        mapping = {}
+        for flt, value in raw.items():
+            if flt not in filters:
+                raise ValueError(
+                    f"err_scale: unknown filter '{flt}', data filters are {filters}"
+                )
+            value = float(value)
+            if not 0 < value < float("inf"):
+                raise ValueError(
+                    f"err_scale: factor for '{flt}' must be positive, got {value}"
+                )
+            mapping[flt] = value
+        return cls(mapping)

@@ -12,7 +12,7 @@ from .variable_covariance import (
     variable_covariance_config_factory,
 )
 from .alignment.star_alignment import StarAlignmentConfig
-from .data.data_loader import DataLoadingConfig, Subsample
+from .data.data_loader import DataLoadingConfig, ErrScale, Subsample
 from .jwst_psf import JwstPsfKernelConfig
 from .masking.data_mask import CornerMasks, NanMasks
 from .data.preloader.data_bounds import DataBoundsAdjust
@@ -29,6 +29,7 @@ class ConfigParserJwst:
     nan_masks: NanMasks
     star_alignment_config: StarAlignmentConfig | None
     variable_covariance_config: VariableCovarianceConfig | None
+    err_scale: ErrScale
     data_bounds_adjust: DataBoundsAdjust
 
     @classmethod
@@ -56,6 +57,9 @@ class ConfigParserJwst:
         variable_covariance_config = variable_covariance_config_factory(
             cfg[telescope_key].get("variable_covariance")
         )
+        err_scale = ErrScale.from_yaml_dict(
+            cfg[telescope_key].get("err_scale"), data_loader.paths.filters()
+        )
 
         nan_masks = NanMasks.from_yaml_dict(cfg[telescope_key])
         data_bounds_adjust = DataBoundsAdjust.from_yaml_dict(
@@ -72,5 +76,6 @@ class ConfigParserJwst:
             nan_masks=nan_masks,
             star_alignment_config=star_alignment_config,
             variable_covariance_config=variable_covariance_config,
+            err_scale=err_scale,
             data_bounds_adjust=data_bounds_adjust,
         )

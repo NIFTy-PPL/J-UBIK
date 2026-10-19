@@ -168,6 +168,24 @@ pip install --user .[jwst,gaia]
 ## Demo
 `demos/jwst_demo.py`.
 
+## Noise level
+The likelihood takes the ERR extension of each exposure as its per-pixel
+standard deviation. A fixed per-filter factor on ERR can be set in the
+`telescope` block, next to `variable_covariance`:
+
+```yaml
+telescope:
+  err_scale:
+    f1800w: 1.20
+    f2100w: 1.44
+```
+
+This gives `std = err * err_scale[filter]` for the target and the Gaia star
+cutouts, with no new latent parameters. Filters that are not listed keep
+ERR unchanged. The keys must be filters from the `files` block and the
+factors must be positive. With `variable_covariance` the learned factor
+multiplies the already-scaled std.
+
 ---
 
 # RESOLVE

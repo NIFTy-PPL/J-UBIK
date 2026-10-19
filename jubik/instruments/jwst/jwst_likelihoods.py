@@ -167,6 +167,7 @@ def build_jwst_likelihoods(
                     tables=preload_results.star_tables,
                 ),
                 corner_masks=cfg_parser.corner_masks(filter),
+                err_scale=cfg_parser.err_scale.get(filter, 1.0),
             ),
         )
 

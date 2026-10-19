@@ -27,6 +27,7 @@ from jubik.instruments.jwst.data.jwst_information import (
     get_pixel_distance,
 )
 from jubik.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
+from jubik.instruments.jwst.parse.parsing_step import ConfigParserJwst
 from jubik.instruments.jwst.psf import jwst_kernel
 from jubik.wcs import WcsAstropy
 
@@ -49,7 +50,8 @@ JWST_DATA_SITES = (
 class FakeJwstData(JwstData):
     """`JwstData` backed by arrays and an astropy WCS instead of a datamodel."""
 
-    def __init__(self, filepath: str):
+    def __init__(self, filepath: str, err_scale: float = 1.0):
+        self.err_scale = err_scale
         pixel_scale = get_pixel_distance(FILTER)
         rng = np.random.default_rng(abs(hash(str(filepath))) % 2**32)
         data = rng.normal(size=DATA_SHAPE)
@@ -87,8 +89,8 @@ class NanStarsJwstData(FakeJwstData):
     target still has unmasked pixels.
     """
 
-    def __init__(self, filepath: str):
-        super().__init__(filepath)
+    def __init__(self, filepath: str, err_scale: float = 1.0):
+        super().__init__(filepath, err_scale)
         self.dm.data[8:40, 8:40] = np.nan
 
 
@@ -235,3 +237,46 @@ def test_all_gaia_stars_rejected_raises(monkeypatch, patched_seams, fake_gaia, t
     cfg = make_config(tmp_path, gaia=True)
     with pytest.raises(ValueError, match="2 catalog stars, 0 with a valid cutout"):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+@pytest.mark.parametrize("err_scale", [None, {FILTER.lower(): 1.0}])
+def test_err_scale_one_is_bit_identical(patched_seams, tmp_path, err_scale):
+    reference = build_jwst_likelihoods(make_config(tmp_path), make_grid(), SKY_DOMAIN)
+    cfg = make_config(tmp_path)
+    if err_scale is not None:
+        cfg["telescope"]["err_scale"] = err_scale
+    products = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+    ref_std = reference.target.likelihoods[0].builder.std
+    std = products.target.likelihoods[0].builder.std
+    assert std.dtype == ref_std.dtype
+    np.testing.assert_array_equal(std, ref_std)
+    assert evaluate(products.target.likelihood) == evaluate(reference.target.likelihood)
+
+
+def test_err_scale_scales_only_listed_filter(patched_seams, tmp_path):
+    cfg = make_config(tmp_path)
+    cfg["files"]["filter"]["f150w"] = cfg["files"]["filter"][FILTER.lower()]
+    reference = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+    cfg["telescope"]["err_scale"] = {FILTER.lower(): 1.44}
+    products = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+    ref = {t.filter: t.builder.std for t in reference.target.likelihoods}
+    got = {t.filter: t.builder.std for t in products.target.likelihoods}
+    np.testing.assert_array_equal(got[FILTER.lower()], 1.44 * ref[FILTER.lower()])
+    np.testing.assert_array_equal(got["f150w"], ref["f150w"])
+
+
+@pytest.mark.parametrize(
+    "err_scale, match",
+    [
+        ({"f999w": 1.2}, "unknown filter 'f999w'"),
+        ({FILTER.lower(): 0.0}, "must be positive"),
+        ({FILTER.lower(): -1.2}, "must be positive"),
+    ],
+)
+def test_err_scale_parse_errors(tmp_path, err_scale, match):
+    cfg = make_config(tmp_path)
+    cfg["telescope"]["err_scale"] = err_scale
+    with pytest.raises(ValueError, match=match):
+        ConfigParserJwst.from_yaml_dict(cfg)

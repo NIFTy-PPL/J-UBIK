@@ -41,7 +41,7 @@ class DataMetaInformation:
 class JwstData:
     """Class to contain JWST data metadata."""
 
-    def __init__(self, filepath: str):
+    def __init__(self, filepath: str, err_scale: float = 1.0):
         """
         Initializes the JwstData class.
 
@@ -49,7 +49,10 @@ class JwstData:
         ----------
         filepath : str
             Path to the JWST data file.
+        err_scale : float, optional
+            Fixed factor on the ERR array, `std = err * err_scale`.
         """
+        self.err_scale = err_scale
         self.dm = datamodels.open(filepath)
         self.wcs = WcsJwstData(self.dm.meta.wcs)
         self.shape = self.dm.data.shape
@@ -98,9 +101,9 @@ class JwstData:
         Returns
         -------
         std : np.ndarray
-            Data values inside the extrema.
+            ERR values inside the extrema, times `err_scale`.
         """
-        return self.dm.err[min_row:max_row, min_column:max_column]
+        return self.dm.err[min_row:max_row, min_column:max_column] * self.err_scale
 
     def nan_from_bounding_indices(
         self, min_row: int, max_row: int, min_column: int, max_column: int

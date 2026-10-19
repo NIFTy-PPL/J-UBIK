@@ -80,6 +80,7 @@ class DataLoader:
     target: DataLoaderTarget | None = None
     star_alignment: DataLoaderStarAlignment | None = None
     corner_masks: CornerMasks | None = None
+    err_scale: float = 1.0
 
 
 @dataclass
@@ -163,7 +164,7 @@ def _load_one_target_and_or_stars(
     filepath: IndexAndPath,
     data_loader: DataLoader,
 ):
-    jwst_data = JwstData(filepath.path)
+    jwst_data = JwstData(filepath.path, err_scale=data_loader.err_scale)
     target_bundle: TargetBundle = load_one_target_bundle(
         index=filepath.index,
         jwst_data=jwst_data,
