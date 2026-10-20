@@ -45,7 +45,12 @@ from jubik.instruments.resolve.response import (
 
 
 @pmp("freqs", (np.array([1e9]), np.array([1e9, 1.3e9, 2e9])))
-def test_ducc_finufft_backend_consistency(freqs):
+@pmp(
+    "center_pixels",
+    ((0.0, 0.0), (3.0, 0.0), (0.0, -2.0), (3.0, -2.0)),
+    ids=("unshifted", "x-shift", "y-shift", "xy-shift"),
+)
+def test_ducc_finufft_backend_consistency(freqs, center_pixels):
     rng = np.random.default_rng(42)
 
     fov = (u.Quantity("1deg"), u.Quantity("1.5deg"))
@@ -65,8 +70,9 @@ def test_ducc_finufft_backend_consistency(freqs):
     )
 
     epsilon = 1e-10
-    center_x = 0.0
-    center_y = 0.0
+    # Separate axis shifts expose phase-sign errors and swapped center axes.
+    center_x = center_pixels[0] * pixsize_x
+    center_y = center_pixels[1] * pixsize_y
 
     response_ducc = interferometry_response_ducc(
         observation=obs,
