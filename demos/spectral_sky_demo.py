@@ -120,11 +120,12 @@ amplitude_model = "non_parametric"
 # without enforcing a single correlation length in frequency.
 #
 # **Hyperparameters:**
-# - `fluctuations`: variability around the mean slope across frequency.  
 # - `loglogavgslope`: average slope of the log–log spectrum along the frequency axis.  
 # - `flexibility`, `asperity`: optional shape controls (left `None` for simplicity).
 #
 # A slope near −2 encourages smooth spectral behavior while still allowing moderate curvature.
+# There is no `fluctuations` here: the spectral amplitude is normalized and its strength is set by
+# `spectral_index_settings["fluctuations"]`, which avoids a degeneracy between the two.
 #
 # We note that the spectral amplitude can also be set to `None`.
 # In this case, the spectral amplitude is assumed to be the same as the spatial amplitude, 
@@ -133,7 +134,6 @@ amplitude_model = "non_parametric"
 
 # %%
 spectral_amplitude_settings = dict(
-    fluctuations=(1.0, 0.02),
     loglogavgslope=(-2.0, 0.1),
     flexibility=None,
     asperity=None,
