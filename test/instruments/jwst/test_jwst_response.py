@@ -3,7 +3,9 @@ import nifty.re as jft
 import pytest
 from astropy import units as u
 
-from jubik.instruments.jwst.jwst_response import JwstResponse
+from jubik.instruments.jwst.data.jwst_data import DataMetaInformation
+from jubik.instruments.jwst.jwst_response import JwstResponse, build_jwst_response
+from jubik.instruments.jwst.parse.jwst_response import SkyMetaInformation
 from jubik.instruments.jwst.integration.integration import integration_factory
 from jubik.instruments.jwst.masking.build_mask import build_mask
 from jubik.instruments.jwst.psf.psf_operator import PsfStatic
@@ -105,3 +107,37 @@ def test_linearity():
     response = make_response(psf_kernel=delta_kernel())
     field = RNG.normal(size=(N, N))
     assert np.allclose(response({"sky": 2 * field}), 2 * response({"sky": field}))
+
+
+def build_constant_sky_response(sky_unit, sky_dvol, data_unit, data_dvol, subsample):
+    shape = (2 * subsample, 2 * subsample)
+    sky = jft.Model(lambda x: x["sky"], domain={"sky": jft.ShapeWithDtype(shape)})
+    return build_jwst_response(
+        sky_in_subsampled_data=sky,
+        data_meta=DataMetaInformation(
+            unit=data_unit, dvol=data_dvol, pixel_scale=None, color=None
+        ),
+        data_subsample=subsample,
+        sky_meta=SkyMetaInformation(grid_extension=None, dvol=sky_dvol, unit=sky_unit),
+        psf=None,
+        zero_flux_model=None,
+        data_mask=None,
+    ), {"sky": np.ones(shape)}
+
+
+@pytest.mark.parametrize("subsample", [1, 2, 3])
+def test_full_response_flux_sky_conserves_flux(subsample):
+    # 1 Jy per (0.1 arcsec)^2 sky pixel gives 0.09 Jy per (0.03 arcsec)^2 data pixel.
+    response, x = build_constant_sky_response(
+        u.Jy, (0.1 * u.arcsec) ** 2, u.mJy, (0.03 * u.arcsec) ** 2, subsample
+    )
+    np.testing.assert_allclose(response(x), 90.0)
+
+
+@pytest.mark.parametrize("subsample", [1, 2])
+def test_full_response_surface_brightness_sky_gives_pixel_flux(subsample):
+    # A flat 1 MJy/sr sky integrated over a data pixel gives 1 MJy * pixel solid angle.
+    response, x = build_constant_sky_response(
+        u.MJy / u.sr, (0.1 * u.arcsec) ** 2, u.Jy, (0.03 * u.arcsec) ** 2, subsample
+    )
+    np.testing.assert_allclose(response(x), 1e6 * (0.03 * np.pi / 648000) ** 2)

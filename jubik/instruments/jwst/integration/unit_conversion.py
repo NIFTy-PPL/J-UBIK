@@ -17,50 +17,29 @@ def build_unit_conversion(
     data_unit: u.Unit,
     data_dvol: u.Quantity,
 ):
-    """Builds a flux conversion between to grids.
+    """Converts sky values sampled on the subsampled data grid from `sky_unit` to
+    `data_unit`; flux units are flux per pixel of `sky_dvol` or `data_dvol` (the
+    solid angle of a sky pixel and of a subsampled data pixel, respectively).
 
     Parameters
     ----------
-    sky_dvol: float
-        The volume of the sky/reconstruction pixels
-    sub_dvol: float
-        The volume of the subsample pixels.
-        Typically, the data pixel is subsampled.
+    sky_unit: astropy.units.Unit
+        Unit of the sky, surface brightness or flux per sky pixel.
+    sky_dvol: astropy.units.Quantity
+        Solid angle of a sky pixel.
+    data_unit: astropy.units.Unit
+        Unit of the data, surface brightness or flux per data pixel.
+    data_dvol: astropy.units.Quantity
+        Solid angle of a subsampled data pixel.
     """
 
     _check_physical_types([sky_unit, data_unit])
 
-    if sky_unit.physical_type == data_unit.physical_type:
-        return _build_same_physical_type(sky_unit, data_unit)
-
-    return _build_different_physical_type(sky_unit, sky_dvol, data_unit, data_dvol)
-
-
-def _build_same_physical_type(
-    sky_unit: u.Unit,
-    data_unit: u.Unit,
-):
-    if sky_unit == data_unit:
-        return lambda x: x
-
-    conversion = sky_unit.to(data_unit)
+    # Convert to surface brightness on the sky grid, then to flux per subpixel.
+    scale = 1.0 * sky_unit
+    if sky_unit.physical_type in FLUX:
+        scale = scale / sky_dvol
+    if data_unit.physical_type in FLUX:
+        scale = scale * data_dvol
+    conversion = scale.to_value(data_unit)
     return lambda x: x * conversion
-
-
-def _build_different_physical_type(
-    sky_unit: u.Unit,
-    sky_dvol: u.Quantity,
-    data_unit: u.Unit,
-    data_dvol: u.Quantity,
-):
-    """Conversion between surface brightness and flux is not implemented yet.
-
-    The conversion has to account for the pixel volume of the grid the response
-    acts on, which is the subsampled data grid, and for the direction of the
-    conversion. Tracked in issue #131.
-    """
-    raise NotImplementedError(
-        "Conversion between different physical types is not implemented: "
-        f"sky_unit={sky_unit} ({sky_unit.physical_type}), "
-        f"data_unit={data_unit} ({data_unit.physical_type})."
-    )
