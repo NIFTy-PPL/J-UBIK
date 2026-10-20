@@ -163,14 +163,21 @@ def stokes_to_linear(iquv):
 
 @pmp("freqs", (np.array([1e9]), np.array([1e9, 1.3e9, 2e9])))
 @pmp("circular", (True, False))
-def test_response_StokesIQUV(freqs, circular):
+@pmp(
+    "source",
+    (
+        (1.0, 0.0, 0.0, 0.0),
+        (1.0, 0.3, -0.4, 0.0),
+        (1.0, 0.0, 0.0, -0.6),
+        (1.0, 0.36, -0.48, 0.8),
+    ),
+    ids=("unpolarized", "linear", "circular", "fully-polarized"),
+)
+def test_response_StokesIQUV(freqs, circular, source):
     pol_sky = ("I", "Q", "U", "V")
-    # TODO: Remove this construction once stokes_adder is tested
-    pre_stokes_source = np.random.default_rng(42).normal(size=4)
-    p = np.sqrt(np.sum(pre_stokes_source[1:] ** 2))
-    pre_i = np.cosh(p)
-    pre_quv = pre_stokes_source[1:] * np.sinh(p) / p
-    source = jnp.exp(pre_stokes_source[0]) * jnp.concatenate(([pre_i], pre_quv))
+    # Physical constraints are covered in test/sky_model/test_stokes_adder.py;
+    # these explicit sources exercise the linear polarization conversions.
+    source = np.asarray(source)
 
     if circular:
         pol_channels = ("RR", "RL", "LR", "LL")
