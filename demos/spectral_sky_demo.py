@@ -275,6 +275,57 @@ ju.plot_result(
 )
 
 # %% [markdown]
+# ### With vs. without deviations
+# To see what $I_{\delta}$ adds, we build the same model without deviations and
+# evaluate both on the **same** parameters (the model without deviations ignores the
+# extra deviation parameters).
+#
+# - **Left**: the spatially integrated spectrum $\sum_{\mathbf{x}} I(\mathbf{x}, \nu)\,\Delta A$.
+#   It can be curved even without deviations, because $\alpha(\mathbf{x})$ varies across the sky.
+# - **Right**: the spatial mean of $\log I(\mathbf{x}, \nu)$ versus $\log \nu$.
+#   Without deviations this is exactly a straight line with slope equal to the mean spectral index;
+#   the deviations can bend it.
+
+# %%
+import matplotlib.pyplot as plt
+
+mf_model_no_dev = ju.build_simple_spectral_sky(
+    prefix="test",
+    shape=shape,
+    distances=distances,
+    log_frequencies=freqs,
+    reference_frequency_index=reference_frequency_index,
+    zero_mode_settings=zero_mode_settings,
+    spatial_amplitude_settings=amplitude_settings,
+    spectral_index_settings=spectral_idx_settings,
+    deviations_settings=None,
+    spatial_amplitude_model=amplitude_model,
+    spectral_amplitude_settings=spectral_amplitude_settings,
+    spectral_amplitude_model=spectral_amplitude_model,
+)
+
+fig, (ax_int, ax_log) = plt.subplots(1, 2, figsize=(12, 4))
+for label, sky in [
+    ("with deviations", mf_model(random_pos)),
+    ("without deviations", mf_model_no_dev(random_pos)),
+]:
+    ax_int.loglog(jnp.exp(freqs), sky.sum(axis=(1, 2)) * distances**2, "o-", label=label)
+    ax_log.plot(freqs, jnp.log(sky).mean(axis=(1, 2)), "o-", label=label)
+ax_int.set(
+    title="Spatially integrated brightness",
+    xlabel=r"Frequency $\nu$",
+    ylabel=r"$\sum_x I(x, \nu)\, \Delta A$",
+)
+ax_log.set(
+    title="Spatial mean of log brightness",
+    xlabel=r"$\log \nu$",
+    ylabel=r"$\langle \log I(x, \nu) \rangle_x$",
+)
+ax_int.legend()
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
 # ## Interpretation and Next Steps
 # **Interpretation:**  
 # The prior defines a family of skies consistent with expected spatial coherence and smooth spectral behavior,
