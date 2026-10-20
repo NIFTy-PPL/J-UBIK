@@ -16,11 +16,16 @@ class SimpleSpectralSkyConfig(FromYamlDict):
     spectral_deviations: dict | None = None
     spatial_amplitude_model: str = "non_parametric"
     spectral_amplitude_model: str = "non_parametric"
-    harmonic_type: str = "fourier"
     nonlinearity: Callable = jnp.exp
 
     @classmethod
     def from_yaml_dict(cls, raw: dict) -> "SimpleSpectralSkyConfig":
+        # jubik.grid.Grid is Cartesian only, so no other harmonic type can be built.
+        if raw.get("harmonic_type", "fourier") != "fourier":
+            raise ValueError(
+                f"Unsupported harmonic_type {raw['harmonic_type']!r}; "
+                "only 'fourier' is supported."
+            )
         return cls(
             reference_bin=raw["reference_bin"],
             zero_mode=raw["zero_mode"],
@@ -31,9 +36,8 @@ class SimpleSpectralSkyConfig(FromYamlDict):
             spatial_amplitude_model=raw["spatial_amplitude"].get(
                 "model", "non_parametric"
             ),
-            spectral_amplitude_model=raw.get("spectral_amplitude", {}).get(
+            spectral_amplitude_model=(raw.get("spectral_amplitude") or {}).get(
                 "model", "non_parametric"
             ),
-            harmonic_type=raw.get("harmonic_type", "fourier"),
             nonlinearity=getattr(jnp, raw.get("nonlinearity", "exp")),
         )
