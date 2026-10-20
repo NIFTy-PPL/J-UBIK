@@ -336,8 +336,10 @@ def _uv_radians_and_phase_shift(observation, pixsize_x, pixsize_y, center_x, cen
     u_finu = (2 * np.pi * u * pixsize_x) % (2 * np.pi)
     v_finu = (-2 * np.pi * v * pixsize_y) % (2 * np.pi)
 
-    if ((center_x is not None) and (center_y is not None)) or (
-        center_x != 0.0 and center_y != 0.0
+    if (
+        center_x is not None
+        and center_y is not None
+        and (center_x != 0.0 or center_y != 0.0)
     ):
         n = np.sqrt(1 - center_x**2 - center_y**2)
         phase_shift = np.exp(-2j * np.pi * (u * center_x + v * center_y + w * (n - 1)))
