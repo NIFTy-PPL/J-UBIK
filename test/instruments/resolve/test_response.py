@@ -116,6 +116,32 @@ def test_ducc_finufft_backend_consistency(freqs, center_pixels):
     assert_allclose(vis_ducc / vol, vis_finufft / vol, rtol=1e-9, atol=1e-9)
 
 
+@pmp(
+    "center_kwargs",
+    ({}, {"center_x": None, "center_y": None},
+     {"center_x": None, "center_y": 0.0},
+     {"center_x": 0.0, "center_y": None},
+     {"center_x": None, "center_y": 2e-4},
+     {"center_x": 1e-4, "center_y": None}),
+    ids=("defaults", "both-none", "x-none-y-zero", "x-zero-y-none",
+         "x-none-y-shift", "x-shift-y-none"),
+)
+def test_finufft_missing_phase_center_skips_shift(center_kwargs):
+    rng = np.random.default_rng(42)
+    obs = generate_random_obs(
+        np.array([1e9, 1.3e9]), 20, [-1e2, 1e2], [0.0, 0.0],
+        ju.polarization.PolarizationType(("I",)), rng=rng,
+    )
+    kwargs = dict(observation=obs, pixsize_x=1e-4, pixsize_y=2e-4, epsilon=1e-12)
+    default_response = interferometry_response_finufft(**kwargs, **center_kwargs)
+    zero_response = interferometry_response_finufft(
+        **kwargs, center_x=0.0, center_y=0.0
+    )
+    image = rng.normal(size=(32, 40))
+
+    assert_allclose(default_response(image), zero_response(image), rtol=0, atol=0)
+
+
 @pmp("pol_sky", (("I",), ("I", "Q", "U", "V")))
 @pmp("pol_channels", (("LL", "RR"), ("RR", "RL", "LR", "LL"), ("XX", "XY", "YX", "YY")))
 @pmp("freqs", (np.array([1e9]), np.array([1e9, 1.3e9, 2e9])))
