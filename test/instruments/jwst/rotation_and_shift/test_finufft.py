@@ -106,3 +106,56 @@ def test_mismatched_coordinate_shape_raises(builder):
         match=r"trailing shape \(48, 32\) does not match out_shape \(32, 48\)",
     ):
         builder(field.shape)(field, transposed_centers_yx)
+
+
+def _fourier_reference(field, centers_yx):
+    # Direct trigonometric-interpolation sum, independent of FINUFFT.
+    ky, kx = (np.fft.fftfreq(n) for n in field.shape)
+    coeffs = np.fft.ifft2(field)
+    phase_y = np.exp(-2j * np.pi * np.multiply.outer(centers_yx[0], ky))
+    phase_x = np.exp(-2j * np.pi * np.multiply.outer(centers_yx[1], kx))
+    return np.einsum("...a,...b,ab->...", phase_y, phase_x, coeffs).real
+
+
+SHAPES = [(8, 8), (9, 9), (8, 9), (9, 8), (16, 21)]
+
+
+@pytest.mark.parametrize("shape", SHAPES, ids=str)
+@pytest.mark.parametrize("kind", ["constant", "random"])
+def test_identity_parity(shape, kind):
+    rng = np.random.default_rng(42)
+    field = np.ones(shape) if kind == "constant" else rng.normal(size=shape)
+    rs = build_nufft_rotation_and_shift(shape, shape)
+    out = np.asarray(rs(field, _grid_yx(*shape)))
+    np.testing.assert_allclose(out, field, atol=1e-4)
+
+
+@pytest.mark.parametrize("shape", [(9, 9), (9, 12), (12, 9)], ids=str)
+def test_noninteger_shift_matches_fourier_reference(shape):
+    field = np.random.default_rng(0).normal(size=shape)
+    centers_yx = _grid_yx(*shape) + np.array([0.37, -1.6])[:, None, None]
+    rs = build_nufft_rotation_and_shift(shape, shape, mode="wrap")
+    np.testing.assert_allclose(
+        rs(field, centers_yx), _fourier_reference(field, centers_yx), atol=1e-4
+    )
+
+
+def test_nonsquare_out_shape_matches_linear_and_reference():
+    # sky_shape != out_shape, both non-square: output is out_shape in yx
+    # order (like the linear path) and values follow the yx coordinates.
+    sky_shape, out_shape = (12, 9), (5, 7)
+    field = np.random.default_rng(1).normal(size=sky_shape)
+    centers_yx = 0.5 + np.stack(
+        [
+            np.broadcast_to(1.3 * np.arange(5)[:, None], out_shape),
+            np.broadcast_to(0.9 * np.arange(7)[None, :], out_shape),
+        ]
+    )
+    nft = np.asarray(
+        build_nufft_rotation_and_shift(sky_shape, out_shape)(field, centers_yx)
+    )
+    lin = build_linear_rotation_and_shift(out_shape)(field, centers_yx)
+    assert nft.shape == lin.shape == out_shape
+    np.testing.assert_allclose(
+        nft, _fourier_reference(field, centers_yx), atol=1e-4
+    )

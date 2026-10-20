@@ -6,7 +6,7 @@
 # %%
 
 import jax.numpy as jnp
-from jax.numpy.fft import ifftshift, ifft2
+from jax.numpy.fft import fftshift, ifft2
 import numpy as np
 from numpy.typing import ArrayLike
 from astropy.units import Quantity
@@ -54,7 +54,7 @@ def build_nufft_rotation_and_shift(
                 f"subsample_centers_yx trailing shape {actual_shape} "
                 f"does not match out_shape {out_shape}"
             )
-        f_field = ifftshift(ifft2(field))
+        f_field = fftshift(ifft2(field))  # FINUFFT modeord=0 wants centered k
         coords = xy_conversion * subsample_centers_yx.reshape(2, -1)
 
         if mode == "constant":
