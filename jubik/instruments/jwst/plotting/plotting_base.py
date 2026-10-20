@@ -7,10 +7,6 @@ import numpy as np
 
 from ....sky_model.multifrequency.spectral_product_mf_sky import SpectralProductSky
 from ..parse.plotting import FieldPlottingConfig
-from ..rotation_and_shift.coordinates_correction import (
-    CoordinatesCorrectedShiftAndRotation,
-    CoordinatesCorrectedShiftOnly,
-)
 
 
 def plot_data_data_model_residuals(
@@ -314,27 +310,3 @@ def _get_data_model_and_chi2(
         model_mean = model_d
 
     return np.array(model_mean), (redchi_mean, redchi_std)
-
-
-def get_shift_rotation_correction(
-    position_or_samples: Union[dict, jft.Samples],
-    correction_model: Union[
-        CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation
-    ]
-    | None,
-):
-    if (not isinstance(correction_model, CoordinatesCorrectedShiftOnly)) or (
-        not isinstance(correction_model, CoordinatesCorrectedShiftAndRotation)
-    ):
-        return (0, 0), (0, 0), 0, 0
-
-    shift_mean, shift_std = get_position_or_samples_of_model(
-        position_or_samples, correction_model.shift_and_rotation.shift
-    )
-    rotation_mean, rotation_std = get_position_or_samples_of_model(
-        position_or_samples, correction_model.shift_and_rotation.rotation_angle
-    )
-    shift_mean, shift_std = shift_mean.reshape(2), shift_std.reshape(2)
-    rotation_mean, rotation_std = rotation_mean[0], rotation_std[0]
-
-    return (shift_mean, shift_std), (rotation_mean, rotation_std)

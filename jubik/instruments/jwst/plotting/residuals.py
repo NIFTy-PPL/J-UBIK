@@ -24,7 +24,6 @@ from .plotting_base import (
     _get_model_samples_or_position,
     _get_std_from_inversestdmodel,
     display_text,
-    get_shift_rotation_correction,
     plot_data_data_model_residuals,
 )
 
