@@ -10,6 +10,8 @@ fake observation. Two production seams are patched:
   stpsf is never imported. `load_psf_kernel` still writes and reads the `.npy`.
 """
 
+import shutil
+from pathlib import Path
 from types import SimpleNamespace
 
 import jax

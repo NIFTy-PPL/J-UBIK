@@ -127,9 +127,7 @@ def build_jwst_likelihoods(
         cfg, telescope_key=telescope_key, files_key=files_key
     )
 
-    target_plotting = ResidualPlottingInformation(
-        y_offset=min(b.channels.start for b in sky_filter.bands.values())
-    )
+    target_plotting = ResidualPlottingInformation()
     target_filter_likelihoods = []
     alignment_plotting = (
         MultiFilterAlignmentPlottingInformation()

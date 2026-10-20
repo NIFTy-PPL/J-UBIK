@@ -40,7 +40,6 @@ class ResidualPlottingInformation:
     builder: list[
         GaussianLikelihoodBuilder | VariableCovarianceGaussianLikelihoodBuilder
     ] = field(default_factory=list)
-    y_offset: int = 0
     meta: list[DataMetaInformation] = field(default_factory=list)
 
     def append_information(
@@ -91,29 +90,22 @@ def _determine_xlen_residuals(
     return maximum  # because 0 is already there and will not be counted
 
 
-def _determine_ypos(
-    filter_key: str, sky_filter: SkyFilter, y_offset: int = 0
-) -> int:
-    """Determine the y position of the panel in the residual plot.
+def _determine_ypos(filter_key: str, sky_filter: SkyFilter) -> int:
+    """Row of a band in the residual plot: its position in `sky_filter.bands`.
 
     Parameters
     ----------
-    dkey: str
-        The data_key which will determine the energy bin and hence the position
-        on the panel grid.
+    filter_key: str
+        The band name, the key of the sky filter output and of the data.
     sky_filter: SkyFilter
-        The sky filter of the reconstruction.
-    ylen_offset: int
-        An offset which corresponds to the bins not considered in determining
-        the ypos of the panels. I.e. the sky can have more bins than the ones
-        plotted in the panels, the ylen_offset corrects for this.
+        The sky filter of the reconstruction; one row per band, in its order.
 
     Returns
     -------
     ypos: int
         The y-position on the panel grid.
     """
-    return sky_filter.bands[filter_key].channels.start - y_offset
+    return list(sky_filter.bands).index(filter_key)
 
 
 def get_extent(shape: NDArray, meta: DataMetaInformation) -> NDArray:
@@ -210,11 +202,7 @@ class SkyResiduals:
         )
 
         for filter_name in self.sky_filter.bands:
-            ypos = _determine_ypos(
-                filter_name,
-                self.sky_filter,
-                y_offset=self.residual_plotting_info.y_offset,
-            )
+            ypos = _determine_ypos(filter_name, self.sky_filter)
             axes[ypos, 0].set_title(f"Sky {filter_name}")
             ims[ypos, 0] = axes[ypos, 0].imshow(
                 sky[filter_name],
@@ -234,11 +222,7 @@ class SkyResiduals:
         )
 
         for filter_key in self.residual_plotting_info.filter:
-            ypos = _determine_ypos(
-                filter_key,
-                self.sky_filter,
-                y_offset=self.residual_plotting_info.y_offset,
-            )
+            ypos = _determine_ypos(filter_key, self.sky_filter)
 
             filter_data = self.residual_plotting_info.get_filter(filter_key)
             data, std, mask, builder = (
