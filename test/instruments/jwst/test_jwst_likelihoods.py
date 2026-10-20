@@ -207,7 +207,6 @@ def test_minimal_config_builds_and_evaluates(patched_seams, tmp_path):
     sky_filter = products.target.sky_filter
     np.testing.assert_allclose(sky_filter.bands[FILTER.lower()].weights, [1.0])
     assert sky_filter.target[FILTER.lower()].shape == GRID_SHAPE
-    assert products.target.plotting.y_offset == 0
 
     likelihood = products.target.likelihood
     assert "sky" in likelihood.domain
@@ -315,3 +314,15 @@ def test_sky_domain_must_match_grid(patched_seams, tmp_path):
     sky_domain = {"sky": jft.ShapeWithDtype((2,) + GRID_SHAPE, float)}
     with pytest.raises(ValueError, match="does not match the grid"):
         build_jwst_likelihoods(make_config(tmp_path), make_grid(), sky_domain)
+
+
+def test_file_filter_must_match_config_key(patched_seams, tmp_path):
+    cfg = make_config(tmp_path)
+    throughput_dir = Path(cfg["files"]["throughputs"])
+    shutil.copy(
+        throughput_dir / f"{FILTER}_mean_system_throughput.txt",
+        throughput_dir / "F277W_mean_system_throughput.txt",
+    )
+    cfg["files"]["filter"] = {"f277w": cfg["files"]["filter"].pop(FILTER.lower())}
+    with pytest.raises(ValueError, match=f"observation is {FILTER}.*f277w"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)

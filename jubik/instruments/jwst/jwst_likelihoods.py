@@ -147,6 +147,7 @@ def build_jwst_likelihoods(
 
         preload_results = preload_data(
             filepaths=filepaths,
+            filter_name=filter,
             preloader=Preloader(
                 grid_corners=grid.spatial.world_corners(
                     extension_value=sky_meta.grid_extension
