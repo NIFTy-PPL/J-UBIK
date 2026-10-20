@@ -257,12 +257,6 @@ class SpectralPolynomial(Model, HarmonicLogSpectralBehavior):
 
         raise NotImplementedError
 
-        dev_slope = (
-            jnp.sum(deviations * self.relative_log_frequencies, axis=0)
-            * self._denominator
-        )
-        return deviations - dev_slope * self.relative_log_frequencies
-
     def __call__(self, p):
         # NOTE : only needed for instantiation of the model. However, maybe
         # there is a better way !!!

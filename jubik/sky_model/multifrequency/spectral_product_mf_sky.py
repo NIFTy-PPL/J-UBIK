@@ -394,7 +394,9 @@ class SpectralProductSky(Model):
         if self.spectral_index_deviations is None:
             return 0.0
 
-        deviations = self.spectral_index_deviations(p)
+        deviations = self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
+            self.spectral_index_deviations(p)
+        )
 
         def _interpolate_1d(times_series, times, target_time):
             return jnp.interp(target_time, times, times_series)
@@ -426,7 +428,6 @@ class SpectralProductSky(Model):
             amplitude = self.spatial_amplitude(p)
         else:
             amplitude = self.spectral_amplitude(p)
-        amplitude = amplitude.at[0].set(0.0)
 
         spectral_index_mean = self.log_spectral_behavior.mean(p)
         spectral_index_fluc = self.log_spectral_behavior.fluctuations(p)
@@ -435,11 +436,14 @@ class SpectralProductSky(Model):
             p, relative_log_frequency
         )
 
+        # Deviations keep the k=0 mode, the fluctuations do not (see `__call__`).
         return (
             self._hdvol
             * self._ht(
-                amplitude[self._pd]
-                * (spectral_index_fluc * relative_log_frequency + deviations)
+                amplitude.at[0].set(0.0)[self._pd]
+                * spectral_index_fluc
+                * relative_log_frequency
+                + amplitude[self._pd] * deviations
             )
             + spectral_index_mean * relative_log_frequency
         )
