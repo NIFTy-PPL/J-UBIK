@@ -76,11 +76,15 @@ class SpectralProductSky(Model):
     .. math ::
         sky = \\exp(F[
             A_spatial * i_\\mathrm{ref}(k, \\mu_\\mathrm{ref}) +
-            A_spectral * (\\mathrm{SpectralBehavior}(k, \\mu) +
-                          \\mathrm{deviations})
+            A_spectral * \\mathrm{SpectralBehavior}(k, \\mu) +
+            A'_spectral * \\mathrm{deviations}
         ] + zero_mode),
 
     where the deviations are typically modeled by a `GaussMarkovProcess`.
+    The amplitudes :math:`A` have their k=0 mode set to zero, while
+    :math:`A'_spectral` keeps it, so the deviations can also change the
+    sky-averaged spectrum (they vanish at the reference frequency and have
+    no linear slope, so this adds no degeneracy).
     For instance, when the spectral behavior follows a spectral index model, we can
     write,
 
@@ -258,41 +262,39 @@ class SpectralProductSky(Model):
             .. math::
                     sky = \\nonlinearity(
                     F[A_spatial*io(k, \\mu_0) +
-                      A_spectral*(
-                        spectral_fluctuations(k)*(\\mu-\\mu_0)
-                        + GaussMarkovProcess(k, \\mu-\\mu_0)
+                      A_spectral*spectral_fluctuations(k)*(\\mu-\\mu_0) +
+                      A'_spectral*(
+                        GaussMarkovProcess(k, \\mu-\\mu_0)
                         - AvgSlope[GaussMarkovProcess]*(\\mu-\\mu_0)
                       )] + spectral_mean*(\\mu-\\mu_0) + zero_mode)
             where :math:`F` is the Fourier transform,
             :math:`k` is the spatial frequency index,
             :math:`\\mu` is the log spectral frequency index,
-            and `slope` represents the spectral index.
+            and :math:`A'_spectral` equals :math:`A_spectral` but keeps the
+            k=0 mode.
             """
-            if self.spectral_index_deviations is None:
-                spectral_terms = (
-                    self.log_spectral_behavior.fluctuations_with_frequencies(p)
-                )
-            else:
-                spectral_deviations = self.spectral_index_deviations(p)
-                spectral_terms = (
-                    self.log_spectral_behavior.fluctuations_with_frequencies(p)
-                    + self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
-                        spectral_deviations
-                    )
-                )
-
+            # The deviations keep the k=0 entry (`total_volume`, so `hdvol * ht`
+            # maps their k=0 excitation to a constant offset): the sky-averaged
+            # spectrum may then deviate from a power law.
             if self.spectral_amplitude is None:
-                cf_values = self._hdvol * vmap(self._ht)(
-                    spat_amplitude[self._pd] * (spatial_reference + spectral_terms)
-                )
+                dev_amplitude = self.spatial_amplitude(p)
+                spec_amplitude = spat_amplitude
             else:
-                spec_amplitude = self.spectral_amplitude(p)
-                spec_amplitude = spec_amplitude.at[0].set(0.0)
+                dev_amplitude = self.spectral_amplitude(p)
+                spec_amplitude = dev_amplitude.at[0].set(0.0)
 
-                cf_values = self._hdvol * vmap(self._ht)(
-                    spat_amplitude[self._pd] * spatial_reference
-                    + spec_amplitude[self._pd] * spectral_terms
+            harmonic_values = (
+                spat_amplitude[self._pd] * spatial_reference
+                + spec_amplitude[self._pd]
+                * self.log_spectral_behavior.fluctuations_with_frequencies(p)
+            )
+            if self.spectral_index_deviations is not None:
+                harmonic_values += dev_amplitude[
+                    self._pd
+                ] * self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
+                    self.spectral_index_deviations(p)
                 )
+            cf_values = self._hdvol * vmap(self._ht)(harmonic_values)
 
             spectral_mean = self.log_spectral_behavior.mean_with_frequencies(p)
             if self.log_ref_freq_mean_model is None:
@@ -355,7 +357,6 @@ class SpectralProductSky(Model):
             amplitude = self.spatial_amplitude(p)
         else:
             amplitude = self.spectral_amplitude(p)
-        amplitude = amplitude.at[0].set(0.0)
         spectral_deviations = (
             self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
                 self.spectral_index_deviations(p)
@@ -370,23 +371,20 @@ class SpectralProductSky(Model):
             amplitude = self.spatial_amplitude(p)
         else:
             amplitude = self.spectral_amplitude(p)
-        amplitude = amplitude.at[0].set(0.0)
 
-        deviations = 0.0
+        # Deviations keep the k=0 mode, the fluctuations do not (see `__call__`).
+        harmonic_values = amplitude.at[0].set(0.0)[
+            self._pd
+        ] * self.log_spectral_behavior.fluctuations_with_frequencies(p)
         if self.spectral_index_deviations is not None:
-            deviations = (
-                self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
-                    self.spectral_index_deviations(p)
-                )
+            harmonic_values += amplitude[
+                self._pd
+            ] * self.log_spectral_behavior.remove_degeneracy_of_spectral_deviations(
+                self.spectral_index_deviations(p)
             )
 
-        spectral_fluc = self.log_spectral_behavior.fluctuations_with_frequencies(p)
         spectral_mean = self.log_spectral_behavior.mean_with_frequencies(p)
-        return (
-            self._hdvol
-            * vmap(self._ht)(amplitude[self._pd] * (spectral_fluc + deviations))
-            + spectral_mean
-        )
+        return self._hdvol * vmap(self._ht)(harmonic_values) + spectral_mean
 
     def _get_deviations_at_relative_log_freqency(self, p, relative_log_frequency):
         """Convenience method to retrieve the model's deviations at

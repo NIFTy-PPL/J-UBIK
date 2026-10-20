@@ -43,7 +43,7 @@ import jubik as ju
 
 shape = (256,) * 2
 distances = 0.1
-freqs, reference_frequency_index = jnp.array((0.1, 1.5, 2, 10)), 1
+freqs, reference_frequency_index = jnp.linspace(0.0, 2.5, 8), 3
 
 # %% [markdown]
 # ### Random Seed
@@ -173,7 +173,7 @@ spectral_idx_settings = dict(
 # %%
 deviations_settings = dict(
     process="wiener",
-    sigma=(0.2, 0.08),
+    sigma=(0.5, 0.1),
 )
 
 # %% [markdown]
@@ -259,20 +259,80 @@ ju.plot_result(
 # %%
 ju.plot_result(
     mf_model.spectral_deviations_distribution(random_pos),
-    n_rows=1,
-    n_cols=freqs.shape[0],
-    figsize=(15, 5),
+    n_rows=2,
+    n_cols=freqs.shape[0] // 2,
+    figsize=(15, 7),
     title="Spectral deviations distribution",
 )
 
 # %%
 ju.plot_result(
     mf_model(random_pos),
-    n_rows=1,
-    n_cols=freqs.shape[0],
-    figsize=(15, 5),
+    n_rows=2,
+    n_cols=freqs.shape[0] // 2,
+    figsize=(15, 7),
     title="MF model realization",
 )
+
+# %% [markdown]
+# ### With vs. without deviations
+# To see what $I_{\delta}$ adds, we build the same model without deviations and
+# evaluate both on the **same** parameters (the model without deviations ignores the
+# extra deviation parameters).
+#
+# - **Left**: the spatially integrated spectrum $\sum_{\mathbf{x}} I(\mathbf{x}, \nu)\,\Delta A$.
+#   It can be curved even without deviations, because $\alpha(\mathbf{x})$ varies across the sky.
+# - **Middle**: the spatial mean of $\log I(\mathbf{x}, \nu)$ versus $\log \nu$.
+#   Without deviations this is exactly a straight line with slope equal to the mean spectral index;
+#   the deviations can bend it.
+# - **Right**: the same mean minus its best-fit straight line, which makes the bend easy to see
+#   (it is zero without deviations).
+
+# %%
+import matplotlib.pyplot as plt
+
+mf_model_no_dev = ju.build_simple_spectral_sky(
+    prefix="test",
+    shape=shape,
+    distances=distances,
+    log_frequencies=freqs,
+    reference_frequency_index=reference_frequency_index,
+    zero_mode_settings=zero_mode_settings,
+    spatial_amplitude_settings=amplitude_settings,
+    spectral_index_settings=spectral_idx_settings,
+    deviations_settings=None,
+    spatial_amplitude_model=amplitude_model,
+    spectral_amplitude_settings=spectral_amplitude_settings,
+    spectral_amplitude_model=spectral_amplitude_model,
+)
+
+fig, (ax_int, ax_log, ax_res) = plt.subplots(1, 3, figsize=(16, 4))
+for label, sky in [
+    ("with deviations", mf_model(random_pos)),
+    ("without deviations", mf_model_no_dev(random_pos)),
+]:
+    mean_log = jnp.log(sky).mean(axis=(1, 2))
+    ax_int.loglog(jnp.exp(freqs), sky.sum(axis=(1, 2)) * distances**2, "o-", label=label)
+    ax_log.plot(freqs, mean_log, "o-", label=label)
+    ax_res.plot(freqs, mean_log - jnp.polyval(jnp.polyfit(freqs, mean_log, 1), freqs), "o-", label=label)
+ax_int.set(
+    title="Spatially integrated brightness",
+    xlabel=r"Frequency $\nu$",
+    ylabel=r"$\sum_x I(x, \nu)\, \Delta A$",
+)
+ax_log.set(
+    title="Spatial mean of log brightness",
+    xlabel=r"$\log \nu$",
+    ylabel=r"$\langle \log I(x, \nu) \rangle_x$",
+)
+ax_res.set(
+    title="Mean log brightness minus best-fit line",
+    xlabel=r"$\log \nu$",
+    ylabel=r"$\langle \log I \rangle_x - \mathrm{line}$",
+)
+ax_int.legend()
+plt.tight_layout()
+plt.show()
 
 # %% [markdown]
 # ## Interpretation and Next Steps

@@ -561,3 +561,58 @@ def test_spectral_amplitude_ignored_normalization_log(monkeypatch, ignored_key):
         assert ignored == []
     else:
         assert len(ignored) == 1 and f"spectral_amplitude.{ignored_key}" in ignored[0]
+
+
+@pmp("harmonic_type, shape", [("fourier", (8, 8)), ("spherical", (4,))])
+@pmp("separate_spectral_amplitude", [False, True])
+@pmp("with_deviations", [False, True])
+def test_deviations_free_sky_averaged_spectrum(
+    harmonic_type, shape, separate_spectral_amplitude, with_deviations
+):
+    amplitude_settings = dict(
+        fluctuations=(0.5, 0.01),
+        loglogavgslope=(-3.0, 0.1),
+        flexibility=None,
+        asperity=None,
+    )
+    log_frequencies = np.array((0.1, 0.4, 0.8, 1.5, 2.0))
+    model = ju.build_simple_spectral_sky(
+        prefix="zm_test",
+        shape=shape,
+        distances=(0.1,) * len(shape),
+        log_frequencies=log_frequencies,
+        reference_frequency_index=1,
+        zero_mode_settings=(0.0, 1.0),
+        spatial_amplitude_settings=amplitude_settings,
+        spectral_index_settings=dict(mean=(0.0, 1.0), fluctuations=(0.5, 0.01)),
+        spectral_amplitude_settings=(
+            amplitude_settings if separate_spectral_amplitude else None
+        ),
+        deviations_settings=(
+            dict(process="wiener", sigma=(1.0, 0.1)) if with_deviations else None
+        ),
+        harmonic_type=harmonic_type,
+    )
+    p = model.init(random.PRNGKey(7))
+    log_sky = np.log(model(p))
+
+    # The helpers stay consistent with the forward model.
+    assert_allclose(
+        np.log(model.reference_frequency_distribution(p))
+        + model.spectral_distribution(p),
+        log_sky,
+        rtol=1e-6,
+        atol=1e-6,
+    )
+
+    # Spatial mean of log sky vs. log frequency: a straight line only without
+    # deviations (the deviations' k=0 mode can bend the averaged spectrum).
+    mean_log_spectrum = log_sky.reshape(log_frequencies.size, -1).mean(axis=1)
+    design = np.stack([np.ones_like(log_frequencies), log_frequencies], axis=1)
+    residual = mean_log_spectrum - design @ np.linalg.lstsq(
+        design, mean_log_spectrum, rcond=None
+    )[0]
+    if with_deviations:
+        assert np.max(np.abs(residual)) > 1e-3
+    else:
+        assert_allclose(residual, 0.0, atol=1e-6)
