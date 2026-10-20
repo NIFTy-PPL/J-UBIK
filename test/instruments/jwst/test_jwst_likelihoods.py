@@ -61,6 +61,8 @@ class FakeJwstData(JwstData):
                 date="2023-01-01T00:00:00.000",
                 pointing=SimpleNamespace(ra_v1=CENTER.ra.deg, dec_v1=CENTER.dec.deg),
                 wcsinfo=SimpleNamespace(ra_ref=CENTER.ra.deg, dec_ref=CENTER.dec.deg),
+                instrument=SimpleNamespace(detector="NRCALONG"),
+                subarray=SimpleNamespace(xstart=1, ystart=1),
             ),
         )
         self.wcs = WcsAstropy(
@@ -181,7 +183,7 @@ def test_minimal_config_builds_and_evaluates(patched_seams, tmp_path):
 
     saved = list((tmp_path / "psf_library").glob("*.npy"))
     assert len(saved) == 1
-    assert "nircam_f444w" in saved[0].name and saved[0].name.endswith("sub2.npy")
+    assert saved[0].name.startswith("nircam_f444w_nrcalong_")
 
 
 def test_two_files_share_bounds(patched_seams, tmp_path):
