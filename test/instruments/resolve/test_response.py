@@ -1,12 +1,17 @@
 import jax
-import jax, numpy as jnp
+import numpy as jnp
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from astropy.constants import c
 import jubik as ju
 import jubik.instruments.resolve as rve
+from jubik.instruments.resolve.response import (
+    interferometry_response_ducc,
+    interferometry_response_finufft,
+)
 
 from generate_test_obs import generate_random_obs
 
@@ -19,7 +24,8 @@ def setup_grid_obs_response(pol_sky, pol_channels, freqs):
     pol_type_sky = ju.polarization.PolarizationType(pol_sky)
     pol_type_data = ju.polarization.PolarizationType(pol_channels)
     obs = generate_random_obs(
-        freqs, 50, [-1e2, 1e2], [-5, 5], pol_type_data, fraction_flagged=0.3
+        freqs, 50, [-1e2, 1e2], [-5, 5], pol_type_data, fraction_flagged=0.3,
+        rng=np.random.default_rng(42),
     )
     sky_center = SkyCoord(ra=np.nan * u.Unit("rad"), dec=np.nan * u.Unit("rad"))
     fov = u.Quantity((u.Quantity("1deg"), u.Quantity("1.5deg")))
@@ -38,12 +44,6 @@ def setup_grid_obs_response(pol_sky, pol_channels, freqs):
     return grid, obs, r_ducc, r_finufft
 
 
-from jubik.instruments.resolve.response import (
-    interferometry_response_ducc,
-    interferometry_response_finufft,
-)
-
-
 @pmp("freqs", (np.array([1e9]), np.array([1e9, 1.3e9, 2e9])))
 @pmp(
     "center_pixels",
@@ -58,18 +58,22 @@ def test_ducc_finufft_backend_consistency(freqs, center_pixels):
     npix_x, npix_y = 32, 40
     pixsize_x = fov[0].to_value(u.radian) / npix_x
     pixsize_y = fov[1].to_value(u.radian) / npix_y
+    # Approach Nyquist at the highest frequency while staying inside both axes.
+    uv_limit = 0.98 * c.value / (2 * max(pixsize_x, pixsize_y) * max(freqs))
 
     pol = ju.polarization.PolarizationType(("I",))
     obs = generate_random_obs(
         freqs=freqs,
         n_rows=20,
-        uv_range=[-1e2, 1e2],
+        uv_range=[-uv_limit, uv_limit],
         # FINUFFT requires coplanar arrays thus w=0
         w_range=[0.0, 0.0],
         polarization_type=pol,
+        rng=rng,
     )
 
-    epsilon = 1e-10
+    # Leave margin between kernel accuracy and the comparison tolerance.
+    epsilon = 1e-12
     # Separate axis shifts expose phase-sign errors and swapped center axes.
     center_x = center_pixels[0] * pixsize_x
     center_y = center_pixels[1] * pixsize_y
@@ -105,9 +109,11 @@ def test_ducc_finufft_backend_consistency(freqs, center_pixels):
     vis_ducc = response_ducc(image)
     vis_finufft = response_finufft(image)
 
-    assert vis_ducc.shape == (20, len(freqs))
+    assert vis_ducc.shape == obs.vis.shape[1:]
     assert vis_finufft.shape == vis_ducc.shape
-    assert_allclose(vis_ducc, vis_finufft, rtol=1e-9, atol=1e-9)
+    # Remove the pixel-area factor so atol measures transform accuracy.
+    vol = pixsize_x * pixsize_y
+    assert_allclose(vis_ducc / vol, vis_finufft / vol, rtol=1e-9, atol=1e-9)
 
 
 @pmp("pol_sky", (("I",), ("I", "Q", "U", "V")))
@@ -120,7 +126,7 @@ def test_response_ducc_finufft_consistency(pol_sky, pol_channels, freqs):
         pytest.skip("Only stokes I sky.")
     grid, obs, r_ducc, r_finufft = setup_grid_obs_response(pol_sky, pol_channels, freqs)
 
-    sky = np.random.normal(size=grid.shape)
+    sky = np.random.default_rng(42).normal(size=grid.shape)
     res_ducc = r_ducc(sky)
     res_finufft = r_finufft(sky)
 
@@ -160,7 +166,7 @@ def stokes_to_linear(iquv):
 def test_response_StokesIQUV(freqs, circular):
     pol_sky = ("I", "Q", "U", "V")
     # TODO: Remove this construction once stokes_adder is tested
-    pre_stokes_source = np.random.normal(size=4)
+    pre_stokes_source = np.random.default_rng(42).normal(size=4)
     p = np.sqrt(np.sum(pre_stokes_source[1:] ** 2))
     pre_i = np.cosh(p)
     pre_quv = pre_stokes_source[1:] * np.sinh(p) / p
