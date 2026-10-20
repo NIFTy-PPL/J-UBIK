@@ -117,6 +117,21 @@ def test_ducc_finufft_backend_consistency(freqs, center_pixels):
     vol = pixsize_x * pixsize_y
     assert_allclose(vis_ducc / vol, vis_finufft / vol, rtol=1e-9, atol=1e-9)
 
+    # The sky is real: its adjoint uses the real part of the complex pairing.
+    y = jnp.asarray(rng.normal(size=vis_ducc.shape) + 1j * rng.normal(size=vis_ducc.shape))
+    gradients = []
+    for response in (response_ducc, response_finufft):
+        normalized = lambda x: response(x) / vol
+        values, pullback = jax.vjp(normalized, image)
+        adjoint_y = pullback(jnp.conj(y))[0]
+        assert_allclose(
+            jnp.real(jnp.vdot(values, y)), jnp.vdot(image, adjoint_y),
+            rtol=1e-10, atol=1e-9,
+        )
+        loss = lambda x: 0.5 * jnp.sum(jnp.abs(normalized(x) - y) ** 2)
+        gradients.append(jax.jit(jax.grad(loss))(image))
+    assert_allclose(gradients[0], gradients[1], rtol=1e-9, atol=1e-7)
+
 
 @pmp(
     "center_kwargs",
