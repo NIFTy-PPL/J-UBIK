@@ -616,3 +616,34 @@ def test_deviations_free_sky_averaged_spectrum(
         assert np.max(np.abs(residual)) > 1e-3
     else:
         assert_allclose(residual, 0.0, atol=1e-6)
+
+
+def test_distribution_at_relative_log_frequency_matches_model():
+    import jax
+
+    with jax.enable_x64(True):
+        model = ju.build_simple_spectral_sky(
+            prefix="interp_test",
+            shape=(8, 8),
+            distances=(1.0, 1.0),
+            log_frequencies=np.log(np.array((1.0, 2.0, 3.0, 5.0, 8.0))),
+            reference_frequency_index=2,
+            zero_mode_settings=(0.0, 0.1),
+            spatial_amplitude_settings=dict(
+                fluctuations=(1.0, 0.02),
+                loglogavgslope=(-4.0, 0.1),
+                flexibility=None,
+                asperity=None,
+            ),
+            spectral_index_settings=dict(mean=(0.0, 1.0), fluctuations=(0.5, 0.05)),
+            deviations_settings=dict(process="wiener", sigma=(1.0, 0.1)),
+        )
+        p = model.init(random.PRNGKey(3))
+        sky = model(p)
+        rel = model.log_spectral_behavior.relative_log_frequencies.reshape(-1)
+        for i, r in enumerate(rel):
+            assert_allclose(
+                model.get_distribution_at_relative_log_frequency(p, r),
+                sky[i],
+                rtol=1e-10,
+            )

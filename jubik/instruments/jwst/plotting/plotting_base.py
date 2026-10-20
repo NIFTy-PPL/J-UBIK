@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import nifty.re as jft
 import numpy as np
 
-from ....sky_model.multifrequency.spectral_product_mf_sky import SpectralProductSky
 from ..parse.plotting import FieldPlottingConfig
 from ..rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectedShiftAndRotation,
