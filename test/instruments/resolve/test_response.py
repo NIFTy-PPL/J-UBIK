@@ -1,5 +1,5 @@
 import jax
-import numpy as jnp
+import jax.numpy as jnp
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
@@ -106,8 +106,10 @@ def test_ducc_finufft_backend_consistency(freqs, center_pixels):
         dtype=jnp.float64,
     )
 
-    vis_ducc = response_ducc(image)
-    vis_finufft = response_finufft(image)
+    vis_ducc = jax.jit(response_ducc)(image)
+    vis_finufft = jax.jit(response_finufft)(image)
+    assert_allclose(vis_ducc, response_ducc(image), rtol=1e-12, atol=1e-15)
+    assert_allclose(vis_finufft, response_finufft(image), rtol=1e-12, atol=1e-15)
 
     assert vis_ducc.shape == obs.vis.shape[1:]
     assert vis_finufft.shape == vis_ducc.shape
