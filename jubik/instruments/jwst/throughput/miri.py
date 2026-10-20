@@ -5,44 +5,36 @@
 
 # %
 
-"""MIRI filter weights from a half-power tophat.
+"""MIRI throughput curves: a half-power tophat for now.
 
-No MIRI throughput curves are packaged yet, so ``miri_filter_weights`` uses a
+No MIRI throughput curves are wired up yet, so ``miri_throughput`` returns a
 unit tophat over the half-power range in ``miri_filters`` and logs a warning.
-When STScI curves get packaged they replace the tophat here, nothing else
+When STScI curves get wired up they replace the tophat here, nothing else
 changes.
 """
 
 import numpy as np
+from astropy import units as u
 from nifty.re import logger
 
-from ....color import Color
-from ....sky_filter import FilterWeights
 from ..data.jwst_information import miri_filters
-from .weights import MAX_MISSING, throughput_weights
+from .weights import Throughput
 
-__all__ = ["miri_filter_weights"]
+__all__ = ["miri_throughput"]
 
 
-def miri_filter_weights(
-    spectral: Color, filter_name: str, max_missing: float = MAX_MISSING
-) -> FilterWeights:
-    """Weights of a MIRI filter on the sky channels, from its half-power range.
+def miri_throughput(filter_name: str) -> Throughput:
+    """A MIRI filter's curve: a unit tophat over its half-power range.
 
     Parameters
     ----------
-    spectral : Color
-        Sky channel bounds.
     filter_name : str
         MIRI filter name, case-insensitive, e.g. "F560W".
-    max_missing : float
-        See `throughput_weights`.
 
     Returns
     -------
-    FilterWeights
-        Photon-weighted integrals of a unit tophat over the half-power range,
-        logged as a warning.
+    Throughput
+        The two tophat corners with throughput one, logged as a warning.
 
     Raises
     ------
@@ -53,7 +45,5 @@ def miri_filter_weights(
     if name not in miri_filters:
         raise KeyError(f"{name}: not a MIRI filter")
     _, _, _, blue, red = miri_filters[name]
-    logger.warning(f"{name}: no throughput curve packaged, half-power tophat")
-    return throughput_weights(
-        spectral, np.array([blue, red]), np.ones(2), max_missing, name
-    )
+    logger.warning(f"{name}: no throughput curve available, half-power tophat")
+    return Throughput([blue, red] * u.um, np.ones(2))

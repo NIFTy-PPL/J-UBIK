@@ -6,18 +6,12 @@ import numpy as np
 import pytest
 from astropy import units as u
 
-from jubik.color import Color
 from jubik.instruments.jwst.throughput.nircam import (
     download_nircam_throughputs,
-    nircam_filter_weights,
+    nircam_throughput,
 )
 
 SUFFIX = "_mean_system_throughput.txt"
-
-
-def _edges(edges) -> Color:
-    edges = np.asarray(edges, float)
-    return Color(np.c_[edges[:-1], edges[1:]] * u.um)
 
 
 def _write_curve(directory, name, wavelength_um, throughput):
@@ -30,32 +24,24 @@ def _write_curve(directory, name, wavelength_um, throughput):
     )
 
 
-def _f444w_like(directory):
-    """Smooth curve 3.7 to 5.1 um in the STScI file format."""
+def test_curve_from_the_file(tmp_path):
     wavelength_um = np.linspace(3.7, 5.1, 141)
     throughput = 0.5 * np.sin(np.pi * (wavelength_um - 3.7) / 1.4) ** 2
-    _write_curve(directory, "F444W", wavelength_um, throughput)
-
-
-def test_weights_from_the_curve_file(tmp_path):
-    _f444w_like(tmp_path)
-    band = nircam_filter_weights(_edges(np.linspace(3.7, 5.1, 5)), "f444w", tmp_path)
-    w = band.weights
-    assert band.channels == slice(0, 4) and w.shape == (4,)
-    np.testing.assert_allclose(w.sum(), 1.0, rtol=1e-12)
-    assert min(w[1], w[2]) > max(w[0], w[3])
-    with pytest.raises(ValueError, match="F444W"):  # red half uncovered
-        nircam_filter_weights(_edges(np.linspace(3.7, 4.4, 3)), "F444W", tmp_path)
+    _write_curve(tmp_path, "F444W", wavelength_um, throughput)
+    curve = nircam_throughput("f444w", tmp_path)
+    assert curve.wavelength.unit == u.um
+    np.testing.assert_allclose(curve.wavelength.value, wavelength_um)
+    np.testing.assert_allclose(curve.throughput, throughput)
 
 
 def test_missing_curve_names_the_download(tmp_path):
     with pytest.raises(FileNotFoundError, match="F444W.*--download"):
-        nircam_filter_weights(_edges([3.7, 5.1]), "F444W", tmp_path)
+        nircam_throughput("F444W", tmp_path)
 
 
 def test_non_nircam_filter_raises(tmp_path):
     with pytest.raises(KeyError, match="F560W"):
-        nircam_filter_weights(_edges([5.0, 6.2]), "F560W", tmp_path)
+        nircam_throughput("F560W", tmp_path)
 
 
 def test_download_unpacks_the_mean_curves(tmp_path):
@@ -92,10 +78,9 @@ def test_download_unpacks_the_mean_curves(tmp_path):
         f"F150W{SUFFIX}",
         f"F200W{SUFFIX}",
     ]
-    band = nircam_filter_weights(_edges([1.0, 1.5, 2.0]), "F150W", dest)
-    np.testing.assert_allclose(
-        band.weights, np.log([1.5, 2.0 / 1.5]) / np.log(2.0), rtol=1e-6
-    )
+    curve = nircam_throughput("F200W", dest)
+    np.testing.assert_allclose(curve.wavelength.to_value(u.um), [1.5, 2.5])
+    np.testing.assert_allclose(curve.throughput, [1.0, 1.0])
 
     empty = tmp_path / "empty.tar.gz"
     with tarfile.open(empty, "w:gz") as tar:

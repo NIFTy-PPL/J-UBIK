@@ -9,13 +9,13 @@
 
 ``jwst_filter_weights(spectral, filter_name, throughput_dir)`` is what
 ``build_jwst_likelihoods`` calls for every filter in the config: the
-``FilterWeights`` that ``jubik.sky_filter.SkyFilter`` takes. It only decides
-which instrument the filter belongs to. ``nircam`` reads the STScI curve from
-``throughput_dir`` (the config's ``files.throughputs``, downloaded once with
+``FilterWeights`` that ``jubik.sky_filter.SkyFilter`` takes. It fetches the
+filter's throughput curve from the instrument module and integrates it.
+``nircam`` reads the STScI curve from ``throughput_dir`` (the config's
+``files.throughputs``, downloaded once with
 ``python -m jubik.instruments.jwst.throughput.nircam --download <dir>``),
-``miri`` builds a half-power tophat, and both hand their curve to
-``weights.throughput_weights``, the photon-counting F_nu integral every JWST
-filter goes through.
+``miri`` builds a half-power tophat, and ``weights.throughput_weights`` is the
+photon-counting F_nu integral every JWST filter goes through.
 """
 
 from pathlib import Path
@@ -23,24 +23,18 @@ from pathlib import Path
 from ....color import Color
 from ....sky_filter import FilterWeights
 from ..data.jwst_information import miri_filters, nircam_filters
-from .miri import miri_filter_weights
-from .nircam import download_nircam_throughputs, nircam_filter_weights
+from .miri import miri_throughput
+from .nircam import download_nircam_throughputs, nircam_throughput
 from .weights import MAX_MISSING, throughput_weights
 
-__all__ = [
-    "MAX_MISSING",
-    "download_nircam_throughputs",
-    "jwst_filter_weights",
-    "miri_filter_weights",
-    "nircam_filter_weights",
-    "throughput_weights",
-]
+__all__ = ["download_nircam_throughputs", "jwst_filter_weights"]
 
 
 def jwst_filter_weights(
     spectral: Color,
     filter_name: str,
     throughput_dir: str | Path | None = None,
+    *,
     max_missing: float = MAX_MISSING,
 ) -> FilterWeights:
     """Weights of a JWST filter on the sky channels.
@@ -60,15 +54,16 @@ def jwst_filter_weights(
     Returns
     -------
     FilterWeights
-        `nircam_filter_weights` for a NIRCam filter, `miri_filter_weights` for
-        a MIRI filter.
+        `throughput_weights` of the filter's curve: `nircam_throughput` for a
+        NIRCam filter, `miri_throughput` for a MIRI filter.
 
     Raises
     ------
     KeyError
         The name is neither a NIRCam nor a MIRI filter.
     ValueError
-        A NIRCam filter without ``throughput_dir``.
+        A NIRCam filter without ``throughput_dir``, or what
+        `throughput_weights` raises.
     """
     name = filter_name.upper()
     if name in nircam_filters:
@@ -78,7 +73,9 @@ def jwst_filter_weights(
                 "STScI curves (config files.throughputs); download them with "
                 "python -m jubik.instruments.jwst.throughput.nircam --download <dir>"
             )
-        return nircam_filter_weights(spectral, name, throughput_dir, max_missing)
-    if name in miri_filters:
-        return miri_filter_weights(spectral, name, max_missing)
-    raise KeyError(f"{name}: not a NIRCam or MIRI filter")
+        curve = nircam_throughput(name, throughput_dir)
+    elif name in miri_filters:
+        curve = miri_throughput(name)
+    else:
+        raise KeyError(f"{name}: not a NIRCam or MIRI filter")
+    return throughput_weights(spectral, curve, max_missing=max_missing, name=name)

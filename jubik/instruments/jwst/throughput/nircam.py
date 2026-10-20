@@ -5,7 +5,7 @@
 
 # %
 
-"""NIRCam filter weights from the STScI mean system throughput curves.
+"""NIRCam throughput curves from the STScI mean system throughput release.
 
 The curves are not shipped with jubik; like the data they are provided by the
 user. Download the STScI release once with
@@ -16,8 +16,8 @@ which fetches ``NIRCAM_THROUGHPUTS_URL`` (release
 ``nircam_throughputs_4Nov2022_v5``) and unpacks its
 ``<FILTER>_mean_system_throughput.txt`` files into ``throughput_dir``. The jwst
 config names that directory under ``files.throughputs``, and
-``nircam_filter_weights(spectral, filter_name, throughput_dir)`` reads the
-filter's curve from it and hands it to ``throughput_weights``.
+``nircam_throughput(filter_name, throughput_dir)`` reads a filter's curve
+from it.
 """
 
 import argparse
@@ -28,20 +28,19 @@ import urllib.request
 from pathlib import Path
 
 import numpy as np
+from astropy import units as u
 
-from ....color import Color
-from ....sky_filter import FilterWeights
 from ..data.jwst_information import nircam_filters
-from .weights import MAX_MISSING, throughput_weights
+from .weights import Throughput
 
 __all__ = [
     "NIRCAM_THROUGHPUTS_URL",
     "download_nircam_throughputs",
-    "nircam_filter_weights",
+    "nircam_throughput",
 ]
 
 # --------------------------------------------------------------------------- #
-# Public: a NIRCam filter's weights and the STScI release download
+# Public: a NIRCam filter's curve and the STScI release download
 # --------------------------------------------------------------------------- #
 
 # https://jwst-docs.stsci.edu/jwst-near-infrared-camera/nircam-instrumentation/nircam-filters
@@ -51,30 +50,21 @@ NIRCAM_THROUGHPUTS_URL = (
 )
 
 
-def nircam_filter_weights(
-    spectral: Color,
-    filter_name: str,
-    throughput_dir: str | Path,
-    max_missing: float = MAX_MISSING,
-) -> FilterWeights:
-    """Weights of a NIRCam filter on the sky channels, from its STScI curve.
+def nircam_throughput(filter_name: str, throughput_dir: str | Path) -> Throughput:
+    """A NIRCam filter's mean system throughput curve from the STScI file.
 
     Parameters
     ----------
-    spectral : Color
-        Sky channel bounds.
     filter_name : str
         NIRCam filter name, case-insensitive, e.g. "F444W".
     throughput_dir : str | Path
         Directory holding ``<FILTER>_mean_system_throughput.txt``, see
         `download_nircam_throughputs`.
-    max_missing : float
-        See `throughput_weights`.
 
     Returns
     -------
-    FilterWeights
-        Photon-weighted integrals of the filter's mean system throughput curve.
+    Throughput
+        The curve samples from the file.
 
     Raises
     ------
@@ -91,10 +81,11 @@ def nircam_filter_weights(
         raise FileNotFoundError(
             f"{path}: no throughput curve for {name}; download the STScI release "
             f"with python -m jubik.instruments.jwst.throughput.nircam --download "
-            f"{throughput_dir}"
+            f"'{throughput_dir}'"
         )
-    wavelength_um, throughput = _read_curve(path)
-    return throughput_weights(spectral, wavelength_um, throughput, max_missing, name)
+    # one header line "Microns Throughput", then two columns
+    wavelength_um, throughput = np.loadtxt(path, skiprows=1, unpack=True)
+    return Throughput(wavelength_um * u.um, throughput)
 
 
 def download_nircam_throughputs(
@@ -129,28 +120,11 @@ def download_nircam_throughputs(
 
 
 # --------------------------------------------------------------------------- #
-# Internals: the STScI file format
+# Internals: the STScI release layout
 # --------------------------------------------------------------------------- #
 
 _CURVE_SUFFIX = "_mean_system_throughput.txt"
 _MEAN_DIR = "mean_throughputs"
-
-
-def _read_curve(path: Path) -> tuple[np.ndarray, np.ndarray]:
-    """Wavelengths (microns) and throughput of one STScI ASCII curve.
-
-    Parameters
-    ----------
-    path : Path
-        File with the header line "Microns Throughput" and two columns.
-
-    Returns
-    -------
-    tuple[np.ndarray, np.ndarray]
-        ``(wavelength_um, throughput)``.
-    """
-    wavelength_um, throughput = np.loadtxt(path, skiprows=1, unpack=True)
-    return wavelength_um, throughput
 
 
 def _unpack_mean_curves(archive: Path, throughput_dir: Path) -> int:
