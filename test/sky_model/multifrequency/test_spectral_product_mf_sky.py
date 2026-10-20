@@ -524,3 +524,40 @@ def test_build_simple_healpix_spectral_product_sky_forward():
 
     assert sky.shape == (log_frequencies.size, 12 * nside**2)
     assert np.all(np.isfinite(np.asarray(sky)))
+
+
+@pmp("ignored_key", [None, "fluctuations"])
+def test_spectral_amplitude_ignored_normalization_log(monkeypatch, ignored_key):
+    from jubik.sky_model.multifrequency import spectral_product_mf_sky
+
+    messages = []
+    monkeypatch.setattr(spectral_product_mf_sky.logger, "info", messages.append)
+
+    spectral_amplitude_settings = dict(
+        loglogavgslope=(-2.0, 0.1), flexibility=None, asperity=None
+    )
+    if ignored_key is not None:
+        spectral_amplitude_settings[ignored_key] = (1.0, 0.02)
+
+    ju.build_simple_spectral_sky(
+        prefix="log_test",
+        shape=(8, 8),
+        distances=(1.0, 1.0),
+        log_frequencies=np.array((0.1, 0.2, 0.6)),
+        reference_frequency_index=0,
+        zero_mode_settings=(0.0, 0.1),
+        spatial_amplitude_settings=dict(
+            fluctuations=(1.0, 0.02),
+            loglogavgslope=(-4.0, 0.1),
+            flexibility=None,
+            asperity=None,
+        ),
+        spectral_index_settings=dict(mean=(0.0, 1.0), fluctuations=(0.1, 0.01)),
+        spectral_amplitude_settings=spectral_amplitude_settings,
+    )
+
+    ignored = [m for m in messages if "is ignored" in m]
+    if ignored_key is None:
+        assert ignored == []
+    else:
+        assert len(ignored) == 1 and f"spectral_amplitude.{ignored_key}" in ignored[0]

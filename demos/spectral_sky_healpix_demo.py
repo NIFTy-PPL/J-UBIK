@@ -109,7 +109,6 @@ spatial_amplitude_settings = dict(
 )
 
 spectral_amplitude_settings = dict(
-    fluctuations=(1.0, 0.02),
     loglogavgslope=(-2.0, 0.1),
     flexibility=None,
     asperity=None,

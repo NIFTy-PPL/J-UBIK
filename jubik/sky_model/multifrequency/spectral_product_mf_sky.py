@@ -551,7 +551,9 @@ def build_simple_spectral_sky(
     spectral_amplitude_settings: dict, opt
         If `None` the spectral amplitude is the same as the spatial amplitude.
         If not `None` sets the spectral amplitude settings.
-        Should be formatted as `spatial_amplitude_settings`.
+        Should be formatted as `spatial_amplitude_settings`, but without
+        `fluctuations` (or `scale`): the strength is set by
+        `spectral_index_settings["fluctuations"]`, and any given value is ignored.
     deviations_settings: dict, opt
         Settings for the spectral index priors.
         If none deviations are not build.
@@ -614,13 +616,14 @@ def build_simple_spectral_sky(
         prefix=f"{prefix}_spectral",
         amplitude_model=spectral_amplitude_model,
     )
-    if spectral_amplitude is not None:
-        logger.info(
-            "Both `spectral_amplitude` and `spectral_index` provided."
-            "\nThe fluctuations from `spectral_amplitude` model will "
-            "be ignored. The `spectral_index` fluctuations will be "
-            "used instead."
-        )
+    # The spectral amplitude is normalized; its strength comes from `spectral_index`.
+    for key in ("fluctuations", "scale"):
+        if (spectral_amplitude_settings or {}).get(key) is not None:
+            logger.info(
+                f"`spectral_amplitude.{key}` is ignored. The spectral amplitude "
+                "only sets the correlation shape; its strength is set by "
+                "`spectral_index.fluctuations`."
+            )
 
     # NOTE : Spectral behavior (SpectralIndex)
     if spectral_index_mean is None:
