@@ -1,9 +1,11 @@
 from pathlib import Path
 
+import jax.numpy as jnp
+import nifty.re as jft
 import numpy as np
 
 import jubik as ju
-from jubik.utils import add_functions
+from jubik.utils import add_functions, add_models
 
 
 def test_pickle_roundtrip(tmp_path):
@@ -35,6 +37,19 @@ def test_add_functions_returns_sum():
 
     assert h(3) == 10
     assert h(-2) == -5
+
+
+def test_add_models_leaves_input_domains_unchanged():
+    m1 = jft.Model(lambda x: x["a"], domain={"a": jft.ShapeWithDtype((3,))})
+    m2 = jft.Model(lambda x: x["b"], domain={"b": jft.ShapeWithDtype((3,))})
+
+    total = add_models(m1, m2)
+
+    assert set(total.domain) == {"a", "b"}
+    assert set(m1.domain) == {"a"}
+    assert set(m2.domain) == {"b"}
+    x = {"a": jnp.ones(3), "b": 2 * jnp.ones(3)}
+    np.testing.assert_allclose(total(x), 3 * np.ones(3))
 
 
 def test_get_stats_matches_known_mean_and_std():
