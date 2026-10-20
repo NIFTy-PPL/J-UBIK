@@ -13,17 +13,20 @@ def generate_random_obs(
     ant1=None,
     ant2=None,
     times=None,
+    rng=None,
 ):
+    # Preserve np.random.seed behavior for existing callers.
+    rng = np.random if rng is None else rng
     n_pol = len(polarization_type)
     vis_shape = (n_pol, n_rows, len(freqs))
-    vis = np.random.normal(size=vis_shape) + 1j * np.random.normal(size=vis_shape)
-    weight = np.random.uniform(weight_range[0], weight_range[1], size=vis_shape)
-    u = np.random.uniform(*uv_range, size=n_rows)
-    v = np.random.uniform(*uv_range, size=n_rows)
-    w = np.random.uniform(*w_range, size=n_rows)
+    vis = rng.normal(size=vis_shape) + 1j * rng.normal(size=vis_shape)
+    weight = rng.uniform(weight_range[0], weight_range[1], size=vis_shape)
+    u = rng.uniform(*uv_range, size=n_rows)
+    v = rng.uniform(*uv_range, size=n_rows)
+    w = rng.uniform(*w_range, size=n_rows)
     uvw = np.stack([u, v, w]).T
     flagged = np.where(
-        np.random.uniform(0, 1, size=vis_shape) < fraction_flagged, True, False
+        rng.uniform(0, 1, size=vis_shape) < fraction_flagged, True, False
     )
     weight[flagged] = 0
     pol = polarization_type.get_legacy_polarization()
