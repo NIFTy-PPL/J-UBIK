@@ -154,7 +154,7 @@ def test_finufft_missing_phase_center_skips_shift(center_kwargs):
     zero_response = interferometry_response_finufft(
         **kwargs, center_x=0.0, center_y=0.0
     )
-    image = rng.normal(size=(32, 40))
+    image = jnp.asarray(rng.normal(size=(32, 40)))
 
     assert_allclose(default_response(image), zero_response(image), rtol=0, atol=0)
 
@@ -169,9 +169,9 @@ def test_response_ducc_finufft_consistency(pol_sky, pol_channels, freqs):
         pytest.skip("Only stokes I sky.")
     grid, obs, r_ducc, r_finufft = setup_grid_obs_response(pol_sky, pol_channels, freqs)
 
-    sky = np.random.default_rng(42).normal(size=grid.shape)
-    res_ducc = r_ducc(sky)
-    res_finufft = r_finufft(sky)
+    sky = jnp.asarray(np.random.default_rng(42).normal(size=grid.shape))
+    res_ducc = jax.jit(r_ducc)(sky)
+    res_finufft = jax.jit(r_finufft)(sky)
 
     assert_allclose(res_ducc, res_finufft, rtol=1e-9, atol=1e-9)
 
