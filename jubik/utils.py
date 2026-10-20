@@ -62,9 +62,8 @@ def add_models(m1, m2):
     -------
     sum: jft.Model
     """
-    domain = m1.domain
-    domain.update(m2.domain)
-    return jft.Model(lambda x: m1(x) + m2(x), domain=domain)
+    # a new dict: updating m1.domain in place would add m2's keys to m1
+    return jft.Model(lambda x: m1(x) + m2(x), domain=m1.domain | m2.domain)
 
 
 def add_functions(f1, f2):
