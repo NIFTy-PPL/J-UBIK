@@ -64,7 +64,8 @@ def nircam_throughput(filter_name: str, throughput_dir: str | Path) -> Throughpu
     Returns
     -------
     Throughput
-        The curve samples from the file.
+        The curve samples from the file. Samples below zero by less than
+        ``1e-3`` are interpolation noise in the release and are set to zero.
 
     Raises
     ------
@@ -72,6 +73,8 @@ def nircam_throughput(filter_name: str, throughput_dir: str | Path) -> Throughpu
         Not a NIRCam filter.
     FileNotFoundError
         The filter's curve is not in ``throughput_dir``.
+    ValueError
+        A sample below ``-1e-3``.
     """
     name = filter_name.upper()
     if name not in nircam_filters:
@@ -85,7 +88,14 @@ def nircam_throughput(filter_name: str, throughput_dir: str | Path) -> Throughpu
         )
     # one header line "Microns Throughput", then two columns
     wavelength_um, throughput = np.loadtxt(path, skiprows=1, unpack=True)
-    return Throughput(wavelength_um * u.um, throughput)
+    # the release carries interpolation noise just below zero (F150W2, two
+    # samples near 0.8 um at -4e-4); clip that, refuse anything larger
+    if throughput.min() < -_NEGATIVE_TOL:
+        raise ValueError(
+            f"{path}: throughput {throughput.min():.3g} below -{_NEGATIVE_TOL}, "
+            "not interpolation noise"
+        )
+    return Throughput(wavelength_um * u.um, np.clip(throughput, 0.0, None))
 
 
 def download_nircam_throughputs(
@@ -125,6 +135,7 @@ def download_nircam_throughputs(
 
 _CURVE_SUFFIX = "_mean_system_throughput.txt"
 _MEAN_DIR = "mean_throughputs"
+_NEGATIVE_TOL = 1e-3  # largest negative sample treated as noise and clipped
 
 
 def _unpack_mean_curves(archive: Path, throughput_dir: Path) -> int:

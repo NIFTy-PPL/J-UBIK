@@ -34,6 +34,30 @@ def test_curve_from_the_file(tmp_path):
     np.testing.assert_allclose(curve.throughput, throughput)
 
 
+def test_release_noise_below_zero_is_clipped(tmp_path):
+    # the two F150W2 samples from nircam_throughputs_4Nov2022_v5
+    wavelength_um = [0.790, 0.797, 0.824, 0.850, 1.0, 2.0, 2.4]
+    throughput = [
+        0.0,
+        -0.00008562228180158444,
+        -0.00037624569375188134,
+        0.0,
+        0.5,
+        0.5,
+        0.0,
+    ]
+    _write_curve(tmp_path, "F150W2", wavelength_um, throughput)
+    curve = nircam_throughput("F150W2", tmp_path)
+    np.testing.assert_array_equal(curve.throughput[:4], 0.0)
+    np.testing.assert_allclose(curve.throughput[4:], [0.5, 0.5, 0.0])
+
+
+def test_negative_beyond_noise_raises(tmp_path):
+    _write_curve(tmp_path, "F150W2", [1.0, 1.5, 2.0], [0.0, -0.01, 1.0])
+    with pytest.raises(ValueError, match="F150W2.*-0.01.*not interpolation noise"):
+        nircam_throughput("F150W2", tmp_path)
+
+
 def test_missing_curve_names_the_download(tmp_path):
     with pytest.raises(FileNotFoundError, match="F444W.*--download"):
         nircam_throughput("F444W", tmp_path)
