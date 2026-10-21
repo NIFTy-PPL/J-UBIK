@@ -1,5 +1,6 @@
+# Copyright(C) 2026
 # SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause
-# Authors: Matteo Guardiani & Julian Rüstig
+# Authors: Matteo Guardiani
 
 """HEALPix synthesis conventions and public CPU interface."""
 

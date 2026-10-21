@@ -1,8 +1,6 @@
-# Copyright(C) 2025
+# Copyright(C) 2026
 # SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause
-# Authors: Matteo Guardiani & Julian Rüstig,
-# Vincent Eberle, Philipp Frank, Vishal Johnson,
-# Jakob Roth, Margret Westerkamp
+# Authors: Matteo Guardiani
 
 """JAX spherical harmonic synthesis on HEALPix grids."""
 
