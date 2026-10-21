@@ -4,6 +4,7 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
+from functools import lru_cache
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version
 from os import makedirs
@@ -21,6 +22,18 @@ from ..parse.jwst_psf import JwstPsfKernelConfig
 # JWST datamodel detector names which STPSF spells differently. STPSF accepts
 # the NIRCam names (including NRCALONG/NRCBLONG) as they are.
 STPSF_DETECTOR_NAMES = {"MIRIMAGE": "MIRIM"}
+
+
+@lru_cache
+def _wss_opd_file(opd_date: str) -> str:
+    """The WSS OPD file closest to `opd_date`, from MAST.
+
+    Cached, so star PSFs of one exposure share one MAST query. Only called by
+    `build_webb_psf`, so the test seam below still covers it.
+    """
+    import stpsf
+
+    return stpsf.mast_wss.get_opd_at_time(opd_date, choice="closest")
 
 
 # --------------------------------
@@ -76,8 +89,8 @@ def build_webb_psf(
     opd_date : str | None
         UTC ISO date-time, e.g. '2023-01-01T00:00:00'. If provided, the
         telescope OPD is the WSS measurement closest to this date, queried from
-        MAST and downloaded to `webbpsf_path` on first use. If None, STPSF's
-        default OPD is used.
+        MAST once per date and downloaded to `webbpsf_path` on first use. If
+        None, STPSF's default OPD is used.
     normalize : str | None
         The normalization method for the PSF.
         Default is 'last', which normalizes based on the
@@ -141,7 +154,7 @@ def build_webb_psf(
         ) from ke
     psf_model = psf_model_class()
     if opd_date is not None:
-        psf_model.load_wss_opd_by_date(opd_date, choice="closest", plot=False)
+        psf_model.load_wss_opd(_wss_opd_file(opd_date), plot=False)
 
     psf_model.filter = filter.upper()
     # Select the detector before its position, which STPSF interprets on the
@@ -212,11 +225,15 @@ def load_psf_kernel(
     psf_library_path = config_parameters.psf_library_path
     psf_arcsec = config_parameters.psf_arcsec
     normalize = config_parameters.normalize
-    opd_date = (
-        _exposure_start_time(jwst_data.dm).isot
-        if config_parameters.opd_by_date
-        else None
-    )
+    opd_date = None
+    if config_parameters.opd_by_date:
+        try:
+            opd_date = _exposure_start_time(jwst_data.dm).isot
+        except ValueError as e:
+            raise ValueError(
+                f"psf `opd_by_date` needs the exposure start time. {e} "
+                "Set `opd_by_date: false` to use STPSF's default OPD."
+            ) from e
 
     # Calibration identity: STPSF package version and the version of the
     # calibration data in `webbpsf_path`.

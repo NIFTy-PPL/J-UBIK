@@ -226,11 +226,24 @@ def test_minimal_config_builds_and_evaluates(patched_seams, tmp_path):
 
 
 def test_missing_exposure_time_without_gaia_alignment(monkeypatch, patched_seams, tmp_path):
-    monkeypatch.setattr(JWST_DATA_SITES[0], MissingExposureTimeJwstData)
+    for site in JWST_DATA_SITES:
+        monkeypatch.setattr(site, MissingExposureTimeJwstData)
 
     products = build_jwst_likelihoods(make_config(tmp_path), make_grid(), SKY_DOMAIN)
 
     assert products.alignment is None
+
+
+def test_missing_exposure_time_with_opd_by_date_raises(
+    monkeypatch, patched_seams, tmp_path
+):
+    for site in JWST_DATA_SITES:
+        monkeypatch.setattr(site, MissingExposureTimeJwstData)
+    cfg = make_config(tmp_path)
+    cfg["telescope"]["psf"]["opd_by_date"] = True
+
+    with pytest.raises(ValueError, match="`opd_by_date` needs the exposure start"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
 def test_two_files_share_bounds(patched_seams, tmp_path):

@@ -28,14 +28,14 @@ class JwstPsfKernelConfig:
     opd_by_date : bool
         If True, use the telescope OPD measured by the JWST Wavefront Sensing
         System closest to each exposure's start, instead of STPSF's default
-        OPD. The first run needs MAST network access. Default is True.
+        OPD. The first run needs MAST network access. Default is False.
     """
 
     webbpsf_path: str
     psf_library_path: str
     psf_arcsec: float
     normalize: str
-    opd_by_date: bool = True
+    opd_by_date: bool = False
 
     @classmethod
     def from_yaml_dict(cls, raw: dict):
@@ -56,5 +56,5 @@ class JwstPsfKernelConfig:
             psf_library_path=raw[PSF_LIBRARY_PATH_KEY],
             psf_arcsec=raw[PSF_ARCSEC_KEY],
             normalize=raw.get(NORMALIZE_KEY, NORMALIZE_DEFAULT),
-            opd_by_date=raw.get(OPD_BY_DATE_KEY, True),
+            opd_by_date=raw.get(OPD_BY_DATE_KEY, False),
         )

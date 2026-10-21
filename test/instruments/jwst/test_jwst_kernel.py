@@ -26,16 +26,21 @@ def make_stpsf_stub():
             calls.append(("set", name, value))
             super().__setattr__(name, value)
 
-        def load_wss_opd_by_date(self, date, choice, plot):
-            calls.append(("opd", date, choice))
+        def load_wss_opd(self, filename, plot):
+            calls.append(("opd", filename))
 
         def calc_psf(self, **kwargs):
             calls.append(("calc_psf", kwargs))
             return [None, None, SimpleNamespace(data=np.ones((3, 3)))]
 
+    def get_opd_at_time(date, choice):
+        calls.append(("mast", date, choice))
+        return f"opd_{date}.fits"
+
     stub = SimpleNamespace(
         NIRCam=type("NIRCam", (RecordingInstrument,), {}),
         MIRI=type("MIRI", (RecordingInstrument,), {}),
+        mast_wss=SimpleNamespace(get_opd_at_time=get_opd_at_time),
     )
     return stub, calls
 
@@ -46,6 +51,7 @@ def stpsf_stub(monkeypatch):
     monkeypatch.delenv("WEBBPSF_PATH", raising=False)
     stub, calls = make_stpsf_stub()
     monkeypatch.setitem(sys.modules, "stpsf", stub)
+    jwst_kernel._wss_opd_file.cache_clear()
     return calls
 
 
@@ -179,11 +185,16 @@ def test_load_psf_kernel_cache_identity(monkeypatch, tmp_path):
     assert len(calls) == 6
 
 
-def test_build_webb_psf_loads_opd_by_date(stpsf_stub):
-    jwst_kernel.build_webb_psf(
-        "NIRCAM", "f444w", (0, 0), "", 1, detector="NRCA1", opd_date="2023-01-01"
-    )
+def test_build_webb_psf_loads_opd_by_date_with_one_mast_query(stpsf_stub):
+    for position in [(0, 0), (10, 10)]:  # two star PSFs of one exposure
+        jwst_kernel.build_webb_psf(
+            "NIRCAM", "f444w", position, "", 1, detector="NRCA1", opd_date="2023-01-01"
+        )
     jwst_kernel.build_webb_psf("NIRCAM", "f444w", (0, 0), "", 1, detector="NRCA1")
 
-    opd_calls = [c for c in stpsf_stub if c[0] == "opd"]
-    assert opd_calls == [("opd", "2023-01-01", "closest")]
+    assert [c for c in stpsf_stub if c[0] == "mast"] == [
+        ("mast", "2023-01-01", "closest")
+    ]
+    assert [c for c in stpsf_stub if c[0] == "opd"] == [
+        ("opd", "opd_2023-01-01.fits")
+    ] * 2
