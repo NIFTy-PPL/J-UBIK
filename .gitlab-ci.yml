@@ -19,22 +19,14 @@ default:
     # `pip install --group` needs pip >= 25.1 (PEP 735).
     - python3 -m pip install --upgrade pip
 
-# Each job installs only the extras it needs; the JWST tests run in
-# `test-jwst` only, so the heavy `jwst` extra stays out of this job.
+# One job for all tests: the runners take one job at a time, so a separate
+# JWST job would only add a second install.
 test:
   stage: test
   script:
-    - python3 -m pip install -e .[gaia,healpix,resolve] --group test
+    - python3 -m pip install -e .[all] --group test
     - pytest -n auto --cov=jubik test/
-        --ignore=test/instruments/jwst
-        --ignore=test/conventions/test_claims_jwst.py
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
-
-test-jwst:
-  stage: test
-  script:
-    - python3 -m pip install -e .[jwst] --group test
-    - pytest test/conventions/test_claims_jwst.py test/instruments/jwst
 
 demos:
   stage: test
