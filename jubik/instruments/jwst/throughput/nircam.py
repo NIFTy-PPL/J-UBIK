@@ -90,10 +90,14 @@ def nircam_throughput(filter_name: str, throughput_dir: str | Path) -> Throughpu
     wavelength_um, throughput = np.loadtxt(path, skiprows=1, unpack=True)
     # the release carries interpolation noise just below zero (F150W2, two
     # samples near 0.8 um at -4e-4); clip that, refuse anything larger
-    if throughput.min() < -_NEGATIVE_TOL:
+    i = int(np.argmin(throughput))
+    if throughput[i] < -_NEGATIVE_TOL:
         raise ValueError(
-            f"{path}: throughput {throughput.min():.3g} below -{_NEGATIVE_TOL}, "
-            "not interpolation noise"
+            f"{path}: throughput {throughput[i]:.3g} at {wavelength_um[i]:.4g} um is "
+            f"below -{_NEGATIVE_TOL}, too large for interpolation noise; check the "
+            "file or download the STScI release again with python -m "
+            "jubik.instruments.jwst.throughput.nircam --download "
+            f"'{throughput_dir}'"
         )
     return Throughput(wavelength_um * u.um, np.clip(throughput, 0.0, None))
 

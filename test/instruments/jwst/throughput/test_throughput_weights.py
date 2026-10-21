@@ -168,8 +168,10 @@ def test_malformed_curves_raise():
         Throughput([0.0, 1.0] * u.um, [1.0, 1.0])
     with pytest.raises(ValueError, match="same length"):
         Throughput([1.0, 2.0] * u.um, [1.0])
-    with pytest.raises(ValueError, match="non-negative"):
+    with pytest.raises(ValueError, match="zero at every sample"):
         Throughput([1.0, 2.0] * u.um, [0.0, 0.0])
+    with pytest.raises(ValueError, match=r"-0\.03 at 1\.5 um is negative"):
+        Throughput([1.0, 1.5, 2.0] * u.um, [0.0, -0.03, 0.5])
     with pytest.raises(ValueError, match="finite"):
         Throughput([1.0, np.nan, 3.0] * u.um, [1.0, 1.0, 1.0])
     with pytest.raises(ValueError, match="finite"):

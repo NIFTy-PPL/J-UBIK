@@ -72,8 +72,14 @@ class Throughput:
             raise ValueError("wavelength and throughput must be finite")
         if wavelength_um[0] <= 0 or np.any(np.diff(wavelength_um) <= 0):
             raise ValueError("wavelength must be positive, strictly ascending")
-        if np.any(throughput < 0) or not np.any(throughput > 0):
-            raise ValueError("throughput must be non-negative and not all zero")
+        if np.any(throughput < 0):
+            i = int(np.argmin(throughput))
+            raise ValueError(
+                f"throughput {throughput[i]:.3g} at {wavelength_um[i]:.4g} um is "
+                "negative; a system throughput lies in [0, 1]"
+            )
+        if not np.any(throughput > 0):
+            raise ValueError("throughput is zero at every sample")
         object.__setattr__(self, "throughput", throughput)
 
 

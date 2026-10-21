@@ -54,7 +54,9 @@ def test_release_noise_below_zero_is_clipped(tmp_path):
 
 def test_negative_beyond_noise_raises(tmp_path):
     _write_curve(tmp_path, "F150W2", [1.0, 1.5, 2.0], [0.0, -0.01, 1.0])
-    with pytest.raises(ValueError, match="F150W2.*-0.01.*not interpolation noise"):
+    with pytest.raises(
+        ValueError, match=r"F150W2.*-0\.01 at 1\.5 um.*interpolation noise.*--download"
+    ):
         nircam_throughput("F150W2", tmp_path)
 
 
