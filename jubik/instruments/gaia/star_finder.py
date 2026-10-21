@@ -27,10 +27,19 @@ def load_gaia_stars_in_fov(
     saving_string = os.path.join(library_path, f"{saving_string}.ecsv")
 
     if library_path != "" and os.path.isfile(saving_string):
-        return Table.read(saving_string)
+        return _with_upper_source_id(Table.read(saving_string))
 
     # ----- (B)  build the ADQL query  ---------------------------------------
-    polygon_str = ", ".join([f"{c.ra.deg}, {c.dec.deg}" for c in fov_corners])
+    # A CIRCLE through the corners, not the POLYGON of the corners: since Gaia
+    # archive release 3.15 (2026-10-14) POLYGON queries run into the server
+    # timeout (even the archive's own documentation example), CIRCLE answers in
+    # seconds. The circle over-fetches outside the detector corners; the JWST
+    # loader drops stars that fall off the detector anyway.
+    center = SkyCoord(
+        ra=Angle(fov_corners.ra).wrap_at(180 * u.deg).mean(), dec=fov_corners.dec.mean()
+    )
+    radius = center.separation(fov_corners).max().deg * 1.01
+    circle_str = f"{center.ra.deg}, {center.dec.deg}, {radius}"
 
     # build the optional exclusion clause
     if exclude_source_ids:
@@ -59,7 +68,7 @@ def load_gaia_stars_in_fov(
     FROM gaiadr3.gaia_source
     WHERE 1 = CONTAINS(
             POINT('ICRS', ra, dec),
-            POLYGON('ICRS', {polygon_str})
+            CIRCLE('ICRS', {circle_str})
           )
     {exclusion_clause}
     """
@@ -82,4 +91,12 @@ def load_gaia_stars_in_fov(
     if library_path != "":
         table.write(saving_string, format="ascii.ecsv", overwrite=True)
 
+    return _with_upper_source_id(table)
+
+
+def _with_upper_source_id(table: Table) -> Table:
+    """The archive has returned the id column as `SOURCE_ID` and as `source_id`
+    over the years; the star tables read `SOURCE_ID`."""
+    if "source_id" in table.colnames:
+        table.rename_column("source_id", "SOURCE_ID")
     return table
