@@ -13,6 +13,8 @@ cache:
 default:
   image: python:3.12
   interruptible: true
+  # Jobs normally take under 5 minutes; fail a hung one before it blocks the queue.
+  timeout: 20 minutes
   before_script:
     # `pip install --group` needs pip >= 25.1 (PEP 735).
     - python3 -m pip install --upgrade pip
