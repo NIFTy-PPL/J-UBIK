@@ -69,6 +69,62 @@ pip install --user "jax[cuda12]"   # or jax[cuda13], depending on the driver
 One exception: the PyPI wheel of `jax-finufft` is CPU only. If you want to run
 RESOLVE on GPU please read the instructions below.
 
+### HEALPix SHT on GPU
+
+The HEALPix sky model (`harmonic_type="spherical"`) uses ducc0's CPU transform
+by default. `sht_backend="cunusht"` runs it on the GPU instead, with
+[cunuSHT](https://github.com/Sebastian-Belkner/cunuSHT) through
+[jaxbind-gpu](https://github.com/jknollm/jaxbind-gpu). It needs float64
+(`jax.config.update("jax_enable_x64", True)`), and JAX must not preallocate
+75% of the GPU, since CuPy, SHTns and cuFINUFFT allocate outside it. Before
+starting Python:
+
+```bash
+export XLA_PYTHON_CLIENT_PREALLOCATE=false
+```
+
+Then:
+
+```python
+sky = ju.build_simple_spectral_sky(..., harmonic_type="spherical", sht_backend="cunusht")
+```
+
+The transform is also available independently of the sky model:
+
+```python
+sht = ju.get_healpix_sht(nside, lmax, mmax, backend="cunusht")
+sky_map = sht(packed_real_alm)
+```
+
+It maps NIFTy-packed real coefficients to a HEALPix RING map, with NIFTy's
+`sqrt(4*pi)` normalization. JAX provides its transpose through `vjp`;
+this is not an inverse transform. Use `backend="ducc0"` (the default) for CPU.
+
+The cunuSHT backend runs on Linux with NVIDIA GPUs and CUDA 12 only. Its
+dependencies (CUDA SHTns, a patched cunuSHT, jaxbind-gpu, Python 3.12, jax
+0.11.2) are in no extra; build them into a separate environment with
+`scripts/cunusht/install.sh <env-dir>`. It needs `python3.12`, `nvcc`, `cmake`,
+a C++17 compiler and FFTW3 with OpenMP; on a cluster, load them as modules
+first. On Freya (MPCDF):
+
+```bash
+module purge
+module load gcc/14 fftw-serial/3.3.10 cuda/12.8 cmake/3.30
+```
+
+When running, load no CUDA modules (`module purge`): the environment brings
+its own CUDA libraries, and a module's would shadow them.
+
+Validate on an allocated CUDA GPU with the command below. Leave
+`JAX_PLATFORMS` unset so the ducc0 references can run on CPU, and check that
+all GPU tests pass without skips:
+
+```bash
+env -u JAX_PLATFORMS XLA_PYTHON_CLIENT_PREALLOCATE=false <env-dir>/bin/python -m pytest -v -rs \
+    test/test_cunusht_sht.py \
+    test/sky_model/multifrequency/test_cunusht_mf_sky.py
+```
+
 
 ## Development
 

@@ -83,6 +83,7 @@ from .instruments.erosita.erosita_data import (
 from .instruments.erosita.erosita_psf import eROSITA_PSF
 from .instruments.jwst.jwst_response import build_jwst_response
 from .grid import Grid
+from .sht import get_healpix_sht
 
 from .color import Color
 

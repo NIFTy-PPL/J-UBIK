@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause
 # Authors: Matteo Guardiani & Julian Rüstig
 
+import jax
 import jax.random as random
 import pytest
 from numpy.testing import assert_allclose
@@ -647,3 +648,15 @@ def test_distribution_at_relative_log_frequency_matches_model():
                 sky[i],
                 rtol=1e-10,
             )
+
+
+@pmp("harmonic_type", ["fourier", "spherical"])
+def test_harmonic_transform_rejects_unknown_backend(harmonic_type):
+    from jubik.sky_model.multifrequency.spectral_product_mf_sky import (
+        _get_harmonic_transform,
+    )
+
+    with pytest.raises(ValueError, match="backend"):
+        _get_harmonic_transform(
+            make_grid((2,), (1.0,), harmonic_type), sht_backend="cuda"
+        )

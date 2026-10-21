@@ -17,7 +17,6 @@ from nifty.re.correlated_field import (
     MaternAmplitude,
     NonParametricAmplitude,
     RegularCartesianGrid,
-    get_sht,
     hartley,
     make_grid,
 )
@@ -30,6 +29,7 @@ from ...grid import Grid
 from ...parse.sky_model.multifrequency.spectral_product_mf_sky import (
     SimpleSpectralSkyConfig,
 )
+from ...sht import get_healpix_sht
 from .spectral_product_utils.distribution_or_default import (
     build_distribution_or_default,
 )
@@ -50,16 +50,24 @@ from .spectral_product_utils.spectral_behavior import (
     SpectralIndex,
 )
 
-def _get_harmonic_transform(grid, *, sht_nthreads: int = 1):
+
+def _get_harmonic_transform(
+    grid, *, sht_nthreads: int = 1, sht_backend: str = "ducc0"
+):
+    if sht_backend not in ("ducc0", "cunusht"):
+        raise ValueError(
+            f"sht_backend must be 'ducc0' or 'cunusht', got {sht_backend!r}"
+        )
+
     if isinstance(grid, RegularCartesianGrid):
         return partial(hartley, axes=tuple(range(len(grid.harmonic_grid.shape))))
 
     if isinstance(grid, HEALPixGrid):
-        return get_sht(
-            nside=grid.nside,
-            axis=0,
-            lmax=grid.harmonic_grid.lmax,
-            mmax=grid.harmonic_grid.mmax,
+        return get_healpix_sht(
+            grid.nside,
+            grid.harmonic_grid.lmax,
+            grid.harmonic_grid.mmax,
+            backend=sht_backend,
             nthreads=sht_nthreads,
         )
 
@@ -113,6 +121,7 @@ class SpectralProductSky(Model):
         log_ref_freq_mean_model: Optional[Model] = None,
         nonlinearity: Optional[Callable] = jnp.exp,
         sht_nthreads: int = 1,
+        sht_backend: str = "ducc0",
     ):
         """
         Parameters
@@ -141,6 +150,13 @@ class SpectralProductSky(Model):
         nonlinearity: Optional[jnp.callable]
             The nonlinearity to be applied to the multifrequency correlated
             field.
+        sht_nthreads: int
+            Threads for the ducc0 spherical harmonic transform (HEALPix grids
+            only). 0 uses all hardware threads. Ignored by `"cunusht"`.
+        sht_backend: str
+            Spherical harmonic transform for HEALPix grids. `"ducc0"`
+            (default, CPU only) or `"cunusht"` (cunuSHT through
+            jaxbind-gpu, CUDA only, needs float64, see the README).
         """
         # The amplitudes supplied need to be normalized, as both the spatial
         # and the spectral fluctuations are applied directly in the call to
@@ -152,7 +168,9 @@ class SpectralProductSky(Model):
         grid = spatial_amplitude.grid
         self._hdvol = 1.0 / grid.total_volume
         self._pd = grid.harmonic_grid.power_distributor
-        self._ht = _get_harmonic_transform(grid, sht_nthreads=sht_nthreads)
+        self._ht = _get_harmonic_transform(
+            grid, sht_nthreads=sht_nthreads, sht_backend=sht_backend
+        )
         self._nonlinearity = nonlinearity
 
         self.zero_mode = zero_mode
@@ -496,6 +514,7 @@ def build_simple_spectral_sky(
     harmonic_type: str = "fourier",
     nonlinearity: callable = jnp.exp,
     sht_nthreads: int = 1,
+    sht_backend: str = "ducc0",
 ) -> SpectralProductSky:
     """
     Builds a multi-frequency sky model parametrized as
@@ -587,6 +606,12 @@ def build_simple_spectral_sky(
         transform (`harmonic_type="spherical"` only). 1 (default) is
         single-threaded, 0 uses all available hardware threads. Only
         affects computation speed, not the result.
+        Ignored by `"cunusht"`.
+    sht_backend: str
+        Spherical harmonic transform (`harmonic_type="spherical"` only).
+        `"ducc0"` (default) runs on CPU only. `"cunusht"` runs cunuSHT on
+        CUDA GPUs through jaxbind-gpu and needs float64 (`jax_enable_x64`);
+        its dependencies are installed separately, see the README.
 
     Returns
     -------
@@ -671,6 +696,7 @@ def build_simple_spectral_sky(
         log_ref_freq_mean_model=log_reference_frequency_mean_model,
         nonlinearity=nonlinearity,
         sht_nthreads=sht_nthreads,
+        sht_backend=sht_backend,
     )
 
     # NOTE : In principle the SpectralProductSky doesn't need to have a prefix, as the
