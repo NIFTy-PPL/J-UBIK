@@ -1,37 +1,46 @@
-
 stages:
   - test
   - release
 
-before_script:
-  # `pip install --group` needs pip >= 25.1 (PEP 735).
-  - python3 -m pip install --upgrade pip
-  - python3 -m pip install -e .[all]
-test:
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  key: pip-$CI_JOB_NAME
+  paths:
+    - .cache/pip
+
+default:
   image: python:3.12
+  interruptible: true
+  before_script:
+    # `pip install --group` needs pip >= 25.1 (PEP 735).
+    - python3 -m pip install --upgrade pip
+
+# Each job installs only the extras it needs; the JWST tests run in
+# `test-jwst` only, so the heavy `jwst` extra stays out of this job.
+test:
   stage: test
   script:
-    - python3 -m pip install --group test
-    - pytest --cov=jubik test/
+    - python3 -m pip install -e .[gaia,healpix,resolve] --group test
+    - pytest -n auto --cov=jubik test/
+        --ignore=test/instruments/jwst
+        --ignore=test/conventions/test_claims_jwst.py
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
 
-# The JWST roundtrip and the JWST instrument tests need the heavy `jwst`
-# extra, which the main test job does not install.
 test-jwst:
-  image: python:3.12
   stage: test
   script:
-    - pip install pytest
-    - pip install .[jwst]
+    - python3 -m pip install -e .[jwst] --group test
     - pytest test/conventions/test_claims_jwst.py test/instruments/jwst
 
 demos:
-  image: python:3.12
   stage: test
   variables:
     # Headless matplotlib: the demos call `plt.show()`.
     MPLBACKEND: Agg
   script:
+    - python3 -m pip install -e .[healpix,resolve]
     # Only the demos which are self-contained are executed here.
     - cd demos
     - for demo in grids spectral_sky_demo spectral_sky_healpix_demo point_source_sky_demo resolve_synthetic_demo; do
@@ -39,11 +48,12 @@ demos:
         python3 "${demo}.py" || exit 1;
       done
 
+# Keeps `[all]`: autodoc imports every module, including the JWST ones.
 pages:
-  image: python:3.12
   stage: release
+  interruptible: false
   script:
-    - python3 -m pip install . --group doc
+    - python3 -m pip install .[all] --group doc
     - sh docs/generate.sh
     - mv docs/build/ public/
   artifacts:

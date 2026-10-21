@@ -72,6 +72,7 @@ all = ["jubik[jwst,gaia,healpix,resolve]"]
 test = [
     "pytest",
     "pytest-cov",
+    "pytest-xdist",
 ]
 doc = [
     "sphinx<8.2",
