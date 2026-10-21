@@ -170,6 +170,14 @@ def test_malformed_curves_raise():
         Throughput([1.0, 2.0] * u.um, [1.0])
     with pytest.raises(ValueError, match="non-negative"):
         Throughput([1.0, 2.0] * u.um, [0.0, 0.0])
+    with pytest.raises(ValueError, match="finite"):
+        Throughput([1.0, np.nan, 3.0] * u.um, [1.0, 1.0, 1.0])
+    with pytest.raises(ValueError, match="finite"):
+        # a NaN in an uncovered segment made the missing fraction NaN, which
+        # passed max_missing=0 silently
+        Throughput([1.0, 2.0, 3.0] * u.um, [1.0, 1.0, np.nan])
+    with pytest.raises(ValueError, match="finite"):
+        Throughput([1.0, 2.0] * u.um, [1.0, np.inf])
     with pytest.raises(u.UnitConversionError):
         Throughput([1.0, 2.0] * u.Hz, [1.0, 1.0])
     with pytest.raises(TypeError, match="length unit"):

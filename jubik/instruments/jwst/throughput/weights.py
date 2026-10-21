@@ -43,10 +43,11 @@ class Throughput:
     Parameters
     ----------
     wavelength : u.Quantity
-        Wavelengths of the samples, a length unit, positive, strictly
+        Wavelengths of the samples, a length unit, finite, positive, strictly
         ascending, at least two.
     throughput : np.ndarray
-        Throughput at each sample, dimensionless, non-negative, not all zero.
+        Throughput at each sample, dimensionless, finite, non-negative, not
+        all zero.
     """
 
     wavelength: u.Quantity
@@ -66,6 +67,9 @@ class Throughput:
                 f"wavelength {wavelength_um.shape} and throughput {throughput.shape} "
                 "must be 1-D, same length, at least two samples"
             )
+        # comparisons below are all False for NaN, so check finiteness first
+        if not (np.isfinite(wavelength_um).all() and np.isfinite(throughput).all()):
+            raise ValueError("wavelength and throughput must be finite")
         if wavelength_um[0] <= 0 or np.any(np.diff(wavelength_um) <= 0):
             raise ValueError("wavelength must be positive, strictly ascending")
         if np.any(throughput < 0) or not np.any(throughput > 0):
