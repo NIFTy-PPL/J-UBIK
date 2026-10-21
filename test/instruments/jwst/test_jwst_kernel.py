@@ -26,6 +26,9 @@ def make_stpsf_stub():
             calls.append(("set", name, value))
             super().__setattr__(name, value)
 
+        def load_wss_opd_by_date(self, date, choice, plot):
+            calls.append(("opd", date, choice))
+
         def calc_psf(self, **kwargs):
             calls.append(("calc_psf", kwargs))
             return [None, None, SimpleNamespace(data=np.ones((3, 3)))]
@@ -74,7 +77,9 @@ def test_build_webb_psf_unknown_camera_mentions_stpsf(stpsf_stub):
     assert not [c for c in stpsf_stub if c[0] == "init"]
 
 
-def make_jwst_data(camera, detector, local_pixel, xstart=1, ystart=1):
+def make_jwst_data(
+    camera, detector, local_pixel, xstart=1, ystart=1, date_beg="2023-01-01T00:00:00"
+):
     return SimpleNamespace(
         camera=camera,
         filter="F444W" if camera == "NIRCAM" else "F770W",
@@ -83,17 +88,19 @@ def make_jwst_data(camera, detector, local_pixel, xstart=1, ystart=1):
             meta=SimpleNamespace(
                 instrument=SimpleNamespace(detector=detector),
                 subarray=SimpleNamespace(xstart=xstart, ystart=ystart),
+                observation=SimpleNamespace(date_beg=date_beg),
             )
         ),
     )
 
 
-def make_psf_config(tmp_path, normalize="last"):
+def make_psf_config(tmp_path, normalize="last", opd_by_date=False):
     return JwstPsfKernelConfig(
         webbpsf_path=str(tmp_path / "stpsf-data"),
         psf_library_path=str(tmp_path / "psf_library"),
         psf_arcsec=0.4,
         normalize=normalize,
+        opd_by_date=opd_by_date,
     )
 
 
@@ -145,8 +152,12 @@ def test_load_psf_kernel_cache_identity(monkeypatch, tmp_path):
     nrca = make_jwst_data("NIRCAM", "NRCALONG", (100.0, 200.0))
     nrcb = make_jwst_data("NIRCAM", "NRCBLONG", (100.0, 200.0))
 
-    def load(data, normalize="last"):
-        config = make_psf_config(tmp_path, normalize)
+    nrca_later = make_jwst_data(
+        "NIRCAM", "NRCALONG", (100.0, 200.0), date_beg="2024-06-01T00:00:00"
+    )
+
+    def load(data, normalize="last", opd_by_date=False):
+        config = make_psf_config(tmp_path, normalize, opd_by_date)
         return jwst_kernel.load_psf_kernel(data, 2, None, config)[0, 0]
 
     library = tmp_path / "psf_library"
@@ -159,4 +170,20 @@ def test_load_psf_kernel_cache_identity(monkeypatch, tmp_path):
     assert load(nrcb) == 3
     (calibration_dir / "version.txt").write_text("2.1.0")
     assert load(nrca) == 4
-    assert len(calls) == 4
+    assert calls[-1][1]["opd_date"] is None
+    assert load(nrca_later) == 4  # the date only matters with opd_by_date
+    assert load(nrca, opd_by_date=True) == 5
+    assert calls[-1][1]["opd_date"] == "2023-01-01T00:00:00.000"
+    assert load(nrca, opd_by_date=True) == 5
+    assert load(nrca_later, opd_by_date=True) == 6
+    assert len(calls) == 6
+
+
+def test_build_webb_psf_loads_opd_by_date(stpsf_stub):
+    jwst_kernel.build_webb_psf(
+        "NIRCAM", "f444w", (0, 0), "", 1, detector="NRCA1", opd_date="2023-01-01"
+    )
+    jwst_kernel.build_webb_psf("NIRCAM", "f444w", (0, 0), "", 1, detector="NRCA1")
+
+    opd_calls = [c for c in stpsf_stub if c[0] == "opd"]
+    assert opd_calls == [("opd", "2023-01-01", "closest")]

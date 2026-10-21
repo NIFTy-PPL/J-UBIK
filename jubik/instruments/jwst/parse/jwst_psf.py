@@ -6,6 +6,7 @@ PSF_LIBRARY_PATH_KEY = "psf_library"
 PSF_ARCSEC_KEY = "psf_arcsec_extension"
 NORMALIZE_KEY = "normalize"
 NORMALIZE_DEFAULT = "last"
+OPD_BY_DATE_KEY = "opd_by_date"
 
 
 @dataclass
@@ -24,12 +25,17 @@ class JwstPsfKernelConfig:
     normalize : str
         The normalization method for the PSF. Default is 'last',
         but other methods may be supported by `webbpsf`.
+    opd_by_date : bool
+        If True, use the telescope OPD measured by the JWST Wavefront Sensing
+        System closest to each exposure's start, instead of STPSF's default
+        OPD. The first run needs MAST network access. Default is False.
     """
 
     webbpsf_path: str
     psf_library_path: str
     psf_arcsec: float
     normalize: str
+    opd_by_date: bool = False
 
     @classmethod
     def from_yaml_dict(cls, raw: dict):
@@ -42,6 +48,7 @@ class JwstPsfKernelConfig:
             - psf_library_path
             - psf_arcsec_extension
             - normalize | None
+            - opd_by_date | None
         """
 
         return JwstPsfKernelConfig(
@@ -49,4 +56,5 @@ class JwstPsfKernelConfig:
             psf_library_path=raw[PSF_LIBRARY_PATH_KEY],
             psf_arcsec=raw[PSF_ARCSEC_KEY],
             normalize=raw.get(NORMALIZE_KEY, NORMALIZE_DEFAULT),
+            opd_by_date=raw.get(OPD_BY_DATE_KEY, False),
         )
