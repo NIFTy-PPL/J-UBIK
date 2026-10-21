@@ -9,27 +9,31 @@ cache:
   key: pip-$CI_JOB_NAME
   paths:
     - .cache/pip
+  # Keep downloads from a job whose tests failed, for the retry.
+  when: always
 
 default:
   image: python:3.12
   interruptible: true
-  # Jobs normally take under 5 minutes; fail a hung one before it blocks the queue.
-  timeout: 20 minutes
   before_script:
     # `pip install --group` needs pip >= 25.1 (PEP 735).
     - python3 -m pip install --upgrade pip
 
-# One job for all tests: the runners take one job at a time, so a separate
-# JWST job would only add a second install.
+# Jobs normally take under 5 minutes; `timeout` is set per job because GitLab
+# ignores it under `default:`. One job for all tests: jobs mostly run one after
+# another on the shared runners, so a separate JWST job would only add an install.
 test:
   stage: test
+  timeout: 20 minutes
   script:
     - python3 -m pip install -e .[all] --group test
-    - pytest -n auto --cov=jubik test/
+    # A fixed worker count: `auto` would start one JAX process per host CPU.
+    - pytest -n 4 --cov=jubik test/
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
 
 demos:
   stage: test
+  timeout: 20 minutes
   variables:
     # Headless matplotlib: the demos call `plt.show()`.
     MPLBACKEND: Agg
@@ -45,6 +49,7 @@ demos:
 # Keeps `[all]`: autodoc imports every module, including the JWST ones.
 pages:
   stage: release
+  timeout: 20 minutes
   interruptible: false
   script:
     - python3 -m pip install .[all] --group doc
