@@ -4,6 +4,7 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
+from functools import lru_cache
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version
 from os import makedirs
@@ -15,11 +16,24 @@ from nifty.re import logger
 from numpy.typing import ArrayLike
 
 from ..data.jwst_data import JwstData
+from ..data.preloader.preloader import _exposure_start_time
 from ..parse.jwst_psf import JwstPsfKernelConfig
 
 # JWST datamodel detector names which STPSF spells differently. STPSF accepts
 # the NIRCam names (including NRCALONG/NRCBLONG) as they are.
 STPSF_DETECTOR_NAMES = {"MIRIMAGE": "MIRIM"}
+
+
+@lru_cache
+def _wss_opd_file(opd_date: str) -> str:
+    """The WSS OPD file closest to `opd_date`, from MAST.
+
+    Cached, so star PSFs of one exposure share one MAST query. Only called by
+    `build_webb_psf`, so the test seam below still covers it.
+    """
+    import stpsf
+
+    return stpsf.mast_wss.get_opd_at_time(opd_date, choice="closest")
 
 
 # --------------------------------
@@ -38,6 +52,7 @@ def build_webb_psf(
     normalize: str = "last",
     *,
     detector: str,
+    opd_date: str | None = None,
 ):
     """
     Builds a Point Spread Function (PSF) model for the JWST using the specified
@@ -71,6 +86,11 @@ def build_webb_psf(
         in arcseconds.
     detector : str
         The JWST detector name (`meta.instrument.detector`), e.g. 'NRCBLONG'.
+    opd_date : str | None
+        UTC ISO date-time, e.g. '2023-01-01T00:00:00'. If provided, the
+        telescope OPD is the WSS measurement closest to this date, queried from
+        MAST once per date and downloaded to `webbpsf_path` on first use. If
+        None, STPSF's default OPD is used.
     normalize : str | None
         The normalization method for the PSF.
         Default is 'last', which normalizes based on the
@@ -133,6 +153,8 @@ def build_webb_psf(
             f"Supported STPSF models: {list(psf_model_supported)}"
         ) from ke
     psf_model = psf_model_class()
+    if opd_date is not None:
+        psf_model.load_wss_opd(_wss_opd_file(opd_date), plot=False)
 
     psf_model.filter = filter.upper()
     # Select the detector before its position, which STPSF interprets on the
@@ -180,7 +202,9 @@ def load_psf_kernel(
         The subsample factor for the psf kernel.
     config_parameters: PsfKernelConfig
         Holding the `webbpsf_path`, the `psf_library_path`, the size of the psf
-        evaluation `psf_arcsec`, and the `normalize` key.
+        evaluation `psf_arcsec`, the `normalize` key, and `opd_by_date`. If
+        `opd_by_date` is set, the PSF uses the WSS OPD measured closest to the
+        exposure start, which is then part of the cache key.
 
     Returns
     -------
@@ -201,6 +225,15 @@ def load_psf_kernel(
     psf_library_path = config_parameters.psf_library_path
     psf_arcsec = config_parameters.psf_arcsec
     normalize = config_parameters.normalize
+    opd_date = None
+    if config_parameters.opd_by_date:
+        try:
+            opd_date = _exposure_start_time(jwst_data.dm).isot
+        except ValueError as e:
+            raise ValueError(
+                f"psf `opd_by_date` needs the exposure start time. {e} "
+                "Set `opd_by_date: false` to use STPSF's default OPD."
+            ) from e
 
     # Calibration identity: STPSF package version and the version of the
     # calibration data in `webbpsf_path`.
@@ -225,6 +258,10 @@ def load_psf_kernel(
         psf_arcsec,
         subsample,
         normalize,
+        # shortcut: keys on the exposure date, not the OPD file STPSF picks (that
+        # needs a MAST query); a newer WSS measurement closer to a recent
+        # exposure is not picked up until the cache entry is deleted.
+        opd_date,
         stpsf_version,
         data_version,
     )
@@ -248,6 +285,7 @@ def load_psf_kernel(
         psf_arcsec,
         normalize,
         detector=detector,
+        opd_date=opd_date,
     )
 
     logger.info(f"Saving PSF {file_name} in {psf_library_path}")
