@@ -114,7 +114,12 @@ def make_grid():
 
 
 def make_config(
-    tmp_path, n_files=1, gaia=False, variable_covariance=False, zero_flux=False
+    tmp_path,
+    n_files=1,
+    gaia=False,
+    variable_covariance=False,
+    zero_flux=False,
+    gaia_subsample=2,
 ):
     files = [str(tmp_path / f"fake_{ii}.fits") for ii in range(n_files)]
     telescope = {
@@ -141,7 +146,7 @@ def make_config(
         (tmp_path / "gaia").mkdir()
         telescope["gaia_alignment"] = {
             "fov": "0.5arcsec",
-            "subsample": 2,
+            "subsample": gaia_subsample,
             "star_light": ["lognormal", 1.0, 1.0],
             "library_path": str(tmp_path / "gaia"),
         }
@@ -237,3 +242,41 @@ def test_all_gaia_stars_rejected_raises(monkeypatch, patched_seams, fake_gaia, t
     cfg = make_config(tmp_path, gaia=True)
     with pytest.raises(ValueError, match="2 catalog stars, 0 with a valid cutout"):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+@pytest.mark.parametrize("subsample", [1, 2, 3])
+def test_gaia_stars_on_edges_and_corners(
+    monkeypatch, patched_seams, fake_gaia, tmp_path, subsample
+):
+    from jubik.instruments.jwst import jwst_likelihoods
+
+    _, table = fake_gaia
+    table.remove_rows(slice(None))
+    # Pixel (x, y) positions on every edge, every corner and the interior.
+    xy = [(x, y) for x in (0.2, 31.6, 63.3) for y in (-0.4, 30.7, 63.4)]
+    wcs = FakeJwstData("").wcs
+    for ii, position in enumerate(wcs.pixel_to_world(*np.array(xy).T)):
+        table.add_row((ii + 1, position.ra, position.dec, 0.0, 0.0))
+
+    loaded, load_data = [], jwst_likelihoods.load_data
+    monkeypatch.setattr(
+        jwst_likelihoods,
+        "load_data",
+        lambda *a, **k: loaded.append(load_data(*a, **k)) or loaded[-1],
+    )
+
+    n_files = 2
+    cfg = make_config(tmp_path, n_files=n_files, gaia=True, gaia_subsample=subsample)
+    products = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+    stars_data = loaded[0].stars_data
+    assert sorted(stars_data) == list(range(1, len(xy) + 1))
+    for star in stars_data.values():
+        n_obs, fov, fov_x = star.data.shape
+        assert (n_obs, fov_x) == (n_files, fov) and fov % 2 == 1
+        assert star.mask.dtype == bool and star.mask.any()
+        assert np.isfinite(star.std[star.mask]).all()
+        # Fine pixel k covers [k - 0.5, k + 0.5) of the subsampled cutout.
+        assert (star.star_in_subsampled_pixels >= -0.5).all()
+        assert (star.star_in_subsampled_pixels < fov * subsample - 0.5).all()
+    assert np.isfinite(evaluate(products.alignment.likelihood.likelihood))

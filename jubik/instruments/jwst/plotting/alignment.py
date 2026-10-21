@@ -135,7 +135,7 @@ def build_plot_filter_alignment(
             star_positions_in_data = _get_model_samples_or_position(
                 position_or_samples, model.sky_model.location
             )
-            star_positions_in_data = star_positions_in_data / subsample
+            star_positions_in_data = (star_positions_in_data + 0.5) / subsample - 0.5
 
             for ii in range(len(data)):
                 length_xpos = 3

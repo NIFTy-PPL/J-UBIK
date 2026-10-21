@@ -110,7 +110,6 @@ def build_star_alignment_likelihood(
             jwst_star_response: JwstResponse = build_jwst_response(
                 sky_in_subsampled_data=build_star_in_data(
                     filter_key=response.filter_name,
-                    filter_meta=response.filter_meta,
                     star_id=star.id,
                     star_light_prior=response.star_light_prior,
                     star_data=response.stars_data[star.id],

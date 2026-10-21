@@ -179,6 +179,7 @@ def _load_one_target_and_or_stars(
         stars_bundle: StarsBundle = load_one_stars_bundle(
             index=filepath.index,
             jwst_data=jwst_data,
+            grid_wcs=data_loader.target.grid.spatial,
             star_tables=data_loader.star_alignment.tables,
             star_alignment_config=data_loader.star_alignment.config,
             extra_masks=data_loader.corner_masks,

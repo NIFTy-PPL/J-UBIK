@@ -197,67 +197,64 @@ class CoordinatesCorrectedShiftAndRotation(jft.Model):
         return jnp.array((x, y)) * self._1_over_pixel_distance[self._shape]
 
 
+class CoordinatesCorrectedStarShift(jft.Model):
+    """Star positions in subsampled data pixels, corrected by the shared shift.
+
+    The shared shift moves the data sampling positions on the reconstruction grid
+    (see `build_coordinates_corrected_for_field`). A source therefore appears
+    displaced the opposite way: `p = p0 - J @ shift`, with `J` the change of the
+    star's data pixel position per unit of shift along the grid (row, column).
+    """
+
+    def __init__(
+        self,
+        shift_and_rotation: ShiftAndRotationCorrection,
+        pixel_coordinates: np.ndarray,
+        shift_jacobian: np.ndarray,
+        observation_ids: np.ndarray,
+    ):
+        self.shift_and_rotation = shift_and_rotation
+        self._coordinates = pixel_coordinates
+        arcsec_per_unit = u.Quantity(1, shift_and_rotation.shift_unit).to_value(u.arcsec)
+        self._jacobian = shift_jacobian * arcsec_per_unit
+        self._observation_ids = np.asarray(observation_ids)
+        super().__init__(domain=self.shift_and_rotation.shift.domain)
+
+    def __call__(self, params: dict) -> ArrayLike:
+        shift = self.shift_and_rotation.shift(params)[self._observation_ids]
+        return self._coordinates - jnp.einsum("nij,nj->ni", self._jacobian, shift)
+
+
 def build_coordinates_corrected_for_stars(
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
-    pixel_coordinates: list[np.ndarray],
-    pixel_distance: u.Quantity,
+    pixel_coordinates: np.ndarray,
+    shift_jacobian: np.ndarray,
     observation_ids: tuple[int],
-) -> Union[
-    Coordinates, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation
-]:
-    """Build `CorrectedCorrdinates` from the grid and coordinates.
-
-    If  coordiantes_correction` are None, it returns a lambda function that simply
-    returns the original coordinates.
-
-    Typically the shift correction is modeled as a Gaussian distribution:
-        (x, y) ~ Gaussian(mean, sigma)
-
-    The rotation correction is applied as:
-        r_i = s_i * Rot(theta) * (p_i - r)
-           = Rot(theta) * (s_i * p_i - s_i * r),
-    where `s_i * r` represents the rotation center in the coordinate units
-    (si * pi).
+) -> Union[Coordinates, CoordinatesCorrectedStarShift]:
+    """Build the star positions in the subsampled data pixels, `xy` indexed.
 
     Parameters
     ----------
-    priors : CoordiantesCorrectionPriorConfig | None
-        A dictionary containing the priors for shift and rotation.
-        If None, no coordinate correction is applied and the return is a lambda
-        function which returns the original coordinates.
-    reconstruction_grid_wcs : WcsAstropy
-        The grid used to define the coordinate system for the correction model.
-    coordinates : SkyCoord
-        The world coordinates of the (subsampled) data pixel, whose position can be
-        corrected.
-
-    Returns
-    -------
-    Union[Callable[[dict, ArrayLike], ArrayLike], ShiftAndRotationCorrection]
-        If `priors` is None, returns a lambda function that returns the
-        original coordinates.
-        Otherwise, returns an instance of `ShiftAndRotationCorrection` with
-        the specified priors and parameters.
-
+    shift_and_rotation_correction : ShiftAndRotationCorrection | None
+        The shared shift model. If None, the positions are returned uncorrected.
+    pixel_coordinates : np.ndarray
+        The star position in each exposure, shape `(n_exposures, 2)`.
+    shift_jacobian : np.ndarray
+        Change of the star position (subsampled pixels) per arcsec of shift of the
+        sampling positions along the grid (row, column), shape `(n_exposures, 2, 2)`.
+    observation_ids : tuple[int]
+        The observation (shift row) of each exposure.
     """
     if shift_and_rotation_correction is None:
         return Coordinates(pixel_coordinates)
 
-    shift_unit = shift_and_rotation_correction.shift_unit
-    pixel_distance = u.Quantity(
-        (pixel_distance.to(shift_unit), pixel_distance.to(shift_unit))
-    )
-
     if shift_and_rotation_correction.model == CorrectionModel.SHIFT:
         assert len(observation_ids) == pixel_coordinates.shape[0]
-
-        if pixel_coordinates.shape == shift_and_rotation_correction.shift.target.shape:
-            shape = (Ellipsis,)
-        else:
-            shape = (observation_ids, Ellipsis)
-
-        return CoordinatesCorrectedShiftOnly(
-            shift_and_rotation_correction, pixel_coordinates, pixel_distance, shape
+        return CoordinatesCorrectedStarShift(
+            shift_and_rotation_correction,
+            pixel_coordinates,
+            shift_jacobian,
+            observation_ids,
         )
 
     raise NotImplementedError
