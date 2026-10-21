@@ -61,6 +61,7 @@ class FakeJwstData(JwstData):
             err=np.ones(DATA_SHAPE),
             meta=SimpleNamespace(
                 date="2023-01-01T00:00:00.000",
+                observation=SimpleNamespace(date_beg="2023-01-01T00:00:00.000"),
                 pointing=SimpleNamespace(ra_v1=CENTER.ra.deg, dec_v1=CENTER.dec.deg),
                 wcsinfo=SimpleNamespace(ra_ref=CENTER.ra.deg, dec_ref=CENTER.dec.deg),
                 instrument=SimpleNamespace(detector="NRCALONG"),
@@ -81,6 +82,13 @@ class FakeJwstData(JwstData):
             pixel_scale=pixel_scale,
             color=self.pivot_wavelength,
         )
+
+
+class MissingExposureTimeJwstData(FakeJwstData):
+    def __init__(self, filepath: str):
+        super().__init__(filepath)
+        self.dm.meta.observation.date_beg = None
+        self.dm.meta.exposure = SimpleNamespace(start_time=None)
 
 
 class NanStarsJwstData(FakeJwstData):
@@ -215,6 +223,14 @@ def test_minimal_config_builds_and_evaluates(patched_seams, tmp_path):
     saved = list((tmp_path / "psf_library").glob("*.npy"))
     assert len(saved) == 1
     assert saved[0].name.startswith("nircam_f444w_nrcalong_")
+
+
+def test_missing_exposure_time_without_gaia_alignment(monkeypatch, patched_seams, tmp_path):
+    monkeypatch.setattr(JWST_DATA_SITES[0], MissingExposureTimeJwstData)
+
+    products = build_jwst_likelihoods(make_config(tmp_path), make_grid(), SKY_DOMAIN)
+
+    assert products.alignment is None
 
 
 def test_two_files_share_bounds(patched_seams, tmp_path):

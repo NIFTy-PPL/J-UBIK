@@ -185,7 +185,7 @@ class StarTables:
     def __init__(
         self,
         data: list[Table] | None = None,
-        observation_times: list[str] | None = None,
+        observation_times: list[Time | str] | None = None,
     ):
         self.data = data if data else []
         self.observation_times = observation_times if observation_times else []
@@ -202,7 +202,7 @@ class StarTables:
             return []
 
         g2016 = Time("J2016.0")
-        t_obs = Time(observation_time, scale="tdb")  # JWST visit
+        t_obs = Time(observation_time, scale="utc")  # JWST exposure start
 
         source_id = table["SOURCE_ID"]
         # No distance on purpose. Gaia DR3 contains negative and missing
@@ -239,7 +239,7 @@ class StarTables:
         result = combined[np.sort(unique_idx)]  # restore original order
         return result
 
-    def append(self, data: Table, observation_time: str):
+    def append(self, data: Table, observation_time: Time | str):
         self.data.append(data)
         self.observation_times.append(observation_time)
 
