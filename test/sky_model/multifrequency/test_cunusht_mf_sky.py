@@ -1,3 +1,7 @@
+# Copyright(C) 2026
+# SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause
+# Authors: Matteo Guardiani
+
 """Multi-frequency sky integration with the cunuSHT backend. GPU only.
 
 Skips unless cupy, cunuSHT, jaxbind-gpu and a CUDA device are present; see

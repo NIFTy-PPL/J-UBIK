@@ -1,3 +1,7 @@
+# Copyright(C) 2026
+# SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause
+# Authors: Matteo Guardiani
+
 import pytest
 
 from jubik.parse.sky_model.multifrequency.spectral_product_mf_sky import (
