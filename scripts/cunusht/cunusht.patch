@@ -1,0 +1,98 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b639b1d..17ae77d 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,7 +1,6 @@
+ cmake_minimum_required(VERSION 3.15...3.27)
+ project(popy LANGUAGES CXX CUDA)
+ find_package(Python 3.10 COMPONENTS Interpreter Development.Module REQUIRED)
+-find_package(CUDA REQUIRED)
+ 
+ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+diff --git a/cunusht/c/CMakeLists.txt b/cunusht/c/CMakeLists.txt
+index a377b59..44bf3dc 100644
+--- a/cunusht/c/CMakeLists.txt
++++ b/cunusht/c/CMakeLists.txt
+@@ -1,7 +1,6 @@
+ cmake_minimum_required(VERSION 3.15...3.27)
+ project(popy LANGUAGES CXX CUDA)
+ find_package(Python 3.10 COMPONENTS Interpreter Development.Module REQUIRED)
+-find_package(CUDA REQUIRED)
+ 
+ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+diff --git a/cunusht/deflection/CPU_nufft_transformer.py b/cunusht/deflection/CPU_nufft_transformer.py
+index bb92da7..caaf03c 100644
+--- a/cunusht/deflection/CPU_nufft_transformer.py
++++ b/cunusht/deflection/CPU_nufft_transformer.py
+@@ -24,16 +24,16 @@ from cunusht.sht.CPU_sht_transformer import CPU_SHT_DUCC_transformer, CPU_SHT_SH
+ 
+ ctype = {np.dtype(np.float32): np.complex64,
+          np.dtype(np.float64): np.complex128,
+-         np.dtype(np.longfloat): np.longcomplex,
++         np.dtype(np.longdouble): np.clongdouble,
+          np.float32: np.complex64,
+          np.float64: np.complex128,
+-         np.longfloat: np.longcomplex}
++         np.longdouble: np.clongdouble}
+ rtype = {np.dtype(np.complex64): np.float32,
+          np.dtype(np.complex128): np.float64, 
+-         np.dtype(np.longcomplex): np.longfloat,
++         np.dtype(np.clongdouble): np.longdouble,
+          np.complex64: np.float32,
+          np.complex128: np.float64,
+-         np.longcomplex: np.longfloat}
++         np.clongdouble: np.longdouble}
+ 
+ HAS_DUCCPOINTING = 'get_deflected_angles' in ducc0.misc.__dict__
+ HAS_DUCCROTATE = 'lensing_rotate' in ducc0.misc.__dict__
+diff --git a/cunusht/deflection/GPU_nufft_transformer.py b/cunusht/deflection/GPU_nufft_transformer.py
+index abeb658..5ec49ff 100644
+--- a/cunusht/deflection/GPU_nufft_transformer.py
++++ b/cunusht/deflection/GPU_nufft_transformer.py
+@@ -243,7 +243,7 @@ class GPU_cufinufft_transformer:
+             nuFFTtype,
+             tuple(self.nuFFTshape[-2:][::-1]) if self.nuFFTtype == 1 else tuple(self.nuFFTshape[-2:]),
+             1, epsilon, isign, self.nuFFT_dtype, gpu_method=2,
+-            gpu_sort=1, gpu_kerevalmeth=0, upsampfac=1.25, modeord=1)
++            gpu_sort=1, gpu_kerevalmeth=0, upsampfac=2.0, modeord=1)
+     
+     
+     def set_pts(self, ptg):
+diff --git a/setup.py b/setup.py
+index d6b5622..29a6fca 100644
+--- a/setup.py
++++ b/setup.py
+@@ -1,20 +1,12 @@
+-import setuptools
+-from numpy.distutils.core import setup
+-from numpy.distutils.misc_util import Configuration
+-import glob
++from setuptools import setup
+ 
+ with open("README.md", "r") as fh:
+     long_description = fh.read()
+ 
+-
+-def configuration(parent_package='', top_path=''):
+-    config = Configuration('', parent_package, top_path)
+-    return config
+-
+ setup(
+     name='cunusht',
+     version='0.1',
+-    packages=['cunusht', 'cunusht.sht', 'cunusht.deflection'],
++    packages=['cunusht', 'cunusht.c', 'cunusht.sht', 'cunusht.deflection'],
+     url='https://github.com/Sebastian-Belkner/cunuSHT',
+     author='Sebastian Belkner',
+     author_email='to.sebastianbelkner@gmail.com',
+@@ -24,7 +16,5 @@ setup(
+         'healpy',
+         'logdecorator',
+     ],
+-    requires=['numpy'],
+     long_description=long_description,
+-    configuration=configuration)
+-
++)
