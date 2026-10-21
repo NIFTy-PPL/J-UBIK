@@ -86,6 +86,7 @@ from .grid import Grid
 from .sht import get_healpix_sht
 
 from .color import Color
+from .sky_filter import FilterWeights, SkyFilter
 
 from .data import (
     create_mock_data,

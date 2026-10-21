@@ -66,6 +66,7 @@ class PreloadResult:
 def preload_data(
     filepaths: tuple[IndexAndPath],
     *,
+    filter_name: str,
     preloader: Preloader,
     side_effects: PreloaderSideEffects,
 ) -> PreloadResult:
@@ -73,6 +74,7 @@ def preload_data(
 
     This function processes filepaths to:
     #### 1. Perform validation checks
+    - Verify every file observes the configured filter
     - Verify energy consistency across files
 
     #### 2. Build target data information
@@ -87,6 +89,9 @@ def preload_data(
     ----------
     filepaths: tuple[IndexAndPath]
         The filepaths of JWST data files to be preloaded
+    filter_name: str
+        The config filter name the files are listed under; every file's
+        observation filter must match it.
     preloader: Preloader
         Input information. See `Preloader` for field definition.
     side_effects: PreloaderSideEffects
@@ -106,6 +111,7 @@ def preload_data(
     bundles: Iterable[PreloadBundle] = [
         _load_one_preload_bundle(
             fp,
+            filter_name=filter_name,
             grid_corners=preloader.grid_corners,
             star_alignment_config=preloader.star_alignment_config,
         )
@@ -147,10 +153,16 @@ class PreloadBundle:
 
 def _load_one_preload_bundle(
     filepath: IndexAndPath,
+    filter_name: str,
     grid_corners: SkyCoord,
     star_alignment_config: StarAlignmentConfig | None,
 ):
     jwst_data = JwstData(filepath.path)
+    if jwst_data.filter != filter_name.upper():
+        raise ValueError(
+            f"{filepath.path}: observation is {jwst_data.filter}, "
+            f"configured under {filter_name}"
+        )
 
     if star_alignment_config:
         jwst_world_corners = jwst_data.wcs.world_corners()

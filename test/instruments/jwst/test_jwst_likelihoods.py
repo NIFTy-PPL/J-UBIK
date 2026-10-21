@@ -10,6 +10,8 @@ fake observation. Two production seams are patched:
   stpsf is never imported. `load_psf_kernel` still writes and reads the `.npy`.
 """
 
+import shutil
+from pathlib import Path
 from types import SimpleNamespace
 
 import jax
@@ -110,7 +112,23 @@ def patched_seams(monkeypatch):
 
 def make_grid():
     spatial = WcsAstropy(center=CENTER, shape=GRID_SHAPE, fov=GRID_FOV)
-    return Grid(spatial=spatial, spectral=Color([3.9, 5.0] * u.um))
+    # one channel covering the whole fake F444W curve
+    return Grid(spatial=spatial, spectral=Color([3.6, 5.2] * u.um))
+
+
+def write_fake_throughput(tmp_path):
+    """A smooth F444W-like curve, 3.7 to 5.1 um, in the STScI file format."""
+    throughput_dir = tmp_path / "throughputs"
+    throughput_dir.mkdir(exist_ok=True)
+    wavelength_um = np.linspace(3.7, 5.1, 141)
+    throughput = 0.5 * np.sin(np.pi * (wavelength_um - 3.7) / 1.4) ** 2
+    np.savetxt(
+        throughput_dir / f"{FILTER}_mean_system_throughput.txt",
+        np.c_[wavelength_um, throughput],
+        header="Microns Throughput",
+        comments="",
+    )
+    return throughput_dir
 
 
 def make_config(
@@ -159,7 +177,11 @@ def make_config(
                 "distribution": ["invgamma", 4, 0.01, 0.0],
             }
         }
-    return {"files": {"filter": {FILTER.lower(): files}}, "telescope": telescope}
+    files_block = {
+        "filter": {FILTER.lower(): files},
+        "throughputs": str(write_fake_throughput(tmp_path)),
+    }
+    return {"files": files_block, "telescope": telescope}
 
 
 def evaluate(likelihood):
@@ -181,6 +203,10 @@ def test_minimal_config_builds_and_evaluates(patched_seams, tmp_path):
     assert builder.data.shape == builder.mask.shape == builder.std.shape
     assert builder.mask.sum() > 0
     assert not np.isnan(builder.data[builder.mask]).any()
+
+    sky_filter = products.target.sky_filter
+    np.testing.assert_allclose(sky_filter.bands[FILTER.lower()].weights, [1.0])
+    assert sky_filter.target[FILTER.lower()].shape == GRID_SHAPE
 
     likelihood = products.target.likelihood
     assert "sky" in likelihood.domain
@@ -236,7 +262,9 @@ def test_empty_gaia_catalog_raises(patched_seams, fake_gaia, tmp_path):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
-def test_all_gaia_stars_rejected_raises(monkeypatch, patched_seams, fake_gaia, tmp_path):
+def test_all_gaia_stars_rejected_raises(
+    monkeypatch, patched_seams, fake_gaia, tmp_path
+):
     for site in JWST_DATA_SITES:
         monkeypatch.setattr(site, NanStarsJwstData)
     cfg = make_config(tmp_path, gaia=True)
@@ -280,3 +308,21 @@ def test_gaia_stars_on_edges_and_corners(
         assert (star.star_in_subsampled_pixels >= -0.5).all()
         assert (star.star_in_subsampled_pixels < fov * subsample - 0.5).all()
     assert np.isfinite(evaluate(products.alignment.likelihood.likelihood))
+
+
+def test_sky_domain_must_match_grid(patched_seams, tmp_path):
+    sky_domain = {"sky": jft.ShapeWithDtype((2,) + GRID_SHAPE, float)}
+    with pytest.raises(ValueError, match="does not match the grid"):
+        build_jwst_likelihoods(make_config(tmp_path), make_grid(), sky_domain)
+
+
+def test_file_filter_must_match_config_key(patched_seams, tmp_path):
+    cfg = make_config(tmp_path)
+    throughput_dir = Path(cfg["files"]["throughputs"])
+    shutil.copy(
+        throughput_dir / f"{FILTER}_mean_system_throughput.txt",
+        throughput_dir / "F277W_mean_system_throughput.txt",
+    )
+    cfg["files"]["filter"] = {"f277w": cfg["files"]["filter"].pop(FILTER.lower())}
+    with pytest.raises(ValueError, match=f"observation is {FILTER}.*f277w"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)

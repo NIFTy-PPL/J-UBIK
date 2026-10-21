@@ -53,17 +53,16 @@ from jax import config, random
 
 # %%
 import jubik as ju
-from jubik.instruments.jwst.filter_projector import FilterProjector
-from jubik.likelihood import (build_gaussian_likelihood,
-                              connect_likelihood_to_model)
+from jubik.instruments.jwst.data.jwst_information import JWST_FILTERS
+from jubik.likelihood import build_gaussian_likelihood, connect_likelihood_to_model
 
-config.update('jax_enable_x64', True)
+config.update("jax_enable_x64", True)
 
 # %% [markdown]
 # ## YAML Configuration File Structure
 #
 # In the `JWST_demo.yaml` config file, you can define several parameters.
-#  
+#
 # Below is a breakdown of key settings:
 #
 # - **seed**: Random seed for generating reproducible results.
@@ -179,15 +178,21 @@ key = random.PRNGKey(cfg["seed"])
 # %%
 energy_cfg = cfg["grid"]["energy_bin"]
 e_unit = getattr(u, energy_cfg.get("unit", "eV"))
-filter_projector = FilterProjector(
-    sky_domain=sky.target,
-    keys_and_colors={key: val["key"] for key, val in filters.items()},
+# One sky channel per filter, spanning its half-power tophat.
+filter_bounds = [JWST_FILTERS[name.upper()][3:5] for name in filters]
+sky_filter = ju.SkyFilter(
+    ju.Grid.from_shape_and_fov(
+        shape=cfg["grid"]["shape"],
+        fov=(cfg["grid"]["fov"] * u.arcsec,) * 2,
+        frequencies=np.array(filter_bounds) * u.um,
+    ),
+    {n: ju.FilterWeights(slice(i, i + 1), np.ones(1)) for i, n in enumerate(filters)},
 )
 
 # %%
 key, subkey = random.split(key)
 sky_model_with_filters = jft.Model(
-    lambda x: filter_projector(sky(x)), domain=sky.domain
+    lambda x: sky_filter({"sky": sky(x)}), domain=sky.domain
 )
 
 # %%
@@ -227,7 +232,7 @@ for fltname in filters.keys():
     )
 
     response = ju.build_jwst_response(
-        sky_domain={fltname: filter_projector.target[fltname]},
+        sky_domain={fltname: sky_filter.target[fltname]},
         subsample=cfg["telescope"]["subsample"],
         rotation_and_shift_kwargs=rotation_and_shift_kwargs,
         psf_kwargs=psf_kwargs,

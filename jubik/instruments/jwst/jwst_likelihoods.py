@@ -3,12 +3,13 @@ from functools import reduce
 from typing import Union
 
 import nifty.re as jft
-from nifty.re import logger
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from nifty.re import logger
 
 from ...grid import Grid
 from ...likelihood import connect_likelihood_to_model
+from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
 from .config_handler import get_grid_extension_from_config
 from .data.loader.data_loader import (
@@ -22,7 +23,7 @@ from .data.preloader.preloader import (
     PreloaderSideEffects,
     preload_data,
 )
-from .filter_projector import FilterProjector, build_filter_projector
+from .throughput import jwst_filter_weights
 from .jwst_response import TargetResponseInput, build_target_response
 from .likelihood.alignment_likelihood import (
     AlignmentLikelihoodSideEffects,
@@ -49,14 +50,14 @@ from .variable_covariance.inverse_standard_deviation import (
 class TargetLikelihoodProducts:
     likelihoods: list[SingleTargetLikelihood]
     plotting: ResidualPlottingInformation
-    filter_projector: FilterProjector
+    sky_filter: SkyFilter
     hot_pixel_masking_data: HotPixelMaskingData | None = None
 
     @property
     def likelihood(self) -> jft.Likelihood | jft.Gaussian:
         likelihoods = (t.likelihood for t in self.likelihoods)
         likelihood = reduce(lambda x, y: x + y, likelihoods)
-        return connect_likelihood_to_model(likelihood, self.filter_projector)
+        return connect_likelihood_to_model(likelihood, self.sky_filter)
 
 
 @dataclass
@@ -94,13 +95,27 @@ def build_jwst_likelihoods(
 ) -> JwstLikelihoodProducts:
     """Build the jwst likelihood_target according to the config and grid."""
 
-    assert isinstance(sky_domain, dict), (
-        "Only works with a sky key since the likelihood has learnable parameters"
+    assert isinstance(sky_domain, dict) and len(sky_domain) == 1, (
+        "Only works with a single sky key since the likelihood has learnable parameters"
     )
 
-    filter_projector = build_filter_projector(
-        sky_domain, grid, cfg[files_key]["filter"].keys()
+    ((sky_key, sky_leaf),) = sky_domain.items()
+    sky_filter = SkyFilter(
+        grid,
+        {
+            name: jwst_filter_weights(
+                grid.spectral, name, cfg[files_key].get("throughputs")
+            )
+            for name in cfg[files_key]["filter"]
+        },
+        sky_key=sky_key,
+        dtype=sky_leaf.dtype,
     )
+    if sky_filter.domain[sky_key].shape != sky_leaf.shape:
+        raise ValueError(
+            f"sky_domain shape {sky_leaf.shape} does not match the grid "
+            f"shape {sky_filter.domain[sky_key].shape}"
+        )
 
     # Parsing
     sky_meta = SkyMetaInformation(
@@ -112,9 +127,7 @@ def build_jwst_likelihoods(
         cfg, telescope_key=telescope_key, files_key=files_key
     )
 
-    target_plotting = ResidualPlottingInformation(
-        y_offset=min(filter_projector.keys_and_index.values())
-    )
+    target_plotting = ResidualPlottingInformation()
     target_filter_likelihoods = []
     alignment_plotting = (
         MultiFilterAlignmentPlottingInformation()
@@ -134,6 +147,7 @@ def build_jwst_likelihoods(
 
         preload_results = preload_data(
             filepaths=filepaths,
+            filter_name=filter,
             preloader=Preloader(
                 grid_corners=grid.spatial.world_corners(
                     extension_value=sky_meta.grid_extension
@@ -196,7 +210,7 @@ def build_jwst_likelihoods(
                 input_config=TargetResponseInput(
                     filter_name=filter,
                     grid=grid,
-                    filter_projector=filter_projector,
+                    sky_filter=sky_filter,
                     target_data=dataload_results.target_data,
                     filter_meta=preload_results.filter_meta,
                     sky_meta=sky_meta,
@@ -243,7 +257,7 @@ def build_jwst_likelihoods(
         target=TargetLikelihoodProducts(
             likelihoods=target_filter_likelihoods,
             plotting=target_plotting,
-            filter_projector=filter_projector,
+            sky_filter=sky_filter,
             hot_pixel_masking_data=hot_pixel_masking_data,
         ),
         alignment=MultiFilterAlignmentProducts.from_optional(
