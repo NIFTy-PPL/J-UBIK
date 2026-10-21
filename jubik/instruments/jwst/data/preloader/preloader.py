@@ -143,7 +143,7 @@ class PreloadBundle:
     boresight: SkyCoord
     meta: DataMetaInformation
     star_table: Table | None
-    date: Time
+    date: Time | None
 
 
 def _exposure_start_time(dm) -> Time:
@@ -188,7 +188,9 @@ def _load_one_preload_bundle(
         boresight=jwst_data.get_boresight_world_coords(),
         star_table=star_table,
         meta=jwst_data.meta,
-        date=_exposure_start_time(jwst_data.dm),
+        date=(
+            _exposure_start_time(jwst_data.dm) if star_alignment_config else None
+        ),
     )
 
 

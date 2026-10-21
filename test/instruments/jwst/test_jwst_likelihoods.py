@@ -80,6 +80,13 @@ class FakeJwstData(JwstData):
         )
 
 
+class MissingExposureTimeJwstData(FakeJwstData):
+    def __init__(self, filepath: str):
+        super().__init__(filepath)
+        self.dm.meta.observation.date_beg = None
+        self.dm.meta.exposure = SimpleNamespace(start_time=None)
+
+
 class NanStarsJwstData(FakeJwstData):
     """`FakeJwstData` with NaN pixels under every `fake_gaia` star cutout.
 
@@ -183,6 +190,14 @@ def test_minimal_config_builds_and_evaluates(patched_seams, tmp_path):
     saved = list((tmp_path / "psf_library").glob("*.npy"))
     assert len(saved) == 1
     assert "nircam_f444w" in saved[0].name and saved[0].name.endswith("sub2.npy")
+
+
+def test_missing_exposure_time_without_gaia_alignment(monkeypatch, patched_seams, tmp_path):
+    monkeypatch.setattr(JWST_DATA_SITES[0], MissingExposureTimeJwstData)
+
+    products = build_jwst_likelihoods(make_config(tmp_path), make_grid(), SKY_DOMAIN)
+
+    assert products.alignment is None
 
 
 def test_two_files_share_bounds(patched_seams, tmp_path):
