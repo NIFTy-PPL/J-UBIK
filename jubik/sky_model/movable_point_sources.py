@@ -9,6 +9,14 @@ offset, a positive pivot flux and a spectrum, deposited onto a Cartesian grid
 or a HEALPix RING map. The deposited flux is divided by the pixel solid angle,
 so the model returns a surface brightness (flux per bin per steradian when the
 pixel sizes are angles in radians).
+
+See also
+--------
+M. Guardiani et al., "Latent-space field tension for astrophysical
+component detection", A&A 703, A203 (2025),
+`<https://doi.org/10.1051/0004-6361/202556103>`_. It describes this point-source
+model and its sub-pixel localization.
+Consider citing this paper if you use these point sources.
 """
 
 from itertools import product
