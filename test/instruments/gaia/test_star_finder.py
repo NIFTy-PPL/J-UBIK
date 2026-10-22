@@ -65,3 +65,19 @@ def test_lowercase_source_id_is_renamed(fake_gaia, tmp_path):
     fresh = load_gaia_stars_in_fov(CORNERS, str(tmp_path))
     cached = load_gaia_stars_in_fov(CORNERS, str(tmp_path))
     assert "SOURCE_ID" in fresh.colnames and "SOURCE_ID" in cached.colnames
+
+
+@pytest.mark.parametrize("ra0", [180.0, 0.0])
+def test_circle_center_across_ra_wrap(fake_gaia, tmp_path, ra0):
+    calls, _ = fake_gaia
+    corners = SkyCoord(
+        ra=[ra0 - 0.05, ra0 + 0.05, ra0 + 0.05, ra0 - 0.05],
+        dec=[-5.0, -5.0, -4.9, -4.9],
+        unit="deg",
+    )
+    load_gaia_stars_in_fov(corners, str(tmp_path))
+    ra, dec, radius = map(float, calls[0].split("CIRCLE('ICRS',")[1].split(")")[0].split(","))
+    center = SkyCoord(ra=ra, dec=dec, unit="deg")
+    assert center.separation(SkyCoord(ra=ra0, dec=-4.95, unit="deg")).deg < 1e-3
+    assert (center.separation(corners).deg <= radius).all()
+    assert radius < 0.08

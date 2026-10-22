@@ -88,8 +88,11 @@ def load_one_stars_bundle(
     star_bundles = StarsBundle(index=index)
 
     for ii, star in enumerate(star_tables.get_stars(index)):
-        # Mask out stars that lead to nan positions
-        if np.any(np.isnan(jwst_data.wcs.world_to_pixel(star.position))):
+        # Drop stars off the detector (the Gaia circle over-fetches past the
+        # corners); pixel i covers [i - 0.5, i + 0.5), NaN compares False.
+        x, y = jwst_data.wcs.world_to_pixel(star.position)
+        ny, nx = jwst_data.shape
+        if not (-0.5 <= x < nx - 0.5 and -0.5 <= y < ny - 0.5):
             continue
 
         bounding_indices = star.bounding_indices(jwst_data, fov_pixel)

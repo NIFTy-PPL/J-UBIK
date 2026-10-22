@@ -7,9 +7,7 @@
 from functools import partial
 import os.path
 
-import numpy as np
-from astropy import units as u
-from astropy.coordinates import Angle, SkyCoord
+from astropy.coordinates import SkyCoord
 from astropy.table import Table
 
 
@@ -35,9 +33,9 @@ def load_gaia_stars_in_fov(
     # timeout (even the archive's own documentation example), CIRCLE answers in
     # seconds. The circle over-fetches outside the detector corners; the JWST
     # loader drops stars that fall off the detector anyway.
-    center = SkyCoord(
-        ra=Angle(fov_corners.ra).wrap_at(180 * u.deg).mean(), dec=fov_corners.dec.mean()
-    )
+    # Mean of the unit vectors: an RA mean would put a field across RA 0/360
+    # (or across the wrap angle) on the far side of the sky.
+    center = SkyCoord(fov_corners.cartesian.mean(), frame="icrs")
     radius = center.separation(fov_corners).max().deg * 1.01
     circle_str = f"{center.ra.deg}, {center.dec.deg}, {radius}"
 
