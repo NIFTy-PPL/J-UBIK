@@ -46,3 +46,21 @@ def fake_gaia(monkeypatch):
     monkeypatch.setitem(sys.modules, "astroquery", pkg)
     monkeypatch.setitem(sys.modules, "astroquery.gaia", gaia_mod)
     return calls, table
+
+
+@pytest.fixture
+def fake_polygon_timeout(fake_gaia, monkeypatch):
+    """`fake_gaia` whose POLYGON queries fail like the archive since 3.15."""
+    import astroquery.gaia
+
+    calls, table = fake_gaia
+    launch = astroquery.gaia.Gaia.launch_job_async
+
+    def launch_or_timeout(query):
+        if "POLYGON" in query:
+            calls.append(query)
+            raise RuntimeError("HTTP 500: Job timeout/aborted")
+        return launch(query)
+
+    monkeypatch.setattr(astroquery.gaia.Gaia, "launch_job_async", launch_or_timeout)
+    return calls, table
