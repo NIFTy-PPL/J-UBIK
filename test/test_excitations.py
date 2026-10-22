@@ -64,9 +64,9 @@ def test_coefficient_round_trip(harmonic_type, shape):
     sky = _sky(harmonic_type, shape)
     p = jft.Vector(sky.init(random.PRNGKey(3)))
     transforms = build_excitation_transforms(sky)
-    assert transforms["deviations"].to_map(p).shape[0] == 2
+    assert transforms["deviations"].to_excitation_map(p).shape[0] == 2
     for t in transforms.values():
-        back = t.with_map(p, t.to_map(p))
+        back = t.with_excitation_map(p, t.to_excitation_map(p))
         assert isinstance(back, type(p))
         assert_allclose(back[t.key], p[t.key], rtol=1e-10, atol=1e-10)
         # Other latents are untouched.
@@ -80,14 +80,14 @@ def test_zero_mode_is_kept(harmonic_type, shape):
     transforms = build_excitation_transforms(sky)
     for t in transforms.values():
         # A constant offset is pure l=0: nothing changes.
-        back = t.with_map(p, t.to_map(p) + 1.0)
+        back = t.with_excitation_map(p, t.to_excitation_map(p) + 1.0)
         assert_allclose(back[t.key], p[t.key], rtol=1e-10, atol=1e-10)
 
     # A local edit moves the deviations, but not their l=0 coefficient.
     t = transforms["deviations"]
-    edited = np.array(t.to_map(p))
+    edited = np.array(t.to_excitation_map(p))
     edited[:, 0] += 3.0
-    back = t.with_map(p, edited)
+    back = t.with_excitation_map(p, edited)
     zero = (slice(None),) + (0,) * len(shape)
     assert_allclose(back[t.key][zero], p[t.key][zero], rtol=0, atol=0)
     assert not np.allclose(back[t.key], p[t.key])
@@ -99,14 +99,14 @@ def test_unit_per_pixel_prior_variance(harmonic_type, shape, zero_mode_active):
     grid = make_grid(shape, (0.1,) * len(shape), harmonic_type)
     t = ExcitationTransform("xi", grid, zero_mode_active=zero_mode_active)
     hshape = grid.harmonic_grid.shape
-    to_map = lambda xi: t.to_map({"xi": xi}).reshape(-1)
+    to_excitation_map = lambda xi: t.to_excitation_map({"xi": xi}).reshape(-1)
 
     # Exact: the prior covariance of the map is J J^T for white xi.
-    jac = jax.jacfwd(to_map)(np.zeros(hshape)).reshape(-1, np.prod(hshape))
+    jac = jax.jacfwd(to_excitation_map)(np.zeros(hshape)).reshape(-1, np.prod(hshape))
     assert_allclose(np.sum(jac**2, axis=1), 1.0, rtol=1e-10)
 
     # And on prior samples.
     xi = np.random.default_rng(0).normal(size=(4000,) + hshape)
-    maps = np.asarray(jax.vmap(to_map)(xi))
+    maps = np.asarray(jax.vmap(to_excitation_map)(xi))
     assert_allclose(maps.var(axis=0).mean(), 1.0, rtol=0.02)
     assert_allclose(maps.mean(axis=0), 0.0, atol=0.1)

@@ -176,8 +176,9 @@ def relax_position(position, transforms, weights, rng, *, scale):
     `build_excitation_transforms`), every field that enters the score.
     """
     for transform in transforms:
-        relaxed = relax_map(transform.to_map(position), weights, rng, scale=scale)
-        position = transform.with_map(position, relaxed)
+        excitation = transform.to_excitation_map(position)
+        relaxed = relax_map(excitation, weights, rng, scale=scale)
+        position = transform.with_excitation_map(position, relaxed)
     return position
 
 

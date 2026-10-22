@@ -4,10 +4,11 @@
 
 """Normalized sky-space maps of the excitations of a `SpectralProductSky`.
 
-An excitation field is a white latent ξ in harmonic space. `to_map`
-synthesizes its active modes and divides by the per-pixel prior standard
-deviation, so a prior sample is a white unit-variance map. `with_map` writes
-an edited map back into a latent position: exactly (Hartley transform) on
+An excitation field is a white latent ξ in harmonic space.
+`to_excitation_map` synthesizes its active modes and divides by the
+per-pixel prior standard deviation, so a prior sample is a white
+unit-variance map. `with_excitation_map` writes an edited map back into a
+latent position: exactly (Hartley transform) on
 Cartesian grids, by least squares (ducc0 `pseudo_analysis`) on HEALPix grids,
 where there are fewer coefficients than pixels.
 """
@@ -38,14 +39,14 @@ class ExcitationTransform:
         NIFTy grid of the field, as returned by `make_grid`.
     zero_mode_active: bool
         Whether the field's amplitude keeps its k=0 (l=0) mode. The
-        normalization counts the active modes only; `to_map` drops an
+        normalization counts the active modes only; `to_excitation_map` drops an
         inactive zero mode.
     nthreads: int
         ducc0 threads for the HEALPix transforms.
 
     Notes
     -----
-    `with_map` keeps the zero-mode coefficient of the given position: a
+    `with_excitation_map` keeps the zero-mode coefficient of the given position: a
     no-op on the map for an inactive zero mode, and for an active one it
     keeps the sky average (e.g. the sky-averaged spectral shape of the
     deviations) out of local edits.
@@ -79,7 +80,7 @@ class ExcitationTransform:
         else:
             raise TypeError(f"Unsupported grid type: {type(grid)!r}")
 
-    def to_map(self, position):
+    def to_excitation_map(self, position):
         """Normalized map of ξ in `position`, shape `ξ.shape[:-n] + map shape`."""
         xi = jnp.where(self._active, _tree(position)[self.key], 0.0)
         lead = xi.shape[: xi.ndim - self._zero.ndim]
@@ -87,7 +88,7 @@ class ExcitationTransform:
         maps = self._synthesis(xi) / self._norm
         return maps.reshape(lead + maps.shape[1:])
 
-    def with_map(self, position, map):
+    def with_excitation_map(self, position, map):
         """Copy of `position` whose ξ gives `map`, zero mode kept from `position`."""
         tree = dict(_tree(position))
         xi = self._analysis(np.asarray(map, dtype=float) * self._norm)

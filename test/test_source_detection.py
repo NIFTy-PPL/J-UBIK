@@ -135,10 +135,10 @@ def test_aperture_labels_assign_overlaps_to_the_nearest():
 class _Identity:
     """Excitation transform whose map is the latent itself."""
 
-    def to_map(self, position):
+    def to_excitation_map(self, position):
         return position["xi"]
 
-    def with_map(self, position, map):
+    def with_excitation_map(self, position, map):
         return {**position, "xi": map}
 
 
@@ -258,7 +258,8 @@ def test_injected_excess_is_removed_at_one_degree_core():
     distance = np.arccos(np.clip(vectors @ vectors[centre], -1.0, 1.0))
     background = {"xi": np.random.default_rng(0).normal(size=pd.size)}
     excess = 5.0 * np.exp(-0.5 * (distance / deg(0.5)) ** 2)
-    injected = t.with_map(background, np.asarray(t.to_map(background)) + excess)
+    excitation = np.asarray(t.to_excitation_map(background))
+    injected = t.with_excitation_map(background, excitation + excess)
 
     weights = sd.relaxation_weights(nside, [centre], deg(1.0), deg(2.0))
 
