@@ -103,7 +103,7 @@ def _healpix_analysis(maps, *, nside, lmax, mmax, nthreads):
     """Least-squares inverse of NIFTy's synthesis, on the last axis of `maps`."""
     lead, npix = maps.shape[:-1], maps.shape[-1]
     # NIFTy's synthesis is ducc0's times sqrt(4 pi), see `get_healpix_sht`.
-    alm = pseudo_analysis(
+    alm, istop, *_ = pseudo_analysis(
         map=maps.reshape(-1, 1, npix) / np.sqrt(4 * np.pi),
         lmax=lmax,
         mmax=mmax,
@@ -112,7 +112,11 @@ def _healpix_analysis(maps, *, nside, lmax, mmax, nthreads):
         epsilon=1e-13,
         nthreads=nthreads,
         **Healpix_Base(nside, "RING").sht_info(),
-    )[0][:, 0]
+    )
+    # LSMR stop codes: 0 zero map, 1 exact solution, 2 least-squares solution.
+    if not np.isin(istop, (0, 1, 2)).all():
+        raise RuntimeError(f"pseudo_analysis did not converge (istop={istop})")
+    alm = alm[:, 0]
     L = lmax + 1
     x = np.empty((alm.shape[0], 2 * alm.shape[1] - L))
     for a, xi in zip(alm, x):

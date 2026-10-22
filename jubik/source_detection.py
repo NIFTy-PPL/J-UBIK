@@ -14,7 +14,9 @@ Array functions for one detect-relax-handoff pass:
    warm start of the refit;
 3. integrate the diffuse emission the relaxation removes
    (`aperture_labels`, `removed_emission`), fit it with the mean source
-   spectrum (`pivot_flux`) and accept or reject (`flux_acceptance`).
+   spectrum (`pivot_flux`) and accept or reject, with the per-round limit
+   (`flux_acceptance`). One relaxation per draw covers all candidates; the
+   warm start relaxes only the accepted ones.
 
 Maps are in HEALPix RING order, angles in radians, positions are
 (lon, lat) pairs. The relaxation is a port of sptLensing's
@@ -66,7 +68,11 @@ def _angle(a, b):
 
 
 def local_maxima(score):
-    """Pixels larger than all their neighbours, ties going to the lower index."""
+    """Pixels larger than all their neighbours.
+
+    Ties between neighbours go to the lower index; a plateau can still give
+    several maxima (`min_separation` in `select_candidates` usually merges them).
+    """
     score = np.asarray(score)
     _, neighbours = _healpix(_nside(score.size))
     pixels = np.arange(score.size)[:, None]
@@ -85,7 +91,6 @@ def select_candidates(
     source_lonlat=(),
     exclusion_radius=0.0,
     excluded=None,
-    max_candidates=None,
 ):
     """Candidate pixels among the local maxima of `score`, with the reason
     each one is kept or rejected.
@@ -93,10 +98,10 @@ def select_candidates(
     The maxima are taken by descending score, ties by pixel index. A maximum
     is rejected, in this order, as `"below_threshold"` (score not above
     `threshold`), `"existing_source"` (closer than `exclusion_radius` to a
-    source at `source_lonlat`), `"exclusion_region"` (`excluded[pixel]`),
-    `"too_close"` (closer than `min_separation` to an accepted candidate) or
-    `"round_limit"` (already `max_candidates` accepted). The others are
-    `"accepted"`.
+    source at `source_lonlat`), `"exclusion_region"` (`excluded[pixel]`) or
+    `"too_close"` (closer than `min_separation` to an accepted candidate).
+    The others are `"accepted"`. The per-round limit comes after the flux
+    checks, in `flux_acceptance`.
 
     Returns
     -------
@@ -125,8 +130,6 @@ def select_candidates(
             min_separation
         ):
             reason = "too_close"
-        elif max_candidates is not None and len(accepted) >= max_candidates:
-            reason = "round_limit"
         else:
             reason = "accepted"
             accepted.append(pixel)
@@ -181,7 +184,7 @@ def relax_position(position, transforms, weights, rng, *, scale):
 def aperture_labels(nside, pixels, outer_radius):
     """Index of the nearest candidate within `outer_radius` per pixel, else -1.
 
-    Equidistant pixels go to the earlier candidate in `pixels`.
+    Exactly equidistant pixels go to either candidate (floating-point rounding).
     """
     vectors, _ = _healpix(nside)
     distance = _angle(vectors, vectors[np.asarray(pixels, dtype=int)])
@@ -241,13 +244,15 @@ def pivot_flux(fluxes, relative_log_energies, spectral_index):
     return np.asarray(fluxes) @ t / (t @ t)
 
 
-def flux_acceptance(flux, persistence):
-    """Accept candidates by their pivot fluxes, `(n_samples, n_draws, n_candidates)`.
+def flux_acceptance(flux, persistence, max_candidates=None):
+    """Accept candidates by their pivot fluxes, `(n_samples, n_draws, n_candidates)`,
+    with the candidates in score order.
 
     A candidate is rejected as `"non_positive_flux"` if the mean over all
-    (sample, draw) pairs is not finite and positive, and as
-    `"low_persistence"` if fewer than a `persistence` fraction of samples have
-    a positive flux averaged over their draws.
+    (sample, draw) pairs is not finite and positive, as `"low_persistence"`
+    if fewer than a `persistence` fraction of samples have a positive flux
+    averaged over their draws, and as `"round_limit"` if `max_candidates`
+    earlier candidates are already accepted.
 
     Returns
     -------
@@ -261,4 +266,7 @@ def flux_acceptance(flux, persistence):
         "non_positive_flux",
         np.where(positive_fraction < persistence, "low_persistence", "accepted"),
     )
+    if max_candidates is not None:
+        accepted = np.flatnonzero(reasons == "accepted")
+        reasons[accepted[max_candidates:]] = "round_limit"
     return mean, positive_fraction, reasons

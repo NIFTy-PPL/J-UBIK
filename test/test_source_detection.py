@@ -73,7 +73,6 @@ def test_select_candidates_reasons():
         source_lonlat=[(deg(92.0), deg(31.0))],
         exclusion_radius=deg(5.0),
         excluded=excluded,
-        max_candidates=3,
     )
     got = dict(zip(pixels.tolist(), reasons.tolist()))
     assert {name: got[pixel] for name, (pixel, _) in spikes.items()} == {
@@ -83,7 +82,7 @@ def test_select_candidates_reasons():
         "excluded": "exclusion_region",
         "b": "accepted",
         "tie_low": "accepted",
-        "tie_high": "round_limit",
+        "tie_high": "accepted",
         "faint": "below_threshold",
     }
     # Descending score, ties by pixel index; the flat background comes last.
@@ -130,8 +129,6 @@ def test_aperture_labels_assign_overlaps_to_the_nearest():
     assert_array_equal(labels[(da < deg(5.0)) & (da < db)], 0)
     assert_array_equal(labels[(db < deg(5.0)) & (db < da)], 1)
     assert_array_equal(labels[(da >= deg(5.0)) & (db >= deg(5.0))], -1)
-    # Ties go to the earlier candidate.
-    assert_array_equal(sd.aperture_labels(NSIDE, [a, a], deg(5.0)) == 1, False)
     assert_array_equal(sd.aperture_labels(NSIDE, [], deg(5.0)), -1)
 
 
@@ -203,6 +200,44 @@ def test_flux_acceptance():
         ["accepted", "non_positive_flux", "low_persistence", "non_positive_flux"],
     )
     assert mean[2] > 0
+
+    # The limit counts accepted candidates only, in the given order.
+    _, _, reasons = sd.flux_acceptance(flux[..., [1, 0, 0, 0]], 0.5, max_candidates=2)
+    assert_array_equal(
+        reasons, ["non_positive_flux", "accepted", "accepted", "round_limit"]
+    )
+
+
+def test_hole_does_not_use_up_the_round_limit():
+    """The unsigned score ranks a hole above a real source; with a limit of
+    one the round still adds the source."""
+    deg = np.radians
+    hole, source = _pixel(0.0, 0.0), _pixel(90.0, 0.0)
+    xi = 2.0 * np.exp(-0.5 * (_distance(source) / deg(4.0)) ** 2) - 3.0 * np.exp(
+        -0.5 * (_distance(hole) / deg(4.0)) ** 2
+    )
+    pixels, reasons = sd.select_candidates(
+        np.abs(xi), threshold=1.0, min_separation=deg(10.0)
+    )
+    selected = pixels[reasons == "accepted"]
+    assert_array_equal(selected, [hole, source])
+
+    weights = sd.relaxation_weights(NSIDE, selected, deg(4.0), deg(8.0))
+    labels = sd.aperture_labels(NSIDE, selected, deg(8.0))
+    fluxes, _, _ = sd.removed_emission(
+        lambda p: np.exp(p["xi"])[None],
+        [{"xi": xi}],
+        [_Identity()],
+        weights,
+        labels,
+        4 * np.pi / BASE.npix(),
+        np.random.default_rng(0),
+        scale=0.3,
+        n_draws=3,
+    )
+    f = sd.pivot_flux(fluxes, [0.0], 0.0)
+    _, _, reasons = sd.flux_acceptance(f, 0.5, max_candidates=1)
+    assert_array_equal(reasons, ["non_positive_flux", "accepted"])
 
 
 def test_injected_excess_is_removed_at_one_degree_core():
