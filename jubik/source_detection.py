@@ -21,6 +21,14 @@ Array functions for one detect-relax-handoff pass:
 Maps are in HEALPix RING order, angles in radians, positions are
 (lon, lat) pairs. The relaxation is a port of sptLensing's
 `spt_lensing.inference.substructure` with great-circle distances.
+
+See also
+--------
+M. Guardiani et al., "Latent-space field tension for astrophysical
+component detection", A&A 703, A203 (2025),
+`<https://doi.org/10.1051/0004-6361/202556103>`_. It detects point sources from
+the tension in the excitation maps.
+Consider citing this paper if you use this detection.
 """
 
 from functools import lru_cache

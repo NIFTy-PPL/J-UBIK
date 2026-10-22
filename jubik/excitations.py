@@ -11,6 +11,15 @@ unit-variance map. `with_excitation_map` writes an edited map back into a
 latent position: exactly (Hartley transform) on
 Cartesian grids, by least squares (ducc0 `pseudo_analysis`) on HEALPix grids,
 where there are fewer coefficients than pixels.
+
+See also
+--------
+M. Guardiani et al., "Latent-space field tension for astrophysical
+component detection", A&A 703, A203 (2025),
+`<https://doi.org/10.1051/0004-6361/202556103>`_. It introduces latent-space
+tension: excitations that depart from their white prior flag a missing
+sky component.
+Consider citing this paper if you use these maps for model diagnostics.
 """
 
 from functools import partial
