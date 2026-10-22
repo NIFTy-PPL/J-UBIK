@@ -5,7 +5,6 @@
 
 # %
 import os.path
-import warnings
 
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
@@ -28,14 +27,10 @@ def load_gaia_stars_in_fov(
         return _with_upper_source_id(Table.read(saving_string))
 
     # ----- (B)  query the archive  -----------------------------------------
-    # Since Gaia archive release 3.15 (2026-10-14) POLYGON queries have run
-    # into the server timeout (even the archive's own documentation example)
-    # while CIRCLE on the same field answers in seconds.
-    try:
-        table = query_gaia_polygon(fov_corners, exclude_source_ids)
-    except Exception as e:
-        warnings.warn(f"Gaia POLYGON query failed ({e!r}), querying a CIRCLE instead")
-        table = query_gaia_circle(fov_corners, exclude_source_ids)
+    # shortcut: since Gaia archive release 3.15 (2026-10-14) every POLYGON
+    # query times out while CIRCLE answers in seconds, so query the circle;
+    # switch back to `query_gaia_polygon` once the archive answers POLYGON.
+    table = query_gaia_circle(fov_corners, exclude_source_ids)
 
     if library_path != "":
         table.write(saving_string, format="ascii.ecsv", overwrite=True)

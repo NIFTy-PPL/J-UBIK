@@ -49,33 +49,20 @@ def test_no_library_path_does_not_write(fake_gaia, tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("ra0", [10.05, 180.0, 0.0])
-def test_circle_through_the_corners_when_the_polygon_fails(
-    fake_gaia, tmp_path, monkeypatch, ra0
-):
-    import astroquery.gaia
-
+def test_query_is_a_circle_through_the_corners(fake_gaia, tmp_path, ra0):
     calls, table = fake_gaia
-    launch = astroquery.gaia.Gaia.launch_job_async
-
-    def polygon_times_out(query):
-        if "POLYGON" in query:
-            calls.append(query)
-            raise RuntimeError("HTTP 500: Job timeout/aborted")
-        return launch(query)
-
-    monkeypatch.setattr(astroquery.gaia.Gaia, "launch_job_async", polygon_times_out)
     corners = SkyCoord(
         ra=[ra0 - 0.05, ra0 + 0.05, ra0 + 0.05, ra0 - 0.05],
         dec=[-5.0, -5.0, -4.9, -4.9],
         unit="deg",
     )
-    with pytest.warns(UserWarning, match="POLYGON query failed"):
-        result = load_gaia_stars_in_fov(corners, str(tmp_path))
+    result = load_gaia_stars_in_fov(corners, str(tmp_path))
     assert len(result) == len(table)
-    assert ["POLYGON" in c for c in calls] == [True, False]
+    (query,) = calls
+    assert "POLYGON" not in query
     # CIRCLE('ICRS', ra, dec, radius) in degrees.
     ra, dec, radius = map(
-        float, calls[1].split("CIRCLE('ICRS',")[1].split(")")[0].split(",")
+        float, query.split("CIRCLE('ICRS',")[1].split(")")[0].split(",")
     )
     center = SkyCoord(ra=ra, dec=dec, unit="deg")
     assert center.separation(SkyCoord(ra=ra0, dec=-4.95, unit="deg")).deg < 1e-3
