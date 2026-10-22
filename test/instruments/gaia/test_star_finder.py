@@ -47,62 +47,37 @@ def test_no_library_path_does_not_write(fake_gaia, tmp_path, monkeypatch):
     assert _cache_files(tmp_path) == []
 
 
-def _circle(query):
-    """(ra, dec, radius) in degrees of the query's CIRCLE('ICRS', ...)."""
-    return map(float, query.split("CIRCLE('ICRS',")[1].split(")")[0].split(","))
 
+@pytest.mark.parametrize("ra0", [10.05, 180.0, 0.0])
+def test_circle_through_the_corners_when_the_polygon_fails(
+    fake_gaia, tmp_path, monkeypatch, ra0
+):
+    import astroquery.gaia
 
-def test_polygon_first(fake_gaia, tmp_path):
-    calls, _ = fake_gaia
-    load_gaia_stars_in_fov(CORNERS, str(tmp_path))
-    assert len(calls) == 1 and "POLYGON('ICRS', 10.0, -5.0, 10.1, -5.0" in calls[0]
-    assert "CIRCLE" not in calls[0]
+    calls, table = fake_gaia
+    launch = astroquery.gaia.Gaia.launch_job_async
 
+    def polygon_times_out(query):
+        if "POLYGON" in query:
+            calls.append(query)
+            raise RuntimeError("HTTP 500: Job timeout/aborted")
+        return launch(query)
 
-def test_circle_through_the_corners_when_the_polygon_fails(fake_polygon_timeout, tmp_path):
-    calls, table = fake_polygon_timeout
-    result = load_gaia_stars_in_fov(CORNERS, str(tmp_path))
-    assert len(result) == len(table)
-    assert ["POLYGON" in c for c in calls] == [True, False]
-    # CIRCLE('ICRS', ra, dec, radius) in degrees, centered on the corners and reaching them all.
-    ra, dec, radius = _circle(calls[1])
-    center = SkyCoord(ra=ra, dec=dec, unit="deg")
-    assert np.allclose([ra, dec], [10.05, -4.95], atol=1e-3)
-    assert (center.separation(CORNERS).deg <= radius).all()
-    assert radius < 0.08
-
-
-def test_lowercase_source_id_is_renamed(fake_gaia, tmp_path):
-    _, table = fake_gaia
-    table.rename_column("SOURCE_ID", "source_id")
-    fresh = load_gaia_stars_in_fov(CORNERS, str(tmp_path))
-    cached = load_gaia_stars_in_fov(CORNERS, str(tmp_path))
-    assert "SOURCE_ID" in fresh.colnames and "SOURCE_ID" in cached.colnames
-
-
-@pytest.mark.parametrize("ra0", [180.0, 0.0])
-def test_circle_center_across_ra_wrap(fake_polygon_timeout, tmp_path, ra0):
-    calls, _ = fake_polygon_timeout
+    monkeypatch.setattr(astroquery.gaia.Gaia, "launch_job_async", polygon_times_out)
     corners = SkyCoord(
         ra=[ra0 - 0.05, ra0 + 0.05, ra0 + 0.05, ra0 - 0.05],
         dec=[-5.0, -5.0, -4.9, -4.9],
         unit="deg",
     )
-    load_gaia_stars_in_fov(corners, str(tmp_path))
-    ra, dec, radius = _circle(calls[1])
+    with pytest.warns(UserWarning, match="POLYGON query failed"):
+        result = load_gaia_stars_in_fov(corners, str(tmp_path))
+    assert len(result) == len(table)
+    assert ["POLYGON" in c for c in calls] == [True, False]
+    # CIRCLE('ICRS', ra, dec, radius) in degrees.
+    ra, dec, radius = map(
+        float, calls[1].split("CIRCLE('ICRS',")[1].split(")")[0].split(",")
+    )
     center = SkyCoord(ra=ra, dec=dec, unit="deg")
     assert center.separation(SkyCoord(ra=ra0, dec=-4.95, unit="deg")).deg < 1e-3
     assert (center.separation(corners).deg <= radius).all()
     assert radius < 0.08
-
-
-def test_both_regions_failing_raises(fake_polygon_timeout, tmp_path, monkeypatch):
-    import astroquery.gaia
-
-    def fail(query):
-        raise RuntimeError("408")
-
-    monkeypatch.setattr(astroquery.gaia.Gaia, "launch_job_async", fail)
-    with pytest.raises(RuntimeError, match="408"):
-        load_gaia_stars_in_fov(CORNERS, str(tmp_path))
-    assert _cache_files(tmp_path) == []

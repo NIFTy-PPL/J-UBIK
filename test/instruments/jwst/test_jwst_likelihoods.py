@@ -264,7 +264,7 @@ def test_gaia_and_variable_covariance(patched_seams, fake_gaia, tmp_path, zero_f
 
     alignment = products.alignment.likelihood.likelihood
     keys = set(alignment.domain.tree)
-    for star_id in table["SOURCE_ID"]:
+    for star_id in table["source_id"]:
         assert f"{FILTER.lower()}_{star_id}_brightness" in keys
     assert any("zero_flux" in k for k in keys) == zero_flux
     assert np.isfinite(evaluate(alignment))
