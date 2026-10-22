@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause
 # Authors: Matteo Guardiani
 
-"""Explicit point sources with inferred positions and power-law spectra.
+"""Movable point sources with inferred positions and power-law spectra.
 
 A catalogue of ``n`` sources, each with a fixed anchor, a latent position
 offset, a positive pivot flux and a spectrum, deposited onto a Cartesian grid
@@ -37,7 +37,7 @@ FLUX_PRIORS = {
 }
 
 
-class ExplicitSources(jft.Model):
+class MovablePointSources(jft.Model):
     """A fixed-size catalogue of point sources deposited onto a sky map.
 
     ``__call__`` returns the sky of shape ``(n_frequencies, *spatial)``. The
@@ -93,7 +93,7 @@ class ExplicitSources(jft.Model):
         return self._deposit(self.positions(p), self.spectra(p))
 
 
-def build_explicit_sources(
+def build_movable_point_sources(
     prefix: str,
     anchors: ArrayLike,
     position_std: float,
@@ -104,8 +104,8 @@ def build_explicit_sources(
     reference_frequency_index: int,
     spectral_settings: dict,
     distances: tuple[float, ...] | None = None,
-) -> ExplicitSources:
-    """Build an `ExplicitSources` model.
+) -> MovablePointSources:
+    """Build an `MovablePointSources` model.
 
     Each source has a latent position offset ``Normal(0, position_std)``
     around its anchor, a pivot flux from `flux_prior`, a normal spectral
@@ -122,11 +122,15 @@ def build_explicit_sources(
     prefix: str
         Prefix for the latent names.
     anchors: ArrayLike
+        Fixed reference point of each source. The inferred position is the
+        anchor moved by the latent offset, so the anchor is the prior mean
+        of the position and, on the sphere, the tangent point of the
+        offset. Anchors never move during or between fits; latents of
+        existing sources stay valid only because of that.
         Spherical: shape ``(n, 2)``, (lon, lat) in radians. Cartesian:
-        shape ``(n, len(shape))``, a
-        coordinate per spatial axis, in the units of `distances`, measured
-        from the outer corner of pixel 0, so pixel ``i`` covers
-        ``[i * d, (i + 1) * d)``.
+        shape ``(n, len(shape))``, a coordinate per spatial axis, in the
+        units of `distances`, measured from the outer corner of pixel 0, so
+        pixel ``i`` covers ``[i * d, (i + 1) * d)``.
     position_std: float
         Standard deviation of each offset component. Spherical: in radians,
         as gnomonic tangent-plane coordinates (east, north) at the anchor.
@@ -226,7 +230,7 @@ def build_explicit_sources(
                 positions / distances, spectra, spatial_shape
             ) / omega
 
-    return ExplicitSources(
+    return MovablePointSources(
         offsets, spectra, to_positions, deposit, invprior(*flux_prior[1:])
     )
 

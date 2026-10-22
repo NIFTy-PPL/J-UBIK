@@ -3,7 +3,7 @@
 # Authors: Matteo Guardiani
 
 """Mint ``healpy_interp_weights.npz``, the reference for
-``jubik.sky_model.explicit_sources.healpix_bilinear_weights``.
+``jubik.sky_model.movable_point_sources.healpix_bilinear_weights``.
 
 healpy is not a jubik dependency, so its output is frozen here. Run with any
 environment that has healpy (minted with healpy 1.18.1, numpy 2.2.4):

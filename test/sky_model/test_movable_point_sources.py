@@ -12,7 +12,7 @@ from jax import lax
 from scipy.stats import invgamma
 
 import jubik as ju
-from jubik.sky_model.explicit_sources import (
+from jubik.sky_model.movable_point_sources import (
     deposit_bilinear_cartesian,
     gnomonic_to_lonlat,
     healpix_bilinear_weights,
@@ -34,7 +34,7 @@ def _build(anchors, geometry="cartesian", flux_prior=("lognormal", 1.0, 0.5), **
         reference_frequency_index=REF,
         spectral_settings=SPECTRAL,
     ) | kw
-    return ju.build_explicit_sources(
+    return ju.build_movable_point_sources(
         "src", anchors, 0.05, flux_prior, geometry, **kw
     )
 
