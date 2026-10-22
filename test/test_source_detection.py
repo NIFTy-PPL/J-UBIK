@@ -91,6 +91,9 @@ def test_select_candidates_reasons():
 
     with pytest.raises(ValueError, match="threshold"):
         sd.select_candidates(score, threshold=-1.0, min_separation=0.0)
+    # Without min_separation nothing is too close
+    _, reasons = sd.select_candidates(score, threshold=1.0)
+    assert "too_close" not in reasons
 
 
 def test_select_candidates_measures_distances_above_threshold_only(monkeypatch):
@@ -159,6 +162,16 @@ def test_aperture_labels_assign_overlaps_to_the_nearest():
     assert_array_equal(labels[(db < deg(5.0)) & (db < da)], 1)
     assert_array_equal(labels[(da >= deg(5.0)) & (db >= deg(5.0))], -1)
     assert_array_equal(sd.aperture_labels(NSIDE, [], deg(5.0)), -1)
+
+
+def test_weights_and_labels_take_one_candidate_at_a_time(monkeypatch):
+    columns = []
+    angle = sd._angle
+    monkeypatch.setattr(sd, "_angle", lambda a, b: columns.append(len(b)) or angle(a, b))
+    candidates = [_pixel(lon, 0.0) for lon in range(0, 360, 30)]
+    sd.relaxation_weights(NSIDE, candidates, 0.05, 0.1)
+    sd.aperture_labels(NSIDE, candidates, 0.1)
+    assert columns == [1] * 2 * len(candidates)  # never pixels x candidates
 
 
 class _Identity:

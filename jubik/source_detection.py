@@ -35,6 +35,7 @@ from functools import lru_cache
 
 import numpy as np
 from ducc0.healpix import Healpix_Base
+from scipy.sparse import csr_array
 from scipy.stats import chi
 
 
@@ -79,7 +80,8 @@ def local_maxima(score):
     """Pixels larger than all their neighbours.
 
     Ties between neighbours go to the lower index; a plateau can still give
-    several maxima (`min_separation` in `select_candidates` usually merges them).
+    several maxima (a positive `min_separation` in `select_candidates` usually
+    merges them).
     """
     score = np.asarray(score)
     _, neighbours = _healpix(_nside(score.size))
@@ -95,7 +97,7 @@ def select_candidates(
     score,
     *,
     threshold,
-    min_separation,
+    min_separation=0.0,
     source_lonlat=(),
     exclusion_radius=0.0,
     excluded=None,
@@ -107,8 +109,9 @@ def select_candidates(
     is rejected, in this order, as `"below_threshold"` (score not above
     `threshold`), `"existing_source"` (closer than `exclusion_radius` to a
     source at `source_lonlat`), `"exclusion_region"` (`excluded[pixel]`) or
-    `"too_close"` (closer than `min_separation` to an accepted candidate).
-    The others are `"accepted"`. The per-round limit comes after the flux
+    `"too_close"` (closer than `min_separation` to an accepted candidate;
+    the default 0 turns this off, so a plateau can give neighbouring
+    candidates). The others are `"accepted"`. The per-round limit comes after the flux
     checks, in `flux_acceptance`.
 
     Returns
@@ -132,8 +135,8 @@ def select_candidates(
         axis=1,
     )
     accepted, reasons = [], []
-    for pixel, near in zip(pixels, near_source):
-        if not score[pixel] > threshold:
+    for pixel, ok, near in zip(pixels, above, near_source):
+        if not ok:
             reason = "below_threshold"
         elif near:
             reason = "existing_source"
@@ -161,9 +164,14 @@ def cosine_taper_weights(distance, core_radius, outer_radius):
 def relaxation_weights(nside, pixels, core_radius, outer_radius):
     """Largest taper weight over the candidate `pixels`, per HEALPix pixel."""
     vectors, _ = _healpix(nside)
-    distance = _angle(vectors, vectors[np.asarray(pixels, dtype=int)])
-    weights = cosine_taper_weights(distance, core_radius, outer_radius)
-    return weights.max(axis=1, initial=0.0)
+    weights = np.zeros(vectors.shape[0])
+    # One candidate at a time: a pixels x candidates table does not fit at nside 512.
+    for vector in vectors[np.asarray(pixels, dtype=int)]:
+        distance = _angle(vectors, vector[None])[:, 0]
+        weights = np.maximum(
+            weights, cosine_taper_weights(distance, core_radius, outer_radius)
+        )
+    return weights
 
 
 def relax_map(values, weights, rng, *, scale):
@@ -201,12 +209,14 @@ def aperture_labels(nside, pixels, outer_radius):
     Exactly equidistant pixels go to either candidate (floating-point rounding).
     """
     vectors, _ = _healpix(nside)
-    distance = _angle(vectors, vectors[np.asarray(pixels, dtype=int)])
-    if distance.shape[1] == 0:
-        return np.full(vectors.shape[0], -1)
-    nearest = np.argmin(distance, axis=1)
-    inside = np.take_along_axis(distance, nearest[:, None], 1)[:, 0] < outer_radius
-    return np.where(inside, nearest, -1)
+    labels = np.full(vectors.shape[0], -1)
+    nearest = np.full(vectors.shape[0], float(outer_radius))
+    # One candidate at a time, as in `relaxation_weights`; ties keep the first.
+    for i, vector in enumerate(vectors[np.asarray(pixels, dtype=int)]):
+        distance = _angle(vectors, vector[None])[:, 0]
+        closer = distance < nearest
+        labels[closer], nearest[closer] = i, distance[closer]
+    return labels
 
 
 def removed_emission(
@@ -235,7 +245,11 @@ def removed_emission(
     mean, std: np.ndarray
         Removed emission over all (sample, draw) pairs, shape `(n_e, npix)`.
     """
-    apertures = (labels[:, None] == np.arange(labels.max() + 1)) * pixel_area
+    inside = np.flatnonzero(labels >= 0)
+    apertures = csr_array(
+        (np.full(inside.size, pixel_area), (inside, labels[inside])),
+        shape=(labels.size, labels.max() + 1),
+    )
     fluxes, total, total_sq, n = [], 0.0, 0.0, 0
     for position in positions:
         sky = np.asarray(diffuse(position))
