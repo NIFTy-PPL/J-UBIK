@@ -61,6 +61,7 @@ from .sky_model.multifrequency.spectral_product_mf_point_sources import (
     MultiFrequencyInvGammaSky,
     build_mf_invgamma_sky,
 )
+from .sky_model.explicit_sources import ExplicitSources, build_explicit_sources
 from .sky_model.stokes_adder import StokesAdder
 from .sky_models import SkyModel, MappedModel, GeneralModel, _apply_slope
 from .response import build_exposure_function, build_readout_function
