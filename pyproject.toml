@@ -71,7 +71,7 @@ all = ["jubik[jwst,gaia,healpix,resolve]"]
 [dependency-groups]
 test = [
     # Reference for the HEALPix interpolation weights of the movable point sources.
-    "healpy",
+    "healpy; sys_platform != 'win32'",  # no Windows builds; the test skips there
     "pytest",
     "pytest-cov",
     "pytest-xdist",
