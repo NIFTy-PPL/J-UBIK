@@ -54,7 +54,10 @@ class ExplicitSources(jft.Model):
         flux_invprior: callable,
     ):
         self._offsets = offsets
-        self._spectra = spectra
+        self.spectral_model = spectra
+        """The spectral submodel; its `log_spectral_behavior` and
+        `spectral_index_deviations` domains give the spectral latents to
+        freeze."""
         self._to_positions = to_positions
         self._deposit = deposit
         self.flux_invprior = flux_invprior
@@ -70,11 +73,11 @@ class ExplicitSources(jft.Model):
 
     def fluxes(self, p):
         """Flux in the reference bin, shape ``(n,)``."""
-        return self._spectra.reference_frequency_distribution(p)
+        return self.spectral_model.reference_frequency_distribution(p)
 
     def spectra(self, p):
         """Flux per model bin, shape ``(n_frequencies, n)``."""
-        return self._spectra(p)
+        return self.spectral_model(p)
 
     def position_summary(self, samples):
         """Posterior mean position and the standard deviation of the
@@ -109,7 +112,10 @@ def build_explicit_sources(
     index and optional Wiener spectral deviations pinned to zero at the
     reference frequency. Anchors are fixed: to add sources, append anchors
     and rebuild. Each per-source latent has one source axis, so the latents
-    of existing sources carry over when that axis is zero-padded.
+    of existing sources carry over when that axis is zero-padded. The
+    source axis is the first axis of the position offsets, flux and
+    spectral-index latents and the last axis of the deviation excitations;
+    the deviation amplitude is shared.
 
     Parameters
     ----------

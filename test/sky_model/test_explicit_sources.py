@@ -135,6 +135,12 @@ def test_spectra_anchored_at_pivot(geometry):
         p = model.init(jax.random.PRNGKey(seed))
         np.testing.assert_allclose(model.spectra(p)[REF], model.fluxes(p), rtol=1e-14)
         assert model.spectra(p).shape == (LOG_FREQUENCIES.size, 2)
+    # Section 3 freezes the spectral latents by these domains, not by key names
+    spectral = model.spectral_model
+    assert set(spectral.log_spectral_behavior.domain) == {"src_spectral_index_mean"}
+    assert set(spectral.spectral_index_deviations.domain) == {
+        "src_spectral_deviations_sigma", "src_spectral_deviations_xi"
+    }
 
 
 def test_single_frequency_has_no_spectral_latents():
