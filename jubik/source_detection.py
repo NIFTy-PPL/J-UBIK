@@ -122,8 +122,13 @@ def select_candidates(
     vectors, _ = _healpix(_nside(score.size))
     pixels = local_maxima(score)
     pixels = pixels[np.lexsort((pixels, -score[pixels]))]
-    near_source = np.any(
-        _angle(vectors[pixels], _lonlat_to_vec(source_lonlat)) < exclusion_radius,
+    # Only maxima above the threshold can be accepted, and they are few: with
+    # many sources, a distance matrix over all maxima would not fit in memory.
+    above = score[pixels] > threshold
+    near_source = np.zeros(pixels.size, dtype=bool)
+    near_source[above] = np.any(
+        _angle(vectors[pixels[above]], _lonlat_to_vec(source_lonlat))
+        < exclusion_radius,
         axis=1,
     )
     accepted, reasons = [], []

@@ -93,6 +93,35 @@ def test_select_candidates_reasons():
         sd.select_candidates(score, threshold=-1.0, min_separation=0.0)
 
 
+def test_select_candidates_measures_distances_above_threshold_only(monkeypatch):
+    deg = np.radians
+    rng = np.random.default_rng(3)
+    score = rng.uniform(0.0, 1.0, BASE.npix())  # many maxima below threshold
+    bright, faint_near_source = _pixel(0.0, 0.0), _pixel(90.0, 30.0)
+    score[bright], score[faint_near_source] = 5.0, 1.5
+    sources = np.stack(
+        [rng.uniform(-np.pi, np.pi, 1000), np.arcsin(rng.uniform(-1, 1, 1000))], -1
+    )
+    sources[0] = deg(90.0), deg(30.0)
+
+    rows = []
+    angle = sd._angle
+    monkeypatch.setattr(sd, "_angle", lambda a, b: rows.append(len(a)) or angle(a, b))
+    pixels, reasons = sd.select_candidates(
+        score,
+        threshold=2.0,
+        min_separation=deg(10.0),
+        source_lonlat=sources,
+        exclusion_radius=deg(1.0),
+    )
+    assert max(rows) == 1  # only the bright maximum, never all maxima
+    got = dict(zip(pixels.tolist(), reasons.tolist()))
+    assert got[bright] == "accepted"
+    # Below the threshold comes first, also next to an existing source.
+    assert got[faint_near_source] == "below_threshold"
+    assert set(reasons) == {"accepted", "below_threshold"}
+
+
 def test_relaxation_weights_and_blend():
     deg = np.radians
     assert_allclose(
