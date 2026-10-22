@@ -4,12 +4,9 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-from functools import partial
 import os.path
 
-import numpy as np
-from astropy import units as u
-from astropy.coordinates import Angle, SkyCoord
+from astropy.coordinates import SkyCoord
 from astropy.table import Table
 
 
@@ -27,18 +24,57 @@ def load_gaia_stars_in_fov(
     saving_string = os.path.join(library_path, f"{saving_string}.ecsv")
 
     if library_path != "" and os.path.isfile(saving_string):
-        return Table.read(saving_string)
+        return _with_upper_source_id(Table.read(saving_string))
 
-    # ----- (B)  build the ADQL query  ---------------------------------------
-    polygon_str = ", ".join([f"{c.ra.deg}, {c.dec.deg}" for c in fov_corners])
+    # ----- (B)  query the archive  -----------------------------------------
+    # shortcut: since Gaia archive release 3.15 (2026-10-14) every POLYGON
+    # query times out while CIRCLE answers in seconds, so query the circle;
+    # switch back to `query_gaia_polygon` once the archive answers POLYGON.
+    table = query_gaia_circle(fov_corners, exclude_source_ids)
 
-    # build the optional exclusion clause
+    if library_path != "":
+        table.write(saving_string, format="ascii.ecsv", overwrite=True)
+
+    return _with_upper_source_id(table)
+
+
+def _with_upper_source_id(table: Table) -> Table:
+    """The archive has returned the id column as `SOURCE_ID` and as `source_id`
+    over the years; the star tables read `SOURCE_ID`."""
+    if "source_id" in table.colnames:
+        table.rename_column("source_id", "SOURCE_ID")
+    return table
+
+
+def query_gaia_polygon(
+    fov_corners: SkyCoord, exclude_source_ids: list[int] | None = None
+) -> Table:
+    """Gaia DR3 sources inside the polygon of the corners, the exact footprint."""
+    polygon_str = ", ".join(f"{c.ra.deg}, {c.dec.deg}" for c in fov_corners)
+    return _query_gaia(f"POLYGON('ICRS', {polygon_str})", exclude_source_ids)
+
+
+def query_gaia_circle(
+    fov_corners: SkyCoord, exclude_source_ids: list[int] | None = None
+) -> Table:
+    """Gaia DR3 sources inside the circle through the corners (plus 1%).
+
+    Over-fetches past the corners; the JWST loader drops stars off the
+    detector. The center is the mean of the corner unit vectors: an RA mean
+    would put a field across RA 0/360 on the far side of the sky.
+    """
+    center = SkyCoord(fov_corners.cartesian.mean(), frame="icrs")
+    radius = center.separation(fov_corners).max().deg * 1.01
+    circle_str = f"{center.ra.deg}, {center.dec.deg}, {radius}"
+    return _query_gaia(f"CIRCLE('ICRS', {circle_str})", exclude_source_ids)
+
+
+def _query_gaia(region: str, exclude_source_ids: list[int] | None) -> Table:
     if exclude_source_ids:
-        # make a comma-separated string of literal integers
         id_list = ", ".join(str(int(sid)) for sid in exclude_source_ids)
         exclusion_clause = f"AND source_id NOT IN ({id_list})"
     else:
-        exclusion_clause = ""  # nothing to add
+        exclusion_clause = ""
 
     query = f"""
     SELECT
@@ -57,29 +93,9 @@ def load_gaia_stars_in_fov(
       visibility_periods_used, astrometric_params_solved,
       duplicated_source, phot_variable_flag
     FROM gaiadr3.gaia_source
-    WHERE 1 = CONTAINS(
-            POINT('ICRS', ra, dec),
-            POLYGON('ICRS', {polygon_str})
-          )
+    WHERE 1 = CONTAINS(POINT('ICRS', ra, dec), {region})
     {exclusion_clause}
     """
-
-    # query = f"""
-    # SELECT
-    # source_id, ra, dec
-    # FROM gaiadr3.gaia_source
-    # WHERE 1 = CONTAINS(
-    #     POINT('ICRS', ra, dec),
-    #     POLYGON('ICRS', {polygon_str})
-    # )
-    # """
-
     from astroquery.gaia import Gaia
 
-    job = Gaia.launch_job_async(query)
-    table: Table = job.get_results()
-
-    if library_path != "":
-        table.write(saving_string, format="ascii.ecsv", overwrite=True)
-
-    return table
+    return Gaia.launch_job_async(query).get_results()

@@ -277,7 +277,7 @@ def test_gaia_and_variable_covariance(patched_seams, fake_gaia, tmp_path, zero_f
 
     alignment = products.alignment.likelihood.likelihood
     keys = set(alignment.domain.tree)
-    for star_id in table["SOURCE_ID"]:
+    for star_id in table["source_id"]:
         assert f"{FILTER.lower()}_{star_id}_brightness" in keys
     assert any("zero_flux" in k for k in keys) == zero_flux
     assert np.isfinite(evaluate(alignment))
@@ -311,8 +311,10 @@ def test_gaia_stars_on_edges_and_corners(
     table.remove_rows(slice(None))
     # Pixel (x, y) positions on every edge, every corner and the interior.
     xy = [(x, y) for x in (0.2, 31.6, 63.3) for y in (-0.4, 30.7, 63.4)]
+    # Off the detector by a few pixels (inside the Gaia circle): must be dropped.
+    outside = [(66.0, 30.0), (30.0, -0.6), (-2.0, -2.0)]
     wcs = FakeJwstData("").wcs
-    for ii, position in enumerate(wcs.pixel_to_world(*np.array(xy).T)):
+    for ii, position in enumerate(wcs.pixel_to_world(*np.array(xy + outside).T)):
         table.add_row((ii + 1, position.ra, position.dec, 0.0, 0.0))
 
     loaded, load_data = [], jwst_likelihoods.load_data

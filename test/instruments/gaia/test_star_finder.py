@@ -45,3 +45,26 @@ def test_no_library_path_does_not_write(fake_gaia, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     load_gaia_stars_in_fov(CORNERS, "", exclude_source_ids=None)
     assert _cache_files(tmp_path) == []
+
+
+
+@pytest.mark.parametrize("ra0", [10.05, 180.0, 0.0])
+def test_query_is_a_circle_through_the_corners(fake_gaia, tmp_path, ra0):
+    calls, table = fake_gaia
+    corners = SkyCoord(
+        ra=[ra0 - 0.05, ra0 + 0.05, ra0 + 0.05, ra0 - 0.05],
+        dec=[-5.0, -5.0, -4.9, -4.9],
+        unit="deg",
+    )
+    result = load_gaia_stars_in_fov(corners, str(tmp_path))
+    assert len(result) == len(table)
+    (query,) = calls
+    assert "POLYGON" not in query
+    # CIRCLE('ICRS', ra, dec, radius) in degrees.
+    ra, dec, radius = map(
+        float, query.split("CIRCLE('ICRS',")[1].split(")")[0].split(",")
+    )
+    center = SkyCoord(ra=ra, dec=dec, unit="deg")
+    assert center.separation(SkyCoord(ra=ra0, dec=-4.95, unit="deg")).deg < 1e-3
+    assert (center.separation(corners).deg <= radius).all()
+    assert radius < 0.08

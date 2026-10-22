@@ -11,7 +11,7 @@ class _FakeJob:
         self._table = table
 
     def get_results(self):
-        return self._table
+        return self._table.copy()  # callers rename columns in place
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def fake_gaia(monkeypatch):
     calls = []
     table = Table(
         {
-            "SOURCE_ID": [1, 2],
+            "source_id": [1, 2],  # lowercase, as the archive returns it since 3.15
             "ra": [10.05, 10.0503] * u.deg,
             "dec": [-4.95, -4.9503] * u.deg,
             "pmra": [0.0, 0.0] * u.mas / u.yr,
@@ -46,3 +46,4 @@ def fake_gaia(monkeypatch):
     monkeypatch.setitem(sys.modules, "astroquery", pkg)
     monkeypatch.setitem(sys.modules, "astroquery.gaia", gaia_mod)
     return calls, table
+
