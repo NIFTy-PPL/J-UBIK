@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: GPL-2.0+ OR BSD-2-Clause
 # Authors: Matteo Guardiani
 
-from pathlib import Path
-
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -23,7 +21,6 @@ pmp = pytest.mark.parametrize
 LOG_FREQUENCIES = np.log([0.5, 1.0, 2.0, 4.0])
 REF = 1
 SPECTRAL = dict(mean=(-2.4, 0.2), deviations=dict(process="wiener", sigma=(0.3, 0.1)))
-FIXTURE = Path(__file__).parent / "fixtures" / "healpy_interp_weights.npz"
 
 
 def _build(anchors, geometry="cartesian", flux_prior=("lognormal", 1.0, 0.5), **kw):
@@ -221,8 +218,24 @@ def test_position_summary_across_longitude_wrap():
 
 @pmp("nside", [1, 2, 4, 16])
 def test_healpix_weights_match_healpy(nside):
-    ref = np.load(FIXTURE)
-    theta, phi = ref[f"theta_{nside}"], ref[f"phi_{nside}"]
+    hp = pytest.importorskip("healpy")
+    # Random directions plus the cases that need care: the poles and polar
+    # caps, every ring and points just off it, the equator-cap transition
+    # z = +-2/3, and longitudes at and around the wrap.
+    eps = 1e-9
+    rng = np.random.default_rng(42)
+    ring_theta = np.arccos(hp.ringinfo(nside, np.arange(1, 4 * nside))[2])
+    theta = np.concatenate([
+        np.arccos(rng.uniform(-1, 1, 200)),
+        [0.0, np.pi, eps, np.pi - eps],
+        rng.uniform(0, ring_theta[0], 10),
+        rng.uniform(ring_theta[-1], np.pi, 10),
+        ring_theta, ring_theta + eps, ring_theta - eps,
+        np.arccos([2 / 3, -2 / 3]) + eps, np.arccos([2 / 3, -2 / 3]) - eps,
+    ])
+    phi = rng.uniform(-np.pi, 2 * np.pi, theta.size)
+    phi[:12] = [0.0, -eps, 2 * np.pi - eps, np.pi, -np.pi + eps, eps] * 2
+
     pix, wgt = healpix_bilinear_weights(nside, jnp.asarray(theta), jnp.asarray(phi))
     assert np.all(wgt >= 0)
     np.testing.assert_allclose(wgt.sum(-1), 1.0, rtol=1e-14)
@@ -233,7 +246,8 @@ def test_healpix_weights_match_healpy(nside):
         np.add.at(m, (np.arange(theta.size)[:, None], np.asarray(pix)), np.asarray(wgt))
         return m
 
-    expected = dense(ref[f"pix_{nside}"], ref[f"wgt_{nside}"])
+    ref_pix, ref_wgt = hp.get_interp_weights(nside, theta, phi)
+    expected = dense(ref_pix.T, ref_wgt.T)
     np.testing.assert_allclose(dense(pix, wgt), expected, atol=1e-13)
 
 

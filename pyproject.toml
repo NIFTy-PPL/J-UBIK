@@ -70,6 +70,8 @@ all = ["jubik[jwst,gaia,healpix,resolve]"]
 
 [dependency-groups]
 test = [
+    # Reference for the HEALPix interpolation weights of the movable point sources.
+    "healpy",
     "pytest",
     "pytest-cov",
     "pytest-xdist",
