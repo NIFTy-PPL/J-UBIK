@@ -250,6 +250,41 @@ def test_flux_acceptance():
     )
 
 
+def test_rejected_hole_does_not_hide_a_nearby_source():
+    deg = np.radians
+    score = np.zeros(BASE.npix())
+    bright, hole, bump = _pixel(180.0, 0.0), _pixel(0.0, 0.0), _pixel(7.0, 0.0)
+    score[[bright, hole, bump]] = 7.0, 6.0, 5.0
+    calls = []
+
+    def measure(pixels):
+        calls.append(pixels.tolist())
+        flux = np.where(pixels == hole, -1.0, 1.0)
+        return np.broadcast_to(flux, (3, 2, pixels.size))
+
+    selection = dict(threshold=1.0, min_separation=deg(10.0))
+    pixels, mean, _, reasons = sd.select_and_accept(
+        score, measure, persistence=0.5, **selection
+    )
+    # The hole hides the bump as too close; the rerun without it finds it.
+    assert calls == [[bright, hole], [bright, bump]]
+    assert_array_equal(pixels, [bright, hole, bump])
+    assert_array_equal(reasons, ["accepted", "non_positive_flux", "accepted"])
+    assert_allclose(mean, [1.0, -1.0, 1.0])
+
+    # A round already filled by higher sources skips the extra pass.
+    calls.clear()
+    pixels, _, _, reasons = sd.select_and_accept(
+        score, measure, persistence=0.5, max_candidates=1, **selection
+    )
+    assert calls == [[bright, hole]]
+    assert_array_equal(reasons, ["accepted", "non_positive_flux"])
+
+    # Nothing selected: no measurement at all.
+    assert sd.select_and_accept(score, measure, persistence=0.5, threshold=9.0)[0].size == 0
+    assert len(calls) == 1
+
+
 def test_hole_does_not_use_up_the_round_limit():
     """The unsigned score ranks a hole above a real source; with a limit of
     one the round still adds the source."""

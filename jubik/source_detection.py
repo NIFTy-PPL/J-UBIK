@@ -16,7 +16,9 @@ Array functions for one detect-relax-handoff pass:
    (`aperture_labels`, `removed_emission`), fit it with the mean source
    spectrum (`pivot_flux`) and accept or reject, with the per-round limit
    (`flux_acceptance`). One relaxation per draw covers all candidates; the
-   warm start relaxes only the accepted ones.
+   warm start relaxes only the accepted ones. `select_and_accept` runs
+   selection and acceptance together and re-selects around flux-rejected
+   candidates.
 
 Maps are in HEALPix RING order, angles in radians, positions are
 (lon, lat) pairs. The relaxation is a port of sptLensing's
@@ -298,3 +300,62 @@ def flux_acceptance(flux, persistence, max_candidates=None):
         accepted = np.flatnonzero(reasons == "accepted")
         reasons[accepted[max_candidates:]] = "round_limit"
     return mean, positive_fraction, reasons
+
+
+def select_and_accept(
+    score, measure, *, persistence, max_candidates=None, excluded=None, **selection
+):
+    """`select_candidates` and `flux_acceptance` for one round, re-selecting
+    around flux-rejected candidates.
+
+    A flux-rejected candidate (e.g. a hole, which the unsigned score ranks like
+    a bump) can hide a lower real source as `"too_close"`. Its pixel is then
+    excluded and the selection rerun on the same score, until it finds no new
+    candidate or the new ones could only hit the round limit. Each extra pass
+    costs one `measure` call over the current candidates, which keeps the
+    apertures consistent; usually there is none.
+
+    Parameters
+    ----------
+    measure: callable
+        Candidate pixels in score order to their pivot fluxes
+        `(n_samples, n_draws, n_candidates)`, e.g. `relaxation_weights`,
+        `aperture_labels`, `removed_emission` and `pivot_flux` for them.
+    persistence, max_candidates:
+        As in `flux_acceptance`.
+    excluded, **selection:
+        As in `select_candidates`.
+
+    Returns
+    -------
+    pixels, mean, positive_fraction, reasons: np.ndarray
+        Every measured candidate in score order with its `flux_acceptance`
+        result; candidates rejected in an earlier pass keep that result.
+    """
+    score = np.asarray(score)
+    excluded = np.zeros(score.size, bool) if excluded is None else np.array(excluded)
+    pixels, reasons = select_candidates(score, excluded=excluded, **selection)
+    pixels = pixels[reasons == "accepted"]
+    if pixels.size == 0:  # skip `measure`: relaxing nothing still costs a full pass
+        return pixels, np.zeros(0), np.zeros(0), np.array([], dtype=str)
+    rejected = []
+    while True:
+        mean, fraction, reasons = flux_acceptance(
+            measure(pixels), persistence, max_candidates
+        )
+        bad = np.isin(reasons, ("non_positive_flux", "low_persistence"))
+        excluded[pixels[bad]] = True
+        found, why = select_candidates(score, excluded=excluded, **selection)
+        found = found[why == "accepted"]
+        new = np.setdiff1d(found, pixels)
+        if new.size == 0 or (
+            max_candidates is not None
+            and np.sum(score[pixels[~bad]] > score[new].max()) >= max_candidates
+        ):
+            break
+        rejected.append((pixels[bad], mean[bad], fraction[bad], reasons[bad]))
+        pixels = found
+    parts = rejected + [(pixels, mean, fraction, reasons)]
+    pixels, mean, fraction, reasons = (np.concatenate(p) for p in zip(*parts))
+    order = np.lexsort((pixels, -score[pixels]))
+    return pixels[order], mean[order], fraction[order], reasons[order]
