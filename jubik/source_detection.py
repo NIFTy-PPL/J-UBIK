@@ -329,8 +329,9 @@ def select_and_accept(
     Returns
     -------
     pixels, mean, positive_fraction, reasons: np.ndarray
-        Every measured candidate in score order with its `flux_acceptance`
-        result; candidates rejected in an earlier pass keep that result.
+        The final selection and the candidates rejected by flux in earlier
+        passes, in score order, with their `flux_acceptance` results. A
+        candidate pushed out (`"too_close"`) by a newly selected one is dropped.
     """
     score = np.asarray(score)
     excluded = np.zeros(score.size, bool) if excluded is None else np.array(excluded)

@@ -251,10 +251,13 @@ def test_flux_acceptance():
 
 
 def test_rejected_hole_does_not_hide_a_nearby_source():
-    deg = np.radians
     score = np.zeros(BASE.npix())
-    bright, hole, bump = _pixel(180.0, 0.0), _pixel(0.0, 0.0), _pixel(7.0, 0.0)
-    score[[bright, hole, bump]] = 7.0, 6.0, 5.0
+    # Within 10 deg: hole and bump (8.8 deg), bump and pushed (7.7 deg), but
+    # not hole and pushed (12.2 deg).
+    bright, hole, bump, pushed = (
+        _pixel(180.0, 0.0), _pixel(0.0, 0.0), _pixel(7.0, 0.0), _pixel(13.0, 7.0)
+    )
+    score[[bright, hole, bump, pushed]] = 7.0, 6.0, 5.0, 4.0
     calls = []
 
     def measure(pixels):
@@ -262,27 +265,28 @@ def test_rejected_hole_does_not_hide_a_nearby_source():
         flux = np.where(pixels == hole, -1.0, 1.0)
         return np.broadcast_to(flux, (3, 2, pixels.size))
 
-    selection = dict(threshold=1.0, min_separation=deg(10.0))
-    pixels, mean, _, reasons = sd.select_and_accept(
-        score, measure, persistence=0.5, **selection
-    )
-    # The hole hides the bump as too close; the rerun without it finds it.
-    assert calls == [[bright, hole], [bright, bump]]
+    def run(threshold=1.0, **kw):
+        calls.clear()
+        return sd.select_and_accept(
+            score, measure, persistence=0.5, threshold=threshold,
+            min_separation=np.radians(10.0), **kw,
+        )
+
+    # The hole hides the bump; the rerun without it finds the bump, which
+    # pushes out the candidate next to it.
+    pixels, mean, _, reasons = run()
+    assert calls == [[bright, hole, pushed], [bright, bump]]
     assert_array_equal(pixels, [bright, hole, bump])
     assert_array_equal(reasons, ["accepted", "non_positive_flux", "accepted"])
     assert_allclose(mean, [1.0, -1.0, 1.0])
 
     # A round already filled by higher sources skips the extra pass.
-    calls.clear()
-    pixels, _, _, reasons = sd.select_and_accept(
-        score, measure, persistence=0.5, max_candidates=1, **selection
-    )
-    assert calls == [[bright, hole]]
-    assert_array_equal(reasons, ["accepted", "non_positive_flux"])
+    _, _, _, reasons = run(max_candidates=1)
+    assert calls == [[bright, hole, pushed]]
+    assert_array_equal(reasons, ["accepted", "non_positive_flux", "round_limit"])
 
     # Nothing selected: no measurement at all.
-    assert sd.select_and_accept(score, measure, persistence=0.5, threshold=9.0)[0].size == 0
-    assert len(calls) == 1
+    assert run(threshold=9.0)[0].size == 0 and calls == []
 
 
 def test_hole_does_not_use_up_the_round_limit():
