@@ -186,7 +186,7 @@ def test_response_StokesI(freqs):
     cx = grid.shape[3] // 2
     cy = grid.shape[4] // 2
     dvol = grid.spatial.dvol.to(u.rad**2).value
-    sky[:, :, :, cx, cy] = 1 / dvol
+    sky = sky.at[:, :, :, cx, cy].set(1 / dvol)
     vis_ducc = r_ducc(sky)
     vis_finufft = r_finufft(sky)
     vis_expected = np.ones(obs.vis.shape, dtype=jnp.complex128)
