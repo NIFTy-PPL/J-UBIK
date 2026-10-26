@@ -249,6 +249,34 @@ def test_response_frequency_bins_and_empty_bin(backend_settings):
     assert_allclose(response(sky.at[:, :, 1].set(0)), result, rtol=1e-12, atol=1e-12)
 
 
+def test_response_discontinuous_frequency_restriction(backend_settings):
+    spectral = ju.color.Color(np.array([[0.8, 1.5], [1.8, 2.5]]) * u.GHz)
+    grid = make_binned_grid(spectral)
+    obs = make_frequency_obs([1.0, 1.2, 1.6, 2.0, 2.2])
+    # Frequency 1.6 cannot be assigned to any sky bin as the spectral sky grid
+    # is discontinous. Thus only the observed frequencies with indices 0, 1, 3 and 4
+    # survive.
+    with pytest.raises(RuntimeError, match="restrict_to_discontinuous_frequencies"):
+        rve.interferometry_response(obs, grid, backend_settings)
+    restricted = restrict_to_discontinuous_frequencies(obs, spectral)
+    indices = [0, 1, 3, 4]
+    # Tests if the observed frequency is removed from the frequency, visibility
+    #  and data array by data modification routine
+    assert_allclose(restricted.freq, obs.freq[indices])
+    assert_allclose(restricted.vis.asnumpy(), obs.vis.asnumpy()[..., indices])
+    assert_allclose(restricted.weight.asnumpy(), obs.weight.asnumpy()[..., indices])
+    response = rve.interferometry_response(restricted, grid, backend_settings)
+    vol = grid.spatial.dvol.to_value(u.rad**2)
+    sky = jnp.zeros(grid.shape).at[0, 0, :, 16, 20].set(jnp.array([2.0, 5.0]) / vol)
+    # Checks correct prediction assignment as in test_response_frequency_bins_and_empty_bin
+    assert_allclose(
+        jax.jit(response)(sky),
+        np.broadcast_to([2.0, 2.0, 5.0, 5.0], restricted.vis.shape),
+        rtol=1e-9,
+        atol=1e-9,
+    )
+
+
 def stokes_to_circular(iquv):
     i, q, u, v = iquv
     return jnp.array([i + v, q + 1j * u, q - 1j * u, i - v])
