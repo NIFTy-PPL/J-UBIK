@@ -194,6 +194,61 @@ def test_response_StokesI(freqs):
     assert_allclose(vis_finufft, vis_expected)
 
 
+def make_binned_grid(spectral):
+    return ju.Grid(
+        spatial=ju.wcs.WcsAstropy(
+            center=SkyCoord(0 * u.deg, 0 * u.deg),
+            shape=(32, 40),
+            fov=u.Quantity([1.0, 1.5], u.deg),
+        ),
+        spectral=spectral,
+    )
+
+
+@pytest.fixture(params=("ducc", "finufft"))
+def backend_settings(request):
+    if request.param == "ducc":
+        return rve.parse.Ducc0Settings(
+            epsilon=1e-10, do_wgridding=False, nthreads=1, verbosity=False
+        )
+    return rve.parse.FinufftSettings(epsilon=1e-10)
+
+
+def make_frequency_obs(freqs, fraction_flagged=0.0):
+    return generate_random_obs(
+        np.asarray(freqs) * 1e9,
+        20,
+        [-100, 100],
+        [0, 0],
+        ju.polarization.PolarizationType(("I",)),
+        fraction_flagged=fraction_flagged,
+        rng=np.random.default_rng(42),
+    )
+
+
+def test_response_frequency_bins_and_empty_bin(backend_settings):
+    grid = make_binned_grid(ju.color.Color(np.array([0.8, 1.5, 1.8, 2.5]) * u.GHz))
+    obs = make_frequency_obs([1.0, 1.2, 2.0, 2.2])
+    # The response implementation assigns the observed frequencies into the defined bins
+    # of the sky frequency grid. Here The first two are assigned to the first sky bin,
+    # the last two to the last sky bin.
+    response = rve.interferometry_response(obs, grid, backend_settings)
+    vol = grid.spatial.dvol.to_value(u.rad**2)
+    sky = (
+        jnp.zeros(grid.shape).at[0, 0, :, 16, 20].set(jnp.array([2.0, 99.0, 5.0]) / vol)
+    )
+    result = jax.jit(response)(sky)
+    # Because of the bin assignment the we expect that the flux for the first two
+    # observed frequencies comes from the first sky bin and the last to from the last
+    # sky bin.
+    expected = np.broadcast_to([2.0, 2.0, 5.0, 5.0], obs.vis.shape)
+    assert_allclose(result, expected, rtol=1e-9, atol=1e-9)
+    # Changing the empty bin must have no effect on any channel.
+    # Checks if reassigment of middle sky bin does not change the prediction of the
+    # other two sky bins.
+    assert_allclose(response(sky.at[:, :, 1].set(0)), result, rtol=1e-12, atol=1e-12)
+
+
 def stokes_to_circular(iquv):
     i, q, u, v = iquv
     return jnp.array([i + v, q + 1j * u, q - 1j * u, i - v])
