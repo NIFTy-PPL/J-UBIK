@@ -4,7 +4,7 @@
 # Copyright(C) 2024 Max-Planck-Society
 
 # %
-import os.path
+import os
 
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
@@ -33,6 +33,7 @@ def load_gaia_stars_in_fov(
     table = query_gaia_circle(fov_corners, exclude_source_ids)
 
     if library_path != "":
+        os.makedirs(library_path, exist_ok=True)
         table.write(saving_string, format="ascii.ecsv", overwrite=True)
 
     return _with_upper_source_id(table)

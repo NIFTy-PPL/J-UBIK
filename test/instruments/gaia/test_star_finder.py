@@ -41,6 +41,13 @@ def test_cache_hit_skips_query(fake_gaia, tmp_path):
     np.testing.assert_array_equal(first["SOURCE_ID"], second["SOURCE_ID"])
 
 
+def test_missing_library_path_is_created(fake_gaia, tmp_path):
+    library = tmp_path / "gaia" / "cache"
+    load_gaia_stars_in_fov(CORNERS, str(library))
+    (name,) = _cache_files(library)
+    assert name.endswith(".ecsv")
+
+
 def test_no_library_path_does_not_write(fake_gaia, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     load_gaia_stars_in_fov(CORNERS, "", exclude_source_ids=None)
