@@ -118,6 +118,7 @@ def build_likelihood_from_sky_beamer(
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     noise_std_correction: BaseLineCorrection | None = None,
+    shift: jft.Model | None = None,
 ) -> LikelihoodBuilder | VariableLikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
 
@@ -149,6 +150,9 @@ def build_likelihood_from_sky_beamer(
         (Optional) settings for an inferred noise standard deviation. If given,
         a `VariableLikelihoodBuilder` is returned instead of a
         `LikelihoodBuilder`.
+    shift: jft.Model | None
+        (Optional) phase factor multiplied onto the model visibilities, see
+        `PhaseShift`.
 
     Returns
     ------
@@ -166,6 +170,7 @@ def build_likelihood_from_sky_beamer(
         domain=sky_beamer.target,
         sky2vis=sky2vis,
         field_name=field_name,
+        shift=shift,
     )
 
     if noise_std_correction is None:

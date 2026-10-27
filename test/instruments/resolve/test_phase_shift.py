@@ -7,6 +7,10 @@ from numpy.testing import assert_allclose
 
 import jubik as ju
 import jubik.instruments.resolve as rve
+from jubik.instruments.resolve.likelihood.mosaic_likelihood import (
+    build_likelihood_from_sky_beamer,
+)
+from jubik.instruments.resolve.mosaicing.sky_beamer import BeamPattern, SkyBeamer
 from jubik.instruments.resolve.phase_shift import PhaseShift, build_shift_prior
 
 from generate_test_obs import generate_random_obs
@@ -81,3 +85,30 @@ def test_band_entry_wins_over_default():
     assert_allclose(one_sigma("band6", settings), 0.05)
     assert_allclose(one_sigma("band6", ["normal", 0.0, 0.05]), 0.05)
     assert build_shift_prior("band7", None, 2) is None
+
+
+def test_likelihood_has_band_shift_only_when_set():
+    np.random.seed(44)
+    grid, obs, _, _ = setup_grid_obs_response(("I",), ("LL", "RR"), FREQS)
+    sky_beamer = SkyBeamer(
+        jft.ShapeWithDtype(grid.shape),
+        {"band7_fld": BeamPattern(0.0, 0.0, np.ones(grid.shape), None)},
+    )
+
+    for shift_settings in (None, {"default": ["normal", 0.0, 0.05]}):
+        shift = build_shift_prior("band7", shift_settings, 2)
+        likelihood = build_likelihood_from_sky_beamer(
+            observation=obs,
+            field_name="band7_fld",
+            sky_beamer=sky_beamer,
+            sky_grid=grid,
+            backend_settings=rve.parse.FinufftSettings(epsilon=1e-9),
+            shift=None if shift is None else PhaseShift(shift, 1, obs),
+        ).likelihood
+        domain = likelihood.domain.tree
+
+        assert ("band7_shift" in domain) == (shift_settings is not None)
+        latent = jft.random_like(jax.random.PRNGKey(0), likelihood.domain)
+        assert np.isfinite(likelihood.energy(latent))
+
+    assert domain["band7_shift"].shape == (2, 2)
