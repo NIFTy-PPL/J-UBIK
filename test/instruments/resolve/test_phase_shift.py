@@ -1,0 +1,83 @@
+import jax
+import nifty.re as jft
+import numpy as np
+import pytest
+from astropy import units as u
+from numpy.testing import assert_allclose
+
+import jubik as ju
+import jubik.instruments.resolve as rve
+from jubik.instruments.resolve.phase_shift import PhaseShift, build_shift_prior
+
+from generate_test_obs import generate_random_obs
+from test_response import setup_grid_obs_response
+
+jax.config.update("jax_enable_x64", True)
+
+FREQS = np.array([1e9, 1.3e9])
+
+
+def point_source_sky(grid, i, j):
+    sky = np.zeros(grid.shape)
+    sky[..., i, j] = 1.0
+    return sky
+
+
+@pytest.mark.parametrize("backend", ("ducc", "finufft"))
+def test_shift_moves_the_sampling_positions(backend):
+    """A shift of (a, b) pixels along the sky grid (row, column) moves the
+    sampling positions of the model sky by (a, b), so a source at pixel
+    (i, j) gives the visibilities of a source at (i - a, j - b) without shift.
+    """
+    np.random.seed(42)
+    grid, obs, r_ducc, r_finufft = setup_grid_obs_response(("I",), ("LL", "RR"), FREQS)
+    response = r_ducc if backend == "ducc" else r_finufft
+    a, b, i, j = 3, -2, 40, 55
+    pix_row, pix_col = grid.spatial.pixel_scales_yx.to_value(u.arcsec)
+    # Row 1 belongs to the observation, row 0 must not be read.
+    shifts = np.array([[1.0, 1.0], [a * pix_row, b * pix_col]])
+    shift = jft.Model(lambda x: x["s"], domain={"s": jft.ShapeWithDtype((2, 2))})
+
+    phase = PhaseShift(shift, 1, obs)({"s": shifts})
+
+    assert_allclose(
+        phase * response(point_source_sky(grid, i, j)),
+        response(point_source_sky(grid, i - a, j - b)),
+        rtol=1e-6,
+    )
+
+
+@pytest.mark.parametrize(
+    "vis_dtype,weight_dtype", ((np.complex64, np.float32), (np.complex128, np.float64))
+)
+def test_zero_shift_is_identity(vis_dtype, weight_dtype):
+    np.random.seed(43)
+    pol = ju.polarization.PolarizationType(("LL", "RR"))
+    obs = generate_random_obs(FREQS, 10, [-1e2, 1e2], [-5, 5], pol)
+    obs = rve.Observation(
+        obs.antenna_positions,
+        obs.vis_val.astype(vis_dtype),
+        obs.weight_val.astype(weight_dtype),
+        obs.legacy_polarization,
+        obs.freq,
+        None,
+    )
+    shift = build_shift_prior("band7", ["normal", 0.0, 0.05], 3)
+
+    phase = PhaseShift(shift, 2, obs)(jft.zeros_like(shift.domain))
+
+    assert phase.dtype == vis_dtype
+    assert phase.shape == (1,) + obs.vis.shape[1:]
+    assert_allclose(phase, 1.0)
+
+
+def test_band_entry_wins_over_default():
+    settings = {"default": ["normal", 0.0, 0.05], "band7": ["normal", 0.0, 0.02]}
+    one_sigma = lambda band, s: build_shift_prior(band, s, 2)(
+        {f"{band}_shift": np.ones((2, 2))}
+    )
+
+    assert_allclose(one_sigma("band7", settings), 0.02)
+    assert_allclose(one_sigma("band6", settings), 0.05)
+    assert_allclose(one_sigma("band6", ["normal", 0.0, 0.05]), 0.05)
+    assert build_shift_prior("band7", None, 2) is None
