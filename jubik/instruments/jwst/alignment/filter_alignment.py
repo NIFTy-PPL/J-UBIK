@@ -32,8 +32,7 @@ class FilterAlignment:
         config[MODEL_KEY] = raw[MODEL_KEY]
         config[SHIFT_UNIT_KEY] = raw[SHIFT_UNIT_KEY]
         config[ROTATION_UNIT_KEY] = raw[ROTATION_UNIT_KEY]
-        if OFFSET_KEY in raw:
-            config[OFFSET_KEY] = raw[OFFSET_KEY]
+        config[OFFSET_KEY] = raw.get(OFFSET_KEY, None)
 
         return CoordinatesCorrectionPriorConfig.from_yaml_dict(
             raw=config,
