@@ -29,13 +29,6 @@ class FilterAlignment:
             config = raw[DEFAULT_KEY]
         config = dict(config)  # `default` is shared by the filters, keep it unchanged
 
-        for block in (self.filter_name, DEFAULT_KEY):
-            if OFFSET_KEY in raw.get(block, {}):
-                raise ValueError(
-                    f"{block}: `{OFFSET_KEY}` is one prior next to `{MODEL_KEY}` "
-                    f"and `{SHIFT_UNIT_KEY}`, shared by every filter; a "
-                    "filter-specific shift goes into the filter's shift prior"
-                )
         config[MODEL_KEY] = raw[MODEL_KEY]
         config[SHIFT_UNIT_KEY] = raw[SHIFT_UNIT_KEY]
         config[ROTATION_UNIT_KEY] = raw[ROTATION_UNIT_KEY]

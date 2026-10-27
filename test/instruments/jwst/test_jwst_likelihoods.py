@@ -312,14 +312,6 @@ def test_offset_enters_the_target_and_not_the_stars(patched_seams, fake_gaia, tm
     assert cutout.shape == cutout_plain.shape
 
 
-def test_offset_inside_a_filter_block_raises(patched_seams, tmp_path):
-    cfg = make_config(tmp_path, offset=True)
-    priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
-    priors[FILTER.lower()] = {**priors["default"], "offset": priors.pop("offset")}
-    with pytest.raises(ValueError, match="shared by every filter"):
-        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
-
-
 def test_offset_reaches_every_filter_on_the_shared_default(tmp_path):
     from jubik.instruments.jwst.alignment.filter_alignment import FilterAlignment
 
