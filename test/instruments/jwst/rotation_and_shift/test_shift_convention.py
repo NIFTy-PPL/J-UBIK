@@ -9,6 +9,7 @@ from jubik.instruments.jwst.parse.rotation_and_shift.coordinates_correction impo
     CoordinatesCorrectionPriorConfig,
 )
 from jubik.instruments.jwst.rotation_and_shift.coordinates_correction import (
+    OFFSET_DOMAIN_KEY,
     ShiftAndRotationCorrection,
     build_coordinates_corrected_for_field,
     build_coordinates_corrected_for_stars,
@@ -22,30 +23,38 @@ N_DATA = 31
 GRID = WcsAstropy(CENTER, shape=41, fov=41 * 0.5 * u.arcsec)
 
 
-def _correction(shifts):
-    """Shared shift model whose value at latent `shifts` is `shifts` arcsec."""
+def _correction(shifts, offset=None):
+    """Shared shift model whose value at latent `shifts` is `shifts` arcsec.
+
+    With `offset`, the model carries the shared offset prior too, at latent
+    `offset` (also `offset` arcsec).
+    """
+    raw = dict(
+        model="shift",
+        shift=["normal", 0.0, 1.0],
+        shift_unit="arcsec",
+        rotation=["normal", 0.0, 1.0],
+        rotation_unit="deg",
+    )
+    if offset is not None:
+        raw["offset"] = ["normal", 0.0, 1.0]
     prior = CoordinatesCorrectionPriorConfig.from_yaml_dict(
-        dict(
-            model="shift",
-            shift=["normal", 0.0, 1.0],
-            shift_unit="arcsec",
-            rotation=["normal", 0.0, 1.0],
-            rotation_unit="deg",
-        ),
-        shift_shape=shifts.shape,
-        rotation_shape=(shifts.shape[0], 1),
+        raw, shift_shape=shifts.shape, rotation_shape=(shifts.shape[0], 1)
     )
     correction = ShiftAndRotationCorrection("f", prior, CENTER)
     params = {"f_shift": shifts, "f_rotation": np.zeros((shifts.shape[0], 1))}
+    if offset is not None:
+        params[OFFSET_DOMAIN_KEY] = np.asarray(offset)
+        assert np.allclose(correction.field_shift(params), shifts + offset)
     assert np.allclose(correction.shift(params), shifts)
     return correction, params
 
 
-def _target_centroids(data_wcs, shifts):
+def _target_centroids(data_wcs, shifts, offset=None):
     """Data (x, y) centroid of the source as seen by the target response."""
     xx, yy = np.meshgrid(np.arange(N_DATA), np.arange(N_DATA), indexing="xy")
     centers = data_wcs.pixel_to_world(xx, yy)
-    correction, params = _correction(shifts)
+    correction, params = _correction(shifts, offset)
     coords = build_coordinates_corrected_for_field(
         correction, GRID, [centers] * shifts.shape[0]
     )(params)
@@ -61,12 +70,12 @@ def _target_centroids(data_wcs, shifts):
     )
 
 
-def _star_positions(data_wcs, shifts, observation_ids):
+def _star_positions(data_wcs, shifts, observation_ids, offset=None):
     star = Star(0, SOURCE)
     p0 = np.array(star.pixel_position_in_subsampled_data(data_wcs))
     jac = _shift_jacobian(star, data_wcs, GRID, 0, 0, 1)
     n = len(observation_ids)
-    correction, params = _correction(shifts)
+    correction, params = _correction(shifts, offset)
     return build_coordinates_corrected_for_stars(
         correction, np.tile(p0, (n, 1)), np.tile(jac, (n, 1, 1)), observation_ids
     )(params)
@@ -103,3 +112,21 @@ def test_aligned_shift_moves_star_against_sampling_rows_and_columns():
         data_wcs, np.zeros_like(shifts), [0, 1]
     )
     np.testing.assert_allclose(star, [[0.0, -1.0], [-1.0, 0.0]], atol=1e-6)
+
+
+def test_offset_moves_the_target_like_a_shift_and_the_star_not_at_all():
+    data_wcs = WcsAstropy(CENTER, shape=N_DATA, fov=N_DATA * u.arcsec)
+    shifts = np.array([[0.3, -0.6], [-0.8, 0.5]])
+    offset = np.array([0.4, -0.7])
+
+    with_offset = _target_centroids(data_wcs, shifts, offset)
+    as_shift = _target_centroids(data_wcs, shifts + offset)
+    np.testing.assert_allclose(with_offset, as_shift, atol=1e-6)
+
+    star = _star_positions(data_wcs, shifts, [0, 1], offset)
+    np.testing.assert_allclose(star, _star_positions(data_wcs, shifts, [0, 1]))
+
+    correction, _ = _correction(shifts, offset)
+    assert OFFSET_DOMAIN_KEY in correction.field_shift_domain
+    plain, _ = _correction(shifts)
+    assert plain.offset is None and OFFSET_DOMAIN_KEY not in plain.domain

@@ -146,6 +146,8 @@ def make_config(
     variable_covariance=False,
     zero_flux=False,
     gaia_subsample=2,
+    offset=False,
+    fov="0.5arcsec",
 ):
     files = [str(tmp_path / f"fake_{ii}.fits") for ii in range(n_files)]
     telescope = {
@@ -168,10 +170,13 @@ def make_config(
             },
         },
     }
+    if offset:
+        priors = telescope["rotation_and_shift"]["correction_priors"]
+        priors["offset"] = ["normal", [0.0, 0.0], 0.1]
     if gaia:
-        (tmp_path / "gaia").mkdir()
+        (tmp_path / "gaia").mkdir(exist_ok=True)
         telescope["gaia_alignment"] = {
-            "fov": "0.5arcsec",
+            "fov": fov,
             "subsample": gaia_subsample,
             "star_light": ["lognormal", 1.0, 1.0],
             "library_path": str(tmp_path / "gaia"),
@@ -281,6 +286,63 @@ def test_gaia_and_variable_covariance(patched_seams, fake_gaia, tmp_path, zero_f
         assert f"{FILTER.lower()}_{star_id}_brightness" in keys
     assert any("zero_flux" in k for k in keys) == zero_flux
     assert np.isfinite(evaluate(alignment))
+
+
+def test_offset_enters_the_target_and_not_the_stars(patched_seams, fake_gaia, tmp_path):
+    # The fov mapping: the filter's own entry wins over `default`, so the star
+    # cutouts come out as with the plain "0.5arcsec".
+    fov = {"default": "9arcsec", FILTER.lower(): "0.5arcsec"}
+    cfg = make_config(tmp_path, gaia=True, offset=True, fov=fov)
+    products = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+    target = products.target.likelihood
+    assert "shift_offset" in target.domain.tree
+    assert target.domain.tree["shift_offset"].shape == (2,)
+    assert np.isfinite(evaluate(target))
+
+    alignment = products.alignment.likelihood.likelihood
+    assert "shift_offset" not in alignment.domain.tree
+    assert f"{FILTER.lower()}_shift" in alignment.domain.tree
+    assert np.isfinite(evaluate(alignment))
+
+    plain = build_jwst_likelihoods(make_config(tmp_path, gaia=True), make_grid(), SKY_DOMAIN)
+    assert "shift_offset" not in plain.target.likelihood.domain.tree
+    cutout = products.alignment.plotting.psf[0].data[0]
+    cutout_plain = plain.alignment.plotting.psf[0].data[0]
+    assert cutout.shape == cutout_plain.shape
+
+
+def test_offset_inside_a_filter_block_raises(patched_seams, tmp_path):
+    cfg = make_config(tmp_path, offset=True)
+    priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
+    priors[FILTER.lower()] = {**priors["default"], "offset": priors.pop("offset")}
+    with pytest.raises(ValueError, match="shared by every filter"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+def test_offset_reaches_every_filter_on_the_shared_default(tmp_path):
+    from jubik.instruments.jwst.alignment.filter_alignment import FilterAlignment
+
+    cfg = make_config(tmp_path, offset=True)
+    raw = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
+    for filter_name in ("f444w", "f356w"):
+        prior = FilterAlignment(filter_name).load_correction_prior(raw, 2)
+        assert prior.offset is not None
+    assert "offset" not in raw["default"]
+
+
+def test_fov_mapping_needs_a_default():
+    from jubik.instruments.jwst.parse.alignment.star_alignment import (
+        StarAlignmentConfig,
+    )
+
+    raw = {"fov": {"F444W": "0.5arcsec"}, "subsample": 2, "star_light": ["lognormal", 1.0, 1.0]}
+    with pytest.raises(ValueError, match="needs a `default` entry"):
+        StarAlignmentConfig.from_yaml_dict(raw)
+    raw["fov"]["default"] = "1arcsec"
+    config = StarAlignmentConfig.from_yaml_dict(raw)
+    assert config.fov_of("F444W") == 0.5 * u.arcsec
+    assert config.fov_of("f356w") == 1 * u.arcsec
 
 
 def test_empty_gaia_catalog_raises(patched_seams, fake_gaia, tmp_path):

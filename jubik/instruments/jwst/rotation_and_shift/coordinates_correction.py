@@ -23,7 +23,19 @@ from ..parse.rotation_and_shift.coordinates_correction import (
 )
 
 
+#: Domain key of the shared offset; the per-filter keys are `<filter>_shift`.
+OFFSET_DOMAIN_KEY = "shift_offset"
+
+
 class ShiftAndRotationCorrection(jft.Model):
+    """The per-exposure shift and rotation of one filter, plus an optional offset.
+
+    `shift(x)` is the shift of every exposure, shape `(n_observations, 2)` in
+    `shift_unit`, (row, column) of the reconstruction grid. `field_shift(x)`
+    adds the offset shared by every filter that carries the `offset` prior:
+    the field sampling positions move by it, star positions do not.
+    """
+
     def __init__(
         self,
         domain_key: str,
@@ -47,9 +59,35 @@ class ShiftAndRotationCorrection(jft.Model):
         )
         self.rotation_unit: u.Unit = u.rad
 
+        self.offset: jft.Model | None = (
+            None
+            if correction_prior.offset is None
+            else build_parametric_prior_from_prior_config(
+                OFFSET_DOMAIN_KEY,
+                correction_prior.offset_in(correction_prior.shift_unit),
+                (2,),
+                as_model=True,
+            )
+        )
+
         self.rotation_center: SkyCoord = rotation_center
 
-        super().__init__(domain=self.rotation_angle.domain | self.shift.domain)
+        super().__init__(
+            domain=self.rotation_angle.domain | self.field_shift_domain
+        )
+
+    @property
+    def field_shift_domain(self) -> dict:
+        """The latents of `field_shift`: the shift, and the offset when there is one."""
+        if self.offset is None:
+            return self.shift.domain
+        return self.shift.domain | self.offset.domain
+
+    def field_shift(self, x):
+        """The shift of the field sampling positions of every exposure: `shift + offset`."""
+        if self.offset is None:
+            return self.shift(x)
+        return self.shift(x) + self.offset(x)[None, :]
 
     def __call__(self, x):
         return self.shift(x), self.rotation_angle(x)
@@ -121,10 +159,12 @@ class CoordinatesCorrectedShiftOnly(jft.Model):
             1 / pixel_distance.to(shift_and_rotation.shift_unit).value
         )
 
-        super().__init__(domain=self.shift_and_rotation.shift.domain)
+        super().__init__(domain=self.shift_and_rotation.field_shift_domain)
 
     def __call__(self, params: dict) -> ArrayLike:
-        shift = self.shift_and_rotation.shift(params) * self._1_over_pixel_distance
+        shift = (
+            self.shift_and_rotation.field_shift(params) * self._1_over_pixel_distance
+        )
         return self._coordinates + shift[self._shape]
 
 
@@ -204,6 +244,8 @@ class CoordinatesCorrectedStarShift(jft.Model):
     (see `build_coordinates_corrected_for_field`). A source therefore appears
     displaced the opposite way: `p = p0 - J @ shift`, with `J` the change of the
     star's data pixel position per unit of shift along the grid (row, column).
+    The offset of `ShiftAndRotationCorrection` does not enter: Gaia positions
+    are on the sky, the offset is between the sky and the reconstruction grid.
     """
 
     def __init__(

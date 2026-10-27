@@ -20,6 +20,7 @@ ROTATION_UNIT_KEY = "rotation_unit"
 SHIFT_UNIT_KEY = "shift_unit"
 SHIFT_KEY = "shift"
 ROTATION_KEY = "rotation"
+OFFSET_KEY = "offset"
 
 
 class CorrectionModel(Enum):
@@ -60,6 +61,10 @@ class CoordinatesCorrectionPriorConfig:
         The ProbabilityConfig for the rotation model.
     rotation_unit: u.Unit
         The unit of the rotation model
+    offset: ProbabilityConfig | None
+        One shift shared by every exposure of every filter, (row, column) in
+        `shift_unit`. The field sampling positions move by `shift + offset`,
+        star positions by `shift` alone. None: no offset, the plain model.
     """
 
     model: CorrectionModel
@@ -67,18 +72,23 @@ class CoordinatesCorrectionPriorConfig:
     shift_unit: u.Unit
     rotation: ProbabilityConfig
     rotation_unit: u.Unit
+    offset: ProbabilityConfig | None = None
 
     def shift_in(self, unit: u.Unit):
-        distribution, val1, val2, transformation = astuple(self.shift)
-        val1 = (val1 * self.shift_unit).to(unit).value
-        val2 = (val2 * self.shift_unit).to(unit).value
+        return self._in(self.shift, self.shift_unit, unit)
+
+    def offset_in(self, unit: u.Unit):
+        return self._in(self.offset, self.shift_unit, unit)
+
+    @staticmethod
+    def _in(prior: ProbabilityConfig, from_unit: u.Unit, unit: u.Unit):
+        distribution, val1, val2, transformation = astuple(prior)
+        val1 = (val1 * from_unit).to(unit).value
+        val2 = (val2 * from_unit).to(unit).value
         return prior_config_factory([distribution, val1, val2, transformation])
 
     def rotation_in(self, unit: u.Unit):
-        distribution, val1, val2, transformation = astuple(self.rotation)
-        val1 = (val1 * self.rotation_unit).to(unit).value
-        val2 = (val2 * self.rotation_unit).to(unit).value
-        return prior_config_factory([distribution, val1, val2, transformation])
+        return self._in(self.rotation, self.rotation_unit, unit)
 
     @classmethod
     def from_yaml_dict(
@@ -97,11 +107,15 @@ class CoordinatesCorrectionPriorConfig:
             - {SHIFT_UNIT_KEY}
             - {ROTATION_KEY}
             - {ROTATION_UNIT_KEY}
+            - {OFFSET_KEY}, optional: the shared offset prior, shape (2,); a
+              scalar mean or std broadcasts to row and column.
         """
+        offset = raw.get(OFFSET_KEY)
         return cls(
             model=CorrectionModel.from_string(raw[MODEL_KEY]),
             shift=prior_config_factory(raw[SHIFT_KEY], shape=shift_shape),
             rotation=prior_config_factory(raw[ROTATION_KEY], shape=rotation_shape),
             shift_unit=getattr(u, raw[SHIFT_UNIT_KEY]),
             rotation_unit=getattr(u, raw[ROTATION_UNIT_KEY]),
+            offset=None if offset is None else prior_config_factory(offset, shape=(2,)),
         )
