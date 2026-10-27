@@ -7,7 +7,6 @@ from astropy.table import Table
 
 from ..parse.rotation_and_shift.coordinates_correction import (
     MODEL_KEY,
-    OFFSET_KEY,
     SHIFT_UNIT_KEY,
     ROTATION_UNIT_KEY,
     CoordinatesCorrectionPriorConfig,
@@ -27,12 +26,10 @@ class FilterAlignment:
             config = raw[self.filter_name]
         else:
             config = raw[DEFAULT_KEY]
-        config = dict(config)  # `default` is shared by the filters, keep it unchanged
 
         config[MODEL_KEY] = raw[MODEL_KEY]
         config[SHIFT_UNIT_KEY] = raw[SHIFT_UNIT_KEY]
         config[ROTATION_UNIT_KEY] = raw[ROTATION_UNIT_KEY]
-        config[OFFSET_KEY] = raw.get(OFFSET_KEY, None)
 
         return CoordinatesCorrectionPriorConfig.from_yaml_dict(
             raw=config,
