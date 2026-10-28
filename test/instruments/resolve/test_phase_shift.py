@@ -12,6 +12,7 @@ from jubik.instruments.resolve.likelihood.mosaic_likelihood import (
 )
 from jubik.instruments.resolve.mosaicing.sky_beamer import BeamPattern, SkyBeamer
 from jubik.instruments.resolve.phase_shift import PhaseShift, build_shift_prior
+from jubik.instruments.resolve.response import _hermitian_adjoint
 
 from generate_test_obs import generate_random_obs
 from test_response import setup_grid_obs_response
@@ -112,3 +113,63 @@ def test_likelihood_has_band_shift_only_when_set():
         assert np.isfinite(likelihood.energy(latent))
 
     assert domain["band7_shift"].shape == (2, 2)
+
+
+def build_band7(backend, shift_settings):
+    """Builder of one observation of band7 with one field, and a sky sample."""
+    np.random.seed(45)
+    grid, obs, _, _ = setup_grid_obs_response(("I",), ("LL", "RR"), FREQS)
+    sky_beamer = SkyBeamer(
+        jft.ShapeWithDtype(grid.shape),
+        {"band7_fld": BeamPattern(0.0, 0.0, np.ones(grid.shape), None)},
+    )
+    settings = {
+        "ducc": rve.parse.Ducc0Settings(
+            epsilon=1e-9, do_wgridding=False, nthreads=1, verbosity=False
+        ),
+        "finufft": rve.parse.FinufftSettings(epsilon=1e-9),
+    }[backend]
+    shift = build_shift_prior("band7", shift_settings, 2)
+    lhb = build_likelihood_from_sky_beamer(
+        observation=obs,
+        field_name="band7_fld",
+        sky_beamer=sky_beamer,
+        sky_grid=grid,
+        backend_settings=settings,
+        shift=None if shift is None else PhaseShift(shift, 1, obs),
+    )
+    return lhb, {"band7_fld": np.random.normal(size=grid.shape)}
+
+
+@pytest.mark.parametrize("backend", ("ducc", "finufft"))
+def test_response_adjoint_holds_the_shift_fixed(backend):
+    """<R_x s, d> == <s, R_x^H d> with the shift fixed at a nonzero sample x."""
+    # 60 arcsec std: phases of order one on the short test baselines
+    lhb, sky = build_band7(backend, ["normal", 0.0, 60.0])
+    unshifted, _ = build_band7(backend, None)
+    x = {"band7_shift": np.array([[0.0, 0.0], [0.7, -1.3]])}
+    d = lhb.visibilities
+
+    adjoint = lhb.response_adjoint(d, x)["band7_fld"]
+
+    lhs = np.real(np.sum(np.conj(lhb.response(sky | x)) * d))
+    assert_allclose(lhs, np.sum(sky["band7_fld"] * np.real(adjoint)), rtol=1e-6)
+    # The phase reaches the adjoint, so it differs from the unshifted one.
+    plain = unshifted.response_adjoint(d)["band7_fld"]
+    assert np.linalg.norm(adjoint - plain) > 0.1 * np.linalg.norm(plain)
+    assert_allclose(lhb.response_adjoint(d, jft.Vector(x))["band7_fld"], adjoint)
+
+
+def test_response_adjoint_needs_the_sample_with_a_shift():
+    lhb, _ = build_band7("finufft", ["normal", 0.0, 1.0])
+    with pytest.raises(ValueError, match="shift"):
+        lhb.response_adjoint(lhb.visibilities)
+
+
+def test_response_adjoint_without_shift_is_unchanged():
+    lhb, _ = build_band7("finufft", None)
+    d = lhb.visibilities
+    expected = _hermitian_adjoint(lhb.response, lhb.response.domain, d)
+    assert_allclose(
+        lhb.response_adjoint(d, {"ignored": 0})["band7_fld"], expected["band7_fld"]
+    )
