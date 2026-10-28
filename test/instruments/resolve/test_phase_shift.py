@@ -123,12 +123,21 @@ def test_file_in_two_groups_raises():
         assign_shift_groups(groups, {"b": data_cfg(["a/a_spw{spw}.npz"], [5, 17])})
 
 
-def test_entry_matching_no_file_raises():
+def test_entry_of_an_unloaded_block_is_ignored():
     groups = parse_shift_groups(
         {"eb1": {"prior": ["normal", 0.0, 0.05], "data": ["a/a_spw9.npz"]}}
     )
-    with pytest.raises(ValueError, match="a_spw9.npz"):
-        assign_shift_groups(groups, {"b": data_cfg(["a/a_spw{spw}.npz"], [5, 17])})
+    assigned = assign_shift_groups(groups, {"b": data_cfg(["a/a_spw{spw}.npz"], [5])})
+    assert assigned == {"b": [None]}
+
+
+def test_equivalent_paths_match():
+    groups = parse_shift_groups(
+        {"eb1": {"prior": ["normal", 0.0, 0.05], "data": ["a/a_spw5.npz"]}}
+    )
+    cfg = data_cfg(["./a/a_spw{spw}.npz"], [5])
+    cfg["data_path"] = "/data/"
+    assert assign_shift_groups(groups, {"b": cfg}) == {"b": ["eb1"]}
 
 
 def test_group_prior_sets_the_shift():

@@ -160,7 +160,8 @@ def build_radio_likelihood(
     group_of_file = assign_shift_groups(
         shift_groups, {name: cfg[data_key][name] for name in data_names}
     )
-    shifts = build_shift_models(shift_groups)
+    used = {group for groups in group_of_file.values() for group in groups}
+    shifts = build_shift_models([g for g in shift_groups if g.name in used])
 
     likelihoods = []
     names = []

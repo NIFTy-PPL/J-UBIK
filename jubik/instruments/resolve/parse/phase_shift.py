@@ -16,11 +16,14 @@ radio_response:
 A `data` entry is a data template exactly as written in `data_templates`, or
 one file the template expands to, both relative to the `data_path` of the data
 block. Files of several data blocks can share a shift. A file in no group has
-no shift.
+no shift. An entry that matches no file of the loaded blocks, e.g. of a block
+left out of the fit, is ignored with a warning.
 """
 
 from dataclasses import dataclass
-from os.path import join
+from os.path import join, normpath
+
+from nifty.cl.logger import logger
 
 from .data.data_loading import DataLoading
 
@@ -68,7 +71,7 @@ def assign_shift_groups(
     Raises
     ------
     ValueError
-        If a file is in two groups, or a `data` entry matches no file.
+        If a file is in two groups.
     """
     used = set()
     assigned = {}
@@ -76,11 +79,12 @@ def assign_shift_groups(
         data_path = data_cfg["data_path"]
         names = []
         for lt in DataLoading.from_yaml_dict(data_cfg).loader_templates:
+            files = {normpath(lt.data_template), normpath(lt.file_path)}
             hits = {
                 (g.name, entry)
                 for g in groups
                 for entry in g.data
-                if join(data_path, entry) in (lt.data_template, lt.file_path)
+                if normpath(join(data_path, entry)) in files
             }
             hit_names = sorted({name for name, _ in hits})
             if len(hit_names) > 1:
@@ -91,5 +95,5 @@ def assign_shift_groups(
 
     unused = [(g.name, e) for g in groups for e in g.data if (g.name, e) not in used]
     if unused:
-        raise ValueError(f"shift entries match no data file: {unused}")
+        logger.warning(f"Shift entries match no loaded data file, ignored: {unused}")
     return assigned
