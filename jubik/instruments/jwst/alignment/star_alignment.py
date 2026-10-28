@@ -213,11 +213,15 @@ _GAIA_ASTROMETRY = ("ra", "dec", "pmra", "pmdec")
 _GAIA_UNITS = (u.mas, u.mas, u.mas / u.yr, u.mas / u.yr)
 
 
+def _nan_filled(column) -> u.Quantity:
+    """The column with masked entries as NaN, not the 0 that `u.Quantity` reads."""
+    return u.Quantity(np.ma.filled(column, np.nan))
+
+
 def _astrometric_covariance(table: Table) -> np.ndarray | list[None]:
     """Gaia covariance of (RA cos(dec), Dec, pmRA cos(dec), pmDec) in mas and
-    mas/yr, shape (n, 4, 4), from the Gaia errors and correlations. Masked entries
-    become NaN, not the 0 that `u.Quantity` would read. None per star if the table
-    lacks the error columns."""
+    mas/yr, shape (n, 4, 4), from the Gaia errors and correlations; NaN where an
+    entry is masked. None per star if the table lacks the error columns."""
     pairs = list(combinations(enumerate(_GAIA_ASTROMETRY), 2))
     names = [f"{n}_error" for n in _GAIA_ASTROMETRY]
     names += [f"{a}_{b}_corr" for (_, a), (_, b) in pairs]
@@ -225,7 +229,7 @@ def _astrometric_covariance(table: Table) -> np.ndarray | list[None]:
         return [None] * len(table)
 
     def column(name, unit=u.one):
-        return u.Quantity(np.ma.filled(table[name], np.nan)).to_value(unit)
+        return _nan_filled(table[name]).to_value(unit)
 
     std = np.stack(
         [column(f"{n}_error", unit) for n, unit in zip(_GAIA_ASTROMETRY, _GAIA_UNITS)],
@@ -262,10 +266,10 @@ class StarTables:
         # distance only enters proper-motion propagation through perspective
         # acceleration, which is below 1e-8 mas over the Gaia to JWST baseline.
         positions = SkyCoord(
-            ra=table["ra"],
-            dec=table["dec"],
-            pm_ra_cosdec=table["pmra"],
-            pm_dec=table["pmdec"],
+            ra=_nan_filled(table["ra"]),
+            dec=_nan_filled(table["dec"]),
+            pm_ra_cosdec=_nan_filled(table["pmra"]),
+            pm_dec=_nan_filled(table["pmdec"]),
             obstime=Time("J2016.0"),
         )
         # A 2-parameter solution has no proper motion and cannot be propagated.

@@ -79,6 +79,15 @@ def test_missing_proper_motion_drops_the_star():
     assert [int(s.id) for s in tables.get_stars(0)] == [1]
 
 
+def test_masked_proper_motion_drops_the_star():
+    # The Gaia archive returns a 2-parameter solution with masked proper motion.
+    table = _table([1, 2])
+    for name in ("pmra", "pmdec"):
+        table[name] = MaskedColumn(table[name], mask=[False, True])
+    tables = StarTables([table], [T_OBS])
+    assert [int(s.id) for s in tables.get_stars(0)] == [1]
+
+
 def test_epoch_jacobian_propagates_the_gaia_covariance_to_the_epoch():
     table = _table([1])
     sra, sdec, spmra, spmdec = 0.3, 0.1, 0.4, 0.2
