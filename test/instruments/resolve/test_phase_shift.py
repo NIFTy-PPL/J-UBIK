@@ -123,6 +123,20 @@ def test_file_in_two_groups_raises():
         assign_shift_groups(groups, {"b": data_cfg(["a/a_spw{spw}.npz"], [5, 17])})
 
 
+def test_file_of_two_blocks_in_two_groups_raises():
+    """Two templates that expand to the same file must not give it two shifts."""
+    groups = parse_shift_groups(
+        {
+            "one": {"prior": ["normal", 0.0, 0.05], "data": ["a{spw}.npz"]},
+            "two": {"prior": ["normal", 0.0, 0.05], "data": ["a{field}.npz"]},
+        }
+    )
+    other = data_cfg(["a{field}.npz"], [None])
+    other["field_ids"] = [5]
+    with pytest.raises(ValueError, match="a5.npz"):
+        assign_shift_groups(groups, {"a": data_cfg(["a{spw}.npz"], [5]), "b": other})
+
+
 def test_entry_of_an_unloaded_block_is_ignored():
     groups = parse_shift_groups(
         {"eb1": {"prior": ["normal", 0.0, 0.05], "data": ["a/a_spw9.npz"]}}

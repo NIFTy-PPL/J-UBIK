@@ -74,6 +74,7 @@ def assign_shift_groups(
         If a file is in two groups.
     """
     used = set()
+    owner = {}  # group of each file, across blocks
     assigned = {}
     for block, data_cfg in data_cfgs.items():
         data_path = data_cfg["data_path"]
@@ -87,8 +88,11 @@ def assign_shift_groups(
                 if normpath(join(data_path, entry)) in files
             }
             hit_names = sorted({name for name, _ in hits})
+            file = normpath(lt.file_path)
+            if hit_names:
+                hit_names = sorted({*hit_names, owner.setdefault(file, hit_names[0])})
             if len(hit_names) > 1:
-                raise ValueError(f"{lt.file_path} is in the shift groups {hit_names}")
+                raise ValueError(f"{file} is in the shift groups {hit_names}")
             used |= hits
             names.append(hit_names[0] if hit_names else None)
         assigned[block] = names
