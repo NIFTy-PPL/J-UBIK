@@ -5,6 +5,8 @@ from astropy.coordinates import SkyCoord
 
 from jubik.instruments.jwst.alignment.star_alignment import Star
 from jubik.instruments.jwst.data.loader.stars_loader import _shift_jacobian
+from jubik.models.distributions import build_parametric_prior_from_prior_config
+from jubik.parse.models.distributions import prior_config_factory
 from jubik.instruments.jwst.parse.rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectionPriorConfig,
 )
@@ -20,6 +22,10 @@ SOURCE = CENTER.spherical_offsets_by(2 * u.arcsec, -3 * u.arcsec)
 SIGMA = 1.5  # arcsec, source width
 N_DATA = 31
 GRID = WcsAstropy(CENTER, shape=41, fov=41 * 0.5 * u.arcsec)
+# Star position offset model whose value at latent `e` is `e` arcsec.
+POSITION = build_parametric_prior_from_prior_config(
+    "star_0_position", prior_config_factory(["normal", 0.0, 1.0]), (2,), as_model=True
+)
 
 
 def _correction(shifts):
@@ -61,15 +67,25 @@ def _target_centroids(data_wcs, shifts):
     )
 
 
-def _star_positions(data_wcs, shifts, observation_ids):
+def _star_positions(data_wcs, shifts, observation_ids, epsilon=None):
     star = Star(0, SOURCE)
     p0 = np.array(star.pixel_position_in_subsampled_data(data_wcs))
     jac = _shift_jacobian(star, data_wcs, GRID, 0, 0, 1)
     n = len(observation_ids)
     correction, params = _correction(shifts)
-    return build_coordinates_corrected_for_stars(
-        correction, np.tile(p0, (n, 1)), np.tile(jac, (n, 1, 1)), observation_ids
-    )(params)
+    position = None if epsilon is None else POSITION
+    model = build_coordinates_corrected_for_stars(
+        correction,
+        np.tile(p0, (n, 1)),
+        np.tile(jac, (n, 1, 1)),
+        observation_ids,
+        position,
+    )
+    if epsilon is None:
+        assert "star_0_position" not in model.domain
+        return model(params)
+    assert model.domain["star_0_position"].shape == (2,)
+    return model(params | {"star_0_position": epsilon})
 
 
 @pytest.mark.parametrize(
@@ -103,3 +119,24 @@ def test_aligned_shift_moves_star_against_sampling_rows_and_columns():
         data_wcs, np.zeros_like(shifts), [0, 1]
     )
     np.testing.assert_allclose(star, [[0.0, -1.0], [-1.0, 0.0]], atol=1e-6)
+
+
+def test_star_position_moves_star_like_the_opposite_shift():
+    # A star truly at Gaia + e on the grid appears where a shared shift of -e
+    # puts its Gaia position, in every exposure.
+    data_wcs = WcsAstropy(
+        CENTER,
+        shape=N_DATA,
+        fov=[0.7 * N_DATA, 1.3 * N_DATA] * u.arcsec,
+        position_angle=30 * u.deg,
+    )
+    e = np.array([0.4, -0.7])
+    star = _star_positions(data_wcs, np.zeros((2, 2)), [0, 1], epsilon=e)
+
+    np.testing.assert_allclose(
+        star, _star_positions(data_wcs, np.tile(-e, (2, 1)), [0, 1]), atol=1e-10
+    )
+    scales = GRID.pixel_scales_yx.to_value(u.arcsec)
+    indices = GRID.world_to_indices_yx(SOURCE) + e / scales
+    true = Star.skycoord_to_subpixel(GRID.indices_yx_to_world(*indices), data_wcs)
+    np.testing.assert_allclose(star, [true, true], atol=1e-6)

@@ -18,6 +18,9 @@ from ..data.jwst_data import JwstData
 class Star:
     id: int
     position: SkyCoord
+    # Gaia error of `position` along the grid (row, column) = (Dec, RA cos(dec)) in
+    # arcsec, shape (2,); NaN where the table has no error (2-parameter solutions).
+    position_error: u.Quantity | None = None
 
     def __getitem__(self, index: int):
         return Star(self.id[index], self.position[index])
@@ -219,10 +222,29 @@ class StarTables:
         )
         current_positions = positions.apply_space_motion(t_obs)
 
+        dt = (t_obs - g2016).to(u.yr)
+        # shortcut: drops the position-proper-motion correlation (ra_pmra_corr,
+        # dec_pmdec_corr), small as J2016.0 is near Gaia's mean epoch; add the
+        # 2 dt rho term when a fit needs exact per-star errors.
+        # Masked errors become NaN, not the 0 that `u.Quantity` would read.
+        position_errors = np.stack(
+            [
+                np.hypot(
+                    u.Quantity(np.ma.filled(table[pos], np.nan)),
+                    dt * u.Quantity(np.ma.filled(table[pm], np.nan)),
+                ).to(u.arcsec)
+                for pos, pm in (
+                    ("dec_error", "pmdec_error"),
+                    ("ra_error", "pmra_error"),
+                )
+            ],
+            axis=-1,
+        )
+
         new_stars = []
-        for id, position in zip(source_id, current_positions):
+        for id, position, error in zip(source_id, current_positions, position_errors):
             if not (np.isnan(position.ra.value) or np.isnan(position.dec.value)):
-                new_stars.append(Star(id, position))
+                new_stars.append(Star(id, position, error))
 
         return new_stars
 

@@ -101,6 +101,7 @@ def build_star_in_data(
     star_light_prior: ProbabilityConfig,
     star_data: StarsData,
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
+    position: jft.Model | None = None,
 ) -> StarInData:
     """Build star in data field.
 
@@ -112,6 +113,9 @@ def build_star_in_data(
         The identifcation number of the star, used for the brightness prior.
     star_light_prior: ProbabilityConfig
         The prior for the star brightness
+    position: jft.Model | None
+        The star's true minus Gaia position, see
+        `build_coordinates_corrected_for_stars`.
     """
 
     skies = np.array(star_data.sky_array)
@@ -128,6 +132,7 @@ def build_star_in_data(
         pixel_coordinates=np.array(star_data.star_in_subsampled_pixels),
         shift_jacobian=star_data.shift_jacobian,
         observation_ids=star_data.observation_ids,
+        position=position,
     )
 
     return StarInData(skies, brightness, location_of_star_in_data_subpixels)

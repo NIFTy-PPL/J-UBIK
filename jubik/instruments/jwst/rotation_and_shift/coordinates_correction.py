@@ -203,7 +203,12 @@ class CoordinatesCorrectedStarShift(jft.Model):
     The shared shift moves the data sampling positions on the reconstruction grid
     (see `build_coordinates_corrected_for_field`). A source therefore appears
     displaced the opposite way: `p = p0 - J @ shift`, with `J` the change of the
-    star's data pixel position per unit of shift along the grid (row, column).
+    star's data pixel position per arcsec of shift along the grid (row, column).
+
+    The optional `position` is the star's true position minus its Gaia position,
+    in arcsec along the grid (row, column). It moves the star itself, so it enters
+    with the opposite sign: `p = p0 - J @ (shift - position)`. A star that sits at
+    Gaia plus `position` on the grid appears at `+ J @ position` in the data.
     """
 
     def __init__(
@@ -212,16 +217,26 @@ class CoordinatesCorrectedStarShift(jft.Model):
         pixel_coordinates: np.ndarray,
         shift_jacobian: np.ndarray,
         observation_ids: np.ndarray,
+        position: jft.Model | None = None,
     ):
         self.shift_and_rotation = shift_and_rotation
+        self.position = position
         self._coordinates = pixel_coordinates
-        arcsec_per_unit = u.Quantity(1, shift_and_rotation.shift_unit).to_value(u.arcsec)
-        self._jacobian = shift_jacobian * arcsec_per_unit
+        self._arcsec_per_unit = u.Quantity(1, shift_and_rotation.shift_unit).to_value(
+            u.arcsec
+        )
+        self._jacobian = shift_jacobian
         self._observation_ids = np.asarray(observation_ids)
-        super().__init__(domain=self.shift_and_rotation.shift.domain)
+        domain = self.shift_and_rotation.shift.domain
+        if position is not None:
+            domain = domain | position.domain
+        super().__init__(domain=domain)
 
     def __call__(self, params: dict) -> ArrayLike:
         shift = self.shift_and_rotation.shift(params)[self._observation_ids]
+        shift = shift * self._arcsec_per_unit
+        if self.position is not None:
+            shift = shift - self.position(params)
         return self._coordinates - jnp.einsum("nij,nj->ni", self._jacobian, shift)
 
 
@@ -230,6 +245,7 @@ def build_coordinates_corrected_for_stars(
     pixel_coordinates: np.ndarray,
     shift_jacobian: np.ndarray,
     observation_ids: tuple[int],
+    position: jft.Model | None = None,
 ) -> Union[Coordinates, CoordinatesCorrectedStarShift]:
     """Build the star positions in the subsampled data pixels, `xy` indexed.
 
@@ -244,6 +260,9 @@ def build_coordinates_corrected_for_stars(
         sampling positions along the grid (row, column), shape `(n_exposures, 2, 2)`.
     observation_ids : tuple[int]
         The observation (shift row) of each exposure.
+    position : jft.Model | None
+        The star's true minus Gaia position in arcsec along the grid (row, column),
+        shape `(2,)`, shared by all exposures. If None, the star sits at Gaia.
     """
     if shift_and_rotation_correction is None:
         return Coordinates(pixel_coordinates)
@@ -255,6 +274,7 @@ def build_coordinates_corrected_for_stars(
             pixel_coordinates,
             shift_jacobian,
             observation_ids,
+            position,
         )
 
     raise NotImplementedError

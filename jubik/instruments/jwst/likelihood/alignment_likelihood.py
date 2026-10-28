@@ -3,6 +3,7 @@ from functools import reduce
 
 import numpy as np
 import nifty.re as jft
+from astropy import units as u
 
 from ..jwst_response import (
     JwstResponse,
@@ -14,7 +15,6 @@ from ..plotting.alignment import (
 )
 from .likelihood import GaussianLikelihoodBuilder
 from ..alignment.star_alignment import StarTables
-from ..parse.alignment.star_alignment import StarAlignmentConfig
 from ..alignment.star_model import build_star_in_data
 from ..data.loader.stars_loader import StarsData
 from ..zero_flux_model import build_zero_flux_model
@@ -22,6 +22,8 @@ from ..parse.zero_flux_model import ZeroFluxPriorConfigs
 from ..rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from ..data.jwst_data import DataMetaInformation
 from ..parse.jwst_response import SkyMetaInformation
+from ....models.distributions import build_parametric_prior_from_prior_config
+from ....parse.models.distributions import ProbabilityConfig, prior_config_factory
 
 # --------------------------------------------------------------------------------------
 # Alignment Likelihood API
@@ -40,9 +42,10 @@ class StarAlignmentResponseInput:
     sky_meta: SkyMetaInformation
     star_tables: StarTables
     stars_data: StarsData
-    star_light_prior: StarAlignmentConfig
+    star_light_prior: ProbabilityConfig
     shift_and_rotation_correction: ShiftAndRotationCorrection | None
     zero_flux_prior_configs: ZeroFluxPriorConfigs
+    position_error: bool
 
 
 @dataclass
@@ -106,6 +109,30 @@ def build_star_alignment_likelihood(
         star_data = response.stars_data[star.id]
         data, mask, std = star_data.data, star_data.mask, star_data.std
 
+        position = None
+        if response.position_error:
+            if np.isnan(star.position_error).any():
+                raise ValueError(
+                    f"Gaia star {star.id} has no position error: ra_error, "
+                    "dec_error, pmra_error or pmdec_error is masked or NaN (a "
+                    "2-parameter solution has no proper motion). Exclude it with "
+                    "`exclude_source_id` or turn off `position_error`."
+                )
+            # No filter prefix: every filter shares the star's latent, with the
+            # sigma at the epoch of the filter's first exposure.
+            # shortcut: filters at different epochs scale the one latent by their
+            # own sigma, exact when the position or the proper-motion error
+            # dominates; give the star separate position and proper-motion
+            # latents if filters years apart need both terms.
+            position = build_parametric_prior_from_prior_config(
+                f"star_{star.id}_position",
+                prior_config_factory(
+                    ["normal", 0.0, star.position_error.to_value(u.arcsec)]
+                ),
+                (2,),
+                as_model=True,
+            )
+
         for p, name in zip([psf, psf_convolved], ["psf", "psf_convolved"]):
             jwst_star_response: JwstResponse = build_jwst_response(
                 sky_in_subsampled_data=build_star_in_data(
@@ -114,6 +141,7 @@ def build_star_alignment_likelihood(
                     star_light_prior=response.star_light_prior,
                     star_data=response.stars_data[star.id],
                     shift_and_rotation_correction=response.shift_and_rotation_correction,
+                    position=position,
                 ),
                 data_meta=response.filter_meta,
                 data_subsample=response.stars_data[star.id].subsample,

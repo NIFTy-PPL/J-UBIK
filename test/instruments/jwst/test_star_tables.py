@@ -2,7 +2,9 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from astropy.table import Table
+from astropy import units as u
+from astropy.table import MaskedColumn, Table
+from astropy.time import Time
 
 from jubik.instruments.jwst.alignment.star_alignment import StarTables
 from jubik.instruments.jwst.data.preloader.preloader import _exposure_start_time
@@ -20,6 +22,10 @@ def _table(ids, parallax=None):
             "pmra": np.zeros(n),
             "pmdec": np.zeros(n),
             "parallax": np.ones(n) if parallax is None else np.asarray(parallax),
+            "ra_error": np.ones(n),
+            "dec_error": np.ones(n),
+            "pmra_error": np.ones(n),
+            "pmdec_error": np.ones(n),
         },
         units={
             "ra": "deg",
@@ -27,6 +33,10 @@ def _table(ids, parallax=None):
             "pmra": "mas / yr",
             "pmdec": "mas / yr",
             "parallax": "mas",
+            "ra_error": "mas",
+            "dec_error": "mas",
+            "pmra_error": "mas / yr",
+            "pmdec_error": "mas / yr",
         },
     )
 
@@ -65,6 +75,29 @@ def test_missing_proper_motion_drops_the_star():
     table["pmra"][1] = np.nan
     tables = StarTables([table], [T_OBS])
     assert [int(s.id) for s in tables.get_stars(0)] == [1]
+
+
+def test_position_error_adds_proper_motion_error_over_the_epoch():
+    table = _table([1])
+    table["ra_error"][0], table["pmra_error"][0] = 0.3, 0.4
+    table["dec_error"][0], table["pmdec_error"][0] = 0.1, 0.2
+    epoch = Time("J2016.0") + 5 * u.yr
+    (star,) = StarTables([table], [epoch]).get_stars(0)
+    # (row, column) = (Dec, RA cos(dec))
+    np.testing.assert_allclose(
+        star.position_error.to_value(u.mas),
+        [np.hypot(0.1, 5 * 0.2), np.hypot(0.3, 5 * 0.4)],
+        rtol=1e-6,
+    )
+
+
+def test_masked_position_error_is_nan_and_keeps_the_star():
+    table = _table([1, 2])
+    table["pmra_error"] = MaskedColumn(table["pmra_error"], mask=[False, True])
+    stars = StarTables([table], [T_OBS]).get_stars(0)
+    assert [int(s.id) for s in stars] == [1, 2]
+    assert np.isfinite(stars[0].position_error).all()
+    assert np.isnan(stars[1].position_error[1])
 
 
 def _fake_dm(created, date_beg=None, expstart_mjd=None):
