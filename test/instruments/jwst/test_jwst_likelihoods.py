@@ -337,7 +337,8 @@ def test_fit_star_positions_adds_one_shared_latent_per_star(
     _, table = fake_gaia
     cfg = make_config(tmp_path, gaia=True)
     gaia = cfg["telescope"]["gaia_alignment"]
-    assert StarAlignmentConfig.from_yaml_dict(gaia).fit_star_positions is False
+    assert StarAlignmentConfig.from_yaml_dict(gaia).fit_star_positions is True
+    gaia["fit_star_positions"] = False
     plain = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
     plain_keys = plain.alignment.likelihood.likelihood.domain.tree
     assert not any("position" in k for k in plain_keys)
@@ -397,6 +398,7 @@ def test_fit_star_positions_rejects_a_long_epoch_span(
     for site in JWST_DATA_SITES:
         monkeypatch.setattr(site, LaterSecondExposureJwstData)
     cfg = make_config(tmp_path, n_files=2, gaia=True)
+    cfg["telescope"]["gaia_alignment"]["fit_star_positions"] = False
     build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
     cfg["telescope"]["gaia_alignment"]["fit_star_positions"] = True
