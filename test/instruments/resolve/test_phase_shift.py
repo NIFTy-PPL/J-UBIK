@@ -150,6 +150,12 @@ def test_file_of_two_blocks_has_its_group_in_both():
     assert assigned == {"a": ["one"], "b": ["one"]}
 
 
+@pytest.mark.parametrize("data", ["a_spw5.npz", [], ["a_spw5.npz", 5]])
+def test_group_data_must_be_a_list_of_names(data):
+    with pytest.raises(ValueError, match="eb1"):
+        parse_shift_groups({"eb1": {"prior": ["normal", 0.0, 0.05], "data": data}})
+
+
 def test_entry_of_an_unloaded_block_is_ignored():
     groups = parse_shift_groups(
         {"eb1": {"prior": ["normal", 0.0, 0.05], "data": ["a/a_spw9.npz"]}}

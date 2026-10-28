@@ -45,10 +45,19 @@ def parse_shift_groups(shift_cfg: dict | None) -> list[ShiftGroup]:
     """Read the `shift` entry of `radio_response`; None means no shifts."""
     if shift_cfg is None:
         return []
-    return [
-        ShiftGroup(name=name, prior=group[PRIOR_KEY], data=list(group[DATA_KEY]))
-        for name, group in shift_cfg.items()
-    ]
+    groups = []
+    for name, group in shift_cfg.items():
+        data = group[DATA_KEY]
+        # a bare string would split into characters and drop the group's shift
+        if not (
+            isinstance(data, list) and data and all(isinstance(e, str) for e in data)
+        ):
+            raise ValueError(
+                f"Shift group {name}: `{DATA_KEY}` must be a non-empty list of "
+                f"file names or templates, got {data!r}"
+            )
+        groups.append(ShiftGroup(name=name, prior=group[PRIOR_KEY], data=data))
+    return groups
 
 
 def assign_shift_groups(
