@@ -3,9 +3,6 @@ from functools import reduce
 
 import numpy as np
 import nifty.re as jft
-from astropy import units as u
-from astropy.time import Time
-
 from ..jwst_response import (
     JwstResponse,
     build_jwst_response,
@@ -71,26 +68,6 @@ class MultiFilterAlignmentLikelihoods:
         )
 
 
-# shortcut: one star offset per filter, its covariance at the first exposure; a
-# filter whose exposures span longer gets the wrong covariance for the later ones
-# (pm error x span). Give the star position and proper-motion latents,
-# propagated per exposure, when a filter needs a longer span.
-MAX_STAR_POSITION_EPOCH_SPAN = 90 * u.day
-
-
-def _check_epoch_span(filter_name: str, observation_times: list) -> None:
-    epochs = Time(observation_times, scale="utc")
-    span = (epochs.max() - epochs.min()).to(u.day)
-    if span > MAX_STAR_POSITION_EPOCH_SPAN:
-        raise ValueError(
-            f"`fit_star_positions`: the {filter_name} exposures span "
-            f"{span:.0f}, more than {MAX_STAR_POSITION_EPOCH_SPAN}. The star "
-            "position offset holds the Gaia covariance at the first exposure "
-            "only. Drop the exposures of other epochs or turn off "
-            "`fit_star_positions`."
-        )
-
-
 def build_star_alignment_likelihood(
     response: StarAlignmentResponseInput,
     side_effect: AlignmentLikelihoodSideEffects,
@@ -109,9 +86,6 @@ def build_star_alignment_likelihood(
         )
     )
 
-    if response.fit_star_positions:
-        _check_epoch_span(response.filter_name, response.star_tables.observation_times)
-
     for star in response.star_tables.get_stars():
         if star.id not in response.stars_data.keys():
             jft.logger.info(
@@ -129,20 +103,19 @@ def build_star_alignment_likelihood(
 
         position = None
         if response.fit_star_positions:
-            covariance = star.position_covariance
+            covariance = star.astrometric_covariance
             if covariance is None or np.isnan(covariance).any():
                 raise ValueError(
-                    f"Gaia star {star.id} has no position covariance: an error or "
+                    f"Gaia star {star.id} has no astrometric covariance: an error or "
                     "correlation of ra, dec, pmra or pmdec is missing, masked or NaN "
                     "(a star table cached without error columns needs a fresh "
                     "query). Exclude it with `exclude_source_id` or turn off "
                     "`fit_star_positions`."
                 )
-            # The covariance is at the epoch of the filter's first exposure; filters
-            # at other epochs scale the one shared latent by their own Cholesky
-            # factor, which gets each filter's marginal right but not the
-            # cross-filter covariance (<1% for typical Gaia errors).
-            position = build_star_position_offset(star, response.grid_wcs)
+            times = response.star_tables.observation_times
+            position = build_star_position_offset(
+                star, response.grid_wcs, [times[i] for i in star_data.observation_ids]
+            )
 
         for p, name in zip([psf, psf_convolved], ["psf", "psf_convolved"]):
             jwst_star_response: JwstResponse = build_jwst_response(

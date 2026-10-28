@@ -341,7 +341,7 @@ def test_fit_star_positions_adds_one_shared_latent_per_star(
     gaia["fit_star_positions"] = False
     plain = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
     plain_keys = plain.alignment.likelihood.likelihood.domain.tree
-    assert not any("position" in k for k in plain_keys)
+    assert not any("astrometry" in k for k in plain_keys)
 
     gaia["fit_star_positions"] = True
     alignment = build_jwst_likelihoods(
@@ -349,11 +349,11 @@ def test_fit_star_positions_adds_one_shared_latent_per_star(
     ).alignment.likelihood.likelihood
     keys = alignment.domain.tree
     # No filter prefix, so every filter shares the star's latent.
-    assert {k for k in keys if "position" in k} == {
-        f"star_{star_id}_position" for star_id in table["source_id"]
+    assert {k for k in keys if "astrometry" in k} == {
+        f"star_{star_id}_astrometry" for star_id in table["source_id"]
     }
     for star_id in table["source_id"]:
-        assert keys[f"star_{star_id}_position"].shape == (2,)
+        assert keys[f"star_{star_id}_astrometry"].shape == (4,)
     assert np.isfinite(evaluate(alignment))
 
 
@@ -370,7 +370,7 @@ def test_fit_star_positions_moves_the_star_in_the_likelihood(
         cfg, make_grid(), SKY_DOMAIN
     ).alignment.likelihood.likelihood
     x = jft.random_like(jax.random.PRNGKey(0), alignment.domain)
-    moved = x.tree | {"star_1_position": x.tree["star_1_position"] + 1.0}
+    moved = x.tree | {"star_1_astrometry": x.tree["star_1_astrometry"] + 1.0}
     assert not np.isclose(float(alignment(x)), float(alignment(jft.Vector(moved))))
 
 
@@ -381,7 +381,7 @@ def test_fit_star_positions_needs_the_gaia_covariance(
     table["pmdec_error"][0] = np.nan
     cfg = make_config(tmp_path, gaia=True)
     cfg["telescope"]["gaia_alignment"]["fit_star_positions"] = True
-    with pytest.raises(ValueError, match="Gaia star 1 has no position covariance"):
+    with pytest.raises(ValueError, match="Gaia star 1 has no astrometric covariance"):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
@@ -392,18 +392,17 @@ class LaterSecondExposureJwstData(FakeJwstData):
             self.dm.meta.observation.date_beg = "2023-06-01T00:00:00.000"
 
 
-def test_fit_star_positions_rejects_a_long_epoch_span(
+def test_fit_star_positions_across_epochs(
     monkeypatch, patched_seams, fake_gaia, tmp_path
 ):
     for site in JWST_DATA_SITES:
         monkeypatch.setattr(site, LaterSecondExposureJwstData)
     cfg = make_config(tmp_path, n_files=2, gaia=True)
-    cfg["telescope"]["gaia_alignment"]["fit_star_positions"] = False
-    build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
-
     cfg["telescope"]["gaia_alignment"]["fit_star_positions"] = True
-    with pytest.raises(ValueError, match="f444w exposures span 151 d"):
-        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+    alignment = build_jwst_likelihoods(
+        cfg, make_grid(), SKY_DOMAIN
+    ).alignment.likelihood.likelihood
+    assert np.isfinite(evaluate(alignment))
 
 
 def test_empty_gaia_catalog_raises(patched_seams, fake_gaia, tmp_path):

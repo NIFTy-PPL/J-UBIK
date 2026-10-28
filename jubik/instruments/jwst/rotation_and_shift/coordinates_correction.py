@@ -205,8 +205,8 @@ class CoordinatesCorrectedStarShift(jft.Model):
     displaced the opposite way: `p = p0 - J @ shift`, with `J` the change of the
     star's data pixel position per arcsec of shift along the grid (row, column).
 
-    The optional `position` is the star's true position minus its Gaia position,
-    in arcsec along the grid (row, column). It moves the star itself, so it enters
+    The optional `position` is the star's true position minus its Gaia position
+    in each exposure, in arcsec along the grid (row, column). It moves the star itself, so it enters
     with the opposite sign: `p = p0 - J @ (shift - position)`. A star that sits at
     Gaia plus `position` on the grid appears at `+ J @ position` in the data.
     """
@@ -262,7 +262,8 @@ def build_coordinates_corrected_for_stars(
         The observation (shift row) of each exposure.
     position : jft.Model | None
         The star's true minus Gaia position in arcsec along the grid (row, column),
-        shape `(2,)`, shared by all exposures. If None, the star sits at Gaia.
+        shape `(n_exposures, 2)`, or `(2,)` for all exposures. If None, the star
+        sits at Gaia.
     """
     if shift_and_rotation_correction is None:
         if position is not None:

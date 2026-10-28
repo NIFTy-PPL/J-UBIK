@@ -2,6 +2,7 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from astropy import units as u
+from astropy.time import Time
 from jax import lax, vmap, Array
 
 
@@ -98,32 +99,38 @@ class StarInData(jft.Model):
         return self._vmap_call(self._skies, locations, brightness)
 
 
-def build_star_position_offset(star: Star, grid_wcs: WcsAstropy) -> jft.Model:
-    """The star's true minus Gaia position in arcsec along the grid (row, column),
-    see `build_coordinates_corrected_for_stars`.
+def build_star_position_offset(
+    star: Star, grid_wcs: WcsAstropy, times: list[Time | str]
+) -> jft.Model:
+    """The star's true minus Gaia position at each of `times` in arcsec along the
+    grid (row, column), shape (len(times), 2), see
+    `build_coordinates_corrected_for_stars`.
 
-    Prior: normal with the Gaia `position_covariance` carried into the grid frame
-    by the local (RA cos(dec), Dec) to grid Jacobian, so a rotated grid and the
-    Gaia correlations come out right. The latent `star_<id>_position` is standard
-    normal and has no filter prefix, so every filter shares it.
+    Prior: the Gaia `astrometric_covariance` on the star's position and proper
+    motion. `epoch_jacobian` carries it to each epoch and the local
+    (RA cos(dec), Dec) to grid Jacobian into the grid frame, so the correlations
+    between epochs, a rotated grid and the Gaia correlations come out right. The
+    latent `star_<id>_astrometry`, shape (4,), is standard normal and has no filter
+    prefix, so every filter shares it.
     """
-    row_column = np.array(grid_wcs.world_to_indices_yx(star.position))
+    # The grid Jacobian does not change over the mas the star moves between epochs.
+    position = star.position_at(times[0])
+    row_column = np.array(grid_wcs.world_to_indices_yx(position))
     sky_to_grid = np.stack(
         [
-            np.array(
-                grid_wcs.world_to_indices_yx(star.position.spherical_offsets_by(*d))
-            )
+            np.array(grid_wcs.world_to_indices_yx(position.spherical_offsets_by(*d)))
             - row_column
             for d in ((1, 0) * u.arcsec, (0, 1) * u.arcsec)
         ],
         axis=1,
     ) * grid_wcs.pixel_scales_yx.to_value(u.arcsec)[:, None]
-    cholesky = np.linalg.cholesky(
-        sky_to_grid @ star.position_covariance @ sky_to_grid.T
+    cholesky = np.linalg.cholesky(star.astrometric_covariance) * u.mas.to(u.arcsec)
+    latent_to_offset = np.stack(
+        [sky_to_grid @ star.epoch_jacobian(t) @ cholesky for t in times]
     )
-    key = f"star_{star.id}_position"
+    key = f"star_{star.id}_astrometry"
     return jft.Model(
-        lambda x: cholesky @ x[key], domain={key: jft.ShapeWithDtype((2,))}
+        lambda x: latent_to_offset @ x[key], domain={key: jft.ShapeWithDtype((4,))}
     )
 
 

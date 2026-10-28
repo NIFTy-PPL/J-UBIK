@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from astropy import units as u
+from astropy.coordinates import SkyCoord
 from nifty.re import logger
 
 from .....wcs.wcs_astropy import WcsAstropy
@@ -35,7 +36,7 @@ class StarsBundle(UserDict[int, SingleStarBundle]):
 
 
 def _shift_jacobian(
-    star: Star,
+    position: SkyCoord,
     data_wcs,
     grid_wcs: WcsAstropy,
     min_row: int,
@@ -49,13 +50,11 @@ def _shift_jacobian(
     indices (`build_coordinates_corrected_for_field`); see
     `build_coordinates_corrected_for_stars` for the sign.
     """
-    row, column = grid_wcs.world_to_indices_yx(star.position)
-    p0 = star.skycoord_to_subpixel(
-        star.position, data_wcs, min_row, min_column, subsample
-    )
+    row, column = grid_wcs.world_to_indices_yx(position)
+    p0 = Star.skycoord_to_subpixel(position, data_wcs, min_row, min_column, subsample)
     columns = [
         np.subtract(
-            star.skycoord_to_subpixel(
+            Star.skycoord_to_subpixel(
                 grid_wcs.indices_yx_to_world(row + dr, column + dc),
                 data_wcs,
                 min_row,
@@ -87,14 +86,16 @@ def load_one_stars_bundle(
         fov_pixel += 1
 
     star_bundles = StarsBundle(index=index)
+    time = star_tables.observation_times[index]
 
     for ii, star in enumerate(star_tables.get_stars(index)):
-        x, y = jwst_data.wcs.world_to_pixel(star.position)
+        position = star.position_at(time)
+        x, y = jwst_data.wcs.world_to_pixel(position)
         ny, nx = jwst_data.shape
         if not (-0.5 <= x < nx - 0.5 and -0.5 <= y < ny - 0.5):
             continue
 
-        bounding_indices = star.bounding_indices(jwst_data, fov_pixel)
+        bounding_indices = star.bounding_indices(jwst_data, fov_pixel, time)
         masks_for_filter = (
             None if extra_masks is None else extra_masks(jwst_data.filter)
         )
@@ -109,12 +110,13 @@ def load_one_stars_bundle(
         psf = load_psf_kernel(
             jwst_data=jwst_data,
             subsample=star_alignment_config.subsample,
-            target_center=star.position,
+            target_center=position,
             config_parameters=psf_kernel_configs,
         )
 
         star_in_subsampled_pixels = star.pixel_position_in_subsampled_data(
             jwst_data.wcs,
+            time,
             min_row=bounding_indices[0],
             min_column=bounding_indices[2],
             subsample_factor=star_alignment_config.subsample,
@@ -124,7 +126,7 @@ def load_one_stars_bundle(
             cutout=DataCutout(data=data, mask=mask, std=std, psf=psf),
             star_in_subsampled_pixels=star_in_subsampled_pixels,
             shift_jacobian=_shift_jacobian(
-                star,
+                position,
                 jwst_data.wcs,
                 grid_wcs,
                 min_row=bounding_indices[0],

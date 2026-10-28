@@ -79,7 +79,7 @@ def test_missing_proper_motion_drops_the_star():
     assert [int(s.id) for s in tables.get_stars(0)] == [1]
 
 
-def test_position_covariance_propagates_gaia_covariance_to_the_epoch():
+def test_epoch_jacobian_propagates_the_gaia_covariance_to_the_epoch():
     table = _table([1])
     sra, sdec, spmra, spmdec = 0.3, 0.1, 0.4, 0.2
     rho = dict(
@@ -95,7 +95,8 @@ def test_position_covariance_propagates_gaia_covariance_to_the_epoch():
     for pair, value in rho.items():
         table[f"{pair}_corr"][0] = value
     dt = 5
-    (star,) = StarTables([table], [Time("J2016.0") + dt * u.yr]).get_stars(0)
+    (star,) = StarTables([table], [T_OBS]).get_stars(0)
+    jacobian = star.epoch_jacobian(Time("J2016.0") + dt * u.yr)
     # (RA cos(dec), Dec) at ra + dt * pmra, dec + dt * pmdec, in mas^2
     ra = sra**2 + 2 * dt * rho["ra_pmra"] * sra * spmra + dt**2 * spmra**2
     dec = sdec**2 + 2 * dt * rho["dec_pmdec"] * sdec * spmdec + dt**2 * spmdec**2
@@ -106,7 +107,9 @@ def test_position_covariance_propagates_gaia_covariance_to_the_epoch():
         + dt**2 * rho["pmra_pmdec"] * spmra * spmdec
     )
     np.testing.assert_allclose(
-        star.position_covariance * 1e6, [[ra, ra_dec], [ra_dec, dec]], rtol=1e-6
+        jacobian @ star.astrometric_covariance @ jacobian.T,
+        [[ra, ra_dec], [ra_dec, dec]],
+        rtol=1e-6,
     )
 
 
@@ -114,7 +117,7 @@ def test_table_without_error_columns_gives_no_covariance():
     table = _table([1])
     table.remove_columns([c for c in table.colnames if c.endswith(("_error", "_corr"))])
     (star,) = StarTables([table], [T_OBS]).get_stars(0)
-    assert star.position_covariance is None
+    assert star.astrometric_covariance is None
 
 
 def test_masked_gaia_error_makes_the_covariance_nan_and_keeps_the_star():
@@ -122,8 +125,8 @@ def test_masked_gaia_error_makes_the_covariance_nan_and_keeps_the_star():
     table["pmra_error"] = MaskedColumn(table["pmra_error"], mask=[False, True])
     stars = StarTables([table], [T_OBS]).get_stars(0)
     assert [int(s.id) for s in stars] == [1, 2]
-    assert np.isfinite(stars[0].position_covariance).all()
-    assert np.isnan(stars[1].position_covariance).any()
+    assert np.isfinite(stars[0].astrometric_covariance).all()
+    assert np.isnan(stars[1].astrometric_covariance).any()
 
 
 def _fake_dm(created, date_beg=None, expstart_mjd=None):
@@ -141,7 +144,7 @@ def _moving_star_position(epoch):
     table = _table([1])
     table["dec"][0] = 0.0
     table["pmdec"][0] = 100.0  # mas / yr
-    return StarTables([table], [epoch]).get_stars(0)[0].position
+    return StarTables([table], [epoch]).get_stars(0)[0].position_at(epoch)
 
 
 def test_epoch_ignores_file_creation_date():

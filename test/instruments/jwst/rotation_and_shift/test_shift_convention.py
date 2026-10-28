@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
 
 from jubik.instruments.jwst.alignment.star_alignment import Star
 from jubik.instruments.jwst.alignment.star_model import build_star_position_offset
@@ -69,9 +70,8 @@ def _target_centroids(data_wcs, shifts):
 
 
 def _star_positions(data_wcs, shifts, observation_ids, epsilon=None):
-    star = Star(0, SOURCE)
-    p0 = np.array(star.pixel_position_in_subsampled_data(data_wcs))
-    jac = _shift_jacobian(star, data_wcs, GRID, 0, 0, 1)
+    p0 = np.array(Star.skycoord_to_subpixel(SOURCE, data_wcs))
+    jac = _shift_jacobian(SOURCE, data_wcs, GRID, 0, 0, 1)
     n = len(observation_ids)
     correction, params = _correction(shifts)
     position = None if epsilon is None else POSITION
@@ -152,24 +152,45 @@ def test_star_position_without_shift_correction_raises():
 
 @pytest.mark.parametrize("position_angle", [0.0, 30.0, 90.0] * u.deg)
 def test_star_position_offset_carries_the_gaia_covariance_to_the_grid(position_angle):
-    # Map the offsets of the two unit latents back to the sky: their outer product
-    # must give the Gaia covariance along (RA cos(dec), Dec), for any grid
-    # rotation and with the column axis running against RA.
+    # Map the offsets of the four unit latents at two epochs back to the sky: their
+    # outer product must give the Gaia covariance propagated to both epochs along
+    # (RA cos(dec), Dec), including the covariance between the epochs, for any
+    # grid rotation and with the column axis running against RA.
     grid = WcsAstropy(
         CENTER,
         shape=41,
         fov=[0.4 * 41, 0.6 * 41] * u.arcsec,
         position_angle=position_angle,
     )
-    covariance = np.array([[0.04, 0.03], [0.03, 0.09]])  # arcsec^2
-    model = build_star_position_offset(Star(0, SOURCE, covariance), grid)
+    std = np.array([200.0, 300.0, 100.0, 50.0])  # mas, mas/yr
+    correlation = np.full((4, 4), 0.3) + 0.7 * np.eye(4)
+    star = Star(
+        0,
+        SkyCoord(
+            SOURCE.ra,
+            SOURCE.dec,
+            pm_ra_cosdec=0 * u.mas / u.yr,
+            pm_dec=0 * u.mas / u.yr,
+            obstime=Time("J2016.0"),
+        ),
+        std[:, None] * correlation * std[None, :],
+    )
+    times = [Time("J2016.0") + dt * u.yr for dt in (2, 5)]
+    model = build_star_position_offset(star, grid, times)
     scales = grid.pixel_scales_yx.to_value(u.arcsec)
     indices = np.array(grid.world_to_indices_yx(SOURCE))
     columns = []
-    for xi in np.eye(2):
-        offset = np.asarray(model({"star_0_position": xi}))
-        moved = grid.indices_yx_to_world(*(indices + offset / scales))
-        offsets = SOURCE.spherical_offsets_to(moved)
-        columns.append([o.to_value(u.arcsec) for o in offsets])
+    for xi in np.eye(4):
+        column = []
+        for offset in np.asarray(model({"star_0_astrometry": xi})):
+            moved = grid.indices_yx_to_world(*(indices + offset / scales))
+            column += [o.to_value(u.mas) for o in SOURCE.spherical_offsets_to(moved)]
+        columns.append(column)
     sky = np.array(columns).T
-    np.testing.assert_allclose(sky @ sky.T, covariance, rtol=1e-5, atol=1e-8)
+    jacobian = np.vstack([star.epoch_jacobian(t) for t in times])
+    np.testing.assert_allclose(
+        sky @ sky.T,
+        jacobian @ star.astrometric_covariance @ jacobian.T,
+        rtol=1e-5,
+        atol=1e-3,
+    )
