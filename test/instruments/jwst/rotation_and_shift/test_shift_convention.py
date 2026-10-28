@@ -194,3 +194,28 @@ def test_star_position_offset_carries_the_gaia_covariance_to_the_grid(position_a
         rtol=1e-5,
         atol=1e-3,
     )
+
+
+def test_star_position_offset_does_not_depend_on_the_other_exposures():
+    # The same star, latent and epoch must give the same offset in filters with
+    # different exposure lists. A moving star near the pole, where the grid
+    # Jacobian changes along its path, would catch a Jacobian frozen at the
+    # first exposure.
+    star = Star(
+        0,
+        SkyCoord(
+            10 * u.deg,
+            89.999 * u.deg,
+            pm_ra_cosdec=100 * u.mas / u.yr,
+            pm_dec=-30 * u.mas / u.yr,
+            obstime=Time("J2016.0"),
+        ),
+        np.diag([1.0, 4.0, 0.16, 0.16]),  # mas^2, (mas/yr)^2
+    )
+    t22, t24 = Time("2022-01-01"), Time("2024-01-01")
+    grid = WcsAstropy(star.position_at(t24), shape=41, fov=20 * u.arcsec)
+    for xi in np.eye(4):
+        latent = {"star_0_astrometry": xi}
+        both = build_star_position_offset(star, grid, [t22, t24])(latent)
+        alone = build_star_position_offset(star, grid, [t24])(latent)
+        np.testing.assert_allclose(both[1], alone[0], rtol=0, atol=1e-9)
