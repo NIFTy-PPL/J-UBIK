@@ -11,7 +11,12 @@ from jubik.instruments.resolve.likelihood.mosaic_likelihood import (
     build_likelihood_from_sky_beamer,
 )
 from jubik.instruments.resolve.mosaicing.sky_beamer import BeamPattern, SkyBeamer
-from jubik.instruments.resolve.phase_shift import PhaseShift, build_shift_prior
+from jubik.instruments.resolve.parse.phase_shift import (
+    ShiftGroup,
+    assign_shift_groups,
+    parse_shift_groups,
+)
+from jubik.instruments.resolve.phase_shift import PhaseShift, build_shift_models
 from jubik.instruments.resolve.response import _hermitian_adjoint
 
 from generate_test_obs import generate_random_obs
@@ -20,6 +25,11 @@ from test_response import setup_grid_obs_response
 jax.config.update("jax_enable_x64", True)
 
 FREQS = np.array([1e9, 1.3e9])
+
+
+def shift_model(prior):
+    """The shift of one group `eb1`, domain key `shift_eb1`."""
+    return build_shift_models([ShiftGroup("eb1", prior, [])])["eb1"]
 
 
 def point_source_sky(grid, i, j):
@@ -39,11 +49,9 @@ def test_shift_moves_the_sampling_positions(backend):
     response = r_ducc if backend == "ducc" else r_finufft
     a, b, i, j = 3, -2, 40, 55
     pix_row, pix_col = grid.spatial.pixel_scales_yx.to_value(u.arcsec)
-    # Row 1 belongs to the observation, row 0 must not be read.
-    shifts = np.array([[1.0, 1.0], [a * pix_row, b * pix_col]])
-    shift = jft.Model(lambda x: x["s"], domain={"s": jft.ShapeWithDtype((2, 2))})
+    shift = jft.Model(lambda x: x["s"], domain={"s": jft.ShapeWithDtype((2,))})
 
-    phase = PhaseShift(shift, 1, obs)({"s": shifts})
+    phase = PhaseShift(shift, obs)({"s": np.array([a * pix_row, b * pix_col])})
 
     assert_allclose(
         phase * response(point_source_sky(grid, i, j)),
@@ -67,28 +75,69 @@ def test_zero_shift_is_identity(vis_dtype, weight_dtype):
         obs.freq,
         None,
     )
-    shift = build_shift_prior("band7", ["normal", 0.0, 0.05], 3)
+    shift = shift_model(["normal", 0.0, 0.05])
 
-    phase = PhaseShift(shift, 2, obs)(jft.zeros_like(shift.domain))
+    phase = PhaseShift(shift, obs)(jft.zeros_like(shift.domain))
 
     assert phase.dtype == vis_dtype
     assert phase.shape == (1,) + obs.vis.shape[1:]
     assert_allclose(phase, 1.0)
 
 
-def test_band_entry_wins_over_default():
-    settings = {"default": ["normal", 0.0, 0.05], "band7": ["normal", 0.0, 0.02]}
-    one_sigma = lambda band, s: build_shift_prior(band, s, 2)(
-        {f"{band}_shift": np.ones((2, 2))}
+def data_cfg(templates, windows):
+    return {
+        "data_path": "/data",
+        "data_templates": templates,
+        "spectral": {"window": windows},
+    }
+
+
+def test_template_covers_every_spw_and_blocks_share_a_group():
+    groups = parse_shift_groups(
+        {
+            "eb1": {"prior": ["normal", 0.0, 0.05], "data": ["a/a_spw{spw}.npz"]},
+            "eb2_usb": {"prior": ["normal", 0.0, 0.1], "data": ["b/b_spw17.npz"]},
+        }
+    )
+    templates = ["a/a_spw{spw}.npz", "b/b_spw{spw}.npz", "c/c_spw{spw}.npz"]
+
+    assigned = assign_shift_groups(
+        groups,
+        {"lsb": data_cfg(templates, [5, 7]), "usb": data_cfg(templates, [17])},
     )
 
-    assert_allclose(one_sigma("band7", settings), 0.02)
-    assert_allclose(one_sigma("band6", settings), 0.05)
-    assert_allclose(one_sigma("band6", ["normal", 0.0, 0.05]), 0.05)
-    assert build_shift_prior("band7", None, 2) is None
+    # loader_templates order: template, then spw; c is in no group
+    assert assigned["lsb"] == ["eb1", "eb1", None, None, None, None]
+    assert assigned["usb"] == ["eb1", "eb2_usb", None]
+    assert parse_shift_groups(None) == []
 
 
-def test_likelihood_has_band_shift_only_when_set():
+def test_file_in_two_groups_raises():
+    groups = parse_shift_groups(
+        {
+            "eb1": {"prior": ["normal", 0.0, 0.05], "data": ["a/a_spw{spw}.npz"]},
+            "eb1_usb": {"prior": ["normal", 0.0, 0.1], "data": ["a/a_spw17.npz"]},
+        }
+    )
+    with pytest.raises(ValueError, match="a_spw17.npz"):
+        assign_shift_groups(groups, {"b": data_cfg(["a/a_spw{spw}.npz"], [5, 17])})
+
+
+def test_entry_matching_no_file_raises():
+    groups = parse_shift_groups(
+        {"eb1": {"prior": ["normal", 0.0, 0.05], "data": ["a/a_spw9.npz"]}}
+    )
+    with pytest.raises(ValueError, match="a_spw9.npz"):
+        assign_shift_groups(groups, {"b": data_cfg(["a/a_spw{spw}.npz"], [5, 17])})
+
+
+def test_group_prior_sets_the_shift():
+    assert_allclose(
+        shift_model(["normal", 0.0, 0.02])({"shift_eb1": np.ones(2)}), 0.02
+    )
+
+
+def test_likelihood_has_the_shift_only_when_set():
     np.random.seed(44)
     grid, obs, _, _ = setup_grid_obs_response(("I",), ("LL", "RR"), FREQS)
     sky_beamer = SkyBeamer(
@@ -96,26 +145,26 @@ def test_likelihood_has_band_shift_only_when_set():
         {"band7_fld": BeamPattern(0.0, 0.0, np.ones(grid.shape), None)},
     )
 
-    for shift_settings in (None, {"default": ["normal", 0.0, 0.05]}):
-        shift = build_shift_prior("band7", shift_settings, 2)
+    for prior in (None, ["normal", 0.0, 0.05]):
+        shift = None if prior is None else shift_model(prior)
         likelihood = build_likelihood_from_sky_beamer(
             observation=obs,
             field_name="band7_fld",
             sky_beamer=sky_beamer,
             sky_grid=grid,
             backend_settings=rve.parse.FinufftSettings(epsilon=1e-9),
-            shift=None if shift is None else PhaseShift(shift, 1, obs),
+            shift=None if shift is None else PhaseShift(shift, obs),
         ).likelihood
         domain = likelihood.domain.tree
 
-        assert ("band7_shift" in domain) == (shift_settings is not None)
+        assert ("shift_eb1" in domain) == (prior is not None)
         latent = jft.random_like(jax.random.PRNGKey(0), likelihood.domain)
         assert np.isfinite(likelihood.energy(latent))
 
-    assert domain["band7_shift"].shape == (2, 2)
+    assert domain["shift_eb1"].shape == (2,)
 
 
-def build_band7(backend, shift_settings):
+def build_band7(backend, prior):
     """Builder of one observation of band7 with one field, and a sky sample."""
     np.random.seed(45)
     grid, obs, _, _ = setup_grid_obs_response(("I",), ("LL", "RR"), FREQS)
@@ -129,14 +178,14 @@ def build_band7(backend, shift_settings):
         ),
         "finufft": rve.parse.FinufftSettings(epsilon=1e-9),
     }[backend]
-    shift = build_shift_prior("band7", shift_settings, 2)
+    shift = None if prior is None else shift_model(prior)
     lhb = build_likelihood_from_sky_beamer(
         observation=obs,
         field_name="band7_fld",
         sky_beamer=sky_beamer,
         sky_grid=grid,
         backend_settings=settings,
-        shift=None if shift is None else PhaseShift(shift, 1, obs),
+        shift=None if shift is None else PhaseShift(shift, obs),
     )
     return lhb, {"band7_fld": np.random.normal(size=grid.shape)}
 
@@ -147,7 +196,7 @@ def test_response_adjoint_holds_the_shift_fixed(backend):
     # 60 arcsec std: phases of order one on the short test baselines
     lhb, sky = build_band7(backend, ["normal", 0.0, 60.0])
     unshifted, _ = build_band7(backend, None)
-    x = {"band7_shift": np.array([[0.0, 0.0], [0.7, -1.3]])}
+    x = {"shift_eb1": np.array([0.7, -1.3])}
     d = lhb.visibilities
 
     adjoint = lhb.response_adjoint(d, x)["band7_fld"]

@@ -1,4 +1,4 @@
-"""Learnable phase shift of the model visibilities, one shift per observation."""
+"""Learnable phase shift of the model visibilities, one shift per shift group."""
 
 import jax.numpy as jnp
 import nifty.re as jft
@@ -9,46 +9,25 @@ from astropy.constants import c as speedoflight
 from ...models.distributions import build_parametric_prior_from_prior_config
 from ...parse.models.distributions.distributions import prior_config_factory
 from .data.observation import Observation
+from .parse.phase_shift import ShiftGroup
 from .util import cast_to_dtype
 
-DEFAULT_KEY = "default"
 
+def build_shift_models(groups: list[ShiftGroup]) -> dict[str, jft.Model]:
+    """Prior of the shift of each group, in arcsec, by group name.
 
-def build_shift_prior(
-    data_name: str, shift_settings: dict | list | None, n_observations: int
-) -> jft.Model | None:
-    """Prior of the shifts of all observations of the band `data_name`, in arcsec.
-
-    Parameters
-    ----------
-    data_name: str
-        The band; the model has the domain key `<data_name>_shift`.
-    shift_settings: dict | list | None
-        The `shift` entry of `radio_response`. Either a prior
-        `[distribution, mean, std]` for every band, or a dict holding a
-        `default` prior and optionally priors under band names, which win over
-        `default`. None means no shift.
-    n_observations: int
-        Number of observations of the band; row k belongs to observation k.
-
-    Returns
-    -------
-    jft.Model | None
-        The shifts, shape `(n_observations, 2)`, (row, column) of the sky grid.
+    The model of group `name` has the domain key `shift_<name>` and shape `(2,)`,
+    (row, column) of the sky grid.
     """
-    if shift_settings is None:
-        return None
-    if isinstance(shift_settings, dict):
-        key = data_name if data_name in shift_settings else DEFAULT_KEY
-        shift_settings = shift_settings[key]
-
-    shape = (n_observations, 2)
-    return build_parametric_prior_from_prior_config(
-        f"{data_name}_shift",
-        prior_config_factory(shift_settings, shape=shape),
-        shape,
-        as_model=True,
-    )
+    return {
+        g.name: build_parametric_prior_from_prior_config(
+            f"shift_{g.name}",
+            prior_config_factory(g.prior, shape=(2,)),
+            (2,),
+            as_model=True,
+        )
+        for g in groups
+    }
 
 
 class PhaseShift(jft.Model):
@@ -64,16 +43,13 @@ class PhaseShift(jft.Model):
     Parameters
     ----------
     shift: jft.Model
-        The shifts of all observations of a band, shape `(n_observations, 2)`.
-    index: int
-        The row of `shift` that belongs to `observation`.
+        The shift of the group of `observation`, shape `(2,)`.
     observation: Observation
         Provides `uvw`, `freq` and the dtype of the visibilities.
     """
 
-    def __init__(self, shift: jft.Model, index: int, observation: Observation):
+    def __init__(self, shift: jft.Model, observation: Observation):
         self.shift = shift
-        self.index = index
         scale = 2 * np.pi * u.arcsec.to(u.rad) / speedoflight.value
         uv = observation.uvw[:, :2, None] * observation.freq * scale
         # (1, n_rows, n_freq) broadcasts against the visibilities (n_pol, n_rows, n_freq)
@@ -83,6 +59,6 @@ class PhaseShift(jft.Model):
         super().__init__(domain=shift.domain)
 
     def __call__(self, x):
-        shift_row, shift_col = self.shift(x)[self.index]
+        shift_row, shift_col = self.shift(x)
         phase = jnp.exp(1j * (self._u * shift_col - self._v * shift_row))
         return cast_to_dtype(phase, self._dtype)
