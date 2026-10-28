@@ -1,11 +1,14 @@
 import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
+from astropy import units as u
 from jax import lax, vmap, Array
 
 
 from ....models.distributions import build_parametric_prior_from_prior_config
+from ....wcs.wcs_astropy import WcsAstropy
 
+from .star_alignment import Star
 from ..data.loader.stars_loader import StarsData
 from ....parse.models.distributions import ProbabilityConfig
 from ..rotation_and_shift.coordinates_correction import (
@@ -93,6 +96,35 @@ class StarInData(jft.Model):
         brightness = self.brightness(x)
         locations = self.location(x)
         return self._vmap_call(self._skies, locations, brightness)
+
+
+def build_star_position_offset(star: Star, grid_wcs: WcsAstropy) -> jft.Model:
+    """The star's true minus Gaia position in arcsec along the grid (row, column),
+    see `build_coordinates_corrected_for_stars`.
+
+    Prior: normal with the Gaia `position_covariance` carried into the grid frame
+    by the local (RA cos(dec), Dec) to grid Jacobian, so a rotated grid and the
+    Gaia correlations come out right. The latent `star_<id>_position` is standard
+    normal and has no filter prefix, so every filter shares it.
+    """
+    row_column = np.array(grid_wcs.world_to_indices_yx(star.position))
+    sky_to_grid = np.stack(
+        [
+            np.array(
+                grid_wcs.world_to_indices_yx(star.position.spherical_offsets_by(*d))
+            )
+            - row_column
+            for d in ((1, 0) * u.arcsec, (0, 1) * u.arcsec)
+        ],
+        axis=1,
+    ) * grid_wcs.pixel_scales_yx.to_value(u.arcsec)[:, None]
+    cholesky = np.linalg.cholesky(
+        sky_to_grid @ star.position_covariance @ sky_to_grid.T
+    )
+    key = f"star_{star.id}_position"
+    return jft.Model(
+        lambda x: cholesky @ x[key], domain={key: jft.ShapeWithDtype((2,))}
+    )
 
 
 def build_star_in_data(

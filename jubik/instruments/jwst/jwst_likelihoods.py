@@ -248,7 +248,8 @@ def build_jwst_likelihoods(
                     star_light_prior=cfg_parser.star_alignment_config.star_light_prior,
                     shift_and_rotation_correction=shift_and_rotation_correction,
                     zero_flux_prior_configs=cfg_parser.zero_flux_prior_configs,
-                    position_error=cfg_parser.star_alignment_config.position_error,
+                    fit_star_positions=cfg_parser.star_alignment_config.fit_star_positions,
+                    grid_wcs=grid.spatial,
                 ),
                 side_effect=AlignmentLikelihoodSideEffects(plotting=alignment_plotting),
             )

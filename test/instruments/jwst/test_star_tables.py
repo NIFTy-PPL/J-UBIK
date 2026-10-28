@@ -8,6 +8,7 @@ from astropy.time import Time
 
 from jubik.instruments.jwst.alignment.star_alignment import StarTables
 from jubik.instruments.jwst.data.preloader.preloader import _exposure_start_time
+from test.conftest import GAIA_CORRELATIONS
 
 T_OBS = "2023-01-01T00:00:00"
 
@@ -26,6 +27,7 @@ def _table(ids, parallax=None):
             "dec_error": np.ones(n),
             "pmra_error": np.ones(n),
             "pmdec_error": np.ones(n),
+            **{name: np.zeros(n) for name in GAIA_CORRELATIONS},
         },
         units={
             "ra": "deg",
@@ -77,27 +79,51 @@ def test_missing_proper_motion_drops_the_star():
     assert [int(s.id) for s in tables.get_stars(0)] == [1]
 
 
-def test_position_error_adds_proper_motion_error_over_the_epoch():
+def test_position_covariance_propagates_gaia_covariance_to_the_epoch():
     table = _table([1])
-    table["ra_error"][0], table["pmra_error"][0] = 0.3, 0.4
-    table["dec_error"][0], table["pmdec_error"][0] = 0.1, 0.2
-    epoch = Time("J2016.0") + 5 * u.yr
-    (star,) = StarTables([table], [epoch]).get_stars(0)
-    # (row, column) = (Dec, RA cos(dec))
+    sra, sdec, spmra, spmdec = 0.3, 0.1, 0.4, 0.2
+    rho = dict(
+        ra_dec=0.2,
+        ra_pmra=0.3,
+        ra_pmdec=-0.1,
+        dec_pmra=0.15,
+        dec_pmdec=-0.25,
+        pmra_pmdec=0.4,
+    )
+    table["ra_error"][0], table["pmra_error"][0] = sra, spmra
+    table["dec_error"][0], table["pmdec_error"][0] = sdec, spmdec
+    for pair, value in rho.items():
+        table[f"{pair}_corr"][0] = value
+    dt = 5
+    (star,) = StarTables([table], [Time("J2016.0") + dt * u.yr]).get_stars(0)
+    # (RA cos(dec), Dec) at ra + dt * pmra, dec + dt * pmdec, in mas^2
+    ra = sra**2 + 2 * dt * rho["ra_pmra"] * sra * spmra + dt**2 * spmra**2
+    dec = sdec**2 + 2 * dt * rho["dec_pmdec"] * sdec * spmdec + dt**2 * spmdec**2
+    ra_dec = (
+        rho["ra_dec"] * sra * sdec
+        + dt * rho["ra_pmdec"] * sra * spmdec
+        + dt * rho["dec_pmra"] * sdec * spmra
+        + dt**2 * rho["pmra_pmdec"] * spmra * spmdec
+    )
     np.testing.assert_allclose(
-        star.position_error.to_value(u.mas),
-        [np.hypot(0.1, 5 * 0.2), np.hypot(0.3, 5 * 0.4)],
-        rtol=1e-6,
+        star.position_covariance * 1e6, [[ra, ra_dec], [ra_dec, dec]], rtol=1e-6
     )
 
 
-def test_masked_position_error_is_nan_and_keeps_the_star():
+def test_table_without_error_columns_gives_no_covariance():
+    table = _table([1])
+    table.remove_columns([c for c in table.colnames if c.endswith(("_error", "_corr"))])
+    (star,) = StarTables([table], [T_OBS]).get_stars(0)
+    assert star.position_covariance is None
+
+
+def test_masked_gaia_error_makes_the_covariance_nan_and_keeps_the_star():
     table = _table([1, 2])
     table["pmra_error"] = MaskedColumn(table["pmra_error"], mask=[False, True])
     stars = StarTables([table], [T_OBS]).get_stars(0)
     assert [int(s.id) for s in stars] == [1, 2]
-    assert np.isfinite(stars[0].position_error).all()
-    assert np.isnan(stars[1].position_error[1])
+    assert np.isfinite(stars[0].position_covariance).all()
+    assert np.isnan(stars[1].position_covariance).any()
 
 
 def _fake_dm(created, date_beg=None, expstart_mjd=None):

@@ -4,6 +4,7 @@ from functools import reduce
 import numpy as np
 import nifty.re as jft
 from astropy import units as u
+from astropy.time import Time
 
 from ..jwst_response import (
     JwstResponse,
@@ -15,15 +16,15 @@ from ..plotting.alignment import (
 )
 from .likelihood import GaussianLikelihoodBuilder
 from ..alignment.star_alignment import StarTables
-from ..alignment.star_model import build_star_in_data
+from ..alignment.star_model import build_star_in_data, build_star_position_offset
 from ..data.loader.stars_loader import StarsData
 from ..zero_flux_model import build_zero_flux_model
 from ..parse.zero_flux_model import ZeroFluxPriorConfigs
 from ..rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from ..data.jwst_data import DataMetaInformation
 from ..parse.jwst_response import SkyMetaInformation
-from ....models.distributions import build_parametric_prior_from_prior_config
-from ....parse.models.distributions import ProbabilityConfig, prior_config_factory
+from ....parse.models.distributions import ProbabilityConfig
+from ....wcs.wcs_astropy import WcsAstropy
 
 # --------------------------------------------------------------------------------------
 # Alignment Likelihood API
@@ -45,7 +46,8 @@ class StarAlignmentResponseInput:
     star_light_prior: ProbabilityConfig
     shift_and_rotation_correction: ShiftAndRotationCorrection | None
     zero_flux_prior_configs: ZeroFluxPriorConfigs
-    position_error: bool
+    fit_star_positions: bool
+    grid_wcs: WcsAstropy
 
 
 @dataclass
@@ -69,6 +71,26 @@ class MultiFilterAlignmentLikelihoods:
         )
 
 
+# shortcut: one star offset per filter, its covariance at the first exposure; a
+# filter whose exposures span longer gets the wrong covariance for the later ones
+# (pm error x span). Give the star position and proper-motion latents,
+# propagated per exposure, when a filter needs a longer span.
+MAX_STAR_POSITION_EPOCH_SPAN = 90 * u.day
+
+
+def _check_epoch_span(filter_name: str, observation_times: list) -> None:
+    epochs = Time([Time(t, scale="utc") for t in observation_times])
+    span = (epochs.max() - epochs.min()).to(u.day)
+    if span > MAX_STAR_POSITION_EPOCH_SPAN:
+        raise ValueError(
+            f"`fit_star_positions`: the {filter_name} exposures span "
+            f"{span:.0f}, more than {MAX_STAR_POSITION_EPOCH_SPAN}. The star "
+            "position offset holds the Gaia covariance at the first exposure "
+            "only. Drop the exposures of other epochs or turn off "
+            "`fit_star_positions`."
+        )
+
+
 def build_star_alignment_likelihood(
     response: StarAlignmentResponseInput,
     side_effect: AlignmentLikelihoodSideEffects,
@@ -87,6 +109,9 @@ def build_star_alignment_likelihood(
         )
     )
 
+    if response.fit_star_positions:
+        _check_epoch_span(response.filter_name, response.star_tables.observation_times)
+
     for star in response.star_tables.get_stars():
         # Check if star.id in
         if star.id not in response.stars_data.keys():
@@ -95,43 +120,30 @@ def build_star_alignment_likelihood(
             )
             continue
 
-        psf = response.stars_data[star.id].psf
+        star_data = response.stars_data[star.id]
+        data, mask, std = star_data.data, star_data.mask, star_data.std
+        psf = star_data.psf
 
         import scipy
 
-        psf_convolved = np.array(
-            [
-                scipy.ndimage.gaussian_filter(psf, 2)
-                for psf in response.stars_data[star.id].psf
-            ]
-        )
-
-        star_data = response.stars_data[star.id]
-        data, mask, std = star_data.data, star_data.mask, star_data.std
+        psf_convolved = np.array([scipy.ndimage.gaussian_filter(p, 2) for p in psf])
 
         position = None
-        if response.position_error:
-            if np.isnan(star.position_error).any():
+        if response.fit_star_positions:
+            covariance = star.position_covariance
+            if covariance is None or np.isnan(covariance).any():
                 raise ValueError(
-                    f"Gaia star {star.id} has no position error: ra_error, "
-                    "dec_error, pmra_error or pmdec_error is masked or NaN (a "
-                    "2-parameter solution has no proper motion). Exclude it with "
-                    "`exclude_source_id` or turn off `position_error`."
+                    f"Gaia star {star.id} has no position covariance: an error or "
+                    "correlation of ra, dec, pmra or pmdec is missing, masked or NaN "
+                    "(a 2-parameter solution has no proper motion; a star table "
+                    "cached without error columns needs a fresh query). Exclude it "
+                    "with `exclude_source_id` or turn off `fit_star_positions`."
                 )
-            # No filter prefix: every filter shares the star's latent, with the
-            # sigma at the epoch of the filter's first exposure.
-            # shortcut: filters at different epochs scale the one latent by their
-            # own sigma, exact when the position or the proper-motion error
-            # dominates; give the star separate position and proper-motion
-            # latents if filters years apart need both terms.
-            position = build_parametric_prior_from_prior_config(
-                f"star_{star.id}_position",
-                prior_config_factory(
-                    ["normal", 0.0, star.position_error.to_value(u.arcsec)]
-                ),
-                (2,),
-                as_model=True,
-            )
+            # The covariance is at the epoch of the filter's first exposure; filters
+            # at other epochs scale the one shared latent by their own Cholesky
+            # factor, which gets each filter's marginal right but not the
+            # cross-filter covariance (<1% for typical Gaia errors).
+            position = build_star_position_offset(star, response.grid_wcs)
 
         for p, name in zip([psf, psf_convolved], ["psf", "psf_convolved"]):
             jwst_star_response: JwstResponse = build_jwst_response(
@@ -139,27 +151,27 @@ def build_star_alignment_likelihood(
                     filter_key=response.filter_name,
                     star_id=star.id,
                     star_light_prior=response.star_light_prior,
-                    star_data=response.stars_data[star.id],
+                    star_data=star_data,
                     shift_and_rotation_correction=response.shift_and_rotation_correction,
                     position=position,
                 ),
                 data_meta=response.filter_meta,
-                data_subsample=response.stars_data[star.id].subsample,
+                data_subsample=star_data.subsample,
                 sky_meta=response.sky_meta,
                 psf=p,
                 zero_flux_model=build_zero_flux_model(
                     f"{response.filter_name}_{star.id}",
                     zero_flux_prior_config,
-                    shape=(len(response.stars_data[star.id].data), 1, 1),
+                    shape=(len(star_data.data), 1, 1),
                 ),
-                data_mask=np.array(response.stars_data[star.id].mask),
+                data_mask=np.array(star_data.mask),
             )
 
             likelihood_star = GaussianLikelihoodBuilder(
                 response=jwst_star_response,
-                data=response.stars_data[star.id].data,
-                std=response.stars_data[star.id].std,
-                mask=response.stars_data[star.id].mask,
+                data=star_data.data,
+                std=star_data.std,
+                mask=star_data.mask,
             ).build()
 
             filter_alignment_likelihoods[name].append(likelihood_star)
@@ -169,7 +181,7 @@ def build_star_alignment_likelihood(
                 mask=np.array(mask),
                 std=np.array(std),
                 model=jwst_star_response,
-                subsample=response.stars_data[star.id].subsample,
+                subsample=star_data.subsample,
             )
 
     if not filter_alignment_likelihoods["psf"]:

@@ -331,33 +331,59 @@ def test_fov_rejects_typos_and_non_angles(fov, match):
         StarAlignmentConfig.from_yaml_dict(raw)
 
 
-def test_gaia_position_error_adds_one_latent_per_star(
+def test_fit_star_positions_adds_one_shared_latent_per_star(
     patched_seams, fake_gaia, tmp_path
 ):
     _, table = fake_gaia
     cfg = make_config(tmp_path, gaia=True)
     gaia = cfg["telescope"]["gaia_alignment"]
-    assert StarAlignmentConfig.from_yaml_dict(gaia).position_error is False
+    assert StarAlignmentConfig.from_yaml_dict(gaia).fit_star_positions is False
     plain = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
     plain_keys = plain.alignment.likelihood.likelihood.domain.tree
     assert not any("position" in k for k in plain_keys)
 
-    gaia["position_error"] = True
+    gaia["fit_star_positions"] = True
     alignment = build_jwst_likelihoods(
         cfg, make_grid(), SKY_DOMAIN
     ).alignment.likelihood.likelihood
     keys = alignment.domain.tree
+    # No filter prefix, so every filter shares the star's latent.
+    assert {k for k in keys if "position" in k} == {
+        f"star_{star_id}_position" for star_id in table["source_id"]
+    }
     for star_id in table["source_id"]:
         assert keys[f"star_{star_id}_position"].shape == (2,)
     assert np.isfinite(evaluate(alignment))
 
 
-def test_gaia_position_error_needs_the_gaia_errors(patched_seams, fake_gaia, tmp_path):
+def test_fit_star_positions_needs_the_gaia_covariance(
+    patched_seams, fake_gaia, tmp_path
+):
     _, table = fake_gaia
     table["pmdec_error"][0] = np.nan
     cfg = make_config(tmp_path, gaia=True)
-    cfg["telescope"]["gaia_alignment"]["position_error"] = True
-    with pytest.raises(ValueError, match="Gaia star 1 has no position error"):
+    cfg["telescope"]["gaia_alignment"]["fit_star_positions"] = True
+    with pytest.raises(ValueError, match="Gaia star 1 has no position covariance"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+class LaterSecondExposureJwstData(FakeJwstData):
+    def __init__(self, filepath: str):
+        super().__init__(filepath)
+        if str(filepath).endswith("fake_1.fits"):
+            self.dm.meta.observation.date_beg = "2023-06-01T00:00:00.000"
+
+
+def test_fit_star_positions_rejects_a_long_epoch_span(
+    monkeypatch, patched_seams, fake_gaia, tmp_path
+):
+    for site in JWST_DATA_SITES:
+        monkeypatch.setattr(site, LaterSecondExposureJwstData)
+    cfg = make_config(tmp_path, n_files=2, gaia=True)
+    build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+    cfg["telescope"]["gaia_alignment"]["fit_star_positions"] = True
+    with pytest.raises(ValueError, match="f444w exposures span 151 d"):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
@@ -393,7 +419,9 @@ def test_gaia_stars_on_edges_and_corners(
     outside = [(66.0, 30.0), (30.0, -0.6), (-2.0, -2.0)]
     wcs = FakeJwstData("").wcs
     for ii, position in enumerate(wcs.pixel_to_world(*np.array(xy + outside).T)):
-        table.add_row((ii + 1, position.ra, position.dec, 0.0, 0.0) + (0.1,) * 4)
+        table.add_row(
+            (ii + 1, position.ra, position.dec, 0.0, 0.0) + (0.1,) * 4 + (0.0,) * 6
+        )
 
     loaded, load_data = [], jwst_likelihoods.load_data
     monkeypatch.setattr(

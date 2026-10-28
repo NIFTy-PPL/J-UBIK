@@ -4,6 +4,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 
 from jubik.instruments.jwst.alignment.star_alignment import Star
+from jubik.instruments.jwst.alignment.star_model import build_star_position_offset
 from jubik.instruments.jwst.data.loader.stars_loader import _shift_jacobian
 from jubik.models.distributions import build_parametric_prior_from_prior_config
 from jubik.parse.models.distributions import prior_config_factory
@@ -140,3 +141,35 @@ def test_star_position_moves_star_like_the_opposite_shift():
     indices = GRID.world_to_indices_yx(SOURCE) + e / scales
     true = Star.skycoord_to_subpixel(GRID.indices_yx_to_world(*indices), data_wcs)
     np.testing.assert_allclose(star, [true, true], atol=1e-6)
+
+
+def test_star_position_without_shift_correction_raises():
+    with pytest.raises(ValueError, match="needs a shift correction"):
+        build_coordinates_corrected_for_stars(
+            None, np.zeros((1, 2)), np.zeros((1, 2, 2)), [0], POSITION
+        )
+
+
+@pytest.mark.parametrize("position_angle", [0.0, 30.0, 90.0] * u.deg)
+def test_star_position_offset_carries_the_gaia_covariance_to_the_grid(position_angle):
+    # Map the offsets of the two unit latents back to the sky: their outer product
+    # must give the Gaia covariance along (RA cos(dec), Dec), for any grid
+    # rotation and with the column axis running against RA.
+    grid = WcsAstropy(
+        CENTER,
+        shape=41,
+        fov=[0.4 * 41, 0.6 * 41] * u.arcsec,
+        position_angle=position_angle,
+    )
+    covariance = np.array([[0.04, 0.03], [0.03, 0.09]])  # arcsec^2
+    model = build_star_position_offset(Star(0, SOURCE, covariance), grid)
+    scales = grid.pixel_scales_yx.to_value(u.arcsec)
+    indices = np.array(grid.world_to_indices_yx(SOURCE))
+    columns = []
+    for xi in np.eye(2):
+        offset = np.asarray(model({"star_0_position": xi}))
+        moved = grid.indices_yx_to_world(*(indices + offset / scales))
+        offsets = SOURCE.spherical_offsets_to(moved)
+        columns.append([o.to_value(u.arcsec) for o in offsets])
+    sky = np.array(columns).T
+    np.testing.assert_allclose(sky @ sky.T, covariance, rtol=1e-5, atol=1e-8)

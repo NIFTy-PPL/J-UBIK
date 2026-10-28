@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from collections import UserList
 from functools import reduce
+from itertools import combinations
 
 import numpy as np
 from astropy import units as u
@@ -18,12 +19,10 @@ from ..data.jwst_data import JwstData
 class Star:
     id: int
     position: SkyCoord
-    # Gaia error of `position` along the grid (row, column) = (Dec, RA cos(dec)) in
-    # arcsec, shape (2,); NaN where the table has no error (2-parameter solutions).
-    position_error: u.Quantity | None = None
-
-    def __getitem__(self, index: int):
-        return Star(self.id[index], self.position[index])
+    # Gaia covariance of `position` along (RA cos(dec), Dec) in arcsec^2, shape
+    # (2, 2); NaN where the table has no error (2-parameter solutions), None if the
+    # table has no error columns at all.
+    position_covariance: np.ndarray | None = None
 
     def bounding_indices(
         self, jwst_data: JwstData, shape: tuple[int, int]
@@ -184,6 +183,38 @@ class Star:
         return float(x_detector), float(y_detector)
 
 
+# Gaia's astrometric order; the `*_corr` columns name pairs in this order.
+_GAIA_ASTROMETRY = ("ra", "dec", "pmra", "pmdec")
+_GAIA_UNITS = (u.mas, u.mas, u.mas / u.yr, u.mas / u.yr)
+
+
+def _position_covariance(table: Table, dt: u.Quantity) -> np.ndarray | list[None]:
+    """Covariance of the (RA cos(dec), Dec) position `dt` after the Gaia epoch, in
+    arcsec^2, shape (n, 2, 2), from all Gaia position and proper-motion errors and
+    their correlations. Masked entries become NaN, not the 0 that `u.Quantity`
+    would read. None per star if the table lacks the error columns."""
+    pairs = list(combinations(enumerate(_GAIA_ASTROMETRY), 2))
+    names = [f"{n}_error" for n in _GAIA_ASTROMETRY]
+    names += [f"{a}_{b}_corr" for (_, a), (_, b) in pairs]
+    if not set(names) <= set(table.colnames):
+        return [None] * len(table)
+
+    def column(name, unit=u.one):
+        return u.Quantity(np.ma.filled(table[name], np.nan)).to_value(unit)
+
+    std = np.stack(
+        [column(f"{n}_error", unit) for n, unit in zip(_GAIA_ASTROMETRY, _GAIA_UNITS)],
+        axis=-1,
+    )
+    correlation = np.tile(np.eye(4), (len(table), 1, 1))
+    for (i, a), (j, b) in pairs:
+        correlation[:, i, j] = correlation[:, j, i] = column(f"{a}_{b}_corr")
+    covariance = std[:, :, None] * correlation * std[:, None, :]
+    # position(t) = position + dt * proper motion
+    propagate = np.hstack([np.eye(2), dt.to_value(u.yr) * np.eye(2)])
+    return (propagate @ covariance @ propagate.T) * u.mas.to(u.arcsec) ** 2
+
+
 class StarTables:
     def __init__(
         self,
@@ -222,29 +253,14 @@ class StarTables:
         )
         current_positions = positions.apply_space_motion(t_obs)
 
-        dt = (t_obs - g2016).to(u.yr)
-        # shortcut: drops the position-proper-motion correlation (ra_pmra_corr,
-        # dec_pmdec_corr), small as J2016.0 is near Gaia's mean epoch; add the
-        # 2 dt rho term when a fit needs exact per-star errors.
-        # Masked errors become NaN, not the 0 that `u.Quantity` would read.
-        position_errors = np.stack(
-            [
-                np.hypot(
-                    u.Quantity(np.ma.filled(table[pos], np.nan)),
-                    dt * u.Quantity(np.ma.filled(table[pm], np.nan)),
-                ).to(u.arcsec)
-                for pos, pm in (
-                    ("dec_error", "pmdec_error"),
-                    ("ra_error", "pmra_error"),
-                )
-            ],
-            axis=-1,
-        )
+        position_covariances = _position_covariance(table, t_obs - g2016)
 
         new_stars = []
-        for id, position, error in zip(source_id, current_positions, position_errors):
+        for id, position, covariance in zip(
+            source_id, current_positions, position_covariances
+        ):
             if not (np.isnan(position.ra.value) or np.isnan(position.dec.value)):
-                new_stars.append(Star(id, position, error))
+                new_stars.append(Star(id, position, covariance))
 
         return new_stars
 

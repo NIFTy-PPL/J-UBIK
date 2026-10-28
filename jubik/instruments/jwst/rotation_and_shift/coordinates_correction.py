@@ -265,6 +265,8 @@ def build_coordinates_corrected_for_stars(
         shape `(2,)`, shared by all exposures. If None, the star sits at Gaia.
     """
     if shift_and_rotation_correction is None:
+        if position is not None:
+            raise ValueError("A star position offset needs a shift correction.")
         return Coordinates(pixel_coordinates)
 
     if shift_and_rotation_correction.model == CorrectionModel.SHIFT:
