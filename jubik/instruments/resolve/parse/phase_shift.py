@@ -20,6 +20,7 @@ no shift. An entry that matches no file of the loaded blocks, e.g. of a block
 left out of the fit, is ignored with a warning.
 """
 
+from collections import defaultdict
 from dataclasses import dataclass
 from os.path import join, normpath
 
@@ -66,7 +67,8 @@ def assign_shift_groups(
     -------
     dict[str, list[str | None]]
         Per data block, the group of each file in the order of
-        `DataLoading.loader_templates`, None for a file in no group.
+        `DataLoading.loader_templates`, None for a file in no group. A file
+        loaded by several blocks has its group in all of them.
 
     Raises
     ------
@@ -74,30 +76,32 @@ def assign_shift_groups(
         If a file is in two groups.
     """
     used = set()
-    owner = {}  # group of each file, across blocks
-    assigned = {}
+    owner = defaultdict(set)  # groups of each file, across blocks
+    files = {}
     for block, data_cfg in data_cfgs.items():
         data_path = data_cfg["data_path"]
-        names = []
+        files[block] = []
         for lt in DataLoading.from_yaml_dict(data_cfg).loader_templates:
-            files = {normpath(lt.data_template), normpath(lt.file_path)}
+            file = normpath(lt.file_path)
+            matches = {normpath(lt.data_template), file}
             hits = {
                 (g.name, entry)
                 for g in groups
                 for entry in g.data
-                if normpath(join(data_path, entry)) in files
+                if normpath(join(data_path, entry)) in matches
             }
-            hit_names = sorted({name for name, _ in hits})
-            file = normpath(lt.file_path)
-            if hit_names:
-                hit_names = sorted({*hit_names, owner.setdefault(file, hit_names[0])})
-            if len(hit_names) > 1:
-                raise ValueError(f"{file} is in the shift groups {hit_names}")
+            owner[file] |= {name for name, _ in hits}
             used |= hits
-            names.append(hit_names[0] if hit_names else None)
-        assigned[block] = names
+            files[block].append(file)
+
+    for file, names in owner.items():
+        if len(names) > 1:
+            raise ValueError(f"{file} is in the shift groups {sorted(names)}")
 
     unused = [(g.name, e) for g in groups for e in g.data if (g.name, e) not in used]
     if unused:
         logger.warning(f"Shift entries match no loaded data file, ignored: {unused}")
-    return assigned
+    return {
+        block: [next(iter(owner[file]), None) for file in block_files]
+        for block, block_files in files.items()
+    }
