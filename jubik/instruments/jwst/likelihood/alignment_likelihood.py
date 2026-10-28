@@ -79,7 +79,7 @@ MAX_STAR_POSITION_EPOCH_SPAN = 90 * u.day
 
 
 def _check_epoch_span(filter_name: str, observation_times: list) -> None:
-    epochs = Time([Time(t, scale="utc") for t in observation_times])
+    epochs = Time(observation_times, scale="utc")
     span = (epochs.max() - epochs.min()).to(u.day)
     if span > MAX_STAR_POSITION_EPOCH_SPAN:
         raise ValueError(
@@ -113,7 +113,6 @@ def build_star_alignment_likelihood(
         _check_epoch_span(response.filter_name, response.star_tables.observation_times)
 
     for star in response.star_tables.get_stars():
-        # Check if star.id in
         if star.id not in response.stars_data.keys():
             jft.logger.info(
                 f"Warning: {star.id} is not in filter {response.filter_name}"
@@ -135,9 +134,9 @@ def build_star_alignment_likelihood(
                 raise ValueError(
                     f"Gaia star {star.id} has no position covariance: an error or "
                     "correlation of ra, dec, pmra or pmdec is missing, masked or NaN "
-                    "(a 2-parameter solution has no proper motion; a star table "
-                    "cached without error columns needs a fresh query). Exclude it "
-                    "with `exclude_source_id` or turn off `fit_star_positions`."
+                    "(a star table cached without error columns needs a fresh "
+                    "query). Exclude it with `exclude_source_id` or turn off "
+                    "`fit_star_positions`."
                 )
             # The covariance is at the epoch of the filter's first exposure; filters
             # at other epochs scale the one shared latent by their own Cholesky

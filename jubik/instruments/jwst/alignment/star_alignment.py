@@ -1,6 +1,4 @@
 from dataclasses import dataclass
-from collections import UserList
-from functools import reduce
 from itertools import combinations
 
 import numpy as np
@@ -20,8 +18,8 @@ class Star:
     id: int
     position: SkyCoord
     # Gaia covariance of `position` along (RA cos(dec), Dec) in arcsec^2, shape
-    # (2, 2); NaN where the table has no error (2-parameter solutions), None if the
-    # table has no error columns at all.
+    # (2, 2); NaN where an error is masked, None if the table has no error columns.
+    # 2-parameter solutions never get here: their NaN proper motion drops the star.
     position_covariance: np.ndarray | None = None
 
     def bounding_indices(

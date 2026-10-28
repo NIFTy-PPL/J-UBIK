@@ -356,6 +356,23 @@ def test_fit_star_positions_adds_one_shared_latent_per_star(
     assert np.isfinite(evaluate(alignment))
 
 
+def test_fit_star_positions_moves_the_star_in_the_likelihood(
+    patched_seams, fake_gaia, tmp_path
+):
+    _, table = fake_gaia
+    # 0.1 arcsec errors, so a unit latent moves the star by about a pixel.
+    for name in ("ra_error", "dec_error"):
+        table[name] = [100.0, 100.0] * u.mas
+    cfg = make_config(tmp_path, gaia=True)
+    cfg["telescope"]["gaia_alignment"]["fit_star_positions"] = True
+    alignment = build_jwst_likelihoods(
+        cfg, make_grid(), SKY_DOMAIN
+    ).alignment.likelihood.likelihood
+    x = jft.random_like(jax.random.PRNGKey(0), alignment.domain)
+    moved = x.tree | {"star_1_position": x.tree["star_1_position"] + 1.0}
+    assert not np.isclose(float(alignment(x)), float(alignment(jft.Vector(moved))))
+
+
 def test_fit_star_positions_needs_the_gaia_covariance(
     patched_seams, fake_gaia, tmp_path
 ):
