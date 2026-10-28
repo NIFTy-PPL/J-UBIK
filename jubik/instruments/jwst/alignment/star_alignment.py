@@ -38,11 +38,28 @@ class Star:
         return self.astrometry.apply_space_motion(Time(time, scale="utc"))
 
     def epoch_jacobian(self, time: Time | str) -> np.ndarray:
-        """Change of the (RA cos(dec), Dec) position at `time` per change of the
-        astrometry, in mas per (mas, mas/yr), shape (2, 4):
-        `position(time) = position + (time - obstime) * proper motion`."""
-        dt = (Time(time, scale="utc") - self.astrometry.obstime).to_value(u.yr)
-        return np.hstack([np.eye(2), dt * np.eye(2)])
+        """Change of the (RA cos(dec), Dec) offset from `position_at(time)` per
+        change of the astrometry, in mas per (mas, mas/yr), shape (2, 4).
+
+        Central differences of `position_at`, so it follows the motion on the
+        sphere; the linear `position + dt * proper motion` breaks down within
+        arcseconds of the pole, where the local frame turns between epochs."""
+        a = self.astrometry
+        steps = np.concatenate([np.eye(4), -np.eye(4)])  # 1 mas, 1 mas/yr
+        moved = SkyCoord(
+            ra=a.ra + steps[:, 0] * u.mas / np.cos(a.dec),
+            dec=a.dec + steps[:, 1] * u.mas,
+            pm_ra_cosdec=a.pm_ra_cosdec + steps[:, 2] * u.mas / u.yr,
+            pm_dec=a.pm_dec + steps[:, 3] * u.mas / u.yr,
+            obstime=a.obstime,
+        ).apply_space_motion(Time(time, scale="utc"))
+        offsets = np.array(
+            [
+                o.to_value(u.mas)
+                for o in self.position_at(time).spherical_offsets_to(moved)
+            ]
+        )
+        return (offsets[:, :4] - offsets[:, 4:]) / 2
 
     def bounding_indices(
         self, jwst_data: JwstData, shape: tuple[int, int], time: Time | str

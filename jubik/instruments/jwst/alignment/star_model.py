@@ -113,20 +113,29 @@ def build_star_position_offset(
     latent `star_<id>_astrometry`, shape (4,), is standard normal and has no filter
     prefix, so every filter shares it.
     """
-    # The grid Jacobian does not change over the mas the star moves between epochs.
-    position = star.position_at(times[0])
-    row_column = np.array(grid_wcs.world_to_indices_yx(position))
-    sky_to_grid = np.stack(
-        [
-            np.array(grid_wcs.world_to_indices_yx(position.spherical_offsets_by(*d)))
-            - row_column
-            for d in ((1, 0) * u.arcsec, (0, 1) * u.arcsec)
-        ],
-        axis=1,
-    ) * grid_wcs.pixel_scales_yx.to_value(u.arcsec)[:, None]
+
+    def sky_to_grid(position):
+        row_column = np.array(grid_wcs.world_to_indices_yx(position))
+        return (
+            np.stack(
+                [
+                    np.array(
+                        grid_wcs.world_to_indices_yx(position.spherical_offsets_by(*d))
+                    )
+                    - row_column
+                    for d in ((1, 0) * u.arcsec, (0, 1) * u.arcsec)
+                ],
+                axis=1,
+            )
+            * grid_wcs.pixel_scales_yx.to_value(u.arcsec)[:, None]
+        )
+
     cholesky = np.linalg.cholesky(star.astrometric_covariance) * u.mas.to(u.arcsec)
     latent_to_offset = np.stack(
-        [sky_to_grid @ star.epoch_jacobian(t) @ cholesky for t in times]
+        [
+            sky_to_grid(star.position_at(t)) @ star.epoch_jacobian(t) @ cholesky
+            for t in times
+        ]
     )
     key = f"star_{star.id}_astrometry"
     return jft.Model(

@@ -3,10 +3,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 from astropy import units as u
+from astropy.coordinates import SkyCoord
 from astropy.table import MaskedColumn, Table
 from astropy.time import Time
 
-from jubik.instruments.jwst.alignment.star_alignment import StarTables
+from jubik.instruments.jwst.alignment.star_alignment import Star, StarTables
 from jubik.instruments.jwst.data.preloader.preloader import _exposure_start_time
 from test.conftest import GAIA_CORRELATIONS
 
@@ -119,6 +120,36 @@ def test_epoch_jacobian_propagates_the_gaia_covariance_to_the_epoch():
         jacobian @ star.astrometric_covariance @ jacobian.T,
         [[ra, ra_dec], [ra_dec, dec]],
         rtol=1e-6,
+    )
+
+
+def test_epoch_jacobian_follows_position_at_near_the_pole():
+    # 3.6 arcsec from the pole the local frame turns by about 13 deg over eight
+    # years, so `position + dt * pm` is far off. The Jacobian must still predict
+    # where `position_at` puts a star with slightly different astrometry.
+    def star(delta):
+        return Star(
+            1,
+            SkyCoord(
+                10 * u.deg + delta[0] * u.mas / np.cos(np.radians(89.999)),
+                89.999 * u.deg + delta[1] * u.mas,
+                pm_ra_cosdec=(100 + delta[2]) * u.mas / u.yr,
+                pm_dec=(-30 + delta[3]) * u.mas / u.yr,
+                obstime=Time("J2016.0"),
+            ),
+        )
+
+    t = Time("2024-01-01")
+    delta = np.array([0.3, -0.2, 0.1, 0.05])  # mas, mas/yr
+    offset = (
+        star(np.zeros(4))
+        .position_at(t)
+        .spherical_offsets_to(star(delta).position_at(t))
+    )
+    np.testing.assert_allclose(
+        star(np.zeros(4)).epoch_jacobian(t) @ delta,
+        [o.to_value(u.mas) for o in offset],
+        atol=1e-3,  # mas; `position + dt * pm` is off by 0.17 mas here
     )
 
 
