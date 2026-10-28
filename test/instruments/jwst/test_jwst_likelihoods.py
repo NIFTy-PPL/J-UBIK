@@ -309,6 +309,25 @@ def test_fov_mapping_needs_a_default():
     assert config.fov_of("f356w") == 1 * u.arcsec
 
 
+@pytest.mark.parametrize(
+    "fov, match",
+    [
+        ({"default": "1arcsec", "F44W": "0.5arcsec"}, "unknown filter names"),
+        ({"default": "1arcsec", "F444W": "1m"}, r"fov\.F444W: needs an angle"),
+        ({"default": "1arcsec", "F444W": "wide"}, r"fov\.F444W: needs an angle"),
+        ("0.5", "fov: needs an angle"),
+    ],
+)
+def test_fov_rejects_typos_and_non_angles(fov, match):
+    from jubik.instruments.jwst.parse.alignment.star_alignment import (
+        StarAlignmentConfig,
+    )
+
+    raw = {"fov": fov, "subsample": 2, "star_light": ["lognormal", 1.0, 1.0]}
+    with pytest.raises(ValueError, match=match):
+        StarAlignmentConfig.from_yaml_dict(raw)
+
+
 def test_empty_gaia_catalog_raises(patched_seams, fake_gaia, tmp_path):
     _, table = fake_gaia
     table.remove_rows(slice(None))

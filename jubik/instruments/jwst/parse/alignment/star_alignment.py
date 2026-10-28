@@ -6,8 +6,18 @@ from .....parse.models.distributions import (
     ProbabilityConfig,
     prior_config_factory,
 )
+from ...data.jwst_information import JWST_FILTERS
 
 DEFAULT_KEY = "default"
+
+
+def _fov_angle(key: str, value) -> u.Quantity:
+    try:
+        return u.Quantity(value).to(u.arcsec)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            f"gaia_alignment.fov{key}: needs an angle like `0.7arcsec`, got {value!r}"
+        ) from error
 
 
 @dataclass
@@ -36,7 +46,7 @@ class StarAlignmentConfig:
     exclude_source_id: list[int] = field(default_factory=list)
 
     def fov_of(self, filter_name: str) -> u.Quantity:
-        """The cutout size of `filter_name`, any case: the one quantity, or its entry, else `default`."""
+        """The cutout size for `filter_name`, any case: the single quantity, or the filter entry, else `default`."""
         if isinstance(self.fov, dict):
             return self.fov.get(filter_name.lower(), self.fov[DEFAULT_KEY])
         return self.fov
@@ -67,9 +77,17 @@ class StarAlignmentConfig:
                     f"gaia_alignment.fov: a mapping needs a `{DEFAULT_KEY}` entry "
                     f"for the filters it does not name, got {sorted(fov)}"
                 )
-            fov = {name.lower(): u.Quantity(value) for name, value in fov.items()}
+            fov = {
+                name.lower(): _fov_angle(f".{name}", value) for name, value in fov.items()
+            }
+            unknown = sorted(set(fov) - {DEFAULT_KEY} - {f.lower() for f in JWST_FILTERS})
+            if unknown:
+                raise ValueError(
+                    f"gaia_alignment.fov: unknown filter names {unknown}, "
+                    "a typo would silently fall back to `default`"
+                )
         else:
-            fov = u.Quantity(fov)
+            fov = _fov_angle("", fov)
 
         return StarAlignmentConfig(
             fov=fov,
