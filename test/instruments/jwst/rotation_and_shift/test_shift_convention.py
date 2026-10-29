@@ -148,49 +148,57 @@ def test_star_position_moves_star_to_its_true_sky_position():
     np.testing.assert_allclose(star, [true, true], atol=1e-4)
 
 
-class _BoundedWcs:
-    """Like the JWST gwcs: NaN off the detector."""
-
-    def __init__(self, wcs):
-        self.wcs = wcs
-
-    def _outside(self, x, y):
-        x, y = np.asarray(x, float), np.asarray(y, float)
-        return (x < -0.5) | (x > N_DATA - 0.5) | (y < -0.5) | (y > N_DATA - 0.5)
-
-    def world_to_pixel(self, position):
-        x, y = self.wcs.world_to_pixel(position)
-        return (np.nan, np.nan) if self._outside(x, y) else (x, y)
-
-    def pixel_to_world(self, x, y):
-        world = self.wcs.pixel_to_world(x, y)
-        nan = np.where(self._outside(x, y), np.nan, 0)
-        return SkyCoord(world.ra + nan * u.deg, world.dec + nan * u.deg)
-
-
 def test_sky_jacobian_at_the_detector_corner():
-    # JWST-like 0.031 arcsec pixels, rotated, the star 0.05 pixels inside the
-    # corner: any step of a few pixels in the wrong direction leaves the detector.
-    data_wcs = WcsAstropy(
-        CENTER, shape=N_DATA, fov=N_DATA * 0.031 * u.arcsec, position_angle=30 * u.deg
+    # A bounded gwcs like JWST's (NaN off the detector), 0.031 arcsec pixels,
+    # rotated, the star 0.05 pixels inside two opposite corners: half of each
+    # difference falls off the detector.
+    pytest.importorskip("gwcs")
+    from astropy import coordinates
+    from astropy.modeling import models
+    from gwcs import coordinate_frames, wcs
+
+    from jubik.instruments.jwst.wcs_jwst_data import WcsJwstData
+
+    scale, rotation = 0.031, 30.0  # arcsec, deg
+    center = (N_DATA - 1) / 2
+    detector_to_sky = (
+        (models.Shift(-center) & models.Shift(-center))
+        | (models.Scale(-scale / 3600) & models.Scale(scale / 3600))
+        | models.Rotation2D(rotation)
+        | models.Pix2Sky_TAN()
+        | models.RotateNative2Celestial(CENTER.ra.deg, CENTER.dec.deg, 180)
     )
-    scale = 1 / 0.031  # pixels per arcsec
-    rotation = np.deg2rad(30)
-    expected = scale * np.array(
+    gwcs = wcs.WCS(
         [
-            [-np.cos(rotation), np.sin(rotation)],
-            [np.sin(rotation), np.cos(rotation)],
+            (
+                coordinate_frames.Frame2D(
+                    name="detector", axes_names=("x", "y"), unit=(u.pix, u.pix)
+                ),
+                detector_to_sky,
+            ),
+            (
+                coordinate_frames.CelestialFrame(
+                    reference_frame=coordinates.ICRS(), unit=(u.deg, u.deg)
+                ),
+                None,
+            ),
         ]
     )
+    gwcs.bounding_box = ((-0.5, N_DATA - 0.5), (-0.5, N_DATA - 0.5))
+    data_wcs = WcsJwstData(gwcs)
+    assert np.isnan(data_wcs.pixel_to_world(-1.0, -1.0).ra)
+
+    # (RA cos(dec), Dec) per pixel is Rotation2D @ Scale; the Jacobian inverts it.
+    theta = np.deg2rad(rotation)
+    sky_per_pixel = np.array(
+        [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
+    ) @ np.diag([-scale, scale])
     for corner in [(-0.45, -0.45), (N_DATA - 0.55, N_DATA - 0.55)]:
         star = data_wcs.pixel_to_world(*corner)
-        jacobian = _sky_jacobian(star, _BoundedWcs(data_wcs), 2)
-        assert np.isfinite(jacobian).all()
         np.testing.assert_allclose(
-            jacobian, _sky_jacobian(star, data_wcs, 2), rtol=1e-9
-        )
-        np.testing.assert_allclose(
-            jacobian.to_value(u.pix / u.arcsec), 2 * expected, rtol=1e-4
+            _sky_jacobian(star, data_wcs, 2).to_value(u.pix / u.arcsec),
+            2 * np.linalg.inv(sky_per_pixel),
+            rtol=1e-4,
         )
 
 

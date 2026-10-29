@@ -7,7 +7,7 @@ from astropy.coordinates import SkyCoord
 from nifty.re import logger
 
 from .....wcs.wcs_astropy import WcsAstropy
-from ...alignment.star_alignment import Star, StarTables
+from ...alignment.star_alignment import StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig
 from ...parse.data.data_loader import IndexAndPath
 from ...parse.jwst_psf import JwstPsfKernelConfig
@@ -41,9 +41,9 @@ def _sky_jacobian(
 ) -> u.Quantity:
     """How far the star moves in the data cutout per arcsec on the sky.
 
-    Steps a quarter detector pixel along x and y, towards the centre of the star's
-    nearest pixel, and inverts the sky offsets of those steps. Every sample stays on
-    the detector, where the JWST wcs is defined; off it, it returns NaN.
+    Central differences of the data wcs (pixel to sky) half a detector pixel along x
+    and y, inverted. The wcs is evaluated without its bounding box, so a star at
+    the detector edge gets its Jacobian too.
 
     Parameters
     ----------
@@ -60,18 +60,18 @@ def _sky_jacobian(
         Subsampled cutout pixels (x, y) per arcsec of (RA cos(dec), Dec), in
         `u.pix / u.arcsec`, shape (2, 2).
     """
+    h = 0.5  # detector pixels
     x, y = (float(v) for v in data_wcs.world_to_pixel(position))
-    hx, hy = (0.25 if np.round(v) >= v else -0.25 for v in (x, y))
     star, *steps = data_wcs.pixel_to_world(
-        np.array([x, x + hx, x]), np.array([y, y, y + hy])
+        np.array([x, x + h, x - h, x, x]),
+        np.array([y, y, y, y + h, y - h]),
+        with_bounding_box=False,
     ).icrs
-    sky_per_pixel = np.array(
-        [
-            [o.to_value(u.arcsec) for o in star.spherical_offsets_to(step)]
-            for step in steps
-        ]
-    ).T / [hx, hy]
-    return np.linalg.inv(sky_per_pixel) * subsample * u.pix / u.arcsec
+    offsets = np.array(
+        [[o.to_value(u.arcsec) for o in star.spherical_offsets_to(s)] for s in steps]
+    )
+    sky_per_pixel = np.stack([offsets[0] - offsets[1], offsets[2] - offsets[3]], 1)
+    return np.linalg.inv(sky_per_pixel / (2 * h)) * subsample * u.pix / u.arcsec
 
 
 def load_one_stars_bundle(
