@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Union
 
 import nifty.re as jft
@@ -64,15 +64,36 @@ class LikelihoodBuilderBase:
     name: str = "lh_{index}"
         (Optional) string for display in the minimization.
         This will only be displayed when having multiple likelihoods.
+    shift: jft.Model | None = None
+        (Optional) the phase factor inside `response`, see `PhaseShift`.
     """
 
     response: jft.Model
     observation: Observation
     field_name: str
+    shift: jft.Model | None = field(default=None, kw_only=True)
 
-    def response_adjoint(self, primals: NDArray | Array) -> dict[str, Array]:
-        """Apply the Hermitian adjoint of the response."""
-        return _hermitian_adjoint(self.response, self.response.domain, primals)
+    def response_adjoint(
+        self, primals: NDArray | Array, x: dict | jft.Vector | None = None
+    ) -> dict[str, Array]:
+        """Apply the Hermitian adjoint of the response to `primals`.
+
+        With a shift the response is nonlinear in the shift, so its adjoint is
+        taken in the sky with the shift held fixed at the latent sample `x`,
+        i.e. `L^H(conj(p(x)) * primals)`. Without a shift `x` is ignored.
+        """
+        if self.shift is None:
+            return _hermitian_adjoint(self.response, self.response.domain, primals)
+        if x is None:
+            raise ValueError(
+                "The response has a shift: pass the latent sample `x` whose "
+                "shift to hold fixed."
+            )
+        theta = {k: x[k] for k in self.shift.domain}
+        sky_domain = {k: v for k, v in self.response.domain.items() if k not in theta}
+        return _hermitian_adjoint(
+            lambda sky: self.response(sky | theta), sky_domain, primals
+        )
 
     @property
     def visibilities(self) -> NDArray:
@@ -118,6 +139,7 @@ def build_likelihood_from_sky_beamer(
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     noise_std_correction: BaseLineCorrection | None = None,
+    shift: jft.Model | None = None,
 ) -> LikelihoodBuilder | VariableLikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
 
@@ -149,6 +171,9 @@ def build_likelihood_from_sky_beamer(
         (Optional) settings for an inferred noise standard deviation. If given,
         a `VariableLikelihoodBuilder` is returned instead of a
         `LikelihoodBuilder`.
+    shift: jft.Model | None
+        (Optional) phase factor multiplied onto the model visibilities, see
+        `PhaseShift`.
 
     Returns
     ------
@@ -166,6 +191,7 @@ def build_likelihood_from_sky_beamer(
         domain=sky_beamer.target,
         sky2vis=sky2vis,
         field_name=field_name,
+        shift=shift,
     )
 
     if noise_std_correction is None:
@@ -173,6 +199,7 @@ def build_likelihood_from_sky_beamer(
             observation=observation,
             response=response,
             field_name=field_name,
+            shift=shift,
         )
     else:
         inverse_std_model = factory_noise_correction_model(
@@ -185,4 +212,5 @@ def build_likelihood_from_sky_beamer(
             response=response,
             field_name=field_name,
             inverse_standard_deviation=inverse_std_model,
+            shift=shift,
         )
