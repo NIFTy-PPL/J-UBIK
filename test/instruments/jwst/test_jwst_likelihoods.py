@@ -409,7 +409,7 @@ def test_fit_star_positions_uses_each_exposure_epoch(
     epochs = {}
 
     def spy(star, times):
-        epochs[int(star.id)] = [Time(t).isot for t in times]
+        epochs.setdefault(int(star.id), []).append([Time(t).isot for t in times])
         return original(star, times)
 
     original = star_model._star_position_offset
@@ -419,9 +419,10 @@ def test_fit_star_positions_uses_each_exposure_epoch(
     alignment = build_jwst_likelihoods(
         cfg, make_grid(), SKY_DOMAIN
     ).alignment.likelihood.likelihood
+    # Once per star: the psf and smoothed-psf responses share the star model.
     assert epochs == {
-        1: ["2023-01-01T00:00:00.000", "2023-06-01T00:00:00.000"],
-        2: ["2023-06-01T00:00:00.000"],
+        1: [["2023-01-01T00:00:00.000", "2023-06-01T00:00:00.000"]],
+        2: [["2023-06-01T00:00:00.000"]],
     }
     assert np.isfinite(evaluate(alignment))
 

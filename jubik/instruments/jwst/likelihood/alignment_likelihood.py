@@ -101,18 +101,21 @@ def build_star_alignment_likelihood(
 
         psf_convolved = np.array([scipy.ndimage.gaussian_filter(p, 2) for p in psf])
 
+        # The star model does not depend on the psf, so both responses share it.
+        star_in_data = build_star_in_data(
+            filter_key=response.filter_name,
+            star=star,
+            star_light_prior=response.star_light_prior,
+            star_data=star_data,
+            shift_and_rotation_correction=response.shift_and_rotation_correction,
+            grid_wcs=response.grid_wcs,
+            observation_times=response.star_tables.observation_times,
+            fit_position=response.fit_star_positions,
+        )
+
         for p, name in zip([psf, psf_convolved], ["psf", "psf_convolved"]):
             jwst_star_response: JwstResponse = build_jwst_response(
-                sky_in_subsampled_data=build_star_in_data(
-                    filter_key=response.filter_name,
-                    star=star,
-                    star_light_prior=response.star_light_prior,
-                    star_data=star_data,
-                    shift_and_rotation_correction=response.shift_and_rotation_correction,
-                    grid_wcs=response.grid_wcs,
-                    observation_times=response.star_tables.observation_times,
-                    fit_position=response.fit_star_positions,
-                ),
+                sky_in_subsampled_data=star_in_data,
                 data_meta=response.filter_meta,
                 data_subsample=star_data.subsample,
                 sky_meta=response.sky_meta,
