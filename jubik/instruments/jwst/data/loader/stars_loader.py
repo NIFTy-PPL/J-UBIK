@@ -26,7 +26,7 @@ from .cutout import DataCutout
 class SingleStarBundle:
     cutout: DataCutout
     star_in_subsampled_pixels: tuple[float, float]
-    sky_jacobian: u.Quantity
+    sky_to_data: u.Quantity
     observation_id: int
 
 
@@ -36,7 +36,7 @@ class StarsBundle(UserDict[int, SingleStarBundle]):
         self.data = mapping if mapping is not None else {}
 
 
-def _sky_jacobian(
+def _sky_to_data(
     position: SkyCoord, data_wcs: WcsJwstData | WcsAstropy, subsample: int
 ) -> u.Quantity:
     """How far the star moves in the data cutout per arcsec on the sky.
@@ -130,7 +130,7 @@ def load_one_stars_bundle(
         star_bundles[star.id] = SingleStarBundle(
             cutout=DataCutout(data=data, mask=mask, std=std, psf=psf),
             star_in_subsampled_pixels=star_in_subsampled_pixels,
-            sky_jacobian=_sky_jacobian(
+            sky_to_data=_sky_to_data(
                 position, jwst_data.wcs, star_alignment_config.subsample
             ),
             observation_id=index,
@@ -173,7 +173,7 @@ class SingleStarData:
     std: list[np.ndarray] = field(default_factory=list)
     psf: list[np.ndarray] = field(default_factory=list)
     star_in_subsampled_pixels: list[tuple[float, float]] = field(default_factory=list)
-    sky_jacobian: list[u.Quantity] = field(default_factory=list)
+    sky_to_data: list[u.Quantity] = field(default_factory=list)
     observation_ids: list[int] = field(default_factory=list)
 
     # -- optional: freeze to ndarray stacks -------------------------
@@ -186,7 +186,7 @@ class SingleStarData:
             std=np.stack(self.std),
             psf=np.stack(self.psf),
             star_in_subsampled_pixels=np.asarray(self.star_in_subsampled_pixels),
-            sky_jacobian=np.stack(self.sky_jacobian),
+            sky_to_data=np.stack(self.sky_to_data),
             observation_ids=np.asarray(self.observation_ids),
         )
 
@@ -201,8 +201,8 @@ class SingleStarDataStacked:
     std: np.ndarray
     psf: np.ndarray
     star_in_subsampled_pixels: np.ndarray
-    # (n_exposures, 2, 2), subsampled cutout pixels per arcsec, see `_sky_jacobian`
-    sky_jacobian: u.Quantity
+    # (n_exposures, 2, 2), subsampled cutout pixels per arcsec, see `_sky_to_data`
+    sky_to_data: u.Quantity
     observation_ids: np.ndarray
 
     # -- convenience -------------------------------------------------
@@ -244,5 +244,5 @@ class StarsData(UserDict[int, SingleStarDataStacked]):
         entry.std.append(sb.cutout.std)
         entry.psf.append(sb.cutout.psf)
         entry.star_in_subsampled_pixels.append(sb.star_in_subsampled_pixels)
-        entry.sky_jacobian.append(sb.sky_jacobian)
+        entry.sky_to_data.append(sb.sky_to_data)
         entry.observation_ids.append(sb.observation_id)

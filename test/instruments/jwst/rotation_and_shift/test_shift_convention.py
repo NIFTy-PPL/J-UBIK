@@ -12,7 +12,7 @@ from jubik.instruments.jwst.alignment.star_model import (
     _star_position_offset,
     build_star_in_data,
 )
-from jubik.instruments.jwst.data.loader.stars_loader import _sky_jacobian
+from jubik.instruments.jwst.data.loader.stars_loader import _sky_to_data
 from jubik.models.distributions import build_parametric_prior_from_prior_config
 from jubik.parse.models.distributions import prior_config_factory
 from jubik.instruments.jwst.parse.rotation_and_shift.coordinates_correction import (
@@ -77,7 +77,7 @@ def _target_centroids(data_wcs, shifts):
 
 def _star_positions(data_wcs, shifts, observation_ids, epsilon=None):
     p0 = np.array(Star.skycoord_to_subpixel(SOURCE, data_wcs))
-    sky = _sky_jacobian(SOURCE, data_wcs, 1).to_value(u.pix / u.arcsec)
+    sky = _sky_to_data(SOURCE, data_wcs, 1).to_value(u.pix / u.arcsec)
     jac = sky @ _grid_to_sky(GRID, SOURCE)
     n = len(observation_ids)
     correction, params = _correction(shifts)
@@ -148,7 +148,7 @@ def test_star_position_moves_star_to_its_true_sky_position():
     np.testing.assert_allclose(star, [true, true], atol=1e-4)
 
 
-def test_sky_jacobian_at_the_detector_corner():
+def test_sky_to_data_at_the_detector_corner():
     # A bounded gwcs like JWST's (NaN off the detector), 0.031 arcsec pixels,
     # rotated, the star 0.05 pixels inside two opposite corners: half of each
     # difference falls off the detector.
@@ -196,7 +196,7 @@ def test_sky_jacobian_at_the_detector_corner():
     for corner in [(-0.45, -0.45), (N_DATA - 0.55, N_DATA - 0.55)]:
         star = data_wcs.pixel_to_world(*corner)
         np.testing.assert_allclose(
-            _sky_jacobian(star, data_wcs, 2).to_value(u.pix / u.arcsec),
+            _sky_to_data(star, data_wcs, 2).to_value(u.pix / u.arcsec),
             2 * np.linalg.inv(sky_per_pixel),
             rtol=1e-4,
         )
@@ -270,7 +270,7 @@ def test_star_in_data_does_not_depend_on_the_other_exposures():
         star_data = SimpleNamespace(
             sky_array=np.zeros((n, 3, 3)),
             star_in_subsampled_pixels=np.ones((n, 2)),
-            sky_jacobian=np.tile(np.eye(2), (n, 1, 1)) * u.pix / u.arcsec,
+            sky_to_data=np.tile(np.eye(2), (n, 1, 1)) * u.pix / u.arcsec,
             observation_ids=np.array(observation_ids),
         )
         model = build_star_in_data(

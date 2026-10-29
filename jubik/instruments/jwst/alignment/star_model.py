@@ -206,11 +206,11 @@ def build_star_in_data(
     )
 
     times = [observation_times[i] for i in star_data.observation_ids]
-    sky_jacobian = star_data.sky_jacobian.to_value(u.pix / u.arcsec)
+    sky_to_data = star_data.sky_to_data.to_value(u.pix / u.arcsec)
     shift_jacobian = np.stack(
         [
             j @ _grid_to_sky(grid_wcs, star.position_at(t))
-            for j, t in zip(sky_jacobian, times)
+            for j, t in zip(sky_to_data, times)
         ]
     )
     position = _star_position_offset(star, times) if fit_position else None
@@ -221,7 +221,7 @@ def build_star_in_data(
         shift_jacobian=shift_jacobian,
         observation_ids=star_data.observation_ids,
         position=position,
-        position_jacobian=sky_jacobian,
+        position_jacobian=sky_to_data,
     )
 
     return StarInData(skies, brightness, location_of_star_in_data_subpixels)
