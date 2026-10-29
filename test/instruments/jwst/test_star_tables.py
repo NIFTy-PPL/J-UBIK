@@ -2,10 +2,14 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from astropy.table import Table
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+from astropy.table import MaskedColumn, Table
+from astropy.time import Time
 
-from jubik.instruments.jwst.alignment.star_alignment import StarTables
+from jubik.instruments.jwst.alignment.star_alignment import Star, StarTables
 from jubik.instruments.jwst.data.preloader.preloader import _exposure_start_time
+from test.conftest import GAIA_CORRELATIONS
 
 T_OBS = "2023-01-01T00:00:00"
 
@@ -20,6 +24,11 @@ def _table(ids, parallax=None):
             "pmra": np.zeros(n),
             "pmdec": np.zeros(n),
             "parallax": np.ones(n) if parallax is None else np.asarray(parallax),
+            "ra_error": np.ones(n),
+            "dec_error": np.ones(n),
+            "pmra_error": np.ones(n),
+            "pmdec_error": np.ones(n),
+            **{name: np.zeros(n) for name in GAIA_CORRELATIONS},
         },
         units={
             "ra": "deg",
@@ -27,6 +36,10 @@ def _table(ids, parallax=None):
             "pmra": "mas / yr",
             "pmdec": "mas / yr",
             "parallax": "mas",
+            "ra_error": "mas",
+            "dec_error": "mas",
+            "pmra_error": "mas / yr",
+            "pmdec_error": "mas / yr",
         },
     )
 
@@ -67,6 +80,95 @@ def test_missing_proper_motion_drops_the_star():
     assert [int(s.id) for s in tables.get_stars(0)] == [1]
 
 
+def test_masked_proper_motion_drops_the_star():
+    # The Gaia archive returns a 2-parameter solution with masked proper motion.
+    table = _table([1, 2])
+    for name in ("pmra", "pmdec"):
+        table[name] = MaskedColumn(table[name], mask=[False, True])
+    tables = StarTables([table], [T_OBS])
+    assert [int(s.id) for s in tables.get_stars(0)] == [1]
+
+
+def test_epoch_jacobian_propagates_the_gaia_covariance_to_the_epoch():
+    table = _table([1])
+    sra, sdec, spmra, spmdec = 0.3, 0.1, 0.4, 0.2
+    rho = dict(
+        ra_dec=0.2,
+        ra_pmra=0.3,
+        ra_pmdec=-0.1,
+        dec_pmra=0.15,
+        dec_pmdec=-0.25,
+        pmra_pmdec=0.4,
+    )
+    table["ra_error"][0], table["pmra_error"][0] = sra, spmra
+    table["dec_error"][0], table["pmdec_error"][0] = sdec, spmdec
+    for pair, value in rho.items():
+        table[f"{pair}_corr"][0] = value
+    dt = 5
+    (star,) = StarTables([table], [T_OBS]).get_stars(0)
+    jacobian = star.epoch_jacobian(Time("J2016.0") + dt * u.yr)
+    # (RA cos(dec), Dec) at ra + dt * pmra, dec + dt * pmdec, in mas^2
+    ra = sra**2 + 2 * dt * rho["ra_pmra"] * sra * spmra + dt**2 * spmra**2
+    dec = sdec**2 + 2 * dt * rho["dec_pmdec"] * sdec * spmdec + dt**2 * spmdec**2
+    ra_dec = (
+        rho["ra_dec"] * sra * sdec
+        + dt * rho["ra_pmdec"] * sra * spmdec
+        + dt * rho["dec_pmra"] * sdec * spmra
+        + dt**2 * rho["pmra_pmdec"] * spmra * spmdec
+    )
+    np.testing.assert_allclose(
+        jacobian @ star.astrometric_covariance @ jacobian.T,
+        [[ra, ra_dec], [ra_dec, dec]],
+        rtol=1e-6,
+    )
+
+
+def test_epoch_jacobian_follows_position_at_near_the_pole():
+    # 3.6 arcsec from the pole the local frame turns by about 13 deg over eight
+    # years, so `position + dt * pm` is far off. The Jacobian must still predict
+    # where `position_at` puts a star with slightly different astrometry.
+    def star(delta):
+        return Star(
+            1,
+            SkyCoord(
+                10 * u.deg + delta[0] * u.mas / np.cos(np.radians(89.999)),
+                89.999 * u.deg + delta[1] * u.mas,
+                pm_ra_cosdec=(100 + delta[2]) * u.mas / u.yr,
+                pm_dec=(-30 + delta[3]) * u.mas / u.yr,
+                obstime=Time("J2016.0"),
+            ),
+        )
+
+    t = Time("2024-01-01")
+    delta = np.array([0.3, -0.2, 0.1, 0.05])  # mas, mas/yr
+    offset = (
+        star(np.zeros(4))
+        .position_at(t)
+        .spherical_offsets_to(star(delta).position_at(t))
+    )
+    np.testing.assert_allclose(
+        star(np.zeros(4)).epoch_jacobian(t) @ delta,
+        [o.to_value(u.mas) for o in offset],
+        atol=1e-3,  # mas; `position + dt * pm` is off by 0.17 mas here
+    )
+
+
+def test_table_without_error_columns_gives_no_covariance():
+    table = _table([1])
+    table.remove_columns([c for c in table.colnames if c.endswith(("_error", "_corr"))])
+    (star,) = StarTables([table], [T_OBS]).get_stars(0)
+    assert star.astrometric_covariance is None
+
+
+def test_masked_gaia_error_makes_the_covariance_nan_and_keeps_the_star():
+    table = _table([1, 2])
+    table["pmra_error"] = MaskedColumn(table["pmra_error"], mask=[False, True])
+    stars = StarTables([table], [T_OBS]).get_stars(0)
+    assert [int(s.id) for s in stars] == [1, 2]
+    assert np.isfinite(stars[0].astrometric_covariance).all()
+    assert np.isnan(stars[1].astrometric_covariance).any()
+
+
 def _fake_dm(created, date_beg=None, expstart_mjd=None):
     # Mimics stdatamodels: unset metadata reads as None.
     return SimpleNamespace(
@@ -82,7 +184,7 @@ def _moving_star_position(epoch):
     table = _table([1])
     table["dec"][0] = 0.0
     table["pmdec"][0] = 100.0  # mas / yr
-    return StarTables([table], [epoch]).get_stars(0)[0].position
+    return StarTables([table], [epoch]).get_stars(0)[0].position_at(epoch)
 
 
 def test_epoch_ignores_file_creation_date():

@@ -203,7 +203,12 @@ class CoordinatesCorrectedStarShift(jft.Model):
     The shared shift moves the data sampling positions on the reconstruction grid
     (see `build_coordinates_corrected_for_field`). A source therefore appears
     displaced the opposite way: `p = p0 - J @ shift`, with `J` the change of the
-    star's data pixel position per unit of shift along the grid (row, column).
+    star's data pixel position per arcsec of shift along the grid (row, column).
+
+    The optional `position` is the star's true position minus its Gaia position
+    in each exposure, in arcsec along (RA cos(dec), Dec). It moves the star itself:
+    `p = p0 - J @ shift + K @ position`, with `K` the change of the star's data
+    pixel position per arcsec on the sky.
     """
 
     def __init__(
@@ -212,17 +217,31 @@ class CoordinatesCorrectedStarShift(jft.Model):
         pixel_coordinates: np.ndarray,
         shift_jacobian: np.ndarray,
         observation_ids: np.ndarray,
+        position: jft.Model | None = None,
+        position_jacobian: np.ndarray | None = None,
     ):
         self.shift_and_rotation = shift_and_rotation
+        self.position = position
+        self._position_jacobian = position_jacobian
         self._coordinates = pixel_coordinates
-        arcsec_per_unit = u.Quantity(1, shift_and_rotation.shift_unit).to_value(u.arcsec)
-        self._jacobian = shift_jacobian * arcsec_per_unit
+        self._arcsec_per_unit = u.Quantity(1, shift_and_rotation.shift_unit).to_value(
+            u.arcsec
+        )
+        self._jacobian = shift_jacobian
         self._observation_ids = np.asarray(observation_ids)
-        super().__init__(domain=self.shift_and_rotation.shift.domain)
+        domain = self.shift_and_rotation.shift.domain
+        if position is not None:
+            domain = domain | position.domain
+        super().__init__(domain=domain)
 
     def __call__(self, params: dict) -> ArrayLike:
         shift = self.shift_and_rotation.shift(params)[self._observation_ids]
-        return self._coordinates - jnp.einsum("nij,nj->ni", self._jacobian, shift)
+        shift = shift * self._arcsec_per_unit
+        moved = -jnp.einsum("nij,nj->ni", self._jacobian, shift)
+        if self.position is not None:
+            position = self.position(params)
+            moved += (self._position_jacobian @ position[..., None])[..., 0]
+        return self._coordinates + moved
 
 
 def build_coordinates_corrected_for_stars(
@@ -230,6 +249,8 @@ def build_coordinates_corrected_for_stars(
     pixel_coordinates: np.ndarray,
     shift_jacobian: np.ndarray,
     observation_ids: tuple[int],
+    position: jft.Model | None = None,
+    position_jacobian: np.ndarray | None = None,
 ) -> Union[Coordinates, CoordinatesCorrectedStarShift]:
     """Build the star positions in the subsampled data pixels, `xy` indexed.
 
@@ -244,9 +265,20 @@ def build_coordinates_corrected_for_stars(
         sampling positions along the grid (row, column), shape `(n_exposures, 2, 2)`.
     observation_ids : tuple[int]
         The observation (shift row) of each exposure.
+    position : jft.Model | None
+        The star's true minus Gaia position in arcsec along (RA cos(dec), Dec),
+        shape `(n_exposures, 2)`, or `(2,)` for all exposures. If None, the star
+        sits at Gaia.
+    position_jacobian : np.ndarray | None
+        Change of the star position (subsampled pixels) per arcsec of `position`,
+        shape `(n_exposures, 2, 2)`. Needed with `position`.
     """
     if shift_and_rotation_correction is None:
+        if position is not None:
+            raise ValueError("A star position offset needs a shift correction.")
         return Coordinates(pixel_coordinates)
+    if position is not None and position_jacobian is None:
+        raise ValueError("A star position offset needs its `position_jacobian`.")
 
     if shift_and_rotation_correction.model == CorrectionModel.SHIFT:
         assert len(observation_ids) == pixel_coordinates.shape[0]
@@ -255,6 +287,8 @@ def build_coordinates_corrected_for_stars(
             pixel_coordinates,
             shift_jacobian,
             observation_ids,
+            position,
+            position_jacobian,
         )
 
     raise NotImplementedError

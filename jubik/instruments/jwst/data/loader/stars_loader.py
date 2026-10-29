@@ -3,15 +3,17 @@ from dataclasses import dataclass, field
 
 import numpy as np
 from astropy import units as u
+from astropy.coordinates import SkyCoord
 from nifty.re import logger
 
 from .....wcs.wcs_astropy import WcsAstropy
-from ...alignment.star_alignment import Star, StarTables
+from ...alignment.star_alignment import StarTables
 from ...parse.alignment.star_alignment import StarAlignmentConfig
 from ...parse.data.data_loader import IndexAndPath
 from ...parse.jwst_psf import JwstPsfKernelConfig
 from ...parse.masking.data_mask import CornerMasks
 from ...psf.jwst_kernel import load_psf_kernel
+from ...wcs_jwst_data import WcsJwstData
 from ..jwst_data import JwstData
 from .cutout import DataCutout
 
@@ -24,7 +26,7 @@ from .cutout import DataCutout
 class SingleStarBundle:
     cutout: DataCutout
     star_in_subsampled_pixels: tuple[float, float]
-    shift_jacobian: np.ndarray
+    sky_to_data: u.Quantity
     observation_id: int
 
 
@@ -34,45 +36,47 @@ class StarsBundle(UserDict[int, SingleStarBundle]):
         self.data = mapping if mapping is not None else {}
 
 
-def _shift_jacobian(
-    star: Star,
-    data_wcs,
-    grid_wcs: WcsAstropy,
-    min_row: int,
-    min_column: int,
-    subsample: int,
-) -> np.ndarray:
-    """Change of the star's subsampled (x, y) data pixel position per arcsec of
-    shift of the data sampling positions along the grid (row, column) axes.
+def _sky_to_data(
+    position: SkyCoord, data_wcs: WcsJwstData | WcsAstropy, subsample: int
+) -> u.Quantity:
+    """How far the star moves in the data cutout per arcsec on the sky.
 
-    The shared shift moves the sampling positions by `shift / pixel_scales_yx` grid
-    indices (`build_coordinates_corrected_for_field`); see
-    `build_coordinates_corrected_for_stars` for the sign.
+    Central differences of the data wcs (pixel to sky) half a detector pixel along x
+    and y, inverted. The wcs is evaluated without its bounding box, so a star at
+    the detector edge gets its Jacobian too.
+
+    Parameters
+    ----------
+    position: SkyCoord
+        The star position in this exposure.
+    data_wcs: WcsJwstData | WcsAstropy
+        The wcs of the exposure.
+    subsample: int
+        The subsampling factor of the cutout pixels.
+
+    Returns
+    -------
+    u.Quantity
+        Subsampled cutout pixels (x, y) per arcsec of (RA cos(dec), Dec), in
+        `u.pix / u.arcsec`, shape (2, 2).
     """
-    row, column = grid_wcs.world_to_indices_yx(star.position)
-    p0 = star.skycoord_to_subpixel(
-        star.position, data_wcs, min_row, min_column, subsample
+    h = 0.5  # detector pixels
+    x, y = (float(v) for v in data_wcs.world_to_pixel(position))
+    star, *steps = data_wcs.pixel_to_world(
+        np.array([x, x + h, x - h, x, x]),
+        np.array([y, y, y, y + h, y - h]),
+        with_bounding_box=False,
+    ).icrs
+    offsets = np.array(
+        [[o.to_value(u.arcsec) for o in star.spherical_offsets_to(s)] for s in steps]
     )
-    columns = [
-        np.subtract(
-            star.skycoord_to_subpixel(
-                grid_wcs.indices_yx_to_world(row + dr, column + dc),
-                data_wcs,
-                min_row,
-                min_column,
-                subsample,
-            ),
-            p0,
-        )
-        for dr, dc in ((1, 0), (0, 1))
-    ]
-    return np.stack(columns, axis=1) / grid_wcs.pixel_scales_yx.to_value(u.arcsec)
+    sky_per_pixel = np.stack([offsets[0] - offsets[1], offsets[2] - offsets[3]], 1)
+    return np.linalg.inv(sky_per_pixel / (2 * h)) * subsample * u.pix / u.arcsec
 
 
 def load_one_stars_bundle(
     index: int,
     jwst_data: JwstData,
-    grid_wcs: WcsAstropy,
     star_tables: StarTables,
     star_alignment_config: StarAlignmentConfig,
     extra_masks: CornerMasks | None,
@@ -87,14 +91,16 @@ def load_one_stars_bundle(
         fov_pixel += 1
 
     star_bundles = StarsBundle(index=index)
+    time = star_tables.observation_times[index]
 
     for ii, star in enumerate(star_tables.get_stars(index)):
-        x, y = jwst_data.wcs.world_to_pixel(star.position)
+        position = star.position_at(time)
+        x, y = jwst_data.wcs.world_to_pixel(position)
         ny, nx = jwst_data.shape
         if not (-0.5 <= x < nx - 0.5 and -0.5 <= y < ny - 0.5):
             continue
 
-        bounding_indices = star.bounding_indices(jwst_data, fov_pixel)
+        bounding_indices = star.bounding_indices(jwst_data, fov_pixel, time)
         masks_for_filter = (
             None if extra_masks is None else extra_masks(jwst_data.filter)
         )
@@ -109,12 +115,13 @@ def load_one_stars_bundle(
         psf = load_psf_kernel(
             jwst_data=jwst_data,
             subsample=star_alignment_config.subsample,
-            target_center=star.position,
+            target_center=position,
             config_parameters=psf_kernel_configs,
         )
 
         star_in_subsampled_pixels = star.pixel_position_in_subsampled_data(
             jwst_data.wcs,
+            time,
             min_row=bounding_indices[0],
             min_column=bounding_indices[2],
             subsample_factor=star_alignment_config.subsample,
@@ -123,13 +130,8 @@ def load_one_stars_bundle(
         star_bundles[star.id] = SingleStarBundle(
             cutout=DataCutout(data=data, mask=mask, std=std, psf=psf),
             star_in_subsampled_pixels=star_in_subsampled_pixels,
-            shift_jacobian=_shift_jacobian(
-                star,
-                jwst_data.wcs,
-                grid_wcs,
-                min_row=bounding_indices[0],
-                min_column=bounding_indices[2],
-                subsample=star_alignment_config.subsample,
+            sky_to_data=_sky_to_data(
+                position, jwst_data.wcs, star_alignment_config.subsample
             ),
             observation_id=index,
         )
@@ -139,7 +141,6 @@ def load_one_stars_bundle(
 
 def load_one_stars_bundle_from_filepath(
     filepath: IndexAndPath,
-    grid_wcs: WcsAstropy,
     star_tables: StarTables,
     star_alignment_config: StarAlignmentConfig,
     extra_masks: CornerMasks | None,
@@ -149,7 +150,6 @@ def load_one_stars_bundle_from_filepath(
     return load_one_stars_bundle(
         index=filepath.index,
         jwst_data=jwst_data,
-        grid_wcs=grid_wcs,
         star_tables=star_tables,
         star_alignment_config=star_alignment_config,
         extra_masks=extra_masks,
@@ -173,7 +173,7 @@ class SingleStarData:
     std: list[np.ndarray] = field(default_factory=list)
     psf: list[np.ndarray] = field(default_factory=list)
     star_in_subsampled_pixels: list[tuple[float, float]] = field(default_factory=list)
-    shift_jacobian: list[np.ndarray] = field(default_factory=list)
+    sky_to_data: list[u.Quantity] = field(default_factory=list)
     observation_ids: list[int] = field(default_factory=list)
 
     # -- optional: freeze to ndarray stacks -------------------------
@@ -186,7 +186,7 @@ class SingleStarData:
             std=np.stack(self.std),
             psf=np.stack(self.psf),
             star_in_subsampled_pixels=np.asarray(self.star_in_subsampled_pixels),
-            shift_jacobian=np.stack(self.shift_jacobian),
+            sky_to_data=np.stack(self.sky_to_data),
             observation_ids=np.asarray(self.observation_ids),
         )
 
@@ -201,7 +201,8 @@ class SingleStarDataStacked:
     std: np.ndarray
     psf: np.ndarray
     star_in_subsampled_pixels: np.ndarray
-    shift_jacobian: np.ndarray  # (n_exposures, 2, 2), subsampled pixels per arcsec
+    # (n_exposures, 2, 2), subsampled cutout pixels per arcsec, see `_sky_to_data`
+    sky_to_data: u.Quantity
     observation_ids: np.ndarray
 
     # -- convenience -------------------------------------------------
@@ -243,5 +244,5 @@ class StarsData(UserDict[int, SingleStarDataStacked]):
         entry.std.append(sb.cutout.std)
         entry.psf.append(sb.cutout.psf)
         entry.star_in_subsampled_pixels.append(sb.star_in_subsampled_pixels)
-        entry.shift_jacobian.append(sb.shift_jacobian)
+        entry.sky_to_data.append(sb.sky_to_data)
         entry.observation_ids.append(sb.observation_id)

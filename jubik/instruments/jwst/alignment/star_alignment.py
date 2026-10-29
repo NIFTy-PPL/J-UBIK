@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from collections import UserList
-from functools import reduce
+from itertools import combinations
 
 import numpy as np
 from astropy import units as u
@@ -16,14 +15,54 @@ from ..data.jwst_data import JwstData
 
 @dataclass
 class Star:
-    id: int
-    position: SkyCoord
+    """A Gaia star: its astrometric solution at the Gaia epoch.
 
-    def __getitem__(self, index: int):
-        return Star(self.id[index], self.position[index])
+    Parameters
+    ----------
+    id: int
+        The Gaia source id.
+    astrometry: SkyCoord
+        The Gaia position and proper motion, at the Gaia epoch `obstime`.
+    astrometric_covariance: np.ndarray | None
+        The Gaia covariance of (RA cos(dec), Dec, pmRA cos(dec), pmDec) in mas and
+        mas/yr, shape (4, 4). NaN where a Gaia error is masked, None if the table
+        has no error columns.
+    """
+
+    id: int
+    astrometry: SkyCoord
+    astrometric_covariance: np.ndarray | None = None
+
+    def position_at(self, time: Time | str) -> SkyCoord:
+        """The star position at `time` (UTC)."""
+        return self.astrometry.apply_space_motion(Time(time, scale="utc"))
+
+    def epoch_jacobian(self, time: Time | str) -> np.ndarray:
+        """Change of the (RA cos(dec), Dec) offset from `position_at(time)` per
+        change of the astrometry, in mas per (mas, mas/yr), shape (2, 4).
+
+        Central differences of `position_at`, so it follows the motion on the
+        sphere; the linear `position + dt * proper motion` breaks down within
+        arcseconds of the pole, where the local frame turns between epochs."""
+        a = self.astrometry
+        steps = np.concatenate([np.eye(4), -np.eye(4)])  # 1 mas, 1 mas/yr
+        moved = SkyCoord(
+            ra=a.ra + steps[:, 0] * u.mas / np.cos(a.dec),
+            dec=a.dec + steps[:, 1] * u.mas,
+            pm_ra_cosdec=a.pm_ra_cosdec + steps[:, 2] * u.mas / u.yr,
+            pm_dec=a.pm_dec + steps[:, 3] * u.mas / u.yr,
+            obstime=a.obstime,
+        ).apply_space_motion(Time(time, scale="utc"))
+        offsets = np.array(
+            [
+                o.to_value(u.mas)
+                for o in self.position_at(time).spherical_offsets_to(moved)
+            ]
+        )
+        return (offsets[:, :4] - offsets[:, 4:]) / 2
 
     def bounding_indices(
-        self, jwst_data: JwstData, shape: tuple[int, int]
+        self, jwst_data: JwstData, shape: tuple[int, int], time: Time | str
     ) -> tuple[int, int, int, int]:
         """Get the bounding pixel slice for the star position.
 
@@ -33,12 +72,14 @@ class Star:
             The jwst observation containing the star.
         shape: tuple
             The shape of the cutout.
+        time: Time | str
+            The epoch of the observation.
 
         Returns
         -------
         (min_row, max_row, min_column, max_column) of the cutout.
         """
-        pixel_position = jwst_data.wcs.world_to_pixel(self.position)
+        pixel_position = jwst_data.wcs.world_to_pixel(self.position_at(time))
         return self._get_bounding_indices(pixel_position, shape, jwst_data.shape)
 
     @staticmethod
@@ -104,6 +145,7 @@ class Star:
     def pixel_position_in_subsampled_data(
         self,
         data_wcs: WcsJwstData | WcsAstropy,
+        time: Time | str,
         min_row: int = 0,
         min_column: int = 0,
         subsample_factor: int = 1,
@@ -114,6 +156,8 @@ class Star:
         ----------
         data_wcs : WcsJwstData | WcsAstropy
             The wcs of the data.
+        time: Time | str
+            The epoch of the observation.
         min_row: int, optional
             The row index of the first pixel for a subpart of the data.
         min_column: int, optional
@@ -129,7 +173,7 @@ class Star:
             (-0.5, -0.5) = upper-left corner of the grid.
         """
         return self.skycoord_to_subpixel(
-            self.position,
+            self.position_at(time),
             data_wcs,
             min_row=min_row,
             min_column=min_column,
@@ -181,6 +225,39 @@ class Star:
         return float(x_detector), float(y_detector)
 
 
+# Gaia's astrometric order; the `*_corr` columns name pairs in this order.
+_GAIA_ASTROMETRY = ("ra", "dec", "pmra", "pmdec")
+_GAIA_UNITS = (u.mas, u.mas, u.mas / u.yr, u.mas / u.yr)
+
+
+def _nan_filled(column) -> u.Quantity:
+    """The column with masked entries as NaN, not the 0 that `u.Quantity` reads."""
+    return u.Quantity(np.ma.filled(column, np.nan))
+
+
+def _astrometric_covariance(table: Table) -> np.ndarray | list[None]:
+    """Gaia covariance of (RA cos(dec), Dec, pmRA cos(dec), pmDec) in mas and
+    mas/yr, shape (n, 4, 4), from the Gaia errors and correlations; NaN where an
+    entry is masked. None per star if the table lacks the error columns."""
+    pairs = list(combinations(enumerate(_GAIA_ASTROMETRY), 2))
+    names = [f"{n}_error" for n in _GAIA_ASTROMETRY]
+    names += [f"{a}_{b}_corr" for (_, a), (_, b) in pairs]
+    if not set(names) <= set(table.colnames):
+        return [None] * len(table)
+
+    def column(name, unit=u.one):
+        return _nan_filled(table[name]).to_value(unit)
+
+    std = np.stack(
+        [column(f"{n}_error", unit) for n, unit in zip(_GAIA_ASTROMETRY, _GAIA_UNITS)],
+        axis=-1,
+    )
+    correlation = np.tile(np.eye(4), (len(table), 1, 1))
+    for (i, a), (j, b) in pairs:
+        correlation[:, i, j] = correlation[:, j, i] = column(f"{a}_{b}_corr")
+    return std[:, :, None] * correlation * std[:, None, :]
+
+
 class StarTables:
     def __init__(
         self,
@@ -193,16 +270,11 @@ class StarTables:
     def get_stars(self, observation_id: int | None = None) -> list[Star]:
         if observation_id is not None:
             table = self.data[observation_id]
-            observation_time = self.observation_times[observation_id]
         else:
             table = self.join_tables(self.data)
-            observation_time = self.observation_times[0]
 
         if len(table) == 0:
             return []
-
-        g2016 = Time("J2016.0")
-        t_obs = Time(observation_time, scale="utc")  # JWST exposure start
 
         source_id = table["SOURCE_ID"]
         # No distance on purpose. Gaia DR3 contains negative and missing
@@ -211,18 +283,28 @@ class StarTables:
         # distance only enters proper-motion propagation through perspective
         # acceleration, which is below 1e-8 mas over the Gaia to JWST baseline.
         positions = SkyCoord(
-            ra=table["ra"],
-            dec=table["dec"],
-            pm_ra_cosdec=table["pmra"],
-            pm_dec=table["pmdec"],
-            obstime=g2016,
+            ra=_nan_filled(table["ra"]),
+            dec=_nan_filled(table["dec"]),
+            pm_ra_cosdec=_nan_filled(table["pmra"]),
+            pm_dec=_nan_filled(table["pmdec"]),
+            obstime=Time("J2016.0"),
         )
-        current_positions = positions.apply_space_motion(t_obs)
+        # A 2-parameter solution has no proper motion and cannot be propagated.
+        valid = ~np.isnan(
+            [
+                positions.ra.value,
+                positions.dec.value,
+                positions.pm_ra_cosdec.value,
+                positions.pm_dec.value,
+            ]
+        ).any(axis=0)
 
         new_stars = []
-        for id, position in zip(source_id, current_positions):
-            if not (np.isnan(position.ra.value) or np.isnan(position.dec.value)):
-                new_stars.append(Star(id, position))
+        for id, position, covariance, ok in zip(
+            source_id, positions, _astrometric_covariance(table), valid
+        ):
+            if ok:
+                new_stars.append(Star(id, position, covariance))
 
         return new_stars
 

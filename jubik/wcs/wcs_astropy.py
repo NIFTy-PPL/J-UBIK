@@ -198,6 +198,11 @@ class WcsAstropy(WCS, WcsMixin):
         return scales_deg[0] * scales_deg[1]
 
     # ------------------------------------------------------------------ astrometry
+    def pixel_to_world(self, *index, with_bounding_box: bool = True) -> SkyCoord:
+        """Astropy's `pixel_to_world`. An astropy WCS has no bounding box, so
+        `with_bounding_box` only matches `WcsJwstData.pixel_to_world`."""
+        return super().pixel_to_world(*index)
+
     def world_corners(
         self,
         extension_value: Optional[tuple[int, int]] = None,

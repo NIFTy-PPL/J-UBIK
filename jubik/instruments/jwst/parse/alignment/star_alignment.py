@@ -37,6 +37,8 @@ class StarAlignmentConfig:
         where to save the star tables
     exclude_source_id: list[int]
         which sources to exclude from the table query.
+    fit_star_positions: bool
+        Give every star a position offset with the Gaia covariance as prior.
     """
 
     fov: u.Quantity | dict[str, u.Quantity]
@@ -44,6 +46,7 @@ class StarAlignmentConfig:
     star_light_prior: ProbabilityConfig
     library_path: str = ""
     exclude_source_id: list[int] = field(default_factory=list)
+    fit_star_positions: bool = True
 
     def fov_of(self, filter_name: str) -> u.Quantity:
         """The cutout size for `filter_name`, any case: the single quantity, or the filter entry, else `default`."""
@@ -66,6 +69,9 @@ class StarAlignmentConfig:
             used for the alignment step.
             - exclude_source_id: list, a list of containing the ids not used in the
             alingment.
+            - fit_star_positions: bool, give every star a latent offset from its
+            Gaia position, prior normal with the Gaia covariance at the exposure
+            epoch. Default True.
         """
         if raw is None:
             return None
@@ -95,4 +101,5 @@ class StarAlignmentConfig:
             star_light_prior=prior_config_factory(raw["star_light"]),
             library_path=raw.get("library_path", ""),
             exclude_source_id=raw.get("exclude_source_id", []),
+            fit_star_positions=raw.get("fit_star_positions", True),
         )

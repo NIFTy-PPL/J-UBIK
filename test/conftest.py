@@ -14,13 +14,24 @@ class _FakeJob:
         return self._table.copy()  # callers rename columns in place
 
 
+GAIA_CORRELATIONS = (
+    "ra_dec_corr",
+    "ra_pmra_corr",
+    "ra_pmdec_corr",
+    "dec_pmra_corr",
+    "dec_pmdec_corr",
+    "pmra_pmdec_corr",
+)
+
+
 @pytest.fixture
 def fake_gaia(monkeypatch):
     """Replace `astroquery.gaia.Gaia` with a stub that records the query.
 
     Returns `(calls, table)`. The two stars sit about 1.5 arcsec apart around
     RA 10.05 deg, Dec -4.95 deg, and carry zero proper motion so that
-    `StarTables.get_stars` can propagate them to any observation date.
+    `StarTables.get_stars` can propagate them to any observation date, and
+    sub-mas position and proper-motion errors with zero correlations.
     """
     calls = []
     table = Table(
@@ -30,6 +41,11 @@ def fake_gaia(monkeypatch):
             "dec": [-4.95, -4.9503] * u.deg,
             "pmra": [0.0, 0.0] * u.mas / u.yr,
             "pmdec": [0.0, 0.0] * u.mas / u.yr,
+            "ra_error": [0.1, 0.3] * u.mas,
+            "dec_error": [0.2, 0.4] * u.mas,
+            "pmra_error": [0.1, 0.2] * u.mas / u.yr,
+            "pmdec_error": [0.3, 0.1] * u.mas / u.yr,
+            **{name: [0.0, 0.0] for name in GAIA_CORRELATIONS},
         }
     )
 

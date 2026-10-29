@@ -3,7 +3,6 @@ from functools import reduce
 
 import numpy as np
 import nifty.re as jft
-
 from ..jwst_response import (
     JwstResponse,
     build_jwst_response,
@@ -14,7 +13,6 @@ from ..plotting.alignment import (
 )
 from .likelihood import GaussianLikelihoodBuilder
 from ..alignment.star_alignment import StarTables
-from ..parse.alignment.star_alignment import StarAlignmentConfig
 from ..alignment.star_model import build_star_in_data
 from ..data.loader.stars_loader import StarsData
 from ..zero_flux_model import build_zero_flux_model
@@ -22,6 +20,8 @@ from ..parse.zero_flux_model import ZeroFluxPriorConfigs
 from ..rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from ..data.jwst_data import DataMetaInformation
 from ..parse.jwst_response import SkyMetaInformation
+from ....parse.models.distributions import ProbabilityConfig
+from ....wcs.wcs_astropy import WcsAstropy
 
 # --------------------------------------------------------------------------------------
 # Alignment Likelihood API
@@ -40,9 +40,11 @@ class StarAlignmentResponseInput:
     sky_meta: SkyMetaInformation
     star_tables: StarTables
     stars_data: StarsData
-    star_light_prior: StarAlignmentConfig
+    star_light_prior: ProbabilityConfig
     shift_and_rotation_correction: ShiftAndRotationCorrection | None
     zero_flux_prior_configs: ZeroFluxPriorConfigs
+    fit_star_positions: bool
+    grid_wcs: WcsAstropy
 
 
 @dataclass
@@ -85,53 +87,52 @@ def build_star_alignment_likelihood(
     )
 
     for star in response.star_tables.get_stars():
-        # Check if star.id in
         if star.id not in response.stars_data.keys():
             jft.logger.info(
                 f"Warning: {star.id} is not in filter {response.filter_name}"
             )
             continue
 
-        psf = response.stars_data[star.id].psf
+        star_data = response.stars_data[star.id]
+        data, mask, std = star_data.data, star_data.mask, star_data.std
+        psf = star_data.psf
 
         import scipy
 
-        psf_convolved = np.array(
-            [
-                scipy.ndimage.gaussian_filter(psf, 2)
-                for psf in response.stars_data[star.id].psf
-            ]
-        )
+        psf_convolved = np.array([scipy.ndimage.gaussian_filter(p, 2) for p in psf])
 
-        star_data = response.stars_data[star.id]
-        data, mask, std = star_data.data, star_data.mask, star_data.std
+        # The star model does not depend on the psf, so both responses share it.
+        star_in_data = build_star_in_data(
+            filter_key=response.filter_name,
+            star=star,
+            star_light_prior=response.star_light_prior,
+            star_data=star_data,
+            shift_and_rotation_correction=response.shift_and_rotation_correction,
+            grid_wcs=response.grid_wcs,
+            observation_times=response.star_tables.observation_times,
+            fit_position=response.fit_star_positions,
+        )
 
         for p, name in zip([psf, psf_convolved], ["psf", "psf_convolved"]):
             jwst_star_response: JwstResponse = build_jwst_response(
-                sky_in_subsampled_data=build_star_in_data(
-                    filter_key=response.filter_name,
-                    star_id=star.id,
-                    star_light_prior=response.star_light_prior,
-                    star_data=response.stars_data[star.id],
-                    shift_and_rotation_correction=response.shift_and_rotation_correction,
-                ),
+                sky_in_subsampled_data=star_in_data,
                 data_meta=response.filter_meta,
-                data_subsample=response.stars_data[star.id].subsample,
+                data_subsample=star_data.subsample,
                 sky_meta=response.sky_meta,
                 psf=p,
                 zero_flux_model=build_zero_flux_model(
                     f"{response.filter_name}_{star.id}",
                     zero_flux_prior_config,
-                    shape=(len(response.stars_data[star.id].data), 1, 1),
+                    shape=(len(star_data.data), 1, 1),
                 ),
-                data_mask=np.array(response.stars_data[star.id].mask),
+                data_mask=np.array(star_data.mask),
             )
 
             likelihood_star = GaussianLikelihoodBuilder(
                 response=jwst_star_response,
-                data=response.stars_data[star.id].data,
-                std=response.stars_data[star.id].std,
-                mask=response.stars_data[star.id].mask,
+                data=star_data.data,
+                std=star_data.std,
+                mask=star_data.mask,
             ).build()
 
             filter_alignment_likelihoods[name].append(likelihood_star)
@@ -141,7 +142,7 @@ def build_star_alignment_likelihood(
                 mask=np.array(mask),
                 std=np.array(std),
                 model=jwst_star_response,
-                subsample=response.stars_data[star.id].subsample,
+                subsample=star_data.subsample,
             )
 
     if not filter_alignment_likelihoods["psf"]:

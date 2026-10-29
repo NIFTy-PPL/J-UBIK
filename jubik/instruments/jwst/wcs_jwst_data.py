@@ -42,9 +42,13 @@ class WcsJwstData(WcsMixin):
     def __getattr__(self, name):
         return getattr(self._wcs, name)
 
-    def pixel_to_world(self, *index):
-        """Forward pixel coordinates to the wrapped GWCS."""
-        return self._wcs.pixel_to_world(*index)
+    def pixel_to_world(self, *index, with_bounding_box: bool = True):
+        """Forward pixel coordinates to the wrapped GWCS. Without the bounding box
+        it evaluates the transform off the detector too, instead of returning NaN."""
+        if with_bounding_box:
+            return self._wcs.pixel_to_world(*index)
+        world = self._wcs(*index, with_bounding_box=False)
+        return self._wcs.output_frame.to_high_level_coordinates(*world)
 
     def world_to_pixel(self, world):
         """Forward world coordinates to the wrapped GWCS."""
