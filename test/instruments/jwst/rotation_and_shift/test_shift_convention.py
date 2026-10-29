@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 from astropy import units as u
@@ -5,8 +7,12 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
 from jubik.instruments.jwst.alignment.star_alignment import Star
-from jubik.instruments.jwst.alignment.star_model import build_star_position_offset
-from jubik.instruments.jwst.data.loader.stars_loader import _shift_jacobian
+from jubik.instruments.jwst.alignment.star_model import (
+    _grid_to_sky,
+    _star_position_offset,
+    build_star_in_data,
+)
+from jubik.instruments.jwst.data.loader.stars_loader import _sky_jacobian
 from jubik.models.distributions import build_parametric_prior_from_prior_config
 from jubik.parse.models.distributions import prior_config_factory
 from jubik.instruments.jwst.parse.rotation_and_shift.coordinates_correction import (
@@ -71,7 +77,8 @@ def _target_centroids(data_wcs, shifts):
 
 def _star_positions(data_wcs, shifts, observation_ids, epsilon=None):
     p0 = np.array(Star.skycoord_to_subpixel(SOURCE, data_wcs))
-    jac = _shift_jacobian(SOURCE, data_wcs, GRID, 0, 0, 1)
+    sky = _sky_jacobian(SOURCE, data_wcs, 1).to_value(u.pix / u.arcsec)
+    jac = sky @ _grid_to_sky(GRID, SOURCE)
     n = len(observation_ids)
     correction, params = _correction(shifts)
     position = None if epsilon is None else POSITION
@@ -81,6 +88,7 @@ def _star_positions(data_wcs, shifts, observation_ids, epsilon=None):
         np.tile(jac, (n, 1, 1)),
         observation_ids,
         position,
+        np.tile(sky, (n, 1, 1)),
     )
     if epsilon is None:
         assert "star_0_position" not in model.domain
@@ -122,9 +130,9 @@ def test_aligned_shift_moves_star_against_sampling_rows_and_columns():
     np.testing.assert_allclose(star, [[0.0, -1.0], [-1.0, 0.0]], atol=1e-6)
 
 
-def test_star_position_moves_star_like_the_opposite_shift():
-    # A star truly at Gaia + e on the grid appears where a shared shift of -e
-    # puts its Gaia position, in every exposure.
+def test_star_position_moves_star_to_its_true_sky_position():
+    # A star truly at Gaia + e along (RA cos(dec), Dec) appears where the data wcs
+    # puts that sky position, in every exposure.
     data_wcs = WcsAstropy(
         CENTER,
         shape=N_DATA,
@@ -134,34 +142,74 @@ def test_star_position_moves_star_like_the_opposite_shift():
     e = np.array([0.4, -0.7])
     star = _star_positions(data_wcs, np.zeros((2, 2)), [0, 1], epsilon=e)
 
-    np.testing.assert_allclose(
-        star, _star_positions(data_wcs, np.tile(-e, (2, 1)), [0, 1]), atol=1e-10
+    true = Star.skycoord_to_subpixel(
+        SOURCE.spherical_offsets_by(*e * u.arcsec), data_wcs
     )
-    scales = GRID.pixel_scales_yx.to_value(u.arcsec)
-    indices = GRID.world_to_indices_yx(SOURCE) + e / scales
-    true = Star.skycoord_to_subpixel(GRID.indices_yx_to_world(*indices), data_wcs)
-    np.testing.assert_allclose(star, [true, true], atol=1e-6)
+    np.testing.assert_allclose(star, [true, true], atol=1e-4)
 
 
-def test_star_position_without_shift_correction_raises():
+class _BoundedWcs:
+    """Like the JWST gwcs: NaN off the detector."""
+
+    def __init__(self, wcs):
+        self.wcs = wcs
+
+    def _outside(self, x, y):
+        x, y = np.asarray(x, float), np.asarray(y, float)
+        return (x < -0.5) | (x > N_DATA - 0.5) | (y < -0.5) | (y > N_DATA - 0.5)
+
+    def world_to_pixel(self, position):
+        x, y = self.wcs.world_to_pixel(position)
+        return (np.nan, np.nan) if self._outside(x, y) else (x, y)
+
+    def pixel_to_world(self, x, y):
+        world = self.wcs.pixel_to_world(x, y)
+        nan = np.where(self._outside(x, y), np.nan, 0)
+        return SkyCoord(world.ra + nan * u.deg, world.dec + nan * u.deg)
+
+
+def test_sky_jacobian_at_the_detector_corner():
+    # JWST-like 0.031 arcsec pixels, rotated, the star 0.05 pixels inside the
+    # corner: any step of a few pixels in the wrong direction leaves the detector.
+    data_wcs = WcsAstropy(
+        CENTER, shape=N_DATA, fov=N_DATA * 0.031 * u.arcsec, position_angle=30 * u.deg
+    )
+    scale = 1 / 0.031  # pixels per arcsec
+    rotation = np.deg2rad(30)
+    expected = scale * np.array(
+        [
+            [-np.cos(rotation), np.sin(rotation)],
+            [np.sin(rotation), np.cos(rotation)],
+        ]
+    )
+    for corner in [(-0.45, -0.45), (N_DATA - 0.55, N_DATA - 0.55)]:
+        star = data_wcs.pixel_to_world(*corner)
+        jacobian = _sky_jacobian(star, _BoundedWcs(data_wcs), 2)
+        assert np.isfinite(jacobian).all()
+        np.testing.assert_allclose(
+            jacobian, _sky_jacobian(star, data_wcs, 2), rtol=1e-9
+        )
+        np.testing.assert_allclose(
+            jacobian.to_value(u.pix / u.arcsec), 2 * expected, rtol=1e-4
+        )
+
+
+def test_star_position_without_shift_correction_or_jacobian_raises():
     with pytest.raises(ValueError, match="needs a shift correction"):
         build_coordinates_corrected_for_stars(
             None, np.zeros((1, 2)), np.zeros((1, 2, 2)), [0], POSITION
         )
+    correction, _ = _correction(np.zeros((1, 2)))
+    with pytest.raises(ValueError, match="needs its `position_jacobian`"):
+        build_coordinates_corrected_for_stars(
+            correction, np.zeros((1, 2)), np.zeros((1, 2, 2)), [0], POSITION
+        )
 
 
-@pytest.mark.parametrize("position_angle", [0.0, 30.0, 90.0] * u.deg)
-def test_star_position_offset_carries_the_gaia_covariance_to_the_grid(position_angle):
-    # Map the offsets of the four unit latents at two epochs back to the sky: their
-    # outer product must give the Gaia covariance propagated to both epochs along
-    # (RA cos(dec), Dec), including the covariance between the epochs, for any
-    # grid rotation and with the column axis running against RA.
-    grid = WcsAstropy(
-        CENTER,
-        shape=41,
-        fov=[0.4 * 41, 0.6 * 41] * u.arcsec,
-        position_angle=position_angle,
-    )
+def test_star_position_offset_carries_the_gaia_covariance_to_the_epochs():
+    # The offsets of the four unit latents at two epochs, as an outer product, must
+    # give the Gaia covariance propagated to both epochs along (RA cos(dec), Dec),
+    # including the covariance between the epochs.
     std = np.array([200.0, 300.0, 100.0, 50.0])  # mas, mas/yr
     correlation = np.full((4, 4), 0.3) + 0.7 * np.eye(4)
     star = Star(
@@ -176,17 +224,10 @@ def test_star_position_offset_carries_the_gaia_covariance_to_the_grid(position_a
         std[:, None] * correlation * std[None, :],
     )
     times = [Time("J2016.0") + dt * u.yr for dt in (2, 5)]
-    model = build_star_position_offset(star, grid, times)
-    scales = grid.pixel_scales_yx.to_value(u.arcsec)
-    indices = np.array(grid.world_to_indices_yx(SOURCE))
-    columns = []
-    for xi in np.eye(4):
-        column = []
-        for offset in np.asarray(model({"star_0_astrometry": xi})):
-            moved = grid.indices_yx_to_world(*(indices + offset / scales))
-            column += [o.to_value(u.mas) for o in SOURCE.spherical_offsets_to(moved)]
-        columns.append(column)
-    sky = np.array(columns).T
+    model = _star_position_offset(star, times)
+    sky = np.array(
+        [np.ravel(model({"star_0_astrometry": xi})) for xi in np.eye(4)]
+    ).T * u.arcsec.to(u.mas)
     jacobian = np.vstack([star.epoch_jacobian(t) for t in times])
     np.testing.assert_allclose(
         sky @ sky.T,
@@ -196,10 +237,10 @@ def test_star_position_offset_carries_the_gaia_covariance_to_the_grid(position_a
     )
 
 
-def test_star_position_offset_does_not_depend_on_the_other_exposures():
-    # The same star, latent and epoch must give the same offset in filters with
-    # different exposure lists. A moving star near the pole, where the grid
-    # Jacobian changes along its path, would catch a Jacobian frozen at the
+def test_star_in_data_does_not_depend_on_the_other_exposures():
+    # The same star, shift and epoch must land on the same pixel in filters with
+    # different exposure lists. A moving star near the pole, where the grid axes
+    # turn along its path, would catch a grid Jacobian or offset frozen at the
     # first exposure.
     star = Star(
         0,
@@ -212,10 +253,28 @@ def test_star_position_offset_does_not_depend_on_the_other_exposures():
         ),
         np.diag([1.0, 4.0, 0.16, 0.16]),  # mas^2, (mas/yr)^2
     )
-    t22, t24 = Time("2022-01-01"), Time("2024-01-01")
-    grid = WcsAstropy(star.position_at(t24), shape=41, fov=20 * u.arcsec)
-    for xi in np.eye(4):
-        latent = {"star_0_astrometry": xi}
-        both = build_star_position_offset(star, grid, [t22, t24])(latent)
-        alone = build_star_position_offset(star, grid, [t24])(latent)
-        np.testing.assert_allclose(both[1], alone[0], rtol=0, atol=1e-9)
+    times = [Time("2022-01-01"), Time("2024-01-01")]
+    grid = WcsAstropy(star.position_at(times[1]), shape=41, fov=20 * u.arcsec)
+    correction, params = _correction(np.array([[0.0, 0.0], [1.0, -0.5]]))
+
+    def location(observation_ids):
+        n = len(observation_ids)
+        star_data = SimpleNamespace(
+            sky_array=np.zeros((n, 3, 3)),
+            star_in_subsampled_pixels=np.ones((n, 2)),
+            sky_jacobian=np.tile(np.eye(2), (n, 1, 1)) * u.pix / u.arcsec,
+            observation_ids=np.array(observation_ids),
+        )
+        model = build_star_in_data(
+            "f",
+            star,
+            prior_config_factory(["normal", 1.0, 0.1]),
+            star_data,
+            correction,
+            grid,
+            times,
+            fit_position=True,
+        ).location
+        return model(params | {"star_0_astrometry": np.array([1.0, 0, 0, 1.0])})
+
+    np.testing.assert_allclose(location([0, 1])[1], location([1])[0], atol=1e-9)

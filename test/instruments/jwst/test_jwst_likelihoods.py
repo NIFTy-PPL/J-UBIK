@@ -24,14 +24,13 @@ from astropy.time import Time
 
 from jubik.color import Color
 from jubik.grid import Grid
+from jubik.instruments.jwst.alignment import star_model
 from jubik.instruments.jwst.data.jwst_data import DataMetaInformation, JwstData
 from jubik.instruments.jwst.data.jwst_information import (
     get_dvol,
     get_pixel_distance,
 )
-from jubik.instruments.jwst.alignment.star_model import build_star_position_offset
 from jubik.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
-from jubik.instruments.jwst.likelihood import alignment_likelihood
 from jubik.instruments.jwst.parse.alignment.star_alignment import (
     StarAlignmentConfig,
 )
@@ -409,11 +408,12 @@ def test_fit_star_positions_uses_each_exposure_epoch(
         monkeypatch.setattr(site, LaterSecondExposureJwstData)
     epochs = {}
 
-    def spy(star, grid_wcs, times):
+    def spy(star, times):
         epochs[int(star.id)] = [Time(t).isot for t in times]
-        return build_star_position_offset(star, grid_wcs, times)
+        return original(star, times)
 
-    monkeypatch.setattr(alignment_likelihood, "build_star_position_offset", spy)
+    original = star_model._star_position_offset
+    monkeypatch.setattr(star_model, "_star_position_offset", spy)
     cfg = make_config(tmp_path, n_files=2, gaia=True)
     cfg["telescope"]["gaia_alignment"]["fit_star_positions"] = True
     alignment = build_jwst_likelihoods(

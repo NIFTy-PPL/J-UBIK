@@ -13,7 +13,7 @@ from ..plotting.alignment import (
 )
 from .likelihood import GaussianLikelihoodBuilder
 from ..alignment.star_alignment import StarTables
-from ..alignment.star_model import build_star_in_data, build_star_position_offset
+from ..alignment.star_model import build_star_in_data
 from ..data.loader.stars_loader import StarsData
 from ..zero_flux_model import build_zero_flux_model
 from ..parse.zero_flux_model import ZeroFluxPriorConfigs
@@ -101,31 +101,17 @@ def build_star_alignment_likelihood(
 
         psf_convolved = np.array([scipy.ndimage.gaussian_filter(p, 2) for p in psf])
 
-        position = None
-        if response.fit_star_positions:
-            covariance = star.astrometric_covariance
-            if covariance is None or np.isnan(covariance).any():
-                raise ValueError(
-                    f"Gaia star {star.id} has no astrometric covariance: an error or "
-                    "correlation of ra, dec, pmra or pmdec is missing, masked or NaN "
-                    "(a star table cached without error columns needs a fresh "
-                    "query). Exclude it with `exclude_source_id` or turn off "
-                    "`fit_star_positions`."
-                )
-            times = response.star_tables.observation_times
-            position = build_star_position_offset(
-                star, response.grid_wcs, [times[i] for i in star_data.observation_ids]
-            )
-
         for p, name in zip([psf, psf_convolved], ["psf", "psf_convolved"]):
             jwst_star_response: JwstResponse = build_jwst_response(
                 sky_in_subsampled_data=build_star_in_data(
                     filter_key=response.filter_name,
-                    star_id=star.id,
+                    star=star,
                     star_light_prior=response.star_light_prior,
                     star_data=star_data,
                     shift_and_rotation_correction=response.shift_and_rotation_correction,
-                    position=position,
+                    grid_wcs=response.grid_wcs,
+                    observation_times=response.star_tables.observation_times,
+                    fit_position=response.fit_star_positions,
                 ),
                 data_meta=response.filter_meta,
                 data_subsample=star_data.subsample,

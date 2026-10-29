@@ -13,6 +13,7 @@ from ...parse.data.data_loader import IndexAndPath
 from ...parse.jwst_psf import JwstPsfKernelConfig
 from ...parse.masking.data_mask import CornerMasks
 from ...psf.jwst_kernel import load_psf_kernel
+from ...wcs_jwst_data import WcsJwstData
 from ..jwst_data import JwstData
 from .cutout import DataCutout
 
@@ -25,7 +26,7 @@ from .cutout import DataCutout
 class SingleStarBundle:
     cutout: DataCutout
     star_in_subsampled_pixels: tuple[float, float]
-    shift_jacobian: np.ndarray
+    sky_jacobian: u.Quantity
     observation_id: int
 
 
@@ -35,43 +36,47 @@ class StarsBundle(UserDict[int, SingleStarBundle]):
         self.data = mapping if mapping is not None else {}
 
 
-def _shift_jacobian(
-    position: SkyCoord,
-    data_wcs,
-    grid_wcs: WcsAstropy,
-    min_row: int,
-    min_column: int,
-    subsample: int,
-) -> np.ndarray:
-    """Change of the star's subsampled (x, y) data pixel position per arcsec of
-    shift of the data sampling positions along the grid (row, column) axes.
+def _sky_jacobian(
+    position: SkyCoord, data_wcs: WcsJwstData | WcsAstropy, subsample: int
+) -> u.Quantity:
+    """How far the star moves in the data cutout per arcsec on the sky.
 
-    The shared shift moves the sampling positions by `shift / pixel_scales_yx` grid
-    indices (`build_coordinates_corrected_for_field`); see
-    `build_coordinates_corrected_for_stars` for the sign.
+    Steps a quarter detector pixel along x and y, towards the centre of the star's
+    nearest pixel, and inverts the sky offsets of those steps. Every sample stays on
+    the detector, where the JWST wcs is defined; off it, it returns NaN.
+
+    Parameters
+    ----------
+    position: SkyCoord
+        The star position in this exposure.
+    data_wcs: WcsJwstData | WcsAstropy
+        The wcs of the exposure.
+    subsample: int
+        The subsampling factor of the cutout pixels.
+
+    Returns
+    -------
+    u.Quantity
+        Subsampled cutout pixels (x, y) per arcsec of (RA cos(dec), Dec), in
+        `u.pix / u.arcsec`, shape (2, 2).
     """
-    row, column = grid_wcs.world_to_indices_yx(position)
-    p0 = Star.skycoord_to_subpixel(position, data_wcs, min_row, min_column, subsample)
-    columns = [
-        np.subtract(
-            Star.skycoord_to_subpixel(
-                grid_wcs.indices_yx_to_world(row + dr, column + dc),
-                data_wcs,
-                min_row,
-                min_column,
-                subsample,
-            ),
-            p0,
-        )
-        for dr, dc in ((1, 0), (0, 1))
-    ]
-    return np.stack(columns, axis=1) / grid_wcs.pixel_scales_yx.to_value(u.arcsec)
+    x, y = (float(v) for v in data_wcs.world_to_pixel(position))
+    hx, hy = (0.25 if np.round(v) >= v else -0.25 for v in (x, y))
+    star, *steps = data_wcs.pixel_to_world(
+        np.array([x, x + hx, x]), np.array([y, y, y + hy])
+    ).icrs
+    sky_per_pixel = np.array(
+        [
+            [o.to_value(u.arcsec) for o in star.spherical_offsets_to(step)]
+            for step in steps
+        ]
+    ).T / [hx, hy]
+    return np.linalg.inv(sky_per_pixel) * subsample * u.pix / u.arcsec
 
 
 def load_one_stars_bundle(
     index: int,
     jwst_data: JwstData,
-    grid_wcs: WcsAstropy,
     star_tables: StarTables,
     star_alignment_config: StarAlignmentConfig,
     extra_masks: CornerMasks | None,
@@ -125,13 +130,8 @@ def load_one_stars_bundle(
         star_bundles[star.id] = SingleStarBundle(
             cutout=DataCutout(data=data, mask=mask, std=std, psf=psf),
             star_in_subsampled_pixels=star_in_subsampled_pixels,
-            shift_jacobian=_shift_jacobian(
-                position,
-                jwst_data.wcs,
-                grid_wcs,
-                min_row=bounding_indices[0],
-                min_column=bounding_indices[2],
-                subsample=star_alignment_config.subsample,
+            sky_jacobian=_sky_jacobian(
+                position, jwst_data.wcs, star_alignment_config.subsample
             ),
             observation_id=index,
         )
@@ -141,7 +141,6 @@ def load_one_stars_bundle(
 
 def load_one_stars_bundle_from_filepath(
     filepath: IndexAndPath,
-    grid_wcs: WcsAstropy,
     star_tables: StarTables,
     star_alignment_config: StarAlignmentConfig,
     extra_masks: CornerMasks | None,
@@ -151,7 +150,6 @@ def load_one_stars_bundle_from_filepath(
     return load_one_stars_bundle(
         index=filepath.index,
         jwst_data=jwst_data,
-        grid_wcs=grid_wcs,
         star_tables=star_tables,
         star_alignment_config=star_alignment_config,
         extra_masks=extra_masks,
@@ -175,7 +173,7 @@ class SingleStarData:
     std: list[np.ndarray] = field(default_factory=list)
     psf: list[np.ndarray] = field(default_factory=list)
     star_in_subsampled_pixels: list[tuple[float, float]] = field(default_factory=list)
-    shift_jacobian: list[np.ndarray] = field(default_factory=list)
+    sky_jacobian: list[u.Quantity] = field(default_factory=list)
     observation_ids: list[int] = field(default_factory=list)
 
     # -- optional: freeze to ndarray stacks -------------------------
@@ -188,7 +186,7 @@ class SingleStarData:
             std=np.stack(self.std),
             psf=np.stack(self.psf),
             star_in_subsampled_pixels=np.asarray(self.star_in_subsampled_pixels),
-            shift_jacobian=np.stack(self.shift_jacobian),
+            sky_jacobian=np.stack(self.sky_jacobian),
             observation_ids=np.asarray(self.observation_ids),
         )
 
@@ -203,7 +201,8 @@ class SingleStarDataStacked:
     std: np.ndarray
     psf: np.ndarray
     star_in_subsampled_pixels: np.ndarray
-    shift_jacobian: np.ndarray  # (n_exposures, 2, 2), subsampled pixels per arcsec
+    # (n_exposures, 2, 2), subsampled cutout pixels per arcsec, see `_sky_jacobian`
+    sky_jacobian: u.Quantity
     observation_ids: np.ndarray
 
     # -- convenience -------------------------------------------------
@@ -245,5 +244,5 @@ class StarsData(UserDict[int, SingleStarDataStacked]):
         entry.std.append(sb.cutout.std)
         entry.psf.append(sb.cutout.psf)
         entry.star_in_subsampled_pixels.append(sb.star_in_subsampled_pixels)
-        entry.shift_jacobian.append(sb.shift_jacobian)
+        entry.sky_jacobian.append(sb.sky_jacobian)
         entry.observation_ids.append(sb.observation_id)

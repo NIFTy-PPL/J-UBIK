@@ -2,6 +2,7 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from astropy import units as u
+from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from jax import lax, vmap, Array
 
@@ -99,44 +100,63 @@ class StarInData(jft.Model):
         return self._vmap_call(self._skies, locations, brightness)
 
 
-def build_star_position_offset(
-    star: Star, grid_wcs: WcsAstropy, times: list[Time | str]
-) -> jft.Model:
-    """The star's true minus Gaia position at each of `times` in arcsec along the
-    grid (row, column), shape (len(times), 2), see
-    `build_coordinates_corrected_for_stars`.
+def _grid_to_sky(grid_wcs: WcsAstropy, position: SkyCoord) -> np.ndarray:
+    """Sky offset (RA cos(dec), Dec) per offset along the grid (row, column) at
+    `position`, both in arcsec, shape (2, 2).
 
-    Prior: the Gaia `astrometric_covariance` on the star's position and proper
-    motion. `epoch_jacobian` carries it to each epoch and the local
-    (RA cos(dec), Dec) to grid Jacobian into the grid frame, so the correlations
-    between epochs, a rotated grid and the Gaia correlations come out right. The
-    latent `star_<id>_astrometry`, shape (4,), is standard normal and has no filter
-    prefix, so every filter shares it.
-    """
-
-    def sky_to_grid(position):
-        row_column = np.array(grid_wcs.world_to_indices_yx(position))
-        return (
-            np.stack(
-                [
-                    np.array(
-                        grid_wcs.world_to_indices_yx(position.spherical_offsets_by(*d))
+    Inverts central differences of `world_to_indices_yx` along the sky, which
+    converts `position` into the grid frame."""
+    step = 0.1 * u.arcsec
+    sky_to_grid = np.stack(
+        [
+            np.subtract(
+                *(
+                    grid_wcs.world_to_indices_yx(
+                        position.spherical_offsets_by(*(sign * d))
                     )
-                    - row_column
-                    for d in ((1, 0) * u.arcsec, (0, 1) * u.arcsec)
-                ],
-                axis=1,
+                    for sign in (1, -1)
+                )
             )
-            * grid_wcs.pixel_scales_yx.to_value(u.arcsec)[:, None]
+            for d in np.eye(2) * step
+        ],
+        axis=1,
+    ) * (grid_wcs.pixel_scales_yx.to_value(u.arcsec)[:, None] / (2 * step.value))
+    return np.linalg.inv(sky_to_grid)
+
+
+def _star_position_offset(star: Star, times: list[Time | str]) -> jft.Model:
+    """Offset of the star from its Gaia position in each exposure.
+
+    The star's astrometry (position and proper motion) deviates from Gaia's by
+    `cholesky(star.astrometric_covariance) @ latent`. The model propagates that
+    deviation to each of `times`.
+
+    Parameters
+    ----------
+    star: Star
+        The Gaia star. Needs its `astrometric_covariance`.
+    times: list[Time | str]
+        The epoch of each exposure the star is in.
+
+    Returns
+    -------
+    jft.Model
+        Maps the standard normal latent `star_<id>_astrometry`, shape (4,), to the
+        true minus Gaia position along (RA cos(dec), Dec) in arcsec, shape
+        (len(times), 2). The latent has no filter prefix, so all filters share it.
+    """
+    covariance = star.astrometric_covariance
+    if covariance is None or np.isnan(covariance).any():
+        raise ValueError(
+            f"Gaia star {star.id} has no astrometric covariance: an error or "
+            "correlation of ra, dec, pmra or pmdec is missing, masked or NaN "
+            "(a star table cached without error columns needs a fresh "
+            "query). Exclude it with `exclude_source_id` or turn off "
+            "`fit_star_positions`."
         )
 
-    cholesky = np.linalg.cholesky(star.astrometric_covariance) * u.mas.to(u.arcsec)
-    latent_to_offset = np.stack(
-        [
-            sky_to_grid(star.position_at(t)) @ star.epoch_jacobian(t) @ cholesky
-            for t in times
-        ]
-    )
+    cholesky = np.linalg.cholesky(covariance) * u.mas.to(u.arcsec)
+    latent_to_offset = np.stack([star.epoch_jacobian(t) @ cholesky for t in times])
     key = f"star_{star.id}_astrometry"
     return jft.Model(
         lambda x: latent_to_offset @ x[key], domain={key: jft.ShapeWithDtype((4,))}
@@ -145,11 +165,13 @@ def build_star_position_offset(
 
 def build_star_in_data(
     filter_key: str,
-    star_id: int,
+    star: Star,
     star_light_prior: ProbabilityConfig,
     star_data: StarsData,
     shift_and_rotation_correction: ShiftAndRotationCorrection | None,
-    position: jft.Model | None = None,
+    grid_wcs: WcsAstropy,
+    observation_times: list[Time | str],
+    fit_position: bool = False,
 ) -> StarInData:
     """Build star in data field.
 
@@ -157,30 +179,49 @@ def build_star_in_data(
     ----------
     filter_key: str
         Name of the filter
-    star_id: int
-        The identifcation number of the star, used for the brightness prior.
+    star: Star
+        The Gaia star. Its id names the brightness prior.
     star_light_prior: ProbabilityConfig
         The prior for the star brightness
-    position: jft.Model | None
-        The star's true minus Gaia position, see
-        `build_coordinates_corrected_for_stars`.
+    star_data: StarsData
+        The cutouts of the star, one per exposure in `star_data.observation_ids`.
+    shift_and_rotation_correction: ShiftAndRotationCorrection | None
+        The shift and rotation of each exposure.
+    grid_wcs: WcsAstropy
+        The sky grid. The exposure shifts are along its (row, column) axes.
+    observation_times: list[Time | str]
+        The epoch of every exposure, indexed by `star_data.observation_ids`.
+    fit_position: bool
+        Fit the star's offset from its Gaia position, with the Gaia covariance as
+        prior. Default False.
     """
 
     skies = np.array(star_data.sky_array)
 
     brightness = build_parametric_prior_from_prior_config(
-        f"{filter_key}_{star_id}_brightness",
+        f"{filter_key}_{star.id}_brightness",
         star_light_prior,
         shape=(),
         as_model=True,
     )
 
+    times = [observation_times[i] for i in star_data.observation_ids]
+    sky_jacobian = star_data.sky_jacobian.to_value(u.pix / u.arcsec)
+    shift_jacobian = np.stack(
+        [
+            j @ _grid_to_sky(grid_wcs, star.position_at(t))
+            for j, t in zip(sky_jacobian, times)
+        ]
+    )
+    position = _star_position_offset(star, times) if fit_position else None
+
     location_of_star_in_data_subpixels = build_coordinates_corrected_for_stars(
         shift_and_rotation_correction=shift_and_rotation_correction,
         pixel_coordinates=np.array(star_data.star_in_subsampled_pixels),
-        shift_jacobian=star_data.shift_jacobian,
+        shift_jacobian=shift_jacobian,
         observation_ids=star_data.observation_ids,
         position=position,
+        position_jacobian=sky_jacobian,
     )
 
     return StarInData(skies, brightness, location_of_star_in_data_subpixels)
