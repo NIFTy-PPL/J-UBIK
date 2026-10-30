@@ -1,10 +1,11 @@
-"""Parse `radio_response.shift`: learnable shifts and the data files sharing them.
+"""Parse `radio_response.shift`: a shared offset and optional shift groups.
 
 ```yaml
 radio_response:
   shift:
+    offset: [normal, 0.0, 0.2]     # arcsec, sky grid (row, column), every file
     b4_eb1:
-      prior: [normal, 0.0, 0.05]   # arcsec, sky grid (row, column)
+      prior: [normal, 0.0, 0.05]   # arcsec, added to the offset
       data:
         - uid_A/uid_A_spw{spw}.npz   # template: every spw of the EB
     b4_eb1_usb:
@@ -13,11 +14,24 @@ radio_response:
         - uid_B/uid_B_spw17.npz      # expanded file: this spw only
 ```
 
+With `shift` set, `offset` is required. It is not a group but the prior
+itself, latent `shift_offset`, and moves every loaded file. The groups are
+optional: a file in a group is shifted by `offset + shift_<group>`, a file in
+no group by `offset` alone. Without `shift` no file is shifted. The name
+`offset` is reserved, so no group can be called `offset`.
+
+Reference configuration: leave at least one file in no group, i.e. keep its
+data but list it in no group's `data`. If every file is in a group, `offset + a`
+and `shift_<group> - a` for every group give the same visibilities for any `a`,
+so only the priors split the shift between the offset and the groups. A file in
+no group pins the offset to its own shift. This does not by itself anchor the
+absolute position of the sky.
+
 A `data` entry is a data template exactly as written in `data_templates`, or
 one file the template expands to, both relative to the `data_path` of the data
-block. Files of several data blocks can share a shift. A file in no group has
-no shift. An entry that matches no file of the loaded blocks, e.g. of a block
-left out of the fit, is ignored with a warning.
+block. Files of several data blocks can share a shift. An entry that matches no
+file of the loaded blocks, e.g. of a block left out of the fit, is ignored with
+a warning.
 """
 
 from collections import defaultdict
@@ -26,10 +40,12 @@ from os.path import join, normpath
 
 from nifty.cl.logger import logger
 
+from ....parse.models.distributions.distributions import DISTRIBUTION_KEY
 from .data.data_loading import DataLoading
 
 PRIOR_KEY = "prior"
 DATA_KEY = "data"
+OFFSET_KEY = "offset"
 
 
 @dataclass
@@ -42,11 +58,13 @@ class ShiftGroup:
 
 
 def parse_shift_groups(shift_cfg: dict | None) -> list[ShiftGroup]:
-    """Read the `shift` entry of `radio_response`; None means no shifts."""
+    """Read the groups of the `shift` entry of `radio_response`; None: no shifts."""
     if shift_cfg is None:
         return []
     groups = []
     for name, group in shift_cfg.items():
+        if name == OFFSET_KEY:
+            continue
         data = group[DATA_KEY]
         # a bare string would split into characters and drop the group's shift
         if not (
@@ -58,6 +76,26 @@ def parse_shift_groups(shift_cfg: dict | None) -> list[ShiftGroup]:
             )
         groups.append(ShiftGroup(name=name, prior=group[PRIOR_KEY], data=data))
     return groups
+
+
+def parse_shift_offset(shift_cfg: dict | None) -> list | dict | None:
+    """Prior of the `offset` of the `shift` entry; None means no shifts."""
+    if shift_cfg is None:
+        return None
+    offset = shift_cfg.get(OFFSET_KEY)
+    if offset is None:
+        raise ValueError(
+            f"`radio_response.shift` needs an `{OFFSET_KEY}` prior: it moves every "
+            "file and the groups add to it; leave `shift` out for no shifts"
+        )
+    # a prior dict names its distribution; `prior` or `data` keys mean a group
+    if isinstance(offset, dict) and DISTRIBUTION_KEY not in offset:
+        raise ValueError(
+            f"Shift `{OFFSET_KEY}` is the prior itself, e.g. `{OFFSET_KEY}: "
+            f"[normal, 0.0, 0.2]`, not a group; the name is reserved, give a group "
+            f"another name, got {offset!r}"
+        )
+    return offset
 
 
 def assign_shift_groups(
