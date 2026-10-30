@@ -32,7 +32,6 @@ from ..parse.data.data_loading import DataLoading
 from ..parse.data.data_modify import ObservationModify
 from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
 from ..parse.noise.factory_noise_correction import factory_noise_correction_parser
-from ..parse.phase_shift import assign_shift_groups, parse_shift_groups
 from ..parse.response import yaml_to_response_settings
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
@@ -41,7 +40,7 @@ from ..likelihood.mosaic_likelihood import (
     build_likelihood_from_sky_beamer,
 )
 from ..mosaicing.sky_beamer import SkyBeamer, build_sky_beamer
-from ..phase_shift import PhaseShift, build_shift_models
+from ..phase_shift import PhaseShift, build_file_shifts
 from ..multimessanger import (
     RadioSkyExtractor,
     build_radio_grid,
@@ -156,12 +155,10 @@ def build_radio_likelihood(
         assert isinstance(data_names, str)
         data_names = [data_names]
 
-    shift_groups = parse_shift_groups(cfg["radio_response"].get("shift"))
-    group_of_file = assign_shift_groups(
-        shift_groups, {name: cfg[data_key][name] for name in data_names}
+    shift_of_file = build_file_shifts(
+        cfg["radio_response"].get("shift"),
+        {name: cfg[data_key][name] for name in data_names},
     )
-    used = {group for groups in group_of_file.values() for group in groups}
-    shifts = build_shift_models([g for g in shift_groups if g.name in used])
 
     likelihoods = []
     names = []
@@ -198,7 +195,7 @@ def build_radio_likelihood(
         for field_name, beam_direction in _sky_beamer.beam_directions.items():
             for index, o in enumerate(observations):
                 if o.direction_from_key(direction_key) == beam_direction.direction:
-                    group = group_of_file[data_name][index]
+                    shift = shift_of_file[data_name][index]
                     names.append(data_name)
                     likelihoods.append(
                         build_likelihood_from_sky_beamer(
@@ -210,7 +207,7 @@ def build_radio_likelihood(
                             noise_std_correction=factory_noise_correction_parser(
                                 cfg[data_key][data_name]
                             ),
-                            shift=None if group is None else PhaseShift(shifts[group], o),
+                            shift=None if shift is None else PhaseShift(shift, o),
                         )
                     )
 

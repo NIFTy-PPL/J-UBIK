@@ -15,8 +15,13 @@ from jubik.instruments.resolve.parse.phase_shift import (
     ShiftGroup,
     assign_shift_groups,
     parse_shift_groups,
+    parse_shift_offset,
 )
-from jubik.instruments.resolve.phase_shift import PhaseShift, build_shift_models
+from jubik.instruments.resolve.phase_shift import (
+    PhaseShift,
+    build_file_shifts,
+    build_shift_models,
+)
 from jubik.instruments.resolve.response import _hermitian_adjoint
 
 from generate_test_obs import generate_random_obs
@@ -177,6 +182,74 @@ def test_group_prior_sets_the_shift():
     assert_allclose(
         shift_model(["normal", 0.0, 0.02])({"shift_eb1": np.ones(2)}), 0.02
     )
+
+
+OFFSET = {"prior": ["normal", 0.0, 50.0]}
+EB1 = {"prior": ["normal", 0.0, 20.0], "data": ["a/a_spw{spw}.npz"]}
+
+
+def file_shifts(shift_cfg):
+    """The shift of files a (in `eb1` if set) and c of one data block."""
+    data = data_cfg(["a/a_spw{spw}.npz", "c/c_spw{spw}.npz"], [5])
+    return build_file_shifts(shift_cfg, {"b": data})["b"]
+
+
+def fixed_shift_phase(obs, shift):
+    """The phase of `obs` for the shift `shift` in arcsec."""
+    fixed = jft.Model(lambda x: x["s"], domain={"s": jft.ShapeWithDtype((2,))})
+    return PhaseShift(fixed, obs)({"s": shift})
+
+
+def offset_obs():
+    np.random.seed(46)
+    pol = ju.polarization.PolarizationType(("LL", "RR"))
+    return generate_random_obs(FREQS, 10, [-1e2, 1e2], [-5, 5], pol)
+
+
+def test_offset_takes_only_a_prior():
+    shift_cfg = {"offset": OFFSET, "eb1": EB1}
+    assert [g.name for g in parse_shift_groups(shift_cfg)] == ["eb1"]
+    assert parse_shift_offset(shift_cfg) == OFFSET["prior"]
+    assert parse_shift_offset({"eb1": EB1}) is None
+    assert parse_shift_offset(None) is None
+    with pytest.raises(ValueError, match="offset"):
+        parse_shift_offset({"offset": OFFSET | {"data": ["a/a_spw5.npz"]}})
+
+
+def test_offset_alone_moves_every_file():
+    obs = offset_obs()
+    x = {"shift_offset": np.array([0.7, -1.3])}
+    expected = fixed_shift_phase(obs, 50.0 * x["shift_offset"])
+    assert not np.allclose(expected, 1.0)
+
+    for shift in file_shifts({"offset": OFFSET}):
+        assert shift.domain.keys() == {"shift_offset"}
+        assert_allclose(PhaseShift(shift, obs)(x), expected)
+
+
+def test_group_adds_to_the_offset_of_its_own_files():
+    obs = offset_obs()
+    x = {"shift_offset": np.array([0.7, -1.3]), "shift_eb1": np.array([-0.4, 0.9])}
+    offset, eb1 = 50.0 * x["shift_offset"], 20.0 * x["shift_eb1"]
+
+    in_group, in_none = file_shifts({"offset": OFFSET, "eb1": EB1})
+
+    assert in_group.domain.keys() == {"shift_offset", "shift_eb1"}
+    assert in_none.domain.keys() == {"shift_offset"}
+    assert_allclose(PhaseShift(in_group, obs)(x), fixed_shift_phase(obs, offset + eb1))
+    assert_allclose(PhaseShift(in_none, obs)(x), fixed_shift_phase(obs, offset))
+
+
+def test_without_offset_the_shifts_are_unchanged():
+    obs = offset_obs()
+    x = {"shift_eb1": np.array([-0.4, 0.9])}
+
+    in_group, in_none = file_shifts({"eb1": EB1})
+
+    assert in_none is None
+    assert in_group.domain.keys() == {"shift_eb1"}
+    eb1 = 20.0 * x["shift_eb1"]
+    assert_allclose(PhaseShift(in_group, obs)(x), fixed_shift_phase(obs, eb1))
 
 
 def test_likelihood_has_the_shift_only_when_set():

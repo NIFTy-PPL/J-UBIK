@@ -3,6 +3,8 @@
 ```yaml
 radio_response:
   shift:
+    offset:
+      prior: [normal, 0.0, 0.2]    # arcsec, shared by every file
     b4_eb1:
       prior: [normal, 0.0, 0.05]   # arcsec, sky grid (row, column)
       data:
@@ -15,9 +17,14 @@ radio_response:
 
 A `data` entry is a data template exactly as written in `data_templates`, or
 one file the template expands to, both relative to the `data_path` of the data
-block. Files of several data blocks can share a shift. A file in no group has
-no shift. An entry that matches no file of the loaded blocks, e.g. of a block
-left out of the fit, is ignored with a warning.
+block. Files of several data blocks can share a shift. An entry that matches no
+file of the loaded blocks, e.g. of a block left out of the fit, is ignored with
+a warning.
+
+The optional `offset` is not a group: it has only a `prior`, latent
+`shift_offset`, and moves every loaded file. A file in a group is shifted by
+`offset + shift_<group>`, a file in no group by `offset` alone, or not at all
+without `offset`. The name is reserved, so no group can be called `offset`.
 """
 
 from collections import defaultdict
@@ -30,6 +37,7 @@ from .data.data_loading import DataLoading
 
 PRIOR_KEY = "prior"
 DATA_KEY = "data"
+OFFSET_KEY = "offset"
 
 
 @dataclass
@@ -42,11 +50,13 @@ class ShiftGroup:
 
 
 def parse_shift_groups(shift_cfg: dict | None) -> list[ShiftGroup]:
-    """Read the `shift` entry of `radio_response`; None means no shifts."""
+    """Read the groups of the `shift` entry of `radio_response`; None: no shifts."""
     if shift_cfg is None:
         return []
     groups = []
     for name, group in shift_cfg.items():
+        if name == OFFSET_KEY:
+            continue
         data = group[DATA_KEY]
         # a bare string would split into characters and drop the group's shift
         if not (
@@ -58,6 +68,19 @@ def parse_shift_groups(shift_cfg: dict | None) -> list[ShiftGroup]:
             )
         groups.append(ShiftGroup(name=name, prior=group[PRIOR_KEY], data=data))
     return groups
+
+
+def parse_shift_offset(shift_cfg: dict | None) -> list | None:
+    """Prior of the `offset` of the `shift` entry, None without one."""
+    offset = (shift_cfg or {}).get(OFFSET_KEY)
+    if offset is None:
+        return None
+    if DATA_KEY in offset:
+        raise ValueError(
+            f"Shift `{OFFSET_KEY}` moves every file and takes only a `{PRIOR_KEY}`; "
+            f"the name is reserved, give the group of {offset[DATA_KEY]!r} another name"
+        )
+    return offset[PRIOR_KEY]
 
 
 def assign_shift_groups(
