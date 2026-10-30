@@ -1,12 +1,12 @@
-"""Parse `radio_response.shift`: learnable shifts and the data files sharing them.
+"""Parse `radio_response.shift`: a shared offset and optional shift groups.
 
 ```yaml
 radio_response:
   shift:
     offset:
-      prior: [normal, 0.0, 0.2]    # arcsec, shared by every file
+      prior: [normal, 0.0, 0.2]    # arcsec, sky grid (row, column), every file
     b4_eb1:
-      prior: [normal, 0.0, 0.05]   # arcsec, sky grid (row, column)
+      prior: [normal, 0.0, 0.05]   # arcsec, added to the offset
       data:
         - uid_A/uid_A_spw{spw}.npz   # template: every spw of the EB
     b4_eb1_usb:
@@ -15,16 +15,24 @@ radio_response:
         - uid_B/uid_B_spw17.npz      # expanded file: this spw only
 ```
 
+With `shift` set, `offset` is required. It is not a group: it has only a
+`prior`, latent `shift_offset`, and moves every loaded file. The groups are
+optional: a file in a group is shifted by `offset + shift_<group>`, a file in
+no group by `offset` alone. Without `shift` no file is shifted. The name
+`offset` is reserved, so no group can be called `offset`.
+
+Reference configuration: leave at least one file in no group, i.e. keep its
+data but list it in no group's `data`. If every file is in a group, `offset + a`
+and `shift_<group> - a` for every group give the same visibilities for any `a`,
+so only the priors split the shift between the offset and the groups. A file in
+no group pins the offset to its own shift. This does not by itself anchor the
+absolute position of the sky.
+
 A `data` entry is a data template exactly as written in `data_templates`, or
 one file the template expands to, both relative to the `data_path` of the data
 block. Files of several data blocks can share a shift. An entry that matches no
 file of the loaded blocks, e.g. of a block left out of the fit, is ignored with
 a warning.
-
-The optional `offset` is not a group: it has only a `prior`, latent
-`shift_offset`, and moves every loaded file. A file in a group is shifted by
-`offset + shift_<group>`, a file in no group by `offset` alone, or not at all
-without `offset`. The name is reserved, so no group can be called `offset`.
 """
 
 from collections import defaultdict
@@ -71,10 +79,16 @@ def parse_shift_groups(shift_cfg: dict | None) -> list[ShiftGroup]:
 
 
 def parse_shift_offset(shift_cfg: dict | None) -> list | None:
-    """Prior of the `offset` of the `shift` entry, None without one."""
-    offset = (shift_cfg or {}).get(OFFSET_KEY)
-    if offset is None:
+    """Prior of the `offset` of the `shift` entry; None means no shifts."""
+    if shift_cfg is None:
         return None
+    offset = shift_cfg.get(OFFSET_KEY)
+    if offset is None:
+        raise ValueError(
+            f"`radio_response.shift` needs an `{OFFSET_KEY}` with a `{PRIOR_KEY}`: "
+            "it moves every file and the groups add to it; leave `shift` out for "
+            "no shifts"
+        )
     if DATA_KEY in offset:
         raise ValueError(
             f"Shift `{OFFSET_KEY}` moves every file and takes only a `{PRIOR_KEY}`; "

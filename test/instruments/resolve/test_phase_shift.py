@@ -210,10 +210,15 @@ def test_offset_takes_only_a_prior():
     shift_cfg = {"offset": OFFSET, "eb1": EB1}
     assert [g.name for g in parse_shift_groups(shift_cfg)] == ["eb1"]
     assert parse_shift_offset(shift_cfg) == OFFSET["prior"]
-    assert parse_shift_offset({"eb1": EB1}) is None
     assert parse_shift_offset(None) is None
     with pytest.raises(ValueError, match="offset"):
         parse_shift_offset({"offset": OFFSET | {"data": ["a/a_spw5.npz"]}})
+
+
+@pytest.mark.parametrize("shift_cfg", [{"eb1": EB1}, {}, {"offset": None}])
+def test_shift_needs_the_offset(shift_cfg):
+    with pytest.raises(ValueError, match="offset"):
+        file_shifts(shift_cfg)
 
 
 def test_offset_alone_moves_every_file():
@@ -240,16 +245,8 @@ def test_group_adds_to_the_offset_of_its_own_files():
     assert_allclose(PhaseShift(in_none, obs)(x), fixed_shift_phase(obs, offset))
 
 
-def test_without_offset_the_shifts_are_unchanged():
-    obs = offset_obs()
-    x = {"shift_eb1": np.array([-0.4, 0.9])}
-
-    in_group, in_none = file_shifts({"eb1": EB1})
-
-    assert in_none is None
-    assert in_group.domain.keys() == {"shift_eb1"}
-    eb1 = 20.0 * x["shift_eb1"]
-    assert_allclose(PhaseShift(in_group, obs)(x), fixed_shift_phase(obs, eb1))
+def test_without_shift_no_file_is_shifted():
+    assert file_shifts(None) == [None, None]
 
 
 def test_likelihood_has_the_shift_only_when_set():

@@ -1,5 +1,5 @@
-"""Learnable phase shift of the model visibilities: one shift per shift group,
-plus an optional offset shared by every file."""
+"""Learnable phase shift of the model visibilities: an offset shared by every
+file, plus one shift per optional shift group."""
 
 import jax.numpy as jnp
 import nifty.re as jft
@@ -42,10 +42,11 @@ def build_file_shifts(
 ) -> dict[str, list[jft.Model | None]]:
     """The shift of every file of every data block, None for a file without one.
 
-    A file in a group is shifted by `shift_<group>`, plus the shared `offset`,
-    domain key `shift_offset`, if set; a file in no group by the offset alone.
-    `shift_cfg` is the `shift` entry of `radio_response`, `data_cfgs` the config
-    of each data block by name; the files are in the order of `assign_shift_groups`.
+    A file in a group is shifted by the shared offset, domain key `shift_offset`,
+    plus `shift_<group>`; a file in no group by the offset alone; no file
+    without `shift_cfg`. `shift_cfg` is the `shift` entry of `radio_response`,
+    `data_cfgs` the config of each data block by name; the files are in the
+    order of `assign_shift_groups`.
     """
     shift_groups = parse_shift_groups(shift_cfg)
     group_of_file = assign_shift_groups(shift_groups, data_cfgs)
