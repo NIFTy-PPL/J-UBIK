@@ -40,13 +40,23 @@ def build_shift_models(groups: list[ShiftGroup]) -> dict[str, jft.Model]:
 def build_file_shifts(
     shift_cfg: dict | None, data_cfgs: dict[str, dict]
 ) -> dict[str, list[jft.Model | None]]:
-    """The shift of every file of every data block, None for a file without one.
+    """The shift of every file of every data block.
 
     A file in a group is shifted by the shared offset, domain key `shift_offset`,
-    plus `shift_<group>`; a file in no group by the offset alone; no file
-    without `shift_cfg`. `shift_cfg` is the `shift` entry of `radio_response`,
-    `data_cfgs` the config of each data block by name; the files are in the
-    order of `assign_shift_groups`.
+    plus `shift_<group>`, a file in no group by the offset alone.
+
+    Parameters
+    ----------
+    shift_cfg: dict | None
+        The `shift` entry of `radio_response`; None means no shifts.
+    data_cfgs: dict[str, dict]
+        The config of each data block, by data block name.
+
+    Returns
+    -------
+    dict[str, list[jft.Model | None]]
+        Per data block, the shift of each file in the order of
+        `assign_shift_groups`, None for every file without `shift_cfg`.
     """
     shift_groups = parse_shift_groups(shift_cfg)
     group_of_file = assign_shift_groups(shift_groups, data_cfgs)

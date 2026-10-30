@@ -3,8 +3,7 @@
 ```yaml
 radio_response:
   shift:
-    offset:
-      prior: [normal, 0.0, 0.2]    # arcsec, sky grid (row, column), every file
+    offset: [normal, 0.0, 0.2]     # arcsec, sky grid (row, column), every file
     b4_eb1:
       prior: [normal, 0.0, 0.05]   # arcsec, added to the offset
       data:
@@ -15,8 +14,8 @@ radio_response:
         - uid_B/uid_B_spw17.npz      # expanded file: this spw only
 ```
 
-With `shift` set, `offset` is required. It is not a group: it has only a
-`prior`, latent `shift_offset`, and moves every loaded file. The groups are
+With `shift` set, `offset` is required. It is not a group but the prior
+itself, latent `shift_offset`, and moves every loaded file. The groups are
 optional: a file in a group is shifted by `offset + shift_<group>`, a file in
 no group by `offset` alone. Without `shift` no file is shifted. The name
 `offset` is reserved, so no group can be called `offset`.
@@ -41,6 +40,7 @@ from os.path import join, normpath
 
 from nifty.cl.logger import logger
 
+from ....parse.models.distributions.distributions import DISTRIBUTION_KEY
 from .data.data_loading import DataLoading
 
 PRIOR_KEY = "prior"
@@ -78,23 +78,24 @@ def parse_shift_groups(shift_cfg: dict | None) -> list[ShiftGroup]:
     return groups
 
 
-def parse_shift_offset(shift_cfg: dict | None) -> list | None:
+def parse_shift_offset(shift_cfg: dict | None) -> list | dict | None:
     """Prior of the `offset` of the `shift` entry; None means no shifts."""
     if shift_cfg is None:
         return None
     offset = shift_cfg.get(OFFSET_KEY)
     if offset is None:
         raise ValueError(
-            f"`radio_response.shift` needs an `{OFFSET_KEY}` with a `{PRIOR_KEY}`: "
-            "it moves every file and the groups add to it; leave `shift` out for "
-            "no shifts"
+            f"`radio_response.shift` needs an `{OFFSET_KEY}` prior: it moves every "
+            "file and the groups add to it; leave `shift` out for no shifts"
         )
-    if DATA_KEY in offset:
+    # a prior dict names its distribution; `prior` or `data` keys mean a group
+    if isinstance(offset, dict) and DISTRIBUTION_KEY not in offset:
         raise ValueError(
-            f"Shift `{OFFSET_KEY}` moves every file and takes only a `{PRIOR_KEY}`; "
-            f"the name is reserved, give the group of {offset[DATA_KEY]!r} another name"
+            f"Shift `{OFFSET_KEY}` is the prior itself, e.g. `{OFFSET_KEY}: "
+            f"[normal, 0.0, 0.2]`, not a group; the name is reserved, give a group "
+            f"another name, got {offset!r}"
         )
-    return offset[PRIOR_KEY]
+    return offset
 
 
 def assign_shift_groups(

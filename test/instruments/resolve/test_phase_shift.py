@@ -184,7 +184,7 @@ def test_group_prior_sets_the_shift():
     )
 
 
-OFFSET = {"prior": ["normal", 0.0, 50.0]}
+OFFSET = ["normal", 0.0, 50.0]
 EB1 = {"prior": ["normal", 0.0, 20.0], "data": ["a/a_spw{spw}.npz"]}
 
 
@@ -206,13 +206,21 @@ def offset_obs():
     return generate_random_obs(FREQS, 10, [-1e2, 1e2], [-5, 5], pol)
 
 
-def test_offset_takes_only_a_prior():
+def test_offset_is_the_prior_itself():
     shift_cfg = {"offset": OFFSET, "eb1": EB1}
     assert [g.name for g in parse_shift_groups(shift_cfg)] == ["eb1"]
-    assert parse_shift_offset(shift_cfg) == OFFSET["prior"]
+    assert parse_shift_offset(shift_cfg) == OFFSET
+    as_dict = {"distribution": "normal", "mean": 0.0, "sigma": 50.0}
+    assert parse_shift_offset({"offset": as_dict}) == as_dict
     assert parse_shift_offset(None) is None
-    with pytest.raises(ValueError, match="offset"):
-        parse_shift_offset({"offset": OFFSET | {"data": ["a/a_spw5.npz"]}})
+
+
+@pytest.mark.parametrize(
+    "offset", [{"prior": OFFSET}, {"prior": OFFSET, "data": ["a/a_spw5.npz"]}]
+)
+def test_offset_written_as_a_group_raises(offset):
+    with pytest.raises(ValueError, match="prior itself"):
+        parse_shift_offset({"offset": offset})
 
 
 @pytest.mark.parametrize("shift_cfg", [{"eb1": EB1}, {}, {"offset": None}])
