@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from itertools import product
-from os.path import join
+from os import curdir
+from os.path import abspath, join
 from typing import Generator
 
 
@@ -8,15 +9,47 @@ def _prepand_path(input_path: str, files: list[str]):
     return [join(input_path, fname) for fname in files]
 
 
+@dataclass(frozen=True)
+class DataFile:
+    """One loaded data file, as the config refers to it.
+
+    Parameters
+    ----------
+    path: str
+        Absolute path of the file, the same for every data block that loads it.
+    template: str
+        Absolute path of the data template the file expands from.
+    data_path: str
+        The `data_path` of the data block, the root of config entries.
+    """
+
+    path: str
+    template: str
+    data_path: str
+
+    def matches(self, entry: str) -> bool:
+        """Whether `entry`, relative to `data_path`, names the file or its template."""
+        return abspath(join(self.data_path, entry)) in (self.path, self.template)
+
+
 @dataclass
 class LoaderTemplate:
     data_template: str
     field_id: int | str | None
     spectral_window: int | str | None
+    data_path: str = curdir
 
     @property
     def file_path(self):
         return self.data_template.format(field=self.field_id, spw=self.spectral_window)
+
+    @property
+    def data_file(self) -> DataFile:
+        return DataFile(
+            path=abspath(self.file_path),
+            template=abspath(self.data_template),
+            data_path=self.data_path,
+        )
 
 
 @dataclass
@@ -34,11 +67,14 @@ class DataLoading:
     spectral_windows: list[Union[int, None]]
         The list of spectral windows for the data_templates. Not used if there
         is no corresponding field inside the data_templates.
+    data_path: str
+        The directory the data_templates are joined to.
     """
 
     data_templates: list[str]
     field_ids: list[int | None]
     spectral_windows: list[int | None]
+    data_path: str = curdir
 
     @classmethod
     def from_yaml_dict(cls, data_cfg: dict):
@@ -55,6 +91,7 @@ class DataLoading:
             data_templates=data_templates,
             field_ids=field_ids,
             spectral_windows=spectral_windows,
+            data_path=data_cfg["data_path"],
         )
 
     @property
@@ -62,4 +99,9 @@ class DataLoading:
         for fi, dt, spw in product(
             self.field_ids, self.data_templates, self.spectral_windows
         ):
-            yield LoaderTemplate(field_id=fi, data_template=dt, spectral_window=spw)
+            yield LoaderTemplate(
+                field_id=fi,
+                data_template=dt,
+                spectral_window=spw,
+                data_path=self.data_path,
+            )

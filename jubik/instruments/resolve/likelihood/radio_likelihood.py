@@ -40,7 +40,7 @@ from ..likelihood.mosaic_likelihood import (
     build_likelihood_from_sky_beamer,
 )
 from ..mosaicing.sky_beamer import SkyBeamer, build_sky_beamer
-from ..phase_shift import PhaseShift, build_file_shifts
+from ..phase_shift import FileShifts, PhaseShift
 from ..multimessanger import (
     RadioSkyExtractor,
     build_radio_grid,
@@ -155,9 +155,12 @@ def build_radio_likelihood(
         assert isinstance(data_names, str)
         data_names = [data_names]
 
-    shift_of_file = build_file_shifts(
+    data_loadings = {
+        name: DataLoading.from_yaml_dict(cfg[data_key][name]) for name in data_names
+    }
+    shifts = FileShifts(
         cfg["radio_response"].get("shift"),
-        {name: cfg[data_key][name] for name in data_names},
+        [lt.data_file for dl in data_loadings.values() for lt in dl.loader_templates],
     )
 
     likelihoods = []
@@ -166,15 +169,15 @@ def build_radio_likelihood(
     for data_name in data_names:
         logger.info(f"\nLoading data: {data_name}")
 
-        dl = DataLoading.from_yaml_dict(cfg[data_key][data_name])
         dm = ObservationModify.from_yaml_dict(cfg[data_key][data_name])
-        observations = list(
+        loaded = list(
             load_and_modify_data_from_objects(
                 sky_frequencies=radio_grid.spectral,
-                data_loading=dl,
+                data_loading=data_loadings[data_name],
                 observation_modify=dm,
             )
         )
+        observations = [o for _, o in loaded]
 
         # TODO: The following lines have to be simplified.
         beam_func = build_primary_beam_pattern_from_beam_pattern_config(
@@ -193,9 +196,9 @@ def build_radio_likelihood(
         sky_beamers.append(_sky_beamer)
 
         for field_name, beam_direction in _sky_beamer.beam_directions.items():
-            for index, o in enumerate(observations):
+            for file, o in loaded:
                 if o.direction_from_key(direction_key) == beam_direction.direction:
-                    shift = shift_of_file[data_name][index]
+                    shift = shifts.of(file)
                     names.append(data_name)
                     likelihoods.append(
                         build_likelihood_from_sky_beamer(

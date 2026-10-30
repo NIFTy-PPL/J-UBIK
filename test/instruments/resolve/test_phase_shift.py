@@ -10,7 +10,10 @@ import jubik.instruments.resolve as rve
 from jubik.instruments.resolve.likelihood.mosaic_likelihood import (
     build_likelihood_from_sky_beamer,
 )
+from jubik.instruments.resolve.data import load_and_modify_data_from_objects
 from jubik.instruments.resolve.mosaicing.sky_beamer import BeamPattern, SkyBeamer
+from jubik.instruments.resolve.parse.data import DataLoading
+from jubik.instruments.resolve.parse.data.data_modify.pipeline import ObservationModify
 from jubik.instruments.resolve.parse.phase_shift import (
     ShiftGroup,
     assign_shift_groups,
@@ -18,8 +21,8 @@ from jubik.instruments.resolve.parse.phase_shift import (
     parse_shift_offset,
 )
 from jubik.instruments.resolve.phase_shift import (
+    FileShifts,
     PhaseShift,
-    build_file_shifts,
     build_shift_models,
 )
 from jubik.instruments.resolve.response import _hermitian_adjoint
@@ -97,6 +100,15 @@ def data_cfg(templates, windows):
     }
 
 
+def data_files(*data_cfgs):
+    """The `DataFile` of every file of the data blocks `data_cfgs`."""
+    return [
+        lt.data_file
+        for cfg in data_cfgs
+        for lt in DataLoading.from_yaml_dict(cfg).loader_templates
+    ]
+
+
 def test_template_covers_every_spw_and_blocks_share_a_group():
     groups = parse_shift_groups(
         {
@@ -108,12 +120,20 @@ def test_template_covers_every_spw_and_blocks_share_a_group():
 
     assigned = assign_shift_groups(
         groups,
-        {"lsb": data_cfg(templates, [5, 7]), "usb": data_cfg(templates, [17])},
+        data_files(data_cfg(templates, [5, 7]), data_cfg(templates, [17])),
     )
 
-    # loader_templates order: template, then spw; c is in no group
-    assert assigned["lsb"] == ["eb1", "eb1", None, None, None, None]
-    assert assigned["usb"] == ["eb1", "eb2_usb", None]
+    assert assigned == {
+        "/data/a/a_spw5.npz": "eb1",
+        "/data/a/a_spw7.npz": "eb1",
+        "/data/a/a_spw17.npz": "eb1",
+        "/data/b/b_spw5.npz": None,
+        "/data/b/b_spw7.npz": None,
+        "/data/b/b_spw17.npz": "eb2_usb",
+        "/data/c/c_spw5.npz": None,
+        "/data/c/c_spw7.npz": None,
+        "/data/c/c_spw17.npz": None,
+    }
     assert parse_shift_groups(None) == []
 
 
@@ -125,7 +145,7 @@ def test_file_in_two_groups_raises():
         }
     )
     with pytest.raises(ValueError, match="a_spw17.npz"):
-        assign_shift_groups(groups, {"b": data_cfg(["a/a_spw{spw}.npz"], [5, 17])})
+        assign_shift_groups(groups, data_files(data_cfg(["a/a_spw{spw}.npz"], [5, 17])))
 
 
 def test_file_of_two_blocks_in_two_groups_raises():
@@ -139,7 +159,7 @@ def test_file_of_two_blocks_in_two_groups_raises():
     other = data_cfg(["a{field}.npz"], [None])
     other["field_ids"] = [5]
     with pytest.raises(ValueError, match="a5.npz"):
-        assign_shift_groups(groups, {"a": data_cfg(["a{spw}.npz"], [5]), "b": other})
+        assign_shift_groups(groups, data_files(data_cfg(["a{spw}.npz"], [5]), other))
 
 
 def test_file_of_two_blocks_has_its_group_in_both():
@@ -149,10 +169,22 @@ def test_file_of_two_blocks_has_its_group_in_both():
     )
     other = data_cfg(["a{field}.npz"], [None])
     other["field_ids"] = [5]
-    assigned = assign_shift_groups(
-        groups, {"a": data_cfg(["a{spw}.npz"], [5]), "b": other}
+    a, b = data_files(data_cfg(["a{spw}.npz"], [5]), other)
+    assert a.path == b.path and a.template != b.template
+    assert assign_shift_groups(groups, [a, b]) == {"/data/a5.npz": "one"}
+
+
+def test_entry_is_relative_to_the_data_path_of_its_block():
+    """The same entry names a different file in a block with another data_path."""
+    groups = parse_shift_groups(
+        {"eb1": {"prior": ["normal", 0.0, 0.05], "data": ["a/a_spw5.npz"]}}
     )
-    assert assigned == {"a": ["one"], "b": ["one"]}
+    other = data_cfg(["a/a_spw{spw}.npz"], [5])
+    other["data_path"] = "/other"
+    assigned = assign_shift_groups(
+        groups, data_files(data_cfg(["a/a_spw{spw}.npz"], [5]), other)
+    )
+    assert assigned == {"/data/a/a_spw5.npz": "eb1", "/other/a/a_spw5.npz": "eb1"}
 
 
 @pytest.mark.parametrize("data", ["a_spw5.npz", [], ["a_spw5.npz", 5]])
@@ -165,8 +197,8 @@ def test_entry_of_an_unloaded_block_is_ignored():
     groups = parse_shift_groups(
         {"eb1": {"prior": ["normal", 0.0, 0.05], "data": ["a/a_spw9.npz"]}}
     )
-    assigned = assign_shift_groups(groups, {"b": data_cfg(["a/a_spw{spw}.npz"], [5])})
-    assert assigned == {"b": [None]}
+    files = data_files(data_cfg(["a/a_spw{spw}.npz"], [5]))
+    assert assign_shift_groups(groups, files) == {"/data/a/a_spw5.npz": None}
 
 
 def test_equivalent_paths_match():
@@ -175,7 +207,62 @@ def test_equivalent_paths_match():
     )
     cfg = data_cfg(["./a/a_spw{spw}.npz"], [5])
     cfg["data_path"] = "/data/"
-    assert assign_shift_groups(groups, {"b": cfg}) == {"b": ["eb1"]}
+    assert assign_shift_groups(groups, data_files(cfg)) == {"/data/a/a_spw5.npz": "eb1"}
+
+
+@pytest.mark.parametrize("entry", ["/data/eb/a_spw5.npz", "../eb/a_spw{spw}.npz"])
+def test_entry_is_joined_to_the_data_path(entry):
+    """An absolute entry, or one leaving and re-entering data_path, still matches."""
+    groups = parse_shift_groups(
+        {"eb1": {"prior": ["normal", 0.0, 0.05], "data": [entry]}}
+    )
+    cfg = data_cfg(["../eb/a_spw{spw}.npz"], [5])
+    cfg["data_path"] = "/data/eb"
+    assert assign_shift_groups(groups, data_files(cfg)) == {
+        "/data/eb/a_spw5.npz": "eb1"
+    }
+
+
+def test_loader_yields_each_observation_with_its_file(tmp_path):
+    """The shift reaches an observation through its own file, not its position."""
+    pol = ju.polarization.PolarizationType(("LL", "RR"))
+    cfg = {
+        "data_path": str(tmp_path),
+        "data_templates": ["a_spw{spw}.npz", "c_spw{spw}.npz"],
+        "spectral": {"window": [5, 7]},
+    }
+    files = data_files(cfg)
+    saved = {}
+    for seed, file in enumerate(files):
+        np.random.seed(seed)
+        saved[file.path] = generate_random_obs(FREQS, 10, [-1e2, 1e2], [-5, 5], pol)
+        saved[file.path].save(file.path, False)
+    shift_cfg = {"offset": OFFSET, "a": {"prior": OFFSET, "data": ["a_spw7.npz"]}}
+    # the shifts take the files in another order than the loader
+    shifts = FileShifts(shift_cfg, reversed(files))
+
+    loaded = load_and_modify_data_from_objects(
+        ju.Color([0.5e9, 2e9] * u.Hz),
+        DataLoading.from_yaml_dict(cfg),
+        ObservationModify.from_yaml_dict({}),
+    )
+    seen = {}
+    for file, obs in loaded:
+        assert_allclose(obs.vis_val, saved[file.path].vis_val)
+        seen[file.path] = shifts.of(file).domain.keys()
+
+    assert seen == {
+        str(tmp_path / "a_spw5.npz"): {"shift_offset"},
+        str(tmp_path / "a_spw7.npz"): {"shift_offset", "shift_a"},
+        str(tmp_path / "c_spw5.npz"): {"shift_offset"},
+        str(tmp_path / "c_spw7.npz"): {"shift_offset"},
+    }
+
+
+def test_file_not_given_to_the_shifts_raises():
+    a, c = data_files(data_cfg(["a/a_spw{spw}.npz", "c/c_spw{spw}.npz"], [5]))
+    with pytest.raises(KeyError):
+        FileShifts({"offset": OFFSET}, [a]).of(c)
 
 
 def test_group_prior_sets_the_shift():
@@ -190,8 +277,9 @@ EB1 = {"prior": ["normal", 0.0, 20.0], "data": ["a/a_spw{spw}.npz"]}
 
 def file_shifts(shift_cfg):
     """The shift of files a (in `eb1` if set) and c of one data block."""
-    data = data_cfg(["a/a_spw{spw}.npz", "c/c_spw{spw}.npz"], [5])
-    return build_file_shifts(shift_cfg, {"b": data})["b"]
+    files = data_files(data_cfg(["a/a_spw{spw}.npz", "c/c_spw{spw}.npz"], [5]))
+    shifts = FileShifts(shift_cfg, files)
+    return [shifts.of(file) for file in files]
 
 
 def fixed_shift_phase(obs, shift):

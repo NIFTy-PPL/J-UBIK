@@ -35,13 +35,13 @@ a warning.
 """
 
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
-from os.path import join, normpath
 
 from nifty.cl.logger import logger
 
 from ....parse.models.distributions.distributions import DISTRIBUTION_KEY
-from .data.data_loading import DataLoading
+from .data.data_loading import DataFile
 
 PRIOR_KEY = "prior"
 DATA_KEY = "data"
@@ -99,23 +99,22 @@ def parse_shift_offset(shift_cfg: dict | None) -> list | dict | None:
 
 
 def assign_shift_groups(
-    groups: list[ShiftGroup], data_cfgs: dict[str, dict]
-) -> dict[str, list[str | None]]:
-    """Name of the shift group of every file of every data block.
+    groups: list[ShiftGroup], files: Iterable[DataFile]
+) -> dict[str, str | None]:
+    """Name of the shift group of every data file.
 
     Parameters
     ----------
     groups: list[ShiftGroup]
         The shift groups.
-    data_cfgs: dict[str, dict]
-        The config of each data block, by data block name.
+    files: Iterable[DataFile]
+        Every loaded data file, of every data block. A file loaded by several
+        blocks can appear once per block.
 
     Returns
     -------
-    dict[str, list[str | None]]
-        Per data block, the group of each file in the order of
-        `DataLoading.loader_templates`, None for a file in no group. A file
-        loaded by several blocks has its group in all of them.
+    dict[str, str | None]
+        The group of each file by `DataFile.path`, None for a file in no group.
 
     Raises
     ------
@@ -124,31 +123,16 @@ def assign_shift_groups(
     """
     used = set()
     owner = defaultdict(set)  # groups of each file, across blocks
-    files = {}
-    for block, data_cfg in data_cfgs.items():
-        data_path = data_cfg["data_path"]
-        files[block] = []
-        for lt in DataLoading.from_yaml_dict(data_cfg).loader_templates:
-            file = normpath(lt.file_path)
-            matches = {normpath(lt.data_template), file}
-            hits = {
-                (g.name, entry)
-                for g in groups
-                for entry in g.data
-                if normpath(join(data_path, entry)) in matches
-            }
-            owner[file] |= {name for name, _ in hits}
-            used |= hits
-            files[block].append(file)
+    for file in files:
+        hits = {(g.name, e) for g in groups for e in g.data if file.matches(e)}
+        owner[file.path] |= {name for name, _ in hits}
+        used |= hits
 
-    for file, names in owner.items():
+    for path, names in owner.items():
         if len(names) > 1:
-            raise ValueError(f"{file} is in the shift groups {sorted(names)}")
+            raise ValueError(f"{path} is in the shift groups {sorted(names)}")
 
     unused = [(g.name, e) for g in groups for e in g.data if (g.name, e) not in used]
     if unused:
         logger.warning(f"Shift entries match no loaded data file, ignored: {unused}")
-    return {
-        block: [next(iter(owner[file]), None) for file in block_files]
-        for block, block_files in files.items()
-    }
+    return {path: next(iter(names), None) for path, names in owner.items()}

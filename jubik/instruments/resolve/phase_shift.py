@@ -1,6 +1,8 @@
 """Learnable phase shift of the model visibilities: an offset shared by every
 file, plus one shift per optional shift group."""
 
+from collections.abc import Iterable
+
 import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
@@ -10,6 +12,7 @@ from astropy.constants import c as speedoflight
 from ...models.distributions import build_parametric_prior_from_prior_config
 from ...parse.models.distributions.distributions import prior_config_factory
 from .data.observation import Observation
+from .parse.data.data_loading import DataFile
 from .parse.phase_shift import (
     OFFSET_KEY,
     ShiftGroup,
@@ -37,42 +40,42 @@ def build_shift_models(groups: list[ShiftGroup]) -> dict[str, jft.Model]:
     }
 
 
-def build_file_shifts(
-    shift_cfg: dict | None, data_cfgs: dict[str, dict]
-) -> dict[str, list[jft.Model | None]]:
-    """The shift of every file of every data block.
+class FileShifts:
+    """The shift of every data file, from the `shift` entry of `radio_response`.
 
     A file in a group is shifted by the shared offset, domain key `shift_offset`,
-    plus `shift_<group>`, a file in no group by the offset alone.
+    plus `shift_<group>`, a file in no group by the offset alone. Only groups
+    with a file get a latent.
 
     Parameters
     ----------
     shift_cfg: dict | None
         The `shift` entry of `radio_response`; None means no shifts.
-    data_cfgs: dict[str, dict]
-        The config of each data block, by data block name.
-
-    Returns
-    -------
-    dict[str, list[jft.Model | None]]
-        Per data block, the shift of each file in the order of
-        `assign_shift_groups`, None for every file without `shift_cfg`.
+    files: Iterable[DataFile]
+        Every data file of the fit, see `assign_shift_groups`.
     """
-    shift_groups = parse_shift_groups(shift_cfg)
-    group_of_file = assign_shift_groups(shift_groups, data_cfgs)
-    used = {group for groups in group_of_file.values() for group in groups}
-    shifts = build_shift_models([g for g in shift_groups if g.name in used])
-    offset = parse_shift_offset(shift_cfg)
-    if offset is not None:
-        off = build_shift_models([ShiftGroup(OFFSET_KEY, offset, [])])[OFFSET_KEY]
-        shifts = {None: off} | {
-            name: jft.Model(lambda x, s=s: off(x) + s(x), domain=off.domain | s.domain)
-            for name, s in shifts.items()
+
+    def __init__(self, shift_cfg: dict | None, files: Iterable[DataFile]):
+        groups = parse_shift_groups(shift_cfg)
+        group_of_file = assign_shift_groups(groups, files)
+        used = set(group_of_file.values())
+        shifts = build_shift_models([g for g in groups if g.name in used])
+        offset = parse_shift_offset(shift_cfg)
+        if offset is not None:
+            off = build_shift_models([ShiftGroup(OFFSET_KEY, offset, [])])[OFFSET_KEY]
+            shifts = {None: off} | {
+                name: jft.Model(
+                    lambda x, s=s: off(x) + s(x), domain=off.domain | s.domain
+                )
+                for name, s in shifts.items()
+            }
+        self._shifts = {
+            path: shifts.get(group) for path, group in group_of_file.items()
         }
-    return {
-        block: [shifts.get(group) for group in groups]
-        for block, groups in group_of_file.items()
-    }
+
+    def of(self, file: DataFile) -> jft.Model | None:
+        """The shift of `file`, None without shifts; `file` must be in `files`."""
+        return self._shifts[file.path]
 
 
 class PhaseShift(jft.Model):
