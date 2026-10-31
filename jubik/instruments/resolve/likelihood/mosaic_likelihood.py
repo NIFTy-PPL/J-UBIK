@@ -65,7 +65,7 @@ class LikelihoodBuilderBase:
         (Optional) string for display in the minimization.
         This will only be displayed when having multiple likelihoods.
     shift: jft.Model | None = None
-        (Optional) the phase factor inside `response`, see `PhaseShift`.
+        (Optional) the phase factor inside `response`, see `build_phase_shift`.
     """
 
     response: jft.Model
@@ -173,7 +173,7 @@ def build_likelihood_from_sky_beamer(
         `LikelihoodBuilder`.
     shift: jft.Model | None
         (Optional) phase factor multiplied onto the model visibilities, see
-        `PhaseShift`.
+        `build_phase_shift`.
 
     Returns
     ------

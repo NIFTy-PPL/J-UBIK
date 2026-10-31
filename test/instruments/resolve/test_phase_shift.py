@@ -16,8 +16,8 @@ from jubik.instruments.resolve.parse.data import DataLoading
 from jubik.instruments.resolve.parse.data.data_modify.pipeline import ObservationModify
 from jubik.instruments.resolve.parse.phase_shift import PhaseShiftConfig
 from jubik.instruments.resolve.phase_shift import (
-    FileShifts,
-    PhaseShift,
+    assign_shift_groups,
+    build_phase_shift,
     build_shift_model,
 )
 from jubik.parse.models.distributions.distributions import prior_config_factory
@@ -32,6 +32,14 @@ FREQS = np.array([1e9, 1.3e9])
 OFFSET = ["normal", 0.0, 50.0]
 PRIOR = ["normal", 0.0, 0.05]
 EB1 = {"prior": ["normal", 0.0, 20.0], "data": ["a/a_spw{spw}.npz"]}
+UNIT = ["normal", 0.0, 1.0]  # the shift is the latent itself
+
+
+def phase_shift(obs, offset=UNIT):
+    """The phase shift of `obs` for an offset alone, domain key `shift_offset`."""
+    return build_phase_shift(
+        PhaseShiftConfig.from_yaml_dict({"offset": offset}), None, obs
+    )
 
 
 def shift_model(prior):
@@ -56,9 +64,8 @@ def test_shift_moves_the_sampling_positions(backend):
     response = r_ducc if backend == "ducc" else r_finufft
     a, b, i, j = 3, -2, 40, 55
     pix_row, pix_col = grid.spatial.pixel_scales_yx.to_value(u.arcsec)
-    shift = jft.Model(lambda x: x["s"], domain={"s": jft.ShapeWithDtype((2,))})
 
-    phase = PhaseShift(shift, obs)({"s": np.array([a * pix_row, b * pix_col])})
+    phase = phase_shift(obs)({"shift_offset": np.array([a * pix_row, b * pix_col])})
 
     assert_allclose(
         phase * response(point_source_sky(grid, i, j)),
@@ -82,13 +89,14 @@ def test_zero_shift_is_identity(vis_dtype, weight_dtype):
         obs.freq,
         None,
     )
-    shift = shift_model(["normal", 0.0, 0.05])
+    shift = phase_shift(obs, PRIOR)
 
-    phase = PhaseShift(shift, obs)(jft.zeros_like(shift.domain))
+    phase = shift(jft.zeros_like(shift.domain))
 
     assert phase.dtype == vis_dtype
     assert phase.shape == (1,) + obs.vis.shape[1:]
     assert_allclose(phase, 1.0)
+    assert build_phase_shift(None, None, obs) is None
 
 
 def data_cfg(templates, windows):
@@ -106,26 +114,12 @@ def data_files(*data_cfgs):
     ]
 
 
-def file_shifts_of(shift_cfg, files):
-    return FileShifts(PhaseShiftConfig.from_yaml_dict(shift_cfg), files)
-
-
 def group_of(groups, *data_cfgs):
-    """The shift group of every file of `data_cfgs` by path, read off the
-    latents of its shift, for the shift groups `groups` and an offset."""
-    files = data_files(*data_cfgs)
-    shifts = file_shifts_of({"offset": OFFSET} | groups, files)
-    return {
-        f.path: next(
-            (
-                k.removeprefix("shift_")
-                for k in shifts.of(f).domain
-                if k != "shift_offset"
-            ),
-            None,
-        )
-        for f in files
-    }
+    """The name of the shift group of every file of `data_cfgs` by path, for
+    the shift groups `groups` and an offset."""
+    config = PhaseShiftConfig.from_yaml_dict({"offset": OFFSET} | groups)
+    assigned = assign_shift_groups(config, data_files(*data_cfgs))
+    return {path: g and g.name for path, g in assigned.items()}
 
 
 def test_template_covers_every_spw_and_blocks_share_a_group():
@@ -178,8 +172,9 @@ def test_file_of_two_blocks_has_its_group_in_both():
     other["field_ids"] = [5]
     a, b = data_files(data_cfg(["a{spw}.npz"], [5]), other)
     assert a.path == b.path and a.template != b.template
-    shifts = file_shifts_of({"offset": OFFSET} | groups, [a, b])
-    assert shifts.of(b).domain.keys() == {"shift_offset", "shift_one"}
+    assert group_of(groups, data_cfg(["a{spw}.npz"], [5]), other) == {
+        "/data/a5.npz": "one"
+    }
 
 
 def test_entry_is_relative_to_the_data_path_of_its_block():
@@ -246,9 +241,10 @@ def test_loader_yields_each_observation_with_its_file(tmp_path):
         np.random.seed(seed)
         saved[file.path] = generate_random_obs(FREQS, 10, [-1e2, 1e2], [-5, 5], pol)
         saved[file.path].save(file.path, False)
-    shift_cfg = {"offset": OFFSET, "a": {"prior": OFFSET, "data": ["a_spw7.npz"]}}
-    # the shifts take the files in another order than the loader
-    shifts = file_shifts_of(shift_cfg, reversed(files))
+    config = PhaseShiftConfig.from_yaml_dict(
+        {"offset": OFFSET, "a": {"prior": OFFSET, "data": ["a_spw7.npz"]}}
+    )
+    groups = assign_shift_groups(config, files)
 
     loaded = load_and_modify_data_from_objects(
         ju.Color([0.5e9, 2e9] * u.Hz),
@@ -258,7 +254,8 @@ def test_loader_yields_each_observation_with_its_file(tmp_path):
     seen = {}
     for file, obs in loaded:
         assert_allclose(obs.vis_val, saved[file.path].vis_val)
-        seen[file.path] = shifts.of(file).domain.keys()
+        shift = build_phase_shift(config, groups[file.path], obs)
+        seen[file.path] = shift.domain.keys()
 
     assert seen == {
         str(tmp_path / "a_spw5.npz"): {"shift_offset"},
@@ -268,29 +265,23 @@ def test_loader_yields_each_observation_with_its_file(tmp_path):
     }
 
 
-def test_file_not_given_to_the_shifts_raises():
-    a, c = data_files(data_cfg(["a/a_spw{spw}.npz", "c/c_spw{spw}.npz"], [5]))
-    with pytest.raises(KeyError):
-        file_shifts_of({"offset": OFFSET}, [a]).of(c)
-
-
 def test_group_prior_sets_the_shift():
     assert_allclose(
         shift_model(["normal", 0.0, 0.02])({"shift_eb1": np.ones(2)}), 0.02
     )
 
 
-def file_shifts(shift_cfg):
-    """The shift of files a (in `eb1` if set) and c of one data block."""
+def file_shifts(shift_cfg, obs):
+    """The phase shift of `obs` as files a (in `eb1` if set) and c of one block."""
+    config = PhaseShiftConfig.from_yaml_dict(shift_cfg)
     files = data_files(data_cfg(["a/a_spw{spw}.npz", "c/c_spw{spw}.npz"], [5]))
-    shifts = file_shifts_of(shift_cfg, files)
-    return [shifts.of(file) for file in files]
+    groups = assign_shift_groups(config, files)
+    return [build_phase_shift(config, groups[f.path], obs) for f in files]
 
 
 def fixed_shift_phase(obs, shift):
     """The phase of `obs` for the shift `shift` in arcsec."""
-    fixed = jft.Model(lambda x: x["s"], domain={"s": jft.ShapeWithDtype((2,))})
-    return PhaseShift(fixed, obs)({"s": shift})
+    return phase_shift(obs)({"shift_offset": shift})
 
 
 def offset_obs():
@@ -323,7 +314,7 @@ def test_offset_written_as_a_group_raises(offset):
 @pytest.mark.parametrize("shift_cfg", [{"eb1": EB1}, {}, {"offset": None}])
 def test_shift_needs_the_offset(shift_cfg):
     with pytest.raises(ValueError, match="offset"):
-        file_shifts(shift_cfg)
+        file_shifts(shift_cfg, offset_obs())
 
 
 def test_offset_alone_moves_every_file():
@@ -332,9 +323,9 @@ def test_offset_alone_moves_every_file():
     expected = fixed_shift_phase(obs, 50.0 * x["shift_offset"])
     assert not np.allclose(expected, 1.0)
 
-    for shift in file_shifts({"offset": OFFSET}):
+    for shift in file_shifts({"offset": OFFSET}, obs):
         assert shift.domain.keys() == {"shift_offset"}
-        assert_allclose(PhaseShift(shift, obs)(x), expected)
+        assert_allclose(shift(x), expected)
 
 
 def test_group_adds_to_the_offset_of_its_own_files():
@@ -342,16 +333,16 @@ def test_group_adds_to_the_offset_of_its_own_files():
     x = {"shift_offset": np.array([0.7, -1.3]), "shift_eb1": np.array([-0.4, 0.9])}
     offset, eb1 = 50.0 * x["shift_offset"], 20.0 * x["shift_eb1"]
 
-    in_group, in_none = file_shifts({"offset": OFFSET, "eb1": EB1})
+    in_group, in_none = file_shifts({"offset": OFFSET, "eb1": EB1}, obs)
 
     assert in_group.domain.keys() == {"shift_offset", "shift_eb1"}
     assert in_none.domain.keys() == {"shift_offset"}
-    assert_allclose(PhaseShift(in_group, obs)(x), fixed_shift_phase(obs, offset + eb1))
-    assert_allclose(PhaseShift(in_none, obs)(x), fixed_shift_phase(obs, offset))
+    assert_allclose(in_group(x), fixed_shift_phase(obs, offset + eb1))
+    assert_allclose(in_none(x), fixed_shift_phase(obs, offset))
 
 
 def test_without_shift_no_file_is_shifted():
-    assert file_shifts(None) == [None, None]
+    assert file_shifts(None, offset_obs()) == [None, None]
 
 
 def test_likelihood_has_the_shift_only_when_set():
@@ -363,22 +354,22 @@ def test_likelihood_has_the_shift_only_when_set():
     )
 
     for prior in (None, ["normal", 0.0, 0.05]):
-        shift = None if prior is None else shift_model(prior)
+        shift = None if prior is None else phase_shift(obs, prior)
         likelihood = build_likelihood_from_sky_beamer(
             observation=obs,
             field_name="band7_fld",
             sky_beamer=sky_beamer,
             sky_grid=grid,
             backend_settings=rve.parse.FinufftSettings(epsilon=1e-9),
-            shift=None if shift is None else PhaseShift(shift, obs),
+            shift=shift,
         ).likelihood
         domain = likelihood.domain.tree
 
-        assert ("shift_eb1" in domain) == (prior is not None)
+        assert ("shift_offset" in domain) == (prior is not None)
         latent = jft.random_like(jax.random.PRNGKey(0), likelihood.domain)
         assert np.isfinite(likelihood.energy(latent))
 
-    assert domain["shift_eb1"].shape == (2,)
+    assert domain["shift_offset"].shape == (2,)
 
 
 def build_band7(backend, prior):
@@ -395,14 +386,14 @@ def build_band7(backend, prior):
         ),
         "finufft": rve.parse.FinufftSettings(epsilon=1e-9),
     }[backend]
-    shift = None if prior is None else shift_model(prior)
+    shift = None if prior is None else phase_shift(obs, prior)
     lhb = build_likelihood_from_sky_beamer(
         observation=obs,
         field_name="band7_fld",
         sky_beamer=sky_beamer,
         sky_grid=grid,
         backend_settings=settings,
-        shift=None if shift is None else PhaseShift(shift, obs),
+        shift=shift,
     )
     return lhb, {"band7_fld": np.random.normal(size=grid.shape)}
 
@@ -413,7 +404,7 @@ def test_response_adjoint_holds_the_shift_fixed(backend):
     # 60 arcsec std: phases of order one on the short test baselines
     lhb, sky = build_band7(backend, ["normal", 0.0, 60.0])
     unshifted, _ = build_band7(backend, None)
-    x = {"shift_eb1": np.array([0.7, -1.3])}
+    x = {"shift_offset": np.array([0.7, -1.3])}
     d = lhb.visibilities
 
     adjoint = lhb.response_adjoint(d, x)["band7_fld"]

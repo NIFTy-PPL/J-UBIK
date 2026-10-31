@@ -41,7 +41,7 @@ from ..likelihood.mosaic_likelihood import (
     build_likelihood_from_sky_beamer,
 )
 from ..mosaicing.sky_beamer import SkyBeamer, build_sky_beamer
-from ..phase_shift import FileShifts, PhaseShift
+from ..phase_shift import assign_shift_groups, build_phase_shift
 from ..multimessanger import (
     RadioSkyExtractor,
     build_radio_grid,
@@ -187,9 +187,9 @@ def build_radio_likelihood(
     data_loadings = {
         name: DataLoading.from_yaml_dict(cfg[data_key][name]) for name in data_names
     }
-    shifts = FileShifts(
-        PhaseShiftConfig.from_yaml_dict(cfg["radio_response"].get("shift")),
-        [file for dl in data_loadings.values() for file in dl.data_files],
+    shift_config = PhaseShiftConfig.from_yaml_dict(cfg["radio_response"].get("shift"))
+    shift_groups = assign_shift_groups(
+        shift_config, [file for dl in data_loadings.values() for file in dl.data_files]
     )
 
     likelihoods = []
@@ -227,7 +227,6 @@ def build_radio_likelihood(
         for field_name, beam_direction in _sky_beamer.beam_directions.items():
             for file, o in loaded:
                 if o.direction_from_key(direction_key) == beam_direction.direction:
-                    shift = shifts.of(file)
                     names.append(data_name)
                     likelihoods.append(
                         build_likelihood_from_sky_beamer(
@@ -239,7 +238,9 @@ def build_radio_likelihood(
                             noise_std_correction=factory_noise_correction_parser(
                                 cfg[data_key][data_name]
                             ),
-                            shift=None if shift is None else PhaseShift(shift, o),
+                            shift=build_phase_shift(
+                                shift_config, shift_groups[file.path], o
+                            ),
                         )
                     )
 
