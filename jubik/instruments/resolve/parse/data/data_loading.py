@@ -28,28 +28,19 @@ class DataFile:
     data_path: str
 
     def matches(self, entry: str) -> bool:
-        """Whether `entry`, relative to `data_path`, names the file or its template."""
+        """Whether a config entry names this file or its template.
+
+        Parameters
+        ----------
+        entry: str
+            A file name or data template, relative to `data_path`, or absolute.
+
+        Returns
+        -------
+        bool
+            True if `entry`, joined to `data_path`, is `path` or `template`.
+        """
         return abspath(join(self.data_path, entry)) in (self.path, self.template)
-
-
-@dataclass
-class LoaderTemplate:
-    data_template: str
-    field_id: int | str | None
-    spectral_window: int | str | None
-    data_path: str = curdir
-
-    @property
-    def file_path(self):
-        return self.data_template.format(field=self.field_id, spw=self.spectral_window)
-
-    @property
-    def data_file(self) -> DataFile:
-        return DataFile(
-            path=abspath(self.file_path),
-            template=abspath(self.data_template),
-            data_path=self.data_path,
-        )
 
 
 @dataclass
@@ -95,13 +86,21 @@ class DataLoading:
         )
 
     @property
-    def loader_templates(self) -> Generator[LoaderTemplate, None, None]:
+    def data_files(self) -> Generator[DataFile, None, None]:
+        """Every data file to load.
+
+        Yields
+        ------
+        DataFile
+            One per combination of field id, data template and spectral window,
+            in that nesting order; `{field}` and `{spw}` of the template are
+            filled with the field id and the spectral window.
+        """
         for fi, dt, spw in product(
             self.field_ids, self.data_templates, self.spectral_windows
         ):
-            yield LoaderTemplate(
-                field_id=fi,
-                data_template=dt,
-                spectral_window=spw,
+            yield DataFile(
+                path=abspath(dt.format(field=fi, spw=spw)),
+                template=abspath(dt),
                 data_path=self.data_path,
             )

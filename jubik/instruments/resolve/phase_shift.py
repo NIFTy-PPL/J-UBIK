@@ -74,7 +74,24 @@ class FileShifts:
         }
 
     def of(self, file: DataFile) -> jft.Model | None:
-        """The shift of `file`, None without shifts; `file` must be in `files`."""
+        """The shift of one data file.
+
+        Parameters
+        ----------
+        file: DataFile
+            A file of `files`.
+
+        Returns
+        -------
+        jft.Model | None
+            The shift of `file` in arcsec, shape `(2,)`, None without
+            `shift_cfg`.
+
+        Raises
+        ------
+        KeyError
+            If `file` is not in `files`.
+        """
         return self._shifts[file.path]
 
 

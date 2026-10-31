@@ -103,9 +103,7 @@ def data_cfg(templates, windows):
 def data_files(*data_cfgs):
     """The `DataFile` of every file of the data blocks `data_cfgs`."""
     return [
-        lt.data_file
-        for cfg in data_cfgs
-        for lt in DataLoading.from_yaml_dict(cfg).loader_templates
+        file for cfg in data_cfgs for file in DataLoading.from_yaml_dict(cfg).data_files
     ]
 
 

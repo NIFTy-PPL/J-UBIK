@@ -142,6 +142,34 @@ def build_radio_likelihood(
     direction_key: str = "PHASE_DIR",
     data_key: str = "alma_data",
 ) -> RadioLikelihoodProducts:
+    """Load the radio data blocks and build one likelihood per observation and field.
+
+    Parameters
+    ----------
+    data_names: list[str] | str
+        The data blocks to load, keys of `cfg[data_key]`.
+    cfg: dict
+        The config, with `radio_response` (backend and optional `shift`, see
+        `FileShifts`) and the data blocks under `data_key`.
+    sky_grid: Grid
+        The grid of the sky.
+    sky_domain: dict | jft.ShapeWithDtype
+        The domain of the sky model.
+    last_radio_bin: int | None
+        The index of the last radio frequency bin of the sky, None if the whole
+        sky is radio.
+    sky_unit: u.Unit | None
+        The unit of the sky.
+    direction_key: str
+        The key of the pointing direction in the observations.
+    data_key: str
+        The config key holding the data blocks.
+
+    Returns
+    -------
+    RadioLikelihoodProducts
+        The likelihoods, named by data block, and the sky beamer.
+    """
     radio_sky_extractor = build_radio_sky_extractor(
         last_radio_bin,
         sky_domain=sky_domain,
@@ -160,7 +188,7 @@ def build_radio_likelihood(
     }
     shifts = FileShifts(
         cfg["radio_response"].get("shift"),
-        [lt.data_file for dl in data_loadings.values() for lt in dl.loader_templates],
+        [file for dl in data_loadings.values() for file in dl.data_files],
     )
 
     likelihoods = []

@@ -20,20 +20,26 @@ def load_and_modify_data_from_objects(
 
     Parameters
     ----------
-    sky_frequencies: list[float]
+    sky_frequencies: Quantity | Color
         The frequencies of the sky domain, according to which we can split the
         observation into frequency chunks.
     data_loading: DataLoading
         Model for the loading of the data, see DataLoading.
     observation_modify: ObservationModify
         Model for modifying the observations, ObservationModify.
+
+    Yields
+    ------
+    tuple[DataFile, Observation]
+        Per loaded file, its `DataFile` and the modified observation, in the
+        order of `DataLoading.data_files`.
     """
 
     if not isinstance(sky_frequencies, Color):
         sky_frequencies = Color(sky_frequencies)
 
-    for ii, data_template in enumerate(data_loading.loader_templates):
-        logger.info(f"\nLoading data: {data_template.file_path}")
-        obs = Observation.load(data_template.file_path)
+    for ii, file in enumerate(data_loading.data_files):
+        logger.info(f"\nLoading data: {file.path}")
+        obs = Observation.load(file.path)
         obs = modify_observation(sky_frequencies, obs, observation_modify(ii))
-        yield data_template.data_file, obs
+        yield file, obs
