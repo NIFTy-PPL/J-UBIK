@@ -32,6 +32,7 @@ from ..parse.data.data_loading import DataLoading
 from ..parse.data.data_modify import ObservationModify
 from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
 from ..parse.noise.factory_noise_correction import factory_noise_correction_parser
+from ..parse.phase_shift import PhaseShiftConfig
 from ..parse.response import yaml_to_response_settings
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
@@ -150,7 +151,7 @@ def build_radio_likelihood(
         The data blocks to load, keys of `cfg[data_key]`.
     cfg: dict
         The config, with `radio_response` (backend and optional `shift`, see
-        `FileShifts`) and the data blocks under `data_key`.
+        `PhaseShiftConfig`) and the data blocks under `data_key`.
     sky_grid: Grid
         The grid of the sky.
     sky_domain: dict | jft.ShapeWithDtype
@@ -187,7 +188,7 @@ def build_radio_likelihood(
         name: DataLoading.from_yaml_dict(cfg[data_key][name]) for name in data_names
     }
     shifts = FileShifts(
-        cfg["radio_response"].get("shift"),
+        PhaseShiftConfig.from_yaml_dict(cfg["radio_response"].get("shift")),
         [file for dl in data_loadings.values() for file in dl.data_files],
     )
 
