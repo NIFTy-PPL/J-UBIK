@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 import warnings
 
-from .phase_center import ShiftObservation
+from ..data_loading import DataFile
+from .phase_center import ShiftObservation, shifts_by_template
 from .frequency import SpectralModify
 from .flagging import FlagWeights
 from .weights import SystematicErrorBudget
@@ -24,13 +25,16 @@ class ObservationModify:
         Average the visibilities of the observation to the N spectral_bins.
     weight_modify:
         Modification for the weight column (e.g. systematic error budget)
+    shift:
+        The fixed phase-center shift of each data template, as parsed; the
+        shift of one file after `__call__`.
     """
 
     time_bins: int | None
 
     spectral: SpectralModify
     weight_modify: SystematicErrorBudget | None
-    shift: ShiftObservation | None
+    shift: tuple[tuple[str, ShiftObservation], ...] | ShiftObservation | None
 
     to_double_precision: bool
     select_subset: SelectSubset | None
@@ -64,8 +68,9 @@ class ObservationModify:
                 Boolian to restrict the spectral channels of the data to the sky
                 model frequencies.
         shift: dict | None
-            - data_template: list[tuple[float, float]]
-                The shift for each data_template.
+            - data_templates: list[tuple[float, float]]
+                The shift for each data_template, in its order.
+            - unit: u.Unit
         weight_modify: dict | None
             - percentage: float | None
                 The percentage of the absolute value of the visibilities to be
@@ -94,7 +99,7 @@ class ObservationModify:
         weight_modify = SystematicErrorBudget.from_yaml_dict(
             data_cfg.get("weight_modify", {})
         )
-        shift = ShiftObservation.from_yaml_dict(data_cfg.get("shift"))
+        shift = shifts_by_template(data_cfg)
 
         to_double_precision = data_cfg.get("to_double_precision", True)
         if select_subset := data_cfg.get("testing_percentage"):
@@ -124,15 +129,27 @@ class ObservationModify:
             flag_weights=flag_weights,
         )
 
-    def __call__(self, iteration: int) -> "ObservationModify":
+    def __call__(self, file: DataFile) -> "ObservationModify":
+        """The modification of one data file of the block, with the shift of
+        the data template it expands from."""
         return ObservationModify(
             time_bins=self.time_bins,
             spectral=self.spectral,
             weight_modify=self.weight_modify,
-            shift=ShiftObservation(self.shift(iteration)) if self.shift else None,
+            shift=self._shift_of(file) if self.shift else None,
             to_double_precision=self.to_double_precision,
             select_subset=self.select_subset,
             restrict_to_stokes_I=self.restrict_to_stokes_I,
             average_to_stokes_I=self.average_to_stokes_I,
             flag_weights=self.flag_weights,
         )
+
+    def _shift_of(self, file: DataFile) -> ShiftObservation:
+        # one template per file, else listing a template twice picks one shift
+        shifts = [s for t, s in self.shift if file.expands_from(t)]
+        if len(shifts) != 1:
+            raise ValueError(
+                f"{file.path} expands from {len(shifts)} data templates of the "
+                "block, the fixed shift needs exactly one"
+            )
+        return shifts[0]

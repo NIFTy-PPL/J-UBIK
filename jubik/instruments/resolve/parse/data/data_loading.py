@@ -38,6 +38,22 @@ class DataFile:
         """
         return realpath(join(self.data_path, entry)) in (self.path, self.template)
 
+    def expands_from(self, template: str) -> bool:
+        """Whether the file expands from a data template.
+
+        Parameters
+        ----------
+        template: str
+            A data template as written in `data_templates`, relative to
+            `data_path`, or absolute.
+
+        Returns
+        -------
+        bool
+            True if `template`, joined to `data_path`, is `DataFile.template`.
+        """
+        return realpath(join(self.data_path, template)) == self.template
+
 
 @dataclass
 class DataLoading:

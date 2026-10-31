@@ -38,8 +38,8 @@ def load_and_modify_data_from_objects(
     if not isinstance(sky_frequencies, Color):
         sky_frequencies = Color(sky_frequencies)
 
-    for ii, file in enumerate(data_loading.data_files):
+    for file in data_loading.data_files:
         logger.info(f"\nLoading data: {file.path}")
         obs = Observation.load(file.path)
-        obs = modify_observation(sky_frequencies, obs, observation_modify(ii))
+        obs = modify_observation(sky_frequencies, obs, observation_modify(file))
         yield file, obs
