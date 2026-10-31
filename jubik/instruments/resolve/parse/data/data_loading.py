@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from itertools import product
 from os import curdir
-from os.path import abspath, join
+from os.path import join, realpath
 from typing import Generator
 
 
@@ -16,9 +16,10 @@ class DataFile:
     Parameters
     ----------
     path: str
-        Absolute path of the file, the same for every data block that loads it.
+        Canonical path of the file (symlinks resolved before `..`, as the OS
+        opens it), the same for every data block that loads it.
     template: str
-        Absolute path of the data template the file expands from.
+        Canonical path of the data template the file expands from.
     data_path: str
         The `data_path` of the data block, the root of config entries.
     """
@@ -40,7 +41,7 @@ class DataFile:
         bool
             True if `entry`, joined to `data_path`, is `path` or `template`.
         """
-        return abspath(join(self.data_path, entry)) in (self.path, self.template)
+        return realpath(join(self.data_path, entry)) in (self.path, self.template)
 
 
 @dataclass
@@ -100,7 +101,7 @@ class DataLoading:
             self.field_ids, self.data_templates, self.spectral_windows
         ):
             yield DataFile(
-                path=abspath(dt.format(field=fi, spw=spw)),
-                template=abspath(dt),
+                path=realpath(dt.format(field=fi, spw=spw)),
+                template=realpath(dt),
                 data_path=self.data_path,
             )

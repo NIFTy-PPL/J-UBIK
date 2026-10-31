@@ -1,3 +1,5 @@
+from os.path import realpath
+
 import jax
 import nifty.re as jft
 import numpy as np
@@ -220,8 +222,23 @@ def test_entry_is_joined_to_the_data_path(entry):
     assert group_of(groups, cfg) == {"/data/eb/a_spw5.npz": "eb1"}
 
 
+def test_data_file_resolves_symlinks_before_parent_dirs(tmp_path):
+    """`..` after a symlinked data_path leaves the link target, as the OS does."""
+    (tmp_path / "remote" / "child").mkdir(parents=True)
+    (tmp_path / "local").mkdir()
+    (tmp_path / "local" / "link").symlink_to(tmp_path / "remote" / "child")
+    cfg = data_cfg(["../obs.npz"], [None])
+    cfg["data_path"] = str(tmp_path / "local" / "link")
+
+    (file,) = data_files(cfg)
+
+    assert file.path == realpath(tmp_path / "remote" / "obs.npz")
+    assert file.matches("../obs.npz")
+
+
 def test_loader_yields_each_observation_with_its_file(tmp_path):
     """The shift reaches an observation through its own file, not its position."""
+    tmp_path = tmp_path.resolve()  # `DataFile.path` is canonical
     pol = ju.polarization.PolarizationType(("LL", "RR"))
     cfg = {
         "data_path": str(tmp_path),
