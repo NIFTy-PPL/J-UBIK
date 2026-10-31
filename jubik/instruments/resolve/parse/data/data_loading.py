@@ -1,12 +1,7 @@
 from dataclasses import dataclass
 from itertools import product
-from os import curdir
 from os.path import join, realpath
 from typing import Generator
-
-
-def _prepand_path(input_path: str, files: list[str]):
-    return [join(input_path, fname) for fname in files]
 
 
 @dataclass(frozen=True)
@@ -51,8 +46,8 @@ class DataLoading:
     Parameters
     ----------
     data_templates: list[str]
-        This is the path to the datafiles, with varibable fields for field_ids,
-        and spectral_windows.
+        The paths to the datafiles, relative to `data_path`, with variable
+        fields for field_ids and spectral_windows.
     field_ids: list[Union[int, None]]
         The field_ids (pointings) for the data_templates, not used if there is
         no corresponding field inside the data_templates.
@@ -60,27 +55,23 @@ class DataLoading:
         The list of spectral windows for the data_templates. Not used if there
         is no corresponding field inside the data_templates.
     data_path: str
-        The directory the data_templates are joined to.
+        The directory the data_templates and shift entries are relative to.
     """
 
     data_templates: list[str]
     field_ids: list[int | None]
     spectral_windows: list[int | None]
-    data_path: str = curdir
+    data_path: str
 
     @classmethod
     def from_yaml_dict(cls, data_cfg: dict):
-        data_templates = _prepand_path(
-            data_cfg["data_path"], data_cfg["data_templates"]
-        )
-
         field_ids = data_cfg.get("field_ids", [None])
 
         spectral = data_cfg.get("spectral", {})
         spectral_windows = spectral.get("window", [None])
 
         return DataLoading(
-            data_templates=data_templates,
+            data_templates=data_cfg["data_templates"],
             field_ids=field_ids,
             spectral_windows=spectral_windows,
             data_path=data_cfg["data_path"],
@@ -100,6 +91,7 @@ class DataLoading:
         for fi, dt, spw in product(
             self.field_ids, self.data_templates, self.spectral_windows
         ):
+            dt = join(self.data_path, dt)
             yield DataFile(
                 path=realpath(dt.format(field=fi, spw=spw)),
                 template=realpath(dt),

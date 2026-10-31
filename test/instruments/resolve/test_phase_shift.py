@@ -15,6 +15,7 @@ from jubik.instruments.resolve.likelihood.mosaic_likelihood import (
 from jubik.instruments.resolve.data import load_and_modify_data_from_objects
 from jubik.instruments.resolve.mosaicing.sky_beamer import BeamPattern, SkyBeamer
 from jubik.instruments.resolve.parse.data import DataLoading
+from jubik.instruments.resolve.parse.data.data_loading import DataFile
 from jubik.instruments.resolve.parse.data.data_modify.pipeline import ObservationModify
 from jubik.instruments.resolve.parse.phase_shift import PhaseShiftConfig
 from jubik.instruments.resolve.phase_shift import (
@@ -220,6 +221,14 @@ def test_entry_is_joined_to_the_data_path(entry):
     cfg = data_cfg(["../eb/a_spw{spw}.npz"], [5])
     cfg["data_path"] = "/data/eb"
     assert group_of(groups, cfg) == {"/data/eb/a_spw5.npz": "eb1"}
+
+
+def test_data_files_join_the_data_path():
+    """Templates stay relative to data_path, however DataLoading is built."""
+    (file,) = DataLoading(["a{spw}.npz"], [None], [5], data_path="/data").data_files
+    assert file == DataFile("/data/a5.npz", "/data/a{spw}.npz", "/data")
+    assert file.matches("a5.npz") and file.matches("a{spw}.npz")
+    assert data_files(data_cfg(["a{spw}.npz"], [5])) == [file]
 
 
 def test_data_file_resolves_symlinks_before_parent_dirs(tmp_path):
