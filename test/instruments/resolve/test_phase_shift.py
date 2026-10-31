@@ -18,9 +18,7 @@ from jubik.instruments.resolve.parse.phase_shift import PhaseShiftConfig
 from jubik.instruments.resolve.phase_shift import (
     assign_shift_groups,
     build_phase_shift,
-    build_shift_model,
 )
-from jubik.parse.models.distributions.distributions import prior_config_factory
 from jubik.instruments.resolve.response import _hermitian_adjoint
 
 from generate_test_obs import generate_random_obs
@@ -40,11 +38,6 @@ def phase_shift(obs, offset=UNIT):
     return build_phase_shift(
         PhaseShiftConfig.from_yaml_dict({"offset": offset}), None, obs
     )
-
-
-def shift_model(prior):
-    """The shift of one group `eb1`, domain key `shift_eb1`."""
-    return build_shift_model("eb1", prior_config_factory(prior, shape=(2,)))
 
 
 def point_source_sky(grid, i, j):
@@ -263,12 +256,6 @@ def test_loader_yields_each_observation_with_its_file(tmp_path):
         str(tmp_path / "c_spw5.npz"): {"shift_offset"},
         str(tmp_path / "c_spw7.npz"): {"shift_offset"},
     }
-
-
-def test_group_prior_sets_the_shift():
-    assert_allclose(
-        shift_model(["normal", 0.0, 0.02])({"shift_eb1": np.ones(2)}), 0.02
-    )
 
 
 def file_shifts(shift_cfg, obs):

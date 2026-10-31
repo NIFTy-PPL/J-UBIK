@@ -19,24 +19,9 @@ from .parse.phase_shift import OFFSET_KEY, SHIFT_SHAPE, PhaseShiftConfig, ShiftG
 from .util import cast_to_dtype
 
 
-def build_shift_model(name: str, prior: ProbabilityConfig) -> jft.Model:
-    """Prior of one shift in arcsec.
-
-    Parameters
-    ----------
-    name: str
-        The name of the shift, the domain key is `shift_<name>`.
-    prior: ProbabilityConfig
-        The prior, shape `(2,)`, sky grid (row, column).
-
-    Returns
-    -------
-    jft.Model
-        The shift, shape `(2,)`.
-    """
-    return build_parametric_prior_from_prior_config(
-        f"shift_{name}", prior, SHIFT_SHAPE, as_model=True
-    )
+# --------------------------------------------------------------------------------------
+# Phase Shift API
+# --------------------------------------------------------------------------------------
 
 
 class PhaseShift(jft.Model):
@@ -101,15 +86,13 @@ def build_phase_shift(
     """
     if config is None:
         return None
-    shift = build_shift_model(OFFSET_KEY, config.offset)
+    shift = _build_shift_model(OFFSET_KEY, config.offset)
     if group is not None:
-        off, grp = shift, build_shift_model(group.name, group.prior)
+        off, grp = shift, _build_shift_model(group.name, group.prior)
         shift = jft.Model(lambda x: off(x) + grp(x), domain=off.domain | grp.domain)
 
-    scale = 2 * np.pi * u.arcsec.to(u.rad) / speedoflight.value
-    uv = observation.uvw[:, :2, None] * observation.freq * scale
-    # (1, n_rows, n_freq) broadcasts against the visibilities (n_pol, n_rows, n_freq)
-    return PhaseShift(shift, uv[None, :, 0], uv[None, :, 1], observation.vis_val.dtype)
+    phase_u, phase_v = _phase_per_arcsec(observation)
+    return PhaseShift(shift, phase_u, phase_v, observation.vis_val.dtype)
 
 
 def assign_shift_groups(
@@ -158,3 +141,36 @@ def assign_shift_groups(
         path: groups[next(iter(names))] if names else None
         for path, names in owner.items()
     }
+
+
+# --------------------------------------------------------------------------------------
+# Phase Shift Internals
+# --------------------------------------------------------------------------------------
+
+
+def _build_shift_model(name: str, prior: ProbabilityConfig) -> jft.Model:
+    """Prior of one shift in arcsec.
+
+    Parameters
+    ----------
+    name: str
+        The name of the shift, the domain key is `shift_<name>`.
+    prior: ProbabilityConfig
+        The prior, shape `(2,)`, sky grid (row, column).
+
+    Returns
+    -------
+    jft.Model
+        The shift, shape `(2,)`.
+    """
+    return build_parametric_prior_from_prior_config(
+        f"shift_{name}", prior, SHIFT_SHAPE, as_model=True
+    )
+
+
+def _phase_per_arcsec(observation: Observation) -> tuple[np.ndarray, np.ndarray]:
+    """Phase in rad per arcsec of shift along u and v, shape `(1, n_rows, n_freq)`,
+    which broadcasts against the visibilities `(n_pol, n_rows, n_freq)`."""
+    scale = 2 * np.pi * u.arcsec.to(u.rad) / speedoflight.value
+    uv = observation.uvw[:, :2, None] * observation.freq * scale
+    return uv[None, :, 0], uv[None, :, 1]
