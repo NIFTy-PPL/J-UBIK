@@ -402,6 +402,41 @@ def test_convert_polarization_all_types(inp_pol, out_pol):
             assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
 
 
+def test_ducc_wgridding_off_center_point_source():
+    obs = generate_random_obs(
+        np.array([1e9, 1.5e9]),
+        20,
+        [-100, 100],
+        [-1000, 1000],
+        ju.polarization.PolarizationType(("I",)),
+        rng=np.random.default_rng(42),
+    )
+    px, py = 5e-4, 7e-4
+    l, m = 5 * px, -3 * py
+    n = np.sqrt(1 - l * l - m * m)
+    response = interferometry_response_ducc(
+        obs,
+        32,
+        40,
+        px,
+        py,
+        do_wgridding=True,
+        epsilon=1e-10,
+        nthreads=1,
+        verbosity=False,
+    )
+    image = jnp.zeros((32, 40)).at[21, 17].set(1 / (px * py))
+    uvw = obs.uvw[:, None, :] * obs.freq[None, :, None] / c.value
+    # DUCC's measurement-set convention uses -w(n-1) inside the negative phase.
+    expected = (
+        np.exp(
+            -2j * np.pi * (uvw[..., 0] * l - uvw[..., 1] * m - uvw[..., 2] * (n - 1))
+        )
+        / n
+    )
+    assert_allclose(jax.jit(response)(image), expected, rtol=1e-9, atol=1e-9)
+
+
 def stokes_to_circular(iquv):
     i, q, u, v = iquv
     return jnp.array([i + v, q + 1j * u, q - 1j * u, i - v])
