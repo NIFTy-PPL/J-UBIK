@@ -14,6 +14,9 @@ from jubik.instruments.resolve.response import (
 )
 
 from generate_test_obs import generate_random_obs
+from jubik.instruments.resolve.data.data_modify.frequency import (
+    restrict_to_discontinuous_frequencies,
+)
 
 jax.config.update("jax_enable_x64", True)
 
@@ -24,7 +27,12 @@ def setup_grid_obs_response(pol_sky, pol_channels, freqs):
     pol_type_sky = ju.polarization.PolarizationType(pol_sky)
     pol_type_data = ju.polarization.PolarizationType(pol_channels)
     obs = generate_random_obs(
-        freqs, 50, [-1e2, 1e2], [-5, 5], pol_type_data, fraction_flagged=0.3,
+        freqs,
+        50,
+        [-1e2, 1e2],
+        [-5, 5],
+        pol_type_data,
+        fraction_flagged=0.3,
         rng=np.random.default_rng(42),
     )
     sky_center = SkyCoord(ra=np.nan * u.Unit("rad"), dec=np.nan * u.Unit("rad"))
@@ -118,15 +126,19 @@ def test_ducc_finufft_backend_consistency(freqs, center_pixels):
     assert_allclose(vis_ducc / vol, vis_finufft / vol, rtol=1e-9, atol=1e-9)
 
     # The sky is real: its adjoint uses the real part of the complex pairing.
-    y = jnp.asarray(rng.normal(size=vis_ducc.shape) + 1j * rng.normal(size=vis_ducc.shape))
+    y = jnp.asarray(
+        rng.normal(size=vis_ducc.shape) + 1j * rng.normal(size=vis_ducc.shape)
+    )
     gradients = []
     for response in (response_ducc, response_finufft):
         normalized = lambda x: response(x) / vol
         values, pullback = jax.vjp(normalized, image)
         adjoint_y = pullback(jnp.conj(y))[0]
         assert_allclose(
-            jnp.real(jnp.vdot(values, y)), jnp.vdot(image, adjoint_y),
-            rtol=1e-10, atol=1e-9,
+            jnp.real(jnp.vdot(values, y)),
+            jnp.vdot(image, adjoint_y),
+            rtol=1e-10,
+            atol=1e-9,
         )
         loss = lambda x: 0.5 * jnp.sum(jnp.abs(normalized(x) - y) ** 2)
         gradients.append(jax.jit(jax.grad(loss))(image))
@@ -135,19 +147,32 @@ def test_ducc_finufft_backend_consistency(freqs, center_pixels):
 
 @pmp(
     "center_kwargs",
-    ({}, {"center_x": None, "center_y": None},
-     {"center_x": None, "center_y": 0.0},
-     {"center_x": 0.0, "center_y": None},
-     {"center_x": None, "center_y": 2e-4},
-     {"center_x": 1e-4, "center_y": None}),
-    ids=("defaults", "both-none", "x-none-y-zero", "x-zero-y-none",
-         "x-none-y-shift", "x-shift-y-none"),
+    (
+        {},
+        {"center_x": None, "center_y": None},
+        {"center_x": None, "center_y": 0.0},
+        {"center_x": 0.0, "center_y": None},
+        {"center_x": None, "center_y": 2e-4},
+        {"center_x": 1e-4, "center_y": None},
+    ),
+    ids=(
+        "defaults",
+        "both-none",
+        "x-none-y-zero",
+        "x-zero-y-none",
+        "x-none-y-shift",
+        "x-shift-y-none",
+    ),
 )
 def test_finufft_missing_phase_center_skips_shift(center_kwargs):
     rng = np.random.default_rng(42)
     obs = generate_random_obs(
-        np.array([1e9, 1.3e9]), 20, [-1e2, 1e2], [0.0, 0.0],
-        ju.polarization.PolarizationType(("I",)), rng=rng,
+        np.array([1e9, 1.3e9]),
+        20,
+        [-1e2, 1e2],
+        [0.0, 0.0],
+        ju.polarization.PolarizationType(("I",)),
+        rng=rng,
     )
     kwargs = dict(observation=obs, pixsize_x=1e-4, pixsize_y=2e-4, epsilon=1e-12)
     default_response = interferometry_response_finufft(**kwargs, **center_kwargs)
