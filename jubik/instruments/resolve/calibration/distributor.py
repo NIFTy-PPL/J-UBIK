@@ -1,5 +1,6 @@
 import nifty.re as jft
 import jax.numpy as jnp
+import numpy as np
 
 from jax.tree_util import Partial
 from jax import vmap
@@ -8,13 +9,11 @@ from jax.scipy.ndimage import map_coordinates
 from ..data.observation import Observation, unique_antennas
 
 
-def antenna_time_grid_to_data_point(cube, time_col, ant1_col, ant2_col, operation):
+def antenna_time_grid_to_data_point(cube, time_index, ant1_col, ant2_col, operation):
     def single_baseline_op(t, a1, a2):
         return operation(cube[:, a1, t, :], cube[:, a2, t, :])
 
-    return vmap(single_baseline_op, out_axes=1)(
-        jnp.arange(time_col.size), ant1_col, ant2_col
-    )
+    return vmap(single_baseline_op, out_axes=1)(time_index, ant1_col, ant2_col)
 
 
 def interpolate_time(li, x, n_corr, n_ant, n_freq):
@@ -260,6 +259,11 @@ class CalibrationDistributor(jft.Model):
         Frequency grid on which the calibration fields are defined. If omitted,
         calibration fields are assumed to already be defined on the observation
         frequency channels and only time interpolation is performed.
+    time_index : np.ndarray, optional
+        The index along the time axis of the calibration fields of every row,
+        shape `(n_rows,)`, e.g. the inverse of `np.unique(observation.time)`
+        for fields interpolated to the unique times. Defaults to one time per
+        row, `arange(n_rows)`.
     """
 
     def __init__(
@@ -267,11 +271,14 @@ class CalibrationDistributor(jft.Model):
         observation: Observation,
         phase_fields: jft.Model,
         log_amplitude_fields: jft.Model,
+        time_index: np.ndarray | None = None,
     ):
+        if time_index is None:
+            time_index = np.arange(observation.time.size)
 
         self._gather_op = Partial(
             func=antenna_time_grid_to_data_point,
-            time_col=jnp.asarray(observation.time),
+            time_index=jnp.asarray(time_index),
             ant1_col=jnp.asarray(observation.ant1),
             ant2_col=jnp.asarray(observation.ant2),
         )

@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+from functools import reduce
+from operator import mul
 from typing import Callable, Union
 
 import nifty.re as jft
@@ -19,6 +21,7 @@ def create_response_operator(
     sky2vis: Callable[[Array], Array],
     field_name: str,
     shift: jft.Model | None = None,
+    gain: jft.Model | None = None,
 ):
     """Create the full response operator.
 
@@ -26,6 +29,7 @@ def create_response_operator(
     1. Field extraction
     2. sky2vis
     3. shift (optional)
+    4. gain (optional)
 
     Parameters
     ----------
@@ -38,15 +42,18 @@ def create_response_operator(
     shift: jft.Model | None = None,
         (Optional) multiplicative correction applied to the visibilities, e.g. a
         phase-shift correction.
+    gain: jft.Model | None = None,
+        (Optional) antenna gains multiplied onto the visibilities, see
+        `build_gain`.
     """
 
     response = jft.wrap(sky2vis, field_name)
-
-    if shift is not None:
-        domain = domain | shift.domain
-        return jft.Model(lambda x: shift(x) * response(x), domain=domain)
-
-    return jft.Model(response, domain=domain)
+    factors = [f for f in (shift, gain) if f is not None]
+    for factor in factors:
+        domain = domain | factor.domain
+    return jft.Model(
+        lambda x: reduce(mul, [f(x) for f in factors], response(x)), domain=domain
+    )
 
 
 @dataclass
@@ -66,30 +73,35 @@ class LikelihoodBuilderBase:
         This will only be displayed when having multiple likelihoods.
     shift: jft.Model | None = None
         (Optional) the phase factor inside `response`, see `build_phase_shift`.
+    gain: jft.Model | None = None
+        (Optional) the antenna gains inside `response`, see `build_gain`.
     """
 
     response: jft.Model
     observation: Observation
     field_name: str
     shift: jft.Model | None = field(default=None, kw_only=True)
+    gain: jft.Model | None = field(default=None, kw_only=True)
 
     def response_adjoint(
         self, primals: NDArray | Array, x: dict | jft.Vector | None = None
     ) -> dict[str, Array]:
         """Apply the Hermitian adjoint of the response to `primals`.
 
-        With a shift the response is nonlinear in the shift, so its adjoint is
-        taken in the sky with the shift held fixed at the latent sample `x`,
-        i.e. `L^H(conj(p(x)) * primals)`. Without a shift `x` is ignored.
+        With a shift or a gain the response is nonlinear in them, so its
+        adjoint is taken in the sky with both held fixed at the latent sample
+        `x`, i.e. `L^H(conj(g(x) * p(x)) * primals)`. Without either `x` is
+        ignored.
         """
-        if self.shift is None:
+        fixed = [m for m in (self.shift, self.gain) if m is not None]
+        if not fixed:
             return _hermitian_adjoint(self.response, self.response.domain, primals)
         if x is None:
             raise ValueError(
-                "The response has a shift: pass the latent sample `x` whose "
-                "shift to hold fixed."
+                "The response has a shift or a gain: pass the latent sample `x` "
+                "whose shift and gain to hold fixed."
             )
-        theta = {k: x[k] for k in self.shift.domain}
+        theta = {k: x[k] for m in fixed for k in m.domain}
         sky_domain = {k: v for k, v in self.response.domain.items() if k not in theta}
         return _hermitian_adjoint(
             lambda sky: self.response(sky | theta), sky_domain, primals
@@ -117,6 +129,32 @@ class LikelihoodBuilder(LikelihoodBuilderBase):
         )
         return likelihood.amend(self.response, domain=jft.Vector(self.response.domain))
 
+    def calibration_likelihood(
+        self, model_visibilities: NDArray | Array
+    ) -> jft.Likelihood:
+        """The likelihood of the gain alone, for fixed model visibilities.
+
+        Parameters
+        ----------
+        model_visibilities: NDArray | Array
+            The model visibilities without the gain, shape
+            `(n_pol, n_rows, n_freq)`.
+
+        Raises
+        ------
+        ValueError
+            If the builder has no gain.
+        """
+        if self.gain is None:
+            raise ValueError("The likelihood has no gain to calibrate.")
+        model = jft.Model(
+            lambda x: self.gain(x) * model_visibilities, domain=self.gain.domain
+        )
+        likelihood = jft.Gaussian(
+            self.visibilities, noise_cov_inv=lambda x: x * self.weight
+        )
+        return likelihood.amend(model, domain=jft.Vector(model.domain))
+
 
 @dataclass
 class VariableLikelihoodBuilder(LikelihoodBuilderBase):
@@ -131,6 +169,23 @@ class VariableLikelihoodBuilder(LikelihoodBuilderBase):
         likelihood = jft.VariableCovarianceGaussian(self.visibilities)
         return likelihood.amend(model, domain=jft.Vector(model.domain))
 
+    def calibration_likelihood(
+        self, model_visibilities: NDArray | Array
+    ) -> jft.Likelihood:
+        """The likelihood of the gain and the noise alone, for fixed model
+        visibilities, see `LikelihoodBuilder.calibration_likelihood`."""
+        if self.gain is None:
+            raise ValueError("The likelihood has no gain to calibrate.")
+        model = jft.Model(
+            lambda x: (
+                self.gain(x) * model_visibilities,
+                self.inverse_standard_deviation(x),
+            ),
+            domain=self.gain.domain | self.inverse_standard_deviation.domain,
+        )
+        likelihood = jft.VariableCovarianceGaussian(self.visibilities)
+        return likelihood.amend(model, domain=jft.Vector(model.domain))
+
 
 def build_likelihood_from_sky_beamer(
     observation: Observation,
@@ -140,6 +195,7 @@ def build_likelihood_from_sky_beamer(
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     noise_std_correction: BaseLineCorrection | None = None,
     shift: jft.Model | None = None,
+    gain: jft.Model | None = None,
 ) -> LikelihoodBuilder | VariableLikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
 
@@ -174,6 +230,9 @@ def build_likelihood_from_sky_beamer(
     shift: jft.Model | None
         (Optional) phase factor multiplied onto the model visibilities, see
         `build_phase_shift`.
+    gain: jft.Model | None
+        (Optional) antenna gains multiplied onto the model visibilities, see
+        `build_gain`.
 
     Returns
     ------
@@ -192,6 +251,7 @@ def build_likelihood_from_sky_beamer(
         sky2vis=sky2vis,
         field_name=field_name,
         shift=shift,
+        gain=gain,
     )
 
     if noise_std_correction is None:
@@ -200,6 +260,7 @@ def build_likelihood_from_sky_beamer(
             response=response,
             field_name=field_name,
             shift=shift,
+            gain=gain,
         )
     else:
         inverse_std_model = factory_noise_correction_model(
@@ -213,4 +274,5 @@ def build_likelihood_from_sky_beamer(
             field_name=field_name,
             inverse_standard_deviation=inverse_std_model,
             shift=shift,
+            gain=gain,
         )
