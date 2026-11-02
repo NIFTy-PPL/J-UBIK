@@ -660,3 +660,64 @@ def test_harmonic_transform_rejects_unknown_backend(harmonic_type):
         _get_harmonic_transform(
             make_grid((2,), (1.0,), harmonic_type), sht_backend="cuda"
         )
+
+
+@pmp("deviations_settings", [None, dict(process="wiener", sigma=(0.1, 0.05))])
+def test_flat_reference_spectral_sky(deviations_settings):
+    """No reference excitations, no zero mode: the sky is 1 at the reference
+    frequency, and otherwise equals the simple sky with those latents at 0."""
+    prefix = "flat"
+    log_frequencies = np.log(np.array((0.06, 0.357, 0.8)))
+    reference_frequency_index = 1
+    common = dict(
+        prefix=prefix,
+        shape=(16, 16),
+        distances=(0.1, 0.1),
+        log_frequencies=log_frequencies,
+        reference_frequency_index=reference_frequency_index,
+        spectral_index_settings=dict(mean=(1.5, 0.5), fluctuations=(0.5, 0.1)),
+        deviations_settings=deviations_settings,
+    )
+    shape_settings = dict(
+        loglogavgslope=(-4.5, 0.5), flexibility=(0.8, 0.3), asperity=None
+    )
+
+    flat = ju.build_flat_reference_spectral_sky(
+        spatial_amplitude_settings=shape_settings, **common
+    )
+    simple = ju.build_simple_spectral_sky(
+        zero_mode_settings=lambda _: 0.0,
+        spatial_amplitude_settings=dict(fluctuations=(0.5, 0.1), **shape_settings),
+        **common,
+    )
+
+    dropped = {f"{prefix}_spatial_xi", f"{prefix}_spatial_fluctuations"}
+    assert set(simple.domain) - set(flat.domain) == dropped
+    assert set(flat.domain) < set(simple.domain)
+
+    position = flat.init(random.PRNGKey(42))
+    sky = flat(position)
+    assert_allclose(sky[reference_frequency_index], 1.0)
+    assert np.all(np.isfinite(np.asarray(sky)))
+    assert not np.allclose(sky[0], 1.0)
+
+    simple_position = dict(position)
+    simple_position[f"{prefix}_spatial_xi"] = np.zeros(
+        simple.domain[f"{prefix}_spatial_xi"].shape
+    )
+    simple_position[f"{prefix}_spatial_fluctuations"] = np.zeros(())
+    assert_allclose(sky, simple(simple_position))
+
+
+def test_flat_reference_spectral_sky_fixes_its_reference():
+    with pytest.raises(ValueError, match="zero_mode_settings"):
+        ju.build_flat_reference_spectral_sky(
+            prefix="flat",
+            shape=(8, 8),
+            distances=(0.1, 0.1),
+            log_frequencies=np.log(np.array((0.1, 0.4))),
+            reference_frequency_index=0,
+            spatial_amplitude_settings=dict(loglogavgslope=(-4.0, 0.5)),
+            spectral_index_settings=dict(mean=(0.0, 1.0), fluctuations=(0.1, 0.01)),
+            zero_mode_settings=(0.0, 1.0),
+        )

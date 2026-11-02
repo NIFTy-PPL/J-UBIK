@@ -54,6 +54,7 @@ from .instruments.chandra.chandra_likelihood import (
 )
 from .sky_model.multifrequency.spectral_product_mf_sky import (
     SpectralProductSky,
+    build_flat_reference_spectral_sky,
     build_simple_spectral_sky,
     build_simple_spectral_sky_from_grid,
 )
