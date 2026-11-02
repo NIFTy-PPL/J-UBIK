@@ -295,6 +295,66 @@ def test_response_phase_center_from_sky_coordinates(backend_settings, position_a
         assert_allclose(result, expected[None, ...], rtol=1e-9, atol=1e-9)
 
 
+@pmp("circular", (True, False), ids=("circular", "linear"))
+def test_public_response_adjoint_and_gradient(circular):
+    pol = ju.polarization.PolarizationType
+    grid = ju.Grid(
+        spatial=ju.wcs.WcsAstropy(
+            center=SkyCoord(0 * u.deg, 0 * u.deg),
+            shape=(32, 40),
+            fov=u.Quantity([1.0, 1.5], u.deg),
+        ),
+        spectral=ju.color.Color(np.array([0.8, 1.5, 1.8, 2.5]) * u.GHz),
+        polarization=pol.IQUV,
+    )
+    rng = np.random.default_rng(42)
+    obs = generate_random_obs(
+        np.array([1.0, 1.2, 2.0, 2.2]) * 1e9,
+        20,
+        [-100, 100],
+        [0, 0],
+        pol.RR_RL_LR_LL if circular else pol.XX_XY_YX_YY,
+        rng=rng,
+    )
+    sky = jnp.asarray(rng.normal(size=grid.shape))
+    y = jnp.asarray(rng.normal(size=obs.vis.shape) + 1j * rng.normal(size=obs.vis.shape))
+    vol = grid.spatial.dvol.to_value(u.rad**2)
+    gradients = []
+    for settings in (
+        rve.parse.Ducc0Settings(
+            epsilon=1e-12, do_wgridding=False, nthreads=1, verbosity=False
+        ),
+        rve.parse.FinufftSettings(epsilon=1e-12),
+    ):
+        response = rve.interferometry_response(obs, grid, settings)
+        normalized = lambda x: response(x) / vol
+        values, pullback = jax.vjp(normalized, sky)
+        # Real Stokes skies require the real part of the complex pairing.
+        adjoint_y = pullback(jnp.conj(y))[0]
+        assert_allclose(
+            jnp.real(jnp.vdot(values, y)),
+            jnp.vdot(sky, adjoint_y),
+            rtol=1e-10,
+            atol=1e-8,
+        )
+        loss = lambda x: 0.5 * jnp.sum(jnp.abs(normalized(x) - y) ** 2)
+        gradient = jax.jit(jax.grad(loss))(sky)
+        gradients.append(gradient)
+        # No observed channel uses the middle sky bin, so its gradient is zero.
+        assert_allclose(gradient[:, :, 1], 0, rtol=0, atol=0)
+        # A central finite difference independently checks the full loss gradient.
+        direction = jnp.asarray(rng.normal(size=grid.shape))
+        direction = direction / jnp.linalg.norm(direction)
+        step = 1e-4
+        finite_difference = (loss(sky + step * direction) - loss(sky - step * direction)) / (
+            2 * step
+        )
+        assert_allclose(
+            finite_difference, jnp.vdot(gradient, direction), rtol=1e-6, atol=1e-5
+        )
+    assert_allclose(gradients[0], gradients[1], rtol=1e-9, atol=1e-7)
+
+
 def test_response_frequency_bins_and_empty_bin(backend_settings):
     grid = make_binned_grid(ju.color.Color(np.array([0.8, 1.5, 1.8, 2.5]) * u.GHz))
     obs = make_frequency_obs([1.0, 1.2, 2.0, 2.2])
