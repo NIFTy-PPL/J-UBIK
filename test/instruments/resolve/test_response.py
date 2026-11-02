@@ -302,6 +302,46 @@ def test_response_discontinuous_frequency_restriction(backend_settings):
     )
 
 
+@pmp(
+    "dtype, expected_dtype",
+    ((jnp.float32, jnp.complex64), (jnp.float64, jnp.complex128)),
+)
+def test_response_dtype_and_flags(backend_settings, dtype, expected_dtype):
+    # DUCC's single-precision kernels require epsilon > 1e-5.
+    if dtype == jnp.float32:
+        if isinstance(backend_settings, rve.parse.Ducc0Settings):
+            backend_settings = rve.parse.Ducc0Settings(
+                epsilon=2e-5, do_wgridding=False, nthreads=1, verbosity=False
+            )
+    grid = make_binned_grid(ju.color.Color(np.array([0.8, 1.5]) * u.GHz))
+    obs = make_frequency_obs([1.0, 1.2], fraction_flagged=0.5)
+    # Building unflagged as reference ground truth as response does not remove
+    # flagged visibilities by itself
+    unflagged = make_frequency_obs([1.0, 1.2])
+    mask = obs.weight.asnumpy() == 0
+    assert np.any(mask) and np.any(~mask)
+    vol = grid.spatial.dvol.to_value(u.rad**2)
+    # Point source sky with unit flux
+    sky = (
+        jnp.zeros(grid.shape, dtype=dtype)
+        .at[0, 0, 0, 17, 18]
+        .set(jnp.asarray(1 / vol, dtype=dtype))
+    )
+    result = jax.jit(rve.interferometry_response(obs, grid, backend_settings))(sky)
+    reference = rve.interferometry_response(unflagged, grid, backend_settings)(sky)
+    assert result.dtype == expected_dtype
+    # The response predicts all samples; weights belong to the likelihood.
+    assert_allclose(result, reference, rtol=1e-6, atol=1e-6)
+    # Checks if unit flux is roughly preserved for the visibility prediction
+    assert_allclose(
+        np.abs(np.asarray(result)[mask]),
+        1.0,
+        rtol=1e-4,
+        atol=1e-6,
+    )
+
+
+
 def stokes_to_circular(iquv):
     i, q, u, v = iquv
     return jnp.array([i + v, q + 1j * u, q - 1j * u, i - v])
