@@ -1,12 +1,26 @@
 """Phase-center transformations for resolve observations."""
 
+from dataclasses import dataclass
+
 import numpy as np
 from astropy import units as u
 from astropy.constants import c as speedoflight
 from nifty.re import logger
 
-from ...parse.data.data_modify.phase_center import ShiftObservation
 from ..observation import Observation
+
+
+@dataclass
+class ShiftObservation:
+    """The phase-center shift of one observation, see `shift_phase_center`.
+
+    Parameters
+    ----------
+    shift: u.Quantity
+        The sky offset `(sx, sy)` moved onto the phase center, shape `(2,)`.
+    """
+
+    shift: u.Quantity
 
 
 def shift_phase_center(obs: Observation, shift: ShiftObservation | None) -> Observation:

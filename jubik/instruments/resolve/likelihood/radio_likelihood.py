@@ -29,7 +29,7 @@ from nifty.re.likelihood import LikelihoodSum
 from ....grid import Grid
 from ....likelihood import connect_likelihood_to_model
 from ..parse.data.data_loading import DataLoading
-from ..parse.data.data_modify import ObservationModify
+from ..parse.data.data_modify import ObservationModifyConfig
 from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
 from ..parse.noise.factory_noise_correction import factory_noise_correction_parser
 from ..parse.phase_shift import PhaseShiftConfig
@@ -198,7 +198,7 @@ def build_radio_likelihood(
     for data_name in data_names:
         logger.info(f"\nLoading data: {data_name}")
 
-        dm = ObservationModify.from_yaml_dict(cfg[data_key][data_name])
+        dm = ObservationModifyConfig.from_yaml_dict(cfg[data_key][data_name])
         loaded = list(
             load_and_modify_data_from_objects(
                 sky_frequencies=radio_grid.spectral,

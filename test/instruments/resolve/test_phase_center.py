@@ -6,9 +6,9 @@ from numpy.testing import assert_allclose, assert_array_equal
 
 import jubik as ju
 import jubik.instruments.resolve as rve
-from jubik.instruments.resolve.data.data_modify.phase_center import shift_phase_center
-from jubik.instruments.resolve.parse.data.data_modify.phase_center import (
+from jubik.instruments.resolve.data.data_modify.phase_center import (
     ShiftObservation,
+    shift_phase_center,
 )
 
 from generate_test_obs import generate_random_obs
