@@ -12,9 +12,9 @@ from ....grid import Grid
 class SpectralInterpolator(jft.Model):
     """Linear brightness interpolation along axis 2 of a canonical sky.
 
-    With gap_mode="nearest" (default), connected bins interpolate between
+    Connected bins interpolate between
     their centers and gaps use the nearest center (ties choose the lower
-    frequency). With gap_mode="linear", interpolation bridges gaps. Outer
+    frequency). Interpolation never bridges gaps. Outer
     edges always use nearest endpoint brightness. A single bin
     broadcasts, including grids with infinite single-bin bounds.
     """
@@ -24,12 +24,7 @@ class SpectralInterpolator(jft.Model):
         sky_grid: Grid,
         target_frequencies: u.Quantity,
         dtype,
-        gap_mode: str = "nearest",
     ):
-        if gap_mode not in ("nearest", "linear"):
-            raise ValueError("gap_mode must be 'nearest' or 'linear'.")
-
-        self.gap_mode = gap_mode
         bounds = get_2d_binbounds(sky_grid.spectral, u.Hz)
         target = np.asarray(target_frequencies.to_value(u.Hz), dtype=float)
 
@@ -53,18 +48,13 @@ class SpectralInterpolator(jft.Model):
         # Initialize nearest-center fallback: identical source indices and zero weight.
         # The loop replaces this mapping for targets handled by interpolation.
         # Unchanged entries return nearest brightness on either side of the grid
-        # and, in gap_mode="nearest", inside gaps.
+        # and inside gaps.
         left = nearest.copy()
         right = nearest.copy()
         weights = np.zeros(target.shape)
 
-        # In nearest mode, split at gaps so interpolation cannot bridge them.
-        # In linear mode, process all source centers together, including across gaps.
-        splits = (
-            np.flatnonzero(bounds[:-1, 1] != bounds[1:, 0]) + 1
-            if gap_mode == "nearest"
-            else np.array([], dtype=int)
-        )
+        # Split at gaps so interpolation stays within connected ranges.
+        splits = np.flatnonzero(bounds[:-1, 1] != bounds[1:, 0]) + 1
         # Process each source-index group.
         for indices in np.split(np.arange(len(bounds)), splits):
             # Select targets within this group's outer bounds: [lower, upper).

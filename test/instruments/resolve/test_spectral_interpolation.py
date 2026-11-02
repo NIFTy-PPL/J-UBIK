@@ -198,47 +198,32 @@ def test_radio_extractor_slices_normalized_frequency_axis():
         assert result.shape == ((1, 1, 2, 2, 3) if len(shape) == 3 else (2, 1, 2, 2, 3))
 
 
-@pytest.mark.parametrize(
-    "gap_mode, expected",
-    [
-        ("nearest", [1, 3, 3, 9, 11]),
-        ("linear", [1, 5, 6, 7, 11]),
-    ],
-)
-def test_configurable_gap_mode_preserves_outer_endpoints(gap_mode, expected):
+def test_gap_fallback_preserves_outer_endpoints():
+    """Check nearest-center fallback in gaps and endpoint values outside the grid.
+
+    This calls the interpolator directly: the likelihood pipeline excludes gap
+    channels before interpolation. The midpoint in the gap checks that ties
+    select the lower-frequency center.
+    """
     g = grid(np.array([[0.0, 2.0], [2.0, 4.0], [8.0, 10.0], [10.0, 12.0]]))
     op = SpectralInterpolator(
-        g, np.array([-1.0, 5.0, 6.0, 7.0, 13.0]) * u.Hz, np.float64, gap_mode=gap_mode
+        g, np.array([-1.0, 5.0, 6.0, 7.0, 13.0]) * u.Hz, np.float64
     )
     sky = jnp.broadcast_to(
         jnp.array([1.0, 3.0, 9.0, 11.0])[None, None, :, None, None], g.shape
     )
-    # Expected sky values for centers and brightness [1, 3, 9, 11]:
-    # - frequency -1: Outside the grid to the left; both modes return 1;
-    #   contribution weights: [1, 0, 0, 0].
-    # - frequency 5: In the gap;
-    #   nearest: expected: 3, weights: [0, 1, 0, 0].
-    #   Linear: w = (5 - 3)/(9 - 3) = 1/3; expected: (2/3)*3 + (1/3)*9 = 5; weights: [0, 2/3, 1/3, 0].
-    # - frequency 6: In the gap;
-    #   nearest:  tie selects 3, weights: [0, 1, 0, 0].
-    #   Linear: w = (6 - 3)/(9 - 3) = 0.5; expected: 0.5*3 + 0.5*9 = 6; weights: [0, 0.5, 0.5, 0].
-    # - frequency 7: In the gap;
-    #   nearest: expected: 9, weights: [0, 0, 1, 0].
-    #   Linear: w = (7 - 3)/(9 - 3) = 2/3;
-    #   expected: (1/3)*3 + (2/3)*9 = 7; weights: [0, 1/3, 2/3, 0].
-    # - frequency 13: Outside the grid to the right; both modes return 11;
-    #   contribution weights: [0, 0, 0, 1].
-    np.testing.assert_allclose(jax.jit(op)(sky)[0, 0, :, 0, 0], expected)
-
-
-def test_invalid_gap_mode():
-    with pytest.raises(ValueError, match="gap_mode"):
-        SpectralInterpolator(
-            grid(np.array([0.0, 2.0])),
-            np.array([1.0]) * u.Hz,
-            np.float64,
-            gap_mode="invalid",
-        )
+    # Source centers and brightness values are both [1, 3, 9, 11].
+    # - frequency -1: Below the grid; use the first endpoint's brightness, 1.
+    # - frequency 5: In the gap; distances to centers 3 and 9 are 2 and 4,
+    #   so select center 3 and return brightness 3.
+    # - frequency 6: In the gap; distances to centers 3 and 9 are both 3.
+    #   Ties select the lower center, so return brightness 3.
+    # - frequency 7: In the gap; distances to centers 3 and 9 are 4 and 2,
+    #   so select center 9 and return brightness 9.
+    # - frequency 13: Above the grid; use the last endpoint's brightness, 11.
+    # This direct call tests the fallback; data loading excludes gap channels
+    # before the interpolator is used in the likelihood pipeline.
+    np.testing.assert_allclose(jax.jit(op)(sky)[0, 0, :, 0, 0], [1, 3, 3, 9, 11])
 
 
 @pytest.mark.parametrize("enabled", [None, False, True])
@@ -296,7 +281,7 @@ def test_radio_likelihood_selects_complete_pipeline(monkeypatch, enabled):
         "alma_data": {"demo": {"dish": {}}},
     }
     if enabled is not None:
-        cfg["radio_spectral_interpolation"] = {"enabled": enabled, "gap_mode": "linear"}
+        cfg["radio_spectral_interpolation"] = {"enabled": enabled}
     products = module.build_radio_likelihood(
         ["demo"], cfg, g, jft.ShapeWithDtype((2, 2, 3), np.float64), None
     )

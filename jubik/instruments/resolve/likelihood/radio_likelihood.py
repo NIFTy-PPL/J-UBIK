@@ -265,7 +265,6 @@ def build_radio_likelihood(
                     radio_grid,
                     o.freq * u.Hz,
                     radio_sky_extractor.target.dtype,
-                    gap_mode=interpolation_settings.get("gap_mode", "nearest"),
                 )
                 if interpolation.domain.shape != radio_sky_extractor.target.shape:
                     raise ValueError(

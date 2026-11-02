@@ -153,8 +153,9 @@ slice `k` directly to observation channel `k`. Spatial axes remain YX.
 
 `SpectralInterpolator` reads source bin centers and bounds from the radio `Grid`.
 Brightness entries interpolate linearly in frequency within connected ranges.
-Outside the center span, endpoint brightness is repeated. By default, disconnected ranges
-are not interpolated across: targets in a gap take the nearest sky center,
+Outside each connected range's center span, endpoint brightness is repeated.
+Disconnected ranges are never interpolated across. For direct interpolator calls,
+targets in a gap take the nearest sky center,
 with ties selecting the lower frequency. A single sky bin broadcasts to all
 target channels, including an unbounded single-bin grid. Interpolation supports
 signed and complex entries and JAX differentiation. It evaluates at channel
@@ -165,15 +166,14 @@ behavior unless `channel_frequencies=observation.freq` is supplied.
 
 Interpolation is opt-in to preserve existing configurations. When `enabled` is
 omitted or false, the original shared sky-bin beamers and bin-based response
-mapping are used. Enable interpolation and configure gap handling in YAML:
+mapping are used. Enable interpolation in YAML:
 
 ```yaml
 radio_spectral_interpolation:
   enabled: true  # false by default
-  gap_mode: linear  # nearest (default) or linear
 ```
 
-`linear` interpolates between neighboring centers even across gaps; both modes
-retain nearest endpoint extension outside the sky center span. Direct users
-can pass `gap_mode="linear"` to `SpectralInterpolator`. Data modification still
-determines which channels reach the interpolator.
+Gaps in the sky grid exclude observation channels during data modification,
+regardless of whether interpolation is enabled. Frequency averaging also uses
+only channels within the sky bins. The nearest-center gap fallback therefore
+applies only to direct interpolator calls; it does not restore excluded data.
