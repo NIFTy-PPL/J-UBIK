@@ -68,8 +68,11 @@ def convert_polarization(
             return jnp.tensordot(mat_stokes_to_linear, inp, axes=([0], [0]))
 
     elif inp_pol == PolarizationType(("I",)):
-        if out_pol == PolarizationType(("LL", "RR")) or out_pol == PolarizationType(
-            ("XX", "YY")
+        if out_pol in (
+            PolarizationType.LL_RR,
+            PolarizationType.RR_LL,
+            PolarizationType.XX_YY,
+            PolarizationType.YY_XX,
         ):
             new_shp = list(inp.shape)
             new_shp[0] = 2
