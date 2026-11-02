@@ -254,7 +254,7 @@ def make_frequency_obs(freqs, fraction_flagged=0.0):
     )
 
 
-@pmp("position_angle", (0.0, 90.0), ids=("north", "east"))
+@pmp("position_angle", (0.0, 90.0, 30.0), ids=("north", "east", "northeast"))
 def test_response_phase_center_from_sky_coordinates(backend_settings, position_angle):
     sky_center = SkyCoord(1.0 * u.rad, 0.5 * u.rad, frame="icrs")
     offset = 3e-4
