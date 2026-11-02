@@ -32,6 +32,7 @@ from ..parse.data.data_loading import DataLoading
 from ..parse.data.data_modify import ObservationModify
 from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
 from ..parse.noise.factory_noise_correction import factory_noise_correction_parser
+from ..parse.phase_shift import PhaseShiftConfig
 from ..parse.response import yaml_to_response_settings
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
@@ -40,7 +41,7 @@ from ..likelihood.mosaic_likelihood import (
     build_likelihood_from_sky_beamer,
 )
 from ..mosaicing.sky_beamer import SkyBeamer, build_sky_beamer
-from ..phase_shift import PhaseShift, build_file_shifts
+from ..phase_shift import assign_shift_groups, build_phase_shift
 from ..multimessanger import (
     RadioSkyExtractor,
     build_radio_grid,
@@ -142,6 +143,34 @@ def build_radio_likelihood(
     direction_key: str = "PHASE_DIR",
     data_key: str = "alma_data",
 ) -> RadioLikelihoodProducts:
+    """Load the radio data blocks and build one likelihood per observation and field.
+
+    Parameters
+    ----------
+    data_names: list[str] | str
+        The data blocks to load, keys of `cfg[data_key]`.
+    cfg: dict
+        The config, with `radio_response` (backend and optional `shift`, see
+        `PhaseShiftConfig`) and the data blocks under `data_key`.
+    sky_grid: Grid
+        The grid of the sky.
+    sky_domain: dict | jft.ShapeWithDtype
+        The domain of the sky model.
+    last_radio_bin: int | None
+        The index of the last radio frequency bin of the sky, None if the whole
+        sky is radio.
+    sky_unit: u.Unit | None
+        The unit of the sky.
+    direction_key: str
+        The key of the pointing direction in the observations.
+    data_key: str
+        The config key holding the data blocks.
+
+    Returns
+    -------
+    RadioLikelihoodProducts
+        The likelihoods, named by data block, and the sky beamer.
+    """
     radio_sky_extractor = build_radio_sky_extractor(
         last_radio_bin,
         sky_domain=sky_domain,
@@ -155,9 +184,12 @@ def build_radio_likelihood(
         assert isinstance(data_names, str)
         data_names = [data_names]
 
-    shift_of_file = build_file_shifts(
-        cfg["radio_response"].get("shift"),
-        {name: cfg[data_key][name] for name in data_names},
+    data_loadings = {
+        name: DataLoading.from_yaml_dict(cfg[data_key][name]) for name in data_names
+    }
+    shift_config = PhaseShiftConfig.from_yaml_dict(cfg["radio_response"].get("shift"))
+    shift_groups = assign_shift_groups(
+        shift_config, [file for dl in data_loadings.values() for file in dl.data_files]
     )
 
     likelihoods = []
@@ -166,15 +198,15 @@ def build_radio_likelihood(
     for data_name in data_names:
         logger.info(f"\nLoading data: {data_name}")
 
-        dl = DataLoading.from_yaml_dict(cfg[data_key][data_name])
         dm = ObservationModify.from_yaml_dict(cfg[data_key][data_name])
-        observations = list(
+        loaded = list(
             load_and_modify_data_from_objects(
                 sky_frequencies=radio_grid.spectral,
-                data_loading=dl,
+                data_loading=data_loadings[data_name],
                 observation_modify=dm,
             )
         )
+        observations = [o for _, o in loaded]
 
         # TODO: The following lines have to be simplified.
         beam_func = build_primary_beam_pattern_from_beam_pattern_config(
@@ -193,9 +225,8 @@ def build_radio_likelihood(
         sky_beamers.append(_sky_beamer)
 
         for field_name, beam_direction in _sky_beamer.beam_directions.items():
-            for index, o in enumerate(observations):
+            for file, o in loaded:
                 if o.direction_from_key(direction_key) == beam_direction.direction:
-                    shift = shift_of_file[data_name][index]
                     names.append(data_name)
                     likelihoods.append(
                         build_likelihood_from_sky_beamer(
@@ -207,7 +238,9 @@ def build_radio_likelihood(
                             noise_std_correction=factory_noise_correction_parser(
                                 cfg[data_key][data_name]
                             ),
-                            shift=None if shift is None else PhaseShift(shift, o),
+                            shift=build_phase_shift(
+                                shift_config, shift_groups[file.path], o
+                            ),
                         )
                     )
 

@@ -1,82 +1,66 @@
 """Learnable phase shift of the model visibilities: an offset shared by every
 file, plus one shift per optional shift group."""
 
+from collections import defaultdict
+from collections.abc import Iterable
+
 import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from astropy import units as u
 from astropy.constants import c as speedoflight
+from nifty.cl.logger import logger
 
 from ...models.distributions import build_parametric_prior_from_prior_config
-from ...parse.models.distributions.distributions import prior_config_factory
+from ...parse.models.distributions.distributions import ProbabilityConfig
 from .data.observation import Observation
-from .parse.phase_shift import (
-    OFFSET_KEY,
-    ShiftGroup,
-    assign_shift_groups,
-    parse_shift_groups,
-    parse_shift_offset,
-)
+from .parse.data.data_loading import DataFile
+from .parse.phase_shift import OFFSET_KEY, SHIFT_SHAPE, PhaseShiftConfig, ShiftGroup
 from .util import cast_to_dtype
 
 
-def build_shift_models(groups: list[ShiftGroup]) -> dict[str, jft.Model]:
-    """Prior of the shift of each group, in arcsec, by group name.
-
-    The model of group `name` has the domain key `shift_<name>` and shape `(2,)`,
-    (row, column) of the sky grid.
-    """
-    return {
-        g.name: build_parametric_prior_from_prior_config(
-            f"shift_{g.name}",
-            prior_config_factory(g.prior, shape=(2,)),
-            (2,),
-            as_model=True,
-        )
-        for g in groups
-    }
-
-
-def build_file_shifts(
-    shift_cfg: dict | None, data_cfgs: dict[str, dict]
-) -> dict[str, list[jft.Model | None]]:
-    """The shift of every file of every data block.
-
-    A file in a group is shifted by the shared offset, domain key `shift_offset`,
-    plus `shift_<group>`, a file in no group by the offset alone.
-
-    Parameters
-    ----------
-    shift_cfg: dict | None
-        The `shift` entry of `radio_response`; None means no shifts.
-    data_cfgs: dict[str, dict]
-        The config of each data block, by data block name.
-
-    Returns
-    -------
-    dict[str, list[jft.Model | None]]
-        Per data block, the shift of each file in the order of
-        `assign_shift_groups`, None for every file without `shift_cfg`.
-    """
-    shift_groups = parse_shift_groups(shift_cfg)
-    group_of_file = assign_shift_groups(shift_groups, data_cfgs)
-    used = {group for groups in group_of_file.values() for group in groups}
-    shifts = build_shift_models([g for g in shift_groups if g.name in used])
-    offset = parse_shift_offset(shift_cfg)
-    if offset is not None:
-        off = build_shift_models([ShiftGroup(OFFSET_KEY, offset, [])])[OFFSET_KEY]
-        shifts = {None: off} | {
-            name: jft.Model(lambda x, s=s: off(x) + s(x), domain=off.domain | s.domain)
-            for name, s in shifts.items()
-        }
-    return {
-        block: [shifts.get(group) for group in groups]
-        for block, groups in group_of_file.items()
-    }
+# --------------------------------------------------------------------------------------
+# Phase Shift API
+# --------------------------------------------------------------------------------------
 
 
 class PhaseShift(jft.Model):
+    """Phase factor `exp(1j * (u * shift_col - v * shift_row))` of the model
+    visibilities, cast to `dtype`, see `build_phase_shift`.
+
+    Parameters
+    ----------
+    shift: jft.Model
+        The shift in arcsec, shape `(2,)`, sky grid (row, column).
+    u: np.ndarray
+        Phase in rad per arcsec of column shift, shape `(1, n_rows, n_freq)`.
+    v: np.ndarray
+        Phase in rad per arcsec of row shift, shape `(1, n_rows, n_freq)`.
+    dtype: np.dtype
+        The dtype of the visibilities.
+    """
+
+    def __init__(self, shift: jft.Model, u: np.ndarray, v: np.ndarray, dtype):
+        self.shift = shift
+        self._u = u
+        self._v = v
+        self._dtype = dtype
+        super().__init__(domain=shift.domain)
+
+    def __call__(self, x):
+        shift_row, shift_col = self.shift(x)
+        phase = jnp.exp(1j * (self._u * shift_col - self._v * shift_row))
+        return cast_to_dtype(phase, self._dtype)
+
+
+def build_phase_shift(
+    config: PhaseShiftConfig | None, group: ShiftGroup | None, observation: Observation
+) -> PhaseShift | None:
     """Phase factor of the model visibilities of one observation for its shift.
+
+    The shift is the offset, domain key `shift_offset`, plus `shift_<group>` if
+    the observation's file is in `group`. Observations of one group share the
+    latent through its domain key.
 
     The shift moves the sampling positions of the model sky by `shift` along
     the sky grid axes (row, column), in arcsec, so the sky as the data see it
@@ -87,23 +71,106 @@ class PhaseShift(jft.Model):
 
     Parameters
     ----------
-    shift: jft.Model
-        The shift of `observation`, shape `(2,)`.
+    config: PhaseShiftConfig | None
+        The parsed `shift` entry of `radio_response`; None means no shifts.
+    group: ShiftGroup | None
+        The group of the observation's file, see `assign_shift_groups`; None
+        for a file in no group.
     observation: Observation
         Provides `uvw`, `freq` and the dtype of the visibilities.
+
+    Returns
+    -------
+    PhaseShift | None
+        The phase factor, shape `(1, n_rows, n_freq)`, None without `config`.
     """
+    if config is None:
+        return None
+    shift = _build_shift_model(OFFSET_KEY, config.offset)
+    if group is not None:
+        off, grp = shift, _build_shift_model(group.name, group.prior)
+        shift = jft.Model(lambda x: off(x) + grp(x), domain=off.domain | grp.domain)
 
-    def __init__(self, shift: jft.Model, observation: Observation):
-        self.shift = shift
-        scale = 2 * np.pi * u.arcsec.to(u.rad) / speedoflight.value
-        uv = observation.uvw[:, :2, None] * observation.freq * scale
-        # (1, n_rows, n_freq) broadcasts against the visibilities (n_pol, n_rows, n_freq)
-        self._u = uv[None, :, 0]
-        self._v = uv[None, :, 1]
-        self._dtype = observation.vis_val.dtype
-        super().__init__(domain=shift.domain)
+    phase_u, phase_v = _phase_per_arcsec(observation)
+    return PhaseShift(shift, phase_u, phase_v, observation.vis_val.dtype)
 
-    def __call__(self, x):
-        shift_row, shift_col = self.shift(x)
-        phase = jnp.exp(1j * (self._u * shift_col - self._v * shift_row))
-        return cast_to_dtype(phase, self._dtype)
+
+def assign_shift_groups(
+    config: PhaseShiftConfig | None, files: Iterable[DataFile]
+) -> dict[str, ShiftGroup | None]:
+    """The shift group of every data file of the fit.
+
+    Parameters
+    ----------
+    config: PhaseShiftConfig | None
+        The parsed `shift` entry of `radio_response`; None means no shifts.
+    files: Iterable[DataFile]
+        Every data file of the fit, of every data block. A file loaded by
+        several blocks can appear once per block and gets the group named
+        through any of them.
+
+    Returns
+    -------
+    dict[str, ShiftGroup | None]
+        The group of each file by `DataFile.path`, None for a file in no group.
+
+    Raises
+    ------
+    ValueError
+        If a file is in two groups. Entries that match no file are ignored with
+        a warning.
+    """
+    groups = {} if config is None else {g.name: g for g in config.groups}
+    used = set()
+    owner = defaultdict(set)  # groups of each file, across blocks
+    for file in files:
+        hits = {(g.name, e) for g in groups.values() for e in g.data if file.matches(e)}
+        owner[file.path] |= {name for name, _ in hits}
+        used |= hits
+
+    for path, names in owner.items():
+        if len(names) > 1:
+            raise ValueError(f"{path} is in the shift groups {sorted(names)}")
+
+    unused = [
+        (g.name, e) for g in groups.values() for e in g.data if (g.name, e) not in used
+    ]
+    if unused:
+        logger.warning(f"Shift entries match no loaded data file, ignored: {unused}")
+    return {
+        path: groups[next(iter(names))] if names else None
+        for path, names in owner.items()
+    }
+
+
+# --------------------------------------------------------------------------------------
+# Phase Shift Internals
+# --------------------------------------------------------------------------------------
+
+
+def _build_shift_model(name: str, prior: ProbabilityConfig) -> jft.Model:
+    """Prior of one shift in arcsec.
+
+    Parameters
+    ----------
+    name: str
+        The name of the shift, the domain key is `shift_<name>`.
+    prior: ProbabilityConfig
+        The prior, shape `(2,)`, sky grid (row, column).
+
+    Returns
+    -------
+    jft.Model
+        The shift, shape `(2,)`.
+    """
+    return build_parametric_prior_from_prior_config(
+        f"shift_{name}", prior, SHIFT_SHAPE, as_model=True
+    )
+
+
+def _phase_per_arcsec(observation: Observation) -> tuple[np.ndarray, np.ndarray]:
+    """Phase in rad per arcsec of shift along u and v, shape `(1, n_rows, n_freq)`,
+    which broadcasts against the visibilities `(n_pol, n_rows, n_freq)`."""
+    scale = 2 * np.pi * u.arcsec.to(u.rad) / speedoflight.value
+    uv = observation.uvw[:, :2, None] * observation.freq * scale
+    return uv[None, :, 0], uv[None, :, 1]
