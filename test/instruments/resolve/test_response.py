@@ -16,6 +16,7 @@ from jubik.instruments.resolve.response import (
 )
 
 from generate_test_obs import generate_random_obs
+from jubik.instruments.resolve.data.auxiliary_table import AuxiliaryTable
 from jubik.instruments.resolve.data.data_modify.frequency import (
     restrict_to_discontinuous_frequencies,
 )
@@ -251,6 +252,47 @@ def make_frequency_obs(freqs, fraction_flagged=0.0):
         fraction_flagged=fraction_flagged,
         rng=np.random.default_rng(42),
     )
+
+
+@pmp("position_angle", (0.0, 90.0), ids=("north", "east"))
+def test_response_phase_center_from_sky_coordinates(backend_settings, position_angle):
+    sky_center = SkyCoord(1.0 * u.rad, 0.5 * u.rad, frame="icrs")
+    offset = 3e-4
+    phase_center = sky_center.directional_offset_by(
+        position_angle * u.deg, offset * u.rad
+    )
+    # Synthetic observation with w=0 (coplanar array)
+    obs = make_frequency_obs([1.0, 1.2])
+    field = AuxiliaryTable(
+        {"REFERENCE_DIR": np.array([[[phase_center.ra.rad, phase_center.dec.rad]]])}
+    )
+    obs = rve.Observation(
+        obs.antenna_positions,
+        obs.vis_val,
+        obs.weight_val,
+        obs.legacy_polarization,
+        obs.freq,
+        {"FIELD": field},
+    )
+    grid = ju.Grid(
+        spatial=ju.wcs.WcsAstropy(
+            center=sky_center, shape=(32, 40), fov=u.Quantity([1.0, 1.5], u.deg)
+        ),
+        spectral=ju.color.Color(np.array([0.8, 1.5]) * u.GHz),
+    )
+    cy, cx = (size // 2 for size in grid.shape[-2:])
+    vol = grid.spatial.dvol.to_value(u.rad**2)
+    sky = jnp.zeros(grid.shape).at[0, 0, 0, cy, cx].set(1 / vol)
+
+    # Known angular offsets independently pin the coordinate helper's axis order
+    # and the phase sign. Coplanar baselines isolate the phase-center shift.
+    angle = (position_angle * u.deg).to_value(u.rad)
+    center_x, center_y = offset * np.sin(angle), offset * np.cos(angle)
+    uvw = obs.uvw[:, None, :] * obs.freq[None, :, None] / c.value
+    expected = np.exp(-2j * np.pi * (uvw[..., 0] * center_x + uvw[..., 1] * center_y))
+    response = rve.interferometry_response(obs, grid, backend_settings)
+    for result in (response(sky), jax.jit(response)(sky)):
+        assert_allclose(result, expected[None, ...], rtol=1e-9, atol=1e-9)
 
 
 def test_response_frequency_bins_and_empty_bin(backend_settings):
