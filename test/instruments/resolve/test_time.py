@@ -270,7 +270,7 @@ def test_time_average_preserves_single_precision():
 # ---------------------------------------------------------------------------
 
 
-def test_time_average_raises_on_a_bin_with_total_weight_zero():
+def test_time_average_a_cell_with_total_weight_zero_stays_flagged():
     np.random.seed(311)
     shape = (2, 2, 2)
     vis = np.random.normal(size=shape) + 1j * np.random.normal(size=shape)
@@ -278,12 +278,15 @@ def test_time_average_raises_on_a_bin_with_total_weight_zero():
     weight[0, :, 0] = 0.0  # every row of one (pol, group, freq) cell flagged
     obs = manual_obs([0.0, 1.0], [0, 0], [1, 1], vis, weight)
 
-    with pytest.raises(ValueError, match="total weight 0"):
-        time_average(obs, [[0.0, 5.0]])
+    averaged = time_average(obs, [[0.0, 5.0]])
+    assert averaged.nrow == 1
+    assert averaged.weight.asnumpy()[0, 0, 0] == 0.0
+    assert averaged.vis.asnumpy()[0, 0, 0] == 0.0
+    assert averaged.weight.asnumpy()[1, 0, 0] == weight[1, :, 0].sum()
 
 
-def test_time_average_raises_when_one_baseline_is_completely_flagged():
-    """A single fully flagged baseline aborts the whole call."""
+def test_time_average_keeps_a_completely_flagged_baseline_as_a_flagged_row():
+    """A fully flagged baseline comes out flagged, next to the averaged ones."""
     np.random.seed(312)
     shape = (2, 3, 2)
     vis = np.random.normal(size=shape) + 1j * np.random.normal(size=shape)
@@ -291,8 +294,13 @@ def test_time_average_raises_when_one_baseline_is_completely_flagged():
     weight[:, 2, :] = 0.0  # the only row of baseline (0, 2)
     obs = manual_obs([0.0, 1.0, 2.0], [0, 0, 0], [1, 1, 2], vis, weight)
 
-    with pytest.raises(ValueError, match="total weight 0"):
-        time_average(obs, [[0.0, 5.0]])
+    averaged = time_average(obs, [[0.0, 5.0]])
+    assert averaged.nrow == 2
+    flagged = (averaged.ant1 == 0) & (averaged.ant2 == 2)
+    assert flagged.sum() == 1
+    assert np.all(averaged.weight.asnumpy()[:, flagged, :] == 0.0)
+    assert np.all(averaged.vis.asnumpy()[:, flagged, :] == 0.0)
+    assert np.all(averaged.weight.asnumpy()[:, ~flagged, :] > 0.0)
 
 
 def test_time_average_ignores_nan_visibilities_of_flagged_rows():
