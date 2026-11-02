@@ -352,6 +352,56 @@ def test_dtype_float2complex_rejects_nonfloat(dtype):
         dtype_float2complex(dtype)
 
 
+@pmp("inp_pol", tuple(ju.polarization.PolarizationType), ids=lambda pol: pol.name)
+@pmp("out_pol", tuple(ju.polarization.PolarizationType), ids=lambda pol: pol.name)
+def test_convert_polarization_all_types(inp_pol, out_pol):
+    """Check supported conversions and explicit rejection for all enum pairs."""
+    pol = ju.polarization.PolarizationType
+    values = np.arange(1, len(inp_pol) * 6 + 1).reshape(len(inp_pol), 2, 3)
+    # Stokes visibilities can be complex; vary both parts across all axes.
+    inp = jnp.asarray(values + 1j * values[..., ::-1])
+
+    # Unlisted pairs are currently unsupported, even if mathematically possible.
+    # Correlation inputs have no implemented conversion branch: single channels
+    # cannot generally recover Stokes, while complete sets need an inverse that
+    # is not implemented. Even correlation identity conversions are rejected.
+    expected = None
+    if inp_pol == pol.I:
+        if out_pol in (pol.I, pol.RR, pol.LL, pol.XX, pol.YY):
+            # With Q=U=V=0, each parallel-hand channel equals I; I->I is identity.
+            expected = np.asarray(inp)
+        elif out_pol in (pol.LL_RR, pol.RR_LL, pol.XX_YY, pol.YY_XX):
+            # Both parallel hands equal I, so the polarization axis is duplicated.
+            # Reversing their order has no effect for an I-only input.
+            expected = np.repeat(np.asarray(inp), 2, axis=0)
+        # Expansion of I into full Stokes or full correlation sets is not
+        # implemented, despite being possible with Q=U=V=0.
+    elif inp_pol == pol.IQUV:
+        i, q, u, v = np.asarray(inp)
+        if out_pol == pol.RR_RL_LR_LL:
+            # Circular parallel hands mix I,V; cross hands mix Q,U.
+            expected = np.stack((i + v, q + 1j * u, q - 1j * u, i - v))
+        elif out_pol == pol.XX_XY_YX_YY:
+            # Linear parallel hands mix I,Q; cross hands mix U,V.
+            expected = np.stack((i + q, u + 1j * v, u - 1j * v, i - q))
+        # Only complete correlation outputs are implemented for IQUV input;
+        # subsets, I extraction, and IQUV identity currently raise as well.
+
+    convert = lambda x: convert_polarization(x, inp_pol, out_pol)
+    if expected is None:
+        # Unsupported pairs must fail explicitly, both directly and under JIT.
+        with pytest.raises(NotImplementedError, match="not implemented"):
+            convert(inp)
+        with pytest.raises(NotImplementedError, match="not implemented"):
+            jax.jit(convert)(inp)
+    else:
+        # Supported pairs must preserve the non-polarization axes and agree
+        # with the explicit formulas, both directly and under JIT.
+        for result in (convert(inp), jax.jit(convert)(inp)):
+            assert result.shape == expected.shape
+            assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
+
+
 def stokes_to_circular(iquv):
     i, q, u, v = iquv
     return jnp.array([i + v, q + 1j * u, q - 1j * u, i - v])
