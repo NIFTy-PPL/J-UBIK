@@ -754,20 +754,21 @@ def build_flat_reference_spectral_sky(
     spatial_amplitude_settings, spectral_index_settings, harmonic_type:
         As in `build_simple_spectral_sky`.
     **kwargs:
-        Passed on to `build_simple_spectral_sky`, except `zero_mode_settings`,
-        `spatial_scaled_excitations` and `nonlinearity` (`jnp.exp`), which
-        this builder fixes, and `spectral_amplitude_settings` and
-        `log_reference_frequency_mean_model`, which must be `None`: a spectral
-        amplitude would leave the spatial amplitude without effect, and a
-        reference mean model would give the sky structure at the reference
-        frequency.
+        Passed on to `build_simple_spectral_sky`, except `zero_mode_settings`
+        and `spatial_scaled_excitations`, which this builder fixes, and
+        `spectral_amplitude_settings` and `log_reference_frequency_mean_model`,
+        which must be `None`: a spectral amplitude would leave the spatial
+        amplitude without effect, and a reference mean model would give the
+        sky structure at the reference frequency. `nonlinearity` defaults to
+        `jnp.exp`; the sky at the reference frequency is `nonlinearity(0)`
+        (1 with the default, 0 with the identity).
 
     Returns
     -------
     model: SpectralProductSky
         The multi-frequency sky model
     """
-    for key in ("zero_mode_settings", "spatial_scaled_excitations", "nonlinearity"):
+    for key in ("zero_mode_settings", "spatial_scaled_excitations"):
         if key in kwargs:
             raise ValueError(f"build_flat_reference_spectral_sky fixes `{key}`.")
     for key in ("spectral_amplitude_settings", "log_reference_frequency_mean_model"):
