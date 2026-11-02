@@ -296,7 +296,9 @@ def test_response_discontinuous_frequency_restriction(backend_settings):
     assert_allclose(restricted.weight.asnumpy(), obs.weight.asnumpy()[..., indices])
     response = rve.interferometry_response(restricted, grid, backend_settings)
     vol = grid.spatial.dvol.to_value(u.rad**2)
-    sky = jnp.zeros(grid.shape).at[0, 0, :, 16, 20].set(jnp.array([2.0, 5.0]) / vol)
+    # Keep the source centered so this checks frequency assignment without phase.
+    cy, cx = (size // 2 for size in grid.shape[-2:])
+    sky = jnp.zeros(grid.shape).at[0, 0, :, cy, cx].set(jnp.array([2.0, 5.0]) / vol)
     # Checks correct prediction assignment as in test_response_frequency_bins_and_empty_bin
     assert_allclose(
         jax.jit(response)(sky),
