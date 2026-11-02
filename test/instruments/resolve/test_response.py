@@ -341,6 +341,16 @@ def test_response_dtype_and_flags(backend_settings, dtype, expected_dtype):
     )
 
 
+@pmp("dtype, expected", ((np.float32, np.complex64), (np.float64, np.complex128)))
+def test_dtype_float2complex(dtype, expected):
+    assert dtype_float2complex(dtype) == expected
+
+
+@pmp("dtype", (np.int32, np.int64, np.bool_, np.complex64))
+def test_dtype_float2complex_rejects_nonfloat(dtype):
+    with pytest.raises(ValueError):
+        dtype_float2complex(dtype)
+
 
 def stokes_to_circular(iquv):
     i, q, u, v = iquv
