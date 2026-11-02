@@ -372,16 +372,20 @@ def test_shift_needs_one_shift_per_template():
 
 
 @pmp("templates", (["a.npz", "a.npz"], ["a.npz", "./a.npz"]))
-def test_shift_rejects_a_template_listed_twice(templates):
+def test_shift_of_a_template_listed_twice_follows_its_position(templates):
     data_cfg = {
         "data_path": "/data",
         "data_templates": templates,
         "shift": {"data_templates": [[1.0, 2.0], [3.0, 4.0]], "unit": "arcsec"},
     }
     modify = ObservationModify.from_yaml_dict(data_cfg)
-    file = next(DataLoading.from_yaml_dict(data_cfg).data_files)
-    with pytest.raises(ValueError, match="matches 2 data templates"):
-        modify(file)
+
+    shifts = [
+        modify(file).shift.shift.to_value(u.arcsec).tolist()
+        for file in DataLoading.from_yaml_dict(data_cfg).data_files
+    ]
+
+    assert shifts == [[1.0, 2.0], [3.0, 4.0]]
 
 
 def test_shift_is_applied_by_the_pipeline():

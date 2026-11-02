@@ -17,11 +17,14 @@ class DataFile:
         Canonical path of the data template the file expands from.
     data_path: str
         The `data_path` of the data block, the root of config entries.
+    template_index: int
+        The position of the template in the `data_templates` of the data block.
     """
 
     path: str
     template: str
     data_path: str
+    template_index: int
 
     def matches(self, entry: str) -> bool:
         """Whether a config entry names this file or its template.
@@ -88,12 +91,13 @@ class DataLoading:
             in that nesting order; `{field}` and `{spw}` of the template are
             filled with the field id and the spectral window.
         """
-        for fi, dt, spw in product(
-            self.field_ids, self.data_templates, self.spectral_windows
+        for fi, (ti, dt), spw in product(
+            self.field_ids, enumerate(self.data_templates), self.spectral_windows
         ):
             dt = join(self.data_path, dt)
             yield DataFile(
                 path=realpath(dt.format(field=fi, spw=spw)),
                 template=realpath(dt),
                 data_path=self.data_path,
+                template_index=ti,
             )

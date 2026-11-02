@@ -226,7 +226,7 @@ def test_entry_is_joined_to_the_data_path(entry):
 def test_data_files_join_the_data_path():
     """Templates stay relative to data_path, however DataLoading is built."""
     (file,) = DataLoading(["a{spw}.npz"], [None], [5], data_path="/data").data_files
-    assert file == DataFile("/data/a5.npz", "/data/a{spw}.npz", "/data")
+    assert file == DataFile("/data/a5.npz", "/data/a{spw}.npz", "/data", 0)
     assert file.matches("a5.npz") and file.matches("a{spw}.npz")
     assert data_files(data_cfg(["a{spw}.npz"], [5])) == [file]
 

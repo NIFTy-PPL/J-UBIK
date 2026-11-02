@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import warnings
 
 from ..data_loading import DataFile
-from .phase_center import ShiftObservation, shifts_by_template
+from .phase_center import ShiftObservation, ShiftObservationConfig
 from .frequency import SpectralModify
 from .flagging import FlagWeights
 from .weights import SystematicErrorBudget
@@ -26,7 +26,7 @@ class ObservationModify:
     weight_modify:
         Modification for the weight column (e.g. systematic error budget)
     shift:
-        The fixed phase-center shift of each data template, as parsed; the
+        The fixed phase-center shift of each data template as parsed, the
         shift of one file after `__call__`.
     """
 
@@ -34,7 +34,7 @@ class ObservationModify:
 
     spectral: SpectralModify
     weight_modify: SystematicErrorBudget | None
-    shift: tuple[tuple[str, ShiftObservation], ...] | ShiftObservation | None
+    shift: ShiftObservationConfig | ShiftObservation | None
 
     to_double_precision: bool
     select_subset: SelectSubset | None
@@ -99,7 +99,9 @@ class ObservationModify:
         weight_modify = SystematicErrorBudget.from_yaml_dict(
             data_cfg.get("weight_modify", {})
         )
-        shift = shifts_by_template(data_cfg)
+        shift = ShiftObservationConfig.from_yaml_dict(
+            data_cfg.get("shift"), len(data_cfg.get("data_templates", []))
+        )
 
         to_double_precision = data_cfg.get("to_double_precision", True)
         if select_subset := data_cfg.get("testing_percentage"):
@@ -131,25 +133,15 @@ class ObservationModify:
 
     def __call__(self, file: DataFile) -> "ObservationModify":
         """The modification of one data file of the block, with the shift of
-        the data template it expands from."""
+        its data template."""
         return ObservationModify(
             time_bins=self.time_bins,
             spectral=self.spectral,
             weight_modify=self.weight_modify,
-            shift=self._shift_of(file) if self.shift else None,
+            shift=self.shift(file) if self.shift else None,
             to_double_precision=self.to_double_precision,
             select_subset=self.select_subset,
             restrict_to_stokes_I=self.restrict_to_stokes_I,
             average_to_stokes_I=self.average_to_stokes_I,
             flag_weights=self.flag_weights,
         )
-
-    def _shift_of(self, file: DataFile) -> ShiftObservation:
-        # one template per file, else listing a template twice picks one shift
-        shifts = [s for t, s in self.shift if file.matches(t)]
-        if len(shifts) != 1:
-            raise ValueError(
-                f"{file.path} matches {len(shifts)} data templates of the "
-                "block, the fixed shift needs exactly one"
-            )
-        return shifts[0]
