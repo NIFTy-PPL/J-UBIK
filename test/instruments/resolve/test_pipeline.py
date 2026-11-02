@@ -380,7 +380,7 @@ def test_shift_rejects_a_template_listed_twice(templates):
     }
     modify = ObservationModify.from_yaml_dict(data_cfg)
     file = next(DataLoading.from_yaml_dict(data_cfg).data_files)
-    with pytest.raises(ValueError, match="expands from 2 data templates"):
+    with pytest.raises(ValueError, match="matches 2 data templates"):
         modify(file)
 
 

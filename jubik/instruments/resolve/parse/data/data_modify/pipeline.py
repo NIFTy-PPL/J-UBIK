@@ -146,10 +146,10 @@ class ObservationModify:
 
     def _shift_of(self, file: DataFile) -> ShiftObservation:
         # one template per file, else listing a template twice picks one shift
-        shifts = [s for t, s in self.shift if file.expands_from(t)]
+        shifts = [s for t, s in self.shift if file.matches(t)]
         if len(shifts) != 1:
             raise ValueError(
-                f"{file.path} expands from {len(shifts)} data templates of the "
+                f"{file.path} matches {len(shifts)} data templates of the "
                 "block, the fixed shift needs exactly one"
             )
         return shifts[0]
