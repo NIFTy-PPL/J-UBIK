@@ -10,12 +10,12 @@ from ..data_loading import DataFile
 
 @dataclass
 class ShiftObservation:
-    """The phase-center shift of one observation.
+    """The phase-center shift of one observation, see `shift_phase_center`.
 
     Parameters
     ----------
     shift: u.Quantity
-        The shift, shape `(2,)`.
+        The sky offset `(sx, sy)` moved onto the phase center, shape `(2,)`.
     """
 
     shift: u.Quantity
@@ -23,12 +23,13 @@ class ShiftObservation:
 
 @dataclass
 class ShiftObservationConfig:
-    """The `shift` entry of a data block: one shift per data template.
+    """The `shift` entry of a data block, one shift per data template.
 
     Parameters
     ----------
     shifts: u.Quantity
-        Shape `(n_templates, 2)`, in the order of `data_templates`.
+        The shift of each data template, in the order of `data_templates`,
+        shape `(n_templates, 2)`.
     """
 
     shifts: u.Quantity
@@ -37,16 +38,17 @@ class ShiftObservationConfig:
     def from_yaml_dict(
         cls, shift_cfg: dict | None, n_templates: int
     ) -> Union[None, "ShiftObservationConfig"]:
-        """
-        Build from yaml dictionary.
+        """Build from the `shift` entry of a data block.
 
         Parameters
         ----------
-        shift_cfg:
+        shift_cfg: dict | None
+            None means no shift, otherwise
             - data_templates: list[tuple[float, float]]
-                The shift for each data_template, in its order.
-            - unit: u.Unit
-        n_templates:
+                The shift `(sx, sy)` of each data template, in its order.
+            - unit: str
+                The unit of the shifts, e.g. `arcsec`.
+        n_templates: int
             The number of data templates of the data block.
 
         Raises
@@ -66,5 +68,11 @@ class ShiftObservationConfig:
         return cls(shifts=shifts)
 
     def __call__(self, file: DataFile) -> ShiftObservation:
-        """The shift of one data file, the shift of its data template."""
+        """The shift of a data file, the shift of its data template.
+
+        Parameters
+        ----------
+        file: DataFile
+            A file of the block, from `DataLoading.data_files`.
+        """
         return ShiftObservation(self.shifts[file.template_index])

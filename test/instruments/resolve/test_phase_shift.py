@@ -16,7 +16,9 @@ from jubik.instruments.resolve.data import load_and_modify_data_from_objects
 from jubik.instruments.resolve.mosaicing.sky_beamer import BeamPattern, SkyBeamer
 from jubik.instruments.resolve.parse.data import DataLoading
 from jubik.instruments.resolve.parse.data.data_loading import DataFile
-from jubik.instruments.resolve.parse.data.data_modify.pipeline import ObservationModify
+from jubik.instruments.resolve.parse.data.data_modify.pipeline import (
+    ObservationModifyConfig,
+)
 from jubik.instruments.resolve.parse.phase_shift import PhaseShiftConfig
 from jubik.instruments.resolve.phase_shift import (
     assign_shift_groups,
@@ -268,7 +270,7 @@ def test_loader_yields_each_observation_with_its_file(tmp_path):
     loaded = load_and_modify_data_from_objects(
         ju.Color([0.5e9, 2e9] * u.Hz),
         DataLoading.from_yaml_dict(cfg),
-        ObservationModify.from_yaml_dict({}),
+        ObservationModifyConfig.from_yaml_dict({}),
     )
     seen = {}
     for file, obs in loaded:

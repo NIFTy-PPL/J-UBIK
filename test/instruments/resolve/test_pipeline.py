@@ -17,7 +17,9 @@ from jubik.instruments.resolve.data.data_modify.time import (
 )
 from jubik.instruments.resolve.parse.data import DataLoading
 from jubik.instruments.resolve.parse.data.data_modify.flagging import FlagWeights
-from jubik.instruments.resolve.parse.data.data_modify.pipeline import ObservationModify
+from jubik.instruments.resolve.parse.data.data_modify.pipeline import (
+    ObservationModifyConfig,
+)
 from jubik.instruments.resolve.parse.data.data_modify.phase_center import (
     ShiftObservation,
 )
@@ -64,6 +66,13 @@ def continuous_sky(fmin, fmax):
     return ju.Color([fmin, fmax] * u.Hz)
 
 
+def modify_of(cfg):
+    """The `ObservationModify` of the one file of a data block `cfg`."""
+    data_cfg = {"data_path": "/data", "data_templates": ["a.npz"]} | cfg
+    (file,) = DataLoading.from_yaml_dict(data_cfg).data_files
+    return ObservationModifyConfig.from_yaml_dict(data_cfg)(file)
+
+
 # ---------------------------------------------------------------------------
 # The default configuration
 # ---------------------------------------------------------------------------
@@ -73,7 +82,7 @@ def test_default_modify_is_identity():
     np.random.seed(200)
     freqs = 1.0e9 + np.arange(3) * 0.1e9
     obs = build_obs(freqs)
-    modify = ObservationModify.from_yaml_dict({})
+    modify = modify_of({})
 
     new = modify_observation(continuous_sky(0.95e9, 1.25e9), obs, modify)
 
@@ -99,7 +108,7 @@ def test_default_modify_upcasts_single_precision_data():
         obs.freq,
         None,
     )
-    modify = ObservationModify.from_yaml_dict({})
+    modify = modify_of({})
 
     new = modify_observation(continuous_sky(0.95e9, 1.15e9), single, modify)
 
@@ -114,7 +123,7 @@ def test_modify_does_not_mutate_its_input_and_is_idempotent():
     obs = build_obs(freqs, n_rows=5)
     vis_before = obs.vis_val.copy()
     weight_before = obs.weight_val.copy()
-    modify = ObservationModify.from_yaml_dict({"weight_modify": {"percentage": 0.1}})
+    modify = modify_of({"weight_modify": {"percentage": 0.1}})
     sky = continuous_sky(0.95e9, 1.15e9)
 
     first = modify_observation(sky, obs, modify)
@@ -143,7 +152,7 @@ def test_flag_weights_runs_before_frequency_averaging():
     obs = with_weight(build_obs(freqs, n_rows=6), (0, 3, 2), 1.0e14)
     sky = continuous_sky(0.95e9, 1.55e9)
     setting = FlagWeights(min=1e-12, max=1e12)
-    modify = ObservationModify.from_yaml_dict(
+    modify = modify_of(
         {
             "flag_weights": {"min": 1e-12, "max": 1e12},
             "spectral": {"bins": 2, "averaging_mode": "arithmetic"},
@@ -188,7 +197,7 @@ def test_flag_weights_runs_before_time_averaging():
     )
     sky = continuous_sky(0.95e9, 1.15e9)
     setting = FlagWeights(min=1e-3, max=1e12)
-    modify = ObservationModify.from_yaml_dict(
+    modify = modify_of(
         {"flag_weights": {"min": 1e-3, "max": 1e12}, "time_bins": 30}
     )
 
@@ -235,7 +244,7 @@ def test_exclude_frequency_ranges_runs_before_frequency_averaging(mode):
     )
     sky = continuous_sky(0.95e9, 1.55e9)
     ranges = [[1.15e9, 1.35e9]]
-    modify = ObservationModify.from_yaml_dict(
+    modify = modify_of(
         {
             "spectral": {
                 "bins": 1,
@@ -287,7 +296,7 @@ def test_descending_frequencies_are_reversed():
     np.random.seed(206)
     freqs = (1.0e9 + np.arange(4) * 0.1e9)[::-1]
     obs = build_obs(freqs)
-    modify = ObservationModify.from_yaml_dict({})
+    modify = modify_of({})
 
     new = modify_observation(continuous_sky(0.95e9, 1.35e9), obs, modify)
 
@@ -301,7 +310,7 @@ def test_ascending_frequencies_are_not_reversed():
     np.random.seed(207)
     freqs = 1.0e9 + np.arange(4) * 0.1e9
     obs = build_obs(freqs)
-    modify = ObservationModify.from_yaml_dict({})
+    modify = modify_of({})
 
     new = modify_observation(continuous_sky(0.95e9, 1.35e9), obs, modify)
 
@@ -312,7 +321,7 @@ def test_ascending_frequencies_are_not_reversed():
 def test_single_channel_observation_is_not_reversed():
     np.random.seed(208)
     obs = build_obs(np.array([1.0e9]))
-    modify = ObservationModify.from_yaml_dict({})
+    modify = modify_of({})
 
     new = modify_observation(continuous_sky(0.95e9, 1.05e9), obs, modify)
 
@@ -325,18 +334,6 @@ def test_single_channel_observation_is_not_reversed():
 # ---------------------------------------------------------------------------
 
 
-def modify_with_shift(cfg, shift):
-    """The modification of the one file of a data block `cfg` shifted by
-    `shift` in rad."""
-    data_cfg = {
-        "data_path": "/data",
-        "data_templates": ["a.npz"],
-        "shift": {"data_templates": [shift], "unit": "rad"},
-    } | cfg
-    (file,) = DataLoading.from_yaml_dict(data_cfg).data_files
-    return ObservationModify.from_yaml_dict(data_cfg)(file)
-
-
 def test_shift_is_the_shift_of_the_files_template():
     """Every file of a template gets its shift, however many it expands to."""
     data_cfg = {
@@ -345,7 +342,7 @@ def test_shift_is_the_shift_of_the_files_template():
         "spectral": {"window": [5, 7]},
         "shift": {"data_templates": [[1.0, 2.0], [3.0, 4.0]], "unit": "arcsec"},
     }
-    modify = ObservationModify.from_yaml_dict(data_cfg)
+    modify = ObservationModifyConfig.from_yaml_dict(data_cfg)
 
     shifts = {
         file.path: modify(file).shift.shift.to_value(u.arcsec).tolist()
@@ -368,7 +365,7 @@ def test_shift_needs_one_shift_per_template():
         "shift": {"data_templates": [[1.0, 2.0], [3.0, 4.0]], "unit": "arcsec"},
     }
     with pytest.raises(ValueError, match="one shift per data template"):
-        ObservationModify.from_yaml_dict(data_cfg)
+        ObservationModifyConfig.from_yaml_dict(data_cfg)
 
 
 @pmp("templates", (["a.npz", "a.npz"], ["a.npz", "./a.npz"]))
@@ -378,7 +375,7 @@ def test_shift_of_a_template_listed_twice_follows_its_position(templates):
         "data_templates": templates,
         "shift": {"data_templates": [[1.0, 2.0], [3.0, 4.0]], "unit": "arcsec"},
     }
-    modify = ObservationModify.from_yaml_dict(data_cfg)
+    modify = ObservationModifyConfig.from_yaml_dict(data_cfg)
 
     shifts = [
         modify(file).shift.shift.to_value(u.arcsec).tolist()
@@ -393,7 +390,7 @@ def test_shift_is_applied_by_the_pipeline():
     freqs = 1.0e9 + np.arange(2) * 0.1e9
     obs = build_obs(freqs, n_rows=4)
     sx, sy = 2.0e-4, -5.0e-4
-    modify = modify_with_shift({}, [sx, sy])
+    modify = modify_of({"shift": {"data_templates": [[sx, sy]], "unit": "rad"}})
 
     new = modify_observation(continuous_sky(0.95e9, 1.15e9), obs, modify)
 
@@ -433,7 +430,12 @@ def test_shift_should_be_applied_before_frequency_averaging():
         None,
     )
     sky = continuous_sky(0.95e9, 2.05e9)
-    modify = modify_with_shift({"spectral": {"bins": 1}}, [sx, 0.0])
+    modify = modify_of(
+        {
+            "spectral": {"bins": 1},
+            "shift": {"data_templates": [[sx, 0.0]], "unit": "rad"},
+        }
+    )
 
     new = modify_observation(sky, point, modify)
 
