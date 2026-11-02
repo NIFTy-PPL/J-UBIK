@@ -5,21 +5,6 @@ from typing import Union
 
 from astropy import units as u
 
-from ..data_loading import DataFile
-
-
-@dataclass
-class ShiftObservation:
-    """The phase-center shift of one observation, see `shift_phase_center`.
-
-    Parameters
-    ----------
-    shift: u.Quantity
-        The sky offset `(sx, sy)` moved onto the phase center, shape `(2,)`.
-    """
-
-    shift: u.Quantity
-
 
 @dataclass
 class ShiftObservationConfig:
@@ -67,12 +52,3 @@ class ShiftObservationConfig:
             )
         return cls(shifts=shifts)
 
-    def __call__(self, file: DataFile) -> ShiftObservation:
-        """The shift of a data file, the shift of its data template.
-
-        Parameters
-        ----------
-        file: DataFile
-            A file of the block, from `DataLoading.data_files`.
-        """
-        return ShiftObservation(self.shifts[file.template_index])

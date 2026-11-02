@@ -3,8 +3,7 @@
 from dataclasses import dataclass
 import warnings
 
-from ..data_loading import DataFile
-from .phase_center import ShiftObservation, ShiftObservationConfig
+from .phase_center import ShiftObservationConfig
 from .frequency import SpectralModify
 from .flagging import FlagWeights
 from .weights import SystematicErrorBudget
@@ -12,56 +11,18 @@ from .visibility_subset import SelectSubset
 
 
 @dataclass
-class ObservationModify:
-    """The modification of one observation, see `modify_observation`.
-
-    Parameters
-    ----------
-    time_bins: int | None
-        Average the visibilities in time to this many bins.
-    spectral: SpectralModify
-        Restrict, exclude and average the frequency channels.
-    weight_modify: SystematicErrorBudget | None
-        Systematic error budget added to the noise of the visibilities.
-    shift: ShiftObservation | None
-        Fixed phase-center shift of the observation.
-    to_double_precision: bool
-        Cast visibilities and weights to double precision.
-    select_subset: SelectSubset | None
-        Keep a random subset of the visibilities.
-    restrict_to_stokes_I: bool
-        Restrict the data to Stokes I.
-    average_to_stokes_I: bool
-        Average the data to Stokes I.
-    flag_weights: FlagWeights | None
-        Flag visibilities whose weights lie outside a range.
-    """
-
-    time_bins: int | None
-
-    spectral: SpectralModify
-    weight_modify: SystematicErrorBudget | None
-    shift: ShiftObservation | None
-
-    to_double_precision: bool
-    select_subset: SelectSubset | None
-    restrict_to_stokes_I: bool
-    average_to_stokes_I: bool
-    flag_weights: FlagWeights | None
-
-
-@dataclass
 class ObservationModifyConfig:
     """The modification of the observations of a data block, parsed from its
-    config. Calling it with a `DataFile` gives the `ObservationModify` of that
-    file.
+    config. `build_observation_modify` gives the modification of one file of
+    the block.
 
     Parameters
     ----------
     shift: ShiftObservationConfig | None
         Fixed phase-center shift of each data template of the block.
 
-    The other fields are those of `ObservationModify`, passed on unchanged.
+    The other fields are those of `ObservationModify`, which takes them over
+    unchanged.
     """
 
     time_bins: int | None
@@ -151,27 +112,3 @@ class ObservationModifyConfig:
             flag_weights=flag_weights,
         )
 
-    def __call__(self, file: DataFile) -> ObservationModify:
-        """The modification of one data file of the block.
-
-        Parameters
-        ----------
-        file: DataFile
-            A file of the block, from `DataLoading.data_files`.
-
-        Returns
-        -------
-        ObservationModify
-            These settings, with the shift of the file's data template.
-        """
-        return ObservationModify(
-            time_bins=self.time_bins,
-            spectral=self.spectral,
-            weight_modify=self.weight_modify,
-            shift=self.shift(file) if self.shift else None,
-            to_double_precision=self.to_double_precision,
-            select_subset=self.select_subset,
-            restrict_to_stokes_I=self.restrict_to_stokes_I,
-            average_to_stokes_I=self.average_to_stokes_I,
-            flag_weights=self.flag_weights,
-        )

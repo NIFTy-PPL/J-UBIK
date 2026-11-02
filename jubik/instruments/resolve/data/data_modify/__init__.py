@@ -1,4 +1,4 @@
-from .pipeline import modify_observation
+from .pipeline import ObservationModify, build_observation_modify, modify_observation
 
 try:
     from .classic_observation import convert_to_classic_observation

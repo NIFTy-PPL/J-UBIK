@@ -1,11 +1,18 @@
 """Pipeline for applying configured transformations to an observation."""
 
+from dataclasses import dataclass
+
 import astropy.units as u
 from nifty.cl.logger import logger
 
 from .....color import Color
 from ...constants import RESOLVE_SPECTRAL_UNIT
-from ...parse.data.data_modify import ObservationModify
+from ...parse.data.data_loading import DataFile
+from ...parse.data.data_modify import ObservationModifyConfig
+from ...parse.data.data_modify.flagging import FlagWeights
+from ...parse.data.data_modify.frequency import SpectralModify
+from ...parse.data.data_modify.visibility_subset import SelectSubset
+from ...parse.data.data_modify.weights import SystematicErrorBudget
 from ..observation import Observation
 from .flagging import flag_weights
 from .frequency import (
@@ -20,7 +27,80 @@ from .precision import to_double_precision, to_single_precision
 from .visibility_subset import select_random_visibility_subset
 from .time import time_average_to_length_of_timebins
 from .weights import systematic_error_budget
-from .phase_center import shift_phase_center
+from .phase_center import ShiftObservation, shift_phase_center
+
+
+@dataclass
+class ObservationModify:
+    """The modification of one observation, see `modify_observation`.
+
+    Parameters
+    ----------
+    time_bins: int | None
+        Average the visibilities in time to this many bins.
+    spectral: SpectralModify
+        Restrict, exclude and average the frequency channels.
+    weight_modify: SystematicErrorBudget | None
+        Systematic error budget added to the noise of the visibilities.
+    shift: ShiftObservation | None
+        Fixed phase-center shift of the observation.
+    to_double_precision: bool
+        Cast visibilities and weights to double precision.
+    select_subset: SelectSubset | None
+        Keep a random subset of the visibilities.
+    restrict_to_stokes_I: bool
+        Restrict the data to Stokes I.
+    average_to_stokes_I: bool
+        Average the data to Stokes I.
+    flag_weights: FlagWeights | None
+        Flag visibilities whose weights lie outside a range.
+    """
+
+    time_bins: int | None
+
+    spectral: SpectralModify
+    weight_modify: SystematicErrorBudget | None
+    shift: ShiftObservation | None
+
+    to_double_precision: bool
+    select_subset: SelectSubset | None
+    restrict_to_stokes_I: bool
+    average_to_stokes_I: bool
+    flag_weights: FlagWeights | None
+
+
+def build_observation_modify(
+    config: ObservationModifyConfig, file: DataFile
+) -> ObservationModify:
+    """The modification of one data file of a data block.
+
+    Parameters
+    ----------
+    config: ObservationModifyConfig
+        The modification of the data block.
+    file: DataFile
+        A file of the block, from `DataLoading.data_files`.
+
+    Returns
+    -------
+    ObservationModify
+        The settings of `config`, with the shift of the file's data template.
+    """
+    return ObservationModify(
+        time_bins=config.time_bins,
+        spectral=config.spectral,
+        weight_modify=config.weight_modify,
+        shift=(
+            None
+            if config.shift is None
+            else ShiftObservation(config.shift.shifts[file.template_index])
+        ),
+        to_double_precision=config.to_double_precision,
+        select_subset=config.select_subset,
+        restrict_to_stokes_I=config.restrict_to_stokes_I,
+        average_to_stokes_I=config.average_to_stokes_I,
+        flag_weights=config.flag_weights,
+    )
 
 
 def modify_observation(

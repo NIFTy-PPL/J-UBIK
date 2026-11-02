@@ -10,8 +10,14 @@ from jubik.instruments.resolve.data.data_modify.frequency import (
     exclude_frequency_ranges,
     freq_average_by_fdom_and_n_freq_chunks,
 )
-from jubik.instruments.resolve.data.data_modify.phase_center import shift_phase_center
-from jubik.instruments.resolve.data.data_modify.pipeline import modify_observation
+from jubik.instruments.resolve.data.data_modify.phase_center import (
+    ShiftObservation,
+    shift_phase_center,
+)
+from jubik.instruments.resolve.data.data_modify.pipeline import (
+    build_observation_modify,
+    modify_observation,
+)
 from jubik.instruments.resolve.data.data_modify.time import (
     time_average_to_length_of_timebins,
 )
@@ -19,9 +25,6 @@ from jubik.instruments.resolve.parse.data import DataLoading
 from jubik.instruments.resolve.parse.data.data_modify.flagging import FlagWeights
 from jubik.instruments.resolve.parse.data.data_modify.pipeline import (
     ObservationModifyConfig,
-)
-from jubik.instruments.resolve.parse.data.data_modify.phase_center import (
-    ShiftObservation,
 )
 
 from generate_test_obs import generate_random_obs
@@ -70,7 +73,9 @@ def modify_of(cfg):
     """The `ObservationModify` of the one file of a data block `cfg`."""
     data_cfg = {"data_path": "/data", "data_templates": ["a.npz"]} | cfg
     (file,) = DataLoading.from_yaml_dict(data_cfg).data_files
-    return ObservationModifyConfig.from_yaml_dict(data_cfg)(file)
+    return build_observation_modify(
+        ObservationModifyConfig.from_yaml_dict(data_cfg), file
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -344,10 +349,10 @@ def test_shift_is_the_shift_of_the_files_template():
     }
     modify = ObservationModifyConfig.from_yaml_dict(data_cfg)
 
-    shifts = {
-        file.path: modify(file).shift.shift.to_value(u.arcsec).tolist()
-        for file in DataLoading.from_yaml_dict(data_cfg).data_files
-    }
+    shifts = {}
+    for file in DataLoading.from_yaml_dict(data_cfg).data_files:
+        shift = build_observation_modify(modify, file).shift.shift
+        shifts[file.path] = shift.to_value(u.arcsec).tolist()
 
     assert shifts == {
         "/data/a_spw5.npz": [1.0, 2.0],
@@ -378,7 +383,7 @@ def test_shift_of_a_template_listed_twice_follows_its_position(templates):
     modify = ObservationModifyConfig.from_yaml_dict(data_cfg)
 
     shifts = [
-        modify(file).shift.shift.to_value(u.arcsec).tolist()
+        build_observation_modify(modify, file).shift.shift.to_value(u.arcsec).tolist()
         for file in DataLoading.from_yaml_dict(data_cfg).data_files
     ]
 

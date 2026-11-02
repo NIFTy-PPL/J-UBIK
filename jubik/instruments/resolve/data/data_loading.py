@@ -6,7 +6,7 @@ from nifty.cl.logger import logger
 from ....color import Color
 from ..parse.data.data_loading import DataFile, DataLoading
 from ..parse.data.data_modify import ObservationModifyConfig
-from .data_modify import modify_observation
+from .data_modify import build_observation_modify, modify_observation
 from .observation import Observation
 
 
@@ -41,5 +41,7 @@ def load_and_modify_data_from_objects(
     for file in data_loading.data_files:
         logger.info(f"\nLoading data: {file.path}")
         obs = Observation.load(file.path)
-        obs = modify_observation(sky_frequencies, obs, observation_modify(file))
+        obs = modify_observation(
+            sky_frequencies, obs, build_observation_modify(observation_modify, file)
+        )
         yield file, obs
