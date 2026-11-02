@@ -121,6 +121,7 @@ class PolarizationType(Enum):
     RR_LL = ("RR", "LL")
     LL_RR = ("LL", "RR")
     XX_YY = ("XX", "YY")
+    YY_XX = ("YY", "XX")
 
     # Polarized
     IQUV = ("I", "Q", "U", "V")
