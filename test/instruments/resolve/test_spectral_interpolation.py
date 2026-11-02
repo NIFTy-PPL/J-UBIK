@@ -26,6 +26,21 @@ def grid(bounds):
     )
 
 
+@pytest.mark.parametrize("dtype", [np.float32, np.float64, np.complex64, np.complex128])
+def test_interpolation_preserves_sky_precision(dtype):
+    with jax.experimental.enable_x64():
+        g = grid(np.array([0., 2., 4.]))
+        op = SpectralInterpolator(g, np.array([1.5]) * u.Hz, dtype)
+        values = np.array([1., 3.], dtype=dtype)
+        if np.issubdtype(dtype, np.complexfloating):
+            values += 2j * values
+        sky = jnp.broadcast_to(jnp.asarray(values)[None, None, :, None, None], g.shape)
+        result = jax.jit(op)(sky)
+        assert result.dtype == np.dtype(dtype)
+        assert op.target.dtype == np.dtype(dtype)
+        np.testing.assert_allclose(result, 0.75 * values[0] + 0.25 * values[1])
+
+
 def test_irregular_centers_edges_jit_and_gradient():
     g = grid(np.array([0.0, 2.0, 6.0, 12.0]))  # centers 1, 4, 9
     op = SpectralInterpolator(

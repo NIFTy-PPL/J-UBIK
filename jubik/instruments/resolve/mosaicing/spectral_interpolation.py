@@ -101,8 +101,10 @@ class SpectralInterpolator(jft.Model):
             )
         self.left = jnp.asarray(left)
         self.right = jnp.asarray(right)
+        # Match the sky's real precision to avoid promoting single-precision inputs.
+        weight_dtype = np.empty((), dtype=dtype).real.dtype
         # Broadcast frequency weights over polarization, time, y, and x.
-        self.weights = jnp.asarray(weights)[None, None, :, None, None]
+        self.weights = jnp.asarray(weights, dtype=weight_dtype)[None, None, :, None, None]
         self.target_frequencies = target_frequencies.to(u.Hz).copy()
         super().__init__(domain=jft.ShapeWithDtype(sky_grid.shape, dtype))
 
