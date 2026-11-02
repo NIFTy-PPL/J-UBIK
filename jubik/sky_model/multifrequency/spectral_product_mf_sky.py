@@ -637,6 +637,13 @@ def build_simple_spectral_sky(
             fluctuations_settings=spatial_amplitude_settings[fluct],
             shape=harmonic_shape,
         )
+    else:
+        for key in ("fluctuations", "scale"):
+            if spatial_amplitude_settings.get(key) is not None:
+                logger.info(
+                    f"`spatial_amplitude.{key}` is ignored, because "
+                    "`spatial_scaled_excitations` is given."
+                )
     spatial_amplitude = build_normalized_amplitude_model(
         grid,
         spatial_amplitude_settings,
@@ -747,17 +754,25 @@ def build_flat_reference_spectral_sky(
     spatial_amplitude_settings, spectral_index_settings, harmonic_type:
         As in `build_simple_spectral_sky`.
     **kwargs:
-        Passed on to `build_simple_spectral_sky`, except `zero_mode_settings`
-        and `spatial_scaled_excitations`, which this builder fixes.
+        Passed on to `build_simple_spectral_sky`, except `zero_mode_settings`,
+        `spatial_scaled_excitations` and `nonlinearity` (`jnp.exp`), which
+        this builder fixes, and `spectral_amplitude_settings` and
+        `log_reference_frequency_mean_model`, which must be `None`: a spectral
+        amplitude would leave the spatial amplitude without effect, and a
+        reference mean model would give the sky structure at the reference
+        frequency.
 
     Returns
     -------
     model: SpectralProductSky
         The multi-frequency sky model
     """
-    for key in ("zero_mode_settings", "spatial_scaled_excitations"):
+    for key in ("zero_mode_settings", "spatial_scaled_excitations", "nonlinearity"):
         if key in kwargs:
             raise ValueError(f"build_flat_reference_spectral_sky fixes `{key}`.")
+    for key in ("spectral_amplitude_settings", "log_reference_frequency_mean_model"):
+        if kwargs.get(key) is not None:
+            raise ValueError(f"build_flat_reference_spectral_sky takes no `{key}`.")
     harmonic_shape = make_grid(shape, distances, harmonic_type).harmonic_grid.shape
     no_reference = Model(lambda _: jnp.zeros(harmonic_shape), domain={})
     return build_simple_spectral_sky(

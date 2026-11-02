@@ -677,6 +677,7 @@ def test_flat_reference_spectral_sky(deviations_settings):
         reference_frequency_index=reference_frequency_index,
         spectral_index_settings=dict(mean=(1.5, 0.5), fluctuations=(0.5, 0.1)),
         deviations_settings=deviations_settings,
+        spectral_amplitude_settings=None,
     )
     shape_settings = dict(
         loglogavgslope=(-4.5, 0.5), flexibility=(0.8, 0.3), asperity=None
@@ -709,8 +710,18 @@ def test_flat_reference_spectral_sky(deviations_settings):
     assert_allclose(sky, simple(simple_position))
 
 
-def test_flat_reference_spectral_sky_fixes_its_reference():
-    with pytest.raises(ValueError, match="zero_mode_settings"):
+@pmp(
+    "key, value",
+    [
+        ("zero_mode_settings", (0.0, 1.0)),
+        ("spatial_scaled_excitations", jft.Model(lambda _: np.zeros((8, 8)), domain={})),
+        ("nonlinearity", lambda x: x),
+        ("spectral_amplitude_settings", dict(loglogavgslope=(-4.0, 0.5))),
+        ("log_reference_frequency_mean_model", jft.Model(lambda _: 1.0, domain={})),
+    ],
+)
+def test_flat_reference_spectral_sky_fixes_its_reference(key, value):
+    with pytest.raises(ValueError, match=key):
         ju.build_flat_reference_spectral_sky(
             prefix="flat",
             shape=(8, 8),
@@ -719,5 +730,5 @@ def test_flat_reference_spectral_sky_fixes_its_reference():
             reference_frequency_index=0,
             spatial_amplitude_settings=dict(loglogavgslope=(-4.0, 0.5)),
             spectral_index_settings=dict(mean=(0.0, 1.0), fluctuations=(0.1, 0.01)),
-            zero_mode_settings=(0.0, 1.0),
+            **{key: value},
         )
