@@ -78,6 +78,22 @@ def test_gaps_nearest_and_ties():
     np.testing.assert_allclose(op(sky)[0, 0, :, 0, 0], expected_sky)
 
 
+@pytest.mark.parametrize(
+    "bounds, targets, expected",
+    [
+        ([[0., 100.], [101., 102.]], [99., 100.5, 101.5], [10., 20., 20.]),
+        ([[0., 1.], [2., 102.]], [0.5, 1.5, 3.], [10., 10., 20.]),
+    ],
+)
+def test_nearest_mode_preserves_isolated_bin_brightness(bounds, targets, expected):
+    g = grid(np.array(bounds))
+    op = SpectralInterpolator(g, np.array(targets) * u.Hz, np.float64)
+    sky = jnp.broadcast_to(
+        jnp.array([10., 20.])[None, None, :, None, None], g.shape
+    )
+    np.testing.assert_allclose(jax.jit(op)(sky)[0, 0, :, 0, 0], expected)
+
+
 def test_single_unbounded_bin_complex():
     # If single frequency sky interpolation assigns that value to all target frequencies
     g = grid(np.array([-np.inf, np.inf]))

@@ -67,13 +67,15 @@ class SpectralInterpolator(jft.Model):
         )
         # Process each source-index group.
         for indices in np.split(np.arange(len(bounds)), splits):
-            # Groups with one center retain the nearest fallback.
-            if len(indices) < 2:
-                continue
             # Select targets within this group's outer bounds: [lower, upper).
             selected = (target >= bounds[indices[0], 0]) & (
                 target < bounds[indices[-1], 1]
             )
+            # Inside an isolated bin, use that bin even when another range's
+            # center is closer. Keep the global nearest fallback only in gaps.
+            if len(indices) == 1:
+                left[selected] = right[selected] = indices[0]
+                continue
             # Positions of selected targets in the full target array.
             positions = np.flatnonzero(selected)
             # Find insertion positions within this group's centers.
