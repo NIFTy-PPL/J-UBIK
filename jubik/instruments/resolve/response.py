@@ -260,6 +260,7 @@ def interferometry_response(
                         continue
                     inp = sky[pp, tt, ff]
                     r = canonical_sky_to_visibilities(op, inp)
+                    r = r.astype(res.dtype)
                     res = res.at[pp, row_indices[tt][ff], freq_indices[tt][ff]].set(r)
         return convert_polarization(res, inp_pol, out_pol)
 
