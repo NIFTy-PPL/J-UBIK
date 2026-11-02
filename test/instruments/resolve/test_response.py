@@ -9,6 +9,8 @@ from astropy.constants import c
 import jubik as ju
 import jubik.instruments.resolve as rve
 from jubik.instruments.resolve.response import (
+    convert_polarization,
+    dtype_float2complex,
     interferometry_response_ducc,
     interferometry_response_finufft,
 )
@@ -475,7 +477,7 @@ def test_response_StokesIQUV(freqs, circular, source):
     cx = grid.shape[3] // 2
     cy = grid.shape[4] // 2
     dvol = grid.spatial.dvol.to(u.rad**2).value
-    sky[:, 0, :, cx, cy] = source[np.newaxis].T / dvol
+    sky = sky.at[:, 0, :, cx, cy].set(source[np.newaxis].T / dvol)
     vis_ducc = r_ducc(sky)
     vis_finufft = r_finufft(sky)
     if circular:
