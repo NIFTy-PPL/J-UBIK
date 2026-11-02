@@ -515,6 +515,7 @@ def build_simple_spectral_sky(
     nonlinearity: callable = jnp.exp,
     sht_nthreads: int = 1,
     sht_backend: str = "ducc0",
+    spatial_scaled_excitations: Optional[Model] = None,
 ) -> SpectralProductSky:
     """
     Builds a multi-frequency sky model parametrized as
@@ -612,6 +613,10 @@ def build_simple_spectral_sky(
         `"ducc0"` (default) runs on CPU only. `"cunusht"` runs cunuSHT on
         CUDA GPUs through jaxbind-gpu and needs float64 (`jax_enable_x64`);
         its dependencies are installed separately, see the README.
+    spatial_scaled_excitations: Model, opt
+        The scaled spatial excitations at the reference frequency, on the
+        harmonic grid. If `None` they are built from
+        `spatial_amplitude_settings["fluctuations"]` (or `"scale"`).
 
     Returns
     -------
@@ -623,12 +628,22 @@ def build_simple_spectral_sky(
     harmonic_shape = grid.harmonic_grid.shape
 
     # NOTE : Spatial correlation structure at reference Frequency
-    fluct = "fluctuations" if "fluctuations" in spatial_amplitude_settings else "scale"
-    spatial_fluctuations = build_scaled_excitations(
-        f"{prefix}_spatial",
-        fluctuations_settings=spatial_amplitude_settings[fluct],
-        shape=harmonic_shape,
-    )
+    if spatial_scaled_excitations is None:
+        fluct = (
+            "fluctuations" if "fluctuations" in spatial_amplitude_settings else "scale"
+        )
+        spatial_scaled_excitations = build_scaled_excitations(
+            f"{prefix}_spatial",
+            fluctuations_settings=spatial_amplitude_settings[fluct],
+            shape=harmonic_shape,
+        )
+    else:
+        for key in ("fluctuations", "scale"):
+            if spatial_amplitude_settings.get(key) is not None:
+                logger.info(
+                    f"`spatial_amplitude.{key}` is ignored, because "
+                    "`spatial_scaled_excitations` is given."
+                )
     spatial_amplitude = build_normalized_amplitude_model(
         grid,
         spatial_amplitude_settings,
@@ -688,7 +703,7 @@ def build_simple_spectral_sky(
 
     sky = SpectralProductSky(
         zero_mode=zero_mode,
-        spatial_scaled_excitations=spatial_fluctuations,
+        spatial_scaled_excitations=spatial_scaled_excitations,
         spatial_amplitude=spatial_amplitude,
         log_spectral_behavior=log_spectral_behavior,
         spectral_amplitude=spectral_amplitude,
@@ -702,6 +717,77 @@ def build_simple_spectral_sky(
     # NOTE : In principle the SpectralProductSky doesn't need to have a prefix, as the
     # different parts can be supplied separetly.
     return add_prefix(sky, prefix)
+
+
+def build_flat_reference_spectral_sky(
+    prefix: str,
+    shape: tuple[int, ...],
+    distances: tuple[float, ...],
+    log_frequencies: Union[tuple[float], ArrayLike],
+    reference_frequency_index: int,
+    spatial_amplitude_settings: dict,
+    spectral_index_settings: dict,
+    harmonic_type: str = "fourier",
+    **kwargs,
+) -> SpectralProductSky:
+    """
+    Builds a multi-frequency sky model with no spatial structure at the
+    reference frequency:
+
+    .. math ::
+        sky = \\exp(F[A_spectral *
+              (slope(k) * (\\nu-\\nu_0) +
+              GaussMarkovProcess(k, \\nu-\\nu_0)
+              - AvgSlope[GaussMarkovProcess]
+              )] + spectral_mean * (\\nu-\\nu_0))
+
+    It is `build_simple_spectral_sky` without the reference excitations and
+    without a zero mode, so the log sky vanishes at the reference frequency
+    and the model carries colour only, e.g. a multiplicative colour texture
+    on a profile that owns the reference image. The spatial amplitude only
+    shapes the spectral correlations; its `fluctuations` (or `scale`) is not
+    used.
+
+    Parameters
+    ----------
+    prefix, shape, distances, log_frequencies, reference_frequency_index,
+    spatial_amplitude_settings, spectral_index_settings, harmonic_type:
+        As in `build_simple_spectral_sky`.
+    **kwargs:
+        Passed on to `build_simple_spectral_sky`, except `zero_mode_settings`,
+        `spatial_scaled_excitations` and `nonlinearity` (`jnp.exp`), which
+        this builder fixes, and `spectral_amplitude_settings` and
+        `log_reference_frequency_mean_model`, which must be `None`: a spectral
+        amplitude would leave the spatial amplitude without effect, and a
+        reference mean model would give the sky structure at the reference
+        frequency.
+
+    Returns
+    -------
+    model: SpectralProductSky
+        The multi-frequency sky model
+    """
+    for key in ("zero_mode_settings", "spatial_scaled_excitations", "nonlinearity"):
+        if key in kwargs:
+            raise ValueError(f"build_flat_reference_spectral_sky fixes `{key}`.")
+    for key in ("spectral_amplitude_settings", "log_reference_frequency_mean_model"):
+        if kwargs.get(key) is not None:
+            raise ValueError(f"build_flat_reference_spectral_sky takes no `{key}`.")
+    harmonic_shape = make_grid(shape, distances, harmonic_type).harmonic_grid.shape
+    no_reference = Model(lambda _: jnp.zeros(harmonic_shape), domain={})
+    return build_simple_spectral_sky(
+        prefix=prefix,
+        shape=shape,
+        distances=distances,
+        log_frequencies=log_frequencies,
+        reference_frequency_index=reference_frequency_index,
+        zero_mode_settings=lambda _: 0.0,
+        spatial_amplitude_settings=spatial_amplitude_settings,
+        spectral_index_settings=spectral_index_settings,
+        harmonic_type=harmonic_type,
+        spatial_scaled_excitations=no_reference,
+        **kwargs,
+    )
 
 
 def add_prefix(object: SpectralProductSky, prefix_key: str) -> SpectralProductSky:
