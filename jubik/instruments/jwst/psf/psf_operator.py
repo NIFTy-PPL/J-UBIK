@@ -102,8 +102,9 @@ class PsfGaussianBroadening(jft.Model):
         psf_kernel: np.ndarray
             The static kernel, 2-D or one per observation (3-D).
         width: jft.Model
-            Standard deviation of the Gaussian in sky pixels, a scalar or one per
-            observation.
+            Standard deviation of the Gaussian in pixels of the kernel grid (the
+            subsampled data pixels), a scalar or one per observation. The gradient
+            vanishes at width 0, so use a positive prior such as a log-normal.
         """
         self.kernel = _center_even_axes(np.asarray(psf_kernel))
         self.width = width
@@ -116,6 +117,7 @@ class PsfGaussianBroadening(jft.Model):
     def broadened_kernel(self, params):
         # shortcut: the Gaussian wraps on the kernel grid, so widths near the kernel
         # half-size stop being Gaussian (still normalized); pad the grid if needed.
+        # Sub-pixel widths ring slightly negative (band-limited transfer function).
         sigma = jnp.broadcast_to(self.width(params), self.kernel.shape[:-2])
         transfer = jnp.exp(
             -2 * jnp.pi**2 * sigma[..., None, None] ** 2 * self._frequency2
