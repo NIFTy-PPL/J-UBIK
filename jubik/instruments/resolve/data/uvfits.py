@@ -41,9 +41,11 @@ def load_uvfits(file_name, polarization="stokes"):
         pol = rve.Polarization.trivial()
     else:
         raise NotImplementedError
+    # ehtim exposes the reference frequency in Hz and u/v in wavelengths.
     freq = np.array([obs.rf])
     time = obs.data["time"] * 3600
     uvw = np.vstack([obs.data["u"], obs.data["v"], 0.0 * obs.data["u"]]).T
+    # Convert wavelengths to metres for the Observation storage convention.
     uvw *= SPEEDOFLIGHT.to_value(u.m / u.s) / obs.rf
     antpos = rve.AntennaPositions(uvw, ant1, ant2, time)
     return rve.Observation(

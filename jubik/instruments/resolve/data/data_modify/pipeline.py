@@ -116,7 +116,7 @@ def modify_observation(
     ----------
     sky_frequencies: Color
         The frequencies of the sky model. They are converted to the unit in
-        which the observation frequencies are stored.
+        which the observation frequencies are stored (Hz).
     obs: Observation
         The observation to be modified
     modify: ObservationModify
@@ -142,7 +142,7 @@ def modify_observation(
         )
     if modify.spectral.spectral_restrict_to_sky_frequencies:
         freqs_in_unit = sky_frequencies.to(
-            obs.freq_unit, equivalencies=u.spectral()
+            u.Hz, equivalencies=u.spectral()
         ).value
         obs = restrict_by_freq(obs, freqs_in_unit[0], freqs_in_unit[-1])
 
