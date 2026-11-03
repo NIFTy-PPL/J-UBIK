@@ -47,7 +47,7 @@ class JwstResponse(jft.Model):
     def __init__(
         self,
         sky_model: jft.Model | RotationAndShift | StarInData,
-        psf: PsfStatic,
+        psf: jft.Model,
         unit_conversion: Callable[[ArrayLike], ArrayLike],
         integrate: Callable[[ArrayLike], ArrayLike],
         zero_flux_model: jft.Model | None,
@@ -60,8 +60,9 @@ class JwstResponse(jft.Model):
         ----------
         sky_model : jft.Model | RotationAndShift | StarInData,
             A model has as output the sky in the frame of the data.
-        psf : PsfStatic
-            Convolution of the sky with the static PSF kernel.
+        psf : jft.Model
+            Convolution of the sky with the PSF, called as `psf((sky, x))`. Its
+            parameters, `psf.domain[1]`, join the response domain.
         unit_conversion : callable
             A function that transforms the unit of the sky to the data unit.
         integrate : callable
@@ -101,7 +102,7 @@ def build_jwst_response(
     data_meta: DataMetaInformation,
     data_subsample: int,
     sky_meta: SkyMetaInformation,
-    psf: np.ndarray | None,
+    psf: np.ndarray | jft.Model | None,
     zero_flux_model: jft.Model | None,
     data_mask: ArrayLike | None,
 ) -> JwstResponse:
@@ -125,15 +126,18 @@ def build_jwst_response(
     sky_meta: SkyMetaInformation, needed here:
         - unit                  # Unit of the data
         - dvol                  # Pixel volume of the sky
-    psf: np.ndarray | None
-        The kernel of the psf as a np.ndarray. None skips the convolution.
+    psf: np.ndarray | jft.Model | None
+        The kernel of the psf as a np.ndarray, or a psf model called as
+        `psf((sky, params))`, e.g. `PsfGaussianBroadening`. None skips the
+        convolution.
     zero_flux_model : jft.Model
         The model for the a constant (zero) flux in the data.
     data_mask: ArrayLike
         The mask on the data
     """
 
-    psf = PsfStatic(sky_in_subsampled_data.target, psf)
+    if not isinstance(psf, jft.Model):
+        psf = PsfStatic(sky_in_subsampled_data.target, psf)
 
     unit_conversion = build_unit_conversion(
         sky_unit=sky_meta.unit,
@@ -237,6 +241,9 @@ class TargetResponseInput:
         Configuration for zero flux prior models.
     shift_and_rotation_correction : ShiftAndRotationCorrection | None
         Optional correction for misalignments in shift and rotation between sky and data.
+    psf_model : jft.Model | None
+        Replaces the static kernel `target_data.psf` if given. Called as
+        `psf_model((sky, params))`, see `build_jwst_response`.
     """
 
     filter_name: str
@@ -248,6 +255,7 @@ class TargetResponseInput:
     rotation_and_shift_algorithm: LinearConfig | NufftConfig
     zero_flux_prior_configs: ZeroFluxPriorConfigs
     shift_and_rotation_correction: ShiftAndRotationCorrection | None
+    psf_model: jft.Model | None = None
 
 
 def build_target_response(
@@ -301,7 +309,11 @@ def build_target_response(
         data_meta=input_config.filter_meta,
         data_subsample=input_config.target_data.subsample,
         sky_meta=input_config.sky_meta,
-        psf=np.array(input_config.target_data.psf),
+        psf=(
+            np.array(input_config.target_data.psf)
+            if input_config.psf_model is None
+            else input_config.psf_model
+        ),
         zero_flux_model=zero_flux_model,
         data_mask=np.array(input_config.target_data.mask),
     )

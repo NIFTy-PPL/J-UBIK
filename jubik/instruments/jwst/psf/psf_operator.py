@@ -7,6 +7,7 @@
 from functools import partial
 from typing import Callable
 
+import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from numpy.typing import ArrayLike
@@ -76,3 +77,52 @@ class PsfStatic(jft.Model):
         if self.kernel is None:
             return field
         return self._convolve(field, self.kernel)
+
+
+class PsfGaussianBroadening(jft.Model):
+    """Convolution by a static psf kernel broadened by a Gaussian of learnable width.
+
+    The Gaussian is the inverse FFT of its transfer function on the (odd, centered)
+    kernel grid, so it is symmetric and sums to one for every width. Its full linear
+    convolution with the kernel thus keeps the kernel's sum and centroid, and width 0
+    gives back the static kernel.
+    """
+
+    def __init__(
+        self,
+        sky_shape_with_dtype: jft.ShapeWithDtype,
+        psf_kernel: np.ndarray,
+        width: jft.Model,
+    ):
+        """
+        Parameters
+        ----------
+        sky_shape_with_dtype: jft.ShapeWithDtype
+            The `ShapeWithDtype` of the sky.
+        psf_kernel: np.ndarray
+            The static kernel, 2-D or one per observation (3-D).
+        width: jft.Model
+            Standard deviation of the Gaussian in sky pixels, a scalar or one per
+            observation.
+        """
+        self.kernel = _center_even_axes(np.asarray(psf_kernel))
+        self.width = width
+        self._convolve = _build_vmap_apply(self.kernel.shape)
+        fy, fx = (np.fft.fftfreq(n) for n in self.kernel.shape[-2:])
+        self._frequency2 = fy[:, None] ** 2 + fx[None, :] ** 2
+
+        super().__init__(domain=(sky_shape_with_dtype, width.domain))
+
+    def broadened_kernel(self, params):
+        # shortcut: the Gaussian wraps on the kernel grid, so widths near the kernel
+        # half-size stop being Gaussian (still normalized); pad the grid if needed.
+        sigma = jnp.broadcast_to(self.width(params), self.kernel.shape[:-2])
+        transfer = jnp.exp(
+            -2 * jnp.pi**2 * sigma[..., None, None] ** 2 * self._frequency2
+        )
+        gauss = jnp.fft.fftshift(jnp.fft.ifft2(transfer).real, axes=(-2, -1))
+        return fftconvolve(self.kernel, gauss, mode="full", axes=(-2, -1))
+
+    def __call__(self, x):
+        field, params = x
+        return self._convolve(field, self.broadened_kernel(params))
