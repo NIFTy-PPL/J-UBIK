@@ -59,7 +59,7 @@ def freq_average_by_fdom_and_n_freq_chunks(
     if n_freq_chuncks is None:
         return obs
 
-    fmin_fmax_array = get_2d_binbounds(sky_frequencies, obs.freq_unit)
+    fmin_fmax_array = get_2d_binbounds(sky_frequencies, u.Hz)
 
     splitted_obs = []
     n_obs_in_sky = 0
@@ -360,7 +360,7 @@ def restrict_to_discontinuous_frequencies(
 
     freq_indices = []
     for freq in sky_frequencies:
-        freq = freq.to(obs.freq_unit, equivalencies=u.spectral()).value
+        freq = freq.to(u.Hz, equivalencies=u.spectral()).value
         _, find = restrict_by_freq(obs, freq[0], freq[-1], True)
         freq_indices.append(find)
 

@@ -79,15 +79,10 @@ class BaseObservation:
     @property
     def freq(self):
         """numpy.ndarray: One-dimensional array that contains the observing
-        frequencies. Shape: `(nchan,), dtype: `np.float64`."""
+        frequencies in Hz as bare numerical values.
+        Shape: ``(nchan,)``, dtype: ``np.float64``.
+        """
         return self._freq
-
-    @property
-    def freq_unit(self):
-        """Unit in which the numerical values in :attr:`freq` are stored."""
-        # TODO: Set this during construction when Observation supports arbitrary
-        # frequency units. Until then, preserve the existing Hz convention.
-        return u.Hz
 
     @property
     def polarization(self) -> PolarizationType:
@@ -240,7 +235,7 @@ class Observation(BaseObservation):
     Parameters
     ----------
     antenna_positions : AntennaPositions
-        Contains all information on antennas and baselines.
+        Contains all information on antennas and baselines; UVW values are in metres.
     vis : numpy.ndarray
         Contains the measured visibilities. Shape (n_polarizations, n_rows, n_channels)
     weight : numpy.ndarray
@@ -249,13 +244,16 @@ class Observation(BaseObservation):
     polarization : Polarization
         Polarization information of the data set.
     freq : numpy.ndarray
-        Contains the measured frequencies. Shape (n_channels)
+        Contains the measured frequencies in Hz as bare numerical values.
+        Shape (n_channels)
     auxiliary_tables : dict
         Dictionary of auxiliary tables. Default: None.
 
     Note
     ----
-    vis and weight must have the same shape.
+    vis and weight must have the same shape. Frequencies and UVW coordinates
+    are stored as numerical arrays in Hz and metres, respectively. Readers must
+    convert to this convention before constructing an Observation.
     """
 
     def __init__(
@@ -416,12 +414,8 @@ class Observation(BaseObservation):
 
     @property
     def uvw(self):
+        """Baseline coordinates in metres as a numerical array of shape (nrow, 3)."""
         return self._antpos.uvw
-
-    @property
-    def uvw_unit(self):
-        # TODO: Should be set by creation; refactor when refactoring observation class
-        return u.m
 
     @property
     def antenna_positions(self):
@@ -505,15 +499,17 @@ class Observation(BaseObservation):
         return self._auxiliary_tables["ANTENNA"]["POSITION"]
 
     def effective_uvw(self):
-        frequencies = self.freq * self.freq_unit
-        wavelengths = frequencies.to(self.uvw_unit, equivalencies=u.spectral())
+        """Return baselines in multiples of wavelengths, with shape (3, nrow, nfreq)."""
+        frequencies = self.freq * u.Hz
+        wavelengths = frequencies.to(u.m, equivalencies=u.spectral())
         out = np.einsum("ij,k->jik", self.uvw, 1 / wavelengths.value)
         my_asserteq(out.shape, (3, self.nrow, self.nfreq))
         return out
 
     def effective_uvwlen(self):
-        frequencies = self.freq * self.freq_unit
-        wavelengths = frequencies.to(self.uvw_unit, equivalencies=u.spectral())
+        """Return baseline lengths in multiples of wavelengths on the visibility domain."""
+        frequencies = self.freq * u.Hz
+        wavelengths = frequencies.to(u.m, equivalencies=u.spectral())
         arr = np.outer(self.uvwlen(), 1 / wavelengths.value)
         arr = np.broadcast_to(arr[None], self._dom.shape)
         return ift.makeField(self._dom, arr)
@@ -522,17 +518,17 @@ class Observation(BaseObservation):
         return np.linalg.norm(self.uvw, axis=1)
 
     def __str__(self):
-        baseline_min = self.uvwlen().min() * self.uvw_unit
-        baseline_max = self.uvwlen().max() * self.uvw_unit
+        baseline_min = self.uvwlen().min() * u.m
+        baseline_max = self.uvwlen().max() * u.m
 
-        freq_min = self.freq.min() * self.freq_unit
-        freq_max = self.freq.max() * self.freq_unit
+        freq_min = self.freq.min() * u.Hz
+        freq_max = self.freq.max() * u.Hz
 
         angular_scale_min = (
-            freq_max.to(self.uvw_unit, equivalencies=u.spectral()) / baseline_max
+            freq_max.to(u.m, equivalencies=u.spectral()) / baseline_max
         ).to_value(u.dimensionless_unscaled) * u.rad
         angular_scale_max = (
-            freq_min.to(self.uvw_unit, equivalencies=u.spectral()) / baseline_min
+            freq_min.to(u.m, equivalencies=u.spectral()) / baseline_min
         ).to_value(u.dimensionless_unscaled) * u.rad
 
         s = [
