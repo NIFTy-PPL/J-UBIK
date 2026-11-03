@@ -28,9 +28,10 @@ from nifty.re import logger
 from scipy.integrate import trapezoid
 
 from ...color import Color
-from ...wcs import subsample_pixel_centers
+from ...wcs import WcsAstropy, subsample_pixel_centers
 from ..jwst.data.jwst_data import DataMetaInformation
 from ..jwst.data.loader.target_loader import TargetData
+from ..jwst.masking.data_mask import get_mask_from_index_centers_within_rgrid
 from ..jwst.throughput.weights import Throughput
 from .nirc2_distortion import DistortionSolution, nirc2_wcs, select_distortion
 
@@ -148,6 +149,7 @@ def load_nirc2_exposure(
     calibration: Nirc2Calibration,
     throughput: Throughput,
     psf: np.ndarray,
+    sky_grid: WcsAstropy,
     sigma: FitsImage | None = None,
     detector_noise: DetectorNoise | None = None,
     bad_pixels: FitsImage | None = None,
@@ -180,7 +182,12 @@ def load_nirc2_exposure(
         the atmosphere as ``calibration.atmosphere`` states), not the filter
         transmission alone.
     psf : np.ndarray
-        The 2-D PSF kernel assigned to this exposure.
+        The 2-D PSF kernel assigned to this exposure, sampled on the sub-pixel
+        grid (``pixel_scale / subsample`` per pixel) and centred as
+        ``PsfStatic`` expects; a detector-sampled kernel needs subsample 1.
+    sky_grid : WcsAstropy
+        The reconstruction grid; pixels whose centres fall outside it are
+        masked, as in the JWST loader.
     sigma : FitsImage | None
         σ map in the science image's unit.
     detector_noise : DetectorNoise | None
@@ -218,7 +225,7 @@ def load_nirc2_exposure(
         Neither or both of ``sigma`` and ``detector_noise``; not the narrow
         camera; a unit other than DN or DN/s; shapes that differ from the science
         image (maps of a subarray readout included); a rotator mode other
-        than position angle without ``position_angle``.
+        than position angle without ``position_angle``; every pixel masked.
     KeyError
         A needed header keyword is missing and was not given.
     """
@@ -233,21 +240,21 @@ def load_nirc2_exposure(
 
     data, header = _read(science)
 
-    def keyword(key, override):
+    def keyword(key, override, param):
         if override is not None:
             return override
         if key not in header:
-            raise KeyError(f"{science}: no {key} in the headers; pass it explicitly")
+            raise KeyError(f"{science}: no {key} in the headers; pass {param}=")
         return header[key]
 
     camera = str(header.get("CAMNAME", "narrow")).strip().lower()
     if camera != "narrow":
         raise ValueError(f"{science}: CAMNAME {camera!r}, only the narrow camera")
-    unit = str(keyword("BUNIT", bunit)).replace(" ", "").upper()
+    unit = str(keyword("BUNIT", bunit, "bunit")).replace(" ", "").upper()
     if unit not in ("DN", "ADU", "DN/S", "ADU/S"):
         raise ValueError(f"{science}: unit {unit!r}, expected DN or DN/s")
-    itime = float(keyword("ITIME", itime))
-    coadds = int(keyword("COADDS", coadds))
+    itime = float(keyword("ITIME", itime, "itime"))
+    coadds = int(keyword("COADDS", coadds, "coadds"))
     if not (itime > 0 and coadds >= 1):
         raise ValueError(f"{science}: ITIME {itime} s and COADDS {coadds}")
     seconds = itime * coadds * u.s
@@ -270,7 +277,7 @@ def load_nirc2_exposure(
     )
 
     if distortion is None:
-        date_obs = str(keyword("DATE-OBS", None))
+        date_obs = str(keyword("DATE-OBS", None, "distortion"))
         distortion = select_distortion(date_obs, pre_2015, post_2015)
         chosen_by = f"DATE-OBS {date_obs}"
     else:
@@ -284,18 +291,20 @@ def load_nirc2_exposure(
             raise ValueError(f"{name} {shape} differ from the science {data.shape}")
 
     if position_angle is None:
-        mode = str(keyword("ROTMODE", None)).strip().lower()
+        mode = str(keyword("ROTMODE", None, "position_angle")).strip().lower()
         if mode != "position angle":
             raise ValueError(
                 f"{science}: ROTMODE {mode!r}; ROTPOSN - INSTANGL is the sky "
                 "position angle only in position-angle mode, pass position_angle"
             )
-        nominal = float(keyword("ROTPOSN", None)) - float(keyword("INSTANGL", None))
+        rotposn = float(keyword("ROTPOSN", None, "position_angle"))
+        nominal = rotposn - float(keyword("INSTANGL", None, "position_angle"))
         position_angle = nominal * u.deg - distortion.angle_offset
     if crval is None:
-        crval = SkyCoord(keyword("CRVAL1", None), keyword("CRVAL2", None), unit="deg")
+        ra, dec = (keyword(k, None, "crval") for k in ("CRVAL1", "CRVAL2"))
+        crval = SkyCoord(ra, dec, unit="deg")
     if crpix is None:
-        crpix = (float(keyword("CRPIX1", None)), float(keyword("CRPIX2", None)))
+        crpix = tuple(float(keyword(k, None, "crpix")) for k in ("CRPIX1", "CRPIX2"))
 
     wcs = nirc2_wcs(distortion, crval, crpix, position_angle)
     ny, nx = data.shape
@@ -304,6 +313,9 @@ def load_nirc2_exposure(
     pixel_scale = distortion.pixel_scale.to(u.deg)
     finite = np.isfinite(data) & np.isfinite(std)
     mask = finite & (std > 0) & ~bad
+    mask &= get_mask_from_index_centers_within_rgrid((0, ny, 0, nx), wcs, sky_grid)
+    if not mask.any():
+        raise ValueError(f"{science}: every pixel is masked")
 
     target_data = TargetData(
         subsample=subsample,

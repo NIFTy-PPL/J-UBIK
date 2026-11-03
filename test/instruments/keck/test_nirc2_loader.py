@@ -55,6 +55,7 @@ CAL = Nirc2Calibration(1e-6 * u.Jy / (u.DN / u.s), "airmass 1.0, no extinction")
 BAND = Throughput([2.0, 2.4] * u.um, [1.0, 1.0])
 DELTA = np.pad([[1.0]], 1)
 PIXEL_SR = (SCALE_MAS * 1e-3 * np.pi / 648000) ** 2
+GRID = WcsAstropy(CENTER, shape=60, fov=0.6 * u.arcsec)  # covers the data
 
 
 def _solution(dx=0.0, dy=0.0, beta=0.25, name="synthetic pre", shape=(NY, NX)):
@@ -79,6 +80,7 @@ def _load(tmp_path, data=100.0, header=HEADER, **kwargs):
     if "detector_noise" not in kwargs:
         kwargs.setdefault("sigma", _write(folder / "sig.fits", np.full((NY, NX), 4.0)))
     kwargs.setdefault("pre_2015", _solution())
+    kwargs.setdefault("sky_grid", GRID)
     return load_nirc2_exposure(
         science, calibration=CAL, throughput=BAND, psf=DELTA, **kwargs
     )
@@ -89,29 +91,28 @@ def _load(tmp_path, data=100.0, header=HEADER, **kwargs):
 # --------------------------------------------------------------------------- #
 
 
-def _predict(exposure, n=60):
+def _predict(exposure):
     """The existing JWST response (unit conversion, integration) for a flat
     1 MJy/sr sky."""
     target = exposure.target_data
-    grid = WcsAstropy(CENTER, shape=n, fov=n * 0.01 * u.arcsec)
     response = build_jwst_response(
         sky_in_subsampled_data=build_sky_to_subsampled_data(
-            {"k": jft.ShapeWithDtype((n, n))},
+            {"k": jft.ShapeWithDtype(GRID.shape_yx)},
             target.subsample_centers,
-            grid,
+            GRID,
             LinearConfig(),
             None,
         ),
         data_meta=exposure.meta,
         data_subsample=target.subsample,
         sky_meta=SkyMetaInformation(
-            grid_extension=None, dvol=grid.dvol, unit=u.MJy / u.sr
+            grid_extension=None, dvol=GRID.dvol, unit=u.MJy / u.sr
         ),
         psf=target.psf,
         zero_flux_model=None,
         data_mask=target.mask,
     )
-    return np.asarray(response({"k": jnp.ones((n, n))}))
+    return np.asarray(response({"k": jnp.ones(GRID.shape_yx)}))
 
 
 @pytest.mark.parametrize(
@@ -145,6 +146,8 @@ def test_meta_and_header_overrides(tmp_path):
 def test_missing_keyword_or_wrong_unit_raises(tmp_path):
     with pytest.raises(KeyError, match="ITIME"):
         _load(tmp_path, header={k: v for k, v in HEADER.items() if k != "ITIME"})
+    with pytest.raises(KeyError, match="DATE-OBS.*distortion="):
+        _load(tmp_path, header={k: v for k, v in HEADER.items() if k != "DATE-OBS"})
     with pytest.raises(ValueError, match="unit"):
         _load(tmp_path, bunit="MJy/sr")
 
@@ -214,6 +217,24 @@ def test_bad_nonfinite_and_nonpositive_sigma_are_masked(tmp_path):
     assert exposure.diagnostics["masked_pixels"] == 3
 
 
+def test_pixels_outside_the_sky_grid_are_masked(tmp_path):
+    small = WcsAstropy(CENTER, shape=5, fov=50 * u.mas)  # +-25 mas
+    exposure = _load(tmp_path, sky_grid=small, position_angle=0 * u.deg)
+    yy, xx = np.mgrid[0:NY, 0:NX]
+    # PA 0 without distortion: pixel offsets from CENTER are 10 mas steps
+    east, north = -SCALE_MAS * (xx - 7), SCALE_MAS * (yy - 5)
+    near = (np.abs(east) <= 10) & (np.abs(north) <= 10)
+    far = (np.abs(east) >= 40) | (np.abs(north) >= 40)
+    mask = exposure.target_data.mask[0]
+    assert mask[near].all() and not mask[far].any()
+    assert exposure.diagnostics["masked_pixels"] >= far.sum()
+
+
+def test_every_pixel_masked_raises(tmp_path):
+    with pytest.raises(ValueError, match="every pixel"):
+        _load(tmp_path, bad_pixels=_write(tmp_path / "bad.fits", np.ones((NY, NX))))
+
+
 def test_extension_selectors(tmp_path):
     primary = fits.PrimaryHDU(header=fits.Header(HEADER))
     sci = fits.ImageHDU(np.full((NY, NX), 100.0), name="SCI")
@@ -225,6 +246,7 @@ def test_extension_selectors(tmp_path):
         calibration=CAL,
         throughput=BAND,
         psf=DELTA,
+        sky_grid=GRID,
         pre_2015=_solution(),
     )
     np.testing.assert_array_equal(exposure.target_data.data[0], 100.0)
