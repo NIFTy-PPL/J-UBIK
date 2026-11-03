@@ -132,7 +132,8 @@ def test_point_source_lands_on_its_pixel_through_psf_static(size):
     np.testing.assert_allclose(_centroid(np.asarray(image)), (30, 27), atol=0.01)
 
 
-def test_prepared_fits_kernel(tmp_path):
+@pytest.mark.parametrize("extension", ["PSF", None])
+def test_prepared_fits_kernel(tmp_path, extension):
     shape = (33, 34)
     middle = (np.array(shape) - 1) / 2
     path = tmp_path / "kernel.fits"
@@ -141,7 +142,7 @@ def test_prepared_fits_kernel(tmp_path):
     ).writeto(path)
 
     psf = kernel_from_fits(
-        path, exposure="n0042", pixel_scale=0.009942, extension="PSF"
+        path, exposure="n0042", pixel_scale=0.009942, extension=extension
     )
 
     truth = _psf(shape, middle)

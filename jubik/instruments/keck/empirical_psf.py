@@ -83,7 +83,7 @@ def _centred_unit_kernel(
     a roughly point-symmetric PSF, and leaves the reflected values in the kernel.
     """
     if np.sum(image[mask]) <= 0:
-        raise ValueError("The star has no positive flux after background subtraction.")
+        raise ValueError("The star has no positive flux.")
     middle = (np.array(image.shape) - 1) / 2
     filled = np.where(mask, image, 0.0)
     centre = _centroid(filled, middle)
@@ -171,7 +171,7 @@ def kernel_from_fits(
     *,
     exposure: str,
     pixel_scale: float,
-    extension: int | str = 0,
+    extension: int | str | None = None,
     star_position: tuple[float, float] | None = None,
 ) -> EmpiricalPsfKernel:
     """Empirical PSF kernel from a prepared, background-free kernel FITS file.
@@ -188,12 +188,15 @@ def kernel_from_fits(
         The exposure the kernel was measured in.
     pixel_scale: float
         The detector pixel scale in arcsec per pixel.
-    extension: int | str
-        The HDU index or name holding the 2-D kernel.
+    extension: int | str | None
+        The HDU index or name holding the 2-D kernel. None takes the first HDU
+        with data.
     star_position: tuple[float, float] | None
         The 0-based detector pixel (x, y) of the star, if known.
     """
-    kernel = np.asarray(fits.getdata(path, extension), dtype=float)
+    # `getdata(path)` finds the first HDU with data; `ext=` would reject names.
+    data = fits.getdata(path) if extension is None else fits.getdata(path, extension)
+    kernel = np.asarray(data, dtype=float)
     if kernel.ndim != 2 or not np.all(np.isfinite(kernel)):
         raise ValueError(
             f"{path}[{extension}] must hold a finite 2-D kernel, got shape "
