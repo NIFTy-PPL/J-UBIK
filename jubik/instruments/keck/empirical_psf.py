@@ -20,8 +20,8 @@ _CENTRE_TOLERANCE = 1e-6  # pixels
 class EmpiricalPsfKernel:
     """A unit-sum, detector-sampled PSF kernel and where it was measured.
 
-    The kernel centroid sits at `(K - 1) / 2` on each axis, the centre
-    `PsfStatic` expects for odd and even `K`.
+    The star centre (its windowed centroid) sits at `(K - 1) / 2` on each axis,
+    the centre `PsfStatic` expects for odd and even `K`.
 
     Attributes
     ----------
@@ -30,7 +30,7 @@ class EmpiricalPsfKernel:
     exposure: str
         The exposure the star was measured in.
     star_position: tuple[float, float] | None
-        The 0-based detector pixel (x, y) of the star centroid, None if unknown.
+        The 0-based detector pixel (x, y) of the star centre, None if unknown.
     background: float
         The background level subtracted before normalizing, in input units.
     pixel_scale: float
@@ -55,32 +55,43 @@ def _shift(image: np.ndarray, shift: np.ndarray) -> np.ndarray:
     return np.fft.ifft2(fourier_shift(np.fft.fft2(image), shift)).real
 
 
-def _centroid(image: np.ndarray) -> np.ndarray:
+def _centroid(image: np.ndarray, around: np.ndarray) -> np.ndarray:
+    """First moment (y, x) of `image` under a Gaussian window centred on `around`.
+
+    The window keeps noise in the far wings, which a plain first moment weights
+    most, from moving the centre. For a point-symmetric star the iterated
+    windowed centroid is the plain one.
+    """
     y, x = np.indices(image.shape)
-    return np.array([np.sum(y * image), np.sum(x * image)]) / np.sum(image)
+    # shortcut: window width fixed at min(shape) / 8; make it a parameter if
+    # cutouts much larger than the PSF core turn out noise-limited.
+    width = min(image.shape) / 8
+    r2 = (y - around[0]) ** 2 + (x - around[1]) ** 2
+    weighted = image * np.exp(-0.5 * r2 / width**2)
+    return np.array([np.sum(y * weighted), np.sum(x * weighted)]) / np.sum(weighted)
 
 
 def _centred_unit_kernel(
     image: np.ndarray, mask: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Kernel with its centroid moved to `(K - 1) / 2`, and the centroid (y, x) it
+    """Kernel with the star centre moved to `(K - 1) / 2`, and the centre (y, x) it
     had in `image`.
 
-    Masked pixels are filled from the point reflection of the image about its
-    centroid, iterated to a fixed point, so a mask that is not point-symmetric
-    about the star does not pull the centroid. This assumes a roughly
-    point-symmetric PSF, and leaves the reflected values in the kernel.
+    The centre is the windowed centroid. Masked pixels are filled from the point
+    reflection of the image about it, iterated to a fixed point, so a mask that
+    is not point-symmetric about the star does not pull the centre. This assumes
+    a roughly point-symmetric PSF, and leaves the reflected values in the kernel.
     """
     if np.sum(image[mask]) <= 0:
         raise ValueError("The star has no positive flux after background subtraction.")
     middle = (np.array(image.shape) - 1) / 2
     filled = np.where(mask, image, 0.0)
-    centre = _centroid(filled)
+    centre = _centroid(filled, middle)
     for _ in range(_MAX_ITERATIONS):
         # The flip maps pixel p to 2 * middle - p, the shift then onto 2 * centre - p.
         reflected = _shift(filled[::-1, ::-1], 2 * (centre - middle))
         filled = np.where(mask, image, reflected)
-        previous, centre = centre, _centroid(filled)
+        previous, centre = centre, _centroid(filled, centre)
         if np.all(np.abs(centre - previous) < _CENTRE_TOLERANCE):
             break
     else:
@@ -106,6 +117,9 @@ def kernel_from_star_cutout(
     rows and columns, so the cutout should be large enough that the star's
     wings are negligible there. The kernel has the shape of the cutout. The
     centring shift is periodic, so the star should sit near the cutout centre.
+    Masked pixels take the value of their point reflection through the star.
+    Where that is masked too, as in a masked core, the kernel there is only an
+    interpolation, so such stars give approximate kernels.
 
     Parameters
     ----------
@@ -123,8 +137,9 @@ def kernel_from_star_cutout(
     border: int
         The width in pixels of the background frame.
     """
-    cutout = np.asarray(cutout, dtype=float)
-    mask = np.asarray(mask, dtype=bool)
+    # C order, so the same pixel values give the same bits whatever the layout.
+    cutout = np.ascontiguousarray(cutout, dtype=float)
+    mask = np.ascontiguousarray(mask, dtype=bool)
     if cutout.ndim != 2 or mask.shape != cutout.shape:
         raise ValueError(
             f"Need a 2-D cutout and a mask of its shape, got {cutout.shape} and "
@@ -161,7 +176,7 @@ def kernel_from_fits(
 ) -> EmpiricalPsfKernel:
     """Empirical PSF kernel from a prepared, background-free kernel FITS file.
 
-    The kernel is recentred on its centroid and normalized to unit sum like a
+    The kernel is recentred on its centre and normalized to unit sum like a
     star cutout, so it follows the same centre convention whatever the file
     used. No background is subtracted.
 

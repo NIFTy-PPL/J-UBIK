@@ -78,9 +78,10 @@ def test_masked_pixels_do_not_bias(shape):
     cutout, truth, middle = _star(shape)
     mask = np.ones(shape, dtype=bool)
     cy, cx = np.round(middle).astype(int)
-    # A bad block on one side of the core, a hot pixel and a NaN in the frame.
+    # A bad block on one side of the core, and most of the background frame
+    # (so a median that ignored the mask would see the bad values), one NaN.
     mask[cy - 1 : cy + 1, cx + 2 : cx + 4] = False
-    mask[0, 5] = mask[shape[0] - 1, 3] = False
+    mask[:2] = mask[-2:] = mask[:, :2] = False
     cutout = cutout.copy()
     cutout[~mask] = 1e6
     cutout[0, 5] = np.nan
@@ -93,11 +94,27 @@ def test_masked_pixels_do_not_bias(shape):
     np.testing.assert_allclose(psf.kernel, truth, atol=1e-3 * truth.max())
 
 
+@pytest.mark.parametrize("seed", range(5))
+def test_noisy_star_centre(seed):
+    shape = (41, 41)
+    middle = (np.array(shape) - 1) / 2
+    truth = _psf(shape, middle + OFFSET)
+    # Peak signal-to-noise about 1000.
+    noise = np.random.default_rng(seed).normal(0, 10, shape)
+    cutout = 1e4 / truth.max() * truth + 50 + noise
+
+    psf = _build(cutout, np.ones(shape, dtype=bool))
+
+    expected = (ORIGIN[0] + middle[1] + OFFSET[1], ORIGIN[1] + middle[0] + OFFSET[0])
+    np.testing.assert_allclose(psf.star_position, expected, atol=0.01)
+
+
 def test_bit_identical():
     cutout, _, _ = _star((41, 40))
     mask = np.ones(cutout.shape, dtype=bool)
     mask[20, 22] = False
-    first, second = _build(cutout, mask), _build(cutout.copy(), mask.copy())
+    first = _build(cutout, mask)
+    second = _build(np.asfortranarray(cutout), np.asfortranarray(mask))
     assert first.kernel.tobytes() == second.kernel.tobytes()
     assert first.background == second.background
     assert first.star_position == second.star_position
