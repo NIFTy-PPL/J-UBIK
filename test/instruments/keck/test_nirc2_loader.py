@@ -57,11 +57,6 @@ DELTA = np.pad([[1.0]], 1)
 PIXEL_SR = (SCALE_MAS * 1e-3 * np.pi / 648000) ** 2
 
 
-def _per_dn(itime=2.0, coadds=5):
-    """Hand-computed MJy/sr of 1 DN: 1e-6 Jy per DN/s over a 10 mas pixel."""
-    return 1e-6 / (itime * coadds) / PIXEL_SR / 1e6
-
-
 def _solution(dx=0.0, dy=0.0, beta=0.25, name="synthetic pre", shape=(NY, NX)):
     return DistortionSolution(
         name,
@@ -94,35 +89,64 @@ def _load(tmp_path, data=100.0, header=HEADER, **kwargs):
 # --------------------------------------------------------------------------- #
 
 
-def test_dn_itime_coadds_scaling(tmp_path):
-    exposure = _load(tmp_path)
-    target, meta = exposure.target_data, exposure.meta
-    # 100 DN / (2 s * 5) = 10 DN/s -> 1e-5 Jy in one (10 mas)^2 pixel
-    np.testing.assert_allclose(target.data[0], 100 * _per_dn(), rtol=1e-12)
-    np.testing.assert_allclose(target.std[0], 4 * _per_dn(), rtol=1e-12)
-    np.testing.assert_allclose(target.data / target.std, 25.0)
-    assert meta.unit == u.MJy / u.sr
-    assert u.isclose(meta.pixel_scale, SCALE_MAS * u.mas)
-    assert u.isclose(meta.dvol, (SCALE_MAS * u.mas) ** 2)
-    assert exposure.diagnostics["mjy_sr_per_dn"] == pytest.approx(_per_dn())
+def _predict(exposure, n=60):
+    """The existing JWST response (unit conversion, integration) for a flat
+    1 MJy/sr sky."""
+    target = exposure.target_data
+    grid = WcsAstropy(CENTER, shape=n, fov=n * 0.01 * u.arcsec)
+    response = build_jwst_response(
+        sky_in_subsampled_data=build_sky_to_subsampled_data(
+            {"k": jft.ShapeWithDtype((n, n))},
+            target.subsample_centers,
+            grid,
+            LinearConfig(),
+            None,
+        ),
+        data_meta=exposure.meta,
+        data_subsample=target.subsample,
+        sky_meta=SkyMetaInformation(
+            grid_extension=None, dvol=grid.dvol, unit=u.MJy / u.sr
+        ),
+        psf=target.psf,
+        zero_flux_model=None,
+        data_mask=target.mask,
+    )
+    return np.asarray(response({"k": jnp.ones((n, n))}))
 
 
-def test_overrides_replace_header(tmp_path):
+@pytest.mark.parametrize(
+    "overrides, seconds",
+    [
+        ({}, 2.0 * 5),  # DN with the header's ITIME and COADDS
+        ({"itime": 4.0, "coadds": 1}, 4.0),
+        ({"bunit": "DN/s"}, 1.0),
+    ],
+)
+def test_flat_sky_predicts_native_units(tmp_path, overrides, seconds):
+    exposure = _load(tmp_path, subsample=2, **overrides)
+    np.testing.assert_array_equal(exposure.target_data.data[0], 100.0)
+    np.testing.assert_array_equal(exposure.target_data.std[0], 4.0)
+    # 1 MJy/sr on a (10 mas)^2 pixel is 1e6 * PIXEL_SR Jy; 1e-6 Jy gives 1 DN/s
+    expected = 1e6 * PIXEL_SR / 1e-6 * seconds
+    np.testing.assert_allclose(_predict(exposure), expected, rtol=1e-6)
+
+
+def test_meta_and_header_overrides(tmp_path):
     header = {k: v for k, v in HEADER.items() if k != "BUNIT"}
     exposure = _load(tmp_path, header=header, bunit="DN", itime=4.0, coadds=1)
-    np.testing.assert_allclose(
-        exposure.target_data.data[0], 100 * _per_dn(4.0, 1), rtol=1e-12
-    )
-    np.testing.assert_allclose(
-        exposure.target_data.std[0], 4 * _per_dn(4.0, 1), rtol=1e-12
-    )
+    meta = exposure.meta
+    assert meta.unit.physical_type == "spectral flux density"
+    assert u.isclose(1 * meta.unit, 1e-6 / 4 * u.Jy)
+    assert u.isclose(meta.pixel_scale, SCALE_MAS * u.mas)
+    assert u.isclose(meta.dvol, (SCALE_MAS * u.mas) ** 2)
+    assert u.isclose(exposure.diagnostics["jy_per_unit"], 1e-6 / 4 * u.Jy)
 
 
 def test_missing_keyword_or_wrong_unit_raises(tmp_path):
     with pytest.raises(KeyError, match="ITIME"):
         _load(tmp_path, header={k: v for k, v in HEADER.items() if k != "ITIME"})
     with pytest.raises(ValueError, match="unit"):
-        _load(tmp_path, bunit="DN/s")
+        _load(tmp_path, bunit="MJy/sr")
 
 
 def test_wrong_camera_raises(tmp_path):
@@ -150,14 +174,24 @@ def test_sigma_needs_map_or_opt_in(tmp_path):
         _load(tmp_path, detector_noise=noise, sigma=FitsImage(tmp_path / "x.fits"))
 
 
-def test_detector_noise_sigma_hand_computed(tmp_path):
-    data = np.full((NY, NX), 500.0)
-    data[0, 0] = -2000.0  # below the sky: only read noise is left
+@pytest.mark.parametrize("bunit, dn", [("DN", 1.0), ("DN/s", 2.0 * 5)])
+def test_detector_noise_sigma_hand_computed(tmp_path, bunit, dn):
+    data = np.full((NY, NX), 500.0) / dn  # 500 DN summed over the coadds
+    data[0, 0] = -2000.0 / dn  # below the sky: only read noise is left
     noise = DetectorNoise(gain=4.0, read_noise=40.0, n_reads=16, sky=1000.0)
-    std = _load(tmp_path, data=data, detector_noise=noise).target_data.std[0]
+    std = _load(tmp_path, data=data, detector_noise=noise, bunit=bunit)
+    std = std.target_data.std[0] * dn
     # (4 e/DN * 1500 DN + 5 coadds * 40^2 e^2 / 16 reads) e^2, back to DN
-    np.testing.assert_allclose(std[1, 1], np.sqrt(6500.0) / 4 * _per_dn(), rtol=1e-12)
-    np.testing.assert_allclose(std[0, 0], np.sqrt(500.0) / 4 * _per_dn(), rtol=1e-12)
+    np.testing.assert_allclose(std[1, 1], np.sqrt(6500.0) / 4, rtol=1e-12)
+    np.testing.assert_allclose(std[0, 0], np.sqrt(500.0) / 4, rtol=1e-12)
+
+
+def test_detector_noise_rejects_bad_inputs(tmp_path):
+    with pytest.raises(ValueError, match="finite"):
+        DetectorNoise(gain=np.nan, read_noise=40.0, n_reads=16, sky=0.0)
+    noise = DetectorNoise(gain=4.0, read_noise=40.0, n_reads=16, sky=np.zeros(NX))
+    with pytest.raises(ValueError, match="sky"):
+        _load(tmp_path, detector_noise=noise)
 
 
 def test_bad_nonfinite_and_nonpositive_sigma_are_masked(tmp_path):
@@ -193,8 +227,8 @@ def test_extension_selectors(tmp_path):
         psf=DELTA,
         pre_2015=_solution(),
     )
-    np.testing.assert_allclose(exposure.target_data.data[0], 100 * _per_dn())
-    np.testing.assert_allclose(exposure.target_data.std[0], 4 * _per_dn())
+    np.testing.assert_array_equal(exposure.target_data.data[0], 100.0)
+    np.testing.assert_array_equal(exposure.target_data.std[0], 4.0)
     assert exposure.diagnostics["science"].endswith("mef.fits[SCI]")
 
 
@@ -262,6 +296,8 @@ def test_position_angle_override_and_rotator_mode(tmp_path):
     assert up == pytest.approx(10.0, abs=1e-4)
     with pytest.raises(ValueError, match="ROTMODE"):
         _load(tmp_path, header=HEADER | {"ROTMODE": "vertical angle"})
+    with pytest.raises(KeyError, match="ROTMODE"):
+        _load(tmp_path, header={k: v for k, v in HEADER.items() if k != "ROTMODE"})
 
 
 def test_date_selects_solution_and_override_wins(tmp_path):
@@ -301,29 +337,13 @@ def test_subarray_maps_raise(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_products_feed_the_jwst_target_response(tmp_path):
-    exposure = _load(tmp_path, subsample=2)
+def test_products_shapes_and_band(tmp_path):
+    exposure = _load(tmp_path, subsample=2.0)
     target = exposure.target_data
     assert target.data.shape == target.std.shape == target.mask.shape == (1, NY, NX)
+    assert target.psf.shape == (1, *DELTA.shape)
+    assert target.subsample == 2
     assert target.subsample_centers[0].shape == (2 * NY, 2 * NX)
     lam = np.sqrt((2.4**2 - 2.0**2) / 2 / np.log(1.2))  # tophat pivot, um
     assert u.isclose(exposure.meta.color, lam * u.um)
     assert exposure.throughput is BAND
-
-    grid = WcsAstropy(CENTER, shape=60, fov=0.6 * u.arcsec)
-    sky_domain = {"k": jft.ShapeWithDtype((60, 60))}
-    response = build_jwst_response(
-        sky_in_subsampled_data=build_sky_to_subsampled_data(
-            sky_domain, target.subsample_centers, grid, LinearConfig(), None
-        ),
-        data_meta=exposure.meta,
-        data_subsample=target.subsample,
-        sky_meta=SkyMetaInformation(
-            grid_extension=None, dvol=grid.dvol, unit=u.MJy / u.sr
-        ),
-        psf=target.psf,
-        zero_flux_model=None,
-        data_mask=target.mask,
-    )
-    # a flat 1 MJy/sr sky predicts 1 MJy/sr in every data pixel
-    np.testing.assert_allclose(response({"k": jnp.ones((60, 60))}), 1.0, rtol=1e-6)

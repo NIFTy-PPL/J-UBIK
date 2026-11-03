@@ -8,11 +8,13 @@
 """Load one calibrated, unresampled Keck/NIRC2 narrow-camera exposure.
 
 ``load_nirc2_exposure`` returns the ``TargetData`` and ``DataMetaInformation``
-the JWST target response takes, in MJy/sr, with sub-pixel centres from the
-distortion solution (`nirc2_distortion`). The science image is in DN summed
-over coadds, as NIRC2 writes it. NIRC2 flats preserve surface brightness, so
-no pixel-area map is applied: the response's block mean over sub-pixels
-already predicts the calibrated value.
+the JWST target response takes, with sub-pixel centres from the distortion
+solution (`nirc2_distortion`). Data and σ keep the file's units: DN summed
+over coadds, as NIRC2 writes them, or DN/s. The calibration enters through
+``DataMetaInformation.unit``, a flux-density unit worth one native data unit,
+so the response's unit conversion and sum integration predict native data.
+``dvol`` is the solution's nominal pixel solid angle; NIRC2 flats preserve
+surface brightness, so no pixel-area map is applied.
 """
 
 from dataclasses import dataclass
@@ -23,6 +25,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from nifty.re import logger
+from scipy.integrate import trapezoid
 
 from ...color import Color
 from ...wcs import subsample_pixel_centers
@@ -95,8 +98,9 @@ class DetectorNoise:
         Reads at each end of the ramp per coadd (MCDS, header ``MULTISAM``);
         the read noise falls as ``1 / sqrt(n_reads)`` (white read noise).
     sky : float | np.ndarray
-        Sky level per pixel, DN summed over coadds, that was subtracted from
-        the science image (0 if the sky is still in it).
+        Sky level per pixel, DN summed over coadds (also for a DN/s science
+        image), that was subtracted from the science image (0 if the sky is
+        still in it). A scalar or the science image's shape.
     """
 
     gain: float
@@ -105,11 +109,20 @@ class DetectorNoise:
     sky: float | np.ndarray
 
     def __post_init__(self) -> None:
-        if self.gain <= 0 or self.read_noise < 0 or self.n_reads < 1:
-            raise ValueError(f"need gain > 0, read_noise >= 0, n_reads >= 1: {self}")
+        # negated so that NaN fails as well
+        if not (
+            0 < self.gain < np.inf
+            and 0 <= self.read_noise < np.inf
+            and self.n_reads >= 1
+        ):
+            raise ValueError("need finite gain > 0, read_noise >= 0, n_reads >= 1")
 
     def sigma(self, data: np.ndarray, coadds: int) -> np.ndarray:
         """σ in DN of ``data`` (DN summed over ``coadds``)."""
+        if np.shape(self.sky) not in ((), np.shape(data)):
+            raise ValueError(
+                f"sky {np.shape(self.sky)}: a scalar or the science {np.shape(data)}"
+            )
         electrons = self.gain * np.maximum(data + self.sky, 0)
         read = coadds * self.read_noise**2 / self.n_reads
         return np.sqrt(electrons + read) / self.gain
@@ -151,15 +164,15 @@ def load_nirc2_exposure(
 ) -> Nirc2Exposure:
     """Load one NIRC2 narrow-camera exposure.
 
-    Science and σ go together from DN to a count rate, ``DN / (ITIME *
-    COADDS)``, and then to MJy/sr with the calibration and the solution's
-    pixel solid angle. A keyword argument set to None is read from the
-    science headers (keyword in brackets); a missing keyword raises.
+    Data and σ are the file values. ``meta.unit`` is worth
+    ``calibration / (ITIME * COADDS)`` Jy for DN, ``calibration`` Jy for
+    DN/s. A keyword argument set to None is read from the science headers
+    (keyword in brackets); a missing keyword raises.
 
     Parameters
     ----------
     science : FitsImage
-        Science image, DN summed over coadds, not resampled.
+        Science image, DN summed over coadds or DN/s, not resampled.
     calibration : Nirc2Calibration
         Count rate to F_nu.
     throughput : Throughput
@@ -169,7 +182,7 @@ def load_nirc2_exposure(
     psf : np.ndarray
         The 2-D PSF kernel assigned to this exposure.
     sigma : FitsImage | None
-        σ map in DN, like the science.
+        σ map in the science image's unit.
     detector_noise : DetectorNoise | None
         Opt-in instead of ``sigma``. Exactly one of the two.
     bad_pixels : FitsImage | None
@@ -181,7 +194,7 @@ def load_nirc2_exposure(
     subsample : int
         Sub-pixels per data pixel along each axis.
     bunit : str | None
-        [BUNIT], must be DN (or ADU).
+        [BUNIT], DN (or ADU) summed over coadds, or DN/s (ADU/s).
     itime : float | None
         [ITIME], seconds per coadd.
     coadds : int | None
@@ -192,8 +205,8 @@ def load_nirc2_exposure(
         [CRPIX1, CRPIX2], FITS 1-based raw position of the reference pixel.
     position_angle : u.Quantity | None
         True position angle of the y axis, East of North. Default
-        [ROTPOSN] - [INSTANGL] - beta of the solution, in position-angle
-        rotator mode only.
+        [ROTPOSN] - [INSTANGL] - beta of the solution, only when [ROTMODE]
+        is position angle.
 
     Returns
     -------
@@ -203,7 +216,7 @@ def load_nirc2_exposure(
     ------
     ValueError
         Neither or both of ``sigma`` and ``detector_noise``; not the narrow
-        camera; a unit other than DN; shapes that differ from the science
+        camera; a unit other than DN or DN/s; shapes that differ from the science
         image (maps of a subarray readout included); a rotator mode other
         than position angle without ``position_angle``.
     KeyError
@@ -216,6 +229,7 @@ def load_nirc2_exposure(
         )
     if int(subsample) != subsample or subsample < 1:
         raise ValueError(f"subsample {subsample} must be a positive integer")
+    subsample = int(subsample)
 
     data, header = _read(science)
 
@@ -229,19 +243,23 @@ def load_nirc2_exposure(
     camera = str(header.get("CAMNAME", "narrow")).strip().lower()
     if camera != "narrow":
         raise ValueError(f"{science}: CAMNAME {camera!r}, only the narrow camera")
-    unit = str(keyword("BUNIT", bunit)).strip().upper()
-    if unit not in ("DN", "ADU"):
-        raise ValueError(f"{science}: unit {unit!r}, expected DN summed over coadds")
+    unit = str(keyword("BUNIT", bunit)).replace(" ", "").upper()
+    if unit not in ("DN", "ADU", "DN/S", "ADU/S"):
+        raise ValueError(f"{science}: unit {unit!r}, expected DN or DN/s")
     itime = float(keyword("ITIME", itime))
     coadds = int(keyword("COADDS", coadds))
-    if itime <= 0 or coadds < 1:
+    if not (itime > 0 and coadds >= 1):
         raise ValueError(f"{science}: ITIME {itime} s and COADDS {coadds}")
+    seconds = itime * coadds * u.s
+    rate_per_unit = u.DN / u.s if unit.endswith("/S") else u.DN / seconds
+    jy_per_unit = (calibration.flux_per_count_rate * rate_per_unit).to(u.Jy)
+    dn_per_unit = (rate_per_unit * seconds).to_value(u.DN)
 
     if sigma is not None:
         std = _read(sigma)[0]
         sigma_source = str(sigma)
     else:
-        std = detector_noise.sigma(data, coadds)
+        std = detector_noise.sigma(data * dn_per_unit, coadds) / dn_per_unit
         d = detector_noise
         sigma_source = (
             f"detector noise: gain {d.gain} e-/DN, read noise {d.read_noise} e-, "
@@ -266,7 +284,7 @@ def load_nirc2_exposure(
             raise ValueError(f"{name} {shape} differ from the science {data.shape}")
 
     if position_angle is None:
-        mode = str(header.get("ROTMODE", "position angle")).strip().lower()
+        mode = str(keyword("ROTMODE", None)).strip().lower()
         if mode != "position angle":
             raise ValueError(
                 f"{science}: ROTMODE {mode!r}; ROTPOSN - INSTANGL is the sky "
@@ -284,15 +302,11 @@ def load_nirc2_exposure(
     centers = subsample_pixel_centers((0, ny, 0, nx), wcs, subsample)
 
     pixel_scale = distortion.pixel_scale.to(u.deg)
-    dvol = pixel_scale**2
-    rate = calibration.flux_per_count_rate * u.DN / (itime * coadds * u.s)
-    per_dn = (rate / dvol).to_value(u.MJy / u.sr)
-    data, std = data * per_dn, std * per_dn
     finite = np.isfinite(data) & np.isfinite(std)
     mask = finite & (std > 0) & ~bad
 
     target_data = TargetData(
-        subsample=int(subsample),
+        subsample=subsample,
         data=data[None],
         mask=mask[None],
         nan_mask=finite[None],
@@ -301,8 +315,8 @@ def load_nirc2_exposure(
         subsample_centers=[centers],
     )
     meta = DataMetaInformation(
-        unit=u.MJy / u.sr,
-        dvol=dvol,
+        unit=u.def_unit(f"nirc2_{unit.lower().replace('/', '_per_')}", jy_per_unit),
+        dvol=pixel_scale**2,
         pixel_scale=pixel_scale,
         color=_pivot(throughput),
     )
@@ -310,11 +324,12 @@ def load_nirc2_exposure(
         science=str(science),
         sigma=sigma_source,
         bad_pixels=None if bad_pixels is None else str(bad_pixels),
+        camname=header.get("CAMNAME"),
         filter=header.get("FILTER"),
         bunit=unit,
         itime=itime,
         coadds=coadds,
-        mjy_sr_per_dn=per_dn,
+        jy_per_unit=jy_per_unit,
         calibration=f"{calibration.flux_per_count_rate} ({calibration.atmosphere})",
         distortion=f"{distortion.name}, chosen by {chosen_by}",
         position_angle=position_angle.to(u.deg),
@@ -339,6 +354,4 @@ def _pivot(curve: Throughput) -> Color:
     # a fine grid, so a coarsely sampled curve (a two-point tophat) is exact enough
     lam = np.linspace(samples[0], samples[-1], 100_001)
     t = np.interp(lam, samples, curve.throughput)
-    return Color(
-        np.sqrt(np.trapezoid(t * lam, lam) / np.trapezoid(t / lam, lam)) * u.um
-    )
+    return Color(np.sqrt(trapezoid(t * lam, lam) / trapezoid(t / lam, lam)) * u.um)
