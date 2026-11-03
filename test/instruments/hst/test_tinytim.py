@@ -82,6 +82,9 @@ def fake_tinytim(tmp_path, monkeypatch):
         path = home / name
         path.write_text(script.format(python=sys.executable))
         path.chmod(0o755)
+    (home / "wfpc2.fil").write_text("F160BW 29\nF555W 23\nF656N 1\nF814W 18\n")
+    (home / "nicmos1.fil").write_text("F110M 12\nF110W 31\nF160W 15\n")
+    (home / "nicmos2.fil").write_text("F110W 31\nF160W 16\n")
     monkeypatch.setenv("TINYTIM", str(home))
     monkeypatch.delenv("FAKE_TINYTIM_FAIL", raising=False)
     monkeypatch.delenv("FAKE_TINYTIM_VERSION", raising=False)
@@ -333,19 +336,25 @@ def test_other_tinytim_version_is_refused(fake_tinytim, library, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "kwargs, message",
+    "kwargs, error, message",
     [
-        (dict(WFPC2, chip=None), "chip"),
-        (dict(NIC1, date=None), "date"),
-        (dict(NIC1, camera="ACS"), "camera"),
-        (dict(NIC1, position=(256, 0)), "off the 256x256"),
-        (dict(NIC1, subsample=11), "subsample"),
-        (dict(WFPC2, filter="F656N", spectrum="spectrum.txt"), "monochromatic"),
+        (dict(WFPC2, chip=None), ValueError, "chip"),
+        (dict(WFPC2, chip=2.0), TypeError, "float"),
+        (dict(NIC1, date=None), ValueError, "date"),
+        (dict(NIC1, camera="ACS"), ValueError, "camera"),
+        (dict(NIC1, position=(256, 0)), ValueError, "off the 256x256"),
+        (dict(NIC1, subsample=11), ValueError, "subsample"),
+        (dict(NIC1, subsample=2.0), TypeError, "float"),
+        (dict(WFPC2, filter="F656N", spectrum="s.txt"), ValueError, "monochromatic"),
+        # tiny1 would match F110M only on NIC1, and F160 to F160BW.
+        (dict(NIC1, camera="NIC2", filter="F110M"), ValueError, "not a NIC2 filter"),
+        (dict(WFPC2, filter="F160"), ValueError, "not a WFPC2 filter"),
     ],
 )
-def test_invalid_inputs_are_refused(library, kwargs, message):
-    with pytest.raises(ValueError, match=message):
+def test_invalid_inputs_are_refused(fake_tinytim, library, kwargs, error, message):
+    with pytest.raises(error, match=message):
         tinytim_kernel(psf_library_path=library, **kwargs)
+    assert fake_tinytim() == []
 
 
 def test_load_prepared_kernel(tmp_path):

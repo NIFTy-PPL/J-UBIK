@@ -13,6 +13,7 @@ FITS file that `load_hst_psf_kernel` reads back, also on machines without
 Tiny Tim.
 """
 
+import operator
 import os
 import re
 import shutil
@@ -40,6 +41,7 @@ NICMOS_CHOICES = {"NIC1": ("9", "19", "2002-05-16"), "NIC2": ("10", "20", "2002-
 # Installed in servicing mission 3B; earlier dates use the cryogen-era tables.
 NICMOS_CRYOCOOLER = "2002-03-01"
 DETECTOR_SIZE = {"NIC1": 256, "NIC2": 256, "WFPC2": 800}
+FILTER_TABLES = {"NIC1": "nicmos1.fil", "NIC2": "nicmos2.fil", "WFPC2": "wfpc2.fil"}
 
 INSTALL_MESSAGE = (
     "Tiny Tim not found (TINYTIM={tinytim!r}). Build Tiny Tim {version} from "
@@ -156,11 +158,13 @@ def _tiny1_answers(
             f"{camera} position ({x}, {y}) is off the "
             f"{DETECTOR_SIZE[camera]}x{DETECTOR_SIZE[camera]} pixel detector"
         )
+    # tiny1 reads these with %d: "2.0" would leave ".0" for the next prompt.
+    subsample = operator.index(subsample)
     if not 1 <= subsample <= 10:
         raise ValueError(f"subsample must be 1-10, got {subsample}")
 
     if camera == "WFPC2":
-        if chip not in (1, 2, 3, 4):
+        if chip is None or operator.index(chip) not in (1, 2, 3, 4):
             raise ValueError(f"WFPC2 chip must be 1 (PC) or 2-4 (WF), got {chip}")
         answers = ["6", f"{x} {y}"] if chip == 1 else ["5", str(chip), f"{x} {y}"]
     else:
@@ -275,6 +279,14 @@ def tinytim_kernel(
         raise FileNotFoundError(
             INSTALL_MESSAGE.format(tinytim=tinytim, version=TINYTIM_VERSION)
         )
+    # tiny1 takes the first table line containing the filter name, and if
+    # there is none, reads the next answer as the filter.
+    with open(join(tinytim, FILTER_TABLES[camera])) as table:
+        found = next(
+            (line.split()[0] for line in table if filter in line.upper()), None
+        )
+    if found != filter:
+        raise ValueError(f"{filter} is not a {camera} filter in {table.name}")
     code, output = _run([tiny1, "-v"])
     if code != 0 or output.strip() != TINYTIM_VERSION:
         raise RuntimeError(
