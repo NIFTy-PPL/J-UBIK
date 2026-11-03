@@ -68,8 +68,11 @@ def convert_polarization(
             return jnp.tensordot(mat_stokes_to_linear, inp, axes=([0], [0]))
 
     elif inp_pol == PolarizationType(("I",)):
-        if out_pol == PolarizationType(("LL", "RR")) or out_pol == PolarizationType(
-            ("XX", "YY")
+        if out_pol in (
+            PolarizationType.LL_RR,
+            PolarizationType.RR_LL,
+            PolarizationType.XX_YY,
+            PolarizationType.YY_XX,
         ):
             new_shp = list(inp.shape)
             new_shp[0] = 2
@@ -257,6 +260,7 @@ def interferometry_response(
                         continue
                     inp = sky[pp, tt, ff]
                     r = canonical_sky_to_visibilities(op, inp)
+                    r = r.astype(res.dtype)
                     res = res.at[pp, row_indices[tt][ff], freq_indices[tt][ff]].set(r)
         return convert_polarization(res, inp_pol, out_pol)
 
@@ -336,8 +340,10 @@ def _uv_radians_and_phase_shift(observation, pixsize_x, pixsize_y, center_x, cen
     u_finu = (2 * np.pi * u * pixsize_x) % (2 * np.pi)
     v_finu = (-2 * np.pi * v * pixsize_y) % (2 * np.pi)
 
-    if ((center_x is not None) and (center_y is not None)) or (
-        center_x != 0.0 and center_y != 0.0
+    if (
+        center_x is not None
+        and center_y is not None
+        and (center_x != 0.0 or center_y != 0.0)
     ):
         n = np.sqrt(1 - center_x**2 - center_y**2)
         phase_shift = np.exp(-2j * np.pi * (u * center_x + v * center_y + w * (n - 1)))
