@@ -4,6 +4,10 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+try:
+    from jax import enable_x64
+except ImportError:  # JAX versions before the context manager became public.
+    from jax.experimental import enable_x64
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from jubik.color import Color
@@ -28,7 +32,7 @@ def grid(bounds):
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64, np.complex64, np.complex128])
 def test_interpolation_preserves_sky_precision(dtype):
-    with jax.experimental.enable_x64():
+    with enable_x64():
         g = grid(np.array([0., 2., 4.]))
         op = SpectralInterpolator(g, np.array([1.5]) * u.Hz, dtype)
         values = np.array([1., 3.], dtype=dtype)
@@ -250,17 +254,20 @@ def test_radio_likelihood_selects_complete_pipeline(monkeypatch, enabled):
             direction_from_key=lambda key: direction,
         ),
     ]
+    files = [SimpleNamespace(path=f"observation_{i}.ms") for i in range(len(observations))]
     monkeypatch.setattr(
-        module, "DataLoading", SimpleNamespace(from_yaml_dict=lambda cfg: None)
+        module, "DataLoading",
+        SimpleNamespace(from_yaml_dict=lambda cfg: SimpleNamespace(data_files=files)),
     )
     monkeypatch.setattr(
-        module, "ObservationModify", SimpleNamespace(from_yaml_dict=lambda cfg: None)
+        module, "ObservationModifyConfig", SimpleNamespace(from_yaml_dict=lambda cfg: None)
     )
     monkeypatch.setattr(
         module, "BeamPatternConfig", SimpleNamespace(from_yaml_dict=lambda cfg: None)
     )
     monkeypatch.setattr(
-        module, "load_and_modify_data_from_objects", lambda **kwargs: observations
+        module, "load_and_modify_data_from_objects",
+        lambda **kwargs: zip(files, observations),
     )
     # Sets beam function to be 1 everywhere
     monkeypatch.setattr(
