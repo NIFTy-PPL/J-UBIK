@@ -44,7 +44,8 @@ DETECTOR_SIZE = {"NIC1": 256, "NIC2": 256, "WFPC2": 800}
 INSTALL_MESSAGE = (
     "Tiny Tim not found (TINYTIM={tinytim!r}). Build Tiny Tim {version} from "
     "https://github.com/spacetelescope/tinytim (`make linux` or `make macosx`) "
-    "and set the TINYTIM environment variable to that directory: Tiny Tim "
+    "and set the TINYTIM environment variable to that directory, as an "
+    "absolute path: Tiny Tim "
     "reads its tables from there, and tiny1 and tiny2 are looked up there, "
     "then on PATH."
 )
@@ -174,8 +175,14 @@ def _tiny1_answers(
             answers = [after, f"{x} {y}", "Y" if date >= Time(later_tables) else "N"]
 
     answers.append(filter)
-    # Flat F_nu is the power law F_nu = nu^0.
-    answers += ["3", "0"] if spectrum is None else ["5", "spectrum.dat"]
+    # tiny1 asks for a spectrum only if the filter has more than one wavelength
+    # in its tables; for WFPC2 and NICMOS that is every filter but the F...N.
+    if filter.endswith("N"):
+        if spectrum is not None:
+            raise ValueError(f"{filter} is monochromatic in Tiny Tim: no spectrum")
+    else:
+        # Flat F_nu is the power law F_nu = nu^0.
+        answers += ["3", "0"] if spectrum is None else ["5", "spectrum.dat"]
     answers.append(str(float(psf_arcsec)))
     answers += ["N"] if subsample == 1 else ["Y", str(subsample)]
     answers += [str(float(despace)), "psf"]
@@ -200,15 +207,15 @@ def tinytim_kernel(
 
     The cache file name hashes everything that determines Tiny Tim's output:
     the tiny1 answers and command line, the spectrum file contents and the
-    Tiny Tim version. Tiny Tim must be installed for the lookup; without it,
-    load a cached file with `load_hst_psf_kernel`.
+    Tiny Tim version. A cache hit needs no Tiny Tim install.
 
     Parameters
     ----------
     camera : str
         'NIC1', 'NIC2' or 'WFPC2'.
     filter : str
-        The filter, e.g. 'F160W'.
+        The filter as named in Tiny Tim's tables, e.g. 'F160W'. Narrow-band
+        filters (F...N) are monochromatic there and take no spectrum.
     position : tuple of float
         Detector pixel (x, y) of the PSF centre, rounded to integers as tiny1
         takes them (0-255 for NICMOS, 0-799 for WFPC2).
@@ -236,7 +243,7 @@ def tinytim_kernel(
     -------
     HstPsfKernel
     """
-    camera = camera.upper()
+    camera, filter = camera.upper(), filter.upper()
     x, y = (int(round(p)) for p in position)
     answers = _tiny1_answers(
         camera, chip, x, y, date, filter, spectrum, psf_arcsec, subsample, despace
@@ -247,22 +254,8 @@ def tinytim_kernel(
         with open(spectrum, "rb") as f:
             spectrum_bytes = f.read()
 
-    tinytim = os.environ.get("TINYTIM", "")
-    search_path = os.pathsep.join((tinytim, os.environ.get("PATH", "")))
-    tiny1, tiny2 = (shutil.which(name, path=search_path) for name in ("tiny1", "tiny2"))
-    if not tinytim or tiny1 is None or tiny2 is None:
-        raise FileNotFoundError(
-            INSTALL_MESSAGE.format(tinytim=tinytim, version=TINYTIM_VERSION)
-        )
-    code, output = _run([tiny1, "-v"])
-    version = output.strip()
-    if code != 0 or version != TINYTIM_VERSION:
-        raise RuntimeError(
-            f"{tiny1} -v exited with {code}; the tiny1 answers are scripted for "
-            f"Tiny Tim {TINYTIM_VERSION}. Output:\n{_tail(output)}"
-        )
-
-    cache_key = (answers, options, spectrum_bytes, version)
+    # Runs with any other version are refused below.
+    cache_key = (answers, options, spectrum_bytes, TINYTIM_VERSION)
     cache_hash = sha256(repr(cache_key).encode()).hexdigest()[:16]
     detector = f"wfpc2_{chip}" if camera == "WFPC2" else camera.lower()
     file_name = f"{detector}_{filter.lower()}_{x}x{y}_{cache_hash}.fits"
@@ -272,6 +265,22 @@ def tinytim_kernel(
     if isfile(path_to_file):
         logger.info(f"Loading PSF {file_name} from {psf_library_path}")
         return load_hst_psf_kernel(path_to_file)
+
+    tinytim = os.environ.get("TINYTIM", "")
+    search_path = os.pathsep.join((tinytim, os.environ.get("PATH", "")))
+    tiny1, tiny2 = (shutil.which(name, path=search_path) for name in ("tiny1", "tiny2"))
+    # Tiny Tim reads its tables from TINYTIM, so it must not depend on the
+    # directory tiny1 and tiny2 run in.
+    if not os.path.isabs(tinytim) or tiny1 is None or tiny2 is None:
+        raise FileNotFoundError(
+            INSTALL_MESSAGE.format(tinytim=tinytim, version=TINYTIM_VERSION)
+        )
+    code, output = _run([tiny1, "-v"])
+    if code != 0 or output.strip() != TINYTIM_VERSION:
+        raise RuntimeError(
+            f"{tiny1} -v exited with {code}; the tiny1 answers are scripted for "
+            f"Tiny Tim {TINYTIM_VERSION}. Output:\n{_tail(output)}"
+        )
 
     run_dir = mkdtemp(prefix="tinytim_", dir=psf_library_path)
     if spectrum is not None:
@@ -300,12 +309,13 @@ def tinytim_kernel(
         camera == "WFPC2" and subsample == 1,
         "charge diffusion included",
     )
-    hdu.header["TTVERS"] = (version, "Tiny Tim version")
+    hdu.header["TTVERS"] = (TINYTIM_VERSION, "Tiny Tim version")
 
     logger.info(f"Saving PSF {file_name} in {psf_library_path}")
     # Written next to the cache entry and renamed, so a reader never sees a
     # partial file.
     hdu.writeto(join(run_dir, "kernel.fits"))
+    psf_kernel = load_hst_psf_kernel(join(run_dir, "kernel.fits"))
     os.replace(join(run_dir, "kernel.fits"), path_to_file)
     shutil.rmtree(run_dir)
-    return load_hst_psf_kernel(path_to_file)
+    return psf_kernel

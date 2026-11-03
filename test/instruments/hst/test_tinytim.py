@@ -67,6 +67,8 @@ n = int(open(sys.argv[1]).readline().split()[0])
 # Centred on pixel n/2 of the even grid, as Tiny Tim does; sums to 0.97.
 y, x = np.mgrid[:n, :n] - n // 2
 psf = np.exp(-(x**2 + y**2) / (2 * 1.5**2))
+if fail == "tiny2-zeros":
+    psf[:] = 0
 fits.writeto("psf00.fits", (0.97 * psf / psf.sum()).astype(np.float32))
 """
 
@@ -101,9 +103,11 @@ def library(tmp_path):
 def test_wfpc2_answers_follow_tiny1_prompts(fake_tinytim, library):
     tinytim_kernel("WFPC2", "F814W", (400.4, 399.6), library, chip=3)
     tinytim_kernel("WFPC2", "F555W", (10, 20), library, chip=1, subsample=5)
+    tinytim_kernel("WFPC2", "f656n", (10, 20), library, chip=4)
 
     # tiny1.c (7.5): camera, chip (WF only), position, filter, spectrum form
-    # and index, diameter, subsampled?, factor, despace, rootname.
+    # and index (only for filters of several wavelengths), diameter,
+    # subsampled?, factor, despace, rootname.
     assert fake_tinytim() == [
         [
             "tiny1",
@@ -116,6 +120,13 @@ def test_wfpc2_answers_follow_tiny1_prompts(fake_tinytim, library):
             "tiny1",
             ["tiny.param"],
             ["6", "10 20", "F555W", "3", "0", "3.0", "Y", "5", "0.0", "psf"],
+            None,
+        ],
+        ["tiny2", ["tiny.param"]],
+        [
+            "tiny1",
+            ["tiny.param"],
+            ["5", "4", "10 20", "F656N", "3.0", "N", "0.0", "psf"],
             None,
         ],
         ["tiny2", ["tiny.param"]],
@@ -166,9 +177,11 @@ def test_nicmos_answers_follow_tiny1_prompts(
     assert copied_spectrum == spectrum.read_text()
 
 
-def test_cache_hit_runs_tiny_tim_once(fake_tinytim, library):
+def test_cache_hit_runs_tiny_tim_once(fake_tinytim, library, monkeypatch):
     first = tinytim_kernel("NIC1", "F160W", (128, 128), library, date="1997-09-12")
-    second = tinytim_kernel("NIC1", "F160W", (128, 128), library, date="1997-09-12")
+    # A hit needs no Tiny Tim, and Tiny Tim's filter names are case-insensitive.
+    monkeypatch.delenv("TINYTIM")
+    second = tinytim_kernel("NIC1", "f160w", (128, 128), library, date="1997-09-12")
 
     assert [c[0] for c in fake_tinytim()] == ["tiny1", "tiny2"]
     np.testing.assert_array_equal(first.kernel, second.kernel)
@@ -281,15 +294,35 @@ def test_failure_keeps_run_directory_and_shows_output(
     assert not [p for p in os.listdir(library) if p.endswith(".fits")]
 
 
-def test_not_installed_says_how_to_install(library, tmp_path, monkeypatch):
+def test_not_installed_says_how_to_install(
+    fake_tinytim, library, tmp_path, monkeypatch
+):
     monkeypatch.setenv("PATH", str(tmp_path))
-    monkeypatch.delenv("TINYTIM", raising=False)
+    monkeypatch.delenv("TINYTIM")
     with pytest.raises(FileNotFoundError, match="TINYTIM=''.*make linux"):
         tinytim_kernel(psf_library_path=library, **WFPC2)
 
     monkeypatch.setenv("TINYTIM", str(tmp_path))
     with pytest.raises(FileNotFoundError, match=f"TINYTIM='{tmp_path}'"):
         tinytim_kernel(psf_library_path=library, **WFPC2)
+
+    # Tiny Tim would look for its tables relative to the run directory.
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TINYTIM", "tinytim")
+    with pytest.raises(FileNotFoundError, match="TINYTIM='tinytim'.*absolute"):
+        tinytim_kernel(psf_library_path=library, **WFPC2)
+    assert fake_tinytim() == []
+
+
+def test_invalid_output_is_not_cached(fake_tinytim, library, monkeypatch):
+    monkeypatch.setenv("FAKE_TINYTIM_FAIL", "tiny2-zeros")
+
+    with pytest.raises(ValueError, match="kernel sum is nan"):
+        tinytim_kernel(psf_library_path=library, **WFPC2)
+
+    [run_dir] = os.listdir(library)
+    assert run_dir.startswith("tinytim_")
+    assert "tiny2.log" in os.listdir(os.path.join(library, run_dir))
 
 
 def test_other_tinytim_version_is_refused(fake_tinytim, library, monkeypatch):
@@ -307,6 +340,7 @@ def test_other_tinytim_version_is_refused(fake_tinytim, library, monkeypatch):
         (dict(NIC1, camera="ACS"), "camera"),
         (dict(NIC1, position=(256, 0)), "off the 256x256"),
         (dict(NIC1, subsample=11), "subsample"),
+        (dict(WFPC2, filter="F656N", spectrum="spectrum.txt"), "monochromatic"),
     ],
 )
 def test_invalid_inputs_are_refused(library, kwargs, message):
