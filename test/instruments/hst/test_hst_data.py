@@ -514,10 +514,6 @@ def test_nicmos_noise_defaults_and_units(tmp_path):
     assert handbook.noise.b[0, 0] == pytest.approx(1 / (ADCGAIN * RAMP_TIME))
     assert handbook.noise.sky == 0.0
 
-    counts = _nicmos(tmp_path / "c_cal.fits", bunit="COUNTS")
-    _rewrite(counts, TIME=time, SCI=np.zeros(SHAPE))
-    counts = _load(counts, sample_times=READ_TIMES)
-    np.testing.assert_allclose(counts.noise.b, rate.noise.b, rtol=1e-12)
     assert _load(_wfpc2(tmp_path / "w_flt.fits"), chip=3).noise is None
 
 

@@ -373,7 +373,7 @@ def _nicmos_noise(card, path, data, err, samp, time, sample_times, flat, dark):
         # shortcut: calnica's S/N uses the _ima reads; it is estimated from
         # SCI, the read noise ERR / |w_0| and the flat, which picks calnica's
         # power on 87-99 % of pixels; upgrade by passing the _ima reads
-        with np.errstate(invalid="ignore", divide="ignore"):  # TIME 0: masked
+        with np.errstate(invalid="ignore", divide="ignore"):  # ERR 0, bad flat
             signal, read = data * time, err / norm[n]
             snr = signal / np.sqrt(read**2 + np.maximum(signal, 0) * per_count)
         power = np.searchsorted(FIXSEN_SNR, np.nan_to_num(snr), side="right")
