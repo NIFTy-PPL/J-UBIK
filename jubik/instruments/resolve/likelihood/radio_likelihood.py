@@ -32,10 +32,8 @@ from ..parse.data.data_loading import DataLoading
 from ..parse.data.data_modify import ObservationModifyConfig
 from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
 from ..parse.noise.factory_noise_correction import factory_noise_correction_parser
-from ..parse.calibration import CalibrationConfig
 from ..parse.phase_shift import PhaseShiftConfig
 from ..parse.response import yaml_to_response_settings
-from ..calibration.gain import build_gain
 from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_loading import load_and_modify_data_from_objects
 from ..likelihood.mosaic_likelihood import (
@@ -152,9 +150,8 @@ def build_radio_likelihood(
     data_names: list[str] | str
         The data blocks to load, keys of `cfg[data_key]`.
     cfg: dict
-        The config, with `radio_response` (backend, optional `shift`, see
-        `PhaseShiftConfig`, and optional `calibration`, see
-        `CalibrationConfig`) and the data blocks under `data_key`.
+        The config, with `radio_response` (backend and optional `shift`, see
+        `PhaseShiftConfig`) and the data blocks under `data_key`.
     sky_grid: Grid
         The grid of the sky.
     sky_domain: dict | jft.ShapeWithDtype
@@ -193,9 +190,6 @@ def build_radio_likelihood(
     shift_config = PhaseShiftConfig.from_yaml_dict(cfg["radio_response"].get("shift"))
     shift_groups = assign_shift_groups(
         shift_config, [file for dl in data_loadings.values() for file in dl.data_files]
-    )
-    calibration_config = CalibrationConfig.from_yaml_dict(
-        cfg["radio_response"].get("calibration")
     )
 
     likelihoods = []
@@ -246,12 +240,6 @@ def build_radio_likelihood(
                             ),
                             shift=build_phase_shift(
                                 shift_config, shift_groups[file.path], o
-                            ),
-                            # own latents per observation: files have different times
-                            gain=build_gain(
-                                calibration_config,
-                                o,
-                                prefix=f"gain_{field_name}_{len(likelihoods)}",
                             ),
                         )
                     )

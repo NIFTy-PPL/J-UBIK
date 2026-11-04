@@ -1,6 +1,4 @@
-from dataclasses import dataclass, field
-from functools import reduce
-from operator import mul
+from dataclasses import dataclass, field, replace
 from typing import Callable, Union
 
 import nifty.re as jft
@@ -21,7 +19,6 @@ def create_response_operator(
     sky2vis: Callable[[Array], Array],
     field_name: str,
     shift: jft.Model | None = None,
-    gain: jft.Model | None = None,
 ):
     """Create the full response operator.
 
@@ -29,7 +26,6 @@ def create_response_operator(
     1. Field extraction
     2. sky2vis
     3. shift (optional)
-    4. gain (optional)
 
     Parameters
     ----------
@@ -42,18 +38,15 @@ def create_response_operator(
     shift: jft.Model | None = None,
         (Optional) multiplicative correction applied to the visibilities, e.g. a
         phase-shift correction.
-    gain: jft.Model | None = None,
-        (Optional) antenna gains multiplied onto the visibilities, see
-        `build_gain`.
     """
 
     response = jft.wrap(sky2vis, field_name)
-    factors = [f for f in (shift, gain) if f is not None]
-    for factor in factors:
-        domain = domain | factor.domain
-    return jft.Model(
-        lambda x: reduce(mul, [f(x) for f in factors], response(x)), domain=domain
-    )
+
+    if shift is not None:
+        domain = domain | shift.domain
+        return jft.Model(lambda x: shift(x) * response(x), domain=domain)
+
+    return jft.Model(response, domain=domain)
 
 
 @dataclass
@@ -74,7 +67,7 @@ class LikelihoodBuilderBase:
     shift: jft.Model | None = None
         (Optional) the phase factor inside `response`, see `build_phase_shift`.
     gain: jft.Model | None = None
-        (Optional) the antenna gains inside `response`, see `build_gain`.
+        (Optional) the gain factor inside `response`, see `with_gain`.
     """
 
     response: jft.Model
@@ -82,6 +75,36 @@ class LikelihoodBuilderBase:
     field_name: str
     shift: jft.Model | None = field(default=None, kw_only=True)
     gain: jft.Model | None = field(default=None, kw_only=True)
+
+    def with_gain(self, gain: jft.Model) -> "LikelihoodBuilderBase":
+        """A copy of this builder whose response is `gain(x) * response(x)`.
+
+        The likelihood of the copy takes the gain latents next to the sky
+        latents. The builder does not build the gain: the caller passes any
+        model of the antenna gains, e.g. on top of `CalibrationDistributor`.
+
+        Parameters
+        ----------
+        gain: jft.Model
+            The complex factor of every visibility, shape and dtype of
+            `visibilities` or broadcastable to them.
+
+        Raises
+        ------
+        ValueError
+            If the builder already has a gain.
+        """
+        if self.gain is not None:
+            raise ValueError(f"{self.field_name}: the likelihood already has a gain.")
+        response = self.response
+        return replace(
+            self,
+            response=jft.Model(
+                lambda x: gain(x) * response(x),
+                domain=response.domain | gain.domain,
+            ),
+            gain=gain,
+        )
 
     def response_adjoint(
         self, primals: NDArray | Array, x: dict | jft.Vector | None = None
@@ -143,7 +166,7 @@ class LikelihoodBuilder(LikelihoodBuilderBase):
         Raises
         ------
         ValueError
-            If the builder has no gain.
+            If the builder has no gain, see `with_gain`.
         """
         if self.gain is None:
             raise ValueError("The likelihood has no gain to calibrate.")
@@ -195,7 +218,6 @@ def build_likelihood_from_sky_beamer(
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     noise_std_correction: BaseLineCorrection | None = None,
     shift: jft.Model | None = None,
-    gain: jft.Model | None = None,
 ) -> LikelihoodBuilder | VariableLikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
 
@@ -230,9 +252,6 @@ def build_likelihood_from_sky_beamer(
     shift: jft.Model | None
         (Optional) phase factor multiplied onto the model visibilities, see
         `build_phase_shift`.
-    gain: jft.Model | None
-        (Optional) antenna gains multiplied onto the model visibilities, see
-        `build_gain`.
 
     Returns
     ------
@@ -251,7 +270,6 @@ def build_likelihood_from_sky_beamer(
         sky2vis=sky2vis,
         field_name=field_name,
         shift=shift,
-        gain=gain,
     )
 
     if noise_std_correction is None:
@@ -260,7 +278,6 @@ def build_likelihood_from_sky_beamer(
             response=response,
             field_name=field_name,
             shift=shift,
-            gain=gain,
         )
     else:
         inverse_std_model = factory_noise_correction_model(
@@ -274,5 +291,4 @@ def build_likelihood_from_sky_beamer(
             field_name=field_name,
             inverse_standard_deviation=inverse_std_model,
             shift=shift,
-            gain=gain,
         )
