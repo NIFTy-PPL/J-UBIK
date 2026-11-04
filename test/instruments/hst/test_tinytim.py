@@ -372,6 +372,7 @@ def test_load_prepared_kernel(tmp_path):
     "data, header, error",
     [
         (np.ones((3, 3)), dict(PIXSCALE=0.05, SUBSAMPL=1), KeyError),
+        (np.ones((3, 3)), dict(PIXSCALE=0.05, SUBSAMPL=1, CHGDIFF="F"), ValueError),
         (np.ones((4, 4)), dict(PIXSCALE=0.05, SUBSAMPL=1, CHGDIFF=False), ValueError),
         (np.zeros((3, 3)), dict(PIXSCALE=0.05, SUBSAMPL=1, CHGDIFF=False), ValueError),
     ],

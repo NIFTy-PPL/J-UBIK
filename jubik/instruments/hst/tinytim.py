@@ -96,6 +96,8 @@ def load_hst_psf_kernel(path: str) -> HstPsfKernel:
     missing = [key for key in ("PIXSCALE", "SUBSAMPL", "CHGDIFF") if key not in header]
     if missing:
         raise KeyError(f"{path}: missing PSF keywords {missing}")
+    if not isinstance(header["CHGDIFF"], bool):
+        raise ValueError(f"{path}: CHGDIFF must be a FITS logical (T or F)")
     if kernel.ndim != 2 or not all(size % 2 for size in kernel.shape):
         raise ValueError(
             f"{path}: the kernel must be 2-D with odd sizes, centred on its "
@@ -279,6 +281,7 @@ def tinytim_kernel(
         raise FileNotFoundError(
             INSTALL_MESSAGE.format(tinytim=tinytim, version=TINYTIM_VERSION)
         )
+    tiny1, tiny2 = os.path.abspath(tiny1), os.path.abspath(tiny2)
     # tiny1 takes the first table line containing the filter name, and if
     # there is none, reads the next answer as the filter.
     with open(join(tinytim, FILTER_TABLES[camera])) as table:
