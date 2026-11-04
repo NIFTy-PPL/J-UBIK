@@ -356,14 +356,14 @@ def load_nirc2_exposure(
     rows0, rows1, cols0, cols1 = wcs.bounding_indices_from_world_extrema(
         sky_grid.world_corners(extension_value=(1, 1))
     )
+    if rows0 >= ny or rows1 <= 0 or cols0 >= nx or cols1 <= 0:
+        raise ValueError(f"{science}: the sky grid misses the detector")
     bounds = (
         max(rows0 - margin, 0),
         min(rows1 + margin, ny),
         max(cols0 - margin, 0),
         min(cols1 + margin, nx),
     )
-    if bounds[0] >= bounds[1] or bounds[2] >= bounds[3]:
-        raise ValueError(f"{science}: the sky grid misses the detector")
     cut = np.s_[bounds[0] : bounds[1], bounds[2] : bounds[3]]
     data, std, bad = data[cut], std[cut], bad[cut]
     if noise is not None:

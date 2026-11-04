@@ -50,10 +50,9 @@ def build_keck_likelihoods(
     ``wavelength_unit`` (default um), ``exposure`` (default: the file stem),
     ``bad_pixels`` and the header overrides of `load_nirc2_exposure`
     (``bunit``, ``itime``, ``coadds``, ``position_angle`` in degrees).
-    ``cfg[telescope_key]`` holds
-    ``target: subsample``, ``distortion: {pre_2015: [x_map, y_map],
-    post_2015: [x_map, y_map]}`` (either may be left out) and the keys of
-    `build_exposure_likelihoods`.
+    ``cfg[telescope_key]`` holds ``target: subsample``, ``distortion:
+    {pre_2015: [x_map, y_map], post_2015: [x_map, y_map]}`` (either may be
+    left out) and the keys of `build_exposure_likelihoods`.
     """
     telescope = cfg[telescope_key]
     subsample = telescope["target"]["subsample"]

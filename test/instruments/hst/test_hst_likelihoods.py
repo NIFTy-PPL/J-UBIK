@@ -24,7 +24,12 @@ from jubik.instruments.jwst.likelihood.likelihood import (
 )
 from jubik.instruments.jwst.plotting.residuals import SkyResiduals
 from jubik.instruments.jwst.psf.psf_operator import PsfGaussianBroadening
-from test_hst_data import CURVE, _grid, _nicmos, _wfpc2
+from astropy import units as u
+from astropy.wcs import WCS
+
+from jubik.grid import Grid
+from jubik.wcs import WcsAstropy
+from test_hst_data import CURVE, NIC2_SCALE, SHAPE, SPECTRAL, _grid, _nicmos, _wfpc2
 
 TELESCOPE = {
     "target": {"subsample": 1},
@@ -294,3 +299,52 @@ def test_prior_key_of_no_band_raises(tmp_path, section):
     priors["f160w"] = priors["default"]  # the JWST-style filter key
     with pytest.raises(ValueError, match="match no band"):
         build_exposure_likelihoods([exposure], grid, _sky_domain(grid), telescope)
+
+
+def test_cropping_keeps_the_likelihood_on_a_coarse_grid(tmp_path):
+    """Sky pixels of 4 chip pixels: the cutout must still hold every pixel the
+    sky-grid mask keeps, so cut and whole chip give the same likelihood."""
+    path = _nicmos(tmp_path / "n_cal.fits")
+    with fits.open(path) as hdul:
+        center = WCS(hdul["SCI", 1].header, hdul).pixel_to_world(25.3, 19.6)
+    fov = [3 * 4 * s for s in NIC2_SCALE] * u.arcsec
+    grid = Grid(WcsAstropy(center, (3, 3), fov, 20 * u.deg), SPECTRAL)
+    profile = np.exp(-0.5 * (np.arange(5) - 2.0) ** 2)
+    kernel = HstPsfKernel(
+        np.outer(profile, profile) / profile.sum() ** 2, 0.076, 1, False
+    )
+    # wrap: the sky beyond the grid is not zero, so the margin matters
+    rotation_and_shift = TELESCOPE["rotation_and_shift"] | {
+        "linear": {"order": 1, "mode": "wrap"}
+    }
+    telescope = TELESCOPE | {"rotation_and_shift": rotation_and_shift}
+
+    def build(margin):
+        loaded = load_hst_exposure(path, grid, CURVE, margin=margin, dq_bits=0)
+        exposure = Exposure(
+            "hst",
+            "NIC2",
+            "F160W",
+            "n",
+            loaded.target_data,
+            loaded.meta,
+            CURVE,
+            kernel,
+            loaded.noise,
+        )
+        return build_exposure_likelihoods(
+            [exposure], grid, _sky_domain(grid), telescope
+        )
+
+    cut, whole = build(2), build(1000)
+    (cut_builder,), (whole_builder,) = (
+        [t.builder for t in p.likelihoods] for p in (cut, whole)
+    )
+    assert whole_builder.data.shape == (1, *SHAPE)
+    assert cut_builder.data.size < whole_builder.data.size
+    assert cut_builder.mask.sum() == whole_builder.mask.sum() > 0
+
+    x = jft.random_like(jax.random.PRNGKey(6), whole.likelihood.domain)
+    x = x.tree if isinstance(x, jft.Vector) else x
+    x["sky"] = 1e3 * jnp.abs(x["sky"])
+    np.testing.assert_allclose(cut.likelihood(x), whole.likelihood(x), rtol=1e-12)

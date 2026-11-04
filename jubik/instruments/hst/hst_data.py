@@ -169,7 +169,8 @@ def load_hst_exposure(
         ``target_data`` with a leading exposure axis of length one; ``mask``
         is True where the data enter the likelihood, ``nan_mask`` where data
         and std are finite and std is positive (WFPC2: where data are
-        finite). ``meta`` with PHOTPLAM as ``color``. ``weights`` from `throughput_weights` on ``grid.spectral``.
+        finite). ``meta`` with PHOTPLAM as ``color``. ``weights`` from
+        `throughput_weights` on ``grid.spectral``.
         NICMOS MULTIACCUM ``noise``: ``a`` = ERR², read noise only from
         calnica 4.2 on (NICMOS Data Handbook v8, p. 47), ``b`` the shot noise
         of the least-squares ramp slope, see `_nicmos_noise`; pixels with
@@ -435,8 +436,9 @@ def _cutout_bounds(
     shape: tuple[int, int],
     path: str,
 ) -> tuple[int, int, int, int]:
+    # the corners one sky pixel out: the mask keeps up to the grid's outer edge
     min_row, max_row, min_column, max_column = wcs.bounding_indices_from_world_extrema(
-        grid.spatial.world_corners()
+        grid.spatial.world_corners(extension_value=(1, 1))
     )
     if min_row >= shape[0] or max_row <= 0 or min_column >= shape[1] or max_column <= 0:
         raise ValueError(f"{path}: the sky grid misses the chip")

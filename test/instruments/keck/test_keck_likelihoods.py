@@ -151,11 +151,19 @@ def test_cropping_keeps_the_likelihood(tmp_path, noise, shape, fov):
             **noise_entry,
         )
         distortion = {"pre_2015": [str(tmp_path / "X.fits"), str(tmp_path / "Y.fits")]}
-        telescope = TELESCOPE | {"target": {"subsample": 1}, "distortion": distortion}
+        # wrap: the sky beyond the grid is not zero, so the margin matters
+        wrap = TELESCOPE["rotation_and_shift"] | {
+            "linear": {"order": 1, "mode": "wrap"}
+        }
+        telescope = TELESCOPE | {
+            "target": {"subsample": 1},
+            "distortion": distortion,
+            "rotation_and_shift": wrap,
+        }
         cfg = {"files": {"exposures": [entry]}, "telescope": telescope}
         return build_keck_likelihoods(cfg, grid, domain)
 
-    cut, whole = build(3), build(10_000)
+    cut, whole, no_margin = build(3), build(10_000), build(0)
     (cut_builder,), (whole_builder,) = (
         [t.builder for t in p.likelihoods] for p in (cut, whole)
     )
@@ -167,3 +175,5 @@ def test_cropping_keeps_the_likelihood(tmp_path, noise, shape, fov):
     x = x.tree if isinstance(x, jft.Vector) else x
     x["sky"] = 1e3 * jax.numpy.abs(x["sky"])  # a bright sky, so b matters
     np.testing.assert_allclose(cut.likelihood(x), whole.likelihood(x), rtol=1e-12)
+    if shape == 16:  # the test can fail: without the margin the PSF wings are cut
+        assert not np.isclose(no_margin.likelihood(x), whole.likelihood(x), rtol=1e-12)
