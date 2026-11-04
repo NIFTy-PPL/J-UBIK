@@ -263,3 +263,13 @@ def test_per_band_shift_prior_matches_any_case(tmp_path):
         values.append(float(products.likelihood(x)))
     default, exact, lower = values
     assert exact == lower != default
+
+
+@pytest.mark.parametrize("section", ["zero_flux", "calibration", "correction_priors"])
+def test_prior_key_of_no_band_raises(tmp_path, section):
+    exposure, grid = _exposure(tmp_path)
+    telescope = deepcopy(TELESCOPE)
+    priors = telescope.get(section) or telescope["rotation_and_shift"][section]
+    priors["f160w"] = priors["default"]  # the JWST-style filter key
+    with pytest.raises(ValueError, match="match no band"):
+        build_exposure_likelihoods([exposure], grid, _sky_domain(grid), telescope)

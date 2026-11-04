@@ -153,6 +153,16 @@ def build_exposure_likelihoods(
     zero_flux = ZeroFluxPriorConfigs.from_yaml_dict(telescope_cfg.get("zero_flux"))
     # same layout as zero_flux: a default and per-band priors
     calibration = ZeroFluxPriorConfigs.from_yaml_dict(telescope_cfg.get("calibration"))
+    # a mistyped band key would silently fall back to the default prior
+    reserved = {"default", "model", "shift_unit", "rotation_unit"}
+    known = {b.lower() for b in bands} | reserved
+    for name, keys in (
+        ("correction_priors", correction_priors),
+        ("zero_flux", zero_flux.names if zero_flux else {}),
+        ("calibration", calibration.names if calibration else {}),
+    ):
+        if unknown := set(keys) - known:
+            raise ValueError(f"{name}: {sorted(unknown)} match no band of {bands}")
 
     likelihoods = []
     plotting = ResidualPlottingInformation()
