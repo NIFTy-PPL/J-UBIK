@@ -436,7 +436,12 @@ def _cutout_bounds(
     shape: tuple[int, int],
     path: str,
 ) -> tuple[int, int, int, int]:
-    # the corners one sky pixel out: the mask keeps up to the grid's outer edge
+    if margin < 0:
+        raise ValueError(f"margin {margin} must be >= 0")
+    # corners one sky pixel out: the box then holds every pixel the mask keeps
+    # (sky coordinates in (0, n), up to half a sky pixel past the far edge).
+    # shortcut: box from the four corners; a distortion bending the grid edge
+    # by more than half a sky pixel needs a larger margin
     min_row, max_row, min_column, max_column = wcs.bounding_indices_from_world_extrema(
         grid.spatial.world_corners(extension_value=(1, 1))
     )

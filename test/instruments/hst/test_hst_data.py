@@ -216,6 +216,8 @@ def test_products_shapes_weights_diagnostics_and_file_untouched(tmp_path):
 
 def test_cutout_is_clipped_to_the_chip(tmp_path):
     path = _nicmos(tmp_path / "n_cal.fits")
+    with pytest.raises(ValueError, match="margin"):
+        _load(path, margin=-1)
     exposure = _load(path, grid=_grid(path, center_xy=(2.25, 35.25)))
     assert exposure.diagnostics.bounds == (29, 40, 0, 12)  # one grid pixel out
     with pytest.raises(ValueError, match="misses the chip"):

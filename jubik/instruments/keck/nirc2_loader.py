@@ -274,6 +274,8 @@ def load_nirc2_exposure(
     if int(subsample) != subsample or subsample < 1:
         raise ValueError(f"subsample {subsample} must be a positive integer")
     subsample = int(subsample)
+    if margin < 0:
+        raise ValueError(f"margin {margin} must be >= 0")
 
     data, header = _read(science)
 
@@ -352,7 +354,10 @@ def load_nirc2_exposure(
     wcs = nirc2_wcs(distortion, crval, crpix, position_angle)
     # the cutout keeps detector pixel indices, so the distortion maps stay whole
     ny, nx = data.shape
-    # the corners one sky pixel out: the mask keeps up to the grid's outer edge
+    # corners one sky pixel out: the box then holds every pixel the mask keeps
+    # (sky coordinates in (0, n), up to half a sky pixel past the far edge).
+    # shortcut: box from the four corners; a distortion bending the grid edge
+    # by more than half a sky pixel needs a larger margin
     rows0, rows1, cols0, cols1 = wcs.bounding_indices_from_world_extrema(
         sky_grid.world_corners(extension_value=(1, 1))
     )

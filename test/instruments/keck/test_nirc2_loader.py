@@ -247,6 +247,11 @@ def test_cut_to_the_sky_grid_and_pixels_outside_it_masked(tmp_path):
     assert exposure.diagnostics["masked_pixels"] >= far.sum()
 
 
+def test_negative_margin_raises(tmp_path):
+    with pytest.raises(ValueError, match="margin"):
+        _load(tmp_path, margin=-1)
+
+
 def test_sky_grid_off_the_detector_raises(tmp_path):
     away = WcsAstropy(CENTER.directional_offset_by(0, 1 * u.arcsec), 5, 50 * u.mas)
     with pytest.raises(ValueError, match="misses the detector"):
