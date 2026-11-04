@@ -44,6 +44,9 @@ __all__ = [
 ]
 
 FLAM = u.erg / u.s / u.cm**2 / u.AA
+# calnica >= 4.2 read weights |i - (n-1)/2|^power by S/N (Fixsen et al. 2000)
+FIXSEN_SNR = (5, 10, 20, 50, 100)
+FIXSEN_POWERS = (0.0, 0.4, 1.0, 3.0, 6.0, 10.0)
 # BUNIT -> whether one data unit is a count over EXPTIME rather than a count/s
 BUNIT_IS_COUNTS = {"COUNTS": True, "COUNTS/S": False}
 PHOT_KEYS = ("PHOTMODE", "PHOTFNU", "PHOTFLAM", "PHOTPLAM", "PHOTZPT")
@@ -237,6 +240,7 @@ def load_hst_exposure(
             noise, noise_info = _nicmos_noise(
                 card,
                 path,
+                data,
                 std,
                 samp,
                 time,
@@ -293,28 +297,39 @@ def load_hst_exposure(
     )
 
 
-def ramp_poisson_factor(times: ArrayLike) -> float:
+def ramp_poisson_factor(times: ArrayLike, power: float = 0.0) -> float:
     """Poisson variance of the least-squares slope through reads at ``times``
     per unit count rate, wᵀMw (1/s).
 
-    w are the slope's least-squares weights, M_jk = min(t_j, t_k) the
-    covariance of the accumulated counts at unit rate. For n equally spaced
-    reads over T it is 6(n²+1) / (5n(n+1)T).
+    w are the slope's weights when read i of n is weighted |i - (n-1)/2|^power
+    (Fixsen et al. 2000, ApJ 545, 1053; power 0 is unweighted), M_jk =
+    min(t_j, t_k) the covariance of the accumulated counts at unit rate. For n
+    equally spaced reads over T and power 0 it is 6(n²+1) / (5n(n+1)T).
     """
+    w = _slope_weights(times, power)
+    return float(w @ np.minimum.outer(times, times) @ w)
+
+
+def _slope_weights(times: ArrayLike, power: float) -> np.ndarray:
     t = np.asarray(times, float)
-    w = (t - t.mean()) / np.sum((t - t.mean()) ** 2)
-    return float(w @ np.minimum.outer(t, t) @ w)
+    v = np.abs(np.arange(t.size) - (t.size - 1) / 2) ** power
+    x = np.stack([np.ones_like(t), t])
+    return np.linalg.solve((x * v) @ x.T, x * v)[1]
 
 
-def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
+def _nicmos_noise(card, path, data, err, samp, time, sample_times, flat, dark):
     """σ² = ERR² + b · max(SCI + dark, 0) of a NICMOS ``_cal`` cutout.
 
     SCI is the slope times the inverse flat and ZPSCALE (NICMOS Data Handbook
     v8, FLATCORR and PHOTCALC, pp. 51-52), so b = wᵀMw · flat · ZPSCALE /
-    ADCGAIN, times TIME for BUNIT counts. calnica's CRIDCALC rejects
-    saturated and cosmic-ray samples and records only their number (SAMP) and
-    time (TIME) per pixel; the reads used are taken as the SAMP reads ending
-    at the read at TIME.
+    ADCGAIN, times TIME for BUNIT counts. calnica's CRIDCALC fits the reads
+    after the zeroth by the optimally weighted least squares of Fixsen et al.
+    (2000), with the power chosen by S/N = (y_n - y_1) / σ(y_n): a pixel with
+    SAMP reads used reads 1..SAMP, and TIME = t_SAMP - t_1. Both were checked
+    on calnica 4.4.1 files, whose _cal SCI that fit through the _ima reads
+    reproduces on every full-ramp pixel. A cosmic ray splits the ramp and
+    shortens TIME; such pixels usually match no read and keep the Data
+    Handbook's two-read term.
     """
     gain = card("ADCGAIN")
     if not (gain and gain > 0):
@@ -326,9 +341,13 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
     ):
         raise ValueError(f"sample_times {sample_times}: need finite times")
     time = np.asarray(time, float)
+    inverse_flat = 1.0 if flat is None else np.asarray(flat, float)
+    per_count = inverse_flat * (card("ZPSCALE") or 1.0) / gain  # SCI per electron
+    # data units per count rate: TIME for BUNIT counts
+    unit_time = time if BUNIT_IS_COUNTS[str(card("BUNIT")).strip().upper()] else 1.0
     # the Data Handbook's term (p. 47): two reads over TIME
     factor = 1 / np.where(time > 0, time, np.nan)
-    placed = 0
+    placed, weighted, sampled = 0, 0, int((time > 0).sum())
     if sample_times is not None:
         t = np.union1d(0.0, sample_times)  # the zeroth read, given or not
         # EXPTIME is the last read's SAMPTIME (Data Handbook v8, p. 90)
@@ -337,28 +356,36 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
                 f"{path}: the last sample time {t[-1]} s is not EXPTIME "
                 f"{card('EXPTIME')} s; pass the _ima SAMPTIME values"
             )
-        table = np.full((t.size, t.size), np.nan)
-        for first in range(t.size):
-            for last in range(first + 1, t.size):
-                table[first, last] = ramp_poisson_factor(t[first : last + 1])
-        last = np.argmin(np.abs(t[:, None, None] - time), axis=0)
-        first = last - np.asarray(samp, int) + 1
-        # shortcut: a rejected sample inside the ramp is treated as a shorter
-        # contiguous ramp; exact only for saturation, upgrade with _ima DQ
-        ok = (np.abs(t[last] - time) < 0.01) & (first >= 0) & (first < last)
-        factor = np.where(ok, table[np.clip(first, 0, last), last], factor)
-        placed = int(ok.sum())
-    flat = 1.0 if flat is None else np.asarray(flat, float)
-    b = factor * flat * (card("ZPSCALE") or 1.0) / gain
-    if BUNIT_IS_COUNTS[str(card("BUNIT")).strip().upper()]:
-        b = b * time
+        reads = t[1:] - t[1]  # after the zeroth, relative to read 1
+        # factors and read-noise norms of the first n reads; a slope needs two
+        table = np.full((len(FIXSEN_POWERS), reads.size + 1), np.nan)
+        norm = np.full(reads.size + 1, np.nan)
+        for k in range(2, reads.size + 1):
+            table[:, k] = [ramp_poisson_factor(reads[:k], p) for p in FIXSEN_POWERS]
+            norm[k] = np.linalg.norm(_slope_weights(reads[:k], 0.0))
+        n = np.clip(np.asarray(samp, int), 0, reads.size)
+        # shortcut: most cosmic-ray pixels keep the two-read term; their segment
+        # combination is not reproduced, upgrade with the _ima reads and DQ
+        ok = (n >= 2) & (n == samp) & (np.abs(reads[n - 1] - time) < 0.01)
+        # shortcut: calnica's S/N uses the _ima reads; it is estimated from
+        # SCI, the read noise ERR / |w_0| and the flat, which picks calnica's
+        # power on 87-99 % of pixels; upgrade by passing the _ima reads
+        with np.errstate(invalid="ignore", divide="ignore"):  # TIME 0: masked
+            signal, read = data / unit_time * time, err / unit_time / norm[n]
+            snr = signal / np.sqrt(read**2 + np.maximum(signal, 0) * per_count)
+        power = np.searchsorted(FIXSEN_SNR, np.nan_to_num(snr), side="right")
+        factor = np.where(ok, table[power, n], factor)
+        placed, weighted = int(ok.sum()), int((ok & (power > 0)).sum())
+    b = factor * per_count * unit_time
     sky = 0.0 if dark is None else np.asarray(dark, float)
     info = (
-        f"ADCGAIN {gain}, ramp from sample times on {placed} of {time.size} "
-        f"pixels, flat {'given' if np.ndim(flat) else 'assumed 1'}, "
+        f"ADCGAIN {gain}, ramp from sample times on {placed} of {sampled} "
+        f"pixels with samples (the rest, e.g. cosmic-ray segments, from the "
+        f"two-read term), {weighted} of them weighted by S/N, flat "
+        f"{'given' if flat is not None else 'assumed 1'}, "
         f"dark {'given' if np.ndim(sky) else 'assumed 0'}"
     )
-    if placed == 0 or np.ndim(flat) == 0:
+    if placed < sampled or flat is None:
         logger.warning(f"{path}: NICMOS shot noise with {info}")
     return ShotNoise(a=err**2, b=b, sky=sky), info
 
