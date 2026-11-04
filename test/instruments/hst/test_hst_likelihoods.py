@@ -9,8 +9,11 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 import pytest
+from astropy import units as u
 from astropy.io import fits
+from astropy.wcs import WCS
 
+from jubik.grid import Grid
 from jubik.instruments.hst.hst_data import load_hst_exposure
 from jubik.instruments.hst.hst_likelihoods import build_hst_likelihoods
 from jubik.instruments.hst.tinytim import HstPsfKernel
@@ -24,10 +27,6 @@ from jubik.instruments.jwst.likelihood.likelihood import (
 )
 from jubik.instruments.jwst.plotting.residuals import SkyResiduals
 from jubik.instruments.jwst.psf.psf_operator import PsfGaussianBroadening
-from astropy import units as u
-from astropy.wcs import WCS
-
-from jubik.grid import Grid
 from jubik.wcs import WcsAstropy
 from test_hst_data import CURVE, NIC2_SCALE, SHAPE, SPECTRAL, _grid, _nicmos, _wfpc2
 

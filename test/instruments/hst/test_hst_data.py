@@ -42,8 +42,9 @@ SPECTRAL = Color(np.array([[1.0, 1.5], [1.5, 2.0]]) * u.um)
 # The default grid (_grid) has pixel centres at chip x = 10.75..19.75 and
 # y = 8.75..15.75, so chip pixel centres inside it are rows 9..16, columns
 # 11..20. The cutout uses world_corners one grid pixel out, so that it holds
-# every pixel up to the grid's outer edge: x = 10.25, 21.25 and y = 8.25,
-# 17.25, box rows 8..19, columns 10..23, plus the margin of 2.
+# every pixel the mask keeps (up to half a grid pixel past the far edge):
+# x = 10.25, 21.25 and y = 8.25, 17.25, box rows 8:19, columns 10:23, plus
+# the margin of 2.
 CUT = np.s_[6:21, 8:25]
 INSIDE = np.zeros(SHAPE, bool)
 INSIDE[9:17, 11:21] = True
