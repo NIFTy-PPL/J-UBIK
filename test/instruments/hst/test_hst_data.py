@@ -142,11 +142,9 @@ def _constant(path, name, value):
 
 
 @pytest.mark.parametrize("subsample", [1, 2])
-@pytest.mark.parametrize("bunit, seconds", [("COUNTS/S", 1.0), ("COUNTS", EXPTIME)])
+@pytest.mark.parametrize("bunit", ["COUNTS/S", "COUNTS"])
 @pytest.mark.parametrize("instrument", ["nicmos", "wfpc2"])
-def test_uniform_sky_predicts_the_native_value(
-    tmp_path, instrument, bunit, seconds, subsample
-):
+def test_uniform_sky_predicts_the_native_value(tmp_path, instrument, bunit, subsample):
     if instrument == "nicmos":  # PHOTFNU in the header
         path, chip, offset = _nicmos(tmp_path / "n_cal.fits", bunit=bunit), None, 0
         scale, photfnu = NIC2_SCALE, NIC2_PHOT["PHOTFNU"]
@@ -162,13 +160,18 @@ def test_uniform_sky_predicts_the_native_value(
     )
     predicted = integration_factory(meta.unit, fine, subsample)(convert(np.ones(fine)))
 
-    # 1 MJy/sr over one pixel in PHOTFNU Jy per count/s, times EXPTIME for counts
+    # WFPC2 counts are over EXPTIME; NICMOS counts become rates over TIME
+    counts = bunit == "COUNTS"
+    seconds = EXPTIME if counts and instrument == "wfpc2" else 1.0
+    time = RAMP_TIME if counts and instrument == "nicmos" else 1.0
+    # 1 MJy/sr over one pixel in PHOTFNU Jy per count/s, times EXPTIME for WFPC2
+    # counts
     expected = 1e6 * scale[0] * scale[1] * SR_PER_ARCSEC2 / photfnu * seconds
     np.testing.assert_allclose(predicted, expected, rtol=1e-12)
-    np.testing.assert_array_equal(target.data[0], RAMP[CUT] + offset)
+    np.testing.assert_array_equal(target.data[0], RAMP[CUT] / time + offset)
     # WFPC2 ERR is sqrt(SCI) without gain or read noise, so no σ is given
     np.testing.assert_array_equal(
-        target.std[0], 0.5 if instrument == "nicmos" else np.nan
+        target.std[0], 0.5 / time if instrument == "nicmos" else np.nan
     )
 
 
@@ -264,6 +267,26 @@ def test_masks(tmp_path):
     np.testing.assert_array_equal(
         every_bit, INSIDE & ~(not_finite | cut([(10, 12), (10, 13)]))
     )
+
+
+@pytest.mark.parametrize("obsmode", ["ACCUM", "BRIGHTOBJ"])
+@pytest.mark.parametrize("bunit, seconds", [("COUNTS/S", 1.0), ("COUNTS", 8.0)])
+def test_nicmos_counts_are_rates_in_every_mode(tmp_path, obsmode, bunit, seconds):
+    path = _nicmos(tmp_path / "n_cal.fits", bunit=bunit)
+    time = np.full(SHAPE, 8.0)
+    time[CUT][3, 3] = -0.302  # no valid sample, as calnica writes it
+    _rewrite(path, dict(OBSMODE=obsmode), TIME=time)
+    for constant in (False, True):
+        if constant:
+            _constant(path, "TIME", 8.0)
+        exposure = _load(path)
+        target = exposure.target_data
+        mask = target.mask[0]
+        np.testing.assert_array_equal(target.data[0][mask], RAMP[CUT][mask] / seconds)
+        np.testing.assert_array_equal(target.std[0][mask], 0.5 / seconds)
+        assert mask[3, 3] == constant
+        assert exposure.noise is None
+        assert exposure.meta.unit.to(u.Jy) == pytest.approx(NIC2_PHOT["PHOTFNU"])
 
 
 def test_constant_extensions_stored_as_pixvalue(tmp_path):
@@ -508,24 +531,54 @@ def test_nicmos_noise_defaults_and_units(tmp_path):
     assert handbook.noise.b[0, 0] == pytest.approx(1 / (ADCGAIN * RAMP_TIME))
     assert handbook.noise.sky == 0.0
 
-    counts = _nicmos(tmp_path / "c_cal.fits", bunit="COUNTS")
-    _rewrite(counts, TIME=time, SCI=np.zeros(SHAPE))
-    counts = _load(counts, sample_times=READ_TIMES)
-    np.testing.assert_allclose(counts.noise.b, rate.noise.b * time[CUT], rtol=1e-12)
     assert _load(_wfpc2(tmp_path / "w_flt.fits"), chip=3).noise is None
 
 
-def test_nicmos_weights_in_counts_units(tmp_path):
-    time = np.full(SHAPE, RAMP_TIME)
-    sci = np.ones(SHAPE)
-    sci[CUT] = np.geomspace(0.01, 300.0, sci[CUT].size).reshape(sci[CUT].shape)
-    rate = _nicmos(tmp_path / "r_cal.fits")
-    counts = _nicmos(tmp_path / "c_cal.fits", bunit="COUNTS")
-    _rewrite(rate, SCI=sci, ERR=np.full(SHAPE, 0.5), TIME=time)
-    _rewrite(counts, SCI=sci * time, ERR=np.full(SHAPE, 0.5) * time, TIME=time)
-    rate, counts = (_load(p, sample_times=READ_TIMES) for p in (rate, counts))
-    assert ", 0 of them weighted" not in rate.diagnostics.noise
-    np.testing.assert_allclose(counts.noise.b, rate.noise.b * RAMP_TIME, rtol=1e-12)
+def test_nicmos_counts_and_rates_give_the_same_likelihood(tmp_path):
+    # calnica's UNITCORR: COUNTS/S = COUNTS / TIME, with TIME per pixel
+    rng = np.random.default_rng(172)
+    samp = rng.integers(2, NSAMP + 1, SHAPE)  # shortened ramps, e.g. saturated
+    time = READ_TIMES[samp] - READ_TIMES[1]
+    time[CUT][3, 4] -= READ_TIMES[2] - READ_TIMES[1]  # a cosmic-ray split ramp
+    time[CUT][5, 6] = 0.0  # no valid sample
+    sci = rng.uniform(0.01, 300.0, SHAPE)  # S/N across calnica's weight powers
+    err, dark = rng.uniform(0.2, 0.5, SHAPE), rng.uniform(0.0, 0.1, SHAPE)
+    flat = rng.uniform(0.8, 1.2, SHAPE)
+    loaded = []
+    for bunit, seconds in (("COUNTS/S", 1.0), ("COUNTS", time)):
+        path = _nicmos(tmp_path / f"{len(loaded)}_cal.fits", bunit=bunit)
+        _rewrite(path, SCI=sci * seconds, ERR=err * seconds, SAMP=samp, TIME=time)
+        loaded.append(
+            _load(path, sample_times=READ_TIMES, flat=flat, dark=dark * seconds)
+        )
+
+    # MJy/sr giving about 0.01 to 300 counts/s per pixel, like SCI
+    field = {"k": 10 ** rng.uniform(-0.5, 3.8, loaded[0].target_data.data.shape[1:])}
+    results = []
+    for exposure in loaded:
+        meta, target = exposure.meta, exposure.target_data
+        convert = build_unit_conversion(
+            u.MJy / u.sr, (0.05 * u.arcsec) ** 2, meta.unit, meta.dvol
+        )
+        integrate = integration_factory(meta.unit, field["k"].shape, 1)
+        response = jft.Model(
+            lambda x: integrate(convert(x["k"]))[target.mask[0]],
+            domain={"k": jft.ShapeWithDtype(field["k"].shape, float)},
+        )
+        builder = ShotNoiseGaussianLikelihoodBuilder(
+            response, target.data, exposure.noise, target.mask
+        )
+        prediction, inverse_std = builder.model()(field)
+        results.append((target.mask, prediction, inverse_std, builder.build()(field)))
+    rate, counts = results
+    np.testing.assert_array_equal(counts[0], rate[0])
+    assert not rate[0][0, 5, 6] and rate[0][0, 3, 4]
+    for r, c in zip(rate[1:], counts[1:]):
+        np.testing.assert_allclose(c, r, rtol=1e-9)
+    assert loaded[1].meta.unit.to(u.Jy) == loaded[0].meta.unit.to(u.Jy)
+    np.testing.assert_allclose(
+        loaded[1].target_data.data[0][rate[0][0]], sci[CUT][rate[0][0]], rtol=1e-12
+    )
 
 
 def test_nicmos_noise_rejects_bad_inputs(tmp_path):
@@ -544,19 +597,19 @@ def test_nicmos_noise_rejects_bad_inputs(tmp_path):
 def test_nicmos_edge_pixels_and_modes(tmp_path):
     path = _nicmos(tmp_path / "n_cal.fits")
     samp, time = np.full(SHAPE, NSAMP), np.full(SHAPE, RAMP_TIME)
-    samp[CUT][1, 1] = 0  # no read used, though TIME is the full ramp's
-    samp[CUT][4, 4] = NSAMP + 1  # more reads than the sequence has
-    time[CUT][2, 2] = 0.0  # no valid sample
+    samp[CUT][2, 2] = 0  # no read used, though TIME is the full ramp's
+    samp[CUT][5, 5] = NSAMP + 1  # more reads than the sequence has
+    time[CUT][3, 3] = 0.0  # no valid sample
     _rewrite(path, SAMP=samp, TIME=time)
     exposure = _load(path, sample_times=READ_TIMES)
-    for pixel in ((1, 1), (4, 4)):
+    for pixel in ((2, 2), (5, 5)):
         assert exposure.noise.b[pixel] == pytest.approx(1 / (ADCGAIN * RAMP_TIME))
-    assert not exposure.target_data.mask[0, 2, 2]
+    assert not exposure.target_data.mask[0, 3, 3]
     dark = np.zeros(SHAPE)
-    dark[CUT][3, 3] = np.nan
+    dark[CUT][4, 4] = np.nan
     without_zeroth = _load(path, sample_times=READ_TIMES[1:], dark=dark)
     np.testing.assert_array_equal(without_zeroth.noise.b, exposure.noise.b)
-    assert not without_zeroth.target_data.mask[0, 3, 3]
+    assert not without_zeroth.target_data.mask[0, 4, 4]
     _rewrite(path, dict(OBSMODE="ACCUM"))  # ERR holds the Poisson term
     assert _load(path).noise is None
     with pytest.raises(ValueError, match="MULTIACCUM only"):
