@@ -429,6 +429,13 @@ def test_nicmos_edge_pixels_and_modes(tmp_path):
     exposure = _load(path, sample_times=np.linspace(0, EXPTIME, NSAMP))
     assert exposure.noise.b[1, 1] == pytest.approx(1 / (ADCGAIN * EXPTIME))
     assert not exposure.target_data.mask[0, 2, 2]
+    dark = np.zeros(SHAPE)
+    dark[CUT][3, 3] = np.nan
+    without_zeroth = _load(
+        path, sample_times=np.linspace(0, EXPTIME, NSAMP)[1:], dark=dark
+    )
+    np.testing.assert_array_equal(without_zeroth.noise.b, exposure.noise.b)
+    assert not without_zeroth.target_data.mask[0, 3, 3]
     _rewrite(path, dict(OBSMODE="ACCUM"))  # ERR holds the Poisson term
     assert _load(path).noise is None
 

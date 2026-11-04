@@ -147,9 +147,9 @@ def load_hst_exposure(
     subsample : int
         Sub-pixels per data pixel along each axis for the sky coordinates.
     sample_times : ArrayLike | None
-        NICMOS: the MULTIACCUM read times in seconds after the zeroth read,
-        zeroth included, e.g. the SAMPTIME keywords of the ``_ima`` file's
-        SCI extensions, or the NICMOS Instrument Handbook table of the
+        NICMOS: the MULTIACCUM read times in seconds after the zeroth read
+        (whose 0 may be left out), e.g. the SAMPTIME keywords of the ``_ima``
+        file's SCI extensions, or the NICMOS Instrument Handbook table of the
         SAMP_SEQ sequence. None uses the Data Handbook's two-read term.
     flat : NDArray[np.floating] | None
         NICMOS: chip-shaped inverse flat that FLATCORR multiplied the data by
@@ -234,7 +234,8 @@ def load_hst_exposure(
                 chip_maps["flat"],
                 chip_maps["dark"],
             )
-            mask &= np.isfinite(noise.b)  # TIME <= 0: no valid sample
+            # TIME <= 0: no valid sample; a bad flat or dark pixel
+            mask &= np.isfinite(noise.b) & np.isfinite(noise.sky) & (noise.b >= 0)
         if not mask.any():
             raise ValueError(
                 f"{path}: every pixel of the cutout {bounds} is masked, "
@@ -295,8 +296,8 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
     """σ² = ERR² + b · max(SCI + dark, 0) of a NICMOS ``_cal`` cutout.
 
     SCI is the slope times the inverse flat and ZPSCALE (NICMOS Data Handbook
-    v8, FLATCORR and PHOTCALC, pp. 51-52), so b = wᵀMw · flat · ZPSCALE / ADCGAIN, times TIME for
-    BUNIT counts. calnica's CRIDCALC rejects saturated and cosmic-ray samples
+    v8, FLATCORR and PHOTCALC, pp. 51-52), so b = wᵀMw · flat · ZPSCALE /
+    ADCGAIN, times TIME for BUNIT counts. calnica's CRIDCALC rejects saturated and cosmic-ray samples
     and records only their number (SAMP) and time (TIME) per pixel; the reads
     used are taken as the SAMP reads ending at the read at TIME.
     """
@@ -314,7 +315,7 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
     factor = 1 / np.where(time > 0, time, np.nan)
     placed = 0
     if sample_times is not None:
-        t = np.sort(np.asarray(sample_times, float))
+        t = np.union1d(0.0, sample_times)  # the zeroth read, given or not
         table = np.full((t.size, t.size), np.nan)
         for first in range(t.size):
             for last in range(first + 1, t.size):
@@ -326,10 +327,10 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
         ok = (np.abs(t[last] - time) < 0.01) & (first >= 0) & (first < last)
         factor = np.where(ok, table[np.clip(first, 0, last), last], factor)
         placed = int(ok.sum())
-    else:
+    if placed == 0:
         logger.warning(
-            f"{path}: no sample_times, NICMOS shot noise from the two-read term; "
-            "low by up to 19 % for long ramps"
+            f"{path}: no pixel's reads placed in sample_times {sample_times}, "
+            "NICMOS shot noise from the two-read term, low by up to 19 %"
         )
     flat = 1.0 if flat is None else np.asarray(flat, float)
     b = factor * flat * (card("ZPSCALE") or 1.0) / gain

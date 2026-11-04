@@ -300,12 +300,13 @@ def load_nirc2_exposure(
         sigma_source = str(sigma)
     else:
         noise = detector_noise.shot_noise(data.shape, coadds, dn_per_unit)
-        std = np.sqrt(noise.a + noise.b * np.maximum(data + noise.sky, 0))
+        with np.errstate(invalid="ignore"):  # flat 0: inf · 0, masked
+            std = np.sqrt(noise.a + noise.b * np.maximum(data + noise.sky, 0))
         d = detector_noise
         sigma_source = (
             f"detector noise: gain {d.gain} e-/DN, read noise {d.read_noise} e-, "
             f"{d.n_reads} reads, mean sky {np.mean(d.sky):.6g} DN, "
-            f"mean flat {np.mean(d.flat):.6g}"
+            f"mean flat {np.nanmean(d.flat):.6g}"
         )
     bad = (
         np.zeros(data.shape, bool) if bad_pixels is None else _read(bad_pixels)[0] != 0
