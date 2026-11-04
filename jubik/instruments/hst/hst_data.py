@@ -303,10 +303,12 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
 
     SCI is the slope times the inverse flat and ZPSCALE (NICMOS Data Handbook
     v8, FLATCORR and PHOTCALC, pp. 51-52), so b = wᵀMw · flat · ZPSCALE /
-    ADCGAIN, times TIME for BUNIT counts. calnica's CRIDCALC rejects
-    saturated and cosmic-ray samples and records only their number (SAMP) and
-    time (TIME) per pixel; the reads used are taken as the SAMP reads ending
-    at the read at TIME.
+    ADCGAIN, times TIME for BUNIT counts. calnica's CRIDCALC fits the reads
+    after the zeroth by unweighted least squares: a pixel with SAMP reads used
+    reads 1..SAMP, and TIME = t_SAMP - t_1 (checked on calnica 4.4.1 files,
+    whose _cal SCI the least-squares slope through those _ima reads
+    reproduces). A cosmic ray splits the ramp and shortens TIME; such pixels
+    match no read and keep the Data Handbook's two-read term.
     """
     gain = card("ADCGAIN")
     if not (gain and gain > 0):
@@ -320,7 +322,7 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
     time = np.asarray(time, float)
     # the Data Handbook's term (p. 47): two reads over TIME
     factor = 1 / np.where(time > 0, time, np.nan)
-    placed = 0
+    placed, sampled = 0, int((time > 0).sum())
     if sample_times is not None:
         t = np.union1d(0.0, sample_times)  # the zeroth read, given or not
         # EXPTIME is the last read's SAMPTIME (Data Handbook v8, p. 90)
@@ -329,16 +331,15 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
                 f"{path}: the last sample time {t[-1]} s is not EXPTIME "
                 f"{card('EXPTIME')} s; pass the _ima SAMPTIME values"
             )
-        table = np.full((t.size, t.size), np.nan)
-        for first in range(t.size):
-            for last in range(first + 1, t.size):
-                table[first, last] = ramp_poisson_factor(t[first : last + 1])
-        last = np.argmin(np.abs(t[:, None, None] - time), axis=0)
-        first = last - np.asarray(samp, int) + 1
-        # shortcut: a rejected sample inside the ramp is treated as a shorter
-        # contiguous ramp; exact only for saturation, upgrade with _ima DQ
-        ok = (np.abs(t[last] - time) < 0.01) & (first >= 0) & (first < last)
-        factor = np.where(ok, table[np.clip(first, 0, last), last], factor)
+        reads = t[1:] - t[1]  # after the zeroth, relative to read 1
+        # factor of the first n reads; a slope needs two
+        table = [np.nan, np.nan]
+        table += [ramp_poisson_factor(reads[:n]) for n in range(2, reads.size + 1)]
+        n = np.clip(np.asarray(samp, int), 0, reads.size)
+        # shortcut: cosmic-ray pixels keep the two-read term; their segment
+        # combination is not reproduced, upgrade with the _ima reads and DQ
+        ok = (n >= 2) & (n == samp) & (np.abs(reads[n - 1] - time) < 0.01)
+        factor = np.where(ok, np.take(table, n), factor)
         placed = int(ok.sum())
     flat = 1.0 if flat is None else np.asarray(flat, float)
     b = factor * flat * (card("ZPSCALE") or 1.0) / gain
@@ -346,11 +347,12 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
         b = b * time
     sky = 0.0 if dark is None else np.asarray(dark, float)
     info = (
-        f"ADCGAIN {gain}, ramp from sample times on {placed} of {time.size} "
-        f"pixels, flat {'given' if np.ndim(flat) else 'assumed 1'}, "
+        f"ADCGAIN {gain}, ramp from sample times on {placed} of {sampled} "
+        f"pixels with samples (the rest, e.g. cosmic-ray segments, from the "
+        f"two-read term), flat {'given' if np.ndim(flat) else 'assumed 1'}, "
         f"dark {'given' if np.ndim(sky) else 'assumed 0'}"
     )
-    if placed == 0 or np.ndim(flat) == 0:
+    if placed < sampled or np.ndim(flat) == 0:
         logger.warning(f"{path}: NICMOS shot noise with {info}")
     return ShotNoise(a=err**2, b=b, sky=sky), info
 

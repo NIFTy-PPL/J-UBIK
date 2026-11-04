@@ -34,7 +34,9 @@ WF_PHOTFNU = WF_PHOT["PHOTFLAM"] * WF_PHOT["PHOTPLAM"] ** 2 / C_ANGSTROM_PER_S
 WF_PHOTFNU *= JY_PER_CGS
 EXPTIME = 400.0
 ADCGAIN = 5.4
-NSAMP = 11  # reads of the ramp, zeroth included
+NSAMP = 11  # reads after the zeroth
+READ_TIMES = np.linspace(0.0, EXPTIME, NSAMP + 1)  # SAMPTIME, zeroth first
+RAMP_TIME = READ_TIMES[-1] - READ_TIMES[1]  # calnica's TIME: from read 1
 
 CURVE = Throughput([1.4, 1.8] * u.um, np.ones(2))
 SPECTRAL = Color(np.array([[1.0, 1.5], [1.5, 2.0]]) * u.um)
@@ -89,7 +91,7 @@ def _nicmos(path, *, camera=2, bunit="COUNTS/S", err=True, sip=True):
     header = _sci_header(NIC2_SCALE, bunit=bunit, sip=sip)
     ramp = [
         fits.ImageHDU(np.full(SHAPE, NSAMP, np.int16), name="SAMP", ver=1),
-        fits.ImageHDU(np.full(SHAPE, EXPTIME), name="TIME", ver=1),
+        fits.ImageHDU(np.full(SHAPE, RAMP_TIME), name="TIME", ver=1),
     ]
     fits.HDUList([primary, *_chip(1, header, RAMP, err), *ramp]).writeto(path)
     return path
@@ -311,6 +313,19 @@ def test_header_without_distortion_raises(tmp_path):
 # SPARS64 read times after the zeroth read, zeroth included (NICMOS Data
 # Handbook v8, p. 90, sampinfo of n4ux23x0q)
 SPARS64 = np.r_[0.0, 0.302, 0.605, 63.993 + 63.997 * np.arange(22)]
+# STEP256 SAMPTIME of the _ima of n44507qgq (GO 7255, NIC1, calnica 4.4.1)
+STEP256 = np.array(
+    [0.0, 0.3023, 0.6047, 0.993, 1.9906, 3.9846, 7.9784, 15.972, 31.9651]
+    + [63.9643, 127.9615, 255.9546, 511.9538, 767.953, 1023.9523, 1279.9515]
+    + [1535.9507, 1791.9499, 2047.9492, 2303.9484, 2559.9476, 2815.9468]
+    + [3071.9461, 3327.9453, 3583.9445, 3839.9437]
+)
+
+
+def _calnica_ramp(read_times, n):
+    """SAMP and TIME of a pixel whose fit used the first n reads after the
+    zeroth, as calnica writes them: TIME from read 1 to read n."""
+    return n, read_times[n] - read_times[1]
 
 
 def _slope_weights(t):
@@ -350,18 +365,56 @@ def test_ramp_factor_of_an_unequal_sequence():
     assert ramp_poisson_factor(SPARS64) == pytest.approx(variance, rel=1e-10)
 
 
+def test_nicmos_b_is_the_least_squares_variance_of_calnica_ramps(tmp_path):
+    gain, zpscale, n_full = ADCGAIN, 1.01, STEP256.size - 1
+    flat = np.ones(SHAPE)
+    samp = np.full(SHAPE, n_full, np.int16)
+    time = np.full(SHAPE, STEP256[-1] - STEP256[1], np.float32)
+    # cutout pixels: (inverse flat, reads used); (5, 6) saturates after 9 reads
+    pixels = {(2, 3): (1.0, n_full), (4, 5): (0.7, n_full), (5, 6): (1.2, 9)}
+    for (i, j), (f, n) in pixels.items():
+        chip = (i + CUT[0].start, j + CUT[1].start)
+        flat[chip] = f
+        samp[chip], time[chip] = _calnica_ramp(STEP256, n)
+    cr = (7 + CUT[0].start, 8 + CUT[1].start)
+    time[cr] -= STEP256[11] - STEP256[10]  # a cosmic ray at read 10 splits the fit
+    path = _nicmos(tmp_path / "n_cal.fits")
+    cards = dict(ZPSCALE=zpscale, EXPTIME=3839.944)
+    _rewrite(path, cards, SAMP=samp, TIME=time)
+    exposure = _load(path, sample_times=STEP256, flat=flat)
+
+    for (i, j), (f, n) in pixels.items():
+        t = STEP256[1 : n + 1] - STEP256[1]  # the reads fitted, from read 1
+        w = _slope_weights(t)
+        by_hand = w @ np.minimum.outer(t, t) @ w * f * zpscale / gain
+        assert exposure.noise.b[i, j] == pytest.approx(by_hand, rel=1e-5), (i, j)
+    two_reads = zpscale / (gain * time[cr])
+    assert exposure.noise.b[7, 8] == pytest.approx(two_reads, rel=1e-6)
+    sampled = exposure.target_data.data[0].size
+    assert f"on {sampled - 1} of {sampled} pixels" in exposure.diagnostics.noise
+    # the full ramp is 11 % above the two-read term the handbook gives
+    full = exposure.noise.b[2, 3] * gain * time[CUT][2, 3] / zpscale
+    assert full == pytest.approx(1.11, abs=0.01)
+
+
 def test_nicmos_noise_matches_monte_carlo_ramps(tmp_path):
     gain, read_noise, zpscale = 5.4, 30.0, 1.5  # e-/DN, e- per read
+    n_full = SPARS64.size - 1
     # cutout pixels: (rate in SCI DN/s, inverse flat, reads used)
-    pixels = {(2, 3): (0.05, 1.0, 25), (4, 5): (2.0, 0.8, 25), (6, 7): (60.0, 1.3, 9)}
-    samp = np.full(SHAPE, 25, np.int16)
-    time = np.full(SHAPE, SPARS64[-1])
+    pixels = {
+        (2, 3): (0.05, 1.0, n_full),
+        (4, 5): (2.0, 0.8, n_full),
+        (6, 7): (60.0, 1.3, 9),
+    }
+    samp = np.full(SHAPE, n_full, np.int16)
+    time = np.full(SHAPE, SPARS64[-1] - SPARS64[1])
     err = np.full(SHAPE, 0.5)
     flat = np.ones(SHAPE)
     for (i, j), (rate, f, n) in pixels.items():
         chip = (i + CUT[0].start, j + CUT[1].start)
-        w = _slope_weights(SPARS64[:n])
-        samp[chip], time[chip], flat[chip] = n, SPARS64[n - 1], f
+        w = _slope_weights(SPARS64[1 : n + 1])
+        samp[chip], time[chip] = _calnica_ramp(SPARS64, n)
+        flat[chip] = f
         err[chip] = f * zpscale * read_noise / gain * np.sqrt(w @ w)  # calnica's ERR
     path = _nicmos(tmp_path / "n_cal.fits")
     cards = dict(ADCGAIN=gain, ZPSCALE=zpscale, EXPTIME=SPARS64[-1])
@@ -370,15 +423,11 @@ def test_nicmos_noise_matches_monte_carlo_ramps(tmp_path):
 
     rng = np.random.default_rng(172)
     for (i, j), (rate, f, n) in pixels.items():
-        t = SPARS64[:n]
+        t = SPARS64[: n + 1]  # charge accumulates from the zeroth read
         electrons_per_s = rate / (f * zpscale) * gain  # SCI = inverse flat * raw
-        counts = np.cumsum(
-            rng.poisson(electrons_per_s * np.diff(t), (40_000, n - 1)), 1
-        )
-        reads = np.pad(counts, ((0, 0), (1, 0))) + rng.normal(
-            0, read_noise, (40_000, n)
-        )
-        sci = (reads / gain @ _slope_weights(t)) * f * zpscale
+        counts = np.cumsum(rng.poisson(electrons_per_s * np.diff(t), (40_000, n)), 1)
+        reads = counts + rng.normal(0, read_noise, (40_000, n))  # reads 1..n
+        sci = (reads / gain @ _slope_weights(t[1:])) * f * zpscale
         predicted = noise.a[i, j] + noise.b[i, j] * rate
         # the variance of 40000 draws is good to 0.7 %
         assert sci.var() == pytest.approx(predicted, rel=0.03), (i, j)
@@ -388,24 +437,25 @@ def test_nicmos_noise_matches_monte_carlo_ramps(tmp_path):
 
 def test_nicmos_noise_defaults_and_units(tmp_path):
     path = _nicmos(tmp_path / "n_cal.fits")
-    time = np.full(SHAPE, EXPTIME)
+    time = np.full(SHAPE, RAMP_TIME)
     time[CUT][1, 1] = 123.0  # no read at this time: the handbook's term
     _rewrite(path, TIME=time)
     dark = np.full(SHAPE, 0.25)
-    rate = _load(path, sample_times=np.linspace(0, EXPTIME, NSAMP), dark=dark)
+    rate = _load(path, sample_times=READ_TIMES, dark=dark)
     np.testing.assert_allclose(rate.noise.a, 0.25)  # ERR**2
     np.testing.assert_allclose(rate.noise.sky, 0.25)
-    expected = 6 * (NSAMP**2 + 1) / (5 * NSAMP * (NSAMP + 1)) / (ADCGAIN * EXPTIME)
+    n = NSAMP
+    expected = 6 * (n**2 + 1) / (5 * n * (n + 1)) / (ADCGAIN * RAMP_TIME)
     assert rate.noise.b[0, 0] == pytest.approx(expected, rel=1e-12)
     assert rate.noise.b[1, 1] == pytest.approx(1 / (ADCGAIN * 123.0), rel=1e-12)
     assert "on 194 of 195 pixels" in rate.diagnostics.noise
     handbook = _load(path)  # no sample times
-    assert handbook.noise.b[0, 0] == pytest.approx(1 / (ADCGAIN * EXPTIME))
+    assert handbook.noise.b[0, 0] == pytest.approx(1 / (ADCGAIN * RAMP_TIME))
     assert handbook.noise.sky == 0.0
 
     counts = _nicmos(tmp_path / "c_cal.fits", bunit="COUNTS")
     _rewrite(counts, TIME=time)
-    counts = _load(counts, sample_times=np.linspace(0, EXPTIME, NSAMP))
+    counts = _load(counts, sample_times=READ_TIMES)
     np.testing.assert_allclose(counts.noise.b, rate.noise.b * time[CUT], rtol=1e-12)
     assert _load(_wfpc2(tmp_path / "w_flt.fits"), chip=3).noise is None
 
@@ -417,7 +467,7 @@ def test_nicmos_noise_rejects_bad_inputs(tmp_path):
     with pytest.raises(ValueError, match="sample_times"):
         _load(path, sample_times=[np.nan])
     with pytest.raises(ValueError, match="not EXPTIME"):  # planned, not real
-        _load(path, sample_times=np.linspace(0, EXPTIME + 0.02, NSAMP))
+        _load(path, sample_times=READ_TIMES + np.r_[0, np.full(NSAMP, 0.02)])
     _rewrite(path, dict(ADCGAIN=0))
     with pytest.raises(ValueError, match="ADCGAIN"):
         _load(path)
@@ -425,18 +475,18 @@ def test_nicmos_noise_rejects_bad_inputs(tmp_path):
 
 def test_nicmos_edge_pixels_and_modes(tmp_path):
     path = _nicmos(tmp_path / "n_cal.fits")
-    samp, time = np.full(SHAPE, NSAMP), np.full(SHAPE, EXPTIME)
-    samp[CUT][1, 1] = 0  # no read used, though TIME is the last read's
+    samp, time = np.full(SHAPE, NSAMP), np.full(SHAPE, RAMP_TIME)
+    samp[CUT][1, 1] = 0  # no read used, though TIME is the full ramp's
+    samp[CUT][4, 4] = NSAMP + 1  # more reads than the sequence has
     time[CUT][2, 2] = 0.0  # no valid sample
     _rewrite(path, SAMP=samp, TIME=time)
-    exposure = _load(path, sample_times=np.linspace(0, EXPTIME, NSAMP))
-    assert exposure.noise.b[1, 1] == pytest.approx(1 / (ADCGAIN * EXPTIME))
+    exposure = _load(path, sample_times=READ_TIMES)
+    for pixel in ((1, 1), (4, 4)):
+        assert exposure.noise.b[pixel] == pytest.approx(1 / (ADCGAIN * RAMP_TIME))
     assert not exposure.target_data.mask[0, 2, 2]
     dark = np.zeros(SHAPE)
     dark[CUT][3, 3] = np.nan
-    without_zeroth = _load(
-        path, sample_times=np.linspace(0, EXPTIME, NSAMP)[1:], dark=dark
-    )
+    without_zeroth = _load(path, sample_times=READ_TIMES[1:], dark=dark)
     np.testing.assert_array_equal(without_zeroth.noise.b, exposure.noise.b)
     assert not without_zeroth.target_data.mask[0, 3, 3]
     _rewrite(path, dict(OBSMODE="ACCUM"))  # ERR holds the Poisson term
@@ -446,15 +496,14 @@ def test_nicmos_edge_pixels_and_modes(tmp_path):
 
 
 def test_nicmos_normalized_residuals_through_the_response(tmp_path):
-    read_noise, n = 30.0, NSAMP  # e- per read
-    times = np.linspace(0.0, EXPTIME, n)
-    w = _slope_weights(times)
+    read_noise = 30.0  # e- per read
+    w = _slope_weights(READ_TIMES[1:])  # calnica fits the reads after the zeroth
     rng = np.random.default_rng(172)
     flat = rng.uniform(0.8, 1.2, SHAPE)  # inverse flat
     err = flat * read_noise / ADCGAIN * np.sqrt(w @ w)  # calnica's ERR
     path = _nicmos(tmp_path / "n_cal.fits")
     _rewrite(path, ERR=err)
-    exposure = _load(path, sample_times=times, flat=flat)
+    exposure = _load(path, sample_times=READ_TIMES, flat=flat)
     meta, target = exposure.meta, exposure.target_data
     shape, mask = target.data.shape[1:], target.mask[0]
     convert = build_unit_conversion(
@@ -475,9 +524,8 @@ def test_nicmos_normalized_residuals_through_the_response(tmp_path):
 
     f = flat[CUT][mask]
     rate = np.broadcast_to(model / f * ADCGAIN, (300, model.size))  # e-/s
-    counts = np.cumsum(rng.poisson(rate[..., None] * np.diff(times)), -1)
-    reads = np.concatenate([np.zeros((300, model.size, 1)), counts], -1)
-    reads = reads + rng.normal(0, read_noise, reads.shape)
+    counts = np.cumsum(rng.poisson(rate[..., None] * np.diff(READ_TIMES)), -1)
+    reads = counts + rng.normal(0, read_noise, counts.shape)  # reads 1..NSAMP
     data = reads / ADCGAIN @ w * f
     for pixels in (model < 1, model > 10):
         assert pixels.sum() > 30
