@@ -60,7 +60,7 @@ class Exposure:
     psf : np.ndarray | jft.Model | HstPsfKernel | EmpiricalPsfKernel
         A 2-D kernel on the subsampled data grid, a PSF model called as
         ``psf((sky, params))`` (e.g. `PsfGaussianBroadening`), or a kernel
-        object, whose sampling is checked against the data subsample.
+        object, whose sampling and pixel scale are checked against the data.
     noise : ShotNoise | None
         The loader's shot-noise model; None gives the fixed-σ Gaussian on
         ``target_data.std``.
@@ -152,14 +152,12 @@ def build_exposure_likelihoods(
     plotting = ResidualPlottingInformation()
     for e in exposures:
         target_data, psf_model = _with_psf(e)
-        centers = target_data.subsample_centers[0]
         correction = ShiftAndRotationCorrection(
             domain_key=e.band,
             correction_prior=FilterAlignment(e.band).load_correction_prior(
                 rotation_and_shift["correction_priors"], number_of_observations=1
             ),
-            # unused by the shift-only correction
-            rotation_center=centers[None, centers.shape[0] // 2, centers.shape[1] // 2],
+            rotation_center=None,  # unused by the shift-only correction
         )
         likelihood = build_target_likelihood(
             filter_name=e.band,
@@ -226,6 +224,14 @@ def _with_psf(e: Exposure) -> tuple[TargetData, jft.Model | None]:
                 f"{e.band}: the kernel has {sampling} pixels per detector pixel "
                 f"and includes their pixel response, the data subsample is "
                 f"{e.target_data.subsample}; use subsample {sampling}"
+            )
+        # 5% catches a kernel of another camera, not plate-scale drifts
+        detector_scale = kernel.pixel_scale * sampling
+        data_scale = e.meta.pixel_scale.to_value(u.arcsec)
+        if not np.isclose(detector_scale, data_scale, rtol=0.05):
+            raise ValueError(
+                f"{e.band}: the kernel is for {detector_scale:.4g} arcsec "
+                f"pixels, the data have {data_scale:.4g} arcsec"
             )
         kernel = kernel.kernel
     kernel = np.asarray(kernel, float)

@@ -69,7 +69,7 @@ def build_keck_likelihoods(
             entry.pop("throughput"), entry.pop("wavelength_unit", "um")
         )
         calibration = Nirc2Calibration(
-            entry.pop("flux_per_count_rate") * u.Jy / (u.DN / u.s),
+            float(entry.pop("flux_per_count_rate")) * u.Jy / (u.DN / u.s),
             entry.pop("atmosphere"),
         )
         exposure_id = entry.pop("exposure", Path(science.path).stem)

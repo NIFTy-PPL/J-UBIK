@@ -46,12 +46,12 @@ NIC2 = "hst_NIC2_F160W_"
 WF = "hst_WF2_F814W_w"
 
 
-def _kernel_file(path, subsample=1, size=5):
+def _kernel_file(path, subsample=1, size=5, scale=0.076):
     kernel = np.exp(
         -0.5 * (np.arange(size * subsample) - (size * subsample - 1) / 2) ** 2
     )
     hdu = fits.PrimaryHDU(np.outer(kernel, kernel))
-    hdu.header.update(PIXSCALE=0.076 / subsample, SUBSAMPL=subsample, CHGDIFF=False)
+    hdu.header.update(PIXSCALE=scale / subsample, SUBSAMPL=subsample, CHGDIFF=False)
     hdu.writeto(path)
     return str(path)
 
@@ -87,6 +87,7 @@ def test_nicmos_and_wfpc2_evaluate_jit_and_differentiate(tmp_path):
         filter="F814W",
         chip=2,
         margin=2,
+        psf=_kernel_file(tmp_path / "wf_psf.fits", scale=0.0996),
     )
     grid = _grid(nicmos["path"])
     products = build_hst_likelihoods(
@@ -223,3 +224,19 @@ def test_residuals_use_the_shot_noise_sigma(tmp_path):
     assert not np.allclose(sigma, exposure.target_data.std[mask])
     expected = (exposure.target_data.data[mask] - model) / sigma
     np.testing.assert_allclose(plots.residuals(x)[band][mask], expected, rtol=1e-5)
+
+
+def test_kernel_of_another_camera_raises(tmp_path):
+    kernel = HstPsfKernel(np.pad([[1.0]], 2), 0.0455, 1, False)  # PC1 on NIC2
+    exposure, grid = _exposure(tmp_path, psf=kernel)
+    with pytest.raises(ValueError, match="arcsec pixels"):
+        build_exposure_likelihoods([exposure], grid, _sky_domain(grid), TELESCOPE)
+
+
+def test_another_throughput_for_one_filter_raises(tmp_path):
+    a, b = _nicmos_entry(tmp_path, "a"), _nicmos_entry(tmp_path, "b")
+    np.savetxt(tmp_path / "other.txt", np.c_[[1.4, 1.8], [1.0, 0.5]])
+    b["throughput"] = str(tmp_path / "other.txt")
+    grid = _grid(a["path"])
+    with pytest.raises(ValueError, match="another throughput"):
+        build_hst_likelihoods(_config(tmp_path, [a, b]), grid, _sky_domain(grid))

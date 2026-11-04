@@ -59,7 +59,7 @@ def _config(tmp_path, subsample=1):
                 filter="Kp",
                 psf=str(tmp_path / "psf.fits"),
                 throughput=str(tmp_path / "band.txt"),
-                flux_per_count_rate=1e-6,
+                flux_per_count_rate="1e-6",  # yaml.safe_load reads 1e-6 as a string
                 atmosphere="airmass 1.0, no extinction",
                 **noise,
             )
