@@ -48,7 +48,7 @@ def build_keck_likelihoods(
     ``detector_noise`` (the `DetectorNoise` fields); optional
     ``wavelength_unit`` (default um), ``exposure`` (default: the file stem),
     ``bad_pixels`` and the header overrides of `load_nirc2_exposure`
-    (``bunit``, ``itime``, ``coadds``). ``cfg[telescope_key]`` holds
+    (``bunit``, ``itime``, ``coadds``, ``position_angle`` in degrees). ``cfg[telescope_key]`` holds
     ``target: subsample``, ``distortion: {pre_2015: [x_map, y_map],
     post_2015: [x_map, y_map]}`` (either may be left out) and the keys of
     `build_exposure_likelihoods`.
@@ -78,6 +78,8 @@ def build_keck_likelihoods(
                 entry[key] = _fits_image(entry[key])
         if "detector_noise" in entry:
             entry["detector_noise"] = DetectorNoise(**entry["detector_noise"])
+        if "position_angle" in entry:
+            entry["position_angle"] = float(entry["position_angle"]) * u.deg
         loaded = load_nirc2_exposure(
             science,
             calibration=calibration,

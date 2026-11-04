@@ -91,7 +91,7 @@ def build_exposure_likelihoods(
     """One target likelihood per exposure, summed in `.likelihood`.
 
     The likelihood is the shot-noise Gaussian of ``exposure.noise`` when the
-    loader gives one (unless ``shot_noise: false``), else the fixed-σ Gaussian.
+    loader gives one, else the fixed-σ Gaussian on ``target_data.std``.
 
     Parameters
     ----------
@@ -105,7 +105,7 @@ def build_exposure_likelihoods(
         The JWST telescope keys: ``rotation_and_shift`` (algorithm and
         ``correction_priors``, keyed by band or ``default``), optional
         ``zero_flux`` and ``calibration`` (``default`` and band keys, one
-        factor per exposure), optional ``shot_noise`` (default true).
+        factor per exposure).
     sky_unit : u.Unit
         Unit of the sky.
     """
@@ -114,7 +114,10 @@ def build_exposure_likelihoods(
     ((sky_key, sky_leaf),) = sky_domain.items()
     bands = [e.band for e in exposures]
     if not bands or len(set(bands)) != len(bands):
-        raise ValueError(f"need exposures with distinct band keys, got {bands}")
+        raise ValueError(
+            f"need exposures with distinct band keys, got {bands}; set the "
+            "exposure id of each"
+        )
 
     weights = {}
     for e in exposures:
@@ -146,7 +149,6 @@ def build_exposure_likelihoods(
     zero_flux = ZeroFluxPriorConfigs.from_yaml_dict(telescope_cfg.get("zero_flux"))
     # same layout as zero_flux: a default and per-band priors
     calibration = ZeroFluxPriorConfigs.from_yaml_dict(telescope_cfg.get("calibration"))
-    shot_noise = telescope_cfg.get("shot_noise", True)
 
     likelihoods = []
     plotting = ResidualPlottingInformation()
@@ -181,7 +183,7 @@ def build_exposure_likelihoods(
                 )
             ),
             target_data=target_data,
-            noise=e.noise if shot_noise else None,
+            noise=e.noise,
         )
         plotting.append_information(
             filter=e.band,
@@ -215,7 +217,7 @@ def _with_psf(e: Exposure) -> tuple[TargetData, jft.Model | None]:
     if isinstance(e.psf, jft.Model):
         return e.target_data, e.psf
     kernel = e.psf
-    if not isinstance(kernel, np.ndarray):
+    if hasattr(kernel, "pixel_scale"):  # HstPsfKernel, EmpiricalPsfKernel
         # Tiny Tim and empirical kernels include the response of one kernel
         # pixel; the response integrates over each subsample pixel again
         sampling = getattr(kernel, "subsample", 1)  # empirical: detector-sampled

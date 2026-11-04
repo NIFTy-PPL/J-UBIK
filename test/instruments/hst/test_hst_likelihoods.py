@@ -56,13 +56,13 @@ def _kernel_file(path, subsample=1, size=5, scale=0.076):
     return str(path)
 
 
-def _config(tmp_path, entries, **telescope):
+def _config(tmp_path, entries):
     np.savetxt(tmp_path / "curve.txt", np.c_[CURVE.wavelength.value, CURVE.throughput])
     psf = _kernel_file(tmp_path / "psf.fits")
     common = dict(throughput=str(tmp_path / "curve.txt"), psf=psf, dq_bits=0)
     return {
         "files": {"exposures": [common | e for e in entries]},
-        "telescope": TELESCOPE | telescope,
+        "telescope": TELESCOPE,
     }
 
 
@@ -109,14 +109,6 @@ def test_nicmos_and_wfpc2_evaluate_jit_and_differentiate(tmp_path):
     gradient = jax.grad(likelihood)(x)
     assert all(np.all(np.isfinite(g)) for g in jax.tree.leaves(gradient))
     assert np.any(jax.tree.leaves(gradient["sky"])[0] != 0)
-
-
-def test_shot_noise_false_gives_the_fixed_sigma_gaussian(tmp_path):
-    nicmos = _nicmos_entry(tmp_path, "n")
-    grid = _grid(nicmos["path"])
-    cfg = _config(tmp_path, [nicmos], shot_noise=False)
-    products = build_hst_likelihoods(cfg, grid, _sky_domain(grid))
-    assert type(products.likelihoods[0].builder) is GaussianLikelihoodBuilder
 
 
 def test_one_filter_two_shapes_get_disjoint_keys_and_shared_weights(tmp_path):
@@ -224,6 +216,16 @@ def test_residuals_use_the_shot_noise_sigma(tmp_path):
     assert not np.allclose(sigma, exposure.target_data.std[mask])
     expected = (exposure.target_data.data[mask] - model) / sigma
     np.testing.assert_allclose(plots.residuals(x)[band][mask], expected, rtol=1e-5)
+
+
+def test_subsampled_kernel_at_its_subsample_builds(tmp_path):
+    kernel = HstPsfKernel(np.ones((5, 5)) / 25, 0.038, 2, False)
+    exposure, grid = _exposure(tmp_path, 2, kernel)
+    products = build_exposure_likelihoods(
+        [exposure], grid, _sky_domain(grid), TELESCOPE
+    )
+    x = jft.random_like(jax.random.PRNGKey(4), products.likelihood.domain)
+    assert np.isfinite(products.likelihood(x))
 
 
 def test_kernel_of_another_camera_raises(tmp_path):
