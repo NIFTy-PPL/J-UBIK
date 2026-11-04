@@ -41,10 +41,11 @@ SPECTRAL = Color(np.array([[1.0, 1.5], [1.5, 2.0]]) * u.um)
 
 # The default grid (_grid) has pixel centres at chip x = 10.75..19.75 and
 # y = 8.75..15.75, so chip pixel centres inside it are rows 9..16, columns
-# 11..20. Its world_corners sit half a grid pixel up from the corner centres,
-# at x = 11.25, 20.25 and y = 9.25, 16.25: box rows 9..17, columns 11..21,
-# plus the margin of 2.
-CUT = np.s_[7:20, 9:24]
+# 11..20. The cutout uses world_corners one grid pixel out, so that it holds
+# every pixel the mask keeps (up to half a grid pixel past the far edge):
+# x = 10.25, 21.25 and y = 8.25, 17.25, box rows 8:19, columns 10:23, plus
+# the margin of 2.
+CUT = np.s_[6:21, 8:25]
 INSIDE = np.zeros(SHAPE, bool)
 INSIDE[9:17, 11:21] = True
 INSIDE = INSIDE[CUT]
@@ -163,7 +164,21 @@ def test_uniform_sky_predicts_the_native_value(
     expected = 1e6 * scale[0] * scale[1] * SR_PER_ARCSEC2 / photfnu * seconds
     np.testing.assert_allclose(predicted, expected, rtol=1e-12)
     np.testing.assert_array_equal(target.data[0], RAMP[CUT] + offset)
-    np.testing.assert_array_equal(target.std[0], 0.5)
+    # WFPC2 ERR is sqrt(SCI) without gain or read noise, so no σ is given
+    np.testing.assert_array_equal(
+        target.std[0], 0.5 if instrument == "nicmos" else np.nan
+    )
+
+
+def test_wfpc2_mask_does_not_follow_err(tmp_path):
+    path = _wfpc2(tmp_path / "w_flt.fits")
+    with fits.open(path, mode="update") as hdul:  # DrizzlePac: NaN ERR where SCI < 0
+        hdul["SCI", 2].data[12, 15] = -3.0
+        hdul["ERR", 2].data[12, 15] = np.nan
+    target = _load(path, chip=2).target_data
+    assert target.mask[0][12 - CUT[0].start, 15 - CUT[1].start]
+    np.testing.assert_array_equal(target.mask[0], INSIDE)
+    assert np.isnan(target.std).all()
 
 
 def test_products_shapes_weights_diagnostics_and_file_untouched(tmp_path):
@@ -173,10 +188,10 @@ def test_products_shapes_weights_diagnostics_and_file_untouched(tmp_path):
     assert path.read_bytes() == before
 
     target = exposure.target_data
-    assert target.data.shape == target.std.shape == target.mask.shape == (1, 13, 15)
+    assert target.data.shape == target.std.shape == target.mask.shape == (1, 15, 17)
     assert target.psf is None and target.subsample == 2
     assert len(target.subsample_centers) == 1
-    assert target.subsample_centers[0].shape == (26, 30)
+    assert target.subsample_centers[0].shape == (30, 34)
     np.testing.assert_array_equal(target.data[0], RAMP[CUT] + 3e4)
     np.testing.assert_array_equal(target.mask[0], INSIDE)
 
@@ -193,7 +208,7 @@ def test_products_shapes_weights_diagnostics_and_file_untouched(tmp_path):
     d = exposure.diagnostics
     assert d.file == str(path)
     assert d.extensions == (("SCI", 3), ("ERR", 3), ("DQ", 3))
-    assert d.bounds == (7, 20, 9, 24)
+    assert d.bounds == (6, 21, 8, 25)
     assert (d.bunit, d.exptime, d.dq_bits) == ("COUNTS", EXPTIME, 4)
     assert d.n_masked == INSIDE.size - INSIDE.sum()
     assert d.phot == WF_PHOT
@@ -202,8 +217,10 @@ def test_products_shapes_weights_diagnostics_and_file_untouched(tmp_path):
 
 def test_cutout_is_clipped_to_the_chip(tmp_path):
     path = _nicmos(tmp_path / "n_cal.fits")
+    with pytest.raises(ValueError, match="margin"):
+        _load(path, margin=-1)
     exposure = _load(path, grid=_grid(path, center_xy=(2.25, 35.25)))
-    assert exposure.diagnostics.bounds == (30, 40, 0, 11)
+    assert exposure.diagnostics.bounds == (29, 40, 0, 12)  # one grid pixel out
     with pytest.raises(ValueError, match="misses the chip"):
         _load(path, grid=_grid(path, center_xy=(70.25, 12.25)))
 
@@ -286,8 +303,8 @@ def test_subpixel_centres_apply_the_distortion(tmp_path, subsample):
 
     # fine pixel i of data pixel p sits at p + (i + 1/2) / s - 1/2
     offsets = (np.arange(subsample) + 0.5) / subsample - 0.5
-    x = (np.arange(9, 24)[:, None] + offsets).ravel()
-    y = (np.arange(7, 20)[:, None] + offsets).ravel()
+    x = (np.arange(CUT[1].start, CUT[1].stop)[:, None] + offsets).ravel()
+    y = (np.arange(CUT[0].start, CUT[0].stop)[:, None] + offsets).ravel()
     xx, yy = np.meshgrid(x, y)
     with fits.open(path) as hdul:
         wcs = WCS(hdul["SCI", 2].header, hdul)
@@ -398,7 +415,7 @@ def test_nicmos_noise_defaults_and_units(tmp_path):
     expected = 6 * (NSAMP**2 + 1) / (5 * NSAMP * (NSAMP + 1)) / (ADCGAIN * EXPTIME)
     assert rate.noise.b[0, 0] == pytest.approx(expected, rel=1e-12)
     assert rate.noise.b[1, 1] == pytest.approx(1 / (ADCGAIN * 123.0), rel=1e-12)
-    assert "on 194 of 195 pixels" in rate.diagnostics.noise
+    assert f"on {INSIDE.size - 1} of {INSIDE.size} pixels" in rate.diagnostics.noise
     handbook = _load(path)  # no sample times
     assert handbook.noise.b[0, 0] == pytest.approx(1 / (ADCGAIN * EXPTIME))
     assert handbook.noise.sky == 0.0

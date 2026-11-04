@@ -43,15 +43,16 @@ def build_keck_likelihoods(
     ``cfg[files_key]["exposures"]`` lists one entry per exposure with
     ``science`` (a path, or [path, extension]), ``filter``, ``psf`` (a
     prepared kernel file, `kernel_from_fits`), ``throughput`` (a two-column
-    text file, `read_throughput`), ``flux_per_count_rate`` (Jy per DN/s) and
-    ``atmosphere`` (`Nirc2Calibration`), and either ``sigma`` (a σ image) or
-    ``detector_noise`` (the `DetectorNoise` fields); optional
+    text file, `read_throughput`), ``flux_per_count_rate`` (Jy per DN/s),
+    ``atmosphere`` (`Nirc2Calibration`), ``margin`` (detector pixels around
+    the sky grid, at least the PSF half-width), and either ``sigma`` (a σ
+    image) or ``detector_noise`` (the `DetectorNoise` fields); optional
     ``wavelength_unit`` (default um), ``exposure`` (default: the file stem),
     ``bad_pixels`` and the header overrides of `load_nirc2_exposure`
-    (``bunit``, ``itime``, ``coadds``, ``position_angle`` in degrees). ``cfg[telescope_key]`` holds
-    ``target: subsample``, ``distortion: {pre_2015: [x_map, y_map],
-    post_2015: [x_map, y_map]}`` (either may be left out) and the keys of
-    `build_exposure_likelihoods`.
+    (``bunit``, ``itime``, ``coadds``, ``position_angle`` in degrees).
+    ``cfg[telescope_key]`` holds ``target: subsample``, ``distortion:
+    {pre_2015: [x_map, y_map], post_2015: [x_map, y_map]}`` (either may be
+    left out) and the keys of `build_exposure_likelihoods`.
     """
     telescope = cfg[telescope_key]
     subsample = telescope["target"]["subsample"]

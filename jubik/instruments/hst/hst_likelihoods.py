@@ -34,13 +34,14 @@ def build_hst_likelihoods(
     """Load the HST exposures of the config and build one likelihood each.
 
     ``cfg[files_key]["exposures"]`` lists one entry per exposure with
-    ``path`` (NICMOS ``_cal`` or WFPC2 ``_flt``), ``camera`` (e.g. NIC2),
-    ``filter``, ``psf`` (a kernel file, `load_hst_psf_kernel`), ``throughput``
-    (a two-column text file, `read_throughput`), optional ``wavelength_unit``
-    (default um) and ``exposure`` (default: the file stem); the other keys go
-    to `load_hst_exposure` (``margin``, ``dq_bits``, ``chip``,
-    ``sample_times``). ``cfg[telescope_key]`` holds ``target: subsample``
-    and the keys of `build_exposure_likelihoods`.
+    ``path`` (NICMOS ``_cal``; WFPC2 ``_flt`` raises, it has no noise model
+    yet), ``camera`` (e.g. NIC2), ``filter``, ``psf`` (a kernel file,
+    `load_hst_psf_kernel`), ``throughput`` (a two-column text file,
+    `read_throughput`), optional ``wavelength_unit`` (default um) and
+    ``exposure`` (default: the file stem); the other keys go to
+    `load_hst_exposure` (``margin``, ``dq_bits``, ``chip``, ``sample_times``).
+    ``cfg[telescope_key]`` holds ``target: subsample`` and the keys of
+    `build_exposure_likelihoods`.
     """
     telescope = cfg[telescope_key]
     subsample = telescope["target"]["subsample"]

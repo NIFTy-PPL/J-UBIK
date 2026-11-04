@@ -14,7 +14,8 @@ from jubik.instruments.jwst.likelihood.likelihood import (
     ShotNoiseGaussianLikelihoodBuilder,
 )
 from jubik.instruments.keck.keck_likelihoods import build_keck_likelihoods
-from test_nirc2_loader import GRID, HEADER, NX, NY, _write
+from jubik.wcs.wcs_astropy import WcsAstropy
+from test_nirc2_loader import CENTER, GRID, HEADER, NX, NY, _write
 
 TELESCOPE = {
     "rotation_and_shift": {
@@ -61,6 +62,7 @@ def _config(tmp_path, subsample=1):
                 throughput=str(tmp_path / "band.txt"),
                 flux_per_count_rate="1e-6",  # yaml.safe_load reads 1e-6 as a string
                 atmosphere="airmass 1.0, no extinction",
+                margin=2,
                 **noise,
             )
         )
@@ -97,3 +99,81 @@ def test_sigma_and_detector_noise_evaluate_jit_and_differentiate(tmp_path):
 def test_empirical_kernel_with_subsample_two_raises(tmp_path):
     with pytest.raises(ValueError, match="pixel response"):
         build_keck_likelihoods(_config(tmp_path, subsample=2), SKY_GRID, SKY_DOMAIN)
+
+
+# 10 mas detector pixels; the coarse grid has 6 of them per sky pixel
+@pytest.mark.parametrize("shape, fov", [(16, 0.16), (4, 0.24)])
+@pytest.mark.parametrize("noise", ["sigma", "detector_noise"])
+def test_cropping_keeps_the_likelihood(tmp_path, noise, shape, fov):
+    """A detector larger than the sky grid, loaded cut to the grid plus a
+    margin of the PSF half-width and whole, gives the same likelihood."""
+    ny, nx = 64, 72
+    rng = np.random.default_rng(1)
+    yy, xx = np.mgrid[:ny, :nx]
+    maps = dict(
+        X=0.3 * np.sin(2 * np.pi * xx / nx), Y=0.2 * np.cos(2 * np.pi * yy / ny)
+    )
+    for axis, shift in maps.items():  # a distortion that varies across the detector
+        fits.PrimaryHDU(shift).writeto(tmp_path / f"{axis}.fits")
+    np.savetxt(tmp_path / "band.txt", np.c_[[2.0, 2.4], [1.0, 1.0]])
+    profile = np.exp(-0.5 * (np.arange(7) - 3.0) ** 2)
+    fits.PrimaryHDU(np.outer(profile, profile)).writeto(tmp_path / "psf.fits")
+    header = HEADER | {"CRPIX1": 36.0, "CRPIX2": 32.0}
+    science = _write(tmp_path / "sci.fits", 100 + rng.normal(size=(ny, nx)), header)
+    bad = _write(tmp_path / "bad.fits", rng.random((ny, nx)) < 0.05)
+    if noise == "sigma":
+        noise_entry = {
+            "sigma": str(_write(tmp_path / "sig.fits", 3 + rng.random((ny, nx))).path)
+        }
+    else:
+        noise_entry = {
+            "detector_noise": dict(
+                gain=4.0,
+                read_noise=50.0,
+                n_reads=8,
+                sky=10 + rng.random((ny, nx)),
+                flat=0.9 + 0.2 * rng.random((ny, nx)),
+            )
+        }
+    grid = Grid(WcsAstropy(CENTER, shape=shape, fov=fov * u.arcsec), SKY_GRID.spectral)
+    domain = {"sky": jft.ShapeWithDtype((2, shape, shape), float)}
+
+    def build(margin):
+        entry = dict(
+            science=str(science.path),
+            filter="Kp",
+            psf=str(tmp_path / "psf.fits"),
+            throughput=str(tmp_path / "band.txt"),
+            flux_per_count_rate=1e-6,
+            atmosphere="airmass 1.0, no extinction",
+            bad_pixels=str(bad.path),
+            margin=margin,
+            **noise_entry,
+        )
+        distortion = {"pre_2015": [str(tmp_path / "X.fits"), str(tmp_path / "Y.fits")]}
+        # wrap: the sky beyond the grid is not zero, so the margin matters
+        wrap = TELESCOPE["rotation_and_shift"] | {
+            "linear": {"order": 1, "mode": "wrap"}
+        }
+        telescope = TELESCOPE | {
+            "target": {"subsample": 1},
+            "distortion": distortion,
+            "rotation_and_shift": wrap,
+        }
+        cfg = {"files": {"exposures": [entry]}, "telescope": telescope}
+        return build_keck_likelihoods(cfg, grid, domain)
+
+    cut, whole, no_margin = build(3), build(10_000), build(0)
+    (cut_builder,), (whole_builder,) = (
+        [t.builder for t in p.likelihoods] for p in (cut, whole)
+    )
+    assert whole_builder.data.shape == (1, ny, nx)
+    assert cut_builder.data.shape[1] < ny and cut_builder.data.shape[2] < nx
+    assert cut_builder.mask.sum() == whole_builder.mask.sum() > 0
+
+    x = jft.random_like(jax.random.PRNGKey(2), whole.likelihood.domain)
+    x = x.tree if isinstance(x, jft.Vector) else x
+    x["sky"] = 1e3 * jax.numpy.abs(x["sky"])  # a bright sky, so b matters
+    np.testing.assert_allclose(cut.likelihood(x), whole.likelihood(x), rtol=1e-12)
+    if shape == 16:  # the test can fail: without the margin the PSF wings are cut
+        assert not np.isclose(no_margin.likelihood(x), whole.likelihood(x), rtol=1e-12)
