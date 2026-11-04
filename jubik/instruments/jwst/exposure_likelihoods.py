@@ -91,7 +91,8 @@ def build_exposure_likelihoods(
     """One target likelihood per exposure, summed in `.likelihood`.
 
     The likelihood is the shot-noise Gaussian of ``exposure.noise`` when the
-    loader gives one, else the fixed-σ Gaussian on ``target_data.std``.
+    loader gives one, else the fixed-σ Gaussian on ``target_data.std``, which
+    must then be finite and positive on the unmasked pixels (WFPC2's is NaN).
 
     Parameters
     ----------
@@ -167,6 +168,14 @@ def build_exposure_likelihoods(
     likelihoods = []
     plotting = ResidualPlottingInformation()
     for e in exposures:
+        std = np.asarray(e.target_data.std)[np.asarray(e.target_data.mask)]
+        if e.noise is None and not np.all(np.isfinite(std) & (std > 0)):
+            raise ValueError(
+                f"{e.band}: no noise model and no finite σ > 0 in target_data.std. "
+                "WFPC2 is not supported yet: it needs a noise model (σ² = a + "
+                "b·max(R + sky, 0) from ATODGAIN and the read noise) and charge "
+                "diffusion for subsampled Tiny Tim kernels"
+            )
         target_data, psf_model = _with_psf(e)
         correction = ShiftAndRotationCorrection(
             domain_key=e.band,

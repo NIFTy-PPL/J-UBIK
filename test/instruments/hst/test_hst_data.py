@@ -163,7 +163,21 @@ def test_uniform_sky_predicts_the_native_value(
     expected = 1e6 * scale[0] * scale[1] * SR_PER_ARCSEC2 / photfnu * seconds
     np.testing.assert_allclose(predicted, expected, rtol=1e-12)
     np.testing.assert_array_equal(target.data[0], RAMP[CUT] + offset)
-    np.testing.assert_array_equal(target.std[0], 0.5)
+    # WFPC2 ERR is sqrt(SCI) without gain or read noise, so no σ is given
+    np.testing.assert_array_equal(
+        target.std[0], 0.5 if instrument == "nicmos" else np.nan
+    )
+
+
+def test_wfpc2_mask_does_not_follow_err(tmp_path):
+    path = _wfpc2(tmp_path / "w_flt.fits")
+    with fits.open(path, mode="update") as hdul:  # DrizzlePac: NaN ERR where SCI < 0
+        hdul["SCI", 2].data[12, 15] = -3.0
+        hdul["ERR", 2].data[12, 15] = np.nan
+    target = _load(path, chip=2).target_data
+    assert target.mask[0][12 - CUT[0].start, 15 - CUT[1].start]
+    np.testing.assert_array_equal(target.mask[0], INSIDE)
+    assert np.isnan(target.std).all()
 
 
 def test_products_shapes_weights_diagnostics_and_file_untouched(tmp_path):

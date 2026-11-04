@@ -84,6 +84,7 @@ def _load(tmp_path, data=100.0, header=HEADER, **kwargs):
         kwargs.setdefault("sigma", _write(folder / "sig.fits", np.full((NY, NX), 4.0)))
     kwargs.setdefault("pre_2015", _solution())
     kwargs.setdefault("sky_grid", GRID)
+    kwargs.setdefault("margin", 2)
     return load_nirc2_exposure(
         science, calibration=CAL, throughput=BAND, psf=DELTA, **kwargs
     )
@@ -226,10 +227,17 @@ def test_bad_nonfinite_and_nonpositive_sigma_are_masked(tmp_path):
     assert exposure.diagnostics["masked_pixels"] == 3
 
 
-def test_pixels_outside_the_sky_grid_are_masked(tmp_path):
+def test_cut_to_the_sky_grid_and_pixels_outside_it_masked(tmp_path):
     small = WcsAstropy(CENTER, shape=5, fov=50 * u.mas)  # +-25 mas
     exposure = _load(tmp_path, sky_grid=small, position_angle=0 * u.deg)
-    yy, xx = np.mgrid[0:NY, 0:NX]
+    # the grid spans raw x = 4.5..9.5, y = 2.5..7.5; plus the margin of 2
+    r0, r1, c0, c1 = exposure.diagnostics["bounds"]
+    assert r0 <= 1 and r1 >= 10 and c0 <= 3 and c1 >= 12
+    assert c1 - c0 < NX
+    target = exposure.target_data
+    assert target.data.shape[1:] == target.subsample_centers[0].shape
+    assert target.data.shape[1:] == (r1 - r0, c1 - c0)
+    yy, xx = np.mgrid[r0:r1, c0:c1]
     # PA 0 without distortion: pixel offsets from CENTER are 10 mas steps
     east, north = -SCALE_MAS * (xx - 7), SCALE_MAS * (yy - 5)
     near = (np.abs(east) <= 10) & (np.abs(north) <= 10)
@@ -256,6 +264,7 @@ def test_extension_selectors(tmp_path):
         throughput=BAND,
         psf=DELTA,
         sky_grid=GRID,
+        margin=2,
         pre_2015=_solution(),
     )
     np.testing.assert_array_equal(exposure.target_data.data[0], 100.0)

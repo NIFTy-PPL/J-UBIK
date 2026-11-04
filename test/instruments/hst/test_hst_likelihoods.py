@@ -19,7 +19,6 @@ from jubik.instruments.jwst.exposure_likelihoods import (
     build_exposure_likelihoods,
 )
 from jubik.instruments.jwst.likelihood.likelihood import (
-    GaussianLikelihoodBuilder,
     ShotNoiseGaussianLikelihoodBuilder,
 )
 from jubik.instruments.jwst.plotting.residuals import SkyResiduals
@@ -44,7 +43,6 @@ TELESCOPE = {
     "calibration": {"default": ["lognormal", 1.0, 0.1]},
 }
 NIC2 = "hst_NIC2_F160W_"
-WF = "hst_WF2_F814W_w"
 
 
 def _kernel_file(path, subsample=1, size=5, scale=0.076):
@@ -80,26 +78,17 @@ def _domain_keys(likelihood):
     return set(likelihood.response.domain) - {likelihood.filter}
 
 
-def test_nicmos_and_wfpc2_evaluate_jit_and_differentiate(tmp_path):
+def test_nicmos_evaluates_jits_and_differentiates(tmp_path):
     nicmos = _nicmos_entry(tmp_path, "n")
-    wfpc2 = dict(
-        path=str(_wfpc2(tmp_path / "w_flt.fits")),
-        camera="WF2",
-        filter="F814W",
-        chip=2,
-        margin=2,
-        psf=_kernel_file(tmp_path / "wf_psf.fits", scale=0.0996),
-    )
     grid = _grid(nicmos["path"])
     products = build_hst_likelihoods(
-        _config(tmp_path, [nicmos, wfpc2]), grid, _sky_domain(grid)
+        _config(tmp_path, [nicmos]), grid, _sky_domain(grid)
     )
 
-    assert list(products.sky_filter.bands) == [NIC2 + "n_cal", WF + "_flt"]
-    builders = [t.builder for t in products.likelihoods]
-    # NICMOS MULTIACCUM gives a shot-noise model, WFPC2 none
-    assert isinstance(builders[0], ShotNoiseGaussianLikelihoodBuilder)
-    assert type(builders[1]) is GaussianLikelihoodBuilder
+    assert list(products.sky_filter.bands) == [NIC2 + "n_cal"]
+    # NICMOS MULTIACCUM gives a shot-noise model
+    (likelihood,) = products.likelihoods
+    assert isinstance(likelihood.builder, ShotNoiseGaussianLikelihoodBuilder)
     assert products.plotting.filter == list(products.sky_filter.bands)
 
     likelihood = products.likelihood
@@ -110,6 +99,33 @@ def test_nicmos_and_wfpc2_evaluate_jit_and_differentiate(tmp_path):
     gradient = jax.grad(likelihood)(x)
     assert all(np.all(np.isfinite(g)) for g in jax.tree.leaves(gradient))
     assert np.any(jax.tree.leaves(gradient["sky"])[0] != 0)
+
+
+def test_wfpc2_likelihood_raises(tmp_path):
+    nicmos = _nicmos_entry(tmp_path, "n")
+    wfpc2 = dict(
+        path=str(_wfpc2(tmp_path / "w_flt.fits")),
+        camera="WF2",
+        filter="F814W",
+        chip=2,
+        margin=2,
+        psf=_kernel_file(tmp_path / "wf_psf.fits", scale=0.0996),
+    )
+    grid = _grid(nicmos["path"])
+    match = "WFPC2 is not supported yet.*noise model.*charge diffusion"
+    with pytest.raises(ValueError, match=match):
+        build_hst_likelihoods(
+            _config(tmp_path, [nicmos, wfpc2]), grid, _sky_domain(grid)
+        )
+
+    # the Python API, even with the exposure labelled as NICMOS
+    loaded = load_hst_exposure(wfpc2["path"], grid, CURVE, margin=2, dq_bits=0, chip=2)
+    kernel = HstPsfKernel(np.pad([[1.0]], 2), 0.0996, 1, True)
+    exposure = Exposure(
+        "hst", "NIC2", "F160W", "w", loaded.target_data, loaded.meta, CURVE, kernel
+    )
+    with pytest.raises(ValueError, match=match):
+        build_exposure_likelihoods([exposure], grid, _sky_domain(grid), TELESCOPE)
 
 
 def test_one_filter_two_shapes_get_disjoint_keys_and_shared_weights(tmp_path):

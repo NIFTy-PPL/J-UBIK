@@ -178,6 +178,7 @@ def load_nirc2_exposure(
     throughput: Throughput,
     psf: np.ndarray,
     sky_grid: WcsAstropy,
+    margin: int,
     sigma: FitsImage | None = None,
     detector_noise: DetectorNoise | None = None,
     bad_pixels: FitsImage | None = None,
@@ -216,6 +217,10 @@ def load_nirc2_exposure(
     sky_grid : WcsAstropy
         The reconstruction grid; pixels whose centres fall outside it are
         masked, as in the JWST loader.
+    margin : int
+        Detector pixels added on every side of the box around ``sky_grid``,
+        at least the PSF half-width; everything else is cut off. The cutout
+        is clipped to the detector.
     sigma : FitsImage | None
         σ map in the science image's unit.
     detector_noise : DetectorNoise | None
@@ -256,7 +261,8 @@ def load_nirc2_exposure(
         Neither or both of ``sigma`` and ``detector_noise``; not the narrow
         camera; a unit other than DN or DN/s; shapes that differ from the science
         image (maps of a subarray readout included); a rotator mode other
-        than position angle without ``position_angle``; every pixel masked.
+        than position angle without ``position_angle``; the sky grid misses
+        the detector; every pixel masked.
     KeyError
         A needed header keyword is missing and was not given.
     """
@@ -344,13 +350,31 @@ def load_nirc2_exposure(
         crpix = tuple(float(keyword(k, None, "crpix")) for k in ("CRPIX1", "CRPIX2"))
 
     wcs = nirc2_wcs(distortion, crval, crpix, position_angle)
+    # the cutout keeps detector pixel indices, so the distortion maps stay whole
     ny, nx = data.shape
-    centers = subsample_pixel_centers((0, ny, 0, nx), wcs, subsample)
+    rows0, rows1, cols0, cols1 = wcs.bounding_indices_from_world_extrema(
+        sky_grid.world_corners()
+    )
+    bounds = (
+        max(rows0 - margin, 0),
+        min(rows1 + margin, ny),
+        max(cols0 - margin, 0),
+        min(cols1 + margin, nx),
+    )
+    if bounds[0] >= bounds[1] or bounds[2] >= bounds[3]:
+        raise ValueError(f"{science}: the sky grid misses the detector")
+    cut = np.s_[bounds[0] : bounds[1], bounds[2] : bounds[3]]
+    data, std, bad = data[cut], std[cut], bad[cut]
+    if noise is not None:
+        noise = ShotNoise(
+            *(v[cut] if np.ndim(v) else v for v in (noise.a, noise.b, noise.sky))
+        )
+    centers = subsample_pixel_centers(bounds, wcs, subsample)
 
     pixel_scale = distortion.pixel_scale.to(u.deg)
     finite = np.isfinite(data) & np.isfinite(std)
     mask = finite & (std > 0) & ~bad
-    mask &= get_mask_from_index_centers_within_rgrid((0, ny, 0, nx), wcs, sky_grid)
+    mask &= get_mask_from_index_centers_within_rgrid(bounds, wcs, sky_grid)
     if not mask.any():
         raise ValueError(f"{science}: every pixel is masked")
 
@@ -382,6 +406,7 @@ def load_nirc2_exposure(
         calibration=f"{calibration.flux_per_count_rate} ({calibration.atmosphere})",
         distortion=f"{distortion.name}, chosen by {chosen_by}",
         position_angle=position_angle.to(u.deg),
+        bounds=bounds,
         masked_pixels=int(mask.size - mask.sum()),
     )
     logger.info(f"NIRC2 exposure: {diagnostics}")

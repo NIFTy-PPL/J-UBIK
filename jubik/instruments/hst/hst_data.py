@@ -117,6 +117,8 @@ def load_hst_exposure(
     """Cut one chip of a NICMOS ``_cal`` or WFPC2 ``_flt`` file around the sky grid.
 
     Data and std (the ERR extension) keep the file's units, counts or counts/s.
+    WFPC2 std is NaN: its ERR (sqrt(SCI), no gain or read noise) is not a σ,
+    and no WFPC2 noise model exists yet, so no likelihood can be built on it.
     ``meta.unit`` is the flux density of one data unit, PHOTFNU (or PHOTFLAM
     PHOTPLAM^2 / c) Jy per count/s, divided by EXPTIME when BUNIT is counts, and
     ``meta.dvol`` the pixel area of the linear WCS at the reference pixel. The
@@ -166,7 +168,7 @@ def load_hst_exposure(
     HstExposure
         ``target_data`` with a leading exposure axis of length one; ``mask``
         is True where the data enter the likelihood, ``nan_mask`` where data
-        and std are finite and std is positive. ``meta`` with PHOTPLAM as
+        and std are finite and std is positive (WFPC2: where data are finite). ``meta`` with PHOTPLAM as
         ``color``. ``weights`` from `throughput_weights` on ``grid.spectral``.
         NICMOS MULTIACCUM ``noise``: ``a`` = ERR², read noise only from
         calnica 4.2 on (NICMOS Data Handbook v8, p. 47), ``b`` the shot noise
@@ -205,7 +207,12 @@ def load_hst_exposure(
         cut = np.s_[bounds[0] : bounds[1], bounds[2] : bounds[3]]
         data = np.asarray(sci.data[cut], float)
         std = np.asarray(_pixels(err, sci.data.shape)[cut], float)
-        nan_mask = np.isfinite(data) & np.isfinite(std) & (std > 0)
+        if hdul[0].header["INSTRUME"].strip() == "WFPC2":
+            # ERR is sqrt(SCI) in DN without gain or read noise, not a σ
+            std = np.full_like(data, np.nan)
+            nan_mask = np.isfinite(data)
+        else:
+            nan_mask = np.isfinite(data) & np.isfinite(std) & (std > 0)
         dq_cut = np.asarray(_pixels(dq, sci.data.shape)[cut], np.int64)
         mask = nan_mask & ((dq_cut & dq_bits) == 0)
         mask &= get_mask_from_index_centers_within_rgrid(bounds, wcs, grid.spatial)
