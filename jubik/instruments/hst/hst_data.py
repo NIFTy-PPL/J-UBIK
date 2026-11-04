@@ -47,7 +47,7 @@ FLAM = u.erg / u.s / u.cm**2 / u.AA
 # calnica >= 4.2 read weights |i - (n-1)/2|^power by S/N (Fixsen et al. 2000)
 FIXSEN_SNR = (5, 10, 20, 50, 100)
 FIXSEN_POWERS = (0.0, 0.4, 1.0, 3.0, 6.0, 10.0)
-# BUNIT -> whether one data unit is a count over EXPTIME rather than a count/s
+# BUNIT -> whether the file's unit is counts rather than counts/s
 BUNIT_IS_COUNTS = {"COUNTS": True, "COUNTS/S": False}
 PHOT_KEYS = ("PHOTMODE", "PHOTFNU", "PHOTFLAM", "PHOTPLAM", "PHOTZPT")
 DISTORTION_KEYS = (
@@ -119,9 +119,12 @@ def load_hst_exposure(
 ) -> HstExposure:
     """Cut one chip of a NICMOS ``_cal`` or WFPC2 ``_flt`` file around the sky grid.
 
-    Data and std (the ERR extension) keep the file's units, counts or counts/s.
-    ``meta.unit`` is the flux density of one data unit, PHOTFNU (or PHOTFLAM
-    PHOTPLAM^2 / c) Jy per count/s, divided by EXPTIME when BUNIT is counts, and
+    Data and std (the ERR extension) are in counts/s, or in counts for a WFPC2
+    file with BUNIT counts. NICMOS counts are divided by the TIME extension,
+    inverting calnica's UNITCORR, which divides SCI and ERR by TIME (NICMOS
+    Data Handbook v8), so they are rates on every pixel. ``meta.unit`` is the
+    flux density of one data unit, PHOTFNU (or PHOTFLAM PHOTPLAM^2 / c) Jy per
+    count/s, divided by EXPTIME for WFPC2 counts, and
     ``meta.dvol`` the pixel area of the linear WCS at the reference pixel. The
     response's unit conversion and sum integration then predict the data. HST
     flats preserve surface brightness, so this nominal area is the right one
@@ -161,8 +164,8 @@ def load_hst_exposure(
     dark : NDArray[np.floating] | None
         NICMOS: chip-shaped dark current and amplifier glow that DARKCORR
         subtracted, as it appears in SCI: count rate times the inverse flat
-        and ZPSCALE (times TIME for BUNIT counts), not the cumulative
-        DARKFILE reads. Its shot noise remains. None is 0.
+        and ZPSCALE (times TIME for BUNIT counts, divided by TIME with SCI),
+        not the cumulative DARKFILE reads. Its shot noise remains. None is 0.
 
     Returns
     -------
@@ -173,15 +176,15 @@ def load_hst_exposure(
         ``color``. ``weights`` from `throughput_weights` on ``grid.spectral``.
         NICMOS MULTIACCUM ``noise``: ``a`` = ERR², read noise only from
         calnica 4.2 on (NICMOS Data Handbook v8, p. 47), ``b`` the shot noise
-        of the least-squares ramp slope, see `_nicmos_noise`; pixels with
-        TIME <= 0 are masked. None for other modes, whose ERR already holds
-        the Poisson term, and for WFPC2.
+        of the least-squares ramp slope, see `_nicmos_noise`. None for other
+        modes, whose ERR already holds the Poisson term, and for WFPC2.
+        NICMOS pixels with TIME <= 0 are masked in every mode.
 
     Raises
     ------
     ValueError
         Not a NICMOS or WFPC2 file, ``chip`` does not select one SCI extension,
-        the ERR or DQ extension (NICMOS MULTIACCUM: SAMP, TIME, ADCGAIN) is
+        the ERR, DQ or NICMOS TIME extension (MULTIACCUM: SAMP, ADCGAIN) is
         missing, a chip map has the wrong shape or is given for another mode,
         the header has no distortion solution, BUNIT or the photometric
         keywords are unusable, the grid misses the chip, or every pixel is
@@ -208,6 +211,14 @@ def load_hst_exposure(
         cut = np.s_[bounds[0] : bounds[1], bounds[2] : bounds[3]]
         data = np.asarray(sci.data[cut], float)
         std = np.asarray(_pixels(err, sci.data.shape)[cut], float)
+        nicmos = hdul[0].header["INSTRUME"].strip() == "NICMOS"
+        seconds = 1.0
+        if nicmos:
+            time = _pixels(_extension(hdul, path, "TIME", sci.ver), sci.data.shape)
+            time = np.asarray(time[cut], float)
+            if BUNIT_IS_COUNTS[str(card("BUNIT")).strip().upper()]:
+                seconds = np.where(time > 0, time, np.nan)  # UNITCORR inverted
+                data, std = data / seconds, std / seconds
         nan_mask = np.isfinite(data) & np.isfinite(std) & (std > 0)
         dq_cut = np.asarray(_pixels(dq, sci.data.shape)[cut], np.int64)
         mask = nan_mask & ((dq_cut & dq_bits) == 0)
@@ -221,14 +232,16 @@ def load_hst_exposure(
             chip_maps[name] = None if value is None else np.asarray(value)[cut]
         if exclude is not None:
             mask &= ~chip_maps["exclude"].astype(bool)
+        if chip_maps["dark"] is not None:
+            chip_maps["dark"] = chip_maps["dark"] / seconds
+        if nicmos:
+            mask &= time > 0  # no valid sample
 
         noise = noise_info = None
         # ACCUM and BRIGHTOBJ ERR already hold the Poisson term (NOISCALC)
-        if str(card("OBSMODE")).strip() == "MULTIACCUM":
-            samp, time = (
-                _pixels(_extension(hdul, path, name, sci.ver), sci.data.shape)[cut]
-                for name in ("SAMP", "TIME")
-            )
+        if nicmos and str(card("OBSMODE")).strip() == "MULTIACCUM":
+            samp = _extension(hdul, path, "SAMP", sci.ver)
+            samp = _pixels(samp, sci.data.shape)[cut]
             noise, noise_info = _nicmos_noise(
                 card,
                 path,
@@ -240,7 +253,7 @@ def load_hst_exposure(
                 chip_maps["flat"],
                 chip_maps["dark"],
             )
-            # TIME <= 0: no valid sample; a bad flat or dark pixel
+            # a bad flat or dark pixel
             mask &= np.isfinite(noise.b) & np.isfinite(noise.sky) & (noise.b >= 0)
         elif any(v is not None for v in (sample_times, flat, dark)):
             raise ValueError(
@@ -314,12 +327,12 @@ def _nicmos_noise(card, path, data, err, samp, time, sample_times, flat, dark):
 
     SCI is the slope times the inverse flat and ZPSCALE (NICMOS Data Handbook
     v8, FLATCORR and PHOTCALC, pp. 51-52), so b = wᵀMw · flat · ZPSCALE /
-    ADCGAIN, times TIME for BUNIT counts. calnica's CRIDCALC fits the reads
-    after the zeroth by the optimally weighted least squares of Fixsen et al.
-    (2000), with the power chosen by S/N = (y_n - y_1) / σ(y_n): a pixel with
-    SAMP reads used reads 1..SAMP, and TIME = t_SAMP - t_1. Both were checked
-    on calnica 4.4.1 files, whose _cal SCI that fit through the _ima reads
-    reproduces on every full-ramp pixel. A cosmic ray splits the ramp and
+    ADCGAIN; SCI and ERR are rates (BUNIT counts divided by TIME). calnica's
+    CRIDCALC fits the reads after the zeroth by the optimally weighted least
+    squares of Fixsen et al. (2000), with the power chosen by S/N = (y_n -
+    y_1) / σ(y_n): a pixel with SAMP reads used reads 1..SAMP, and TIME =
+    t_SAMP - t_1. Both were checked on calnica 4.4.1 files, whose _cal SCI
+    that fit through the _ima reads reproduces on every full-ramp pixel. A cosmic ray splits the ramp and
     shortens TIME; such pixels usually match no read and keep the Data
     Handbook's two-read term.
     """
@@ -335,8 +348,6 @@ def _nicmos_noise(card, path, data, err, samp, time, sample_times, flat, dark):
     time = np.asarray(time, float)
     inverse_flat = 1.0 if flat is None else np.asarray(flat, float)
     per_count = inverse_flat * (card("ZPSCALE") or 1.0) / gain  # SCI per electron
-    # data units per count rate: TIME for BUNIT counts
-    unit_time = time if BUNIT_IS_COUNTS[str(card("BUNIT")).strip().upper()] else 1.0
     # the Data Handbook's term (p. 47): two reads over TIME
     factor = 1 / np.where(time > 0, time, np.nan)
     placed, weighted, sampled = 0, 0, int((time > 0).sum())
@@ -363,12 +374,12 @@ def _nicmos_noise(card, path, data, err, samp, time, sample_times, flat, dark):
         # SCI, the read noise ERR / |w_0| and the flat, which picks calnica's
         # power on 87-99 % of pixels; upgrade by passing the _ima reads
         with np.errstate(invalid="ignore", divide="ignore"):  # TIME 0: masked
-            signal, read = data / unit_time * time, err / unit_time / norm[n]
+            signal, read = data * time, err / norm[n]
             snr = signal / np.sqrt(read**2 + np.maximum(signal, 0) * per_count)
         power = np.searchsorted(FIXSEN_SNR, np.nan_to_num(snr), side="right")
         factor = np.where(ok, table[power, n], factor)
         placed, weighted = int(ok.sum()), int((ok & (power > 0)).sum())
-    b = factor * per_count * unit_time
+    b = factor * per_count
     sky = 0.0 if dark is None else np.asarray(dark, float)
     info = (
         f"ADCGAIN {gain}, ramp from sample times on {placed} of {sampled} "
@@ -437,7 +448,8 @@ def _jy_per_unit(card, path: str) -> u.Quantity:
         fnu = (photflam * FLAM).to(u.Jy, u.spectral_density(photplam * u.AA))
     else:
         raise ValueError(f"{path}: neither PHOTFNU nor PHOTFLAM is set")
-    if BUNIT_IS_COUNTS[bunit]:
+    # NICMOS counts are divided by TIME at load
+    if BUNIT_IS_COUNTS[bunit] and str(card("INSTRUME")).strip() != "NICMOS":
         if not (exptime and exptime > 0):
             raise ValueError(
                 f"{path}: BUNIT {bunit} needs EXPTIME > 0, it is {exptime}"
