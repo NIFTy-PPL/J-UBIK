@@ -500,6 +500,9 @@ class ChandraObservationInformation():
         marxpara_file = outroot + '_marx.par'
         marxpara_orig = os.environ['MARX_ROOT'] + '/share/marx/pfiles/marx.par'
         os.system('cp ' + marxpara_orig + ' ' + marxpara_file)
+        # Verbose is boolean in marx < 6.0 and integer from 6.0 on
+        with open(marxpara_orig) as f:
+            verbose_is_bool = any(line.startswith('Verbose,b,') for line in f)
 
         marxpara_dict = {
             "SourceRA" : '{:.9f}'.format(location[0]),
@@ -523,7 +526,7 @@ class ChandraObservationInformation():
             "HRMAVig" : "1.0",
             "DitherModel" : "INTERNAL", #TODO without and later for whole image?
             "TStart" : tstart,
-            "Verbose" : "no",
+            "Verbose" : "no" if verbose_is_bool else "0",
             "ACIS_Frame_Transfer_Time" : "0.000",
             "HRMA_Use_Struts" : "yes", # FIXME Find out of if "yes" or "no"
             "DetExtendFlag" : "yes"
