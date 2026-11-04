@@ -247,6 +247,12 @@ def test_cut_to_the_sky_grid_and_pixels_outside_it_masked(tmp_path):
     assert exposure.diagnostics["masked_pixels"] >= far.sum()
 
 
+def test_sky_grid_off_the_detector_raises(tmp_path):
+    away = WcsAstropy(CENTER.directional_offset_by(0, 1 * u.arcsec), 5, 50 * u.mas)
+    with pytest.raises(ValueError, match="misses the detector"):
+        _load(tmp_path, sky_grid=away)
+
+
 def test_every_pixel_masked_raises(tmp_path):
     with pytest.raises(ValueError, match="every pixel"):
         _load(tmp_path, bad_pixels=_write(tmp_path / "bad.fits", np.ones((NY, NX))))

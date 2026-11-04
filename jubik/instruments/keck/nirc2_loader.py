@@ -352,8 +352,9 @@ def load_nirc2_exposure(
     wcs = nirc2_wcs(distortion, crval, crpix, position_angle)
     # the cutout keeps detector pixel indices, so the distortion maps stay whole
     ny, nx = data.shape
+    # the corners one sky pixel out: the mask keeps up to the grid's outer edge
     rows0, rows1, cols0, cols1 = wcs.bounding_indices_from_world_extrema(
-        sky_grid.world_corners()
+        sky_grid.world_corners(extension_value=(1, 1))
     )
     bounds = (
         max(rows0 - margin, 0),

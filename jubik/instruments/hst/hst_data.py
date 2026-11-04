@@ -168,8 +168,8 @@ def load_hst_exposure(
     HstExposure
         ``target_data`` with a leading exposure axis of length one; ``mask``
         is True where the data enter the likelihood, ``nan_mask`` where data
-        and std are finite and std is positive (WFPC2: where data are finite). ``meta`` with PHOTPLAM as
-        ``color``. ``weights`` from `throughput_weights` on ``grid.spectral``.
+        and std are finite and std is positive (WFPC2: where data are
+        finite). ``meta`` with PHOTPLAM as ``color``. ``weights`` from `throughput_weights` on ``grid.spectral``.
         NICMOS MULTIACCUM ``noise``: ``a`` = ERR², read noise only from
         calnica 4.2 on (NICMOS Data Handbook v8, p. 47), ``b`` the shot noise
         of the least-squares ramp slope, see `_nicmos_noise`; pixels with

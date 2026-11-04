@@ -19,6 +19,7 @@ from jubik.instruments.jwst.exposure_likelihoods import (
     build_exposure_likelihoods,
 )
 from jubik.instruments.jwst.likelihood.likelihood import (
+    ShotNoise,
     ShotNoiseGaussianLikelihoodBuilder,
 )
 from jubik.instruments.jwst.plotting.residuals import SkyResiduals
@@ -124,6 +125,10 @@ def test_wfpc2_likelihood_raises(tmp_path):
     exposure = Exposure(
         "hst", "NIC2", "F160W", "w", loaded.target_data, loaded.meta, CURVE, kernel
     )
+    with pytest.raises(ValueError, match=match):
+        build_exposure_likelihoods([exposure], grid, _sky_domain(grid), TELESCOPE)
+    # and with a noise model the caller made up
+    exposure = replace(exposure, noise=ShotNoise(a=25.0, b=1 / 7))
     with pytest.raises(ValueError, match=match):
         build_exposure_likelihoods([exposure], grid, _sky_domain(grid), TELESCOPE)
 

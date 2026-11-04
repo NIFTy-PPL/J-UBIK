@@ -101,11 +101,13 @@ def test_empirical_kernel_with_subsample_two_raises(tmp_path):
         build_keck_likelihoods(_config(tmp_path, subsample=2), SKY_GRID, SKY_DOMAIN)
 
 
+# 10 mas detector pixels; the coarse grid has 6 of them per sky pixel
+@pytest.mark.parametrize("shape, fov", [(16, 0.16), (4, 0.24)])
 @pytest.mark.parametrize("noise", ["sigma", "detector_noise"])
-def test_cropping_keeps_the_likelihood(tmp_path, noise):
+def test_cropping_keeps_the_likelihood(tmp_path, noise, shape, fov):
     """A detector larger than the sky grid, loaded cut to the grid plus a
     margin of the PSF half-width and whole, gives the same likelihood."""
-    ny, nx = 40, 48
+    ny, nx = 64, 72
     rng = np.random.default_rng(1)
     yy, xx = np.mgrid[:ny, :nx]
     maps = dict(
@@ -116,7 +118,7 @@ def test_cropping_keeps_the_likelihood(tmp_path, noise):
     np.savetxt(tmp_path / "band.txt", np.c_[[2.0, 2.4], [1.0, 1.0]])
     profile = np.exp(-0.5 * (np.arange(7) - 3.0) ** 2)
     fits.PrimaryHDU(np.outer(profile, profile)).writeto(tmp_path / "psf.fits")
-    header = HEADER | {"CRPIX1": 24.0, "CRPIX2": 20.0}
+    header = HEADER | {"CRPIX1": 36.0, "CRPIX2": 32.0}
     science = _write(tmp_path / "sci.fits", 100 + rng.normal(size=(ny, nx)), header)
     bad = _write(tmp_path / "bad.fits", rng.random((ny, nx)) < 0.05)
     if noise == "sigma":
@@ -133,8 +135,8 @@ def test_cropping_keeps_the_likelihood(tmp_path, noise):
                 flat=0.9 + 0.2 * rng.random((ny, nx)),
             )
         }
-    grid = Grid(WcsAstropy(CENTER, shape=16, fov=0.16 * u.arcsec), SKY_GRID.spectral)
-    domain = {"sky": jft.ShapeWithDtype((2, 16, 16), float)}
+    grid = Grid(WcsAstropy(CENTER, shape=shape, fov=fov * u.arcsec), SKY_GRID.spectral)
+    domain = {"sky": jft.ShapeWithDtype((2, shape, shape), float)}
 
     def build(margin):
         entry = dict(
@@ -164,4 +166,4 @@ def test_cropping_keeps_the_likelihood(tmp_path, noise):
     x = jft.random_like(jax.random.PRNGKey(2), whole.likelihood.domain)
     x = x.tree if isinstance(x, jft.Vector) else x
     x["sky"] = 1e3 * jax.numpy.abs(x["sky"])  # a bright sky, so b matters
-    np.testing.assert_allclose(cut.likelihood(x), whole.likelihood(x), rtol=1e-6)
+    np.testing.assert_allclose(cut.likelihood(x), whole.likelihood(x), rtol=1e-12)
