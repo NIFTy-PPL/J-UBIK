@@ -146,6 +146,8 @@ def test_meta_and_header_overrides(tmp_path):
 def test_missing_keyword_or_wrong_unit_raises(tmp_path):
     with pytest.raises(KeyError, match="ITIME"):
         _load(tmp_path, header={k: v for k, v in HEADER.items() if k != "ITIME"})
+    with pytest.raises(ValueError, match="COADDS"):
+        _load(tmp_path, coadds=2.7)
     with pytest.raises(KeyError, match="DATE-OBS.*distortion="):
         _load(tmp_path, header={k: v for k, v in HEADER.items() if k != "DATE-OBS"})
     with pytest.raises(ValueError, match="unit"):
@@ -305,6 +307,15 @@ def test_position_angle_offset_applied(tmp_path):
     right = centers[5, 0].position_angle(centers[5, NX - 1]).to_value(u.deg)
     assert up == pytest.approx(29.75, abs=1e-4)
     assert right == pytest.approx(29.75 - 90 + 360, abs=1e-4)  # East to the left
+
+
+def test_header_pointing_frame(tmp_path):
+    fk5 = HEADER | {"RADESYS": "FK5"}
+    centers = _load(tmp_path, header=fk5, position_angle=0 * u.deg)
+    centers = centers.target_data.subsample_centers[0]
+    # raw reference pixel (7, 5) sits at CRVAL read in FK5 J2000
+    reference = SkyCoord(150 * u.deg, 30 * u.deg, frame="fk5").icrs
+    assert centers[5, 7].separation(reference) < 1e-6 * u.mas
 
 
 def test_position_angle_override_and_rotator_mode(tmp_path):

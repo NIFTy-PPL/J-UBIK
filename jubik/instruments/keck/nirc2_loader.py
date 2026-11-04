@@ -207,7 +207,8 @@ def load_nirc2_exposure(
     coadds : int | None
         [COADDS].
     crval : SkyCoord | None
-        [CRVAL1, CRVAL2], sky position of the reference pixel.
+        [CRVAL1, CRVAL2] in [RADESYS] (default ICRS), sky position of the
+        reference pixel.
     crpix : tuple[float, float] | None
         [CRPIX1, CRPIX2], FITS 1-based raw position of the reference pixel.
     position_angle : u.Quantity | None
@@ -254,9 +255,10 @@ def load_nirc2_exposure(
     if unit not in ("DN", "ADU", "DN/S", "ADU/S"):
         raise ValueError(f"{science}: unit {unit!r}, expected DN or DN/s")
     itime = float(keyword("ITIME", itime, "itime"))
-    coadds = int(keyword("COADDS", coadds, "coadds"))
-    if not (itime > 0 and coadds >= 1):
+    coadds = float(keyword("COADDS", coadds, "coadds"))
+    if not (itime > 0 and coadds.is_integer() and coadds >= 1):
         raise ValueError(f"{science}: ITIME {itime} s and COADDS {coadds}")
+    coadds = int(coadds)
     seconds = itime * coadds * u.s
     rate_per_unit = u.DN / u.s if unit.endswith("/S") else u.DN / seconds
     jy_per_unit = (calibration.flux_per_count_rate * rate_per_unit).to(u.Jy)
@@ -302,7 +304,8 @@ def load_nirc2_exposure(
         position_angle = nominal * u.deg - distortion.angle_offset
     if crval is None:
         ra, dec = (keyword(k, None, "crval") for k in ("CRVAL1", "CRVAL2"))
-        crval = SkyCoord(ra, dec, unit="deg")
+        frame = header.get("RADESYS", header.get("RADECSYS", "ICRS"))
+        crval = SkyCoord(ra, dec, unit="deg", frame=str(frame).strip().lower())
     if crpix is None:
         crpix = tuple(float(keyword(k, None, "crpix")) for k in ("CRPIX1", "CRPIX2"))
 
