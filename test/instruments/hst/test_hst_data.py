@@ -498,6 +498,19 @@ def test_nicmos_noise_defaults_and_units(tmp_path):
     assert _load(_wfpc2(tmp_path / "w_flt.fits"), chip=3).noise is None
 
 
+def test_nicmos_weights_in_counts_units(tmp_path):
+    time = np.full(SHAPE, RAMP_TIME)
+    sci = np.ones(SHAPE)
+    sci[CUT] = np.geomspace(0.01, 300.0, sci[CUT].size).reshape(sci[CUT].shape)
+    rate = _nicmos(tmp_path / "r_cal.fits")
+    counts = _nicmos(tmp_path / "c_cal.fits", bunit="COUNTS")
+    _rewrite(rate, SCI=sci, ERR=np.full(SHAPE, 0.5), TIME=time)
+    _rewrite(counts, SCI=sci * time, ERR=np.full(SHAPE, 0.5) * time, TIME=time)
+    rate, counts = (_load(p, sample_times=READ_TIMES) for p in (rate, counts))
+    assert ", 0 of them weighted" not in rate.diagnostics.noise
+    np.testing.assert_allclose(counts.noise.b, rate.noise.b * RAMP_TIME, rtol=1e-12)
+
+
 def test_nicmos_noise_rejects_bad_inputs(tmp_path):
     path = _nicmos(tmp_path / "n_cal.fits")
     with pytest.raises(ValueError, match="flat has shape"):

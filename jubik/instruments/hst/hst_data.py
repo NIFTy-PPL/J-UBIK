@@ -356,14 +356,14 @@ def _nicmos_noise(card, path, data, err, samp, time, sample_times, flat, dark):
             table[:, k] = [ramp_poisson_factor(reads[:k], p) for p in FIXSEN_POWERS]
             norm[k] = np.linalg.norm(_slope_weights(reads[:k], 0.0))
         n = np.clip(np.asarray(samp, int), 0, reads.size)
-        # shortcut: cosmic-ray pixels keep the two-read term; their segment
+        # shortcut: most cosmic-ray pixels keep the two-read term; their segment
         # combination is not reproduced, upgrade with the _ima reads and DQ
         ok = (n >= 2) & (n == samp) & (np.abs(reads[n - 1] - time) < 0.01)
         # shortcut: calnica's S/N uses the _ima reads; it is estimated from
         # SCI, the read noise ERR / |w_0| and the flat, which picks calnica's
         # power on 87-99 % of pixels; upgrade by passing the _ima reads
-        signal, read = data / unit_time * time, err / unit_time / norm[n]
-        with np.errstate(invalid="ignore"):
+        with np.errstate(invalid="ignore"):  # dead pixels: 0 / 0, masked
+            signal, read = data / unit_time * time, err / unit_time / norm[n]
             snr = signal / np.sqrt(read**2 + np.maximum(signal, 0) * per_count)
         power = np.searchsorted(FIXSEN_SNR, np.nan_to_num(snr), side="right")
         factor = np.where(ok, table[power, n], factor)
