@@ -1,0 +1,99 @@
+"""build_keck_likelihoods on the synthetic NIRC2 files of the loader tests."""
+
+import jax
+import nifty.re as jft
+import numpy as np
+import pytest
+from astropy import units as u
+from astropy.io import fits
+
+from jubik.color import Color
+from jubik.grid import Grid
+from jubik.instruments.jwst.likelihood.likelihood import (
+    GaussianLikelihoodBuilder,
+    ShotNoiseGaussianLikelihoodBuilder,
+)
+from jubik.instruments.keck.keck_likelihoods import build_keck_likelihoods
+from test_nirc2_loader import GRID, HEADER, NX, NY, _write
+
+TELESCOPE = {
+    "rotation_and_shift": {
+        "linear": {"order": 1, "mode": "constant"},
+        "correction_priors": {
+            "model": "shift",
+            "shift_unit": "arcsec",
+            "rotation_unit": "deg",
+            "default": {
+                "rotation": ["delta", 0.0, 0.1],
+                "shift": ["normal", 0.0, 0.01],
+            },
+        },
+    },
+    "zero_flux": {"default": ["normal", 0.0, 1.0]},
+}
+SKY_GRID = Grid(GRID, Color([2.0, 2.2, 2.4] * u.um))
+SKY_DOMAIN = {"sky": jft.ShapeWithDtype((2, *GRID.shape_yx), float)}
+
+
+def _config(tmp_path, subsample=1):
+    for axis in "XY":
+        fits.PrimaryHDU(np.zeros((NY, NX))).writeto(tmp_path / f"{axis}.fits")
+    np.savetxt(tmp_path / "band.txt", np.c_[[2.0, 2.4], [1.0, 1.0]])
+    profile = np.exp(-0.5 * (np.arange(5) - 2.0) ** 2)
+    fits.PrimaryHDU(np.outer(profile, profile)).writeto(tmp_path / "psf.fits")
+    rng = np.random.default_rng(0)
+    entries = []
+    for name, noise in (
+        (
+            "a",
+            {"sigma": str(_write(tmp_path / "sig.fits", np.full((NY, NX), 4.0)).path)},
+        ),
+        ("b", {"detector_noise": dict(gain=4.0, read_noise=50.0, n_reads=8, sky=10.0)}),
+    ):
+        science = _write(
+            tmp_path / f"{name}.fits", 100 + rng.normal(size=(NY, NX)), HEADER
+        )
+        entries.append(
+            dict(
+                science=str(science.path),
+                filter="Kp",
+                psf=str(tmp_path / "psf.fits"),
+                throughput=str(tmp_path / "band.txt"),
+                flux_per_count_rate="1e-6",  # yaml.safe_load reads 1e-6 as a string
+                atmosphere="airmass 1.0, no extinction",
+                **noise,
+            )
+        )
+    distortion = {"pre_2015": [str(tmp_path / "X.fits"), str(tmp_path / "Y.fits")]}
+    telescope = TELESCOPE | {
+        "target": {"subsample": subsample},
+        "distortion": distortion,
+    }
+    return {"files": {"exposures": entries}, "telescope": telescope}
+
+
+def test_sigma_and_detector_noise_evaluate_jit_and_differentiate(tmp_path):
+    products = build_keck_likelihoods(_config(tmp_path), SKY_GRID, SKY_DOMAIN)
+
+    assert list(products.sky_filter.bands) == ["keck_nirc2_Kp_a", "keck_nirc2_Kp_b"]
+    first, second = (t.builder for t in products.likelihoods)
+    assert type(first) is GaussianLikelihoodBuilder
+    assert isinstance(second, ShotNoiseGaussianLikelihoodBuilder)
+    bands = products.sky_filter.bands
+    assert bands["keck_nirc2_Kp_a"] is bands["keck_nirc2_Kp_b"]
+    kernel = products.likelihoods[0].builder.response.psf.kernel
+    assert kernel.shape == (1, 5, 5)  # the empirical kernel, not the placeholder
+    np.testing.assert_allclose(kernel.sum(), 1.0)
+
+    likelihood = products.likelihood
+    x = jft.random_like(jax.random.PRNGKey(0), likelihood.domain)
+    value = likelihood(x)
+    assert np.isfinite(value)
+    np.testing.assert_allclose(jax.jit(likelihood)(x), value, rtol=1e-6)
+    gradient = jax.grad(likelihood)(x)
+    assert all(np.all(np.isfinite(g)) for g in jax.tree.leaves(gradient))
+
+
+def test_empirical_kernel_with_subsample_two_raises(tmp_path):
+    with pytest.raises(ValueError, match="pixel response"):
+        build_keck_likelihoods(_config(tmp_path, subsample=2), SKY_GRID, SKY_DOMAIN)
