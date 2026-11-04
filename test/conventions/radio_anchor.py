@@ -17,10 +17,9 @@ import os
 
 os.environ.setdefault("JAX_PLATFORMS", "cpu")
 
-from types import SimpleNamespace
-
 import astropy.units as u
 import numpy as np
+from astropy.constants import c
 from astropy.coordinates import SkyCoord
 
 from jubik.grid import Grid
@@ -33,7 +32,7 @@ from jubik.instruments.resolve.response import (
 )
 from jubik.polarization import Polarization
 
-C_LIGHT = 299792458.0
+C_LIGHT = c.to_value(u.m / u.s)
 CENTER = SkyCoord(ra=10.0 * u.deg, dec=20.0 * u.deg)
 DUCC = Ducc0Settings(epsilon=1e-9, do_wgridding=False, nthreads=1, verbosity=0)
 
@@ -51,7 +50,6 @@ UVW = np.array(
         (-3500.0, -1500.0, 0.0),
     ]
 )
-STUB_OBS = SimpleNamespace(uvw=UVW, freq=np.array([C_LIGHT]))
 OFFSETS = [(0, 0), (6, 0), (0, 4), (5, -3), (-4, -2)]
 PIXSIZES = [("iso", 1.0e-5, 1.0e-5), ("aniso", 1.0e-5, 1.5e-5)]
 
@@ -108,6 +106,10 @@ def make_obs(vis, uvw):
         freq=np.array([C_LIGHT]),
         auxiliary_tables=None,
     )
+
+
+# Use the real observation interface, including effective_uvw().
+STUB_OBS = make_obs(np.zeros((1, len(UVW), 1)), UVW)
 
 
 def point_cube(shape, i, j):
