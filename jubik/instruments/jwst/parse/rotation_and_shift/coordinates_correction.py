@@ -56,6 +56,8 @@ class CoordinatesCorrectionPriorConfig:
         The ProbabilityConfig for the shift model. A normal prior with sigma 0 for
         one exposure, e.g. sigma `[[0], [1], [1]]`, holds that exposure's shift
         fixed at its mean (a reference exposure), while the others stay free.
+        Set it under the reference filter's own key, not `default`, so the fit has
+        exactly one reference.
     shift_unit: u.Unit
         The unit of the shift model
     rotation:  ProbabilityConfig

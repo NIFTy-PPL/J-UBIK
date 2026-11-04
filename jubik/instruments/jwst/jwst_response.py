@@ -262,6 +262,9 @@ class TargetResponseInput:
     calibration_prior : ProbabilityConfig | None
         Prior of the multiplicative calibration, one factor per exposure, under the
         key `{filter_name}_target_calibration`. If None, no calibration (factor 1).
+        Per-exposure values need shape `(n_exposures, 1, 1)`, e.g. from
+        `prior_config_factory(..., shape=(n_exposures, 1, 1))`; a normal prior with
+        sigma 0 holds an exposure at its mean.
     """
 
     filter_name: str
