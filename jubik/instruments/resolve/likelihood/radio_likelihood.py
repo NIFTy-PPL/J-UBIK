@@ -21,6 +21,7 @@ from functools import partial, reduce, cached_property
 from operator import add
 
 import jax.numpy as jnp
+import numpy as np
 import nifty.re as jft
 from astropy import units as u
 from nifty.cl.logger import logger
@@ -41,6 +42,8 @@ from ..likelihood.mosaic_likelihood import (
     build_likelihood_from_sky_beamer,
 )
 from ..mosaicing.sky_beamer import SkyBeamer, build_sky_beamer
+from ..data.observation import Observation
+from ..response import nyquist_message, uv_beyond_nyquist
 from ..phase_shift import assign_shift_groups, build_phase_shift
 from ..multimessanger import (
     RadioSkyExtractor,
@@ -133,6 +136,33 @@ class RadioLikelihoodProducts:
         return connect_likelihood_to_model(likelihood, self.sky_beamer)
 
 
+def restrict_to_nyquist(
+    observation: Observation, grid: Grid, policy: str, name: str
+) -> Observation:
+    """Apply the `beyond_nyquist` policy of a data block to `observation`.
+
+    With `raise` a row beyond the Nyquist frequency of `grid` (see
+    `uv_beyond_nyquist`) raises a `ValueError`, with `drop` such rows are
+    removed and a warning is logged.
+    """
+    if policy not in ("raise", "drop"):
+        raise ValueError(f"beyond_nyquist must be `raise` or `drop`, not {policy!r}")
+    beyond = uv_beyond_nyquist(observation, grid)
+    if not beyond.any():
+        return observation
+    if policy == "raise":
+        raise ValueError(nyquist_message(observation, grid, name))
+
+    kept = observation[~beyond]
+    longest = np.linalg.norm(kept.uvw[:, :2], axis=1).max(initial=0)
+    logger.warning(
+        f"{name}: dropping {beyond.sum()} of {observation.nrow} rows "
+        f"({beyond.mean():.2%}) beyond the grid's Nyquist frequency, the longest "
+        f"kept baseline is {longest / 1e3:.2f} km"
+    )
+    return kept
+
+
 def build_radio_likelihood(
     data_names: list[str],
     cfg: dict,
@@ -206,6 +236,15 @@ def build_radio_likelihood(
                 observation_modify=dm,
             )
         )
+        # `beyond_nyquist`: `raise` (default) or `drop`, see `restrict_to_nyquist`.
+        policy = cfg[data_key][data_name].get("beyond_nyquist", "raise")
+        loaded = [
+            (
+                file,
+                restrict_to_nyquist(o, radio_grid, policy, f"{data_name} {file.path}"),
+            )
+            for file, o in loaded
+        ]
         observations = [o for _, o in loaded]
 
         # TODO: The following lines have to be simplified.

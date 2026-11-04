@@ -116,7 +116,8 @@ def point_cube(shape, i, j):
     return s
 
 
-def disk_uvw(seed=7, nrow=3000, umax=8.0e4):
+# umax stays below the Nyquist frequency 6.875e4 of the 1.5 arcsec pixels.
+def disk_uvw(seed=7, nrow=3000, umax=6.5e4):
     rng = np.random.default_rng(seed)
     r = umax * np.sqrt(rng.uniform(size=nrow))
     th = rng.uniform(0.0, 2 * np.pi, nrow)
