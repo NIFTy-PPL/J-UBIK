@@ -9,7 +9,7 @@ from ....grid import Grid
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamer
 from ..noise.factory_noise_correction import factory_noise_correction_model
-from ..parse.noise.base_line_correction import BaseLineCorrection
+from ..parse.noise import NoiseCorrection
 from ..parse.response import Ducc0Settings, FinufftSettings
 from ..response import _hermitian_adjoint, interferometry_response
 
@@ -138,7 +138,7 @@ def build_likelihood_from_sky_beamer(
     sky_beamer: SkyBeamer,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
-    noise_std_correction: BaseLineCorrection | None = None,
+    noise_std_correction: NoiseCorrection | None = None,
     shift: jft.Model | None = None,
 ) -> LikelihoodBuilder | VariableLikelihoodBuilder:
     """Create a likelihood builder corresponding to the `field_name`.
@@ -167,7 +167,7 @@ def build_likelihood_from_sky_beamer(
         Used for building the InterferometryResponse
     backend_settings: Union[Ducc0Settings, FinufftSettings]
         The algorithm for gridding and fft.
-    noise_std_correction: BaseLineCorrection | None
+    noise_std_correction: NoiseCorrection | None
         (Optional) settings for an inferred noise standard deviation. If given,
         a `VariableLikelihoodBuilder` is returned instead of a
         `LikelihoodBuilder`.

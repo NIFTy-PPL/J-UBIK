@@ -1,2 +1,2 @@
-from .base_line_correction import BaseLineCorrection
-from .factory_noise_correction import factory_noise_correction_parser
+from .base_line_correction import AntennaCorrection, BaseLineCorrection
+from .factory_noise_correction import NoiseCorrection, factory_noise_correction_parser

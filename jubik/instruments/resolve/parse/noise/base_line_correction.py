@@ -11,3 +11,8 @@ class BaseLineCorrection(StaticTyped):
     @classmethod
     def from_yaml_dict(cls, config: dict):
         return cls(alpha=config["alpha"], scale=config["scale"])
+
+
+@dataclass
+class AntennaCorrection(BaseLineCorrection):
+    pass
