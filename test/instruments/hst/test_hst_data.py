@@ -364,7 +364,8 @@ def test_nicmos_noise_matches_monte_carlo_ramps(tmp_path):
         samp[chip], time[chip], flat[chip] = n, SPARS64[n - 1], f
         err[chip] = f * zpscale * read_noise / gain * np.sqrt(w @ w)  # calnica's ERR
     path = _nicmos(tmp_path / "n_cal.fits")
-    _rewrite(path, dict(ADCGAIN=gain, ZPSCALE=zpscale), SAMP=samp, TIME=time, ERR=err)
+    cards = dict(ADCGAIN=gain, ZPSCALE=zpscale, EXPTIME=SPARS64[-1])
+    _rewrite(path, cards, SAMP=samp, TIME=time, ERR=err)
     noise = _load(path, sample_times=SPARS64, flat=flat).noise
 
     rng = np.random.default_rng(172)
@@ -415,6 +416,8 @@ def test_nicmos_noise_rejects_bad_inputs(tmp_path):
         _load(path, flat=np.ones((3, 3)))
     with pytest.raises(ValueError, match="sample_times"):
         _load(path, sample_times=[0.0])
+    with pytest.raises(ValueError, match="not EXPTIME"):  # planned, not real
+        _load(path, sample_times=np.linspace(0, EXPTIME + 0.02, NSAMP))
     _rewrite(path, dict(ADCGAIN=0))
     with pytest.raises(ValueError, match="ADCGAIN"):
         _load(path)

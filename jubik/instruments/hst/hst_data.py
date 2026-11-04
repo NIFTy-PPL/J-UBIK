@@ -148,9 +148,10 @@ def load_hst_exposure(
         Sub-pixels per data pixel along each axis for the sky coordinates.
     sample_times : ArrayLike | None
         NICMOS: the MULTIACCUM read times in seconds after the zeroth read
-        (whose 0 may be left out), e.g. the SAMPTIME keywords of the ``_ima``
-        file's SCI extensions, or the NICMOS Instrument Handbook table of the
-        SAMP_SEQ sequence. None uses the Data Handbook's two-read term.
+        (whose 0 may be left out): the SAMPTIME keywords of the ``_ima``
+        file's SCI extensions. The last must equal EXPTIME; the Instrument
+        Handbook's planned times drift from the real ones. None uses the Data
+        Handbook's two-read term.
     flat : NDArray[np.floating] | None
         NICMOS: chip-shaped inverse flat that FLATCORR multiplied the data by
         (the TDFFILE imset TDFGROUP, or the FLATFILE). None assumes 1.
@@ -316,6 +317,12 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
     placed = 0
     if sample_times is not None:
         t = np.union1d(0.0, sample_times)  # the zeroth read, given or not
+        # EXPTIME is the last read's SAMPTIME (Data Handbook v8, p. 90)
+        if not abs(t[-1] - card("EXPTIME")) < 0.01:
+            raise ValueError(
+                f"{path}: the last sample time {t[-1]} s is not EXPTIME "
+                f"{card('EXPTIME')} s; pass the _ima SAMPTIME values"
+            )
         table = np.full((t.size, t.size), np.nan)
         for first in range(t.size):
             for last in range(first + 1, t.size):
@@ -327,11 +334,16 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
         ok = (np.abs(t[last] - time) < 0.01) & (first >= 0) & (first < last)
         factor = np.where(ok, table[np.clip(first, 0, last), last], factor)
         placed = int(ok.sum())
-    if placed == 0:
-        logger.warning(
-            f"{path}: no pixel's reads placed in sample_times {sample_times}, "
-            "NICMOS shot noise from the two-read term, low by up to 19 %"
+    missing = [
+        text
+        for text, absent in (
+            ("read times (b low by up to 19 %)", placed == 0),
+            ("a flat (taken as 1)", flat is None),
         )
+        if absent
+    ]
+    if missing:
+        logger.warning(f"{path}: NICMOS shot noise without " + " and ".join(missing))
     flat = 1.0 if flat is None else np.asarray(flat, float)
     b = factor * flat * (card("ZPSCALE") or 1.0) / gain
     if BUNIT_IS_COUNTS[str(card("BUNIT")).strip().upper()]:
