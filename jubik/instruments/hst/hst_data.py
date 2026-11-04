@@ -334,7 +334,7 @@ def _nicmos_noise(card, path, data, err, samp, time, sample_times, flat, dark):
         raise ValueError(f"sample_times {sample_times}: need finite times")
     time = np.asarray(time, float)
     inverse_flat = 1.0 if flat is None else np.asarray(flat, float)
-    per_count = inverse_flat * (card("ZPSCALE") or 1.0) / gain  # SCI per raw DN
+    per_count = inverse_flat * (card("ZPSCALE") or 1.0) / gain  # SCI per electron
     # data units per count rate: TIME for BUNIT counts
     unit_time = time if BUNIT_IS_COUNTS[str(card("BUNIT")).strip().upper()] else 1.0
     # the Data Handbook's term (p. 47): two reads over TIME
