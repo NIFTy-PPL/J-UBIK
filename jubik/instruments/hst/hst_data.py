@@ -121,11 +121,11 @@ def load_hst_exposure(
 
     Data and std (the ERR extension) are in counts/s, or in counts for a WFPC2
     file with BUNIT counts. NICMOS counts are divided by the TIME extension,
-    inverting calnica's UNITCORR, which divides SCI and ERR by TIME (NICMOS
-    Data Handbook v8), so they are rates on every pixel. ``meta.unit`` is the
-    flux density of one data unit, PHOTFNU (or PHOTFLAM PHOTPLAM^2 / c) Jy per
-    count/s, divided by EXPTIME for WFPC2 counts, and
-    ``meta.dvol`` the pixel area of the linear WCS at the reference pixel. The
+    as calnica's UNITCORR divides SCI and ERR by TIME (NICMOS Data Handbook
+    v8), so they are rates on every pixel. ``meta.unit`` is the flux density
+    of one data unit, PHOTFNU (or PHOTFLAM PHOTPLAM^2 / c) Jy per count/s,
+    divided by EXPTIME for WFPC2 counts, and ``meta.dvol`` the pixel area of
+    the linear WCS at the reference pixel. The
     response's unit conversion and sum integration then predict the data. HST
     flats preserve surface brightness, so this nominal area is the right one
     and no pixel-area map is applied. The file is opened read-only.
@@ -217,7 +217,7 @@ def load_hst_exposure(
             time = _pixels(_extension(hdul, path, "TIME", sci.ver), sci.data.shape)
             time = np.asarray(time[cut], float)
             if BUNIT_IS_COUNTS[str(card("BUNIT")).strip().upper()]:
-                seconds = np.where(time > 0, time, np.nan)  # UNITCORR inverted
+                seconds = np.where(time > 0, time, np.nan)  # as UNITCORR does
                 data, std = data / seconds, std / seconds
         nan_mask = np.isfinite(data) & np.isfinite(std) & (std > 0)
         dq_cut = np.asarray(_pixels(dq, sci.data.shape)[cut], np.int64)
@@ -332,9 +332,9 @@ def _nicmos_noise(card, path, data, err, samp, time, sample_times, flat, dark):
     squares of Fixsen et al. (2000), with the power chosen by S/N = (y_n -
     y_1) / σ(y_n): a pixel with SAMP reads used reads 1..SAMP, and TIME =
     t_SAMP - t_1. Both were checked on calnica 4.4.1 files, whose _cal SCI
-    that fit through the _ima reads reproduces on every full-ramp pixel. A cosmic ray splits the ramp and
-    shortens TIME; such pixels usually match no read and keep the Data
-    Handbook's two-read term.
+    that fit through the _ima reads reproduces on every full-ramp pixel. A
+    cosmic ray splits the ramp and shortens TIME; such pixels usually match no
+    read and keep the Data Handbook's two-read term.
     """
     gain = card("ADCGAIN")
     if not (gain and gain > 0):

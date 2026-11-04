@@ -163,7 +163,8 @@ def test_uniform_sky_predicts_the_native_value(tmp_path, instrument, bunit, subs
     counts = bunit == "COUNTS"
     seconds = EXPTIME if counts and instrument == "wfpc2" else 1.0
     time = RAMP_TIME if counts and instrument == "nicmos" else 1.0
-    # 1 MJy/sr over one pixel in PHOTFNU Jy per count/s, times EXPTIME for counts
+    # 1 MJy/sr over one pixel in PHOTFNU Jy per count/s, times EXPTIME for WFPC2
+    # counts
     expected = 1e6 * scale[0] * scale[1] * SR_PER_ARCSEC2 / photfnu * seconds
     np.testing.assert_allclose(predicted, expected, rtol=1e-12)
     np.testing.assert_array_equal(target.data[0], RAMP[CUT] / time + offset)
@@ -249,6 +250,26 @@ def test_masks(tmp_path):
     np.testing.assert_array_equal(
         every_bit, INSIDE & ~(not_finite | cut([(10, 12), (10, 13)]))
     )
+
+
+@pytest.mark.parametrize("obsmode", ["ACCUM", "BRIGHTOBJ"])
+@pytest.mark.parametrize("bunit, seconds", [("COUNTS/S", 1.0), ("COUNTS", 8.0)])
+def test_nicmos_counts_are_rates_in_every_mode(tmp_path, obsmode, bunit, seconds):
+    path = _nicmos(tmp_path / "n_cal.fits", bunit=bunit)
+    time = np.full(SHAPE, 8.0)
+    time[CUT][2, 2] = 0.0  # no valid sample
+    _rewrite(path, dict(OBSMODE=obsmode), TIME=time)
+    for constant in (False, True):
+        if constant:
+            _constant(path, "TIME", 8.0)
+        exposure = _load(path)
+        target = exposure.target_data
+        mask = target.mask[0]
+        np.testing.assert_array_equal(target.data[0][mask], RAMP[CUT][mask] / seconds)
+        np.testing.assert_array_equal(target.std[0][mask], 0.5 / seconds)
+        assert mask[2, 2] == constant
+        assert exposure.noise is None
+        assert exposure.meta.unit.to(u.Jy) == pytest.approx(NIC2_PHOT["PHOTFNU"])
 
 
 def test_constant_extensions_stored_as_pixvalue(tmp_path):
