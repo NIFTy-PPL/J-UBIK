@@ -179,9 +179,10 @@ def load_hst_exposure(
     ValueError
         Not a NICMOS or WFPC2 file, ``chip`` does not select one SCI extension,
         the ERR or DQ extension (NICMOS MULTIACCUM: SAMP, TIME, ADCGAIN) is
-        missing, a chip map has the wrong shape, the header has no distortion
-        solution, BUNIT or the photometric keywords are unusable, the grid
-        misses the chip, or every pixel is masked.
+        missing, a chip map has the wrong shape or is given for another mode,
+        the header has no distortion solution, BUNIT or the photometric
+        keywords are unusable, the grid misses the chip, or every pixel is
+        masked.
     """
     path = str(path)
     with fits.open(path) as hdul:
@@ -237,6 +238,10 @@ def load_hst_exposure(
             )
             # TIME <= 0: no valid sample; a bad flat or dark pixel
             mask &= np.isfinite(noise.b) & np.isfinite(noise.sky) & (noise.b >= 0)
+        elif any(v is not None for v in (sample_times, flat, dark)):
+            raise ValueError(
+                f"{path}: sample_times, flat and dark apply to NICMOS MULTIACCUM only"
+            )
         if not mask.any():
             raise ValueError(
                 f"{path}: every pixel of the cutout {bounds} is masked, "
@@ -298,19 +303,20 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
 
     SCI is the slope times the inverse flat and ZPSCALE (NICMOS Data Handbook
     v8, FLATCORR and PHOTCALC, pp. 51-52), so b = wᵀMw · flat · ZPSCALE /
-    ADCGAIN, times TIME for BUNIT counts. calnica's CRIDCALC rejects saturated and cosmic-ray samples
-    and records only their number (SAMP) and time (TIME) per pixel; the reads
-    used are taken as the SAMP reads ending at the read at TIME.
+    ADCGAIN, times TIME for BUNIT counts. calnica's CRIDCALC rejects
+    saturated and cosmic-ray samples and records only their number (SAMP) and
+    time (TIME) per pixel; the reads used are taken as the SAMP reads ending
+    at the read at TIME.
     """
     gain = card("ADCGAIN")
     if not (gain and gain > 0):
         raise ValueError(f"{path}: NICMOS needs ADCGAIN > 0, it is {gain}")
     if sample_times is not None and not (
         np.ndim(sample_times) == 1
-        and np.size(sample_times) >= 2
+        and np.size(sample_times) >= 1
         and np.all(np.isfinite(sample_times))
     ):
-        raise ValueError(f"sample_times {sample_times}: need at least two finite times")
+        raise ValueError(f"sample_times {sample_times}: need finite times")
     time = np.asarray(time, float)
     # the Data Handbook's term (p. 47): two reads over TIME
     factor = 1 / np.where(time > 0, time, np.nan)
@@ -334,16 +340,6 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
         ok = (np.abs(t[last] - time) < 0.01) & (first >= 0) & (first < last)
         factor = np.where(ok, table[np.clip(first, 0, last), last], factor)
         placed = int(ok.sum())
-    missing = [
-        text
-        for text, absent in (
-            ("read times (b low by up to 19 %)", placed == 0),
-            ("a flat (taken as 1)", flat is None),
-        )
-        if absent
-    ]
-    if missing:
-        logger.warning(f"{path}: NICMOS shot noise without " + " and ".join(missing))
     flat = 1.0 if flat is None else np.asarray(flat, float)
     b = factor * flat * (card("ZPSCALE") or 1.0) / gain
     if BUNIT_IS_COUNTS[str(card("BUNIT")).strip().upper()]:
@@ -354,6 +350,8 @@ def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
         f"pixels, flat {'given' if np.ndim(flat) else 'assumed 1'}, "
         f"dark {'given' if np.ndim(sky) else 'assumed 0'}"
     )
+    if placed == 0 or np.ndim(flat) == 0:
+        logger.warning(f"{path}: NICMOS shot noise with {info}")
     return ShotNoise(a=err**2, b=b, sky=sky), info
 
 

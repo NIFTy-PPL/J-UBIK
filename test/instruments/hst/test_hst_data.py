@@ -415,7 +415,7 @@ def test_nicmos_noise_rejects_bad_inputs(tmp_path):
     with pytest.raises(ValueError, match="flat has shape"):
         _load(path, flat=np.ones((3, 3)))
     with pytest.raises(ValueError, match="sample_times"):
-        _load(path, sample_times=[0.0])
+        _load(path, sample_times=[np.nan])
     with pytest.raises(ValueError, match="not EXPTIME"):  # planned, not real
         _load(path, sample_times=np.linspace(0, EXPTIME + 0.02, NSAMP))
     _rewrite(path, dict(ADCGAIN=0))
@@ -441,6 +441,8 @@ def test_nicmos_edge_pixels_and_modes(tmp_path):
     assert not without_zeroth.target_data.mask[0, 3, 3]
     _rewrite(path, dict(OBSMODE="ACCUM"))  # ERR holds the Poisson term
     assert _load(path).noise is None
+    with pytest.raises(ValueError, match="MULTIACCUM only"):
+        _load(path, flat=np.ones(SHAPE))
 
 
 def test_nicmos_normalized_residuals_through_the_response(tmp_path):
