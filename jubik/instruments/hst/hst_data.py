@@ -125,10 +125,10 @@ def load_hst_exposure(
     v8), so they are rates on every pixel. ``meta.unit`` is the flux density
     of one data unit, PHOTFNU (or PHOTFLAM PHOTPLAM^2 / c) Jy per count/s,
     divided by EXPTIME for WFPC2 counts, and ``meta.dvol`` the pixel area of
-    the linear WCS at the reference pixel. The
-    response's unit conversion and sum integration then predict the data. HST
-    flats preserve surface brightness, so this nominal area is the right one
-    and no pixel-area map is applied. The file is opened read-only.
+    the linear WCS at the reference pixel. The response's unit conversion and
+    sum integration then predict the data. HST flats preserve surface
+    brightness, so this nominal area is the right one and no pixel-area map is
+    applied. The file is opened read-only.
 
     Parameters
     ----------

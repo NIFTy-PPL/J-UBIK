@@ -257,7 +257,7 @@ def test_masks(tmp_path):
 def test_nicmos_counts_are_rates_in_every_mode(tmp_path, obsmode, bunit, seconds):
     path = _nicmos(tmp_path / "n_cal.fits", bunit=bunit)
     time = np.full(SHAPE, 8.0)
-    time[CUT][2, 2] = 0.0  # no valid sample
+    time[CUT][2, 2] = -0.302  # no valid sample, as calnica writes it
     _rewrite(path, dict(OBSMODE=obsmode), TIME=time)
     for constant in (False, True):
         if constant:
