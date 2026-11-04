@@ -53,7 +53,9 @@ class CoordinatesCorrectionPriorConfig:
         - CorrectionModel.RSHIFT, shift & rotation correction (not implemented)
         - CorrectionModel.GENERAL, general (not implemented)
     shift:  ProbabilityConfig
-        The ProbabilityConfig for the shift model.
+        The ProbabilityConfig for the shift model. A normal prior with sigma 0 for
+        one exposure, e.g. sigma `[[0], [1], [1]]`, holds that exposure's shift
+        fixed at its mean (a reference exposure), while the others stay free.
     shift_unit: u.Unit
         The unit of the shift model
     rotation:  ProbabilityConfig
