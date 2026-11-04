@@ -16,7 +16,7 @@
 
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial, reduce, cached_property
 from operator import add
 
@@ -91,6 +91,30 @@ class RadioLikelihoodProducts:
 
         if self._names is not None:
             assert len(self._names) == len(self.likelihoods)
+
+    def with_gain(self, gains: list[jft.Model]) -> "RadioLikelihoodProducts":
+        """A copy whose builder `i` has `gains[i]` multiplied onto its response,
+        see `LikelihoodBuilderBase.with_gain`.
+
+        Parameters
+        ----------
+        gains: list[jft.Model]
+            One gain model per builder, in the order of `likelihoods`.
+
+        Raises
+        ------
+        ValueError
+            If there is not one gain per builder, or a builder already has a gain.
+        """
+        if len(gains) != len(self.likelihoods):
+            raise ValueError(
+                f"Expected one gain per likelihood, {len(self.likelihoods)}, "
+                f"got {len(gains)}."
+            )
+        return replace(
+            self,
+            likelihoods=[b.with_gain(g) for b, g in zip(self.likelihoods, gains)],
+        )
 
     def _get_likelihoods(self) -> list[jft.Likelihood]:
         """Get all likelihoods, potentially grouped by same names.

@@ -13,6 +13,9 @@ from jubik.instruments.resolve.likelihood.mosaic_likelihood import (
     VariableLikelihoodBuilder,
     build_likelihood_from_sky_beamer,
 )
+from jubik.instruments.resolve.likelihood.radio_likelihood import (
+    RadioLikelihoodProducts,
+)
 from jubik.instruments.resolve.mosaicing.sky_beamer import BeamPattern, SkyBeamer
 from jubik.instruments.resolve.parse.noise import BaseLineCorrection
 
@@ -36,6 +39,13 @@ def sky_grid():
     )
 
 
+def sky_beamer():
+    shape = sky_grid().shape
+    return SkyBeamer(
+        jft.ShapeWithDtype(shape), {FIELD: BeamPattern(0.0, 0.0, np.ones(shape), None)}
+    )
+
+
 def band7(backend="finufft", noise=None):
     """Builder of one random observation as one field, without a gain."""
     np.random.seed(45)
@@ -51,10 +61,6 @@ def band7(backend="finufft", noise=None):
         times=np.random.uniform(0, 80, N_ROWS),
     )
     grid = sky_grid()
-    sky_beamer = SkyBeamer(
-        jft.ShapeWithDtype(grid.shape),
-        {FIELD: BeamPattern(0.0, 0.0, np.ones(grid.shape), None)},
-    )
     settings = {
         "ducc": rve.parse.Ducc0Settings(
             epsilon=1e-9, do_wgridding=False, nthreads=1, verbosity=False
@@ -64,7 +70,7 @@ def band7(backend="finufft", noise=None):
     return build_likelihood_from_sky_beamer(
         observation=obs,
         field_name=FIELD,
-        sky_beamer=sky_beamer,
+        sky_beamer=sky_beamer(),
         sky_grid=grid,
         backend_settings=settings,
         noise_std_correction=noise,
@@ -148,3 +154,30 @@ def test_response_adjoint_holds_the_gain_fixed(backend):
     assert np.linalg.norm(adjoint - uncalibrated) > 0.1 * np.linalg.norm(uncalibrated)
     with pytest.raises(ValueError, match="gain"):
         calibrated.response_adjoint(d)
+
+
+def test_products_with_gain_gives_every_builder_its_gain():
+    plain = band7()
+    beamer = sky_beamer()
+    products = RadioLikelihoodProducts(
+        [plain, plain],
+        sky_beamer=jft.Model(lambda x: beamer(x["sky"]), domain={"sky": beamer.domain}),
+        radio_sky_extractor=None,
+    )
+    shape = GAIN.domain["gain"]
+    other = jft.Model(lambda x: jnp.exp(1j * x["other"]), domain={"other": shape})
+
+    calibrated = products.with_gain([GAIN, other])
+
+    assert [b.gain for b in calibrated.likelihoods] == [GAIN, other]
+    assert [b.gain for b in products.likelihoods] == [None, None]
+    sky = {"sky": random_sky()[FIELD]}
+    zero_gains = {"gain": jnp.zeros(shape.shape), "other": jnp.zeros(shape.shape)}
+    assert calibrated.likelihood.domain.tree.keys() == {"sky", "gain", "other"}
+    assert_allclose(
+        calibrated.likelihood.energy(jft.Vector(sky | zero_gains)),
+        products.likelihood.energy(jft.Vector(sky)),
+        rtol=1e-12,
+    )
+    with pytest.raises(ValueError, match="one gain per likelihood"):
+        products.with_gain([GAIN])
