@@ -1,5 +1,6 @@
 """load_hst_exposure on synthetic NICMOS _cal and WFPC2 _flt files."""
 
+import nifty.re as jft
 import numpy as np
 import pytest
 from astropy import units as u
@@ -12,6 +13,9 @@ from jubik.grid import Grid
 from jubik.instruments.hst.hst_data import load_hst_exposure, ramp_poisson_factor
 from jubik.instruments.jwst.integration.integration import integration_factory
 from jubik.instruments.jwst.integration.unit_conversion import build_unit_conversion
+from jubik.instruments.jwst.likelihood.likelihood import (
+    ShotNoiseGaussianLikelihoodBuilder,
+)
 from jubik.instruments.jwst.throughput.weights import Throughput, throughput_weights
 from jubik.wcs import WcsAstropy
 
@@ -75,7 +79,11 @@ def _chip(ver, header, data, err=True):
 def _nicmos(path, *, camera=2, bunit="COUNTS/S", err=True, sip=True):
     primary = fits.PrimaryHDU()
     primary.header.update(
-        INSTRUME="NICMOS", CAMERA=camera, EXPTIME=EXPTIME, ADCGAIN=ADCGAIN
+        INSTRUME="NICMOS",
+        CAMERA=camera,
+        EXPTIME=EXPTIME,
+        ADCGAIN=ADCGAIN,
+        OBSMODE="MULTIACCUM",
     )
     primary.header.update(NIC2_PHOT)
     header = _sci_header(NIC2_SCALE, bunit=bunit, sip=sip)
@@ -343,7 +351,7 @@ def test_ramp_factor_of_an_unequal_sequence():
 
 
 def test_nicmos_noise_matches_monte_carlo_ramps(tmp_path):
-    gain, read_noise, zpscale = 5.4, 30.0, 1.02  # e-/DN, e- per read
+    gain, read_noise, zpscale = 5.4, 30.0, 1.5  # e-/DN, e- per read
     # cutout pixels: (rate in SCI DN/s, inverse flat, reads used)
     pixels = {(2, 3): (0.05, 1.0, 25), (4, 5): (2.0, 0.8, 25), (6, 7): (60.0, 1.3, 9)}
     samp = np.full(SHAPE, 25, np.int16)
@@ -410,3 +418,60 @@ def test_nicmos_noise_rejects_bad_inputs(tmp_path):
     _rewrite(path, dict(ADCGAIN=0))
     with pytest.raises(ValueError, match="ADCGAIN"):
         _load(path)
+
+
+def test_nicmos_edge_pixels_and_modes(tmp_path):
+    path = _nicmos(tmp_path / "n_cal.fits")
+    samp, time = np.full(SHAPE, NSAMP), np.full(SHAPE, EXPTIME)
+    samp[CUT][1, 1] = 0  # no read used, though TIME is the last read's
+    time[CUT][2, 2] = 0.0  # no valid sample
+    _rewrite(path, SAMP=samp, TIME=time)
+    exposure = _load(path, sample_times=np.linspace(0, EXPTIME, NSAMP))
+    assert exposure.noise.b[1, 1] == pytest.approx(1 / (ADCGAIN * EXPTIME))
+    assert not exposure.target_data.mask[0, 2, 2]
+    _rewrite(path, dict(OBSMODE="ACCUM"))  # ERR holds the Poisson term
+    assert _load(path).noise is None
+
+
+def test_nicmos_normalized_residuals_through_the_response(tmp_path):
+    read_noise, n = 30.0, NSAMP  # e- per read
+    times = np.linspace(0.0, EXPTIME, n)
+    w = _slope_weights(times)
+    rng = np.random.default_rng(172)
+    flat = rng.uniform(0.8, 1.2, SHAPE)  # inverse flat
+    err = flat * read_noise / ADCGAIN * np.sqrt(w @ w)  # calnica's ERR
+    path = _nicmos(tmp_path / "n_cal.fits")
+    _rewrite(path, ERR=err)
+    exposure = _load(path, sample_times=times, flat=flat)
+    meta, target = exposure.meta, exposure.target_data
+    shape, mask = target.data.shape[1:], target.mask[0]
+    convert = build_unit_conversion(
+        u.MJy / u.sr, (0.05 * u.arcsec) ** 2, meta.unit, meta.dvol
+    )
+    integrate = integration_factory(meta.unit, shape, 1)
+    response = jft.Model(
+        lambda x: integrate(convert(x["k"]))[mask],
+        domain={"k": jft.ShapeWithDtype(shape, float)},
+    )
+    per_unit_sky = np.mean(integrate(convert(np.ones(shape))))  # DN/s
+    field = np.full(shape, 0.05 / per_unit_sky)  # read-noise dominated
+    field[:, shape[1] // 2 :] = 50.0 / per_unit_sky  # shot-noise dominated
+    builder = ShotNoiseGaussianLikelihoodBuilder(
+        response, target.data, exposure.noise, target.mask
+    )
+    model, inverse_std = (np.asarray(v) for v in builder.model()({"k": field}))
+
+    f = flat[CUT][mask]
+    rate = np.broadcast_to(model / f * ADCGAIN, (300, model.size))  # e-/s
+    counts = np.cumsum(rng.poisson(rate[..., None] * np.diff(times)), -1)
+    reads = np.concatenate([np.zeros((300, model.size, 1)), counts], -1)
+    reads = reads + rng.normal(0, read_noise, reads.shape)
+    data = reads / ADCGAIN @ w * f
+    for pixels in (model < 1, model > 10):
+        assert pixels.sum() > 30
+        normalized = (data[:, pixels] - model[pixels]) * inverse_std[pixels]
+        assert normalized.mean() == pytest.approx(0, abs=0.03)
+        assert normalized.var() == pytest.approx(1, abs=0.05)
+    bright = model > 10
+    err_only = (data[:, bright] - model[bright]) / err[CUT][mask][bright]
+    assert err_only.var() > 10

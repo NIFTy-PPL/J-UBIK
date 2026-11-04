@@ -107,7 +107,8 @@ class DetectorNoise:
         science image's shape.
     flat : float | np.ndarray
         The flat the science image was divided by, normalised as applied. A
-        scalar or the science image's shape.
+        scalar or the science image's shape; pixels where it is 0 or NaN are
+        masked.
     """
 
     gain: float
@@ -120,12 +121,12 @@ class DetectorNoise:
         # negated so that NaN fails as well
         if not (
             0 < self.gain < np.inf
-            and 0 <= self.read_noise < np.inf
+            and 0 < self.read_noise < np.inf
             and self.n_reads >= 1
-            and np.all(np.isfinite(self.flat) & (np.asarray(self.flat) > 0))
+            and not np.any(np.asarray(self.flat) < 0)
         ):
             raise ValueError(
-                "need finite gain > 0, read_noise >= 0, n_reads >= 1, flat > 0"
+                "need finite gain > 0, read_noise > 0, n_reads >= 1, flat >= 0"
             )
 
     def shot_noise(self, shape, coadds: int, dn_per_unit: float) -> ShotNoise:
@@ -146,11 +147,12 @@ class DetectorNoise:
         # shortcut: the shot noise of an MCDS difference is taken as over the
         # full ITIME; reads within a group span s shorten it by about s/3, so
         # b is high by s/(3 ITIME), exact for CDS; upgrade with read times
-        return ShotNoise(
-            a=read / (flat * dn_per_unit) ** 2,
-            b=1 / (self.gain * flat * dn_per_unit),
-            sky=np.asarray(self.sky, float) / dn_per_unit,
-        )
+        with np.errstate(divide="ignore"):  # flat 0: infinite σ, masked
+            return ShotNoise(
+                a=read / (flat * dn_per_unit) ** 2,
+                b=1 / (self.gain * flat * dn_per_unit),
+                sky=np.asarray(self.sky, float) / dn_per_unit,
+            )
 
 
 @dataclass

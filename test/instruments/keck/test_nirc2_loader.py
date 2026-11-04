@@ -439,6 +439,12 @@ def test_flat_enters_the_plain_sigma_and_is_checked(tmp_path):
     assert _load(tmp_path).noise is None  # a σ map has no model
     with pytest.raises(ValueError, match="flat"):
         DetectorNoise(GAIN, READ_NOISE, N_READS, 0.0, -flat)
+    with pytest.raises(ValueError, match="read_noise > 0"):
+        DetectorNoise(GAIN, 0.0, N_READS, 0.0)
+    flat[1, 1], flat[2, 2] = 0.0, np.nan  # dead pixels of a real flat
+    detector = DetectorNoise(GAIN, READ_NOISE, N_READS, 1000.0, flat)
+    mask = _load(tmp_path, data=data, detector_noise=detector).target_data.mask[0]
+    assert not mask[1, 1] and not mask[2, 2] and mask.sum() == mask.size - 2
     with pytest.raises(ValueError, match="flat"):
         _load(
             tmp_path,

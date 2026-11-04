@@ -22,6 +22,7 @@ from astropy import units as u
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_area
+from nifty.re import logger
 from numpy.typing import ArrayLike, NDArray
 
 from ...color import Color
@@ -89,7 +90,7 @@ class HstExposure:
 
     ``target_data.psf`` is None: a kernel for this exposure needs the detector
     position (``diagnostics.bounds``), so the caller attaches it. ``noise`` is
-    the shot-noise model of a NICMOS exposure, None for WFPC2.
+    the shot-noise model of a NICMOS MULTIACCUM exposure, else None.
     """
 
     target_data: TargetData
@@ -155,7 +156,9 @@ def load_hst_exposure(
         (the TDFFILE imset TDFGROUP, or the FLATFILE). None assumes 1.
     dark : NDArray[np.floating] | None
         NICMOS: chip-shaped dark current and amplifier glow that DARKCORR
-        subtracted, in the data's unit; its shot noise remains. None is 0.
+        subtracted, as it appears in SCI: count rate times the inverse flat
+        and ZPSCALE (times TIME for BUNIT counts), not the cumulative
+        DARKFILE reads. Its shot noise remains. None is 0.
 
     Returns
     -------
@@ -164,15 +167,18 @@ def load_hst_exposure(
         is True where the data enter the likelihood, ``nan_mask`` where data
         and std are finite and std is positive. ``meta`` with PHOTPLAM as
         ``color``. ``weights`` from `throughput_weights` on ``grid.spectral``.
-        NICMOS ``noise``: ``a`` = ERR², read noise only from calnica 4.2 on
-        (NICMOS Data Handbook v8, p. 47), ``b`` the shot noise of the
-        least-squares ramp slope, see `_nicmos_noise`.
+        NICMOS MULTIACCUM ``noise``: ``a`` = ERR², read noise only from
+        calnica 4.2 on (NICMOS Data Handbook v8, p. 47), ``b`` the shot noise
+        of the least-squares ramp slope, see `_nicmos_noise`; pixels with
+        TIME <= 0 are masked. None for other modes, whose ERR already holds
+        the Poisson term, and for WFPC2.
 
     Raises
     ------
     ValueError
         Not a NICMOS or WFPC2 file, ``chip`` does not select one SCI extension,
-        the ERR or DQ extension is missing, the header has no distortion
+        the ERR or DQ extension (NICMOS MULTIACCUM: SAMP, TIME, ADCGAIN) is
+        missing, a chip map has the wrong shape, the header has no distortion
         solution, BUNIT or the photometric keywords are unusable, the grid
         misses the chip, or every pixel is masked.
     """
@@ -201,20 +207,19 @@ def load_hst_exposure(
         dq_cut = np.asarray(_pixels(dq, sci.data.shape)[cut], np.int64)
         mask = nan_mask & ((dq_cut & dq_bits) == 0)
         mask &= get_mask_from_index_centers_within_rgrid(bounds, wcs, grid.spatial)
-        if exclude is not None:
-            if np.shape(exclude) != sci.data.shape:
+        chip_maps = dict(exclude=exclude, flat=flat, dark=dark)
+        for name, value in chip_maps.items():
+            if value is not None and np.shape(value) != sci.data.shape:
                 raise ValueError(
-                    f"exclude has shape {np.shape(exclude)}, the chip {sci.data.shape}"
+                    f"{name} has shape {np.shape(value)}, the chip {sci.data.shape}"
                 )
-            mask &= ~np.asarray(exclude, bool)[cut]
-        if not mask.any():
-            raise ValueError(
-                f"{path}: every pixel of the cutout {bounds} is masked, "
-                f"{(~nan_mask).sum()} of them by non-finite data or std <= 0"
-            )
+            chip_maps[name] = None if value is None else np.asarray(value)[cut]
+        if exclude is not None:
+            mask &= ~chip_maps["exclude"].astype(bool)
 
         noise = noise_info = None
-        if hdul[0].header["INSTRUME"].strip() == "NICMOS":
+        # ACCUM and BRIGHTOBJ ERR already hold the Poisson term (NOISCALC)
+        if str(card("OBSMODE")).strip() == "MULTIACCUM":
             samp, time = (
                 _pixels(_extension(hdul, path, name, sci.ver), sci.data.shape)[cut]
                 for name in ("SAMP", "TIME")
@@ -226,10 +231,14 @@ def load_hst_exposure(
                 samp,
                 time,
                 sample_times,
-                flat,
-                dark,
-                cut,
-                sci.data.shape,
+                chip_maps["flat"],
+                chip_maps["dark"],
+            )
+            mask &= np.isfinite(noise.b)  # TIME <= 0: no valid sample
+        if not mask.any():
+            raise ValueError(
+                f"{path}: every pixel of the cutout {bounds} is masked, "
+                f"{(~nan_mask).sum()} of them by non-finite data or std <= 0"
             )
 
         centers = subsample_pixel_centers(bounds, wcs, subsample)
@@ -282,9 +291,7 @@ def ramp_poisson_factor(times: ArrayLike) -> float:
     return float(w @ np.minimum.outer(t, t) @ w)
 
 
-def _nicmos_noise(
-    card, path, err, samp, time, sample_times, flat, dark, cut, chip_shape
-):
+def _nicmos_noise(card, path, err, samp, time, sample_times, flat, dark):
     """σ² = ERR² + b · max(SCI + dark, 0) of a NICMOS ``_cal`` cutout.
 
     SCI is the slope times the inverse flat and ZPSCALE (NICMOS Data Handbook
@@ -296,11 +303,6 @@ def _nicmos_noise(
     gain = card("ADCGAIN")
     if not (gain and gain > 0):
         raise ValueError(f"{path}: NICMOS needs ADCGAIN > 0, it is {gain}")
-    for name, value in (("flat", flat), ("dark", dark)):
-        if value is not None and np.shape(value) != chip_shape:
-            raise ValueError(
-                f"{name} has shape {np.shape(value)}, the chip {chip_shape}"
-            )
     if sample_times is not None and not (
         np.ndim(sample_times) == 1
         and np.size(sample_times) >= 2
@@ -322,13 +324,18 @@ def _nicmos_noise(
         # shortcut: a rejected sample inside the ramp is treated as a shorter
         # contiguous ramp; exact only for saturation, upgrade with _ima DQ
         ok = (np.abs(t[last] - time) < 0.01) & (first >= 0) & (first < last)
-        factor = np.where(ok, table[np.clip(first, 0, None), last], factor)
+        factor = np.where(ok, table[np.clip(first, 0, last), last], factor)
         placed = int(ok.sum())
-    flat = 1.0 if flat is None else np.asarray(flat, float)[cut]
+    else:
+        logger.warning(
+            f"{path}: no sample_times, NICMOS shot noise from the two-read term; "
+            "low by up to 19 % for long ramps"
+        )
+    flat = 1.0 if flat is None else np.asarray(flat, float)
     b = factor * flat * (card("ZPSCALE") or 1.0) / gain
     if BUNIT_IS_COUNTS[str(card("BUNIT")).strip().upper()]:
         b = b * time
-    sky = 0.0 if dark is None else np.asarray(dark, float)[cut]
+    sky = 0.0 if dark is None else np.asarray(dark, float)
     info = (
         f"ADCGAIN {gain}, ramp from sample times on {placed} of {time.size} "
         f"pixels, flat {'given' if np.ndim(flat) else 'assumed 1'}, "
