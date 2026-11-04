@@ -16,6 +16,7 @@ from ..data.jwst_data import DataMetaInformation
 from ....sky_filter import SkyFilter
 from ..likelihood.likelihood import (
     GaussianLikelihoodBuilder,
+    ShotNoiseGaussianLikelihoodBuilder,
     VariableCovarianceGaussianLikelihoodBuilder,
 )
 from ..parse.plotting import ResidualPlottingConfig
@@ -38,7 +39,9 @@ class ResidualPlottingInformation:
     mask: list[np.ndarray] = field(default_factory=list)
     std: list[np.ndarray] = field(default_factory=list)
     builder: list[
-        GaussianLikelihoodBuilder | VariableCovarianceGaussianLikelihoodBuilder
+        GaussianLikelihoodBuilder
+        | VariableCovarianceGaussianLikelihoodBuilder
+        | ShotNoiseGaussianLikelihoodBuilder
     ] = field(default_factory=list)
     meta: list[DataMetaInformation] = field(default_factory=list)
 
@@ -48,8 +51,11 @@ class ResidualPlottingInformation:
         data: np.ndarray,
         mask: np.ndarray,
         std: np.ndarray,
-        builder: GaussianLikelihoodBuilder
-        | VariableCovarianceGaussianLikelihoodBuilder,
+        builder: (
+            GaussianLikelihoodBuilder
+            | VariableCovarianceGaussianLikelihoodBuilder
+            | ShotNoiseGaussianLikelihoodBuilder
+        ),
         meta: DataMetaInformation,
     ):
         self.filter.append(filter)
@@ -124,6 +130,25 @@ class SkyResiduals:
         default_factory=ResidualPlottingConfig
     )
 
+    def _likelihood_std(self, position_or_samples, builder, std, mask) -> NDArray:
+        """The σ the likelihood uses: `std` for a fixed-σ Gaussian, else the
+        (sample-mean) σ of the variable covariance or shot-noise model."""
+        if isinstance(builder, ShotNoiseGaussianLikelihoodBuilder):
+            model = builder.model()
+
+            def inverse_std(x):
+                x = x.tree if isinstance(x, jft.Vector) else x
+                return model(self.sky_filter(self.sky_model(x)) | x)[1]
+
+        elif hasattr(builder, "inverse_std_builder"):
+            inverse_std = builder.inverse_std_builder.build(std=std, mask=mask)
+        else:
+            return std
+        # TODO : THIS is not quite correct since res**2/std**2 is not linear in std
+        std_new = np.zeros(std.shape)
+        std_new[mask] = _get_std_from_inversestdmodel(position_or_samples, inverse_std)
+        return std_new
+
     def residuals(
         self, position_or_samples: Union[dict, jft.Samples]
     ) -> dict[str, NDArray]:
@@ -144,6 +169,7 @@ class SkyResiduals:
                 filter_data.mask,
                 filter_data.builder,
             )
+            std = self._likelihood_std(position_or_samples, builder, std, mask)
             model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples,
                 sky_or_skies,
@@ -232,14 +258,7 @@ class SkyResiduals:
                 filter_data.builder,
             )
 
-            # TODO : THIS is not quite correct since res**2/std**2 is not linear in std
-            if hasattr(builder, "inverse_std_builder"):
-                std_new = np.zeros(std.shape)
-                std_new[mask] = _get_std_from_inversestdmodel(
-                    position_or_samples,
-                    inverse_std=builder.inverse_std_builder.build(std=std, mask=mask),
-                )
-                std = std_new
+            std = self._likelihood_std(position_or_samples, builder, std, mask)
 
             model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples,
