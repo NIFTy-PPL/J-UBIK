@@ -31,6 +31,7 @@ from ...color import Color
 from ...wcs import WcsAstropy, subsample_pixel_centers
 from ..jwst.data.jwst_data import DataMetaInformation
 from ..jwst.data.loader.target_loader import TargetData
+from ..jwst.likelihood.likelihood import ShotNoise
 from ..jwst.masking.data_mask import get_mask_from_index_centers_within_rgrid
 from ..jwst.throughput.weights import Throughput
 from .nirc2_distortion import DistortionSolution, nirc2_wcs, select_distortion
@@ -87,7 +88,8 @@ class Nirc2Calibration:
 
 @dataclass(frozen=True)
 class DetectorNoise:
-    """Opt-in σ from the detector: shot noise of source and sky, read noise.
+    """Opt-in noise model from the detector: shot noise of source and sky,
+    read noise, σ² = a + b · max(signal + sky, 0) (`ShotNoise`).
 
     Parameters
     ----------
@@ -100,14 +102,19 @@ class DetectorNoise:
         the read noise falls as ``1 / sqrt(n_reads)`` (white read noise).
     sky : float | np.ndarray
         Sky level per pixel, DN summed over coadds (also for a DN/s science
-        image), that was subtracted from the science image (0 if the sky is
-        still in it). A scalar or the science image's shape.
+        image) as it appears in the flat-fielded science image, that was
+        subtracted from it (0 if the sky is still in it). A scalar or the
+        science image's shape.
+    flat : float | np.ndarray
+        The flat the science image was divided by, normalised as applied. A
+        scalar or the science image's shape.
     """
 
     gain: float
     read_noise: float
     n_reads: int
     sky: float | np.ndarray
+    flat: float | np.ndarray = 1.0
 
     def __post_init__(self) -> None:
         # negated so that NaN fails as well
@@ -115,18 +122,35 @@ class DetectorNoise:
             0 < self.gain < np.inf
             and 0 <= self.read_noise < np.inf
             and self.n_reads >= 1
+            and np.all(np.isfinite(self.flat) & (np.asarray(self.flat) > 0))
         ):
-            raise ValueError("need finite gain > 0, read_noise >= 0, n_reads >= 1")
-
-    def sigma(self, data: np.ndarray, coadds: int) -> np.ndarray:
-        """σ in DN of ``data`` (DN summed over ``coadds``)."""
-        if np.shape(self.sky) not in ((), np.shape(data)):
             raise ValueError(
-                f"sky {np.shape(self.sky)}: a scalar or the science {np.shape(data)}"
+                "need finite gain > 0, read_noise >= 0, n_reads >= 1, flat > 0"
             )
-        electrons = self.gain * np.maximum(data + self.sky, 0)
-        read = coadds * self.read_noise**2 / self.n_reads
-        return np.sqrt(electrons + read) / self.gain
+
+    def shot_noise(self, shape, coadds: int, dn_per_unit: float) -> ShotNoise:
+        """a, b and sky in the science unit, worth ``dn_per_unit`` DN summed
+        over ``coadds``.
+
+        SCI = raw / flat, so the raw read and shot variances in DN², RN² ·
+        coadds / (n_reads gain²) and flat · (SCI + sky) / gain, are divided by
+        flat².
+        """
+        for name, value in (("sky", self.sky), ("flat", self.flat)):
+            if np.shape(value) not in ((), shape):
+                raise ValueError(
+                    f"{name} {np.shape(value)}: a scalar or the science {shape}"
+                )
+        flat = np.asarray(self.flat, float)
+        read = coadds * self.read_noise**2 / self.n_reads / self.gain**2
+        # shortcut: the shot noise of an MCDS difference is taken as over the
+        # full ITIME; reads within a group span s shorten it by about s/3, so
+        # b is high by s/(3 ITIME), exact for CDS; upgrade with read times
+        return ShotNoise(
+            a=read / (flat * dn_per_unit) ** 2,
+            b=1 / (self.gain * flat * dn_per_unit),
+            sky=np.asarray(self.sky, float) / dn_per_unit,
+        )
 
 
 @dataclass
@@ -134,13 +158,15 @@ class Nirc2Exposure:
     """The JWST target response's inputs, the band and the diagnostics.
 
     ``target_data`` is a stack of one exposure. Band weights on a sky grid are
-    ``throughput_weights(spectral, throughput)``.
+    ``throughput_weights(spectral, throughput)``. ``noise`` is the
+    `DetectorNoise` model in the science unit, None for a σ map.
     """
 
     target_data: TargetData
     meta: DataMetaInformation
     throughput: Throughput
     diagnostics: dict
+    noise: ShotNoise | None = None
 
 
 def load_nirc2_exposure(
@@ -191,7 +217,9 @@ def load_nirc2_exposure(
     sigma : FitsImage | None
         σ map in the science image's unit.
     detector_noise : DetectorNoise | None
-        Opt-in instead of ``sigma``. Exactly one of the two.
+        Opt-in instead of ``sigma``. Exactly one of the two. Its model goes
+        to ``noise`` for `ShotNoiseGaussianLikelihoodBuilder`; ``std`` is
+        that model evaluated at the data, for the fixed-σ Gaussian only.
     bad_pixels : FitsImage | None
         Non-zero (or NaN) marks a bad pixel.
     pre_2015, post_2015 : DistortionSolution | None
@@ -264,15 +292,18 @@ def load_nirc2_exposure(
     jy_per_unit = (calibration.flux_per_count_rate * rate_per_unit).to(u.Jy)
     dn_per_unit = (rate_per_unit * seconds).to_value(u.DN)
 
+    noise = None
     if sigma is not None:
         std = _read(sigma)[0]
         sigma_source = str(sigma)
     else:
-        std = detector_noise.sigma(data * dn_per_unit, coadds) / dn_per_unit
+        noise = detector_noise.shot_noise(data.shape, coadds, dn_per_unit)
+        std = np.sqrt(noise.a + noise.b * np.maximum(data + noise.sky, 0))
         d = detector_noise
         sigma_source = (
             f"detector noise: gain {d.gain} e-/DN, read noise {d.read_noise} e-, "
-            f"{d.n_reads} reads, mean sky {np.mean(d.sky):.6g} DN"
+            f"{d.n_reads} reads, mean sky {np.mean(d.sky):.6g} DN, "
+            f"mean flat {np.mean(d.flat):.6g}"
         )
     bad = (
         np.zeros(data.shape, bool) if bad_pixels is None else _read(bad_pixels)[0] != 0
@@ -351,7 +382,7 @@ def load_nirc2_exposure(
         masked_pixels=int(mask.size - mask.sum()),
     )
     logger.info(f"NIRC2 exposure: {diagnostics}")
-    return Nirc2Exposure(target_data, meta, throughput, diagnostics)
+    return Nirc2Exposure(target_data, meta, throughput, diagnostics, noise)
 
 
 def _read(image: FitsImage) -> tuple[np.ndarray, dict]:

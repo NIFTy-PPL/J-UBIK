@@ -9,7 +9,7 @@ from astropy.wcs import WCS
 
 from jubik.color import Color
 from jubik.grid import Grid
-from jubik.instruments.hst.hst_data import load_hst_exposure
+from jubik.instruments.hst.hst_data import load_hst_exposure, ramp_poisson_factor
 from jubik.instruments.jwst.integration.integration import integration_factory
 from jubik.instruments.jwst.integration.unit_conversion import build_unit_conversion
 from jubik.instruments.jwst.throughput.weights import Throughput, throughput_weights
@@ -29,6 +29,8 @@ WF_PHOT = dict(PHOTFLAM=2.5e-18, PHOTPLAM=8000.0)  # WFPC2 files carry no PHOTFN
 WF_PHOTFNU = WF_PHOT["PHOTFLAM"] * WF_PHOT["PHOTPLAM"] ** 2 / C_ANGSTROM_PER_S
 WF_PHOTFNU *= JY_PER_CGS
 EXPTIME = 400.0
+ADCGAIN = 5.4
+NSAMP = 11  # reads of the ramp, zeroth included
 
 CURVE = Throughput([1.4, 1.8] * u.um, np.ones(2))
 SPECTRAL = Color(np.array([[1.0, 1.5], [1.5, 2.0]]) * u.um)
@@ -72,10 +74,16 @@ def _chip(ver, header, data, err=True):
 
 def _nicmos(path, *, camera=2, bunit="COUNTS/S", err=True, sip=True):
     primary = fits.PrimaryHDU()
-    primary.header.update(INSTRUME="NICMOS", CAMERA=camera, EXPTIME=EXPTIME)
+    primary.header.update(
+        INSTRUME="NICMOS", CAMERA=camera, EXPTIME=EXPTIME, ADCGAIN=ADCGAIN
+    )
     primary.header.update(NIC2_PHOT)
     header = _sci_header(NIC2_SCALE, bunit=bunit, sip=sip)
-    fits.HDUList([primary, *_chip(1, header, RAMP, err)]).writeto(path)
+    ramp = [
+        fits.ImageHDU(np.full(SHAPE, NSAMP, np.int16), name="SAMP", ver=1),
+        fits.ImageHDU(np.full(SHAPE, EXPTIME), name="TIME", ver=1),
+    ]
+    fits.HDUList([primary, *_chip(1, header, RAMP, err), *ramp]).writeto(path)
     return path
 
 
@@ -286,3 +294,119 @@ def test_subpixel_centres_apply_the_distortion(tmp_path, subsample):
 def test_header_without_distortion_raises(tmp_path):
     with pytest.raises(ValueError, match="updatewcs"):
         _load(_nicmos(tmp_path / "n_cal.fits", sip=False))
+
+
+# --------------------------------------------------------------------------- #
+# NICMOS shot noise
+# --------------------------------------------------------------------------- #
+
+# SPARS64 read times after the zeroth read, zeroth included (NICMOS Data
+# Handbook v8, p. 90, sampinfo of n4ux23x0q)
+SPARS64 = np.r_[0.0, 0.302, 0.605, 63.993 + 63.997 * np.arange(22)]
+
+
+def _slope_weights(t):
+    """Least-squares slope weights from the design matrix [1, t]."""
+    return np.linalg.pinv(np.stack([np.ones_like(t), t], axis=1))[1]
+
+
+def _rewrite(path, cards=None, **arrays):
+    """Replace primary cards and chip-shaped extension arrays."""
+    with fits.open(path) as hdul:
+        hdus = [h.copy() for h in hdul]
+    hdus[0].header.update(cards or {})
+    for h in hdus[1:]:
+        if h.name in arrays:
+            h.data = np.asarray(arrays[h.name])
+    fits.HDUList(hdus).writeto(path, overwrite=True)
+
+
+@pytest.mark.parametrize("n", [2, 3, 10, 100])
+def test_ramp_factor_of_equal_reads(n):
+    duration = 250.0
+    expected = 6 * (n**2 + 1) / (5 * n * (n + 1)) / duration
+    times = np.linspace(0.0, duration, n)
+    assert ramp_poisson_factor(times) == pytest.approx(expected, rel=1e-12)
+    if n == 2:
+        assert ramp_poisson_factor(times) * duration == pytest.approx(1.0)
+    if n == 100:
+        assert ramp_poisson_factor(times) * duration == pytest.approx(1.188, abs=1e-3)
+
+
+def test_ramp_factor_of_an_unequal_sequence():
+    # the slope is a sum of independent Poisson increments; at unit rate each
+    # increment's variance is its duration
+    w = _slope_weights(SPARS64)
+    tail = np.cumsum(w[::-1])[::-1]  # weight of the increment ending at read j
+    variance = np.sum(tail[1:] ** 2 * np.diff(SPARS64))
+    assert ramp_poisson_factor(SPARS64) == pytest.approx(variance, rel=1e-10)
+
+
+def test_nicmos_noise_matches_monte_carlo_ramps(tmp_path):
+    gain, read_noise, zpscale = 5.4, 30.0, 1.02  # e-/DN, e- per read
+    # cutout pixels: (rate in SCI DN/s, inverse flat, reads used)
+    pixels = {(2, 3): (0.05, 1.0, 25), (4, 5): (2.0, 0.8, 25), (6, 7): (60.0, 1.3, 9)}
+    samp = np.full(SHAPE, 25, np.int16)
+    time = np.full(SHAPE, SPARS64[-1])
+    err = np.full(SHAPE, 0.5)
+    flat = np.ones(SHAPE)
+    for (i, j), (rate, f, n) in pixels.items():
+        chip = (i + CUT[0].start, j + CUT[1].start)
+        w = _slope_weights(SPARS64[:n])
+        samp[chip], time[chip], flat[chip] = n, SPARS64[n - 1], f
+        err[chip] = f * zpscale * read_noise / gain * np.sqrt(w @ w)  # calnica's ERR
+    path = _nicmos(tmp_path / "n_cal.fits")
+    _rewrite(path, dict(ADCGAIN=gain, ZPSCALE=zpscale), SAMP=samp, TIME=time, ERR=err)
+    noise = _load(path, sample_times=SPARS64, flat=flat).noise
+
+    rng = np.random.default_rng(172)
+    for (i, j), (rate, f, n) in pixels.items():
+        t = SPARS64[:n]
+        electrons_per_s = rate / (f * zpscale) * gain  # SCI = inverse flat * raw
+        counts = np.cumsum(
+            rng.poisson(electrons_per_s * np.diff(t), (40_000, n - 1)), 1
+        )
+        reads = np.pad(counts, ((0, 0), (1, 0))) + rng.normal(
+            0, read_noise, (40_000, n)
+        )
+        sci = (reads / gain @ _slope_weights(t)) * f * zpscale
+        predicted = noise.a[i, j] + noise.b[i, j] * rate
+        # the variance of 40000 draws is good to 0.7 %
+        assert sci.var() == pytest.approx(predicted, rel=0.03), (i, j)
+        assert sci.mean() == pytest.approx(rate, rel=0.02, abs=0.01)
+    assert noise.b[6, 7] > 2 * noise.b[4, 5]  # fewer reads, larger factor
+
+
+def test_nicmos_noise_defaults_and_units(tmp_path):
+    path = _nicmos(tmp_path / "n_cal.fits")
+    time = np.full(SHAPE, EXPTIME)
+    time[CUT][1, 1] = 123.0  # no read at this time: the handbook's term
+    _rewrite(path, TIME=time)
+    dark = np.full(SHAPE, 0.25)
+    rate = _load(path, sample_times=np.linspace(0, EXPTIME, NSAMP), dark=dark)
+    np.testing.assert_allclose(rate.noise.a, 0.25)  # ERR**2
+    np.testing.assert_allclose(rate.noise.sky, 0.25)
+    expected = 6 * (NSAMP**2 + 1) / (5 * NSAMP * (NSAMP + 1)) / (ADCGAIN * EXPTIME)
+    assert rate.noise.b[0, 0] == pytest.approx(expected, rel=1e-12)
+    assert rate.noise.b[1, 1] == pytest.approx(1 / (ADCGAIN * 123.0), rel=1e-12)
+    assert "on 194 of 195 pixels" in rate.diagnostics.noise
+    handbook = _load(path)  # no sample times
+    assert handbook.noise.b[0, 0] == pytest.approx(1 / (ADCGAIN * EXPTIME))
+    assert handbook.noise.sky == 0.0
+
+    counts = _nicmos(tmp_path / "c_cal.fits", bunit="COUNTS")
+    _rewrite(counts, TIME=time)
+    counts = _load(counts, sample_times=np.linspace(0, EXPTIME, NSAMP))
+    np.testing.assert_allclose(counts.noise.b, rate.noise.b * time[CUT], rtol=1e-12)
+    assert _load(_wfpc2(tmp_path / "w_flt.fits"), chip=3).noise is None
+
+
+def test_nicmos_noise_rejects_bad_inputs(tmp_path):
+    path = _nicmos(tmp_path / "n_cal.fits")
+    with pytest.raises(ValueError, match="flat has shape"):
+        _load(path, flat=np.ones((3, 3)))
+    with pytest.raises(ValueError, match="sample_times"):
+        _load(path, sample_times=[0.0])
+    _rewrite(path, dict(ADCGAIN=0))
+    with pytest.raises(ValueError, match="ADCGAIN"):
+        _load(path)

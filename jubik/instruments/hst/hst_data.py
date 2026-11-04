@@ -22,7 +22,7 @@ from astropy import units as u
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_area
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 from ...color import Color
 from ...grid import Grid
@@ -31,10 +31,16 @@ from ...wcs import subsample_pixel_centers
 from ...wcs.wcs_base import WcsMixin
 from ..jwst.data.jwst_data import DataMetaInformation
 from ..jwst.data.loader.target_loader import TargetData
+from ..jwst.likelihood.likelihood import ShotNoise
 from ..jwst.masking import get_mask_from_index_centers_within_rgrid
 from ..jwst.throughput.weights import Throughput, throughput_weights
 
-__all__ = ["HstDiagnostics", "HstExposure", "load_hst_exposure"]
+__all__ = [
+    "HstDiagnostics",
+    "HstExposure",
+    "load_hst_exposure",
+    "ramp_poisson_factor",
+]
 
 FLAM = u.erg / u.s / u.cm**2 / u.AA
 # BUNIT -> whether one data unit is a count over EXPTIME rather than a count/s
@@ -74,6 +80,7 @@ class HstDiagnostics:
     dq_bits: int
     distortion: dict
     n_masked: int
+    noise: str | None = None
 
 
 @dataclass(frozen=True)
@@ -81,13 +88,15 @@ class HstExposure:
     """`load_hst_exposure` products.
 
     ``target_data.psf`` is None: a kernel for this exposure needs the detector
-    position (``diagnostics.bounds``), so the caller attaches it.
+    position (``diagnostics.bounds``), so the caller attaches it. ``noise`` is
+    the shot-noise model of a NICMOS exposure, None for WFPC2.
     """
 
     target_data: TargetData
     meta: DataMetaInformation
     weights: FilterWeights
     diagnostics: HstDiagnostics
+    noise: ShotNoise | None = None
 
 
 def load_hst_exposure(
@@ -100,6 +109,9 @@ def load_hst_exposure(
     chip: int | None = None,
     exclude: NDArray[np.bool_] | None = None,
     subsample: int = 1,
+    sample_times: ArrayLike | None = None,
+    flat: NDArray[np.floating] | None = None,
+    dark: NDArray[np.floating] | None = None,
 ) -> HstExposure:
     """Cut one chip of a NICMOS ``_cal`` or WFPC2 ``_flt`` file around the sky grid.
 
@@ -133,6 +145,17 @@ def load_hst_exposure(
         Chip-shaped user mask, True excludes the pixel.
     subsample : int
         Sub-pixels per data pixel along each axis for the sky coordinates.
+    sample_times : ArrayLike | None
+        NICMOS: the MULTIACCUM read times in seconds after the zeroth read,
+        zeroth included, e.g. the SAMPTIME keywords of the ``_ima`` file's
+        SCI extensions, or the NICMOS Instrument Handbook table of the
+        SAMP_SEQ sequence. None uses the Data Handbook's two-read term.
+    flat : NDArray[np.floating] | None
+        NICMOS: chip-shaped inverse flat that FLATCORR multiplied the data by
+        (the TDFFILE imset TDFGROUP, or the FLATFILE). None assumes 1.
+    dark : NDArray[np.floating] | None
+        NICMOS: chip-shaped dark current and amplifier glow that DARKCORR
+        subtracted, in the data's unit; its shot noise remains. None is 0.
 
     Returns
     -------
@@ -141,6 +164,9 @@ def load_hst_exposure(
         is True where the data enter the likelihood, ``nan_mask`` where data
         and std are finite and std is positive. ``meta`` with PHOTPLAM as
         ``color``. ``weights`` from `throughput_weights` on ``grid.spectral``.
+        NICMOS ``noise``: ``a`` = ERR², read noise only from calnica 4.2 on
+        (NICMOS Data Handbook v8, p. 47), ``b`` the shot noise of the
+        least-squares ramp slope, see `_nicmos_noise`.
 
     Raises
     ------
@@ -187,6 +213,25 @@ def load_hst_exposure(
                 f"{(~nan_mask).sum()} of them by non-finite data or std <= 0"
             )
 
+        noise = noise_info = None
+        if hdul[0].header["INSTRUME"].strip() == "NICMOS":
+            samp, time = (
+                _pixels(_extension(hdul, path, name, sci.ver), sci.data.shape)[cut]
+                for name in ("SAMP", "TIME")
+            )
+            noise, noise_info = _nicmos_noise(
+                card,
+                path,
+                std,
+                samp,
+                time,
+                sample_times,
+                flat,
+                dark,
+                cut,
+                sci.data.shape,
+            )
+
         centers = subsample_pixel_centers(bounds, wcs, subsample)
         diagnostics = HstDiagnostics(
             file=path,
@@ -198,6 +243,7 @@ def load_hst_exposure(
             dq_bits=dq_bits,
             distortion={k: card(k) for k in DISTORTION_KEYS if card(k) is not None},
             n_masked=int((~mask).sum()),
+            noise=noise_info,
         )
         color = Color(card("PHOTPLAM") * u.AA)
 
@@ -219,7 +265,76 @@ def load_hst_exposure(
         ),
         weights=throughput_weights(grid.spectral, throughput, name=Path(path).name),
         diagnostics=diagnostics,
+        noise=noise,
     )
+
+
+def ramp_poisson_factor(times: ArrayLike) -> float:
+    """Poisson variance of the least-squares slope through reads at ``times``
+    per unit count rate, wᵀMw (1/s).
+
+    w are the slope's least-squares weights, M_jk = min(t_j, t_k) the
+    covariance of the accumulated counts at unit rate. For n equally spaced
+    reads over T it is 6(n²+1) / (5n(n+1)T).
+    """
+    t = np.asarray(times, float)
+    w = (t - t.mean()) / np.sum((t - t.mean()) ** 2)
+    return float(w @ np.minimum.outer(t, t) @ w)
+
+
+def _nicmos_noise(
+    card, path, err, samp, time, sample_times, flat, dark, cut, chip_shape
+):
+    """σ² = ERR² + b · max(SCI + dark, 0) of a NICMOS ``_cal`` cutout.
+
+    SCI is the slope times the inverse flat and ZPSCALE (NICMOS Data Handbook
+    v8, FLATCORR and PHOTCALC, pp. 51-52), so b = wᵀMw · flat · ZPSCALE / ADCGAIN, times TIME for
+    BUNIT counts. calnica's CRIDCALC rejects saturated and cosmic-ray samples
+    and records only their number (SAMP) and time (TIME) per pixel; the reads
+    used are taken as the SAMP reads ending at the read at TIME.
+    """
+    gain = card("ADCGAIN")
+    if not (gain and gain > 0):
+        raise ValueError(f"{path}: NICMOS needs ADCGAIN > 0, it is {gain}")
+    for name, value in (("flat", flat), ("dark", dark)):
+        if value is not None and np.shape(value) != chip_shape:
+            raise ValueError(
+                f"{name} has shape {np.shape(value)}, the chip {chip_shape}"
+            )
+    if sample_times is not None and not (
+        np.ndim(sample_times) == 1
+        and np.size(sample_times) >= 2
+        and np.all(np.isfinite(sample_times))
+    ):
+        raise ValueError(f"sample_times {sample_times}: need at least two finite times")
+    time = np.asarray(time, float)
+    # the Data Handbook's term (p. 47): two reads over TIME
+    factor = 1 / np.where(time > 0, time, np.nan)
+    placed = 0
+    if sample_times is not None:
+        t = np.sort(np.asarray(sample_times, float))
+        table = np.full((t.size, t.size), np.nan)
+        for first in range(t.size):
+            for last in range(first + 1, t.size):
+                table[first, last] = ramp_poisson_factor(t[first : last + 1])
+        last = np.argmin(np.abs(t[:, None, None] - time), axis=0)
+        first = last - np.asarray(samp, int) + 1
+        # shortcut: a rejected sample inside the ramp is treated as a shorter
+        # contiguous ramp; exact only for saturation, upgrade with _ima DQ
+        ok = (np.abs(t[last] - time) < 0.01) & (first >= 0) & (first < last)
+        factor = np.where(ok, table[np.clip(first, 0, None), last], factor)
+        placed = int(ok.sum())
+    flat = 1.0 if flat is None else np.asarray(flat, float)[cut]
+    b = factor * flat * (card("ZPSCALE") or 1.0) / gain
+    if BUNIT_IS_COUNTS[str(card("BUNIT")).strip().upper()]:
+        b = b * time
+    sky = 0.0 if dark is None else np.asarray(dark, float)[cut]
+    info = (
+        f"ADCGAIN {gain}, ramp from sample times on {placed} of {time.size} "
+        f"pixels, flat {'given' if np.ndim(flat) else 'assumed 1'}, "
+        f"dark {'given' if np.ndim(sky) else 'assumed 0'}"
+    )
+    return ShotNoise(a=err**2, b=b, sky=sky), info
 
 
 def _select_sci(hdul: fits.HDUList, path: str, chip: int | None) -> fits.ImageHDU:

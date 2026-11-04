@@ -14,6 +14,9 @@ from jubik.instruments.jwst.jwst_response import (
     build_jwst_response,
     build_sky_to_subsampled_data,
 )
+from jubik.instruments.jwst.likelihood.likelihood import (
+    ShotNoiseGaussianLikelihoodBuilder,
+)
 from jubik.instruments.jwst.parse.jwst_response import SkyMetaInformation
 from jubik.instruments.jwst.parse.rotation_and_shift.rotation_and_shift import (
     LinearConfig,
@@ -91,11 +94,11 @@ def _load(tmp_path, data=100.0, header=HEADER, **kwargs):
 # --------------------------------------------------------------------------- #
 
 
-def _predict(exposure):
-    """The existing JWST response (unit conversion, integration) for a flat
-    1 MJy/sr sky."""
+def _response(exposure):
+    """The existing JWST response (unit conversion, integration) of a sky
+    ``{"k": MJy/sr on GRID}``."""
     target = exposure.target_data
-    response = build_jwst_response(
+    return build_jwst_response(
         sky_in_subsampled_data=build_sky_to_subsampled_data(
             {"k": jft.ShapeWithDtype(GRID.shape_yx)},
             target.subsample_centers,
@@ -112,7 +115,11 @@ def _predict(exposure):
         zero_flux_model=None,
         data_mask=target.mask,
     )
-    return np.asarray(response({"k": jnp.ones(GRID.shape_yx)}))
+
+
+def _predict(exposure):
+    """The response for a flat 1 MJy/sr sky."""
+    return np.asarray(_response(exposure)({"k": jnp.ones(GRID.shape_yx)}))
 
 
 @pytest.mark.parametrize(
@@ -380,3 +387,84 @@ def test_products_shapes_and_band(tmp_path):
     lam = np.sqrt((2.4**2 - 2.0**2) / 2 / np.log(1.2))  # tophat pivot, um
     assert u.isclose(exposure.meta.color, lam * u.um)
     assert exposure.throughput is BAND
+
+
+# --------------------------------------------------------------------------- #
+# Shot noise
+# --------------------------------------------------------------------------- #
+
+GAIN, READ_NOISE, N_READS, COADDS = 4.0, 40.0, 16, HEADER["COADDS"]
+
+
+def _mcds(rng, draws, electrons_per_coadd):
+    """DN summed over the coadds of MCDS reads: N_READS reads at each end of
+    every coadd, each with READ_NOISE / sqrt(2) (READ_NOISE is per CDS)."""
+    electrons = np.asarray(electrons_per_coadd, float)
+    shape = (draws, *electrons.shape, COADDS)
+
+    def group():
+        return rng.normal(0, READ_NOISE / np.sqrt(2), (*shape, N_READS)).mean(-1)
+
+    end = rng.poisson(electrons[..., None], shape) + group()
+    return (end - group()).sum(-1) / GAIN
+
+
+@pytest.mark.parametrize("bunit, dn", [("DN", 1.0), ("DN/s", 2.0 * 5)])
+def test_detector_noise_matches_monte_carlo_mcds(tmp_path, bunit, dn):
+    flat = np.ones((NY, NX))
+    flat[1, 2], flat[3, 4] = 0.7, 1.4
+    sky = 800.0  # DN summed over coadds, in the flat-fielded image
+    detector = DetectorNoise(GAIN, READ_NOISE, N_READS, sky, flat)
+    noise = _load(tmp_path, bunit=bunit, detector_noise=detector).noise
+    rng = np.random.default_rng(172)
+    # science DN summed over coadds: faint below the sky, bright above it
+    for (i, j), signal in (((1, 2), 30.0), ((3, 4), 3e4), ((0, 0), -200.0)):
+        f = flat[i, j]
+        raw = _mcds(rng, 40_000, GAIN * f * (signal + sky) / COADDS)
+        science = (raw / f - sky) / dn  # flat-fielded, sky subtracted, native
+        predicted = noise.a[i, j] + noise.b[i, j] * (signal + sky) / dn
+        assert noise.sky * dn == pytest.approx(sky)
+        # the variance of 40000 draws is good to 0.7 %
+        assert science.var() == pytest.approx(predicted, rel=0.03), (i, j)
+        assert science.mean() == pytest.approx(signal / dn, rel=0.02, abs=0.5 / dn)
+
+
+def test_flat_enters_the_plain_sigma_and_is_checked(tmp_path):
+    data = np.full((NY, NX), 500.0)
+    flat = np.full((NY, NX), 2.0)
+    detector = DetectorNoise(GAIN, READ_NOISE, N_READS, 1000.0, flat)
+    std = _load(tmp_path, data=data, detector_noise=detector).target_data.std[0]
+    # (1500 DN / (4 e/DN 2) + 5 coadds 40^2 e^2 / (16 reads 4^2 2^2)) DN^2
+    np.testing.assert_allclose(std, np.sqrt(1500 / 8 + 500 / 64), rtol=1e-12)
+    assert _load(tmp_path).noise is None  # a σ map has no model
+    with pytest.raises(ValueError, match="flat"):
+        DetectorNoise(GAIN, READ_NOISE, N_READS, 0.0, -flat)
+    with pytest.raises(ValueError, match="flat"):
+        _load(
+            tmp_path,
+            detector_noise=DetectorNoise(GAIN, READ_NOISE, N_READS, 0.0, flat[:2]),
+        )
+
+
+def test_normalized_residuals_through_the_response(tmp_path):
+    sky = 1000.0
+    detector = DetectorNoise(GAIN, READ_NOISE, N_READS, sky)
+    exposure = _load(tmp_path, detector_noise=detector)
+    response = _response(exposure)
+    per_unit_sky = _predict(exposure).mean()  # DN of 1 MJy/sr
+    field = np.full(GRID.shape_yx, 20.0 / per_unit_sky)  # 20 DN, below the sky
+    field[:, 30:] = 3e4 / per_unit_sky  # 30000 DN, shot-noise dominated
+    builder = ShotNoiseGaussianLikelihoodBuilder(
+        response, exposure.target_data.data, exposure.noise, exposure.target_data.mask
+    )
+    model, inverse_std = (np.asarray(v) for v in builder.model()({"k": field}))
+    rng = np.random.default_rng(172)
+    data = _mcds(rng, 300, GAIN * (model + sky) / COADDS) - sky
+    no_source_shot = 1 / np.sqrt(exposure.noise.a + exposure.noise.b * sky)
+    for pixels in (model < 100, model > 1e4):
+        assert pixels.sum() > 30
+        normalized = (data[:, pixels] - model[pixels]) * inverse_std[pixels]
+        assert normalized.mean() == pytest.approx(0, abs=0.03)
+        assert normalized.var() == pytest.approx(1, abs=0.04)
+    bright = (data[:, model > 1e4] - model[model > 1e4]) * no_source_shot
+    assert bright.var() > 10
