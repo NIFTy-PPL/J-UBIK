@@ -336,12 +336,12 @@ def _slope_weights(t, power=0.0):
     return np.array([np.polyfit(t, e, 1, w=np.sqrt(v))[0] for e in np.eye(t.size)])
 
 
+# calnica's read-weight power for a ramp's S/N (Fixsen et al. 2000)
+SNR_LIMITS, POWERS = [5, 10, 20, 50, 100], np.array([0.0, 0.4, 1.0, 3.0, 6.0, 10.0])
+
+
 def _fixsen_power(snr):
-    """calnica's read-weight power for a ramp's S/N (Fixsen et al. 2000)."""
-    for limit, power in ((5, 0.0), (10, 0.4), (20, 1.0), (50, 3.0), (100, 6.0)):
-        if snr < limit:
-            return power
-    return 10.0
+    return POWERS[np.searchsorted(SNR_LIMITS, snr, side="right")]
 
 
 def _signal_for_snr(snr, read, per_count):
@@ -549,8 +549,7 @@ def test_nicmos_edge_pixels_and_modes(tmp_path):
 def test_nicmos_normalized_residuals_through_the_response(tmp_path):
     read_noise = 30.0  # e- per read
     t = READ_TIMES[1:]  # calnica fits the reads after the zeroth
-    powers = (0.0, 0.4, 1.0, 3.0, 6.0, 10.0)
-    weights = np.array([_slope_weights(t, p) for p in powers])
+    weights = np.array([_slope_weights(t, p) for p in POWERS])
     rng = np.random.default_rng(172)
     flat = rng.uniform(0.8, 1.2, SHAPE)  # inverse flat
     err = flat * read_noise / ADCGAIN * np.linalg.norm(weights[0])  # calnica's ERR
@@ -590,7 +589,7 @@ def test_nicmos_normalized_residuals_through_the_response(tmp_path):
         + np.maximum(y, 0) * f[:, None] / ADCGAIN
     )
     snr = (y[..., -1] - y[..., 0]) / sigma[..., -1]
-    power = np.searchsorted([5, 10, 20, 50, 100], snr, side="right")
+    power = np.searchsorted(SNR_LIMITS, snr, side="right")
     data = np.take_along_axis(y @ weights.T, power[..., None], -1)[..., 0]
     for pixels in (model < 1, model > 10):
         assert pixels.sum() > 30
