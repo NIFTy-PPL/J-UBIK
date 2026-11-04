@@ -15,9 +15,11 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 from ...grid import Grid
+from ...parse.models.distributions import ProbabilityConfig
 from ...sky_filter import SkyFilter
 from ...wcs.wcs_astropy import WcsAstropy
 from .alignment.star_model import StarInData
+from .calibration_model import build_calibration_model
 from .data.jwst_data import DataMetaInformation
 from .data.loader.target_loader import TargetData
 from .integration.integration import integration_factory
@@ -41,7 +43,7 @@ class JwstResponse(jft.Model):
     sky model.
 
     Schematic pipeline:
-    psf | unit_conversion | integrate | zero flux | mask
+    psf | unit_conversion | integrate | calibration | zero flux | mask
     """
 
     def __init__(
@@ -52,6 +54,7 @@ class JwstResponse(jft.Model):
         integrate: Callable[[ArrayLike], ArrayLike],
         zero_flux_model: jft.Model | None,
         mask: Callable[[ArrayLike], ArrayLike],
+        calibration_model: jft.Model | None = None,
     ):
         """Initialize the Jwst response with different components of linear
         transformations.
@@ -72,6 +75,9 @@ class JwstResponse(jft.Model):
             If provided, its output is added to the domain model's output.
         mask : callable
             A function that applies a mask to the final output.
+        calibration_model : jft.Model | None
+            Multiplicative factor on the integrated sky, before the zero flux is
+            added. If None, the factor is 1.
         """
 
         self.sky_model = sky_model
@@ -80,10 +86,13 @@ class JwstResponse(jft.Model):
         self.integrate = integrate
         self.zero_flux_model = zero_flux_model
         self.mask = mask
+        self.calibration_model = calibration_model
 
         domain = sky_model.domain | psf.domain[1]
         if zero_flux_model is not None:
             domain = domain | zero_flux_model.domain
+        if calibration_model is not None:
+            domain = domain | calibration_model.domain
         super().__init__(domain=domain)
 
     def __call__(self, x):
@@ -91,6 +100,8 @@ class JwstResponse(jft.Model):
         out = self.psf((out, x))
         out = self.unit_conversion(out)
         out = self.integrate(out)
+        if self.calibration_model is not None:
+            out = out * self.calibration_model(x)
         if self.zero_flux_model is not None:
             out = out + self.zero_flux_model(x)
         out = self.mask(out)
@@ -105,13 +116,14 @@ def build_jwst_response(
     psf: np.ndarray | jft.Model | None,
     zero_flux_model: jft.Model | None,
     data_mask: ArrayLike | None,
+    calibration_model: jft.Model | None = None,
 ) -> JwstResponse:
     """
     Builds the linear response of the Jwst to the sky. The sky must be in in the same
     coordinate frame as the - potentially subsampled - data.
 
     Schematic pipline:
-    psf | unit_conversion | integrate | zero flux | mask
+    psf | unit_conversion | integrate | calibration | zero flux | mask
 
     Parameters
     ----------
@@ -134,6 +146,8 @@ def build_jwst_response(
         The model for the a constant (zero) flux in the data.
     data_mask: ArrayLike
         The mask on the data
+    calibration_model : jft.Model | None
+        Multiplicative calibration of the sky in the data, see `JwstResponse`.
     """
 
     if not isinstance(psf, jft.Model):
@@ -161,6 +175,7 @@ def build_jwst_response(
         integrate=integrate,
         zero_flux_model=zero_flux_model,
         mask=mask,
+        calibration_model=calibration_model,
     )
 
 
@@ -244,6 +259,12 @@ class TargetResponseInput:
     psf_model : jft.Model | None
         Replaces the static kernel `target_data.psf` if given. Called as
         `psf_model((sky, params))`, see `build_jwst_response`.
+    calibration_prior : ProbabilityConfig | None
+        Prior of the multiplicative calibration, one factor per exposure, under the
+        key `{filter_name}_target_calibration`. If None, no calibration (factor 1).
+        Per-exposure values need shape `(n_exposures, 1, 1)`, e.g. from
+        `prior_config_factory(..., shape=(n_exposures, 1, 1))`; a normal prior with
+        sigma 0 holds an exposure at its mean.
     """
 
     filter_name: str
@@ -256,6 +277,7 @@ class TargetResponseInput:
     zero_flux_prior_configs: ZeroFluxPriorConfigs
     shift_and_rotation_correction: ShiftAndRotationCorrection | None
     psf_model: jft.Model | None = None
+    calibration_prior: ProbabilityConfig | None = None
 
 
 def build_target_response(
@@ -298,10 +320,16 @@ def build_target_response(
             input_config.filter_name
         )
     )
+    exposures_shape = (input_config.target_data.data.shape[0], 1, 1)
     zero_flux_model = build_zero_flux_model(
         f"{input_config.filter_name}_target",
         zero_flux_prior_config,
-        shape=(input_config.target_data.data.shape[0], 1, 1),
+        shape=exposures_shape,
+    )
+    calibration_model = build_calibration_model(
+        f"{input_config.filter_name}_target",
+        input_config.calibration_prior,
+        shape=exposures_shape,
     )
 
     return build_jwst_response(
@@ -316,4 +344,5 @@ def build_target_response(
         ),
         zero_flux_model=zero_flux_model,
         data_mask=np.array(input_config.target_data.mask),
+        calibration_model=calibration_model,
     )
