@@ -146,6 +146,10 @@ def build_exposure_likelihoods(
     )
     rotation_and_shift = telescope_cfg["rotation_and_shift"]
     algorithm = rotation_and_shift_algorithm_config_factory(rotation_and_shift)
+    # band keys are matched case-insensitively, as in zero_flux and calibration
+    correction_priors = {
+        k.lower(): v for k, v in rotation_and_shift["correction_priors"].items()
+    }
     zero_flux = ZeroFluxPriorConfigs.from_yaml_dict(telescope_cfg.get("zero_flux"))
     # same layout as zero_flux: a default and per-band priors
     calibration = ZeroFluxPriorConfigs.from_yaml_dict(telescope_cfg.get("calibration"))
@@ -156,8 +160,8 @@ def build_exposure_likelihoods(
         target_data, psf_model = _with_psf(e)
         correction = ShiftAndRotationCorrection(
             domain_key=e.band,
-            correction_prior=FilterAlignment(e.band).load_correction_prior(
-                rotation_and_shift["correction_priors"], number_of_observations=1
+            correction_prior=FilterAlignment(e.band.lower()).load_correction_prior(
+                correction_priors, number_of_observations=1
             ),
             rotation_center=None,  # unused by the shift-only correction
         )

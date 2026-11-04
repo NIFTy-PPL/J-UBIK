@@ -81,9 +81,9 @@ def test_sigma_and_detector_noise_evaluate_jit_and_differentiate(tmp_path):
     assert isinstance(second, ShotNoiseGaussianLikelihoodBuilder)
     bands = products.sky_filter.bands
     assert bands["keck_nirc2_Kp_a"] is bands["keck_nirc2_Kp_b"]
-    np.testing.assert_allclose(
-        products.likelihoods[0].builder.response.psf.kernel[0].sum(), 1.0
-    )
+    kernel = products.likelihoods[0].builder.response.psf.kernel
+    assert kernel.shape == (1, 5, 5)  # the empirical kernel, not the placeholder
+    np.testing.assert_allclose(kernel.sum(), 1.0)
 
     likelihood = products.likelihood
     x = jft.random_like(jax.random.PRNGKey(0), likelihood.domain)

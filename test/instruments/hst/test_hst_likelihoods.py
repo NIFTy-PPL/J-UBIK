@@ -1,6 +1,7 @@
 """build_hst_likelihoods and the shared per-exposure builder on the synthetic
 NICMOS and WFPC2 files of the loader tests."""
 
+from copy import deepcopy
 from dataclasses import replace
 
 import jax
@@ -242,3 +243,23 @@ def test_another_throughput_for_one_filter_raises(tmp_path):
     grid = _grid(a["path"])
     with pytest.raises(ValueError, match="another throughput"):
         build_hst_likelihoods(_config(tmp_path, [a, b]), grid, _sky_domain(grid))
+
+
+def test_per_band_shift_prior_matches_any_case(tmp_path):
+    exposure, grid = _exposure(tmp_path)
+    values = []
+    for key in (None, exposure.band, exposure.band.lower()):
+        telescope = deepcopy(TELESCOPE)
+        priors = telescope["rotation_and_shift"]["correction_priors"]
+        if key is not None:  # an offset fixed by sigma 0
+            priors[key] = {
+                "rotation": ["delta", 0.0, 0.1],
+                "shift": ["normal", 0.05, 0.0],
+            }
+        products = build_exposure_likelihoods(
+            [exposure], grid, _sky_domain(grid), telescope
+        )
+        x = jft.random_like(jax.random.PRNGKey(5), products.likelihood.domain)
+        values.append(float(products.likelihood(x)))
+    default, exact, lower = values
+    assert exact == lower != default
