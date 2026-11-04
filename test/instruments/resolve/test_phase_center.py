@@ -131,7 +131,8 @@ def build_response_setup(npix=64, fov_deg=1.0, freqs=(1.0e9, 1.5e9), n_rows=6):
     """Grid + w == 0 observation + ducc/finufft responses of jubik's resolve."""
     freqs = np.array(freqs)
     pol_type = ju.polarization.PolarizationType(("LL", "RR"))
-    obs = generate_random_obs(freqs, n_rows, [-3.0e3, 3.0e3], [0.0, 0.0], pol_type)
+    # Within the Nyquist frequency of the default grid, 366 m at 1.5 GHz.
+    obs = generate_random_obs(freqs, n_rows, [-3.0e2, 3.0e2], [0.0, 0.0], pol_type)
 
     # A NaN sky center makes `calculate_phase_offset_to_image_center` return
     # (0, 0), i.e. the response does not apply a phase shift of its own.
