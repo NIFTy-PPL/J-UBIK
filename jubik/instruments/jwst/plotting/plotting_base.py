@@ -289,8 +289,7 @@ def _get_data_model_and_chi2(
             for dd, mo, mm, ss in zip(data, model, mask, sigma)
         ]
 
-    model_mean = np.zeros_like(data)
-    sigma_mean = np.zeros_like(data) if std is None else None
+    model_mean = sigma_mean = None
     redchis = []
     for x, sky in zip(positions, skies):
         prediction = data_model(x if sky is None else sky | x)
@@ -299,14 +298,23 @@ def _get_data_model_and_chi2(
             prediction, inverse_std = prediction
             sigma = np.zeros_like(data)
             sigma[mask] = 1 / np.asarray(inverse_std)
-            sigma_mean += sigma
+            del inverse_std
         model = np.zeros_like(data)
         model[mask] = prediction
-        model_mean += model
+        del prediction
         redchis.append(redchi(model, sigma))
+        # the first sample is the running sum, so one position allocates once
+        if model_mean is None:
+            model_mean, sigma_mean = model, sigma
+        else:
+            model_mean += model
+            if std is None:
+                sigma_mean += sigma
+        del model, sigma
     model_mean /= len(redchis)
     if std is None:
-        std = sigma_mean / len(redchis)
+        std = sigma_mean
+        std /= len(redchis)
 
     if sampled:
         redchi_mean, redchi_std = jft.mean_and_std(redchis)

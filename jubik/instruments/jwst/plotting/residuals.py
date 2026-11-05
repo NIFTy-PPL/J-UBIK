@@ -191,8 +191,9 @@ class SkyResiduals:
         position_or_samples: Union[dict, jft.Samples],
         state_or_none: jft.OptimizeVIState | None = None,
     ) -> None:
-        """Plot one row per band, in pages of at most `MAX_PANELS_PER_PAGE`
-        panels: `{nit:02d}.png`, or `{nit:02d}_{page:02d}.png` for several."""
+        """Plot one row per band, in pages of `MAX_PANELS_PER_PAGE // columns`
+        rows (at least one): `{nit:02d}.png`, or `{nit:02d}_{page:02d}.png` for
+        several."""
         jft.logger.info(f"Results: {self.residual_directory}")
         jft.logger.info("Plotting residuals")
 
@@ -252,9 +253,10 @@ class SkyResiduals:
                 )
 
             for filter_key in self.residual_plotting_info.filter:
-                if filter_key not in page_bands:
-                    continue
+                # raises for a band the sky filter does not have
                 ypos = _determine_ypos(filter_key, self.sky_filter) - first
+                if not 0 <= ypos < ylen:
+                    continue
                 self._plot_row(
                     axes[ypos],
                     ims[ypos],

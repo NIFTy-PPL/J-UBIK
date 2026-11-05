@@ -30,6 +30,7 @@ from jubik.instruments.jwst.likelihood.likelihood import (
 from jubik.instruments.jwst.plotting import residuals as residual_plots
 from jubik.instruments.jwst.plotting.residuals import SkyResiduals
 from jubik.instruments.jwst.psf.psf_operator import PsfGaussianBroadening
+from jubik.sky_filter import SkyFilter
 from jubik.wcs import WcsAstropy
 from test_hst_data import CURVE, NIC2_SCALE, SHAPE, SPECTRAL, _grid, _nicmos, _wfpc2
 
@@ -434,3 +435,15 @@ def test_residual_pages_bound_the_figure(tmp_path, monkeypatch):
     assert pages == ["04_00.png", "04_01.png"]
     for page in pages:
         assert matplotlib.image.imread(tmp_path / page).shape[:2] == (900, 3600)
+
+
+def test_residual_band_missing_from_the_sky_filter_raises(tmp_path):
+    _, products, plots, _ = _two_band_residuals(tmp_path)
+    first = next(iter(products.sky_filter.bands))
+    plots.sky_filter = SkyFilter(
+        products.sky_filter.grid, {first: products.sky_filter.bands[first]}
+    )
+    x = jft.random_like(jax.random.PRNGKey(10), products.likelihood.domain)
+    x = x.tree if isinstance(x, jft.Vector) else x
+    with pytest.raises(ValueError, match="not in list"):
+        plots(x, SimpleNamespace(nit=5))
