@@ -1,7 +1,8 @@
 import numpy as np
 from nifty.re import logger
 
-from ...parse.data.data_modify.flagging import FlagWeights
+from ...constants import SPEEDOFLIGHT
+from ...parse.data.data_modify.flagging import FlagUV, FlagWeights
 from ..observation import Observation
 
 
@@ -105,3 +106,23 @@ def flag_weights(obs: Observation, setting: FlagWeights | None) -> Observation:
         obs.freq,
         auxiliary_tables=obs._auxiliary_tables,
     )
+
+
+def flag_uv(obs: Observation, setting: FlagUV | None) -> Observation:
+    """Remove the rows with ``|u|`` or ``|v|`` above `setting.max`
+    wavelengths at the highest frequency of `obs`."""
+    if setting is None:
+        return obs
+
+    longest = np.abs(obs.uvw[:, :2]).max(axis=1) * obs.freq.max() / SPEEDOFLIGHT
+    keep = longest <= setting.max
+    if not keep.any():
+        raise ValueError(
+            "Flagging the uv coverage would remove all rows of the observation. "
+            f"Please adapt the uv bound ({setting.max})."
+        )
+    logger.info(
+        f"Flag uv beyond {setting.max:.4g} wavelengths, "
+        f"{(~keep).sum()}/{obs.nrow} rows removed."
+    )
+    return obs[keep]

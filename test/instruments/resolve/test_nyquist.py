@@ -8,6 +8,14 @@ from numpy.testing import assert_allclose
 import jubik as ju
 import jubik.instruments.resolve as rve
 from jubik.instruments.resolve.constants import SPEEDOFLIGHT
+from jubik.instruments.resolve.data.data_modify.pipeline import (
+    build_observation_modify,
+    modify_observation,
+)
+from jubik.instruments.resolve.parse.data import DataLoading
+from jubik.instruments.resolve.parse.data.data_modify.pipeline import (
+    ObservationModifyConfig,
+)
 
 from generate_test_obs import generate_random_obs
 
@@ -115,3 +123,29 @@ def test_within_nyquist_the_response_is_the_analytic_visibility():
     uv = obs.uvw[:, :2] * FREQ / SPEEDOFLIGHT
     expected = np.exp(-2 * np.pi**2 * sigma**2 * (uv**2).sum(axis=1))
     assert_allclose(np.asarray(response(sky))[0, :, 0], expected, atol=1e-8)
+
+
+def modify_of(cfg):
+    """The `ObservationModify` of the one file of a data block `cfg`."""
+    data_cfg = {"data_path": "/data", "data_templates": ["a.npz"]} | cfg
+    (file,) = DataLoading.from_yaml_dict(data_cfg).data_files
+    return build_observation_modify(
+        ObservationModifyConfig.from_yaml_dict(data_cfg), file
+    )
+
+
+def test_flag_uv_in_the_pipeline_cuts_at_the_final_frequencies():
+    # 200 m is 667 wavelengths at 1 GHz and 1334 at 2 GHz. With the 2 GHz
+    # channel removed by `spectral`, the row is within the cut of 900 and the
+    # Nyquist frequency 916, and stays. A cut before the spectral restriction
+    # would remove it.
+    obs = observation((FREQ, 2 * FREQ), long_row=(0, 200))
+    sky = ju.Color([0.5e9, 2.5e9] * u.Hz)
+    cfg = {"flag_uv": {"max": 900}}
+    restricted = {"spectral": {"min": 0.5 * FREQ, "max": 1.5 * FREQ}} | cfg
+
+    assert modify_observation(sky, obs, modify_of(cfg)).nrow == 19
+    new = modify_observation(sky, obs, modify_of(restricted))
+
+    assert new.nrow == 20 and new.freq.tolist() == [FREQ]
+    rve.interferometry_response(new, grid(), SETTINGS)
