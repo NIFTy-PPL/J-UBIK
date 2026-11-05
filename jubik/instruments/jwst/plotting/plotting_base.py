@@ -257,7 +257,7 @@ def _get_data_model_and_chi2(
     With ``std`` None, ``data_model`` returns (prediction, inverse std), as
     `ShotNoiseGaussianLikelihoodBuilder.model` does: each sample's chi² uses
     its own σ and the returned σ is their mean. Each sample is evaluated once
-    and summed, so no per-sample image is kept.
+    and summed over the unmasked pixels, so no per-sample image is kept.
     """
     if isinstance(std, float):
         std = np.full_like(data, std)
@@ -284,42 +284,42 @@ def _get_data_model_and_chi2(
                 (sky_or_skies,) = sky_or_skies
         positions, skies = [tree(position_or_samples)], [sky_or_skies]
 
-    def redchi(model, sigma):
-        if len(mask.shape) == 2:
-            return redchi2(data[mask], model[mask], sigma[mask], data[mask].size)
-        return [
-            redchi2(dd[mm], mo[mm], ss[mm], dd[mm].size)
-            for dd, mo, mm, ss in zip(data, model, mask, sigma)
-        ]
+    # per-exposure slices of the unmasked pixels, in data[mask] order
+    splits = np.cumsum(mask.reshape(len(mask), -1).sum(1))[:-1]
 
-    model_mean = sigma_mean = None
+    def redchi(model, sigma):  # on the unmasked pixels
+        if len(mask.shape) == 2:
+            return redchi2(data[mask], model, sigma, model.size)
+        parts = (np.split(v, splits) for v in (data[mask], model, sigma))
+        return [redchi2(dd, mo, ss, dd.size) for dd, mo, ss in zip(*parts)]
+
+    # sums over the unmasked pixels only; the images are built once at the end
+    model_sum = sigma_sum = None
     redchis = []
     for x, sky in zip(positions, skies):
         prediction = data_model(x if sky is None else sky | x)
-        sigma = std
         if std is None:
             prediction, inverse_std = prediction
-        model = np.zeros_like(data)
-        model[mask] = prediction
-        del prediction
-        if std is None:
-            sigma = np.zeros_like(data)
-            sigma[mask] = inverse_std
+            sigma = np.reciprocal(np.asarray(inverse_std, data.dtype))
             del inverse_std
-            np.reciprocal(sigma, out=sigma, where=mask)
-        redchis.append(redchi(model, sigma))
-        # the first sample is the running sum, so one position allocates once
-        if model_mean is None:
-            model_mean, sigma_mean = model, sigma
         else:
-            model_mean += model
+            sigma = std[mask]
+        prediction = np.asarray(prediction, data.dtype)
+        redchis.append(redchi(prediction, sigma))
+        if model_sum is None:
+            model_sum, sigma_sum = np.array(prediction), sigma
+        else:
+            model_sum += prediction
             if std is None:
-                sigma_mean += sigma
-        del model, sigma
-    model_mean /= len(redchis)
+                sigma_sum += sigma
+        del prediction, sigma
+    model_mean = np.zeros_like(data)
+    model_mean[mask] = model_sum / len(redchis)
+    del model_sum
     if std is None:
-        std = sigma_mean
-        std /= len(redchis)
+        std = np.zeros_like(data)
+        std[mask] = sigma_sum / len(redchis)
+    del sigma_sum
 
     if sampled:
         redchi_mean, redchi_std = jft.mean_and_std(redchis)
