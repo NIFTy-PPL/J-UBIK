@@ -1,6 +1,8 @@
 """build_hst_likelihoods and the shared per-exposure builder on the synthetic
 NICMOS and WFPC2 files of the loader tests."""
 
+import gc
+import weakref
 from copy import deepcopy
 from dataclasses import replace
 from types import SimpleNamespace
@@ -360,9 +362,9 @@ def _evaluated(x):
     return not isinstance(jax.tree.leaves(x)[0], jax.core.Tracer)
 
 
-def _two_band_residuals(tmp_path):
+def _two_band_residuals(tmp_path, ids="nm"):
     exposure, grid = _exposure(tmp_path)
-    exposures = [exposure, replace(exposure, exposure="m")]
+    exposures = [replace(exposure, exposure=i) for i in ids]
     products = build_exposure_likelihoods(exposures, grid, _sky_domain(grid), TELESCOPE)
     calls = {"sky": 0}
 
@@ -523,3 +525,26 @@ def test_residuals_use_the_fixed_or_variable_sigma(tmp_path, variable):
     np.testing.assert_allclose(
         plots.residuals(samples)[band][mask], expected, rtol=1e-10
     )
+
+
+def test_residual_pages_are_freed_page_by_page(tmp_path, monkeypatch):
+    _, products, plots, _ = _two_band_residuals(tmp_path, ids="nmo")
+    x = jft.random_like(jax.random.PRNGKey(13), products.likelihood.domain)
+    x = x.tree if isinstance(x, jft.Vector) else x
+    monkeypatch.setattr(residual_plots, "MAX_PANELS_PER_PAGE", 4)  # one row
+    pages, subplots = [], residual_plots.plt.subplots
+
+    def spy(*args, **kwargs):
+        # only the page just saved may still be referenced by the loop
+        assert sum(page() is not None for page in pages) <= 1
+        fig, axes = subplots(*args, **kwargs)
+        pages.append(weakref.ref(fig))
+        return fig, axes
+
+    monkeypatch.setattr(residual_plots.plt, "subplots", spy)
+    gc.disable()  # a page freed only by a later collection would stay alive
+    try:
+        plots(x, SimpleNamespace(nit=6))
+    finally:
+        gc.enable()
+    assert len(pages) == 3

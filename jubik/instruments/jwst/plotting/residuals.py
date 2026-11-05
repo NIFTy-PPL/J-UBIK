@@ -1,3 +1,4 @@
+import gc
 import re
 from collections import namedtuple
 from dataclasses import asdict, dataclass, field
@@ -265,7 +266,6 @@ class SkyResiduals:
                     position_or_samples,
                     sky_or_skies,
                     overplot_model_sky,
-                    xlen,
                 )
 
             for ax, im in zip(axes.flatten(), ims.flatten()):
@@ -281,6 +281,8 @@ class SkyResiduals:
                     name += f"_{page:02d}"
                 fig.savefig(join(self.residual_directory, f"{name}.png"), dpi=300)
                 plt.close(fig)
+                # a closed figure is a reference cycle that keeps its canvas
+                gc.collect()
 
     def _plot_row(
         self,
@@ -290,7 +292,6 @@ class SkyResiduals:
         position_or_samples,
         sky_or_skies,
         overplot_model_sky,
-        xlen,
     ):
         filter_data = self.residual_plotting_info.get_filter(filter_key)
         data, std, mask, builder = (
@@ -337,7 +338,7 @@ class SkyResiduals:
         for xpos_residual, (data_i, model_i, std_i) in enumerate(
             zip(data[1:], model_mean[1:], std[1:]), start=4
         ):
-            if xpos_residual > xlen - 1:
+            if xpos_residual > len(axes) - 1:
                 continue
 
             if self.residual_plotting_config.residual_over_std:
