@@ -28,6 +28,9 @@ from .plotting_base import (
     plot_data_data_model_residuals,
 )
 
+# 32 panels of 3 in at 300 dpi are 32 * 900**2 * 4 B, about 104 MB of RGBA
+MAX_PANELS_PER_PAGE = 32
+
 # Define the namedtuple
 FilterData = namedtuple("FilterData", ["data", "std", "mask", "builder", "meta"])
 
@@ -130,35 +133,32 @@ class SkyResiduals:
         default_factory=ResidualPlottingConfig
     )
 
-    def _likelihood_std(self, position_or_samples, builder, std, mask) -> NDArray:
-        """The σ the likelihood uses: `std` for a fixed-σ Gaussian, else the
-        (sample-mean) σ of the variable covariance or shot-noise model."""
+    def _data_model_and_std(self, position_or_samples, builder, std, mask):
+        """The data model and the σ the likelihood uses: `std` for a fixed-σ
+        Gaussian, the sample-mean σ of a variable covariance, or None for the
+        shot noise, whose model returns σ with the prediction."""
         if isinstance(builder, ShotNoiseGaussianLikelihoodBuilder):
-            model = builder.model()
-
-            def inverse_std(x):
-                x = x.tree if isinstance(x, jft.Vector) else x
-                return model(self.sky_filter(self.sky_model(x)) | x)[1]
-
-        elif hasattr(builder, "inverse_std_builder"):
+            return builder.model(), None
+        if hasattr(builder, "inverse_std_builder"):
+            # TODO : THIS is not quite correct since res**2/std**2 is not linear in std
             inverse_std = builder.inverse_std_builder.build(std=std, mask=mask)
-        else:
-            return std
-        # TODO : THIS is not quite correct since res**2/std**2 is not linear in std
-        std_new = np.zeros(std.shape)
-        std_new[mask] = _get_std_from_inversestdmodel(position_or_samples, inverse_std)
-        return std_new
+            std = np.zeros(std.shape)
+            std[mask] = _get_std_from_inversestdmodel(position_or_samples, inverse_std)
+        return builder.response, std
 
-    def residuals(
-        self, position_or_samples: Union[dict, jft.Samples]
-    ) -> dict[str, NDArray]:
-        sky_or_skies = _get_model_samples_or_position(
+    def _sky_or_skies(self, position_or_samples):
+        return _get_model_samples_or_position(
             position_or_samples,
             jft.Model(
                 lambda x: self.sky_filter(self.sky_model(x)),
                 domain=self.sky_model.domain,
             ),
         )
+
+    def residuals(
+        self, position_or_samples: Union[dict, jft.Samples]
+    ) -> dict[str, NDArray]:
+        sky_or_skies = self._sky_or_skies(position_or_samples)
 
         residuals = dict()
         for filter_key in self.residual_plotting_info.filter:
@@ -169,11 +169,13 @@ class SkyResiduals:
                 filter_data.mask,
                 filter_data.builder,
             )
-            std = self._likelihood_std(position_or_samples, builder, std, mask)
-            model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
+            data_model, std = self._data_model_and_std(
+                position_or_samples, builder, std, mask
+            )
+            model_mean, std, _ = _get_data_model_and_chi2(
                 position_or_samples,
                 sky_or_skies,
-                data_model=builder.response,
+                data_model=data_model,
                 data=data,
                 mask=mask,
                 std=std,
@@ -189,29 +191,21 @@ class SkyResiduals:
         position_or_samples: Union[dict, jft.Samples],
         state_or_none: jft.OptimizeVIState | None = None,
     ) -> None:
+        """Plot one row per band, in pages of at most `MAX_PANELS_PER_PAGE`
+        panels: `{nit:02d}.png`, or `{nit:02d}_{page:02d}.png` for several."""
         jft.logger.info(f"Results: {self.residual_directory}")
         jft.logger.info("Plotting residuals")
 
         xmax_residuals = self.residual_plotting_config.xmax_residuals
 
-        ylen = len(self.sky_filter.target)
         xlen = 3 + _determine_xlen_residuals(
             self.residual_plotting_info, xmax_residuals
         )
+        bands = list(self.sky_filter.bands)
+        rows = max(1, MAX_PANELS_PER_PAGE // xlen)
+        n_pages = -(-len(bands) // rows)
 
-        fig, axes = plt.subplots(ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300)
-        ims = np.zeros_like(axes)
-        if ylen == 1:
-            ims = ims[None]
-            axes = axes[None]
-
-        sky_or_skies = _get_model_samples_or_position(
-            position_or_samples,
-            jft.Model(
-                lambda x: self.sky_filter(self.sky_model(x)),
-                domain=self.sky_model.domain,
-            ),
-        )
+        sky_or_skies = self._sky_or_skies(position_or_samples)
 
         if isinstance(position_or_samples, jft.Samples):
             sky = jft.mean(sky_or_skies)
@@ -227,17 +221,6 @@ class SkyResiduals:
             ),
         )
 
-        for filter_name in self.sky_filter.bands:
-            ypos = _determine_ypos(filter_name, self.sky_filter)
-            axes[ypos, 0].set_title(f"Sky {filter_name}")
-            ims[ypos, 0] = axes[ypos, 0].imshow(
-                sky[filter_name],
-                norm=self.residual_plotting_config.sky.norm,
-                vmax=sky_max,
-                vmin=sky_min,
-                **self.residual_plotting_config.sky.rendering,
-            )
-
         overplot_model_sky = (
             None
             if self.residual_plotting_config.residual_overplot is None
@@ -247,103 +230,146 @@ class SkyResiduals:
             )
         )
 
-        for filter_key in self.residual_plotting_info.filter:
-            ypos = _determine_ypos(filter_key, self.sky_filter)
+        for page in range(n_pages):
+            first = page * rows
+            page_bands = bands[first : first + rows]
+            ylen = len(page_bands)
+            fig, axes = plt.subplots(ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300)
+            ims = np.zeros_like(axes)
+            if ylen == 1:
+                ims = ims[None]
+                axes = axes[None]
 
-            filter_data = self.residual_plotting_info.get_filter(filter_key)
-            data, std, mask, builder = (
-                filter_data.data,
-                filter_data.std,
-                filter_data.mask,
-                filter_data.builder,
-            )
+            for filter_name in page_bands:
+                ypos = _determine_ypos(filter_name, self.sky_filter) - first
+                axes[ypos, 0].set_title(f"Sky {filter_name}")
+                ims[ypos, 0] = axes[ypos, 0].imshow(
+                    sky[filter_name],
+                    norm=self.residual_plotting_config.sky.norm,
+                    vmax=sky_max,
+                    vmin=sky_min,
+                    **self.residual_plotting_config.sky.rendering,
+                )
 
-            std = self._likelihood_std(position_or_samples, builder, std, mask)
-
-            model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
-                position_or_samples,
-                sky_or_skies,
-                data_model=builder.response,
-                data=data,
-                mask=mask,
-                std=std,
-            )
-            chis: list[str] = [
-                "\n".join((f"redChi2: {mean:.2f} +/- {std:.2f}",))
-                for mean, std in zip(redchi_mean, redchi_std)
-            ]
-            model_mean[~mask] = np.nan
-
-            if len(data.shape) == 2:
-                data = [data]
-                std = [std]
-
-            ims[ypos, 1:] = plot_data_data_model_residuals(
-                ims[ypos, 1:],
-                axes[ypos, 1:],
-                data_key=filter_key,
-                data=data[0],
-                data_model=model_mean[0],
-                std=std[0],
-                residual_over_std=self.residual_plotting_config.residual_over_std,
-                residual_config=self.residual_plotting_config.residual,
-                plotting_config=self.residual_plotting_config.data,
-            )
-            display_text(axes[ypos, 3], chis[0])
-
-            for xpos_residual, (data_i, model_i, std_i) in enumerate(
-                zip(data[1:], model_mean[1:], std[1:]), start=4
-            ):
-                if xpos_residual > xlen - 1:
+            for filter_key in self.residual_plotting_info.filter:
+                if filter_key not in page_bands:
                     continue
-
-                if self.residual_plotting_config.residual_over_std:
-                    axes[ypos, xpos_residual].set_title("(Data - Data model) / std")
-                else:
-                    axes[ypos, xpos_residual].set_title("Data - Data model")
-                    std = 1.0
-
-                ims[ypos, xpos_residual] = axes[ypos, xpos_residual].imshow(
-                    (data_i - model_i) / std_i,
-                    **asdict(self.residual_plotting_config.residual),
-                    **self.residual_plotting_config.residual.rendering,
+                ypos = _determine_ypos(filter_key, self.sky_filter) - first
+                self._plot_row(
+                    axes[ypos],
+                    ims[ypos],
+                    filter_key,
+                    position_or_samples,
+                    sky_or_skies,
+                    overplot_model_sky,
+                    xlen,
                 )
-                display_text(axes[ypos, xpos_residual], chis[xpos_residual - 3])
 
-            if self.residual_plotting_config.residual_overplot is not None:
-                overplot_mean, *_ = (
-                    (model_mean, None)
-                    if overplot_model_sky is None
-                    else _get_data_model_and_chi2(
-                        position_or_samples,
-                        overplot_model_sky,
-                        data_model=builder.response,
-                        data=data,
-                        mask=mask,
-                        std=std,
-                    )
-                )
-                overplot_mean[~mask] = np.nan
-                for ax, mm in zip(axes[ypos, 3:], overplot_mean):
-                    ax.contour(
-                        mm / np.nanmax(mm),
-                        levels=self.residual_plotting_config.residual_overplot.max_percent_contours,
-                        **self.residual_plotting_config.residual_overplot.contour_settings,
-                    )
+            for ax, im in zip(axes.flatten(), ims.flatten()):
+                if not isinstance(im, int):
+                    fig.colorbar(im, ax=ax, shrink=0.7)
+            fig.tight_layout()
 
-        for ax, im in zip(axes.flatten(), ims.flatten()):
-            if not isinstance(im, int):
-                fig.colorbar(im, ax=ax, shrink=0.7)
-        fig.tight_layout()
+            if state_or_none is None:
+                plt.show()
+            else:
+                name = f"{state_or_none.nit:02d}"
+                if n_pages > 1:
+                    name += f"_{page:02d}"
+                fig.savefig(join(self.residual_directory, f"{name}.png"), dpi=300)
+                plt.close(fig)
 
-        if state_or_none is None:
-            plt.show()
-        else:
-            fig.savefig(
-                join(self.residual_directory, f"{state_or_none.nit:02d}.png"),
-                dpi=300,
+    def _plot_row(
+        self,
+        axes,
+        ims,
+        filter_key,
+        position_or_samples,
+        sky_or_skies,
+        overplot_model_sky,
+        xlen,
+    ):
+        filter_data = self.residual_plotting_info.get_filter(filter_key)
+        data, std, mask, builder = (
+            filter_data.data,
+            filter_data.std,
+            filter_data.mask,
+            filter_data.builder,
+        )
+
+        data_model, std = self._data_model_and_std(
+            position_or_samples, builder, std, mask
+        )
+        model_mean, std, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
+            position_or_samples,
+            sky_or_skies,
+            data_model=data_model,
+            data=data,
+            mask=mask,
+            std=std,
+        )
+        chis: list[str] = [
+            "\n".join((f"redChi2: {mean:.2f} +/- {std:.2f}",))
+            for mean, std in zip(redchi_mean, redchi_std)
+        ]
+        model_mean[~mask] = np.nan
+
+        if len(data.shape) == 2:
+            data = [data]
+            std = [std]
+
+        ims[1:] = plot_data_data_model_residuals(
+            ims[1:],
+            axes[1:],
+            data_key=filter_key,
+            data=data[0],
+            data_model=model_mean[0],
+            std=std[0],
+            residual_over_std=self.residual_plotting_config.residual_over_std,
+            residual_config=self.residual_plotting_config.residual,
+            plotting_config=self.residual_plotting_config.data,
+        )
+        display_text(axes[3], chis[0])
+
+        for xpos_residual, (data_i, model_i, std_i) in enumerate(
+            zip(data[1:], model_mean[1:], std[1:]), start=4
+        ):
+            if xpos_residual > xlen - 1:
+                continue
+
+            if self.residual_plotting_config.residual_over_std:
+                axes[xpos_residual].set_title("(Data - Data model) / std")
+            else:
+                axes[xpos_residual].set_title("Data - Data model")
+                std = 1.0
+
+            ims[xpos_residual] = axes[xpos_residual].imshow(
+                (data_i - model_i) / std_i,
+                **asdict(self.residual_plotting_config.residual),
+                **self.residual_plotting_config.residual.rendering,
             )
-            plt.close()
+            display_text(axes[xpos_residual], chis[xpos_residual - 3])
+
+        if self.residual_plotting_config.residual_overplot is not None:
+            overplot_mean, *_ = (
+                (model_mean, None)
+                if overplot_model_sky is None
+                else _get_data_model_and_chi2(
+                    position_or_samples,
+                    overplot_model_sky,
+                    data_model=builder.response,
+                    data=data,
+                    mask=mask,
+                    std=std,
+                )
+            )
+            overplot_mean[~mask] = np.nan
+            for ax, mm in zip(axes[3:], overplot_mean):
+                ax.contour(
+                    mm / np.nanmax(mm),
+                    levels=self.residual_plotting_config.residual_overplot.max_percent_contours,
+                    **self.residual_plotting_config.residual_overplot.contour_settings,
+                )
 
 
 def build_plot_sky_residuals(

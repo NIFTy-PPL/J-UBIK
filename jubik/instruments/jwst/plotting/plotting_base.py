@@ -245,67 +245,72 @@ def _get_std_from_inversestdmodel(
 
 def _get_data_model_and_chi2(
     position_or_samples: Union[dict, jft.Samples, jft.Vector],
-    sky_or_skies: np.ndarray | None,
+    sky_or_skies: np.ndarray | dict | None,
     data_model: jft.Model,
     data: np.ndarray,
     mask: np.ndarray,
-    std: Union[np.ndarray, jft.Model],
-) -> tuple[np.ndarray, tuple[tuple[float, float], ...]]:
+    std: np.ndarray | float | None,
+) -> tuple[np.ndarray, np.ndarray, tuple]:
+    """Sample-mean data model, the σ used, and the reduced chi² (per exposure
+    for 3-D data) with its mean and std over the samples.
+
+    With ``std`` None, ``data_model`` returns (prediction, inverse std), as
+    `ShotNoiseGaussianLikelihoodBuilder.model` does: each sample's chi² uses
+    its own σ and the returned σ is their mean. Each sample is evaluated once
+    and summed, so no per-sample image is kept.
+    """
     if isinstance(std, float):
         std = np.full_like(data, std)
 
-    while isinstance(position_or_samples, jft.Vector):
-        position_or_samples = position_or_samples.tree
+    def tree(x):
+        while isinstance(x, jft.Vector):
+            x = x.tree
+        return x
 
-    if isinstance(position_or_samples, jft.Samples) and len(position_or_samples) > 0:
-        model_d = []
-        for ii, si in enumerate(position_or_samples):
-            tmp = np.zeros_like(data)
-            while isinstance(si, jft.Vector):
-                si = si.tree
-            if sky_or_skies is None:
-                tmp[mask] = data_model(si)
-            else:
-                tmp[mask] = data_model(sky_or_skies[ii] | si)
-            model_d.append(tmp)
-
-        model_mean = jft.mean(model_d)
-
-        if len(mask.shape) == 2:
-            redchi_mean, redchi_std = jft.mean_and_std(
-                [
-                    redchi2(data[mask], model[mask], std[mask], data[mask].size)
-                    for model in model_d
-                ]
-            )
-        else:
-            redchi_mean, redchi_std = [], []
-            for ii, (dd, mm, ss) in enumerate(zip(data, mask, std)):
-                rchi_mean, rchi_std = jft.mean_and_std(
-                    [
-                        redchi2(dd[mm], model[ii][mm], ss[mm], dd[mm].size)
-                        for model in model_d
-                    ]
-                )
-                redchi_mean.append(rchi_mean)
-                redchi_std.append(rchi_std)
-
+    position_or_samples = tree(position_or_samples)
+    sampled = (
+        isinstance(position_or_samples, jft.Samples) and len(position_or_samples) > 0
+    )
+    if sampled:
+        positions = (tree(si) for si in position_or_samples)
+        skies = (
+            [None] * len(position_or_samples) if sky_or_skies is None else sky_or_skies
+        )
     else:
         if isinstance(position_or_samples, jft.Samples):
             position_or_samples = position_or_samples.pos
+        positions, skies = [tree(position_or_samples)], [sky_or_skies]
 
-        model_d = np.zeros_like(data)
-        if sky_or_skies is not None:
-            position_or_samples = position_or_samples | sky_or_skies
-        model_d[mask] = data_model(position_or_samples)
+    def redchi(model, sigma):
         if len(mask.shape) == 2:
-            redchi_mean = redchi2(data[mask], model_d[mask], std[mask], data[mask].size)
-        else:
-            redchi_mean = []
-            for ii, (dd, mo, mm, ss) in enumerate(zip(data, model_d, mask, std)):
-                redchi_mean.append(redchi2(dd[mm], mo[mm], ss[mm], dd[mm].size))
+            return redchi2(data[mask], model[mask], sigma[mask], data[mask].size)
+        return [
+            redchi2(dd[mm], mo[mm], ss[mm], dd[mm].size)
+            for dd, mo, mm, ss in zip(data, model, mask, sigma)
+        ]
 
+    model_mean = np.zeros_like(data)
+    sigma_mean = np.zeros_like(data) if std is None else None
+    redchis = []
+    for x, sky in zip(positions, skies):
+        prediction = data_model(x if sky is None else sky | x)
+        sigma = std
+        if std is None:
+            prediction, inverse_std = prediction
+            sigma = np.zeros_like(data)
+            sigma[mask] = 1 / np.asarray(inverse_std)
+            sigma_mean += sigma
+        model = np.zeros_like(data)
+        model[mask] = prediction
+        model_mean += model
+        redchis.append(redchi(model, sigma))
+    model_mean /= len(redchis)
+    if std is None:
+        std = sigma_mean / len(redchis)
+
+    if sampled:
+        redchi_mean, redchi_std = jft.mean_and_std(redchis)
+    else:
+        redchi_mean = redchis[0]
         redchi_std = np.full_like(redchi_mean, 0)
-        model_mean = model_d
-
-    return np.array(model_mean), (redchi_mean, redchi_std)
+    return model_mean, std, (redchi_mean, redchi_std)

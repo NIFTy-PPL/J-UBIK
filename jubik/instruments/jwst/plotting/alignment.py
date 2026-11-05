@@ -115,7 +115,7 @@ def build_plot_filter_alignment(
         for ypos, star_id in enumerate(filter_alignment_data.star_id):
             data, std, mask, model, subsample = filter_alignment_data.get_star(star_id)
 
-            model_mean, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
+            model_mean, _, (redchi_mean, redchi_std) = _get_data_model_and_chi2(
                 position_or_samples=position_or_samples,
                 sky_or_skies=None,
                 data_model=model,
