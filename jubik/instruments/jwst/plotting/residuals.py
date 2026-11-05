@@ -181,6 +181,7 @@ class SkyResiduals:
                 mask=mask,
                 std=std,
             )
+            del data_model  # a shot-noise model holds a, b and sky
             model_mean[~mask] = np.nan
 
             residuals[filter_key] = (data - model_mean) / std

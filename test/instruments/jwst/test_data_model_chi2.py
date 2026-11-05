@@ -111,10 +111,11 @@ def test_single_position(position, sky):
     np.testing.assert_array_equal(chi_std, 0)
 
 
-@pytest.mark.parametrize("samples, limit", [(1, 2.1), (2, 3.1)])
+@pytest.mark.parametrize("samples, limit", [(1, 2.1), (4, 4.0)])
 def test_peak_memory_of_a_stacked_band(samples, limit):
     """A JWST-like band of 4 exposures with a fixed σ: the numpy peak, in units
-    of the data array, stays below the old per-sample images (2.26 and 5.27)."""
+    of the data array, stays below the old per-sample images (2.26 at one
+    position, 8.33 at four samples)."""
     data = np.zeros((4, 200, 200))
     mask = np.random.default_rng(1).random(data.shape) < 0.98
     std, n = np.ones(data.shape), int(mask.sum())
