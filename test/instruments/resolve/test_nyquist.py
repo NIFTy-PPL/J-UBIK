@@ -10,12 +10,17 @@ from numpy.testing import assert_allclose
 import jubik as ju
 import jubik.instruments.resolve as rve
 from jubik.instruments.resolve.constants import SPEEDOFLIGHT
-from jubik.instruments.resolve.data.data_modify.flagging import (
-    restrict_to_nyquist,
-    uv_beyond_nyquist,
+from jubik.instruments.resolve.data.data_modify.flagging import uv_beyond_nyquist
+from jubik.instruments.resolve.data.data_modify.pipeline import (
+    build_observation_modify,
+    modify_observation,
 )
+from jubik.instruments.resolve.parse.data import DataLoading
 from jubik.instruments.resolve.parse.data.data_modify.flagging import (
     BeyondNyquist,
+)
+from jubik.instruments.resolve.parse.data.data_modify.pipeline import (
+    ObservationModifyConfig,
 )
 from nifty.re import logger
 
@@ -60,29 +65,40 @@ def observation_with_one_long_row():
     )
 
 
+def modify_of(cfg):
+    """The `ObservationModify` of the one file of a data block `cfg`."""
+    data_cfg = {"data_path": "/data", "data_templates": ["a.npz"]} | cfg
+    (file,) = DataLoading.from_yaml_dict(data_cfg).data_files
+    return build_observation_modify(
+        ObservationModifyConfig.from_yaml_dict(data_cfg), file
+    )
+
+
 def test_mask_marks_the_long_row():
     mask = uv_beyond_nyquist(observation_with_one_long_row(), grid())
     assert np.flatnonzero(mask).tolist() == [5]
 
 
-def test_raise_and_the_response_guard():
+def test_the_pipeline_raises_by_default_and_the_response_guards():
     obs = observation_with_one_long_row()
     with pytest.raises(ValueError, match="Nyquist"):
-        restrict_to_nyquist(obs, grid(), BeyondNyquist(), "block")
+        modify_observation(grid(), obs, modify_of({}))
     with pytest.raises(ValueError, match="Nyquist"):
         rve.interferometry_response(obs, grid(), rve.parse.FinufftSettings(1e-10))
 
 
-def test_drop_removes_the_row_and_keeps_the_analytic_visibility(caplog):
+def test_the_pipeline_drops_the_row_and_keeps_the_analytic_visibility(caplog):
     obs = observation_with_one_long_row()
     logger.addHandler(caplog.handler)
     try:
         with caplog.at_level(logging.WARNING, logger=logger.name):
-            kept = restrict_to_nyquist(obs, grid(), BeyondNyquist(drop=True), "block")
+            kept = modify_observation(
+                grid(), obs, modify_of({"beyond_nyquist": "drop"})
+            )
     finally:
         logger.removeHandler(caplog.handler)
     assert kept.nrow == obs.nrow - 1
-    assert "dropping 1 of 20 rows" in caplog.text
+    assert "Dropping 1 of 20 rows" in caplog.text
 
     # A normalized gaussian of 2 pixels at the image centre has the
     # visibility exp(-2 pi^2 sigma^2 (u^2 + v^2)).
@@ -106,3 +122,32 @@ def test_beyond_nyquist_parsing():
     assert BeyondNyquist.from_yaml_dict("drop") == BeyondNyquist(drop=True)
     with pytest.raises(ValueError, match="beyond_nyquist"):
         BeyondNyquist.from_yaml_dict("fold")
+
+
+def test_the_pipeline_checks_after_the_frequency_restriction():
+    # The long row is beyond Nyquist only at 2 GHz: 200 m is 667 wavelengths
+    # at 1 GHz, 1334 at 2 GHz, the Nyquist frequency is 916.
+    obs = generate_random_obs(
+        np.array([FREQ, 2 * FREQ]),
+        20,
+        [-100, 100],
+        [0, 0],
+        ju.polarization.PolarizationType(("I",)),
+        rng=np.random.default_rng(7),
+    )
+    uvw = obs.uvw.copy()
+    uvw[5, 1] = -200.0
+    obs = rve.Observation(
+        rve.AntennaPositions(uvw),
+        obs.vis_val,
+        obs.weight_val,
+        obs.legacy_polarization,
+        obs.freq,
+        None,
+    )
+    with pytest.raises(ValueError, match="Nyquist"):
+        modify_observation(grid(), obs, modify_of({}))
+    kept = modify_observation(
+        grid(), obs, modify_of({"spectral": {"min": 0.5 * FREQ, "max": 1.5 * FREQ}})
+    )
+    assert kept.nrow == obs.nrow and kept.freq.tolist() == [FREQ]

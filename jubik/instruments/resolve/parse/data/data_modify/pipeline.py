@@ -20,10 +20,6 @@ class ObservationModifyConfig:
     ----------
     shift: ShiftObservationConfig | None
         Fixed phase-center shift of each data template of the block.
-    beyond_nyquist: BeyondNyquist
-        Raise on or drop the rows beyond the Nyquist frequency of the sky
-        grid. It needs the spatial sky grid, so the likelihood builder applies
-        it with `restrict_to_nyquist` after `modify_observation`.
 
     The other fields are those of `ObservationModify`, which takes them over
     unchanged.

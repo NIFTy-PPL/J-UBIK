@@ -142,7 +142,7 @@ def interferometry_response(
             - dtype             (only cufinufft)
     """
     if uv_beyond_nyquist(observation, sky_grid).any():
-        raise ValueError(nyquist_message(observation, sky_grid, "observation"))
+        raise ValueError(nyquist_message(observation, sky_grid))
 
     n_pol = len(sky_grid.polarization)
 

@@ -133,7 +133,7 @@ def uv_beyond_nyquist(observation: Observation, grid: Grid) -> np.ndarray:
     return weighted & (uv > 1 / (2 * pixel)).any(axis=1)
 
 
-def nyquist_message(observation: Observation, grid: Grid, name: str) -> str:
+def nyquist_message(observation: Observation, grid: Grid) -> str:
     """Describe the longest baseline beyond the Nyquist frequency of `grid`,
     see `uv_beyond_nyquist`; `observation` needs at least one such row."""
     pixel = grid.spatial.pixel_scales_xy.to_value(u.rad)
@@ -145,7 +145,7 @@ def nyquist_message(observation: Observation, grid: Grid, name: str) -> str:
     nyquist = 1 / (2 * pixel[axis])
     needed = (1 / (2 * baseline) * u.rad).to_value(u.mas)
     return (
-        f"{name}: longest |{'uv'[axis]}| baseline {extent[axis] / 1e3:.1f} km = "
+        f"Longest |{'uv'[axis]}| baseline {extent[axis] / 1e3:.1f} km = "
         f"{baseline:.4g} wavelengths exceeds the grid's Nyquist frequency "
         f"{nyquist:.4g} wavelengths ({beyond.sum()} of {observation.nrow} rows); pixel "
         f"{(pixel[axis] * u.rad).to_value(u.mas):.4g} mas, the baseline needs "
@@ -154,7 +154,7 @@ def nyquist_message(observation: Observation, grid: Grid, name: str) -> str:
 
 
 def restrict_to_nyquist(
-    observation: Observation, grid: Grid, setting: BeyondNyquist, name: str
+    observation: Observation, grid: Grid, setting: BeyondNyquist
 ) -> Observation:
     """Apply the `beyond_nyquist` setting of a data block to `observation`.
 
@@ -165,12 +165,12 @@ def restrict_to_nyquist(
     if not beyond.any():
         return observation
     if not setting.drop:
-        raise ValueError(nyquist_message(observation, grid, name))
+        raise ValueError(nyquist_message(observation, grid))
 
     kept = observation[~beyond]
     longest = np.linalg.norm(kept.uvw[:, :2], axis=1).max(initial=0)
     logger.warning(
-        f"{name}: dropping {beyond.sum()} of {observation.nrow} rows "
+        f"Dropping {beyond.sum()} of {observation.nrow} rows "
         f"({beyond.mean():.2%}) beyond the grid's Nyquist frequency, the longest "
         f"kept baseline is {longest / 1e3:.2f} km"
     )

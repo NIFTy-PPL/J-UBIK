@@ -41,7 +41,6 @@ from ..likelihood.mosaic_likelihood import (
     build_likelihood_from_sky_beamer,
 )
 from ..mosaicing.sky_beamer import SkyBeamer, build_sky_beamer
-from ..data.data_modify.flagging import restrict_to_nyquist
 from ..phase_shift import assign_shift_groups, build_phase_shift
 from ..multimessanger import (
     RadioSkyExtractor,
@@ -202,20 +201,11 @@ def build_radio_likelihood(
         dm = ObservationModifyConfig.from_yaml_dict(cfg[data_key][data_name])
         loaded = list(
             load_and_modify_data_from_objects(
-                sky_frequencies=radio_grid.spectral,
+                sky_grid=radio_grid,
                 data_loading=data_loadings[data_name],
                 observation_modify=dm,
             )
         )
-        loaded = [
-            (
-                file,
-                restrict_to_nyquist(
-                    o, radio_grid, dm.beyond_nyquist, f"{data_name} {file.path}"
-                ),
-            )
-            for file, o in loaded
-        ]
         observations = [o for _, o in loaded]
 
         # TODO: The following lines have to be simplified.
