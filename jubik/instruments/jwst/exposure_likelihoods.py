@@ -22,6 +22,7 @@ import numpy as np
 from astropy import units as u
 
 from ...grid import Grid
+from ...parse.models.distributions import DeltaPriorConfig
 from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
 from .data.jwst_data import DataMetaInformation
@@ -187,10 +188,10 @@ def build_exposure_likelihoods(
         correction_prior = FilterAlignment(e.band.lower()).load_correction_prior(
             correction_priors, number_of_observations=1
         )
-        # the shift model ignores the rotation prior
-        if (
-            correction_prior.model == CorrectionModel.SHIFT
-            and correction_prior.rotation.distribution != "delta"
+        # the shift model ignores the rotation prior: only a fixed zero is no loss
+        rotation = correction_prior.rotation
+        if correction_prior.model == CorrectionModel.SHIFT and not (
+            isinstance(rotation, DeltaPriorConfig) and not np.any(rotation.mean)
         ):
             raise ValueError(f"{e.band}: a rotation prior needs model rshift")
         correction = ShiftAndRotationCorrection(

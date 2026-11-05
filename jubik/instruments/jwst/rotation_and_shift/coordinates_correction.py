@@ -34,7 +34,7 @@ class ShiftAndRotationCorrection(jft.Model):
         self.shift: jft.Model = build_parametric_prior_from_prior_config(
             domain_key + "_shift",
             correction_prior.shift_in(correction_prior.shift_unit),
-            correction_prior.shift.mean.shape,
+            correction_prior.shift.shape,
             as_model=True,
         )
         self.shift_unit: u.Unit = correction_prior.shift_unit
@@ -42,7 +42,7 @@ class ShiftAndRotationCorrection(jft.Model):
         self.rotation_angle: jft.Model = build_parametric_prior_from_prior_config(
             domain_key + "_rotation",
             correction_prior.rotation_in(u.rad),
-            correction_prior.rotation.mean.shape,
+            correction_prior.rotation.shape,
             as_model=True,
         )
         self.rotation_unit: u.Unit = u.rad

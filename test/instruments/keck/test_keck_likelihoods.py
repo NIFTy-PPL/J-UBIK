@@ -278,11 +278,12 @@ def test_common_rotation_of_a_nirc2_frame_is_recovered(tmp_path):
     np.testing.assert_allclose(fit.x[:2] * 0.01, 0.0, atol=2e-4)  # arcsec
 
 
-def test_rotation_prior_under_the_shift_model_raises(tmp_path):
+@pytest.mark.parametrize("rotation", [["normal", 0.0, 0.05], ["delta", 0.5]])
+def test_rotation_prior_under_the_shift_model_raises(tmp_path, rotation):
     cfg = _config(tmp_path)
     priors = copy.deepcopy(TELESCOPE["rotation_and_shift"]["correction_priors"])
     priors["keck_nirc2_Kp_a"] = {
-        "rotation": ["normal", 0.0, 0.05],
+        "rotation": rotation,
         "shift": ["normal", 0.0, 0.01],
     }
     cfg["telescope"]["rotation_and_shift"] = TELESCOPE["rotation_and_shift"] | {

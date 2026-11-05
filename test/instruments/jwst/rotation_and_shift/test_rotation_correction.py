@@ -113,3 +113,19 @@ def test_jit_and_grad():
     gradient = jax.grad(lambda p: coordinates(p).sum())(params)
     assert np.all(np.isfinite(gradient["f_rotation"]))
     assert np.all(gradient["f_rotation"] != 0)
+
+
+def test_uniform_rotation_prior_builds():
+    prior = CoordinatesCorrectionPriorConfig.from_yaml_dict(
+        dict(
+            model="rshift",
+            shift=["normal", 0.0, 1.0],
+            shift_unit="arcsec",
+            rotation=["uniform", -0.1, 0.1],
+            rotation_unit="deg",
+        ),
+        shift_shape=(2, 2),
+        rotation_shape=(2, 1),
+    )
+    correction = ShiftAndRotationCorrection("f", prior, CENTER)
+    assert correction.rotation_angle.target.shape == (2, 1)
