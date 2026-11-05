@@ -136,7 +136,7 @@ class SkyResiduals:
     def _data_model_and_std(self, position_or_samples, builder, std, mask):
         """The data model and the σ the likelihood uses: `std` for a fixed-σ
         Gaussian, the sample-mean σ of a variable covariance, or None for the
-        shot noise, whose model returns σ with the prediction."""
+        shot noise, whose model returns 1/σ with the prediction."""
         if isinstance(builder, ShotNoiseGaussianLikelihoodBuilder):
             return builder.model(), None
         if hasattr(builder, "inverse_std_builder"):
@@ -279,7 +279,7 @@ class SkyResiduals:
                 if n_pages > 1:
                     name += f"_{page:02d}"
                 fig.savefig(join(self.residual_directory, f"{name}.png"), dpi=300)
-                plt.close(fig)
+            plt.close(fig)
 
     def _plot_row(
         self,

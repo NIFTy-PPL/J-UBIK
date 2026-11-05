@@ -403,7 +403,15 @@ def test_residual_samples_evaluate_sky_and_model_once_each(tmp_path):
     residuals = plots.residuals(samples)
 
     # one sky per sample, one response per sample and exposure
-    assert calls == {"sky": 2} | {t.filter: 2 for t in products.likelihoods}
+    once = {"sky": 2} | {t.filter: 2 for t in products.likelihoods}
+    assert calls == once
+    # the same in the plot callback, and for a stage without samples
+    calls.update(dict.fromkeys(calls, 0))
+    plots(samples, SimpleNamespace(nit=1))
+    assert calls == once
+    calls.update(dict.fromkeys(calls, 0))
+    plots(jft.Samples(pos=pos, samples=None), SimpleNamespace(nit=2))
+    assert calls == {k: 1 for k in once}
     for e, t, response in zip(exposures, products.likelihoods, responses):
         mask = e.target_data.mask
         a, b, sky = (
@@ -422,6 +430,14 @@ def test_residual_samples_evaluate_sky_and_model_once_each(tmp_path):
 
 def test_residual_pages_bound_the_figure(tmp_path, monkeypatch):
     _, products, plots, _ = _two_band_residuals(tmp_path)
+    rows, plot_row = [], SkyResiduals._plot_row
+
+    def spy(self, axes, ims, filter_key, *args):
+        assert axes[0].get_title() == f"Sky {filter_key}"  # the band's own row
+        rows.append(filter_key)
+        return plot_row(self, axes, ims, filter_key, *args)
+
+    monkeypatch.setattr(SkyResiduals, "_plot_row", spy)
     x = jft.random_like(jax.random.PRNGKey(9), products.likelihood.domain)
     x = x.tree if isinstance(x, jft.Vector) else x
 
@@ -435,6 +451,7 @@ def test_residual_pages_bound_the_figure(tmp_path, monkeypatch):
     assert pages == ["04_00.png", "04_01.png"]
     for page in pages:
         assert matplotlib.image.imread(tmp_path / page).shape[:2] == (900, 3600)
+    assert rows == 2 * list(products.sky_filter.bands)
 
 
 def test_residual_band_missing_from_the_sky_filter_raises(tmp_path):
