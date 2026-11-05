@@ -66,13 +66,9 @@ def with_weight(obs, index, value):
 
 
 def continuous_sky(fmin, fmax):
-    return ju.Color([fmin, fmax] * u.Hz)
-
-
-def grid_of(sky):
-    """A sky grid with `sky` as its frequencies, its 0.125 arcsec pixels keep
-    every test baseline within the Nyquist frequency."""
-    return ju.Grid.from_shape_and_fov(8, (1, 1) * u.arcsec, sky)
+    """A sky grid over `[fmin, fmax]`; its 0.125 arcsec pixels keep every test
+    baseline within the Nyquist frequency."""
+    return ju.Grid.from_shape_and_fov(8, (1, 1) * u.arcsec, [fmin, fmax] * u.Hz)
 
 
 def modify_of(cfg):
@@ -95,7 +91,7 @@ def test_default_modify_is_identity():
     obs = build_obs(freqs)
     modify = modify_of({})
 
-    new = modify_observation(grid_of(continuous_sky(0.95e9, 1.25e9)), obs, modify)
+    new = modify_observation(continuous_sky(0.95e9, 1.25e9), obs, modify)
 
     assert_array_equal(new.vis_val, obs.vis_val)
     assert_array_equal(new.weight_val, obs.weight_val)
@@ -121,7 +117,7 @@ def test_default_modify_upcasts_single_precision_data():
     )
     modify = modify_of({})
 
-    new = modify_observation(grid_of(continuous_sky(0.95e9, 1.15e9)), single, modify)
+    new = modify_observation(continuous_sky(0.95e9, 1.15e9), single, modify)
 
     assert new.vis_val.dtype == np.complex128
     assert new.weight_val.dtype == np.float64
@@ -137,12 +133,12 @@ def test_modify_does_not_mutate_its_input_and_is_idempotent():
     modify = modify_of({"weight_modify": {"percentage": 0.1}})
     sky = continuous_sky(0.95e9, 1.15e9)
 
-    first = modify_observation(grid_of(sky), obs, modify)
+    first = modify_observation(sky, obs, modify)
 
     assert_array_equal(obs.vis_val, vis_before)
     assert_array_equal(obs.weight_val, weight_before)
 
-    second = modify_observation(grid_of(sky), obs, modify)
+    second = modify_observation(sky, obs, modify)
     assert_array_equal(first.weight_val, second.weight_val)
     assert_array_equal(first.vis_val, second.vis_val)
 
@@ -170,13 +166,14 @@ def test_flag_weights_runs_before_frequency_averaging():
         }
     )
 
-    new = modify_observation(grid_of(sky), obs, modify)
+    new = modify_observation(sky, obs, modify)
 
     flag_first = freq_average_by_fdom_and_n_freq_chunks(
-        sky, flag_weights(obs, setting), 2, averaging_mode="arithmetic"
+        sky.spectral, flag_weights(obs, setting), 2, averaging_mode="arithmetic"
     )
     average_first = flag_weights(
-        freq_average_by_fdom_and_n_freq_chunks(sky, obs, 2, "arithmetic"), setting
+        freq_average_by_fdom_and_n_freq_chunks(sky.spectral, obs, 2, "arithmetic"),
+        setting,
     )
 
     # The two orders really differ: averaging dilutes the outlier.
@@ -212,7 +209,7 @@ def test_flag_weights_runs_before_time_averaging():
         {"flag_weights": {"min": 1e-3, "max": 1e12}, "time_bins": 30}
     )
 
-    new = modify_observation(grid_of(sky), obs, modify)
+    new = modify_observation(sky, obs, modify)
 
     flag_first = time_average_to_length_of_timebins(flag_weights(obs, setting), 30)
     average_first = flag_weights(
@@ -265,7 +262,7 @@ def test_exclude_frequency_ranges_runs_before_frequency_averaging(mode):
         }
     )
 
-    new = modify_observation(grid_of(sky), obs, modify)
+    new = modify_observation(sky, obs, modify)
 
     keep = np.array([0, 1, 4, 5])
     # One output channel, the average of the four surviving channels only.
@@ -287,7 +284,7 @@ def test_exclude_frequency_ranges_runs_before_frequency_averaging(mode):
 
     # Compare with the same averaging mode including all six input channels.
     averaged = freq_average_by_fdom_and_n_freq_chunks(
-        sky, obs, 1, averaging_mode=mode
+        sky.spectral, obs, 1, averaging_mode=mode
     )
     assert not np.allclose(new.vis_val, averaged.vis_val)
 
@@ -309,7 +306,7 @@ def test_descending_frequencies_are_reversed():
     obs = build_obs(freqs)
     modify = modify_of({})
 
-    new = modify_observation(grid_of(continuous_sky(0.95e9, 1.35e9)), obs, modify)
+    new = modify_observation(continuous_sky(0.95e9, 1.35e9), obs, modify)
 
     assert_array_equal(new.freq, freqs[::-1])
     assert np.all(np.diff(new.freq) > 0)
@@ -323,7 +320,7 @@ def test_ascending_frequencies_are_not_reversed():
     obs = build_obs(freqs)
     modify = modify_of({})
 
-    new = modify_observation(grid_of(continuous_sky(0.95e9, 1.35e9)), obs, modify)
+    new = modify_observation(continuous_sky(0.95e9, 1.35e9), obs, modify)
 
     assert_array_equal(new.freq, freqs)
     assert_array_equal(new.vis_val, obs.vis_val)
@@ -334,7 +331,7 @@ def test_single_channel_observation_is_not_reversed():
     obs = build_obs(np.array([1.0e9]))
     modify = modify_of({})
 
-    new = modify_observation(grid_of(continuous_sky(0.95e9, 1.05e9)), obs, modify)
+    new = modify_observation(continuous_sky(0.95e9, 1.05e9), obs, modify)
 
     assert_array_equal(new.freq, obs.freq)
     assert_array_equal(new.vis_val, obs.vis_val)
@@ -403,7 +400,7 @@ def test_shift_is_applied_by_the_pipeline():
     sx, sy = 2.0e-4, -5.0e-4
     modify = modify_of({"shift": {"data_templates": [[sx, sy]], "unit": "rad"}})
 
-    new = modify_observation(grid_of(continuous_sky(0.95e9, 1.15e9)), obs, modify)
+    new = modify_observation(continuous_sky(0.95e9, 1.15e9), obs, modify)
 
     expected = shift_phase_center(obs, ShiftObservation([sx, sy] * u.rad))
     assert_array_equal(new.vis_val, expected.vis_val)
@@ -448,11 +445,11 @@ def test_shift_should_be_applied_before_frequency_averaging():
         }
     )
 
-    new = modify_observation(grid_of(sky), point, modify)
+    new = modify_observation(sky, point, modify)
 
     # Shifting first and averaging afterwards gives unit amplitude everywhere.
     shifted = shift_phase_center(point, ShiftObservation([sx, 0.0] * u.rad))
-    shift_first = freq_average_by_fdom_and_n_freq_chunks(sky, shifted, 1)
+    shift_first = freq_average_by_fdom_and_n_freq_chunks(sky.spectral, shifted, 1)
     assert_allclose(np.abs(shift_first.vis_val), 1.0, atol=1e-12)
 
     assert_allclose(np.abs(new.vis_val), 1.0, atol=1e-6)
