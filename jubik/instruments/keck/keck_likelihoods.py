@@ -81,7 +81,7 @@ def build_keck_likelihoods(
                 entry[key] = _fits_image(entry[key])
         if "detector_noise" in entry:
             noise = dict(entry["detector_noise"])
-            if isinstance(noise.get("flat"), (str, list)):
+            if isinstance(noise.get("flat"), (str, list, tuple)):
                 noise["flat"] = _read(_fits_image(noise["flat"]))[0]
             entry["detector_noise"] = DetectorNoise(**noise)
         if "position_angle" in entry:

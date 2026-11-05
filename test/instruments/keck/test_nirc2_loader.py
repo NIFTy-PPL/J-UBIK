@@ -458,7 +458,10 @@ def test_flat_enters_the_plain_sigma_and_is_checked(tmp_path):
     np.testing.assert_allclose(std, np.sqrt(1500 / 8 + 500 / 64), rtol=1e-12)
     assert _load(tmp_path).noise is None  # a σ map has no model
     with pytest.raises(ValueError, match="flat"):
-        DetectorNoise(GAIN, READ_NOISE, N_READS, 0.0, -flat)
+        _load(
+            tmp_path,
+            detector_noise=DetectorNoise(GAIN, READ_NOISE, N_READS, 0.0, -flat),
+        )
     with pytest.raises(ValueError, match="read_noise > 0"):
         DetectorNoise(GAIN, 0.0, N_READS, 0.0)
     flat[1, 1], flat[2, 2] = 0.0, np.nan  # dead pixels of a real flat
@@ -509,13 +512,16 @@ def test_flat_of_an_off_centre_cutout(tmp_path):
     flat = rng.uniform(0.74, 1.07, (NY, NX))
     data = rng.uniform(100.0, 500.0, (NY, NX))  # DN summed over the coadds
     sky = 300.0
+    flat[0, 0], flat[NY - 1, NX - 1] = 0.0, -1.0  # dead, outside the cutout: loads
     detector = DetectorNoise(GAIN, READ_NOISE, N_READS, sky, flat)
-    small = WcsAstropy(CENTER, shape=5, fov=50 * u.mas)  # around raw (7, 5)
+    centre = CENTER.spherical_offsets_by(20 * u.mas, 20 * u.mas)
+    small = WcsAstropy(centre, shape=5, fov=50 * u.mas)
     exposure = _load(
         tmp_path, data=data, detector_noise=detector, sky_grid=small, margin=1
     )
     r0, r1, c0, c1 = exposure.diagnostics["bounds"]
-    assert (r0, c0) != (0, 0) and (r1, c1) != (NY, NX)  # not the whole frame
+    assert (r0, c0) != (NY - r1, NX - c1)  # off-centre
+    assert (r0, c0) != (0, 0) and (r1, c1) != (NY, NX)
     f, d = flat[r0:r1, c0:c1], data[r0:r1, c0:c1]
     variance = (
         READ_NOISE**2 * COADDS / N_READS + GAIN * f * np.maximum(d + sky, 0)

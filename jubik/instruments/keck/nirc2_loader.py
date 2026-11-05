@@ -124,11 +124,9 @@ class DetectorNoise:
             0 < self.gain < np.inf
             and 0 < self.read_noise < np.inf
             and self.n_reads >= 1
-            and not np.any(np.asarray(self.flat) < 0)
         ):
-            raise ValueError(
-                "need finite gain > 0, read_noise > 0, n_reads >= 1, flat >= 0"
-            )
+            # the flat is checked where it is used, see load_nirc2_exposure
+            raise ValueError("need finite gain > 0, read_noise > 0, n_reads >= 1")
 
     def shot_noise(self, shape, coadds: int, dn_per_unit: float) -> ShotNoise:
         """a, b and sky in the science unit, worth ``dn_per_unit`` DN summed
