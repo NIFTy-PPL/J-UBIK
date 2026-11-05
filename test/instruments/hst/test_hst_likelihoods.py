@@ -535,8 +535,7 @@ def test_residual_pages_are_freed_page_by_page(tmp_path, monkeypatch):
     pages, subplots = [], residual_plots.plt.subplots
 
     def spy(*args, **kwargs):
-        # only the page just saved may still be referenced by the loop
-        assert sum(page() is not None for page in pages) <= 1
+        assert all(page() is None for page in pages)  # earlier pages are freed
         fig, axes = subplots(*args, **kwargs)
         pages.append(weakref.ref(fig))
         return fig, axes

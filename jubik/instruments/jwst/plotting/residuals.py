@@ -281,7 +281,9 @@ class SkyResiduals:
                     name += f"_{page:02d}"
                 fig.savefig(join(self.residual_directory, f"{name}.png"), dpi=300)
                 plt.close(fig)
-                # a closed figure is a reference cycle that keeps its canvas
+                # a closed figure is a reference cycle that keeps its canvas,
+                # and the loop names still point at it
+                del fig, axes, ims, ax, im
                 gc.collect()
 
     def _plot_row(
