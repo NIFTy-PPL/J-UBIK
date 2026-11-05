@@ -22,7 +22,8 @@ import numpy as np
 from astropy import units as u
 
 from ...grid import Grid
-from ...parse.models.distributions import DeltaPriorConfig
+from ...models.distributions import build_parametric_prior_from_prior_config
+from ...parse.models.distributions import DeltaPriorConfig, ProbabilityConfig
 from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
 from .data.jwst_data import DataMetaInformation
@@ -38,6 +39,7 @@ from .parse.rotation_and_shift.rotation_and_shift import (
 )
 from .parse.zero_flux_model import ZeroFluxPriorConfigs
 from .plotting.residuals import ResidualPlottingInformation
+from .psf.psf_operator import PsfGaussianBroadening
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .throughput.weights import Throughput, throughput_weights
 
@@ -112,7 +114,9 @@ def build_exposure_likelihoods(
         rshift`` each exposure also rotates by its ``rotation`` prior about
         the sky-grid centre), optional
         ``zero_flux`` and ``calibration`` (``default`` and band keys, one
-        factor per exposure).
+        factor per exposure), and ``psf_broadening`` (same keys: the prior of
+        the σ in arcsec of a Gaussian that broadens each exposure's kernel,
+        see `PsfGaussianBroadening`; without it the kernels stay fixed).
     sky_unit : u.Unit
         Unit of the sky.
     """
@@ -170,6 +174,9 @@ def build_exposure_likelihoods(
     zero_flux = ZeroFluxPriorConfigs.from_yaml_dict(telescope_cfg.get("zero_flux"))
     # same layout as zero_flux: a default and per-band priors
     calibration = ZeroFluxPriorConfigs.from_yaml_dict(telescope_cfg.get("calibration"))
+    psf_broadening = ZeroFluxPriorConfigs.from_yaml_dict(
+        telescope_cfg.get("psf_broadening")
+    )
     # a mistyped band key would silently fall back to the default prior
     reserved = {"default", "model", "shift_unit", "rotation_unit"}
     known = {b.lower() for b in bands} | reserved
@@ -177,6 +184,7 @@ def build_exposure_likelihoods(
         ("correction_priors", correction_priors),
         ("zero_flux", zero_flux.names if zero_flux else {}),
         ("calibration", calibration.names if calibration else {}),
+        ("psf_broadening", psf_broadening.names if psf_broadening else {}),
     ):
         if unknown := set(keys) - known:
             raise ValueError(f"{name}: {sorted(unknown)} match no band of {bands}")
@@ -185,6 +193,14 @@ def build_exposure_likelihoods(
     plotting = ResidualPlottingInformation()
     for e in exposures:
         target_data, psf_model = _with_psf(e)
+        if psf_broadening is not None:
+            if psf_model is not None:
+                raise ValueError(
+                    f"{e.band}: psf_broadening needs a kernel, the psf is a model"
+                )
+            psf_model = _broadened(
+                e, target_data, psf_broadening.get_name_setting_or_default(e.band)
+            )
         correction_prior = FilterAlignment(e.band.lower()).load_correction_prior(
             correction_priors, number_of_observations=1
         )
@@ -254,6 +270,23 @@ def read_throughput(path: str | Path, wavelength_unit: str = "um") -> Throughput
 def _same_curve(a: Throughput, b: Throughput) -> bool:
     return np.array_equal(a.wavelength, b.wavelength) and np.array_equal(
         a.throughput, b.throughput
+    )
+
+
+def _broadened(
+    e: Exposure, target_data: TargetData, prior: ProbabilityConfig
+) -> PsfGaussianBroadening:
+    """The exposure's kernel broadened by a Gaussian whose σ in arcsec has `prior`."""
+    sigma = build_parametric_prior_from_prior_config(
+        f"{e.band}_psf_broadening", prior, as_model=True
+    )
+    # PsfGaussianBroadening takes σ in pixels of the kernel grid, the subsampled data
+    pixel = e.meta.pixel_scale.to_value(u.arcsec) / target_data.subsample
+    sky = jft.ShapeWithDtype((1,) + target_data.subsample_centers[0].shape, float)
+    return PsfGaussianBroadening(
+        sky,
+        target_data.psf,
+        jft.Model(lambda x: sigma(x) / pixel, domain=sigma.domain),
     )
 
 
