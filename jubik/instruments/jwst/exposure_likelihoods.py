@@ -193,12 +193,18 @@ def build_exposure_likelihoods(
         if correction_prior.model == CorrectionModel.SHIFT and not (
             isinstance(rotation, DeltaPriorConfig) and not np.any(rotation.mean)
         ):
-            raise ValueError(f"{e.band}: a rotation prior needs model rshift")
+            raise ValueError(
+                f"{e.band}: a rotation prior needs model rshift; under model "
+                "shift give [delta, 0.0]"
+            )
         correction = ShiftAndRotationCorrection(
             domain_key=e.band,
             correction_prior=correction_prior,
             # near the target a rotation barely moves it: rotation and shift decouple
-            rotation_center=grid.spatial.center,
+            # the centre pixel, not `grid.spatial.center`, which may be NaN
+            rotation_center=grid.spatial.indices_yx_to_world(
+                *(np.array(grid.spatial.shape_yx) - 1) / 2
+            ),
         )
         likelihood = build_target_likelihood(
             filter_name=e.band,

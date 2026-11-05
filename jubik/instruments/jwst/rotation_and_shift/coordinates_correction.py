@@ -164,8 +164,10 @@ class CoordinatesCorrectedShiftAndRotation(jft.Model):
         # R - 1 in (North, East), shape (2, 2, n_exposures)
         r_minus_one = jnp.array([[cos_minus_one, -sin], [sin, cos_minus_one]])
         m = jnp.einsum("ij,jkn,kl->nil", self._to_grid, r_minus_one, self._to_sky)
-        offsets = self.shift_only._coordinates - self._center[..., None, None]
-        return self.shift_only(params) + jnp.einsum("nij,njhw->nihw", m, offsets)
+        # m (c - c0), without baking a second copy of c into the program
+        rotated = jnp.einsum("nij,njhw->nihw", m, self.shift_only._coordinates)
+        rotated -= jnp.einsum("nij,nj->ni", m, self._center)[..., None, None]
+        return self.shift_only(params) + rotated
 
 
 class CoordinatesCorrectedStarShift(jft.Model):
