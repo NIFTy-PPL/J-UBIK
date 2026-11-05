@@ -1,10 +1,14 @@
 """A point source through the star and target paths (PSF + integration) must land
 at its WCS position, for odd and even centered PSF kernels (issue #130)."""
 
+from functools import partial
+
+import jax
 import numpy as np
 import pytest
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from jax.scipy.signal import fftconvolve
 
 from jubik.instruments.jwst.alignment.star_alignment import Star
 from jubik.instruments.jwst.alignment.star_model import (
@@ -99,3 +103,57 @@ def test_recentering_ringing_on_truncated_airy_kernel():
     kernel = (2 * j1(x) / x) ** 2
     centered = _center_even_axes(kernel)
     assert centered.min() / centered.max() > -1e-3
+
+
+# (50, 40) and (2, 61, 41) are larger than the field, as for star cutouts, and are
+# trimmed to 2N - 1 on one axis, or on both for the (12, 12) field. The fields pad the
+# FFT grid by 0 to 5 pixels per axis, so a crop placed on the padded grid or a grid too
+# short for the crop fails; the NIC1 test below pins the chosen grid length.
+@pytest.mark.parametrize("field_shape", [(24, 30), (23, 37), (12, 12)])
+@pytest.mark.parametrize(
+    "shape", [(11, 11), (10, 10), (11, 10), (50, 40), (2, 10, 11), (2, 61, 41)]
+)
+def test_cached_kernel_transform_matches_fftconvolve(shape, field_shape):
+    rng = np.random.default_rng(0)
+    kernel = rng.uniform(size=shape)
+    field = rng.normal(size=shape[:-2] + field_shape)
+    psf = PsfStatic(jft.ShapeWithDtype(field.shape), kernel)
+    assert_matches_fftconvolve(psf, kernel, field, rng)
+
+
+def test_cached_kernel_transform_padded_to_fast_length():
+    # NIC1 at subsample 4: a 160 px cutout and a 3 arcsec Tiny Tim kernel.
+    rng = np.random.default_rng(1)
+    kernel = rng.uniform(size=(281, 281))
+    kernel /= kernel.sum()
+    field = rng.normal(size=(640, 640))
+    psf = PsfStatic(jft.ShapeWithDtype(field.shape), kernel)
+    assert psf.kernel_fft.shape == (960, 481)  # 920 = 2^3 * 5 * 23 -> 960 = 2^6 * 3 * 5
+    assert_matches_fftconvolve(psf, kernel, field, rng)
+
+
+def assert_matches_fftconvolve(psf, kernel, field, rng):
+    centered = _center_even_axes(kernel)
+    reference = partial(fftconvolve, mode="same")
+    if kernel.ndim == 3:
+        reference = jax.vmap(reference)
+    cotangent = rng.normal(size=field.shape)
+
+    def project(convolve):
+        return lambda f: (convolve(f) * cotangent).sum()
+
+    np.testing.assert_allclose(psf((field, {})), reference(field, centered), atol=1e-12)
+    np.testing.assert_allclose(
+        jax.grad(project(lambda f: psf((f, {}))))(field),
+        jax.grad(project(lambda f: reference(f, centered)))(field),
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize(
+    "kernel_shape, sky_shape",
+    [((3, 5, 5), (8, 8)), ((1, 5, 5), (3, 8, 8)), ((5, 5), (3, 8, 8)), ((5,), (8,))],
+)
+def test_kernel_must_match_sky_observations(kernel_shape, sky_shape):
+    with pytest.raises(ValueError, match="one kernel per sky observation"):
+        PsfStatic(jft.ShapeWithDtype(sky_shape, float), np.ones(kernel_shape))
