@@ -285,40 +285,51 @@ def _get_data_model_and_chi2(
         positions, skies = [tree(position_or_samples)], [sky_or_skies]
 
     # per-exposure slices of the unmasked pixels, in data[mask] order
-    splits = np.cumsum(mask.reshape(len(mask), -1).sum(1))[:-1]
+    bounds = np.cumsum([0, *mask.reshape(len(mask), -1).sum(1)])
 
-    def redchi(model, sigma):  # on the unmasked pixels
+    def redchi(model, sigma):
+        """On the unmasked pixels; ``sigma`` None takes the fixed ``std``."""
         if len(mask.shape) == 2:
-            return redchi2(data[mask], model, sigma, model.size)
-        parts = (np.split(v, splits) for v in (data[mask], model, sigma))
-        return [redchi2(dd, mo, ss, dd.size) for dd, mo, ss in zip(*parts)]
+            ss = std[mask] if sigma is None else sigma
+            return redchi2(data[mask], model, ss, model.size)
+        # one exposure at a time, so no band-sized copy of data or std is made
+        return [
+            redchi2(
+                data[e][mask[e]],
+                model[a:b],
+                std[e][mask[e]] if sigma is None else sigma[a:b],
+                int(b - a),
+            )
+            for e, (a, b) in enumerate(zip(bounds[:-1], bounds[1:]))
+        ]
 
     # sums over the unmasked pixels only; the images are built once at the end
     model_sum = sigma_sum = None
     redchis = []
     for x, sky in zip(positions, skies):
         prediction = data_model(x if sky is None else sky | x)
+        sigma = None
         if std is None:
             prediction, inverse_std = prediction
             sigma = np.reciprocal(np.asarray(inverse_std, data.dtype))
             del inverse_std
-        else:
-            sigma = std[mask]
         prediction = np.asarray(prediction, data.dtype)
         redchis.append(redchi(prediction, sigma))
         if model_sum is None:
             model_sum, sigma_sum = np.array(prediction), sigma
         else:
             model_sum += prediction
-            if std is None:
+            if sigma is not None:
                 sigma_sum += sigma
         del prediction, sigma
+    model_sum /= len(redchis)
     model_mean = np.zeros_like(data)
-    model_mean[mask] = model_sum / len(redchis)
+    model_mean[mask] = model_sum
     del model_sum
     if std is None:
+        sigma_sum /= len(redchis)
         std = np.zeros_like(data)
-        std[mask] = sigma_sum / len(redchis)
+        std[mask] = sigma_sum
     del sigma_sum
 
     if sampled:

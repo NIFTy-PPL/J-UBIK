@@ -1,6 +1,8 @@
 """_get_data_model_and_chi2: mean data model, σ and reduced chi² over samples,
 for a fixed σ and for a model that returns its own σ."""
 
+import tracemalloc
+
 import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
@@ -107,3 +109,27 @@ def test_single_position(position, sky):
     np.testing.assert_allclose(got_mean, mean, rtol=1e-12)
     np.testing.assert_allclose(chi, expected, rtol=1e-12)
     np.testing.assert_array_equal(chi_std, 0)
+
+
+@pytest.mark.parametrize("samples, limit", [(1, 2.1), (2, 3.1)])
+def test_peak_memory_of_a_stacked_band(samples, limit):
+    """A JWST-like band of 4 exposures with a fixed σ: the numpy peak, in units
+    of the data array, stays below the old per-sample images (2.26 and 5.27)."""
+    data = np.zeros((4, 200, 200))
+    mask = np.random.default_rng(1).random(data.shape) < 0.98
+    std, n = np.ones(data.shape), int(mask.sum())
+    position = (
+        {"a": 1.0}
+        if samples == 1
+        else jft.Samples(
+            pos=jft.Vector({"a": jnp.array(1.0)}),
+            samples=jft.Vector({"a": jnp.linspace(-0.1, 0.1, samples)}),
+        )
+    )
+    tracemalloc.start()
+    _get_data_model_and_chi2(
+        position, None, lambda x: x["a"] * np.ones(n), data, mask, std
+    )
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert peak / data.nbytes < limit
