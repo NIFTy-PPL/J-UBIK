@@ -10,11 +10,14 @@ from numpy.testing import assert_allclose
 import jubik as ju
 import jubik.instruments.resolve as rve
 from jubik.instruments.resolve.constants import SPEEDOFLIGHT
-from jubik.instruments.resolve.likelihood.radio_likelihood import (
+from jubik.instruments.resolve.data.data_modify.flagging import (
     restrict_to_nyquist,
+    uv_beyond_nyquist,
 )
-from jubik.instruments.resolve.response import uv_beyond_nyquist
-from nifty.cl.logger import logger
+from jubik.instruments.resolve.parse.data.data_modify.flagging import (
+    BeyondNyquist,
+)
+from nifty.re import logger
 
 from generate_test_obs import generate_random_obs
 
@@ -62,10 +65,10 @@ def test_mask_marks_the_long_row():
     assert np.flatnonzero(mask).tolist() == [5]
 
 
-def test_raise_is_the_default_and_the_response_guards():
+def test_raise_and_the_response_guard():
     obs = observation_with_one_long_row()
     with pytest.raises(ValueError, match="Nyquist"):
-        restrict_to_nyquist(obs, grid(), "raise", "block")
+        restrict_to_nyquist(obs, grid(), BeyondNyquist(), "block")
     with pytest.raises(ValueError, match="Nyquist"):
         rve.interferometry_response(obs, grid(), rve.parse.FinufftSettings(1e-10))
 
@@ -75,7 +78,7 @@ def test_drop_removes_the_row_and_keeps_the_analytic_visibility(caplog):
     logger.addHandler(caplog.handler)
     try:
         with caplog.at_level(logging.WARNING, logger=logger.name):
-            kept = restrict_to_nyquist(obs, grid(), "drop", "block")
+            kept = restrict_to_nyquist(obs, grid(), BeyondNyquist(drop=True), "block")
     finally:
         logger.removeHandler(caplog.handler)
     assert kept.nrow == obs.nrow - 1
@@ -98,6 +101,8 @@ def test_drop_removes_the_row_and_keeps_the_analytic_visibility(caplog):
     assert_allclose(np.asarray(response(sky))[0, :, 0], expected, atol=1e-8)
 
 
-def test_unknown_policy_raises():
+def test_beyond_nyquist_parsing():
+    assert BeyondNyquist.from_yaml_dict(None) == BeyondNyquist(drop=False)
+    assert BeyondNyquist.from_yaml_dict("drop") == BeyondNyquist(drop=True)
     with pytest.raises(ValueError, match="beyond_nyquist"):
-        restrict_to_nyquist(observation_with_one_long_row(), grid(), "fold", "b")
+        BeyondNyquist.from_yaml_dict("fold")
