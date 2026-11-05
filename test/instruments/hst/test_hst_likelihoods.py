@@ -360,14 +360,14 @@ def test_psf_broadening_sigma_is_in_arcsec_at_any_subsample(tmp_path, subsample)
     cfg = _config(tmp_path, [nicmos])
     cfg["telescope"] = TELESCOPE | {
         "target": {"subsample": subsample},
-        "psf_broadening": {"default": ["delta", 0.05]},  # arcsec
+        "psf_broadening": {"default": ["normal", 0.05, 0.01]},  # arcsec
     }
     (likelihood,) = build_hst_likelihoods(cfg, grid, _sky_domain(grid)).likelihoods
     key = NIC2 + "n_cal_psf_broadening"
     assert key in likelihood.builder.response.domain
     # σ in pixels of the subsampled grid; NIC2 pixels are 0.0760″ × 0.0754″
     pixel = np.sqrt(np.prod(NIC2_SCALE)) / subsample
-    width = likelihood.builder.response.psf.width({key: 0.0})
+    width = likelihood.builder.response.psf.width({key: 0.0})  # the prior mean
     np.testing.assert_allclose(width, 0.05 / pixel, rtol=1e-3)
 
 
@@ -380,8 +380,15 @@ def test_psf_broadening_of_a_psf_model_raises(tmp_path):
     model = PsfGaussianBroadening(
         jft.ShapeWithDtype((1, *centers.shape), float), exposure.psf.kernel[None], width
     )
-    telescope = TELESCOPE | {"psf_broadening": {"default": ["delta", 0.0]}}
+    exposures = [replace(exposure, psf=model)]
+    learned = {"psf_broadening": {"default": ["lognormal", 0.01, 0.005]}}
     with pytest.raises(ValueError, match="psf_broadening needs a kernel"):
         build_exposure_likelihoods(
-            [replace(exposure, psf=model)], grid, _sky_domain(grid), telescope
+            exposures, grid, _sky_domain(grid), TELESCOPE | learned
         )
+    # a width fixed at zero broadens nothing, so the model is kept
+    zero = {"psf_broadening": {"default": ["delta", 0.0]}}
+    (kept,) = build_exposure_likelihoods(
+        exposures, grid, _sky_domain(grid), TELESCOPE | zero
+    ).likelihoods
+    assert kept.builder.response.psf is model

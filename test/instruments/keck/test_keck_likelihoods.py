@@ -12,6 +12,7 @@ from scipy.signal import convolve
 
 from jubik.color import Color
 from jubik.grid import Grid
+from jubik.instruments.jwst.psf.psf_operator import PsfGaussianBroadening, PsfStatic
 from jubik.instruments.jwst.likelihood.likelihood import (
     GaussianLikelihoodBuilder,
     ShotNoiseGaussianLikelihoodBuilder,
@@ -354,10 +355,52 @@ def test_zero_psf_broadening_reproduces_the_fixed_kernel(tmp_path):
     zero, broadened = _psf_response(
         tmp_path / "zero", kernel, {"default": ["delta", 0.0]}
     )
-    x = _params(zero)  # the delta prior keeps its unused latent
-    expected = reference(x)
+    assert isinstance(zero.psf, PsfStatic)
+    assert set(zero.domain) == set(fixed.domain)
+    x = _params(zero)
+    np.testing.assert_array_equal(broadened(x), reference(x))
+
+
+def test_fixed_psf_broadening_is_the_learned_one_at_that_width(tmp_path):
+    kernel = _gaussian(2.0, np.arange(-15, 16))
+    fixed, precomputed = _psf_response(
+        tmp_path, kernel, {"default": ["delta", 2.0 * SCALE]}
+    )
+    (tmp_path / "learned").mkdir()
+    learned, model = _psf_response(
+        tmp_path / "learned", kernel, {"default": ["normal", 2.0 * SCALE, 1e-3]}
+    )
+    assert isinstance(fixed.psf, PsfStatic)
+    assert isinstance(learned.psf, PsfGaussianBroadening)
+    x = _params(learned) | {"keck_nirc2_Kp_a_psf_broadening": 0.0}  # σ = its mean
+    expected = model(x)
     np.testing.assert_allclose(
-        broadened(x), expected, atol=1e-8 * np.abs(expected).max()
+        precomputed(x), expected, atol=1e-12 * np.abs(expected).max()
+    )
+
+
+def test_mixed_psf_broadening_keeps_static_kernels_where_fixed(tmp_path):
+    cfg = _config(tmp_path)
+    (tmp_path / "static").mkdir()
+    reference = build_keck_likelihoods(
+        _config(tmp_path / "static"), SKY_GRID, SKY_DOMAIN
+    )
+    cfg["telescope"]["psf_broadening"] = {
+        "default": ["delta", 0.0],
+        "keck_nirc2_Kp_b": ["lognormal", 0.01, 0.005],
+    }
+    products = build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+    (a, b), (ref_a, _) = products.likelihoods, reference.likelihoods
+    assert isinstance(a.builder.response.psf, PsfStatic)
+    assert isinstance(b.builder.response.psf, PsfGaussianBroadening)
+    assert set(b.builder.response.domain) >= {"keck_nirc2_Kp_b_psf_broadening"}
+
+    x = jft.random_like(jax.random.PRNGKey(5), products.likelihood.domain)
+    x = x.tree if isinstance(x, jft.Vector) else dict(x)
+    band = "keck_nirc2_Kp_a"
+    sky = {band: products.sky_filter(x)[band]}
+    np.testing.assert_array_equal(
+        a.builder.response(x | sky), ref_a.builder.response(x | sky)
     )
 
 
