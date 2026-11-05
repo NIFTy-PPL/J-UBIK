@@ -55,7 +55,9 @@ def time_average(observation: Observation, list_of_timebins):
     inverse-variance weighted mean, the new weight is the sum of the input
     weights and the new uvw coordinate is the plain mean of the input uvw
     coordinates. The time stamp of an output row is the mean time of all rows
-    of its time bin (shared by every baseline of that bin).
+    of its time bin (shared by every baseline of that bin). A group whose
+    rows are all flagged (weight 0) stays a flagged row: visibility 0, weight
+    0, so the output is defined on every baseline the input has.
 
     Parameters
     ----------
@@ -125,9 +127,8 @@ def time_average(observation: Observation, list_of_timebins):
                 masterindex, weights=vis[pol, :, freq].imag * wgt[pol, :, freq]
             )
             denom = np.bincount(masterindex, weights=wgt[pol, :, freq])
-            if np.min(denom) == 0.0:
-                raise ValueError("Time bin with total weight 0. detected.")
-            new_vis[pol, :, freq] = enum / denom
+            # a group with no unflagged row is a flagged row: weight 0, visibility 0
+            new_vis[pol, :, freq] = np.divide(enum, denom, out=np.zeros_like(enum), where=denom > 0.0)
             new_wgt[pol, :, freq] = denom
 
     new_uvw = np.empty((len(atset), 3), dtype=observation._antpos.uvw.dtype)
