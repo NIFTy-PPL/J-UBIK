@@ -107,8 +107,9 @@ class DetectorNoise:
         science image's shape.
     flat : float | np.ndarray
         The flat the science image was divided by, normalised as applied. A
-        scalar or the science image's shape; pixels where it is 0 or NaN are
-        masked.
+        scalar or the science image's shape (the raw frame, before the
+        cutout). It must be finite and > 0 on every pixel that enters the
+        likelihood; mark other pixels in ``bad_pixels``.
     """
 
     gain: float
@@ -123,11 +124,9 @@ class DetectorNoise:
             0 < self.gain < np.inf
             and 0 < self.read_noise < np.inf
             and self.n_reads >= 1
-            and not np.any(np.asarray(self.flat) < 0)
         ):
-            raise ValueError(
-                "need finite gain > 0, read_noise > 0, n_reads >= 1, flat >= 0"
-            )
+            # the flat is checked where it is used, see load_nirc2_exposure
+            raise ValueError("need finite gain > 0, read_noise > 0, n_reads >= 1")
 
     def shot_noise(self, shape, coadds: int, dn_per_unit: float) -> ShotNoise:
         """a, b and sky in the science unit, worth ``dn_per_unit`` DN summed
@@ -262,7 +261,8 @@ def load_nirc2_exposure(
         camera; a unit other than DN or DN/s; shapes that differ from the science
         image (maps of a subarray readout included); a rotator mode other
         than position angle without ``position_angle``; the sky grid misses
-        the detector; every pixel masked.
+        the detector; a flat that is not finite and > 0 on a pixel that would
+        enter the likelihood; every pixel masked.
     KeyError
         A needed header keyword is missing and was not given.
     """
@@ -370,17 +370,29 @@ def load_nirc2_exposure(
         min(cols1 + margin, nx),
     )
     cut = np.s_[bounds[0] : bounds[1], bounds[2] : bounds[3]]
-    data, std, bad = data[cut], std[cut], bad[cut]
+    # copies, so the full-frame arrays are freed
+    data, std, bad = (np.array(v[cut]) for v in (data, std, bad))
     if noise is not None:
         noise = ShotNoise(
-            *(v[cut] if np.ndim(v) else v for v in (noise.a, noise.b, noise.sky))
+            *(
+                np.array(v[cut]) if np.ndim(v) else v
+                for v in (noise.a, noise.b, noise.sky)
+            )
         )
     centers = subsample_pixel_centers(bounds, wcs, subsample)
 
     pixel_scale = distortion.pixel_scale.to(u.deg)
     finite = np.isfinite(data) & np.isfinite(std)
-    mask = finite & (std > 0) & ~bad
-    mask &= get_mask_from_index_centers_within_rgrid(bounds, wcs, sky_grid)
+    in_grid = get_mask_from_index_centers_within_rgrid(bounds, wcs, sky_grid)
+    if detector_noise is not None:
+        flat = np.broadcast_to(np.asarray(detector_noise.flat, float), (ny, nx))[cut]
+        wrong = np.isfinite(data) & ~bad & in_grid & ~(np.isfinite(flat) & (flat > 0))
+        if wrong.any():
+            raise ValueError(
+                f"{science}: the flat is not finite and > 0 on {wrong.sum()} "
+                "pixels that would enter the likelihood; mark them in bad_pixels"
+            )
+    mask = finite & (std > 0) & ~bad & in_grid
     if not mask.any():
         raise ValueError(f"{science}: every pixel is masked")
 

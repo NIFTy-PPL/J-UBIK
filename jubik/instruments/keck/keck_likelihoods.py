@@ -24,6 +24,7 @@ from .nirc2_loader import (
     DetectorNoise,
     FitsImage,
     Nirc2Calibration,
+    _read,
     load_nirc2_exposure,
 )
 
@@ -46,7 +47,8 @@ def build_keck_likelihoods(
     text file, `read_throughput`), ``flux_per_count_rate`` (Jy per DN/s),
     ``atmosphere`` (`Nirc2Calibration`), ``margin`` (detector pixels around
     the sky grid, at least the PSF half-width), and either ``sigma`` (a σ
-    image) or ``detector_noise`` (the `DetectorNoise` fields); optional
+    image) or ``detector_noise`` (the `DetectorNoise` fields, ``flat`` a
+    number or a full-frame FITS image, a path or [path, extension]); optional
     ``wavelength_unit`` (default um), ``exposure`` (default: the file stem),
     ``bad_pixels`` and the header overrides of `load_nirc2_exposure`
     (``bunit``, ``itime``, ``coadds``, ``position_angle`` in degrees).
@@ -78,7 +80,10 @@ def build_keck_likelihoods(
             if key in entry:
                 entry[key] = _fits_image(entry[key])
         if "detector_noise" in entry:
-            entry["detector_noise"] = DetectorNoise(**entry["detector_noise"])
+            noise = dict(entry["detector_noise"])
+            if isinstance(noise.get("flat"), (str, list, tuple)):
+                noise["flat"] = _read(_fits_image(noise["flat"]))[0]
+            entry["detector_noise"] = DetectorNoise(**noise)
         if "position_angle" in entry:
             entry["position_angle"] = float(entry["position_angle"]) * u.deg
         loaded = load_nirc2_exposure(

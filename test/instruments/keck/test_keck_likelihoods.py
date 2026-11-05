@@ -402,3 +402,20 @@ def test_psf_broadening_band_key_matching_no_band_raises(tmp_path):
             _gaussian(2.0, np.arange(-15, 16)),
             {"default": ["delta", 0.0], "keck_nirc2_Kp_x": ["delta", 0.0]},
         )
+
+
+@pytest.mark.parametrize("as_list", [False, True])
+def test_detector_noise_flat_from_a_fits_file(tmp_path, as_list):
+    cfg = _config(tmp_path)
+    flat = np.random.default_rng(177).uniform(0.74, 1.07, (NY, NX))
+    path = str(_write(tmp_path / "flat.fits", flat).path)
+    noise = cfg["files"]["exposures"][1]["detector_noise"]
+    noise["flat"] = [path, 0] if as_list else path
+    products = build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+    # DN summed over coadds, the grid covers the frame: b = 1 / (gain flat)
+    b = products.likelihoods[1].builder.noise.b
+    np.testing.assert_allclose(b, 1 / (4.0 * flat))
+
+    noise["flat"] = str(_write(tmp_path / "small.fits", flat[:-1]).path)
+    with pytest.raises(ValueError, match="a scalar or the science"):
+        build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
