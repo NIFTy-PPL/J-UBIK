@@ -268,7 +268,7 @@ def test_loader_yields_each_observation_with_its_file(tmp_path):
     groups = assign_shift_groups(config, files)
 
     loaded = load_and_modify_data_from_objects(
-        ju.Grid.from_shape_and_fov(8, (1, 1) * u.arcsec, [0.5e9, 2e9] * u.Hz),
+        ju.Color([0.5e9, 2e9] * u.Hz),
         DataLoading.from_yaml_dict(cfg),
         ObservationModifyConfig.from_yaml_dict({}),
     )

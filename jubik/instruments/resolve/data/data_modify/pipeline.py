@@ -5,16 +5,16 @@ from dataclasses import dataclass
 import astropy.units as u
 from nifty.cl.logger import logger
 
-from .....grid import Grid
+from .....color import Color
 from ...constants import RESOLVE_SPECTRAL_UNIT
 from ...parse.data.data_loading import DataFile
 from ...parse.data.data_modify import ObservationModifyConfig
-from ...parse.data.data_modify.flagging import BeyondNyquist, FlagWeights
+from ...parse.data.data_modify.flagging import FlagWeights
 from ...parse.data.data_modify.frequency import SpectralModify
 from ...parse.data.data_modify.visibility_subset import SelectSubset
 from ...parse.data.data_modify.weights import SystematicErrorBudget
 from ..observation import Observation
-from .flagging import flag_weights, restrict_to_nyquist
+from .flagging import flag_weights
 from .frequency import (
     exclude_frequency_ranges,
     freq_average_by_fdom_and_n_freq_chunks,
@@ -54,8 +54,6 @@ class ObservationModify:
         Average the data to Stokes I.
     flag_weights: FlagWeights | None
         Flag visibilities whose weights lie outside a range.
-    beyond_nyquist: BeyondNyquist
-        Raise on or drop the rows beyond the Nyquist frequency of the sky grid.
     """
 
     time_bins: int | None
@@ -69,7 +67,6 @@ class ObservationModify:
     restrict_to_stokes_I: bool
     average_to_stokes_I: bool
     flag_weights: FlagWeights | None
-    beyond_nyquist: BeyondNyquist
 
 
 def build_observation_modify(
@@ -103,12 +100,11 @@ def build_observation_modify(
         restrict_to_stokes_I=config.restrict_to_stokes_I,
         average_to_stokes_I=config.average_to_stokes_I,
         flag_weights=config.flag_weights,
-        beyond_nyquist=config.beyond_nyquist,
     )
 
 
 def modify_observation(
-    sky_grid: Grid,
+    sky_frequencies: Color,
     obs: Observation,
     modify: ObservationModify,
 ) -> Observation:
@@ -119,16 +115,13 @@ def modify_observation(
 
     Parameters
     ----------
-    sky_grid: Grid
-        The grid of the sky model. Its frequencies set the frequency
-        selection and averaging, its pixel size the Nyquist check.
+    sky_frequencies: list[float]
+        The frequencies of the sky model, in [Hz].
     obs: Observation
         The observation to be modified
     modify: ObservationModify
         The model for the modification, see `ObservationModify`.
     """
-
-    sky_frequencies = sky_grid.spectral
 
     # Masking
     obs = flag_weights(obs, modify.flag_weights)
@@ -184,8 +177,5 @@ def modify_observation(
         obs = to_double_precision(obs)
 
     obs = shift_phase_center(obs, modify.shift)
-
-    # Last, so that the check sees the final frequencies and rows.
-    obs = restrict_to_nyquist(obs, sky_grid, modify.beyond_nyquist)
 
     return obs
