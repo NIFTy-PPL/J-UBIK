@@ -14,7 +14,6 @@ from .....parse.models.distributions import (
     prior_config_factory,
 )
 
-
 MODEL_KEY = "model"
 ROTATION_UNIT_KEY = "rotation_unit"
 SHIFT_UNIT_KEY = "shift_unit"

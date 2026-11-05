@@ -36,7 +36,7 @@ def _correction(model, center):
     return ShiftAndRotationCorrection("f", prior, center)
 
 
-def _sampling(grid):
+def _sampling():
     data_wcs = WcsAstropy(
         OFF_CENTER, shape=9, fov=9 * 0.4 * u.arcsec, position_angle=17 * u.deg
     )
@@ -76,7 +76,7 @@ def test_equals_explicit_rotation_about_the_centre_plus_shift(
 ):
     centers = [center, OFF_CENTER] if per_exposure_center else [center, center]
     rotation_center = SkyCoord(centers) if per_exposure_center else center
-    world, worlds = _sampling(grid)
+    world, worlds = _sampling()
     coordinates = build_coordinates_corrected_for_field(
         _correction("rshift", rotation_center), grid, worlds
     )
@@ -89,7 +89,7 @@ def test_equals_explicit_rotation_about_the_centre_plus_shift(
 
 @pytest.mark.parametrize("grid", GRIDS, ids=["square", "rotated-anisotropic"])
 def test_zero_rotation_reproduces_shift_exactly(grid):
-    _, worlds = _sampling(grid)
+    _, worlds = _sampling()
     shift_only, rshift = (
         build_coordinates_corrected_for_field(_correction(m, OFF_CENTER), grid, worlds)
         for m in ("shift", "rshift")
@@ -102,7 +102,7 @@ def test_zero_rotation_reproduces_shift_exactly(grid):
 
 def test_jit_and_grad():
     grid = GRIDS[1]
-    _, worlds = _sampling(grid)
+    _, worlds = _sampling()
     coordinates = build_coordinates_corrected_for_field(
         _correction("rshift", OFF_CENTER), grid, worlds
     )

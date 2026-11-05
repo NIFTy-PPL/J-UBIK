@@ -78,18 +78,7 @@ class Coordinates(jft.Model):
 
 
 class CoordinatesCorrectedShiftOnly(jft.Model):
-    """
-    Applies rotation and shift corrections to a set of coordinates.
-
-    This model applies a rotation and shift to the given coordinates based on
-    the provided priors for rotation and shift. The rotation is applied around
-    a specified center, and the shift is scaled by the pixel distance.
-
-    The transformation is defined as:
-        ri = si * Rot(theta) * (pi - r)
-           = Rot(theta) * (si * pi - si * r),
-    where `si * r` is the rotation center.
-    """
+    """Shifts the data sampling positions: `c' = c + shift / pixel scale`."""
 
     def __init__(
         self,
@@ -142,52 +131,41 @@ class CoordinatesCorrectedShiftAndRotation(jft.Model):
 
     def __init__(
         self,
-        shift_and_rotation: ShiftAndRotationCorrection,
+        shift_only: CoordinatesCorrectedShiftOnly,
         reconstruction_grid_wcs: WcsAstropy,
-        pixel_coordinates: np.ndarray,
     ):
         """
         Parameters
         ----------
-        shift_and_rotation : ShiftAndRotationCorrection
-            The shift and rotation priors, one row per exposure, and the
-            rotation centre, a `SkyCoord` for all exposures or one per exposure.
+        shift_only : CoordinatesCorrectedShiftOnly
+            The shifted positions, shape `(n_exposures, 2, H, W)`; its
+            `shift_and_rotation` holds the rotation prior, one row per exposure,
+            and the rotation centre, a `SkyCoord` for all exposures or one per
+            exposure.
         reconstruction_grid_wcs : WcsAstropy
-            The grid of `pixel_coordinates`.
-        pixel_coordinates : np.ndarray
-            The (row, column) sampling positions, shape `(n_exposures, 2, H, W)`.
+            The grid of the positions.
         """
-        self.shift_and_rotation = shift_and_rotation
-        self._coordinates = pixel_coordinates
-        n = pixel_coordinates.shape[0]
-        center = np.array(
-            reconstruction_grid_wcs.world_to_indices_yx(
-                shift_and_rotation.rotation_center
-            )
+        self.shift_only = shift_only
+        self.shift_and_rotation = shift_only.shift_and_rotation
+        n = shift_only._coordinates.shape[0]
+        center = reconstruction_grid_wcs.world_to_indices_yx(
+            self.shift_and_rotation.rotation_center
         )
-        center = np.broadcast_to(center.T, (n, 2))  # one per exposure
-        self._offsets = pixel_coordinates - center[..., None, None]
+        self._center = np.broadcast_to(np.array(center).T, (n, 2))  # per exposure
         # astropy's matrix maps (column, row) to (East, North): reverse both axes
         self._to_sky = reconstruction_grid_wcs.pixel_scale_matrix[::-1, ::-1]
         self._to_grid = np.linalg.inv(self._to_sky)
-        self._1_over_pixel_distance = (
-            1
-            / reconstruction_grid_wcs.pixel_scales_yx.to(
-                shift_and_rotation.shift_unit
-            ).value
-        )
         super().__init__(domain=self.shift_and_rotation.domain)
 
     def __call__(self, params: dict) -> ArrayLike:
-        shift = self.shift_and_rotation.shift(params) * self._1_over_pixel_distance
         theta = self.shift_and_rotation.rotation_angle(params)[:, 0]
         sin = jnp.sin(theta)
         cos_minus_one = -2 * jnp.sin(theta / 2) ** 2  # exactly 0 at theta = 0
         # R - 1 in (North, East), shape (2, 2, n_exposures)
         r_minus_one = jnp.array([[cos_minus_one, -sin], [sin, cos_minus_one]])
         m = jnp.einsum("ij,jkn,kl->nil", self._to_grid, r_minus_one, self._to_sky)
-        rotated = jnp.einsum("nij,njhw->nihw", m, self._offsets)
-        return self._coordinates + rotated + shift[..., None, None]
+        offsets = self.shift_only._coordinates - self._center[..., None, None]
+        return self.shift_only(params) + jnp.einsum("nij,njhw->nihw", m, offsets)
 
 
 class CoordinatesCorrectedStarShift(jft.Model):
@@ -342,7 +320,10 @@ def build_coordinates_corrected_for_field(
     shift_unit = shift_and_rotation_correction.shift_unit
     reconstruction_scale = reconstruction_grid_wcs.pixel_scales_yx.to(shift_unit)
 
-    if shift_and_rotation_correction.model == CorrectionModel.SHIFT:
+    if shift_and_rotation_correction.model in (
+        CorrectionModel.SHIFT,
+        CorrectionModel.RSHIFT,
+    ):
         assert (  # Check that we have the same amount of observations (length of first/0th axis)
             shift_and_rotation_correction.shift.target.shape
             == fixed_coordinates.shape[:2]
@@ -350,22 +331,15 @@ def build_coordinates_corrected_for_field(
         assert len(fixed_coordinates.shape) == 4
 
         shape = (Ellipsis, None, None)
-        return CoordinatesCorrectedShiftOnly(
+        shift_only = CoordinatesCorrectedShiftOnly(
             shift_and_rotation_correction,
             fixed_coordinates,
             reconstruction_scale,
             shape,
         )
-
-    elif shift_and_rotation_correction.model == CorrectionModel.RSHIFT:
-        assert (  # Check that we have the same amount of observations (length of first/0th axis)
-            shift_and_rotation_correction.shift.target.shape
-            == fixed_coordinates.shape[:2]
-        )
-        assert len(fixed_coordinates.shape) == 4
-        return CoordinatesCorrectedShiftAndRotation(
-            shift_and_rotation_correction, reconstruction_grid_wcs, fixed_coordinates
-        )
+        if shift_and_rotation_correction.model == CorrectionModel.SHIFT:
+            return shift_only
+        return CoordinatesCorrectedShiftAndRotation(shift_only, reconstruction_grid_wcs)
 
     # elif shift_and_rotation_correction.model == CorrectionModel.GENERAL:
     #     raise NotImplementedError

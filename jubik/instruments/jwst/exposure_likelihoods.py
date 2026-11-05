@@ -31,6 +31,7 @@ from .jwst_response import TargetResponseInput, build_target_response
 from .likelihood.likelihood import ShotNoise
 from .likelihood.target_likelihood import build_target_likelihood
 from .parse.jwst_response import SkyMetaInformation
+from .parse.rotation_and_shift.coordinates_correction import CorrectionModel
 from .parse.rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
 )
@@ -183,11 +184,18 @@ def build_exposure_likelihoods(
     plotting = ResidualPlottingInformation()
     for e in exposures:
         target_data, psf_model = _with_psf(e)
+        correction_prior = FilterAlignment(e.band.lower()).load_correction_prior(
+            correction_priors, number_of_observations=1
+        )
+        # the shift model ignores the rotation prior
+        if (
+            correction_prior.model == CorrectionModel.SHIFT
+            and correction_prior.rotation.distribution != "delta"
+        ):
+            raise ValueError(f"{e.band}: a rotation prior needs model rshift")
         correction = ShiftAndRotationCorrection(
             domain_key=e.band,
-            correction_prior=FilterAlignment(e.band.lower()).load_correction_prior(
-                correction_priors, number_of_observations=1
-            ),
+            correction_prior=correction_prior,
             # near the target a rotation barely moves it: rotation and shift decouple
             rotation_center=grid.spatial.center,
         )
