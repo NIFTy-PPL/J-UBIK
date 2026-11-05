@@ -347,3 +347,41 @@ def test_cropping_keeps_the_likelihood_on_a_coarse_grid(tmp_path):
     x = x.tree if isinstance(x, jft.Vector) else x
     x["sky"] = 1e3 * jnp.abs(x["sky"])
     np.testing.assert_allclose(cut.likelihood(x), whole.likelihood(x), rtol=1e-12)
+
+
+@pytest.mark.parametrize("subsample", [1, 2])
+def test_psf_broadening_sigma_is_in_arcsec_at_any_subsample(tmp_path, subsample):
+    profile = np.exp(-0.5 * (np.arange(7) - 3.0) ** 2)  # odd at any subsample
+    kernel = fits.PrimaryHDU(np.outer(profile, profile))
+    kernel.header.update(PIXSCALE=0.076 / subsample, SUBSAMPL=subsample, CHGDIFF=False)
+    kernel.writeto(tmp_path / "psf_sub.fits")
+    nicmos = _nicmos_entry(tmp_path, "n") | {"psf": str(tmp_path / "psf_sub.fits")}
+    grid = _grid(nicmos["path"])
+    cfg = _config(tmp_path, [nicmos])
+    cfg["telescope"] = TELESCOPE | {
+        "target": {"subsample": subsample},
+        "psf_broadening": {"default": ["delta", 0.05]},  # arcsec
+    }
+    (likelihood,) = build_hst_likelihoods(cfg, grid, _sky_domain(grid)).likelihoods
+    key = NIC2 + "n_cal_psf_broadening"
+    assert key in likelihood.builder.response.domain
+    # σ in pixels of the subsampled grid; NIC2 pixels are 0.0760″ × 0.0754″
+    pixel = np.sqrt(np.prod(NIC2_SCALE)) / subsample
+    width = likelihood.builder.response.psf.width({key: 0.0})
+    np.testing.assert_allclose(width, 0.05 / pixel, rtol=1e-3)
+
+
+def test_psf_broadening_of_a_psf_model_raises(tmp_path):
+    exposure, grid = _exposure(tmp_path)
+    width = jft.Model(
+        lambda x: x["psf_width"], domain={"psf_width": jft.ShapeWithDtype((), float)}
+    )
+    centers = exposure.target_data.subsample_centers[0]
+    model = PsfGaussianBroadening(
+        jft.ShapeWithDtype((1, *centers.shape), float), exposure.psf.kernel[None], width
+    )
+    telescope = TELESCOPE | {"psf_broadening": {"default": ["delta", 0.0]}}
+    with pytest.raises(ValueError, match="psf_broadening needs a kernel"):
+        build_exposure_likelihoods(
+            [replace(exposure, psf=model)], grid, _sky_domain(grid), telescope
+        )

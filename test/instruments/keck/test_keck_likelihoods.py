@@ -308,7 +308,6 @@ def _psf_response(tmp_path, kernel, psf_broadening=None):
     cfg = _config(tmp_path)
     fits.PrimaryHDU(kernel).writeto(tmp_path / "psf.fits", overwrite=True)
     cfg["files"]["exposures"] = cfg["files"]["exposures"][:1]
-    cfg["telescope"] = copy.deepcopy(cfg["telescope"])
     if psf_broadening is not None:
         cfg["telescope"]["psf_broadening"] = psf_broadening
     products = build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
