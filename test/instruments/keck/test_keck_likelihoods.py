@@ -8,6 +8,7 @@ import pytest
 from astropy import units as u
 from astropy.io import fits
 from scipy.optimize import minimize
+from scipy.signal import convolve
 
 from jubik.color import Color
 from jubik.grid import Grid
@@ -296,3 +297,108 @@ def test_rotation_prior_under_the_shift_model_raises(tmp_path, rotation):
     }
     with pytest.raises(ValueError, match="keck_nirc2_Kp_a: a rotation prior needs"):
         build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+
+
+SCALE = 9.952e-3  # arcsec, the pre-2015 plate scale (Yelda et al. 2010)
+RING = np.arange(-30, 31)  # pixel offsets of the hand-made kernels
+
+
+def _gaussian(sigma, offsets):
+    g = np.exp(-0.5 * (offsets[:, None] ** 2 + offsets[None, :] ** 2) / sigma**2)
+    return g / g.sum()
+
+
+def _psf_response(tmp_path, kernel, psf_broadening=None):
+    """Exposure a's response to the sky, with `kernel` as its PSF file (#175)."""
+    cfg = _config(tmp_path)
+    fits.PrimaryHDU(kernel).writeto(tmp_path / "psf.fits", overwrite=True)
+    cfg["files"]["exposures"] = cfg["files"]["exposures"][:1]
+    if psf_broadening is not None:
+        cfg["telescope"]["psf_broadening"] = psf_broadening
+    products = build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+    (likelihood,) = products.likelihoods
+    response, band = likelihood.builder.response, "keck_nirc2_Kp_a"
+    return response, lambda x: response(x | {band: products.sky_filter(x)[band]})
+
+
+def _params(response):
+    domain = response.domain.copy()
+    domain.pop("keck_nirc2_Kp_a")  # the sky filter's output
+    x = jft.random_like(jax.random.PRNGKey(3), domain | SKY_DOMAIN)
+    x = x.tree if isinstance(x, jft.Vector) else dict(x)
+    x["sky"] = 1e3 * np.abs(np.asarray(x["sky"]))
+    return x
+
+
+def test_psf_broadening_equals_the_kernel_convolved_by_hand(tmp_path):
+    # σ = 2 px: the band-limited Gaussian of PsfGaussianBroadening and the
+    # sampled one here differ by exp(-2π²σ²/4) ~ 3e-9 at the Nyquist frequency
+    kernel = _gaussian(2.0, np.arange(-15, 16))
+    broadened, evaluate = _psf_response(
+        tmp_path, kernel, {"default": ["delta", 2.0 * SCALE]}
+    )
+    by_hand = convolve(kernel, _gaussian(2.0, RING), mode="full")
+    (tmp_path / "hand").mkdir()
+    _, reference = _psf_response(tmp_path / "hand", by_hand)
+    x = _params(broadened)
+    expected = reference(x)
+    np.testing.assert_allclose(
+        evaluate(x), expected, atol=1e-7 * np.abs(expected).max()
+    )
+
+
+def test_zero_psf_broadening_reproduces_the_fixed_kernel(tmp_path):
+    kernel = _gaussian(2.0, np.arange(-15, 16))
+    fixed, reference = _psf_response(tmp_path, kernel)
+    assert set(fixed.domain) == {
+        "keck_nirc2_Kp_a",
+        "keck_nirc2_Kp_a_shift",
+        "keck_nirc2_Kp_a_target_zero_flux",
+    }
+    (tmp_path / "zero").mkdir()
+    zero, broadened = _psf_response(
+        tmp_path / "zero", kernel, {"default": ["delta", 0.0]}
+    )
+    x = _params(zero)  # the delta prior keeps its unused latent
+    expected = reference(x)
+    np.testing.assert_allclose(
+        broadened(x), expected, atol=1e-8 * np.abs(expected).max()
+    )
+
+
+def test_psf_broadening_of_a_blurred_exposure_is_recovered(tmp_path):
+    kernel = _gaussian(2.0, np.arange(-15, 16))
+    blurred = convolve(kernel, _gaussian(2.5, RING), mode="full")  # σ = 2.5 px
+    _, truth = _psf_response(tmp_path, blurred)
+    (tmp_path / "fit").mkdir()
+    # band key, case-insensitive; σ ~ 25 ± 15 mas
+    response, model = _psf_response(
+        tmp_path / "fit",
+        kernel,
+        {"default": ["delta", 0.0], "KECK_NIRC2_KP_A": ["lognormal", 0.025, 0.015]},
+    )
+    key = "keck_nirc2_Kp_a_psf_broadening"
+    x = _params(response)
+    data = truth(x)
+
+    def chi2(latent):
+        return ((model(x | {key: latent[0]}) - data) ** 2).sum()
+
+    value_and_grad = jax.jit(jax.value_and_grad(chi2))
+    fit = minimize(
+        lambda p: [np.asarray(v, float) for v in value_and_grad(p)],
+        np.zeros(1),
+        jac=True,
+        method="BFGS",
+    )
+    sigma = response.psf.width({key: fit.x[0]}) * SCALE  # arcsec
+    np.testing.assert_allclose(sigma, 2.5 * SCALE, rtol=1e-3)
+
+
+def test_psf_broadening_band_key_matching_no_band_raises(tmp_path):
+    with pytest.raises(ValueError, match="psf_broadening"):
+        _psf_response(
+            tmp_path,
+            _gaussian(2.0, np.arange(-15, 16)),
+            {"default": ["delta", 0.0], "keck_nirc2_Kp_x": ["delta", 0.0]},
+        )
