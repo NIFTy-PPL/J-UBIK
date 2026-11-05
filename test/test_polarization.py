@@ -1,8 +1,7 @@
 import pytest
 
 from jubik.polarization import (
-    POLARIZATION_INVTABLE,
-    POLARIZATION_TABLE,
+    PolarizationCode,
     Polarization,
     PolarizationType,
 )
@@ -13,10 +12,18 @@ CIRCULAR = [5, 6, 7, 8]
 LINEAR = [9, 10, 11, 12]
 
 
-def test_tables_are_inverse_of_each_other():
-    assert set(POLARIZATION_TABLE) == set(CIRCULAR + LINEAR)
-    for index, label in POLARIZATION_TABLE.items():
-        assert POLARIZATION_INVTABLE[label] == index
+def test_supported_polarization_codes():
+    assert {member.value for member in PolarizationCode} == set(range(1, 13))
+
+
+@pmp("code,label", enumerate(
+    ("I", "Q", "U", "V", "RR", "RL", "LR", "LL", "XX", "XY", "YX", "YY"),
+    start=1,
+))
+def test_polarization_code_lookup(code, label):
+    assert PolarizationCode(code).name == label
+    assert PolarizationCode[label].value == code
+    assert type(PolarizationCode[label].value) is int
 
 
 @pmp("indices", ([], [5], [5, 8], CIRCULAR, LINEAR))
@@ -174,10 +181,10 @@ def test_stokes_i_type_maps_to_trivial_polarization():
     assert PolarizationType.I.get_legacy_polarization() == Polarization.trivial()
 
 
-def test_iquv_has_no_legacy_representation():
-    # I, Q, U, V are not part of the correlator-product table.
-    with pytest.raises(KeyError):
-        PolarizationType.IQUV.get_legacy_polarization()
+def test_iquv_legacy_roundtrip():
+    pol = PolarizationType.IQUV.get_legacy_polarization()
+    assert pol.to_list() == [1, 2, 3, 4]
+    assert PolarizationType.from_polarization_object(pol) == PolarizationType.IQUV
 
 
 @pmp(

@@ -15,19 +15,30 @@
 # Author: Philipp Arras, Jokob Roth, Julian Rüstig
 
 from typing import Iterable, Union
-from enum import Enum
+from enum import Enum, IntEnum
 
-POLARIZATION_TABLE = {
-    5: "RR",
-    6: "RL",
-    7: "LR",
-    8: "LL",
-    9: "XX",
-    10: "XY",
-    11: "YX",
-    12: "YY",
-}
-POLARIZATION_INVTABLE = {val: key for key, val in POLARIZATION_TABLE.items()}
+class PolarizationCode(IntEnum):
+    """Supported CASA/casacore polarization identifiers.
+
+    This enum contains the Stokes and correlation products supported by J-UBIK,
+    not the full CASA/casacore enumeration.
+
+    Look up a label with ``PolarizationCode(code).name`` and an integer
+    identifier with ``PolarizationCode[label].value``.
+    """
+
+    I = 1
+    Q = 2
+    U = 3
+    V = 4
+    RR = 5
+    RL = 6
+    LR = 7
+    LL = 8
+    XX = 9
+    XY = 10
+    YX = 11
+    YY = 12
 
 
 class Polarization:
@@ -55,7 +66,7 @@ class Polarization:
         return Polarization(inds)
 
     def restrict_by_name(self, lst):
-        return Polarization([POLARIZATION_INVTABLE[ss] for ss in lst])
+        return Polarization([PolarizationCode[ss].value for ss in lst])
 
     def circular(self):
         if self._trivial:
@@ -75,7 +86,7 @@ class Polarization:
         if self._trivial:
             raise RuntimeError
         keys = ["LL", "RR"] if self.circular() else ["XX", "YY"]
-        return [self._ind.index(POLARIZATION_INVTABLE[kk]) for kk in keys]
+        return [self._ind.index(PolarizationCode[kk].value) for kk in keys]
 
     def __len__(self):
         if self._trivial:
@@ -86,7 +97,7 @@ class Polarization:
         return list(self._ind)
 
     def to_str_list(self):
-        return [POLARIZATION_TABLE[ii] for ii in self._ind]
+        return [PolarizationCode(ii).name for ii in self._ind]
 
     @property
     def labels(self):
@@ -105,6 +116,7 @@ class Polarization:
         from .instruments.resolve.polarization_space import PolarizationSpace
 
         return PolarizationSpace(self.labels)
+
 
     @staticmethod
     def from_list(lst):
@@ -158,7 +170,7 @@ class PolarizationType(Enum):
         if self == self.I:
             indices = []
         else:
-            indices = [POLARIZATION_INVTABLE[p] for p in self.value]
+            indices = [PolarizationCode[p].value for p in self.value]
         return Polarization(indices)
 
     @property
