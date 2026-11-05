@@ -239,11 +239,10 @@ class SkyResiduals:
             first = page * rows
             page_bands = bands[first : first + rows]
             ylen = len(page_bands)
-            fig, axes = plt.subplots(ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300)
+            fig, axes = plt.subplots(
+                ylen, xlen, figsize=(3 * xlen, 3 * ylen), dpi=300, squeeze=False
+            )
             ims = np.zeros_like(axes)
-            if ylen == 1:
-                ims = ims[None]
-                axes = axes[None]
 
             for filter_name in page_bands:
                 ypos = _determine_ypos(filter_name, self.sky_filter) - first
@@ -315,6 +314,7 @@ class SkyResiduals:
             mask=mask,
             std=std,
         )
+        del data_model  # a shot-noise model holds a, b and sky
         chis: list[str] = [
             "\n".join((f"redChi2: {mean:.2f} +/- {std:.2f}",))
             for mean, std in zip(redchi_mean, redchi_std)
