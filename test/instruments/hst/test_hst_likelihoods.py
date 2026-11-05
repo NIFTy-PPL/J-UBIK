@@ -24,8 +24,10 @@ from jubik.instruments.jwst.exposure_likelihoods import (
     build_exposure_likelihoods,
 )
 from jubik.instruments.jwst.likelihood.likelihood import (
+    GaussianLikelihoodBuilder,
     ShotNoise,
     ShotNoiseGaussianLikelihoodBuilder,
+    VariableCovarianceGaussianLikelihoodBuilder,
 )
 from jubik.instruments.jwst.plotting import residuals as residual_plots
 from jubik.instruments.jwst.plotting.residuals import SkyResiduals
@@ -462,5 +464,62 @@ def test_residual_band_missing_from_the_sky_filter_raises(tmp_path):
     )
     x = jft.random_like(jax.random.PRNGKey(10), products.likelihood.domain)
     x = x.tree if isinstance(x, jft.Vector) else x
-    with pytest.raises(ValueError, match="not in list"):
+    with pytest.raises(ValueError, match="not in the sky filter"):
         plots(x, SimpleNamespace(nit=5))
+
+
+@pytest.mark.parametrize("variable", [False, True])
+def test_residuals_use_the_fixed_or_variable_sigma(tmp_path, variable):
+    exposure, grid = _exposure(tmp_path)
+    exposure = replace(exposure, noise=None)
+    products = build_exposure_likelihoods(
+        [exposure], grid, _sky_domain(grid), TELESCOPE
+    )
+    builder = products.plotting.builder[0]
+    assert type(builder) is GaussianLikelihoodBuilder
+    data, std, mask, response = (
+        builder.data,
+        builder.std,
+        builder.mask,
+        builder.response,
+    )
+
+    class ScaledStd:  # σ = std · exp(vs), a variable covariance
+        def build(self, std, mask):
+            return jft.Model(
+                lambda x: 1 / (std[mask] * jnp.exp(getattr(x, "tree", x)["vs"])),
+                domain={"vs": jft.ShapeWithDtype((), float)},
+            )
+
+    if variable:
+        products.plotting.builder[0] = VariableCovarianceGaussianLikelihoodBuilder(
+            response, ScaledStd(), data, std, mask
+        )
+    plots = SkyResiduals(
+        residual_directory=str(tmp_path),
+        sky_model=jft.Model(lambda x: {"sky": x["sky"]}, domain=_sky_domain(grid)),
+        sky_filter=products.sky_filter,
+        residual_plotting_info=products.plotting,
+    )
+    domain = products.likelihood.domain
+    domain = getattr(domain, "tree", domain) | {"vs": jft.ShapeWithDtype((), float)}
+    pos = jft.random_like(jax.random.PRNGKey(11), domain)
+    pos = jft.Vector(pos.tree if isinstance(pos, jft.Vector) else pos)
+    delta = jax.tree.map(
+        lambda v: 0.1 * v, jft.random_like(jax.random.PRNGKey(12), domain)
+    )
+    delta = jft.Vector(delta.tree if isinstance(delta, jft.Vector) else delta)
+    samples = jft.Samples(
+        pos=pos, samples=jax.tree.map(lambda d: jnp.stack([d, -d]), delta)
+    )
+
+    models, sigmas = [], []
+    for s in samples:
+        s = s.tree if isinstance(s, jft.Vector) else s
+        models.append(np.asarray(response(products.sky_filter(s) | s)))
+        sigmas.append(std[mask] * (np.exp(s["vs"]) if variable else 1.0))
+    expected = (data[mask] - np.mean(models, 0)) / np.mean(sigmas, 0)
+    (band,) = products.sky_filter.bands
+    np.testing.assert_allclose(
+        plots.residuals(samples)[band][mask], expected, rtol=1e-10
+    )

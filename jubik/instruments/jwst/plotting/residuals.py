@@ -203,6 +203,8 @@ class SkyResiduals:
             self.residual_plotting_info, xmax_residuals
         )
         bands = list(self.sky_filter.bands)
+        if unknown := set(self.residual_plotting_info.filter) - set(bands):
+            raise ValueError(f"bands {sorted(unknown)} are not in the sky filter")
         rows = max(1, MAX_PANELS_PER_PAGE // xlen)
         n_pages = -(-len(bands) // rows)
 
@@ -253,7 +255,6 @@ class SkyResiduals:
                 )
 
             for filter_key in self.residual_plotting_info.filter:
-                # raises for a band the sky filter does not have
                 ypos = _determine_ypos(filter_key, self.sky_filter) - first
                 if not 0 <= ypos < ylen:
                     continue
@@ -279,7 +280,7 @@ class SkyResiduals:
                 if n_pages > 1:
                     name += f"_{page:02d}"
                 fig.savefig(join(self.residual_directory, f"{name}.png"), dpi=300)
-            plt.close(fig)
+                plt.close(fig)
 
     def _plot_row(
         self,
