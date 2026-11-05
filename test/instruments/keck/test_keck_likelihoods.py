@@ -177,3 +177,20 @@ def test_cropping_keeps_the_likelihood(tmp_path, noise, shape, fov):
     np.testing.assert_allclose(cut.likelihood(x), whole.likelihood(x), rtol=1e-12)
     if shape == 16:  # the test can fail: without the margin the PSF wings are cut
         assert not np.isclose(no_margin.likelihood(x), whole.likelihood(x), rtol=1e-12)
+
+
+@pytest.mark.parametrize("as_list", [False, True])
+def test_detector_noise_flat_from_a_fits_file(tmp_path, as_list):
+    cfg = _config(tmp_path)
+    flat = np.random.default_rng(177).uniform(0.74, 1.07, (NY, NX))
+    path = str(_write(tmp_path / "flat.fits", flat).path)
+    noise = cfg["files"]["exposures"][1]["detector_noise"]
+    noise["flat"] = [path, 0] if as_list else path
+    products = build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+    # DN summed over coadds, the grid covers the frame: b = 1 / (gain flat)
+    b = products.likelihoods[1].builder.noise.b
+    np.testing.assert_allclose(b, 1 / (4.0 * flat))
+
+    noise["flat"] = str(_write(tmp_path / "small.fits", flat[:-1]).path)
+    with pytest.raises(ValueError, match="flat"):
+        build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)

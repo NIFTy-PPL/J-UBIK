@@ -107,8 +107,9 @@ class DetectorNoise:
         science image's shape.
     flat : float | np.ndarray
         The flat the science image was divided by, normalised as applied. A
-        scalar or the science image's shape; pixels where it is 0 or NaN are
-        masked.
+        scalar or the science image's shape (the raw frame, before the
+        cutout). It must be finite and > 0 on every pixel that enters the
+        likelihood; mark other pixels in ``bad_pixels``.
     """
 
     gain: float
@@ -262,7 +263,8 @@ def load_nirc2_exposure(
         camera; a unit other than DN or DN/s; shapes that differ from the science
         image (maps of a subarray readout included); a rotator mode other
         than position angle without ``position_angle``; the sky grid misses
-        the detector; every pixel masked.
+        the detector; a flat that is not finite and > 0 on a pixel that would
+        enter the likelihood; every pixel masked.
     KeyError
         A needed header keyword is missing and was not given.
     """
@@ -379,8 +381,16 @@ def load_nirc2_exposure(
 
     pixel_scale = distortion.pixel_scale.to(u.deg)
     finite = np.isfinite(data) & np.isfinite(std)
-    mask = finite & (std > 0) & ~bad
-    mask &= get_mask_from_index_centers_within_rgrid(bounds, wcs, sky_grid)
+    in_grid = get_mask_from_index_centers_within_rgrid(bounds, wcs, sky_grid)
+    if detector_noise is not None:
+        flat = np.broadcast_to(np.asarray(detector_noise.flat, float), (ny, nx))[cut]
+        wrong = np.isfinite(data) & ~bad & in_grid & ~(np.isfinite(flat) & (flat > 0))
+        if wrong.any():
+            raise ValueError(
+                f"{science}: the flat is not finite and > 0 on {wrong.sum()} "
+                "pixels that would enter the likelihood; mark them in bad_pixels"
+            )
+    mask = finite & (std > 0) & ~bad & in_grid
     if not mask.any():
         raise ValueError(f"{science}: every pixel is masked")
 

@@ -463,7 +463,13 @@ def test_flat_enters_the_plain_sigma_and_is_checked(tmp_path):
         DetectorNoise(GAIN, 0.0, N_READS, 0.0)
     flat[1, 1], flat[2, 2] = 0.0, np.nan  # dead pixels of a real flat
     detector = DetectorNoise(GAIN, READ_NOISE, N_READS, 1000.0, flat)
-    mask = _load(tmp_path, data=data, detector_noise=detector).target_data.mask[0]
+    with pytest.raises(ValueError, match="2 pixels that would enter"):
+        _load(tmp_path, data=data, detector_noise=detector)
+    bad = np.zeros((NY, NX))
+    bad[1, 1] = bad[2, 2] = 1  # marked bad, they leave the likelihood
+    bad = _write(tmp_path / "bad.fits", bad)
+    exposure = _load(tmp_path, data=data, detector_noise=detector, bad_pixels=bad)
+    mask = exposure.target_data.mask[0]
     assert not mask[1, 1] and not mask[2, 2] and mask.sum() == mask.size - 2
     with pytest.raises(ValueError, match="flat"):
         _load(
@@ -494,3 +500,25 @@ def test_normalized_residuals_through_the_response(tmp_path):
         assert normalized.var() == pytest.approx(1, abs=0.04)
     bright = (data[:, model > 1e4] - model[model > 1e4]) * no_source_shot
     assert bright.var() > 10
+
+
+def test_flat_of_an_off_centre_cutout(tmp_path):
+    """The cutout takes the flat at its own detector pixels:
+    σ² = (RN² coadds / n_reads + gain flat max(SCI + sky, 0)) / (gain flat)²."""
+    rng = np.random.default_rng(177)
+    flat = rng.uniform(0.74, 1.07, (NY, NX))
+    data = rng.uniform(100.0, 500.0, (NY, NX))  # DN summed over the coadds
+    sky = 300.0
+    detector = DetectorNoise(GAIN, READ_NOISE, N_READS, sky, flat)
+    small = WcsAstropy(CENTER, shape=5, fov=50 * u.mas)  # around raw (7, 5)
+    exposure = _load(
+        tmp_path, data=data, detector_noise=detector, sky_grid=small, margin=1
+    )
+    r0, r1, c0, c1 = exposure.diagnostics["bounds"]
+    assert (r0, c0) != (0, 0) and (r1, c1) != (NY, NX)  # not the whole frame
+    f, d = flat[r0:r1, c0:c1], data[r0:r1, c0:c1]
+    variance = (
+        READ_NOISE**2 * COADDS / N_READS + GAIN * f * np.maximum(d + sky, 0)
+    ) / (GAIN * f) ** 2
+    np.testing.assert_allclose(exposure.target_data.std[0], np.sqrt(variance))
+    np.testing.assert_allclose(exposure.noise.b, 1 / (GAIN * f))
