@@ -245,67 +245,96 @@ def _get_std_from_inversestdmodel(
 
 def _get_data_model_and_chi2(
     position_or_samples: Union[dict, jft.Samples, jft.Vector],
-    sky_or_skies: np.ndarray | None,
+    sky_or_skies: np.ndarray | dict | None,
     data_model: jft.Model,
     data: np.ndarray,
     mask: np.ndarray,
-    std: Union[np.ndarray, jft.Model],
-) -> tuple[np.ndarray, tuple[tuple[float, float], ...]]:
+    std: np.ndarray | float | None,
+) -> tuple[np.ndarray, np.ndarray, tuple]:
+    """Sample-mean data model, the σ used, and the reduced chi² (per exposure
+    for 3-D data) with its mean and std over the samples.
+
+    With ``std`` None, ``data_model`` returns (prediction, inverse std), as
+    `ShotNoiseGaussianLikelihoodBuilder.model` does: each sample's chi² uses
+    its own σ and the returned σ is their mean. Each sample is evaluated once
+    and summed over the unmasked pixels, so no per-sample image is kept.
+    """
     if isinstance(std, float):
         std = np.full_like(data, std)
 
-    while isinstance(position_or_samples, jft.Vector):
-        position_or_samples = position_or_samples.tree
+    def tree(x):
+        while isinstance(x, jft.Vector):
+            x = x.tree
+        return x
 
-    if isinstance(position_or_samples, jft.Samples) and len(position_or_samples) > 0:
-        model_d = []
-        for ii, si in enumerate(position_or_samples):
-            tmp = np.zeros_like(data)
-            while isinstance(si, jft.Vector):
-                si = si.tree
-            if sky_or_skies is None:
-                tmp[mask] = data_model(si)
-            else:
-                tmp[mask] = data_model(sky_or_skies[ii] | si)
-            model_d.append(tmp)
-
-        model_mean = jft.mean(model_d)
-
-        if len(mask.shape) == 2:
-            redchi_mean, redchi_std = jft.mean_and_std(
-                [
-                    redchi2(data[mask], model[mask], std[mask], data[mask].size)
-                    for model in model_d
-                ]
-            )
-        else:
-            redchi_mean, redchi_std = [], []
-            for ii, (dd, mm, ss) in enumerate(zip(data, mask, std)):
-                rchi_mean, rchi_std = jft.mean_and_std(
-                    [
-                        redchi2(dd[mm], model[ii][mm], ss[mm], dd[mm].size)
-                        for model in model_d
-                    ]
-                )
-                redchi_mean.append(rchi_mean)
-                redchi_std.append(rchi_std)
-
+    position_or_samples = tree(position_or_samples)
+    sampled = (
+        isinstance(position_or_samples, jft.Samples) and len(position_or_samples) > 0
+    )
+    if sampled:
+        positions = (tree(si) for si in position_or_samples)
+        skies = (
+            [None] * len(position_or_samples) if sky_or_skies is None else sky_or_skies
+        )
     else:
         if isinstance(position_or_samples, jft.Samples):
             position_or_samples = position_or_samples.pos
+            # no samples: _get_model_samples_or_position gives [sky(pos)]
+            if sky_or_skies is not None:
+                (sky_or_skies,) = sky_or_skies
+        positions, skies = [tree(position_or_samples)], [sky_or_skies]
 
-        model_d = np.zeros_like(data)
-        if sky_or_skies is not None:
-            position_or_samples = position_or_samples | sky_or_skies
-        model_d[mask] = data_model(position_or_samples)
+    # per-exposure slices of the unmasked pixels, in data[mask] order
+    bounds = np.cumsum([0, *mask.reshape(len(mask), -1).sum(1)])
+
+    def redchi(model, sigma):
+        """On the unmasked pixels; ``sigma`` None takes the fixed ``std``."""
         if len(mask.shape) == 2:
-            redchi_mean = redchi2(data[mask], model_d[mask], std[mask], data[mask].size)
+            ss = std[mask] if sigma is None else sigma
+            return redchi2(data[mask], model, ss, model.size)
+        # one exposure at a time, so no band-sized copy of data or std is made
+        return [
+            redchi2(
+                data[e][mask[e]],
+                model[a:b],
+                std[e][mask[e]] if sigma is None else sigma[a:b],
+                int(b - a),
+            )
+            for e, (a, b) in enumerate(zip(bounds[:-1], bounds[1:]))
+        ]
+
+    # sums over the unmasked pixels only; the images are built once at the end
+    model_sum = sigma_sum = None
+    redchis = []
+    for x, sky in zip(positions, skies):
+        prediction = data_model(x if sky is None else sky | x)
+        sigma = None
+        if std is None:
+            prediction, inverse_std = prediction
+            sigma = np.reciprocal(np.asarray(inverse_std, data.dtype))
+            del inverse_std
+        prediction = np.asarray(prediction, data.dtype)
+        redchis.append(redchi(prediction, sigma))
+        if model_sum is None:
+            model_sum, sigma_sum = np.array(prediction), sigma
         else:
-            redchi_mean = []
-            for ii, (dd, mo, mm, ss) in enumerate(zip(data, model_d, mask, std)):
-                redchi_mean.append(redchi2(dd[mm], mo[mm], ss[mm], dd[mm].size))
+            model_sum += prediction
+            if sigma is not None:
+                sigma_sum += sigma
+        del prediction, sigma
+    model_sum /= len(redchis)
+    model_mean = np.zeros_like(data)
+    model_mean[mask] = model_sum
+    del model_sum
+    if std is None:
+        sigma_sum /= len(redchis)
+        std = np.zeros_like(data)
+        std[mask] = sigma_sum
+    del sigma_sum
 
+    if sampled:
+        redchi_mean, redchi_std = jft.mean_and_std(redchis)
+    else:
+        redchi_mean = redchis[0]
         redchi_std = np.full_like(redchi_mean, 0)
-        model_mean = model_d
-
-    return np.array(model_mean), (redchi_mean, redchi_std)
+    return model_mean, std, (redchi_mean, redchi_std)

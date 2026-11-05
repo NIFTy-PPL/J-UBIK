@@ -1,11 +1,15 @@
 """build_hst_likelihoods and the shared per-exposure builder on the synthetic
 NICMOS and WFPC2 files of the loader tests."""
 
+import gc
+import weakref
 from copy import deepcopy
 from dataclasses import replace
+from types import SimpleNamespace
 
 import jax
 import jax.numpy as jnp
+import matplotlib.image
 import nifty.re as jft
 import numpy as np
 import pytest
@@ -22,11 +26,15 @@ from jubik.instruments.jwst.exposure_likelihoods import (
     build_exposure_likelihoods,
 )
 from jubik.instruments.jwst.likelihood.likelihood import (
+    GaussianLikelihoodBuilder,
     ShotNoise,
     ShotNoiseGaussianLikelihoodBuilder,
+    VariableCovarianceGaussianLikelihoodBuilder,
 )
+from jubik.instruments.jwst.plotting import residuals as residual_plots
 from jubik.instruments.jwst.plotting.residuals import SkyResiduals
 from jubik.instruments.jwst.psf.psf_operator import PsfGaussianBroadening
+from jubik.sky_filter import SkyFilter
 from jubik.wcs import WcsAstropy
 from test_hst_data import CURVE, NIC2_SCALE, SHAPE, SPECTRAL, _grid, _nicmos, _wfpc2
 
@@ -347,3 +355,195 @@ def test_cropping_keeps_the_likelihood_on_a_coarse_grid(tmp_path):
     x = x.tree if isinstance(x, jft.Vector) else x
     x["sky"] = 1e3 * jnp.abs(x["sky"])
     np.testing.assert_allclose(cut.likelihood(x), whole.likelihood(x), rtol=1e-12)
+
+
+def _evaluated(x):
+    """1 for an evaluation on arrays, 0 for a shape trace by jft.Model."""
+    return not isinstance(jax.tree.leaves(x)[0], jax.core.Tracer)
+
+
+def _two_band_residuals(tmp_path, ids="nm"):
+    exposure, grid = _exposure(tmp_path)
+    exposures = [replace(exposure, exposure=i) for i in ids]
+    products = build_exposure_likelihoods(exposures, grid, _sky_domain(grid), TELESCOPE)
+    calls = {"sky": 0}
+
+    def sky_model(x):
+        calls["sky"] += _evaluated(x)
+        return {"sky": x["sky"]}
+
+    plots = SkyResiduals(
+        residual_directory=str(tmp_path),
+        sky_model=jft.Model(sky_model, domain=_sky_domain(grid)),
+        sky_filter=products.sky_filter,
+        residual_plotting_info=products.plotting,
+    )
+    return exposures, products, plots, calls
+
+
+def test_residual_samples_evaluate_sky_and_model_once_each(tmp_path):
+    exposures, products, plots, calls = _two_band_residuals(tmp_path)
+    responses = [t.builder.response for t in products.likelihoods]
+    for t, response in zip(products.likelihoods, responses):
+        calls[t.filter] = 0
+
+        def counted(x, response=response, band=t.filter):
+            calls[band] += _evaluated(x)
+            return response(x)
+
+        t.builder.response = jft.Model(counted, domain=response.domain)
+
+    pos = jft.random_like(jax.random.PRNGKey(7), products.likelihood.domain)
+    pos = jft.Vector(pos.tree if isinstance(pos, jft.Vector) else pos)
+    pos.tree["sky"] = jnp.abs(pos.tree["sky"]) * 1e3  # a positive sky, so b matters
+    delta = jax.tree.map(
+        lambda v: 0.1 * v,
+        jft.random_like(jax.random.PRNGKey(8), products.likelihood.domain),
+    )
+    delta = jft.Vector(delta.tree if isinstance(delta, jft.Vector) else delta)
+    samples = jft.Samples(
+        pos=pos, samples=jax.tree.map(lambda d: jnp.stack([d, -d]), delta)
+    )
+    residuals = plots.residuals(samples)
+
+    # one sky per sample, one response per sample and exposure
+    once = {"sky": 2} | {t.filter: 2 for t in products.likelihoods}
+    assert calls == once
+    # the same in the plot callback, and for a stage without samples
+    calls.update(dict.fromkeys(calls, 0))
+    plots(samples, SimpleNamespace(nit=1))
+    assert calls == once
+    calls.update(dict.fromkeys(calls, 0))
+    plots(jft.Samples(pos=pos, samples=None), SimpleNamespace(nit=2))
+    assert calls == {k: 1 for k in once}
+    for e, t, response in zip(exposures, products.likelihoods, responses):
+        mask = e.target_data.mask
+        a, b, sky = (
+            np.broadcast_to(v, mask.shape)[mask]
+            for v in (e.noise.a, e.noise.b, e.noise.sky)
+        )
+        models, sigmas = [], []
+        for s in samples:
+            s = s.tree if isinstance(s, jft.Vector) else s
+            model = np.asarray(response(products.sky_filter(s) | s))
+            models.append(model)
+            sigmas.append(np.sqrt(a + b * np.maximum(model + sky, 0)))
+        expected = (e.target_data.data[mask] - np.mean(models, 0)) / np.mean(sigmas, 0)
+        np.testing.assert_allclose(residuals[t.filter][mask], expected, rtol=1e-10)
+
+
+def test_residual_pages_bound_the_figure(tmp_path, monkeypatch):
+    _, products, plots, _ = _two_band_residuals(tmp_path)
+    rows, plot_row = [], SkyResiduals._plot_row
+
+    def spy(self, axes, ims, filter_key, *args):
+        assert axes[0].get_title() == f"Sky {filter_key}"  # the band's own row
+        rows.append(filter_key)
+        return plot_row(self, axes, ims, filter_key, *args)
+
+    monkeypatch.setattr(SkyResiduals, "_plot_row", spy)
+    x = jft.random_like(jax.random.PRNGKey(9), products.likelihood.domain)
+    x = x.tree if isinstance(x, jft.Vector) else x
+
+    plots(x, SimpleNamespace(nit=3))  # 2 rows of 4 panels fit one page
+    assert sorted(p.name for p in tmp_path.glob("*.png")) == ["03.png"]
+    assert matplotlib.image.imread(tmp_path / "03.png").shape[:2] == (1800, 3600)
+
+    monkeypatch.setattr(residual_plots, "MAX_PANELS_PER_PAGE", 4)  # one row
+    plots(x, SimpleNamespace(nit=4))
+    pages = sorted(p.name for p in tmp_path.glob("04*.png"))
+    assert pages == ["04_00.png", "04_01.png"]
+    for page in pages:
+        assert matplotlib.image.imread(tmp_path / page).shape[:2] == (900, 3600)
+    assert rows == 2 * list(products.sky_filter.bands)
+
+
+def test_residual_band_missing_from_the_sky_filter_raises(tmp_path):
+    _, products, plots, _ = _two_band_residuals(tmp_path)
+    first = next(iter(products.sky_filter.bands))
+    plots.sky_filter = SkyFilter(
+        products.sky_filter.grid, {first: products.sky_filter.bands[first]}
+    )
+    x = jft.random_like(jax.random.PRNGKey(10), products.likelihood.domain)
+    x = x.tree if isinstance(x, jft.Vector) else x
+    with pytest.raises(ValueError, match="not in the sky filter"):
+        plots(x, SimpleNamespace(nit=5))
+
+
+@pytest.mark.parametrize("variable", [False, True])
+def test_residuals_use_the_fixed_or_variable_sigma(tmp_path, variable):
+    exposure, grid = _exposure(tmp_path)
+    exposure = replace(exposure, noise=None)
+    products = build_exposure_likelihoods(
+        [exposure], grid, _sky_domain(grid), TELESCOPE
+    )
+    builder = products.plotting.builder[0]
+    assert type(builder) is GaussianLikelihoodBuilder
+    data, std, mask, response = (
+        builder.data,
+        builder.std,
+        builder.mask,
+        builder.response,
+    )
+
+    class ScaledStd:  # σ = std · exp(vs), a variable covariance
+        def build(self, std, mask):
+            return jft.Model(
+                lambda x: 1 / (std[mask] * jnp.exp(getattr(x, "tree", x)["vs"])),
+                domain={"vs": jft.ShapeWithDtype((), float)},
+            )
+
+    if variable:
+        products.plotting.builder[0] = VariableCovarianceGaussianLikelihoodBuilder(
+            response, ScaledStd(), data, std, mask
+        )
+    plots = SkyResiduals(
+        residual_directory=str(tmp_path),
+        sky_model=jft.Model(lambda x: {"sky": x["sky"]}, domain=_sky_domain(grid)),
+        sky_filter=products.sky_filter,
+        residual_plotting_info=products.plotting,
+    )
+    domain = products.likelihood.domain
+    domain = getattr(domain, "tree", domain) | {"vs": jft.ShapeWithDtype((), float)}
+    pos = jft.random_like(jax.random.PRNGKey(11), domain)
+    pos = jft.Vector(pos.tree if isinstance(pos, jft.Vector) else pos)
+    delta = jax.tree.map(
+        lambda v: 0.1 * v, jft.random_like(jax.random.PRNGKey(12), domain)
+    )
+    delta = jft.Vector(delta.tree if isinstance(delta, jft.Vector) else delta)
+    samples = jft.Samples(
+        pos=pos, samples=jax.tree.map(lambda d: jnp.stack([d, -d]), delta)
+    )
+
+    models, sigmas = [], []
+    for s in samples:
+        s = s.tree if isinstance(s, jft.Vector) else s
+        models.append(np.asarray(response(products.sky_filter(s) | s)))
+        sigmas.append(std[mask] * (np.exp(s["vs"]) if variable else 1.0))
+    expected = (data[mask] - np.mean(models, 0)) / np.mean(sigmas, 0)
+    (band,) = products.sky_filter.bands
+    np.testing.assert_allclose(
+        plots.residuals(samples)[band][mask], expected, rtol=1e-10
+    )
+
+
+def test_residual_pages_are_freed_page_by_page(tmp_path, monkeypatch):
+    _, products, plots, _ = _two_band_residuals(tmp_path, ids="nmo")
+    x = jft.random_like(jax.random.PRNGKey(13), products.likelihood.domain)
+    x = x.tree if isinstance(x, jft.Vector) else x
+    monkeypatch.setattr(residual_plots, "MAX_PANELS_PER_PAGE", 4)  # one row
+    pages, subplots = [], residual_plots.plt.subplots
+
+    def spy(*args, **kwargs):
+        assert all(page() is None for page in pages)  # earlier pages are freed
+        fig, axes = subplots(*args, **kwargs)
+        pages.append(weakref.ref(fig))
+        return fig, axes
+
+    monkeypatch.setattr(residual_plots.plt, "subplots", spy)
+    gc.disable()  # a page freed only by a later collection would stay alive
+    try:
+        plots(x, SimpleNamespace(nit=6))
+    finally:
+        gc.enable()
+    assert len(pages) == 3
