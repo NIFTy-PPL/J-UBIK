@@ -26,7 +26,7 @@ class CorrectionModel(Enum):
     """Enum for the different loading modes."""
 
     SHIFT = "shift"
-    # RSHIFT = "rshift" # TODO : Not implemented, because of error in the formulas
+    RSHIFT = "rshift"
     # GENERAL = "general"  # TODO : Not implemented
 
     @classmethod
@@ -50,7 +50,8 @@ class CoordinatesCorrectionPriorConfig:
     model: CorrectionModel,
         Coordinates correction model, possible choices:
         - CorrectionModel.SHIFT, only apply a shift correction
-        - CorrectionModel.RSHIFT, shift & rotation correction (not implemented)
+        - CorrectionModel.RSHIFT, a rotation about the correction's rotation
+          centre, then the shift; not supported by the star alignment
         - CorrectionModel.GENERAL, general (not implemented)
     shift:  ProbabilityConfig
         The ProbabilityConfig for the shift model. A normal prior with sigma 0 for
@@ -61,7 +62,8 @@ class CoordinatesCorrectionPriorConfig:
     shift_unit: u.Unit
         The unit of the shift model
     rotation:  ProbabilityConfig
-        The ProbabilityConfig for the rotation model.
+        The ProbabilityConfig for the rotation model, used by RSHIFT only. A
+        positive angle turns the data sampling positions from North towards East.
     rotation_unit: u.Unit
         The unit of the rotation model
     """

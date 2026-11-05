@@ -106,7 +106,9 @@ def build_exposure_likelihoods(
         The single sky key of the sky model.
     telescope_cfg : dict
         The JWST telescope keys: ``rotation_and_shift`` (algorithm and
-        ``correction_priors``, keyed by band or ``default``), optional
+        ``correction_priors``, keyed by band or ``default``; with ``model:
+        rshift`` each exposure also rotates by its ``rotation`` prior about
+        the sky-grid centre), optional
         ``zero_flux`` and ``calibration`` (``default`` and band keys, one
         factor per exposure).
     sky_unit : u.Unit
@@ -186,7 +188,8 @@ def build_exposure_likelihoods(
             correction_prior=FilterAlignment(e.band.lower()).load_correction_prior(
                 correction_priors, number_of_observations=1
             ),
-            rotation_center=None,  # unused by the shift-only correction
+            # near the target a rotation barely moves it: rotation and shift decouple
+            rotation_center=grid.spatial.center,
         )
         likelihood = build_target_likelihood(
             filter_name=e.band,
