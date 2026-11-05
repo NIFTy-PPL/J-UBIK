@@ -14,6 +14,7 @@ from numpy.typing import ArrayLike
 from jax import vmap
 from jax.scipy.signal import fftconvolve
 from jax.tree_util import Partial
+from scipy.fft import next_fast_len
 
 
 def _build_vmap_apply(psf_kernel_shape: tuple[int]) -> Callable[[ArrayLike], ArrayLike]:
@@ -65,18 +66,43 @@ class PsfStatic(jft.Model):
             Else, the input field will by convolved by the `psf_kernel`.
         """
 
-        self.kernel = psf_kernel
+        self.kernel_fft = None
         if psf_kernel is not None:
-            self.kernel = _center_even_axes(np.asarray(psf_kernel))
-            self._convolve = _build_vmap_apply(psf_kernel.shape)
+            if np.ndim(psf_kernel) not in (2, 3) or (
+                np.shape(psf_kernel)[:-2] != sky_shape_with_dtype.shape[:-2]
+            ):
+                raise ValueError(
+                    "psf_kernel must be 2-D, or 3-D with one kernel per sky observation"
+                )
+            kernel = _center_even_axes(np.asarray(psf_kernel))
+            sky = sky_shape_with_dtype.shape[-2:]
+            # Kernel pixels more than N - 1 from the (odd) centre never reach the output.
+            size = tuple(min(k, 2 * n - 1) for n, k in zip(sky, kernel.shape[-2:]))
+            cut = tuple(
+                slice((k - m) // 2, (k + m) // 2)
+                for k, m in zip(kernel.shape[-2:], size)
+            )
+            kernel = kernel[(..., *cut)]
+            # `fftconvolve(mode="same")` with the kernel transformed once: linear
+            # convolution on the zero-padded grid, cropped to the sky around the centre.
+            # Any grid of at least N + K - 1 avoids wrap-around; a 5-smooth one is fast.
+            self._fft_shape = tuple(
+                next_fast_len(n + k - 1, real=True) for n, k in zip(sky, size)
+            )
+            self._crop = tuple(
+                slice((k - 1) // 2, (k - 1) // 2 + n) for n, k in zip(sky, size)
+            )
+            self.kernel_fft = jnp.asarray(np.fft.rfft2(kernel, self._fft_shape))
 
         super().__init__(domain=(sky_shape_with_dtype, {}))
 
     def __call__(self, x):
         field, _ = x
-        if self.kernel is None:
+        if self.kernel_fft is None:
             return field
-        return self._convolve(field, self.kernel)
+        field_fft = jnp.fft.rfft2(field, self._fft_shape)
+        convolved = jnp.fft.irfft2(field_fft * self.kernel_fft, self._fft_shape)
+        return convolved[(..., *self._crop)]
 
 
 class PsfGaussianBroadening(jft.Model):
