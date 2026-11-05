@@ -457,7 +457,7 @@ def test_flat_enters_the_plain_sigma_and_is_checked(tmp_path):
     # (1500 DN / (4 e/DN 2) + 5 coadds 40^2 e^2 / (16 reads 4^2 2^2)) DN^2
     np.testing.assert_allclose(std, np.sqrt(1500 / 8 + 500 / 64), rtol=1e-12)
     assert _load(tmp_path).noise is None  # a σ map has no model
-    with pytest.raises(ValueError, match="flat"):
+    with pytest.raises(ValueError, match="the flat is not finite"):
         _load(
             tmp_path,
             detector_noise=DetectorNoise(GAIN, READ_NOISE, N_READS, 0.0, -flat),
@@ -474,7 +474,7 @@ def test_flat_enters_the_plain_sigma_and_is_checked(tmp_path):
     exposure = _load(tmp_path, data=data, detector_noise=detector, bad_pixels=bad)
     mask = exposure.target_data.mask[0]
     assert not mask[1, 1] and not mask[2, 2] and mask.sum() == mask.size - 2
-    with pytest.raises(ValueError, match="flat"):
+    with pytest.raises(ValueError, match="a scalar or the science"):
         _load(
             tmp_path,
             detector_noise=DetectorNoise(GAIN, READ_NOISE, N_READS, 0.0, flat[:2]),
@@ -528,3 +528,24 @@ def test_flat_of_an_off_centre_cutout(tmp_path):
     ) / (GAIN * f) ** 2
     np.testing.assert_allclose(exposure.target_data.std[0], np.sqrt(variance))
     np.testing.assert_allclose(exposure.noise.b, 1 / (GAIN * f))
+
+    # the check reads the flat at the cutout's detector pixels, and skips
+    # pixels in the margin or with non-finite data
+    mask = exposure.target_data.mask[0]
+    margin = tuple(np.argwhere(~mask)[0] + (r0, c0))
+    last = tuple(np.argwhere(mask)[-1] + (r0, c0))
+
+    def load(dead, data=data):
+        dead_flat = flat.copy()
+        dead_flat[dead] = 0.0
+        noise = DetectorNoise(GAIN, READ_NOISE, N_READS, sky, dead_flat)
+        return _load(
+            tmp_path, data=data, detector_noise=noise, sky_grid=small, margin=1
+        )
+
+    load(margin)
+    with pytest.raises(ValueError, match="1 pixels that would enter"):
+        load(last)
+    nan_data = data.copy()
+    nan_data[last] = np.nan
+    load(last, nan_data)

@@ -192,5 +192,5 @@ def test_detector_noise_flat_from_a_fits_file(tmp_path, as_list):
     np.testing.assert_allclose(b, 1 / (4.0 * flat))
 
     noise["flat"] = str(_write(tmp_path / "small.fits", flat[:-1]).path)
-    with pytest.raises(ValueError, match="flat"):
+    with pytest.raises(ValueError, match="a scalar or the science"):
         build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)

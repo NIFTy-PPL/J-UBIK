@@ -370,10 +370,14 @@ def load_nirc2_exposure(
         min(cols1 + margin, nx),
     )
     cut = np.s_[bounds[0] : bounds[1], bounds[2] : bounds[3]]
-    data, std, bad = data[cut], std[cut], bad[cut]
+    # copies, so the full-frame arrays are freed
+    data, std, bad = (np.array(v[cut]) for v in (data, std, bad))
     if noise is not None:
         noise = ShotNoise(
-            *(v[cut] if np.ndim(v) else v for v in (noise.a, noise.b, noise.sky))
+            *(
+                np.array(v[cut]) if np.ndim(v) else v
+                for v in (noise.a, noise.b, noise.sky)
+            )
         )
     centers = subsample_pixel_centers(bounds, wcs, subsample)
 
