@@ -4,6 +4,7 @@ for a fixed σ and for a model that returns its own σ."""
 import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
+import pytest
 
 from jubik.instruments.jwst.plotting.plotting_base import (
     _get_data_model_and_chi2,
@@ -24,7 +25,7 @@ SKIES = np.array([{"k": 0.1}, {"k": -0.2}])
 
 
 def _prediction(x):
-    return x["a"] * W + x["k"]
+    return x["a"] * W + x.get("k", 0.0)  # k: the sky, absent for star alignment
 
 
 def _image(masked):
@@ -46,17 +47,19 @@ def _expected(predictions, sigmas):
     return np.mean(models, 0), np.mean(sigmas, 0), jft.mean_and_std(chis)
 
 
-def _inputs():
-    return [{"a": 1.3, "k": 0.1}, {"a": 0.7, "k": -0.2}]  # pos ± sample, with sky
+def _inputs(sky=True):
+    """pos ± sample, with or without the sky."""
+    return [{"a": 1.3, "k": 0.1 * sky}, {"a": 0.7, "k": -0.2 * sky}]
 
 
-def test_fixed_std_over_samples():
+@pytest.mark.parametrize("sky", [True, False])
+def test_fixed_std_over_samples(sky):
     model = jft.Model(_prediction, domain=DOMAIN)
-    predictions = [np.asarray(_prediction(x)) for x in _inputs()]
+    predictions = [np.asarray(_prediction(x)) for x in _inputs(sky)]
     mean, sigma, chi = _expected(predictions, [STD, STD])
 
     got_mean, got_std, got_chi = _get_data_model_and_chi2(
-        SAMPLES, SKIES, model, DATA, MASK, STD
+        SAMPLES, SKIES if sky else None, model, DATA, MASK, STD
     )
     np.testing.assert_allclose(got_mean, mean, rtol=1e-12)
     assert got_std is STD
@@ -79,13 +82,24 @@ def test_model_with_its_own_std_over_samples():
     np.testing.assert_allclose(got_chi, chi, rtol=1e-12)
 
 
-def test_single_position():
+@pytest.mark.parametrize(
+    "position, sky",
+    [
+        ({"a": 1.3}, {"k": 0.1}),
+        ({"a": 1.3}, None),
+        # a stage without samples: _get_model_samples_or_position gives [sky]
+        (
+            jft.Samples(pos=jft.Vector({"a": jnp.array(1.3)}), samples=None),
+            np.array([{"k": 0.1}]),
+        ),
+    ],
+)
+def test_single_position(position, sky):
     model = jft.Model(_prediction, domain=DOMAIN)
-    position = {"a": 1.3}
     got_mean, _, (chi, chi_std) = _get_data_model_and_chi2(
-        position, {"k": 0.1}, model, DATA, MASK, STD
+        position, sky, model, DATA, MASK, STD
     )
-    mean = _image(np.asarray(_prediction(_inputs()[0])))
+    mean = _image(np.asarray(_prediction(_inputs(sky is not None)[0])))
     expected = [
         redchi2(d[m], mo[m], s[m], d[m].size)
         for d, mo, m, s in zip(DATA, mean, MASK, STD)

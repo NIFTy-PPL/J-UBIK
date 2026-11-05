@@ -279,6 +279,9 @@ def _get_data_model_and_chi2(
     else:
         if isinstance(position_or_samples, jft.Samples):
             position_or_samples = position_or_samples.pos
+            # no samples: _get_model_samples_or_position gives [sky(pos)]
+            if sky_or_skies is not None:
+                (sky_or_skies,) = sky_or_skies
         positions, skies = [tree(position_or_samples)], [sky_or_skies]
 
     def redchi(model, sigma):
@@ -296,12 +299,14 @@ def _get_data_model_and_chi2(
         sigma = std
         if std is None:
             prediction, inverse_std = prediction
-            sigma = np.zeros_like(data)
-            sigma[mask] = 1 / np.asarray(inverse_std)
-            del inverse_std
         model = np.zeros_like(data)
         model[mask] = prediction
         del prediction
+        if std is None:
+            sigma = np.zeros_like(data)
+            sigma[mask] = inverse_std
+            del inverse_std
+            np.reciprocal(sigma, out=sigma, where=mask)
         redchis.append(redchi(model, sigma))
         # the first sample is the running sum, so one position allocates once
         if model_mean is None:
