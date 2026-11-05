@@ -22,6 +22,7 @@ import numpy as np
 from astropy import units as u
 
 from ...grid import Grid
+from ...parse.models.distributions import DeltaPriorConfig
 from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
 from .data.jwst_data import DataMetaInformation
@@ -31,6 +32,7 @@ from .jwst_response import TargetResponseInput, build_target_response
 from .likelihood.likelihood import ShotNoise
 from .likelihood.target_likelihood import build_target_likelihood
 from .parse.jwst_response import SkyMetaInformation
+from .parse.rotation_and_shift.coordinates_correction import CorrectionModel
 from .parse.rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
 )
@@ -106,7 +108,9 @@ def build_exposure_likelihoods(
         The single sky key of the sky model.
     telescope_cfg : dict
         The JWST telescope keys: ``rotation_and_shift`` (algorithm and
-        ``correction_priors``, keyed by band or ``default``), optional
+        ``correction_priors``, keyed by band or ``default``; with ``model:
+        rshift`` each exposure also rotates by its ``rotation`` prior about
+        the sky-grid centre), optional
         ``zero_flux`` and ``calibration`` (``default`` and band keys, one
         factor per exposure).
     sky_unit : u.Unit
@@ -181,12 +185,26 @@ def build_exposure_likelihoods(
     plotting = ResidualPlottingInformation()
     for e in exposures:
         target_data, psf_model = _with_psf(e)
+        correction_prior = FilterAlignment(e.band.lower()).load_correction_prior(
+            correction_priors, number_of_observations=1
+        )
+        # the shift model ignores the rotation prior: only a fixed zero is no loss
+        rotation = correction_prior.rotation
+        if correction_prior.model == CorrectionModel.SHIFT and not (
+            isinstance(rotation, DeltaPriorConfig) and not np.any(rotation.mean)
+        ):
+            raise ValueError(
+                f"{e.band}: a rotation prior needs model rshift; under model "
+                "shift give [delta, 0.0]"
+            )
         correction = ShiftAndRotationCorrection(
             domain_key=e.band,
-            correction_prior=FilterAlignment(e.band.lower()).load_correction_prior(
-                correction_priors, number_of_observations=1
+            correction_prior=correction_prior,
+            # near the target a rotation barely moves it: rotation and shift decouple
+            # the centre pixel, not `grid.spatial.center`, which may be NaN
+            rotation_center=grid.spatial.indices_yx_to_world(
+                *(np.array(grid.spatial.shape_yx) - 1) / 2
             ),
-            rotation_center=None,  # unused by the shift-only correction
         )
         likelihood = build_target_likelihood(
             filter_name=e.band,

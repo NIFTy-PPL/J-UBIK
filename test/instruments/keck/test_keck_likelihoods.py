@@ -1,11 +1,13 @@
 """build_keck_likelihoods on the synthetic NIRC2 files of the loader tests."""
 
+import copy
 import jax
 import nifty.re as jft
 import numpy as np
 import pytest
 from astropy import units as u
 from astropy.io import fits
+from scipy.optimize import minimize
 
 from jubik.color import Color
 from jubik.grid import Grid
@@ -177,3 +179,115 @@ def test_cropping_keeps_the_likelihood(tmp_path, noise, shape, fov):
     np.testing.assert_allclose(cut.likelihood(x), whole.likelihood(x), rtol=1e-12)
     if shape == 16:  # the test can fail: without the margin the PSF wings are cut
         assert not np.isclose(no_margin.likelihood(x), whole.likelihood(x), rtol=1e-12)
+
+
+def test_common_rotation_of_a_nirc2_frame_is_recovered(tmp_path):
+    """A frame whose rotator was 0.5° off its header, about 13 mas at 1.5″, is
+    fitted back from noise-free data of a ring of knots (#169)."""
+    n = 256  # 2.56″ of 10 mas pixels, rotated about 30° on the grid
+    for axis in "XY":
+        fits.PrimaryHDU(np.zeros((n, n))).writeto(tmp_path / f"{axis}.fits")
+    np.savetxt(tmp_path / "band.txt", np.c_[[2.0, 2.4], [1.0, 1.0]])
+    profile = np.exp(-0.5 * (np.arange(5) - 2.0) ** 2)
+    fits.PrimaryHDU(np.outer(profile, profile)).writeto(tmp_path / "psf.fits")
+    header = HEADER | {"CRPIX1": n / 2 + 0.5, "CRPIX2": n / 2 + 0.5}
+    entry = dict(
+        sigma=str(_write(tmp_path / "sig.fits", np.ones((n, n))).path),
+        filter="Kp",
+        psf=str(tmp_path / "psf.fits"),
+        throughput=str(tmp_path / "band.txt"),
+        flux_per_count_rate=1e-6,
+        atmosphere="airmass 1.0, no extinction",
+        margin=2,
+    )
+    rotation_and_shift = {
+        "linear": {"order": 1, "mode": "constant"},
+        "correction_priors": {
+            "model": "rshift",
+            "shift_unit": "arcsec",
+            "rotation_unit": "deg",
+            "default": {"rotation": ["delta", 0.0, 0.1], "shift": ["delta", 0.0, 0.1]},
+            # the band key, case-insensitive
+            "KECK_NIRC2_KP_A": {
+                "rotation": ["normal", 0.0, 1.0],
+                "shift": ["normal", 0.0, 0.01],
+            },
+        },
+    }
+    telescope = {
+        "rotation_and_shift": rotation_and_shift,
+        "target": {"subsample": 1},
+        "distortion": {"pre_2015": [str(tmp_path / f"{a}.fits") for a in "XY"]},
+    }
+    grid = WcsAstropy(CENTER, shape=128, fov=3.84 * u.arcsec)  # 30 mas pixels
+    domain = {"sky": jft.ShapeWithDtype((2, 128, 128), float)}
+    band = "keck_nirc2_Kp_a"
+
+    def response(rotator):
+        science = _write(
+            tmp_path / f"{rotator}.fits",
+            np.zeros((n, n)),
+            header | {"ROTPOSN": rotator},
+        )
+        files = {"exposures": [entry | {"science": str(science.path), "exposure": "a"}]}
+        cfg = {"files": files, "telescope": copy.deepcopy(telescope)}
+        products = build_keck_likelihoods(cfg, Grid(grid, SKY_GRID.spectral), domain)
+        (likelihood,) = products.likelihoods
+        assert set(likelihood.builder.response.domain) == {
+            band,
+            f"{band}_shift",
+            f"{band}_rotation",
+        }
+        return lambda x: likelihood.builder.response(
+            x | {band: products.sky_filter(x)[band]}
+        )
+
+    # knots of 60 mas width on a 1.5″ ring, at uneven angles
+    rows, columns = (np.arange(128) - 63.5) * 0.03, (np.arange(128) - 63.5) * 0.03
+    yy, xx = np.meshgrid(rows, columns, indexing="ij")
+    sky = sum(
+        np.exp(
+            -0.5 * ((yy - 1.5 * np.sin(a)) ** 2 + (xx - 1.5 * np.cos(a)) ** 2) / 0.06**2
+        )
+        for a in np.deg2rad([10, 75, 160, 250, 300])
+    )
+    sky = np.broadcast_to(1e3 * sky, (2, 128, 128))
+    truth = {
+        "sky": sky,
+        f"{band}_shift": np.zeros((1, 2)),
+        f"{band}_rotation": np.zeros((1, 1)),
+    }
+    # the true frame: the rotator was 0.5° beyond its header value
+    data = response(HEADER["ROTPOSN"] + 0.5)(truth)
+    stated = response(HEADER["ROTPOSN"])
+
+    def chi2(p):
+        # latents: the shift prior is N(0, 0.01″), the rotation prior N(0, 1°)
+        x = truth | {f"{band}_shift": p[:2][None], f"{band}_rotation": p[2:][None]}
+        return ((stated(x) - data) ** 2).sum()
+
+    value_and_grad = jax.jit(jax.value_and_grad(chi2))
+    fit = minimize(
+        lambda p: [np.asarray(v, float) for v in value_and_grad(p)],
+        np.zeros(3),
+        jac=True,
+        method="BFGS",
+    )
+    assert chi2(np.zeros(3)) > 1e3 * fit.fun
+    np.testing.assert_allclose(fit.x[2], 0.5, atol=0.005)  # deg
+    np.testing.assert_allclose(fit.x[:2] * 0.01, 0.0, atol=2e-4)  # arcsec
+
+
+@pytest.mark.parametrize("rotation", [["normal", 0.0, 0.05], ["delta", 0.5]])
+def test_rotation_prior_under_the_shift_model_raises(tmp_path, rotation):
+    cfg = _config(tmp_path)
+    priors = copy.deepcopy(TELESCOPE["rotation_and_shift"]["correction_priors"])
+    priors["keck_nirc2_Kp_a"] = {
+        "rotation": rotation,
+        "shift": ["normal", 0.0, 0.01],
+    }
+    cfg["telescope"]["rotation_and_shift"] = TELESCOPE["rotation_and_shift"] | {
+        "correction_priors": priors
+    }
+    with pytest.raises(ValueError, match="keck_nirc2_Kp_a: a rotation prior needs"):
+        build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
