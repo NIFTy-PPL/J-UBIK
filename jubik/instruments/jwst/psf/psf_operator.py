@@ -83,11 +83,12 @@ class PsfStatic(jft.Model):
                 for k, m in zip(kernel.shape[-2:], size)
             )
             kernel = kernel[(..., *cut)]
-            # `fftconvolve(mode="same")` with the kernel transformed once: linear
-            # convolution on the zero-padded grid, cropped to the sky around the centre.
-            # Any grid of at least N + K - 1 avoids wrap-around; a 5-smooth one is fast.
+            # `fftconvolve(mode="same")` with the kernel transformed once, cropped to the
+            # sky around the centre. On a grid of at least N + (K - 1) / 2 the circular
+            # wrap-around only reaches discarded pixels; a 5-smooth grid is fast. The trim
+            # to 2N - 1 keeps that grid at least K wide.
             self._fft_shape = tuple(
-                next_fast_len(n + k - 1, real=True) for n, k in zip(sky, size)
+                next_fast_len(n + (k - 1) // 2, real=True) for n, k in zip(sky, size)
             )
             self._crop = tuple(
                 slice((k - 1) // 2, (k - 1) // 2 + n) for n, k in zip(sky, size)

@@ -105,11 +105,11 @@ def test_recentering_ringing_on_truncated_airy_kernel():
     assert centered.min() / centered.max() > -1e-3
 
 
-# (50, 40) and (2, 61, 41) are larger than the field, as for star cutouts, and are
-# trimmed to 2N - 1 on one axis, or on both for the (12, 12) field. The fields pad the
-# FFT grid by 0 to 5 pixels per axis, so a crop placed on the padded grid or a grid too
-# short for the crop fails; the NIC1 test below pins the chosen grid length.
-@pytest.mark.parametrize("field_shape", [(24, 30), (23, 37), (12, 12)])
+# (50, 40) and (2, 61, 41) are larger than the field, as for star cutouts; (20, 20) and
+# (11, 16) trim them to 2N - 1 on both axes. (20, 20) with K = 11 puts the FFT grid
+# exactly at the wrap-free minimum N + (K - 1) / 2 = 25, so one pixel less wraps into
+# the crop; (23, 37) pads it by 2 or 3 pixels, so a crop on the padded grid fails.
+@pytest.mark.parametrize("field_shape", [(20, 20), (23, 37), (11, 16)])
 @pytest.mark.parametrize(
     "shape", [(11, 11), (10, 10), (11, 10), (50, 40), (2, 10, 11), (2, 61, 41)]
 )
@@ -121,14 +121,17 @@ def test_cached_kernel_transform_matches_fftconvolve(shape, field_shape):
     assert_matches_fftconvolve(psf, kernel, field, rng)
 
 
-def test_cached_kernel_transform_padded_to_fast_length():
-    # NIC1 at subsample 4: a 160 px cutout and a 3 arcsec Tiny Tim kernel.
+# NIC1 at subsample 4 with a 3 arcsec Tiny Tim kernel (281 px): the 160 px target
+# cutout, 640 + 140 = 780 -> 800 = 2^5 * 5^2, and a 15 px star cutout, whose kernel is
+# trimmed to 2 * 60 - 1 = 119, 60 + 59 = 119 -> 120 (200 untrimmed).
+@pytest.mark.parametrize("n, grid", [(640, (800, 401)), (60, (120, 61))])
+def test_cached_kernel_transform_grid(n, grid):
     rng = np.random.default_rng(1)
     kernel = rng.uniform(size=(281, 281))
     kernel /= kernel.sum()
-    field = rng.normal(size=(640, 640))
+    field = rng.normal(size=(n, n))
     psf = PsfStatic(jft.ShapeWithDtype(field.shape), kernel)
-    assert psf.kernel_fft.shape == (960, 481)  # 920 = 2^3 * 5 * 23 -> 960 = 2^6 * 3 * 5
+    assert psf.kernel_fft.shape == grid
     assert_matches_fftconvolve(psf, kernel, field, rng)
 
 
