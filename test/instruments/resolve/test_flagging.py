@@ -7,14 +7,10 @@ from jubik.instruments.resolve.data.auxiliary_table import AuxiliaryTable
 from jubik.instruments.resolve.data.data_modify.flagging import (
     flag_baseline,
     flag_station,
-    flag_uv,
     flag_weights,
 )
 from jubik.instruments.resolve.data.observation import Observation
-from jubik.instruments.resolve.parse.data.data_modify.flagging import (
-    FlagUV,
-    FlagWeights,
-)
+from jubik.instruments.resolve.parse.data.data_modify.flagging import FlagWeights
 
 from generate_test_obs import generate_random_obs
 
@@ -325,61 +321,3 @@ def test_flag_baseline_of_all_rows_gives_an_entirely_flagged_observation():
     assert new.nrow == obs.nrow
     assert_allclose(new.weight_val, 0.0)
     assert_array_equal(new.antenna_positions.uvw, obs.antenna_positions.uvw)
-
-
-
-# -------------------------------------------------------------------- flag_uv
-
-
-def test_flag_uv_none_is_noop():
-    obs = build_obs()
-    assert flag_uv(obs, None) is obs
-
-
-def obs_with_long_rows():
-    """Rows 2 (long in u) and 5 (long in v) are 300 m, the others 10 m: 1000.7
-    wavelengths at 1 GHz, 1200.8 at the highest frequency 1.2 GHz."""
-    obs = build_obs(with_calib=True)
-    uvw = obs.uvw.copy()
-    uvw[:, :2] = 10.0
-    uvw[2, 0] = -300.0
-    uvw[5, 1] = 300.0
-    return Observation(
-        ju.instruments.resolve.AntennaPositions(
-            uvw,
-            obs.antenna_positions.ant1,
-            obs.antenna_positions.ant2,
-            obs.antenna_positions.time,
-        ),
-        obs.vis_val,
-        obs.weight_val,
-        obs.legacy_polarization,
-        obs.freq,
-        None,
-    )
-
-
-def test_flag_uv_removes_rows_beyond_max_at_the_highest_frequency():
-    obs = obs_with_long_rows()
-    new = flag_uv(obs, FlagUV(max=1100.0))
-    assert_rows_kept(obs, new, [0, 1, 3, 4, 6, 7])
-    assert_array_equal(new.antenna_positions.ant1, ANT1[[0, 1, 3, 4, 6, 7]])
-    assert_array_equal(new.freq, obs.freq)
-
-
-def test_flag_uv_keeps_rows_at_max():
-    obs = obs_with_long_rows()
-    longest = 300.0 * FREQS.max() / 299792458.0
-    assert flag_uv(obs, FlagUV(max=longest)).nrow == obs.nrow
-
-
-def test_flag_uv_raises_if_all_rows_would_be_removed():
-    with pytest.raises(ValueError, match="remove all rows"):
-        flag_uv(obs_with_long_rows(), FlagUV(max=1.0))
-
-
-def test_flag_uv_parsing():
-    assert FlagUV.from_yaml_dict(None) is None
-    assert FlagUV.from_yaml_dict({"max": 5}) == FlagUV(max=5.0)
-    with pytest.raises(ValueError, match="flag_uv"):
-        FlagUV.from_yaml_dict({"max": 0})

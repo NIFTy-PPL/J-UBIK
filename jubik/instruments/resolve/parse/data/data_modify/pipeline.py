@@ -5,7 +5,7 @@ import warnings
 
 from .phase_center import ShiftObservationConfig
 from .frequency import SpectralModify
-from .flagging import FlagUV, FlagWeights
+from .flagging import BeyondNyquist, FlagWeights
 from .weights import SystematicErrorBudget
 from .visibility_subset import SelectSubset
 
@@ -36,7 +36,7 @@ class ObservationModifyConfig:
     restrict_to_stokes_I: bool
     average_to_stokes_I: bool
     flag_weights: FlagWeights | None
-    flag_uv: FlagUV | None
+    beyond_nyquist: BeyondNyquist
 
     @classmethod
     def from_yaml_dict(cls, data_cfg: dict) -> "ObservationModifyConfig":
@@ -71,10 +71,8 @@ class ObservationModifyConfig:
             - flag_weights: dict | None
                 Flag visibilities whose weights lie outside
                 `[min, max]`, e.g. `dict(min=1e-12, max=1e12)`.
-            - flag_uv: dict | None
-                Remove the rows with |u| or |v| above `max` wavelengths at
-                the highest frequency, e.g. `dict(max=3e6)`. Use it to keep
-                the baselines within the Nyquist frequency of the sky grid.
+            - beyond_nyquist: str | None
+                `raise` (default) or `drop`, see `BeyondNyquist`.
         """
 
         tb = data_cfg.get("time_bins")
@@ -104,7 +102,7 @@ class ObservationModifyConfig:
         average_to_stokes_I = data_cfg.get("average_to_stokes_I", False)
 
         flag_weights = FlagWeights.from_yaml_dict(data_cfg.get("flag_weights"))
-        flag_uv = FlagUV.from_yaml_dict(data_cfg.get("flag_uv"))
+        beyond_nyquist = BeyondNyquist.from_yaml_dict(data_cfg.get("beyond_nyquist"))
 
         return ObservationModifyConfig(
             time_bins=tb,
@@ -116,6 +114,6 @@ class ObservationModifyConfig:
             restrict_to_stokes_I=restrict_to_stokes_I,
             average_to_stokes_I=average_to_stokes_I,
             flag_weights=flag_weights,
-            flag_uv=flag_uv,
+            beyond_nyquist=beyond_nyquist,
         )
 

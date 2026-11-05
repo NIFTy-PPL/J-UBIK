@@ -1,9 +1,8 @@
 from typing import Generator
 
-from astropy.units import Quantity
 from nifty.cl.logger import logger
 
-from ....color import Color
+from ....grid import Grid
 from ..parse.data.data_loading import DataFile, DataLoading
 from ..parse.data.data_modify import ObservationModifyConfig
 from .data_modify import build_observation_modify, modify_observation
@@ -11,7 +10,7 @@ from .observation import Observation
 
 
 def load_and_modify_data_from_objects(
-    sky_frequencies: Quantity | Color,
+    sky_grid: Grid,
     data_loading: DataLoading,
     observation_modify: ObservationModifyConfig,
 ) -> Generator[tuple[DataFile, Observation], None, None]:
@@ -20,9 +19,8 @@ def load_and_modify_data_from_objects(
 
     Parameters
     ----------
-    sky_frequencies: Quantity | Color
-        The frequencies of the sky domain, according to which we can split the
-        observation into frequency chunks.
+    sky_grid: Grid
+        The grid of the sky, see `modify_observation`.
     data_loading: DataLoading
         Model for the loading of the data, see DataLoading.
     observation_modify: ObservationModifyConfig
@@ -35,13 +33,10 @@ def load_and_modify_data_from_objects(
         order of `DataLoading.data_files`.
     """
 
-    if not isinstance(sky_frequencies, Color):
-        sky_frequencies = Color(sky_frequencies)
-
     for file in data_loading.data_files:
         logger.info(f"\nLoading data: {file.path}")
         obs = Observation.load(file.path)
         obs = modify_observation(
-            sky_frequencies, obs, build_observation_modify(observation_modify, file)
+            sky_grid, obs, build_observation_modify(observation_modify, file)
         )
         yield file, obs

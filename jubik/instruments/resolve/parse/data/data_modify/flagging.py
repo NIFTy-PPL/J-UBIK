@@ -22,17 +22,16 @@ class FlagWeights(StaticTyped):
 
 
 @dataclass
-class FlagUV(StaticTyped):
-    """Remove the rows with ``|u|`` or ``|v|`` above `max` wavelengths, see
-    `flag_uv`."""
+class BeyondNyquist(StaticTyped):
+    """What to do with rows beyond the Nyquist frequency of the sky grid, see
+    `restrict_to_nyquist`. With `drop` False such a row raises."""
 
-    max: float
+    drop: bool = False
 
     @classmethod
-    def from_yaml_dict(cls, raw: dict | None) -> Union["FlagUV", None]:
-        if not raw:
-            return None
-        flag = cls(max=float(raw["max"]))
-        if not flag.max > 0:
-            raise ValueError(f"flag_uv: max must be > 0, not {flag.max}")
-        return flag
+    def from_yaml_dict(cls, raw: str | None) -> "BeyondNyquist":
+        """Build from `raise` (the default for None) or `drop`."""
+        policy = "raise" if raw is None else raw
+        if policy not in ("raise", "drop"):
+            raise ValueError(f"beyond_nyquist must be `raise` or `drop`, not {policy!r}")
+        return cls(drop=policy == "drop")

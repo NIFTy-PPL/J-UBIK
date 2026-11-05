@@ -201,7 +201,7 @@ def build_radio_likelihood(
         dm = ObservationModifyConfig.from_yaml_dict(cfg[data_key][data_name])
         loaded = list(
             load_and_modify_data_from_objects(
-                sky_frequencies=radio_grid.spectral,
+                sky_grid=radio_grid,
                 data_loading=data_loadings[data_name],
                 observation_modify=dm,
             )

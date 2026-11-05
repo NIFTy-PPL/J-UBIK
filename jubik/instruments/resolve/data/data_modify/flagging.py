@@ -1,8 +1,10 @@
 import numpy as np
+from astropy import units as u
 from nifty.re import logger
 
+from .....grid import Grid
 from ...constants import SPEEDOFLIGHT
-from ...parse.data.data_modify.flagging import FlagUV, FlagWeights
+from ...parse.data.data_modify.flagging import BeyondNyquist, FlagWeights
 from ..observation import Observation
 
 
@@ -108,21 +110,75 @@ def flag_weights(obs: Observation, setting: FlagWeights | None) -> Observation:
     )
 
 
-def flag_uv(obs: Observation, setting: FlagUV | None) -> Observation:
-    """Remove the rows with ``|u|`` or ``|v|`` above `setting.max`
-    wavelengths at the highest frequency of `obs`."""
-    if setting is None:
-        return obs
+def _uv_in_wavelengths(observation: Observation) -> np.ndarray:
+    """``|u|``, ``|v|`` of each row in wavelengths at its highest frequency
+    with a weight > 0, 0 for a row without any weight; shape ``(n_rows, 2)``."""
+    weighted = (observation.weight.asnumpy() > 0).any(axis=0)
+    freq = np.where(weighted, observation.freq, 0.0).max(axis=1)
+    return np.abs(observation.uvw[:, :2]) * freq[:, None] / SPEEDOFLIGHT
 
-    longest = np.abs(obs.uvw[:, :2]).max(axis=1) * obs.freq.max() / SPEEDOFLIGHT
-    keep = longest <= setting.max
-    if not keep.any():
-        raise ValueError(
-            "Flagging the uv coverage would remove all rows of the observation. "
-            f"Please adapt the uv bound ({setting.max})."
-        )
-    logger.info(
-        f"Flag uv beyond {setting.max:.4g} wavelengths, "
-        f"{(~keep).sum()}/{obs.nrow} rows removed."
+
+def uv_beyond_nyquist(observation: Observation, grid: Grid) -> np.ndarray:
+    """Rows of `observation` with a baseline the pixels of `grid` cannot sample.
+
+    The NUFFT response is periodic in uv with period 1 / pixel, so a baseline
+    beyond the Nyquist frequency 1 / (2 pixel) folds onto a shorter spacing
+    and returns a wrong visibility without warning. A row is beyond Nyquist
+    when, at its highest frequency with a weight > 0, ``|u| > 1 / (2 dx)`` or
+    ``|v| > 1 / (2 dy)`` in wavelengths, with ``dx``, ``dy`` the pixel sizes in
+    radians. As in `interferometry_response`, u pairs with the x (RA) pixel
+    size and v with the y (Dec) pixel size. Flagged channels and rows carry
+    no information and are skipped.
+
+    Returns
+    -------
+    numpy.ndarray of bool, shape ``(n_rows,)``
+    """
+    pixel = grid.spatial.pixel_scales_xy.to_value(u.rad)
+    return (_uv_in_wavelengths(observation) > 1 / (2 * pixel)).any(axis=1)
+
+
+def nyquist_message(observation: Observation, grid: Grid) -> str:
+    """Describe the longest baseline beyond the Nyquist frequency of `grid`,
+    see `uv_beyond_nyquist`; `observation` needs at least one such row."""
+    pixel = grid.spatial.pixel_scales_xy.to_value(u.rad)
+    beyond = uv_beyond_nyquist(observation, grid)
+    extent = _uv_in_wavelengths(observation)[beyond].max(axis=0)
+    axis = np.argmax(extent * pixel)
+    needed = (1 / (2 * extent[axis]) * u.rad).to_value(u.mas)
+    return (
+        f"Longest |{'uv'[axis]}| baseline {extent[axis]:.4g} wavelengths exceeds "
+        f"the grid's Nyquist frequency {1 / (2 * pixel[axis]):.4g} wavelengths "
+        f"({beyond.sum()} of {observation.nrow} rows); pixel "
+        f"{(pixel[axis] * u.rad).to_value(u.mas):.4g} mas, the baseline needs "
+        f"{needed:.4g} mas or less, else the NUFFT folds it onto a shorter spacing"
     )
-    return obs[keep]
+
+
+def restrict_to_nyquist(
+    observation: Observation, grid: Grid, setting: BeyondNyquist
+) -> Observation:
+    """Apply the `beyond_nyquist` setting of a data block to `observation`.
+
+    The rows `uv_beyond_nyquist` marks raise a `ValueError`, or with
+    `setting.drop` are removed and a warning is logged. The removed rows are
+    exactly those the check in `interferometry_response` rejects.
+    """
+    beyond = uv_beyond_nyquist(observation, grid)
+    if not beyond.any():
+        return observation
+    if not setting.drop:
+        raise ValueError(nyquist_message(observation, grid))
+    if beyond.all():
+        raise ValueError(
+            "Dropping the rows beyond the Nyquist frequency would remove all rows "
+            f"of the observation. {nyquist_message(observation, grid)}"
+        )
+
+    kept = observation[~beyond]
+    longest = np.linalg.norm(kept.uvw[:, :2], axis=1).max()
+    logger.warning(
+        f"Dropping {beyond.sum()} of {observation.nrow} rows beyond the grid's "
+        f"Nyquist frequency, the longest kept baseline is {longest / 1e3:.3g} km"
+    )
+    return kept

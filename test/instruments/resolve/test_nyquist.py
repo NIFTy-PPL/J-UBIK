@@ -1,3 +1,5 @@
+import logging
+
 import jax
 import numpy as np
 import pytest
@@ -8,14 +10,19 @@ from numpy.testing import assert_allclose
 import jubik as ju
 import jubik.instruments.resolve as rve
 from jubik.instruments.resolve.constants import SPEEDOFLIGHT
+from jubik.instruments.resolve.data.data_modify.flagging import uv_beyond_nyquist
 from jubik.instruments.resolve.data.data_modify.pipeline import (
     build_observation_modify,
     modify_observation,
 )
 from jubik.instruments.resolve.parse.data import DataLoading
+from jubik.instruments.resolve.parse.data.data_modify.flagging import (
+    BeyondNyquist,
+)
 from jubik.instruments.resolve.parse.data.data_modify.pipeline import (
     ObservationModifyConfig,
 )
+from nifty.re import logger
 
 from generate_test_obs import generate_random_obs
 
@@ -75,27 +82,26 @@ def test_a_flagged_baseline_beyond_nyquist_is_skipped():
     )
 
 
-def test_the_highest_frequency_sets_the_limit():
-    # 200 m is 667 wavelengths at 1 GHz and 1334 at 2 GHz, beyond 916.
-    rve.interferometry_response(observation(long_row=(0, 200)), grid(), SETTINGS)
-    two_freqs = ju.Grid(
+def two_freqs():
+    return ju.Grid(
         grid().spatial,
         ju.color.Color.from_central_frequencies(np.array([FREQ, 2 * FREQ])),
     )
+
+
+def test_the_highest_frequency_sets_the_limit():
+    # 200 m is 667 wavelengths at 1 GHz and 1334 at 2 GHz, beyond 916.
+    rve.interferometry_response(observation(long_row=(0, 200)), grid(), SETTINGS)
     with pytest.raises(ValueError, match="Nyquist"):
         rve.interferometry_response(
-            observation((FREQ, 2 * FREQ), long_row=(0, 200)), two_freqs, SETTINGS
+            observation((FREQ, 2 * FREQ), long_row=(0, 200)), two_freqs(), SETTINGS
         )
 
 
 def test_a_flagged_highest_channel_does_not_set_the_limit():
-    two_freqs = ju.Grid(
-        grid().spatial,
-        ju.color.Color.from_central_frequencies(np.array([FREQ, 2 * FREQ])),
-    )
     rve.interferometry_response(
         observation((FREQ, 2 * FREQ), long_row=(0, 200), weight=[1.0, 0.0]),
-        two_freqs,
+        two_freqs(),
         SETTINGS,
     )
 
@@ -134,18 +140,63 @@ def modify_of(cfg):
     )
 
 
-def test_flag_uv_in_the_pipeline_cuts_at_the_final_frequencies():
-    # 200 m is 667 wavelengths at 1 GHz and 1334 at 2 GHz. With the 2 GHz
-    # channel removed by `spectral`, the row is within the cut of 900 and the
-    # Nyquist frequency 916, and stays. A cut before the spectral restriction
-    # would remove it.
+def test_raise_is_the_default():
+    obs = observation(long_row=(0, -400))
+    assert ObservationModifyConfig.from_yaml_dict({}).beyond_nyquist == BeyondNyquist()
+    with pytest.raises(ValueError, match="Nyquist"):
+        modify_observation(grid(), obs, modify_of({}))
+
+
+def test_unknown_values_fail_at_parse():
+    assert BeyondNyquist.from_yaml_dict("drop") == BeyondNyquist(drop=True)
+    with pytest.raises(ValueError, match="beyond_nyquist"):
+        ObservationModifyConfig.from_yaml_dict({"beyond_nyquist": "fold"})
+
+
+def test_drop_keeps_exactly_the_rows_the_guard_accepts(caplog):
+    # At 1 GHz and 2 GHz, the Nyquist frequency is 916 wavelengths. Rows:
+    # 5 beyond (400 m), 6 beyond but flagged, 7 beyond only at the flagged
+    # 2 GHz channel, 8 beyond at 2 GHz (200 m = 1334 wavelengths).
+    obs = observation((FREQ, 2 * FREQ))
+    uvw, weights = obs.uvw.copy(), obs.weight_val.copy()
+    uvw[5:9, :2] = [(0, -400), (0, -400), (0, 200), (200, 0)]
+    weights[:, 6] = 0.0
+    weights[:, 7, 1] = 0.0
+    obs = rve.Observation(
+        rve.AntennaPositions(uvw),
+        obs.vis_val,
+        weights,
+        obs.legacy_polarization,
+        obs.freq,
+        None,
+    )
+    assert np.flatnonzero(uv_beyond_nyquist(obs, two_freqs())).tolist() == [5, 8]
+
+    logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger=logger.name):
+            new = modify_observation(
+                two_freqs(), obs, modify_of({"beyond_nyquist": "drop"})
+            )
+    finally:
+        logger.removeHandler(caplog.handler)
+
+    kept = [i for i in range(obs.nrow) if i not in (5, 8)]
+    assert_allclose(new.uvw, obs.uvw[kept])
+    assert "Dropping 2 of 20 rows" in caplog.text
+    assert "longest kept baseline is 0.4 km" in caplog.text
+    rve.interferometry_response(new, two_freqs(), SETTINGS)
+
+
+def test_a_row_too_long_only_at_a_channel_spectral_removes_is_kept():
+    # 200 m is 667 wavelengths at 1 GHz and 1334 at 2 GHz; `spectral` removes
+    # the 2 GHz channel before the check.
     obs = observation((FREQ, 2 * FREQ), long_row=(0, 200))
-    sky = ju.Color([0.5e9, 2.5e9] * u.Hz)
-    cfg = {"flag_uv": {"max": 900}}
-    restricted = {"spectral": {"min": 0.5 * FREQ, "max": 1.5 * FREQ}} | cfg
+    restricted = {"spectral": {"min": 0.5 * FREQ, "max": 1.5 * FREQ}}
 
-    assert modify_observation(sky, obs, modify_of(cfg)).nrow == 19
-    new = modify_observation(sky, obs, modify_of(restricted))
+    with pytest.raises(ValueError, match="Nyquist"):
+        modify_observation(two_freqs(), obs, modify_of({}))
+    new = modify_observation(two_freqs(), obs, modify_of(restricted))
 
-    assert new.nrow == 20 and new.freq.tolist() == [FREQ]
+    assert new.nrow == obs.nrow and new.freq.tolist() == [FREQ]
     rve.interferometry_response(new, grid(), SETTINGS)

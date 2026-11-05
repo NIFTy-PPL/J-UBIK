@@ -66,7 +66,9 @@ def with_weight(obs, index, value):
 
 
 def continuous_sky(fmin, fmax):
-    return ju.Color([fmin, fmax] * u.Hz)
+    """A sky grid over `[fmin, fmax]`; its 0.125 arcsec pixels keep every test
+    baseline within the Nyquist frequency."""
+    return ju.Grid.from_shape_and_fov(8, (1, 1) * u.arcsec, [fmin, fmax] * u.Hz)
 
 
 def modify_of(cfg):
@@ -167,10 +169,11 @@ def test_flag_weights_runs_before_frequency_averaging():
     new = modify_observation(sky, obs, modify)
 
     flag_first = freq_average_by_fdom_and_n_freq_chunks(
-        sky, flag_weights(obs, setting), 2, averaging_mode="arithmetic"
+        sky.spectral, flag_weights(obs, setting), 2, averaging_mode="arithmetic"
     )
     average_first = flag_weights(
-        freq_average_by_fdom_and_n_freq_chunks(sky, obs, 2, "arithmetic"), setting
+        freq_average_by_fdom_and_n_freq_chunks(sky.spectral, obs, 2, "arithmetic"),
+        setting,
     )
 
     # The two orders really differ: averaging dilutes the outlier.
@@ -281,7 +284,7 @@ def test_exclude_frequency_ranges_runs_before_frequency_averaging(mode):
 
     # Compare with the same averaging mode including all six input channels.
     averaged = freq_average_by_fdom_and_n_freq_chunks(
-        sky, obs, 1, averaging_mode=mode
+        sky.spectral, obs, 1, averaging_mode=mode
     )
     assert not np.allclose(new.vis_val, averaged.vis_val)
 
@@ -446,7 +449,7 @@ def test_shift_should_be_applied_before_frequency_averaging():
 
     # Shifting first and averaging afterwards gives unit amplitude everywhere.
     shifted = shift_phase_center(point, ShiftObservation([sx, 0.0] * u.rad))
-    shift_first = freq_average_by_fdom_and_n_freq_chunks(sky, shifted, 1)
+    shift_first = freq_average_by_fdom_and_n_freq_chunks(sky.spectral, shifted, 1)
     assert_allclose(np.abs(shift_first.vis_val), 1.0, atol=1e-12)
 
     assert_allclose(np.abs(new.vis_val), 1.0, atol=1e-6)

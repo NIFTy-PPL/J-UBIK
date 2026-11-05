@@ -24,7 +24,8 @@ from jax.tree_util import Partial, tree_map
 
 from ...color import get_2d_binbounds
 from ...grid import Grid, PolarizationType
-from .constants import RESOLVE_SPATIAL_UNIT, RESOLVE_SPECTRAL_UNIT, SPEEDOFLIGHT
+from .constants import RESOLVE_SPATIAL_UNIT, RESOLVE_SPECTRAL_UNIT
+from .data.data_modify.flagging import nyquist_message, uv_beyond_nyquist
 from .data.data_modify.frequency import restrict_by_freq
 from .data.data_modify.time import restrict_by_time
 from .data.observation import Observation
@@ -106,38 +107,6 @@ def _hermitian_adjoint(response, primals, cotangent):
     return conjugate(transpose(conjugate(cotangent))[0])
 
 
-def _check_nyquist(observation: Observation, grid: Grid) -> None:
-    """Raise if a baseline of `observation` lies beyond the Nyquist frequency
-    of the pixels of `grid`.
-
-    The NUFFT response is periodic in uv with period 1 / pixel, so a baseline
-    beyond 1 / (2 pixel) folds onto a shorter spacing and returns a wrong
-    visibility without warning. A row is beyond Nyquist when, at its highest
-    frequency with a weight > 0, ``|u| > 1 / (2 dx)`` or ``|v| > 1 / (2 dy)``
-    in wavelengths, with ``dx``, ``dy`` the pixel sizes in radians. As in the
-    response, u pairs with the x (RA) pixel size and v with the y (Dec) pixel
-    size. Flagged channels and rows carry no information and are skipped.
-    """
-    pixel = grid.spatial.pixel_scales_xy.to_value(u.rad)
-    weighted = (observation.weight.asnumpy() > 0).any(axis=0)
-    freq = np.where(weighted, observation.freq, 0.0).max(axis=1)
-    uv = np.abs(observation.uvw[:, :2]) * freq[:, None] / SPEEDOFLIGHT
-    beyond = (uv > 1 / (2 * pixel)).any(axis=1)
-    if not beyond.any():
-        return
-
-    extent = uv[beyond].max(axis=0)
-    axis = np.argmax(extent * pixel)
-    needed = (1 / (2 * extent[axis]) * u.rad).to_value(u.mas)
-    raise ValueError(
-        f"Longest |{'uv'[axis]}| baseline {extent[axis]:.4g} wavelengths exceeds "
-        f"the grid's Nyquist frequency {1 / (2 * pixel[axis]):.4g} wavelengths "
-        f"({beyond.sum()} of {observation.nrow} rows); pixel "
-        f"{(pixel[axis] * u.rad).to_value(u.mas):.4g} mas, the baseline needs "
-        f"{needed:.4g} mas or less, else the NUFFT folds it onto a shorter spacing"
-    )
-
-
 def interferometry_response(
     observation: Observation,
     sky_grid: Grid,
@@ -176,9 +145,10 @@ def interferometry_response(
     ------
     ValueError
         If a weighted baseline lies beyond the Nyquist frequency of the
-        pixels of `sky_grid`, see `_check_nyquist`.
+        pixels of `sky_grid`, see `uv_beyond_nyquist`.
     """
-    _check_nyquist(observation, sky_grid)
+    if uv_beyond_nyquist(observation, sky_grid).any():
+        raise ValueError(nyquist_message(observation, sky_grid))
 
     n_pol = len(sky_grid.polarization)
 
