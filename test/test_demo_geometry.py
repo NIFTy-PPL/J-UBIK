@@ -110,7 +110,8 @@ def test_documented_equatorial_config_reaches_wcs_metadata(frame, equinox):
 def test_nirc2_gaia_demo_reports_the_true_minus_loader_position_angle():
     """Gaia stars at the loader's offsets turned East by +0.5 deg, scaled by
     1.001 and 15 arcsec off (as M53's CRVAL), among unrelated Gaia stars:
-    the demo matches the right pairs and reports theta = +0.5 deg."""
+    the demo matches the right pairs and reports theta = +0.5 deg. A mirrored
+    frame matches no field."""
     demo = runpy.run_path(str(ROOT / "demos/nirc2_gaia_astrometry_demo.py"))
     rng = np.random.default_rng(3)
     loader = rng.uniform(-5000, 5000, (20, 2))  # East, North (mas)
@@ -128,3 +129,5 @@ def test_nirc2_gaia_demo_reports_the_true_minus_loader_position_angle():
     theta, theta_err, scale, scale_err = demo["rotation_scale"](p, pcov)
     assert abs(theta - 0.5) < 3 * theta_err < 0.02
     assert abs(scale - 1.001) < 3 * scale_err < 2e-4
+    with pytest.raises(ValueError, match="stars match Gaia"):
+        demo["match"](loader * [-1, 1], catalogue)

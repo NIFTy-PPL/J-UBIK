@@ -76,6 +76,9 @@ FLOOR_MAS = 1.0
 BOX = 5  # half-width of the centroid box, about one FWHM at Kp
 # CRVAL is the target's position, not the frame's: 15 arcsec off on M53
 SEARCH_MAS = 30_000.0
+# fewer matched stars: the wrong field or a mirrored frame, whose chance pairs
+# number 2 to 3 on M53
+MIN_STARS = 6
 DEG = 180 / np.pi
 
 # %% [markdown]
@@ -168,7 +171,7 @@ def centroids(data, std, threshold=20.0):
         )
         chi2 = 2 * fit.cost / (d.size - len(start))
         cov = np.linalg.inv(fit.jac.T @ fit.jac) * max(chi2, 1.0)
-        found.append([*fit.x[1:3], *np.sqrt(np.diag(cov)[1:3]), d.max()])
+        found.append([*fit.x[1:3], *np.sqrt(np.diag(cov)[1:3])])
     return np.array(found)
 
 
@@ -243,7 +246,8 @@ def rotation_scale(p, pcov):
 
 def match(detected, catalogue, tolerance=30.0):
     """Index pairs (detection, Gaia): the most voted shift first, then nearest
-    neighbours after a similarity fit, within ``tolerance`` mas."""
+    neighbours after a similarity fit, within ``tolerance`` mas. Raises
+    ValueError for fewer than MIN_STARS pairs."""
     shifts = (catalogue[None] - detected[:, None]).reshape(-1, 2)
     edges = np.arange(-SEARCH_MAS, SEARCH_MAS + 1, 100.0)
     votes, *_ = np.histogram2d(*shifts.T, bins=[edges, edges])
@@ -257,27 +261,15 @@ def match(detected, catalogue, tolerance=30.0):
             for m, k in enumerate(distance.argmin(0))
             if distance[k, m] < 3 * tolerance and distance[k].argmin() == m
         ]
-        if len(pairs) < 3:
+        if len(pairs) < MIN_STARS:
             raise ValueError(f"only {len(pairs)} stars match Gaia")
         k, m = np.array(pairs).T
         p, *_ = fit(detected[k], catalogue[m], np.tile(np.eye(2), (len(k), 1, 1)))
         moved = np.einsum("nij,j->ni", design(detected, False), p)
-    distance = np.linalg.norm(moved[k] - catalogue[m], axis=-1)
-    return k[distance < tolerance], m[distance < tolerance]
-
-
-def clipped(loader, target, cov, limit=4.0):
-    """Indices kept after dropping, one at a time, the star with the largest
-    normalized residual while it exceeds ``limit`` (after chi^2 scaling)."""
-    keep = np.arange(len(loader))
-    while len(keep) > 4:
-        _, _, r, chi2 = fit(loader[keep], target[keep], cov[keep])
-        z = np.sqrt(np.einsum("ni,nij,nj->n", r, np.linalg.inv(cov[keep]), r) / 2)
-        z /= np.sqrt(max(chi2, 1.0))
-        if z.max() <= limit:
-            break
-        keep = np.delete(keep, z.argmax())
-    return keep
+    close = np.linalg.norm(moved[k] - catalogue[m], axis=-1) < tolerance
+    if close.sum() < MIN_STARS:
+        raise ValueError(f"only {close.sum()} stars match Gaia")
+    return k[close], m[close]
 
 
 # %% [markdown]
@@ -306,8 +298,6 @@ def check(frame: Path, pre, post, out: Path):
         "ni,ij->nij", (found[k, 2:4] * mas_per_pixel) ** 2, np.eye(2)
     )
     cov = gaia_cov[m] + centroid_cov + FLOOR_MAS**2 * np.eye(2)
-    keep = clipped(detected[k], catalogue[m], cov)
-    k, m, cov = k[keep], m[keep], cov[keep]
 
     def refit(**overrides):
         moved = at(load_offsets(frame, pre, post, **overrides)[0], *found[k, :2].T)
@@ -349,10 +339,9 @@ def check(frame: Path, pre, post, out: Path):
         f"{solution.name.split(' (')[0]}, ROTPOSN - INSTANGL = {nominal:.3f} deg, "
         f"loader PA {exposure.diagnostics['position_angle']:.3f}\n"
         f"{len(found)} centroids, {len(catalogue)} Gaia stars with proper motions, "
-        f"{len(keep)} matched and kept; Gaia epoch offset "
+        f"{len(k)} matched; Gaia epoch offset "
         f"{(time - Time('J2016.0')).to_value(u.yr):+.2f} yr\n"
-        f"affine fit: determinant {det:+.5f} ({'same' if det > 0 else 'FLIPPED'} "
-        f"parity), shear and differential scale "
+        f"affine fit: determinant {det:+.5f}, shear and differential scale "
         f"{(pa[1] + pa[3]) / 2:+.2e} and {(pa[0] - pa[4]) / 2:+.2e} "
         f"(+-{np.sqrt(pa_cov[1, 1] + pa_cov[3, 3]) / 2:.1e})\n"
     )
