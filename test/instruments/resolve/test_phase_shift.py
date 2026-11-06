@@ -24,7 +24,7 @@ from jubik.instruments.resolve.phase_shift import (
     assign_shift_groups,
     build_phase_shift,
 )
-from jubik.instruments.resolve.response import _hermitian_adjoint
+from jubik.instruments.resolve.response import response_adjoint
 
 from generate_test_obs import generate_random_obs
 from test_response import setup_grid_obs_response
@@ -441,7 +441,7 @@ def test_response_adjoint_needs_the_sample_with_a_shift():
 def test_response_adjoint_without_shift_is_unchanged():
     lhb, _ = build_band7("finufft", None)
     d = lhb.visibilities
-    expected = _hermitian_adjoint(lhb.response, lhb.response.domain, d)
+    expected = response_adjoint(lhb.response, d, lhb.response.domain)
     assert_allclose(
         lhb.response_adjoint(d, {"ignored": 0})["band7_fld"], expected["band7_fld"]
     )

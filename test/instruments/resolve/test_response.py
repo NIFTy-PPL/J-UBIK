@@ -596,3 +596,18 @@ def test_response_StokesIQUV(freqs, circular, source):
     vis_expected[:, :, :] = res
     assert_allclose(vis_ducc, vis_expected)
     assert_allclose(vis_finufft, vis_expected)
+
+
+def test_response_rejects_beam_of_wrong_shape():
+    freqs = np.array([1e9])
+    obs = generate_random_obs(
+        freqs, 10, [-1e2, 1e2], [-5, 5], ju.polarization.PolarizationType(("LL", "RR"))
+    )
+    spatial = ju.wcs.WcsAstropy(
+        center=SkyCoord(0 * u.deg, 0 * u.deg), shape=(8, 8), fov=u.Quantity([1, 1], u.deg)
+    )
+    grid = ju.Grid(spatial=spatial, spectral=ju.color.Color.from_central_frequencies(freqs))
+    with pytest.raises(ValueError, match="shape of the grid"):
+        rve.interferometry_response(
+            obs, grid, rve.parse.FinufftSettings(epsilon=1e-9), beam=np.ones((8, 8))
+        )
