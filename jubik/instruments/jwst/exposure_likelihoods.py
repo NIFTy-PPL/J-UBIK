@@ -116,7 +116,9 @@ def build_exposure_likelihoods(
         ``zero_flux`` and ``calibration`` (``default`` and band keys, one
         factor per exposure), and ``psf_broadening`` (same keys: the prior of
         the σ in arcsec of a Gaussian that broadens each exposure's kernel,
-        see `PsfGaussianBroadening`; without it the kernels stay fixed).
+        see `PsfGaussianBroadening`; a delta prior broadens the kernel once
+        here, and without the key or at a delta of zero the kernels stay as
+        given).
     sky_unit : u.Unit
         Unit of the sky.
     """
@@ -193,14 +195,20 @@ def build_exposure_likelihoods(
     plotting = ResidualPlottingInformation()
     for e in exposures:
         target_data, psf_model = _with_psf(e)
-        if psf_broadening is not None:
+        prior = psf_broadening and psf_broadening.get_name_setting_or_default(e.band)
+        # a fixed width gives a fixed kernel: keep the cached static convolution
+        fixed = isinstance(prior, DeltaPriorConfig)
+        zero = fixed and prior.transformation is None and not np.any(prior.mean)
+        if prior is not None and not zero:
             if psf_model is not None:
                 raise ValueError(
                     f"{e.band}: psf_broadening needs a kernel, the psf is a model"
                 )
-            psf_model = _broadened(
-                e, target_data, psf_broadening.get_name_setting_or_default(e.band)
-            )
+            psf_model = _broadened(e, target_data, prior)
+            if fixed:  # broaden once, here; the delta ignores its latent
+                kernel = psf_model.broadened_kernel({f"{e.band}_psf_broadening": 0})
+                target_data = replace(target_data, psf=np.asarray(kernel))
+                psf_model = None
         correction_prior = FilterAlignment(e.band.lower()).load_correction_prior(
             correction_priors, number_of_observations=1
         )
