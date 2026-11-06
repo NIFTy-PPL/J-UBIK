@@ -575,8 +575,9 @@ def _band_limited_gaussian(width, size):
     return np.fft.fftshift(np.fft.ifft2(transfer).real)
 
 
+@pytest.mark.parametrize("weight", [["uniform", 0.0, 1.0], ["delta", 0.3]])
 @pytest.mark.parametrize("sigma", [["lognormal", 0.02, 0.01], ["delta", 1.5 * SCALE]])
-def test_psf_broadening_broadens_the_psf_mix(tmp_path, sigma):
+def test_psf_broadening_broadens_the_psf_mix(tmp_path, sigma, weight):
     sharp, broad = _gaussian(2.0, np.arange(-15, 16)), _gaussian(
         3.0, np.arange(-15, 16)
     )
@@ -584,16 +585,20 @@ def test_psf_broadening_broadens_the_psf_mix(tmp_path, sigma):
         tmp_path,
         sharp,
         psf_broadening={"default": sigma},
-        psf_mix=(broad, ["uniform", 0.0, 1.0]),
+        psf_mix=(broad, weight),
     )
     mix_key, width_key = "keck_nirc2_Kp_a_psf_mix", "keck_nirc2_Kp_a_psf_broadening"
-    learned = sigma[0] != "delta"
-    # a fixed width broadens both kernels once, for PsfKernelMix's cache
-    assert type(composed.psf) is (PsfGaussianBroadening if learned else PsfKernelMix)
-    assert mix_key in composed.domain and (width_key in composed.domain) == learned
+    learned_t, learned_w = weight[0] != "delta", sigma[0] != "delta"
+    # fixed parts go into the kernels once
+    model = (
+        PsfGaussianBroadening if learned_w else PsfKernelMix if learned_t else PsfStatic
+    )
+    assert type(composed.psf) is model
+    assert (mix_key in composed.domain) == learned_t
+    assert (width_key in composed.domain) == learned_w
     x = _params(composed) | {mix_key: 0.4, width_key: -0.3}
-    t = _prior_value(mix_key, ["uniform", 0.0, 1.0], x)
-    width = float(composed.psf.width(x)) if learned else 1.5  # σ in pixels
+    t = _prior_value(mix_key, weight, x)
+    width = float(composed.psf.width(x)) if learned_w else 1.5  # σ in pixels
     mix = (1 - t) * sharp + t * broad
     by_hand = convolve(mix, _band_limited_gaussian(width, 31), mode="full")
     (tmp_path / "hand").mkdir()
