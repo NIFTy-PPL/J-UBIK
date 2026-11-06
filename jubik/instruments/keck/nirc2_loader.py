@@ -248,9 +248,9 @@ def load_nirc2_exposure(
     position_angle : u.Quantity | None
         True position angle of the y axis, East of North. Default
         [ROTPOSN] - [INSTANGL] - beta of the solution, only when [ROTMODE]
-        is position angle; against Gaia DR3 that is off by +0.01 to +0.02
-        deg (+- 0.02 to 0.03) on M92 in 2007 and by -0.06 to -0.08 deg on
-        M53 in 2015 (`nirc2_distortion`).
+        is position angle. Against Gaia DR3 the true position angle is this
+        default plus 0.01 to 0.02 deg (+- 0.02 to 0.03) on M92 in 2007 and
+        minus 0.06 to 0.08 deg on M53 in 2015 (`nirc2_distortion`).
 
     Returns
     -------

@@ -23,10 +23,11 @@ Yelda et al. 2010 (Sect. 4.1) word it as "0.252 deg must be added to the
 presumed P.A."; Gaia DR3 settles the sign for the subtraction
 (``demos/nirc2_gaia_astrometry_demo.py``, raw frames at ROTPOSN - INSTANGL
 0 and 90 deg): adding beta leaves -0.49 to -0.61 deg against Gaia.
-Subtracting the published values leaves, for Yelda, +0.02 +- 0.03 deg at 0
-deg and +0.01 +- 0.02 deg at 90 deg on M92 in 2007 July (Yelda's field and
-season) but -0.073 +- 0.006 deg on M53 in 2015 April; a rotator counting
-from the north of date would explain 0.03 of that change by precession. For
+Subtracting the published values leaves (Gaia minus loader), for Yelda,
++0.02 +- 0.03 deg at 0 deg and +0.01 +- 0.02 deg at 90 deg on M92 in 2007
+July (Yelda's field and season) but -0.073 +- 0.006 deg on M53 in 2015
+April; a rotator counting from the north of date would explain 0.03 of that
+change by precession. For
 Service, checked on one night only (M53 in 2015 May, Service's own field and
 month), it leaves -0.056 +- 0.008 deg at 0 deg and -0.082 +- 0.011 deg at 90
 deg. Frames of one cluster share Gaia stars. The published values are kept:

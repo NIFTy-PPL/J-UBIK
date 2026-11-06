@@ -16,7 +16,7 @@
 # 4. fits Gaia = s R(theta) loader + shift. theta > 0 means the true position
 #    angle of the detector exceeds the loader's, s - 1 the plate-scale error.
 #    A flipped sign of beta would give theta = +2 beta (+0.504 deg before
-#    2015-04-13, +0.524 deg after).
+#    2015-04-13, +0.524 deg after), or no match on a crowded field (step 3).
 #
 # The same stars are then refitted with the loader given other conventions
 # (beta added, the maps negated, transposed or swapped, no maps, the other
@@ -253,7 +253,10 @@ def rotation_scale(p, pcov):
 def match(detected, catalogue, tolerance=30.0):
     """Index pairs (detection, Gaia): the most voted shift first, then nearest
     neighbours after a similarity fit, within ``tolerance`` mas. Raises
-    ValueError for fewer than MIN_STARS pairs."""
+    ValueError for fewer than MIN_STARS pairs: the wrong field, a mirrored
+    frame, or a position angle off by more than about 0.3 deg."""
+    # shortcut: votes a shift only, so a 0.5 deg position-angle error raises on
+    # M92 at 90 deg; vote over trial rotations (tie-broken towards 0) if needed
     shifts = (catalogue[None] - detected[:, None]).reshape(-1, 2)
     edges = np.arange(-SEARCH_MAS, SEARCH_MAS + 1, 100.0)
     votes, *_ = np.histogram2d(*shifts.T, bins=[edges, edges])
@@ -312,8 +315,9 @@ def check(frame: Path, pre, post, out: Path):
         p, pcov, r, chi2 = fit(moved, catalogue[m], cov)
         return (*rotation_scale(p, pcov), np.sqrt(np.mean(r**2, 0)), chi2, p, r, moved)
 
-    def solution_like(name, dx, dy, base=solution):
-        return DistortionSolution(name, dx, dy, base.pixel_scale, base.angle_offset)
+    def solution_like(name, dx, dy):
+        s = solution
+        return DistortionSolution(name, dx, dy, s.pixel_scale, s.angle_offset)
 
     beta = solution.angle_offset
     variants = {
