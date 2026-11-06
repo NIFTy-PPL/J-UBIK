@@ -23,13 +23,15 @@ Yelda et al. 2010 (Sect. 4.1) word it as "0.252 deg must be added to the
 presumed P.A."; Gaia DR3 settles the sign for the subtraction
 (``demos/nirc2_gaia_astrometry_demo.py``, raw frames at ROTPOSN - INSTANGL
 0 and 90 deg): adding beta leaves -0.47 to -0.61 deg against Gaia.
-Subtracting the published values leaves +0.02 +- 0.02 deg on M92 in 2007
-July, Yelda's field and season, but -0.070 +- 0.007 deg (Yelda) and -0.056
-+- 0.008 / -0.082 +- 0.011 deg (Service, at 0 / 90 deg) on M53 in 2015 April
-and May. The offset thus changes with epoch or field (a rotator counting
-from the north of date would explain 0.03 of the 0.09 deg by precession), so
-no single value fits better than the published ones, which are kept. The
-CD matrix in the raw NIRC2 headers adds beta.
+Subtracting the published values leaves, for Yelda, +0.02 +- 0.02 deg on M92
+in 2007 July (Yelda's field and season) but -0.070 +- 0.007 deg on M53 in
+2015 April; a rotator counting from the north of date would explain 0.03 of
+that change by precession. For Service, checked on one night only (M53 in
+2015 May, Service's own field and month), it leaves -0.056 +- 0.008 deg at
+0 deg and -0.082 +- 0.011 deg at 90 deg (the frames share Gaia stars). The
+published values are kept: the cause (the reference each was measured
+against, precession, the AO mode: LGS in 2015, NGS in 2007) is not settled.
+The CD matrix in the raw NIRC2 headers adds beta.
 
 The solutions define no reference pixel: the fitted maps carry a constant
 term. `nirc2_wcs` therefore pins the raw reference pixel to the reference sky

@@ -113,8 +113,8 @@ def load_offsets(frame: Path, pre, post, **overrides):
         bunit="DN",  # raw frames carry no BUNIT; DN summed over coadds
         **overrides,
     )
-    ny, nx = exposure.target_data.data.shape[1:]
-    assert exposure.diagnostics["bounds"] == (0, ny, 0, nx), "not the full frame"
+    full = (0, header["NAXIS2"], 0, header["NAXIS1"])
+    assert exposure.diagnostics["bounds"] == full, "not the full frame"
     sky = exposure.target_data.subsample_centers[0]
     east, north = centre.icrs.spherical_offsets_to(sky.icrs)
     offsets = np.stack([east.to_value(u.mas), north.to_value(u.mas)])
