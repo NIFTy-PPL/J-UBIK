@@ -144,7 +144,10 @@ def gaussian(p, y, x):
 
 def centroids(data, std, threshold=20.0):
     """0-based (x, y) centroids and their 1-sigma errors (pixels) of the
-    isolated peaks above ``threshold`` robust sigma."""
+    isolated peaks above ``threshold`` robust sigma, shape (n, 4)."""
+    # dead pixels of a raw frame read about 0 against a sky of some 100 DN;
+    # with read noise as their only sigma they would dominate the fit
+    good = data > 0.3 * np.median(data)
     smooth = ndimage.gaussian_filter(ndimage.median_filter(data, 3), 1.5)
     level = np.median(smooth)
     mad = 1.4826 * np.median(np.abs(smooth - level))
@@ -167,15 +170,15 @@ def centroids(data, std, threshold=20.0):
             continue
         cut = np.s_[y - BOX : y + BOX + 1, x - BOX : x + BOX + 1]
         yy, xx = np.mgrid[cut]
-        d, s = data[cut], std[cut]
+        d, s, g = data[cut], std[cut], good[cut]
         start = [d.max() - np.median(d), x, y, 2.0, 2.0, np.median(d)]
         fit = optimize.least_squares(
-            lambda p: ((gaussian(p, yy, xx) - d) / s).ravel(), start
+            lambda p: ((gaussian(p, yy, xx) - d) / s)[g], start
         )
-        chi2 = 2 * fit.cost / (d.size - len(start))
+        chi2 = 2 * fit.cost / (g.sum() - len(start))
         cov = np.linalg.inv(fit.jac.T @ fit.jac) * max(chi2, 1.0)
         found.append([*fit.x[1:3], *np.sqrt(np.diag(cov)[1:3])])
-    return np.array(found)
+    return np.array(found).reshape(-1, 4)
 
 
 # %% [markdown]
@@ -256,13 +259,15 @@ def match(detected, catalogue, tolerance=30.0):
     votes, *_ = np.histogram2d(*shifts.T, bins=[edges, edges])
     i, j = np.unravel_index(votes.argmax(), votes.shape)
     moved = detected + [edges[i] + 50, edges[j] + 50]
-    for _ in range(3):
+    # wide first, for the voted shift; then refitted within ``tolerance``, so
+    # a wrong pair from the wide search cannot pull a true one out
+    for radius in (3 * tolerance, tolerance, tolerance):
         distance = np.linalg.norm(catalogue[None] - moved[:, None], axis=-1)
         # mutual nearest neighbours
         pairs = [
             (k, m)
             for m, k in enumerate(distance.argmin(0))
-            if distance[k, m] < 3 * tolerance and distance[k].argmin() == m
+            if distance[k, m] < radius and distance[k].argmin() == m
         ]
         if len(pairs) < MIN_STARS:
             raise ValueError(f"only {len(pairs)} stars match Gaia")

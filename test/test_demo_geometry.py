@@ -131,3 +131,28 @@ def test_nirc2_gaia_demo_reports_the_true_minus_loader_position_angle():
     assert abs(scale - 1.001) < 3 * scale_err < 2e-4
     with pytest.raises(ValueError, match="stars match Gaia"):
         demo["match"](loader * [-1, 1], catalogue)
+
+
+def test_nirc2_gaia_demo_keeps_true_pairs_next_to_a_wrong_one():
+    """A pair 85 mas off, inside the matcher's wide first search, must not
+    pull the true pairs out of the final 30 mas."""
+    demo = runpy.run_path(str(ROOT / "demos/nirc2_gaia_astrometry_demo.py"))
+    rng = np.random.default_rng(4)
+    loader = rng.uniform(-5000, 5000, (9, 2))
+    truth = loader + [-13900.0, 6600.0] + rng.normal(0, 8, loader.shape)
+    truth[-1] += 85 * np.array([np.cos(4), np.sin(4)])
+    catalogue = np.concatenate([rng.uniform(-25000, 25000, (200, 2)), truth])
+    k, _ = demo["match"](loader, catalogue)
+    assert sorted(k) == list(range(8))
+
+
+def test_nirc2_gaia_demo_centroid_ignores_dead_pixels():
+    """A line of dead pixels (0 DN, read noise only) through a star's core
+    leaves its centroid where it is."""
+    demo = runpy.run_path(str(ROOT / "demos/nirc2_gaia_astrometry_demo.py"))
+    yy, xx = np.mgrid[:64, :64].astype(float)
+    data = 250 + 1e4 * np.exp(-0.5 * ((xx - 30.3) ** 2 + (yy - 31.7) ** 2) / 2.0**2)
+    data[np.arange(62), np.arange(2, 64)] = 0.0
+    std = np.sqrt(28.2 + 0.25 * data)
+    (found,) = demo["centroids"](data, std)
+    np.testing.assert_allclose(found[:2], [30.3, 31.7], atol=0.01)
