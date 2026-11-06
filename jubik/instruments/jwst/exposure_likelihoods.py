@@ -198,7 +198,8 @@ def build_exposure_likelihoods(
         prior = psf_broadening and psf_broadening.get_name_setting_or_default(e.band)
         # a fixed width gives a fixed kernel: keep the cached static convolution
         fixed = isinstance(prior, DeltaPriorConfig)
-        if prior is not None and not (fixed and not np.any(prior.mean)):
+        zero = fixed and prior.transformation is None and not np.any(prior.mean)
+        if prior is not None and not zero:
             if psf_model is not None:
                 raise ValueError(
                     f"{e.band}: psf_broadening needs a kernel, the psf is a model"

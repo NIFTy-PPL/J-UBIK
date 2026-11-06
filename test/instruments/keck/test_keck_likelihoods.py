@@ -360,6 +360,13 @@ def test_zero_psf_broadening_reproduces_the_fixed_kernel(tmp_path):
     x = _params(zero)
     np.testing.assert_array_equal(broadened(x), reference(x))
 
+    # exp(0) = 1″ is not zero: that kernel is broadened
+    (tmp_path / "exp").mkdir()
+    exp, _ = _psf_response(
+        tmp_path / "exp", kernel, {"default": ["delta", 0.0, 0.0, "exp"]}
+    )
+    assert exp.psf.kernel.shape[-1] == 2 * fixed.psf.kernel.shape[-1] - 1
+
 
 def test_fixed_psf_broadening_is_the_learned_one_at_that_width(tmp_path):
     kernel = _gaussian(2.0, np.arange(-15, 16))
@@ -373,10 +380,7 @@ def test_fixed_psf_broadening_is_the_learned_one_at_that_width(tmp_path):
     assert isinstance(fixed.psf, PsfStatic)
     assert isinstance(learned.psf, PsfGaussianBroadening)
     x = _params(learned) | {"keck_nirc2_Kp_a_psf_broadening": 0.0}  # σ = its mean
-    expected = model(x)
-    np.testing.assert_allclose(
-        precomputed(x), expected, atol=1e-12 * np.abs(expected).max()
-    )
+    np.testing.assert_array_equal(precomputed(x), model(x))
 
 
 def test_mixed_psf_broadening_keeps_static_kernels_where_fixed(tmp_path):
