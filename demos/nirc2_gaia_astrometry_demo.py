@@ -16,7 +16,7 @@
 # 4. fits Gaia = s R(theta) loader + shift. theta > 0 means the true position
 #    angle of the detector exceeds the loader's, s - 1 the plate-scale error.
 #    A flipped sign of beta would give theta = +2 beta (+0.504 deg before
-#    2015-04-13, +0.524 deg after), or no match on a crowded field (step 3).
+#    2015-04-13, +0.524 deg after), or no match when few stars match (step 3).
 #
 # The same stars are then refitted with the loader given other conventions
 # (beta added, the maps negated, transposed or swapped, no maps, the other
@@ -206,7 +206,7 @@ def gaia(offsets, centre, time, cache):
         )
         jacobian = star.epoch_jacobian(time)
         cov.append(jacobian @ star.astrometric_covariance @ jacobian.T)
-    return np.array(xy), np.array(cov)
+    return np.array(xy).reshape(-1, 2), np.array(cov).reshape(-1, 2, 2)
 
 
 # %% [markdown]
@@ -254,7 +254,10 @@ def match(detected, catalogue, tolerance=30.0):
     """Index pairs (detection, Gaia): the most voted shift first, then nearest
     neighbours after a similarity fit, within ``tolerance`` mas. Raises
     ValueError for fewer than MIN_STARS pairs: the wrong field, a mirrored
-    frame, or a position angle off by more than about 0.3 deg."""
+    frame, or a position angle off by 0.5 deg or more when few stars match
+    (8 to 10 on M92)."""
+    if len(detected) < MIN_STARS or len(catalogue) < MIN_STARS:
+        raise ValueError(f"{len(detected)} stars detected, {len(catalogue)} in Gaia")
     # shortcut: votes a shift only, so a 0.5 deg position-angle error raises on
     # M92 at 90 deg; vote over trial rotations (tie-broken towards 0) if needed
     shifts = (catalogue[None] - detected[:, None]).reshape(-1, 2)

@@ -131,6 +131,8 @@ def test_nirc2_gaia_demo_reports_the_true_minus_loader_position_angle():
     assert abs(scale - 1.001) < 3 * scale_err < 2e-4
     with pytest.raises(ValueError, match="stars match Gaia"):
         demo["match"](loader * [-1, 1], catalogue)
+    with pytest.raises(ValueError, match="0 stars detected"):
+        demo["match"](np.empty((0, 2)), catalogue)
 
 
 def test_nirc2_gaia_demo_keeps_true_pairs_next_to_a_wrong_one():

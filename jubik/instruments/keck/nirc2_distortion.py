@@ -27,10 +27,9 @@ Subtracting the published values leaves (Gaia minus loader), for Yelda,
 +0.02 +- 0.03 deg at 0 deg and +0.01 +- 0.02 deg at 90 deg on M92 in 2007
 July (Yelda's field and season) but -0.073 +- 0.006 deg on M53 in 2015
 April; a rotator counting from the north of date would explain 0.03 of that
-change by precession. For
-Service, checked on one night only (M53 in 2015 May, Service's own field and
-month), it leaves -0.056 +- 0.008 deg at 0 deg and -0.082 +- 0.011 deg at 90
-deg. Frames of one cluster share Gaia stars. The published values are kept:
+change by precession. For Service, checked on one night only (M53 in 2015
+May, Service's own field and month), it leaves -0.056 +- 0.008 deg at 0 deg
+and -0.082 +- 0.011 deg at 90 deg. Frames of one cluster share Gaia stars. The published values are kept:
 the cause (the reference each was measured against, precession, the AO mode:
 LGS in 2015, NGS in 2007) is not settled. The CD matrix in the raw NIRC2
 headers adds 0.252 deg, also after 2015.
