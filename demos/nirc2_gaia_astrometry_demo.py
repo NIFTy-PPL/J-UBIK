@@ -21,14 +21,17 @@
 # The same stars are then refitted with the loader given other conventions
 # (beta added, the maps negated, transposed or swapped, no maps, the other
 # solution) through its ``distortion=`` and ``position_angle=`` overrides: the
-# right convention has the smallest chi^2.
+# right maps and solution have the smallest chi^2. The fitted rotation absorbs
+# the sign of beta, which therefore shows in theta alone.
 #
 # ## Data (downloaded, so this demo is not run in CI)
 #
 # - Raw NIRC2 narrow-camera frames of a field with Gaia stars, from the Keck
 #   Observatory Archive (https://koa.ipac.caltech.edu), full 1024 x 1024
 #   frames. Checked on M53 (NGC 5024), Kp, 10 s x 5 coadds: N2.20150402.34994
-#   and .35067 (before the realignment), N2.20150505.27289 and .27389 (after).
+#   and .35067 (before the realignment), N2.20150505.27289 and .27389 (after),
+#   N2.20150505.33068 (after, ROTPOSN - INSTANGL = 90 deg); and on M92, Kp,
+#   0.8 s x 60 coadds: N2.20070729.38200 and .28274 (at 0 and 90 deg).
 # - The distortion maps ``nirc2_distort_{X,Y}_{pre,post}20150413_v1.fits``
 #   from https://github.com/jluastro/nirc2_distortion, in one directory.
 #

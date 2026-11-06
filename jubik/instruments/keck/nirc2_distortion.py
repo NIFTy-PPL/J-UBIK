@@ -20,15 +20,16 @@ offset beta. The true position angle of the NIRC2 y axis, East of North, is
 ``ROTPOSN - INSTANGL - beta`` (https://github.com/jluastro/nirc2_distortion/wiki,
 figure "gamma = alpha - beta"; KOA applies "a correction of -0.252 deg").
 Yelda et al. 2010 (Sect. 4.1) word it as "0.252 deg must be added to the
-presumed P.A."; Gaia DR3 settles the sign for the subtraction. On raw M53
-frames of 2015 April and May (``demos/nirc2_gaia_astrometry_demo.py``),
-adding beta leaves -0.57 deg against Gaia. Subtracting the published values
-still leaves -0.070 +- 0.007 deg (Yelda) and -0.056 +- 0.008 deg (Service):
-the true position angle is about 0.06 deg smaller, kept as published since
-one field cannot tell an instrument drift from the reference frame the
-values were measured against. The stars scatter by 2-3 mas rms about that
-fit, fixed on the detector rather than following the Gaia stars, with no
-field-wide pattern. The CD matrix in the raw NIRC2 headers adds beta.
+presumed P.A."; Gaia DR3 settles the sign for the subtraction
+(``demos/nirc2_gaia_astrometry_demo.py``, raw frames at ROTPOSN - INSTANGL
+0 and 90 deg): adding beta leaves -0.47 to -0.61 deg against Gaia.
+Subtracting the published values leaves +0.02 +- 0.02 deg on M92 in 2007
+July, Yelda's field and season, but -0.070 +- 0.007 deg (Yelda) and -0.056
++- 0.008 / -0.082 +- 0.011 deg (Service, at 0 / 90 deg) on M53 in 2015 April
+and May. The offset thus changes with epoch or field (a rotator counting
+from the north of date would explain 0.03 of the 0.09 deg by precession), so
+no single value fits better than the published ones, which are kept. The
+CD matrix in the raw NIRC2 headers adds beta.
 
 The solutions define no reference pixel: the fitted maps carry a constant
 term. `nirc2_wcs` therefore pins the raw reference pixel to the reference sky
@@ -60,9 +61,9 @@ __all__ = [
 # NIRC2/AO re-alignment: Yelda et al. 2010 up to this date, Service et al.
 # 2016 after it (https://www2.keck.hawaii.edu/inst/nirc2/dewarp.html). Against
 # Gaia, M53 on 2015-04-02 fits the first, on 2015-05-05 the second. KAI keeps
-# the first through 2015-04-30; KOA's full narrow-camera frames from 04-14 to
-# 04-30 (only 04-28 to 04-30: Io, HD 84800, LGS test fields with at most two
-# Gaia stars) cannot test the day.
+# the first through 2015-04-30. KOA's on-sky narrow-camera frames from 04-14
+# to 04-30 (all from 04-28 on: Io, HD 84800, LGS test fields, at most three
+# Gaia stars each) cannot test the day.
 REALIGNMENT = date(2015, 4, 13)
 
 
