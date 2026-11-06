@@ -3,7 +3,6 @@ from astropy import units as u
 from nifty.re import logger
 
 from .....grid import Grid
-from ...constants import SPEEDOFLIGHT
 from ...parse.data.data_modify.flagging import BeyondNyquist, FlagWeights
 from ..observation import Observation
 
@@ -114,8 +113,7 @@ def _uv_in_wavelengths(observation: Observation) -> np.ndarray:
     """``|u|``, ``|v|`` of each row in wavelengths at its highest frequency
     with a weight > 0, 0 for a row without any weight; shape ``(n_rows, 2)``."""
     weighted = (observation.weight.asnumpy() > 0).any(axis=0)
-    freq = np.where(weighted, observation.freq, 0.0).max(axis=1)
-    return np.abs(observation.uvw[:, :2]) * freq[:, None] / SPEEDOFLIGHT
+    return (np.abs(observation.effective_uvw()[:2]) * weighted).max(axis=2).T
 
 
 def uv_beyond_nyquist(observation: Observation, grid: Grid) -> np.ndarray:

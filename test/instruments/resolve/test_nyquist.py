@@ -9,7 +9,6 @@ from numpy.testing import assert_allclose
 
 import jubik as ju
 import jubik.instruments.resolve as rve
-from jubik.instruments.resolve.constants import SPEEDOFLIGHT
 from jubik.instruments.resolve.data.data_modify.flagging import uv_beyond_nyquist
 from jubik.instruments.resolve.data.data_modify.pipeline import (
     build_observation_modify,
@@ -126,7 +125,7 @@ def test_within_nyquist_the_response_is_the_analytic_visibility():
     sky = np.zeros(g.shape) + image / (image.sum() * dx**2)
 
     response = rve.interferometry_response(obs, g, SETTINGS)
-    uv = obs.uvw[:, :2] * FREQ / SPEEDOFLIGHT
+    uv = obs.effective_uvw()[:2, :, 0].T
     expected = np.exp(-2 * np.pi**2 * sigma**2 * (uv**2).sum(axis=1))
     assert_allclose(np.asarray(response(sky))[0, :, 0], expected, atol=1e-8)
 
