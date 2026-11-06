@@ -105,3 +105,26 @@ def test_documented_equatorial_config_reaches_wcs_metadata(frame, equinox):
     if equinox is not None:
         assert grid.spatial.wcs.equinox == float(equinox[1:])
     assert grid.spatial.position_angle == 30 * u.deg
+
+
+def test_nirc2_gaia_demo_reports_the_true_minus_loader_position_angle():
+    """Gaia stars at the loader's offsets turned East by +0.5 deg, scaled by
+    1.001 and 15 arcsec off (as M53's CRVAL), among unrelated Gaia stars:
+    the demo matches the right pairs and reports theta = +0.5 deg."""
+    demo = runpy.run_path(str(ROOT / "demos/nirc2_gaia_astrometry_demo.py"))
+    rng = np.random.default_rng(3)
+    loader = rng.uniform(-5000, 5000, (20, 2))  # East, North (mas)
+    # position angle East of North of every star, turned by theta
+    radius = np.hypot(*loader.T)
+    angle = np.arctan2(loader[:, 0], loader[:, 1]) + np.deg2rad(0.5)
+    truth = 1.001 * radius[:, None] * np.stack([np.sin(angle), np.cos(angle)], -1)
+    truth += [-13900.0, 6600.0]
+    others = rng.uniform(-25000, 25000, (200, 2))
+    catalogue = np.concatenate([others, truth + rng.normal(0, 1, truth.shape)])
+    k, m = demo["match"](loader, catalogue)
+    assert len(k) == 20
+    np.testing.assert_array_equal(m - len(others), k)
+    p, pcov, _, _ = demo["fit"](loader[k], catalogue[m], np.tile(np.eye(2), (20, 1, 1)))
+    theta, theta_err, scale, scale_err = demo["rotation_scale"](p, pcov)
+    assert abs(theta - 0.5) < 3 * theta_err < 0.02
+    assert abs(scale - 1.001) < 3 * scale_err < 2e-4
