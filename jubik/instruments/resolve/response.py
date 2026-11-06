@@ -16,9 +16,10 @@
 
 from typing import Union
 
+import nifty.re as jft
 import numpy as np
 from astropy import units as u
-from jax import Array, linear_transpose
+from jax import Array, dtypes, linear_transpose
 from jax import numpy as jnp
 from jax.tree_util import Partial, tree_map
 
@@ -99,19 +100,44 @@ def canonical_sky_to_visibilities(backend_apply, sky_canonical):
     return backend_apply(jnp.transpose(sky_canonical))
 
 
-def _hermitian_adjoint(response, primals, cotangent):
-    """Return ``conj(R^T(conj(cotangent)))`` for a linear response ``R``."""
+def response_adjoint(response, visibilities: Array, primals=None) -> dict | Array:
+    """Apply the Hermitian adjoint ``conj(R^T(conj(v)))`` of the linear
+    `response` ``R`` to `visibilities` ``v``.
+
+    For a response with multiplicative factors (shift, gains) evaluated at a
+    latent sample `x`, apply it to `conj(factor(x)) * visibilities`. A model
+    with the factors inside is not linear in its input, and the transpose
+    fails on it.
+
+    Parameters
+    ----------
+    response: jft.Model | Callable
+        The linear response.
+    visibilities: Array
+        The visibilities to map back.
+    primals
+        The shape and dtype of the input of `response`; None takes
+        `response.domain` of a `jft.Model`.
+    """
+    if primals is None:
+        primals = response.domain
     transpose = linear_transpose(response, primals)
     conjugate = lambda x: tree_map(jnp.conj, x)
-    return conjugate(transpose(conjugate(cotangent))[0])
+    return conjugate(transpose(conjugate(visibilities))[0])
 
 
 def interferometry_response(
     observation: Observation,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings, CufinufftSettings],
-):
-    """Returns a function computing the radio interferometric response
+    beam: Array | None = None,
+    sky_key: str | None = None,
+) -> jft.Model:
+    """The radio interferometric response: a sky on `sky_grid` to the model
+    visibilities of `observation`.
+
+    The response is linear in the sky; `response_adjoint` is its Hermitian
+    adjoint.
 
     Input sky frame is CANONICAL (``dim0 = +Dec``/North, ``dim1 = -RA``/West;
     see ``docs/source/user/canonical-sky-design.md``).  The response owns the conversion to the
@@ -139,7 +165,27 @@ def interferometry_response(
             - gpu_maxbatchsize  (only cufinufft)
             - upsampfac         (only cufinufft)
             - dtype             (only cufinufft)
+
+    beam: Array | None
+        The primary beam of the pointing of `observation`, shape
+        `sky_grid.shape`, see `build_beam`; multiplied onto the sky before the
+        gridder. None applies no beam.
+
+    sky_key: str | None
+        The key of the sky in the input, `{sky_key: sky} -> vis`. None takes
+        the sky array itself.
+
+    Raises
+    ------
+    ValueError
+        If the beam does not have the shape of the grid.
     """
+    if beam is not None and tuple(beam.shape) != tuple(sky_grid.shape):
+        raise ValueError(
+            f"beam {tuple(beam.shape)} needs the shape of the grid "
+            f"{tuple(sky_grid.shape)}"
+        )
+
     n_pol = len(sky_grid.polarization)
 
     # compute bins for time and freq
@@ -264,7 +310,11 @@ def interferometry_response(
                     res = res.at[pp, row_indices[tt][ff], freq_indices[tt][ff]].set(r)
         return convert_polarization(res, inp_pol, out_pol)
 
-    return apply_R
+    sky = jft.ShapeWithDtype(sky_grid.shape, dtypes.canonicalize_dtype(float))
+    response = apply_R if beam is None else lambda x: apply_R(beam * x)
+    if sky_key is None:
+        return jft.Model(response, domain=sky)
+    return jft.Model(lambda x: response(x[sky_key]), domain={sky_key: sky})
 
 
 def interferometry_response_ducc(

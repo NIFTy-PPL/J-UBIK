@@ -15,6 +15,13 @@
 # Author: Julian Rüstig
 
 
+import jax.numpy as jnp
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+
+from ....grid import Grid
+from ..constants import RESOLVE_SPECTRAL_UNIT
+from ..data.direction import Direction
 from ..parse.re.mosacing.beam_pattern import BeamPatternConfig
 
 from typing import Callable
@@ -55,3 +62,45 @@ def build_primary_beam_pattern_from_beam_pattern_config(
     return lambda freq, x: compute_primary_beam_pattern(
         D=bpc.dish_size, d=bpc.dish_blockage_size, freq=freq, x=x
     )
+
+
+def build_beam(
+    pointing: Direction,
+    sky_grid: Grid,
+    beam_func: Callable[[float, ArrayLike], ArrayLike],
+) -> jnp.ndarray:
+    """The primary beam of `pointing` on the sky grid.
+
+    The beam pairs index for index with the canonical sky: `beam[..., y, x]`
+    is the beam at the world position of sky pixel `[y, x]` of
+    `sky_grid.spatial`, evaluated at the center of every frequency bin.
+
+    Parameters
+    ----------
+    pointing: Direction
+        The pointing direction of the dish.
+    sky_grid: Grid
+        The sky grid.
+    beam_func: Callable[[float, ArrayLike], ArrayLike]
+        The beam pattern, called as `beam_func(freq=<Hz>, x=<rad from the
+        pointing>)`, see `build_primary_beam_pattern_from_beam_pattern_config`.
+
+    Returns
+    -------
+    jnp.ndarray
+        The beam, shape `sky_grid.shape`.
+    """
+    spatial = sky_grid.spatial
+    center = SkyCoord(
+        pointing.phase_center[0] * u.rad,
+        pointing.phase_center[1] * u.rad,
+        frame=spatial.center.frame,
+    )
+    # sky_coords[y, x] is the world position of sky pixel [y, x]
+    sky_coords = spatial.indices_yx_to_world(*np.indices(spatial.shape_yx))
+    x = sky_coords.separation(center).to(u.rad).value
+    frequencies = sky_grid.spectral.center.to(
+        RESOLVE_SPECTRAL_UNIT, equivalencies=u.spectral()
+    ).value
+    beam = jnp.array([beam_func(freq=f, x=x) for f in frequencies])
+    return jnp.broadcast_to(beam, sky_grid.shape)

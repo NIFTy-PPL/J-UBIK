@@ -11,7 +11,7 @@ from ..mosaicing.sky_beamer import SkyBeamer
 from ..noise.factory_noise_correction import factory_noise_correction_model
 from ..parse.noise.base_line_correction import BaseLineCorrection
 from ..parse.response import Ducc0Settings, FinufftSettings
-from ..response import _hermitian_adjoint, interferometry_response
+from ..response import interferometry_response, response_adjoint
 
 
 def create_response_operator(
@@ -83,7 +83,7 @@ class LikelihoodBuilderBase:
         i.e. `L^H(conj(p(x)) * primals)`. Without a shift `x` is ignored.
         """
         if self.shift is None:
-            return _hermitian_adjoint(self.response, self.response.domain, primals)
+            return response_adjoint(self.response, primals, self.response.domain)
         if x is None:
             raise ValueError(
                 "The response has a shift: pass the latent sample `x` whose "
@@ -91,8 +91,8 @@ class LikelihoodBuilderBase:
             )
         theta = {k: x[k] for k in self.shift.domain}
         sky_domain = {k: v for k, v in self.response.domain.items() if k not in theta}
-        return _hermitian_adjoint(
-            lambda sky: self.response(sky | theta), sky_domain, primals
+        return response_adjoint(
+            lambda sky: self.response(sky | theta), primals, sky_domain
         )
 
     @property
