@@ -101,13 +101,97 @@ class PsfStatic(jft.Model):
         field, _ = x
         if self.kernel_fft is None:
             return field
+        return self._convolve(field, self.kernel_fft)
+
+    def _convolve(self, field, kernel_fft):
         field_fft = jnp.fft.rfft2(field, self._fft_shape)
-        convolved = jnp.fft.irfft2(field_fft * self.kernel_fft, self._fft_shape)
+        convolved = jnp.fft.irfft2(field_fft * kernel_fft, self._fft_shape)
         return convolved[(..., *self._crop)]
 
 
+class PsfKernelMix(jft.Model):
+    """Convolution by a learnable mix of two static kernels, `(1 - t) K_a + t K_b`.
+
+    For example a broad halo `K_a` and a sharp core `K_b`, so that `t` is a
+    Strehl-like core fraction, or the PSF-star kernels of two nights. Both
+    kernels sum to one and share their shape, so every `t` keeps the flux;
+    kernels centred on `(K - 1) / 2`, as `PsfStatic` expects, keep their centroid
+    for every `t`. Outside [0, 1] the mix extrapolates: sharper than the sharper
+    kernel, broader than the broader one, and negative where the two differ most;
+    `t` is not bounded here, nor the model clipped (the shot-noise variance only
+    floors model + sky at 0). Both transforms are cached as in `PsfStatic` and
+    mixed in Fourier space, so a call is one forward and one inverse FFT.
+    """
+
+    def __init__(
+        self,
+        sky_shape_with_dtype: jft.ShapeWithDtype,
+        psf_kernel: np.ndarray,
+        second_kernel: np.ndarray,
+        weight: jft.Model,
+    ):
+        """
+        Parameters
+        ----------
+        sky_shape_with_dtype: jft.ShapeWithDtype
+            The `ShapeWithDtype` of the sky.
+        psf_kernel, second_kernel: np.ndarray
+            `K_a` and `K_b`, 2-D or one per observation (3-D), of the same shape
+            and summing to one (per observation).
+        weight: jft.Model
+            The mixing weight `t`, a scalar or one per observation; `weight(x)`
+            gives the `t` of a sample `x`.
+        """
+        _check_pair(psf_kernel, second_kernel)
+        static = PsfStatic(sky_shape_with_dtype, psf_kernel)
+        self._convolve = static._convolve
+        self.kernel_fft = static.kernel_fft
+        self.difference_fft = (
+            PsfStatic(sky_shape_with_dtype, second_kernel).kernel_fft - self.kernel_fft
+        )
+        self.weight = weight
+
+        super().__init__(domain=(sky_shape_with_dtype, weight.domain))
+
+    def __call__(self, x):
+        field, params = x
+        t = jnp.broadcast_to(self.weight(params), self.kernel_fft.shape[:-2])
+        return self._convolve(
+            field, self.kernel_fft + t[..., None, None] * self.difference_fft
+        )
+
+
+def mixed_kernel(
+    psf_kernel: np.ndarray, second_kernel: np.ndarray, weight: jft.Model
+) -> jft.Model:
+    """The kernel `(1 - t) K_a + t K_b` as a model of the parameters of `weight`.
+
+    Checked and centred as in `PsfKernelMix`; for `PsfGaussianBroadening`, or
+    evaluated once at a fixed `t` (a `weight` without parameters).
+    """
+    _check_pair(psf_kernel, second_kernel)
+    a, b = (_center_even_axes(np.asarray(k)) for k in (psf_kernel, second_kernel))
+
+    def kernel(x):
+        t = jnp.broadcast_to(weight(x), a.shape[:-2])[..., None, None]
+        return a + t * (b - a)
+
+    return jft.Model(kernel, domain=weight.domain)
+
+
+def _check_pair(psf_kernel, second_kernel):
+    if np.shape(psf_kernel) != np.shape(second_kernel):
+        raise ValueError(
+            f"the kernels differ in shape, {np.shape(psf_kernel)} and "
+            f"{np.shape(second_kernel)}"
+        )
+    for kernel in (psf_kernel, second_kernel):
+        if not np.allclose(np.sum(kernel, axis=(-2, -1)), 1.0):
+            raise ValueError("both kernels must sum to one (per observation)")
+
+
 class PsfGaussianBroadening(jft.Model):
-    """Convolution by a static psf kernel broadened by a Gaussian of learnable width.
+    """Convolution by a psf kernel broadened by a Gaussian of learnable width.
 
     The Gaussian is the inverse FFT of its transfer function on the (odd, centered)
     kernel grid, so it is symmetric and sums to one for every width. Its full linear
@@ -118,7 +202,7 @@ class PsfGaussianBroadening(jft.Model):
     def __init__(
         self,
         sky_shape_with_dtype: jft.ShapeWithDtype,
-        psf_kernel: np.ndarray,
+        psf_kernel: np.ndarray | jft.Model,
         width: jft.Model,
     ):
         """
@@ -126,31 +210,44 @@ class PsfGaussianBroadening(jft.Model):
         ----------
         sky_shape_with_dtype: jft.ShapeWithDtype
             The `ShapeWithDtype` of the sky.
-        psf_kernel: np.ndarray
-            The static kernel, 2-D or one per observation (3-D).
+        psf_kernel: np.ndarray | jft.Model
+            The static kernel, 2-D or one per observation (3-D), or a model of an
+            odd, centred kernel, such as `mixed_kernel`, whose parameters join the
+            domain.
         width: jft.Model
             Standard deviation of the Gaussian in pixels of the kernel grid (the
             subsampled data pixels), a scalar or one per observation. The gradient
             vanishes at width 0, so use a positive prior such as a log-normal.
         """
-        self.kernel = _center_even_axes(np.asarray(psf_kernel))
+        if not isinstance(psf_kernel, jft.Model):
+            centred = _center_even_axes(np.asarray(psf_kernel))
+            psf_kernel = jft.Model(lambda _: centred, domain={})
+        self.kernel = psf_kernel
         self.width = width
-        self._convolve = _build_vmap_apply(self.kernel.shape)
-        fy, fx = (np.fft.fftfreq(n) for n in self.kernel.shape[-2:])
+        shape = psf_kernel.target.shape
+        if any(n % 2 == 0 for n in shape[-2:]):
+            raise ValueError(
+                "a kernel model must be odd and centred, e.g. mixed_kernel"
+            )
+        self._convolve = _build_vmap_apply(shape)
+        fy, fx = (np.fft.fftfreq(n) for n in shape[-2:])
         self._frequency2 = fy[:, None] ** 2 + fx[None, :] ** 2
 
-        super().__init__(domain=(sky_shape_with_dtype, width.domain))
+        super().__init__(
+            domain=(sky_shape_with_dtype, psf_kernel.domain | width.domain)
+        )
 
     def broadened_kernel(self, params):
         # shortcut: the Gaussian wraps on the kernel grid, so widths near the kernel
         # half-size stop being Gaussian (still normalized); pad the grid if needed.
         # Sub-pixel widths ring slightly negative (band-limited transfer function).
-        sigma = jnp.broadcast_to(self.width(params), self.kernel.shape[:-2])
+        kernel = self.kernel(params)
+        sigma = jnp.broadcast_to(self.width(params), kernel.shape[:-2])
         transfer = jnp.exp(
             -2 * jnp.pi**2 * sigma[..., None, None] ** 2 * self._frequency2
         )
         gauss = jnp.fft.fftshift(jnp.fft.ifft2(transfer).real, axes=(-2, -1))
-        return fftconvolve(self.kernel, gauss, mode="full", axes=(-2, -1))
+        return fftconvolve(kernel, gauss, mode="full", axes=(-2, -1))
 
     def __call__(self, x):
         field, params = x

@@ -1,6 +1,7 @@
 """build_keck_likelihoods on the synthetic NIRC2 files of the loader tests."""
 
 import copy
+import logging
 import jax
 import nifty.re as jft
 import numpy as np
@@ -12,12 +13,18 @@ from scipy.signal import convolve
 
 from jubik.color import Color
 from jubik.grid import Grid
-from jubik.instruments.jwst.psf.psf_operator import PsfGaussianBroadening, PsfStatic
 from jubik.instruments.jwst.likelihood.likelihood import (
     GaussianLikelihoodBuilder,
     ShotNoiseGaussianLikelihoodBuilder,
 )
+from jubik.instruments.jwst.psf.psf_operator import (
+    PsfGaussianBroadening,
+    PsfKernelMix,
+    PsfStatic,
+)
 from jubik.instruments.keck.keck_likelihoods import build_keck_likelihoods
+from jubik.models.distributions import build_parametric_prior_from_prior_config
+from jubik.parse.models.distributions import prior_config_factory
 from jubik.wcs.wcs_astropy import WcsAstropy
 from test_nirc2_loader import CENTER, GRID, HEADER, NX, NY, _write
 
@@ -309,13 +316,21 @@ def _gaussian(sigma, offsets):
     return g / g.sum()
 
 
-def _psf_response(tmp_path, kernel, psf_broadening=None):
-    """Exposure a's response to the sky, with `kernel` as its PSF file (#175)."""
+def _psf_response(tmp_path, kernel, psf_broadening=None, psf_mix=None):
+    """Exposure a's response to the sky, with `kernel` as its PSF file (#175);
+    `psf_mix` is (second kernel, weight prior) (#176)."""
     cfg = _config(tmp_path)
     fits.PrimaryHDU(kernel).writeto(tmp_path / "psf.fits", overwrite=True)
     cfg["files"]["exposures"] = cfg["files"]["exposures"][:1]
     if psf_broadening is not None:
         cfg["telescope"]["psf_broadening"] = psf_broadening
+    if psf_mix is not None:
+        second, weight = psf_mix
+        fits.PrimaryHDU(second).writeto(tmp_path / "second.fits")
+        cfg["files"]["exposures"][0]["psf_mix"] = {
+            "psf": str(tmp_path / "second.fits"),
+            "weight": weight,
+        }
     products = build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
     (likelihood,) = products.likelihoods
     response, band = likelihood.builder.response, "keck_nirc2_Kp_a"
@@ -467,4 +482,186 @@ def test_detector_noise_flat_from_a_fits_file(tmp_path, as_list):
 
     noise["flat"] = str(_write(tmp_path / "small.fits", flat[:-1]).path)
     with pytest.raises(ValueError, match="a scalar or the science"):
+        build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+
+
+@pytest.mark.parametrize("weight", [["uniform", -0.5, 2.0], ["delta", 1.5]])
+def test_psf_mix_equals_the_kernels_mixed_by_hand(tmp_path, weight):
+    sharp, broad = _gaussian(2.0, np.arange(-15, 16)), _gaussian(
+        3.0, np.arange(-15, 16)
+    )
+    mixed, evaluate = _psf_response(tmp_path, sharp, psf_mix=(broad, weight))
+    key = "keck_nirc2_Kp_a_psf_mix"
+    x = _params(mixed) | {key: 1.0}
+    t = _prior_value(key, weight, x)
+    assert 1 < t < 2  # past the broad kernel, still positive everywhere
+    # a fixed weight takes PsfStatic's cached convolution
+    assert type(mixed.psf) is (PsfStatic if weight[0] == "delta" else PsfKernelMix)
+    (tmp_path / "hand").mkdir()
+    _, reference = _psf_response(tmp_path / "hand", (1 - t) * sharp + t * broad)
+    expected = reference(x)
+    np.testing.assert_allclose(
+        evaluate(x), expected, atol=1e-10 * np.abs(expected).max()
+    )
+
+
+def test_psf_mix_logs_the_negative_flux_at_the_prior_bounds(tmp_path, caplog):
+    sharp, broad = _gaussian(2.0, np.arange(-15, 16)), _gaussian(
+        3.0, np.arange(-15, 16)
+    )
+    with caplog.at_level(logging.INFO):
+        _psf_response(tmp_path, sharp, psf_mix=(broad, ["uniform", -0.5, 2.0]))
+    for t in (-0.5, 2.0):  # negative in the wings, and in the core
+        negative = -np.minimum((1 - t) * sharp + t * broad, 0).sum()
+        assert negative > 1e-3
+        assert f"t = {t:g} has {negative:.2%} of its flux negative" in caplog.text
+
+
+@pytest.mark.parametrize("fraction", [0.2, 0.8])
+def test_core_halo_mix_recovers_the_core_fraction(tmp_path, fraction):
+    # a core fraction of 0.2 is broader, 0.8 sharper than the even mix of the two
+    halo, core = _gaussian(4.0, np.arange(-15, 16)), _gaussian(1.0, np.arange(-15, 16))
+    _, truth = _psf_response(tmp_path, fraction * core + (1 - fraction) * halo)
+    (tmp_path / "fit").mkdir()
+    response, model = _psf_response(
+        tmp_path / "fit", halo, psf_mix=(core, ["uniform", 0.0, 1.0])
+    )
+    key = "keck_nirc2_Kp_a_psf_mix"
+    x = _params(response)
+    data = truth(x)
+
+    def chi2(latent):
+        return ((model(x | {key: latent[0]}) - data) ** 2).sum()
+
+    value_and_grad = jax.jit(jax.value_and_grad(chi2))
+    fit = minimize(
+        lambda p: [np.asarray(v, float) for v in value_and_grad(p)],
+        np.zeros(1),
+        jac=True,
+        method="BFGS",
+    )
+    np.testing.assert_allclose(
+        response.psf.weight({key: fit.x[0]}), fraction, rtol=1e-4
+    )
+
+
+def test_psf_mix_of_another_shape_raises(tmp_path):
+    kernel, smaller = _gaussian(2.0, np.arange(-15, 16)), _gaussian(2.0, RING[1:-1])
+    with pytest.raises(ValueError, match="differ in shape"):
+        _psf_response(tmp_path, kernel, psf_mix=(smaller, ["uniform", 0.0, 1.0]))
+
+
+@pytest.mark.parametrize(
+    "weight",
+    [["normal", 0.5, 0.5], ["uniform", 0.0, 1.0, "exp"], ["delta", 0.5, 0.0, "exp"]],
+)
+def test_psf_mix_needs_a_bounded_prior(tmp_path, weight):
+    kernel = _gaussian(2.0, np.arange(-15, 16))
+    with pytest.raises(ValueError, match="needs a uniform or delta prior"):
+        _psf_response(tmp_path, kernel, psf_mix=(kernel, weight))
+
+
+def _prior_value(key, prior, x):
+    """The value of the prior `prior` at the latent `x`, as the builder takes it."""
+    return float(
+        build_parametric_prior_from_prior_config(key, prior_config_factory(prior))(x)
+    )
+
+
+def _band_limited_gaussian(width, size):
+    """PsfGaussianBroadening's Gaussian on a centred odd `size` x `size` grid."""
+    f = np.fft.fftfreq(size)
+    transfer = np.exp(-2 * np.pi**2 * width**2 * (f[:, None] ** 2 + f[None, :] ** 2))
+    return np.fft.fftshift(np.fft.ifft2(transfer).real)
+
+
+@pytest.mark.parametrize("sigma", [["lognormal", 0.02, 0.01], ["delta", 1.5 * SCALE]])
+def test_psf_broadening_broadens_the_psf_mix(tmp_path, sigma):
+    sharp, broad = _gaussian(2.0, np.arange(-15, 16)), _gaussian(
+        3.0, np.arange(-15, 16)
+    )
+    composed, evaluate = _psf_response(
+        tmp_path,
+        sharp,
+        psf_broadening={"default": sigma},
+        psf_mix=(broad, ["uniform", 0.0, 1.0]),
+    )
+    mix_key, width_key = "keck_nirc2_Kp_a_psf_mix", "keck_nirc2_Kp_a_psf_broadening"
+    learned = sigma[0] != "delta"
+    # a fixed width broadens both kernels once, for PsfKernelMix's cache
+    assert type(composed.psf) is (PsfGaussianBroadening if learned else PsfKernelMix)
+    assert mix_key in composed.domain and (width_key in composed.domain) == learned
+    x = _params(composed) | {mix_key: 0.4, width_key: -0.3}
+    t = _prior_value(mix_key, ["uniform", 0.0, 1.0], x)
+    width = float(composed.psf.width(x)) if learned else 1.5  # σ in pixels
+    mix = (1 - t) * sharp + t * broad
+    by_hand = convolve(mix, _band_limited_gaussian(width, 31), mode="full")
+    (tmp_path / "hand").mkdir()
+    _, reference = _psf_response(tmp_path / "hand", by_hand)
+    expected = reference(x)
+    np.testing.assert_allclose(
+        evaluate(x), expected, atol=1e-10 * np.abs(expected).max()
+    )
+
+
+@pytest.mark.parametrize("zero_width", [True, False])
+def test_fixed_weight_and_width_take_the_static_path(tmp_path, zero_width):
+    sharp, broad = _gaussian(2.0, np.arange(-15, 16)), _gaussian(
+        3.0, np.arange(-15, 16)
+    )
+    mix_key, width_key = "keck_nirc2_Kp_a_psf_mix", "keck_nirc2_Kp_a_psf_broadening"
+    weight, sigma = ["uniform", 0.0, 2.0], ["lognormal", 0.02, 0.01]
+    learned, evaluate = _psf_response(
+        tmp_path,
+        sharp,
+        psf_broadening=None if zero_width else {"default": sigma},
+        psf_mix=(broad, weight),
+    )
+    x = _params(learned) | {mix_key: 0.7, width_key: -0.4}
+    t = _prior_value(mix_key, weight, x)
+    sigma = 0.0 if zero_width else _prior_value(width_key, sigma, x)
+    (tmp_path / "fixed").mkdir()
+    fixed, fixed_evaluate = _psf_response(
+        tmp_path / "fixed",
+        sharp,
+        psf_broadening={"default": ["delta", sigma]},
+        psf_mix=(broad, ["delta", t]),
+    )
+    assert type(fixed.psf) is PsfStatic
+    assert not {mix_key, width_key} & set(fixed.domain)
+    expected = evaluate(x)
+    np.testing.assert_allclose(
+        fixed_evaluate(x), expected, atol=1e-10 * np.abs(expected).max()
+    )
+
+
+def test_a_mixed_config_keeps_the_fixed_exposures_static(tmp_path):
+    cfg = _config(tmp_path)
+    a, b = cfg["files"]["exposures"]
+    a["psf_mix"] = {"psf": a["psf"], "weight": ["delta", 0.3]}
+    b["psf_mix"] = {"psf": b["psf"], "weight": ["uniform", 0.0, 1.0]}
+    cfg["telescope"]["psf_broadening"] = {
+        "default": ["delta", 0.0],
+        "keck_nirc2_Kp_b": ["lognormal", 0.02, 0.01],
+    }
+    products = build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+    psfs = [likelihood.builder.response.psf for likelihood in products.likelihoods]
+    assert [type(psf) for psf in psfs] == [PsfStatic, PsfGaussianBroadening]
+    domain = set(products.likelihood.domain)
+    assert {"keck_nirc2_Kp_b_psf_mix", "keck_nirc2_Kp_b_psf_broadening"} <= domain
+    assert not {"keck_nirc2_Kp_a_psf_mix", "keck_nirc2_Kp_a_psf_broadening"} & domain
+
+
+@pytest.mark.parametrize(
+    "psf_mix",
+    [
+        {"psf": "second.fits", "prior": ["uniform", 0.0, 1.0]},
+        {"psf": "second.fits", "weight": ["uniform", 0.0, 1.0], "extension": 1},
+        ["second.fits", ["uniform", 0.0, 1.0]],
+    ],
+)
+def test_psf_mix_not_a_mapping_of_psf_and_weight_raises(tmp_path, psf_mix):
+    cfg = _config(tmp_path)
+    cfg["files"]["exposures"][0]["psf_mix"] = psf_mix
+    with pytest.raises(ValueError, match="psf_mix takes a mapping of psf and weight"):
         build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)

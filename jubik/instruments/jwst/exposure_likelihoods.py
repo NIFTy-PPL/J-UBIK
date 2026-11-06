@@ -23,7 +23,11 @@ from astropy import units as u
 
 from ...grid import Grid
 from ...models.distributions import build_parametric_prior_from_prior_config
-from ...parse.models.distributions import DeltaPriorConfig, ProbabilityConfig
+from ...parse.models.distributions import (
+    DeltaPriorConfig,
+    ProbabilityConfig,
+    UniformPriorConfig,
+)
 from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
 from .data.jwst_data import DataMetaInformation
@@ -39,7 +43,7 @@ from .parse.rotation_and_shift.rotation_and_shift import (
 )
 from .parse.zero_flux_model import ZeroFluxPriorConfigs
 from .plotting.residuals import ResidualPlottingInformation
-from .psf.psf_operator import PsfGaussianBroadening
+from .psf.psf_operator import PsfGaussianBroadening, PsfKernelMix, mixed_kernel
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .throughput.weights import Throughput, throughput_weights
 
@@ -68,6 +72,16 @@ class Exposure:
     noise : ShotNoise | None
         The loader's shot-noise model; None gives the fixed-σ Gaussian on
         ``target_data.std``.
+    psf_mix : tuple[object, ProbabilityConfig] | None
+        ``(second_psf, prior)``: the PSF becomes ``(1 - t) psf + t second_psf``
+        (`PsfKernelMix`), so t = 0 is ``psf``. ``second_psf`` takes the forms
+        of a kernel ``psf``, with its shape and unit sum; e.g. a broad halo as
+        ``psf`` and a sharp core make t the core fraction. ``prior`` is
+        uniform or delta, under ``{band}_psf_mix``; the kernel's negative flux
+        at its bounds is logged. ``psf_broadening`` then broadens the mix. The
+        t of a sample ``x`` is ``build_parametric_prior_from_prior_config(
+        f"{band}_psf_mix", prior)(x)`` for a uniform prior; a delta's t is its
+        value.
     """
 
     instrument: str
@@ -79,6 +93,7 @@ class Exposure:
     throughput: Throughput
     psf: object
     noise: ShotNoise | None = None
+    psf_mix: tuple[object, ProbabilityConfig] | None = None
 
     @property
     def band(self) -> str:
@@ -116,9 +131,12 @@ def build_exposure_likelihoods(
         ``zero_flux`` and ``calibration`` (``default`` and band keys, one
         factor per exposure), and ``psf_broadening`` (same keys: the prior of
         the σ in arcsec of a Gaussian that broadens each exposure's kernel,
-        see `PsfGaussianBroadening`; a delta prior broadens the kernel once
-        here, and without the key or at a delta of zero the kernels stay as
-        given).
+        see `PsfGaussianBroadening`, after any ``psf_mix``; without the key or at
+        a delta of zero the kernels stay as given). Fixed parts, a delta prior or
+        no key, are applied to the kernels once and make no parameter: an
+        exposure with neither a learned weight nor a learned width keeps
+        `PsfStatic`'s cached convolution, one with only a learned weight
+        `PsfKernelMix`'s.
     sky_unit : u.Unit
         Unit of the sky.
     """
@@ -195,20 +213,23 @@ def build_exposure_likelihoods(
     plotting = ResidualPlottingInformation()
     for e in exposures:
         target_data, psf_model = _with_psf(e)
-        prior = psf_broadening and psf_broadening.get_name_setting_or_default(e.band)
-        # a fixed width gives a fixed kernel: keep the cached static convolution
-        fixed = isinstance(prior, DeltaPriorConfig)
-        zero = fixed and prior.transformation is None and not np.any(prior.mean)
-        if prior is not None and not zero:
+        broadening = psf_broadening and psf_broadening.get_name_setting_or_default(
+            e.band
+        )
+        # a width fixed at zero broadens nothing, so it keeps even a PSF model
+        if (
+            isinstance(broadening, DeltaPriorConfig)
+            and broadening.transformation is None
+            and not np.any(broadening.mean)
+        ):
+            broadening = None
+        if e.psf_mix is not None or broadening is not None:
             if psf_model is not None:
                 raise ValueError(
-                    f"{e.band}: psf_broadening needs a kernel, the psf is a model"
+                    f"{e.band}: psf_mix or psf_broadening needs a kernel, the psf "
+                    "is a model"
                 )
-            psf_model = _broadened(e, target_data, prior)
-            if fixed:  # broaden once, here; the delta ignores its latent
-                kernel = psf_model.broadened_kernel({f"{e.band}_psf_broadening": 0})
-                target_data = replace(target_data, psf=np.asarray(kernel))
-                psf_model = None
+            target_data, psf_model = _psf(e, target_data, broadening)
         correction_prior = FilterAlignment(e.band.lower()).load_correction_prior(
             correction_priors, number_of_observations=1
         )
@@ -281,28 +302,84 @@ def _same_curve(a: Throughput, b: Throughput) -> bool:
     )
 
 
-def _broadened(
-    e: Exposure, target_data: TargetData, prior: ProbabilityConfig
-) -> PsfGaussianBroadening:
-    """The exposure's kernel broadened by a Gaussian whose σ in arcsec has `prior`."""
-    sigma = build_parametric_prior_from_prior_config(
-        f"{e.band}_psf_broadening", prior, as_model=True
-    )
-    # PsfGaussianBroadening takes σ in pixels of the kernel grid, the subsampled data
-    pixel = e.meta.pixel_scale.to_value(u.arcsec) / target_data.subsample
+def _psf(
+    e: Exposure, target_data: TargetData, broadening: ProbabilityConfig | None
+) -> tuple[TargetData, jft.Model | None]:
+    """The exposure's kernel mixed by ``e.psf_mix`` and broadened by a Gaussian
+    whose σ in arcsec has the prior `broadening`, as `PsfStatic`'s kernel if
+    nothing is learned, else as a PSF model."""
     sky = jft.ShapeWithDtype((1,) + target_data.subsample_centers[0].shape, float)
-    return PsfGaussianBroadening(
-        sky,
-        target_data.psf,
-        jft.Model(lambda x: sigma(x) / pixel, domain=sigma.domain),
-    )
+    kernels, weight, width = [target_data.psf], None, None
+    if e.psf_mix is not None:
+        second, prior = e.psf_mix
+        kernels.append(_kernel(e, second))
+        weight = _mix_weight(e, prior, *kernels)
+    if broadening is not None:
+        sigma = _parameter(f"{e.band}_psf_broadening", broadening)
+        # PsfGaussianBroadening takes σ in pixels of the subsampled data grid
+        pixel = e.meta.pixel_scale.to_value(u.arcsec) / target_data.subsample
+        width = jft.Model(lambda x: sigma(x) / pixel, domain=sigma.domain)
+    # fixed parts go into the kernels once
+    if weight is not None and not weight.domain:
+        kernels, weight = [mixed_kernel(*kernels, weight)({})], None
+    if width is not None and not width.domain:
+        kernels = [
+            PsfGaussianBroadening(sky, k, width).broadened_kernel({}) for k in kernels
+        ]
+        width = None
+    kernels = [np.asarray(k) for k in kernels]
+    if width is None:
+        if weight is None:
+            return replace(target_data, psf=kernels[0]), None
+        return target_data, PsfKernelMix(sky, *kernels, weight)
+    kernel = kernels[0] if weight is None else mixed_kernel(*kernels, weight)
+    return target_data, PsfGaussianBroadening(sky, kernel, width)
+
+
+def _mix_weight(
+    e: Exposure, prior: ProbabilityConfig, first: np.ndarray, second: np.ndarray
+) -> jft.Model:
+    """The weight t of ``e.psf_mix``; the prior must be uniform or delta."""
+    # past [0, 1] the kernel turns negative where the kernels differ most: the
+    # prior must bound t, and a bound is where the kernel is most negative
+    if isinstance(prior, UniformPriorConfig) and prior.transformation is None:
+        bounds = prior.min, prior.max
+    elif isinstance(prior, DeltaPriorConfig) and prior.transformation is None:
+        bounds = (prior.mean,)
+    else:
+        raise ValueError(
+            f"{e.band}: the psf_mix weight needs a uniform or delta prior without "
+            f"a transformation, got {prior}"
+        )
+    for t in bounds:
+        kernel = np.asarray(
+            mixed_kernel(first, second, jft.Model(lambda _: t, domain={}))({})
+        )
+        jft.logger.info(
+            f"{e.band}: the psf_mix kernel at t = {t:g} has "
+            f"{abs(kernel[kernel < 0].sum()):.2%} of its flux negative"
+        )
+    return _parameter(f"{e.band}_psf_mix", prior)
+
+
+def _parameter(key: str, prior: ProbabilityConfig) -> jft.Model:
+    """The prior of `key` as a model; a delta prior as a constant, no parameter."""
+    model = build_parametric_prior_from_prior_config(key, prior, as_model=True)
+    if isinstance(prior, DeltaPriorConfig):
+        value = model({key: 0.0})
+        return jft.Model(lambda _: value, domain={})
+    return model
 
 
 def _with_psf(e: Exposure) -> tuple[TargetData, jft.Model | None]:
     """The target data with the exposure's kernel, or with its PSF model."""
     if isinstance(e.psf, jft.Model):
         return e.target_data, e.psf
-    kernel = e.psf
+    return replace(e.target_data, psf=_kernel(e, e.psf)), None
+
+
+def _kernel(e: Exposure, kernel) -> np.ndarray:
+    """`kernel` as a (1, K, K) array, its sampling checked against the data."""
     if hasattr(kernel, "pixel_scale"):  # HstPsfKernel, EmpiricalPsfKernel
         # Tiny Tim and empirical kernels include the response of one kernel
         # pixel; the response integrates over each subsample pixel again
@@ -323,4 +400,4 @@ def _with_psf(e: Exposure) -> tuple[TargetData, jft.Model | None]:
             )
         kernel = kernel.kernel
     kernel = np.asarray(kernel, float)
-    return replace(e.target_data, psf=kernel.reshape((1,) + kernel.shape[-2:])), None
+    return kernel.reshape((1,) + kernel.shape[-2:])

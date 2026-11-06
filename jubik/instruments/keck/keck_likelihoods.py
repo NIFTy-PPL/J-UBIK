@@ -5,6 +5,7 @@
 
 # %
 
+from functools import partial
 from pathlib import Path
 
 import nifty.re as jft
@@ -12,6 +13,7 @@ import numpy as np
 from astropy import units as u
 
 from ...grid import Grid
+from ...parse.models.distributions import prior_config_factory
 from ..jwst.exposure_likelihoods import (
     Exposure,
     build_exposure_likelihoods,
@@ -50,8 +52,15 @@ def build_keck_likelihoods(
     image) or ``detector_noise`` (the `DetectorNoise` fields, ``flat`` a
     number or a full-frame FITS image, a path or [path, extension]); optional
     ``wavelength_unit`` (default um), ``exposure`` (default: the file stem),
-    ``bad_pixels`` and the header overrides of `load_nirc2_exposure`
-    (``bunit``, ``itime``, ``coadds``, ``position_angle`` in degrees).
+    ``bad_pixels``, the header overrides of `load_nirc2_exposure`
+    (``bunit``, ``itime``, ``coadds``, ``position_angle`` in degrees) and
+    ``psf_mix: {psf: <kernel file>, weight: <prior>}``, which makes the PSF
+    ``(1 - t) psf + t psf_mix.psf`` with a second kernel of the same shape and
+    sampling (e.g. ``psf`` a broad halo and ``psf_mix.psf`` a sharp core, t
+    then the core fraction). The prior of t, under ``{band}_psf_mix``, is
+    ``[uniform, lo, hi]`` or ``[delta, t]``; past [0, 1] the kernel can turn
+    negative, and its negative flux at lo and hi is logged. See
+    `build_exposure_likelihoods` for ``psf_mix`` beside ``psf_broadening``.
     ``cfg[telescope_key]`` holds ``target: subsample``, ``distortion:
     {pre_2015: [x_map, y_map], post_2015: [x_map, y_map]}`` (either may be
     left out) and the keys of `build_exposure_likelihoods`.
@@ -68,6 +77,11 @@ def build_keck_likelihoods(
         entry = dict(entry)
         science = _fits_image(entry.pop("science"))
         filter, psf = entry.pop("filter"), entry.pop("psf")
+        mix = entry.pop("psf_mix", None)
+        if mix is not None and (
+            not isinstance(mix, dict) or set(mix) != {"psf", "weight"}
+        ):
+            raise ValueError(f"psf_mix takes a mapping of psf and weight, got {mix}")
         throughput = read_throughput(
             entry.pop("throughput"), entry.pop("wavelength_unit", "um")
         )
@@ -96,11 +110,13 @@ def build_keck_likelihoods(
             **solutions,
             **entry,
         )
-        kernel = kernel_from_fits(
-            psf,
+        kernel = partial(
+            kernel_from_fits,
             exposure=exposure_id,
             pixel_scale=loaded.meta.pixel_scale.to_value(u.arcsec),
         )
+        if mix is not None:
+            mix = (kernel(mix["psf"]), prior_config_factory(mix["weight"]))
         exposures.append(
             Exposure(
                 instrument="keck",
@@ -110,8 +126,9 @@ def build_keck_likelihoods(
                 target_data=loaded.target_data,
                 meta=loaded.meta,
                 throughput=throughput,
-                psf=kernel,
+                psf=kernel(psf),
                 noise=loaded.noise,
+                psf_mix=mix,
             )
         )
     return build_exposure_likelihoods(exposures, grid, sky_domain, telescope, sky_unit)

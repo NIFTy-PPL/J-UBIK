@@ -1,13 +1,16 @@
 """PSF models with the `psf((image, params))` convention in the JWST response (#162)."""
 
+from functools import partial
 from types import SimpleNamespace
 
 import jax
+import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 import pytest
 import scipy.optimize
 from astropy import units as u
+from jax.scipy.signal import fftconvolve
 
 from jubik.instruments.jwst import jwst_response
 from jubik.instruments.jwst.data.jwst_data import DataMetaInformation
@@ -19,8 +22,10 @@ from jubik.instruments.jwst.jwst_response import (
 from jubik.instruments.jwst.parse.jwst_response import SkyMetaInformation
 from jubik.instruments.jwst.psf.psf_operator import (
     PsfGaussianBroadening,
+    PsfKernelMix,
     PsfStatic,
     _center_even_axes,
+    mixed_kernel,
 )
 
 N = 32
@@ -211,3 +216,141 @@ def test_fit_recovers_injected_width():
     )
     assert fit.success
     np.testing.assert_allclose(fit.x[0], true_width, rtol=0.05)
+
+
+def weight_model(shape=()):
+    return jft.Model(lambda x: x["t"], domain={"t": jft.ShapeWithDtype(shape, float)})
+
+
+def unit_kernels(shape, rng):
+    """Two random kernels summing to one."""
+    kernels = rng.uniform(size=(2,) + shape)
+    return kernels / kernels.sum(axis=(-2, -1), keepdims=True)
+
+
+# The centred kernels are 11 wide. On 20 px the grid is N + (K - 1) / 2 = 25 and 24 is
+# 5-smooth too, so a grid one pixel short wraps into the crop; on 23 and 37 px the grid
+# is padded (28 -> 30, 42 -> 45), so a crop placed on the padded grid fails.
+@pytest.mark.parametrize("field_shape", [(20, 20), (23, 37)])
+@pytest.mark.parametrize("shape", [(11, 11), (10, 10), (11, 10), (2, 10, 11)])
+@pytest.mark.parametrize("t", [-0.5, 0.0, 0.3, 1.0, 1.5])
+def test_mix_matches_fftconvolve_of_the_mixed_kernel(field_shape, shape, t):
+    rng = np.random.default_rng(0)
+    a, b = unit_kernels(shape, rng)
+    field = rng.normal(size=shape[:-2] + field_shape)
+    t = t + 0.25 * np.arange(2) if len(shape) == 3 else np.asarray(t)
+    model = PsfKernelMix(jft.ShapeWithDtype(field.shape), a, b, weight_model(t.shape))
+
+    centred_a, centred_b = _center_even_axes(a), _center_even_axes(b)
+    same = partial(fftconvolve, mode="same")
+    if len(shape) == 3:
+        same = jax.vmap(same)
+
+    def reference(f, t):
+        t = t[..., None, None]
+        return same(f, (1 - t) * centred_a + t * centred_b)
+
+    cotangent = rng.normal(size=field.shape)
+
+    def project(convolve):
+        return lambda f, t: (convolve(f, t) * cotangent).sum()
+
+    def mixed(f, t):
+        return model((f, {"t": t}))
+
+    np.testing.assert_allclose(mixed(field, t), reference(field, t), atol=1e-12)
+    gradients = jax.grad(project(mixed), argnums=(0, 1))(field, t)
+    expected = jax.grad(project(reference), argnums=(0, 1))(field, t)
+    for g, e in zip(gradients, expected):
+        np.testing.assert_allclose(g, e, atol=1e-12)
+
+
+@pytest.mark.parametrize("shape", [(11, 11), (10, 10), (2, 11, 10)])
+@pytest.mark.parametrize("t", [-0.5, 0.0, 0.3, 1.0, 1.5])
+def test_mix_keeps_flux_and_centroid(shape, t):
+    # point-symmetric, so centred on (K - 1) / 2
+    kernels = unit_kernels(shape, np.random.default_rng(1))
+    a, b = (kernels + kernels[..., ::-1, ::-1]) / 2
+    point = np.zeros(shape[:-2] + (31, 31))
+    point[..., 15, 15] = 1.0
+    model = PsfKernelMix(jft.ShapeWithDtype(point.shape), a, b, weight_model())
+    image = np.asarray(model((point, {"t": t})))
+    np.testing.assert_allclose(image.sum(axis=(-2, -1)), 1.0, rtol=1e-12)
+    for i in image.reshape(-1, 31, 31):
+        np.testing.assert_allclose(centroid_from_middle(i), 0.0, atol=1e-10)
+
+
+@pytest.mark.parametrize(
+    "second, match",
+    [
+        (np.full((2, 5, 6), 1 / 30), "differ in shape"),
+        (np.full((2, 5, 5), 2 / 25), "sum to one"),
+        (np.stack([np.full((5, 5), 1 / 25), np.full((5, 5), 2 / 25)]), "sum to one"),
+    ],
+)
+@pytest.mark.parametrize("bad_first", [False, True])
+def test_mix_refuses_kernels_of_another_shape_or_sum(second, match, bad_first):
+    kernels = (np.full((2, 5, 5), 1 / 25), second)
+    first, second = kernels[::-1] if bad_first else kernels
+    with pytest.raises(ValueError, match=match):
+        PsfKernelMix(jft.ShapeWithDtype((2, 8, 8)), first, second, weight_model())
+
+
+def wrapped_gaussian(width, shape):
+    """A sampled Gaussian wrapped onto a centred odd grid of `shape`, unit sum."""
+    axes = []
+    for size in shape:
+        n = jnp.arange(size) - size // 2
+        g = sum(jnp.exp(-0.5 * (n + m * size) ** 2 / width**2) for m in range(-4, 5))
+        axes.append(g / g.sum())
+    return axes[0][:, None] * axes[1][None, :]
+
+
+@pytest.mark.parametrize("shape", [(11, 11), (10, 10), (2, 10, 11)])
+@pytest.mark.parametrize("t", [-0.5, 0.3, 1.5])
+def test_broadened_mix_matches_fftconvolve_of_the_built_kernel(shape, t):
+    rng = np.random.default_rng(2)
+    a, b = unit_kernels(shape, rng)
+    field = rng.normal(size=shape[:-2] + (23, 37))
+    t = t + 0.25 * np.arange(2) if len(shape) == 3 else np.asarray(t)
+    sky = jft.ShapeWithDtype(field.shape)
+    model = PsfGaussianBroadening(
+        sky, mixed_kernel(a, b, weight_model(t.shape)), width_model()
+    )
+    centred_a, centred_b = _center_even_axes(a), _center_even_axes(b)
+    same = partial(fftconvolve, mode="same")
+    if len(shape) == 3:
+        same = jax.vmap(same)
+
+    def reference(f, t, w):
+        t = t[..., None, None]
+        mix = (1 - t) * centred_a + t * centred_b
+        gauss = jnp.broadcast_to(wrapped_gaussian(w, mix.shape[-2:]), mix.shape)
+        return same(f, fftconvolve(mix, gauss, mode="full", axes=(-2, -1)))
+
+    def broadened(f, t, w):
+        return model((f, {"t": t, "psf_width": w}))
+
+    # width 0 is the plain mix; at 2.5 px the band-limited Gaussian of
+    # PsfGaussianBroadening and the wrapped sampled one differ by ~ exp(-31)
+    plain = PsfKernelMix(sky, a, b, weight_model(t.shape))((field, {"t": t}))
+    np.testing.assert_allclose(broadened(field, t, 0.0), plain, atol=1e-12)
+    w = jnp.asarray(2.5)
+    np.testing.assert_allclose(
+        broadened(field, t, w), reference(field, t, w), atol=1e-12
+    )
+    cotangent = rng.normal(size=field.shape)
+
+    def project(convolve):
+        return lambda f, t, w: (convolve(f, t, w) * cotangent).sum()
+
+    gradients = jax.grad(project(broadened), argnums=(0, 1, 2))(field, t, w)
+    expected = jax.grad(project(reference), argnums=(0, 1, 2))(field, t, w)
+    for g, e in zip(gradients, expected):
+        np.testing.assert_allclose(g, e, atol=1e-10)
+
+
+def test_broadening_refuses_an_even_kernel_model():
+    even = jft.Model(lambda _: gaussian_kernel((10, 10)), domain={})
+    with pytest.raises(ValueError, match="odd and centred"):
+        PsfGaussianBroadening(jft.ShapeWithDtype((N, N)), even, width_model())
