@@ -1,7 +1,6 @@
 """The Gaussian likelihood of one observation given predicted visibilities."""
 
 import nifty.re as jft
-from jax import numpy as jnp
 
 from ..data.observation import Observation
 
@@ -78,5 +77,5 @@ def build_likelihood(
         lambda x: (visibilities(x), inverse_std(x)),
         domain=visibilities.domain | inverse_std.domain,
     )
-    likelihood = jft.VariableCovarianceGaussian(data, iscomplex=jnp.iscomplexobj(data))
+    likelihood = jft.VariableCovarianceGaussian(data)
     return likelihood.amend(model, domain=jft.Vector(model.domain))
