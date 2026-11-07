@@ -41,7 +41,7 @@ from .parse.rotation_and_shift.coordinates_correction import CorrectionModel
 from .parse.rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
 )
-from .parse.zero_flux_model import ZeroFluxPriorConfigs
+from .parse.zero_flux_model import ZeroFluxPriorConfigs, match_band_key
 from .plotting.residuals import ResidualPlottingInformation
 from .psf.psf_operator import PsfGaussianBroadening, PsfKernelMix, mixed_kernel
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
@@ -72,13 +72,14 @@ class Exposure:
     noise : ShotNoise | None
         The loader's shot-noise model; None gives the fixed-σ Gaussian on
         ``target_data.std``.
-    psf_mix : tuple[object, ProbabilityConfig] | None
+    psf_mix : tuple[object, ProbabilityConfig | None] | None
         ``(second_psf, prior)``: the PSF becomes ``(1 - t) psf + t second_psf``
         (`PsfKernelMix`), so t = 0 is ``psf``. ``second_psf`` takes the forms
         of a kernel ``psf``, with its shape and unit sum; e.g. a broad halo as
         ``psf`` and a sharp core make t the core fraction. ``prior`` is
         uniform or delta, under ``{band}_psf_mix``; the kernel's negative flux
-        at its bounds is logged. ``psf_broadening`` then broadens the mix. The
+        at its bounds is logged. With ``prior`` None, the telescope block's
+        ``psf_mix`` gives it. ``psf_broadening`` then broadens the mix. The
         t of a sample ``x`` is ``build_parametric_prior_from_prior_config(
         f"{band}_psf_mix", prior)(x)`` for a uniform prior; a delta's t is its
         value.
@@ -93,7 +94,7 @@ class Exposure:
     throughput: Throughput
     psf: object
     noise: ShotNoise | None = None
-    psf_mix: tuple[object, ProbabilityConfig] | None = None
+    psf_mix: tuple[object, ProbabilityConfig | None] | None = None
 
     @property
     def band(self) -> str:
@@ -136,7 +137,15 @@ def build_exposure_likelihoods(
         no key, are applied to the kernels once and make no parameter: an
         exposure with neither a learned weight nor a learned width keeps
         `PsfStatic`'s cached convolution, one with only a learned weight
-        `PsfKernelMix`'s.
+        `PsfKernelMix`'s. ``psf_mix`` (same keys, matched against the
+        exposures with a second kernel only) is the prior of the weight t of
+        each such exposure whose ``Exposure.psf_mix`` gives none; an exposure
+        that gives one as well raises, as does one with no prior. Band keys
+        match in any case. Besides them, every
+        one of these blocks takes prefix patterns: ``keck_nirc2_h_*`` covers
+        every band starting ``keck_nirc2_h_``. A band's own key wins, then the
+        longest pattern, then ``default``. A band key that matches no exposure
+        raises; a pattern that matches none is logged.
     sky_unit : u.Unit
         Unit of the sky.
     """
@@ -197,21 +206,47 @@ def build_exposure_likelihoods(
     psf_broadening = ZeroFluxPriorConfigs.from_yaml_dict(
         telescope_cfg.get("psf_broadening")
     )
+    psf_mix = ZeroFluxPriorConfigs.from_yaml_dict(telescope_cfg.get("psf_mix"))
     # a mistyped band key would silently fall back to the default prior
     reserved = {"default", "model", "shift_unit", "rotation_unit"}
-    known = {b.lower() for b in bands} | reserved
-    for name, keys in (
-        ("correction_priors", correction_priors),
-        ("zero_flux", zero_flux.names if zero_flux else {}),
-        ("calibration", calibration.names if calibration else {}),
-        ("psf_broadening", psf_broadening.names if psf_broadening else {}),
+    mixed = [e.band for e in exposures if e.psf_mix is not None]
+    for name, keys, covered in (
+        ("correction_priors", correction_priors, bands),
+        ("zero_flux", zero_flux.names if zero_flux else {}, bands),
+        ("calibration", calibration.names if calibration else {}, bands),
+        ("psf_broadening", psf_broadening.names if psf_broadening else {}, bands),
+        # only an exposure with a second kernel takes a weight
+        ("psf_mix", psf_mix.names if psf_mix else {}, mixed),
     ):
-        if unknown := set(keys) - known:
-            raise ValueError(f"{name}: {sorted(unknown)} match no band of {bands}")
+        lower = [b.lower() for b in covered]
+        # band keys hold no `*`, so `keck_*_h_*` could match no data set
+        patterns = {k for k in keys if k.endswith("_*") and "*" not in k[:-1]}
+        if unknown := set(keys) - patterns - set(lower) - reserved:
+            raise ValueError(
+                f"{name}: {sorted(unknown)} match no band of {covered}"
+                + (", the exposures with a second kernel" if name == "psf_mix" else "")
+            )
+        # one fit fragment may serve data sets that lack a filter
+        for k in sorted(patterns):
+            if not any(match_band_key({k}, b) for b in lower):
+                jft.logger.info(f"{name}: {k} matches no exposure of {covered}")
+    if psf_mix and not mixed:
+        jft.logger.info("psf_mix: no exposure names a second kernel")
 
     likelihoods = []
     plotting = ResidualPlottingInformation()
     for e in exposures:
+        if e.psf_mix is not None:
+            second, prior = e.psf_mix
+            if (prior is None) == (psf_mix is None):
+                found = "neither" if prior is None else "both"
+                raise ValueError(
+                    f"{e.band}: the psf_mix weight prior goes in the exposure or "
+                    f"in the telescope block's psf_mix, found in {found}"
+                )
+            if prior is None:
+                prior = psf_mix.get_name_setting_or_default(e.band)
+                e = replace(e, psf_mix=(second, prior))
         target_data, psf_model = _with_psf(e)
         broadening = psf_broadening and psf_broadening.get_name_setting_or_default(
             e.band

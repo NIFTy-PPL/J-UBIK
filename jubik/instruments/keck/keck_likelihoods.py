@@ -54,11 +54,14 @@ def build_keck_likelihoods(
     ``wavelength_unit`` (default um), ``exposure`` (default: the file stem),
     ``bad_pixels``, the header overrides of `load_nirc2_exposure`
     (``bunit``, ``itime``, ``coadds``, ``position_angle`` in degrees) and
-    ``psf_mix: {psf: <kernel file>, weight: <prior>}``, which makes the PSF
-    ``(1 - t) psf + t psf_mix.psf`` with a second kernel of the same shape and
-    sampling (e.g. ``psf`` a broad halo and ``psf_mix.psf`` a sharp core, t
-    then the core fraction). The prior of t, under ``{band}_psf_mix``, is
-    ``[uniform, lo, hi]`` or ``[delta, t]``; past [0, 1] the kernel can turn
+    ``psf_mix: <kernel file>`` (or ``{psf: <kernel file>}``), which makes the
+    PSF ``(1 - t) psf + t psf_mix`` with a second kernel of the same shape and
+    sampling (e.g. ``psf`` a broad halo and ``psf_mix`` a sharp core, t then
+    the core fraction). The prior of t, under ``{band}_psf_mix``, comes from
+    the telescope block's ``psf_mix`` (``default``, patterns and band keys, as
+    in `build_exposure_likelihoods`), or from the entry's
+    ``psf_mix: {psf: <kernel file>, weight: <prior>}`` instead; it is
+    ``[uniform, lo, hi]`` or ``[delta, t]``. Past [0, 1] the kernel can turn
     negative, and its negative flux at lo and hi is logged. See
     `build_exposure_likelihoods` for ``psf_mix`` beside ``psf_broadening``.
     ``cfg[telescope_key]`` holds ``target: subsample``, ``distortion:
@@ -78,10 +81,15 @@ def build_keck_likelihoods(
         science = _fits_image(entry.pop("science"))
         filter, psf = entry.pop("filter"), entry.pop("psf")
         mix = entry.pop("psf_mix", None)
+        if isinstance(mix, str):
+            mix = {"psf": mix}
         if mix is not None and (
-            not isinstance(mix, dict) or set(mix) != {"psf", "weight"}
+            not isinstance(mix, dict) or not {"psf"} <= set(mix) <= {"psf", "weight"}
         ):
-            raise ValueError(f"psf_mix takes a mapping of psf and weight, got {mix}")
+            raise ValueError(
+                f"psf_mix takes a kernel file, or a mapping of psf and optional "
+                f"weight, got {mix}"
+            )
         throughput = read_throughput(
             entry.pop("throughput"), entry.pop("wavelength_unit", "um")
         )
@@ -116,7 +124,11 @@ def build_keck_likelihoods(
             pixel_scale=loaded.meta.pixel_scale.to_value(u.arcsec),
         )
         if mix is not None:
-            mix = (kernel(mix["psf"]), prior_config_factory(mix["weight"]))
+            weight = mix.get("weight")
+            mix = (
+                kernel(mix["psf"]),
+                None if weight is None else prior_config_factory(weight),
+            )
         exposures.append(
             Exposure(
                 instrument="keck",

@@ -14,23 +14,31 @@ from dataclasses import dataclass
 DEFAULT_KEY = "default"
 
 
+def match_band_key(keys, band: str) -> str | None:
+    """`band` if it is one of `keys`, else the longest key ending in ``_*``
+    that `band` starts with (``keck_nirc2_h_*`` for ``keck_nirc2_h_n0042``)."""
+    if band in keys:
+        return band
+    patterns = [k for k in keys if k.endswith("_*") and band.startswith(k[:-1])]
+    return max(patterns, key=len, default=None)
+
+
 @dataclass
 class ZeroFluxPriorConfigs:
     default: ProbabilityConfig
     names: dict[str, ProbabilityConfig]
 
     def get_name_setting_or_default(self, filter_name: str) -> ProbabilityConfig:
-        """Returns the PriorConfig for the `filter_name` or the default.
+        """Returns the PriorConfig for the `filter_name`, else for the longest
+        ``_*`` pattern it starts with (`match_band_key`), else the default.
 
         Parameters
         ----------
         filter_name : str
             The filter in question.
         """
-        filter_name = filter_name.lower()
-        if filter_name in self.names:
-            return self.names[filter_name]
-        return self.default
+        key = match_band_key(self.names, filter_name.lower())
+        return self.default if key is None else self.names[key]
 
     @classmethod
     def from_yaml_dict(cls, raw: dict | None):
