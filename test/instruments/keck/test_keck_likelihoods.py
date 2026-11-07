@@ -2,6 +2,7 @@
 
 import copy
 import logging
+import re
 import jax
 import nifty.re as jft
 import numpy as np
@@ -663,13 +664,14 @@ def test_a_mixed_config_keeps_the_fixed_exposures_static(tmp_path):
     [
         {"psf": "second.fits", "prior": ["uniform", 0.0, 1.0]},
         {"psf": "second.fits", "weight": ["uniform", 0.0, 1.0], "extension": 1},
+        {"weight": ["uniform", 0.0, 1.0]},
         ["second.fits", ["uniform", 0.0, 1.0]],
     ],
 )
-def test_psf_mix_not_a_mapping_of_psf_and_weight_raises(tmp_path, psf_mix):
+def test_psf_mix_of_another_form_raises(tmp_path, psf_mix):
     cfg = _config(tmp_path)
     cfg["files"]["exposures"][0]["psf_mix"] = psf_mix
-    with pytest.raises(ValueError, match="psf_mix takes a mapping of psf and weight"):
+    with pytest.raises(ValueError, match="psf_mix takes a kernel file, or a mapping"):
         build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
 
 
@@ -699,6 +701,8 @@ def _keyed_config(tmp_path):
     cfg["files"]["exposures"][1]["filter"] = "H"
     cfg["telescope"]["calibration"] = {"default": ["lognormal", 1.0, 0.1]}
     cfg["telescope"]["psf_broadening"] = {"default": ["delta", 0.0]}
+    # unused while no exposure names a second kernel, but its keys are checked
+    cfg["telescope"]["psf_mix"] = {"default": ["uniform", 0.0, 1.0]}
     return cfg
 
 
@@ -728,7 +732,7 @@ def test_a_filter_pattern_acts_as_the_key_of_each_band_it_covers(tmp_path, secti
         assert [type(psf) for psf in psfs] == [PsfStatic, PsfGaussianBroadening]
 
 
-@pytest.mark.parametrize("section", PATTERN_PRIORS)
+@pytest.mark.parametrize("section", [*PATTERN_PRIORS, "psf_mix"])
 def test_a_pattern_of_no_band_is_logged_a_band_key_raises(tmp_path, section, caplog):
     cfg = _keyed_config(tmp_path)
     block = _block(cfg, section)
@@ -736,6 +740,67 @@ def test_a_pattern_of_no_band_is_logged_a_band_key_raises(tmp_path, section, cap
     with caplog.at_level(logging.INFO):
         build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
     assert f"{section}: keck_nirc2_j_* matches no exposure" in caplog.text
-    block["keck_nirc2_h*"] = block["default"]  # no `_` before `*`: a band key
-    with pytest.raises(ValueError, match=r"\['keck_nirc2_h\*'\] match no band"):
+    # _keyed_config's psf_mix block has no exposure with a second kernel to serve
+    assert "psf_mix: no exposure names a second kernel" in caplog.text
+    for key in ("keck_nirc2_h*", "keck_*_h_*"):  # a band key: no band holds a `*`
+        bad = copy.deepcopy(cfg)
+        _block(bad, section)[key] = block["default"]
+        with pytest.raises(ValueError, match=rf"\['{re.escape(key)}'\] match no band"):
+            build_keck_likelihoods(bad, SKY_GRID, SKY_DOMAIN)
+
+
+def _second_kernel(tmp_path):
+    profile = np.exp(-0.5 * ((np.arange(5) - 2.0) / 0.7) ** 2)
+    path = tmp_path / "second.fits"
+    fits.PrimaryHDU(np.outer(profile, profile)).writeto(path)
+    return str(path)
+
+
+@pytest.mark.parametrize("h_key", ["keck_nirc2_h_*", "keck_nirc2_H_b"])
+def test_psf_mix_weight_from_the_telescope_equals_the_entry_weight(tmp_path, h_key):
+    base = _keyed_config(tmp_path)
+    second = _second_kernel(tmp_path)
+    weights = ["uniform", -0.5, 2.0], ["delta", 0.3]  # Kp by default, H by `h_key`
+    from_telescope, from_entry = copy.deepcopy(base), copy.deepcopy(base)
+    a, b = from_telescope["files"]["exposures"]
+    a["psf_mix"], b["psf_mix"] = second, {"psf": second}
+    from_telescope["telescope"]["psf_mix"] = {
+        "default": weights[0],
+        h_key: weights[1],
+    }
+    for entry, weight in zip(from_entry["files"]["exposures"], weights):
+        entry["psf_mix"] = {"psf": second, "weight": weight}
+    del from_entry["telescope"]["psf_mix"]
+    products = [
+        build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+        for cfg in (from_telescope, from_entry)
+    ]
+    psfs = [lh.builder.response.psf for lh in products[0].likelihoods]
+    assert [type(psf) for psf in psfs] == [PsfKernelMix, PsfStatic]
+    telescope, entry = (p.likelihood for p in products)
+    assert set(telescope.domain) == set(entry.domain)
+    x = jft.random_like(jax.random.PRNGKey(4), telescope.domain)
+    assert float(telescope(x)) == float(entry(x))
+
+
+@pytest.mark.parametrize("found", ["both", "neither"])
+def test_psf_mix_weight_in_both_or_neither_place_raises(tmp_path, found):
+    cfg = _keyed_config(tmp_path)
+    second = _second_kernel(tmp_path)
+    if found == "both":
+        weight = ["uniform", 0.0, 1.0]
+        cfg["files"]["exposures"][0]["psf_mix"] = {"psf": second, "weight": weight}
+    else:
+        cfg["files"]["exposures"][0]["psf_mix"] = second
+        del cfg["telescope"]["psf_mix"]
+    with pytest.raises(ValueError, match=f"psf_mix, found in {found}"):
+        build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+
+
+def test_psf_mix_key_of_an_exposure_without_a_second_kernel_raises(tmp_path):
+    cfg = _keyed_config(tmp_path)
+    cfg["files"]["exposures"][1]["psf_mix"] = _second_kernel(tmp_path)
+    cfg["telescope"]["psf_mix"]["keck_nirc2_kp_a"] = ["delta", 0.3]  # a has none
+    match = r"psf_mix: \['keck_nirc2_kp_a'\] .* the exposures with a second kernel"
+    with pytest.raises(ValueError, match=match):
         build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
