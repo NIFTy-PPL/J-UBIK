@@ -136,7 +136,11 @@ def build_exposure_likelihoods(
         no key, are applied to the kernels once and make no parameter: an
         exposure with neither a learned weight nor a learned width keeps
         `PsfStatic`'s cached convolution, one with only a learned weight
-        `PsfKernelMix`'s.
+        `PsfKernelMix`'s. Band keys match in any case. Besides them, every
+        one of these blocks takes prefix patterns: ``keck_nirc2_h_*`` covers
+        every band starting ``keck_nirc2_h_``. A band's own key wins, then the
+        longest pattern, then ``default``. A band key that matches no exposure
+        raises; a pattern that matches none is logged.
     sky_unit : u.Unit
         Unit of the sky.
     """
@@ -199,15 +203,20 @@ def build_exposure_likelihoods(
     )
     # a mistyped band key would silently fall back to the default prior
     reserved = {"default", "model", "shift_unit", "rotation_unit"}
-    known = {b.lower() for b in bands} | reserved
+    lower = [b.lower() for b in bands]
     for name, keys in (
         ("correction_priors", correction_priors),
         ("zero_flux", zero_flux.names if zero_flux else {}),
         ("calibration", calibration.names if calibration else {}),
         ("psf_broadening", psf_broadening.names if psf_broadening else {}),
     ):
-        if unknown := set(keys) - known:
+        patterns = {k for k in keys if k.endswith("_*")}
+        if unknown := set(keys) - patterns - set(lower) - reserved:
             raise ValueError(f"{name}: {sorted(unknown)} match no band of {bands}")
+        # one fit fragment may serve data sets that lack a filter
+        for k in sorted(patterns):
+            if not any(b.startswith(k[:-1]) for b in lower):
+                jft.logger.info(f"{name}: {k} matches no exposure of {bands}")
 
     likelihoods = []
     plotting = ResidualPlottingInformation()

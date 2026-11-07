@@ -17,6 +17,7 @@ from jubik.instruments.jwst.likelihood.likelihood import (
     GaussianLikelihoodBuilder,
     ShotNoiseGaussianLikelihoodBuilder,
 )
+from jubik.instruments.jwst.parse.zero_flux_model import match_band_key
 from jubik.instruments.jwst.psf.psf_operator import (
     PsfGaussianBroadening,
     PsfKernelMix,
@@ -669,4 +670,72 @@ def test_psf_mix_not_a_mapping_of_psf_and_weight_raises(tmp_path, psf_mix):
     cfg = _config(tmp_path)
     cfg["files"]["exposures"][0]["psf_mix"] = psf_mix
     with pytest.raises(ValueError, match="psf_mix takes a mapping of psf and weight"):
+        build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+
+
+def test_band_key_beats_the_longest_pattern():
+    keys = {"default", "keck_*", "keck_nirc2_h_*", "keck_nirc2_h_b"}
+    assert match_band_key(keys, "keck_nirc2_h_b") == "keck_nirc2_h_b"
+    assert match_band_key(keys, "keck_nirc2_h_c") == "keck_nirc2_h_*"
+    assert match_band_key(keys, "keck_nirc2_kp_a") == "keck_*"
+    assert match_band_key(keys, "keck_nirc2_hcont_a") == "keck_*"
+    assert match_band_key(keys, "hst_nic1_f160w_a") is None
+
+
+PATTERN_PRIORS = {
+    "zero_flux": ["normal", 5.0, 1.0],
+    "calibration": ["lognormal", 2.0, 0.1],
+    "correction_priors": {
+        "rotation": ["delta", 0.0, 0.1],
+        "shift": ["normal", 0.05, 0.0],  # an offset fixed by sigma 0
+    },
+    "psf_broadening": ["lognormal", 0.02, 0.01],
+}
+
+
+def _keyed_config(tmp_path):
+    """Exposure a in Kp, b in H, with every band-keyed block of the telescope."""
+    cfg = copy.deepcopy(_config(tmp_path))
+    cfg["files"]["exposures"][1]["filter"] = "H"
+    cfg["telescope"]["calibration"] = {"default": ["lognormal", 1.0, 0.1]}
+    cfg["telescope"]["psf_broadening"] = {"default": ["delta", 0.0]}
+    return cfg
+
+
+def _block(cfg, section):
+    telescope = cfg["telescope"]
+    return telescope.get(section) or telescope["rotation_and_shift"][section]
+
+
+@pytest.mark.parametrize("section", PATTERN_PRIORS)
+def test_a_filter_pattern_acts_as_the_key_of_each_band_it_covers(tmp_path, section):
+    base, products = _keyed_config(tmp_path), []
+    for key in (None, "keck_nirc2_h_*", "keck_nirc2_H_b"):
+        cfg = copy.deepcopy(base)
+        if key is not None:
+            _block(cfg, section)[key] = copy.deepcopy(PATTERN_PRIORS[section])
+        products.append(build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN))
+    likelihoods = [p.likelihood for p in products]
+    assert set(likelihoods[1].domain) == set(likelihoods[2].domain)
+    x = jft.random_like(jax.random.PRNGKey(3), likelihoods[2].domain)
+    default, pattern, band = (
+        float(likelihood({k: x[k] for k in likelihood.domain}))
+        for likelihood in likelihoods
+    )
+    assert pattern == band != default
+    if section == "psf_broadening":  # H broadened, Kp keeps the static kernel
+        psfs = [lh.builder.response.psf for lh in products[1].likelihoods]
+        assert [type(psf) for psf in psfs] == [PsfStatic, PsfGaussianBroadening]
+
+
+@pytest.mark.parametrize("section", PATTERN_PRIORS)
+def test_a_pattern_of_no_band_is_logged_a_band_key_raises(tmp_path, section, caplog):
+    cfg = _keyed_config(tmp_path)
+    block = _block(cfg, section)
+    block["keck_nirc2_j_*"] = block["default"]
+    with caplog.at_level(logging.INFO):
+        build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)
+    assert f"{section}: keck_nirc2_j_* matches no exposure" in caplog.text
+    block["keck_nirc2_h*"] = block["default"]  # no `_` before `*`: a band key
+    with pytest.raises(ValueError, match=r"\['keck_nirc2_h\*'\] match no band"):
         build_keck_likelihoods(cfg, SKY_GRID, SKY_DOMAIN)

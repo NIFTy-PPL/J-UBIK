@@ -11,7 +11,7 @@ from ..parse.rotation_and_shift.coordinates_correction import (
     ROTATION_UNIT_KEY,
     CoordinatesCorrectionPriorConfig,
 )
-
+from ..parse.zero_flux_model import match_band_key
 
 DEFAULT_KEY = "default"
 
@@ -22,10 +22,7 @@ class FilterAlignment:
     boresight: list[SkyCoord] = field(default_factory=list)
 
     def load_correction_prior(self, raw: dict, number_of_observations: int):
-        if self.filter_name in raw:
-            config = raw[self.filter_name]
-        else:
-            config = raw[DEFAULT_KEY]
+        config = raw[match_band_key(raw, self.filter_name) or DEFAULT_KEY]
 
         config[MODEL_KEY] = raw[MODEL_KEY]
         config[SHIFT_UNIT_KEY] = raw[SHIFT_UNIT_KEY]
