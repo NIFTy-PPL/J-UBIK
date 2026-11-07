@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy >= 1.17.0",
     "scipy >= 1.9.0",
-    "nifty >= 9.0.0",
+    "nifty >= 9.2.0",
     "jax",
     "jaxlib",
     "matplotlib",
