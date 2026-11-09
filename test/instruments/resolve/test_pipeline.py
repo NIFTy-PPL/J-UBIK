@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from astropy import units as u
+from astropy.constants import c
 from numpy.testing import assert_allclose, assert_array_equal
 
 import jubik as ju
@@ -30,8 +31,6 @@ from jubik.instruments.resolve.parse.data.data_modify.pipeline import (
 from generate_test_obs import generate_random_obs
 
 pmp = pytest.mark.parametrize
-
-SPEEDOFLIGHT = 299792458.0
 
 
 def pol_type():
@@ -422,7 +421,7 @@ def test_shift_should_be_applied_before_frequency_averaging():
     # A single point source at the sky offset (sx, 0), see
     # test_phase_center.test_response_phase_convention...
     sx = 4.0e-4
-    uu = obs.uvw[:, 0, None] * freqs[None] / SPEEDOFLIGHT
+    uu = obs.uvw[:, 0, None] * freqs[None] / c.to_value(u.m / u.s)
     vis = np.broadcast_to(
         np.exp(-2j * np.pi * uu * sx)[None], obs.vis_val.shape
     ).astype(np.complex128)

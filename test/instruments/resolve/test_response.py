@@ -8,6 +8,7 @@ from astropy.coordinates import SkyCoord
 from astropy.constants import c
 import jubik as ju
 import jubik.instruments.resolve as rve
+from jubik.instruments.resolve.conventions import RESPONSE_SPATIAL_UNIT
 from jubik.instruments.resolve.response import (
     convert_polarization,
     dtype_float2complex,
@@ -67,8 +68,8 @@ def test_ducc_finufft_backend_consistency(freqs, center_pixels):
     fov = (u.Quantity("1deg"), u.Quantity("1.5deg"))
 
     npix_x, npix_y = 32, 40
-    pixsize_x = fov[0].to_value(u.radian) / npix_x
-    pixsize_y = fov[1].to_value(u.radian) / npix_y
+    pixsize_x = fov[0].to_value(RESPONSE_SPATIAL_UNIT) / npix_x
+    pixsize_y = fov[1].to_value(RESPONSE_SPATIAL_UNIT) / npix_y
     # Approach Nyquist at the highest frequency while staying inside both axes.
     uv_limit = 0.98 * c.value / (2 * max(pixsize_x, pixsize_y) * max(freqs))
 
@@ -213,7 +214,7 @@ def test_response_StokesI(freqs):
     sky = jnp.zeros(grid.shape)
     cx = grid.shape[3] // 2
     cy = grid.shape[4] // 2
-    dvol = grid.spatial.dvol.to(u.rad**2).value
+    dvol = grid.spatial.dvol.to(RESPONSE_SPATIAL_UNIT**2).value
     sky = sky.at[:, :, :, cx, cy].set(1 / dvol)
     vis_ducc = r_ducc(sky)
     vis_finufft = r_finufft(sky)
@@ -281,7 +282,7 @@ def test_response_phase_center_from_sky_coordinates(backend_settings, position_a
         spectral=ju.color.Color(np.array([0.8, 1.5]) * u.GHz),
     )
     cy, cx = (size // 2 for size in grid.shape[-2:])
-    vol = grid.spatial.dvol.to_value(u.rad**2)
+    vol = grid.spatial.dvol.to_value(RESPONSE_SPATIAL_UNIT**2)
     sky = jnp.zeros(grid.shape).at[0, 0, 0, cy, cx].set(1 / vol)
 
     # Known angular offsets independently pin the coordinate helper's axis order
@@ -318,7 +319,7 @@ def test_public_response_adjoint_and_gradient(circular):
     )
     sky = jnp.asarray(rng.normal(size=grid.shape))
     y = jnp.asarray(rng.normal(size=obs.vis.shape) + 1j * rng.normal(size=obs.vis.shape))
-    vol = grid.spatial.dvol.to_value(u.rad**2)
+    vol = grid.spatial.dvol.to_value(RESPONSE_SPATIAL_UNIT**2)
     gradients = []
     for settings in (
         rve.parse.Ducc0Settings(
@@ -362,7 +363,7 @@ def test_response_frequency_bins_and_empty_bin(backend_settings):
     # of the sky frequency grid. Here The first two are assigned to the first sky bin,
     # the last two to the last sky bin.
     response = rve.interferometry_response(obs, grid, backend_settings)
-    vol = grid.spatial.dvol.to_value(u.rad**2)
+    vol = grid.spatial.dvol.to_value(RESPONSE_SPATIAL_UNIT**2)
     # Spatial axes are canonical (Dec, RA); derive the center from the sky shape.
     cy, cx = (size // 2 for size in grid.shape[-2:])
     sky = (
@@ -397,7 +398,7 @@ def test_response_discontinuous_frequency_restriction(backend_settings):
     assert_allclose(restricted.vis.asnumpy(), obs.vis.asnumpy()[..., indices])
     assert_allclose(restricted.weight.asnumpy(), obs.weight.asnumpy()[..., indices])
     response = rve.interferometry_response(restricted, grid, backend_settings)
-    vol = grid.spatial.dvol.to_value(u.rad**2)
+    vol = grid.spatial.dvol.to_value(RESPONSE_SPATIAL_UNIT**2)
     # Keep the source centered so this checks frequency assignment without phase.
     cy, cx = (size // 2 for size in grid.shape[-2:])
     sky = jnp.zeros(grid.shape).at[0, 0, :, cy, cx].set(jnp.array([2.0, 5.0]) / vol)
@@ -428,7 +429,7 @@ def test_response_dtype_and_flags(backend_settings, dtype, expected_dtype):
     unflagged = make_frequency_obs([1.0, 1.2])
     mask = obs.weight.asnumpy() == 0
     assert np.any(mask) and np.any(~mask)
-    vol = grid.spatial.dvol.to_value(u.rad**2)
+    vol = grid.spatial.dvol.to_value(RESPONSE_SPATIAL_UNIT**2)
     # Point source sky with unit flux
     sky = (
         jnp.zeros(grid.shape, dtype=dtype)
@@ -582,7 +583,7 @@ def test_response_StokesIQUV(freqs, circular, source):
     sky = jnp.zeros(grid.shape)
     cx = grid.shape[3] // 2
     cy = grid.shape[4] // 2
-    dvol = grid.spatial.dvol.to(u.rad**2).value
+    dvol = grid.spatial.dvol.to(RESPONSE_SPATIAL_UNIT**2).value
     sky = sky.at[:, 0, :, cx, cy].set(source[np.newaxis].T / dvol)
     vis_ducc = r_ducc(sky)
     vis_finufft = r_finufft(sky)
