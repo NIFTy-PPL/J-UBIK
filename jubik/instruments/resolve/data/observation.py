@@ -18,6 +18,7 @@ import nifty.cl as ift
 import numpy as np
 import astropy.units as u
 
+from ..conventions import OBSERVATION_FREQ_UNIT, OBSERVATION_UVW_UNIT
 from ..util import (
     compare_attributes,
     my_assert,
@@ -500,16 +501,16 @@ class Observation(BaseObservation):
 
     def effective_uvw(self):
         """Return baselines in multiples of wavelengths, with shape (3, nrow, nfreq)."""
-        frequencies = self.freq * u.Hz
-        wavelengths = frequencies.to(u.m, equivalencies=u.spectral())
+        frequencies = self.freq * OBSERVATION_FREQ_UNIT
+        wavelengths = frequencies.to(OBSERVATION_UVW_UNIT, equivalencies=u.spectral())
         out = np.einsum("ij,k->jik", self.uvw, 1 / wavelengths.value)
         my_asserteq(out.shape, (3, self.nrow, self.nfreq))
         return out
 
     def effective_uvwlen(self):
         """Return baseline lengths in multiples of wavelengths on the visibility domain."""
-        frequencies = self.freq * u.Hz
-        wavelengths = frequencies.to(u.m, equivalencies=u.spectral())
+        frequencies = self.freq * OBSERVATION_FREQ_UNIT
+        wavelengths = frequencies.to(OBSERVATION_UVW_UNIT, equivalencies=u.spectral())
         arr = np.outer(self.uvwlen(), 1 / wavelengths.value)
         arr = np.broadcast_to(arr[None], self._dom.shape)
         return ift.makeField(self._dom, arr)
@@ -518,17 +519,17 @@ class Observation(BaseObservation):
         return np.linalg.norm(self.uvw, axis=1)
 
     def __str__(self):
-        baseline_min = self.uvwlen().min() * u.m
-        baseline_max = self.uvwlen().max() * u.m
+        baseline_min = self.uvwlen().min() * OBSERVATION_UVW_UNIT
+        baseline_max = self.uvwlen().max() * OBSERVATION_UVW_UNIT
 
-        freq_min = self.freq.min() * u.Hz
-        freq_max = self.freq.max() * u.Hz
+        freq_min = self.freq.min() * OBSERVATION_FREQ_UNIT
+        freq_max = self.freq.max() * OBSERVATION_FREQ_UNIT
 
         angular_scale_min = (
-            freq_max.to(u.m, equivalencies=u.spectral()) / baseline_max
+            freq_max.to(OBSERVATION_UVW_UNIT, equivalencies=u.spectral()) / baseline_max
         ).to_value(u.dimensionless_unscaled) * u.rad
         angular_scale_max = (
-            freq_min.to(u.m, equivalencies=u.spectral()) / baseline_min
+            freq_min.to(OBSERVATION_UVW_UNIT, equivalencies=u.spectral()) / baseline_min
         ).to_value(u.dimensionless_unscaled) * u.rad
 
         s = [

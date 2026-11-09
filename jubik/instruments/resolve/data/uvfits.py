@@ -8,7 +8,7 @@ import numpy as np
 import resolve as rve
 import astropy.units as u
 
-from astropy.constants import c as SPEEDOFLIGHT
+from ..conventions import OBSERVATION_UVW_UNIT
 
 
 def load_uvfits(file_name, polarization="stokes"):
@@ -46,7 +46,10 @@ def load_uvfits(file_name, polarization="stokes"):
     time = obs.data["time"] * 3600
     uvw = np.vstack([obs.data["u"], obs.data["v"], 0.0 * obs.data["u"]]).T
     # Convert wavelengths to metres for the Observation storage convention.
-    uvw *= SPEEDOFLIGHT.to_value(u.m / u.s) / obs.rf
+    wavelength = (obs.rf * u.Hz).to(
+        OBSERVATION_UVW_UNIT, equivalencies=u.spectral()
+    )
+    uvw *= wavelength.value
     antpos = rve.AntennaPositions(uvw, ant1, ant2, time)
     return rve.Observation(
         antpos, vis, 1 / sigma / sigma, pol, freq, auxiliary_tables={"ANTENNA": anttbl}

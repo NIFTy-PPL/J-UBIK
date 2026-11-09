@@ -12,6 +12,7 @@ from ...parse.data.data_modify.flagging import FlagWeights
 from ...parse.data.data_modify.frequency import SpectralModify
 from ...parse.data.data_modify.visibility_subset import SelectSubset
 from ...parse.data.data_modify.weights import SystematicErrorBudget
+from ...conventions import OBSERVATION_FREQ_UNIT
 from ..observation import Observation
 from .flagging import flag_weights
 from .frequency import (
@@ -142,7 +143,7 @@ def modify_observation(
         )
     if modify.spectral.spectral_restrict_to_sky_frequencies:
         freqs_in_unit = sky_frequencies.to(
-            u.Hz, equivalencies=u.spectral()
+            OBSERVATION_FREQ_UNIT, equivalencies=u.spectral()
         ).value
         obs = restrict_by_freq(obs, freqs_in_unit[0], freqs_in_unit[-1])
 
