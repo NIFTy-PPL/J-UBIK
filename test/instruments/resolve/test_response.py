@@ -395,8 +395,8 @@ def test_response_discontinuous_frequency_restriction(backend_settings):
     # Tests if the observed frequency is removed from the frequency, visibility
     #  and data array by data modification routine
     assert_allclose(restricted.freq, obs.freq[indices])
-    assert_allclose(restricted.vis.asnumpy(), obs.vis.asnumpy()[..., indices])
-    assert_allclose(restricted.weight.asnumpy(), obs.weight.asnumpy()[..., indices])
+    assert_allclose(restricted.vis, obs.vis[..., indices])
+    assert_allclose(restricted.weight, obs.weight[..., indices])
     response = rve.interferometry_response(restricted, grid, backend_settings)
     vol = grid.spatial.dvol.to_value(RESPONSE_SPATIAL_UNIT**2)
     # Keep the source centered so this checks frequency assignment without phase.
@@ -427,7 +427,7 @@ def test_response_dtype_and_flags(backend_settings, dtype, expected_dtype):
     # Building unflagged as reference ground truth as response does not remove
     # flagged visibilities by itself
     unflagged = make_frequency_obs([1.0, 1.2])
-    mask = obs.weight.asnumpy() == 0
+    mask = obs.weight == 0
     assert np.any(mask) and np.any(~mask)
     vol = grid.spatial.dvol.to_value(RESPONSE_SPATIAL_UNIT**2)
     # Point source sky with unit flux

@@ -125,7 +125,7 @@ def _average_frequency_groups(
 
     obs_avg = []
     for obsi in splitted_obs:
-        weight = obsi.weight.asnumpy()
+        weight = obsi.weight
         valid = weight > 0.0
 
         # If all entries are flagged, skip that group
@@ -133,7 +133,7 @@ def _average_frequency_groups(
             logger.info("Discarding frequency bin with no usable measurements.")
             continue
 
-        vis = obsi.vis.asnumpy()
+        vis = obsi.vis
 
         match averaging_mode:
             case "noise_weighted":
@@ -201,8 +201,8 @@ def _average_frequency_groups(
     new_vis = np.zeros(new_vis_shape, obs.vis.dtype)
     new_weight = np.zeros(new_vis_shape, obs.weight.dtype)
     for ii, averaged_obs in enumerate(obs_avg):
-        new_vis[:, :, ii] = averaged_obs.vis.asnumpy()[:, :, 0]
-        new_weight[:, :, ii] = averaged_obs.weight.asnumpy()[:, :, 0]
+        new_vis[:, :, ii] = averaged_obs.vis[:, :, 0]
+        new_weight[:, :, ii] = averaged_obs.weight[:, :, 0]
 
     obs_averaged = Observation(
         obs.antenna_positions,
@@ -338,8 +338,8 @@ def reverse_frequencies(obs: Observation) -> Observation:
     logger.info("Reverse frequencies")
     return Observation(
         obs.antenna_positions,
-        obs.vis.asnumpy()[:, :, ::-1],
-        obs.weight.asnumpy()[:, :, ::-1],
+        obs.vis[:, :, ::-1],
+        obs.weight[:, :, ::-1],
         obs.legacy_polarization,
         obs.freq[::-1],
         auxiliary_tables=obs._auxiliary_tables,
@@ -369,10 +369,10 @@ def restrict_to_discontinuous_frequencies(
         freq_indices.append(find)
 
     vis = np.concatenate(
-        [obs.vis.asnumpy()[:, :, find] for find in freq_indices], axis=2
+        [obs.vis[:, :, find] for find in freq_indices], axis=2
     )
     weight = np.concatenate(
-        [obs.weight.asnumpy()[:, :, find] for find in freq_indices], axis=2
+        [obs.weight[:, :, find] for find in freq_indices], axis=2
     )
     freq = np.concatenate([obs.freq[find] for find in freq_indices])
 

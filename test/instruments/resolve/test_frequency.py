@@ -133,8 +133,8 @@ def test_exclude_range_drops_channels_and_keeps_rest_bitwise():
     keep = np.array([0, 1, 4, 5])
     assert new.nfreq == len(keep)
     assert_array_equal(new.freq, obs.freq[keep])
-    assert_array_equal(new.vis.asnumpy(), obs.vis.asnumpy()[:, :, keep])
-    assert_array_equal(new.weight.asnumpy(), obs.weight.asnumpy()[:, :, keep])
+    assert_array_equal(new.vis, obs.vis[:, :, keep])
+    assert_array_equal(new.weight, obs.weight[:, :, keep])
 
 
 @pmp("ranges", (None, [], ()))
@@ -180,8 +180,8 @@ def test_exclude_multiple_disjoint_ranges():
 
     keep = np.array([1, 2, 3, 5])
     assert_array_equal(new.freq, obs.freq[keep])
-    assert_array_equal(new.vis.asnumpy(), obs.vis.asnumpy()[:, :, keep])
-    assert_array_equal(new.weight.asnumpy(), obs.weight.asnumpy()[:, :, keep])
+    assert_array_equal(new.vis, obs.vis[:, :, keep])
+    assert_array_equal(new.weight, obs.weight[:, :, keep])
 
 
 def test_spectral_modify_parses_exclude_frequency_ranges():

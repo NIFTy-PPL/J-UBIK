@@ -20,7 +20,7 @@ def factory_noise_correction_model(
             *get_baselines(observation),
             alpha_correction=correction_settings.alpha,
             scale_correction=correction_settings.scale,
-            weight=observation.weight.asnumpy(),
+            weight=observation.weight,
             prefix=prefix,
         )
 

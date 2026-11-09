@@ -17,8 +17,8 @@ def convert_to_classic_observation(obs: Observation) -> rve.Observation:
     polarization = obs.legacy_polarization
     return rve.Observation(
         rve.AntennaPositions.from_list(obs.antenna_positions.to_list()),
-        obs.vis.asnumpy(),
-        obs.weight.asnumpy(),
+        obs.vis,
+        obs.weight,
         rve.Polarization.from_list(polarization.to_list()),
         obs.freq,
         aux_table,

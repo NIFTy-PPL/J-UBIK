@@ -62,13 +62,13 @@ def shift_phase_center(obs: Observation, shift: ShiftObservation | None) -> Obse
 
     # `prefactor` is always double precision, so the product has to be cast
     # back: `Observation` requires vis and weight to be of the same precision.
-    vis = obs.vis.asnumpy()
+    vis = obs.vis
     vis = (vis * prefactor).astype(vis.dtype, copy=False)
 
     return Observation(
         antenna_positions=obs.antenna_positions,
         vis=vis,
-        weight=obs.weight.asnumpy(),
+        weight=obs.weight,
         polarization=obs.legacy_polarization,
         freq=obs.freq,
         auxiliary_tables=obs._auxiliary_tables,

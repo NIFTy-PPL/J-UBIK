@@ -280,9 +280,9 @@ def test_time_average_a_cell_with_total_weight_zero_stays_flagged():
 
     averaged = time_average(obs, [[0.0, 5.0]])
     assert averaged.nrow == 1
-    assert averaged.weight.asnumpy()[0, 0, 0] == 0.0
-    assert averaged.vis.asnumpy()[0, 0, 0] == 0.0
-    assert averaged.weight.asnumpy()[1, 0, 0] == weight[1, :, 0].sum()
+    assert averaged.weight[0, 0, 0] == 0.0
+    assert averaged.vis[0, 0, 0] == 0.0
+    assert averaged.weight[1, 0, 0] == weight[1, :, 0].sum()
 
 
 def test_time_average_keeps_a_completely_flagged_baseline_as_a_flagged_row():
@@ -298,9 +298,9 @@ def test_time_average_keeps_a_completely_flagged_baseline_as_a_flagged_row():
     assert averaged.nrow == 2
     flagged = (averaged.ant1 == 0) & (averaged.ant2 == 2)
     assert flagged.sum() == 1
-    assert np.all(averaged.weight.asnumpy()[:, flagged, :] == 0.0)
-    assert np.all(averaged.vis.asnumpy()[:, flagged, :] == 0.0)
-    assert np.all(averaged.weight.asnumpy()[:, ~flagged, :] > 0.0)
+    assert np.all(averaged.weight[:, flagged, :] == 0.0)
+    assert np.all(averaged.vis[:, flagged, :] == 0.0)
+    assert np.all(averaged.weight[:, ~flagged, :] > 0.0)
 
 
 def test_time_average_ignores_nan_visibilities_of_flagged_rows():
