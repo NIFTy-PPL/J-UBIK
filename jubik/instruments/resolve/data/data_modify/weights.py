@@ -1,10 +1,13 @@
 """Weight transformations for resolve observations."""
 
+import logging
 import numpy as np
-from nifty.cl.logger import logger
+from nifty.re import logger
 
 from ...parse.data.data_modify.weights import SystematicErrorBudget
 from ..observation import Observation
+
+logger.setLevel(logging.INFO)
 
 
 def systematic_error_budget(obs: Observation, systematic: SystematicErrorBudget | None):

@@ -1,10 +1,13 @@
 """Time-domain transformations for resolve observations."""
 
+import logging
 import numpy as np
 
 from ...data.antenna_positions import AntennaPositions
 from ..observation import Observation, tmin_tmax
-from nifty.cl.logger import logger
+from nifty.re import logger
+
+logger.setLevel(logging.INFO)
 
 
 def restrict_by_time(
