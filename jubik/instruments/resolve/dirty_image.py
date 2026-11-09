@@ -23,7 +23,7 @@ from astropy.units import Unit
 from numpy.typing import NDArray
 
 from ...grid import Grid
-from .conventions import RESPONSE_SKY_UNIT
+from .conventions import RESPONSE_SKY_UNIT, RESPONSE_SPATIAL_UNIT
 from .data import Observation
 from .parse import Ducc0Settings, FinufftSettings
 from .response import _hermitian_adjoint, interferometry_response
@@ -34,7 +34,7 @@ def dirty_image(
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     weighting: str = "natural",
-    flux_unit: Unit = u.Jy / u.sr,
+    flux_unit: Unit = u.Jy / u.sr,  # Caller-chosen output unit.
 ) -> u.Quantity:
 
     # TODO: Extract shape fully from grid
@@ -106,7 +106,7 @@ def uvw_density(
     # Canonical sky (dim0 = Dec, dim1 = RA); u conjugates the l/RA axis (dim1),
     # v conjugates the m/Dec axis (dim0).
     nx, ny = sky_grid.spatial.shape_xy
-    dx, dy = sky_grid.spatial.pixel_scales_xy.to(u.rad).value
+    dx, dy = sky_grid.spatial.pixel_scales_xy.to(RESPONSE_SPATIAL_UNIT).value
 
     ku = np.sort(np.fft.fftfreq(nx, dx))
     kv = np.sort(np.fft.fftfreq(ny, dy))

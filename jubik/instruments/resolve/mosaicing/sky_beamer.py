@@ -25,7 +25,6 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
-from ..conventions import RESPONSE_SPECTRAL_UNIT
 from ..data.data_modify.frequency import restrict_by_freq
 from ..data.direction import Direction
 from ..data.observation import Observation
@@ -161,7 +160,7 @@ def build_sky_beamer(
         for ff in range(fshape):
             freq_mean = (
                 sky_frequency_means[ff]
-                .to(RESPONSE_SPECTRAL_UNIT, equivalencies=u.spectral())
+                .to(u.Hz, equivalencies=u.spectral())
                 .value
             )
             beam = beam_func(freq=freq_mean, x=x)

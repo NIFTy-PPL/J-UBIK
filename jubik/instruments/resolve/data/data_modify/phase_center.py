@@ -6,6 +6,7 @@ import numpy as np
 from astropy import units as u
 from nifty.re import logger
 
+from ...conventions import RESPONSE_SPATIAL_UNIT
 from ..observation import Observation
 
 
@@ -55,7 +56,7 @@ def shift_phase_center(obs: Observation, shift: ShiftObservation | None) -> Obse
     uvw = obs.effective_uvw()[:, None, :, :]
     assert len(uvw[0].shape) == 3, "Check the polarization axis."
 
-    center_x, center_y = shift.shift.to(u.rad).value
+    center_x, center_y = shift.shift.to(RESPONSE_SPATIAL_UNIT).value
 
     prefactor = np.exp(2j * np.pi * (uvw[0] * center_x - uvw[1] * center_y))
 
