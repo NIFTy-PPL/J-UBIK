@@ -132,6 +132,12 @@ class Polarization:
 
 
 class PolarizationType(Enum):
+    """Named ordered polarization combinations supported by grids/observations.
+
+    Values contain labels, not CASA identifiers. The matrix constructors also
+    accept label sequences for subsets or orderings absent from this enum.
+    """
+
     # Total intensity
     I = ("I",)
     RR = ("RR",)
@@ -143,7 +149,17 @@ class PolarizationType(Enum):
     XX_YY = ("XX", "YY")
     YY_XX = ("YY", "XX")
 
-    # Polarized
+    # Polarized subsets; reversed forms preserve existing data-axis order.
+    Q_U = ("Q", "U")
+    U_Q = ("U", "Q")
+    U_V = ("U", "V")
+    V_U = ("V", "U")
+    RL_LR = ("RL", "LR")
+    LR_RL = ("LR", "RL")
+    XY_YX = ("XY", "YX")
+    YX_XY = ("YX", "XY")
+
+    # Full polarization
     IQUV = ("I", "Q", "U", "V")
     RR_RL_LR_LL = ("RR", "RL", "LR", "LL")
     XX_XY_YX_YY = ("XX", "XY", "YX", "YY")
