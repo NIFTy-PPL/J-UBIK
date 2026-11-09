@@ -14,7 +14,8 @@
 # Copyright(C) 2019-2021 Max-Planck-Society
 # Author: Philipp Arras
 
-import nifty.cl as ift
+import warnings
+
 import numpy as np
 import astropy.units as u
 
@@ -34,27 +35,47 @@ from ....polarization import Polarization, PolarizationType
 
 class BaseObservation:
     @property
-    def _dom(self):
-        pol_dom = self.legacy_polarization.space
-        dom = [pol_dom] + [ift.UnstructuredDomain(ss) for ss in self._vis.shape[1:]]
-        return ift.makeDomain(dom)
+    def vis_val(self):
+        """Deprecated alias for `vis`.
+
+        numpy.ndarray : Array that contains all data points including
+        potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`.
+        """
+        warnings.warn(
+            "vis_val is deprecated; use vis instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.vis
 
     @property
-    def vis_val(self):
+    def vis(self):
         """numpy.ndarray : Array that contains all data points including
         potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`.
         """
         return self._vis
 
     @property
-    def vis(self):
-        """nifty.cl.Field : Field that contains all data points including
-        potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`.
+    def weight_val(self):
+        """Deprecated alias for `weight`.
+
+        numpy.ndarray : Array that contains all weights, i.e. the diagonal of
+        the inverse covariance. Shape: `(npol, nrow, nchan)`, dtype: `numpy.floating`.
+
+        Note
+        ----
+        If an entry equals 0, this means that the corresponding data point is
+        supposed to be ignored.
         """
-        return ift.makeField(self._dom, self._vis)
+        warnings.warn(
+            "weight_val is deprecated; use weight instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.weight
 
     @property
-    def weight_val(self):
+    def weight(self):
         """numpy.ndarray : Array that contains all weights, i.e. the diagonal of
         the inverse covariance. Shape: `(npol, nrow, nchan)`, dtype: `numpy.floating`.
 
@@ -64,18 +85,6 @@ class BaseObservation:
         supposed to be ignored.
         """
         return self._weight
-
-    @property
-    def weight(self):
-        """nifty.cl.Field : Field that contains all weights, i.e. the diagonal of
-        the inverse covariance. Shape: `(npol, nrow, nchan)`, dtype: `numpy.floating`.
-
-        Note
-        ----
-        If an entry equals 0, this means that the corresponding data point is
-        supposed to be ignored.
-        """
-        return ift.makeField(self._dom, self._weight)
 
     @property
     def freq(self):
@@ -98,6 +107,11 @@ class BaseObservation:
         return self._polarization
 
     @property
+    def polarization_labels(self):
+        """tuple[str, ...]: Labels in visibility-axis order, including Stokes I."""
+        return tuple(self.legacy_polarization.to_str_list()) or ("I",)
+
+    @property
     def direction(self):
         """Direction: Object that contains direction information on the data
         set."""
@@ -118,64 +132,77 @@ class BaseObservation:
         """int: Number of observing frequencies."""
         return self._vis.shape[2]
 
-    def apply_flags(self, field):
-        """Apply flags to a given field.
-
-        Parameters
-        ----------
-        field: nifty.cl.Field
-            The field that is supposed to be flagged.
-
-        Returns
-        -------
-        nifty.cl.Field
-            Flagged field defined on a one-dimensional
-            `nifty.cl.UnstructuredDomain`."""
-        return self.mask_operator(field)
+    def apply_flags(self, data):
+        """Return non-flagged entries of a visibility-shaped array as a flattened 1D array."""
+        return self.mask_operator(data)
 
     @property
     def flags_val(self):
+        """Deprecated alias for `flags`.
+
+        numpy.ndarray: True for bad visibilities."""
+        warnings.warn(
+            "flags_val is deprecated; use flags instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.flags
+
+    @property
+    def flags(self):
         """numpy.ndarray: True for bad visibilities."""
         return self._weight == 0.0
 
     @property
-    def flags(self):
-        """nifty.cl.Field: True for bad visibilities. May be used together with
-        `ift.MaskOperator`."""
-        return ift.makeField(self._dom, self._weight == 0.0)
+    def mask_val(self):
+        """Deprecated alias for `mask`.
+
+        numpy.ndarray: True for good visibilities."""
+        warnings.warn(
+            "mask_val is deprecated; use mask instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.mask
 
     @property
-    def mask_val(self):
+    def mask(self):
         """numpy.ndarray: True for good visibilities."""
         return self._weight > 0.0
 
     @property
-    def mask(self):
-        """nifty.cl.Field: True for good visibilities."""
-        return ift.makeField(self._dom, self._weight > 0.0)
-
-    @property
     def mask_operator(self):
-        """nifty.cl.MaskOperator: Nifty operator that can be used to extract all
-        non-flagged data points from a field defined on `self.vis.domain`."""
-        return ift.MaskOperator(self.flags)
+        """Fixed-index selection callable compatible with JAX autodiff and JIT.
+
+        Construct this callable before tracing. Use ``jax.linear_transpose``
+        when an explicit adjoint is needed.
+        """
+        indices = np.flatnonzero(self.mask)
+        shape = self.vis.shape
+
+        def select(data):
+            if data.shape != shape:
+                raise ValueError("Data shape must match the observation visibility shape.")
+            return data.reshape(-1)[indices]
+
+        return select
 
     def flags_to_nan(self):
         raise NotImplementedError
 
     def max_snr(self):
         """float: Maximum signal-to-noise ratio."""
-        snr = (self.vis * self.weight.sqrt()).abs()
+        snr = np.abs(self.vis) * np.sqrt(self.weight)
         snr = self.apply_flags(snr)
-        return np.max(snr.asnumpy())
+        return np.max(snr)
 
     def fraction_useful(self):
         """float: Fraction of non-flagged data points."""
-        return self.n_data_effective() / self._dom.size
+        return self.n_data_effective() / self._vis.size
 
     def n_data_effective(self):
         """int: Number of effective (i.e. non-flagged) data points."""
-        return self.mask.s_sum()
+        return np.count_nonzero(self.mask)
 
     def save(self, file_name, compress):
         """Save observation object to disk
@@ -364,10 +391,10 @@ class Observation(BaseObservation):
         return Observation(antpos, vis, wgt, pol, freq, auxtables)
 
     def flags_to_nan(self):
-        if self.fraction_useful == 1.0:
+        if self.fraction_useful() == 1.0:
             return self
         vis = self._vis.copy()
-        vis[self.flags.asnumpy()] = np.nan
+        vis[self.flags] = np.nan
         return Observation(
             self._antpos,
             vis,
@@ -512,8 +539,8 @@ class Observation(BaseObservation):
         frequencies = self.freq * OBSERVATION_FREQ_UNIT
         wavelengths = frequencies.to(OBSERVATION_UVW_UNIT, equivalencies=u.spectral())
         arr = np.outer(self.uvwlen(), 1 / wavelengths.value)
-        arr = np.broadcast_to(arr[None], self._dom.shape)
-        return ift.makeField(self._dom, arr)
+        arr = np.broadcast_to(arr[None], self._vis.shape)
+        return arr
 
     def uvwlen(self):
         return np.linalg.norm(self.uvw, axis=1)
@@ -538,7 +565,7 @@ class Observation(BaseObservation):
             f"# visibilities:\t{self.vis.size}",
             f"Frequency range:\t{freq_min.to_value(u.MHz):.3f} -- "
             f"{freq_max.to_value(u.MHz):.3f} MHz",
-            "Polarizations:\t" + ", ".join(self.vis.domain[0].labels),
+            "Polarizations:\t" + ", ".join(self.polarization_labels),
             f"Shortest baseline:\t{baseline_min.to_value(u.m):.1f} m -> "
             f"{angular_scale_max.to_value(u.deg):.3f} deg",
             f"Longest baseline:\t{baseline_max.to_value(u.m):.1f} m -> "
