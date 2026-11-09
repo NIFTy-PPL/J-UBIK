@@ -16,7 +16,9 @@
 
 from typing import Iterable, Union
 from enum import Enum, IntEnum
+
 import jax.numpy as jnp
+
 
 class PolarizationCode(IntEnum):
     """Supported CASA/casacore polarization identifiers.
@@ -43,14 +45,17 @@ class PolarizationCode(IntEnum):
 
 
 class Polarization:
-    """Stores polarization information of a data set and is used for
-    translating between indices (5, 6, 7, 8, ...) and strings
-    ("RR", "RL", "LR", "LL", ...).
+    """Store ordered polarization metadata using CASA/casacore identifiers.
+
+    Codes 1--4 denote I, Q, U, V; 5--8 denote RR, RL, LR, LL; and
+    9--12 denote XX, XY, YX, YY. These identifiers are not array positions.
 
     Parameters
     ----------
-    indices : tuple of polarization indices.
-        Takes integer values between 5 and including 12.
+    indices : sequence of int
+        Up to four polarization identifiers. An empty sequence is the legacy
+        representation of a single Stokes I component: its length is one,
+        although ``to_list()`` and ``to_str_list()`` return empty lists.
     """
 
     def __init__(self, indices):
@@ -192,7 +197,7 @@ class PolarizationType(Enum):
 
     @property
     def shape(self):
-        """Shape of the grid. (spectral, spatial)"""
+        """Shape of the polarization axis, ``(number_of_components,)``."""
         return (len(self),)
 
     def __len__(self):
