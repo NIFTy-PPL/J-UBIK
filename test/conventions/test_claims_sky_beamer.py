@@ -1,4 +1,4 @@
-"""Claims: sky-beamer beams pair index for index with canonical skies.
+"""Claims: primary beams pair index for index with canonical skies.
 
 Design page row pinned here (docs/source/user/canonical-sky-design.md):
 "Sky beamer: beams are built on the canonical grid and multiply the sky index
@@ -17,34 +17,28 @@ observable, and a rectangle is included alongside the square.
 from types import SimpleNamespace
 
 import astropy.units as u
-import nifty.re as jft
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
 
-from jubik.instruments.resolve.mosaicing.sky_beamer import build_sky_beamer
+import jubik as ju
+from jubik.instruments.resolve.telescopes.primary_beam import build_beam
 from jubik.wcs.wcs_astropy import WcsAstropy
 
 CENTER = SkyCoord(ra=10.0 * u.deg, dec=20.0 * u.deg)
 
 
-def _pointing_observation(name, direction):
-    phase_center = (direction.ra.rad, direction.dec.rad)
-    d = SimpleNamespace(phase_center=phase_center, name=name)
-    return SimpleNamespace(direction_from_key=lambda key, d=d: d, direction=d)
+def _pointing(name, direction):
+    return SimpleNamespace(phase_center=(direction.ra.rad, direction.dec.rad), name=name)
 
 
-def _build_beams(observations, shape_yx, fov_xy):
-    beamer = build_sky_beamer(
-        sky_shape_with_dtype=jft.ShapeWithDtype(
-            (1, 1, 1, shape_yx[0], shape_yx[1]), np.float64
-        ),
-        sky_wcs=WcsAstropy(center=CENTER, shape=shape_yx[::-1], fov=fov_xy),
-        sky_frequency_means=u.Quantity([100.0e9] * u.Hz),
-        observations=observations,
-        beam_func=lambda freq, x: np.exp(-((x / 3.0e-5) ** 2)),
+def _build_beams(pointings, shape_yx, fov_xy):
+    grid = ju.Grid(
+        spatial=WcsAstropy(center=CENTER, shape=shape_yx[::-1], fov=fov_xy),
+        spectral=ju.Color.from_central_frequencies(np.array([100.0e9])),
     )
-    return {k: np.asarray(v.beam)[0, 0, 0] for k, v in beamer.beam_directions.items()}
+    beam_func = lambda freq, x: np.exp(-((x / 3.0e-5) ** 2))
+    return {p.name: np.asarray(build_beam(p, grid, beam_func))[0, 0, 0] for p in pointings}
 
 
 def _peak(beam):
@@ -60,7 +54,7 @@ QUADRANTS = [(4, 4), (4, -4), (-4, 4), (-4, -4)]  # (East, North) arcsec
 
 @pytest.mark.parametrize("shape_yx,fov_xy", GRIDS)
 def test_centered_pointing_peaks_at_center(shape_yx, fov_xy):
-    beams = _build_beams([_pointing_observation("centered", CENTER)], shape_yx, fov_xy)
+    beams = _build_beams([_pointing("centered", CENTER)], shape_yx, fov_xy)
     c = (shape_yx[0] // 2, shape_yx[1] // 2)
     assert _peak(beams["centered"]) == c
 
@@ -71,7 +65,7 @@ def test_offset_pointing_peaks_north_up_east_left(shape_yx, fov_xy, dE, dN):
     c_dec, c_ra = shape_yx[0] // 2, shape_yx[1] // 2
     direction = CENTER.spherical_offsets_by(dE * u.arcsec, dN * u.arcsec)
     beams = _build_beams(
-        [_pointing_observation("centered", CENTER), _pointing_observation("off", direction)],
+        [_pointing("centered", CENTER), _pointing("off", direction)],
         shape_yx, fov_xy,
     )
     expected = (c_dec + dN // 1, c_ra - dE // 2)  # 1"/px Dec, 2"/px RA

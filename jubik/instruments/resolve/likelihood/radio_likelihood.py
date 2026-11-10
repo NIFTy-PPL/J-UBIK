@@ -23,6 +23,7 @@ from operator import add
 import jax.numpy as jnp
 import nifty.re as jft
 from astropy import units as u
+from astropy.coordinates import SkyCoord
 from nifty.cl.logger import logger
 from nifty.re.likelihood import LikelihoodSum
 
@@ -35,11 +36,13 @@ from ..parse.noise.factory_noise_correction import factory_noise_correction_pars
 from ..parse.phase_shift import PhaseShiftConfig
 from ..parse.response import yaml_to_response_settings
 from ..data.data_loading import load_and_modify_data_from_objects
+from ..data.direction import Direction
+from ..data.observation import Observation
 from ..likelihood.mosaic_likelihood import (
     LikelihoodBuilder,
     build_likelihood_from_sky_beamer,
 )
-from ..mosaicing.sky_beamer import SkyBeamer, build_sky_beamer
+from ..mosaicing.sky_beamer import BeamPattern, SkyBeamer
 from ..phase_shift import assign_shift_groups, build_phase_shift
 from ..multimessanger import (
     RadioSkyExtractor,
@@ -47,9 +50,10 @@ from ..multimessanger import (
     build_radio_sky_extractor,
 )
 from ..telescopes.primary_beam import (
+    build_beam,
     build_primary_beam_pattern_from_beam_pattern_config,
 )
-from ..util import cast_to_dtype
+from ..util import calculate_phase_offset_to_image_center, cast_to_dtype
 from .mosaic_likelihood import (
     VariableLikelihoodBuilder,
     build_likelihood_from_sky_beamer,
@@ -207,19 +211,26 @@ def build_radio_likelihood(
         )
         observations = [o for _, o in loaded]
 
-        # TODO: The following lines have to be simplified.
         beam_func = build_primary_beam_pattern_from_beam_pattern_config(
             BeamPatternConfig.from_yaml_dict(cfg[data_key][data_name]["dish"])
         )
-
-        _sky_beamer = build_sky_beamer(
-            sky_shape_with_dtype=radio_sky_extractor.target,
-            sky_wcs=radio_grid.spatial,
-            sky_frequency_means=radio_grid.spectral.center,
-            observations=observations,
-            beam_func=beam_func,
-            direction_key=direction_key,
-            field_name_prefix=data_name,
+        fields = _fields(data_name, observations, direction_key)
+        _sky_beamer = SkyBeamer(
+            radio_sky_extractor.target,
+            {
+                field_name: BeamPattern(
+                    *calculate_phase_offset_to_image_center(
+                        radio_grid.spatial.center,
+                        SkyCoord(
+                            *(pointing.phase_center * u.rad),
+                            frame=radio_grid.spatial.center.frame,
+                        ),
+                    ),
+                    build_beam(pointing, radio_grid, beam_func),
+                    pointing,
+                )
+                for field_name, pointing in fields
+            },
         )
         sky_beamers.append(_sky_beamer)
 
@@ -257,3 +268,27 @@ def build_radio_likelihood(
         radio_sky_extractor=radio_sky_extractor,
         _names=names,
     )
+
+
+def _fields(
+    prefix: str, observations: list[Observation], direction_key: str
+) -> list[tuple[str, Direction]]:
+    """The pointings of `observations` in the order they first appear, each with
+    its field name.
+
+    A name taken twice gets the index of the pointing; that suffixed name can
+    still collide (pointings `SRC`, `SRC_2`, `SRC`), and then the later
+    pointing replaces the earlier one in the sky beamer, as before."""
+    # `Direction` defines `__eq__` only, so pairs and not a dict
+    fields = []
+    for o in observations:
+        pointing = o.direction_from_key(direction_key)
+        if not any(p == pointing for _, p in fields):
+            name = o.direction.name
+            name = f"fld_{len(fields):04}" if name == "" else name
+            if prefix != "":
+                name = f"{prefix}_{name}"
+            if any(f == name for f, _ in fields):
+                name = f"{name}_{len(fields)}"
+            fields.append((name, pointing))
+    return fields

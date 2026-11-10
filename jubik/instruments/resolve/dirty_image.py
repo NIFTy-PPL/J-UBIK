@@ -26,7 +26,7 @@ from ...grid import Grid
 from .conventions import RESPONSE_SKY_UNIT, RESPONSE_SPATIAL_UNIT
 from .data import Observation
 from .parse import Ducc0Settings, FinufftSettings
-from .response import _hermitian_adjoint, interferometry_response
+from .response import interferometry_response, response_adjoint
 
 
 def dirty_image(
@@ -64,7 +64,7 @@ def dirty_image(
 
     primals = d * w / jnp.sum(w)
     res = (
-        _hermitian_adjoint(R, response_primal, primals)
+        response_adjoint(R, primals, response_primal)
         / vol**2
         * RESPONSE_SKY_UNIT
     )

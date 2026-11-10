@@ -16,3 +16,4 @@
 
 
 from .radio_likelihood import build_radio_likelihood
+from .visibility_likelihood import build_likelihood
