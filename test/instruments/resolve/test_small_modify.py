@@ -300,3 +300,19 @@ def test_convert_with_real_resolve():
     assert isinstance(classic, rve.Observation)
     assert classic.nrow == obs.nrow
     assert_array_equal(classic.vis.val, obs.vis)
+
+
+def test_convert_classic_unit_boundary(classic_module, monkeypatch):
+    from astropy import units as u
+
+    obs = build_obs()
+    original_uvw = obs.antenna_positions.uvw.copy()
+    original_freq = obs.freq.copy()
+    # Simulate different JuBIK storage conventions at the adapter boundary.
+    monkeypatch.setattr(classic_module, "OBSERVATION_UVW_UNIT", u.km)
+    monkeypatch.setattr(classic_module, "OBSERVATION_FREQ_UNIT", u.GHz)
+    classic = classic_module.convert_to_classic_observation(obs)
+    assert_allclose(classic.args[0].args[0][0], original_uvw * 1000)
+    assert_allclose(classic.args[4], original_freq * 1e9)
+    assert_array_equal(obs.antenna_positions.uvw, original_uvw)
+    assert_array_equal(obs.freq, original_freq)
