@@ -1,5 +1,6 @@
 """The Gaussian likelihood of one observation given predicted visibilities."""
 
+import jax
 import nifty.re as jft
 
 from ..data.observation import Observation
@@ -7,31 +8,33 @@ from ..data.observation import Observation
 
 def build_likelihood(
     observation: Observation,
-    visibilities: jft.Model,
+    predicted_visibilities: jft.Model,
     inverse_std: jft.Model | None = None,
 ) -> jft.Likelihood:
     """The Gaussian likelihood of the visibilities of `observation`.
 
     The likelihood knows the data and the noise only: what predicts the
     visibilities (sky, shift, gains, or fixed model visibilities times gains)
-    is the caller's `visibilities` model.
+    is the caller's `predicted_visibilities` model.
+    Flagged points (weight 0) are left out.
 
     Parameters
     ----------
     observation: Observation
         The observed visibilities and their weights.
-    visibilities: jft.Model
+    predicted_visibilities: jft.Model
         The predicted visibilities, shape of `observation.vis`.
     inverse_std: jft.Model | None
         The inferred inverse noise standard deviation per real and imaginary
-        part, see `factory_noise_correction_model`; None uses the weights of
-        `observation`. With it the energy has the normalization
-        `-2 sum(log inverse_std)`: two real numbers per visibility.
+        part, shape of `observation.vis`, see `factory_noise_correction_model`;
+        None uses the weights of `observation`. With it the energy has the
+        normalization `-2 sum(log inverse_std)`: two real numbers per visibility.
 
     Raises
     ------
     ValueError
-        If `visibilities` does not predict the shape of the data.
+        If `predicted_visibilities` or `inverse_std` does not have the shape
+        of the data.
 
     Examples
     --------
@@ -61,21 +64,37 @@ def build_likelihood(
     >>> lh = connect_likelihood_to_model(lh, sky_model)
     """
     data = observation.vis.val.val
-    predicted = tuple(visibilities.target.shape)
+    predicted = tuple(predicted_visibilities.target.shape)
     if predicted != data.shape:
         raise ValueError(f"predicted visibilities {predicted}, data {data.shape}")
+    # flagged points (weight 0) may hold NaN visibilities, so leave them out
+    good = observation.mask_val
+    data = data[good]
 
     if inverse_std is None:
-        weight = observation.weight.val.val
+        weight = observation.weight.val.val[good]
         likelihood = jft.Gaussian(data, noise_cov_inv=lambda x: x * weight)
-        domain = visibilities.domain
+        domain = predicted_visibilities.domain
+        model = jft.Model(
+            lambda x: predicted_visibilities(x)[good], init=predicted_visibilities.init
+        )
         # named latents as a `Vector`, so likelihoods sum and connect to models
         domain = jft.Vector(domain) if isinstance(domain, dict) else domain
-        return likelihood.amend(visibilities, domain=domain)
+        return likelihood.amend(model, domain=domain)
+
+    # a broadcast inverse_std would count its log normalization once, not per visibility
+    noise = tuple(inverse_std.target.shape)
+    if noise != observation.vis.shape:
+        raise ValueError(f"inverse_std {noise}, data {observation.vis.shape}")
+
+    def init(key):  # nifty's `|` of initializers fails on callable ones
+        key_vis, key_noise = jax.random.split(key)
+        return predicted_visibilities.init(key_vis) | inverse_std.init(key_noise)
 
     model = jft.Model(
-        lambda x: (visibilities(x), inverse_std(x)),
-        domain=visibilities.domain | inverse_std.domain,
+        lambda x: (predicted_visibilities(x)[good], inverse_std(x)[good]),
+        domain=predicted_visibilities.domain | inverse_std.domain,
+        init=init,
     )
     likelihood = jft.VariableCovarianceGaussian(data)
     return likelihood.amend(model, domain=jft.Vector(model.domain))
