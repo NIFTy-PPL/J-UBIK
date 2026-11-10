@@ -19,17 +19,75 @@ default:
     # `pip install --group` needs pip >= 25.1 (PEP 735).
     - python3 -m pip install --upgrade pip
 
-# Jobs normally take under 5 minutes; `timeout` is set per job because GitLab
-# ignores it under `default:`. One job for all tests: jobs mostly run one after
-# another on the shared runners, so a separate JWST job would only add an install.
+# Matrix jobs appear together under `test`, with separate logs and retries.
 test:
   stage: test
   timeout: 20 minutes
+  parallel:
+    matrix:
+      - TEST_GROUP: [sky-models, geometry, chandra, jwst, resolve, gaia, conventions, misc]
   script:
     - python3 -m pip install -e .[all] --group test
-    # A fixed worker count: `auto` would start one JAX process per host CPU.
-    - pytest -n 4 --cov=jubik test/
+    - |
+      case "$TEST_GROUP" in
+        sky-models)
+          set -- test/sky_model/ test/test_sky_model.py test/test_sky_filter.py
+          ;;
+        geometry)
+          set -- test/wcs/ test/parse/wcs/ test/test_demo_geometry.py \
+            test/test_sht.py test/test_cunusht_sht.py test/test_slice_patches.py
+          ;;
+        chandra|jwst|resolve|gaia)
+          set -- "test/instruments/$TEST_GROUP/"
+          ;;
+        conventions)
+          set -- test/conventions/
+          ;;
+        misc)
+          # The remainder also picks up new tests outside the named groups.
+          set -- test/ --ignore=test/sky_model/ \
+            --ignore=test/instruments/chandra/ --ignore=test/instruments/jwst/ \
+            --ignore=test/instruments/resolve/ --ignore=test/instruments/gaia/ \
+            --ignore=test/conventions/ --ignore=test/test_sky_model.py \
+            --ignore=test/test_sky_filter.py \
+            --ignore=test/wcs/ --ignore=test/parse/wcs/ \
+            --ignore=test/test_demo_geometry.py --ignore=test/test_sht.py \
+            --ignore=test/test_cunusht_sht.py --ignore=test/test_slice_patches.py
+          ;;
+        *)
+          echo "Unknown test group: $TEST_GROUP" >&2
+          exit 1
+          ;;
+      esac
+      mkdir -p "coverage/$TEST_GROUP"
+      export COVERAGE_FILE="$CI_PROJECT_DIR/coverage/$TEST_GROUP/.coverage.$TEST_GROUP"
+      # A fixed worker count: `auto` would start one JAX process per host CPU.
+      pytest -n 4 --cov=jubik --junitxml="coverage/$TEST_GROUP/junit.xml" "$@"
+  artifacts:
+    when: always
+    paths:
+      - coverage/$TEST_GROUP/.coverage.$TEST_GROUP
+    reports:
+      junit: coverage/$TEST_GROUP/junit.xml
+
+# Merge the matrix results instead of averaging the individual coverage rates.
+test-coverage:
+  stage: release
+  timeout: 5 minutes
+  needs:
+    - job: test
+      artifacts: true
+  script:
+    - python3 -m pip install coverage
+    - python3 -m coverage combine coverage/*/
+    - python3 -m coverage report
+    - python3 -m coverage xml -o coverage.xml
   coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+%)$/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
 
 demos:
   stage: test
