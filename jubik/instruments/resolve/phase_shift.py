@@ -1,6 +1,7 @@
 """Learnable phase shift of the model visibilities: an offset shared by every
 file, plus one shift per optional shift group."""
 
+import logging
 from collections import defaultdict
 from collections.abc import Iterable
 
@@ -8,7 +9,7 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from astropy import units as u
-from nifty.cl.logger import logger
+from nifty.re import logger
 
 from ...models.distributions import build_parametric_prior_from_prior_config
 from ...parse.models.distributions.distributions import ProbabilityConfig
@@ -16,6 +17,8 @@ from .data.observation import Observation
 from .parse.data.data_loading import DataFile
 from .parse.phase_shift import OFFSET_KEY, SHIFT_SHAPE, PhaseShiftConfig, ShiftGroup
 from .util import cast_to_dtype
+
+logger.setLevel(logging.INFO)
 
 
 # --------------------------------------------------------------------------------------
