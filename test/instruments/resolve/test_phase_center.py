@@ -1,11 +1,13 @@
 import numpy as np
 import pytest
 from astropy import units as u
+from astropy.constants import c
 from astropy.coordinates import SkyCoord
 from numpy.testing import assert_allclose, assert_array_equal
 
 import jubik as ju
 import jubik.instruments.resolve as rve
+from jubik.instruments.resolve.conventions import RESPONSE_SPATIAL_UNIT
 from jubik.instruments.resolve.data.data_modify.phase_center import (
     ShiftObservation,
     shift_phase_center,
@@ -15,7 +17,7 @@ from generate_test_obs import generate_random_obs
 
 pmp = pytest.mark.parametrize
 
-SPEEDOFLIGHT = 299792458.0
+SPEEDOFLIGHT = c.to_value(u.m / u.s)
 
 
 def build_obs(n_rows=5, n_freq=3, uv_range=(-1.0e3, 1.0e3), w_range=(-5.0, 5.0)):
@@ -160,7 +162,7 @@ def point_source_sky(grid, di, dj):
     """Unit flux delta `di`/`dj` pixels off the image center."""
     sky = np.zeros(grid.shape)
     cx, cy = grid.shape[3] // 2, grid.shape[4] // 2
-    dvol = grid.spatial.dvol.to(u.rad**2).value
+    dvol = grid.spatial.dvol.to(RESPONSE_SPATIAL_UNIT**2).value
     sky[:, :, :, cx + di, cy + dj] = 1.0 / dvol
     return sky
 
@@ -174,7 +176,7 @@ def test_response_phase_convention_uses_east_north_offsets(di, dj):
     vis_ducc = np.asarray(r_ducc(point_source_sky(grid, di, dj)))
     vis_finufft = np.asarray(r_finufft(point_source_sky(grid, di, dj)))
 
-    dx, dy = grid.spatial.pixel_scales_xy.to(u.rad).value
+    dx, dy = grid.spatial.pixel_scales_xy.to(RESPONSE_SPATIAL_UNIT).value
     x_east, y_north = -dj * dx, di * dy
     uu, vv = uv_in_wavelengths(obs)
     expected = np.broadcast_to(
@@ -199,7 +201,7 @@ def test_shift_centers_point_source_of_the_jubik_response(di, dj):
     np.random.seed(106 + di + dj)
     grid, obs, r_ducc, _ = build_response_setup()
 
-    dx, dy = grid.spatial.pixel_scales_xy.to(u.rad).value
+    dx, dy = grid.spatial.pixel_scales_xy.to(RESPONSE_SPATIAL_UNIT).value
     x_east, y_north = -dj * dx, di * dy
 
     data = replace_data(obs, np.asarray(r_ducc(point_source_sky(grid, di, dj))))
@@ -218,7 +220,7 @@ def test_shift_moves_center_source_to_the_given_offset():
     di, dj = 2, -6
     grid, obs, r_ducc, _ = build_response_setup()
 
-    dx, dy = grid.spatial.pixel_scales_xy.to(u.rad).value
+    dx, dy = grid.spatial.pixel_scales_xy.to(RESPONSE_SPATIAL_UNIT).value
     x_east, y_north = -dj * dx, di * dy
 
     data = replace_data(obs, np.asarray(r_ducc(point_source_sky(grid, 0, 0))))

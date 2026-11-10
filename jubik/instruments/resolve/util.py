@@ -22,6 +22,8 @@ import jax.numpy as jnp
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 
+from .conventions import RESPONSE_SPATIAL_UNIT
+
 
 def cast_to_dtype(tree, dtype=jnp.float32):
     return jax.tree.map(lambda x: x.astype(dtype), tree)
@@ -134,8 +136,8 @@ def calculate_phase_offset_to_image_center(
     r = sky_center.separation(phase_center)
     phi = sky_center.position_angle(phase_center)
     # FIXME: center (x, y) switch maybe because of the ducc0 fft?
-    center_y = r.to(u.rad).value * np.cos(phi.to(u.rad).value)
-    center_x = r.to(u.rad).value * np.sin(phi.to(u.rad).value)
+    center_y = r.to(RESPONSE_SPATIAL_UNIT).value * np.cos(phi.to(u.rad).value)
+    center_x = r.to(RESPONSE_SPATIAL_UNIT).value * np.sin(phi.to(u.rad).value)
 
     if np.isnan(center_x) or np.isnan(center_y):
         return 0.0, 0.0

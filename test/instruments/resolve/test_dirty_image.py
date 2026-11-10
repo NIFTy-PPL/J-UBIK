@@ -8,6 +8,7 @@ from numpy.testing import assert_allclose
 
 import jubik as ju
 import jubik.instruments.resolve as rve
+from jubik.instruments.resolve.conventions import RESPONSE_SPATIAL_UNIT
 from jubik.instruments.resolve.data import AntennaPositions, Observation
 from jubik.polarization import Polarization, PolarizationType
 from jubik.wcs import WcsAstropy
@@ -59,7 +60,7 @@ def test_dirty_image_preserves_off_center_source_position():
 
     source_position = (7, 15)
     sky = np.zeros(grid.shape)
-    sky[0, 0, 0, *source_position] = 1.0 / grid.spatial.dvol.to(u.rad**2).value
+    sky[0, 0, 0, *source_position] = 1.0 / grid.spatial.dvol.to(RESPONSE_SPATIAL_UNIT**2).value
     visibilities = np.asarray(sky_to_vis(jnp.asarray(sky)))
     observation = Observation(
         antenna_positions,

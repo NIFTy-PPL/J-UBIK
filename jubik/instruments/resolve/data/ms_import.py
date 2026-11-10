@@ -357,7 +357,7 @@ def read_ms_i(
 
             start, realstart = stop, realstop
 
-    # UVW
+    # Measurement Set UVW values are stored in metres.
     with ms_table(name) as t:
         uvw = np.ascontiguousarray(t.getcol("UVW")[active_rows])
 
@@ -478,7 +478,7 @@ def _ms_nchannels(ms, spectral_window):
 
 
 def _ms_channels(ms, spectral_window):
-    """Return frequencies of channels in a given spectral window of a measurement set."""
+    """Return channel frequencies in Hz for a spectral window of a Measurement Set."""
     with ms_table(join(ms, "SPECTRAL_WINDOW")) as t:
         freq = t.getcol("CHAN_FREQ", startrow=spectral_window, nrow=1)[0]
     my_asserteq(freq.ndim, 1)

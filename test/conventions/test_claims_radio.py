@@ -42,6 +42,7 @@ from radio_anchor import (
 )
 
 from jubik.grid import Grid
+from jubik.instruments.resolve.conventions import RESPONSE_SPATIAL_UNIT
 from jubik.instruments.resolve.dirty_image import dirty_image
 from jubik.instruments.resolve.parse.response import Ducc0Settings
 from jubik.instruments.resolve.response import (
@@ -110,7 +111,7 @@ def test_rectangle_response_matches_measurement_equation(di, dj):
     """Full ``interferometry_response`` on an anisotropic rectangle."""
     grid, R = _rect_response()
     n_dec, n_ra = RECT_SHAPE
-    d_dec, d_ra = grid.spatial.pixel_scales_yx.to(u.rad).value
+    d_dec, d_ra = grid.spatial.pixel_scales_yx.to(RESPONSE_SPATIAL_UNIT).value
     vis = np.asarray(R(point_cube(RECT_SHAPE, n_dec // 2 + di, n_ra // 2 + dj))).ravel()
     np.testing.assert_allclose(
         vis, predicted_vis(di, dj, d_ra, d_dec, uvw=_RECT_UVW), rtol=1e-4, atol=1e-13,
@@ -143,7 +144,7 @@ def _rect_glyph(grid, scale=1.5):
 def _analytic_glyph_vis(grid, glyph, uvw):
     """Visibilities of the glyph in the external (CASA) convention."""
     n_dec, n_ra = RECT_SHAPE
-    d_dec, d_ra = grid.spatial.pixel_scales_yx.to(u.rad).value
+    d_dec, d_ra = grid.spatial.pixel_scales_yx.to(RESPONSE_SPATIAL_UNIT).value
     V = np.zeros(uvw.shape[0], np.complex128)
     for i, j in np.argwhere(glyph > 0):
         V += glyph[i, j] * predicted_vis(i - n_dec // 2, j - n_ra // 2, d_ra, d_dec, uvw=uvw)

@@ -34,7 +34,7 @@ from radio_anchor import (
     stub_backend,
 )
 
-from jubik.instruments.resolve.constants import RESOLVE_SKY_UNIT
+from jubik.instruments.resolve.conventions import RESPONSE_SKY_UNIT
 from jubik.instruments.resolve.dirty_image import dirty_image
 from jubik.instruments.resolve.response import (
     canonical_sky_to_visibilities,
@@ -138,7 +138,7 @@ def test_dirty_image_is_the_hermitian_adjoint():
     Rs = np.asarray(R(jnp.array(s)))
 
     dirty = dirty_image(obs, grid, DUCC, weighting="natural")
-    img = np.asarray(dirty.to(RESOLVE_SKY_UNIT).value)
+    img = np.asarray(dirty.to(RESPONSE_SKY_UNIT).value)
     vol = grid.spatial.dvol.value
     p = d / nrow
 

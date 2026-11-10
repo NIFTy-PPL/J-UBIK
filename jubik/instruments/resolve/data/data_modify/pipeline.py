@@ -6,13 +6,13 @@ import astropy.units as u
 from nifty.cl.logger import logger
 
 from .....color import Color
-from ...constants import RESOLVE_SPECTRAL_UNIT
 from ...parse.data.data_loading import DataFile
 from ...parse.data.data_modify import ObservationModifyConfig
 from ...parse.data.data_modify.flagging import FlagWeights
 from ...parse.data.data_modify.frequency import SpectralModify
 from ...parse.data.data_modify.visibility_subset import SelectSubset
 from ...parse.data.data_modify.weights import SystematicErrorBudget
+from ...conventions import OBSERVATION_FREQ_UNIT
 from ..observation import Observation
 from .flagging import flag_weights
 from .frequency import (
@@ -115,8 +115,9 @@ def modify_observation(
 
     Parameters
     ----------
-    sky_frequencies: list[float]
-        The frequencies of the sky model, in [Hz].
+    sky_frequencies: Color
+        The frequencies of the sky model. They are converted to the unit in
+        which the observation frequencies are stored (Hz).
     obs: Observation
         The observation to be modified
     modify: ObservationModify
@@ -142,7 +143,7 @@ def modify_observation(
         )
     if modify.spectral.spectral_restrict_to_sky_frequencies:
         freqs_in_unit = sky_frequencies.to(
-            RESOLVE_SPECTRAL_UNIT, equivalencies=u.spectral()
+            OBSERVATION_FREQ_UNIT, equivalencies=u.spectral()
         ).value
         obs = restrict_by_freq(obs, freqs_in_unit[0], freqs_in_unit[-1])
 

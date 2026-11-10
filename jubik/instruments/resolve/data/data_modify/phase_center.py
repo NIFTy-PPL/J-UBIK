@@ -4,9 +4,9 @@ from dataclasses import dataclass
 
 import numpy as np
 from astropy import units as u
-from astropy.constants import c as speedoflight
 from nifty.re import logger
 
+from ...conventions import RESPONSE_SPATIAL_UNIT
 from ..observation import Observation
 
 
@@ -53,11 +53,10 @@ def shift_phase_center(obs: Observation, shift: ShiftObservation | None) -> Obse
         return obs
 
     logger.info(f"Shift phase center by {shift.shift}")
-    uvw = np.transpose((obs.uvw[..., None] * obs.freq / speedoflight.value), (0, 2, 1))
-    uvw = np.array([uvw[None, :, :, ii] for ii in range(3)])
+    uvw = obs.effective_uvw()[:, None, :, :]
     assert len(uvw[0].shape) == 3, "Check the polarization axis."
 
-    center_x, center_y = shift.shift.to(u.rad).value
+    center_x, center_y = shift.shift.to(RESPONSE_SPATIAL_UNIT).value
 
     prefactor = np.exp(2j * np.pi * (uvw[0] * center_x - uvw[1] * center_y))
 

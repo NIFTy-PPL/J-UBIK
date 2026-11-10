@@ -25,7 +25,6 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
-from ..constants import RESOLVE_SPECTRAL_UNIT
 from ..data.data_modify.frequency import restrict_by_freq
 from ..data.direction import Direction
 from ..data.observation import Observation
@@ -82,7 +81,7 @@ def build_sky_beamer(
     direction_key: str = "REFERENCE_DIR",
     field_name_prefix: str = "",
 ) -> SkyBeamer:
-    """Builds the SkyBeamer. The SkyBeamer contains holds an array for each
+    """Builds the SkyBeamer. The SkyBeamer holds an array for each
     pointing containing the beam pattern for the mean of all
     `sky_frequency_means`.
 
@@ -161,7 +160,7 @@ def build_sky_beamer(
         for ff in range(fshape):
             freq_mean = (
                 sky_frequency_means[ff]
-                .to(RESOLVE_SPECTRAL_UNIT, equivalencies=u.spectral())
+                .to(u.Hz, equivalencies=u.spectral())
                 .value
             )
             beam = beam_func(freq=freq_mean, x=x)

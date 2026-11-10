@@ -15,6 +15,7 @@ from numpy.testing import assert_allclose
 
 import jubik as ju
 import jubik.instruments.resolve as rve
+from jubik.instruments.resolve.conventions import RESPONSE_SPATIAL_UNIT
 from jubik.instruments.resolve.data.auxiliary_table import AuxiliaryTable
 from jubik.instruments.resolve.parse.response import CufinufftSettings
 from jubik.instruments.resolve.response import (
@@ -227,7 +228,7 @@ def test_point_source_at_phase_center(freqs, pol_sky, pol_channels, to_data):
     source = np.random.normal(size=len(pol_sky))
     sky = np.zeros(grid.shape)
     cx, cy = grid.shape[3] // 2, grid.shape[4] // 2
-    dvol = grid.spatial.dvol.to(u.rad**2).value
+    dvol = grid.spatial.dvol.to(RESPONSE_SPATIAL_UNIT**2).value
     sky[:, 0, :, cx, cy] = source[:, None] / dvol
 
     vis = np.asarray(jax.jit(r_cufinufft)(on_device(sky, "cuda")))

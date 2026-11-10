@@ -16,8 +16,9 @@
 
 import nifty.cl as ift
 import numpy as np
+import astropy.units as u
 
-from ..constants import AS2RAD, DEG2RAD, SPEEDOFLIGHT
+from ..conventions import OBSERVATION_FREQ_UNIT, OBSERVATION_UVW_UNIT
 from ..util import (
     compare_attributes,
     my_assert,
@@ -41,13 +42,15 @@ class BaseObservation:
     @property
     def vis_val(self):
         """numpy.ndarray : Array that contains all data points including
-        potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`."""
+        potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`.
+        """
         return self._vis
 
     @property
     def vis(self):
         """nifty.cl.Field : Field that contains all data points including
-        potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`."""
+        potentially flagged ones.  Shape: `(npol, nrow, nchan)`, dtype: `numpy.complexfloating`.
+        """
         return ift.makeField(self._dom, self._vis)
 
     @property
@@ -77,7 +80,9 @@ class BaseObservation:
     @property
     def freq(self):
         """numpy.ndarray: One-dimensional array that contains the observing
-        frequencies. Shape: `(nchan,), dtype: `np.float64`."""
+        frequencies in Hz as bare numerical values.
+        Shape: ``(nchan,)``, dtype: ``np.float64``.
+        """
         return self._freq
 
     @property
@@ -231,7 +236,7 @@ class Observation(BaseObservation):
     Parameters
     ----------
     antenna_positions : AntennaPositions
-        Contains all information on antennas and baselines.
+        Contains all information on antennas and baselines; UVW values are in metres.
     vis : numpy.ndarray
         Contains the measured visibilities. Shape (n_polarizations, n_rows, n_channels)
     weight : numpy.ndarray
@@ -240,13 +245,16 @@ class Observation(BaseObservation):
     polarization : Polarization
         Polarization information of the data set.
     freq : numpy.ndarray
-        Contains the measured frequencies. Shape (n_channels)
+        Contains the measured frequencies in Hz as bare numerical values.
+        Shape (n_channels)
     auxiliary_tables : dict
         Dictionary of auxiliary tables. Default: None.
 
     Note
     ----
-    vis and weight must have the same shape.
+    vis and weight must have the same shape. Frequencies and UVW coordinates
+    are stored as numerical arrays in Hz and metres, respectively. Readers must
+    convert to this convention before constructing an Observation.
     """
 
     def __init__(
@@ -395,6 +403,7 @@ class Observation(BaseObservation):
         return Observation(
             ap, vis, wgt, self._polarization, self._freq, self._auxiliary_tables
         )
+
     # # TODO: Delete this functionality
 
     @property
@@ -406,6 +415,7 @@ class Observation(BaseObservation):
 
     @property
     def uvw(self):
+        """Baseline coordinates in metres as a numerical array of shape (nrow, 3)."""
         return self._antpos.uvw
 
     @property
@@ -490,12 +500,18 @@ class Observation(BaseObservation):
         return self._auxiliary_tables["ANTENNA"]["POSITION"]
 
     def effective_uvw(self):
-        out = np.einsum("ij,k->jik", self.uvw, self._freq / SPEEDOFLIGHT)
+        """Return baselines in multiples of wavelengths, with shape (3, nrow, nfreq)."""
+        frequencies = self.freq * OBSERVATION_FREQ_UNIT
+        wavelengths = frequencies.to(OBSERVATION_UVW_UNIT, equivalencies=u.spectral())
+        out = np.einsum("ij,k->jik", self.uvw, 1 / wavelengths.value)
         my_asserteq(out.shape, (3, self.nrow, self.nfreq))
         return out
 
     def effective_uvwlen(self):
-        arr = np.outer(self.uvwlen(), self._freq / SPEEDOFLIGHT)
+        """Return baseline lengths in multiples of wavelengths on the visibility domain."""
+        frequencies = self.freq * OBSERVATION_FREQ_UNIT
+        wavelengths = frequencies.to(OBSERVATION_UVW_UNIT, equivalencies=u.spectral())
+        arr = np.outer(self.uvwlen(), 1 / wavelengths.value)
         arr = np.broadcast_to(arr[None], self._dom.shape)
         return ift.makeField(self._dom, arr)
 
@@ -503,20 +519,30 @@ class Observation(BaseObservation):
         return np.linalg.norm(self.uvw, axis=1)
 
     def __str__(self):
-        short0 = self.uvwlen().min()
-        long0 = self.uvwlen().max()
+        baseline_min = self.uvwlen().min() * OBSERVATION_UVW_UNIT
+        baseline_max = self.uvwlen().max() * OBSERVATION_UVW_UNIT
 
-        short1 = 1 / (short0 * self.freq.min() / SPEEDOFLIGHT)
-        long1 = 1 / (long0 * self.freq.max() / SPEEDOFLIGHT)
+        freq_min = self.freq.min() * OBSERVATION_FREQ_UNIT
+        freq_max = self.freq.max() * OBSERVATION_FREQ_UNIT
+
+        angular_scale_min = (
+            freq_max.to(OBSERVATION_UVW_UNIT, equivalencies=u.spectral()) / baseline_max
+        ).to_value(u.dimensionless_unscaled) * u.rad
+        angular_scale_max = (
+            freq_min.to(OBSERVATION_UVW_UNIT, equivalencies=u.spectral()) / baseline_min
+        ).to_value(u.dimensionless_unscaled) * u.rad
 
         s = [
             f"Source name:\t\t{self.source_name}",
             f"Visibilities shape:\t{self.vis.shape}",
             f"# visibilities:\t{self.vis.size}",
-            f"Frequency range:\t{self.freq.min() * 1e-6:.3f} -- {self.freq.max() * 1e-6:.3f} MHz",
+            f"Frequency range:\t{freq_min.to_value(u.MHz):.3f} -- "
+            f"{freq_max.to_value(u.MHz):.3f} MHz",
             "Polarizations:\t" + ", ".join(self.vis.domain[0].labels),
-            f"Shortest baseline:\t{short0:.1f} m -> {short1 / DEG2RAD:.3f} deg",
-            f"Longest baseline:\t{long0:.1f} m -> {long1 / AS2RAD:.3f} arcsec",
+            f"Shortest baseline:\t{baseline_min.to_value(u.m):.1f} m -> "
+            f"{angular_scale_max.to_value(u.deg):.3f} deg",
+            f"Longest baseline:\t{baseline_max.to_value(u.m):.1f} m -> "
+            f"{angular_scale_min.to_value(u.arcsec):.3f} arcsec",
         ]
         flagged = 1 - self.fraction_useful()
         if flagged == 0.0:
