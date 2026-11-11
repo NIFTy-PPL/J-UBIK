@@ -220,3 +220,21 @@ def test_is_single_feed_false(typ):
 def test_polarization_type_length_and_shape(typ):
     assert len(typ) == len(typ.value)
     assert typ.shape == (len(typ.value),)
+
+
+@pmp("typ,codes", [
+    (PolarizationType.Q_U, [2, 3]),
+    (PolarizationType.U_Q, [3, 2]),
+    (PolarizationType.U_V, [3, 4]),
+    (PolarizationType.V_U, [4, 3]),
+    (PolarizationType.RL_LR, [6, 7]),
+    (PolarizationType.LR_RL, [7, 6]),
+    (PolarizationType.XY_YX, [10, 11]),
+    (PolarizationType.YX_XY, [11, 10]),
+])
+def test_polarized_subset_metadata_roundtrip(typ, codes):
+    metadata = typ.get_legacy_polarization()
+    assert metadata.to_list() == codes
+    assert metadata.to_str_list() == list(typ.value)
+    assert PolarizationType.from_polarization_object(metadata) is typ
+    assert not typ.is_single_feed
