@@ -238,3 +238,43 @@ def test_polarized_subset_metadata_roundtrip(typ, codes):
     assert metadata.to_str_list() == list(typ.value)
     assert PolarizationType.from_polarization_object(metadata) is typ
     assert not typ.is_single_feed
+
+
+@pmp("inputs", [("I",), ("Q", "U"), ("V", "U"), ("V", "I", "U", "Q")])
+@pmp("outputs", [("RR", "RL", "LR", "LL"), ("YY", "XY", "YX", "XX"), ("V", "I")])
+def test_zero_filled_model_builder(inputs, outputs):
+    import jax
+    import jax.numpy as jnp
+    import numpy as np
+    from numpy.testing import assert_allclose
+    from jubik.instruments.resolve.polarization_space import build_polarization_conversion
+
+    values = np.arange(1, len(inputs)*6+1).reshape(len(inputs), 2, 3)
+    values = jnp.asarray(values + 1j*values, dtype=jnp.complex64)
+    stokes = {label: values[inputs.index(label)] if label in inputs else 0
+              for label in "IQUV"}
+    i, q, u, v = (stokes[label] for label in "IQUV")
+    products = dict(stokes, RR=i+v, LL=i-v, RL=q+1j*u, LR=q-1j*u,
+                    XX=i+q, YY=i-q, XY=u+1j*v, YX=u-1j*v)
+    expected = np.stack([np.broadcast_to(products[label], (2, 3)) for label in outputs])
+    convert = build_polarization_conversion(inputs, outputs, assume_missing_stokes_zero=True)
+    actual = jax.jit(convert)(values)
+    assert actual.dtype == jnp.complex64
+    assert_allclose(actual, expected)
+
+
+def test_conversion_builder_constructs_matrix_once(monkeypatch):
+    import jax
+    import jax.numpy as jnp
+    from numpy.testing import assert_allclose
+    import jubik.instruments.resolve.polarization_space as polarization
+
+    convert = polarization.build_polarization_conversion(("RR", "LL"), ("V", "I"))
+
+    def fail_if_rebuilt(*args, **kwargs):
+        raise AssertionError("Matrix must not be rebuilt when applying conversion")
+
+    monkeypatch.setattr(polarization, "polarization_matrix", fail_if_rebuilt)
+    values = jnp.array([[10+2j], [6-2j]], dtype=jnp.complex64)
+    assert_allclose(convert(values), [[2+2j], [8]])
+    assert_allclose(jax.jit(convert)(values), [[2+2j], [8]])
