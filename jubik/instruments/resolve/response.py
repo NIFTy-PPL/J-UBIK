@@ -25,6 +25,7 @@ from jax.tree_util import Partial, tree_map
 
 from ...color import get_2d_binbounds
 from ...grid import Grid, PolarizationType
+from .polarization_space import build_polarization_conversion
 from .conventions import (
     RESPONSE_SPATIAL_UNIT,
     RESPONSE_SPECTRAL_UNIT,
@@ -53,38 +54,6 @@ def get_binbounds(size, coordinates):
     bounds[0] = coords[0] - 0.5 * (coords[1] - coords[0])
     bounds[-1] = coords[-1] + 0.5 * (coords[-1] - coords[-2])
     return bounds
-
-
-def convert_polarization(
-    inp: Array, inp_pol: PolarizationType, out_pol: PolarizationType
-):
-    if inp_pol == PolarizationType(("I", "Q", "U", "V")):
-        if out_pol == PolarizationType(("RR", "RL", "LR", "LL")):
-            mat_stokes_to_circular = jnp.array(
-                [[1, 0, 0, 1], [0, 1, 1, 0], [0, 1j, -1j, 0], [1, 0, 0, -1]]
-            )
-            return jnp.tensordot(mat_stokes_to_circular, inp, axes=([0], [0]))
-
-        elif out_pol == PolarizationType(("XX", "XY", "YX", "YY")):
-            mat_stokes_to_linear = jnp.array(
-                [[1, 0, 0, 1], [1, 0, 0, -1], [0, 1, 1, 0], [0, 1j, -1j, 0]]
-            )
-            return jnp.tensordot(mat_stokes_to_linear, inp, axes=([0], [0]))
-
-    elif inp_pol == PolarizationType(("I",)):
-        if out_pol in (
-            PolarizationType.LL_RR,
-            PolarizationType.RR_LL,
-            PolarizationType.XX_YY,
-            PolarizationType.YY_XX,
-        ):
-            new_shp = list(inp.shape)
-            new_shp[0] = 2
-            return jnp.broadcast_to(inp, new_shp)
-        if out_pol.is_single_feed:
-            return inp
-    err = f"conversion of polarization {inp_pol} to {out_pol} not implemented. Please implement!"
-    raise NotImplementedError(err)
 
 
 def canonical_sky_to_visibilities(backend_apply, sky_canonical):
@@ -136,11 +105,23 @@ def interferometry_response(
     beam: Array | None = None,
     sky_key: str | None = None,
 ) -> jft.Model:
-    """The radio interferometric response: a sky on `sky_grid` to the model
-    visibilities of `observation`.
+    """Build the Stokes gridding and data-polarization conversion chain.
 
-    The response is linear in the sky; `response_adjoint` is its Hermitian
-    adjoint.
+    The response is linear in the sky; response_adjoint is its Hermitian
+    adjoint. An optional beam multiplies the sky before gridding, and
+    sky_key selects a sky from a keyed model input.
+
+    The gridding stage maps each real Stokes sky component independently to
+    complex visibilities of that same Stokes component. It does not mix
+    polarization components. A subsequent linear conversion maps the Stokes
+    visibilities to the observation's polarization products, assuming Stokes
+    components omitted from the sky model are zero.
+
+    This function currently composes both stages, so its returned callable
+    outputs the observation's polarization basis, not necessarily Stokes.
+    Polarization conversion is applied after gridding to keep complex
+    correlation sky planes out of backends that require real image inputs.
+    Direction-independent calibration factors are not applied here.
 
     Input sky frame is CANONICAL (``dim0 = +Dec``/North, ``dim1 = -RA``/West;
     see ``docs/source/user/canonical-sky-design.md``).  The response owns the conversion to the
@@ -154,8 +135,8 @@ def interferometry_response(
         The observation for which the response should compute model
         visibilities.
 
-    sky_domain: SkyDomain
-        Providing the information about the discretization of the sky.
+    sky_grid : Grid
+        Spatial, time, frequency discretization and Stokes information of the sky.
 
     backend_settings: Union[Ducc0Settings, FinufftSettings, CufinufftSettings]
         The backend_settings sets the type of backend, ducc0, finufft or
@@ -298,7 +279,10 @@ def interferometry_response(
         raise RuntimeError("This should not happen. Please report.")
 
     inp_pol = sky_grid.polarization
-    out_pol = observation.polarization
+    out_pol = observation.polarization_labels
+    convert_polarization = build_polarization_conversion(
+        inp_pol, out_pol, assume_missing_stokes_zero=True
+    )
 
     def apply_R(sky):
         res = jnp.empty(target_shape, dtype_float2complex(sky.dtype))
@@ -312,7 +296,7 @@ def interferometry_response(
                     r = canonical_sky_to_visibilities(op, inp)
                     r = r.astype(res.dtype)
                     res = res.at[pp, row_indices[tt][ff], freq_indices[tt][ff]].set(r)
-        return convert_polarization(res, inp_pol, out_pol)
+        return convert_polarization(res)
 
     sky = jft.ShapeWithDtype(sky_grid.shape, dtypes.canonicalize_dtype(float))
     response = apply_R if beam is None else lambda x: apply_R(beam * x)
