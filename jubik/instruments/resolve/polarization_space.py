@@ -11,126 +11,101 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Copyright(C) 2021 Max-Planck-Society
-# Author: Philipp Arras, Jakob Knollmüller
-
-"""Legacy classic NIFTy polarization domains and conversion operators.
-
-Use ``Polarization.labels`` for label-only access. Replacing these domain and
-operator interfaces is deferred to a polarization rework.
-"""
-
-import nifty.cl as ift
-import numpy as np
-
-from .util import my_assert
-
-
-class PolarizationSpace(ift.UnstructuredDomain):
-    """Classic NIFTy domain with ordered polarization labels.
+def polarization_matrix(inp_pol, out_pol, *, assume_missing_stokes_zero=False):
+    """Construct a polarization conversion matrix through full Stokes.
 
     Parameters
     ----------
-    polarization_labels : str or iterable of str
-        Polarization labels in axis order.
+    inp_pol, out_pol : PolarizationSpace, PolarizationType, Polarization, or labels
+        Input and output labels in their data-axis order. Inputs must belong
+        to one Stokes, circular, or linear basis. Subsets and permutations
+        are supported.
+    assume_missing_stokes_zero : bool, optional
+        False (default) requires exact conversion: every output must be
+        determined by the available inputs. True requires Stokes input and
+        treats omitted Stokes components as zero for model predictions.
+        For example, an I-only model then predicts RR = LL = I and zero
+        cross hands, whereas exact I -> RR conversion is underdetermined.
+
+    Returns
+    -------
+    jax.Array
+        Matrix of shape (n_output, n_input). Rows and columns follow the
+        supplied output and input order. Construct and validate this matrix
+        outside JIT, or use build_polarization_conversion before compilation.
     """
+    inputs = _polarization_labels(inp_pol)
+    outputs = _polarization_labels(out_pol)
+    basis = next(
+        (basis for basis in _POLARIZATION_BASES if set(inputs) <= set(basis)), None
+    )
+    if basis is None:
+        raise ValueError("Input products must belong to one polarization basis.")
 
-    _needed_for_hash = ["_hash_lbl"]
-    _allowed = ["I", "Q", "U", "V", "LL", "LR", "RL", "RR", "XX", "XY", "YX", "YY"]
+    if assume_missing_stokes_zero and basis != _POLARIZATION_BASES[0]:
+        raise ValueError(
+            "The input polarization must be Stokes when assuming missing components zero."
+        )
 
-    def __init__(self, polarization_labels):
-        if isinstance(polarization_labels, str):
-            polarization_labels = [polarization_labels]
-        self._lbl = tuple(polarization_labels)
-        for ll in self._lbl:
-            my_assert(ll in PolarizationSpace._allowed)
-        super(PolarizationSpace, self).__init__(len(self._lbl))
-        # Note: hash of string is not reproducible accross runs
-        self._hash_lbl = tuple(PolarizationSpace._allowed.index(ll) for ll in self._lbl)
+    # Construct the complete input-basis -> Stokes -> requested-output map.
+    # For F = stokes_to_basis, orthogonal rows give F F^H = D, where D
+    # contains squared row norms (1 for Stokes, 2 otherwise). Thus
+    # F^{-1} = F^H D^{-1}, since F F^H D^{-1} = I.
+    stokes_to_basis = jnp.array(
+        [_POLARIZATION_ROWS[label] for label in basis], dtype=complex
+    )
+    # The complete Stokes basis has unit row norms; both correlation bases
+    # have squared row norms of 2, so these are the only two possible forms.
+    inverse_row_norm = 1 if basis == _POLARIZATION_BASES[0] else 0.5
 
-    def __repr__(self):
-        return f"PolarizationSpace(polarization_labels={self._lbl})"
+    basis_to_stokes = inverse_row_norm * stokes_to_basis.conj().T
+    # Build all output rows in canonical order before selecting/permuting at
+    # the boundary. The supplied input order still describes actual data axes.
+    canonical_outputs = tuple(label for label in _POLARIZATION_ROWS if label in outputs)
+    stokes_to_output = jnp.array(
+        [_POLARIZATION_ROWS[label] for label in canonical_outputs], dtype=complex
+    )
+    full_matrix = stokes_to_output @ basis_to_stokes
 
-    @property
-    def labels(self):
-        return self._lbl
+    # Discarding a missing product is exact only when none of the requested
+    # outputs depend on it. Forward models explicitly assume missing Stokes
+    # zero instead; exact data conversion must reject that assumption.
+    if not assume_missing_stokes_zero:
+        missing_indices = [i for i, label in enumerate(basis) if label not in inputs]
 
-    def labels_eq(self, lst):
-        return set(lst) == set(self._lbl)
+        if not jnp.allclose(
+            full_matrix[:, jnp.asarray(missing_indices, dtype=int)],
+            0,
+            rtol=0,
+            atol=1e-12,
+        ):
+            raise ValueError(
+                f"Polarization {inputs} cannot determine {outputs} "
+                "without assumptions about missing components."
+            )
+    output_indices = jnp.array([canonical_outputs.index(label) for label in outputs])
+    input_indices = jnp.array([basis.index(label) for label in inputs])
+    return full_matrix[jnp.ix_(output_indices, input_indices)]
 
-    def label2index(self, label):
-        return self._lbl.index(label)
 
+def build_polarization_conversion(
+    inp_pol, out_pol, *, assume_missing_stokes_zero=False, axis=0
+):
+    """Build a JAX callable applying conversion on the selected axis.
 
-def polarization_converter(domain, target):
-    from .util import my_assert_isinstance
-
-    domain = ift.DomainTuple.make(domain)
-    target = ift.DomainTuple.make(target)
-    my_assert_isinstance(domain[0], PolarizationSpace)
-    my_assert_isinstance(target[0], PolarizationSpace)
-    if domain is target:
-        return ift.ScalingOperator(domain, 1.0)
-
-    if domain[0].labels_eq("I"):
-        if target[0].labels_eq(("LL", "RR")) or target[0].labels_eq(("XX", "YY")):
-            # Convention: Stokes I 1Jy source leads to 1Jy in LL and 1Jy in RR
-            op = ift.ContractionOperator(target, 0).adjoint
-            return op.ducktape(domain)
-        if len(target[0].labels) == 1 and target[0].labels[0] in [
-            "LL",
-            "RR",
-            "XX",
-            "YY",
-        ]:
-            # Convention: Stokes I 1Jy source leads to 1Jy in LL and 1Jy in RR
-            return ift.Operator.identity_operator(target).ducktape(domain)
-    if domain[0].labels_eq(["I", "Q", "U"]) or domain[0].labels_eq(
-        ["I", "Q", "U", "V"]
-    ):
-        if target[0].labels_eq(["LL", "RR", "LR", "RL"]):
-            op = _PolarizationConverter(domain, target, 0)
-            # ift.extra.check_linear_operator(op, complex, complex)
-            return op
-    raise NotImplementedError(
-        f"Polarization converter\ndomain:\n{domain[0]}\ntarget\n{target[0]}\n"
+    Construct outside JIT: metadata validation and matrix construction happen
+    once. The returned callable can be jitted, differentiated, or composed
+    with a forward model. All axes except the polarization axis are unchanged.
+    The default axis is zero; other axes support legacy layouts.
+    See polarization_matrix for the exact and zero-filled Stokes model modes.
+    """
+    matrix = polarization_matrix(
+        inp_pol, out_pol, assume_missing_stokes_zero=assume_missing_stokes_zero
     )
 
+    def convert(visibilities):
+        dtype = jnp.result_type(visibilities, 1j)
+        result = jnp.tensordot(matrix.astype(dtype), visibilities, axes=([1], [axis]))
+        return jnp.moveaxis(result, 0, axis)
 
-class _PolarizationConverter(ift.LinearOperator):
-    def __init__(self, domain, target, space):
-        self._domain = ift.makeDomain(domain)
-        self._target = ift.makeDomain(target)
-        self._capability = self.TIMES | self.ADJOINT_TIMES
-        self._space = int(space)
-
-        assert self._space < len(self._domain)
-        for ii in range(len(self._domain)):
-            if ii == self._space:
-                assert isinstance(self._domain[space], PolarizationSpace)
-                assert isinstance(self._target[space], PolarizationSpace)
-            else:
-                assert self._domain[ii] == self._target[ii]
-
-        self._with_v = "V" in self._domain[space].labels
-
-    def apply(self, x, mode):
-        self._check_input(x, mode)
-        polx = lambda lbl: x.val[x.domain[self._space].label2index(lbl)]
-        f = lambda s: self._tgt(mode)[self._space].label2index(s)
-        res = np.empty(self._tgt(mode).shape, dtype=x.dtype)
-        if mode == self.TIMES:
-            # Convention: Stokes I 1Jy source leads to 1Jy in LL and 1Jy in RR
-            res[f("LL")] = res[f("RR")] = polx("I")
-            if self._with_v:
-                res[f("LL")] -= polx("V")
-                res[f("RR")] += polx("V")
-            res[f("RL")] = polx("Q") + 1j * polx("U")
-            res[f("LR")] = polx("Q") - 1j * polx("U")
-        else:
-            res[f("I")] = polx("LL") + polx("RR")
-            if self._with_v:
-                res[f("V")] = -polx("LL") + polx("RR")
-            res[f("Q")] = polx("LR") + polx("RL")
-            res[f("U")] = 1j * (polx("LR") - polx("RL"))
-        return ift.makeField(self._tgt(mode), res)
+    return convert
