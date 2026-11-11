@@ -140,13 +140,13 @@ def test_repr():
     assert repr(Polarization([5, 8])) == "Polarization((5, 8))"
 
 
-def test_space_of_trivial_is_stokes_i():
-    assert Polarization.trivial().space.labels == ("I",)
+def test_labels_of_trivial_are_stokes_i():
+    assert Polarization.trivial().labels == ("I",)
 
 
-def test_space_labels_follow_indices():
-    assert Polarization(CIRCULAR).space.labels == ("RR", "RL", "LR", "LL")
-    assert Polarization([9, 12]).space.labels == ("XX", "YY")
+def test_labels_follow_indices():
+    assert Polarization(CIRCULAR).labels == ("RR", "RL", "LR", "LL")
+    assert Polarization([9, 12]).labels == ("XX", "YY")
 
 
 @pmp(
