@@ -274,6 +274,10 @@ def test_conversion_builder_constructs_matrix_once(monkeypatch):
     def fail_if_rebuilt(*args, **kwargs):
         raise AssertionError("Matrix must not be rebuilt when applying conversion")
 
+    # The builder has already constructed and captured the matrix. The calls
+    # below only apply convert; they do not call the builder again. This patch
+    # guards against a future edit moving polarization_matrix inside convert:
+    # an application would then call the patched constructor and fail here.
     monkeypatch.setattr(polarization, "polarization_matrix", fail_if_rebuilt)
     values = jnp.array([[10+2j], [6-2j]], dtype=jnp.complex64)
     assert_allclose(convert(values), [[2+2j], [8]])
