@@ -16,7 +16,7 @@
 
 import numpy as np
 
-from ..util import compare_attributes, my_assert_isinstance, my_asserteq
+from ..util import compare_attributes, my_assert_isinstance
 
 
 class AuxiliaryTable:
@@ -30,8 +30,8 @@ class AuxiliaryTable:
                 raise RuntimeError(f"{kk} neither list nor np.ndarray")
             if nrow is None:
                 nrow = len(lst)
-            my_asserteq(nrow, len(lst))
-            my_asserteq(type(elem) for elem in lst)
+            if nrow != len(lst):
+                raise RuntimeError("Auxiliary table columns must have matching row counts.")
         self._dct = inp_dict
         self._eq_attributes = ("_dct",)
 

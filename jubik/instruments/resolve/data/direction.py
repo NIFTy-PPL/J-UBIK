@@ -14,7 +14,7 @@
 # Copyright(C) 2020-2021 Max-Planck-Society
 # Author: Philipp Arras
 
-from ..util import compare_attributes, my_asserteq
+from ..util import compare_attributes
 
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -31,7 +31,8 @@ class Direction:
         equinox : int
             reference year of the equinox
         """
-        my_asserteq(len(phase_center), 2)
+        if len(phase_center) != 2:
+            raise RuntimeError("Phase center must contain two coordinates.")
         self._pc = phase_center
         self._e = float(equinox)
         self._n = name
