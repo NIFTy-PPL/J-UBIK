@@ -73,25 +73,6 @@ def is_single_precision(dtype):
     raise TypeError(f"DType {dtype} is not a floating point dtype.")
 
 
-def dtype_float2complex(dt):
-    if dt == np.float64:
-        return np.complex128
-    if dt == np.float32:
-        return np.complex64
-    raise ValueError
-
-
-def dtype_complex2float(dt, force=False):
-    if dt == np.complex128:
-        return np.float64
-    if dt == np.complex64:
-        return np.float32
-    if force:
-        if dt in [np.float32, np.float64]:
-            return dt
-    raise ValueError
-
-
 def calculate_phase_offset_to_image_center(
     sky_center: SkyCoord,
     phase_center: SkyCoord,
