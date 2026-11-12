@@ -75,8 +75,11 @@ class Direction:
 
 class Directions:
     def __init__(self, phase_centers, equinox):
-        assert phase_centers.ndim == 2
-        assert phase_centers.shape[1] == 2
+        if phase_centers.ndim != 2 or phase_centers.shape[1] != 2:
+            raise RuntimeError(
+                "Phase centers must have shape (number of directions, 2), "
+                f"with two coordinates per direction; got shape {phase_centers.shape}."
+            )
         self._pc = phase_centers
         self._e = float(equinox)
 
