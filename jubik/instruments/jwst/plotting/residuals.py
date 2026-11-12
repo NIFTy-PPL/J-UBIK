@@ -194,8 +194,8 @@ class SkyResiduals:
         state_or_none: jft.OptimizeVIState | None = None,
     ) -> None:
         """Plot one row per band, in pages of `MAX_PANELS_PER_PAGE // columns`
-        rows (at least one): `{nit:02d}.png`, or `{nit:02d}_{page:02d}.png` for
-        several."""
+        rows (at least one): `{nit:02d}.png`, or `{nit:02d}/{page:02d}.png` for
+        several, one folder per iteration."""
         jft.logger.info(f"Results: {self.residual_directory}")
         jft.logger.info("Plotting residuals")
 
@@ -278,7 +278,8 @@ class SkyResiduals:
             else:
                 name = f"{state_or_none.nit:02d}"
                 if n_pages > 1:
-                    name += f"_{page:02d}"
+                    makedirs(join(self.residual_directory, name), exist_ok=True)
+                    name = join(name, f"{page:02d}")
                 fig.savefig(join(self.residual_directory, f"{name}.png"), dpi=300)
                 plt.close(fig)
                 # a closed figure is a reference cycle that keeps its canvas,

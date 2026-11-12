@@ -1,4 +1,4 @@
-"""stacked_residuals: a residual shared by two frames peaks in the stack; pure noise has S/N std 1."""
+"""ResidualStack: a residual shared by two frames peaks in the stack; pure noise has S/N std 1."""
 
 import nifty.re as jft
 import numpy as np
@@ -16,7 +16,7 @@ from jubik.instruments.jwst.likelihood.likelihood import (
 )
 from jubik.instruments.jwst.likelihood.target_likelihood import SingleTargetLikelihood
 from jubik.instruments.jwst.plotting.residuals import ResidualPlottingInformation
-from jubik.instruments.jwst.plotting.stacked_residuals import stacked_residuals
+from jubik.instruments.jwst.plotting.stacked_residuals import ResidualStack
 from jubik.sky_filter import SKY_KEY, FilterWeights, SkyFilter
 from jubik.wcs.wcs_astropy import WcsAstropy
 
@@ -76,13 +76,15 @@ def test_a_shared_residual_peaks_in_the_stack():
         {"s": np.zeros((NY, NY)), "a_zero_flux": 0.5, "b_zero_flux": -0.3},
         jft.Vector({"s": np.zeros((NY, NY)), "a_zero_flux": 0.5, "b_zero_flux": -0.3}),
     ]
-    out = stacked_residuals(products, SKY, positions, bands={"ab": ["a", "b"]})
+    stacker = ResidualStack(products, SKY, bands={"ab": ["a", "b"]})
+    out = stacker(positions)
     assert list(out) == ["ab"]
     # the stack is the mean of the samples' stacks, each at its own nuisances
     other = {"s": np.zeros((NY, NY)), "a_zero_flux": 0.1, "b_zero_flux": 0.2}
-    mixed = stacked_residuals(products, SKY, [positions[0], other], bands={"ab": ["a", "b"]})
-    alone = stacked_residuals(products, SKY, [other], bands={"ab": ["a", "b"]})
+    mixed = stacker([positions[0], other])
+    alone = stacker([other], std={"ab": out["ab"].std})  # a known std: no noise draws
     np.testing.assert_allclose(mixed["ab"].stack, (out["ab"].stack + alone["ab"].stack) / 2, rtol=1e-10)
+    assert alone["ab"].std is out["ab"].std
     snr = out["ab"].snr
     assert np.unravel_index(np.nanargmax(snr), snr.shape) == peak
     assert np.all(np.isnan(snr[~(masks["a"] | masks["b"])]))
@@ -100,7 +102,7 @@ def test_pure_noise_has_unit_snr(shot):
     data = {name: GAIN * sky + std * RNG.standard_normal((NY, NY)) for name in "ab"}
     masks = {name: np.ones((NY, NY), bool) for name in "ab"}
     position = {"s": sky, "a_zero_flux": 0.0, "b_zero_flux": 0.0}
-    out = stacked_residuals(_products(data, 0.2, masks, noise), SKY, [position], n_noise=400)
+    out = ResidualStack(_products(data, 0.2, masks, noise), SKY)([position], n_noise=400)
     for result in out.values():  # one band per frame by default
         assert 0.85 < result.snr.std() < 1.15
         assert abs(result.snr.mean()) < 0.2

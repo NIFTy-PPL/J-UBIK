@@ -78,15 +78,11 @@ def _back_projection(single):
     return back_project, data.size
 
 
-def stacked_residuals(
-    products: "TargetLikelihoodProducts",
-    sky: jft.Model,
-    positions: Iterable[Mapping],
-    bands: dict[str, list[str]] | None = None,
-    n_noise: int = 100,
-    seed: int = 0,
-) -> dict[str, StackedResiduals]:
+class ResidualStack:
     """The stacked residual of every band, in the band's sky plane.
+
+    Built once per fit; the back-projections compile on the first call and
+    are reused, so a VI callback can stack every iteration.
 
     Parameters
     ----------
@@ -94,57 +90,77 @@ def stacked_residuals(
         Its likelihoods' responses, data and noise, and the sky filter.
     sky : jft.Model
         Latent position -> the sky cube under the sky filter's key.
-    positions : Iterable[Mapping]
-        Posterior samples, also as ``jft.Vector`` (a ``jft.Samples`` works).
     bands : dict[str, list[str]] | None
         Band name -> the likelihoods (``filter`` of each) it sums; they must
         share a sky plane shape. None: one band per likelihood.
-    n_noise : int
-        Pure-noise stacks for ``std``, at least 2, spread over the samples:
-        ``ceil(n_noise / n_samples)`` at each.
-    seed : int
-        Seed of the noise draws.
-
-    Returns
-    -------
-    dict[str, StackedResiduals]
-        Band name -> the stack, averaged over the samples, and its noise std.
 
     Raises
     ------
     NotImplementedError
         A likelihood whose noise has free parameters (variable covariance).
     """
-    if n_noise < 2:
-        raise ValueError(f"n_noise must be at least 2, got {n_noise}")
-    positions = [getattr(x, "tree", x) for x in positions]
-    if not positions:
-        raise ValueError("no positions")
-    singles = {single.filter: single for single in products.likelihoods}
-    if bands is None:
-        bands = {name: [name] for name in singles}
-    back = {name: _back_projection(singles[name]) for names in bands.values() for name in names}
-    per_sample = -(-n_noise // len(positions))
-    rng = np.random.default_rng(seed)
 
-    # shortcut: each noise draw goes through one sample's adjoint, not the sample average the stack takes, so std
-    # is a little high (S/N low) where the samples' shifts or PSFs differ by a sky pixel or more; average every draw
-    # over all samples, at n_samples times the cost, if that matters
-    stack = {band: 0.0 for band in bands}
-    # running sums of the noise stacks and their squares: the draws of all bands do not fit in memory on large skies
-    s1, s2 = {band: 0.0 for band in bands}, {band: 0.0 for band in bands}
-    for x in positions:
-        x = dict(x) | products.sky_filter(sky(x))
-        for band, names in bands.items():
-            total = 0.0
-            for name in names:
-                back_project, size = back[name]
-                total = total + np.asarray(back_project(x, rng.standard_normal((per_sample, size))))
-            stack[band] = stack[band] + total[0] / len(positions)
-            s1[band] = s1[band] + total[1:].sum(0)
-            s2[band] = s2[band] + (total[1:] ** 2).sum(0)
-    n = per_sample * len(positions)
-    return {
-        band: StackedResiduals(stack[band], np.sqrt(np.maximum(s2[band] - s1[band] ** 2 / n, 0) / (n - 1)))
-        for band in bands
-    }
+    def __init__(
+        self,
+        products: "TargetLikelihoodProducts",
+        sky: jft.Model,
+        bands: dict[str, list[str]] | None = None,
+    ):
+        singles = {single.filter: single for single in products.likelihoods}
+        self.sky_filter, self.sky = products.sky_filter, sky
+        self.bands = {name: [name] for name in singles} if bands is None else bands
+        self._back = {
+            name: _back_projection(singles[name])
+            for names in self.bands.values()
+            for name in names
+        }
+
+    def __call__(
+        self,
+        positions: Iterable[Mapping],
+        n_noise: int = 100,
+        seed: int = 0,
+        std: dict[str, np.ndarray] | None = None,
+    ) -> dict[str, StackedResiduals]:
+        """Band name -> the stack, averaged over the samples, and its noise std.
+
+        Parameters
+        ----------
+        positions : Iterable[Mapping]
+            Posterior samples, also as ``jft.Vector`` (a ``jft.Samples`` works).
+        n_noise : int
+            Pure-noise stacks for ``std``, at least 2, spread over the samples:
+            ``ceil(n_noise / n_samples)`` at each.
+        seed : int
+            Seed of the noise draws.
+        std : dict[str, np.ndarray] | None
+            The bands' std from an earlier call, reused without noise draws.
+        """
+        positions = [getattr(x, "tree", x) for x in positions]
+        if not positions:
+            raise ValueError("no positions")
+        if std is None and n_noise < 2:
+            raise ValueError(f"n_noise must be at least 2, got {n_noise}")
+        per_sample = 0 if std is not None else -(-n_noise // len(positions))
+        rng = np.random.default_rng(seed)
+
+        # shortcut: each noise draw goes through one sample's adjoint, not the sample average the stack takes, so std
+        # is a little high (S/N low) where the samples' shifts or PSFs differ by a sky pixel or more; average every
+        # draw over all samples, at n_samples times the cost, if that matters
+        stack = {band: 0.0 for band in self.bands}
+        # running sums of the noise stacks and their squares: the draws of all bands do not fit in memory on large skies
+        s1, s2 = {band: 0.0 for band in self.bands}, {band: 0.0 for band in self.bands}
+        for x in positions:
+            x = dict(x) | self.sky_filter(self.sky(x))
+            for band, names in self.bands.items():
+                total = 0.0
+                for name in names:
+                    back_project, size = self._back[name]
+                    total = total + np.asarray(back_project(x, rng.standard_normal((per_sample, size))))
+                stack[band] = stack[band] + total[0] / len(positions)
+                s1[band] = s1[band] + total[1:].sum(0)
+                s2[band] = s2[band] + (total[1:] ** 2).sum(0)
+        if std is None:
+            n = per_sample * len(positions)
+            std = {band: np.sqrt(np.maximum(s2[band] - s1[band] ** 2 / n, 0) / (n - 1)) for band in self.bands}
+        return {band: StackedResiduals(stack[band], std[band]) for band in self.bands}
