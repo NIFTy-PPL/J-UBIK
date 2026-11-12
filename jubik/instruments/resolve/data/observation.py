@@ -22,7 +22,6 @@ import astropy.units as u
 from ..conventions import OBSERVATION_FREQ_UNIT, OBSERVATION_UVW_UNIT
 from ..util import (
     compare_attributes,
-    my_assert,
     my_assert_isinstance,
     my_asserteq,
     is_single_precision,
@@ -299,14 +298,17 @@ class Observation(BaseObservation):
         my_asserteq(weight.shape, vis.shape)
         my_asserteq(vis.shape, (len(polarization), nrows, len(freq)))
         my_asserteq(nrows, vis.shape[1])
-        my_assert(np.all(weight >= 0.0))
-        my_assert(np.all(np.isfinite(vis[weight > 0.0])))
-        my_assert(np.all(np.isfinite(weight)))
-        my_assert(np.all(np.diff(freq)))
+        if not (np.all(weight >= 0.0)):
+            raise RuntimeError('Visibility weights must be nonnegative.')
+        if not (np.all(np.isfinite(vis[weight > 0.0]))):
+            raise RuntimeError('Unflagged visibilities must be finite.')
+        if not (np.all(np.isfinite(weight))):
+            raise RuntimeError('Visibility weights must be finite.')
+        if not (np.all(np.diff(freq))):
+            raise RuntimeError('Adjacent frequencies must differ.')
 
-        my_assert(
-            not (is_single_precision(vis.dtype) ^ is_single_precision(weight.dtype))
-        )
+        if is_single_precision(vis.dtype) != is_single_precision(weight.dtype):
+            raise RuntimeError("Visibilities and weights must use matching precision.")
 
         vis.flags.writeable = False
         weight.flags.writeable = False

@@ -16,7 +16,7 @@
 
 import numpy as np
 
-from ..util import compare_attributes, my_assert, my_assert_isinstance, my_asserteq
+from ..util import compare_attributes, my_assert_isinstance, my_asserteq
 
 
 class AuxiliaryTable:

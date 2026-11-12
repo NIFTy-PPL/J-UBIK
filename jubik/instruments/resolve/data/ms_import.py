@@ -18,7 +18,7 @@ from os.path import expanduser, isdir, join
 
 import numpy as np
 
-from ..util import my_assert, my_assert_isinstance, my_asserteq
+from ..util import my_assert_isinstance, my_asserteq
 from .antenna_positions import AntennaPositions
 from .auxiliary_table import AuxiliaryTable
 from .observation import Observation
@@ -163,14 +163,18 @@ def ms2observations(
         ms = os.getcwd()
     if isinstance(polarizations, list):
         for ll in polarizations:
-            my_assert(ll in ["XX", "YY", "XY", "YX", "LL", "LR", "RL", "RR"])
+            if not (ll in ["XX", "YY", "XY", "YX", "LL", "LR", "RL", "RR"]):
+                raise RuntimeError('Unsupported polarization label.')
         my_asserteq(len(set(polarizations)), len(polarizations))
     else:
-        my_assert(polarizations in ["stokesi", "stokesiavg", "all"])
+        if not (polarizations in ["stokesi", "stokesiavg", "all"]):
+            raise RuntimeError('Polarization selection must be stokesi, stokesiavg, or all.')
     my_assert_isinstance(channels, (slice, list))
     my_assert_isinstance(spectral_window, int)
-    my_assert(spectral_window >= 0)
-    my_assert(spectral_window < ms_n_spectral_windows(ms))
+    if not (spectral_window >= 0):
+        raise RuntimeError('Spectral window index must be nonnegative.')
+    if not (spectral_window < ms_n_spectral_windows(ms)):
+        raise RuntimeError('Spectral window index exceeds the available spectral windows.')
     # /Input checks
 
     # Polarization
@@ -482,7 +486,8 @@ def _ms_channels(ms, spectral_window):
     with ms_table(join(ms, "SPECTRAL_WINDOW")) as t:
         freq = t.getcol("CHAN_FREQ", startrow=spectral_window, nrow=1)[0]
     my_asserteq(freq.ndim, 1)
-    my_assert(len(freq) > 0)
+    if not (len(freq) > 0):
+        raise RuntimeError('The spectral window must contain at least one frequency.')
     return freq
 
 

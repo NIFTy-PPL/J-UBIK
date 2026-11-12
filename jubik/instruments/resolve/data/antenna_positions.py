@@ -16,7 +16,7 @@
 
 import numpy as np
 
-from ..util import compare_attributes, my_assert, my_assert_isinstance, my_asserteq
+from ..util import compare_attributes, my_assert_isinstance, my_asserteq
 
 
 class AntennaPositions:
@@ -44,10 +44,14 @@ class AntennaPositions:
         else:
             my_asserteq(ant1.shape, ant2.shape, time.shape)
             my_asserteq(uvw.shape, (ant1.size, 3))
-            my_assert(np.issubdtype(ant1.dtype, np.integer))
-            my_assert(np.issubdtype(ant2.dtype, np.integer))
-            my_assert(np.issubdtype(time.dtype, np.floating))
-        my_assert(np.issubdtype(uvw.dtype, np.floating))
+            if not (np.issubdtype(ant1.dtype, np.integer)):
+                raise RuntimeError('Antenna 1 indices must have an integer dtype.')
+            if not (np.issubdtype(ant2.dtype, np.integer)):
+                raise RuntimeError('Antenna 2 indices must have an integer dtype.')
+            if not (np.issubdtype(time.dtype, np.floating)):
+                raise RuntimeError('Times must have a floating point dtype.')
+        if not (np.issubdtype(uvw.dtype, np.floating)):
+            raise RuntimeError('UVW coordinates must have a floating point dtype.')
         self._uvw, self._time = uvw, time
         self._ant1, self._ant2 = ant1, ant2
         self._t0 = None
