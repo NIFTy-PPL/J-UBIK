@@ -46,13 +46,13 @@ def dirty_image(
         backend_settings=backend_settings,
     )
 
-    response_primal = jnp.ones(full_sky_shape, observation.weight_val.dtype)
+    response_primal = jnp.ones(full_sky_shape, observation.weight.dtype)
 
-    d = observation.vis_val
+    d = observation.vis
     vol = sky_grid.spatial.dvol.value
 
     if weighting == "natural":
-        w = observation.weight_val
+        w = observation.weight
 
     elif weighting == "uniform":
         w = uniform_weights(
@@ -73,12 +73,12 @@ def dirty_image(
 
 def uniform_weights(observation: Observation, sky_grid: Grid) -> NDArray:
 
-    weights = np.empty_like(observation.weight_val)
+    weights = np.empty_like(observation.weight)
     u, v = observation.effective_uvw()[0:2]
 
     for ipol in range(observation.npol):
         Hnorm, xedges0, yedges0 = uvw_density(u, v, sky_grid, None)
-        H, xedges, yedges = uvw_density(u, v, sky_grid, observation.weight_val[ipol])
+        H, xedges, yedges = uvw_density(u, v, sky_grid, observation.weight[ipol])
         assert np.all(xedges == xedges0)
         assert np.all(yedges == yedges0)
         xindices = np.searchsorted(xedges, u.ravel())

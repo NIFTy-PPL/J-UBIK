@@ -94,7 +94,7 @@ def build_phase_shift(
         shift = jft.Model(lambda x: off(x) + grp(x), domain=off.domain | grp.domain)
 
     phase_u, phase_v = _phase_per_arcsec(observation)
-    return PhaseShift(shift, phase_u, phase_v, observation.vis_val.dtype)
+    return PhaseShift(shift, phase_u, phase_v, observation.vis.dtype)
 
 
 def assign_shift_groups(
