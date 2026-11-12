@@ -281,7 +281,11 @@ def read_ms_i(
     channels,
     ignore_flags,
 ):
-    assert pol_indices is None or isinstance(pol_indices, list)
+    if pol_indices is not None and not isinstance(pol_indices, list):
+        raise RuntimeError(
+            "Polarization indices must be a list or None; "
+            f"got {type(pol_indices).__name__}."
+        )
     if pol_indices is None:
         pol_indices = slice(None)
     if pol_summation:
@@ -330,7 +334,10 @@ def read_ms_i(
                 twgt = t.getcol(weightcol, startrow=start, nrow=stop - start)[
                     ..., pol_indices
                 ]
-                assert twgt.dtype == np.float32
+                if twgt.dtype != np.float32:
+                    raise RuntimeError(
+                        f"Measurement-set weights must have dtype float32; got {twgt.dtype}."
+                    )
                 if not fullwgt:
                     twgt = np.repeat(twgt[:, None], nchan, axis=1)
                 if not allrows:
@@ -341,7 +348,11 @@ def read_ms_i(
                 tvis = t.getcol(data_column, startrow=start, nrow=stop - start)[
                     ..., pol_indices
                 ]
-                assert tvis.dtype == np.complex64
+                if tvis.dtype != np.complex64:
+                    raise RuntimeError(
+                        "Measurement-set visibilities must have dtype complex64; "
+                        f"got {tvis.dtype}."
+                    )
                 if not allrows:
                     tvis = tvis[active_rows[start:stop]]
                 tvis = tvis[:, active_channels]
@@ -353,12 +364,24 @@ def read_ms_i(
                 tflags = tflags[:, active_channels]
 
                 # Polarization summation
-                assert twgt.ndim == tflags.ndim == 3
-                assert tflags.dtype == bool
+                if twgt.ndim != 3 or tflags.ndim != 3:
+                    raise RuntimeError(
+                        "Measurement-set weights and flags must have axes "
+                        "(rows, channels, polarizations); "
+                        f"got shapes {twgt.shape} and {tflags.shape}."
+                    )
+                if tflags.dtype != bool:
+                    raise RuntimeError(
+                        f"Measurement-set flags must have dtype bool; got {tflags.dtype}."
+                    )
                 if not ignore_flags:
                     twgt = twgt * (~tflags)
                 if pol_summation:
-                    assert twgt.shape[2] == 2
+                    if twgt.shape[2] != 2:
+                        raise RuntimeError(
+                            "Polarization summation requires two weight channels "
+                            f"on axis 2; got {twgt.shape[2]}."
+                        )
                     # Noise-weighted average
                     tvis = np.sum(twgt * tvis, axis=-1)[..., None]
                     twgt = np.sum(twgt, axis=-1)[..., None]
@@ -471,7 +494,11 @@ def _first_pass(
             tflags[~np.isin(data_description_id, data_description_ids)] = True
 
             # Inactive if all polarizations are flagged
-            assert tflags.ndim == 3
+            if tflags.ndim != 3:
+                raise RuntimeError(
+                    "Measurement-set flags must have axes "
+                    f"(rows, channels, polarizations); got shape {tflags.shape}."
+                )
             tflags = np.all(tflags, axis=2)
             active_rows[start:stop] = np.invert(np.all(tflags, axis=1))
             active_channels = np.logical_or(
