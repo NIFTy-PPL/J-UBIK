@@ -15,7 +15,6 @@ from ...parse.models.distributions.distributions import ProbabilityConfig
 from .data.observation import Observation
 from .parse.data.data_loading import DataFile
 from .parse.phase_shift import OFFSET_KEY, SHIFT_SHAPE, PhaseShiftConfig, ShiftGroup
-from .util import cast_to_dtype
 
 
 
@@ -50,7 +49,7 @@ class PhaseShift(jft.Model):
     def __call__(self, x):
         shift_row, shift_col = self.shift(x)
         phase = jnp.exp(1j * (self._u * shift_col - self._v * shift_row))
-        return cast_to_dtype(phase, self._dtype)
+        return phase.astype(self._dtype)
 
 
 def build_phase_shift(

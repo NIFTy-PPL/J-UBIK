@@ -15,17 +15,11 @@
 # Author: Philipp Arras
 
 import numpy as np
-import jax
-import jax.numpy as jnp
 
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 
 from .conventions import RESPONSE_SPATIAL_UNIT
-
-
-def cast_to_dtype(tree, dtype=jnp.float32):
-    return jax.tree.map(lambda x: x.astype(dtype), tree)
 
 
 def my_assert(*conds):
