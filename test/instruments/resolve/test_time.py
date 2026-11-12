@@ -563,7 +563,7 @@ def test_restrict_by_time_requires_sorted_times():
     np.random.seed(331)
     obs = build_obs([0.0, 2.0, 1.0], [0, 0, 0], [1, 1, 1])
 
-    with pytest.raises(AssertionError, match="increase"):
+    with pytest.raises(ValueError, match="sorted in nondecreasing order"):
         restrict_by_time(obs, 0.0, 3.0)
 
 

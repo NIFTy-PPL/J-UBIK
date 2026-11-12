@@ -25,7 +25,11 @@ def restrict_by_time(
     with_index : bool
         If True, additionally return the slice of rows that was selected.
     """
-    assert all(np.diff(observation.time) >= 0), "Time in observation needs to increase"
+    if not np.all(np.diff(observation.time) >= 0):
+        raise ValueError(
+            "restrict_by_time requires observation times sorted in nondecreasing "
+            "order; equal timestamps are allowed."
+        )
 
     start, stop = np.searchsorted(observation.time, [tmin, tmax])
     ind = slice(start, stop)
