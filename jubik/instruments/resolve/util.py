@@ -22,12 +22,6 @@ from astropy.coordinates import SkyCoord
 from .conventions import RESPONSE_SPATIAL_UNIT
 
 
-def my_asserteq(*args):
-    for aa in args[1:]:
-        if args[0] != aa:
-            raise RuntimeError(f"{args[0]} != {aa}")
-
-
 def my_assert_isinstance(*args):
     args = list(args)
     cls = args.pop()
