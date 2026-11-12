@@ -62,12 +62,12 @@ def test_shift_then_unshift_is_identity(n_rows, n_freq):
     forward = shift_phase_center(obs, ShiftObservation(shift))
     back = shift_phase_center(forward, ShiftObservation(-shift))
 
-    assert_allclose(back.vis_val, obs.vis_val, rtol=1e-12, atol=1e-12)
+    assert_allclose(back.vis, obs.vis, rtol=1e-12, atol=1e-12)
     # A phase rotation must not touch the amplitudes ...
-    assert_allclose(np.abs(forward.vis_val), np.abs(obs.vis_val), rtol=1e-13)
+    assert_allclose(np.abs(forward.vis), np.abs(obs.vis), rtol=1e-13)
     # ... nor the weights, nor the antenna positions.
-    assert_array_equal(forward.weight_val, obs.weight_val)
-    assert_array_equal(back.weight_val, obs.weight_val)
+    assert_array_equal(forward.weight, obs.weight)
+    assert_array_equal(back.weight, obs.weight)
     assert forward.antenna_positions is obs.antenna_positions
     assert back.antenna_positions is obs.antenna_positions
     assert_array_equal(forward.freq, obs.freq)
@@ -86,8 +86,8 @@ def test_zero_shift_leaves_visibilities_bitwise_identical():
 
     new = shift_phase_center(obs, ShiftObservation([0.0, 0.0] * u.rad))
 
-    assert_array_equal(new.vis_val, obs.vis_val)
-    assert_array_equal(new.weight_val, obs.weight_val)
+    assert_array_equal(new.vis, obs.vis)
+    assert_array_equal(new.weight, obs.weight)
 
 
 def test_shift_is_unit_aware():
@@ -98,11 +98,11 @@ def test_shift_is_unit_aware():
     from_arcsec = shift_phase_center(obs, ShiftObservation(shift_arcsec))
     from_rad = shift_phase_center(obs, ShiftObservation(shift_arcsec.to(u.rad)))
 
-    assert_allclose(from_arcsec.vis_val, from_rad.vis_val, rtol=1e-14, atol=1e-14)
+    assert_allclose(from_arcsec.vis, from_rad.vis, rtol=1e-14, atol=1e-14)
     # A 30 arcsec shift is not the same as a 30 rad shift, i.e. the unit is
     # really taken into account.
     naive = shift_phase_center(obs, ShiftObservation(shift_arcsec.value * u.rad))
-    assert not np.allclose(from_arcsec.vis_val, naive.vis_val)
+    assert not np.allclose(from_arcsec.vis, naive.vis)
 
 
 # ---------------------------------------------------------------------------
@@ -124,9 +124,9 @@ def test_shift_prefactor_follows_the_imaging_convention():
     new = shift_phase_center(obs, ShiftObservation([sx, sy] * u.rad))
 
     uu, vv = uv_in_wavelengths(obs)
-    expected = obs.vis_val * np.exp(2j * np.pi * (uu * sx - vv * sy))[None]
+    expected = obs.vis * np.exp(2j * np.pi * (uu * sx - vv * sy))[None]
 
-    assert_allclose(new.vis_val, expected, rtol=1e-12, atol=1e-12)
+    assert_allclose(new.vis, expected, rtol=1e-12, atol=1e-12)
 
 
 def build_response_setup(npix=64, fov_deg=1.0, freqs=(1.0e9, 1.5e9), n_rows=6):
@@ -211,7 +211,7 @@ def test_shift_centers_point_source_of_the_jubik_response(di, dj):
 
     vis_center = np.asarray(r_ducc(point_source_sky(grid, 0, 0)))
     assert_allclose(vis_center, np.ones(vis_center.shape), rtol=0, atol=1e-9)
-    assert_allclose(centered.vis_val, vis_center, rtol=0, atol=1e-8)
+    assert_allclose(centered.vis, vis_center, rtol=0, atol=1e-8)
 
 
 def test_shift_moves_center_source_to_the_given_offset():
@@ -229,7 +229,7 @@ def test_shift_moves_center_source_to_the_given_offset():
     )
 
     expected = np.asarray(r_ducc(point_source_sky(grid, di, dj)))
-    assert_allclose(moved.vis_val, expected, rtol=0, atol=1e-8)
+    assert_allclose(moved.vis, expected, rtol=0, atol=1e-8)
 
 
 # ---------------------------------------------------------------------------
@@ -242,8 +242,8 @@ def test_shift_preserves_single_precision():
     obs = build_obs(n_rows=4, n_freq=1)
     single = rve.Observation(
         obs.antenna_positions,
-        obs.vis_val.astype(np.complex64),
-        obs.weight_val.astype(np.float32),
+        obs.vis.astype(np.complex64),
+        obs.weight.astype(np.float32),
         obs.legacy_polarization,
         obs.freq,
         None,
@@ -252,10 +252,10 @@ def test_shift_preserves_single_precision():
 
     new = shift_phase_center(single, shift)
 
-    assert new.vis_val.dtype == np.complex64
-    assert new.weight_val.dtype == np.float32
+    assert new.vis.dtype == np.complex64
+    assert new.weight.dtype == np.float32
     double = shift_phase_center(obs, shift)
-    assert_allclose(new.vis_val, double.vis_val, rtol=1e-5, atol=1e-6)
+    assert_allclose(new.vis, double.vis, rtol=1e-5, atol=1e-6)
 
 
 def test_shift_preserves_double_precision():
@@ -264,5 +264,5 @@ def test_shift_preserves_double_precision():
 
     new = shift_phase_center(obs, ShiftObservation([1.0e-4, 2.0e-4] * u.rad))
 
-    assert new.vis_val.dtype == np.complex128
-    assert new.weight_val.dtype == np.float64
+    assert new.vis.dtype == np.complex128
+    assert new.weight.dtype == np.float64

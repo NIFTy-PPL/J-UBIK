@@ -97,4 +97,4 @@ def test_uniform_weights_fills_every_polarization(monkeypatch):
 
     result = dirty_image_module.uniform_weights(observation, sky_grid=object())
 
-    assert_allclose(result, observation.weight_val)
+    assert_allclose(result, observation.weight)

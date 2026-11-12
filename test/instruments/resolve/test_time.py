@@ -117,13 +117,13 @@ def test_time_average_weighted_mean_matches_hand_computed_value():
     new = time_average(obs, [[0.0, 5.0], [10.0, 15.0]])
 
     assert new.nrow == 2
-    assert_allclose(new.vis_val[0, :, 0], [2.5 + 2.5j, 5.0 + 5.0j])
-    assert_allclose(new.weight_val[0, :, 0], [4.0, 4.0])
+    assert_allclose(new.vis[0, :, 0], [2.5 + 2.5j, 5.0 + 5.0j])
+    assert_allclose(new.weight[0, :, 0], [4.0, 4.0])
     # Every other cell follows the same inverse-variance weighted mean.
     for grp, rows in enumerate(([0, 1], [2, 3])):
         wgt = weight[:, rows, :]
         expected = np.sum(vis[:, rows, :] * wgt, axis=1) / np.sum(wgt, axis=1)
-        assert_allclose(new.vis_val[:, grp, :], expected, rtol=1e-14)
+        assert_allclose(new.vis[:, grp, :], expected, rtol=1e-14)
 
 
 def test_time_average_weight_is_the_sum_of_the_input_weights_per_group():
@@ -134,10 +134,10 @@ def test_time_average_weight_is_the_sum_of_the_input_weights_per_group():
     new = time_average(obs, RICH_BINS)
 
     expected = np.stack(
-        [np.sum(obs.weight_val[:, ind, :], axis=1) for ind in rows], axis=1
+        [np.sum(obs.weight[:, ind, :], axis=1) for ind in rows], axis=1
     )
-    assert new.weight_val.shape == (obs.npol, len(keys), obs.nfreq)
-    assert_allclose(new.weight_val, expected, rtol=1e-14)
+    assert new.weight.shape == (obs.npol, len(keys), obs.nfreq)
+    assert_allclose(new.weight, expected, rtol=1e-14)
 
 
 def test_time_average_vis_is_the_weighted_mean_per_group():
@@ -149,13 +149,13 @@ def test_time_average_vis_is_the_weighted_mean_per_group():
 
     expected = np.stack(
         [
-            np.sum(obs.vis_val[:, ind, :] * obs.weight_val[:, ind, :], axis=1)
-            / np.sum(obs.weight_val[:, ind, :], axis=1)
+            np.sum(obs.vis[:, ind, :] * obs.weight[:, ind, :], axis=1)
+            / np.sum(obs.weight[:, ind, :], axis=1)
             for ind in rows
         ],
         axis=1,
     )
-    assert_allclose(new.vis_val, expected, rtol=1e-13)
+    assert_allclose(new.vis, expected, rtol=1e-13)
 
 
 def test_time_average_nrow_equals_number_of_unique_baseline_bin_combinations():
@@ -171,7 +171,7 @@ def test_time_average_nrow_equals_number_of_unique_baseline_bin_combinations():
     assert new.nrow == 5
     assert_array_equal(new.ant1, [kk[0] for kk in keys])
     assert_array_equal(new.ant2, [kk[1] for kk in keys])
-    assert new.vis_val.shape == (obs.npol, 5, obs.nfreq)
+    assert new.vis.shape == (obs.npol, 5, obs.nfreq)
 
 
 def test_time_average_uvw_is_the_plain_mean_of_the_group():
@@ -226,15 +226,15 @@ def test_time_average_timestamp_of_a_group_is_the_bin_mean_not_the_group_mean():
 def test_time_average_does_not_mutate_the_input_observation():
     np.random.seed(308)
     obs = build_rich_obs()
-    vis, weight = obs.vis_val.copy(), obs.weight_val.copy()
+    vis, weight = obs.vis.copy(), obs.weight.copy()
     times, uvw = obs.time.copy(), obs.uvw.copy()
 
     new = time_average(obs, RICH_BINS)
 
     assert new is not obs
     assert isinstance(new, Observation)
-    assert_array_equal(obs.vis_val, vis)
-    assert_array_equal(obs.weight_val, weight)
+    assert_array_equal(obs.vis, vis)
+    assert_array_equal(obs.weight, weight)
     assert_array_equal(obs.time, times)
     assert_array_equal(obs.uvw, uvw)
     assert obs.nrow == len(RICH_TIMES)
@@ -250,8 +250,8 @@ def test_time_average_output_dtypes():
     assert np.issubdtype(new.ant2.dtype, np.integer)
     assert new.time.dtype == np.float64
     assert new.uvw.dtype == np.float64
-    assert new.vis_val.dtype == np.complex128
-    assert new.weight_val.dtype == np.float64
+    assert new.vis.dtype == np.complex128
+    assert new.weight.dtype == np.float64
 
 
 def test_time_average_preserves_single_precision():
@@ -260,8 +260,8 @@ def test_time_average_preserves_single_precision():
 
     new = time_average(obs, RICH_BINS)
 
-    assert new.vis_val.dtype == np.complex64
-    assert new.weight_val.dtype == np.float32
+    assert new.vis.dtype == np.complex64
+    assert new.weight.dtype == np.float32
     assert new.is_single_precision()
 
 
@@ -317,9 +317,9 @@ def test_time_average_ignores_nan_visibilities_of_flagged_rows():
 
     assert new.nrow == 1
     # Only the second row carries weight, so it survives unchanged.
-    assert_allclose(new.vis_val[0, 0, 0], vis[0, 1, 0])
-    assert_allclose(new.weight_val[0, 0, 0], weight[0, 1, 0])
-    assert np.all(np.isfinite(new.vis_val))
+    assert_allclose(new.vis[0, 0, 0], vis[0, 1, 0])
+    assert_allclose(new.weight[0, 0, 0], weight[0, 1, 0])
+    assert np.all(np.isfinite(new.vis))
 
 
 def test_time_average_after_flags_to_nan_matches_the_unflagged_average():
@@ -332,16 +332,16 @@ def test_time_average_after_flags_to_nan_matches_the_unflagged_average():
     weight[:, 2, :] = 0.0
     obs = manual_obs([0.0, 1.0, 10.0, 11.0], [0] * 4, [1] * 4, vis, weight)
     nan_obs = obs.flags_to_nan()
-    assert np.any(np.isnan(nan_obs.vis_val))
+    assert np.any(np.isnan(nan_obs.vis))
 
     reference = time_average(obs, RICH_BINS)
     new = time_average(nan_obs, RICH_BINS)
 
-    assert_allclose(new.vis_val[:, 0, :], vis[:, 1, :], rtol=1e-14)
-    assert_allclose(new.vis_val[:, 1, :], vis[:, 3, :], rtol=1e-14)
+    assert_allclose(new.vis[:, 0, :], vis[:, 1, :], rtol=1e-14)
+    assert_allclose(new.vis[:, 1, :], vis[:, 3, :], rtol=1e-14)
 
-    assert_allclose(new.vis_val, reference.vis_val, rtol=1e-13)
-    assert_allclose(new.weight_val, reference.weight_val, rtol=1e-14)
+    assert_allclose(new.vis, reference.vis, rtol=1e-13)
+    assert_allclose(new.weight, reference.weight, rtol=1e-14)
 
 
 def test_time_average_flagged_rows_do_not_enter_the_weighted_mean():
@@ -358,7 +358,7 @@ def test_time_average_flagged_rows_do_not_enter_the_weighted_mean():
     expected = np.sum(vis[0, keep, 0] * weight[0, keep, 0]) / np.sum(
         weight[0, keep, 0]
     )
-    assert_allclose(new.vis_val[0, 0, 0], expected, rtol=1e-14)
+    assert_allclose(new.vis[0, 0, 0], expected, rtol=1e-14)
 
 
 # ---------------------------------------------------------------------------
@@ -399,10 +399,10 @@ def test_time_average_accepts_antenna_indices_beyond_one_thousand():
     assert new.nrow == 1
     assert_array_equal(new.ant1, [0])
     assert_array_equal(new.ant2, [1500])
-    expected = np.sum(obs.vis_val * obs.weight_val, axis=1) / np.sum(
-        obs.weight_val, axis=1
+    expected = np.sum(obs.vis * obs.weight, axis=1) / np.sum(
+        obs.weight, axis=1
     )
-    assert_allclose(new.vis_val[:, 0, :], expected, rtol=1e-14)
+    assert_allclose(new.vis[:, 0, :], expected, rtol=1e-14)
 
 
 def test_time_average_skips_time_bins_without_any_row():
@@ -415,8 +415,8 @@ def test_time_average_skips_time_bins_without_any_row():
 
     assert new.nrow == 2
     assert_allclose(new.time, [0.0, 20.0])
-    assert_allclose(new.vis_val[:, 0, :], obs.vis_val[:, 0, :], rtol=1e-14)
-    assert_allclose(new.vis_val[:, 1, :], obs.vis_val[:, 1, :], rtol=1e-14)
+    assert_allclose(new.vis[:, 0, :], obs.vis[:, 0, :], rtol=1e-14)
+    assert_allclose(new.vis[:, 1, :], obs.vis[:, 1, :], rtol=1e-14)
 
 
 # ---------------------------------------------------------------------------
@@ -455,7 +455,7 @@ def test_time_average_to_length_of_timebins_covers_the_last_time_point(
 
     # No row may get lost: the weights are conserved by the averaging.
     assert_allclose(
-        np.sum(new.weight_val), np.sum(obs.weight_val), rtol=1e-13
+        np.sum(new.weight), np.sum(obs.weight), rtol=1e-13
     )
     expected_bins = int(np.ceil(n_times / len_tbin))
     assert new.nrow == expected_bins
@@ -473,7 +473,7 @@ def test_time_average_to_length_of_timebins_puts_edge_times_into_the_upper_bin()
     # in the bin that starts there, so nothing is averaged together.
     assert new.nrow == 3
     assert_allclose(new.time, times)
-    assert_allclose(new.vis_val, obs.vis_val, rtol=1e-14)
+    assert_allclose(new.vis, obs.vis, rtol=1e-14)
 
 
 def test_time_average_to_length_of_timebins_with_a_large_time_offset():
@@ -514,8 +514,8 @@ def test_restrict_by_time_is_half_open():
     # tmin is inclusive, tmax is exclusive.
     assert new.nrow == 2
     assert_array_equal(new.time, [1.0, 2.0])
-    assert_array_equal(new.vis_val, obs.vis_val[:, 1:3])
-    assert_array_equal(new.weight_val, obs.weight_val[:, 1:3])
+    assert_array_equal(new.vis, obs.vis[:, 1:3])
+    assert_array_equal(new.weight, obs.weight[:, 1:3])
     assert_array_equal(new.uvw, obs.uvw[1:3])
 
 
@@ -527,7 +527,7 @@ def test_restrict_by_time_with_index_returns_the_matching_slice():
 
     assert ind == slice(1, 3)
     assert_array_equal(obs.time[ind], new.time)
-    assert_array_equal(obs.vis_val[:, ind], new.vis_val)
+    assert_array_equal(obs.vis[:, ind], new.vis)
 
 
 @pmp(
@@ -582,8 +582,8 @@ def test_move_time_shifts_the_times_and_keeps_the_data(t0):
 
     assert new is not obs
     assert_allclose(new.time, times + t0)
-    assert_array_equal(new.vis_val, obs.vis_val)
-    assert_array_equal(new.weight_val, obs.weight_val)
+    assert_array_equal(new.vis, obs.vis)
+    assert_array_equal(new.weight, obs.weight)
     assert_array_equal(new.uvw, obs.uvw)
     assert_array_equal(new.ant1, obs.ant1)
     assert_array_equal(new.ant2, obs.ant2)

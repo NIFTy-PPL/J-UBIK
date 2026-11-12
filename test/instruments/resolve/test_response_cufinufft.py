@@ -63,8 +63,8 @@ def build_responses(pol_sky, pol_channels, freqs, phase_center_offset=None):
         field = AuxiliaryTable({"REFERENCE_DIR": phase_center})
         obs = rve.Observation(
             obs.antenna_positions,
-            obs.vis_val,
-            obs.weight_val,
+            obs.vis,
+            obs.weight,
             obs.legacy_polarization,
             obs.freq,
             {"FIELD": field},

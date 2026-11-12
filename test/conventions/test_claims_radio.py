@@ -245,7 +245,7 @@ def test_forward_model_matches_casa_visibilities_directly(casa_observation):
         do_wgridding=False, epsilon=1e-5, nthreads=1, verbosity=0,
     )
     v_model = np.asarray(canonical_sky_to_visibilities(backend, truth)).ravel()
-    d = np.asarray(obs.vis_val[0]).ravel()
+    d = np.asarray(obs.vis[0]).ravel()
 
     def corr(a, b):
         return float(np.abs(np.vdot(a, b)) / (np.linalg.norm(a) * np.linalg.norm(b)))

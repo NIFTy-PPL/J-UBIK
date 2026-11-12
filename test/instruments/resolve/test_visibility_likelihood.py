@@ -25,7 +25,7 @@ def random_obs():
 
 def test_weights_are_the_inverse_noise_covariance():
     obs = random_obs()
-    d, w = obs.vis_val, obs.weight_val
+    d, w = obs.vis, obs.weight
     scaled = jft.Model(lambda s: s * d, domain=jft.ShapeWithDtype(()))  # bare-array input
 
     likelihood = build_likelihood(obs, scaled)
@@ -35,7 +35,7 @@ def test_weights_are_the_inverse_noise_covariance():
 
 def test_inverse_std_is_per_real_and_imaginary_part():
     obs = random_obs()
-    d = obs.vis_val
+    d = obs.vis
     zero = jft.Model(lambda x: x["s"] * d, domain={"s": jft.ShapeWithDtype(())})
     inverse_std = jft.Model(lambda x: x["inv"] * np.ones(d.shape), domain={"inv": jft.ShapeWithDtype(())})
 
@@ -47,7 +47,7 @@ def test_inverse_std_is_per_real_and_imaginary_part():
 
 def test_flagged_points_are_left_out():
     obs = random_obs()
-    d, w = obs.vis_val.copy(), obs.weight_val.copy()
+    d, w = obs.vis.copy(), obs.weight.copy()
     d[0, 0, 0], w[0, 0, 0] = np.nan, 0.0  # a flagged point may hold NaN
     obs = rve.Observation(obs.antenna_positions, d, w, obs.legacy_polarization, obs.freq)
     good = w > 0
@@ -66,7 +66,7 @@ def test_likelihood_keeps_the_model_initializers():
     obs = random_obs()
     one = lambda key: np.ones(())
     # a callable and a structured initializer
-    vis = jft.Model(lambda x: x["s"] * obs.vis_val, init=lambda key: {"s": np.ones(())})
+    vis = jft.Model(lambda x: x["s"] * obs.vis, init=lambda key: {"s": np.ones(())})
     ones = np.ones(obs.vis.shape)
     inverse_std = jft.Model(lambda x: x["inv"] * ones, init=jft.Initializer({"inv": one}))
 

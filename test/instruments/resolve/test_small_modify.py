@@ -146,7 +146,7 @@ def test_to_single_precision_keeps_flagged_rows_flagged():
 
     single = to_single_precision(obs)
 
-    assert_array_equal(single.flags_val, obs.flags_val)
+    assert_array_equal(single.flags, obs.flags)
     assert single.n_data_effective() == obs.n_data_effective()
 
 

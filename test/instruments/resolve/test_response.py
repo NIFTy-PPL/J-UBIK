@@ -269,8 +269,8 @@ def test_response_phase_center_from_sky_coordinates(backend_settings, position_a
     )
     obs = rve.Observation(
         obs.antenna_positions,
-        obs.vis_val,
-        obs.weight_val,
+        obs.vis,
+        obs.weight,
         obs.legacy_polarization,
         obs.freq,
         {"FIELD": field},
