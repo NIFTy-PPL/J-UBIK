@@ -18,7 +18,6 @@ from os.path import expanduser, isdir, join
 
 import numpy as np
 
-from ..util import my_assert_isinstance
 from .antenna_positions import AntennaPositions
 from .auxiliary_table import AuxiliaryTable
 from .observation import Observation
@@ -170,8 +169,14 @@ def ms2observations(
     else:
         if not (polarizations in ["stokesi", "stokesiavg", "all"]):
             raise RuntimeError('Polarization selection must be stokesi, stokesiavg, or all.')
-    my_assert_isinstance(channels, (slice, list))
-    my_assert_isinstance(spectral_window, int)
+    if not isinstance(channels, (slice, list)):
+        raise RuntimeError(
+            f"Channel selection must be a slice or list; got {type(channels).__name__}."
+        )
+    if not isinstance(spectral_window, int):
+        raise RuntimeError(
+            f"Spectral window index must be int; got {type(spectral_window).__name__}."
+        )
     if not (spectral_window >= 0):
         raise RuntimeError('Spectral window index must be nonnegative.')
     if not (spectral_window < ms_n_spectral_windows(ms)):

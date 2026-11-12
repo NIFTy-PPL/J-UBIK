@@ -16,7 +16,7 @@
 
 import numpy as np
 
-from ..util import compare_attributes, my_assert_isinstance
+from ..util import compare_attributes
 
 
 class AntennaPositions:
@@ -150,7 +150,14 @@ class AntennaPositions:
         npol, nrow, nfreq = data.shape
         if nrow != len(self):
             raise RuntimeError("Data row count must match the antenna positions.")
-        my_assert_isinstance(antenna1, antenna2, int)
+        if not isinstance(antenna1, int):
+            raise RuntimeError(
+                f"Antenna 1 index must be int; got {type(antenna1).__name__}."
+            )
+        if not isinstance(antenna2, int):
+            raise RuntimeError(
+                f"Antenna 2 index must be int; got {type(antenna2).__name__}."
+            )
 
         # Select by antenna labels
         ind = np.logical_and(self.ant1 == antenna1, self.ant2 == antenna2)
