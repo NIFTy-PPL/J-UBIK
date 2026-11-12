@@ -15,7 +15,6 @@
 # Author: Julian Rüstig
 
 
-import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial, reduce, cached_property
@@ -60,7 +59,6 @@ from .mosaic_likelihood import (
     build_likelihood_from_sky_beamer,
 )
 
-logger.setLevel(logging.INFO)
 
 
 @dataclass

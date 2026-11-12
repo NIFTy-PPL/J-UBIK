@@ -1,6 +1,5 @@
 """Frequency-domain transformations for resolve observations."""
 
-import logging
 import astropy.units as u
 import numpy as np
 from nifty.re import logger
@@ -10,7 +9,6 @@ from .....color import Color, get_2d_binbounds
 from ...conventions import OBSERVATION_FREQ_UNIT
 from ..observation import Observation
 
-logger.setLevel(logging.INFO)
 
 
 def freq_average_by_bins(

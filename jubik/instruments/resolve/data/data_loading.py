@@ -1,4 +1,3 @@
-import logging
 from typing import Generator
 
 from astropy.units import Quantity
@@ -10,7 +9,6 @@ from ..parse.data.data_modify import ObservationModifyConfig
 from .data_modify import build_observation_modify, modify_observation
 from .observation import Observation
 
-logger.setLevel(logging.INFO)
 
 
 def load_and_modify_data_from_objects(

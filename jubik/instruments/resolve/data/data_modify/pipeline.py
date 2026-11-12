@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 
-import logging
 import astropy.units as u
 from nifty.re import logger
 
@@ -104,7 +103,6 @@ def build_observation_modify(
     )
 
 
-logger.setLevel(logging.INFO)
 
 
 def modify_observation(

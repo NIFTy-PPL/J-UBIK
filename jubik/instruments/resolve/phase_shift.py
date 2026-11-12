@@ -1,7 +1,6 @@
 """Learnable phase shift of the model visibilities: an offset shared by every
 file, plus one shift per optional shift group."""
 
-import logging
 from collections import defaultdict
 from collections.abc import Iterable
 
@@ -18,7 +17,6 @@ from .parse.data.data_loading import DataFile
 from .parse.phase_shift import OFFSET_KEY, SHIFT_SHAPE, PhaseShiftConfig, ShiftGroup
 from .util import cast_to_dtype
 
-logger.setLevel(logging.INFO)
 
 
 # --------------------------------------------------------------------------------------
