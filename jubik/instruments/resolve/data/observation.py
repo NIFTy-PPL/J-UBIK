@@ -290,7 +290,6 @@ class Observation(BaseObservation):
         freq,
         auxiliary_tables=None,
     ):
-        nrows = len(antenna_positions)
         if not isinstance(polarization, Polarization):
             raise RuntimeError(
                 f"Polarization metadata must be Polarization; got {type(polarization).__name__}."
@@ -299,6 +298,7 @@ class Observation(BaseObservation):
             raise RuntimeError(
                 f"Antenna positions must be AntennaPositions; got {type(antenna_positions).__name__}."
             )
+        nrows = len(antenna_positions)
         if weight.shape != vis.shape:
             raise RuntimeError("Weights and visibilities must have matching shapes.")
         if vis.shape != (len(polarization), nrows, len(freq)):
@@ -307,12 +307,6 @@ class Observation(BaseObservation):
                 f"with shape {(len(polarization), nrows, len(freq))}, matching "
                 "the polarization labels, antenna positions, and frequencies; "
                 f"got shape {vis.shape}."
-            )
-        if nrows != vis.shape[1]:
-            raise RuntimeError(
-                f"Visibility axis 1 contains {vis.shape[1]} rows, but antenna "
-                f"positions contain {nrows} rows; each visibility row must "
-                "have a corresponding UVW coordinate."
             )
         if not (np.all(weight >= 0.0)):
             raise RuntimeError('Visibility weights must be nonnegative.')
