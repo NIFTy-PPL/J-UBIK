@@ -18,7 +18,7 @@ from os.path import expanduser, isdir, join
 
 import numpy as np
 
-from ..util import my_assert_isinstance, my_asserteq
+from ..util import my_assert_isinstance
 from .antenna_positions import AntennaPositions
 from .auxiliary_table import AuxiliaryTable
 from .observation import Observation
@@ -165,7 +165,8 @@ def ms2observations(
         for ll in polarizations:
             if not (ll in ["XX", "YY", "XY", "YX", "LL", "LR", "RL", "RR"]):
                 raise RuntimeError('Unsupported polarization label.')
-        my_asserteq(len(set(polarizations)), len(polarizations))
+        if len(set(polarizations)) != len(polarizations):
+            raise RuntimeError("Polarization labels must be unique.")
     else:
         if not (polarizations in ["stokesi", "stokesiavg", "all"]):
             raise RuntimeError('Polarization selection must be stokesi, stokesiavg, or all.')
@@ -241,7 +242,8 @@ def ms2observations(
 
 
 def _ms2resolve_transpose(arr):
-    my_asserteq(arr.ndim, 3)
+    if arr.ndim != 3:
+        raise RuntimeError("Measurement-set data must be three-dimensional.")
     return np.ascontiguousarray(np.transpose(arr, (2, 0, 1)))
 
 
@@ -278,7 +280,8 @@ def read_ms_i(
     if pol_indices is None:
         pol_indices = slice(None)
     if pol_summation:
-        my_asserteq(len(pol_indices), 2)
+        if len(pol_indices) != 2:
+            raise RuntimeError("Polarization summation requires two channels.")
 
     # Check if data column is available and get shape
     with ms_table(name) as t:
@@ -398,7 +401,8 @@ def read_ms_i(
                 )
                 ptg = None
 
-    my_asserteq(wgt.shape, vis.shape)
+    if wgt.shape != vis.shape:
+        raise RuntimeError("Weights and visibilities must have matching shapes.")
     vis = np.ascontiguousarray(_ms2resolve_transpose(vis))
     wgt = np.ascontiguousarray(_ms2resolve_transpose(wgt))
     vis[wgt == 0] = 0.0
@@ -443,7 +447,11 @@ def _first_pass(
 
             if not fullwgt:
                 twgt = np.repeat(twgt[:, None], nchan, axis=1)
-            my_asserteq(twgt.ndim, 3)
+            if twgt.ndim != 3:
+                raise RuntimeError(
+                    "Measurement-set weights must have three axes "
+                    f"(rows, channels, polarizations); got shape {twgt.shape}."
+                )
             if pol_summation:
                 tflags = np.any(tflags.astype(bool), axis=2)[..., None]
                 twgt = np.sum(twgt, axis=2)[..., None]
@@ -485,7 +493,8 @@ def _ms_channels(ms, spectral_window):
     """Return channel frequencies in Hz for a spectral window of a Measurement Set."""
     with ms_table(join(ms, "SPECTRAL_WINDOW")) as t:
         freq = t.getcol("CHAN_FREQ", startrow=spectral_window, nrow=1)[0]
-    my_asserteq(freq.ndim, 1)
+    if freq.ndim != 1:
+        raise RuntimeError("Frequencies must be one-dimensional.")
     if not (len(freq) > 0):
         raise RuntimeError('The spectral window must contain at least one frequency.')
     return freq

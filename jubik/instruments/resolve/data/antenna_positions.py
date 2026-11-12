@@ -16,7 +16,7 @@
 
 import numpy as np
 
-from ..util import compare_attributes, my_assert_isinstance, my_asserteq
+from ..util import compare_attributes, my_assert_isinstance
 
 
 class AntennaPositions:
@@ -38,12 +38,23 @@ class AntennaPositions:
 
     def __init__(self, uvw, ant1=None, ant2=None, time=None):
         if ant1 is None:
-            my_asserteq(ant2, time, None)
-            my_asserteq(uvw.ndim, 2)
-            my_asserteq(uvw.shape[1], 3)
+            if ant2 is not None or time is not None:
+                raise RuntimeError(
+                    "Antenna 2 indices and times must be absent when antenna 1 indices are absent."
+                )
+            if uvw.ndim != 2:
+                raise RuntimeError("UVW coordinates must be two-dimensional.")
+            if uvw.shape[1] != 3:
+                raise RuntimeError("UVW coordinates must have three columns.")
         else:
-            my_asserteq(ant1.shape, ant2.shape, time.shape)
-            my_asserteq(uvw.shape, (ant1.size, 3))
+            if not (ant1.shape == ant2.shape == time.shape):
+                raise RuntimeError(
+                    "Antenna indices and times must have matching shapes to have consistent row entries."
+                )
+            if uvw.shape != (ant1.size, 3):
+                raise RuntimeError(
+                    "UVW coordinates must have shape (number of data rows, 3)."
+                )
             if not (np.issubdtype(ant1.dtype, np.integer)):
                 raise RuntimeError('Antenna 1 indices must have an integer dtype.')
             if not (np.issubdtype(ant2.dtype, np.integer)):
@@ -137,7 +148,8 @@ class AntennaPositions:
         ut = np.sort(np.array(list(self.unique_times())))
 
         npol, nrow, nfreq = data.shape
-        my_asserteq(nrow, len(self))
+        if nrow != len(self):
+            raise RuntimeError("Data row count must match the antenna positions.")
         my_assert_isinstance(antenna1, antenna2, int)
 
         # Select by antenna labels

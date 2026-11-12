@@ -23,7 +23,6 @@ from ..conventions import OBSERVATION_FREQ_UNIT, OBSERVATION_UVW_UNIT
 from ..util import (
     compare_attributes,
     my_assert_isinstance,
-    my_asserteq,
     is_single_precision,
 )
 from .antenna_positions import AntennaPositions
@@ -295,9 +294,21 @@ class Observation(BaseObservation):
         nrows = len(antenna_positions)
         my_assert_isinstance(polarization, Polarization)
         my_assert_isinstance(antenna_positions, AntennaPositions)
-        my_asserteq(weight.shape, vis.shape)
-        my_asserteq(vis.shape, (len(polarization), nrows, len(freq)))
-        my_asserteq(nrows, vis.shape[1])
+        if weight.shape != vis.shape:
+            raise RuntimeError("Weights and visibilities must have matching shapes.")
+        if vis.shape != (len(polarization), nrows, len(freq)):
+            raise RuntimeError(
+                "Visibilities must have axes (polarizations, rows, frequencies) "
+                f"with shape {(len(polarization), nrows, len(freq))}, matching "
+                "the polarization labels, antenna positions, and frequencies; "
+                f"got shape {vis.shape}."
+            )
+        if nrows != vis.shape[1]:
+            raise RuntimeError(
+                f"Visibility axis 1 contains {vis.shape[1]} rows, but antenna "
+                f"positions contain {nrows} rows; each visibility row must "
+                "have a corresponding UVW coordinate."
+            )
         if not (np.all(weight >= 0.0)):
             raise RuntimeError('Visibility weights must be nonnegative.')
         if not (np.all(np.isfinite(vis[weight > 0.0]))):
@@ -470,7 +481,6 @@ class Observation(BaseObservation):
                 2000  # FIXME Figure out how to extract this from a measurement set
             )
             refdir = self._auxiliary_tables["FIELD"]["REFERENCE_DIR"][0]
-            my_asserteq(refdir.shape[0] == 0)
 
             if "NAME" in self._auxiliary_tables["FIELD"]:
                 name = self._auxiliary_tables["FIELD"]["NAME"][0]
@@ -486,7 +496,6 @@ class Observation(BaseObservation):
                 2000  # FIXME Figure out how to extract this from a measurement set
             )
             refdir = self._auxiliary_tables["FIELD"][key][0]
-            my_asserteq(refdir.shape[0] == 0)
 
             if "NAME" in self._auxiliary_tables["FIELD"]:
                 name = self._auxiliary_tables["FIELD"]["NAME"][0]
@@ -533,7 +542,8 @@ class Observation(BaseObservation):
         frequencies = self.freq * OBSERVATION_FREQ_UNIT
         wavelengths = frequencies.to(OBSERVATION_UVW_UNIT, equivalencies=u.spectral())
         out = np.einsum("ij,k->jik", self.uvw, 1 / wavelengths.value)
-        my_asserteq(out.shape, (3, self.nrow, self.nfreq))
+        if out.shape != (3, self.nrow, self.nfreq):
+            raise RuntimeError("Effective UVW coordinates must have shape (3, rows, frequencies).")
         return out
 
     def effective_uvwlen(self):
