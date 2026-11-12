@@ -4,24 +4,10 @@
 # Copyright(C) 2025 Max-Planck-Society
 
 # %
-from functools import partial
-from typing import Callable
-
+import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
-from numpy.typing import ArrayLike
-from jax import vmap
-from jax.scipy.signal import fftconvolve
-from jax.tree_util import Partial
-
-
-def _build_vmap_apply(psf_kernel_shape: tuple[int]) -> Callable[[ArrayLike], ArrayLike]:
-    if len(psf_kernel_shape) == 2:
-        return partial(fftconvolve, mode="same")
-    elif len(psf_kernel_shape) == 3:
-        return vmap(Partial(fftconvolve, mode="same"), in_axes=(0, 0))
-    else:
-        raise ValueError("Unknown psf_kernel shape")
+from scipy.fft import next_fast_len
 
 
 def _center_even_axes(kernel: np.ndarray) -> np.ndarray:
@@ -64,15 +50,31 @@ class PsfStatic(jft.Model):
             Else, the input field will by convolved by the `psf_kernel`.
         """
 
-        self.kernel = psf_kernel
+        self._spectrum = None
         if psf_kernel is not None:
-            self.kernel = _center_even_axes(np.asarray(psf_kernel))
-            self._convolve = _build_vmap_apply(psf_kernel.shape)
+            kernel = _center_even_axes(np.asarray(psf_kernel))
+            shape, k = sky_shape_with_dtype.shape, kernel.shape[-2:]
+            if np.broadcast_shapes(kernel.shape[:-2], shape[:-2]) != shape[:-2]:
+                raise ValueError(f"psf kernel {kernel.shape} does not fit sky {shape}")
+            # Kernel center rolled to index 0: the circular convolution equals
+            # `fftconvolve(mode="same")` on [:n] once L >= n + k // 2.
+            self._fft_shape = tuple(
+                next_fast_len(max(n + m // 2, m), real=True) for n, m in zip(shape[-2:], k)
+            )
+            pad = [(0, 0)] * (kernel.ndim - 2) + [
+                (0, n - m) for n, m in zip(self._fft_shape, k)
+            ]
+            kernel = np.roll(np.pad(kernel, pad), (-(k[0] // 2), -(k[1] // 2)), axis=(-2, -1))
+            # shortcut: the spectrum is baked into every jitted function (~4 MB per exposure
+            # at L=720, complex128); cast to the field's complex dtype if memory bites.
+            self._spectrum = np.fft.rfft2(kernel)
 
         super().__init__(domain=(sky_shape_with_dtype, {}))
 
     def __call__(self, x):
         field, _ = x
-        if self.kernel is None:
+        if self._spectrum is None:
             return field
-        return self._convolve(field, self.kernel)
+        s = self._fft_shape
+        out = jnp.fft.irfft2(jnp.fft.rfft2(field, s=s) * self._spectrum, s=s)
+        return out[..., : field.shape[-2], : field.shape[-1]]

@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from scipy.signal import fftconvolve
 
 from jubik.instruments.jwst.alignment.star_alignment import Star
 from jubik.instruments.jwst.alignment.star_model import (
@@ -99,3 +100,29 @@ def test_recentering_ringing_on_truncated_airy_kernel():
     kernel = (2 * j1(x) / x) ** 2
     centered = _center_even_axes(kernel)
     assert centered.min() / centered.max() > -1e-3
+
+
+@pytest.mark.parametrize(
+    "n, k",
+    [
+        ((12, 9), (5, 7)),  # odd, non-square
+        ((12, 9), (9, 7)),  # n + k // 2 already a fast length: catches a short L
+        ((12, 9), (6, 4)),  # even, recentered to (7, 5)
+        ((4, 7), (13, 3)),  # kernel larger than field on one axis
+        ((3, 3), (9, 9)),  # n <= k // 2
+        ((2, 12, 9), (2, 6, 7)),  # stacked exposures, mixed parity
+    ],
+)
+def test_psf_matches_fftconvolve_same(n, k):
+    rng = np.random.default_rng(0)
+    field, kernel = rng.normal(size=n), rng.normal(size=k)
+    centered = _center_even_axes(kernel)
+    pairs = zip(field, centered) if len(n) == 3 else [(field, centered)]
+    expected = np.stack([fftconvolve(f, c, mode="same") for f, c in pairs]).reshape(n)
+    psf = PsfStatic(jft.ShapeWithDtype(n, float), kernel)
+    np.testing.assert_allclose(psf((field, {})), expected, atol=1e-5)
+
+
+def test_psf_rejects_kernel_stack_on_single_field():
+    with pytest.raises(ValueError):
+        PsfStatic(jft.ShapeWithDtype((12, 9), float), np.ones((2, 5, 5)))
