@@ -16,16 +16,22 @@
 
 import numpy as np
 
-from ..util import compare_attributes, my_assert_isinstance
+from ..util import compare_attributes
 
 
 class AuxiliaryTable:
     """ Auxiliary table from CASA measurement sets."""
     def __init__(self, inp_dict):
-        my_assert_isinstance(inp_dict, dict)
+        if not isinstance(inp_dict, dict):
+            raise RuntimeError(
+                f"Auxiliary table input must be dict; got {type(inp_dict).__name__}."
+            )
         nrow = None
         for kk, lst in inp_dict.items():
-            my_assert_isinstance(kk, str)
+            if not isinstance(kk, str):
+                raise RuntimeError(
+                    f"Table key must be str; got {type(kk).__name__}."
+                )
             if not isinstance(lst, (list, np.ndarray)):
                 raise RuntimeError(f"{kk} neither list nor np.ndarray")
             if nrow is None:

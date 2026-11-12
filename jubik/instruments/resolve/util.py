@@ -22,14 +22,6 @@ from astropy.coordinates import SkyCoord
 from .conventions import RESPONSE_SPATIAL_UNIT
 
 
-def my_assert_isinstance(*args):
-    args = list(args)
-    cls = args.pop()
-    for aa in args:
-        if not isinstance(aa, cls):
-            raise RuntimeError(aa, cls)
-
-
 def compare_attributes(obj0, obj1, attribute_list):
     return all(_fancy_equal(getattr(obj0, a), getattr(obj1, a)) for a in attribute_list)
 
