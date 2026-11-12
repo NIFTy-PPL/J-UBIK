@@ -76,12 +76,18 @@ class AntennaPositions:
 
     def unique_antennas(self):
         if self.only_imaging:
-            raise RuntimeError
+            raise RuntimeError(
+                "Cannot determine unique antennas: antenna indices are unavailable "
+                "for imaging-only antenna positions."
+            )
         return set(np.unique(self._ant1)) | set(np.unique(self._ant2))
 
     def unique_times(self):
         if self.only_imaging:
-            raise RuntimeError
+            raise RuntimeError(
+                "Cannot determine unique times: measurement times are unavailable "
+                "for imaging-only antenna positions."
+            )
         return set(np.unique(self._time))
 
     @staticmethod
@@ -90,7 +96,10 @@ class AntennaPositions:
 
     def move_time(self, t0):
         if self.only_imaging:
-            raise RuntimeError
+            raise RuntimeError(
+                "Cannot shift measurement times: times are unavailable "
+                "for imaging-only antenna positions."
+            )
         return AntennaPositions(self._uvw, self._ant1, self._ant2, self._time + t0)
 
     def __eq__(self, other):
