@@ -1,17 +1,21 @@
 """A point source through the star and target paths (PSF + integration) must land
 at its WCS position, for odd and even centered PSF kernels (issue #130)."""
 
+from functools import partial
+
 import numpy as np
 import pytest
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from scipy.signal import fftconvolve
+from jax import vmap
+from jax.scipy.signal import fftconvolve
 
 from jubik.instruments.jwst.alignment.star_alignment import Star
 from jubik.instruments.jwst.alignment.star_model import (
     bilinear_point_source_evaluation,
 )
 from jubik.instruments.jwst.integration.integration import integration_factory
+from jubik.instruments.jwst.psf import psf_operator
 from jubik.instruments.jwst.psf.psf_operator import PsfStatic, _center_even_axes
 from jubik.wcs.wcs_astropy import WcsAstropy
 from jubik.wcs.wcs_subsample_centers import subsample_pixel_centers
@@ -113,14 +117,17 @@ def test_recentering_ringing_on_truncated_airy_kernel():
         ((2, 12, 9), (2, 6, 7)),  # stacked exposures, mixed parity
     ],
 )
-def test_psf_matches_fftconvolve_same(n, k):
+@pytest.mark.parametrize("rule", ["exact", "fast"])
+def test_psf_matches_fftconvolve_same(n, k, rule, monkeypatch):
+    monkeypatch.setattr(psf_operator, "FFT_LENGTH", rule)
     rng = np.random.default_rng(0)
     field, kernel = rng.normal(size=n), rng.normal(size=k)
     centered = _center_even_axes(kernel)
-    pairs = zip(field, centered) if len(n) == 3 else [(field, centered)]
-    expected = np.stack([fftconvolve(f, c, mode="same") for f, c in pairs]).reshape(n)
+    # The convolution PsfStatic did before #181, per exposure.
+    old = vmap(partial(fftconvolve, mode="same"), in_axes=(0, 0))
+    expected = old(field.reshape(-1, *n[-2:]), centered.reshape(-1, *centered.shape[-2:]))
     psf = PsfStatic(jft.ShapeWithDtype(n, float), kernel)
-    np.testing.assert_allclose(psf((field, {})), expected, atol=1e-5)
+    np.testing.assert_allclose(psf((field, {})), np.reshape(expected, n), atol=1e-5)
 
 
 def test_psf_rejects_kernel_stack_on_single_field():

@@ -9,6 +9,16 @@ import nifty.re as jft
 import numpy as np
 from scipy.fft import next_fast_len
 
+# FFT length per axis, for a sky axis of n pixels and a centered kernel of k pixels.
+# "fast" is the deliberate default: the kernel center sits at index 0, so n + k // 2
+# avoids wrap-around, rounded up to a 5-smooth length. "exact" is the length jax
+# `fftconvolve` uses, n + k - 1; tests set it to compare with `fftconvolve(mode="same")`.
+FFT_LENGTH = "fast"
+_FFT_LENGTH_RULES = {
+    "fast": lambda n, k: next_fast_len(max(n + k // 2, k), real=True),
+    "exact": lambda n, k: n + k - 1,
+}
+
 
 def _center_even_axes(kernel: np.ndarray) -> np.ndarray:
     """Recenter even kernel axes onto the middle pixel of an odd grid.
@@ -30,6 +40,16 @@ def _center_even_axes(kernel: np.ndarray) -> np.ndarray:
         phase = np.expand_dims(phase, tuple(range(axis + 1, 0)))
         kernel = np.fft.ifft(np.fft.fft(kernel, axis=axis) * phase, axis=axis).real
     return kernel
+
+
+def _create_spectrum(kernel: np.ndarray, fft_shape: tuple[int, int]) -> np.ndarray:
+    """`rfft2` of the centered `kernel`, zero-padded to `fft_shape` with its center
+    pixel `k // 2` rolled to index 0. The circular convolution with this spectrum,
+    cropped to the first `n` pixels per axis, is `fftconvolve(mode="same")`."""
+    k = kernel.shape[-2:]
+    pad = [(0, 0)] * (kernel.ndim - 2) + [(0, n - m) for n, m in zip(fft_shape, k)]
+    kernel = np.roll(np.pad(kernel, pad), (-(k[0] // 2), -(k[1] // 2)), axis=(-2, -1))
+    return np.fft.rfft2(kernel)
 
 
 class PsfStatic(jft.Model):
@@ -56,18 +76,11 @@ class PsfStatic(jft.Model):
             shape, k = sky_shape_with_dtype.shape, kernel.shape[-2:]
             if np.broadcast_shapes(kernel.shape[:-2], shape[:-2]) != shape[:-2]:
                 raise ValueError(f"psf kernel {kernel.shape} does not fit sky {shape}")
-            # Kernel center rolled to index 0: the circular convolution equals
-            # `fftconvolve(mode="same")` on [:n] once L >= n + k // 2.
-            self._fft_shape = tuple(
-                next_fast_len(max(n + m // 2, m), real=True) for n, m in zip(shape[-2:], k)
-            )
-            pad = [(0, 0)] * (kernel.ndim - 2) + [
-                (0, n - m) for n, m in zip(self._fft_shape, k)
-            ]
-            kernel = np.roll(np.pad(kernel, pad), (-(k[0] // 2), -(k[1] // 2)), axis=(-2, -1))
+            rule = _FFT_LENGTH_RULES[FFT_LENGTH]
+            self._fft_shape = tuple(rule(n, m) for n, m in zip(shape[-2:], k))
             # shortcut: the spectrum is baked into every jitted function (~4 MB per exposure
             # at L=720, complex128); cast to the field's complex dtype if memory bites.
-            self._spectrum = np.fft.rfft2(kernel)
+            self._spectrum = _create_spectrum(kernel, self._fft_shape)
 
         super().__init__(domain=(sky_shape_with_dtype, {}))
 
