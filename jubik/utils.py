@@ -5,13 +5,52 @@
 
 # %%
 
+import dataclasses
 import os
 from os.path import join
 import pickle
+from typing import Any
 
 import numpy as np
 import nifty.re as jft
 import jax
+import jax.numpy as jnp
+from jax.tree_util import tree_leaves, tree_structure, tree_unflatten
+
+
+class HoistedConstants(jft.Model):
+    """`model` with the arrays it closes over held as dynamic pytree leaves.
+
+    `jft.Model` keeps its call static, so `jit` embeds every array a model's
+    lambdas close over as a constant in each compiled program, one device copy
+    per program. This model traces `model` once and keeps those arrays as
+    leaves, so a likelihood passed to `jit` as an argument hands them over as
+    arguments instead.
+
+    shortcut: arrays closed over by a nested `jax.jit` or used only inside a
+    custom derivative rule stay embedded, and with jax's
+    `jax_use_simplified_jaxpr_constants` on nothing is hoisted; delete this
+    class once that mode is jax's default.
+    """
+
+    _consts: Any = dataclasses.field(metadata=dict(static=False))
+
+    def __init__(self, model: jft.Model):
+        closed, out = jax.make_jaxpr(model, return_shape=True)(
+            jft.zeros_like(model.domain)
+        )
+        self._jaxpr = closed.jaxpr
+        self._consts = [jnp.asarray(c) for c in closed.consts]
+        self._out = tree_structure(out)
+        super().__init__(domain=model.domain, target=model.target, init=model.init)
+
+    def __call__(self, x):
+        x = getattr(x, "tree", x)
+        domain = getattr(self.domain, "tree", self.domain)
+        if isinstance(domain, dict):  # callers may pass a superset
+            x = {k: x[k] for k in domain}
+        out = jax.core.eval_jaxpr(self._jaxpr, self._consts, *tree_leaves(x))
+        return tree_unflatten(self._out, out)
 
 
 def load_from_pickle(file_path):

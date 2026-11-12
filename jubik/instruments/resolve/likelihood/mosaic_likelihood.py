@@ -1,11 +1,15 @@
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Callable, Union
 
+import jax.numpy as jnp
 import nifty.re as jft
 from jax import Array
+from jax.tree_util import Partial
 from numpy.typing import NDArray
 
 from ....grid import Grid
+from ....utils import HoistedConstants
 from ..data.observation import Observation
 from ..mosaicing.sky_beamer import SkyBeamer
 from ..noise.factory_noise_correction import factory_noise_correction_model
@@ -110,26 +114,29 @@ class LikelihoodBuilderBase:
 
 @dataclass
 class LikelihoodBuilder(LikelihoodBuilderBase):
-    @property
+    @cached_property
     def likelihood(self) -> jft.Likelihood:
         likelihood = jft.Gaussian(
-            self.visibilities, noise_cov_inv=lambda x: x * self.weight
+            jnp.asarray(self.visibilities),
+            noise_cov_inv=Partial(jnp.multiply, jnp.asarray(self.weight)),
         )
-        return likelihood.amend(self.response, domain=jft.Vector(self.response.domain))
+        return likelihood.amend(
+            HoistedConstants(self.response), domain=jft.Vector(self.response.domain)
+        )
 
 
 @dataclass
 class VariableLikelihoodBuilder(LikelihoodBuilderBase):
     inverse_standard_deviation: jft.Model
 
-    @property
+    @cached_property
     def likelihood(self) -> jft.Likelihood:
         model = jft.Model(
             lambda x: (self.response(x), self.inverse_standard_deviation(x)),
             domain=self.response.domain | self.inverse_standard_deviation.domain,
         )
-        likelihood = jft.VariableCovarianceGaussian(self.visibilities)
-        return likelihood.amend(model, domain=jft.Vector(model.domain))
+        likelihood = jft.VariableCovarianceGaussian(jnp.asarray(self.visibilities))
+        return likelihood.amend(HoistedConstants(model), domain=jft.Vector(model.domain))
 
 
 def build_likelihood_from_sky_beamer(

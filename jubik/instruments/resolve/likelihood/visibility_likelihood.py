@@ -1,8 +1,12 @@
 """The Gaussian likelihood of one observation given predicted visibilities."""
 
 import jax
+import jax.numpy as jnp
 import nifty.re as jft
+import numpy as np
+from jax.tree_util import Partial
 
+from ....utils import HoistedConstants
 from ..data.observation import Observation
 
 
@@ -67,20 +71,22 @@ def build_likelihood(
     predicted = tuple(predicted_visibilities.target.shape)
     if predicted != data.shape:
         raise ValueError(f"predicted visibilities {predicted}, data {data.shape}")
-    # flagged points (weight 0) may hold NaN visibilities, so leave them out
-    good = observation.mask_val
-    data = data[good]
+    # flagged points (weight 0) may hold NaN visibilities, so leave them out;
+    # flat indices, jax turns a boolean mask into one index array per axis
+    good = np.flatnonzero(observation.mask_val)
+    data = jnp.asarray(data.reshape(-1)[good])
 
     if inverse_std is None:
-        weight = observation.weight.val.val[good]
-        likelihood = jft.Gaussian(data, noise_cov_inv=lambda x: x * weight)
+        weight = jnp.asarray(observation.weight.val.val.reshape(-1)[good])
+        likelihood = jft.Gaussian(data, noise_cov_inv=Partial(jnp.multiply, weight))
         domain = predicted_visibilities.domain
         model = jft.Model(
-            lambda x: predicted_visibilities(x)[good], init=predicted_visibilities.init
+            lambda x: predicted_visibilities(x).reshape(-1)[good],
+            init=predicted_visibilities.init,
         )
         # named latents as a `Vector`, so likelihoods sum and connect to models
         domain = jft.Vector(domain) if isinstance(domain, dict) else domain
-        return likelihood.amend(model, domain=domain)
+        return likelihood.amend(HoistedConstants(model), domain=domain)
 
     # a broadcast inverse_std would count its log normalization once, not per visibility
     noise = tuple(inverse_std.target.shape)
@@ -92,9 +98,12 @@ def build_likelihood(
         return predicted_visibilities.init(key_vis) | inverse_std.init(key_noise)
 
     model = jft.Model(
-        lambda x: (predicted_visibilities(x)[good], inverse_std(x)[good]),
+        lambda x: (
+            predicted_visibilities(x).reshape(-1)[good],
+            inverse_std(x).reshape(-1)[good],
+        ),
         domain=predicted_visibilities.domain | inverse_std.domain,
         init=init,
     )
     likelihood = jft.VariableCovarianceGaussian(data)
-    return likelihood.amend(model, domain=jft.Vector(model.domain))
+    return likelihood.amend(HoistedConstants(model), domain=jft.Vector(model.domain))
