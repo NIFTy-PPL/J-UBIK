@@ -53,7 +53,7 @@ from ..telescopes.primary_beam import (
     build_beam,
     build_primary_beam_pattern_from_beam_pattern_config,
 )
-from ..util import calculate_phase_offset_to_image_center, cast_to_dtype
+from ..util import calculate_phase_offset_to_image_center
 from .mosaic_likelihood import (
     VariableLikelihoodBuilder,
     build_likelihood_from_sky_beamer,
