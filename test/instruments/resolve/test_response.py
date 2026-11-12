@@ -10,10 +10,13 @@ import jubik as ju
 import jubik.instruments.resolve as rve
 from jubik.instruments.resolve.conventions import RESPONSE_SPATIAL_UNIT
 from jubik.instruments.resolve.response import (
-    convert_polarization,
     dtype_float2complex,
     interferometry_response_ducc,
     interferometry_response_finufft,
+)
+
+from jubik.instruments.resolve.polarization_space import (
+    build_polarization_conversion,
 )
 
 from generate_test_obs import generate_random_obs
@@ -318,7 +321,9 @@ def test_public_response_adjoint_and_gradient(circular):
         rng=rng,
     )
     sky = jnp.asarray(rng.normal(size=grid.shape))
-    y = jnp.asarray(rng.normal(size=obs.vis.shape) + 1j * rng.normal(size=obs.vis.shape))
+    y = jnp.asarray(
+        rng.normal(size=obs.vis.shape) + 1j * rng.normal(size=obs.vis.shape)
+    )
     vol = grid.spatial.dvol.to_value(RESPONSE_SPATIAL_UNIT**2)
     gradients = []
     for settings in (
@@ -347,9 +352,9 @@ def test_public_response_adjoint_and_gradient(circular):
         direction = jnp.asarray(rng.normal(size=grid.shape))
         direction = direction / jnp.linalg.norm(direction)
         step = 1e-4
-        finite_difference = (loss(sky + step * direction) - loss(sky - step * direction)) / (
-            2 * step
-        )
+        finite_difference = (
+            loss(sky + step * direction) - loss(sky - step * direction)
+        ) / (2 * step)
         assert_allclose(
             finite_difference, jnp.vdot(gradient, direction), rtol=1e-6, atol=1e-5
         )
@@ -465,47 +470,51 @@ def test_dtype_float2complex_rejects_nonfloat(dtype):
 @pmp("out_pol", tuple(ju.polarization.PolarizationType), ids=lambda pol: pol.name)
 def test_convert_polarization_all_types(inp_pol, out_pol):
     """Check supported conversions and explicit rejection for all enum pairs."""
-    pol = ju.polarization.PolarizationType
     values = np.arange(1, len(inp_pol) * 6 + 1).reshape(len(inp_pol), 2, 3)
     # Stokes visibilities can be complex; vary both parts across all axes.
     inp = jnp.asarray(values + 1j * values[..., ::-1])
 
-    # Unlisted pairs are currently unsupported, even if mathematically possible.
-    # Correlation inputs have no implemented conversion branch: single channels
-    # cannot generally recover Stokes, while complete sets need an inverse that
-    # is not implemented. Even correlation identity conversions are rejected.
-    expected = None
-    if inp_pol == pol.I:
-        if out_pol in (pol.I, pol.RR, pol.LL, pol.XX, pol.YY):
-            # With Q=U=V=0, each parallel-hand channel equals I; I->I is identity.
-            expected = np.asarray(inp)
-        elif out_pol in (pol.LL_RR, pol.RR_LL, pol.XX_YY, pol.YY_XX):
-            # Both parallel hands equal I, so the polarization axis is duplicated.
-            # Reversing their order has no effect for an I-only input.
-            expected = np.repeat(np.asarray(inp), 2, axis=0)
-        # Expansion of I into full Stokes or full correlation sets is not
-        # implemented, despite being possible with Q=U=V=0.
-    elif inp_pol == pol.IQUV:
-        i, q, u, v = np.asarray(inp)
-        if out_pol == pol.RR_RL_LR_LL:
-            # Circular parallel hands mix I,V; cross hands mix Q,U.
-            expected = np.stack((i + v, q + 1j * u, q - 1j * u, i - v))
-        elif out_pol == pol.XX_XY_YX_YY:
-            # Linear parallel hands mix I,Q; cross hands mix U,V.
-            expected = np.stack((i + q, u + 1j * v, u - 1j * v, i - q))
-        # Only complete correlation outputs are implemented for IQUV input;
-        # subsets, I extraction, and IQUV identity currently raise as well.
+    products = dict(zip(inp_pol.value, np.asarray(inp)))
+    if {"RR", "LL"} <= products.keys():
+        products["I"] = (products["RR"] + products["LL"]) / 2
+        products["V"] = (products["RR"] - products["LL"]) / 2
+    if {"RL", "LR"} <= products.keys():
+        products["Q"] = (products["RL"] + products["LR"]) / 2
+        products["U"] = (products["RL"] - products["LR"]) / (2j)
+    if {"XX", "YY"} <= products.keys():
+        products["I"] = (products["XX"] + products["YY"]) / 2
+        products["Q"] = (products["XX"] - products["YY"]) / 2
+    if {"XY", "YX"} <= products.keys():
+        products["U"] = (products["XY"] + products["YX"]) / 2
+        products["V"] = (products["XY"] - products["YX"]) / (2j)
+    if {"I", "V"} <= products.keys():
+        products.update(
+            RR=products["I"] + products["V"], LL=products["I"] - products["V"]
+        )
+    if {"Q", "U"} <= products.keys():
+        products.update(
+            RL=products["Q"] + 1j * products["U"], LR=products["Q"] - 1j * products["U"]
+        )
+    if {"I", "Q"} <= products.keys():
+        products.update(
+            XX=products["I"] + products["Q"], YY=products["I"] - products["Q"]
+        )
+    if {"U", "V"} <= products.keys():
+        products.update(
+            XY=products["U"] + 1j * products["V"], YX=products["U"] - 1j * products["V"]
+        )
+    expected = (
+        np.stack([products[label] for label in out_pol.value])
+        if set(out_pol.value) <= products.keys()
+        else None
+    )
 
-    convert = lambda x: convert_polarization(x, inp_pol, out_pol)
     if expected is None:
-        # Unsupported pairs must fail explicitly, both directly and under JIT.
-        with pytest.raises(NotImplementedError, match="not implemented"):
-            convert(inp)
-        with pytest.raises(NotImplementedError, match="not implemented"):
-            jax.jit(convert)(inp)
+        # Invalid metadata fail once during construction, before any JIT.
+        with pytest.raises(ValueError, match="cannot determine"):
+            build_polarization_conversion(inp_pol, out_pol)
     else:
-        # Supported pairs must preserve the non-polarization axes and agree
-        # with the explicit formulas, both directly and under JIT.
+        convert = build_polarization_conversion(inp_pol, out_pol)
         for result in (convert(inp), jax.jit(convert)(inp)):
             assert result.shape == expected.shape
             assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
@@ -604,10 +613,68 @@ def test_response_rejects_beam_of_wrong_shape():
         freqs, 10, [-1e2, 1e2], [-5, 5], ju.polarization.PolarizationType(("LL", "RR"))
     )
     spatial = ju.wcs.WcsAstropy(
-        center=SkyCoord(0 * u.deg, 0 * u.deg), shape=(8, 8), fov=u.Quantity([1, 1], u.deg)
+        center=SkyCoord(0 * u.deg, 0 * u.deg),
+        shape=(8, 8),
+        fov=u.Quantity([1, 1], u.deg),
     )
-    grid = ju.Grid(spatial=spatial, spectral=ju.color.Color.from_central_frequencies(freqs))
+    grid = ju.Grid(
+        spatial=spatial, spectral=ju.color.Color.from_central_frequencies(freqs)
+    )
     with pytest.raises(ValueError, match="shape of the grid"):
         rve.interferometry_response(
             obs, grid, rve.parse.FinufftSettings(epsilon=1e-9), beam=np.ones((8, 8))
         )
+
+
+@pmp(
+    "stokes,correlations",
+    [
+        (("Q", "U"), ("RL", "LR")),
+        (("U", "V"), ("XY", "YX")),
+    ],
+)
+def test_response_cross_hand_subsets(stokes, correlations):
+    grid, obs, ducc, finufft = setup_grid_obs_response(
+        stokes, correlations, np.array([1e9, 1.3e9])
+    )
+    assert obs.polarization.value == correlations
+    sky = jnp.zeros(grid.shape)
+    volume = grid.spatial.dvol.to_value(u.rad**2)
+    sky = sky.at[:, 0, :, grid.shape[3] // 2, grid.shape[4] // 2].set(
+        jnp.array([[2.0], [3.0]]) / volume
+    )
+    expected = np.broadcast_to(np.array([2 + 3j, 2 - 3j])[:, None, None], obs.vis.shape)
+    assert_allclose(ducc(sky), expected, atol=1e-7)
+    assert_allclose(finufft(sky), expected, atol=1e-7)
+
+
+@pytest.mark.parametrize("backend", ["ducc", "finufft"])
+def test_response_preserves_output_order_absent_from_enum(backend):
+    freqs = np.array([1e9, 1.3e9])
+    grid, obs, canonical_ducc, canonical_finufft = setup_grid_obs_response(
+        ("I", "Q", "U", "V"), ("RR", "RL", "LR", "LL"), freqs
+    )
+    order = [3, 2, 1, 0]  # LL, LR, RL, RR: valid metadata without an enum member.
+    reordered = rve.Observation(
+        obs.antenna_positions,
+        obs.vis[order].copy(),
+        obs.weight[order].copy(),
+        ju.polarization.Polarization([8, 7, 6, 5]),
+        obs.freq,
+    )
+    assert reordered.polarization_labels == ("LL", "LR", "RL", "RR")
+    with pytest.raises(ValueError):
+        _ = reordered.polarization
+    settings = (
+        rve.parse.Ducc0Settings(
+            epsilon=1e-9, do_wgridding=False, nthreads=1, verbosity=False
+        )
+        if backend == "ducc"
+        else rve.parse.FinufftSettings(epsilon=1e-9)
+    )
+    response = rve.interferometry_response(reordered, grid, settings)
+    canonical = canonical_ducc if backend == "ducc" else canonical_finufft
+    sky = jnp.asarray(np.random.default_rng(73).normal(size=grid.shape))
+    expected = canonical(sky)[jnp.asarray(order)]
+    assert_allclose(response(sky), expected, rtol=1e-8, atol=1e-12)
+    assert_allclose(jax.jit(response)(sky), expected, rtol=1e-8, atol=1e-12)
