@@ -49,7 +49,7 @@ from dataclasses import dataclass
 import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
-from jax import Array
+from jax import Array, lax
 from jax.typing import DTypeLike
 
 from .grid import Grid
@@ -164,7 +164,11 @@ class SkyFilter(jft.Model):
         out = {}
         for name, band in self.bands.items():
             weights = jnp.asarray(band.weights, dtype=sky.dtype)
+            # Default float32 matmul precision on NVIDIA GPUs is TF32 (~1e-3).
             out[name] = jnp.tensordot(
-                weights, sky[band.channels], axes=(weights.ndim - 1, 0)
+                weights,
+                sky[band.channels],
+                axes=(weights.ndim - 1, 0),
+                precision=lax.Precision.HIGHEST,
             )
         return out

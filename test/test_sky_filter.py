@@ -1,10 +1,12 @@
 """SkyFilter: weighted sums per band, planes and cubes, contract validation."""
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from jax import lax
 
 from jubik.color import Color
 from jubik.grid import Grid
@@ -53,6 +55,14 @@ def test_identity_rows_return_the_sub_cube():
     sky = _sky()
     out = SkyFilter(_grid(), {"ifu": band})({SKY_KEY: jnp.asarray(sky)})["ifu"]
     np.testing.assert_array_equal(np.asarray(out), sky[2:6])
+
+
+def test_cube_matmul_asks_for_full_float32_precision():
+    # GPUs round float32 matmuls to TF32 by default, which CPU runs cannot show.
+    sky_filter = SkyFilter(_grid(), {"ifu": FilterWeights(slice(2, 6), np.eye(4))})
+    jaxpr = jax.make_jaxpr(sky_filter)({SKY_KEY: jnp.asarray(_sky())})
+    (dot,) = [e for e in jaxpr.eqns if e.primitive.name == "dot_general"]
+    assert dot.params["precision"] == (lax.Precision.HIGHEST, lax.Precision.HIGHEST)
 
 
 def test_one_hot_returns_the_channel():
