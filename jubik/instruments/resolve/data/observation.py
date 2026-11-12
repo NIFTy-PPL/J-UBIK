@@ -22,7 +22,6 @@ import astropy.units as u
 from ..conventions import OBSERVATION_FREQ_UNIT, OBSERVATION_UVW_UNIT
 from ..util import (
     compare_attributes,
-    my_assert_isinstance,
     is_single_precision,
 )
 from .antenna_positions import AntennaPositions
@@ -292,8 +291,14 @@ class Observation(BaseObservation):
         auxiliary_tables=None,
     ):
         nrows = len(antenna_positions)
-        my_assert_isinstance(polarization, Polarization)
-        my_assert_isinstance(antenna_positions, AntennaPositions)
+        if not isinstance(polarization, Polarization):
+            raise RuntimeError(
+                f"Polarization metadata must be Polarization; got {type(polarization).__name__}."
+            )
+        if not isinstance(antenna_positions, AntennaPositions):
+            raise RuntimeError(
+                f"Antenna positions must be AntennaPositions; got {type(antenna_positions).__name__}."
+            )
         if weight.shape != vis.shape:
             raise RuntimeError("Weights and visibilities must have matching shapes.")
         if vis.shape != (len(polarization), nrows, len(freq)):
@@ -331,10 +336,19 @@ class Observation(BaseObservation):
         self._freq = freq
 
         if auxiliary_tables is not None:
-            my_assert_isinstance(auxiliary_tables, dict)
+            if not isinstance(auxiliary_tables, dict):
+                raise RuntimeError(
+                    f"Auxiliary tables must be dict; got {type(auxiliary_tables).__name__}."
+                )
             for kk, vv in auxiliary_tables.items():
-                my_assert_isinstance(vv, AuxiliaryTable)
-                my_assert_isinstance(kk, str)
+                if not isinstance(vv, AuxiliaryTable):
+                    raise RuntimeError(
+                        f"Auxiliary table value must be AuxiliaryTable; got {type(vv).__name__}."
+                    )
+                if not isinstance(kk, str):
+                    raise RuntimeError(
+                        f"Table key must be str; got {type(kk).__name__}."
+                    )
         self._auxiliary_tables = auxiliary_tables
 
         self._eq_attributes = (
@@ -603,7 +617,11 @@ def tmin_tmax(*args):
     mi, ma : tuple of float
         first and last measurement time point
     """
-    my_assert_isinstance(*args, Observation)
+    for index, observation in enumerate(args):
+        if not isinstance(observation, Observation):
+            raise RuntimeError(
+                f"Argument {index} must be an Observation; got {type(observation).__name__}."
+            )
     mi = min([np.min(aa.antenna_positions.time) for aa in args])
     ma = max([np.max(aa.antenna_positions.time) for aa in args])
     return mi, ma
@@ -621,7 +639,11 @@ def unique_antennas(*args):
     set
         Set of antennas
     """
-    my_assert_isinstance(*args, Observation)
+    for index, observation in enumerate(args):
+        if not isinstance(observation, Observation):
+            raise RuntimeError(
+                f"Argument {index} must be an Observation; got {type(observation).__name__}."
+            )
     antennas = set()
     for oo in args:
         antennas = antennas | oo.antenna_positions.unique_antennas()
@@ -640,7 +662,11 @@ def unique_times(*args):
     set
         Set of time stamps
     """
-    my_assert_isinstance(*args, Observation)
+    for index, observation in enumerate(args):
+        if not isinstance(observation, Observation):
+            raise RuntimeError(
+                f"Argument {index} must be an Observation; got {type(observation).__name__}."
+            )
     times = set()
     for oo in args:
         times = times | oo.antenna_positions.unique_times()
