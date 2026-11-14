@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 import astropy.units as u
-from nifty.cl.logger import logger
+from nifty.re import logger
 
 from .....color import Color
 from ...parse.data.data_loading import DataFile
@@ -101,6 +101,8 @@ def build_observation_modify(
         average_to_stokes_I=config.average_to_stokes_I,
         flag_weights=config.flag_weights,
     )
+
+
 
 
 def modify_observation(

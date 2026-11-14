@@ -81,8 +81,8 @@ def test_zero_shift_is_identity(vis_dtype, weight_dtype):
     obs = generate_random_obs(FREQS, 10, [-1e2, 1e2], [-5, 5], pol)
     obs = rve.Observation(
         obs.antenna_positions,
-        obs.vis_val.astype(vis_dtype),
-        obs.weight_val.astype(weight_dtype),
+        obs.vis.astype(vis_dtype),
+        obs.weight.astype(weight_dtype),
         obs.legacy_polarization,
         obs.freq,
         None,
@@ -274,7 +274,7 @@ def test_loader_yields_each_observation_with_its_file(tmp_path):
     )
     seen = {}
     for file, obs in loaded:
-        assert_allclose(obs.vis_val, saved[file.path].vis_val)
+        assert_allclose(obs.vis, saved[file.path].vis)
         shift = build_phase_shift(config, groups[file.path], obs)
         seen[file.path] = shift.domain.keys()
 

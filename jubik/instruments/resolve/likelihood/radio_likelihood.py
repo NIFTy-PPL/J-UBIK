@@ -24,7 +24,7 @@ import jax.numpy as jnp
 import nifty.re as jft
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-from nifty.cl.logger import logger
+from nifty.re import logger
 from nifty.re.likelihood import LikelihoodSum
 
 from ....grid import Grid
@@ -58,6 +58,7 @@ from .mosaic_likelihood import (
     VariableLikelihoodBuilder,
     build_likelihood_from_sky_beamer,
 )
+
 
 
 @dataclass

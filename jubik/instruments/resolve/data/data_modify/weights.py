@@ -1,10 +1,11 @@
 """Weight transformations for resolve observations."""
 
 import numpy as np
-from nifty.cl.logger import logger
+from nifty.re import logger
 
 from ...parse.data.data_modify.weights import SystematicErrorBudget
 from ..observation import Observation
+
 
 
 def systematic_error_budget(obs: Observation, systematic: SystematicErrorBudget | None):
@@ -34,7 +35,7 @@ def systematic_error_budget(obs: Observation, systematic: SystematicErrorBudget 
         f"{systematic.percentage * 100} percent (sigma^2+(perc*|A|)^2)."
     )
 
-    weight_old = obs.weight.asnumpy()
+    weight_old = obs.weight
     perc = systematic.percentage
 
     # Entries with weight == 0 are flagged and stay flagged. They are excluded
@@ -48,7 +49,7 @@ def systematic_error_budget(obs: Observation, systematic: SystematicErrorBudget 
     # 1/ (sigma**2 + (sys_error_percentage*|A|)**2 )
     new_weight = np.divide(
         1.0,
-        sigma_squared + (perc * abs(obs.vis.asnumpy())) ** 2,
+        sigma_squared + (perc * abs(obs.vis)) ** 2,
         out=np.zeros_like(weight_old),
         where=valid,
     )

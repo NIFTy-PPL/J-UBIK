@@ -97,11 +97,11 @@ class LikelihoodBuilderBase:
 
     @property
     def visibilities(self) -> NDArray:
-        return self.observation.vis.val.val
+        return self.observation.vis
 
     @property
     def weight(self) -> NDArray:
-        return self.observation.weight.val.val
+        return self.observation.weight
 
     @property
     def uvw(self) -> NDArray:

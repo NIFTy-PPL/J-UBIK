@@ -43,7 +43,7 @@ def test_effective_uvw_uses_metres_and_hertz():
     expected = obs.uvw.T[:, :, None] * obs.freq[None, None, :] / c.to_value(u.m / u.s)
     assert_allclose(obs.effective_uvw(), expected, rtol=1e-14)
     expected_lengths = np.linalg.norm(expected, axis=0)
-    assert_allclose(obs.effective_uvwlen().val.asnumpy()[0], expected_lengths, rtol=1e-14)
+    assert_allclose(obs.effective_uvwlen()[0], expected_lengths, rtol=1e-14)
 
 
 @pytest.mark.parametrize("backend", ["ducc0", "finufft"])

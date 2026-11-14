@@ -79,8 +79,8 @@ def flag_weights(obs: Observation, setting: FlagWeights | None) -> Observation:
     if setting is None:
         return obs
 
-    mask_bigger = obs.weight.asnumpy() > setting.max
-    mask_smaller = obs.weight.asnumpy() < setting.min
+    mask_bigger = obs.weight > setting.max
+    mask_smaller = obs.weight < setting.min
     mask = ~(mask_bigger + mask_smaller).any(axis=(0, 2))
 
     if not mask.any():
@@ -89,8 +89,8 @@ def flag_weights(obs: Observation, setting: FlagWeights | None) -> Observation:
             f"Please adapt the weight bounds ({setting.min}, {setting.max})."
         )
 
-    visibilities = obs.vis.asnumpy()[:, mask, :]
-    weights = obs.weight.asnumpy()[:, mask, :]
+    visibilities = obs.vis[:, mask, :]
+    weights = obs.weight[:, mask, :]
     # `AntennaPositions.__getitem__` masks the calibration information (ant1,
     # ant2, time) alongside uvw and handles the only_imaging case.
     antenna_positions = obs.antenna_positions[mask]

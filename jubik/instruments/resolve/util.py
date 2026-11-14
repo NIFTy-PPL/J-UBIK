@@ -14,7 +14,6 @@
 # Copyright(C) 2020-2022 Max-Planck-Society, Philipp Arras
 # Author: Philipp Arras
 
-import nifty.cl as ift
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -56,9 +55,8 @@ def _fancy_equal(o1, o2):
     if not _types_equal(o1, o2):
         return False
 
-    # Turn MultiField into dict
-    if isinstance(o1, ift.MultiField):
-        o1, o2 = o1.val, o2.val
+    # Current callers compare plain data attributes; NIFTy MultiField comparison
+    # is intentionally unsupported to avoid a dependency on nifty.cl.
 
     # Compare dicts
     if isinstance(o1, dict):

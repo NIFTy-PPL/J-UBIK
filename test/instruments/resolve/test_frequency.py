@@ -29,8 +29,8 @@ def build_obs(freqs=FREQS):
 def assert_frequency_groups_are_averaged(obs, averaged, groups, mode):
     expected_freq, expected_vis, expected_weight = [], [], []
     for ind in groups:
-        vis = obs.vis_val[..., ind]
-        weight = obs.weight_val[..., ind]
+        vis = obs.vis[..., ind]
+        weight = obs.weight[..., ind]
         if mode == "noise_weighted":
             expected_freq.append(
                 np.sum(weight * obs.freq[ind][None, None, :]) / weight.sum()
@@ -45,8 +45,8 @@ def assert_frequency_groups_are_averaged(obs, averaged, groups, mode):
     expected_weight = np.stack(expected_weight, axis=2)
 
     assert_allclose(averaged.freq, expected_freq)
-    assert_allclose(averaged.vis_val, expected_vis)
-    assert_allclose(averaged.weight_val, expected_weight)
+    assert_allclose(averaged.vis, expected_vis)
+    assert_allclose(averaged.weight, expected_weight)
 
 
 @pmp("mode", ("noise_weighted", "arithmetic"))
@@ -70,8 +70,8 @@ def test_freq_average_by_bins_none_is_noop():
 @pmp("mode", ("noise_weighted", "arithmetic"))
 def test_freq_average_by_bins_excludes_flagged_channels(mode):
     obs = build_obs()
-    vis = obs.vis_val.copy()
-    weight = obs.weight_val.copy()
+    vis = obs.vis.copy()
+    weight = obs.weight.copy()
 
     # A flagged visibility may contain an arbitrary placeholder and must not
     # affect either the average or its propagated weight.
@@ -98,10 +98,10 @@ def test_freq_average_by_bins_excludes_flagged_channels(mode):
     a = np.where(weight > 0, weight if mode == "noise_weighted" else 1, 0)
     assert_allclose(averaged.freq, [np.sum(a * obs.freq[None, None, :]) / a.sum()])
 
-    assert_allclose(averaged.vis_val[0, 0, 0], expected_vis)
-    assert_allclose(averaged.weight_val[0, 0, 0], expected_weight)
-    assert averaged.vis_val[1, 0, 0] == 0.0
-    assert averaged.weight_val[1, 0, 0] == 0.0
+    assert_allclose(averaged.vis[0, 0, 0], expected_vis)
+    assert_allclose(averaged.weight[0, 0, 0], expected_weight)
+    assert averaged.vis[1, 0, 0] == 0.0
+    assert averaged.weight[1, 0, 0] == 0.0
 
 
 @pmp("n_bins", (0, -1, len(FREQS) + 1))
@@ -133,8 +133,8 @@ def test_exclude_range_drops_channels_and_keeps_rest_bitwise():
     keep = np.array([0, 1, 4, 5])
     assert new.nfreq == len(keep)
     assert_array_equal(new.freq, obs.freq[keep])
-    assert_array_equal(new.vis.asnumpy(), obs.vis.asnumpy()[:, :, keep])
-    assert_array_equal(new.weight.asnumpy(), obs.weight.asnumpy()[:, :, keep])
+    assert_array_equal(new.vis, obs.vis[:, :, keep])
+    assert_array_equal(new.weight, obs.weight[:, :, keep])
 
 
 @pmp("ranges", (None, [], ()))
@@ -180,8 +180,8 @@ def test_exclude_multiple_disjoint_ranges():
 
     keep = np.array([1, 2, 3, 5])
     assert_array_equal(new.freq, obs.freq[keep])
-    assert_array_equal(new.vis.asnumpy(), obs.vis.asnumpy()[:, :, keep])
-    assert_array_equal(new.weight.asnumpy(), obs.weight.asnumpy()[:, :, keep])
+    assert_array_equal(new.vis, obs.vis[:, :, keep])
+    assert_array_equal(new.weight, obs.weight[:, :, keep])
 
 
 def test_spectral_modify_parses_exclude_frequency_ranges():
@@ -216,8 +216,8 @@ def test_frequency_averaging_all_flagged(mode):
     obs = build_obs()
     obs = Observation(
         obs.antenna_positions,
-        obs.vis_val,
-        np.zeros_like(obs.weight_val),
+        obs.vis,
+        np.zeros_like(obs.weight),
         obs.legacy_polarization,
         obs.freq,
         obs._auxiliary_tables,
@@ -247,11 +247,11 @@ def test_invalid_averaging_mode():
 @pmp("mode", ("noise_weighted", "arithmetic"))
 def test_frequency_averaging_discards_fully_flagged_bin(mode):
     obs = build_obs()
-    weight = obs.weight_val.copy()
+    weight = obs.weight.copy()
     weight[..., :3] = 0
     flagged_obs = Observation(
         obs.antenna_positions,
-        obs.vis_val,
+        obs.vis,
         weight,
         obs.legacy_polarization,
         obs.freq,

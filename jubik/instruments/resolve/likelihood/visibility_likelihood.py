@@ -63,16 +63,16 @@ def build_likelihood(
     >>> lh = build_likelihood(obs, vis)
     >>> lh = connect_likelihood_to_model(lh, sky_model)
     """
-    data = observation.vis.val.val
+    data = observation.vis
     predicted = tuple(predicted_visibilities.target.shape)
     if predicted != data.shape:
         raise ValueError(f"predicted visibilities {predicted}, data {data.shape}")
     # flagged points (weight 0) may hold NaN visibilities, so leave them out
-    good = observation.mask_val
+    good = observation.mask
     data = data[good]
 
     if inverse_std is None:
-        weight = observation.weight.val.val[good]
+        weight = observation.weight[good]
         likelihood = jft.Gaussian(data, noise_cov_inv=lambda x: x * weight)
         domain = predicted_visibilities.domain
         model = jft.Model(

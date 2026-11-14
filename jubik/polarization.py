@@ -89,14 +89,22 @@ class Polarization:
         return [POLARIZATION_TABLE[ii] for ii in self._ind]
 
     @property
+    def labels(self):
+        """Ordered polarization labels, including ``I`` for trivial polarization.
+
+        Unlike ``space``, accessing labels does not require classic NIFTy.
+        """
+        return tuple(self.to_str_list()) or ("I",)
+
+    @property
     def space(self):
+        """Legacy classic NIFTy domain; use ``labels`` for label-only access.
+
+        The domain/operator replacement belongs to the polarization rework.
+        """
         from .instruments.resolve.polarization_space import PolarizationSpace
 
-        if self == Polarization.trivial():
-            x = "I"
-        else:
-            x = [POLARIZATION_TABLE[ii] for ii in self._ind]
-        return PolarizationSpace(x)
+        return PolarizationSpace(self.labels)
 
     @staticmethod
     def from_list(lst):

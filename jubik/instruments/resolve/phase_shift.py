@@ -8,7 +8,7 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from astropy import units as u
-from nifty.cl.logger import logger
+from nifty.re import logger
 
 from ...models.distributions import build_parametric_prior_from_prior_config
 from ...parse.models.distributions.distributions import ProbabilityConfig
@@ -16,6 +16,7 @@ from .data.observation import Observation
 from .parse.data.data_loading import DataFile
 from .parse.phase_shift import OFFSET_KEY, SHIFT_SHAPE, PhaseShiftConfig, ShiftGroup
 from .util import cast_to_dtype
+
 
 
 # --------------------------------------------------------------------------------------
@@ -91,7 +92,7 @@ def build_phase_shift(
         shift = jft.Model(lambda x: off(x) + grp(x), domain=off.domain | grp.domain)
 
     phase_u, phase_v = _phase_per_arcsec(observation)
-    return PhaseShift(shift, phase_u, phase_v, observation.vis_val.dtype)
+    return PhaseShift(shift, phase_u, phase_v, observation.vis.dtype)
 
 
 def assign_shift_groups(

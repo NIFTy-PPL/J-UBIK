@@ -1,13 +1,14 @@
 from typing import Generator
 
 from astropy.units import Quantity
-from nifty.cl.logger import logger
+from nifty.re import logger
 
 from ....color import Color
 from ..parse.data.data_loading import DataFile, DataLoading
 from ..parse.data.data_modify import ObservationModifyConfig
 from .data_modify import build_observation_modify, modify_observation
 from .observation import Observation
+
 
 
 def load_and_modify_data_from_objects(

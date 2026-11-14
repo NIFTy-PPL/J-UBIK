@@ -52,11 +52,11 @@ def build_obs(freqs, n_rows=6, ant1=None, ant2=None, times=None):
 
 def with_weight(obs, index, value):
     """Copy of `obs` with a single weight entry replaced."""
-    weight = obs.weight_val.copy()
+    weight = obs.weight.copy()
     weight[index] = value
     return rve.Observation(
         obs.antenna_positions,
-        obs.vis_val.copy(),
+        obs.vis.copy(),
         weight,
         obs.legacy_polarization,
         obs.freq,
@@ -90,13 +90,13 @@ def test_default_modify_is_identity():
 
     new = modify_observation(continuous_sky(0.95e9, 1.25e9), obs, modify)
 
-    assert_array_equal(new.vis_val, obs.vis_val)
-    assert_array_equal(new.weight_val, obs.weight_val)
+    assert_array_equal(new.vis, obs.vis)
+    assert_array_equal(new.weight, obs.weight)
     assert_array_equal(new.freq, obs.freq)
     assert new.antenna_positions is obs.antenna_positions
     # The only documented step of a default config is the cast to double
     # precision, which is a no-op for data that already is double precision.
-    assert new.vis_val.dtype == np.complex128
+    assert new.vis.dtype == np.complex128
     assert modify.to_double_precision
 
 
@@ -106,8 +106,8 @@ def test_default_modify_upcasts_single_precision_data():
     obs = build_obs(freqs)
     single = rve.Observation(
         obs.antenna_positions,
-        obs.vis_val.astype(np.complex64),
-        obs.weight_val.astype(np.float32),
+        obs.vis.astype(np.complex64),
+        obs.weight.astype(np.float32),
         obs.legacy_polarization,
         obs.freq,
         None,
@@ -116,28 +116,28 @@ def test_default_modify_upcasts_single_precision_data():
 
     new = modify_observation(continuous_sky(0.95e9, 1.15e9), single, modify)
 
-    assert new.vis_val.dtype == np.complex128
-    assert new.weight_val.dtype == np.float64
-    assert_allclose(new.vis_val, obs.vis_val.astype(np.complex64))
+    assert new.vis.dtype == np.complex128
+    assert new.weight.dtype == np.float64
+    assert_allclose(new.vis, obs.vis.astype(np.complex64))
 
 
 def test_modify_does_not_mutate_its_input_and_is_idempotent():
     np.random.seed(202)
     freqs = 1.0e9 + np.arange(2) * 0.1e9
     obs = build_obs(freqs, n_rows=5)
-    vis_before = obs.vis_val.copy()
-    weight_before = obs.weight_val.copy()
+    vis_before = obs.vis.copy()
+    weight_before = obs.weight.copy()
     modify = modify_of({"weight_modify": {"percentage": 0.1}})
     sky = continuous_sky(0.95e9, 1.15e9)
 
     first = modify_observation(sky, obs, modify)
 
-    assert_array_equal(obs.vis_val, vis_before)
-    assert_array_equal(obs.weight_val, weight_before)
+    assert_array_equal(obs.vis, vis_before)
+    assert_array_equal(obs.weight, weight_before)
 
     second = modify_observation(sky, obs, modify)
-    assert_array_equal(first.weight_val, second.weight_val)
-    assert_array_equal(first.vis_val, second.vis_val)
+    assert_array_equal(first.weight, second.weight)
+    assert_array_equal(first.vis, second.vis)
 
 
 # ---------------------------------------------------------------------------
@@ -175,11 +175,11 @@ def test_flag_weights_runs_before_frequency_averaging():
     # The two orders really differ: averaging dilutes the outlier.
     assert flag_first.nrow == 5
     assert average_first.nrow == 6
-    assert np.max(average_first.weight_val) < 1e12
+    assert np.max(average_first.weight) < 1e12
 
     assert new.nrow == 5
-    assert_array_equal(new.vis_val, flag_first.vis_val)
-    assert_array_equal(new.weight_val, flag_first.weight_val)
+    assert_array_equal(new.vis, flag_first.vis)
+    assert_array_equal(new.weight, flag_first.weight)
     assert_array_equal(new.freq, flag_first.freq)
 
 
@@ -215,10 +215,10 @@ def test_flag_weights_runs_before_time_averaging():
     # Both orders keep the two baselines, but the averaged values differ.
     assert flag_first.nrow == 2
     assert average_first.nrow == 2
-    assert not np.allclose(flag_first.vis_val, average_first.vis_val)
+    assert not np.allclose(flag_first.vis, average_first.vis)
 
-    assert_array_equal(new.vis_val, flag_first.vis_val)
-    assert_array_equal(new.weight_val, flag_first.weight_val)
+    assert_array_equal(new.vis, flag_first.vis)
+    assert_array_equal(new.weight, flag_first.weight)
 
 
 # ---------------------------------------------------------------------------
@@ -236,11 +236,11 @@ def test_exclude_frequency_ranges_runs_before_frequency_averaging(mode):
     # for noise_weighted: arithmetic averaging gives 1.25 GHz regardless of weights.
     channel_weights = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 2.0])
     weights = np.broadcast_to(
-        channel_weights[None, None, :], obs.weight_val.shape
+        channel_weights[None, None, :], obs.weight.shape
     ).copy()
     obs = rve.Observation(
         obs.antenna_positions,
-        obs.vis_val,
+        obs.vis,
         weights,
         obs.legacy_polarization,
         obs.freq,
@@ -263,8 +263,8 @@ def test_exclude_frequency_ranges_runs_before_frequency_averaging(mode):
     keep = np.array([0, 1, 4, 5])
     # One output channel, the average of the four surviving channels only.
     assert new.nfreq == 1
-    weights = obs.weight_val[:, :, keep]
-    vis = obs.vis_val[:, :, keep]
+    weights = obs.weight[:, :, keep]
+    vis = obs.vis[:, :, keep]
     if mode == "noise_weighted":
         expected_freq = np.sum(weights * freqs[keep][None, None, :]) / weights.sum()
         expected_vis = np.sum(weights * vis, axis=2) / weights.sum(axis=2)
@@ -275,14 +275,14 @@ def test_exclude_frequency_ranges_runs_before_frequency_averaging(mode):
         expected_weight = len(keep) ** 2 / np.sum(1 / weights, axis=2)
 
     assert_allclose(new.freq, [expected_freq])
-    assert_allclose(new.vis_val[:, :, 0], expected_vis)
-    assert_allclose(new.weight_val[:, :, 0], expected_weight)
+    assert_allclose(new.vis[:, :, 0], expected_vis)
+    assert_allclose(new.weight[:, :, 0], expected_weight)
 
     # Compare with the same averaging mode including all six input channels.
     averaged = freq_average_by_fdom_and_n_freq_chunks(
         sky, obs, 1, averaging_mode=mode
     )
-    assert not np.allclose(new.vis_val, averaged.vis_val)
+    assert not np.allclose(new.vis, averaged.vis)
 
     # Averaging first places the sole output frequency inside the excluded
     # range in both modes, so subsequent exclusion would remove all channels.
@@ -306,8 +306,8 @@ def test_descending_frequencies_are_reversed():
 
     assert_array_equal(new.freq, freqs[::-1])
     assert np.all(np.diff(new.freq) > 0)
-    assert_array_equal(new.vis_val, obs.vis_val[:, :, ::-1])
-    assert_array_equal(new.weight_val, obs.weight_val[:, :, ::-1])
+    assert_array_equal(new.vis, obs.vis[:, :, ::-1])
+    assert_array_equal(new.weight, obs.weight[:, :, ::-1])
 
 
 def test_ascending_frequencies_are_not_reversed():
@@ -319,7 +319,7 @@ def test_ascending_frequencies_are_not_reversed():
     new = modify_observation(continuous_sky(0.95e9, 1.35e9), obs, modify)
 
     assert_array_equal(new.freq, freqs)
-    assert_array_equal(new.vis_val, obs.vis_val)
+    assert_array_equal(new.vis, obs.vis)
 
 
 def test_single_channel_observation_is_not_reversed():
@@ -330,7 +330,7 @@ def test_single_channel_observation_is_not_reversed():
     new = modify_observation(continuous_sky(0.95e9, 1.05e9), obs, modify)
 
     assert_array_equal(new.freq, obs.freq)
-    assert_array_equal(new.vis_val, obs.vis_val)
+    assert_array_equal(new.vis, obs.vis)
 
 
 # ---------------------------------------------------------------------------
@@ -399,8 +399,8 @@ def test_shift_is_applied_by_the_pipeline():
     new = modify_observation(continuous_sky(0.95e9, 1.15e9), obs, modify)
 
     expected = shift_phase_center(obs, ShiftObservation([sx, sy] * u.rad))
-    assert_array_equal(new.vis_val, expected.vis_val)
-    assert_array_equal(new.weight_val, obs.weight_val)
+    assert_array_equal(new.vis, expected.vis)
+    assert_array_equal(new.weight, obs.weight)
 
 
 @pytest.mark.xfail(
@@ -423,7 +423,7 @@ def test_shift_should_be_applied_before_frequency_averaging():
     sx = 4.0e-4
     uu = obs.uvw[:, 0, None] * freqs[None] / c.to_value(u.m / u.s)
     vis = np.broadcast_to(
-        np.exp(-2j * np.pi * uu * sx)[None], obs.vis_val.shape
+        np.exp(-2j * np.pi * uu * sx)[None], obs.vis.shape
     ).astype(np.complex128)
     point = rve.Observation(
         obs.antenna_positions,
@@ -446,6 +446,6 @@ def test_shift_should_be_applied_before_frequency_averaging():
     # Shifting first and averaging afterwards gives unit amplitude everywhere.
     shifted = shift_phase_center(point, ShiftObservation([sx, 0.0] * u.rad))
     shift_first = freq_average_by_fdom_and_n_freq_chunks(sky, shifted, 1)
-    assert_allclose(np.abs(shift_first.vis_val), 1.0, atol=1e-12)
+    assert_allclose(np.abs(shift_first.vis), 1.0, atol=1e-12)
 
-    assert_allclose(np.abs(new.vis_val), 1.0, atol=1e-6)
+    assert_allclose(np.abs(new.vis), 1.0, atol=1e-6)

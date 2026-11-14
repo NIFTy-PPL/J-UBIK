@@ -58,9 +58,9 @@ def test_restrict_to_stokesi_selects_parallel_hands(polarization_type, keep, lab
     new = restrict_to_stokesi(obs)
 
     assert new.npol == 2
-    assert new.vis.domain[0].labels == labels
-    assert_array_equal(new.vis_val, obs.vis_val[keep])
-    assert_array_equal(new.weight_val, obs.weight_val[keep])
+    assert new.polarization_labels == labels
+    assert_array_equal(new.vis, obs.vis[keep])
+    assert_array_equal(new.weight, obs.weight[keep])
 
 
 def test_restrict_to_stokesi_keeps_metadata():
@@ -78,7 +78,7 @@ def test_restrict_to_stokesi_is_idempotent():
     once = restrict_to_stokesi(obs)
     twice = restrict_to_stokesi(once)
 
-    assert_array_equal(twice.vis_val, once.vis_val)
+    assert_array_equal(twice.vis, once.vis)
     assert twice.legacy_polarization == once.legacy_polarization
 
 
@@ -98,8 +98,8 @@ def test_restrict_to_polarization_extracts_single_product(label, index):
     new = restrict_to_polarization(obs, label)
 
     assert new.npol == 1
-    assert_array_equal(new.vis_val, obs.vis_val[index : index + 1])
-    assert_array_equal(new.weight_val, obs.weight_val[index : index + 1])
+    assert_array_equal(new.vis, obs.vis[index : index + 1])
+    assert_array_equal(new.weight, obs.weight[index : index + 1])
 
 
 def test_restrict_to_polarization_keeps_metadata():
@@ -126,7 +126,7 @@ def test_restrict_to_polarization_label_is_hardcoded_to_xx(label):
     new = restrict_to_polarization(obs, label)
 
     assert new.legacy_polarization == Polarization([9])
-    assert new.vis.domain[0].labels == ("XX",)
+    assert new.polarization_labels == ("XX",)
 
 
 # ------------------------------------------------------------------- average_stokesi
@@ -142,15 +142,15 @@ def test_average_stokesi_is_inverse_variance_weighted_mean(polarization_type):
     obs = build_obs(polarization_type)
     new = average_stokesi(obs)
 
-    weight = obs.weight_val
+    weight = obs.weight
     expected_weight = np.sum(weight, axis=0)[None]
-    expected_vis = np.sum(weight * obs.vis_val, axis=0)[None] / expected_weight
+    expected_vis = np.sum(weight * obs.vis, axis=0)[None] / expected_weight
 
     assert new.npol == 1
-    assert new.vis.domain[0].labels == ("I",)
+    assert new.polarization_labels == ("I",)
     assert new.legacy_polarization == Polarization.trivial()
-    assert_allclose(new.vis_val, expected_vis)
-    assert_allclose(new.weight_val, expected_weight)
+    assert_allclose(new.vis, expected_vis)
+    assert_allclose(new.weight, expected_weight)
 
 
 def test_average_stokesi_of_equal_visibilities_reproduces_them():
@@ -163,8 +163,8 @@ def test_average_stokesi_of_equal_visibilities_reproduces_them():
 
     new = average_stokesi(obs)
 
-    assert_allclose(new.vis_val, single)
-    assert_allclose(new.weight_val, np.sum(weight, axis=0)[None])
+    assert_allclose(new.vis, single)
+    assert_allclose(new.weight, np.sum(weight, axis=0)[None])
 
 
 def test_average_stokesi_zeroes_fully_flagged_data_points():
@@ -178,12 +178,12 @@ def test_average_stokesi_zeroes_fully_flagged_data_points():
 
     new = average_stokesi(obs)
 
-    assert new.vis_val[0, 0, 0] == 0.0
-    assert new.weight_val[0, 0, 0] == 0.0
+    assert new.vis[0, 0, 0] == 0.0
+    assert new.weight[0, 0, 0] == 0.0
     # Only the second hand survives at (1, 0), so its visibility is passed through.
-    assert_allclose(new.vis_val[0, 1, 0], vis[1, 1, 0])
-    assert new.weight_val[0, 1, 0] == 1.0
-    assert np.all(np.isfinite(new.vis_val))
+    assert_allclose(new.vis[0, 1, 0], vis[1, 1, 0])
+    assert new.weight[0, 1, 0] == 1.0
+    assert np.all(np.isfinite(new.vis))
 
 
 def test_average_stokesi_rejects_crosshanded_data():
@@ -204,4 +204,4 @@ def test_restrict_then_average_gives_stokes_i():
     new = average_stokesi(restrict_to_stokesi(obs))
 
     assert new.npol == 1
-    assert new.vis.domain[0].labels == ("I",)
+    assert new.polarization_labels == ("I",)
