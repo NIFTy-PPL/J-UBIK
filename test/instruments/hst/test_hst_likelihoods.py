@@ -451,10 +451,10 @@ def test_residual_pages_bound_the_figure(tmp_path, monkeypatch):
 
     monkeypatch.setattr(residual_plots, "MAX_PANELS_PER_PAGE", 4)  # one row
     plots(x, SimpleNamespace(nit=4))
-    pages = sorted(p.name for p in tmp_path.glob("04*.png"))
-    assert pages == ["04_00.png", "04_01.png"]
+    pages = sorted(p.name for p in (tmp_path / "04").glob("*.png"))
+    assert pages == ["00.png", "01.png"]
     for page in pages:
-        assert matplotlib.image.imread(tmp_path / page).shape[:2] == (900, 3600)
+        assert matplotlib.image.imread(tmp_path / "04" / page).shape[:2] == (900, 3600)
     assert rows == 2 * list(products.sky_filter.bands)
 
 
