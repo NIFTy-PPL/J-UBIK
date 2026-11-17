@@ -108,12 +108,6 @@ class Polarization:
         """Ordered polarization labels, including ``I`` for trivial polarization."""
         return tuple(self.to_str_list()) or ("I",)
 
-    def to_polarization_space(self):
-        """Return NIFTy-free metadata with conversion helpers."""
-        from .instruments.resolve.polarization_space import PolarizationSpace
-
-        return PolarizationSpace(self.labels)
-
     @staticmethod
     def from_list(lst):
         return Polarization(lst)
@@ -184,12 +178,6 @@ class PolarizationType(Enum):
         else:
             indices = [PolarizationCode[p].value for p in self.value]
         return Polarization(indices)
-
-    def to_polarization_space(self):
-        """Return NIFTy-free metadata with conversion helpers."""
-        from .instruments.resolve.polarization_space import PolarizationSpace
-
-        return PolarizationSpace(self.value)
 
     @property
     def shape(self):

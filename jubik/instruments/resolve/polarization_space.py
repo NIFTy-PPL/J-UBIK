@@ -14,11 +14,9 @@
 # Copyright(C) 2019-2020 Max-Planck-Society
 # Author: Philipp Arras, Jakob Knollmüller, Jokob Roth, Julian Rüstig
 
-from dataclasses import dataclass
-
 import jax.numpy as jnp
 
-from ...polarization import Polarization, PolarizationCode, PolarizationType
+from ...polarization import Polarization, PolarizationType
 
 # Each row contains the coefficients expressing a polarization product as a
 # linear combination of the reference Stokes vector (I, Q, U, V). For example,
@@ -55,7 +53,7 @@ _POLARIZATION_BASES = (
 def _polarization_labels(polarization):
     if isinstance(polarization, PolarizationType):
         polarization = polarization.value
-    elif isinstance(polarization, (Polarization, PolarizationSpace)):
+    elif isinstance(polarization, Polarization):
         polarization = polarization.labels
     elif isinstance(polarization, str):
         polarization = (polarization,)
@@ -68,99 +66,12 @@ def _polarization_labels(polarization):
     return labels
 
 
-@dataclass(frozen=True)
-class PolarizationSpace:
-    """Immutable ordered polarization labels and conversion operations.
-
-    Accept a label string/sequence, PolarizationType, Polarization, or another
-    PolarizationSpace. Labels are normalized to a validated tuple without
-    reordering. Equality and hashing include component order. This container
-    does not construct classic NIFTy domains or Fields.
-    """
-
-    labels: tuple[str, ...]
-
-    def __post_init__(self):
-        object.__setattr__(self, "labels", _polarization_labels(self.labels))
-
-    @classmethod
-    def from_polarization(cls, polarization):
-        """Adapt existing polarization metadata, including legacy empty-I."""
-        return cls(polarization)
-
-    @property
-    def shape(self):
-        """Shape of the polarization axis."""
-        return (len(self.labels),)
-
-    @property
-    def size(self):
-        """Number of polarization components."""
-        return len(self.labels)
-
-    def __len__(self):
-        return len(self.labels)
-
-    def labels_eq(self, labels):
-        """Compare component membership, ignoring order."""
-        return set(self.labels) == set(_polarization_labels(labels))
-
-    def axis_index(self, label):
-        """Return the label's zero-based position on the polarization array axis.
-
-        This is not its CASA polarization code. Raises ValueError if absent.
-        """
-        return self.labels.index(label)
-
-    def conversion_to_target(
-        self, target, *, is_callable=False, assume_missing_stokes_zero=False, axis=0
-    ):
-        """Build a conversion to target as a matrix or callable operator.
-
-        Parameters
-        ----------
-        target : PolarizationSpace, PolarizationType, Polarization, or labels
-            Output components in the requested data-axis order.
-        is_callable : bool, optional
-            False (default) returns a JAX conversion matrix. True returns a
-            callable applying that matrix to an array along axis.
-        assume_missing_stokes_zero : bool, optional
-            Default to exact conversion. True requires Stokes input and
-            treats omitted Stokes components as zero for model predictions.
-        axis : int, optional
-            Polarization axis for callable application; default zero.
-            Has no effect when returning a matrix.
-
-        Construct outside JIT. A returned callable can be jitted and
-        differentiated; it is not a NIFTy operator object.
-        """
-        if is_callable:
-            return build_polarization_conversion(
-                self, target,
-                assume_missing_stokes_zero=assume_missing_stokes_zero,
-                axis=axis,
-            )
-        return polarization_matrix(
-            self, target, assume_missing_stokes_zero=assume_missing_stokes_zero
-        )
-
-    def to_polarization(self):
-        """Adapt to CASA-code metadata, preserving the legacy empty-I form."""
-        if self.labels == ("I",):
-            return Polarization.trivial()
-        return Polarization([PolarizationCode[label].value for label in self.labels])
-
-    def to_polarization_type(self):
-        """Return the named combination; raise ValueError if none exists."""
-        return PolarizationType(self.labels)
-
-
 def polarization_matrix(inp_pol, out_pol, *, assume_missing_stokes_zero=False):
     """Construct a polarization conversion matrix through full Stokes.
 
     Parameters
     ----------
-    inp_pol, out_pol : PolarizationSpace, PolarizationType, Polarization, or labels
+    inp_pol, out_pol : PolarizationType, Polarization, or labels
         Input and output labels in their data-axis order. Inputs must belong
         to one Stokes, circular, or linear basis. Subsets and permutations
         are supported.

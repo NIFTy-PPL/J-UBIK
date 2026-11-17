@@ -1,7 +1,5 @@
 """NIFTy-free polarization metadata, forward conversions, and adjoints."""
 
-from dataclasses import FrozenInstanceError
-
 import jax
 from jax import Array
 import jax.numpy as jnp
@@ -11,59 +9,29 @@ from numpy.testing import assert_allclose
 
 from jubik.polarization import Polarization, PolarizationType
 from jubik.instruments.resolve.polarization_space import (
-    PolarizationSpace, build_polarization_conversion, polarization_matrix,
+    build_polarization_conversion, polarization_matrix,
 )
 
 
 @pytest.mark.parametrize("metadata", [
     ("RR", "LL"), ["RR", "LL"], PolarizationType.RR_LL,
-    Polarization([5, 8]), PolarizationSpace(("RR", "LL")),
+    Polarization([5, 8]),
 ])
-def test_metadata_adapters(metadata):
-    space = PolarizationSpace.from_polarization(metadata)
-    assert space.labels == ("RR", "LL")
-    assert space.shape == (2,)
-    assert space.size == len(space) == 2
-    assert space.axis_index("LL") == 1
-    assert space.labels_eq(("LL", "RR"))
-    assert space.to_polarization_type() is PolarizationType.RR_LL
-    assert space.to_polarization().to_list() == [5, 8]
+def test_conversion_accepts_metadata(metadata):
+    assert_allclose(polarization_matrix(metadata, "I"), [[.5, .5]])
 
 
-def test_immutable_ordered_metadata():
-    labels = ["RR", "LL"]
-    space = PolarizationSpace(labels)
-    labels.reverse()
-    assert space == PolarizationSpace(("RR", "LL"))
-    assert space != PolarizationSpace(("LL", "RR"))
-    assert len({space, PolarizationSpace(("RR", "LL"))}) == 1
-    with pytest.raises(FrozenInstanceError):
-        space.labels = ("I",)
-
-
-@pytest.mark.parametrize("labels", [(), ("I", "I"), ("unknown",)])
-def test_invalid_metadata(labels):
-    with pytest.raises(ValueError):
-        PolarizationSpace(labels)
-
-
-def test_legacy_and_named_metadata_adapters():
-    stokes = PolarizationSpace.from_polarization(Polarization.trivial())
-    assert stokes == PolarizationSpace("I") == PolarizationSpace.from_polarization(PolarizationType.I)
-    assert stokes.to_polarization() == Polarization.trivial()
-    assert PolarizationSpace(("I", "V")).to_polarization().to_list() == [1, 4]
-    # Containers support combinations not yet named by PolarizationType.
-    with pytest.raises(ValueError):
-        PolarizationSpace(("I", "V")).to_polarization_type()
+def test_conversion_accepts_legacy_trivial_polarization():
+    assert_allclose(polarization_matrix(Polarization.trivial(), "I"), [[1]])
 
 
 @pytest.mark.parametrize("outputs", [
     ("LL", "RL", "RR", "LR"), ("YY", "XY", "XX", "YX"),
 ])
 def test_model_products_and_hermitian_adjoint(outputs):
-    source = PolarizationSpace(PolarizationType.IQUV)
-    target = PolarizationSpace(outputs)
-    convert = source.conversion_to_target(target, is_callable=True, assume_missing_stokes_zero=True)
+    source = PolarizationType.IQUV
+    target = outputs
+    convert = build_polarization_conversion(source, target, assume_missing_stokes_zero=True)
     rng = np.random.default_rng(12)
     values = jnp.asarray(rng.normal(size=(4, 2, 3)) + 1j*rng.normal(size=(4, 2, 3)))
     i, q, u, v = values
@@ -80,35 +48,34 @@ def test_model_products_and_hermitian_adjoint(outputs):
 
 
 def test_exact_conversion_and_model_adjoint_have_distinct_normalizations():
-    stokes = PolarizationSpace("I")
-    correlations = PolarizationSpace(("RR", "LL"))
+    stokes = "I"
+    correlations = ("RR", "LL")
     values = jnp.stack((jnp.full((2, 3), 2.), jnp.full((2, 3), 6.))).astype(complex)
-    exact = correlations.conversion_to_target(stokes, is_callable=True)
-    model = stokes.conversion_to_target(correlations, is_callable=True, assume_missing_stokes_zero=True)
+    exact = build_polarization_conversion(correlations, stokes)
+    model = build_polarization_conversion(stokes, correlations, assume_missing_stokes_zero=True)
     assert_allclose(exact(values), 4)
     transpose = jax.linear_transpose(model, jnp.zeros((1, 2, 3), dtype=complex))
     assert_allclose(jnp.conj(transpose(jnp.conj(values))[0]), 8)
     with pytest.raises(ValueError, match="cannot determine"):
-        stokes.conversion_to_target(correlations, is_callable=True)
+        build_polarization_conversion(stokes, correlations)
 
 
 def test_omitted_stokes_and_nonleading_axis():
-    source = PolarizationSpace(("I", "Q", "U"))
-    target = PolarizationSpace(PolarizationType.RR_RL_LR_LL)
-    convert = source.conversion_to_target(target, is_callable=True, assume_missing_stokes_zero=True, axis=1)
+    source = ("I", "Q", "U")
+    target = PolarizationType.RR_RL_LR_LL
+    convert = build_polarization_conversion(source, target, assume_missing_stokes_zero=True, axis=1)
     values = jnp.array([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]])
     i, q, u = values.T
     expected = np.stack((i, q+1j*u, q-1j*u, i), axis=1)
     assert_allclose(jax.jit(convert)(values), expected)
 
 
-def test_shared_matrix_and_builder_accept_spaces():
-    source = PolarizationSpace(("LL", "RR"))
-    target = PolarizationSpace(("V", "I"))
-    matrix = source.conversion_to_target(target)
+def test_shared_matrix_and_builder_accept_labels():
+    source = ("LL", "RR")
+    target = ("V", "I")
+    matrix = polarization_matrix(source, target)
     assert isinstance(matrix, Array)
     assert_allclose(matrix, [[-.5, .5], [.5, .5]])
-    assert_allclose(polarization_matrix(source, target), matrix)
     assert_allclose(build_polarization_conversion(source, target)(jnp.array([6., 10.])), [2., 8.])
 
 
