@@ -59,6 +59,14 @@ class ConfigParserJwst:
             StarAlignmentConfig.from_yaml_dict(cfg[telescope_key].get("gaia_alignment"))
         )
         subsample_target = Subsample.from_yaml_dict(cfg[telescope_key]["target"])
+        # the stars' kernels get the correction too, on its grid
+        if psf_kernel_configs.correction and star_alignment_config is not None:
+            if star_alignment_config.subsample != subsample_target:
+                raise ValueError(
+                    "psf correction: gaia_alignment.subsample "
+                    f"({star_alignment_config.subsample}) must equal target.subsample "
+                    f"({subsample_target}), the subsample the correction is for"
+                )
         variable_covariance_config = variable_covariance_config_factory(
             cfg[telescope_key].get("variable_covariance")
         )

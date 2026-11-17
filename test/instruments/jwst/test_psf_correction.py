@@ -205,3 +205,25 @@ def test_correction_of_an_unknown_filter_raises(tmp_path):
     cfg["telescope"]["psf"]["correction"] = {"f227w": "c.npz"}
     with pytest.raises(ValueError, match=r"\['f227w'\] match no filter"):
         ConfigParserJwst.from_yaml_dict(cfg)
+
+
+def test_correction_needs_the_gaia_subsample_of_the_target(tmp_path):
+    cfg = make_config(tmp_path, gaia=True, gaia_subsample=3)  # target subsample 2
+    cfg["telescope"]["psf"]["correction"] = {"f444w": "c.npz"}
+    with pytest.raises(ValueError, match=r"gaia_alignment.subsample \(3\)"):
+        ConfigParserJwst.from_yaml_dict(cfg)
+
+
+def test_fluence_needs_stars_of_different_fluence():
+    stamps = [blank_stamp(kernel())] * 3  # every fluence 0
+    with pytest.raises(ValueError, match="different StarStamp.fluence"):
+        fit_psf_correction(stamps, SUB, "f", width=(0.5, 0.5), fluence=1e4)
+
+
+def test_a_masked_border_keeps_the_starting_values_finite():
+    stamp = mock_stars(kernel(), PsfCorrection("f", SUB, NO_TEXTURE, 0.0), 1)[0]
+    y, x = np.indices((SIZE, SIZE)) - SIZE // 2
+    round_mask = np.hypot(x, y) < SIZE // 2  # no border pixel left
+    masked = StarStamp(stamp.data, stamp.std, round_mask, stamp.kernel)
+    model = _StarModel([masked], SUB)
+    assert np.isfinite(model.background0).all() and np.isfinite(model.flux0).all()

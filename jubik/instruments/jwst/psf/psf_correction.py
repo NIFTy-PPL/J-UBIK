@@ -36,9 +36,15 @@ Workflow, per filter:
 The texture's spectrum is fixed (see `log_texture_model`); choose its std and
 slope on held-out stars. The width's variance may grow linearly with the stars'
 peak (brighter-fatter); the stored correction is for one fluence.
+
+Limits: the lens fit has one kernel per exposure, so every part of the image
+(faint arc, lens light) gets the width of the stored fluence; brighter-fatter is
+a per-pixel effect a convolution cannot carry. The texture may move the kernel's
+centroid by a fraction of a kernel pixel, which the stars' free positions cannot
+pin (B1938+666: up to 1 mas); the lens fit's shift must be free to take it up.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import jax
@@ -123,27 +129,12 @@ class PsfCorrection:
         return kernel
 
     def save(self, path: str | Path) -> None:
-        np.savez(
-            path,
-            filter=self.filter,
-            subsample=self.subsample,
-            log_texture=self.log_texture,
-            width=self.width,
-            fluence=self.fluence,
-            width_slope=self.width_slope,
-        )
+        np.savez(path, **asdict(self))
 
     @classmethod
     def load(cls, path: str | Path) -> "PsfCorrection":
         with np.load(path) as f:
-            return cls(
-                filter=str(f["filter"]),
-                subsample=int(f["subsample"]),
-                log_texture=np.asarray(f["log_texture"], float),
-                width=float(f["width"]),
-                fluence=float(f["fluence"]),
-                width_slope=float(f["width_slope"]),
-            )
+            return cls(**{k: f[k] if f[k].ndim else f[k].item() for k in f.files})
 
 
 def log_texture_model(
@@ -240,7 +231,10 @@ class _StarModel:
         # starting values: background from the stamp's edge, flux from the rest
         edge = np.ones((size, size), bool)
         edge[1:-1, 1:-1] = False
-        background = [np.median(d[edge & m]) for d, m in zip(self.data, self.mask)]
+        background = [
+            np.median(d[edge & m] if (edge & m).any() else d[m])
+            for d, m in zip(self.data, self.mask)
+        ]
         self.background0 = np.array(background)
         signal = self.data - self.background0[:, None, None]
         flux = np.where(self.mask, signal, 0).sum((1, 2))
@@ -351,6 +345,8 @@ def fit_psf_correction(
     if width is not None:
         sigma = widths = jft.LogNormalPrior(*width, name="psf_width", shape=())
     if width is not None and fluence is not None:
+        if np.ptp(stars.fluence) == 0:
+            raise ValueError("fluence needs stamps of different StarStamp.fluence")
         w0, ratio = sigma, stars.fluence[:, None, None] / fluence
         sigma = jft.LogNormalPrior(*width, name="psf_width_at_fluence", shape=())
 
