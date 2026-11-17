@@ -16,7 +16,7 @@
 
 import jax.numpy as jnp
 
-from ...polarization import Polarization, PolarizationType
+from .polarization import Polarization, PolarizationType
 
 # Each row contains the coefficients expressing a polarization product as a
 # linear combination of the reference Stokes vector (I, Q, U, V). For example,

@@ -8,7 +8,7 @@ import pytest
 from numpy.testing import assert_allclose
 
 from jubik.polarization import Polarization, PolarizationType
-from jubik.instruments.resolve.polarization_conversion import (
+from jubik.polarization_conversion import (
     build_polarization_conversion, polarization_matrix,
 )
 

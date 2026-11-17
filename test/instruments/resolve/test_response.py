@@ -15,7 +15,7 @@ from jubik.instruments.resolve.response import (
     interferometry_response_finufft,
 )
 
-from jubik.instruments.resolve.polarization_conversion import (
+from jubik.polarization_conversion import (
     build_polarization_conversion,
 )
 

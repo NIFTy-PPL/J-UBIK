@@ -247,7 +247,7 @@ def test_zero_filled_model_builder(inputs, outputs):
     import jax.numpy as jnp
     import numpy as np
     from numpy.testing import assert_allclose
-    from jubik.instruments.resolve.polarization_conversion import build_polarization_conversion
+    from jubik.polarization_conversion import build_polarization_conversion
 
     values = np.arange(1, len(inputs)*6+1).reshape(len(inputs), 2, 3)
     values = jnp.asarray(values + 1j*values, dtype=jnp.complex64)
