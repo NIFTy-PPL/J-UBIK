@@ -207,6 +207,9 @@ class _StarModel:
         self.mask = np.stack([s.mask for s in stamps]).astype(bool)
         if self.data.ndim != 3 or self.data.shape[1:] != self.std.shape[1:]:
             raise ValueError("the stamps must share one (S, S) shape")
+        # an empty stamp's NaN start reaches the gradient and stalls the fit
+        if empty := np.flatnonzero(~self.mask.any((1, 2))).tolist():
+            raise ValueError(f"stamps {empty} have no unmasked pixel")
         size = self.data.shape[-1]
         if self.data.shape[-2] != size or size % 2 == 0:
             raise ValueError(f"stamps must be square and odd, got {self.data.shape}")

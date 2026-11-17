@@ -227,3 +227,10 @@ def test_a_masked_border_keeps_the_starting_values_finite():
     masked = StarStamp(stamp.data, stamp.std, round_mask, stamp.kernel)
     model = _StarModel([masked], SUB)
     assert np.isfinite(model.background0).all() and np.isfinite(model.flux0).all()
+
+
+def test_a_stamp_without_unmasked_pixels_raises():
+    good, empty = blank_stamp(kernel()), blank_stamp(kernel())
+    empty = StarStamp(empty.data, empty.std, np.zeros((SIZE, SIZE), bool), empty.kernel)
+    with pytest.raises(ValueError, match=r"stamps \[1\] have no unmasked pixel"):
+        _StarModel([good, empty], SUB)
