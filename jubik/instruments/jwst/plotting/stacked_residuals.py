@@ -15,7 +15,9 @@ Its noise level: pure-noise residuals, ``sigma N(0, 1) / sigma^2``, go
 through the same adjoints, an equal share at each sample. ``std`` is their
 pixel-wise standard deviation and ``stack / std`` the S/N map, Student-t with
 one degree of freedom less than the draws: with the default of 100, ``|S/N| > 4``
-is about twice as frequent as for a Gaussian, with 10 about 40 times.
+is about twice as frequent as for a Gaussian, with 10 about 40 times. The
+first few pure-noise stacks are kept as ``draws``: each is what the stack
+looks like where the model fits, to compare by eye on the stack's scale.
 """
 
 from dataclasses import dataclass
@@ -37,10 +39,11 @@ if TYPE_CHECKING:
 
 @dataclass
 class StackedResiduals:
-    """A band's stacked residual and the pixel std of its pure-noise stacks."""
+    """A band's stacked residual, the pixel std of its pure-noise stacks and the first of them, ``(n, ny, nx)``."""
 
     stack: np.ndarray
     std: np.ndarray
+    draws: np.ndarray
 
     @property
     def snr(self) -> np.ndarray:
@@ -121,8 +124,9 @@ class ResidualStack:
         n_noise: int = 100,
         seed: int = 0,
         std: dict[str, np.ndarray] | None = None,
+        n_keep: int = 3,
     ) -> dict[str, StackedResiduals]:
-        """Band name -> the stack, averaged over the samples, and its noise std.
+        """Band name -> the stack, averaged over the samples, its noise std and the first noise stacks.
 
         Parameters
         ----------
@@ -134,13 +138,20 @@ class ResidualStack:
         seed : int
             Seed of the noise draws.
         std : dict[str, np.ndarray] | None
-            The bands' std from an earlier call, reused without noise draws.
+            The bands' std from an earlier call, reused without noise draws:
+            ``draws`` is then empty, ``(0, ny, nx)``; keep the earlier call's
+            draws with its std.
+        n_keep : int
+            Pure-noise stacks kept as ``draws``, the first ones drawn, from the
+            first sample on; fewer if fewer are drawn.
         """
         positions = [getattr(x, "tree", x) for x in positions]
         if not positions:
             raise ValueError("no positions")
         if std is None and n_noise < 2:
             raise ValueError(f"n_noise must be at least 2, got {n_noise}")
+        if n_keep < 0:
+            raise ValueError(f"n_keep must be at least 0, got {n_keep}")
         per_sample = 0 if std is not None else -(-n_noise // len(positions))
         rng = np.random.default_rng(seed)
 
@@ -150,6 +161,7 @@ class ResidualStack:
         stack = {band: 0.0 for band in self.bands}
         # running sums of the noise stacks and their squares: the draws of all bands do not fit in memory on large skies
         s1, s2 = {band: 0.0 for band in self.bands}, {band: 0.0 for band in self.bands}
+        draws = {}
         for x in positions:
             x = dict(x) | self.sky_filter(self.sky(x))
             for band, names in self.bands.items():
@@ -160,7 +172,8 @@ class ResidualStack:
                 stack[band] = stack[band] + total[0] / len(positions)
                 s1[band] = s1[band] + total[1:].sum(0)
                 s2[band] = s2[band] + (total[1:] ** 2).sum(0)
+                draws[band] = np.concatenate([draws.get(band, total[:0]), total[1 : 1 + n_keep]])[:n_keep]
         if std is None:
             n = per_sample * len(positions)
             std = {band: np.sqrt(np.maximum(s2[band] - s1[band] ** 2 / n, 0) / (n - 1)) for band in self.bands}
-        return {band: StackedResiduals(stack[band], std[band]) for band in self.bands}
+        return {band: StackedResiduals(stack[band], std[band], draws[band]) for band in self.bands}

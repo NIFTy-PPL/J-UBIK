@@ -85,6 +85,7 @@ def test_a_shared_residual_peaks_in_the_stack():
     alone = stacker([other], std={"ab": out["ab"].std})  # a known std: no noise draws
     np.testing.assert_allclose(mixed["ab"].stack, (out["ab"].stack + alone["ab"].stack) / 2, rtol=1e-10)
     assert alone["ab"].std is out["ab"].std
+    assert out["ab"].draws.shape == (3, NY, NY) and alone["ab"].draws.shape == (0, NY, NY)
     snr = out["ab"].snr
     assert np.unravel_index(np.nanargmax(snr), snr.shape) == peak
     assert np.all(np.isnan(snr[~(masks["a"] | masks["b"])]))
@@ -106,3 +107,18 @@ def test_pure_noise_has_unit_snr(shot):
     for result in out.values():  # one band per frame by default
         assert 0.85 < result.snr.std() < 1.15
         assert abs(result.snr.mean()) < 0.2
+
+
+def test_the_kept_draws_are_the_noise_stacks_behind_the_std():
+    """Two samples, 4 draws at each: the kept draws run on into the second sample, and all 8 give the std."""
+    data = {"a": GAIN + 0.2 * RNG.standard_normal((NY, NY))}
+    masks = {"a": RNG.random((NY, NY)) > 0.3}
+    stacker = ResidualStack(_products(data, 0.2, masks), SKY)
+    positions = [{"s": np.ones((NY, NY)), "a_zero_flux": z} for z in (0.0, 0.1)]
+    every = stacker(positions, n_noise=7, n_keep=100)["a"]
+    assert every.draws.shape == (8, NY, NY)
+    np.testing.assert_allclose(every.draws.std(0, ddof=1), every.std, rtol=1e-8)
+    np.testing.assert_array_equal(stacker(positions, n_noise=7, n_keep=5)["a"].draws, every.draws[:5])
+    assert stacker(positions, n_keep=0)["a"].draws.shape == (0, NY, NY)
+    with pytest.raises(ValueError, match="n_keep"):
+        stacker(positions, n_keep=-1)
