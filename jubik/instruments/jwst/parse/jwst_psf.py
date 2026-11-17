@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 WEBBPSF_PATH_KEY = "webbpsf_path"
@@ -7,6 +7,7 @@ PSF_ARCSEC_KEY = "psf_arcsec_extension"
 NORMALIZE_KEY = "normalize"
 NORMALIZE_DEFAULT = "last"
 OPD_BY_DATE_KEY = "opd_by_date"
+CORRECTION_KEY = "correction"
 
 
 @dataclass
@@ -29,6 +30,19 @@ class JwstPsfKernelConfig:
         If True, use the telescope OPD measured by the JWST Wavefront Sensing
         System closest to each exposure's start, instead of STPSF's default
         OPD. The first run needs MAST network access. Default is False.
+    correction : dict[str, str]
+        Filter name (lower case) -> a `PsfCorrection` file (`PsfCorrection.save`),
+        the learned correction of that filter's kernels, `fit_psf_correction` on
+        the field's stars. Every kernel of the filter, the target's and the Gaia
+        stars', becomes `PsfCorrection.apply(kernel)`: STPSF's kernel at its
+        position times the shared texture, rescaled to its sum, then broadened.
+        The file must be for the target's `subsample`. Filters without an entry
+        keep STPSF's kernel. Default: none. Config::
+
+            psf:
+              opd_by_date: true          # the base the correction was learned on
+              correction:
+                f277w: psf_correction/f277w.npz
     """
 
     webbpsf_path: str
@@ -36,6 +50,7 @@ class JwstPsfKernelConfig:
     psf_arcsec: float
     normalize: str
     opd_by_date: bool = False
+    correction: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_yaml_dict(cls, raw: dict):
@@ -49,6 +64,7 @@ class JwstPsfKernelConfig:
             - psf_arcsec_extension
             - normalize | None
             - opd_by_date | None
+            - correction | None
         """
 
         return JwstPsfKernelConfig(
@@ -57,4 +73,7 @@ class JwstPsfKernelConfig:
             psf_arcsec=raw[PSF_ARCSEC_KEY],
             normalize=raw.get(NORMALIZE_KEY, NORMALIZE_DEFAULT),
             opd_by_date=raw.get(OPD_BY_DATE_KEY, False),
+            correction={
+                k.lower(): v for k, v in (raw.get(CORRECTION_KEY) or {}).items()
+            },
         )

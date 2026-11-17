@@ -47,6 +47,12 @@ class ConfigParserJwst:
             cfg[telescope_key].get("psf")
         )
         data_loader = DataLoadingConfig.from_yaml_dict(cfg[files_key])
+        filters = {f.lower() for f in data_loader.paths}
+        if unknown := set(psf_kernel_configs.correction) - filters:
+            raise ValueError(
+                f"psf correction: {sorted(unknown)} match no filter of "
+                f"{sorted(filters)}"
+            )
         corner_masks = CornerMasks.from_yaml_dict(cfg[telescope_key])
 
         star_alignment_config: StarAlignmentConfig | None = (
