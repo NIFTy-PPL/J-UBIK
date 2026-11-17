@@ -25,7 +25,7 @@ from jax.tree_util import Partial, tree_map
 
 from ...color import get_2d_binbounds
 from ...grid import Grid
-from .polarization_space import build_polarization_conversion
+from .polarization_conversion import build_polarization_conversion
 from .conventions import (
     RESPONSE_SPATIAL_UNIT,
     RESPONSE_SPECTRAL_UNIT,
