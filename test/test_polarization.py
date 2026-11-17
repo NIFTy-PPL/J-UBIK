@@ -241,7 +241,7 @@ def test_polarized_subset_metadata_roundtrip(typ, codes):
 
 
 @pmp("inputs", [("I",), ("Q", "U"), ("V", "U"), ("V", "I", "U", "Q")])
-@pmp("outputs", [("RR", "RL", "LR", "LL"), ("YY", "XY", "YX", "XX"), ("V", "I")])
+@pmp("outputs", [("RR", "RL", "LR", "LL"), ("YY", "XY", "YX", "XX"), ("V", "I", "U")])
 def test_zero_filled_model_builder(inputs, outputs):
     import jax
     import jax.numpy as jnp

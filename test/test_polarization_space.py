@@ -132,6 +132,23 @@ def test_polarization_matrix_rejects_underdetermined_conversion(inputs, outputs)
         polarization_matrix(inputs, outputs)
 
 
+def test_zero_filled_model_rejects_invisible_sky():
+    with pytest.raises(ValueError, match="conversion matrix is all zero"):
+        polarization_matrix(
+            ("Q", "U"), ("LL", "RR"), assume_missing_stokes_zero=True
+        )
+
+
+def test_zero_filled_model_allows_unused_stokes_components():
+    assert_allclose(
+        polarization_matrix(
+            ("I", "Q", "U", "V"), ("RR", "LL"),
+            assume_missing_stokes_zero=True,
+        ),
+        [[1, 0, 0, 1], [1, 0, 0, -1]],
+    )
+
+
 def test_stokes_forward_model_expansion_is_explicit():
     assert_allclose(polarization_matrix(("I",), ("RR", "RL", "LR", "LL"), assume_missing_stokes_zero=True),
                     [[1], [0], [0], [1]])

@@ -170,6 +170,7 @@ def polarization_matrix(inp_pol, out_pol, *, assume_missing_stokes_zero=False):
         treats omitted Stokes components as zero for model predictions.
         For example, an I-only model then predicts RR = LL = I and zero
         cross hands, whereas exact I -> RR conversion is underdetermined.
+        Raises ValueError if none of the inputs contribute to the outputs.
 
     Returns
     -------
@@ -229,7 +230,13 @@ def polarization_matrix(inp_pol, out_pol, *, assume_missing_stokes_zero=False):
             )
     output_indices = jnp.array([canonical_outputs.index(label) for label in outputs])
     input_indices = jnp.array([basis.index(label) for label in inputs])
-    return full_matrix[jnp.ix_(output_indices, input_indices)]
+    matrix = full_matrix[jnp.ix_(output_indices, input_indices)]
+    if assume_missing_stokes_zero and not jnp.any(matrix != 0):
+        raise ValueError(
+            f"Polarization {inputs} does not contribute to {outputs}: "
+            "the conversion matrix is all zero."
+        )
+    return matrix
 
 
 def build_polarization_conversion(
