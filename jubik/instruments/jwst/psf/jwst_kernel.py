@@ -296,7 +296,7 @@ def load_psf_kernel(
         return psf
     path = config_parameters.correction[filter]
     correction = PsfCorrection.load(path)
-    if (correction.filter, correction.subsample) != (filter, int(subsample)):
+    if (correction.filter.lower(), correction.subsample) != (filter, int(subsample)):
         raise ValueError(
             f"psf correction {path} is for {correction.filter} at subsample "
             f"{correction.subsample}, the kernel for {filter} at subsample "

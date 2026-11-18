@@ -344,6 +344,8 @@ def fit_psf_correction(
         if radius is None
         else log_texture_model(radius, fluctuations, loglogavgslope)
     )
+    if fluence is not None and width is None:
+        raise ValueError("fluence needs a width prior")
     sigma = widths = w0 = None
     if width is not None:
         sigma = widths = jft.LogNormalPrior(*width, name="psf_width", shape=())

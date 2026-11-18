@@ -1,6 +1,5 @@
 """The learned kernel correction `G_w * N[K exp(t)]` and its star fit."""
 
-import jax
 import numpy as np
 import pytest
 
@@ -123,6 +122,7 @@ def mock_stars(base, truth, n, width_of_fluence=None):
 
 def test_star_model_shifts_by_whole_pixels():
     model = _StarModel([blank_stamp(kernel())] * 2, SUB)
+    model.flux0 = np.full(2, 1e4)
     # (dy, dx) = (0, 0) and (1, -2) detector pixels, latent = offset / 0.5
     shift = np.array([[0, 0], [2.0, -4.0]])
     stamps = np.asarray(model(zeros(model) | {"star_position": shift}))
@@ -133,6 +133,17 @@ def test_star_model_shifts_by_whole_pixels():
         np.roll(centred, (1, -2), (0, 1))[inner],
         atol=1e-10 * centred.max(),
     )
+
+
+@pytest.mark.parametrize("k", [40, 41])
+def test_star_model_crops_a_kernel_larger_than_the_canvas(k):
+    small, big = kernel(k), np.pad(kernel(k), 60)  # canvas 3 * (11 + 24) = 105
+    models = [_StarModel([blank_stamp(kk)], SUB) for kk in (small, big)]
+    for m in models:
+        m.flux0 = np.array([1e4])
+    x = zeros(models[0]) | {"star_position": np.full((1, 2), 0.3)}
+    a, b = (np.asarray(m(x, texture(9), 0.8)) for m in models)
+    np.testing.assert_allclose(a, b, rtol=0, atol=1e-7 * a.max())
 
 
 @pytest.mark.parametrize("k", [40, 41])
@@ -152,7 +163,6 @@ def test_learned_parts_match_the_applied_correction(k):
 
 
 def test_fit_recovers_an_injected_correction():
-    jax.config.update("jax_enable_x64", True)
     base, radius = kernel(), 9
     truth = PsfCorrection("f", SUB, texture(radius), 0.8)
     stamps = mock_stars(base, truth, 24)
@@ -168,7 +178,6 @@ def test_fit_recovers_an_injected_correction():
 
 
 def test_fit_recovers_a_width_growing_with_fluence():
-    jax.config.update("jax_enable_x64", True)
     w0, slope = 0.4, 1e-5  # kernel pixels, pixels² per unit fluence
     identity = PsfCorrection("f", SUB, NO_TEXTURE, 0.0)
     stamps = mock_stars(kernel(), identity, 30, lambda f: np.sqrt(w0**2 + slope * f))
@@ -183,7 +192,8 @@ def test_fit_recovers_a_width_growing_with_fluence():
 def test_load_psf_kernel_applies_the_filter_correction(patched_seams, tmp_path):
     t = np.zeros((3, 3))
     t[1, 1] = 1.0
-    PsfCorrection("f444w", 2, t, 0.0).save(tmp_path / "c.npz")
+    # upper case, as a hand-built file may be; the kernel's filter is f444w
+    PsfCorrection("F444W", 2, t, 0.0).save(tmp_path / "c.npz")
     raw = {"webbpsf_path": "", "psf_library": str(tmp_path)}
     raw["psf_arcsec_extension"] = 0.4
     data, centre = FakeJwstData("x.fits"), FakeJwstData("x.fits").wcs.center
@@ -218,6 +228,8 @@ def test_fluence_needs_stars_of_different_fluence():
     stamps = [blank_stamp(kernel())] * 3  # every fluence 0
     with pytest.raises(ValueError, match="different StarStamp.fluence"):
         fit_psf_correction(stamps, SUB, "f", width=(0.5, 0.5), fluence=1e4)
+    with pytest.raises(ValueError, match="fluence needs a width prior"):
+        fit_psf_correction(stamps, SUB, "f", fluence=1e4)
 
 
 def test_a_masked_border_keeps_the_starting_values_finite():
