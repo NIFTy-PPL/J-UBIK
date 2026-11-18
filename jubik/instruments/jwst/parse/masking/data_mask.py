@@ -1,3 +1,4 @@
+import hashlib
 from collections import UserDict, UserList
 from dataclasses import dataclass
 from os.path import isfile
@@ -5,6 +6,10 @@ from os.path import isfile
 import numpy as np
 from astropy.coordinates import SkyCoord
 from numpy.typing import NDArray
+
+# Longest bounds part kept as written: with a prefix of up to 21 characters
+# (``extra_mask_f2100w_b``) and ``.npy`` a mask file name stays under 255 bytes.
+MAX_BOUNDS_NAME = 230
 
 
 @dataclass
@@ -115,7 +120,18 @@ class NanMasks:
 
     @staticmethod
     def get_bounds_name(bounds: NDArray):
-        return "__".join(["_".join([str(b) for b in bound]) for bound in bounds])
+        """The bounds part of a mask file name ``<prefix>b<bounds name>.npy``.
+
+        Every exposure's cutout bounds, joined; past ``MAX_BOUNDS_NAME``
+        characters (about 11 exposures) the SHA-256 of that string in decimal,
+        so the file name stays under the 255-byte limit. The digest is the
+        same on every machine and has no ``b``, ``/`` or ``.`` for `get` to
+        split on.
+        """
+        name = "__".join(["_".join([str(b) for b in bound]) for bound in bounds])
+        if len(name) <= MAX_BOUNDS_NAME:
+            return name
+        return str(int(hashlib.sha256(name.encode()).hexdigest(), 16))
 
     def get(
         self,
