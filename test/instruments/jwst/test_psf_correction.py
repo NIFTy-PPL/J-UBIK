@@ -86,8 +86,8 @@ def test_texture_larger_than_kernel_raises():
 
 def test_save_load_round_trip(tmp_path):
     c = PsfCorrection("f115w", SUB, RNG.normal(size=(7, 7)), 0.4, 2e4, 3e-6)
-    c.save(tmp_path / "c.npz")
-    d = PsfCorrection.load(tmp_path / "c.npz")
+    c.save(tmp_path / "c.psf")  # the exact name, no .npz appended
+    d = PsfCorrection.load(tmp_path / "c.psf")
     fields = ("filter", "subsample", "width", "fluence", "width_slope")
     assert [getattr(d, f) for f in fields] == [getattr(c, f) for f in fields]
     np.testing.assert_array_equal(d.log_texture, c.log_texture)
@@ -246,3 +246,7 @@ def test_a_stamp_without_unmasked_pixels_raises():
     empty = StarStamp(empty.data, empty.std, np.zeros((SIZE, SIZE), bool), empty.kernel)
     with pytest.raises(ValueError, match=r"stamps \[1\] have no unmasked pixel"):
         _StarModel([good, empty], SUB)
+    nan = StarStamp(good.data.copy(), good.std, good.mask, good.kernel)
+    nan.data[3, 4] = np.nan
+    with pytest.raises(ValueError, match=r"stamps \[0\] have NaN data or std <= 0"):
+        _StarModel([nan, good], SUB)

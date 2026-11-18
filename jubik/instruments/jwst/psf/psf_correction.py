@@ -129,7 +129,8 @@ class PsfCorrection:
         return kernel
 
     def save(self, path: str | Path) -> None:
-        np.savez(path, **asdict(self))
+        with open(path, "wb") as f:  # np.savez would append .npz to another suffix
+            np.savez(f, **asdict(self))
 
     @classmethod
     def load(cls, path: str | Path) -> "PsfCorrection":
@@ -210,6 +211,11 @@ class _StarModel:
         # an empty stamp's NaN start reaches the gradient and stalls the fit
         if empty := np.flatnonzero(~self.mask.any((1, 2))).tolist():
             raise ValueError(f"stamps {empty} have no unmasked pixel")
+        bad = self.mask & ~(np.isfinite(self.data) & (self.std > 0))
+        if bad := np.flatnonzero(bad.any((1, 2))).tolist():
+            raise ValueError(
+                f"stamps {bad} have NaN data or std <= 0 in unmasked pixels"
+            )
         size = self.data.shape[-1]
         if self.data.shape[-2] != size or size % 2 == 0:
             raise ValueError(f"stamps must be square and odd, got {self.data.shape}")
