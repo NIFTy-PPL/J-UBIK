@@ -8,7 +8,8 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import NDArray
 
 # Longest bounds part kept as written: with a prefix of up to 21 characters
-# (``extra_mask_f2100w_b``) and ``.npy`` a mask file name stays under 255 bytes.
+# (``extra_mask_f2100w_b`` has 19) and ``.npy`` a mask file name has at most
+# 255 bytes, the file-name limit.
 MAX_BOUNDS_NAME = 230
 
 
@@ -123,8 +124,9 @@ class NanMasks:
         """The bounds part of a mask file name ``<prefix>b<bounds name>.npy``.
 
         Every exposure's cutout bounds, joined; past ``MAX_BOUNDS_NAME``
-        characters (about 11 exposures) the SHA-256 of that string in decimal,
-        so the file name stays under the 255-byte limit. The digest is the
+        characters (12 exposures of four-digit bounds, 14 of three-digit ones)
+        the SHA-256 of that string in decimal, so the file name stays within
+        the 255-byte limit. The digest is the
         same on every machine and has no ``b``, ``/`` or ``.`` for `get` to
         split on.
         """
@@ -151,6 +153,7 @@ class NanMasks:
                 f"{key} bounds and extra nan-mask do not match:\n"
                 f"load='{name}'\n"
                 f"mask='{bound_name}'\n"
+                f"bounds={np.asarray(bounds).tolist()}\n"
             )
 
         return val

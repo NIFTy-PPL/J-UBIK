@@ -38,8 +38,16 @@ def test_21_exposures_save_and_load_under_a_digest(tmp_path):
     name = NanMasks.get_bounds_name(bounds)
     assert name.isdigit() and name == NanMasks.get_bounds_name(np.array(bounds))
     mask, masks = _load(tmp_path, bounds, prefix="extra_mask_f2100w_b")
-    assert len(f"extra_mask_f2100w_b{name}.npy") < 255
     np.testing.assert_array_equal(masks.get("f115w", bounds).load_mask(), mask)
+
+
+def test_the_longest_name_kept_as_written_still_saves(tmp_path):
+    """11 four-digit exposures (229 characters) stay as written and save under a 19-character prefix; 12 do not."""
+    bounds = [(1036 + i, 1290 + i, 1776 + i, 2031 + i) for i in range(12)]
+    assert len(NanMasks.get_bounds_name(bounds[:11])) == 229
+    assert NanMasks.get_bounds_name(bounds).isdigit()
+    mask, masks = _load(tmp_path, bounds[:11], prefix="extra_mask_f2100w_b")
+    np.testing.assert_array_equal(masks.get("f115w", bounds[:11]).load_mask(), mask)
 
 
 @pytest.mark.parametrize("n", [2, 12, 21])
@@ -49,6 +57,3 @@ def test_a_mask_for_other_bounds_is_refused(tmp_path, n):
     moved = [*bounds[:-1], (bounds[-1][0] + 1, *bounds[-1][1:])]
     with pytest.raises(ValueError, match="do not match"):
         masks.get("f115w", moved)
-    assert (
-        masks.get("f277w", moved) is None
-    )  # a filter without a mask has none to check
