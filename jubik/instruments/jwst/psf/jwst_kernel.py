@@ -18,6 +18,7 @@ from numpy.typing import ArrayLike
 from ..data.jwst_data import JwstData
 from ..data.preloader.preloader import _exposure_start_time
 from ..parse.jwst_psf import JwstPsfKernelConfig
+from .psf_correction import PsfCorrection
 
 # JWST datamodel detector names which STPSF spells differently. STPSF accepts
 # the NIRCam names (including NRCALONG/NRCBLONG) as they are.
@@ -202,9 +203,10 @@ def load_psf_kernel(
         The subsample factor for the psf kernel.
     config_parameters: PsfKernelConfig
         Holding the `webbpsf_path`, the `psf_library_path`, the size of the psf
-        evaluation `psf_arcsec`, the `normalize` key, and `opd_by_date`. If
-        `opd_by_date` is set, the PSF uses the WSS OPD measured closest to the
-        exposure start, which is then part of the cache key.
+        evaluation `psf_arcsec`, the `normalize` key, `opd_by_date` and
+        `correction`. If `opd_by_date` is set, the PSF uses the WSS OPD measured
+        closest to the exposure start, which is then part of the cache key. A
+        `correction` of the filter is applied to the cached STPSF kernel.
 
     Returns
     -------
@@ -274,21 +276,30 @@ def load_psf_kernel(
 
     if isfile(path_to_file + ".npy"):
         logger.info(f"Loading PSF {file_name} from {psf_library_path}")
-        return np.load(path_to_file + ".npy")
+        psf = np.load(path_to_file + ".npy")
+    else:
+        psf = build_webb_psf(
+            camera,
+            filter,
+            center_pixel,
+            webbpsf_path,
+            subsample,
+            psf_arcsec,
+            normalize,
+            detector=detector,
+            opd_date=opd_date,
+        )
+        logger.info(f"Saving PSF {file_name} in {psf_library_path}")
+        np.save(path_to_file, psf)
 
-    psf = build_webb_psf(
-        camera,
-        filter,
-        center_pixel,
-        webbpsf_path,
-        subsample,
-        psf_arcsec,
-        normalize,
-        detector=detector,
-        opd_date=opd_date,
-    )
-
-    logger.info(f"Saving PSF {file_name} in {psf_library_path}")
-
-    np.save(path_to_file, psf)
-    return psf
+    if filter not in config_parameters.correction:
+        return psf
+    path = config_parameters.correction[filter]
+    correction = PsfCorrection.load(path)
+    if (correction.filter.lower(), correction.subsample) != (filter, int(subsample)):
+        raise ValueError(
+            f"psf correction {path} is for {correction.filter} at subsample "
+            f"{correction.subsample}, the kernel for {filter} at subsample "
+            f"{int(subsample)}"
+        )
+    return correction.apply(psf)
