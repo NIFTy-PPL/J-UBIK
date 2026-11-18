@@ -62,6 +62,11 @@ def corrected_kernel(kernel, log_texture):
     is (P, P), odd, P <= K, and is placed on the kernel's middle pixel (zero
     outside it).
     """
+    if any(p > k for p, k in zip(log_texture.shape, kernel.shape[-2:])):
+        raise ValueError(
+            f"the texture, {log_texture.shape}, is larger than the kernel, "
+            f"{kernel.shape[-2:]}"
+        )
     shapes = zip(kernel.shape[-2:], log_texture.shape)
     pad = [((k - p) // 2,) * 2 for k, p in shapes]
     modified = kernel * jnp.exp(jnp.pad(log_texture, pad))
@@ -117,11 +122,6 @@ class PsfCorrection:
         """The corrected kernel, odd and centred (even axes are recentred as in
         `PsfStatic`), with the sum of ``kernel``."""
         kernel = _center_even_axes(np.asarray(kernel, float))
-        if any(p > k for p, k in zip(self.log_texture.shape, kernel.shape[-2:])):
-            raise ValueError(
-                f"the {self.filter} texture, {self.log_texture.shape}, is larger "
-                f"than the kernel, {kernel.shape[-2:]}"
-            )
         kernel = np.asarray(corrected_kernel(kernel, self.log_texture))
         if self.width > 0:
             transfer = np.asarray(gaussian_transfer(kernel.shape[-2:], self.width))
@@ -348,6 +348,8 @@ def fit_psf_correction(
     if width is not None:
         sigma = widths = jft.LogNormalPrior(*width, name="psf_width", shape=())
     if width is not None and fluence is not None:
+        if fluence <= 0:
+            raise ValueError("fluence must be > 0; None shares one width")
         if np.ptp(stars.fluence) == 0:
             raise ValueError("fluence needs stamps of different StarStamp.fluence")
         w0, ratio = sigma, stars.fluence[:, None, None] / fluence
