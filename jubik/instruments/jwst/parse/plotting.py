@@ -1,8 +1,9 @@
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Optional, Any
 
 import nifty.re as jft
 import numpy as np
+from matplotlib.colors import CenteredNorm
 
 
 @dataclass
@@ -25,6 +26,15 @@ class FieldPlottingConfig:
     @property
     def rendering(self):
         return dict(origin="lower", interpolation="None")
+
+    def residual_kwargs(self) -> dict:
+        """imshow keywords of a residual panel. With no limit and no norm set
+        the limits are symmetric about zero, so zero is the colour map's
+        centre (the residual's own min and max put it anywhere)."""
+        kwargs = asdict(self)
+        if self.vmin is None and self.vmax is None and self.norm is None:
+            kwargs["norm"] = CenteredNorm()
+        return kwargs
 
     @classmethod
     def from_yaml_dict(cls, raw: dict) -> "FieldPlottingConfig":

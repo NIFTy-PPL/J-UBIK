@@ -1,7 +1,7 @@
 import gc
 import re
 from collections import namedtuple
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from os import makedirs
 from os.path import join
 from typing import Union
@@ -353,7 +353,7 @@ class SkyResiduals:
 
             ims[xpos_residual] = axes[xpos_residual].imshow(
                 (data_i - model_i) / std_i,
-                **asdict(self.residual_plotting_config.residual),
+                **self.residual_plotting_config.residual.residual_kwargs(),
                 **self.residual_plotting_config.residual.rendering,
             )
             display_text(axes[xpos_residual], chis[xpos_residual - 3])

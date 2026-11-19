@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from typing import Any, Union
 
 import matplotlib.pyplot as plt
@@ -52,7 +51,7 @@ def plot_data_data_model_residuals(
     )
     ims[2] = axes[2].imshow(
         (data - data_model) / std,
-        **asdict(residual_config),
+        **residual_config.residual_kwargs(),
         **residual_config.rendering,
     )
 
