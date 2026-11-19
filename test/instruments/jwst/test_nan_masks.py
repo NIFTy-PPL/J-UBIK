@@ -36,18 +36,24 @@ def test_21_exposures_save_and_load_under_a_digest(tmp_path):
     """B1938's 21 dither points: 21 four-digit bounds would name a 430-character file."""
     bounds = [(1036 + i, 1290 + i, 776 + i, 1031 + i) for i in range(21)]
     name = NanMasks.get_bounds_name(bounds)
-    assert name.isdigit() and name == NanMasks.get_bounds_name(np.array(bounds))
+    # the same on every machine and in every process: a saved mask's name must match a later run's
+    assert (
+        name
+        == "2637475581769296871921263549204639434500185570974392504372870671836185869344"
+    )
+    assert name == NanMasks.get_bounds_name(np.array(bounds))
     mask, masks = _load(tmp_path, bounds, prefix="extra_mask_f2100w_b")
     np.testing.assert_array_equal(masks.get("f115w", bounds).load_mask(), mask)
 
 
 def test_the_longest_name_kept_as_written_still_saves(tmp_path):
-    """11 four-digit exposures (229 characters) stay as written and save under a 19-character prefix; 12 do not."""
+    """230 characters stay as written and save under a 21-character prefix (255 bytes); 250 become a digest."""
     bounds = [(1036 + i, 1290 + i, 1776 + i, 2031 + i) for i in range(12)]
-    assert len(NanMasks.get_bounds_name(bounds[:11])) == 229
+    longest = [*bounds[:10], (10000, 1290, 1776, 2031)]
+    assert len(NanMasks.get_bounds_name(longest)) == 230
     assert NanMasks.get_bounds_name(bounds).isdigit()
-    mask, masks = _load(tmp_path, bounds[:11], prefix="extra_mask_f2100w_b")
-    np.testing.assert_array_equal(masks.get("f115w", bounds[:11]).load_mask(), mask)
+    mask, masks = _load(tmp_path, longest, prefix="extra_mask_f2100wxx_b")
+    np.testing.assert_array_equal(masks.get("f115w", longest).load_mask(), mask)
 
 
 @pytest.mark.parametrize("n", [2, 12, 21])
