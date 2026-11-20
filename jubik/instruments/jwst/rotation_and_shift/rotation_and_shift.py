@@ -137,7 +137,8 @@ def build_rotation_and_shift(
     if len(coordinates.target.shape) == 3:
         pass  # Everything is fine
     elif len(coordinates.target.shape) == 4:
-        rotation_and_shift_algorithm = vmap(rotation_and_shift_algorithm, (None, 0))
+        if isinstance(algorithm_config, LinearConfig):  # nufft takes the stack itself
+            rotation_and_shift_algorithm = vmap(rotation_and_shift_algorithm, (None, 0))
     else:
         raise ValueError(f"Coordinates have unknown shape: {coordinates.target.shape}'")
 
