@@ -34,7 +34,9 @@ def build_nufft_rotation_and_shift(
     Returns
     -------
     rotate_shift_subsample : function
-        The interpolation function.
+        The interpolation function ``(field, subsample_centers_yx) -> out``.
+        ``subsample_centers_yx`` has shape ``(2, *out_shape)`` or, for stacked
+        exposures, ``(n, 2, *out_shape)``; ``out`` drops the coordinate axis.
 
     Notes
     -----
@@ -55,7 +57,10 @@ def build_nufft_rotation_and_shift(
                 f"does not match out_shape {out_shape}"
             )
         f_field = fftshift(ifft2(field))  # FINUFFT modeord=0 wants centered k
-        coords = xy_conversion * subsample_centers_yx.reshape(2, -1)
+        # Stacked exposures go into one nufft2 call: under vmap jax_finufft
+        # copies the sky per exposure and runs one setpts/execute each.
+        centers_yx = jnp.moveaxis(subsample_centers_yx, -3, 0)
+        coords = xy_conversion * centers_yx.reshape(2, -1)
 
         if mode == "constant":
             mask = jnp.any((coords > 2 * np.pi) + (coords < 0), axis=0)
@@ -66,6 +71,6 @@ def build_nufft_rotation_and_shift(
         out = nufft2(f_field, coords[0], coords[1]).real
         if mode == "constant":
             out = jnp.where(mask, 0.0, out)
-        return jnp.reshape(out, out_shape)
+        return jnp.reshape(out, subsample_centers_yx.shape[:-3] + out_shape)
 
     return rotate_shift_subsample

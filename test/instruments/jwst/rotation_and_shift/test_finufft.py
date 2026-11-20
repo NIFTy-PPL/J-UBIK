@@ -159,3 +159,54 @@ def test_nonsquare_out_shape_matches_linear_and_reference():
     np.testing.assert_allclose(
         nft, _fourier_reference(field, centers_yx), atol=1e-4
     )
+
+
+def _stacked_centers(out_shape, n_exposures=3):
+    # Rotated, shifted exposures; the last one runs past the sky edge so
+    # mode="constant" masks part of it.
+    rng = np.random.default_rng(3)
+    base = _grid_yx(*out_shape) * 0.7 + 1.1
+    centers = []
+    for i in range(n_exposures):
+        theta = rng.uniform(-0.3, 0.3)
+        c, s = np.cos(theta), np.sin(theta)
+        rot = np.array([[c, -s], [s, c]])
+        centers.append(np.einsum("ij,j...->i...", rot, base) + 4.0 * i)
+    return np.stack(centers)
+
+
+def test_stacked_exposures_one_call_matches_per_exposure():
+    import jax
+
+    from jubik.instruments.jwst.parse.rotation_and_shift.rotation_and_shift import (
+        NufftConfig,
+    )
+    from jubik.instruments.jwst.rotation_and_shift.coordinates_correction import (
+        Coordinates,
+    )
+    from jubik.instruments.jwst.rotation_and_shift.rotation_and_shift import (
+        build_rotation_and_shift,
+    )
+
+    sky_shape, out_shape = (24, 20), (13, 17)
+    field = np.random.default_rng(4).normal(size=sky_shape)
+    centers = _stacked_centers(out_shape)
+    assert np.any(centers > np.array(sky_shape)[:, None, None])  # masking exercised
+
+    rs = build_nufft_rotation_and_shift(sky_shape, out_shape)
+    per_exposure = lambda f, c: jax.numpy.stack([rs(f, ci) for ci in c])
+
+    one_call = build_rotation_and_shift(
+        {"sky": jax.ShapeDtypeStruct(sky_shape, field.dtype)},
+        Coordinates(centers),
+        NufftConfig(),
+    )
+    np.testing.assert_allclose(
+        one_call({"sky": field}), per_exposure(field, centers), rtol=0, atol=1e-12
+    )
+
+    cotangent = np.random.default_rng(5).normal(size=centers.shape[:1] + out_shape)
+    _, vjp_one = jax.vjp(rs, field, centers)
+    _, vjp_per = jax.vjp(per_exposure, field, centers)
+    for g_one, g_per in zip(vjp_one(cotangent), vjp_per(cotangent)):
+        np.testing.assert_allclose(g_one, g_per, rtol=0, atol=1e-12)
