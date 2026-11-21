@@ -38,11 +38,10 @@
 #
 # ## Why the temporary split
 #
-# `ms2observations` assumes `DATA_DESC_ID == spectral_window == SPECTRAL_WINDOW`
-# row, which only holds for a measurement set with a single spectral window.
-# `mstransform` additionally moves the selected column into `DATA` and reindexes
-# the spectral window to `0`, so the readout call is identical for all datasets
-# no matter which column the data originally live in.
+# `mstransform` moves the selected column into `DATA` and reindexes the spectral
+# window to `0`, so the readout call is identical for all datasets no matter
+# which column the data originally live in. `ms2observations` itself reads
+# measurement sets with several spectral windows, also of different widths.
 #
 # ## Which visibility column
 #

@@ -53,12 +53,10 @@ def _field_window_rows(ms, field, spectral_window):
     are variable-shaped and can only be read over rows of one window.
     """
     ids = ",".join(str(int(i)) for i in _data_description_ids(ms, spectral_window))
-    with ms_table(ms) as t:
-        rows = t.query(f"FIELD_ID=={int(field)} AND DATA_DESC_ID IN [{ids}]")
-        try:
-            yield rows
-        finally:
-            rows.close()
+    with ms_table(ms) as t, t.query(
+        f"FIELD_ID=={int(field)} AND DATA_DESC_ID IN [{ids}]"
+    ) as rows:
+        yield rows
 
 
 def _pol_id(ms_path, spectral_window):
@@ -376,42 +374,31 @@ def read_ms_i(
 
             start, realstart = stop, realstop
 
-    # Measurement Set UVW values are stored in metres.
-    with _field_window_rows(name, field, spectral_window) as t:
+        # UVW (Measurement Set UVW values are stored in metres) and calibration info of the same rows
         uvw = np.ascontiguousarray(t.getcol("UVW")[active_rows])
-
-    # Calibration info
-    if with_calib_info:
-        with _field_window_rows(name, field, spectral_window) as t:
+        if with_calib_info:
             ant1 = np.ascontiguousarray(t.getcol("ANTENNA1")[active_rows])
             ant2 = np.ascontiguousarray(t.getcol("ANTENNA2")[active_rows])
             time = np.ascontiguousarray(t.getcol("TIME")[active_rows])
-    else:
-        ant1 = ant2 = time = None
+        else:
+            ant1 = ant2 = time = None
+        # their row numbers in the whole main table, which POINTING's rows follow
+        main_rows = np.asarray(t.rownumbers())[active_rows]
 
     # Pointing
+    with ms_table(name) as t:
+        nmain = t.nrows()
     with ms_table(join(name, "POINTING")) as t:
         if t.nrows() == 0:
             ptg = None
+        elif t.nrows() == nmain:
+            ptg = t.getcol("DIRECTION")[main_rows]
         else:
-            if t.nrows() == active_rows.size:
-                ptg = np.empty((nrealrows, 1, 2), dtype=np.float64)
-                start, realstart = 0, 0
-                while start < nrow:
-                    stop = _ms_stop(start, nrow)
-                    realstop = realstart + np.sum(active_rows[start:stop])
-                    if realstop > realstart:
-                        allrows = stop - start == realstop - realstart
-                        tptg = t.getcol("DIRECTION", startrow=start, nrow=stop - start)
-                        tptg = tptg[active_rows[start:stop]]
-                        ptg[realstart:realstop] = tptg
-                    start, realstart = stop, realstop
-            else:
-                print(
-                    f"WARN: number of rows of POINTING table ({t.nrows()}) does not match number "
-                    f"of rows of main table ({active_rows.size}). Ignore POINTING table..."
-                )
-                ptg = None
+            print(
+                f"WARN: number of rows of POINTING table ({t.nrows()}) does not match number "
+                f"of rows of main table ({nmain}). Ignore POINTING table..."
+            )
+            ptg = None
 
     my_asserteq(wgt.shape, vis.shape)
     vis = np.ascontiguousarray(_ms2resolve_transpose(vis))
@@ -433,11 +420,10 @@ def _first_pass(
     ms, field, spectral_window, channels, pol_indices, pol_summation, ignore_flags
 ):
     """Go through measurement set and determine which rows and which channels are active for a given
-    field and a given spectral window.
+    field and a given spectral window; the rows are those of `_field_window_rows`.
     """
     fullwgt, weightcol = _determine_weighting(ms)
     nchan = _ms_nchannels(ms, spectral_window)
-    data_description_ids = _data_description_ids(ms, spectral_window)
     with _field_window_rows(ms, field, spectral_window) as t:
         nrow = t.nrows()
         active_rows = np.ones(nrow, dtype=bool)
@@ -463,14 +449,6 @@ def _first_pass(
                 tflags = np.any(tflags.astype(bool), axis=2)[..., None]
                 twgt = np.sum(twgt, axis=2)[..., None]
             tflags[twgt == 0] = True
-
-            # Select field and spectral window
-            tfieldid = t.getcol("FIELD_ID", startrow=start, nrow=stop - start)
-            tflags[tfieldid != field] = True
-            data_description_id = t.getcol(
-                "DATA_DESC_ID", startrow=start, nrow=stop - start
-            )
-            tflags[~np.isin(data_description_id, data_description_ids)] = True
 
             # Inactive if all polarizations are flagged
             assert tflags.ndim == 3

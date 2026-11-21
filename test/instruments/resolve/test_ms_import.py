@@ -43,9 +43,6 @@ class _Table:
             }
         )
 
-    def close(self):
-        pass
-
     def nrows(self):
         return len(next(iter(self._columns.values())))
 
@@ -122,6 +119,8 @@ def test_first_pass_reads_only_the_rows_of_its_window(monkeypatch):
         }
     )
     monkeypatch.setattr(ms_import, "ms_table", lambda path: table)
+    # one chunk over all rows, so a read spanning both windows would meet both shapes
+    monkeypatch.setattr(ms_import, "_ms_stop", lambda start, nrow: nrow)
     monkeypatch.setattr(
         ms_import, "_determine_weighting", lambda path: (True, "WEIGHT_SPECTRUM")
     )
