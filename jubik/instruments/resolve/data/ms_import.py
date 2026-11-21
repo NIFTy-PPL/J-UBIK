@@ -14,6 +14,7 @@
 # Copyright(C) 2019-2021 Max-Planck-Society
 
 import os
+from contextlib import contextmanager
 from os.path import expanduser, isdir, join
 
 import numpy as np
@@ -42,6 +43,22 @@ def ms_table(path):
             "You need to install python-casacore for working with measurement sets"
         )
     return table(path, readonly=True, ack=False)
+
+
+@contextmanager
+def _field_window_rows(ms, field, spectral_window):
+    """The main table's rows of ``field`` in ``spectral_window``, in table order.
+
+    The data columns of a measurement set whose windows differ in channel count
+    are variable-shaped and can only be read over rows of one window.
+    """
+    ids = ",".join(str(int(i)) for i in _data_description_ids(ms, spectral_window))
+    with ms_table(ms) as t:
+        rows = t.query(f"FIELD_ID=={int(field)} AND DATA_DESC_ID IN [{ids}]")
+        try:
+            yield rows
+        finally:
+            rows.close()
 
 
 def _pol_id(ms_path, spectral_window):
@@ -277,9 +294,11 @@ def read_ms_i(
         my_asserteq(len(pol_indices), 2)
 
     # Check if data column is available and get shape
-    with ms_table(name) as t:
-        nmspol = t.getcol(data_column, startrow=0, nrow=3).shape[2]
+    with _field_window_rows(name, field, spectral_window) as t:
         nrow = t.nrows()
+        if nrow == 0:
+            return None
+        nmspol = t.getcol(data_column, startrow=0, nrow=min(3, nrow)).shape[2]
 
     active_rows, active_channels = _first_pass(
         name, field, spectral_window, channels, pol_indices, pol_summation, ignore_flags
@@ -294,7 +313,7 @@ def read_ms_i(
     # Vis, wgt, (flags)
     fullwgt, weightcol = _determine_weighting(name)
     nchan = _ms_nchannels(name, spectral_window)
-    with ms_table(name) as t:
+    with _field_window_rows(name, field, spectral_window) as t:
         if pol_summation:
             npol = 1
         else:
@@ -358,12 +377,12 @@ def read_ms_i(
             start, realstart = stop, realstop
 
     # Measurement Set UVW values are stored in metres.
-    with ms_table(name) as t:
+    with _field_window_rows(name, field, spectral_window) as t:
         uvw = np.ascontiguousarray(t.getcol("UVW")[active_rows])
 
     # Calibration info
     if with_calib_info:
-        with ms_table(name) as t:
+        with _field_window_rows(name, field, spectral_window) as t:
             ant1 = np.ascontiguousarray(t.getcol("ANTENNA1")[active_rows])
             ant2 = np.ascontiguousarray(t.getcol("ANTENNA2")[active_rows])
             time = np.ascontiguousarray(t.getcol("TIME")[active_rows])
@@ -419,7 +438,7 @@ def _first_pass(
     fullwgt, weightcol = _determine_weighting(ms)
     nchan = _ms_nchannels(ms, spectral_window)
     data_description_ids = _data_description_ids(ms, spectral_window)
-    with ms_table(ms) as t:
+    with _field_window_rows(ms, field, spectral_window) as t:
         nrow = t.nrows()
         active_rows = np.ones(nrow, dtype=bool)
         active_channels = np.zeros(nchan, dtype=bool)
