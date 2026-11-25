@@ -26,7 +26,7 @@ from scipy.ndimage import binary_dilation, map_coordinates
 DO_NOT_USE = 1
 N_AMPLIFIERS = 4  # NIRCam full frame: four amplifiers of 512 columns
 N_REFERENCE = 4  # reference pixels on each edge
-SAME_PER_PATTERN = ("DETECTOR", "FILTER", "R_DARK")
+SAME_PER_PATTERN = ("DETECTOR", "FILTER", "PUPIL", "R_DARK")
 
 
 def _robust_std(x):
@@ -66,6 +66,10 @@ def _residual(sci, dq, wcs, target, radius, block):
     ok[N_REFERENCE:-N_REFERENCE, N_REFERENCE:-N_REFERENCE] = True
     ok &= np.isfinite(sci) & ((dq & DO_NOT_USE) == 0)
     med, s = np.median(sci[ok]), _robust_std(sci[ok])
+    # shortcut: a detector-fixed outlier beyond the clip (a hot or cold pixel of the
+    # reference) is masked like a source in all or some exposures, so it keeps the
+    # pattern and sigma_x, or gets a clipped median; telling it from sources by how
+    # many exposures flag it fails for small dithers, where sources stay put too
     sky = (
         ok
         & ~binary_dilation(ok & (sci > med + 3 * s), iterations=3)
@@ -144,6 +148,10 @@ def subtract_static_pattern(
     and the median sigma_P there.
     """
     paths = [Path(p) for p in paths]
+    if len(paths) <= min_count:
+        raise ValueError(
+            f"{len(paths)} exposures: each needs min_count = {min_count} others"
+        )
     pattern_path = Path(pattern_path)
     outs = [p.with_name(f"{p.stem}_{suffix}.fits") for p in paths]
     existing = [str(o) for o in [*outs, pattern_path] if o.exists()]
