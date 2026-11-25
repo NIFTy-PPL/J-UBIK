@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-from .zero_flux_model import ZeroFluxPriorConfigs, match_band_key
+from .zero_flux_model import ZeroFluxPriorConfigs
 from .rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
     LinearConfig,
@@ -59,10 +59,7 @@ class ConfigParserJwst:
             cfg[telescope_key].get("calibration")
         )
         # a mistyped filter key would silently fall back to the default prior
-        names = calibration.names if calibration else {}
-        if unknown := {
-            k for k in names if not any(match_band_key([k], f) for f in filters)
-        }:
+        if unknown := set(calibration.names if calibration else {}) - filters:
             raise ValueError(
                 f"calibration: {sorted(unknown)} match no filter of {sorted(filters)}"
             )

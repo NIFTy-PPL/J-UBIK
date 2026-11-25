@@ -533,28 +533,45 @@ def calibrated_and_plain(tmp_path, calibration):
     )
 
 
+def relative_factors(xi, mean, std):
+    """A lognormal(mean, std) prior's factors over their geometric mean:
+    exp(sigma (xi - mean xi)), sigma the log-space std; `mean` drops out."""
+    sigma = np.sqrt(np.log1p((std / mean) ** 2))
+    return np.exp(sigma * (xi - xi.mean()))
+
+
 def test_calibration_gives_each_exposure_its_own_factor(patched_seams, tmp_path):
     products, plain, xi, calibrated, uncalibrated = calibrated_and_plain(
-        tmp_path, {"default": ["normal", 1.0, 0.5]}
+        tmp_path, {"default": ["lognormal", 1.0, 0.5]}
     )
     assert not any("calibration" in k for k in plain.target.likelihood.domain.tree)
     domain = products.target.likelihood.domain.tree
     assert set(domain) - set(plain.target.likelihood.domain.tree) == {CALIBRATION}
     assert domain[CALIBRATION].shape == (2, 1, 1)
-    factors = 1.0 + 0.5 * xi.ravel()  # the normal prior: mean + std * latent
+    factors = relative_factors(xi.ravel(), 1.0, 0.5)
     assert not np.isclose(factors[0], factors[1])
+    np.testing.assert_allclose(np.prod(factors), 1.0, rtol=1e-12)  # geometric mean 1
     for factor, scaled, model in zip(factors, calibrated, uncalibrated):
         np.testing.assert_allclose(scaled, factor * model, rtol=1e-12)
     assert np.isfinite(evaluate(products.target.likelihood))
 
 
 def test_calibration_filter_key_overrides_default(patched_seams, tmp_path):
-    _, _, _, calibrated, uncalibrated = calibrated_and_plain(
+    _, _, xi, calibrated, uncalibrated = calibrated_and_plain(
         tmp_path,
-        {"default": ["normal", 1.0, 0.5], FILTER.lower(): ["normal", 3.0, 0.0]},
+        {"default": ["lognormal", 1.0, 0.5], FILTER.lower(): ["lognormal", 2.0, 0.2]},
     )
-    for scaled, model in zip(calibrated, uncalibrated):
-        np.testing.assert_allclose(scaled, 3.0 * model, rtol=1e-12)
+    factors = relative_factors(xi.ravel(), 2.0, 0.2)
+    for factor, scaled, model in zip(factors, calibrated, uncalibrated):
+        np.testing.assert_allclose(scaled, factor * model, rtol=1e-12)
+
+
+def test_calibration_needs_a_lognormal_prior(patched_seams, tmp_path):
+    cfg = make_config(
+        tmp_path, n_files=2, calibration={"default": ["normal", 1.0, 0.1]}
+    )
+    with pytest.raises(ValueError, match="need a lognormal prior, got normal"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
 def test_calibration_key_of_no_filter_raises(patched_seams, tmp_path):

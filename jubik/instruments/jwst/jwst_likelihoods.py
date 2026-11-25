@@ -98,7 +98,9 @@ def build_jwst_likelihoods(
     An optional ``calibration`` block in the telescope config (``default`` and
     filter keys, as ``zero_flux``) gives each exposure of a filter its own
     multiplicative flux factor, ``{filter}_target_calibration`` of shape
-    ``(n_exposures, 1, 1)``; without it the factor is 1.
+    ``(n_exposures, 1, 1)``; without it the factor is 1. The factors are taken
+    relative to their geometric mean (the filter's sky carries the common factor)
+    and need a lognormal prior.
     """
 
     assert isinstance(sky_domain, dict) and len(sky_domain) == 1, (
@@ -230,6 +232,7 @@ def build_jwst_likelihoods(
                             filter
                         )
                     ),
+                    calibration_relative=True,
                 )
             ),
             target_data=dataload_results.target_data,
