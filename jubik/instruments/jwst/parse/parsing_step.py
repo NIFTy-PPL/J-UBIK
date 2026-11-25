@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-from .zero_flux_model import ZeroFluxPriorConfigs
+from .zero_flux_model import ZeroFluxPriorConfigs, match_band_key
 from .rotation_and_shift.rotation_and_shift import (
     rotation_and_shift_algorithm_config_factory,
     LinearConfig,
@@ -21,6 +21,7 @@ from .data.preloader.data_bounds import DataBoundsAdjust
 @dataclass
 class ConfigParserJwst:
     zero_flux_prior_configs: ZeroFluxPriorConfigs
+    calibration_prior_configs: ZeroFluxPriorConfigs | None
     rotation_and_shift_algorithm: LinearConfig | NufftConfig
     psf_kernel_configs: JwstPsfKernelConfig
     data_loader: DataLoadingConfig
@@ -53,6 +54,18 @@ class ConfigParserJwst:
                 f"psf correction: {sorted(unknown)} match no filter of "
                 f"{sorted(filters)}"
             )
+        # one factor per exposure, the zero_flux layout: a default and filter keys
+        calibration = ZeroFluxPriorConfigs.from_yaml_dict(
+            cfg[telescope_key].get("calibration")
+        )
+        # a mistyped filter key would silently fall back to the default prior
+        names = calibration.names if calibration else {}
+        if unknown := {
+            k for k in names if not any(match_band_key([k], f) for f in filters)
+        }:
+            raise ValueError(
+                f"calibration: {sorted(unknown)} match no filter of {sorted(filters)}"
+            )
         corner_masks = CornerMasks.from_yaml_dict(cfg[telescope_key])
 
         star_alignment_config: StarAlignmentConfig | None = (
@@ -78,6 +91,7 @@ class ConfigParserJwst:
 
         return cls(
             zero_flux_prior_configs=zero_flux_prior_configs,
+            calibration_prior_configs=calibration,
             rotation_and_shift_algorithm=rotation_and_shift_algorithm,
             psf_kernel_configs=psf_kernel_configs,
             data_loader=data_loader,

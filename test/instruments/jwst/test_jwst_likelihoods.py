@@ -152,6 +152,7 @@ def make_config(
     zero_flux=False,
     gaia_subsample=2,
     fov="0.5arcsec",
+    calibration=None,
 ):
     files = [str(tmp_path / f"fake_{ii}.fits") for ii in range(n_files)]
     telescope = {
@@ -184,6 +185,8 @@ def make_config(
         }
     if zero_flux:
         telescope["zero_flux"] = {"default": ["lognormal", 0.9, 4]}
+    if calibration is not None:
+        telescope["calibration"] = calibration
     if variable_covariance:
         telescope["variable_covariance"] = {
             "additive_std_value": {
@@ -502,4 +505,62 @@ def test_file_filter_must_match_config_key(patched_seams, tmp_path):
     )
     cfg["files"]["filter"] = {"f277w": cfg["files"]["filter"].pop(FILTER.lower())}
     with pytest.raises(ValueError, match=f"observation is {FILTER}.*f277w"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+CALIBRATION = f"{FILTER.lower()}_target_calibration"
+
+
+def calibrated_and_plain(tmp_path, calibration):
+    """The response of two exposures with `calibration` at random latents, and the
+    response without it at the same latents, split per exposure."""
+    plain = build_jwst_likelihoods(
+        make_config(tmp_path, n_files=2), make_grid(), SKY_DOMAIN
+    )
+    cfg = make_config(tmp_path, n_files=2, calibration=calibration)
+    products = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+    single = products.target.likelihoods[0]
+    x = jft.random_like(jax.random.PRNGKey(1), single.response.domain)
+    rest = {k: v for k, v in x.items() if k != CALIBRATION}
+    counts = single.builder.mask.reshape(2, -1).sum(1)
+    split = np.cumsum(counts)[:-1]
+    return (
+        products,
+        plain,
+        np.asarray(x[CALIBRATION]),
+        np.split(np.asarray(single.response(x)), split),
+        np.split(np.asarray(plain.target.likelihoods[0].response(rest)), split),
+    )
+
+
+def test_calibration_gives_each_exposure_its_own_factor(patched_seams, tmp_path):
+    products, plain, xi, calibrated, uncalibrated = calibrated_and_plain(
+        tmp_path, {"default": ["normal", 1.0, 0.5]}
+    )
+    assert not any("calibration" in k for k in plain.target.likelihood.domain.tree)
+    domain = products.target.likelihood.domain.tree
+    assert set(domain) - set(plain.target.likelihood.domain.tree) == {CALIBRATION}
+    assert domain[CALIBRATION].shape == (2, 1, 1)
+    factors = 1.0 + 0.5 * xi.ravel()  # the normal prior: mean + std * latent
+    assert not np.isclose(factors[0], factors[1])
+    for factor, scaled, model in zip(factors, calibrated, uncalibrated):
+        np.testing.assert_allclose(scaled, factor * model, rtol=1e-12)
+    assert np.isfinite(evaluate(products.target.likelihood))
+
+
+def test_calibration_filter_key_overrides_default(patched_seams, tmp_path):
+    _, _, _, calibrated, uncalibrated = calibrated_and_plain(
+        tmp_path,
+        {"default": ["normal", 1.0, 0.5], FILTER.lower(): ["normal", 3.0, 0.0]},
+    )
+    for scaled, model in zip(calibrated, uncalibrated):
+        np.testing.assert_allclose(scaled, 3.0 * model, rtol=1e-12)
+
+
+def test_calibration_key_of_no_filter_raises(patched_seams, tmp_path):
+    cfg = make_config(
+        tmp_path,
+        calibration={"default": ["normal", 1.0, 0.5], "f277w": ["normal", 1.0, 0.1]},
+    )
+    with pytest.raises(ValueError, match=r"calibration: \['f277w'\] match no filter"):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
