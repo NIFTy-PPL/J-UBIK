@@ -73,9 +73,10 @@ def _residual(sci, dq, wcs, target, radius, block):
     ok &= np.isfinite(sci) & ((dq & DO_NOT_USE) == 0)
     med, s = np.median(sci[ok]), mad_std(sci[ok])
     # shortcut: a detector-fixed outlier beyond the clip (a hot or cold pixel of the
-    # reference) is masked like a source in all or some exposures, so it keeps the
-    # pattern and sigma_x, or gets a clipped median; telling it from sources by how
-    # many exposures flag it fails for small dithers, where sources stay put too
+    # reference) is masked like a source in all or some exposures, its 3 px growth
+    # with it, so they keep the pattern and sigma_x, or get a clipped median. Counts
+    # cannot tell it from sources (small dithers, a far source on the same pixels);
+    # its value, alike in every far exposure, could
     sky = (
         ok
         & ~binary_dilation(ok & (sci > med + 3 * s), iterations=3)
