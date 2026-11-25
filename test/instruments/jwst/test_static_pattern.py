@@ -3,7 +3,7 @@
 
 # Copyright(C) 2026 Max-Planck-Society
 
-"""Static detector pattern: synthetic dithers with an injected pattern, checked against the truth."""
+"""Static detector pattern: synthetic dithers, an injected pattern, against truth."""
 
 import numpy as np
 import pytest
@@ -14,12 +14,8 @@ from astropy.wcs import WCS
 
 from jubik.instruments.jwst.data.static_pattern import subtract_static_pattern
 
-NY, NX, BLOCK, MIN_COUNT = (
-    96,
-    2048,
-    32,
-    5,
-)  # full-width rows: four 512-column amplifiers
+# full-width rows: four 512-column amplifiers
+NY, NX, BLOCK, MIN_COUNT = 96, 2048, 32, 5
 SCALE = 0.063  # arcsec per pixel
 TARGET = SkyCoord(294.6 * u.deg, 66.8 * u.deg)
 RADIUS = 15 * SCALE * u.arcsec
@@ -27,21 +23,20 @@ TARGET_SKY = (70, 1000)  # the target's pixel in the sky frame
 GROUPS = [(0, 0), (15, 60), (30, 120)]  # pointing of each group of 7, in pixels
 DITHERS = [(0, 0), (1, 2), (2, 1), (3, 3), (0, 3), (2, 0), (1, 1)]
 PATTERN_AMP, NOISE = 1.2, 1.0
-ALWAYS_BAD = (np.array([10, 50, 80, 77]), np.array([400, 1200, 1700, 950]))  # (y, x)
+ALWAYS_BAD = (np.array([10, 50, 80, 77]), np.array([400, 1200, 1700, 950]))  # y, x
 LOW_X = slice(4, 132)  # DO_NOT_USE in 70% of the exposures: few others see sky there
 
 
 def make_set(folder, noise_seed=0):
-    """21 dithered exposures of one sky, plus a detector-fixed pattern; exposure 0 has no ERR_PIPE."""
+    """21 dithers of one sky, a detector-fixed pattern; exposure 0 has no ERR_PIPE."""
     folder.mkdir(exist_ok=True)
     rng = np.random.default_rng(0)
     pattern = PATTERN_AMP * rng.normal(size=(NY, NX))
     sy, sx = NY + 40, NX + 130
     yy, xx = np.mgrid[:sy, :sx]
-    r2 = (yy - TARGET_SKY[0]) ** 2 + (xx - TARGET_SKY[1]) ** 2
-    sky = 500 * np.exp(-r2 / 18) + 2.5 * np.exp(
-        -r2 / 72
-    )  # a core, and a halo below the 3-sigma clip
+    r = np.hypot(yy - TARGET_SKY[0], xx - TARGET_SKY[1])
+    # a core, and an arc-like ring below the 3-sigma clip: only the target disk masks it
+    sky = 100 * np.exp(-(r**2) / 8) + 2 * np.exp(-((r - 11) ** 2) / 2.88)
     for y, x, peak in zip(
         rng.uniform(0, sy, 60), rng.uniform(0, sx, 60), rng.uniform(20, 200, 60)
     ):
@@ -51,11 +46,11 @@ def make_set(folder, noise_seed=0):
     for e in range(21):
         (gy, gx), (dy, dx) = GROUPS[e // 7], DITHERS[e % 7]
         oy, ox = gy + dy, gx + dx
-        r = np.random.default_rng((1, e))
+        draw = np.random.default_rng((1, e))
         noise = np.random.default_rng((2, e, noise_seed if e == 0 else 0)).normal(
             0, NOISE, (NY, NX)
         )
-        stripes = np.repeat(r.normal(0, 0.5, (NY, 4)), NX // 4, axis=1)
+        stripes = np.repeat(draw.normal(0, 0.5, (NY, 4)), NX // 4, axis=1)
         sci = (
             sky[oy : oy + NY, ox : ox + NX]
             + 30
@@ -66,7 +61,7 @@ def make_set(folder, noise_seed=0):
             + noise
         )
         dq = np.zeros((NY, NX), np.uint32)
-        dq[:, LOW_X][r.random((NY, LOW_X.stop - LOW_X.start)) < 0.7] = 1
+        dq[:, LOW_X][draw.random((NY, LOW_X.stop - LOW_X.start)) < 0.7] = 1
         dq[ALWAYS_BAD] = 1
         sci[ALWAYS_BAD] = np.nan
 
@@ -120,12 +115,12 @@ def test_pattern_matches_truth_within_its_noise(run):
     folder, _, pattern, _ = run
     p, count = read(folder / "pattern.fits", "PATTERN", "COUNT")
     m = count >= 18
-    expected = NOISE * np.sqrt(
-        np.pi / 2 * np.mean(1 / count[m])
-    )  # median of n Gaussian values
+    # a median of n Gaussian values
+    expected = NOISE * np.sqrt(np.pi / 2 * np.mean(1 / count[m]))
     assert m.sum() > 10000
     assert 0.9 < np.std((p - pattern)[m]) / expected < 1.15
     assert np.corrcoef(p[m], pattern[m])[0, 1] > 0.9
+    assert np.all(p[count < MIN_COUNT] == 0) and np.any(count[:, LOW_X] < MIN_COUNT)
 
 
 def test_target_pixels_corrected_from_the_other_groups(run):
@@ -140,19 +135,17 @@ def test_target_pixels_corrected_from_the_other_groups(run):
     assert np.std(err[disk]) < 0.5 < np.std(pattern[disk])  # 14 other exposures: ~0.34
 
 
-def test_target_halo_leaves_no_ghost_in_the_other_groups(run):
+def test_target_ring_leaves_no_ghost_in_the_other_groups(run):
     _, paths, pattern, _ = run
-    ty, tx = (
-        TARGET_SKY  # where group 0 sees the target; group 1 (exposures 7-13) sees sky there
-    )
+    # where group 0 sees the target's ring; group 1 (exposures 7-13) sees sky there
+    ty, tx = TARGET_SKY
     yy, xx = np.ogrid[:NY, :NX]
-    ring = np.hypot(yy - ty, xx - tx) < 12
+    ring = np.abs(np.hypot(yy - ty, xx - tx) - 11) < 2
     for path in paths[7:14]:
         (sci_in,) = read(path, "SCI")
         (sci_out,) = read(out_of(path), "SCI")
-        assert (
-            abs(np.mean((pattern + sci_out - sci_in)[ring])) < 0.1
-        )  # ~0.02 by noise alone
+        # ~0.03 by noise alone
+        assert abs(np.mean((pattern + sci_out - sci_in)[ring])) < 0.1
 
 
 def test_sigma_p_matches_the_corrected_scatter_at_high_and_low_count(run):
@@ -165,9 +158,8 @@ def test_sigma_p_matches_the_corrected_scatter_at_high_and_low_count(run):
         errs.append((pattern + sci_out - sci_in)[corrected])
         sigmas.append(np.sqrt(err**2 - pipe**2)[corrected])
     errs, sigmas = np.concatenate(errs), np.concatenate(sigmas)
-    at_one = sigmas.min() * np.sqrt(
-        20
-    )  # sigma_P scales as 1/sqrt(n); n = 20 is the most others
+    # sigma_P scales as 1/sqrt(n); n = 20 is the most others
+    at_one = sigmas.min() * np.sqrt(20)
     for sel in (sigmas <= at_one / np.sqrt(17.5), sigmas >= at_one / np.sqrt(8.5)):
         assert sel.sum() > 5000
         assert 0.85 < np.std(errs[sel]) / np.sqrt(np.mean(sigmas[sel] ** 2)) < 1.15
@@ -176,12 +168,10 @@ def test_sigma_p_matches_the_corrected_scatter_at_high_and_low_count(run):
 def test_uncorrected_pixels_keep_sci_and_the_per_exposure_term(run):
     _, paths, _, rows = run
     dqs = [read(p, "DQ")[0].astype(int) & 1 for p in paths]
-    few = (np.sum([dq == 0 for dq in dqs], axis=0) < MIN_COUNT) & np.isfinite(
-        read(paths[0], "SCI")[0]
-    )
-    assert (
-        few[:, LOW_X].mean() > 0.1
-    )  # fewer than MIN_COUNT exposures can see sky there at all
+    # fewer than MIN_COUNT exposures can see sky there at all
+    few = np.sum([dq == 0 for dq in dqs], axis=0) < MIN_COUNT
+    few &= np.isfinite(read(paths[0], "SCI")[0])
+    assert few[:, LOW_X].mean() > 0.1
     for path, row, dq in zip(paths, rows, dqs):
         (sci_in,) = read(path, "SCI")
         sci_out, err, pipe = read(out_of(path), "SCI", "ERR", "ERR_PIPE")
@@ -190,9 +180,8 @@ def test_uncorrected_pixels_keep_sci_and_the_per_exposure_term(run):
         np.testing.assert_allclose(
             err[kept], np.sqrt(pipe[kept] ** 2 + row["sigma_x_in"] ** 2), rtol=1e-6
         )
-        assert (
-            row["sigma_x_in"] > 1.0 > 3 * row["sigma_p_med"]
-        )  # pattern 1.2 kept, ~0.3 left
+        # the pattern (1.2) is kept there, ~0.3 is left where corrected
+        assert row["sigma_x_in"] > 1.0 > 3 * row["sigma_p_med"]
 
 
 def test_do_not_use_and_nan_pixels_are_untouched(run):
@@ -206,9 +195,8 @@ def test_do_not_use_and_nan_pixels_are_untouched(run):
         np.testing.assert_array_equal(sci_out[bad], sci_in[bad])  # NaN stays NaN
     (err_in,) = read(paths[0], "ERR")
     (pipe_out,) = read(out_of(paths[0]), "ERR_PIPE")
-    np.testing.assert_array_equal(
-        pipe_out, err_in
-    )  # a plain cal file's ERR is kept as ERR_PIPE
+    # a plain cal file's ERR is kept as ERR_PIPE
+    np.testing.assert_array_equal(pipe_out, err_in)
 
 
 def test_leave_one_out_ignores_the_exposures_own_values(tmp_path):
@@ -219,7 +207,7 @@ def test_leave_one_out_ignores_the_exposures_own_values(tmp_path):
             paths, TARGET, RADIUS, tmp_path / f"p{seed}.fits", block=BLOCK
         )
         runs.append([read(p, "SCI")[0] - read(out_of(p), "SCI")[0] for p in paths[:2]])
-    # exposure 0's correction comes from the others only (float32 rounding of SCI - P aside) ...
+    # exposure 0's correction comes from the others only (float32 rounding aside) ...
     np.testing.assert_allclose(runs[0][0], runs[1][0], rtol=0, atol=1e-4)
     # ... while exposure 1's sees exposure 0
     assert np.nanmax(np.abs(runs[0][1] - runs[1][1])) > 0.01
