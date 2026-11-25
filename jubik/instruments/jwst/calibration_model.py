@@ -35,7 +35,8 @@ def build_calibration_model(
     relative : bool
         Divide the factors by their geometric mean, mean-zero log factors: a
         factor common to all of them is degenerate with the sky they multiply.
-        Needs a lognormal prior without a transformation, for positive factors.
+        Needs a lognormal prior without a transformation, for positive factors;
+        only the prior's width matters, its mean drops out.
     """
     if prior_config is None:
         return None
@@ -58,4 +59,4 @@ def build_calibration_model(
         f = model(x)
         return f / jnp.exp(jnp.mean(jnp.log(f)))
 
-    return jft.Model(factors, domain=model.domain, init=model.init)
+    return jft.Model(factors, domain=model.domain)

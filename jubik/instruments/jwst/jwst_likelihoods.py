@@ -100,7 +100,7 @@ def build_jwst_likelihoods(
     multiplicative flux factor, ``{filter}_target_calibration`` of shape
     ``(n_exposures, 1, 1)``; without it the factor is 1. The factors are taken
     relative to their geometric mean (the filter's sky carries the common factor)
-    and need a lognormal prior.
+    and need a lognormal prior; only its width matters, its mean drops out.
     """
 
     assert isinstance(sky_domain, dict) and len(sky_domain) == 1, (
