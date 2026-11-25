@@ -121,7 +121,7 @@ def test_pattern_matches_truth_within_its_noise(run):
     assert m.sum() > 10000
     assert 0.9 < np.std((p - pattern)[m]) / expected < 1.15
     assert np.corrcoef(p[m], pattern[m])[0, 1] > 0.9
-    assert np.all(p[count < MIN_COUNT] == 0) and np.any(count[:, LOW_X] < MIN_COUNT)
+    assert np.all(p[count < MIN_COUNT] == 0) and np.any(count[4:-4, LOW_X] < MIN_COUNT)
     # measured from exactly MIN_COUNT (a residual can be exactly 0 after destriping)
     assert np.mean(p[count == MIN_COUNT] != 0) > 0.9
 
@@ -234,6 +234,8 @@ def test_refuses_mixed_sets_and_never_overwrites(tmp_path):
                 paths, TARGET, RADIUS, tmp_path / "p.fits", block=BLOCK
             )
         fits.setval(paths[3], key, value=old)
+    with pytest.raises(ValueError, match="min_count"):  # P of no others would be NaN
+        subtract_static_pattern(paths, TARGET, RADIUS, tmp_path / "p.fits", min_count=0)
     with pytest.raises(ValueError, match="min_count"):  # no exposure could be corrected
         subtract_static_pattern(
             paths[:5], TARGET, RADIUS, tmp_path / "p.fits", block=BLOCK

@@ -148,10 +148,8 @@ def subtract_static_pattern(
     and the median sigma_P there.
     """
     paths = [Path(p) for p in paths]
-    if len(paths) <= min_count:
-        raise ValueError(
-            f"{len(paths)} exposures: each needs min_count = {min_count} others"
-        )
+    if not 1 <= min_count < len(paths):
+        raise ValueError(f"min_count = {min_count} needs 1 to {len(paths) - 1} others")
     pattern_path = Path(pattern_path)
     outs = [p.with_name(f"{p.stem}_{suffix}.fits") for p in paths]
     existing = [str(o) for o in [*outs, pattern_path] if o.exists()]
