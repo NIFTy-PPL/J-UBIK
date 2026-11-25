@@ -36,7 +36,8 @@ def build_calibration_model(
         Divide the factors by their geometric mean, mean-zero log factors: a
         factor common to all of them is degenerate with the sky they multiply.
         Needs a lognormal prior without a transformation, for positive factors;
-        only the prior's width matters, its mean drops out.
+        its mean drops out as a common factor, and only std / mean, which sets
+        the log-space width, matters.
     """
     if prior_config is None:
         return None
