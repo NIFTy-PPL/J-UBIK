@@ -37,6 +37,8 @@ def make_set(folder, noise_seed=0):
     r = np.hypot(yy - TARGET_SKY[0], xx - TARGET_SKY[1])
     # a core, and an arc-like ring below the 3-sigma clip: only the target disk masks it
     sky = 100 * np.exp(-(r**2) / 8) + 2 * np.exp(-((r - 11) ** 2) / 2.88)
+    # a galaxy below the per-pixel clip, which group 1 sees on group 0's target pixels
+    sky += 3 * np.exp(-np.hypot(yy - TARGET_SKY[0] - 15, xx - TARGET_SKY[1] - 60) / 3)
     for y, x, peak in zip(
         rng.uniform(0, sy, 60), rng.uniform(0, sx, 60), rng.uniform(20, 200, 60)
     ):
@@ -128,14 +130,18 @@ def test_pattern_matches_truth_within_its_noise(run):
 
 def test_target_pixels_corrected_from_the_other_groups(run):
     _, paths, pattern, _ = run
-    (sci_in,) = read(paths[0], "SCI")
-    (sci_out,) = read(out_of(paths[0]), "SCI")
-    ty, tx = TARGET_SKY  # exposure 0 has no pointing offset
     yy, xx = np.ogrid[:NY, :NX]
-    disk = np.hypot(yy - ty, xx - tx) < 6
-    assert np.all(sci_out[disk] != sci_in[disk])
-    err = pattern + sci_out - sci_in
-    assert np.std(err[disk]) < 0.5 < np.std(pattern[disk])  # 14 other exposures: ~0.34
+    errs = []
+    for path, (dy, dx) in zip(paths[:7], DITHERS):  # group 0, no pointing offset
+        (sci_in,) = read(path, "SCI")
+        (sci_out,) = read(out_of(path), "SCI")
+        disk = np.hypot(yy - TARGET_SKY[0] + dy, xx - TARGET_SKY[1] + dx) < 6
+        assert np.all(sci_out[disk] != sci_in[disk])
+        errs.append((pattern + sci_out - sci_in)[disk])
+        # from the other groups: ~0.34 from 14, ~0.45 where the galaxy masks group 1
+        assert np.std(errs[-1]) < 0.55 < np.std(pattern[disk])
+    # no ghost of the faint galaxy group 1 sees there (~0.03 by noise alone)
+    assert abs(np.mean(errs)) < 0.1
 
 
 def test_target_ring_leaves_no_ghost_in_the_other_groups(run):
@@ -161,6 +167,11 @@ def test_sigma_p_matches_the_corrected_scatter_at_high_and_low_count(run):
         errs.append((pattern + sci_out - sci_in)[corrected])
         sigmas.append(np.sqrt(err**2 - pipe**2)[corrected])
     errs, sigmas = np.concatenate(errs), np.concatenate(sigmas)
+    # the fewest sigma_P is at n_-k = 20, all the other exposures
+    scatter = fits.getval(run[0] / "pattern.fits", "PATSCAT")
+    np.testing.assert_allclose(
+        sigmas.min(), np.sqrt(np.pi / 2 / 20) * scatter, rtol=1e-3
+    )
     # sigma_P scales as 1/sqrt(n); n = 20 is the most others
     at_one = sigmas.min() * np.sqrt(20)
     for sel in (sigmas <= at_one / np.sqrt(17.5), sigmas >= at_one / np.sqrt(8.5)):
@@ -234,6 +245,8 @@ def test_refuses_mixed_sets_and_never_overwrites(tmp_path):
                 paths, TARGET, RADIUS, tmp_path / "p.fits", block=BLOCK
             )
         fits.setval(paths[3], key, value=old)
+    with pytest.raises(ValueError, match="twice"):
+        subtract_static_pattern(paths + paths[:1], TARGET, RADIUS, tmp_path / "p.fits")
     with pytest.raises(ValueError, match="min_count"):  # P of no others would be NaN
         subtract_static_pattern(paths, TARGET, RADIUS, tmp_path / "p.fits", min_count=0)
     with pytest.raises(ValueError, match="min_count"):  # no exposure could be corrected

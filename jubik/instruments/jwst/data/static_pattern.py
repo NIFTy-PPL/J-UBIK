@@ -18,19 +18,15 @@ from pathlib import Path
 import numpy as np
 from astropy import units as u
 from astropy.io import fits
-from astropy.stats import sigma_clipped_stats
+from astropy.stats import mad_std, sigma_clipped_stats
 from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_scales
-from scipy.ndimage import binary_dilation, map_coordinates
+from scipy.ndimage import binary_dilation, map_coordinates, uniform_filter
 
 DO_NOT_USE = 1
 N_AMPLIFIERS = 4  # NIRCam full frame: four amplifiers of 512 columns
 N_REFERENCE = 4  # reference pixels on each edge
 SAME_PER_PATTERN = ("DETECTOR", "FILTER", "PUPIL", "R_DARK")
-
-
-def _robust_std(x):
-    return 1.4826 * np.median(np.abs(x - np.median(x)))
 
 
 def _nanmedian(stack, axis):
@@ -54,18 +50,28 @@ def _smooth_background(image, sky, block):
     )
 
 
+def _destriped(sci, sky, block):
+    """`sci` less its smooth background and per-amplifier row medians, on `sky`."""
+    ny, nx = sci.shape
+    res = np.where(sky, sci - _smooth_background(sci, sky, block), np.nan)
+    res = res.reshape(ny, N_AMPLIFIERS, nx // N_AMPLIFIERS)
+    res -= np.nan_to_num(_nanmedian(res, axis=2)[..., None])
+    return res.reshape(ny, nx)
+
+
 def _residual(sci, dq, wcs, target, radius, block):
     """Detector-frame residual on sky pixels, NaN elsewhere.
 
     Sky: not DO_NOT_USE, not a reference pixel, within 3 robust sigma above (5 below)
-    the median with sources grown by 3 px, and outside the target disk. The smooth
-    background and each amplifier's per-row median are removed.
+    the median with sources grown by 3 px, outside the target disk, and outside faint
+    extended sources: 3 robust sigma above in the residual's 7 px box mean, grown by
+    3 px. The smooth background and each amplifier's per-row median are removed.
     """
     ny, nx = sci.shape
     ok = np.zeros(sci.shape, bool)
     ok[N_REFERENCE:-N_REFERENCE, N_REFERENCE:-N_REFERENCE] = True
     ok &= np.isfinite(sci) & ((dq & DO_NOT_USE) == 0)
-    med, s = np.median(sci[ok]), _robust_std(sci[ok])
+    med, s = np.median(sci[ok]), mad_std(sci[ok])
     # shortcut: a detector-fixed outlier beyond the clip (a hot or cold pixel of the
     # reference) is masked like a source in all or some exposures, so it keeps the
     # pattern and sigma_x, or gets a clipped median; telling it from sources by how
@@ -80,10 +86,16 @@ def _residual(sci, dq, wcs, target, radius, block):
     yy, xx = np.ogrid[:ny, :nx]
     sky &= np.hypot(xx - x0, yy - y0) > r_pix
 
-    res = np.where(sky, sci - _smooth_background(sci, sky, block), np.nan)
-    res = res.reshape(ny, N_AMPLIFIERS, nx // N_AMPLIFIERS)
-    res -= np.nan_to_num(_nanmedian(res, axis=2)[..., None])
-    return res.reshape(ny, nx).astype(np.float32)
+    # a galaxy below the per-pixel clip that one group sees on another's target
+    # pixels would bias half the samples there; shortcut: fainter ones, and wings
+    # beyond the 3 px growth (~30% of the wing leaks), still do; a mask from the
+    # stacked sky would catch them
+    res = _destriped(sci, sky, block)
+    cover = uniform_filter(sky.astype(float), 7)
+    box = uniform_filter(np.nan_to_num(res), 7) / np.maximum(cover, 1 / 49)
+    faint = (cover > 0.5) & (box > np.median(box[sky]) + 3 * mad_std(box[sky]))
+    sky &= ~binary_dilation(faint, iterations=3)
+    return _destriped(sci, sky, block).astype(np.float32)
 
 
 def sky_residuals(paths, target, radius, block=64):
@@ -152,6 +164,8 @@ def subtract_static_pattern(
         raise ValueError(f"min_count = {min_count} needs 1 to {len(paths) - 1} others")
     pattern_path = Path(pattern_path)
     outs = [p.with_name(f"{p.stem}_{suffix}.fits") for p in paths]
+    if len(set(outs)) < len(outs):
+        raise ValueError("an exposure is given twice")
     existing = [str(o) for o in [*outs, pattern_path] if o.exists()]
     if existing:
         raise FileExistsError(f"not overwritten: {existing}")
@@ -161,7 +175,7 @@ def subtract_static_pattern(
     used = np.isfinite(stack) & (count >= min_count)
     # shortcut: one scatter for the set, as the sky noise is nearly uniform; make it
     # per pixel if the background varies strongly across the detector
-    scatter = _robust_std((stack - pattern)[used])
+    scatter = mad_std((stack - pattern)[used])
     head = fits.getheader(paths[0])
     pattern_head = fits.Header([(k, head[k]) for k in SAME_PER_PATTERN])
     pattern_head["PATNMIN"] = (min_count, "PATTERN is 0 where COUNT < PATNMIN")
