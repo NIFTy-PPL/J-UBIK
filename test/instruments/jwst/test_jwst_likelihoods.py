@@ -566,11 +566,17 @@ def test_calibration_filter_key_overrides_default(patched_seams, tmp_path):
         np.testing.assert_allclose(scaled, factor * model, rtol=1e-12)
 
 
-def test_calibration_needs_a_lognormal_prior(patched_seams, tmp_path):
-    cfg = make_config(
-        tmp_path, n_files=2, calibration={"default": ["normal", 1.0, 0.1]}
-    )
-    with pytest.raises(ValueError, match="need a lognormal prior, got normal"):
+@pytest.mark.parametrize(
+    "prior",
+    [["normal", 1.0, 0.1], ["lognormal", 1.0, 0.1, "log"]],
+    ids=["normal", "log"],
+)
+def test_calibration_needs_a_plain_lognormal_prior(patched_seams, tmp_path, prior):
+    # the geometric mean needs positive factors: a transformation may break that
+    cfg = make_config(tmp_path, n_files=2, calibration={"default": prior})
+    with pytest.raises(
+        ValueError, match="need a lognormal prior without a transformation"
+    ):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
