@@ -35,8 +35,8 @@ def make_set(folder, noise_seed=0):
     sy, sx = NY + 40, NX + 130
     yy, xx = np.mgrid[:sy, :sx]
     r = np.hypot(yy - TARGET_SKY[0], xx - TARGET_SKY[1])
-    # a core, and an arc-like ring below the 3-sigma clip: only the target disk masks it
-    sky = 100 * np.exp(-(r**2) / 8) + 2 * np.exp(-((r - 11) ** 2) / 2.88)
+    # a core, and an arc-like ring below both source masks, so only the disk takes it
+    sky = 100 * np.exp(-(r**2) / 8) + 0.6 * np.exp(-((r - 11) ** 2) / 18)
     # a galaxy below the per-pixel clip, which group 1 sees on group 0's target pixels
     sky += 3 * np.exp(-np.hypot(yy - TARGET_SKY[0] - 15, xx - TARGET_SKY[1] - 60) / 3)
     for y, x, peak in zip(
@@ -65,6 +65,7 @@ def make_set(folder, noise_seed=0):
         dq = np.zeros((NY, NX), np.uint32)
         dq[:, LOW_X][draw.random((NY, LOW_X.stop - LOW_X.start)) < 0.7] = 1
         dq[ALWAYS_BAD] = 1
+        dq[ALWAYS_BAD[0][0], ALWAYS_BAD[1][0]] = 0  # a NaN without the flag
         sci[ALWAYS_BAD] = np.nan
 
         w = WCS(naxis=2)
@@ -196,6 +197,8 @@ def test_uncorrected_pixels_keep_sci_and_the_per_exposure_term(run):
         )
         # the pattern (1.2) is kept there, ~0.3 is left where corrected
         assert row["sigma_x_in"] > 1.0 > 3 * row["sigma_p_med"]
+        # the sky's variance drops by the pattern's, 1.44, less sigma_P**2 (~0.07)
+        assert 1.2 < row["sky_std_in"] ** 2 - row["sky_std_out"] ** 2 < 1.5
 
 
 def test_do_not_use_and_nan_pixels_are_untouched(run):
@@ -205,7 +208,7 @@ def test_do_not_use_and_nan_pixels_are_untouched(run):
     for path in paths:
         sci_in, dq = read(path, "SCI", "DQ")
         (sci_out,) = read(out_of(path), "SCI")
-        bad = (dq.astype(int) & 1) > 0
+        bad = ((dq.astype(int) & 1) > 0) | np.isnan(sci_in)
         np.testing.assert_array_equal(sci_out[bad], sci_in[bad])  # NaN stays NaN
     (err_in,) = read(paths[0], "ERR")
     (pipe_out,) = read(out_of(paths[0]), "ERR_PIPE")
