@@ -47,6 +47,8 @@ def get_grid_extension_from_config(
     extension = telescope_config.get("target", {}).get("data_arcsec_extension")
     if extension is None:
         extension = psf_arcsec_extension
+    elif extension < 0:
+        raise ValueError(f"target.data_arcsec_extension must be >= 0, got {extension}")
 
     assert len(reconstruction_grid.spatial.pixel_scales_yx) == 2
 

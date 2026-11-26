@@ -106,7 +106,10 @@ def _correction_reach(prior, grid: Grid, rotation_center: SkyCoord) -> float:
     reach = _prior_extent(prior.shift_in(u.arcsec))
     if prior.model == CorrectionModel.RSHIFT:
         corners = grid.spatial.world_corners()
-        far = max(c.separation(rotation_center).to_value(u.arcsec) for c in corners)
+        # one rotation centre per exposure: the farthest centre-corner pair
+        far = np.max(
+            [c.separation(rotation_center).to_value(u.arcsec) for c in corners]
+        )
         reach += _prior_extent(prior.rotation_in(u.rad)) * far
     return reach
 

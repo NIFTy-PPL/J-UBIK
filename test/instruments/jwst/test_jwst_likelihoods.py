@@ -559,12 +559,39 @@ def test_data_extension_crops_the_cutout_without_changing_the_likelihood(
     )
 
 
-# 0.2" holds the sky at zero shift, not when the 0.1" shift prior moves it by 3 sigma
-@pytest.mark.parametrize("extension", [0.0, 0.2, -0.1])
+# 0.2" holds the sky at zero shift, not when the 0.1" shift prior moves it by 3
+# sigma; a negative margin is refused outright, however large
+@pytest.mark.parametrize("extension", [0.0, 0.2, -0.1, -5.0])
 def test_data_extension_too_small_raises(patched_seams, tmp_path, extension):
     cfg = make_config(tmp_path)
     cfg["telescope"]["target"]["data_arcsec_extension"] = extension
     with pytest.raises(ValueError, match="data_arcsec_extension"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+@pytest.mark.parametrize(
+    "model, shift, rotation, raises",
+    [
+        ("shift", ["delta", 0.0, 0.0], ["delta", 0.0, 0.0], False),
+        ("shift", ["uniform", -0.3, 0.3], ["delta", 0.0, 0.0], True),
+        # about the grid centre (the fake boresight) 3 x 5 deg moves the
+        # corners, 1.1" out, by 0.3"
+        ("rshift", ["delta", 0.0, 0.0], ["normal", 0.0, 5.0], True),
+        ("rshift", ["delta", 0.0, 0.0], ["delta", 0.0, 0.0], False),
+    ],
+)
+def test_data_extension_holds_the_prior_reach(
+    patched_seams, tmp_path, model, shift, rotation, raises
+):
+    cfg = make_config(tmp_path, n_files=2)
+    priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
+    priors["model"] = model
+    priors["default"] = {"shift": shift, "rotation": rotation}
+    cfg["telescope"]["target"]["data_arcsec_extension"] = 0.4
+    if raises:
+        with pytest.raises(ValueError, match="data_arcsec_extension"):
+            build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+    else:
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
