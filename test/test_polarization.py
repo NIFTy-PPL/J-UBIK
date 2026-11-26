@@ -1,8 +1,7 @@
 import pytest
 
 from jubik.polarization import (
-    POLARIZATION_INVTABLE,
-    POLARIZATION_TABLE,
+    PolarizationCode,
     Polarization,
     PolarizationType,
 )
@@ -13,10 +12,18 @@ CIRCULAR = [5, 6, 7, 8]
 LINEAR = [9, 10, 11, 12]
 
 
-def test_tables_are_inverse_of_each_other():
-    assert set(POLARIZATION_TABLE) == set(CIRCULAR + LINEAR)
-    for index, label in POLARIZATION_TABLE.items():
-        assert POLARIZATION_INVTABLE[label] == index
+def test_supported_polarization_codes():
+    assert {member.value for member in PolarizationCode} == set(range(1, 13))
+
+
+@pmp("code,label", enumerate(
+    ("I", "Q", "U", "V", "RR", "RL", "LR", "LL", "XX", "XY", "YX", "YY"),
+    start=1,
+))
+def test_polarization_code_lookup(code, label):
+    assert PolarizationCode(code).name == label
+    assert PolarizationCode[label].value == code
+    assert type(PolarizationCode[label].value) is int
 
 
 @pmp("indices", ([], [5], [5, 8], CIRCULAR, LINEAR))
@@ -133,13 +140,13 @@ def test_repr():
     assert repr(Polarization([5, 8])) == "Polarization((5, 8))"
 
 
-def test_space_of_trivial_is_stokes_i():
-    assert Polarization.trivial().space.labels == ("I",)
+def test_labels_of_trivial_are_stokes_i():
+    assert Polarization.trivial().labels == ("I",)
 
 
-def test_space_labels_follow_indices():
-    assert Polarization(CIRCULAR).space.labels == ("RR", "RL", "LR", "LL")
-    assert Polarization([9, 12]).space.labels == ("XX", "YY")
+def test_labels_follow_indices():
+    assert Polarization(CIRCULAR).labels == ("RR", "RL", "LR", "LL")
+    assert Polarization([9, 12]).labels == ("XX", "YY")
 
 
 @pmp(
@@ -174,10 +181,10 @@ def test_stokes_i_type_maps_to_trivial_polarization():
     assert PolarizationType.I.get_legacy_polarization() == Polarization.trivial()
 
 
-def test_iquv_has_no_legacy_representation():
-    # I, Q, U, V are not part of the correlator-product table.
-    with pytest.raises(KeyError):
-        PolarizationType.IQUV.get_legacy_polarization()
+def test_iquv_legacy_roundtrip():
+    pol = PolarizationType.IQUV.get_legacy_polarization()
+    assert pol.to_list() == [1, 2, 3, 4]
+    assert PolarizationType.from_polarization_object(pol) == PolarizationType.IQUV
 
 
 @pmp(
@@ -213,3 +220,44 @@ def test_is_single_feed_false(typ):
 def test_polarization_type_length_and_shape(typ):
     assert len(typ) == len(typ.value)
     assert typ.shape == (len(typ.value),)
+
+
+@pmp("typ,codes", [
+    (PolarizationType.Q_U, [2, 3]),
+    (PolarizationType.U_Q, [3, 2]),
+    (PolarizationType.U_V, [3, 4]),
+    (PolarizationType.V_U, [4, 3]),
+    (PolarizationType.RL_LR, [6, 7]),
+    (PolarizationType.LR_RL, [7, 6]),
+    (PolarizationType.XY_YX, [10, 11]),
+    (PolarizationType.YX_XY, [11, 10]),
+])
+def test_polarized_subset_metadata_roundtrip(typ, codes):
+    metadata = typ.get_legacy_polarization()
+    assert metadata.to_list() == codes
+    assert metadata.to_str_list() == list(typ.value)
+    assert PolarizationType.from_polarization_object(metadata) is typ
+    assert not typ.is_single_feed
+
+
+@pmp("inputs", [("I",), ("Q", "U"), ("V", "U"), ("V", "I", "U", "Q")])
+@pmp("outputs", [("RR", "RL", "LR", "LL"), ("YY", "XY", "YX", "XX"), ("V", "I", "U")])
+def test_zero_filled_model_builder(inputs, outputs):
+    import jax
+    import jax.numpy as jnp
+    import numpy as np
+    from numpy.testing import assert_allclose
+    from jubik.polarization_conversion import build_polarization_conversion
+
+    values = np.arange(1, len(inputs)*6+1).reshape(len(inputs), 2, 3)
+    values = jnp.asarray(values + 1j*values, dtype=jnp.complex64)
+    stokes = {label: values[inputs.index(label)] if label in inputs else 0
+              for label in "IQUV"}
+    i, q, u, v = (stokes[label] for label in "IQUV")
+    products = dict(stokes, RR=i+v, LL=i-v, RL=q+1j*u, LR=q-1j*u,
+                    XX=i+q, YY=i-q, XY=u+1j*v, YX=u-1j*v)
+    expected = np.stack([np.broadcast_to(products[label], (2, 3)) for label in outputs])
+    convert = build_polarization_conversion(inputs, outputs, assume_missing_stokes_zero=True)
+    actual = jax.jit(convert)(values)
+    assert actual.dtype == jnp.complex64
+    assert_allclose(actual, expected)

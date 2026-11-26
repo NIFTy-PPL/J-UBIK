@@ -15,30 +15,45 @@
 # Author: Philipp Arras, Jokob Roth, Julian Rüstig
 
 from typing import Iterable, Union
-from enum import Enum
+from enum import Enum, IntEnum
 
-POLARIZATION_TABLE = {
-    5: "RR",
-    6: "RL",
-    7: "LR",
-    8: "LL",
-    9: "XX",
-    10: "XY",
-    11: "YX",
-    12: "YY",
-}
-POLARIZATION_INVTABLE = {val: key for key, val in POLARIZATION_TABLE.items()}
+
+class PolarizationCode(IntEnum):
+    """Supported CASA/casacore polarization identifiers.
+
+    This enum contains the Stokes and correlation products supported by J-UBIK,
+    not the full CASA/casacore enumeration.
+
+    Look up a label with ``PolarizationCode(code).name`` and an integer
+    identifier with ``PolarizationCode[label].value``.
+    """
+
+    I = 1
+    Q = 2
+    U = 3
+    V = 4
+    RR = 5
+    RL = 6
+    LR = 7
+    LL = 8
+    XX = 9
+    XY = 10
+    YX = 11
+    YY = 12
 
 
 class Polarization:
-    """Stores polarization information of a data set and is used for
-    translating between indices (5, 6, 7, 8, ...) and strings
-    ("RR", "RL", "LR", "LL", ...).
+    """Store ordered polarization metadata using CASA/casacore identifiers.
+
+    Codes 1--4 denote I, Q, U, V; 5--8 denote RR, RL, LR, LL; and
+    9--12 denote XX, XY, YX, YY. These identifiers are not array positions.
 
     Parameters
     ----------
-    indices : tuple of polarization indices.
-        Takes integer values between 5 and including 12.
+    indices : sequence of int
+        Up to four polarization identifiers. An empty sequence is the legacy
+        representation of a single Stokes I component: its length is one,
+        although ``to_list()`` and ``to_str_list()`` return empty lists.
     """
 
     def __init__(self, indices):
@@ -55,7 +70,7 @@ class Polarization:
         return Polarization(inds)
 
     def restrict_by_name(self, lst):
-        return Polarization([POLARIZATION_INVTABLE[ss] for ss in lst])
+        return Polarization([PolarizationCode[ss].value for ss in lst])
 
     def circular(self):
         if self._trivial:
@@ -75,7 +90,7 @@ class Polarization:
         if self._trivial:
             raise RuntimeError
         keys = ["LL", "RR"] if self.circular() else ["XX", "YY"]
-        return [self._ind.index(POLARIZATION_INVTABLE[kk]) for kk in keys]
+        return [self._ind.index(PolarizationCode[kk].value) for kk in keys]
 
     def __len__(self):
         if self._trivial:
@@ -86,25 +101,12 @@ class Polarization:
         return list(self._ind)
 
     def to_str_list(self):
-        return [POLARIZATION_TABLE[ii] for ii in self._ind]
+        return [PolarizationCode(ii).name for ii in self._ind]
 
     @property
     def labels(self):
-        """Ordered polarization labels, including ``I`` for trivial polarization.
-
-        Unlike ``space``, accessing labels does not require classic NIFTy.
-        """
+        """Ordered polarization labels, including ``I`` for trivial polarization."""
         return tuple(self.to_str_list()) or ("I",)
-
-    @property
-    def space(self):
-        """Legacy classic NIFTy domain; use ``labels`` for label-only access.
-
-        The domain/operator replacement belongs to the polarization rework.
-        """
-        from .instruments.resolve.polarization_space import PolarizationSpace
-
-        return PolarizationSpace(self.labels)
 
     @staticmethod
     def from_list(lst):
@@ -120,6 +122,12 @@ class Polarization:
 
 
 class PolarizationType(Enum):
+    """Named ordered polarization combinations supported by grids/observations.
+
+    Values contain labels, not CASA identifiers. The matrix constructors also
+    accept label sequences for subsets or orderings absent from this enum.
+    """
+
     # Total intensity
     I = ("I",)
     RR = ("RR",)
@@ -131,7 +139,17 @@ class PolarizationType(Enum):
     XX_YY = ("XX", "YY")
     YY_XX = ("YY", "XX")
 
-    # Polarized
+    # Polarized subsets; reversed forms preserve existing data-axis order.
+    Q_U = ("Q", "U")
+    U_Q = ("U", "Q")
+    U_V = ("U", "V")
+    V_U = ("V", "U")
+    RL_LR = ("RL", "LR")
+    LR_RL = ("LR", "RL")
+    XY_YX = ("XY", "YX")
+    YX_XY = ("YX", "XY")
+
+    # Full polarization
     IQUV = ("I", "Q", "U", "V")
     RR_RL_LR_LL = ("RR", "RL", "LR", "LL")
     XX_XY_YX_YY = ("XX", "XY", "YX", "YY")
@@ -158,12 +176,12 @@ class PolarizationType(Enum):
         if self == self.I:
             indices = []
         else:
-            indices = [POLARIZATION_INVTABLE[p] for p in self.value]
+            indices = [PolarizationCode[p].value for p in self.value]
         return Polarization(indices)
 
     @property
     def shape(self):
-        """Shape of the grid. (spectral, spatial)"""
+        """Shape of the polarization axis, ``(number_of_components,)``."""
         return (len(self),)
 
     def __len__(self):
