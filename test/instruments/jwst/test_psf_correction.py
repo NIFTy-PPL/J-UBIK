@@ -103,6 +103,10 @@ def test_save_load_round_trip(tmp_path):
     with open(tmp_path / "old.npz", "wb") as f:
         np.savez(f, filter="f", subsample=3, log_texture=NO_TEXTURE, width=0.4)
     assert PsfCorrection.load(tmp_path / "old.npz").pixel_box is False
+    # and a file without the box is one an older reader takes: no pixel_box key
+    PsfCorrection("f", SUB, NO_TEXTURE, 0.4).save(tmp_path / "plain.npz")
+    with np.load(tmp_path / "plain.npz") as f:
+        assert "pixel_box" not in f.files
 
 
 def test_at_fluence_moves_the_variance_linearly():

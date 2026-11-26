@@ -162,8 +162,11 @@ class PsfCorrection:
         return kernel
 
     def save(self, path: str | Path) -> None:
+        fields = asdict(self)
+        if not self.pixel_box:  # without the box, a file older jubik reads as before
+            del fields["pixel_box"]
         with open(path, "wb") as f:  # np.savez would append .npz to another suffix
-            np.savez(f, **asdict(self))
+            np.savez(f, **fields)
 
     @classmethod
     def load(cls, path: str | Path) -> "PsfCorrection":
