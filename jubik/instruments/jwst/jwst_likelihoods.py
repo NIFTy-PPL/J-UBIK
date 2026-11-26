@@ -10,6 +10,7 @@ from nifty.re import logger
 
 from ...grid import Grid
 from ...likelihood import connect_likelihood_to_model
+from ...models.distributions import build_parametric_prior_from_prior_config
 from ...parse.models.distributions.distributions import (
     DeltaPriorConfig,
     UniformPriorConfig,
@@ -48,6 +49,7 @@ from .parse.rotation_and_shift.coordinates_correction import CorrectionModel
 from .parse.rotation_and_shift.rotation_and_shift import NufftConfig
 from .plotting.alignment import MultiFilterAlignmentPlottingInformation
 from .plotting.residuals import ResidualPlottingInformation
+from .psf.psf_operator import PsfGaussianBroadening, PsfStatic
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .variable_covariance.inverse_standard_deviation import (
     build_inverse_standard_deviation,
@@ -379,6 +381,12 @@ def build_jwst_likelihoods(
                     grid=grid,
                     sky_filter=sky_filter,
                     target_data=dataload_results.target_data,
+                    psf_model=_broadened_psf(
+                        filter,
+                        cfg_parser.psf_broadening,
+                        dataload_results.target_data,
+                        preload_results.filter_meta.pixel_scale,
+                    ),
                     filter_meta=preload_results.filter_meta,
                     sky_meta=sky_meta,
                     rotation_and_shift_algorithm=algorithm,
@@ -434,3 +442,38 @@ def build_jwst_likelihoods(
             plotting=alignment_plotting,
         ),
     )
+
+
+def _broadened_psf(
+    filter: str, configs, target_data, pixel_scale: u.Quantity
+) -> jft.Model | None:
+    """The PSF of `filter`'s target response with each exposure's kernel broadened by
+    a Gaussian (`PsfGaussianBroadening`) whose σ in arcsec has the filter's
+    ``psf_broadening`` prior in `configs`: one σ per exposure, the parameter
+    ``{filter}_psf_broadening`` of shape (n_exposures,). The gradient vanishes at
+    σ = 0, so a learned σ needs a positive prior such as a lognormal.
+
+    None, the kernels as loaded, without a prior or at a delta of zero. Another
+    delta broadens every kernel once, for `PsfStatic`'s cached convolution. The
+    kernels are taken as loaded, with any ``psf.correction`` and ``psf.pixel_box``.
+    """
+    prior = configs and configs.get_name_setting_or_default(filter)
+    # a width fixed at zero broadens nothing
+    if prior is None or (
+        isinstance(prior, DeltaPriorConfig)
+        and prior.transformation is None
+        and not np.any(prior.mean)
+    ):
+        return None
+    kernels = np.asarray(target_data.psf)
+    n = kernels.shape[0]
+    sky = jft.ShapeWithDtype((n,) + target_data.subsample_centers[0].shape, float)
+    key = f"{filter}_psf_broadening"
+    sigma = build_parametric_prior_from_prior_config(key, prior, (n,), as_model=True)
+    # PsfGaussianBroadening takes σ in pixels of the subsampled data grid
+    pixel = pixel_scale.to_value(u.arcsec) / target_data.subsample
+    width = jft.Model(lambda x: sigma(x) / pixel, domain=sigma.domain)
+    psf = PsfGaussianBroadening(sky, kernels, width)
+    if isinstance(prior, DeltaPriorConfig):
+        return PsfStatic(sky, np.asarray(psf.broadened_kernel({key: np.zeros(n)})))
+    return psf
