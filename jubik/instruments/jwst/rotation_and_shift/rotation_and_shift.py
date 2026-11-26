@@ -8,7 +8,6 @@
 from typing import Callable, Union
 
 import nifty.re as jft
-from jax import vmap
 
 from ..parse.rotation_and_shift.rotation_and_shift import (
     LinearConfig,
@@ -77,20 +76,20 @@ def _infere_shape_from_domain(
 ):
     if isinstance(domain, dict):
         assert typ == "sky"
-        assert len(domain) == 1
+        if len(domain) != 1:
+            raise ValueError(f"Expected one sky key, got {list(domain)}.")
         sky = next(iter(domain.values()))
-        assert len(sky.shape) == 2, f"Unexpected shape for {typ}: {sky.shape}."
+        if len(sky.shape) != 2:
+            raise ValueError(f"Unexpected shape for {typ}: {sky.shape}.")
 
         return sky.shape
 
     elif typ == "coordinates" and hasattr(domain, "shape"):
         shape = domain.shape
-        assert len(shape) in (3, 4), (
-            f"Unexpected shape for {typ}: {shape}."
-        )
-        assert shape[-3] == 2, (
-            f"Unexpected coordinate axis for {typ}: {shape}."
-        )
+        if len(shape) not in (3, 4):
+            raise ValueError(f"Unexpected shape for {typ}: {shape}.")
+        if shape[-3] != 2:
+            raise ValueError(f"Unexpected coordinate axis for {typ}: {shape}.")
         return shape[-2:]
 
     raise ValueError
@@ -113,7 +112,8 @@ def build_rotation_and_shift(
         The type of the rotation and shift model: (linear, nufft)
     coordinates: Union[ArrayLike, Callable, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation]
         The coordinates of the subsampled data. Precise: The coordinate center
-        of the data pixel.
+        of the data pixel. Target shape ``(2, ny, nx)``, or ``(n, 2, ny, nx)``
+        for a stack of exposures, which both algorithms take in one call.
 
     Returns
     -------
@@ -133,14 +133,6 @@ def build_rotation_and_shift(
             out_shape=_infere_shape_from_domain(coordinates.target, "coordinates"),
             **vars(algorithm_config),
         )
-
-    if len(coordinates.target.shape) == 3:
-        pass  # Everything is fine
-    elif len(coordinates.target.shape) == 4:
-        if isinstance(algorithm_config, LinearConfig):  # nufft takes the stack itself
-            rotation_and_shift_algorithm = vmap(rotation_and_shift_algorithm, (None, 0))
-    else:
-        raise ValueError(f"Coordinates have unknown shape: {coordinates.target.shape}'")
 
     return RotationAndShift(
         sky_domain=sky_domain,

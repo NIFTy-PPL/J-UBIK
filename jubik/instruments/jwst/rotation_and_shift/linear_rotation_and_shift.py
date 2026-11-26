@@ -8,6 +8,7 @@
 from functools import partial
 from typing import Callable
 
+import jax.numpy as jnp
 from jax.scipy.ndimage import map_coordinates
 from numpy.typing import ArrayLike
 
@@ -33,7 +34,9 @@ def build_linear_rotation_and_shift(
     Returns
     -------
     rotation_shift_subsample : function
-        The rotation_and_shift function
+        The interpolation function ``(field, subsample_centers_yx) -> out``.
+        ``subsample_centers_yx`` has shape ``(2, *out_shape)`` or, for stacked
+        exposures, ``(n, 2, *out_shape)``; ``out`` drops the coordinate axis.
 
     Notes
     -----
@@ -52,6 +55,7 @@ def build_linear_rotation_and_shift(
                 f"subsample_centers_yx trailing shape {actual_shape} "
                 f"does not match out_shape {out_shape}"
             )
-        return rotation_and_shift(field, subsample_centers_yx)
+        # (..., 2, ny, nx) -> (2, ..., ny, nx); map_coordinates keeps the leading shape
+        return rotation_and_shift(field, jnp.moveaxis(subsample_centers_yx, -3, 0))
 
     return rotation_shift_subsample

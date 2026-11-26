@@ -175,10 +175,12 @@ def _stacked_centers(out_shape, n_exposures=3):
     return np.stack(centers)
 
 
-def test_stacked_exposures_one_call_matches_per_exposure():
+@pytest.mark.parametrize("algorithm", ["linear", "nufft"])
+def test_stacked_exposures_one_call_matches_per_exposure(algorithm):
     import jax
 
     from jubik.instruments.jwst.parse.rotation_and_shift.rotation_and_shift import (
+        LinearConfig,
         NufftConfig,
     )
     from jubik.instruments.jwst.rotation_and_shift.coordinates_correction import (
@@ -193,14 +195,14 @@ def test_stacked_exposures_one_call_matches_per_exposure():
     centers = _stacked_centers(out_shape)
     assert np.any(centers > np.array(sky_shape)[:, None, None])  # masking exercised
 
-    rs = build_nufft_rotation_and_shift(sky_shape, out_shape)
-    per_exposure = lambda f, c: jax.numpy.stack([rs(f, ci) for ci in c])
-
     one_call = build_rotation_and_shift(
         {"sky": jax.ShapeDtypeStruct(sky_shape, field.dtype)},
         Coordinates(centers),
-        NufftConfig(),
+        {"linear": LinearConfig(), "nufft": NufftConfig()}[algorithm],
     )
+    rs = one_call.rotation_and_shift_algorithm
+    per_exposure = lambda f, c: jax.numpy.stack([rs(f, ci) for ci in c])
+
     np.testing.assert_allclose(
         one_call({"sky": field}), per_exposure(field, centers), rtol=0, atol=1e-12
     )
@@ -210,3 +212,25 @@ def test_stacked_exposures_one_call_matches_per_exposure():
     _, vjp_per = jax.vjp(per_exposure, field, centers)
     for g_one, g_per in zip(vjp_one(cotangent), vjp_per(cotangent)):
         np.testing.assert_allclose(g_one, g_per, rtol=0, atol=1e-12)
+
+
+@pytest.mark.parametrize("shape", [(13, 17), (3, 13, 17), (1, 2, 2, 13, 17)], ids=str)
+def test_bad_coordinate_shape_raises_value_error(shape):
+    import jax
+
+    from jubik.instruments.jwst.parse.rotation_and_shift.rotation_and_shift import (
+        LinearConfig,
+    )
+    from jubik.instruments.jwst.rotation_and_shift.coordinates_correction import (
+        Coordinates,
+    )
+    from jubik.instruments.jwst.rotation_and_shift.rotation_and_shift import (
+        build_rotation_and_shift,
+    )
+
+    with pytest.raises(ValueError, match="Unexpected"):
+        build_rotation_and_shift(
+            {"sky": jax.ShapeDtypeStruct((24, 20), float)},
+            Coordinates(np.zeros(shape)),
+            LinearConfig(),
+        )
