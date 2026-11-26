@@ -574,6 +574,8 @@ def test_data_extension_too_small_raises(patched_seams, tmp_path, extension):
     [
         ("shift", ["delta", 0.0, 0.0], ["delta", 0.0, 0.0], False),
         ("shift", ["uniform", -0.3, 0.3], ["delta", 0.0, 0.0], True),
+        ("shift", ["uniform", -0.3, 0.0], ["delta", 0.0, 0.0], True),  # one-sided
+        ("shift", ["delta", 0.3, 0.0], ["delta", 0.0, 0.0], True),  # a known shift
         # about the grid centre (the fake boresight) 3 x 5 deg moves the
         # corners, 1.1" out, by 0.3"
         ("rshift", ["delta", 0.0, 0.0], ["normal", 0.0, 5.0], True),

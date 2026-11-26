@@ -57,7 +57,8 @@ def build_nufft_rotation_and_shift(
     out_shape = tuple(out_shape)
     crop, keep = (...,), 1.0
     if band_limit is not None:
-        if not all(0 < b < 0.5 for b in band_limit):
+        # unit conversion can round a Nyquist band to just below 0.5
+        if not all(0 < b < 0.5 * (1 - 1e-9) for b in band_limit):
             raise ValueError(
                 f"band_limit {band_limit} cycles per sky pixel: each must lie in "
                 "(0, 0.5), below the sky grid's Nyquist frequency"

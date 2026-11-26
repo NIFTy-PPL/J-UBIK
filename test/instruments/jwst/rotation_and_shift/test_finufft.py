@@ -245,7 +245,10 @@ def test_band_limit_keeps_the_band_and_drops_the_rest():
     np.testing.assert_allclose(full(field, points), every, rtol=0, atol=1e-5)
 
 
-@pytest.mark.parametrize("band", [(0.5, 0.2), (0.2, 0.0), (-0.1, 0.2)])
+# a Nyquist band that the unit conversion rounds to just below 0.5 must raise too
+@pytest.mark.parametrize(
+    "band", [(0.5, 0.2), (np.nextafter(0.5, 0), 0.2), (0.2, 0.0), (-0.1, 0.2)]
+)
 def test_band_limit_must_lie_below_nyquist(band):
     with pytest.raises(ValueError, match="band_limit"):
         build_nufft_rotation_and_shift((16, 16), (4, 4), band_limit=band)

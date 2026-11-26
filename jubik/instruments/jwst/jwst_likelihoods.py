@@ -173,6 +173,14 @@ def build_jwst_likelihoods(
     cfg_parser = ConfigParserJwst.from_yaml_dict(
         cfg, telescope_key=telescope_key, files_key=files_key
     )
+    data_margin = (
+        cfg[telescope_key].get("target", {}).get("data_arcsec_extension") is not None
+    )
+    # only mode constant reads zero sky outside the grid, which the margin check assumes
+    if data_margin and cfg_parser.rotation_and_shift_algorithm.mode != "constant":
+        raise ValueError(
+            "target.data_arcsec_extension needs rotation_and_shift mode 'constant'"
+        )
 
     target_plotting = ResidualPlottingInformation()
     target_filter_likelihoods = []
@@ -252,16 +260,7 @@ def build_jwst_likelihoods(
         logger.debug(
             f"{filter}: {int(dataload_results.target_data.mask.sum())} unmasked data pixels"
         )
-        if (
-            cfg[telescope_key].get("target", {}).get("data_arcsec_extension")
-            is not None
-        ):
-            # only mode constant reads zero sky outside the grid, which the check assumes
-            if cfg_parser.rotation_and_shift_algorithm.mode != "constant":
-                raise ValueError(
-                    "target.data_arcsec_extension needs rotation_and_shift mode "
-                    "'constant'"
-                )
+        if data_margin:
             reach = _correction_reach(correction_prior, grid, rotation_center)
             _check_cutout_holds_sky(dataload_results.target_data, grid, filter, reach)
 

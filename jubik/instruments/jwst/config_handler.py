@@ -23,7 +23,9 @@ def get_grid_extension_from_config(
     `PsfStatic` pads its own FFT, so the cutout needs to hold only every data pixel
     with a subsample point on the sky: the sky plus about two data pixels and the
     reach of the shift (and rotation) prior, which the build checks when
-    `data_arcsec_extension` is given. Data beyond that are masked and only cost time.
+    `data_arcsec_extension` is given (a normal prior reaches 3 sigma; a fit beyond
+    that can still move sky light past the edge). It needs interpolation mode
+    `constant`. Data beyond that are masked and only cost time.
 
     Parameters
     ----------
