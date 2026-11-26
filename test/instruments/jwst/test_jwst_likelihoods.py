@@ -667,7 +667,7 @@ def test_automatic_data_extension_follows_the_shift_prior(patched_seams, tmp_pat
     assert width(0.1) - width(0.02) == pytest.approx(expected, abs=2)
 
 
-@pytest.mark.parametrize("angle", [30, 45])
+@pytest.mark.parametrize("angle", [30, 60])
 def test_automatic_data_extension_on_a_rotated_detector(
     patched_seams, monkeypatch, tmp_path, angle
 ):
