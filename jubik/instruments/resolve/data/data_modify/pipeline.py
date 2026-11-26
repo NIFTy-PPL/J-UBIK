@@ -3,16 +3,16 @@
 from dataclasses import dataclass
 
 import astropy.units as u
-from nifty.cl.logger import logger
+from nifty.re import logger
 
 from .....grid import Grid
-from ...constants import RESOLVE_SPECTRAL_UNIT
 from ...parse.data.data_loading import DataFile
 from ...parse.data.data_modify import ObservationModifyConfig
 from ...parse.data.data_modify.flagging import BeyondNyquist, FlagWeights
 from ...parse.data.data_modify.frequency import SpectralModify
 from ...parse.data.data_modify.visibility_subset import SelectSubset
 from ...parse.data.data_modify.weights import SystematicErrorBudget
+from ...conventions import OBSERVATION_FREQ_UNIT
 from ..observation import Observation
 from .flagging import flag_weights, restrict_to_nyquist
 from .frequency import (
@@ -107,6 +107,8 @@ def build_observation_modify(
     )
 
 
+
+
 def modify_observation(
     sky_grid: Grid,
     obs: Observation,
@@ -121,7 +123,9 @@ def modify_observation(
     ----------
     sky_grid: Grid
         The grid of the sky model. Its frequencies set the frequency
-        selection and averaging, its pixel size the Nyquist check.
+        selection and averaging (converted to the unit in which the
+        observation frequencies are stored, Hz), its pixel size the Nyquist
+        check.
     obs: Observation
         The observation to be modified
     modify: ObservationModify
@@ -149,7 +153,7 @@ def modify_observation(
         )
     if modify.spectral.spectral_restrict_to_sky_frequencies:
         freqs_in_unit = sky_frequencies.to(
-            RESOLVE_SPECTRAL_UNIT, equivalencies=u.spectral()
+            OBSERVATION_FREQ_UNIT, equivalencies=u.spectral()
         ).value
         obs = restrict_by_freq(obs, freqs_in_unit[0], freqs_in_unit[-1])
 

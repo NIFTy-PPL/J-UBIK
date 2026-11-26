@@ -45,8 +45,8 @@ def build_obs(n_rows=10, calib_info=False):
 def assert_is_row_subset(obs, new, mask):
     """`new` contains exactly the rows `mask` of `obs`."""
     assert new.nrow == len(mask)
-    assert_array_equal(new.vis.asnumpy(), obs.vis.asnumpy()[:, mask, :])
-    assert_array_equal(new.weight.asnumpy(), obs.weight.asnumpy()[:, mask, :])
+    assert_array_equal(new.vis, obs.vis[:, mask, :])
+    assert_array_equal(new.weight, obs.weight[:, mask, :])
     assert_array_equal(new.antenna_positions.uvw, obs.antenna_positions.uvw[mask])
     assert_array_equal(new.freq, obs.freq)
 
@@ -65,8 +65,8 @@ def test_select_subset_is_deterministic():
     first = select_random_visibility_subset(obs, SelectSubset(percentage=0.5))
     second = select_random_visibility_subset(obs, SelectSubset(percentage=0.5))
 
-    assert_array_equal(first.vis.asnumpy(), second.vis.asnumpy())
-    assert_array_equal(first.weight.asnumpy(), second.weight.asnumpy())
+    assert_array_equal(first.vis, second.vis)
+    assert_array_equal(first.weight, second.weight)
     assert_array_equal(
         first.antenna_positions.uvw, second.antenna_positions.uvw
     )
@@ -227,14 +227,14 @@ def test_imaging_only_observation_keeps_nones():
 def test_input_observation_is_not_modified():
     np.random.seed(83)
     obs = build_obs(calib_info=True)
-    vis_before = obs.vis.asnumpy().copy()
-    weight_before = obs.weight.asnumpy().copy()
+    vis_before = obs.vis.copy()
+    weight_before = obs.weight.copy()
 
     new = select_random_visibility_subset(obs, SelectSubset(percentage=0.5))
 
     assert obs.nrow == 10
-    assert_array_equal(obs.vis.asnumpy(), vis_before)
-    assert_array_equal(obs.weight.asnumpy(), weight_before)
+    assert_array_equal(obs.vis, vis_before)
+    assert_array_equal(obs.weight, weight_before)
     assert new._vis is not obs._vis
     assert new.legacy_polarization == obs.legacy_polarization
 

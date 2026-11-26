@@ -97,7 +97,7 @@ def signal_response(x):
     return R_new(sky(x))
 
 
-nll = jft.Gaussian(obs.vis_val, obs.weight_val).amend(signal_response)
+nll = jft.Gaussian(obs.vis, obs.weight).amend(signal_response)
 
 output_dir = "imaging_resolve"
 

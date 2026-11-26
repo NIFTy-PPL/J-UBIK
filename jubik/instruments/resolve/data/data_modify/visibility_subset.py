@@ -45,8 +45,8 @@ def select_random_visibility_subset(
     else:
         mask = _generate_mask(length, select_subset.percentage)
 
-    new_vis = obs.vis.asnumpy()[:, mask, :]
-    new_weight = obs.weight.asnumpy()[:, mask, :]
+    new_vis = obs.vis[:, mask, :]
+    new_weight = obs.weight[:, mask, :]
     antenna_position = [
         a[mask, ...] if a is not None else None for a in obs.antenna_positions.to_list()
     ]

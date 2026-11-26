@@ -24,7 +24,7 @@ from jubik.instruments.resolve.phase_shift import (
     assign_shift_groups,
     build_phase_shift,
 )
-from jubik.instruments.resolve.response import _hermitian_adjoint
+from jubik.instruments.resolve.response import response_adjoint
 
 from generate_test_obs import generate_random_obs
 from test_response import setup_grid_obs_response
@@ -81,8 +81,8 @@ def test_zero_shift_is_identity(vis_dtype, weight_dtype):
     obs = generate_random_obs(FREQS, 10, [-1e2, 1e2], [-5, 5], pol)
     obs = rve.Observation(
         obs.antenna_positions,
-        obs.vis_val.astype(vis_dtype),
-        obs.weight_val.astype(weight_dtype),
+        obs.vis.astype(vis_dtype),
+        obs.weight.astype(weight_dtype),
         obs.legacy_polarization,
         obs.freq,
         None,
@@ -274,7 +274,7 @@ def test_loader_yields_each_observation_with_its_file(tmp_path):
     )
     seen = {}
     for file, obs in loaded:
-        assert_allclose(obs.vis_val, saved[file.path].vis_val)
+        assert_allclose(obs.vis, saved[file.path].vis)
         shift = build_phase_shift(config, groups[file.path], obs)
         seen[file.path] = shift.domain.keys()
 
@@ -441,7 +441,7 @@ def test_response_adjoint_needs_the_sample_with_a_shift():
 def test_response_adjoint_without_shift_is_unchanged():
     lhb, _ = build_band7("finufft", None)
     d = lhb.visibilities
-    expected = _hermitian_adjoint(lhb.response, lhb.response.domain, d)
+    expected = response_adjoint(lhb.response, d, lhb.response.domain)
     assert_allclose(
         lhb.response_adjoint(d, {"ignored": 0})["band7_fld"], expected["band7_fld"]
     )

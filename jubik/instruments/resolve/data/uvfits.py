@@ -5,7 +5,13 @@
 # Author: Philipp Arras, Jakob Knollmüller
 
 import numpy as np
-import resolve as rve
+import astropy.units as u
+
+from ..conventions import OBSERVATION_UVW_UNIT
+from ....polarization import Polarization
+from .antenna_positions import AntennaPositions
+from .auxiliary_table import AuxiliaryTable
+from .observation import Observation
 
 
 def load_uvfits(file_name, polarization="stokes"):
@@ -18,7 +24,7 @@ def load_uvfits(file_name, polarization="stokes"):
     ant1 = np.array([antdct[aa] for aa in obs.data["t1"]])
     ant2 = np.array([antdct[aa] for aa in obs.data["t2"]])
     position = np.vstack([obs.tarr["x"], obs.tarr["y"], obs.tarr["z"]]).T
-    anttbl = rve.AuxiliaryTable({"POSITION": position, "STATION": unique_antennas})
+    anttbl = AuxiliaryTable({"POSITION": position, "STATION": unique_antennas})
     if obs.polrep == "circ":
         vis = []
         sigma = []
@@ -30,19 +36,24 @@ def load_uvfits(file_name, polarization="stokes"):
             )
         vis = np.array(vis)
         sigma = np.array(sigma)
-        pol = rve.Polarization((5, 6, 7, 8))
+        pol = Polarization((5, 6, 7, 8))
 
     elif polarization == "stokesI":
         vis = obs.data["vis"].reshape(1, -1, 1)
         sigma = obs.data["sigma"].reshape(1, -1, 1)
-        pol = rve.Polarization.trivial()
+        pol = Polarization.trivial()
     else:
         raise NotImplementedError
+    # ehtim exposes the reference frequency in Hz and u/v in wavelengths.
     freq = np.array([obs.rf])
     time = obs.data["time"] * 3600
     uvw = np.vstack([obs.data["u"], obs.data["v"], 0.0 * obs.data["u"]]).T
-    uvw *= rve.SPEEDOFLIGHT / obs.rf
-    antpos = rve.AntennaPositions(uvw, ant1, ant2, time)
-    return rve.Observation(
+    # Convert wavelengths to metres for the Observation storage convention.
+    wavelength = (obs.rf * u.Hz).to(
+        OBSERVATION_UVW_UNIT, equivalencies=u.spectral()
+    )
+    uvw *= wavelength.value
+    antpos = AntennaPositions(uvw, ant1, ant2, time)
+    return Observation(
         antpos, vis, 1 / sigma / sigma, pol, freq, auxiliary_tables={"ANTENNA": anttbl}
     )

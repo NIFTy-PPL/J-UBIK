@@ -14,7 +14,6 @@
 # Copyright(C) 2019-2021 Max-Planck-Society
 # Author: Philipp Arras
 
-import nifty.cl as ift
 import numpy as np
 
 from ..util import compare_attributes, my_assert, my_assert_isinstance, my_asserteq
@@ -110,8 +109,8 @@ class AntennaPositions:
     def ant2(self):
         return self._ant2
 
-    def extract_baseline(self, antenna1, antenna2, field):
-        """Extract data that belongs to a given baseline.
+    def extract_baseline(self, antenna1, antenna2, data):
+        """Extract entries on in the data array that belongs to a given baseline.
 
         Parameters
         ----------
@@ -119,13 +118,13 @@ class AntennaPositions:
             Antenna index of the first antenna that is selected.
         antenna2: int
             Antenna index of the second antenna that is selected.
-        field: nifty.cl.Field
-            Data field. Shape `(n_pol, n_row, n_freq)`. `n_row` must equal
+        data: numpy.ndarray
+            Data array. Shape `(n_pol, n_row, n_freq)`. `n_row` must equal
             `len(self)`.
 
         Returns
         -------
-        nifty.cl.Field
+        numpy.ndarray
             Entries of `data` that correspond to the selected baseline. Shape
             `(n_pol, n_time, n_freq)`.
         """
@@ -133,14 +132,13 @@ class AntennaPositions:
             raise RuntimeError("This algorithm assumes ant1<ant2.")
         ut = np.sort(np.array(list(self.unique_times())))
 
-        npol, nrow, nfreq = field.shape
+        npol, nrow, nfreq = data.shape
         my_asserteq(nrow, len(self))
-        my_assert_isinstance(field, ift.Field)
         my_assert_isinstance(antenna1, antenna2, int)
 
         # Select by antenna labels
         ind = np.logical_and(self.ant1 == antenna1, self.ant2 == antenna2)
-        data = field.val[:, ind]
+        data = data[:, ind]
         tt = self.time[ind]
 
         # Sort by time
@@ -156,5 +154,4 @@ class AntennaPositions:
             out = data
         else:
             raise RuntimeError
-        dom = field.domain[0], ift.UnstructuredDomain(out.shape[1]), field.domain[2]
-        return ift.makeField(dom, out)
+        return out

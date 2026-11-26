@@ -16,15 +16,19 @@
 
 from typing import Union
 
+import nifty.re as jft
 import numpy as np
 from astropy import units as u
-from jax import Array, linear_transpose
+from jax import Array, dtypes, linear_transpose
 from jax import numpy as jnp
 from jax.tree_util import Partial, tree_map
 
 from ...color import get_2d_binbounds
 from ...grid import Grid, PolarizationType
-from .constants import RESOLVE_SPATIAL_UNIT, RESOLVE_SPECTRAL_UNIT
+from .conventions import (
+    RESPONSE_SPATIAL_UNIT,
+    RESPONSE_SPECTRAL_UNIT,
+)
 from .data.data_modify.flagging import nyquist_message, uv_beyond_nyquist
 from .data.data_modify.frequency import restrict_by_freq
 from .data.data_modify.time import restrict_by_time
@@ -100,19 +104,44 @@ def canonical_sky_to_visibilities(backend_apply, sky_canonical):
     return backend_apply(jnp.transpose(sky_canonical))
 
 
-def _hermitian_adjoint(response, primals, cotangent):
-    """Return ``conj(R^T(conj(cotangent)))`` for a linear response ``R``."""
+def response_adjoint(response, visibilities: Array, primals=None) -> dict | Array:
+    """Apply the Hermitian adjoint ``conj(R^T(conj(v)))`` of the linear
+    `response` ``R`` to `visibilities` ``v``.
+
+    For a response with multiplicative factors (shift, gains) evaluated at a
+    latent sample `x`, apply it to `conj(factor(x)) * visibilities`. A model
+    with the factors inside is not linear in its input, and the transpose
+    fails on it.
+
+    Parameters
+    ----------
+    response: jft.Model | Callable
+        The linear response.
+    visibilities: Array
+        The visibilities to map back.
+    primals
+        The shape and dtype of the input of `response`; None takes
+        `response.domain` of a `jft.Model`.
+    """
+    if primals is None:
+        primals = response.domain
     transpose = linear_transpose(response, primals)
     conjugate = lambda x: tree_map(jnp.conj, x)
-    return conjugate(transpose(conjugate(cotangent))[0])
+    return conjugate(transpose(conjugate(visibilities))[0])
 
 
 def interferometry_response(
     observation: Observation,
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings, CufinufftSettings],
-):
-    """Returns a function computing the radio interferometric response
+    beam: Array | None = None,
+    sky_key: str | None = None,
+) -> jft.Model:
+    """The radio interferometric response: a sky on `sky_grid` to the model
+    visibilities of `observation`.
+
+    The response is linear in the sky; `response_adjoint` is its Hermitian
+    adjoint.
 
     Input sky frame is CANONICAL (``dim0 = +Dec``/North, ``dim1 = -RA``/West;
     see ``docs/source/user/canonical-sky-design.md``).  The response owns the conversion to the
@@ -141,12 +170,27 @@ def interferometry_response(
             - upsampfac         (only cufinufft)
             - dtype             (only cufinufft)
 
+    beam: Array | None
+        The primary beam of the pointing of `observation`, shape
+        `sky_grid.shape`, see `build_beam`; multiplied onto the sky before the
+        gridder. None applies no beam.
+
+    sky_key: str | None
+        The key of the sky in the input, `{sky_key: sky} -> vis`. None takes
+        the sky array itself.
+
     Raises
     ------
     ValueError
-        If a weighted baseline lies beyond the Nyquist frequency of the
-        pixels of `sky_grid`, see `uv_beyond_nyquist`.
+        If the beam does not have the shape of the grid, or if a weighted
+        baseline lies beyond the Nyquist frequency of the pixels of
+        `sky_grid`, see `uv_beyond_nyquist`.
     """
+    if beam is not None and tuple(beam.shape) != tuple(sky_grid.shape):
+        raise ValueError(
+            f"beam {tuple(beam.shape)} needs the shape of the grid "
+            f"{tuple(sky_grid.shape)}"
+        )
     if uv_beyond_nyquist(observation, sky_grid).any():
         raise ValueError(nyquist_message(observation, sky_grid))
 
@@ -158,8 +202,7 @@ def interferometry_response(
     # bb_times = get_binbounds(n_times, sky_domain.times)
 
     # TODO: Expand logic to discontinuous frequency spacing.
-    # frequencies = sky_grid.spectral.binbounds(RESOLVE_SPECTRAL_UNIT).value
-    frequencies = get_2d_binbounds(sky_grid.spectral, RESOLVE_SPECTRAL_UNIT)
+    frequencies = get_2d_binbounds(sky_grid.spectral, RESPONSE_SPECTRAL_UNIT)
     n_freqs = len(frequencies)
     # bb_freqs = np.array(frequencies)
 
@@ -167,13 +210,15 @@ def interferometry_response(
     # is l/RA, so read the RA quantities from index 1 and Dec from index 0.
     npix_x, npix_y = sky_grid.spatial.shape_xy
     pixsize_x, pixsize_y = sky_grid.spatial.pixel_scales_xy.to(
-        RESOLVE_SPATIAL_UNIT
+        RESPONSE_SPATIAL_UNIT
     ).value
     center_x, center_y = calculate_phase_offset_to_image_center(
         sky_grid.spatial.center,
-        sky_grid.spatial.center
-        if observation.direction is None
-        else observation.direction.to_sky_coord(),
+        (
+            sky_grid.spatial.center
+            if observation.direction is None
+            else observation.direction.to_sky_coord()
+        ),
     )
 
     # build responses for: time binds, freq bins
@@ -274,7 +319,11 @@ def interferometry_response(
                     res = res.at[pp, row_indices[tt][ff], freq_indices[tt][ff]].set(r)
         return convert_polarization(res, inp_pol, out_pol)
 
-    return apply_R
+    sky = jft.ShapeWithDtype(sky_grid.shape, dtypes.canonicalize_dtype(float))
+    response = apply_R if beam is None else lambda x: apply_R(beam * x)
+    if sky_key is None:
+        return jft.Model(response, domain=sky)
+    return jft.Model(lambda x: response(x[sky_key]), domain={sky_key: sky})
 
 
 def interferometry_response_ducc(
@@ -341,11 +390,8 @@ def _uv_radians_and_phase_shift(observation, pixsize_x, pixsize_y, center_x, cen
         shift is applied.
     """
     freq = observation.freq
-    uvw = observation.uvw
-    speedoflight = 299792458.0
-
-    uvw = np.transpose((uvw[..., None] * freq / speedoflight), (0, 2, 1)).reshape(-1, 3)
-    u, v, w = uvw.T
+    # Flatten row and frequency axes in row-major order.
+    u, v, w = observation.effective_uvw().reshape(3, -1)
 
     u_finu = (2 * np.pi * u * pixsize_x) % (2 * np.pi)
     v_finu = (-2 * np.pi * v * pixsize_y) % (2 * np.pi)

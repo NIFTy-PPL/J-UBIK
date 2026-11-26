@@ -57,7 +57,7 @@ def with_weight(obs, weight):
     """New observation with the same visibilities but the given weights."""
     return Observation(
         obs._antpos,
-        obs.vis.asnumpy(),
+        obs.vis,
         weight,
         obs.legacy_polarization,
         obs.freq,
@@ -77,8 +77,8 @@ def test_to_single_precision_dtypes_and_values():
     assert single._vis.dtype == np.complex64
     assert single._weight.dtype == np.float32
     assert not single.is_double_precision()
-    assert_allclose(single.vis.asnumpy(), obs.vis.asnumpy(), rtol=1e-6)
-    assert_allclose(single.weight.asnumpy(), obs.weight.asnumpy(), rtol=1e-6)
+    assert_allclose(single.vis, obs.vis, rtol=1e-6)
+    assert_allclose(single.weight, obs.weight, rtol=1e-6)
 
 
 def test_single_double_round_trip():
@@ -90,8 +90,8 @@ def test_single_double_round_trip():
     assert back._vis.dtype == np.complex128
     assert back._weight.dtype == np.float64
     assert back.is_double_precision()
-    assert_allclose(back.vis.asnumpy(), obs.vis.asnumpy(), rtol=1e-6)
-    assert_allclose(back.weight.asnumpy(), obs.weight.asnumpy(), rtol=1e-6)
+    assert_allclose(back.vis, obs.vis, rtol=1e-6)
+    assert_allclose(back.weight, obs.weight, rtol=1e-6)
     assert_array_equal(back.antenna_positions.uvw, obs.antenna_positions.uvw)
 
 
@@ -146,7 +146,7 @@ def test_to_single_precision_keeps_flagged_rows_flagged():
 
     single = to_single_precision(obs)
 
-    assert_array_equal(single.flags_val, obs.flags_val)
+    assert_array_equal(single.flags, obs.flags)
     assert single.n_data_effective() == obs.n_data_effective()
 
 
@@ -163,7 +163,7 @@ def test_restrict_to_autocorrelations():
     assert_array_equal(auto.antenna_positions.ant1, auto.antenna_positions.ant2)
     assert_array_equal(auto.antenna_positions.ant1, ANT1[AUTO_ROWS])
     assert_array_equal(auto.antenna_positions.time, obs.antenna_positions.time[AUTO_ROWS])
-    assert_array_equal(auto.vis.asnumpy(), obs.vis.asnumpy()[:, AUTO_ROWS, :])
+    assert_array_equal(auto.vis, obs.vis[:, AUTO_ROWS, :])
 
 
 def test_remove_autocorrelations():
@@ -175,7 +175,7 @@ def test_remove_autocorrelations():
     assert cross.nrow == len(CROSS_ROWS)
     assert np.all(cross.antenna_positions.ant1 != cross.antenna_positions.ant2)
     assert_array_equal(cross.antenna_positions.ant1, ANT1[CROSS_ROWS])
-    assert_array_equal(cross.vis.asnumpy(), obs.vis.asnumpy()[:, CROSS_ROWS, :])
+    assert_array_equal(cross.vis, obs.vis[:, CROSS_ROWS, :])
 
 
 def test_autocorrelations_partition_the_observation():
@@ -265,8 +265,8 @@ def test_convert_without_auxiliary_tables(classic_module):
     classic = classic_module.convert_to_classic_observation(obs)
 
     assert classic.args[3].args[0] == obs.legacy_polarization.to_list()
-    assert_array_equal(classic.args[1], obs.vis.asnumpy())
-    assert_array_equal(classic.args[2], obs.weight.asnumpy())
+    assert_array_equal(classic.args[1], obs.vis)
+    assert_array_equal(classic.args[2], obs.weight)
     assert_array_equal(classic.args[4], obs.freq)
     assert classic.args[5] == {}
 
@@ -277,8 +277,8 @@ def test_convert_keeps_unusual_polarization_order(classic_module):
     # ("YY", "XX") is a legal CORR_TYPE ordering but no PolarizationType.
     obs = Observation(
         base._antpos,
-        base.vis.asnumpy(),
-        base.weight.asnumpy(),
+        base.vis,
+        base.weight,
         Polarization([12, 9]),
         base.freq,
         None,
@@ -299,4 +299,20 @@ def test_convert_with_real_resolve():
 
     assert isinstance(classic, rve.Observation)
     assert classic.nrow == obs.nrow
-    assert_array_equal(classic.vis.val, obs.vis.asnumpy())
+    assert_array_equal(classic.vis.val, obs.vis)
+
+
+def test_convert_classic_unit_boundary(classic_module, monkeypatch):
+    from astropy import units as u
+
+    obs = build_obs()
+    original_uvw = obs.antenna_positions.uvw.copy()
+    original_freq = obs.freq.copy()
+    # Simulate different JuBIK storage conventions at the adapter boundary.
+    monkeypatch.setattr(classic_module, "OBSERVATION_UVW_UNIT", u.km)
+    monkeypatch.setattr(classic_module, "OBSERVATION_FREQ_UNIT", u.GHz)
+    classic = classic_module.convert_to_classic_observation(obs)
+    assert_allclose(classic.args[0].args[0][0], original_uvw * 1000)
+    assert_allclose(classic.args[4], original_freq * 1e9)
+    assert_array_equal(obs.antenna_positions.uvw, original_uvw)
+    assert_array_equal(obs.freq, original_freq)

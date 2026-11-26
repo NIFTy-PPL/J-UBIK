@@ -56,13 +56,13 @@ def observation(freqs=(FREQ,), long_row=None, weight=1.0):
         rng=np.random.default_rng(7),
     )
     uvw = obs.uvw.copy()
-    weights = obs.weight_val.copy()
+    weights = obs.weight.copy()
     if long_row is not None:
         uvw[5, :2] = long_row
         weights[:, 5] = weight
     return rve.Observation(
         rve.AntennaPositions(uvw),
-        obs.vis_val,
+        obs.vis,
         weights,
         obs.legacy_polarization,
         obs.freq,
@@ -157,13 +157,13 @@ def test_drop_keeps_exactly_the_rows_the_guard_accepts(caplog):
     # 5 beyond (400 m), 6 beyond but flagged, 7 beyond only at the flagged
     # 2 GHz channel, 8 beyond at 2 GHz (200 m = 1334 wavelengths).
     obs = observation((FREQ, 2 * FREQ))
-    uvw, weights = obs.uvw.copy(), obs.weight_val.copy()
+    uvw, weights = obs.uvw.copy(), obs.weight.copy()
     uvw[5:9, :2] = [(0, -400), (0, -400), (0, 200), (200, 0)]
     weights[:, 6] = 0.0
     weights[:, 7, 1] = 0.0
     obs = rve.Observation(
         rve.AntennaPositions(uvw),
-        obs.vis_val,
+        obs.vis,
         weights,
         obs.legacy_polarization,
         obs.freq,

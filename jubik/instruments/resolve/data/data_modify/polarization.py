@@ -7,7 +7,7 @@ from ...data.observation import Observation
 
 
 def restrict_to_stokesi(observation: Observation):
-    if observation.vis.domain[0].labels == ("I",):
+    if observation.polarization_labels == ("I",):
         return observation
     # FIXME Do I need to change something in observation._auxiliary_tables?
     ind = observation._polarization.stokes_i_indices()
@@ -26,7 +26,7 @@ def restrict_to_stokesi(observation: Observation):
 
 def restrict_to_polarization(observation: Observation, pol_label):
     # FIXME Do I need to change something in observation._auxiliary_tables?
-    ind = observation.vis.domain[0].label2index(pol_label)
+    ind = observation.polarization_labels.index(pol_label)
     vis = observation._vis[ind : ind + 1]
     wgt = observation._weight[ind : ind + 1]
     pol = Polarization([9])  # FIXME!!!!
@@ -42,7 +42,7 @@ def restrict_to_polarization(observation: Observation, pol_label):
 
 def average_stokesi(observation: Observation):
     # FIXME Do I need to change something in observation._auxiliary_tables?
-    if observation.vis.domain[0].labels_eq("I"):
+    if observation.polarization_labels == ("I",):
         return observation
 
     assert observation._vis.shape[0] == 2

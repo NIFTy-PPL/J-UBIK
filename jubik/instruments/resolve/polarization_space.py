@@ -14,6 +14,12 @@
 # Copyright(C) 2021 Max-Planck-Society
 # Author: Philipp Arras, Jakob Knollmüller
 
+"""Legacy classic NIFTy polarization domains and conversion operators.
+
+Use ``Polarization.labels`` for label-only access. Replacing these domain and
+operator interfaces is deferred to a polarization rework.
+"""
+
 import nifty.cl as ift
 import numpy as np
 
@@ -21,12 +27,12 @@ from .util import my_assert
 
 
 class PolarizationSpace(ift.UnstructuredDomain):
-    """
+    """Classic NIFTy domain with ordered polarization labels.
 
     Parameters
     ----------
-    coordinates : np.ndarray
-        Must be sorted and strictly ascending.
+    polarization_labels : str or iterable of str
+        Polarization labels in axis order.
     """
 
     _needed_for_hash = ["_hash_lbl"]

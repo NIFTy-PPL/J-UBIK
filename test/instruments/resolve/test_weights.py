@@ -45,43 +45,43 @@ def test_systematic_none_is_noop():
 def test_systematic_applies_the_documented_formula(percentage):
     np.random.seed(202)
     obs = build_obs()
-    weight_old = obs.weight_val.copy()
-    vis = obs.vis_val.copy()
+    weight_old = obs.weight.copy()
+    vis = obs.vis.copy()
 
     new = systematic_error_budget(obs, SystematicErrorBudget(percentage))
 
     assert_allclose(
-        new.weight_val,
+        new.weight,
         1.0 / (1.0 / weight_old + (percentage * np.abs(vis)) ** 2),
         rtol=1e-14,
     )
     # A systematic error can only decrease the weights.
-    assert np.all(new.weight_val < weight_old)
+    assert np.all(new.weight < weight_old)
 
 
 def test_systematic_with_zero_percentage_keeps_the_weights():
     np.random.seed(203)
     obs = build_obs()
-    weight_old = obs.weight_val.copy()
+    weight_old = obs.weight.copy()
 
     new = systematic_error_budget(obs, SystematicErrorBudget(0.0))
 
-    assert_allclose(new.weight_val, weight_old, rtol=1e-14)
+    assert_allclose(new.weight, weight_old, rtol=1e-14)
 
 
 def test_systematic_returns_a_new_observation_and_leaves_the_input_untouched():
     np.random.seed(204)
     obs = build_obs()
-    weight_old = obs.weight_val.copy()
+    weight_old = obs.weight.copy()
 
     new = systematic_error_budget(obs, SystematicErrorBudget(0.05))
 
     assert new is not obs
     assert isinstance(new, Observation)
-    assert_array_equal(obs.weight_val, weight_old)
-    assert not obs.weight_val.flags.writeable
-    assert not new.weight_val.flags.writeable
-    assert np.any(new.weight_val != weight_old)
+    assert_array_equal(obs.weight, weight_old)
+    assert not obs.weight.flags.writeable
+    assert not new.weight.flags.writeable
+    assert np.any(new.weight != weight_old)
 
 
 def test_systematic_keeps_visibilities_frequencies_and_antenna_positions():
@@ -90,7 +90,7 @@ def test_systematic_keeps_visibilities_frequencies_and_antenna_positions():
 
     new = systematic_error_budget(obs, SystematicErrorBudget(0.05))
 
-    assert_array_equal(new.vis_val, obs.vis_val)
+    assert_array_equal(new.vis, obs.vis)
     assert_array_equal(new.freq, obs.freq)
     assert new.antenna_positions == obs.antenna_positions
     assert new.nrow == obs.nrow
@@ -101,31 +101,31 @@ def test_systematic_keeps_visibilities_frequencies_and_antenna_positions():
 def test_systematic_keeps_flagged_entries_at_exactly_zero():
     np.random.seed(206)
     obs = build_obs(fraction_flagged=0.3)
-    flagged = obs.weight_val == 0.0
+    flagged = obs.weight == 0.0
     assert flagged.sum() > 0
-    weight_old = obs.weight_val.copy()
-    vis = obs.vis_val.copy()
+    weight_old = obs.weight.copy()
+    vis = obs.vis.copy()
 
     with np.errstate(all="raise"):
         new = systematic_error_budget(obs, SystematicErrorBudget(0.05))
 
-    assert_array_equal(new.weight_val[flagged], 0.0)
-    assert np.all(np.isfinite(new.weight_val))
-    assert_allclose(new.weight_val, expected_weight(weight_old, vis, 0.05), rtol=1e-14)
-    assert_array_equal(new.flags_val, obs.flags_val)
+    assert_array_equal(new.weight[flagged], 0.0)
+    assert np.all(np.isfinite(new.weight))
+    assert_allclose(new.weight, expected_weight(weight_old, vis, 0.05), rtol=1e-14)
+    assert_array_equal(new.flags, obs.flags)
 
 
 def test_systematic_does_not_produce_nan_for_nan_visibilities_at_flagged_points():
     np.random.seed(207)
     obs = build_obs(fraction_flagged=0.3).flags_to_nan()
-    flagged = obs.weight_val == 0.0
-    assert np.any(np.isnan(obs.vis_val))
+    flagged = obs.weight == 0.0
+    assert np.any(np.isnan(obs.vis))
 
     with np.errstate(all="raise"):
         new = systematic_error_budget(obs, SystematicErrorBudget(0.05))
 
-    assert np.all(np.isfinite(new.weight_val))
-    assert_array_equal(new.weight_val[flagged], 0.0)
+    assert np.all(np.isfinite(new.weight))
+    assert_array_equal(new.weight[flagged], 0.0)
 
 
 def test_systematic_preserves_single_precision():
@@ -134,7 +134,7 @@ def test_systematic_preserves_single_precision():
 
     new = systematic_error_budget(obs, SystematicErrorBudget(0.05))
 
-    assert new.weight_val.dtype == np.float32
+    assert new.weight.dtype == np.float32
     assert new.is_single_precision()
 
 

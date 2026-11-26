@@ -8,8 +8,7 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from astropy import units as u
-from astropy.constants import c as speedoflight
-from nifty.cl.logger import logger
+from nifty.re import logger
 
 from ...models.distributions import build_parametric_prior_from_prior_config
 from ...parse.models.distributions.distributions import ProbabilityConfig
@@ -17,6 +16,7 @@ from .data.observation import Observation
 from .parse.data.data_loading import DataFile
 from .parse.phase_shift import OFFSET_KEY, SHIFT_SHAPE, PhaseShiftConfig, ShiftGroup
 from .util import cast_to_dtype
+
 
 
 # --------------------------------------------------------------------------------------
@@ -92,7 +92,7 @@ def build_phase_shift(
         shift = jft.Model(lambda x: off(x) + grp(x), domain=off.domain | grp.domain)
 
     phase_u, phase_v = _phase_per_arcsec(observation)
-    return PhaseShift(shift, phase_u, phase_v, observation.vis_val.dtype)
+    return PhaseShift(shift, phase_u, phase_v, observation.vis.dtype)
 
 
 def assign_shift_groups(
@@ -171,6 +171,8 @@ def _build_shift_model(name: str, prior: ProbabilityConfig) -> jft.Model:
 def _phase_per_arcsec(observation: Observation) -> tuple[np.ndarray, np.ndarray]:
     """Phase in rad per arcsec of shift along u and v, shape `(1, n_rows, n_freq)`,
     which broadcasts against the visibilities `(n_pol, n_rows, n_freq)`."""
-    scale = 2 * np.pi * u.arcsec.to(u.rad) / speedoflight.value
-    uv = observation.uvw[:, :2, None] * observation.freq * scale
-    return uv[None, :, 0], uv[None, :, 1]
+    scale = 2 * np.pi * u.arcsec.to(u.rad)
+    uv = observation.effective_uvw()[:2] * scale
+    phase_u = uv[0]  # (nrow, nfreq)
+    phase_v = uv[1]  # (nrow, nfreq)
+    return phase_u[None, ...], phase_v[None, ...]

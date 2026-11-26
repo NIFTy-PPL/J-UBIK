@@ -215,8 +215,8 @@ def signal_response(x):
 
 
 likelihood = jft.Gaussian(
-    observation.vis_val,
-    observation.weight_val,
+    observation.vis,
+    observation.weight,
 ).amend(signal_response)
 
 # %% [markdown]

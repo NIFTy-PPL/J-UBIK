@@ -4,7 +4,8 @@ import numpy as np
 
 from ...data.antenna_positions import AntennaPositions
 from ..observation import Observation, tmin_tmax
-from nifty.cl.logger import logger
+from nifty.re import logger
+
 
 
 def restrict_by_time(
@@ -106,7 +107,7 @@ def time_average(observation: Observation, list_of_timebins):
         [dct[(a1, a2, tt)] for a1, a2, tt in zip(ant1, ant2, row_to_bin_map)]
     )
 
-    vis, wgt = observation.vis.asnumpy(), observation.weight.asnumpy()
+    vis, wgt = observation.vis, observation.weight
     # Visibilities of flagged data points (weight == 0) are allowed to be
     # non-finite, see `Observation.flags_to_nan`. Since NaN*0 == NaN they must
     # be zeroed before they enter the weighted sums below.

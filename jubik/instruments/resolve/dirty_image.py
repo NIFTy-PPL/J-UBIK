@@ -23,10 +23,10 @@ from astropy.units import Unit
 from numpy.typing import NDArray
 
 from ...grid import Grid
-from .constants import RESOLVE_SKY_UNIT, RESOLVE_SPATIAL_UNIT
+from .conventions import RESPONSE_SKY_UNIT, RESPONSE_SPATIAL_UNIT
 from .data import Observation
 from .parse import Ducc0Settings, FinufftSettings
-from .response import _hermitian_adjoint, interferometry_response
+from .response import interferometry_response, response_adjoint
 
 
 def dirty_image(
@@ -34,7 +34,7 @@ def dirty_image(
     sky_grid: Grid,
     backend_settings: Union[Ducc0Settings, FinufftSettings],
     weighting: str = "natural",
-    flux_unit: Unit = RESOLVE_SKY_UNIT,
+    flux_unit: Unit = u.Jy / u.sr,  # Caller-chosen output unit.
 ) -> u.Quantity:
 
     # TODO: Extract shape fully from grid
@@ -46,13 +46,13 @@ def dirty_image(
         backend_settings=backend_settings,
     )
 
-    response_primal = jnp.ones(full_sky_shape, observation.weight_val.dtype)
+    response_primal = jnp.ones(full_sky_shape, observation.weight.dtype)
 
-    d = observation.vis_val
+    d = observation.vis
     vol = sky_grid.spatial.dvol.value
 
     if weighting == "natural":
-        w = observation.weight_val
+        w = observation.weight
 
     elif weighting == "uniform":
         w = uniform_weights(
@@ -64,21 +64,21 @@ def dirty_image(
 
     primals = d * w / jnp.sum(w)
     res = (
-        _hermitian_adjoint(R, response_primal, primals)
+        response_adjoint(R, primals, response_primal)
         / vol**2
-        * RESOLVE_SKY_UNIT
+        * RESPONSE_SKY_UNIT
     )
     return res.to(flux_unit)
 
 
 def uniform_weights(observation: Observation, sky_grid: Grid) -> NDArray:
 
-    weights = np.empty_like(observation.weight_val)
+    weights = np.empty_like(observation.weight)
     u, v = observation.effective_uvw()[0:2]
 
     for ipol in range(observation.npol):
         Hnorm, xedges0, yedges0 = uvw_density(u, v, sky_grid, None)
-        H, xedges, yedges = uvw_density(u, v, sky_grid, observation.weight_val[ipol])
+        H, xedges, yedges = uvw_density(u, v, sky_grid, observation.weight[ipol])
         assert np.all(xedges == xedges0)
         assert np.all(yedges == yedges0)
         xindices = np.searchsorted(xedges, u.ravel())
@@ -101,22 +101,22 @@ def uvw_density(
         assert weights.shape == eff_u.shape
         weights = weights.ravel()
 
-    u, v = eff_u.ravel(), eff_v.ravel()
+    uu, vv = eff_u.ravel(), eff_v.ravel()
 
     # Canonical sky (dim0 = Dec, dim1 = RA); u conjugates the l/RA axis (dim1),
     # v conjugates the m/Dec axis (dim0).
     nx, ny = sky_grid.spatial.shape_xy
-    dx, dy = sky_grid.spatial.pixel_scales_xy.to(RESOLVE_SPATIAL_UNIT).value
+    dx, dy = sky_grid.spatial.pixel_scales_xy.to(RESPONSE_SPATIAL_UNIT).value
 
     ku = np.sort(np.fft.fftfreq(nx, dx))
     kv = np.sort(np.fft.fftfreq(ny, dy))
 
     if (
-        np.min(u) < ku[0]
-        or np.max(u) >= ku[-1]
-        or np.min(v) < kv[0]
-        or np.max(v) >= kv[-1]
+        np.min(uu) < ku[0]
+        or np.max(uu) >= ku[-1]
+        or np.min(vv) < kv[0]
+        or np.max(vv) >= kv[-1]
     ):
         raise ValueError
-    H, xedges, yedges = np.histogram2d(u, v, bins=[ku, kv], weights=weights)
+    H, xedges, yedges = np.histogram2d(uu, vv, bins=[ku, kv], weights=weights)
     return H, xedges, yedges
