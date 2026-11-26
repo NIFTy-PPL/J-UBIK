@@ -86,19 +86,23 @@ def test_fixed_width_is_the_loaded_kernel_convolved_once(
 ):
     """σ = 2 subsampled pixels: the band-limited Gaussian of `PsfGaussianBroadening`
     and the sampled one here differ by exp(-2π²σ²/4) ~ 3e-9 at the Nyquist
-    frequency. The kernel is the loader's, with the correction or the sub-pixel box
-    (!312; on a branch without it the key is not read)."""
+    frequency. The kernel is the loader's, with the correction or the sub-pixel box."""
     psf = {}
     if option == "correction":
         texture = 0.1 * np.random.default_rng(0).normal(size=(5, 5))
         PsfCorrection(BAND, SUBSAMPLE, texture, width=0.5).save(tmp_path / "c.npz")
         psf["correction"] = {BAND: str(tmp_path / "c.npz")}
     elif option == "pixel_box":
+        # without the field the key is not read, and the case would be "plain"
+        if "pixel_box" not in JwstPsfKernelConfig.__dataclass_fields__:
+            pytest.skip("needs the psf.pixel_box option")
         psf["pixel_box"] = True
     sigma = 2.0  # subsampled pixels
-    _, broadened, products, cfg = _build(
+    response, broadened, products, cfg = _build(
         tmp_path / "fit", {"default": ["delta", sigma * SUBPIXEL]}, psf=psf
     )
+    # a fixed width is broadened once: the cached convolution, no parameter
+    assert isinstance(response.psf, PsfStatic) and KEY not in response.domain
     loaded = jwst_kernel.load_psf_kernel(
         jwst_data=FakeJwstData(cfg["files"]["filter"][BAND][0]),
         subsample=SUBSAMPLE,
