@@ -132,6 +132,23 @@ def _check_cutout_holds_sky(target_data, grid: Grid, filter: str, reach: float):
                 )
 
 
+def _data_inside_sky(target_data, grid: Grid, inset: float) -> np.ndarray:
+    """True for the data pixels whose subsample points all lie at least `inset`
+    arcsec inside the sky box, whose edges are half a sky pixel beyond the outer
+    pixel centres."""
+    n_y, n_x = grid.spatial.shape_yx
+    low_y, low_x = inset / grid.spatial.pixel_scales_yx.to_value(u.arcsec) - 0.5
+    s = target_data.subsample
+    inside = []
+    for centers in target_data.subsample_centers:
+        y, x = grid.spatial.world_to_indices_yx(centers)
+        points = (y >= low_y) & (y <= n_y - 1 - low_y)
+        points &= (x >= low_x) & (x <= n_x - 1 - low_x)
+        h, w = points.shape
+        inside.append(points.reshape(h // s, s, w // s, s).all(axis=(1, 3)))
+    return np.stack(inside)
+
+
 def build_jwst_likelihoods(
     cfg: dict,
     grid: Grid,
@@ -181,6 +198,11 @@ def build_jwst_likelihoods(
         raise ValueError(
             "target.data_arcsec_extension needs rotation_and_shift mode 'constant'"
         )
+    # fit only data this far (arcsec) inside the sky box, so that light from beyond
+    # the box near the fitted data's edge can come from sky that is not fitted directly
+    data_inset = cfg[telescope_key].get("target", {}).get("data_arcsec_inset")
+    if data_inset is not None and data_inset < 0:
+        raise ValueError(f"target.data_arcsec_inset must be >= 0, got {data_inset}")
 
     target_plotting = ResidualPlottingInformation()
     target_filter_likelihoods = []
@@ -257,12 +279,24 @@ def build_jwst_likelihoods(
             rotation_center=rotation_center,
         )
 
+        if data_margin or data_inset is not None:
+            reach = _correction_reach(correction_prior, grid, rotation_center)
+        if data_margin:
+            _check_cutout_holds_sky(dataload_results.target_data, grid, filter, reach)
+        if data_inset is not None:
+            target_data = dataload_results.target_data
+            kept = int(target_data.mask.sum())
+            # the inset holds after the correction priors move the data by `reach`
+            target_data.mask = target_data.mask & _data_inside_sky(
+                target_data, grid, data_inset + reach
+            )
+            logger.info(
+                f"{filter}: target.data_arcsec_inset masks "
+                f"{kept - int(target_data.mask.sum())} of {kept} unmasked data pixels"
+            )
         logger.debug(
             f"{filter}: {int(dataload_results.target_data.mask.sum())} unmasked data pixels"
         )
-        if data_margin:
-            reach = _correction_reach(correction_prior, grid, rotation_center)
-            _check_cutout_holds_sky(dataload_results.target_data, grid, filter, reach)
 
         likelihood_target: SingleTargetLikelihood = build_target_likelihood(
             filter_name=filter,
