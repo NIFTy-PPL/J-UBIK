@@ -236,6 +236,14 @@ def build_exposure_likelihoods(
     likelihoods = []
     plotting = ResidualPlottingInformation()
     for e in exposures:
+        kernels = [e.psf] + ([e.psf_mix[0]] if e.psf_mix else [])
+        if getattr(algorithm, "fourier", False) and any(
+            hasattr(k, "pixel_scale") for k in kernels
+        ):
+            raise ValueError(
+                f"{e.band}: the Fourier response integrates over the detector "
+                "pixel; this kernel already includes its pixel response"
+            )
         if e.psf_mix is not None:
             second, prior = e.psf_mix
             if (prior is None) == (psf_mix is None):

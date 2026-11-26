@@ -216,6 +216,18 @@ def test_kernel_sampling_must_match_the_subsample(
         build_exposure_likelihoods([exposure], grid, _sky_domain(grid), TELESCOPE)
 
 
+def test_fourier_response_refuses_a_kernel_with_its_pixel_response(tmp_path):
+    # Tiny Tim kernels hold one kernel pixel's response; the Fourier response
+    # integrates over the whole detector pixel, so it would count it twice
+    exposure, grid = _exposure(tmp_path)
+    telescope = TELESCOPE | {
+        "rotation_and_shift": TELESCOPE["rotation_and_shift"]
+        | {"linear": None, "nufft": {"band_limit": 3.0, "fourier": True}}
+    }
+    with pytest.raises(ValueError, match="already includes its pixel response"):
+        build_exposure_likelihoods([exposure], grid, _sky_domain(grid), telescope)
+
+
 def test_duplicate_band_raises(tmp_path):
     exposure, grid = _exposure(tmp_path)
     with pytest.raises(ValueError, match="distinct band keys"):

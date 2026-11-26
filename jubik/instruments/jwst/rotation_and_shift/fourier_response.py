@@ -25,7 +25,7 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from astropy import units as u
-from jax.numpy.fft import fftshift, ifft2
+from jax.numpy.fft import fftshift, ifft
 from scipy.fft import next_fast_len
 
 from ..parse.rotation_and_shift.rotation_and_shift import NufftConfig
@@ -58,8 +58,8 @@ class FourierResponse(jft.Model):
         sky_domain : dict
             The single sky key and its 2-D shape.
         coordinates : Coordinates | CoordinatesCorrectedShiftOnly
-            Kept as `self.coordinates`, as `RotationAndShift` does; its shift, if
-            any, enters as a phase.
+            Kept as `self.coordinates`, as `RotationAndShift` does (callers read
+            its shift model there); its shift, if any, enters as a phase.
         transfer : np.ndarray
             `T_e B_e` on the cropped modes, zero outside the band, `(n, My, Mx)`.
         frequencies : tuple
@@ -83,14 +83,17 @@ class FourierResponse(jft.Model):
     def __call__(self, x):
         from jax_finufft import nufft2
 
+        # ifft2 of the zero-padded sky, cropped to the band after each axis;
         # FINUFFT modeord=0: centred k, as in build_nufft_rotation_and_shift
-        modes = fftshift(ifft2(x[self._sky_key], s=self._pad))[self._crop]
+        modes = x[self._sky_key]
+        for axis, (n, crop) in enumerate(zip(self._pad, self._crop)):
+            modes = fftshift(ifft(modes, n=n, axis=axis), axes=axis)
+            modes = modes[(slice(None),) * axis + (crop,)]
         modes = modes * self._transfer
         if self._shift is not None:
             shift = self._shift(x)[..., None, None]  # sky pixels
-            modes = modes * jnp.exp(
-                -2j * np.pi * (shift[:, 0] * self._ky + shift[:, 1] * self._kx)
-            )
+            modes = modes * jnp.exp(-2j * np.pi * shift[:, 0] * self._ky)
+            modes = modes * jnp.exp(-2j * np.pi * shift[:, 1] * self._kx)
         return nufft2(modes, *self._points).real.reshape(self._out_shape)
 
 
@@ -127,8 +130,11 @@ def build_fourier_response(
         around onto an unmasked pixel (None: onto any pixel) while the shift
         stays within its prior's reach (|mean| + 3 sigma, or the bounds).
     """
-    if algorithm_config.band_limit is None or algorithm_config.mode != "constant":
-        raise ValueError("the Fourier response needs a band_limit and mode 'constant'")
+    band_limit = algorithm_config.band_limit
+    if band_limit is None or band_limit <= 0 or algorithm_config.mode != "constant":
+        raise ValueError(
+            "the Fourier response needs a positive band_limit and mode 'constant'"
+        )
     if not isinstance(coordinates, (Coordinates, CoordinatesCorrectedShiftOnly)):
         raise NotImplementedError(
             "the Fourier response takes the shift correction model only: a "
@@ -162,7 +168,7 @@ def build_fourier_response(
         for r, nn, l_, h_ in zip(reach, sky_shape, lo, hi)
     )
 
-    band = algorithm_config.band_limit * sky_pixel_scales_yx.to_value(u.arcsec)
+    band = band_limit * sky_pixel_scales_yx.to_value(u.arcsec)
     ky, kx = (np.fft.fftshift(np.fft.fftfreq(m)) for m in pad)
     disk = (ky[:, None] / band[0]) ** 2 + (kx / band[1]) ** 2 <= 1
     rows, cols = np.flatnonzero(disk.any(1)), np.flatnonzero(disk.any(0))
@@ -172,7 +178,7 @@ def build_fourier_response(
     det = np.einsum("nij,i...->nj...", jac, k)  # J^T k, cycles per detector pixel
     if np.abs(det[:, :, keep]).max() >= s / 2:
         raise ValueError(
-            f"band_limit {algorithm_config.band_limit} cycles/arcsec reaches the "
+            f"band_limit {band_limit} cycles/arcsec reaches the "
             "kernel grid's Nyquist frequency: lower it or raise the subsample"
         )
 

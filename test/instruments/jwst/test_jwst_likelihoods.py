@@ -632,6 +632,10 @@ def test_fourier_response_through_the_config(patched_seams, monkeypatch, tmp_pat
         cfg["telescope"]["rotation_and_shift"]["nufft"] = {"band_limit": 4.0} | nufft
         return build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
 
+    from jubik.instruments.jwst.rotation_and_shift.fourier_response import (
+        FourierResponse,
+    )
+
     fourier, subsampled = build(fourier=True), build()
     assert (
         fourier.likelihood.domain.tree.keys()
@@ -642,6 +646,8 @@ def test_fourier_response_through_the_config(patched_seams, monkeypatch, tmp_pat
     x["sky"] = np.exp(-0.5 * (yy**2 + xx**2) / 3**2)[None]  # smooth, zero at the edges
     big = x | fourier.sky_filter(x)
     (f,), (s,) = fourier.likelihoods, subsampled.likelihoods
+    assert isinstance(f.builder.response.sky_model, FourierResponse)
+    assert not isinstance(s.builder.response.sky_model, FourierResponse)
     model_f, model_s = (np.asarray(t.builder.response(big)) for t in (f, s))
     # the 2x sum of point samples misses one sub-pixel box: 8e-4 of the peak here
     np.testing.assert_allclose(model_f, model_s, rtol=0, atol=1e-3 * model_s.max())

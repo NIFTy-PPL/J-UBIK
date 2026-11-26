@@ -1,3 +1,4 @@
+import jax
 import nifty.re as jft
 import numpy as np
 import pytest
@@ -40,9 +41,9 @@ def _jacobian(theta, scale):
     return np.array([[c, -s], [s, c]]) * np.array(scale)  # columns: detector axes
 
 
-def _centres(jac):
+def _centres(jac, out=OUT):
     """Subsampled pixel centres on the sky grid, (2, H S, W S), centred on the sky."""
-    sub = [(np.arange(n * S) + 0.5) / S - 0.5 - (n - 1) / 2 for n in OUT]
+    sub = [(np.arange(n * S) + 0.5) / S - 0.5 - (n - 1) / 2 for n in out]
     det = np.stack(np.meshgrid(*sub, indexing="ij"))
     return (
         np.einsum("ij,j...->i...", jac, det) + ((np.array(SKY) - 1) / 2)[:, None, None]
@@ -113,6 +114,12 @@ def test_matches_the_exact_pixel_integral():
     )
     latent = np.array([e[-1] for e in EXPOSURES])
     out = np.asarray(response({"sky": sky, "f_shift": latent}))
+    # the shift's derivative (a phase derivative) against central differences
+    model = lambda xi: response({"sky": sky, "f_shift": xi})  # noqa: E731
+    direction, h = np.array([[0.3, -1.0], [0.8, 0.5]]), 1e-4
+    _, tangent = jax.jvp(model, (latent,), (direction,))
+    diff = (model(latent + h * direction) - model(latent - h * direction)) / (2 * h)
+    np.testing.assert_allclose(tangent, diff, rtol=0, atol=1e-6)
     assert out.shape == (2,) + OUT
     for e, (jac, (_, _, std, off, xi)) in enumerate(zip(jacs, EXPOSURES)):
         exact = _exact(
@@ -122,9 +129,11 @@ def test_matches_the_exact_pixel_integral():
 
 
 def test_without_correction_and_one_kernel():
-    # no shift latents; one 2-D kernel for every exposure
-    jac = _jacobian(20.8, (3.75, 3.75))
-    fixed = np.stack([_centres(jac)] * 2)
+    # no shift latents; one 2-D kernel for every exposure; no mask, and pixels 22
+    # sky pixels past the sky, beyond the kernel's spare reach: the padding must
+    # hold the data's extent too
+    jac, wide = _jacobian(20.8, (3.75, 3.75)), (15, 15)
+    fixed = np.stack([_centres(jac, wide)] * 2)
     sky = np.random.default_rng(8).uniform(0, 1, SKY)
     response = build_fourier_response(
         {"sky": jft.ShapeWithDtype(SKY, float)},
@@ -137,7 +146,7 @@ def test_without_correction_and_one_kernel():
     assert response.domain.keys() == {"sky"}
     out = np.asarray(response({"sky": sky}))
     np.testing.assert_allclose(out[0], out[1], rtol=0, atol=1e-12)
-    centres = fixed[0].reshape(2, OUT[0], S, OUT[1], S).mean((2, 4))
+    centres = fixed[0].reshape(2, wide[0], S, wide[1], S).mean((2, 4))
     exact = _exact(sky, centres.reshape(2, -1), jac, (2.0, 2.0), (0, 0), np.zeros(2))
     np.testing.assert_allclose(out[0].ravel(), exact, rtol=0, atol=1e-7)
 
