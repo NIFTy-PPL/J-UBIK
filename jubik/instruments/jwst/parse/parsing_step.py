@@ -30,6 +30,7 @@ class ConfigParserJwst:
     star_alignment_config: StarAlignmentConfig | None
     variable_covariance_config: VariableCovarianceConfig | None
     data_bounds_adjust: DataBoundsAdjust
+    psf_broadening: ZeroFluxPriorConfigs | None = None
 
     @classmethod
     def from_yaml_dict(
@@ -75,6 +76,17 @@ class ConfigParserJwst:
         data_bounds_adjust = DataBoundsAdjust.from_yaml_dict(
             cfg[telescope_key].get("adjust_data_bounds", {})
         )
+        # the σ (arcsec) of each exposure's Gaussian PSF broadening: a default and
+        # filter keys, as zero_flux
+        psf_broadening = ZeroFluxPriorConfigs.from_yaml_dict(
+            cfg[telescope_key].get("psf_broadening")
+        )
+        # a mistyped filter key would silently fall back to the default prior
+        if unknown := set(psf_broadening.names if psf_broadening else {}) - filters:
+            raise ValueError(
+                f"psf_broadening: {sorted(unknown)} match no filter of "
+                f"{sorted(filters)}"
+            )
 
         return cls(
             zero_flux_prior_configs=zero_flux_prior_configs,
@@ -87,4 +99,5 @@ class ConfigParserJwst:
             star_alignment_config=star_alignment_config,
             variable_covariance_config=variable_covariance_config,
             data_bounds_adjust=data_bounds_adjust,
+            psf_broadening=psf_broadening,
         )
