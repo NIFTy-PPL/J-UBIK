@@ -516,20 +516,40 @@ def broad_build_webb_psf(
     return psf / psf.sum()
 
 
+def rotated_jwst_data(angle_deg):
+    """`FakeJwstData` on a detector turned by `angle_deg` against the sky grid."""
+
+    class RotatedJwstData(FakeJwstData):
+        def __init__(self, filepath: str):
+            super().__init__(filepath)
+            self.wcs = WcsAstropy(
+                center=CENTER,
+                shape=DATA_SHAPE,
+                fov=u.Quantity([get_pixel_distance(FILTER) * s for s in DATA_SHAPE]),
+                position_angle=angle_deg * u.deg,
+            )
+
+    return RotatedJwstData
+
+
+@pytest.mark.parametrize("rotated", [False, True])
 @pytest.mark.parametrize(
     "algorithm",
     [{"linear": {"order": 1, "mode": "constant"}}, {"nufft": {"mode": "constant"}}],
 )
 def test_data_extension_crops_the_cutout_without_changing_the_likelihood(
-    patched_seams, monkeypatch, tmp_path, algorithm
+    patched_seams, monkeypatch, tmp_path, algorithm, rotated
 ):
     if "nufft" in algorithm:
         pytest.importorskip("jax_finufft")
     monkeypatch.setattr(jwst_kernel, "build_webb_psf", broad_build_webb_psf)
+    if rotated:
+        for site in JWST_DATA_SITES:
+            monkeypatch.setattr(site, rotated_jwst_data(30))
 
     def build(extension):
         cfg = make_config(tmp_path, zero_flux=True)
-        cfg["telescope"]["psf"]["psf_arcsec_extension"] = 1.0
+        cfg["telescope"]["psf"]["psf_arcsec_extension"] = 1.4
         # a 0.02" shift prior: the margin must hold the sky moved by 3 sigma
         priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
         priors["default"]["shift"] = ["normal", 0.0, 0.02]
@@ -641,21 +661,35 @@ def test_automatic_data_extension_follows_the_shift_prior(patched_seams, tmp_pat
         target = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
         return target.likelihoods[0].builder.data.shape[-1]
 
-    # 3 sigma more reach on each side, in 0.063" data pixels
-    assert width(0.1) - width(0.02) == pytest.approx(2 * 3 * 0.08 / 0.063, abs=2)
+    # 3 sigma more reach on each side, times sqrt(2) for any detector angle, in
+    # 0.063" data pixels
+    expected = 2 * 3 * 0.08 * np.sqrt(2) / 0.063
+    assert width(0.1) - width(0.02) == pytest.approx(expected, abs=2)
+
+
+@pytest.mark.parametrize("angle", [30, 45])
+def test_automatic_data_extension_on_a_rotated_detector(
+    patched_seams, monkeypatch, tmp_path, angle
+):
+    # the check widens the sky along its own axes, which on a turned detector reach
+    # further than the same width along the detector's: the default must still build
+    for site in JWST_DATA_SITES:
+        monkeypatch.setattr(site, rotated_jwst_data(angle))
+    build_jwst_likelihoods(make_config(tmp_path), make_grid(), SKY_DOMAIN)
 
 
 def test_automatic_data_extension_is_checked(patched_seams, tmp_path):
     # the automatic margin is checked too: a per-filter bounds adjustment that eats it
     # raises instead of dropping sky light
     cfg = make_config(tmp_path)
-    cfg["telescope"]["adjust_data_bounds"] = {FILTER.lower(): [5, -5, 5, -5]}
+    cfg["telescope"]["adjust_data_bounds"] = {FILTER.lower(): [10, -10, 10, -10]}
     with pytest.raises(ValueError, match="reaches the data cutout's edge"):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
-def grid_of(n, fov_arcsec):
-    spatial = WcsAstropy(center=CENTER, shape=(n, n), fov=[fov_arcsec] * 2 * u.arcsec)
+def grid_of(n, fov_arcsec, fov_y_arcsec=None):
+    fov = [fov_arcsec, fov_y_arcsec or fov_arcsec] * u.arcsec  # (x, y)
+    spatial = WcsAstropy(center=CENTER, shape=(n, n), fov=fov)
     return Grid(spatial=spatial, spectral=Color([3.6, 5.2] * u.um))
 
 
@@ -671,8 +705,9 @@ B1938_SKY = grid_of(512, 3.0)  # 5.86 mas: Nyquist 85.3, corner 120.7 cycles/arc
         ("F277W", 0.0629, 9, B1938_SKY, None),
         # f_s / 2 = 48.4, inside F115W's window 31.1 (6.5 m / 1.013 um) to 65.7
         ("F115W", 0.031, 3, B1938_SKY, 3 / 0.031 / 2),
-        # a 0.0256" sky (Nyquist 19.5): f_s / 2 = 20 is capped below its Nyquist
-        ("F277W", 0.075, 3, grid_of(117, 3.0), 0.999 * 0.5 / (3.0 / 117)),
+        # 0.0256" (x) by 0.0128" (y) sky pixels, Nyquist 19.5 and 39: f_s / 2 = 20
+        # is capped below the lower one
+        ("F277W", 0.075, 3, grid_of(117, 3.0, 1.5), 0.999 * 0.5 / (3.0 / 117)),
     ],
 )
 def test_automatic_band_limit(filter_name, pixel, subsample, grid, expected):

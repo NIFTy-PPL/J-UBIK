@@ -130,17 +130,23 @@ def _check_cutout_holds_sky(target_data, grid: Grid, filter: str, reach: float):
                 raise ValueError(
                     f"{filter}: the sky, moved by up to {reach:.3g} arcsec by the "
                     "shift and rotation priors, reaches the data cutout's edge; "
-                    "raise target.data_arcsec_extension"
+                    "raise target.data_arcsec_extension (automatic unless set), or "
+                    "set it to 'off' for the PSF-sized cutout"
                 )
 
 
 def _auto_margin(reach: float, grid: Grid, pixel_scale: u.Quantity) -> int:
     """Detector pixels to grow a cutout of the sky's corners by on each side, so it
     holds every data pixel with a subsample point on the sky moved by `reach` arcsec:
-    the reach, the interpolation's sky pixel, the sky pixel `world_corners` leaves
-    out on the low side, and half a data pixel, rounded up."""
+    the reach, the interpolation's sky pixel and the sky pixel `world_corners` leaves
+    out on the low side, all along the sky's axes, so times sqrt(2) for a detector at
+    any angle to them; then half a data pixel, rounded up."""
+    # shortcut: sqrt(2) bounds |cos| + |sin| of the detector's angle to the sky grid,
+    # up to 41% too wide on an aligned detector; use the angle from the data's WCS
+    # if the cutout size matters
     sky = grid.spatial.pixel_scales_yx.to_value(u.arcsec).max()
-    return int(np.ceil((reach + 2 * sky) / pixel_scale.to_value(u.arcsec) + 0.5))
+    reach = np.sqrt(2) * (reach + 2 * sky)
+    return int(np.ceil(reach / pixel_scale.to_value(u.arcsec) + 0.5))
 
 
 #: JWST's primary mirror, the D in the optics' cutoff D / lambda (m)
