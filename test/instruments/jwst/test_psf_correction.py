@@ -405,6 +405,22 @@ def test_texture_without_weight_is_the_tapered_field():
     np.testing.assert_array_equal(plain(x), taper * field(x))
 
 
+def test_fit_with_the_box_learns_the_width_beyond_it():
+    """Stars through the boxed kernel, fitted on the bare one: with the box the
+    fit learns the true width; without it the width also takes the box's
+    variance, 1/12 kernel px²."""
+    base, w = kernel(), 0.3
+    stamps = mock_stars(
+        with_pixel_box(base), PsfCorrection("f", SUB, NO_TEXTURE, w), 24
+    )
+    stamps = [StarStamp(s.data, s.std, s.mask, base, s.fluence) for s in stamps]
+    for box, expected in ((True, w), (False, np.sqrt(w**2 + 1 / 12))):
+        learned, _ = fit_psf_correction(
+            stamps, SUB, "f", width=(0.5, 0.5), n_iterations=3, pixel_box=box
+        )
+        assert np.isclose(learned.width, expected, rtol=0.05)
+
+
 def test_fit_passes_the_options_on():
     """The fit's texture is orthogonal in the stamps' mean kernel (cut to the
     patch), and the correction records the box."""
@@ -425,6 +441,8 @@ def test_fit_passes_the_options_on():
     assert max(moments(patch_weight(radius), learned.log_texture)) < 1e-8
     with pytest.raises(ValueError, match="orthogonal needs a texture radius"):
         fit_psf_correction(stamps, SUB, "f", orthogonal=True)
+    with pytest.raises(ValueError, match="larger than the kernel"):
+        fit_psf_correction(stamps, SUB, "f", radius=21, orthogonal=True)  # kernel 41
 
 
 def test_load_psf_kernel_adds_the_box_after_the_correction(patched_seams, tmp_path):

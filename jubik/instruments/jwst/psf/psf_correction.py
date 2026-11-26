@@ -26,7 +26,8 @@ Workflow, per filter:
 
 1. Cut stamps of isolated, unsaturated stars from the filter's exposures, each
    with the STPSF kernel at its detector position (`load_psf_kernel` with the
-   lens fit's PSF settings, no correction) and its peak per integration.
+   lens fit's PSF settings, no correction and no ``pixel_box``: the fit adds
+   the box itself) and its peak per integration.
 2. ``correction, models = fit_psf_correction(stamps, subsample, filter,
    radius=..., width=(mean, std), fluence=<the arc's peak per integration>)``;
    check the residuals of held-out stars (stars fitted with
@@ -425,6 +426,11 @@ def fit_psf_correction(
         if radius is None:
             raise ValueError("orthogonal needs a texture radius")
         c = (stars.kernels.shape[-1] - 1) // 2  # the kernels' middle pixel
+        if radius > c:
+            raise ValueError(
+                f"the texture, {(2 * radius + 1,) * 2}, is larger than the kernel, "
+                f"{stars.kernels.shape[-2:]}"
+            )
         patch = slice(c - radius, c + radius + 1)
         weight = stars.kernels.mean(0)[patch, patch]
     if radius is not None:

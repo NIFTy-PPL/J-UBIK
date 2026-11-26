@@ -50,7 +50,8 @@ class JwstPsfKernelConfig:
         band-limited (``rotation_and_shift.nufft.band_limit``) and the band
         plus the kernel's stays below the subsampled sampling frequency.
         Without it the sum is sharper by one sub-pixel box. A correction must
-        have been learned the same way (`fit_psf_correction(pixel_box=...)`).
+        have been learned the same way (`fit_psf_correction(pixel_box=...)`,
+        on kernels loaded without the box: the fit adds it).
         Default is False.
     """
 
