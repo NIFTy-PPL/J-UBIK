@@ -196,6 +196,10 @@ def build_exposure_likelihoods(
     )
     rotation_and_shift = telescope_cfg["rotation_and_shift"]
     algorithm = rotation_and_shift_algorithm_config_factory(rotation_and_shift)
+    if getattr(algorithm, "band_limit", None) == "auto":
+        # shortcut: no D/lambda table for HST or Keck here, so "auto" is no band limit;
+        # resolve it per exposure as build_jwst_likelihoods does when a fit needs it
+        algorithm = replace(algorithm, band_limit=None)
     # band keys are matched case-insensitively, as in zero_flux and calibration
     correction_priors = {
         k.lower(): v for k, v in rotation_and_shift["correction_priors"].items()

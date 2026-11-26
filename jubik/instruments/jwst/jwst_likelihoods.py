@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import reduce
 from typing import Union
 
@@ -16,7 +16,7 @@ from ...parse.models.distributions.distributions import (
 )
 from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
-from .config_handler import get_grid_extension_from_config
+from .config_handler import data_margin, get_grid_extension_from_config
 from .data.loader.data_loader import (
     DataLoader,
     DataLoaderStarAlignment,
@@ -28,6 +28,7 @@ from .data.preloader.preloader import (
     PreloaderSideEffects,
     preload_data,
 )
+from .data.jwst_information import JWST_FILTERS
 from .throughput import jwst_filter_weights
 from .jwst_response import TargetResponseInput, build_target_response
 from .likelihood.alignment_likelihood import (
@@ -44,6 +45,7 @@ from .minimization.mask_hot_pixel_data import HotPixelMaskingData
 from .parse.jwst_response import SkyMetaInformation
 from .parse.parsing_step import ConfigParserJwst
 from .parse.rotation_and_shift.coordinates_correction import CorrectionModel
+from .parse.rotation_and_shift.rotation_and_shift import NufftConfig
 from .plotting.alignment import MultiFilterAlignmentPlottingInformation
 from .plotting.residuals import ResidualPlottingInformation
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
@@ -132,6 +134,51 @@ def _check_cutout_holds_sky(target_data, grid: Grid, filter: str, reach: float):
                 )
 
 
+def _auto_margin(reach: float, grid: Grid, pixel_scale: u.Quantity) -> int:
+    """Detector pixels to grow a cutout of the sky's corners by on each side, so it
+    holds every data pixel with a subsample point on the sky moved by `reach` arcsec:
+    the reach, the interpolation's sky pixel, the sky pixel `world_corners` leaves
+    out on the low side, and half a data pixel, rounded up."""
+    sky = grid.spatial.pixel_scales_yx.to_value(u.arcsec).max()
+    return int(np.ceil((reach + 2 * sky) / pixel_scale.to_value(u.arcsec) + 0.5))
+
+
+#: JWST's primary mirror, the D in the optics' cutoff D / lambda (m)
+JWST_DIAMETER = 6.5
+
+
+def _band_limited(algorithm, filter: str, subsample: int, pixel_scale, grid: Grid):
+    """`algorithm` with its NUFFT band limit resolved for `filter`, cycles per arcsec.
+
+    k_c = D / lambda at the filter's blue half-power edge is the optics' cutoff, f_s =
+    subsample / pixel the subsampled grid's frequency along a detector axis. Sky
+    frequencies within k_c of a multiple of f_s alias into the passband; a band in
+    [k_c, f_s - k_c] stops that and keeps the passband. "auto": none when not even
+    the sky grid's corner frequency can alias, else f_s / 2 (the window's middle),
+    kept below the sky grid's Nyquist frequency.
+    """
+    if not isinstance(algorithm, NufftConfig) or algorithm.band_limit is None:
+        return algorithm
+    blue = JWST_FILTERS[filter.upper()][3] * 1e-6  # m, the blue half-power edge
+    k_c = JWST_DIAMETER / blue * np.pi / 648000  # cycles per arcsec
+    f_s = subsample / pixel_scale.to_value(u.arcsec)
+    nyquist = 0.5 / grid.spatial.pixel_scales_yx.to_value(u.arcsec)
+    band = algorithm.band_limit
+    if band == "auto":
+        if np.hypot(*nyquist) + k_c <= f_s:
+            return replace(algorithm, band_limit=None)
+        band = min(f_s / 2, 0.999 * nyquist.min())
+    if not k_c <= band <= f_s - k_c:
+        raise ValueError(
+            f"{filter}: a NUFFT band_limit of {band:.4g} cycles/arcsec must lie "
+            f"between the optics' cutoff D/lambda {k_c:.4g} and {f_s - k_c:.4g} "
+            f"(subsample {subsample}: {f_s:.4g} less the cutoff), to keep the passband "
+            "and stop aliasing; raise target.subsample, or set "
+            "rotation_and_shift.nufft.band_limit: off"
+        )
+    return replace(algorithm, band_limit=float(band))
+
+
 def build_jwst_likelihoods(
     cfg: dict,
     grid: Grid,
@@ -173,13 +220,16 @@ def build_jwst_likelihoods(
     cfg_parser = ConfigParserJwst.from_yaml_dict(
         cfg, telescope_key=telescope_key, files_key=files_key
     )
-    data_margin = (
-        cfg[telescope_key].get("target", {}).get("data_arcsec_extension") is not None
-    )
+    margin = data_margin(cfg[telescope_key])
     # only mode constant reads zero sky outside the grid, which the margin check assumes
-    if data_margin and cfg_parser.rotation_and_shift_algorithm.mode != "constant":
+    if (
+        margin is not None
+        and cfg_parser.rotation_and_shift_algorithm.mode != "constant"
+    ):
         raise ValueError(
-            "target.data_arcsec_extension needs rotation_and_shift mode 'constant'"
+            "target.data_arcsec_extension (automatic unless 'off') needs "
+            "rotation_and_shift mode 'constant'; set it to 'off' for the PSF-sized "
+            "cutout"
         )
 
     target_plotting = ResidualPlottingInformation()
@@ -211,6 +261,17 @@ def build_jwst_likelihoods(
             ),
             side_effects=PreloaderSideEffects(filter_alignment=filter_alignment),
         )
+
+        correction_prior = filter_alignment.load_correction_prior(
+            cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
+            number_of_observations=len(filepaths),
+        )
+        rotation_center = SkyCoord(filter_alignment.boresight)
+        reach = _correction_reach(correction_prior, grid, rotation_center)
+        if margin == "auto":
+            m = _auto_margin(reach, grid, preload_results.filter_meta.pixel_scale)
+            preload_results.target_bounds.cast_to_numpy()
+            preload_results.target_bounds.adjust_bounds(np.array([-m, m, -m, m]))
 
         if filter in cfg_parser.data_bounds_adjust:
             preload_results.target_bounds.cast_to_numpy()
@@ -246,11 +307,6 @@ def build_jwst_likelihoods(
         )
 
         # Constructing the Likelihood
-        correction_prior = filter_alignment.load_correction_prior(
-            cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
-            number_of_observations=len(filepaths),
-        )
-        rotation_center = SkyCoord(filter_alignment.boresight)
         shift_and_rotation_correction = ShiftAndRotationCorrection(
             domain_key=filter,
             correction_prior=correction_prior,
@@ -260,9 +316,15 @@ def build_jwst_likelihoods(
         logger.debug(
             f"{filter}: {int(dataload_results.target_data.mask.sum())} unmasked data pixels"
         )
-        if data_margin:
-            reach = _correction_reach(correction_prior, grid, rotation_center)
+        if margin is not None:
             _check_cutout_holds_sky(dataload_results.target_data, grid, filter, reach)
+        algorithm = _band_limited(
+            cfg_parser.rotation_and_shift_algorithm,
+            filter,
+            cfg_parser.subsample_target,
+            preload_results.filter_meta.pixel_scale,
+            grid,
+        )
 
         likelihood_target: SingleTargetLikelihood = build_target_likelihood(
             filter_name=filter,
@@ -274,7 +336,7 @@ def build_jwst_likelihoods(
                     target_data=dataload_results.target_data,
                     filter_meta=preload_results.filter_meta,
                     sky_meta=sky_meta,
-                    rotation_and_shift_algorithm=cfg_parser.rotation_and_shift_algorithm,
+                    rotation_and_shift_algorithm=algorithm,
                     zero_flux_prior_configs=cfg_parser.zero_flux_prior_configs,
                     shift_and_rotation_correction=shift_and_rotation_correction,
                 )

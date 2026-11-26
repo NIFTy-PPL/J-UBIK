@@ -133,6 +133,10 @@ def build_rotation_and_shift(
 
     elif isinstance(algorithm_config, NufftConfig):
         band_limit = algorithm_config.band_limit
+        if band_limit == "auto":
+            raise ValueError(
+                "resolve a NUFFT band_limit of 'auto' for the filter first"
+            )
         if band_limit is not None:
             if sky_pixel_scales_yx is None:
                 raise ValueError("a NUFFT band_limit needs the sky's pixel scales")

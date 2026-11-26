@@ -18,14 +18,27 @@ class LinearConfig:
 @dataclass
 class NufftConfig:
     mode: str = "constant"
-    band_limit: float | None = None  # cycles per arcsec; None keeps every sky mode
+    # cycles per arcsec; None keeps every sky mode; "auto" (the config's default) is
+    # resolved per filter by the likelihood builder
+    band_limit: float | str | None = None
 
     @classmethod
     def from_yaml_dict(cls, settings: dict):
-        return cls(
-            mode=settings.get("mode", "constant"),
-            band_limit=settings.get("band_limit"),
-        )
+        band = settings.get("band_limit", "auto")
+        if band is None or band is False or band == "off":
+            band = None
+        elif band != "auto":
+            if (
+                isinstance(band, bool)
+                or not isinstance(band, (int, float))
+                or band <= 0
+            ):
+                raise ValueError(
+                    "rotation_and_shift.nufft.band_limit: a number > 0 (cycles per "
+                    f"arcsec), 'auto' or 'off', got {band!r}"
+                )
+            band = float(band)
+        return cls(mode=settings.get("mode", "constant"), band_limit=band)
 
 
 # Factory function implementing the Strategy Pattern

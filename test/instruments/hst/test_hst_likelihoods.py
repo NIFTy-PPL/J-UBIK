@@ -114,6 +114,22 @@ def test_nicmos_evaluates_jits_and_differentiates(tmp_path):
     assert np.any(jax.tree.leaves(gradient["sky"])[0] != 0)
 
 
+def test_nufft_without_a_band_limit_builds(tmp_path):
+    # a band_limit left out means "auto", which only the JWST builder resolves (it
+    # needs D/lambda); here it means no band limit
+    pytest.importorskip("jax_finufft")
+    nicmos = _nicmos_entry(tmp_path, "n")
+    grid = _grid(nicmos["path"])
+    config = _config(tmp_path, [nicmos])
+    config["telescope"] = deepcopy(TELESCOPE)
+    rotation_and_shift = config["telescope"]["rotation_and_shift"]
+    rotation_and_shift.pop("linear")
+    rotation_and_shift["nufft"] = {"mode": "constant"}
+    likelihood = build_hst_likelihoods(config, grid, _sky_domain(grid)).likelihood
+    x = jft.random_like(jax.random.PRNGKey(0), likelihood.domain)
+    assert np.isfinite(likelihood(x))
+
+
 def test_wfpc2_likelihood_raises(tmp_path):
     nicmos = _nicmos_entry(tmp_path, "n")
     wfpc2 = dict(
