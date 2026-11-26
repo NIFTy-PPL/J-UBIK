@@ -256,6 +256,12 @@ def build_jwst_likelihoods(
             cfg[telescope_key].get("target", {}).get("data_arcsec_extension")
             is not None
         ):
+            # only mode constant reads zero sky outside the grid, which the check assumes
+            if cfg_parser.rotation_and_shift_algorithm.mode != "constant":
+                raise ValueError(
+                    "target.data_arcsec_extension needs rotation_and_shift mode "
+                    "'constant'"
+                )
             reach = _correction_reach(correction_prior, grid, rotation_center)
             _check_cutout_holds_sky(dataload_results.target_data, grid, filter, reach)
 

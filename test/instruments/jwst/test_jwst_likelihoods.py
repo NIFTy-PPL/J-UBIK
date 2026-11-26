@@ -595,6 +595,20 @@ def test_data_extension_holds_the_prior_reach(
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
 
 
+@pytest.mark.parametrize(
+    "algorithm",
+    [{"linear": {"order": 1, "mode": "wrap"}}, {"nufft": {"mode": "wrap"}}],
+)
+def test_data_extension_needs_mode_constant(patched_seams, tmp_path, algorithm):
+    # outside constant mode the sky reads nonzero beyond the grid, so no margin holds it
+    cfg = make_config(tmp_path)
+    cfg["telescope"]["rotation_and_shift"].pop("linear")
+    cfg["telescope"]["rotation_and_shift"] |= algorithm
+    cfg["telescope"]["target"]["data_arcsec_extension"] = 1.0
+    with pytest.raises(ValueError, match="mode 'constant'"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
 def test_data_extension_null_keeps_the_default(patched_seams, tmp_path):
     cfg = make_config(tmp_path)
     default = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
