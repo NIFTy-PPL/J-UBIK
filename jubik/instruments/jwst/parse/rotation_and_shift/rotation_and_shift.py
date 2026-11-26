@@ -19,12 +19,16 @@ class LinearConfig:
 class NufftConfig:
     mode: str = "constant"
     band_limit: float | None = None  # cycles per arcsec; None keeps every sky mode
+    # PSF, pixel and shift as transfer functions, one point per detector pixel
+    # (`build_fourier_response`); needs band_limit and mode constant
+    fourier: bool = False
 
     @classmethod
     def from_yaml_dict(cls, settings: dict):
         return cls(
             mode=settings.get("mode", "constant"),
             band_limit=settings.get("band_limit"),
+            fourier=settings.get("fourier", False),
         )
 
 

@@ -16,11 +16,24 @@ from astropy.coordinates import SkyCoord
 from numpy.typing import ArrayLike
 
 from ....models.distributions import build_parametric_prior_from_prior_config
+from ....parse.models.distributions.distributions import (
+    DeltaPriorConfig,
+    UniformPriorConfig,
+)
 from ....wcs.wcs_astropy import WcsAstropy
 from ..parse.rotation_and_shift.coordinates_correction import (
     CoordinatesCorrectionPriorConfig,
     CorrectionModel,
 )
+
+
+def prior_extent(prior) -> float:
+    """The largest |value| a prior gives: its bounds, or |mean| + 3 sigma."""
+    if isinstance(prior, UniformPriorConfig):
+        return float(np.max(np.abs([prior.min, prior.max])))
+    if isinstance(prior, DeltaPriorConfig):
+        return float(np.max(np.abs(prior.mean)))
+    return float(np.max(np.abs(prior.mean) + 3 * np.abs(prior.sigma)))
 
 
 class ShiftAndRotationCorrection(jft.Model):
@@ -30,6 +43,7 @@ class ShiftAndRotationCorrection(jft.Model):
         correction_prior: CoordinatesCorrectionPriorConfig,
         rotation_center: SkyCoord,
     ):
+        self.prior = correction_prior
         self.model = correction_prior.model  # shift, rshift
         self.shift: jft.Model = build_parametric_prior_from_prior_config(
             domain_key + "_shift",
@@ -112,9 +126,12 @@ class CoordinatesCorrectedShiftOnly(jft.Model):
 
         super().__init__(domain=self.shift_and_rotation.shift.domain)
 
+    def shift_in_pixels(self, params: dict) -> ArrayLike:
+        """The shift in pixels of the reconstruction grid, `(n_exposures, 2)`."""
+        return self.shift_and_rotation.shift(params) * self._1_over_pixel_distance
+
     def __call__(self, params: dict) -> ArrayLike:
-        shift = self.shift_and_rotation.shift(params) * self._1_over_pixel_distance
-        return self._coordinates + shift[self._shape]
+        return self._coordinates + self.shift_in_pixels(params)[self._shape]
 
 
 class CoordinatesCorrectedShiftAndRotation(jft.Model):

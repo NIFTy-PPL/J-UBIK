@@ -10,10 +10,6 @@ from nifty.re import logger
 
 from ...grid import Grid
 from ...likelihood import connect_likelihood_to_model
-from ...parse.models.distributions.distributions import (
-    DeltaPriorConfig,
-    UniformPriorConfig,
-)
 from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
 from .config_handler import get_grid_extension_from_config
@@ -46,7 +42,10 @@ from .parse.parsing_step import ConfigParserJwst
 from .parse.rotation_and_shift.coordinates_correction import CorrectionModel
 from .plotting.alignment import MultiFilterAlignmentPlottingInformation
 from .plotting.residuals import ResidualPlottingInformation
-from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
+from .rotation_and_shift.coordinates_correction import (
+    ShiftAndRotationCorrection,
+    prior_extent,
+)
 from .variable_covariance.inverse_standard_deviation import (
     build_inverse_standard_deviation,
 )
@@ -91,26 +90,17 @@ class JwstLikelihoodProducts:
     alignment: MultiFilterAlignmentProducts | None
 
 
-def _prior_extent(prior) -> float:
-    """The largest |value| a prior gives: its bounds, or |mean| + 3 sigma."""
-    if isinstance(prior, UniformPriorConfig):
-        return float(np.max(np.abs([prior.min, prior.max])))
-    if isinstance(prior, DeltaPriorConfig):
-        return float(np.max(np.abs(prior.mean)))
-    return float(np.max(np.abs(prior.mean) + 3 * np.abs(prior.sigma)))
-
-
 def _correction_reach(prior, grid: Grid, rotation_center: SkyCoord) -> float:
     """How far (arcsec) the shift, and for rshift the rotation about
     `rotation_center`, can move a subsample point."""
-    reach = _prior_extent(prior.shift_in(u.arcsec))
+    reach = prior_extent(prior.shift_in(u.arcsec))
     if prior.model == CorrectionModel.RSHIFT:
         corners = grid.spatial.world_corners()
         # one rotation centre per exposure: the farthest centre-corner pair
         far = np.max(
             [c.separation(rotation_center).to_value(u.arcsec) for c in corners]
         )
-        reach += _prior_extent(prior.rotation_in(u.rad)) * far
+        reach += prior_extent(prior.rotation_in(u.rad)) * far
     return reach
 
 

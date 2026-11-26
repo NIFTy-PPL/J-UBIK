@@ -34,6 +34,7 @@ from .rotation_and_shift.coordinates_correction import (
     ShiftAndRotationCorrection,
     build_coordinates_corrected_for_field,
 )
+from .rotation_and_shift.fourier_response import build_fourier_response
 from .zero_flux_model import build_zero_flux_model
 
 
@@ -306,13 +307,40 @@ def build_target_response(
     """
 
     energy_name = input_config.filter_name
-    sky_in_subsampled_data = build_sky_to_subsampled_data(
-        sky_domain={energy_name: input_config.sky_filter.target[energy_name]},
-        data_subsampled_centers=input_config.target_data.subsample_centers,
-        sky_wcs=input_config.grid.spatial,
-        rotation_and_shift_algorithm=input_config.rotation_and_shift_algorithm,
-        shift_and_rotation_correction=input_config.shift_and_rotation_correction,
+    sky_domain = {energy_name: input_config.sky_filter.target[energy_name]}
+    algorithm = input_config.rotation_and_shift_algorithm
+    target_data = input_config.target_data
+    psf = (
+        np.array(target_data.psf)
+        if input_config.psf_model is None
+        else input_config.psf_model
     )
+    subsample = target_data.subsample
+    if isinstance(algorithm, NufftConfig) and algorithm.fourier:
+        if input_config.psf_model is not None:
+            raise NotImplementedError("the Fourier response takes a static kernel")
+        sky_in_subsampled_data = build_fourier_response(
+            sky_domain,
+            build_coordinates_corrected_for_field(
+                input_config.shift_and_rotation_correction,
+                input_config.grid.spatial,
+                target_data.subsample_centers,
+            ),
+            psf,
+            subsample,
+            algorithm,
+            input_config.grid.spatial.pixel_scales_yx,
+            np.array(target_data.mask),
+        )
+        psf, subsample = None, 1  # in its transfer function: pixel-averaged data
+    else:
+        sky_in_subsampled_data = build_sky_to_subsampled_data(
+            sky_domain=sky_domain,
+            data_subsampled_centers=target_data.subsample_centers,
+            sky_wcs=input_config.grid.spatial,
+            rotation_and_shift_algorithm=algorithm,
+            shift_and_rotation_correction=input_config.shift_and_rotation_correction,
+        )
 
     zero_flux_prior_config = (
         None
@@ -336,13 +364,9 @@ def build_target_response(
     return build_jwst_response(
         sky_in_subsampled_data=sky_in_subsampled_data,
         data_meta=input_config.filter_meta,
-        data_subsample=input_config.target_data.subsample,
+        data_subsample=subsample,
         sky_meta=input_config.sky_meta,
-        psf=(
-            np.array(input_config.target_data.psf)
-            if input_config.psf_model is None
-            else input_config.psf_model
-        ),
+        psf=psf,
         zero_flux_model=zero_flux_model,
         data_mask=np.array(input_config.target_data.mask),
         calibration_model=calibration_model,

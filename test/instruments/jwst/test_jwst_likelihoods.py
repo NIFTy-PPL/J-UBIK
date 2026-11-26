@@ -619,3 +619,30 @@ def test_data_extension_null_keeps_the_default(patched_seams, tmp_path):
     assert null.likelihoods[0].builder.data.shape == (
         default.likelihoods[0].builder.data.shape
     )
+
+
+def test_fourier_response_through_the_config(patched_seams, monkeypatch, tmp_path):
+    pytest.importorskip("jax_finufft")
+    monkeypatch.setattr(jwst_kernel, "build_webb_psf", broad_build_webb_psf)
+
+    def build(**nufft):
+        cfg = make_config(tmp_path, zero_flux=True)
+        cfg["telescope"]["rotation_and_shift"].pop("linear")
+        # 4 cycles/arcsec: below the 0.1" sky's Nyquist frequency
+        cfg["telescope"]["rotation_and_shift"]["nufft"] = {"band_limit": 4.0} | nufft
+        return build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
+
+    fourier, subsampled = build(fourier=True), build()
+    assert (
+        fourier.likelihood.domain.tree.keys()
+        == subsampled.likelihood.domain.tree.keys()
+    )
+    x = jft.random_like(jax.random.PRNGKey(2), fourier.likelihood.domain).tree
+    yy, xx = np.mgrid[: GRID_SHAPE[0], : GRID_SHAPE[1]] - 7.5
+    x["sky"] = np.exp(-0.5 * (yy**2 + xx**2) / 3**2)[None]  # smooth, zero at the edges
+    big = x | fourier.sky_filter(x)
+    (f,), (s,) = fourier.likelihoods, subsampled.likelihoods
+    model_f, model_s = (np.asarray(t.builder.response(big)) for t in (f, s))
+    # the 2x sum of point samples misses one sub-pixel box: 8e-4 of the peak here
+    np.testing.assert_allclose(model_f, model_s, rtol=0, atol=1e-3 * model_s.max())
+    assert np.isfinite(float(fourier.likelihood(x)))
