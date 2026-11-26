@@ -503,3 +503,64 @@ def test_file_filter_must_match_config_key(patched_seams, tmp_path):
     cfg["files"]["filter"] = {"f277w": cfg["files"]["filter"].pop(FILTER.lower())}
     with pytest.raises(ValueError, match=f"observation is {FILTER}.*f277w"):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+def broad_build_webb_psf(
+    camera, filter, center_pixel, webbpsf_path, subsample, *a, **k
+):
+    """A Gaussian core with power-law wings, 0.3" wide, so sky light near the sky
+    edge reaches unmasked pixels through the PSF."""
+    size = 9 * subsample + 1
+    r = np.hypot(*np.mgrid[:size, :size] - (size - 1) / 2)
+    psf = np.exp(-0.5 * (r / subsample) ** 2) + 0.01 / (1 + (r / subsample) ** 3)
+    return psf / psf.sum()
+
+
+@pytest.mark.parametrize(
+    "algorithm",
+    [{"linear": {"order": 1, "mode": "constant"}}, {"nufft": {"mode": "constant"}}],
+)
+def test_data_extension_crops_the_cutout_without_changing_the_likelihood(
+    patched_seams, monkeypatch, tmp_path, algorithm
+):
+    if "nufft" in algorithm:
+        pytest.importorskip("jax_finufft")
+    monkeypatch.setattr(jwst_kernel, "build_webb_psf", broad_build_webb_psf)
+
+    def build(extension):
+        cfg = make_config(tmp_path, zero_flux=True)
+        cfg["telescope"]["psf"]["psf_arcsec_extension"] = 1.0
+        cfg["telescope"]["rotation_and_shift"] |= algorithm
+        cfg["telescope"]["rotation_and_shift"].pop(
+            "nufft" if "linear" in algorithm else "linear", None
+        )
+        if extension is not None:
+            cfg["telescope"]["target"]["data_arcsec_extension"] = extension
+        return build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
+
+    wide, cropped = build(None), build(0.2)
+    (bw,), (bc,) = (
+        [t.builder for t in wide.likelihoods],
+        [t.builder for t in cropped.likelihoods],
+    )
+    assert bc.data.shape[-1] < bw.data.shape[-1]
+    np.testing.assert_array_equal(bc.data[bc.mask], bw.data[bw.mask])
+
+    x = jft.random_like(jax.random.PRNGKey(1), wide.likelihood.domain).tree
+    # zero shift, the geometry the cutout is checked for; a bright sky edge row,
+    # so a crop that dropped sky light would show
+    x = x | {
+        f"{FILTER.lower()}_shift": np.zeros_like(x[f"{FILTER.lower()}_shift"]),
+        "sky": x["sky"].at[..., 0, :].add(5.0),
+    }
+    np.testing.assert_allclose(
+        float(cropped.likelihood(x)), float(wide.likelihood(x)), rtol=1e-12
+    )
+
+
+@pytest.mark.parametrize("extension", [0.0, -0.1])
+def test_data_extension_too_small_raises(patched_seams, tmp_path, extension):
+    cfg = make_config(tmp_path)
+    cfg["telescope"]["target"]["data_arcsec_extension"] = extension
+    with pytest.raises(ValueError, match="data_arcsec_extension"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)

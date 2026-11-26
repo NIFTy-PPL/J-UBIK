@@ -3,6 +3,7 @@ from functools import reduce
 from typing import Union
 
 import nifty.re as jft
+import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from nifty.re import logger
@@ -83,6 +84,21 @@ class MultiFilterAlignmentProducts:
 class JwstLikelihoodProducts:
     target: TargetLikelihoodProducts
     alignment: MultiFilterAlignmentProducts | None
+
+
+def _check_cutout_holds_sky(target_data, grid: Grid, filter: str) -> None:
+    """Raise if a subsample point on a cutout's outer ring lies within one sky pixel
+    of the sky (the reach of the linear and the NUFFT interpolation): the sky would
+    then extend beyond the cutout and its light there would be lost. At zero shift."""
+    n_y, n_x = grid.spatial.shape_yx
+    for centers in target_data.subsample_centers:
+        for edge in (centers[0], centers[-1], centers[:, 0], centers[:, -1]):
+            y, x = grid.spatial.world_to_indices_yx(edge)
+            if np.any((y >= -1) & (y <= n_y) & (x >= -1) & (x <= n_x)):
+                raise ValueError(
+                    f"{filter}: the sky reaches the data cutout's edge; raise "
+                    "target.data_arcsec_extension"
+                )
 
 
 def build_jwst_likelihoods(
@@ -203,6 +219,8 @@ def build_jwst_likelihoods(
         logger.debug(
             f"{filter}: {int(dataload_results.target_data.mask.sum())} unmasked data pixels"
         )
+        if "data_arcsec_extension" in cfg[telescope_key].get("target", {}):
+            _check_cutout_holds_sky(dataload_results.target_data, grid, filter)
 
         likelihood_target: SingleTargetLikelihood = build_target_likelihood(
             filter_name=filter,
