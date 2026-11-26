@@ -225,6 +225,7 @@ def build_sky_to_subsampled_data(
         sky_domain=sky_domain,
         coordinates=coordinates,
         algorithm_config=rotation_and_shift_algorithm,
+        sky_pixel_scales_yx=sky_wcs.pixel_scales_yx,
     )
 
 

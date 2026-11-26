@@ -18,10 +18,14 @@ class LinearConfig:
 @dataclass
 class NufftConfig:
     mode: str = "constant"
+    band_limit: float | None = None  # cycles per arcsec; None keeps every sky mode
 
     @classmethod
     def from_yaml_dict(cls, settings: dict):
-        return cls(mode=settings.get("mode", "constant"))
+        return cls(
+            mode=settings.get("mode", "constant"),
+            band_limit=settings.get("band_limit"),
+        )
 
 
 # Factory function implementing the Strategy Pattern

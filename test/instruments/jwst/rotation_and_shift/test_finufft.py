@@ -210,3 +210,81 @@ def test_stacked_exposures_one_call_matches_per_exposure():
     _, vjp_per = jax.vjp(per_exposure, field, centers)
     for g_one, g_per in zip(vjp_one(cotangent), vjp_per(cotangent)):
         np.testing.assert_allclose(g_one, g_per, rtol=0, atol=1e-12)
+
+
+def _cosine(freq_yx, shape_or_points):
+    """cos(2 pi (f_y y + f_x x)) on a grid shape or at ``(2, ...)`` points."""
+    y, x = (
+        np.mgrid[: shape_or_points[0], : shape_or_points[1]]
+        if isinstance(shape_or_points, tuple)
+        else shape_or_points
+    )
+    return np.cos(2 * np.pi * (freq_yx[0] * y + freq_yx[1] * x))
+
+
+def test_band_limit_keeps_the_band_and_drops_the_rest():
+    # Grid harmonics on a non-square sky, an anisotropic band (0.2, 0.25)
+    # cycles per pixel. Kept: one cosine well inside, one at 0.22 along x (only
+    # inside because the x half-axis is 0.25, not 0.2). Dropped: one at 0.30
+    # along x, and one inside the band's bounding box but outside the ellipse
+    # (1.17 > 1), which only the elliptical mask, not the crop, removes.
+    shape, band = (96, 128), (0.2, 0.25)
+    kept = (10 / 96, 6 / 128), (0.0, 28 / 128)
+    dropped = (0.0, 38 / 128), (17 / 96, 20 / 128)
+    field = sum(_cosine(f, shape) for f in kept + dropped)
+    points = (
+        np.random.default_rng(6).uniform(0, 1, (2, 9, 11))
+        * np.array(shape)[:, None, None]
+    )
+
+    limited = build_nufft_rotation_and_shift(shape, (9, 11), band_limit=band)
+    expected = sum(_cosine(f, points) for f in kept)
+    np.testing.assert_allclose(limited(field, points), expected, rtol=0, atol=1e-5)
+    full = build_nufft_rotation_and_shift(shape, (9, 11))  # control: all four
+    every = sum(_cosine(f, points) for f in kept + dropped)
+    np.testing.assert_allclose(full(field, points), every, rtol=0, atol=1e-5)
+
+
+@pytest.mark.parametrize("band", [(0.5, 0.2), (0.2, 0.0), (-0.1, 0.2)])
+def test_band_limit_must_lie_below_nyquist(band):
+    with pytest.raises(ValueError, match="band_limit"):
+        build_nufft_rotation_and_shift((16, 16), (4, 4), band_limit=band)
+
+
+def test_band_limit_config_is_cycles_per_arcsec():
+    import jax
+    from astropy import units as u
+
+    from jubik.instruments.jwst.parse.rotation_and_shift.rotation_and_shift import (
+        NufftConfig,
+    )
+    from jubik.instruments.jwst.rotation_and_shift.coordinates_correction import (
+        Coordinates,
+    )
+    from jubik.instruments.jwst.rotation_and_shift.rotation_and_shift import (
+        build_rotation_and_shift,
+    )
+
+    # 0.01" sky pixels: 20 cycles per arcsec is 0.2 cycles per pixel, so a
+    # cosine at 0.19 cycles per pixel passes and one at 0.21 is removed.
+    shape, scales = (100, 100), [0.01, 0.01] * u.arcsec
+    passes, removed = (19 / 100, 0.0), (0.0, 21 / 100)
+    field = _cosine(passes, shape) + _cosine(removed, shape)
+    points = np.random.default_rng(7).uniform(0, 100, (2, 5, 6))
+    config = NufftConfig.from_yaml_dict({"band_limit": 20.0})
+    assert config.band_limit == 20.0
+    rs = build_rotation_and_shift(
+        {"sky": jax.ShapeDtypeStruct(shape, field.dtype)},
+        Coordinates(points),
+        config,
+        sky_pixel_scales_yx=scales.to(u.deg),
+    )
+    np.testing.assert_allclose(
+        rs({"sky": field}), _cosine(passes, points), rtol=0, atol=1e-5
+    )
+    with pytest.raises(ValueError, match="pixel scales"):
+        build_rotation_and_shift(
+            {"sky": jax.ShapeDtypeStruct(shape, field.dtype)},
+            Coordinates(points),
+            config,
+        )

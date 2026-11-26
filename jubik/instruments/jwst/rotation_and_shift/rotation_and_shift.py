@@ -8,6 +8,7 @@
 from typing import Callable, Union
 
 import nifty.re as jft
+from astropy import units as u
 from jax import vmap
 
 from ..parse.rotation_and_shift.rotation_and_shift import (
@@ -102,6 +103,7 @@ def build_rotation_and_shift(
         Coordinates, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation
     ],
     algorithm_config: Union[LinearConfig, NufftConfig],
+    sky_pixel_scales_yx: u.Quantity | None = None,
 ) -> RotationAndShift:
     """Builds a RotationAndShift according to the `algorithm_config`.
 
@@ -114,6 +116,9 @@ def build_rotation_and_shift(
     coordinates: Union[ArrayLike, Callable, CoordinatesCorrectedShiftOnly, CoordinatesCorrectedShiftAndRotation]
         The coordinates of the subsampled data. Precise: The coordinate center
         of the data pixel.
+    sky_pixel_scales_yx: astropy.units.Quantity | None
+        The sky's pixel scales, to read a NUFFT `band_limit` (cycles per arcsec)
+        in cycles per sky pixel. Needed only with a band limit.
 
     Returns
     -------
@@ -127,11 +132,17 @@ def build_rotation_and_shift(
         )
 
     elif isinstance(algorithm_config, NufftConfig):
+        band_limit = algorithm_config.band_limit
+        if band_limit is not None:
+            if sky_pixel_scales_yx is None:
+                raise ValueError("a NUFFT band_limit needs the sky's pixel scales")
+            band_limit = tuple(band_limit * sky_pixel_scales_yx.to_value(u.arcsec))
         # TODO: check output shape
         rotation_and_shift_algorithm = build_nufft_rotation_and_shift(
             sky_shape=_infere_shape_from_domain(sky_domain, "sky"),
             out_shape=_infere_shape_from_domain(coordinates.target, "coordinates"),
-            **vars(algorithm_config),
+            mode=algorithm_config.mode,
+            band_limit=band_limit,
         )
 
     if len(coordinates.target.shape) == 3:
