@@ -21,6 +21,7 @@ from .data.preloader.data_bounds import DataBoundsAdjust
 @dataclass
 class ConfigParserJwst:
     zero_flux_prior_configs: ZeroFluxPriorConfigs
+    calibration_prior_configs: ZeroFluxPriorConfigs | None
     rotation_and_shift_algorithm: LinearConfig | NufftConfig
     psf_kernel_configs: JwstPsfKernelConfig
     data_loader: DataLoadingConfig
@@ -53,6 +54,15 @@ class ConfigParserJwst:
             raise ValueError(
                 f"psf correction: {sorted(unknown)} match no filter of "
                 f"{sorted(filters)}"
+            )
+        # one factor per exposure, the zero_flux layout: a default and filter keys
+        calibration = ZeroFluxPriorConfigs.from_yaml_dict(
+            cfg[telescope_key].get("calibration")
+        )
+        # a mistyped filter key would silently fall back to the default prior
+        if unknown := set(calibration.names if calibration else {}) - filters:
+            raise ValueError(
+                f"calibration: {sorted(unknown)} match no filter of {sorted(filters)}"
             )
         corner_masks = CornerMasks.from_yaml_dict(cfg[telescope_key])
 
@@ -90,6 +100,7 @@ class ConfigParserJwst:
 
         return cls(
             zero_flux_prior_configs=zero_flux_prior_configs,
+            calibration_prior_configs=calibration,
             rotation_and_shift_algorithm=rotation_and_shift_algorithm,
             psf_kernel_configs=psf_kernel_configs,
             data_loader=data_loader,

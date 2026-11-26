@@ -212,7 +212,16 @@ def build_jwst_likelihoods(
     files_key: str = "files",
     telescope_key: str = "telescope",
 ) -> JwstLikelihoodProducts:
-    """Build the jwst likelihood_target according to the config and grid."""
+    """Build the jwst likelihood_target according to the config and grid.
+
+    An optional ``calibration`` block in the telescope config (``default`` and
+    filter keys, as ``zero_flux``) gives each exposure of a filter its own
+    multiplicative flux factor, ``{filter}_target_calibration`` of shape
+    ``(n_exposures, 1, 1)``; without it the factor is 1. The factors are taken
+    relative to their geometric mean (the filter's sky carries the common factor)
+    and need a lognormal prior; its mean drops out as a common factor, and only
+    std / mean, which sets the log-space width, matters.
+    """
 
     assert isinstance(sky_domain, dict) and len(sky_domain) == 1, (
         "Only works with a single sky key since the likelihood has learnable parameters"
@@ -392,6 +401,14 @@ def build_jwst_likelihoods(
                     rotation_and_shift_algorithm=algorithm,
                     zero_flux_prior_configs=cfg_parser.zero_flux_prior_configs,
                     shift_and_rotation_correction=shift_and_rotation_correction,
+                    calibration_prior=(
+                        None
+                        if cfg_parser.calibration_prior_configs is None
+                        else cfg_parser.calibration_prior_configs.get_name_setting_or_default(
+                            filter
+                        )
+                    ),
+                    calibration_relative=True,
                 )
             ),
             target_data=dataload_results.target_data,

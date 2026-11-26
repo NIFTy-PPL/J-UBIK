@@ -266,6 +266,9 @@ class TargetResponseInput:
         Per-exposure values need shape `(n_exposures, 1, 1)`, e.g. from
         `prior_config_factory(..., shape=(n_exposures, 1, 1))`; a normal prior with
         sigma 0 holds an exposure at its mean.
+    calibration_relative : bool
+        Take the factors relative to their geometric mean (mean-zero log factors,
+        see `build_calibration_model`), for a lognormal `calibration_prior`.
     """
 
     filter_name: str
@@ -279,6 +282,7 @@ class TargetResponseInput:
     shift_and_rotation_correction: ShiftAndRotationCorrection | None
     psf_model: jft.Model | None = None
     calibration_prior: ProbabilityConfig | None = None
+    calibration_relative: bool = False
 
 
 def build_target_response(
@@ -331,6 +335,7 @@ def build_target_response(
         f"{input_config.filter_name}_target",
         input_config.calibration_prior,
         shape=exposures_shape,
+        relative=input_config.calibration_relative,
     )
 
     return build_jwst_response(
