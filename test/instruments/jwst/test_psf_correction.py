@@ -268,8 +268,9 @@ def test_a_stamp_without_unmasked_pixels_raises():
 
 
 def gaussian_kernel(sigma, k):
-    """A sampled Gaussian of std `sigma` kernel pixels, summing to one: band-
-    limited to ~1e-9 at the grid's Nyquist frequency for sigma >= 1.5."""
+    """A sampled Gaussian of std `sigma` kernel pixels, summing to one. Its
+    transfer at the grid's Nyquist frequency is 3e-9 for sigma 2, 1.5e-5 for
+    1.5; beyond 0.8 cycles per pixel, what a sky band of 0.2 meets, 5e-13."""
     y, x = np.mgrid[:k, :k] - (k - 1) / 2
     g = np.exp(-0.5 * (x**2 + y**2) / sigma**2)
     return g / g.sum()

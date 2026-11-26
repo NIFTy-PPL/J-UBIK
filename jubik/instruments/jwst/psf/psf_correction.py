@@ -31,7 +31,8 @@ Workflow, per filter:
 2. ``correction, models = fit_psf_correction(stamps, subsample, filter,
    radius=..., width=(mean, std), fluence=<the arc's peak per integration>)``;
    check the residuals of held-out stars (stars fitted with
-   ``correction.at_fluence(peak).apply(kernel)`` and nothing learned).
+   ``correction.at_fluence(peak).apply(kernel)``, nothing learned and
+   ``pixel_box=correction.pixel_box``).
 3. ``correction.save(path)`` and ``psf: {correction: {<filter>: path}}``.
 
 The texture's spectrum is fixed (see `log_texture_model`); choose its std and
