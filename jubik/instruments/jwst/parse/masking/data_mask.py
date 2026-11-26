@@ -150,7 +150,11 @@ class NanMasks:
 
         if name != bound_name:
             raise ValueError(
-                f"{key} bounds and extra nan-mask do not match:\n"
+                f"{key} bounds and extra nan-mask do not match. The cutout follows "
+                "the sky grid and target.data_arcsec_extension, which unless set is "
+                "automatic and follows the shift and rotation priors too: rebuild "
+                "the mask for these bounds, set a number to keep them fixed, or set "
+                "'off' for the PSF-sized cutout.\n"
                 f"load='{name}'\n"
                 f"mask='{bound_name}'\n"
                 f"bounds={np.asarray(bounds).tolist()}\n"

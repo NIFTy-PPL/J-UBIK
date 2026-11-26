@@ -503,3 +503,305 @@ def test_file_filter_must_match_config_key(patched_seams, tmp_path):
     cfg["files"]["filter"] = {"f277w": cfg["files"]["filter"].pop(FILTER.lower())}
     with pytest.raises(ValueError, match=f"observation is {FILTER}.*f277w"):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+def broad_build_webb_psf(
+    camera, filter, center_pixel, webbpsf_path, subsample, *a, **k
+):
+    """A Gaussian core with power-law wings, 0.3" wide, so sky light near the sky
+    edge reaches unmasked pixels through the PSF."""
+    size = 9 * subsample + 1
+    r = np.hypot(*np.mgrid[:size, :size] - (size - 1) / 2)
+    psf = np.exp(-0.5 * (r / subsample) ** 2) + 0.01 / (1 + (r / subsample) ** 3)
+    return psf / psf.sum()
+
+
+def rotated_jwst_data(angle_deg):
+    """`FakeJwstData` on a detector turned by `angle_deg` against the sky grid."""
+
+    class RotatedJwstData(FakeJwstData):
+        def __init__(self, filepath: str):
+            super().__init__(filepath)
+            self.wcs = WcsAstropy(
+                center=CENTER,
+                shape=DATA_SHAPE,
+                fov=u.Quantity([get_pixel_distance(FILTER) * s for s in DATA_SHAPE]),
+                position_angle=angle_deg * u.deg,
+            )
+
+    return RotatedJwstData
+
+
+@pytest.mark.parametrize("rotated", [False, True])
+@pytest.mark.parametrize(
+    "algorithm",
+    [{"linear": {"order": 1, "mode": "constant"}}, {"nufft": {"mode": "constant"}}],
+)
+def test_data_extension_crops_the_cutout_without_changing_the_likelihood(
+    patched_seams, monkeypatch, tmp_path, algorithm, rotated
+):
+    if "nufft" in algorithm:
+        pytest.importorskip("jax_finufft")
+    monkeypatch.setattr(jwst_kernel, "build_webb_psf", broad_build_webb_psf)
+    if rotated:
+        for site in JWST_DATA_SITES:
+            monkeypatch.setattr(site, rotated_jwst_data(30))
+
+    def build(extension):
+        cfg = make_config(tmp_path, zero_flux=True)
+        cfg["telescope"]["psf"]["psf_arcsec_extension"] = 1.4
+        # a 0.02" shift prior: the margin must hold the sky moved by 3 sigma
+        priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
+        priors["default"]["shift"] = ["normal", 0.0, 0.02]
+        cfg["telescope"]["rotation_and_shift"] |= algorithm
+        cfg["telescope"]["rotation_and_shift"].pop(
+            "nufft" if "linear" in algorithm else "linear", None
+        )
+        if extension is not None:
+            cfg["telescope"]["target"]["data_arcsec_extension"] = extension
+        return build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
+
+    # the PSF-sized cutout (the opt-out), an explicit margin, the automatic one
+    wide, cropped, auto = build("off"), build(0.4), build(None)
+    bw = wide.likelihoods[0].builder
+    x = jft.random_like(jax.random.PRNGKey(1), wide.likelihood.domain).tree
+    # a nonzero shift latent, and a bright sky edge row, so a crop that dropped
+    # sky light would show
+    assert np.abs(x[f"{FILTER.lower()}_shift"]).max() > 1
+    x = x | {"sky": x["sky"].at[..., 0, :].add(5.0)}
+    for small in (cropped, auto):
+        bc = small.likelihoods[0].builder
+        assert bc.data.shape[-1] < bw.data.shape[-1]
+        np.testing.assert_array_equal(bc.data[bc.mask], bw.data[bw.mask])
+        np.testing.assert_allclose(
+            float(small.likelihood(x)), float(wide.likelihood(x)), rtol=1e-12
+        )
+
+
+# 0.2" holds the sky at zero shift, not when the 0.1" shift prior moves it by 3
+# sigma; a negative margin is refused outright, however large
+@pytest.mark.parametrize("extension", [0.0, 0.2, -0.1, -5.0])
+def test_data_extension_too_small_raises(patched_seams, tmp_path, extension):
+    cfg = make_config(tmp_path)
+    cfg["telescope"]["target"]["data_arcsec_extension"] = extension
+    with pytest.raises(ValueError, match="data_arcsec_extension"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+@pytest.mark.parametrize(
+    "model, shift, rotation, raises",
+    [
+        ("shift", ["delta", 0.0, 0.0], ["delta", 0.0, 0.0], False),
+        ("shift", ["uniform", -0.3, 0.3], ["delta", 0.0, 0.0], True),
+        ("shift", ["uniform", -0.3, 0.0], ["delta", 0.0, 0.0], True),  # one-sided
+        ("shift", ["delta", 0.3, 0.0], ["delta", 0.0, 0.0], True),  # a known shift
+        # about the grid centre (the fake boresight) 3 x 5 deg moves the
+        # corners, 1.1" out, by 0.3"
+        ("rshift", ["delta", 0.0, 0.0], ["normal", 0.0, 5.0], True),
+        ("rshift", ["delta", 0.0, 0.0], ["delta", 0.0, 0.0], False),
+    ],
+)
+def test_data_extension_holds_the_prior_reach(
+    patched_seams, tmp_path, model, shift, rotation, raises
+):
+    cfg = make_config(tmp_path, n_files=2)
+    priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
+    priors["model"] = model
+    priors["default"] = {"shift": shift, "rotation": rotation}
+    cfg["telescope"]["target"]["data_arcsec_extension"] = 0.4
+    if raises:
+        with pytest.raises(ValueError, match="data_arcsec_extension"):
+            build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+    else:
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+@pytest.mark.parametrize(
+    "algorithm",
+    [{"linear": {"order": 1, "mode": "wrap"}}, {"nufft": {"mode": "wrap"}}],
+)
+def test_data_extension_needs_mode_constant(patched_seams, tmp_path, algorithm):
+    # outside constant mode the sky reads nonzero beyond the grid, so no margin holds
+    # it: an explicit and the automatic margin are refused, the opt-out builds
+    cfg = make_config(tmp_path)
+    cfg["telescope"]["rotation_and_shift"].pop("linear")
+    cfg["telescope"]["rotation_and_shift"] |= algorithm
+    for extension in (1.0, "absent"):
+        target = cfg["telescope"]["target"]
+        target.pop("data_arcsec_extension", None)
+        if extension != "absent":
+            target["data_arcsec_extension"] = extension
+        with pytest.raises(ValueError, match="mode 'constant'"):
+            build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+    cfg["telescope"]["target"]["data_arcsec_extension"] = "off"
+    build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+def test_data_extension_off_is_the_psf_sized_cutout(patched_seams, tmp_path):
+    # off, false and null all give the cutout of psf_arcsec_extension (0.4" here),
+    # which an explicit 0.4 reproduces once a delta shift prior lets it pass the check
+    def shape(value, shift=None):
+        cfg = make_config(tmp_path)
+        cfg["telescope"]["target"]["data_arcsec_extension"] = value
+        if shift is not None:
+            priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
+            priors["default"]["shift"] = shift
+        target = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
+        return target.likelihoods[0].builder.data.shape
+
+    psf = shape(0.4, shift=["delta", 0.0, 0.0])
+    assert shape("off") == shape(False) == shape(None) == psf
+
+
+def test_automatic_data_extension_follows_the_shift_prior(patched_seams, tmp_path):
+    def width(sigma):
+        cfg = make_config(tmp_path)
+        priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
+        priors["default"]["shift"] = ["normal", 0.0, sigma]
+        target = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
+        return target.likelihoods[0].builder.data.shape[-1]
+
+    # 3 sigma more reach on each side, times sqrt(2) for any detector angle, in
+    # 0.063" data pixels
+    expected = 2 * 3 * 0.08 * np.sqrt(2) / 0.063
+    assert width(0.1) - width(0.02) == pytest.approx(expected, abs=2)
+
+
+@pytest.mark.parametrize("angle", [30, 60])
+def test_automatic_data_extension_on_a_rotated_detector(
+    patched_seams, monkeypatch, tmp_path, angle
+):
+    # the check widens the sky along its own axes, which on a turned detector reach
+    # further than the same width along the detector's: the default must still build
+    for site in JWST_DATA_SITES:
+        monkeypatch.setattr(site, rotated_jwst_data(angle))
+    build_jwst_likelihoods(make_config(tmp_path), make_grid(), SKY_DOMAIN)
+
+
+def test_automatic_data_extension_is_checked(patched_seams, tmp_path):
+    # the automatic margin is checked too: a per-filter bounds adjustment that eats it
+    # raises instead of dropping sky light
+    cfg = make_config(tmp_path)
+    cfg["telescope"]["adjust_data_bounds"] = {FILTER.lower(): [10, -10, 10, -10]}
+    with pytest.raises(ValueError, match="reaches the data cutout's edge"):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+def grid_of(n, fov_arcsec, fov_y_arcsec=None):
+    fov = [fov_arcsec, fov_y_arcsec or fov_arcsec] * u.arcsec  # (x, y)
+    spatial = WcsAstropy(center=CENTER, shape=(n, n), fov=fov)
+    return Grid(spatial=spatial, spectral=Color([3.6, 5.2] * u.um))
+
+
+B1938_SKY = grid_of(512, 3.0)  # 5.86 mas: Nyquist 85.3, corner 120.7 cycles/arcsec
+
+
+@pytest.mark.parametrize(
+    "filter_name, pixel, subsample, grid, expected",
+    [
+        # f_s / 2 = 23.85, inside F277W's window 13.0 (6.5 m / 2.423 um) to 34.7
+        ("F277W", 0.0629, 3, B1938_SKY, 3 / 0.0629 / 2),
+        # f_s 143: the sky's corner 120.7 + 13.0 cannot alias, no band needed
+        ("F277W", 0.0629, 9, B1938_SKY, None),
+        # f_s / 2 = 48.4, inside F115W's window 31.1 (6.5 m / 1.013 um) to 65.7
+        ("F115W", 0.031, 3, B1938_SKY, 3 / 0.031 / 2),
+        # 0.0256" (x) by 0.0128" (y) sky pixels, Nyquist 19.5 and 39: f_s / 2 = 20
+        # is capped below the lower one
+        ("F277W", 0.075, 3, grid_of(117, 3.0, 1.5), 0.999 * 0.5 / (3.0 / 117)),
+    ],
+)
+def test_automatic_band_limit(filter_name, pixel, subsample, grid, expected):
+    from jubik.instruments.jwst.jwst_likelihoods import _band_limited
+    from jubik.instruments.jwst.parse.rotation_and_shift.rotation_and_shift import (
+        NufftConfig,
+    )
+
+    auto = NufftConfig(band_limit="auto")
+    band = _band_limited(
+        auto, filter_name, subsample, pixel * u.arcsec, grid
+    ).band_limit
+    if expected is None:
+        assert band is None
+    else:
+        assert band == pytest.approx(expected, rel=1e-9)
+
+
+@pytest.mark.parametrize(
+    "filter_name, pixel, subsample, band, window",
+    [
+        # f_s 15.9 < 2 x 8.12 (6.5 m / 3.881 um): no window at all
+        ("F444W", 0.063, 1, "auto", "8.12 and 7.753"),
+        ("F277W", 0.0629, 3, 10.0, "13.01 and 34.69"),  # below k_c: cuts the passband
+        ("F277W", 0.0629, 3, 40.0, "13.01 and 34.69"),  # above f_s - k_c: aliases
+    ],
+)
+def test_band_limit_outside_the_window_raises(
+    filter_name, pixel, subsample, band, window
+):
+    from jubik.instruments.jwst.jwst_likelihoods import _band_limited
+    from jubik.instruments.jwst.parse.rotation_and_shift.rotation_and_shift import (
+        NufftConfig,
+    )
+
+    with pytest.raises(ValueError, match=f"optics' cutoff D/lambda {window}"):
+        _band_limited(
+            NufftConfig(band_limit=band),
+            filter_name,
+            subsample,
+            pixel * u.arcsec,
+            B1938_SKY,
+        )
+
+
+def test_band_limit_config_values():
+    from jubik.instruments.jwst.jwst_likelihoods import _band_limited
+    from jubik.instruments.jwst.parse.rotation_and_shift.rotation_and_shift import (
+        NufftConfig,
+    )
+
+    parse = NufftConfig.from_yaml_dict
+    assert parse({}).band_limit == "auto"
+    for off in (None, False, "off"):
+        assert parse({"band_limit": off}).band_limit is None
+    assert parse({"band_limit": 20}).band_limit == 20.0
+    for bad in (0, -1.0, True, "20"):
+        with pytest.raises(ValueError, match="band_limit"):
+            parse({"band_limit": bad})
+    # an explicit band inside the window and no band pass through unchanged
+    for band in (20.0, None):
+        cfg = NufftConfig(band_limit=band)
+        out = _band_limited(cfg, "F277W", 3, 0.0629 * u.arcsec, B1938_SKY)
+        assert out.band_limit == band
+
+
+def test_builder_hands_the_nufft_the_automatic_band(
+    patched_seams, monkeypatch, tmp_path
+):
+    pytest.importorskip("jax_finufft")
+    import jubik.instruments.jwst.rotation_and_shift.rotation_and_shift as rs
+
+    seen = []
+    real = rs.build_nufft_rotation_and_shift
+
+    def spy(*args, **kwargs):
+        seen.append(kwargs.get("band_limit"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(rs, "build_nufft_rotation_and_shift", spy)
+    # a 0.025" sky: its corner 28.3 + F444W's 8.1 exceeds f_s = 2 / 0.063 = 31.7, so
+    # the band is f_s / 2 = 15.9 cycles/arcsec, 0.397 cycles per sky pixel
+    grid, domain = grid_of(64, 1.6), {"sky": jft.ShapeWithDtype((1, 64, 64), float)}
+    for band, expected in (("absent", 2 / 0.063 / 2 * 0.025), ("off", None)):
+        cfg = make_config(tmp_path)
+        cfg["telescope"]["rotation_and_shift"] = {
+            "nufft": {"mode": "constant"}
+            | ({} if band == "absent" else {"band_limit": band}),
+            "correction_priors": cfg["telescope"]["rotation_and_shift"][
+                "correction_priors"
+            ],
+        }
+        build_jwst_likelihoods(cfg, grid, domain)
+        if expected is None:
+            assert seen[-1] is None
+        else:
+            assert seen[-1] == pytest.approx((expected, expected), rel=1e-9)

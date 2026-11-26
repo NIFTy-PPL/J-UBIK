@@ -19,6 +19,7 @@ def build_nufft_rotation_and_shift(
     sky_shape: tuple[int, int],
     out_shape: tuple[int, int],
     mode: str = "constant",
+    band_limit: tuple[float, float] | None = None,
 ) -> Callable[[ArrayLike], ArrayLike]:
     """Builds non-uniform FFT interpolation model.
 
@@ -30,6 +31,12 @@ def build_nufft_rotation_and_shift(
         The shape of the subsample array.
     mode: str
         The mode of the interpolation. ['wrap', 'constant']
+    band_limit: tuple[float, float] | None
+        ``(b_y, b_x)`` in cycles per sky pixel, each in (0, 0.5). The sky's
+        Fourier modes outside the ellipse ``(k_y / b_y)^2 + (k_x / b_x)^2 <= 1``
+        are dropped before the interpolation, so sampling the subsampled grid
+        cannot alias sky structure beyond the band into the data. None keeps
+        every mode.
 
     Returns
     -------
@@ -48,6 +55,20 @@ def build_nufft_rotation_and_shift(
 
     xy_conversion = 2 * np.pi / np.array(sky_shape)[:, None]
     out_shape = tuple(out_shape)
+    crop, keep = (...,), 1.0
+    if band_limit is not None:
+        # unit conversion can round a Nyquist band to just below 0.5
+        if not all(0 < b < 0.5 * (1 - 1e-9) for b in band_limit):
+            raise ValueError(
+                f"band_limit {band_limit} cycles per sky pixel: each must lie in "
+                "(0, 0.5), below the sky grid's Nyquist frequency"
+            )
+        ky, kx = (np.fft.fftshift(np.fft.fftfreq(n)) for n in sky_shape)
+        disk = (ky[:, None] / band_limit[0]) ** 2 + (kx / band_limit[1]) ** 2 <= 1
+        # symmetric about k = 0, so the crop is odd and centred as FINUFFT reads it
+        rows, cols = np.flatnonzero(disk.any(1)), np.flatnonzero(disk.any(0))
+        crop = (slice(rows[0], rows[-1] + 1), slice(cols[0], cols[-1] + 1))
+        keep = jnp.asarray(disk[crop])
 
     def rotate_shift_subsample(field, subsample_centers_yx):
         actual_shape = tuple(subsample_centers_yx.shape[-2:])
@@ -56,7 +77,7 @@ def build_nufft_rotation_and_shift(
                 f"subsample_centers_yx trailing shape {actual_shape} "
                 f"does not match out_shape {out_shape}"
             )
-        f_field = fftshift(ifft2(field))  # FINUFFT modeord=0 wants centered k
+        f_field = fftshift(ifft2(field))[crop] * keep  # FINUFFT modeord=0: centred k
         # Stacked exposures go into one nufft2 call: under vmap jax_finufft
         # copies the sky per exposure and runs one setpts/execute each.
         centers_yx = jnp.moveaxis(subsample_centers_yx, -3, 0)
