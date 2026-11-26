@@ -22,7 +22,8 @@ def get_grid_extension_from_config(
     `psf.psf_arcsec_extension` (both in arcsec, summed over both sides).
     `PsfStatic` pads its own FFT, so the cutout needs to hold only every data pixel
     with a subsample point on the sky: the sky plus about two data pixels and the
-    range of the fitted shifts. Data beyond that are masked and only cost time.
+    reach of the shift (and rotation) prior, which the build checks when
+    `data_arcsec_extension` is given. Data beyond that are masked and only cost time.
 
     Parameters
     ----------
@@ -43,9 +44,9 @@ def get_grid_extension_from_config(
     psf_arcsec_extension = telescope_config["psf"].get("psf_arcsec_extension")
     if psf_arcsec_extension is None:
         raise ValueError("Need to provide either `psf_arcsec_extension`.")
-    extension = telescope_config.get("target", {}).get(
-        "data_arcsec_extension", psf_arcsec_extension
-    )
+    extension = telescope_config.get("target", {}).get("data_arcsec_extension")
+    if extension is None:
+        extension = psf_arcsec_extension
 
     assert len(reconstruction_grid.spatial.pixel_scales_yx) == 2
 

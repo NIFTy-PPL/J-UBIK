@@ -265,10 +265,11 @@ def test_band_limit_config_is_cycles_per_arcsec():
         build_rotation_and_shift,
     )
 
-    # 0.01" sky pixels: 20 cycles per arcsec is 0.2 cycles per pixel, so a
-    # cosine at 0.19 cycles per pixel passes and one at 0.21 is removed.
-    shape, scales = (100, 100), [0.01, 0.01] * u.arcsec
-    passes, removed = (19 / 100, 0.0), (0.0, 21 / 100)
+    # 0.01" x 0.02" sky pixels: 20 cycles per arcsec is (0.2, 0.4) cycles per
+    # pixel in (y, x), so a cosine at 0.3 cycles per pixel passes along x and
+    # one at 0.3 along y is removed (a y/x mix-up swaps the two).
+    shape, scales = (100, 100), [0.01, 0.02] * u.arcsec
+    passes, removed = (0.0, 30 / 100), (30 / 100, 0.0)
     field = _cosine(passes, shape) + _cosine(removed, shape)
     points = np.random.default_rng(7).uniform(0, 100, (2, 5, 6))
     config = NufftConfig.from_yaml_dict({"band_limit": 20.0})

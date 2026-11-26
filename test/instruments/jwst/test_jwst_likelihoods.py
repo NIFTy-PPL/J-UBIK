@@ -530,6 +530,9 @@ def test_data_extension_crops_the_cutout_without_changing_the_likelihood(
     def build(extension):
         cfg = make_config(tmp_path, zero_flux=True)
         cfg["telescope"]["psf"]["psf_arcsec_extension"] = 1.0
+        # a 0.02" shift prior: the margin must hold the sky moved by 3 sigma
+        priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
+        priors["default"]["shift"] = ["normal", 0.0, 0.02]
         cfg["telescope"]["rotation_and_shift"] |= algorithm
         cfg["telescope"]["rotation_and_shift"].pop(
             "nufft" if "linear" in algorithm else "linear", None
@@ -538,7 +541,7 @@ def test_data_extension_crops_the_cutout_without_changing_the_likelihood(
             cfg["telescope"]["target"]["data_arcsec_extension"] = extension
         return build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
 
-    wide, cropped = build(None), build(0.2)
+    wide, cropped = build(None), build(0.4)
     (bw,), (bc,) = (
         [t.builder for t in wide.likelihoods],
         [t.builder for t in cropped.likelihoods],
@@ -547,20 +550,29 @@ def test_data_extension_crops_the_cutout_without_changing_the_likelihood(
     np.testing.assert_array_equal(bc.data[bc.mask], bw.data[bw.mask])
 
     x = jft.random_like(jax.random.PRNGKey(1), wide.likelihood.domain).tree
-    # zero shift, the geometry the cutout is checked for; a bright sky edge row,
-    # so a crop that dropped sky light would show
-    x = x | {
-        f"{FILTER.lower()}_shift": np.zeros_like(x[f"{FILTER.lower()}_shift"]),
-        "sky": x["sky"].at[..., 0, :].add(5.0),
-    }
+    # a nonzero shift latent, and a bright sky edge row, so a crop that dropped
+    # sky light would show
+    assert np.abs(x[f"{FILTER.lower()}_shift"]).max() > 1
+    x = x | {"sky": x["sky"].at[..., 0, :].add(5.0)}
     np.testing.assert_allclose(
         float(cropped.likelihood(x)), float(wide.likelihood(x)), rtol=1e-12
     )
 
 
-@pytest.mark.parametrize("extension", [0.0, -0.1])
+# 0.2" holds the sky at zero shift, not when the 0.1" shift prior moves it by 3 sigma
+@pytest.mark.parametrize("extension", [0.0, 0.2, -0.1])
 def test_data_extension_too_small_raises(patched_seams, tmp_path, extension):
     cfg = make_config(tmp_path)
     cfg["telescope"]["target"]["data_arcsec_extension"] = extension
     with pytest.raises(ValueError, match="data_arcsec_extension"):
         build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)
+
+
+def test_data_extension_null_keeps_the_default(patched_seams, tmp_path):
+    cfg = make_config(tmp_path)
+    default = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
+    cfg["telescope"]["target"]["data_arcsec_extension"] = None
+    null = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
+    assert null.likelihoods[0].builder.data.shape == (
+        default.likelihoods[0].builder.data.shape
+    )

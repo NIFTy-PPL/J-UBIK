@@ -10,6 +10,10 @@ from nifty.re import logger
 
 from ...grid import Grid
 from ...likelihood import connect_likelihood_to_model
+from ...parse.models.distributions.distributions import (
+    DeltaPriorConfig,
+    UniformPriorConfig,
+)
 from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
 from .config_handler import get_grid_extension_from_config
@@ -39,6 +43,7 @@ from .likelihood.target_likelihood import (
 from .minimization.mask_hot_pixel_data import HotPixelMaskingData
 from .parse.jwst_response import SkyMetaInformation
 from .parse.parsing_step import ConfigParserJwst
+from .parse.rotation_and_shift.coordinates_correction import CorrectionModel
 from .plotting.alignment import MultiFilterAlignmentPlottingInformation
 from .plotting.residuals import ResidualPlottingInformation
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
@@ -86,18 +91,41 @@ class JwstLikelihoodProducts:
     alignment: MultiFilterAlignmentProducts | None
 
 
-def _check_cutout_holds_sky(target_data, grid: Grid, filter: str) -> None:
+def _prior_extent(prior) -> float:
+    """The largest |value| a prior gives: its bounds, or |mean| + 3 sigma."""
+    if isinstance(prior, UniformPriorConfig):
+        return float(np.max(np.abs([prior.min, prior.max])))
+    if isinstance(prior, DeltaPriorConfig):
+        return float(np.max(np.abs(prior.mean)))
+    return float(np.max(np.abs(prior.mean) + 3 * np.abs(prior.sigma)))
+
+
+def _correction_reach(prior, grid: Grid, rotation_center: SkyCoord) -> float:
+    """How far (arcsec) the shift, and for rshift the rotation about
+    `rotation_center`, can move a subsample point."""
+    reach = _prior_extent(prior.shift_in(u.arcsec))
+    if prior.model == CorrectionModel.RSHIFT:
+        corners = grid.spatial.world_corners()
+        far = max(c.separation(rotation_center).to_value(u.arcsec) for c in corners)
+        reach += _prior_extent(prior.rotation_in(u.rad)) * far
+    return reach
+
+
+def _check_cutout_holds_sky(target_data, grid: Grid, filter: str, reach: float):
     """Raise if a subsample point on a cutout's outer ring lies within one sky pixel
-    of the sky (the reach of the linear and the NUFFT interpolation): the sky would
-    then extend beyond the cutout and its light there would be lost. At zero shift."""
+    (the reach of the linear and the NUFFT interpolation) plus `reach` arcsec of the
+    sky: the sky could then extend beyond the cutout and its light there be lost."""
     n_y, n_x = grid.spatial.shape_yx
+    pad_y, pad_x = 1 + reach / grid.spatial.pixel_scales_yx.to_value(u.arcsec)
     for centers in target_data.subsample_centers:
         for edge in (centers[0], centers[-1], centers[:, 0], centers[:, -1]):
             y, x = grid.spatial.world_to_indices_yx(edge)
-            if np.any((y >= -1) & (y <= n_y) & (x >= -1) & (x <= n_x)):
+            near_y = (y >= -pad_y) & (y <= n_y - 1 + pad_y)
+            if np.any(near_y & (x >= -pad_x) & (x <= n_x - 1 + pad_x)):
                 raise ValueError(
-                    f"{filter}: the sky reaches the data cutout's edge; raise "
-                    "target.data_arcsec_extension"
+                    f"{filter}: the sky, moved by up to {reach:.3g} arcsec by the "
+                    "shift and rotation priors, reaches the data cutout's edge; "
+                    "raise target.data_arcsec_extension"
                 )
 
 
@@ -207,20 +235,26 @@ def build_jwst_likelihoods(
         )
 
         # Constructing the Likelihood
+        correction_prior = filter_alignment.load_correction_prior(
+            cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
+            number_of_observations=len(filepaths),
+        )
+        rotation_center = SkyCoord(filter_alignment.boresight)
         shift_and_rotation_correction = ShiftAndRotationCorrection(
             domain_key=filter,
-            correction_prior=filter_alignment.load_correction_prior(
-                cfg[telescope_key]["rotation_and_shift"]["correction_priors"],
-                number_of_observations=len(filepaths),
-            ),
-            rotation_center=SkyCoord(filter_alignment.boresight),
+            correction_prior=correction_prior,
+            rotation_center=rotation_center,
         )
 
         logger.debug(
             f"{filter}: {int(dataload_results.target_data.mask.sum())} unmasked data pixels"
         )
-        if "data_arcsec_extension" in cfg[telescope_key].get("target", {}):
-            _check_cutout_holds_sky(dataload_results.target_data, grid, filter)
+        if (
+            cfg[telescope_key].get("target", {}).get("data_arcsec_extension")
+            is not None
+        ):
+            reach = _correction_reach(correction_prior, grid, rotation_center)
+            _check_cutout_holds_sky(dataload_results.target_data, grid, filter, reach)
 
         likelihood_target: SingleTargetLikelihood = build_target_likelihood(
             filter_name=filter,
