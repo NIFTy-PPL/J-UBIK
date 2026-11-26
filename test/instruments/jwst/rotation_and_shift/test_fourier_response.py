@@ -128,7 +128,9 @@ def test_matches_the_exact_pixel_integral():
         np.testing.assert_allclose(out[e][mask[e]], exact, rtol=0, atol=1e-7)
 
 
-def test_without_correction_and_one_kernel():
+# production kernels are even (STPSF 168 x 168): recentred onto an odd grid
+@pytest.mark.parametrize("size", [31, 30])
+def test_without_correction_and_one_kernel(size):
     # no shift latents; one 2-D kernel for every exposure; no mask, and pixels 22
     # sky pixels past the sky, beyond the kernel's spare reach: the padding must
     # hold the data's extent too
@@ -138,7 +140,7 @@ def test_without_correction_and_one_kernel():
     response = build_fourier_response(
         {"sky": jft.ShapeWithDtype(SKY, float)},
         Coordinates(fixed),
-        _kernel((2.0, 2.0), (0.0, 0.0)),
+        _kernel((2.0, 2.0), (0.0, 0.0), size),
         S,
         NufftConfig(band_limit=0.38),
         ONE,

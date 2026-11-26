@@ -25,7 +25,6 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from astropy import units as u
-from jax.numpy.fft import fftshift, ifft
 from scipy.fft import next_fast_len
 
 from ..parse.rotation_and_shift.rotation_and_shift import NufftConfig
@@ -48,8 +47,7 @@ class FourierResponse(jft.Model):
         transfer: np.ndarray,
         frequencies: tuple[np.ndarray, np.ndarray],
         points: tuple[np.ndarray, np.ndarray],
-        pad_shape: tuple[int, int],
-        crop: tuple[slice, slice],
+        dft: tuple[np.ndarray, np.ndarray],
         out_shape: tuple[int, int, int],
     ):
         """
@@ -65,9 +63,10 @@ class FourierResponse(jft.Model):
         frequencies : tuple
             The cropped modes' `k_y` `(My, 1)` and `k_x` `(1, Mx)`, cycles per sky pixel.
         points : tuple
-            The pixel centres times 2 pi / pad_shape, `(n, H * W)` each.
-        pad_shape, crop :
-            The zero-padded sky grid and the band's bounding box on its centred modes.
+            The pixel centres times 2 pi / the padded grid, `(n, H * W)` each.
+        dft : tuple
+            `(A_y, A_x)`, `(My, N_y)` and `(Mx, N_x)`: `A_y sky A_x^T` are the
+            cropped modes of the zero-padded sky's `ifft2`, centred.
         out_shape : tuple
             `(n, H, W)`.
         """
@@ -77,18 +76,15 @@ class FourierResponse(jft.Model):
         self._transfer = jnp.asarray(transfer)
         self._ky, self._kx = (jnp.asarray(k) for k in frequencies)
         self._points = tuple(jnp.asarray(p) for p in points)
-        self._pad, self._crop, self._out_shape = pad_shape, crop, out_shape
+        self._dft = tuple(jnp.asarray(a) for a in dft)
+        self._out_shape = out_shape
         super().__init__(domain=sky_domain | coordinates.domain)
 
     def __call__(self, x):
         from jax_finufft import nufft2
 
-        # ifft2 of the zero-padded sky, cropped to the band after each axis;
         # FINUFFT modeord=0: centred k, as in build_nufft_rotation_and_shift
-        modes = x[self._sky_key]
-        for axis, (n, crop) in enumerate(zip(self._pad, self._crop)):
-            modes = fftshift(ifft(modes, n=n, axis=axis), axes=axis)
-            modes = modes[(slice(None),) * axis + (crop,)]
+        modes = self._dft[0] @ x[self._sky_key] @ self._dft[1].T
         modes = modes * self._transfer
         if self._shift is not None:
             shift = self._shift(x)[..., None, None]  # sky pixels
@@ -198,6 +194,12 @@ def build_fourier_response(
         2 * np.pi * np.mod(centres[:, i], m).reshape(n, -1) / m
         for i, m in enumerate(pad)
     )
+    # the band of the padded sky's ifft2 by matrix DFTs: cheaper than the FFT,
+    # which computes the whole padded grid
+    dft = tuple(
+        np.exp(2j * np.pi * np.outer(f, np.arange(nn))) / m
+        for f, nn, m in zip((ky.ravel(), kx.ravel()), sky_shape, pad)
+    )
     return FourierResponse(
-        sky_domain, coordinates, transfer, (ky, kx), points, pad, crop, out_shape
+        sky_domain, coordinates, transfer, (ky, kx), points, dft, out_shape
     )
