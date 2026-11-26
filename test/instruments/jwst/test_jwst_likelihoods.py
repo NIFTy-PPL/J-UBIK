@@ -805,3 +805,129 @@ def test_builder_hands_the_nufft_the_automatic_band(
             assert seen[-1] is None
         else:
             assert seen[-1] == pytest.approx((expected, expected), rel=1e-9)
+
+
+class RotatedDitheredJwstData(FakeJwstData):
+    """`FakeJwstData` turned 30 deg against the sky grid, each file `fake_<i>`
+    dithered by its own fraction of a pixel."""
+
+    def __init__(self, filepath: str):
+        super().__init__(filepath)
+        ii = int(Path(filepath).stem.split("_")[-1])
+        self.wcs = WcsAstropy(
+            center=CENTER.spherical_offsets_by(
+                (0.017 + 0.029 * ii) * u.arcsec, (0.023 - 0.011 * ii) * u.arcsec
+            ),
+            shape=DATA_SHAPE,
+            fov=self.wcs.geometry.fov_xy,
+            position_angle=30 * u.deg,
+        )
+
+
+@pytest.fixture
+def rotated_loads(monkeypatch, patched_seams):
+    """Rotated and dithered fake data; the target data of every `load_data`
+    call, each with a copy of its mask as loaded."""
+    from jubik.instruments.jwst import jwst_likelihoods
+
+    for site in JWST_DATA_SITES:
+        monkeypatch.setattr(site, RotatedDitheredJwstData)
+    loaded, load_data = [], jwst_likelihoods.load_data
+
+    def spy(*args, **kwargs):
+        out = load_data(*args, **kwargs)
+        loaded.append((out.target_data, out.target_data.mask.copy()))
+        return out
+
+    monkeypatch.setattr(jwst_likelihoods, "load_data", spy)
+    return loaded
+
+
+@pytest.mark.parametrize(
+    "model, rotation, rotation_reach",
+    [
+        ("shift", ["delta", 0.0, 0.0], 0.0),
+        # 3 sigma about the grid centre (the fake boresight) moves the box's
+        # corners, half a diagonal out, by this much
+        ("rshift", ["normal", 0.0, 0.5], np.radians(1.5) * np.hypot(0.8, 0.72)),
+    ],
+)
+def test_data_inset_masks_the_pixels_near_the_sky_edge(
+    rotated_loads, tmp_path, model, rotation, rotation_reach
+):
+    # non-square sky pixels, 0.1" in x and 0.12" in y
+    grid = Grid(
+        spatial=WcsAstropy(center=CENTER, shape=(16, 12), fov=[1.6, 1.44] * u.arcsec),
+        spectral=make_grid().spectral,
+    )
+    cfg = make_config(tmp_path, n_files=3)
+    priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
+    priors["model"] = model
+    priors["default"] = {"shift": ["normal", 0.01, 0.02], "rotation": rotation}
+    cfg["telescope"]["target"]["data_arcsec_inset"] = 0.2
+    sky_domain = {"sky": jft.ShapeWithDtype((1, 12, 16), float)}
+    target = build_jwst_likelihoods(cfg, grid, sky_domain).target
+    builder = target.likelihoods[0].builder
+
+    ((target_data, loaded_mask),) = rotated_loads
+    # plus the priors' reach: the shift's |mean| + 3 sigma, and the rotation's
+    inset = 0.2 + 0.01 + 3 * 0.02 + rotation_reach
+    s = cfg["telescope"]["target"]["subsample"]
+    inside = []
+    for centers in target_data.subsample_centers:
+        # depth inside the box from the tangent-plane offsets to the grid centre
+        east, north = CENTER.spherical_offsets_to(centers)
+        depth = np.minimum(0.8 - np.abs(east.arcsec), 0.72 - np.abs(north.arcsec))
+        h, w = depth.shape
+        inside.append(depth.reshape(h // s, s, w // s, s).min(axis=(1, 3)) >= inset)
+    expected = loaded_mask & np.stack(inside)
+    assert 0 < expected.sum() < loaded_mask.sum()
+    np.testing.assert_array_equal(builder.mask, expected)
+
+
+@pytest.mark.parametrize("inset", ["absent", None])
+def test_data_inset_off_keeps_the_loaded_mask(rotated_loads, tmp_path, inset):
+    cfg = make_config(tmp_path, n_files=2)
+    if inset != "absent":
+        cfg["telescope"]["target"]["data_arcsec_inset"] = inset
+    target = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
+    builder = target.likelihoods[0].builder
+    ((_, loaded_mask),) = rotated_loads
+    np.testing.assert_array_equal(builder.mask, loaded_mask)
+
+
+def test_data_inset_leaves_the_model_on_kept_pixels(
+    rotated_loads, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(jwst_kernel, "build_webb_psf", broad_build_webb_psf)
+
+    def build(inset):
+        cfg = make_config(tmp_path, n_files=2, zero_flux=True)
+        priors = cfg["telescope"]["rotation_and_shift"]["correction_priors"]
+        priors["default"]["shift"] = ["normal", 0.0, 0.02]
+        if inset is not None:
+            cfg["telescope"]["target"]["data_arcsec_inset"] = inset
+        target = build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN).target
+        return target.likelihoods[0].builder
+
+    full, inset = build(None), build(0.2)
+    assert 0 < inset.mask.sum() < full.mask.sum()
+    x = jft.random_like(jax.random.PRNGKey(2), full.response.domain)
+    model = np.zeros(full.mask.shape)
+    model[full.mask] = full.response(x)
+    np.testing.assert_allclose(inset.response(x), model[inset.mask], rtol=1e-12)
+
+
+@pytest.mark.parametrize(
+    "inset, match",
+    [
+        (-0.1, "data_arcsec_inset must be >= 0"),
+        # with the 0.3" shift reach, 0.5" is past the 1.6" box's centre
+        (0.5, "masks every data pixel"),
+    ],
+)
+def test_data_inset_refuses_negative_and_empty(patched_seams, tmp_path, inset, match):
+    cfg = make_config(tmp_path)
+    cfg["telescope"]["target"]["data_arcsec_inset"] = inset
+    with pytest.raises(ValueError, match=match):
+        build_jwst_likelihoods(cfg, make_grid(), SKY_DOMAIN)

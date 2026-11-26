@@ -185,6 +185,23 @@ def _band_limited(algorithm, filter: str, subsample: int, pixel_scale, grid: Gri
     return replace(algorithm, band_limit=float(band))
 
 
+def _data_inside_sky(target_data, grid: Grid, inset: float) -> np.ndarray:
+    """True for the data pixels whose subsample points all lie at least `inset`
+    arcsec inside the sky box, whose edges are half a sky pixel beyond the outer
+    pixel centres."""
+    n_y, n_x = grid.spatial.shape_yx
+    low_y, low_x = inset / grid.spatial.pixel_scales_yx.to_value(u.arcsec) - 0.5
+    s = target_data.subsample
+    inside = []
+    for centers in target_data.subsample_centers:
+        y, x = grid.spatial.world_to_indices_yx(centers)
+        points = (y >= low_y) & (y <= n_y - 1 - low_y)
+        points &= (x >= low_x) & (x <= n_x - 1 - low_x)
+        h, w = points.shape
+        inside.append(points.reshape(h // s, s, w // s, s).all(axis=(1, 3)))
+    return np.stack(inside)
+
+
 def build_jwst_likelihoods(
     cfg: dict,
     grid: Grid,
@@ -237,6 +254,11 @@ def build_jwst_likelihoods(
             "rotation_and_shift mode 'constant'; set it to 'off' for the PSF-sized "
             "cutout"
         )
+    # fit only data this far (arcsec) inside the sky box, so that light from beyond
+    # the box near the fitted data's edge can come from sky that is not fitted directly
+    data_inset = cfg[telescope_key].get("target", {}).get("data_arcsec_inset")
+    if data_inset is not None and data_inset < 0:
+        raise ValueError(f"target.data_arcsec_inset must be >= 0, got {data_inset}")
 
     target_plotting = ResidualPlottingInformation()
     target_filter_likelihoods = []
@@ -319,11 +341,28 @@ def build_jwst_likelihoods(
             rotation_center=rotation_center,
         )
 
+        if margin is not None:
+            _check_cutout_holds_sky(dataload_results.target_data, grid, filter, reach)
+        if data_inset is not None:
+            target_data = dataload_results.target_data
+            kept = int(target_data.mask.sum())
+            # the inset holds after the correction priors move the data by `reach`
+            target_data.mask = target_data.mask & _data_inside_sky(
+                target_data, grid, data_inset + reach
+            )
+            if not target_data.mask.any():
+                raise ValueError(
+                    f"{filter}: target.data_arcsec_inset {data_inset} plus the "
+                    f"priors' reach {reach:.3g} arcsec masks every data pixel"
+                )
+            logger.info(
+                f"{filter}: target.data_arcsec_inset {data_inset} + prior reach "
+                f"{reach:.3g} arcsec masks {kept - int(target_data.mask.sum())} of "
+                f"{kept} unmasked data pixels"
+            )
         logger.debug(
             f"{filter}: {int(dataload_results.target_data.mask.sum())} unmasked data pixels"
         )
-        if margin is not None:
-            _check_cutout_holds_sky(dataload_results.target_data, grid, filter, reach)
         algorithm = _band_limited(
             cfg_parser.rotation_and_shift_algorithm,
             filter,
