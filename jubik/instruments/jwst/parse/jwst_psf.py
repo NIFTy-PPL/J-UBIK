@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 
-
 WEBBPSF_PATH_KEY = "webbpsf_path"
 PSF_LIBRARY_PATH_KEY = "psf_library"
 PSF_ARCSEC_KEY = "psf_arcsec_extension"
@@ -8,6 +7,7 @@ NORMALIZE_KEY = "normalize"
 NORMALIZE_DEFAULT = "last"
 OPD_BY_DATE_KEY = "opd_by_date"
 CORRECTION_KEY = "correction"
+PIXEL_BOX_KEY = "pixel_box"
 
 
 @dataclass
@@ -43,6 +43,15 @@ class JwstPsfKernelConfig:
               opd_by_date: true          # the base the correction was learned on
               correction:
                 f277w: psf_correction/f277w.npz
+    pixel_box : bool
+        If True, every kernel (after its correction) is convolved with a box
+        one kernel pixel (sub-pixel) wide, `with_pixel_box`: the sum of the
+        subsampled pixels is then the exact pixel integral, where the sky is
+        band-limited (``rotation_and_shift.nufft.band_limit``) and the band
+        plus the kernel's stays below the subsampled sampling frequency.
+        Without it the sum is sharper by one sub-pixel box. A correction must
+        have been learned the same way (`fit_psf_correction(pixel_box=...)`).
+        Default is False.
     """
 
     webbpsf_path: str
@@ -51,6 +60,7 @@ class JwstPsfKernelConfig:
     normalize: str
     opd_by_date: bool = False
     correction: dict[str, str] = field(default_factory=dict)
+    pixel_box: bool = False
 
     @classmethod
     def from_yaml_dict(cls, raw: dict):
@@ -65,6 +75,7 @@ class JwstPsfKernelConfig:
             - normalize | None
             - opd_by_date | None
             - correction | None
+            - pixel_box | None
         """
 
         return JwstPsfKernelConfig(
@@ -76,4 +87,5 @@ class JwstPsfKernelConfig:
             correction={
                 k.lower(): v for k, v in (raw.get(CORRECTION_KEY) or {}).items()
             },
+            pixel_box=raw.get(PIXEL_BOX_KEY, False),
         )

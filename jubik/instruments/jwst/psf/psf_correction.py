@@ -37,6 +37,12 @@ The texture's spectrum is fixed (see `log_texture_model`); choose its std and
 slope on held-out stars. The width's variance may grow linearly with the stars'
 peak (brighter-fatter); the stored correction is for one fluence.
 
+Two options of `fit_psf_correction`, off by default: ``pixel_box`` learns the
+correction with the exact pixel integration (`with_pixel_box`), for a lens fit
+with ``psf.pixel_box``; ``orthogonal`` keeps the texture out of what the
+renormalisation, the stars' positions and the width already own (its weighted
+constant, gradient and r² part), so the width alone carries the broadening.
+
 Limits: the lens fit has one kernel per exposure, so every part of the image
 (faint arc, lens light) gets the width of the stored fluence; brighter-fatter is
 a per-pixel effect a convolution cannot carry. The texture may move the kernel's
@@ -83,6 +89,26 @@ def gaussian_transfer(shape: tuple[int, int], width):
     return jnp.exp(-2 * jnp.pi**2 * width**2 * frequency2)
 
 
+def box_transfer(shape: tuple[int, int]) -> np.ndarray:
+    """The transfer function of a box one pixel wide along each axis on an FFT
+    grid, ``sinc(f_y) sinc(f_x)``."""
+    fy, fx = (np.fft.fftfreq(n) for n in shape)
+    return np.sinc(fy)[:, None] * np.sinc(fx)
+
+
+def with_pixel_box(kernel: np.ndarray) -> np.ndarray:
+    """`kernel` convolved with a box one kernel pixel wide along each axis, on
+    its own grid (circular, as `PsfCorrection.apply`'s Gaussian).
+
+    On a subsampled grid the box is one sub-pixel. For a band-limited kernel
+    and sky, the sum of the sub-pixel samples of the (boxed kernel * sky) is
+    then the exact integral over the detector pixel: each sub-pixel's integral
+    is the box's mean at its centre. Without the box the sum is sharper by
+    one sub-pixel box.
+    """
+    return np.fft.ifft2(np.fft.fft2(kernel) * box_transfer(kernel.shape[-2:])).real
+
+
 @dataclass(frozen=True)
 class PsfCorrection:
     """The learned correction of one filter's kernels, ``G_w * N[K exp(t)]``.
@@ -102,6 +128,10 @@ class PsfCorrection:
         The peak per integration the width is for (0: one width for all).
     width_slope : float
         d(w²)/d(fluence), kernel pixels² per unit fluence (brighter-fatter).
+    pixel_box : bool
+        Learned with the sub-pixel box (`with_pixel_box`) in the star model,
+        so its width does not stand in for it; the lens fit must then set
+        ``psf.pixel_box``, see `JwstPsfKernelConfig`. Not part of `apply`.
     """
 
     filter: str
@@ -110,6 +140,7 @@ class PsfCorrection:
     width: float
     fluence: float = 0.0
     width_slope: float = 0.0
+    pixel_box: bool = False
 
     def at_fluence(self, fluence: float) -> "PsfCorrection":
         """The correction for a source of peak `fluence` per integration."""
@@ -143,6 +174,7 @@ def log_texture_model(
     fluctuations: float,
     loglogavgslope: float,
     prefix: str = "psf_texture",
+    weight: np.ndarray | None = None,
 ) -> jft.Model:
     """``t``: a correlated field on a (2 radius + 1)² patch of kernel pixels,
     tapered by cos² from half the radius to zero at the radius.
@@ -153,6 +185,12 @@ def log_texture_model(
     learned spectrum overfits in a MAP fit: at the stars' S/N the χ² gained by
     fitting noise outweighs any prior on the spectrum, and the texture turns
     rough at the pixel scale. Choose both on held-out stars.
+
+    With a `weight`, a kernel K on the patch ((2 radius + 1)², centred), ``t``
+    is orthogonal to 1, y, x and r² in K's inner product, ``sum K t b = 0``:
+    the field loses its weighted fit by those four before the taper. To first
+    order ``K exp(t)`` then keeps K's sum, centroid and second moment, which
+    the renormalisation, the stars' positions and the Gaussian's width own.
     """
     size = 2 * radius + 1
     maker = jft.CorrelatedFieldMaker(prefix)
@@ -164,7 +202,24 @@ def log_texture_model(
     field = maker.finalize()
     r = np.hypot(*np.mgrid[-radius : radius + 1, -radius : radius + 1]) / radius
     taper = np.cos(np.pi * np.clip(r - 0.5, 0.0, 0.5)) ** 2
-    return jft.Model(lambda x: taper * field(x), domain=field.domain, init=field.init)
+    if weight is None:
+        return jft.Model(
+            lambda x: taper * field(x), domain=field.domain, init=field.init
+        )
+    if np.shape(weight) != (size, size):
+        raise ValueError(f"weight {np.shape(weight)} is not the patch, {(size,) * 2}")
+    yx = np.mgrid[-radius : radius + 1, -radius : radius + 1] / radius
+    basis = np.stack([np.ones_like(r), *yx, r**2]).reshape(4, -1).T
+    weighted = basis * (weight * taper).reshape(-1, 1)  # t = taper f
+    # f minus its weighted least-squares fit by the basis
+    fit = jnp.asarray(np.linalg.solve(weighted.T @ basis, weighted.T))  # (4, size²)
+    basis = jnp.asarray(basis)
+
+    def orthogonal(x):
+        f = field(x)
+        return taper * (f - (basis @ (fit @ f.reshape(-1))).reshape(f.shape))
+
+    return jft.Model(orthogonal, domain=field.domain, init=field.init)
 
 
 @dataclass(frozen=True)
@@ -200,9 +255,18 @@ class _StarModel:
     The kernel is shifted by a Fourier phase on a canvas `pad` detector pixels
     wider than the stamp on each side, then binned to detector pixels: an exact
     sub-pixel shift, so the correction does not learn an interpolation blur.
+    With `pixel_box` the kernel is convolved with one sub-pixel's box first
+    (`with_pixel_box`, on the canvas), so the binning integrates the pixel
+    exactly and the correction does not learn the box either.
     """
 
-    def __init__(self, stamps: list[StarStamp], subsample: int, pad: int = 12):
+    def __init__(
+        self,
+        stamps: list[StarStamp],
+        subsample: int,
+        pad: int = 12,
+        pixel_box: bool = False,
+    ):
         self.data = np.stack([s.data for s in stamps]).astype(float)
         self.std = np.stack([s.std for s in stamps]).astype(float)
         self.mask = np.stack([s.mask for s in stamps]).astype(bool)
@@ -235,6 +299,7 @@ class _StarModel:
         self._offset = subsample * (pad + size // 2) + (subsample - 1) / 2 - n // 2
         self._fy, self._fx = np.meshgrid(*(np.fft.fftfreq(n),) * 2, indexing="ij")
         self._shape = (n, n)
+        self._box = box_transfer(self._shape) if pixel_box else 1.0
         self._yx = np.mgrid[:size, :size] - size // 2
 
         # starting values: background from the stamp's edge, flux from the rest
@@ -271,7 +336,7 @@ class _StarModel:
         if log_texture is not None:
             kernels = corrected_kernel(kernels, log_texture)
         transfer = 1.0 if width is None else gaussian_transfer(self._shape, width)
-        canvas_fft = jnp.fft.fft2(self._canvas(kernels)) * transfer
+        canvas_fft = jnp.fft.fft2(self._canvas(kernels)) * transfer * self._box
         flux = self.flux0 * jnp.exp(x["star_flux"])
         dyx = 0.5 * x["star_position"]  # (dy, dx) in detector pixels
         background = self.background0 + 10 * self.noise * x["star_background"]
@@ -300,6 +365,8 @@ def fit_psf_correction(
     width: tuple[float, float] | None = None,
     fluence: float | None = None,
     n_iterations: int = 10,
+    pixel_box: bool = False,
+    orthogonal: bool = False,
 ) -> tuple[PsfCorrection, np.ndarray]:
     """Learn the correction of one filter's kernels on its stars (MAP).
 
@@ -335,6 +402,14 @@ def fit_psf_correction(
         None shares one width among all stamps.
     n_iterations : int
         Newton-CG rounds of `jft.optimize_kl` without samples.
+    pixel_box : bool
+        Convolve every kernel with one sub-pixel's box (`with_pixel_box`), the
+        exact pixel integration; the correction is then for a lens fit with
+        ``psf.pixel_box``. Also for checking a correction on other stars.
+    orthogonal : bool
+        Make the texture orthogonal to 1, y, x and r² in the stamps' mean
+        kernel (see `log_texture_model`'s weight), so it cannot take the
+        kernel's sum, the stars' common shift or the width's broadening.
 
     Returns
     -------
@@ -344,12 +419,16 @@ def fit_psf_correction(
         only the stars are fitted: pass kernels corrected by
         `PsfCorrection.apply` to test a correction on other stars.
     """
-    stars = _StarModel(stamps, subsample)
-    texture = (
-        None
-        if radius is None
-        else log_texture_model(radius, fluctuations, loglogavgslope)
-    )
+    stars = _StarModel(stamps, subsample, pixel_box=pixel_box)
+    texture = weight = None
+    if orthogonal:
+        if radius is None:
+            raise ValueError("orthogonal needs a texture radius")
+        c = (stars.kernels.shape[-1] - 1) // 2  # the kernels' middle pixel
+        patch = slice(c - radius, c + radius + 1)
+        weight = stars.kernels.mean(0)[patch, patch]
+    if radius is not None:
+        texture = log_texture_model(radius, fluctuations, loglogavgslope, weight=weight)
     if fluence is not None and width is None:
         raise ValueError("fluence needs a width prior")
     sigma = widths = w0 = None
@@ -406,6 +485,7 @@ def fit_psf_correction(
         subsample=int(subsample),
         log_texture=np.zeros((1, 1)) if texture is None else np.asarray(texture(x)),
         width=0.0 if sigma is None else float(sigma(x)),
+        pixel_box=pixel_box,
     )
     if w0 is not None:
         slope = (correction.width**2 - float(w0(x)) ** 2) / fluence

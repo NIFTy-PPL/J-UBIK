@@ -18,7 +18,7 @@ from numpy.typing import ArrayLike
 from ..data.jwst_data import JwstData
 from ..data.preloader.preloader import _exposure_start_time
 from ..parse.jwst_psf import JwstPsfKernelConfig
-from .psf_correction import PsfCorrection
+from .psf_correction import PsfCorrection, with_pixel_box
 
 # JWST datamodel detector names which STPSF spells differently. STPSF accepts
 # the NIRCam names (including NRCALONG/NRCBLONG) as they are.
@@ -206,7 +206,8 @@ def load_psf_kernel(
         evaluation `psf_arcsec`, the `normalize` key, `opd_by_date` and
         `correction`. If `opd_by_date` is set, the PSF uses the WSS OPD measured
         closest to the exposure start, which is then part of the cache key. A
-        `correction` of the filter is applied to the cached STPSF kernel.
+        `correction` of the filter is applied to the cached STPSF kernel, then
+        the sub-pixel box if `pixel_box` is set.
 
     Returns
     -------
@@ -292,8 +293,9 @@ def load_psf_kernel(
         logger.info(f"Saving PSF {file_name} in {psf_library_path}")
         np.save(path_to_file, psf)
 
+    box = with_pixel_box if config_parameters.pixel_box else lambda kernel: kernel
     if filter not in config_parameters.correction:
-        return psf
+        return box(psf)
     path = config_parameters.correction[filter]
     correction = PsfCorrection.load(path)
     if (correction.filter.lower(), correction.subsample) != (filter, int(subsample)):
@@ -302,4 +304,10 @@ def load_psf_kernel(
             f"{correction.subsample}, the kernel for {filter} at subsample "
             f"{int(subsample)}"
         )
-    return correction.apply(psf)
+    if correction.pixel_box != config_parameters.pixel_box:
+        raise ValueError(
+            f"psf correction {path} was learned with pixel_box "
+            f"{correction.pixel_box}, the psf config has pixel_box "
+            f"{config_parameters.pixel_box}"
+        )
+    return box(correction.apply(psf))

@@ -1,7 +1,10 @@
 """The learned kernel correction `G_w * N[K exp(t)]` and its star fit."""
 
+import jax
+import nifty.re as jft
 import numpy as np
 import pytest
+from scipy.special import ndtr
 
 from jubik.instruments.jwst.parse.jwst_psf import JwstPsfKernelConfig
 from jubik.instruments.jwst.parse.parsing_step import ConfigParserJwst
@@ -11,8 +14,13 @@ from jubik.instruments.jwst.psf.psf_correction import (
     StarStamp,
     _StarModel,
     fit_psf_correction,
+    log_texture_model,
+    with_pixel_box,
 )
-from jubik.instruments.jwst.psf.psf_operator import _center_even_axes
+from jubik.instruments.jwst.psf.psf_operator import PsfStatic, _center_even_axes
+from jubik.instruments.jwst.rotation_and_shift.nufft_rotation_and_shift import (
+    build_nufft_rotation_and_shift,
+)
 
 from test_jwst_likelihoods import (
     FakeJwstData,
@@ -85,12 +93,16 @@ def test_texture_larger_than_kernel_raises():
 
 
 def test_save_load_round_trip(tmp_path):
-    c = PsfCorrection("f115w", SUB, RNG.normal(size=(7, 7)), 0.4, 2e4, 3e-6)
+    c = PsfCorrection("f115w", SUB, RNG.normal(size=(7, 7)), 0.4, 2e4, 3e-6, True)
     c.save(tmp_path / "c.psf")  # the exact name, no .npz appended
     d = PsfCorrection.load(tmp_path / "c.psf")
-    fields = ("filter", "subsample", "width", "fluence", "width_slope")
+    fields = ("filter", "subsample", "width", "fluence", "width_slope", "pixel_box")
     assert [getattr(d, f) for f in fields] == [getattr(c, f) for f in fields]
     np.testing.assert_array_equal(d.log_texture, c.log_texture)
+    # a file written before pixel_box existed was learned without the box
+    with open(tmp_path / "old.npz", "wb") as f:
+        np.savez(f, filter="f", subsample=3, log_texture=NO_TEXTURE, width=0.4)
+    assert PsfCorrection.load(tmp_path / "old.npz").pixel_box is False
 
 
 def test_at_fluence_moves_the_variance_linearly():
@@ -146,13 +158,16 @@ def test_star_model_crops_a_kernel_larger_than_the_canvas(k):
     np.testing.assert_allclose(a, b, rtol=0, atol=1e-7 * a.max())
 
 
+@pytest.mark.parametrize("box", [False, True])
 @pytest.mark.parametrize("k", [40, 41])
-def test_learned_parts_match_the_applied_correction(k):
-    """What the star fit learns is what `apply` gives the lens fit."""
+def test_learned_parts_match_the_applied_correction(k, box):
+    """What the star fit learns is what `apply` (and the box, as
+    `load_psf_kernel` adds it) gives the lens fit."""
     base = kernel(k)
     c = PsfCorrection("f", SUB, texture(9), 0.8)
-    learning = _StarModel([blank_stamp(base)], SUB)
-    frozen = _StarModel([blank_stamp(c.apply(base))], SUB)
+    applied = with_pixel_box(c.apply(base)) if box else c.apply(base)
+    learning = _StarModel([blank_stamp(base)], SUB, pixel_box=box)
+    frozen = _StarModel([blank_stamp(applied)], SUB)
     learning.flux0 = frozen.flux0 = np.array([1e4])
     x = {key: np.full(v.shape, 0.3) for key, v in learning.domain.items()}
     star = np.asarray(frozen(x)) - frozen(x | {"star_flux": np.full(1, -np.inf)})
@@ -250,3 +265,197 @@ def test_a_stamp_without_unmasked_pixels_raises():
     nan.data[3, 4] = np.nan
     with pytest.raises(ValueError, match=r"stamps \[0\] have NaN data or std <= 0"):
         _StarModel([nan, good], SUB)
+
+
+def gaussian_kernel(sigma, k):
+    """A sampled Gaussian of std `sigma` kernel pixels, summing to one: band-
+    limited to ~1e-9 at the grid's Nyquist frequency for sigma >= 1.5."""
+    y, x = np.mgrid[:k, :k] - (k - 1) / 2
+    g = np.exp(-0.5 * (x**2 + y**2) / sigma**2)
+    return g / g.sum()
+
+
+@pytest.mark.parametrize("box", [True, False])
+def test_star_model_with_the_box_integrates_the_pixel(box):
+    """A point source through a Gaussian PSF: with the box, the binned stamp is
+    the PSF's integral over each detector pixel (erf), at any sub-pixel offset;
+    without it, the sum of point samples is off by the box."""
+    sigma, n = 2.0, 6  # kernel pixels; sigma / SUB detector pixels
+    model = _StarModel(
+        [blank_stamp(gaussian_kernel(sigma, 41))] * n, SUB, pixel_box=box
+    )
+    model.flux0, model.background0 = np.ones(n), np.zeros(n)
+    latent = RNG.uniform(-1, 1, (n, 2))  # half a detector pixel at most
+    stamps = np.asarray(model(zeros(model) | {"star_position": latent}))
+
+    edges = np.arange(SIZE + 1) - SIZE // 2 - 0.5  # detector pixel edges
+    s = sigma / SUB
+    for stamp, (dy, dx) in zip(stamps, 0.5 * latent):
+        py, px = (np.diff(ndtr((edges - d) / s)) for d in (dy, dx))
+        error = np.abs(stamp - py[:, None] * px).max() / stamp.max()
+        assert error < 1e-7 if box else error > 1e-3
+
+
+@pytest.mark.parametrize("box", [True, False])
+def test_pixel_box_makes_the_subsampled_response_the_pixel_integral(box):
+    """A band-limited sky (sky-grid harmonics) through the subsampled response:
+    NUFFT to the sub-pixel centres of a detector rotated by 20.8 deg, the
+    boxed Gaussian kernel, the mean over each pixel's 3 x 3 sub-pixels. With
+    the box this is the analytic mean of PSF * sky over the detector pixel,
+    ``OTF(k) sinc(k_u) sinc(k_v)`` per harmonic along the detector axes."""
+    n_sky, a, s, m = 64, 1.7, 3, 24  # sky px, sky px per detector px, subsample
+    sigma = 1.5  # kernel (sub-)pixels: 0.5 detector px
+    theta = np.radians(20.8)
+    rot = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+
+    # sky harmonics within 0.35 cycles per sky px, under the band limit of 0.4
+    rng = np.random.default_rng(5)
+    modes = []
+    while len(modes) < 6:
+        q = rng.integers(-22, 23, 2)
+        if 0.05 < np.hypot(*q) / n_sky < 0.35:
+            modes.append((q / n_sky, rng.uniform(0.5, 1), rng.uniform(0, 2 * np.pi)))
+    yx = np.indices((n_sky, n_sky))
+
+    def sky(points):
+        return sum(
+            c * np.cos(2 * np.pi * np.tensordot(k, points, 1) + p) for k, c, p in modes
+        )
+
+    # detector (u, v) to sky (y, x), centred on the sky
+    origin = n_sky / 2 - a * rot @ np.full(2, (m - 1) / 2)
+    u = (np.arange(m * s) + 0.5) / s - 0.5  # sub-pixel centres, detector px
+    sub = origin[:, None, None] + a * np.tensordot(
+        rot, np.stack(np.meshgrid(u, u, indexing="ij")), 1
+    )
+    nufft = build_nufft_rotation_and_shift(
+        (n_sky, n_sky), (m * s,) * 2, band_limit=(0.4, 0.4)
+    )
+    fine = nufft(sky(yx), sub)
+    k = gaussian_kernel(sigma, 25)  # +-8 sigma
+    psf = PsfStatic(
+        jft.ShapeWithDtype((m * s,) * 2, float), with_pixel_box(k) if box else k
+    )
+    model = np.asarray(psf((fine, {}))).reshape(m, s, m, s).mean((1, 3))
+
+    centres = origin[:, None, None] + a * np.tensordot(rot, np.indices((m, m)), 1)
+    exact = 0
+    for kyx, c, p in modes:
+        ku, kv = a * rot.T @ kyx  # cycles per detector px along the detector axes
+        otf = np.exp(-2 * np.pi**2 * sigma**2 * (ku**2 + kv**2) / s**2)
+        exact = exact + c * otf * np.sinc(ku) * np.sinc(kv) * np.cos(
+            2 * np.pi * np.tensordot(kyx, centres, 1) + p
+        )
+    inner = (slice(5, -5),) * 2  # the kernel reaches 4 detector px beyond the cutout
+    error = np.abs(model - exact)[inner].max()
+    assert error < 1e-5 if box else error > 1e-3
+
+
+def patch_weight(radius):
+    k = kernel()
+    c = (k.shape[0] - 1) // 2
+    return k[c - radius : c + radius + 1, c - radius : c + radius + 1]
+
+
+def moments(weight, t):
+    """``sum K t b`` for b = 1, y, x, r², each over ``sum |K t b|``."""
+    radius = (t.shape[0] - 1) // 2
+    y, x = np.mgrid[-radius : radius + 1, -radius : radius + 1]
+    return [
+        float(abs((weight * t * b).sum()) / np.abs(weight * t * b).sum())
+        for b in (np.ones_like(y), y, x, x**2 + y**2)
+    ]
+
+
+def test_orthogonal_texture_has_no_weighted_moments():
+    radius = 9
+    weight = patch_weight(radius)
+    plain = log_texture_model(radius, 0.3, -2.0)
+    orthogonal = log_texture_model(radius, 0.3, -2.0, weight=weight)
+    assert plain.domain == orthogonal.domain
+    for seed in range(3):
+        x = plain.init(jax.random.PRNGKey(seed))
+        t, t0 = np.asarray(orthogonal(x)), np.asarray(plain(x))
+        assert max(moments(weight, t)) < 1e-10
+        assert min(moments(weight, t0)) > 1e-3  # the plain field has all four
+        # only a weighted fit by 1, y, x, r² is removed, before the taper
+        r = np.hypot(*np.mgrid[-radius : radius + 1, -radius : radius + 1]) / radius
+        taper = np.cos(np.pi * np.clip(r - 0.5, 0.0, 0.5)) ** 2
+        inside = taper > 0.1
+        y, xx = np.mgrid[-radius : radius + 1, -radius : radius + 1]
+        basis = np.stack([np.ones_like(y), y, xx, xx**2 + y**2], -1)[inside]
+        removed = ((t0 - t) / np.where(inside, taper, 1))[inside]
+        _, rest, *_ = np.linalg.lstsq(basis, removed, rcond=None)
+        assert np.sqrt(rest[0]) < 1e-10 * np.linalg.norm(removed)
+        assert np.all(t[~(taper > 0)] == 0)  # still tapered to zero
+    with pytest.raises(ValueError, match="is not the patch"):
+        log_texture_model(radius, 0.3, -2.0, weight=patch_weight(radius - 1))
+
+
+def test_texture_without_weight_is_the_tapered_field():
+    radius = 9
+    plain = log_texture_model(radius, 0.3, -2.0)
+    maker = jft.CorrelatedFieldMaker("psf_texture")
+    maker.set_amplitude_total_offset(0.0, lambda _: 0.3)
+    maker.add_fluctuations((19, 19), 1.0, lambda _: 0.3, lambda _: -2.0)
+    field = maker.finalize()
+    r = np.hypot(*np.mgrid[-radius : radius + 1, -radius : radius + 1]) / radius
+    taper = np.cos(np.pi * np.clip(r - 0.5, 0.0, 0.5)) ** 2
+    x = plain.init(jax.random.PRNGKey(0))
+    np.testing.assert_array_equal(plain(x), taper * field(x))
+
+
+def test_fit_passes_the_options_on():
+    """The fit's texture is orthogonal in the stamps' mean kernel (cut to the
+    patch), and the correction records the box."""
+    base, radius = kernel(), 9
+    stamps = mock_stars(base, PsfCorrection("f", SUB, texture(radius), 0.8), 4)
+    learned, _ = fit_psf_correction(
+        stamps,
+        SUB,
+        "f",
+        radius=radius,
+        width=(0.5, 0.5),
+        n_iterations=1,
+        pixel_box=True,
+        orthogonal=True,
+    )
+    assert learned.pixel_box is True
+    assert np.abs(learned.log_texture).max() > 1e-4
+    assert max(moments(patch_weight(radius), learned.log_texture)) < 1e-8
+    with pytest.raises(ValueError, match="orthogonal needs a texture radius"):
+        fit_psf_correction(stamps, SUB, "f", orthogonal=True)
+
+
+def test_load_psf_kernel_adds_the_box_after_the_correction(patched_seams, tmp_path):
+    raw = {"webbpsf_path": "", "psf_library": str(tmp_path)}
+    raw["psf_arcsec_extension"] = 0.4
+    data, centre = FakeJwstData("x.fits"), FakeJwstData("x.fits").wcs.center
+    assert JwstPsfKernelConfig.from_yaml_dict(raw).pixel_box is False
+    plain = jwst_kernel.load_psf_kernel(
+        data, 2, centre, JwstPsfKernelConfig.from_yaml_dict(raw)
+    )
+    boxed = JwstPsfKernelConfig.from_yaml_dict(raw | {"pixel_box": True})
+    np.testing.assert_array_equal(
+        jwst_kernel.load_psf_kernel(data, 2, centre, boxed), with_pixel_box(plain)
+    )
+    np.testing.assert_allclose(with_pixel_box(plain).sum(), 1.0, rtol=1e-12)
+
+    t = np.zeros((3, 3))
+    t[1, 1] = 1.0
+    for box in (True, False):
+        PsfCorrection("f444w", 2, t, 0.3, pixel_box=box).save(tmp_path / f"{box}.npz")
+    files = {True: str(tmp_path / "True.npz"), False: str(tmp_path / "False.npz")}
+    config = JwstPsfKernelConfig.from_yaml_dict(
+        raw | {"pixel_box": True, "correction": {"f444w": files[True]}}
+    )
+    expected = with_pixel_box(PsfCorrection.load(files[True]).apply(plain))
+    np.testing.assert_array_equal(
+        jwst_kernel.load_psf_kernel(data, 2, centre, config), expected
+    )
+    for box in (True, False):
+        mismatch = raw | {"pixel_box": box, "correction": {"f444w": files[not box]}}
+        with pytest.raises(ValueError, match="learned with pixel_box"):
+            jwst_kernel.load_psf_kernel(
+                data, 2, centre, JwstPsfKernelConfig.from_yaml_dict(mismatch)
+            )
