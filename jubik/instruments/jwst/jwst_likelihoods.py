@@ -290,9 +290,15 @@ def build_jwst_likelihoods(
             target_data.mask = target_data.mask & _data_inside_sky(
                 target_data, grid, data_inset + reach
             )
+            if not target_data.mask.any():
+                raise ValueError(
+                    f"{filter}: target.data_arcsec_inset {data_inset} plus the "
+                    f"priors' reach {reach:.3g} arcsec masks every data pixel"
+                )
             logger.info(
-                f"{filter}: target.data_arcsec_inset masks "
-                f"{kept - int(target_data.mask.sum())} of {kept} unmasked data pixels"
+                f"{filter}: target.data_arcsec_inset {data_inset} + prior reach "
+                f"{reach:.3g} arcsec masks {kept - int(target_data.mask.sum())} of "
+                f"{kept} unmasked data pixels"
             )
         logger.debug(
             f"{filter}: {int(dataload_results.target_data.mask.sum())} unmasked data pixels"
