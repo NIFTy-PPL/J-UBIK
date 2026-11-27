@@ -44,6 +44,9 @@ correction with the exact pixel integration (`with_pixel_box`), for a lens fit
 with ``psf.pixel_box``; ``orthogonal`` keeps the texture out of what the
 renormalisation, the stars' positions and the width already own (its weighted
 constant, gradient and r² part), so the width alone carries the broadening.
+Stamps with a ``coupling`` (`StarStamp`) learn it with the detector's
+interpixel and post-pixel capacitance, for a lens fit with
+``psf.detector_coupling``.
 
 Limits: the lens fit has one kernel per exposure, so every part of the image
 (faint arc, lens light) gets the width of the stored fluence; brighter-fatter is
@@ -134,6 +137,9 @@ class PsfCorrection:
         Learned with the sub-pixel box (`with_pixel_box`) in the star model,
         so its width does not stand in for it; the lens fit must then set
         ``psf.pixel_box``, see `JwstPsfKernelConfig`. Not part of `apply`.
+    detector_coupling : bool
+        Learned on stamps with a `StarStamp.coupling`; the lens fit must then
+        set ``psf.detector_coupling``. Not part of `apply`.
     """
 
     filter: str
@@ -143,6 +149,7 @@ class PsfCorrection:
     fluence: float = 0.0
     width_slope: float = 0.0
     pixel_box: bool = False
+    detector_coupling: bool = False
 
     def at_fluence(self, fluence: float) -> "PsfCorrection":
         """The correction for a source of peak `fluence` per integration."""
@@ -163,8 +170,9 @@ class PsfCorrection:
 
     def save(self, path: str | Path) -> None:
         fields = asdict(self)
-        if not self.pixel_box:  # without the box, a file older jubik reads as before
-            del fields["pixel_box"]
+        for key in ("pixel_box", "detector_coupling"):
+            if not fields[key]:  # unset, a file older jubik reads as before
+                del fields[key]
         with open(path, "wb") as f:  # np.savez would append .npz to another suffix
             np.savez(f, **fields)
 
@@ -245,6 +253,11 @@ class StarStamp:
     fluence : float
         The star's peak per integration (e.g. DN), for a width that grows
         with brightness; see `fit_psf_correction`.
+    coupling : np.ndarray | None
+        The detector coupling of the star's detector on the kernel grid
+        (`detector_coupling_kernel`), odd and centred, applied after the
+        texture, the width and the box, as ``psf.detector_coupling`` applies it
+        in the lens fit. Either every stamp of a fit has one or none.
     """
 
     data: np.ndarray
@@ -252,6 +265,7 @@ class StarStamp:
     mask: np.ndarray
     kernel: np.ndarray
     fluence: float = 0.0
+    coupling: np.ndarray | None = None
 
 
 class _StarModel:
@@ -262,7 +276,8 @@ class _StarModel:
     sub-pixel shift, so the correction does not learn an interpolation blur.
     With `pixel_box` the kernel is convolved with one sub-pixel's box first
     (`with_pixel_box`, on the canvas), so the binning integrates the pixel
-    exactly and the correction does not learn the box either.
+    exactly and the correction does not learn the box either. A stamp's
+    `StarStamp.coupling` multiplies the canvas FFT last.
     """
 
     def __init__(
@@ -305,6 +320,20 @@ class _StarModel:
         self._fy, self._fx = np.meshgrid(*(np.fft.fftfreq(n),) * 2, indexing="ij")
         self._shape = (n, n)
         self._box = box_transfer(self._shape) if pixel_box else 1.0
+        couplings = [s.coupling for s in stamps]
+        self.coupled = couplings[0] is not None
+        if any((c is not None) != self.coupled for c in couplings):
+            raise ValueError("either every StarStamp has a coupling or none")
+        self._coupling = 1.0
+        if self.coupled:  # each coupling's centre on canvas index 0: a convolution
+            canvas = np.zeros((len(stamps), n, n))
+            for a, c in zip(canvas, couplings):
+                k = len(c)
+                if c.shape != (k, k) or k % 2 == 0 or k > n:
+                    raise ValueError(f"a coupling is square, odd and <= {n}: {c.shape}")
+                a[:k, :k] = c
+                a[:] = np.roll(a, (-(k // 2),) * 2, (0, 1))
+            self._coupling = np.fft.fft2(canvas)
         self._yx = np.mgrid[:size, :size] - size // 2
 
         # starting values: background from the stamp's edge, flux from the rest
@@ -342,6 +371,7 @@ class _StarModel:
             kernels = corrected_kernel(kernels, log_texture)
         transfer = 1.0 if width is None else gaussian_transfer(self._shape, width)
         canvas_fft = jnp.fft.fft2(self._canvas(kernels)) * transfer * self._box
+        canvas_fft = canvas_fft * self._coupling
         flux = self.flux0 * jnp.exp(x["star_flux"])
         dyx = 0.5 * x["star_position"]  # (dy, dx) in detector pixels
         background = self.background0 + 10 * self.noise * x["star_background"]
@@ -496,6 +526,7 @@ def fit_psf_correction(
         log_texture=np.zeros((1, 1)) if texture is None else np.asarray(texture(x)),
         width=0.0 if sigma is None else float(sigma(x)),
         pixel_box=pixel_box,
+        detector_coupling=stars.coupled,
     )
     if w0 is not None:
         slope = (correction.width**2 - float(w0(x)) ** 2) / fluence

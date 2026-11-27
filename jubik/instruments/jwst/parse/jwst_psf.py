@@ -8,6 +8,7 @@ NORMALIZE_DEFAULT = "last"
 OPD_BY_DATE_KEY = "opd_by_date"
 CORRECTION_KEY = "correction"
 PIXEL_BOX_KEY = "pixel_box"
+DETECTOR_COUPLING_KEY = "detector_coupling"
 
 
 @dataclass
@@ -53,6 +54,13 @@ class JwstPsfKernelConfig:
         have been learned the same way (`fit_psf_correction(pixel_box=...)`,
         on kernels loaded without the box: the fit adds it).
         Default is False.
+    detector_coupling : bool
+        If True (NIRCam only), every kernel, after its correction and the box,
+        is convolved with STPSF's interpixel and post-pixel capacitance of its
+        detector (`detector_coupling_kernel`): charge the detector moves between
+        neighbouring pixels, which STPSF's oversampled kernel leaves out. A
+        correction must have been learned with it (`StarStamp.coupling`).
+        Default is False.
     """
 
     webbpsf_path: str
@@ -62,6 +70,7 @@ class JwstPsfKernelConfig:
     opd_by_date: bool = False
     correction: dict[str, str] = field(default_factory=dict)
     pixel_box: bool = False
+    detector_coupling: bool = False
 
     @classmethod
     def from_yaml_dict(cls, raw: dict):
@@ -77,6 +86,7 @@ class JwstPsfKernelConfig:
             - opd_by_date | None
             - correction | None
             - pixel_box | None
+            - detector_coupling | None
         """
 
         return JwstPsfKernelConfig(
@@ -89,4 +99,5 @@ class JwstPsfKernelConfig:
                 k.lower(): v for k, v in (raw.get(CORRECTION_KEY) or {}).items()
             },
             pixel_box=raw.get(PIXEL_BOX_KEY, False),
+            detector_coupling=raw.get(DETECTOR_COUPLING_KEY, False),
         )

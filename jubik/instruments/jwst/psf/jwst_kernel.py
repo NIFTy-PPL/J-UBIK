@@ -14,6 +14,7 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from nifty.re import logger
 from numpy.typing import ArrayLike
+from scipy.signal import convolve
 
 from ..data.jwst_data import JwstData
 from ..data.preloader.preloader import _exposure_start_time
@@ -23,6 +24,8 @@ from .psf_correction import PsfCorrection, with_pixel_box
 # JWST datamodel detector names which STPSF spells differently. STPSF accepts
 # the NIRCam names (including NRCALONG/NRCBLONG) as they are.
 STPSF_DETECTOR_NAMES = {"MIRIMAGE": "MIRIM"}
+# STPSF's IPC model knows the long-wavelength NIRCam detectors by module number only
+STPSF_IPC_DETECTOR_NAMES = {"NRCALONG": "NRCA5", "NRCBLONG": "NRCB5"}
 
 
 @lru_cache
@@ -174,6 +177,51 @@ def build_webb_psf(
     return psf[2].data
 
 
+def detector_coupling_kernel(
+    detector: str, subsample: int, webbpsf_path: str
+) -> np.ndarray:
+    """STPSF's NIRCam detector coupling of `detector` on a grid `subsample`
+    times finer than the detector: its interpixel (IPC) then post-pixel (PPC)
+    capacitance kernels, as `stpsf.detectors.apply_detector_ipc` applies them,
+    see `oversampled_coupling`.
+
+    PPC is STPSF's model for readout amplifier 1 (its cube's first slice), on
+    every amplifier. A second testing seam besides `build_webb_psf`: the only
+    other call that reads STPSF's data.
+    """
+    from os import environ
+
+    from stpsf.detectors import get_detector_ipc_model
+
+    environ["STPSF_PATH"] = webbpsf_path  # as in `build_webb_psf`
+    detector = detector.upper()
+    header = {"DET_NAME": STPSF_IPC_DETECTOR_NAMES.get(detector, detector)}
+    (ipc, ppc), _ = get_detector_ipc_model("NIRCAM", header)
+    return oversampled_coupling(ipc.array, ppc.array, subsample)
+
+
+def oversampled_coupling(
+    ipc: np.ndarray, ppc: np.ndarray, subsample: int
+) -> np.ndarray:
+    """The detector-pixel kernels `ipc` then `ppc` as one kernel on a grid
+    `subsample` times finer, normalised to sum one as STPSF's convolution does.
+
+    Each is a comb at detector pitch (`stpsf.detectors.oversample_ipc_model`),
+    so coupling then binning equals binning then coupling: the coupling acts
+    on whole pixels, not within them.
+    """
+    from stpsf.detectors import oversample_ipc_model
+
+    coupling = convolve(*(oversample_ipc_model(k, subsample) for k in (ipc, ppc)))
+    return coupling / coupling.sum()
+
+
+def with_detector_coupling(kernel: np.ndarray, coupling: np.ndarray) -> np.ndarray:
+    """`kernel` convolved with `coupling` (odd and centred, see
+    `detector_coupling_kernel`), same shape, zero outside."""
+    return convolve(kernel, coupling, mode="same", method="direct")
+
+
 def load_psf_kernel(
     jwst_data: JwstData,
     subsample: int,
@@ -207,7 +255,8 @@ def load_psf_kernel(
         `correction`. If `opd_by_date` is set, the PSF uses the WSS OPD measured
         closest to the exposure start, which is then part of the cache key. A
         `correction` of the filter is applied to the cached STPSF kernel, then
-        the sub-pixel box if `pixel_box` is set.
+        the sub-pixel box if `pixel_box` is set, then the detector coupling if
+        `detector_coupling` is set. The cache holds the kernel before all three.
 
     Returns
     -------
@@ -293,9 +342,20 @@ def load_psf_kernel(
         logger.info(f"Saving PSF {file_name} in {psf_library_path}")
         np.save(path_to_file, psf)
 
-    box = with_pixel_box if config_parameters.pixel_box else lambda kernel: kernel
+    if config_parameters.detector_coupling and camera != "nircam":
+        raise ValueError(
+            f"psf detector_coupling: STPSF's model is for NIRCam, not {camera}"
+        )
+
+    def finish(kernel):  # the box, then the detector coupling, as the detector acts
+        kernel = with_pixel_box(kernel) if config_parameters.pixel_box else kernel
+        if not config_parameters.detector_coupling:
+            return kernel
+        coupling = detector_coupling_kernel(detector, subsample, webbpsf_path)
+        return with_detector_coupling(kernel, coupling)
+
     if filter not in config_parameters.correction:
-        return box(psf)
+        return finish(psf)
     path = config_parameters.correction[filter]
     correction = PsfCorrection.load(path)
     if (correction.filter.lower(), correction.subsample) != (filter, int(subsample)):
@@ -310,4 +370,10 @@ def load_psf_kernel(
             f"{correction.pixel_box}, the psf config has pixel_box "
             f"{config_parameters.pixel_box}"
         )
-    return box(correction.apply(psf))
+    if correction.detector_coupling != config_parameters.detector_coupling:
+        raise ValueError(
+            f"psf correction {path} was learned with detector_coupling "
+            f"{correction.detector_coupling}, the psf config has detector_coupling "
+            f"{config_parameters.detector_coupling}"
+        )
+    return finish(correction.apply(psf))
