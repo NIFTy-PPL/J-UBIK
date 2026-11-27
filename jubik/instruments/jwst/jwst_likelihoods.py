@@ -807,11 +807,19 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
             f"{filter}: Gaia stars excluded: "
             + "; ".join(f"{s}: {', '.join(r)}" for s, r in sorted(logged.items()))
         )
+    remain = {int(star.id) for star, _ in tied.values()}
+    remain |= {int(star.id) for star, *_ in entries}
     jft.logger.info(
-        f"{filter}: {len(tied)} star stamps at Gaia stars, {len(stamps) - len(tied)} "
-        f"free, {len(cutouts)} Gaia cutouts without a stamp (Gaia stars "
+        f"{filter}: {len(remain)} Gaia stars remain {sorted(remain)}: {len(tied)} star "
+        f"stamps at Gaia stars, {len(stamps) - len(tied)} free, {len(cutouts)} Gaia "
+        f"cutouts without a stamp (Gaia stars "
         f"{sorted({int(star.id) for star, *_ in entries})})"
     )
+    if frames and not remain:
+        jft.logger.warning(
+            f"{filter}: no Gaia star remains after exclude; only the lens pins the "
+            "shifts"
+        )
     if suspect:
         jft.logger.warning(
             f"{filter}: Gaia stars {sorted(suspect)} have no stamp and are brighter "

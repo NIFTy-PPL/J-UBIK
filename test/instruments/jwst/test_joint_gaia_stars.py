@@ -314,6 +314,10 @@ def test_every_star_is_one_exact_model(gaia, tmp_path, caplog):
     assert {"star_1_astrometry", "star_2_astrometry"} <= set(tree(tied.domain))
     assert {"star_3_astrometry", f"{BAND}_shift"} <= set(tree(cutouts.domain))
     assert warned(caplog, "stamps of ['other.fits'], no file of the fit, keep free")
+    assert (
+        "3 Gaia stars remain [1, 2, 3]: 4 star stamps at Gaia stars, 2 free, 2 Gaia"
+        in caplog.text
+    )
     assert "2 Gaia cutouts without a stamp (Gaia stars [3])" in caplog.text
 
     wcs, sites = exposure_wcs(), stamp_sites(table)
@@ -750,3 +754,19 @@ def test_a_rule_without_its_gaia_column_is_skipped(gaia, tmp_path, caplog):
     (tied,) = build(tmp_path / "b", psf).target.joint_stars
     assert "star_2_astrometry" in tree(tied.domain)
     assert "no Gaia ruwe, exclude.ruwe skipped" in caplog.text
+
+
+def test_no_gaia_star_left_is_a_warning_not_an_error(gaia, tmp_path, caplog):
+    """Every Gaia star fails a rule: no Gaia term, every stamp free, a warning."""
+    table, _ = gaia
+    gaia_columns(table, ruwe=[2.0, 2.0])
+    write_stamps(tmp_path / "s.npz", table)
+    psf = excluding(tmp_path / "s.npz", {"max_peak": None})
+    (tied,) = build(tmp_path / "b", psf).target.joint_stars
+    assert not any("astrometry" in k for k in tree(tied.domain))
+    assert tree(tied.domain)[f"{BAND}_star_position"].shape == (
+        2,
+        2,
+    )  # 6 less 4 at Gaia
+    assert "0 Gaia stars remain []" in caplog.text
+    assert warned(caplog, "no Gaia star remains after exclude; only the lens pins")
