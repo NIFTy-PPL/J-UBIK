@@ -5,6 +5,7 @@
 
 # %%
 
+import jax
 import jax.numpy as jnp
 from jax.numpy.fft import fftshift, ifft2
 import numpy as np
@@ -20,6 +21,7 @@ def build_nufft_rotation_and_shift(
     out_shape: tuple[int, int],
     mode: str = "constant",
     band_limit: tuple[float, float] | None = None,
+    capacity: int | None = None,
 ) -> Callable[[ArrayLike], ArrayLike]:
     """Builds non-uniform FFT interpolation model.
 
@@ -37,6 +39,11 @@ def build_nufft_rotation_and_shift(
         are dropped before the interpolation, so sampling the subsampled grid
         cannot alias sky structure beyond the band into the data. None keeps
         every mode.
+    capacity: int | None
+        With mode ``constant``, interpolate only at the points inside the sky,
+        gathered into this many slots (the others read zero anyway); when more
+        points are inside, interpolate at every point. The result is the same
+        either way. None interpolates at every point.
 
     Returns
     -------
@@ -89,7 +96,23 @@ def build_nufft_rotation_and_shift(
         elif mode != "wrap":
             raise ValueError("mode must either be `wrap` or `constant`.")
 
-        out = nufft2(f_field, coords[0], coords[1]).real
+        def nufft(c):
+            return nufft2(f_field, c[0], c[1]).real
+
+        if capacity is None or mode != "constant":
+            out = nufft(coords)
+        else:
+            n_inside = jnp.sum(~mask)
+
+            def inside_only(coords):
+                idx = jnp.nonzero(~mask, size=capacity, fill_value=0)[0]
+                vals = jnp.where(
+                    jnp.arange(capacity) < n_inside, nufft(coords[:, idx]), 0
+                )
+                # add, not set: the unused slots repeat index 0 (with value 0)
+                return jnp.zeros(coords.shape[1], vals.dtype).at[idx].add(vals)
+
+            out = jax.lax.cond(n_inside <= capacity, inside_only, nufft, coords)
         if mode == "constant":
             out = jnp.where(mask, 0.0, out)
         return jnp.reshape(out, subsample_centers_yx.shape[:-3] + out_shape)

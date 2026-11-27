@@ -212,6 +212,93 @@ def test_stacked_exposures_one_call_matches_per_exposure():
         np.testing.assert_allclose(g_one, g_per, rtol=0, atol=1e-12)
 
 
+def _inside(centers, sky_shape):
+    upper = np.array(sky_shape)[:, None, None]
+    return np.all((centers >= 0) & (centers <= upper), axis=-3)
+
+
+@pytest.mark.parametrize("slack", [0, 50, -50])  # tight, room to spare, overflow
+def test_capacity_gives_every_points_result(slack):
+    import jax
+
+    sky_shape, out_shape = (24, 20), (13, 17)
+    field = np.random.default_rng(4).normal(size=sky_shape)
+    centers = _stacked_centers(out_shape)
+    inside = _inside(centers, sky_shape)
+    # some points outside; the first inside, as the unused slots repeat it
+    assert 0 < inside.sum() < inside.size and inside.flat[0]
+    capacity = int(inside.sum()) + slack
+
+    every = build_nufft_rotation_and_shift(sky_shape, out_shape)
+    some = build_nufft_rotation_and_shift(sky_shape, out_shape, capacity=capacity)
+    np.testing.assert_allclose(some(field, centers), every(field, centers), atol=1e-12)
+
+    cotangent = np.random.default_rng(5).normal(size=centers.shape[:1] + out_shape)
+    _, vjp_some = jax.vjp(some, field, centers)
+    _, vjp_every = jax.vjp(every, field, centers)
+    for g_some, g_every in zip(vjp_some(cotangent), vjp_every(cotangent)):
+        np.testing.assert_allclose(g_some, g_every, rtol=0, atol=1e-12)
+    tangents = (np.ones(sky_shape), np.ones_like(centers))
+    np.testing.assert_allclose(
+        jax.jvp(some, (field, centers), tangents)[1],
+        jax.jvp(every, (field, centers), tangents)[1],
+        rtol=0,
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize("slack, every_point", [(0, False), (-1, True)])
+def test_capacity_interpolates_only_the_inside_points(monkeypatch, slack, every_point):
+    import jax_finufft
+
+    sky_shape, out_shape = (24, 20), (13, 17)
+    field = np.random.default_rng(4).normal(size=sky_shape)
+    centers = _stacked_centers(out_shape)
+    inside = _inside(centers, sky_shape)
+    nufft2 = jax_finufft.nufft2
+
+    # an interpolation at every point adds 1000, so the output tells which ran
+    def marked(f, y, x):
+        return nufft2(f, y, x) + 1000.0 * (y.shape[0] == inside.size)
+
+    monkeypatch.setattr(jax_finufft, "nufft2", marked)
+    some = build_nufft_rotation_and_shift(
+        sky_shape, out_shape, capacity=int(inside.sum()) + slack
+    )
+    out = np.asarray(some(field, centers))
+    assert np.all(out[~inside] == 0)
+    assert np.all(np.abs(out[inside]) > 500) == every_point
+    assert np.all(np.abs(out[inside]) < 500) == (not every_point)
+
+
+def test_builder_sizes_the_capacity_from_the_coordinates(monkeypatch):
+    import jax
+
+    import jubik.instruments.jwst.rotation_and_shift.rotation_and_shift as rs
+    from jubik.instruments.jwst.parse.rotation_and_shift.rotation_and_shift import (
+        NufftConfig,
+    )
+    from jubik.instruments.jwst.rotation_and_shift.coordinates_correction import (
+        Coordinates,
+    )
+
+    sky_shape, out_shape = (24, 20), (13, 17)
+    centers = _stacked_centers(out_shape)
+    seen = {}
+    real = rs.build_nufft_rotation_and_shift
+    monkeypatch.setattr(
+        rs,
+        "build_nufft_rotation_and_shift",
+        lambda **kw: seen.update(kw) or real(**kw),
+    )
+    rs.build_rotation_and_shift(
+        {"sky": jax.ShapeDtypeStruct(sky_shape, float)},
+        Coordinates(centers),
+        NufftConfig(),
+    )
+    assert seen["capacity"] == int(np.ceil(1.05 * _inside(centers, sky_shape).sum()))
+
+
 def _cosine(freq_yx, shape_or_points):
     """cos(2 pi (f_y y + f_x x)) on a grid shape or at ``(2, ...)`` points."""
     y, x = (

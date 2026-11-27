@@ -8,6 +8,7 @@
 from typing import Callable, Union
 
 import nifty.re as jft
+import numpy as np
 from astropy import units as u
 from jax import vmap
 
@@ -97,6 +98,17 @@ def _infere_shape_from_domain(
     raise ValueError
 
 
+def _points_inside_with_slack(coordinates, sky_shape) -> int:
+    """The points inside the sky at the correction's zero latent, plus 5%: the
+    NUFFT's slots for the points it interpolates (it falls back to every point
+    when a correction moves more inside)."""
+    centers = coordinates(jft.zeros_like(coordinates.domain))
+    centers = np.moveaxis(np.asarray(centers), -3, 0)
+    upper = np.array(sky_shape).reshape(2, *(1,) * (centers.ndim - 1))
+    inside = np.all((centers >= 0) & (centers <= upper), axis=0)
+    return int(np.ceil(1.05 * inside.sum()))
+
+
 def build_rotation_and_shift(
     sky_domain: dict[str, jft.ShapeWithDtype],
     coordinates: Union[
@@ -141,12 +153,14 @@ def build_rotation_and_shift(
             if sky_pixel_scales_yx is None:
                 raise ValueError("a NUFFT band_limit needs the sky's pixel scales")
             band_limit = tuple(band_limit * sky_pixel_scales_yx.to_value(u.arcsec))
+        sky_shape = _infere_shape_from_domain(sky_domain, "sky")
         # TODO: check output shape
         rotation_and_shift_algorithm = build_nufft_rotation_and_shift(
-            sky_shape=_infere_shape_from_domain(sky_domain, "sky"),
+            sky_shape=sky_shape,
             out_shape=_infere_shape_from_domain(coordinates.target, "coordinates"),
             mode=algorithm_config.mode,
             band_limit=band_limit,
+            capacity=_points_inside_with_slack(coordinates, sky_shape),
         )
 
     if len(coordinates.target.shape) == 3:
