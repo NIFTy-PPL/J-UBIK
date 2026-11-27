@@ -64,7 +64,9 @@ class JwstPsfKernelConfig:
         by its own brightness instead of one width for all. A correction of the
         filter must have been learned with the same kappa
         (`fit_psf_correction(brighter_fatter=...)`). Filters without an entry
-        move no charge. Default: none. Config::
+        move no charge. The gaia_alignment stars move none either: they get
+        the correction's width alone, too narrow for bright stars (their
+        shifts stay unbiased). Default: none. Config::
 
             psf:
               brighter_fatter:

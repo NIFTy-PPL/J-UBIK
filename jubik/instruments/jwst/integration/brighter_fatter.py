@@ -18,7 +18,9 @@ def charge_migration(charge, kappa):
     Bright pixels lose charge to their neighbours: a bright star broadens, a
     faint one does not. `kappa` is per unit of `charge` (per DN per integration
     for charge in DN per integration) and broadcasts against it, e.g. one per
-    exposure, (n, 1, 1).
+    exposure, (n, 1, 1). First order: valid for ``kappa Q << 1/4``; above
+    ``Q = 1 / (4 kappa)`` (2.8e5 DN/int at kappa 9.02e-7) a pixel's charge falls
+    as its input grows.
     """
     s = 0.5 * kappa * charge**2
     # an edge pixel is its own outer neighbour: no flow across the edge
