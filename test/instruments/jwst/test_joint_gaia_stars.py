@@ -93,12 +93,18 @@ def catalog(table, i):
     return SkyCoord(table["ra"][i], table["dec"][i], unit="deg")
 
 
-# stamp i: (file, centre pixel (x, y) in it); the first two at Gaia star 1, the
-# third at no Gaia star, the fourth at star 1 in a file outside the fit
+# stamp i: (file, centre pixel (x, y) in it): Gaia star 1 in both files, star 2
+# (if in the table) in fake_0 between them, so the stars' frames interleave; a
+# stamp at no Gaia star; star 1 in a file outside the fit
 def stamp_sites(table):
-    x, y = np.round(np.array(exposure_wcs().world_to_pixel(catalog(table, 0))) + 0.2)
+    def centre(i):  # x != y, so a swap shows
+        xy = exposure_wcs().world_to_pixel(catalog(table, i))
+        return np.round(np.array(xy, float) + [0.2, -0.3])
+
+    (x, y), (x2, y2) = centre(0), centre(1) if len(table) > 1 else (50.0, 10.0)
     return [
         ("fake_0.fits", x, y),
+        ("fake_0.fits", x2, y2),
         ("fake_1.fits", x, y),
         ("fake_0.fits", 10.0, 50.0),
         ("other.fits", x, y),
@@ -117,7 +123,7 @@ def write_stamps(path, table, data=None, seed=0):
     std = [np.full((SIZE, SIZE), 0.5 + 0.1 * i) for i in range(len(sites))]
     mask = np.ones((SIZE, SIZE), bool)
     mask[0, :3] = False
-    dn = [*DN_PER_UNIT, 300.0, 250.0]
+    dn = [DN_PER_UNIT[0], DN_PER_UNIT[0], DN_PER_UNIT[1], 300.0, 250.0]
     stamps = [
         StarStamp(d, s, mask, base_kernel(), 1e4 * (i + 1), u_)
         for i, (d, s, u_) in enumerate(zip(data, std, dn))
@@ -236,21 +242,31 @@ def standalone(stamps, x, prefix, positions, kappa=True, canvas=(512, 128)):
     return chi2(stamps, models)
 
 
-def gaia_cutouts(stars_data, star_id):
-    frames = stars_data[star_id]
-    return [
-        StarStamp(d, s, m, k, 0.0, DN_PER_UNIT[e])
-        for d, s, m, k, e in zip(
-            frames.data, frames.std, frames.mask, frames.psf, frames.observation_ids
-        )
-    ]
+def gaia_cutouts(table, x, stars_data, frames_of):
+    """The Gaia cutouts of ``frames_of``, {table row: exposures}, as stamps,
+    and their stars' true positions in them."""
+    stamps, positions = [], []
+    for i, exposures in frames_of.items():
+        frames = stars_data[table["source_id"][i]]
+        for k, e in enumerate(frames.observation_ids):
+            if e in exposures:
+                data, std = frames.data[k], frames.std[k]
+                stamps.append(
+                    StarStamp(
+                        data, std, frames.mask[k], frames.psf[k], 0.0, DN_PER_UNIT[e]
+                    )
+                )
+                inside = (frames.star_in_subsampled_pixels[k] + 0.5) / SUB - 0.5
+                corner = np.round(frames.star_in_detector_pixels[k] - inside)
+                positions.append(true_position(table, i, x, e, exposure_wcs(), corner))
+    return stamps, positions
 
 
 def test_every_star_is_one_exact_model(gaia, tmp_path):
-    """The stamps at Gaia star 1 sit at its catalog position moved by the
-    shift and its astrometry, the other stamps at their own latents, and star 2,
-    without a stamp, is its two Gaia cutouts at Gaia's position: each term's
-    energy is that of an independent model of its stars."""
+    """The stamps at Gaia stars 1 and 2 sit at their catalog positions moved by
+    the shift and their astrometry, the other stamps at their own latents, and
+    star 2 in fake_1, without a stamp, is its Gaia cutout at Gaia's position:
+    each term's energy is that of an independent model of its stars."""
     table, loaded = gaia
     stamps = write_stamps(tmp_path / "s.npz", table)
     products = build(tmp_path / "b", joint_psf(tmp_path / "s.npz"))
@@ -258,34 +274,26 @@ def test_every_star_is_one_exact_model(gaia, tmp_path):
     tied, cutouts = products.target.joint_stars
     x = latents(products)
     domain = tree(tied.domain) | tree(cutouts.domain)
-    # star 1's two frames are stamps, star 2's are cutouts; two stamps are free
+    # three Gaia frames are stamps, one a cutout; two stamps are free
     assert domain[f"{BAND}_star_position"].shape == (2, 2)
-    assert domain[f"{BAND}_gaia_star_flux"].shape == (2,)
+    assert domain[f"{BAND}_gaia_star_flux"].shape == (1,)
     assert {"star_1_astrometry", "star_2_astrometry", f"{BAND}_shift"} <= set(domain)
 
     wcs, sites = exposure_wcs(), stamp_sites(table)
     corner = [np.array(s[1:]) - H for s in sites]
-    positions = [true_position(table, 0, x, e, wcs, corner[e]) for e in (0, 1)]
+    positions = [
+        true_position(table, i, x, e, wcs, corner[j])
+        for j, (i, e) in enumerate([(0, 0), (1, 0), (0, 1)])
+    ]
     pad = SUB * 12  # the model's canvas, so only the positions' linearization differs
     canvas = (SUB * SIZE + 2 * pad, pad)
     want = standalone(stamps, x, f"{BAND}_", positions + [None, None], canvas=canvas)
     assert np.isclose(energy(tied, x), want, rtol=2e-8)  # 5e-9
 
     (stars_data,) = loaded
-    frames = stars_data[2]
-    gaia_stamps = gaia_cutouts(stars_data, 2)
-    positions = [
-        true_position(table, 1, x, e, wcs, c)
-        for e, c in zip(frames.observation_ids, cutout_corners(frames))
-    ]
+    gaia_stamps, positions = gaia_cutouts(table, x, stars_data, {1: [1]})
     want = standalone(gaia_stamps, x, f"{BAND}_gaia_", positions)
     assert np.isclose(energy(cutouts, x), want, rtol=3e-6)  # 1e-6: the wide canvas
-
-
-def cutout_corners(frames):
-    """Each Gaia cutout's pixel 0 in its exposure, (x, y)."""
-    inside = (np.asarray(frames.star_in_subsampled_pixels) + 0.5) / SUB - 0.5
-    return np.round(np.asarray(frames.star_in_detector_pixels) - inside)
 
 
 def test_the_gradient_is_the_sum_over_the_terms(gaia, tmp_path):
@@ -413,19 +421,20 @@ def test_the_joint_fit_recovers_a_known_shift_and_correction(gaia, tmp_path):
     kernel_error = np.abs(kernel - true_kernel).sum() / untouched
     width_error = abs(texture_and_width(learned, orthogonal=True)[1] / width - 1)
     assert kernel_error < 0.1 and width_error < 0.02
-    # the lens alone scatters by 1-2 mas with the noise's seed, the joint fit 0.7-1
-    assert shift_error(learned) < 2.0
+    # over noise seeds: the lens alone 1-2 mas, the joint fit 1-1.4, the stars
+    # alone 0.5-2.1; a convention error (half a pixel, a sign) is 16 mas or more
+    assert shift_error(learned) < 2.5
 
     (stars,) = products.target.joint_stars
     alone = fit(stars)
-    assert shift_error(alone) < 1.0  # 0.3
+    assert shift_error(alone) < 3.0
 
 
 def winged_build_webb_psf(
     camera, filter, center_pixel, webbpsf_path, subsample, *a, **k
 ):
-    """A core with strong wings 20 detector pixels out (at subsample 2)."""
-    r = np.hypot(*np.mgrid[-40:41, -40:41]) / subsample
+    """A core with strong wings 30 detector pixels out (at subsample 2)."""
+    r = np.hypot(*np.mgrid[-60:61, -60:61]) / subsample
     psf = np.exp(-0.5 * r**2) + 0.05 / (1 + (r / 3) ** 2)
     return psf / psf.sum()
 
@@ -449,13 +458,6 @@ def test_a_star_far_off_its_cutout_centre_does_not_wrap(gaia, monkeypatch, tmp_p
     inside = (frames.star_in_subsampled_pixels + 0.5) / SUB - 0.5
     far = inside - frames.data.shape[-1] // 2
     assert np.abs(far).max() > 12
-    stamps, positions = [], []
-    for i, star_id in ((1, 2), (2, 3)):
-        frames = stars_data[star_id]
-        stamps += gaia_cutouts(stars_data, star_id)
-        positions += [
-            true_position(table, i, x, e, exposure_wcs(), c)
-            for e, c in zip(frames.observation_ids, cutout_corners(frames))
-        ]
+    stamps, positions = gaia_cutouts(table, x, stars_data, {1: [1], 2: [0, 1]})
     want = standalone(stamps, x, f"{BAND}_gaia_", positions)
     assert np.isclose(energy(cutouts, x), want, rtol=3e-6)

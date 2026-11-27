@@ -88,10 +88,11 @@ class JwstPsfKernelConfig:
         by its own brightness instead of one width for all. A correction of the
         filter must have been learned with the same kappa
         (`fit_psf_correction(brighter_fatter=...)`). With ``joint_stars`` the
-        stars move charge by it too. Filters without an entry move no charge.
-        The gaia_alignment stars move none either: they get the correction's
-        width alone, too narrow for bright stars (their shifts stay unbiased).
-        Default: none. Config::
+        stars move charge by it too, the gaia_alignment stars included.
+        Filters without an entry move no charge. Without ``joint_stars`` the
+        gaia_alignment stars move none: they get the correction's width alone,
+        too narrow for bright stars (their shifts stay unbiased). Default:
+        none. Config::
 
             psf:
               brighter_fatter:
@@ -106,7 +107,18 @@ class JwstPsfKernelConfig:
         target's ``subsample``, loaded as the target's are but without the box
         (``pixel_box`` applies to both). A filter in ``joint_stars`` has no
         ``correction`` nor ``psf_broadening``; kappa is given here or in
-        ``brighter_fatter``, not both. Not with ``gaia_alignment``. Default:
+        ``brighter_fatter``, not both.
+
+        With ``gaia_alignment`` (at the target's ``subsample``) every star is
+        modelled once, by the same exact model: a stamp at a Gaia star (by its
+        ``exposure``, ``ra`` and ``dec`` in the stamps file, within the shift
+        prior's reach plus a pixel; ``x`` and ``y`` place it in the file) sits
+        at Gaia's position, moved by its exposure's shift and, with
+        ``fit_star_positions``, its astrometry; a Gaia star without a stamp in
+        an exposure is its gaia_alignment cutout, placed the same way, with its
+        own flux and background; the other stamps keep free positions. The
+        filter then has no bilinear alignment term. Stars with a Gaia parallax
+        of 1 mas or more are logged: their positions leave it out. Default:
         none. Config::
 
             psf:
