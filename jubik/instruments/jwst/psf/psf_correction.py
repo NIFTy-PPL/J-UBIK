@@ -23,7 +23,9 @@ the arc cannot pull it: learning the kernel on the arc is degenerate with the
 source. The lens fit keeps `PsfStatic`'s cached convolution. Or the lens fit
 learns it together with the stars (`joint_correction`, ``psf.joint_stars``):
 the stars' likelihood joins the lens's and pins the kernel, with the full
-star likelihood instead of an approximation of its posterior.
+star likelihood instead of an approximation of its posterior. With
+``gaia_alignment`` the stars at Gaia positions sit there, moved by their
+exposures' shifts, and pin the alignment too: one model per star.
 
 Workflow, per filter:
 
