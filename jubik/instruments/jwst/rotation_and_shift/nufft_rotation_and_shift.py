@@ -43,7 +43,8 @@ def build_nufft_rotation_and_shift(
         With mode ``constant``, interpolate only at the points inside the sky,
         gathered into this many slots (the others read zero anyway); when more
         points are inside, interpolate at every point. The result is the same
-        either way. None interpolates at every point.
+        either way. Under vmap all samples take one path: every point if any
+        sample has more inside. None interpolates at every point.
 
     Returns
     -------

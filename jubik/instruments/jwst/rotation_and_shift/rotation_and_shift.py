@@ -106,7 +106,8 @@ def _points_inside_with_slack(coordinates, sky_shape) -> int:
     centers = np.moveaxis(np.asarray(centers), -3, 0)
     upper = np.array(sky_shape).reshape(2, *(1,) * (centers.ndim - 1))
     inside = np.all((centers >= 0) & (centers <= upper), axis=0)
-    return int(np.ceil(1.05 * inside.sum()))
+    # at least one slot: a NUFFT of zero points is untried on the GPU
+    return max(1, int(np.ceil(1.05 * inside.sum())))
 
 
 def build_rotation_and_shift(
