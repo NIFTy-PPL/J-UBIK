@@ -689,22 +689,35 @@ def test_exclude_parses():
 def test_a_gaia_star_the_rules_drop_goes_with_its_stamps(
     gaia, tmp_path, caplog, column, value, why
 ):
-    """Star 2, tied to two stamps, fails one rule: its stamps and cutouts go,
-    star 1 and star 3 stay; without exclude everything stays."""
+    """Stars 2 (tied to two stamps) and 3 (cutouts only) fail one rule: they go,
+    with star 2's stamps, and the stamps' term is the one of a stamps file that
+    never had star 2's stamps; star 1 stays. Without exclude everything stays."""
     table, _ = gaia
     add_star(table, 3, 45.3, 20.6)
-    gaia_columns(table, **{column: [0.0, value, 0.0]})
-    write_stamps(tmp_path / "s.npz", table)
+    gaia_columns(table, **{column: [0.0, value, value]})
+    stamps = write_stamps(tmp_path / "s.npz", table)
     tied, _ = build(tmp_path / "a", joint_psf(tmp_path / "s.npz")).target.joint_stars
     assert "star_2_astrometry" in tree(tied.domain)
     this_rule = excluding(tmp_path / "s.npz", {"max_peak": None, "saturated": False})
-    tied, cutouts = build(tmp_path / "b", this_rule).target.joint_stars
-    assert "star_2_astrometry" not in tree(tied.domain) | tree(cutouts.domain)
+    (tied,) = build(tmp_path / "b", this_rule).target.joint_stars
+    assert "star_2_astrometry" not in tree(tied.domain)
     assert "star_1_astrometry" in tree(tied.domain)
-    assert "star_3_astrometry" in tree(cutouts.domain)
     assert tree(tied.domain)[f"{BAND}_star_flux"].shape == (4,)  # 6 less star 2's 2
-    assert warned(caplog, f"Gaia stars excluded: 2: {why}")
+    assert warned(caplog, f"Gaia stars excluded: 2: {why}; 3: {why}")
     assert warned(caplog, "stamps excluded, at a Gaia star exclude drops")
+
+    # the same stamps, star 2's never written: the same ties, the same energy
+    _, _, extra = load_star_stamps(tmp_path / "s.npz")
+    keep = [0, 3, 4, 5]  # stamps 1 and 2 are star 2's (`stamp_sites`)
+    save_star_stamps(
+        tmp_path / "w.npz",
+        [stamps[i] for i in keep],
+        SUB,
+        **{k: v[keep] for k, v in extra.items()},
+    )
+    without = build(tmp_path / "c", joint_psf(tmp_path / "w.npz")).target.joint_stars[0]
+    x = latents(build(tmp_path / "d", this_rule), seed=7)
+    assert energy(tied, x) == energy(without, x)
 
 
 def test_saturated_and_bright_gaia_cutouts_go_alone(
