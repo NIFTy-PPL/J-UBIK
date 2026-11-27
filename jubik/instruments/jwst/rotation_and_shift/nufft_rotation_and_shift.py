@@ -5,6 +5,7 @@
 
 # %%
 
+import jax
 import jax.numpy as jnp
 from jax.numpy.fft import fftshift, ifft2
 import numpy as np
@@ -20,6 +21,7 @@ def build_nufft_rotation_and_shift(
     out_shape: tuple[int, int],
     mode: str = "constant",
     band_limit: tuple[float, float] | None = None,
+    capacity: int | None = None,
 ) -> Callable[[ArrayLike], ArrayLike]:
     """Builds non-uniform FFT interpolation model.
 
@@ -37,6 +39,12 @@ def build_nufft_rotation_and_shift(
         are dropped before the interpolation, so sampling the subsampled grid
         cannot alias sky structure beyond the band into the data. None keeps
         every mode.
+    capacity: int | None
+        With mode ``constant``, interpolate only at the points inside the sky,
+        gathered into this many slots (the others read zero anyway); when more
+        points are inside, interpolate at every point. The result is the same
+        either way. Under vmap all samples take one path: every point if any
+        sample has more inside. None interpolates at every point.
 
     Returns
     -------
@@ -52,6 +60,11 @@ def build_nufft_rotation_and_shift(
         flux(x, y) = sky(x, y) * sky_dvol
     """
     from jax_finufft import nufft2
+    from jax_finufft.options import Opts
+
+    # the points come in the detector grids' raster order, so cuFINUFFT's sort
+    # each call only costs (V100, 21 F277W exposures: ~25% of a likelihood metric)
+    opts = Opts(gpu_sort=False)
 
     xy_conversion = 2 * np.pi / np.array(sky_shape)[:, None]
     out_shape = tuple(out_shape)
@@ -69,6 +82,17 @@ def build_nufft_rotation_and_shift(
         rows, cols = np.flatnonzero(disk.any(1)), np.flatnonzero(disk.any(0))
         crop = (slice(rows[0], rows[-1] + 1), slice(cols[0], cols[-1] + 1))
         keep = jnp.asarray(disk[crop])
+
+    @jax.custom_batching.custom_vmap
+    def fits(n_inside):
+        return n_inside <= capacity
+
+    # vmapped (NIFTy's kl_map over samples): one branch for all samples, since a
+    # batched predicate turns the cond into a select that runs both branches;
+    # calling fits again reduces each level of a nested vmap in turn
+    @fits.def_vmap
+    def _fits_batched(axis_size, in_batched, n_inside):
+        return fits(jnp.max(n_inside)), False
 
     def rotate_shift_subsample(field, subsample_centers_yx):
         actual_shape = tuple(subsample_centers_yx.shape[-2:])
@@ -89,7 +113,23 @@ def build_nufft_rotation_and_shift(
         elif mode != "wrap":
             raise ValueError("mode must either be `wrap` or `constant`.")
 
-        out = nufft2(f_field, coords[0], coords[1]).real
+        def nufft(c):
+            return nufft2(f_field, c[0], c[1], opts=opts).real
+
+        if capacity is None or mode != "constant" or capacity >= coords.shape[1]:
+            out = nufft(coords)
+        else:
+            n_inside = jnp.sum(~mask)
+
+            def inside_only(coords):
+                idx = jnp.nonzero(~mask, size=capacity, fill_value=0)[0]
+                vals = jnp.where(
+                    jnp.arange(capacity) < n_inside, nufft(coords[:, idx]), 0
+                )
+                # add, not set: the unused slots repeat index 0 (with value 0)
+                return jnp.zeros(coords.shape[1], vals.dtype).at[idx].add(vals)
+
+            out = jax.lax.cond(fits(n_inside), inside_only, nufft, coords)
         if mode == "constant":
             out = jnp.where(mask, 0.0, out)
         return jnp.reshape(out, subsample_centers_yx.shape[:-3] + out_shape)
