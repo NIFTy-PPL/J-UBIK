@@ -172,7 +172,7 @@ class JwstPsfKernelConfig:
               pixel_box: true
               joint_stars:
                 f277w:
-                  stamps: psf_correction/b1938_f277w_stars.npz
+                  stamps: psf_correction/f277w_stars.npz
                   radius: 30
                   width: [0.4, 0.3]
                   orthogonal: true
