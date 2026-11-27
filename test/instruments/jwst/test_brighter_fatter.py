@@ -69,8 +69,11 @@ def bfe(q, k):
 
 
 def charges(seed=1):
-    """Two exposures of 9 x 11 pixels, up to 30 000 DN/int."""
-    return np.random.default_rng(seed).uniform(0, 3e4, (2, 9, 11))
+    """Two exposures of 9 x 11 pixels, -1000 to 30 000 DN/int with exact zeros (a
+    background-subtracted model; the sky outside the grid)."""
+    q = np.random.default_rng(seed).uniform(-1e3, 3e4, (2, 9, 11))
+    q[:, ::3, ::4] = 0.0
+    return q
 
 
 # --- the operator -------------------------------------------------------------------
@@ -116,12 +119,12 @@ class ExposureJwstData(FakeJwstData):
     """`FakeJwstData` with EFFINTTM and PHOTMJSR, per file ``fake_<i>``."""
 
     unit = u.MJy / u.sr
-    photmjsr = PHOTMJSR
+    time, photmjsr = TIME, PHOTMJSR
 
     def __init__(self, filepath):
         super().__init__(filepath)
         i = int(Path(filepath).stem.split("_")[-1])
-        self.dm.meta.exposure = SimpleNamespace(integration_time=TIME[i])
+        self.dm.meta.exposure = SimpleNamespace(integration_time=self.time[i])
         self.dm.meta.photometry = SimpleNamespace(
             conversion_megajanskys=self.photmjsr[i]
         )
@@ -214,13 +217,12 @@ def test_composes_with_correction_box_calibration_and_broadening(exposures, tmp_
 
 def test_needs_data_in_mjy_per_sr_with_photmjsr(exposures, monkeypatch, tmp_path):
     psf = {"brighter_fatter": {BAND: KAPPA}}
-    monkeypatch.setattr(ExposureJwstData, "photmjsr", (0.5, None))
-    with pytest.raises(ValueError, match="needs data in MJy/sr with EFFINTTM"):
-        build(tmp_path / "a", psf)
-    monkeypatch.setattr(ExposureJwstData, "photmjsr", PHOTMJSR)
-    monkeypatch.setattr(ExposureJwstData, "unit", u.DN / u.s)
-    with pytest.raises(ValueError, match="needs data in MJy/sr with EFFINTTM"):
-        build(tmp_path / "b", psf)
+    bad = {"photmjsr": (0.5, None), "time": (100.0, None), "unit": u.DN / u.s}
+    for key, value in bad.items():
+        with monkeypatch.context() as m:  # one bad value at a time
+            m.setattr(ExposureJwstData, key, value)
+            with pytest.raises(ValueError, match="needs data in MJy/sr with EFFINTTM"):
+                build(tmp_path / key, psf)
 
 
 @pytest.mark.parametrize(
@@ -229,6 +231,7 @@ def test_needs_data_in_mjy_per_sr_with_photmjsr(exposures, monkeypatch, tmp_path
         ({"f277w": KAPPA}, r"psf brighter_fatter: \['f277w'\] match no filter"),
         ({BAND: -KAPPA}, "must be finite and >= 0"),
         ({BAND: float("nan")}, "must be finite and >= 0"),
+        ({BAND: float("inf")}, "must be finite and >= 0"),
     ],
 )
 def test_bad_config_raises(exposures, tmp_path, kappa, match):
@@ -266,9 +269,9 @@ def test_correction_needs_its_kappa(exposures, tmp_path):
 # --- fit_psf_correction(brighter_fatter=...) ----------------------------------------
 
 
-def stars_with_charge_migration(w0, n=30, dn_per_unit=2000.0, seed=0):
+def stars_with_charge_migration(w0, kappa, n=30, dn_per_unit=2000.0, seed=0):
     """Point sources through a Gaussian of width `w0` kernel px, 1e4 to 1e5 DN/int,
-    their charge moved by the prototype at `KAPPA`, in data units of 1/`dn_per_unit`
+    their charge moved by the prototype at `kappa`, in data units of 1/`dn_per_unit`
     DN/int; noiseless (read and shot noise only weight the pixels), so the fit's
     slope is the operator's, not the noise's (+-6e-7 with the noise drawn). The
     fluence of each is its peak in DN/int."""
@@ -279,7 +282,7 @@ def stars_with_charge_migration(w0, n=30, dn_per_unit=2000.0, seed=0):
     model.background0, model.noise = np.full(n, 5.0), np.ones(n)
     x = zeros(model) | {"star_position": rng.uniform(-1, 1, (n, 2))}
     static = np.asarray(model(x, None, w0))  # DN/int
-    data = np.asarray(bfe(jnp.asarray(static), (KAPPA,))) / dn_per_unit
+    data = np.asarray(bfe(jnp.asarray(static), (kappa,))) / dn_per_unit
     std = np.sqrt(4.0 + static.clip(0) / 2)
     mask = np.ones((SIZE, SIZE), bool)
     peaks = (static - 5.0).max((1, 2))
@@ -289,17 +292,25 @@ def stars_with_charge_migration(w0, n=30, dn_per_unit=2000.0, seed=0):
     ]
 
 
-def test_fit_with_the_operator_learns_no_slope():
-    """Stars broadened by charge migration alone: without the operator the
-    width grows with the peak; with it the slope is ~0 and w0 the true one."""
-    w0 = 0.3
-    stamps = stars_with_charge_migration(w0)
+def test_fit_with_the_operator_keeps_what_charge_migration_does_not_explain():
+    """Stars broadened by charge migration, fitted with the operator, give the
+    width and slope (~0) of the same stars without it, fitted without; fitted
+    without the operator, their width grows with the peak. At B1938's w0 of
+    0.053 kernel px the width prior, not the stars, sets the fitted w0 (0.1 with
+    a prior of 0.5 +- 0.5), so the reference is the same fit, not the truth."""
+    w0 = 0.053
+    stamps = stars_with_charge_migration(w0, KAPPA)
     options = dict(width=(0.5, 0.5), fluence=2e4, n_iterations=5)
     without, _ = fit_psf_correction(stamps, SUB, "f", **options)
     learned, _ = fit_psf_correction(stamps, SUB, "f", brighter_fatter=KAPPA, **options)
+    plain = stars_with_charge_migration(w0, 0.0)
+    reference, _ = fit_psf_correction(plain, SUB, "f", **options)
     assert without.width_slope > 2e-6  # kernel px² per DN/int
-    assert abs(learned.width_slope) < 0.02 * without.width_slope
-    assert np.isclose(learned.at_fluence(0).width, w0, rtol=0.02)
+    # the reference's slope, -1.6e-7, is the width fit's at so small a w0
+    diff = learned.width_slope - reference.width_slope
+    assert abs(diff) < 0.02 * without.width_slope
+    w = [c.at_fluence(0).width for c in (learned, reference)]
+    assert np.isclose(*w, rtol=0.01)
     assert learned.brighter_fatter == KAPPA and without.brighter_fatter == 0.0
     # stamps in an unknown unit cannot take kappa per DN/int
     with pytest.raises(ValueError, match="needs every StarStamp.dn_per_unit"):

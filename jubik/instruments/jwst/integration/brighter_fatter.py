@@ -21,12 +21,9 @@ def charge_migration(charge, kappa):
     exposure, (n, 1, 1).
     """
     s = 0.5 * kappa * charge**2
-    out = charge
-    for axis in (-2, -1):
-        flow = jnp.diff(s, axis=axis)  # from pixel i + 1 into pixel i
-        pad = [(0, 0)] * charge.ndim
-        pad[axis] = (0, 1)
-        out = out + jnp.pad(flow, pad)
-        pad[axis] = (1, 0)
-        out = out - jnp.pad(flow, pad)
-    return out
+    # an edge pixel is its own outer neighbour: no flow across the edge
+    p = jnp.pad(s, [(0, 0)] * (s.ndim - 2) + [(1, 1)] * 2, mode="edge")
+    neighbours = (
+        p[..., :-2, 1:-1] + p[..., 2:, 1:-1] + p[..., 1:-1, :-2] + p[..., 1:-1, 2:]
+    )
+    return charge + neighbours - 4 * s
