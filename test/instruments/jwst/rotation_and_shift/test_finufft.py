@@ -258,8 +258,8 @@ def test_capacity_interpolates_only_the_inside_points(monkeypatch, slack, every_
     nufft2 = jax_finufft.nufft2
 
     # an interpolation at every point adds 1000, so the output tells which ran
-    def marked(f, y, x):
-        return nufft2(f, y, x) + 1000.0 * (y.shape[0] == inside.size)
+    def marked(f, y, x, **kw):
+        return nufft2(f, y, x, **kw) + 1000.0 * (y.shape[0] == inside.size)
 
     monkeypatch.setattr(jax_finufft, "nufft2", marked)
     some = build_nufft_rotation_and_shift(
@@ -269,6 +269,22 @@ def test_capacity_interpolates_only_the_inside_points(monkeypatch, slack, every_
     assert np.all(out[~inside] == 0)
     assert np.all(np.abs(out[inside]) > 500) == every_point
     assert np.all(np.abs(out[inside]) < 500) == (not every_point)
+
+
+def test_points_are_not_sorted(monkeypatch):
+    # raster-ordered points: cuFINUFFT's per-call sort only costs time
+    import jax_finufft
+
+    seen = []
+    nufft2 = jax_finufft.nufft2
+    monkeypatch.setattr(
+        jax_finufft,
+        "nufft2",
+        lambda *a, opts=None, **k: seen.append(opts) or nufft2(*a, opts=opts, **k),
+    )
+    rs = build_nufft_rotation_and_shift((24, 20), (13, 17), capacity=10)
+    rs(np.ones((24, 20)), _stacked_centers((13, 17)))
+    assert seen and all(o is not None and o.gpu_sort is False for o in seen)
 
 
 def test_builder_sizes_the_capacity_from_the_coordinates(monkeypatch):

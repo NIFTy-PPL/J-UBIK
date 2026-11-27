@@ -59,6 +59,11 @@ def build_nufft_rotation_and_shift(
         flux(x, y) = sky(x, y) * sky_dvol
     """
     from jax_finufft import nufft2
+    from jax_finufft.options import Opts
+
+    # the points come in the detector grids' raster order, so cuFINUFFT's sort
+    # each call only costs (V100, 21 F277W exposures: ~25% of a likelihood metric)
+    opts = Opts(gpu_sort=False)
 
     xy_conversion = 2 * np.pi / np.array(sky_shape)[:, None]
     out_shape = tuple(out_shape)
@@ -97,7 +102,7 @@ def build_nufft_rotation_and_shift(
             raise ValueError("mode must either be `wrap` or `constant`.")
 
         def nufft(c):
-            return nufft2(f_field, c[0], c[1]).real
+            return nufft2(f_field, c[0], c[1], opts=opts).real
 
         if capacity is None or mode != "constant":
             out = nufft(coords)
