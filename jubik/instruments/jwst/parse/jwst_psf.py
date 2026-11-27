@@ -90,7 +90,8 @@ class JwstPsfKernelConfig:
         (`fit_psf_correction(brighter_fatter=...)`). With ``joint_stars`` the
         stars move charge by it too. Filters without an entry move no charge.
         The gaia_alignment stars move none either: they get the correction's
-        width alone, too narrow for bright stars (their shifts stay unbiased). Default: none. Config::
+        width alone, too narrow for bright stars (their shifts stay unbiased).
+        Default: none. Config::
 
             psf:
               brighter_fatter:
@@ -172,6 +173,11 @@ class JwstPsfKernelConfig:
                 )
             except (TypeError, ValueError) as e:
                 raise ValueError(f"psf joint_stars {name}: {e}") from e
+            if joint[name].radius is not None and joint[name].radius < 1:
+                raise ValueError(
+                    f"psf joint_stars {name}: radius must be >= 1; omit it for no "
+                    "texture"
+                )
             prior = joint[name].brighter_fatter
             if prior is not None and not (
                 np.shape(prior) == (2,)

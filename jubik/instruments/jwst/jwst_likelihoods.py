@@ -61,19 +61,20 @@ from .variable_covariance.inverse_standard_deviation import (
 
 @dataclass
 class TargetLikelihoodProducts:
-    """`likelihood` sums the filters' target likelihoods and the `stars`'
-    likelihoods of ``psf.joint_stars``, which share the filters' learned PSF
-    corrections."""
+    """`likelihood` sums the filters' target likelihoods and the stars'
+    likelihoods of ``psf.joint_stars`` (`joint_stars`), which share the
+    filters' learned PSF corrections."""
 
     likelihoods: list[SingleTargetLikelihood]
     plotting: ResidualPlottingInformation
     sky_filter: SkyFilter
     hot_pixel_masking_data: HotPixelMaskingData | None = None
-    stars: list[jft.Likelihood] = field(default_factory=list)
+    joint_stars: list[jft.Likelihood] = field(default_factory=list)
 
     @property
     def likelihood(self) -> jft.Likelihood | jft.Gaussian:
-        likelihoods = chain((t.likelihood for t in self.likelihoods), self.stars)
+        likelihoods = (t.likelihood for t in self.likelihoods)
+        likelihoods = chain(likelihoods, self.joint_stars)
         likelihood = reduce(lambda x, y: x + y, likelihoods)
         return connect_likelihood_to_model(likelihood, self.sky_filter)
 
@@ -479,7 +480,7 @@ def build_jwst_likelihoods(
             plotting=target_plotting,
             sky_filter=sky_filter,
             hot_pixel_masking_data=hot_pixel_masking_data,
-            stars=star_likelihoods,
+            joint_stars=star_likelihoods,
         ),
         alignment=MultiFilterAlignmentProducts.from_optional(
             likelihood=alignment_likelihoods,

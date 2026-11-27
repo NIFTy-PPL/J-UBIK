@@ -156,7 +156,9 @@ def test_off_keeps_the_fixed_kernel_likelihood(exposures, monkeypatch, tmp_path)
         zero_flux={"default": ["normal", 0.5, 0.1]},
     )
     (single,) = products.target.likelihoods
-    assert isinstance(single.response.psf, PsfStatic) and products.target.stars == []
+    assert (
+        isinstance(single.response.psf, PsfStatic) and products.target.joint_stars == []
+    )
     x = latents(products)
     likelihood = products.target.likelihood
     grad = jax.grad(lambda y: likelihood(jft.Vector(y)))(x)
@@ -182,7 +184,7 @@ def test_star_term_is_the_star_fits_model(exposures, tmp_path):
         tmp_path / "fixed",
         joint_psf(tmp_path / "s.npz", kappa=None) | {"brighter_fatter": {BAND: KAPPA}},
     )
-    (stars,) = fixed.target.stars
+    (stars,) = fixed.target.joint_stars
     _, start = fit_psf_correction(
         stamps,
         SUB,
@@ -198,7 +200,7 @@ def test_star_term_is_the_star_fits_model(exposures, tmp_path):
 
     # learned kappa, at random latents: the stars' static model, then the prototype
     products = build(tmp_path / "learned", joint_psf(tmp_path / "s.npz"))
-    (stars,) = products.target.stars
+    (stars,) = products.target.joint_stars
     x = latents(products, seed=5)
     assert {f"{BAND}_star_flux", f"{BAND}_psf_brighter_fatter"} <= set(x)
     texture, width = texture_and_width(x)
@@ -245,8 +247,8 @@ def test_lens_and_stars_share_the_correction(exposures, tmp_path):
         out, frozen.response(x | sky), rtol=1e-10, atol=1e-12 * np.abs(out).max()
     )
 
-    lens = replace(products.target, stars=[]).likelihood
-    (stars,) = products.target.stars
+    lens = replace(products.target, joint_stars=[]).likelihood
+    (stars,) = products.target.joint_stars
     parts = [
         jax.grad(lambda y, lh=lh: lh(jft.Vector(y)))(x)
         for lh in (products.target.likelihood, lens, stars)
@@ -310,6 +312,7 @@ def joint(**entry):
         (joint(brighter_fatter=[KAPPA]), "log-normal"),
         (joint(brighter_fatter=[KAPPA, -1.0]), "log-normal"),
         (joint(fluence="2.2e4x"), "could not convert string to float"),
+        (joint(radius=0), "radius must be >= 1; omit it for no texture"),
         (joint(brighter_fatter=[KAPPA, 1.0]) | {"brighter_fatter": {BAND: 1.0}}, "one"),
         (joint() | {"correction": {BAND: "c.npz"}}, "drop its psf correction"),
         ({"joint_stars": {"f277w": {"stamps": "s.npz"}}}, "match no filter"),
@@ -433,10 +436,10 @@ def test_joint_fit_recovers_an_injected_correction(exposures, tmp_path):
             abs(texture_and_width(learned)[1] / width - 1),
         )
 
-    lens = replace(products.target, stars=[]).likelihood
+    lens = replace(products.target, joint_stars=[]).likelihood
     learned = fit_with_the_sky_held(products.target.likelihood)
     assert max(errors(learned)) < 0.1 and errors(learned)[1] < 0.02  # 0.024, 0.001
-    (stars,) = products.target.stars
+    (stars,) = products.target.joint_stars
     chi2 = [
         2 * energy(stars, learned) / sum(int(s.mask.sum()) for s in stamps),
         2 * energy(lens, learned | {"sky": truth["sky"]}) / single.builder.mask.sum(),
