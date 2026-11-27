@@ -91,6 +91,7 @@ def _query_gaia(region: str, exclude_source_ids: list[int] | None) -> Table:
       phot_g_mean_flux_over_error, phot_bp_mean_flux_over_error, phot_rp_mean_flux_over_error,
       phot_bp_rp_excess_factor,
       ruwe, astrometric_excess_noise, astrometric_excess_noise_sig,
+      classprob_dsc_combmod_galaxy,
       visibility_periods_used, astrometric_params_solved,
       duplicated_source, phot_variable_flag
     FROM gaiadr3.gaia_source

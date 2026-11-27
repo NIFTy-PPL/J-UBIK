@@ -29,6 +29,7 @@ class SingleStarBundle:
     sky_to_data: u.Quantity
     observation_id: int
     star_in_detector_pixels: tuple[float, float]  # (x, y) in the exposure's array
+    saturated: bool = False  # DQ SATURATED within 2 pixels of that pixel
 
 
 class StarsBundle(UserDict[int, SingleStarBundle]):
@@ -75,6 +76,20 @@ def _sky_to_data(
     return np.linalg.inv(sky_per_pixel / (2 * h)) * subsample * u.pix / u.arcsec
 
 
+#: JWST's DQ flag of a pixel that saturated during the ramp
+DQ_SATURATED = 2
+
+
+def _saturated(dq, x: float, y: float) -> bool:
+    """DQ SATURATED within 2 pixels of the exposure's pixel nearest to (x, y),
+    as psf_check refuses a stamp; False without a DQ array."""
+    if dq is None:
+        return False
+    x, y = int(np.round(x)), int(np.round(y))
+    core = np.asarray(dq[max(y - 2, 0) : y + 3, max(x - 2, 0) : x + 3])
+    return bool(np.any(core.astype(int) & DQ_SATURATED))
+
+
 def load_one_stars_bundle(
     index: int,
     jwst_data: JwstData,
@@ -93,6 +108,7 @@ def load_one_stars_bundle(
 
     star_bundles = StarsBundle(index=index)
     time = star_tables.observation_times[index]
+    dq = getattr(jwst_data.dm, "dq", None)
 
     for ii, star in enumerate(star_tables.get_stars(index)):
         position = star.position_at(time)
@@ -136,6 +152,7 @@ def load_one_stars_bundle(
             ),
             observation_id=index,
             star_in_detector_pixels=(float(x), float(y)),
+            saturated=_saturated(dq, x, y),
         )
 
     return star_bundles
@@ -178,6 +195,7 @@ class SingleStarData:
     sky_to_data: list[u.Quantity] = field(default_factory=list)
     observation_ids: list[int] = field(default_factory=list)
     star_in_detector_pixels: list[tuple[float, float]] = field(default_factory=list)
+    saturated: list[bool] = field(default_factory=list)
 
     # -- optional: freeze to ndarray stacks -------------------------
     def as_stacked(self) -> "SingleStarDataStacked":
@@ -192,6 +210,7 @@ class SingleStarData:
             sky_to_data=np.stack(self.sky_to_data),
             observation_ids=np.asarray(self.observation_ids),
             star_in_detector_pixels=np.asarray(self.star_in_detector_pixels),
+            saturated=np.asarray(self.saturated, bool),
         )
 
 
@@ -210,6 +229,7 @@ class SingleStarDataStacked:
     observation_ids: np.ndarray
     # (n_exposures, 2): (x, y) in each exposure's data array, see `JwstData.wcs`
     star_in_detector_pixels: np.ndarray
+    saturated: np.ndarray  # (n_exposures,), see `_saturated`
 
     # -- convenience -------------------------------------------------
     @property
@@ -253,3 +273,4 @@ class StarsData(UserDict[int, SingleStarDataStacked]):
         entry.sky_to_data.append(sb.sky_to_data)
         entry.observation_ids.append(sb.observation_id)
         entry.star_in_detector_pixels.append(sb.star_in_detector_pixels)
+        entry.saturated.append(sb.saturated)

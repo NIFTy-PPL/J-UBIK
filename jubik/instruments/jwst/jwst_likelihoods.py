@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field, replace
+from collections import Counter
 from functools import reduce
 from itertools import chain
 from pathlib import Path
@@ -589,12 +590,17 @@ def _joint_stars(
     sky = jft.ShapeWithDtype(
         (kernels.shape[0],) + target_data.subsample_centers[0].shape, float
     )
+    rules = joint.exclude
+    if rules is not None and rules.max_peak is not None:
+        too_bright = [s.fluence > rules.max_peak for s in stamps]
+        why = f"a peak above {rules.max_peak:g} DN/int"
+        stamps, extra = _drop_stamps(filter, stamps, extra, too_bright, why)
     positions, more = None, ()
     if gaia is not None:
         dn = None
-        if kappa is not None or joint.fluence is not None:
+        if kappa is not None or joint.fluence is not None or rules is not None:
             dn = _dn_per_unit(gaia.filepaths)
-        positions, more = _tie_to_gaia(
+        stamps, positions, more = _tie_to_gaia(
             filter, joint, stamps, extra, subsample, gaia, dn
         )
     return joint_correction(
@@ -616,16 +622,66 @@ def _joint_stars(
     )
 
 
+def _drop_stamps(filter, stamps, extra, drop, why: str):
+    """`stamps` and the arrays of `extra` without those where `drop`, logged
+    with `why`."""
+    drop = np.asarray(drop, bool)
+    if not drop.any():
+        return stamps, extra
+    names = [
+        f"{e} ({x}, {y})" if {"exposure", "x", "y"} <= set(extra) else f"#{i}"
+        for i, e, x, y in zip(
+            range(len(stamps)),
+            extra.get("exposure", [None] * len(stamps)),
+            extra.get("x", [None] * len(stamps)),
+            extra.get("y", [None] * len(stamps)),
+        )
+    ]
+    dropped = [n for n, d in zip(names, drop) if d]
+    jft.logger.warning(f"{filter}: stamps excluded, {why}: {dropped}")
+    if drop.all():
+        raise ValueError(f"psf joint_stars {filter}: every stamp is excluded, {why}")
+    return [s for s, d in zip(stamps, drop) if not d], {
+        k: v[~drop] for k, v in extra.items()
+    }
+
+
+#: `StarExclusion`'s rules on Gaia columns: (rule, column, name)
+_GAIA_RULES = (
+    ("ruwe", "ruwe", "RUWE"),
+    ("excess_noise_sig", "astrometric_excess_noise_sig", "excess noise significance"),
+    ("galaxy", "classprob_dsc_combmod_galaxy", "galaxy probability"),
+)
+
+
+def _gaia_exclusion(filter, rules, table) -> dict[int, list[str]]:
+    """The Gaia stars of `table` that `rules` drop, with why."""
+    reasons = {}
+    for rule, column, name in _GAIA_RULES:
+        limit = getattr(rules, rule)
+        if limit is None:
+            continue
+        if column not in table.colnames:
+            jft.logger.info(f"{filter}: no Gaia {column}, exclude.{rule} skipped")
+            continue
+        values = np.asarray(np.ma.filled(table[column], np.nan), float)
+        for source, value in zip(table["SOURCE_ID"], values):
+            if value > limit:
+                reasons.setdefault(int(source), []).append(f"{name} {value:.3g}")
+    return reasons
+
+
 def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
-    """`joint_correction`'s ``positions`` and ``more_stars`` for `filter`'s Gaia
-    stars (see `_joint_stars`).
+    """The stamps left and `joint_correction`'s ``positions`` and
+    ``more_stars`` for `filter`'s Gaia stars (see `_joint_stars`).
 
     A Gaia star in an exposure is a stamp of that file (`extra`'s
     ``exposure``) whose centre (``ra``, ``dec``) lies within `gaia.tolerance`
     of its catalog position at the exposure's epoch, the nearest pairs first;
-    the stamp's centre pixel (``x``, ``y``) places that position in it. `dn` is
-    each exposure's DN per integration per data unit (`_dn_per_unit`), or
-    None."""
+    the stamp's centre pixel (``x``, ``y``) places that position in it. With
+    ``joint.exclude`` a Gaia star its rules drop goes with its stamps, and a
+    Gaia cutout they drop goes alone. `dn` is each exposure's DN per
+    integration per data unit (`_dn_per_unit`), or None."""
     if missing := {"exposure", "x", "y", "ra", "dec"} - set(extra):
         raise ValueError(
             f"psf joint_stars {filter}: gaia_alignment needs the stamps' "
@@ -657,23 +713,27 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
         if j not in tied and f not in taken:
             tied[j] = frames[f]
             taken.add(f)
+    table = gaia.tables.join_tables()
+    rules = joint.exclude
+    excluded = {} if rules is None else _gaia_exclusion(filter, rules, table)
+    gone = [j in tied and int(tied[j][0].id) in excluded for j in range(len(stamps))]
+    kept = np.cumsum(np.logical_not(gone)) - 1  # each stamp's index once dropped
+    tied = {int(kept[j]): v for j, v in tied.items() if not gone[j]}
+    why = "at a Gaia star exclude drops"
+    stamps, extra = _drop_stamps(filter, stamps, extra, gone, why)
     # a cutout masked whole (e.g. by a corner mask) holds no star
     alone = [
         (star, k)
         for f, (star, k) in enumerate(frames)
-        if f not in taken and gaia.data[star.id].mask[k].any()
+        if f not in taken
+        and gaia.data[star.id].mask[k].any()
+        and int(star.id) not in excluded
     ]
-    jft.logger.info(
-        f"{filter}: {len(tied)} star stamps at Gaia stars, {len(stamps) - len(tied)} "
-        f"free, {len(alone)} Gaia cutouts without a stamp (Gaia stars "
-        f"{sorted({int(star.id) for star, _ in alone})})"
-    )
     if not frames:
         jft.logger.warning(
             f"{filter}: gaia_alignment finds no star in the fit's files; only the "
             "lens pins the shifts"
         )
-    table = gaia.tables.join_tables()
     if "parallax" in table.colnames:
         near = np.asarray(np.ma.filled(table["parallax"], 0.0), float) >= 1.0
         if ids := sorted(map(int, set(table["SOURCE_ID"][near]) & set(gaia.data))):
@@ -702,10 +762,7 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
             corner = np.array([extra["x"][j], extra["y"][j]]) - h
             entries.append(entry(star, k, (xy - corner + 0.5) * subsample - 0.5))
         positions = (np.array(sorted(tied)), fit_positions(entries))
-    if not alone:
-        return positions, ()
-
-    cutouts, entries, suspect = [], [], set()
+    cutouts, entries, suspect, dropped = [], [], set(), {}
     # in data units, about the star fit's peak cut; NaN without dn_per_unit
     brightest = np.array([s.fluence / (s.dn_per_unit or np.nan) for s in stamps])
     brightest = np.nanmax(brightest) if np.isfinite(brightest).any() else np.nan
@@ -722,20 +779,47 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
         fluence = (
             0.0 if unit is None else peak * unit
         )  # as psf_check's, per integration
+        inside = (frames.star_in_subsampled_pixels[k] + 0.5) / subsample - 0.5
+        x, y = np.round(inside).astype(int)
+        why = []
+        if rules is not None and rules.saturated:
+            if frames.saturated[k] or not mask[y, x]:
+                why.append("saturated")
+        if rules is not None and rules.max_peak is not None:
+            if fluence > rules.max_peak:
+                why.append(f"a peak above {rules.max_peak:g} DN/int")
+        dropped.setdefault(int(star.id), Counter()).update(why)
+        if why:
+            continue
         cutouts.append(
             StarStamp(data, frames.std[k], mask, frames.psf[k], fluence, unit)
         )
         entries.append(entry(star, k, frames.star_in_subsampled_pixels[k]))
-        inside = (frames.star_in_subsampled_pixels[k] + 0.5) / subsample - 0.5
-        x, y = np.round(inside).astype(int)
         if not mask[y, x] or 0 < brightest < peak:
             suspect.add(int(star.id))
+    for star, counts in dropped.items():  # per frame: "<why> in <n> of <all> frames"
+        n = len(gaia.data[star].observation_ids)
+        excluded.setdefault(star, []).extend(
+            f"{r} in {c} of {n} frames" for r, c in counts.items()
+        )
+    if logged := {s: r for s, r in excluded.items() if s in gaia.data and r}:
+        jft.logger.warning(
+            f"{filter}: Gaia stars excluded: "
+            + "; ".join(f"{s}: {', '.join(r)}" for s, r in sorted(logged.items()))
+        )
+    jft.logger.info(
+        f"{filter}: {len(tied)} star stamps at Gaia stars, {len(stamps) - len(tied)} "
+        f"free, {len(cutouts)} Gaia cutouts without a stamp (Gaia stars "
+        f"{sorted({int(star.id) for star, *_ in entries})})"
+    )
     if suspect:
         jft.logger.warning(
             f"{filter}: Gaia stars {sorted(suspect)} have no stamp and are brighter "
             "than every stamp or masked at their centre (saturated?), yet shape the "
             "PSF and kappa; gaia_alignment's exclude_source_id drops them"
         )
+    if not cutouts:
+        return stamps, positions, ()
     pixels = np.array([p for *_, p, _ in entries])
     size = cutouts[0].data.shape[-1]
     # the stars sit off the middle of edge cutouts: the canvas reaches past them
@@ -747,7 +831,7 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
         f"{filter}_gaia_",
         pad,
     )
-    return positions, (group,)
+    return stamps, positions, (group,)
 
 
 def _broadened_psf(

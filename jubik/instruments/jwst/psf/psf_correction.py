@@ -669,7 +669,7 @@ def fit_psf_correction(
     n_iterations: int = 10,
     pixel_box: bool = False,
     orthogonal: bool = False,
-    brighter_fatter: float | None = None,
+    brighter_fatter: float | tuple[float, float] | None = None,
     n_samples: int = 0,
 ) -> (
     tuple[PsfCorrection, np.ndarray]
@@ -718,13 +718,15 @@ def fit_psf_correction(
         Make the texture orthogonal to 1, y, x and r² in the stamps' mean
         kernel (see `log_texture_model`'s weight), so it cannot take the
         kernel's sum, the stars' common shift or the width's broadening.
-    brighter_fatter : float | None
+    brighter_fatter : float | tuple[float, float] | None
         ``kappa`` per DN per integration: every model stamp, in DN per
         integration by its `StarStamp.dn_per_unit`, goes through
         `charge_migration`, so the width keeps only the broadening
         brighter-fatter does not explain; the correction is then for a lens
         fit with ``psf.brighter_fatter`` at this kappa. Also for checking such
-        a correction on other stars. None moves no charge.
+        a correction on other stars. A (mean, std) learns kappa with that
+        log-normal prior (``psf_brighter_fatter``); the correction records
+        its value. None moves no charge.
     n_samples : int
         Posterior samples of `jft.optimize_kl` (geoVI, each mirrored: 2
         `n_samples` in all); 0 fits the MAP.
@@ -740,9 +742,10 @@ def fit_psf_correction(
         samples, whose spread (of ``width``, ``at_fluence(0).width``,
         ``width_slope``, the texture) is the correction's uncertainty.
     """
-    stars = _StarModel(
-        stamps, subsample, pixel_box=pixel_box, brighter_fatter=brighter_fatter
-    )
+    kappa = brighter_fatter
+    if isinstance(kappa, (tuple, list)):
+        kappa = jft.LogNormalPrior(*kappa, name="psf_brighter_fatter", shape=())
+    stars = _StarModel(stamps, subsample, pixel_box=pixel_box, brighter_fatter=kappa)
     texture, sigma, widths, w0 = _correction_model(
         stars, radius, fluctuations, loglogavgslope, width, fluence, orthogonal
     )
@@ -771,7 +774,11 @@ def fit_psf_correction(
             ),
             width=0.0 if sigma is None else float(sigma(x)),
             pixel_box=pixel_box,
-            brighter_fatter=0.0 if brighter_fatter is None else float(brighter_fatter),
+            brighter_fatter=(
+                0.0
+                if kappa is None
+                else float(kappa(x) if isinstance(kappa, jft.Model) else kappa)
+            ),
         )
         if w0 is not None:
             slope = (correction.width**2 - float(w0(x)) ** 2) / fluence

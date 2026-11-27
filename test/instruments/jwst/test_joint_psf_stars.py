@@ -447,3 +447,17 @@ def test_joint_fit_recovers_an_injected_correction(exposures, tmp_path):
     assert max(chi2) < 1.15  # the reduced chi2 std is ~0.04
     alone = errors(fit_with_the_sky_held(lens))
     assert alone[0] > 0.1 and alone[1] > 0.02  # 0.16, 0.03
+
+
+def test_the_star_fit_learns_kappa_from_a_prior():
+    """`fit_psf_correction` with a (mean, std) kappa: the stars of a known kappa
+    give it back, prior centred twice too high, and the correction records it;
+    its samples record theirs."""
+    stamps = stars_with_charge_migration(0.5, KAPPA)
+    prior = (2 * KAPPA, 2 * KAPPA)
+    options = dict(width=(0.5, 0.5), brighter_fatter=prior, n_iterations=6)
+    correction, _ = fit_psf_correction(stamps, 3, BAND, **options)
+    assert np.isclose(correction.brighter_fatter, KAPPA, rtol=0.03)
+    _, _, samples = fit_psf_correction(stamps, 3, BAND, n_samples=1, **options)
+    kappas = [s.brighter_fatter for s in samples]
+    assert kappas[0] != kappas[1] and np.allclose(kappas, KAPPA, rtol=0.1)

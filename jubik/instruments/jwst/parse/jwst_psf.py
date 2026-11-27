@@ -15,6 +15,32 @@ JOINT_STARS_KEY = "joint_stars"
 
 
 @dataclass(frozen=True)
+class StarExclusion:
+    """``psf.joint_stars``' ``exclude``: rules that drop stars from the fit, each
+    off at None (or False). A stamp or a Gaia cutout (one star, one exposure)
+    goes when
+
+    max_peak : float | None
+        its peak above its edge exceeds this many DN per integration (the star
+        fit's ``--max-peak``; a stamp's ``fluence``);
+    saturated : bool
+        it is a Gaia cutout with DQ SATURATED within 2 pixels of the star's
+        catalog pixel (psf_check's rule for the stamps), or that pixel masked.
+
+    A Gaia star goes, with every stamp at it, when its Gaia ``ruwe``,
+    ``astrometric_excess_noise_sig`` or ``classprob_dsc_combmod_galaxy``
+    exceeds ``ruwe``, ``excess_noise_sig`` or ``galaxy`` (a binary, a poor
+    astrometric fit, a galaxy); a column the Gaia table lacks skips its rule.
+    """
+
+    max_peak: float | None = 30000.0
+    saturated: bool = True
+    ruwe: float | None = 1.4
+    excess_noise_sig: float | None = 2.0
+    galaxy: float | None = 0.5
+
+
+@dataclass(frozen=True)
 class JointStars:
     """One filter's ``psf.joint_stars`` entry, see `JwstPsfKernelConfig`.
 
@@ -25,6 +51,9 @@ class JointStars:
     brighter_fatter : tuple[float, float] | None
         Mean and std of a log-normal prior of kappa per DN per integration,
         learned; None: kappa is ``psf.brighter_fatter``'s, or none.
+    exclude : StarExclusion | None
+        The stars to drop (``exclude: true`` for the defaults, or a map of
+        the rules to change); None (the default) drops none.
     """
 
     stamps: str
@@ -35,6 +64,22 @@ class JointStars:
     fluence: float | None = None
     orthogonal: bool = False
     brighter_fatter: tuple[float, float] | None = None
+    exclude: StarExclusion | None = None
+
+
+def _exclusion(raw) -> StarExclusion | None:
+    """``exclude``: None or False, none; True, the defaults; a map, the
+    defaults with its rules, numbers or None (off)."""
+    if raw is None or raw is False:
+        return None
+    if raw is True:
+        return StarExclusion()
+    rules = StarExclusion(**raw)
+    numbers = {
+        k: None if getattr(rules, k) is None else float(getattr(rules, k))
+        for k in ("max_peak", "ruwe", "excess_noise_sig", "galaxy")
+    }
+    return replace(rules, saturated=bool(rules.saturated), **numbers)
 
 
 @dataclass
@@ -118,8 +163,10 @@ class JwstPsfKernelConfig:
         an exposure is its gaia_alignment cutout, placed the same way, with its
         own flux and background; the other stamps keep free positions. The
         filter then has no bilinear alignment term. Stars with a Gaia parallax
-        of 1 mas or more are logged: their positions leave it out. Default:
-        none. Config::
+        of 1 mas or more are logged: their positions leave it out. An
+        ``exclude`` entry drops stars by rules (`StarExclusion`: saturated or
+        too bright frames, Gaia's RUWE, excess noise and galaxy probability),
+        each drop logged with its reason. Default: none. Config::
 
             psf:
               pixel_box: true
@@ -130,6 +177,7 @@ class JwstPsfKernelConfig:
                   width: [0.4, 0.3]
                   orthogonal: true
                   brighter_fatter: [9.02e-7, 2.0e-7]  # kappa learned
+                  exclude: true  # or e.g. {ruwe: 1.6, galaxy: null}
     """
 
     webbpsf_path: str
@@ -175,6 +223,7 @@ class JwstPsfKernelConfig:
                 # numbers, as for psf brighter_fatter: yaml reads 1e-6 as a string
                 joint[name] = replace(
                     entry,
+                    exclude=_exclusion(entry.exclude),
                     fluctuations=float(entry.fluctuations),
                     loglogavgslope=float(entry.loglogavgslope),
                     fluence=None if entry.fluence is None else float(entry.fluence),

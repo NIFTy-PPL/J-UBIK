@@ -16,6 +16,7 @@ from astropy.time import Time
 
 from jubik.instruments.jwst import jwst_likelihoods
 from jubik.instruments.jwst.jwst_likelihoods import build_jwst_likelihoods
+from jubik.instruments.jwst.parse.jwst_psf import JwstPsfKernelConfig, StarExclusion
 from jubik.instruments.jwst.psf import jwst_kernel
 from jubik.instruments.jwst.psf.psf_correction import (
     PsfCorrection,
@@ -132,7 +133,7 @@ def add_star(table, source_id, x, y, row=None):
     table.insert_row(len(table) if row is None else row, values + (0.0,) * 6)
 
 
-def write_stamps(path, table, data=None, seed=0):
+def write_stamps(path, table, data=None, seed=0, fluence=None):
     """The stamps of `stamp_sites` with `data` (default: noise around a bump),
     each with its file's DN per data unit, as the star-fit script writes them."""
     rng = np.random.default_rng(seed)
@@ -146,8 +147,10 @@ def write_stamps(path, table, data=None, seed=0):
     mask[0, :3] = False
     dn = [dict(zip(FILES, DN_PER_UNIT)).get(site[0], 250.0) for site in sites]
     stamps = [
-        StarStamp(d, s, mask, base_kernel(), 1e4 * (i + 1), u_)
-        for i, (d, s, u_) in enumerate(zip(data, std, dn))
+        StarStamp(d, s, mask, base_kernel(), f, u_)
+        for d, s, u_, f in zip(
+            data, std, dn, fluence or [1e4 * (i + 1) for i in range(len(sites))]
+        )
     ]
     file, x, y = (np.array(c) for c in zip(*sites))
     sky = exposure_wcs().pixel_to_world(x, y)
@@ -622,3 +625,128 @@ def test_gaia_cutouts_brighter_than_every_stamp_or_masked_are_flagged(
     caplog.clear()
     build(tmp_path / "c", psf, corner_mask_1=box_around(catalog(table, 2), 0.03))
     assert warned(caplog, flag)
+
+
+# --- exclude ------------------------------------------------------------------------
+
+
+class SaturatedJwstData(EpochJwstData):
+    """`EpochJwstData` with a DQ array, SATURATED at star 3 in fake_0."""
+
+    def __init__(self, filepath):
+        super().__init__(filepath)
+        self.dm.dq = np.zeros(self.shape, np.uint32)
+        if Path(filepath).stem.endswith("_0"):
+            x, y = np.round(STARS[2]).astype(int)
+            self.dm.dq[y + 1, x - 2] = 2 | 4  # SATURATED, JUMP_DET: 2 px off
+
+
+def gaia_columns(table, **columns):
+    """`table` with Gaia's quality columns, zero but where `columns` say."""
+    for name in (
+        "ruwe",
+        "astrometric_excess_noise_sig",
+        "classprob_dsc_combmod_galaxy",
+    ):
+        table[name] = columns.get(name, [0.0] * len(table))
+
+
+def excluding(path, exclude):
+    """`joint_psf` of the stamps file at `path` with ``exclude``."""
+    entry = joint_psf(path)["joint_stars"][BAND] | {"exclude": exclude}
+    return {"pixel_box": True, "joint_stars": {BAND: entry}}
+
+
+def test_exclude_parses():
+    raw = {"webbpsf_path": "", "psf_library": "", "psf_arcsec_extension": 0.4}
+
+    def rules(exclude):
+        entry = {BAND: {"stamps": "s.npz", "exclude": exclude}}
+        return JwstPsfKernelConfig.from_yaml_dict(raw | {"joint_stars": entry})
+
+    assert rules(True).joint_stars[BAND].exclude == StarExclusion()
+    assert rules(False).joint_stars[BAND].exclude is None
+    changed = rules({"ruwe": "1.6", "galaxy": None, "saturated": False})
+    assert changed.joint_stars[BAND].exclude == StarExclusion(
+        ruwe=1.6, galaxy=None, saturated=False
+    )
+    with pytest.raises(ValueError, match="unexpected keyword argument 'rwe'"):
+        rules({"rwe": 1.6})
+
+
+@pytest.mark.parametrize(
+    "column, value, why",
+    [
+        ("ruwe", 2.0, "RUWE 2"),
+        ("astrometric_excess_noise_sig", 5.0, "excess noise significance 5"),
+        ("classprob_dsc_combmod_galaxy", 0.9, "galaxy probability 0.9"),
+    ],
+)
+def test_a_gaia_star_the_rules_drop_goes_with_its_stamps(
+    gaia, tmp_path, caplog, column, value, why
+):
+    """Star 2, tied to two stamps, fails one rule: its stamps and cutouts go,
+    star 1 and star 3 stay; without exclude everything stays."""
+    table, _ = gaia
+    add_star(table, 3, 45.3, 20.6)
+    gaia_columns(table, **{column: [0.0, value, 0.0]})
+    write_stamps(tmp_path / "s.npz", table)
+    tied, _ = build(tmp_path / "a", joint_psf(tmp_path / "s.npz")).target.joint_stars
+    assert "star_2_astrometry" in tree(tied.domain)
+    this_rule = excluding(tmp_path / "s.npz", {"max_peak": None, "saturated": False})
+    tied, cutouts = build(tmp_path / "b", this_rule).target.joint_stars
+    assert "star_2_astrometry" not in tree(tied.domain) | tree(cutouts.domain)
+    assert "star_1_astrometry" in tree(tied.domain)
+    assert "star_3_astrometry" in tree(cutouts.domain)
+    assert tree(tied.domain)[f"{BAND}_star_flux"].shape == (4,)  # 6 less star 2's 2
+    assert warned(caplog, f"Gaia stars excluded: 2: {why}")
+    assert warned(caplog, "stamps excluded, at a Gaia star exclude drops")
+
+
+def test_saturated_and_bright_gaia_cutouts_go_alone(
+    gaia, monkeypatch, tmp_path, caplog
+):
+    """Star 3's fake_0 cutout has DQ SATURATED 2 px from its centre: that frame
+    goes, its fake_1 frame stays. Above a max_peak, star 3's cutouts (~1e4 and
+    2e4 DN/int) go, and so does the free stamp of 4e4."""
+    for site in JWST_DATA_SITES:
+        monkeypatch.setattr(site, SaturatedJwstData)
+    table, _ = gaia
+    add_star(table, 3, 45.3, 20.6)
+    write_stamps(tmp_path / "s.npz", table, fluence=[1e3] * 4 + [4e4, 1e3])
+
+    def build_with(exclude, name):
+        psf = excluding(tmp_path / "s.npz", exclude)
+        return build(tmp_path / name, psf).target.joint_stars
+
+    _, cutouts = build_with({"max_peak": None}, "a")
+    assert tree(cutouts.domain)[f"{BAND}_gaia_star_flux"].shape == (1,)
+    assert warned(caplog, "Gaia stars excluded: 3: saturated in 1 of 2 frames")
+    _, cutouts = build_with({"max_peak": None, "saturated": False}, "b")
+    assert tree(cutouts.domain)[f"{BAND}_gaia_star_flux"].shape == (2,)
+    caplog.clear()
+    (tied,) = build_with({"max_peak": 8e3, "saturated": False}, "c")
+    assert warned(caplog, "Gaia stars excluded: 3: a peak above 8000 DN/int in 2 of 2")
+    free = "stamps excluded, a peak above 8000 DN/int: ['fake_0.fits (10.0, 50.0)']"
+    assert warned(caplog, free)
+    assert tree(tied.domain)[f"{BAND}_star_flux"].shape == (5,)
+
+
+def test_a_gaia_star_masked_at_its_centre_counts_as_saturated(gaia, tmp_path, caplog):
+    table, _ = gaia
+    add_star(table, 3, 45.3, 20.6)
+    write_stamps(tmp_path / "s.npz", table)
+    psf = excluding(tmp_path / "s.npz", {"max_peak": None})
+    mask = box_around(catalog(table, 2), 0.03)
+    products = build(tmp_path / "b", psf, corner_mask_1=mask)
+    assert len(products.target.joint_stars) == 1
+    assert warned(caplog, "Gaia stars excluded: 3: saturated in 2 of 2 frames")
+
+
+def test_a_rule_without_its_gaia_column_is_skipped(gaia, tmp_path, caplog):
+    table, _ = gaia
+    write_stamps(tmp_path / "s.npz", table)
+    psf = excluding(tmp_path / "s.npz", {"max_peak": None})
+    (tied,) = build(tmp_path / "b", psf).target.joint_stars
+    assert "star_2_astrometry" in tree(tied.domain)
+    assert "no Gaia ruwe, exclude.ruwe skipped" in caplog.text
