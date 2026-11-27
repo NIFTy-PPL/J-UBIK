@@ -400,8 +400,13 @@ def fit_psf_correction(
     pixel_box: bool = False,
     orthogonal: bool = False,
     brighter_fatter: float | None = None,
-) -> tuple[PsfCorrection, np.ndarray]:
-    """Learn the correction of one filter's kernels on its stars (MAP).
+    n_samples: int = 0,
+) -> (
+    tuple[PsfCorrection, np.ndarray]
+    | tuple[PsfCorrection, np.ndarray, list[PsfCorrection]]
+):
+    """Learn the correction of one filter's kernels on its stars (MAP, or
+    variational with `n_samples`).
 
     Every stamp is fitted with its kernel and its own flux, sub-pixel position,
     background and background gradient; the texture and the width are shared
@@ -434,7 +439,7 @@ def fit_psf_correction(
         The fluence the correction is for, in the unit of ``StarStamp.fluence``;
         None shares one width among all stamps.
     n_iterations : int
-        Newton-CG rounds of `jft.optimize_kl` without samples.
+        Newton-CG rounds of `jft.optimize_kl`.
     pixel_box : bool
         Convolve every kernel with one sub-pixel's box (`with_pixel_box`), the
         exact pixel integration; the correction is then for a lens fit with
@@ -450,14 +455,20 @@ def fit_psf_correction(
         brighter-fatter does not explain; the correction is then for a lens
         fit with ``psf.brighter_fatter`` at this kappa. Also for checking such
         a correction on other stars. None moves no charge.
+    n_samples : int
+        Posterior samples of `jft.optimize_kl` (geoVI, each mirrored: 2
+        `n_samples` in all); 0 fits the MAP.
 
     Returns
     -------
     tuple[PsfCorrection, np.ndarray]
-        The correction (identity parts where nothing is learned) and the best
-        model of every stamp, (N, S, S). With neither `radius` nor `width`,
-        only the stars are fitted: pass kernels corrected by
-        `PsfCorrection.apply` to test a correction on other stars.
+        The correction (identity parts where nothing is learned) at the latent
+        mean, and the model of every stamp there, (N, S, S). With neither
+        `radius` nor `width`, only the stars are fitted: pass kernels corrected
+        by `PsfCorrection.apply` to test a correction on other stars. With
+        `n_samples`, a third item: the correction at each of the 2 `n_samples`
+        samples, whose spread (of ``width``, ``at_fluence(0).width``,
+        ``width_slope``, the texture) is the correction's uncertainty.
     """
     stars = _StarModel(
         stamps, subsample, pixel_box=pixel_box, brighter_fatter=brighter_fatter
@@ -516,26 +527,34 @@ def fit_psf_correction(
     ).amend(jft.Model(lambda x: models(x)[mask], domain=domain, white_init=True))
 
     position = jft.Vector(jax.tree.map(lambda s: jnp.zeros(s.shape, s.dtype), domain))
+    quiet = dict(name=None, cg_kwargs=dict(name=None))
     samples, _ = jft.optimize_kl(
         likelihood,
         position,
-        key=jax.random.PRNGKey(0),  # no samples: the key is unused
+        key=jax.random.PRNGKey(0),
         n_total_iterations=n_iterations,
-        n_samples=0,
-        kl_kwargs=dict(
-            minimize_kwargs=dict(name=None, maxiter=20, cg_kwargs=dict(name=None))
-        ),
+        n_samples=n_samples,
+        draw_linear_kwargs=dict(cg_name=None, cg_kwargs={}),
+        nonlinearly_update_kwargs=dict(minimize_kwargs=quiet),
+        kl_kwargs=dict(minimize_kwargs=quiet | dict(maxiter=20)),
     )
+
+    def correction_at(x):
+        correction = PsfCorrection(
+            filter=filter.lower(),
+            subsample=int(subsample),
+            log_texture=(
+                np.zeros((1, 1)) if texture is None else np.asarray(texture(x))
+            ),
+            width=0.0 if sigma is None else float(sigma(x)),
+            pixel_box=pixel_box,
+            brighter_fatter=0.0 if brighter_fatter is None else float(brighter_fatter),
+        )
+        if w0 is not None:
+            slope = (correction.width**2 - float(w0(x)) ** 2) / fluence
+            correction = replace(correction, fluence=float(fluence), width_slope=slope)
+        return correction
+
     x = samples.pos.tree
-    correction = PsfCorrection(
-        filter=filter.lower(),
-        subsample=int(subsample),
-        log_texture=np.zeros((1, 1)) if texture is None else np.asarray(texture(x)),
-        width=0.0 if sigma is None else float(sigma(x)),
-        pixel_box=pixel_box,
-        brighter_fatter=0.0 if brighter_fatter is None else float(brighter_fatter),
-    )
-    if w0 is not None:
-        slope = (correction.width**2 - float(w0(x)) ** 2) / fluence
-        correction = replace(correction, fluence=float(fluence), width_slope=slope)
-    return correction, np.asarray(models(x))
+    out = correction_at(x), np.asarray(models(x))
+    return out + ([correction_at(s.tree) for s in samples],) if n_samples else out

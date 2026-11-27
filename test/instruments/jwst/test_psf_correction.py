@@ -120,20 +120,20 @@ def test_at_fluence_moves_the_variance_linearly():
     assert fainter.at_fluence(2e4).width == 0.0  # 0.25 - 0.3 < 0: clipped
 
 
-def mock_stars(base, truth, n, width_of_fluence=None):
+def mock_stars(base, truth, n, width_of_fluence=None, rng=RNG):
     """Stamps of point sources through `truth.apply(base)` within half a pixel
     of the centre, with read and shot noise; the fluence of each is its flux,
     and `width_of_fluence` broadens it."""
     model = _StarModel([blank_stamp(truth.apply(base))] * n, SUB)
-    model.flux0 = 10 ** RNG.uniform(4, 5, n)
+    model.flux0 = 10 ** rng.uniform(4, 5, n)
     model.background0, model.noise = np.full(n, 5.0), np.ones(n)
-    x = zeros(model) | {"star_position": RNG.uniform(-1, 1, (n, 2))}
+    x = zeros(model) | {"star_position": rng.uniform(-1, 1, (n, 2))}
     widths = None
     if width_of_fluence is not None:
         widths = width_of_fluence(model.flux0)[:, None, None]
     clean = np.asarray(model(x, None, widths))
     std = np.sqrt(4.0 + clean.clip(0) / 2)
-    data = clean + std * RNG.normal(size=clean.shape)
+    data = clean + std * rng.normal(size=clean.shape)
     mask = np.ones((SIZE, SIZE), bool)
     return [StarStamp(d, s, mask, base, f) for d, s, f in zip(data, std, model.flux0)]
 
@@ -208,6 +208,21 @@ def test_fit_recovers_a_width_growing_with_fluence():
     assert learned.fluence == 5e4
     assert np.isclose(learned.width, np.sqrt(w0**2 + slope * 5e4), rtol=0.05)
     assert np.isclose(learned.at_fluence(0).width, w0, rtol=0.1)
+
+
+def test_samples_cover_the_injected_width():
+    """With samples, the correction at the latent mean and one per sample (two
+    per `n_samples`, mirrored), whose spread covers the injected width."""
+    w = 0.4
+    truth = PsfCorrection("f", SUB, NO_TEXTURE, w)
+    stamps = mock_stars(kernel(), truth, 6, rng=np.random.default_rng(1))
+    learned, models, sampled = fit_psf_correction(
+        stamps, SUB, "f", width=(0.5, 0.5), n_iterations=3, n_samples=2
+    )
+    widths = np.array([c.width for c in sampled])
+    assert len(sampled) == 4 and models.shape == (6, SIZE, SIZE)
+    assert 0 < widths.std() < 0.05
+    assert abs(learned.width - w) < 3 * widths.std()
 
 
 def test_load_psf_kernel_applies_the_filter_correction(patched_seams, tmp_path):
