@@ -28,6 +28,7 @@ class SingleStarBundle:
     star_in_subsampled_pixels: tuple[float, float]
     sky_to_data: u.Quantity
     observation_id: int
+    star_in_detector_pixels: tuple[float, float]  # (x, y) in the exposure's array
 
 
 class StarsBundle(UserDict[int, SingleStarBundle]):
@@ -134,6 +135,7 @@ def load_one_stars_bundle(
                 position, jwst_data.wcs, star_alignment_config.subsample
             ),
             observation_id=index,
+            star_in_detector_pixels=(float(x), float(y)),
         )
 
     return star_bundles
@@ -175,6 +177,7 @@ class SingleStarData:
     star_in_subsampled_pixels: list[tuple[float, float]] = field(default_factory=list)
     sky_to_data: list[u.Quantity] = field(default_factory=list)
     observation_ids: list[int] = field(default_factory=list)
+    star_in_detector_pixels: list[tuple[float, float]] = field(default_factory=list)
 
     # -- optional: freeze to ndarray stacks -------------------------
     def as_stacked(self) -> "SingleStarDataStacked":
@@ -188,6 +191,7 @@ class SingleStarData:
             star_in_subsampled_pixels=np.asarray(self.star_in_subsampled_pixels),
             sky_to_data=np.stack(self.sky_to_data),
             observation_ids=np.asarray(self.observation_ids),
+            star_in_detector_pixels=np.asarray(self.star_in_detector_pixels),
         )
 
 
@@ -204,6 +208,8 @@ class SingleStarDataStacked:
     # (n_exposures, 2, 2), subsampled cutout pixels per arcsec, see `_sky_to_data`
     sky_to_data: u.Quantity
     observation_ids: np.ndarray
+    # (n_exposures, 2): (x, y) in each exposure's data array, see `JwstData.wcs`
+    star_in_detector_pixels: np.ndarray
 
     # -- convenience -------------------------------------------------
     @property
@@ -246,3 +252,4 @@ class StarsData(UserDict[int, SingleStarDataStacked]):
         entry.star_in_subsampled_pixels.append(sb.star_in_subsampled_pixels)
         entry.sky_to_data.append(sb.sky_to_data)
         entry.observation_ids.append(sb.observation_id)
+        entry.star_in_detector_pixels.append(sb.star_in_detector_pixels)

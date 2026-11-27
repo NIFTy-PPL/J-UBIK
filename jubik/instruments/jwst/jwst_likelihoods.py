@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field, replace
 from functools import reduce
 from itertools import chain
+from pathlib import Path
 from typing import Union
 
 import nifty.re as jft
@@ -18,6 +19,7 @@ from ...parse.models.distributions.distributions import (
 )
 from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
+from .alignment.star_model import gaia_positions
 from .config_handler import data_margin, get_grid_extension_from_config
 from .data.loader.data_loader import (
     DataLoader,
@@ -51,7 +53,12 @@ from .parse.rotation_and_shift.coordinates_correction import CorrectionModel
 from .parse.rotation_and_shift.rotation_and_shift import NufftConfig
 from .plotting.alignment import MultiFilterAlignmentPlottingInformation
 from .plotting.residuals import ResidualPlottingInformation
-from .psf.psf_correction import joint_correction, load_star_stamps
+from .psf.psf_correction import (
+    STAR_PAD,
+    StarStamp,
+    joint_correction,
+    load_star_stamps,
+)
 from .psf.psf_operator import PsfGaussianBroadening, PsfStatic
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .variable_covariance.inverse_standard_deviation import (
@@ -404,14 +411,27 @@ def build_jwst_likelihoods(
             preload_results.filter_meta.pixel_scale,
         )
         if joint is not None:
+            gaia = None
+            if cfg_parser.star_alignment_config is not None:
+                gaia = _GaiaStars(
+                    tables=preload_results.star_tables,
+                    data=dataload_results.stars_data,
+                    filepaths=filepaths,
+                    correction=shift_and_rotation_correction,
+                    grid_wcs=grid.spatial,
+                    fit_position=cfg_parser.star_alignment_config.fit_star_positions,
+                    tolerance=reach
+                    + preload_results.filter_meta.pixel_scale.to_value(u.arcsec),
+                )
             psf_model, stars = _joint_stars(
                 filter,
                 joint,
                 cfg_parser.psf_kernel_configs.pixel_box,
                 kappa,
                 dataload_results.target_data,
+                gaia,
             )
-            star_likelihoods.append(stars)
+            star_likelihoods += stars
 
         likelihood_target: SingleTargetLikelihood = build_target_likelihood(
             filter_name=filter,
@@ -456,7 +476,8 @@ def build_jwst_likelihoods(
 
         target_filter_likelihoods.append(likelihood_target)
 
-        if cfg_parser.star_alignment_config is not None:
+        # a joint_stars filter models its Gaia stars in `stars`
+        if cfg_parser.star_alignment_config is not None and joint is None:
             filter_alignment_likelihood = build_star_alignment_likelihood(
                 response=StarAlignmentResponseInput(
                     filter_name=filter,
@@ -483,7 +504,11 @@ def build_jwst_likelihoods(
             joint_stars=star_likelihoods,
         ),
         alignment=MultiFilterAlignmentProducts.from_optional(
-            likelihood=alignment_likelihoods,
+            likelihood=(
+                alignment_likelihoods
+                if alignment_likelihoods and alignment_likelihoods.likelihoods
+                else None
+            ),
             plotting=alignment_plotting,
         ),
     )
@@ -506,6 +531,15 @@ def _brighter_fatter(kappa, filepaths) -> np.ndarray | jft.Model | None:
     integration of one MJy/sr. None for None."""
     if kappa is None:
         return None
+    dn_per_unit = _dn_per_unit(filepaths)[:, None, None]
+    if isinstance(kappa, jft.Model):
+        return jft.Model(lambda x: kappa(x) * dn_per_unit, domain=kappa.domain)
+    return kappa * dn_per_unit
+
+
+def _dn_per_unit(filepaths) -> np.ndarray:
+    """EFFINTTM / PHOTMJSR of each exposure, in `TargetData`'s order: the DN per
+    integration of one MJy/sr."""
     dn_per_unit = []
     for path in sorted(filepaths, key=lambda p: p.index):  # TargetData's order
         data = JwstData(path.path)
@@ -518,17 +552,34 @@ def _brighter_fatter(kappa, filepaths) -> np.ndarray | jft.Model | None:
                 f"PHOTMJSR {photmjsr}"
             )
         dn_per_unit.append(time / photmjsr)
-    dn_per_unit = np.array(dn_per_unit)[:, None, None]
-    if isinstance(kappa, jft.Model):
-        return jft.Model(lambda x: kappa(x) * dn_per_unit, domain=kappa.domain)
-    return kappa * dn_per_unit
+    return np.array(dn_per_unit)
 
 
-def _joint_stars(filter: str, joint, pixel_box: bool, kappa, target_data):
-    """The PSF of `filter`'s target response and its stars' likelihood, sharing
-    the correction learned on both (`joint_correction`, latents named
-    ``{filter}_...``)."""
-    stamps, subsample = load_star_stamps(joint.stamps)
+@dataclass
+class _GaiaStars:
+    """What `_joint_stars` needs of a filter's ``gaia_alignment``: the Gaia
+    tables and cutouts, the filter's files and shift, and how far (arcsec) a
+    stamp's centre may lie from a Gaia star's catalog position to be it."""
+
+    tables: object  # StarTables
+    data: object  # StarsData
+    filepaths: list
+    correction: ShiftAndRotationCorrection
+    grid_wcs: object
+    fit_position: bool
+    tolerance: float
+
+
+def _joint_stars(
+    filter: str, joint, pixel_box: bool, kappa, target_data, gaia=None
+) -> tuple[jft.Model, list[jft.Likelihood]]:
+    """The PSF of `filter`'s target response and its stars' likelihoods, sharing
+    the correction learned on all (`joint_correction`, latents named
+    ``{filter}_...``). With `gaia` (`_GaiaStars`) every Gaia star in the files
+    is a star of the fit once: a stamp at a Gaia star's position sits there,
+    moved by its exposure's shift (and astrometry), and a Gaia star without a
+    stamp gets its gaia_alignment cutout, ``{filter}_gaia_...``."""
+    stamps, subsample, extra = load_star_stamps(joint.stamps)
     if subsample != target_data.subsample:
         raise ValueError(
             f"psf joint_stars {filter}: the stamps' kernels in {joint.stamps} are "
@@ -538,6 +589,14 @@ def _joint_stars(filter: str, joint, pixel_box: bool, kappa, target_data):
     sky = jft.ShapeWithDtype(
         (kernels.shape[0],) + target_data.subsample_centers[0].shape, float
     )
+    positions, more = None, ()
+    if gaia is not None:
+        dn = None
+        if kappa is not None or joint.fluence is not None:
+            dn = _dn_per_unit(gaia.filepaths)
+        positions, more = _tie_to_gaia(
+            filter, joint, stamps, extra, subsample, gaia, dn
+        )
     return joint_correction(
         stamps,
         subsample,
@@ -552,7 +611,108 @@ def _joint_stars(filter: str, joint, pixel_box: bool, kappa, target_data):
         pixel_box=pixel_box,
         brighter_fatter=kappa,
         prefix=f"{filter}_",
+        positions=positions,
+        more_stars=more,
     )
+
+
+def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
+    """`joint_correction`'s ``positions`` and ``more_stars`` for `filter`'s Gaia
+    stars (see `_joint_stars`).
+
+    A Gaia star in an exposure is a stamp of that file (`extra`'s
+    ``exposure``) whose centre (``ra``, ``dec``) lies within `gaia.tolerance`
+    of its catalog position at the exposure's epoch; the stamp's centre pixel
+    (``x``, ``y``) places that position in it. `dn` is each exposure's DN per
+    integration per data unit (`_dn_per_unit`), or None."""
+    if missing := {"exposure", "x", "y", "ra", "dec"} - set(extra):
+        raise ValueError(
+            f"psf joint_stars {filter}: gaia_alignment needs the stamps' "
+            f"{sorted(missing)} in {joint.stamps} (`save_star_stamps`)"
+        )
+    index = {Path(f.path).name: f.index for f in gaia.filepaths}
+    exposure = np.array([index.get(str(n), -1) for n in extra["exposure"]])
+    centres = SkyCoord(extra["ra"], extra["dec"], unit="deg")
+    times = gaia.tables.observation_times
+    tied, alone = {}, []  # stamp -> (star, frame); (star, frame) without a stamp
+    for star in gaia.tables.get_stars():
+        if star.id not in gaia.data:
+            continue
+        for k, e in enumerate(gaia.data[star.id].observation_ids):
+            here = np.flatnonzero(exposure == e)
+            if here.size:
+                sep = centres[here].separation(star.position_at(times[e])).arcsec
+                j = here[np.argmin(sep)]
+                if sep.min() <= gaia.tolerance and j not in tied:
+                    tied[j] = (star, k)
+                    continue
+            alone.append((star, k))
+    jft.logger.info(
+        f"{filter}: {len(tied)} star stamps at Gaia stars, {len(stamps) - len(tied)} "
+        f"free, {len(alone)} Gaia cutouts without a stamp"
+    )
+    table = gaia.tables.join_tables()
+    if "parallax" in table.colnames:
+        near = np.asarray(np.ma.filled(table["parallax"], 0.0), float) >= 1.0
+        if ids := sorted(map(int, set(table["SOURCE_ID"][near]) & set(gaia.data))):
+            jft.logger.warning(
+                f"{filter}: Gaia stars {ids} have a parallax of 1 mas or more, "
+                "which their positions leave out"
+            )
+
+    def entry(star, k, pixel):
+        frames = gaia.data[star.id]
+        jacobian = frames.sky_to_data[k].to_value(u.pix / u.arcsec)
+        return star, int(frames.observation_ids[k]), pixel, jacobian
+
+    def fit_positions(entries):
+        return gaia_positions(
+            entries, gaia.correction, gaia.grid_wcs, times, gaia.fit_position
+        )
+
+    positions = None
+    if tied:
+        h = stamps[0].data.shape[-1] // 2
+        entries = []
+        for j, (star, k) in sorted(tied.items()):
+            # the catalog position from the stamp's corner, in subsampled pixels
+            xy = gaia.data[star.id].star_in_detector_pixels[k]
+            corner = np.array([extra["x"][j], extra["y"][j]]) - h
+            entries.append(entry(star, k, (xy - corner + 0.5) * subsample - 0.5))
+        positions = (np.array(sorted(tied)), fit_positions(entries))
+    if not alone:
+        return positions, ()
+
+    cutouts, entries = [], []
+    for star, k in alone:
+        frames = gaia.data[star.id]
+        data, mask = frames.data[k], frames.mask[k]
+        e = int(frames.observation_ids[k])
+        unit = None if dn is None else float(dn[e])
+        edge = np.ones(data.shape, bool)
+        edge[1:-1, 1:-1] = False
+        peak = np.max(data[mask]) - np.median(
+            data[mask & edge] if (mask & edge).any() else data[mask]
+        )
+        fluence = (
+            0.0 if unit is None else peak * unit
+        )  # as psf_check's, per integration
+        cutouts.append(
+            StarStamp(data, frames.std[k], mask, frames.psf[k], fluence, unit)
+        )
+        entries.append(entry(star, k, frames.star_in_subsampled_pixels[k]))
+    pixels = np.array([p for *_, p, _ in entries])
+    size = cutouts[0].data.shape[-1]
+    # the stars sit off the middle of edge cutouts: the canvas reaches past them
+    far = np.abs((pixels + 0.5) / subsample - 0.5 - size // 2).max()
+    pad = STAR_PAD + int(np.ceil(far))
+    group = (
+        cutouts,
+        (np.arange(len(cutouts)), fit_positions(entries)),
+        f"{filter}_gaia_",
+        pad,
+    )
+    return positions, (group,)
 
 
 def _broadened_psf(

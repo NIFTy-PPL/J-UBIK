@@ -111,14 +111,14 @@ def energy(likelihood, x):
 
 def test_stamps_file_round_trip(tmp_path):
     stamps = write_stamps(tmp_path / "s.npz", n=3)
-    back, subsample = load_star_stamps(tmp_path / "s.npz")
+    back, subsample, extra = load_star_stamps(tmp_path / "s.npz")
     assert subsample == SUB and len(back) == 3
     for a, b in zip(stamps, back):
         for field in ("data", "std", "mask", "kernel"):
             np.testing.assert_array_equal(getattr(a, field), getattr(b, field))
         assert (a.fluence, a.dn_per_unit) == (b.fluence, b.dn_per_unit)
-    with np.load(tmp_path / "s.npz") as f:  # the ids stay alongside
-        np.testing.assert_array_equal(f["star"], np.arange(3))
+    assert set(extra) == {"star"}  # the ids stay alongside
+    np.testing.assert_array_equal(extra["star"], np.arange(3))
 
 
 class DeterministicJwstData(ExposureJwstData):
@@ -344,14 +344,14 @@ def test_conflicting_data_raise(exposures, tmp_path):
         build(tmp_path / "b", joint_psf(tmp_path / "s3.npz"))
 
 
-def test_gaia_alignment_raises(exposures, tmp_path):
+def test_gaia_alignment_needs_the_target_subsample(exposures, tmp_path):
     from test_jwst_likelihoods import make_config
 
     from jubik.instruments.jwst.parse.parsing_step import ConfigParserJwst
 
-    cfg = make_config(tmp_path, gaia=True)
+    cfg = make_config(tmp_path, gaia=True, gaia_subsample=3)
     cfg["telescope"]["psf"] |= {"joint_stars": {BAND: {"stamps": "s.npz"}}}
-    with pytest.raises(ValueError, match="gaia_alignment stars cannot"):
+    with pytest.raises(ValueError, match=r"gaia_alignment.subsample \(3\) must equal"):
         ConfigParserJwst.from_yaml_dict(cfg)
 
 
@@ -379,7 +379,7 @@ def test_kappa_is_recovered_on_stars_with_a_known_kappa():
     stamps = stars_with_charge_migration(0.5, KAPPA)
     prior = jft.LogNormalPrior(2 * KAPPA, 2 * KAPPA, name="kappa", shape=())
     sky = jft.ShapeWithDtype((1, 8, 8), float)
-    _, stars = joint_correction(
+    _, (stars,) = joint_correction(
         stamps, 3, kernel()[None], sky, width=(0.5, 0.5), brighter_fatter=prior
     )
     x = fit(stars)

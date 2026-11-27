@@ -71,11 +71,14 @@ class ConfigParserJwst:
             StarAlignmentConfig.from_yaml_dict(cfg[telescope_key].get("gaia_alignment"))
         )
         subsample_target = Subsample.from_yaml_dict(cfg[telescope_key]["target"])
+        # joint_stars models the Gaia stars too, under its correction on its grid
         if psf_kernel_configs.joint_stars and star_alignment_config is not None:
-            raise ValueError(
-                "psf joint_stars: the gaia_alignment stars cannot take the learned "
-                "correction; drop one"
-            )
+            if star_alignment_config.subsample != subsample_target:
+                raise ValueError(
+                    "psf joint_stars: gaia_alignment.subsample "
+                    f"({star_alignment_config.subsample}) must equal target.subsample "
+                    f"({subsample_target}), the grid of the learned correction"
+                )
         # the stars' kernels get the correction too, on its grid
         if psf_kernel_configs.correction and star_alignment_config is not None:
             if star_alignment_config.subsample != subsample_target:

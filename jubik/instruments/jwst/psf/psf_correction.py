@@ -279,8 +279,10 @@ def save_star_stamps(
     path: str | Path, stamps: list[StarStamp], subsample: int, **extra
 ):
     """`stamps`, of one kernel shape, and the `subsample` of their kernels as one
-    npz file for ``psf.joint_stars``; arrays in `extra`, e.g. star and exposure
-    ids, are stored alongside and not read back."""
+    npz file for ``psf.joint_stars``; arrays in `extra`, one entry per stamp, are
+    stored alongside. A lens fit with ``gaia_alignment`` needs ``exposure`` (the
+    file name), ``x`` and ``y`` (the stamp's centre pixel in that file's data
+    array) and ``ra`` and ``dec`` (deg) to tie stamps to Gaia stars."""
     fields = {k: np.stack([getattr(s, k) for s in stamps]) for k in _STAMP_ARRAYS}
     fields["fluence"] = np.array([s.fluence for s in stamps], float)
     fields["dn_per_unit"] = np.array(
@@ -290,11 +292,18 @@ def save_star_stamps(
         np.savez(f, subsample=subsample, **extra, **fields)
 
 
-def load_star_stamps(path: str | Path) -> tuple[list[StarStamp], int]:
-    """The stamps and the kernels' subsample of `save_star_stamps`."""
+def load_star_stamps(path: str | Path) -> tuple[list[StarStamp], int, dict]:
+    """The stamps, the kernels' subsample and the extra arrays of
+    `save_star_stamps`."""
+    own = (*_STAMP_ARRAYS, "fluence", "dn_per_unit")
     with np.load(path) as f:
-        columns = (f[k] for k in (*_STAMP_ARRAYS, "fluence", "dn_per_unit"))
-        return [StarStamp(*c) for c in zip(*columns)], int(f["subsample"])
+        stamps = [StarStamp(*c) for c in zip(*(f[k] for k in own))]
+        extra = {k: f[k] for k in f.files if k not in (*own, "subsample")}
+        return stamps, int(f["subsample"]), extra
+
+
+#: detector pixels of a star's canvas beyond its stamp on each side, see `_StarModel`
+STAR_PAD = 12
 
 
 class _StarModel:
@@ -309,17 +318,22 @@ class _StarModel:
     `brighter_fatter` (kappa per DN per integration, or a model of it whose
     latents join the domain) each model stamp, in DN per integration by its
     ``dn_per_unit``, goes through `charge_migration`. `prefix` goes in front of
-    the stars' latent names, e.g. one filter's in a lens fit.
+    the stars' latent names, e.g. one filter's in a lens fit. `positions`,
+    ``(indices, model)``, places the stamps at `indices` by a model of their
+    (n, 2) positions in subsampled pixels of each stamp, (x, y) with astropy's
+    pixel centres (e.g. Gaia's, `gaia_star_location`), instead of by their own
+    latents. `pad` must cover the stars' distance from the centre pixel.
     """
 
     def __init__(
         self,
         stamps: list[StarStamp],
         subsample: int,
-        pad: int = 12,
+        pad: int = STAR_PAD,
         pixel_box: bool = False,
         brighter_fatter: float | jft.Model | None = None,
         prefix: str = "",
+        positions: tuple[np.ndarray, jft.Model] | None = None,
     ):
         self.data = np.stack([s.data for s in stamps]).astype(float)
         self.std = np.stack([s.std for s in stamps]).astype(float)
@@ -343,6 +357,10 @@ class _StarModel:
         self.subsample, self.size, self.pad = subsample, size, pad
         self.fluence = np.array([s.fluence for s in stamps], float)
         self.brighter_fatter, self.prefix = brighter_fatter, prefix
+        self.positions = positions
+        self._free = np.arange(len(stamps))
+        if positions is not None:
+            self._free = np.setdiff1d(self._free, positions[0])
         if brighter_fatter is not None:  # per unit of each stamp's data
             dn_per_unit = np.array([s.dn_per_unit for s in stamps], float)
             if not np.all(dn_per_unit > 0):  # None: nan
@@ -382,13 +400,28 @@ class _StarModel:
         n, p = len(self.data), self.prefix
         domain = {
             f"{p}star_flux": jft.ShapeWithDtype((n,)),
-            f"{p}star_position": jft.ShapeWithDtype((n, 2)),
             f"{p}star_background": jft.ShapeWithDtype((n,)),
             f"{p}star_gradient": jft.ShapeWithDtype((n, 2)),
         }
+        if self._free.size:
+            domain[f"{p}star_position"] = jft.ShapeWithDtype((self._free.size, 2))
+        if self.positions is not None:
+            domain |= self.positions[1].domain
         if isinstance(self.brighter_fatter, jft.Model):
             domain |= self.brighter_fatter.domain
         return domain
+
+    def _dyx(self, x):
+        """Each star's (dy, dx) from the middle of its stamp's centre pixel, in
+        detector pixels."""
+        free = 0.5 * x[f"{self.prefix}star_position"] if self._free.size else None
+        if self.positions is None:
+            return free
+        indices, model = self.positions
+        s = self.subsample
+        dyx = ((model(x) + 0.5) / s - 0.5 - self.size // 2)[:, ::-1]
+        out = jnp.zeros((len(self.data), 2), dyx.dtype).at[indices].set(dyx)
+        return out if free is None else out.at[self._free].set(free)
 
     def _canvas(self, kernels):
         rows = kernels[..., self._crop, self._crop]
@@ -404,7 +437,7 @@ class _StarModel:
         canvas_fft = jnp.fft.fft2(self._canvas(kernels)) * transfer * self._box
         p = self.prefix
         flux = self.flux0 * jnp.exp(x[f"{p}star_flux"])
-        dyx = 0.5 * x[f"{p}star_position"]  # (dy, dx) in detector pixels
+        dyx = self._dyx(x)
         background = self.background0 + 10 * self.noise * x[f"{p}star_background"]
         gradient = self.noise[:, None] * x[f"{p}star_gradient"]  # per pixel, (y, x)
 
@@ -469,17 +502,27 @@ def _correction_model(
             raise ValueError("fluence must be > 0; None shares one width")
         if np.ptp(stars.fluence) == 0:
             raise ValueError("fluence needs stamps of different StarStamp.fluence")
-        w0, ratio = sigma, stars.fluence[:, None, None] / fluence
+        w0 = sigma
         sigma = jft.LogNormalPrior(
             *width, name=f"{prefix}psf_width_at_fluence", shape=()
         )
-
-        def per_stamp(x):
-            variance = w0(x) ** 2 + (sigma(x) ** 2 - w0(x) ** 2) * ratio
-            return jnp.sqrt(jnp.maximum(variance, 1e-12))  # w1 < w0 may cross 0
-
-        widths = jft.Model(per_stamp, domain=w0.domain | sigma.domain)
+        widths = _stamp_widths(stars, sigma, w0, fluence)
     return texture, sigma, widths, w0
+
+
+def _stamp_widths(stars: _StarModel, sigma, w0, fluence):
+    """Each stamp's width (N, 1, 1), ``w² = w0² + (w1² - w0²) F / fluence``, a
+    model of the width ``w1`` at `fluence` (`sigma`) and `w0`; `sigma` itself
+    without `w0`."""
+    if w0 is None:
+        return sigma
+    ratio = stars.fluence[:, None, None] / fluence
+
+    def per_stamp(x):
+        variance = w0(x) ** 2 + (sigma(x) ** 2 - w0(x) ** 2) * ratio
+        return jnp.sqrt(jnp.maximum(variance, 1e-12))  # w1 < w0 may cross 0
+
+    return jft.Model(per_stamp, domain=w0.domain | sigma.domain)
 
 
 def _star_likelihood(stars: _StarModel, texture, widths):
@@ -543,19 +586,25 @@ def joint_correction(
     pixel_box: bool = False,
     brighter_fatter: float | jft.Model | None = None,
     prefix: str = "",
-) -> tuple[PsfKernelModel, jft.Likelihood]:
+    positions: tuple[np.ndarray, jft.Model] | None = None,
+    more_stars: tuple[tuple[list[StarStamp], tuple, str, int], ...] = (),
+) -> tuple[PsfKernelModel, list[jft.Likelihood]]:
     """`fit_psf_correction`'s correction, learned in a lens fit together with
     its stars instead of frozen into a file.
 
     Returns the convolution of the `sky` (n, H, W) by each of the base
     `kernels` (n, K, K) with the correction (`learned_kernel`; the width at
-    `fluence` with one), and the stars' Gaussian likelihood, which
-    `fit_psf_correction` maximizes. Both are functions of the same texture,
+    `fluence` with one), and the stars' Gaussian likelihoods, the first of which
+    `fit_psf_correction` maximizes. All are functions of the same texture,
     width and (if a model) kappa latents, named with `prefix`, so a sum of the
     lens likelihood and the stars' learns one correction from both. The options
     are `fit_psf_correction`'s; `brighter_fatter` may also be a model of kappa
     per DN per integration (learned): the stars' charge moves by it, and the
-    lens's must move by the same model.
+    lens's must move by the same model. `positions` places some of the
+    `stamps` by a model (`_StarModel`), e.g. Gaia's. Each of `more_stars`,
+    ``(stamps, positions, prefix, pad)``, is another set of stamps of one size
+    under the same correction, with its own likelihood (e.g. Gaia stars without
+    a PSF stamp).
     """
     stars = _StarModel(
         stamps,
@@ -563,13 +612,26 @@ def joint_correction(
         pixel_box=pixel_box,
         brighter_fatter=brighter_fatter,
         prefix=prefix,
+        positions=positions,
     )
-    texture, sigma, widths, _ = _correction_model(
+    texture, sigma, widths, w0 = _correction_model(
         stars, radius, fluctuations, loglogavgslope, width, fluence, orthogonal, prefix
     )
-    likelihood, _ = _star_likelihood(stars, texture, widths)
+    likelihoods = [_star_likelihood(stars, texture, widths)[0]]
+    for group, where, name, pad in more_stars:
+        group = _StarModel(
+            group,
+            subsample,
+            pad=pad,
+            pixel_box=pixel_box,
+            brighter_fatter=brighter_fatter,
+            prefix=name,
+            positions=where,
+        )
+        widths = _stamp_widths(group, sigma, w0, fluence)
+        likelihoods.append(_star_likelihood(group, texture, widths)[0])
     psf = PsfKernelModel(sky, learned_kernel(kernels, texture, sigma, pixel_box))
-    return psf, likelihood
+    return psf, likelihoods
 
 
 def fit_psf_correction(

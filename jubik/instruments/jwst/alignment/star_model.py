@@ -1,3 +1,5 @@
+from functools import reduce
+
 import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
@@ -205,8 +207,37 @@ def build_star_in_data(
         as_model=True,
     )
 
-    times = [observation_times[i] for i in star_data.observation_ids]
-    sky_to_data = star_data.sky_to_data.to_value(u.pix / u.arcsec)
+    location_of_star_in_data_subpixels = gaia_star_location(
+        star,
+        np.array(star_data.star_in_subsampled_pixels),
+        star_data.sky_to_data.to_value(u.pix / u.arcsec),
+        star_data.observation_ids,
+        shift_and_rotation_correction,
+        grid_wcs,
+        observation_times,
+        fit_position,
+    )
+
+    return StarInData(skies, brightness, location_of_star_in_data_subpixels)
+
+
+def gaia_star_location(
+    star: Star,
+    pixel_coordinates: np.ndarray,
+    sky_to_data: np.ndarray,
+    observation_ids,
+    shift_and_rotation_correction: ShiftAndRotationCorrection | None,
+    grid_wcs: WcsAstropy,
+    observation_times: list[Time | str],
+    fit_position: bool = False,
+) -> Coordinates | CoordinatesCorrectedStarShift:
+    """The Gaia `star`'s position in each of its frames, subsampled pixels (x, y):
+    its catalog position at each frame's epoch (`pixel_coordinates`, (n, 2)),
+    moved by the frame's exposure shift and, with `fit_position`, by its
+    astrometry latent (`_star_position_offset`). `sky_to_data` (n, 2, 2) is
+    each frame's subsampled pixels per arcsec on the sky, `observation_ids`
+    each frame's exposure; see `build_star_in_data`."""
+    times = [observation_times[i] for i in observation_ids]
     shift_jacobian = np.stack(
         [
             j @ _grid_to_sky(grid_wcs, star.position_at(t))
@@ -214,14 +245,49 @@ def build_star_in_data(
         ]
     )
     position = _star_position_offset(star, times) if fit_position else None
-
-    location_of_star_in_data_subpixels = build_coordinates_corrected_for_stars(
+    return build_coordinates_corrected_for_stars(
         shift_and_rotation_correction=shift_and_rotation_correction,
-        pixel_coordinates=np.array(star_data.star_in_subsampled_pixels),
+        pixel_coordinates=pixel_coordinates,
         shift_jacobian=shift_jacobian,
-        observation_ids=star_data.observation_ids,
+        observation_ids=observation_ids,
         position=position,
         position_jacobian=sky_to_data,
     )
 
-    return StarInData(skies, brightness, location_of_star_in_data_subpixels)
+
+def gaia_positions(
+    entries: list[tuple[Star, int, np.ndarray, np.ndarray]],
+    shift_and_rotation_correction: ShiftAndRotationCorrection,
+    grid_wcs: WcsAstropy,
+    observation_times: list[Time | str],
+    fit_position: bool = False,
+) -> jft.Model:
+    """The positions (n, 2), subsampled pixels (x, y) of each entry's frame, of
+    the Gaia stars in `entries`, each ``(star, exposure, pixel, sky_to_data)``:
+    the star's catalog `pixel` in the frame at the exposure's epoch and the
+    frame's subsampled pixels per arcsec on the sky (2, 2). One
+    `gaia_star_location` per star, so a star's frames share its astrometry."""
+    by_star = {}
+    for i, (star, *_) in enumerate(entries):
+        by_star.setdefault(star.id, (star, []))[1].append(i)
+    order, models = [], []
+    for star, idx in by_star.values():
+        _, exposures, pixels, jacobians = zip(*(entries[i] for i in idx))
+        models.append(
+            gaia_star_location(
+                star,
+                np.array(pixels, float),
+                np.array(jacobians, float),
+                np.array(exposures),
+                shift_and_rotation_correction,
+                grid_wcs,
+                observation_times,
+                fit_position,
+            )
+        )
+        order += idx
+    inverse = np.argsort(order)
+    domain = reduce(lambda a, b: a | b, (m.domain for m in models))
+    return jft.Model(
+        lambda x: jnp.concatenate([m(x) for m in models])[inverse], domain=domain
+    )
