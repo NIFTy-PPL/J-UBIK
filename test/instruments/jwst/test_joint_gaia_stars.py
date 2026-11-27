@@ -21,6 +21,7 @@ from jubik.instruments.jwst.psf.psf_correction import (
     PsfCorrection,
     StarStamp,
     _StarModel,
+    load_star_stamps,
     save_star_stamps,
     with_pixel_box,
 )
@@ -28,6 +29,7 @@ from jubik.instruments.jwst.psf.psf_correction import (
 from test_brighter_fatter import BAND, DN_PER_UNIT, KAPPA, bfe, latents
 from test_joint_psf_stars import (
     SUB,
+    width_at_fluence,
     DeterministicJwstData,
     base_kernel,
     energy,
@@ -47,17 +49,28 @@ from test_jwst_psf_broadening import wide_build_webb_psf
 from test_psf_correction import SIZE
 
 H = SIZE // 2
-DATES = ("2023-01-01T00:00:00.000", "2023-06-01T00:00:00.000")  # fake_0, fake_1
+FILES = ("fake_0.fits", "fake_1.fits")
+DATES = ("2023-01-01T00:00:00.000", "2023-06-01T00:00:00.000")
 SHIFT_STD = 0.1  # arcsec, make_config's shift prior
 GRID_PIXEL = 0.1  # arcsec, make_grid's
 
 
+# the tests' Gaia stars on the fake detector, (x, y): fake_gaia's two, the
+# third of `add_star`'s tests and the edge star
+STARS = ((31.5, 31.5), (14.42, 14.36), (45.3, 20.6), (0.3, 30.4))
+
+
 class EpochJwstData(DeterministicJwstData):
-    """`DeterministicJwstData` with fake_1 five months after fake_0."""
+    """`DeterministicJwstData` with fake_1 five months after fake_0 and a blob
+    of light at each of `STARS`, so a Gaia cutout holds a star."""
 
     def __init__(self, filepath):
         super().__init__(filepath)
         self.dm.meta.observation.date_beg = DATES[int(Path(filepath).stem[-1])]
+        y, x = np.mgrid[: self.shape[0], : self.shape[1]]
+        for x0, y0 in STARS:
+            r2 = (x - x0) ** 2 + (y - y0) ** 2
+            self.dm.data = self.dm.data + 50 * np.exp(-0.5 * r2 / 1.5**2)
 
 
 @pytest.fixture
@@ -93,22 +106,30 @@ def catalog(table, i):
     return SkyCoord(table["ra"][i], table["dec"][i], unit="deg")
 
 
-# stamp i: (file, centre pixel (x, y) in it): Gaia star 1 in both files, star 2
-# (if in the table) in fake_0 between them, so the stars' frames interleave; a
-# stamp at no Gaia star; star 1 in a file outside the fit
+# stamp i: (file, centre pixel (x, y) in it): Gaia stars 1 and 2 (or no star
+# without a second row) in both files, as A, B, B, A, so the stars' frames
+# interleave; a stamp at no Gaia star; star 1 in a file outside the fit
 def stamp_sites(table):
     def centre(i):  # x != y, so a swap shows
         xy = exposure_wcs().world_to_pixel(catalog(table, i))
         return np.round(np.array(xy, float) + [0.2, -0.3])
 
-    (x, y), (x2, y2) = centre(0), centre(1) if len(table) > 1 else (50.0, 10.0)
+    a, b = centre(0), centre(1) if len(table) > 1 else np.array([50.0, 10.0])
     return [
-        ("fake_0.fits", x, y),
-        ("fake_0.fits", x2, y2),
-        ("fake_1.fits", x, y),
+        ("fake_0.fits", *a),
+        ("fake_0.fits", *b),
+        ("fake_1.fits", *b),
+        ("fake_1.fits", *a),
         ("fake_0.fits", 10.0, 50.0),
-        ("other.fits", x, y),
+        ("other.fits", *a),
     ]
+
+
+def add_star(table, source_id, x, y, row=None):
+    """A Gaia star at detector pixel (x, y), with the fixture's errors."""
+    sky = exposure_wcs().pixel_to_world(x, y)
+    values = (source_id, sky.ra.deg, sky.dec.deg, 0.0, 0.0, 100.0, 100.0, 10.0, 10.0)
+    table.insert_row(len(table) if row is None else row, values + (0.0,) * 6)
 
 
 def write_stamps(path, table, data=None, seed=0):
@@ -123,7 +144,7 @@ def write_stamps(path, table, data=None, seed=0):
     std = [np.full((SIZE, SIZE), 0.5 + 0.1 * i) for i in range(len(sites))]
     mask = np.ones((SIZE, SIZE), bool)
     mask[0, :3] = False
-    dn = [DN_PER_UNIT[0], DN_PER_UNIT[0], DN_PER_UNIT[1], 300.0, 250.0]
+    dn = [dict(zip(FILES, DN_PER_UNIT)).get(site[0], 250.0) for site in sites]
     stamps = [
         StarStamp(d, s, mask, base_kernel(), 1e4 * (i + 1), u_)
         for i, (d, s, u_) in enumerate(zip(data, std, dn))
@@ -213,12 +234,15 @@ def chi2(stamps, models):
     )
 
 
-def standalone(stamps, x, prefix, positions, kappa=True, canvas=(512, 128)):
+def standalone(
+    stamps, x, prefix, positions, kappa=True, canvas=(512, 128), widths=None
+):
     """The energy of `stamps` with each star at `positions` (subsampled (x, y),
     None for a free star at its latent), everything else from `x`; `canvas` is
-    `render`'s ``(n, o)``."""
+    `render`'s ``(n, o)``, `widths` each stamp's (default: the one width)."""
     start = _StarModel(stamps, SUB)  # the data's starting flux and background
     texture, width = texture_and_width(x)
+    widths = [width] * len(stamps) if widths is None else widths
     k = float(kappa_of(x)) if kappa else None
     free = (
         iter(np.asarray(x[f"{prefix}star_position"]))
@@ -226,7 +250,7 @@ def standalone(stamps, x, prefix, positions, kappa=True, canvas=(512, 128)):
         else ()
     )
     models = []
-    for i, (stamp, xy) in enumerate(zip(stamps, positions)):
+    for i, (stamp, xy, width) in enumerate(zip(stamps, positions, widths)):
         if xy is None:
             dy, dx = 0.5 * next(free)
             xy = (H + np.array([dx, dy]) + 0.5) * SUB - 0.5
@@ -262,28 +286,31 @@ def gaia_cutouts(table, x, stars_data, frames_of):
     return stamps, positions
 
 
-def test_every_star_is_one_exact_model(gaia, tmp_path):
+def test_every_star_is_one_exact_model(gaia, tmp_path, caplog):
     """The stamps at Gaia stars 1 and 2 sit at their catalog positions moved by
     the shift and their astrometry, the other stamps at their own latents, and
-    star 2 in fake_1, without a stamp, is its Gaia cutout at Gaia's position:
-    each term's energy is that of an independent model of its stars."""
+    star 3, without a stamp, is its Gaia cutouts at Gaia's position: each
+    term's energy is that of an independent model of its stars."""
     table, loaded = gaia
+    add_star(table, 3, 45.3, 20.6)
     stamps = write_stamps(tmp_path / "s.npz", table)
     products = build(tmp_path / "b", joint_psf(tmp_path / "s.npz"))
     assert products.alignment is None  # no bilinear Gaia term: no star twice
     tied, cutouts = products.target.joint_stars
     x = latents(products)
     domain = tree(tied.domain) | tree(cutouts.domain)
-    # three Gaia frames are stamps, one a cutout; two stamps are free
+    # four Gaia frames are stamps, two cutouts; two stamps are free
     assert domain[f"{BAND}_star_position"].shape == (2, 2)
-    assert domain[f"{BAND}_gaia_star_flux"].shape == (1,)
-    assert {"star_1_astrometry", "star_2_astrometry", f"{BAND}_shift"} <= set(domain)
+    assert domain[f"{BAND}_gaia_star_flux"].shape == (2,)
+    assert {"star_1_astrometry", "star_2_astrometry"} <= set(tree(tied.domain))
+    assert {"star_3_astrometry", f"{BAND}_shift"} <= set(tree(cutouts.domain))
+    assert "stamps of ['other.fits'], no file of the fit, keep free" in caplog.text
 
     wcs, sites = exposure_wcs(), stamp_sites(table)
     corner = [np.array(s[1:]) - H for s in sites]
     positions = [
         true_position(table, i, x, e, wcs, corner[j])
-        for j, (i, e) in enumerate([(0, 0), (1, 0), (0, 1)])
+        for j, (i, e) in enumerate([(0, 0), (1, 0), (1, 1), (0, 1)])
     ]
     pad = SUB * 12  # the model's canvas, so only the positions' linearization differs
     canvas = (SUB * SIZE + 2 * pad, pad)
@@ -291,15 +318,79 @@ def test_every_star_is_one_exact_model(gaia, tmp_path):
     assert np.isclose(energy(tied, x), want, rtol=2e-8)  # 5e-9
 
     (stars_data,) = loaded
-    gaia_stamps, positions = gaia_cutouts(table, x, stars_data, {1: [1]})
+    gaia_stamps, positions = gaia_cutouts(table, x, stars_data, {2: [0, 1]})
     want = standalone(gaia_stamps, x, f"{BAND}_gaia_", positions)
     assert np.isclose(energy(cutouts, x), want, rtol=3e-6)  # 1e-6: the wide canvas
+
+
+def test_the_gaia_cutouts_take_the_width_law_at_their_peak(gaia, tmp_path):
+    """With a fluence, a Gaia cutout's width is the law's at its peak above
+    the cutout's edge, in DN/int."""
+    table, loaded = gaia
+    add_star(table, 3, 45.3, 20.6)
+    write_stamps(tmp_path / "s.npz", table)
+    # a fluence about the fake cutouts' peaks (~1e3 DN/int), the width there wider
+    products = build(tmp_path / "b", joint_psf(tmp_path / "s.npz", fluence=1e3))
+    _, cutouts = products.target.joint_stars
+    x = latents(products)
+    x[f"{BAND}_psf_width_at_fluence"] = x[f"{BAND}_psf_width"] + 1.0
+    w0, w1 = texture_and_width(x)[1], width_at_fluence(x)
+    (stars_data,) = loaded
+    stamps, positions = gaia_cutouts(table, x, stars_data, {2: [0, 1]})
+    widths = []
+    for stamp in stamps:
+        edge = np.ones(stamp.data.shape, bool)
+        edge[1:-1, 1:-1] = False
+        peak = stamp.data[stamp.mask].max() - np.median(stamp.data[stamp.mask & edge])
+        ratio = peak * stamp.dn_per_unit / 1e3
+        widths.append(np.sqrt(max(w0**2 + (w1**2 - w0**2) * ratio, 1e-12)))
+    assert min(widths) > 1.1 * w0  # the law widens them
+    want = standalone(stamps, x, f"{BAND}_gaia_", positions, widths=widths)
+    assert np.isclose(energy(cutouts, x), want, rtol=3e-6)
+
+
+def test_the_nearest_gaia_star_takes_a_stamp(gaia, tmp_path):
+    """A Gaia star 0.14 arcsec from star 1, listed before it, does not take
+    star 1's stamps: they go to star 1, the neighbour gets its cutouts."""
+    table, _ = gaia
+    write_stamps(tmp_path / "s.npz", table)
+    x, y = exposure_wcs().world_to_pixel(catalog(table, 0))
+    add_star(table, 9, x + 1.6, y - 1.5, row=0)
+    products = build(tmp_path / "b", joint_psf(tmp_path / "s.npz"))
+    tied, cutouts = products.target.joint_stars
+    assert "star_1_astrometry" in tree(tied.domain)
+    assert "star_9_astrometry" not in tree(tied.domain)
+    assert "star_1_astrometry" not in tree(cutouts.domain)
+    assert tree(cutouts.domain)[f"{BAND}_gaia_star_flux"].shape == (2,)
+
+
+def test_a_cutout_masked_whole_is_left_out(gaia, tmp_path):
+    """A corner mask over star 3, whose cutouts are then all masked: no term
+    for them (the bilinear term would have kept empty ones)."""
+    table, _ = gaia
+    add_star(table, 3, 45.3, 20.6)
+    write_stamps(tmp_path / "s.npz", table)
+    c = catalog(table, 2)
+    corners = [
+        c.spherical_offsets_by(dx * u.arcsec, dy * u.arcsec)
+        for dx, dy in ((-1, -1), (1, -1), (1, 1), (-1, 1))
+    ]
+    mask = {
+        "ra": [f"{p.ra.deg}deg" for p in corners],
+        "dec": [f"{p.dec.deg}deg" for p in corners],
+    }
+    psf = joint_psf(tmp_path / "s.npz")
+    assert len(build(tmp_path / "a", psf).target.joint_stars) == 2
+    products = build(tmp_path / "b", psf, corner_mask_1=mask)
+    (tied,) = products.target.joint_stars
+    assert "star_3_astrometry" not in tree(tied.domain)
 
 
 def test_the_gradient_is_the_sum_over_the_terms(gaia, tmp_path):
     """The texture's, width's, kappa's and the shifts' gradients of the whole
     likelihood are the lens's plus each star term's, and every term has one."""
     table, _ = gaia
+    add_star(table, 3, 45.3, 20.6)
     write_stamps(tmp_path / "s.npz", table)
     products = build(tmp_path / "b", joint_psf(tmp_path / "s.npz"))
     x = latents(products)
@@ -335,7 +426,7 @@ def test_off_keeps_the_bilinear_gaia_term(gaia, tmp_path):
 
 
 # the values at 5d97a15d
-ENERGY_BILINEAR, GRADIENT_BILINEAR = 170.87861071881767, 0.10393348865332448
+ENERGY_BILINEAR, GRADIENT_BILINEAR = 35023.31715750818, 4.084489153617946
 
 
 def test_a_star_with_parallax_is_flagged(gaia, tmp_path, caplog):
@@ -349,7 +440,9 @@ def test_a_star_with_parallax_is_flagged(gaia, tmp_path, caplog):
 def test_stamps_without_their_place_raise(gaia, tmp_path):
     table, _ = gaia
     stamps = write_stamps(tmp_path / "s.npz", table)
-    save_star_stamps(tmp_path / "bare.npz", stamps, SUB, exposure=["fake_0.fits"] * 4)
+    save_star_stamps(
+        tmp_path / "bare.npz", stamps, SUB, exposure=["fake_0.fits"] * len(stamps)
+    )
     with pytest.raises(
         ValueError, match=r"needs the stamps' \['dec', 'ra', 'x', 'y'\]"
     ):
@@ -361,7 +454,8 @@ def test_the_joint_fit_recovers_a_known_shift_and_correction(gaia, tmp_path):
     and stamps made with the same correction and shifts, two of them of Gaia
     star 1: the joint fit, the sky held at its truth, recovers the kernel, the
     width and both exposures' shifts; the stars alone recover the shifts too,
-    as Gaia pins them."""
+    as Gaia pins them. The stars' data come from the model under test: this
+    checks the fit, `test_every_star_is_one_exact_model` the placement."""
     table, _ = gaia
     table.remove_row(1)  # its cutouts would hold noise alone
     table["ra_error"], table["dec_error"] = [0.1] * u.mas, [0.2] * u.mas  # Gaia's
@@ -422,7 +516,7 @@ def test_the_joint_fit_recovers_a_known_shift_and_correction(gaia, tmp_path):
     width_error = abs(texture_and_width(learned, orthogonal=True)[1] / width - 1)
     assert kernel_error < 0.1 and width_error < 0.02
     # over noise seeds: the lens alone 1-2 mas, the joint fit 1-1.4, the stars
-    # alone 0.5-2.1; a convention error (half a pixel, a sign) is 16 mas or more
+    # alone 0.5-2.1; the shifts are 20 to 50 mas
     assert shift_error(learned) < 2.5
 
     (stars,) = products.target.joint_stars
@@ -445,10 +539,7 @@ def test_a_star_far_off_its_cutout_centre_does_not_wrap(gaia, monkeypatch, tmp_p
     the cutout into it: its energy is the independent model's."""
     table, loaded = gaia
     monkeypatch.setattr(jwst_kernel, "build_webb_psf", winged_build_webb_psf)
-    edge = exposure_wcs().pixel_to_world(0.3, 30.4)
-    table.add_row(
-        (3, edge.ra.deg, edge.dec.deg, 0.0, 0.0, 100.0, 100.0, 10.0, 10.0) + (0.0,) * 6
-    )
+    add_star(table, 3, 0.3, 30.4)
     write_stamps(tmp_path / "s.npz", table)
     products = build(tmp_path / "b", joint_psf(tmp_path / "s.npz"), fov="2arcsec")
     _, cutouts = products.target.joint_stars
@@ -458,6 +549,32 @@ def test_a_star_far_off_its_cutout_centre_does_not_wrap(gaia, monkeypatch, tmp_p
     inside = (frames.star_in_subsampled_pixels + 0.5) / SUB - 0.5
     far = inside - frames.data.shape[-1] // 2
     assert np.abs(far).max() > 12
-    stamps, positions = gaia_cutouts(table, x, stars_data, {1: [1], 2: [0, 1]})
+    stamps, positions = gaia_cutouts(table, x, stars_data, {2: [0, 1]})
     want = standalone(stamps, x, f"{BAND}_gaia_", positions)
     assert np.isclose(energy(cutouts, x), want, rtol=3e-6)
+
+
+def test_a_second_stamp_of_a_gaia_star_stays_free(gaia, tmp_path):
+    """Two stamps of star 1 in one file: the nearer sits at Gaia, the other
+    keeps its free position, so the frame is placed once."""
+    table, _ = gaia
+    stamps = write_stamps(tmp_path / "s.npz", table)
+    _, _, extra = load_star_stamps(tmp_path / "s.npz")
+    twin = {k: np.append(v, v[:1]) for k, v in extra.items()}
+    twin["x"][-1] += 1  # one pixel off: farther from star 1
+    sky = exposure_wcs().pixel_to_world(twin["x"][-1], twin["y"][-1])
+    twin["ra"][-1], twin["dec"][-1] = sky.ra.deg, sky.dec.deg
+    save_star_stamps(tmp_path / "t.npz", stamps + stamps[:1], SUB, **twin)
+    products = build(tmp_path / "b", joint_psf(tmp_path / "t.npz"))
+    (tied,) = products.target.joint_stars
+    assert tree(tied.domain)[f"{BAND}_star_position"].shape == (3, 2)
+
+
+def test_no_gaia_star_in_the_files_is_logged(gaia, tmp_path, caplog):
+    table, _ = gaia
+    write_stamps(tmp_path / "s.npz", table)
+    table.remove_rows(slice(None))
+    products = build(tmp_path / "b", joint_psf(tmp_path / "s.npz"))
+    (tied,) = products.target.joint_stars
+    assert tree(tied.domain)[f"{BAND}_star_position"].shape == (6, 2)
+    assert "gaia_alignment finds no star in the fit's files" in caplog.text

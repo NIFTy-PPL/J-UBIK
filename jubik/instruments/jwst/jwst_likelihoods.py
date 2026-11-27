@@ -622,9 +622,10 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
 
     A Gaia star in an exposure is a stamp of that file (`extra`'s
     ``exposure``) whose centre (``ra``, ``dec``) lies within `gaia.tolerance`
-    of its catalog position at the exposure's epoch; the stamp's centre pixel
-    (``x``, ``y``) places that position in it. `dn` is each exposure's DN per
-    integration per data unit (`_dn_per_unit`), or None."""
+    of its catalog position at the exposure's epoch, the nearest pairs first;
+    the stamp's centre pixel (``x``, ``y``) places that position in it. `dn` is
+    each exposure's DN per integration per data unit (`_dn_per_unit`), or
+    None."""
     if missing := {"exposure", "x", "y", "ra", "dec"} - set(extra):
         raise ValueError(
             f"psf joint_stars {filter}: gaia_alignment needs the stamps' "
@@ -632,25 +633,45 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
         )
     index = {Path(f.path).name: f.index for f in gaia.filepaths}
     exposure = np.array([index.get(str(n), -1) for n in extra["exposure"]])
+    if outside := sorted({str(n) for n in extra["exposure"][exposure < 0]}):
+        jft.logger.warning(
+            f"{filter}: stamps of {outside}, no file of the fit, keep free "
+            "positions; if one is a fit file under another name, its Gaia stars "
+            "are modelled twice"
+        )
     centres = SkyCoord(extra["ra"], extra["dec"], unit="deg")
     times = gaia.tables.observation_times
-    tied, alone = {}, []  # stamp -> (star, frame); (star, frame) without a stamp
+    frames, pairs = [], []  # (star, frame); (separation, stamp, frames index)
     for star in gaia.tables.get_stars():
         if star.id not in gaia.data:
             continue
         for k, e in enumerate(gaia.data[star.id].observation_ids):
             here = np.flatnonzero(exposure == e)
-            if here.size:
-                sep = centres[here].separation(star.position_at(times[e])).arcsec
-                j = here[np.argmin(sep)]
-                if sep.min() <= gaia.tolerance and j not in tied:
-                    tied[j] = (star, k)
-                    continue
-            alone.append((star, k))
+            sep = centres[here].separation(star.position_at(times[e])).arcsec
+            pairs += [
+                (d, j, len(frames)) for d, j in zip(sep, here) if d <= gaia.tolerance
+            ]
+            frames.append((star, k))
+    tied, taken = {}, set()  # stamp -> (star, frame); the frames with a stamp
+    for _, j, f in sorted(pairs):  # each stamp and each frame once
+        if j not in tied and f not in taken:
+            tied[j] = frames[f]
+            taken.add(f)
+    # a cutout masked whole (e.g. by a corner mask) holds no star
+    alone = [
+        (star, k)
+        for f, (star, k) in enumerate(frames)
+        if f not in taken and gaia.data[star.id].mask[k].any()
+    ]
     jft.logger.info(
         f"{filter}: {len(tied)} star stamps at Gaia stars, {len(stamps) - len(tied)} "
         f"free, {len(alone)} Gaia cutouts without a stamp"
     )
+    if not frames:
+        jft.logger.warning(
+            f"{filter}: gaia_alignment finds no star in the fit's files; only the "
+            "lens pins the shifts"
+        )
     table = gaia.tables.join_tables()
     if "parallax" in table.colnames:
         near = np.asarray(np.ma.filled(table["parallax"], 0.0), float) >= 1.0
