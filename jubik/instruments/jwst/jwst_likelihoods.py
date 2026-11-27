@@ -665,7 +665,8 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
     ]
     jft.logger.info(
         f"{filter}: {len(tied)} star stamps at Gaia stars, {len(stamps) - len(tied)} "
-        f"free, {len(alone)} Gaia cutouts without a stamp"
+        f"free, {len(alone)} Gaia cutouts without a stamp (Gaia stars "
+        f"{sorted({int(star.id) for star, _ in alone})})"
     )
     if not frames:
         jft.logger.warning(
@@ -705,7 +706,9 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
         return positions, ()
 
     cutouts, entries, suspect = [], [], set()
-    brightest = max(s.fluence for s in stamps)  # about the star fit's peak cut
+    # in data units, about the star fit's peak cut; NaN without dn_per_unit
+    brightest = np.array([s.fluence / (s.dn_per_unit or np.nan) for s in stamps])
+    brightest = np.nanmax(brightest) if np.isfinite(brightest).any() else np.nan
     for star, k in alone:
         frames = gaia.data[star.id]
         data, mask = frames.data[k], frames.mask[k]
@@ -725,7 +728,7 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
         entries.append(entry(star, k, frames.star_in_subsampled_pixels[k]))
         inside = (frames.star_in_subsampled_pixels[k] + 0.5) / subsample - 0.5
         x, y = np.round(inside).astype(int)
-        if not mask[y, x] or (unit is not None and 0 < brightest < fluence):
+        if not mask[y, x] or 0 < brightest < peak:
             suspect.add(int(star.id))
     if suspect:
         jft.logger.warning(

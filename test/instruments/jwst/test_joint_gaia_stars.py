@@ -311,6 +311,7 @@ def test_every_star_is_one_exact_model(gaia, tmp_path, caplog):
     assert {"star_1_astrometry", "star_2_astrometry"} <= set(tree(tied.domain))
     assert {"star_3_astrometry", f"{BAND}_shift"} <= set(tree(cutouts.domain))
     assert warned(caplog, "stamps of ['other.fits'], no file of the fit, keep free")
+    assert "2 Gaia cutouts without a stamp (Gaia stars [3])" in caplog.text
 
     wcs, sites = exposure_wcs(), stamp_sites(table)
     corner = [np.array(s[1:]) - H for s in sites]
@@ -614,6 +615,9 @@ def test_gaia_cutouts_brighter_than_every_stamp_or_masked_are_flagged(
     faint = [replace(s, fluence=1e3) for s in stamps]
     save_star_stamps(tmp_path / "f.npz", faint, SUB, **extra)
     build(tmp_path / "b", joint_psf(tmp_path / "f.npz"))
+    assert warned(caplog, flag)
+    caplog.clear()
+    build(tmp_path / "d", joint_psf(tmp_path / "f.npz", kappa=None))  # no DN at all
     assert warned(caplog, flag)
     caplog.clear()
     build(tmp_path / "c", psf, corner_mask_1=box_around(catalog(table, 2), 0.03))
