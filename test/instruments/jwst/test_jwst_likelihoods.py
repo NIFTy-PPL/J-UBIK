@@ -50,6 +50,7 @@ JWST_DATA_SITES = (
     "jubik.instruments.jwst.data.loader.data_loader.JwstData",
     "jubik.instruments.jwst.data.loader.target_loader.JwstData",
     "jubik.instruments.jwst.data.loader.stars_loader.JwstData",
+    "jubik.instruments.jwst.jwst_likelihoods.JwstData",
 )
 
 

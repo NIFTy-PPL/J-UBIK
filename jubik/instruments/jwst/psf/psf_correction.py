@@ -39,15 +39,18 @@ The texture's spectrum is fixed (see `log_texture_model`); choose its std and
 slope on held-out stars. The width's variance may grow linearly with the stars'
 peak (brighter-fatter); the stored correction is for one fluence.
 
-Two options of `fit_psf_correction`, off by default: ``pixel_box`` learns the
+Three options of `fit_psf_correction`, off by default: ``pixel_box`` learns the
 correction with the exact pixel integration (`with_pixel_box`), for a lens fit
 with ``psf.pixel_box``; ``orthogonal`` keeps the texture out of what the
 renormalisation, the stars' positions and the width already own (its weighted
-constant, gradient and r² part), so the width alone carries the broadening.
+constant, gradient and r² part), so the width alone carries the broadening;
+``brighter_fatter`` moves the stars' charge between pixels (`charge_migration`),
+for a lens fit with ``psf.brighter_fatter``: the width then keeps only the
+broadening brighter-fatter does not explain, and its slope with fluence drops.
 
-Limits: the lens fit has one kernel per exposure, so every part of the image
-(faint arc, lens light) gets the width of the stored fluence; brighter-fatter is
-a per-pixel effect a convolution cannot carry. The texture may move the kernel's
+Limits: the lens fit has one kernel per exposure, so without
+``brighter_fatter`` every part of the image (faint arc, lens light) gets the
+width of the stored fluence. The texture may move the kernel's
 centroid by a fraction of a kernel pixel, which the stars' free positions cannot
 pin (B1938+666: up to 1 mas); the lens fit's shift must be free to take it up.
 """
@@ -60,6 +63,7 @@ import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 
+from ..integration.brighter_fatter import charge_migration
 from .psf_operator import _center_even_axes
 
 
@@ -134,6 +138,10 @@ class PsfCorrection:
         Learned with the sub-pixel box (`with_pixel_box`) in the star model,
         so its width does not stand in for it; the lens fit must then set
         ``psf.pixel_box``, see `JwstPsfKernelConfig`. Not part of `apply`.
+    brighter_fatter : float
+        ``kappa`` per DN per integration of the charge migration it was learned
+        with (0: none); the lens fit must set the same
+        ``psf.brighter_fatter``. Not part of `apply`.
     """
 
     filter: str
@@ -143,6 +151,7 @@ class PsfCorrection:
     fluence: float = 0.0
     width_slope: float = 0.0
     pixel_box: bool = False
+    brighter_fatter: float = 0.0
 
     def at_fluence(self, fluence: float) -> "PsfCorrection":
         """The correction for a source of peak `fluence` per integration."""
@@ -163,8 +172,9 @@ class PsfCorrection:
 
     def save(self, path: str | Path) -> None:
         fields = asdict(self)
-        if not self.pixel_box:  # without the box, a file older jubik reads as before
-            del fields["pixel_box"]
+        for key in ("pixel_box", "brighter_fatter"):
+            if not fields[key]:  # unset, a file older jubik reads as before
+                del fields[key]
         with open(path, "wb") as f:  # np.savez would append .npz to another suffix
             np.savez(f, **fields)
 
@@ -245,6 +255,10 @@ class StarStamp:
     fluence : float
         The star's peak per integration (e.g. DN), for a width that grows
         with brightness; see `fit_psf_correction`.
+    dn_per_unit : float | None
+        DN per integration of one unit of ``data`` (EFFINTTM / PHOTMJSR for
+        MJy/sr; 1 for DN per integration), which `fit_psf_correction`'s
+        ``brighter_fatter`` needs.
     """
 
     data: np.ndarray
@@ -252,6 +266,7 @@ class StarStamp:
     mask: np.ndarray
     kernel: np.ndarray
     fluence: float = 0.0
+    dn_per_unit: float | None = None
 
 
 class _StarModel:
@@ -262,7 +277,9 @@ class _StarModel:
     sub-pixel shift, so the correction does not learn an interpolation blur.
     With `pixel_box` the kernel is convolved with one sub-pixel's box first
     (`with_pixel_box`, on the canvas), so the binning integrates the pixel
-    exactly and the correction does not learn the box either.
+    exactly and the correction does not learn the box either. With
+    `brighter_fatter` (kappa per DN per integration) each model stamp, in DN per
+    integration by its ``dn_per_unit``, goes through `charge_migration`.
     """
 
     def __init__(
@@ -271,6 +288,7 @@ class _StarModel:
         subsample: int,
         pad: int = 12,
         pixel_box: bool = False,
+        brighter_fatter: float | None = None,
     ):
         self.data = np.stack([s.data for s in stamps]).astype(float)
         self.std = np.stack([s.std for s in stamps]).astype(float)
@@ -293,6 +311,14 @@ class _StarModel:
         )
         self.subsample, self.size, self.pad = subsample, size, pad
         self.fluence = np.array([s.fluence for s in stamps], float)
+        self._kappa = None
+        if brighter_fatter is not None:  # per unit of each stamp's data
+            dn_per_unit = np.array([s.dn_per_unit for s in stamps], float)
+            if not np.all(dn_per_unit > 0):  # None: nan
+                raise ValueError(
+                    "brighter_fatter needs every StarStamp.dn_per_unit > 0"
+                )
+            self._kappa = brighter_fatter * dn_per_unit[:, None, None]
 
         n = subsample * (size + 2 * pad)
         k = self.kernels.shape[-1]
@@ -356,7 +382,8 @@ class _StarModel:
             binned = over.reshape(self.size, s, self.size, s).sum((1, 3))
             return f * binned + b + g[0] * self._yx[0] + g[1] * self._yx[1]
 
-        return jax.vmap(stamp)(canvas_fft, flux, dyx, background, gradient)
+        out = jax.vmap(stamp)(canvas_fft, flux, dyx, background, gradient)
+        return out if self._kappa is None else charge_migration(out, self._kappa)
 
 
 def fit_psf_correction(
@@ -372,6 +399,7 @@ def fit_psf_correction(
     n_iterations: int = 10,
     pixel_box: bool = False,
     orthogonal: bool = False,
+    brighter_fatter: float | None = None,
 ) -> tuple[PsfCorrection, np.ndarray]:
     """Learn the correction of one filter's kernels on its stars (MAP).
 
@@ -415,6 +443,13 @@ def fit_psf_correction(
         Make the texture orthogonal to 1, y, x and r² in the stamps' mean
         kernel (see `log_texture_model`'s weight), so it cannot take the
         kernel's sum, the stars' common shift or the width's broadening.
+    brighter_fatter : float | None
+        ``kappa`` per DN per integration: every model stamp, in DN per
+        integration by its `StarStamp.dn_per_unit`, goes through
+        `charge_migration`, so the width keeps only the broadening
+        brighter-fatter does not explain; the correction is then for a lens
+        fit with ``psf.brighter_fatter`` at this kappa. Also for checking such
+        a correction on other stars. None moves no charge.
 
     Returns
     -------
@@ -424,7 +459,9 @@ def fit_psf_correction(
         only the stars are fitted: pass kernels corrected by
         `PsfCorrection.apply` to test a correction on other stars.
     """
-    stars = _StarModel(stamps, subsample, pixel_box=pixel_box)
+    stars = _StarModel(
+        stamps, subsample, pixel_box=pixel_box, brighter_fatter=brighter_fatter
+    )
     texture = weight = None
     if orthogonal:
         if radius is None:
@@ -496,6 +533,7 @@ def fit_psf_correction(
         log_texture=np.zeros((1, 1)) if texture is None else np.asarray(texture(x)),
         width=0.0 if sigma is None else float(sigma(x)),
         pixel_box=pixel_box,
+        brighter_fatter=0.0 if brighter_fatter is None else float(brighter_fatter),
     )
     if w0 is not None:
         slope = (correction.width**2 - float(w0(x)) ** 2) / fluence

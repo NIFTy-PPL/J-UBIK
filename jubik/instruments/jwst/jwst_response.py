@@ -22,6 +22,7 @@ from .alignment.star_model import StarInData
 from .calibration_model import build_calibration_model
 from .data.jwst_data import DataMetaInformation
 from .data.loader.target_loader import TargetData
+from .integration.brighter_fatter import charge_migration
 from .integration.integration import integration_factory
 from .integration.unit_conversion import build_unit_conversion
 from .masking.build_mask import build_mask
@@ -39,11 +40,11 @@ from .zero_flux_model import build_zero_flux_model
 
 class JwstResponse(jft.Model):
     """
-    Linear response model that connects jwst observational data to the corresponding a
-    sky model.
+    Response model that connects jwst observational data to the corresponding a
+    sky model, linear unless `brighter_fatter` is set.
 
     Schematic pipeline:
-    psf | unit_conversion | integrate | calibration | zero flux | mask
+    psf | unit_conversion | integrate | calibration | zero flux | brighter-fatter | mask
     """
 
     def __init__(
@@ -55,6 +56,7 @@ class JwstResponse(jft.Model):
         zero_flux_model: jft.Model | None,
         mask: Callable[[ArrayLike], ArrayLike],
         calibration_model: jft.Model | None = None,
+        brighter_fatter: ArrayLike | None = None,
     ):
         """Initialize the Jwst response with different components of linear
         transformations.
@@ -78,6 +80,11 @@ class JwstResponse(jft.Model):
         calibration_model : jft.Model | None
             Multiplicative factor on the integrated sky, before the zero flux is
             added. If None, the factor is 1.
+        brighter_fatter : ArrayLike | None
+            ``kappa`` of `charge_migration` per unit of the data, e.g. one per
+            exposure (n, 1, 1); it moves charge between the data pixels of the
+            whole model image (zero flux included), before the mask. If None,
+            nothing moves.
         """
 
         self.sky_model = sky_model
@@ -87,6 +94,7 @@ class JwstResponse(jft.Model):
         self.zero_flux_model = zero_flux_model
         self.mask = mask
         self.calibration_model = calibration_model
+        self.brighter_fatter = brighter_fatter
 
         domain = sky_model.domain | psf.domain[1]
         if zero_flux_model is not None:
@@ -104,6 +112,8 @@ class JwstResponse(jft.Model):
             out = out * self.calibration_model(x)
         if self.zero_flux_model is not None:
             out = out + self.zero_flux_model(x)
+        if self.brighter_fatter is not None:
+            out = charge_migration(out, self.brighter_fatter)
         out = self.mask(out)
         return out
 
@@ -117,13 +127,14 @@ def build_jwst_response(
     zero_flux_model: jft.Model | None,
     data_mask: ArrayLike | None,
     calibration_model: jft.Model | None = None,
+    brighter_fatter: ArrayLike | None = None,
 ) -> JwstResponse:
     """
     Builds the linear response of the Jwst to the sky. The sky must be in in the same
     coordinate frame as the - potentially subsampled - data.
 
     Schematic pipline:
-    psf | unit_conversion | integrate | calibration | zero flux | mask
+    psf | unit_conversion | integrate | calibration | zero flux | brighter-fatter | mask
 
     Parameters
     ----------
@@ -148,6 +159,8 @@ def build_jwst_response(
         The mask on the data
     calibration_model : jft.Model | None
         Multiplicative calibration of the sky in the data, see `JwstResponse`.
+    brighter_fatter : ArrayLike | None
+        ``kappa`` of the charge migration per unit of the data, see `JwstResponse`.
     """
 
     if not isinstance(psf, jft.Model):
@@ -176,6 +189,7 @@ def build_jwst_response(
         zero_flux_model=zero_flux_model,
         mask=mask,
         calibration_model=calibration_model,
+        brighter_fatter=brighter_fatter,
     )
 
 
@@ -269,6 +283,9 @@ class TargetResponseInput:
     calibration_relative : bool
         Take the factors relative to their geometric mean (mean-zero log factors,
         see `build_calibration_model`), for a lognormal `calibration_prior`.
+    brighter_fatter : np.ndarray | None
+        ``kappa`` of the charge migration per unit of the data, one per exposure
+        (n_exposures, 1, 1), see `JwstResponse`. None moves no charge.
     """
 
     filter_name: str
@@ -283,6 +300,7 @@ class TargetResponseInput:
     psf_model: jft.Model | None = None
     calibration_prior: ProbabilityConfig | None = None
     calibration_relative: bool = False
+    brighter_fatter: np.ndarray | None = None
 
 
 def build_target_response(
@@ -351,4 +369,5 @@ def build_target_response(
         zero_flux_model=zero_flux_model,
         data_mask=np.array(input_config.target_data.mask),
         calibration_model=calibration_model,
+        brighter_fatter=input_config.brighter_fatter,
     )

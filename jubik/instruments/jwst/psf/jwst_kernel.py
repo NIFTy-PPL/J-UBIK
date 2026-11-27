@@ -310,4 +310,10 @@ def load_psf_kernel(
             f"{correction.pixel_box}, the psf config has pixel_box "
             f"{config_parameters.pixel_box}"
         )
+    kappa = config_parameters.brighter_fatter.get(filter, 0.0)
+    if correction.brighter_fatter != kappa:
+        raise ValueError(
+            f"psf correction {path} was learned with brighter_fatter "
+            f"{correction.brighter_fatter}, the psf config has {kappa} for {filter}"
+        )
     return box(correction.apply(psf))

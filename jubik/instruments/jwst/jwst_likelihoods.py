@@ -29,6 +29,7 @@ from .data.preloader.preloader import (
     PreloaderSideEffects,
     preload_data,
 )
+from .data.jwst_data import JwstData
 from .data.jwst_information import JWST_FILTERS
 from .throughput import jwst_filter_weights
 from .jwst_response import TargetResponseInput, build_target_response
@@ -409,6 +410,9 @@ def build_jwst_likelihoods(
                         )
                     ),
                     calibration_relative=True,
+                    brighter_fatter=_brighter_fatter(
+                        filter, cfg_parser.psf_kernel_configs, filepaths
+                    ),
                 )
             ),
             target_data=dataload_results.target_data,
@@ -459,6 +463,28 @@ def build_jwst_likelihoods(
             plotting=alignment_plotting,
         ),
     )
+
+
+def _brighter_fatter(filter: str, psf_config, filepaths) -> np.ndarray | None:
+    """``kappa`` of `filter`'s ``psf.brighter_fatter`` per MJy/sr of each exposure,
+    (n_exposures, 1, 1): kappa per DN per integration times EFFINTTM / PHOTMJSR,
+    the DN per integration of one MJy/sr. None without an entry."""
+    kappa = psf_config.brighter_fatter.get(filter.lower())
+    if kappa is None:
+        return None
+    dn_per_unit = []
+    for path in sorted(filepaths, key=lambda p: p.index):  # TargetData's order
+        data = JwstData(path.path)
+        time = data.dm.meta.exposure.integration_time
+        photmjsr = data.dm.meta.photometry.conversion_megajanskys
+        if data.meta.unit != u.MJy / u.sr or not time or not photmjsr:
+            raise ValueError(
+                f"psf brighter_fatter needs data in MJy/sr with EFFINTTM and "
+                f"PHOTMJSR; {path.path}: {data.meta.unit}, EFFINTTM {time}, "
+                f"PHOTMJSR {photmjsr}"
+            )
+        dn_per_unit.append(time / photmjsr)
+    return kappa * np.array(dn_per_unit)[:, None, None]
 
 
 def _broadened_psf(

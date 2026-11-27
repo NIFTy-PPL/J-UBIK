@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+import numpy as np
+
 WEBBPSF_PATH_KEY = "webbpsf_path"
 PSF_LIBRARY_PATH_KEY = "psf_library"
 PSF_ARCSEC_KEY = "psf_arcsec_extension"
@@ -8,6 +10,7 @@ NORMALIZE_DEFAULT = "last"
 OPD_BY_DATE_KEY = "opd_by_date"
 CORRECTION_KEY = "correction"
 PIXEL_BOX_KEY = "pixel_box"
+BRIGHTER_FATTER_KEY = "brighter_fatter"
 
 
 @dataclass
@@ -53,6 +56,19 @@ class JwstPsfKernelConfig:
         have been learned the same way (`fit_psf_correction(pixel_box=...)`,
         on kernels loaded without the box: the fit adds it).
         Default is False.
+    brighter_fatter : dict[str, float]
+        Filter name (lower case) -> ``kappa`` per DN per integration of the
+        brighter-fatter effect, `charge_migration`: the target response moves
+        charge between the data pixels of each exposure's model in DN per
+        integration (EFFINTTM / PHOTMJSR per MJy/sr), so every pixel broadens
+        by its own brightness instead of one width for all. A correction of the
+        filter must have been learned with the same kappa
+        (`fit_psf_correction(brighter_fatter=...)`). Filters without an entry
+        move no charge. Default: none. Config::
+
+            psf:
+              brighter_fatter:
+                f277w: 9.02e-7
     """
 
     webbpsf_path: str
@@ -62,6 +78,7 @@ class JwstPsfKernelConfig:
     opd_by_date: bool = False
     correction: dict[str, str] = field(default_factory=dict)
     pixel_box: bool = False
+    brighter_fatter: dict[str, float] = field(default_factory=dict)
 
     @classmethod
     def from_yaml_dict(cls, raw: dict):
@@ -77,7 +94,13 @@ class JwstPsfKernelConfig:
             - opd_by_date | None
             - correction | None
             - pixel_box | None
+            - brighter_fatter | None
         """
+        kappa = {
+            k.lower(): float(v) for k, v in (raw.get(BRIGHTER_FATTER_KEY) or {}).items()
+        }
+        if bad := {k: v for k, v in kappa.items() if not 0 <= v < np.inf}:
+            raise ValueError(f"psf brighter_fatter must be finite and >= 0: {bad}")
 
         return JwstPsfKernelConfig(
             webbpsf_path=raw[WEBBPSF_PATH_KEY],
@@ -89,4 +112,5 @@ class JwstPsfKernelConfig:
                 k.lower(): v for k, v in (raw.get(CORRECTION_KEY) or {}).items()
             },
             pixel_box=raw.get(PIXEL_BOX_KEY, False),
+            brighter_fatter=kappa,
         )

@@ -50,11 +50,12 @@ class ConfigParserJwst:
         )
         data_loader = DataLoadingConfig.from_yaml_dict(cfg[files_key])
         filters = {f.lower() for f in data_loader.paths}
-        if unknown := set(psf_kernel_configs.correction) - filters:
-            raise ValueError(
-                f"psf correction: {sorted(unknown)} match no filter of "
-                f"{sorted(filters)}"
-            )
+        for key in ("correction", "brighter_fatter"):
+            if unknown := set(getattr(psf_kernel_configs, key)) - filters:
+                raise ValueError(
+                    f"psf {key}: {sorted(unknown)} match no filter of "
+                    f"{sorted(filters)}"
+                )
         # one factor per exposure, the zero_flux layout: a default and filter keys
         calibration = ZeroFluxPriorConfigs.from_yaml_dict(
             cfg[telescope_key].get("calibration")

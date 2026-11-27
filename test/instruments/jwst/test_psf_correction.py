@@ -93,20 +93,22 @@ def test_texture_larger_than_kernel_raises():
 
 
 def test_save_load_round_trip(tmp_path):
-    c = PsfCorrection("f115w", SUB, RNG.normal(size=(7, 7)), 0.4, 2e4, 3e-6, True)
+    c = PsfCorrection("f115w", SUB, RNG.normal(size=(7, 7)), 0.4, 2e4, 3e-6, True, 9e-7)
     c.save(tmp_path / "c.psf")  # the exact name, no .npz appended
     d = PsfCorrection.load(tmp_path / "c.psf")
     fields = ("filter", "subsample", "width", "fluence", "width_slope", "pixel_box")
+    fields += ("brighter_fatter",)
     assert [getattr(d, f) for f in fields] == [getattr(c, f) for f in fields]
     np.testing.assert_array_equal(d.log_texture, c.log_texture)
     # a file written before pixel_box existed was learned without the box
     with open(tmp_path / "old.npz", "wb") as f:
         np.savez(f, filter="f", subsample=3, log_texture=NO_TEXTURE, width=0.4)
-    assert PsfCorrection.load(tmp_path / "old.npz").pixel_box is False
-    # and a file without the box is one an older reader takes: no pixel_box key
+    old = PsfCorrection.load(tmp_path / "old.npz")
+    assert old.pixel_box is False and old.brighter_fatter == 0.0
+    # and a file without the box or kappa is one an older reader takes: no keys
     PsfCorrection("f", SUB, NO_TEXTURE, 0.4).save(tmp_path / "plain.npz")
     with np.load(tmp_path / "plain.npz") as f:
-        assert "pixel_box" not in f.files
+        assert "pixel_box" not in f.files and "brighter_fatter" not in f.files
 
 
 def test_at_fluence_moves_the_variance_linearly():
