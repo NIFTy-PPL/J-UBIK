@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import numpy as np
 
@@ -88,9 +88,9 @@ class JwstPsfKernelConfig:
         by its own brightness instead of one width for all. A correction of the
         filter must have been learned with the same kappa
         (`fit_psf_correction(brighter_fatter=...)`). With ``joint_stars`` the
-        stars move charge by it too. Filters without an entry move no charge. The gaia_alignment stars move none either: they get
-        the correction's width alone, too narrow for bright stars (their
-        shifts stay unbiased). Default: none. Config::
+        stars move charge by it too. Filters without an entry move no charge.
+        The gaia_alignment stars move none either: they get the correction's
+        width alone, too narrow for bright stars (their shifts stay unbiased). Default: none. Config::
 
             psf:
               brighter_fatter:
@@ -157,8 +157,20 @@ class JwstPsfKernelConfig:
         for name, entry in (raw.get(JOINT_STARS_KEY) or {}).items():
             name = name.lower()
             try:
-                joint[name] = JointStars(**entry)
-            except TypeError as e:
+                entry = JointStars(**entry)
+                pairs = {k: getattr(entry, k) for k in ("width", "brighter_fatter")}
+                # numbers, as for psf brighter_fatter: yaml reads 1e-6 as a string
+                joint[name] = replace(
+                    entry,
+                    fluctuations=float(entry.fluctuations),
+                    loglogavgslope=float(entry.loglogavgslope),
+                    fluence=None if entry.fluence is None else float(entry.fluence),
+                    **{
+                        k: None if v is None else tuple(map(float, v))
+                        for k, v in pairs.items()
+                    },
+                )
+            except (TypeError, ValueError) as e:
                 raise ValueError(f"psf joint_stars {name}: {e}") from e
             prior = joint[name].brighter_fatter
             if prior is not None and not (

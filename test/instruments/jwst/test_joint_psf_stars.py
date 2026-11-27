@@ -9,6 +9,7 @@ import nifty.re as jft
 import numpy as np
 import pytest
 
+from jubik.instruments.jwst.parse.jwst_psf import JointStars, JwstPsfKernelConfig
 from jubik.instruments.jwst.psf.psf_correction import (
     PsfCorrection,
     StarStamp,
@@ -24,7 +25,6 @@ from jubik.instruments.jwst.psf.psf_operator import PsfStatic
 
 from test_brighter_fatter import (
     BAND,
-    DN_PER_UNIT,
     KAPPA,
     ExposureJwstData,
     bfe,
@@ -88,6 +88,17 @@ def texture_and_width(x, orthogonal=False):
     )
     width = jft.LogNormalPrior(*WIDTH, name=f"{BAND}_psf_width", shape=())
     return np.asarray(texture(x)), float(width(x))
+
+
+def kappa_of(x):
+    """Kappa of a joint_psf config's prior at the latents `x`."""
+    prior = jft.LogNormalPrior(KAPPA, 0.5 * KAPPA, name="k", shape=())
+    return prior({"k": x[f"{BAND}_psf_brighter_fatter"]})
+
+
+def width_at_fluence(x):
+    w1 = jft.LogNormalPrior(*WIDTH, name="w", shape=())
+    return float(w1({"w": x[f"{BAND}_psf_width_at_fluence"]}))
 
 
 def tree(domain):
@@ -191,9 +202,7 @@ def test_star_term_is_the_star_fits_model(exposures, tmp_path):
     x = latents(products, seed=5)
     assert {f"{BAND}_star_flux", f"{BAND}_psf_brighter_fatter"} <= set(x)
     texture, width = texture_and_width(x)
-    kappa = jft.LogNormalPrior(KAPPA, 0.5 * KAPPA, name="k", shape=())(
-        {"k": x[f"{BAND}_psf_brighter_fatter"]}
-    )
+    kappa = kappa_of(x)
     static = _StarModel(stamps, SUB, pixel_box=True)
     plain = {k.removeprefix(f"{BAND}_"): v for k, v in x.items()}
     dn = np.asarray(static(plain, texture, width)) * DN
@@ -211,7 +220,7 @@ def test_lens_and_stars_share_the_correction(exposures, tmp_path):
     (single,) = products.target.likelihoods
     x = latents(products)
     texture, width = texture_and_width(x)
-    kappa = float(single.response.brighter_fatter(x)[0, 0, 0] / DN_PER_UNIT[0])
+    kappa = float(kappa_of(x))
 
     kernels = np.asarray(single.response.psf.kernel(x))
     corrected = PsfCorrection(BAND, SUB, texture, width).apply(base_kernel())
@@ -251,6 +260,24 @@ def test_lens_and_stars_share_the_correction(exposures, tmp_path):
         np.testing.assert_allclose(total, from_lens + from_stars, rtol=1e-10)
 
 
+def test_lens_gets_the_orthogonal_texture_and_the_width_at_the_fluence(
+    exposures, tmp_path
+):
+    write_stamps(tmp_path / "s.npz")
+    psf = joint_psf(tmp_path / "s.npz", orthogonal=True, fluence=3e4)
+    products = build(tmp_path, psf)
+    (single,) = products.target.likelihoods
+    x = latents(products)
+    texture, w0 = texture_and_width(x, orthogonal=True)
+    w1 = width_at_fluence(x)
+    assert abs(w1 - w0) > 0.1
+    kernels = np.asarray(single.response.psf.kernel(x))
+    corrected = PsfCorrection(BAND, SUB, texture, w1).apply(base_kernel())
+    np.testing.assert_allclose(
+        kernels, np.stack([with_pixel_box(corrected)] * 2), atol=1e-15
+    )
+
+
 def test_gradient_and_metric_are_finite(exposures, tmp_path):
     """Everything on, the width at the fluence so far below w0 that the
     brightest stars' variance law crosses zero (and is floored)."""
@@ -259,11 +286,9 @@ def test_gradient_and_metric_are_finite(exposures, tmp_path):
     products = build(tmp_path, psf, zero_flux={"default": ["normal", 0.5, 0.1]})
     likelihood = products.target.likelihood
     x = latents(products)
+    assert f"{BAND}_psf_width_at_fluence" in x
     x[f"{BAND}_psf_width"], x[f"{BAND}_psf_width_at_fluence"] = 2.0, -3.0
-    w0, w1 = (
-        jft.LogNormalPrior(*WIDTH, name="w", shape=())({"w": x[f"{BAND}_psf_width{k}"]})
-        for k in ("", "_at_fluence")
-    )
+    w0, w1 = texture_and_width(x)[1], width_at_fluence(x)
     ratio = max(s.fluence for s in stamps) / 3e4
     assert w0**2 + (w1**2 - w0**2) * ratio < 0
     x = jft.Vector(x)
@@ -284,6 +309,7 @@ def joint(**entry):
         ({"joint_stars": {BAND: "s.npz"}}, "psf joint_stars f444w"),
         (joint(brighter_fatter=[KAPPA]), "log-normal"),
         (joint(brighter_fatter=[KAPPA, -1.0]), "log-normal"),
+        (joint(fluence="2.2e4x"), "could not convert string to float"),
         (joint(brighter_fatter=[KAPPA, 1.0]) | {"brighter_fatter": {BAND: 1.0}}, "one"),
         (joint() | {"correction": {BAND: "c.npz"}}, "drop its psf correction"),
         ({"joint_stars": {"f277w": {"stamps": "s.npz"}}}, "match no filter"),
@@ -292,6 +318,17 @@ def joint(**entry):
 def test_bad_config_raises(exposures, tmp_path, psf, match):
     with pytest.raises(ValueError, match=match):
         build(tmp_path, psf)
+
+
+def test_numbers_yaml_reads_as_strings_are_numbers():
+    """PyYAML reads 1e-6, without a dot, as a string."""
+    raw = {"webbpsf_path": "", "psf_library": "", "psf_arcsec_extension": 0.4}
+    entry = {"stamps": "s.npz", "width": ["4e-1", 0.3], "fluence": "2.2e4"}
+    entry |= {"brighter_fatter": ["9.02e-7", "2e-7"], "fluctuations": "1e-1"}
+    config = JwstPsfKernelConfig.from_yaml_dict(raw | {"joint_stars": {BAND: entry}})
+    assert config.joint_stars[BAND] == JointStars(
+        "s.npz", None, 0.1, -2.0, (0.4, 0.3), 2.2e4, False, (9.02e-7, 2e-7)
+    )
 
 
 def test_conflicting_data_raise(exposures, tmp_path):
@@ -347,10 +384,11 @@ def test_kappa_is_recovered_on_stars_with_a_known_kappa():
 
 
 def test_joint_fit_recovers_an_injected_correction(exposures, tmp_path):
-    """Lens data made with a correction file's kernel and stars made with the
-    same texture and width, the sky held at its truth: the joint fit gets the
-    kernel ten times closer to the truth than the uncorrected one and the width
-    within 3%, and fits both the lens and the stars at the noise."""
+    """Lens data made with a correction file's kernel at 3% noise and stars made
+    with the same texture and width, the sky held at its truth: the joint fit
+    gets the kernel ten times closer to the truth than the uncorrected one and
+    the width within 2%, and fits the lens and the stars at the noise; the lens
+    alone misses both."""
     write_stamps(tmp_path / "s.npz")  # replaced below, once the truth is drawn
     psf = joint_psf(tmp_path / "s.npz", kappa=None, orthogonal=True)
     products = build(tmp_path / "a", psf)
@@ -372,28 +410,37 @@ def test_joint_fit_recovers_an_injected_correction(exposures, tmp_path):
     sky = products.target.sky_filter(truth)
     image = np.asarray(fixed.target.likelihoods[0].response(truth | sky))
     (single,) = products.target.likelihoods
-    noise = 1e-3 * np.abs(image).max()
+    noise = 3e-2 * np.abs(image).max()
     rng = np.random.default_rng(2)
     data = single.builder.data.copy()
     data[single.builder.mask] = image + noise * rng.normal(size=image.shape)
     single.builder.data, single.builder.std = data, np.full(data.shape, noise)
 
-    likelihood = products.target.likelihood
-    domain = {k: v for k, v in tree(likelihood.domain).items() if k != "sky"}
-    held = likelihood.amend(
-        jft.Model(lambda x: jft.Vector(tree(x) | {"sky": truth["sky"]}), domain=domain),
-        domain=jft.Vector(domain),
-    )
-    learned = fit(held)
+    def fit_with_the_sky_held(likelihood):
+        domain = {k: v for k, v in tree(likelihood.domain).items() if k != "sky"}
+        held = jft.Model(
+            lambda x: jft.Vector(tree(x) | {"sky": truth["sky"]}), domain=domain
+        )
+        return fit(likelihood.amend(held, domain=jft.Vector(domain)))
+
     true_kernel = with_pixel_box(correction.apply(base_kernel()))
-    error = np.abs(np.asarray(single.response.psf.kernel(learned)) - true_kernel).sum()
     untouched = np.abs(with_pixel_box(base_kernel()) - true_kernel).sum()
-    assert error < untouched / 10
-    assert np.isclose(texture_and_width(learned)[1], width, rtol=0.03)
-    (stars,) = products.target.stars
+
+    def errors(learned):
+        kernel = np.asarray(single.response.psf.kernel(learned))
+        return (
+            np.abs(kernel - true_kernel).sum() / untouched,
+            abs(texture_and_width(learned)[1] / width - 1),
+        )
+
     lens = replace(products.target, stars=[]).likelihood
+    learned = fit_with_the_sky_held(products.target.likelihood)
+    assert max(errors(learned)) < 0.1 and errors(learned)[1] < 0.02  # 0.024, 0.001
+    (stars,) = products.target.stars
     chi2 = [
         2 * energy(stars, learned) / sum(int(s.mask.sum()) for s in stamps),
         2 * energy(lens, learned | {"sky": truth["sky"]}) / single.builder.mask.sum(),
     ]
-    assert max(chi2) < 1.15  # 1.0 and 0.96 as made; the reduced chi2 std is ~0.04
+    assert max(chi2) < 1.15  # the reduced chi2 std is ~0.04
+    alone = errors(fit_with_the_sky_held(lens))
+    assert alone[0] > 0.1 and alone[1] > 0.02  # 0.16, 0.03
