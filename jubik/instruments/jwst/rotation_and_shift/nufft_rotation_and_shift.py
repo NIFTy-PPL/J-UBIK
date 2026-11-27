@@ -87,10 +87,11 @@ def build_nufft_rotation_and_shift(
         return n_inside <= capacity
 
     # vmapped (NIFTy's kl_map over samples): one branch for all samples, since a
-    # batched predicate turns the cond into a select that runs both branches
+    # batched predicate turns the cond into a select that runs both branches;
+    # calling fits again reduces each level of a nested vmap in turn
     @fits.def_vmap
     def _fits_batched(axis_size, in_batched, n_inside):
-        return jnp.all(n_inside <= capacity), False
+        return fits(jnp.max(n_inside)), False
 
     def rotate_shift_subsample(field, subsample_centers_yx):
         actual_shape = tuple(subsample_centers_yx.shape[-2:])

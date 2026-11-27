@@ -311,30 +311,39 @@ def test_capacity_runs_one_branch_for_vmapped_samples(monkeypatch, fit):
     sky_shape, out_shape = (24, 20), (13, 17)
     centers = _stacked_centers(out_shape)
     samples = np.stack([centers, centers + 0.3])  # shifted: per-sample masks
-    n_in = [int(_inside(c, sky_shape).sum()) for c in samples]
+    inside = np.stack([_inside(c, sky_shape) for c in samples])
+    n_in = inside.sum(axis=(1, 2, 3))
     assert n_in[0] != n_in[1]
     capacity = dict(all=max(n_in) + 5, none=min(n_in) - 5, one=min(n_in))[fit]
-    assert capacity < centers[:, 0].size
+    assert capacity < inside[0].size
     fields = np.random.default_rng(8).normal(size=(2, *sky_shape))
+    rs_some = build_nufft_rotation_and_shift(sky_shape, out_shape, capacity=capacity)
+    rs_every = build_nufft_rotation_and_shift(sky_shape, out_shape)
 
-    some = jax.vmap(
-        build_nufft_rotation_and_shift(sky_shape, out_shape, capacity=capacity)
-    )
-    every = jax.vmap(build_nufft_rotation_and_shift(sky_shape, out_shape))
-    assert "cond" in _primitives(jax.make_jaxpr(some)(fields, samples).jaxpr)
-    np.testing.assert_allclose(
-        some(fields, samples), every(fields, samples), rtol=0, atol=1e-12
-    )
     # gradients per sample, as NIFTy maps value_and_grad over the samples
     grad = lambda rs: jax.vmap(
         jax.grad(lambda f, c: (rs(f, c) ** 2).sum(), argnums=(0, 1))
     )
-    rs_some = build_nufft_rotation_and_shift(sky_shape, out_shape, capacity=capacity)
-    rs_every = build_nufft_rotation_and_shift(sky_shape, out_shape)
     for g_some, g_every in zip(
         grad(rs_some)(fields, samples), grad(rs_every)(fields, samples)
     ):
         np.testing.assert_allclose(g_some, g_every, rtol=0, atol=1e-10)
+
+    # an interpolation at every point adds 1000, so the output tells which ran:
+    # the inside points for all samples, or every point for all
+    monkeypatch.setattr(
+        jax_finufft,
+        "nufft2",
+        lambda f, y, x, **k: _dft_nufft2(f, y, x) + 1000.0 * (y.size == inside[0].size),
+    )
+    some = jax.vmap(
+        build_nufft_rotation_and_shift(sky_shape, out_shape, capacity=capacity)
+    )
+    for vmapped in (some, jax.vmap(some)):  # nested vmap too
+        batch = (fields, samples) if vmapped is some else (fields[None], samples[None])
+        assert "cond" in _primitives(jax.make_jaxpr(vmapped)(*batch).jaxpr)
+    expected = jax.vmap(rs_every)(fields, samples) + 1000.0 * (fit != "all") * inside
+    np.testing.assert_allclose(some(fields, samples), expected, rtol=0, atol=1e-9)
 
 
 def test_points_are_not_sorted(monkeypatch):
