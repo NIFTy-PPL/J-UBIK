@@ -592,17 +592,19 @@ def _joint_stars(filter: str, joint, pixel_box: bool, kappa, target_data, gaia=N
         (kernels.shape[0],) + target_data.subsample_centers[0].shape, float
     )
     rules = joint.exclude
+    bright = {}  # with Gaia, dropped after the tie: such a stamp's frame stays taken
     if rules is not None and rules.max_peak is not None:
         too_bright = [s.fluence > rules.max_peak for s in stamps]
-        why = f"a peak above {rules.max_peak:g} DN/int"
-        stamps, extra = _drop_stamps(filter, stamps, extra, too_bright, why)
+        bright = {f"a peak above {rules.max_peak:g} DN/int": too_bright}
     positions, more = None, ()
-    if gaia is not None:
+    if gaia is None:
+        stamps, extra = _drop_stamps(filter, stamps, extra, bright)
+    else:
         dn = None
         if kappa is not None or joint.fluence is not None or rules is not None:
             dn = _dn_per_unit(gaia.filepaths)
         stamps, positions, more = _tie_to_gaia(
-            filter, joint, stamps, extra, subsample, gaia, dn
+            filter, joint, stamps, extra, subsample, gaia, dn, bright
         )
     return joint_correction(
         stamps,
@@ -623,10 +625,12 @@ def _joint_stars(filter: str, joint, pixel_box: bool, kappa, target_data, gaia=N
     )
 
 
-def _drop_stamps(filter, stamps, extra, drop, why: str):
-    """`stamps` and the arrays of `extra` without those where `drop`, logged
-    with `why`."""
-    drop = np.asarray(drop, bool)
+def _drop_stamps(filter, stamps, extra, reasons: dict):
+    """`stamps` and the arrays of `extra` without those a mask of `reasons`
+    (why -> mask) drops, each reason logged with its stamps."""
+    drop = np.zeros(len(stamps), bool)
+    for mask in reasons.values():
+        drop |= np.asarray(mask, bool)
     if not drop.any():
         return stamps, extra
     names = [
@@ -638,10 +642,13 @@ def _drop_stamps(filter, stamps, extra, drop, why: str):
             extra.get("y", [None] * len(stamps)),
         )
     ]
-    dropped = [n for n, d in zip(names, drop) if d]
-    jft.logger.warning(f"{filter}: stamps excluded, {why}: {dropped}")
+    for why, mask in reasons.items():
+        if dropped := [n for n, d in zip(names, mask) if d]:
+            jft.logger.warning(f"{filter}: stamps excluded, {why}: {dropped}")
     if drop.all():
-        raise ValueError(f"psf joint_stars {filter}: every stamp is excluded, {why}")
+        raise ValueError(
+            f"psf joint_stars {filter}: every stamp is excluded: {'; '.join(reasons)}"
+        )
     return [s for s, d in zip(stamps, drop) if not d], {
         k: v[~drop] for k, v in extra.items()
     }
@@ -672,7 +679,9 @@ def _gaia_exclusion(filter, rules, table) -> dict[int, list[str]]:
     return reasons
 
 
-def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
+def _tie_to_gaia(
+    filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn, bright=None
+):
     """The stamps left and `joint_correction`'s ``positions`` and
     ``more_stars`` for `filter`'s Gaia stars (see `_joint_stars`).
 
@@ -681,8 +690,9 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
     of its catalog position at the exposure's epoch, the nearest pairs first;
     the stamp's centre pixel (``x``, ``y``) places that position in it. With
     ``joint.exclude`` a Gaia star its rules drop goes with its stamps, and a
-    Gaia cutout they drop goes alone. `dn` is each exposure's DN per
-    integration per data unit (`_dn_per_unit`), or None."""
+    Gaia cutout they drop goes alone; `bright` (why -> mask) drops more stamps,
+    whose frames stay taken. `dn` is each exposure's DN per integration per data
+    unit (`_dn_per_unit`), or None."""
     if missing := {"exposure", "x", "y", "ra", "dec"} - set(extra):
         raise ValueError(
             f"psf joint_stars {filter}: gaia_alignment needs the stamps' "
@@ -717,11 +727,18 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
     table = gaia.tables.join_tables()
     rules = joint.exclude
     excluded = {} if rules is None else _gaia_exclusion(filter, rules, table)
-    gone = [j in tied and int(tied[j][0].id) in excluded for j in range(len(stamps))]
-    kept = np.cumsum(np.logical_not(gone)) - 1  # each stamp's index once dropped
+    at = [j in tied and int(tied[j][0].id) in excluded for j in range(len(stamps))]
+    stars = {int(tied[j][0].id) for j in range(len(stamps)) if at[j]}
+    why = "at a Gaia star exclude drops (" + "; ".join(
+        f"{s}: {', '.join(excluded[s])}" for s in sorted(stars)
+    )
+    reasons = dict(bright or {}) | ({why + ")": at} if any(at) else {})
+    gone = np.zeros(len(stamps), bool)
+    for mask in reasons.values():
+        gone |= np.asarray(mask, bool)
+    kept = np.cumsum(~gone) - 1  # each stamp's index once dropped
     tied = {int(kept[j]): v for j, v in tied.items() if not gone[j]}
-    why = "at a Gaia star exclude drops"
-    stamps, extra = _drop_stamps(filter, stamps, extra, gone, why)
+    stamps, extra = _drop_stamps(filter, stamps, extra, reasons)
     # a cutout masked whole (e.g. by a corner mask) holds no star
     alone = [
         (star, k)

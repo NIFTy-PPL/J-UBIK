@@ -12,6 +12,7 @@ import numpy as np
 import pytest
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from astropy.table import MaskedColumn
 from astropy.time import Time
 
 from jubik.instruments.jwst import jwst_likelihoods
@@ -635,14 +636,17 @@ def test_gaia_cutouts_brighter_than_every_stamp_or_masked_are_flagged(
 
 
 class SaturatedJwstData(EpochJwstData):
-    """`EpochJwstData` with a DQ array, SATURATED at star 3 in fake_0."""
+    """`EpochJwstData` with a DQ array: SATURATED at star 3 in fake_0, JUMP_DET
+    alone at it in fake_1."""
 
     def __init__(self, filepath):
         super().__init__(filepath)
         self.dm.dq = np.zeros(self.shape, np.uint32)
+        x, y = np.round(STARS[2]).astype(int)
         if Path(filepath).stem.endswith("_0"):
-            x, y = np.round(STARS[2]).astype(int)
             self.dm.dq[y + 1, x - 2] = 2 | 4  # SATURATED, JUMP_DET: 2 px off
+        else:
+            self.dm.dq[y, x] = 4  # JUMP_DET: no saturation
 
 
 def gaia_columns(table, **columns):
@@ -655,9 +659,9 @@ def gaia_columns(table, **columns):
         table[name] = columns.get(name, [0.0] * len(table))
 
 
-def excluding(path, exclude):
+def excluding(path, exclude, **options):
     """`joint_psf` of the stamps file at `path` with ``exclude``."""
-    entry = joint_psf(path)["joint_stars"][BAND] | {"exclude": exclude}
+    entry = joint_psf(path, **options)["joint_stars"][BAND] | {"exclude": exclude}
     return {"pixel_box": True, "joint_stars": {BAND: entry}}
 
 
@@ -691,10 +695,12 @@ def test_a_gaia_star_the_rules_drop_goes_with_its_stamps(
 ):
     """Stars 2 (tied to two stamps) and 3 (cutouts only) fail one rule: they go,
     with star 2's stamps, and the stamps' term is the one of a stamps file that
-    never had star 2's stamps; star 1 stays. Without exclude everything stays."""
+    never had star 2's stamps; star 1, whose value is masked (a 2-parameter
+    solution has no RUWE), stays. Without exclude everything stays."""
     table, _ = gaia
     add_star(table, 3, 45.3, 20.6)
-    gaia_columns(table, **{column: [0.0, value, value]})
+    masked = MaskedColumn([9.0, value, value], mask=[True, False, False])
+    gaia_columns(table, **{column: masked})
     stamps = write_stamps(tmp_path / "s.npz", table)
     tied, _ = build(tmp_path / "a", joint_psf(tmp_path / "s.npz")).target.joint_stars
     assert "star_2_astrometry" in tree(tied.domain)
@@ -742,7 +748,9 @@ def test_saturated_and_bright_gaia_cutouts_go_alone(
     _, cutouts = build_with({"max_peak": None, "saturated": False}, "b")
     assert tree(cutouts.domain)[f"{BAND}_gaia_star_flux"].shape == (2,)
     caplog.clear()
-    (tied,) = build_with({"max_peak": 8e3, "saturated": False}, "c")
+    rules = {"max_peak": 8e3, "saturated": False}
+    psf = excluding(tmp_path / "s.npz", rules, kappa=None)  # DN/int without kappa too
+    (tied,) = build(tmp_path / "c", psf).target.joint_stars
     assert warned(caplog, "Gaia stars excluded: 3: a peak above 8000 DN/int in 2 of 2")
     free = "stamps excluded, a peak above 8000 DN/int: ['fake_0.fits (10.0, 50.0)']"
     assert warned(caplog, free)
@@ -807,3 +815,25 @@ def test_the_plot_parts_are_the_fits(gaia, tmp_path):
         parts.base_kernels.shape
         == np.asarray(single.builder.response.psf.kernel(x)).shape
     )
+
+
+def test_a_bright_stamp_at_a_gaia_star_takes_its_frame_along(gaia, tmp_path, caplog):
+    """Star 1's fake_0 stamp peaks above max_peak: it goes, and that frame does not
+    come back as star 1's Gaia cutout (whose own peak is below the limit)."""
+    table, _ = gaia
+    write_stamps(tmp_path / "s.npz", table, fluence=[1e3] * 3 + [4e4] + [1e3] * 2)
+    psf = excluding(tmp_path / "s.npz", {"max_peak": 3e4, "saturated": False})
+    (tied,) = build(tmp_path / "b", psf).target.joint_stars
+    assert tree(tied.domain)[f"{BAND}_star_flux"].shape == (5,)
+    assert "0 Gaia cutouts without a stamp" in caplog.text
+    assert warned(caplog, "a peak above 30000 DN/int: ['fake_0.fits (32.0, 31.0)']")
+
+
+def test_every_stamp_excluded_raises_with_why(gaia, tmp_path):
+    table, _ = gaia
+    gaia_columns(table, ruwe=[2.0, 2.0])
+    write_stamps(tmp_path / "s.npz", table, fluence=[1e3] * 4 + [4e4] * 2)
+    psf = excluding(tmp_path / "s.npz", {"max_peak": 3e4, "saturated": False})
+    why = r"every stamp is excluded: a peak above 30000 DN/int; at a Gaia star exclude"
+    with pytest.raises(ValueError, match=why + r" drops \(1: RUWE 2; 2: RUWE 2\)"):
+        build(tmp_path / "b", psf)
