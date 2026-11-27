@@ -44,8 +44,8 @@ def _wss_opd_file(opd_date: str) -> str:
 # Testing seam
 # --------------------------------
 # `test/instruments/jwst/test_jwst_likelihoods.py` monkeypatches `build_webb_psf` so the
-# likelihood smoke test never imports stpsf. Keep the stpsf call confined to this
-# function so that one patch is enough.
+# likelihood smoke test never imports stpsf. Keep the stpsf calls confined to this
+# function and `detector_coupling_kernel` (only with psf.detector_coupling).
 def build_webb_psf(
     camera: str,
     filter: str,
