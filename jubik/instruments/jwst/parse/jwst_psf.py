@@ -96,9 +96,10 @@ class JwstPsfKernelConfig:
             - pixel_box | None
             - brighter_fatter | None
         """
-        kappa = {
-            k.lower(): float(v) for k, v in (raw.get(BRIGHTER_FATTER_KEY) or {}).items()
-        }
+        kappa = raw.get(BRIGHTER_FATTER_KEY) or {}
+        if not isinstance(kappa, dict):
+            raise ValueError(f"psf brighter_fatter must map filter -> kappa: {kappa}")
+        kappa = {k.lower(): float(v) for k, v in kappa.items()}
         if bad := {k: v for k, v in kappa.items() if not 0 <= v < np.inf}:
             raise ValueError(f"psf brighter_fatter must be finite and >= 0: {bad}")
 

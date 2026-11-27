@@ -232,6 +232,7 @@ def test_needs_data_in_mjy_per_sr_with_photmjsr(exposures, monkeypatch, tmp_path
         ({BAND: -KAPPA}, "must be finite and >= 0"),
         ({BAND: float("nan")}, "must be finite and >= 0"),
         ({BAND: float("inf")}, "must be finite and >= 0"),
+        (KAPPA, "must map filter -> kappa"),
     ],
 )
 def test_bad_config_raises(exposures, tmp_path, kappa, match):

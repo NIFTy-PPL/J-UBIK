@@ -223,6 +223,9 @@ def test_samples_cover_the_injected_width():
     assert len(sampled) == 4 and models.shape == (6, SIZE, SIZE)
     assert 0 < widths.std() < 0.05
     assert abs(learned.width - w) < 3 * widths.std()
+    # without samples, the MAP of the fit before n_samples existed
+    plain, _ = fit_psf_correction(stamps, SUB, "f", width=(0.5, 0.5), n_iterations=3)
+    assert plain.width == pytest.approx(0.39761984267744144, rel=1e-6)
 
 
 def test_load_psf_kernel_applies_the_filter_correction(patched_seams, tmp_path):
