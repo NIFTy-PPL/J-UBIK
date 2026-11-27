@@ -55,12 +55,13 @@ class JwstPsfKernelConfig:
         on kernels loaded without the box: the fit adds it).
         Default is False.
     detector_coupling : bool
-        If True (NIRCam only), every kernel, after its correction and the box,
-        is convolved with STPSF's interpixel and post-pixel capacitance of its
+        If True, every NIRCam kernel, after its correction and the box, is
+        convolved with STPSF's interpixel and post-pixel capacitance of its
         detector (`detector_coupling_kernel`): charge the detector moves between
-        neighbouring pixels, which STPSF's oversampled kernel leaves out. A
-        correction must have been learned with it (`StarStamp.coupling`).
-        Default is False.
+        neighbouring pixels, which STPSF's oversampled kernel leaves out. Other
+        cameras' kernels stay as they are. A NIRCam correction must have been
+        learned with it (`StarStamp.coupling`, on kernels loaded without it:
+        the fit adds it). Default is False.
     """
 
     webbpsf_path: str

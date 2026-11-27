@@ -54,7 +54,7 @@ def test_coupling_then_binning_equals_binning_then_coupling(s):
 def test_coupling_keeps_the_kernel_sum_and_moves_ppc_along_x():
     ppc = np.zeros((3, 3))
     ppc[1, 1], ppc[1, 2] = 0.9, 0.1  # STPSF's NIRCam PPC: charge to the next pixel in x
-    coupling = oversampled_coupling(np.pad([[1.0]], 1), ppc, SUB)
+    coupling = oversampled_coupling(2 * np.pad([[1.0]], 1), ppc, SUB)  # normalised
     psf = np.pad(kernel(), 10)  # room for the coupling
     coupled = with_detector_coupling(psf, coupling)
     np.testing.assert_allclose(coupled.sum(), psf.sum(), rtol=1e-12)
@@ -66,6 +66,8 @@ def test_coupling_keeps_the_kernel_sum_and_moves_ppc_along_x():
 def test_stpsf_reads_the_detectors_coupling(monkeypatch):
     """The long-wavelength names reach STPSF by module number."""
     import stpsf.detectors
+
+    monkeypatch.delenv("STPSF_PATH", raising=False)  # restored after the test
 
     class Kernel:
         def __init__(self, a):
@@ -106,14 +108,16 @@ def test_load_psf_kernel_couples_after_the_correction_and_box(
     data, centre = FakeJwstData("x.fits"), FakeJwstData("x.fits").wcs.center
     config = JwstPsfKernelConfig.from_yaml_dict(raw)
     assert config.detector_coupling is False
-    plain = jwst_kernel.load_psf_kernel(data, 2, centre, config)
-    assert not asked
     coupled = JwstPsfKernelConfig.from_yaml_dict(raw | {"detector_coupling": True})
-    np.testing.assert_array_equal(
-        jwst_kernel.load_psf_kernel(data, 2, centre, coupled),
-        with_detector_coupling(plain, coupling),
-    )
+    on = jwst_kernel.load_psf_kernel(data, 2, centre, coupled)  # an empty library first
     assert asked == [("NRCALONG", 2)]
+    (cached,) = tmp_path.glob("*.npy")
+    plain = jwst_kernel.load_psf_kernel(data, 2, centre, config)
+    assert len(asked) == 1
+    np.testing.assert_array_equal(
+        np.load(cached), plain
+    )  # the cache holds it uncoupled
+    np.testing.assert_array_equal(on, with_detector_coupling(plain, coupling))
 
     t = np.zeros((3, 3))
     t[1, 1] = 1.0
@@ -141,9 +145,12 @@ def test_load_psf_kernel_couples_after_the_correction_and_box(
             jwst_kernel.load_psf_kernel(
                 data, 2, centre, JwstPsfKernelConfig.from_yaml_dict(mismatch)
             )
-    data.camera = "MIRI"
-    with pytest.raises(ValueError, match="for NIRCam, not miri"):
-        jwst_kernel.load_psf_kernel(data, 2, centre, coupled)
+    n = len(asked)
+    data.camera = "MIRI"  # one psf block for NIRCam and MIRI: MIRI's kernel stays
+    np.testing.assert_array_equal(
+        jwst_kernel.load_psf_kernel(data, 2, centre, coupled), plain
+    )
+    assert len(asked) == n  # no coupling asked for MIRI
 
 
 def test_save_keeps_the_coupling_flag_only_when_set(tmp_path):

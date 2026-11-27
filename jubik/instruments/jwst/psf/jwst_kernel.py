@@ -219,7 +219,7 @@ def oversampled_coupling(
 def with_detector_coupling(kernel: np.ndarray, coupling: np.ndarray) -> np.ndarray:
     """`kernel` convolved with `coupling` (odd and centred, see
     `detector_coupling_kernel`), same shape, zero outside."""
-    return convolve(kernel, coupling, mode="same", method="direct")
+    return convolve(kernel, coupling, mode="same")
 
 
 def load_psf_kernel(
@@ -342,14 +342,14 @@ def load_psf_kernel(
         logger.info(f"Saving PSF {file_name} in {psf_library_path}")
         np.save(path_to_file, psf)
 
-    if config_parameters.detector_coupling and camera != "nircam":
-        raise ValueError(
-            f"psf detector_coupling: STPSF's model is for NIRCam, not {camera}"
-        )
+    # STPSF's coupling model here is NIRCam's; one psf block may serve MIRI too
+    coupled = config_parameters.detector_coupling and camera == "nircam"
+    if config_parameters.detector_coupling and not coupled:
+        logger.info(f"psf detector_coupling: NIRCam only, the {camera} kernel stays")
 
     def finish(kernel):  # the box, then the detector coupling, as the detector acts
         kernel = with_pixel_box(kernel) if config_parameters.pixel_box else kernel
-        if not config_parameters.detector_coupling:
+        if not coupled:
             return kernel
         coupling = detector_coupling_kernel(detector, subsample, webbpsf_path)
         return with_detector_coupling(kernel, coupling)
@@ -370,10 +370,10 @@ def load_psf_kernel(
             f"{correction.pixel_box}, the psf config has pixel_box "
             f"{config_parameters.pixel_box}"
         )
-    if correction.detector_coupling != config_parameters.detector_coupling:
+    if correction.detector_coupling != coupled:
         raise ValueError(
             f"psf correction {path} was learned with detector_coupling "
-            f"{correction.detector_coupling}, the psf config has detector_coupling "
-            f"{config_parameters.detector_coupling}"
+            f"{correction.detector_coupling}, the {camera} kernel gets "
+            f"detector_coupling {coupled}"
         )
     return finish(correction.apply(psf))

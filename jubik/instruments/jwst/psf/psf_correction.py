@@ -26,13 +26,16 @@ Workflow, per filter:
 
 1. Cut stamps of isolated, unsaturated stars from the filter's exposures, each
    with the STPSF kernel at its detector position (`load_psf_kernel` with the
-   lens fit's PSF settings, no correction and no ``pixel_box``: the fit adds
-   the box itself) and its peak per integration.
+   lens fit's PSF settings, no correction, no ``pixel_box`` and no
+   ``detector_coupling``: the fit adds the box itself, and the coupling from
+   each stamp's ``coupling = detector_coupling_kernel(detector, subsample,
+   webbpsf_path)``) and its peak per integration.
 2. ``correction, models = fit_psf_correction(stamps, subsample, filter,
    radius=..., width=(mean, std), fluence=<the arc's peak per integration>)``;
    check the residuals of held-out stars (stars fitted with
-   ``correction.at_fluence(peak).apply(kernel)``, nothing learned and
-   ``pixel_box=correction.pixel_box``).
+   ``correction.at_fluence(peak).apply(kernel)``, nothing learned,
+   ``pixel_box=correction.pixel_box`` and, if ``correction.detector_coupling``,
+   their couplings).
 3. ``correction.save(path)`` and ``psf: {correction: {<filter>: path}}``.
 
 The texture's spectrum is fixed (see `log_texture_model`); choose its std and
