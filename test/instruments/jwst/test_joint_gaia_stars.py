@@ -783,3 +783,27 @@ def test_no_gaia_star_left_is_a_warning_not_an_error(gaia, tmp_path, caplog):
     )  # 6 less 4 at Gaia
     assert "0 Gaia stars remain []" in caplog.text
     assert warned(caplog, "no Gaia star remains after exclude; only the lens pins")
+
+
+def test_the_plot_parts_are_the_fits(gaia, tmp_path):
+    """`joint_star_parts`: each star set's model gives its likelihood's energy,
+    and the kernel, texture, width and kappa are the fit's."""
+    table, _ = gaia
+    add_star(table, 3, 45.3, 20.6)
+    write_stamps(tmp_path / "s.npz", table)
+    products = build(tmp_path / "b", joint_psf(tmp_path / "s.npz"))
+    parts = products.target.joint_star_parts[BAND]
+    x = latents(products)
+    for (stars, model), likelihood in zip(parts.stars, products.target.joint_stars):
+        r = ((stars.data - np.asarray(model(x))) / stars.std)[stars.mask]
+        assert np.isclose(0.5 * np.sum(r**2), energy(likelihood, x), rtol=1e-12)
+    (single,) = products.target.likelihoods
+    np.testing.assert_array_equal(parts.kernel(x), single.response.psf.kernel(x))
+    texture, width = texture_and_width(x)
+    np.testing.assert_allclose(parts.texture(x), texture, rtol=1e-12)
+    assert np.isclose(parts.width(x), width) and parts.w0 is None
+    assert parts.fluence is None and np.isclose(parts.kappa(x), kappa_of(x))
+    assert (
+        parts.base_kernels.shape
+        == np.asarray(single.builder.response.psf.kernel(x)).shape
+    )

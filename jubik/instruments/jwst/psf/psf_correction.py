@@ -593,6 +593,24 @@ def learned_kernel(kernels, texture, width, pixel_box: bool = False) -> jft.Mode
     return jft.Model(kernel, domain=domain)
 
 
+@dataclass
+class JointStarParts:
+    """What a plot of `joint_correction` needs: each star set and the model of its
+    stamps (N, S, S); the lens's base kernels (n, K, K) and its corrected kernels
+    (a model); the texture, the width (at `fluence` with one), ``w0`` (the width
+    at zero with a `fluence`) and kappa per DN per integration: models of the
+    latents, a number or None."""
+
+    stars: list
+    base_kernels: np.ndarray
+    kernel: jft.Model
+    texture: jft.Model | None
+    width: jft.Model | None
+    w0: jft.Model | None
+    fluence: float | None
+    kappa: float | jft.Model | None
+
+
 def joint_correction(
     stamps: list[StarStamp],
     subsample: int,
@@ -610,7 +628,7 @@ def joint_correction(
     prefix: str = "",
     positions: tuple[np.ndarray, jft.Model] | None = None,
     more_stars: tuple[tuple[list[StarStamp], tuple, str, int], ...] = (),
-) -> tuple[PsfKernelModel, list[jft.Likelihood]]:
+) -> tuple[PsfKernelModel, list[jft.Likelihood], JointStarParts]:
     """`fit_psf_correction`'s correction, learned in a lens fit together with
     its stars instead of frozen into a file.
 
@@ -626,7 +644,7 @@ def joint_correction(
     `stamps` by a model (`_StarModel`), e.g. Gaia's. Each of `more_stars`,
     ``(stamps, positions, prefix, pad)``, is another set of stamps of one size
     under the same correction, with its own likelihood (e.g. Gaia stars without
-    a PSF stamp).
+    a PSF stamp). The third item holds the parts a plot needs (`JointStarParts`).
     """
     stars = _StarModel(
         stamps,
@@ -639,7 +657,8 @@ def joint_correction(
     texture, sigma, widths, w0 = _correction_model(
         stars, radius, fluctuations, loglogavgslope, width, fluence, orthogonal, prefix
     )
-    likelihoods = [_star_likelihood(stars, texture, widths)[0]]
+    likelihood, models = _star_likelihood(stars, texture, widths)
+    likelihoods, sets = [likelihood], [(stars, models)]
     for group, where, name, pad in more_stars:
         group = _StarModel(
             group,
@@ -651,9 +670,14 @@ def joint_correction(
             positions=where,
         )
         widths = _stamp_widths(group, sigma, w0, fluence)
-        likelihoods.append(_star_likelihood(group, texture, widths)[0])
-    psf = PsfKernelModel(sky, learned_kernel(kernels, texture, sigma, pixel_box))
-    return psf, likelihoods
+        likelihood, models = _star_likelihood(group, texture, widths)
+        likelihoods.append(likelihood)
+        sets.append((group, models))
+    kernel = learned_kernel(kernels, texture, sigma, pixel_box)
+    parts = JointStarParts(
+        sets, np.asarray(kernels), kernel, texture, sigma, w0, fluence, brighter_fatter
+    )
+    return PsfKernelModel(sky, kernel), likelihoods, parts
 
 
 def fit_psf_correction(

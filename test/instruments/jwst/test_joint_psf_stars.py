@@ -379,7 +379,7 @@ def test_kappa_is_recovered_on_stars_with_a_known_kappa():
     stamps = stars_with_charge_migration(0.5, KAPPA)
     prior = jft.LogNormalPrior(2 * KAPPA, 2 * KAPPA, name="kappa", shape=())
     sky = jft.ShapeWithDtype((1, 8, 8), float)
-    _, (stars,) = joint_correction(
+    _, (stars,), _ = joint_correction(
         stamps, 3, kernel()[None], sky, width=(0.5, 0.5), brighter_fatter=prior
     )
     x = fit(stars)

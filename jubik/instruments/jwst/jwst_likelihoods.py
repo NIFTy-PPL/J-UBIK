@@ -78,6 +78,8 @@ class TargetLikelihoodProducts:
     sky_filter: SkyFilter
     hot_pixel_masking_data: HotPixelMaskingData | None = None
     joint_stars: list[jft.Likelihood] = field(default_factory=list)
+    # filter -> the joint stars' `JointStarParts`, for plots
+    joint_star_parts: dict = field(default_factory=dict)
 
     @property
     def likelihood(self) -> jft.Likelihood | jft.Gaussian:
@@ -290,7 +292,7 @@ def build_jwst_likelihoods(
 
     target_plotting = ResidualPlottingInformation()
     target_filter_likelihoods = []
-    star_likelihoods = []
+    star_likelihoods, star_parts = [], {}
     alignment_plotting = (
         MultiFilterAlignmentPlottingInformation()
         if cfg_parser.star_alignment_config is not None
@@ -424,7 +426,7 @@ def build_jwst_likelihoods(
                     tolerance=reach
                     + preload_results.filter_meta.pixel_scale.to_value(u.arcsec),
                 )
-            psf_model, stars = _joint_stars(
+            psf_model, stars, star_parts[filter] = _joint_stars(
                 filter,
                 joint,
                 cfg_parser.psf_kernel_configs.pixel_box,
@@ -503,6 +505,7 @@ def build_jwst_likelihoods(
             sky_filter=sky_filter,
             hot_pixel_masking_data=hot_pixel_masking_data,
             joint_stars=star_likelihoods,
+            joint_star_parts=star_parts,
         ),
         alignment=MultiFilterAlignmentProducts.from_optional(
             likelihood=(
@@ -571,15 +574,13 @@ class _GaiaStars:
     tolerance: float
 
 
-def _joint_stars(
-    filter: str, joint, pixel_box: bool, kappa, target_data, gaia=None
-) -> tuple[jft.Model, list[jft.Likelihood]]:
-    """The PSF of `filter`'s target response and its stars' likelihoods, sharing
-    the correction learned on all (`joint_correction`, latents named
-    ``{filter}_...``). With `gaia` (`_GaiaStars`) every Gaia star in the files
-    is a star of the fit once: a stamp at a Gaia star's position sits there,
-    moved by its exposure's shift (and astrometry), and a Gaia star without a
-    stamp gets its gaia_alignment cutout, ``{filter}_gaia_...``."""
+def _joint_stars(filter: str, joint, pixel_box: bool, kappa, target_data, gaia=None):
+    """The PSF of `filter`'s target response, its stars' likelihoods and their plot
+    parts, sharing the correction learned on all (`joint_correction`, latents named
+    ``{filter}_...``). With `gaia` (`_GaiaStars`) every Gaia star in the files is a
+    star of the fit once: a stamp at a Gaia star's position sits there, moved by its
+    exposure's shift (and astrometry), and a Gaia star without a stamp gets its
+    gaia_alignment cutout, ``{filter}_gaia_...``."""
     stamps, subsample, extra = load_star_stamps(joint.stamps)
     if subsample != target_data.subsample:
         raise ValueError(
