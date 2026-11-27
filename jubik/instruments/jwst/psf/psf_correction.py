@@ -377,9 +377,10 @@ class _StarModel:
         self._pad = (before, n - (self._crop.stop - self._crop.start) - before)
         # canvas n // 2 to the middle of the stamp's centre pixel, in kernel pixels
         self._offset = subsample * (pad + size // 2) + (subsample - 1) / 2 - n // 2
-        self._fy, self._fx = np.meshgrid(*(np.fft.fftfreq(n),) * 2, indexing="ij")
+        # real canvases: the half spectrum along x (rfft)
+        self._fy, self._fx = np.fft.fftfreq(n), np.fft.rfftfreq(n)
         self._shape = (n, n)
-        self._box = box_transfer(self._shape) if pixel_box else 1.0
+        self._box = box_transfer(self._shape)[:, : n // 2 + 1] if pixel_box else 1.0
         self._yx = np.mgrid[:size, :size] - size // 2
 
         # starting values: background from the stamp's edge, flux from the rest
@@ -423,18 +424,32 @@ class _StarModel:
         out = jnp.zeros((len(self.data), 2), dyx.dtype).at[indices].set(dyx)
         return out if free is None else out.at[self._free].set(free)
 
-    def _canvas(self, kernels):
-        rows = kernels[..., self._crop, self._crop]
+    def _canvas(self, log_texture=None):
+        """Each kernel's part on its canvas, `corrected_kernel` with a texture:
+        exp(t) once, and each kernel's sums on the texture's patch alone."""
+        rows = self.kernels[..., self._crop, self._crop]
+        if log_texture is not None:
+            k, p = self.kernels.shape[-1], log_texture.shape[-1]
+            if p > k:
+                raise ValueError(
+                    f"the texture, {log_texture.shape}, is larger than the kernel, "
+                    f"{self.kernels.shape[-2:]}"
+                )
+            lo = (k - p) // 2
+            e = jnp.exp(log_texture)
+            patch = self.kernels[..., lo : lo + p, lo : lo + p]
+            total = self.kernels.sum((-2, -1), keepdims=True)
+            moved = (patch * (e - 1)).sum((-2, -1), keepdims=True)
+            texture = jnp.pad(e, (lo, k - p - lo), constant_values=1.0)
+            rows = rows * texture[self._crop, self._crop] * (total / (total + moved))
         return jnp.pad(rows, ((0, 0), self._pad, self._pad))
 
     def __call__(self, x, log_texture=None, width=None):
         """The (N, S, S) model stamps of the standard-normal star latents in `x`;
         `width` is shared or (N, 1, 1), one per stamp."""
-        kernels = self.kernels
-        if log_texture is not None:
-            kernels = corrected_kernel(kernels, log_texture)
-        transfer = 1.0 if width is None else gaussian_transfer(self._shape, width)
-        canvas_fft = jnp.fft.fft2(self._canvas(kernels)) * transfer * self._box
+        canvas_fft = jnp.fft.rfft2(self._canvas(log_texture)) * self._box
+        widths = jnp.zeros(len(self.data)) if width is None else width
+        widths = jnp.broadcast_to(jnp.reshape(widths, (-1,)), (len(self.data),))
         p = self.prefix
         flux = self.flux0 * jnp.exp(x[f"{p}star_flux"])
         dyx = self._dyx(x)
@@ -443,14 +458,19 @@ class _StarModel:
 
         s, m, w = self.subsample, self.subsample * self.pad, self.subsample * self.size
 
-        def stamp(k_fft, f, d, b, g):
+        def stamp(k_fft, f, d, b, g, sigma):
+            # the Gaussian and the shift's phase, separable: G_w(y) G_w(x)
             sy, sx = self._offset + s * d
-            phase = jnp.exp(-2j * jnp.pi * (self._fy * sy + self._fx * sx))
-            over = jnp.fft.ifft2(k_fft * phase).real[m : m + w, m : m + w]
+            row, col = (
+                jnp.exp(-2 * jnp.pi * f_ * (jnp.pi * sigma**2 * f_ + 1j * shift))
+                for f_, shift in ((self._fy, sy), (self._fx, sx))
+            )
+            over = jnp.fft.irfft2(k_fft * row[:, None] * col, s=self._shape)
+            over = over[m : m + w, m : m + w]
             binned = over.reshape(self.size, s, self.size, s).sum((1, 3))
             return f * binned + b + g[0] * self._yx[0] + g[1] * self._yx[1]
 
-        out = jax.vmap(stamp)(canvas_fft, flux, dyx, background, gradient)
+        out = jax.vmap(stamp)(canvas_fft, flux, dyx, background, gradient, widths)
         kappa = self.brighter_fatter
         if isinstance(kappa, jft.Model):
             kappa = kappa(x)
