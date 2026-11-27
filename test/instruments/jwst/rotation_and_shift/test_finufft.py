@@ -217,7 +217,7 @@ def _inside(centers, sky_shape):
     return np.all((centers >= 0) & (centers <= upper), axis=-3)
 
 
-@pytest.mark.parametrize("slack", [0, 50, -50])  # tight, room to spare, overflow
+@pytest.mark.parametrize("slack", [0, 20, -50])  # tight, room to spare, overflow
 def test_capacity_gives_every_points_result(slack):
     import jax
 
@@ -228,6 +228,7 @@ def test_capacity_gives_every_points_result(slack):
     # some points outside; the first inside, as the unused slots repeat it
     assert 0 < inside.sum() < inside.size and inside.flat[0]
     capacity = int(inside.sum()) + slack
+    assert capacity < inside.size  # else no gather at all
 
     every = build_nufft_rotation_and_shift(sky_shape, out_shape)
     some = build_nufft_rotation_and_shift(sky_shape, out_shape, capacity=capacity)
@@ -247,8 +248,10 @@ def test_capacity_gives_every_points_result(slack):
     )
 
 
-@pytest.mark.parametrize("slack, every_point", [(0, False), (-1, True)])
-def test_capacity_interpolates_only_the_inside_points(monkeypatch, slack, every_point):
+@pytest.mark.parametrize(
+    "case, every_point", [("fits", False), ("one short", True), ("all + 5%", True)]
+)
+def test_capacity_interpolates_only_the_inside_points(monkeypatch, case, every_point):
     import jax_finufft
 
     sky_shape, out_shape = (24, 20), (13, 17)
@@ -262,13 +265,76 @@ def test_capacity_interpolates_only_the_inside_points(monkeypatch, slack, every_
         return nufft2(f, y, x, **kw) + 1000.0 * (y.shape[0] == inside.size)
 
     monkeypatch.setattr(jax_finufft, "nufft2", marked)
-    some = build_nufft_rotation_and_shift(
-        sky_shape, out_shape, capacity=int(inside.sum()) + slack
-    )
+    n_in = int(inside.sum())
+    # all + 5%: the builder's capacity when every point is inside; no gather then
+    all_5 = int(np.ceil(1.05 * inside.size))
+    capacity = {"fits": n_in, "one short": n_in - 1, "all + 5%": all_5}[case]
+    some = build_nufft_rotation_and_shift(sky_shape, out_shape, capacity=capacity)
     out = np.asarray(some(field, centers))
     assert np.all(out[~inside] == 0)
     assert np.all(np.abs(out[inside]) > 500) == every_point
     assert np.all(np.abs(out[inside]) < 500) == (not every_point)
+
+
+def _primitives(jaxpr):
+    """Names of the primitives in a jaxpr and every jaxpr nested in it."""
+    names = set()
+    for eqn in jaxpr.eqns:
+        names.add(eqn.primitive.name)
+        for value in eqn.params.values():
+            for sub in value if isinstance(value, (tuple, list)) else (value,):
+                sub = getattr(sub, "jaxpr", sub)  # ClosedJaxpr -> Jaxpr
+                if hasattr(sub, "eqns"):
+                    names |= _primitives(sub)
+    return names
+
+
+def _dft_nufft2(f, y, x, **_):
+    """jax_finufft.nufft2's sum (iflag -1, centred modes) as a plain, vmappable DFT."""
+    import jax.numpy as jnp
+
+    ky = jnp.arange(f.shape[0]) - f.shape[0] // 2
+    kx = jnp.arange(f.shape[1]) - f.shape[1] // 2
+    phase = jnp.exp(-1j * (ky[:, None, None] * y + kx[None, :, None] * x))
+    return jnp.einsum("ab,abp->p", f, phase)
+
+
+# all samples fit; none does; one does (then all must fall back)
+@pytest.mark.parametrize("fit", ["all", "none", "one"])
+def test_capacity_runs_one_branch_for_vmapped_samples(monkeypatch, fit):
+    # NIFTy maps the KL over samples with vmap; a batched cond predicate would
+    # become a select that runs both branches, slower than every point alone
+    import jax
+    import jax_finufft
+
+    monkeypatch.setattr(jax_finufft, "nufft2", _dft_nufft2)
+    sky_shape, out_shape = (24, 20), (13, 17)
+    centers = _stacked_centers(out_shape)
+    samples = np.stack([centers, centers + 0.3])  # shifted: per-sample masks
+    n_in = [int(_inside(c, sky_shape).sum()) for c in samples]
+    assert n_in[0] != n_in[1]
+    capacity = dict(all=max(n_in) + 5, none=min(n_in) - 5, one=min(n_in))[fit]
+    assert capacity < centers[:, 0].size
+    fields = np.random.default_rng(8).normal(size=(2, *sky_shape))
+
+    some = jax.vmap(
+        build_nufft_rotation_and_shift(sky_shape, out_shape, capacity=capacity)
+    )
+    every = jax.vmap(build_nufft_rotation_and_shift(sky_shape, out_shape))
+    assert "cond" in _primitives(jax.make_jaxpr(some)(fields, samples).jaxpr)
+    np.testing.assert_allclose(
+        some(fields, samples), every(fields, samples), rtol=0, atol=1e-12
+    )
+    # gradients per sample, as NIFTy maps value_and_grad over the samples
+    grad = lambda rs: jax.vmap(
+        jax.grad(lambda f, c: (rs(f, c) ** 2).sum(), argnums=(0, 1))
+    )
+    rs_some = build_nufft_rotation_and_shift(sky_shape, out_shape, capacity=capacity)
+    rs_every = build_nufft_rotation_and_shift(sky_shape, out_shape)
+    for g_some, g_every in zip(
+        grad(rs_some)(fields, samples), grad(rs_every)(fields, samples)
+    ):
+        np.testing.assert_allclose(g_some, g_every, rtol=0, atol=1e-10)
 
 
 def test_points_are_not_sorted(monkeypatch):

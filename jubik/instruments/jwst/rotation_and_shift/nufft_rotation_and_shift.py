@@ -82,6 +82,16 @@ def build_nufft_rotation_and_shift(
         crop = (slice(rows[0], rows[-1] + 1), slice(cols[0], cols[-1] + 1))
         keep = jnp.asarray(disk[crop])
 
+    @jax.custom_batching.custom_vmap
+    def fits(n_inside):
+        return n_inside <= capacity
+
+    # vmapped (NIFTy's kl_map over samples): one branch for all samples, since a
+    # batched predicate turns the cond into a select that runs both branches
+    @fits.def_vmap
+    def _fits_batched(axis_size, in_batched, n_inside):
+        return jnp.all(n_inside <= capacity), False
+
     def rotate_shift_subsample(field, subsample_centers_yx):
         actual_shape = tuple(subsample_centers_yx.shape[-2:])
         if actual_shape != out_shape:
@@ -104,7 +114,7 @@ def build_nufft_rotation_and_shift(
         def nufft(c):
             return nufft2(f_field, c[0], c[1], opts=opts).real
 
-        if capacity is None or mode != "constant":
+        if capacity is None or mode != "constant" or capacity >= coords.shape[1]:
             out = nufft(coords)
         else:
             n_inside = jnp.sum(~mask)
@@ -117,7 +127,7 @@ def build_nufft_rotation_and_shift(
                 # add, not set: the unused slots repeat index 0 (with value 0)
                 return jnp.zeros(coords.shape[1], vals.dtype).at[idx].add(vals)
 
-            out = jax.lax.cond(n_inside <= capacity, inside_only, nufft, coords)
+            out = jax.lax.cond(fits(n_inside), inside_only, nufft, coords)
         if mode == "constant":
             out = jnp.where(mask, 0.0, out)
         return jnp.reshape(out, subsample_centers_yx.shape[:-3] + out_shape)
