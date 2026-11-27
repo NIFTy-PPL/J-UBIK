@@ -704,7 +704,8 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
     if not alone:
         return positions, ()
 
-    cutouts, entries = [], []
+    cutouts, entries, suspect = [], [], set()
+    brightest = max(s.fluence for s in stamps)  # about the star fit's peak cut
     for star, k in alone:
         frames = gaia.data[star.id]
         data, mask = frames.data[k], frames.mask[k]
@@ -722,6 +723,16 @@ def _tie_to_gaia(filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn):
             StarStamp(data, frames.std[k], mask, frames.psf[k], fluence, unit)
         )
         entries.append(entry(star, k, frames.star_in_subsampled_pixels[k]))
+        inside = (frames.star_in_subsampled_pixels[k] + 0.5) / subsample - 0.5
+        x, y = np.round(inside).astype(int)
+        if not mask[y, x] or (unit is not None and 0 < brightest < fluence):
+            suspect.add(int(star.id))
+    if suspect:
+        jft.logger.warning(
+            f"{filter}: Gaia stars {sorted(suspect)} have no stamp and are brighter "
+            "than every stamp or masked at their centre (saturated?), yet shape the "
+            "PSF and kappa; gaia_alignment's exclude_source_id drops them"
+        )
     pixels = np.array([p for *_, p, _ in entries])
     size = cutouts[0].data.shape[-1]
     # the stars sit off the middle of edge cutouts: the canvas reaches past them

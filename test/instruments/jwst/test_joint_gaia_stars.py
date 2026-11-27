@@ -115,11 +115,11 @@ def stamp_sites(table):
         return np.round(np.array(xy, float) + [0.2, -0.3])
 
     a, b = centre(0), centre(1) if len(table) > 1 else np.array([50.0, 10.0])
-    return [
-        ("fake_0.fits", *a),
+    return [  # star 1's fake_1 stamp first: each stamp ties in its own file
+        ("fake_1.fits", *a),
         ("fake_0.fits", *b),
         ("fake_1.fits", *b),
-        ("fake_1.fits", *a),
+        ("fake_0.fits", *a),
         ("fake_0.fits", 10.0, 50.0),
         ("other.fits", *a),
     ]
@@ -155,6 +155,12 @@ def write_stamps(path, table, data=None, seed=0):
         path, stamps, SUB, exposure=file, x=x, y=y, ra=sky.ra.deg, dec=sky.dec.deg
     )
     return stamps
+
+
+def warned(caplog, text):
+    return any(
+        r.levelname == "WARNING" and text in r.getMessage() for r in caplog.records
+    )
 
 
 def build(tmp_path, psf, fov="0.5arcsec", **telescope):
@@ -304,13 +310,13 @@ def test_every_star_is_one_exact_model(gaia, tmp_path, caplog):
     assert domain[f"{BAND}_gaia_star_flux"].shape == (2,)
     assert {"star_1_astrometry", "star_2_astrometry"} <= set(tree(tied.domain))
     assert {"star_3_astrometry", f"{BAND}_shift"} <= set(tree(cutouts.domain))
-    assert "stamps of ['other.fits'], no file of the fit, keep free" in caplog.text
+    assert warned(caplog, "stamps of ['other.fits'], no file of the fit, keep free")
 
     wcs, sites = exposure_wcs(), stamp_sites(table)
     corner = [np.array(s[1:]) - H for s in sites]
     positions = [
         true_position(table, i, x, e, wcs, corner[j])
-        for j, (i, e) in enumerate([(0, 0), (1, 0), (1, 1), (0, 1)])
+        for j, (i, e) in enumerate([(0, 1), (1, 0), (1, 1), (0, 0)])
     ]
     pad = SUB * 12  # the model's canvas, so only the positions' linearization differs
     canvas = (SUB * SIZE + 2 * pad, pad)
@@ -434,7 +440,7 @@ def test_a_star_with_parallax_is_flagged(gaia, tmp_path, caplog):
     table["parallax"] = [0.3, 2.0] * u.mas
     write_stamps(tmp_path / "s.npz", table)
     build(tmp_path / "b", joint_psf(tmp_path / "s.npz"))
-    assert "Gaia stars [2] have a parallax of 1 mas or more" in caplog.text
+    assert warned(caplog, "Gaia stars [2] have a parallax of 1 mas or more")
 
 
 def test_stamps_without_their_place_raise(gaia, tmp_path):
@@ -577,4 +583,38 @@ def test_no_gaia_star_in_the_files_is_logged(gaia, tmp_path, caplog):
     products = build(tmp_path / "b", joint_psf(tmp_path / "s.npz"))
     (tied,) = products.target.joint_stars
     assert tree(tied.domain)[f"{BAND}_star_position"].shape == (6, 2)
-    assert "gaia_alignment finds no star in the fit's files" in caplog.text
+    assert warned(caplog, "gaia_alignment finds no star in the fit's files")
+
+
+def box_around(position, half):
+    """A corner mask (``corner_mask_<i>``) of +-`half` arcsec around `position`."""
+    corners = [
+        position.spherical_offsets_by(dx * half * u.arcsec, dy * half * u.arcsec)
+        for dx, dy in ((-1, -1), (1, -1), (1, 1), (-1, 1))
+    ]
+    return {
+        "ra": [f"{p.ra.deg}deg" for p in corners],
+        "dec": [f"{p.dec.deg}deg" for p in corners],
+    }
+
+
+def test_gaia_cutouts_brighter_than_every_stamp_or_masked_are_flagged(
+    gaia, tmp_path, caplog
+):
+    """Star 3, without a stamp, is flagged when brighter than every stamp (a
+    star the star fit's peak cut dropped) or masked at its centre (saturated)."""
+    table, _ = gaia
+    add_star(table, 3, 45.3, 20.6)
+    stamps = write_stamps(tmp_path / "s.npz", table)
+    psf = joint_psf(tmp_path / "s.npz")
+    flag = "Gaia stars [3] have no stamp and are brighter than every stamp"
+    build(tmp_path / "a", psf)
+    assert not warned(caplog, "have no stamp and are brighter")  # 1e4 DN/int < 6e4
+    _, _, extra = load_star_stamps(tmp_path / "s.npz")
+    faint = [replace(s, fluence=1e3) for s in stamps]
+    save_star_stamps(tmp_path / "f.npz", faint, SUB, **extra)
+    build(tmp_path / "b", joint_psf(tmp_path / "f.npz"))
+    assert warned(caplog, flag)
+    caplog.clear()
+    build(tmp_path / "c", psf, corner_mask_1=box_around(catalog(table, 2), 0.03))
+    assert warned(caplog, flag)
