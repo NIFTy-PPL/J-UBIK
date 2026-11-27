@@ -11,6 +11,30 @@ OPD_BY_DATE_KEY = "opd_by_date"
 CORRECTION_KEY = "correction"
 PIXEL_BOX_KEY = "pixel_box"
 BRIGHTER_FATTER_KEY = "brighter_fatter"
+JOINT_STARS_KEY = "joint_stars"
+
+
+@dataclass(frozen=True)
+class JointStars:
+    """One filter's ``psf.joint_stars`` entry, see `JwstPsfKernelConfig`.
+
+    stamps : str
+        A `save_star_stamps` file: the stars and their base kernels.
+    radius, fluctuations, loglogavgslope, width, fluence, orthogonal
+        `fit_psf_correction`'s options, with its defaults.
+    brighter_fatter : tuple[float, float] | None
+        Mean and std of a log-normal prior of kappa per DN per integration,
+        learned; None: kappa is ``psf.brighter_fatter``'s, or none.
+    """
+
+    stamps: str
+    radius: int | None = None
+    fluctuations: float = 0.1
+    loglogavgslope: float = -2.0
+    width: tuple[float, float] | None = None
+    fluence: float | None = None
+    orthogonal: bool = False
+    brighter_fatter: tuple[float, float] | None = None
 
 
 @dataclass
@@ -63,14 +87,36 @@ class JwstPsfKernelConfig:
         integration (EFFINTTM / PHOTMJSR per MJy/sr), so every pixel broadens
         by its own brightness instead of one width for all. A correction of the
         filter must have been learned with the same kappa
-        (`fit_psf_correction(brighter_fatter=...)`). Filters without an entry
-        move no charge. The gaia_alignment stars move none either: they get
+        (`fit_psf_correction(brighter_fatter=...)`). With ``joint_stars`` the
+        stars move charge by it too. Filters without an entry move no charge. The gaia_alignment stars move none either: they get
         the correction's width alone, too narrow for bright stars (their
         shifts stay unbiased). Default: none. Config::
 
             psf:
               brighter_fatter:
                 f277w: 9.02e-7
+    joint_stars : dict[str, JointStars]
+        Filter name (lower case) -> the correction of ``correction``, learned in
+        the lens fit together with the stars of a `save_star_stamps` file
+        instead of read from a file (`joint_correction`): the target's kernels
+        and the stars' share the texture, the width (at ``fluence`` with one)
+        and, with a ``brighter_fatter`` prior, kappa, and the stars'
+        likelihood joins the lens's. The stamps' kernels must be for the
+        target's ``subsample``, loaded as the target's are but without the box
+        (``pixel_box`` applies to both). A filter in ``joint_stars`` has no
+        ``correction`` nor ``psf_broadening``; kappa is given here or in
+        ``brighter_fatter``, not both. Not with ``gaia_alignment``. Default:
+        none. Config::
+
+            psf:
+              pixel_box: true
+              joint_stars:
+                f277w:
+                  stamps: psf_correction/b1938_f277w_stars.npz
+                  radius: 30
+                  width: [0.4, 0.3]
+                  orthogonal: true
+                  brighter_fatter: [9.02e-7, 2.0e-7]  # kappa learned
     """
 
     webbpsf_path: str
@@ -81,6 +127,7 @@ class JwstPsfKernelConfig:
     correction: dict[str, str] = field(default_factory=dict)
     pixel_box: bool = False
     brighter_fatter: dict[str, float] = field(default_factory=dict)
+    joint_stars: dict[str, JointStars] = field(default_factory=dict)
 
     @classmethod
     def from_yaml_dict(cls, raw: dict):
@@ -97,6 +144,7 @@ class JwstPsfKernelConfig:
             - correction | None
             - pixel_box | None
             - brighter_fatter | None
+            - joint_stars | None
         """
         kappa = raw.get(BRIGHTER_FATTER_KEY) or {}
         if not isinstance(kappa, dict):
@@ -104,6 +152,33 @@ class JwstPsfKernelConfig:
         kappa = {k.lower(): float(v) for k, v in kappa.items()}
         if bad := {k: v for k, v in kappa.items() if not 0 <= v < np.inf}:
             raise ValueError(f"psf brighter_fatter must be finite and >= 0: {bad}")
+        correction = {k.lower(): v for k, v in (raw.get(CORRECTION_KEY) or {}).items()}
+        joint = {}
+        for name, entry in (raw.get(JOINT_STARS_KEY) or {}).items():
+            name = name.lower()
+            try:
+                joint[name] = JointStars(**entry)
+            except TypeError as e:
+                raise ValueError(f"psf joint_stars {name}: {e}") from e
+            prior = joint[name].brighter_fatter
+            if prior is not None and not (
+                np.shape(prior) == (2,)
+                and np.all(np.isfinite(prior) & (np.asarray(prior) > 0))
+            ):
+                raise ValueError(
+                    f"psf joint_stars {name}: brighter_fatter must be a log-normal "
+                    f"[mean, std] > 0: {prior}"
+                )
+            if prior is not None and name in kappa:
+                raise ValueError(
+                    f"psf joint_stars {name}: kappa is learned here and fixed in "
+                    "psf brighter_fatter; give one"
+                )
+            if name in correction:
+                raise ValueError(
+                    f"psf joint_stars {name}: the filter's correction is learned, "
+                    "drop its psf correction file"
+                )
 
         return JwstPsfKernelConfig(
             webbpsf_path=raw[WEBBPSF_PATH_KEY],
@@ -111,9 +186,8 @@ class JwstPsfKernelConfig:
             psf_arcsec=raw[PSF_ARCSEC_KEY],
             normalize=raw.get(NORMALIZE_KEY, NORMALIZE_DEFAULT),
             opd_by_date=raw.get(OPD_BY_DATE_KEY, False),
-            correction={
-                k.lower(): v for k, v in (raw.get(CORRECTION_KEY) or {}).items()
-            },
+            correction=correction,
             pixel_box=raw.get(PIXEL_BOX_KEY, False),
             brighter_fatter=kappa,
+            joint_stars=joint,
         )

@@ -83,6 +83,7 @@ class PsfStatic(jft.Model):
                 for k, m in zip(kernel.shape[-2:], size)
             )
             kernel = kernel[(..., *cut)]
+            self._cut = cut
             # `fftconvolve(mode="same")` with the kernel transformed once, cropped to the
             # sky around the centre. On a grid of at least N + (K - 1) / 2 the circular
             # wrap-around only reaches discarded pixels; a 5-smooth grid is fast. The trim
@@ -107,6 +108,22 @@ class PsfStatic(jft.Model):
         field_fft = jnp.fft.rfft2(field, self._fft_shape)
         convolved = jnp.fft.irfft2(field_fft * kernel_fft, self._fft_shape)
         return convolved[(..., *self._crop)]
+
+
+class PsfKernelModel(jft.Model):
+    """Convolution by a kernel model, e.g. `learned_kernel`, on `PsfStatic`'s
+    grid: the kernel, odd and centred, is cut and transformed at every call."""
+
+    def __init__(self, sky_shape_with_dtype: jft.ShapeWithDtype, kernel: jft.Model):
+        self._static = PsfStatic(sky_shape_with_dtype, np.zeros(kernel.target.shape))
+        self.kernel = kernel
+        super().__init__(domain=(sky_shape_with_dtype, kernel.domain))
+
+    def __call__(self, x):
+        field, params = x
+        static = self._static
+        kernel = self.kernel(params)[(..., *static._cut)]
+        return static._convolve(field, jnp.fft.rfft2(kernel, static._fft_shape))
 
 
 class PsfKernelMix(jft.Model):

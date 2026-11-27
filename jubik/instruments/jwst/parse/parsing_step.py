@@ -50,7 +50,7 @@ class ConfigParserJwst:
         )
         data_loader = DataLoadingConfig.from_yaml_dict(cfg[files_key])
         filters = {f.lower() for f in data_loader.paths}
-        for key in ("correction", "brighter_fatter"):
+        for key in ("correction", "brighter_fatter", "joint_stars"):
             if unknown := set(getattr(psf_kernel_configs, key)) - filters:
                 raise ValueError(
                     f"psf {key}: {sorted(unknown)} match no filter of "
@@ -71,6 +71,11 @@ class ConfigParserJwst:
             StarAlignmentConfig.from_yaml_dict(cfg[telescope_key].get("gaia_alignment"))
         )
         subsample_target = Subsample.from_yaml_dict(cfg[telescope_key]["target"])
+        if psf_kernel_configs.joint_stars and star_alignment_config is not None:
+            raise ValueError(
+                "psf joint_stars: the gaia_alignment stars cannot take the learned "
+                "correction; drop one"
+            )
         # the stars' kernels get the correction too, on its grid
         if psf_kernel_configs.correction and star_alignment_config is not None:
             if star_alignment_config.subsample != subsample_target:
@@ -97,6 +102,17 @@ class ConfigParserJwst:
             raise ValueError(
                 f"psf_broadening: {sorted(unknown)} match no filter of "
                 f"{sorted(filters)}"
+            )
+        if psf_broadening and (
+            both := [
+                f
+                for f in psf_kernel_configs.joint_stars
+                if psf_broadening.get_name_setting_or_default(f) is not None
+            ]
+        ):
+            raise ValueError(
+                f"psf_broadening and psf joint_stars both broaden {both}; the "
+                "learned correction has the width"
             )
 
         return cls(

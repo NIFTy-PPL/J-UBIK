@@ -1,5 +1,6 @@
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import reduce
+from itertools import chain
 from typing import Union
 
 import nifty.re as jft
@@ -50,6 +51,7 @@ from .parse.rotation_and_shift.coordinates_correction import CorrectionModel
 from .parse.rotation_and_shift.rotation_and_shift import NufftConfig
 from .plotting.alignment import MultiFilterAlignmentPlottingInformation
 from .plotting.residuals import ResidualPlottingInformation
+from .psf.psf_correction import joint_correction, load_star_stamps
 from .psf.psf_operator import PsfGaussianBroadening, PsfStatic
 from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
 from .variable_covariance.inverse_standard_deviation import (
@@ -59,14 +61,19 @@ from .variable_covariance.inverse_standard_deviation import (
 
 @dataclass
 class TargetLikelihoodProducts:
+    """`likelihood` sums the filters' target likelihoods and the `stars`'
+    likelihoods of ``psf.joint_stars``, which share the filters' learned PSF
+    corrections."""
+
     likelihoods: list[SingleTargetLikelihood]
     plotting: ResidualPlottingInformation
     sky_filter: SkyFilter
     hot_pixel_masking_data: HotPixelMaskingData | None = None
+    stars: list[jft.Likelihood] = field(default_factory=list)
 
     @property
     def likelihood(self) -> jft.Likelihood | jft.Gaussian:
-        likelihoods = (t.likelihood for t in self.likelihoods)
+        likelihoods = chain((t.likelihood for t in self.likelihoods), self.stars)
         likelihood = reduce(lambda x, y: x + y, likelihoods)
         return connect_likelihood_to_model(likelihood, self.sky_filter)
 
@@ -274,6 +281,7 @@ def build_jwst_likelihoods(
 
     target_plotting = ResidualPlottingInformation()
     target_filter_likelihoods = []
+    star_likelihoods = []
     alignment_plotting = (
         MultiFilterAlignmentPlottingInformation()
         if cfg_parser.star_alignment_config is not None
@@ -289,6 +297,10 @@ def build_jwst_likelihoods(
 
     for filter, filepaths in cfg_parser.data_loader.paths.items():
         filter_alignment = FilterAlignment(filter_name=filter)
+        psf_config = cfg_parser.psf_kernel_configs
+        joint = psf_config.joint_stars.get(filter.lower())
+        if joint is not None:  # the learned correction adds the box after itself
+            psf_config = replace(psf_config, pixel_box=False)
 
         preload_results = preload_data(
             filepaths=filepaths,
@@ -331,7 +343,7 @@ def build_jwst_likelihoods(
                         filter, preload_results.target_bounds.bounds
                     ),
                 ),
-                psf_kernel_configs=cfg_parser.psf_kernel_configs,
+                psf_kernel_configs=psf_config,
                 star_alignment=DataLoaderStarAlignment.from_optional(
                     config=cfg_parser.star_alignment_config,
                     tables=preload_results.star_tables,
@@ -383,6 +395,23 @@ def build_jwst_likelihoods(
             grid,
         )
 
+        kappa = _kappa(filter, cfg_parser.psf_kernel_configs)
+        psf_model = _broadened_psf(
+            filter,
+            cfg_parser.psf_broadening,
+            dataload_results.target_data,
+            preload_results.filter_meta.pixel_scale,
+        )
+        if joint is not None:
+            psf_model, stars = _joint_stars(
+                filter,
+                joint,
+                cfg_parser.psf_kernel_configs.pixel_box,
+                kappa,
+                dataload_results.target_data,
+            )
+            star_likelihoods.append(stars)
+
         likelihood_target: SingleTargetLikelihood = build_target_likelihood(
             filter_name=filter,
             response=build_target_response(
@@ -391,12 +420,7 @@ def build_jwst_likelihoods(
                     grid=grid,
                     sky_filter=sky_filter,
                     target_data=dataload_results.target_data,
-                    psf_model=_broadened_psf(
-                        filter,
-                        cfg_parser.psf_broadening,
-                        dataload_results.target_data,
-                        preload_results.filter_meta.pixel_scale,
-                    ),
+                    psf_model=psf_model,
                     filter_meta=preload_results.filter_meta,
                     sky_meta=sky_meta,
                     rotation_and_shift_algorithm=algorithm,
@@ -410,9 +434,7 @@ def build_jwst_likelihoods(
                         )
                     ),
                     calibration_relative=True,
-                    brighter_fatter=_brighter_fatter(
-                        filter, cfg_parser.psf_kernel_configs, filepaths
-                    ),
+                    brighter_fatter=_brighter_fatter(kappa, filepaths),
                 )
             ),
             target_data=dataload_results.target_data,
@@ -457,6 +479,7 @@ def build_jwst_likelihoods(
             plotting=target_plotting,
             sky_filter=sky_filter,
             hot_pixel_masking_data=hot_pixel_masking_data,
+            stars=star_likelihoods,
         ),
         alignment=MultiFilterAlignmentProducts.from_optional(
             likelihood=alignment_likelihoods,
@@ -465,11 +488,21 @@ def build_jwst_likelihoods(
     )
 
 
-def _brighter_fatter(filter: str, psf_config, filepaths) -> np.ndarray | None:
-    """``kappa`` of `filter`'s ``psf.brighter_fatter`` per MJy/sr of each exposure,
-    (n_exposures, 1, 1): kappa per DN per integration times EFFINTTM / PHOTMJSR,
-    the DN per integration of one MJy/sr. None without an entry."""
-    kappa = psf_config.brighter_fatter.get(filter.lower())
+def _kappa(filter: str, psf_config) -> float | jft.Model | None:
+    """`filter`'s kappa per DN per integration: ``psf.brighter_fatter``'s, a model
+    of ``psf.joint_stars``' log-normal prior (``{filter}_psf_brighter_fatter``),
+    or None."""
+    joint = psf_config.joint_stars.get(filter.lower())
+    if joint is not None and joint.brighter_fatter is not None:
+        name = f"{filter}_psf_brighter_fatter"
+        return jft.LogNormalPrior(*joint.brighter_fatter, name=name, shape=())
+    return psf_config.brighter_fatter.get(filter.lower())
+
+
+def _brighter_fatter(kappa, filepaths) -> np.ndarray | jft.Model | None:
+    """`kappa` (see `_kappa`) per MJy/sr of each exposure, (n_exposures, 1, 1):
+    kappa per DN per integration times EFFINTTM / PHOTMJSR, the DN per
+    integration of one MJy/sr. None for None."""
     if kappa is None:
         return None
     dn_per_unit = []
@@ -484,7 +517,41 @@ def _brighter_fatter(filter: str, psf_config, filepaths) -> np.ndarray | None:
                 f"PHOTMJSR {photmjsr}"
             )
         dn_per_unit.append(time / photmjsr)
-    return kappa * np.array(dn_per_unit)[:, None, None]
+    dn_per_unit = np.array(dn_per_unit)[:, None, None]
+    if isinstance(kappa, jft.Model):
+        return jft.Model(lambda x: kappa(x) * dn_per_unit, domain=kappa.domain)
+    return kappa * dn_per_unit
+
+
+def _joint_stars(filter: str, joint, pixel_box: bool, kappa, target_data):
+    """The PSF of `filter`'s target response and its stars' likelihood, sharing
+    the correction learned on both (`joint_correction`, latents named
+    ``{filter}_...``)."""
+    stamps, subsample = load_star_stamps(joint.stamps)
+    if subsample != target_data.subsample:
+        raise ValueError(
+            f"psf joint_stars {filter}: the stamps' kernels in {joint.stamps} are "
+            f"at subsample {subsample}, the target's at {target_data.subsample}"
+        )
+    kernels = np.asarray(target_data.psf)
+    sky = jft.ShapeWithDtype(
+        (kernels.shape[0],) + target_data.subsample_centers[0].shape, float
+    )
+    return joint_correction(
+        stamps,
+        subsample,
+        kernels,
+        sky,
+        radius=joint.radius,
+        fluctuations=joint.fluctuations,
+        loglogavgslope=joint.loglogavgslope,
+        width=joint.width,
+        fluence=joint.fluence,
+        orthogonal=joint.orthogonal,
+        pixel_box=pixel_box,
+        brighter_fatter=kappa,
+        prefix=f"{filter}_",
+    )
 
 
 def _broadened_psf(

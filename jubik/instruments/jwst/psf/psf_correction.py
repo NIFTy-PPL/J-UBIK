@@ -20,7 +20,10 @@ STPSF keeps the field dependence.
 `fit_psf_correction` learns it from star stamps; the lens fit applies the stored
 correction to its kernels (``psf.correction``, see `JwstPsfKernelConfig`), so
 the arc cannot pull it: learning the kernel on the arc is degenerate with the
-source. The lens fit keeps `PsfStatic`'s cached convolution.
+source. The lens fit keeps `PsfStatic`'s cached convolution. Or the lens fit
+learns it together with the stars (`joint_correction`, ``psf.joint_stars``):
+the stars' likelihood joins the lens's and pins the kernel, with the full
+star likelihood instead of an approximation of its posterior.
 
 Workflow, per filter:
 
@@ -64,7 +67,7 @@ import nifty.re as jft
 import numpy as np
 
 from ..integration.brighter_fatter import charge_migration
-from .psf_operator import _center_even_axes
+from .psf_operator import PsfKernelModel, _center_even_axes
 
 
 def corrected_kernel(kernel, log_texture):
@@ -269,6 +272,31 @@ class StarStamp:
     dn_per_unit: float | None = None
 
 
+_STAMP_ARRAYS = ("data", "std", "mask", "kernel")
+
+
+def save_star_stamps(
+    path: str | Path, stamps: list[StarStamp], subsample: int, **extra
+):
+    """`stamps`, of one kernel shape, and the `subsample` of their kernels as one
+    npz file for ``psf.joint_stars``; arrays in `extra`, e.g. star and exposure
+    ids, are stored alongside and not read back."""
+    fields = {k: np.stack([getattr(s, k) for s in stamps]) for k in _STAMP_ARRAYS}
+    fields["fluence"] = np.array([s.fluence for s in stamps], float)
+    fields["dn_per_unit"] = np.array(
+        [s.dn_per_unit for s in stamps], float
+    )  # nan: None
+    with open(path, "wb") as f:  # np.savez would append .npz to another suffix
+        np.savez(f, subsample=subsample, **extra, **fields)
+
+
+def load_star_stamps(path: str | Path) -> tuple[list[StarStamp], int]:
+    """The stamps and the kernels' subsample of `save_star_stamps`."""
+    with np.load(path) as f:
+        columns = (f[k] for k in (*_STAMP_ARRAYS, "fluence", "dn_per_unit"))
+        return [StarStamp(*c) for c in zip(*columns)], int(f["subsample"])
+
+
 class _StarModel:
     """``flux bin(shift(G_w * N[K exp(t)])) + background + gradient`` per stamp.
 
@@ -278,8 +306,10 @@ class _StarModel:
     With `pixel_box` the kernel is convolved with one sub-pixel's box first
     (`with_pixel_box`, on the canvas), so the binning integrates the pixel
     exactly and the correction does not learn the box either. With
-    `brighter_fatter` (kappa per DN per integration) each model stamp, in DN per
-    integration by its ``dn_per_unit``, goes through `charge_migration`.
+    `brighter_fatter` (kappa per DN per integration, or a model of it whose
+    latents join the domain) each model stamp, in DN per integration by its
+    ``dn_per_unit``, goes through `charge_migration`. `prefix` goes in front of
+    the stars' latent names, e.g. one filter's in a lens fit.
     """
 
     def __init__(
@@ -288,7 +318,8 @@ class _StarModel:
         subsample: int,
         pad: int = 12,
         pixel_box: bool = False,
-        brighter_fatter: float | None = None,
+        brighter_fatter: float | jft.Model | None = None,
+        prefix: str = "",
     ):
         self.data = np.stack([s.data for s in stamps]).astype(float)
         self.std = np.stack([s.std for s in stamps]).astype(float)
@@ -311,14 +342,14 @@ class _StarModel:
         )
         self.subsample, self.size, self.pad = subsample, size, pad
         self.fluence = np.array([s.fluence for s in stamps], float)
-        self._kappa = None
+        self.brighter_fatter, self.prefix = brighter_fatter, prefix
         if brighter_fatter is not None:  # per unit of each stamp's data
             dn_per_unit = np.array([s.dn_per_unit for s in stamps], float)
             if not np.all(dn_per_unit > 0):  # None: nan
                 raise ValueError(
                     "brighter_fatter needs every StarStamp.dn_per_unit > 0"
                 )
-            self._kappa = brighter_fatter * dn_per_unit[:, None, None]
+            self._dn_per_unit = dn_per_unit[:, None, None]
 
         n = subsample * (size + 2 * pad)
         k = self.kernels.shape[-1]
@@ -348,13 +379,16 @@ class _StarModel:
 
     @property
     def domain(self):
-        n = len(self.data)
-        return {
-            "star_flux": jft.ShapeWithDtype((n,)),
-            "star_position": jft.ShapeWithDtype((n, 2)),
-            "star_background": jft.ShapeWithDtype((n,)),
-            "star_gradient": jft.ShapeWithDtype((n, 2)),
+        n, p = len(self.data), self.prefix
+        domain = {
+            f"{p}star_flux": jft.ShapeWithDtype((n,)),
+            f"{p}star_position": jft.ShapeWithDtype((n, 2)),
+            f"{p}star_background": jft.ShapeWithDtype((n,)),
+            f"{p}star_gradient": jft.ShapeWithDtype((n, 2)),
         }
+        if isinstance(self.brighter_fatter, jft.Model):
+            domain |= self.brighter_fatter.domain
+        return domain
 
     def _canvas(self, kernels):
         rows = kernels[..., self._crop, self._crop]
@@ -368,10 +402,11 @@ class _StarModel:
             kernels = corrected_kernel(kernels, log_texture)
         transfer = 1.0 if width is None else gaussian_transfer(self._shape, width)
         canvas_fft = jnp.fft.fft2(self._canvas(kernels)) * transfer * self._box
-        flux = self.flux0 * jnp.exp(x["star_flux"])
-        dyx = 0.5 * x["star_position"]  # (dy, dx) in detector pixels
-        background = self.background0 + 10 * self.noise * x["star_background"]
-        gradient = self.noise[:, None] * x["star_gradient"]  # per pixel along (y, x)
+        p = self.prefix
+        flux = self.flux0 * jnp.exp(x[f"{p}star_flux"])
+        dyx = 0.5 * x[f"{p}star_position"]  # (dy, dx) in detector pixels
+        background = self.background0 + 10 * self.noise * x[f"{p}star_background"]
+        gradient = self.noise[:, None] * x[f"{p}star_gradient"]  # per pixel, (y, x)
 
         s, m, w = self.subsample, self.subsample * self.pad, self.subsample * self.size
 
@@ -383,7 +418,158 @@ class _StarModel:
             return f * binned + b + g[0] * self._yx[0] + g[1] * self._yx[1]
 
         out = jax.vmap(stamp)(canvas_fft, flux, dyx, background, gradient)
-        return out if self._kappa is None else charge_migration(out, self._kappa)
+        kappa = self.brighter_fatter
+        if isinstance(kappa, jft.Model):
+            kappa = kappa(x)
+        return (
+            out if kappa is None else charge_migration(out, kappa * self._dn_per_unit)
+        )
+
+
+def _correction_model(
+    stars: _StarModel,
+    radius: int | None,
+    fluctuations: float,
+    loglogavgslope: float,
+    width: tuple[float, float] | None,
+    fluence: float | None,
+    orthogonal: bool,
+    prefix: str = "",
+):
+    """`fit_psf_correction`'s texture, the width at `fluence` (one for all
+    without it), each stamp's width (N, 1, 1) and ``w0``, as models of latents
+    named with `prefix`; None where nothing is learned."""
+    texture = weight = None
+    if orthogonal:
+        if radius is None:
+            raise ValueError("orthogonal needs a texture radius")
+        c = (stars.kernels.shape[-1] - 1) // 2  # the kernels' middle pixel
+        if radius > c:
+            raise ValueError(
+                f"the texture, {(2 * radius + 1,) * 2}, is larger than the kernel, "
+                f"{stars.kernels.shape[-2:]}"
+            )
+        patch = slice(c - radius, c + radius + 1)
+        weight = stars.kernels.mean(0)[patch, patch]
+    if radius is not None:
+        texture = log_texture_model(
+            radius,
+            fluctuations,
+            loglogavgslope,
+            prefix=f"{prefix}psf_texture",
+            weight=weight,
+        )
+    if fluence is not None and width is None:
+        raise ValueError("fluence needs a width prior")
+    sigma = widths = w0 = None
+    if width is not None:
+        sigma = widths = jft.LogNormalPrior(*width, name=f"{prefix}psf_width", shape=())
+    if width is not None and fluence is not None:
+        if fluence <= 0:
+            raise ValueError("fluence must be > 0; None shares one width")
+        if np.ptp(stars.fluence) == 0:
+            raise ValueError("fluence needs stamps of different StarStamp.fluence")
+        w0, ratio = sigma, stars.fluence[:, None, None] / fluence
+        sigma = jft.LogNormalPrior(
+            *width, name=f"{prefix}psf_width_at_fluence", shape=()
+        )
+
+        def per_stamp(x):
+            variance = w0(x) ** 2 + (sigma(x) ** 2 - w0(x) ** 2) * ratio
+            return jnp.sqrt(jnp.maximum(variance, 1e-12))  # w1 < w0 may cross 0
+
+        widths = jft.Model(per_stamp, domain=w0.domain | sigma.domain)
+    return texture, sigma, widths, w0
+
+
+def _star_likelihood(stars: _StarModel, texture, widths):
+    """The Gaussian likelihood of the stamps' unmasked pixels and the model of
+    every stamp, (N, S, S), with the `texture` and `widths` models (or None)."""
+    domain = dict(stars.domain)
+    for part in (texture, widths):
+        if part is not None:
+            domain |= part.domain
+
+    def model(x):
+        return stars(
+            x,
+            None if texture is None else texture(x),
+            None if widths is None else widths(x),
+        )
+
+    models = jft.Model(model, domain=domain, white_init=True)
+    mask, std = stars.mask, stars.std[stars.mask]
+    likelihood = jft.Gaussian(
+        stars.data[mask],
+        noise_cov_inv=lambda r: r / std**2,
+        noise_std_inv=lambda r: r / std,
+    ).amend(jft.Model(lambda x: models(x)[mask], domain=domain, white_init=True))
+    return likelihood, models
+
+
+def learned_kernel(kernels, texture, width, pixel_box: bool = False) -> jft.Model:
+    """Each of `kernels` corrected, ``G_w * N[K exp(t)]``, then convolved with
+    the box with `pixel_box`, as `PsfCorrection.apply` and `with_pixel_box` give
+    it, as a model of the latents of `texture` and `width` (models of ``t`` and
+    ``w``, None for an identity part)."""
+    kernels = _center_even_axes(np.asarray(kernels, float))
+    shape = kernels.shape[-2:]
+    box = box_transfer(shape) if pixel_box else 1.0
+    domain = {}
+    for part in (texture, width):
+        if part is not None:
+            domain |= part.domain
+
+    def kernel(x):
+        k = kernels if texture is None else corrected_kernel(kernels, texture(x))
+        transfer = box if width is None else box * gaussian_transfer(shape, width(x))
+        return jnp.fft.ifft2(jnp.fft.fft2(k) * transfer).real
+
+    return jft.Model(kernel, domain=domain)
+
+
+def joint_correction(
+    stamps: list[StarStamp],
+    subsample: int,
+    kernels: np.ndarray,
+    sky: jft.ShapeWithDtype,
+    *,
+    radius: int | None = None,
+    fluctuations: float = 0.1,
+    loglogavgslope: float = -2.0,
+    width: tuple[float, float] | None = None,
+    fluence: float | None = None,
+    orthogonal: bool = False,
+    pixel_box: bool = False,
+    brighter_fatter: float | jft.Model | None = None,
+    prefix: str = "",
+) -> tuple[PsfKernelModel, jft.Likelihood]:
+    """`fit_psf_correction`'s correction, learned in a lens fit together with
+    its stars instead of frozen into a file.
+
+    Returns the convolution of the `sky` (n, H, W) by each of the base
+    `kernels` (n, K, K) with the correction (`learned_kernel`; the width at
+    `fluence` with one), and the stars' Gaussian likelihood, which
+    `fit_psf_correction` maximizes. Both are functions of the same texture,
+    width and (if a model) kappa latents, named with `prefix`, so a sum of the
+    lens likelihood and the stars' learns one correction from both. The options
+    are `fit_psf_correction`'s; `brighter_fatter` may also be a model of kappa
+    per DN per integration (learned): the stars' charge moves by it, and the
+    lens's must move by the same model.
+    """
+    stars = _StarModel(
+        stamps,
+        subsample,
+        pixel_box=pixel_box,
+        brighter_fatter=brighter_fatter,
+        prefix=prefix,
+    )
+    texture, sigma, widths, _ = _correction_model(
+        stars, radius, fluctuations, loglogavgslope, width, fluence, orthogonal, prefix
+    )
+    likelihood, _ = _star_likelihood(stars, texture, widths)
+    psf = PsfKernelModel(sky, learned_kernel(kernels, texture, sigma, pixel_box))
+    return psf, likelihood
 
 
 def fit_psf_correction(
@@ -473,58 +659,11 @@ def fit_psf_correction(
     stars = _StarModel(
         stamps, subsample, pixel_box=pixel_box, brighter_fatter=brighter_fatter
     )
-    texture = weight = None
-    if orthogonal:
-        if radius is None:
-            raise ValueError("orthogonal needs a texture radius")
-        c = (stars.kernels.shape[-1] - 1) // 2  # the kernels' middle pixel
-        if radius > c:
-            raise ValueError(
-                f"the texture, {(2 * radius + 1,) * 2}, is larger than the kernel, "
-                f"{stars.kernels.shape[-2:]}"
-            )
-        patch = slice(c - radius, c + radius + 1)
-        weight = stars.kernels.mean(0)[patch, patch]
-    if radius is not None:
-        texture = log_texture_model(radius, fluctuations, loglogavgslope, weight=weight)
-    if fluence is not None and width is None:
-        raise ValueError("fluence needs a width prior")
-    sigma = widths = w0 = None
-    if width is not None:
-        sigma = widths = jft.LogNormalPrior(*width, name="psf_width", shape=())
-    if width is not None and fluence is not None:
-        if fluence <= 0:
-            raise ValueError("fluence must be > 0; None shares one width")
-        if np.ptp(stars.fluence) == 0:
-            raise ValueError("fluence needs stamps of different StarStamp.fluence")
-        w0, ratio = sigma, stars.fluence[:, None, None] / fluence
-        sigma = jft.LogNormalPrior(*width, name="psf_width_at_fluence", shape=())
-
-        def per_stamp(x):
-            variance = w0(x) ** 2 + (sigma(x) ** 2 - w0(x) ** 2) * ratio
-            return jnp.sqrt(jnp.maximum(variance, 1e-12))  # w1 < w0 may cross 0
-
-        widths = jft.Model(per_stamp, domain=w0.domain | sigma.domain)
-
-    domain = dict(stars.domain)
-    for part in (texture, widths):
-        if part is not None:
-            domain |= part.domain
-
-    def model(x):
-        return stars(
-            x,
-            None if texture is None else texture(x),
-            None if widths is None else widths(x),
-        )
-
-    models = jft.Model(model, domain=domain, white_init=True)
-    mask, std = stars.mask, stars.std[stars.mask]
-    likelihood = jft.Gaussian(
-        stars.data[mask],
-        noise_cov_inv=lambda r: r / std**2,
-        noise_std_inv=lambda r: r / std,
-    ).amend(jft.Model(lambda x: models(x)[mask], domain=domain, white_init=True))
+    texture, sigma, widths, w0 = _correction_model(
+        stars, radius, fluctuations, loglogavgslope, width, fluence, orthogonal
+    )
+    likelihood, models = _star_likelihood(stars, texture, widths)
+    domain = models.domain
 
     position = jft.Vector(jax.tree.map(lambda s: jnp.zeros(s.shape, s.dtype), domain))
     quiet = dict(name=None, cg_kwargs=dict(name=None))
