@@ -57,7 +57,7 @@ def load_gaia_stars_in_fov(
     saving_string = os.path.join(library_path, f"{saving_string}.ecsv")
 
     if library_path != "" and os.path.isfile(saving_string):
-        return _with_upper_source_id(Table.read(saving_string))
+        return _with_epoch(_with_upper_source_id(Table.read(saving_string)), release)
 
     # ----- (B)  query the archive  -----------------------------------------
     # shortcut: since Gaia archive release 3.15 (2026-10-14) every POLYGON
@@ -69,7 +69,15 @@ def load_gaia_stars_in_fov(
         os.makedirs(library_path, exist_ok=True)
         table.write(saving_string, format="ascii.ecsv", overwrite=True)
 
-    return _with_upper_source_id(table)
+    return _with_epoch(_with_upper_source_id(table), release)
+
+
+def _with_epoch(table: Table, release: str) -> Table:
+    """A DR3 table without ``ref_epoch`` (a cache from before it was queried) gets
+    DR3's 2016.0, so it joins the tables that have it."""
+    if release == "dr3" and "ref_epoch" not in table.colnames:
+        table["ref_epoch"] = [2016.0] * len(table)
+    return table
 
 
 def _with_upper_source_id(table: Table) -> Table:

@@ -31,6 +31,8 @@ class StarExclusion:
     ``astrometric_excess_noise_sig`` or ``classprob_dsc_combmod_galaxy``
     exceeds ``ruwe``, ``excess_noise_sig`` or ``galaxy`` (a binary, a poor
     astrometric fit, a galaxy); a column the Gaia table lacks skips its rule.
+    With ``tied_position_std``, a star only the RUWE or excess-noise rule
+    drops keeps its stamps, tied to the shifts without Gaia's prior.
     """
 
     max_peak: float | None = 30000.0

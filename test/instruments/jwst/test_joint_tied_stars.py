@@ -244,6 +244,8 @@ def test_a_gaia_star_keeps_gaias_prior_and_the_others_are_tied(gaia, tmp_path, c
     assert {"star_1_astrometry", "star_2_astrometry"} <= set(domain)
     assert domain[f"{BAND}_tied_star_position"].shape == (1, 2)
     assert domain[f"{BAND}_star_position"].shape == (1, 2)
+    outside = [r for r in caplog.records if "no file of the fit" in r.getMessage()]
+    assert len(outside) == 1  # the Gaia tie's warning, not the shifts' tie's too
 
     x = latents(products)
     wcs = exposure_wcs()
@@ -284,6 +286,8 @@ def test_a_gaia_star_only_the_astrometry_rules_drop_is_tied(gaia, tmp_path, capl
     assert (
         "the stamps of Gaia stars [2], which only the astrometry rules" in caplog.text
     )
+    assert warned(caplog, "Gaia stars excluded: 1: galaxy probability 0.9")
+    assert not warned(caplog, "2: RUWE")  # its stamps stay
 
 
 def test_the_tie_needs_each_stamps_star_and_a_positive_std(field, tmp_path):

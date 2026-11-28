@@ -116,3 +116,24 @@ def test_dr3_selects_its_columns_by_name_with_the_epoch(fake_gaia, tmp_path):
 def test_an_unknown_release_raises(fake_gaia, tmp_path):
     with pytest.raises(ValueError, match="unknown Gaia release 'dr9'"):
         load_gaia_stars_in_fov(CORNERS, str(tmp_path), release="dr9")
+
+
+def test_an_old_dr3_cache_gets_dr3s_epoch_and_joins_a_new_table(fake_gaia, tmp_path):
+    """A DR3 cache written before ``ref_epoch`` was queried reads with DR3's
+    2016.0, so the star tables join it with a fresh query's table."""
+    from astropy.table import Table
+
+    from jubik.instruments.jwst.alignment.star_alignment import StarTables
+
+    calls, _ = fake_gaia
+    fresh = load_gaia_stars_in_fov(CORNERS, str(tmp_path))
+    (name,) = _cache_files(tmp_path)
+    old = Table.read(tmp_path / name)
+    if "ref_epoch" in old.colnames:
+        old.remove_column("ref_epoch")
+    old.write(tmp_path / name, format="ascii.ecsv", overwrite=True)
+    cached = load_gaia_stars_in_fov(CORNERS, str(tmp_path))
+    assert len(calls) == 1 and list(cached["ref_epoch"]) == [2016.0] * len(cached)
+    fresh["ref_epoch"] = [2016.0] * len(fresh)
+    stars = StarTables([fresh, cached], ["2023-01-01", "2023-06-01"]).get_stars()
+    assert len(stars) == len(fresh)

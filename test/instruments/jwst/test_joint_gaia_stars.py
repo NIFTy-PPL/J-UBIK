@@ -316,7 +316,7 @@ def test_every_star_is_one_exact_model(gaia, tmp_path, caplog):
     assert {"star_3_astrometry", f"{BAND}_shift"} <= set(tree(cutouts.domain))
     assert warned(caplog, "stamps of ['other.fits'], no file of the fit, keep free")
     assert (
-        "3 Gaia stars remain [1, 2, 3]: 4 star stamps at Gaia stars, 2 free, 2 Gaia"
+        "3 Gaia stars remain [1, 2, 3]: 4 star stamps at Gaia stars, 2 not at a Gaia star, 2 Gaia"
         in caplog.text
     )
     assert "2 Gaia cutouts without a stamp (Gaia stars [3])" in caplog.text

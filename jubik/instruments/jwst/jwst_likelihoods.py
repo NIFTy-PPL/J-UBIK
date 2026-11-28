@@ -420,13 +420,12 @@ def build_jwst_likelihoods(
         )
         if joint is not None:
             gaia = None
+            shifts = _Shifts(filepaths, shift_and_rotation_correction, grid.spatial)
             if cfg_parser.star_alignment_config is not None:
                 gaia = _GaiaStars(
                     tables=preload_results.star_tables,
                     data=dataload_results.stars_data,
-                    filepaths=filepaths,
-                    correction=shift_and_rotation_correction,
-                    grid_wcs=grid.spatial,
+                    shifts=shifts,
                     fit_position=cfg_parser.star_alignment_config.fit_star_positions,
                     tolerance=reach
                     + preload_results.filter_meta.pixel_scale.to_value(u.arcsec),
@@ -438,7 +437,7 @@ def build_jwst_likelihoods(
                 kappa,
                 dataload_results.target_data,
                 gaia,
-                _Shifts(filepaths, shift_and_rotation_correction, grid.spatial),
+                shifts,
             )
             star_likelihoods += stars
 
@@ -566,21 +565,6 @@ def _dn_per_unit(filepaths) -> np.ndarray:
 
 
 @dataclass
-class _GaiaStars:
-    """What `_joint_stars` needs of a filter's ``gaia_alignment``: the Gaia
-    tables and cutouts, the filter's files and shift, and how far (arcsec) a
-    stamp's centre may lie from a Gaia star's catalog position to be it."""
-
-    tables: object  # StarTables
-    data: object  # StarsData
-    filepaths: list
-    correction: ShiftAndRotationCorrection
-    grid_wcs: object
-    fit_position: bool
-    tolerance: float
-
-
-@dataclass
 class _Shifts:
     """What tying stamps to a filter's exposure shifts needs: its files, its shift
     (the lens's) and the sky grid's wcs."""
@@ -588,6 +572,19 @@ class _Shifts:
     filepaths: list
     correction: ShiftAndRotationCorrection
     grid_wcs: object
+
+
+@dataclass
+class _GaiaStars:
+    """What `_joint_stars` needs of a filter's ``gaia_alignment``: the Gaia
+    tables and cutouts, the filter's files and shift, and how far (arcsec) a
+    stamp's centre may lie from a Gaia star's catalog position to be it."""
+
+    tables: object  # StarTables
+    data: object  # StarsData
+    shifts: _Shifts
+    fit_position: bool
+    tolerance: float
 
 
 def _joint_stars(
@@ -621,13 +618,20 @@ def _joint_stars(
     else:
         dn = None
         if kappa is not None or joint.fluence is not None or rules is not None:
-            dn = _dn_per_unit(gaia.filepaths)
+            dn = _dn_per_unit(gaia.shifts.filepaths)
         stamps, extra, positions, more = _tie_to_gaia(
             filter, joint, stamps, extra, subsample, gaia, dn, bright
         )
     if joint.tied_position_std is not None:
         positions = _tie_to_shifts(
-            filter, joint.tied_position_std, stamps, extra, subsample, shifts, positions
+            filter,
+            joint.tied_position_std,
+            stamps,
+            extra,
+            subsample,
+            shifts,
+            positions,
+            warn=gaia is None,  # the Gaia tie warns of files outside the fit itself
         )
     return joint_correction(
         stamps,
@@ -722,7 +726,7 @@ def _tie_to_gaia(
             f"psf joint_stars {filter}: gaia_alignment needs the stamps' "
             f"{sorted(missing)} in {joint.stamps} (`save_star_stamps`)"
         )
-    index = {Path(f.path).name: f.index for f in gaia.filepaths}
+    index = {Path(f.path).name: f.index for f in gaia.shifts.filepaths}
     exposure = np.array([index.get(str(n), -1) for n in extra["exposure"]])
     if outside := sorted({str(n) for n in extra["exposure"][exposure < 0]}):
         jft.logger.warning(
@@ -752,15 +756,9 @@ def _tie_to_gaia(
     rules = joint.exclude
     excluded = {} if rules is None else _gaia_exclusion(filter, rules, table)
     loose = set()  # tied to the shifts, a star only the astrometry rules drop stays
-    if joint.tied_position_std is not None:
-        astrometric = {
-            n for r, _, n in _GAIA_RULES if r in ("ruwe", "excess_noise_sig")
-        }
-        loose = {
-            s
-            for s, why in excluded.items()
-            if all(w.rsplit(" ", 1)[0] in astrometric for w in why)
-        }
+    if joint.tied_position_std is not None and rules is not None:
+        others = replace(rules, ruwe=None, excess_noise_sig=None)
+        loose = excluded.keys() - _gaia_exclusion(filter, others, table).keys()
         if stamped := loose & {int(star.id) for star, _ in tied.values()}:
             jft.logger.info(
                 f"{filter}: the stamps of Gaia stars {sorted(stamped)}, which only "
@@ -819,7 +817,11 @@ def _tie_to_gaia(
 
     def fit_positions(entries):
         return gaia_positions(
-            entries, gaia.correction, gaia.grid_wcs, times, gaia.fit_position
+            entries,
+            gaia.shifts.correction,
+            gaia.shifts.grid_wcs,
+            times,
+            gaia.fit_position,
         )
 
     positions = None
@@ -861,9 +863,7 @@ def _tie_to_gaia(
         dropped.setdefault(int(star.id), Counter()).update(why)
         if why:
             continue
-        cutouts.append(
-            StarStamp(data, cut.std[k], mask, cut.psf[k], fluence, unit)
-        )
+        cutouts.append(StarStamp(data, cut.std[k], mask, cut.psf[k], fluence, unit))
         entries.append(entry(star, k, cut.star_in_subsampled_pixels[k]))
         if not mask[y, x] or 0 < brightest < peak:
             suspect.add(int(star.id))
@@ -872,7 +872,10 @@ def _tie_to_gaia(
         excluded.setdefault(star, []).extend(
             f"{r} in {c} of {n} frames" for r, c in counts.items()
         )
-    if logged := {s: r for s, r in excluded.items() if s in gaia.data and r}:
+    logged = {
+        s: r for s, r in excluded.items() if s in gaia.data and r and s not in loose
+    }
+    if logged:
         jft.logger.warning(
             f"{filter}: Gaia stars excluded: "
             + "; ".join(f"{s}: {', '.join(r)}" for s, r in sorted(logged.items()))
@@ -881,7 +884,8 @@ def _tie_to_gaia(
     remain |= {int(star.id) for star, *_ in entries}
     jft.logger.info(
         f"{filter}: {len(remain)} Gaia stars remain {sorted(remain)}: {len(tied)} star "
-        f"stamps at Gaia stars, {len(stamps) - len(tied)} free, {len(cutouts)} Gaia "
+        f"stamps at Gaia stars, {len(stamps) - len(tied)} not at a Gaia star, "
+        f"{len(cutouts)} Gaia "
         f"cutouts without a stamp (Gaia stars "
         f"{sorted({int(star.id) for star, *_ in entries})})"
     )
@@ -912,7 +916,9 @@ def _tie_to_gaia(
     return stamps, extra, positions, (group,)
 
 
-def _tie_to_shifts(filter, std, stamps, extra, subsample, shifts: _Shifts, positions):
+def _tie_to_shifts(
+    filter, std, stamps, extra, subsample, shifts: _Shifts, positions, warn=True
+):
     """`joint_correction`'s ``positions`` with the stamps that `positions` (Gaia's,
     or None) leaves free tied to the exposure shifts.
 
@@ -921,7 +927,8 @@ def _tie_to_shifts(filter, std, stamps, extra, subsample, shifts: _Shifts, posit
     ``{filter}_tied_star_position`` (stars, 2), a normal prior of `std` arcsec
     along (RA cos(dec), Dec). Each stamp sits there in its file's wcs moved by
     its exposure's shift, the lens's, as a Gaia star does (``x`` and ``y`` place
-    it in the stamp). Stamps of files outside the fit stay free."""
+    it in the stamp). Stamps of files outside the fit stay free (logged with
+    `warn`)."""
     if missing := {"star", "exposure", "x", "y", "ra", "dec"} - set(extra):
         raise ValueError(
             f"psf joint_stars {filter}: tied_position_std needs the stamps' "
@@ -931,7 +938,8 @@ def _tie_to_shifts(filter, std, stamps, extra, subsample, shifts: _Shifts, posit
     names = [str(n) for n in extra["exposure"]]
     placed = set() if positions is None else set(np.asarray(positions[0]).tolist())
     free = [j for j in range(len(stamps)) if j not in placed]
-    if outside := sorted({names[j] for j in free if names[j] not in files}):
+    outside = sorted({names[j] for j in free if names[j] not in files})
+    if warn and outside:
         jft.logger.warning(
             f"{filter}: stamps of {outside}, no file of the fit, keep free positions"
         )
