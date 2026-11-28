@@ -29,7 +29,7 @@ from test_jwst_likelihoods import (
     patched_seams,  # noqa: F401
 )
 
-RNG = np.random.default_rng(1938)
+RNG = np.random.default_rng(29)
 SUB, SIZE = 3, 11
 NO_TEXTURE = np.zeros((1, 1))
 
