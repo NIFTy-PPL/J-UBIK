@@ -284,7 +284,9 @@ def save_star_stamps(
     npz file for ``psf.joint_stars``; arrays in `extra`, one entry per stamp, are
     stored alongside. A lens fit with ``gaia_alignment`` needs ``exposure`` (the
     file name), ``x`` and ``y`` (the stamp's centre pixel in that file's data
-    array) and ``ra`` and ``dec`` (deg) to tie stamps to Gaia stars."""
+    array) and ``ra`` and ``dec`` (deg) to tie stamps to Gaia stars, and also
+    ``star`` (one id per star) to tie a star's stamps to the exposure shifts
+    (``tied_position_std``)."""
     fields = {k: np.stack([getattr(s, k) for s in stamps]) for k in _STAMP_ARRAYS}
     fields["fluence"] = np.array([s.fluence for s in stamps], float)
     fields["dn_per_unit"] = np.array(

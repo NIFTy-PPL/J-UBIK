@@ -54,6 +54,12 @@ class JointStars:
     exclude : StarExclusion | None
         The stars to drop (``exclude: true`` for the defaults, or a map of
         the rules to change); None (the default) drops none.
+    tied_position_std : float | None
+        Ties the stamps to the exposure shifts: the stamps of one star (the
+        stamps file's ``star``) share one sky position, the mean of their
+        centres moved by a latent with a normal prior of this std (arcsec,
+        per axis), and each sits there moved by its exposure's shift, the
+        lens's. None (the default): each stamp has a free position.
     """
 
     stamps: str
@@ -65,6 +71,7 @@ class JointStars:
     orthogonal: bool = False
     brighter_fatter: tuple[float, float] | None = None
     exclude: StarExclusion | None = None
+    tied_position_std: float | None = None
 
 
 def _exclusion(raw) -> StarExclusion | None:
@@ -161,7 +168,10 @@ class JwstPsfKernelConfig:
         at Gaia's position, moved by its exposure's shift and, with
         ``fit_star_positions``, its astrometry; a Gaia star without a stamp in
         an exposure is its gaia_alignment cutout, placed the same way, with its
-        own flux and background; the other stamps keep free positions. The
+        own flux and background; the other stamps keep free positions, or,
+        with ``tied_position_std``, their star's position moved by the shift.
+        With the tie, a Gaia star that only the astrometry rules exclude (RUWE,
+        excess noise) keeps its stamps, tied without Gaia's prior. The
         filter then has no bilinear alignment term. Stars with a Gaia parallax
         of 1 mas or more are logged: their positions leave it out. An
         ``exclude`` entry drops stars by rules (`StarExclusion`: saturated or
@@ -178,6 +188,7 @@ class JwstPsfKernelConfig:
                   orthogonal: true
                   brighter_fatter: [9.02e-7, 2.0e-7]  # kappa learned
                   exclude: true  # or e.g. {ruwe: 1.6, galaxy: null}
+                  tied_position_std: 0.02  # arcsec; stamps tied to the shifts
     """
 
     webbpsf_path: str
@@ -227,6 +238,11 @@ class JwstPsfKernelConfig:
                     fluctuations=float(entry.fluctuations),
                     loglogavgslope=float(entry.loglogavgslope),
                     fluence=None if entry.fluence is None else float(entry.fluence),
+                    tied_position_std=(
+                        None
+                        if entry.tied_position_std is None
+                        else float(entry.tied_position_std)
+                    ),
                     **{
                         k: None if v is None else tuple(map(float, v))
                         for k, v in pairs.items()
@@ -257,6 +273,12 @@ class JwstPsfKernelConfig:
                 raise ValueError(
                     f"psf joint_stars {name}: the filter's correction is learned, "
                     "drop its psf correction file"
+                )
+            tie = joint[name].tied_position_std
+            if tie is not None and not 0 < tie < np.inf:
+                raise ValueError(
+                    f"psf joint_stars {name}: tied_position_std must be > 0 "
+                    f"(arcsec): {tie}"
                 )
 
         return JwstPsfKernelConfig(

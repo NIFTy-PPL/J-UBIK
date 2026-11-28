@@ -186,6 +186,7 @@ def _load_one_preload_bundle(
             fov_corners=jwst_world_corners,
             library_path=star_alignment_config.library_path,
             exclude_source_ids=star_alignment_config.exclude_source_id,
+            release=star_alignment_config.release,
         )
     else:
         star_table = None

@@ -5,6 +5,7 @@ from itertools import chain
 from pathlib import Path
 from typing import Union
 
+import jax.numpy as jnp
 import nifty.re as jft
 import numpy as np
 from astropy import units as u
@@ -20,7 +21,7 @@ from ...parse.models.distributions.distributions import (
 )
 from ...sky_filter import SkyFilter
 from .alignment.filter_alignment import FilterAlignment
-from .alignment.star_model import gaia_positions
+from .alignment.star_model import _grid_to_sky, gaia_positions
 from .config_handler import data_margin, get_grid_extension_from_config
 from .data.loader.data_loader import (
     DataLoader,
@@ -34,6 +35,7 @@ from .data.preloader.preloader import (
     preload_data,
 )
 from .data.jwst_data import JwstData
+from .data.loader.stars_loader import _sky_to_data
 from .data.jwst_information import JWST_FILTERS
 from .throughput import jwst_filter_weights
 from .jwst_response import TargetResponseInput, build_target_response
@@ -61,7 +63,10 @@ from .psf.psf_correction import (
     load_star_stamps,
 )
 from .psf.psf_operator import PsfGaussianBroadening, PsfStatic
-from .rotation_and_shift.coordinates_correction import ShiftAndRotationCorrection
+from .rotation_and_shift.coordinates_correction import (
+    ShiftAndRotationCorrection,
+    build_coordinates_corrected_for_stars,
+)
 from .variable_covariance.inverse_standard_deviation import (
     build_inverse_standard_deviation,
 )
@@ -433,6 +438,7 @@ def build_jwst_likelihoods(
                 kappa,
                 dataload_results.target_data,
                 gaia,
+                _Shifts(filepaths, shift_and_rotation_correction, grid.spatial),
             )
             star_likelihoods += stars
 
@@ -574,13 +580,26 @@ class _GaiaStars:
     tolerance: float
 
 
-def _joint_stars(filter: str, joint, pixel_box: bool, kappa, target_data, gaia=None):
+@dataclass
+class _Shifts:
+    """What tying stamps to a filter's exposure shifts needs: its files, its shift
+    (the lens's) and the sky grid's wcs."""
+
+    filepaths: list
+    correction: ShiftAndRotationCorrection
+    grid_wcs: object
+
+
+def _joint_stars(
+    filter: str, joint, pixel_box: bool, kappa, target_data, gaia=None, shifts=None
+):
     """The PSF of `filter`'s target response, its stars' likelihoods and their plot
     parts, sharing the correction learned on all (`joint_correction`, latents named
     ``{filter}_...``). With `gaia` (`_GaiaStars`) every Gaia star in the files is a
     star of the fit once: a stamp at a Gaia star's position sits there, moved by its
     exposure's shift (and astrometry), and a Gaia star without a stamp gets its
-    gaia_alignment cutout, ``{filter}_gaia_...``."""
+    gaia_alignment cutout, ``{filter}_gaia_...``. With ``joint.tied_position_std``
+    the other stamps are tied to the shifts (`_tie_to_shifts`, `shifts`)."""
     stamps, subsample, extra = load_star_stamps(joint.stamps)
     if subsample != target_data.subsample:
         raise ValueError(
@@ -603,8 +622,12 @@ def _joint_stars(filter: str, joint, pixel_box: bool, kappa, target_data, gaia=N
         dn = None
         if kappa is not None or joint.fluence is not None or rules is not None:
             dn = _dn_per_unit(gaia.filepaths)
-        stamps, positions, more = _tie_to_gaia(
+        stamps, extra, positions, more = _tie_to_gaia(
             filter, joint, stamps, extra, subsample, gaia, dn, bright
+        )
+    if joint.tied_position_std is not None:
+        positions = _tie_to_shifts(
+            filter, joint.tied_position_std, stamps, extra, subsample, shifts, positions
         )
     return joint_correction(
         stamps,
@@ -683,8 +706,8 @@ def _gaia_exclusion(filter, rules, table) -> dict[int, list[str]]:
 def _tie_to_gaia(
     filter, joint, stamps, extra, subsample, gaia: _GaiaStars, dn, bright=None
 ):
-    """The stamps left and `joint_correction`'s ``positions`` and
-    ``more_stars`` for `filter`'s Gaia stars (see `_joint_stars`).
+    """The stamps left, their `extra`, and `joint_correction`'s ``positions``
+    and ``more_stars`` for `filter`'s Gaia stars (see `_joint_stars`).
 
     A Gaia star in an exposure is a stamp of that file (`extra`'s
     ``exposure``) whose centre (``ra``, ``dec``) lies within `gaia.tolerance`
@@ -728,7 +751,26 @@ def _tie_to_gaia(
     table = gaia.tables.join_tables()
     rules = joint.exclude
     excluded = {} if rules is None else _gaia_exclusion(filter, rules, table)
-    at = [j in tied and int(tied[j][0].id) in excluded for j in range(len(stamps))]
+    loose = set()  # tied to the shifts, a star only the astrometry rules drop stays
+    if joint.tied_position_std is not None:
+        astrometric = {
+            n for r, _, n in _GAIA_RULES if r in ("ruwe", "excess_noise_sig")
+        }
+        loose = {
+            s
+            for s, why in excluded.items()
+            if all(w.rsplit(" ", 1)[0] in astrometric for w in why)
+        }
+        if stamped := loose & {int(star.id) for star, _ in tied.values()}:
+            jft.logger.info(
+                f"{filter}: the stamps of Gaia stars {sorted(stamped)}, which only "
+                "the astrometry rules exclude, are tied to the shifts without "
+                "Gaia's prior"
+            )
+    at = [
+        j in tied and int(tied[j][0].id) in excluded.keys() - loose
+        for j in range(len(stamps))
+    ]
     stars = {int(tied[j][0].id) for j in range(len(stamps)) if at[j]}
     why = "at a Gaia star exclude drops (" + "; ".join(
         f"{s}: {', '.join(excluded[s])}" for s in sorted(stars)
@@ -743,7 +785,11 @@ def _tie_to_gaia(
         for j in np.flatnonzero(np.asarray(mask, bool)):
             if j in tied:
                 dropped.setdefault(int(tied[j][0].id), Counter())[why] += 1
-    tied = {int(kept[j]): v for j, v in tied.items() if not gone[j]}
+    tied = {
+        int(kept[j]): v
+        for j, v in tied.items()
+        if not gone[j] and int(v[0].id) not in loose
+    }
     stamps, extra = _drop_stamps(filter, stamps, extra, reasons)
     # a cutout masked whole (e.g. by a corner mask) holds no star
     alone = [
@@ -851,7 +897,7 @@ def _tie_to_gaia(
             "PSF and kappa; gaia_alignment's exclude_source_id drops them"
         )
     if not cutouts:
-        return stamps, positions, ()
+        return stamps, extra, positions, ()
     pixels = np.array([p for *_, p, _ in entries])
     size = cutouts[0].data.shape[-1]
     # the stars sit off the middle of edge cutouts: the canvas reaches past them
@@ -863,7 +909,77 @@ def _tie_to_gaia(
         f"{filter}_gaia_",
         pad,
     )
-    return stamps, positions, (group,)
+    return stamps, extra, positions, (group,)
+
+
+def _tie_to_shifts(filter, std, stamps, extra, subsample, shifts: _Shifts, positions):
+    """`joint_correction`'s ``positions`` with the stamps that `positions` (Gaia's,
+    or None) leaves free tied to the exposure shifts.
+
+    The stamps of one star (`extra`'s ``star``) share its sky position: the mean
+    of their centres (``ra``, ``dec``) moved by the latent
+    ``{filter}_tied_star_position`` (stars, 2), a normal prior of `std` arcsec
+    along (RA cos(dec), Dec). Each stamp sits there in its file's wcs moved by
+    its exposure's shift, the lens's, as a Gaia star does (``x`` and ``y`` place
+    it in the stamp). Stamps of files outside the fit stay free."""
+    if missing := {"star", "exposure", "x", "y", "ra", "dec"} - set(extra):
+        raise ValueError(
+            f"psf joint_stars {filter}: tied_position_std needs the stamps' "
+            f"{sorted(missing)} (`save_star_stamps`)"
+        )
+    files = {Path(f.path).name: f for f in shifts.filepaths}
+    names = [str(n) for n in extra["exposure"]]
+    placed = set() if positions is None else set(np.asarray(positions[0]).tolist())
+    free = [j for j in range(len(stamps)) if j not in placed]
+    if outside := sorted({names[j] for j in free if names[j] not in files}):
+        jft.logger.warning(
+            f"{filter}: stamps of {outside}, no file of the fit, keep free positions"
+        )
+    todo = np.array([j for j in free if names[j] in files], int)
+    if not todo.size:
+        return positions
+    stars, star = np.unique(np.asarray(extra["star"])[todo], return_inverse=True)
+    centres = SkyCoord(extra["ra"][todo], extra["dec"][todo], unit="deg")
+    # unit vectors, so a star across RA 0/360 does not average to the far side
+    sky = [
+        SkyCoord(centres[star == k].cartesian.mean(), frame="icrs")
+        for k in range(len(stars))
+    ]
+    h = stamps[0].data.shape[-1] // 2
+    pixel, jacobian = np.zeros((todo.size, 2)), np.zeros((todo.size, 2, 2))
+    shift_jacobian, exposure, wcs = np.zeros((todo.size, 2, 2)), [], {}
+    for i, j in enumerate(todo):
+        file = files[names[j]]
+        if file.path not in wcs:
+            wcs[file.path] = JwstData(file.path).wcs
+        position = sky[star[i]]
+        xy = np.array(wcs[file.path].world_to_pixel(position), float)
+        corner = np.array([extra["x"][j], extra["y"][j]], float) - h
+        pixel[i] = (xy - corner + 0.5) * subsample - 0.5
+        jacobian[i] = _sky_to_data(position, wcs[file.path], subsample).to_value(
+            u.pix / u.arcsec
+        )
+        shift_jacobian[i] = jacobian[i] @ _grid_to_sky(shifts.grid_wcs, position)
+        exposure.append(file.index)
+    key = f"{filter}_tied_star_position"
+    offset = jft.Model(
+        lambda x: std * x[key][star],
+        domain={key: jft.ShapeWithDtype((len(stars), 2))},
+    )
+    tied = build_coordinates_corrected_for_stars(
+        shifts.correction, pixel, shift_jacobian, exposure, offset, jacobian
+    )
+    jft.logger.info(
+        f"{filter}: {todo.size} star stamps of {len(stars)} stars tied to the "
+        f"exposure shifts (position prior std {std:g} arcsec)"
+    )
+    if positions is None:
+        return todo, tied
+    index, model = positions
+    return np.concatenate([index, todo]), jft.Model(
+        lambda x: jnp.concatenate([model(x), tied(x)]),
+        domain=model.domain | tied.domain,
+    )
 
 
 def _broadened_psf(

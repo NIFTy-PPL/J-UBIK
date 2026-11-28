@@ -75,3 +75,44 @@ def test_query_is_a_circle_through_the_corners(fake_gaia, tmp_path, ra0):
     assert center.separation(SkyCoord(ra=ra0, dec=-4.95, unit="deg")).deg < 1e-3
     assert (center.separation(corners).deg <= radius).all()
     assert radius < 0.08
+
+
+def test_a_release_names_its_table_and_columns(fake_gaia, tmp_path, monkeypatch):
+    """A release (as DR4 will be) maps its table and the columns it names
+    otherwise: the query selects them under DR3's names, which the star tables
+    and the exclusion rules read, and filters by them; its cache is apart."""
+    from jubik.instruments.gaia import star_finder
+
+    calls, _ = fake_gaia
+    columns = {"ra": "ra_icrs", "ruwe": "ruwe_dr4", "source_id": "id"}
+    monkeypatch.setitem(
+        star_finder.RELEASES,
+        "dr4",
+        {"table": "gaiadr4.gaia_source", "columns": columns},
+    )
+    load_gaia_stars_in_fov(
+        CORNERS, str(tmp_path), exclude_source_ids=[7], release="dr4"
+    )
+    (query,) = calls
+    assert "FROM gaiadr4.gaia_source" in query
+    assert "ra_icrs AS ra," in query and "ruwe_dr4 AS ruwe," in query
+    assert "POINT('ICRS', ra_icrs, dec)" in query and "AND id NOT IN (7)" in query
+    (name,) = _cache_files(tmp_path)
+    assert name.endswith("_ex7_dr4.ecsv")
+
+
+def test_dr3_selects_its_columns_by_name_with_the_epoch(fake_gaia, tmp_path):
+    from jubik.instruments.gaia.star_finder import COLUMNS
+
+    calls, _ = fake_gaia
+    load_gaia_stars_in_fov(CORNERS, str(tmp_path))
+    (query,) = calls
+    assert "FROM gaiadr3.gaia_source" in query and " AS " not in query
+    select = query.split("SELECT")[1].split("FROM")[0]
+    assert [c.strip() for c in select.split(",")] == list(COLUMNS)
+    assert "ref_epoch" in COLUMNS
+
+
+def test_an_unknown_release_raises(fake_gaia, tmp_path):
+    with pytest.raises(ValueError, match="unknown Gaia release 'dr9'"):
+        load_gaia_stars_in_fov(CORNERS, str(tmp_path), release="dr9")

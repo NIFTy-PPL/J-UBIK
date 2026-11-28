@@ -6,6 +6,7 @@ from .....parse.models.distributions import (
     ProbabilityConfig,
     prior_config_factory,
 )
+from ....gaia.star_finder import RELEASES
 from ...data.jwst_information import JWST_FILTERS
 
 DEFAULT_KEY = "default"
@@ -39,6 +40,9 @@ class StarAlignmentConfig:
         which sources to exclude from the table query.
     fit_star_positions: bool
         Give every star a position offset with the Gaia covariance as prior.
+    release: str
+        The Gaia release queried, a key of `jubik.instruments.gaia.star_finder.
+        RELEASES` (table and column names); default ``dr3``.
     """
 
     fov: u.Quantity | dict[str, u.Quantity]
@@ -47,6 +51,7 @@ class StarAlignmentConfig:
     library_path: str = ""
     exclude_source_id: list[int] = field(default_factory=list)
     fit_star_positions: bool = True
+    release: str = "dr3"
 
     def fov_of(self, filter_name: str) -> u.Quantity:
         """The cutout size for `filter_name`, any case: the single quantity, or the filter entry, else `default`."""
@@ -72,6 +77,7 @@ class StarAlignmentConfig:
             - fit_star_positions: bool, give every star a latent offset from its
             Gaia position, prior normal with the Gaia covariance at the exposure
             epoch. Default True.
+            - release: str, the Gaia release (`star_finder.RELEASES`), default dr3.
         """
         if raw is None:
             return None
@@ -102,4 +108,14 @@ class StarAlignmentConfig:
             library_path=raw.get("library_path", ""),
             exclude_source_id=raw.get("exclude_source_id", []),
             fit_star_positions=raw.get("fit_star_positions", True),
+            release=_release(raw.get("release", "dr3")),
         )
+
+
+def _release(release: str) -> str:
+    if release not in RELEASES:
+        raise ValueError(
+            f"gaia_alignment.release: unknown Gaia release {release!r}, known: "
+            f"{sorted(RELEASES)}"
+        )
+    return release

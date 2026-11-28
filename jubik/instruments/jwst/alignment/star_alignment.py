@@ -258,6 +258,18 @@ def _astrometric_covariance(table: Table) -> np.ndarray | list[None]:
     return std[:, :, None] * correlation * std[:, None, :]
 
 
+def _reference_epoch(table: Table) -> Time:
+    """The epoch of the table's astrometry: its ``ref_epoch`` (Julian years, one
+    per release), or Gaia DR3's J2016.0 for a table without the column (caches
+    from before it was queried)."""
+    if "ref_epoch" not in table.colnames:
+        return Time("J2016.0")
+    epochs = np.unique(np.asarray(np.ma.filled(table["ref_epoch"], np.nan), float))
+    if len(epochs) != 1 or not np.isfinite(epochs[0]):
+        raise ValueError(f"Gaia stars need one finite ref_epoch, got {epochs}")
+    return Time(epochs[0], format="jyear")
+
+
 class StarTables:
     def __init__(
         self,
@@ -287,7 +299,7 @@ class StarTables:
             dec=_nan_filled(table["dec"]),
             pm_ra_cosdec=_nan_filled(table["pmra"]),
             pm_dec=_nan_filled(table["pmdec"]),
-            obstime=Time("J2016.0"),
+            obstime=_reference_epoch(table),
         )
         # A 2-parameter solution has no proper motion and cannot be propagated.
         valid = ~np.isnan(

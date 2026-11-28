@@ -337,6 +337,19 @@ def test_fov_rejects_typos_and_non_angles(fov, match):
         StarAlignmentConfig.from_yaml_dict(raw)
 
 
+def test_the_gaia_release_is_dr3_unless_named_and_must_be_known():
+    from jubik.instruments.jwst.parse.alignment.star_alignment import (
+        StarAlignmentConfig,
+    )
+
+    raw = {"fov": "0.5arcsec", "subsample": 2, "star_light": ["lognormal", 1.0, 1.0]}
+    assert StarAlignmentConfig.from_yaml_dict(raw).release == "dr3"
+    with pytest.raises(
+        ValueError, match="gaia_alignment.release: unknown Gaia release 'dr4'"
+    ):
+        StarAlignmentConfig.from_yaml_dict(raw | {"release": "dr4"})
+
+
 def test_fit_star_positions_adds_one_shared_latent_per_star(
     patched_seams, fake_gaia, tmp_path
 ):

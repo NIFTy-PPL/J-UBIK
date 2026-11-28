@@ -211,3 +211,25 @@ def test_two_exposure_epochs_differ_by_pm_times_dt():
 def test_missing_exposure_time_raises():
     with pytest.raises(ValueError, match="No exposure start time"):
         _exposure_start_time(_fake_dm("2026-01-01T00:00:00"))
+
+
+def test_the_astrometry_is_at_the_tables_ref_epoch():
+    """A star moving 100 mas/yr in RA sits at its catalog position at the
+    table's ``ref_epoch`` (a DR4-like 2017.5), at J2016.0 without the column (a
+    DR3 cache from before it was queried); mixed epochs raise."""
+    table = _table([11])
+    table["pmra"] = [100.0] * u.mas / u.yr
+    catalog = SkyCoord(table["ra"][0], table["dec"][0], unit="deg")
+    for epoch, at in ((2017.5, "J2017.5"), (None, "J2016.0")):
+        t = table.copy()
+        if epoch is not None:
+            t["ref_epoch"] = [epoch]
+        (star,) = StarTables([t], [T_OBS]).get_stars(0)
+        assert star.position_at(Time(at)).separation(catalog).to(u.mas).value < 1e-6
+        assert star.position_at(Time(at) + 1 * u.yr).separation(catalog).to(
+            u.mas
+        ).value == pytest.approx(100.0, rel=1e-3)
+    two = _table([11, 12])
+    two["ref_epoch"] = [2016.0, 2017.5]
+    with pytest.raises(ValueError, match="one finite ref_epoch"):
+        StarTables([two], [T_OBS]).get_stars(0)
