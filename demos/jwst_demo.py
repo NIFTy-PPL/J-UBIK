@@ -326,6 +326,7 @@ samples, state = jft.optimize_kl(
     resume=minimization_config["resume"],
     n_samples=minimization_parser.n_samples,
     draw_linear_kwargs=minimization_parser.draw_linear_kwargs,
+    linear_minimizer_jit=minimization_parser.linear_minimizer_jit,
     nonlinearly_update_kwargs=minimization_parser.nonlinearly_update_kwargs,
     kl_kwargs=minimization_parser.kl_kwargs,
     sample_mode=minimization_parser.sample_mode,

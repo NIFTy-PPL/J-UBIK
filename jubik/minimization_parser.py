@@ -36,6 +36,7 @@ KL = 'kl'
 KL_NAME = 'kl'
 KL_CG = 'kl_cg'
 NCG_XTOL_DEFAULT = 1.e-5
+LINEAR_MINIMIZER_JIT = 'linear_minimizer_jit'
 
 def get_config_value(
     key: str,
@@ -343,7 +344,8 @@ def linear_sample_kwargs_factory(
     mini_cfg: dict,
     delta: Optional[dict] = None,
     ndof: Optional[int] = None,
-    verbose: bool = True
+    verbose: bool = True,
+    jit: bool = False,
 ) -> Callable[[int], dict]:
     """
     Creates a callable that returns linear sample kwargs for `nifty.re` based
@@ -360,6 +362,12 @@ def linear_sample_kwargs_factory(
         Number of degrees of freedom used in the delta logic.
     verbose : bool, optional
         If True, the delta logic will be verbose.
+    jit : bool, optional
+        For `optimize_kl(linear_minimizer_jit=True)`: the CG is NIFTy's
+        jittable `static_cg`, and `cg_kwargs` carry no `name`. With a name,
+        `static_cg` logs every iteration through a host callback, a sync per
+        iteration that the jitted draw is there to avoid; so the CG logs no
+        iterations.
 
     Returns
     -------
@@ -400,18 +408,20 @@ def linear_sample_kwargs_factory(
         absdelta = _delta_logic(LIN, delta, absdelta, iteration,
                                 delta_range_index, ndof, verbose)
 
+        cg_kwargs = dict(
+            absdelta=absdelta, tol=tol, atol=atol, miniter=minit, maxiter=maxit
+        )
+        if jit:
+            return dict(
+                cg_name=None, cg=jft.conjugate_gradient.static_cg,
+                cg_kwargs=cg_kwargs
+            )
         return dict(
             # FIXME: inside nifty cg_name is overwritten by cg_kwargs['name'].
             # When this is fixed in nifty, this redundancy should
             # be removed here.
             cg_name=None,
-            cg_kwargs=dict(
-                name=f'{LIN_NAME}_cg',
-                absdelta=absdelta,
-                tol=tol,
-                atol=atol,
-                miniter=minit,
-                maxiter=maxit)
+            cg_kwargs=dict(name=f'{LIN_NAME}_cg', **cg_kwargs)
         )
 
     # Checks whether `linear_sample_kwargs` are well-defined before inference
@@ -757,6 +767,10 @@ class MinimizationParser:
         Function returning the sample mode for each iteration.
     draw_linear_kwargs : Callable[[int], dict]
         Function returning linear sample kwargs for each iteration.
+    linear_minimizer_jit : bool
+        `linear_minimizer_jit` of the config (default false), for
+        `jft.optimize_kl(linear_minimizer_jit=...)`: true jits each linear
+        sample draw as a whole, with `static_cg` (`draw_linear_kwargs` match).
     nonlinearly_update_kwargs : Callable[[int], dict]
         Function returning nonlinear update kwargs for each iteration.
     kl_kwargs : Callable[[int], dict]
@@ -776,10 +790,15 @@ class MinimizationParser:
                              'be set to allow recalculating minimization '
                              'values with `delta`.')
 
+        self.linear_minimizer_jit = config.get(LINEAR_MINIMIZER_JIT, False)
+        if not isinstance(self.linear_minimizer_jit, bool):
+            raise ValueError(f'`{LINEAR_MINIMIZER_JIT}` must be true or false, '
+                             f'got {self.linear_minimizer_jit!r}')
         self.n_samples = n_samples_factory(config)
         self.sample_mode = sample_mode_factory(config)
         self.draw_linear_kwargs = linear_sample_kwargs_factory(
-            config, delta, ndof=n_dof, verbose=verbose)
+            config, delta, ndof=n_dof, verbose=verbose,
+            jit=self.linear_minimizer_jit)
         self.nonlinearly_update_kwargs = nonlinearly_update_kwargs_factory(
             config, delta, verbose=verbose)
         self.kl_kwargs = kl_kwargs_factory(config, delta,
