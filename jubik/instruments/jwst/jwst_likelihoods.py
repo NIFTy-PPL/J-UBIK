@@ -760,13 +760,6 @@ def _tie_to_gaia(
     if joint.tied_position_std is not None and rules is not None:
         others = replace(rules, ruwe=None, excess_noise_sig=None)
         loose = excluded.keys() - _gaia_exclusion(filter, others, table).keys()
-        stamped = loose & {int(star.id) for star, _ in tied.values()}
-        if stamped:
-            jft.logger.info(
-                f"{filter}: the stamps of Gaia stars {sorted(stamped)}, which only "
-                "the astrometry rules exclude, are tied to the shifts without "
-                "Gaia's prior"
-            )
     at = [
         j in tied and int(tied[j][0].id) in excluded.keys() - loose
         for j in range(len(stamps))
@@ -785,6 +778,13 @@ def _tie_to_gaia(
         for j in np.flatnonzero(np.asarray(mask, bool)):
             if j in tied:
                 dropped.setdefault(int(tied[j][0].id), Counter())[why] += 1
+    stamped = loose & {int(v[0].id) for j, v in tied.items() if not gone[j]}
+    if stamped:  # the stars whose stamps stay; the others stay in the warning below
+        jft.logger.info(
+            f"{filter}: the stamps of Gaia stars {sorted(stamped)}, which only "
+            "the astrometry rules exclude, are tied to the shifts without Gaia's "
+            "prior"
+        )
     tied = {
         int(kept[j]): v
         for j, v in tied.items()

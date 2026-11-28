@@ -296,6 +296,32 @@ def test_a_gaia_star_only_the_astrometry_rules_drop_is_tied(gaia, tmp_path, capl
     assert not warned(caplog, "only the lens pins")  # the tied stamps pin them too
 
 
+def test_a_loose_gaia_star_whose_stamps_are_all_too_bright_stays_excluded(
+    gaia, tmp_path, caplog
+):
+    """Gaia star 2, RUWE 2 and both its stamps above the peak cut, keeps none: it
+    is logged as excluded with both reasons, not as tied."""
+    table, _ = gaia
+    gaia_columns(table, ruwe=[1.0, 2.0])
+    stamps = write_gaia_stamps(
+        tmp_path / "g.npz", table, fluence=[1e3, 4e4, 4e4, 1e3, 1e3, 1e3]
+    )
+    sites = stamp_sites(table)
+    x_, y_ = [s[1] for s in sites], [s[2] for s in sites]
+    sky = exposure_wcs().pixel_to_world(x_, y_)
+    save_star_stamps(
+        tmp_path / "s.npz", stamps, SUB, star=np.array([0, 1, 1, 0, 2, 0]),
+        exposure=np.array([s[0] for s in sites]), x=np.array(x_), y=np.array(y_),
+        ra=sky.ra.deg, dec=sky.dec.deg,
+    )  # fmt: skip
+    psf = tied(tmp_path / "s.npz")
+    psf["joint_stars"][BAND]["exclude"] = {"max_peak": 3e4, "saturated": False}
+    (term,) = build_gaia(tmp_path / "b", psf).target.joint_stars
+    assert tree(term.domain)[f"{BAND}_tied_star_position"].shape == (1, 2)  # the lone
+    assert warned(caplog, "2: RUWE 2, a peak above 30000 DN/int in 2 of 2 frames")
+    assert "the stamps of Gaia stars [2]" not in caplog.text
+
+
 def test_the_tie_needs_each_stamps_star_and_a_positive_std(field, tmp_path):
     stamps = write(tmp_path / "s.npz", sites=SITES[:5])
     file, x, y = (np.array(c) for c in zip(*[s[1:] for s in SITES[:5]]))
