@@ -33,7 +33,7 @@ def test_names_that_fit_stay_as_written():
 
 
 def test_21_exposures_save_and_load_under_a_digest(tmp_path):
-    """B1938's 21 dither points: 21 four-digit bounds would name a 430-character file."""
+    """A field's 21 dither points: 21 four-digit bounds would name a 430-character file."""
     bounds = [(1036 + i, 1290 + i, 776 + i, 1031 + i) for i in range(21)]
     name = NanMasks.get_bounds_name(bounds)
     # the same on every machine and in every process: a saved mask's name must match a later run's

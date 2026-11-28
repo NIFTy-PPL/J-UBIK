@@ -57,7 +57,7 @@ Limits: the lens fit has one kernel per exposure, so without
 ``brighter_fatter`` every part of the image (faint arc, lens light) gets the
 width of the stored fluence. The texture may move the kernel's
 centroid by a fraction of a kernel pixel, which the stars' free positions cannot
-pin (B1938+666: up to 1 mas); the lens fit's shift must be free to take it up.
+pin (a field's stars: up to 1 mas); the lens fit's shift must be free to take it up.
 """
 
 from dataclasses import asdict, dataclass, replace
@@ -738,7 +738,7 @@ def fit_psf_correction(
         times `subsample`); None learns no texture.
     fluctuations, loglogavgslope : float
         The texture's fixed std and spectral slope, see `log_texture_model`;
-        the defaults passed held-out stars of B1938+666 in F115W and F277W.
+        the defaults passed a field's held-out stars in F115W and F277W.
     width : tuple[float, float] | None
         Mean and std of the log-normal prior of the Gaussian's width in kernel
         pixels (of ``w0`` and ``w1``); None learns no broadening.

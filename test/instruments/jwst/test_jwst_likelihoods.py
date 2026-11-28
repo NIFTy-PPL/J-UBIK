@@ -710,18 +710,18 @@ def grid_of(n, fov_arcsec, fov_y_arcsec=None):
     return Grid(spatial=spatial, spectral=Color([3.6, 5.2] * u.um))
 
 
-B1938_SKY = grid_of(512, 3.0)  # 5.86 mas: Nyquist 85.3, corner 120.7 cycles/arcsec
+FIELD_SKY = grid_of(512, 3.0)  # 5.86 mas: Nyquist 85.3, corner 120.7 cycles/arcsec
 
 
 @pytest.mark.parametrize(
     "filter_name, pixel, subsample, grid, expected",
     [
         # f_s / 2 = 23.85, inside F277W's window 13.0 (6.5 m / 2.423 um) to 34.7
-        ("F277W", 0.0629, 3, B1938_SKY, 3 / 0.0629 / 2),
+        ("F277W", 0.0629, 3, FIELD_SKY, 3 / 0.0629 / 2),
         # f_s 143: the sky's corner 120.7 + 13.0 cannot alias, no band needed
-        ("F277W", 0.0629, 9, B1938_SKY, None),
+        ("F277W", 0.0629, 9, FIELD_SKY, None),
         # f_s / 2 = 48.4, inside F115W's window 31.1 (6.5 m / 1.013 um) to 65.7
-        ("F115W", 0.031, 3, B1938_SKY, 3 / 0.031 / 2),
+        ("F115W", 0.031, 3, FIELD_SKY, 3 / 0.031 / 2),
         # 0.0256" (x) by 0.0128" (y) sky pixels, Nyquist 19.5 and 39: f_s / 2 = 20
         # is capped below the lower one
         ("F277W", 0.075, 3, grid_of(117, 3.0, 1.5), 0.999 * 0.5 / (3.0 / 117)),
@@ -766,7 +766,7 @@ def test_band_limit_outside_the_window_raises(
             filter_name,
             subsample,
             pixel * u.arcsec,
-            B1938_SKY,
+            FIELD_SKY,
         )
 
 
@@ -787,7 +787,7 @@ def test_band_limit_config_values():
     # an explicit band inside the window and no band pass through unchanged
     for band in (20.0, None):
         cfg = NufftConfig(band_limit=band)
-        out = _band_limited(cfg, "F277W", 3, 0.0629 * u.arcsec, B1938_SKY)
+        out = _band_limited(cfg, "F277W", 3, 0.0629 * u.arcsec, FIELD_SKY)
         assert out.band_limit == band
 
 

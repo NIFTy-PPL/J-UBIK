@@ -36,7 +36,7 @@ from test_jwst_psf_broadening import LOGNORMAL, wide_build_webb_psf
 from test_psf_correction import SIZE, SUB, blank_stamp, kernel, zeros
 
 BAND = FILTER.lower()
-KAPPA = 9.02e-7  # per DN/int, B1938's F277W stars
+KAPPA = 9.02e-7  # per DN/int, a field's F277W stars
 # EFFINTTM (s) and PHOTMJSR (MJy/sr per DN/s) of the fake files fake_0, fake_1
 TIME, PHOTMJSR = (100.0, 150.0), (0.5, 0.4)
 DN_PER_UNIT = np.divide(TIME, PHOTMJSR)
@@ -296,7 +296,7 @@ def stars_with_charge_migration(w0, kappa, n=30, dn_per_unit=2000.0, seed=0):
 def test_fit_with_the_operator_keeps_what_charge_migration_does_not_explain():
     """Stars broadened by charge migration, fitted with the operator, give the
     width and slope (~0) of the same stars without it, fitted without; fitted
-    without the operator, their width grows with the peak. At B1938's w0 of
+    without the operator, their width grows with the peak. At a field's w0 of
     0.053 kernel px the width prior, not the stars, sets the fitted w0 (0.1 with
     a prior of 0.5 +- 0.5), so the reference is the same fit, not the truth."""
     w0 = 0.053
