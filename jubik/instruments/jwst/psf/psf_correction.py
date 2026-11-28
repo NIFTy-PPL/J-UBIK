@@ -773,7 +773,8 @@ def fit_psf_correction(
         latent key, the rms over its elements of the change of the sample mean
         in sample stds (elements of zero std skipped), the largest over the
         keys; the fit stops after ``patience`` moves in a row below ``tol``.
-        Needs `n_samples` >= 2: one mirrored pair's stds are too noisy.
+        Needs `n_samples`; use 2 or more: one mirrored pair's stds are too
+        noisy.
     history : list | None
         Each iteration appends a dict: ``iteration``, ``move`` (as for
         `converge`; inf at first, NaN for the MAP), and the
