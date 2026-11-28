@@ -137,7 +137,9 @@ def test_on_compiles_the_draw_once(caplog):
         return jax.block_until_ready(samples)
 
     draw(0)
-    with caplog.at_level(logging.WARNING), jax.log_compiles(True):
+    # the jax logger's own level, so a JAX_LOGGING_LEVEL above WARNING cannot
+    # silence the compile records
+    with caplog.at_level(logging.WARNING, logger="jax"), jax.log_compiles(True):
         draw(1)
     compiles = [r.getMessage() for r in caplog.records if "Compiling" in r.getMessage()]
     assert compiles == []
