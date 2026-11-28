@@ -461,3 +461,42 @@ def test_the_star_fit_learns_kappa_from_a_prior():
     _, _, samples = fit_psf_correction(stamps, 3, BAND, n_samples=1, **options)
     kappas = [s.brighter_fatter for s in samples]
     assert kappas[0] != kappas[1] and np.allclose(kappas, KAPPA, rtol=0.1)
+
+
+def test_the_star_fit_takes_a_seed_stops_once_converged_and_records_each_iteration():
+    """Another seed draws other samples; with converge the fit stops once every
+    correction latent moved less than tol stds `patience` times in a row, and
+    the history holds each iteration's numbers."""
+    stamps = stars_with_charge_migration(0.5, KAPPA, n=12)
+    options = dict(
+        width=(0.5, 0.5), brighter_fatter=(2 * KAPPA, 2 * KAPPA), n_samples=1
+    )
+    widths = [
+        [
+            s.width
+            for s in fit_psf_correction(
+                stamps, 3, BAND, n_iterations=2, seed=k, **options
+            )[2]
+        ]
+        for k in (0, 0, 1)
+    ]
+    assert widths[0] == widths[1] and widths[0] != widths[2]
+    history = []
+    fit_psf_correction(
+        stamps, 3, BAND, n_iterations=30, converge=(0.5, 2), history=history, **options
+    )
+    assert 3 <= len(history) < 30
+    assert [h["iteration"] for h in history] == list(range(1, len(history) + 1))
+    assert history[0]["move"] == np.inf
+    assert all(h["move"] < 0.5 for h in history[-2:]) and history[-3]["move"] >= 0.5
+    assert np.isclose(history[-1]["kappa"], KAPPA, rtol=0.1)
+    assert set(history[-1]) == {
+        "iteration",
+        "move",
+        "texture_rms",
+        "width",
+        "width_0",
+        "kappa",
+    }
+    with pytest.raises(ValueError, match="converge needs n_samples"):
+        fit_psf_correction(stamps, 3, BAND, converge=(0.1, 3), width=(0.5, 0.5))

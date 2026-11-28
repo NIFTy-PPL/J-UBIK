@@ -680,6 +680,14 @@ def joint_correction(
     return PsfKernelModel(sky, kernel), likelihoods, parts
 
 
+class _Converged(Exception):
+    """`fit_psf_correction`'s stop at convergence, with the samples there."""
+
+    def __init__(self, samples):
+        super().__init__()
+        self.samples = samples
+
+
 def fit_psf_correction(
     stamps: list[StarStamp],
     subsample: int,
@@ -695,6 +703,9 @@ def fit_psf_correction(
     orthogonal: bool = False,
     brighter_fatter: float | tuple[float, float] | None = None,
     n_samples: int = 0,
+    seed: int = 0,
+    converge: tuple[float, int] | None = None,
+    history: list | None = None,
 ) -> (
     tuple[PsfCorrection, np.ndarray]
     | tuple[PsfCorrection, np.ndarray, list[PsfCorrection]]
@@ -754,6 +765,18 @@ def fit_psf_correction(
     n_samples : int
         Posterior samples of `jft.optimize_kl` (geoVI, each mirrored: 2
         `n_samples` in all); 0 fits the MAP.
+    seed : int
+        The fit's random key (the samples' draws).
+    converge : tuple[float, int] | None
+        ``(tol, patience)``: stop before `n_iterations` once every latent of
+        the correction (texture, widths, kappa) moved less than ``tol`` times
+        its posterior std, for ``patience`` iterations in a row. Needs
+        `n_samples`.
+    history : list | None
+        Each iteration appends a dict: ``iteration``, ``move`` (the largest
+        move of a correction latent's mean in its std; inf at first), and the
+        posterior mean of ``texture_rms``, ``width`` (at the fluence),
+        ``width_0`` and ``kappa``.
 
     Returns
     -------
@@ -776,18 +799,8 @@ def fit_psf_correction(
     likelihood, models = _star_likelihood(stars, texture, widths)
     domain = models.domain
 
-    position = jft.Vector(jax.tree.map(lambda s: jnp.zeros(s.shape, s.dtype), domain))
-    quiet = dict(name=None, cg_kwargs=dict(name=None))
-    samples, _ = jft.optimize_kl(
-        likelihood,
-        position,
-        key=jax.random.PRNGKey(0),
-        n_total_iterations=n_iterations,
-        n_samples=n_samples,
-        draw_linear_kwargs=dict(cg_name=None, cg_kwargs={}),
-        nonlinearly_update_kwargs=dict(minimize_kwargs=quiet),
-        kl_kwargs=dict(minimize_kwargs=quiet | dict(maxiter=20)),
-    )
+    if converge is not None and not n_samples:
+        raise ValueError("converge needs n_samples: the moves are in posterior stds")
 
     def correction_at(x):
         correction = PsfCorrection(
@@ -808,6 +821,58 @@ def fit_psf_correction(
             slope = (correction.width**2 - float(w0(x)) ** 2) / fluence
             correction = replace(correction, fluence=float(fluence), width_slope=slope)
         return correction
+
+    parts = [m for m in (texture, sigma, w0, kappa) if isinstance(m, jft.Model)]
+    keys = sorted({k for m in parts for k in m.domain})
+    last, calm = {}, [0]
+
+    def callback(samples, state):
+        trees = [t.tree for t in samples] if len(samples) else [samples.pos.tree]
+        mean = {k: np.mean([t[k] for t in trees], 0) for k in keys}
+        sd = {k: np.std([t[k] for t in trees], 0) for k in keys}
+        move = np.inf
+        if last and keys:
+            move = max(
+                float(np.max(np.abs(mean[k] - last[k]) / np.maximum(sd[k], 1e-12)))
+                for k in keys
+            )
+        last.update(mean)
+        if history is not None:
+            corrections = [correction_at(t) for t in trees]
+            history.append(
+                dict(
+                    iteration=int(state.nit),
+                    move=move,
+                    texture_rms=float(
+                        np.mean([c.log_texture.std() for c in corrections])
+                    ),
+                    width=float(np.mean([c.width for c in corrections])),
+                    width_0=float(
+                        np.mean([c.at_fluence(0).width for c in corrections])
+                    ),
+                    kappa=float(np.mean([c.brighter_fatter for c in corrections])),
+                )
+            )
+        calm[0] = calm[0] + 1 if converge is not None and move < converge[0] else 0
+        if converge is not None and calm[0] >= converge[1]:
+            raise _Converged(samples)
+
+    position = jft.Vector(jax.tree.map(lambda s: jnp.zeros(s.shape, s.dtype), domain))
+    quiet = dict(name=None, cg_kwargs=dict(name=None))
+    try:
+        samples, _ = jft.optimize_kl(
+            likelihood,
+            position,
+            key=jax.random.PRNGKey(seed),
+            n_total_iterations=n_iterations,
+            n_samples=n_samples,
+            draw_linear_kwargs=dict(cg_name=None, cg_kwargs={}),
+            nonlinearly_update_kwargs=dict(minimize_kwargs=quiet),
+            kl_kwargs=dict(minimize_kwargs=quiet | dict(maxiter=20)),
+            callback=callback if converge is not None or history is not None else None,
+        )
+    except _Converged as stop:
+        samples = stop.samples
 
     x = samples.pos.tree
     out = correction_at(x), np.asarray(models(x))
