@@ -813,9 +813,9 @@ def _tie_to_gaia(
             )
 
     def entry(star, k, pixel):
-        frames = gaia.data[star.id]
-        jacobian = frames.sky_to_data[k].to_value(u.pix / u.arcsec)
-        return star, int(frames.observation_ids[k]), pixel, jacobian
+        cut = gaia.data[star.id]
+        jacobian = cut.sky_to_data[k].to_value(u.pix / u.arcsec)
+        return star, int(cut.observation_ids[k]), pixel, jacobian
 
     def fit_positions(entries):
         return gaia_positions(
@@ -837,9 +837,9 @@ def _tie_to_gaia(
     brightest = np.array([s.fluence / (s.dn_per_unit or np.nan) for s in stamps])
     brightest = np.nanmax(brightest) if np.isfinite(brightest).any() else np.nan
     for star, k in alone:
-        frames = gaia.data[star.id]
-        data, mask = frames.data[k], frames.mask[k]
-        e = int(frames.observation_ids[k])
+        cut = gaia.data[star.id]
+        data, mask = cut.data[k], cut.mask[k]
+        e = int(cut.observation_ids[k])
         unit = None if dn is None else float(dn[e])
         edge = np.ones(data.shape, bool)
         edge[1:-1, 1:-1] = False
@@ -849,11 +849,11 @@ def _tie_to_gaia(
         fluence = (
             0.0 if unit is None else peak * unit
         )  # as psf_check's, per integration
-        inside = (frames.star_in_subsampled_pixels[k] + 0.5) / subsample - 0.5
+        inside = (cut.star_in_subsampled_pixels[k] + 0.5) / subsample - 0.5
         x, y = np.round(inside).astype(int)
         why = []
         if rules is not None and rules.saturated:
-            if frames.saturated[k] or not mask[y, x]:
+            if cut.saturated[k] or not mask[y, x]:
                 why.append("saturated")
         if rules is not None and rules.max_peak is not None:
             if fluence > rules.max_peak:
@@ -862,9 +862,9 @@ def _tie_to_gaia(
         if why:
             continue
         cutouts.append(
-            StarStamp(data, frames.std[k], mask, frames.psf[k], fluence, unit)
+            StarStamp(data, cut.std[k], mask, cut.psf[k], fluence, unit)
         )
-        entries.append(entry(star, k, frames.star_in_subsampled_pixels[k]))
+        entries.append(entry(star, k, cut.star_in_subsampled_pixels[k]))
         if not mask[y, x] or 0 < brightest < peak:
             suspect.add(int(star.id))
     for star, counts in dropped.items():  # per frame: "<why> in <n> of <all> frames"

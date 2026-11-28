@@ -134,9 +134,9 @@ class DeterministicJwstData(ExposureJwstData):
 
 def test_off_keeps_the_fixed_kernel_likelihood(exposures, monkeypatch, tmp_path):
     """Without joint_stars the likelihood is the fixed kernel's: its energy and
-    gradient at fixed latents are those of the code before joint_stars
-    (jwst-charge-migration, aa2e1635), with a correction file, the box, kappa,
-    calibration and zero flux all on."""
+    gradient at fixed latents keep their values from before joint_stars, with a
+    correction file, the box, kappa, calibration and zero flux all on. rtol 1e-9:
+    any change of the off path, not a different FFT or BLAS, fails it."""
     for site in JWST_DATA_SITES:
         monkeypatch.setattr(site, DeterministicJwstData)
     texture = 0.1 * np.random.default_rng(0).normal(size=(5, 5))
@@ -162,10 +162,9 @@ def test_off_keeps_the_fixed_kernel_likelihood(exposures, monkeypatch, tmp_path)
     x = latents(products)
     likelihood = products.target.likelihood
     grad = jax.grad(lambda y: likelihood(jft.Vector(y)))(x)
-    # the values at aa2e1635, the same test
-    assert np.isclose(energy(likelihood, x), 369615559.2233298, rtol=1e-13)
+    assert np.isclose(energy(likelihood, x), 369615559.2233298, rtol=1e-9)
     norm = np.sqrt(sum(float(jnp.sum(g**2)) for g in jax.tree.leaves(grad)))
-    assert np.isclose(norm, 13415766.129993439, rtol=1e-12)
+    assert np.isclose(norm, 13415766.129993439, rtol=1e-9)
 
 
 def test_star_term_is_the_star_fits_model(exposures, tmp_path):

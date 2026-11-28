@@ -427,8 +427,9 @@ def test_the_gradient_is_the_sum_over_the_terms(gaia, tmp_path):
 
 def test_off_keeps_the_bilinear_gaia_term(gaia, tmp_path):
     """Without joint_stars, gaia_alignment stays the bilinear alignment term:
-    its energy and gradient at fixed latents are those of the code before the
-    joint Gaia stars (5d97a15d, the same test), the astrometry fitted."""
+    its energy and gradient at fixed latents keep their values from before the
+    joint Gaia stars, the astrometry fitted. rtol 1e-9: any change of the term,
+    not a different FFT or BLAS, fails it."""
     products = build(tmp_path, {})
     assert products.target.joint_stars == []
     alignment = products.alignment.likelihood.likelihood
@@ -436,11 +437,11 @@ def test_off_keeps_the_bilinear_gaia_term(gaia, tmp_path):
     x = jft.random_like(jax.random.PRNGKey(4), alignment.domain)
     grad = jax.grad(alignment)(x)
     norm = np.sqrt(sum(float(jnp.sum(g**2)) for g in jax.tree.leaves(grad)))
-    assert np.isclose(float(alignment(x)), ENERGY_BILINEAR, rtol=1e-13)
-    assert np.isclose(norm, GRADIENT_BILINEAR, rtol=1e-12)
+    assert np.isclose(float(alignment(x)), ENERGY_BILINEAR, rtol=1e-9)
+    assert np.isclose(norm, GRADIENT_BILINEAR, rtol=1e-9)
 
 
-# the values at 5d97a15d
+# the values from before the joint Gaia stars
 ENERGY_BILINEAR, GRADIENT_BILINEAR = 35023.31715750818, 4.084489153617946
 
 
