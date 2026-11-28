@@ -464,9 +464,9 @@ def test_the_star_fit_learns_kappa_from_a_prior():
 
 
 def test_the_star_fit_takes_a_seed_stops_once_converged_and_records_each_iteration():
-    """Another seed draws other samples; with converge the fit stops once every
-    correction latent moved less than tol stds `patience` times in a row, and
-    the history holds each iteration's numbers."""
+    """Another seed draws other samples; with converge the fit stops once the
+    correction's latents moved less than tol stds (each key's rms) `patience`
+    times in a row, and the history holds each iteration's numbers."""
     stamps = stars_with_charge_migration(0.5, KAPPA, n=12)
     options = dict(
         width=(0.5, 0.5), brighter_fatter=(2 * KAPPA, 2 * KAPPA), n_samples=1
@@ -498,5 +498,21 @@ def test_the_star_fit_takes_a_seed_stops_once_converged_and_records_each_iterati
         "width_0",
         "kappa",
     }
+    # a texture's many latents: each key's rms move, not its largest element's
+    texture = []
+    fit_psf_correction(
+        stamps,
+        3,
+        BAND,
+        n_iterations=12,
+        converge=(0.5, 2),
+        history=texture,
+        radius=6,
+        width=(0.5, 0.5),
+        n_samples=1,
+    )
+    assert len(texture) < 12 and all(h["move"] < 0.5 for h in texture[-2:])
+    fit_psf_correction(stamps, 3, BAND, n_iterations=2, history=(map_ := []))
+    assert len(map_) == 2 and all(np.isnan(h["move"]) for h in map_)  # no stds
     with pytest.raises(ValueError, match="converge needs n_samples"):
         fit_psf_correction(stamps, 3, BAND, converge=(0.1, 3), width=(0.5, 0.5))

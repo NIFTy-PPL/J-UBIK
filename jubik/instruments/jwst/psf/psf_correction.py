@@ -768,13 +768,15 @@ def fit_psf_correction(
     seed : int
         The fit's random key (the samples' draws).
     converge : tuple[float, int] | None
-        ``(tol, patience)``: stop before `n_iterations` once every latent of
-        the correction (texture, widths, kappa) moved less than ``tol`` times
-        its posterior std, for ``patience`` iterations in a row. Needs
-        `n_samples`.
+        ``(tol, patience)``: stop before `n_iterations` once the correction's
+        latents (texture, widths, kappa) settle: an iteration's move is, per
+        latent key, the rms over its elements of the change of the sample mean
+        in sample stds (elements of zero std skipped), the largest over the
+        keys; the fit stops after ``patience`` moves in a row below ``tol``.
+        Needs `n_samples`; a few, since the stds are the samples'.
     history : list | None
-        Each iteration appends a dict: ``iteration``, ``move`` (the largest
-        move of a correction latent's mean in its std; inf at first), and the
+        Each iteration appends a dict: ``iteration``, ``move`` (as for
+        `converge`; inf at first, NaN for the MAP), and the
         posterior mean of ``texture_rms``, ``width`` (at the fluence),
         ``width_0`` and ``kappa``.
 
@@ -830,12 +832,13 @@ def fit_psf_correction(
         trees = [t.tree for t in samples] if len(samples) else [samples.pos.tree]
         mean = {k: np.mean([t[k] for t in trees], 0) for k in keys}
         sd = {k: np.std([t[k] for t in trees], 0) for k in keys}
-        move = np.inf
-        if last and keys:
-            move = max(
-                float(np.max(np.abs(mean[k] - last[k]) / np.maximum(sd[k], 1e-12)))
-                for k in keys
-            )
+        per_key = []  # each key's rms of the change in sample stds, zero stds skipped
+        for k in keys if last else ():
+            change, std = np.ravel(mean[k] - last[k]), np.ravel(sd[k])
+            if np.any(std > 0):
+                ratio = change[std > 0] / std[std > 0]
+                per_key.append(float(np.sqrt(np.mean(ratio**2))))
+        move = max(per_key) if per_key else np.inf if len(samples) else np.nan
         last.update(mean)
         if history is not None:
             corrections = [correction_at(t) for t in trees]
