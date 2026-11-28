@@ -647,7 +647,8 @@ def _drop_stamps(filter, stamps, extra, reasons: dict):
             jft.logger.warning(f"{filter}: stamps excluded, {why}: {dropped}")
     if drop.all():
         raise ValueError(
-            f"psf joint_stars {filter}: every stamp is excluded: {'; '.join(reasons)}"
+            f"psf joint_stars {filter}: every stamp is excluded: "
+            + "; ".join(w for w, m in reasons.items() if np.any(m))
         )
     return [s for s, d in zip(stamps, drop) if not d], {
         k: v[~drop] for k, v in extra.items()
@@ -737,6 +738,11 @@ def _tie_to_gaia(
     for mask in reasons.values():
         gone |= np.asarray(mask, bool)
     kept = np.cumsum(~gone) - 1  # each stamp's index once dropped
+    dropped = {}  # Gaia star -> why its frames go -> how many (logged below)
+    for why, mask in (bright or {}).items():
+        for j in np.flatnonzero(np.asarray(mask, bool)):
+            if j in tied:
+                dropped.setdefault(int(tied[j][0].id), Counter())[why] += 1
     tied = {int(kept[j]): v for j, v in tied.items() if not gone[j]}
     stamps, extra = _drop_stamps(filter, stamps, extra, reasons)
     # a cutout masked whole (e.g. by a corner mask) holds no star
@@ -780,7 +786,7 @@ def _tie_to_gaia(
             corner = np.array([extra["x"][j], extra["y"][j]]) - h
             entries.append(entry(star, k, (xy - corner + 0.5) * subsample - 0.5))
         positions = (np.array(sorted(tied)), fit_positions(entries))
-    cutouts, entries, suspect, dropped = [], [], set(), {}
+    cutouts, entries, suspect = [], [], set()
     # in data units, about the star fit's peak cut; NaN without dn_per_unit
     brightest = np.array([s.fluence / (s.dn_per_unit or np.nan) for s in stamps])
     brightest = np.nanmax(brightest) if np.isfinite(brightest).any() else np.nan

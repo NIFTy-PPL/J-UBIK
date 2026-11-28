@@ -827,6 +827,9 @@ def test_a_bright_stamp_at_a_gaia_star_takes_its_frame_along(gaia, tmp_path, cap
     assert tree(tied.domain)[f"{BAND}_star_flux"].shape == (5,)
     assert "0 Gaia cutouts without a stamp" in caplog.text
     assert warned(caplog, "a peak above 30000 DN/int: ['fake_0.fits (32.0, 31.0)']")
+    assert warned(
+        caplog, "Gaia stars excluded: 1: a peak above 30000 DN/int in 1 of 2 frames"
+    )
 
 
 def test_every_stamp_excluded_raises_with_why(gaia, tmp_path):
@@ -837,3 +840,15 @@ def test_every_stamp_excluded_raises_with_why(gaia, tmp_path):
     why = r"every stamp is excluded: a peak above 30000 DN/int; at a Gaia star exclude"
     with pytest.raises(ValueError, match=why + r" drops \(1: RUWE 2; 2: RUWE 2\)"):
         build(tmp_path / "b", psf)
+    # only stamps at the two stars, none too bright: the peak cut is not named
+    stamps, _, extra = load_star_stamps(tmp_path / "s.npz")
+    keep = [0, 1, 2, 3]
+    save_star_stamps(
+        tmp_path / "t.npz",
+        [stamps[i] for i in keep],
+        SUB,
+        **{k: v[keep] for k, v in extra.items()},
+    )
+    psf = excluding(tmp_path / "t.npz", True)
+    with pytest.raises(ValueError, match=r"excluded: at a Gaia star exclude drops \(1"):
+        build(tmp_path / "c", psf)
