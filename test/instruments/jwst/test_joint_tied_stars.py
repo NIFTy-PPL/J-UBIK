@@ -263,9 +263,13 @@ def test_a_gaia_star_keeps_gaias_prior_and_the_others_are_tied(gaia, tmp_path, c
 def test_a_gaia_star_only_the_astrometry_rules_drop_is_tied(gaia, tmp_path, caplog):
     """Tied, Gaia star 2, whose RUWE the rules reject, keeps its stamps, tied to
     the shifts without Gaia's prior; star 1, a galaxy by the rules, goes with its
-    stamps as without the tie."""
+    stamps as without the tie; star 3, RUWE too but without a stamp, goes with
+    its cutouts and is logged."""
     table, _ = gaia
-    gaia_columns(table, ruwe=[1.0, 2.0], classprob_dsc_combmod_galaxy=[0.9, 0.0])
+    add_star(table, 3, 45.3, 20.6)
+    gaia_columns(
+        table, ruwe=[1.0, 2.0, 2.0], classprob_dsc_combmod_galaxy=[0.9, 0.0, 0.0]
+    )
     stamps = write_gaia_stamps(tmp_path / "g.npz", table, fluence=[1e3] * 6)
     sites = stamp_sites(table)
     x_, y_ = [s[1] for s in sites], [s[2] for s in sites]
@@ -288,6 +292,8 @@ def test_a_gaia_star_only_the_astrometry_rules_drop_is_tied(gaia, tmp_path, capl
     )
     assert warned(caplog, "Gaia stars excluded: 1: galaxy probability 0.9")
     assert not warned(caplog, "2: RUWE")  # its stamps stay
+    assert warned(caplog, "3: RUWE 2")  # its cutouts go
+    assert not warned(caplog, "only the lens pins")  # the tied stamps pin them too
 
 
 def test_the_tie_needs_each_stamps_star_and_a_positive_std(field, tmp_path):

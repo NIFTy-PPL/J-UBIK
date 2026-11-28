@@ -755,11 +755,13 @@ def _tie_to_gaia(
     table = gaia.tables.join_tables()
     rules = joint.exclude
     excluded = {} if rules is None else _gaia_exclusion(filter, rules, table)
-    loose = set()  # tied to the shifts, a star only the astrometry rules drop stays
+    # tied to the shifts, a star only the astrometry rules drop keeps its stamps
+    loose = stamped = set()
     if joint.tied_position_std is not None and rules is not None:
         others = replace(rules, ruwe=None, excess_noise_sig=None)
         loose = excluded.keys() - _gaia_exclusion(filter, others, table).keys()
-        if stamped := loose & {int(star.id) for star, _ in tied.values()}:
+        stamped = loose & {int(star.id) for star, _ in tied.values()}
+        if stamped:
             jft.logger.info(
                 f"{filter}: the stamps of Gaia stars {sorted(stamped)}, which only "
                 "the astrometry rules exclude, are tied to the shifts without "
@@ -873,7 +875,7 @@ def _tie_to_gaia(
             f"{r} in {c} of {n} frames" for r, c in counts.items()
         )
     logged = {
-        s: r for s, r in excluded.items() if s in gaia.data and r and s not in loose
+        s: r for s, r in excluded.items() if s in gaia.data and r and s not in stamped
     }
     if logged:
         jft.logger.warning(
@@ -889,7 +891,7 @@ def _tie_to_gaia(
         f"cutouts without a stamp (Gaia stars "
         f"{sorted({int(star.id) for star, *_ in entries})})"
     )
-    if frames and not remain:
+    if frames and not remain and joint.tied_position_std is None:
         jft.logger.warning(
             f"{filter}: no Gaia star remains after exclude; only the lens pins the "
             "shifts"
