@@ -581,7 +581,8 @@ def learned_kernel(kernels, texture, width, pixel_box: bool = False) -> jft.Mode
     ``w``, None for an identity part)."""
     kernels = _center_even_axes(np.asarray(kernels, float))
     shape = kernels.shape[-2:]
-    box = box_transfer(shape) if pixel_box else 1.0
+    half = shape[-1] // 2 + 1  # rfft's columns; both transfers are even in f
+    box = box_transfer(shape)[:, :half] if pixel_box else 1.0
     domain = {}
     for part in (texture, width):
         if part is not None:
@@ -589,8 +590,11 @@ def learned_kernel(kernels, texture, width, pixel_box: bool = False) -> jft.Mode
 
     def kernel(x):
         k = kernels if texture is None else corrected_kernel(kernels, texture(x))
-        transfer = box if width is None else box * gaussian_transfer(shape, width(x))
-        return jnp.fft.ifft2(jnp.fft.fft2(k) * transfer).real
+        if width is not None:
+            transfer = box * gaussian_transfer(shape, width(x))[..., :half]
+        else:
+            transfer = box
+        return jnp.fft.irfft2(jnp.fft.rfft2(k) * transfer, s=shape)
 
     return jft.Model(kernel, domain=domain)
 

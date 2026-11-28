@@ -502,3 +502,34 @@ def test_load_psf_kernel_adds_the_box_after_the_correction(patched_seams, tmp_pa
             jwst_kernel.load_psf_kernel(
                 data, 2, centre, JwstPsfKernelConfig.from_yaml_dict(mismatch)
             )
+
+
+@pytest.mark.parametrize("size", [31, 30])
+@pytest.mark.parametrize("box", [False, True])
+def test_the_learned_kernel_is_the_full_spectrum_convolution(size, box):
+    """`learned_kernel` on the half spectrum (rfft) is ifft2(fft2(K) H).real, H
+    the Gaussian times the box, to rounding: with a texture and a width, and
+    with neither."""
+    from jubik.instruments.jwst.psf.psf_correction import (
+        box_transfer,
+        corrected_kernel,
+        gaussian_transfer,
+        learned_kernel,
+    )
+
+    rng = np.random.default_rng(5)
+    kernels = rng.uniform(size=(2, size, size))
+    texture = jft.Model(lambda x: x["t"], domain={"t": jft.ShapeWithDtype((7, 7))})
+    width = jft.Model(lambda x: x["w"], domain={"w": jft.ShapeWithDtype(())})
+    x = {"t": 0.1 * rng.normal(size=(7, 7)), "w": np.array(0.8)}
+    k = _center_even_axes(kernels)
+    shape = k.shape[-2:]
+    boxed = box_transfer(shape) if box else 1.0
+    for t, w in ((texture, width), (None, None)):
+        got = np.asarray(learned_kernel(kernels, t, w, pixel_box=box)(x))
+        base = k if t is None else np.asarray(corrected_kernel(k, x["t"]))
+        transfer = (
+            boxed if w is None else boxed * np.asarray(gaussian_transfer(shape, 0.8))
+        )
+        want = np.fft.ifft2(np.fft.fft2(base) * transfer).real
+        np.testing.assert_allclose(got, want, rtol=0, atol=1e-12 * np.abs(want).max())
